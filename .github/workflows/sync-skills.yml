@@ -1,10 +1,13 @@
 name: "\U0001F504 Sync Skills"
-run-name: "\U0001F504 Syncing ${{ github.event_name == 'schedule' && 'on schedule' || 'manually triggered' }} by @${{ github.actor }}"
+run-name: "\U0001F504 Syncing ${{ github.event_name == 'schedule' && 'on schedule' || github.event_name == 'push' && 'after inventory change' || 'manually triggered' }} by @${{ github.actor }}"
 
 on:
   schedule:
     - cron: "0 6 */2 * *"
   workflow_dispatch:
+  push:
+    paths:
+      - inventory.json
 
 permissions:
   contents: write

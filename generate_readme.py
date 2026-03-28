@@ -382,6 +382,17 @@ A GitHub Actions workflow runs every 2 days to:
     print(f"  README.md generated ({total_skills} skill files across {len(repos)} repos)")
 
 
+def cleanup_stale_dirs(repos):
+    """Remove skill dirs that are no longer in the inventory."""
+    if not SKILLS_DIR.exists():
+        return
+    inventory_dirs = {repo["dir"] for repo in repos}
+    for child in SKILLS_DIR.iterdir():
+        if child.is_dir() and child.name not in inventory_dirs:
+            shutil.rmtree(child)
+            print(f"  Cleaned up stale dir: {child.name}")
+
+
 def strip_nested_git(repos):
     for repo in repos:
         git_dir = SKILLS_DIR / repo["dir"] / ".git"
@@ -392,6 +403,7 @@ def strip_nested_git(repos):
 
 if __name__ == "__main__":
     repos = load_inventory()
+    cleanup_stale_dirs(repos)
     start = time.monotonic()
     sync_repos(repos)
     elapsed = time.monotonic() - start
