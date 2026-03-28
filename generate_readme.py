@@ -73,16 +73,44 @@ def get_dir_size_mb(repo_path):
     return round(total / (1024 * 1024), 1)
 
 
-def get_star_count(url):
-    repo_slug = url.replace("https://github.com/", "")
-    try:
-        out = run(["gh", "repo", "view", repo_slug, "--json", "stargazerCount"])
-        if out:
-            data = json.loads(out)
-            return data.get("stargazerCount", "?")
-    except Exception:
-        pass
-    return "?"
+def fetch_repo_metadata(repos):
+    """Batch-fetch stars and latest commit SHA for all repos via GraphQL.
+    Returns dict keyed by dir: {"stars": int, "sha": str}."""
+    results = {}
+    # GraphQL allows ~100 nodes per query, batch in chunks
+    for chunk_start in range(0, len(repos), 50):
+        chunk = repos[chunk_start:chunk_start + 50]
+        query_parts = []
+        for i, repo in enumerate(chunk):
+            slug = repo["url"].replace("https://github.com/", "")
+            owner, name = slug.split("/", 1)
+            alias = f"r{chunk_start + i}"
+            query_parts.append(
+                f'{alias}: repository(owner: "{owner}", name: "{name}") {{'
+                f'  stargazerCount'
+                f'  defaultBranchRef {{ target {{ oid }} }}'
+                f'}}'
+            )
+        query = "query { " + " ".join(query_parts) + " }"
+        try:
+            out = run(["gh", "api", "graphql", "-f", f"query={query}"])
+            if out:
+                data = json.loads(out).get("data", {})
+                for i, repo in enumerate(chunk):
+                    alias = f"r{chunk_start + i}"
+                    node = data.get(alias)
+                    if node:
+                        sha = None
+                        ref = node.get("defaultBranchRef")
+                        if ref and ref.get("target"):
+                            sha = ref["target"]["oid"]
+                        results[repo["dir"]] = {
+                            "stars": node.get("stargazerCount", "?"),
+                            "sha": sha,
+                        }
+        except Exception as e:
+            print(f"  Warning: GraphQL batch failed: {e}")
+    return results
 
 
 def load_previous_stats():
@@ -278,16 +306,7 @@ def save_commits(commits):
     COMMITS_PATH.write_text(json.dumps(commits, indent=2) + "\n")
 
 
-def get_remote_sha(repo_slug):
-    """Get the latest commit SHA from GitHub API (no clone needed)."""
-    try:
-        out = run(["gh", "api", f"repos/{repo_slug}/commits?per_page=1", "--jq", ".[0].sha"])
-        return out.strip() if out else None
-    except Exception:
-        return None
-
-
-def sync_repos(repos):
+def sync_repos(repos, metadata):
     """Clone or pull only repos that have new commits."""
     SKILLS_DIR.mkdir(exist_ok=True)
     known_commits = load_commits()
@@ -296,8 +315,8 @@ def sync_repos(repos):
 
     for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
-        slug = repo["url"].replace("https://github.com/", "")
-        remote_sha = get_remote_sha(slug)
+        meta = metadata.get(repo["dir"], {})
+        remote_sha = meta.get("sha")
         local_sha = known_commits.get(repo["dir"])
         is_new = not repo_path.exists() or not any(repo_path.iterdir())
 
@@ -322,7 +341,7 @@ def sync_repos(repos):
     print(f"  Sync done: {updated} updated, {skipped} unchanged")
 
 
-def generate_readme(repos, sync_duration="n/a"):
+def generate_readme(repos, metadata, sync_duration="n/a"):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     previous = load_previous_stats()
     current_stats = {}
@@ -335,7 +354,8 @@ def generate_readme(repos, sync_duration="n/a"):
         repo_path = SKILLS_DIR / repo["dir"]
         sha, commit_date, msg = get_latest_commit(repo_path)
         skills_count = count_skill_files(repo_path)
-        stars = get_star_count(repo["url"])
+        meta = metadata.get(repo["dir"], {})
+        stars = meta.get("stars", "?")
         size_mb = get_dir_size_mb(repo_path)
         total_skills += skills_count
         total_size += size_mb
@@ -449,10 +469,17 @@ def strip_nested_git(repos):
 if __name__ == "__main__":
     repos = load_inventory()
     cleanup_stale_dirs(repos)
+
+    print("  Fetching metadata from GitHub API...")
+    api_start = time.monotonic()
+    metadata = fetch_repo_metadata(repos)
+    api_elapsed = time.monotonic() - api_start
+    print(f"  Metadata fetched for {len(metadata)}/{len(repos)} repos in {api_elapsed:.1f}s")
+
     start = time.monotonic()
-    sync_repos(repos)
+    sync_repos(repos, metadata)
     elapsed = time.monotonic() - start
     minutes, seconds = divmod(int(elapsed), 60)
     sync_duration = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
-    generate_readme(repos, sync_duration)
+    generate_readme(repos, metadata, sync_duration)
     strip_nested_git(repos)
