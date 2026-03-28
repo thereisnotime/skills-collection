@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -115,7 +116,7 @@ def sync_repos():
             run(["git", "clone", repo["url"], str(repo_path)])
 
 
-def generate_readme():
+def generate_readme(sync_duration="n/a"):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     previous = load_previous_stats()
     current_stats = {}
@@ -167,6 +168,7 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 | **Total repos** | {len(REPOS)} |
 | **Total skill files** | {total_display} |
 | **Last synced** | {now} |
+| **Sync time** | {sync_duration} |
 
 ## Repos
 
@@ -202,6 +204,10 @@ def strip_nested_git():
 
 
 if __name__ == "__main__":
+    start = time.monotonic()
     sync_repos()
-    generate_readme()
+    elapsed = time.monotonic() - start
+    minutes, seconds = divmod(int(elapsed), 60)
+    sync_duration = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
+    generate_readme(sync_duration)
     strip_nested_git()
