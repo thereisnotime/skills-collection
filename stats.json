@@ -1,7 +1,7 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 4938
+    "stars": 4939
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
@@ -18,5 +18,9 @@
   "abubakarsiddik31--claude-skills-collection": {
     "skills": 0,
     "stars": 573
+  },
+  "ComposioHQ--awesome-claude-skills": {
+    "skills": 889,
+    "stars": 48792
   }
 }
