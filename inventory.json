@@ -13,5 +13,10 @@
     "url": "https://github.com/samber/cc-skills-golang",
     "dir": "samber--cc-skills-golang",
     "description": "Claude Code skills for Go development"
+  },
+  {
+    "url": "https://github.com/realkimbarrett/advertising-skills",
+    "dir": "realkimbarrett--advertising-skills",
+    "description": "Advertising skills for Claude Code"
   }
 ]
