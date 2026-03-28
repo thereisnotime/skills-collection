@@ -293,6 +293,42 @@ def generate_top_bottom_bar_chart(repo_stars):
     plt.close()
 
 
+def generate_skills_bar_chart(repo_skills):
+    """Horizontal bar chart: top 15 repos by number of skill files."""
+    CHARTS_DIR.mkdir(exist_ok=True)
+
+    valid = {k: v for k, v in repo_skills.items() if v > 0}
+    if not valid:
+        return
+
+    sorted_repos = sorted(valid.items(), key=lambda x: x[1], reverse=True)[:15]
+
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor=BG_COLOR)
+    ax.set_facecolor(BG_COLOR)
+
+    names = [d[0] for d in reversed(sorted_repos)]
+    values = [d[1] for d in reversed(sorted_repos)]
+
+    bars = ax.barh(names, values, color=PALETTE[0], height=0.6, alpha=0.85)
+
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + max(values) * 0.02, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", ha="left", color=TEXT_COLOR, fontsize=9)
+
+    ax.set_title("Top 15 Repos by Skill Files", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
+    ax.set_xlabel("Skill files", color=TEXT_COLOR, fontsize=11)
+    ax.tick_params(colors=TEXT_COLOR, labelsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_color(GRID_COLOR)
+    ax.spines["left"].set_color(GRID_COLOR)
+    ax.grid(axis="x", color=GRID_COLOR, linewidth=0.5)
+
+    plt.tight_layout()
+    plt.savefig(CHARTS_DIR / "skills-count.png", dpi=150, facecolor=BG_COLOR)
+    plt.close()
+
+
 def load_commits():
     if COMMITS_PATH.exists():
         try:
@@ -346,6 +382,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
     previous = load_previous_stats()
     current_stats = {}
     repo_stars = {}
+    repo_skills = {}
     total_skills = 0
     total_size = 0.0
     rows = []
@@ -366,6 +403,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
 
         current_stats[repo["dir"]] = {"skills": skills_count, "stars": stars}
         repo_stars[repo["dir"]] = stars
+        repo_skills[repo["dir"]] = skills_count
 
         last_commit_date = "n/a"
         if commit_date and commit_date != "n/a":
@@ -388,6 +426,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
     history = update_history(repo_stars)
     generate_stars_line_chart(history, repo_stars)
     generate_top_bottom_bar_chart(repo_stars)
+    generate_skills_bar_chart(repo_skills)
 
     table = "\n".join(rows)
 
@@ -425,6 +464,10 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 ### Stars Over Time
 
 ![Stars Over Time](charts/stars-history.png)
+
+### Top Repos by Skill Files
+
+![Skills Count](charts/skills-count.png)
 
 ### Top & Bottom Repos by Stars
 
