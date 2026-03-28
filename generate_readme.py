@@ -2,6 +2,7 @@
 """Generates a README.md with stats about all skills repos in the skills/ folder."""
 
 import os
+import shutil
 import subprocess
 import json
 from datetime import datetime, timezone
@@ -70,14 +71,18 @@ def get_star_count(url):
 
 
 def sync_repos():
-    """Clone or pull all repos."""
+    """Clone or pull all repos. Removes nested .git dirs afterward so files
+    can be committed to the parent repo without submodule issues."""
     SKILLS_DIR.mkdir(exist_ok=True)
     for repo in REPOS:
         repo_path = SKILLS_DIR / repo["dir"]
-        if repo_path.exists():
+        if repo_path.exists() and (repo_path / ".git").exists():
             print(f"Pulling {repo['dir']}...")
             run(["git", "pull", "--ff-only"], cwd=repo_path)
         else:
+            # Remove stale dir (no .git = previous stripped clone) and re-clone
+            if repo_path.exists():
+                shutil.rmtree(repo_path)
             print(f"Cloning {repo['url']}...")
             run(["git", "clone", repo["url"], str(repo_path)])
 
@@ -144,6 +149,17 @@ A GitHub Actions workflow runs every 2 days to:
     print(f"README.md generated ({total_skills} skill files across {len(REPOS)} repos)")
 
 
+def strip_nested_git():
+    """Remove .git dirs from cloned repos so they're plain directories
+    that the parent repo can track without submodule confusion."""
+    for repo in REPOS:
+        git_dir = SKILLS_DIR / repo["dir"] / ".git"
+        if git_dir.exists():
+            shutil.rmtree(git_dir)
+            print(f"Stripped .git from {repo['dir']}")
+
+
 if __name__ == "__main__":
     sync_repos()
     generate_readme()
+    strip_nested_git()
