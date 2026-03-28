@@ -1,5 +1,174 @@
 [
   {
+    "date": "2025-03-01",
+    "stars": {
+      "stripe--ai": 500
+    }
+  },
+  {
+    "date": "2025-04-01",
+    "stars": {
+      "stripe--ai": 600
+    }
+  },
+  {
+    "date": "2025-05-01",
+    "stars": {
+      "stripe--ai": 700
+    }
+  },
+  {
+    "date": "2025-06-01",
+    "stars": {
+      "stripe--ai": 800
+    }
+  },
+  {
+    "date": "2025-07-01",
+    "stars": {
+      "stripe--ai": 900
+    }
+  },
+  {
+    "date": "2025-08-01",
+    "stars": {
+      "stripe--ai": 1000
+    }
+  },
+  {
+    "date": "2025-09-01",
+    "stars": {
+      "stripe--ai": 1000
+    }
+  },
+  {
+    "date": "2025-10-01",
+    "stars": {
+      "stripe--ai": 1000
+    }
+  },
+  {
+    "date": "2025-11-01",
+    "stars": {
+      "ComposioHQ--awesome-claude-skills": 300,
+      "anthropics--skills": 14700,
+      "EveryInc--compound-engineering-plugin": 500,
+      "K-Dense-AI--claude-scientific-skills": 300,
+      "K-Dense-AI--claude-scientific-writer": 100,
+      "alonw0--web-asset-generator": 100,
+      "coffeefuelbump--csv-data-summarizer-claude-skill": 100,
+      "conorluddy--ios-simulator-skill": 100,
+      "lackeyjb--playwright-skill": 700,
+      "mhattingpete--claude-skills-marketplace": 100,
+      "michalparkola--tapestry-skills-for-claude-code": 100,
+      "obra--superpowers": 5400,
+      "obra--superpowers-skills": 500,
+      "stripe--ai": 1000,
+      "zxkane--aws-skills": 100,
+      "travisvn--awesome-claude-skills": 1600,
+      "obra--superpowers-lab": 100,
+      "yusufkaraaslan--Skill_Seekers": 3000
+    }
+  },
+  {
+    "date": "2025-12-01",
+    "stars": {
+      "ComposioHQ--awesome-claude-skills": 5700,
+      "anthropics--skills": 18600,
+      "EveryInc--compound-engineering-plugin": 2200,
+      "K-Dense-AI--claude-scientific-skills": 1600,
+      "K-Dense-AI--claude-scientific-writer": 200,
+      "NeoLabHQ--context-engineering-kit": 100,
+      "Orchestra-Research--AI-research-SKILLs": 200,
+      "alonw0--web-asset-generator": 100,
+      "coffeefuelbump--csv-data-summarizer-claude-skill": 100,
+      "conorluddy--ios-simulator-skill": 200,
+      "hashicorp--agent-skills": 100,
+      "lackeyjb--playwright-skill": 800,
+      "mhattingpete--claude-skills-marketplace": 100,
+      "michalparkola--tapestry-skills-for-claude-code": 200,
+      "obra--superpowers": 7900,
+      "obra--superpowers-skills": 500,
+      "stripe--ai": 1200,
+      "zxkane--aws-skills": 100,
+      "travisvn--awesome-claude-skills": 2400,
+      "obra--superpowers-lab": 100,
+      "yusufkaraaslan--Skill_Seekers": 4600
+    }
+  },
+  {
+    "date": "2026-01-01",
+    "stars": {
+      "ComposioHQ--awesome-claude-skills": 13300,
+      "anthropics--skills": 30600,
+      "EveryInc--compound-engineering-plugin": 3300,
+      "K-Dense-AI--claude-scientific-skills": 2500,
+      "K-Dense-AI--claude-scientific-writer": 300,
+      "NeoLabHQ--context-engineering-kit": 200,
+      "Orchestra-Research--AI-research-SKILLs": 500,
+      "alonw0--web-asset-generator": 200,
+      "cloudflare--skills": 100,
+      "coffeefuelbump--csv-data-summarizer-claude-skill": 200,
+      "conorluddy--ios-simulator-skill": 300,
+      "hashicorp--agent-skills": 100,
+      "lackeyjb--playwright-skill": 1100,
+      "mhattingpete--claude-skills-marketplace": 200,
+      "michalparkola--tapestry-skills-for-claude-code": 200,
+      "obra--superpowers": 12800,
+      "obra--superpowers-skills": 500,
+      "ryanbbrown--revealjs-skill": 100,
+      "stripe--ai": 1200,
+      "vercel-labs--agent-skills": 100,
+      "zxkane--aws-skills": 100,
+      "travisvn--awesome-claude-skills": 3900,
+      "obra--superpowers-lab": 200,
+      "asklokesh--claudeskill-loki-mode": 400,
+      "yusufkaraaslan--Skill_Seekers": 5800
+    }
+  },
+  {
+    "date": "2026-02-01",
+    "stars": {
+      "ComposioHQ--awesome-claude-skills": 28400,
+      "anthropics--skills": 40000,
+      "ClickHouse--agent-skills": 100,
+      "EveryInc--compound-engineering-plugin": 6800,
+      "K-Dense-AI--claude-scientific-skills": 7600,
+      "K-Dense-AI--claude-scientific-writer": 600,
+      "NeoLabHQ--context-engineering-kit": 400,
+      "Orchestra-Research--AI-research-SKILLs": 2000,
+      "alonw0--web-asset-generator": 200,
+      "antonbabenko--terraform-skill": 900,
+      "avifenesh--agentsys": 300,
+      "callstackincubator--agent-skills": 800,
+      "cloudflare--skills": 300,
+      "coffeefuelbump--csv-data-summarizer-claude-skill": 300,
+      "conorluddy--ios-simulator-skill": 500,
+      "coreyhaines31--marketingskills": 5400,
+      "expo--skills": 900,
+      "firecrawl--cli": 100,
+      "hashicorp--agent-skills": 300,
+      "lackeyjb--playwright-skill": 1600,
+      "mhattingpete--claude-skills-marketplace": 300,
+      "michalparkola--tapestry-skills-for-claude-code": 200,
+      "obra--superpowers": 40000,
+      "obra--superpowers-skills": 500,
+      "remotion-dev--skills": 1200,
+      "ryanbbrown--revealjs-skill": 100,
+      "stripe--ai": 1300,
+      "supabase--agent-skills": 1000,
+      "trailofbits--skills": 2300,
+      "vercel-labs--agent-skills": 18100,
+      "vercel-labs--next-skills": 500,
+      "zarazhangrui--frontend-slides": 600,
+      "zxkane--aws-skills": 200,
+      "travisvn--awesome-claude-skills": 6300,
+      "obra--superpowers-lab": 200,
+      "asklokesh--claudeskill-loki-mode": 600,
+      "yusufkaraaslan--Skill_Seekers": 8600
+    }
+  },
+  {
     "date": "2026-03-28",
     "stars": {
       "slavingia--skills": 4949,
