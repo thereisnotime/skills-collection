@@ -59,6 +59,17 @@ def count_skill_files(repo_path):
     return count
 
 
+def get_dir_size_mb(repo_path):
+    """Get directory size in MB, excluding .git."""
+    if not repo_path.exists():
+        return 0.0
+    total = 0
+    for f in repo_path.rglob("*"):
+        if f.is_file() and ".git" not in f.parts:
+            total += f.stat().st_size
+    return round(total / (1024 * 1024), 1)
+
+
 def get_star_count(url):
     """Try to get star count via gh CLI."""
     repo_slug = url.replace("https://github.com/", "")
@@ -121,6 +132,7 @@ def generate_readme(sync_duration="n/a"):
     previous = load_previous_stats()
     current_stats = {}
     total_skills = 0
+    total_size = 0.0
     rows = []
 
     for repo in REPOS:
@@ -128,7 +140,9 @@ def generate_readme(sync_duration="n/a"):
         sha, date, msg = get_latest_commit(repo_path)
         skills_count = count_skill_files(repo_path)
         stars = get_star_count(repo["url"])
+        size_mb = get_dir_size_mb(repo_path)
         total_skills += skills_count
+        total_size += size_mb
 
         prev = previous.get(repo["dir"], {})
         skills_display = format_diff(skills_count, prev.get("skills"))
@@ -145,7 +159,7 @@ def generate_readme(sync_duration="n/a"):
 
         rows.append(
             f"| [{repo['dir']}]({repo['url']}) | {repo['description']} "
-            f"| {skills_display} | {stars_display} | `{sha}` | {date} | {msg} |"
+            f"| {skills_display} | {stars_display} | {size_mb} MB | `{sha}` | {date} | {msg} |"
         )
 
     save_stats(current_stats)
@@ -153,6 +167,7 @@ def generate_readme(sync_duration="n/a"):
 
     prev_total = sum(r.get("skills", 0) for r in previous.values())
     total_display = format_diff(total_skills, prev_total if previous else None)
+    total_size = round(total_size, 1)
 
     readme = f"""\
 # Skills Collection
@@ -167,13 +182,14 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 |--------|-------|
 | **Total repos** | {len(REPOS)} |
 | **Total skill files** | {total_display} |
+| **Total size** | {total_size} MB |
 | **Last synced** | {now} |
 | **Sync time** | {sync_duration} |
 
 ## Repos
 
-| Repo | Description | Skills | Stars | Latest Commit | Date | Message |
-|------|-------------|--------|-------|---------------|------|---------|
+| Repo | Description | Skills | Stars | Size | Latest Commit | Date | Message |
+|------|-------------|--------|-------|------|---------------|------|---------|
 {table}
 
 ## How it works
