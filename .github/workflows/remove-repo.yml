@@ -5,13 +5,13 @@ on:
   workflow_dispatch:
     inputs:
       repo:
-        description: "Repo dir name to remove (run 'list' first to see options)"
+        description: "Select repo to remove"
         required: true
         type: choice
         options:
-          - skills
-          - codebase-to-course
-          - cc-skills-golang
+          - "slavingia--skills (https://github.com/slavingia/skills)"
+          - "zarazhangrui--codebase-to-course (https://github.com/zarazhangrui/codebase-to-course)"
+          - "samber--cc-skills-golang (https://github.com/samber/cc-skills-golang)"
 
 permissions:
   contents: write
@@ -36,11 +36,16 @@ jobs:
 
       - name: "\U0001F50D Validate & remove from inventory"
         run: |
+          # Extract dir name from the dropdown value (everything before the first space)
+          SELECTION="${{ inputs.repo }}"
+          DIR_NAME="${SELECTION%% *}"
+          echo "DIR_NAME=$DIR_NAME" >> "$GITHUB_ENV"
+
           python3 -c "
           import json, sys
 
           inv = json.loads(open('inventory.json').read())
-          target = '${{ inputs.repo }}'
+          target = '${DIR_NAME}'
           match = [r for r in inv if r['dir'] == target]
 
           if not match:
@@ -54,9 +59,9 @@ jobs:
 
       - name: "\U0001F5D1 Remove skill files"
         run: |
-          if [ -d "skills/${{ inputs.repo }}" ]; then
-            rm -rf "skills/${{ inputs.repo }}"
-            echo "🧹 Deleted skills/${{ inputs.repo }}"
+          if [ -d "skills/${{ env.DIR_NAME }}" ]; then
+            rm -rf "skills/${{ env.DIR_NAME }}"
+            echo "🧹 Deleted skills/${{ env.DIR_NAME }}"
           fi
 
       - name: "\U0001F504 Regenerate README"
@@ -70,7 +75,7 @@ jobs:
           import json, re
 
           inv = json.loads(open('inventory.json').read())
-          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          options = '\n'.join(f'          - \"{r[\"dir\"]} ({r[\"url\"]})\"' for r in inv)
           wf = open('.github/workflows/remove-repo.yml').read()
           wf = re.sub(
               r'(options:\n)((?:          - .+\n)*)',
@@ -87,6 +92,6 @@ jobs:
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
           git add inventory.json README.md stats.json history.json charts/ skills/ .github/workflows/remove-repo.yml
           git diff --cached --quiet && echo "⚠️ Nothing changed" && exit 0
-          git commit -m "remove: ${{ inputs.repo }}"
+          git commit -m "remove: ${{ env.DIR_NAME }}"
           git push
-          echo "🚀 ${{ inputs.repo }} removed"
+          echo "🚀 ${{ env.DIR_NAME }} removed"

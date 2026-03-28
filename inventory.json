@@ -1,17 +1,17 @@
 [
   {
     "url": "https://github.com/slavingia/skills",
-    "dir": "skills",
+    "dir": "slavingia--skills",
     "description": "Claude Code skills by Sahil Lavingia"
   },
   {
     "url": "https://github.com/zarazhangrui/codebase-to-course",
-    "dir": "codebase-to-course",
+    "dir": "zarazhangrui--codebase-to-course",
     "description": "Turn any codebase into a structured course"
   },
   {
     "url": "https://github.com/samber/cc-skills-golang",
-    "dir": "cc-skills-golang",
+    "dir": "samber--cc-skills-golang",
     "description": "Claude Code skills for Go development"
   }
 ]

@@ -1,14 +1,14 @@
 {
-  "skills": {
+  "slavingia--skills": {
     "skills": 10,
-    "stars": 4930
+    "stars": 4931
   },
-  "codebase-to-course": {
+  "zarazhangrui--codebase-to-course": {
     "skills": 3,
     "stars": 2249
   },
-  "cc-skills-golang": {
+  "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 504
+    "stars": 507
   }
 }

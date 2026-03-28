@@ -12,6 +12,11 @@ on:
         description: "Short description of the repo"
         required: true
         type: string
+      dir_override:
+        description: "Override local folder name (leave empty for owner--repo)"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -59,26 +64,31 @@ jobs:
           fi
           echo "✅ Repo is accessible"
 
-          # Extract dir name from URL
-          DIR_NAME=$(basename "$SLUG")
+          # Build dir name: override or owner--repo
+          DIR_OVERRIDE="${{ inputs.dir_override }}"
+          if [[ -n "$DIR_OVERRIDE" ]]; then
+            DIR_NAME="$DIR_OVERRIDE"
+          else
+            OWNER=$(dirname "$SLUG")
+            REPO=$(basename "$SLUG")
+            DIR_NAME="${OWNER}--${REPO}"
+          fi
 
-          # Check if already in inventory
-          if python3 -c "
+          # Check for duplicates (URL or dir name)
+          python3 -c "
           import json, sys
           inv = json.loads(open('inventory.json').read())
-          urls = [r['url'] for r in inv]
-          if '$REPO_URL' in urls:
-              print('❌ Repo already in inventory')
-              sys.exit(1)
-          dirs = [r['dir'] for r in inv]
-          if '$DIR_NAME' in dirs:
-              print('❌ Dir name $DIR_NAME already taken')
-              sys.exit(1)
-          "; then
-            echo "✅ Not a duplicate"
-          else
-            exit 1
-          fi
+
+          for r in inv:
+              if r['url'] == '${REPO_URL}':
+                  print(f'❌ URL already in inventory as {r[\"dir\"]}')
+                  sys.exit(1)
+              if r['dir'] == '${DIR_NAME}':
+                  print(f'❌ Dir name ${DIR_NAME} already taken by {r[\"url\"]}')
+                  sys.exit(1)
+
+          print('✅ No duplicates found')
+          "
 
           echo "REPO_URL=$REPO_URL" >> "$GITHUB_ENV"
           echo "DIR_NAME=$DIR_NAME" >> "$GITHUB_ENV"
@@ -108,7 +118,7 @@ jobs:
           import json, re
 
           inv = json.loads(open('inventory.json').read())
-          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          options = '\n'.join(f'          - \"{r[\"dir\"]} ({r[\"url\"]})\"' for r in inv)
           wf = open('.github/workflows/remove-repo.yml').read()
           wf = re.sub(
               r'(options:\n)((?:          - .+\n)*)',
