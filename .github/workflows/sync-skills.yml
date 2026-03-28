@@ -41,21 +41,3 @@ jobs:
           git commit -m "sync: update skills repos, readme and charts"
           git push
           echo "🚀 Changes pushed"
-
-      - name: "\U0001F310 Push data to site repo"
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
-        run: |
-          SITE_REPO="Heliopsy/awesome-ai-skills.yourtech.stream-site"
-          echo "Cloning site repo..."
-          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${SITE_REPO}.git" /tmp/site
-          mkdir -p /tmp/site/data
-          cp inventory.json stats.json history.json commits.json /tmp/site/data/
-          cd /tmp/site
-          git config user.name "thereisnotime"
-          git config user.email "37583483+thereisnotime@users.noreply.github.com"
-          git add data/
-          git diff --cached --quiet && echo "✅ Site data unchanged" && exit 0
-          git commit -m "data: update from skills-collection sync"
-          git push
-          echo "🚀 Site data pushed"
