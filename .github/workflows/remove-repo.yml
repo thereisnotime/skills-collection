@@ -86,6 +86,10 @@ on:
           - wrsmith108--varlock-claude-skill
           - zarazhangrui--frontend-slides
           - zxkane--aws-skills
+          - travisvn--awesome-claude-skills
+          - obra--superpowers-lab
+          - asklokesh--claudeskill-loki-mode
+          - yusufkaraaslan--Skill_Seekers
 
 permissions:
   contents: write

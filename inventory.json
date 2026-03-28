@@ -383,5 +383,25 @@
     "url": "https://github.com/zxkane/aws-skills",
     "dir": "zxkane--aws-skills",
     "description": "Claude Agent Skills for AWS"
+  },
+  {
+    "url": "https://github.com/travisvn/awesome-claude-skills",
+    "dir": "travisvn--awesome-claude-skills",
+    "description": "A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows"
+  },
+  {
+    "url": "https://github.com/obra/superpowers-lab",
+    "dir": "obra--superpowers-lab",
+    "description": "Experimental skills for Claude Code Superpowers - new techniques and tools"
+  },
+  {
+    "url": "https://github.com/asklokesh/claudeskill-loki-mode",
+    "dir": "asklokesh--claudeskill-loki-mode",
+    "description": "Multi-agent provider agnostic autonomous system and framework"
+  },
+  {
+    "url": "https://github.com/yusufkaraaslan/Skill_Seekers",
+    "dir": "yusufkaraaslan--Skill_Seekers",
+    "description": "Convert documentation websites, GitHub repos, and PDFs into Claude AI skills"
   }
 ]
