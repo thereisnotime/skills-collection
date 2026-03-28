@@ -1,0 +1,261 @@
+# Resume Transformation Mapping Configuration
+# This file defines how to transform the rich source resume.yaml into the simplified schema expected by React-PDF
+
+schema_version: '1.0'
+description: 'Transformation rules for job-tailor agent to convert rich resume data into React-PDF compatible format'
+
+# Target output schema structure (what React-PDF expects)
+target_schema:
+  resume:
+    name: 'string'
+    profile_picture: 'string'
+    title: 'string' # Single selected title
+    summary: 'string' # Single selected summary
+    contact: 'ContactDetails'
+    technical_expertise: 'array[Expertise]' # Categories with resume_title + skills
+    skills: 'array[string]' # Flattened soft skills
+    languages: 'array[Language]'
+    professional_experience: 'array[ProfessionalExperience]'
+    independent_projects: 'array[IndependentProject]'
+    education: 'array[Education]'
+
+# Transformation mapping rules
+transformation_rules:
+  # Direct copy fields (no transformation needed)
+  direct_mapping:
+    - source: 'personal_info.name'
+      target: 'resume.name'
+      description: 'Copy name to top-level resume field (not in contact)'
+    - source: 'personal_info.profile_picture'
+      target: 'resume.profile_picture'
+    - source: 'contact'
+      target: 'resume.contact'
+      description: 'Copy contact details (phone, email, address, linkedin, github) - name is at resume top level'
+    - source: 'languages'
+      target: 'resume.languages'
+    - source: 'education'
+      target: 'resume.education'
+      description: 'Copy education array with institution, degree, location, duration'
+
+  # Version-based selection (choose based on job focus array)
+  version_selection:
+    - source: 'personal_info.titles'
+      target: 'resume.title'
+      selection_logic: |
+        1. Get highest weighted job_focus item from array
+        2. Map primary_area to candidate experience level:
+           - junior_engineer → use junior/entry-level focused titles
+           - senior_engineer → use senior/experienced focused titles
+           - tech_lead → use leadership/technical lead titles
+        3. Within experience level, match specialties to domain focus
+        4. Select title that best combines level + specialties
+
+    - source: 'personal_info.summaries'
+      target: 'resume.summary'
+      selection_logic: |
+        1. Use same primary_area mapping as title selection
+        2. Incorporate top 3 specialties from highest weighted job_focus
+        3. Select summary that emphasizes matching specialties
+
+  # Technical expertise transformation (add resume_title, prioritize based on job)
+  expertise_transformation:
+    source: 'technical_expertise'
+    target: 'resume.technical_expertise'
+    transformation_type: 'categorize_and_prioritize'
+    rules:
+      - category: 'frontend'
+        resume_title: 'Frontend Development'
+        max_skills: 5
+        priority_keywords: ['React', 'TypeScript', 'Next.js', 'JavaScript']
+
+      - category: 'backend'
+        resume_title: 'Backend Development'
+        max_skills: 5
+        priority_keywords: ['Node.js', 'API', 'Database']
+
+      - category: 'qa_testing'
+        resume_title: 'Quality Assurance & Testing'
+        max_skills: 5
+        priority_keywords: ['E2E Testing', 'Jest', 'CI/CD', 'Automation']
+
+      - category: 'ai_machine_learning'
+        resume_title: 'AI & Machine Learning'
+        max_skills: 5
+        priority_keywords: ['LangGraph', 'Vector', 'Semantic', 'AI']
+
+      - category: 'systems_design'
+        resume_title: 'Systems & Architecture'
+        max_skills: 5
+        priority_keywords: ['Architecture', 'Scalable', 'Design']
+
+      - category: 'version_control'
+        resume_title: 'Version Control'
+        max_skills: 5
+        priority_keywords: ['Git', 'GitHub']
+
+    selection_logic: |
+      1. Extract all specialties from job_focus array (weighted by focus weight)
+      2. Map specialties to technical_expertise categories:
+         - react, typescript, frontend → "frontend" category
+         - node, python, backend → "backend" category
+         - ai, ml, data → "ai_machine_learning" category
+         - testing → "qa_testing" category
+         - aws, devops → "systems_design" category
+      3. Score each category by specialty matches and job_focus weights
+      4. Select top 4 highest scoring categories
+      5. Within each category, prioritize skills that match job specialties
+      6. Transform to array format: [{resume_title: "Frontend Development", skills: [...]}, ...]
+
+  # Soft skills flattening
+  skills_flattening:
+    source: 'soft_skills'
+    target: 'resume.skills'
+    transformation_type: 'flatten_and_select'
+    max_skills: 12
+    selection_logic: |
+      1. Flatten all soft skill categories into single array
+      2. Prioritize skills that align with job requirements
+      3. Include leadership skills if management role
+      4. Include analytical skills for technical roles
+
+  # Professional experience transformation
+  experience_transformation:
+    source: 'professional_experience'
+    target: 'resume.professional_experience'
+    transformation_type: 'specialty_based_selection'
+    rules:
+      - selection_logic: |
+          1. For each role, get available achievement versions
+          2. Score each achievement by specialty matches from job_focus array
+          3. Apply job_focus weights to scoring
+          4. Select top 4 highest scoring achievements per role
+          5. Maintain company info and chronological order
+      - maintain_company_info: true
+      - preserve_chronological_order: true
+      - max_achievements_per_role: 4
+    description: 'Select achievements based on specialty matches with job_focus array'
+
+  # Independent projects transformation
+  projects_transformation:
+    source: 'independent_projects'
+    target: 'resume.independent_projects'
+    transformation_type: 'specialty_prioritized'
+    rules:
+      - selection_logic: |
+          1. Score each project by technology/specialty matches with job_focus
+          2. Apply job_focus weights to project scoring
+          3. Select top 3 highest scoring projects
+      - max_projects: 3
+      - include_technologies: true
+    description: 'Select most relevant projects based on job_focus specialty matches'
+
+# Job analysis integration points
+job_analysis_integration:
+  focus_matching:
+    description: 'Match candidate skills to job_focus array using weighted scoring'
+    algorithm: |
+      1. For each job_focus item in array:
+         - Score primary_area match against candidate experience level
+         - Count specialty matches with candidate technical skills
+         - Calculate weighted score: (area_score + specialty_score) * weight
+      2. Sum all weighted scores for total job match score
+      3. Select best matching configuration based on highest total score
+      4. Use primary_area from highest weighted job_focus for title/summary selection
+
+  keyword_extraction:
+    description: 'Extract and prioritize keywords from job posting'
+    categories:
+      - technical_skills: 'Programming languages, frameworks, tools'
+      - soft_skills: 'Leadership, collaboration, communication'
+      - experience_level: 'Senior, Lead, Principal, etc.'
+      - industry_domain: 'FinTech, E-commerce, AI, etc.'
+
+  relevance_scoring:
+    description: 'Score resume content against job requirements'
+    scoring_factors:
+      - keyword_match: 0.4
+      - experience_alignment: 0.3
+      - skill_relevance: 0.2
+      - seniority_match: 0.1
+
+# Output validation rules
+validation_rules:
+  required_fields:
+    - 'resume.name'
+    - 'resume.title'
+    - 'resume.summary'
+    - 'resume.contact'
+    - 'resume.technical_expertise'
+    - 'resume.skills'
+    - 'resume.languages'
+    - 'resume.professional_experience'
+    - 'resume.education'
+
+  field_constraints:
+    - field: 'resume.title'
+      max_length: 80
+
+    - field: 'resume.summary'
+      max_length: 500
+      min_length: 100
+
+    - field: 'resume.technical_expertise'
+      max_categories: 4
+      min_categories: 2
+
+    - field: 'resume.skills'
+      max_items: 12
+      min_items: 6
+
+    - field: 'resume.professional_experience'
+      max_items: 5
+      min_items: 2
+
+    - field: 'resume.independent_projects'
+      max_items: 3
+      min_items: 0
+
+    - field: 'resume.education'
+      max_items: 4
+      min_items: 1
+
+  data_integrity:
+    - rule: 'All selected content must exist in source resume.yaml'
+    - rule: 'No fabricated or exaggerated content allowed'
+    - rule: 'Maintain professional tone and accuracy'
+    - rule: 'Keywords must be naturally integrated, not forced'
+
+# Usage example for job-tailor agent
+example_usage: |
+  1. Analyze job posting to extract job_focus array with primary_area, specialties, and weights
+  2. Apply transformation rules using weighted scoring:
+     - Direct mapping for basic fields
+     - Version selection based on highest weighted job_focus item
+     - Expertise transformation with specialty-based category scoring
+     - Experience/project selection using specialty matches and weights
+  3. Validate output against array constraints (weights sum to 1.0)
+  4. Generate final resume.yaml in company-specific folder
+
+# Output template structure
+output_template: |
+  resume:
+    name: "{{ personal_info.name }}"  # Top-level field, not in contact
+    profile_picture: "{{ personal_info.profile_picture }}"
+    title: "{{ selected_title_based_on_highest_weighted_job_focus }}"
+    summary: "{{ selected_summary_based_on_highest_weighted_job_focus }}"
+    contact:  # ContactDetails without name field
+      phone: "{{ contact.phone }}"
+      email: "{{ contact.email }}"
+      address: "{{ contact.address }}"
+      linkedin: "{{ contact.linkedin }}"
+      github: "{{ contact.github }}"
+    technical_expertise:
+      - resume_title: "{{ category_title_1 }}"
+        skills: ["{{ specialty_matched_skills_1 }}"]
+      - resume_title: "{{ category_title_2 }}"
+        skills: ["{{ specialty_matched_skills_2 }}"]
+    skills: ["{{ flattened_soft_skills_prioritized_by_job_focus }}"]
+    languages: "{{ languages }}"
+    professional_experience: "{{ achievements_selected_by_specialty_matches }}"
+    independent_projects: "{{ projects_scored_by_specialty_relevance }}"
+    education: "{{ education }}"

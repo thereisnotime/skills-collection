@@ -1,0 +1,14 @@
+{
+  "name": "nano-skills",
+  "owner": {
+    "name": "armanddp"
+  },
+  "plugins": [
+    {
+      "name": "nano-skills",
+      "description": "Generate images using Google Gemini's Nano Banana Pro API",
+      "source": "./",
+      "version": "1.0.2"
+    }
+  ]
+}

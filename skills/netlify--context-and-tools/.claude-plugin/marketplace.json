@@ -1,0 +1,29 @@
+{
+  "name": "netlify-context-and-tools",
+  "description": "Netlify platform skills for AI coding agents",
+  "owner": {
+    "name": "Netlify"
+  },
+  "plugins": [
+    {
+      "name": "netlify-skills",
+      "description": "Netlify platform skills — functions, edge functions, blobs, database, image CDN, forms, config, CLI, frameworks, caching, AI gateway, and deployment",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/netlify-functions",
+        "./skills/netlify-edge-functions",
+        "./skills/netlify-blobs",
+        "./skills/netlify-db",
+        "./skills/netlify-image-cdn",
+        "./skills/netlify-forms",
+        "./skills/netlify-frameworks",
+        "./skills/netlify-caching",
+        "./skills/netlify-config",
+        "./skills/netlify-cli-and-deploy",
+        "./skills/netlify-deploy",
+        "./skills/netlify-ai-gateway"
+      ]
+    }
+  ]
+}

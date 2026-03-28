@@ -1,0 +1,93 @@
+{
+  "name": "agentsys",
+  "version": "5.8.0",
+  "description": "A modular runtime and orchestration system for AI agents - works with Claude Code, OpenCode, and Codex CLI",
+  "main": "lib/platform/detect-platform.js",
+  "type": "commonjs",
+  "bin": {
+    "agentsys": "./bin/cli.js",
+    "agentsys-dev": "./bin/dev-cli.js"
+  },
+  "scripts": {
+    "dev": "node bin/dev-cli.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "validate": "node bin/dev-cli.js validate",
+    "validate:plugins": "node bin/dev-cli.js validate plugins",
+    "validate:agent-skill-compliance": "node bin/dev-cli.js validate agent-skill-compliance",
+    "validate:cross-platform": "node bin/dev-cli.js validate cross-platform",
+    "validate:consistency": "node bin/dev-cli.js validate consistency",
+    "validate:paths": "node bin/dev-cli.js validate paths",
+    "validate:counts": "node bin/dev-cli.js validate counts",
+    "validate:platform-docs": "node bin/dev-cli.js validate platform-docs",
+    "preflight": "node bin/dev-cli.js preflight",
+    "preflight:all": "node bin/dev-cli.js preflight --all",
+    "preflight:release": "node bin/dev-cli.js preflight --release",
+    "gen-docs": "node bin/dev-cli.js gen-docs",
+    "gen-docs:check": "node bin/dev-cli.js gen-docs --check",
+    "expand-templates": "node bin/dev-cli.js expand-templates",
+    "expand-templates:check": "node bin/dev-cli.js expand-templates --check",
+    "gen-adapters": "node bin/dev-cli.js gen-adapters",
+    "gen-adapters:check": "node bin/dev-cli.js gen-adapters --check",
+    "new:plugin": "node bin/dev-cli.js new plugin",
+    "new:agent": "node bin/dev-cli.js new agent",
+    "new:skill": "node bin/dev-cli.js new skill",
+    "new:command": "node bin/dev-cli.js new command",
+    "bump": "node bin/dev-cli.js bump",
+    "detect": "node bin/dev-cli.js detect",
+    "verify": "node bin/dev-cli.js verify",
+    "version": "node scripts/stamp-version.js && git add -A",
+    "prepare": "node bin/dev-cli.js setup-hooks"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agent-sh/agentsys.git"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "agents",
+    "autonomous-agents",
+    "agentic",
+    "claude",
+    "claude-code",
+    "anthropic",
+    "openai",
+    "codex",
+    "opencode",
+    "automation",
+    "workflow",
+    "devtools",
+    "code-review",
+    "multi-agent",
+    "cli",
+    "pr-automation",
+    "productivity",
+    "repo-intel",
+    "static-analysis",
+    "drift-detect"
+  ],
+  "author": {
+    "name": "Avi Fenesh",
+    "url": "https://github.com/avifenesh"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/agent-sh/agentsys/issues"
+  },
+  "homepage": "https://github.com/agent-sh/agentsys#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "agentsys": "^5.0.0",
+    "js-yaml": "^4.1.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "workspaces": [
+    "lib"
+  ]
+}

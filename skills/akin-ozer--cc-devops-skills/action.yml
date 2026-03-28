@@ -1,0 +1,258 @@
+name: "cc-devops-skills Claude Code wrapper"
+description: "Drop-in wrapper for anthropics/claude-code-action@v1 that can auto-inject devops skills marketplace/plugins."
+branding:
+  icon: "check-circle"
+  color: "orange"
+
+inputs:
+  trigger_phrase:
+    description: "The trigger phrase to look for in comments or issue body"
+    required: false
+    default: "@claude"
+  assignee_trigger:
+    description: "The assignee username that triggers the action (e.g. @claude)"
+    required: false
+  label_trigger:
+    description: "The label that triggers the action (e.g. claude)"
+    required: false
+    default: "claude"
+  base_branch:
+    description: "The branch to use as the base/source when creating new branches (defaults to repository default branch)"
+    required: false
+  branch_prefix:
+    description: "The prefix to use for Claude branches (defaults to 'claude/', use 'claude-' for dash format)"
+    required: false
+    default: "claude/"
+  branch_name_template:
+    description: "Template for branch naming. Available variables: {{prefix}}, {{entityType}}, {{entityNumber}}, {{timestamp}}, {{sha}}, {{label}}, {{description}}. {{label}} will be first label from the issue/PR, or {{entityType}} as a fallback. {{description}} will be the first 5 words of the issue/PR title in kebab-case. Default: '{{prefix}}{{entityType}}-{{entityNumber}}-{{timestamp}}'"
+    required: false
+    default: ""
+  allowed_bots:
+    description: "Comma-separated list of allowed bot usernames, or '*' to allow all bots. Empty string (default) allows no bots."
+    required: false
+    default: ""
+  allowed_non_write_users:
+    description: "Comma-separated list of usernames to allow without write permissions, or '*' to allow all users. Only works when github_token input is provided. WARNING: Use with extreme caution - this bypasses security checks and should only be used for workflows with very limited permissions (e.g., issue labeling)."
+    required: false
+    default: ""
+  include_comments_by_actor:
+    description: "Comma-separated list of actor usernames to INCLUDE in comments. Supports wildcards: '*[bot]' matches all bots, 'dependabot[bot]' matches specific bot. Empty (default) includes all actors."
+    required: false
+    default: ""
+  exclude_comments_by_actor:
+    description: "Comma-separated list of actor usernames to EXCLUDE from comments. Supports wildcards: '*[bot]' matches all bots, 'renovate[bot]' matches specific bot. Empty (default) excludes none. If actor is in both lists, exclusion takes priority."
+    required: false
+    default: ""
+
+  # Claude Code configuration
+  prompt:
+    description: "Instructions for Claude. Can be a direct prompt or custom template."
+    required: false
+    default: ""
+  settings:
+    description: "Claude Code settings as JSON string or path to settings JSON file"
+    required: false
+    default: ""
+
+  # Auth configuration
+  anthropic_api_key:
+    description: "Anthropic API key (required for direct API, not needed for Bedrock/Vertex/Foundry)"
+    required: false
+  claude_code_oauth_token:
+    description: "Claude Code OAuth token (alternative to anthropic_api_key)"
+    required: false
+  github_token:
+    description: "GitHub token with repo and pull request permissions (optional if using GitHub App)"
+    required: false
+  use_bedrock:
+    description: "Use Amazon Bedrock with OIDC authentication instead of direct Anthropic API"
+    required: false
+    default: "false"
+  use_vertex:
+    description: "Use Google Vertex AI with OIDC authentication instead of direct Anthropic API"
+    required: false
+    default: "false"
+  use_foundry:
+    description: "Use Microsoft Foundry with OIDC authentication instead of direct Anthropic API"
+    required: false
+    default: "false"
+
+  claude_args:
+    description: "Additional arguments to pass directly to Claude CLI"
+    required: false
+    default: ""
+  additional_permissions:
+    description: "Additional GitHub permissions to request (e.g., 'actions: read')"
+    required: false
+    default: ""
+  use_sticky_comment:
+    description: "Use just one comment to deliver issue/PR comments"
+    required: false
+    default: "false"
+  use_commit_signing:
+    description: "Enable commit signing using GitHub's commit signature verification. When false, Claude uses standard git commands"
+    required: false
+    default: "false"
+  ssh_signing_key:
+    description: "SSH private key for signing commits. When provided, git will be configured to use SSH signing. Takes precedence over use_commit_signing."
+    required: false
+    default: ""
+  bot_id:
+    description: "GitHub user ID to use for git operations (defaults to Claude's bot ID)"
+    required: false
+    default: "41898282" # Claude's bot ID - see src/github/constants.ts
+  bot_name:
+    description: "GitHub username to use for git operations (defaults to Claude's bot name)"
+    required: false
+    default: "claude[bot]"
+  track_progress:
+    description: "Force tag mode with tracking comments for pull_request and issue events. Only applicable to pull_request (opened, synchronize, ready_for_review, reopened) and issue (opened, edited, labeled, assigned) events."
+    required: false
+    default: "false"
+  include_fix_links:
+    description: "Include 'Fix this' links in PR code review feedback that open Claude Code with context to fix the identified issue"
+    required: false
+    default: "true"
+  path_to_claude_code_executable:
+    description: "Optional path to a custom Claude Code executable. If provided, skips automatic installation and uses this executable instead. WARNING: Using an older version may cause problems if the action begins taking advantage of new Claude Code features. This input is typically not needed unless you're debugging something specific or have unique needs in your environment."
+    required: false
+    default: ""
+  path_to_bun_executable:
+    description: "Optional path to a custom Bun executable. If provided, skips automatic Bun installation and uses this executable instead. WARNING: Using an incompatible version may cause problems if the action requires specific Bun features. This input is typically not needed unless you're debugging something specific or have unique needs in your environment."
+    required: false
+    default: ""
+  display_report:
+    description: "Whether to display the Claude Code Report in GitHub Step Summary. Set to 'false' to disable when using custom formatting solutions. WARNING: This outputs Claude-authored content in the GitHub Step Summary. This should only be used in cases where the action is used solely with trusted input."
+    required: false
+    default: "false"
+  show_full_output:
+    description: "Show full JSON output from Claude Code. WARNING: This outputs ALL Claude messages including tool execution results which may contain secrets, API keys, or other sensitive information. These logs are publicly visible in GitHub Actions. Only enable for debugging in non-sensitive environments."
+    required: false
+    default: "false"
+  plugins:
+    description: "Newline-separated list of Claude Code plugin names to install (e.g., 'code-review@claude-code-plugins\nfeature-dev@claude-code-plugins')"
+    required: false
+    default: ""
+  plugin_marketplaces:
+    description: "Newline-separated list of Claude Code plugin marketplace Git URLs to install from (e.g., 'https://github.com/user/marketplace1.git\nhttps://github.com/user/marketplace2.git')"
+    required: false
+    default: ""
+
+  inject_devops_skills:
+    description: "Automatically prepend devops marketplace and plugin defaults to plugin_marketplaces/plugins"
+    required: false
+    default: "true"
+  devops_marketplace_url:
+    description: "Marketplace Git URL to prepend when inject_devops_skills is true"
+    required: false
+    default: "https://github.com/akin-ozer/cc-devops-skills.git"
+  devops_plugin_name:
+    description: "Plugin name to prepend when inject_devops_skills is true"
+    required: false
+    default: "devops-skills@akin-ozer"
+
+outputs:
+  execution_file:
+    description: "Path to the Claude Code execution output file"
+    value: ${{ steps.run.outputs.execution_file }}
+  branch_name:
+    description: "The branch created by Claude Code for this execution"
+    value: ${{ steps.run.outputs.branch_name }}
+  github_token:
+    description: "The GitHub token used by the action (Claude App token if available)"
+    value: ${{ steps.run.outputs.github_token }}
+  structured_output:
+    description: "JSON string containing all structured output fields when --json-schema is provided in claude_args. Use fromJSON() to parse: fromJSON(steps.id.outputs.structured_output).field_name"
+    value: ${{ steps.run.outputs.structured_output }}
+  session_id:
+    description: "The Claude Code session ID that can be used with --resume to continue this conversation"
+    value: ${{ steps.run.outputs.session_id }}
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Merge plugin and marketplace inputs
+      id: merge_plugins
+      shell: bash
+      env:
+        INJECT_DEVOPS_SKILLS: ${{ inputs.inject_devops_skills }}
+        DEVOPS_MARKETPLACE_URL: ${{ inputs.devops_marketplace_url }}
+        DEVOPS_PLUGIN_NAME: ${{ inputs.devops_plugin_name }}
+        USER_PLUGIN_MARKETPLACES: ${{ inputs.plugin_marketplaces }}
+        USER_PLUGINS: ${{ inputs.plugins }}
+      run: |
+        set -euo pipefail
+
+        emit_output() {
+          local key="$1"
+          local value="$2"
+          {
+            echo "$key<<__VALUE__"
+            printf '%s\n' "$value"
+            echo "__VALUE__"
+          } >> "$GITHUB_OUTPUT"
+        }
+
+        merge_multiline() {
+          local inject="$1"
+          local devops_default="$2"
+          local user_value="$3"
+          local merged=""
+
+          if [[ "$inject" == "true" ]]; then
+            merged="$devops_default"
+            if [[ -n "$user_value" ]]; then
+              merged+=$'\n'
+              merged+="$user_value"
+            fi
+          else
+            merged="$user_value"
+          fi
+
+          printf '%s' "$merged"
+        }
+
+        merged_marketplaces="$(merge_multiline "$INJECT_DEVOPS_SKILLS" "$DEVOPS_MARKETPLACE_URL" "$USER_PLUGIN_MARKETPLACES")"
+        merged_plugins="$(merge_multiline "$INJECT_DEVOPS_SKILLS" "$DEVOPS_PLUGIN_NAME" "$USER_PLUGINS")"
+
+        emit_output "plugin_marketplaces" "$merged_marketplaces"
+        emit_output "plugins" "$merged_plugins"
+
+    - name: Run upstream claude-code-action
+      id: run
+      uses: anthropics/claude-code-action@v1
+      with:
+        trigger_phrase: ${{ inputs.trigger_phrase }}
+        assignee_trigger: ${{ inputs.assignee_trigger }}
+        label_trigger: ${{ inputs.label_trigger }}
+        base_branch: ${{ inputs.base_branch }}
+        branch_prefix: ${{ inputs.branch_prefix }}
+        branch_name_template: ${{ inputs.branch_name_template }}
+        allowed_bots: ${{ inputs.allowed_bots }}
+        allowed_non_write_users: ${{ inputs.allowed_non_write_users }}
+        include_comments_by_actor: ${{ inputs.include_comments_by_actor }}
+        exclude_comments_by_actor: ${{ inputs.exclude_comments_by_actor }}
+        prompt: ${{ inputs.prompt }}
+        settings: ${{ inputs.settings }}
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        github_token: ${{ inputs.github_token }}
+        use_bedrock: ${{ inputs.use_bedrock }}
+        use_vertex: ${{ inputs.use_vertex }}
+        use_foundry: ${{ inputs.use_foundry }}
+        claude_args: ${{ inputs.claude_args }}
+        additional_permissions: ${{ inputs.additional_permissions }}
+        use_sticky_comment: ${{ inputs.use_sticky_comment }}
+        use_commit_signing: ${{ inputs.use_commit_signing }}
+        ssh_signing_key: ${{ inputs.ssh_signing_key }}
+        bot_id: ${{ inputs.bot_id }}
+        bot_name: ${{ inputs.bot_name }}
+        track_progress: ${{ inputs.track_progress }}
+        include_fix_links: ${{ inputs.include_fix_links }}
+        path_to_claude_code_executable: ${{ inputs.path_to_claude_code_executable }}
+        path_to_bun_executable: ${{ inputs.path_to_bun_executable }}
+        display_report: ${{ inputs.display_report }}
+        show_full_output: ${{ inputs.show_full_output }}
+        plugins: ${{ steps.merge_plugins.outputs.plugins }}
+        plugin_marketplaces: ${{ steps.merge_plugins.outputs.plugin_marketplaces }}

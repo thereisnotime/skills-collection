@@ -1,0 +1,95 @@
+{
+  "level_4_impact": {
+    "description": "Financial/Revenue Impact - Highest leadership signal",
+    "score": 4,
+    "verbs": [
+      "generated", "saved", "increased", "decreased", "reduced", "grew",
+      "expanded", "maximized", "minimized", "doubled", "tripled", "quadrupled",
+      "accelerated", "monetized", "capitalized", "secured", "won", "captured",
+      "recovered", "yielded", "netted", "grossed", "profited", "earned"
+    ]
+  },
+  "level_3_strategy": {
+    "description": "Strategy/Creation/Transformation - Senior leadership",
+    "score": 3,
+    "verbs": [
+      "spearheaded", "architected", "pioneered", "transformed", "revolutionized",
+      "redesigned", "reengineered", "overhauled", "modernized", "innovated",
+      "conceptualized", "envisioned", "strategized", "formulated", "devised",
+      "established", "founded", "launched", "initiated", "instituted",
+      "orchestrated", "championed", "drove", "propelled", "catalyzed",
+      "negotiated", "influenced", "persuaded", "advocated", "lobbied"
+    ]
+  },
+  "level_2_management": {
+    "description": "Management/Leadership - Mid-level leadership",
+    "score": 2,
+    "verbs": [
+      "managed", "led", "directed", "supervised", "oversaw", "administered",
+      "coordinated", "organized", "planned", "scheduled", "delegated",
+      "mentored", "coached", "trained", "developed", "cultivated",
+      "hired", "recruited", "onboarded", "evaluated", "appraised",
+      "budgeted", "allocated", "prioritized", "streamlined", "optimized",
+      "implemented", "executed", "delivered", "completed", "achieved",
+      "collaborated", "partnered", "liaised", "aligned", "integrated"
+    ]
+  },
+  "level_1_execution": {
+    "description": "Execution/Support - Entry-level contribution",
+    "score": 1,
+    "verbs": [
+      "assisted", "helped", "supported", "contributed", "participated",
+      "aided", "facilitated", "enabled", "prepared", "processed",
+      "maintained", "updated", "documented", "recorded", "filed",
+      "communicated", "presented", "reported", "informed", "notified",
+      "researched", "analyzed", "reviewed", "examined", "assessed",
+      "monitored", "tracked", "measured", "calculated", "computed",
+      "created", "designed", "developed", "built", "produced",
+      "wrote", "drafted", "composed", "edited", "proofread"
+    ]
+  },
+  "weak_verbs": {
+    "description": "Passive/Weak verbs to avoid",
+    "score": 0,
+    "verbs": [
+      "responsible for", "duties included", "worked on", "helped with",
+      "involved in", "tasked with", "assigned to", "in charge of",
+      "dealt with", "handled", "did", "made", "got", "had",
+      "was", "were", "been", "being", "am", "is", "are"
+    ]
+  },
+  "technical_verbs": {
+    "description": "Technical/Engineering specific",
+    "score": 2.5,
+    "verbs": [
+      "programmed", "coded", "developed", "engineered", "architected",
+      "deployed", "migrated", "scaled", "automated", "integrated",
+      "debugged", "troubleshot", "diagnosed", "resolved", "fixed",
+      "refactored", "optimized", "enhanced", "upgraded", "modernized",
+      "configured", "installed", "maintained", "monitored", "secured",
+      "tested", "validated", "verified", "benchmarked", "profiled"
+    ]
+  },
+  "analytical_verbs": {
+    "description": "Analysis/Research specific",
+    "score": 2,
+    "verbs": [
+      "analyzed", "evaluated", "assessed", "investigated", "researched",
+      "examined", "studied", "explored", "discovered", "identified",
+      "diagnosed", "interpreted", "synthesized", "modeled", "forecasted",
+      "predicted", "estimated", "quantified", "measured", "calculated",
+      "surveyed", "audited", "inspected", "reviewed", "validated"
+    ]
+  },
+  "clinical_verbs": {
+    "description": "Clinical/Medical specific",
+    "score": 2.5,
+    "verbs": [
+      "diagnosed", "treated", "prescribed", "administered", "monitored",
+      "assessed", "evaluated", "examined", "consulted", "collaborated",
+      "documented", "reported", "presented", "published", "reviewed",
+      "enrolled", "consented", "screened", "randomized", "followed",
+      "adjudicated", "queried", "reconciled", "validated", "verified"
+    ]
+  }
+}

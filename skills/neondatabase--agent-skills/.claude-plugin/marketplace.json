@@ -1,0 +1,21 @@
+{
+  "name": "neon",
+  "owner": {
+    "name": "Andre Landgraf",
+    "email": "andre@neon.tech"
+  },
+  "metadata": {
+    "description": "Official Neon Serverless Postgres plugins for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "neon-postgres",
+      "source": "./plugins/neon-postgres",
+      "description": "Manage your Neon projects and databases with the neon-postgres agent skill and the Neon MCP Server",
+      "version": "1.0.0",
+      "category": "database",
+      "tags": ["postgres", "serverless", "database", "mcp", "neon"]
+    }
+  ]
+}

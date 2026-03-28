@@ -1,0 +1,72 @@
+name: IaC PR Review With DevOps Skills
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    paths:
+      - "**/*.tf"
+      - "**/*.tfvars"
+      - "**/*.hcl"
+      - "**/terragrunt.hcl"
+      - "**/playbooks/**/*.yml"
+      - "**/playbooks/**/*.yaml"
+      - "**/roles/**/*.yml"
+      - "**/roles/**/*.yaml"
+      - "**/inventory/**/*.yml"
+      - "**/inventory/**/*.yaml"
+      - "**/Chart.yaml"
+      - "**/values*.yml"
+      - "**/values*.yaml"
+      - "**/templates/**/*.yml"
+      - "**/templates/**/*.yaml"
+      - "**/k8s/**/*.yml"
+      - "**/k8s/**/*.yaml"
+      - "**/manifests/**/*.yml"
+      - "**/manifests/**/*.yaml"
+      - "**/Dockerfile"
+      - "**/Dockerfile.*"
+
+jobs:
+  iac-pr-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Review IaC changes with Claude + DevOps skills
+        uses: akin-ozer/cc-devops-skills@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: "true"
+          use_sticky_comment: "true"
+          include_fix_links: "true"
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You are reviewing Infrastructure-as-Code changes only.
+
+            Scope:
+            - Terraform / Terragrunt
+            - Ansible
+            - Helm charts and templates
+            - Kubernetes YAML manifests
+            - Dockerfiles
+
+            Required behavior:
+            - Focus on security, misconfiguration risk, drift risk, and operability.
+            - Cite concrete lines/files for each finding.
+            - Use inline comments for file-specific findings.
+            - Post one top-level summary comment grouped by severity.
+            - If there are no meaningful IaC findings, post a short "no significant IaC issues found" summary.
+            - Keep feedback actionable and concise.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

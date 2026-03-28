@@ -1,0 +1,38 @@
+{
+  "name": "devops-skills",
+  "owner": {
+    "name": "Ahmad Asmar"
+  },
+  "plugins": [
+    {
+      "name": "iac-terraform",
+      "source": "./iac-terraform",
+      "description": "Infrastructure as Code with Terraform and Terragrunt"
+    },
+    {
+      "name": "k8s-troubleshooter",
+      "source": "./k8s-troubleshooter",
+      "description": "Systematic Kubernetes troubleshooting and incident response"
+    },
+    {
+      "name": "aws-cost-optimization",
+      "source": "./aws-cost-optimization",
+      "description": "AWS cost optimization and FinOps workflows with automated analysis scripts"
+    },
+    {
+      "name": "ci-cd",
+      "source": "./ci-cd",
+      "description": "CI/CD pipeline design, optimization, security, and troubleshooting"
+    },
+    {
+      "name": "monitoring-observability",
+      "source": "./monitoring-observability",
+      "description": "Monitoring and observability strategy, metrics/logs/traces systems, SLOs/error budgets, Prometheus/Grafana/Loki, OpenTelemetry, and tool comparison"
+    },
+    {
+      "name": "gitops-workflows",
+      "source": "./gitops-workflows",
+      "description": "GitOps workflows with ArgoCD 3.x and Flux CD 2.7, multi-cluster management, secrets, progressive delivery, and OCI artifacts"
+    }
+  ]
+}

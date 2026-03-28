@@ -1,0 +1,28 @@
+{
+  "name": "proficiently",
+  "owner": {
+    "name": "Proficiently",
+    "email": "zak@proficiently.com"
+  },
+  "metadata": {
+    "description": "AI-powered job search, resume tailoring, and cover letter writing"
+  },
+  "plugins": [
+    {
+      "name": "proficiently",
+      "source": {
+        "source": "github",
+        "repo": "proficientlyjobs/proficiently-claude-skills"
+      },
+      "description": "AI-powered job search, resume tailoring, and cover letter writing",
+      "version": "1.0.0",
+      "author": {
+        "name": "Proficiently"
+      },
+      "repository": "https://github.com/proficientlyjobs/proficiently-claude-skills",
+      "license": "MIT",
+      "keywords": ["job-search", "resume", "cover-letter", "career"],
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+/*
+ * AGENTSYS DESIGN SYSTEM
+ *
+ * Imports shared tokens and base styles from the monorepo design-system.
+ * Site-specific overrides can be added below the imports.
+ *
+ * Brand Personality
+ * -----------------
+ * AgentSys is a modular runtime and orchestration system for AI agents.
+ * 12 plugins. 41 agents. 27 skills. Structured pipelines for development workflows.
+ *
+ * Voice:  Precise, confident, effortless. The tool that does the work
+ *         so you can ship. Never shouts, never hesitates.
+ * Tone:   Premium but approachable. Technical but never intimidating.
+ *         Like talking to a senior engineer who respects your time.
+ * Feel:   Linear's craftsmanship. Vercel's speed. Stripe's trust.
+ *         Dark, quiet power - the UI disappears, the work gets done.
+ *
+ * Design Principles
+ * -----------------
+ * 1. DEPTH THROUGH SUBTLETY  - Layers revealed by translucency, not borders
+ * 2. MOTION WITH PURPOSE     - Every animation communicates state, never decorates
+ * 3. INFORMATION DENSITY     - Developers want data, not whitespace
+ * 4. GLOW OVER SHADOW        - Light radiates from content, not cast by it
+ * 5. MONOCHROME + ONE ACCENT - Near-black canvas, purple-to-cyan signature gradient
+ */
+
+@import './design-system/tokens.css';
+@import './design-system/base.css';

@@ -1,0 +1,112 @@
+{
+  "tier1_global": {
+    "description": "Top 25 Global Universities",
+    "score_boost": 25,
+    "universities": [
+      "harvard", "stanford", "mit", "massachusetts institute of technology",
+      "oxford", "cambridge", "caltech", "california institute of technology",
+      "princeton", "yale", "columbia", "university of chicago", "uchicago",
+      "imperial college", "ucl", "university college london",
+      "eth zurich", "epfl", "national university of singapore", "nus",
+      "nanyang technological", "ntu", "tsinghua", "peking university",
+      "university of tokyo", "tokyo university", "berkeley", "uc berkeley"
+    ]
+  },
+  "tier1_us_ivy": {
+    "description": "Ivy League",
+    "score_boost": 22,
+    "universities": [
+      "harvard", "yale", "princeton", "columbia", "penn", "upenn",
+      "university of pennsylvania", "brown", "dartmouth", "cornell"
+    ]
+  },
+  "tier1_us_elite": {
+    "description": "Top US Non-Ivy",
+    "score_boost": 20,
+    "universities": [
+      "stanford", "mit", "caltech", "duke", "northwestern",
+      "johns hopkins", "jhu", "university of chicago", "uchicago",
+      "rice", "vanderbilt", "emory", "notre dame", "georgetown",
+      "wash u", "wustl", "washington university st louis",
+      "carnegie mellon", "cmu", "nyu", "new york university",
+      "usc", "university of southern california"
+    ]
+  },
+  "tier1_us_public": {
+    "description": "Top US Public Universities",
+    "score_boost": 15,
+    "universities": [
+      "berkeley", "uc berkeley", "ucla", "umich", "university of michigan",
+      "uva", "university of virginia", "unc", "unc chapel hill",
+      "ut austin", "university of texas austin", "georgia tech",
+      "uiuc", "university of illinois", "wisconsin", "uw madison",
+      "purdue", "penn state", "ohio state", "osu"
+    ]
+  },
+  "tier1_uk": {
+    "description": "Top UK Universities",
+    "score_boost": 20,
+    "universities": [
+      "oxford", "cambridge", "imperial", "imperial college london",
+      "lse", "london school of economics", "ucl", "university college london",
+      "edinburgh", "king's college london", "kcl", "manchester",
+      "warwick", "bristol", "durham"
+    ]
+  },
+  "tier1_medical": {
+    "description": "Top Medical Schools",
+    "score_boost": 22,
+    "universities": [
+      "harvard medical", "johns hopkins medicine", "stanford medicine",
+      "ucsf", "uc san francisco", "penn medicine", "columbia medicine",
+      "duke medicine", "yale medicine", "northwestern feinberg",
+      "wash u medicine", "nyu grossman", "mount sinai icahn",
+      "mayo clinic school", "cleveland clinic lerner",
+      "mass general", "brigham", "ucla geffen"
+    ]
+  },
+  "tier1_business": {
+    "description": "Top Business Schools (MBA)",
+    "score_boost": 20,
+    "universities": [
+      "harvard business school", "hbs", "stanford gsb", "wharton",
+      "booth", "chicago booth", "kellogg", "sloan", "mit sloan",
+      "columbia business school", "cbs", "haas", "berkeley haas",
+      "tuck", "yale som", "ross", "michigan ross", "fuqua", "duke fuqua",
+      "stern", "nyu stern", "darden", "virginia darden",
+      "insead", "london business school", "lbs"
+    ]
+  },
+  "tier2_us": {
+    "description": "Strong US Universities",
+    "score_boost": 10,
+    "universities": [
+      "boston university", "bu", "boston college", "bc", "brandeis",
+      "tufts", "case western", "cwru", "rochester", "lehigh",
+      "wake forest", "tulane", "smu", "tcu", "baylor",
+      "villanova", "santa clara", "pepperdine", "loyola marymount",
+      "uc davis", "uc irvine", "uci", "uc san diego", "ucsd",
+      "uc santa barbara", "ucsb", "colorado boulder", "cu boulder",
+      "indiana university", "iu", "iowa", "minnesota", "umn",
+      "maryland", "umd", "rutgers", "suny", "cuny"
+    ]
+  },
+  "tier2_international": {
+    "description": "Strong International Universities",
+    "score_boost": 12,
+    "universities": [
+      "toronto", "uoft", "mcgill", "ubc", "british columbia",
+      "waterloo", "western", "queen's",
+      "sydney", "melbourne", "unsw", "anu", "australian national",
+      "monash", "auckland", "otago",
+      "hku", "hong kong university", "hkust", "cuhk",
+      "fudan", "zhejiang", "sjtu", "shanghai jiao tong",
+      "kaist", "seoul national", "postech", "yonsei", "korea university",
+      "technion", "hebrew university", "tel aviv university",
+      "delft", "tu delft", "amsterdam", "leiden",
+      "lmu munich", "tu munich", "heidelberg", "humboldt",
+      "sorbonne", "sciences po", "hec paris", "essec",
+      "bocconi", "politecnico milano"
+    ]
+  }
+}

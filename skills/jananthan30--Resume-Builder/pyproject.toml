@@ -1,0 +1,36 @@
+[project]
+name = "ai-resume-tuner"
+version = "1.1.0"
+description = "Score, analyze, and optimize resumes against job descriptions using dual ATS + HR scoring with optional LLM-augmented analysis."
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Resume Builder Contributors"}]
+keywords = ["resume", "ats", "hr", "scoring", "mcp", "claude", "job-search", "career"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Office/Business",
+]
+
+[project.urls]
+Homepage = "https://resume-scorer-web.streamlit.app"
+Repository = "https://github.com/jananthan30/resume-scorer-web"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # Line length handled by line-length setting
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

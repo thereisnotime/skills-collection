@@ -1,0 +1,53 @@
+# Checklists
+
+Action-specific checklists to ensure consistency across the codebase.
+
+## Workflow
+
+1. **BEFORE starting** → Read the relevant checklist
+2. **WHILE working** → Follow the checklist steps
+3. **BEFORE delivering** → Verify ALL checklist items are done
+
+## Available Checklists
+
+| Checklist | When to Use |
+|-----------|-------------|
+| [cross-platform-compatibility.md](./cross-platform-compatibility.md) | **MASTER REF** - Ensuring features work on Claude/OpenCode/Codex |
+| [release.md](./release.md) | Preparing a new version release |
+| [new-command.md](./new-command.md) | Adding a new slash command |
+| [new-agent.md](./new-agent.md) | Adding a new specialist agent |
+| [new-skill.md](./new-skill.md) | Adding a new skill (Agent Skills Open Standard) |
+| [new-lib-module.md](./new-lib-module.md) | Adding a new library module |
+| [update-opencode-plugin.md](./update-opencode-plugin.md) | Updating native OpenCode plugin |
+| [repo-map.md](./repo-map.md) | Repo-intel plugin changes |
+
+## Every Checklist Includes
+
+All checklists now include these common steps:
+- Cross-platform compatibility verification
+- Quality validation (`/enhance`, `npm test`)
+- Platform-specific requirements (OpenCode labels, Codex triggers)
+
+## Knowledge Base References
+
+These checklists reference best practices from:
+
+| Document | Topics |
+|----------|--------|
+| `agent-docs/PROMPT-ENGINEERING-REFERENCE.md` | Cross-model prompt design |
+| `agent-docs/FUNCTION-CALLING-TOOL-USE-REFERENCE.md` | MCP tool patterns |
+| `agent-docs/MULTI-AGENT-SYSTEMS-REFERENCE.md` | Agent orchestration |
+| `agent-docs/CONTEXT-OPTIMIZATION-REFERENCE.md` | Token efficiency |
+| `lib/cross-platform/RESEARCH.md` | Platform comparison |
+
+## File Update Matrix
+
+Quick reference for which files need updating:
+
+| Action | Files to Update |
+|--------|-----------------|
+| **Release** | package.json, CHANGELOG.md, README.md, all plugin.json files |
+| **New Command** | plugin commands/, plugin.json, ARCHITECTURE.md, bin/cli.js |
+| **New Agent** | plugin agents/, workflow.md, next-task.md |
+| **New Skill** | plugin skills/{skill-name}/SKILL.md, agent tools if agent-invoked |
+| **New Lib Module** | lib/, lib/index.js, sync to plugins/, tests |

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '23.10.0'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: '1.2.12'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run type checking
+        run: bun run tsc
+
+      - name: Run linting
+        run: bun run lint
+
+      - name: Check code formatting
+        run: bun run format:check
+
+      - name: Run unit tests
+        run: bun test
+
+      - name: Test Tailor Context and write pipeline
+        run: bun run set-env -C tech-corp
+
+      - name: Test YAML to ZOD validation:all pipeline
+        run: bun run validate:all -C tech-corp
+
+      - name: Test YAML to ZOD validation:metadata pipeline
+        run: bun run validate:metadata -C tech-corp
+
+      - name: Test YAML to ZOD validation:job-analysis pipeline
+        run: bun run validate:job-analysis -C tech-corp
+
+      - name: Test YAML to ZOD validation:resume pipeline
+        run: bun run validate:resume -C tech-corp
+
+      - name: Test YAML to ZOD validation:cover-letter pipeline
+        run: bun run validate:cover-letter -C tech-corp
+
+      - name: Test PDF generation pipeline
+        run: bun run generate-pdf -C tech-corp
+        # run: bun run generate-pdf -P resume-data/tailor/tech-corp

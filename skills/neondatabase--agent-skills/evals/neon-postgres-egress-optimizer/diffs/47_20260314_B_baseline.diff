@@ -1,0 +1,110 @@
+diff --git a/src/routes/products.ts b/src/routes/products.ts
+index 7c01911..87f2051 100644
+--- a/src/routes/products.ts
++++ b/src/routes/products.ts
+@@ -7,16 +7,16 @@ export const productsRoute = new Hono();
+ 
+ // GET /products — list all products
+ productsRoute.get("/", async (c) => {
+-  const allProducts = await db.select().from(products);
+-
+-  return c.json(
+-    allProducts.map((p) => ({
+-      id: p.id,
+-      name: p.name,
+-      price: p.price,
+-      imageUrls: p.imageUrls,
+-    })),
+-  );
++  const allProducts = await db
++    .select({
++      id: products.id,
++      name: products.name,
++      price: products.price,
++      imageUrls: products.imageUrls,
++    })
++    .from(products);
++
++  return c.json(allProducts);
+ });
+ 
+ // GET /products/:id — single product with reviews
+@@ -24,7 +24,18 @@ productsRoute.get("/:id", async (c) => {
+   const id = Number(c.req.param("id"));
+ 
+   const rows = await db
+-    .select()
++    .select({
++      products: {
++        id: products.id,
++        name: products.name,
++        price: products.price,
++        categoryId: products.categoryId,
++        description: products.description,
++        imageUrls: products.imageUrls,
++        createdAt: products.createdAt,
++      },
++      reviews,
++    })
+     .from(products)
+     .leftJoin(reviews, eq(reviews.productId, products.id))
+     .where(eq(products.id, id));
+diff --git a/src/routes/stats.ts b/src/routes/stats.ts
+index 57747a2..e4e2b68 100644
+--- a/src/routes/stats.ts
++++ b/src/routes/stats.ts
+@@ -1,4 +1,5 @@
+ import { Hono } from "hono";
++import { eq, avg, count } from "drizzle-orm";
+ import { db } from "../db/client";
+ import { reviews, products } from "../db/schema";
+ 
+@@ -6,33 +7,21 @@ export const statsRoute = new Hono();
+ 
+ // GET /stats — review statistics per category
+ statsRoute.get("/", async (c) => {
+-  const allReviews = await db.select().from(reviews);
+-  const allProducts = await db.select().from(products);
++  const stats = await db
++    .select({
++      categoryId: products.categoryId,
++      avgRating: avg(reviews.rating),
++      reviewCount: count(reviews.id),
++    })
++    .from(reviews)
++    .innerJoin(products, eq(reviews.productId, products.id))
++    .groupBy(products.categoryId);
+ 
+-  const productCategoryMap = allProducts.reduce(
+-    (acc, product) => {
+-      acc[product.id] = product.categoryId;
+-      return acc;
+-    },
+-    {} as Record<number, number>,
++  return c.json(
++    stats.map((s) => ({
++      categoryId: s.categoryId,
++      avgRating: Number(s.avgRating),
++      reviewCount: s.reviewCount,
++    })),
+   );
+-
+-  const statsMap = allReviews.reduce(
+-    (acc, review) => {
+-      const categoryId = productCategoryMap[review.productId];
+-      if (!acc[categoryId]) acc[categoryId] = { totalRating: 0, count: 0 };
+-      acc[categoryId].totalRating += review.rating;
+-      acc[categoryId].count += 1;
+-      return acc;
+-    },
+-    {} as Record<number, { totalRating: number; count: number }>,
+-  );
+-
+-  const stats = Object.entries(statsMap).map(([categoryId, s]) => ({
+-    categoryId: Number(categoryId),
+-    avgRating: s.totalRating / s.count,
+-    reviewCount: s.count,
+-  }));
+-
+-  return c.json(stats);
+ });

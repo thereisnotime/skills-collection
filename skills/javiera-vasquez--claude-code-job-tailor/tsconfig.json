@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    // Environment setup & latest features
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+
+    // Bundler mode
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    // Path aliases
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@ui/*": ["./src/ui/*"],
+      "@template-core/*": ["./src/templates/shared/*"],
+      "@templates/*": ["./src/templates/*"],
+      "@types": ["./src/types.ts"],
+      "@utils/*": ["./src/utils/*"],
+      "@zod/*": ["./src/zod/*"],
+      "@shared/core/*": ["./scripts/shared/core/*"],
+      "@shared/cli/*": ["./scripts/shared/cli/*"],
+      "@shared/validation/*": ["./scripts/shared/validation/*"],
+      "@shared/data/*": ["./scripts/shared/data/*"],
+      "@shared/document/*": ["./scripts/shared/document/*"],
+      "@shared/handlers/*": ["./scripts/shared/handlers/*"]
+    },
+
+    // Best practices
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    // Some stricter flags (disabled by default)
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "exclude": ["src/data/application.ts"]
+}

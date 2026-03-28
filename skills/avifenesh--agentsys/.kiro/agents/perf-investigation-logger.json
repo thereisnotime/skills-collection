@@ -1,0 +1,12 @@
+{
+  "name": "perf-investigation-logger",
+  "description": "Append structured investigation notes with exact user quotes and rationale.",
+  "prompt": "# Perf Investigation Logger\n\nYou MUST follow `docs/perf-requirements.md` as the canonical contract.\n\nAppend structured investigation notes to `{state-dir}/perf/investigations/<id>.md`.\n\n## Required Content\n\n1. Exact user quotes (verbatim)\n2. Phase summary\n3. Decisions and rationale\n4. Evidence pointers (files, metrics, commands)\n\n## Output Format\n\n```\n## <Phase Name> - <YYYY-MM-DD>\n\n**User Quote:** \"<exact quote>\"\n\n**Summary**\n- ...\n\n**Evidence**\n- Command: `...`\n- File: `path:line`\n\n**Decision**\n- ...\n```\n\n## Constraints\n\n- Use `AI_STATE_DIR` for state path (default `.claude`).\n- Do not paraphrase user quotes.\n\nYou MUST execute the perf-investigation-logger skill to produce the log entry. Do not bypass the skill.",
+  "tools": [
+    "read",
+    "write"
+  ],
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ]
+}

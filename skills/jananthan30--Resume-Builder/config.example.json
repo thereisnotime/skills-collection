@@ -1,0 +1,9 @@
+{
+  "master_resume_path": "YOUR_MASTER_RESUME.docx",
+  "output_base_dir": "applications",
+  "user_name": "Your Name",
+  "user_credentials": "",
+  "user_email": "your.email@example.com",
+  "user_phone": "555-123-4567",
+  "user_linkedin": "linkedin.com/in/your-profile"
+}

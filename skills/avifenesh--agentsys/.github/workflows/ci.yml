@@ -1,0 +1,38 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Validate repo consistency
+        run: npm run validate
+
+      - name: Validate agent templates
+        run: node scripts/expand-templates.js --check
+
+      - name: Validate adapter freshness
+        run: node scripts/gen-adapters.js --check
+
+  agnix:
+    uses: agent-sh/.github/.github/workflows/ci-agnix.yml@main

@@ -1,0 +1,74 @@
+name: Python Release
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  python-build:
+    name: Build for PyPi
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: ./tools/python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Install
+        run: make venv
+
+      - name: Build
+        run: |
+          set -x
+          source .venv/bin/activate
+          rm -rf build dist *.egg-info
+          make build
+          python -m twine check dist/*
+
+      - name: Test
+        run: |
+          make venv
+          make test
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: ./tools/python/dist/
+
+  python-release:
+    name: Publish to PyPi
+    runs-on: ubuntu-latest
+    environment: pypi
+    needs:
+      - python-build
+
+    defaults:
+      run:
+        working-directory: ./tools/python
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Retrieve distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

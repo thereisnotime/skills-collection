@@ -1,0 +1,154 @@
+{
+  "programming_languages": {
+    "python": {
+      "related": ["pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "django", "flask", "fastapi"],
+      "decay_lambda": 0.1
+    },
+    "javascript": {
+      "related": ["react", "angular", "vue", "node", "typescript", "next.js", "express"],
+      "decay_lambda": 0.2
+    },
+    "java": {
+      "related": ["spring", "spring boot", "hibernate", "maven", "gradle", "junit"],
+      "decay_lambda": 0.1
+    },
+    "sql": {
+      "related": ["mysql", "postgresql", "oracle", "sql server", "sqlite", "database"],
+      "decay_lambda": 0.05
+    },
+    "r": {
+      "related": ["ggplot", "dplyr", "tidyverse", "shiny", "statistics"],
+      "decay_lambda": 0.1
+    }
+  },
+  "cloud_platforms": {
+    "aws": {
+      "related": ["ec2", "s3", "lambda", "rds", "cloudformation", "eks", "ecs"],
+      "decay_lambda": 0.15
+    },
+    "azure": {
+      "related": ["azure devops", "azure functions", "azure ml", "cosmos db"],
+      "decay_lambda": 0.15
+    },
+    "gcp": {
+      "related": ["bigquery", "cloud functions", "gke", "dataflow", "vertex ai"],
+      "decay_lambda": 0.15
+    }
+  },
+  "data_science": {
+    "machine learning": {
+      "related": ["supervised learning", "unsupervised learning", "neural networks", "deep learning", "nlp", "computer vision"],
+      "decay_lambda": 0.15
+    },
+    "data analysis": {
+      "related": ["sql", "python", "r", "tableau", "power bi", "excel", "statistics"],
+      "decay_lambda": 0.1
+    },
+    "business intelligence": {
+      "related": ["tableau", "power bi", "looker", "qlik", "reporting", "dashboards"],
+      "decay_lambda": 0.1
+    }
+  },
+  "clinical_research": {
+    "clinical trials": {
+      "related": ["phase i", "phase ii", "phase iii", "phase iv", "gcp", "ich", "irb", "protocol"],
+      "decay_lambda": 0.05
+    },
+    "pharmacovigilance": {
+      "related": ["adverse events", "safety monitoring", "signal detection", "psur", "dsur", "risk management"],
+      "decay_lambda": 0.05
+    },
+    "regulatory affairs": {
+      "related": ["fda", "ema", "ind", "nda", "bla", "pma", "510k", "submissions"],
+      "decay_lambda": 0.05
+    },
+    "medical writing": {
+      "related": ["clinical study reports", "csr", "protocols", "investigator brochure", "regulatory documents"],
+      "decay_lambda": 0.05
+    }
+  },
+  "project_management": {
+    "agile": {
+      "related": ["scrum", "kanban", "sprint", "user stories", "backlog", "jira", "confluence"],
+      "decay_lambda": 0.1
+    },
+    "project management": {
+      "related": ["pmp", "gantt", "timeline", "resource allocation", "stakeholder management", "risk management"],
+      "decay_lambda": 0.05
+    },
+    "product management": {
+      "related": ["roadmap", "user research", "a/b testing", "metrics", "okrs", "product strategy"],
+      "decay_lambda": 0.1
+    }
+  },
+  "leadership": {
+    "people management": {
+      "related": ["team leadership", "performance management", "hiring", "coaching", "mentoring"],
+      "decay_lambda": 0.03
+    },
+    "strategic planning": {
+      "related": ["business strategy", "market analysis", "competitive analysis", "growth strategy"],
+      "decay_lambda": 0.03
+    },
+    "executive leadership": {
+      "related": ["p&l management", "board presentations", "investor relations", "organizational design"],
+      "decay_lambda": 0.03
+    }
+  },
+  "finance": {
+    "financial modeling": {
+      "related": ["dcf", "lbo", "merger model", "valuation", "excel", "financial analysis"],
+      "decay_lambda": 0.05
+    },
+    "investment banking": {
+      "related": ["m&a", "capital markets", "ipo", "due diligence", "pitch books"],
+      "decay_lambda": 0.05
+    },
+    "accounting": {
+      "related": ["gaap", "ifrs", "financial statements", "audit", "tax", "cpa"],
+      "decay_lambda": 0.03
+    }
+  },
+  "marketing": {
+    "digital marketing": {
+      "related": ["seo", "sem", "ppc", "social media", "content marketing", "email marketing"],
+      "decay_lambda": 0.2
+    },
+    "brand marketing": {
+      "related": ["brand strategy", "brand positioning", "creative direction", "campaign management"],
+      "decay_lambda": 0.1
+    },
+    "analytics": {
+      "related": ["google analytics", "attribution", "conversion optimization", "a/b testing"],
+      "decay_lambda": 0.15
+    }
+  },
+  "soft_skills": {
+    "communication": {
+      "related": ["presentation", "public speaking", "written communication", "stakeholder management"],
+      "decay_lambda": 0.01
+    },
+    "leadership": {
+      "related": ["team management", "decision making", "strategic thinking", "influence"],
+      "decay_lambda": 0.01
+    },
+    "problem solving": {
+      "related": ["analytical thinking", "critical thinking", "creativity", "innovation"],
+      "decay_lambda": 0.01
+    }
+  },
+  "industry_domains": {
+    "healthcare": {
+      "therapeutic_areas": ["oncology", "cardiology", "neurology", "immunology", "rare disease", "infectious disease"],
+      "decay_lambda": 0.05
+    },
+    "fintech": {
+      "areas": ["payments", "lending", "insurance", "wealth management", "blockchain", "crypto"],
+      "decay_lambda": 0.15
+    },
+    "e-commerce": {
+      "areas": ["marketplace", "logistics", "fulfillment", "conversion", "retention"],
+      "decay_lambda": 0.15
+    }
+  }
+}

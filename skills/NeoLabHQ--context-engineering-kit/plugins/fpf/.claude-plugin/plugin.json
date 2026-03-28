@@ -1,0 +1,9 @@
+{
+  "name": "fpf",
+  "version": "1.1.1",
+  "description": "First Principles Framework (FPF) for structured reasoning using workflow command pattern. Implements ADI (Abduction-Deduction-Induction) cycle via propose-hypotheses workflow with fpf-agent for hypothesis generation, logical verification, empirical validation, and auditable decision-making. Includes utility commands for status, query, decay, actualize, and reset.",
+  "author": {
+    "name": "Vlad Goncharov",
+    "email": "vlad.goncharov@neolab.finance"
+  }
+}

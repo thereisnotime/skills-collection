@@ -1,0 +1,29 @@
+{
+  "name": "@neondatabase/agent-skills",
+  "version": "1.0.0",
+  "description": "A collection of Agent Skills for Neon Serverless Postgres",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neondatabase/agent-skills"
+  },
+  "author": {
+    "name": "Neon",
+    "url": "https://neon.tech"
+  },
+  "keywords": [
+    "neon",
+    "postgres",
+    "serverless",
+    "agent-skills",
+    "claude-code",
+    "mcp"
+  ],
+  "scripts": {
+    "fmt": "npx prettier --write .",
+    "validate:cursor-plugins": "node scripts/validate-cursor-plugins.mjs",
+    "validate:claude-plugins": "node scripts/validate-claude-plugins.mjs",
+    "validate:plugins": "npm run validate:cursor-plugins && npm run validate:claude-plugins",
+    "validate:skills": "npx skills-ref validate ./skills/neon-postgres"
+  }
+}

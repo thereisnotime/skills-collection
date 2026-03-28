@@ -1,0 +1,8 @@
+{
+  "name": "replicate",
+  "description": "Skills for building AI-powered apps with Replicate",
+  "version": "1.0.0",
+  "author": {
+    "name": "Replicate"
+  }
+}

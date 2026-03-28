@@ -1,0 +1,138 @@
+version: '2.0.0'
+analysis_date: '2025-10-01'
+source: 'Tech-Corp Job Posting - Senior Frontend Engineer - Web, Open Application'
+
+job_analysis:
+  # Core job information
+  company: 'Tech-Corp'
+  position: 'Senior Frontend Engineer - Web'
+  job_focus:
+    - primary_area: 'senior_engineer'
+      specialties: ['react', 'typescript', 'frontend']
+      weight: 0.8
+    - primary_area: 'senior_engineer'
+      specialties: ['mobile', 'react']
+      weight: 0.2
+  location: 'Berlin, Germany (or remote in Sweden, Estonia, Finland)'
+  employment_type: 'Full-time'
+  experience_level: 'Senior'
+
+  # Prioritized requirements with weights (1-10 scale)
+  requirements:
+    must_have_skills:
+      - skill: 'TypeScript'
+        priority: 10
+      - skill: 'React'
+        priority: 10
+      - skill: 'Frontend Development'
+        priority: 10
+      - skill: '5+ years experience'
+        priority: 9
+      - skill: 'Scalable applications'
+        priority: 8
+    nice_to_have_skills:
+      - skill: 'React Native'
+        priority: 7
+      - skill: 'Python'
+        priority: 5
+      - skill: 'Scala'
+        priority: 4
+      - skill: 'Backend experience'
+        priority: 6
+    soft_skills:
+      - 'Pragmatic'
+      - 'Positive attitude'
+      - 'Team player'
+      - 'Curiosity'
+      - 'Continuous learning'
+      - 'Ownership mindset'
+    experience_years: 5
+    education: 'Not specified'
+
+  responsibilities:
+    primary:
+      - 'Build scalable web services and applications using TypeScript and React'
+      - 'Develop well-structured frontend applications'
+      - 'Work on modern React-based products across multiple business areas'
+      - 'Collaborate with cross-functional teams of 500+ people'
+      - 'Go outside comfort zone to tackle diverse challenges'
+    secondary:
+      - 'Potentially work on React Native partner applications'
+      - 'Consider backend development opportunities (Python, Scala)'
+      - 'Contribute to shared core tech across organization'
+
+  # Merged context section
+  role_context:
+    department: 'Engineering - Web Frontend Team'
+    team_size: '500+ people in product organization'
+    key_points:
+      - 'Serving over 20 million users globally'
+      - 'Operating in 500 cities across 30 countries'
+      - 'Integrating with parent company ecosystem'
+      - 'Rolling out new products beyond delivery business'
+      - 'Modern TypeScript and React as core stack'
+
+  # Candidate alignment analysis
+  candidate_alignment:
+    strong_matches:
+      - 'React expertise (10+ years full-stack experience)'
+      - 'TypeScript proficiency'
+      - 'Scalable application development experience'
+      - 'Frontend UI/UX focus'
+      - 'Full-stack background enables backend collaboration'
+    gaps_to_address:
+      - 'React Native experience (nice-to-have)'
+      - 'No explicit Scala experience (minor gap)'
+    transferable_skills:
+      - 'Node.js backend experience → Python/Scala backend'
+      - 'Mobile-responsive web design → React Native concepts'
+      - 'Microservices architecture → scalable systems at Tech-Corp scale'
+    emphasis_strategy: 'Lead with frontend React/TypeScript expertise while showcasing full-stack versatility and ability to work on large-scale products'
+
+  # Section priorities for resume tailoring
+  section_priorities:
+    technical_expertise:
+      - 'frontend'
+      - 'backend'
+      - 'systems_design'
+    experience_focus: 'Select achievements demonstrating scalable React applications, TypeScript expertise, and collaborative team work. Emphasize frontend performance improvements and modern stack migrations.'
+    project_relevance: 'Include: React-based projects, AI tools with React frontends. Downplay: Pure backend projects, testing-focused achievements.'
+
+  # Optimization actions
+  optimization_actions:
+    LEAD_WITH:
+      - 'React'
+      - 'TypeScript'
+      - 'Frontend Engineering'
+    EMPHASIZE:
+      - 'Scalable web applications'
+      - 'Modern React stack'
+      - 'Cross-functional collaboration'
+      - 'Large-scale user bases'
+    QUANTIFY:
+      - 'Performance improvements'
+      - 'User impact metrics'
+      - 'Code coverage increases'
+      - 'Team size/collaboration scale'
+    DOWNPLAY:
+      - 'Pure QA/testing roles'
+      - 'AI/ML-specific achievements (unless UI-related)'
+
+  # Simplified ATS analysis
+  ats_analysis:
+    title_variations:
+      - 'Senior Frontend Engineer'
+      - 'Senior React Engineer'
+      - 'Senior Web Engineer'
+    critical_phrases:
+      - 'TypeScript and React'
+      - 'scalable services'
+      - 'well-structured applications'
+      - '5 years of solid experience'
+      - 'modern frontend development'
+
+  # Basic metadata
+  application_info:
+    posting_url: 'https://example.com/jobs/tech-corp-senior-frontend-engineer'
+    posting_date: '2025-10-01'
+    deadline: 'Not specified'

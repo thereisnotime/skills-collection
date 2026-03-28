@@ -1,0 +1,20 @@
+{
+  "name": "agentsys",
+  "version": "5.8.0",
+  "description": "Professional-grade slash commands for Claude Code with cross-platform support",
+  "keywords": [
+    "workflow",
+    "automation",
+    "code-review",
+    "ci-cd",
+    "deployment",
+    "slop-detection",
+    "task-management"
+  ],
+  "author": {
+    "name": "Avi Fenesh",
+    "url": "https://github.com/avifenesh"
+  },
+  "repository": "https://github.com/agent-sh/agentsys",
+  "license": "MIT"
+}

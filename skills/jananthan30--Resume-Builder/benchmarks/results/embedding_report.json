@@ -1,0 +1,124 @@
+{
+  "models": {
+    "all-MiniLM-L6-v2": {
+      "matching_mean_sim": 0.7427,
+      "matching_sims": [
+        0.85,
+        0.6502,
+        0.7271,
+        0.7852,
+        0.7309,
+        0.7126
+      ],
+      "non_matching_mean_sim": 0.1459,
+      "non_matching_sims": [
+        0.1058,
+        0.1365,
+        0.0856,
+        0.1861,
+        0.2726,
+        0.0891
+      ],
+      "partial_matching_mean_sim": 0.3867,
+      "partial_matching_sims": [
+        0.4332,
+        0.4089,
+        0.4133,
+        0.3221,
+        0.2855,
+        0.4574
+      ],
+      "separation": 0.5967,
+      "partial_correctly_ordered": true,
+      "avg_inference_ms": 27.73,
+      "total_inference_ms": 499.08,
+      "model_size_mb": 86.6
+    },
+    "jjzha/jobbert-base-cased": {
+      "matching_mean_sim": 0.9395,
+      "matching_sims": [
+        0.9476,
+        0.9491,
+        0.9294,
+        0.9526,
+        0.9281,
+        0.9302
+      ],
+      "non_matching_mean_sim": 0.7607,
+      "non_matching_sims": [
+        0.7474,
+        0.7492,
+        0.7622,
+        0.7465,
+        0.7627,
+        0.7959
+      ],
+      "partial_matching_mean_sim": 0.8881,
+      "partial_matching_sims": [
+        0.9062,
+        0.8945,
+        0.863,
+        0.9068,
+        0.8826,
+        0.8757
+      ],
+      "separation": 0.1789,
+      "partial_correctly_ordered": true,
+      "avg_inference_ms": 243.59,
+      "total_inference_ms": 4384.56,
+      "model_size_mb": 413.2
+    },
+    "BAAI/bge-small-en-v1.5": {
+      "matching_mean_sim": 0.8347,
+      "matching_sims": [
+        0.9032,
+        0.8785,
+        0.7637,
+        0.8993,
+        0.8194,
+        0.7444
+      ],
+      "non_matching_mean_sim": 0.5334,
+      "non_matching_sims": [
+        0.593,
+        0.5754,
+        0.4911,
+        0.457,
+        0.5498,
+        0.5344
+      ],
+      "partial_matching_mean_sim": 0.659,
+      "partial_matching_sims": [
+        0.6792,
+        0.6833,
+        0.6171,
+        0.6251,
+        0.6724,
+        0.677
+      ],
+      "separation": 0.3013,
+      "partial_correctly_ordered": true,
+      "avg_inference_ms": 59.98,
+      "total_inference_ms": 1079.55,
+      "model_size_mb": 127.3
+    }
+  },
+  "recommendation": "all-MiniLM-L6-v2 provides best separation (0.5967) at 27.7 ms/pair. Partial-match ordering correct: True.",
+  "ranking": [
+    {
+      "model": "all-MiniLM-L6-v2",
+      "separation": 0.5967,
+      "avg_ms": 27.73
+    },
+    {
+      "model": "BAAI/bge-small-en-v1.5",
+      "separation": 0.3013,
+      "avg_ms": 59.98
+    },
+    {
+      "model": "jjzha/jobbert-base-cased",
+      "separation": 0.1789,
+      "avg_ms": 243.59
+    }
+  ]
+}

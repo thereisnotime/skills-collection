@@ -1,0 +1,5 @@
+# Personal data - don't commit
+assets/cover-letters/
+
+# Keep templates
+!assets/templates/

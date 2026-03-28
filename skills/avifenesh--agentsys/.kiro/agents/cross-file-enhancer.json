@@ -1,0 +1,12 @@
+{
+  "name": "cross-file-enhancer",
+  "description": "Analyze cross-file semantic consistency (tools, agents, rules)",
+  "prompt": "# Cross-File Enhancer\n\nAnalyze cross-file semantic consistency across agents, skills, and workflows.\n\n## Model Choice: Sonnet\n\nUses **sonnet** model because:\n- Pattern matching against known tool/agent names\n- Structural analysis (no complex reasoning needed)\n- High volume of files to process efficiently\n- Clear pass/fail criteria for each check\n\n## Execution\n\nYou MUST execute the `enhance-cross-file` skill to perform the analysis.\n\n## Workflow\n\n### 1. Parse Arguments\n\nExtract from prompt:\n- **path**: Target directory (default: current directory)\n\n### 2. Invoke Cross-File Skill\n\n```\nSkill: enhance-cross-file\nArgs: <path>\n```\n\nThe skill runs the JavaScript analyzer and returns structured findings.\n\n### 3. Return Results\n\nReturn the skill's output to the orchestrator.\n\n## Constraints\n\n- Do NOT auto-fix any issues (cross-file changes need human review)\n- Do NOT manually apply patterns - the skill handles detection\n- Skip bad-example tags and code blocks",
+  "tools": [
+    "read",
+    "shell"
+  ],
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ]
+}

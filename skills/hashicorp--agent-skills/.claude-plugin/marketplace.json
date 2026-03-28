@@ -1,0 +1,77 @@
+{
+  "name": "hashicorp",
+  "owner": {
+    "name": "HashiCorp"
+  },
+  "metadata": {
+    "description": "Official HashiCorp plugins and skills for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "terraform-code-generation",
+      "source": "./terraform/code-generation",
+      "description": "Terraform code generation skills including HCL generation, style guides, and testing.",
+      "version": "1.0.0",
+      "author": {
+        "name": "HashiCorp"
+      },
+      "keywords": ["terraform", "hcl", "infrastructure", "iac", "testing", "style-guide"],
+      "category": "integration",
+      "license": "MPL-2.0",
+      "strict": false
+    },
+    {
+      "name": "terraform-module-generation",
+      "source": "./terraform/module-generation",
+      "description": "Terraform module generation and refactoring skills including module design and Terraform Stacks.",
+      "version": "1.0.0",
+      "author": {
+        "name": "HashiCorp"
+      },
+      "keywords": ["terraform", "modules", "infrastructure", "iac", "stacks", "refactoring"],
+      "category": "integration",
+      "license": "MPL-2.0",
+      "strict": false
+    },
+    {
+      "name": "terraform-provider-development",
+      "source": "./terraform/provider-development",
+      "description": "Terraform provider development skills including resources, data sources, actions, and acceptance testing.",
+      "version": "1.0.0",
+      "author": {
+        "name": "HashiCorp"
+      },
+      "keywords": ["terraform", "provider", "plugin-framework", "resources", "testing"],
+      "category": "integration",
+      "license": "MPL-2.0",
+      "strict": false
+    },
+    {
+      "name": "packer-builders",
+      "source": "./packer/builders",
+      "description": "Packer builder skills for AWS, Azure, and Windows image creation.",
+      "version": "1.0.0",
+      "author": {
+        "name": "HashiCorp"
+      },
+      "keywords": ["packer", "aws", "azure", "windows", "ami", "image", "builder"],
+      "category": "integration",
+      "license": "MPL-2.0",
+      "strict": false
+    },
+    {
+      "name": "packer-hcp",
+      "source": "./packer/hcp",
+      "description": "HCP Packer registry integration for tracking and managing image metadata.",
+      "version": "1.0.0",
+      "author": {
+        "name": "HashiCorp"
+      },
+      "keywords": ["packer", "hcp-packer", "registry", "metadata", "image-tracking"],
+      "category": "integration",
+      "license": "MPL-2.0",
+      "strict": false
+    }
+  ]
+}

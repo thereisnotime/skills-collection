@@ -1,0 +1,151 @@
+{
+  "tier1_tech": {
+    "description": "FAANG/MAMAA + Top Tech",
+    "score_boost": 20,
+    "companies": [
+      "google", "alphabet", "meta", "facebook", "apple", "amazon", "microsoft",
+      "netflix", "nvidia", "tesla", "openai", "anthropic", "deepmind",
+      "stripe", "airbnb", "uber", "lyft", "doordash", "instacart",
+      "snowflake", "databricks", "datadog", "mongodb", "elastic",
+      "coinbase", "robinhood", "square", "block", "paypal",
+      "salesforce", "adobe", "oracle", "sap", "workday", "servicenow",
+      "palantir", "splunk", "crowdstrike", "palo alto networks",
+      "twitter", "x corp", "linkedin", "snap", "pinterest", "reddit",
+      "spotify", "dropbox", "slack", "zoom", "asana", "notion",
+      "figma", "canva", "atlassian", "github", "gitlab"
+    ]
+  },
+  "tier2_tech": {
+    "description": "Strong Tech Companies",
+    "score_boost": 12,
+    "companies": [
+      "intel", "amd", "qualcomm", "broadcom", "cisco", "ibm",
+      "dell", "hp", "hewlett packard", "vmware", "red hat",
+      "twilio", "sendgrid", "plaid", "marqeta", "affirm", "klarna",
+      "shopify", "squarespace", "wix", "hubspot", "zendesk",
+      "okta", "auth0", "hashicorp", "terraform", "docker",
+      "roblox", "epic games", "unity", "activision", "ea", "electronic arts",
+      "yelp", "zillow", "redfin", "opendoor", "compass",
+      "grubhub", "postmates", "gopuff", "getir"
+    ]
+  },
+  "tier1_finance": {
+    "description": "Bulge Bracket + Elite Boutiques",
+    "score_boost": 20,
+    "companies": [
+      "goldman sachs", "morgan stanley", "jp morgan", "jpmorgan",
+      "bank of america", "bofa", "citigroup", "citi", "barclays",
+      "credit suisse", "ubs", "deutsche bank", "hsbc",
+      "blackstone", "kkr", "carlyle", "apollo", "tpg", "warburg pincus",
+      "blackrock", "vanguard", "fidelity", "state street", "pimco",
+      "citadel", "two sigma", "de shaw", "renaissance", "bridgewater",
+      "jane street", "susquehanna", "virtu", "jump trading",
+      "centerview", "evercore", "lazard", "moelis", "pwp", "greenhill",
+      "qatalyst", "liontree", "allen & company", "sun valley"
+    ]
+  },
+  "tier2_finance": {
+    "description": "Strong Financial Institutions",
+    "score_boost": 12,
+    "companies": [
+      "wells fargo", "us bank", "pnc", "truist", "capital one",
+      "american express", "amex", "discover", "mastercard", "visa",
+      "charles schwab", "td ameritrade", "e*trade", "interactive brokers",
+      "northern trust", "bny mellon", "state street",
+      "general atlantic", "silver lake", "insight partners", "thoma bravo",
+      "sequoia", "andreessen horowitz", "a16z", "benchmark", "accel",
+      "greylock", "bessemer", "index ventures", "lightspeed", "gv",
+      "tiger global", "coatue", "dragoneer", "altimeter"
+    ]
+  },
+  "tier1_consulting": {
+    "description": "MBB + Big 4",
+    "score_boost": 18,
+    "companies": [
+      "mckinsey", "mckinsey & company", "bain", "bain & company",
+      "bcg", "boston consulting group", "boston consulting",
+      "deloitte", "pwc", "pricewaterhousecoopers", "ey", "ernst & young",
+      "kpmg", "accenture", "strategy&", "monitor deloitte",
+      "oliver wyman", "roland berger", "a.t. kearney", "kearney",
+      "booz allen", "booz allen hamilton"
+    ]
+  },
+  "tier2_consulting": {
+    "description": "Strong Consulting Firms",
+    "score_boost": 10,
+    "companies": [
+      "leh partners", "lek consulting", "simon-kucher", "parthenon",
+      "iqvia", "zs associates", "huron", "fti consulting",
+      "alvarez & marsal", "navigant", "capgemini", "cognizant",
+      "infosys", "wipro", "tcs", "tata consultancy",
+      "gartner", "forrester", "idc", "frost & sullivan"
+    ]
+  },
+  "tier1_pharma": {
+    "description": "Big Pharma + Top Biotech",
+    "score_boost": 15,
+    "companies": [
+      "pfizer", "johnson & johnson", "j&j", "merck", "msd",
+      "novartis", "roche", "genentech", "abbvie", "bristol-myers squibb",
+      "eli lilly", "lilly", "astrazeneca", "sanofi", "gsk", "glaxosmithkline",
+      "gilead", "amgen", "regeneron", "biogen", "vertex",
+      "moderna", "biontech", "takeda", "novo nordisk",
+      "boehringer ingelheim", "bayer", "astellas", "daiichi sankyo"
+    ]
+  },
+  "tier2_pharma": {
+    "description": "Mid-size Pharma + Specialty",
+    "score_boost": 10,
+    "companies": [
+      "alexion", "biomarin", "incyte", "jazz pharmaceuticals",
+      "neurocrine", "sage therapeutics", "alkermes", "horizon",
+      "ultragenyx", "bluebird bio", "crispr therapeutics",
+      "intellia", "editas", "beam therapeutics",
+      "seagen", "exact sciences", "guardant health", "grail",
+      "illumina", "thermo fisher", "danaher", "agilent",
+      "waters", "bruker", "perkinelmer"
+    ]
+  },
+  "tier1_cro": {
+    "description": "Top CROs",
+    "score_boost": 12,
+    "companies": [
+      "iqvia", "labcorp", "covance", "icon", "pra health",
+      "ppd", "parexel", "syneos health", "medpace", "wuxi"
+    ]
+  },
+  "tier1_medtech": {
+    "description": "Top Medical Devices",
+    "score_boost": 12,
+    "companies": [
+      "medtronic", "abbott", "boston scientific", "stryker",
+      "edwards lifesciences", "intuitive surgical", "zimmer biomet",
+      "becton dickinson", "bd", "baxter", "dexcom", "insulet"
+    ]
+  },
+  "tier1_healthcare": {
+    "description": "Top Healthcare Systems",
+    "score_boost": 15,
+    "companies": [
+      "mayo clinic", "cleveland clinic", "johns hopkins", "mass general",
+      "massachusetts general", "brigham and women's", "stanford health",
+      "ucsf health", "ucla health", "mount sinai", "nyu langone",
+      "memorial sloan kettering", "msk", "md anderson",
+      "kaiser permanente", "unitedhealth", "cvs health", "cigna"
+    ]
+  },
+  "fortune500": {
+    "description": "Fortune 500 general indicator",
+    "score_boost": 5,
+    "companies": [
+      "walmart", "exxon mobil", "chevron", "berkshire hathaway",
+      "costco", "home depot", "kroger", "walgreens", "target",
+      "general motors", "ford", "general electric", "ge",
+      "boeing", "lockheed martin", "raytheon", "northrop grumman",
+      "caterpillar", "3m", "honeywell", "johnson controls",
+      "procter & gamble", "p&g", "coca-cola", "pepsi", "pepsico",
+      "nike", "starbucks", "mcdonald's", "disney", "comcast",
+      "at&t", "verizon", "t-mobile", "charter", "spectrum"
+    ]
+  }
+}

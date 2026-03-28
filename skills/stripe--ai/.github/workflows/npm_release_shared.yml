@@ -1,0 +1,46 @@
+name: NPM Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      working_directory:
+        description: 'Package to release'
+        required: true
+        type: choice
+        options:
+          - './tools/typescript'
+          - './tools/modelcontextprotocol'
+          - './llm/ai-sdk'
+          - './llm/token-meter'
+
+jobs:
+  npm-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.11.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: node --version
+      - run: npm --version
+
+      - run: pnpm install
+      - run: pnpm run --if-present test
+      - run: pnpm run --if-present build
+
+      - run: npm publish --ignore-scripts --access public

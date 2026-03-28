@@ -1,0 +1,9 @@
+{
+    "name": "firecrawl",
+    "description": "Scrape, search, crawl, and map the web with a single command.",
+    "version": "1.0.7",
+    "author": {
+        "name": "Firecrawl"
+    },
+    "skills": ["./skills/firecrawl-cli"]
+}

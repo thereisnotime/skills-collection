@@ -1,0 +1,9 @@
+{
+  "name": "nano-skills",
+  "description": "Generate images using Google Gemini's Nano Banana Pro API",
+  "version": "1.0.2",
+  "author": {
+    "name": "armanddp"
+  },
+  "keywords": ["image", "generation", "gemini", "ai", "graphics"]
+}

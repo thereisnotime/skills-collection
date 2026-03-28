@@ -1,26 +1,310 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 4940
+    "stars": 4941
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
-    "stars": 2257
+    "stars": 2258
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 521
+    "stars": 522
   },
   "realkimbarrett--advertising-skills": {
     "skills": 19,
-    "stars": 367
+    "stars": 369
   },
   "ComposioHQ--awesome-claude-skills": {
     "skills": 889,
-    "stars": 48798
+    "stars": 48801
   },
   "anthropics--skills": {
     "skills": 67,
     "stars": 105036
+  },
+  "1NickPappas--move-code-quality-skill": {
+    "skills": 1,
+    "stars": 18
+  },
+  "ARPeeketi--claude-resume-kit": {
+    "skills": 22,
+    "stars": 30
+  },
+  "AgriciDaniel--claude-blog": {
+    "skills": 77,
+    "stars": 331
+  },
+  "AgriciDaniel--claude-email": {
+    "skills": 27,
+    "stars": 14
+  },
+  "ClickHouse--agent-skills": {
+    "skills": 34,
+    "stars": 376
+  },
+  "Digidai--product-manager-skills": {
+    "skills": 25,
+    "stars": 31
+  },
+  "EveryInc--compound-engineering-plugin": {
+    "skills": 229,
+    "stars": 11359
+  },
+  "Eyadkelleh--awesome-claude-skills-security": {
+    "skills": 19,
+    "stars": 112
+  },
+  "HeshamFS--materials-simulation-skills": {
+    "skills": 69,
+    "stars": 28
+  },
+  "Imbad0202--academic-research-skills": {
+    "skills": 120,
+    "stars": 1527
+  },
+  "K-Dense-AI--claude-scientific-skills": {
+    "skills": 921,
+    "stars": 16537
+  },
+  "K-Dense-AI--claude-scientific-writer": {
+    "skills": 502,
+    "stars": 1344
+  },
+  "NeoLabHQ--context-engineering-kit": {
+    "skills": 230,
+    "stars": 723
+  },
+  "Orchestra-Research--AI-research-SKILLs": {
+    "skills": 350,
+    "stars": 5749
+  },
+  "Paramchoudhary--ResumeSkills": {
+    "skills": 27,
+    "stars": 191
+  },
+  "Valian--linear-cli-skill": {
+    "skills": 2,
+    "stars": 13
+  },
+  "ahmedasmar--devops-claude-skills": {
+    "skills": 41,
+    "stars": 108
+  },
+  "airowe--claude-a11y-skill": {
+    "skills": 1,
+    "stars": 4
+  },
+  "akin-ozer--cc-devops-skills": {
+    "skills": 126,
+    "stars": 142
+  },
+  "alonw0--web-asset-generator": {
+    "skills": 4,
+    "stars": 253
+  },
+  "antonbabenko--terraform-skill": {
+    "skills": 12,
+    "stars": 1404
+  },
+  "avifenesh--agentsys": {
+    "skills": 90,
+    "stars": 663
+  },
+  "better-auth--skills": {
+    "skills": 7,
+    "stars": 163
+  },
+  "better-i18n--skills": {
+    "skills": 10,
+    "stars": 1
+  },
+  "brunoasm--my_claude_skills": {
+    "skills": 13,
+    "stars": 9
+  },
+  "callstackincubator--agent-skills": {
+    "skills": 115,
+    "stars": 1130
+  },
+  "chrisvoncsefalvay--claude-d3js-skill": {
+    "skills": 4,
+    "stars": 138
+  },
+  "cloudflare--skills": {
+    "skills": 282,
+    "stars": 733
+  },
+  "coffeefuelbump--csv-data-summarizer-claude-skill": {
+    "skills": 1,
+    "stars": 315
+  },
+  "conorbronsdon--avoid-ai-writing": {
+    "skills": 1,
+    "stars": 47
+  },
+  "conorluddy--ios-simulator-skill": {
+    "skills": 8,
+    "stars": 674
+  },
+  "coreyhaines31--marketingskills": {
+    "skills": 174,
+    "stars": 17153
+  },
+  "dreamiurg--claude-mountaineering-skills": {
+    "skills": 15,
+    "stars": 22
+  },
+  "emaynard--claude-family-history-research-skill": {
+    "skills": 14,
+    "stars": 49
+  },
+  "expo--skills": {
+    "skills": 38,
+    "stars": 1565
+  },
+  "firecrawl--cli": {
+    "skills": 10,
+    "stars": 230
+  },
+  "hashicorp--agent-skills": {
+    "skills": 26,
+    "stars": 494
+  },
+  "jananthan30--Resume-Builder": {
+    "skills": 18,
+    "stars": 21
+  },
+  "javiera-vasquez--claude-code-job-tailor": {
+    "skills": 15,
+    "stars": 105
+  },
+  "jawwadfirdousi--agent-skills": {
+    "skills": 7,
+    "stars": 5
+  },
+  "jthack--ffuf_claude_skill": {
+    "skills": 3,
+    "stars": 129
+  },
+  "lackeyjb--playwright-skill": {
+    "skills": 2,
+    "stars": 2224
+  },
+  "livelabs-ventures--nano-skills": {
+    "skills": 1,
+    "stars": 8
+  },
+  "mhattingpete--claude-skills-marketplace": {
+    "skills": 34,
+    "stars": 514
+  },
+  "michalparkola--tapestry-skills-for-claude-code": {
+    "skills": 7,
+    "stars": 305
+  },
+  "neondatabase--agent-skills": {
+    "skills": 13,
+    "stars": 43
+  },
+  "netlify--context-and-tools": {
+    "skills": 44,
+    "stars": 10
+  },
+  "obra--superpowers": {
+    "skills": 69,
+    "stars": 120481
+  },
+  "obra--superpowers-skills": {
+    "skills": 46,
+    "stars": 581
+  },
+  "omkamal--pypict-claude-skill": {
+    "skills": 13,
+    "stars": 62
+  },
+  "proficientlyjobs--proficiently-claude-skills": {
+    "skills": 24,
+    "stars": 78
+  },
+  "remotion-dev--skills": {
+    "skills": 38,
+    "stars": 2442
+  },
+  "replicate--skills": {
+    "skills": 2,
+    "stars": 26
+  },
+  "robertguss--claude-skills": {
+    "skills": 244,
+    "stars": 53
+  },
+  "ryanbbrown--revealjs-skill": {
+    "skills": 4,
+    "stars": 240
+  },
+  "sanity-io--agent-toolkit": {
+    "skills": 44,
+    "stars": 104
+  },
+  "sanjay3290--ai-skills": {
+    "skills": 24,
+    "stars": 180
+  },
+  "smerchek--claude-epub-skill": {
+    "skills": 5,
+    "stars": 101
+  },
+  "squirrelscan--skills": {
+    "skills": 2,
+    "stars": 68
+  },
+  "stripe--ai": {
+    "skills": 47,
+    "stars": 1410
+  },
+  "supabase--agent-skills": {
+    "skills": 39,
+    "stars": 1728
+  },
+  "tinybirdco--tinybird-agent-skills": {
+    "skills": 47,
+    "stars": 14
+  },
+  "trailofbits--skills": {
+    "skills": 389,
+    "stars": 4046
+  },
+  "typefully--agent-skills": {
+    "skills": 4,
+    "stars": 39
+  },
+  "varunr89--resume-tailoring-skill": {
+    "skills": 12,
+    "stars": 193
+  },
+  "vercel-labs--agent-skills": {
+    "skills": 127,
+    "stars": 24016
+  },
+  "vercel-labs--next-skills": {
+    "skills": 24,
+    "stars": 783
+  },
+  "wrsmith108--linear-claude-skill": {
+    "skills": 7,
+    "stars": 74
+  },
+  "wrsmith108--varlock-claude-skill": {
+    "skills": 1,
+    "stars": 16
+  },
+  "zarazhangrui--frontend-slides": {
+    "skills": 4,
+    "stars": 11553
+  },
+  "zxkane--aws-skills": {
+    "skills": 19,
+    "stars": 223
   }
 }

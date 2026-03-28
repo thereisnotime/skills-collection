@@ -1,0 +1,4 @@
+skills/.gitignore
+elastic-search-logs/
+.DS_Store
+.cursor/

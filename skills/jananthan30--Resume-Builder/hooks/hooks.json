@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import fastmcp; print('resume-builder: Plugin ready'+'  (full local scoring)' if __import__('importlib').util.find_spec('sentence_transformers') else '  (cloud scoring)')\" 2>/dev/null || echo 'resume-builder: Not set up. Run /resume-builder:setup'"
+          }
+        ]
+      }
+    ]
+  }
+}

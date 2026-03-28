@@ -1,0 +1,134 @@
+diff --git a/src/routes/products.ts b/src/routes/products.ts
+index 7c01911..3f081cb 100644
+--- a/src/routes/products.ts
++++ b/src/routes/products.ts
+@@ -5,38 +5,44 @@ import { products, reviews } from "../db/schema";
+ 
+ export const productsRoute = new Hono();
+ 
+-// GET /products — list all products
++// GET /products — list products (paginated, only needed columns)
+ productsRoute.get("/", async (c) => {
+-  const allProducts = await db.select().from(products);
+-
+-  return c.json(
+-    allProducts.map((p) => ({
+-      id: p.id,
+-      name: p.name,
+-      price: p.price,
+-      imageUrls: p.imageUrls,
+-    })),
+-  );
++  const limit = Math.min(Number(c.req.query("limit") || 50), 100);
++  const offset = Number(c.req.query("offset") || 0);
++
++  const allProducts = await db
++    .select({
++      id: products.id,
++      name: products.name,
++      price: products.price,
++      imageUrls: products.imageUrls,
++    })
++    .from(products)
++    .orderBy(products.id)
++    .limit(limit)
++    .offset(offset);
++
++  return c.json(allProducts);
+ });
+ 
+-// GET /products/:id — single product with reviews
++// GET /products/:id — single product with reviews (two queries, no JOIN duplication)
+ productsRoute.get("/:id", async (c) => {
+   const id = Number(c.req.param("id"));
+ 
+-  const rows = await db
+-    .select()
+-    .from(products)
+-    .leftJoin(reviews, eq(reviews.productId, products.id))
+-    .where(eq(products.id, id));
+-
+-  if (rows.length === 0) {
++  const [productRows, productReviews] = await Promise.all([
++    db
++      .select()
++      .from(products)
++      .where(eq(products.id, id)),
++    db
++      .select()
++      .from(reviews)
++      .where(eq(reviews.productId, id)),
++  ]);
++
++  if (productRows.length === 0) {
+     return c.json({ error: "Not found" }, 404);
+   }
+ 
+-  const product = rows[0].products;
+-  const productReviews = rows
+-    .filter((r) => r.reviews !== null)
+-    .map((r) => r.reviews);
+-
+-  return c.json({ ...product, reviews: productReviews });
++  return c.json({ ...productRows[0], reviews: productReviews });
+ });
+diff --git a/src/routes/stats.ts b/src/routes/stats.ts
+index 57747a2..ad9b2d4 100644
+--- a/src/routes/stats.ts
++++ b/src/routes/stats.ts
+@@ -1,38 +1,27 @@
+ import { Hono } from "hono";
++import { avg, count, eq, sql } from "drizzle-orm";
+ import { db } from "../db/client";
+ import { reviews, products } from "../db/schema";
+ 
+ export const statsRoute = new Hono();
+ 
+-// GET /stats — review statistics per category
++// GET /stats — review statistics per category (aggregated in SQL)
+ statsRoute.get("/", async (c) => {
+-  const allReviews = await db.select().from(reviews);
+-  const allProducts = await db.select().from(products);
++  const stats = await db
++    .select({
++      categoryId: products.categoryId,
++      avgRating: avg(reviews.rating),
++      reviewCount: count(reviews.id),
++    })
++    .from(reviews)
++    .innerJoin(products, eq(reviews.productId, products.id))
++    .groupBy(products.categoryId);
+ 
+-  const productCategoryMap = allProducts.reduce(
+-    (acc, product) => {
+-      acc[product.id] = product.categoryId;
+-      return acc;
+-    },
+-    {} as Record<number, number>,
++  return c.json(
++    stats.map((s) => ({
++      categoryId: s.categoryId,
++      avgRating: Number(s.avgRating),
++      reviewCount: s.reviewCount,
++    })),
+   );
+-
+-  const statsMap = allReviews.reduce(
+-    (acc, review) => {
+-      const categoryId = productCategoryMap[review.productId];
+-      if (!acc[categoryId]) acc[categoryId] = { totalRating: 0, count: 0 };
+-      acc[categoryId].totalRating += review.rating;
+-      acc[categoryId].count += 1;
+-      return acc;
+-    },
+-    {} as Record<number, { totalRating: number; count: number }>,
+-  );
+-
+-  const stats = Object.entries(statsMap).map(([categoryId, s]) => ({
+-    categoryId: Number(categoryId),
+-    avgRating: s.totalRating / s.count,
+-    reviewCount: s.count,
+-  }));
+-
+-  return c.json(stats);
+ });

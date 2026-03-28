@@ -1,0 +1,21 @@
+{
+  "name": "hono-drizzle-app",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "db:push": "bunx drizzle-kit push",
+    "format": "bunx prettier --write ../../",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "hono": "^4.12.7",
+    "@neondatabase/serverless": "^1.0.2",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.10",
+    "drizzle-kit": "^0.31.9",
+    "typescript": "^5.9.3"
+  }
+}

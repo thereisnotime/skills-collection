@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Production
+dist/
+build/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+*.cpuprofile
+
+# Temporary files
+*.tmp
+.cache/
+.temp/
+
+# Claude Code local files
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/hooks/**
+.opencode/
+.codex/
+settings.local.json
+tasks.json
+workflow-state.json
+*.local.md
+
+# Package manager locks (keep package-lock.json for reproducibility)
+# Uncomment if using yarn or pnpm exclusively
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+TECHNICAL_DEBT.md
+*.tgz
+
+# Benchmark results
+*-benchmark-report.md
+workflow-status.json

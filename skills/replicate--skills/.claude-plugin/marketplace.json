@@ -1,0 +1,15 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace.json",
+  "name": "replicate",
+  "owner": {
+    "name": "Replicate",
+    "url": "https://replicate.com"
+  },
+  "plugins": [
+    {
+      "name": "replicate",
+      "source": "./",
+      "description": "Skills for building AI-powered apps with Replicate"
+    }
+  ]
+}

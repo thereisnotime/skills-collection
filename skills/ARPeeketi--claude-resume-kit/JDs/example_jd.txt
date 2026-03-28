@@ -1,0 +1,50 @@
+Whitfield University
+Department of Biomedical Engineering
+
+ASSISTANT PROFESSOR — COMPUTATIONAL PROTEIN ENGINEERING
+Position ID: BME-2026-0042
+Location: Westbrook, MA
+Full-Time | Tenure-Track | Salary Range: $100,000 -- $140,000
+
+ABOUT THE ROLE
+The Department of Biomedical Engineering at Whitfield University invites applications for a tenure-track Assistant Professor in computational protein engineering. The successful candidate will establish an independent research program leveraging machine learning and molecular simulation for protein design and drug discovery. You will join a collegial department of 18 faculty with strengths in biomaterials, structural biology, and therapeutic design.
+
+RESPONSIBILITIES
+- Establish and lead an independent computational research group
+- Develop ML models for protein stability prediction and enzyme design
+- Perform molecular dynamics simulations of protein-ligand systems using GROMACS or OpenMM
+- Design high-throughput virtual screening workflows for drug candidates
+- Teach undergraduate and graduate courses in biomedical engineering (2 courses/year)
+- Advise M.S. and Ph.D. students
+- Publish results in peer-reviewed journals and present at national conferences
+- Contribute to open-source bioinformatics tools and shared computational infrastructure
+- Seek external funding (NIH, NSF, industry partnerships)
+- Participate in departmental service and interdisciplinary collaborations
+
+REQUIRED QUALIFICATIONS
+- Ph.D. in Biomedical Engineering, Computational Biology, Biophysics, or related field
+- Demonstrated experience with protein structure prediction or molecular docking tools
+- Experience developing or applying ML models for biological sequence or structure data
+- Proficiency in molecular dynamics simulations (GROMACS, OpenMM, AMBER, or equivalent)
+- Strong programming skills in Python; familiarity with bioinformatics libraries
+- Publication record in computational biology or protein engineering (3+ first-author papers)
+- Evidence of teaching ability or potential
+- Excellent written and oral communication skills
+
+PREFERRED QUALIFICATIONS
+- Experience with deep learning architectures for protein representation (transformers, graph networks)
+- Familiarity with directed evolution or rational design strategies
+- Knowledge of free energy perturbation or enhanced sampling methods
+- Experience with cloud or HPC workflow automation (Snakemake, Nextflow, or equivalent)
+- Track record of open-source software contributions
+- Postdoctoral research experience
+
+WHAT WE OFFER
+- Competitive salary with startup package ($500K over 3 years)
+- Comprehensive benefits (health, dental, vision, retirement with 8% match)
+- Access to university HPC resources (10,000+ GPU cluster)
+- Collaborative, publication-friendly research environment
+- Relocation assistance available
+
+TO APPLY
+Submit CV, cover letter, research statement, teaching statement, and contact information for 3 references through our online portal. Review of applications begins April 15, 2026. Position open until filled. Whitfield University is an equal opportunity employer.

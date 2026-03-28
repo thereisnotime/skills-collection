@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest textstat beautifulsoup4
+
+      - name: Run tests
+        run: python -m pytest tests/ -v
+
+  validate-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          echo "Checking all SKILL.md files have required frontmatter..."
+          errors=0
+          for file in $(find skills -name "SKILL.md"); do
+            if ! head -1 "$file" | grep -q "^---"; then
+              echo "ERROR: $file missing YAML frontmatter"
+              errors=$((errors + 1))
+            fi
+            if ! grep -q "^name:" "$file"; then
+              echo "ERROR: $file missing 'name' field"
+              errors=$((errors + 1))
+            fi
+            if ! grep -q "^description:" "$file" && ! grep -q "description: >" "$file"; then
+              echo "ERROR: $file missing 'description' field"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors validation errors"
+            exit 1
+          fi
+          echo "All SKILL.md files valid"
+
+      - name: Validate plugin.json
+        run: |
+          python3 -c "
+          import json, sys
+          with open('.claude-plugin/plugin.json') as f:
+              data = json.load(f)
+          required = ['name', 'description', 'author']
+          missing = [k for k in required if k not in data]
+          if missing:
+              print(f'Missing required fields: {missing}')
+              sys.exit(1)
+          print('plugin.json is valid')
+          "
+
+  lint-markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken internal references
+        run: |
+          echo "Checking for stale blog/ path references..."
+          errors=0
+          # Check that no SKILL.md or doc references the old bare blog/ path (not skills/blog/)
+          for file in $(find skills docs -name "*.md"); do
+            if grep -Pn '(?<!skills/)blog/references/' "$file" 2>/dev/null; then
+              echo "WARNING: $file still references old 'blog/references/' path"
+              errors=$((errors + 1))
+            fi
+            if grep -Pn '(?<!skills/)blog/templates/' "$file" 2>/dev/null; then
+              echo "WARNING: $file still references old 'blog/templates/' path"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors stale path references"
+            exit 1
+          fi
+          echo "No stale path references found"

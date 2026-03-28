@@ -1,0 +1,8 @@
+{
+  "name": "k8s-troubleshooter",
+  "description": "Systematic Kubernetes troubleshooting and incident response. Use when diagnosing pod failures, cluster issues, performance problems, networking issues, storage failures, or responding to production incidents. Provides diagnostic workflows, automated health checks, and comprehensive remediation guidance for common Kubernetes problems.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ahmad Asmar"
+  }
+}

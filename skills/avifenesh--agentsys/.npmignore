@@ -1,0 +1,59 @@
+# Tests
+tests/
+__tests__/
+*.test.js
+*.spec.js
+jest.config.js
+coverage/
+
+# Development
+.git/
+.github/
+.vscode/
+.idea/
+
+# Local state files
+settings.local.json
+tasks.json
+workflow-state.json
+*.local.md
+.claude/
+.ruff_cache/
+
+# Build artifacts
+node_modules/
+**/node_modules/
+*.log
+npm-debug.log*
+.npm/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (keep essential only)
+docs/
+agent-docs/
+checklists/
+plans/
+changelogs/
+CONTRIBUTING.md
+CLAUDE.md
+CODEOWNERS
+lib/**/README.md
+lib/**/RESEARCH.md
+plugins/**/README.md
+plugins/**/RESEARCH.md
+
+# Adapters are required for CLI installs
+
+# Dev scripts (setup-hooks.js is kept for npm prepare)
+scripts/sync-lib.sh
+scripts/validate-plugins.js
+scripts/validate-cross-platform.js
+scripts/validate-repo-consistency.js
+
+# Misc
+*.tgz
+.env*
+.npmrc

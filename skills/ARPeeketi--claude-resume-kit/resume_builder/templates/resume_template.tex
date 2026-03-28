@@ -1,0 +1,236 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TEMPLATE: Resume (resume.cls) -- structural reference for Claude generation
+% Copy this structure exactly. Replace [GENERATE: ...] placeholders with JD-tailored content.
+% FIXED sections: contain actual data -- never modify during generation
+% GENERATE sections: Claude fills in per JD using the uploaded bundle
+%
+% SETUP INSTRUCTIONS:
+% 1. Fill [CONFIG: ...] markers with values from your config.md
+% 2. Fill FIXED sections (Education, Awards, etc.) with your actual content
+% 3. Leave [GENERATE: ...] markers -- Claude fills these per JD
+% 4. Calibrate page budget after filling FIXED content (compile + count lines)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass{resume}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{fontawesome}
+\usepackage{tikz}
+\usepackage{graphicx}
+\hypersetup{
+    colorlinks = true,
+    linkcolor = [rgb]{0.9,0.4,0.4},
+    anchorcolor = [rgb]{0.9,0.4,0.4},
+    citecolor = [rgb]{0.4,0.4,0.4},
+    filecolor = [rgb]{0.4,0.4,0.4},
+    urlcolor = [rgb]{0.0,0.0,0.99},
+}
+\usepackage{xcolor}
+\usepackage[version=4,arrows=pgf-filled]{mhchem}
+\usepackage[includefoot,left=0.5in,top=0.5in,right=0.5in,bottom=0.2in,textwidth=7.5in,textheight=10.8in]{geometry}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[R]{\hfill \thepage/\pageref{LastPage}}
+\newcommand{\tab}[1]{\hspace{.2667\textwidth}\rlap{#1}}
+\newcommand{\itab}[1]{\hspace{0em}\rlap{#1}}
+
+%----------------------------------------------------------------------------------------
+%	HEADER — FIXED (fill from config.md)
+%----------------------------------------------------------------------------------------
+
+% FIXED: Name -- from config.md
+\name{[CONFIG: Full Name, Degree]}
+
+% FIXED: Links -- include whichever you have; delete unused lines
+\address{\href{[CONFIG: website URL]}{[CONFIG: site display]} \\ \href{[CONFIG: LinkedIn URL]}{LinkedIn} \\ \href{[CONFIG: Google Scholar URL]}{Google Scholar}}
+% FIXED: Contact
+\address{[CONFIG: email] \\ [CONFIG: phone]}
+% GENERATE: Relocation target per JD
+\address{[CONFIG: City, State] (Open to relocation to [Target City])}
+% GENERATE: Tagline -- rewrite per JD using bundle Section 2 building blocks
+% Use $\vert$ as separator between tagline phrases
+\address{{[GENERATE: Role Title $\vert$ Domain Specialty $\vert$ Key Method or Impact]}}
+
+\begin{document}
+
+%----------------------------------------------------------------------------------------
+%	GENERATION REFERENCE (for Claude -- not rendered in PDF)
+%----------------------------------------------------------------------------------------
+% CHARACTER LIMITS (rendered chars — strip \textbf{}, \textit{}, \ce{}, $..$ before counting):
+%   Chars per line (CPL): ~111-115 at 10pt (varies with char width distribution)
+%
+%   Resume-1L bullet: target 105-111 chars | HARD MAX 117
+%   Resume-2L bullet: target 189-205 chars | HARD MAX 218 | orphan >= 78 chars
+%
+%   AIM FOR TARGET MIDDLE (200 for 2L) — NOT the hard max.
+%   Em-dash (---) counts as 1 char but renders ~2x wide. Budget 2 extra per em-dash.
+%   Bold in bullets: ~0.42 penalty/bold char (10 bold chars ≈ lose 4 chars capacity).
+%
+% PAGE FILL BUDGET:
+%   After filling FIXED sections, compile and count rendered lines per page.
+%   Remaining lines = your variable bullet budget.
+%   Example for 2-page resume with 5 skill groups:
+%     Skills 4-3-2-2-2 (13 lines): ~21 variable bullets (2L each)
+%     Skills 4-4-2-2-2 (14 lines): ~20 variable bullets
+%   Variable bullets = sum of all GENERATE position bullets
+%   FIXED position bullets are NOT counted in the variable budget.
+%
+% POSITION FORMAT (FLIPPED):
+%   Bold line = JD-customized domain theme (strongest customization lever)
+%   Subtitle (italic) = formal role + institution
+%   FIXED positions keep the same theme in every resume.
+
+\vspace{-0.15cm}
+
+%----------------------------------------------------------------------------------------
+%	SUMMARY — GENERATE per JD
+%----------------------------------------------------------------------------------------
+% GENERATE: Rewrite per JD using bundle Section 2 building blocks
+% 5 body lines (4-5 sentences). Lead with years of experience + primary methods.
+% End with publication/citation metrics if applicable.
+% Max 1 paragraph -- no line breaks.
+\begin{rSection}{Summary}
+[GENERATE: [Domain] scientist with [N]+ years combining \textbf{[primary method]} and \textbf{[secondary method]} for [application domain]. [1-2 sentences on key accomplishments tailored to JD]. [Metrics: publications, citations, awards if applicable].]
+\end{rSection}
+\vspace{-0.15cm}
+
+%----------------------------------------------------------------------------------------
+%	TECHNICAL SKILLS — GENERATE per JD (Format C)
+%----------------------------------------------------------------------------------------
+% GENERATE: 5 groups in Format C (categorized dash sub-items)
+% Default config from config.md (e.g. 4-3-2-2-2 = 13 content lines)
+% Load skills_taxonomy.md to map JD keywords to skill entries
+% Group names are JD-customizable; order most JD-relevant first
+% Bold 6-8 tools that most directly match JD keywords
+% Each dash item = exactly 1 rendered line (~105-111 chars), no wrapping
+\begin{rSection}{Technical Skills}
+% FORMAT C: Use \skillgroup{} and \skilldash{} commands from resume.cls
+% Each \skilldash = exactly 1 rendered line. Char limit: 119 - (0.5 x bold_chars)
+
+\begin{skillgroup}{[GENERATE: Most JD-Relevant Domain]}
+\skilldash{[GENERATE: tools, methods — max ~105-111 chars with bold penalty]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Second Domain]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Third Domain]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Fourth Domain]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Programming \& Tools]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\end{rSection}
+\vspace{-0.15cm}
+
+%----------------------------------------------------------------------------------------
+%	EXPERIENCE — GENERATE bullets per JD; position headers are FIXED
+%----------------------------------------------------------------------------------------
+% Add one rSubsection per position. Most recent first.
+% FLIPPED format: Bold line = JD-customized theme; italic = formal role + institution.
+% Mark any position as FIXED if its bullets never change across JDs.
+\begin{rSection}{Research Experience}
+
+% --- Position 1 (most recent) ---
+% GENERATE: Select bullets from bundle; bold theme line customized to JD
+\begin{rSubsection}{[GENERATE: JD-Customized Theme]}{\textcolor{black!60}{[FIXED: Start -- End]}}{[FIXED: Title, Institution]}{}
+\item [GENERATE: Bullet 1 -- strongest JD-relevant accomplishment]
+\item [GENERATE: Bullet 2]
+\item [GENERATE: ...]
+\end{rSubsection}
+
+% --- Position 2 ---
+\begin{rSubsection}{[GENERATE: JD-Customized Theme]}{\textcolor{black!60}{[FIXED: Start -- End]}}{[FIXED: Title, Institution]}{}
+\item [GENERATE: Bullet 1]
+\item [GENERATE: ...]
+\end{rSubsection}
+
+% --- Position 3 ---
+\begin{rSubsection}{[GENERATE: JD-Customized Theme]}{\textcolor{black!60}{[FIXED: Start -- End]}}{[FIXED: Title, Institution]}{}
+\item [GENERATE: Bullet 1]
+\item [GENERATE: ...]
+\end{rSubsection}
+
+% --- Optional: FIXED position (e.g. early-career internship that never changes) ---
+% Uncomment and fill if you have a short position whose bullets are always the same:
+% \begin{rSubsection}{[FIXED: Theme]}{\textcolor{black!60}{[FIXED: Dates]}}{[FIXED: Title, Institution]}{}
+% \item [FIXED: Bullet — same in every resume]
+% \item [FIXED: Bullet — same in every resume]
+% \end{rSubsection}
+
+\end{rSection}
+\vspace{-0.15cm}
+
+%----------------------------------------------------------------------------------------
+%	EDUCATION — FIXED: Fill with your actual education
+%----------------------------------------------------------------------------------------
+% Each entry: {Degree (honors)} \hfill {Years} \\ {Institution}, Location \hfill GPA
+
+\begin{rSection}{Education}
+{[FIXED: Degree Title]} \hfill {\textcolor{black!60}{[FIXED: Start -- End]}}\\
+{[FIXED: Institution]}, [FIXED: Location] \hfill GPA: \textbf{[FIXED]}/[FIXED]
+
+{[FIXED: Degree Title]} \hfill {\textcolor{black!60}{[FIXED: Start -- End]}}\\
+{[FIXED: Institution]}, [FIXED: Location] \hfill GPA: \textbf{[FIXED]}/[FIXED]
+\end{rSection}
+\vspace{-0.15cm}
+
+%----------------------------------------------------------------------------------------
+%	SELECTED PUBLICATIONS — GENERATE: Claude picks 5 per JD relevance
+%----------------------------------------------------------------------------------------
+% GENERATE: Score publications per JD relevance using pub_metadata.md
+% Copy-paste FIXED author + journal LaTeX blocks from pub_metadata.md
+% GENERATE JD-shortened title + JD-relevant keyword tags at runtime
+% 2-line hard limit per entry, last line >= 70% filled
+% Prioritize: first-author > co-first > contributing; high-impact > standard
+\begin{rSection2}{Selected Publications (\href{[CONFIG: Google Scholar URL]}{Google Scholar}: [FIXED: N] papers $\vert$ [FIXED: N]+ citations)}
+
+\item [GENERATE: Publication 1 -- most JD-relevant, short format]
+
+\item [GENERATE: Publication 2]
+
+\item [GENERATE: Publication 3]
+
+\item [GENERATE: Publication 4]
+
+\item [GENERATE: Publication 5]
+
+\end{rSection2}
+\vspace{-0.15cm}
+
+%----------------------------------------------------------------------------------------
+%	HONORS & AWARDS — FIXED: Fill with your actual awards
+%----------------------------------------------------------------------------------------
+% Format: \item \textbf{Award}, Granting Body (Year). Brief context.
+% Aim for 1 rendered line each. Adjust count to fit page budget.
+
+\begin{rSection2}{Honors \& Awards}
+\item \textbf{[FIXED: Award]}, [FIXED: Body] ([FIXED: Year]). [FIXED: context].
+\item \textbf{[FIXED: Award]}, [FIXED: Body] ([FIXED: Year]). [FIXED: context].
+\item \textbf{[FIXED: Award]}, [FIXED: Body] ([FIXED: Year]). [FIXED: context].
+\end{rSection2}
+\vspace{-0.1cm}
+
+%----------------------------------------------------------------------------------------
+%	IMMIGRATION — FIXED content, include/exclude per JD
+%   USA JD: keep this block | Non-USA JD: delete (frees ~2 lines)
+%----------------------------------------------------------------------------------------
+
+\begin{center}
+\vspace{0.15cm}
+\textit{[CONFIG: Immigration status line from config.md]}
+\end{center}
+
+\end{document}

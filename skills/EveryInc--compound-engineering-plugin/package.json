@@ -1,0 +1,35 @@
+{
+  "name": "@every-env/compound-plugin",
+  "version": "2.58.0",
+  "description": "Official Compound Engineering plugin for Claude Code, Codex, and more",
+  "type": "module",
+  "private": false,
+  "bin": {
+    "compound-plugin": "src/index.ts"
+  },
+  "homepage": "https://github.com/EveryInc/compound-engineering-plugin",
+  "repository": "https://github.com/EveryInc/compound-engineering-plugin",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "convert": "bun run src/index.ts convert",
+    "list": "bun run src/index.ts list",
+    "cli:install": "bun run src/index.ts install",
+    "test": "bun test",
+    "release:preview": "bun run scripts/release/preview.ts",
+    "release:sync-metadata": "bun run scripts/release/sync-metadata.ts --write",
+    "release:validate": "bun run scripts/release/validate.ts"
+  },
+  "dependencies": {
+    "citty": "^0.1.6",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "bun-types": "^1.0.0",
+    "semantic-release": "^25.0.3"
+  }
+}

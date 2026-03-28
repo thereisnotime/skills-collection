@@ -1,0 +1,125 @@
+# ========================
+# Personal / Sensitive Data
+# ========================
+.env
+config.json
+*MASTER*RESUME*
+*_RESUME_*
+*_Resume_*
+yale_transcript.txt
+Job_Application_Tracker.xlsx
+tailored_resume.txt
+_iter*.json
+Best_Fit_Job_Positions*.docx
+*.xlsx
+!config.example.json
+~$*.docx
+
+# ========================
+# Generated Applications (contain personal resumes/cover letters)
+# ========================
+applications/
+
+# ========================
+# Cache & Build Artifacts
+# ========================
+embed_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+Desktop.ini
+nul
+
+# ========================
+# Logs & Temp
+# ========================
+*.log
+.temp_data.json
+_temp_data.json
+test.json
+test_resume.docx
+
+# ========================
+# Unrelated / personal documents
+# ========================
+Biweekly Survey Questions*.docx
+HeallyConnect_Survey*.docx
+Resume*.docx
+*.settings.local.json
+
+# ========================
+# Client-specific batch scripts (contain personal data)
+# ========================
+create_docs.py
+generate_docs_*.py
+generate_kymera_docs.py
+
+# ========================
+# Claude / AI Agent State (transient)
+# ========================
+.claude/memory/
+.playwright-mcp/
+
+# ========================
+# Gemini commands (mirror of Claude commands — not needed for public)
+# ========================
+.gemini/
+
+# ========================
+# Batch Job Descriptions (user-specific)
+# ========================
+batch_jds/
+
+# ========================
+# Internal planning docs (not part of the tool)
+# ========================
+Deepresearch.md
+DEEP_RESEARCH_PROMPT.md
+MARKETING_PLAN.md
+SAAS_PLAN.md
+IMPLEMENTATION_PLAN.md
+ATS & HR Scorer Enhancement Research.txt
+Resume Builder Plugin Industry Research.txt
+
+# ========================
+# Cloud / Billing / Deployment (private — not for public repo)
+# ========================
+cloud/
+!cloud/__init__.py
+!cloud/client.py
+Dockerfile
+docker-compose.yml
+fly.toml
+.dockerignore
+requirements-cloud.txt
+*.db
+
+# ========================
+# Tests (private — not needed in public repo)
+# ========================
+tests/
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/

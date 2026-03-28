@@ -1,0 +1,19 @@
+{
+  "name": "neon",
+  "owner": {
+    "name": "Andre Landgraf",
+    "email": "andre@neon.tech"
+  },
+  "metadata": {
+    "description": "Official Neon Serverless Postgres plugins for Cursor",
+    "version": "1.0.0",
+    "pluginRoot": "plugins"
+  },
+  "plugins": [
+    {
+      "name": "neon-postgres",
+      "source": "neon-postgres",
+      "description": "Manage your Neon projects and databases with the neon-postgres agent skill and the Neon MCP Server"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "claude-mountaineering-skills",
+  "version": "4.0.1",
+  "description": "Claude Code plugin for North American mountain route research",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:dreamiurg/claude-mountaineering-skills.git"
+  },
+  "keywords": ["claude-code", "mountaineering", "climbing"],
+  "author": "dreamiurg",
+  "license": "MIT",
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "conventional-changelog-conventionalcommits": "^7.0.2",
+    "semantic-release": "^25.0.3"
+  }
+}

@@ -1,0 +1,6 @@
+# Personal data - don't commit
+assets/work-history/
+assets/tailored-resumes/
+
+# Keep templates
+!assets/templates/

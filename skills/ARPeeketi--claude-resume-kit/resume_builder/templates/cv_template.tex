@@ -1,0 +1,299 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TEMPLATE: Academic CV (cv.cls)
+% FIXED sections contain actual content — copy verbatim during generation
+% JD-DEPENDENT sections have [GENERATE: ...] placeholders — replace per JD
+%
+% SETUP INSTRUCTIONS:
+% 1. Fill [CONFIG: ...] with values from your config.md
+% 2. Fill ALL FIXED sections with your actual content
+% 3. Leave [GENERATE: ...] markers -- Claude fills these per JD
+% 4. After setup, compile and calibrate the line budget below
+%
+% PAGE 1 RULE: First bullet of first experience MUST be 2L (not 3L).
+% A 3L first bullet overflows page 1. If top achievement needs 3L,
+% make it bullet #2 and lead with a strong 2L bullet.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass{cv}
+\usepackage{hyperref}
+\usepackage{fontawesome}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{graphicx}
+\hypersetup{
+    colorlinks = true,
+    linkcolor = [rgb]{0.1,0.1,0.6},
+    citecolor = [rgb]{0.4,0.4,0.4},
+    urlcolor = [rgb]{0.0,0.0,0.7},
+    pdftitle = {[CONFIG: Full Name] - Academic CV},
+    pdfauthor = {[CONFIG: Full Name]}
+}
+\usepackage{xcolor}
+\usepackage[version=4,arrows=pgf-filled]{mhchem}
+\usepackage[includefoot,left=0.75in,top=0.76in,right=0.75in,bottom=0.7in,textwidth=7.5in,textheight=10.9in]{geometry}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\rfoot{\thepage/\pageref{LastPage}}
+
+%----------------------------------------------------------------------------------------
+%	HEADER — FIXED (3 rendered lines)
+%----------------------------------------------------------------------------------------
+\name{[CONFIG: Full Name, Degree]}
+\address{\faEnvelope~\href{mailto:[CONFIG: email]}{[CONFIG: email]}}
+\address{\faMapMarker~[CONFIG: City, State] $|$ \faLinkedin~\href{[CONFIG: LinkedIn URL]}{LinkedIn} $|$ \includegraphics[height=1em]{orcid.png}~\href{[CONFIG: ORCID URL]}{ORCID: [CONFIG: ORCID ID]} $|$ \includegraphics[height=1em]{GS.png}~\href{[CONFIG: Google Scholar URL]}{Google Scholar}}
+
+\begin{document}
+\vspace{-0.03cm}
+
+%========================================================================================
+%  CV LINE BUDGET — calibrate after filling FIXED sections
+%========================================================================================
+%
+% HOW TO CALIBRATE:
+% 1. Fill all FIXED sections with your actual content
+% 2. Compile with dummy GENERATE content
+% 3. Count rendered lines per page
+% 4. Update the budget numbers below
+%
+% TARGET: 5 pages total (A4, 11pt cv.cls)
+% Typical budget: ~209 rendered text lines across 5 pages
+% 1-2 lines slack at bottom of last page is acceptable.
+%
+% FIXED = content that never changes across JDs
+% JD-DEPENDENT = Claude generates per JD, but line COUNT is fixed
+%
+% CHARACTER LIMITS (rendered chars at 11pt, cv.cls geometry):
+%   Chars per line (CPL): ~93-97
+%
+%   CV-2L bullet: target 168-182 chars | HARD MAX 190 | orphan >= 65 chars
+%   CV-3L bullet: target 250-268 chars | HARD MAX 280 | orphan >= 65 chars
+%
+%   AIM FOR TARGET MIDDLE (175 for 2L, 260 for 3L) — NOT the hard max.
+%   Em-dash (---) counts as 1 char but renders ~2x wide. Budget 2 extra per em-dash.
+%   Bold in bullets: ~0.33 penalty/bold char (10 bold chars ≈ lose 3 chars capacity).
+%
+% EXPERIENCE BULLET BUDGET:
+%   After calibrating, determine how many rendered lines are available for
+%   experience bullets. Typical: ~45 rendered lines.
+%   Mix: 2L (2 rendered lines) + 3L (3 rendered lines)
+%   Example: 18x2L + 3x3L = 21 bullets in 45 lines
+%========================================================================================
+
+%========================================================================================
+%  RESEARCH SUMMARY — JD-DEPENDENT
+%========================================================================================
+% Generate per JD using bundle Section 2 building blocks.
+% Target: 6 body lines (5-6 sentences). Broader scope than resume summary.
+% Include key methods, current + past work, metrics.
+
+\begin{rSection}{Research Summary}
+[GENERATE: Rewrite per JD. 6 body lines. Include primary methods, key accomplishments across positions, and publication/citation metrics. Broader than resume summary — cover full research arc.]
+\end{rSection}
+\vspace{-0.01cm}
+
+%========================================================================================
+%  EDUCATION — FIXED
+%========================================================================================
+% Fill with your actual education. Format matches cv.cls styling.
+
+\begin{rSection}{Education}
+\textbf{[FIXED: Degree Title]} \hfill {[FIXED: Start -- End]}\\
+[FIXED: Institution, Location] \hfill GPA: [FIXED: X.XX/Y]\\
+\textit{Dissertation:} [FIXED: Title]\\
+\textit{Advisors:} [FIXED: Names]
+
+\textbf{[FIXED: Degree Title]} \hfill {[FIXED: Start -- End]}\\
+[FIXED: Institution, Location] \hfill GPA: [FIXED: X.XX/Y]
+\end{rSection}
+\vspace{-0.0cm}
+
+%========================================================================================
+%  TECHNICAL EXPERTISE — JD-DEPENDENT
+%  LOCKED: 4-4-3-3-3 ALWAYS (5 groups, 17 body lines). No variants.
+%========================================================================================
+% Generate from: JD + skills_taxonomy.md + bundle Section 6.
+% Top 2 JD-relevant groups get "4" (1 header + 3 dashes), rest get "3" (1 header + 2 dashes).
+% Last group (Programming & HPC): always last, always "3".
+% Group names, ordering, dash content, bold tools ALL vary per JD.
+%
+% DASH RULES:
+%   Each dash = exactly 1 rendered line. Bold 6-8 JD-relevant tools.
+%   BOLD PENALTY: target 83-88 rendered chars when bold tools present; ~93 without bold.
+
+\begin{rSection}{Technical Expertise}
+% FORMAT C: Use \skillgroup{} and \skilldash{} from cv.cls
+% LOCKED: 4-4-3-3-3 ALWAYS (17 body lines)
+% Each \skilldash = exactly 1 rendered line. Char limit: 91 - (0.25 x bold_chars)
+
+\begin{skillgroup}{[GENERATE: Top JD-Relevant Domain]}
+\skilldash{[GENERATE: max ~83-88 chars with bold penalty]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Second Domain]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Third Domain]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Fourth Domain]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\begin{skillgroup}{[GENERATE: Programming \& HPC]}
+\skilldash{[GENERATE]}
+\skilldash{[GENERATE]}
+\end{skillgroup}
+
+\end{rSection}
+\vspace{-0.0cm}
+
+%========================================================================================
+%  RESEARCH EXPERIENCE — MIXED FIXED/JD-DEPENDENT
+%  Position headers: FIXED | Sub-theme count: FIXED per position | Content: JD-DEPENDENT
+%========================================================================================
+% cv.cls rSubsection: {Title}{Dates}{Location}{Mentors/Advisors}
+% CRITICAL: cv.cls puts Args 3 and 4 on SEPARATE italic lines (unlike resume.cls!)
+% Sub-themes via \subtheme{...}
+% NEVER use code folder names as package names.
+
+\begin{rSection}{Research Experience}
+
+% --- Position 1 (most recent): FIXED header, N sub-themes, M bullets ---
+% Replace sub-theme names and bullets per JD. Keep sub-theme COUNT fixed.
+\begin{rSubsection}{[FIXED: Title]}{\textcolor{black!60}{[FIXED: Start -- Present]}}{[FIXED: Institution, Department]}{[FIXED: Mentors/Advisors]}
+
+\subtheme{[GENERATE: Sub-theme 1 name]}
+\item [GENERATE: Bullet]
+\item [GENERATE: Bullet]
+\subtheme{[GENERATE: Sub-theme 2 name]}
+\item [GENERATE: Bullet]
+\item [GENERATE: Bullet]
+\subtheme{[GENERATE: Sub-theme 3 name]}
+\item [GENERATE: Bullet]
+
+\end{rSubsection}
+
+% --- Position 2: FIXED header, N sub-themes, M bullets ---
+\begin{rSubsection}{[FIXED: Title]}{\textcolor{black!60}{[FIXED: Start -- End]}}{[FIXED: Institution]}{[FIXED: Advisors]}
+
+\subtheme{[GENERATE: Sub-theme 1 name]}
+\item [GENERATE: Bullet]
+\item [GENERATE: Bullet]
+\subtheme{[GENERATE: Sub-theme 2 name]}
+\item [GENERATE: Bullet]
+\subtheme{[GENERATE: Sub-theme 3 name]}
+\item [GENERATE: Bullet]
+
+\end{rSubsection}
+
+% --- Position 3: FIXED header, N sub-themes, M bullets ---
+\begin{rSubsection}{[FIXED: Title]}{\textcolor{black!60}{[FIXED: Start -- End]}}{[FIXED: Institution]}{[FIXED: Advisors]}
+
+\subtheme{[GENERATE: Sub-theme 1 name]}
+\item [GENERATE: Bullet]
+\subtheme{[GENERATE: Sub-theme 2 name]}
+\item [GENERATE: Bullet]
+
+\end{rSubsection}
+
+% --- Optional: FIXED position (bullets never change) ---
+% \begin{rSubsection}{[FIXED: Theme]}{\textcolor{black!60}{[FIXED: Dates]}}{[FIXED: Title, Institution]}{}
+% \item [FIXED: Bullet — same in every CV]
+% \end{rSubsection}
+
+\end{rSection}
+
+%========================================================================================
+%  FELLOWSHIPS & HONORS — FIXED
+%========================================================================================
+% Fill with your actual fellowships and honors.
+% Format: \item \textbf{Name}, Granting Body (Year). Context.
+% Target: 2 rendered lines per entry.
+
+\begin{rSection2}{Fellowships \& Honors}
+\item \textbf{[FIXED: Fellowship/Award]}, [FIXED: Body] ([FIXED: Year]). [FIXED: Context and significance].
+\item \textbf{[FIXED: Fellowship/Award]}, [FIXED: Body] ([FIXED: Year]). [FIXED: Context].
+\item \textbf{[FIXED: Fellowship/Award]}, [FIXED: Body] ([FIXED: Year]). [FIXED: Context].
+\end{rSection2}
+
+%========================================================================================
+%  PUBLICATIONS — FIXED (copy your full publication list)
+%========================================================================================
+% All content is FIXED. Copy verbatim during generation. Never modify per JD.
+% Use et al. format per Generation Rule 4.
+% Never include "In Preparation" or "Submitted" unless actually submitted.
+% $\dagger$ marks equal-contribution first authors.
+
+\begin{rSection}{Publications}
+\textit{[FIXED: N] peer-reviewed articles $|$ [FIXED: N]+ citations $|$ h-index: [FIXED: N]} \hfill \href{[CONFIG: Google Scholar URL]}{[Google Scholar]}\\
+\vspace{0.07cm}
+$\dagger$ - equal contribution as first author.
+\vspace{0.15cm}
+
+\textbf{Published}
+\begin{enumerate}[leftmargin=1.5em, labelsep=0.5em, itemsep=0.1em]
+% List publications in reverse chronological order.
+% Format per entry:
+% \item[N.] \textbf{Your Name}, Co-Author, \textit{et al.} ``Title.'' \textit{Journal} \textbf{Vol}, Pages (Year).
+\item[3.] [FIXED: Author list. ``Title.'' \textit{Journal} \textbf{Vol}, Pages (Year).]
+\item[2.] [FIXED: ...]
+\item[1.] [FIXED: ...]
+\end{enumerate}
+
+% Optional: Under Review section (only if actually under review -- check config.md provenance)
+% \textbf{Under Review}
+% \begin{enumerate}[leftmargin=1.5em, labelsep=0.5em, itemsep=0.1em]
+% \item[--] [FIXED: Author list. ``Title.'' \textit{Journal}. Under review.]
+% \end{enumerate}
+\end{rSection}
+
+%========================================================================================
+%  SELECTED PRESENTATIONS — FIXED
+%========================================================================================
+% Format: \item \textbf{Your Name}, Co-Authors. ``Title.'' \textit{Venue}, Location (Year).
+% Target: 2 rendered lines per entry.
+
+\begin{rSection2}{Selected Presentations}
+\item \textbf{[FIXED: Authors]}. ``[FIXED: Title].'' \textit{[FIXED: Venue]}, [FIXED: Location] ([FIXED: Year]).
+\item [FIXED: ...]
+\end{rSection2}
+
+%========================================================================================
+%  MENTORSHIP & SERVICE — FIXED
+%========================================================================================
+
+\begin{rSection2}{Mentorship \& Professional Service}
+\item \textbf{[FIXED: Category]:} [FIXED: Details — number of students, outcomes, etc.]
+\item \textbf{[FIXED: Category]:} [FIXED: Details]
+\item \textbf{[FIXED: Category]:} [FIXED: Details]
+\end{rSection2}
+
+%========================================================================================
+%  INTERNATIONAL COLLABORATIONS — FIXED (optional section)
+%========================================================================================
+
+\begin{rSection2}{International Collaborations}
+\item \textbf{[FIXED: Institution]} ([FIXED: Years]): [FIXED: Description and collaborators].
+\item [FIXED: ...]
+\end{rSection2}
+
+%========================================================================================
+%  COMPUTING RESOURCES — FIXED (optional section)
+%========================================================================================
+
+\begin{rSection2}{Computing Resources \& Code Development}
+\item [FIXED: HPC resources, CPU/GPU hours, clusters managed.]
+\item [FIXED: Code development roles, frameworks, tools built.]
+\end{rSection2}
+
+\end{document}

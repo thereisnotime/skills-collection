@@ -1,0 +1,22 @@
+{
+  "name": "better-i18n-agent-skills",
+  "owner": {
+    "name": "Osman",
+    "email": "hi@better-i18n.com"
+  },
+  "metadata": {
+    "description": "Better i18n skills for internationalization",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "i18n-skills",
+      "description": "Integrate i18n into JavaScript/TypeScript projects with Better i18n platform",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./best-practices"
+      ]
+    }
+  ]
+}

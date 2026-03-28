@@ -1,0 +1,133 @@
+# Cover Letter Transformation Rules
+# This file defines how to transform cover letter templates into job-specific versions
+
+schema_version: '1.0'
+
+# Target output schema for tailored cover letters
+target_schema:
+  version: 'string' # Schema version
+  job_focus: # Array of job focuses from analysis (OPTIONAL)
+    - primary_area: 'string' # senior_engineer, tech_lead, etc.
+      specialties: ['string'] # [ai, ml, react, typescript]
+      weight: 'number' # 0.0-1.0
+  analysis_date: 'string' # Date of job analysis
+
+  cover_letter:
+    name: 'string' # Full name (REQUIRED)
+    company: 'string' # Target company name (REQUIRED)
+    position: 'string' # Target job position (OPTIONAL)
+    primary_focus: 'string' # highest weighted primary_area from job_focus array (OPTIONAL)
+    date: 'string' # Application date (REQUIRED)
+
+    personal_info:
+      address: 'string' # Physical address (OPTIONAL)
+      email: 'string' # Email address (REQUIRED)
+      phone: 'string' # Phone number (REQUIRED)
+      linkedin: 'string' # LinkedIn profile URL (OPTIONAL)
+      github: 'string' # GitHub profile URL (OPTIONAL)
+
+    content:
+      letter_title: 'string' # Cover letter title (REQUIRED - used as fallback if position is missing)
+      opening_line: 'string' # Personalized opening line (REQUIRED)
+      body: ['array'] # Array of paragraph strings (REQUIRED)
+      signature: 'string' # Professional signature block (REQUIRED)
+
+# Transformation rules
+transformation_rules:
+  # Template selection based on highest weighted job focus
+  template_selection:
+    source: 'cover_letter.templates'
+    selection_logic: |
+      1. Get highest weighted job_focus item from array
+      2. Use primary_area to determine template category
+      3. Use top 3 specialties to customize template content
+    fallback: 'senior_engineer' # Default template if focus unclear
+
+  # Variable replacement rules
+  variable_replacement:
+    - placeholder: '[COMPANY]'
+      source: 'job_analysis.company'
+
+    - placeholder: '[POSITION]'
+      source: 'job_analysis.position'
+
+    - placeholder: '[TECH_SKILLS]'
+      source: 'job_analysis.job_focus[0].specialties'
+      transformation: 'select_top_3_from_highest_weighted_focus'
+
+  # Content enhancement rules
+  content_optimization:
+    - 'integrate_matching_skills'
+    - 'select_relevant_achievements'
+    - 'add_company_insights'
+    - 'format_body_as_paragraph_array'
+
+  # Tone and style adjustments
+  tone_default: 'professional'
+
+# Quality rules
+length_constraints:
+  total_words: 200-400
+
+# Required fields
+required_fields:
+  - 'cover_letter.name'
+  - 'cover_letter.company'
+  - 'cover_letter.date'
+  - 'cover_letter.personal_info.email'
+  - 'cover_letter.personal_info.phone'
+  - 'cover_letter.content.letter_title'
+  - 'cover_letter.content.opening_line'
+  - 'cover_letter.content.body'
+  - 'cover_letter.content.signature'
+
+# Optional fields
+optional_fields:
+  - 'cover_letter.position'
+  - 'cover_letter.job_focus'
+  - 'cover_letter.primary_focus'
+  - 'cover_letter.personal_info.address'
+  - 'cover_letter.personal_info.linkedin'
+  - 'cover_letter.personal_info.github'
+
+validation_rules:
+  - 'If job_focus is provided, it must be non-empty array'
+  - 'If job_focus is provided, weights must sum to 1.0'
+  - 'At least one of position or letter_title must be provided for Title section'
+
+# Output template structure
+output_template: |
+  version: "{{ schema_version }}"
+  job_focus: "{{ job_analysis.job_focus }}"    # Full array from job analysis
+  analysis_date: "{{ analysis_date }}"
+
+  cover_letter:
+    company: "{{ job_analysis.company }}"
+    position: "{{ job_analysis.position }}"
+    primary_focus: "{{ job_analysis.job_focus[0].primary_area }}"  # Highest weighted focus
+    date: "{{ current_date }}"
+
+    name: "{{ personal_info.name }}"
+    personal_info:
+      address: "{{ personal_info.address }}"
+      email: "{{ personal_info.email }}"
+      phone: "{{ personal_info.phone }}"
+      linkedin: "{{ personal_info.linkedin }}"
+      github: "{{ personal_info.github }}"
+
+    content:
+      letter_title: "Cover Letter {{ job_analysis.primary_focus | title }} Engineer"
+
+      opening_line: |
+        Dear {{ company }} Hiring Team,
+
+      body:
+        - "I am writing to express my strong interest in the {{ position }} role. As a {{ role_level }} {{ primary_discipline }} with over {{ years_experience }} years of experience building {{ domain_focus }}, I am excited about the opportunity to contribute to {{ company }}'s mission."
+        - "My extensive experience in {{ relevant_technical_areas }} aligns perfectly with {{ company }}'s {{ business_focus }}. At {{ recent_company }}, {{ primary_achievement_with_metrics }}. I also {{ secondary_achievement_with_impact }}."
+        - "What particularly excites me about this role is {{ specific_role_attraction }}. At {{ previous_company }}, {{ technical_achievement_with_metrics }}—experience that translates directly to {{ relevant_job_responsibilities }}."
+        - "Beyond technical expertise, I thrive in {{ collaboration_style }}, having {{ cross_functional_experience }}. My international experience {{ geographic_experience }} has strengthened my {{ cultural_strengths }}. I am fluent in {{ languages_list }}, and am available to start {{ availability }}."
+        - "Thank you for considering my application. I am eager to bring my {{ key_expertise }} to {{ company }} and contribute to {{ specific_company_goals }}."
+
+      signature: |
+        {{ closing_style }},
+        {{ full_name }}

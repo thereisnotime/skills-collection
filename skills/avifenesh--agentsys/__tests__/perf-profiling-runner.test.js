@@ -1,0 +1,45 @@
+const profilingRunner = require('../lib/perf/profiling-runner');
+const profilers = require('../lib/perf/profilers');
+
+describe('perf profiling runner', () => {
+  it('runs selected profiler command', () => {
+    const originalSelect = profilers.selectProfiler;
+    profilers.selectProfiler = () => ({
+      id: 'fake',
+      buildCommand: () => 'node -e "console.log(\'ok\')"',
+      parseOutput: () => ({ tool: 'fake', hotspots: ['file:1'], artifacts: ['out.prof'] })
+    });
+
+    const result = profilingRunner.runProfiling();
+    profilers.selectProfiler = originalSelect;
+
+    expect(result.ok).toBe(true);
+    expect(result.result.tool).toBe('fake');
+    expect(result.result.artifacts[0]).toBe('out.prof');
+  });
+});
+
+it('does not enforce timeout when timeoutMs is not provided', () => {
+  jest.resetModules();
+  const execFileSync = jest.fn();
+  jest.doMock('child_process', () => ({ execFileSync }));
+  jest.doMock('../lib/perf/profilers', () => ({
+    selectProfiler: () => ({
+      id: 'fake',
+      buildCommand: () => 'node -e "console.log(1)"',
+      parseOutput: () => ({ tool: 'fake', hotspots: [], artifacts: [] })
+    })
+  }));
+
+  const runner = require('../lib/perf/profiling-runner');
+  const result = runner.runProfiling({ timeoutMs: undefined });
+
+  expect(result.ok).toBe(true);
+  expect(execFileSync).toHaveBeenCalledTimes(1);
+  const options = execFileSync.mock.calls[0][2];
+  expect(options.timeout).toBeUndefined();
+
+  jest.dontMock('child_process');
+  jest.dontMock('../lib/perf/profilers');
+  jest.resetModules();
+});

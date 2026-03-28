@@ -1,0 +1,43 @@
+{
+  "name": "basm-claude-skills",
+  "owner": {
+    "name": "Bruno de Medeiros",
+    "email": "bdemedeiros@fieldmuseum.org"
+  },
+  "metadata": {
+    "description": "Bruno de Medeiros' curated collection of custom Claude skills for enhanced reasoning, deeper analysis, and bioinformatics",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "general-skills",
+      "description": "Custom general skills to improve claude outputs",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./think_deeply",
+        "./extract_from_pdfs"
+      ]
+    },
+    {
+      "name": "bioinfo-skills",
+      "description": "Bioinformatics skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./phylo_from_buscos",
+        "./biogeobears"
+      ]
+    },
+    {
+      "name": "museum-skills",
+      "description": "Museum collection management skills for FMNH entomology workflows",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./Emu_bulk_upload_FMNH",
+        "./entomological_labels"
+      ]
+    }
+  ]
+}

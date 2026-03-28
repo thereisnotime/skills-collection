@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# claude-blog installer
+# Installs the blog skill ecosystem to ~/.claude/skills/ and ~/.claude/agents/
+#
+# One-command install:
+#   curl -sL https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.sh | bash
+
+# Declared outside main() so the EXIT trap can access it after main() returns
+TEMP_DIR=""
+
+main() {
+    local SKILL_DIR="${HOME}/.claude/skills"
+    local AGENT_DIR="${HOME}/.claude/agents"
+    local SCRIPT_DIR
+
+    echo ""
+    echo "  ╔══════════════════════════════════════╗"
+    echo "  ║         claude-blog Installer        ║"
+    echo "  ║  Blog Content Engine for Claude Code ║"
+    echo "  ╚══════════════════════════════════════╝"
+    echo ""
+
+    # Determine source directory (local clone or piped from curl)
+    if [ -f "${BASH_SOURCE[0]:-}" ] && [ -d "$(dirname "${BASH_SOURCE[0]}")/skills/blog" ]; then
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    else
+        echo "→ Cloning claude-blog..."
+        TEMP_DIR="$(mktemp -d)"
+        trap 'rm -rf "${TEMP_DIR}"' EXIT
+        git clone --depth 1 https://github.com/AgriciDaniel/claude-blog.git "${TEMP_DIR}/claude-blog" 2>/dev/null
+        SCRIPT_DIR="${TEMP_DIR}/claude-blog"
+    fi
+
+    # Check prerequisites
+    if ! command -v python3 &>/dev/null; then
+        echo "WARNING: python3 not found. The analyze_blog.py script requires Python 3.12+."
+        echo "         Install with: sudo apt install python3"
+        echo ""
+    fi
+
+    # Create directories
+    echo "→ Creating directories..."
+    mkdir -p "${SKILL_DIR}/blog/references"
+    mkdir -p "${SKILL_DIR}/blog/templates"
+    mkdir -p "${SKILL_DIR}/blog/scripts"
+    mkdir -p "${AGENT_DIR}"
+
+    # Copy main skill
+    echo "→ Installing main skill: blog..."
+    cp "${SCRIPT_DIR}/skills/blog/SKILL.md" "${SKILL_DIR}/blog/SKILL.md"
+
+    # Copy references
+    echo "→ Installing reference files..."
+    if ls "${SCRIPT_DIR}/skills/blog/references/"*.md &>/dev/null; then
+        cp "${SCRIPT_DIR}/skills/blog/references/"*.md "${SKILL_DIR}/blog/references/"
+    fi
+
+    # Copy templates
+    if ls "${SCRIPT_DIR}/skills/blog/templates/"*.md &>/dev/null; then
+        echo "→ Installing content templates..."
+        cp "${SCRIPT_DIR}/skills/blog/templates/"*.md "${SKILL_DIR}/blog/templates/"
+    fi
+
+    # Copy sub-skills (auto-discovers all skill directories)
+    echo "→ Installing sub-skills..."
+    for skill_dir in "${SCRIPT_DIR}/skills/"*/; do
+        skill_name="$(basename "${skill_dir}")"
+        [ "$skill_name" = "blog" ] && continue
+        mkdir -p "${SKILL_DIR}/${skill_name}"
+        if [ -f "${skill_dir}SKILL.md" ]; then
+            cp "${skill_dir}SKILL.md" "${SKILL_DIR}/${skill_name}/SKILL.md"
+            echo "  + ${skill_name}"
+        fi
+        # Copy references/ if present
+        if [ -d "${skill_dir}references" ]; then
+            mkdir -p "${SKILL_DIR}/${skill_name}/references"
+            cp "${skill_dir}references/"* "${SKILL_DIR}/${skill_name}/references/" 2>/dev/null || true
+        fi
+        # Copy scripts/ if present
+        if [ -d "${skill_dir}scripts" ]; then
+            mkdir -p "${SKILL_DIR}/${skill_name}/scripts"
+            cp "${skill_dir}scripts/"* "${SKILL_DIR}/${skill_name}/scripts/" 2>/dev/null || true
+            chmod +x "${SKILL_DIR}/${skill_name}/scripts/"*.py 2>/dev/null || true
+        fi
+    done
+
+    # Create personas directory for blog-persona
+    mkdir -p "${SKILL_DIR}/blog/references/personas"
+
+    # Copy agents
+    echo "→ Installing agents..."
+    for agent_file in "${SCRIPT_DIR}/agents/"*.md; do
+        if [ -f "${agent_file}" ]; then
+            agent_name="$(basename "${agent_file}")"
+            cp "${agent_file}" "${AGENT_DIR}/${agent_name}"
+            echo "  + ${agent_name%.md}"
+        fi
+    done
+
+    # Copy scripts
+    echo "→ Installing scripts..."
+    cp "${SCRIPT_DIR}/scripts/analyze_blog.py" "${SKILL_DIR}/blog/scripts/analyze_blog.py"
+    chmod +x "${SKILL_DIR}/blog/scripts/analyze_blog.py"
+
+    # Install Python dependencies
+    if [ -f "${SCRIPT_DIR}/requirements.txt" ] && command -v pip3 &>/dev/null; then
+        echo "→ Installing Python dependencies..."
+        pip3 install --quiet -r "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || \
+        echo "  Skipped: Install manually with 'pip3 install -r requirements.txt'"
+        echo "  Tip: Consider using a virtual environment: python3 -m venv .venv && source .venv/bin/activate"
+    fi
+
+    echo ""
+    echo "  ╔══════════════════════════════════════╗"
+    echo "  ║       Installation Complete!         ║"
+    echo "  ╚══════════════════════════════════════╝"
+    echo ""
+    echo "  Installed:"
+    echo "    Main skill:   blog/ (orchestrator + references + templates)"
+    echo "    Sub-skills:   20 (19 commands + 1 internal)"
+    echo "    Agents:       4 specialists"
+    echo "    Scripts:      analyze_blog.py"
+    echo ""
+    echo "  Commands available:"
+    echo "    /blog write <topic>        Write a new blog post"
+    echo "    /blog rewrite <file>       Optimize an existing blog post"
+    echo "    /blog analyze <file>       Audit blog quality (0-100 score)"
+    echo "    /blog brief <topic>        Generate a content brief"
+    echo "    /blog calendar             Generate an editorial calendar"
+    echo "    /blog strategy <niche>     Blog strategy and topic ideation"
+    echo "    /blog outline <topic>      SERP-informed outline generation"
+    echo "    /blog seo-check <file>     Post-writing SEO validation"
+    echo "    /blog schema <file>        Generate JSON-LD schema markup"
+    echo "    /blog repurpose <file>     Repurpose for other platforms"
+    echo "    /blog geo <file>           AI citation optimization audit"
+    echo "    /blog image <idea>         AI image generation via Gemini"
+    echo "    /blog audit [directory]    Full-site blog health assessment"
+    echo "    /blog cannibalization      Detect keyword overlap across posts"
+    echo "    /blog factcheck            Verify statistics against sources"
+    echo "    /blog persona              Manage writing personas"
+    echo "    /blog taxonomy             Tag/category CMS management"
+    echo "    /blog notebooklm <query>   Query NotebookLM for research"
+    echo "    /blog audio <file>         Generate audio narration via Gemini TTS"
+    echo ""
+    echo "  Optional: AI Features (same API key for both)"
+    echo "    /blog image setup             Configure Gemini image generation"
+    echo "    /blog audio setup             Configure Gemini TTS audio narration"
+    echo "    Requires: Google AI API key (free at https://aistudio.google.com/apikey)"
+    echo ""
+    echo "  Restart Claude Code to activate the new skill."
+}
+
+main "$@"

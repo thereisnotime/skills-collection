@@ -1,0 +1,125 @@
+resume:
+  name: "Hi Github, I'm tailor"
+  profile_picture: 'https://i.guim.co.uk/img/media/a23aeb1f7ff20bb80f68852da17743b0e557f8ed/0_224_3504_2102/master/3504.jpg?width=1200&height=1200&quality=85&auto=format&fit=crop&s=9e9a99e479ee60270b69ede4d869b20f'
+  title: 'Senior Frontend Engineer | UI/UX Advocate'
+  summary: 'Senior React Engineer with 10+ years leading scalable frontend initiatives and transforming legacy systems. Expert in TypeScript, modern component architecture, and design systems. Proven track record architecting products for millions of users and fostering technical excellence across large cross-functional teams.'
+
+  contact:
+    phone: '+1 (555) 555-5555'
+    email: 'john.doe@example.com'
+    address: '456 Innovation Drive, San Francisco, CA 94105'
+    linkedin: 'https://www.linkedin.com/in/johndoe-example'
+    github: 'https://github.com/johndoe-example'
+
+  technical_expertise:
+    - resume_title: 'Frontend Development'
+      skills:
+        - 'React'
+        - 'TypeScript'
+        - 'Next.js'
+        - 'JavaScript (ES6+)'
+        - 'HTML5 & CSS3'
+        - 'Tailwind CSS'
+        - 'Vite'
+        - 'React-PDF'
+    - resume_title: 'Backend Development'
+      skills:
+        - 'Node.js'
+        - 'Express.js'
+        - 'Python'
+        - 'FastAPI'
+        - 'PostgreSQL'
+        - 'MongoDB'
+        - 'REST APIs'
+        - 'GraphQL'
+    - resume_title: 'Quality Assurance & Testing'
+      skills:
+        - 'Cypress'
+        - 'Jest'
+        - 'Playwright'
+        - 'E2E Testing'
+        - 'CI/CD'
+        - 'Test Automation'
+        - 'Zod Schema Validation'
+        - 'GitHub Actions'
+    - resume_title: 'Systems & Architecture'
+      skills:
+        - 'Microservices Architecture'
+        - 'Docker'
+        - 'Kubernetes'
+        - 'Railway-Oriented Pipelines'
+        - 'Functional Composition'
+        - 'Result Types & Error Propagation'
+
+  skills:
+    - 'Cross-functional Teamwork'
+    - 'Agile/Scrum Methodologies'
+    - 'Analytical Thinking'
+    - 'Pattern Recognition'
+    - 'Strategic Planning'
+    - 'Technical Documentation'
+    - 'Stakeholder Communication'
+    - 'Mentorship & Coaching'
+    - 'Clear Code Commenting'
+
+  languages:
+    - language: 'Spanish'
+      proficiency: 'Native'
+    - language: 'English'
+      proficiency: 'Professional Working Proficiency'
+    - language: 'German'
+      proficiency: 'Professional Working Proficiency'
+
+  professional_experience:
+    - company: 'Innovate AI'
+      position: 'Senior AI Engineer'
+      location: 'San Francisco, CA'
+      duration: 'July 2021 - Present'
+      company_description: 'A startup building next-generation AI-powered developer tools.'
+      linkedin: 'https://www.linkedin.com/company/example-innovate-ai'
+      achievements:
+        - 'Created a complex data visualization dashboard with React and D3.js to display model performance metrics.'
+        - 'Championed the adoption of a design system, ensuring UI consistency across all AI products.'
+        - 'Developed a full-stack application for real-time log analysis using Node.js, React, and WebSocket.'
+        - 'Designed and implemented a REST API for a new semantic search feature, serving over 1M requests per day.'
+
+    - company: 'NextGen Solutions'
+      position: 'Senior Software Engineer'
+      location: 'Palo Alto, CA'
+      duration: 'June 2016 - July 2021'
+      company_description: 'A mid-sized tech company focused on cloud-based enterprise software.'
+      linkedin: 'https://www.linkedin.com/company/example-nextgen'
+      achievements:
+        - 'Led the migration of a legacy jQuery frontend to a modern React and TypeScript stack.'
+        - 'Improved web application performance, achieving a 30% faster load time and a Lighthouse score of 95.'
+        - 'Built a reusable component library that was adopted by three different product teams.'
+        - 'Architected and led the development of a new microservices-based platform from scratch using Node.js and React.'
+
+    - company: 'Web Weavers Inc.'
+      position: 'Software Engineer'
+      location: 'Austin, TX'
+      duration: 'August 2012 - June 2016'
+      company_description: 'A digital agency building websites and web applications for a variety of clients.'
+      linkedin: 'https://www.linkedin.com/company/example-webweavers'
+      achievements:
+        - 'Translated complex design mockups into pixel-perfect, responsive web pages using HTML, CSS, and JavaScript.'
+        - 'Worked closely with designers to improve user experience and accessibility.'
+        - 'Developed and maintained over 15 full-stack web applications for clients using the MERN stack.'
+
+  independent_projects:
+    - name: 'Claude Code Job Tailor'
+      location: 'Open Source'
+      duration: '2025'
+      description: 'Free, open-source resume optimization platform that analyzes job postings and generates tailored PDF resumes using AI-driven content selection and specialty-based scoring.'
+      url: 'https://github.com/javiera-vasquez/claude-code-job-tailor'
+      achievements:
+        - 'Single-source YAML data model: Automatically selects achievements via specialty-matched scoring; supports 4+ resume versions.'
+        - 'Live development workflow: Real-time preview, file watching, auto-validation, collaborative editing with instant feedback.'
+        - 'Weighted job analysis: Extracts and ranks requirements (1-10 priority) with AI candidate alignment scoring.'
+      impact: 'Generates ATS-optimized resumes in under 60 seconds with zero paywalls; eliminates manual tailoring through intelligent content selection, enabling developers to apply strategically with higher relevance.'
+
+  education:
+    - institution: 'California Institute of Technology'
+      program: 'B.S. in Computer Science'
+      location: 'Pasadena, CA'
+      duration: '2008 - 2012'

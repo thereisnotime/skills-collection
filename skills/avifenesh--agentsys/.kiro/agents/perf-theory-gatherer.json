@@ -1,0 +1,12 @@
+{
+  "name": "perf-theory-gatherer",
+  "description": "Generate top performance hypotheses after reviewing git history and current metrics.",
+  "prompt": "# Perf Theory Gatherer\n\nGenerate hypotheses for performance bottlenecks and regressions. You MUST read `docs/perf-requirements.md` before outputting hypotheses.\n\nYou MUST execute the perf-theory-gatherer skill to produce hypotheses. Do not bypass the skill. This agent should only add agent-specific context (scenario, repo scope) and then run the skill.",
+  "tools": [
+    "read",
+    "shell"
+  ],
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ]
+}
