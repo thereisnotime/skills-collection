@@ -3,11 +3,11 @@
     "date": "2026-03-28",
     "stars": {
       "slavingia--skills": 4942,
-      "zarazhangrui--codebase-to-course": 2260,
+      "zarazhangrui--codebase-to-course": 2262,
       "samber--cc-skills-golang": 524,
       "realkimbarrett--advertising-skills": 369,
       "ComposioHQ--awesome-claude-skills": 48804,
-      "anthropics--skills": 105039,
+      "anthropics--skills": 105040,
       "1NickPappas--move-code-quality-skill": 18,
       "ARPeeketi--claude-resume-kit": 30,
       "AgriciDaniel--claude-blog": 331,
@@ -17,7 +17,7 @@
       "EveryInc--compound-engineering-plugin": 11359,
       "Eyadkelleh--awesome-claude-skills-security": 112,
       "HeshamFS--materials-simulation-skills": 28,
-      "Imbad0202--academic-research-skills": 1528,
+      "Imbad0202--academic-research-skills": 1529,
       "K-Dense-AI--claude-scientific-skills": 16538,
       "K-Dense-AI--claude-scientific-writer": 1344,
       "NeoLabHQ--context-engineering-kit": 723,
@@ -55,7 +55,7 @@
       "michalparkola--tapestry-skills-for-claude-code": 305,
       "neondatabase--agent-skills": 43,
       "netlify--context-and-tools": 10,
-      "obra--superpowers": 120491,
+      "obra--superpowers": 120494,
       "obra--superpowers-skills": 581,
       "omkamal--pypict-claude-skill": 62,
       "proficientlyjobs--proficiently-claude-skills": 78,
@@ -77,7 +77,7 @@
       "vercel-labs--next-skills": 783,
       "wrsmith108--linear-claude-skill": 74,
       "wrsmith108--varlock-claude-skill": 16,
-      "zarazhangrui--frontend-slides": 11553,
+      "zarazhangrui--frontend-slides": 11554,
       "zxkane--aws-skills": 223
     }
   }
