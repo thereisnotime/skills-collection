@@ -68,45 +68,53 @@ jobs:
           fi
 
           # Check for duplicates (URL or dir name)
-          python3 -c "
-          import json, sys
+          export CHECK_URL="$REPO_URL"
+          export CHECK_DIR="$DIR_NAME"
+          python3 << 'PYEOF'
+          import json, sys, os
           inv = json.loads(open('inventory.json').read())
+          url = os.environ['CHECK_URL']
+          dir_name = os.environ['CHECK_DIR']
 
           for r in inv:
-              if r['url'] == '${REPO_URL}':
-                  print(f'❌ URL already in inventory as {r[\"dir\"]}')
+              if r['url'] == url:
+                  print(f'❌ URL already in inventory as {r["dir"]}')
                   sys.exit(1)
-              if r['dir'] == '${DIR_NAME}':
-                  print(f'❌ Dir name ${DIR_NAME} already taken by {r[\"url\"]}')
+              if r['dir'] == dir_name:
+                  print(f'❌ Dir name {dir_name} already taken by {r["url"]}')
                   sys.exit(1)
 
           print('✅ No duplicates found')
-          "
+          PYEOF
 
           echo "REPO_URL=$REPO_URL" >> "$GITHUB_ENV"
           echo "DIR_NAME=$DIR_NAME" >> "$GITHUB_ENV"
 
       - name: "\u2795 Add to inventory"
+        env:
+          ADD_URL: ${{ env.REPO_URL }}
+          ADD_DIR: ${{ env.DIR_NAME }}
+          ADD_DESC: ${{ inputs.description }}
         run: |
-          python3 -c "
-          import json
+          python3 << 'PYEOF'
+          import json, os
           inv = json.loads(open('inventory.json').read())
           inv.append({
-              'url': '${{ env.REPO_URL }}',
-              'dir': '${{ env.DIR_NAME }}',
-              'description': '${{ inputs.description }}'
+              'url': os.environ['ADD_URL'],
+              'dir': os.environ['ADD_DIR'],
+              'description': os.environ['ADD_DESC'],
           })
           open('inventory.json', 'w').write(json.dumps(inv, indent=2) + '\n')
-          print('📦 Added ${{ env.DIR_NAME }} to inventory')
-          "
+          print(f'📦 Added {os.environ["ADD_DIR"]} to inventory')
+          PYEOF
 
       - name: "\U0001F504 Update remove workflow dropdown"
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import json, re
 
           inv = json.loads(open('inventory.json').read())
-          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          options = '\n'.join(f'          - {r["dir"]}' for r in inv)
           wf = open('.github/workflows/remove-repo.yml').read()
           wf = re.sub(
               r'(options:\n)((?:          - .+\n)*)',
@@ -115,7 +123,7 @@ jobs:
           )
           open('.github/workflows/remove-repo.yml', 'w').write(wf)
           print('📝 Updated dropdown options')
-          "
+          PYEOF
 
       - name: "\U0001F4BE Commit & push"
         run: |

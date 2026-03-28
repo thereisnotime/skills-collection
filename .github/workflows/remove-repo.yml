@@ -29,30 +29,32 @@ jobs:
           token: ${{ secrets.PAT }}
 
       - name: "\U0001F50D Validate & remove from inventory"
+        env:
+          REMOVE_TARGET: ${{ inputs.repo_dir }}
         run: |
-          python3 -c "
-          import json, sys
+          python3 << 'PYEOF'
+          import json, sys, os
 
           inv = json.loads(open('inventory.json').read())
-          target = '${{ inputs.repo_dir }}'
+          target = os.environ['REMOVE_TARGET']
           match = [r for r in inv if r['dir'] == target]
 
           if not match:
-              print(f'❌ \"{target}\" not found in inventory')
+              print(f'❌ "{target}" not found in inventory')
               sys.exit(1)
 
-          print(f'🗑️ Removing {target} ({match[0][\"url\"]})')
+          print(f'🗑️ Removing {target} ({match[0]["url"]})')
           inv = [r for r in inv if r['dir'] != target]
           open('inventory.json', 'w').write(json.dumps(inv, indent=2) + '\n')
-          "
+          PYEOF
 
       - name: "\U0001F504 Update remove workflow dropdown"
         run: |
-          python3 -c "
+          python3 << 'PYEOF'
           import json, re
 
           inv = json.loads(open('inventory.json').read())
-          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          options = '\n'.join(f'          - {r["dir"]}' for r in inv)
           wf = open('.github/workflows/remove-repo.yml').read()
           wf = re.sub(
               r'(options:\n)((?:          - .+\n)*)',
@@ -61,7 +63,7 @@ jobs:
           )
           open('.github/workflows/remove-repo.yml', 'w').write(wf)
           print('📝 Updated dropdown options')
-          "
+          PYEOF
 
       - name: "\U0001F4BE Commit & push"
         run: |
