@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   add:
@@ -104,4 +105,11 @@ jobs:
           git add inventory.json
           git commit -m "inventory: add ${{ env.DIR_NAME }}"
           git push
-          echo "🚀 Inventory updated — Sync Skills workflow will pick this up automatically"
+          echo "🚀 Inventory updated"
+
+      - name: "\U0001F504 Trigger sync"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run sync-skills.yml -R thereisnotime/skills-collection
+          echo "🔄 Sync Skills workflow triggered"

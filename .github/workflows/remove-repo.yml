@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   remove:
@@ -60,4 +61,11 @@ jobs:
           git diff --cached --quiet && echo "⚠️ Nothing changed" && exit 0
           git commit -m "inventory: remove ${{ inputs.repo_dir }}"
           git push
-          echo "🚀 Inventory updated — Sync Skills workflow will clean up and regenerate"
+          echo "🚀 Inventory updated"
+
+      - name: "\U0001F504 Trigger sync"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run sync-skills.yml -R thereisnotime/skills-collection
+          echo "🔄 Sync Skills workflow triggered"
