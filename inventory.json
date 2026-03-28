@@ -23,5 +23,10 @@
     "url": "https://github.com/abubakarsiddik31/claude-skills-collection",
     "dir": "abubakarsiddik31--claude-skills-collection",
     "description": "A curated collection of official and community-built Claude Skills \u2013 extend Anthropic's Claude with powerful, modular capabilities for productivity, creativity, coding, and more. "
+  },
+  {
+    "url": "https://github.com/ComposioHQ/awesome-claude-skills",
+    "dir": "ComposioHQ--awesome-claude-skills",
+    "description": "A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows "
   }
 ]

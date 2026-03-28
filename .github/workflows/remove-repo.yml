@@ -14,6 +14,7 @@ on:
           - samber--cc-skills-golang
           - realkimbarrett--advertising-skills
           - abubakarsiddik31--claude-skills-collection
+          - ComposioHQ--awesome-claude-skills
 
 permissions:
   contents: write
