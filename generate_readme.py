@@ -2,10 +2,12 @@
 """Generates a README.md with stats and charts about all skills repos."""
 
 import os
+import re as regex
 import shutil
 import subprocess
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -110,6 +112,39 @@ def fetch_repo_metadata(repos):
                         }
         except Exception as e:
             print(f"  Warning: GraphQL batch failed: {e}")
+
+    # Fetch contributor counts in parallel via REST (not available in GraphQL)
+    def _get_contributor_count(repo):
+        slug = repo["url"].replace("https://github.com/", "")
+        try:
+            out = subprocess.run(
+                ["gh", "api", "--include", f"repos/{slug}/contributors?per_page=1&anon=true"],
+                capture_output=True, text=True, timeout=15
+            ).stdout
+            # Parse Link header for last page: <...?page=45>; rel="last"
+            for line in out.split("\n"):
+                if line.lower().startswith("link:"):
+                    match = regex.search(r'page=(\d+)>;\s*rel="last"', line)
+                    if match:
+                        return repo["dir"], int(match.group(1))
+            # No Link header = single page, count the JSON body
+            body_start = out.find("[")
+            if body_start >= 0:
+                body = json.loads(out[body_start:])
+                return repo["dir"], len(body)
+        except Exception:
+            pass
+        return repo["dir"], 0
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = [pool.submit(_get_contributor_count, r) for r in repos]
+        for f in as_completed(futures):
+            dir_name, count = f.result()
+            if dir_name in results:
+                results[dir_name]["contributors"] = count
+            else:
+                results[dir_name] = {"stars": "?", "sha": None, "contributors": count}
+
     return results
 
 
@@ -329,6 +364,42 @@ def generate_skills_bar_chart(repo_skills):
     plt.close()
 
 
+def generate_contributors_bar_chart(repo_contributors):
+    """Horizontal bar chart: top 15 repos by number of contributors."""
+    CHARTS_DIR.mkdir(exist_ok=True)
+
+    valid = {k: v for k, v in repo_contributors.items() if v > 0}
+    if not valid:
+        return
+
+    sorted_repos = sorted(valid.items(), key=lambda x: x[1], reverse=True)[:15]
+
+    fig, ax = plt.subplots(figsize=(10, 6), facecolor=BG_COLOR)
+    ax.set_facecolor(BG_COLOR)
+
+    names = [d[0] for d in reversed(sorted_repos)]
+    values = [d[1] for d in reversed(sorted_repos)]
+
+    bars = ax.barh(names, values, color=PALETTE[4], height=0.6, alpha=0.85)
+
+    for bar, val in zip(bars, values):
+        ax.text(bar.get_width() + max(values) * 0.02, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", ha="left", color=TEXT_COLOR, fontsize=9)
+
+    ax.set_title("Top 15 Repos by Contributors", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
+    ax.set_xlabel("Contributors", color=TEXT_COLOR, fontsize=11)
+    ax.tick_params(colors=TEXT_COLOR, labelsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_color(GRID_COLOR)
+    ax.spines["left"].set_color(GRID_COLOR)
+    ax.grid(axis="x", color=GRID_COLOR, linewidth=0.5)
+
+    plt.tight_layout()
+    plt.savefig(CHARTS_DIR / "contributors.png", dpi=150, facecolor=BG_COLOR)
+    plt.close()
+
+
 def load_commits():
     if COMMITS_PATH.exists():
         try:
@@ -383,6 +454,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
     current_stats = {}
     repo_stars = {}
     repo_skills = {}
+    repo_contributors = {}
     total_skills = 0
     total_size = 0.0
     rows = []
@@ -393,6 +465,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
         skills_count = count_skill_files(repo_path)
         meta = metadata.get(repo["dir"], {})
         stars = meta.get("stars", "?")
+        contributors = meta.get("contributors", 0)
         size_mb = get_dir_size_mb(repo_path)
         total_skills += skills_count
         total_size += size_mb
@@ -404,6 +477,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
         current_stats[repo["dir"]] = {"skills": skills_count, "stars": stars}
         repo_stars[repo["dir"]] = stars
         repo_skills[repo["dir"]] = skills_count
+        repo_contributors[repo["dir"]] = contributors
 
         last_commit_date = "n/a"
         if commit_date and commit_date != "n/a":
@@ -415,7 +489,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
 
         rows.append(
             f"| [{repo['dir']}]({repo['url']}) | {repo['description']} "
-            f"| {skills_display} | {stars_display} | {size_mb} MB "
+            f"| {skills_display} | {stars_display} | {contributors} | {size_mb} MB "
             f"| `{sha}` | {last_commit_date} | {msg} |"
         )
 
@@ -427,6 +501,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
     generate_stars_line_chart(history, repo_stars)
     generate_top_bottom_bar_chart(repo_stars)
     generate_skills_bar_chart(repo_skills)
+    generate_contributors_bar_chart(repo_contributors)
 
     table = "\n".join(rows)
 
@@ -463,14 +538,18 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 
 ![Skills Count](charts/skills-count.png)
 
+### Top Repos by Contributors
+
+![Contributors](charts/contributors.png)
+
 ### Top & Bottom Repos by Stars
 
 ![Top & Bottom Repos](charts/top-bottom-stars.png)
 
 ## Repos
 
-| Repo | Description | Skills | Stars | Size | Last Commit | Last Commit Date | Message |
-|------|-------------|--------|-------|------|-------------|------------------|---------|
+| Repo | Description | Skills | Stars | Contributors | Size | Last Commit | Last Commit Date | Message |
+|------|-------------|--------|-------|--------------|------|-------------|------------------|---------|
 {table}
 
 ## How it works
