@@ -28,5 +28,10 @@
     "url": "https://github.com/ComposioHQ/awesome-claude-skills",
     "dir": "ComposioHQ--awesome-claude-skills",
     "description": "A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows "
+  },
+  {
+    "url": "https://github.com/anthropics/skills",
+    "dir": "anthropics--skills",
+    "description": " Public repository for Agent Skills "
   }
 ]

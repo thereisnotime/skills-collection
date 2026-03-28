@@ -15,6 +15,7 @@ on:
           - realkimbarrett--advertising-skills
           - abubakarsiddik31--claude-skills-collection
           - ComposioHQ--awesome-claude-skills
+          - anthropics--skills
 
 permissions:
   contents: write
