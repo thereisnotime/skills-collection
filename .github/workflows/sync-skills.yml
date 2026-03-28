@@ -3,7 +3,7 @@ run-name: "\U0001F504 Syncing ${{ github.event_name == 'schedule' && 'on schedul
 
 on:
   schedule:
-    - cron: "0 6 */2 * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions:

@@ -516,7 +516,7 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
 [![Add Skill Repo](https://github.com/thereisnotime/skills-collection/actions/workflows/add-repo.yml/badge.svg)](https://github.com/thereisnotime/skills-collection/actions/workflows/add-repo.yml)
 [![Remove Skill Repo](https://github.com/thereisnotime/skills-collection/actions/workflows/remove-repo.yml/badge.svg)](https://github.com/thereisnotime/skills-collection/actions/workflows/remove-repo.yml)
 
-A curated collection of Claude Code skills repos, automatically synced every 2 days.
+A curated collection of Claude Code skills repos, automatically synced daily.
 
 ## Stats
 
