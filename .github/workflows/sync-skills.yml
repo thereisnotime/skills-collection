@@ -17,7 +17,7 @@ jobs:
       - name: "\U0001F4E5 Checkout"
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT }}
 
       - name: "\U0001F40D Setup Python"
         uses: actions/setup-python@v5
@@ -29,7 +29,7 @@ jobs:
 
       - name: "\U0001F504 Sync repos & generate README"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT }}
         run: python generate_readme.py
 
       - name: "\U0001F4BE Commit & push"

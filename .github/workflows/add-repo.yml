@@ -30,11 +30,11 @@ jobs:
       - name: "\U0001F4E5 Checkout"
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT }}
 
       - name: "\U0001F50D Validate repo"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
           REPO_URL="${{ inputs.repo_url }}"
 
@@ -86,7 +86,7 @@ jobs:
           echo "REPO_URL=$REPO_URL" >> "$GITHUB_ENV"
           echo "DIR_NAME=$DIR_NAME" >> "$GITHUB_ENV"
 
-      - name: "\u2795 Add to inventory & push"
+      - name: "\u2795 Add to inventory"
         run: |
           python3 -c "
           import json
@@ -100,16 +100,35 @@ jobs:
           print('📦 Added ${{ env.DIR_NAME }} to inventory')
           "
 
+      - name: "\U0001F504 Update remove workflow dropdown"
+        run: |
+          python3 -c "
+          import json, re
+
+          inv = json.loads(open('inventory.json').read())
+          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          wf = open('.github/workflows/remove-repo.yml').read()
+          wf = re.sub(
+              r'(options:\n)((?:          - .+\n)*)',
+              f'options:\n{options}\n',
+              wf
+          )
+          open('.github/workflows/remove-repo.yml', 'w').write(wf)
+          print('📝 Updated dropdown options')
+          "
+
+      - name: "\U0001F4BE Commit & push"
+        run: |
           git config user.name "thereisnotime"
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
-          git add inventory.json
+          git add inventory.json .github/workflows/remove-repo.yml
           git commit -m "inventory: add ${{ env.DIR_NAME }}"
           git push
           echo "🚀 Inventory updated"
 
       - name: "\U0001F504 Trigger sync"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT }}
         run: |
           gh workflow run sync-skills.yml -R thereisnotime/skills-collection
           echo "🔄 Sync Skills workflow triggered"
