@@ -10,6 +10,7 @@ from pathlib import Path
 
 SKILLS_DIR = Path(__file__).parent / "skills"
 README_PATH = Path(__file__).parent / "README.md"
+STATS_PATH = Path(__file__).parent / "stats.json"
 
 REPOS = [
     {
@@ -70,6 +71,33 @@ def get_star_count(url):
     return "?"
 
 
+def load_previous_stats():
+    """Load stats from the previous run."""
+    if STATS_PATH.exists():
+        try:
+            return json.loads(STATS_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def save_stats(stats):
+    """Persist current stats for next run's diff."""
+    STATS_PATH.write_text(json.dumps(stats, indent=2) + "\n")
+
+
+def format_diff(current, previous):
+    """Format a value with +/- diff from previous run."""
+    if previous is None or previous == "?" or current == "?":
+        return str(current)
+    diff = current - previous
+    if diff > 0:
+        return f"{current} (+{diff})"
+    elif diff < 0:
+        return f"{current} ({diff})"
+    return str(current)
+
+
 def sync_repos():
     """Clone or pull all repos. Removes nested .git dirs afterward so files
     can be committed to the parent repo without submodule issues."""
@@ -89,6 +117,8 @@ def sync_repos():
 
 def generate_readme():
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    previous = load_previous_stats()
+    current_stats = {}
     total_skills = 0
     rows = []
 
@@ -99,6 +129,12 @@ def generate_readme():
         stars = get_star_count(repo["url"])
         total_skills += skills_count
 
+        prev = previous.get(repo["dir"], {})
+        skills_display = format_diff(skills_count, prev.get("skills"))
+        stars_display = format_diff(stars, prev.get("stars"))
+
+        current_stats[repo["dir"]] = {"skills": skills_count, "stars": stars}
+
         if date and date != "n/a":
             try:
                 dt = datetime.fromisoformat(date)
@@ -108,13 +144,19 @@ def generate_readme():
 
         rows.append(
             f"| [{repo['dir']}]({repo['url']}) | {repo['description']} "
-            f"| {skills_count} | {stars} | `{sha}` | {date} | {msg} |"
+            f"| {skills_display} | {stars_display} | `{sha}` | {date} | {msg} |"
         )
 
+    save_stats(current_stats)
     table = "\n".join(rows)
+
+    prev_total = sum(r.get("skills", 0) for r in previous.values())
+    total_display = format_diff(total_skills, prev_total if previous else None)
 
     readme = f"""\
 # Skills Collection
+
+[![Sync Skills](https://github.com/thereisnotime/skills-collection/actions/workflows/sync-skills.yml/badge.svg)](https://github.com/thereisnotime/skills-collection/actions/workflows/sync-skills.yml)
 
 A curated collection of Claude Code skills repos, automatically synced every 2 days.
 
@@ -123,7 +165,7 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 | | |
 |---|---|
 | **Total repos** | {len(REPOS)} |
-| **Total skill files** | {total_skills} |
+| **Total skill files** | {total_display} |
 | **Last synced** | {now} |
 
 ## Repos

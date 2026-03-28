@@ -29,7 +29,7 @@ jobs:
         run: |
           git config user.name "thereisnotime"
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
-          git add README.md skills/
+          git add README.md stats.json skills/
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "sync: update skills repos and readme"
           git push
