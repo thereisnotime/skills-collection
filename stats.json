@@ -1,7 +1,7 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 4934
+    "stars": 4937
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
@@ -9,10 +9,6 @@
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 509
-  },
-  "realkimbarrett--advertising-skills": {
-    "skills": 19,
-    "stars": 366
+    "stars": 510
   }
 }
