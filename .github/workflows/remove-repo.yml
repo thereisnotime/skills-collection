@@ -12,6 +12,7 @@ on:
           - slavingia--skills
           - zarazhangrui--codebase-to-course
           - samber--cc-skills-golang
+          - realkimbarrett--advertising-skills
 
 permissions:
   contents: write
