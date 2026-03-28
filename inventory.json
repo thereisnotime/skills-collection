@@ -28,5 +28,360 @@
     "url": "https://github.com/anthropics/skills",
     "dir": "anthropics--skills",
     "description": " Public repository for Agent Skills "
+  },
+  {
+    "url": "https://github.com/1NickPappas/move-code-quality-skill",
+    "dir": "1NickPappas--move-code-quality-skill",
+    "description": "Claude Code skill for analyzing Move packages against the official Move Book Code Quality Checklist"
+  },
+  {
+    "url": "https://github.com/ARPeeketi/claude-resume-kit",
+    "dir": "ARPeeketi--claude-resume-kit",
+    "description": "Extract your papers once, generate tailored LaTeX resumes for every JD. Anti-fabrication controls, multi-perspective critique, AI fingerprint avoidance."
+  },
+  {
+    "url": "https://github.com/AgriciDaniel/claude-blog",
+    "dir": "AgriciDaniel--claude-blog",
+    "description": "Claude Code skill ecosystem for blog content creation, optimization, and management. Dual-optimized for Google rankings and AI citations."
+  },
+  {
+    "url": "https://github.com/AgriciDaniel/claude-email",
+    "dir": "AgriciDaniel--claude-email",
+    "description": "AI-powered email management and marketing skill for Claude Code. Inbox triage, composition, quality review, deliverability audit, automation sequences, and marketing strategy."
+  },
+  {
+    "url": "https://github.com/ClickHouse/agent-skills",
+    "dir": "ClickHouse--agent-skills",
+    "description": "The official Agent Skills for ClickHouse and ClickHouse Cloud"
+  },
+  {
+    "url": "https://github.com/Digidai/product-manager-skills",
+    "dir": "Digidai--product-manager-skills",
+    "description": "PM skill for Claude Code, Codex, Cursor, and Windsurf: diagnose SaaS metrics, critique PRDs, plan roadmaps, run discovery, and coach PM career transitions."
+  },
+  {
+    "url": "https://github.com/EveryInc/compound-engineering-plugin",
+    "dir": "EveryInc--compound-engineering-plugin",
+    "description": "Office Compound Engineering plugin for Claude Code, Codex, and more"
+  },
+  {
+    "url": "https://github.com/Eyadkelleh/awesome-claude-skills-security",
+    "dir": "Eyadkelleh--awesome-claude-skills-security",
+    "description": "Security testing toolkit for Claude Code: curated SecLists wordlists, injection payloads, and expert agents for authorized pentesting, CTFs, and bug bounties"
+  },
+  {
+    "url": "https://github.com/HeshamFS/materials-simulation-skills",
+    "dir": "HeshamFS--materials-simulation-skills",
+    "description": "Agent Skills for computational materials science -- numerical stability, solvers, meshing,   convergence, and simulation workflows."
+  },
+  {
+    "url": "https://github.com/Imbad0202/academic-research-skills",
+    "dir": "Imbad0202--academic-research-skills",
+    "description": "Academic Research Skills for Claude Code: research \u2192 write \u2192 review \u2192 revise \u2192 finalize"
+  },
+  {
+    "url": "https://github.com/K-Dense-AI/claude-scientific-skills",
+    "dir": "K-Dense-AI--claude-scientific-skills",
+    "description": "A set of ready to use Agent Skills for research, science, engineering, analysis, finance and writing."
+  },
+  {
+    "url": "https://github.com/K-Dense-AI/claude-scientific-writer",
+    "dir": "K-Dense-AI--claude-scientific-writer",
+    "description": "A general purpose scientific writer"
+  },
+  {
+    "url": "https://github.com/NeoLabHQ/context-engineering-kit",
+    "dir": "NeoLabHQ--context-engineering-kit",
+    "description": "Hand-crafted Claude Code Skills focused on improving agent results quality. Compatible with OpenCode, Cursor, Antigravity, Gemini CLI, and others."
+  },
+  {
+    "url": "https://github.com/Orchestra-Research/AI-research-SKILLs",
+    "dir": "Orchestra-Research--AI-research-SKILLs",
+    "description": "Comprehensive open-source library of AI research and engineering skills for any AI model. Package the skills and your claude code/codex/gemini agent will be an AI research agent with full horsepower. Maintained by Orchestra Research."
+  },
+  {
+    "url": "https://github.com/Paramchoudhary/ResumeSkills",
+    "dir": "Paramchoudhary--ResumeSkills",
+    "description": "A collection of AI agent skills focused on resume optimization, job applications, and career development. Built for job seekers, career changers, and professionals who want Claude Code to help with resume writing, ATS optimization, interview prep, and strategic job search."
+  },
+  {
+    "url": "https://github.com/Valian/linear-cli-skill",
+    "dir": "Valian--linear-cli-skill",
+    "description": "linear-cli-skill"
+  },
+  {
+    "url": "https://github.com/ahmedasmar/devops-claude-skills",
+    "dir": "ahmedasmar--devops-claude-skills",
+    "description": "A Claude Code Skills Marketplace for DevOps workflows"
+  },
+  {
+    "url": "https://github.com/airowe/claude-a11y-skill",
+    "dir": "airowe--claude-a11y-skill",
+    "description": "Claude Code skill for running comprehensive accessibility audits (axe-core + jsx-a11y)"
+  },
+  {
+    "url": "https://github.com/akin-ozer/cc-devops-skills",
+    "dir": "akin-ozer--cc-devops-skills",
+    "description": "A practical skill pack for DevOps work in Claude Code and Codex."
+  },
+  {
+    "url": "https://github.com/alonw0/web-asset-generator",
+    "dir": "alonw0--web-asset-generator",
+    "description": "Claude skill to generate favicons, app icons, and social media images from logos, text, or emojis. Supports emoji suggestions, validation, and framework auto-integration."
+  },
+  {
+    "url": "https://github.com/antonbabenko/terraform-skill",
+    "dir": "antonbabenko--terraform-skill",
+    "description": "The Claude Agent Skill for Terraform and OpenTofu - testing, modules, CI/CD, and production patterns"
+  },
+  {
+    "url": "https://github.com/avifenesh/agentsys",
+    "dir": "avifenesh--agentsys",
+    "description": "AI writes code. This automates everything else \u00b7 19 plugins, 47 agents, and 39 skills \u00b7 for Claude Code, OpenCode, Codex, Cursor, Kiro."
+  },
+  {
+    "url": "https://github.com/better-auth/skills",
+    "dir": "better-auth--skills",
+    "description": "skills"
+  },
+  {
+    "url": "https://github.com/better-i18n/skills",
+    "dir": "better-i18n--skills",
+    "description": "Official AI agent skills for Better i18n \u2014 best practices for i18n implementation, translation workflows, and localization automation with Claude, GPT, and other AI assistants"
+  },
+  {
+    "url": "https://github.com/brunoasm/my_claude_skills",
+    "dir": "brunoasm--my_claude_skills",
+    "description": "Claude Skill to prevent automatic confirmatory answers"
+  },
+  {
+    "url": "https://github.com/callstackincubator/agent-skills",
+    "dir": "callstackincubator--agent-skills",
+    "description": "A collection of agent-optimized React Native skills for AI coding assistants."
+  },
+  {
+    "url": "https://github.com/chrisvoncsefalvay/claude-d3js-skill",
+    "dir": "chrisvoncsefalvay--claude-d3js-skill",
+    "description": "A Claude skill for d3.js."
+  },
+  {
+    "url": "https://github.com/cloudflare/skills",
+    "dir": "cloudflare--skills",
+    "description": "Skills for teaching agents how to build on Cloudflare."
+  },
+  {
+    "url": "https://github.com/coffeefuelbump/csv-data-summarizer-claude-skill",
+    "dir": "coffeefuelbump--csv-data-summarizer-claude-skill",
+    "description": "A Claude Skill that automatically analyzes uploaded CSV files \u2014 generating summary statistics, detecting missing data, and creating quick visualizations using Python and pandas."
+  },
+  {
+    "url": "https://github.com/conorbronsdon/avoid-ai-writing",
+    "dir": "conorbronsdon--avoid-ai-writing",
+    "description": "Claude Code & OpenClaw skill that audits and rewrites content to remove AI writing patterns"
+  },
+  {
+    "url": "https://github.com/conorluddy/ios-simulator-skill",
+    "dir": "conorluddy--ios-simulator-skill",
+    "description": "An IOS Simulator Skill for ClaudeCode. Use it to optimise Claude's ability to build, run and interact with your apps, without using up any of the available token/context budget."
+  },
+  {
+    "url": "https://github.com/coreyhaines31/marketingskills",
+    "dir": "coreyhaines31--marketingskills",
+    "description": "Marketing skills for Claude Code and AI agents. CRO, copywriting, SEO, analytics, and growth engineering."
+  },
+  {
+    "url": "https://github.com/dreamiurg/claude-mountaineering-skills",
+    "dir": "dreamiurg--claude-mountaineering-skills",
+    "description": "Automates mountain route research for North American peaks. Aggregates data from 10+ mountaineering sources to generate detailed route beta reports with weather, avalanche conditions, and trip reports."
+  },
+  {
+    "url": "https://github.com/emaynard/claude-family-history-research-skill",
+    "dir": "emaynard--claude-family-history-research-skill",
+    "description": "A Claude Skill to assist with family history and genealogy research planning."
+  },
+  {
+    "url": "https://github.com/expo/skills",
+    "dir": "expo--skills",
+    "description": "A collection of AI agent skills for working with Expo projects and Expo Application Services"
+  },
+  {
+    "url": "https://github.com/firecrawl/cli",
+    "dir": "firecrawl--cli",
+    "description": "CLI and Agent Skill for Firecrawl - Add scrape, search, and browsing capabilities to your AI agents"
+  },
+  {
+    "url": "https://github.com/hashicorp/agent-skills",
+    "dir": "hashicorp--agent-skills",
+    "description": "A collection of Agent skills and Claude Code plugins for HashiCorp products."
+  },
+  {
+    "url": "https://github.com/jananthan30/Resume-Builder",
+    "dir": "jananthan30--Resume-Builder",
+    "description": "AI-powered resume & cover letter generator with dual ATS + HR scoring. Works for any profession. Claude Code plugin."
+  },
+  {
+    "url": "https://github.com/javiera-vasquez/claude-code-job-tailor",
+    "dir": "javiera-vasquez--claude-code-job-tailor",
+    "description": "AI resume optimization system for Claude Code. Analyzes job postings, ranks requirements by priority, and automatically selects your most relevant achievements. Write your experience once in YAML, generate unlimited tailored PDFs in 60 less than seconds using Tailor"
+  },
+  {
+    "url": "https://github.com/jawwadfirdousi/agent-skills",
+    "dir": "jawwadfirdousi--agent-skills",
+    "description": "agent-skills"
+  },
+  {
+    "url": "https://github.com/jthack/ffuf_claude_skill",
+    "dir": "jthack--ffuf_claude_skill",
+    "description": "This is a \"skill\" for claude to use FFUF."
+  },
+  {
+    "url": "https://github.com/lackeyjb/playwright-skill",
+    "dir": "lackeyjb--playwright-skill",
+    "description": "Claude Code Skill for browser automation with Playwright. Model-invoked - Claude autonomously writes and executes custom automation for testing and validation."
+  },
+  {
+    "url": "https://github.com/livelabs-ventures/nano-skills",
+    "dir": "livelabs-ventures--nano-skills",
+    "description": "Creating images with Nano Banana Pro"
+  },
+  {
+    "url": "https://github.com/mhattingpete/claude-skills-marketplace",
+    "dir": "mhattingpete--claude-skills-marketplace",
+    "description": "Claude Code Skills for software engineering workflows - Git automation, testing, and code review"
+  },
+  {
+    "url": "https://github.com/michalparkola/tapestry-skills-for-claude-code",
+    "dir": "michalparkola--tapestry-skills-for-claude-code",
+    "description": "Claude Code skills to download sources (articles, PDFs, YouTube video transcripts)"
+  },
+  {
+    "url": "https://github.com/neondatabase/agent-skills",
+    "dir": "neondatabase--agent-skills",
+    "description": "Agent Skills for Neon Severless Postgres"
+  },
+  {
+    "url": "https://github.com/netlify/context-and-tools",
+    "dir": "netlify--context-and-tools",
+    "description": "context-and-tools"
+  },
+  {
+    "url": "https://github.com/obra/superpowers",
+    "dir": "obra--superpowers",
+    "description": "An agentic skills framework & software development methodology that works."
+  },
+  {
+    "url": "https://github.com/obra/superpowers-skills",
+    "dir": "obra--superpowers-skills",
+    "description": "Community-editable skills for Claude Code's superpowers plugin"
+  },
+  {
+    "url": "https://github.com/omkamal/pypict-claude-skill",
+    "dir": "omkamal--pypict-claude-skill",
+    "description": "A claude skill that generate test cases using N-wise test cases using the pypict library"
+  },
+  {
+    "url": "https://github.com/proficientlyjobs/proficiently-claude-skills",
+    "dir": "proficientlyjobs--proficiently-claude-skills",
+    "description": "Claude Code skills for AI-powered job search, resume tailoring, and cover letter writing"
+  },
+  {
+    "url": "https://github.com/remotion-dev/skills",
+    "dir": "remotion-dev--skills",
+    "description": "Agent Skills"
+  },
+  {
+    "url": "https://github.com/replicate/skills",
+    "dir": "replicate--skills",
+    "description": "A collection of Agent Skills for building AI-powered apps with Replicate"
+  },
+  {
+    "url": "https://github.com/robertguss/claude-skills",
+    "dir": "robertguss--claude-skills",
+    "description": "A collection of custom skills that extend Claude's capabilities with specialized workflows, methods, and domain knowledge."
+  },
+  {
+    "url": "https://github.com/ryanbbrown/revealjs-skill",
+    "dir": "ryanbbrown--revealjs-skill",
+    "description": "Claude Code skill for making reveal.js presentations"
+  },
+  {
+    "url": "https://github.com/sanity-io/agent-toolkit",
+    "dir": "sanity-io--agent-toolkit",
+    "description": "Collection of resources to help AI agents build better with Sanity."
+  },
+  {
+    "url": "https://github.com/sanjay3290/ai-skills",
+    "dir": "sanjay3290--ai-skills",
+    "description": "Collection of agent skills for AI coding assistants"
+  },
+  {
+    "url": "https://github.com/smerchek/claude-epub-skill",
+    "dir": "smerchek--claude-epub-skill",
+    "description": "A Claude Skill for converting markdown documents, chat summaries, or research reports into a downloadable epub file that can be sent to kindle"
+  },
+  {
+    "url": "https://github.com/squirrelscan/skills",
+    "dir": "squirrelscan--skills",
+    "description": "Agent skills for squirrelscan website audit tool"
+  },
+  {
+    "url": "https://github.com/stripe/ai",
+    "dir": "stripe--ai",
+    "description": "One-stop shop for building AI-powered products and businesses with Stripe."
+  },
+  {
+    "url": "https://github.com/supabase/agent-skills",
+    "dir": "supabase--agent-skills",
+    "description": "Agent Skills to help developers using AI agents with Supabase"
+  },
+  {
+    "url": "https://github.com/tinybirdco/tinybird-agent-skills",
+    "dir": "tinybirdco--tinybird-agent-skills",
+    "description": "tinybird-agent-skills"
+  },
+  {
+    "url": "https://github.com/trailofbits/skills",
+    "dir": "trailofbits--skills",
+    "description": "Trail of Bits Claude Code skills for security research, vulnerability detection, and audit workflows"
+  },
+  {
+    "url": "https://github.com/typefully/agent-skills",
+    "dir": "typefully--agent-skills",
+    "description": "AI agent skills for drafting and scheduling social media posts via Typefully"
+  },
+  {
+    "url": "https://github.com/varunr89/resume-tailoring-skill",
+    "dir": "varunr89--resume-tailoring-skill",
+    "description": "AI-powered resume tailoring skill for Claude Code"
+  },
+  {
+    "url": "https://github.com/vercel-labs/agent-skills",
+    "dir": "vercel-labs--agent-skills",
+    "description": "Vercel's official collection of agent skills"
+  },
+  {
+    "url": "https://github.com/vercel-labs/next-skills",
+    "dir": "vercel-labs--next-skills",
+    "description": "next-skills"
+  },
+  {
+    "url": "https://github.com/wrsmith108/linear-claude-skill",
+    "dir": "wrsmith108--linear-claude-skill",
+    "description": "Agent skill for managing Linear issues, projects, and teams. MCP tools, SDK automation, GraphQL API patterns."
+  },
+  {
+    "url": "https://github.com/wrsmith108/varlock-claude-skill",
+    "dir": "wrsmith108--varlock-claude-skill",
+    "description": "Claude Code skill for secure environment variable management with Varlock. Never expose secrets in Claude sessions."
+  },
+  {
+    "url": "https://github.com/zarazhangrui/frontend-slides",
+    "dir": "zarazhangrui--frontend-slides",
+    "description": "Create beautiful slides on the web using Claude's frontend skills"
+  },
+  {
+    "url": "https://github.com/zxkane/aws-skills",
+    "dir": "zxkane--aws-skills",
+    "description": "Claude Agent Skills for AWS"
   }
 ]

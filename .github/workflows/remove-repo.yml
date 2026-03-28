@@ -15,6 +15,77 @@ on:
           - realkimbarrett--advertising-skills
           - ComposioHQ--awesome-claude-skills
           - anthropics--skills
+          - 1NickPappas--move-code-quality-skill
+          - ARPeeketi--claude-resume-kit
+          - AgriciDaniel--claude-blog
+          - AgriciDaniel--claude-email
+          - ClickHouse--agent-skills
+          - Digidai--product-manager-skills
+          - EveryInc--compound-engineering-plugin
+          - Eyadkelleh--awesome-claude-skills-security
+          - HeshamFS--materials-simulation-skills
+          - Imbad0202--academic-research-skills
+          - K-Dense-AI--claude-scientific-skills
+          - K-Dense-AI--claude-scientific-writer
+          - NeoLabHQ--context-engineering-kit
+          - Orchestra-Research--AI-research-SKILLs
+          - Paramchoudhary--ResumeSkills
+          - Valian--linear-cli-skill
+          - ahmedasmar--devops-claude-skills
+          - airowe--claude-a11y-skill
+          - akin-ozer--cc-devops-skills
+          - alonw0--web-asset-generator
+          - antonbabenko--terraform-skill
+          - avifenesh--agentsys
+          - better-auth--skills
+          - better-i18n--skills
+          - brunoasm--my_claude_skills
+          - callstackincubator--agent-skills
+          - chrisvoncsefalvay--claude-d3js-skill
+          - cloudflare--skills
+          - coffeefuelbump--csv-data-summarizer-claude-skill
+          - conorbronsdon--avoid-ai-writing
+          - conorluddy--ios-simulator-skill
+          - coreyhaines31--marketingskills
+          - dreamiurg--claude-mountaineering-skills
+          - emaynard--claude-family-history-research-skill
+          - expo--skills
+          - firecrawl--cli
+          - hashicorp--agent-skills
+          - jananthan30--Resume-Builder
+          - javiera-vasquez--claude-code-job-tailor
+          - jawwadfirdousi--agent-skills
+          - jthack--ffuf_claude_skill
+          - lackeyjb--playwright-skill
+          - livelabs-ventures--nano-skills
+          - mhattingpete--claude-skills-marketplace
+          - michalparkola--tapestry-skills-for-claude-code
+          - neondatabase--agent-skills
+          - netlify--context-and-tools
+          - obra--superpowers
+          - obra--superpowers-skills
+          - omkamal--pypict-claude-skill
+          - proficientlyjobs--proficiently-claude-skills
+          - remotion-dev--skills
+          - replicate--skills
+          - robertguss--claude-skills
+          - ryanbbrown--revealjs-skill
+          - sanity-io--agent-toolkit
+          - sanjay3290--ai-skills
+          - smerchek--claude-epub-skill
+          - squirrelscan--skills
+          - stripe--ai
+          - supabase--agent-skills
+          - tinybirdco--tinybird-agent-skills
+          - trailofbits--skills
+          - typefully--agent-skills
+          - varunr89--resume-tailoring-skill
+          - vercel-labs--agent-skills
+          - vercel-labs--next-skills
+          - wrsmith108--linear-claude-skill
+          - wrsmith108--varlock-claude-skill
+          - zarazhangrui--frontend-slides
+          - zxkane--aws-skills
 
 permissions:
   contents: write
