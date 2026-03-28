@@ -453,12 +453,6 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 | **Last synced** | {now} |
 | **Sync time** | {sync_duration} |
 
-## Repos
-
-| Repo | Description | Skills | Stars | Size | Last Commit | Last Commit Date | Message |
-|------|-------------|--------|-------|------|-------------|------------------|---------|
-{table}
-
 ## Charts
 
 ### Stars Over Time
@@ -472,6 +466,12 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 ### Top & Bottom Repos by Stars
 
 ![Top & Bottom Repos](charts/top-bottom-stars.png)
+
+## Repos
+
+| Repo | Description | Skills | Stars | Size | Last Commit | Last Commit Date | Message |
+|------|-------------|--------|-------|------|-------------|------------------|---------|
+{table}
 
 ## How it works
 
