@@ -1,0 +1,89 @@
+name: "\u2796 Remove Skill Repo"
+run-name: "\u2796 Removing ${{ inputs.repo }} by @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Repo dir name to remove (run 'list' first to see options)"
+        required: true
+        type: choice
+        options:
+          - skills
+          - codebase-to-course
+          - cc-skills-golang
+
+permissions:
+  contents: write
+
+jobs:
+  remove:
+    name: "\U0001F5D1 Validate & Remove"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "\U0001F4E5 Checkout"
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "\U0001F40D Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "\U0001F50D Validate & remove from inventory"
+        run: |
+          python3 -c "
+          import json, sys
+
+          inv = json.loads(open('inventory.json').read())
+          target = '${{ inputs.repo }}'
+          match = [r for r in inv if r['dir'] == target]
+
+          if not match:
+              print(f'❌ {target} not found in inventory')
+              sys.exit(1)
+
+          inv = [r for r in inv if r['dir'] != target]
+          open('inventory.json', 'w').write(json.dumps(inv, indent=2) + '\n')
+          print(f'🗑️ Removed {target} from inventory')
+          "
+
+      - name: "\U0001F5D1 Remove skill files"
+        run: |
+          if [ -d "skills/${{ inputs.repo }}" ]; then
+            rm -rf "skills/${{ inputs.repo }}"
+            echo "🧹 Deleted skills/${{ inputs.repo }}"
+          fi
+
+      - name: "\U0001F504 Regenerate README"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python generate_readme.py
+
+      - name: "\U0001F504 Update remove workflow dropdown"
+        run: |
+          python3 -c "
+          import json, re
+
+          inv = json.loads(open('inventory.json').read())
+          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          wf = open('.github/workflows/remove-repo.yml').read()
+          wf = re.sub(
+              r'(options:\n)((?:          - .+\n)*)',
+              f'options:\n{options}\n',
+              wf
+          )
+          open('.github/workflows/remove-repo.yml', 'w').write(wf)
+          print('📝 Updated dropdown options')
+          "
+
+      - name: "\U0001F4BE Commit & push"
+        run: |
+          git config user.name "thereisnotime"
+          git config user.email "37583483+thereisnotime@users.noreply.github.com"
+          git add inventory.json README.md stats.json skills/ .github/workflows/remove-repo.yml
+          git diff --cached --quiet && echo "⚠️ Nothing changed" && exit 0
+          git commit -m "remove: ${{ inputs.repo }}"
+          git push
+          echo "🚀 ${{ inputs.repo }} removed"

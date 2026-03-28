@@ -12,24 +12,11 @@ from pathlib import Path
 SKILLS_DIR = Path(__file__).parent / "skills"
 README_PATH = Path(__file__).parent / "README.md"
 STATS_PATH = Path(__file__).parent / "stats.json"
+INVENTORY_PATH = Path(__file__).parent / "inventory.json"
 
-REPOS = [
-    {
-        "url": "https://github.com/slavingia/skills",
-        "dir": "skills",
-        "description": "Claude Code skills by Sahil Lavingia",
-    },
-    {
-        "url": "https://github.com/zarazhangrui/codebase-to-course",
-        "dir": "codebase-to-course",
-        "description": "Turn any codebase into a structured course",
-    },
-    {
-        "url": "https://github.com/samber/cc-skills-golang",
-        "dir": "cc-skills-golang",
-        "description": "Claude Code skills for Go development",
-    },
-]
+
+def load_inventory():
+    return json.loads(INVENTORY_PATH.read_text())
 
 
 def run(cmd, cwd=None):
@@ -52,7 +39,6 @@ def count_skill_files(repo_path):
         return 0
     count = 0
     for f in repo_path.rglob("*.md"):
-        # Skip common non-skill markdown files
         if f.name.lower() in ("readme.md", "license.md", "changelog.md", "contributing.md"):
             continue
         count += 1
@@ -84,7 +70,6 @@ def get_star_count(url):
 
 
 def load_previous_stats():
-    """Load stats from the previous run."""
     if STATS_PATH.exists():
         try:
             return json.loads(STATS_PATH.read_text())
@@ -94,12 +79,10 @@ def load_previous_stats():
 
 
 def save_stats(stats):
-    """Persist current stats for next run's diff."""
     STATS_PATH.write_text(json.dumps(stats, indent=2) + "\n")
 
 
 def format_diff(current, previous):
-    """Format a value with +/- diff from previous run."""
     if previous is None or previous == "?" or current == "?":
         return str(current)
     diff = current - previous
@@ -110,24 +93,23 @@ def format_diff(current, previous):
     return str(current)
 
 
-def sync_repos():
+def sync_repos(repos):
     """Clone or pull all repos. Removes nested .git dirs afterward so files
     can be committed to the parent repo without submodule issues."""
     SKILLS_DIR.mkdir(exist_ok=True)
-    for repo in REPOS:
+    for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
         if repo_path.exists() and (repo_path / ".git").exists():
-            print(f"Pulling {repo['dir']}...")
+            print(f"  Pulling {repo['dir']}...")
             run(["git", "pull", "--ff-only"], cwd=repo_path)
         else:
-            # Remove stale dir (no .git = previous stripped clone) and re-clone
             if repo_path.exists():
                 shutil.rmtree(repo_path)
-            print(f"Cloning {repo['url']}...")
+            print(f"  Cloning {repo['url']}...")
             run(["git", "clone", repo["url"], str(repo_path)])
 
 
-def generate_readme(sync_duration="n/a"):
+def generate_readme(repos, sync_duration="n/a"):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     previous = load_previous_stats()
     current_stats = {}
@@ -135,7 +117,7 @@ def generate_readme(sync_duration="n/a"):
     total_size = 0.0
     rows = []
 
-    for repo in REPOS:
+    for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
         sha, date, msg = get_latest_commit(repo_path)
         skills_count = count_skill_files(repo_path)
@@ -180,7 +162,7 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 
 | Metric | Value |
 |--------|-------|
-| **Total repos** | {len(REPOS)} |
+| **Total repos** | {len(repos)} |
 | **Total skill files** | {total_display} |
 | **Total size** | {total_size} MB |
 | **Last synced** | {now} |
@@ -206,24 +188,25 @@ A GitHub Actions workflow runs every 2 days to:
 """
 
     README_PATH.write_text(readme)
-    print(f"README.md generated ({total_skills} skill files across {len(REPOS)} repos)")
+    print(f"  README.md generated ({total_skills} skill files across {len(repos)} repos)")
 
 
-def strip_nested_git():
+def strip_nested_git(repos):
     """Remove .git dirs from cloned repos so they're plain directories
     that the parent repo can track without submodule confusion."""
-    for repo in REPOS:
+    for repo in repos:
         git_dir = SKILLS_DIR / repo["dir"] / ".git"
         if git_dir.exists():
             shutil.rmtree(git_dir)
-            print(f"Stripped .git from {repo['dir']}")
+            print(f"  Stripped .git from {repo['dir']}")
 
 
 if __name__ == "__main__":
+    repos = load_inventory()
     start = time.monotonic()
-    sync_repos()
+    sync_repos(repos)
     elapsed = time.monotonic() - start
     minutes, seconds = divmod(int(elapsed), 60)
     sync_duration = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
-    generate_readme(sync_duration)
-    strip_nested_git()
+    generate_readme(repos, sync_duration)
+    strip_nested_git(repos)

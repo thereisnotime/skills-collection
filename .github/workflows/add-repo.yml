@@ -1,0 +1,127 @@
+name: "\u2795 Add Skill Repo"
+run-name: "\u2795 Adding ${{ inputs.repo_url }} by @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: "GitHub repo URL (e.g. https://github.com/owner/repo)"
+        required: true
+        type: string
+      description:
+        description: "Short description of the repo"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  add:
+    name: "\U0001F50D Validate & Add"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "\U0001F4E5 Checkout"
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "\U0001F40D Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "\U0001F50D Validate repo"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_URL="${{ inputs.repo_url }}"
+
+          # Normalize: strip trailing slash and .git
+          REPO_URL="${REPO_URL%/}"
+          REPO_URL="${REPO_URL%.git}"
+
+          # Extract slug (owner/repo)
+          SLUG="${REPO_URL#https://github.com/}"
+          if [[ "$SLUG" == "$REPO_URL" ]]; then
+            echo "❌ URL must be a GitHub repo (https://github.com/owner/repo)"
+            exit 1
+          fi
+
+          # Check if repo is accessible
+          echo "🔍 Checking if $SLUG is accessible..."
+          if ! gh repo view "$SLUG" --json name > /dev/null 2>&1; then
+            echo "❌ Repo $SLUG is not accessible (doesn't exist or is private)"
+            exit 1
+          fi
+          echo "✅ Repo is accessible"
+
+          # Extract dir name from URL
+          DIR_NAME=$(basename "$SLUG")
+
+          # Check if already in inventory
+          if python3 -c "
+          import json, sys
+          inv = json.loads(open('inventory.json').read())
+          urls = [r['url'] for r in inv]
+          if '$REPO_URL' in urls:
+              print('❌ Repo already in inventory')
+              sys.exit(1)
+          dirs = [r['dir'] for r in inv]
+          if '$DIR_NAME' in dirs:
+              print('❌ Dir name $DIR_NAME already taken')
+              sys.exit(1)
+          "; then
+            echo "✅ Not a duplicate"
+          else
+            exit 1
+          fi
+
+          echo "REPO_URL=$REPO_URL" >> "$GITHUB_ENV"
+          echo "DIR_NAME=$DIR_NAME" >> "$GITHUB_ENV"
+
+      - name: "\u2795 Add to inventory"
+        run: |
+          python3 -c "
+          import json
+          inv = json.loads(open('inventory.json').read())
+          inv.append({
+              'url': '${{ env.REPO_URL }}',
+              'dir': '${{ env.DIR_NAME }}',
+              'description': '${{ inputs.description }}'
+          })
+          open('inventory.json', 'w').write(json.dumps(inv, indent=2) + '\n')
+          print('📦 Added ${{ env.DIR_NAME }} to inventory')
+          "
+
+      - name: "\U0001F504 Sync repos & generate README"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python generate_readme.py
+
+      - name: "\U0001F504 Update remove workflow dropdown"
+        run: |
+          python3 -c "
+          import json, re
+
+          inv = json.loads(open('inventory.json').read())
+          options = '\n'.join(f'          - {r[\"dir\"]}' for r in inv)
+          wf = open('.github/workflows/remove-repo.yml').read()
+          wf = re.sub(
+              r'(options:\n)((?:          - .+\n)*)',
+              f'options:\n{options}\n',
+              wf
+          )
+          open('.github/workflows/remove-repo.yml', 'w').write(wf)
+          print('📝 Updated dropdown options')
+          "
+
+      - name: "\U0001F4BE Commit & push"
+        run: |
+          git config user.name "thereisnotime"
+          git config user.email "37583483+thereisnotime@users.noreply.github.com"
+          git add inventory.json README.md stats.json skills/ .github/workflows/remove-repo.yml
+          git diff --cached --quiet && echo "⚠️ Nothing changed" && exit 0
+          git commit -m "add: ${{ env.DIR_NAME }} — ${{ inputs.description }}"
+          git push
+          echo "🚀 ${{ env.DIR_NAME }} added and synced"
