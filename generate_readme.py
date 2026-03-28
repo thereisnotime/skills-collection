@@ -163,8 +163,8 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 
 ## Stats
 
-| | |
-|---|---|
+| Metric | Value |
+|--------|-------|
 | **Total repos** | {len(REPOS)} |
 | **Total skill files** | {total_display} |
 | **Last synced** | {now} |
