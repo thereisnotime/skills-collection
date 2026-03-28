@@ -1,0 +1,35 @@
+name: Sync Skills
+
+on:
+  schedule:
+    - cron: "0 6 */2 * *" # Every 2 days at 06:00 UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync repos and generate README
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python generate_readme.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "thereisnotime"
+          git config user.email "37583483+thereisnotime@users.noreply.github.com"
+          git add README.md
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "sync: update skills repos and readme"
+          git push
