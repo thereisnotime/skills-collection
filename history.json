@@ -2,12 +2,13 @@
   {
     "date": "2026-03-28",
     "stars": {
-      "slavingia--skills": 4939,
-      "zarazhangrui--codebase-to-course": 2255,
-      "samber--cc-skills-golang": 514,
-      "realkimbarrett--advertising-skills": 366,
+      "slavingia--skills": 4940,
+      "zarazhangrui--codebase-to-course": 2257,
+      "samber--cc-skills-golang": 520,
+      "realkimbarrett--advertising-skills": 367,
       "abubakarsiddik31--claude-skills-collection": 573,
-      "ComposioHQ--awesome-claude-skills": 48792
+      "ComposioHQ--awesome-claude-skills": 48797,
+      "anthropics--skills": 105035
     }
   }
 ]

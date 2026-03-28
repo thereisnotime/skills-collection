@@ -1,19 +1,19 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 4939
+    "stars": 4940
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
-    "stars": 2255
+    "stars": 2257
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 514
+    "stars": 520
   },
   "realkimbarrett--advertising-skills": {
     "skills": 19,
-    "stars": 366
+    "stars": 367
   },
   "abubakarsiddik31--claude-skills-collection": {
     "skills": 0,
@@ -21,6 +21,10 @@
   },
   "ComposioHQ--awesome-claude-skills": {
     "skills": 889,
-    "stars": 48792
+    "stars": 48797
+  },
+  "anthropics--skills": {
+    "skills": 67,
+    "stars": 105035
   }
 }
