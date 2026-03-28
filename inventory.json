@@ -18,5 +18,10 @@
     "url": "https://github.com/realkimbarrett/advertising-skills",
     "dir": "realkimbarrett--advertising-skills",
     "description": "Advertising skills"
+  },
+  {
+    "url": "https://github.com/abubakarsiddik31/claude-skills-collection",
+    "dir": "abubakarsiddik31--claude-skills-collection",
+    "description": "A curated collection of official and community-built Claude Skills \u2013 extend Anthropic's Claude with powerful, modular capabilities for productivity, creativity, coding, and more. "
   }
 ]
