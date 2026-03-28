@@ -19,6 +19,7 @@ README_PATH = Path(__file__).parent / "README.md"
 STATS_PATH = Path(__file__).parent / "stats.json"
 INVENTORY_PATH = Path(__file__).parent / "inventory.json"
 HISTORY_PATH = Path(__file__).parent / "history.json"
+COMMITS_PATH = Path(__file__).parent / "commits.json"
 CHARTS_DIR = Path(__file__).parent / "charts"
 
 # -- Chart colors --
@@ -264,19 +265,61 @@ def generate_top_bottom_bar_chart(repo_stars):
     plt.close()
 
 
+def load_commits():
+    if COMMITS_PATH.exists():
+        try:
+            return json.loads(COMMITS_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def save_commits(commits):
+    COMMITS_PATH.write_text(json.dumps(commits, indent=2) + "\n")
+
+
+def get_remote_sha(repo_slug):
+    """Get the latest commit SHA from GitHub API (no clone needed)."""
+    try:
+        out = run(["gh", "api", f"repos/{repo_slug}/commits?per_page=1", "--jq", ".[0].sha"])
+        return out.strip() if out else None
+    except Exception:
+        return None
+
+
 def sync_repos(repos):
-    """Clone or pull all repos."""
+    """Clone or pull only repos that have new commits."""
     SKILLS_DIR.mkdir(exist_ok=True)
+    known_commits = load_commits()
+    updated = 0
+    skipped = 0
+
     for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
+        slug = repo["url"].replace("https://github.com/", "")
+        remote_sha = get_remote_sha(slug)
+        local_sha = known_commits.get(repo["dir"])
+        is_new = not repo_path.exists() or not any(repo_path.iterdir())
+
+        if not is_new and remote_sha and remote_sha == local_sha:
+            skipped += 1
+            continue
+
         if repo_path.exists() and (repo_path / ".git").exists():
-            print(f"  Pulling {repo['dir']}...")
+            print(f"  Pulling {repo['dir']} (changed)...")
             run(["git", "pull", "--ff-only"], cwd=repo_path)
         else:
             if repo_path.exists():
                 shutil.rmtree(repo_path)
-            print(f"  Cloning {repo['url']}...")
-            run(["git", "clone", repo["url"], str(repo_path)])
+            print(f"  Cloning {repo['dir']}...")
+            run(["git", "clone", "--depth=1", repo["url"], str(repo_path)])
+
+        if remote_sha:
+            known_commits[repo["dir"]] = remote_sha
+        updated += 1
+
+    save_commits(known_commits)
+    print(f"  Sync done: {updated} updated, {skipped} unchanged")
 
 
 def generate_readme(repos, sync_duration="n/a"):
