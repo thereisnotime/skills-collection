@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates a README.md with stats about all skills repos in the skills/ folder."""
+"""Generates a README.md with stats and charts about all skills repos."""
 
 import os
 import shutil
@@ -9,10 +9,28 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
 SKILLS_DIR = Path(__file__).parent / "skills"
 README_PATH = Path(__file__).parent / "README.md"
 STATS_PATH = Path(__file__).parent / "stats.json"
 INVENTORY_PATH = Path(__file__).parent / "inventory.json"
+HISTORY_PATH = Path(__file__).parent / "history.json"
+CHARTS_DIR = Path(__file__).parent / "charts"
+
+# -- Chart colors --
+PALETTE = [
+    "#6366f1", "#f43f5e", "#10b981", "#f59e0b", "#3b82f6",
+    "#ec4899", "#14b8a6", "#8b5cf6", "#ef4444", "#06b6d4",
+]
+BG_COLOR = "#0d1117"
+TEXT_COLOR = "#c9d1d9"
+GRID_COLOR = "#21262d"
+ACCENT_GREEN = "#3fb950"
+ACCENT_RED = "#f85149"
 
 
 def load_inventory():
@@ -34,7 +52,6 @@ def get_latest_commit(repo_path):
 
 
 def count_skill_files(repo_path):
-    """Count .md files that look like skill definitions."""
     if not repo_path.exists():
         return 0
     count = 0
@@ -46,7 +63,6 @@ def count_skill_files(repo_path):
 
 
 def get_dir_size_mb(repo_path):
-    """Get directory size in MB, excluding .git."""
     if not repo_path.exists():
         return 0.0
     total = 0
@@ -57,7 +73,6 @@ def get_dir_size_mb(repo_path):
 
 
 def get_star_count(url):
-    """Try to get star count via gh CLI."""
     repo_slug = url.replace("https://github.com/", "")
     try:
         out = run(["gh", "repo", "view", repo_slug, "--json", "stargazerCount"])
@@ -82,6 +97,34 @@ def save_stats(stats):
     STATS_PATH.write_text(json.dumps(stats, indent=2) + "\n")
 
 
+def load_history():
+    if HISTORY_PATH.exists():
+        try:
+            return json.loads(HISTORY_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return []
+
+
+def save_history(history):
+    HISTORY_PATH.write_text(json.dumps(history, indent=2) + "\n")
+
+
+def update_history(repo_stars):
+    """Append today's star counts to history (one entry per day max)."""
+    history = load_history()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Replace today's entry if it already exists
+    history = [h for h in history if h["date"] != today]
+    history.append({"date": today, "stars": repo_stars})
+
+    # Keep last 365 days
+    history = history[-365:]
+    save_history(history)
+    return history
+
+
 def format_diff(current, previous):
     if previous is None or previous == "?" or current == "?":
         return str(current)
@@ -93,9 +136,136 @@ def format_diff(current, previous):
     return str(current)
 
 
+def generate_stars_line_chart(history, repo_stars):
+    """Line chart: stars over time for top 10 repos by current stars."""
+    CHARTS_DIR.mkdir(exist_ok=True)
+
+    # Get top 10 repos by current star count
+    sorted_repos = sorted(repo_stars.items(), key=lambda x: x[1] if isinstance(x[1], int) else 0, reverse=True)[:10]
+    top_names = [name for name, _ in sorted_repos]
+
+    if len(history) < 2:
+        # Not enough data points yet, create a placeholder with current values
+        dates = [datetime.now(timezone.utc).strftime("%Y-%m-%d")]
+        fig, ax = plt.subplots(figsize=(10, 5), facecolor=BG_COLOR)
+        ax.set_facecolor(BG_COLOR)
+
+        for i, name in enumerate(top_names):
+            stars = repo_stars.get(name, 0)
+            if isinstance(stars, int):
+                color = PALETTE[i % len(PALETTE)]
+                ax.bar(i, stars, color=color, label=name, width=0.6)
+
+        ax.set_xticks(range(len(top_names)))
+        ax.set_xticklabels(top_names, rotation=35, ha="right", fontsize=8, color=TEXT_COLOR)
+        ax.set_ylabel("Stars", color=TEXT_COLOR, fontsize=11)
+        ax.set_title("Stars — Top Repos (history builds over time)", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
+        ax.tick_params(colors=TEXT_COLOR)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["bottom"].set_color(GRID_COLOR)
+        ax.spines["left"].set_color(GRID_COLOR)
+        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
+        ax.grid(axis="y", color=GRID_COLOR, linewidth=0.5)
+        ax.legend(loc="upper left", fontsize=7, facecolor=BG_COLOR, edgecolor=GRID_COLOR, labelcolor=TEXT_COLOR)
+
+        plt.tight_layout()
+        plt.savefig(CHARTS_DIR / "stars-history.png", dpi=150, facecolor=BG_COLOR)
+        plt.close()
+        return
+
+    # Multiple data points — draw line chart
+    dates = [datetime.strptime(h["date"], "%Y-%m-%d") for h in history]
+
+    fig, ax = plt.subplots(figsize=(10, 5), facecolor=BG_COLOR)
+    ax.set_facecolor(BG_COLOR)
+
+    for i, name in enumerate(top_names):
+        values = []
+        for h in history:
+            val = h["stars"].get(name, 0)
+            values.append(val if isinstance(val, int) else 0)
+        color = PALETTE[i % len(PALETTE)]
+        ax.plot(dates, values, color=color, label=name, linewidth=2, marker="o", markersize=4)
+
+    ax.set_ylabel("Stars", color=TEXT_COLOR, fontsize=11)
+    ax.set_title("Stars Over Time — Top 10 Repos", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
+    ax.tick_params(colors=TEXT_COLOR, labelsize=9)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_color(GRID_COLOR)
+    ax.spines["left"].set_color(GRID_COLOR)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
+    ax.grid(color=GRID_COLOR, linewidth=0.5)
+    ax.legend(loc="upper left", fontsize=8, facecolor=BG_COLOR, edgecolor=GRID_COLOR, labelcolor=TEXT_COLOR)
+    fig.autofmt_xdate()
+
+    plt.tight_layout()
+    plt.savefig(CHARTS_DIR / "stars-history.png", dpi=150, facecolor=BG_COLOR)
+    plt.close()
+
+
+def generate_top_bottom_bar_chart(repo_stars):
+    """Horizontal bar chart: top 5 and bottom 5 repos by stars."""
+    CHARTS_DIR.mkdir(exist_ok=True)
+
+    # Filter out non-int values
+    valid = {k: v for k, v in repo_stars.items() if isinstance(v, int)}
+    if not valid:
+        return
+
+    sorted_repos = sorted(valid.items(), key=lambda x: x[1], reverse=True)
+
+    top5 = sorted_repos[:5]
+    bottom5 = sorted_repos[-5:] if len(sorted_repos) > 5 else []
+
+    # If we have <= 5 repos total, just show them all as one chart
+    if not bottom5 or top5 == bottom5:
+        sections = [("Top Repos by Stars", top5, ACCENT_GREEN)]
+    else:
+        # Remove overlap (if < 10 repos, top5 and bottom5 may share entries)
+        bottom5_names = {name for name, _ in bottom5}
+        top5_names = {name for name, _ in top5}
+        bottom5 = [(n, s) for n, s in bottom5 if n not in top5_names]
+        if not bottom5:
+            sections = [("Top Repos by Stars", top5, ACCENT_GREEN)]
+        else:
+            sections = [
+                ("Top 5 by Stars", top5, ACCENT_GREEN),
+                ("Bottom 5 by Stars", bottom5, ACCENT_RED),
+            ]
+
+    fig, axes = plt.subplots(1, len(sections), figsize=(6 * len(sections), 4), facecolor=BG_COLOR)
+    if len(sections) == 1:
+        axes = [axes]
+
+    for ax, (title, data, color) in zip(axes, sections):
+        ax.set_facecolor(BG_COLOR)
+        names = [d[0] for d in reversed(data)]
+        values = [d[1] for d in reversed(data)]
+
+        bars = ax.barh(names, values, color=color, height=0.6, alpha=0.85)
+
+        for bar, val in zip(bars, values):
+            ax.text(bar.get_width() + max(values) * 0.02, bar.get_y() + bar.get_height() / 2,
+                    f"{val:,}", va="center", ha="left", color=TEXT_COLOR, fontsize=9)
+
+        ax.set_title(title, color=TEXT_COLOR, fontsize=12, fontweight="bold", pad=12)
+        ax.tick_params(colors=TEXT_COLOR, labelsize=9)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["bottom"].set_color(GRID_COLOR)
+        ax.spines["left"].set_color(GRID_COLOR)
+        ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
+        ax.grid(axis="x", color=GRID_COLOR, linewidth=0.5)
+
+    plt.tight_layout()
+    plt.savefig(CHARTS_DIR / "top-bottom-stars.png", dpi=150, facecolor=BG_COLOR)
+    plt.close()
+
+
 def sync_repos(repos):
-    """Clone or pull all repos. Removes nested .git dirs afterward so files
-    can be committed to the parent repo without submodule issues."""
+    """Clone or pull all repos."""
     SKILLS_DIR.mkdir(exist_ok=True)
     for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
@@ -113,13 +283,14 @@ def generate_readme(repos, sync_duration="n/a"):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     previous = load_previous_stats()
     current_stats = {}
+    repo_stars = {}
     total_skills = 0
     total_size = 0.0
     rows = []
 
     for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
-        sha, date, msg = get_latest_commit(repo_path)
+        sha, commit_date, msg = get_latest_commit(repo_path)
         skills_count = count_skill_files(repo_path)
         stars = get_star_count(repo["url"])
         size_mb = get_dir_size_mb(repo_path)
@@ -131,20 +302,30 @@ def generate_readme(repos, sync_duration="n/a"):
         stars_display = format_diff(stars, prev.get("stars"))
 
         current_stats[repo["dir"]] = {"skills": skills_count, "stars": stars}
+        repo_stars[repo["dir"]] = stars
 
-        if date and date != "n/a":
+        last_commit_date = "n/a"
+        if commit_date and commit_date != "n/a":
             try:
-                dt = datetime.fromisoformat(date)
-                date = dt.strftime("%Y-%m-%d")
+                dt = datetime.fromisoformat(commit_date)
+                last_commit_date = dt.strftime("%Y-%m-%d")
             except ValueError:
-                pass
+                last_commit_date = commit_date
 
         rows.append(
             f"| [{repo['dir']}]({repo['url']}) | {repo['description']} "
-            f"| {skills_display} | {stars_display} | {size_mb} MB | `{sha}` | {date} | {msg} |"
+            f"| {skills_display} | {stars_display} | {size_mb} MB "
+            f"| `{sha}` | {last_commit_date} | {msg} |"
         )
 
     save_stats(current_stats)
+
+    # Update history and generate charts
+    print("  Generating charts...")
+    history = update_history(repo_stars)
+    generate_stars_line_chart(history, repo_stars)
+    generate_top_bottom_bar_chart(repo_stars)
+
     table = "\n".join(rows)
 
     prev_total = sum(r.get("skills", 0) for r in previous.values())
@@ -170,16 +351,26 @@ A curated collection of Claude Code skills repos, automatically synced every 2 d
 
 ## Repos
 
-| Repo | Description | Skills | Stars | Size | Latest Commit | Date | Message |
-|------|-------------|--------|-------|------|---------------|------|---------|
+| Repo | Description | Skills | Stars | Size | Last Commit | Last Commit Date | Message |
+|------|-------------|--------|-------|------|-------------|------------------|---------|
 {table}
+
+## Charts
+
+### Stars Over Time
+
+![Stars Over Time](charts/stars-history.png)
+
+### Top & Bottom Repos by Stars
+
+![Top & Bottom Repos](charts/top-bottom-stars.png)
 
 ## How it works
 
 A GitHub Actions workflow runs every 2 days to:
 
 1. Clone or pull all skill repos into `skills/`
-2. Run `generate_readme.py` to regenerate this README with fresh stats
+2. Run `generate_readme.py` to regenerate this README with fresh stats and charts
 3. Commit and push any changes
 
 ---
@@ -192,8 +383,6 @@ A GitHub Actions workflow runs every 2 days to:
 
 
 def strip_nested_git(repos):
-    """Remove .git dirs from cloned repos so they're plain directories
-    that the parent repo can track without submodule confusion."""
     for repo in repos:
         git_dir = SKILLS_DIR / repo["dir"] / ".git"
         if git_dir.exists():

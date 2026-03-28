@@ -1,7 +1,7 @@
 {
   "skills": {
     "skills": 10,
-    "stars": 4929
+    "stars": 4930
   },
   "codebase-to-course": {
     "skills": 3,
@@ -9,6 +9,6 @@
   },
   "cc-skills-golang": {
     "skills": 168,
-    "stars": 502
+    "stars": 504
   }
 }

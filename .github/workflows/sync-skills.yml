@@ -24,6 +24,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: "\U0001F4E6 Install dependencies"
+        run: pip install matplotlib
+
       - name: "\U0001F504 Sync repos & generate README"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,8 +36,8 @@ jobs:
         run: |
           git config user.name "thereisnotime"
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
-          git add README.md stats.json skills/
+          git add README.md stats.json history.json charts/ skills/
           git diff --cached --quiet && echo "✅ Nothing changed" && exit 0
-          git commit -m "sync: update skills repos and readme"
+          git commit -m "sync: update skills repos, readme and charts"
           git push
           echo "🚀 Changes pushed"

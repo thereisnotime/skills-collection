@@ -31,6 +31,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: "\U0001F4E6 Install dependencies"
+        run: pip install matplotlib
+
       - name: "\U0001F50D Validate & remove from inventory"
         run: |
           python3 -c "
@@ -82,7 +85,7 @@ jobs:
         run: |
           git config user.name "thereisnotime"
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
-          git add inventory.json README.md stats.json skills/ .github/workflows/remove-repo.yml
+          git add inventory.json README.md stats.json history.json charts/ skills/ .github/workflows/remove-repo.yml
           git diff --cached --quiet && echo "⚠️ Nothing changed" && exit 0
           git commit -m "remove: ${{ inputs.repo }}"
           git push
