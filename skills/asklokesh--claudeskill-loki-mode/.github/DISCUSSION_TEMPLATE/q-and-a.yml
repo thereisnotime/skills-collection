@@ -1,0 +1,42 @@
+title: "[Q&A] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask questions about Loki Mode usage, configuration, or architecture.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you want to know?
+      placeholder: "How do I configure..."
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Installation and Setup
+        - CLI Usage
+        - PRD Writing
+        - Agent Configuration
+        - Memory System
+        - Quality Gates
+        - Enterprise Features
+        - Dashboard
+        - Multi-Provider
+        - OpenSpec Integration
+        - Issue-Driven (loki run)
+        - SDKs and APIs
+        - Deployment
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include your environment, what you have tried, or relevant config.
+      placeholder: "I'm running on macOS with..."

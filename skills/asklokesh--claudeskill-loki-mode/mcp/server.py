@@ -1,0 +1,1806 @@
+#!/usr/bin/env python3
+"""
+Loki Mode MCP Server
+
+Exposes Loki Mode capabilities via Model Context Protocol:
+- Task queue management
+- Memory retrieval
+- State management
+- Metrics tracking
+
+Uses StateManager for centralized state access with caching.
+
+Usage:
+    python -m mcp.server                    # STDIO mode (default)
+    python -m mcp.server --transport http   # HTTP mode
+"""
+
+import sys
+import os
+import json
+import logging
+import threading
+import uuid
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import event bus for tool call events
+try:
+    from events.bus import EventBus, EventType, EventSource, LokiEvent
+    EVENT_BUS_AVAILABLE = True
+except ImportError:
+    EVENT_BUS_AVAILABLE = False
+
+# Import learning collector for cross-tool learning
+try:
+    from mcp.learning_collector import get_mcp_learning_collector, MCPLearningCollector
+    LEARNING_COLLECTOR_AVAILABLE = True
+except ImportError:
+    LEARNING_COLLECTOR_AVAILABLE = False
+    get_mcp_learning_collector = None
+    MCPLearningCollector = None
+
+# Import StateManager for centralized state access
+try:
+    from state.manager import StateManager, ManagedFile, get_state_manager
+    STATE_MANAGER_AVAILABLE = True
+except ImportError:
+    STATE_MANAGER_AVAILABLE = False
+    StateManager = None
+    ManagedFile = None
+    get_state_manager = None
+
+
+# Module-level StateManager instance
+_state_manager = None
+
+# Module-level LearningCollector instance
+_learning_collector = None
+
+
+def _get_learning_collector():
+    """Get or create the LearningCollector instance for MCP server."""
+    global _learning_collector
+    if not LEARNING_COLLECTOR_AVAILABLE:
+        return None
+    if _learning_collector is None:
+        from pathlib import Path
+        loki_dir = Path(os.getcwd()) / '.loki'
+        _learning_collector = get_mcp_learning_collector(loki_dir=loki_dir)
+    return _learning_collector
+
+
+def _get_mcp_state_manager():
+    """Get or create the StateManager instance for MCP server.
+
+    BUG-PU-002: Recreates the StateManager if the underlying .loki directory
+    has disappeared (e.g., project changed) to prevent stale file handle errors.
+    """
+    global _state_manager
+    if not STATE_MANAGER_AVAILABLE:
+        return None
+    loki_dir = os.path.join(os.getcwd(), '.loki')
+    if _state_manager is not None:
+        # Verify the state manager's directory still matches cwd
+        existing_dir = getattr(_state_manager, 'loki_dir', None) or \
+                       getattr(_state_manager, '_loki_dir', None)
+        if existing_dir and os.path.realpath(existing_dir) != os.path.realpath(loki_dir):
+            # Project directory changed, recreate
+            if hasattr(_state_manager, 'close'):
+                _state_manager.close()
+            _state_manager = None
+    if _state_manager is None:
+        _state_manager = get_state_manager(
+            loki_dir=loki_dir,
+            enable_watch=False,  # MCP server doesn't need file watching
+            enable_events=False
+        )
+    return _state_manager
+
+
+def cleanup_mcp_singletons():
+    """Clean up module-level singletons to prevent resource leaks on restart.
+
+    Call this before restarting the MCP server to release file handles
+    held by the StateManager and LearningCollector instances.
+    """
+    global _state_manager, _learning_collector
+    if _state_manager is not None:
+        if hasattr(_state_manager, 'close'):
+            _state_manager.close()
+        _state_manager = None
+    if _learning_collector is not None:
+        if hasattr(_learning_collector, 'close'):
+            _learning_collector.close()
+        _learning_collector = None
+
+
+# ============================================================
+# PATH SECURITY - Prevent path traversal attacks
+# ============================================================
+
+# Allowed base directories relative to project root
+ALLOWED_BASE_DIRS = ['.loki', 'memory']
+
+
+class PathTraversalError(Exception):
+    """Raised when a path traversal attempt is detected"""
+    pass
+
+
+def get_project_root() -> str:
+    """Get the project root directory (current working directory)"""
+    return os.path.realpath(os.getcwd())
+
+
+def validate_path(path: str, allowed_dirs: List[str] = None) -> str:
+    """
+    Validate that a path is within allowed directories.
+
+    Args:
+        path: The path to validate (can be relative or absolute)
+        allowed_dirs: List of allowed base directories relative to project root.
+                      Defaults to ALLOWED_BASE_DIRS.
+
+    Returns:
+        The canonicalized absolute path if valid
+
+    Raises:
+        PathTraversalError: If the path attempts to escape allowed directories
+    """
+    if allowed_dirs is None:
+        allowed_dirs = ALLOWED_BASE_DIRS
+
+    project_root = get_project_root()
+
+    # Build absolute path without resolving symlinks first
+    if os.path.isabs(path):
+        abs_path = path
+    else:
+        abs_path = os.path.join(project_root, path)
+
+    # Walk each component to detect symlink chains escaping allowed dirs
+    # This prevents symlinks that hop through directories outside the project
+    parts = os.path.normpath(abs_path).split(os.sep)
+    current = os.sep if abs_path.startswith(os.sep) else ''
+    for part in parts:
+        if not part:
+            continue
+        current = os.path.join(current, part)
+        if os.path.islink(current):
+            link_target = os.path.realpath(current)
+            # Each symlink target must resolve within the project root
+            if not link_target.startswith(project_root + os.sep) and link_target != project_root:
+                raise PathTraversalError(
+                    f"Access denied: Symlink '{current}' escapes project root "
+                    f"(target: '{link_target}')"
+                )
+
+    # Resolve to absolute path, following all symlinks for final check
+    resolved_path = os.path.realpath(abs_path)
+
+    # Check if path is within any of the allowed directories
+    for allowed_dir in allowed_dirs:
+        allowed_base = os.path.realpath(os.path.join(project_root, allowed_dir))
+
+        # Ensure allowed base ends with separator for proper prefix matching
+        if not allowed_base.endswith(os.sep):
+            allowed_base_check = allowed_base + os.sep
+        else:
+            allowed_base_check = allowed_base
+
+        # Check if resolved path is the allowed base or a subdirectory of it
+        if resolved_path == allowed_base or resolved_path.startswith(allowed_base_check):
+            return resolved_path
+
+    # Path is not within allowed directories
+    raise PathTraversalError(
+        f"Access denied: Path '{path}' resolves outside allowed directories. "
+        f"Allowed: {', '.join(allowed_dirs)}"
+    )
+
+
+def safe_path_join(base_dir: str, *paths: str) -> str:
+    """
+    Safely join paths and validate the result is within allowed directories.
+
+    Args:
+        base_dir: Base directory (should be one of the allowed dirs)
+        *paths: Additional path components to join
+
+    Returns:
+        The validated absolute path
+
+    Raises:
+        PathTraversalError: If the resulting path escapes allowed directories
+    """
+    project_root = get_project_root()
+
+    # Build the full path
+    full_path = os.path.join(project_root, base_dir, *paths)
+
+    # Validate it stays within allowed directories
+    return validate_path(full_path)
+
+
+def safe_open(path: str, mode: str = 'r', allowed_dirs: List[str] = None, encoding: str = 'utf-8'):
+    """
+    Safely open a file after validating the path.
+
+    Args:
+        path: Path to the file
+        mode: File open mode
+        allowed_dirs: Allowed directories (defaults to ALLOWED_BASE_DIRS)
+        encoding: File encoding (default: utf-8, ignored for binary modes)
+
+    Returns:
+        File handle
+
+    Raises:
+        PathTraversalError: If path escapes allowed directories
+    """
+    validated_path = validate_path(path, allowed_dirs)
+    # Only pass encoding for text modes, not binary modes
+    if 'b' in mode:
+        return open(validated_path, mode)
+    return open(validated_path, mode, encoding=encoding)
+
+
+def safe_makedirs(path: str, exist_ok: bool = True, allowed_dirs: List[str] = None):
+    """
+    Safely create directories after validating the path.
+
+    Args:
+        path: Path to create
+        exist_ok: If True, don't raise error if directory exists
+        allowed_dirs: Allowed directories (defaults to ALLOWED_BASE_DIRS)
+
+    Raises:
+        PathTraversalError: If path escapes allowed directories
+    """
+    validated_path = validate_path(path, allowed_dirs)
+    os.makedirs(validated_path, exist_ok=exist_ok)
+
+
+def safe_exists(path: str, allowed_dirs: List[str] = None) -> bool:
+    """
+    Safely check if a path exists after validating it.
+
+    Args:
+        path: Path to check
+        allowed_dirs: Allowed directories (defaults to ALLOWED_BASE_DIRS)
+
+    Returns:
+        True if path exists and is within allowed directories, False otherwise
+    """
+    try:
+        validated_path = validate_path(path, allowed_dirs)
+        return os.path.exists(validated_path)
+    except PathTraversalError:
+        return False
+
+
+# Configure logging to stderr (critical for STDIO transport)
+# Must be configured before using logger in event emission
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
+logger = logging.getLogger('loki-mcp')
+
+
+# ============================================================
+# EVENT EMISSION - Non-blocking tool call events
+# ============================================================
+
+# Track tool call start times for duration calculation (per-tool stack)
+_tool_call_start_times: Dict[str, List[float]] = {}
+_tool_call_times_lock = threading.Lock()
+
+
+def _emit_tool_event_async(tool_name: str, action: str, **kwargs) -> None:
+    """
+    Emit a tool event asynchronously (non-blocking).
+
+    Args:
+        tool_name: Name of the MCP tool being called
+        action: 'start' or 'complete'
+        **kwargs: Additional payload fields (parameters, result_status, error)
+    """
+    import time
+
+    # Track timing for learning signals using a per-tool-name stack (thread-safe)
+    if action == 'start':
+        with _tool_call_times_lock:
+            _tool_call_start_times.setdefault(tool_name, []).append(time.time())
+    elif action == 'complete':
+        # Pop the most recent start time for this tool
+        start_time = None
+        with _tool_call_times_lock:
+            times = _tool_call_start_times.get(tool_name)
+            if times:
+                start_time = times.pop()
+        if start_time:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            _emit_learning_signal_async(
+                tool_name=tool_name,
+                execution_time_ms=execution_time_ms,
+                result_status=kwargs.get('result_status', 'unknown'),
+                error=kwargs.get('error'),
+                parameters=kwargs.get('parameters', {})
+            )
+
+    if not EVENT_BUS_AVAILABLE:
+        return
+
+    def emit():
+        try:
+            bus = EventBus()
+            payload = {
+                'action': action,
+                'tool_name': tool_name,
+                **kwargs
+            }
+            event = LokiEvent(
+                type=EventType.COMMAND,
+                source=EventSource.MCP,
+                payload=payload
+            )
+            bus.emit(event)
+        except Exception as e:
+            # Never block the tool call for event emission failures
+            logger.debug(f"Event emission failed (non-fatal): {e}")
+
+    # Run in background thread to not block the tool call
+    thread = threading.Thread(target=emit, daemon=True)
+    thread.start()
+
+
+def _emit_learning_signal_async(
+    tool_name: str,
+    execution_time_ms: int,
+    result_status: str,
+    error: Optional[str] = None,
+    parameters: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    Emit a learning signal asynchronously (non-blocking).
+
+    Emits ToolEfficiencySignal on every call, and ErrorPatternSignal on failures.
+
+    Args:
+        tool_name: Name of the MCP tool
+        execution_time_ms: Execution time in milliseconds
+        result_status: 'success' or 'error'
+        error: Error message if failed
+        parameters: Tool parameters for context
+    """
+    if not LEARNING_COLLECTOR_AVAILABLE:
+        return
+
+    def emit():
+        try:
+            collector = _get_learning_collector()
+            if not collector:
+                return
+
+            success = result_status == 'success'
+
+            # Emit tool efficiency signal
+            collector.emit_tool_efficiency(
+                tool_name=tool_name,
+                action=f"mcp_tool_call",
+                execution_time_ms=execution_time_ms,
+                success=success,
+                context={'parameters': parameters or {}},
+            )
+
+            # Emit error pattern if failed
+            if not success and error:
+                collector.emit_error_pattern(
+                    tool_name=tool_name,
+                    action=f"mcp_tool_call",
+                    error_type='MCPToolError',
+                    error_message=error,
+                    context={'parameters': parameters or {}},
+                )
+
+            # Emit success pattern for successful calls
+            if success:
+                collector.emit_success_pattern(
+                    tool_name=tool_name,
+                    action=f"mcp_tool_call",
+                    pattern_name=f"mcp_{tool_name}_success",
+                    duration_seconds=execution_time_ms / 1000,
+                    context={'parameters': parameters or {}},
+                )
+
+        except Exception as e:
+            # Never block the tool call for learning signal emission failures
+            logger.debug(f"Learning signal emission failed (non-fatal): {e}")
+
+    # Run in background thread to not block the tool call
+    thread = threading.Thread(target=emit, daemon=True)
+    thread.start()
+
+
+def _emit_context_relevance_signal(
+    tool_name: str,
+    query: str,
+    retrieved_ids: List[str],
+    context: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    Emit a context relevance learning signal for memory/resource access.
+
+    Args:
+        tool_name: Name of the MCP tool
+        query: The query used for retrieval
+        retrieved_ids: IDs of retrieved items
+        context: Additional context
+    """
+    if not LEARNING_COLLECTOR_AVAILABLE:
+        return
+
+    def emit():
+        try:
+            collector = _get_learning_collector()
+            if not collector:
+                return
+
+            collector.emit_context_relevance(
+                tool_name=tool_name,
+                action='memory_retrieval',
+                query=query,
+                retrieved_ids=retrieved_ids,
+                context=context or {},
+            )
+        except Exception as e:
+            logger.debug(f"Context relevance signal emission failed (non-fatal): {e}")
+
+    thread = threading.Thread(target=emit, daemon=True)
+    thread.start()
+
+
+# BUG #3 FIX: The local mcp/ package shadows the pip-installed mcp SDK.
+# Load FastMCP directly from site-packages using importlib.util to bypass
+# Python's package name resolution entirely (avoids infinite recursion).
+import importlib.util
+import site
+
+_fastmcp_found = False
+_search_paths = []
+try:
+    _search_paths.extend(site.getsitepackages())
+except AttributeError:
+    pass
+try:
+    _search_paths.append(site.getusersitepackages())
+except AttributeError:
+    pass
+
+for _site_dir in _search_paths:
+    _fastmcp_path = os.path.join(_site_dir, "mcp", "server", "fastmcp.py")
+    if os.path.isfile(_fastmcp_path):
+        _spec = importlib.util.spec_from_file_location(
+            "mcp_pip_sdk.server.fastmcp", _fastmcp_path,
+            submodule_search_locations=[]
+        )
+        if _spec and _spec.loader:
+            _fastmcp_mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_fastmcp_mod)
+            FastMCP = _fastmcp_mod.FastMCP
+            _fastmcp_found = True
+            break
+
+if not _fastmcp_found:
+    logger.error("MCP SDK (pip package 'mcp') not found in site-packages. Install with: pip install mcp")
+    sys.exit(1)
+
+# Read version from VERSION file instead of hardcoding
+try:
+    with open(os.path.join(os.path.dirname(__file__), '..', 'VERSION')) as _vf:
+        _version = _vf.read().strip()
+except Exception:
+    _version = "unknown"
+
+# Initialize FastMCP server
+mcp = FastMCP(
+    "loki-mode",
+    version=_version,
+    description="Loki Mode autonomous agent orchestration"
+)
+
+# ============================================================
+# TOOLS - Functions Claude can call
+# ============================================================
+
+@mcp.tool()
+async def loki_memory_retrieve(
+    query: str,
+    task_type: str = "implementation",
+    top_k: int = 5
+) -> str:
+    """
+    Retrieve relevant memories for a task using task-aware retrieval.
+
+    Args:
+        query: Search query describing what you're looking for
+        task_type: Type of task (exploration, implementation, debugging, review, refactoring)
+        top_k: Maximum number of results to return
+
+    Returns:
+        JSON array of relevant memory entries with summaries
+    """
+    _emit_tool_event_async(
+        'loki_memory_retrieve', 'start',
+        parameters={'query': query, 'task_type': task_type, 'top_k': top_k}
+    )
+    try:
+        from memory.retrieval import MemoryRetrieval
+        from memory.storage import MemoryStorage
+
+        base_path = safe_path_join('.loki', 'memory')
+        if not os.path.exists(base_path):
+            result = json.dumps({"memories": [], "message": "Memory system not initialized"})
+            _emit_tool_event_async('loki_memory_retrieve', 'complete', result_status='success')
+            return result
+
+        storage = MemoryStorage(base_path)
+        retriever = MemoryRetrieval(storage)
+
+        context = {"goal": query, "task_type": task_type}
+        results = retriever.retrieve_task_aware(context, top_k=top_k)
+
+        # Extract IDs for context relevance signal
+        retrieved_ids = [r.get('id', '') for r in results if isinstance(r, dict)]
+
+        # Emit context relevance signal for memory retrieval
+        _emit_context_relevance_signal(
+            tool_name='loki_memory_retrieve',
+            query=query,
+            retrieved_ids=retrieved_ids,
+            context={'task_type': task_type, 'top_k': top_k}
+        )
+
+        result = json.dumps({
+            "memories": results,
+            "task_type": task_type,
+            "count": len(results)
+        }, default=str)
+        _emit_tool_event_async('loki_memory_retrieve', 'complete', result_status='success')
+        return result
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_memory_retrieve', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied", "memories": []})
+    except Exception as e:
+        logger.error(f"Memory retrieval failed: {e}")
+        _emit_tool_event_async('loki_memory_retrieve', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e), "memories": []})
+
+
+@mcp.tool()
+async def loki_memory_store_pattern(
+    pattern: str,
+    category: str,
+    correct_approach: str,
+    incorrect_approach: str = "",
+    confidence: float = 0.8
+) -> str:
+    """
+    Store a new semantic pattern learned during this session.
+
+    Args:
+        pattern: Brief description of the pattern
+        category: Category (api, testing, security, performance, architecture, etc.)
+        correct_approach: The correct way to handle this situation
+        incorrect_approach: What to avoid (optional)
+        confidence: Confidence level 0.0-1.0
+
+    Returns:
+        Pattern ID if successful
+    """
+    # Validate confidence range
+    if not (0.0 <= confidence <= 1.0):
+        return json.dumps({"success": False, "error": "confidence must be between 0.0 and 1.0"})
+
+    _emit_tool_event_async(
+        'loki_memory_store_pattern', 'start',
+        parameters={'pattern': pattern, 'category': category, 'confidence': confidence}
+    )
+    try:
+        from memory.engine import MemoryEngine
+        from memory.schemas import SemanticPattern
+
+        base_path = safe_path_join('.loki', 'memory')
+        engine = MemoryEngine(base_path=base_path)
+        engine.initialize()
+
+        pattern_obj = SemanticPattern(
+            id=f"pattern-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:8]}",
+            pattern=pattern,
+            category=category,
+            conditions=[],
+            correct_approach=correct_approach,
+            incorrect_approach=incorrect_approach,
+            confidence=confidence,
+            source_episodes=[],
+            usage_count=0,
+            last_used=None,
+            links=[]
+        )
+
+        pattern_id = engine.store_pattern(pattern_obj)
+        _emit_tool_event_async('loki_memory_store_pattern', 'complete', result_status='success')
+        return json.dumps({"success": True, "pattern_id": pattern_id})
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_memory_store_pattern', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"success": False, "error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Pattern storage failed: {e}")
+        _emit_tool_event_async('loki_memory_store_pattern', 'complete', result_status='error', error=str(e))
+        return json.dumps({"success": False, "error": str(e)})
+
+
+@mcp.tool()
+async def loki_task_queue_list() -> str:
+    """
+    List all tasks in the Loki Mode task queue.
+
+    Returns:
+        JSON array of tasks with status, priority, and description
+    """
+    _emit_tool_event_async('loki_task_queue_list', 'start', parameters={})
+    try:
+        # Use StateManager if available
+        manager = _get_mcp_state_manager()
+        if manager and STATE_MANAGER_AVAILABLE:
+            queue = manager.get_state("state/task-queue.json")
+            if queue:
+                # Strip internal fields before returning
+                response = {k: v for k, v in queue.items() if k not in ("_next_id", "version")}
+                _emit_tool_event_async('loki_task_queue_list', 'complete', result_status='success')
+                return json.dumps(response, default=str)
+            # If no queue found via StateManager, return empty
+            result = json.dumps({"tasks": [], "message": "No task queue found"})
+            _emit_tool_event_async('loki_task_queue_list', 'complete', result_status='success')
+            return result
+
+        # Fallback to direct file read
+        queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+        if not os.path.exists(queue_path):
+            result = json.dumps({"tasks": [], "message": "No task queue found"})
+            _emit_tool_event_async('loki_task_queue_list', 'complete', result_status='success')
+            return result
+
+        with safe_open(queue_path, 'r') as f:
+            queue = json.load(f)
+
+        # Strip internal fields before returning
+        response = {k: v for k, v in queue.items() if k not in ("_next_id", "version")}
+        _emit_tool_event_async('loki_task_queue_list', 'complete', result_status='success')
+        return json.dumps(response, default=str)
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_task_queue_list', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied", "tasks": []})
+    except Exception as e:
+        logger.error(f"Task queue list failed: {e}")
+        _emit_tool_event_async('loki_task_queue_list', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e), "tasks": []})
+
+
+@mcp.tool()
+async def loki_task_queue_add(
+    title: str,
+    description: str,
+    priority: str = "medium",
+    phase: str = "development"
+) -> str:
+    """
+    Add a new task to the Loki Mode task queue.
+
+    Args:
+        title: Brief task title
+        description: Detailed task description
+        priority: Priority level (low, medium, high, critical)
+        phase: SDLC phase (discovery, architecture, development, testing, deployment)
+
+    Returns:
+        Task ID if successful
+    """
+    # Validate priority and phase enums
+    valid_priorities = {"low", "medium", "high", "critical"}
+    valid_phases = {"discovery", "architecture", "development", "testing", "deployment"}
+    if priority not in valid_priorities:
+        return json.dumps({"success": False, "error": f"priority must be one of: {', '.join(sorted(valid_priorities))}"})
+    if phase not in valid_phases:
+        return json.dumps({"success": False, "error": f"phase must be one of: {', '.join(sorted(valid_phases))}"})
+
+    _emit_tool_event_async(
+        'loki_task_queue_add', 'start',
+        parameters={'title': title, 'priority': priority, 'phase': phase}
+    )
+    try:
+        manager = _get_mcp_state_manager()
+
+        # Load existing queue or create new - use StateManager if available
+        if manager and STATE_MANAGER_AVAILABLE:
+            queue = manager.get_state("state/task-queue.json", default={"tasks": [], "version": "1.0"})
+        else:
+            queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+            state_dir = safe_path_join('.loki', 'state')
+            safe_makedirs(state_dir, exist_ok=True)
+
+            if os.path.exists(queue_path):
+                with safe_open(queue_path, 'r') as f:
+                    queue = json.load(f)
+            else:
+                queue = {"tasks": [], "version": "1.0"}
+
+        # Create new task with monotonic counter to avoid ID collisions after deletions
+        # When _next_id is missing, scan existing IDs to find the max and use max+1
+        if "_next_id" not in queue:
+            existing_ids = []
+            for t in queue.get("tasks", []):
+                try:
+                    existing_ids.append(int(t["id"].replace("task-", "")))
+                except (ValueError, KeyError):
+                    pass
+            next_id = (max(existing_ids) + 1) if existing_ids else 1
+        else:
+            next_id = queue["_next_id"]
+        task_id = f"task-{next_id:04d}"
+        queue["_next_id"] = next_id + 1
+        task = {
+            "id": task_id,
+            "title": title,
+            "description": description,
+            "priority": priority,
+            "phase": phase,
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+
+        queue["tasks"].append(task)
+
+        # Save using StateManager if available
+        if manager and STATE_MANAGER_AVAILABLE:
+            manager.set_state("state/task-queue.json", queue, source="mcp-server")
+        else:
+            queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+            with safe_open(queue_path, 'w') as f:
+                json.dump(queue, f, indent=2)
+
+        _emit_tool_event_async('loki_task_queue_add', 'complete', result_status='success')
+        return json.dumps({"success": True, "task_id": task_id})
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_task_queue_add', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"success": False, "error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Task add failed: {e}")
+        _emit_tool_event_async('loki_task_queue_add', 'complete', result_status='error', error=str(e))
+        return json.dumps({"success": False, "error": str(e)})
+
+
+@mcp.tool()
+async def loki_task_queue_update(
+    task_id: str,
+    status: str = None,
+    priority: str = None
+) -> str:
+    """
+    Update a task's status or priority.
+
+    Args:
+        task_id: ID of the task to update
+        status: New status (pending, in_progress, completed, blocked)
+        priority: New priority (low, medium, high, critical)
+
+    Returns:
+        Updated task if successful
+    """
+    # Validate status and priority enums when provided
+    valid_statuses = {"pending", "in_progress", "completed", "blocked"}
+    valid_priorities = {"low", "medium", "high", "critical"}
+    if status is not None and status not in valid_statuses:
+        return json.dumps({"success": False, "error": f"status must be one of: {', '.join(sorted(valid_statuses))}"})
+    if priority is not None and priority not in valid_priorities:
+        return json.dumps({"success": False, "error": f"priority must be one of: {', '.join(sorted(valid_priorities))}"})
+
+    _emit_tool_event_async(
+        'loki_task_queue_update', 'start',
+        parameters={'task_id': task_id, 'status': status, 'priority': priority}
+    )
+    try:
+        manager = _get_mcp_state_manager()
+
+        # Load queue using StateManager if available
+        if manager and STATE_MANAGER_AVAILABLE:
+            queue = manager.get_state("state/task-queue.json")
+            if not queue:
+                _emit_tool_event_async('loki_task_queue_update', 'complete', result_status='error', error='Task queue not found')
+                return json.dumps({"success": False, "error": "Task queue not found"})
+        else:
+            queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+            if not os.path.exists(queue_path):
+                _emit_tool_event_async('loki_task_queue_update', 'complete', result_status='error', error='Task queue not found')
+                return json.dumps({"success": False, "error": "Task queue not found"})
+
+            with safe_open(queue_path, 'r') as f:
+                queue = json.load(f)
+
+        # Find and update task
+        for task in queue["tasks"]:
+            if task["id"] == task_id:
+                if status is not None:
+                    task["status"] = status
+                if priority is not None:
+                    task["priority"] = priority
+                task["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+                # Save using StateManager if available
+                if manager and STATE_MANAGER_AVAILABLE:
+                    manager.set_state("state/task-queue.json", queue, source="mcp-server")
+                else:
+                    queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+                    with safe_open(queue_path, 'w') as f:
+                        json.dump(queue, f, indent=2)
+
+                _emit_tool_event_async('loki_task_queue_update', 'complete', result_status='success')
+                return json.dumps({"success": True, "task": task})
+
+        _emit_tool_event_async('loki_task_queue_update', 'complete', result_status='error', error=f'Task {task_id} not found')
+        return json.dumps({"success": False, "error": f"Task {task_id} not found"})
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_task_queue_update', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"success": False, "error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Task update failed: {e}")
+        _emit_tool_event_async('loki_task_queue_update', 'complete', result_status='error', error=str(e))
+        return json.dumps({"success": False, "error": str(e)})
+
+
+@mcp.tool()
+async def loki_state_get() -> str:
+    """
+    Get the current Loki Mode state including phase, metrics, and status.
+
+    Returns:
+        JSON object with current state information
+    """
+    _emit_tool_event_async('loki_state_get', 'start', parameters={})
+    try:
+        continuity_path = safe_path_join('.loki', 'CONTINUITY.md')
+        loki_dir = safe_path_join('.loki')
+
+        state = {
+            "initialized": os.path.exists(loki_dir),
+            "autonomy_state": None,
+            "continuity_exists": os.path.exists(continuity_path),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        # Use StateManager for autonomy state if available
+        manager = _get_mcp_state_manager()
+        if manager and STATE_MANAGER_AVAILABLE:
+            autonomy_data = manager.get_state(ManagedFile.AUTONOMY)
+            if autonomy_data:
+                state["autonomy_state"] = autonomy_data
+        else:
+            # Fallback to direct file read
+            state_path = safe_path_join('.loki', 'autonomy-state.json')
+            if os.path.exists(state_path):
+                with safe_open(state_path, 'r') as f:
+                    state["autonomy_state"] = json.load(f)
+
+        # Get memory stats
+        try:
+            from memory.engine import MemoryEngine
+            memory_path = safe_path_join('.loki', 'memory')
+            engine = MemoryEngine(base_path=memory_path)
+            state["memory_stats"] = engine.get_stats()
+        except Exception:
+            state["memory_stats"] = None
+
+        _emit_tool_event_async('loki_state_get', 'complete', result_status='success')
+        return json.dumps(state, default=str)
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_state_get', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"State get failed: {e}")
+        _emit_tool_event_async('loki_state_get', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_metrics_efficiency() -> str:
+    """
+    Get efficiency metrics for the current session.
+
+    Returns:
+        JSON object with token usage, tool calls, and efficiency ratios
+    """
+    _emit_tool_event_async('loki_metrics_efficiency', 'start', parameters={})
+    try:
+        metrics_path = safe_path_join('.loki', 'metrics', 'tool-usage.jsonl')
+
+        if not os.path.exists(metrics_path):
+            result = json.dumps({"message": "No metrics collected yet", "tool_calls": 0})
+            _emit_tool_event_async('loki_metrics_efficiency', 'complete', result_status='success')
+            return result
+
+        tool_counts = {}
+        total_calls = 0
+
+        with safe_open(metrics_path, 'r') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    tool = entry.get("tool", "unknown")
+                    tool_counts[tool] = tool_counts.get(tool, 0) + 1
+                    total_calls += 1
+                except json.JSONDecodeError:
+                    continue
+
+        _emit_tool_event_async('loki_metrics_efficiency', 'complete', result_status='success')
+        return json.dumps({
+            "total_tool_calls": total_calls,
+            "tool_breakdown": tool_counts,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_metrics_efficiency', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Metrics get failed: {e}")
+        _emit_tool_event_async('loki_metrics_efficiency', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_consolidate_memory(since_hours: int = 24) -> str:
+    """
+    Run memory consolidation to extract patterns from recent episodes.
+
+    Args:
+        since_hours: Process episodes from the last N hours
+
+    Returns:
+        Consolidation results with patterns created/merged
+    """
+    _emit_tool_event_async(
+        'loki_consolidate_memory', 'start',
+        parameters={'since_hours': since_hours}
+    )
+    try:
+        from memory.consolidation import ConsolidationPipeline
+        from memory.storage import MemoryStorage
+
+        base_path = safe_path_join('.loki', 'memory')
+        storage = MemoryStorage(base_path)
+        pipeline = ConsolidationPipeline(storage)
+
+        result = pipeline.consolidate(since_hours=since_hours)
+        _emit_tool_event_async('loki_consolidate_memory', 'complete', result_status='success')
+        return json.dumps(result, default=str)
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('loki_consolidate_memory', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Consolidation failed: {e}")
+        _emit_tool_event_async('loki_consolidate_memory', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+# ============================================================
+# RESOURCES - Data that can be read
+# ============================================================
+
+@mcp.resource("loki://state/continuity")
+async def get_continuity() -> str:
+    """Get the current CONTINUITY.md content"""
+    try:
+        continuity_path = safe_path_join('.loki', 'CONTINUITY.md')
+        if os.path.exists(continuity_path):
+            with safe_open(continuity_path, 'r') as f:
+                return f.read()
+        return "# CONTINUITY.md not found"
+    except PathTraversalError:
+        return "# Access denied"
+
+
+@mcp.resource("loki://memory/index")
+async def get_memory_index() -> str:
+    """Get the memory index (Layer 1)"""
+    try:
+        # Use StateManager if available
+        manager = _get_mcp_state_manager()
+        if manager and STATE_MANAGER_AVAILABLE:
+            index_data = manager.get_state(ManagedFile.MEMORY_INDEX)
+            if index_data:
+                return json.dumps(index_data)
+            return json.dumps({"topics": [], "message": "Index not initialized"})
+
+        # Fallback to direct file read
+        index_path = safe_path_join('.loki', 'memory', 'index.json')
+        if os.path.exists(index_path):
+            with safe_open(index_path, 'r') as f:
+                return f.read()
+        return json.dumps({"topics": [], "message": "Index not initialized"})
+    except PathTraversalError:
+        return json.dumps({"error": "Access denied", "topics": []})
+
+
+@mcp.resource("loki://queue/pending")
+async def get_pending_tasks() -> str:
+    """Get all pending tasks from the queue"""
+    try:
+        # Use StateManager if available
+        manager = _get_mcp_state_manager()
+        if manager and STATE_MANAGER_AVAILABLE:
+            queue = manager.get_state("state/task-queue.json")
+            if queue:
+                pending = [t for t in queue.get("tasks", []) if t.get("status") == "pending"]
+                return json.dumps({"pending_tasks": pending, "count": len(pending)})
+            return json.dumps({"pending_tasks": [], "count": 0})
+
+        # Fallback to direct file read
+        queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+        if os.path.exists(queue_path):
+            with safe_open(queue_path, 'r') as f:
+                queue = json.load(f)
+                pending = [t for t in queue.get("tasks", []) if t.get("status") == "pending"]
+                return json.dumps({"pending_tasks": pending, "count": len(pending)})
+        return json.dumps({"pending_tasks": [], "count": 0})
+    except PathTraversalError:
+        return json.dumps({"error": "Access denied", "pending_tasks": [], "count": 0})
+
+
+# ============================================================
+# ENTERPRISE TOOLS (P0-1)
+# ============================================================
+
+@mcp.tool()
+async def loki_start_project(prd_content: str = "", prd_path: str = "") -> str:
+    """
+    Start a new Loki Mode project from a PRD.
+
+    Args:
+        prd_content: Inline PRD content (takes priority over prd_path)
+        prd_path: Path to a PRD file on disk
+
+    Returns:
+        JSON with project initialization status
+    """
+    _emit_tool_event_async('loki_start_project', 'start', parameters={'prd_path': prd_path})
+    try:
+        content = prd_content
+        if not content and prd_path:
+            # Resolve symlinks and validate path is within project root
+            try:
+                resolved = validate_path(prd_path, allowed_dirs=['.'])
+            except PathTraversalError as e:
+                return json.dumps({"error": str(e)})
+            if os.path.exists(resolved) and os.path.isfile(resolved):
+                with open(resolved, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            else:
+                return json.dumps({"error": f"PRD file not found: {prd_path}"})
+
+        if not content:
+            return json.dumps({"error": "No PRD content or path provided"})
+
+        # Initialize project state using safe path operations
+        state_dir = safe_path_join('.loki', 'state')
+        safe_makedirs(state_dir, exist_ok=True)
+
+        # Persist PRD content so downstream tools can access it
+        prd_dest = safe_path_join('.loki', 'state', 'prd.md')
+        with safe_open(prd_dest, 'w') as f:
+            f.write(content)
+
+        project = {
+            "status": "initialized",
+            "prd_length": len(content),
+            "prd_path": prd_path or "inline",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        state_path = safe_path_join('.loki', 'state', 'project.json')
+        with safe_open(state_path, 'w') as f:
+            json.dump(project, f, indent=2)
+
+        _emit_tool_event_async('loki_start_project', 'complete', result_status='success')
+        return json.dumps({"success": True, **project})
+    except PathTraversalError as e:
+        return json.dumps({"error": f"Access denied: {e}"})
+    except Exception as e:
+        logger.error(f"Start project failed: {e}")
+        _emit_tool_event_async('loki_start_project', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_project_status() -> str:
+    """
+    Get the current project status including RARV cycle state, agent activity, and task progress.
+
+    Returns:
+        JSON with project status, phase, iteration, agents, and task counts
+    """
+    _emit_tool_event_async('loki_project_status', 'start', parameters={})
+    try:
+        status = {}
+
+        # Read orchestrator state
+        orch_path = safe_path_join('.loki', 'state', 'orchestrator.json')
+        if os.path.exists(orch_path):
+            with safe_open(orch_path, 'r') as f:
+                status["orchestrator"] = json.load(f)
+
+        # Read project state
+        proj_path = safe_path_join('.loki', 'state', 'project.json')
+        if os.path.exists(proj_path):
+            with safe_open(proj_path, 'r') as f:
+                status["project"] = json.load(f)
+
+        # Read task queue summary
+        queue_path = safe_path_join('.loki', 'state', 'task-queue.json')
+        if os.path.exists(queue_path):
+            with safe_open(queue_path, 'r') as f:
+                queue = json.load(f)
+                tasks = queue.get("tasks", [])
+                status["tasks"] = {
+                    "total": len(tasks),
+                    "pending": sum(1 for t in tasks if t.get("status") == "pending"),
+                    "in_progress": sum(1 for t in tasks if t.get("status") == "in_progress"),
+                    "completed": sum(1 for t in tasks if t.get("status") == "completed"),
+                }
+
+        if not status:
+            status = {"status": "no_project", "message": "No active project found"}
+
+        _emit_tool_event_async('loki_project_status', 'complete', result_status='success')
+        return json.dumps(status, default=str)
+    except PathTraversalError:
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Project status failed: {e}")
+        _emit_tool_event_async('loki_project_status', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_agent_metrics() -> str:
+    """
+    Get agent metrics including token usage, task completion rates, and timing.
+
+    Returns:
+        JSON with per-agent metrics and aggregates
+    """
+    _emit_tool_event_async('loki_agent_metrics', 'start', parameters={})
+    try:
+        metrics = {"agents": [], "aggregate": {}}
+
+        # Read efficiency metrics
+        metrics_dir = safe_path_join('.loki', 'metrics', 'efficiency')
+        if os.path.isdir(metrics_dir):
+            for fname in os.listdir(metrics_dir):
+                if fname.endswith('.json'):
+                    fpath = safe_path_join('.loki', 'metrics', 'efficiency', fname)
+                    with safe_open(fpath, 'r') as f:
+                        metrics["agents"].append(json.load(f))
+
+        # Read token economics
+        econ_path = safe_path_join('.loki', 'metrics', 'token-economics.json')
+        if os.path.exists(econ_path):
+            with safe_open(econ_path, 'r') as f:
+                metrics["token_economics"] = json.load(f)
+
+        metrics["agent_count"] = len(metrics["agents"])
+        _emit_tool_event_async('loki_agent_metrics', 'complete', result_status='success')
+        return json.dumps(metrics, default=str)
+    except PathTraversalError:
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Agent metrics failed: {e}")
+        _emit_tool_event_async('loki_agent_metrics', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_checkpoint_restore(checkpoint_id: str = "") -> str:
+    """
+    List available checkpoints or restore project state from a specific checkpoint.
+
+    Args:
+        checkpoint_id: ID of checkpoint to restore (empty = list all)
+
+    Returns:
+        JSON with available checkpoints or restoration result
+    """
+    _emit_tool_event_async('loki_checkpoint_restore', 'start', parameters={'checkpoint_id': checkpoint_id})
+    try:
+        cp_dir = safe_path_join('.loki', 'state', 'checkpoints')
+        if not os.path.isdir(cp_dir):
+            return json.dumps({"checkpoints": [], "message": "No checkpoints directory"})
+
+        checkpoints = []
+        for fname in sorted(os.listdir(cp_dir)):
+            if fname.endswith('.json'):
+                fpath = safe_path_join('.loki', 'state', 'checkpoints', fname)
+                with safe_open(fpath, 'r') as f:
+                    cp = json.load(f)
+                    cp["id"] = fname.replace('.json', '')
+                    checkpoints.append(cp)
+
+        if not checkpoint_id:
+            _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='success')
+            return json.dumps({"checkpoints": checkpoints, "count": len(checkpoints)})
+
+        # Find and restore specific checkpoint
+        target = next((c for c in checkpoints if c["id"] == checkpoint_id), None)
+        if not target:
+            return json.dumps({"error": f"Checkpoint not found: {checkpoint_id}"})
+
+        # Write checkpoint state as current state, stripping the injected "id" field
+        restored_state = {k: v for k, v in target.items() if k != "id"}
+        state_path = safe_path_join('.loki', 'state', 'orchestrator.json')
+        with safe_open(state_path, 'w') as f:
+            json.dump(restored_state, f, indent=2)
+
+        _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='success')
+        return json.dumps({"restored": True, "checkpoint_id": checkpoint_id})
+    except PathTraversalError:
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Checkpoint restore failed: {e}")
+        _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_quality_report() -> str:
+    """
+    Get quality gate results including blind review scores, council verdicts, and test coverage.
+
+    Returns:
+        JSON with quality gate status, review results, and coverage metrics
+    """
+    _emit_tool_event_async('loki_quality_report', 'start', parameters={})
+    try:
+        report = {"gates": [], "council": None, "coverage": None}
+
+        # Read quality gate results
+        gates_path = safe_path_join('.loki', 'state', 'quality-gates.json')
+        if os.path.exists(gates_path):
+            with safe_open(gates_path, 'r') as f:
+                report["gates"] = json.load(f)
+
+        # Read council results
+        council_path = safe_path_join('.loki', 'state', 'council-results.json')
+        if os.path.exists(council_path):
+            with safe_open(council_path, 'r') as f:
+                report["council"] = json.load(f)
+
+        # Read coverage
+        coverage_path = safe_path_join('.loki', 'metrics', 'coverage.json')
+        if os.path.exists(coverage_path):
+            with safe_open(coverage_path, 'r') as f:
+                report["coverage"] = json.load(f)
+
+        _emit_tool_event_async('loki_quality_report', 'complete', result_status='success')
+        return json.dumps(report, default=str)
+    except PathTraversalError:
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"Quality report failed: {e}")
+        _emit_tool_event_async('loki_quality_report', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+# ============================================================
+# CODE SEARCH - ChromaDB-backed semantic code search
+# ============================================================
+
+# ChromaDB connection (lazy-initialized)
+_chroma_client = None
+_chroma_collection = None
+
+CHROMA_HOST = os.environ.get("LOKI_CHROMA_HOST", "localhost")
+CHROMA_PORT = int(os.environ.get("LOKI_CHROMA_PORT", "8100"))
+CHROMA_COLLECTION = os.environ.get("LOKI_CHROMA_COLLECTION", "loki-codebase")
+
+
+def _get_chroma_collection():
+    """Get or create ChromaDB collection (lazy connection).
+
+    BUG-PU-002: Improved reconnection with timeout to prevent hanging
+    when ChromaDB container is stopped or unreachable after idle.
+    """
+    global _chroma_client, _chroma_collection
+    if _chroma_collection is not None:
+        try:
+            _chroma_client.heartbeat()
+            return _chroma_collection
+        except Exception:
+            logger.info("ChromaDB heartbeat failed, reconnecting...")
+            _chroma_client = None
+            _chroma_collection = None
+    try:
+        import chromadb
+        from chromadb.config import Settings
+        _chroma_client = chromadb.HttpClient(
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+            settings=Settings(
+                chroma_client_auth_provider=None,
+                anonymized_telemetry=False,
+            ),
+        )
+        # Verify connectivity before returning
+        _chroma_client.heartbeat()
+        _chroma_collection = _chroma_client.get_collection(name=CHROMA_COLLECTION)
+        return _chroma_collection
+    except Exception as e:
+        logger.warning(f"ChromaDB not available: {e}")
+        _chroma_client = None
+        _chroma_collection = None
+        return None
+
+
+@mcp.tool()
+async def loki_code_search(
+    query: str,
+    n_results: int = 10,
+    language: Optional[str] = None,
+    file_filter: Optional[str] = None,
+    type_filter: Optional[str] = None,
+) -> str:
+    """Search the loki-mode codebase semantically.
+
+    Finds functions, classes, and code sections by meaning, not just keywords.
+    Returns file paths, line numbers, and code snippets ranked by relevance.
+
+    Args:
+        query: Natural language search query (e.g., "rate limit detection",
+               "model selection for RARV tier", "how does the council vote")
+        n_results: Number of results to return (default 10, max 30)
+        language: Filter by language: "shell", "python", "markdown" (optional)
+        file_filter: Filter by file path substring (e.g., "autonomy/", "dashboard/") (optional)
+        type_filter: Filter by chunk type: "function", "class", "header", "section", "file" (optional)
+    """
+    _emit_tool_event_async('loki_code_search', 'start',
+                           parameters={'query': query, 'n_results': n_results,
+                                       'language': language, 'file_filter': file_filter,
+                                       'type_filter': type_filter})
+
+    collection = _get_chroma_collection()
+    if collection is None:
+        return json.dumps({
+            "error": "ChromaDB not available. Start it with: docker start loki-chroma",
+            "hint": "Re-index with: python3.12 tools/index-codebase.py --reset"
+        })
+
+    n_results = min(max(1, n_results), 30)
+
+    # Build where filter
+    where_clauses = []
+    if language:
+        where_clauses.append({"language": language})
+    if type_filter:
+        where_clauses.append({"type": type_filter})
+
+    where = None
+    if len(where_clauses) == 1:
+        where = where_clauses[0]
+    elif len(where_clauses) > 1:
+        where = {"$and": where_clauses}
+
+    try:
+        results = collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            where=where,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        # Format results
+        output = []
+        for i in range(len(results["ids"][0])):
+            meta = results["metadatas"][0][i]
+            doc = results["documents"][0][i]
+            dist = results["distances"][0][i]
+
+            # Apply file_filter post-query (ChromaDB where doesn't support substring match)
+            if file_filter and file_filter not in meta.get("file", ""):
+                continue
+
+            # Truncate document for response
+            preview = doc[:500] + "..." if len(doc) > 500 else doc
+
+            output.append({
+                "file": meta.get("file", ""),
+                "line": meta.get("line", 0),
+                "name": meta.get("name", ""),
+                "type": meta.get("type", ""),
+                "language": meta.get("language", ""),
+                "relevance": round(max(0.0, 1.0 - dist / 2.0), 4),  # L2 distance to similarity
+                "preview": preview,
+            })
+
+        _emit_tool_event_async('loki_code_search', 'complete',
+                               result_status='success', result_count=len(output))
+        return json.dumps({"query": query, "results": output, "total": len(output)})
+
+    except Exception as e:
+        logger.error(f"Code search failed: {e}")
+        _emit_tool_event_async('loki_code_search', 'complete',
+                               result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def loki_code_search_stats() -> str:
+    """Get statistics about the code search index.
+
+    Shows total chunks, files indexed, breakdown by language and type.
+    Useful for verifying the index is up to date.
+    """
+    collection = _get_chroma_collection()
+    if collection is None:
+        return json.dumps({"error": "ChromaDB not available"})
+
+    try:
+        count = collection.count()
+
+        # Short-circuit on empty collection to avoid limit=0 error
+        if count == 0:
+            return json.dumps({
+                "total_chunks": 0,
+                "unique_files": 0,
+                "by_language": {},
+                "by_type": {},
+                "reindex_command": "python3.12 tools/index-codebase.py --reset",
+            })
+
+        results = collection.get(limit=count, include=["metadatas"])
+
+        langs = {}
+        types = {}
+        files = set()
+        for meta in results["metadatas"]:
+            lang = meta.get("language", "unknown")
+            typ = meta.get("type", "unknown")
+            langs[lang] = langs.get(lang, 0) + 1
+            types[typ] = types.get(typ, 0) + 1
+            files.add(meta.get("file", ""))
+
+        return json.dumps({
+            "total_chunks": count,
+            "unique_files": len(files),
+            "by_language": langs,
+            "by_type": types,
+            "reindex_command": "python3.12 tools/index-codebase.py --reset",
+        })
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+# ============================================================
+# MEMORY SEARCH TOOLS (v6.15.0) - SQLite FTS5 powered
+# ============================================================
+
+@mcp.tool()
+async def mem_search(
+    query: str,
+    collection: str = "all",
+    limit: int = 10,
+) -> str:
+    """
+    Search memory using full-text search (FTS5).
+
+    Fast keyword search across all memory types. Supports AND, OR, NOT
+    operators and prefix matching (e.g. "debug*").
+
+    Args:
+        query: Search query (plain text or FTS5 syntax)
+        collection: Which memories to search (episodes, patterns, skills, all)
+        limit: Maximum results to return
+
+    Returns:
+        JSON array of matching memories with relevance scores
+    """
+    _emit_tool_event_async(
+        'mem_search', 'start',
+        parameters={'query': query, 'collection': collection, 'limit': limit}
+    )
+    try:
+        base_path = safe_path_join('.loki', 'memory')
+        if not os.path.exists(base_path):
+            result = json.dumps({"results": [], "message": "Memory system not initialized"})
+            _emit_tool_event_async('mem_search', 'complete', result_status='success')
+            return result
+
+        # Use retrieval-based search
+        from memory.retrieval import MemoryRetrieval
+        from memory.storage import MemoryStorage
+        storage = MemoryStorage(base_path)
+        retriever = MemoryRetrieval(storage)
+        context = {"goal": query, "task_type": "exploration"}
+        results = retriever.retrieve_task_aware(context, top_k=limit)
+
+        # BUG-MCP-006: Filter results by collection parameter when not "all"
+        # The retrieve_task_aware method returns all collections, but the user
+        # may have requested only a specific collection type
+        collection_type_map = {
+            "episodes": "episode",
+            "patterns": "pattern",
+            "skills": "skill",
+        }
+        filter_type = collection_type_map.get(collection)
+
+        # Compact results for token efficiency
+        compact = []
+        for r in results:
+            result_type = r.get("_type", r.get("type", "unknown"))
+            # Apply collection filter
+            if filter_type and result_type != filter_type:
+                continue
+            entry = {
+                "id": r.get("id", ""),
+                "type": result_type,
+                "summary": (
+                    r.get("goal", "") or
+                    r.get("pattern", "") or
+                    r.get("description", "") or
+                    r.get("name", "")
+                )[:200],
+            }
+            if r.get("_score"):
+                entry["score"] = round(r["_score"], 3)
+            if r.get("outcome"):
+                entry["outcome"] = r["outcome"]
+            if r.get("category"):
+                entry["category"] = r["category"]
+            compact.append(entry)
+
+        result = json.dumps({"results": compact, "count": len(compact)}, default=str)
+        _emit_tool_event_async('mem_search', 'complete', result_status='success')
+        return result
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('mem_search', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied", "results": []})
+    except Exception as e:
+        logger.error(f"mem_search failed: {e}")
+        _emit_tool_event_async('mem_search', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e), "results": []})
+
+
+@mcp.tool()
+async def mem_timeline(
+    around_id: str = "",
+    limit: int = 20,
+    since_hours: int = 24,
+) -> str:
+    """
+    Get chronological context from memory timeline.
+
+    Shows recent actions, key decisions, and episode traces in time order.
+    Use around_id to get context surrounding a specific memory entry.
+
+    Args:
+        around_id: Optional memory ID to center the timeline around
+        limit: Maximum timeline entries to return
+        since_hours: Only show entries from the last N hours (default 24)
+
+    Returns:
+        JSON timeline with actions and decisions
+    """
+    _emit_tool_event_async(
+        'mem_timeline', 'start',
+        parameters={'around_id': around_id, 'limit': limit, 'since_hours': since_hours}
+    )
+    try:
+        base_path = safe_path_join('.loki', 'memory')
+        if not os.path.exists(base_path):
+            result = json.dumps({"timeline": [], "message": "Memory system not initialized"})
+            _emit_tool_event_async('mem_timeline', 'complete', result_status='success')
+            return result
+
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
+
+        from memory.storage import MemoryStorage
+        storage = MemoryStorage(base_path)
+        timeline = storage.get_timeline()
+        actions = timeline.get("recent_actions", [])[:limit]
+
+        episode_ids = storage.list_episodes(since=cutoff, limit=limit)
+        episodes = []
+        for eid in episode_ids:
+            ep = storage.load_episode(eid)
+            if ep:
+                episodes.append({
+                    "id": ep.get("id"),
+                    "timestamp": ep.get("timestamp"),
+                    "phase": ep.get("phase"),
+                    "goal": (ep.get("goal", "") or "")[:150],
+                    "outcome": ep.get("outcome"),
+                    "duration_seconds": ep.get("duration_seconds"),
+                    "files_modified": ep.get("files_modified", [])[:5],
+                })
+
+        result = json.dumps({
+            "actions": actions,
+            "episodes": episodes,
+            "decisions": timeline.get("key_decisions", [])[:10],
+            "active_context": timeline.get("active_context", {}),
+        }, default=str)
+        _emit_tool_event_async('mem_timeline', 'complete', result_status='success')
+        return result
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('mem_timeline', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied", "timeline": []})
+    except Exception as e:
+        logger.error(f"mem_timeline failed: {e}")
+        _emit_tool_event_async('mem_timeline', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e), "timeline": []})
+
+
+@mcp.tool()
+async def mem_get(
+    ids: str,
+) -> str:
+    """
+    Fetch full details for one or more memory entries by ID.
+
+    Use after mem_search to get complete data for specific results.
+
+    Args:
+        ids: Comma-separated list of memory IDs to fetch
+
+    Returns:
+        JSON object with full memory details keyed by ID
+    """
+    _emit_tool_event_async(
+        'mem_get', 'start',
+        parameters={'ids': ids}
+    )
+    try:
+        base_path = safe_path_join('.loki', 'memory')
+        if not os.path.exists(base_path):
+            result = json.dumps({"entries": {}, "message": "Memory system not initialized"})
+            _emit_tool_event_async('mem_get', 'complete', result_status='success')
+            return result
+
+        id_list = [i.strip() for i in ids.split(",") if i.strip()]
+        if not id_list:
+            return json.dumps({"entries": {}, "error": "No IDs provided"})
+
+        # Cap at 20 to prevent abuse
+        id_list = id_list[:20]
+
+        from memory.storage import MemoryStorage
+        storage = MemoryStorage(base_path)
+
+        entries = {}
+        for mem_id in id_list:
+            mem_id = mem_id.strip()
+            # Try each collection
+            data = storage.load_episode(mem_id)
+            if data:
+                data["_type"] = "episode"
+                entries[mem_id] = data
+                continue
+
+            data = storage.load_pattern(mem_id)
+            if data:
+                data["_type"] = "pattern"
+                entries[mem_id] = data
+                continue
+
+            data = storage.load_skill(mem_id)
+            if data:
+                data["_type"] = "skill"
+                entries[mem_id] = data
+                continue
+
+            entries[mem_id] = None  # Not found
+
+        result = json.dumps({
+            "entries": entries,
+            "found": sum(1 for v in entries.values() if v is not None),
+            "total_requested": len(id_list),
+        }, default=str)
+        _emit_tool_event_async('mem_get', 'complete', result_status='success')
+        return result
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async('mem_get', 'complete', result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied", "entries": {}})
+    except Exception as e:
+        logger.error(f"mem_get failed: {e}")
+        _emit_tool_event_async('mem_get', 'complete', result_status='error', error=str(e))
+        return json.dumps({"error": str(e), "entries": {}})
+
+
+# ============================================================
+# PROMPTS - Pre-built prompt templates
+# ============================================================
+
+@mcp.prompt()
+async def loki_start(prd_path: str = "") -> str:
+    """Initialize a Loki Mode session with optional PRD"""
+    return f"""You are now operating in Loki Mode - autonomous agent orchestration.
+
+RARV Cycle: Reason -> Act -> Reflect -> Verify
+
+Current PRD: {prd_path or 'None specified'}
+
+Steps:
+1. Analyze the PRD and extract requirements
+2. Break down into actionable tasks
+3. Execute tasks following RARV cycle
+4. Verify completion against acceptance criteria
+
+Use loki_* tools to manage tasks and memory.
+Begin by analyzing the requirements."""
+
+
+@mcp.prompt()
+async def loki_phase_report() -> str:
+    """Generate a status report for the current phase"""
+    return """Generate a comprehensive status report including:
+
+1. Current SDLC Phase
+2. Tasks Completed / In Progress / Pending
+3. Quality Gate Status
+4. Key Decisions Made
+5. Blockers or Risks
+6. Next Steps
+
+Use loki_state_get and loki_task_queue_list to gather data."""
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+    import argparse
+    import atexit
+    parser = argparse.ArgumentParser(description='Loki Mode MCP Server')
+    parser.add_argument('--transport', choices=['stdio', 'http'], default='stdio',
+                       help='Transport mechanism (default: stdio)')
+    parser.add_argument('--port', type=int, default=8421,
+                       help='Port for HTTP transport (default: 8421)')
+    args = parser.parse_args()
+
+    # Register cleanup to prevent file handle leaks on shutdown/restart
+    atexit.register(cleanup_mcp_singletons)
+
+    logger.info(f"Starting Loki Mode MCP server (transport: {args.transport})")
+
+    if args.transport == 'http':
+        mcp.run(transport='http', port=args.port)
+    else:
+        mcp.run(transport='stdio')
+
+
+if __name__ == '__main__':
+    main()

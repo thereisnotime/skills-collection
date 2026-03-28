@@ -1,0 +1,46 @@
+{{- if .Values.security.networkPolicy.enabled }}
+# Control plane: accept ingress on port 57374 from anywhere in the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "autonomi.fullname" . }}-controlplane
+  labels:
+    {{- include "autonomi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controlplane
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "autonomi.controlplane.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: 57374
+          protocol: TCP
+  egress:
+    - {}
+---
+# Workers: accept ingress only from the control plane
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "autonomi.fullname" . }}-worker
+  labels:
+    {{- include "autonomi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "autonomi.worker.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "autonomi.controlplane.selectorLabels" . | nindent 14 }}
+  egress:
+    - {}
+{{- end }}

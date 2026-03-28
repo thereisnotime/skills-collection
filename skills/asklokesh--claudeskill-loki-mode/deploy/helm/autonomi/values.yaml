@@ -1,0 +1,221 @@
+# Autonomi Loki Mode - Helm Chart Values
+# ----------------------------------------
+# Sensible single-node defaults. Override with values-production.yaml or
+# values-ha.yaml for larger deployments.
+
+# -- Global settings
+nameOverride: ""
+fullnameOverride: ""
+createNamespace: false
+
+# -- Container image
+image:
+  repository: asklokesh/loki-mode
+  tag: ""  # defaults to Chart.appVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# -- Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  # For AWS IRSA:
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/autonomi
+  # For GCP Workload Identity:
+  #   iam.gke.io/gcp-service-account: autonomi@project.iam.gserviceaccount.com
+
+# ---------------------------------------------------------------------------
+# Control Plane (Dashboard / API)
+# ---------------------------------------------------------------------------
+controlplane:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  # Additional environment variables (name/value pairs)
+  extraEnv: []
+
+  # Node selection
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Pod-level annotations (e.g. Prometheus scrape)
+  podAnnotations: {}
+
+  # Readiness / liveness probe overrides
+  probes:
+    readiness:
+      path: /health
+      port: 57374
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    liveness:
+      path: /health
+      port: 57374
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 5
+
+# ---------------------------------------------------------------------------
+# Worker (RARV execution)
+# ---------------------------------------------------------------------------
+worker:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  # HPA settings
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Additional environment variables
+  extraEnv: []
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 57374
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: autonomi.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: autonomi-tls
+  #   hosts:
+  #     - autonomi.example.com
+
+# ---------------------------------------------------------------------------
+# Persistence
+# ---------------------------------------------------------------------------
+persistence:
+  checkpoints:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    existingClaim: ""
+
+  auditLogs:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 50Gi
+    existingClaim: ""
+
+# ---------------------------------------------------------------------------
+# Configuration (non-secret environment)
+# ---------------------------------------------------------------------------
+config:
+  # OpenTelemetry collector endpoint
+  otelEndpoint: ""
+  # Enable audit logging
+  auditEnabled: "true"
+  # Audit log path inside the container
+  auditLogPath: "/data/audit/audit.log"
+  # Checkpoint directory
+  checkpointDir: "/data/checkpoints"
+  # Log level (DEBUG, INFO, WARNING, ERROR)
+  logLevel: "INFO"
+  # Maximum concurrent RARV workers per pod
+  maxWorkers: "4"
+  # Provider (claude, codex, gemini)
+  provider: "claude"
+  # Dashboard bind address
+  dashboardHost: "0.0.0.0"
+  dashboardPort: "57374"
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+secrets:
+  # Use an existing Kubernetes Secret instead of creating one from values.
+  existingSecret: ""
+
+  # Only used when existingSecret is empty. Values are base64-encoded
+  # automatically by the template.
+  anthropicApiKey: ""
+  openaiApiKey: ""
+  googleApiKey: ""
+  slackBotToken: ""
+  githubToken: ""
+
+# ---------------------------------------------------------------------------
+# Observability
+# ---------------------------------------------------------------------------
+observability:
+  # Prometheus ServiceMonitor (requires prometheus-operator CRDs)
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+security:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+  rbac:
+    enabled: true
+
+  networkPolicy:
+    enabled: false
+
+# ---------------------------------------------------------------------------
+# Pod Disruption Budget
+# ---------------------------------------------------------------------------
+pdb:
+  enabled: false
+  # minAvailable: 1
+  maxUnavailable: 1

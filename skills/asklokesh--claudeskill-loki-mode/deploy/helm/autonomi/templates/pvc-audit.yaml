@@ -1,0 +1,17 @@
+{{- if and .Values.persistence.auditLogs.enabled (not .Values.persistence.auditLogs.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "autonomi.fullname" . }}-audit-logs
+  labels:
+    {{- include "autonomi.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.auditLogs.accessMode }}
+  {{- if .Values.persistence.auditLogs.storageClass }}
+  storageClassName: {{ .Values.persistence.auditLogs.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.auditLogs.size }}
+{{- end }}

@@ -1,0 +1,41 @@
+title: "[Show] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share what you built with Loki Mode. Include screenshots, repos, or demos.
+  - type: textarea
+    id: project
+    attributes:
+      label: What did you build?
+      description: Describe the project and how Loki Mode helped.
+      placeholder: "I used Loki Mode to build a..."
+    validations:
+      required: true
+  - type: textarea
+    id: prd
+    attributes:
+      label: PRD or prompt used
+      description: Share the PRD or prompt that kicked off the project (optional).
+      placeholder: Paste your PRD or describe the prompt
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Claude Code
+        - Cline
+        - OpenAI Codex CLI
+        - Google Gemini CLI
+        - Aider
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results and observations
+      description: What worked well? What needed manual intervention?
+      placeholder: "The system generated... I had to manually..."
+    validations:
+      required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/asklokesh/loki-mode/wiki
+    about: Check the wiki for guides and references before opening an issue.
+  - name: Discussions
+    url: https://github.com/asklokesh/loki-mode/discussions
+    about: Ask questions, share projects, or discuss ideas in Discussions.

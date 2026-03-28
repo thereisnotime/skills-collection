@@ -1,0 +1,63 @@
+# Autonomi Loki Mode - High Availability Values
+# -----------------------------------------------
+# Use with: helm install autonomi ./deploy/helm/autonomi \
+#   -f deploy/helm/autonomi/values-production.yaml \
+#   -f deploy/helm/autonomi/values-ha.yaml
+
+controlplane:
+  replicas: 3
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - controlplane
+          topologyKey: kubernetes.io/hostname
+
+worker:
+  replicas: 5
+
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - worker
+            topologyKey: kubernetes.io/hostname
+
+persistence:
+  checkpoints:
+    enabled: true
+    size: 100Gi
+    accessMode: ReadWriteMany
+
+  auditLogs:
+    enabled: true
+    size: 200Gi
+
+security:
+  networkPolicy:
+    enabled: true
+
+  rbac:
+    enabled: true
+
+pdb:
+  enabled: true
+  minAvailable: 1

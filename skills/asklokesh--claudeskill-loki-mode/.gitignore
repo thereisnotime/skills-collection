@@ -1,0 +1,41 @@
+.DS_Store
+
+# OS files
+*.DS_Store
+
+# Python virtualenv
+.venv/
+dashboard/.venv/
+
+# Node.js
+node_modules/
+*.log
+*.tgz
+/package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Build outputs
+dist/
+!web-app/dist/
+*.vsix
+
+# Local development (not tracked)
+the_app/
+wiki-repo/
+
+# Runtime state (regenerated each session)
+# Source hooks live in autonomy/hooks/ (tracked)
+.loki/
+
+# Runtime state in subdirectories
+dashboard-ui/.loki/
+vscode-extension/.loki/
+
+# Test artifacts
+**/test-results/
+.aider*

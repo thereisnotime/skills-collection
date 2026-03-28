@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "autonomi.fullname" . }}-controlplane
+  labels:
+    {{- include "autonomi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controlplane
+spec:
+  replicas: {{ .Values.controlplane.replicas }}
+  selector:
+    matchLabels:
+      {{- include "autonomi.controlplane.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.controlplane.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "autonomi.controlplane.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "autonomi.serviceAccountName" . }}
+      automountServiceAccountToken: true
+      securityContext:
+        {{- toYaml .Values.security.podSecurityContext | nindent 8 }}
+      containers:
+        - name: controlplane
+          image: {{ include "autonomi.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - python3
+            - "-m"
+            - uvicorn
+            - "dashboard.server:app"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "57374"
+          ports:
+            - name: http
+              containerPort: 57374
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.controlplane.probes.readiness.path }}
+              port: {{ .Values.controlplane.probes.readiness.port }}
+            initialDelaySeconds: {{ .Values.controlplane.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.controlplane.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlplane.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlplane.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.controlplane.probes.liveness.path }}
+              port: {{ .Values.controlplane.probes.liveness.port }}
+            initialDelaySeconds: {{ .Values.controlplane.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.controlplane.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.controlplane.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.controlplane.probes.liveness.failureThreshold }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "autonomi.fullname" . }}
+            - secretRef:
+                name: {{ include "autonomi.secretName" . }}
+          {{- with .Values.controlplane.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.controlplane.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.security.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.checkpoints.enabled }}
+            - name: checkpoints
+              mountPath: /data/checkpoints
+            {{- end }}
+            {{- if .Values.persistence.auditLogs.enabled }}
+            - name: audit-logs
+              mountPath: /data/audit
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.checkpoints.enabled }}
+        - name: checkpoints
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.checkpoints.existingClaim | default (printf "%s-checkpoints" (include "autonomi.fullname" .)) }}
+        {{- end }}
+        {{- if .Values.persistence.auditLogs.enabled }}
+        - name: audit-logs
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.auditLogs.existingClaim | default (printf "%s-audit-logs" (include "autonomi.fullname" .)) }}
+        {{- end }}
+      {{- with .Values.controlplane.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controlplane.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controlplane.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

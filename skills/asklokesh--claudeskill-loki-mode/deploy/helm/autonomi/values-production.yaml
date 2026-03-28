@@ -1,0 +1,57 @@
+# Autonomi Loki Mode - Production Values
+# ----------------------------------------
+# Use with: helm install autonomi ./deploy/helm/autonomi -f deploy/helm/autonomi/values-production.yaml
+
+controlplane:
+  replicas: 2
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "57374"
+    prometheus.io/path: "/metrics"
+
+worker:
+  replicas: 3
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 4Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+persistence:
+  checkpoints:
+    enabled: true
+    size: 50Gi
+
+  auditLogs:
+    enabled: true
+    size: 100Gi
+
+config:
+  logLevel: "WARNING"
+  maxWorkers: "8"
+
+security:
+  networkPolicy:
+    enabled: true
+
+  rbac:
+    enabled: true

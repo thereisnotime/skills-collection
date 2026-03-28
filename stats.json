@@ -9,7 +9,7 @@
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 527
+    "stars": 529
   },
   "realkimbarrett--advertising-skills": {
     "skills": 19,
@@ -21,7 +21,7 @@
   },
   "anthropics--skills": {
     "skills": 67,
-    "stars": 105044
+    "stars": 105046
   },
   "1NickPappas--move-code-quality-skill": {
     "skills": 1,
@@ -61,23 +61,23 @@
   },
   "Imbad0202--academic-research-skills": {
     "skills": 120,
-    "stars": 1529
+    "stars": 1531
   },
   "K-Dense-AI--claude-scientific-skills": {
     "skills": 921,
-    "stars": 16539
+    "stars": 16541
   },
   "K-Dense-AI--claude-scientific-writer": {
     "skills": 502,
     "stars": 1344
   },
   "NeoLabHQ--context-engineering-kit": {
-    "skills": 230,
+    "skills": 220,
     "stars": 723
   },
   "Orchestra-Research--AI-research-SKILLs": {
     "skills": 350,
-    "stars": 5749
+    "stars": 5750
   },
   "Paramchoudhary--ResumeSkills": {
     "skills": 27,
@@ -125,7 +125,7 @@
   },
   "callstackincubator--agent-skills": {
     "skills": 115,
-    "stars": 1130
+    "stars": 1131
   },
   "chrisvoncsefalvay--claude-d3js-skill": {
     "skills": 4,
@@ -149,10 +149,10 @@
   },
   "coreyhaines31--marketingskills": {
     "skills": 174,
-    "stars": 17157
+    "stars": 17159
   },
   "dreamiurg--claude-mountaineering-skills": {
-    "skills": 15,
+    "skills": 14,
     "stars": 22
   },
   "emaynard--claude-family-history-research-skill": {
@@ -213,7 +213,7 @@
   },
   "obra--superpowers": {
     "skills": 69,
-    "stars": 120513
+    "stars": 120520
   },
   "obra--superpowers-skills": {
     "skills": 46,
@@ -306,5 +306,21 @@
   "zxkane--aws-skills": {
     "skills": 19,
     "stars": 223
+  },
+  "travisvn--awesome-claude-skills": {
+    "skills": 0,
+    "stars": 9958
+  },
+  "obra--superpowers-lab": {
+    "skills": 7,
+    "stars": 253
+  },
+  "asklokesh--claudeskill-loki-mode": {
+    "skills": 235,
+    "stars": 788
+  },
+  "yusufkaraaslan--Skill_Seekers": {
+    "skills": 172,
+    "stars": 11414
   }
 }

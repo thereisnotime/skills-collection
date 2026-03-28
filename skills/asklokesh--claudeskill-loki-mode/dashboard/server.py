@@ -1,0 +1,5577 @@
+"""
+FastAPI server for Loki Mode Dashboard.
+
+Provides REST API and WebSocket endpoints for dashboard functionality.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import time
+from collections import defaultdict
+from dataclasses import asdict
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from pathlib import Path as _Path
+from typing import Any, Literal, Optional
+import re
+
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import select, update, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from .database import close_db, get_db, init_db
+from .models import (
+    Agent,
+    AgentStatus,
+    Project,
+    Session,
+    SessionStatus,
+    Task,
+    TaskPriority,
+    TaskStatus,
+    Tenant,
+)
+from . import registry
+from . import auth
+from . import audit
+from . import app_secrets as secrets_mod
+from . import telemetry as _telemetry
+from .control import atomic_write_json
+from .activity_logger import get_activity_logger
+
+try:
+    from . import __version__ as _version
+except ImportError:
+    _version = "5.58.1"
+
+# ---------------------------------------------------------------------------
+# TLS Configuration (optional - disabled by default)
+# Set both LOKI_TLS_CERT and LOKI_TLS_KEY to enable HTTPS
+# ---------------------------------------------------------------------------
+LOKI_TLS_CERT = os.environ.get("LOKI_TLS_CERT", "")  # Path to PEM certificate
+LOKI_TLS_KEY = os.environ.get("LOKI_TLS_KEY", "")    # Path to PEM private key
+
+
+def _safe_int_env(name: str, default: int) -> int:
+    """Read an integer from an environment variable, returning *default* on bad values."""
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_json_read(path: _Path, default: Any = None) -> Any:
+    """Read a JSON file with retry on partial/corrupt data from concurrent writes."""
+    for attempt in range(2):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+            return json.loads(text)
+        except json.JSONDecodeError:
+            if attempt == 0:
+                time.sleep(0.1)
+                continue
+            return default
+        except (OSError, IOError):
+            return default
+    return default
+
+
+def _safe_read_text(path: _Path) -> str:
+    """Read a text file with UTF-8 encoding, replacing non-UTF-8 bytes.
+
+    Returns empty string on any I/O or encoding error (truly safe).
+    """
+    try:
+        return _Path(path).read_text(encoding="utf-8", errors="replace")
+    except (OSError, IOError, ValueError):
+        return ""
+
+
+# ---------------------------------------------------------------------------
+# Simple in-memory rate limiter for control endpoints
+# ---------------------------------------------------------------------------
+
+class _RateLimiter:
+    """Simple in-memory rate limiter for control endpoints."""
+
+    def __init__(self, max_calls: int = 10, window_seconds: int = 60, max_keys: int = 10000):
+        self._max_calls = max_calls
+        self._window = window_seconds
+        self._max_keys = max_keys
+        self._calls: dict[str, list[float]] = defaultdict(list)
+
+    def check(self, key: str) -> bool:
+        now = time.time()
+        # Prune old timestamps for this key
+        self._calls[key] = [t for t in self._calls[key] if now - t < self._window]
+
+        # Remove keys with empty timestamp lists
+        empty_keys = [k for k, v in self._calls.items() if not v]
+        for k in empty_keys:
+            del self._calls[k]
+
+        # Evict least-recently-accessed keys if max_keys exceeded
+        if len(self._calls) > self._max_keys:
+            # Sort by last-access time (most recent timestamp), evict least recent
+            sorted_keys = sorted(
+                self._calls.items(),
+                key=lambda x: max(x[1]) if x[1] else 0
+            )
+            keys_to_remove = len(self._calls) - self._max_keys
+            for k, _ in sorted_keys[:keys_to_remove]:
+                del self._calls[k]
+
+        if len(self._calls[key]) >= self._max_calls:
+            return False
+        self._calls[key].append(now)
+        return True
+
+
+_control_limiter = _RateLimiter(max_calls=10, window_seconds=60)
+_read_limiter = _RateLimiter(max_calls=60, window_seconds=60)
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+
+# Pydantic schemas for API
+def _sanitize_text_field(value: str) -> str:
+    """Strip/reject control characters from text fields."""
+    import unicodedata
+    # Remove control characters (except common whitespace like space)
+    cleaned = "".join(
+        ch for ch in value if unicodedata.category(ch)[0] != "C" or ch in (" ",)
+    )
+    cleaned = cleaned.strip()
+    if not cleaned:
+        raise ValueError("Field must not be empty after removing control characters")
+    return cleaned
+
+
+class ProjectCreate(BaseModel):
+    """Schema for creating a project."""
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    prd_path: Optional[str] = None
+    tenant_id: int = Field(..., gt=0, description="Tenant ID (required, must be positive)")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        return _sanitize_text_field(v)
+
+
+class ProjectUpdate(BaseModel):
+    """Schema for updating a project."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    prd_path: Optional[str] = None
+    status: Optional[Literal["active", "archived", "completed", "paused"]] = None
+
+
+class ProjectResponse(BaseModel):
+    """Schema for project response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str]
+    prd_path: Optional[str]
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    task_count: int = 0
+    completed_task_count: int = 0
+
+
+class TaskCreate(BaseModel):
+    """Schema for creating a task."""
+    project_id: int
+    title: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    status: TaskStatus = TaskStatus.PENDING
+    priority: TaskPriority = TaskPriority.MEDIUM
+    position: int = 0
+    parent_task_id: Optional[int] = None
+    estimated_duration: Optional[int] = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        return _sanitize_text_field(v)
+
+
+class TaskUpdate(BaseModel):
+    """Schema for updating a task."""
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    status: Optional[TaskStatus] = None
+    priority: Optional[TaskPriority] = None
+    position: Optional[int] = None
+    assigned_agent_id: Optional[int] = None
+    estimated_duration: Optional[int] = None
+    actual_duration: Optional[int] = None
+
+
+class TaskMove(BaseModel):
+    """Schema for moving a task."""
+    status: TaskStatus
+    position: int
+
+
+class TaskResponse(BaseModel):
+    """Schema for task response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    title: str
+    description: Optional[str]
+    status: TaskStatus
+    priority: TaskPriority
+    position: int
+    assigned_agent_id: Optional[int]
+    parent_task_id: Optional[int]
+    estimated_duration: Optional[int]
+    actual_duration: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime]
+
+
+class SessionInfo(BaseModel):
+    """Info about a single running session."""
+    session_id: str
+    pid: int
+    status: str = "running"
+    log_file: str = ""
+
+
+class StatusResponse(BaseModel):
+    """Schema for system status response."""
+    status: str
+    version: str
+    uptime_seconds: float
+    active_sessions: int = 0
+    running_agents: int = 0
+    pending_tasks: int = 0
+    database_connected: bool = True
+    # File-based session fields
+    phase: str = ""
+    iteration: int = 0
+    complexity: str = "standard"
+    mode: str = ""
+    provider: str = "claude"
+    current_task: str = ""
+    # Concurrent sessions (v6.4.0)
+    sessions: list[SessionInfo] = []
+
+
+# WebSocket connection manager
+class ConnectionManager:
+    """Manages WebSocket connections for real-time updates."""
+
+    try:
+        MAX_CONNECTIONS = int(os.environ.get("LOKI_MAX_WS_CONNECTIONS", "100"))
+    except (ValueError, TypeError):
+        MAX_CONNECTIONS = 100
+
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket) -> bool:
+        """Accept a new WebSocket connection. Returns False if rejected."""
+        if len(self.active_connections) >= self.MAX_CONNECTIONS:
+            await websocket.accept()
+            await websocket.close(code=1013, reason="Connection limit reached. Try again later.")
+            logger.warning(f"WebSocket connection rejected: limit of {self.MAX_CONNECTIONS} reached")
+            return False
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        return True
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        """Remove a WebSocket connection."""
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict[str, Any]) -> None:
+        """Broadcast a message to all connected clients."""
+        disconnected = []
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.debug(f"WebSocket send failed, client disconnected: {e}")
+                disconnected.append(connection)
+        # Clean up disconnected clients
+        for conn in disconnected:
+            self.disconnect(conn)
+
+    async def send_personal(self, websocket: WebSocket, message: dict[str, Any]) -> None:
+        """Send a message to a specific client."""
+        try:
+            await websocket.send_json(message)
+        except Exception as e:
+            logger.debug(f"WebSocket personal send failed: {e}")
+            self.disconnect(websocket)
+
+
+manager = ConnectionManager()
+start_time = datetime.now(timezone.utc)
+
+
+_dashboard_start_time = time.time()
+
+
+async def _push_loki_state_loop() -> None:
+    """Background loop: push .loki/ state changes to all WebSocket clients.
+
+    Reads dashboard-state.json every 2s when running (30s when idle) and
+    broadcasts a state_update message so clients don't rely solely on polling.
+
+    When dashboard-state.json is absent (skill-invoked sessions), reads state
+    from session.json + orchestrator.json + queue files instead.
+    """
+    last_mtime: float = 0.0
+    _last_skill_hash: str = ""  # Track skill-session state changes
+    while True:
+        try:
+            if not manager.active_connections:
+                await asyncio.sleep(5)
+                continue
+
+            loki_dir = _get_loki_dir()
+            state_file = loki_dir / "dashboard-state.json"
+            _session_file = loki_dir / "session.json"
+
+            _broadcast_sent = False
+
+            if state_file.exists():
+                try:
+                    mtime = state_file.stat().st_mtime
+                except OSError:
+                    mtime = 0.0
+
+                # Only broadcast if file changed
+                if mtime != last_mtime:
+                    last_mtime = mtime
+                    try:
+                        raw = _safe_json_read(state_file, {})
+                        # Transform to StatusResponse-compatible format
+                        # BUG-NEW-001: Validate agent PIDs (match get_status behavior)
+                        agents_list = raw.get("agents", [])
+                        running_agents = 0
+                        if isinstance(agents_list, list):
+                            for _agent in agents_list:
+                                _apid = _agent.get("pid") if isinstance(_agent, dict) else None
+                                if _apid:
+                                    try:
+                                        os.kill(int(_apid), 0)
+                                        running_agents += 1
+                                    except (OSError, ValueError, TypeError):
+                                        pass
+                                else:
+                                    running_agents += 1  # No PID field -- count as running (legacy)
+                        tasks = raw.get("tasks", {})
+                        pending = tasks.get("pending", [])
+                        in_prog = tasks.get("inProgress", [])
+                        # BUG-NEW-006: Cross-check PID to avoid broadcasting
+                        # stale "running" status when process has crashed
+                        _pid_alive = False
+                        _ws_pid_file = loki_dir / "loki.pid"
+                        if _ws_pid_file.exists():
+                            try:
+                                _ws_pid = int(_ws_pid_file.read_text().strip())
+                                os.kill(_ws_pid, 0)
+                                _pid_alive = True
+                            except (ValueError, OSError, ProcessLookupError):
+                                pass
+
+                        # Also check session.json for skill sessions
+                        if not _pid_alive and _session_file.exists():
+                            try:
+                                _sd = _safe_json_read(_session_file, {})
+                                if _sd.get("status") == "running":
+                                    _pid_alive = True
+                            except (json.JSONDecodeError, KeyError):
+                                pass
+
+                        status_str = raw.get("mode", "autonomous")
+                        if not _pid_alive:
+                            status_str = "stopped"
+                        elif status_str == "paused":
+                            status_str = "paused"
+                        elif status_str in ("stopped", ""):
+                            status_str = "stopped"
+                        else:
+                            status_str = "running"
+
+                        payload = {
+                            "status": status_str,
+                            "phase": raw.get("phase", ""),
+                            "iteration": raw.get("iteration", 0),
+                            "complexity": raw.get("complexity", "standard"),
+                            "mode": raw.get("mode", ""),
+                            "provider": raw.get("provider", "claude"),
+                            "running_agents": running_agents,
+                            "pending_tasks": len(pending) if isinstance(pending, list) else 0,
+                            "current_task": in_prog[0].get("payload", {}).get("action", "") if isinstance(in_prog, list) and in_prog else "",
+                            "version": raw.get("version", ""),
+                        }
+                        await manager.broadcast({
+                            "type": "status_update",
+                            "data": payload,
+                        })
+                        _broadcast_sent = True
+                    except (json.JSONDecodeError, OSError, KeyError):
+                        pass
+
+            # Skill-session fallback: when dashboard-state.json is missing,
+            # read state from session.json + orchestrator.json + queue files
+            if not _broadcast_sent and _session_file.exists():
+                try:
+                    _sd = _safe_json_read(_session_file, {})
+                    if _sd.get("status") == "running":
+                        # Validate freshness (5 min staleness threshold)
+                        _sk_ts = _sd.get("updatedAt") or _sd.get("startedAt", "")
+                        _sk_fresh = True
+                        if _sk_ts:
+                            try:
+                                _sk_dt = datetime.fromisoformat(
+                                    _sk_ts.replace("Z", "+00:00")
+                                )
+                                if _sk_dt.tzinfo is None:
+                                    _sk_dt = _sk_dt.replace(tzinfo=timezone.utc)
+                                if (datetime.now(timezone.utc) - _sk_dt).total_seconds() > 300:
+                                    _sk_fresh = False
+                            except (ValueError, AttributeError):
+                                pass
+                        else:
+                            try:
+                                if time.time() - _session_file.stat().st_mtime > 300:
+                                    _sk_fresh = False
+                            except OSError:
+                                pass
+
+                        if _sk_fresh:
+                            # Read version from VERSION file
+                            _sk_version = ""
+                            _vf = _Path(os.path.dirname(os.path.dirname(__file__))) / "VERSION"
+                            if _vf.is_file():
+                                try:
+                                    _sk_version = _vf.read_text().strip()
+                                except OSError:
+                                    pass
+
+                            # Read orchestrator state
+                            _sk_phase = ""
+                            _sk_iteration = 0
+                            _sk_complexity = "standard"
+                            _orch_f = loki_dir / "state" / "orchestrator.json"
+                            if _orch_f.exists():
+                                try:
+                                    _orch = _safe_json_read(_orch_f, {})
+                                    _sk_phase = _orch.get("currentPhase", "") or ""
+                                    _sk_iteration = _orch.get("iteration", 0)
+                                    _sk_complexity = _orch.get("complexity", "standard") or "standard"
+                                except (json.JSONDecodeError, KeyError):
+                                    pass
+
+                            # Read pending tasks
+                            _sk_pending = 0
+                            _sk_current_task = ""
+                            _pf = loki_dir / "queue" / "pending.json"
+                            if _pf.exists():
+                                try:
+                                    _pd = _safe_json_read(_pf, [])
+                                    _pt = _pd.get("tasks", _pd) if isinstance(_pd, dict) else _pd
+                                    if isinstance(_pt, list):
+                                        _sk_pending = len(_pt)
+                                except (json.JSONDecodeError, KeyError, AttributeError):
+                                    pass
+
+                            _ipf = loki_dir / "queue" / "in-progress.json"
+                            if _ipf.exists():
+                                try:
+                                    _ipd = _safe_json_read(_ipf, [])
+                                    _ipt = _ipd.get("tasks", _ipd) if isinstance(_ipd, dict) else _ipd
+                                    if isinstance(_ipt, list) and _ipt:
+                                        _f = _ipt[0]
+                                        if isinstance(_f, dict):
+                                            _sk_current_task = (
+                                                _f.get("title", "")
+                                                or _f.get("payload", {}).get("action", "")
+                                                or _f.get("id", "")
+                                            )
+                                except (json.JSONDecodeError, KeyError, AttributeError):
+                                    pass
+
+                            if not _sk_current_task:
+                                _ctf = loki_dir / "queue" / "current-task.json"
+                                if _ctf.exists():
+                                    try:
+                                        _ct = _safe_json_read(_ctf, {})
+                                        if isinstance(_ct, dict):
+                                            _sk_current_task = (
+                                                _ct.get("title", "")
+                                                or _ct.get("payload", {}).get("action", "")
+                                                or _ct.get("id", "")
+                                            )
+                                    except (json.JSONDecodeError, KeyError, AttributeError):
+                                        pass
+
+                            # Build a change hash to avoid redundant broadcasts
+                            _sk_hash = f"{_sk_phase}:{_sk_iteration}:{_sk_pending}:{_sk_current_task}"
+                            if _sk_hash != _last_skill_hash:
+                                _last_skill_hash = _sk_hash
+                                payload = {
+                                    "status": "running",
+                                    "phase": _sk_phase,
+                                    "iteration": _sk_iteration,
+                                    "complexity": _sk_complexity,
+                                    "mode": "autonomous",
+                                    "provider": _sd.get("provider", "claude"),
+                                    "running_agents": 0,
+                                    "pending_tasks": _sk_pending,
+                                    "current_task": _sk_current_task,
+                                    "version": _sk_version,
+                                }
+                                await manager.broadcast({
+                                    "type": "status_update",
+                                    "data": payload,
+                                })
+                                _broadcast_sent = True
+                except (json.JSONDecodeError, OSError, KeyError):
+                    pass
+
+            # Poll faster when a session is running
+            pid_file = loki_dir / "loki.pid"
+            is_running = False
+            if pid_file.exists():
+                try:
+                    pid = int(pid_file.read_text().strip())
+                    os.kill(pid, 0)
+                    is_running = True
+                except (ValueError, OSError, ProcessLookupError):
+                    pass
+
+            # Also consider skill sessions as "running" for poll interval
+            if not is_running and _session_file.exists():
+                try:
+                    _sd2 = _safe_json_read(_session_file, {})
+                    if _sd2.get("status") == "running":
+                        is_running = True
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+            await asyncio.sleep(2.0 if is_running else 30.0)
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            await asyncio.sleep(5)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    # Startup
+    try:
+        await init_db()
+        app.state.db_available = True
+    except Exception as exc:
+        logger.error("Database init failed: %s -- DB routes will return 503", exc)
+        app.state.db_available = False
+    _telemetry.send_telemetry("dashboard_start")
+    push_task = asyncio.create_task(_push_loki_state_loop())
+    yield
+    # Shutdown
+    push_task.cancel()
+    try:
+        await push_task
+    except (asyncio.CancelledError, Exception):
+        pass
+    await close_db()
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="Loki Mode Dashboard API",
+    description="REST API for Loki Mode project and task management",
+    version=_version,
+    lifespan=lifespan,
+)
+
+# Add CORS middleware - restricted to localhost by default.
+# Set LOKI_DASHBOARD_CORS to override (comma-separated origins).
+_cors_default = "http://localhost:57374,http://127.0.0.1:57374"
+_cors_raw = os.environ.get("LOKI_DASHBOARD_CORS", _cors_default)
+if _cors_raw.strip() == "*":
+    logger.warning(
+        "LOKI_DASHBOARD_CORS is set to '*' -- all origins are allowed. "
+        "This is insecure for production deployments."
+    )
+_cors_origins = _cors_raw.split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+)
+
+# Static file serving is configured at the end of the file (after all API routes)
+
+# Mount V2 API router
+from .api_v2 import router as api_v2_router
+app.include_router(api_v2_router)
+
+
+# Health endpoint
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "loki-dashboard"}
+
+
+# A2A Agent Card - advertises agent capabilities per the A2A spec
+@app.get("/.well-known/agent.json", include_in_schema=False)
+async def agent_card() -> dict:
+    """A2A Agent Card served at /.well-known/agent.json."""
+    return {
+        "name": "Loki Mode",
+        "version": _version,
+        "description": "Multi-agent autonomous system by Autonomi. Takes PRD to fully deployed product with minimal human intervention.",
+        "url": "https://www.autonomi.dev/",
+        "capabilities": {
+            "agents": 41,
+            "swarms": 8,
+            "quality_gates": 9,
+            "providers": ["claude", "codex", "gemini", "cline", "aider"],
+            "streaming": True,
+            "pushNotifications": False,
+            "stateTransitionHistory": True,
+        },
+        "skills": [
+            {"id": "prd-to-product", "name": "PRD to Product", "description": "Takes a PRD and builds a fully deployed product"},
+            {"id": "code-review", "name": "Code Review", "description": "Multi-reviewer parallel code review with anti-sycophancy"},
+            {"id": "testing", "name": "Testing", "description": "Comprehensive test generation and execution"},
+            {"id": "deployment", "name": "Deployment", "description": "Production deployment with verification"},
+        ],
+        "protocols": {
+            "a2a": "0.1",
+            "mcp": "1.0",
+        },
+        "endpoints": {
+            "health": "/health",
+            "status": "/api/status",
+            "openapi": "/openapi.json",
+            "metrics": "/metrics",
+            "websocket": "/ws",
+        },
+        "enterprise": {
+            "multi_tenant": True,
+            "rbac": True,
+            "audit_log": True,
+            "sso": auth.is_oidc_mode(),
+        },
+        "authentication": {
+            "schemes": ["bearer", "api-key"],
+        },
+        "defaultInputModes": ["text/plain", "application/json"],
+        "defaultOutputModes": ["text/plain", "application/json"],
+    }
+
+
+# Status endpoint - reads from .loki/ flat files (primary) + DB (fallback)
+@app.get("/api/status", response_model=StatusResponse)
+async def get_status() -> StatusResponse:
+    """Get system status from .loki/ session files."""
+    loki_dir = _get_loki_dir()
+    uptime = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+    # Read VERSION file early (independent of .loki/ dir)
+    version = "unknown"
+    dashboard_dir = os.path.dirname(__file__)
+    project_root = os.path.dirname(dashboard_dir)
+    version_file = os.path.join(project_root, "VERSION")
+    if os.path.isfile(version_file):
+        try:
+            with open(version_file) as vf:
+                version = vf.read().strip()
+        except (OSError, IOError) as e:
+            logger.warning(f"Failed to read VERSION file: {e}")
+
+    # If .loki/ directory doesn't exist, return idle status immediately
+    if not loki_dir.is_dir():
+        return StatusResponse(
+            status="idle",
+            version=version,
+            uptime_seconds=uptime,
+        )
+
+    # Read dashboard-state.json (written by run.sh every 2 seconds)
+    state_file = loki_dir / "dashboard-state.json"
+    pid_file = loki_dir / "loki.pid"
+    pause_file = loki_dir / "PAUSE"
+    session_file = loki_dir / "session.json"
+
+    phase = ""
+    iteration = 0
+    complexity = "standard"
+    mode = ""
+    provider = "claude"
+    current_task = ""
+    pending_tasks = 0
+    running_agents = 0
+
+    # Read dashboard state (with retry for concurrent writes)
+    _has_dashboard_state = False
+    if state_file.exists():
+        try:
+            state = _safe_json_read(state_file, {})
+            if state:
+                _has_dashboard_state = True
+            phase = state.get("phase", "")
+            iteration = state.get("iteration", 0)
+            complexity = state.get("complexity", "standard")
+            mode = state.get("mode", "")
+            # Count only agents with alive PIDs (not raw array length)
+            agents_list = state.get("agents", [])
+            running_agents = 0
+            for agent in agents_list:
+                agent_pid = agent.get("pid")
+                if agent_pid:
+                    try:
+                        os.kill(int(agent_pid), 0)
+                        running_agents += 1
+                    except (OSError, ValueError, TypeError):
+                        pass
+                else:
+                    # No PID field -- count as running (legacy data)
+                    running_agents += 1
+
+            tasks = state.get("tasks", {})
+            pending_tasks = len(tasks.get("pending", []))
+            in_progress = tasks.get("inProgress", [])
+            if in_progress:
+                current_task = in_progress[0].get("payload", {}).get("action", "")
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Determine running state from PID + control files
+    running = False
+    pid_str = ""
+    if pid_file.exists():
+        try:
+            pid_str = pid_file.read_text().strip()
+            pid = int(pid_str)
+            os.kill(pid, 0)
+            running = True
+        except (ValueError, OSError, ProcessLookupError):
+            pass
+
+    # Also check session.json for skill-invoked sessions
+    _skill_session = False
+    if not running and session_file.exists():
+        try:
+            sd = _safe_json_read(session_file, {})
+            if sd.get("status") == "running":
+                # Validate freshness: session.json must have been updated within
+                # the last 5 minutes to be considered active (skill agents update
+                # it each turn).  Fall back to file mtime if no timestamp field.
+                _session_fresh = True
+                _session_ts = sd.get("updatedAt") or sd.get("startedAt", "")
+                if _session_ts:
+                    try:
+                        _sdt = datetime.fromisoformat(
+                            _session_ts.replace("Z", "+00:00")
+                        )
+                        if _sdt.tzinfo is None:
+                            _sdt = _sdt.replace(tzinfo=timezone.utc)
+                        _age = (datetime.now(timezone.utc) - _sdt).total_seconds()
+                        if _age > 300:
+                            _session_fresh = False
+                    except (ValueError, AttributeError):
+                        pass
+                else:
+                    # No timestamp -- check file mtime
+                    try:
+                        _mtime = session_file.stat().st_mtime
+                        _age = time.time() - _mtime
+                        if _age > 300:
+                            _session_fresh = False
+                    except OSError:
+                        pass
+
+                if _session_fresh:
+                    running = True
+                    _skill_session = True
+                    # Pull provider from session.json if available
+                    _sp = sd.get("provider", "")
+                    if _sp:
+                        provider = _sp
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # When running as a skill (no dashboard-state.json), read state from
+    # the orchestrator and queue files that the skill agent writes directly.
+    if _skill_session and not _has_dashboard_state:
+        orch_file = loki_dir / "state" / "orchestrator.json"
+        if orch_file.exists():
+            try:
+                orch = _safe_json_read(orch_file, {})
+                phase = orch.get("currentPhase", phase) or phase
+                iteration = orch.get("iteration", iteration)
+                complexity = orch.get("complexity", complexity) or complexity
+                _metrics = orch.get("metrics", {})
+                if isinstance(_metrics, dict):
+                    _tc = _metrics.get("tasksCompleted", 0)
+                    _tf = _metrics.get("tasksFailed", 0)
+                    if isinstance(_tc, (int, float)):
+                        pass  # available for future use
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+        # Read pending task count from queue files
+        _q_pending = loki_dir / "queue" / "pending.json"
+        if _q_pending.exists():
+            try:
+                _qd = _safe_json_read(_q_pending, [])
+                _tasks = _qd.get("tasks", _qd) if isinstance(_qd, dict) else _qd
+                if isinstance(_tasks, list):
+                    pending_tasks = len(_tasks)
+            except (json.JSONDecodeError, KeyError, AttributeError):
+                pass
+
+        # Read current task from in-progress queue
+        _q_inprog = loki_dir / "queue" / "in-progress.json"
+        if _q_inprog.exists():
+            try:
+                _ipd = _safe_json_read(_q_inprog, [])
+                _ip_tasks = _ipd.get("tasks", _ipd) if isinstance(_ipd, dict) else _ipd
+                if isinstance(_ip_tasks, list) and _ip_tasks:
+                    _first = _ip_tasks[0]
+                    if isinstance(_first, dict):
+                        current_task = (
+                            _first.get("title", "")
+                            or _first.get("payload", {}).get("action", "")
+                            or _first.get("id", "")
+                        )
+            except (json.JSONDecodeError, KeyError, AttributeError):
+                pass
+
+        # Read current-task.json (skill agents write this when claiming a task)
+        _q_current = loki_dir / "queue" / "current-task.json"
+        if not current_task and _q_current.exists():
+            try:
+                _ct = _safe_json_read(_q_current, {})
+                if isinstance(_ct, dict):
+                    current_task = (
+                        _ct.get("title", "")
+                        or _ct.get("payload", {}).get("action", "")
+                        or _ct.get("id", "")
+                    )
+            except (json.JSONDecodeError, KeyError, AttributeError):
+                pass
+
+        # Skill sessions are autonomous by definition
+        if not mode:
+            mode = "autonomous"
+
+    # Determine status string
+    if not running:
+        status = "stopped"
+    elif pause_file.exists():
+        status = "paused"
+    elif mode:
+        status = mode  # "autonomous"
+    else:
+        status = "running"
+
+    # Read provider from state
+    provider_file = loki_dir / "state" / "provider"
+    if provider_file.exists():
+        try:
+            provider = provider_file.read_text().strip() or "claude"
+        except Exception:
+            pass
+
+    # Discover all running sessions (v6.4.0 - concurrent session support)
+    active_session_list: list[SessionInfo] = []
+
+    # Global session
+    if running:
+        try:
+            _global_pid = int(pid_str) if pid_str else 0
+        except (ValueError, TypeError):
+            _global_pid = 0
+        active_session_list.append(SessionInfo(
+            session_id="global",
+            pid=_global_pid,
+            status=status,
+        ))
+
+    # Per-session PIDs under .loki/sessions/<id>/
+    sessions_dir = loki_dir / "sessions"
+    if sessions_dir.is_dir():
+        for session_path in sessions_dir.iterdir():
+            if not session_path.is_dir():
+                continue
+            sid = session_path.name
+            spid_file = session_path / "loki.pid"
+            if spid_file.exists():
+                try:
+                    spid_str = spid_file.read_text().strip()
+                    spid = int(spid_str)
+                    os.kill(spid, 0)
+                    # Find log file if available
+                    log_path = ""
+                    log_candidate = loki_dir / "logs" / f"run-{sid}.log"
+                    if log_candidate.exists():
+                        log_path = str(log_candidate)
+                    active_session_list.append(SessionInfo(
+                        session_id=sid,
+                        pid=spid,
+                        status="running",
+                        log_file=log_path,
+                    ))
+                except (ValueError, OSError, ProcessLookupError):
+                    pass
+
+    # Legacy run-*.pid files
+    for rpf in loki_dir.glob("run-*.pid"):
+        sid = rpf.stem.removeprefix("run-")
+        # Skip if already found in sessions/
+        if any(s.session_id == sid for s in active_session_list):
+            continue
+        try:
+            rpid = int(rpf.read_text().strip())
+            os.kill(rpid, 0)
+            log_path = ""
+            log_candidate = loki_dir / "logs" / f"run-{sid}.log"
+            if log_candidate.exists():
+                log_path = str(log_candidate)
+            active_session_list.append(SessionInfo(
+                session_id=sid,
+                pid=rpid,
+                status="running",
+                log_file=log_path,
+            ))
+        except (ValueError, OSError, ProcessLookupError):
+            pass
+
+    total_active = len(active_session_list)
+
+    return StatusResponse(
+        status=status,
+        version=version,
+        uptime_seconds=uptime,
+        active_sessions=total_active,
+        running_agents=running_agents,
+        pending_tasks=pending_tasks,
+        database_connected=True,
+        phase=phase,
+        iteration=iteration,
+        complexity=complexity,
+        mode=mode,
+        provider=provider,
+        current_task=current_task,
+        sessions=active_session_list,
+    )
+
+
+# Project endpoints
+@app.get("/api/projects", response_model=list[ProjectResponse])
+async def list_projects(
+    status: Optional[str] = Query(None),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[ProjectResponse]:
+    """List projects with pagination. Does not eager-load tasks for efficiency."""
+    try:
+        from sqlalchemy import func as sa_func
+
+        query = select(Project)
+        if status:
+            query = query.where(Project.status == status)
+        query = query.order_by(Project.created_at.desc()).offset(offset).limit(limit)
+
+        result = await db.execute(query)
+        projects = result.scalars().all()
+
+        # Batch-fetch task counts instead of N+1 eager loading
+        project_ids = [p.id for p in projects]
+        response = []
+        if project_ids:
+            count_query = (
+                select(
+                    Task.project_id,
+                    sa_func.count().label("total"),
+                    sa_func.count().filter(Task.status == TaskStatus.DONE).label("done"),
+                )
+                .where(Task.project_id.in_(project_ids))
+                .group_by(Task.project_id)
+            )
+            count_result = await db.execute(count_query)
+            counts = {row.project_id: (row.total, row.done) for row in count_result}
+        else:
+            counts = {}
+
+        for project in projects:
+            total, done = counts.get(project.id, (0, 0))
+            response.append(
+                ProjectResponse(
+                    id=project.id,
+                    name=project.name,
+                    description=project.description,
+                    prd_path=project.prd_path,
+                    status=project.status,
+                    created_at=project.created_at,
+                    updated_at=project.updated_at,
+                    task_count=total,
+                    completed_task_count=done,
+                )
+            )
+        return response
+    except Exception as exc:
+        logger.error("Failed to list projects: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Database query failed") from exc
+
+
+@app.post("/api/projects", response_model=ProjectResponse, status_code=201, dependencies=[Depends(auth.require_scope("control"))])
+async def create_project(
+    project: ProjectCreate,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectResponse:
+    """Create a new project."""
+    # Validate tenant exists
+    tenant_result = await db.execute(
+        select(Tenant).where(Tenant.id == project.tenant_id)
+    )
+    if not tenant_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    db_project = Project(
+        name=project.name,
+        description=project.description,
+        prd_path=project.prd_path,
+        tenant_id=project.tenant_id,
+    )
+    db.add(db_project)
+    await db.flush()
+    await db.refresh(db_project)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "project_created",
+        "data": {"id": db_project.id, "name": db_project.name},
+    })
+
+    return ProjectResponse(
+        id=db_project.id,
+        name=db_project.name,
+        description=db_project.description,
+        prd_path=db_project.prd_path,
+        status=db_project.status,
+        created_at=db_project.created_at,
+        updated_at=db_project.updated_at,
+        task_count=0,
+        completed_task_count=0,
+    )
+
+
+@app.get("/api/projects/{project_id}", response_model=ProjectResponse)
+async def get_project(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectResponse:
+    """Get a project by ID."""
+    result = await db.execute(
+        select(Project)
+        .options(selectinload(Project.tasks))
+        .where(Project.id == project_id)
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    task_count = len(project.tasks)
+    completed_count = len([t for t in project.tasks if t.status == TaskStatus.DONE])
+
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        prd_path=project.prd_path,
+        status=project.status,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        task_count=task_count,
+        completed_task_count=completed_count,
+    )
+
+
+@app.put("/api/projects/{project_id}", response_model=ProjectResponse, dependencies=[Depends(auth.require_scope("control"))])
+async def update_project(
+    project_id: int,
+    project_update: ProjectUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectResponse:
+    """Update a project."""
+    result = await db.execute(
+        select(Project)
+        .options(selectinload(Project.tasks))
+        .where(Project.id == project_id)
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    update_data = project_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(project, field, value)
+
+    await db.flush()
+    await db.refresh(project)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "project_updated",
+        "data": {"id": project.id, "name": project.name},
+    })
+
+    task_count = len(project.tasks)
+    completed_count = len([t for t in project.tasks if t.status == TaskStatus.DONE])
+
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        prd_path=project.prd_path,
+        status=project.status,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        task_count=task_count,
+        completed_task_count=completed_count,
+    )
+
+
+@app.delete("/api/projects/{project_id}", status_code=204, dependencies=[Depends(auth.require_scope("control"))])
+async def delete_project(
+    project_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete a project."""
+    result = await db.execute(
+        select(Project).where(Project.id == project_id)
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    audit.log_event(
+        action="delete",
+        resource_type="project",
+        resource_id=str(project_id),
+        details={"name": project.name},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    await db.delete(project)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "project_deleted",
+        "data": {"id": project_id},
+    })
+
+
+def _parse_task_markdown(content: str, task_id: str) -> dict:
+    """Parse a markdown task file into a structured task dict."""
+
+    task = {
+        "id": task_id,
+        "title": task_id,
+        "description": "",
+        "status": "pending",
+        "priority": "medium",
+        "type": "task",
+        "position": 0,
+        "specification": "",
+        "acceptance_criteria": [],
+        "context_files": [],
+        "metadata": {},
+    }
+
+    lines = content.split("\n")
+
+    # Extract title from first heading
+    for line in lines:
+        if line.startswith("# "):
+            task["title"] = line[2:].strip()
+            break
+
+    # Parse sections
+    current_section = None
+    section_lines = []
+
+    for line in lines:
+        if line.startswith("## "):
+            # Save previous section
+            if current_section:
+                _apply_task_section(task, current_section, section_lines)
+            current_section = line[3:].strip().lower()
+            section_lines = []
+        elif current_section is not None:
+            section_lines.append(line)
+
+    # Save last section
+    if current_section:
+        _apply_task_section(task, current_section, section_lines)
+
+    # Store full markdown for detail view
+    task["full_content"] = content
+
+    return task
+
+
+def _apply_task_section(task: dict, section: str, lines: list):
+    """Apply parsed markdown section to task dict."""
+    text = "\n".join(lines).strip()
+
+    if section == "metadata":
+        for line in lines:
+            line = line.strip()
+            if line.startswith("- "):
+                parts = line[2:].split(":", 1)
+                if len(parts) == 2:
+                    key = parts[0].strip().lower().replace(" ", "_")
+                    val = parts[1].strip()
+                    task["metadata"][key] = val
+                    if key == "priority":
+                        task["priority"] = val.lower()
+                    elif key == "team":
+                        task["type"] = val
+    elif section == "specification":
+        task["specification"] = text
+        if not task["description"]:
+            # Use first paragraph as description
+            for para in text.split("\n\n"):
+                if para.strip():
+                    task["description"] = para.strip()[:200]
+                    break
+    elif section in ("acceptance criteria", "acceptance_criteria"):
+        criteria = []
+        for line in lines:
+            line = line.strip()
+            if line and (line[0].isdigit() or line.startswith("- ")):
+                # Strip leading number/bullet
+                clean = line.lstrip("0123456789.-) ").strip()
+                if clean:
+                    criteria.append(clean)
+        task["acceptance_criteria"] = criteria
+    elif section in ("context files", "context files to read", "context_files"):
+        files = []
+        for line in lines:
+            line = line.strip()
+            if line.startswith("- "):
+                files.append(line[2:].strip())
+        task["context_files"] = files
+
+
+# Task endpoints - reads from .loki/dashboard-state.json
+@app.get("/api/tasks")
+async def list_tasks(
+    project_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+):
+    """List tasks from session state files."""
+    loki_dir = _get_loki_dir()
+    state_file = loki_dir / "dashboard-state.json"
+    all_tasks = []
+
+    # Read from dashboard-state.json (written by run.sh)
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+            task_groups = state.get("tasks", {})
+
+            status_map = {
+                "pending": "pending",
+                "inProgress": "in_progress",
+                "review": "review",
+                "completed": "done",
+                "failed": "done",
+            }
+
+            for group_key, mapped_status in status_map.items():
+                for i, task in enumerate(task_groups.get(group_key, [])):
+                    task_id = task.get("id", f"{group_key}-{i}")
+                    payload = task.get("payload", {})
+                    all_tasks.append({
+                        "id": task_id,
+                        "title": task.get("title", payload.get("action", task.get("type", "Task"))),
+                        "description": payload.get("description", ""),
+                        "status": mapped_status,
+                        "priority": payload.get("priority", "medium"),
+                        "type": task.get("type", "task"),
+                        "position": i,
+                    })
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Also read from queue files for more detail
+    queue_dir = loki_dir / "queue"
+    if queue_dir.exists():
+        for queue_file, q_status in [
+            ("pending.json", "pending"),
+            ("in-progress.json", "in_progress"),
+            ("completed.json", "done"),
+            ("failed.json", "done"),
+            ("dead-letter.json", "done"),
+        ]:
+            fpath = queue_dir / queue_file
+            if fpath.exists():
+                try:
+                    raw_items = json.loads(fpath.read_text())
+                    # BUG-NEW-002: Support both array [...] and object {"tasks": [...]} formats
+                    # (matches run.sh load_queue_tasks which supports both)
+                    if isinstance(raw_items, dict):
+                        items = raw_items.get("tasks", [])
+                    elif isinstance(raw_items, list):
+                        items = raw_items
+                    else:
+                        items = []
+                    if isinstance(items, list):
+                        for i, item in enumerate(items):
+                            if isinstance(item, dict):
+                                tid = item.get("id", f"q-{q_status}-{i}")
+                                # Skip if already in all_tasks
+                                if any(t["id"] == tid for t in all_tasks):
+                                    continue
+                                task_entry = {
+                                    "id": tid,
+                                    "title": item.get("title", item.get("action", "Task")),
+                                    "description": item.get("description", ""),
+                                    "status": q_status,
+                                    "priority": item.get("priority", "medium"),
+                                    "type": item.get("type", "task"),
+                                    "position": i,
+                                }
+                                if item.get("acceptance_criteria"):
+                                    task_entry["acceptance_criteria"] = item["acceptance_criteria"]
+                                if item.get("user_story"):
+                                    task_entry["user_story"] = item["user_story"]
+                                if item.get("project"):
+                                    task_entry["project"] = item["project"]
+                                if item.get("source"):
+                                    task_entry["source"] = item["source"]
+                                all_tasks.append(task_entry)
+                except (json.JSONDecodeError, KeyError):
+                    pass
+
+        # Read markdown task files from queue subdirectories
+        for subdir, q_status in [
+            ("pending", "pending"),
+            ("active", "in_progress"),
+            ("review", "review"),
+            ("done", "done"),
+        ]:
+            dir_path = queue_dir / subdir
+            if not dir_path.is_dir():
+                continue
+            for md_file in sorted(dir_path.glob("*.md")):
+                tid = md_file.stem
+                if any(t["id"] == tid for t in all_tasks):
+                    continue
+                try:
+                    content = md_file.read_text(errors="replace")
+                    parsed = _parse_task_markdown(content, tid)
+                    parsed["status"] = q_status
+                    parsed["position"] = len([t for t in all_tasks if t["status"] == q_status])
+                    all_tasks.append(parsed)
+                except Exception:
+                    pass
+
+    # Apply project_id filter if provided
+    if project_id is not None:
+        all_tasks = [t for t in all_tasks if t.get("project_id") == project_id]
+
+    # Apply status filter if provided
+    if status:
+        all_tasks = [t for t in all_tasks if t["status"] == status]
+
+    return all_tasks
+
+
+@app.post("/api/tasks", response_model=TaskResponse, status_code=201, dependencies=[Depends(auth.require_scope("control"))])
+async def create_task(
+    task: TaskCreate,
+    db: AsyncSession = Depends(get_db),
+) -> TaskResponse:
+    """Create a new task."""
+    # Verify project exists
+    result = await db.execute(
+        select(Project).where(Project.id == task.project_id)
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Validate parent task if specified
+    if task.parent_task_id:
+        result = await db.execute(
+            select(Task).where(
+                Task.id == task.parent_task_id,
+                Task.project_id == task.project_id
+            )
+        )
+        parent = result.scalar_one_or_none()
+        if not parent:
+            raise HTTPException(
+                status_code=400,
+                detail="Parent task not found or belongs to different project"
+            )
+
+        # Detect circular reference: walk parent chain
+        visited = set()
+        current_parent_id = task.parent_task_id
+        while current_parent_id is not None:
+            if current_parent_id in visited:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Circular reference detected in parent task chain"
+                )
+            visited.add(current_parent_id)
+            parent_result = await db.execute(
+                select(Task.parent_task_id).where(Task.id == current_parent_id)
+            )
+            row = parent_result.scalar_one_or_none()
+            current_parent_id = row if row else None
+
+    db_task = Task(
+        project_id=task.project_id,
+        title=task.title,
+        description=task.description,
+        status=task.status,
+        priority=task.priority,
+        position=task.position,
+        parent_task_id=task.parent_task_id,
+        estimated_duration=task.estimated_duration,
+    )
+    db.add(db_task)
+    await db.flush()
+    await db.refresh(db_task)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "task_created",
+        "data": {
+            "id": db_task.id,
+            "project_id": db_task.project_id,
+            "title": db_task.title,
+            "status": db_task.status.value,
+        },
+    })
+
+    return TaskResponse.model_validate(db_task)
+
+
+@app.get("/api/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> TaskResponse:
+    """Get a task by ID."""
+    result = await db.execute(
+        select(Task).where(Task.id == task_id)
+    )
+    task = result.scalar_one_or_none()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return TaskResponse.model_validate(task)
+
+
+@app.put("/api/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(auth.require_scope("control"))])
+async def update_task(
+    task_id: int,
+    task_update: TaskUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> TaskResponse:
+    """Update a task."""
+    result = await db.execute(
+        select(Task).where(Task.id == task_id)
+    )
+    task = result.scalar_one_or_none()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    update_data = task_update.model_dump(exclude_unset=True)
+
+    # Handle status change to/from completed
+    if "status" in update_data:
+        if update_data["status"] == TaskStatus.DONE:
+            update_data["completed_at"] = datetime.now(timezone.utc)
+        else:
+            update_data["completed_at"] = None
+
+    for field, value in update_data.items():
+        setattr(task, field, value)
+
+    await db.flush()
+    await db.refresh(task)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "task_updated",
+        "data": {
+            "id": task.id,
+            "project_id": task.project_id,
+            "title": task.title,
+            "status": task.status.value,
+        },
+    })
+
+    return TaskResponse.model_validate(task)
+
+
+@app.delete("/api/tasks/{task_id}", status_code=204, dependencies=[Depends(auth.require_scope("control"))])
+async def delete_task(
+    task_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete a task."""
+    result = await db.execute(
+        select(Task).where(Task.id == task_id)
+    )
+    task = result.scalar_one_or_none()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    project_id = task.project_id
+
+    audit.log_event(
+        action="delete",
+        resource_type="task",
+        resource_id=str(task_id),
+        details={"project_id": project_id, "title": task.title},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    await db.delete(task)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "task_deleted",
+        "data": {"id": task_id, "project_id": project_id},
+    })
+
+
+# Valid status transitions for task state machine
+_TASK_STATE_MACHINE: dict[TaskStatus, set[TaskStatus]] = {
+    TaskStatus.BACKLOG: {TaskStatus.PENDING},
+    TaskStatus.PENDING: {TaskStatus.IN_PROGRESS},
+    TaskStatus.IN_PROGRESS: {TaskStatus.REVIEW, TaskStatus.DONE},
+    TaskStatus.REVIEW: {TaskStatus.DONE, TaskStatus.IN_PROGRESS},
+    TaskStatus.DONE: {TaskStatus.IN_PROGRESS, TaskStatus.REVIEW},
+}
+
+
+@app.post("/api/tasks/{task_id}/move", response_model=TaskResponse, dependencies=[Depends(auth.require_scope("control"))])
+async def move_task(
+    task_id: int,
+    move: TaskMove,
+    db: AsyncSession = Depends(get_db),
+) -> TaskResponse:
+    """Move a task to a new status/position (for Kanban drag-and-drop)."""
+    result = await db.execute(
+        select(Task).where(Task.id == task_id)
+    )
+    task = result.scalar_one_or_none()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    old_status = task.status
+
+    # Validate status transition
+    if move.status != old_status:
+        allowed = _TASK_STATE_MACHINE.get(old_status, set())
+        if move.status not in allowed:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid status transition: {old_status.value} -> {move.status.value}. "
+                       f"Allowed transitions from {old_status.value}: "
+                       f"{', '.join(s.value for s in allowed) if allowed else 'none'}",
+            )
+
+    task.status = move.status
+    task.position = move.position
+
+    # Set completed_at if moving to completed
+    if move.status == TaskStatus.DONE and old_status != TaskStatus.DONE:
+        task.completed_at = datetime.now(timezone.utc)
+    elif move.status != TaskStatus.DONE:
+        task.completed_at = None
+
+    await db.flush()
+    await db.refresh(task)
+
+    # Broadcast update
+    await manager.broadcast({
+        "type": "task_moved",
+        "data": {
+            "id": task.id,
+            "project_id": task.project_id,
+            "title": task.title,
+            "old_status": old_status.value,
+            "new_status": task.status.value,
+            "position": task.position,
+        },
+    })
+
+    return TaskResponse.model_validate(task)
+
+
+# WebSocket endpoint
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """WebSocket endpoint for real-time updates.
+
+    When enterprise auth or OIDC is enabled, a valid token must be passed
+    as a query parameter: ``/ws?token=loki_xxx`` (or a JWT for OIDC).
+    Browsers cannot send Authorization headers on WebSocket upgrade
+    requests, so query-parameter auth is the standard approach.
+    """
+    # --- WebSocket authentication gate ---
+    # NOTE: Query-parameter auth is used because browsers cannot send
+    # Authorization headers on WS upgrade. Tokens may appear in reverse
+    # proxy access logs -- configure log sanitization for /ws in production.
+    # FastAPI Depends() is not supported on @app.websocket() routes.
+
+    # Rate limit WebSocket connections by IP (use unique key when client info unavailable)
+    import uuid as _uuid
+    client_ip = websocket.client.host if websocket.client else f"ws-{_uuid.uuid4().hex}"
+    if not _read_limiter.check(f"ws_{client_ip}"):
+        await websocket.accept()
+        await websocket.close(code=1008)  # Policy Violation
+        return
+
+    if auth.is_enterprise_mode() or auth.is_oidc_mode():
+        ws_token: Optional[str] = websocket.query_params.get("token")
+        if not ws_token:
+            await websocket.accept()
+            await websocket.close(code=1008)  # Policy Violation
+            return
+
+        token_info: Optional[dict] = None
+        # Try OIDC first for JWT-style tokens
+        if auth.is_oidc_mode() and not ws_token.startswith("loki_"):
+            token_info = auth.validate_oidc_token(ws_token)
+        # Fall back to enterprise token auth
+        if token_info is None and auth.is_enterprise_mode():
+            token_info = auth.validate_token(ws_token)
+
+        if token_info is None:
+            await websocket.accept()
+            await websocket.close(code=1008)  # Policy Violation
+            return
+
+    connected = await manager.connect(websocket)
+    if not connected:
+        return
+    try:
+        # Send initial connection confirmation
+        await manager.send_personal(websocket, {
+            "type": "connected",
+            "data": {"message": "Connected to Loki Dashboard"},
+        })
+
+        # Keep connection alive and handle incoming messages.
+        # Close idle connections after ~60s of no response to pings.
+        missed_pongs = 0
+        while True:
+            try:
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=30.0  # Ping every 30 seconds of silence
+                )
+                missed_pongs = 0  # any message resets idle counter
+                try:
+                    message = json.loads(data)
+                    if message.get("type") == "ping":
+                        await manager.send_personal(websocket, {"type": "pong"})
+                    elif message.get("type") == "pong":
+                        pass  # client responded to our ping
+                    elif message.get("type") == "subscribe":
+                        await manager.send_personal(websocket, {
+                            "type": "subscribed",
+                            "data": message.get("data", {}),
+                        })
+                except json.JSONDecodeError as e:
+                    logger.debug(f"WebSocket received invalid JSON: {e}")
+            except asyncio.TimeoutError:
+                missed_pongs += 1
+                if missed_pongs >= 2:
+                    # Two consecutive pings with no reply -- close idle connection
+                    logger.info("Closing idle WebSocket (no pong response)")
+                    break
+                try:
+                    await manager.send_personal(websocket, {"type": "ping"})
+                except Exception:
+                    break
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        manager.disconnect(websocket)
+
+
+# =============================================================================
+# Cross-Project Registry API
+# =============================================================================
+
+class RegisteredProjectResponse(BaseModel):
+    """Schema for registered project response."""
+    id: str
+    path: str
+    name: str
+    alias: Optional[str]
+    registered_at: str
+    updated_at: str
+    last_accessed: Optional[str]
+    has_loki_dir: bool
+    status: str
+
+
+class RegisterProjectRequest(BaseModel):
+    """Schema for registering a project."""
+    path: str
+    name: Optional[str] = None
+    alias: Optional[str] = None
+
+
+class DiscoverResponse(BaseModel):
+    """Schema for discovery response."""
+    path: str
+    name: str
+    has_state: bool
+    has_prd: bool
+
+
+class SyncResponse(BaseModel):
+    """Schema for sync response."""
+    added: int
+    updated: int
+    missing: int
+    total: int
+
+
+class HealthResponse(BaseModel):
+    """Schema for project health response."""
+    status: str
+    checks: dict
+
+
+@app.get("/api/registry/projects", response_model=list[RegisteredProjectResponse])
+async def list_registered_projects(include_inactive: bool = False):
+    """List all registered projects."""
+    projects = registry.list_projects(include_inactive=include_inactive)
+    return projects
+
+
+@app.post("/api/registry/projects", response_model=RegisteredProjectResponse, status_code=201, dependencies=[Depends(auth.require_scope("control"))])
+async def register_project(request: RegisterProjectRequest):
+    """Register a new project."""
+    try:
+        project = registry.register_project(
+            path=request.path,
+            name=request.name,
+            alias=request.alias,
+        )
+        return project
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/registry/projects/{identifier}", response_model=RegisteredProjectResponse)
+async def get_registered_project(identifier: str):
+    """Get a registered project by ID, path, or alias."""
+    project = registry.get_project(identifier)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found in registry")
+    return project
+
+
+@app.delete("/api/registry/projects/{identifier}", status_code=204, dependencies=[Depends(auth.require_scope("control"))])
+async def unregister_project(identifier: str, request: Request):
+    """Remove a project from the registry."""
+    if not registry.unregister_project(identifier):
+        raise HTTPException(status_code=404, detail="Project not found in registry")
+
+    audit.log_event(
+        action="delete",
+        resource_type="registry_project",
+        resource_id=identifier,
+        ip_address=request.client.host if request.client else None,
+    )
+
+
+@app.get("/api/registry/projects/{identifier}/health", response_model=HealthResponse)
+async def get_project_health(identifier: str):
+    """Check the health of a registered project."""
+    health = registry.check_project_health(identifier)
+    if health["status"] == "not_found":
+        raise HTTPException(status_code=404, detail="Project not found in registry")
+    return health
+
+
+@app.post("/api/registry/projects/{identifier}/access", dependencies=[Depends(auth.require_scope("control"))])
+async def update_project_access(identifier: str):
+    """Update the last accessed timestamp for a project."""
+    project = registry.update_last_accessed(identifier)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found in registry")
+    return project
+
+
+@app.get("/api/registry/discover", response_model=list[DiscoverResponse])
+async def discover_projects(max_depth: int = Query(default=3, ge=1, le=10)):
+    """Discover projects with .loki directories."""
+    max_depth = min(max_depth, 10)
+    discovered = registry.discover_projects(max_depth=max_depth)
+    return discovered
+
+
+@app.post("/api/registry/sync", response_model=SyncResponse, dependencies=[Depends(auth.require_scope("control"))])
+async def sync_registry():
+    """Sync the registry with discovered projects."""
+    if not _read_limiter.check("registry_sync"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    try:
+        loop = asyncio.get_running_loop()
+        result = await asyncio.wait_for(
+            loop.run_in_executor(None, registry.sync_registry_with_discovery),
+            timeout=30.0,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Registry sync timed out after 30 seconds")
+    return {
+        "added": result["added"],
+        "updated": result["updated"],
+        "missing": result["missing"],
+        "total": result["total"],
+    }
+
+
+@app.get("/api/registry/tasks")
+async def get_cross_project_tasks(project_ids: Optional[str] = None):
+    """Get tasks from multiple projects for unified view."""
+    ids = project_ids.split(",") if project_ids else None
+    tasks = registry.get_cross_project_tasks(ids)
+    return tasks
+
+
+@app.get("/api/registry/learnings")
+async def get_cross_project_learnings():
+    """Get learnings from the global learnings database."""
+    learnings = registry.get_cross_project_learnings()
+    return learnings
+
+
+# =============================================================================
+# Active Project Focus (for AI Chat / cross-directory usage)
+# =============================================================================
+
+class FocusRequest(BaseModel):
+    """Schema for setting the active project directory."""
+    project_dir: str
+
+
+@app.post("/api/focus", dependencies=[Depends(auth.require_scope("control"))])
+async def set_focus(request: FocusRequest):
+    """Set the active project directory for .loki/ resolution.
+
+    When the dashboard runs in one CWD but a session (e.g. AI Chat) runs
+    in a different project directory, call this endpoint so the dashboard
+    reads .loki/ from the correct location.
+    """
+    global _active_project_dir
+    project_dir = request.project_dir.strip()
+    if not project_dir:
+        raise HTTPException(status_code=400, detail="project_dir must not be empty")
+    p = _Path(project_dir).resolve()
+    if not p.is_dir():
+        raise HTTPException(status_code=400, detail=f"Directory does not exist: {project_dir}")
+    # Require the target directory to contain a .loki/ subdirectory to prevent
+    # pointing the dashboard at arbitrary filesystem locations.
+    if not (p / ".loki").is_dir():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Directory does not contain a .loki/ subdirectory: {project_dir}"
+        )
+    _active_project_dir = str(p)
+    return {"project_dir": _active_project_dir, "loki_dir": str(_get_loki_dir())}
+
+
+@app.get("/api/focus")
+async def get_focus():
+    """Get the currently focused project directory."""
+    return {
+        "project_dir": _active_project_dir,
+        "loki_dir": str(_get_loki_dir()),
+    }
+
+
+@app.delete("/api/focus", dependencies=[Depends(auth.require_scope("control"))])
+async def clear_focus():
+    """Clear the active project directory override (revert to CWD-based resolution)."""
+    global _active_project_dir
+    _active_project_dir = None
+    return {"project_dir": None, "loki_dir": str(_get_loki_dir())}
+
+
+# =============================================================================
+# Enterprise Features (Optional - enabled via environment variables)
+# =============================================================================
+
+@app.get("/api/enterprise/status")
+async def get_enterprise_status():
+    """Check which enterprise features are enabled."""
+    return {
+        "auth_enabled": auth.is_enterprise_mode(),
+        "oidc_enabled": auth.is_oidc_mode(),
+        "audit_enabled": audit.is_audit_enabled(),
+        "enterprise_mode": auth.is_enterprise_mode() or auth.is_oidc_mode() or audit.is_audit_enabled(),
+    }
+
+
+@app.get("/api/auth/info")
+async def get_auth_info():
+    """Get authentication configuration info (public endpoint).
+
+    Returns which auth methods are available so clients can determine
+    how to authenticate (token-based, OIDC/SSO, or anonymous).
+    """
+    return {
+        "token_auth_enabled": auth.ENTERPRISE_AUTH_ENABLED,
+        "oidc_enabled": auth.OIDC_ENABLED,
+        "oidc_issuer": auth.OIDC_ISSUER if auth.OIDC_ENABLED else None,
+        "oidc_client_id": auth.OIDC_CLIENT_ID if auth.OIDC_ENABLED else None,
+    }
+
+
+# Token management endpoints (only active when LOKI_ENTERPRISE_AUTH=true)
+class TokenCreateRequest(BaseModel):
+    """Schema for creating a token."""
+    name: str = Field(..., min_length=1, max_length=255, description="Human-readable token name")
+    scopes: Optional[Any] = Field(None, description="Permission scopes (default: ['*'] for all)")  # list[str], Any for Python 3.8
+    expires_days: Optional[int] = Field(None, gt=0, description="Days until expiration (must be positive)")
+
+
+class TokenResponse(BaseModel):
+    """Schema for token response."""
+    id: str
+    name: str
+    scopes: Any  # list[str], Any for Python 3.8
+    created_at: str
+    expires_at: Optional[str]
+    last_used: Optional[str]
+    revoked: bool
+    token: Optional[str] = None  # Only on creation
+
+
+@app.post("/api/enterprise/tokens", response_model=TokenResponse, status_code=201, dependencies=[Depends(auth.require_scope("admin"))])
+async def create_token(request: TokenCreateRequest):
+    """
+    Generate a new API token (enterprise only).
+
+    The raw token is only returned once on creation - save it securely.
+    """
+    if not _read_limiter.check("token_create"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    if not auth.is_enterprise_mode():
+        raise HTTPException(
+            status_code=403,
+            detail="Enterprise authentication not enabled. Set LOKI_ENTERPRISE_AUTH=true"
+        )
+
+    try:
+        token_data = auth.generate_token(
+            name=request.name,
+            scopes=request.scopes,
+            expires_days=request.expires_days,
+        )
+
+        # Audit log
+        audit.log_event(
+            action="create",
+            resource_type="token",
+            resource_id=token_data["id"],
+            details={"name": request.name, "scopes": request.scopes},
+        )
+
+        return token_data
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/enterprise/tokens", response_model=list[TokenResponse], dependencies=[Depends(auth.require_scope("admin"))])
+async def list_tokens(include_revoked: bool = False):
+    """List all API tokens (enterprise only)."""
+    if not auth.is_enterprise_mode():
+        raise HTTPException(
+            status_code=403,
+            detail="Enterprise authentication not enabled"
+        )
+
+    return auth.list_tokens(include_revoked=include_revoked)
+
+
+@app.delete("/api/enterprise/tokens/{identifier}", dependencies=[Depends(auth.require_scope("admin"))])
+async def revoke_token(identifier: str, permanent: bool = False):
+    """
+    Revoke or delete a token (enterprise only).
+
+    Args:
+        identifier: Token ID or name
+        permanent: If true, permanently delete instead of revoke
+    """
+    if not auth.is_enterprise_mode():
+        raise HTTPException(
+            status_code=403,
+            detail="Enterprise authentication not enabled"
+        )
+
+    if permanent:
+        success = auth.delete_token(identifier)
+        action = "delete"
+    else:
+        success = auth.revoke_token(identifier)
+        action = "revoke"
+
+    if not success:
+        raise HTTPException(status_code=404, detail="Token not found")
+
+    # Audit log
+    audit.log_event(
+        action=action,
+        resource_type="token",
+        resource_id=identifier,
+    )
+
+    return {"status": "ok", "action": action, "identifier": identifier}
+
+
+# Audit log endpoints (enabled by default, disable with LOKI_AUDIT_DISABLED=true)
+class AuditQueryParams(BaseModel):
+    """Query parameters for audit logs."""
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    action: Optional[str] = None
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
+    user_id: Optional[str] = None
+    success: Optional[bool] = None
+    limit: int = 100
+    offset: int = 0
+
+
+@app.get("/api/enterprise/audit", dependencies=[Depends(auth.require_scope("audit"))])
+async def query_audit_logs(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[str] = None,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+):
+    """
+    Query audit logs (enterprise only).
+
+    Date format: YYYY-MM-DD
+    """
+    if not audit.is_audit_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Audit logging is disabled. Remove LOKI_AUDIT_DISABLED or set LOKI_ENTERPRISE_AUDIT=true"
+        )
+
+    return audit.query_logs(
+        start_date=start_date,
+        end_date=end_date,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.get("/api/enterprise/audit/summary", dependencies=[Depends(auth.require_scope("audit"))])
+async def get_audit_summary(days: int = 7):
+    """Get audit activity summary."""
+    if not audit.is_audit_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Audit logging is disabled. Remove LOKI_AUDIT_DISABLED or set LOKI_ENTERPRISE_AUDIT=true"
+        )
+
+    return audit.get_audit_summary(days=days)
+
+
+# =============================================================================
+# File-based Session Endpoints (reads from .loki/ flat files)
+# =============================================================================
+
+# Active project directory override (set via API or run.sh notification)
+# When set, _get_loki_dir() resolves .loki/ relative to this path instead of CWD.
+_active_project_dir: Optional[str] = None
+
+
+def _get_loki_dir() -> _Path:
+    """Get LOKI_DIR, refreshing from env on each call for consistency.
+
+    Resolution order:
+    1. _active_project_dir (set via /api/focus API for cross-directory projects)
+       -- takes priority because it is a runtime signal pointing to the actual
+       active project, whereas LOKI_DIR is a stale startup-time value (typically
+       the relative string ".loki" inherited from the CLI).
+    2. LOKI_DIR env var (only when it is an absolute path, to avoid resolving
+       a relative path against the dashboard's CWD which is usually wrong)
+    3. .loki/ in current working directory
+    4. ~/.loki/ as global fallback
+    """
+    # Check API-set project directory first (runtime override from /api/focus
+    # or from Purple Lab / AI Chat starting a session in a different directory)
+    if _active_project_dir:
+        project_loki = _Path(_active_project_dir) / ".loki"
+        if project_loki.is_dir():
+            return project_loki
+
+    env_dir = os.environ.get("LOKI_DIR")
+    if env_dir and _Path(env_dir).is_absolute():
+        return _Path(env_dir)
+
+    # Check CWD first
+    cwd_loki = _Path.cwd() / ".loki"
+    if cwd_loki.is_dir():
+        return cwd_loki
+
+    # Check home directory fallback
+    home_loki = _Path.home() / ".loki"
+    if home_loki.is_dir():
+        return home_loki
+
+    # Default: relative .loki/ (will be created when session starts)
+    return _Path(".loki")
+
+
+_SAFE_ID_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _sanitize_agent_id(agent_id: str) -> str:
+    """Validate agent_id contains only safe characters for file paths."""
+    if not agent_id or len(agent_id) > 128 or ".." in agent_id or not _SAFE_ID_RE.match(agent_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid agent_id: must be 1-128 chars of alphanumeric, hyphens, and underscores",
+        )
+    return agent_id
+
+@app.get("/api/memory/summary")
+async def get_memory_summary():
+    """Get memory system summary from .loki/memory/."""
+    # Try SQLite backend first for accurate counts
+    storage = _get_memory_storage()
+    if storage is not None:
+        try:
+            stats = storage.get_stats()
+            summary = {
+                "episodic": {"count": stats.get("episode_count", 0), "latestDate": None},
+                "semantic": {"patterns": stats.get("pattern_count", 0), "antiPatterns": 0},
+                "procedural": {"skills": stats.get("skill_count", 0)},
+                "backend": "sqlite",
+            }
+            # Get latest episode date
+            episode_ids = storage.list_episodes(limit=1)
+            if episode_ids:
+                ep = storage.load_episode(episode_ids[0])
+                if ep:
+                    summary["episodic"]["latestDate"] = ep.get("timestamp", "")
+            # Token economics from JSON (not in SQLite)
+            econ_file = _get_loki_dir() / "memory" / "token_economics.json"
+            if econ_file.exists():
+                try:
+                    econ = json.loads(econ_file.read_text())
+                    summary["tokenEconomics"] = {
+                        "discoveryTokens": econ.get("discoveryTokens", 0),
+                        "readTokens": econ.get("readTokens", 0),
+                        "savingsPercent": econ.get("savingsPercent", 0),
+                    }
+                except Exception:
+                    summary["tokenEconomics"] = {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0}
+            else:
+                summary["tokenEconomics"] = {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0}
+            return summary
+        except Exception:
+            pass
+
+    # Fallback to JSON file-based counts
+    memory_dir = _get_loki_dir() / "memory"
+    summary = {
+        "episodic": {"count": 0, "latestDate": None},
+        "semantic": {"patterns": 0, "antiPatterns": 0},
+        "procedural": {"skills": 0},
+        "tokenEconomics": {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0},
+        "backend": "json",
+    }
+
+    ep_dir = memory_dir / "episodic"
+    if ep_dir.exists():
+        episodes = sorted(ep_dir.glob("*.json"))
+        summary["episodic"]["count"] = len(episodes)
+        if episodes:
+            try:
+                latest = json.loads(episodes[-1].read_text())
+                summary["episodic"]["latestDate"] = latest.get("timestamp", "")
+            except Exception:
+                pass
+
+    sem_dir = memory_dir / "semantic"
+    patterns_file = sem_dir / "patterns.json"
+    anti_file = sem_dir / "anti-patterns.json"
+    if patterns_file.exists():
+        try:
+            p = json.loads(patterns_file.read_text())
+            summary["semantic"]["patterns"] = len(p) if isinstance(p, list) else len(p.get("patterns", []))
+        except Exception:
+            pass
+    if anti_file.exists():
+        try:
+            a = json.loads(anti_file.read_text())
+            summary["semantic"]["antiPatterns"] = len(a) if isinstance(a, list) else len(a.get("patterns", []))
+        except Exception:
+            pass
+
+    skills_dir = memory_dir / "skills"
+    if skills_dir.exists():
+        summary["procedural"]["skills"] = len(list(skills_dir.glob("*.json")))
+
+    econ_file = memory_dir / "token_economics.json"
+    if econ_file.exists():
+        try:
+            econ = json.loads(econ_file.read_text())
+            summary["tokenEconomics"] = {
+                "discoveryTokens": econ.get("discoveryTokens", 0),
+                "readTokens": econ.get("readTokens", 0),
+                "savingsPercent": econ.get("savingsPercent", 0),
+            }
+        except Exception:
+            pass
+
+    return summary
+
+
+@app.get("/api/memory/episodes")
+async def list_episodes(limit: int = Query(default=50, ge=1, le=1000)):
+    """List episodic memory entries."""
+    # Try SQLite backend first
+    storage = _get_memory_storage()
+    if storage is not None:
+        try:
+            ids = storage.list_episodes(limit=limit)
+            episodes = []
+            for eid in ids:
+                ep = storage.load_episode(eid)
+                if ep:
+                    episodes.append(ep)
+            return episodes
+        except Exception:
+            pass
+
+    # Fallback to JSON files -- use heapq to avoid sorting all files
+    import heapq
+    ep_dir = _get_loki_dir() / "memory" / "episodic"
+    episodes = []
+    if ep_dir.exists():
+        all_files = ep_dir.glob("*.json")
+        # nlargest by filename (timestamps sort lexicographically) avoids full sort
+        files = heapq.nlargest(limit, all_files, key=lambda f: f.name)
+        for f in files:
+            try:
+                episodes.append(json.loads(f.read_text()))
+            except Exception:
+                pass
+    return episodes
+
+
+@app.get("/api/memory/episodes/{episode_id}")
+async def get_episode(episode_id: str):
+    """Get a specific episodic memory entry."""
+    # Try SQLite first
+    storage = _get_memory_storage()
+    if storage is not None:
+        try:
+            ep = storage.load_episode(episode_id)
+            if ep:
+                return ep
+        except Exception:
+            pass
+
+    # Fallback to JSON files
+    loki_dir = _get_loki_dir()
+    ep_dir = loki_dir / "memory" / "episodic"
+    if not ep_dir.exists():
+        raise HTTPException(status_code=404, detail="Episode not found")
+    real_loki = os.path.realpath(str(loki_dir))
+    for f in ep_dir.glob("*.json"):
+        resolved = os.path.realpath(f)
+        if not resolved.startswith(real_loki + os.sep) and resolved != real_loki:
+            raise HTTPException(status_code=403, detail="Access denied")
+        try:
+            data = json.loads(f.read_text())
+            if data.get("id") == episode_id or f.stem == episode_id:
+                return data
+        except Exception:
+            pass
+    raise HTTPException(status_code=404, detail="Episode not found")
+
+
+@app.get("/api/memory/patterns")
+async def list_patterns():
+    """List semantic patterns."""
+    # Try SQLite first
+    storage = _get_memory_storage()
+    if storage is not None:
+        try:
+            ids = storage.list_patterns()
+            patterns = []
+            for pid in ids:
+                p = storage.load_pattern(pid)
+                if p:
+                    patterns.append(p)
+            return patterns
+        except Exception:
+            pass
+
+    # Fallback to JSON
+    sem_dir = _get_loki_dir() / "memory" / "semantic"
+    patterns_file = sem_dir / "patterns.json"
+    if patterns_file.exists():
+        try:
+            data = json.loads(patterns_file.read_text())
+            return data if isinstance(data, list) else data.get("patterns", [])
+        except Exception:
+            pass
+    return []
+
+
+@app.get("/api/memory/patterns/{pattern_id}")
+async def get_pattern(pattern_id: str):
+    """Get a specific semantic pattern."""
+    patterns = await list_patterns()
+    for p in patterns:
+        if p.get("id") == pattern_id:
+            return p
+    raise HTTPException(status_code=404, detail="Pattern not found")
+
+
+@app.get("/api/memory/skills")
+async def list_skills():
+    """List procedural skills."""
+    # Try SQLite first
+    storage = _get_memory_storage()
+    if storage is not None:
+        try:
+            ids = storage.list_skills()
+            skills = []
+            for sid in ids:
+                s = storage.load_skill(sid)
+                if s:
+                    skills.append(s)
+            return skills
+        except Exception:
+            pass
+
+    # Fallback to JSON
+    skills_dir = _get_loki_dir() / "memory" / "skills"
+    skills = []
+    if skills_dir.exists():
+        for f in sorted(skills_dir.glob("*.json")):
+            try:
+                skills.append(json.loads(f.read_text()))
+            except Exception:
+                pass
+    return skills
+
+
+@app.get("/api/memory/skills/{skill_id}")
+async def get_skill(skill_id: str):
+    """Get a specific procedural skill."""
+    loki_dir = _get_loki_dir()
+    skills_dir = loki_dir / "memory" / "skills"
+    if not skills_dir.exists():
+        raise HTTPException(status_code=404, detail="Skill not found")
+    real_loki = os.path.realpath(str(loki_dir))
+    for f in skills_dir.glob("*.json"):
+        resolved = os.path.realpath(f)
+        if not resolved.startswith(real_loki + os.sep) and resolved != real_loki:
+            raise HTTPException(status_code=403, detail="Access denied")
+        try:
+            data = json.loads(f.read_text())
+            if data.get("id") == skill_id or f.stem == skill_id:
+                return data
+        except Exception:
+            pass
+    raise HTTPException(status_code=404, detail="Skill not found")
+
+
+@app.get("/api/memory/economics")
+async def get_token_economics():
+    """Get token usage economics."""
+    econ_file = _get_loki_dir() / "memory" / "token_economics.json"
+    if econ_file.exists():
+        try:
+            return json.loads(econ_file.read_text())
+        except Exception:
+            pass
+    return {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0}
+
+
+@app.post("/api/memory/consolidate", dependencies=[Depends(auth.require_scope("control"))])
+async def consolidate_memory(hours: int = 24):
+    """Trigger memory consolidation (stub - returns current state)."""
+    return {"status": "ok", "message": f"Consolidation for last {hours}h", "consolidated": 0, "patternsCreated": 0, "patternsMerged": 0, "episodesProcessed": 0}
+
+
+@app.post("/api/memory/retrieve")
+async def retrieve_memory(query: dict = None):
+    """Search memories by query."""
+    return {"results": [], "query": query}
+
+
+@app.get("/api/memory/index")
+async def get_memory_index():
+    """Get memory index (Layer 1 - lightweight discovery)."""
+    index_file = _get_loki_dir() / "memory" / "index.json"
+    if index_file.exists():
+        try:
+            return json.loads(index_file.read_text())
+        except Exception:
+            pass
+    return {"topics": [], "lastUpdated": None}
+
+
+@app.get("/api/memory/timeline")
+async def get_memory_timeline():
+    """Get memory timeline (Layer 2 - progressive disclosure)."""
+    timeline_file = _get_loki_dir() / "memory" / "timeline.json"
+    if timeline_file.exists():
+        try:
+            return json.loads(timeline_file.read_text())
+        except Exception:
+            pass
+    # Build from episodic memories if no timeline file
+    episodes = await list_episodes(limit=100)
+    return {"entries": episodes, "lastUpdated": None}
+
+
+# ---------------------------------------------------------------------------
+# Memory Search & Stats (v6.15.0) - SQLite FTS5 powered
+# ---------------------------------------------------------------------------
+
+def _get_memory_storage():
+    """Get the best available memory storage backend (SQLite preferred)."""
+    memory_dir = _get_loki_dir() / "memory"
+    base_path = str(memory_dir)
+    try:
+        import sys
+        project_root = str(_Path(__file__).resolve().parent.parent)
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        from memory.sqlite_storage import SQLiteMemoryStorage
+        return SQLiteMemoryStorage(base_path=base_path)
+    except Exception:
+        return None
+
+
+@app.get("/api/memory/search")
+async def search_memory(
+    q: str = Query(..., min_length=1, max_length=500, description="Search query"),
+    collection: str = Query(default="all", pattern="^(episodes|patterns|skills|all)$"),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """Full-text search across memory using FTS5."""
+    storage = _get_memory_storage()
+    if storage is None:
+        return {"results": [], "message": "SQLite memory backend not available"}
+
+    try:
+        results = storage.search_fts(q, collection=collection, limit=limit)
+        compact = []
+        for r in results:
+            entry = {
+                "id": r.get("id", ""),
+                "type": r.get("_type", "unknown"),
+                "summary": (
+                    r.get("goal", "") or
+                    r.get("pattern", "") or
+                    r.get("description", "") or
+                    r.get("name", "")
+                )[:300],
+                "score": round(r.get("_score", 0), 3),
+            }
+            if r.get("outcome"):
+                entry["outcome"] = r["outcome"]
+            if r.get("category"):
+                entry["category"] = r["category"]
+            if r.get("timestamp"):
+                entry["timestamp"] = r["timestamp"]
+            compact.append(entry)
+        return {"results": compact, "count": len(compact), "query": q, "collection": collection}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
+
+
+@app.get("/api/memory/stats")
+async def get_memory_stats():
+    """Get memory system statistics (counts, size, backend info)."""
+    storage = _get_memory_storage()
+    if storage is not None:
+        try:
+            return storage.get_stats()
+        except Exception:
+            pass
+
+    # Fallback: compute stats from JSON files
+    memory_dir = _get_loki_dir() / "memory"
+    ep_count = 0
+    ep_dir = memory_dir / "episodic"
+    if ep_dir.exists():
+        for d in ep_dir.iterdir():
+            if d.is_dir():
+                ep_count += len(list(d.glob("*.json")))
+            elif d.suffix == ".json":
+                ep_count += 1
+
+    pat_count = 0
+    patterns_file = memory_dir / "semantic" / "patterns.json"
+    if patterns_file.exists():
+        try:
+            data = json.loads(patterns_file.read_text())
+            pat_count = len(data) if isinstance(data, list) else len(data.get("patterns", []))
+        except Exception:
+            pass
+
+    skill_count = 0
+    skills_dir = memory_dir / "skills"
+    if skills_dir.exists():
+        skill_count = len(list(skills_dir.glob("*.json")))
+
+    return {
+        "backend": "json",
+        "episode_count": ep_count,
+        "pattern_count": pat_count,
+        "skill_count": skill_count,
+    }
+
+
+# Learning/metrics endpoints
+
+
+def _read_learning_signals(signal_type: Optional[str] = None, limit: int = 50) -> list:
+    """Read learning signals from .loki/learning/signals/*.json files.
+
+    Learning signals are written as individual JSON files by the learning emitter
+    (learning/emitter.py). Each file contains a single signal object with fields:
+    id, type, source, action, timestamp, confidence, outcome, data, context.
+    """
+    limit = min(limit, 1000)
+    signals_dir = _get_loki_dir() / "learning" / "signals"
+    if not signals_dir.exists() or not signals_dir.is_dir():
+        return []
+
+    signals = []
+    try:
+        for fpath in signals_dir.glob("*.json"):
+            try:
+                raw = fpath.read_text()
+                if not raw.strip():
+                    continue
+                sig = json.loads(raw)
+                if signal_type and sig.get("type") != signal_type:
+                    continue
+                signals.append(sig)
+            except (json.JSONDecodeError, OSError):
+                continue
+    except OSError:
+        return []
+
+    # Sort by timestamp descending (newest first)
+    signals.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+    return signals[:limit]
+
+
+@app.get("/api/learning/metrics")
+async def get_learning_metrics(
+    timeRange: str = Query("7d", pattern=r"^\d{1,4}[hdm]$"),
+    signalType: Optional[str] = None,
+    source: Optional[str] = None,
+):
+    """Get learning metrics from events, metrics files, and learning signals."""
+    events = _read_events(timeRange)
+
+    # Also read from learning signals directory
+    all_signals = _read_learning_signals(limit=10000)
+
+    # Filter by type and source
+    if signalType:
+        events = [e for e in events if e.get("data", {}).get("type") == signalType]
+        all_signals = [s for s in all_signals if s.get("type") == signalType]
+    if source:
+        events = [e for e in events if e.get("data", {}).get("source") == source]
+        all_signals = [s for s in all_signals if s.get("source") == source]
+
+    # Count by type from events.jsonl
+    by_type: dict = {}
+    by_source: dict = {}
+    for e in events:
+        t = e.get("type", "unknown")
+        by_type[t] = by_type.get(t, 0) + 1
+        s = e.get("data", {}).get("source", "unknown")
+        by_source[s] = by_source.get(s, 0) + 1
+
+    # Merge counts from learning signals directory
+    for s in all_signals:
+        t = s.get("type", "unknown")
+        by_type[t] = by_type.get(t, 0) + 1
+        src = s.get("source", "unknown")
+        by_source[src] = by_source.get(src, 0) + 1
+
+    total_count = len(events) + len(all_signals)
+
+    # Calculate average confidence across both sources
+    total_conf = sum(e.get("data", {}).get("confidence", 0) for e in events)
+    total_conf += sum(s.get("confidence", 0) for s in all_signals)
+
+    # Load aggregation data from file if available
+    aggregation = {
+        "preferences": [],
+        "error_patterns": [],
+        "success_patterns": [],
+        "tool_efficiencies": [],
+    }
+    agg_file = _get_loki_dir() / "metrics" / "aggregation.json"
+    if agg_file.exists():
+        try:
+            agg_data = json.loads(agg_file.read_text())
+            aggregation["preferences"] = agg_data.get("preferences", [])
+            aggregation["error_patterns"] = agg_data.get("error_patterns", [])
+            aggregation["success_patterns"] = agg_data.get("success_patterns", [])
+            aggregation["tool_efficiencies"] = agg_data.get("tool_efficiencies", [])
+        except Exception:
+            pass
+
+    return {
+        "totalSignals": total_count,
+        "signalsByType": by_type,
+        "signalsBySource": by_source,
+        "avgConfidence": round(total_conf / max(total_count, 1), 4),
+        "aggregation": aggregation,
+    }
+
+
+@app.get("/api/learning/trends")
+async def get_learning_trends(
+    timeRange: str = Query("7d", pattern=r"^\d{1,4}[hdm]$"),
+    signalType: Optional[str] = None,
+    source: Optional[str] = None,
+):
+    """Get learning trend data."""
+    events = _read_events(timeRange)
+    # Group by hour for trend data
+    by_hour: dict = {}
+    for e in events:
+        ts = e.get("timestamp", "")[:13]  # YYYY-MM-DDTHH
+        by_hour[ts] = by_hour.get(ts, 0) + 1
+
+    data_points = [{"label": k, "count": v} for k, v in sorted(by_hour.items())]
+    max_val = max((d["count"] for d in data_points), default=0)
+
+    return {"dataPoints": data_points, "maxValue": max_val, "period": timeRange}
+
+
+@app.get("/api/learning/signals")
+async def get_learning_signals(
+    timeRange: str = Query("7d", pattern=r"^\d{1,4}[hdm]$"),
+    signalType: Optional[str] = None,
+    source: Optional[str] = None,
+    limit: int = Query(default=50, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+):
+    """Get raw learning signals from both events.jsonl and learning signals directory."""
+    events = _read_events(timeRange)
+    if signalType:
+        events = [e for e in events if e.get("type") == signalType]
+    if source:
+        events = [e for e in events if e.get("data", {}).get("source") == source]
+
+    # Also read from learning signals directory
+    file_signals = _read_learning_signals(signal_type=signalType, limit=10000)
+    if source:
+        file_signals = [s for s in file_signals if s.get("source") == source]
+
+    # Merge and sort by timestamp (newest first)
+    combined = events + file_signals
+    combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+    return combined[offset:offset + limit]
+
+
+@app.get("/api/learning/aggregation")
+async def get_learning_aggregation():
+    """Get latest learning aggregation result, merging file-based aggregation with live signals."""
+    result = {"preferences": [], "error_patterns": [], "success_patterns": [], "tool_efficiencies": []}
+
+    # Load pre-computed aggregation from file if available
+    agg_file = _get_loki_dir() / "metrics" / "aggregation.json"
+    if agg_file.exists():
+        try:
+            result = json.loads(agg_file.read_text())
+        except Exception:
+            pass
+
+    # Supplement with live data from learning signals directory
+    success_signals = _read_learning_signals(signal_type="success_pattern", limit=500)
+    tool_signals = _read_learning_signals(signal_type="tool_efficiency", limit=500)
+    error_signals = _read_learning_signals(signal_type="error_pattern", limit=500)
+    pref_signals = _read_learning_signals(signal_type="user_preference", limit=500)
+
+    # Merge success patterns from signals if aggregation file had none
+    if not result.get("success_patterns") and success_signals:
+        pattern_counts: dict = {}
+        for s in success_signals:
+            name = s.get("data", {}).get("pattern_name", s.get("action", "unknown"))
+            pattern_counts[name] = pattern_counts.get(name, 0) + 1
+        result["success_patterns"] = [
+            {"pattern_name": k, "frequency": v, "confidence": min(1.0, v / 10)}
+            for k, v in sorted(pattern_counts.items(), key=lambda x: -x[1])
+        ]
+
+    # Merge tool efficiencies from signals if aggregation file had none
+    if not result.get("tool_efficiencies") and tool_signals:
+        tool_stats: dict = {}
+        for s in tool_signals:
+            data = s.get("data", {})
+            tool_name = data.get("tool_name", s.get("action", "unknown"))
+            if tool_name not in tool_stats:
+                tool_stats[tool_name] = {"count": 0, "total_ms": 0, "successes": 0}
+            tool_stats[tool_name]["count"] += 1
+            tool_stats[tool_name]["total_ms"] += data.get("duration_ms", 0)
+            if data.get("success", s.get("outcome") == "success"):
+                tool_stats[tool_name]["successes"] += 1
+        result["tool_efficiencies"] = []
+        for tname, stats in sorted(tool_stats.items(), key=lambda x: -x[1]["count"]):
+            avg_ms = stats["total_ms"] / stats["count"] if stats["count"] else 0
+            sr = round(stats["successes"] / stats["count"], 4) if stats["count"] else 0
+            result["tool_efficiencies"].append({
+                "tool_name": tname, "efficiency_score": sr,
+                "count": stats["count"], "avg_execution_time_ms": round(avg_ms, 2),
+                "success_rate": sr,
+            })
+
+    # Merge error patterns from signals if aggregation file had none
+    if not result.get("error_patterns") and error_signals:
+        error_counts: dict = {}
+        for s in error_signals:
+            etype = s.get("data", {}).get("error_type", s.get("action", "unknown"))
+            error_counts[etype] = error_counts.get(etype, 0) + 1
+        result["error_patterns"] = [
+            {"error_type": k, "resolution_rate": 0.0, "frequency": v, "confidence": min(1.0, v / 10)}
+            for k, v in sorted(error_counts.items(), key=lambda x: -x[1])
+        ]
+
+    # Merge preferences from signals if aggregation file had none
+    if not result.get("preferences") and pref_signals:
+        pref_counts: dict = {}
+        for s in pref_signals:
+            key = s.get("data", {}).get("preference_key", s.get("action", "unknown"))
+            pref_counts[key] = pref_counts.get(key, 0) + 1
+        result["preferences"] = [
+            {"preference_key": k, "preferred_value": k, "frequency": v, "confidence": min(1.0, v / 10)}
+            for k, v in sorted(pref_counts.items(), key=lambda x: -x[1])
+        ]
+
+    # Add signal counts summary
+    result["signal_counts"] = {
+        "success_patterns": len(success_signals),
+        "tool_efficiency": len(tool_signals),
+        "error_patterns": len(error_signals),
+        "user_preferences": len(pref_signals),
+    }
+
+    return result
+
+
+@app.post("/api/learning/aggregate", dependencies=[Depends(auth.require_scope("control"))])
+async def trigger_aggregation():
+    """Aggregate learning signals from events.jsonl into structured metrics."""
+    if not _read_limiter.check("learning_aggregate"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    events_file = _get_loki_dir() / "events.jsonl"
+    preferences: dict = {}
+    error_patterns: dict = {}
+    success_patterns: dict = {}
+    tool_stats: dict = {}  # tool_name -> {"count": N, "total_ms": N, "successes": N}
+
+    if events_file.exists():
+        try:
+            # Guard against unbounded reads: if file > 10 MB, read only the tail
+            _MAX_EVENTS_BYTES = 10 * 1024 * 1024  # 10 MB
+            _fsize = events_file.stat().st_size
+            if _fsize > _MAX_EVENTS_BYTES:
+                with open(events_file, "rb") as _fh:
+                    _fh.seek(-_MAX_EVENTS_BYTES, 2)
+                    _fh.readline()  # discard partial first line
+                    _raw_text = _fh.read().decode("utf-8", errors="replace")
+            else:
+                _raw_text = events_file.read_text()
+            for raw_line in _raw_text.strip().split("\n"):
+                if not raw_line.strip():
+                    continue
+                try:
+                    event = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+
+                if event.get("type") != "learning_signal":
+                    continue
+
+                signal_type = event.get("signal_type", "")
+                data = event.get("data", {})
+
+                if signal_type == "preference":
+                    key = data.get("preference_key", "unknown")
+                    preferences[key] = preferences.get(key, 0) + 1
+
+                elif signal_type == "error":
+                    etype = data.get("error_type", "unknown")
+                    error_patterns[etype] = error_patterns.get(etype, 0) + 1
+
+                elif signal_type == "success":
+                    pname = data.get("pattern_name", "unknown")
+                    success_patterns[pname] = success_patterns.get(pname, 0) + 1
+
+                elif signal_type == "tool_usage":
+                    tool_name = data.get("tool_name", "unknown")
+                    duration = data.get("duration_ms", 0)
+                    success = data.get("success", False)
+                    if tool_name not in tool_stats:
+                        tool_stats[tool_name] = {"count": 0, "total_ms": 0, "successes": 0}
+                    tool_stats[tool_name]["count"] += 1
+                    tool_stats[tool_name]["total_ms"] += duration
+                    if success:
+                        tool_stats[tool_name]["successes"] += 1
+        except Exception:
+            pass
+
+    # Build structured result
+    pref_list = [{"preference_key": k, "preferred_value": k, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(preferences.items(), key=lambda x: -x[1])]
+    error_list = [{"error_type": k, "resolution_rate": 0.0, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(error_patterns.items(), key=lambda x: -x[1])]
+    success_list = [{"pattern_name": k, "avg_duration_seconds": 0, "frequency": v, "confidence": min(1.0, v / 10)} for k, v in sorted(success_patterns.items(), key=lambda x: -x[1])]
+    tool_list = []
+    for tname, stats in sorted(tool_stats.items(), key=lambda x: -x[1]["count"]):
+        avg_ms = stats["total_ms"] / stats["count"] if stats["count"] else 0
+        sr = round(stats["successes"] / stats["count"], 4) if stats["count"] else 0
+        tool_list.append({
+            "tool_name": tname,
+            "efficiency_score": sr,
+            "count": stats["count"],
+            "avg_execution_time_ms": round(avg_ms, 2),
+            "success_rate": sr,
+        })
+
+    result = {
+        "preferences": pref_list,
+        "error_patterns": error_list,
+        "success_patterns": success_list,
+        "tool_efficiencies": tool_list,
+        "aggregated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Write to metrics directory
+    metrics_dir = _get_loki_dir() / "metrics"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        (metrics_dir / "aggregation.json").write_text(json.dumps(result, indent=2))
+    except Exception:
+        pass
+
+    return result
+
+
+@app.get("/api/learning/preferences")
+async def get_learning_preferences(limit: int = Query(default=50, ge=1, le=1000)):
+    """Get aggregated user preferences from events and learning signals directory."""
+    events = _read_events("30d")
+    prefs = [e for e in events if e.get("type") == "user_preference"]
+    # Also read from learning signals directory
+    file_prefs = _read_learning_signals(signal_type="user_preference", limit=limit)
+    combined = prefs + file_prefs
+    combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+    return combined[:limit]
+
+
+@app.get("/api/learning/errors")
+async def get_learning_errors(limit: int = Query(default=50, ge=1, le=1000)):
+    """Get aggregated error patterns from events and learning signals directory."""
+    events = _read_events("30d")
+    errors = [e for e in events if e.get("type") == "error_pattern"]
+    # Also read from learning signals directory
+    file_errors = _read_learning_signals(signal_type="error_pattern", limit=limit)
+    combined = errors + file_errors
+    combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+    return combined[:limit]
+
+
+@app.get("/api/learning/success")
+async def get_learning_success(limit: int = Query(default=50, ge=1, le=1000)):
+    """Get aggregated success patterns from events and learning signals directory."""
+    events = _read_events("30d")
+    successes = [e for e in events if e.get("type") == "success_pattern"]
+    # Also read from learning signals directory
+    file_successes = _read_learning_signals(signal_type="success_pattern", limit=limit)
+    combined = successes + file_successes
+    combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+    return combined[:limit]
+
+
+@app.get("/api/learning/tools")
+async def get_tool_efficiency(limit: int = Query(default=50, ge=1, le=1000)):
+    """Get tool efficiency rankings from events and learning signals directory."""
+    events = _read_events("30d")
+    tools = [e for e in events if e.get("type") == "tool_efficiency"]
+    # Also read from learning signals directory
+    file_tools = _read_learning_signals(signal_type="tool_efficiency", limit=limit)
+    combined = tools + file_tools
+    combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+    return combined[:limit]
+
+
+def _parse_time_range(time_range: str) -> Optional[datetime]:
+    """Parse a time range string (e.g., '1h', '24h', '7d') into a cutoff datetime."""
+    match = re.match(r'^(\d+)([hdm])$', time_range)
+    if not match:
+        return None
+    value, unit = int(match.group(1)), match.group(2)
+    if unit == 'h':
+        delta = timedelta(hours=value)
+    elif unit == 'd':
+        delta = timedelta(days=value)
+    elif unit == 'm':
+        delta = timedelta(minutes=value)
+    else:
+        return None
+    return datetime.now(timezone.utc) - delta
+
+
+def _read_events(time_range: str = "7d", max_events: int = 10000) -> list:
+    """Read events from .loki/events.jsonl with time filter and size limits."""
+    events_file = _get_loki_dir() / "events.jsonl"
+    if not events_file.exists():
+        return []
+
+    cutoff = _parse_time_range(time_range)
+    events = []
+    max_file_size = 10 * 1024 * 1024  # 10MB
+
+    try:
+        file_size = events_file.stat().st_size
+
+        # If file > 10MB, seek to last 10MB
+        with open(events_file, 'r') as f:
+            if file_size > max_file_size:
+                f.seek(max(0, file_size - max_file_size))
+                # Skip partial first line after seek
+                f.readline()
+
+            for line in f:
+                if len(events) >= max_events:
+                    break
+
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    event = json.loads(line)
+                    # Filter by time_range if cutoff was parsed successfully
+                    if cutoff and "timestamp" in event:
+                        try:
+                            ts = datetime.fromisoformat(
+                                event["timestamp"].replace("Z", "+00:00")
+                            )
+                            if ts < cutoff:
+                                continue
+                        except (ValueError, TypeError):
+                            pass  # Keep events with unparseable timestamps
+                    events.append(event)
+                except json.JSONDecodeError:
+                    pass
+    except Exception:
+        pass
+    return events
+
+
+# Session control endpoints (proxy to control.py functions)
+@app.post("/api/control/pause", dependencies=[Depends(auth.require_scope("control"))])
+async def pause_session():
+    """Pause the current session by creating PAUSE file."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    loki_dir = _get_loki_dir()
+    pid_file = loki_dir / "loki.pid"
+
+    # Verify loki process is running before attempting pause
+    process_running = False
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, 0)  # Signal 0: check existence without killing
+            process_running = True
+        except (ValueError, OSError, ProcessLookupError):
+            pass
+
+    pause_file = loki_dir / "PAUSE"
+    pause_file.parent.mkdir(parents=True, exist_ok=True)
+    pause_file.write_text(datetime.now(timezone.utc).isoformat())
+
+    if not process_running:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "message": "Session process is not running; pause signal may have no effect"},
+        )
+
+    # Verify process is still alive after writing the PAUSE file.
+    # Give the process a moment to notice the signal, then confirm it
+    # has not exited unexpectedly.
+    await asyncio.sleep(0.5)
+    try:
+        os.kill(pid, 0)
+        return {"success": True, "message": "Session paused", "process_verified": True}
+    except OSError:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "message": "Session process exited unexpectedly after pause signal"},
+        )
+
+
+@app.post("/api/control/resume", dependencies=[Depends(auth.require_scope("control"))])
+async def resume_session():
+    """Resume a paused session by removing PAUSE/STOP files."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    loki_dir = _get_loki_dir()
+    pid_file = loki_dir / "loki.pid"
+
+    # Verify loki process is running before attempting resume
+    process_running = False
+    pid = 0
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, 0)  # Signal 0: check existence without killing
+            process_running = True
+        except (ValueError, OSError, ProcessLookupError):
+            pass
+
+    if not process_running:
+        # Still remove the files for cleanup, but return 503
+        for fname in ["PAUSE", "STOP"]:
+            fpath = loki_dir / fname
+            try:
+                fpath.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "message": "Session did not respond to resume signal"},
+        )
+
+    for fname in ["PAUSE", "STOP"]:
+        fpath = loki_dir / fname
+        try:
+            fpath.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # Poll up to 5s to verify the process is still running and acknowledged the resume
+    for _ in range(10):
+        try:
+            os.kill(pid, 0)
+            if not (loki_dir / "PAUSE").exists():
+                return {"success": True, "message": "Session resumed", "process_verified": True}
+        except OSError:
+            return JSONResponse(
+                status_code=503,
+                content={"success": False, "message": "Session did not respond to resume signal"},
+            )
+        await asyncio.sleep(0.5)
+
+    return JSONResponse(
+        status_code=503,
+        content={"success": False, "message": "Session did not respond to resume signal"},
+    )
+
+
+@app.post("/api/control/stop", dependencies=[Depends(auth.require_scope("control"))])
+async def stop_session(request: Request):
+    """Stop the session by creating STOP file and sending SIGTERM."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    audit.log_event(
+        action="stop",
+        resource_type="session",
+        details={"source": "api"},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    stop_file = _get_loki_dir() / "STOP"
+    stop_file.parent.mkdir(parents=True, exist_ok=True)
+    stop_file.write_text(datetime.now(timezone.utc).isoformat())
+
+    # BUG-ST-004: Send SIGTERM and wait for process to actually exit
+    pid_file = _get_loki_dir() / "loki.pid"
+    process_stopped = False
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, 15)  # SIGTERM
+            # Wait up to 5s for graceful shutdown
+            for _ in range(10):
+                await asyncio.sleep(0.5)
+                try:
+                    os.kill(pid, 0)  # Check if still alive
+                except OSError:
+                    process_stopped = True
+                    break
+            if not process_stopped:
+                # Process didn't exit gracefully, send SIGKILL
+                try:
+                    os.kill(pid, 9)
+                    process_stopped = True
+                except (OSError, ProcessLookupError):
+                    process_stopped = True
+        except (ValueError, OSError, ProcessLookupError):
+            process_stopped = True
+
+    # Mark session.json as stopped
+    session_file = _get_loki_dir() / "session.json"
+    if session_file.exists():
+        try:
+            sd = json.loads(session_file.read_text())
+            sd["status"] = "stopped"
+            atomic_write_json(session_file, sd, use_lock=True)
+        except Exception:
+            pass
+
+    # BUG-NEW-005: Clean up orphaned per-iteration temp files left by killed process
+    logs_dir = _get_loki_dir() / "logs"
+    if logs_dir.exists():
+        import glob as _glob_mod
+        for orphan in _glob_mod.glob(str(logs_dir / "iter-output-*")):
+            try:
+                os.unlink(orphan)
+            except OSError:
+                pass
+
+    return {
+        "success": True,
+        "message": "Session stopped" if process_stopped else "Stop signal sent",
+        "process_stopped": process_stopped,
+    }
+
+
+# =============================================================================
+# Cost Visibility API
+# =============================================================================
+
+# Static fallback pricing per million tokens (USD) - updated 2026-02-07
+# At runtime, overridden by .loki/pricing.json if available
+_DEFAULT_PRICING = {
+    # Claude (Anthropic)
+    "opus":   {"input": 5.00, "output": 25.00},
+    "sonnet": {"input": 3.00, "output": 15.00},
+    "haiku":  {"input": 1.00, "output": 5.00},
+    # OpenAI Codex
+    "gpt-5.3-codex": {"input": 1.50, "output": 12.00},
+    # Google Gemini
+    "gemini-3-pro":  {"input": 1.25, "output": 10.00},
+    "gemini-3-flash": {"input": 0.10, "output": 0.40},
+}
+
+# Active pricing - starts with defaults, updated from .loki/pricing.json
+_MODEL_PRICING = dict(_DEFAULT_PRICING)
+
+
+def _load_pricing_from_file() -> dict:
+    """Load pricing from .loki/pricing.json if available."""
+    loki_dir = _get_loki_dir()
+    pricing_file = loki_dir / "pricing.json"
+    if pricing_file.exists():
+        try:
+            data = json.loads(pricing_file.read_text())
+            models = data.get("models", {})
+            if models:
+                return models
+        except (json.JSONDecodeError, IOError):
+            pass
+    return {}
+
+
+def _get_model_pricing() -> dict:
+    """Get current model pricing, preferring .loki/pricing.json over defaults."""
+    file_pricing = _load_pricing_from_file()
+    if file_pricing:
+        merged = dict(_DEFAULT_PRICING)
+        merged.update(file_pricing)
+        return merged
+    return _MODEL_PRICING
+
+
+def _calculate_model_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Calculate USD cost for a model's token usage."""
+    pricing_table = _get_model_pricing()
+    pricing = pricing_table.get(model.lower(), pricing_table.get("sonnet", {}))
+    input_cost = (input_tokens / 1_000_000) * pricing.get("input", 3.00)
+    output_cost = (output_tokens / 1_000_000) * pricing.get("output", 15.00)
+    return round(input_cost + output_cost, 6)
+
+
+@app.get("/api/cost")
+async def get_cost():
+    """Get cost visibility data from .loki/metrics/efficiency/ and budget.json."""
+    loki_dir = _get_loki_dir()
+    efficiency_dir = loki_dir / "metrics" / "efficiency"
+    budget_file = loki_dir / "metrics" / "budget.json"
+
+    total_input = 0
+    total_output = 0
+    estimated_cost = 0.0
+    by_phase: dict = {}
+    by_model: dict = {}
+    budget_limit = None
+    budget_used = 0.0
+    budget_remaining = None
+
+    # Read efficiency files (one JSON file per iteration/task)
+    if efficiency_dir.exists():
+        for eff_file in sorted(efficiency_dir.glob("*.json")):
+            try:
+                data = json.loads(eff_file.read_text())
+
+                inp = data.get("input_tokens", 0)
+                out = data.get("output_tokens", 0)
+                model = data.get("model", "sonnet").lower()
+                phase = data.get("phase", "unknown")
+
+                total_input += inp
+                total_output += out
+
+                cost = data.get("cost_usd")
+                if cost is None:
+                    cost = _calculate_model_cost(model, inp, out)
+                estimated_cost += cost
+
+                # Aggregate by phase
+                if phase not in by_phase:
+                    by_phase[phase] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                by_phase[phase]["input_tokens"] += inp
+                by_phase[phase]["output_tokens"] += out
+                by_phase[phase]["cost_usd"] += cost
+
+                # Aggregate by model
+                if model not in by_model:
+                    by_model[model] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                by_model[model]["input_tokens"] += inp
+                by_model[model]["output_tokens"] += out
+                by_model[model]["cost_usd"] += cost
+            except (json.JSONDecodeError, KeyError, TypeError):
+                pass
+
+    # Fallback: read from context tracking if efficiency files have no token data
+    if total_input == 0 and total_output == 0:
+        ctx_file = loki_dir / "context" / "tracking.json"
+        if ctx_file.exists():
+            try:
+                ctx = json.loads(ctx_file.read_text())
+                totals = ctx.get("totals", {})
+                total_input = totals.get("total_input", 0)
+                total_output = totals.get("total_output", 0)
+                if total_input > 0 or total_output > 0:
+                    estimated_cost = totals.get("total_cost_usd", 0.0)
+                    # Rebuild by_model and by_phase from per_iteration data
+                    for it in ctx.get("per_iteration", []):
+                        inp = it.get("input_tokens", 0)
+                        out = it.get("output_tokens", 0)
+                        cost = it.get("cost_usd", 0)
+                        model = ctx.get("provider", "sonnet").lower()
+                        if model not in by_model:
+                            by_model[model] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                        by_model[model]["input_tokens"] += inp
+                        by_model[model]["output_tokens"] += out
+                        by_model[model]["cost_usd"] += cost
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+    # Read budget configuration
+    if budget_file.exists():
+        try:
+            budget_data = json.loads(budget_file.read_text())
+            budget_limit = budget_data.get("limit")
+            if budget_limit is not None:
+                budget_used = estimated_cost
+                budget_remaining = max(0.0, budget_limit - budget_used)
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    return {
+        "total_input_tokens": total_input,
+        "total_output_tokens": total_output,
+        "estimated_cost_usd": round(estimated_cost, 6),
+        "by_phase": {k: {
+            "input_tokens": v["input_tokens"],
+            "output_tokens": v["output_tokens"],
+            "cost_usd": round(v["cost_usd"], 6),
+        } for k, v in by_phase.items()},
+        "by_model": {k: {
+            "input_tokens": v["input_tokens"],
+            "output_tokens": v["output_tokens"],
+            "cost_usd": round(v["cost_usd"], 6),
+        } for k, v in by_model.items()},
+        "budget_limit": budget_limit,
+        "budget_used": round(budget_used, 6) if budget_limit is not None else None,
+        "budget_remaining": round(budget_remaining, 6) if budget_remaining is not None else None,
+    }
+
+
+@app.get("/api/budget")
+async def get_budget():
+    """Get current budget status from .loki/metrics/budget.json and cost data."""
+    loki_dir = _get_loki_dir()
+    budget_file = loki_dir / "metrics" / "budget.json"
+    signals_dir = loki_dir / "signals"
+
+    # Read budget configuration
+    budget_limit = None
+    budget_used = 0.0
+    exceeded = False
+    exceeded_at = None
+
+    if budget_file.exists():
+        try:
+            budget_data = json.loads(budget_file.read_text())
+            budget_limit = budget_data.get("limit") or budget_data.get("budget_limit")
+            budget_used = budget_data.get("budget_used", 0.0)
+            exceeded = budget_data.get("exceeded", False)
+            exceeded_at = budget_data.get("exceeded_at")
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    # Also check env var for limit if not in file
+    if budget_limit is None:
+        env_limit = os.environ.get("LOKI_BUDGET_LIMIT", "")
+        if env_limit:
+            try:
+                budget_limit = float(env_limit)
+            except ValueError:
+                pass
+
+    # Check for budget exceeded signal
+    signal_file = signals_dir / "BUDGET_EXCEEDED"
+    if signal_file.exists():
+        exceeded = True
+        if exceeded_at is None:
+            try:
+                sig_data = json.loads(signal_file.read_text())
+                exceeded_at = sig_data.get("timestamp")
+            except (json.JSONDecodeError, KeyError):
+                pass
+
+    remaining = None
+    if budget_limit is not None:
+        remaining = max(0.0, float(budget_limit) - float(budget_used))
+
+    return {
+        "budget_limit": float(budget_limit) if budget_limit is not None else None,
+        "current_cost": round(float(budget_used), 4),
+        "exceeded": exceeded,
+        "exceeded_at": exceeded_at,
+        "remaining": round(remaining, 4) if remaining is not None else None,
+    }
+
+
+# =============================================================================
+# Pricing API
+# =============================================================================
+
+_PROVIDER_LABELS = {
+    "opus": "Opus 4.6",
+    "sonnet": "Sonnet 4.5",
+    "haiku": "Haiku 4.5",
+    "gpt-5.3-codex": "GPT-5.3 Codex",
+    "gemini-3-pro": "Gemini 3 Pro",
+    "gemini-3-flash": "Gemini 3 Flash",
+}
+
+_MODEL_PROVIDERS = {
+    "opus": "claude",
+    "sonnet": "claude",
+    "haiku": "claude",
+    "gpt-5.3-codex": "codex",
+    "gemini-3-pro": "gemini",
+    "gemini-3-flash": "gemini",
+    "cline-default": "cline",
+    "aider-default": "aider",
+}
+
+
+@app.get("/api/pricing")
+async def get_pricing():
+    """Get current model pricing. Reads from .loki/pricing.json if available, falls back to static defaults."""
+    loki_dir = _get_loki_dir()
+    pricing_file = loki_dir / "pricing.json"
+
+    # Try to read from .loki/pricing.json first
+    if pricing_file.exists():
+        try:
+            data = json.loads(pricing_file.read_text())
+            if data.get("models"):
+                return data
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # Determine active provider
+    provider = "claude"
+    provider_file = loki_dir / "state" / "provider"
+    if provider_file.exists():
+        try:
+            provider = provider_file.read_text().strip()
+        except IOError:
+            pass
+
+    # Build response from static defaults
+    pricing_table = _get_model_pricing()
+    models = {}
+    for model_key, rates in pricing_table.items():
+        models[model_key] = {
+            "input": rates["input"],
+            "output": rates["output"],
+            "label": _PROVIDER_LABELS.get(model_key, model_key),
+            "provider": _MODEL_PROVIDERS.get(model_key, "unknown"),
+        }
+
+    return {
+        "provider": provider,
+        "updated": "2026-02-07",
+        "source": "static",
+        "models": models,
+    }
+
+
+# =============================================================================
+# Completion Council API (v5.25.0)
+# =============================================================================
+
+@app.get("/api/council/state")
+async def get_council_state():
+    """Get current Completion Council state."""
+    state_file = _get_loki_dir() / "council" / "state.json"
+    if state_file.exists():
+        try:
+            return json.loads(state_file.read_text())
+        except Exception:
+            pass
+    return {"enabled": False, "total_votes": 0, "verdicts": []}
+
+
+@app.get("/api/council/verdicts")
+async def get_council_verdicts(limit: int = Query(default=20, ge=1, le=1000)):
+    """Get council vote history (decision log)."""
+    state_file = _get_loki_dir() / "council" / "state.json"
+    verdicts = []
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+            verdicts = state.get("verdicts", [])
+        except Exception:
+            pass
+
+    # Also read individual vote files for detail
+    votes_dir = _get_loki_dir() / "council" / "votes"
+    detailed_verdicts = []
+    if votes_dir.exists():
+        for vote_dir in sorted(votes_dir.iterdir(), reverse=True):
+            if vote_dir.is_dir():
+                verdict_detail = {"iteration": vote_dir.name}
+                # Read evidence
+                evidence_file = vote_dir / "evidence.md"
+                if evidence_file.exists():
+                    try:
+                        verdict_detail["evidence_preview"] = evidence_file.read_text()[:500]
+                    except Exception:
+                        verdict_detail["evidence_preview"] = ""
+                # Read member votes
+                members = []
+                for member_file in sorted(vote_dir.glob("member-*.txt")):
+                    try:
+                        content = member_file.read_text().strip()
+                        members.append({
+                            "member": member_file.stem,
+                            "content": content
+                        })
+                    except Exception:
+                        pass
+                verdict_detail["members"] = members
+                # Read contrarian
+                contrarian_file = vote_dir / "contrarian.txt"
+                if contrarian_file.exists():
+                    verdict_detail["contrarian"] = contrarian_file.read_text().strip()
+                detailed_verdicts.append(verdict_detail)
+                if len(detailed_verdicts) >= limit:
+                    break
+
+    return {"verdicts": verdicts, "details": detailed_verdicts}
+
+
+@app.get("/api/council/convergence")
+async def get_council_convergence():
+    """Get convergence tracking data for visualization."""
+    convergence_file = _get_loki_dir() / "council" / "convergence.log"
+    data_points = []
+    if convergence_file.exists():
+        for line in convergence_file.read_text().strip().split("\n"):
+            try:
+                parts = line.split("|")
+                if len(parts) >= 5:
+                    data_points.append({
+                        "timestamp": parts[0],
+                        "iteration": int(parts[1]),
+                        "files_changed": int(parts[2]),
+                        "no_change_streak": int(parts[3]),
+                        "done_signals": int(parts[4]),
+                    })
+            except Exception:
+                continue
+    return {"dataPoints": data_points}
+
+
+@app.get("/api/council/report")
+async def get_council_report():
+    """Get the final council completion report."""
+    report_file = _get_loki_dir() / "council" / "report.md"
+    if report_file.exists():
+        return {"report": report_file.read_text()}
+    return {"report": None}
+
+
+@app.post("/api/council/force-review", dependencies=[Depends(auth.require_scope("control"))])
+async def force_council_review():
+    """Force an immediate council review (writes signal file)."""
+    signal_dir = _get_loki_dir() / "signals"
+    signal_dir.mkdir(parents=True, exist_ok=True)
+    (signal_dir / "COUNCIL_REVIEW_REQUESTED").write_text(
+        datetime.now(timezone.utc).isoformat()
+    )
+    return {"success": True, "message": "Council review requested"}
+
+
+# =============================================================================
+# Context Window Tracking API (v5.40.0)
+# =============================================================================
+
+@app.get("/api/context")
+async def get_context():
+    """Get context window tracking data from .loki/context/tracking.json."""
+    loki_dir = _get_loki_dir()
+    tracking_file = loki_dir / "context" / "tracking.json"
+
+    if not tracking_file.exists():
+        return {
+            "session_id": "",
+            "updated_at": "",
+            "current": {
+                "input_tokens": 0, "output_tokens": 0,
+                "cache_read_tokens": 0, "cache_creation_tokens": 0,
+                "total_tokens": 0, "context_window_pct": 0.0,
+                "estimated_cost_usd": 0.0,
+            },
+            "compactions": [],
+            "per_iteration": [],
+            "totals": {
+                "total_input": 0, "total_output": 0,
+                "total_cost_usd": 0.0, "compaction_count": 0,
+                "iterations_tracked": 0,
+            },
+        }
+
+    try:
+        return json.loads(tracking_file.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to read context tracking: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to read context tracking data")
+
+
+# =============================================================================
+# Notification Trigger API (v5.40.0)
+# =============================================================================
+
+@app.get("/api/notifications")
+async def get_notifications(
+    severity: Optional[str] = Query(None, pattern="^(critical|warning|info)$"),
+    unread_only: bool = Query(False),
+):
+    """Get notification list from .loki/notifications/active.json."""
+    loki_dir = _get_loki_dir()
+    active_file = loki_dir / "notifications" / "active.json"
+
+    if not active_file.exists():
+        return {
+            "notifications": [],
+            "summary": {"total": 0, "unacknowledged": 0, "critical": 0, "warning": 0, "info": 0},
+        }
+
+    try:
+        data = json.loads(active_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {
+            "notifications": [],
+            "summary": {"total": 0, "unacknowledged": 0, "critical": 0, "warning": 0, "info": 0},
+        }
+
+    notifications = data.get("notifications", [])
+
+    # Apply filters
+    if severity:
+        notifications = [n for n in notifications if n.get("severity") == severity]
+    if unread_only:
+        notifications = [n for n in notifications if not n.get("acknowledged", False)]
+
+    return {
+        "notifications": notifications,
+        "summary": data.get("summary", {}),
+    }
+
+
+@app.get("/api/notifications/triggers")
+async def get_notification_triggers():
+    """Get notification trigger configuration from .loki/notifications/triggers.json."""
+    loki_dir = _get_loki_dir()
+    triggers_file = loki_dir / "notifications" / "triggers.json"
+
+    if not triggers_file.exists():
+        return {"triggers": []}
+
+    try:
+        return json.loads(triggers_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"triggers": []}
+
+
+@app.put("/api/notifications/triggers", dependencies=[Depends(auth.require_scope("control"))])
+async def update_notification_triggers(request: Request):
+    """Update notification trigger configuration."""
+    loki_dir = _get_loki_dir()
+    notif_dir = loki_dir / "notifications"
+    notif_dir.mkdir(parents=True, exist_ok=True)
+    triggers_file = notif_dir / "triggers.json"
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    triggers = body.get("triggers")
+    if not isinstance(triggers, list):
+        raise HTTPException(status_code=400, detail="Body must contain a 'triggers' array")
+
+    # Validate each trigger has required fields
+    for t in triggers:
+        if not isinstance(t, dict) or not t.get("id") or not t.get("type"):
+            raise HTTPException(status_code=400, detail="Each trigger must have 'id' and 'type'")
+
+    tmp_file = triggers_file.with_suffix(".tmp")
+    tmp_file.write_text(json.dumps({"triggers": triggers}, indent=2))
+    tmp_file.rename(triggers_file)
+
+    return {"success": True, "count": len(triggers)}
+
+
+@app.post("/api/notifications/{notification_id}/acknowledge", dependencies=[Depends(auth.require_scope("control"))])
+async def acknowledge_notification(notification_id: str):
+    """Mark a notification as acknowledged."""
+    loki_dir = _get_loki_dir()
+    active_file = loki_dir / "notifications" / "active.json"
+
+    if not active_file.exists():
+        raise HTTPException(status_code=404, detail="No notifications found")
+
+    try:
+        data = json.loads(active_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        raise HTTPException(status_code=500, detail="Failed to read notifications")
+
+    notifications = data.get("notifications", [])
+    found = False
+    for n in notifications:
+        if n.get("id") == notification_id:
+            n["acknowledged"] = True
+            found = True
+            break
+
+    if not found:
+        raise HTTPException(status_code=404, detail=f"Notification {notification_id} not found")
+
+    # Recalculate summary
+    unacked = sum(1 for n in notifications if not n.get("acknowledged", False))
+    critical = sum(1 for n in notifications if n.get("severity") == "critical" and not n.get("acknowledged"))
+    warning = sum(1 for n in notifications if n.get("severity") == "warning" and not n.get("acknowledged"))
+    info = sum(1 for n in notifications if n.get("severity") == "info" and not n.get("acknowledged"))
+
+    data["notifications"] = notifications
+    data["summary"] = {
+        "total": len(notifications),
+        "unacknowledged": unacked,
+        "critical": critical,
+        "warning": warning,
+        "info": info,
+    }
+
+    tmp_file = active_file.with_suffix(".tmp")
+    tmp_file.write_text(json.dumps(data, indent=2))
+    tmp_file.rename(active_file)
+
+    return {"success": True, "notification_id": notification_id}
+
+
+# =============================================================================
+# Checkpoint API (v5.34.0)
+# =============================================================================
+
+class CheckpointCreate(BaseModel):
+    """Schema for creating a checkpoint."""
+    message: Optional[str] = Field(None, max_length=500, description="Optional description for the checkpoint")
+
+
+def _sanitize_checkpoint_id(checkpoint_id: str) -> str:
+    """Validate checkpoint_id contains only safe characters for file paths."""
+    if not checkpoint_id or len(checkpoint_id) > 128 or ".." in checkpoint_id or not _SAFE_ID_RE.match(checkpoint_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid checkpoint_id: must be 1-128 chars of alphanumeric, hyphens, and underscores",
+        )
+    return checkpoint_id
+
+
+@app.get("/api/checkpoints")
+async def list_checkpoints(limit: int = Query(default=20, ge=1, le=200)):
+    """List recent checkpoints from index.jsonl, enriched with metadata when available."""
+    loki_dir = _get_loki_dir()
+    index_file = loki_dir / "state" / "checkpoints" / "index.jsonl"
+    checkpoints_dir = loki_dir / "state" / "checkpoints"
+    checkpoints = []
+
+    if index_file.exists():
+        try:
+            for line in index_file.read_text().strip().split("\n"):
+                if line.strip():
+                    try:
+                        raw = json.loads(line)
+                        # Normalize field names from run.sh index format
+                        # Index writes: {id, ts, iter, task, sha}
+                        # Frontend expects: {id, created_at, git_sha, message, iteration, ...}
+                        cp = {
+                            "id": raw.get("id", ""),
+                            "created_at": raw.get("ts", raw.get("created_at", raw.get("timestamp", ""))),
+                            "git_sha": raw.get("sha", raw.get("git_sha", "")),
+                            "message": raw.get("task", raw.get("message", raw.get("task_description", ""))),
+                            "iteration": raw.get("iter", raw.get("iteration")),
+                        }
+                        # Sanitize checkpoint id before using in path construction
+                        cp_id = cp["id"]
+                        if not cp_id or not _SAFE_ID_RE.match(cp_id):
+                            continue
+                        # Enrich from metadata.json if available
+                        meta_file = checkpoints_dir / cp_id / "metadata.json"
+                        if meta_file.exists():
+                            try:
+                                meta = json.loads(meta_file.read_text())
+                                cp["git_branch"] = meta.get("git_branch", "")
+                                cp["provider"] = meta.get("provider", "")
+                                cp["phase"] = meta.get("phase", "")
+                                # Count files in checkpoint dir
+                                cp_dir = checkpoints_dir / cp_id
+                                cp["files_count"] = sum(1 for f in cp_dir.rglob("*") if f.is_file() and f.name != "metadata.json")
+                                if not cp["message"]:
+                                    cp["message"] = meta.get("task_description", "")
+                                if not cp["git_sha"]:
+                                    cp["git_sha"] = meta.get("git_sha", "")
+                                if not cp["created_at"]:
+                                    cp["created_at"] = meta.get("timestamp", "")
+                            except (json.JSONDecodeError, IOError):
+                                pass
+                        checkpoints.append(cp)
+                    except json.JSONDecodeError:
+                        pass
+        except Exception:
+            pass
+
+    # Return most recent first, limited
+    checkpoints.reverse()
+    return checkpoints[:limit]
+
+
+@app.get("/api/checkpoints/{checkpoint_id}")
+async def get_checkpoint(checkpoint_id: str):
+    """Get checkpoint details by ID."""
+    checkpoint_id = _sanitize_checkpoint_id(checkpoint_id)
+    loki_dir = _get_loki_dir()
+    metadata_file = loki_dir / "state" / "checkpoints" / checkpoint_id / "metadata.json"
+
+    if not metadata_file.exists():
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+    try:
+        return json.loads(metadata_file.read_text())
+    except (json.JSONDecodeError, IOError):
+        raise HTTPException(status_code=500, detail="Failed to read checkpoint data")
+
+
+@app.post("/api/checkpoints", status_code=201, dependencies=[Depends(auth.require_scope("control"))])
+async def create_checkpoint(body: CheckpointCreate = None):
+    """Create a new checkpoint capturing current state."""
+    import subprocess
+    import shutil
+
+    loki_dir = _get_loki_dir()
+    checkpoints_dir = loki_dir / "state" / "checkpoints"
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate checkpoint ID from timestamp
+    now = datetime.now(timezone.utc)
+    checkpoint_id = now.strftime("chk-%Y%m%d-%H%M%S")
+
+    # Create checkpoint directory
+    checkpoint_dir = checkpoints_dir / checkpoint_id
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    # Capture git SHA
+    git_sha = ""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            git_sha = result.stdout.strip()
+    except Exception:
+        pass
+
+    # Copy key state files into checkpoint
+    state_files = [
+        "dashboard-state.json",
+        "session.json",
+    ]
+    for fname in state_files:
+        src = loki_dir / fname
+        if src.exists():
+            try:
+                shutil.copy2(str(src), str(checkpoint_dir / fname))
+            except Exception:
+                pass
+
+    # Copy queue directory if present
+    queue_src = loki_dir / "queue"
+    if queue_src.exists():
+        try:
+            shutil.copytree(str(queue_src), str(checkpoint_dir / "queue"), dirs_exist_ok=True)
+        except Exception:
+            pass
+
+    # Build metadata
+    message = ""
+    if body and body.message:
+        message = body.message
+
+    metadata = {
+        "id": checkpoint_id,
+        "created_at": now.isoformat(),
+        "git_sha": git_sha,
+        "message": message,
+        "files": [f.name for f in checkpoint_dir.iterdir() if f.is_file()],
+    }
+
+    # Write metadata.json
+    (checkpoint_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
+
+    # Append to index.jsonl
+    index_file = checkpoints_dir / "index.jsonl"
+    with open(str(index_file), "a") as f:
+        f.write(json.dumps(metadata) + "\n")
+
+    # Retention policy: keep last 50 checkpoints
+    MAX_CHECKPOINTS = 50
+    all_dirs = sorted(
+        [d for d in checkpoints_dir.iterdir() if d.is_dir()],
+        key=lambda d: d.name,
+    )
+    while len(all_dirs) > MAX_CHECKPOINTS:
+        oldest = all_dirs.pop(0)
+        shutil.rmtree(str(oldest), ignore_errors=True)
+
+    return metadata
+
+
+# =============================================================================
+# Agent Management API (v5.25.0)
+# =============================================================================
+
+@app.get("/api/agents")
+async def get_agents(token: Optional[dict] = Depends(auth.get_current_token)):
+    """Get all active and recent agents."""
+    agents_file = _get_loki_dir() / "state" / "agents.json"
+    agents = []
+    if agents_file.exists():
+        try:
+            agents = json.loads(agents_file.read_text())
+        except Exception:
+            pass
+
+    # Enrich with process status
+    for agent in agents:
+        pid = agent.get("pid")
+        if pid:
+            try:
+                os.kill(int(pid), 0)  # Check if process exists
+                agent["alive"] = True
+            except (OSError, ValueError):
+                agent["alive"] = False
+        else:
+            agent["alive"] = False
+
+    # Fallback: read agents from dashboard-state.json if agents.json is empty
+    if not agents:
+        state_file = _get_loki_dir() / "dashboard-state.json"
+        if state_file.exists():
+            try:
+                state = json.loads(state_file.read_text())
+                state_agents = state.get("agents", [])
+                for sa in state_agents:
+                    if isinstance(sa, dict):
+                        agents.append({
+                            "id": sa.get("id", sa.get("name", "unknown")),
+                            "name": sa.get("name", ""),
+                            "type": sa.get("type", ""),
+                            "pid": sa.get("pid"),
+                            "task": sa.get("task", ""),
+                            "status": sa.get("status", "unknown"),
+                            "alive": False,
+                        })
+                # Check process status for fallback agents too
+                for agent in agents:
+                    pid = agent.get("pid")
+                    if pid:
+                        try:
+                            os.kill(int(pid), 0)
+                            agent["alive"] = True
+                        except (OSError, ValueError):
+                            agent["alive"] = False
+            except Exception:
+                pass
+
+    return agents
+
+
+@app.post("/api/agents/{agent_id}/kill", dependencies=[Depends(auth.require_scope("control"))])
+async def kill_agent(agent_id: str, request: Request):
+    """Kill a specific agent by ID."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    agent_id = _sanitize_agent_id(agent_id)
+
+    audit.log_event(
+        action="kill",
+        resource_type="agent",
+        resource_id=agent_id,
+        details={"source": "api"},
+        ip_address=request.client.host if request.client else None,
+    )
+    agents_file = _get_loki_dir() / "state" / "agents.json"
+    if not agents_file.exists():
+        raise HTTPException(404, "No agents file found")
+
+    try:
+        agents = json.loads(agents_file.read_text())
+    except Exception:
+        raise HTTPException(500, "Failed to read agents file")
+
+    target = None
+    for agent in agents:
+        if agent.get("id") == agent_id or agent.get("name") == agent_id:
+            target = agent
+            break
+
+    if not target:
+        raise HTTPException(404, f"Agent {agent_id} not found")
+
+    pid = target.get("pid")
+    if not pid:
+        raise HTTPException(
+            status_code=404, detail=f"Agent {agent_id} has no PID"
+        )
+    try:
+        os.kill(int(pid), 15)  # SIGTERM
+        target["status"] = "terminated"
+        agents_file.write_text(json.dumps(agents, indent=2))
+        return {"success": True, "message": f"Agent {agent_id} terminated"}
+    except ProcessLookupError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Process {pid} not found for agent {agent_id}",
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Permission denied killing agent: {e}"
+        )
+    except OSError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to kill agent: {e}"
+        )
+
+
+@app.post("/api/agents/{agent_id}/pause", dependencies=[Depends(auth.require_scope("control"))])
+async def pause_agent(agent_id: str):
+    """Pause a specific agent by writing a pause signal."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    agent_id = _sanitize_agent_id(agent_id)
+    signal_dir = _get_loki_dir() / "signals"
+    signal_dir.mkdir(parents=True, exist_ok=True)
+    (signal_dir / f"PAUSE_AGENT_{agent_id}").write_text(
+        datetime.now(timezone.utc).isoformat()
+    )
+    return {"success": True, "message": f"Pause signal sent to agent {agent_id}"}
+
+
+@app.post("/api/agents/{agent_id}/resume", dependencies=[Depends(auth.require_scope("control"))])
+async def resume_agent(agent_id: str):
+    """Resume a paused agent."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    agent_id = _sanitize_agent_id(agent_id)
+    signal_file = _get_loki_dir() / "signals" / f"PAUSE_AGENT_{agent_id}"
+    try:
+        signal_file.unlink(missing_ok=True)
+    except Exception:
+        pass
+    return {"success": True, "message": f"Resume signal sent to agent {agent_id}"}
+
+
+@app.get("/api/logs")
+async def get_logs(lines: int = 100, token: Optional[dict] = Depends(auth.get_current_token)):
+    """Get recent log entries from session log files."""
+    log_dir = _get_loki_dir() / "logs"
+    entries = []
+
+    # Regex for full timestamp: [2026-02-07T01:32:00] [INFO] msg  or  2026-02-07 01:32:00 INFO msg
+    _LOG_TS_FULL = re.compile(
+        r'^\[?(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})\]?\s*\[?(\w+)\]?\s*(.*)'
+    )
+    # Regex for time-only: 01:32:00 INFO msg
+    _LOG_TS_SHORT = re.compile(
+        r'^(\d{2}:\d{2}:\d{2})\s+(\w+)\s+(.*)'
+    )
+    # Map common level strings to normalized lowercase
+    _LEVEL_MAP = {
+        "info": "info",
+        "error": "error",
+        "warn": "warning",
+        "warning": "warning",
+        "debug": "debug",
+        "critical": "critical",
+        "fatal": "critical",
+        "trace": "debug",
+    }
+
+    if log_dir.exists():
+        # Read the most recent log file
+        log_files = sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
+        for log_file in log_files[:1]:
+            try:
+                # Use file mtime as fallback timestamp
+                file_mtime = datetime.fromtimestamp(log_file.stat().st_mtime, tz=timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%S"
+                )
+                # Read only the tail to avoid loading huge files into memory
+                tail_lines = []
+                try:
+                    with open(log_file, "rb") as lf:
+                        # Seek from end to find enough lines
+                        lf.seek(0, 2)
+                        file_size = lf.tell()
+                        # Read at most 1MB from the end (plenty for any reasonable lines count)
+                        read_size = min(file_size, 1024 * 1024)
+                        lf.seek(max(0, file_size - read_size))
+                        tail_lines = lf.read().decode("utf-8", errors="replace").strip().split("\n")[-lines:]
+                except (OSError, UnicodeDecodeError):
+                    tail_lines = []
+                for raw_line in tail_lines:
+                    timestamp = ""
+                    level = "info"
+                    message = raw_line
+
+                    # Try full timestamp pattern first
+                    m = _LOG_TS_FULL.match(raw_line)
+                    if m:
+                        timestamp = m.group(1).replace(" ", "T")
+                        level = _LEVEL_MAP.get(m.group(2).lower(), "info")
+                        message = m.group(3)
+                    else:
+                        # Try short time-only pattern
+                        m = _LOG_TS_SHORT.match(raw_line)
+                        if m:
+                            timestamp = m.group(1)
+                            level = _LEVEL_MAP.get(m.group(2).lower(), "info")
+                            message = m.group(3)
+
+                    # Fallback: use file modification time if no timestamp parsed
+                    if not timestamp:
+                        timestamp = file_mtime
+
+                    entries.append({
+                        "message": message,
+                        "level": level,
+                        "timestamp": timestamp,
+                    })
+            except Exception:
+                pass
+
+    return entries
+
+
+# =============================================================================
+# Collaboration API (Real-time multi-user support)
+# =============================================================================
+
+try:
+    from collab.api import create_collab_routes
+    create_collab_routes(app)
+    logger.info("Collaboration API routes enabled")
+except ImportError as e:
+    logger.debug(f"Collaboration module not available: {e}")
+
+
+# =============================================================================
+# Secrets / Credential Status
+# =============================================================================
+
+@app.get("/api/secrets/status", dependencies=[Depends(auth.require_scope("admin"))])
+async def get_secrets_status():
+    """Get API key status (masked, validation, source). Admin only."""
+    result = secrets_mod.load_secrets()
+    rotated = secrets_mod.check_rotation(
+        str(_get_loki_dir() / "state" / "key-fingerprints.json")
+    )
+    return {
+        "keys": result,
+        "rotated_since_last_check": rotated,
+    }
+
+
+# =============================================================================
+# GitHub Integration API (v5.41.0)
+# =============================================================================
+
+
+@app.get("/api/github/status")
+async def get_github_status(token: Optional[dict] = Depends(auth.get_current_token)):
+    """Get GitHub integration status and configuration."""
+    loki_dir = _get_loki_dir()
+    result: dict[str, Any] = {
+        "import_enabled": os.environ.get("LOKI_GITHUB_IMPORT", "false") == "true",
+        "sync_enabled": os.environ.get("LOKI_GITHUB_SYNC", "false") == "true",
+        "pr_enabled": os.environ.get("LOKI_GITHUB_PR", "false") == "true",
+        "labels_filter": os.environ.get("LOKI_GITHUB_LABELS", ""),
+        "milestone_filter": os.environ.get("LOKI_GITHUB_MILESTONE", ""),
+        "limit": _safe_int_env("LOKI_GITHUB_LIMIT", 100),
+        "imported_tasks": 0,
+        "synced_updates": 0,
+        "repo": None,
+    }
+
+    # Count imported GitHub tasks from pending queue
+    pending_file = loki_dir / "queue" / "pending.json"
+    if pending_file.exists():
+        try:
+            data = json.loads(pending_file.read_text())
+            tasks = data.get("tasks", data) if isinstance(data, dict) else data
+            result["imported_tasks"] = sum(1 for t in tasks if t.get("source") == "github")
+        except Exception:
+            pass
+
+    # Count sync log entries
+    sync_log = loki_dir / "github" / "synced.log"
+    if sync_log.exists():
+        try:
+            result["synced_updates"] = sum(1 for _ in sync_log.open())
+        except Exception:
+            pass
+
+    # Detect repo from git
+    try:
+        import subprocess
+        url = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+            cwd=str(loki_dir.parent) if loki_dir.name == ".loki" else None
+        )
+        if url.returncode == 0:
+            repo = url.stdout.strip()
+            # Parse owner/repo from URL
+            for prefix in ["https://github.com/", "git@github.com:"]:
+                if repo.startswith(prefix):
+                    repo = repo[len(prefix):]
+                    break
+            result["repo"] = repo.removesuffix(".git")
+    except Exception:
+        pass
+
+    return result
+
+
+@app.get("/api/github/tasks")
+async def get_github_tasks(token: Optional[dict] = Depends(auth.get_current_token)):
+    """Get all GitHub-sourced tasks and their sync status."""
+    loki_dir = _get_loki_dir()
+    tasks: list[dict] = []
+
+    # Collect GitHub tasks from all queues
+    for queue_name in ["pending", "in-progress", "completed", "failed"]:
+        queue_file = loki_dir / "queue" / f"{queue_name}.json"
+        if queue_file.exists():
+            try:
+                data = json.loads(queue_file.read_text())
+                items = data.get("tasks", data) if isinstance(data, dict) else data
+                for t in items:
+                    if t.get("source") == "github" or str(t.get("id", "")).startswith("github-"):
+                        t["queue"] = queue_name
+                        tasks.append(t)
+            except Exception:
+                pass
+
+    # Load sync log to annotate sync status
+    synced: set[str] = set()
+    sync_log = loki_dir / "github" / "synced.log"
+    if sync_log.exists():
+        try:
+            synced = set(sync_log.read_text().strip().splitlines())
+        except Exception:
+            pass
+
+    for t in tasks:
+        issue_num = str(t.get("github_issue", ""))
+        if not issue_num:
+            issue_num = str(t.get("id", "")).replace("github-", "")
+        t["synced_statuses"] = [
+            s.split(":")[1] for s in synced if s.startswith(f"{issue_num}:")
+        ]
+
+    return {"tasks": tasks, "total": len(tasks)}
+
+
+@app.get("/api/github/sync-log")
+async def get_github_sync_log(
+    limit: int = Query(default=50, ge=1, le=500),
+    token: Optional[dict] = Depends(auth.get_current_token)
+):
+    """Get the GitHub sync log (status updates sent to issues)."""
+    loki_dir = _get_loki_dir()
+    sync_log = loki_dir / "github" / "synced.log"
+    entries: list[dict] = []
+
+    if sync_log.exists():
+        try:
+            lines = sync_log.read_text().strip().splitlines()
+            for line in lines[-limit:]:
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    entries.append({"issue": parts[0], "status": parts[1]})
+        except Exception:
+            pass
+
+    return {"entries": entries, "total": len(entries)}
+
+
+# =============================================================================
+# Process Health / Watchdog API
+# =============================================================================
+
+
+def _resolve_process_state(pid: Optional[int], last_status: str = "",
+                           started: str = "", heartbeat: str = "",
+                           stale_threshold: int = 30) -> dict[str, Any]:
+    """Resolve process state with honest labels.
+
+    States:
+      RUNNING   - PID alive AND heartbeat < stale_threshold seconds
+      STALE     - PID alive BUT no heartbeat update in > stale_threshold seconds
+      COMPLETED - last_status marked done/completed and PID exited
+      FAILED    - last_status marked failed OR PID exited non-zero
+      CRASHED   - PID dead BUT last_status was 'running'
+      UNKNOWN   - No PID, no status, or conflicting data
+
+    Returns dict with: state, pid_alive, started, last_heartbeat, duration_seconds
+    """
+    now = datetime.now(timezone.utc)
+    pid_alive = False
+    if pid is not None:
+        try:
+            os.kill(pid, 0)
+            pid_alive = True
+        except (OSError, ValueError, TypeError):
+            pass
+
+    # Parse timestamps
+    started_dt = None
+    heartbeat_dt = None
+    if started:
+        try:
+            started_dt = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            if started_dt.tzinfo is None:
+                started_dt = started_dt.replace(tzinfo=timezone.utc)
+        except (ValueError, AttributeError):
+            pass
+    if heartbeat:
+        try:
+            heartbeat_dt = datetime.fromisoformat(heartbeat.replace("Z", "+00:00"))
+            if heartbeat_dt.tzinfo is None:
+                heartbeat_dt = heartbeat_dt.replace(tzinfo=timezone.utc)
+        except (ValueError, AttributeError):
+            pass
+
+    # Calculate duration
+    duration_seconds = None
+    if started_dt:
+        duration_seconds = round((now - started_dt).total_seconds())
+
+    # Calculate heartbeat age
+    heartbeat_age = None
+    if heartbeat_dt:
+        heartbeat_age = round((now - heartbeat_dt).total_seconds())
+
+    # Resolve state
+    normalized = last_status.lower().strip() if last_status else ""
+    if pid_alive:
+        if heartbeat_age is not None and heartbeat_age > stale_threshold:
+            state = "STALE"
+        else:
+            state = "RUNNING"
+    else:
+        if normalized in ("done", "completed", "complete", "success"):
+            state = "COMPLETED"
+        elif normalized in ("failed", "error", "errored"):
+            state = "FAILED"
+        elif normalized in ("running", "active", "in_progress", "starting"):
+            state = "CRASHED"
+        elif pid is None:
+            state = "UNKNOWN"
+        else:
+            # PID dead, unknown last status
+            state = "CRASHED" if normalized == "" else "UNKNOWN"
+
+    result: dict[str, Any] = {
+        "state": state,
+        "pid_alive": pid_alive,
+    }
+    if started:
+        result["started"] = started
+    if heartbeat:
+        result["last_heartbeat"] = heartbeat
+    if heartbeat_age is not None:
+        result["heartbeat_age_seconds"] = heartbeat_age
+    if duration_seconds is not None:
+        result["duration_seconds"] = duration_seconds
+    return result
+
+
+@app.get("/api/health/processes")
+async def get_process_health(token: Optional[dict] = Depends(auth.get_current_token)):
+    """Get health status of all loki processes (dashboard, session, agents).
+
+    Returns honest state labels: RUNNING, STALE, COMPLETED, FAILED, CRASHED, UNKNOWN.
+    Every entry includes timestamps (started, last_heartbeat, duration_seconds).
+    """
+    result: dict[str, Any] = {"dashboard": None, "session": None, "agents": []}
+
+    loki_dir = _get_loki_dir()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Dashboard PID
+    dpid_file = loki_dir / "dashboard" / "dashboard.pid"
+    if dpid_file.exists():
+        try:
+            dpid = int(dpid_file.read_text().strip())
+            state_info = _resolve_process_state(dpid, last_status="running")
+            result["dashboard"] = {"pid": dpid, **state_info}
+        except (ValueError, OSError):
+            pass
+
+    # Session PID
+    spid_file = loki_dir / "loki.pid"
+    if spid_file.exists():
+        try:
+            spid = int(spid_file.read_text().strip())
+            state_info = _resolve_process_state(spid, last_status="running")
+            result["session"] = {"pid": spid, **state_info}
+        except (ValueError, OSError):
+            pass
+
+    # Read dashboard-state.json for heartbeat timestamp
+    state_file = loki_dir / "dashboard-state.json"
+    state_heartbeat = ""
+    if state_file.exists():
+        try:
+            st = os.stat(state_file)
+            state_heartbeat = datetime.fromtimestamp(
+                st.st_mtime, tz=timezone.utc
+            ).isoformat()
+        except OSError:
+            pass
+
+    # Agent PIDs
+    agents_file = loki_dir / "state" / "agents.json"
+    if agents_file.exists():
+        try:
+            agents = json.loads(agents_file.read_text())
+            for agent in agents:
+                pid = agent.get("pid")
+                pid_int = int(pid) if pid else None
+                agent_status = agent.get("status", "")
+                agent_started = agent.get("started", "")
+                agent_heartbeat = agent.get("heartbeat", state_heartbeat)
+                state_info = _resolve_process_state(
+                    pid_int,
+                    last_status=agent_status,
+                    started=agent_started,
+                    heartbeat=agent_heartbeat,
+                )
+                result["agents"].append({
+                    "id": agent.get("id", ""),
+                    "name": agent.get("name", ""),
+                    "pid": pid,
+                    **state_info,
+                })
+        except Exception:
+            pass
+
+    # PID registry (central process supervisor)
+    pids_dir = loki_dir / "pids"
+    registered: list[dict[str, Any]] = []
+    if pids_dir.exists():
+        for entry_file in sorted(pids_dir.glob("*.json")):
+            try:
+                pid_str = entry_file.stem
+                pid = int(pid_str)
+                entry = json.loads(entry_file.read_text())
+                entry_started = entry.get("started", "")
+                entry_heartbeat = entry.get("heartbeat", "")
+                # Use file mtime as heartbeat fallback
+                if not entry_heartbeat:
+                    try:
+                        st = os.stat(entry_file)
+                        entry_heartbeat = datetime.fromtimestamp(
+                            st.st_mtime, tz=timezone.utc
+                        ).isoformat()
+                    except OSError:
+                        pass
+                entry_status = entry.get("status", "running")
+                state_info = _resolve_process_state(
+                    pid,
+                    last_status=entry_status,
+                    started=entry_started,
+                    heartbeat=entry_heartbeat,
+                )
+                registered.append({
+                    "pid": pid,
+                    "label": entry.get("label", "unknown"),
+                    "ppid": entry.get("ppid"),
+                    **state_info,
+                })
+            except (ValueError, json.JSONDecodeError, OSError):
+                continue
+    result["registered_processes"] = registered
+
+    watchdog_enabled = os.environ.get("LOKI_WATCHDOG", "false").lower() == "true"
+    result["watchdog_enabled"] = watchdog_enabled
+    result["checked_at"] = now_iso
+
+    return result
+
+
+# =============================================================================
+# Prometheus / OpenMetrics Endpoint
+# =============================================================================
+
+
+def _build_metrics_text() -> str:
+    """Build Prometheus/OpenMetrics format metrics text from .loki/ flat files."""
+    lines = []  # type: list[str]  -- comment-style for Python 3.8
+    loki_dir = _get_loki_dir()
+
+    # Validate LOKI_DIR exists before attempting to read metrics
+    if not loki_dir.is_dir():
+        return "# loki_up 0\n"
+
+    # -- Read dashboard-state.json (primary data source) ----------------------
+    state: dict = {}
+    state_file = loki_dir / "dashboard-state.json"
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # 1. loki_session_status (gauge) ------------------------------------------
+    mode = state.get("mode", "")
+    status_val = 0  # stopped
+    if mode == "paused":
+        status_val = 2
+    elif mode in ("autonomous", "running"):
+        status_val = 1
+    else:
+        # Also check PID file
+        pid_file = loki_dir / "loki.pid"
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                os.kill(pid, 0)
+                status_val = 1
+            except (ValueError, OSError, ProcessLookupError):
+                pass
+
+    lines.append("# HELP loki_session_status Current session status (0=stopped, 1=running, 2=paused)")
+    lines.append("# TYPE loki_session_status gauge")
+    lines.append(f"loki_session_status {status_val}")
+    lines.append("")
+
+    # 2. loki_iteration_current (gauge) ---------------------------------------
+    iteration = state.get("iteration", 0)
+    lines.append("# HELP loki_iteration_current Current iteration number")
+    lines.append("# TYPE loki_iteration_current gauge")
+    lines.append(f"loki_iteration_current {iteration}")
+    lines.append("")
+
+    # 3. loki_iteration_max (gauge) -------------------------------------------
+    max_iterations = _safe_int_env("LOKI_MAX_ITERATIONS", 1000)
+    lines.append("# HELP loki_iteration_max Maximum configured iterations")
+    lines.append("# TYPE loki_iteration_max gauge")
+    lines.append(f"loki_iteration_max {max_iterations}")
+    lines.append("")
+
+    # 4. loki_tasks_total (gauge, label: status) ------------------------------
+    tasks = state.get("tasks", {})
+    pending_count = len(tasks.get("pending", []))
+    in_progress_count = len(tasks.get("inProgress", []))
+    completed_count = len(tasks.get("completed", []))
+    failed_count = len(tasks.get("failed", []))
+
+    lines.append("# HELP loki_tasks_total Number of tasks by status")
+    lines.append("# TYPE loki_tasks_total gauge")
+    lines.append(f'loki_tasks_total{{status="pending"}} {pending_count}')
+    lines.append(f'loki_tasks_total{{status="in_progress"}} {in_progress_count}')
+    lines.append(f'loki_tasks_total{{status="completed"}} {completed_count}')
+    lines.append(f'loki_tasks_total{{status="failed"}} {failed_count}')
+    lines.append("")
+
+    # 5. loki_agents_active (gauge) -------------------------------------------
+    # 6. loki_agents_total (counter) ------------------------------------------
+    agents_active = 0
+    agents_total = 0
+    agents_file = loki_dir / "state" / "agents.json"
+    if agents_file.exists():
+        try:
+            agents_data = json.loads(agents_file.read_text())
+            if isinstance(agents_data, list):
+                agents_total = len(agents_data)
+                agents_active = sum(
+                    1 for a in agents_data
+                    if isinstance(a, dict) and a.get("status") == "active"
+                )
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Fallback to dashboard-state.json agents
+    if agents_total == 0:
+        state_agents = state.get("agents", [])
+        if isinstance(state_agents, list):
+            agents_total = len(state_agents)
+            agents_active = sum(
+                1 for a in state_agents
+                if isinstance(a, dict) and a.get("status") == "active"
+            )
+
+    lines.append("# HELP loki_agents_active Number of currently active agents")
+    lines.append("# TYPE loki_agents_active gauge")
+    lines.append(f"loki_agents_active {agents_active}")
+    lines.append("")
+
+    lines.append("# HELP loki_agents_total Total number of agents registered")
+    lines.append("# TYPE loki_agents_total gauge")
+    lines.append(f"loki_agents_total {agents_total}")
+    lines.append("")
+
+    # 7. loki_cost_usd (gauge) ------------------------------------------------
+    estimated_cost = 0.0
+    efficiency_dir = loki_dir / "metrics" / "efficiency"
+    if efficiency_dir.exists():
+        try:
+            for eff_file in efficiency_dir.glob("*.json"):
+                try:
+                    data = json.loads(eff_file.read_text())
+                    cost = data.get("cost_usd")
+                    if cost is not None:
+                        estimated_cost += float(cost)
+                    else:
+                        inp = data.get("input_tokens", 0)
+                        out = data.get("output_tokens", 0)
+                        estimated_cost += _calculate_model_cost(
+                            data.get("model", "sonnet").lower(), inp, out
+                        )
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    pass
+        except OSError:
+            pass
+
+    lines.append("# HELP loki_cost_usd Estimated total cost in USD")
+    lines.append("# TYPE loki_cost_usd gauge")
+    lines.append(f"loki_cost_usd {round(estimated_cost, 6)}")
+    lines.append("")
+
+    # 8. loki_events_total (counter) ------------------------------------------
+    events_count = 0
+    events_file = loki_dir / "events.jsonl"
+    if events_file.exists():
+        try:
+            content = events_file.read_text()
+            events_count = sum(1 for line in content.strip().split("\n") if line.strip())
+        except OSError:
+            pass
+
+    lines.append("# HELP loki_events_total Total number of events recorded")
+    lines.append("# TYPE loki_events_total counter")
+    lines.append(f"loki_events_total {events_count}")
+    lines.append("")
+
+    # 9. loki_uptime_seconds (gauge) ------------------------------------------
+    uptime_seconds = 0.0
+    started_at = state.get("startedAt", "")
+    if started_at:
+        try:
+            start_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            uptime_seconds = (datetime.now(timezone.utc) - start_dt).total_seconds()
+            if uptime_seconds < 0:
+                uptime_seconds = 0.0
+        except (ValueError, TypeError):
+            pass
+
+    lines.append("# HELP loki_uptime_seconds Seconds since session started")
+    lines.append("# TYPE loki_uptime_seconds gauge")
+    lines.append(f"loki_uptime_seconds {round(uptime_seconds, 1)}")
+    lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def prometheus_metrics():
+    """Prometheus/OpenMetrics compatible metrics endpoint."""
+    return _build_metrics_text()
+
+
+# =============================================================================
+# PRD Checklist Endpoints (v5.44.0)
+# =============================================================================
+
+@app.get("/api/checklist")
+async def get_checklist():
+    """Get full PRD checklist with verification status."""
+    loki_dir = _get_loki_dir()
+    checklist_file = loki_dir / "checklist" / "checklist.json"
+    if not checklist_file.exists():
+        return {"status": "not_initialized", "categories": [], "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
+    try:
+        return json.loads(checklist_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"status": "error", "categories": [], "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
+
+
+@app.get("/api/checklist/summary")
+async def get_checklist_summary():
+    """Get checklist verification summary."""
+    loki_dir = _get_loki_dir()
+    results_file = loki_dir / "checklist" / "verification-results.json"
+    if not results_file.exists():
+        return {"status": "not_initialized", "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
+    try:
+        return json.loads(results_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"status": "error", "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
+
+
+@app.get("/api/prd-observations")
+async def get_prd_observations():
+    """Get PRD quality analysis observations."""
+    loki_dir = _get_loki_dir()
+    obs_file = loki_dir / "prd-observations.md"
+    if not obs_file.exists():
+        return PlainTextResponse("No PRD observations available yet.", status_code=200)
+    try:
+        content = obs_file.read_text()
+        return PlainTextResponse(content, status_code=200)
+    except OSError:
+        return PlainTextResponse("Error reading PRD observations.", status_code=500)
+
+
+# =============================================================================
+# Checklist Waiver Management Endpoints (Phase 4)
+# =============================================================================
+
+@app.get("/api/checklist/waivers")
+async def get_checklist_waivers():
+    """Get all checklist waivers."""
+    waivers_file = _get_loki_dir() / "checklist" / "waivers.json"
+    if not waivers_file.exists():
+        return {"waivers": []}
+    try:
+        return json.loads(waivers_file.read_text())
+    except (json.JSONDecodeError, IOError):
+        return {"waivers": [], "error": "Failed to read waivers file"}
+
+
+@app.post("/api/checklist/waivers", dependencies=[Depends(auth.require_scope("control"))])
+async def add_checklist_waiver(request: Request):
+    """Add a waiver for a checklist item."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    item_id = body.get("item_id")
+    reason = body.get("reason")
+    if not item_id or not reason:
+        return JSONResponse(status_code=400, content={"error": "item_id and reason required"})
+
+    if not isinstance(reason, str) or len(reason) > 1024:
+        return JSONResponse(status_code=400, content={"error": "reason must be a string (max 1024 chars)"})
+
+    # Sanitize item_id: non-empty, max 256 chars, no path traversal
+    if not isinstance(item_id, str) or len(item_id) > 256 or ".." in item_id or "/" in item_id or "\\" in item_id:
+        return JSONResponse(status_code=400, content={"error": "Invalid item_id: must be 1-256 chars, no path traversal characters"})
+
+    waivers_file = _get_loki_dir() / "checklist" / "waivers.json"
+
+    # Load existing
+    waivers = {"waivers": []}
+    if waivers_file.exists():
+        try:
+            waivers = json.loads(waivers_file.read_text())
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # Check duplicate
+    for w in waivers.get("waivers", []):
+        if w.get("item_id") == item_id and w.get("active", True):
+            return JSONResponse(status_code=409, content={"status": "already_exists", "item_id": item_id})
+
+    # Add waiver
+    waiver = {
+        "item_id": item_id,
+        "reason": reason,
+        "waived_by": body.get("waived_by", "dashboard"),
+        "waived_at": datetime.now(timezone.utc).isoformat(),
+        "active": True
+    }
+    waivers.setdefault("waivers", []).append(waiver)
+
+    # Ensure directory exists
+    waivers_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Atomic write
+    tmp_file = waivers_file.with_suffix(".tmp")
+    tmp_file.write_text(json.dumps(waivers, indent=2))
+    tmp_file.replace(waivers_file)
+
+    return {"status": "added", "waiver": waiver}
+
+
+@app.delete("/api/checklist/waivers/{item_id}", dependencies=[Depends(auth.require_scope("control"))])
+async def remove_checklist_waiver(item_id: str):
+    """Deactivate a waiver for a checklist item."""
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    # Sanitize item_id: non-empty, max 256 chars, no path traversal
+    if not item_id or len(item_id) > 256 or ".." in item_id or "/" in item_id or "\\" in item_id:
+        raise HTTPException(status_code=400, detail="Invalid item_id: must be 1-256 chars, no path traversal characters")
+
+    waivers_file = _get_loki_dir() / "checklist" / "waivers.json"
+    if not waivers_file.exists():
+        return JSONResponse(status_code=404, content={"error": "No waivers file"})
+
+    try:
+        waivers = json.loads(waivers_file.read_text())
+    except (json.JSONDecodeError, IOError):
+        return JSONResponse(status_code=500, content={"error": "Failed to read waivers"})
+
+    found = False
+    for w in waivers.get("waivers", []):
+        if w.get("item_id") == item_id and w.get("active", True):
+            w["active"] = False
+            found = True
+
+    if not found:
+        return JSONResponse(status_code=404, content={"error": f"No active waiver for {item_id}"})
+
+    # Atomic write
+    tmp_file = waivers_file.with_suffix(".tmp")
+    tmp_file.write_text(json.dumps(waivers, indent=2))
+    tmp_file.replace(waivers_file)
+
+    return {"status": "removed", "item_id": item_id}
+
+
+# =============================================================================
+# Council Hard Gate Endpoint (Phase 4)
+# =============================================================================
+
+_DEFAULT_QUALITY_GATES = [
+    {"name": "Static Analysis", "description": "CodeQL, ESLint, type checking", "status": "pending"},
+    {"name": "Parallel Code Review", "description": "3-reviewer blind review system", "status": "pending"},
+    {"name": "Anti-Sycophancy Check", "description": "Devil's advocate on unanimous approval", "status": "pending"},
+    {"name": "Severity Assessment", "description": "Critical/High/Medium = BLOCK", "status": "pending"},
+    {"name": "Unit Test Coverage", "description": "Target >80% coverage, 100% pass", "status": "pending"},
+    {"name": "Integration Tests", "description": "End-to-end verification", "status": "pending"},
+    {"name": "Security Scan", "description": "Dependency audit, OWASP checks", "status": "pending"},
+    {"name": "Build Verification", "description": "Clean build with no warnings", "status": "pending"},
+    {"name": "Council Vote", "description": "Completion council consensus", "status": "pending"},
+]
+
+
+@app.get("/api/council/gate")
+async def get_council_gate():
+    """Get council hard gate status."""
+    gate_file = _get_loki_dir() / "council" / "gate-block.json"
+    if not gate_file.exists():
+        return {"blocked": False, "gates": _DEFAULT_QUALITY_GATES}
+    try:
+        data = json.loads(gate_file.read_text())
+        if "gates" not in data:
+            data["gates"] = _DEFAULT_QUALITY_GATES
+        return data
+    except (json.JSONDecodeError, IOError):
+        return {"blocked": False, "gates": _DEFAULT_QUALITY_GATES, "error": "Failed to read gate file"}
+
+
+# =============================================================================
+# App Runner Endpoints (v5.45.0)
+# =============================================================================
+
+@app.get("/api/app-runner/status")
+async def get_app_runner_status():
+    """Get app runner current status."""
+    loki_dir = _get_loki_dir()
+    state_file = loki_dir / "app-runner" / "state.json"
+    if not state_file.exists():
+        return {"status": "not_initialized"}
+    try:
+        return json.loads(state_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"status": "error"}
+
+
+@app.get("/api/app-runner/logs")
+async def get_app_runner_logs(lines: int = Query(default=100, ge=1, le=1000)):
+    """Get last N lines of app runner logs."""
+    loki_dir = _get_loki_dir()
+    log_file = loki_dir / "app-runner" / "app.log"
+    if not log_file.exists():
+        return {"lines": []}
+    try:
+        all_lines = _safe_read_text(log_file).splitlines()
+        return {"lines": all_lines[-lines:]}
+    except OSError:
+        return {"lines": []}
+
+
+@app.post("/api/control/app-restart", dependencies=[Depends(auth.require_scope("control"))])
+async def control_app_restart(request: Request):
+    """Signal app runner to restart the application."""
+    if not _control_limiter.check(request.client.host if request.client else "unknown"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    loki_dir = _get_loki_dir()
+    signal_dir = loki_dir / "app-runner"
+    signal_dir.mkdir(parents=True, exist_ok=True)
+    signal_file = signal_dir / "restart-signal"
+    signal_file.write_text(datetime.now(timezone.utc).isoformat())
+    return {"status": "restart_signaled"}
+
+
+@app.post("/api/control/app-stop", dependencies=[Depends(auth.require_scope("control"))])
+async def control_app_stop(request: Request):
+    """Signal app runner to stop the application."""
+    if not _control_limiter.check(request.client.host if request.client else "unknown"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    loki_dir = _get_loki_dir()
+    signal_dir = loki_dir / "app-runner"
+    signal_dir.mkdir(parents=True, exist_ok=True)
+    signal_file = signal_dir / "stop-signal"
+    signal_file.write_text(datetime.now(timezone.utc).isoformat())
+    return {"status": "stop_signaled"}
+
+
+# =============================================================================
+# Playwright Verification Endpoints (v5.46.0)
+# =============================================================================
+
+@app.get("/api/playwright/results")
+async def get_playwright_results():
+    """Get latest Playwright smoke test results."""
+    loki_dir = _get_loki_dir()
+    results_file = loki_dir / "verification" / "playwright-results.json"
+    if not results_file.exists():
+        return {"status": "not_run"}
+    try:
+        return json.loads(results_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {"status": "error"}
+
+
+@app.get("/api/playwright/screenshot")
+async def get_playwright_screenshot():
+    """Get path to latest Playwright screenshot."""
+    loki_dir = _get_loki_dir()
+    screenshots_dir = loki_dir / "verification" / "screenshots"
+    if not screenshots_dir.exists():
+        return {"screenshot": None}
+    # Get most recent screenshot
+    screenshots = sorted(screenshots_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not screenshots:
+        return {"screenshot": None}
+    return FileResponse(str(screenshots[0]), media_type="image/png")
+
+
+# =============================================================================
+# Failure Analysis & Prompt Optimization (v5.54.0)
+# =============================================================================
+
+_failure_extractor = None
+_prompt_optimizer = None
+
+
+def _get_failure_extractor():
+    """Lazy-initialise the shared FailureExtractor instance."""
+    global _failure_extractor
+    if _failure_extractor is None:
+        from .failure_extractor import FailureExtractor
+        _failure_extractor = FailureExtractor()
+    return _failure_extractor
+
+
+def _get_prompt_optimizer():
+    """Lazy-initialise the shared PromptOptimizer instance."""
+    global _prompt_optimizer
+    if _prompt_optimizer is None:
+        from .prompt_optimizer import PromptOptimizer
+        _prompt_optimizer = PromptOptimizer()
+    return _prompt_optimizer
+
+
+@app.get("/api/failures")
+def get_failures(sessions: int = 10):
+    """Get failure patterns from recent sessions."""
+    if sessions < 1 or sessions > 1000:
+        raise HTTPException(status_code=400, detail="sessions must be between 1 and 1000")
+    if not _read_limiter.check("failures"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        return _get_failure_extractor().extract(sessions=sessions)
+    except Exception as exc:
+        logger.error("Failure extraction error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to extract failure patterns")
+
+
+@app.get("/api/prompt-versions")
+def get_prompt_versions():
+    """Get current prompt optimization status."""
+    if not _read_limiter.check("prompt_versions"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        return _get_prompt_optimizer().get_current_version()
+    except Exception as exc:
+        logger.error("Prompt version read error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to read prompt versions")
+
+
+@app.post("/api/prompt-optimize", dependencies=[Depends(auth.require_scope("control"))])
+def optimize_prompts(sessions: int = 10, dry_run: bool = True):
+    """Run prompt optimization from failure analysis."""
+    if sessions < 1 or sessions > 1000:
+        raise HTTPException(status_code=400, detail="sessions must be between 1 and 1000")
+    if not _control_limiter.check("prompt_optimize"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        return _get_prompt_optimizer().optimize(sessions=sessions, dry_run=dry_run)
+    except Exception as exc:
+        logger.error("Prompt optimization error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to run prompt optimization")
+
+
+# =============================================================================
+# Static File Serving (Production/Docker)
+# =============================================================================
+# Must be configured AFTER all API routes to avoid conflicts
+
+from fastapi.responses import FileResponse, HTMLResponse, Response
+
+# Find static files in multiple possible locations
+DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(DASHBOARD_DIR)
+
+# Possible static file locations (in order of preference)
+# Resolves correctly regardless of PYTHONPATH, symlinks, or install method
+STATIC_LOCATIONS = [
+    os.path.join(DASHBOARD_DIR, "static"),           # dashboard/static/ (production)
+    os.path.join(PROJECT_ROOT, "dashboard-ui", "dist"),  # dashboard-ui/dist/ (development)
+]
+
+# Add LOKI_SKILL_DIR env var fallback (set by loki CLI and run.sh)
+_skill_dir = os.environ.get("LOKI_SKILL_DIR", "")
+if _skill_dir:
+    STATIC_LOCATIONS.append(os.path.join(_skill_dir, "dashboard", "static"))
+    STATIC_LOCATIONS.append(os.path.join(_skill_dir, "dashboard-ui", "dist"))
+
+# Add ~/.claude/skills/loki-mode fallback (installed skill location)
+_home_skill = os.path.join(os.path.expanduser("~"), ".claude", "skills", "loki-mode")
+if os.path.isdir(_home_skill):
+    STATIC_LOCATIONS.append(os.path.join(_home_skill, "dashboard", "static"))
+    STATIC_LOCATIONS.append(os.path.join(_home_skill, "dashboard-ui", "dist"))
+
+STATIC_DIR = None
+for loc in STATIC_LOCATIONS:
+    if os.path.isdir(loc):
+        STATIC_DIR = loc
+        logger.info(f"Static files found at: {loc}")
+        break
+
+if STATIC_DIR:
+    from fastapi.staticfiles import StaticFiles
+
+    # Check if assets directory exists (built frontend)
+    ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
+    if os.path.isdir(ASSETS_DIR):
+        app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
+# ---------------------------------------------------------------------------
+# Activity Logger & Session Diff
+# ---------------------------------------------------------------------------
+
+@app.get("/api/activity")
+def get_activity(since: Optional[str] = None, limit: int = Query(default=100, ge=1, le=1000)):
+    """Get activity log entries, optionally filtered by timestamp."""
+    if not _read_limiter.check("activity"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        activity_logger = get_activity_logger()
+        if since:
+            entries = activity_logger.query_since(since)
+        else:
+            # Return all entries from the current log file, up to limit
+            entries = activity_logger.query_since("1970-01-01T00:00:00+00:00")
+        return entries[-limit:]
+    except Exception as exc:
+        logger.error("Activity read error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to read activity log")
+
+
+@app.get("/api/session-diff")
+def get_session_diff(since: Optional[str] = None):
+    """Get structured session diff since timestamp. Defaults to last 24h."""
+    if not _read_limiter.check("session-diff"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        activity_logger = get_activity_logger()
+        return activity_logger.get_session_diff(since_timestamp=since)
+    except Exception as exc:
+        logger.error("Session diff error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to compute session diff")
+
+
+@app.post("/api/activity", dependencies=[Depends(auth.require_scope("control"))])
+async def log_activity(entry: dict):
+    """Log an activity entry (for internal use by agents)."""
+    if not _control_limiter.check("activity-write"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    # Validate required fields
+    required = {"entity_type", "entity_id", "action"}
+    missing = required - set(entry.keys())
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(sorted(missing))}")
+
+    activity_logger = get_activity_logger()
+    result = activity_logger.log(
+        entity_type=entry["entity_type"],
+        entity_id=entry["entity_id"],
+        action=entry["action"],
+        old_value=entry.get("old_value"),
+        new_value=entry.get("new_value"),
+        session_id=entry.get("session_id"),
+    )
+    return result
+
+
+# Serve favicon.svg from static directory
+@app.get("/favicon.svg", include_in_schema=False)
+async def serve_favicon():
+    """Serve the dashboard favicon."""
+    if STATIC_DIR:
+        favicon_path = os.path.join(STATIC_DIR, "favicon.svg")
+        if os.path.isfile(favicon_path):
+            return FileResponse(favicon_path, media_type="image/svg+xml")
+    return Response(status_code=404)
+
+
+# Serve index.html or standalone HTML for root
+@app.get("/", include_in_schema=False)
+async def serve_index():
+    """Serve the frontend SPA or standalone HTML."""
+    # Try multiple index file locations
+    index_candidates = []
+    if STATIC_DIR:
+        index_candidates.append(os.path.join(STATIC_DIR, "index.html"))
+        index_candidates.append(os.path.join(STATIC_DIR, "loki-dashboard-standalone.html"))
+
+    # Also check dashboard-ui directly for standalone
+    standalone_path = os.path.join(PROJECT_ROOT, "dashboard-ui", "dist", "loki-dashboard-standalone.html")
+    if standalone_path not in index_candidates:
+        index_candidates.append(standalone_path)
+
+    for index_path in index_candidates:
+        if os.path.isfile(index_path):
+            return FileResponse(index_path, media_type="text/html")
+
+    # Return 503 when frontend files are not found
+    return JSONResponse(
+        content={
+            "error": "dashboard_frontend_not_found",
+            "detail": "The dashboard API is running, but the frontend files were not found. "
+                      "Run: cd dashboard-ui && npm run build",
+            "api_docs": "/docs",
+            "health": "/health",
+        },
+        status_code=503,
+    )
+
+
+# =============================================================================
+# Rigour Quality Gate Endpoints
+# =============================================================================
+
+_rigour: Optional["RigourIntegration"] = None
+
+
+def _get_rigour() -> "RigourIntegration":
+    """Lazy-initialise the shared RigourIntegration instance."""
+    global _rigour
+    if _rigour is None:
+        from .rigour_integration import RigourIntegration
+
+        data_dir = os.environ.get("LOKI_DATA_DIR", os.path.expanduser("~/.loki"))
+        _rigour = RigourIntegration(data_dir=data_dir)
+    return _rigour
+
+
+@app.get("/api/quality-score")
+def get_quality_score():
+    """Get current quality score from the most recent Rigour scan."""
+    if not _read_limiter.check("quality-score"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        rigour = _get_rigour()
+        return rigour.get_score()
+    except Exception as exc:
+        logger.error("Quality score read error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to read quality score")
+
+
+@app.get("/api/quality-score/history")
+def get_quality_score_history(limit: int = Query(50, ge=1, le=500)):
+    """Get quality score trend over time."""
+    if not _read_limiter.check("quality-history"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        rigour = _get_rigour()
+        return rigour.get_score_history(limit=limit)
+    except Exception as exc:
+        logger.error("Quality history read error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to read quality history")
+
+
+@app.post("/api/quality-scan", dependencies=[Depends(auth.require_scope("control"))])
+async def run_quality_scan(preset: str = Query("default")):
+    """Run a Rigour quality scan.
+
+    Preset must be one of: default, healthcare, fintech, government.
+    """
+    _valid_presets = ("default", "healthcare", "fintech", "government")
+    if preset not in _valid_presets:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid preset: {preset}. Must be one of {_valid_presets}",
+        )
+    if not _control_limiter.check("quality-scan"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    rigour = _get_rigour()
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, rigour.scan, ".", preset)
+    return result
+
+
+@app.get("/api/quality-report")
+def get_quality_report(fmt: str = Query("json", alias="format", pattern="^(json|markdown|html)$")):
+    """Get an exportable quality audit report."""
+    if not _read_limiter.check("quality-report"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        rigour = _get_rigour()
+        report_str = rigour.export_report(fmt=fmt)
+        if fmt == "json":
+            try:
+                return json.loads(report_str)
+            except json.JSONDecodeError:
+                return PlainTextResponse(report_str)
+        return PlainTextResponse(report_str)
+    except Exception as exc:
+        logger.error("Quality report error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to generate quality report")
+
+
+# =============================================================================
+# Migration Engine Endpoints
+# =============================================================================
+
+_migration_imports = None
+
+_MIGRATION_ID_RE = re.compile(r'^mig_\d{8}_\d{6}_[a-zA-Z0-9_-]+$')
+
+
+def _validate_migration_id(migration_id: str):
+    """Validate migration_id format to prevent path traversal."""
+    if not _MIGRATION_ID_RE.match(migration_id):
+        raise HTTPException(status_code=400, detail="Invalid migration ID format")
+
+
+def _get_migration_imports():
+    """Lazy-import migration_engine module. Returns (MigrationPipeline, list_migrations) or False."""
+    global _migration_imports
+    if _migration_imports is None:
+        try:
+            from dashboard.migration_engine import MigrationPipeline, list_migrations
+            _migration_imports = (MigrationPipeline, list_migrations)
+        except ImportError:
+            _migration_imports = False
+    return _migration_imports
+
+
+@app.get("/api/migration/list", dependencies=[Depends(auth.require_scope("read"))])
+def list_migrations_endpoint():
+    """List all migrations."""
+    if not _read_limiter.check("migration-list"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    try:
+        return list_migrations()
+    except Exception as exc:
+        logger.error("Migration list error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to list migrations")
+
+
+@app.post("/api/migration/start", dependencies=[Depends(auth.require_scope("control"))])
+def start_migration(request_body: dict):
+    """Start a new migration.
+
+    Body: {"codebase_path": str, "target": str, "options": dict}
+    """
+    if not _control_limiter.check("migration-start"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    codebase_path = request_body.get("codebase_path")
+    target = request_body.get("target")
+    options = request_body.get("options", {})
+    if not codebase_path or not target:
+        raise HTTPException(status_code=400, detail="codebase_path and target are required")
+    if not isinstance(codebase_path, str) or not isinstance(target, str):
+        raise HTTPException(status_code=400, detail="codebase_path and target must be strings")
+    if len(target) > 255:
+        raise HTTPException(status_code=400, detail="target must be 255 characters or fewer")
+    # Check raw input for traversal BEFORE resolving
+    if '..' in codebase_path:
+        raise HTTPException(status_code=400, detail="Path traversal not allowed")
+    codebase_path = os.path.realpath(codebase_path)
+    if not os.path.isdir(codebase_path):
+        raise HTTPException(status_code=400, detail=f"codebase_path does not exist: {codebase_path}")
+    try:
+        pipeline = MigrationPipeline(codebase_path=codebase_path, target=target, options=options)
+        manifest = pipeline.create_manifest()
+        return asdict(manifest)
+    except Exception as exc:
+        logger.error("Migration start error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to start migration")
+
+
+@app.get("/api/migration/{migration_id}/status", dependencies=[Depends(auth.require_scope("read"))])
+def get_migration_status(migration_id: str):
+    """Get migration status and progress."""
+    _validate_migration_id(migration_id)
+    if not _read_limiter.check("migration-status"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    try:
+        pipeline = MigrationPipeline.load(migration_id)
+        return pipeline.get_progress()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Migration not found: {migration_id}")
+    except Exception as exc:
+        logger.error("Migration status error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to get migration status")
+
+
+@app.get("/api/migration/{migration_id}/plan", dependencies=[Depends(auth.require_scope("read"))])
+def get_migration_plan(migration_id: str):
+    """Get migration plan content."""
+    _validate_migration_id(migration_id)
+    if not _read_limiter.check("migration-plan"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    try:
+        pipeline = MigrationPipeline.load(migration_id)
+        plan = pipeline.load_plan()
+        return asdict(plan) if hasattr(plan, '__dataclass_fields__') else plan
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Migration plan not found for: {migration_id}")
+    except Exception as exc:
+        logger.error("Migration plan error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to get migration plan")
+
+
+@app.get("/api/migration/{migration_id}/features", dependencies=[Depends(auth.require_scope("read"))])
+def get_migration_features(migration_id: str):
+    """Get migration feature list."""
+    _validate_migration_id(migration_id)
+    if not _read_limiter.check("migration-features"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    try:
+        pipeline = MigrationPipeline.load(migration_id)
+        features = pipeline.load_features()
+        return [asdict(f) for f in features]
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Migration features not found for: {migration_id}")
+    except Exception as exc:
+        logger.error("Migration features error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to get migration features")
+
+
+@app.get("/api/migration/{migration_id}/seams", dependencies=[Depends(auth.require_scope("read"))])
+def get_migration_seams(migration_id: str):
+    """Get detected seams for migration."""
+    _validate_migration_id(migration_id)
+    if not _read_limiter.check("migration-seams"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    try:
+        pipeline = MigrationPipeline.load(migration_id)
+        seams = pipeline.load_seams()
+        return [asdict(s) for s in seams]
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Migration seams not found for: {migration_id}")
+    except Exception as exc:
+        logger.error("Migration seams error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to get migration seams")
+
+
+@app.post("/api/migration/{migration_id}/advance", dependencies=[Depends(auth.require_scope("control"))])
+def advance_migration(migration_id: str, request_body: dict):
+    """Advance migration to the next phase.
+
+    Body: {"from_phase": str, "to_phase": str}
+    """
+    _validate_migration_id(migration_id)
+    if not _control_limiter.check("migration-advance"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    from_phase = request_body.get("from_phase")
+    to_phase = request_body.get("to_phase")
+    if not from_phase or not to_phase:
+        raise HTTPException(status_code=400, detail="from_phase and to_phase are required")
+    # Load pipeline and check phase gate before the try/except to let
+    # HTTPException and FileNotFoundError propagate naturally.
+    try:
+        pipeline = MigrationPipeline.load(migration_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Migration not found: {migration_id}")
+    passed, reason = pipeline.check_phase_gate(from_phase, to_phase)
+    if not passed:
+        raise HTTPException(status_code=409, detail=reason)
+    try:
+        result = pipeline.advance_phase(from_phase)
+        return asdict(result) if hasattr(result, '__dataclass_fields__') else result
+    except Exception as exc:
+        logger.error("Migration advance error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to advance migration")
+
+
+@app.post("/api/migration/{migration_id}/start-phase", dependencies=[Depends(auth.require_scope("control"))])
+def start_migration_phase(migration_id: str, request_body: dict):
+    """Start a migration phase (transition from pending to in_progress)."""
+    _validate_migration_id(migration_id)
+    if not _control_limiter.check("migration-start-phase"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    imports = _get_migration_imports()
+    if not imports:
+        raise HTTPException(status_code=503, detail="Migration engine not available")
+    MigrationPipeline, list_migrations = imports
+    phase = request_body.get("phase")
+    if not phase:
+        raise HTTPException(status_code=400, detail="phase is required")
+    try:
+        pipeline = MigrationPipeline.load(migration_id)
+        pipeline.start_phase(phase)
+        return {"status": "started", "phase": phase}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Migration not found: {migration_id}")
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except Exception as exc:
+        logger.error("Start phase error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to start phase")
+
+
+# ---------------------------------------------------------------------------
+# SPA catch-all: serve index.html for any path not matched by API routes
+# or static asset mounts.  This lets the dashboard UI handle client-side routing.
+# Must be registered LAST so it never shadows an API endpoint.
+# ---------------------------------------------------------------------------
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa_catchall(full_path: str):
+    """Serve static files or fall back to index.html for SPA routing."""
+    if STATIC_DIR:
+        static_root = os.path.realpath(STATIC_DIR)
+        # Try to serve the exact file first (e.g. /vite.svg, /manifest.json)
+        # Use realpath to prevent path traversal attacks
+        candidate = os.path.realpath(os.path.join(STATIC_DIR, full_path))
+        if not candidate.startswith(static_root + os.sep) and candidate != static_root:
+            return Response(status_code=404)
+        if os.path.isfile(candidate):
+            return FileResponse(candidate)
+        # Fall back to index.html for client-side routes
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.isfile(index_path):
+            return FileResponse(index_path, media_type="text/html")
+    return Response(status_code=404)
+
+
+def run_server(host: str = None, port: int = None) -> None:
+    """Run the dashboard server."""
+    import uvicorn
+    if host is None:
+        # Default to localhost-only for security
+        host = os.environ.get("LOKI_DASHBOARD_HOST", "127.0.0.1")
+    if port is None:
+        port = _safe_int_env("LOKI_DASHBOARD_PORT", 57374)
+
+    uvicorn_kwargs = {
+        "host": host,
+        "port": port,
+        "log_level": "info",
+    }
+
+    # Enable TLS if both cert and key are provided
+    if LOKI_TLS_CERT and LOKI_TLS_KEY:
+        uvicorn_kwargs["ssl_certfile"] = LOKI_TLS_CERT
+        uvicorn_kwargs["ssl_keyfile"] = LOKI_TLS_KEY
+        logger.info("TLS enabled: cert=%s key=%s", LOKI_TLS_CERT, LOKI_TLS_KEY)
+
+    uvicorn.run(app, **uvicorn_kwargs)
+
+
+if __name__ == "__main__":
+    run_server()

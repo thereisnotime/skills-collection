@@ -1,0 +1,24 @@
+# =============================================================================
+# AWS EKS -- Example Variable Values
+# =============================================================================
+# Copy this file to terraform.tfvars and customize for your environment.
+# =============================================================================
+
+# AWS region for all resources
+region = "us-west-2"
+
+# Name for the EKS cluster
+cluster_name = "autonomi"
+
+# EC2 instance type for worker nodes
+# Recommended: t3.large (2 vCPU, 8 GiB) for dev, m5.xlarge for production
+node_instance_type = "t3.large"
+
+# Number of worker nodes (3 recommended for HA)
+node_count = 3
+
+# Domain name for the Autonomi dashboard (leave empty to skip ingress setup)
+# domain_name = "autonomi.example.com"
+
+# ACM certificate ARN for HTTPS on the ALB (leave empty for HTTP only)
+# acm_certificate_arn = "arn:aws:acm:us-west-2:123456789012:certificate/abc-def-123"

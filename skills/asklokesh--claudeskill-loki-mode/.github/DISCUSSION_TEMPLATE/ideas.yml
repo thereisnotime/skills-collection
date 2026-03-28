@@ -1,0 +1,46 @@
+title: "[Idea] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Propose a feature, workflow improvement, or integration idea. Upvote ideas you want to see built.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What is the idea?
+      description: Describe the feature or improvement you want.
+      placeholder: "It would be useful if Loki Mode could..."
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI Commands
+        - Agent Types / Swarms
+        - Quality Gates
+        - Input Pathways (PRD, OpenSpec, Issues)
+        - Dashboard
+        - Provider Support
+        - Plugin System
+        - Deployment / CI/CD
+        - Enterprise Features
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: Why do you need this? What problem does it solve?
+      placeholder: "When I try to... I have to manually..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried a workaround? What else could solve this?
+      placeholder: "I currently work around this by..."

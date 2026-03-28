@@ -1,0 +1,823 @@
+"""Unified create command - single entry point for skill creation.
+
+Auto-detects source type (web, GitHub, local, PDF, config) and routes
+to appropriate scraper while maintaining full backward compatibility.
+"""
+
+import sys
+import logging
+import argparse
+
+from skill_seekers.cli.source_detector import SourceDetector, SourceInfo
+from skill_seekers.cli.arguments.create import (
+    get_compatible_arguments,
+    get_universal_argument_names,
+)
+from skill_seekers.cli.arguments.common import DEFAULT_CHUNK_TOKENS, DEFAULT_CHUNK_OVERLAP_TOKENS
+
+logger = logging.getLogger(__name__)
+
+
+class CreateCommand:
+    """Unified create command implementation."""
+
+    def __init__(self, args: argparse.Namespace):
+        """Initialize create command.
+
+        Args:
+            args: Parsed command-line arguments
+        """
+        self.args = args
+        self.source_info: SourceInfo | None = None
+
+    def execute(self) -> int:
+        """Execute the create command.
+
+        Returns:
+            Exit code (0 for success, non-zero for error)
+        """
+        # 1. Detect source type
+        try:
+            self.source_info = SourceDetector.detect(self.args.source)
+            logger.info(f"Detected source type: {self.source_info.type}")
+            logger.debug(f"Parsed info: {self.source_info.parsed}")
+        except ValueError as e:
+            logger.error(str(e))
+            return 1
+
+        # 2. Validate source accessibility
+        try:
+            SourceDetector.validate_source(self.source_info)
+        except ValueError as e:
+            logger.error(f"Source validation failed: {e}")
+            return 1
+
+        # 3. Validate and warn about incompatible arguments
+        self._validate_arguments()
+
+        # 4. Route to appropriate scraper
+        logger.info(f"Routing to {self.source_info.type} scraper...")
+        return self._route_to_scraper()
+
+    def _validate_arguments(self) -> None:
+        """Validate arguments and warn about incompatible ones."""
+        # Get compatible arguments for this source type
+        compatible = set(get_compatible_arguments(self.source_info.type))
+        universal = get_universal_argument_names()
+
+        # Check all provided arguments
+        for arg_name, arg_value in vars(self.args).items():
+            # Skip if not explicitly set (has default value)
+            if not self._is_explicitly_set(arg_name, arg_value):
+                continue
+
+            # Skip if compatible
+            if arg_name in compatible:
+                continue
+
+            # Skip internal arguments
+            if arg_name in ["source", "func", "subcommand"]:
+                continue
+
+            # Warn about incompatible argument
+            if arg_name not in universal:
+                logger.warning(
+                    f"--{arg_name.replace('_', '-')} is not applicable for "
+                    f"{self.source_info.type} sources and will be ignored"
+                )
+
+    def _is_explicitly_set(self, arg_name: str, arg_value: any) -> bool:
+        """Check if an argument was explicitly set by the user.
+
+        Args:
+            arg_name: Argument name
+            arg_value: Argument value
+
+        Returns:
+            True if user explicitly set this argument
+        """
+        # Boolean flags - True means it was set
+        if isinstance(arg_value, bool):
+            return arg_value
+
+        # None means not set
+        if arg_value is None:
+            return False
+
+        # Check against common defaults
+        defaults = {
+            "max_issues": 100,
+            "chunk_tokens": DEFAULT_CHUNK_TOKENS,
+            "chunk_overlap_tokens": DEFAULT_CHUNK_OVERLAP_TOKENS,
+            "output": None,
+        }
+
+        if arg_name in defaults:
+            return arg_value != defaults[arg_name]
+
+        # Any other non-None value means it was set
+        return True
+
+    def _route_to_scraper(self) -> int:
+        """Route to appropriate scraper based on source type.
+
+        Returns:
+            Exit code from scraper
+        """
+        if self.source_info.type == "web":
+            return self._route_web()
+        elif self.source_info.type == "github":
+            return self._route_github()
+        elif self.source_info.type == "local":
+            return self._route_local()
+        elif self.source_info.type == "pdf":
+            return self._route_pdf()
+        elif self.source_info.type == "word":
+            return self._route_word()
+        elif self.source_info.type == "epub":
+            return self._route_epub()
+        elif self.source_info.type == "video":
+            return self._route_video()
+        elif self.source_info.type == "config":
+            return self._route_config()
+        elif self.source_info.type == "jupyter":
+            return self._route_generic("jupyter_scraper", "--notebook")
+        elif self.source_info.type == "html":
+            return self._route_generic("html_scraper", "--html-path")
+        elif self.source_info.type == "openapi":
+            return self._route_generic("openapi_scraper", "--spec")
+        elif self.source_info.type == "asciidoc":
+            return self._route_generic("asciidoc_scraper", "--asciidoc-path")
+        elif self.source_info.type == "pptx":
+            return self._route_generic("pptx_scraper", "--pptx")
+        elif self.source_info.type == "rss":
+            return self._route_generic("rss_scraper", "--feed-path")
+        elif self.source_info.type == "manpage":
+            return self._route_generic("man_scraper", "--man-path")
+        elif self.source_info.type == "confluence":
+            return self._route_generic("confluence_scraper", "--export-path")
+        elif self.source_info.type == "notion":
+            return self._route_generic("notion_scraper", "--export-path")
+        elif self.source_info.type == "chat":
+            return self._route_generic("chat_scraper", "--export-path")
+        else:
+            logger.error(f"Unknown source type: {self.source_info.type}")
+            return 1
+
+    def _route_web(self) -> int:
+        """Route to web documentation scraper (doc_scraper.py)."""
+        from skill_seekers.cli import doc_scraper
+
+        # Reconstruct argv for doc_scraper
+        argv = ["doc_scraper"]
+
+        # Add URL
+        url = self.source_info.parsed["url"]
+        argv.append(url)
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Config file (web-specific — loads selectors, categories, etc.)
+        if self.args.config:
+            argv.extend(["--config", self.args.config])
+
+        # RAG arguments (web scraper only)
+        if getattr(self.args, "chunk_for_rag", False):
+            argv.append("--chunk-for-rag")
+        if (
+            getattr(self.args, "chunk_tokens", None)
+            and self.args.chunk_tokens != DEFAULT_CHUNK_TOKENS
+        ):
+            argv.extend(["--chunk-tokens", str(self.args.chunk_tokens)])
+        if (
+            getattr(self.args, "chunk_overlap_tokens", None)
+            and self.args.chunk_overlap_tokens != DEFAULT_CHUNK_OVERLAP_TOKENS
+        ):
+            argv.extend(["--chunk-overlap-tokens", str(self.args.chunk_overlap_tokens)])
+
+        # Advanced web-specific arguments
+        if getattr(self.args, "no_preserve_code_blocks", False):
+            argv.append("--no-preserve-code-blocks")
+        if getattr(self.args, "no_preserve_paragraphs", False):
+            argv.append("--no-preserve-paragraphs")
+        if getattr(self.args, "interactive_enhancement", False):
+            argv.append("--interactive-enhancement")
+
+        # Web-specific arguments
+        if getattr(self.args, "max_pages", None):
+            argv.extend(["--max-pages", str(self.args.max_pages)])
+        if getattr(self.args, "skip_scrape", False):
+            argv.append("--skip-scrape")
+        if getattr(self.args, "resume", False):
+            argv.append("--resume")
+        if getattr(self.args, "fresh", False):
+            argv.append("--fresh")
+        if getattr(self.args, "rate_limit", None):
+            argv.extend(["--rate-limit", str(self.args.rate_limit)])
+        if getattr(self.args, "workers", None):
+            argv.extend(["--workers", str(self.args.workers)])
+        if getattr(self.args, "async_mode", False):
+            argv.append("--async")
+        if getattr(self.args, "no_rate_limit", False):
+            argv.append("--no-rate-limit")
+        if getattr(self.args, "browser", False):
+            argv.append("--browser")
+
+        # Call doc_scraper with modified argv
+        logger.debug(f"Calling doc_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return doc_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_github(self) -> int:
+        """Route to GitHub repository scraper (github_scraper.py)."""
+        from skill_seekers.cli import github_scraper
+
+        # Reconstruct argv for github_scraper
+        argv = ["github_scraper"]
+
+        # Add repo
+        repo = self.source_info.parsed["repo"]
+        argv.extend(["--repo", repo])
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Config file (github-specific)
+        if self.args.config:
+            argv.extend(["--config", self.args.config])
+
+        # Add GitHub-specific arguments
+        if getattr(self.args, "token", None):
+            argv.extend(["--token", self.args.token])
+        if getattr(self.args, "profile", None):
+            argv.extend(["--profile", self.args.profile])
+        if getattr(self.args, "non_interactive", False):
+            argv.append("--non-interactive")
+        if getattr(self.args, "no_issues", False):
+            argv.append("--no-issues")
+        if getattr(self.args, "no_changelog", False):
+            argv.append("--no-changelog")
+        if getattr(self.args, "no_releases", False):
+            argv.append("--no-releases")
+        if getattr(self.args, "max_issues", None) and self.args.max_issues != 100:
+            argv.extend(["--max-issues", str(self.args.max_issues)])
+        if getattr(self.args, "scrape_only", False):
+            argv.append("--scrape-only")
+        if getattr(self.args, "local_repo_path", None):
+            argv.extend(["--local-repo-path", self.args.local_repo_path])
+
+        # Call github_scraper with modified argv
+        logger.debug(f"Calling github_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return github_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_local(self) -> int:
+        """Route to local codebase analyzer (codebase_scraper.py)."""
+        from skill_seekers.cli import codebase_scraper
+
+        # Reconstruct argv for codebase_scraper
+        argv = ["codebase_scraper"]
+
+        # Add directory
+        directory = self.source_info.parsed["directory"]
+        argv.extend(["--directory", directory])
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Preset (local codebase scraper has preset support)
+        if getattr(self.args, "preset", None):
+            argv.extend(["--preset", self.args.preset])
+
+        # Add local-specific arguments
+        if getattr(self.args, "languages", None):
+            argv.extend(["--languages", self.args.languages])
+        if getattr(self.args, "file_patterns", None):
+            argv.extend(["--file-patterns", self.args.file_patterns])
+        if getattr(self.args, "skip_patterns", False):
+            argv.append("--skip-patterns")
+        if getattr(self.args, "skip_test_examples", False):
+            argv.append("--skip-test-examples")
+        if getattr(self.args, "skip_how_to_guides", False):
+            argv.append("--skip-how-to-guides")
+        if getattr(self.args, "skip_config", False):
+            argv.append("--skip-config")
+        if getattr(self.args, "skip_docs", False):
+            argv.append("--skip-docs")
+
+        # Call codebase_scraper with modified argv
+        logger.debug(f"Calling codebase_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return codebase_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_pdf(self) -> int:
+        """Route to PDF scraper (pdf_scraper.py)."""
+        from skill_seekers.cli import pdf_scraper
+
+        # Reconstruct argv for pdf_scraper
+        argv = ["pdf_scraper"]
+
+        # Add PDF file
+        file_path = self.source_info.parsed["file_path"]
+        argv.extend(["--pdf", file_path])
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Add PDF-specific arguments
+        if getattr(self.args, "ocr", False):
+            argv.append("--ocr")
+        if getattr(self.args, "pages", None):
+            argv.extend(["--pages", self.args.pages])
+
+        # Call pdf_scraper with modified argv
+        logger.debug(f"Calling pdf_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return pdf_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_word(self) -> int:
+        """Route to Word document scraper (word_scraper.py)."""
+        from skill_seekers.cli import word_scraper
+
+        # Reconstruct argv for word_scraper
+        argv = ["word_scraper"]
+
+        # Add DOCX file
+        file_path = self.source_info.parsed["file_path"]
+        argv.extend(["--docx", file_path])
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Call word_scraper with modified argv
+        logger.debug(f"Calling word_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return word_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_epub(self) -> int:
+        """Route to EPUB scraper (epub_scraper.py)."""
+        from skill_seekers.cli import epub_scraper
+
+        # Reconstruct argv for epub_scraper
+        argv = ["epub_scraper"]
+
+        # Add EPUB file
+        file_path = self.source_info.parsed["file_path"]
+        argv.extend(["--epub", file_path])
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Call epub_scraper with modified argv
+        logger.debug(f"Calling epub_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return epub_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_video(self) -> int:
+        """Route to video scraper (video_scraper.py)."""
+        from skill_seekers.cli import video_scraper
+
+        # Reconstruct argv for video_scraper
+        argv = ["video_scraper"]
+
+        # Add video source (URL or file)
+        parsed = self.source_info.parsed
+        video_playlist = getattr(self.args, "video_playlist", None)
+        if parsed.get("source_kind") == "file":
+            argv.extend(["--video-file", parsed["file_path"]])
+        elif video_playlist:
+            # Explicit --video-playlist flag takes precedence
+            argv.extend(["--playlist", video_playlist])
+        elif parsed.get("url"):
+            url = parsed["url"]
+            # Detect playlist vs single video
+            if "playlist" in url.lower():
+                argv.extend(["--playlist", url])
+            else:
+                argv.extend(["--url", url])
+
+        # Add universal arguments
+        self._add_common_args(argv)
+
+        # Add video-specific arguments
+        video_langs = getattr(self.args, "video_languages", None) or getattr(
+            self.args, "languages", None
+        )
+        if video_langs:
+            argv.extend(["--languages", video_langs])
+        if getattr(self.args, "visual", False):
+            argv.append("--visual")
+        if getattr(self.args, "vision_ocr", False):
+            argv.append("--vision-ocr")
+        if getattr(self.args, "whisper_model", None) and self.args.whisper_model != "base":
+            argv.extend(["--whisper-model", self.args.whisper_model])
+        vi = getattr(self.args, "visual_interval", None)
+        if vi is not None and vi != 0.7:
+            argv.extend(["--visual-interval", str(vi)])
+        vmg = getattr(self.args, "visual_min_gap", None)
+        if vmg is not None and vmg != 0.5:
+            argv.extend(["--visual-min-gap", str(vmg)])
+        vs = getattr(self.args, "visual_similarity", None)
+        if vs is not None and vs != 3.0:
+            argv.extend(["--visual-similarity", str(vs)])
+        st = getattr(self.args, "start_time", None)
+        if st is not None:
+            argv.extend(["--start-time", str(st)])
+        et = getattr(self.args, "end_time", None)
+        if et is not None:
+            argv.extend(["--end-time", str(et)])
+
+        # Call video_scraper with modified argv
+        logger.debug(f"Calling video_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return video_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_config(self) -> int:
+        """Route to unified scraper for config files (unified_scraper.py)."""
+        from skill_seekers.cli import unified_scraper
+
+        # Reconstruct argv for unified_scraper
+        argv = ["unified_scraper"]
+
+        # Add config file
+        config_path = self.source_info.parsed["config_path"]
+        argv.extend(["--config", config_path])
+
+        # Behavioral flags supported by unified_scraper
+        # Note: name/output/enhance-level come from the JSON config file, not CLI
+        if self.args.dry_run:
+            argv.append("--dry-run")
+        if getattr(self.args, "fresh", False):
+            argv.append("--fresh")
+
+        # Config-specific flags (--merge-mode, --skip-codebase-analysis)
+        if getattr(self.args, "merge_mode", None):
+            argv.extend(["--merge-mode", self.args.merge_mode])
+        if getattr(self.args, "skip_codebase_analysis", False):
+            argv.append("--skip-codebase-analysis")
+
+        # Enhancement workflow flags (unified_scraper now supports these)
+        if getattr(self.args, "enhance_workflow", None):
+            for wf in self.args.enhance_workflow:
+                argv.extend(["--enhance-workflow", wf])
+        if getattr(self.args, "enhance_stage", None):
+            for stage in self.args.enhance_stage:
+                argv.extend(["--enhance-stage", stage])
+        if getattr(self.args, "var", None):
+            for var in self.args.var:
+                argv.extend(["--var", var])
+        if getattr(self.args, "workflow_dry_run", False):
+            argv.append("--workflow-dry-run")
+
+        # Call unified_scraper with modified argv
+        logger.debug(f"Calling unified_scraper with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return unified_scraper.main()
+        finally:
+            sys.argv = original_argv
+
+    def _route_generic(self, module_name: str, file_flag: str) -> int:
+        """Generic routing for new source types.
+
+        Most new source types (jupyter, html, openapi, asciidoc, pptx, rss,
+        manpage, confluence, notion, chat) follow the same pattern:
+        import module, build argv with --flag <file_path>, add common args, call main().
+
+        Args:
+            module_name: Python module name under skill_seekers.cli (e.g., "jupyter_scraper")
+            file_flag: CLI flag for the source file (e.g., "--notebook")
+
+        Returns:
+            Exit code from scraper
+        """
+        import importlib
+
+        module = importlib.import_module(f"skill_seekers.cli.{module_name}")
+
+        argv = [module_name]
+
+        file_path = self.source_info.parsed.get("file_path", "")
+        if file_path:
+            argv.extend([file_flag, file_path])
+
+        self._add_common_args(argv)
+
+        logger.debug(f"Calling {module_name} with argv: {argv}")
+        original_argv = sys.argv
+        try:
+            sys.argv = argv
+            return module.main()
+        finally:
+            sys.argv = original_argv
+
+    def _add_common_args(self, argv: list[str]) -> None:
+        """Add truly universal arguments to argv list.
+
+        These flags are accepted by ALL scrapers (doc, github, codebase, pdf)
+        because each scraper calls ``add_all_standard_arguments(parser)``
+        which registers: name, description, output, enhance-level, api-key,
+        dry-run, verbose, quiet, and workflow args.
+
+        Route-specific flags (preset, config, RAG, preserve, etc.) are
+        forwarded only by the _route_*() method that needs them.
+        """
+        # Identity arguments
+        if self.args.name:
+            argv.extend(["--name", self.args.name])
+        elif hasattr(self, "source_info") and self.source_info:
+            # Use suggested name from source detection
+            argv.extend(["--name", self.source_info.suggested_name])
+
+        if self.args.description:
+            argv.extend(["--description", self.args.description])
+        if self.args.output:
+            argv.extend(["--output", self.args.output])
+
+        # Enhancement arguments (consolidated to --enhance-level only)
+        if self.args.enhance_level > 0:
+            argv.extend(["--enhance-level", str(self.args.enhance_level)])
+        if self.args.api_key:
+            argv.extend(["--api-key", self.args.api_key])
+
+        # Behavior arguments
+        if self.args.dry_run:
+            argv.append("--dry-run")
+        if self.args.verbose:
+            argv.append("--verbose")
+        if self.args.quiet:
+            argv.append("--quiet")
+
+        # Documentation version metadata
+        if getattr(self.args, "doc_version", ""):
+            argv.extend(["--doc-version", self.args.doc_version])
+
+        # Enhancement Workflow arguments
+        if getattr(self.args, "enhance_workflow", None):
+            for wf in self.args.enhance_workflow:
+                argv.extend(["--enhance-workflow", wf])
+        if getattr(self.args, "enhance_stage", None):
+            for stage in self.args.enhance_stage:
+                argv.extend(["--enhance-stage", stage])
+        if getattr(self.args, "var", None):
+            for var in self.args.var:
+                argv.extend(["--var", var])
+        if getattr(self.args, "workflow_dry_run", False):
+            argv.append("--workflow-dry-run")
+
+
+def main() -> int:
+    """Entry point for create command.
+
+    Returns:
+        Exit code (0 for success, non-zero for error)
+    """
+    import textwrap
+    from skill_seekers.cli.arguments.create import add_create_arguments
+
+    # Parse arguments
+    # Custom formatter to prevent line wrapping in epilog
+    class NoWrapFormatter(argparse.RawDescriptionHelpFormatter):
+        def _split_lines(self, text, width):
+            return text.splitlines()
+
+    parser = argparse.ArgumentParser(
+        prog="skill-seekers create",
+        description="Create skill from any source (auto-detects type)",
+        formatter_class=NoWrapFormatter,
+        epilog=textwrap.dedent("""\
+Examples:
+  Web:      skill-seekers create https://docs.react.dev/
+  GitHub:   skill-seekers create facebook/react -p standard
+  Local:    skill-seekers create ./my-project -p comprehensive
+  PDF:      skill-seekers create tutorial.pdf --ocr
+  DOCX:     skill-seekers create document.docx
+  EPUB:     skill-seekers create ebook.epub
+  Video:    skill-seekers create https://youtube.com/watch?v=...
+  Video:    skill-seekers create recording.mp4
+  Config:   skill-seekers create configs/react.json
+
+Source Auto-Detection:
+  URLs/domains -> web scraping
+  owner/repo -> GitHub analysis
+  ./path -> local codebase
+  file.pdf -> PDF extraction
+  file.docx -> Word document extraction
+  file.epub -> EPUB extraction
+  youtube.com/... -> Video transcript extraction
+  file.mp4 -> Video file extraction
+  file.json -> multi-source config
+
+Progressive Help (13 -> 120+ flags):
+  --help-web       Web scraping options
+  --help-github    GitHub repository options
+  --help-local     Local codebase analysis
+  --help-pdf       PDF extraction options
+  --help-epub      EPUB extraction options
+  --help-video     Video extraction options
+  --help-advanced  Rare/advanced options
+  --help-all       All options + compatibility
+
+Presets (NEW: Use -p shortcut):
+  -p quick              Fast (1-2 min, basic features)
+  -p standard           Balanced (5-10 min, recommended)
+  -p comprehensive      Full (20-60 min, all features)
+
+Common Workflows:
+  skill-seekers create <source> -p quick
+  skill-seekers create <source> -p standard --enhance-level 2
+  skill-seekers create <source> --chunk-for-rag
+        """),
+    )
+
+    # Add arguments in default mode (universal only)
+    add_create_arguments(parser, mode="default")
+
+    # Add hidden help mode flags (use underscore prefix to match CreateParser)
+    parser.add_argument("--help-web", action="store_true", help=argparse.SUPPRESS, dest="_help_web")
+    parser.add_argument(
+        "--help-github", action="store_true", help=argparse.SUPPRESS, dest="_help_github"
+    )
+    parser.add_argument(
+        "--help-local", action="store_true", help=argparse.SUPPRESS, dest="_help_local"
+    )
+    parser.add_argument("--help-pdf", action="store_true", help=argparse.SUPPRESS, dest="_help_pdf")
+    parser.add_argument(
+        "--help-word", action="store_true", help=argparse.SUPPRESS, dest="_help_word"
+    )
+    parser.add_argument(
+        "--help-epub", action="store_true", help=argparse.SUPPRESS, dest="_help_epub"
+    )
+    parser.add_argument(
+        "--help-video", action="store_true", help=argparse.SUPPRESS, dest="_help_video"
+    )
+    parser.add_argument(
+        "--help-config", action="store_true", help=argparse.SUPPRESS, dest="_help_config"
+    )
+    parser.add_argument(
+        "--help-advanced", action="store_true", help=argparse.SUPPRESS, dest="_help_advanced"
+    )
+    parser.add_argument("--help-all", action="store_true", help=argparse.SUPPRESS, dest="_help_all")
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Handle source-specific help modes
+    if args._help_web:
+        # Recreate parser with web-specific arguments
+        parser_web = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from web documentation",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_web, mode="web")
+        parser_web.print_help()
+        return 0
+    elif args._help_github:
+        parser_github = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from GitHub repository",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_github, mode="github")
+        parser_github.print_help()
+        return 0
+    elif args._help_local:
+        parser_local = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from local codebase",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_local, mode="local")
+        parser_local.print_help()
+        return 0
+    elif args._help_pdf:
+        parser_pdf = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from PDF file",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_pdf, mode="pdf")
+        parser_pdf.print_help()
+        return 0
+    elif args._help_word:
+        parser_word = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from Word document (.docx)",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_word, mode="word")
+        parser_word.print_help()
+        return 0
+    elif args._help_epub:
+        parser_epub = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from EPUB e-book (.epub)",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_epub, mode="epub")
+        parser_epub.print_help()
+        return 0
+    elif args._help_video:
+        parser_video = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from video (YouTube, Vimeo, local files)",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_video, mode="video")
+        parser_video.print_help()
+        return 0
+    elif args._help_config:
+        parser_config = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill from multi-source config file (unified scraper)",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_config, mode="config")
+        parser_config.print_help()
+        return 0
+    elif args._help_advanced:
+        parser_advanced = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill - advanced options",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_advanced, mode="advanced")
+        parser_advanced.print_help()
+        return 0
+    elif args._help_all:
+        parser_all = argparse.ArgumentParser(
+            prog="skill-seekers create",
+            description="Create skill - all options",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        add_create_arguments(parser_all, mode="all")
+        parser_all.print_help()
+        return 0
+
+    # Setup logging
+    log_level = logging.DEBUG if args.verbose else (logging.WARNING if args.quiet else logging.INFO)
+    logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
+
+    # Validate source provided (config file can serve as source)
+    if not args.source and not args.config:
+        parser.error("source is required (or use --config to specify a config file)")
+
+    # If config is provided but no source, peek at the JSON to route correctly
+    if not args.source and args.config:
+        import json
+
+        try:
+            with open(args.config) as f:
+                config_peek = json.load(f)
+            if "sources" in config_peek:
+                # Unified format → route to unified_scraper via config type detection
+                args.source = args.config
+            elif "base_url" in config_peek:
+                # Simple web config → route to doc_scraper by using the base_url
+                args.source = config_peek["base_url"]
+                # source will be detected as web URL; --config is already set
+            else:
+                parser.error("Config file must contain 'sources' (unified) or 'base_url' (web)")
+        except json.JSONDecodeError as e:
+            parser.error(f"Cannot parse config file as JSON: {e}")
+        except FileNotFoundError:
+            parser.error(f"Config file not found: {args.config}")
+
+    # Execute create command
+    command = CreateCommand(args)
+    return command.execute()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

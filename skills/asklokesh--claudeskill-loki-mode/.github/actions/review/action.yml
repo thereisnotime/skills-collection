@@ -1,0 +1,38 @@
+name: 'Loki Review'
+description: 'Run Loki Mode quality gates on your codebase'
+branding:
+  icon: 'check-circle'
+  color: 'purple'
+
+inputs:
+  directory:
+    description: 'Directory to review (default: workspace root)'
+    required: false
+    default: '.'
+  json:
+    description: 'Output in JSON format'
+    required: false
+    default: 'false'
+  verbose:
+    description: 'Show detailed output per gate'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Loki Mode
+      shell: bash
+      run: npm install -g loki-mode@latest
+
+    - name: Run Quality Review
+      shell: bash
+      run: |
+        ARGS="${{ inputs.directory }}"
+        if [ "${{ inputs.json }}" = "true" ]; then
+          ARGS="$ARGS --json"
+        fi
+        if [ "${{ inputs.verbose }}" = "true" ]; then
+          ARGS="$ARGS --verbose"
+        fi
+        loki review $ARGS

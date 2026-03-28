@@ -1,0 +1,495 @@
+name: Release
+
+on:
+  push:
+    paths:
+      - 'VERSION'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_created: ${{ steps.check_release.outputs.release_exists == 'false' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if release exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create release artifacts
+        if: steps.check_release.outputs.release_exists == 'false'
+        run: |
+          mkdir -p release
+
+          # ============================================
+          # Artifact 1: loki-mode.zip (for Claude.ai website)
+          # SKILL.md at ROOT level for direct upload
+          # ============================================
+          mkdir -p release/skill-root
+          cp SKILL.md release/skill-root/
+          cp -r references release/skill-root/
+
+          cd release/skill-root
+          zip -r ../loki-mode-${{ steps.version.outputs.version }}.zip .
+          cd ../..
+
+          # Also create .skill file (same as zip, different extension)
+          cp release/loki-mode-${{ steps.version.outputs.version }}.zip release/loki-mode-${{ steps.version.outputs.version }}.skill
+
+          # ============================================
+          # Artifact 2: loki-mode-api.zip (for console.anthropic.com)
+          # SKILL.md inside loki-mode/ folder (API requires folder wrapper)
+          # ============================================
+          mkdir -p release/api-package/loki-mode
+          cp SKILL.md release/api-package/loki-mode/
+          cp -r references release/api-package/loki-mode/
+
+          cd release/api-package
+          zip -r ../loki-mode-api-${{ steps.version.outputs.version }}.zip loki-mode
+          cd ../..
+
+          # ============================================
+          # Artifact 3: loki-mode-claude-code.zip
+          # For Claude Code: full package with loki-mode/ folder
+          # Extract to ~/.claude/skills/
+          # ============================================
+          mkdir -p release/loki-mode
+          cp SKILL.md release/loki-mode/
+          cp README.md release/loki-mode/
+          cp LICENSE release/loki-mode/ 2>/dev/null || true
+          cp VERSION release/loki-mode/
+          cp CHANGELOG.md release/loki-mode/
+          cp -r references release/loki-mode/
+          cp -r examples release/loki-mode/
+          cp -r tests release/loki-mode/
+          cp -r scripts release/loki-mode/
+          cp -r autonomy release/loki-mode/
+          cp -r dashboard release/loki-mode/
+          cp -r memory release/loki-mode/
+          cp -r skills release/loki-mode/
+          cp -r providers release/loki-mode/
+          cp -r events release/loki-mode/
+          cp -r templates release/loki-mode/
+          cp -r learning release/loki-mode/
+          cp -r mcp release/loki-mode/
+          cp -r completions release/loki-mode/
+          cp -r integrations release/loki-mode/
+
+          cd release
+          zip -r loki-mode-claude-code-${{ steps.version.outputs.version }}.zip loki-mode
+          tar -czvf loki-mode-claude-code-${{ steps.version.outputs.version }}.tar.gz loki-mode
+          cd ..
+
+      - name: Create Git Tag
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}" || echo "Tag push failed (may be blocked by repo rules), continuing..."
+
+      - name: Extract changelog for this version
+        if: steps.check_release.outputs.release_exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Write awk output directly to file to avoid bash backtick interpretation
+          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > changelog_body.txt
+          if [ ! -s changelog_body.txt ]; then
+            echo "Release v$VERSION" > changelog_body.txt
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_release.outputs.release_exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            release/loki-mode-${{ steps.version.outputs.version }}.zip \
+            release/loki-mode-${{ steps.version.outputs.version }}.skill \
+            release/loki-mode-api-${{ steps.version.outputs.version }}.zip \
+            release/loki-mode-claude-code-${{ steps.version.outputs.version }}.zip \
+            release/loki-mode-claude-code-${{ steps.version.outputs.version }}.tar.gz \
+            --title "Loki Mode v${{ steps.version.outputs.version }}" \
+            --notes-file changelog_body.txt
+
+      - name: Skip message
+        if: steps.check_release.outputs.release_exists == 'true'
+        run: |
+          echo "Release v${{ steps.version.outputs.version }} already exists. Skipping."
+
+  notify-slack:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for changelog)
+        uses: actions/checkout@v4
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          # Write awk output to file to avoid bash backtick interpretation in variables
+          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > /tmp/changelog-body.txt
+          if [ ! -s /tmp/changelog-body.txt ]; then
+            echo "Release v$VERSION" > /tmp/changelog-body.txt
+          fi
+          # Truncate to 2000 chars for Slack block limit
+          head -c 2000 /tmp/changelog-body.txt > /tmp/changelog-truncated.txt
+          mv /tmp/changelog-truncated.txt /tmp/changelog-body.txt
+
+      - name: Post to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not configured, skipping Slack notification"
+            exit 0
+          fi
+
+          VERSION="v${{ needs.release.outputs.version }}"
+          RELEASE_URL="https://github.com/asklokesh/loki-mode/releases/tag/${VERSION}"
+
+          # Build Slack payload entirely in Python to avoid bash backtick issues
+          VERSION_FOR_SLACK="$VERSION" RELEASE_URL_FOR_SLACK="$RELEASE_URL" python3 -c "
+          import json, os
+
+          version = os.environ['VERSION_FOR_SLACK']
+          release_url = os.environ['RELEASE_URL_FOR_SLACK']
+
+          # Read changelog from file (avoids bash backtick interpretation)
+          with open('/tmp/changelog-body.txt') as f:
+              changelog = f.read().strip()
+
+          changelog_safe = changelog
+          if len(changelog_safe) > 1500:
+              changelog_safe = changelog_safe[:1500] + '...'
+
+          payload = {
+              'blocks': [
+                  {
+                      'type': 'header',
+                      'text': {'type': 'plain_text', 'text': f'Loki Mode {version} Released'}
+                  },
+                  {
+                      'type': 'section',
+                      'text': {'type': 'mrkdwn', 'text': f'*<{release_url}|View Release on GitHub>*'}
+                  },
+                  {
+                      'type': 'section',
+                      'text': {'type': 'mrkdwn', 'text': changelog_safe}
+                  },
+                  {'type': 'divider'},
+                  {
+                      'type': 'section',
+                      'text': {
+                          'type': 'mrkdwn',
+                          'text': f'*Ready for website update.* Reply in this thread:\\n>\`@Claude update the autonomi.dev blog for Loki Mode {version}. Read the changelog from https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md for {version}, then update src/data/blog-posts.ts in https://github.com/asklokesh/autonomi-website with a new blog post entry. Also update the FALLBACK version in src/hooks/useLatestVersion.ts. No emojis. Commit and push.\`'
+                      }
+                  }
+              ]
+          }
+
+          with open('/tmp/slack-payload.json', 'w') as f:
+              json.dump(payload, f)
+          "
+
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d @/tmp/slack-payload.json
+
+          echo "Slack notification sent for ${VERSION}"
+
+  publish-npm:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build dashboard frontend
+        working-directory: dashboard-ui
+        run: |
+          npm ci
+          npm run build:all
+
+      - name: Verify dashboard static exists
+        run: |
+          test -f dashboard/static/index.html || { echo "FATAL: dashboard/static/index.html not found after build"; exit 1; }
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-python-sdk:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sync version from VERSION file
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n')
+          echo "Syncing Python SDK version to $VERSION"
+          sed -i "s/^version = .*/version = \"$VERSION\"/" sdk/python/pyproject.toml
+
+      - name: Build Python SDK
+        working-directory: sdk/python
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        working-directory: sdk/python
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          pip install twine
+          twine upload dist/*
+
+  publish-ts-sdk:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Sync version from VERSION file
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n')
+          echo "Syncing TypeScript SDK version to $VERSION"
+          npm --prefix sdk/typescript pkg set version="$VERSION"
+
+      - name: Build TypeScript SDK
+        working-directory: sdk/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Publish to npm
+        working-directory: sdk/typescript
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-docker:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build dashboard frontend
+        working-directory: dashboard-ui
+        run: |
+          npm ci
+          npm run build:all
+
+      - name: Verify dashboard static exists
+        run: |
+          test -f dashboard/static/index.html || { echo "FATAL: dashboard/static/index.html not found after build"; exit 1; }
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            asklokesh/loki-mode:v${{ needs.release.outputs.version }}
+            asklokesh/loki-mode:${{ needs.release.outputs.version }}
+            asklokesh/loki-mode:latest
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: asklokesh/loki-mode
+          readme-filepath: ./DOCKER_README.md
+          short-description: "Multi-agent autonomous development system for Claude Code, Codex CLI, and Gemini CLI"
+
+  publish-vscode:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sync version from VERSION file
+        working-directory: vscode-extension
+        run: |
+          VERSION=$(cat ../VERSION | tr -d '\n')
+          echo "Syncing version to $VERSION"
+          npm pkg set version="$VERSION"
+
+      - name: Build dashboard-ui
+        working-directory: dashboard-ui
+        run: |
+          npm ci
+          npm run build:all
+
+      - name: Install extension dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Compile
+        working-directory: vscode-extension
+        run: npm run compile
+
+      - name: Package extension
+        working-directory: vscode-extension
+        run: |
+          npx vsce package
+          echo "VSIX_FILE=$(ls *.vsix)" >> $GITHUB_ENV
+
+      - name: Publish to VS Code Marketplace
+        working-directory: vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish -p "$VSCE_PAT"
+
+  update-homebrew:
+    needs: [release, publish-npm, publish-docker]
+    if: needs.release.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute SHA256
+        id: sha
+        run: |
+          URL="https://github.com/asklokesh/loki-mode/archive/refs/tags/v${{ needs.release.outputs.version }}.tar.gz"
+          curl -sL "$URL" -o /tmp/release.tar.gz
+          # Verify the downloaded file is a valid tarball (not a 404 error page)
+          if ! file /tmp/release.tar.gz | grep -q 'gzip compressed'; then
+            echo "ERROR: Downloaded file is not a valid gzip tarball"
+            echo "Contents: $(head -c 200 /tmp/release.tar.gz)"
+            exit 1
+          fi
+          SHA=$(sha256sum /tmp/release.tar.gz | cut -d' ' -f1)
+          rm -f /tmp/release.tar.gz
+          echo "sha256=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula via API
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+
+          # Create formula content
+          FORMULA=$(cat << 'FORMULA_EOF'
+          class LokiMode < Formula
+            desc "Multi-agent autonomous startup system for Claude Code, Codex CLI, and Gemini CLI"
+            homepage "https://github.com/asklokesh/loki-mode"
+            url "https://github.com/asklokesh/loki-mode/archive/refs/tags/vVERSION_PLACEHOLDER.tar.gz"
+            sha256 "SHA256_PLACEHOLDER"
+            license "MIT"
+
+            depends_on "node"
+
+            def install
+              libexec.install Dir["*"]
+              bin.install_symlink libexec/"autonomy/loki" => "loki"
+            end
+
+            test do
+              system "#{bin}/loki", "--version"
+            end
+          end
+          FORMULA_EOF
+          )
+
+          # Replace placeholders
+          FORMULA=$(echo "$FORMULA" | sed "s/VERSION_PLACEHOLDER/${VERSION}/g" | sed "s/SHA256_PLACEHOLDER/${SHA256}/g")
+
+          # Get current file SHA
+          CURRENT_SHA=$(gh api repos/asklokesh/homebrew-tap/contents/Formula/loki-mode.rb --jq '.sha')
+
+          # Encode content as base64
+          CONTENT=$(echo "$FORMULA" | base64 | tr -d '\n')
+
+          # Update file via API
+          gh api repos/asklokesh/homebrew-tap/contents/Formula/loki-mode.rb \
+            -X PUT \
+            -f message="Update to v${VERSION}" \
+            -f content="$CONTENT" \
+            -f sha="$CURRENT_SHA"
+
+          echo "Homebrew formula updated to v${VERSION}"
