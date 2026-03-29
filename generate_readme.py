@@ -48,14 +48,6 @@ def run(cmd, cwd=None):
     return result.stdout.strip()
 
 
-def get_latest_commit(repo_path):
-    if not repo_path.exists():
-        return None, None, None
-    sha = run(["git", "log", "-1", "--format=%H"], cwd=repo_path)
-    date = run(["git", "log", "-1", "--format=%aI"], cwd=repo_path)
-    msg = run(["git", "log", "-1", "--format=%s"], cwd=repo_path)
-    return sha[:10] if sha else "n/a", date or "n/a", msg or "n/a"
-
 
 def count_skill_files(repo_path):
     if not repo_path.exists():
@@ -492,7 +484,6 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
 
     for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
-        sha, commit_date, msg = get_latest_commit(repo_path)
         skills_count = count_skill_files(repo_path)
         meta = metadata.get(repo["dir"], {})
         stars = meta.get("stars", "?")
@@ -500,6 +491,17 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
         size_mb = get_dir_size_mb(repo_path)
         total_skills += skills_count
         total_size += size_mb
+
+        # Use commit data from GraphQL (not local git)
+        recent = meta.get("recent_commits", [])
+        if recent:
+            sha = recent[0]["sha"]
+            last_commit_date = recent[0]["date"]
+            msg = recent[0]["message"]
+        else:
+            sha = (meta.get("sha") or "n/a")[:10]
+            last_commit_date = "n/a"
+            msg = "n/a"
 
         prev = previous.get(repo["dir"], {})
         skills_display = format_diff(skills_count, prev.get("skills"))
@@ -520,14 +522,6 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
         repo_stars[repo["dir"]] = stars
         repo_skills[repo["dir"]] = skills_count
         repo_contributors[repo["dir"]] = contributors
-
-        last_commit_date = "n/a"
-        if commit_date and commit_date != "n/a":
-            try:
-                dt = datetime.fromisoformat(commit_date)
-                last_commit_date = dt.strftime("%Y-%m-%d")
-            except ValueError:
-                last_commit_date = commit_date
 
         rows.append(
             f"| [{repo['dir']}]({repo['url']}) | {repo['description']} "
