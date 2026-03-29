@@ -32,11 +32,14 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT }}
         run: python generate_readme.py
 
+      - name: "\U0001F4CA Run repo analysis"
+        run: python analysis.py
+
       - name: "\U0001F4BE Commit & push"
         run: |
           git config user.name "thereisnotime"
           git config user.email "37583483+thereisnotime@users.noreply.github.com"
-          git add README.md stats.json history.json commits.json repo-commits.json charts/ skills/
+          git add README.md stats.json history.json commits.json repo-commits.json analysis.json charts/ skills/
           git diff --cached --quiet && echo "✅ Nothing changed" && exit 0
           git commit -m "sync: update skills repos, readme and charts"
           git push
