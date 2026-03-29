@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["STORY_ACCEPTABLE", "SUGGESTIONS"]
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": ["security", "performance", "architecture", "feasibility", "best_practices", "risk_analysis"]
+          },
+          "issue": { "type": "string" },
+          "suggestion": { "type": "string" },
+          "reason": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 100 },
+          "impact_percent": { "type": "number", "minimum": 0 }
+        },
+        "required": ["area", "issue", "suggestion", "reason", "confidence", "impact_percent"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["verdict", "suggestions"],
+  "additionalProperties": false
+}

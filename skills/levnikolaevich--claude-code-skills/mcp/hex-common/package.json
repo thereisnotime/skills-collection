@@ -1,0 +1,30 @@
+{
+  "name": "@levnikolaevich/hex-common",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./runtime/mcp-bootstrap": "./src/runtime/mcp-bootstrap.mjs",
+    "./runtime/schema": "./src/runtime/schema.mjs",
+    "./runtime/results": "./src/runtime/results.mjs",
+    "./runtime/coerce": "./src/runtime/coerce.mjs",
+    "./runtime/update-check": "./src/runtime/update-check.mjs",
+    "./text-protocol/hash": "./src/text-protocol/hash.mjs",
+    "./output/normalize": "./src/output/normalize.mjs",
+    "./parser/tree-sitter": "./src/parser/tree-sitter.mjs",
+    "./parser/languages": "./src/parser/languages.mjs",
+    "./text/file-text": "./src/text/file-text.mjs"
+  },
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "tree-sitter-wasms": "^0.1.0",
+    "web-tree-sitter": "^0.25.0",
+    "zod": "^3.25.0"
+  }
+}

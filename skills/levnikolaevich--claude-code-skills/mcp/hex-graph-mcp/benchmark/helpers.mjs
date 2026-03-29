@@ -1,0 +1,73 @@
+/**
+ * Shared helpers for hex-graph benchmark modules.
+ */
+
+import { execSync } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
+import { resolve, extname } from "node:path";
+
+export const CODE_EXTS = new Set([".js", ".ts", ".py", ".mjs", ".go", ".rs", ".java", ".c", ".cpp", ".rb", ".php"]);
+export const RUNS = 3;
+
+export function fmt(n) {
+    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+export function pctSavings(without, withG) {
+    if (without === 0) return "N/A";
+    const pct = ((without - withG) / without) * 100;
+    return pct >= 0 ? `${pct.toFixed(0)}%` : `-${Math.abs(pct).toFixed(0)}%`;
+}
+
+export function walkDir(dir, depth = 0) {
+    if (depth > 10) return [];
+    const results = [];
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); }
+    catch { return results; }
+    for (const e of entries) {
+        const full = resolve(dir, e.name);
+        if (e.isDirectory()) {
+            if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "vendor"
+                || e.name === "dist" || e.name === "__pycache__" || e.name === "target") continue;
+            results.push(...walkDir(full, depth + 1));
+        } else if (e.isFile() && CODE_EXTS.has(extname(e.name).toLowerCase())) {
+            try {
+                const st = statSync(full);
+                if (st.size > 0 && st.size < 1_000_000) results.push(full);
+            } catch { /* skip */ }
+        }
+    }
+    return results;
+}
+
+export function median(arr) {
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+export function runN(fn, n = RUNS) {
+    const results = [];
+    for (let i = 0; i < n; i++) results.push(fn());
+    return median(results);
+}
+
+/** Safely extract string result from a graph function (may return error object) */
+export function graphResult(result) {
+    if (result && typeof result === "object" && result.isError) {
+        const text = result.content?.map(c => c.text).join("\n") || "ERROR";
+        return { text, isError: true };
+    }
+    return { text: String(result), isError: false };
+}
+
+/** Run ripgrep safely, return stdout string */
+export function rg(rgArgs) {
+    try {
+        return execSync(`rg ${rgArgs}`, { encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 });
+    } catch (e) {
+        // rg exits 1 when no matches found
+        return e.stdout || "";
+    }
+}

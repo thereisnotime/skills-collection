@@ -1,0 +1,1367 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CompareBar from '../components/CompareBar.astro';
+import searchIndex from '../data/unified-search-index.json';
+
+const pageTitle = 'Explore Plugins & Skills';
+const pageDescription = `Search all ${searchIndex.stats.totalPlugins} plugins and ${searchIndex.stats.totalSkills} skills in one place. Find exactly what you need with instant fuzzy search.`;
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <style>
+    /* Explorer Page Styles */
+
+    /* Prevent horizontal scroll on mobile */
+    :global(section) {
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    .explorer-hero {
+      background: var(--surface);
+      color: var(--text);
+      padding: 3.5rem 3rem 2.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .explorer-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 0%, oklch(62% 0.16 35 / 0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .explorer-title {
+      font-size: clamp(2.5rem, 5vw, 3.5rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      line-height: 1.1;
+    }
+
+    .explorer-subtitle {
+      font-size: 1.2rem;
+      color: var(--text-2);
+      max-width: 700px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .hero-search-box {
+      max-width: 800px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .hero-search-input {
+      width: 100%;
+      padding: 1.25rem 1.75rem;
+      font-size: 1.1rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      background: var(--surface-1);
+      color: var(--text);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+
+    .hero-search-input:focus {
+      outline: none;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    }
+
+    .hero-search-input::placeholder {
+      color: var(--brand-mid-gray);
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 3rem;
+      justify-content: center;
+      margin-top: 2rem;
+      font-size: 0.9rem;
+      color: var(--text-2);
+    }
+
+    .hero-stat span {
+      font-weight: 700;
+      font-size: 1.2rem;
+      display: block;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* Filters Section */
+    .filters-bar {
+      background: var(--surface-1);
+      border-bottom: 2px solid var(--border);
+      padding: 1.5rem 4rem;
+      position: sticky;
+      top: 80px;
+      z-index: 50;
+    }
+
+    .filters-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .type-toggle {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--surface-3);
+      padding: 0.25rem;
+      border-radius: 8px;
+    }
+
+    .type-btn {
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: none;
+      background: transparent;
+      color: var(--brand-mid-gray);
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .type-btn.active {
+      background: var(--surface-1);
+      color: var(--gold);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .filter-select {
+      padding: 0.6rem 1rem;
+      border: 2px solid var(--brand-light-gray);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+
+    .results-info {
+      margin-left: auto;
+      font-size: 0.875rem;
+      color: var(--brand-mid-gray);
+    }
+
+    .keyboard-hint {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--text-3);
+    }
+
+    .keyboard-hint kbd {
+      background: var(--surface-3);
+      border: 1px solid var(--brand-light-gray);
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+    }
+
+    @media (max-width: 768px) {
+      .keyboard-hint {
+        display: none;
+      }
+    }
+
+    /* Results Grid */
+    .results-section {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 4rem;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .result-card {
+      display: flex;
+      flex-direction: column;
+      padding: 1.75rem;
+      background: var(--surface-2);
+      border-radius: 12px;
+      border: none;
+      box-shadow: 0 2px 8px oklch(0% 0 0 / 0.12), 0 1px 3px oklch(0% 0 0 / 0.08);
+      transition: all 0.3s var(--transition-smooth);
+      position: relative;
+    }
+
+    .result-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px oklch(0% 0 0 / 0.2), 0 4px 12px oklch(0% 0 0 / 0.1);
+    }
+
+    .result-card-link {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      flex: 1;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin-top: auto;
+      padding-top: 1rem;
+    }
+
+    .install-copy-btn {
+      padding: 0.4rem 0.75rem;
+      background: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--surface);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    .install-copy-btn:hover {
+      background: var(--brand-orange-dark);
+      border-color: var(--brand-orange-dark);
+    }
+
+    .install-copy-btn.copied {
+      background: #10b981;
+      border-color: #10b981;
+    }
+
+    .compare-toggle-btn {
+      padding: 0.4rem 0.75rem;
+      background: var(--surface-3);
+      border: 1px solid var(--brand-light-gray);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--brand-mid-gray);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      position: static;
+    }
+
+    .compare-toggle-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(234, 170, 0, 0.1);
+    }
+
+    .compare-toggle-btn.active {
+      background: var(--brand-orange);
+      border-color: var(--brand-orange);
+      color: white;
+    }
+
+    .compare-toggle-btn.active:hover {
+      background: var(--brand-orange-dark);
+    }
+
+    /* Inline badges */
+    .card-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      text-transform: uppercase;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
+    .card-badge.featured {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #78350f;
+    }
+
+    .card-badge.new {
+      background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+      color: #064e3b;
+    }
+
+    .card-badge.has-skills {
+      background: rgba(234, 170, 0, 0.15);
+      color: var(--gold);
+    }
+
+    /* Bookmark button */
+    .bookmark-btn {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      width: 28px;
+      height: 28px;
+      background: var(--surface-3);
+      border: 1px solid var(--brand-light-gray);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      opacity: 0;
+      z-index: 2;
+    }
+
+    .result-card:hover .bookmark-btn {
+      opacity: 1;
+    }
+
+    .bookmark-btn:hover {
+      border-color: #ef4444;
+      background: rgba(248, 81, 73, 0.15);
+    }
+
+    .bookmark-btn.active {
+      opacity: 1;
+      background: rgba(248, 81, 73, 0.15);
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* Keyboard navigation focus state */
+    .result-card.keyboard-focused {
+      outline: 3px solid var(--gold);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 6px rgba(234, 170, 0, 0.2);
+    }
+
+    .result-type-badge {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 6px;
+    }
+
+    .result-type-badge.plugin {
+      background: rgba(106, 155, 204, 0.15);
+      color: var(--brand-blue);
+    }
+
+    .result-type-badge.skill {
+      background: rgba(234, 170, 0, 0.15);
+      color: var(--gold);
+    }
+
+    .author-toggle {
+      margin-left: 0;
+    }
+
+    .result-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+      padding-right: 4.5rem;
+    }
+
+    .result-description {
+      font-size: 0.9rem;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .result-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-3);
+    }
+
+    .result-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .parent-plugin {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface-3);
+      border-radius: 6px;
+      color: var(--gold);
+      font-weight: 600;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    .result-category {
+      text-transform: capitalize;
+    }
+
+    .result-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+
+    .tool-tag {
+      padding: 0.25rem 0.6rem;
+      background: rgba(234, 170, 0, 0.1);
+      color: var(--gold);
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 4px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .keyword-tag {
+      padding: 0.25rem 0.6rem;
+      background: rgba(106, 155, 204, 0.1);
+      color: var(--brand-blue);
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 4px;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 4rem 2rem;
+      grid-column: 1 / -1;
+    }
+
+    .no-results h3 {
+      font-size: 1.5rem;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+
+    .no-results p {
+      color: var(--brand-mid-gray);
+      margin-bottom: 1.5rem;
+    }
+
+    .no-results button {
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      padding: 0.75rem 1.5rem;
+      background: var(--gold);
+      color: var(--surface);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .no-results button:hover {
+      background: var(--brand-orange-dark);
+      transform: translateY(-2px);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 1024px) {
+      .results-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .explorer-hero {
+        padding: 2.5rem 2rem 2rem;
+      }
+
+      .explorer-hero,
+      .filters-bar,
+      .results-section {
+        padding-left: 2rem;
+        padding-right: 2rem;
+      }
+
+      .filters-bar {
+        top: 70px;
+      }
+
+      .filters-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+
+      .type-toggle {
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .type-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+      }
+
+      .filter-select {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+      }
+
+      .results-info {
+        margin-left: 0;
+        text-align: center;
+      }
+
+      .results-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .result-card {
+        padding: 1.25rem;
+      }
+
+      .result-name {
+        padding-right: 3.5rem;
+      }
+
+      .result-meta-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+      }
+
+      .hero-stats {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .card-badge,
+      .result-type-badge,
+      .tool-tag,
+      .keyword-tag {
+        font-size: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .explorer-hero {
+        padding: 2rem 1rem 1.5rem;
+      }
+
+      .filters-bar,
+      .results-section {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+
+      .explorer-title {
+        font-size: 1.5rem;
+      }
+
+      .explorer-subtitle {
+        font-size: 0.85rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .hero-search-input {
+        font-size: 0.95rem;
+        padding: 0.75rem 1rem;
+      }
+
+      .result-card {
+        padding: 1rem;
+      }
+
+      .result-name {
+        font-size: 1rem;
+        padding-right: 3rem;
+      }
+
+      .result-description {
+        font-size: 0.85rem;
+      }
+
+      .result-type-badge {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.65rem;
+      }
+
+      .card-actions {
+        flex-wrap: wrap;
+      }
+
+      .hero-stats {
+        gap: 0.75rem;
+      }
+
+      .hero-stat span {
+        font-size: 1rem;
+      }
+
+      .no-results {
+        padding: 2rem 1rem;
+      }
+    }
+  </style>
+
+  <!-- Hero Section with Search -->
+  <section class="explorer-hero">
+    <h1 class="explorer-title">Explore Everything</h1>
+    <p class="explorer-subtitle">
+      Search {searchIndex.stats.totalPlugins} plugins and {searchIndex.stats.totalSkills} skills in one unified catalog
+    </p>
+
+    <div class="hero-search-box">
+      <input
+        type="text"
+        id="main-search"
+        class="hero-search-input"
+        placeholder="Try: 'kubernetes deploy' or 'validate json' or 'terraform'"
+        autocomplete="off"
+      />
+    </div>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span>{searchIndex.stats.totalPlugins}</span>
+        Plugins
+      </div>
+      <div class="hero-stat">
+        <span>{searchIndex.stats.totalSkills}</span>
+        Skills
+      </div>
+      <div class="hero-stat">
+        <span>{searchIndex.stats.categories.length}</span>
+        Categories
+      </div>
+    </div>
+  </section>
+
+  <!-- Filters Bar -->
+  <div class="filters-bar">
+    <div class="filters-container">
+      <div class="type-toggle">
+        <button class="type-btn active" data-type="all">All</button>
+        <button class="type-btn" data-type="plugin">Plugins</button>
+        <button class="type-btn" data-type="skill">Skills</button>
+        <button class="type-btn" data-type="favorites" id="favorites-btn">♡ Favorites</button>
+      </div>
+
+      <div class="type-toggle author-toggle">
+        <button class="type-btn active" data-author="all">All Authors</button>
+        <button class="type-btn" data-author="official">Official</button>
+        <button class="type-btn" data-author="community">Community</button>
+      </div>
+
+      <select id="category-filter" class="filter-select">
+        <option value="">All Categories</option>
+        {searchIndex.stats.categories.map(category => (
+          <option value={category}>
+            {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </option>
+        ))}
+      </select>
+
+      <select id="keyword-filter" class="filter-select">
+        <option value="">All Keywords</option>
+        {(searchIndex.stats.allKeywords || []).map(kw => (
+          <option value={kw}>{kw.replace(/-/g, ' ')}</option>
+        ))}
+      </select>
+
+      <select id="tool-filter" class="filter-select">
+        <option value="">All Tools</option>
+        {searchIndex.stats.skillTools.map(tool => (
+          <option value={tool}>{tool}</option>
+        ))}
+      </select>
+
+      <select id="sort-filter" class="filter-select">
+        <option value="relevance">Sort: Relevance</option>
+        <option value="a-z">Sort: A → Z</option>
+        <option value="z-a">Sort: Z → A</option>
+        <option value="category">Sort: Category</option>
+      </select>
+
+      <span id="results-info" class="results-info">
+        Showing {searchIndex.stats.totalItems} items
+      </span>
+
+      <span class="keyboard-hint" title="Keyboard shortcuts: / search, j/k navigate, Enter open, c compare, f favorite">
+        <kbd>/</kbd> <kbd>j</kbd><kbd>k</kbd> <kbd>↵</kbd>
+      </span>
+    </div>
+  </div>
+
+  <!-- Results Grid -->
+  <div class="results-section">
+    <div id="results-grid" class="results-grid">
+      {searchIndex.items.map(item => (
+        <div
+          class="result-card"
+          data-type={item.type}
+          data-category={item.category}
+          data-tools={item.type === 'skill' ? JSON.stringify(item.allowedTools) : '[]'}
+          data-keywords={JSON.stringify(item.keywords || [])}
+          data-item-id={item.id || item.name}
+          data-item-name={item.displayName || item.name}
+          data-featured={item.isFeatured || false}
+          data-new={item.isNew || false}
+          data-skill-count={item.skillCount || 0}
+          data-author-type={item.authorType || 'official'}
+        >
+          <button
+            class="bookmark-btn"
+            data-bookmark-id={item.id || item.name}
+            title="Add to favorites"
+          >♡</button>
+
+          <a
+            href={item.type === 'plugin' ? `/plugins/${item.name}/` : (item.parentPlugin ? `/cowork` : `/skills/${item.slug}/`)}
+            class="result-card-link"
+          >
+            <span class={`result-type-badge ${item.type}`}>
+              {item.type}
+            </span>
+
+            <h3 class="result-name">{item.type === 'plugin' && item.displayName ? item.displayName : item.name}</h3>
+            <p class="result-description">{item.description}</p>
+
+            <div class="result-meta">
+              {item.type === 'skill' && item.parentPlugin && (
+                <div class="parent-plugin">
+                  <span>📦</span>
+                  <span>Provided by {item.parentPlugin.name}</span>
+                </div>
+              )}
+              <div class="result-meta-row">
+                <span class="result-category">{item.category.replace(/-/g, ' ')}</span>
+                {item.skillCount > 0 && <span class="card-badge has-skills">{item.skillCount} skills</span>}
+              </div>
+            </div>
+
+            {item.type === 'plugin' && item.keywords && item.keywords.length > 0 && (
+              <div class="result-tools">
+                {item.keywords.slice(0, 3).map(kw => (
+                  <span class="keyword-tag">{kw.replace(/-/g, ' ')}</span>
+                ))}
+                {item.keywords.length > 3 && (
+                  <span class="keyword-tag">+{item.keywords.length - 3} more</span>
+                )}
+              </div>
+            )}
+
+            {item.type === 'skill' && item.allowedTools && item.allowedTools.length > 0 && (
+              <div class="result-tools">
+                {item.allowedTools.slice(0, 3).map(tool => (
+                  <span class="tool-tag">{tool}</span>
+                ))}
+                {item.allowedTools.length > 3 && (
+                  <span class="tool-tag">+{item.allowedTools.length - 3} more</span>
+                )}
+              </div>
+            )}
+          </a>
+
+          <div class="card-actions">
+            <button
+              class="install-copy-btn"
+              data-install-cmd={`/plugin install ${item.type === 'plugin' ? item.name : (item.parentPlugin?.name || item.name)}@claude-code-plugins-plus`}
+              title="Copy install command"
+            >
+              Install
+            </button>
+            <button
+              class="compare-toggle-btn"
+              data-compare-id={item.id || item.name}
+              data-compare-name={item.displayName || item.name}
+              data-compare-type={item.type}
+              title="Add to comparison"
+            >
+              + Compare
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- Search & Filter Logic -->
+  <script type="module">
+    import Fuse from 'https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/+esm';
+
+    const allItems = window.__SEARCH_INDEX__;
+    const grid = document.getElementById('results-grid');
+    const resultsInfo = document.getElementById('results-info');
+
+    const fuse = new Fuse(allItems, {
+      keys: ['name', 'description', 'category', 'keywords', 'searchText'],
+      threshold: 0.3,
+      includeScore: true
+    });
+
+    let activeFilters = {
+      type: 'all',
+      authorType: 'all',
+      category: null,
+      keyword: null,
+      tool: null,
+      search: '',
+      sort: 'relevance'
+    };
+
+    function applyFilters() {
+      let filtered = allItems;
+
+      // Apply search
+      if (activeFilters.search) {
+        const results = fuse.search(activeFilters.search);
+        filtered = results.map(r => r.item);
+      }
+
+      // Apply type filter
+      if (activeFilters.type === 'favorites') {
+        // Filter to only bookmarked items
+        const favorites = window.BookmarkManager ? window.BookmarkManager.getAll() : [];
+        filtered = filtered.filter(item => favorites.includes(item.id || item.name));
+      } else if (activeFilters.type !== 'all') {
+        filtered = filtered.filter(item => item.type === activeFilters.type);
+      }
+
+      // Apply author type filter
+      if (activeFilters.authorType !== 'all') {
+        filtered = filtered.filter(item => (item.authorType || 'official') === activeFilters.authorType);
+      }
+
+      // Apply category filter
+      if (activeFilters.category) {
+        filtered = filtered.filter(item => item.category === activeFilters.category);
+      }
+
+      // Apply keyword filter (plugins only)
+      if (activeFilters.keyword) {
+        filtered = filtered.filter(item =>
+          item.keywords && item.keywords.includes(activeFilters.keyword)
+        );
+      }
+
+      // Apply tool filter (skills only)
+      if (activeFilters.tool) {
+        filtered = filtered.filter(item =>
+          item.type === 'skill' && item.allowedTools && item.allowedTools.includes(activeFilters.tool)
+        );
+      }
+
+      // Apply sorting
+      if (activeFilters.sort !== 'relevance' || !activeFilters.search) {
+        filtered = [...filtered].sort((a, b) => {
+          const nameA = (a.displayName || a.name).toLowerCase();
+          const nameB = (b.displayName || b.name).toLowerCase();
+
+          switch (activeFilters.sort) {
+            case 'a-z':
+              return nameA.localeCompare(nameB);
+            case 'z-a':
+              return nameB.localeCompare(nameA);
+            case 'category':
+              const catCompare = a.category.localeCompare(b.category);
+              return catCompare !== 0 ? catCompare : nameA.localeCompare(nameB);
+            default:
+              return 0; // relevance - keep Fuse.js order
+          }
+        });
+      }
+
+      renderResults(filtered);
+      updateResultsInfo(filtered.length);
+      updateURL();
+    }
+
+    function updateURL() {
+      const params = new URLSearchParams();
+      if (activeFilters.search) params.set('q', activeFilters.search);
+      if (activeFilters.type !== 'all') params.set('type', activeFilters.type);
+      if (activeFilters.category) params.set('category', activeFilters.category);
+      if (activeFilters.keyword) params.set('keyword', activeFilters.keyword);
+      if (activeFilters.sort !== 'relevance') params.set('sort', activeFilters.sort);
+      const newURL = params.toString()
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname;
+      window.history.replaceState({}, '', newURL);
+    }
+
+    function renderResults(items) {
+      if (items.length === 0) {
+        grid.innerHTML = `
+          <div class="no-results">
+            <h3>No results found</h3>
+            <p>Try adjusting your search or filters</p>
+            <button onclick="window.clearAllFilters()">Clear All Filters</button>
+          </div>
+        `;
+        return;
+      }
+
+      // Instead of replacing innerHTML, show/hide existing cards
+      const allCards = document.querySelectorAll('.result-card[data-item-id]');
+      const visibleIds = new Set(items.map(item => item.id || item.name));
+
+      allCards.forEach(card => {
+        const itemId = card.dataset.itemId;
+        if (visibleIds.has(itemId)) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // Reorder visible cards to match search result order
+      const visibleCards = Array.from(allCards).filter(card => visibleIds.has(card.dataset.itemId));
+      const cardOrder = new Map(items.map((item, index) => [item.id || item.name, index]));
+      visibleCards.sort((a, b) => {
+        const orderA = cardOrder.get(a.dataset.itemId) ?? 999999;
+        const orderB = cardOrder.get(b.dataset.itemId) ?? 999999;
+        return orderA - orderB;
+      });
+
+      // Move cards to correct order
+      visibleCards.forEach(card => {
+        grid.appendChild(card);
+      });
+    }
+
+    function updateResultsInfo(count) {
+      resultsInfo.textContent = `Showing ${count} of ${allItems.length} items`;
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      // Read URL params on page load (from homepage redirect)
+      const urlParams = new URLSearchParams(window.location.search);
+      const typeParam = urlParams.get('type');
+      const searchParam = urlParams.get('q');
+
+      if (typeParam && ['all', 'plugin', 'skill'].includes(typeParam)) {
+        activeFilters.type = typeParam;
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        const targetBtn = document.querySelector(`.type-btn[data-type="${typeParam}"]`);
+        if (targetBtn) targetBtn.classList.add('active');
+      }
+
+      if (searchParam) {
+        activeFilters.search = searchParam;
+        document.getElementById('main-search').value = searchParam;
+      }
+
+      // Apply filters if any params were set
+      if (typeParam || searchParam) {
+        applyFilters();
+      }
+
+      // Search input
+      let searchDebounceTimer = null;
+      document.getElementById('main-search').addEventListener('input', (e) => {
+        activeFilters.search = e.target.value;
+        applyFilters();
+
+        // Debounced search tracking (1s)
+        clearTimeout(searchDebounceTimer);
+        if (e.target.value.length >= 2) {
+          searchDebounceTimer = setTimeout(() => {
+            if (window.trackEvent) {
+              window.trackEvent('search', { query: e.target.value, source: 'explore' });
+            }
+          }, 1000);
+        }
+      });
+
+      // Type toggle buttons (only in the first toggle group, not author toggle)
+      document.querySelectorAll('.type-toggle:not(.author-toggle) .type-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.type-toggle:not(.author-toggle) .type-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeFilters.type = e.target.dataset.type;
+          applyFilters();
+          if (window.trackEvent) {
+            window.trackEvent('filter_applied', { filter_type: 'type', value: activeFilters.type });
+          }
+        });
+      });
+
+      // Author type toggle buttons
+      document.querySelectorAll('.author-toggle .type-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.author-toggle .type-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          activeFilters.authorType = e.target.dataset.author;
+          applyFilters();
+          if (window.trackEvent) {
+            window.trackEvent('filter_applied', { filter_type: 'author', value: activeFilters.authorType });
+          }
+        });
+      });
+
+      // Category filter
+      document.getElementById('category-filter').addEventListener('change', (e) => {
+        activeFilters.category = e.target.value || null;
+        applyFilters();
+        if (window.trackEvent && activeFilters.category) {
+          window.trackEvent('filter_applied', { filter_type: 'category', value: activeFilters.category });
+        }
+      });
+
+      // Keyword filter
+      document.getElementById('keyword-filter').addEventListener('change', (e) => {
+        activeFilters.keyword = e.target.value || null;
+        applyFilters();
+        if (window.trackEvent && activeFilters.keyword) {
+          window.trackEvent('filter_applied', { filter_type: 'keyword', value: activeFilters.keyword });
+        }
+      });
+
+      // Tool filter
+      document.getElementById('tool-filter').addEventListener('change', (e) => {
+        activeFilters.tool = e.target.value || null;
+        applyFilters();
+        if (window.trackEvent && activeFilters.tool) {
+          window.trackEvent('filter_applied', { filter_type: 'tool', value: activeFilters.tool });
+        }
+      });
+
+      // Sort filter
+      document.getElementById('sort-filter').addEventListener('change', (e) => {
+        activeFilters.sort = e.target.value;
+        applyFilters();
+        if (window.trackEvent) {
+          window.trackEvent('filter_applied', { filter_type: 'sort', value: activeFilters.sort });
+        }
+      });
+
+      // Read additional URL params (category, sort)
+      const categoryParam = urlParams.get('category');
+      const sortParam = urlParams.get('sort');
+
+      if (categoryParam) {
+        activeFilters.category = categoryParam;
+        document.getElementById('category-filter').value = categoryParam;
+      }
+
+      const keywordParam = urlParams.get('keyword');
+      if (keywordParam) {
+        activeFilters.keyword = keywordParam;
+        document.getElementById('keyword-filter').value = keywordParam;
+      }
+
+      if (sortParam && ['relevance', 'a-z', 'z-a', 'category'].includes(sortParam)) {
+        activeFilters.sort = sortParam;
+        document.getElementById('sort-filter').value = sortParam;
+      }
+
+      // Keyboard shortcuts
+      let focusedCardIndex = -1;
+
+      function updateCardFocus(newIndex) {
+        const cards = document.querySelectorAll('.result-card:not([style*="display: none"])');
+        if (cards.length === 0) return;
+
+        // Remove focus from previous card
+        if (focusedCardIndex >= 0 && focusedCardIndex < cards.length) {
+          cards[focusedCardIndex].classList.remove('keyboard-focused');
+        }
+
+        // Clamp to valid range
+        focusedCardIndex = Math.max(0, Math.min(newIndex, cards.length - 1));
+
+        // Add focus to new card
+        const focusedCard = cards[focusedCardIndex];
+        focusedCard.classList.add('keyboard-focused');
+        focusedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      document.addEventListener('keydown', (e) => {
+        const inInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
+        // Focus search on / (unless already in input)
+        if (e.key === '/' && !inInput) {
+          e.preventDefault();
+          document.getElementById('main-search').focus();
+        }
+
+        // Clear search on Escape
+        if (e.key === 'Escape') {
+          if (document.activeElement.id === 'main-search') {
+            document.getElementById('main-search').blur();
+            if (activeFilters.search) {
+              activeFilters.search = '';
+              document.getElementById('main-search').value = '';
+              applyFilters();
+            }
+          }
+          // Clear card focus on Escape
+          const focusedCard = document.querySelector('.result-card.keyboard-focused');
+          if (focusedCard) {
+            focusedCard.classList.remove('keyboard-focused');
+            focusedCardIndex = -1;
+          }
+        }
+
+        // j/k navigation (only when not in input)
+        if (!inInput) {
+          if (e.key === 'j' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            updateCardFocus(focusedCardIndex + 1);
+          }
+          if (e.key === 'k' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            updateCardFocus(focusedCardIndex - 1);
+          }
+          // Enter to open focused card
+          if (e.key === 'Enter') {
+            const focusedCard = document.querySelector('.result-card.keyboard-focused');
+            if (focusedCard) {
+              const link = focusedCard.querySelector('.result-card-link');
+              if (link) {
+                e.preventDefault();
+                window.location.href = link.href;
+              }
+            }
+          }
+          // c to add to compare
+          if (e.key === 'c') {
+            const focusedCard = document.querySelector('.result-card.keyboard-focused');
+            if (focusedCard) {
+              const compareBtn = focusedCard.querySelector('.compare-toggle-btn');
+              if (compareBtn) compareBtn.click();
+            }
+          }
+          // f to toggle favorite
+          if (e.key === 'f') {
+            const focusedCard = document.querySelector('.result-card.keyboard-focused');
+            if (focusedCard) {
+              const bookmarkBtn = focusedCard.querySelector('.bookmark-btn');
+              if (bookmarkBtn) bookmarkBtn.click();
+            }
+          }
+        }
+      });
+
+      // Clear all filters function
+      window.clearAllFilters = () => {
+        activeFilters = { type: 'all', category: null, keyword: null, tool: null, search: '', sort: 'relevance' };
+        document.getElementById('main-search').value = '';
+        document.getElementById('category-filter').value = '';
+        document.getElementById('keyword-filter').value = '';
+        document.getElementById('tool-filter').value = '';
+        document.getElementById('sort-filter').value = 'relevance';
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.type-btn[data-type="all"]').classList.add('active');
+        applyFilters();
+      };
+
+      // Listen for reapply-filters event (from BookmarkManager)
+      window.addEventListener('reapply-filters', () => {
+        applyFilters();
+      });
+    });
+  </script>
+
+  <script define:vars={{ items: searchIndex.items }}>
+    window.__SEARCH_INDEX__ = items;
+  </script>
+
+  <!-- Compare button event listeners -->
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize compare button states
+      if (window.CompareManager) {
+        window.CompareManager.updateCardStates();
+      }
+
+      // Add click handlers to install buttons
+      document.querySelectorAll('.install-copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const cmd = btn.dataset.installCmd;
+          navigator.clipboard.writeText(cmd).then(() => {
+            const original = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+            if (window.trackEvent) window.trackEvent('install_copied', { plugin_name: cmd, source: 'explore_card' });
+          });
+        });
+      });
+
+      // Add click handlers to compare buttons
+      document.querySelectorAll('.compare-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const id = btn.dataset.compareId;
+          const name = btn.dataset.compareName;
+          const type = btn.dataset.compareType;
+
+          if (window.CompareManager) {
+            if (window.CompareManager.has(id)) {
+              window.CompareManager.remove(id);
+              if (window.trackEvent) window.trackEvent('compare_action', { action: 'remove', plugin_name: name });
+            } else {
+              window.CompareManager.add({ id, name, type });
+              if (window.trackEvent) window.trackEvent('compare_action', { action: 'add', plugin_name: name });
+            }
+          }
+        });
+      });
+    });
+  </script>
+
+  <!-- Bookmark/Favorites functionality -->
+  <script is:inline>
+    window.BookmarkManager = {
+      favorites: new Set(),
+
+      init() {
+        const saved = localStorage.getItem('plugin-favorites');
+        if (saved) {
+          try {
+            this.favorites = new Set(JSON.parse(saved));
+          } catch (e) {
+            this.favorites = new Set();
+          }
+        }
+        this.updateUI();
+        this.updateFavoritesCount();
+      },
+
+      toggle(id) {
+        var action;
+        if (this.favorites.has(id)) {
+          this.favorites.delete(id);
+          this.showToast('Removed from favorites');
+          action = 'remove';
+        } else {
+          this.favorites.add(id);
+          this.showToast('Added to favorites');
+          action = 'add';
+        }
+        if (window.trackEvent) {
+          window.trackEvent('favorite_toggled', { plugin_name: id, action: action });
+        }
+        this.save();
+        this.updateUI();
+        this.updateFavoritesCount();
+
+        // Re-apply filters if favorites filter is active
+        const favBtn = document.querySelector('.type-btn[data-type="favorites"]');
+        if (favBtn && favBtn.classList.contains('active')) {
+          window.dispatchEvent(new CustomEvent('reapply-filters'));
+        }
+      },
+
+      has(id) {
+        return this.favorites.has(id);
+      },
+
+      getAll() {
+        return Array.from(this.favorites);
+      },
+
+      save() {
+        localStorage.setItem('plugin-favorites', JSON.stringify(Array.from(this.favorites)));
+      },
+
+      updateUI() {
+        document.querySelectorAll('.bookmark-btn').forEach(btn => {
+          const id = btn.dataset.bookmarkId;
+          if (this.has(id)) {
+            btn.classList.add('active');
+            btn.textContent = '♥';
+            btn.title = 'Remove from favorites';
+          } else {
+            btn.classList.remove('active');
+            btn.textContent = '♡';
+            btn.title = 'Add to favorites';
+          }
+        });
+      },
+
+      updateFavoritesCount() {
+        const favBtn = document.getElementById('favorites-btn');
+        if (favBtn) {
+          const count = this.favorites.size;
+          favBtn.textContent = count > 0 ? `♥ Favorites (${count})` : '♡ Favorites';
+        }
+      },
+
+      showToast(message) {
+        const existing = document.querySelector('.bookmark-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.className = 'bookmark-toast';
+        toast.textContent = message;
+        toast.style.cssText = `
+          position: fixed;
+          bottom: 2rem;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #1a1a1a;
+          color: white;
+          padding: 0.75rem 1.25rem;
+          border-radius: 8px;
+          font-size: 0.9rem;
+          z-index: 1001;
+          animation: fadeInOut 2s ease-in-out forwards;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      BookmarkManager.init();
+
+      // Add click handlers to bookmark buttons
+      document.querySelectorAll('.bookmark-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          BookmarkManager.toggle(btn.dataset.bookmarkId);
+        });
+      });
+    });
+  </script>
+
+  <CompareBar />
+</BaseLayout>

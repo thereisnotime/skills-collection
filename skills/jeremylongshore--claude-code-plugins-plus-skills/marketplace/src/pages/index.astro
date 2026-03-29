@@ -1,0 +1,1788 @@
+---
+// Claude Code Plugins Marketplace - Homepage
+import BaseLayout from '../layouts/BaseLayout.astro';
+import StackBuilder from '../components/StackBuilder.astro';
+import CollectionsGrid from '../components/CollectionsGrid.astro';
+import CoworkGrid from '../components/CoworkGrid.astro';
+import KillerSkills from '../components/KillerSkills.astro';
+import JeremysStash from '../components/JeremysStash.astro';
+import searchIndex from '../data/unified-search-index.json';
+
+// Dynamic stats from search index (updated at build time)
+const totalSkills = searchIndex.stats.totalSkills;
+const totalPlugins = searchIndex.stats.totalPlugins;
+const totalCategories = searchIndex.stats.categories.length;
+const totalAgents = searchIndex.stats.totalAgents || 0;
+const totalHooks = searchIndex.stats.totalHooks || 0;
+---
+
+<BaseLayout
+    title="Claude Code Skills Hub | Plugins & Agent Skills"
+    description={`Search ${totalSkills} skills with fuzzy search and filters. Learn with interactive tutorials. All open source and production-ready.`}
+>
+    <script type="application/ld+json" slot="head" set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Claude Code Skills Hub",
+        "url": "https://tonsofskills.com",
+        "description": "The largest open-source marketplace for Claude Code plugins and agent skills",
+        "sameAs": ["https://github.com/jeremylongshore/claude-code-plugins-plus-skills"]
+    })} />
+    <style>
+        /* ========================================
+           HOMEPAGE-SPECIFIC STYLES
+           ======================================== */
+
+        /* Prevent horizontal scroll on mobile */
+        html, body {
+            overflow-x: hidden;
+            max-width: 100%;
+            width: 100%;
+        }
+
+        /* Ensure all sections respect viewport width */
+        section {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        /* ========================================
+           HERO — minimal, centered, dark
+           ======================================== */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            text-align: left;
+            padding: 5rem 3rem 2rem;
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero-inner {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0;
+        }
+
+        /* H1 — Instrument Sans, large, split color */
+        .hero h1 {
+            font-family: 'Instrument Sans', system-ui, sans-serif;
+            font-size: var(--text-4xl);
+            font-weight: 700;
+            line-height: 0.95;
+            letter-spacing: -0.04em;
+            margin: 0 0 1.5rem;
+            color: var(--primary);
+            animation: fadeInUp 0.7s var(--ease-out) forwards;
+            opacity: 0;
+        }
+
+        .hero-text-muted { color: var(--text); }
+        .hero-text-primary { color: var(--primary); }
+
+        .hero-byline {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-3);
+            margin: -1rem 0 1.5rem;
+            letter-spacing: 0.02em;
+            animation: fadeInUp 0.7s var(--ease-out) 0.05s forwards;
+            opacity: 0;
+        }
+        .hero-byline a {
+            color: var(--text-3);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--border);
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .hero-byline a:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* Spotlight eyebrow pill */
+        .spotlight-badge {
+            display: inline-block;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--primary);
+            background: var(--primary-tint);
+            border: 1px solid var(--primary-tint-border);
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+        }
+
+        /* Subtitle */
+        .hero-subtitle {
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            font-size: var(--text-lg);
+            color: var(--text-2);
+            max-width: 500px;
+            margin: 0 0 2.5rem;
+            line-height: 1.6;
+            animation: fadeInUp 0.7s var(--ease-out) 0.1s forwards;
+            opacity: 0;
+        }
+
+        .hero-cowork-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1.25rem;
+            border: 1px solid var(--primary-border);
+            border-radius: 8px;
+            color: var(--primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            margin-bottom: 1.25rem;
+            transition: background var(--duration-fast), border-color var(--duration-fast);
+            animation: fadeInUp 0.7s var(--ease-out) 0.15s forwards;
+            opacity: 0;
+        }
+        .hero-cowork-btn:hover {
+            background: var(--primary-tint);
+            border-color: var(--primary);
+        }
+
+        /* Search */
+        .hero-search {
+            width: 100%;
+            max-width: 640px;
+            margin: 0 0 2.5rem;
+            position: relative;
+            animation: fadeInUp 0.7s var(--ease-out) 0.2s forwards;
+            opacity: 0;
+        }
+
+        .search-container {
+            position: relative;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            transition: border-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .search-container:hover {
+            border-color: var(--gold);
+        }
+
+        .search-container:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px oklch(62% 0.16 35 / 0.12);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-3);
+            pointer-events: none;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1.15rem 3rem 1.15rem 3.5rem;
+            border: none;
+            background: transparent;
+            font-size: 1rem;
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            color: var(--text);
+            outline: none;
+        }
+
+        /* Adjust padding on larger screens where toggle buttons fit */
+        @media (min-width: 640px) {
+            .search-input {
+                padding-right: 15rem;
+            }
+        }
+
+        .search-input::placeholder {
+            color: var(--text-3);
+        }
+
+        .search-toggle {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: none;
+            gap: 0.5rem;
+            background: var(--surface-3);
+            padding: 0.25rem;
+            border-radius: 8px;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        @media (min-width: 640px) {
+            .search-toggle {
+                display: flex;
+            }
+        }
+
+        .toggle-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--text-3);
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            color: var(--text);
+        }
+
+        .toggle-btn.active {
+            background: var(--surface-1);
+            color: var(--gold);
+        }
+
+        .search-results {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            left: 0;
+            right: 0;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .search-results.hidden {
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s ease;
+            text-decoration: none;
+            display: block;
+            color: inherit;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover {
+            background: var(--surface-3);
+        }
+
+        .result-type-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            font-family: 'DM Mono', monospace;
+            letter-spacing: 0.05em;
+        }
+
+        .result-type-badge.plugin {
+            background: rgba(68, 147, 248, 0.15);
+            color: var(--brand-blue);
+        }
+
+        .result-type-badge.skill {
+            background: rgba(234, 170, 0, 0.15);
+            color: var(--gold);
+        }
+
+        .result-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 0.25rem 0;
+        }
+
+        .result-description {
+            font-size: 0.875rem;
+            color: var(--text-2);
+            margin: 0.25rem 0;
+            line-height: 1.4;
+        }
+
+        .result-plugin-info {
+            font-size: 0.8125rem;
+            color: var(--brand-blue);
+            margin-top: 0.5rem;
+        }
+
+        /* Install box */
+        .install-box {
+            width: 100%;
+            max-width: 650px;
+            padding: 1.5rem;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+            opacity: 0;
+        }
+
+        .install-label {
+            font-family: 'DM Mono', monospace;
+            color: var(--text-3);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .install-command {
+            font-family: 'DM Mono', 'SF Mono', 'Fira Code', monospace;
+            color: var(--text);
+            font-size: 0.95rem;
+            user-select: all;
+            cursor: pointer;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ========================================
+           FEATURES SECTION
+           ======================================== */
+        .features {
+            padding: 3rem 2rem;
+            background: var(--surface);
+        }
+
+        .section-label {
+            font-family: 'DM Mono', monospace;
+            color: var(--primary);
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 2rem;
+            max-width: 700px;
+            line-height: 1.2;
+            color: var(--text);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform var(--duration-normal) var(--ease-out);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
+            box-shadow: 0 16px 48px rgba(234, 170, 0, 0.08);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: oklch(62% 0.16 35 / 0.1);
+            border-radius: 10px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        .feature-card p {
+            color: var(--text-2);
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        /* ========================================
+           CLIENT SHOWCASE
+           ======================================== */
+        .client-showcase {
+            background: var(--surface-1);
+            padding: 2rem 0;
+            overflow: hidden;
+        }
+
+        .client-showcase-label {
+            font-family: 'DM Mono', monospace;
+            text-align: center;
+            color: var(--text-3);
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+        }
+
+        .client-showcase-link,
+        .client-marquee-link {
+            display: block;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .client-showcase-link:hover,
+        .client-marquee-link:hover {
+            opacity: 0.8;
+        }
+
+        .client-marquee {
+            display: flex;
+            gap: 4rem;
+            animation: scroll 20s linear infinite;
+        }
+
+        .client-item {
+            flex-shrink: 0;
+        }
+
+        .client-logo {
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+
+        .client-logo:hover {
+            opacity: 1;
+        }
+
+        @keyframes scroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+
+        /* ========================================
+           SAAS SKILL PACKS SECTION
+           ======================================== */
+        .saas-packs-section {
+            padding: 3rem 2rem;
+            background: var(--surface);
+        }
+
+        .saas-packs-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .saas-packs-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .saas-badge {
+            background: oklch(62% 0.16 35 / 0.12);
+            color: var(--primary);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .saas-title {
+            color: var(--text);
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            margin: 1rem 0 0.5rem;
+            font-weight: 700;
+        }
+
+        .saas-subtitle {
+            color: var(--text-2);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .saas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .saas-card {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .saas-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .saas-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .saas-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .saas-card h3 {
+            color: var(--text);
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .saas-tier {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--gold);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .saas-desc {
+            color: var(--text-2);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .saas-commands {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .saas-cmd {
+            background: var(--surface-2);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-2);
+            cursor: pointer;
+            transition: background 0.2s;
+            border: none;
+            font-family: 'DM Mono', monospace;
+            text-align: left;
+        }
+
+        .saas-cmd:hover {
+            background: var(--surface-3);
+        }
+
+        .saas-cmd.primary {
+            background: rgba(234, 170, 0, 0.1);
+            color: var(--gold);
+            border: 1px solid rgba(234, 170, 0, 0.2);
+        }
+
+        .saas-cmd.primary:hover {
+            background: rgba(234, 170, 0, 0.18);
+        }
+
+        .saas-card.coming-soon {
+            background: var(--surface-3);
+            border: 1px dashed var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .coming-soon-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .saas-card.coming-soon h3 {
+            color: var(--text);
+            margin: 0 0 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .saas-card.coming-soon p {
+            color: var(--text-3);
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        .saas-cta {
+            text-align: center;
+        }
+
+        .saas-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: white;
+            color: #8B0A2D;
+            padding: 0.875rem 1.75rem;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            font-size: 1rem;
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .saas-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .saas-packs-section {
+                padding: 3rem 1.5rem;
+            }
+
+            .saas-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========================================
+           COWORK DOWNLOADS SECTION (Homepage)
+           ======================================== */
+        .cowork-home-section {
+            padding: 3rem 2rem;
+            background: var(--surface-2);
+        }
+
+        .cowork-home-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .cowork-home-badge {
+            background: oklch(72% 0.18 160 / 0.12);
+            color: var(--accent);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .cowork-home-title {
+            color: var(--text);
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            margin: 1rem 0 0.5rem;
+            font-weight: 700;
+        }
+
+        .cowork-home-subtitle {
+            color: var(--text-2);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+        }
+
+        .cowork-home-cta {
+            text-align: center;
+            margin-top: 2.5rem;
+        }
+
+        .cowork-home-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--accent);
+            color: var(--surface);
+            padding: 1rem 2.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+        }
+
+        .cowork-home-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            color: var(--surface);
+        }
+
+        @media (max-width: 768px) {
+            .cowork-home-section {
+                padding: 3rem 1.5rem;
+            }
+        }
+
+        /* ========================================
+           EMAIL SIGNUP SECTION
+           ======================================== */
+        .signup-section {
+            padding: 3rem 2rem;
+            background: var(--surface);
+        }
+
+        .signup-inner {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .signup-title {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .signup-desc {
+            color: var(--text-2);
+            margin-bottom: 2rem;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .signup-form {
+            display: flex;
+            gap: 0.75rem;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .signup-form input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.95rem;
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .signup-form input:focus {
+            border-color: var(--gold);
+        }
+
+        .signup-form button {
+            padding: 0.75rem 1.5rem;
+            background: var(--gold);
+            color: var(--navy, #0C2340);
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .signup-form button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(234, 170, 0, 0.3);
+        }
+
+        .signup-note {
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-3);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ========================================
+           PRODUCTS & SERVICES SECTION
+           ======================================== */
+        .products-section {
+            padding: 3rem 2rem;
+            background: var(--surface);
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            max-width: 1100px;
+            margin: 3rem auto 0;
+        }
+
+        .product-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .product-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f97316, #fb923c);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .product-card.service-card::before {
+            background: linear-gradient(90deg, var(--positive), #4ade80);
+        }
+
+        .product-card:hover {
+            border-color: rgba(249, 115, 22, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(249, 115, 22, 0.1);
+        }
+
+        .product-card.service-card:hover {
+            border-color: rgba(63, 185, 80, 0.3);
+            box-shadow: 0 12px 40px rgba(63, 185, 80, 0.1);
+        }
+
+        .product-card:hover::before {
+            opacity: 1;
+        }
+
+        .product-card h3 {
+            color: var(--text);
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-price {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .product-price .amount {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #f97316;
+        }
+
+        .service-card .product-price .amount {
+            color: var(--positive);
+        }
+
+        .product-price .label {
+            font-size: 0.75rem;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(249, 115, 22, 0.15);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .service-card .product-price .label {
+            background: rgba(63, 185, 80, 0.15);
+        }
+
+        .product-features {
+            list-style: none;
+            padding: 0;
+            margin: 1.25rem 0;
+        }
+
+        .product-features li {
+            color: var(--text-2);
+            font-size: 0.9rem;
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .product-features li::before {
+            content: '\2713';
+            position: absolute;
+            left: 0;
+            color: #f97316;
+            font-weight: 700;
+        }
+
+        .service-card .product-features li::before {
+            color: var(--positive);
+        }
+
+        .product-cta {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: white;
+        }
+
+        .product-cta:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4);
+        }
+
+        .product-cta.service-cta {
+            background: linear-gradient(135deg, var(--positive), #16a34a);
+        }
+
+        .product-cta.service-cta:hover {
+            box-shadow: 0 4px 20px rgba(63, 185, 80, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ========================================
+           SCROLL REVEAL ANIMATIONS
+           ======================================== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+        }
+
+        .reveal.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-stagger > * {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+        }
+
+        .reveal-stagger.revealed > *:nth-child(1) { transition-delay: 0ms; }
+        .reveal-stagger.revealed > *:nth-child(2) { transition-delay: 80ms; }
+        .reveal-stagger.revealed > *:nth-child(3) { transition-delay: 160ms; }
+        .reveal-stagger.revealed > *:nth-child(4) { transition-delay: 240ms; }
+        .reveal-stagger.revealed > *:nth-child(5) { transition-delay: 320ms; }
+        .reveal-stagger.revealed > *:nth-child(6) { transition-delay: 400ms; }
+        .reveal-stagger.revealed > *:nth-child(7) { transition-delay: 480ms; }
+        .reveal-stagger.revealed > *:nth-child(8) { transition-delay: 560ms; }
+        .reveal-stagger.revealed > *:nth-child(9) { transition-delay: 640ms; }
+
+        .reveal-stagger.revealed > * {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ========================================
+           MOBILE RESPONSIVE
+           ======================================== */
+        @media (max-width: 768px) {
+            .hero {
+                padding: 6rem 1.5rem 3rem;
+                min-height: auto;
+                text-align: left;
+                align-items: flex-start;
+            }
+
+            .features {
+                padding: 4rem 2rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .install-box {
+                padding: 1.5rem;
+            }
+
+            .install-command {
+                font-size: 0.8rem;
+                word-break: break-all;
+                overflow-wrap: break-word;
+                white-space: pre-wrap;
+                max-width: 100%;
+            }
+
+            .toggle-btn {
+                padding: 0.75rem 1.25rem;
+                font-size: 0.9375rem;
+            }
+
+            .search-toggle {
+                gap: 0.375rem;
+                padding: 0.375rem;
+            }
+        }
+    </style>
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json" slot="head">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Claude Code Plugins Marketplace",
+      "description": "Search agent skills with fuzzy search. Browse plugins. Interactive tutorials and production workflows.",
+      "url": "https://tonsofskills.com",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://tonsofskills.com/?stack={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Intent Solutions IO",
+        "url": "https://intentsolutions.io"
+      }
+    }
+    </script>
+
+    <script type="application/ld+json" slot="head">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Claude Code Plugins",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Linux, macOS, Windows",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "258",
+        "bestRating": "5"
+      },
+      "description": "295 plugins for Claude Code with 1,537 agent skills, interactive tutorials, and production workflows. Supports 2026 schema.",
+      "softwareVersion": "4.14.0",
+      "url": "https://tonsofskills.com",
+      "downloadUrl": "https://github.com/jeremylongshore/claude-code-plugins",
+      "applicationSuite": "Claude Code",
+      "featureList": [
+        "295 plugins across 24 categories",
+        "1,537 Agent Skills (1,298 standalone + 239 embedded)",
+        "Interactive Stack Builder",
+        "Shareable plugin collections",
+        "Cross-platform CLI tool",
+        "System diagnostics",
+        "Fuzzy search",
+        "LocalStorage persistence"
+      ]
+    }
+    </script>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-inner">
+            <h1><span class="hero-text-muted">TONS OF</span><br/><span class="hero-text-primary">SKILLS</span></h1>
+            <p class="hero-byline">by <a href="https://jeremylongshore.com" target="_blank" rel="noopener">Jeremy Longshore</a></p>
+
+            <p class="hero-subtitle">
+                Agent skills for Claude Code. Search {totalSkills} skills across {totalPlugins} plugins.
+            </p>
+
+            <a href="/cowork" class="hero-cowork-btn">Using Claude Cowork? Download skill packs here</a>
+
+            <!-- Hero Search Bar -->
+            <div class="hero-search">
+                <div class="search-container">
+                    <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input
+                        type="text"
+                        id="hero-search-input"
+                        placeholder="Search plugins and skills..."
+                        class="search-input"
+                        autocomplete="off"
+                    />
+                    <div class="search-toggle">
+                        <button class="toggle-btn active" data-type="all">All</button>
+                        <button class="toggle-btn" data-type="plugin">Plugins</button>
+                        <button class="toggle-btn" data-type="skill">Skills</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Installation Instructions -->
+            <div class="install-box">
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <span style="display: inline-block; background: rgba(234,170,0,0.15); color: var(--gold); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; font-family: 'DM Mono', monospace;">Get Started in 30 Seconds</span>
+                </div>
+
+                <!-- CLI Install - PRIMARY -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 0.5rem 0; font-size: 0.75rem; font-weight: 600; color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em; font-family: 'DM Mono', monospace;">Install CLI (Recommended)</h3>
+                    <pre class="install-command" data-copy="pnpm add -g @intentsolutionsio/ccpi" style="margin: 0; padding: 1rem 1.25rem; background: rgba(234,170,0,0.06); border: 1px solid rgba(234,170,0,0.2); border-radius: 8px; font-size: 1rem; color: var(--text); overflow-x: auto; cursor: pointer;"><code style="font-family: 'DM Mono', monospace;">pnpm add -g @intentsolutionsio/ccpi</code></pre>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.75rem; color: var(--text-3); font-family: 'DM Mono', monospace;">Click to copy &bull; Also works with npm, yarn, or bun</p>
+                </div>
+
+                <!-- Claude Code Install - SECONDARY -->
+                <div style="padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <h3 style="margin: 0 0 0.5rem 0; font-size: 0.75rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; font-family: 'DM Mono', monospace;">Or Add Marketplace in Claude Code</h3>
+                    <pre class="install-command" data-copy="/plugin marketplace add jeremylongshore/claude-code-plugins" style="margin: 0; padding: 0.75rem 1rem; background: var(--surface-3); border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; color: var(--text-2); overflow-x: auto; cursor: pointer;"><code style="font-family: 'DM Mono', monospace;">/plugin marketplace add jeremylongshore/claude-code-plugins</code></pre>
+                </div>
+
+                <!-- What's Next -->
+                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                    <h4 style="margin: 0 0 0.75rem 0; font-size: 0.7rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; font-family: 'DM Mono', monospace;">Then</h4>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-2);">
+                        <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="color: var(--gold);">1.</span> <a href="/explore" style="color: var(--text); text-decoration: underline;">Browse</a> plugins &amp; skills</span>
+                        <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="color: var(--gold);">2.</span> Install with <code style="background: var(--surface-3); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem; font-family: 'DM Mono', monospace;">/plugin install [name]</code></span>
+                        <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="color: var(--gold);">3.</span> Skills auto-activate</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Killer Skills This Week -->
+    <section class="killer-skills-section" style="padding: 3rem 2rem; background: var(--surface);">
+        <div style="max-width: 1100px; margin: 0 auto;">
+            <h2 class="section-title" style="text-align: left;">Killer Skill of the Week</h2>
+            <p style="color: var(--text-2); margin-bottom: 0.5rem; max-width: 500px;">We scour GitHub for the most impressive agent skills and spotlight one each week.</p>
+            <a href="/community" style="color: var(--primary); text-decoration: none; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 1.5rem;">Meet the contributors <span style="transition: transform 0.2s; display: inline-block;">&rarr;</span></a>
+            <KillerSkills />
+            <div class="killer-signup" style="margin-top: 2rem; padding: 1.25rem 1.5rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                <p style="margin: 0; color: var(--text); font-weight: 600; font-size: 0.95rem;">Get the Killer Skill of the Week in your inbox</p>
+                <form data-signup-form="killer-skills" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <input type="email" name="email" placeholder="you@example.com" required style="padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 0.85rem; min-width: 200px;" />
+                    <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" />
+                    <button type="submit" style="padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">Subscribe</button>
+                </form>
+            </div>
+
+            <div style="margin-top: 1rem; padding: 1.25rem 1.5rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;">
+                <p style="margin: 0 0 0.25rem; color: var(--text); font-weight: 700; font-size: 1.05rem;">Got a killer skill?</p>
+                <p style="margin: 0 0 1rem; color: var(--text-2); font-size: 0.85rem; line-height: 1.5; max-width: 520px;">Drop your repo link. We review every submission, and if your skill makes the cut, you get the full spotlight — homepage feature, Hall of Fame, and a write-up on your repo.</p>
+                <form data-nomination-form="killer-skills" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <input type="url" name="repo"
+                        placeholder="https://github.com/you/your-skill"
+                        pattern="https://github\.com/.+/.+"
+                        title="Must be a GitHub repo URL (https://github.com/owner/repo)"
+                        required
+                        style="padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 0.85rem; min-width: 280px; flex: 1;" />
+                    <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+                        style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" />
+                    <button type="submit"
+                        style="padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Submit</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Jeremy's Stash -->
+    <section class="stash-section" style="padding: 3rem 2rem; background: var(--surface);">
+        <div style="max-width: 1100px; margin: 0 auto;">
+            <h2 class="section-title" style="text-align: left;">Jeremy's Stash</h2>
+            <p style="color: var(--text-2); margin-bottom: 0; max-width: 600px;">Standalone plugins I built and maintain. Each has its own repo you can clone directly.</p>
+            <JeremysStash />
+        </div>
+    </section>
+
+    <!-- Cowork Downloads Section -->
+    <section class="cowork-home-section">
+        <div class="cowork-home-container">
+            <span class="cowork-home-badge">NEW - For Cowork Users</span>
+            <h2 class="cowork-home-title">Download Plugin Packs</h2>
+            <p class="cowork-home-subtitle">One-click downloads for Claude Cowork. No terminal needed.</p>
+
+            <div style="max-width: 1200px; margin: 0 auto;">
+                <CoworkGrid featured={true} limit={6} />
+            </div>
+
+            <div class="cowork-home-cta">
+                <a href="/cowork" class="cowork-home-button">
+                    Explore Cowork Downloads
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Client Showcase -->
+    <section class="client-showcase">
+        <div class="client-showcase-label">strategic partners funding plugin innovation</div>
+        <div class="client-marquee">
+            <!-- Alternating Nixtla + Agent37 for seamless interleaved scroll -->
+            <div class="client-item">
+                <a href="https://nixtla.io" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <svg class="client-logo" width="115" height="20" viewBox="0 0 115 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M49.1185 1.82227V18.1763H45.2484L38.5142 5.8072H37.9645V18.1763H35.3535V1.82227H39.2239L45.958 14.1914H46.5075V1.82227H49.1185Z" fill="white"/><path d="M54.8645 1.82227V18.1763H52.1152V1.82227H54.8645Z" fill="white"/><path d="M64.5741 11.0984H63.7954L59.947 18.1763H56.9688L61.6648 9.56438L57.6342 1.82227H60.5202L63.8189 8.07589H64.5976L67.964 1.82227H70.8278L66.7282 9.47327L71.4243 18.1778H68.3328L64.5772 11.0999L64.5741 11.0984Z" fill="white"/><path d="M85.0296 4.24966H79.8073V18.1763H77.0583V4.24966H71.8125V1.82227H85.028V4.24966H85.0296Z" fill="white"/><path d="M98.1543 15.5888V18.1778H86.4961V1.82227H89.2454V15.5888H98.1556H98.1543Z" fill="white"/><path d="M110.478 13.4803H103.767L102.278 18.1763H99.5293L104.957 1.82227H109.355L114.806 18.1763H111.989L110.478 13.4803ZM104.546 11.0293H109.677L107.592 4.50093H106.607L104.546 11.0293Z" fill="white"/><path d="M2.17981 17.8359L13.801 6.2146C13.9098 6.10586 14.0861 6.10586 14.1934 6.2146L19.7623 11.8305C19.871 11.9393 20.0459 11.9393 20.1546 11.8305L27.8924 4.09283C28.001 3.9841 28.001 3.80925 27.8924 3.70051L26.207 2.01514C26.0981 1.90641 25.9233 1.90641 25.8147 2.01514L20.2001 7.62961C20.0914 7.73835 19.9166 7.73835 19.8078 7.62961L14.1934 2.01808C14.0846 1.90935 13.9098 1.90935 13.801 2.01808L8.18659 7.63255C8.07785 7.74129 7.903 7.74129 7.79426 7.63255L2.17981 2.01808C2.07108 1.90935 1.89622 1.90935 1.78749 2.01808L0.08155 3.72402C-0.0271833 3.83275 -0.0271833 4.00761 0.08155 4.11634L5.69602 9.73081C5.80473 9.83953 5.80473 10.0144 5.69602 10.1231L0.08155 15.7376C-0.0271833 15.8463 -0.0271833 16.0212 0.08155 16.1299L1.78749 17.8359C1.89622 17.9446 2.07108 17.9446 2.17981 17.8359Z" fill="white"/><path d="M18.9078 13.0792L18.9504 13.0366L17.0696 11.1558C16.9609 11.047 16.786 11.047 16.6773 11.1558L14.194 13.639C14.0853 13.7477 13.9104 13.7477 13.8017 13.639L11.3185 11.1558C11.2098 11.047 11.0349 11.047 10.9262 11.1558L9.22023 12.8617C9.11149 12.9704 9.11149 13.1453 9.22023 13.254L13.8017 17.8355C13.9104 17.9443 14.0853 17.9443 14.194 17.8355L18.9298 13.0997L18.9092 13.0792H18.9078Z" fill="white"/><path d="M22.8938 11.1087L21.1888 12.8137C21.0803 12.9221 21.0803 13.098 21.1888 13.2064L25.8154 17.8331C25.9238 17.9416 26.0996 17.9416 26.2082 17.8331L27.913 16.1281C28.0217 16.0196 28.0217 15.8438 27.913 15.7354L23.2865 11.1087C23.178 11.0002 23.0022 11.0002 22.8938 11.1087Z" fill="white"/></svg>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://www.agent37.com/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <span class="client-logo" style="font-family: 'Source Sans 3', system-ui, sans-serif; font-weight: 700; font-size: 1.1rem; color: white; letter-spacing: 0.02em;">Agent37</span>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://nixtla.io" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <svg class="client-logo" width="115" height="20" viewBox="0 0 115 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M49.1185 1.82227V18.1763H45.2484L38.5142 5.8072H37.9645V18.1763H35.3535V1.82227H39.2239L45.958 14.1914H46.5075V1.82227H49.1185Z" fill="white"/><path d="M54.8645 1.82227V18.1763H52.1152V1.82227H54.8645Z" fill="white"/><path d="M64.5741 11.0984H63.7954L59.947 18.1763H56.9688L61.6648 9.56438L57.6342 1.82227H60.5202L63.8189 8.07589H64.5976L67.964 1.82227H70.8278L66.7282 9.47327L71.4243 18.1778H68.3328L64.5772 11.0999L64.5741 11.0984Z" fill="white"/><path d="M85.0296 4.24966H79.8073V18.1763H77.0583V4.24966H71.8125V1.82227H85.028V4.24966H85.0296Z" fill="white"/><path d="M98.1543 15.5888V18.1778H86.4961V1.82227H89.2454V15.5888H98.1556H98.1543Z" fill="white"/><path d="M110.478 13.4803H103.767L102.278 18.1763H99.5293L104.957 1.82227H109.355L114.806 18.1763H111.989L110.478 13.4803ZM104.546 11.0293H109.677L107.592 4.50093H106.607L104.546 11.0293Z" fill="white"/><path d="M2.17981 17.8359L13.801 6.2146C13.9098 6.10586 14.0861 6.10586 14.1934 6.2146L19.7623 11.8305C19.871 11.9393 20.0459 11.9393 20.1546 11.8305L27.8924 4.09283C28.001 3.9841 28.001 3.80925 27.8924 3.70051L26.207 2.01514C26.0981 1.90641 25.9233 1.90641 25.8147 2.01514L20.2001 7.62961C20.0914 7.73835 19.9166 7.73835 19.8078 7.62961L14.1934 2.01808C14.0846 1.90935 13.9098 1.90935 13.801 2.01808L8.18659 7.63255C8.07785 7.74129 7.903 7.74129 7.79426 7.63255L2.17981 2.01808C2.07108 1.90935 1.89622 1.90935 1.78749 2.01808L0.08155 3.72402C-0.0271833 3.83275 -0.0271833 4.00761 0.08155 4.11634L5.69602 9.73081C5.80473 9.83953 5.80473 10.0144 5.69602 10.1231L0.08155 15.7376C-0.0271833 15.8463 -0.0271833 16.0212 0.08155 16.1299L1.78749 17.8359C1.89622 17.9446 2.07108 17.9446 2.17981 17.8359Z" fill="white"/><path d="M18.9078 13.0792L18.9504 13.0366L17.0696 11.1558C16.9609 11.047 16.786 11.047 16.6773 11.1558L14.194 13.639C14.0853 13.7477 13.9104 13.7477 13.8017 13.639L11.3185 11.1558C11.2098 11.047 11.0349 11.047 10.9262 11.1558L9.22023 12.8617C9.11149 12.9704 9.11149 13.1453 9.22023 13.254L13.8017 17.8355C13.9104 17.9443 14.0853 17.9443 14.194 17.8355L18.9298 13.0997L18.9092 13.0792H18.9078Z" fill="white"/><path d="M22.8938 11.1087L21.1888 12.8137C21.0803 12.9221 21.0803 13.098 21.1888 13.2064L25.8154 17.8331C25.9238 17.9416 26.0996 17.9416 26.2082 17.8331L27.913 16.1281C28.0217 16.0196 28.0217 15.8438 27.913 15.7354L23.2865 11.1087C23.178 11.0002 23.0022 11.0002 22.8938 11.1087Z" fill="white"/></svg>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://www.agent37.com/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <span class="client-logo" style="font-family: 'Source Sans 3', system-ui, sans-serif; font-weight: 700; font-size: 1.1rem; color: white; letter-spacing: 0.02em;">Agent37</span>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://nixtla.io" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <svg class="client-logo" width="115" height="20" viewBox="0 0 115 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M49.1185 1.82227V18.1763H45.2484L38.5142 5.8072H37.9645V18.1763H35.3535V1.82227H39.2239L45.958 14.1914H46.5075V1.82227H49.1185Z" fill="white"/><path d="M54.8645 1.82227V18.1763H52.1152V1.82227H54.8645Z" fill="white"/><path d="M64.5741 11.0984H63.7954L59.947 18.1763H56.9688L61.6648 9.56438L57.6342 1.82227H60.5202L63.8189 8.07589H64.5976L67.964 1.82227H70.8278L66.7282 9.47327L71.4243 18.1778H68.3328L64.5772 11.0999L64.5741 11.0984Z" fill="white"/><path d="M85.0296 4.24966H79.8073V18.1763H77.0583V4.24966H71.8125V1.82227H85.028V4.24966H85.0296Z" fill="white"/><path d="M98.1543 15.5888V18.1778H86.4961V1.82227H89.2454V15.5888H98.1556H98.1543Z" fill="white"/><path d="M110.478 13.4803H103.767L102.278 18.1763H99.5293L104.957 1.82227H109.355L114.806 18.1763H111.989L110.478 13.4803ZM104.546 11.0293H109.677L107.592 4.50093H106.607L104.546 11.0293Z" fill="white"/><path d="M2.17981 17.8359L13.801 6.2146C13.9098 6.10586 14.0861 6.10586 14.1934 6.2146L19.7623 11.8305C19.871 11.9393 20.0459 11.9393 20.1546 11.8305L27.8924 4.09283C28.001 3.9841 28.001 3.80925 27.8924 3.70051L26.207 2.01514C26.0981 1.90641 25.9233 1.90641 25.8147 2.01514L20.2001 7.62961C20.0914 7.73835 19.9166 7.73835 19.8078 7.62961L14.1934 2.01808C14.0846 1.90935 13.9098 1.90935 13.801 2.01808L8.18659 7.63255C8.07785 7.74129 7.903 7.74129 7.79426 7.63255L2.17981 2.01808C2.07108 1.90935 1.89622 1.90935 1.78749 2.01808L0.08155 3.72402C-0.0271833 3.83275 -0.0271833 4.00761 0.08155 4.11634L5.69602 9.73081C5.80473 9.83953 5.80473 10.0144 5.69602 10.1231L0.08155 15.7376C-0.0271833 15.8463 -0.0271833 16.0212 0.08155 16.1299L1.78749 17.8359C1.89622 17.9446 2.07108 17.9446 2.17981 17.8359Z" fill="white"/><path d="M18.9078 13.0792L18.9504 13.0366L17.0696 11.1558C16.9609 11.047 16.786 11.047 16.6773 11.1558L14.194 13.639C14.0853 13.7477 13.9104 13.7477 13.8017 13.639L11.3185 11.1558C11.2098 11.047 11.0349 11.047 10.9262 11.1558L9.22023 12.8617C9.11149 12.9704 9.11149 13.1453 9.22023 13.254L13.8017 17.8355C13.9104 17.9443 14.0853 17.9443 14.194 17.8355L18.9298 13.0997L18.9092 13.0792H18.9078Z" fill="white"/><path d="M22.8938 11.1087L21.1888 12.8137C21.0803 12.9221 21.0803 13.098 21.1888 13.2064L25.8154 17.8331C25.9238 17.9416 26.0996 17.9416 26.2082 17.8331L27.913 16.1281C28.0217 16.0196 28.0217 15.8438 27.913 15.7354L23.2865 11.1087C23.178 11.0002 23.0022 11.0002 22.8938 11.1087Z" fill="white"/></svg>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://www.agent37.com/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <span class="client-logo" style="font-family: 'Source Sans 3', system-ui, sans-serif; font-weight: 700; font-size: 1.1rem; color: white; letter-spacing: 0.02em;">Agent37</span>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://nixtla.io" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <svg class="client-logo" width="115" height="20" viewBox="0 0 115 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M49.1185 1.82227V18.1763H45.2484L38.5142 5.8072H37.9645V18.1763H35.3535V1.82227H39.2239L45.958 14.1914H46.5075V1.82227H49.1185Z" fill="white"/><path d="M54.8645 1.82227V18.1763H52.1152V1.82227H54.8645Z" fill="white"/><path d="M64.5741 11.0984H63.7954L59.947 18.1763H56.9688L61.6648 9.56438L57.6342 1.82227H60.5202L63.8189 8.07589H64.5976L67.964 1.82227H70.8278L66.7282 9.47327L71.4243 18.1778H68.3328L64.5772 11.0999L64.5741 11.0984Z" fill="white"/><path d="M85.0296 4.24966H79.8073V18.1763H77.0583V4.24966H71.8125V1.82227H85.028V4.24966H85.0296Z" fill="white"/><path d="M98.1543 15.5888V18.1778H86.4961V1.82227H89.2454V15.5888H98.1556H98.1543Z" fill="white"/><path d="M110.478 13.4803H103.767L102.278 18.1763H99.5293L104.957 1.82227H109.355L114.806 18.1763H111.989L110.478 13.4803ZM104.546 11.0293H109.677L107.592 4.50093H106.607L104.546 11.0293Z" fill="white"/><path d="M2.17981 17.8359L13.801 6.2146C13.9098 6.10586 14.0861 6.10586 14.1934 6.2146L19.7623 11.8305C19.871 11.9393 20.0459 11.9393 20.1546 11.8305L27.8924 4.09283C28.001 3.9841 28.001 3.80925 27.8924 3.70051L26.207 2.01514C26.0981 1.90641 25.9233 1.90641 25.8147 2.01514L20.2001 7.62961C20.0914 7.73835 19.9166 7.73835 19.8078 7.62961L14.1934 2.01808C14.0846 1.90935 13.9098 1.90935 13.801 2.01808L8.18659 7.63255C8.07785 7.74129 7.903 7.74129 7.79426 7.63255L2.17981 2.01808C2.07108 1.90935 1.89622 1.90935 1.78749 2.01808L0.08155 3.72402C-0.0271833 3.83275 -0.0271833 4.00761 0.08155 4.11634L5.69602 9.73081C5.80473 9.83953 5.80473 10.0144 5.69602 10.1231L0.08155 15.7376C-0.0271833 15.8463 -0.0271833 16.0212 0.08155 16.1299L1.78749 17.8359C1.89622 17.9446 2.07108 17.9446 2.17981 17.8359Z" fill="white"/><path d="M18.9078 13.0792L18.9504 13.0366L17.0696 11.1558C16.9609 11.047 16.786 11.047 16.6773 11.1558L14.194 13.639C14.0853 13.7477 13.9104 13.7477 13.8017 13.639L11.3185 11.1558C11.2098 11.047 11.0349 11.047 10.9262 11.1558L9.22023 12.8617C9.11149 12.9704 9.11149 13.1453 9.22023 13.254L13.8017 17.8355C13.9104 17.9443 14.0853 17.9443 14.194 17.8355L18.9298 13.0997L18.9092 13.0792H18.9078Z" fill="white"/><path d="M22.8938 11.1087L21.1888 12.8137C21.0803 12.9221 21.0803 13.098 21.1888 13.2064L25.8154 17.8331C25.9238 17.9416 26.0996 17.9416 26.2082 17.8331L27.913 16.1281C28.0217 16.0196 28.0217 15.8438 27.913 15.7354L23.2865 11.1087C23.178 11.0002 23.0022 11.0002 22.8938 11.1087Z" fill="white"/></svg>
+                </a>
+            </div>
+            <div class="client-item">
+                <a href="https://www.agent37.com/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                    <span class="client-logo" style="font-family: 'Source Sans 3', system-ui, sans-serif; font-weight: 700; font-size: 1.1rem; color: white; letter-spacing: 0.02em;">Agent37</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- SaaS Skill Packs - Featured -->
+    <section class="saas-packs-section">
+        <div class="saas-packs-container">
+            <div class="saas-packs-header">
+                <span class="saas-badge">New Release</span>
+                <h2 class="saas-title">SaaS Skill Packs</h2>
+                <p class="saas-subtitle">
+                    Deep integration packs for your favorite platforms. 24-30 skills each for complete coverage.
+                </p>
+            </div>
+
+            <div class="saas-grid reveal-stagger">
+                <!-- Supabase Pack -->
+                <div class="saas-card" data-accent="#3ECF8E">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #3ECF8E;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        </div>
+                        <div>
+                            <h3>Supabase</h3>
+                            <span class="saas-tier" style="color: #3ECF8E;">Flagship+ &bull; 30 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        Database, auth, storage, edge functions, realtime subscriptions, and production operations.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" onclick="navigator.clipboard.writeText('/plugin install supabase-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install supabase-pack', 2000);">/plugin install supabase-pack</code>
+                        <code class="saas-cmd" onclick="navigator.clipboard.writeText('npm i @intentsolutionsio/supabase-pack'); this.textContent='Copied!'; setTimeout(() => this.textContent='npm i @intentsolutionsio/supabase-pack', 2000);">npm i @intentsolutionsio/supabase-pack</code>
+                    </div>
+                </div>
+
+                <!-- Vercel Pack -->
+                <div class="saas-card" data-accent="#000">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #333; border: 1px solid var(--border);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2L2 19.5h20L12 2z"/></svg>
+                        </div>
+                        <div>
+                            <h3>Vercel</h3>
+                            <span class="saas-tier">Flagship+ &bull; 30 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        Deployments, edge functions, preview environments, performance optimization, and CI/CD.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" onclick="navigator.clipboard.writeText('/plugin install vercel-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install vercel-pack', 2000);">/plugin install vercel-pack</code>
+                        <code class="saas-cmd" onclick="navigator.clipboard.writeText('npm i @intentsolutionsio/vercel-pack'); this.textContent='Copied!'; setTimeout(() => this.textContent='npm i @intentsolutionsio/vercel-pack', 2000);">npm i @intentsolutionsio/vercel-pack</code>
+                    </div>
+                </div>
+
+                <!-- Sentry Pack -->
+                <div class="saas-card" data-accent="#362D59">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #362D59;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div>
+                            <h3>Sentry</h3>
+                            <span class="saas-tier" style="color: #8b5cf6;">Flagship+ &bull; 30 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        Error tracking, performance monitoring, release management, and production operations.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" style="color: #8b5cf6;" onclick="navigator.clipboard.writeText('/plugin install sentry-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install sentry-pack', 2000);">/plugin install sentry-pack</code>
+                        <code class="saas-cmd" onclick="navigator.clipboard.writeText('npm i @intentsolutionsio/sentry-pack'); this.textContent='Copied!'; setTimeout(() => this.textContent='npm i @intentsolutionsio/sentry-pack', 2000);">npm i @intentsolutionsio/sentry-pack</code>
+                    </div>
+                </div>
+
+                <!-- Cursor Pack -->
+                <div class="saas-card" data-accent="#8b5cf6">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #333; border: 1px solid var(--border);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        </div>
+                        <div>
+                            <h3>Cursor</h3>
+                            <span class="saas-tier" style="color: #8b5cf6;">Flagship+ &bull; 30 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        AI code editor with completions, chat, composer, rules config, and IDE optimization.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" style="color: #8b5cf6;" onclick="navigator.clipboard.writeText('/plugin install cursor-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install cursor-pack', 2000);">/plugin install cursor-pack</code>
+                        <code class="saas-cmd" onclick="navigator.clipboard.writeText('npm i @intentsolutionsio/cursor-skill-md-pack'); this.textContent='Copied!'; setTimeout(() => this.textContent='npm i @intentsolutionsio/cursor-skill-md-pack', 2000);">npm i @intentsolutionsio/cursor-skill-md-pack</code>
+                    </div>
+                </div>
+
+                <!-- OpenRouter Pack -->
+                <div class="saas-card" data-accent="#6366f1">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #6366f1;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                        </div>
+                        <div>
+                            <h3>OpenRouter</h3>
+                            <span class="saas-tier" style="color: #6366f1;">Flagship+ &bull; 30 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        Multi-model LLM gateway with 100+ models, fallbacks, routing, and OpenAI compatibility.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" style="color: #6366f1;" onclick="navigator.clipboard.writeText('/plugin install openrouter-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install openrouter-pack', 2000);">/plugin install openrouter-pack</code>
+                        <code class="saas-cmd" onclick="navigator.clipboard.writeText('npm i @intentsolutionsio/openrouter-skill-md-pack'); this.textContent='Copied!'; setTimeout(() => this.textContent='npm i @intentsolutionsio/openrouter-skill-md-pack', 2000);">npm i @intentsolutionsio/openrouter-skill-md-pack</code>
+                    </div>
+                </div>
+
+                <!-- Groq Pack -->
+                <div class="saas-card" data-accent="#f55036">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #f55036;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        </div>
+                        <div>
+                            <h3>Groq</h3>
+                            <span class="saas-tier" style="color: #f55036;">Flagship &bull; 24 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        Ultra-fast LPU inference, Groq Cloud deployment, and low-latency AI workflows.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" style="color: #f55036;" onclick="navigator.clipboard.writeText('/plugin install groq-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install groq-pack', 2000);">/plugin install groq-pack</code>
+                    </div>
+                </div>
+
+                <!-- LangChain Pack -->
+                <div class="saas-card" data-accent="#1c3c3c">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #1c5c3c;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                        </div>
+                        <div>
+                            <h3>LangChain</h3>
+                            <span class="saas-tier" style="color: #3ECF8E;">Flagship &bull; 24 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        LLM orchestration, chains, agents, RAG patterns, and production pipelines.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" onclick="navigator.clipboard.writeText('/plugin install langchain-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install langchain-pack', 2000);">/plugin install langchain-pack</code>
+                    </div>
+                </div>
+
+                <!-- PostHog Pack -->
+                <div class="saas-card" data-accent="#1d4aff">
+                    <div class="saas-card-header">
+                        <div class="saas-icon" style="background: #1d4aff;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                        </div>
+                        <div>
+                            <h3>PostHog</h3>
+                            <span class="saas-tier" style="color: #1d4aff;">Flagship &bull; 24 Skills</span>
+                        </div>
+                    </div>
+                    <p class="saas-desc">
+                        Product analytics, feature flags, session replay, and A/B testing.
+                    </p>
+                    <div class="saas-commands">
+                        <code class="saas-cmd primary" style="color: #1d4aff;" onclick="navigator.clipboard.writeText('/plugin install posthog-pack@claude-code-plugins-plus'); this.textContent='Copied!'; setTimeout(() => this.textContent='/plugin install posthog-pack', 2000);">/plugin install posthog-pack</code>
+                    </div>
+                </div>
+
+                <!-- View All Packs -->
+                <div class="saas-card coming-soon" style="cursor: pointer;" onclick="window.location.href='/explore?q=pack'">
+                    <div class="coming-soon-icon">🎯</div>
+                    <h3>+34 More Packs</h3>
+                    <p>
+                        Mistral, Perplexity, Clerk, Linear, Obsidian, Firecrawl, and more
+                    </p>
+                    <span style="color: var(--gold); font-weight: 600;">Browse All &rarr;</span>
+                </div>
+            </div>
+
+            <div class="saas-cta">
+                <a href="/explore?q=pack" class="saas-button">
+                    Browse All 42 Packs
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Learn with Jeremy -->
+    <section class="products-section" id="training" style="padding: 3rem 2rem;">
+        <div style="text-align: center;">
+            <div class="section-label">Learn with Jeremy</div>
+            <h2 class="section-title" style="margin-left: auto; margin-right: auto;">Level Up Your Claude Code Skills</h2>
+        </div>
+
+        <div class="products-grid" style="max-width: 600px;">
+            <div class="product-card service-card">
+                <h3>Claude Code Training</h3>
+                <div class="product-price">
+                    <span class="amount">Custom</span>
+                    <span class="label">per session</span>
+                </div>
+                <ul class="product-features">
+                    <li>Live screen-share with Jeremy</li>
+                    <li>Hands-on plugin dev training</li>
+                    <li>Custom workflow optimization</li>
+                    <li>Production deployment practices</li>
+                    <li>Ongoing support &amp; code reviews</li>
+                </ul>
+                <a href="https://www.upwork.com/services/product/lifestyle-to-learn-claude-code-cli-white-glove-training-to-build-with-ai-2016039265158461099?ref=project_share&tier=1" class="product-cta service-cta" target="_blank" rel="noopener noreferrer">Book Training Session</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick-Start Collections -->
+    <section class="features" style="padding: 3rem 2rem;">
+        <div class="section-label">Quick Start</div>
+        <h2 class="section-title">Curated Plugin Collections</h2>
+        <p style="color: var(--text-2); margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+            Pre-built bundles for common use cases. One-click install for instant productivity.
+        </p>
+
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <CollectionsGrid featured={true} />
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="/collections/" class="primary-button" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--gold); color: var(--navy); text-decoration: none; border-radius: 8px; font-weight: 700; font-family: 'Source Sans 3', system-ui, sans-serif;">
+                View All Collections &rarr;
+            </a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-label">Why Choose Our Marketplace</div>
+        <h2 class="section-title">Community-driven, production-ready plugins</h2>
+
+        <div class="features-grid reveal-stagger">
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3>{totalPlugins} Plugins</h3>
+                <p>Browse plugins across {totalCategories} categories: DevOps, security, testing, data, AI/ML, and more.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>{totalSkills} Skills (Embedded in Plugins)</h3>
+                <p>Agent Skills embedded in {totalPlugins} plugins activate automatically based on conversation context.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Instant Install</h3>
+                <p>One command to add the marketplace, then install any plugin instantly. No configuration needed.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3>Full Documentation</h3>
+                <p>Every plugin includes comprehensive docs, examples, and usage guides. Learn as you build.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Regular Updates</h3>
+                <p>Active development with new plugins added weekly. Community contributions welcome.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Open Source</h3>
+                <p>100% open source under MIT license. Inspect, modify, and contribute to any plugin.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Email Signup -->
+    <section class="signup-section">
+        <div class="signup-inner reveal">
+            <div class="section-label">STAY SHARP</div>
+            <h2 class="section-title signup-title">Agent Skills in Your Inbox</h2>
+            <p class="signup-desc">Weekly deep-dives on agent skills, new plugin drops, and workflow tips.</p>
+            <form data-signup-form="homepage" class="signup-form">
+                <input type="email" name="email" placeholder="you@example.com" required />
+                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" />
+                <button type="submit">Subscribe</button>
+            </form>
+            <p class="signup-note">No spam, ever. Unsubscribe with one click.</p>
+        </div>
+    </section>
+
+    <!-- Products for Sale -->
+    <section class="products-section" id="products">
+        <div style="text-align: center;">
+            <div class="section-label">Products</div>
+            <h2 class="section-title" style="margin-left: auto; margin-right: auto;">Pre-Built AI Agents</h2>
+        </div>
+
+        <div class="products-grid" style="max-width: 800px;">
+            <div class="product-card">
+                <h3>AI Agent Wallet</h3>
+                <div class="product-price">
+                    <span class="amount">$10</span>
+                    <span class="label">one-time</span>
+                </div>
+                <ul class="product-features">
+                    <li>Docker + FastAPI source code</li>
+                    <li>Multi-chain EVM wallet support</li>
+                    <li>Spending limits &amp; kill switch</li>
+                    <li>Encrypted keys &amp; audit logs</li>
+                    <li>Production deployment guides</li>
+                </ul>
+                <a href="https://jeremylongshore.gumroad.com/l/ai-agent-wallet" class="product-cta" target="_blank" rel="noopener noreferrer">Get AI Agent Wallet</a>
+            </div>
+
+            <div class="product-card">
+                <h3>Crypto Portfolio Agent</h3>
+                <div class="product-price">
+                    <span class="amount">$10</span>
+                    <span class="label">one-time</span>
+                </div>
+                <ul class="product-features">
+                    <li>Multi-chain balance tracking</li>
+                    <li>DeFi monitoring (Aave/Compound/Uniswap)</li>
+                    <li>Alerts (Telegram/email/Slack/webhooks)</li>
+                    <li>Liquidation risk warnings</li>
+                    <li>Read-only (no private keys needed)</li>
+                </ul>
+                <a href="https://jeremylongshore.gumroad.com/l/crypto-portfolio-agent" class="product-cta" target="_blank" rel="noopener noreferrer">Get Portfolio Agent</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- JavaScript for interactions -->
+    <script is:inline>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Scroll reveal observer
+        var revealObserver = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal, .reveal-stagger').forEach(function(el) {
+            revealObserver.observe(el);
+        });
+
+        // Copy install command(s) on click
+        document.querySelectorAll('.install-command').forEach((el) => {
+            el.addEventListener('click', function() {
+                const text = this.dataset.copy || this.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const original = this.textContent;
+                    this.textContent = '✓ Copied to clipboard!';
+                    this.style.color = 'var(--positive)';
+                    if (window.trackEvent) {
+                        window.trackEvent('install_copied', { plugin_name: text, source: 'homepage_install' });
+                    }
+                    setTimeout(() => {
+                        this.textContent = original;
+                        this.style.color = '';
+                    }, 2000);
+                });
+            });
+        });
+
+        // Track SaaS pack copy clicks
+        document.querySelectorAll('.saas-cmd').forEach(function(el) {
+            el.addEventListener('click', function() {
+                if (window.trackEvent) {
+                    var packName = this.textContent.replace('/plugin install ', '').replace('npm i ', '').trim();
+                    window.trackEvent('install_copied', { plugin_name: packName, source: 'homepage_saas_pack' });
+                }
+            });
+        });
+
+        // Track CTA clicks
+        document.querySelectorAll('.hero-cta-group a, .cowork-home-cta a, .saas-cta a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.trackEvent) {
+                    window.trackEvent('cta_click', {
+                        cta_name: this.textContent.trim().substring(0, 50),
+                        cta_url: this.getAttribute('href')
+                    });
+                }
+            });
+        });
+
+        // Homepage search is a redirect surface (search happens on /explore)
+        const searchInput = document.getElementById('hero-search-input');
+        const toggleBtns = document.querySelectorAll('.toggle-btn');
+        let activeType = 'all';
+
+        // Toggle button handling
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeType = btn.dataset.type;
+
+                const url = new URL('/explore', window.location.origin);
+                if (activeType && activeType !== 'all') url.searchParams.set('type', activeType);
+                window.location.assign(url.toString());
+            });
+        });
+
+        const redirectToExplore = () => {
+            const url = new URL('/explore', window.location.origin);
+            if (activeType && activeType !== 'all') url.searchParams.set('type', activeType);
+            window.location.assign(url.toString());
+        };
+
+        // Make entire search container clickable
+        const searchContainer = document.querySelector('.search-container');
+        if (searchContainer) {
+            searchContainer.addEventListener('click', (e) => {
+                // Don't redirect if clicking toggle buttons (they have their own handlers)
+                if (!e.target.closest('.toggle-btn')) {
+                    redirectToExplore();
+                }
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('focus', redirectToExplore);
+        }
+    </script>
+
+
+    <!-- Stack Builder Component -->
+    <StackBuilder />
+</BaseLayout>
+<!-- rebuilt 2026-03-04T00:00:00-06:00 -->

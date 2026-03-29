@@ -1,0 +1,19 @@
+{
+  "name": "mcp-workspace",
+  "private": true,
+  "workspaces": [
+    "hex-common",
+    "hex-line-mcp",
+    "hex-ssh-mcp",
+    "hex-graph-mcp"
+  ],
+  "overrides": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "zod": "^3.25.0",
+    "web-tree-sitter": "^0.25.0",
+    "tree-sitter-wasms": "^0.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.4"
+  }
+}

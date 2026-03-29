@@ -1,0 +1,17 @@
+{
+  "name": "podium-pack",
+  "version": "1.0.0",
+  "description": "Claude Code skill pack for Podium (18 skills)",
+  "author": {
+    "name": "Jeremy Longshore",
+    "email": "jeremy@intentsolutions.io"
+  },
+  "license": "MIT",
+  "keywords": [
+    "podium",
+    "podium",
+    "saas",
+    "sdk",
+    "integration"
+  ]
+}

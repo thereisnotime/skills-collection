@@ -1,0 +1,76 @@
+{
+  "$id": "environment_state",
+  "type": "object",
+  "required": ["scanned_at", "agents"],
+  "additionalProperties": false,
+  "properties": {
+    "scanned_at": { "type": "string", "format": "date-time" },
+    "agents": {
+      "type": "object",
+      "required": ["codex", "gemini"],
+      "additionalProperties": false,
+      "properties": {
+        "codex": {
+          "type": "object",
+          "required": ["available"],
+          "properties": {
+            "available": { "type": "boolean" },
+            "disabled": { "type": "boolean" },
+            "version": { "type": "string" },
+            "config_synced": { "type": "boolean" },
+            "servers_synced": { "type": "integer" },
+            "detail": { "type": "string" }
+          }
+        },
+        "gemini": {
+          "type": "object",
+          "required": ["available"],
+          "properties": {
+            "available": { "type": "boolean" },
+            "disabled": { "type": "boolean" },
+            "version": { "type": "string" },
+            "config_synced": { "type": "boolean" },
+            "servers_synced": { "type": "integer" },
+            "hooks_synced": { "type": "integer" },
+            "detail": { "type": "string" }
+          }
+        }
+      }
+    },
+    "claude_md": {
+      "type": "object",
+      "properties": {
+        "exists": { "type": "boolean" },
+        "has_compact_instructions": { "type": "boolean" },
+        "line_count": { "type": "integer" },
+        "has_timestamps": { "type": "boolean" }
+      }
+    },
+    "best_practices": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "string" },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "info": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "last_assessment": {
+      "type": "object",
+      "properties": {
+        "assessed_at": { "type": "string", "format": "date-time" },
+        "all_green": { "type": "boolean" },
+        "workers_run": { "type": "array", "items": { "type": "string" } },
+        "workers_skipped": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["blocking", "advisory"]
+        }
+      }
+    }
+  }
+}

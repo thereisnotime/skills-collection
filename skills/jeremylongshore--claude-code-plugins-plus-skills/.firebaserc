@@ -1,0 +1,24 @@
+{
+  "projects": {
+    "default": "claude-code-plugins-io"
+  },
+  "targets": {
+    "claude-code-plugins-io": {
+      "hosting": {
+        "marketplace": [
+          "tonsofskills-com"
+        ],
+        "cowork-redirect": [
+          "claudecoworkskills-io"
+        ],
+        "skills-redirect": [
+          "claudecodeskills-io"
+        ],
+        "plugins-redirect": [
+          "claude-code-plugins-io"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

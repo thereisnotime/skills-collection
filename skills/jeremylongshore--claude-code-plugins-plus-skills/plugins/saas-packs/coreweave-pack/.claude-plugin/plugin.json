@@ -1,0 +1,17 @@
+{
+  "name": "coreweave-pack",
+  "version": "1.0.0",
+  "description": "Claude Code skill pack for CoreWeave (24 skills)",
+  "author": {
+    "name": "Jeremy Longshore",
+    "email": "jeremy@intentsolutions.io"
+  },
+  "license": "MIT",
+  "keywords": [
+    "coreweave",
+    "coreweave",
+    "saas",
+    "sdk",
+    "integration"
+  ]
+}

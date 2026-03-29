@@ -1,0 +1,190 @@
+# Changelog
+
+<!-- SCOPE: User-facing changes only. Max 5 bullets per entry. Focus: new capabilities, workflow changes, breaking changes. -->
+
+## 2026-03-29
+
+- **ln-310 quality-based refinement** — Codex iterative loop now exits by quality (MEDIUM/HIGH findings drive continuation), not just iteration count; added Architecture Gate, patience requirements, and risk mitigation criterion
+- **Process cleanup enforcement** — mandatory `--verify-dead {pid}` after every Codex call in ln-310, ln-510, ln-813; runtime guard blocks self-check pass without process verification
+- **Exit reason enum canonicalized** — CONVERGED/CONVERGED_LOW_IMPACT/MAX_ITER/ERROR/SKIPPED unified across workflow, runtime contract, status catalog, and smoke tests
+- **Perspective-based refinement** — 5 iterations now use different review angles (Generic, Dry-Run, New Dev, Adversarial, Final Sweep) instead of repeating the same criteria; exits on 2 consecutive APPROVED
+- **Guard integration tests** — new `guards.mjs` test validates all machine-enforced state transitions (exit_reason, processes_verified_dead)
+
+## 2026-03-28
+
+- **ln-015-hex-line-uninstaller** — standalone skill to remove hex-line hooks, output style, and settings from the system
+- **hex-line auto-sync** — `setup_hooks` tool removed; hooks and output style now auto-sync on MCP server startup via content comparison
+
+## 2026-03-27
+- **Marketplace install docs** — updated README, plugin docs, and GitHub Pages site to use the current Claude Code marketplace flow (`/plugin marketplace add` + `/plugin install plugin@marketplace`) instead of deprecated `/plugin add`
+- **Audit runtime unification** — 6XX coordinators and 31 workers migrated to run-scoped artifacts, audit-runtime CLI, and JSON summary contract with `summaryArtifactPath`
+- **Runtime status catalog** — canonical status sets codified across all runtime contracts (story-gate, optimization, review, environment)
+- **Worker independence cleanup** — removed 36 coordinator-aware DoD references, fixed 3 false positives in review-skills checks (R12/R13/R16)
+
+## 2026-03-26
+- **State platform runtime** — shared coordinator runtime now enforces manifest, state, checkpoints, history, active-pointer, and status schemas across stateful skill families
+- **Planning and environment migration** — ln-010, ln-220, and ln-300 now run on identifier-scoped runtimes with pause/resume, replay, and standalone worker summaries
+- **Coordinator family alignment** — ln-310, ln-400, ln-500, ln-810, and ln-1000 now follow the same run-scoped runtime discipline and normalized CLI/status contracts
+- **Review and contract hardening** — ln-162 and `review-skills` now catch standalone-worker drift, reverse coupling, and non-run-scoped runtime artifacts
+- **Docs and skill compression** — planning, environment, and pipeline skills/docs were rewritten into shorter runtime-first contracts with updated public docs and site pages
+
+## 2026-03-25
+- **ln-010 npx cache probe** — hex package version detection via npx cache scan instead of `npm outdated -g`; setup_hooks called unconditionally in Phase 3c verification
+- **ln-014 auto-fix** — Phase 5b auto-fixes missing Compact Instructions and MCP Tool Preferences sections in instruction files
+- **ln-012 probe cleanup** — removed global npm/npm ls fallback probes; hex packages are npx-only
+
+
+## 2026-03-24
+- **skills-catalog rename** — `skills/` → `skills-catalog/` to fix plugin skill duplication (128×6 entries in autocomplete)
+- **ln-840-benchmark-compare** — new skill in optimization-suite: A/B benchmark (built-in vs hex-line), renamed from ln-015
+- **bulk_replace caps** — format param (compact/full), per-file diff cap (50L), payload cap (30K chars)
+
+---
+
+## 2026-03-23
+
+- **ln-010 assess-dispatch-verify** — redesigned from invoke-all to smart dispatch: probes environment once, builds decision matrix, skips workers with nothing to do
+- **ln-150 removed** — presentation-creator skill deleted; all references cleaned from pipeline, marketplace, site, docs (127 skills)
+- **ln-162 Check 18** — new automated check verifies every SKILL.md has `**Type:**` line; prevents silent bypass of Check 9/17
+- **run_checks.sh hardened** — Check 5 scoped to skills-catalog/ paths only; Check 9/17 exclude Workers from coordinator-only requirements
+- **ln-014 auditor → manager** — renamed to ln-014-agent-instructions-manager; creates missing CLAUDE.md, AGENTS.md, GEMINI.md
+
+## 2026-03-22
+
+- **GitHub Pages MCP section** — hex-line, hex-ssh, hex-graph MCP servers showcased on site index with dedicated detail pages (`site/mcp/`)
+- **Plugin pages enhanced** — all 6 plugin detail pages now link each skill row to its SKILL.md source on GitHub
+- **GitHub Pages best practices** — new standards doc for site development guidelines
+- **hex-graph layered rewrite** — 15 MCP tools with canonical symbol identities, semantic edges, trace_paths, find_references, find_implementations, find_dataflows; replaces flat get_impact/get_context API
+- **Agent review simplified** — debate protocol (challenge/follow-up rounds) replaced with AGREE/REJECT verification + iterative Codex refinement loop (max 5 iterations)
+- **hex-ssh security hardening** — 4 new modules: command-policy, edit-validation, host-verify, shell-escape
+
+## 2026-03-21
+
+- **ln-012 MCP configurator** — 3 critical phases added: hooks+outputStyle install (Phase 4b), allowed-tools REPLACE strategy with mcp__* preservation (Phase 4d), MCP Tool Preferences auto-write to CLAUDE.md/GEMINI.md/AGENTS.md (Phase 4e)
+- **01X consistency audit** — ln-010 delegation table and rules aligned with ln-012 sanctioned write paths; ln-013 hooks mentioned in description, duplicate tool mapping removed
+
+## 2026-03-20
+
+- **hex MCP family** — 3 npm MCP servers: hex-line (hash-verified file editing, 10 tools), hex-ssh (remote file ops over SSH, 6 tools), hex-graph (code knowledge graph, 7 tools); rebranded from sharpline
+- **hex MCP v2** — output style system, hash-hint fallback, anchor-based editing, benchmark v3 (91-98% savings on multi-step workflows); hex-line v1.1.0, hex-ssh v1.1.0, hex-graph v0.2.0 published to npm
+- **Setup Environment plugin** — 7th plugin extracted from agile-workflow: ln-010 coordinator + 4 workers (agent installer, MCP configurator, config syncer, instructions auditor)
+- **Research skills consolidated** — ln-001 and ln-002 merged into ln-310 and ln-220 via shared layer; research methodology and docs creation extracted to shared references
+- **Best practice guides** — MCP Tool Design, Hook Design, Prompt Caching; hooks redesigned with dangerous command blocker
+## 2026-03-19
+
+- **hex MCP family** — 3 bundled MCP servers: hex-line (hash-verified file editing, 10 tools), hex-ssh (remote file ops over SSH, 6 tools), hex-graph (code knowledge graph with tree-sitter AST, 7 tools); FNV-1a hashing, security boundaries; npm publishable
+- **Agent runner overhaul** — Windows spawn fix (whichSync PATHEXT), heartbeat removed (log-based monitoring), registry 4→2 agents with focus_hint, `--approval-mode yolo` ⚠️ BREAKING
+- **Python → Node.js ESM** — all runtime scripts (.py) replaced with .mjs: agent_runner, 3 hooks, analyze_test_logs; Python dependency eliminated ⚠️ BREAKING
+- **ln-1000 redesign** — TeamCreate/heartbeat replaced with sequential Skill() calls; quality gate (ln-500) and test planning (ln-520) can no longer be skipped ⚠️ BREAKING
+- **GitHub Actions** — npm auto-publish for hex-line-mcp on tag `hex-line-v*`
+
+## 2026-03-18
+
+- **Agent process tree kill** — agent_runner kills entire process tree (not just immediate child) on both timeout and normal completion; `--verify-dead` CLI flag for safety net checks
+- **Python advanced tools mandatory** — import-linter, deptry, vulture, pip-audit promoted from optional to required in linter configurator; new config templates added
+- **Multi-stack verification matrix** — quality setup coordinator now has tool matrix across TypeScript/Python/.NET for all verification checks
+- **Epistemic protocol** — new `shared/references/epistemic_protocol.md` for source attribution and anti-hallucination across all research skills; integrated into research_tool_fallback, phase2_research_audit, solution_validation
+- **Description triggers + agent timeout 30min** — all 125 descriptions rewritten with "Use when..." triggers; ln-162 reviewer gains M6 + CHECK 14; all agent hard timeouts raised to 30 min; 7XX bootstrap skills get Meta-Analysis sections
+
+## 2026-03-16
+
+- **Codex Windows performance** — agent_runner auto-detects Windows and prepends prompt hint directing Codex to prefer built-in file read over PowerShell shell commands (5-15s overhead per call)
+
+## 2026-03-15
+
+- **Multi-cycle optimization** — performance pipeline now iterates (profile → research → validate → execute → repeat) until target met or plateau detected; each cycle discovers new bottlenecks as dominant ones are fixed (Amdahl's law)
+- **Cross-service performance profiling** — optimization pipeline traces bottlenecks across microservices (monorepo, git submodules, docker-compose); profiles inside accessible services instead of treating them as black boxes
+- **Community Engagement plugin** — new plugin with skills for automated GitHub community management: triage issues/PRs, compose announcements, launch RFC debates, respond to threads
+- **Token efficiency: output normalization** — new shared reference normalizes, deduplicates, and groups CLI output before presenting to agent; reduces noise in test runners, build auditors, profilers, log analyzers
+- **Skill reviewer automated script** — ln-162 Phase 2 checks now run via executable `run_checks.sh` instead of manual template assembly
+
+## 2026-03-14
+
+- **Agent sandbox fix** — plan files from outside project workspace now materialized for agent access (Gemini CLI CWD restriction)
+
+## 2026-03-13
+
+- **Test log analysis** — new skill classifies errors from Docker/file/Loki logs into 4 categories; only Real Bugs block quality verdict
+- **Documentation skill extraction** — scan project docs, extract procedural content into reusable `.claude/commands` with quality review
+
+---
+
+## 2026-03-11
+
+- **Pipeline orchestrator hardening** — Plan Gate now enforced at all 5 stages, worker prompts consolidated
+
+---
+
+## 2026-03-08
+
+- **Plugin marketplace** — split into 5 focused plugins installable individually: agile-workflow, documentation-pipeline, codebase-audit-suite, project-bootstrap, optimization-suite
+- **Optimization Suite** — new plugin with 11 skills: full-stack performance optimization (profile → research → execute), dependency upgrades (npm/NuGet/pip), code modernization (OSS replacement, bundle optimization)
+- **Destructive operation safety** — all skills now classify destructive actions by severity with human-in-the-loop gates
+
+---
+
+## 2026-03-07
+
+- **Two-layer detection** — audit skills now use grep pre-filter + AI context analysis instead of pure AI scanning (faster, fewer false positives)
+
+---
+
+## 2026-03-06
+
+- **Documentation fact-checker** — new skill extracts verifiable claims from .md files (paths, versions, configs) and cross-checks against codebase
+
+---
+
+## 2026-02-13
+
+- **Pipeline Orchestrator** — one command drives a Story through the full lifecycle: task planning → validation → implementation → quality gate → merge to develop. Uses Agent Teams for parallel worker coordination
+
+---
+
+## 2026-02-12
+
+- **Multi-round agent debate** — Codex/Gemini sessions now persist across challenge rounds, preserving full reasoning context during disagreements
+
+---
+
+## 2026-02-11
+
+- **Multi-model code review** — parallel Codex + Gemini analysis with Critical Verification: Claude independently validates each suggestion and debates controversial findings (max 2 rounds)
+- **Risk Analysis in validation** — 6 risk categories with Impact × Probability scoring before Story approval
+- **Persistence performance audit** — new skills for query efficiency, transaction correctness, blocking I/O, resource lifecycle analysis
+
+---
+
+## 2026-01-10
+
+- **Project Bootstrap** — 32 new skills for scaffolding production-ready projects or transforming existing ones to Clean Architecture. Supports React, .NET, Python with Docker, CI/CD, security scanning, and quality tooling setup
+
+---
+
+## 2025-12-23
+
+- **RICE prioritization** — new skill scores Stories by Reach, Impact, Confidence, Effort with automated market research
+
+---
+
+## 2025-12-21
+
+- **Validation overhaul** — universal pattern detection (OAuth, REST, ML pipelines) with fast path for trivial CRUD stories
+
+---
+
+## 2025-11-21
+
+- **100x token reduction** — coordinators now load Story/Task metadata only (~50 tokens vs ~5,000), delegating full reads to workers
+
+---
+
+## 2025-11-14
+
+- **Orchestrator-Worker architecture** — 3-level hierarchy (L1 orchestrators → L2 coordinators → L3 workers) with Progressive Disclosure for 24-40% documentation reduction
+
+---
+
+## 2025-11-10
+
+- **v1.0.0** — 17 skills automating Agile workflow end-to-end: scope decomposition, task execution, quality gates, Linear integration, Risk-Based Testing

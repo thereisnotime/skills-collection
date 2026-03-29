@@ -1,0 +1,54 @@
+# Setup Environment
+
+> One-command setup for multi-agent development workflows
+
+## Install
+
+```bash
+# Add the marketplace once
+/plugin marketplace add levnikolaevich/claude-code-skills
+
+# Install this plugin
+/plugin install setup-environment@levnikolaevich-skills-marketplace
+```
+
+## What it does
+
+Sets up and maintains the multi-agent development environment. The coordinator is runtime-backed, writes durable environment state only at finalization, and delegates to standalone workers that return machine-readable summaries.
+
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+| ln-001-push-all | Commit and push all changes to remote |
+| ln-010-dev-environment-setup | Full environment setup coordinator |
+| ln-011-agent-installer | Install or update Codex CLI, Gemini CLI, and Claude Code |
+| ln-012-mcp-configurator | Register MCP servers and analyze token budget |
+| ln-013-config-syncer | Sync settings from Claude to Gemini/Codex |
+| ln-014-agent-instructions-manager | Create missing instruction files and audit all for quality |
+| ln-015-hex-line-uninstaller | Remove hex-line hooks, output style, and cached files from system |
+| ln-020-codegraph | Code knowledge graph for dependency analysis and impact checking |
+
+## How it works
+
+```
+ln-010 (coordinator)
+    → ln-011 (install agents)
+    → ln-012 (configure MCP)
+    → ln-013 (sync configs)
+    → ln-014 (audit instructions)
+```
+
+`ln-010` scans the environment once, builds a selective dispatch plan, delegates to 4 standalone workers, verifies the result, and writes `.hex-skills/environment_state.json` only after verification passes. Worker summaries are coordination artifacts; the final environment file remains the durable project output.
+
+## Quick start
+
+```bash
+ln-010-dev-environment-setup  # Full setup (scan + install + configure + audit)
+ln-001-push-all               # Quick push of all changes
+```
+
+## Related
+
+- [All plugins](../../README.md)
+- [Architecture guide](../architecture/SKILL_ARCHITECTURE_GUIDE.md)

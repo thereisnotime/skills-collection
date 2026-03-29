@@ -1,0 +1,13 @@
+{
+  "name": "ai-ml-tools",
+  "description": "AI and ML capabilities with Google Gemini API integration for multimodal processing and agent development",
+  "version": "1.0.0",
+  "skills": ["./skills/ai-multimodal", "./skills/context-engineering", "./skills/google-adk-python"],
+  "author": {
+    "name": "ClaudeKit",
+    "email": "[email protected]"
+  },
+  "homepage": "https://claudekit.cc",
+  "repository": "https://github.com/mrgoonie/claudekit-skills",
+  "license": "MIT"
+}

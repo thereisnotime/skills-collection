@@ -1,0 +1,13 @@
+{
+  "name": "devops-skills",
+  "description": "DevOps skills for Claude Code: Terraform/OpenTofu workflows, AWS infrastructure management, safety-first IaC practices, and parallel agent orchestration",
+  "version": "1.0.0",
+  "author": {
+    "name": "lgbarn",
+    "email": ""
+  },
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "keywords": ["devops", "terraform", "opentofu", "aws", "infrastructure", "iac", "safety", "parallel-agents"]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.levnikolaevich/hex-ssh-mcp",
+  "title": "Hex SSH",
+  "description": "Token-efficient SSH MCP server with hash-verified remote file operations. 6 tools.",
+  "repository": {
+    "url": "https://github.com/levnikolaevich/claude-code-skills",
+    "source": "github"
+  },
+  "version": "1.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@levnikolaevich/hex-ssh-mcp",
+      "version": "1.2.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

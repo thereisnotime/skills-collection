@@ -1,0 +1,782 @@
+name: Validate Plugins
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.claude-plugin/**'
+      - 'marketplace/**'
+      - '.github/workflows/validate-plugins.yml'
+  push:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Sync CLI marketplace catalog
+        run: |
+          node scripts/sync-marketplace.cjs
+          if ! git diff --quiet .claude-plugin/marketplace.json; then
+            echo "Marketplace CLI catalog was out of date. Run: node scripts/sync-marketplace.cjs"
+            git diff --stat
+            exit 1
+          fi
+
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          # Exclude tsconfig*.json files as they use JSONC (JSON with Comments)
+          find . -name "*.json" -not -name "tsconfig*.json" -type f -exec sh -c '
+            for file; do
+              echo "Checking $file"
+              if ! jq empty "$file" 2>/dev/null; then
+                echo "Invalid JSON: $file"
+                exit 1
+              fi
+            done
+          ' sh {} +
+
+      - name: Check plugin structure
+        run: |
+          echo "Checking plugin structure..."
+          # Find all plugin directories (any directory with .claude-plugin/plugin.json)
+          find plugins/ -name "plugin.json" -path "*/.claude-plugin/plugin.json" | while read plugin_json; do
+            plugin=$(dirname $(dirname "$plugin_json"))
+            echo "Validating $plugin"
+
+            # Check for README
+            if [ ! -f "$plugin/README.md" ]; then
+              echo "Missing README.md in $plugin"
+              exit 1
+            fi
+
+            # Check scripts are executable
+            if [ -d "$plugin/scripts" ]; then
+              find "$plugin/scripts" -type f -name "*.sh" | while read script; do
+                if [ ! -x "$script" ]; then
+                  echo "Script not executable: $script"
+                  exit 1
+                fi
+              done
+            fi
+          done
+
+      - name: Validate marketplace catalog
+        run: |
+          echo "Validating marketplace catalog..."
+          jq empty .claude-plugin/marketplace.json
+
+          # Check all plugin sources exist
+          jq -r '.plugins[].source' .claude-plugin/marketplace.json | while read source; do
+            if [[ "$source" == ./* ]]; then
+              if [ ! -d "$source" ]; then
+                echo "Plugin source not found: $source"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Security scan - Detect hardcoded secrets
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          FOUND_SECRETS=0
+
+          # Check for common secret patterns, but exclude:
+          # - Placeholders (***", "xxx", "placeholder", etc.)
+          # - Password generation commands (openssl rand, pwgen, etc.)
+          # - Example/test values
+          # - Dynamic generation (random.choice, secrets.choice, etc.)
+          MATCHES=$(grep -r -E "(password|secret|api_key|token)(\s*)=(\s*)['\"]" plugins/ 2>/dev/null | \
+            grep -v '= "\*\*\*"' | \
+            grep -v "= '\*\*\*'" | \
+            grep -v '= "xxx"' | \
+            grep -v '= "XXX"' | \
+            grep -v 'placeholder' | \
+            grep -v 'PLACEHOLDER' | \
+            grep -v 'example' | \
+            grep -v 'EXAMPLE' | \
+            grep -v 'your-' | \
+            grep -v 'YOUR_' | \
+            grep -v 'test-' | \
+            grep -v 'openssl rand' | \
+            grep -v 'pwgen' | \
+            grep -v 'random.choice' | \
+            grep -v 'secrets.choice' | \
+            grep -v '\$(' | \
+            grep -E "['\"][^'\"]{20,}" || true)
+
+          if [ -n "$MATCHES" ]; then
+            echo "⚠️  WARNING: Potential hardcoded secrets detected!"
+            echo "$MATCHES"
+            echo "Please review the above matches and use environment variables instead."
+            FOUND_SECRETS=1
+          fi
+
+          # Check for AWS keys (critical - always fail)
+          # Exclude official AWS example key: AKIAIOSFODNN7EXAMPLE
+          AWS_KEYS=$(grep -r -E "AKIA[0-9A-Z]{16}" plugins/ 2>/dev/null | grep -v "AKIAIOSFODNN7EXAMPLE" || true)
+          if [ -n "$AWS_KEYS" ]; then
+            echo "❌ ERROR: AWS Access Key detected!"
+            echo "$AWS_KEYS"
+            exit 1
+          fi
+
+          # Check for private keys (critical - always fail)
+          # Exclude README and SKILL files (documentation of patterns to look for)
+          # Exclude tests/, CHANGES.md, security pattern definitions (redact.py)
+          # Exclude audit/validator reference docs that describe security scanning patterns
+          PRIVATE_KEYS=$(grep -r "BEGIN.*PRIVATE KEY" plugins/ 2>/dev/null | grep -v "README.md" | grep -v "SKILL.md" | grep -v "Pattern:" | grep -v "/tests/" | grep -v "CHANGES.md" | grep -v "redact.py" | grep -v "plugin-auditor/references/" | grep -v "plugin-validator/references/" || true)
+          if [ -n "$PRIVATE_KEYS" ]; then
+            echo "❌ ERROR: Private key detected!"
+            echo "$PRIVATE_KEYS"
+            exit 1
+          fi
+
+          if [ $FOUND_SECRETS -eq 0 ]; then
+            echo "✅ No hardcoded secrets detected"
+          else
+            echo "⚠️  Review warnings above, but not blocking CI"
+          fi
+
+      - name: Security scan - Dangerous patterns
+        run: |
+          echo "Scanning for dangerous command patterns..."
+          FOUND_ISSUES=0
+
+          # Check for destructive commands (only root deletion, not /var/... paths)
+          # Match: rm -rf / or rm -rf /* but NOT rm -rf /var/... etc.
+          DANGEROUS_RM=$(grep -r -E "rm\s+-rf\s+/(\s|$|\*)" plugins/ 2>/dev/null | grep -v "/var/" | grep -v "/tmp/" | grep -v "/prometheus/" || true)
+          if [ -n "$DANGEROUS_RM" ]; then
+            echo "❌ ERROR: Dangerous 'rm -rf /' pattern detected!"
+            echo "$DANGEROUS_RM"
+            FOUND_ISSUES=1
+          fi
+
+          # Check for command injection risks (exclude README documentation)
+          EVAL_USES=$(grep -r -E "eval\s*\(" plugins/ 2>/dev/null | grep -v "README.md" | grep -v "this.redis.eval" || true)
+          if [ -n "$EVAL_USES" ]; then
+            echo "⚠️  WARNING: 'eval()' detected - potential command injection risk"
+            echo "$EVAL_USES"
+          fi
+
+          # Check for suspicious curl/wget to unknown domains
+          if grep -r -E "curl.*http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+" plugins/ 2>/dev/null; then
+            echo "⚠️  WARNING: curl to IP address detected - potential data exfiltration"
+          fi
+
+          # Check for base64 encoded content (potential obfuscation)
+          if grep -r -E "base64\s+-d" plugins/ 2>/dev/null; then
+            echo "⚠️  WARNING: base64 decoding detected - potential obfuscation"
+          fi
+
+          if [ $FOUND_ISSUES -eq 0 ]; then
+            echo "✅ No dangerous patterns detected"
+          else
+            exit 1
+          fi
+
+      - name: Security scan - Suspicious URLs
+        run: |
+          echo "Scanning for suspicious URLs..."
+          # Check for non-HTTPS URLs (except localhost)
+          if grep -r -E "http://[^l]" plugins/ | grep -v "localhost" | grep -v "127.0.0.1" 2>/dev/null; then
+            echo "⚠️  WARNING: Non-HTTPS URLs detected (security risk)"
+          fi
+
+          # Check for URL shorteners (potential phishing)
+          if grep -r -E "(bit\.ly|tinyurl\.com|goo\.gl)" plugins/ 2>/dev/null; then
+            echo "⚠️  WARNING: URL shorteners detected (potential phishing)"
+          fi
+
+          echo "✅ URL scan complete"
+
+      - name: Security scan - MCP plugin dependencies
+        if: hashFiles('plugins/mcp/*/package.json') != ''
+        run: |
+          echo "Scanning MCP plugin dependencies..."
+          for package in plugins/mcp/*/package.json; do
+            if [ -f "$package" ]; then
+              echo "Checking $package"
+              dir=$(dirname "$package")
+              cd "$dir"
+
+              # Check for npm audit
+              if command -v npm &> /dev/null; then
+                npm audit --production || true
+              fi
+
+              cd -
+            fi
+          done
+          echo "✅ Dependency scan complete"
+
+  # Verification Pipeline (scoring + badge generation)
+  verify:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install pyyaml
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Run verification pipeline
+        run: node scripts/run-verification-pipeline.mjs
+
+      - name: Upload verification results
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-results
+          path: .claude-plugin/verification-summary.json
+          retention-days: 90
+
+  test:
+    runs-on: ubuntu-latest
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        test-type: [mcp-plugins, python-tests, validation-scripts]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        if: matrix.test-type == 'mcp-plugins'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        if: matrix.test-type == 'mcp-plugins'
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        if: matrix.test-type == 'mcp-plugins'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build MCP plugins
+        if: matrix.test-type == 'mcp-plugins'
+        run: |
+          echo "Building MCP plugins..."
+          pnpm build
+          echo "✅ Build complete"
+
+      - name: Run MCP plugin tests
+        if: matrix.test-type == 'mcp-plugins'
+        run: |
+          echo "Running MCP plugin tests..."
+
+          # Run tests for each MCP plugin that has a test script
+          for package in plugins/mcp/*/package.json; do
+            if [ -f "$package" ]; then
+              dir=$(dirname "$package")
+              plugin_name=$(basename "$dir")
+
+              echo "Testing $plugin_name..."
+              cd "$dir"
+
+              # Check if test script exists
+              if grep -q '"test":' package.json || grep -q '"test:ci":' package.json; then
+                # Skip Python-based plugins (tested in python-tests job)
+                if grep -q 'pytest' package.json; then
+                  echo "⏭️  Skipping $plugin_name (Python plugin, tested separately)"
+                  cd - > /dev/null
+                  continue
+                fi
+                # Prefer test:ci if available, otherwise use test
+                if grep -q '"test:ci":' package.json; then
+                  pnpm test:ci || exit 1
+                else
+                  pnpm test -- --run || exit 1
+                fi
+                echo "✅ Tests passed for $plugin_name"
+              else
+                echo "⚠️  No test script found for $plugin_name"
+              fi
+
+              cd - > /dev/null
+            fi
+          done
+
+          echo "✅ All MCP plugin tests passed"
+
+      - name: Type checking
+        if: matrix.test-type == 'mcp-plugins'
+        run: |
+          echo "Running TypeScript type checking..."
+          pnpm typecheck || exit 1
+          echo "✅ Type checking passed"
+
+      - name: Linting
+        if: matrix.test-type == 'mcp-plugins'
+        run: |
+          echo "Running linters..."
+          pnpm lint || exit 1
+          echo "✅ Linting passed"
+
+      - name: Setup Python
+        if: matrix.test-type == 'python-tests'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Python test dependencies
+        if: matrix.test-type == 'python-tests'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-asyncio
+
+          # Install dependencies if requirements.txt exists
+          if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          fi
+
+          # Install dependencies from plugin requirements.txt files
+          find plugins/ -name "requirements.txt" | while read req; do
+            echo "Installing deps from $req"
+            pip install -r "$req" || true
+          done
+
+          # Install additional testing tools
+          pip install pyyaml jsonschema
+
+      - name: Run Python tests
+        if: matrix.test-type == 'python-tests'
+        run: |
+          echo "Running Python tests..."
+
+          # Find all Python test files
+          TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" | grep -v "__pycache__" | grep -v "backups/" || true)
+
+          if [ -n "$TEST_FILES" ]; then
+            echo "Found Python test files:"
+            echo "$TEST_FILES"
+
+            # Run pytest with coverage
+            pytest -v --cov=. --cov-report=term-missing --cov-report=xml || exit 1
+            echo "✅ Python tests passed"
+          else
+            echo "⚠️  No Python test files found"
+          fi
+
+      - name: Setup Python for validation
+        if: matrix.test-type == 'validation-scripts'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install pyyaml for validation
+        if: matrix.test-type == 'validation-scripts'
+        run: pip install pyyaml
+
+      - name: Setup Node.js for validation
+        if: matrix.test-type == 'validation-scripts'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm for validation
+        if: matrix.test-type == 'validation-scripts'
+        uses: pnpm/action-setup@v4
+
+      - name: Build ccpi CLI
+        if: matrix.test-type == 'validation-scripts'
+        run: |
+          cd packages/cli
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Run validation with universal validator
+        if: matrix.test-type == 'validation-scripts'
+        run: |
+          echo "Testing with universal validator (v5.0)..."
+
+          # 1. Validator smoke test: single known-good skill, standard tier — must exit 0
+          echo "Running validator smoke test..."
+          python3 scripts/validate-skills-schema.py --standard plugins/ai-ml/ai-ethics-validator/skills/validating-ai-ethics-and-fairness/SKILL.md || exit 1
+          echo "✅ Validator runs successfully"
+
+          # 2. Full enterprise report: surface all compliance gaps (non-blocking)
+          #    Blocking enforcement deferred until batch migration of tags/compatible-with/line-limits
+          echo "Running full enterprise validation (reporting mode)..."
+          python3 scripts/validate-skills-schema.py --enterprise --show-low-grades || true
+          echo "✅ Enterprise report complete"
+
+          # 3. Single-skill validation test (standard tier — must pass)
+          echo "Running single-skill validation..."
+          python3 scripts/validate-skills-schema.py --standard plugins/ai-ml/ai-ethics-validator/skills/validating-ai-ethics-and-fairness/SKILL.md || exit 1
+          echo "✅ Single-skill validation passed"
+
+          # 4. ccpi validate backward compat
+          echo "Running ccpi validate..."
+          node packages/cli/dist/index.js validate --strict || exit 1
+          echo "✅ ccpi validation passed"
+
+          echo "✅ All validation tests passed"
+
+      - name: Upload test coverage
+        if: matrix.test-type == 'python-tests' && always()
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.xml
+          flags: python
+          fail_ci_if_error: false
+
+  # Package Manager Policy Enforcement
+  check-package-manager:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Run package manager policy check
+        run: node scripts/check-package-manager.mjs
+
+  # Marketplace Validation Gates
+  marketplace-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install marketplace dependencies
+        run: |
+          cd marketplace
+          npm install
+
+      - name: Build marketplace
+        run: |
+          cd marketplace
+          npm run build
+
+      - name: Validate Playbook Routes (source + dist)
+        run: node marketplace/scripts/validate-playbook-routes.mjs --dist
+
+      - name: Validate Internal Links (dist)
+        run: node marketplace/scripts/validate-internal-links.mjs
+
+      - name: Smoke Test - Verify Build Output
+        run: |
+          echo "Running smoke tests on marketplace build output..."
+
+          # 1. Verify dist/index.html exists and is valid HTML
+          if [ ! -f "marketplace/dist/index.html" ]; then
+            echo "ERROR: marketplace/dist/index.html not found"
+            exit 1
+          fi
+
+          if ! grep -q "<!DOCTYPE html>" marketplace/dist/index.html; then
+            echo "ERROR: Missing DOCTYPE in index.html"
+            exit 1
+          fi
+
+          if ! grep -q "Claude Code" marketplace/dist/index.html; then
+            echo "ERROR: Missing expected content in index.html"
+            exit 1
+          fi
+
+          echo "✓ index.html exists and is valid"
+
+          # 2. Verify at least one plugin page exists
+          PLUGIN_COUNT=$(find marketplace/dist/plugins -name "index.html" -type f 2>/dev/null | wc -l)
+          if [ "$PLUGIN_COUNT" -lt 1 ]; then
+            echo "ERROR: No plugin pages found in marketplace/dist/plugins/"
+            exit 1
+          fi
+          echo "✓ Found $PLUGIN_COUNT plugin pages"
+
+          # 3. Verify /explore/index.html exists
+          if [ ! -f "marketplace/dist/explore/index.html" ]; then
+            echo "ERROR: marketplace/dist/explore/index.html not found"
+            exit 1
+          fi
+          echo "✓ Explore page exists"
+
+          # 4. Verify /skills/index.html exists
+          if [ ! -f "marketplace/dist/skills/index.html" ]; then
+            echo "ERROR: marketplace/dist/skills/index.html not found"
+            exit 1
+          fi
+          echo "✓ Skills page exists"
+
+          # 5. Check max line length for iOS Safari compatibility
+          MAX_LINE=$(wc -L marketplace/dist/index.html | awk '{print $1}')
+          if [ "$MAX_LINE" -gt 5000 ]; then
+            echo "WARNING: HTML line too long ($MAX_LINE chars). iOS Safari may fail to render."
+          else
+            echo "✓ HTML line length OK ($MAX_LINE chars)"
+          fi
+
+          # 6. Verify /cowork/index.html exists
+          if [ ! -f "marketplace/dist/cowork/index.html" ]; then
+            echo "ERROR: marketplace/dist/cowork/index.html not found"
+            exit 1
+          fi
+          echo "✓ Cowork page exists"
+
+          # 7. Verify downloads manifest exists
+          if [ ! -f "marketplace/dist/downloads/manifest.json" ]; then
+            echo "ERROR: marketplace/dist/downloads/manifest.json not found"
+            exit 1
+          fi
+          echo "✓ Downloads manifest exists"
+
+          # 8. Verify plugin zips generated
+          PLUGIN_ZIP_COUNT=$(find marketplace/dist/downloads/plugins -name "*.zip" -type f 2>/dev/null | wc -l)
+          if [ "$PLUGIN_ZIP_COUNT" -lt 1 ]; then
+            echo "ERROR: No plugin zips in marketplace/dist/downloads/plugins/"
+            exit 1
+          fi
+          echo "✓ Found $PLUGIN_ZIP_COUNT plugin zips"
+
+          echo "✅ All smoke tests passed"
+
+      - name: Validate Cowork Downloads
+        run: node marketplace/scripts/validate-cowork-downloads.mjs
+
+      - name: Validate Cowork Security
+        run: node scripts/validate-cowork-security.mjs
+
+      - name: Validate routes
+        run: node scripts/check-routes.mjs
+
+      - name: Validate official links
+        run: node scripts/check-official-links.mjs
+
+      - name: Performance budget check
+        run: node scripts/check-performance.mjs
+
+  # Playwright E2E Tests (PROOF GATE)
+  playwright-tests:
+    runs-on: ubuntu-latest
+    needs: marketplace-validation
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install marketplace dependencies
+        run: |
+          cd marketplace
+          npm install --ignore-scripts
+
+      - name: Install Playwright
+        run: |
+          cd marketplace
+          npm install -D @playwright/test
+
+      - name: Install Playwright browsers
+        run: |
+          cd marketplace
+          npx playwright install --with-deps chromium webkit
+
+      - name: Build marketplace
+        run: |
+          cd marketplace
+          npm run build
+
+      - name: Run Playwright tests
+        run: |
+          cd marketplace
+          npx playwright test --reporter=html,github
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: playwright-report
+          path: marketplace/playwright-report/
+          retention-days: 30
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: test-screenshots
+          path: marketplace/test-results/screenshots/
+          retention-days: 30
+
+      - name: Upload test videos
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: test-videos
+          path: marketplace/test-results/**/video.webm
+          retention-days: 7
+
+  # Production E2E Tests (live site — no build needed)
+  production-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install marketplace dependencies
+        run: |
+          cd marketplace
+          npm install --ignore-scripts
+
+      - name: Install Playwright
+        run: |
+          cd marketplace
+          npm install -D @playwright/test
+
+      - name: Install Playwright browsers
+        run: |
+          cd marketplace
+          npx playwright install --with-deps chromium webkit
+
+      - name: Run production E2E tests
+        run: |
+          cd marketplace
+          npx playwright test --config=playwright.production.config.ts --reporter=html,github
+        env:
+          CI: true
+
+      - name: Upload production E2E report
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: production-e2e-report
+          path: marketplace/production-e2e-report/
+          retention-days: 30
+
+  # CLI Smoke Tests (EPIC D - D3)
+  cli-smoke-tests:
+    runs-on: ubuntu-latest
+    needs: marketplace-validation
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install CLI dependencies
+        run: |
+          cd packages/cli
+          pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: |
+          cd packages/cli
+          pnpm build
+
+      - name: Verify bin entrypoint is executable
+        run: |
+          if [ ! -x packages/cli/dist/index.js ]; then
+            echo "❌ CLI bin entrypoint is not executable"
+            exit 1
+          fi
+          echo "✅ CLI bin entrypoint is executable"
+
+      - name: Test CLI --help
+        run: |
+          cd packages/cli
+          node dist/index.js --help
+          if [ $? -eq 0 ]; then
+            echo "✅ CLI --help works"
+          else
+            echo "❌ CLI --help failed"
+            exit 1
+          fi
+
+      - name: Test CLI --version
+        run: |
+          cd packages/cli
+          node dist/index.js --version
+          if [ $? -eq 0 ]; then
+            echo "✅ CLI --version works"
+          else
+            echo "❌ CLI --version failed"
+            exit 1
+          fi
+
+      - name: Test CLI doctor command
+        run: |
+          cd packages/cli
+          node dist/index.js doctor --help
+          if [ $? -eq 0 ]; then
+            echo "✅ CLI doctor --help works"
+          else
+            echo "❌ CLI doctor --help failed"
+            exit 1
+          fi
+
+      - name: Test CLI validate command
+        run: |
+          cd packages/cli
+          node dist/index.js validate --help
+          if [ $? -eq 0 ]; then
+            echo "✅ CLI validate --help works"
+          else
+            echo "❌ CLI validate --help failed"
+            exit 1
+          fi
+
+      - name: Test CLI install command options
+        run: |
+          cd packages/cli
+          node dist/index.js install --help
+          if [ $? -eq 0 ]; then
+            echo "✅ CLI install --help works"
+          else
+            echo "❌ CLI install --help failed"
+            exit 1
+          fi
+
+      - name: Verify no workspace dependencies
+        run: |
+          if grep -q "workspace:" packages/cli/package.json; then
+            echo "❌ CLI has workspace: dependencies - will break at runtime!"
+            exit 1
+          fi
+          echo "✅ CLI has no workspace dependencies"
+
+      - name: Test npm pack
+        run: |
+          cd packages/cli
+          npm pack
+          if [ $? -eq 0 ]; then
+            echo "✅ npm pack works"
+            ls -lh *.tgz
+          else
+            echo "❌ npm pack failed"
+            exit 1
+          fi

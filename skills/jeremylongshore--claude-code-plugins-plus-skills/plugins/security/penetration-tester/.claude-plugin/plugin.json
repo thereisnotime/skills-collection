@@ -1,0 +1,19 @@
+{
+  "name": "penetration-tester",
+  "version": "2.0.0",
+  "description": "Security testing toolkit with HTTP header analysis, dependency auditing, and static code scanning",
+  "author": {
+    "name": "Jeremy Longshore",
+    "email": "[email protected]"
+  },
+  "repository": "https://github.com/jeremylongshore/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "penetration-testing",
+    "pentesting",
+    "owasp",
+    "exploitation",
+    "agent-skills"
+  ]
+}

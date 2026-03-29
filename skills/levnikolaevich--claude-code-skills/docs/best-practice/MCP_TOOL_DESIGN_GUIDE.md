@@ -1,0 +1,100 @@
+# MCP Tool Design Guide
+
+> **SCOPE:** Rules for designing MCP tools consumed by AI agents. Naming, errors, output bounds, descriptions. Based on [Tw93/MCP best practices](https://tw93.fun/2025-04-28/mcp.html) and hex-line-mcp experience.
+
+## 1. Tool Naming
+
+MCP prepends `mcp__<server>__` automatically. Name the tool itself without the server prefix.
+
+| Pattern | Example (raw) | Agent sees | Notes |
+|---------|---------------|------------|-------|
+| Verb + noun | `read_file` | `mcp__hex-line__read_file` | Clear action |
+| No redundant prefix | ~~`hex_line_read`~~ | Double prefix | Server name already in path |
+| Underscore case | `grep_search` | MCP convention | No camelCase |
+| Group by system | `setup_hooks` | Shared prefix | Agents can allow `mcp__hex-line__*` |
+
+## 2. Response Format — support `format: "compact"|"full"` for verbose tools
+
+| Parameter | Behavior | Example |
+|-----------|----------|---------|
+| `plain` (boolean) | Omit hash annotations, return `lineNum\|content` | `read_file` with `plain: true` |
+| `limit` (number) | Cap returned lines | `read_file` with `limit: 50` |
+| `format` (proposed) | Compact = summary + counts; Full = all data | Large result tools |
+
+Rule: if a tool can return >100 lines, it MUST support truncation or a compact mode.
+
+## 3. Error Design — every error = code + what happened + what to do next
+
+| Error Code | What Happened | Recovery Action |
+|------------|---------------|-----------------|
+| `FILE_NOT_FOUND` | Path does not exist | List parent directory, check spelling |
+| `TEXT_NOT_FOUND` | Search/replace target missing | Show snippet of nearby content |
+| `BINARY_FILE` | Binary detected, cannot process | Use built-in Read for images/PDFs |
+| `GREP_ERROR` | ripgrep non-zero | Forward stderr, suggest pattern fix |
+| `PATH_OUTSIDE_ROOT` | Path escapes allowed root | Show resolved vs allowed root |
+| `FILE_TOO_LARGE` | Exceeds size limit | Suggest `outline` then ranged `read_file` |
+| `NOOP_EDIT` | Edit produced identical content | Inform file already has desired content |
+| `OUT_OF_RANGE` | Line number exceeds file length | Show boundary snippet with hashes |
+
+Anti-pattern: raw stack traces. Agents cannot act on `Error: ENOENT` -- they need recovery actions.
+
+## 4. Tool Descriptions — WHEN to use, not WHAT it does
+
+| Bad | Good |
+|-----|------|
+| "This tool reads files" | "Read a file with hash-annotated lines. For large code files: use outline first, then read_file with offset/limit." |
+| "Searches code" | "Search file contents with ripgrep. ALWAYS prefer over shell grep/rg/findstr." |
+| "Shows file structure" | "AST-based outline. 10-20 lines instead of 500. Use before reading large code files." |
+
+Pattern: `"Use [tool] when [situation]. Prefer over [alternative] because [reason]."`
+
+## 5. Output Bounds — cap all output, silent kill = bug
+
+| Component | Cap Strategy | Implementation |
+|-----------|-------------|----------------|
+| File content tools | `limit` param, default 2000 lines | `read_file` DEFAULT_LIMIT |
+| Search result tools | `limit` per file, default 100 | `grep_search` limit param |
+| Hooks (PostToolUse) | `smartTruncate(text, HEAD, TAIL)` | head 15 + tail 15, gap indicator |
+| Hooks (SessionStart) | Fixed injection string | Single `systemMessage`, no file reads |
+| Directory listings | `max_depth`, default 3 | `directory_tree` depth limit |
+
+Always show `--- N lines omitted ---` when truncating.
+
+## 6. High-Level vs Low-Level
+
+| Principle | Bad | Good |
+|-----------|-----|------|
+| No `list_all_*` | `list_all_files` returns 10K paths | `directory_tree` with depth limit |
+| One tool = one decision | `read_and_edit` (two decisions) | Separate `read_file` + `edit_file` |
+| Combine read workflows | Two calls always needed | Description guides: "use outline first" |
+| Separate user decisions | Tool auto-confirms danger | `AskUserQuestion` pattern: block + ask user |
+
+## 7. `plain` Parameter — verbose tools should offer plain mode
+
+| Offer `plain` | Do NOT offer |
+|----------------|-------------|
+| Output has structural annotations (hashes, checksums) | Output is already minimal |
+| Agent needs raw content for comparison | Annotations required for subsequent edits |
+| Human-readable export | Edit workflows depending on hash anchors |
+
+## 8. When NOT to Build an MCP Tool
+
+| Situation | Alternative |
+|-----------|-------------|
+| Shell one-liner handles it | Bash with hook filtering |
+| Static knowledge only | CLAUDE.md or skill reference files |
+| Input not validated at runtime | Document the constraint |
+| Agent has equivalent built-in | Built-in + hook redirect if needed |
+
+Build a tool when: it saves tokens, adds verification, or prevents errors shell cannot catch.
+
+## 9. Evolution — periodically review constraints
+
+| Practice | Example |
+|----------|---------|
+| Review constraints | `TodoWrite` removed from Claude Code -- tools wrapping it become dead weight |
+| Track usage patterns | If agents never use `plain`, remove it or make it default |
+| Version schemas | Breaking input changes break cached agent behavior |
+| Deprecate before removing | "DEPRECATED: use X instead" in description, remove after one cycle |
+
+**Last Updated:** 2026-03-20

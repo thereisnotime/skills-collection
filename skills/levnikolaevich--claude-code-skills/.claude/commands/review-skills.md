@@ -1,0 +1,264 @@
+---
+description: Run skill quality review with repo-specific checks for claude-code-skills
+allowed-tools: Skill, Bash, Grep, Glob, Read, AskUserQuestion
+---
+
+# Review Skills
+
+Universal review (`ln-162`) plus repo-specific checks for `claude-code-skills`.
+
+## Execution Strategy
+
+**Step 1 FIRST** - invoke `ln-162` via Skill tool. **Step 2** - run the repo-specific bash script. Combine both outputs in Step 3.
+
+## Step 1: Universal Review (MANDATORY Skill invocation)
+
+> **NON-NEGOTIABLE:** Call `Skill(skill: "ln-162-skill-reviewer", args: "$ARGUMENTS")` via the Skill tool. Do not skip this or manually emulate `ln-162`.
+
+Invoke `Skill("ln-162-skill-reviewer")` with `$ARGUMENTS` (skill dirs or empty for auto-detect).
+
+## Step 2: Repo-Specific Checks
+
+Run this combined script:
+
+```bash
+#!/usr/bin/env bash
+
+RESULTS=()
+add_result() { RESULTS+=("$1|$2|$3"); }
+
+# === R1: Marketplace paths ===
+if [ -f .claude-plugin/marketplace.json ]; then
+  R1_FAILS=0
+  while read -r path; do
+    [ -d "$path" ] || R1_FAILS=$((R1_FAILS + 1))
+  done < <(grep -oE '"\./skills-catalog/ln-[^"]+' .claude-plugin/marketplace.json | tr -d '"')
+  [ "$R1_FAILS" -eq 0 ] && add_result R1 "Marketplace paths" PASS || add_result R1 "Marketplace paths" "FAIL ($R1_FAILS missing dirs)"
+else
+  add_result R1 "Marketplace paths" SKIP
+fi
+
+# === R2: Root docs stale skill names ===
+R2_FAILS=0
+for doc in README.md AGENTS.md .claude-plugin/marketplace.json; do
+  [ -f "$doc" ] || continue
+  while read -r skill; do
+    ls -d skills-catalog/${skill}*/ >/dev/null 2>&1 || R2_FAILS=$((R2_FAILS + 1))
+  done < <(grep -oE 'ln-[0-9]+-[a-z-]+' "$doc" | sort -u)
+done
+[ "$R2_FAILS" -eq 0 ] && add_result R2 "Root docs stale names" PASS || add_result R2 "Root docs stale names" "FAIL ($R2_FAILS stale refs)"
+
+# === R3: Skill count accuracy ===
+actual=$(ls -d skills-catalog/ln-*/SKILL.md 2>/dev/null | wc -l)
+R3_FAILS=0
+if [ -f README.md ]; then
+  badge=$(grep -oE 'skills-[0-9]+' README.md | grep -oE '[0-9]+' || true)
+  [ -n "$badge" ] && [ "$badge" != "$actual" ] && R3_FAILS=$((R3_FAILS + 1))
+fi
+if [ -f .claude-plugin/marketplace.json ]; then
+  market=$(grep -oE '"\./skills-catalog/ln-[^"]+' .claude-plugin/marketplace.json | wc -l)
+  [ "$market" != "$actual" ] && R3_FAILS=$((R3_FAILS + 1))
+fi
+[ "$R3_FAILS" -eq 0 ] && add_result R3 "Skill count accuracy" "PASS ($actual skills)" || add_result R3 "Skill count accuracy" "FAIL (badge/marketplace mismatch, actual=$actual)"
+
+# === R4: Plugin completeness ===
+R4_FAILS=0
+for skill_dir in skills-catalog/ln-*/; do
+  skill_name="./${skill_dir%/}"
+  grep -q "\"$skill_name\"" .claude-plugin/marketplace.json 2>/dev/null || R4_FAILS=$((R4_FAILS + 1))
+done
+[ "$R4_FAILS" -eq 0 ] && add_result R4 "Plugin completeness" PASS || add_result R4 "Plugin completeness" "FAIL ($R4_FAILS orphan skills)"
+
+# === R5: Pipeline data-flow (semi-automated) ===
+R5_WARNS=0
+for creator in skills-catalog/ln-11[1-5]-*/SKILL.md; do
+  [ -f "$creator" ] || continue
+  while read -r output_file; do
+    if ! grep -rlq "$output_file" skills-catalog/ln-{2,3,4,5}*/SKILL.md 2>/dev/null; then
+      R5_WARNS=$((R5_WARNS + 1))
+    fi
+  done < <(grep -oE '`[a-zA-Z_]+\.md`' "$creator" | tr -d '`' | grep -vE '(SKILL|README|CLAUDE|AGENTS)' | sort -u | head -5)
+done
+[ "$R5_WARNS" -eq 0 ] && add_result R5 "Pipeline data-flow" PASS || add_result R5 "Pipeline data-flow" "WARN ($R5_WARNS possibly orphan outputs)"
+
+# === R6: Deprecated Agent Teams references ===
+R6_FAILS=$(rg -n "Agent Teams|TeamCreate|TeammateIdle" AGENTS.md README.md docs skills-catalog .claude/commands --glob '!**/deprecated_apis.md' --glob '!**/CHANGELOG.md' --glob '!**/deprecated/**' --glob '!skills-catalog/ln-162-skill-reviewer/**' --glob '!.claude/commands/review-skills.md' 2>/dev/null | wc -l)
+[ "$R6_FAILS" -eq 0 ] && add_result R6 "Deprecated Agent Teams references" PASS || add_result R6 "Deprecated Agent Teams references" "FAIL ($R6_FAILS active refs)"
+
+# === R7: Automated test root consistency ===
+R7_FAILS=$(rg -n 'tests/(e2e|integration|unit)' AGENTS.md README.md docs skills-catalog .claude/commands --glob '!.claude/commands/review-skills.md' 2>/dev/null | wc -l)
+[ "$R7_FAILS" -eq 0 ] && add_result R7 "Automated test root consistency" PASS || add_result R7 "Automated test root consistency" "FAIL ($R7_FAILS old test roots)"
+
+# === R8: Docs extraction family alignment ===
+R8_FAILS=0
+for f in skills-catalog/ln-160-docs-skill-extractor/SKILL.md skills-catalog/ln-161-skill-creator/SKILL.md; do
+  grep -q 'markdown_read_protocol' "$f" || R8_FAILS=$((R8_FAILS + 1))
+  grep -q 'docs_quality_contract' "$f" || R8_FAILS=$((R8_FAILS + 1))
+  grep -q 'procedural_extraction_rules' "$f" || R8_FAILS=$((R8_FAILS + 1))
+done
+grep -q '^\*\*Coordinator:\*\*' skills-catalog/ln-161-skill-creator/SKILL.md && R8_FAILS=$((R8_FAILS + 1))
+grep -q '^\*\*Parent:\*\*' skills-catalog/ln-161-skill-creator/SKILL.md && R8_FAILS=$((R8_FAILS + 1))
+[ "$R8_FAILS" -eq 0 ] && add_result R8 "Docs extraction family alignment" PASS || add_result R8 "Docs extraction family alignment" "FAIL ($R8_FAILS drift issues)"
+
+# === R9: Site fact-check (conditional) ===
+if git diff --name-only HEAD -- site/ 2>/dev/null | grep -q .; then
+  R9_FAILS=0
+  for page in site/plugins/*.html; do
+    [ -f "$page" ] || continue
+    plugin=$(basename "$page" .html)
+    site_skills=$(grep -oE 'skill-id">ln-[0-9]+' "$page" | wc -l)
+    market_skills=$(node skills-catalog/ln-162-skill-reviewer/references/check_marketplace.mjs "$plugin")
+    [ "$site_skills" -gt 0 ] && [ "$site_skills" != "$market_skills" ] && { echo "  R9a: $plugin site=$site_skills marketplace=$market_skills" >&2; R9_FAILS=$((R9_FAILS + 1)); }
+  done
+  auditor_count=$(ls -d skills-catalog/ln-6*/SKILL.md 2>/dev/null | wc -l)
+  site_auditor=$(grep -oE '[0-9]+ parallel auditors' site/index.html 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+  [ -n "$site_auditor" ] && [ "$site_auditor" != "$auditor_count" ] && { echo "  R9b: site says $site_auditor auditors, actual $auditor_count" >&2; R9_FAILS=$((R9_FAILS + 1)); }
+  [ "$R9_FAILS" -eq 0 ] && add_result R9 "Site fact-check" PASS || add_result R9 "Site fact-check" "FAIL ($R9_FAILS mismatches)"
+else
+  add_result R9 "Site fact-check" "SKIP (no site/ changes)"
+fi
+
+# === R10: Volatile numbers in site/ ===
+R10_WARNS=$(grep -rnE '[0-9]+ (skills|auditors|parallel auditors)' site/ 2>/dev/null | grep -vcE '(WCAG|2\.1|AA|0 API)' || true)
+[ "$R10_WARNS" -eq 0 ] && add_result R10 "Volatile numbers in site" PASS || add_result R10 "Volatile numbers in site" "WARN ($R10_WARNS found)"
+
+# === R11: Check sync (automated_checks.md <-> run_checks.sh) ===
+CHECKS_DOC=$(grep -oE 'Check [0-9]+' skills-catalog/ln-162-skill-reviewer/references/automated_checks.md | grep -oE '[0-9]+' | sort -n | uniq)
+CHECKS_SCRIPT=$(grep -oE 'CHECK [0-9]+' skills-catalog/ln-162-skill-reviewer/references/run_checks.sh | grep -oE '[0-9]+' | sort -n | uniq)
+MISSING=$(comm -23 <(echo "$CHECKS_DOC") <(echo "$CHECKS_SCRIPT"))
+[ -z "$MISSING" ] && add_result R11 "Check sync (docs<->script)" PASS || add_result R11 "Check sync (docs<->script)" "FAIL (missing in script: $(echo $MISSING | tr '\n' ','))"
+
+# === R12: Worker invocation (full-repo D8b) ===
+R12_FAILS=0
+for f in skills-catalog/ln-*/SKILL.md; do
+  level=$(grep '\*\*Type:\*\*' "$f" | grep -oE 'L[12]' | head -1)
+  [ -z "$level" ] && continue
+  # Skip L2 Workers -- only Coordinators/Orchestrators delegate
+  grep '\*\*Type:\*\*' "$f" | grep -qi 'worker' && continue
+  self=$(basename $(dirname "$f") | grep -oE 'ln-[0-9]+-[a-z-]+')
+  # Skip skills whose Worker Invocation table declares no workers ("| None |")
+  grep -qF '| None |' "$f" && continue
+  worker_count=$(grep -oE 'ln-[0-9]+-[a-z-]+' "$f" | sort -u | grep -v "$self" | wc -l)
+  [ "$worker_count" -eq 0 ] && continue
+  skill_calls=$(grep -c 'Skill(skill:' "$f" || true)
+  [ "$skill_calls" -eq 0 ] && R12_FAILS=$((R12_FAILS + 1))
+  grep -q 'Worker Invocation (MANDATORY)' "$f" || R12_FAILS=$((R12_FAILS + 1))
+done
+[ "$R12_FAILS" -eq 0 ] && add_result R12 "Worker invocation (full-repo D8b)" PASS || add_result R12 "Worker invocation (full-repo D8b)" "FAIL ($R12_FAILS issues)"
+
+# === R13: Worker independence (no coordinator-aware worker contracts) ===
+R13_FAILS=0
+for f in skills-catalog/ln-*/SKILL.md; do
+  grep -q '\*\*Type:\*\*.*L3' "$f" || continue
+  self_id=$(basename $(dirname "$f") | grep -oE 'ln-[0-9]+')
+  # Exclude self-references (e.g. ln-813 referencing itself)
+  hits=$(rg 'Called by|Invoked by ln-|Caller:|returning control to `ln-|for `ln-[0-9]+`|returned to coordinator|handing control back to `ln-' "$f" 2>/dev/null | grep -v "for \`$self_id\`" || true)
+  [ -n "$hits" ] && R13_FAILS=$((R13_FAILS + 1))
+done
+[ "$R13_FAILS" -eq 0 ] && add_result R13 "Worker independence (no coordinator refs)" PASS || add_result R13 "Worker independence (no coordinator refs)" "FAIL ($R13_FAILS worker contracts)"
+
+# === R14: Universal runtime artifacts ===
+R14_FAILS=$(rg -n '\.hex-skills/(story-execution/summary|story-gate/summary|optimization/\{slug\}/8(11|12|13|14)-)' skills-catalog README.md docs site AGENTS.md 2>/dev/null | wc -l)
+[ "$R14_FAILS" -eq 0 ] && add_result R14 "Universal runtime artifacts" PASS || add_result R14 "Universal runtime artifacts" "FAIL ($R14_FAILS coordinator-specific paths)"
+
+# === R15: Standalone-first worker contract ===
+R15_FAILS=0
+for f in \
+  skills-catalog/ln-011-agent-installer/SKILL.md \
+  skills-catalog/ln-012-mcp-configurator/SKILL.md \
+  skills-catalog/ln-013-config-syncer/SKILL.md \
+  skills-catalog/ln-014-agent-instructions-manager/SKILL.md \
+  skills-catalog/ln-221-story-creator/SKILL.md \
+  skills-catalog/ln-222-story-replanner/SKILL.md \
+  skills-catalog/ln-301-task-creator/SKILL.md \
+  skills-catalog/ln-302-task-replanner/SKILL.md; do
+  [ -f "$f" ] || continue
+  grep -q 'summaryArtifactPath' "$f" || R15_FAILS=$((R15_FAILS + 1))
+  grep -qi 'standalone' "$f" || R15_FAILS=$((R15_FAILS + 1))
+done
+[ "$R15_FAILS" -eq 0 ] && add_result R15 "Standalone-first worker contract" PASS || add_result R15 "Standalone-first worker contract" "FAIL ($R15_FAILS missing contract markers)"
+
+# === R16: Run-scoped artifact paths ===
+R16_FAILS=$(rg -n '\.hex-skills/runtime-artifacts/(?!runs/)' skills-catalog README.md docs site AGENTS.md -P --glob '!skills-catalog/ln-162-skill-reviewer/**' --glob '!.claude/commands/review-skills.md' 2>/dev/null | wc -l)
+[ "$R16_FAILS" -eq 0 ] && add_result R16 "Run-scoped artifact paths" PASS || add_result R16 "Run-scoped artifact paths" "FAIL ($R16_FAILS non-run-scoped paths)"
+
+# === R17: Runtime smoke tests ===
+if [ -f skills-catalog/shared/scripts/review-runtime/test/smoke.mjs ]; then
+  SMOKE_OUT=$(node skills-catalog/shared/scripts/review-runtime/test/smoke.mjs 2>&1)
+  echo "$SMOKE_OUT" | grep -q 'smoke passed' && add_result R17 "Runtime smoke tests" PASS || add_result R17 "Runtime smoke tests" "FAIL ($SMOKE_OUT)"
+else
+  add_result R17 "Runtime smoke tests" SKIP
+fi
+
+# === R18: Exit reason enum sync ===
+R18_FAILS=0
+CATALOG_FILE=skills-catalog/shared/references/runtime_status_catalog.md
+WORKFLOW_FILE=skills-catalog/shared/references/agent_review_workflow.md
+if [ -f "$CATALOG_FILE" ] && [ -f "$WORKFLOW_FILE" ]; then
+  CATALOG_REASONS=$(grep -oE '`(CONVERGED|CONVERGED_LOW_IMPACT|MAX_ITER|ERROR|SKIPPED)`' "$CATALOG_FILE" | tr -d '`' | sort -u)
+  SCHEMA_REASONS=$(grep 'exit_reason:' "$WORKFLOW_FILE" | tail -1 | grep -oE '[A-Z_]+' | grep -vE '^(SKIPPED)$' | sort -u)
+  # Check that every reason in Output Schema exists in catalog
+  for reason in $SCHEMA_REASONS; do
+    echo "$CATALOG_REASONS" | grep -q "$reason" || R18_FAILS=$((R18_FAILS + 1))
+  done
+  [ "$R18_FAILS" -eq 0 ] && add_result R18 "Exit reason enum sync" PASS || add_result R18 "Exit reason enum sync" "FAIL ($R18_FAILS reasons in schema but not in catalog)"
+else
+  add_result R18 "Exit reason enum sync" SKIP
+fi
+
+# === R19: Checkpoint payload completeness ===
+R19_FAILS=0
+CLI_FILE=skills-catalog/shared/scripts/review-runtime/cli.mjs
+CONTRACT_FILE=skills-catalog/shared/references/review_runtime_contract.md
+if [ -f "$CLI_FILE" ] && [ -f "$CONTRACT_FILE" ]; then
+  # Phase 6 must extract: iterations, exit_reason, applied
+  grep -q 'refinement_iterations' "$CLI_FILE" || R19_FAILS=$((R19_FAILS + 1))
+  grep -q 'refinement_exit_reason' "$CLI_FILE" || R19_FAILS=$((R19_FAILS + 1))
+  grep -q 'refinement_applied' "$CLI_FILE" || R19_FAILS=$((R19_FAILS + 1))
+  [ "$R19_FAILS" -eq 0 ] && add_result R19 "Checkpoint payload completeness" PASS || add_result R19 "Checkpoint payload completeness" "FAIL ($R19_FAILS missing Phase 6 fields in cli.mjs)"
+else
+  add_result R19 "Checkpoint payload completeness" SKIP
+fi
+echo ""
+echo "## Repo-Specific Review -- claude-code-skills"
+echo ""
+echo "| # | Check | Result |"
+echo "|---|-------|--------|"
+for r in "${RESULTS[@]}"; do
+  IFS='|' read -r num check result <<< "$r"
+  echo "| $num | $check | $result |"
+done
+
+total_fails=$(printf '%s\n' "${RESULTS[@]}" | grep -c 'FAIL' || true)
+total_warns=$(printf '%s\n' "${RESULTS[@]}" | grep -c 'WARN' || true)
+echo ""
+if [ "$total_fails" -gt 0 ]; then
+  echo "Repo verdict: FAIL ($total_fails failures, $total_warns warnings)"
+elif [ "$total_warns" -gt 0 ]; then
+  echo "Repo verdict: PASS with WARNINGS ($total_warns)"
+else
+  echo "Repo verdict: PASS"
+fi
+```
+
+## Step 3: Combined Report
+
+Merge results into:
+
+```text
+| Source | Verdict | Details |
+|--------|---------|---------|
+| ln-162 (universal) | {PASS|FAIL} | {N findings, M fixed} |
+| Repo-specific | {PASS|FAIL} | {N failures, M warnings} |
+| Combined | {worst of both} | |
+```
+
+Then list all FAIL and WARN items grouped by severity, with file paths and fix descriptions.
+
+---
+
+## Step 4: Meta-Analysis
+
+**MANDATORY READ:** Load `skills-catalog/shared/references/meta_analysis_protocol.md`
+
+Analyze the session per protocol section 7. Output using the protocol format.

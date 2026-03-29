@@ -1,0 +1,71 @@
+{
+  "name": "@levnikolaevich/hex-graph-mcp",
+  "version": "0.4.1",
+  "mcpName": "io.github.levnikolaevich/hex-graph-mcp",
+  "type": "module",
+  "description": "Deterministic layered code graph MCP server. Indexes codebases into a SQLite graph via tree-sitter AST, canonical symbol identities, hashes, and semantic overlays for navigation, architecture, clones, references, implementations, and flow analysis.",
+  "main": "dist/server.mjs",
+  "bin": {
+    "hex-graph-mcp": "dist/server.mjs"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node build.mjs",
+    "prepublishOnly": "npm run build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "node --test test/smoke.mjs",
+    "check": "node --check server.mjs",
+    "benchmark": "node benchmark/index.mjs",
+    "benchmark:diagnostic": "node benchmark/index.mjs --diagnostics"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "_dep_notes": {
+    "web-tree-sitter": "Pinned ^0.25.0: v0.26 ABI incompatible with tree-sitter-wasms 0.1.x (built with tree-sitter-cli 0.20.8). Language.load() silently fails.",
+    "zod": "Pinned ^3.25.0: zod 4 breaks zod-to-json-schema (used by MCP SDK internally). Tool parameter descriptions not sent to clients. Revisit when MCP SDK switches to z.toJSONSchema()."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "tree-sitter-wasms": "^0.1.0",
+    "web-tree-sitter": "^0.25.0",
+    "better-sqlite3": "^12.0.0",
+    "chokidar": "^4.0.0",
+    "picomatch": "^4.0.3",
+    "zod": "^3.25.0"
+  },
+  "author": "Lev Nikolaevich <https://github.com/levnikolaevich>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/levnikolaevich/claude-code-skills/issues"
+  },
+  "keywords": [
+    "mcp",
+    "codegraph",
+    "knowledge-graph",
+    "tree-sitter",
+    "code-intelligence",
+    "blast-radius",
+    "dependency-graph",
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "llm",
+    "coding-agent",
+    "code-analysis"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/levnikolaevich/claude-code-skills",
+    "directory": "mcp/hex-graph-mcp"
+  },
+  "homepage": "https://github.com/levnikolaevich/claude-code-skills/tree/master/mcp/hex-graph-mcp",
+  "devDependencies": {
+    "eslint": "^10.1.0"
+  }
+}

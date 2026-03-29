@@ -1,0 +1,69 @@
+{
+  "week": "2026-W13",
+  "title": "Killer Skill of the Week",
+  "spotlight": {
+    "pluginSlug": "token-optimizer",
+    "headline": "Ghost tokens eat your context. Find them. Fix them. Prevent rot.",
+    "whyKiller": "Claude gets measurably dumber as your context fills. Compaction destroys 60-70% of your conversation. Ghost tokens burn through your rate limits on every message. Token Optimizer tracks all of it: live quality scoring on your status line, smart compaction that saves your decisions before they're lost, full analytics dashboard with per-session cost breakdowns, and 6 parallel audit agents that optimize your entire setup. Not a one-time scan. An ongoing intelligence layer for your Claude Code workflow.",
+    "author": "Alex Greenshpun",
+    "authorGithub": "alexgreensh",
+    "grade": "A",
+    "skillCount": null,
+    "category": "productivity",
+    "link": "https://github.com/alexgreensh/token-optimizer",
+    "quote": "My Claude Code kept leaking tokens. So I built this. Now my limits last longer, context stays fresh, and I have full visibility and control over my usage & setup."
+  },
+  "hallOfFame": [
+    {
+      "week": "2026-W12",
+      "pluginSlug": "executive-assistant-skills",
+      "headline": "The AI skills that fully replaced a $4k/mo executive assistant",
+      "whyKiller": "Research meeting attendees, gather email history, create meeting briefs, and manage action items via Todoist — the complete EA workflow automated by Auth0's former VP of Marketing/Growth.",
+      "author": "Martin Gontovnikas",
+      "authorGithub": "mgonto",
+      "grade": "A",
+      "skillCount": 5,
+      "category": "business-tools",
+      "link": "/plugins/executive-assistant-skills",
+      "quote": "These skills fully replaced my human executive assistant."
+    },
+    {
+      "week": "2026-W11",
+      "pluginSlug": "skill-creator",
+      "headline": "The meta-tool that builds and grades other skills",
+      "author": "Jeremy Longshore",
+      "authorGithub": "jeremylongshore",
+      "grade": "A",
+      "skillCount": 1,
+      "category": "skill-enhancers",
+      "link": "/plugins/skill-creator"
+    },
+    {
+      "week": "2026-W11",
+      "pluginSlug": "cursor-pack",
+      "headline": "30 skills that make Cursor actually intelligent",
+      "author": "Jeremy Longshore",
+      "authorGithub": "jeremylongshore",
+      "grade": "A",
+      "skillCount": 30,
+      "category": "saas-packs",
+      "link": "/plugins/cursor-pack"
+    },
+    {
+      "week": "2026-W11",
+      "pluginSlug": "crypto-portfolio-tracker",
+      "headline": "Professional crypto portfolio tracking with real-time PnL",
+      "author": "Jeremy Longshore",
+      "authorGithub": "jeremylongshore",
+      "grade": "A",
+      "skillCount": 5,
+      "category": "crypto",
+      "link": "/plugins/crypto-portfolio-tracker"
+    }
+  ],
+  "meta": {
+    "version": "2.1.0",
+    "lastUpdated": "2026-03-23",
+    "curatedBy": "Jeremy Longshore"
+  }
+}

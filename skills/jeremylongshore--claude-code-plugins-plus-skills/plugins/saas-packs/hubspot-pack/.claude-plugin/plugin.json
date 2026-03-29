@@ -1,0 +1,17 @@
+{
+  "name": "hubspot-pack",
+  "version": "1.0.0",
+  "description": "Claude Code skill pack for HubSpot (30 skills)",
+  "author": {
+    "name": "Jeremy Longshore",
+    "email": "jeremy@intentsolutions.io"
+  },
+  "license": "MIT",
+  "keywords": [
+    "hubspot",
+    "hubspot",
+    "saas",
+    "sdk",
+    "integration"
+  ]
+}

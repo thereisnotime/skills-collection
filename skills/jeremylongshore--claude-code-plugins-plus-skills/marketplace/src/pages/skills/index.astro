@@ -1,0 +1,481 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import skillsCatalog from '../../data/skills-catalog.json';
+
+const pageTitle = 'Skills (Embedded in Plugins)';
+const pageDescription = `Browse ${skillsCatalog.count} agent skills embedded in plugins across ${skillsCatalog.categories.length} categories`;
+
+// Get unique allowed tools for filtering
+const allTools = skillsCatalog.allowedToolsUsed;
+
+// Lightweight skills for client-side search (exclude heavy 'content' field)
+const lightweightSkills = skillsCatalog.skills.map(skill => ({
+  slug: skill.slug,
+  name: skill.name,
+  description: skill.description,
+  allowedTools: skill.allowedTools,
+  version: skill.version,
+  parentPlugin: skill.parentPlugin
+}));
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <style>
+    /* Skills Page Specific Styles */
+    .skills-header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 3rem;
+    }
+
+    .skills-header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .skills-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .skills-subtitle {
+      color: var(--text-2);
+      font-size: 1rem;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .filters-section {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 4rem;
+    }
+
+    .filters-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .filter-group label {
+      display: block;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .filter-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+
+    .filter-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px oklch(62% 0.16 35 / 0.1);
+    }
+
+    .filter-input::placeholder {
+      color: var(--text-2);
+    }
+
+    .filters-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .results-count {
+      font-size: 0.875rem;
+      color: var(--text-2);
+    }
+
+    .clear-filters-btn {
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      background: transparent;
+      border: none;
+      color: var(--primary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color var(--duration-fast) var(--ease-out);
+    }
+
+    .clear-filters-btn:hover {
+      color: var(--primary-dark);
+    }
+
+    .skills-grid-section {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 4rem;
+    }
+
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .skill-card {
+      display: block;
+      padding: 1.5rem;
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      border: 2px solid var(--border);
+      text-decoration: none;
+      transition: all var(--duration-normal) var(--ease-out);
+    }
+
+    .skill-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px oklch(62% 0.16 35 / 0.12);
+    }
+
+    .skill-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .skill-description {
+      font-size: 0.9rem;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .skill-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .tool-badge {
+      padding: 0.25rem 0.75rem;
+      background: oklch(62% 0.16 35 / 0.1);
+      color: var(--primary-dark);
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+    }
+
+    .tool-badge-more {
+      background: var(--border);
+      color: var(--text-2);
+    }
+
+    .skill-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-2);
+    }
+
+    .skill-category {
+      text-transform: capitalize;
+    }
+
+    .skill-plugin-info {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8125rem;
+      color: var(--text-2);
+    }
+
+    .skill-plugin-info strong {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+
+    .no-results p {
+      font-size: 1.25rem;
+      color: var(--text-2);
+      margin-bottom: 1.5rem;
+    }
+
+    .no-results button {
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      padding: 0.75rem 1.5rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+
+    .no-results button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 1024px) {
+      .skills-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .skills-header,
+      .filters-section,
+      .skills-grid-section {
+        padding-left: 2rem;
+        padding-right: 2rem;
+      }
+
+      .filters-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .skills-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <!-- Header -->
+  <div class="skills-header">
+    <div class="skills-header-content">
+      <h1 class="skills-title">Skills Directory</h1>
+      <p class="skills-subtitle"><strong style="font-family: 'DM Mono', monospace; color: var(--primary);">{skillsCatalog.count}</strong> skills across {skillsCatalog.categories.length} categories. Download plugins with <a href="/cowork" style="color: var(--primary); text-decoration: underline;">Cowork</a> or install via CLI.</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filters-container">
+      <div class="filters-grid">
+        <!-- Search -->
+        <div class="filter-group">
+          <label for="search-input">Search Skills</label>
+          <input
+            type="text"
+            id="search-input"
+            class="filter-input"
+            placeholder="Search by name, description..."
+          />
+        </div>
+
+        <!-- Category Filter -->
+        <div class="filter-group">
+          <label for="category-filter">Filter by Category</label>
+          <select id="category-filter" class="filter-input">
+            <option value="">All Categories</option>
+            {skillsCatalog.categories.map(category => (
+              <option value={category}>
+                {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <!-- Tool Filter -->
+        <div class="filter-group">
+          <label for="tool-filter">Filter by Tool</label>
+          <select id="tool-filter" class="filter-input">
+            <option value="">All Tools</option>
+            {allTools.map(tool => (
+              <option value={tool}>{tool}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div class="filters-footer">
+        <p id="results-count" class="results-count">
+          Showing {skillsCatalog.count} of {skillsCatalog.count} skills
+        </p>
+        <button onclick="clearFilters()" class="clear-filters-btn">
+          Clear Filters
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skills Grid -->
+  <div class="skills-grid-section">
+    <div id="skills-grid" class="skills-grid">
+      {skillsCatalog.skills.map(skill => (
+        <a
+          href={`/skills/${skill.slug}/`}
+          class="skill-card"
+        >
+          <h3 class="skill-name">{skill.name}</h3>
+          <p class="skill-description">
+            {skill.description || 'No description available'}
+          </p>
+
+          <div class="skill-tools">
+            {skill.allowedTools.slice(0, 3).map(tool => (
+              <span class="tool-badge">{tool}</span>
+            ))}
+            {skill.allowedTools.length > 3 && (
+              <span class="tool-badge tool-badge-more">
+                +{skill.allowedTools.length - 3} more
+              </span>
+            )}
+          </div>
+
+          <div class="skill-meta">
+            <span class="skill-category">{skill.parentPlugin.category.replace(/-/g, ' ')}</span>
+            <span>{skill.version}</span>
+          </div>
+
+          <div class="skill-plugin-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 4px;">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            </svg>
+            Provided by <strong>{skill.parentPlugin.name}</strong>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+
+  <!-- Client-side search functionality using Fuse.js -->
+  <script type="module">
+    import Fuse from 'https://cdn.jsdelivr.net/npm/fuse.js@7.1.0/+esm';
+
+    const skills = window.__SKILLS_DATA__;
+
+    const fuse = new Fuse(skills, {
+      keys: ['name', 'description', 'parentPlugin.category', 'allowedTools'],
+      threshold: 0.3,
+      includeScore: true
+    });
+
+    let activeFilters = {
+      category: null,
+      tool: null,
+      search: ''
+    };
+
+    function filterSkills() {
+      let filtered = skills;
+
+      // Apply search
+      if (activeFilters.search) {
+        const results = fuse.search(activeFilters.search);
+        filtered = results.map(r => r.item);
+      }
+
+      // Apply category filter
+      if (activeFilters.category) {
+        filtered = filtered.filter(s => s.parentPlugin.category === activeFilters.category);
+      }
+
+      // Apply tool filter
+      if (activeFilters.tool) {
+        filtered = filtered.filter(s => s.allowedTools.includes(activeFilters.tool));
+      }
+
+      renderSkills(filtered);
+      updateResultsCount(filtered.length);
+    }
+
+    function renderSkills(skills) {
+      const grid = document.getElementById('skills-grid');
+
+      if (skills.length === 0) {
+        grid.innerHTML = `
+          <div class="no-results" style="grid-column: 1 / -1;">
+            <p>No skills found matching your filters.</p>
+            <button onclick="clearFilters()">Clear Filters</button>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = skills.map(skill => `
+        <a href="/skills/${skill.slug}/" class="skill-card">
+          <h3 class="skill-name">${skill.name}</h3>
+          <p class="skill-description">${skill.description || 'No description available'}</p>
+
+          <div class="skill-tools">
+            ${skill.allowedTools.slice(0, 3).map(tool => `
+              <span class="tool-badge">${tool}</span>
+            `).join('')}
+            ${skill.allowedTools.length > 3 ? `<span class="tool-badge tool-badge-more">+${skill.allowedTools.length - 3} more</span>` : ''}
+          </div>
+
+          <div class="skill-meta">
+            <span class="skill-category">${skill.parentPlugin.category.replace(/-/g, ' ')}</span>
+            <span>${skill.version}</span>
+          </div>
+        </a>
+      `).join('');
+    }
+
+    function updateResultsCount(count) {
+      document.getElementById('results-count').textContent =
+        `Showing ${count} of ${skills.length} skills`;
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      // Search input
+      document.getElementById('search-input').addEventListener('input', (e) => {
+        activeFilters.search = e.target.value;
+        filterSkills();
+      });
+
+      // Category filter
+      document.getElementById('category-filter').addEventListener('change', (e) => {
+        activeFilters.category = e.target.value || null;
+        filterSkills();
+      });
+
+      // Tool filter
+      document.getElementById('tool-filter').addEventListener('change', (e) => {
+        activeFilters.tool = e.target.value || null;
+        filterSkills();
+      });
+
+      // Clear filters button
+      window.clearFilters = () => {
+        activeFilters = { category: null, tool: null, search: '' };
+        document.getElementById('search-input').value = '';
+        document.getElementById('category-filter').value = '';
+        document.getElementById('tool-filter').value = '';
+        filterSkills();
+      };
+    });
+  </script>
+
+  <script define:vars={{ skills: lightweightSkills }}>
+    window.__SKILLS_DATA__ = skills;
+  </script>
+</BaseLayout>

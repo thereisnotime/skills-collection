@@ -1,0 +1,114 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Testing
+test-marketplace/
+tmp/
+temp/
+*.tmp
+.pytest_cache/
+__pycache__/
+*.pyc
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.mcp.json
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Misc
+.cache/
+coverage/
+
+# Private documentation and business documents (NEVER commit)
+000-docs/
+# EXCEPT: 6767 canonical standards (cross-repo standards)
+!000-docs/6767*.md
+website/
+
+# Internal planning and research documents (do not commit to public repo)
+RESEARCH-FINDINGS.md
+PLUGIN-CATEGORIZATION-MATRIX.md
+PHASED-DEVELOPMENT-PLAN.md
+TOP-TIER-PLUGIN-IDEAS.md
+EXECUTIVE-SUMMARY.md
+PHASE-1-STATUS.md
+MARKETPLACE-READY.md
+skill-name-mappings.json
+/tmp/*.md
+/tmp/*.sh
+
+# Temporary migration preservation (do not commit)
+_PRESERVE_MIGRATION/
+
+# External repositories and reference materials (do not commit)
+adk-python/
+adk-samples/
+google-adk-reference/
+marketplace/backup-*/
+
+# NPM configuration files (local overrides)
+.npmrc
+packages/**/.npmrc
+
+# Workspace lab directory (safe sandbox for experiments)
+workspace/
+.venv
+.venv/
+
+# Beads task management (development tooling only - never ship to production)
+.beads/
+.beads/*.db
+.beads/*.db-wal
+.beads/*.db-shm
+.beads/daemon.*
+.beads/.local_version
+reports/
+marketplace/.firebase/
+.firebase/
+
+# Cowork download zips (generated at build time by build-cowork-zips.mjs)
+marketplace/public/downloads/
+marketplace/src/data/cowork-manifest.json
+**/skills/*/data/
+
+claudes-docs/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

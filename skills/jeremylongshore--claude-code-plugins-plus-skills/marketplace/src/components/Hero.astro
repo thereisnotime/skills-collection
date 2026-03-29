@@ -1,0 +1,301 @@
+---
+interface Props {
+  totalPlugins: number;
+  totalCategories: number;
+}
+
+const { totalPlugins, totalCategories } = Astro.props;
+---
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <h1 class="hero-title animate-title">
+        <span class="plugin-count">{totalPlugins} Production-Ready</span>
+        <br />
+        Claude Code Plugins
+      </h1>
+      <p class="hero-subtitle animate-subtitle">
+        The definitive marketplace for professional Claude Code plugins.
+        Supercharge your development workflow with battle-tested tools.
+      </p>
+
+      <div class="hero-stats animate-stats">
+        <div class="stat-item">
+          <div class="stat-number">{totalPlugins}</div>
+          <div class="stat-label">Plugins</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-number">{totalCategories}</div>
+          <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <div class="stat-number">100%</div>
+          <div class="stat-label">Open Source</div>
+        </div>
+      </div>
+
+      <div class="quick-install">
+        <div class="install-label">Quick Install</div>
+        <div class="install-code-wrapper">
+          <pre class="install-code"><code>/plugin marketplace add jeremylongshore/claude-code-plugins</code></pre>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText('/plugin marketplace add jeremylongshore/claude-code-plugins').then(() => { const btn = this; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 2000); })">
+            Copy
+          </button>
+        </div>
+        <p class="install-note">
+          Switching from the legacy slug? Run <code>/plugin marketplace remove claude-code-plugins</code> first, then add the marketplace again to pick up <code>claude-code-plugins-plus</code>.
+        </p>
+        <p class="intent-note">
+          Need broader AI delivery or MCP services? Explore our partner offerings at
+          <a href="https://www.intentsolutions.io/" target="_blank" rel="noopener noreferrer">Intent Solutions</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .hero {
+    padding: 4rem 0 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at top left, oklch(62% 0.16 35 / 0.10) 0%, transparent 65%);
+    pointer-events: none;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    text-align: left;
+    max-width: 900px;
+  }
+
+  /* Staggered entrance animations */
+  .animate-title {
+    animation: fade-up var(--duration-slow) var(--ease-out) 0s both;
+  }
+
+  .animate-subtitle {
+    animation: fade-up var(--duration-slow) var(--ease-out) 0.1s both;
+  }
+
+  .animate-stats {
+    animation: fade-up var(--duration-slow) var(--ease-out) 0.2s both;
+  }
+
+  .hero-title {
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: var(--text-3xl);
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    margin-bottom: 1.5rem;
+    line-height: 1.1;
+    color: var(--brand-dark);
+  }
+
+  .plugin-count {
+    color: var(--primary);
+  }
+
+  .hero-subtitle {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: var(--text-lg);
+    color: var(--brand-mid-gray);
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+    max-width: 640px;
+  }
+
+  .hero-stats {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .stat-item {
+    text-align: left;
+  }
+
+  .stat-number {
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: var(--primary);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.875rem;
+    color: var(--brand-mid-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 3rem;
+    background: var(--brand-light-gray);
+  }
+
+  .quick-install {
+    max-width: 600px;
+  }
+
+  .install-label {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--brand-mid-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+
+  .install-code-wrapper {
+    position: relative;
+    background: var(--brand-dark);
+    border: 1px solid var(--brand-light-gray);
+    border-radius: 0.75rem;
+    padding: 1rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: border-color var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-fast) var(--ease-out);
+  }
+
+  .install-code-wrapper:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  .install-code {
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    font-size: 0.875rem;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .install-code code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--primary-light);
+    font-size: 0.875rem;
+  }
+
+  .copy-btn {
+    flex-shrink: 0;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+    transition: background var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-fast) var(--ease-out);
+  }
+
+  .copy-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px oklch(62% 0.16 35 / 0.30);
+  }
+
+  .copy-btn:active {
+    transform: translateY(0);
+  }
+
+  .install-note,
+  .intent-note {
+    margin-top: 1rem;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.875rem;
+    color: var(--brand-mid-gray);
+    line-height: 1.6;
+  }
+
+  .install-note code {
+    background: var(--brand-light-gray);
+    color: var(--brand-dark);
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.35rem;
+    font-size: 0.8rem;
+  }
+
+  .intent-note a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid oklch(62% 0.16 35 / 0.40);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .intent-note a:hover {
+    border-bottom-color: oklch(62% 0.16 35 / 0.80);
+  }
+
+  @media (max-width: 640px) {
+    .hero {
+      padding: 2rem 0;
+    }
+
+    .hero-stats {
+      gap: 1rem;
+    }
+
+    .stat-number {
+      font-size: 2rem;
+    }
+
+    .stat-divider {
+      height: 2rem;
+    }
+
+    .install-code-wrapper {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .copy-btn {
+      width: 100%;
+    }
+  }
+</style>
