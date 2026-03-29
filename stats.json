@@ -1,7 +1,7 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 5219,
+    "stars": 5230,
     "forks": 370,
     "total_commits": 8,
     "issues_open": 0,
@@ -13,8 +13,8 @@
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
-    "stars": 2401,
-    "forks": 214,
+    "stars": 2402,
+    "forks": 215,
     "total_commits": 9,
     "issues_open": 3,
     "issues_closed": 0,
@@ -25,8 +25,8 @@
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 617,
-    "forks": 25,
+    "stars": 618,
+    "forks": 26,
     "total_commits": 31,
     "issues_open": 0,
     "issues_closed": 0,
@@ -37,8 +37,8 @@
   },
   "realkimbarrett--advertising-skills": {
     "skills": 19,
-    "stars": 449,
-    "forks": 21,
+    "stars": 454,
+    "forks": 22,
     "total_commits": 6,
     "issues_open": 0,
     "issues_closed": 0,
@@ -49,20 +49,20 @@
   },
   "ComposioHQ--awesome-claude-skills": {
     "skills": 889,
-    "stars": 49020,
-    "forks": 5058,
+    "stars": 49023,
+    "forks": 5059,
     "total_commits": 53,
     "issues_open": 78,
     "issues_closed": 4,
-    "prs_open": 340,
+    "prs_open": 341,
     "prs_closed": 77,
     "prs_merged": 20,
     "contributors": 13
   },
   "anthropics--skills": {
     "skills": 67,
-    "stars": 105473,
-    "forks": 11664,
+    "stars": 105490,
+    "forks": 11665,
     "total_commits": 25,
     "issues_open": 169,
     "issues_closed": 27,
@@ -145,8 +145,8 @@
   },
   "EveryInc--compound-engineering-plugin": {
     "skills": 232,
-    "stars": 11524,
-    "forks": 900,
+    "stars": 11537,
+    "forks": 902,
     "total_commits": 539,
     "issues_open": 31,
     "issues_closed": 108,
@@ -181,7 +181,7 @@
   },
   "Imbad0202--academic-research-skills": {
     "skills": 120,
-    "stars": 1573,
+    "stars": 1574,
     "forks": 183,
     "total_commits": 61,
     "issues_open": 0,
@@ -193,8 +193,8 @@
   },
   "K-Dense-AI--claude-scientific-skills": {
     "skills": 921,
-    "stars": 16613,
-    "forks": 1815,
+    "stars": 16615,
+    "forks": 1816,
     "total_commits": 374,
     "issues_open": 4,
     "issues_closed": 28,
@@ -216,7 +216,7 @@
     "contributors": 5
   },
   "NeoLabHQ--context-engineering-kit": {
-    "skills": 230,
+    "skills": 220,
     "stars": 728,
     "forks": 62,
     "total_commits": 265,
@@ -229,7 +229,7 @@
   },
   "Orchestra-Research--AI-research-SKILLs": {
     "skills": 350,
-    "stars": 5797,
+    "stars": 5798,
     "forks": 446,
     "total_commits": 198,
     "issues_open": 3,
@@ -445,7 +445,7 @@
   },
   "coreyhaines31--marketingskills": {
     "skills": 174,
-    "stars": 17302,
+    "stars": 17306,
     "forks": 2609,
     "total_commits": 169,
     "issues_open": 1,
@@ -456,7 +456,7 @@
     "contributors": 8
   },
   "dreamiurg--claude-mountaineering-skills": {
-    "skills": 15,
+    "skills": 14,
     "stars": 22,
     "forks": 0,
     "total_commits": 79,
@@ -481,7 +481,7 @@
   },
   "expo--skills": {
     "skills": 38,
-    "stars": 1567,
+    "stars": 1568,
     "forks": 72,
     "total_commits": 54,
     "issues_open": 4,
@@ -637,8 +637,8 @@
   },
   "obra--superpowers": {
     "skills": 69,
-    "stars": 122088,
-    "forks": 9925,
+    "stars": 122144,
+    "forks": 9930,
     "total_commits": 407,
     "issues_open": 87,
     "issues_closed": 400,
@@ -673,7 +673,7 @@
   },
   "proficientlyjobs--proficiently-claude-skills": {
     "skills": 24,
-    "stars": 79,
+    "stars": 80,
     "forks": 11,
     "total_commits": 34,
     "issues_open": 0,
@@ -817,7 +817,7 @@
   },
   "trailofbits--skills": {
     "skills": 389,
-    "stars": 4073,
+    "stars": 4074,
     "forks": 356,
     "total_commits": 97,
     "issues_open": 13,
@@ -853,19 +853,19 @@
   },
   "vercel-labs--agent-skills": {
     "skills": 127,
-    "stars": 24049,
-    "forks": 2189,
+    "stars": 24050,
+    "forks": 2190,
     "total_commits": 137,
     "issues_open": 44,
     "issues_closed": 22,
-    "prs_open": 61,
+    "prs_open": 62,
     "prs_closed": 31,
     "prs_merged": 43,
     "contributors": 19
   },
   "vercel-labs--next-skills": {
     "skills": 24,
-    "stars": 783,
+    "stars": 784,
     "forks": 51,
     "total_commits": 28,
     "issues_open": 5,
@@ -926,7 +926,7 @@
   "travisvn--awesome-claude-skills": {
     "skills": 0,
     "stars": 10021,
-    "forks": 962,
+    "forks": 963,
     "total_commits": 41,
     "issues_open": 10,
     "issues_closed": 15,
@@ -948,7 +948,7 @@
     "contributors": 2
   },
   "asklokesh--claudeskill-loki-mode": {
-    "skills": 235,
+    "skills": 232,
     "stars": 793,
     "forks": 159,
     "total_commits": 848,
