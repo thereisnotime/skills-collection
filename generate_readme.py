@@ -25,6 +25,7 @@ COMMITS_PATH = Path(__file__).parent / "commits.json"
 REPO_COMMITS_PATH = Path(__file__).parent / "repo-commits.json"
 ANALYSIS_PATH = Path(__file__).parent / "analysis.json"
 SKILLS_LIST_PATH = Path(__file__).parent / "skills-list.json"
+SKILLS_MD_PATH = Path(__file__).parent / "SKILLS.md"
 CHARTS_DIR = Path(__file__).parent / "charts"
 
 # -- Chart colors --
@@ -657,6 +658,8 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 |------|-------------|--------|-------|--------------|------|-------------|------------------|---------|
 {table}
 
+> **[View full skills index (SKILLS.md)](SKILLS.md)** — all named skills with descriptions, versions, licenses, and direct links.
+
 ## How it works
 
 A GitHub Actions workflow runs daily to:
@@ -672,6 +675,70 @@ A GitHub Actions workflow runs daily to:
 
     README_PATH.write_text(readme)
     print(f"  README.md generated ({total_skills} skill files across {len(repos)} repos)")
+
+
+def generate_skills_md(repos):
+    """Generate SKILLS.md with a full index of all named skills."""
+    if not SKILLS_LIST_PATH.exists():
+        return
+
+    skills_data = json.loads(SKILLS_LIST_PATH.read_text())
+    inventory = {r["dir"]: r for r in repos}
+
+    total_skills = 0
+    rows = []
+
+    for repo in repos:
+        dir_name = repo["dir"]
+        skills = skills_data.get(dir_name, [])
+        if not skills:
+            continue
+
+        repo_url = repo["url"]
+        owner = dir_name.split("--")[0]
+        repo_name = "--".join(dir_name.split("--")[1:])
+
+        for skill in skills:
+            total_skills += 1
+            name = skill["name"]
+            desc = skill.get("description", "")[:100]
+            if len(skill.get("description", "")) > 100:
+                desc += "..."
+            # Escape pipes in description
+            desc = desc.replace("|", "\\|")
+            remote_path = skill.get("remote_path", "")
+            skill_url = f"{repo_url}/blob/main/{remote_path}" if remote_path else repo_url
+            version = skill.get("version", "")
+            license_info = skill.get("license", "")[:30]
+            lines = skill.get("lines", 0)
+            langs = ", ".join(skill.get("languages", [])[:3])
+
+            rows.append(
+                f"| [{name}]({skill_url}) | {desc} "
+                f"| [{repo_name}]({repo_url}) | {owner} "
+                f"| {version} | {license_info} | {lines} | {langs} |"
+            )
+
+    table = "\n".join(rows)
+
+    skills_md = f"""\
+# Skills Index
+
+A comprehensive index of all **{total_skills:,}** named skills across **{len(repos)}** repositories.
+
+[Back to README](README.md)
+
+| Skill | Description | Repo | Owner | Version | License | Lines | Languages |
+|-------|-------------|------|-------|---------|---------|-------|-----------|
+{table}
+
+---
+
+*Auto-generated — {total_skills:,} skills indexed*
+"""
+
+    SKILLS_MD_PATH.write_text(skills_md)
+    print(f"  SKILLS.md generated ({total_skills:,} skills)")
 
 
 def cleanup_stale_dirs(repos):
@@ -751,4 +818,5 @@ if __name__ == "__main__":
     analysis_duration = format_duration(time.monotonic() - analysis_start)
 
     generate_readme(repos, metadata, sync_duration, api_duration, analysis_duration)
+    generate_skills_md(repos)
     strip_nested_git(repos)
