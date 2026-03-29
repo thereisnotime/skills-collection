@@ -1,6 +1,6 @@
 # Skills Index
 
-A comprehensive index of all **10,111** named skills across **100** repositories.
+A comprehensive index of all **10,110** named skills across **100** repositories.
 
 [Back to README](README.md)
 
@@ -3650,7 +3650,6 @@ A comprehensive index of all **10,111** named skills across **100** repositories
 | [ln-652-transaction-correctness-auditor](https://github.com/levnikolaevich/claude-code-skills/blob/main/skills-catalog/ln-652-transaction-correctness-auditor/SKILL.md) | "Checks transaction scope, missing rollback handling, long-held transactions, trigger/notify interac... | [claude-code-skills](https://github.com/levnikolaevich/claude-code-skills) | levnikolaevich |  | MIT | 238 |  |
 | [Bug Report](https://github.com/levnikolaevich/claude-code-skills/blob/main/.github/ISSUE_TEMPLATE/bug_report.md) |  | [claude-code-skills](https://github.com/levnikolaevich/claude-code-skills) | levnikolaevich |  |  | 40 |  |
 | [Feature Request](https://github.com/levnikolaevich/claude-code-skills/blob/main/.github/ISSUE_TEMPLATE/feature_request.md) |  | [claude-code-skills](https://github.com/levnikolaevich/claude-code-skills) | levnikolaevich |  |  | 33 |  |
-| [schema-optimization-orchestrator](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/blob/main/workspace/lab/schema-optimization/SKILL.md) | \| | [claude-code-plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | jeremylongshore | 1.0.0 | MIT | 288 | bash, json |
 | [example-skill](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/blob/main/templates/skill-plugin/skills/example-skill/SKILL.md) | \| | [claude-code-plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | jeremylongshore | 1.0.0 | MIT | 60 |  |
 | [example-agent](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/blob/main/templates/full-plugin/agents/example.md) | "Example agent for demonstrating plugin structure" | [claude-code-plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | jeremylongshore |  |  | 14 |  |
 | [example-agent](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/blob/main/templates/agent-plugin/agents/example.md) | "Brief description of agent's specialty (20-200 chars)" | [claude-code-plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | jeremylongshore |  |  | 40 |  |
@@ -10120,4 +10119,4 @@ A comprehensive index of all **10,111** named skills across **100** repositories
 
 ---
 
-*Auto-generated — 10,111 skills indexed*
+*Auto-generated — 10,110 skills indexed*
