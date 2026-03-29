@@ -1,8 +1,9 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 5230,
-    "forks": 370,
+    "md_files": 10,
+    "stars": 5260,
+    "forks": 375,
     "total_commits": 8,
     "issues_open": 0,
     "issues_closed": 0,
@@ -12,9 +13,10 @@
     "contributors": 3
   },
   "zarazhangrui--codebase-to-course": {
-    "skills": 3,
-    "stars": 2402,
-    "forks": 215,
+    "skills": 1,
+    "md_files": 3,
+    "stars": 2419,
+    "forks": 216,
     "total_commits": 9,
     "issues_open": 3,
     "issues_closed": 0,
@@ -24,9 +26,10 @@
     "contributors": 2
   },
   "samber--cc-skills-golang": {
-    "skills": 168,
-    "stars": 618,
-    "forks": 26,
+    "skills": 35,
+    "md_files": 168,
+    "stars": 633,
+    "forks": 27,
     "total_commits": 31,
     "issues_open": 0,
     "issues_closed": 0,
@@ -36,9 +39,10 @@
     "contributors": 3
   },
   "realkimbarrett--advertising-skills": {
-    "skills": 19,
-    "stars": 454,
-    "forks": 22,
+    "skills": 12,
+    "md_files": 19,
+    "stars": 465,
+    "forks": 23,
     "total_commits": 6,
     "issues_open": 0,
     "issues_closed": 0,
@@ -48,9 +52,10 @@
     "contributors": 1
   },
   "ComposioHQ--awesome-claude-skills": {
-    "skills": 889,
-    "stars": 49023,
-    "forks": 5059,
+    "skills": 864,
+    "md_files": 889,
+    "stars": 49055,
+    "forks": 5064,
     "total_commits": 53,
     "issues_open": 78,
     "issues_closed": 4,
@@ -60,19 +65,21 @@
     "contributors": 13
   },
   "anthropics--skills": {
-    "skills": 67,
-    "stars": 105490,
-    "forks": 11665,
+    "skills": 18,
+    "md_files": 67,
+    "stars": 105548,
+    "forks": 11673,
     "total_commits": 25,
     "issues_open": 169,
     "issues_closed": 27,
     "prs_open": 435,
-    "prs_closed": 119,
+    "prs_closed": 120,
     "prs_merged": 24,
     "contributors": 10
   },
   "1NickPappas--move-code-quality-skill": {
     "skills": 1,
+    "md_files": 1,
     "stars": 18,
     "forks": 0,
     "total_commits": 5,
@@ -84,7 +91,8 @@
     "contributors": 1
   },
   "ARPeeketi--claude-resume-kit": {
-    "skills": 22,
+    "skills": 6,
+    "md_files": 22,
     "stars": 30,
     "forks": 5,
     "total_commits": 12,
@@ -96,7 +104,8 @@
     "contributors": 1
   },
   "AgriciDaniel--claude-blog": {
-    "skills": 77,
+    "skills": 22,
+    "md_files": 77,
     "stars": 335,
     "forks": 91,
     "total_commits": 53,
@@ -108,7 +117,8 @@
     "contributors": 2
   },
   "AgriciDaniel--claude-email": {
-    "skills": 27,
+    "skills": 7,
+    "md_files": 27,
     "stars": 16,
     "forks": 7,
     "total_commits": 14,
@@ -120,7 +130,8 @@
     "contributors": 1
   },
   "ClickHouse--agent-skills": {
-    "skills": 34,
+    "skills": 1,
+    "md_files": 34,
     "stars": 379,
     "forks": 16,
     "total_commits": 13,
@@ -132,7 +143,8 @@
     "contributors": 5
   },
   "Digidai--product-manager-skills": {
-    "skills": 27,
+    "skills": 1,
+    "md_files": 27,
     "stars": 33,
     "forks": 2,
     "total_commits": 19,
@@ -144,9 +156,10 @@
     "contributors": 1
   },
   "EveryInc--compound-engineering-plugin": {
-    "skills": 232,
-    "stars": 11537,
-    "forks": 902,
+    "skills": 46,
+    "md_files": 232,
+    "stars": 11570,
+    "forks": 904,
     "total_commits": 539,
     "issues_open": 31,
     "issues_closed": 108,
@@ -156,7 +169,8 @@
     "contributors": 47
   },
   "Eyadkelleh--awesome-claude-skills-security": {
-    "skills": 19,
+    "skills": 8,
+    "md_files": 19,
     "stars": 113,
     "forks": 18,
     "total_commits": 6,
@@ -168,7 +182,8 @@
     "contributors": 3
   },
   "HeshamFS--materials-simulation-skills": {
-    "skills": 69,
+    "skills": 17,
+    "md_files": 69,
     "stars": 28,
     "forks": 2,
     "total_commits": 23,
@@ -180,8 +195,9 @@
     "contributors": 1
   },
   "Imbad0202--academic-research-skills": {
-    "skills": 120,
-    "stars": 1574,
+    "skills": 4,
+    "md_files": 120,
+    "stars": 1576,
     "forks": 183,
     "total_commits": 61,
     "issues_open": 0,
@@ -192,9 +208,10 @@
     "contributors": 1
   },
   "K-Dense-AI--claude-scientific-skills": {
-    "skills": 921,
-    "stars": 16615,
-    "forks": 1816,
+    "skills": 177,
+    "md_files": 921,
+    "stars": 16622,
+    "forks": 1817,
     "total_commits": 374,
     "issues_open": 4,
     "issues_closed": 28,
@@ -204,7 +221,8 @@
     "contributors": 28
   },
   "K-Dense-AI--claude-scientific-writer": {
-    "skills": 502,
+    "skills": 81,
+    "md_files": 502,
     "stars": 1351,
     "forks": 162,
     "total_commits": 202,
@@ -216,7 +234,8 @@
     "contributors": 5
   },
   "NeoLabHQ--context-engineering-kit": {
-    "skills": 220,
+    "skills": 68,
+    "md_files": 230,
     "stars": 728,
     "forks": 62,
     "total_commits": 265,
@@ -228,8 +247,9 @@
     "contributors": 5
   },
   "Orchestra-Research--AI-research-SKILLs": {
-    "skills": 350,
-    "stars": 5798,
+    "skills": 91,
+    "md_files": 350,
+    "stars": 5801,
     "forks": 446,
     "total_commits": 198,
     "issues_open": 3,
@@ -241,6 +261,7 @@
   },
   "Paramchoudhary--ResumeSkills": {
     "skills": 27,
+    "md_files": 27,
     "stars": 195,
     "forks": 23,
     "total_commits": 4,
@@ -252,7 +273,8 @@
     "contributors": 1
   },
   "Valian--linear-cli-skill": {
-    "skills": 2,
+    "skills": 1,
+    "md_files": 2,
     "stars": 13,
     "forks": 3,
     "total_commits": 15,
@@ -264,7 +286,8 @@
     "contributors": 1
   },
   "ahmedasmar--devops-claude-skills": {
-    "skills": 41,
+    "skills": 6,
+    "md_files": 41,
     "stars": 108,
     "forks": 19,
     "total_commits": 13,
@@ -276,7 +299,8 @@
     "contributors": 1
   },
   "airowe--claude-a11y-skill": {
-    "skills": 1,
+    "skills": 0,
+    "md_files": 1,
     "stars": 4,
     "forks": 1,
     "total_commits": 1,
@@ -288,7 +312,8 @@
     "contributors": 1
   },
   "akin-ozer--cc-devops-skills": {
-    "skills": 126,
+    "skills": 31,
+    "md_files": 126,
     "stars": 143,
     "forks": 14,
     "total_commits": 20,
@@ -300,7 +325,8 @@
     "contributors": 1
   },
   "alonw0--web-asset-generator": {
-    "skills": 4,
+    "skills": 1,
+    "md_files": 4,
     "stars": 255,
     "forks": 15,
     "total_commits": 12,
@@ -312,8 +338,9 @@
     "contributors": 2
   },
   "antonbabenko--terraform-skill": {
-    "skills": 12,
-    "stars": 1405,
+    "skills": 1,
+    "md_files": 12,
+    "stars": 1406,
     "forks": 106,
     "total_commits": 26,
     "issues_open": 2,
@@ -324,7 +351,8 @@
     "contributors": 3
   },
   "avifenesh--agentsys": {
-    "skills": 90,
+    "skills": 30,
+    "md_files": 90,
     "stars": 668,
     "forks": 68,
     "total_commits": 715,
@@ -336,7 +364,8 @@
     "contributors": 6
   },
   "better-auth--skills": {
-    "skills": 7,
+    "skills": 5,
+    "md_files": 7,
     "stars": 162,
     "forks": 21,
     "total_commits": 20,
@@ -348,7 +377,8 @@
     "contributors": 6
   },
   "better-i18n--skills": {
-    "skills": 24,
+    "skills": 2,
+    "md_files": 24,
     "stars": 1,
     "forks": 0,
     "total_commits": 17,
@@ -360,7 +390,8 @@
     "contributors": 2
   },
   "brunoasm--my_claude_skills": {
-    "skills": 13,
+    "skills": 5,
+    "md_files": 13,
     "stars": 9,
     "forks": 1,
     "total_commits": 82,
@@ -372,8 +403,9 @@
     "contributors": 2
   },
   "callstackincubator--agent-skills": {
-    "skills": 115,
-    "stars": 1148,
+    "skills": 10,
+    "md_files": 115,
+    "stars": 1149,
     "forks": 74,
     "total_commits": 43,
     "issues_open": 2,
@@ -384,7 +416,8 @@
     "contributors": 13
   },
   "chrisvoncsefalvay--claude-d3js-skill": {
-    "skills": 4,
+    "skills": 1,
+    "md_files": 4,
     "stars": 138,
     "forks": 12,
     "total_commits": 1,
@@ -396,8 +429,9 @@
     "contributors": 1
   },
   "cloudflare--skills": {
-    "skills": 282,
-    "stars": 738,
+    "skills": 9,
+    "md_files": 282,
+    "stars": 739,
     "forks": 84,
     "total_commits": 26,
     "issues_open": 5,
@@ -409,7 +443,8 @@
   },
   "coffeefuelbump--csv-data-summarizer-claude-skill": {
     "skills": 1,
-    "stars": 317,
+    "md_files": 1,
+    "stars": 318,
     "forks": 49,
     "total_commits": 1,
     "issues_open": 0,
@@ -421,6 +456,7 @@
   },
   "conorbronsdon--avoid-ai-writing": {
     "skills": 1,
+    "md_files": 1,
     "stars": 47,
     "forks": 2,
     "total_commits": 35,
@@ -432,8 +468,9 @@
     "contributors": 1
   },
   "conorluddy--ios-simulator-skill": {
-    "skills": 8,
-    "stars": 681,
+    "skills": 1,
+    "md_files": 8,
+    "stars": 682,
     "forks": 39,
     "total_commits": 47,
     "issues_open": 4,
@@ -444,9 +481,10 @@
     "contributors": 2
   },
   "coreyhaines31--marketingskills": {
-    "skills": 174,
-    "stars": 17306,
-    "forks": 2609,
+    "skills": 34,
+    "md_files": 174,
+    "stars": 17319,
+    "forks": 2611,
     "total_commits": 169,
     "issues_open": 1,
     "issues_closed": 95,
@@ -456,7 +494,8 @@
     "contributors": 8
   },
   "dreamiurg--claude-mountaineering-skills": {
-    "skills": 14,
+    "skills": 1,
+    "md_files": 15,
     "stars": 22,
     "forks": 0,
     "total_commits": 79,
@@ -468,7 +507,8 @@
     "contributors": 3
   },
   "emaynard--claude-family-history-research-skill": {
-    "skills": 14,
+    "skills": 1,
+    "md_files": 14,
     "stars": 49,
     "forks": 3,
     "total_commits": 23,
@@ -480,7 +520,8 @@
     "contributors": 2
   },
   "expo--skills": {
-    "skills": 38,
+    "skills": 11,
+    "md_files": 38,
     "stars": 1568,
     "forks": 72,
     "total_commits": 54,
@@ -492,7 +533,8 @@
     "contributors": 12
   },
   "firecrawl--cli": {
-    "skills": 10,
+    "skills": 8,
+    "md_files": 10,
     "stars": 231,
     "forks": 34,
     "total_commits": 275,
@@ -504,7 +546,8 @@
     "contributors": 7
   },
   "hashicorp--agent-skills": {
-    "skills": 26,
+    "skills": 15,
+    "md_files": 26,
     "stars": 495,
     "forks": 60,
     "total_commits": 45,
@@ -516,7 +559,8 @@
     "contributors": 9
   },
   "jananthan30--Resume-Builder": {
-    "skills": 18,
+    "skills": 0,
+    "md_files": 18,
     "stars": 21,
     "forks": 8,
     "total_commits": 35,
@@ -528,7 +572,8 @@
     "contributors": 1
   },
   "javiera-vasquez--claude-code-job-tailor": {
-    "skills": 15,
+    "skills": 0,
+    "md_files": 15,
     "stars": 105,
     "forks": 24,
     "total_commits": 368,
@@ -540,7 +585,8 @@
     "contributors": 1
   },
   "jawwadfirdousi--agent-skills": {
-    "skills": 7,
+    "skills": 4,
+    "md_files": 7,
     "stars": 5,
     "forks": 1,
     "total_commits": 23,
@@ -552,7 +598,8 @@
     "contributors": 1
   },
   "jthack--ffuf_claude_skill": {
-    "skills": 3,
+    "skills": 1,
+    "md_files": 3,
     "stars": 130,
     "forks": 7,
     "total_commits": 2,
@@ -564,8 +611,9 @@
     "contributors": 1
   },
   "lackeyjb--playwright-skill": {
-    "skills": 2,
-    "stars": 2240,
+    "skills": 1,
+    "md_files": 2,
+    "stars": 2241,
     "forks": 144,
     "total_commits": 21,
     "issues_open": 7,
@@ -577,6 +625,7 @@
   },
   "livelabs-ventures--nano-skills": {
     "skills": 1,
+    "md_files": 1,
     "stars": 8,
     "forks": 0,
     "total_commits": 2,
@@ -588,8 +637,9 @@
     "contributors": 1
   },
   "mhattingpete--claude-skills-marketplace": {
-    "skills": 34,
-    "stars": 516,
+    "skills": 18,
+    "md_files": 34,
+    "stars": 517,
     "forks": 59,
     "total_commits": 21,
     "issues_open": 6,
@@ -601,6 +651,7 @@
   },
   "michalparkola--tapestry-skills-for-claude-code": {
     "skills": 7,
+    "md_files": 7,
     "stars": 305,
     "forks": 53,
     "total_commits": 16,
@@ -612,7 +663,8 @@
     "contributors": 2
   },
   "neondatabase--agent-skills": {
-    "skills": 13,
+    "skills": 4,
+    "md_files": 13,
     "stars": 43,
     "forks": 5,
     "total_commits": 82,
@@ -624,7 +676,8 @@
     "contributors": 7
   },
   "netlify--context-and-tools": {
-    "skills": 44,
+    "skills": 24,
+    "md_files": 44,
     "stars": 10,
     "forks": 4,
     "total_commits": 46,
@@ -636,19 +689,21 @@
     "contributors": 7
   },
   "obra--superpowers": {
-    "skills": 69,
-    "stars": 122144,
-    "forks": 9930,
+    "skills": 14,
+    "md_files": 69,
+    "stars": 122294,
+    "forks": 9948,
     "total_commits": 407,
     "issues_open": 87,
     "issues_closed": 400,
-    "prs_open": 107,
+    "prs_open": 110,
     "prs_closed": 335,
     "prs_merged": 49,
     "contributors": 31
   },
   "obra--superpowers-skills": {
-    "skills": 46,
+    "skills": 31,
+    "md_files": 46,
     "stars": 582,
     "forks": 132,
     "total_commits": 35,
@@ -660,7 +715,8 @@
     "contributors": 5
   },
   "omkamal--pypict-claude-skill": {
-    "skills": 13,
+    "skills": 1,
+    "md_files": 13,
     "stars": 62,
     "forks": 8,
     "total_commits": 17,
@@ -672,7 +728,8 @@
     "contributors": 2
   },
   "proficientlyjobs--proficiently-claude-skills": {
-    "skills": 24,
+    "skills": 7,
+    "md_files": 24,
     "stars": 80,
     "forks": 11,
     "total_commits": 34,
@@ -684,8 +741,9 @@
     "contributors": 2
   },
   "remotion-dev--skills": {
-    "skills": 38,
-    "stars": 2452,
+    "skills": 1,
+    "md_files": 38,
+    "stars": 2453,
     "forks": 292,
     "total_commits": 34,
     "issues_open": 1,
@@ -696,7 +754,8 @@
     "contributors": 1
   },
   "replicate--skills": {
-    "skills": 2,
+    "skills": 1,
+    "md_files": 2,
     "stars": 26,
     "forks": 1,
     "total_commits": 10,
@@ -708,7 +767,8 @@
     "contributors": 1
   },
   "robertguss--claude-skills": {
-    "skills": 244,
+    "skills": 28,
+    "md_files": 244,
     "stars": 55,
     "forks": 11,
     "total_commits": 63,
@@ -720,7 +780,8 @@
     "contributors": 2
   },
   "ryanbbrown--revealjs-skill": {
-    "skills": 4,
+    "skills": 1,
+    "md_files": 4,
     "stars": 241,
     "forks": 24,
     "total_commits": 16,
@@ -732,7 +793,8 @@
     "contributors": 1
   },
   "sanity-io--agent-toolkit": {
-    "skills": 44,
+    "skills": 4,
+    "md_files": 44,
     "stars": 105,
     "forks": 10,
     "total_commits": 78,
@@ -744,7 +806,8 @@
     "contributors": 9
   },
   "sanjay3290--ai-skills": {
-    "skills": 24,
+    "skills": 20,
+    "md_files": 24,
     "stars": 181,
     "forks": 17,
     "total_commits": 40,
@@ -756,7 +819,8 @@
     "contributors": 1
   },
   "smerchek--claude-epub-skill": {
-    "skills": 5,
+    "skills": 1,
+    "md_files": 5,
     "stars": 103,
     "forks": 12,
     "total_commits": 14,
@@ -768,7 +832,8 @@
     "contributors": 1
   },
   "squirrelscan--skills": {
-    "skills": 2,
+    "skills": 1,
+    "md_files": 2,
     "stars": 68,
     "forks": 7,
     "total_commits": 41,
@@ -780,7 +845,8 @@
     "contributors": 1
   },
   "stripe--ai": {
-    "skills": 47,
+    "skills": 9,
+    "md_files": 47,
     "stars": 1411,
     "forks": 240,
     "total_commits": 317,
@@ -792,8 +858,9 @@
     "contributors": 33
   },
   "supabase--agent-skills": {
-    "skills": 39,
-    "stars": 1727,
+    "skills": 1,
+    "md_files": 39,
+    "stars": 1728,
     "forks": 112,
     "total_commits": 51,
     "issues_open": 2,
@@ -804,7 +871,8 @@
     "contributors": 7
   },
   "tinybirdco--tinybird-agent-skills": {
-    "skills": 47,
+    "skills": 4,
+    "md_files": 47,
     "stars": 14,
     "forks": 0,
     "total_commits": 50,
@@ -816,8 +884,9 @@
     "contributors": 6
   },
   "trailofbits--skills": {
-    "skills": 389,
-    "stars": 4074,
+    "skills": 62,
+    "md_files": 389,
+    "stars": 4075,
     "forks": 356,
     "total_commits": 97,
     "issues_open": 13,
@@ -828,7 +897,8 @@
     "contributors": 24
   },
   "typefully--agent-skills": {
-    "skills": 4,
+    "skills": 1,
+    "md_files": 4,
     "stars": 39,
     "forks": 2,
     "total_commits": 31,
@@ -840,7 +910,8 @@
     "contributors": 2
   },
   "varunr89--resume-tailoring-skill": {
-    "skills": 12,
+    "skills": 1,
+    "md_files": 12,
     "stars": 199,
     "forks": 31,
     "total_commits": 33,
@@ -852,8 +923,9 @@
     "contributors": 2
   },
   "vercel-labs--agent-skills": {
-    "skills": 127,
-    "stars": 24050,
+    "skills": 6,
+    "md_files": 127,
+    "stars": 24053,
     "forks": 2190,
     "total_commits": 137,
     "issues_open": 44,
@@ -864,7 +936,8 @@
     "contributors": 19
   },
   "vercel-labs--next-skills": {
-    "skills": 24,
+    "skills": 3,
+    "md_files": 24,
     "stars": 784,
     "forks": 51,
     "total_commits": 28,
@@ -876,7 +949,8 @@
     "contributors": 2
   },
   "wrsmith108--linear-claude-skill": {
-    "skills": 7,
+    "skills": 1,
+    "md_files": 7,
     "stars": 74,
     "forks": 11,
     "total_commits": 94,
@@ -889,6 +963,7 @@
   },
   "wrsmith108--varlock-claude-skill": {
     "skills": 1,
+    "md_files": 1,
     "stars": 16,
     "forks": 0,
     "total_commits": 5,
@@ -900,8 +975,9 @@
     "contributors": 1
   },
   "zarazhangrui--frontend-slides": {
-    "skills": 4,
-    "stars": 11619,
+    "skills": 1,
+    "md_files": 4,
+    "stars": 11625,
     "forks": 859,
     "total_commits": 13,
     "issues_open": 7,
@@ -912,7 +988,8 @@
     "contributors": 6
   },
   "zxkane--aws-skills": {
-    "skills": 19,
+    "skills": 5,
+    "md_files": 19,
     "stars": 224,
     "forks": 24,
     "total_commits": 21,
@@ -925,7 +1002,8 @@
   },
   "travisvn--awesome-claude-skills": {
     "skills": 0,
-    "stars": 10021,
+    "md_files": 0,
+    "stars": 10025,
     "forks": 963,
     "total_commits": 41,
     "issues_open": 10,
@@ -936,7 +1014,8 @@
     "contributors": 2
   },
   "obra--superpowers-lab": {
-    "skills": 7,
+    "skills": 5,
+    "md_files": 7,
     "stars": 255,
     "forks": 17,
     "total_commits": 6,
@@ -948,7 +1027,8 @@
     "contributors": 2
   },
   "asklokesh--claudeskill-loki-mode": {
-    "skills": 232,
+    "skills": 4,
+    "md_files": 235,
     "stars": 793,
     "forks": 159,
     "total_commits": 848,
@@ -960,8 +1040,9 @@
     "contributors": 5
   },
   "yusufkaraaslan--Skill_Seekers": {
-    "skills": 172,
-    "stars": 11440,
+    "skills": 1,
+    "md_files": 172,
+    "stars": 11446,
     "forks": 1124,
     "total_commits": 681,
     "issues_open": 96,

@@ -51,6 +51,14 @@ def run(cmd, cwd=None):
 
 
 def count_skill_files(repo_path):
+    """Count actual SKILL.md files in the repo."""
+    if not repo_path.exists():
+        return 0
+    return len(list(repo_path.rglob("SKILL.md")))
+
+
+def count_markdown_files(repo_path):
+    """Count all markdown files excluding common non-skill ones."""
     if not repo_path.exists():
         return 0
     count = 0
@@ -480,17 +488,20 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
     repo_skills = {}
     repo_contributors = {}
     total_skills = 0
+    total_md_files = 0
     total_size = 0.0
     rows = []
 
     for repo in repos:
         repo_path = SKILLS_DIR / repo["dir"]
         skills_count = count_skill_files(repo_path)
+        md_count = count_markdown_files(repo_path)
         meta = metadata.get(repo["dir"], {})
         stars = meta.get("stars", "?")
         contributors = meta.get("contributors", 0)
         size_mb = get_dir_size_mb(repo_path)
         total_skills += skills_count
+        total_md_files += md_count
         total_size += size_mb
 
         # Use commit data from GraphQL (not local git)
@@ -510,6 +521,7 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
 
         current_stats[repo["dir"]] = {
             "skills": skills_count,
+            "md_files": md_count,
             "stars": stars,
             "forks": meta.get("forks", 0),
             "total_commits": meta.get("total_commits", 0),
@@ -627,7 +639,8 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | Metric | Value |
 |--------|-------|
 | **Total repos** | {len(repos)} |
-| **Total skill files** | {total_display} |
+| **SKILL.md files** | {total_display} |
+| **Markdown files** | {total_md_files:,} |
 | **Total size** | {total_size} MB |
 | **Last synced** | {now} |
 | **API fetch** | {api_duration} |
