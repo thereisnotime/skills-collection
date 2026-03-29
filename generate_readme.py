@@ -246,6 +246,11 @@ def format_diff(current, previous):
     return str(current)
 
 
+def display_name(dir_name):
+    """Convert 'owner--repo' to 'owner/repo' for display."""
+    return dir_name.replace("--", "/", 1)
+
+
 def generate_stars_line_chart(history, repo_stars):
     """Line chart: stars over time for top 10 repos by current stars."""
     CHARTS_DIR.mkdir(exist_ok=True)
@@ -264,10 +269,10 @@ def generate_stars_line_chart(history, repo_stars):
             stars = repo_stars.get(name, 0)
             if isinstance(stars, int):
                 color = PALETTE[i % len(PALETTE)]
-                ax.bar(i, stars, color=color, label=name, width=0.6)
+                ax.bar(i, stars, color=color, label=display_name(name), width=0.6)
 
         ax.set_xticks(range(len(top_names)))
-        ax.set_xticklabels(top_names, rotation=35, ha="right", fontsize=8, color=TEXT_COLOR)
+        ax.set_xticklabels([display_name(n) for n in top_names], rotation=35, ha="right", fontsize=8, color=TEXT_COLOR)
         ax.set_ylabel("Stars", color=TEXT_COLOR, fontsize=11)
         ax.set_title("Stars — Top Repos (history builds over time)", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
         ax.tick_params(colors=TEXT_COLOR)
@@ -296,7 +301,7 @@ def generate_stars_line_chart(history, repo_stars):
             val = h["stars"].get(name, 0)
             values.append(val if isinstance(val, int) else 0)
         color = PALETTE[i % len(PALETTE)]
-        ax.plot(dates, values, color=color, label=name, linewidth=2, marker="o", markersize=4)
+        ax.plot(dates, values, color=color, label=display_name(name), linewidth=2, marker="o", markersize=4)
 
     ax.set_ylabel("Stars", color=TEXT_COLOR, fontsize=11)
     ax.set_title("Stars Over Time — Top 10 Repos", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
@@ -351,7 +356,7 @@ def generate_top_bottom_bar_chart(repo_stars):
 
     for ax, (title, data, color) in zip(axes, sections):
         ax.set_facecolor(BG_COLOR)
-        names = [d[0] for d in reversed(data)]
+        names = [display_name(d[0]) for d in reversed(data)]
         values = [d[1] for d in reversed(data)]
 
         bars = ax.barh(names, values, color=color, height=0.6, alpha=0.85)
@@ -361,7 +366,7 @@ def generate_top_bottom_bar_chart(repo_stars):
                     f"{val:,}", va="center", ha="left", color=TEXT_COLOR, fontsize=9)
 
         ax.set_title(title, color=TEXT_COLOR, fontsize=12, fontweight="bold", pad=12)
-        ax.tick_params(colors=TEXT_COLOR, labelsize=9)
+        ax.tick_params(colors=TEXT_COLOR, labelsize=8)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.spines["bottom"].set_color(GRID_COLOR)
@@ -387,7 +392,7 @@ def generate_skills_bar_chart(repo_skills):
     fig, ax = plt.subplots(figsize=(10, 6), facecolor=BG_COLOR)
     ax.set_facecolor(BG_COLOR)
 
-    names = [d[0] for d in reversed(sorted_repos)]
+    names = [display_name(d[0]) for d in reversed(sorted_repos)]
     values = [d[1] for d in reversed(sorted_repos)]
 
     bars = ax.barh(names, values, color=PALETTE[0], height=0.6, alpha=0.85)
@@ -398,7 +403,7 @@ def generate_skills_bar_chart(repo_skills):
 
     ax.set_title("Top 15 Repos by Skill Files", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
     ax.set_xlabel("Skill files", color=TEXT_COLOR, fontsize=11)
-    ax.tick_params(colors=TEXT_COLOR, labelsize=8)
+    ax.tick_params(colors=TEXT_COLOR, labelsize=7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_color(GRID_COLOR)
@@ -423,7 +428,7 @@ def generate_contributors_bar_chart(repo_contributors):
     fig, ax = plt.subplots(figsize=(10, 6), facecolor=BG_COLOR)
     ax.set_facecolor(BG_COLOR)
 
-    names = [d[0] for d in reversed(sorted_repos)]
+    names = [display_name(d[0]) for d in reversed(sorted_repos)]
     values = [d[1] for d in reversed(sorted_repos)]
 
     bars = ax.barh(names, values, color=PALETTE[4], height=0.6, alpha=0.85)
@@ -434,7 +439,7 @@ def generate_contributors_bar_chart(repo_contributors):
 
     ax.set_title("Top 15 Repos by Contributors", color=TEXT_COLOR, fontsize=13, fontweight="bold", pad=15)
     ax.set_xlabel("Contributors", color=TEXT_COLOR, fontsize=11)
-    ax.tick_params(colors=TEXT_COLOR, labelsize=8)
+    ax.tick_params(colors=TEXT_COLOR, labelsize=7)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_color(GRID_COLOR)
