@@ -1,5 +1,6 @@
 {
   "slavingia--skills": {
+    "description": "Claude Code skills by Sahil Lavingia",
     "skill_count": 10,
     "skill_lines_total": 794,
     "skill_lines_avg": 79,
@@ -30,6 +31,7 @@
     "has_claude_md": false
   },
   "zarazhangrui--codebase-to-course": {
+    "description": "Turn any codebase into a structured course",
     "skill_count": 1,
     "skill_lines_total": 274,
     "skill_lines_avg": 274,
@@ -58,6 +60,7 @@
     "has_claude_md": false
   },
   "samber--cc-skills-golang": {
+    "description": "Claude Code skills for Go development",
     "skill_count": 35,
     "skill_lines_total": 6887,
     "skill_lines_avg": 197,
@@ -102,6 +105,7 @@
     "has_claude_md": true
   },
   "realkimbarrett--advertising-skills": {
+    "description": "Advertising skills",
     "skill_count": 12,
     "skill_lines_total": 417,
     "skill_lines_avg": 35,
@@ -132,6 +136,7 @@
     "has_claude_md": false
   },
   "ComposioHQ--awesome-claude-skills": {
+    "description": "A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows ",
     "skill_count": 864,
     "skill_lines_total": 88960,
     "skill_lines_avg": 103,
@@ -179,6 +184,7 @@
     "has_claude_md": false
   },
   "anthropics--skills": {
+    "description": " Public repository for Agent Skills ",
     "skill_count": 18,
     "skill_lines_total": 3970,
     "skill_lines_avg": 221,
@@ -225,6 +231,7 @@
     "has_claude_md": false
   },
   "1NickPappas--move-code-quality-skill": {
+    "description": "Claude Code skill for analyzing Move packages against the official Move Book Code Quality Checklist",
     "skill_count": 1,
     "skill_lines_total": 416,
     "skill_lines_avg": 416,
@@ -256,6 +263,7 @@
     "has_claude_md": false
   },
   "ARPeeketi--claude-resume-kit": {
+    "description": "Extract your papers once, generate tailored LaTeX resumes for every JD. Anti-fabrication controls, multi-perspective critique, AI fingerprint avoidance.",
     "skill_count": 6,
     "skill_lines_total": 1202,
     "skill_lines_avg": 200,
@@ -293,6 +301,7 @@
     "has_claude_md": true
   },
   "AgriciDaniel--claude-blog": {
+    "description": "Claude Code skill ecosystem for blog content creation, optimization, and management. Dual-optimized for Google rankings and AI citations.",
     "skill_count": 22,
     "skill_lines_total": 5771,
     "skill_lines_avg": 262,
@@ -345,6 +354,7 @@
     "has_claude_md": true
   },
   "AgriciDaniel--claude-email": {
+    "description": "AI-powered email management and marketing skill for Claude Code. Inbox triage, composition, quality review, deliverability audit, automation sequences, and marketing strategy.",
     "skill_count": 7,
     "skill_lines_total": 2442,
     "skill_lines_avg": 349,
@@ -386,6 +396,7 @@
     "has_claude_md": true
   },
   "ClickHouse--agent-skills": {
+    "description": "The official Agent Skills for ClickHouse and ClickHouse Cloud",
     "skill_count": 1,
     "skill_lines_total": 235,
     "skill_lines_avg": 235,
@@ -420,6 +431,7 @@
     "has_claude_md": false
   },
   "Digidai--product-manager-skills": {
+    "description": "PM skill for Claude Code, Codex, Cursor, and Windsurf: diagnose SaaS metrics, critique PRDs, plan roadmaps, run discovery, and coach PM career transitions.",
     "skill_count": 1,
     "skill_lines_total": 240,
     "skill_lines_avg": 240,
@@ -451,6 +463,7 @@
     "has_claude_md": false
   },
   "EveryInc--compound-engineering-plugin": {
+    "description": "Office Compound Engineering plugin for Claude Code, Codex, and more",
     "skill_count": 46,
     "skill_lines_total": 13659,
     "skill_lines_avg": 297,
@@ -503,6 +516,7 @@
     "has_claude_md": true
   },
   "Eyadkelleh--awesome-claude-skills-security": {
+    "description": "Security testing toolkit for Claude Code: curated SecLists wordlists, injection payloads, and expert agents for authorized pentesting, CTFs, and bug bounties",
     "skill_count": 8,
     "skill_lines_total": 823,
     "skill_lines_avg": 103,
@@ -543,6 +557,7 @@
     "has_claude_md": false
   },
   "HeshamFS--materials-simulation-skills": {
+    "description": "Agent Skills for computational materials science -- numerical stability, solvers, meshing,   convergence, and simulation workflows.",
     "skill_count": 17,
     "skill_lines_total": 3772,
     "skill_lines_avg": 222,
@@ -582,6 +597,7 @@
     "has_claude_md": false
   },
   "Imbad0202--academic-research-skills": {
+    "description": "Academic Research Skills for Claude Code: research \u2192 write \u2192 review \u2192 revise \u2192 finalize",
     "skill_count": 4,
     "skill_lines_total": 2464,
     "skill_lines_avg": 616,
@@ -616,6 +632,7 @@
     "has_claude_md": false
   },
   "K-Dense-AI--claude-scientific-skills": {
+    "description": "A set of ready to use Agent Skills for research, science, engineering, analysis, finance and writing.",
     "skill_count": 177,
     "skill_lines_total": 77144,
     "skill_lines_avg": 436,
@@ -673,6 +690,7 @@
     "has_claude_md": false
   },
   "K-Dense-AI--claude-scientific-writer": {
+    "description": "A general purpose scientific writer",
     "skill_count": 81,
     "skill_lines_total": 52674,
     "skill_lines_avg": 650,
@@ -720,6 +738,7 @@
     "has_claude_md": true
   },
   "NeoLabHQ--context-engineering-kit": {
+    "description": "Hand-crafted Claude Code Skills focused on improving agent results quality. Compatible with OpenCode, Cursor, Antigravity, Gemini CLI, and others.",
     "skill_count": 68,
     "skill_lines_total": 33163,
     "skill_lines_avg": 488,
@@ -772,6 +791,7 @@
     "has_claude_md": true
   },
   "Orchestra-Research--AI-research-SKILLs": {
+    "description": "Comprehensive open-source library of AI research and engineering skills for any AI model. Package the skills and your claude code/codex/gemini agent will be an AI research agent with full horsepower. Maintained by Orchestra Research.",
     "skill_count": 91,
     "skill_lines_total": 37639,
     "skill_lines_avg": 414,
@@ -824,6 +844,7 @@
     "has_claude_md": true
   },
   "Paramchoudhary--ResumeSkills": {
+    "description": "A collection of AI agent skills focused on resume optimization, job applications, and career development. Built for job seekers, career changers, and professionals who want Claude Code to help with resume writing, ATS optimization, interview prep, and strategic job search.",
     "skill_count": 27,
     "skill_lines_total": 9878,
     "skill_lines_avg": 366,
@@ -855,6 +876,7 @@
     "has_claude_md": false
   },
   "Valian--linear-cli-skill": {
+    "description": "linear-cli-skill",
     "skill_count": 1,
     "skill_lines_total": 129,
     "skill_lines_avg": 129,
@@ -890,6 +912,7 @@
     "has_claude_md": true
   },
   "ahmedasmar--devops-claude-skills": {
+    "description": "A Claude Code Skills Marketplace for DevOps workflows",
     "skill_count": 6,
     "skill_lines_total": 3613,
     "skill_lines_avg": 602,
@@ -932,6 +955,7 @@
     "has_claude_md": true
   },
   "airowe--claude-a11y-skill": {
+    "description": "Claude Code skill for running comprehensive accessibility audits (axe-core + jsx-a11y)",
     "skill_count": 0,
     "skill_lines_total": 0,
     "skill_lines_avg": 0,
@@ -957,6 +981,7 @@
     "has_claude_md": false
   },
   "akin-ozer--cc-devops-skills": {
+    "description": "A practical skill pack for DevOps work in Claude Code and Codex.",
     "skill_count": 31,
     "skill_lines_total": 16913,
     "skill_lines_avg": 546,
@@ -1007,6 +1032,7 @@
     "has_claude_md": false
   },
   "alonw0--web-asset-generator": {
+    "description": "Claude skill to generate favicons, app icons, and social media images from logos, text, or emojis. Supports emoji suggestions, validation, and framework auto-integration.",
     "skill_count": 1,
     "skill_lines_total": 767,
     "skill_lines_avg": 767,
@@ -1043,6 +1069,7 @@
     "has_claude_md": false
   },
   "antonbabenko--terraform-skill": {
+    "description": "The Claude Agent Skill for Terraform and OpenTofu - testing, modules, CI/CD, and production patterns",
     "skill_count": 1,
     "skill_lines_total": 517,
     "skill_lines_avg": 517,
@@ -1078,6 +1105,7 @@
     "has_claude_md": true
   },
   "avifenesh--agentsys": {
+    "description": "AI writes code. This automates everything else \u00b7 19 plugins, 47 agents, and 39 skills \u00b7 for Claude Code, OpenCode, Codex, Cursor, Kiro.",
     "skill_count": 30,
     "skill_lines_total": 7799,
     "skill_lines_avg": 260,
@@ -1127,6 +1155,7 @@
     "has_claude_md": true
   },
   "better-auth--skills": {
+    "description": "skills",
     "skill_count": 5,
     "skill_lines_total": 1522,
     "skill_lines_avg": 304,
@@ -1160,6 +1189,7 @@
     "has_claude_md": false
   },
   "better-i18n--skills": {
+    "description": "Official AI agent skills for Better i18n \u2014 best practices for i18n implementation, translation workflows, and localization automation with Claude, GPT, and other AI assistants",
     "skill_count": 2,
     "skill_lines_total": 188,
     "skill_lines_avg": 94,
@@ -1189,6 +1219,7 @@
     "has_claude_md": false
   },
   "brunoasm--my_claude_skills": {
+    "description": "Claude Skill to prevent automatic confirmatory answers",
     "skill_count": 5,
     "skill_lines_total": 2214,
     "skill_lines_avg": 443,
@@ -1231,6 +1262,7 @@
     "has_claude_md": false
   },
   "callstackincubator--agent-skills": {
+    "description": "A collection of agent-optimized React Native skills for AI coding assistants.",
     "skill_count": 10,
     "skill_lines_total": 1152,
     "skill_lines_avg": 115,
@@ -1272,6 +1304,7 @@
     "has_claude_md": true
   },
   "chrisvoncsefalvay--claude-d3js-skill": {
+    "description": "A Claude skill for d3.js.",
     "skill_count": 1,
     "skill_lines_total": 821,
     "skill_lines_avg": 821,
@@ -1305,6 +1338,7 @@
     "has_claude_md": false
   },
   "cloudflare--skills": {
+    "description": "Skills for teaching agents how to build on Cloudflare.",
     "skill_count": 9,
     "skill_lines_total": 2651,
     "skill_lines_avg": 295,
@@ -1347,6 +1381,7 @@
     "has_claude_md": false
   },
   "coffeefuelbump--csv-data-summarizer-claude-skill": {
+    "description": "A Claude Skill that automatically analyzes uploaded CSV files \u2014 generating summary statistics, detecting missing data, and creating quick visualizations using Python and pandas.",
     "skill_count": 1,
     "skill_lines_total": 150,
     "skill_lines_avg": 150,
@@ -1380,6 +1415,7 @@
     "has_claude_md": false
   },
   "conorbronsdon--avoid-ai-writing": {
+    "description": "Claude Code & OpenClaw skill that audits and rewrites content to remove AI writing patterns",
     "skill_count": 1,
     "skill_lines_total": 443,
     "skill_lines_avg": 443,
@@ -1412,6 +1448,7 @@
     "has_claude_md": false
   },
   "conorluddy--ios-simulator-skill": {
+    "description": "An IOS Simulator Skill for ClaudeCode. Use it to optimise Claude's ability to build, run and interact with your apps, without using up any of the available token/context budget.",
     "skill_count": 1,
     "skill_lines_total": 241,
     "skill_lines_avg": 241,
@@ -1448,6 +1485,7 @@
     "has_claude_md": true
   },
   "coreyhaines31--marketingskills": {
+    "description": "Marketing skills for Claude Code and AI agents. CRO, copywriting, SEO, analytics, and growth engineering.",
     "skill_count": 34,
     "skill_lines_total": 10398,
     "skill_lines_avg": 306,
@@ -1488,6 +1526,7 @@
     "has_claude_md": true
   },
   "dreamiurg--claude-mountaineering-skills": {
+    "description": "Automates mountain route research for North American peaks. Aggregates data from 10+ mountaineering sources to generate detailed route beta reports with weather, avalanche conditions, and trip reports.",
     "skill_count": 1,
     "skill_lines_total": 789,
     "skill_lines_avg": 789,
@@ -1528,6 +1567,7 @@
     "has_claude_md": true
   },
   "emaynard--claude-family-history-research-skill": {
+    "description": "A Claude Skill to assist with family history and genealogy research planning.",
     "skill_count": 1,
     "skill_lines_total": 350,
     "skill_lines_avg": 350,
@@ -1557,6 +1597,7 @@
     "has_claude_md": false
   },
   "expo--skills": {
+    "description": "A collection of AI agent skills for working with Expo projects and Expo Application Services",
     "skill_count": 11,
     "skill_lines_total": 2762,
     "skill_lines_avg": 251,
@@ -1600,6 +1641,7 @@
     "has_claude_md": true
   },
   "firecrawl--cli": {
+    "description": "CLI and Agent Skill for Firecrawl - Add scrape, search, and browsing capabilities to your AI agents",
     "skill_count": 8,
     "skill_lines_total": 580,
     "skill_lines_avg": 72,
@@ -1639,6 +1681,7 @@
     "has_claude_md": false
   },
   "hashicorp--agent-skills": {
+    "description": "A collection of Agent skills and Claude Code plugins for HashiCorp products.",
     "skill_count": 15,
     "skill_lines_total": 6337,
     "skill_lines_avg": 422,
@@ -1683,6 +1726,7 @@
     "has_claude_md": false
   },
   "jananthan30--Resume-Builder": {
+    "description": "AI-powered resume & cover letter generator with dual ATS + HR scoring. Works for any profession. Claude Code plugin.",
     "skill_count": 0,
     "skill_lines_total": 0,
     "skill_lines_avg": 0,
@@ -1715,6 +1759,7 @@
     "has_claude_md": true
   },
   "javiera-vasquez--claude-code-job-tailor": {
+    "description": "AI resume optimization system for Claude Code. Analyzes job postings, ranks requirements by priority, and automatically selects your most relevant achievements. Write your experience once in YAML, generate unlimited tailored PDFs in 60 less than seconds using Tailor",
     "skill_count": 0,
     "skill_lines_total": 0,
     "skill_lines_avg": 0,
@@ -1749,6 +1794,7 @@
     "has_claude_md": true
   },
   "jawwadfirdousi--agent-skills": {
+    "description": "agent-skills",
     "skill_count": 4,
     "skill_lines_total": 677,
     "skill_lines_avg": 169,
@@ -1790,6 +1836,7 @@
     "has_claude_md": false
   },
   "jthack--ffuf_claude_skill": {
+    "description": "This is a \"skill\" for claude to use FFUF.",
     "skill_count": 1,
     "skill_lines_total": 499,
     "skill_lines_avg": 499,
@@ -1822,6 +1869,7 @@
     "has_claude_md": false
   },
   "lackeyjb--playwright-skill": {
+    "description": "Claude Code Skill for browser automation with Playwright. Model-invoked - Claude autonomously writes and executes custom automation for testing and validation.",
     "skill_count": 1,
     "skill_lines_total": 454,
     "skill_lines_avg": 454,
@@ -1855,6 +1903,7 @@
     "has_claude_md": false
   },
   "livelabs-ventures--nano-skills": {
+    "description": "Creating images with Nano Banana Pro",
     "skill_count": 1,
     "skill_lines_total": 84,
     "skill_lines_avg": 84,
@@ -1887,6 +1936,7 @@
     "has_claude_md": false
   },
   "mhattingpete--claude-skills-marketplace": {
+    "description": "Claude Code Skills for software engineering workflows - Git automation, testing, and code review",
     "skill_count": 18,
     "skill_lines_total": 2019,
     "skill_lines_avg": 112,
@@ -1927,6 +1977,7 @@
     "has_claude_md": true
   },
   "michalparkola--tapestry-skills-for-claude-code": {
+    "description": "Claude Code skills to download sources (articles, PDFs, YouTube video transcripts)",
     "skill_count": 7,
     "skill_lines_total": 2040,
     "skill_lines_avg": 291,
@@ -1960,6 +2011,7 @@
     "has_claude_md": false
   },
   "neondatabase--agent-skills": {
+    "description": "Agent Skills for Neon Severless Postgres",
     "skill_count": 4,
     "skill_lines_total": 637,
     "skill_lines_avg": 159,
@@ -2003,6 +2055,7 @@
     "has_claude_md": true
   },
   "netlify--context-and-tools": {
+    "description": "context-and-tools",
     "skill_count": 24,
     "skill_lines_total": 3350,
     "skill_lines_avg": 140,
@@ -2044,6 +2097,7 @@
     "has_claude_md": true
   },
   "obra--superpowers": {
+    "description": "An agentic skills framework & software development methodology that works.",
     "skill_count": 14,
     "skill_lines_total": 3171,
     "skill_lines_avg": 226,
@@ -2088,6 +2142,7 @@
     "has_claude_md": false
   },
   "obra--superpowers-skills": {
+    "description": "Community-editable skills for Claude Code's superpowers plugin",
     "skill_count": 31,
     "skill_lines_total": 5598,
     "skill_lines_avg": 181,
@@ -2131,6 +2186,7 @@
     "has_claude_md": false
   },
   "omkamal--pypict-claude-skill": {
+    "description": "A claude skill that generate test cases using N-wise test cases using the pypict library",
     "skill_count": 1,
     "skill_lines_total": 363,
     "skill_lines_avg": 363,
@@ -2167,6 +2223,7 @@
     "has_claude_md": false
   },
   "proficientlyjobs--proficiently-claude-skills": {
+    "description": "Claude Code skills for AI-powered job search, resume tailoring, and cover letter writing",
     "skill_count": 7,
     "skill_lines_total": 1764,
     "skill_lines_avg": 252,
@@ -2204,6 +2261,7 @@
     "has_claude_md": false
   },
   "remotion-dev--skills": {
+    "description": "Agent Skills",
     "skill_count": 1,
     "skill_lines_total": 62,
     "skill_lines_avg": 62,
@@ -2236,6 +2294,7 @@
     "has_claude_md": false
   },
   "replicate--skills": {
+    "description": "A collection of Agent Skills for building AI-powered apps with Replicate",
     "skill_count": 1,
     "skill_lines_total": 57,
     "skill_lines_avg": 57,
@@ -2266,6 +2325,7 @@
     "has_claude_md": false
   },
   "robertguss--claude-skills": {
+    "description": "A collection of custom skills that extend Claude's capabilities with specialized workflows, methods, and domain knowledge.",
     "skill_count": 28,
     "skill_lines_total": 7668,
     "skill_lines_avg": 274,
@@ -2310,6 +2370,7 @@
     "has_claude_md": true
   },
   "ryanbbrown--revealjs-skill": {
+    "description": "Claude Code skill for making reveal.js presentations",
     "skill_count": 1,
     "skill_lines_total": 439,
     "skill_lines_avg": 439,
@@ -2350,6 +2411,7 @@
     "has_claude_md": false
   },
   "sanity-io--agent-toolkit": {
+    "description": "Collection of resources to help AI agents build better with Sanity.",
     "skill_count": 4,
     "skill_lines_total": 184,
     "skill_lines_avg": 46,
@@ -2382,6 +2444,7 @@
     "has_claude_md": false
   },
   "sanjay3290--ai-skills": {
+    "description": "Collection of agent skills for AI coding assistants",
     "skill_count": 20,
     "skill_lines_total": 3037,
     "skill_lines_avg": 152,
@@ -2421,6 +2484,7 @@
     "has_claude_md": false
   },
   "smerchek--claude-epub-skill": {
+    "description": "A Claude Skill for converting markdown documents, chat summaries, or research reports into a downloadable epub file that can be sent to kindle",
     "skill_count": 1,
     "skill_lines_total": 198,
     "skill_lines_avg": 198,
@@ -2457,6 +2521,7 @@
     "has_claude_md": true
   },
   "squirrelscan--skills": {
+    "description": "Agent skills for squirrelscan website audit tool",
     "skill_count": 1,
     "skill_lines_total": 471,
     "skill_lines_avg": 471,
@@ -2495,6 +2560,7 @@
     "has_claude_md": false
   },
   "stripe--ai": {
+    "description": "One-stop shop for building AI-powered products and businesses with Stripe.",
     "skill_count": 9,
     "skill_lines_total": 720,
     "skill_lines_avg": 80,
@@ -2538,6 +2604,7 @@
     "has_claude_md": false
   },
   "supabase--agent-skills": {
+    "description": "Agent Skills to help developers using AI agents with Supabase",
     "skill_count": 1,
     "skill_lines_total": 65,
     "skill_lines_avg": 65,
@@ -2574,6 +2641,7 @@
     "has_claude_md": true
   },
   "tinybirdco--tinybird-agent-skills": {
+    "description": "tinybird-agent-skills",
     "skill_count": 4,
     "skill_lines_total": 172,
     "skill_lines_avg": 43,
@@ -2602,6 +2670,7 @@
     "has_claude_md": false
   },
   "trailofbits--skills": {
+    "description": "Trail of Bits Claude Code skills for security research, vulnerability detection, and audit workflows",
     "skill_count": 62,
     "skill_lines_total": 20030,
     "skill_lines_avg": 323,
@@ -2670,6 +2739,7 @@
     "has_claude_md": true
   },
   "typefully--agent-skills": {
+    "description": "AI agent skills for drafting and scheduling social media posts via Typefully",
     "skill_count": 1,
     "skill_lines_total": 575,
     "skill_lines_avg": 575,
@@ -2708,6 +2778,7 @@
     "has_claude_md": true
   },
   "varunr89--resume-tailoring-skill": {
+    "description": "AI-powered resume tailoring skill for Claude Code",
     "skill_count": 1,
     "skill_lines_total": 1320,
     "skill_lines_avg": 1320,
@@ -2741,6 +2812,7 @@
     "has_claude_md": false
   },
   "vercel-labs--agent-skills": {
+    "description": "Vercel's official collection of agent skills",
     "skill_count": 6,
     "skill_lines_total": 1024,
     "skill_lines_avg": 171,
@@ -2779,6 +2851,7 @@
     "has_claude_md": true
   },
   "vercel-labs--next-skills": {
+    "description": "next-skills",
     "skill_count": 3,
     "skill_lines_total": 617,
     "skill_lines_avg": 206,
@@ -2813,6 +2886,7 @@
     "has_claude_md": true
   },
   "wrsmith108--linear-claude-skill": {
+    "description": "Agent skill for managing Linear issues, projects, and teams. MCP tools, SDK automation, GraphQL API patterns.",
     "skill_count": 1,
     "skill_lines_total": 591,
     "skill_lines_avg": 591,
@@ -2854,6 +2928,7 @@
     "has_claude_md": false
   },
   "wrsmith108--varlock-claude-skill": {
+    "description": "Claude Code skill for secure environment variable management with Varlock. Never expose secrets in Claude sessions.",
     "skill_count": 1,
     "skill_lines_total": 434,
     "skill_lines_avg": 434,
@@ -2889,6 +2964,7 @@
     "has_claude_md": false
   },
   "zarazhangrui--frontend-slides": {
+    "description": "Create beautiful slides on the web using Claude's frontend skills",
     "skill_count": 1,
     "skill_lines_total": 323,
     "skill_lines_avg": 323,
@@ -2922,6 +2998,7 @@
     "has_claude_md": false
   },
   "zxkane--aws-skills": {
+    "description": "Claude Agent Skills for AWS",
     "skill_count": 5,
     "skill_lines_total": 1272,
     "skill_lines_avg": 254,
@@ -2962,6 +3039,7 @@
     "has_claude_md": true
   },
   "travisvn--awesome-claude-skills": {
+    "description": "A curated list of awesome Claude Skills, resources, and tools for customizing Claude AI workflows",
     "skill_count": 0,
     "skill_lines_total": 0,
     "skill_lines_avg": 0,
@@ -2987,6 +3065,7 @@
     "has_claude_md": false
   },
   "obra--superpowers-lab": {
+    "description": "Experimental skills for Claude Code Superpowers - new techniques and tools",
     "skill_count": 5,
     "skill_lines_total": 1043,
     "skill_lines_avg": 209,
@@ -3024,6 +3103,7 @@
     "has_claude_md": false
   },
   "asklokesh--claudeskill-loki-mode": {
+    "description": "Multi-agent provider agnostic autonomous system and framework",
     "skill_count": 4,
     "skill_lines_total": 659,
     "skill_lines_avg": 165,
@@ -3069,6 +3149,7 @@
     "has_claude_md": true
   },
   "yusufkaraaslan--Skill_Seekers": {
+    "description": "Convert documentation websites, GitHub repos, and PDFs into Claude AI skills",
     "skill_count": 1,
     "skill_lines_total": 70,
     "skill_lines_avg": 70,

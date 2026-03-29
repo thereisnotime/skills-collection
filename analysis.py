@@ -33,6 +33,8 @@ def analyze_skill_file(path):
     frontmatter_keys = []
     name = ""
     description = ""
+    version = ""
+    license_info = ""
     if has_frontmatter:
         for line in lines[1:]:
             if line.strip() == "---":
@@ -45,6 +47,10 @@ def analyze_skill_file(path):
                     name = val
                 elif key == "description":
                     description = val
+                elif key == "version":
+                    version = val
+                elif key == "license":
+                    license_info = val
 
     # Count code blocks
     code_blocks = content.count("```")
@@ -65,6 +71,8 @@ def analyze_skill_file(path):
         "path": str(path.relative_to(SKILLS_DIR)),
         "name": name,
         "description": description[:200],
+        "version": version,
+        "license": license_info,
         "lines": line_count,
         "words": word_count,
         "headings": headings,
@@ -75,7 +83,7 @@ def analyze_skill_file(path):
     }
 
 
-def analyze_repo(repo_dir):
+def analyze_repo(repo_dir, description=""):
     """Analyze all files in a repo directory."""
     repo_path = SKILLS_DIR / repo_dir
     if not repo_path.exists():
@@ -146,7 +154,7 @@ def analyze_repo(repo_dir):
     for s in skills:
         if s["name"]:
             remote_path = "/".join(s["path"].split("/")[1:])
-            skills_list.append({
+            entry = {
                 "name": s["name"],
                 "description": s["description"],
                 "path": s["path"],
@@ -155,9 +163,15 @@ def analyze_repo(repo_dir):
                 "words": s["words"],
                 "code_blocks": s["code_blocks"],
                 "languages": s["languages"],
-            })
+            }
+            if s["version"]:
+                entry["version"] = s["version"]
+            if s["license"]:
+                entry["license"] = s["license"]
+            skills_list.append(entry)
 
     return {
+        "description": description,
         "skill_count": len(skills),
         "skill_lines_total": total_skill_lines,
         "skill_lines_avg": round(total_skill_lines / len(skills)) if skills else 0,
@@ -190,7 +204,7 @@ def main():
     for repo in inventory:
         dir_name = repo["dir"]
         print(f"  Analyzing {dir_name}...")
-        analysis = analyze_repo(dir_name)
+        analysis = analyze_repo(dir_name, repo.get("description", ""))
         if analysis:
             results[dir_name] = analysis
 

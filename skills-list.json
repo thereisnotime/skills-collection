@@ -124,7 +124,8 @@
       "code_blocks": 5,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-modernize",
@@ -134,7 +135,8 @@
       "lines": 148,
       "words": 1268,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-slog",
@@ -146,7 +148,8 @@
       "code_blocks": 5,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-stay-updated",
@@ -156,7 +159,8 @@
       "lines": 139,
       "words": 910,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-code-style",
@@ -168,7 +172,8 @@
       "code_blocks": 12,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-cli",
@@ -180,7 +185,8 @@
       "code_blocks": 2,
       "languages": [
         "yaml"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-troubleshooting",
@@ -190,7 +196,8 @@
       "lines": 189,
       "words": 1595,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-safety",
@@ -202,7 +209,8 @@
       "code_blocks": 10,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-lint",
@@ -216,7 +224,8 @@
         "bash",
         "go",
         "makefile"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-context",
@@ -228,7 +237,8 @@
       "code_blocks": 1,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-lo",
@@ -241,7 +251,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-ro",
@@ -254,7 +265,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-testing",
@@ -267,7 +279,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-popular-libraries",
@@ -277,7 +290,8 @@
       "lines": 70,
       "words": 455,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-dependency-management",
@@ -290,7 +304,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-error-handling",
@@ -300,7 +315,8 @@
       "lines": 87,
       "words": 796,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-naming",
@@ -312,7 +328,8 @@
       "code_blocks": 2,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-mo",
@@ -325,7 +342,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-security",
@@ -337,7 +355,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-performance",
@@ -347,7 +366,8 @@
       "lines": 111,
       "words": 1073,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-dependency-injection",
@@ -359,7 +379,8 @@
       "code_blocks": 8,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-do",
@@ -372,7 +393,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-project-layout",
@@ -384,7 +406,8 @@
       "code_blocks": 1,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-structs-interfaces",
@@ -396,7 +419,8 @@
       "code_blocks": 17,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-observability",
@@ -408,7 +432,8 @@
       "code_blocks": 6,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-oops",
@@ -420,7 +445,8 @@
       "code_blocks": 11,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-design-patterns",
@@ -432,7 +458,8 @@
       "code_blocks": 7,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-documentation",
@@ -446,7 +473,8 @@
         "bash",
         "go",
         "markdown"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-grpc",
@@ -458,7 +486,8 @@
       "code_blocks": 5,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-samber-hot",
@@ -471,7 +500,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-database",
@@ -483,7 +513,8 @@
       "code_blocks": 8,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-benchmark",
@@ -496,7 +527,8 @@
       "languages": [
         "bash",
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-data-structures",
@@ -508,7 +540,8 @@
       "code_blocks": 4,
       "languages": [
         "go"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "golang-concurrency",
@@ -518,7 +551,8 @@
       "lines": 134,
       "words": 1127,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "golang-continuous-integration",
@@ -528,7 +562,8 @@
       "lines": 229,
       "words": 1518,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     }
   ],
   "realkimbarrett--advertising-skills": [
@@ -540,7 +575,8 @@
       "lines": 31,
       "words": 79,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "objection-crusher",
@@ -550,7 +586,8 @@
       "lines": 33,
       "words": 76,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "schwartz-awareness-mapper",
@@ -560,7 +597,8 @@
       "lines": 51,
       "words": 160,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "headline-matrix",
@@ -570,7 +608,8 @@
       "lines": 30,
       "words": 77,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "mechanism-builder",
@@ -580,7 +619,8 @@
       "lines": 37,
       "words": 107,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "avatar-extraction",
@@ -590,7 +630,8 @@
       "lines": 48,
       "words": 178,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "offer-extraction",
@@ -600,7 +641,8 @@
       "lines": 48,
       "words": 147,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "full-funnel-campaign-orchestrator",
@@ -610,7 +652,8 @@
       "lines": 31,
       "words": 72,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "performance-diagnosis",
@@ -620,7 +663,8 @@
       "lines": 27,
       "words": 58,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "conversion-path-builder",
@@ -630,7 +674,8 @@
       "lines": 30,
       "words": 70,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "scroll-stopping-creative",
@@ -640,7 +685,8 @@
       "lines": 23,
       "words": 61,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "ad-angle-multiplier",
@@ -650,7 +696,8 @@
       "lines": 28,
       "words": 69,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     }
   ],
   "ComposioHQ--awesome-claude-skills": [
@@ -672,7 +719,8 @@
       "lines": 74,
       "words": 329,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "connect",
@@ -709,7 +757,8 @@
       "lines": 81,
       "words": 419,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "skill-creator",
@@ -721,7 +770,8 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "image-enhancer",
@@ -754,7 +804,8 @@
       "lines": 33,
       "words": 211,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "meeting-insights-analyzer",
@@ -790,7 +841,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "slack-gif-creator",
@@ -803,7 +855,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "langsmith-fetch",
@@ -837,7 +890,8 @@
       "lines": 60,
       "words": 486,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "webapp-testing",
@@ -850,7 +904,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "competitive-ads-extractor",
@@ -882,7 +937,8 @@
       "lines": 130,
       "words": 1749,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "template-skill",
@@ -904,7 +960,8 @@
       "code_blocks": 1,
       "languages": [
         "xml"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "twitter-algorithm-optimizer",
@@ -914,7 +971,8 @@
       "lines": 327,
       "words": 1845,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "AGPL-3.0 (referencing Twitter's algorithm source)"
     },
     {
       "name": "youtube-downloader",
@@ -983,7 +1041,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "xlsx",
@@ -997,7 +1056,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pdf",
@@ -1010,7 +1070,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pptx",
@@ -1024,7 +1085,8 @@
         "bash",
         "json",
         "markdown"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "agenty-automation",
@@ -9368,7 +9430,8 @@
       "lines": 74,
       "words": 329,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "docx",
@@ -9382,7 +9445,8 @@
         "bash",
         "javascript",
         "xml"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "claude-api",
@@ -9392,7 +9456,8 @@
       "lines": 263,
       "words": 2793,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "xlsx",
@@ -9406,7 +9471,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "skill-creator",
@@ -9430,7 +9496,8 @@
       "lines": 33,
       "words": 211,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "pdf",
@@ -9443,7 +9510,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "slack-gif-creator",
@@ -9456,7 +9524,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "pptx",
@@ -9468,7 +9537,8 @@
       "code_blocks": 6,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "algorithmic-art",
@@ -9481,7 +9551,8 @@
       "languages": [
         "html",
         "javascript"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "theme-factory",
@@ -9491,7 +9562,8 @@
       "lines": 60,
       "words": 486,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "webapp-testing",
@@ -9504,7 +9576,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "doc-coauthoring",
@@ -9524,7 +9597,8 @@
       "lines": 130,
       "words": 1749,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "frontend-design",
@@ -9534,7 +9608,8 @@
       "lines": 43,
       "words": 583,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "mcp-builder",
@@ -9546,7 +9621,8 @@
       "code_blocks": 1,
       "languages": [
         "xml"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "web-artifacts-builder",
@@ -9558,7 +9634,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     }
   ],
   "1NickPappas--move-code-quality-skill": [
@@ -9659,7 +9736,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "blog-geo",
@@ -9694,7 +9772,8 @@
         "html",
         "jsx",
         "markdown"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "blog-calendar",
@@ -9736,7 +9815,8 @@
       "lines": 310,
       "words": 2360,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "blog-write",
@@ -9765,7 +9845,8 @@
         "bash",
         "markdown",
         "yaml"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "blog-notebooklm",
@@ -9778,7 +9859,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "blog-factcheck",
@@ -9927,7 +10009,8 @@
       "lines": 235,
       "words": 1146,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "Apache-2.0"
     }
   ],
   "Digidai--product-manager-skills": [
@@ -10842,7 +10925,8 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "pymoo",
@@ -10855,7 +10939,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "seaborn",
@@ -10867,7 +10952,8 @@
       "code_blocks": 38,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "shap",
@@ -10880,7 +10966,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "scvelo",
@@ -10892,7 +10979,8 @@
       "code_blocks": 9,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause"
     },
     {
       "name": "umap-learn",
@@ -10905,7 +10993,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "polars",
@@ -10917,7 +11006,8 @@
       "code_blocks": 24,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "https://github.com/pola-rs/polars/blob/main/LICENSE"
     },
     {
       "name": "markdown-mermaid-writing",
@@ -10929,7 +11019,8 @@
       "code_blocks": 7,
       "languages": [
         "mermaid"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "pdb-database",
@@ -10942,7 +11033,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "geomaster",
@@ -10955,7 +11047,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT License"
     },
     {
       "name": "hmdb-database",
@@ -10965,7 +11058,8 @@
       "lines": 195,
       "words": 1059,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "HMDB is offered to the public as a freely available resource. Use and re-distribution of the data, in whole or in part, for commercial purposes requires explicit permission of the authors and explicit acknowledgment of the source material (HMDB) and the original publication (see the HMDB citing page). We ask that users who download significant portions of the database cite the HMDB paper in any resulting publications."
     },
     {
       "name": "docx",
@@ -10979,7 +11073,8 @@
         "bash",
         "javascript",
         "xml"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "gtars",
@@ -10993,7 +11088,8 @@
         "bash",
         "python",
         "toml"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "iso-13485-certification",
@@ -11005,7 +11101,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "ginkgo-cloud-lab",
@@ -11027,7 +11124,8 @@
       "code_blocks": 3,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "research-lookup",
@@ -11039,7 +11137,8 @@
       "code_blocks": 12,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "reactome-database",
@@ -11052,7 +11151,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "research-grants",
@@ -11064,7 +11164,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "chembl-database",
@@ -11077,7 +11178,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "scientific-visualization",
@@ -11089,7 +11191,8 @@
       "code_blocks": 42,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "glycoengineering",
@@ -11102,7 +11205,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "open-notebook",
@@ -11115,7 +11219,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "market-research-reports",
@@ -11128,7 +11233,8 @@
       "languages": [
         "bash",
         "latex"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "drugbank-database",
@@ -11141,7 +11247,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "markitdown",
@@ -11154,7 +11261,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "edgartools",
@@ -11167,7 +11275,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "dhdna-profiler",
@@ -11177,7 +11286,8 @@
       "lines": 163,
       "words": 1254,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT license"
     },
     {
       "name": "scanpy",
@@ -11190,7 +11300,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "SD-3-Clause license"
     },
     {
       "name": "bioservices",
@@ -11203,7 +11314,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "GPLv3 license"
     },
     {
       "name": "literature-review",
@@ -11217,7 +11329,8 @@
         "bash",
         "markdown",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "omero-integration",
@@ -11230,7 +11343,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "generate-image",
@@ -11242,7 +11356,8 @@
       "code_blocks": 11,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "string-database",
@@ -11254,7 +11369,8 @@
       "code_blocks": 13,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "scientific-brainstorming",
@@ -11264,7 +11380,8 @@
       "lines": 190,
       "words": 1127,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT license"
     },
     {
       "name": "rdkit",
@@ -11276,7 +11393,8 @@
       "code_blocks": 39,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "gget",
@@ -11289,7 +11407,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-2-Clause license"
     },
     {
       "name": "pyzotero",
@@ -11302,7 +11421,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT License"
     },
     {
       "name": "etetoolkit",
@@ -11315,7 +11435,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "GPL-3.0 license"
     },
     {
       "name": "get-available-resources",
@@ -11329,7 +11450,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pathml",
@@ -11342,7 +11464,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "GPL-2.0 license"
     },
     {
       "name": "hypothesis-generation",
@@ -11355,7 +11478,8 @@
       "languages": [
         "bash",
         "latex"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "xlsx",
@@ -11369,7 +11493,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "gnomad-database",
@@ -11381,7 +11506,8 @@
       "code_blocks": 5,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "CC0-1.0"
     },
     {
       "name": "datamol",
@@ -11394,7 +11520,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "latchbio-integration",
@@ -11407,7 +11534,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "modal",
@@ -11420,7 +11548,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "timesfm-forecasting",
@@ -11434,7 +11563,8 @@
         "bash",
         "mermaid",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "venue-templates",
@@ -11447,7 +11577,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "alphafold-database",
@@ -11460,7 +11591,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "bgpt-paper-search",
@@ -11473,7 +11605,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "qutip",
@@ -11486,7 +11619,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "protocolsio-integration",
@@ -11498,7 +11632,8 @@
       "code_blocks": 6,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "matlab",
@@ -11511,7 +11646,8 @@
       "languages": [
         "bash",
         "matlab"
-      ]
+      ],
+      "license": "For MATLAB (https://www.mathworks.com/pricing-licensing.html) and for Octave (GNU General Public License version 3)"
     },
     {
       "name": "kegg-database",
@@ -11523,7 +11659,8 @@
       "code_blocks": 12,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Non-academic use of KEGG requires a commercial license"
     },
     {
       "name": "imaging-data-commons",
@@ -11536,7 +11673,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "This skill is provided under the MIT License. IDC data itself has individual licensing (mostly CC-BY, some CC-NC) that must be respected when using the data."
     },
     {
       "name": "scientific-slides",
@@ -11549,7 +11687,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "cellxgene-census",
@@ -11562,7 +11701,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "pylabrobot",
@@ -11574,7 +11714,8 @@
       "code_blocks": 3,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "infographics",
@@ -11597,7 +11738,8 @@
       "lines": 22,
       "words": 135,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT license"
     },
     {
       "name": "clinpgx-database",
@@ -11610,7 +11752,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "pytorch-lightning",
@@ -11622,7 +11765,8 @@
       "code_blocks": 3,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "vaex",
@@ -11634,7 +11778,8 @@
       "code_blocks": 4,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "molfeat",
@@ -11647,7 +11792,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "aeon",
@@ -11660,7 +11806,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "scientific-critical-thinking",
@@ -11672,7 +11819,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "clinvar-database",
@@ -11685,7 +11833,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "hedgefundmonitor",
@@ -11697,7 +11846,8 @@
       "code_blocks": 2,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "metabolomics-workbench-database",
@@ -11709,7 +11859,8 @@
       "code_blocks": 15,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "diffdock",
@@ -11723,7 +11874,8 @@
         "bash",
         "csv",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "bindingdb-database",
@@ -11735,7 +11887,8 @@
       "code_blocks": 8,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "CC-BY-3.0"
     },
     {
       "name": "depmap",
@@ -11747,7 +11900,8 @@
       "code_blocks": 6,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "CC-BY-4.0"
     },
     {
       "name": "geopandas",
@@ -11760,7 +11914,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "pubchem-database",
@@ -11773,7 +11928,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "fda-database",
@@ -11786,7 +11942,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "biorxiv-database",
@@ -11800,7 +11957,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "fred-economic-data",
@@ -11813,7 +11971,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "pdf",
@@ -11826,7 +11985,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pydicom",
@@ -11839,7 +11999,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "https://github.com/pydicom/pydicom/blob/main/LICENSE"
     },
     {
       "name": "scvi-tools",
@@ -11852,7 +12013,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "deeptools",
@@ -11864,7 +12026,8 @@
       "code_blocks": 15,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "BSD license"
     },
     {
       "name": "matplotlib",
@@ -11877,7 +12040,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "https://github.com/matplotlib/matplotlib/tree/main/LICENSE"
     },
     {
       "name": "adaptyv",
@@ -11890,7 +12054,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "uniprot-database",
@@ -11902,7 +12067,8 @@
       "code_blocks": 5,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "pptx",
@@ -11914,7 +12080,8 @@
       "code_blocks": 6,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "cirq",
@@ -11927,7 +12094,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "ena-database",
@@ -11939,7 +12107,8 @@
       "code_blocks": 5,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "arboreto",
@@ -11952,7 +12121,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "pytdc",
@@ -11965,7 +12135,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "tiledbvcf",
@@ -11978,7 +12149,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "benchling-integration",
@@ -11990,7 +12162,8 @@
       "code_blocks": 22,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "scikit-learn",
@@ -12003,7 +12176,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "matchms",
@@ -12016,7 +12190,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "neurokit2",
@@ -12029,7 +12204,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "torch-geometric",
@@ -12042,7 +12218,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pymc",
@@ -12054,7 +12231,8 @@
       "code_blocks": 24,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Apache License, Version 2.0"
     },
     {
       "name": "statsmodels",
@@ -12067,7 +12245,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "gene-database",
@@ -12079,7 +12258,8 @@
       "code_blocks": 3,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "stable-baselines3",
@@ -12092,7 +12272,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "exploratory-data-analysis",
@@ -12106,7 +12287,8 @@
         "bash",
         "markdown",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "paper-2-web",
@@ -12118,7 +12300,8 @@
       "code_blocks": 15,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "esm",
@@ -12131,7 +12314,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "opentargets-database",
@@ -12143,7 +12327,8 @@
       "code_blocks": 9,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "cosmic-database",
@@ -12156,7 +12341,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "gwas-database",
@@ -12169,7 +12355,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "hypogenic",
@@ -12185,7 +12372,8 @@
         "json",
         "python",
         "yaml"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "medchem",
@@ -12198,7 +12386,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "latex-posters",
@@ -12224,7 +12413,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "gtex-database",
@@ -12237,7 +12427,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "CC-BY-4.0"
     },
     {
       "name": "anndata",
@@ -12250,7 +12441,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "zinc-database",
@@ -12263,7 +12455,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "peer-review",
@@ -12275,7 +12468,8 @@
       "code_blocks": 5,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "neuropixels-analysis",
@@ -12288,7 +12482,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pymatgen",
@@ -12301,7 +12496,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pydeseq2",
@@ -12314,7 +12510,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "parallel-web",
@@ -12328,7 +12525,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "statistical-analysis",
@@ -12340,7 +12538,8 @@
       "code_blocks": 15,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "scholar-evaluation",
@@ -12352,7 +12551,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "scientific-schematics",
@@ -12366,7 +12566,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pubmed-database",
@@ -12378,7 +12579,8 @@
       "code_blocks": 12,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "geo-database",
@@ -12391,7 +12593,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "interpro-database",
@@ -12403,7 +12606,8 @@
       "code_blocks": 9,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "CC0-1.0"
     },
     {
       "name": "datacommons-client",
@@ -12416,7 +12620,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "jaspar-database",
@@ -12428,7 +12633,8 @@
       "code_blocks": 8,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "CC0-1.0"
     },
     {
       "name": "zarr-python",
@@ -12441,7 +12647,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "flowio",
@@ -12454,7 +12661,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "perplexity-search",
@@ -12467,7 +12675,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "clinical-decision-support",
@@ -12480,7 +12689,8 @@
       "languages": [
         "bash",
         "latex"
-      ]
+      ],
+      "license": "MIT License"
     },
     {
       "name": "denario",
@@ -12493,7 +12703,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "GPL-3.0 license"
     },
     {
       "name": "phylogenetics",
@@ -12506,7 +12717,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "lamindb",
@@ -12518,7 +12730,8 @@
       "code_blocks": 4,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "molecular-dynamics",
@@ -12531,7 +12744,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "uspto-database",
@@ -12544,7 +12758,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "scikit-survival",
@@ -12556,7 +12771,8 @@
       "code_blocks": 14,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "GPL-3.0 license"
     },
     {
       "name": "monarch-database",
@@ -12568,7 +12784,8 @@
       "code_blocks": 8,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "CC0-1.0"
     },
     {
       "name": "dask",
@@ -12580,7 +12797,8 @@
       "code_blocks": 16,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "alpha-vantage",
@@ -12593,7 +12811,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "polars-bio",
@@ -12606,7 +12825,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "https://github.com/biodatageeks/polars-bio/blob/main/LICENSE"
     },
     {
       "name": "transformers",
@@ -12619,7 +12839,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "scientific-writing",
@@ -12632,7 +12853,8 @@
       "languages": [
         "bash",
         "latex"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "sympy",
@@ -12644,7 +12866,8 @@
       "code_blocks": 34,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "https://github.com/sympy/sympy/blob/master/LICENSE"
     },
     {
       "name": "torchdrug",
@@ -12657,7 +12880,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "openalex-database",
@@ -12670,7 +12894,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "astropy",
@@ -12683,7 +12908,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "what-if-oracle",
@@ -12693,7 +12919,8 @@
       "lines": 169,
       "words": 1147,
       "code_blocks": 2,
-      "languages": []
+      "languages": [],
+      "license": "MIT license"
     },
     {
       "name": "biopython",
@@ -12706,7 +12933,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "clinical-reports",
@@ -12718,7 +12946,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT License"
     },
     {
       "name": "plotly",
@@ -12731,7 +12960,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pennylane",
@@ -12744,7 +12974,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "dnanexus-integration",
@@ -12757,7 +12988,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "ensembl-database",
@@ -12770,7 +13002,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "usfiscaldata",
@@ -12783,7 +13016,8 @@
       "languages": [
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "pyopenms",
@@ -12796,7 +13030,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "3 clause BSD license"
     },
     {
       "name": "pysam",
@@ -12809,7 +13044,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "arxiv-database",
@@ -12823,7 +13059,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "pptx-posters",
@@ -12838,7 +13075,8 @@
         "css",
         "html",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "simpy",
@@ -12850,7 +13088,8 @@
       "code_blocks": 14,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pufferlib",
@@ -12863,7 +13102,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "brenda-database",
@@ -12876,7 +13116,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "citation-management",
@@ -12890,7 +13131,8 @@
         "bash",
         "bibtex",
         "json"
-      ]
+      ],
+      "license": "MIT License"
     },
     {
       "name": "rowan",
@@ -12903,7 +13145,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary (API key required)"
     },
     {
       "name": "qiskit",
@@ -12916,7 +13159,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "cobrapy",
@@ -12928,7 +13172,8 @@
       "code_blocks": 20,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "GPL-2.0 license"
     },
     {
       "name": "histolab",
@@ -12941,7 +13186,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0 license"
     },
     {
       "name": "consciousness-council",
@@ -12951,7 +13197,8 @@
       "lines": 151,
       "words": 1247,
       "code_blocks": 2,
-      "languages": []
+      "languages": [],
+      "license": "MIT license"
     },
     {
       "name": "treatment-plans",
@@ -12964,7 +13211,8 @@
       "languages": [
         "bash",
         "latex"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "networkx",
@@ -12976,7 +13224,8 @@
       "code_blocks": 25,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "3-clause BSD license"
     },
     {
       "name": "deepchem",
@@ -12989,7 +13238,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "writing",
@@ -13001,7 +13251,8 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "pyhealth",
@@ -13014,7 +13265,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT license"
     },
     {
       "name": "geniml",
@@ -13027,7 +13279,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-2-Clause license"
     },
     {
       "name": "fluidsim",
@@ -13040,7 +13293,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "CeCILL FREE SOFTWARE LICENSE AGREEMENT"
     },
     {
       "name": "scikit-bio",
@@ -13053,7 +13307,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "BSD-3-Clause license"
     },
     {
       "name": "opentrons-integration",
@@ -13065,7 +13320,8 @@
       "code_blocks": 24,
       "languages": [
         "python"
-      ]
+      ],
+      "license": "Unknown"
     },
     {
       "name": "cbioportal-database",
@@ -13078,7 +13334,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "LGPL-3.0"
     }
   ],
   "K-Dense-AI--claude-scientific-writer": [
@@ -13130,7 +13387,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "literature-review",
@@ -13375,7 +13633,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "xlsx",
@@ -13389,7 +13648,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pdf",
@@ -13402,7 +13662,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pptx",
@@ -13416,7 +13677,8 @@
         "bash",
         "json",
         "markdown"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "research-lookup",
@@ -13466,7 +13728,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "literature-review",
@@ -13711,7 +13974,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "xlsx",
@@ -13725,7 +13989,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pdf",
@@ -13738,7 +14003,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pptx",
@@ -13752,7 +14018,8 @@
         "bash",
         "json",
         "markdown"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "research-lookup",
@@ -13802,7 +14069,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "literature-review",
@@ -14047,7 +14315,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "xlsx",
@@ -14061,7 +14330,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pdf",
@@ -14074,7 +14344,8 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     },
     {
       "name": "pptx",
@@ -14088,7 +14359,8 @@
         "bash",
         "json",
         "markdown"
-      ]
+      ],
+      "license": "Proprietary. LICENSE.txt has complete terms"
     }
   ],
   "NeoLabHQ--context-engineering-kit": [
@@ -14968,7 +15240,9 @@
       "code_blocks": 7,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "llama-cpp",
@@ -14980,7 +15254,9 @@
       "code_blocks": 11,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "tensorrt-llm",
@@ -14993,7 +15269,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "serving-llms-vllm",
@@ -15006,7 +15284,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "sglang",
@@ -15019,7 +15299,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "creative-thinking-for-research",
@@ -15029,7 +15311,9 @@
       "lines": 367,
       "words": 3148,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "brainstorming-research-ideas",
@@ -15039,7 +15323,9 @@
       "lines": 385,
       "words": 2891,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "hqq-quantization",
@@ -15052,7 +15338,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "quantizing-models-bitsandbytes",
@@ -15065,7 +15353,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "gptq",
@@ -15078,7 +15368,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "gguf-quantization",
@@ -15091,7 +15383,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "awq-quantization",
@@ -15104,7 +15398,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "optimizing-attention-flash",
@@ -15117,7 +15413,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "deepspeed",
@@ -15129,7 +15427,9 @@
       "code_blocks": 9,
       "languages": [
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "training-llms-megatron",
@@ -15141,7 +15441,9 @@
       "code_blocks": 22,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "pytorch-lightning",
@@ -15154,7 +15456,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "ray-train",
@@ -15167,7 +15471,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "pytorch-fsdp2",
@@ -15177,7 +15483,9 @@
       "lines": 232,
       "words": 1295,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "huggingface-accelerate",
@@ -15191,7 +15499,9 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "nanogpt",
@@ -15204,7 +15514,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "mamba-architecture",
@@ -15217,7 +15529,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "rwkv-architecture",
@@ -15230,7 +15544,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "distributed-llm-pretraining-torchtitan",
@@ -15243,7 +15559,9 @@
       "languages": [
         "bash",
         "toml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "implementing-llms-litgpt",
@@ -15257,7 +15575,9 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "blip-2-vision-language",
@@ -15270,7 +15590,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "whisper",
@@ -15283,7 +15605,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "llava",
@@ -15296,7 +15620,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "clip",
@@ -15309,7 +15635,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "evaluating-cosmos-policy",
@@ -15323,7 +15651,9 @@
         "bash",
         "python",
         "text"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "fine-tuning-openvla-oft",
@@ -15337,7 +15667,9 @@
         "bash",
         "python",
         "text"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "fine-tuning-serving-openpi",
@@ -15351,7 +15683,9 @@
         "bash",
         "python",
         "text"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "segment-anything-model",
@@ -15364,7 +15698,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "stable-diffusion-image-generation",
@@ -15377,7 +15713,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "audiocraft-audio-generation",
@@ -15390,7 +15728,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "ray-data",
@@ -15403,7 +15743,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "nemo-curator",
@@ -15416,7 +15758,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "lambda-labs-gpu-cloud",
@@ -15429,7 +15773,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "modal-serverless-gpu",
@@ -15442,7 +15788,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "skypilot-multi-cloud-orchestration",
@@ -15455,7 +15803,9 @@
       "languages": [
         "bash",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "dspy",
@@ -15468,7 +15818,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "instructor",
@@ -15481,7 +15833,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "outlines",
@@ -15494,7 +15848,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "guidance",
@@ -15507,7 +15863,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "moe-training",
@@ -15521,7 +15879,9 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "model-pruning",
@@ -15534,7 +15894,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "model-merging",
@@ -15548,7 +15910,9 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "long-context",
@@ -15561,7 +15925,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "knowledge-distillation",
@@ -15574,7 +15940,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "speculative-decoding",
@@ -15587,7 +15955,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "crewai-multi-agent",
@@ -15601,7 +15971,9 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "llamaindex",
@@ -15614,7 +15986,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "autogpt-agents",
@@ -15631,7 +16005,9 @@
         "json",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "langchain",
@@ -15644,7 +16020,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "evaluating-llms-harness",
@@ -15658,7 +16036,9 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "nemo-evaluator-sdk",
@@ -15672,7 +16052,9 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "evaluating-code-models",
@@ -15686,7 +16068,9 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "faiss",
@@ -15699,7 +16083,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "pinecone",
@@ -15712,7 +16098,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "sentence-transformers",
@@ -15725,7 +16113,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "qdrant-vector-search",
@@ -15738,7 +16128,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "chroma",
@@ -15751,7 +16143,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "transformer-lens-interpretability",
@@ -15764,7 +16158,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "sparse-autoencoder-training",
@@ -15777,7 +16173,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "pyvene-interventions",
@@ -15790,7 +16188,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "nnsight-remote-interpretability",
@@ -15803,7 +16203,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "tensorboard",
@@ -15816,7 +16218,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "experiment-tracking-swanlab",
@@ -15829,7 +16233,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "weights-and-biases",
@@ -15842,7 +16248,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "mlflow",
@@ -15855,7 +16263,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "slime-rl-training",
@@ -15868,7 +16278,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "torchforge-rl-training",
@@ -15882,7 +16294,9 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "simpo-training",
@@ -15895,7 +16309,9 @@
       "languages": [
         "bash",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "fine-tuning-with-trl",
@@ -15909,7 +16325,9 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "verl-rl-training",
@@ -15923,7 +16341,9 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "miles-rl-training",
@@ -15936,7 +16356,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "openrlhf-training",
@@ -15948,7 +16370,9 @@
       "code_blocks": 12,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "grpo-rl-training",
@@ -15960,7 +16384,9 @@
       "code_blocks": 17,
       "languages": [
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "axolotl",
@@ -15972,7 +16398,9 @@
       "code_blocks": 12,
       "languages": [
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "llama-factory",
@@ -15982,7 +16410,9 @@
       "lines": 81,
       "words": 335,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "peft-fine-tuning",
@@ -15996,7 +16426,9 @@
         "bash",
         "python",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "unsloth",
@@ -16006,7 +16438,9 @@
       "lines": 81,
       "words": 322,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "huggingface-tokenizers",
@@ -16019,7 +16453,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "sentencepiece",
@@ -16032,7 +16468,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "prompt-guard",
@@ -16045,7 +16483,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "nemo-guardrails",
@@ -16058,7 +16498,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "llamaguard",
@@ -16071,7 +16513,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "constitutional-ai",
@@ -16083,7 +16527,9 @@
       "code_blocks": 14,
       "languages": [
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "academic-plotting",
@@ -16095,7 +16541,9 @@
       "code_blocks": 12,
       "languages": [
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "ml-paper-writing",
@@ -16110,7 +16558,9 @@
         "json",
         "latex",
         "python"
-      ]
+      ],
+      "version": "1.1.0",
+      "license": "MIT"
     },
     {
       "name": "phoenix-observability",
@@ -16123,7 +16573,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "langsmith-observability",
@@ -16136,7 +16588,9 @@
       "languages": [
         "bash",
         "python"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     }
   ],
   "Paramchoudhary--ResumeSkills": [
@@ -16476,7 +16930,8 @@
       "code_blocks": 13,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "0.1.0"
     }
   ],
   "ahmedasmar--devops-claude-skills": [
@@ -17008,7 +17463,8 @@
       "languages": [
         "bash",
         "hcl"
-      ]
+      ],
+      "license": "Apache-2.0"
     }
   ],
   "avifenesh--agentsys": [
@@ -17020,7 +17476,8 @@
       "lines": 38,
       "words": 105,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-agent-prompts",
@@ -17035,7 +17492,8 @@
         "markdown",
         "xml",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-hooks",
@@ -17051,7 +17509,8 @@
         "json",
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-orchestrator",
@@ -17064,7 +17523,8 @@
       "languages": [
         "javascript",
         "markdown"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "learn",
@@ -17078,7 +17538,8 @@
         "javascript",
         "json",
         "markdown"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "perf-theory-gatherer",
@@ -17088,7 +17549,8 @@
       "lines": 36,
       "words": 113,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-plugins",
@@ -17103,7 +17565,8 @@
         "json",
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-cross-file",
@@ -17118,7 +17581,8 @@
         "javascript",
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "drift-analysis",
@@ -17133,7 +17597,8 @@
         "json",
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-prompts",
@@ -17148,7 +17613,8 @@
         "javascript",
         "markdown",
         "xml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "discover-tasks",
@@ -17162,7 +17628,8 @@
         "bash",
         "javascript",
         "markdown"
-      ]
+      ],
+      "version": "5.1.1"
     },
     {
       "name": "perf-theory-tester",
@@ -17172,7 +17639,8 @@
       "lines": 37,
       "words": 98,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "version": "5.1.0"
     },
     {
       "name": "web-browse",
@@ -17184,7 +17652,8 @@
       "code_blocks": 43,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "orchestrate-review",
@@ -17197,7 +17666,8 @@
       "languages": [
         "javascript",
         "json"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-claude-memory",
@@ -17209,7 +17679,8 @@
       "code_blocks": 15,
       "languages": [
         "markdown"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "perf-code-paths",
@@ -17219,7 +17690,8 @@
       "lines": 33,
       "words": 106,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-docs",
@@ -17232,7 +17704,8 @@
       "languages": [
         "javascript",
         "markdown"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "perf-baseline-manager",
@@ -17242,7 +17715,8 @@
       "lines": 31,
       "words": 85,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "version": "5.1.0"
     },
     {
       "name": "enhance-skills",
@@ -17255,7 +17729,8 @@
       "languages": [
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "validate-delivery",
@@ -17269,7 +17744,8 @@
         "bash",
         "javascript",
         "json"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "sync-docs",
@@ -17283,7 +17759,8 @@
         "bash",
         "javascript",
         "json"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "perf-profiler",
@@ -17295,7 +17772,8 @@
       "code_blocks": 2,
       "languages": [
         "javascript"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "perf-investigation-logger",
@@ -17305,7 +17783,8 @@
       "lines": 42,
       "words": 94,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "version": "5.1.0"
     },
     {
       "name": "consult",
@@ -17318,7 +17797,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "debate",
@@ -17330,7 +17810,8 @@
       "code_blocks": 8,
       "languages": [
         "json"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "deslop",
@@ -17343,7 +17824,8 @@
       "languages": [
         "bash",
         "javascript"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "repo-intel",
@@ -17368,7 +17850,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "version": "1.0.0"
     },
     {
       "name": "perf-benchmarker",
@@ -17380,7 +17863,8 @@
       "code_blocks": 3,
       "languages": [
         "javascript"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "maintain-cross-platform",
@@ -17557,7 +18041,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "agent-device",
@@ -17577,7 +18062,8 @@
       "lines": 122,
       "words": 575,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "dogfood",
@@ -17613,7 +18099,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "react-native-brownfield-migration",
@@ -17623,7 +18110,8 @@
       "lines": 114,
       "words": 650,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "react-native-best-practices",
@@ -17635,7 +18123,8 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT"
     },
     {
       "name": "github-actions",
@@ -17645,7 +18134,8 @@
       "lines": 56,
       "words": 294,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "github",
@@ -17657,7 +18147,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "MIT"
     }
   ],
   "chrisvoncsefalvay--claude-d3js-skill": [
@@ -17820,7 +18311,9 @@
       "lines": 443,
       "words": 5018,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "3.1.0",
+      "license": "MIT"
     }
   ],
   "conorluddy--ios-simulator-skill": [
@@ -17834,7 +18327,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.3.0"
     }
   ],
   "coreyhaines31--marketingskills": [
@@ -18230,7 +18724,9 @@
       "languages": [
         "bash",
         "sh"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT License"
     },
     {
       "name": "use-dom",
@@ -18242,7 +18738,9 @@
       "code_blocks": 15,
       "languages": [
         "tsx"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "upgrading-expo",
@@ -18255,7 +18753,9 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "Expo UI Jetpack Compose",
@@ -18294,7 +18794,9 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "expo-api-routes",
@@ -18307,7 +18809,9 @@
       "languages": [
         "bash",
         "ts"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "expo-deployment",
@@ -18321,7 +18825,9 @@
         "bash",
         "json",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "building-native-ui",
@@ -18333,7 +18839,9 @@
       "code_blocks": 11,
       "languages": [
         "tsx"
-      ]
+      ],
+      "version": "1.0.1",
+      "license": "MIT"
     },
     {
       "name": "expo-tailwind-setup",
@@ -18349,7 +18857,9 @@
         "js",
         "json",
         "tsx"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     },
     {
       "name": "native-data-fetching",
@@ -18361,7 +18871,9 @@
       "code_blocks": 23,
       "languages": [
         "tsx"
-      ]
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
     }
   ],
   "firecrawl--cli": [
@@ -18554,7 +19066,8 @@
       "lines": 26,
       "words": 134,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MPL-2.0"
     },
     {
       "name": "provider-test-patterns",
@@ -18576,7 +19089,8 @@
       "lines": 42,
       "words": 257,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "MPL-2.0"
     },
     {
       "name": "refactor-module",
@@ -19596,7 +20110,8 @@
       "lines": 103,
       "words": 619,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "4.0.2"
     },
     {
       "name": "When Stuck - Problem-Solving Dispatch",
@@ -19608,7 +20123,8 @@
       "code_blocks": 1,
       "languages": [
         "dot"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Scale Game",
@@ -19618,7 +20134,8 @@
       "lines": 64,
       "words": 349,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Collision-Zone Thinking",
@@ -19628,7 +20145,8 @@
       "lines": 63,
       "words": 308,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Simplification Cascades",
@@ -19638,7 +20156,8 @@
       "lines": 77,
       "words": 406,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Meta-Pattern Recognition",
@@ -19648,7 +20167,8 @@
       "lines": 55,
       "words": 279,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Inversion Exercise",
@@ -19658,7 +20178,8 @@
       "lines": 59,
       "words": 312,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Preserving Productive Tensions",
@@ -19671,7 +20192,8 @@
       "languages": [
         "markdown",
         "python"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Systematic Debugging",
@@ -19683,7 +20205,8 @@
       "code_blocks": 3,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "2.1.0"
     },
     {
       "name": "Defense-in-Depth Validation",
@@ -19695,7 +20218,8 @@
       "code_blocks": 4,
       "languages": [
         "typescript"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Verification Before Completion",
@@ -19705,7 +20229,8 @@
       "lines": 143,
       "words": 666,
       "code_blocks": 7,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Root Cause Tracing",
@@ -19719,7 +20244,8 @@
         "bash",
         "dot",
         "typescript"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Tracing Knowledge Lineages",
@@ -19732,7 +20258,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Test-Driven Development (TDD)",
@@ -19746,7 +20273,8 @@
         "bash",
         "dot",
         "typescript"
-      ]
+      ],
+      "version": "3.1.0"
     },
     {
       "name": "Testing Anti-Patterns",
@@ -19758,7 +20286,8 @@
       "code_blocks": 15,
       "languages": [
         "typescript"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Condition-Based Waiting",
@@ -19771,7 +20300,8 @@
       "languages": [
         "dot",
         "typescript"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Remembering Conversations",
@@ -19783,7 +20313,8 @@
       "code_blocks": 3,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Subagent-Driven Development",
@@ -19793,7 +20324,8 @@
       "lines": 189,
       "words": 660,
       "code_blocks": 4,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Brainstorming Ideas Into Designs",
@@ -19803,7 +20335,8 @@
       "lines": 76,
       "words": 419,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "2.2.0"
     },
     {
       "name": "Dispatching Parallel Agents",
@@ -19817,7 +20350,8 @@
         "dot",
         "markdown",
         "typescript"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Finishing a Development Branch",
@@ -19829,7 +20363,8 @@
       "code_blocks": 10,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Executing Plans",
@@ -19839,7 +20374,8 @@
       "lines": 79,
       "words": 348,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "version": "2.2.0"
     },
     {
       "name": "Requesting Code Review",
@@ -19851,7 +20387,8 @@
       "code_blocks": 2,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Using Git Worktrees",
@@ -19863,7 +20400,8 @@
       "code_blocks": 10,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Writing Plans",
@@ -19877,7 +20415,8 @@
         "bash",
         "markdown",
         "python"
-      ]
+      ],
+      "version": "2.1.0"
     },
     {
       "name": "Code Review Reception",
@@ -19887,7 +20426,8 @@
       "lines": 212,
       "words": 911,
       "code_blocks": 12,
-      "languages": []
+      "languages": [],
+      "version": "1.1.0"
     },
     {
       "name": "Sharing Skills",
@@ -19899,7 +20439,8 @@
       "code_blocks": 9,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "2.1.0"
     },
     {
       "name": "Gardening Skills Wiki",
@@ -19912,7 +20453,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "version": "1.1.0"
     },
     {
       "name": "Writing Skills",
@@ -19927,7 +20469,8 @@
         "dot",
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "5.1.0"
     },
     {
       "name": "Pulling Updates from Skills Repository",
@@ -19939,7 +20482,8 @@
       "code_blocks": 9,
       "languages": [
         "bash"
-      ]
+      ],
+      "version": "1.2.0"
     },
     {
       "name": "Testing Skills With Subagents",
@@ -19952,7 +20496,8 @@
       "languages": [
         "markdown",
         "yaml"
-      ]
+      ],
+      "version": "1.1.0"
     }
   ],
   "omkamal--pypict-claude-skill": [
@@ -20102,7 +20647,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "Complete terms in LICENSE.txt"
     },
     {
       "name": "writing-orchestration",
@@ -20177,7 +20723,8 @@
       "lines": 212,
       "words": 999,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "code-documenter",
@@ -20319,7 +20866,8 @@
       "lines": 248,
       "words": 1278,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "book-research-assistant",
@@ -20329,7 +20877,8 @@
       "lines": 386,
       "words": 1816,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "book-architect",
@@ -20339,7 +20888,8 @@
       "lines": 258,
       "words": 1154,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "book-ideation",
@@ -20349,7 +20899,8 @@
       "lines": 248,
       "words": 1186,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "chapter-architect",
@@ -20359,7 +20910,8 @@
       "lines": 214,
       "words": 1073,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "book-idea-validator",
@@ -20369,7 +20921,8 @@
       "lines": 311,
       "words": 1656,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "writing-dna-discovery",
@@ -20379,7 +20932,8 @@
       "lines": 385,
       "words": 2079,
       "code_blocks": 0,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     },
     {
       "name": "ghost-writer",
@@ -20389,7 +20943,8 @@
       "lines": 497,
       "words": 2409,
       "code_blocks": 8,
-      "languages": []
+      "languages": [],
+      "license": "Proprietary"
     }
   ],
   "ryanbbrown--revealjs-skill": [
@@ -20463,7 +21018,8 @@
       "languages": [
         "bash",
         "markdown"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "google-tts",
@@ -20488,7 +21044,8 @@
       "code_blocks": 17,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "mysql",
@@ -20501,7 +21058,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "google-chat",
@@ -20513,7 +21071,8 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "gmail",
@@ -20525,7 +21084,8 @@
       "code_blocks": 10,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "google-slides",
@@ -20538,7 +21098,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "google-docs",
@@ -20550,7 +21111,8 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "deep-research",
@@ -20562,7 +21124,8 @@
       "code_blocks": 9,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "mssql",
@@ -20575,7 +21138,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "manus",
@@ -20588,7 +21152,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "notebooklm",
@@ -20600,7 +21165,8 @@
       "code_blocks": 1,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "atlassian",
@@ -20624,7 +21190,8 @@
       "code_blocks": 11,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "elevenlabs",
@@ -20638,7 +21205,8 @@
         "bash",
         "json",
         "python"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "google-drive",
@@ -20650,7 +21218,8 @@
       "code_blocks": 5,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "google-sheets",
@@ -20663,7 +21232,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "imagen",
@@ -20675,7 +21245,8 @@
       "code_blocks": 4,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "outline",
@@ -20687,7 +21258,8 @@
       "code_blocks": 12,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "Apache-2.0"
     },
     {
       "name": "postgres",
@@ -20700,7 +21272,8 @@
       "languages": [
         "bash",
         "json"
-      ]
+      ],
+      "license": "Apache-2.0"
     }
   ],
   "smerchek--claude-epub-skill": [
@@ -20729,7 +21302,8 @@
       "code_blocks": 17,
       "languages": [
         "bash"
-      ]
+      ],
+      "license": "See LICENSE file in repository root"
     }
   ],
   "stripe--ai": [
@@ -20851,7 +21425,8 @@
       "lines": 65,
       "words": 337,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     }
   ],
   "tinybirdco--tinybird-agent-skills": [
@@ -21745,7 +22320,8 @@
       "lines": 122,
       "words": 575,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "vercel-react-best-practices",
@@ -21755,7 +22331,8 @@
       "lines": 146,
       "words": 899,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     },
     {
       "name": "deploy-to-vercel",
@@ -21787,7 +22364,8 @@
       "lines": 90,
       "words": 383,
       "code_blocks": 1,
-      "languages": []
+      "languages": [],
+      "license": "MIT"
     }
   ],
   "vercel-labs--next-skills": [
@@ -21840,7 +22418,8 @@
         "bash",
         "javascript",
         "json"
-      ]
+      ],
+      "version": "2.6.0"
     }
   ],
   "wrsmith108--varlock-claude-skill": [
@@ -21857,7 +22436,8 @@
         "dockerfile",
         "json",
         "yaml"
-      ]
+      ],
+      "version": "1.0.0"
     }
   ],
   "zarazhangrui--frontend-slides": [
