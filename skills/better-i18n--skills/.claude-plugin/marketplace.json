@@ -1,17 +1,19 @@
 {
   "name": "better-i18n-agent-skills",
   "owner": {
-    "name": "Osman",
+    "name": "Better i18n",
     "email": "hi@better-i18n.com"
   },
   "metadata": {
-    "description": "Better i18n skills for internationalization",
-    "version": "1.0.0"
+    "description": "Comprehensive AI agent skills for better-i18n — SDK integration (Next.js, React, Expo, Swift, Flutter), CDN delivery, GitHub sync, MCP translation tools, Content CMS, CLI doctor and health checks, publish flows, and localization best practices.",
+    "version": "2.0.0",
+    "website": "https://better-i18n.com",
+    "docs": "https://docs.better-i18n.com"
   },
   "plugins": [
     {
-      "name": "i18n-skills",
-      "description": "Integrate i18n into JavaScript/TypeScript projects with Better i18n platform",
+      "name": "better-i18n",
+      "description": "Full better-i18n integration: SDK setup, key management, AI translation via MCP, Content CMS, CDN delivery, GitHub sync, CLI health checks, and publish workflows for all frameworks.",
       "source": "./",
       "strict": false,
       "skills": [

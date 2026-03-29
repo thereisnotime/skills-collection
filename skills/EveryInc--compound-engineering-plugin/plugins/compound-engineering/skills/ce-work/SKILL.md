@@ -1,7 +1,7 @@
 ---
 name: ce:work
 description: Execute work efficiently while maintaining quality and finishing features
-argument-hint: "[plan file path or description of work to do]"
+argument-hint: "[Plan doc path or description of work. Blank to auto use latest plan doc]"
 ---
 
 # Work Execution Command

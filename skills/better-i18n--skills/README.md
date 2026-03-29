@@ -10,64 +10,95 @@
 <h3 align="center">AI Agent Skills for Better i18n</h3>
 
 <p align="center">
-  Best practices and workflow automation for internationalization with AI assistants.
+  Comprehensive localization knowledge for AI coding assistants — Claude, Cursor, Windsurf, and more.
   <br />
-  <a href="https://docs.better-i18n.com"><strong>Documentation</strong></a> · <a href="https://better-i18n.com"><strong>Website</strong></a>
+  <a href="https://docs.better-i18n.com"><strong>Documentation</strong></a> · <a href="https://better-i18n.com"><strong>Dashboard</strong></a> · <a href="https://help.better-i18n.com"><strong>Help Center</strong></a>
 </p>
 
 ---
 
-## What are Agent Skills?
-
-Agent skills are structured knowledge files that teach AI assistants like [Claude](https://claude.ai), [Cursor](https://cursor.com), and [Windsurf](https://windsurf.com) how to perform specialized tasks. When installed, they give your AI assistant deep expertise in internationalization workflows.
-
-## Available Skills
-
-| Skill | Description |
-|-------|-------------|
-| [best-practices](./best-practices) | Comprehensive guide for i18n implementation with Better i18n |
-
-### best-practices
-
-A comprehensive skill covering:
-
-- **Project setup** — `i18n.config.ts` configuration, locale routing, middleware
-- **Key naming** — conventions, namespaces, and organizing translation files
-- **AI translation** — using the [Gemini](https://deepmind.google/technologies/gemini/)-powered translation with glossary support
-- **GitHub sync** — automatic PR creation, review workflows, branch strategies
-- **CDN delivery** — [Cloudflare](https://cloudflare.com) edge caching, cache invalidation, fallback chains
-- **MCP integration** — [Model Context Protocol](https://modelcontextprotocol.io/) tools for AI agents
-- **SDK usage** — [Next.js](https://nextjs.org), [React](https://react.dev), [TanStack Start](https://tanstack.com/start) integration patterns
-- **ICU MessageFormat** — plurals, dates, numbers, select statements
-- **RTL support** — right-to-left language handling for Arabic, Hebrew, etc.
-
 ## Installation
 
 ```bash
-# Via Claude Code skills
+# Claude Code, Cursor, Windsurf, Codex — any agent
 npx skills add better-i18n/skills
+
+# Install to a specific agent only
+npx skills add better-i18n/skills -a claude-code
+npx skills add better-i18n/skills -a cursor
 ```
 
-Or add directly to your AI assistant's project configuration.
+## What are Agent Skills?
 
-## Usage
+Agent skills are structured knowledge files that give AI assistants deep, opinionated expertise in a specific domain. When installed, your AI assistant knows exactly how to use better-i18n — no copy-pasting docs, no guessing API shapes.
 
-Once installed, your AI assistant will automatically apply these best practices when helping with internationalization tasks — from setting up locale routing to writing translation-safe components.
+## What's covered
+
+The `best-practices` skill routes every localization question to the right reference:
+
+| Topic | Reference |
+|---|---|
+| **Next.js SDK** — App Router, ISR, ISR stale timing, locale switcher | `sdk-next.md` |
+| **React / Core / Hono / Remix** — factory, TanStack Router, SSR, TtlCache, staticData shape | `sdk-react.md` |
+| **Mobile** — Expo, Swift SPM, Flutter | `sdk-mobile.md` |
+| **CLI** — scan, sync, check, doctor, CI gates | `cli.md` |
+| **MCP tools** — all 13 translation tools, pagination, scope errors, workflow order | `mcp.md` |
+| **Content CMS** — SDK query builder, 19 MCP content tools | `content.md` |
+| **CDN** — URL structure, cache layers, `{ fallback: true }` debugging, locale mismatch | `cdn.md` |
+| **GitHub sync** — pipeline, job types, 422 recovery, file pattern diagnosis | `github-sync.md` |
+| **File formats** — JSON flat / nested / namespaced | `file-formats.md` |
+| **Key naming** — conventions, namespaces, anti-patterns | `key-naming.md` |
+| **Publish & Analytics** — publish lifecycle, quality checks, 0% coverage danger, CDN analytics | `publish-and-analytics.md` |
+
+## Quick example
+
+After installing, your AI assistant knows:
+
+```
+You: Set up better-i18n in my Next.js App Router project.
+AI:  [reads sdk-next.md] Creates i18n.ts singleton, i18n/request.ts, and middleware.ts
+     with correct ISR revalidate settings and locale prefix config.
+
+You: Check my translation coverage in CI.
+AI:  [reads cli.md] Adds `better-i18n doctor --ci --threshold 75` to workflow.
+
+You: Translate all missing Turkish keys using MCP.
+AI:  [reads mcp.md] Calls getTranslations(status:"missing"), paginates if >200 keys,
+     updateKeys, getPendingChanges, then publishTranslations — in correct order.
+
+You: Translations look empty in production.
+AI:  [reads cdn.md] Checks for { fallback: true } in CDN response, verifies locale
+     code case (pt-BR → pt-br), confirms language is active and published.
+
+You: GitHub sync ran but no keys were imported.
+AI:  [reads github-sync.md] Diagnoses invalid file pattern, shows common patterns
+     table, suggests re-running initial import after fixing the config.
+```
+
+## Packages
+
+| Package | Description |
+|---|---|
+| [`@better-i18n/next`](https://www.npmjs.com/package/@better-i18n/next) | Next.js + next-intl adapter with ISR |
+| [`@better-i18n/use-intl`](https://www.npmjs.com/package/@better-i18n/use-intl) | React + use-intl + TanStack Router |
+| [`@better-i18n/expo`](https://www.npmjs.com/package/@better-i18n/expo) | React Native / Expo adapter |
+| [`@better-i18n/server`](https://www.npmjs.com/package/@better-i18n/server) | Hono / Node.js middleware |
+| [`@better-i18n/remix`](https://www.npmjs.com/package/@better-i18n/remix) | Remix / Shopify Hydrogen |
+| [`@better-i18n/core`](https://www.npmjs.com/package/@better-i18n/core) | Headless foundation |
+| [`@better-i18n/sdk`](https://www.npmjs.com/package/@better-i18n/sdk) | Content CMS SDK |
+| [`@better-i18n/cli`](https://www.npmjs.com/package/@better-i18n/cli) | CLI: scan, sync, check, doctor |
+| [`@better-i18n/mcp`](https://www.npmjs.com/package/@better-i18n/mcp) | MCP server for AI agents |
+| [`@better-i18n/mcp-content`](https://www.npmjs.com/package/@better-i18n/mcp-content) | MCP server for Content CMS |
+| `BetterI18n` (Swift) | iOS / macOS / visionOS (SPM) |
+| `better_i18n` (Flutter) | Flutter / Dart (pub.dev) |
 
 ## Links
 
-- [Better i18n Platform](https://better-i18n.com) — translation management dashboard
-- [Documentation](https://docs.better-i18n.com) — full SDK and API docs
-- [CLI](https://www.npmjs.com/package/@better-i18n/cli) — command-line interface on npm
-- [MCP Server](https://www.npmjs.com/package/@better-i18n/mcp) — AI agent integration on npm
-- [Open-source SDKs](https://github.com/better-i18n/oss) — Next.js, React, Expo packages
-
-## Related
-
-- [better-i18n/oss](https://github.com/better-i18n/oss) — TypeScript SDKs, CLI, MCP server
-- [next-intl](https://next-intl-docs.vercel.app) — Next.js internationalization library
-- [use-intl](https://www.npmjs.com/package/use-intl) — React internationalization hooks
-- [FormatJS](https://formatjs.io) — ICU MessageFormat implementation for JavaScript
+- [Dashboard](https://better-i18n.com) — create projects, manage translations
+- [Documentation](https://docs.better-i18n.com) — full SDK and API reference
+- [Help Center](https://help.better-i18n.com) — guides and tutorials
+- [Status](https://status.better-i18n.com) — service status
+- [OSS packages](https://github.com/better-i18n/oss) — open-source SDKs
 
 ## License
 
