@@ -403,5 +403,100 @@
     "url": "https://github.com/yusufkaraaslan/Skill_Seekers",
     "dir": "yusufkaraaslan--Skill_Seekers",
     "description": "Convert documentation websites, GitHub repos, and PDFs into Claude AI skills"
+  },
+  {
+    "url": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
+    "dir": "mukul975--Anthropic-Cybersecurity-Skills",
+    "description": "753+ structured cybersecurity skills for AI agents \u00b7 MITRE ATT&CK mapped \u00b7 agentskills.io open standard \u00b7 Works with Claude Code, GitHub Copilot, OpenAI Codex CLI, Cursor, Gemini CLI & 20+ platforms \u00b7 Penetration testing, DFIR, threat intel, cloud security & more \u00b7 Apache 2.0"
+  },
+  {
+    "url": "https://github.com/eth0izzle/security-skills",
+    "dir": "eth0izzle--security-skills",
+    "description": "A collection of Claude Code skills that help security teams stay secure"
+  },
+  {
+    "url": "https://github.com/Masriyan/Claude-Code-CyberSecurity-Skill",
+    "dir": "Masriyan--Claude-Code-CyberSecurity-Skill",
+    "description": "A comprehensive collection of 15 Claude Code Skills for cybersecurity professionals \u2014 covering offensive security, defensive operations, reverse engineering, threat hunting, CSOC automation, and more"
+  },
+  {
+    "url": "https://github.com/pitimon/claude-cybersecurity-skill",
+    "dir": "pitimon--claude-cybersecurity-skill",
+    "description": "Claude Code plugin \u2014 18 cybersecurity domains: IR, DFIR, DevSecOps, SOC, Code Security, Container, Compliance, Cloud/CSPM, Zero Trust, AI/ML, API, Vulnerability Mgmt, Threat Intel, OT/ICS, Governance. Bilingual Thai+English."
+  },
+  {
+    "url": "https://github.com/transilienceai/communitytools",
+    "dir": "transilienceai--communitytools",
+    "description": "Open-source Claude Code skills, agents, and slash commands for AI-powered penetration testing, bug bounty hunting, and security research"
+  },
+  {
+    "url": "https://github.com/alirezarezvani/claude-skills",
+    "dir": "alirezarezvani--claude-skills",
+    "description": "+192 Claude Code skills & agent plugins for Claude Code, Codex, Gemini CLI, Cursor, and 8 more coding agents \u2014 engineering, marketing, product, compliance, C-level advisory."
+  },
+  {
+    "url": "https://github.com/VoltAgent/awesome-agent-skills",
+    "dir": "VoltAgent--awesome-agent-skills",
+    "description": "Claude Code Skills and 1000+ agent skills from official dev teams and the community, compatible with Codex, Antigravity, Gemini CLI, Cursor and others."
+  },
+  {
+    "url": "https://github.com/BehiSecc/awesome-claude-skills",
+    "dir": "BehiSecc--awesome-claude-skills",
+    "description": "A curated list of Claude Skills."
+  },
+  {
+    "url": "https://github.com/levnikolaevich/claude-code-skills",
+    "dir": "levnikolaevich--claude-code-skills",
+    "description": "Plugin suite + bundled MCP servers for Claude Code. Full delivery lifecycle: Agile pipeline with multi-model AI review, project bootstrap, documentation generation, codebase audits, performance optimization, community workflows. Includes hex-line (hash-verified editing), hex-graph (code knowledge graph), and hex-ssh (remote SSH) MCP servers."
+  },
+  {
+    "url": "https://github.com/jeremylongshore/claude-code-plugins-plus-skills",
+    "dir": "jeremylongshore--claude-code-plugins-plus-skills",
+    "description": "340 plugins + 1367 agent skills for Claude Code. Open-source marketplace with CCPI package manager, interactive tutorials, and production orchestration patterns."
+  },
+  {
+    "url": "https://github.com/rohitg00/awesome-claude-code-toolkit",
+    "dir": "rohitg00--awesome-claude-code-toolkit",
+    "description": "The most comprehensive toolkit for Claude Code -- 135 agents, 35 curated skills (+400,000 via SkillKit), 42 commands, 150+ plugins, 19 hooks, 15 rules, 7 templates, 8 MCP configs, and more."
+  },
+  {
+    "url": "https://github.com/daymade/claude-code-skills",
+    "dir": "daymade--claude-code-skills",
+    "description": "Professional Claude Code skills marketplace featuring production-ready skills for enhanced development workflows."
+  },
+  {
+    "url": "https://github.com/lgbarn/devops-skills",
+    "dir": "lgbarn--devops-skills",
+    "description": "DevOps skills for Claude Code: Terraform/OpenTofu workflows, AWS infrastructure management, safety-first IaC practices"
+  },
+  {
+    "url": "https://github.com/affaan-m/everything-claude-code",
+    "dir": "affaan-m--everything-claude-code",
+    "description": "The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Cursor and beyond."
+  },
+  {
+    "url": "https://github.com/glebis/claude-skills",
+    "dir": "glebis--claude-skills",
+    "description": "Collection of Claude Code skills for enhanced AI workflows"
+  },
+  {
+    "url": "https://github.com/shanraisshan/claude-code-best-practice",
+    "dir": "shanraisshan--claude-code-best-practice",
+    "description": "practice made claude perfect"
+  },
+  {
+    "url": "https://github.com/mrgoonie/claudekit-skills",
+    "dir": "mrgoonie--claudekit-skills",
+    "description": "All powerful skills of ClaudeKit.cc!"
+  },
+  {
+    "url": "https://github.com/hesreallyhim/awesome-claude-code",
+    "dir": "hesreallyhim--awesome-claude-code",
+    "description": "A curated list of awesome skills, hooks, slash-commands, agent orchestrators, applications, and plugins for Claude Code by Anthropic"
+  },
+  {
+    "url": "https://github.com/jqueryscript/awesome-claude-code",
+    "dir": "jqueryscript--awesome-claude-code",
+    "description": "A curated list of awesome tools, IDE integrations, frameworks, and other resources for developers working with Anthropic's Claude Code."
   }
 ]

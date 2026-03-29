@@ -90,6 +90,25 @@ on:
           - obra--superpowers-lab
           - asklokesh--claudeskill-loki-mode
           - yusufkaraaslan--Skill_Seekers
+          - mukul975--Anthropic-Cybersecurity-Skills
+          - eth0izzle--security-skills
+          - Masriyan--Claude-Code-CyberSecurity-Skill
+          - pitimon--claude-cybersecurity-skill
+          - transilienceai--communitytools
+          - alirezarezvani--claude-skills
+          - VoltAgent--awesome-agent-skills
+          - BehiSecc--awesome-claude-skills
+          - levnikolaevich--claude-code-skills
+          - jeremylongshore--claude-code-plugins-plus-skills
+          - rohitg00--awesome-claude-code-toolkit
+          - daymade--claude-code-skills
+          - lgbarn--devops-skills
+          - affaan-m--everything-claude-code
+          - glebis--claude-skills
+          - shanraisshan--claude-code-best-practice
+          - mrgoonie--claudekit-skills
+          - hesreallyhim--awesome-claude-code
+          - jqueryscript--awesome-claude-code
 
 permissions:
   contents: write
