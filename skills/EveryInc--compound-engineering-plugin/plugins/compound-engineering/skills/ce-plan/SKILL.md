@@ -862,7 +862,21 @@ If research reveals a product-level ambiguity that should change behavior or sco
 - Record it under `Open Questions`
 - Recommend `ce:brainstorm` if the gap is truly product-defining
 
-##### 5.3.8 Final Checks and Cleanup
+##### 5.3.8 Document Review
+
+After the confidence check (and any deepening), run the `document-review` skill on the plan file. Pass the plan path as the argument.
+
+The confidence check and document-review are complementary:
+- The confidence check strengthens rationale, sequencing, risk treatment, and grounding
+- Document-review checks coherence, feasibility, scope alignment, and surfaces role-specific issues
+
+If document-review returns findings that were auto-applied, note them briefly when presenting handoff options. If residual P0/P1 findings were surfaced, mention them so the user can decide whether to address them before proceeding.
+
+When document-review returns "Review complete", proceed to Final Checks.
+
+**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, run `document-review` with `mode:headless` and the plan path. Headless mode applies auto-fixes silently and returns structured findings without interactive prompts. Address any P0/P1 findings before returning control to the caller.
+
+##### 5.3.9 Final Checks and Cleanup
 
 Before proceeding to post-generation options:
 - Confirm the plan is stronger in specific ways, not merely longer
@@ -875,42 +889,23 @@ If artifact-backed mode was used:
 
 #### 5.4 Post-Generation Options
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu below and return control to the caller immediately. The plan file has already been written and the confidence check has already run — the caller (e.g., lfg, slfg) determines the next step.
+**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu below and return control to the caller immediately. The plan file has already been written, the confidence check has already run, and document-review has already run — the caller (e.g., lfg, slfg) determines the next step.
 
-After the confidence check completes (or is skipped), present the options using the platform's blocking question tool when available (see Interaction Method). Otherwise present numbered options in chat and wait for the user's reply before proceeding.
+After document-review completes, present the options using the platform's blocking question tool when available (see Interaction Method). Otherwise present numbered options in chat and wait for the user's reply before proceeding.
 
 **Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
 
-**Option ordering depends on plan characteristics.** Lead with document-review when any of these conditions are met:
-
-- **Deep** plan
-- High-risk signals present
-- The confidence check deepened 3+ sections
-- **Standard** plan where Phase 1.2 triggered external research due to thin local grounding (fewer than 3 direct examples or adjacent-domain match) — when the plan was built on unfamiliar territory, the adversarial reviewer's assumption surfacing catches factual claims about system behavior that structural scoring cannot verify
-
-Include a recommendation explaining why:
-
-"This plan has [significant architectural decisions / high-risk security concerns / cross-cutting impact / thin local grounding for a key domain]. Its adversarial reviewer will stress-test the premises and decisions before implementation."
-
-**Options when document-review is recommended:**
-1. **Run `document-review` skill** - Stress-test premises and decisions through structured document review (recommended)
+**Options:**
+1. **Start `/ce:work`** - Begin implementing this plan in the current environment (recommended)
 2. **Open plan in editor** - Open the plan file for review
-3. **Share to Proof** - Upload the plan for collaborative review and sharing
-4. **Start `/ce:work`** - Begin implementing this plan in the current environment
-5. **Start `/ce:work` in another session** - Begin implementing in a separate agent session when the current platform supports it
-6. **Create Issue** - Create an issue in the configured tracker
-
-**Options for Standard or Lightweight plans:**
-1. **Open plan in editor** - Open the plan file for review
-2. **Run `document-review` skill** - Improve the plan through structured document review
-3. **Share to Proof** - Upload the plan for collaborative review and sharing
-4. **Start `/ce:work`** - Begin implementing this plan in the current environment
+3. **Run additional document review** - Another pass for further refinement
+4. **Share to Proof** - Upload the plan for collaborative review and sharing
 5. **Start `/ce:work` in another session** - Begin implementing in a separate agent session when the current platform supports it
 6. **Create Issue** - Create an issue in the configured tracker
 
 Based on selection:
 - **Open plan in editor** → Open `docs/plans/<plan_filename>.md` using the current platform's file-open or editor mechanism (e.g., `open` on macOS, `xdg-open` on Linux, or the IDE's file-open API)
-- **`document-review` skill** → Load the `document-review` skill with the plan path
+- **Run additional document review** → Load the `document-review` skill with the plan path for another pass
 - **Share to Proof** → Upload the plan:
   ```bash
   CONTENT=$(cat docs/plans/<plan_filename>.md)

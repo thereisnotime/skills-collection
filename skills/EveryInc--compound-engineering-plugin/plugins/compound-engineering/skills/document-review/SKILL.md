@@ -1,7 +1,7 @@
 ---
 name: document-review
 description: Review requirements or plan documents using parallel persona agents that surface role-specific issues. Use when a requirements document or plan document exists and the user wants to improve it.
-argument-hint: "[path/to/document.md]"
+argument-hint: "[mode:headless] [path/to/document.md]"
 ---
 
 # Document Review
@@ -14,16 +14,16 @@ Check the skill arguments for `mode:headless`. Arguments may contain a document 
 
 If `mode:headless` is present, set **headless mode** for the rest of the workflow.
 
-**Headless mode** changes the interaction model, not the classification boundaries. Document-review still applies the same judgment about what is deterministic vs. what needs verification. The only difference is how non-auto findings are delivered:
+**Headless mode** changes the interaction model, not the classification boundaries. Document-review still applies the same judgment about what has one clear correct fix vs. what needs user judgment. The only difference is how non-auto findings are delivered:
 - `auto` fixes are applied silently (same as interactive)
-- `batch_confirm` and `present` findings are returned as structured text for the caller to handle -- no AskUserQuestion prompts, no interactive approval
+- `present` findings are returned as structured text for the caller to handle -- no AskUserQuestion prompts, no interactive approval
 - Phase 5 returns immediately with "Review complete" (no refine/complete question)
 
-The caller receives findings with their original classifications intact and decides what to do with each tier.
+The caller receives findings with their original classifications intact and decides what to do with them.
 
 Callers invoke headless mode by including `mode:headless` in the skill arguments, e.g.:
 ```
-Skill("compound-engineering:document-review", "docs/plans/my-plan.md mode:headless")
+Skill("compound-engineering:document-review", "mode:headless docs/plans/my-plan.md")
 ```
 
 If `mode:headless` is not present, the skill runs in its default interactive mode with no behavior change.
@@ -34,7 +34,7 @@ If `mode:headless` is not present, the skill runs in its default interactive mod
 
 **If no document is specified (interactive mode):** Ask which document to review, or find the most recent in `docs/brainstorms/` or `docs/plans/` using a file-search/glob tool (e.g., Glob in Claude Code).
 
-**If no document is specified (headless mode):** Output "Review failed: headless mode requires a document path. Re-invoke with: Skill(\"compound-engineering:document-review\", \"<path> mode:headless\")" without dispatching agents.
+**If no document is specified (headless mode):** Output "Review failed: headless mode requires a document path. Re-invoke with: Skill(\"compound-engineering:document-review\", \"mode:headless <path>\")" without dispatching agents.
 
 ### Classify Document Type
 
@@ -144,7 +144,7 @@ Fingerprint each finding using `normalize(section) + normalize(title)`. Normaliz
 When fingerprints match across personas:
 - If the findings recommend **opposing actions** (e.g., one says cut, the other says keep), do not merge -- preserve both for contradiction resolution in 3.5
 - Otherwise merge: keep the highest severity, keep the highest confidence, union all evidence arrays, note all agreeing reviewers (e.g., "coherence, feasibility")
-- **Coverage attribution:** Attribute the merged finding to the persona with the highest confidence. Decrement the losing persona's Findings count *and* the corresponding route bucket (Auto, Batch, or Present) so `Findings = Auto + Batch + Present` stays exact.
+- **Coverage attribution:** Attribute the merged finding to the persona with the highest confidence. Decrement the losing persona's Findings count *and* the corresponding route bucket (Auto or Present) so `Findings = Auto + Present` stays exact.
 
 ### 3.4 Promote Residual Concerns
 
@@ -167,17 +167,16 @@ Specific conflict patterns:
 
 ### 3.6 Route by Autofix Class
 
-**Severity and autofix_class are independent.** A P1 finding can be `auto` if the correct fix is deterministic. The test is not "how important?" but "can the fix be derived from the document's own content without judgment?"
+**Severity and autofix_class are independent.** A P1 finding can be `auto` if the correct fix is obvious. The test is not "how important?" but "is there one clear correct fix, or does this require judgment?"
 
 | Autofix Class | Route |
 |---------------|-------|
-| `auto` | Apply automatically -- fix is derivable from the document itself. One part of the document is clearly authoritative over another; reconcile toward the authority. |
-| `batch_confirm` | Group for single batch approval -- one clear correct answer, but authors new content where exact wording needs verification |
+| `auto` | Apply automatically -- one clear correct fix. Includes both internal reconciliation (one part authoritative over another) and additions mechanically implied by the document's own content. |
 | `present` | Present individually for user judgment |
 
-Demote any `auto` finding that lacks a `suggested_fix` to `batch_confirm`. Demote any `batch_confirm` finding that lacks a `suggested_fix` to `present`.
+Demote any `auto` finding that lacks a `suggested_fix` to `present`.
 
-**Auto-eligible patterns:** summary/detail mismatch (body is authoritative over overview), wrong counts, missing list entries derivable from elsewhere in the document, stale internal cross-references, terminology drift, prose/diagram contradictions where prose is more detailed. If the fix requires judgment about *what* to write (not just *that* something needs updating), it belongs in `batch_confirm` or `present`.
+**Auto-eligible patterns:** summary/detail mismatch (body is authoritative over overview), wrong counts, missing list entries derivable from elsewhere in the document, stale internal cross-references, terminology drift, prose/diagram contradictions where prose is more detailed, missing steps mechanically implied by other content, unstated thresholds implied by surrounding context, completeness gaps where the correct addition is obvious. If the fix requires judgment about *what* to do (not just *what to write*), it belongs in `present`.
 
 ### 3.7 Sort
 
@@ -190,29 +189,9 @@ Sort findings for presentation: P0 -> P1 -> P2 -> P3, then by finding type (erro
 Apply all `auto` findings to the document in a **single pass**:
 - Edit the document inline using the platform's edit tool
 - Track what was changed for the "Auto-fixes Applied" section
-- Do not ask for approval -- these are unambiguously correct
+- Do not ask for approval -- these have one clear correct fix
 
-### Batch Confirm
-
-If any `batch_confirm` findings exist:
-
-**Headless mode:** Do not prompt. Include `batch_confirm` findings in the structured text output alongside `present` findings, clearly marked with their classification so the caller can distinguish them. The caller decides whether to apply them.
-
-**Interactive mode:**
-
-1. Present the proposed fixes in a numbered table (see template)
-2. **Ask for approval using the platform's interactive question tool** -- do not print the question as plain text output:
-   - Claude Code: `AskUserQuestion`
-   - Codex: `request_user_input`
-   - Gemini: `ask_user`
-   - Fallback (no question tool available): present numbered options and stop; wait for the user's next message before proceeding
-3. Question text: "Apply these N fixes? (yes/no/select)"
-4. Handle the response:
-   - **yes**: Apply all in a single pass
-   - **select**: Let the user pick which to apply
-   - **no**: Demote remaining to the `present` findings list
-
-This turns N obvious-but-meaning-touching fixes into 1 interaction instead of N.
+List every auto-fix in the output summary so the user can see what changed. Use enough detail to convey the substance of each fix (section, what was changed, reviewer attribution). This is especially important for fixes that add content or touch document meaning -- the user should not have to diff the document to understand what the review did.
 
 ### Present Remaining Findings
 
@@ -221,21 +200,17 @@ This turns N obvious-but-meaning-touching fixes into 1 interaction instead of N.
 ```
 Document review complete (headless mode).
 
-Applied N auto-fixes.
+Applied N auto-fixes:
+- <section>: <what was changed> (<reviewer>)
+- <section>: <what was changed> (<reviewer>)
 
-Batch-confirm findings (clear fix, wording needs verification):
+Findings (requires judgment):
 
-[P1][batch_confirm] Section: <section> — <title> (<reviewer>, confidence <N>)
-  Why: <why_it_matters>
-  Suggested fix: <suggested_fix>
-
-Present findings (requires judgment):
-
-[P0][present] Section: <section> — <title> (<reviewer>, confidence <N>)
+[P0] Section: <section> — <title> (<reviewer>, confidence <N>)
   Why: <why_it_matters>
   Suggested fix: <suggested_fix or "none">
 
-[P1][present] Section: <section> — <title> (<reviewer>, confidence <N>)
+[P1] Section: <section> — <title> (<reviewer>, confidence <N>)
   Why: <why_it_matters>
   Suggested fix: <suggested_fix or "none">
 
@@ -254,7 +229,7 @@ Present `present` findings using the review output template included below. With
 - **Errors** (design tensions, contradictions, incorrect statements) first -- these need resolution
 - **Omissions** (missing steps, absent details, forgotten entries) second -- these need additions
 
-Brief summary at the top: "Applied N auto-fixes. Batched M fixes for approval. K findings to consider (X errors, Y omissions)."
+Brief summary at the top: "Applied N auto-fixes. K findings to consider (X errors, Y omissions)."
 
 Include the Coverage table, auto-fixes applied, residual concerns, and deferred questions.
 

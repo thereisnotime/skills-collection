@@ -25,18 +25,14 @@ Rules:
 - Set `finding_type` for every finding:
   - `error`: Something the document says that is wrong -- contradictions, incorrect statements, design tensions, incoherent tradeoffs.
   - `omission`: Something the document forgot to say -- missing mechanical steps, absent list entries, undefined thresholds, forgotten cross-references.
-- Set `autofix_class` based on determinism, not severity. A P1 finding can be `auto` if the correct fix is derivable from the document itself:
-  - `auto`: The correct fix is derivable from the document's own content without judgment about what to write. The test: is one part of the document clearly authoritative over another? If yes, reconcile toward the authority. Examples:
-    - Summary/detail mismatch: overview says "3 phases" but body describes 4 in detail -- update the summary
-    - Wrong count: "the following 3 steps" but 4 are listed -- fix the count
-    - Missing list entry where the correct entry exists elsewhere in the document
-    - Stale internal reference: "as described in Phase 3" but content moved to Phase 4 -- fix the pointer
-    - Terminology drift: document uses both "pipeline" and "workflow" for the same concept -- standardize to the more frequent term
-    - Prose/diagram contradiction where prose is more detailed and authoritative -- update the diagram description to match
+- Set `autofix_class` based on whether there is one clear correct fix, not on severity. A P1 finding can be `auto` if the fix is obvious:
+  - `auto`: One clear correct fix. Applied silently without asking. The test: is there only one reasonable way to resolve this? If yes, it is auto. Two categories:
+    - Internal reconciliation: one part of the document is authoritative over another -- reconcile toward the authority. Examples: summary/detail mismatches, wrong counts, missing list entries derivable from elsewhere, stale cross-references, terminology drift, prose/diagram contradictions where prose is authoritative.
+    - Implied additions: the correct content is mechanically obvious from the document's own context. Examples: adding a missing implementation step implied by other content, defining a threshold implied but never stated, completeness gaps where what to add is clear.
     Always include `suggested_fix` for auto findings.
-  - `batch_confirm`: One clear correct answer, but it authors new content where exact wording needs verification. The test: would reasonable people agree on WHAT to fix but potentially disagree on the exact PHRASING? Examples: adding a missing implementation step that is mechanically implied by other content, defining a threshold that is implied but never stated explicitly. Always include `suggested_fix` for batch_confirm findings.
+    NOT auto (the gap is clear but more than one reasonable fix exists): choosing an implementation approach when the document states a need without constraining how (e.g., "support offline mode" could mean service workers, local-first database, or queue-and-sync -- there is no single obvious answer), changing scope or priority where the author may have weighed tradeoffs the reviewer can't see (e.g., promoting a P2 to P1, or cutting a feature the document intentionally keeps at a lower tier).
   - `present`: Requires judgment -- strategic questions, tradeoffs, design tensions where reasonable people could disagree, findings where the right action is unclear.
-- `suggested_fix` is required for `auto` and `batch_confirm` findings (see above). For `present` findings, `suggested_fix` is optional -- include it only when the fix is obvious, and frame as a question when the right action is unclear.
+- `suggested_fix` is required for `auto` findings. For `present` findings, `suggested_fix` is optional -- include it only when the fix is obvious, and frame as a question when the right action is unclear.
 - If you find no issues, return an empty findings array. Still populate residual_risks and deferred_questions if applicable.
 - Use your suppress conditions. Do not flag issues that belong to other personas.
 </output-contract>

@@ -1,8 +1,6 @@
 ---
 name: code-review:review-local-changes
 description: Comprehensive review of local uncommitted changes using specialized agents with code improvement suggestions
-allowed-tools: ["Bash", "Glob", "Grep", "Read", "Task"]
-disable-model-invocation: false
 argument-hint: "[review-aspects] [--min-impact critical|high|medium|medium-low|low] [--json]"
 ---
 
@@ -86,6 +84,8 @@ Run a comprehensive code review of local uncommitted changes using multiple spec
 
 ### Phase 1: Preparation
 
+Run following commands in order:
+
 1. **Determine Review Scope**
    - Check following commands to understand changes, use only commands that return amount of lines changed, not file content:
      - `git status --short`
@@ -95,24 +95,21 @@ Run a comprehensive code review of local uncommitted changes using multiple spec
      - `git diff --cached --name-only`
    - **Staged vs unstaged**: Differentiate between staged (`git diff --cached`) and unstaged (`git diff`) changes. Review both by default. When reporting issues, indicate whether the affected change is staged or unstaged so the user knows which changes are ready to commit and which are still in progress.
    - Parse `$ARGUMENTS` per the Command Arguments section above to resolve `REVIEW_ASPECTS`, `MIN_IMPACT`, `MIN_IMPACT_SCORE`, and `JSON_OUTPUT`
+   - If there are no changes, inform the user and exit
 
-2. Use Haiku agent to give you a list of file paths to (but not the contents of) any relevant agent instruction files, if they exist: CLAUDE.md, AGENTS.md, **/constitution.md, the root README.md file, as well as any README.md files in the directories whose files were modified
+2. Launch up to 6 parallel Haiku agents to perform following tasks:
+   - One agent to search and give you a list of file paths to (but not the contents of) any relevant agent instruction files, if they exist: CLAUDE.md, AGENTS.md, **/constitution.md, the root README.md file, as well as any README.md files in the directories whose files were modified
+   - Split changed files based on amount of lines changed between other 1-5 agents and ask them following:
 
-3. Use a Haiku agent to analyze the changes and provide summary:
+      ```markdown
+      GOAL: Analyse local uncommitted changes in following files and provide summary
 
-   ```markdown
-   **Identify Changed Files**
-      - Run `git diff --name-only` to see modified files
-      - Run `git diff --stat` to see change statistics
-      - Identify file types and scope of changes
+      Perform following steps:
+         - Run `git diff -- [list of files]` and `git diff --cached -- [list of files]` to see both unstaged and staged changes
+         - Analyse following files: [list of files]
 
-   Please return a detailed summary of the local changes, including:
-   - Full list of changed files and their types
-   - Number of additions/deletions per file
-   - Overall scope of the change (feature, bugfix, refactoring, etc.)
-   ```
-
-4. If there are no changes, inform the user and exit
+      Please return a detailed summary of the changes in each file, including types of changes, their complexity, affected classes/functions/variables/etc., and overall description of the changes. For each file, indicate whether changes are staged, unstaged, or both.
+      ```
 
 ### Phase 2: Searching for Issues and Improvements
 

@@ -1,7 +1,7 @@
 ---
 name: ce:review
 description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR."
-argument-hint: "[mode:autofix|mode:report-only] [PR number, GitHub URL, or branch name]"
+argument-hint: "[mode:autofix|mode:report-only|mode:headless] [PR number, GitHub URL, or branch name]"
 ---
 
 # Code Review
@@ -24,18 +24,22 @@ Parse `$ARGUMENTS` for the following optional tokens. Strip each recognized toke
 |-------|---------|--------|
 | `mode:autofix` | `mode:autofix` | Select autofix mode (see Mode Detection below) |
 | `mode:report-only` | `mode:report-only` | Select report-only mode |
+| `mode:headless` | `mode:headless` | Select headless mode for programmatic callers (see Mode Detection below) |
 | `base:<sha-or-ref>` | `base:abc1234` or `base:origin/main` | Skip scope detection — use this as the diff base directly |
 | `plan:<path>` | `plan:docs/plans/2026-03-25-001-feat-foo-plan.md` | Load this plan for requirements verification |
 
 All tokens are optional. Each one present means one less thing to infer. When absent, fall back to existing behavior for that stage.
 
+**Conflicting mode flags:** If multiple mode tokens appear in arguments, stop and do not dispatch agents. If `mode:headless` is one of the conflicting tokens, emit the headless error envelope: `Review failed (headless mode). Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.` Otherwise emit the generic form: `Review failed. Reason: conflicting mode flags — <mode_a> and <mode_b> cannot be combined.`
+
 ## Mode Detection
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Interactive** (default) | No mode token present | Review, present findings, ask for policy decisions when needed, and optionally continue into fix/push/PR next steps |
+| **Interactive** (default) | No mode token present | Review, apply safe_auto fixes automatically, present findings, ask for policy decisions on gated/manual findings, and optionally continue into fix/push/PR next steps |
 | **Autofix** | `mode:autofix` in arguments | No user interaction. Review, apply only policy-allowed `safe_auto` fixes, re-review in bounded rounds, write a run artifact, and emit residual downstream work when needed |
 | **Report-only** | `mode:report-only` in arguments | Strictly read-only. Review and report only, then stop with no edits, artifacts, todos, commits, pushes, or PR actions |
+| **Headless** | `mode:headless` in arguments | Programmatic mode for skill-to-skill invocation. Apply `safe_auto` fixes silently (single pass), return all other findings as structured text output, write run artifacts, skip todos, and return "Review complete" signal. No interactive prompts. |
 
 ### Autofix mode rules
 
@@ -52,6 +56,19 @@ All tokens are optional. Each one present means one less thing to infer. When ab
 - **Safe for parallel read-only verification.** `mode:report-only` is the only mode that is safe to run concurrently with browser testing on the same checkout.
 - **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:report-only` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`.
 - **Do not overlap mutating review with browser testing on the same checkout.** If a future orchestrator wants fixes, run the mutating review phase after browser testing or in an isolated checkout/worktree.
+
+### Headless mode rules
+
+- **Skip all user questions.** Never use the platform question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini) or other interactive prompts. Infer intent conservatively if the diff metadata is thin.
+- **Require a determinable diff scope.** If headless mode cannot determine a diff scope (no branch, PR, or `base:` ref determinable without user interaction), emit `Review failed (headless mode). Reason: no diff scope detected. Re-invoke with a branch name, PR number, or base:<ref>.` and stop without dispatching agents.
+- **Apply only `safe_auto -> review-fixer` findings in a single pass.** No bounded re-review rounds. Leave `gated_auto`, `manual`, `human`, and `release` work unresolved and return them in the structured output.
+- **Return all non-auto findings as structured text output.** Use the headless output envelope format (see Stage 6 below) preserving severity, autofix_class, owner, requires_verification, confidence, evidence[], and pre_existing per finding.
+- **Write a run artifact** under `.context/compound-engineering/ce-review/<run-id>/` summarizing findings, applied fixes, and advisory outputs. Include the artifact path in the structured output.
+- **Do not create todo files.** The caller receives structured findings and routes downstream work itself.
+- **Do not switch the shared checkout.** If the caller passes an explicit PR or branch target, `mode:headless` must run in an isolated checkout/worktree or stop instead of running `gh pr checkout` / `git checkout`. When stopping, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.`
+- **Not safe for concurrent use on a shared checkout.** Unlike `mode:report-only`, headless mutates files (applies `safe_auto` fixes). Callers must not run headless concurrently with other mutating operations on the same checkout.
+- **Never commit, push, or create a PR** from headless mode. The caller owns those decisions.
+- **End with "Review complete" as the terminal signal** so callers can detect completion. If all reviewers fail or time out, emit `Code review degraded (headless mode). Reason: 0 of N reviewers returned results.` followed by "Review complete".
 
 ## Severity Scale
 
@@ -164,7 +181,7 @@ This path works with any ref — a SHA, `origin/main`, a branch name. Automated 
 
 **If a PR number or GitHub URL is provided as an argument:**
 
-If `mode:report-only` is active, do **not** run `gh pr checkout <number-or-url>` on the shared checkout. Tell the caller: "mode:report-only cannot switch the shared checkout to review a PR target. Run it from an isolated worktree/checkout for that PR, or run report-only with no target argument on the already checked out branch." Stop here unless the review is already running in an isolated checkout.
+If `mode:report-only` or `mode:headless` is active, do **not** run `gh pr checkout <number-or-url>` on the shared checkout. For `mode:report-only`, tell the caller: "mode:report-only cannot switch the shared checkout to review a PR target. Run it from an isolated worktree/checkout for that PR, or run report-only with no target argument on the already checked out branch." For `mode:headless`, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.` Stop here unless the review is already running in an isolated checkout.
 
 First, verify the worktree is clean before switching branches:
 
@@ -218,7 +235,7 @@ Extract PR title/body, base branch, and PR URL from `gh pr view`, then extract t
 
 Check out the named branch, then diff it against the base branch. Substitute the provided branch name (shown here as `<branch>`).
 
-If `mode:report-only` is active, do **not** run `git checkout <branch>` on the shared checkout. Tell the caller: "mode:report-only cannot switch the shared checkout to review another branch. Run it from an isolated worktree/checkout for `<branch>`, or run report-only on the current checkout with no target argument." Stop here unless the review is already running in an isolated checkout.
+If `mode:report-only` or `mode:headless` is active, do **not** run `git checkout <branch>` on the shared checkout. For `mode:report-only`, tell the caller: "mode:report-only cannot switch the shared checkout to review another branch. Run it from an isolated worktree/checkout for `<branch>`, or run report-only on the current checkout with no target argument." For `mode:headless`, emit `Review failed (headless mode). Reason: cannot switch shared checkout. Re-invoke with base:<ref> to review the current checkout, or run from an isolated worktree.` Stop here unless the review is already running in an isolated checkout.
 
 First, verify the worktree is clean before switching branches:
 
@@ -270,7 +287,7 @@ echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:"
 
 Using `git diff $BASE` (without `..HEAD`) diffs the merge-base against the working tree, which includes committed, staged, and unstaged changes together.
 
-**Untracked file handling:** Always inspect the `UNTRACKED:` list, even when `FILES:`/`DIFF:` are non-empty. Untracked files are outside review scope until staged. If the list is non-empty, tell the user which files are excluded. If any of them should be reviewed, stop and tell the user to `git add` them first and rerun. Only continue when the user is intentionally reviewing tracked changes only.
+**Untracked file handling:** Always inspect the `UNTRACKED:` list, even when `FILES:`/`DIFF:` are non-empty. Untracked files are outside review scope until staged. If the list is non-empty, tell the user which files are excluded. If any of them should be reviewed, stop and tell the user to `git add` them first and rerun. Only continue when the user is intentionally reviewing tracked changes only. In `mode:headless` or `mode:autofix`, do not stop to ask — proceed with tracked changes only and note the excluded untracked files in the Coverage section of the output.
 
 ### Stage 2: Intent discovery
 
@@ -298,7 +315,7 @@ Pass this to every reviewer in their spawn prompt. Intent shapes *how hard each 
 **When intent is ambiguous:**
 
 - **Interactive mode:** Ask one question using the platform's interactive question tool (AskUserQuestion in Claude Code, request_user_input in Codex): "What is the primary goal of these changes?" Do not spawn reviewers until intent is established.
-- **Autofix/report-only modes:** Infer intent conservatively from the branch name, diff, PR metadata, and caller context. Note the uncertainty in Coverage or Verdict reasoning instead of blocking.
+- **Autofix/report-only/headless modes:** Infer intent conservatively from the branch name, diff, PR metadata, and caller context. Note the uncertainty in Coverage or Verdict reasoning instead of blocking.
 
 ### Stage 2b: Plan discovery (requirements verification)
 
@@ -420,6 +437,80 @@ Assemble the final report using the review output template included below:
 
 Do not include time estimates.
 
+### Headless output format
+
+In `mode:headless`, replace the interactive pipe-delimited table report with a structured text envelope. The envelope follows the same structural pattern as document-review's headless output (completion header, metadata block, findings grouped by autofix_class, trailing sections) while using ce:review's own section headings and per-finding fields.
+
+```
+Code review complete (headless mode).
+
+Scope: <scope-line>
+Intent: <intent-summary>
+Reviewers: <reviewer-list with conditional justifications>
+Verdict: <Ready to merge | Ready with fixes | Not ready>
+Artifact: .context/compound-engineering/ce-review/<run-id>/
+
+Applied N safe_auto fixes.
+
+Gated-auto findings (concrete fix, changes behavior/contracts):
+
+[P1][gated_auto -> downstream-resolver][needs-verification] File: <file:line> -- <title> (<reviewer>, confidence <N>)
+  Why: <why_it_matters>
+  Suggested fix: <suggested_fix or "none">
+  Evidence: <evidence[0]>
+  Evidence: <evidence[1]>
+
+Manual findings (actionable, needs handoff):
+
+[P1][manual -> downstream-resolver] File: <file:line> -- <title> (<reviewer>, confidence <N>)
+  Why: <why_it_matters>
+  Evidence: <evidence[0]>
+
+Advisory findings (report-only):
+
+[P2][advisory -> human] File: <file:line> -- <title> (<reviewer>, confidence <N>)
+  Why: <why_it_matters>
+
+Pre-existing issues:
+[P2][gated_auto -> downstream-resolver] File: <file:line> -- <title> (<reviewer>, confidence <N>)
+  Why: <why_it_matters>
+
+Residual risks:
+- <risk>
+
+Learnings & Past Solutions:
+- <learning>
+
+Agent-Native Gaps:
+- <gap description>
+
+Schema Drift Check:
+- <drift status>
+
+Deployment Notes:
+- <deployment note>
+
+Testing gaps:
+- <gap>
+
+Coverage:
+- Suppressed: <N> findings below 0.60 confidence
+- Untracked files excluded: <file1>, <file2>
+- Failed reviewers: <reviewer>
+
+Review complete
+```
+
+**Formatting rules:**
+- The `[needs-verification]` marker appears only on findings where `requires_verification: true`.
+- The `Artifact:` line gives callers the path to the full run artifact for machine-readable access to the complete findings schema. The text envelope is the primary handoff; the artifact is for debugging and full-fidelity access.
+- Findings with `owner: release` appear in the Advisory section (they are operational/rollout items, not code fixes).
+- Findings with `pre_existing: true` appear in the Pre-existing section regardless of autofix_class.
+- The Verdict appears in the metadata header (deliberately reordered from the interactive format where it appears at the bottom) so programmatic callers get the verdict first.
+- Omit any section with zero items.
+- If all reviewers fail or time out, emit `Code review degraded (headless mode). Reason: 0 of N reviewers returned results.` followed by "Review complete".
+- End with "Review complete" as the terminal signal so callers can detect completion.
+
 ## Quality Gates
 
 Before delivering the review, verify:
@@ -455,17 +546,17 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 **Interactive mode**
 
-- Ask a single policy question only when actionable work exists.
-- Recommended default:
+- Apply `safe_auto -> review-fixer` findings automatically without asking. These are safe by definition.
+- Ask a policy question only when `gated_auto` or `manual` findings remain after safe fixes:
 
   ```
-  What should I do with the actionable findings?
-  1. Apply safe_auto fixes and leave the rest as residual work (Recommended)
-  2. Apply safe_auto fixes only
-  3. Review report only
+  Safe fixes have been applied. What should I do with the remaining findings?
+  1. Review and approve specific gated fixes (Recommended)
+  2. Leave as residual work
+  3. Report only -- no further action
   ```
 
-- Tailor the prompt to the actual action sets. If the fixer queue is empty, do not offer "Apply safe_auto fixes" options. Ask whether to externalize the residual actionable work or keep the review report-only instead.
+- If no `gated_auto` or `manual` findings remain after safe fixes, skip the policy question entirely — report what was fixed and proceed to next steps.
 - Only include `gated_auto` findings in the fixer queue after the user explicitly approves the specific items. Do not widen the queue based on severity alone.
 
 **Autofix mode**
@@ -482,6 +573,15 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 - Do not create residual todos or `.context` artifacts.
 - Stop after Stage 6. Everything remains in the report.
 
+**Headless mode**
+
+- Ask no questions.
+- Apply only the `safe_auto -> review-fixer` queue in a single pass. Do not enter the bounded re-review loop (Step 3). Spawn one fixer subagent, apply fixes, then proceed directly to Step 4.
+- Leave `gated_auto`, `manual`, `human`, and `release` items unresolved — they appear in the structured text output.
+- Output the headless output envelope (see Stage 6) instead of the interactive report.
+- Write a run artifact (Step 4) but do not create todo files.
+- Stop after the structured text output and "Review complete" signal. No commit/push/PR.
+
 #### Step 3: Apply fixes with one fixer and bounded rounds
 
 - Spawn exactly one fixer subagent for the current fixer queue in the current checkout. That fixer applies all approved changes and runs the relevant targeted tests in one pass against a consistent tree.
@@ -493,7 +593,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 
 #### Step 4: Emit artifacts and downstream handoff
 
-- In interactive and autofix modes, write a per-run artifact under `.context/compound-engineering/ce-review/<run-id>/` containing:
+- In interactive, autofix, and headless modes, write a per-run artifact under `.context/compound-engineering/ce-review/<run-id>/` containing:
   - synthesized findings
   - applied fixes
   - residual actionable work
@@ -521,7 +621,7 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
 If "Create a PR": first publish the branch with `git push --set-upstream origin HEAD`, then use `gh pr create` with a title and summary derived from the branch changes.
 If "Push fixes": push the branch with `git push` to update the existing PR.
 
-**Autofix and report-only modes:** stop after the report, artifact emission, and residual-work handoff. Do not commit, push, or create a PR.
+**Autofix, report-only, and headless modes:** stop after the report, artifact emission, and residual-work handoff. Do not commit, push, or create a PR.
 
 ## Fallback
 

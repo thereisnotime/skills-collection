@@ -1,27 +1,27 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 4949
+    "stars": 5076
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
-    "stars": 2265
+    "stars": 2331
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 530
+    "stars": 572
   },
   "realkimbarrett--advertising-skills": {
     "skills": 19,
-    "stars": 369
+    "stars": 410
   },
   "ComposioHQ--awesome-claude-skills": {
     "skills": 889,
-    "stars": 48810
+    "stars": 48907
   },
   "anthropics--skills": {
     "skills": 67,
-    "stars": 105048
+    "stars": 105238
   },
   "1NickPappas--move-code-quality-skill": {
     "skills": 1,
@@ -37,23 +37,23 @@
   },
   "AgriciDaniel--claude-email": {
     "skills": 27,
-    "stars": 14
+    "stars": 16
   },
   "ClickHouse--agent-skills": {
     "skills": 34,
-    "stars": 377
+    "stars": 378
   },
   "Digidai--product-manager-skills": {
-    "skills": 25,
-    "stars": 31
+    "skills": 27,
+    "stars": 32
   },
   "EveryInc--compound-engineering-plugin": {
-    "skills": 229,
-    "stars": 11361
+    "skills": 231,
+    "stars": 11394
   },
   "Eyadkelleh--awesome-claude-skills-security": {
     "skills": 19,
-    "stars": 112
+    "stars": 113
   },
   "HeshamFS--materials-simulation-skills": {
     "skills": 69,
@@ -61,27 +61,27 @@
   },
   "Imbad0202--academic-research-skills": {
     "skills": 120,
-    "stars": 1531
+    "stars": 1548
   },
   "K-Dense-AI--claude-scientific-skills": {
     "skills": 921,
-    "stars": 16542
+    "stars": 16578
   },
   "K-Dense-AI--claude-scientific-writer": {
     "skills": 502,
-    "stars": 1344
+    "stars": 1346
   },
   "NeoLabHQ--context-engineering-kit": {
-    "skills": 220,
+    "skills": 230,
     "stars": 723
   },
   "Orchestra-Research--AI-research-SKILLs": {
     "skills": 350,
-    "stars": 5751
+    "stars": 5776
   },
   "Paramchoudhary--ResumeSkills": {
     "skills": 27,
-    "stars": 191
+    "stars": 193
   },
   "Valian--linear-cli-skill": {
     "skills": 2,
@@ -97,7 +97,7 @@
   },
   "akin-ozer--cc-devops-skills": {
     "skills": 126,
-    "stars": 142
+    "stars": 143
   },
   "alonw0--web-asset-generator": {
     "skills": 4,
@@ -105,11 +105,11 @@
   },
   "antonbabenko--terraform-skill": {
     "skills": 12,
-    "stars": 1404
+    "stars": 1405
   },
   "avifenesh--agentsys": {
     "skills": 90,
-    "stars": 663
+    "stars": 667
   },
   "better-auth--skills": {
     "skills": 7,
@@ -125,7 +125,7 @@
   },
   "callstackincubator--agent-skills": {
     "skills": 115,
-    "stars": 1131
+    "stars": 1147
   },
   "chrisvoncsefalvay--claude-d3js-skill": {
     "skills": 4,
@@ -133,11 +133,11 @@
   },
   "cloudflare--skills": {
     "skills": 282,
-    "stars": 734
+    "stars": 736
   },
   "coffeefuelbump--csv-data-summarizer-claude-skill": {
     "skills": 1,
-    "stars": 315
+    "stars": 318
   },
   "conorbronsdon--avoid-ai-writing": {
     "skills": 1,
@@ -145,11 +145,11 @@
   },
   "conorluddy--ios-simulator-skill": {
     "skills": 8,
-    "stars": 674
+    "stars": 675
   },
   "coreyhaines31--marketingskills": {
     "skills": 174,
-    "stars": 17161
+    "stars": 17227
   },
   "dreamiurg--claude-mountaineering-skills": {
     "skills": 14,
@@ -161,7 +161,7 @@
   },
   "expo--skills": {
     "skills": 38,
-    "stars": 1565
+    "stars": 1567
   },
   "firecrawl--cli": {
     "skills": 10,
@@ -169,7 +169,7 @@
   },
   "hashicorp--agent-skills": {
     "skills": 26,
-    "stars": 494
+    "stars": 495
   },
   "jananthan30--Resume-Builder": {
     "skills": 18,
@@ -185,11 +185,11 @@
   },
   "jthack--ffuf_claude_skill": {
     "skills": 3,
-    "stars": 129
+    "stars": 130
   },
   "lackeyjb--playwright-skill": {
     "skills": 2,
-    "stars": 2224
+    "stars": 2237
   },
   "livelabs-ventures--nano-skills": {
     "skills": 1,
@@ -197,7 +197,7 @@
   },
   "mhattingpete--claude-skills-marketplace": {
     "skills": 34,
-    "stars": 514
+    "stars": 515
   },
   "michalparkola--tapestry-skills-for-claude-code": {
     "skills": 7,
@@ -213,7 +213,7 @@
   },
   "obra--superpowers": {
     "skills": 69,
-    "stars": 120531
+    "stars": 121237
   },
   "obra--superpowers-skills": {
     "skills": 46,
@@ -225,11 +225,11 @@
   },
   "proficientlyjobs--proficiently-claude-skills": {
     "skills": 24,
-    "stars": 78
+    "stars": 79
   },
   "remotion-dev--skills": {
     "skills": 38,
-    "stars": 2442
+    "stars": 2446
   },
   "replicate--skills": {
     "skills": 2,
@@ -237,7 +237,7 @@
   },
   "robertguss--claude-skills": {
     "skills": 244,
-    "stars": 53
+    "stars": 55
   },
   "ryanbbrown--revealjs-skill": {
     "skills": 4,
@@ -245,7 +245,7 @@
   },
   "sanity-io--agent-toolkit": {
     "skills": 44,
-    "stars": 104
+    "stars": 105
   },
   "sanjay3290--ai-skills": {
     "skills": 24,
@@ -253,7 +253,7 @@
   },
   "smerchek--claude-epub-skill": {
     "skills": 5,
-    "stars": 101
+    "stars": 102
   },
   "squirrelscan--skills": {
     "skills": 2,
@@ -261,11 +261,11 @@
   },
   "stripe--ai": {
     "skills": 47,
-    "stars": 1410
+    "stars": 1409
   },
   "supabase--agent-skills": {
     "skills": 39,
-    "stars": 1728
+    "stars": 1727
   },
   "tinybirdco--tinybird-agent-skills": {
     "skills": 47,
@@ -273,7 +273,7 @@
   },
   "trailofbits--skills": {
     "skills": 389,
-    "stars": 4046
+    "stars": 4065
   },
   "typefully--agent-skills": {
     "skills": 4,
@@ -281,11 +281,11 @@
   },
   "varunr89--resume-tailoring-skill": {
     "skills": 12,
-    "stars": 194
+    "stars": 198
   },
   "vercel-labs--agent-skills": {
     "skills": 127,
-    "stars": 24018
+    "stars": 24034
   },
   "vercel-labs--next-skills": {
     "skills": 24,
@@ -301,15 +301,15 @@
   },
   "zarazhangrui--frontend-slides": {
     "skills": 4,
-    "stars": 11554
+    "stars": 11585
   },
   "zxkane--aws-skills": {
     "skills": 19,
-    "stars": 223
+    "stars": 224
   },
   "travisvn--awesome-claude-skills": {
     "skills": 0,
-    "stars": 9958
+    "stars": 9992
   },
   "obra--superpowers-lab": {
     "skills": 7,
@@ -317,10 +317,10 @@
   },
   "asklokesh--claudeskill-loki-mode": {
     "skills": 232,
-    "stars": 788
+    "stars": 790
   },
   "yusufkaraaslan--Skill_Seekers": {
     "skills": 172,
-    "stars": 11414
+    "stars": 11426
   }
 }
