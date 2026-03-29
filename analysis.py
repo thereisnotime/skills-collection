@@ -89,12 +89,14 @@ def analyze_repo(repo_dir, description=""):
     if not repo_path.exists():
         return None
 
-    # Find all SKILL.md files
-    skill_files = list(repo_path.rglob("SKILL.md"))
+    # Find all skill files (any .md with name: + description: frontmatter)
+    skip_names = {"readme.md", "license.md", "changelog.md", "contributing.md"}
     skills = []
-    for sf in skill_files:
+    for sf in repo_path.rglob("*.md"):
+        if sf.name.lower() in skip_names:
+            continue
         info = analyze_skill_file(sf)
-        if info:
+        if info and info["name"]:
             skills.append(info)
 
     if not skills:

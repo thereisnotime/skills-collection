@@ -2,8 +2,8 @@
   "slavingia--skills": {
     "skills": 10,
     "md_files": 10,
-    "stars": 5260,
-    "forks": 375,
+    "stars": 5268,
+    "forks": 376,
     "total_commits": 8,
     "issues_open": 0,
     "issues_closed": 0,
@@ -15,7 +15,7 @@
   "zarazhangrui--codebase-to-course": {
     "skills": 1,
     "md_files": 3,
-    "stars": 2419,
+    "stars": 2420,
     "forks": 216,
     "total_commits": 9,
     "issues_open": 3,
@@ -28,7 +28,7 @@
   "samber--cc-skills-golang": {
     "skills": 35,
     "md_files": 168,
-    "stars": 633,
+    "stars": 635,
     "forks": 27,
     "total_commits": 31,
     "issues_open": 0,
@@ -41,7 +41,7 @@
   "realkimbarrett--advertising-skills": {
     "skills": 12,
     "md_files": 19,
-    "stars": 465,
+    "stars": 467,
     "forks": 23,
     "total_commits": 6,
     "issues_open": 0,
@@ -54,8 +54,8 @@
   "ComposioHQ--awesome-claude-skills": {
     "skills": 864,
     "md_files": 889,
-    "stars": 49055,
-    "forks": 5064,
+    "stars": 49059,
+    "forks": 5065,
     "total_commits": 53,
     "issues_open": 78,
     "issues_closed": 4,
@@ -67,8 +67,8 @@
   "anthropics--skills": {
     "skills": 18,
     "md_files": 67,
-    "stars": 105548,
-    "forks": 11673,
+    "stars": 105553,
+    "forks": 11674,
     "total_commits": 25,
     "issues_open": 169,
     "issues_closed": 27,
@@ -91,7 +91,7 @@
     "contributors": 1
   },
   "ARPeeketi--claude-resume-kit": {
-    "skills": 6,
+    "skills": 0,
     "md_files": 22,
     "stars": 30,
     "forks": 5,
@@ -104,7 +104,7 @@
     "contributors": 1
   },
   "AgriciDaniel--claude-blog": {
-    "skills": 22,
+    "skills": 26,
     "md_files": 77,
     "stars": 335,
     "forks": 91,
@@ -117,7 +117,7 @@
     "contributors": 2
   },
   "AgriciDaniel--claude-email": {
-    "skills": 7,
+    "skills": 11,
     "md_files": 27,
     "stars": 16,
     "forks": 7,
@@ -156,9 +156,9 @@
     "contributors": 1
   },
   "EveryInc--compound-engineering-plugin": {
-    "skills": 46,
+    "skills": 102,
     "md_files": 232,
-    "stars": 11570,
+    "stars": 11577,
     "forks": 904,
     "total_commits": 539,
     "issues_open": 31,
@@ -169,7 +169,7 @@
     "contributors": 47
   },
   "Eyadkelleh--awesome-claude-skills-security": {
-    "skills": 8,
+    "skills": 15,
     "md_files": 19,
     "stars": 113,
     "forks": 18,
@@ -197,7 +197,7 @@
   "Imbad0202--academic-research-skills": {
     "skills": 4,
     "md_files": 120,
-    "stars": 1576,
+    "stars": 1577,
     "forks": 183,
     "total_commits": 61,
     "issues_open": 0,
@@ -221,7 +221,7 @@
     "contributors": 28
   },
   "K-Dense-AI--claude-scientific-writer": {
-    "skills": 81,
+    "skills": 78,
     "md_files": 502,
     "stars": 1351,
     "forks": 162,
@@ -234,7 +234,7 @@
     "contributors": 5
   },
   "NeoLabHQ--context-engineering-kit": {
-    "skills": 68,
+    "skills": 86,
     "md_files": 230,
     "stars": 728,
     "forks": 62,
@@ -247,9 +247,9 @@
     "contributors": 5
   },
   "Orchestra-Research--AI-research-SKILLs": {
-    "skills": 91,
+    "skills": 92,
     "md_files": 350,
-    "stars": 5801,
+    "stars": 5802,
     "forks": 446,
     "total_commits": 198,
     "issues_open": 3,
@@ -351,7 +351,7 @@
     "contributors": 3
   },
   "avifenesh--agentsys": {
-    "skills": 30,
+    "skills": 33,
     "md_files": 90,
     "stars": 668,
     "forks": 68,
@@ -403,7 +403,7 @@
     "contributors": 2
   },
   "callstackincubator--agent-skills": {
-    "skills": 10,
+    "skills": 11,
     "md_files": 115,
     "stars": 1149,
     "forks": 74,
@@ -483,8 +483,8 @@
   "coreyhaines31--marketingskills": {
     "skills": 34,
     "md_files": 174,
-    "stars": 17319,
-    "forks": 2611,
+    "stars": 17320,
+    "forks": 2612,
     "total_commits": 169,
     "issues_open": 1,
     "issues_closed": 95,
@@ -533,7 +533,7 @@
     "contributors": 12
   },
   "firecrawl--cli": {
-    "skills": 8,
+    "skills": 10,
     "md_files": 10,
     "stars": 231,
     "forks": 34,
@@ -572,7 +572,7 @@
     "contributors": 1
   },
   "javiera-vasquez--claude-code-job-tailor": {
-    "skills": 0,
+    "skills": 3,
     "md_files": 15,
     "stars": 105,
     "forks": 24,
@@ -637,7 +637,7 @@
     "contributors": 1
   },
   "mhattingpete--claude-skills-marketplace": {
-    "skills": 18,
+    "skills": 20,
     "md_files": 34,
     "stars": 517,
     "forks": 59,
@@ -663,7 +663,7 @@
     "contributors": 2
   },
   "neondatabase--agent-skills": {
-    "skills": 4,
+    "skills": 6,
     "md_files": 13,
     "stars": 43,
     "forks": 5,
@@ -676,7 +676,7 @@
     "contributors": 7
   },
   "netlify--context-and-tools": {
-    "skills": 24,
+    "skills": 25,
     "md_files": 44,
     "stars": 10,
     "forks": 4,
@@ -689,9 +689,9 @@
     "contributors": 7
   },
   "obra--superpowers": {
-    "skills": 14,
+    "skills": 15,
     "md_files": 69,
-    "stars": 122294,
+    "stars": 122308,
     "forks": 9948,
     "total_commits": 407,
     "issues_open": 87,
@@ -741,7 +741,7 @@
     "contributors": 2
   },
   "remotion-dev--skills": {
-    "skills": 1,
+    "skills": 38,
     "md_files": 38,
     "stars": 2453,
     "forks": 292,
@@ -767,7 +767,7 @@
     "contributors": 1
   },
   "robertguss--claude-skills": {
-    "skills": 28,
+    "skills": 39,
     "md_files": 244,
     "stars": 55,
     "forks": 11,
@@ -793,7 +793,7 @@
     "contributors": 1
   },
   "sanity-io--agent-toolkit": {
-    "skills": 4,
+    "skills": 8,
     "md_files": 44,
     "stars": 105,
     "forks": 10,
@@ -845,7 +845,7 @@
     "contributors": 1
   },
   "stripe--ai": {
-    "skills": 9,
+    "skills": 10,
     "md_files": 47,
     "stars": 1411,
     "forks": 240,
@@ -884,7 +884,7 @@
     "contributors": 6
   },
   "trailofbits--skills": {
-    "skills": 62,
+    "skills": 94,
     "md_files": 389,
     "stars": 4075,
     "forks": 356,
@@ -925,7 +925,7 @@
   "vercel-labs--agent-skills": {
     "skills": 6,
     "md_files": 127,
-    "stars": 24053,
+    "stars": 24054,
     "forks": 2190,
     "total_commits": 137,
     "issues_open": 44,
@@ -977,8 +977,8 @@
   "zarazhangrui--frontend-slides": {
     "skills": 1,
     "md_files": 4,
-    "stars": 11625,
-    "forks": 859,
+    "stars": 11627,
+    "forks": 860,
     "total_commits": 13,
     "issues_open": 7,
     "issues_closed": 3,
@@ -1003,7 +1003,7 @@
   "travisvn--awesome-claude-skills": {
     "skills": 0,
     "md_files": 0,
-    "stars": 10025,
+    "stars": 10026,
     "forks": 963,
     "total_commits": 41,
     "issues_open": 10,
@@ -1040,7 +1040,7 @@
     "contributors": 5
   },
   "yusufkaraaslan--Skill_Seekers": {
-    "skills": 1,
+    "skills": 2,
     "md_files": 172,
     "stars": 11446,
     "forks": 1124,

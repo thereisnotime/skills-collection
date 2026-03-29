@@ -9656,6 +9656,53 @@
   "ARPeeketi--claude-resume-kit": [],
   "AgriciDaniel--claude-blog": [
     {
+      "name": "blog-researcher",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/agents/blog-researcher.md",
+      "remote_path": "agents/blog-researcher.md",
+      "lines": 217,
+      "words": 1216,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-reviewer",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/agents/blog-reviewer.md",
+      "remote_path": "agents/blog-reviewer.md",
+      "lines": 166,
+      "words": 1057,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-seo",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/agents/blog-seo.md",
+      "remote_path": "agents/blog-seo.md",
+      "lines": 131,
+      "words": 735,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "blog-writer",
+      "description": ">",
+      "path": "AgriciDaniel--claude-blog/agents/blog-writer.md",
+      "remote_path": "agents/blog-writer.md",
+      "lines": 191,
+      "words": 1109,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
       "name": "blog-cannibalization",
       "description": ">",
       "path": "AgriciDaniel--claude-blog/skills/blog-cannibalization/SKILL.md",
@@ -9919,6 +9966,61 @@
   ],
   "AgriciDaniel--claude-email": [
     {
+      "name": "email-inbox",
+      "description": ">",
+      "path": "AgriciDaniel--claude-email/agents/email-inbox.md",
+      "remote_path": "agents/email-inbox.md",
+      "lines": 531,
+      "words": 1991,
+      "code_blocks": 10,
+      "languages": [
+        "json",
+        "yaml"
+      ]
+    },
+    {
+      "name": "email-compliance",
+      "description": ">",
+      "path": "AgriciDaniel--claude-email/agents/email-compliance.md",
+      "remote_path": "agents/email-compliance.md",
+      "lines": 495,
+      "words": 2045,
+      "code_blocks": 16,
+      "languages": [
+        "bash",
+        "html",
+        "json",
+        "regex",
+        "yaml"
+      ]
+    },
+    {
+      "name": "email-deliverability",
+      "description": ">",
+      "path": "AgriciDaniel--claude-email/agents/email-deliverability.md",
+      "remote_path": "agents/email-deliverability.md",
+      "lines": 385,
+      "words": 1780,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "email-content",
+      "description": ">",
+      "path": "AgriciDaniel--claude-email/agents/email-content.md",
+      "remote_path": "agents/email-content.md",
+      "lines": 552,
+      "words": 2143,
+      "code_blocks": 6,
+      "languages": [
+        "json",
+        "regex"
+      ]
+    },
+    {
       "name": "email",
       "description": ">",
       "path": "AgriciDaniel--claude-email/email/SKILL.md",
@@ -10023,9 +10125,59 @@
       "words": 2595,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "Workflow gap report",
+      "description": "",
+      "path": "Digidai--product-manager-skills/.github/ISSUE_TEMPLATE/workflow-gap.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/workflow-gap.md",
+      "lines": 39,
+      "words": 109,
+      "code_blocks": 0,
+      "languages": []
     }
   ],
   "EveryInc--compound-engineering-plugin": [
+    {
+      "name": "custom-command",
+      "description": "",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/custom-paths/custom-commands/custom-command.md",
+      "remote_path": "tests/fixtures/custom-paths/custom-commands/custom-command.md",
+      "lines": 6,
+      "words": 6,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "default-agent",
+      "description": "",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/custom-paths/agents/default-agent.md",
+      "remote_path": "tests/fixtures/custom-paths/agents/default-agent.md",
+      "lines": 6,
+      "words": 6,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "default-command",
+      "description": "",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/custom-paths/commands/default-command.md",
+      "remote_path": "tests/fixtures/custom-paths/commands/default-command.md",
+      "lines": 6,
+      "words": 6,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "custom-agent",
+      "description": "",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/custom-paths/custom-agents/custom-agent.md",
+      "remote_path": "tests/fixtures/custom-paths/custom-agents/custom-agent.md",
+      "lines": 6,
+      "words": 6,
+      "code_blocks": 0,
+      "languages": []
+    },
     {
       "name": "custom-skill",
       "description": "",
@@ -10043,6 +10195,96 @@
       "remote_path": "tests/fixtures/custom-paths/skills/default-skill/SKILL.md",
       "lines": 6,
       "words": 6,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "security-sentinel",
+      "description": "Security audits and vulnerability assessments",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/agents/security-reviewer.md",
+      "remote_path": "tests/fixtures/sample-plugin/agents/security-reviewer.md",
+      "lines": 8,
+      "words": 15,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "repo-research-analyst",
+      "description": "Research repository structure and conventions",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/agents/agent-one.md",
+      "remote_path": "tests/fixtures/sample-plugin/agents/agent-one.md",
+      "lines": 11,
+      "words": 23,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "report-bug",
+      "description": "Report a bug with structured context",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/pattern-command.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/pattern-command.md",
+      "lines": 8,
+      "words": 17,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "create-agent-skill",
+      "description": "Create or edit a Claude Code skill",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/skill-command.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/skill-command.md",
+      "lines": 8,
+      "words": 18,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "workflows:review",
+      "description": "Run a multi-agent review workflow",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/command-one.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/command-one.md",
+      "lines": 8,
+      "words": 24,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "workflows:work",
+      "description": "Execute planned tasks step by step",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/model-command.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/model-command.md",
+      "lines": 9,
+      "words": 18,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "workflows:plan",
+      "description": "Create a structured plan from requirements",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/todo-command.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/todo-command.md",
+      "lines": 8,
+      "words": 18,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "deploy-docs",
+      "description": "Deploy documentation site",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/disabled-command.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/disabled-command.md",
+      "lines": 8,
+      "words": 13,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "plan_review",
+      "description": "Review a plan with multiple agents",
+      "path": "EveryInc--compound-engineering-plugin/tests/fixtures/sample-plugin/commands/nested/command-two.md",
+      "remote_path": "tests/fixtures/sample-plugin/commands/nested/command-two.md",
+      "lines": 10,
+      "words": 19,
       "code_blocks": 0,
       "languages": []
     },
@@ -10065,6 +10307,562 @@
       "words": 16,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "triage-prs",
+      "description": "Triage all open PRs with parallel agents, label, group, and review one-by-one",
+      "path": "EveryInc--compound-engineering-plugin/.claude/commands/triage-prs.md",
+      "remote_path": ".claude/commands/triage-prs.md",
+      "lines": 194,
+      "words": 955,
+      "code_blocks": 7,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "ankane-readme-writer",
+      "description": "\"Creates or updates README files following Ankane-style template for Ruby gems. Use when writing gem documentation with imperative voice, concise prose, and standard section ordering.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/docs/ankane-readme-writer.md",
+      "remote_path": "plugins/compound-engineering/agents/docs/ankane-readme-writer.md",
+      "lines": 66,
+      "words": 535,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "reliability-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches error handling, retries, circuit breakers, timeouts, health checks, background jobs, or async handlers. Reviews code for production reli",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/reliability-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/reliability-reviewer.md",
+      "lines": 49,
+      "words": 520,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "kieran-typescript-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches TypeScript code. Reviews changes with Kieran's strict bar for type safety, clarity, and maintainability.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/kieran-typescript-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/kieran-typescript-reviewer.md",
+      "lines": 47,
+      "words": 412,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "deployment-verification-agent",
+      "description": "\"Produces Go/No-Go deployment checklists with SQL verification queries, rollback procedures, and monitoring plans. Use when PRs touch production data, migrations, or risky data changes.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/deployment-verification-agent.md",
+      "remote_path": "plugins/compound-engineering/agents/review/deployment-verification-agent.md",
+      "lines": 175,
+      "words": 885,
+      "code_blocks": 5,
+      "languages": [
+        "markdown",
+        "ruby",
+        "sql"
+      ]
+    },
+    {
+      "name": "maintainability-reviewer",
+      "description": "Always-on code-review persona. Reviews code for premature abstraction, unnecessary indirection, dead code, coupling between unrelated modules, and naming that obscures intent.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/maintainability-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/maintainability-reviewer.md",
+      "lines": 49,
+      "words": 542,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "security-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches auth middleware, public endpoints, user input handling, or permission checks. Reviews code for exploitable vulnerabilities.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/security-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/security-reviewer.md",
+      "lines": 51,
+      "words": 504,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "performance-oracle",
+      "description": "\"Analyzes code for performance bottlenecks, algorithmic complexity, database queries, memory usage, and scalability. Use after implementing features or when performance concerns arise.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/performance-oracle.md",
+      "remote_path": "plugins/compound-engineering/agents/review/performance-oracle.md",
+      "lines": 138,
+      "words": 785,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "project-standards-reviewer",
+      "description": "Always-on code-review persona. Audits changes against the project's own CLAUDE.md and AGENTS.md standards -- frontmatter rules, reference inclusion, naming conventions, cross-platform portability, and",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/project-standards-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/project-standards-reviewer.md",
+      "lines": 81,
+      "words": 1001,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "data-migration-expert",
+      "description": "\"Validates data migrations, backfills, and production data transformations against reality. Use when PRs involve ID mappings, column renames, enum conversions, or schema changes.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/data-migration-expert.md",
+      "remote_path": "plugins/compound-engineering/agents/review/data-migration-expert.md",
+      "lines": 113,
+      "words": 769,
+      "code_blocks": 1,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
+      "name": "agent-native-reviewer",
+      "description": "\"Reviews code to ensure agent-native parity -- any action a user can take, an agent can also take. Use after adding UI features, agent tools, or system prompts.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/agent-native-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/agent-native-reviewer.md",
+      "lines": 193,
+      "words": 1539,
+      "code_blocks": 3,
+      "languages": [
+        "markdown",
+        "typescript"
+      ]
+    },
+    {
+      "name": "correctness-reviewer",
+      "description": "Always-on code-review persona. Reviews code for logic errors, edge cases, state management bugs, error propagation failures, and intent-vs-implementation mismatches.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/correctness-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/correctness-reviewer.md",
+      "lines": 49,
+      "words": 536,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "testing-reviewer",
+      "description": "Always-on code-review persona. Reviews code for test coverage gaps, weak assertions, brittle implementation-coupled tests, and missing edge case coverage.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/testing-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/testing-reviewer.md",
+      "lines": 48,
+      "words": 500,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "cli-agent-readiness-reviewer",
+      "description": "\"Reviews CLI source code, plans, or specs for AI agent readiness using a severity-based rubric focused on whether a CLI is merely usable by agents or genuinely optimized for them.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/cli-agent-readiness-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/cli-agent-readiness-reviewer.md",
+      "lines": 441,
+      "words": 3348,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "julik-frontend-races-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches async UI code, Stimulus/Turbo lifecycles, or DOM-timing-sensitive frontend behavior. Reviews code for race conditions and janky UI failu",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/julik-frontend-races-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/julik-frontend-races-reviewer.md",
+      "lines": 49,
+      "words": 510,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "api-contract-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches API routes, request/response types, serialization, versioning, or exported type signatures. Reviews code for breaking contract changes.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/api-contract-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/api-contract-reviewer.md",
+      "lines": 49,
+      "words": 510,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "architecture-strategist",
+      "description": "\"Analyzes code changes from an architectural perspective for pattern compliance and design integrity. Use when reviewing PRs, adding services, or evaluating structural refactors.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/architecture-strategist.md",
+      "remote_path": "plugins/compound-engineering/agents/review/architecture-strategist.md",
+      "lines": 68,
+      "words": 559,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "dhh-rails-reviewer",
+      "description": "Conditional code-review persona, selected when Rails diffs introduce architectural choices, abstractions, or frontend patterns that may fight the framework. Reviews code from an opinionated DHH perspe",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/dhh-rails-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/dhh-rails-reviewer.md",
+      "lines": 46,
+      "words": 443,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "schema-drift-detector",
+      "description": "\"Detects unrelated schema.rb changes in PRs by cross-referencing against included migrations. Use when reviewing PRs with database schema changes.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/schema-drift-detector.md",
+      "remote_path": "plugins/compound-engineering/agents/review/schema-drift-detector.md",
+      "lines": 157,
+      "words": 741,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "diff"
+      ]
+    },
+    {
+      "name": "data-integrity-guardian",
+      "description": "\"Reviews database migrations, data models, and persistent data code for safety. Use when checking migration safety, data constraints, transaction boundaries, or privacy compliance.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/data-integrity-guardian.md",
+      "remote_path": "plugins/compound-engineering/agents/review/data-integrity-guardian.md",
+      "lines": 86,
+      "words": 572,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "data-migrations-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches migration files, schema changes, data transformations, or backfill scripts. Reviews code for data integrity and migration safety.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/data-migrations-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/data-migrations-reviewer.md",
+      "lines": 53,
+      "words": 732,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "adversarial-reviewer",
+      "description": "Conditional code-review persona, selected when the diff is large (>=50 changed lines) or touches high-risk domains like auth, payments, data mutations, or external APIs. Actively constructs failure sc",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/adversarial-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/adversarial-reviewer.md",
+      "lines": 108,
+      "words": 1175,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "security-sentinel",
+      "description": "\"Performs security audits for vulnerabilities, input validation, auth/authz, hardcoded secrets, and OWASP compliance. Use when reviewing code for security issues or before deployment.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/security-sentinel.md",
+      "remote_path": "plugins/compound-engineering/agents/review/security-sentinel.md",
+      "lines": 115,
+      "words": 794,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "performance-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches database queries, loop-heavy data transforms, caching layers, or I/O-intensive paths. Reviews code for runtime performance and scalabili",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/performance-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/performance-reviewer.md",
+      "lines": 51,
+      "words": 547,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "kieran-python-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches Python code. Reviews changes with Kieran's strict bar for Pythonic clarity, type hints, and maintainability.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/kieran-python-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/kieran-python-reviewer.md",
+      "lines": 47,
+      "words": 455,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "pattern-recognition-specialist",
+      "description": "\"Analyzes code for design patterns, anti-patterns, naming conventions, and duplication. Use when checking codebase consistency or verifying new code follows established patterns.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/pattern-recognition-specialist.md",
+      "remote_path": "plugins/compound-engineering/agents/review/pattern-recognition-specialist.md",
+      "lines": 73,
+      "words": 592,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "previous-comments-reviewer",
+      "description": "Conditional code-review persona, selected when reviewing a PR that has existing review comments or review threads. Checks whether prior feedback has been addressed in the current diff.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/previous-comments-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/previous-comments-reviewer.md",
+      "lines": 61,
+      "words": 488,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "code-simplicity-reviewer",
+      "description": "\"Final review pass to ensure code is as simple and minimal as possible. Use after implementation is complete to identify YAGNI violations and simplification opportunities.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/code-simplicity-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/code-simplicity-reviewer.md",
+      "lines": 102,
+      "words": 581,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "kieran-rails-reviewer",
+      "description": "Conditional code-review persona, selected when the diff touches Rails application code. Reviews Rails changes with Kieran's strict bar for clarity, conventions, and maintainability.",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/review/kieran-rails-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/review/kieran-rails-reviewer.md",
+      "lines": 47,
+      "words": 442,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "issue-intelligence-analyst",
+      "description": "\"Fetches and analyzes GitHub issues to surface recurring themes, pain patterns, and severity trends. Use when understanding a project's issue landscape, analyzing bug patterns for ideation, or summari",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/research/issue-intelligence-analyst.md",
+      "remote_path": "plugins/compound-engineering/agents/research/issue-intelligence-analyst.md",
+      "lines": 231,
+      "words": 2372,
+      "code_blocks": 7,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "git-history-analyzer",
+      "description": "\"Performs archaeological analysis of git history to trace code evolution, identify contributors, and understand why code patterns exist. Use when you need historical context for code changes.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/research/git-history-analyzer.md",
+      "remote_path": "plugins/compound-engineering/agents/research/git-history-analyzer.md",
+      "lines": 62,
+      "words": 574,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "learnings-researcher",
+      "description": "\"Searches docs/solutions/ for relevant past solutions by frontmatter metadata. Use before implementing features or fixing problems to surface institutional knowledge and prevent repeated mistakes.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/research/learnings-researcher.md",
+      "remote_path": "plugins/compound-engineering/agents/research/learnings-researcher.md",
+      "lines": 267,
+      "words": 1402,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "best-practices-researcher",
+      "description": "\"Researches and synthesizes external best practices, documentation, and examples for any technology or framework. Use when you need industry standards, community conventions, or implementation guidanc",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/research/best-practices-researcher.md",
+      "remote_path": "plugins/compound-engineering/agents/research/best-practices-researcher.md",
+      "lines": 132,
+      "words": 1019,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "framework-docs-researcher",
+      "description": "\"Gathers comprehensive documentation and best practices for frameworks, libraries, or dependencies. Use when you need official docs, version-specific constraints, or implementation patterns.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/research/framework-docs-researcher.md",
+      "remote_path": "plugins/compound-engineering/agents/research/framework-docs-researcher.md",
+      "lines": 109,
+      "words": 785,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "repo-research-analyst",
+      "description": "\"Conducts thorough research on repository structure, documentation, conventions, and implementation patterns. Use when onboarding to a new codebase or understanding project conventions.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/research/repo-research-analyst.md",
+      "remote_path": "plugins/compound-engineering/agents/research/repo-research-analyst.md",
+      "lines": 286,
+      "words": 2373,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "scope-guardian-reviewer",
+      "description": "\"Reviews planning documents for scope alignment and unjustified complexity -- challenges unnecessary abstractions, premature frameworks, and scope that exceeds stated goals. Spawned by the document-re",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/scope-guardian-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/scope-guardian-reviewer.md",
+      "lines": 53,
+      "words": 428,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "feasibility-reviewer",
+      "description": "\"Evaluates whether proposed technical approaches in planning documents will survive contact with reality -- architecture conflicts, dependency gaps, migration risks, and implementability. Spawned by t",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/feasibility-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/feasibility-reviewer.md",
+      "lines": 41,
+      "words": 408,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "coherence-reviewer",
+      "description": "\"Reviews planning documents for internal consistency -- contradictions between sections, terminology drift, structural issues, and ambiguity where readers would diverge. Spawned by the document-review",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/coherence-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/coherence-reviewer.md",
+      "lines": 38,
+      "words": 454,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "design-lens-reviewer",
+      "description": "\"Reviews planning documents for missing design decisions -- information architecture, interaction states, user flows, and AI slop risk. Uses dimensional rating to identify gaps. Spawned by the documen",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/design-lens-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/design-lens-reviewer.md",
+      "lines": 45,
+      "words": 379,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "security-lens-reviewer",
+      "description": "\"Evaluates planning documents for security gaps at the plan level -- auth/authz assumptions, data exposure risks, API surface vulnerabilities, and missing threat model elements. Spawned by the documen",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/security-lens-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/security-lens-reviewer.md",
+      "lines": 37,
+      "words": 327,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "product-lens-reviewer",
+      "description": "\"Reviews planning documents as a senior product leader -- challenges problem framing, evaluates scope decisions, and surfaces misalignment between stated goals and proposed work. Spawned by the docume",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/product-lens-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/product-lens-reviewer.md",
+      "lines": 49,
+      "words": 431,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "adversarial-document-reviewer",
+      "description": "\"Conditional document-review persona, selected when the document has >5 requirements or implementation units, makes significant architectural decisions, covers high-stakes domains, or proposes new abs",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/document-review/adversarial-document-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/document-review/adversarial-document-reviewer.md",
+      "lines": 88,
+      "words": 1008,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "lint",
+      "description": "\"Use this agent when you need to run linting and code quality checks on Ruby and ERB files. Run before pushing to origin.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/workflow/lint.md",
+      "remote_path": "plugins/compound-engineering/agents/workflow/lint.md",
+      "lines": 17,
+      "words": 115,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "spec-flow-analyzer",
+      "description": "\"Analyzes specifications and feature descriptions for user flow completeness and gap identification. Use when a spec, plan, or feature description needs flow analysis, edge case discovery, or requirem",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/workflow/spec-flow-analyzer.md",
+      "remote_path": "plugins/compound-engineering/agents/workflow/spec-flow-analyzer.md",
+      "lines": 106,
+      "words": 980,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "pr-comment-resolver",
+      "description": "\"Evaluates and resolves a single PR review thread -- assesses validity, implements fixes, and returns a structured summary with reply text. Spawned by the resolve-pr-feedback skill.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/workflow/pr-comment-resolver.md",
+      "remote_path": "plugins/compound-engineering/agents/workflow/pr-comment-resolver.md",
+      "lines": 134,
+      "words": 1003,
+      "code_blocks": 7,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "bug-reproduction-validator",
+      "description": "\"Systematically reproduces and validates bug reports to confirm whether reported behavior is an actual bug. Use when you receive a bug report or issue that needs verification.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/workflow/bug-reproduction-validator.md",
+      "remote_path": "plugins/compound-engineering/agents/workflow/bug-reproduction-validator.md",
+      "lines": 83,
+      "words": 684,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "design-implementation-reviewer",
+      "description": "\"Visually compares live UI implementation against Figma designs and provides detailed feedback on discrepancies. Use after writing or modifying HTML/CSS/React components to verify design fidelity.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/design/design-implementation-reviewer.md",
+      "remote_path": "plugins/compound-engineering/agents/design/design-implementation-reviewer.md",
+      "lines": 110,
+      "words": 664,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "figma-design-sync",
+      "description": "\"Detects and fixes visual differences between a web implementation and its Figma design. Use iteratively when syncing implementation to match Figma specs.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/design/figma-design-sync.md",
+      "remote_path": "plugins/compound-engineering/agents/design/figma-design-sync.md",
+      "lines": 191,
+      "words": 1268,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "erb"
+      ]
+    },
+    {
+      "name": "design-iterator",
+      "description": "\"Iteratively refines UI design through N screenshot-analyze-improve cycles. Use PROACTIVELY when design changes aren't coming together after 1-2 attempts, or when user requests iterative refinement.\"",
+      "path": "EveryInc--compound-engineering-plugin/plugins/compound-engineering/agents/design/design-iterator.md",
+      "remote_path": "plugins/compound-engineering/agents/design/design-iterator.md",
+      "lines": 225,
+      "words": 1557,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
     },
     {
       "name": "setup",
@@ -10648,6 +11446,101 @@
       ]
     },
     {
+      "name": "pentest-advisor",
+      "description": "Expert penetration testing advisor for authorized security assessments",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/agents/pentest-advisor.md",
+      "remote_path": ".claude-plugin/agents/pentest-advisor.md",
+      "lines": 231,
+      "words": 715,
+      "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "bug-bounty-hunter",
+      "description": "Bug bounty hunting advisor for responsible vulnerability disclosure",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/agents/bug-bounty-hunter.md",
+      "remote_path": ".claude-plugin/agents/bug-bounty-hunter.md",
+      "lines": 458,
+      "words": 1498,
+      "code_blocks": 24,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "ctf-assistant",
+      "description": "CTF competition helper for solving security challenges",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/agents/ctf-assistant.md",
+      "remote_path": ".claude-plugin/agents/ctf-assistant.md",
+      "lines": 307,
+      "words": 919,
+      "code_blocks": 14,
+      "languages": [
+        "bash",
+        "javascript",
+        "python"
+      ]
+    },
+    {
+      "name": "wordlist",
+      "description": "Access and filter SecLists wordlists for authorized security testing",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/commands/wordlist.md",
+      "remote_path": ".claude-plugin/commands/wordlist.md",
+      "lines": 92,
+      "words": 345,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "webshell-detect",
+      "description": "Help detect and analyze web shells using reference samples for defensive security",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/commands/webshell-detect.md",
+      "remote_path": ".claude-plugin/commands/webshell-detect.md",
+      "lines": 112,
+      "words": 398,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "yara"
+      ]
+    },
+    {
+      "name": "xss-test",
+      "description": "Generate XSS payloads and test strategies for authorized web application security testing",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/commands/xss-test.md",
+      "remote_path": ".claude-plugin/commands/xss-test.md",
+      "lines": 74,
+      "words": 339,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "sqli-test",
+      "description": "Generate SQL injection test payloads for authorized security testing",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/commands/sqli-test.md",
+      "remote_path": ".claude-plugin/commands/sqli-test.md",
+      "lines": 52,
+      "words": 241,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "api-keys",
+      "description": "Scan for exposed API keys and sensitive data patterns in code repositories",
+      "path": "Eyadkelleh--awesome-claude-skills-security/.claude-plugin/commands/api-keys.md",
+      "remote_path": ".claude-plugin/commands/api-keys.md",
+      "lines": 181,
+      "words": 523,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "python",
+        "regex"
+      ]
+    },
+    {
       "name": "SecLists Web-Shells",
       "description": "Web shell samples for detection and analysis: PHP, ASP, ASPX, JSP, Python, Perl shells. Use for security research and detection system testing.",
       "path": "Eyadkelleh--awesome-claude-skills-security/seclists-categories web-shells/web-shells/SKILL.md",
@@ -10661,6 +11554,28 @@
     }
   ],
   "HeshamFS--materials-simulation-skills": [
+    {
+      "name": "Bug Report",
+      "description": "",
+      "path": "HeshamFS--materials-simulation-skills/.github/ISSUE_TEMPLATE/bug_report.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "lines": 42,
+      "words": 154,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "Skill Proposal",
+      "description": "",
+      "path": "HeshamFS--materials-simulation-skills/.github/ISSUE_TEMPLATE/skill_proposal.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/skill_proposal.md",
+      "lines": 62,
+      "words": 206,
+      "code_blocks": 0,
+      "languages": []
+    },
     {
       "name": "slurm-job-script-generator",
       "description": ">",
@@ -14365,6 +15280,32 @@
   ],
   "NeoLabHQ--context-engineering-kit": [
     {
+      "name": "judge",
+      "description": "Use this agent when evaluating implementation artifacts against an evaluation specification produced by the meta judge. Applies rubric dimensions, checklist items, and scoring metadata to produce stru",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/agents/judge.md",
+      "remote_path": "plugins/sadd/agents/judge.md",
+      "lines": 1056,
+      "words": 6456,
+      "code_blocks": 18,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "meta-judge",
+      "description": "Use this agent when generating evaluation rubrics, checklists, criteria, metrics, and weights for a user prompt BEFORE implementation begins. Produces structured YAML evaluation specifications that th",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/agents/meta-judge.md",
+      "remote_path": "plugins/sadd/agents/meta-judge.md",
+      "lines": 762,
+      "words": 5142,
+      "code_blocks": 13,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
       "name": "sadd:do-in-parallel",
       "description": "Launch multiple sub-agents in parallel to execute tasks across files or targets with intelligent model selection, quality-focused prompting, and meta-judge \u2192 LLM-as-a-judge verification",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sadd/skills/do-in-parallel/SKILL.md",
@@ -14800,6 +15741,75 @@
       ]
     },
     {
+      "name": "code-reviewer",
+      "description": "Use this agent when you need to review code for adherence to project guidelines, style guides, and best practices. This agent should be used proactively after writing or modifying code, or for reviwin",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/agents/code-quality-reviewer.md",
+      "remote_path": "plugins/code-review/agents/code-quality-reviewer.md",
+      "lines": 171,
+      "words": 1866,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "historical-context-reviewer",
+      "description": "Use this agent when reviewing local code changes or pull requests to understand the historical context of modified code, including past issues, patterns, and lessons learned. This agent should be invo",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/agents/historical-context-reviewer.md",
+      "remote_path": "plugins/code-review/agents/historical-context-reviewer.md",
+      "lines": 195,
+      "words": 1187,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "test-coverage-reviewer",
+      "description": "Use this agent when you need to review local code changes or a pull request for test coverage quality and completeness. This agent should be invoked after a PR is created or tests updated, to ensure t",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/agents/test-coverage-reviewer.md",
+      "remote_path": "plugins/code-review/agents/test-coverage-reviewer.md",
+      "lines": 124,
+      "words": 865,
+      "code_blocks": 1,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "bug-hunter",
+      "description": "Use this agent when reviewing local code changes or in the pull request to identify bugs and critical issues through systematic root cause analysis. This agent should be invoked proactively after comp",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/agents/bug-hunter.md",
+      "remote_path": "plugins/code-review/agents/bug-hunter.md",
+      "lines": 281,
+      "words": 1331,
+      "code_blocks": 6,
+      "languages": [
+        "markdown",
+        "text"
+      ]
+    },
+    {
+      "name": "contracts-reviewer",
+      "description": "Use this agent when reviewing local code changes or pull requests to analyze API, data models, and type design. This agent should be invoked proactively when changes affect public contracts, domain mo",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/agents/contracts-reviewer.md",
+      "remote_path": "plugins/code-review/agents/contracts-reviewer.md",
+      "lines": 205,
+      "words": 1481,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "security-auditor",
+      "description": "Use this agent when reviewing local code changes or pull requests to identify security vulnerabilities and risks. This agent should be invoked proactively after completing security-sensitive changes o",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/agents/security-auditor.md",
+      "remote_path": "plugins/code-review/agents/security-auditor.md",
+      "lines": 214,
+      "words": 1537,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "code-review:review-pr",
       "description": "Comprehensive pull request review using specialized agents",
       "path": "NeoLabHQ--context-engineering-kit/plugins/code-review/skills/review-pr/SKILL.md",
@@ -15025,6 +16035,122 @@
       "languages": []
     },
     {
+      "name": "code-explorer",
+      "description": "Use this agent when analyzing existing codebase features, tracing execution paths, mapping architecture, identifying files affected by proposed changes, or understanding integration points for new dev",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/code-explorer.md",
+      "remote_path": "plugins/sdd/agents/code-explorer.md",
+      "lines": 768,
+      "words": 3803,
+      "code_blocks": 17,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "tech-lead",
+      "description": "Use this agent when breaking down architecture into implementation steps with success criteria, dependencies, and risk assessment. Transforms architectural blueprints into executable task sequences wi",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/tech-lead.md",
+      "remote_path": "plugins/sdd/agents/tech-lead.md",
+      "lines": 664,
+      "words": 3582,
+      "code_blocks": 7,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "developer",
+      "description": "Use this agent when implementing tasks from task files with implementation steps. Executes code changes following acceptance criteria, leveraging existing codebase patterns to deliver production-ready",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/developer.md",
+      "remote_path": "plugins/sdd/agents/developer.md",
+      "lines": 547,
+      "words": 3065,
+      "code_blocks": 4,
+      "languages": [
+        "markdown",
+        "text",
+        "typescript"
+      ]
+    },
+    {
+      "name": "qa-engineer",
+      "description": "Use this agent when adding LLM-as-Judge verification sections to implementation steps in task files. Analyzes artifact types, determines verification levels, defines custom rubrics with weighted crite",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/qa-engineer.md",
+      "remote_path": "plugins/sdd/agents/qa-engineer.md",
+      "lines": 715,
+      "words": 3748,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "researcher",
+      "description": "Use this agent when researching unknown technologies, libraries, frameworks, and dependencies to gather relevant resources and documentation for implementation tasks. Creates reusable skills that all ",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/researcher.md",
+      "remote_path": "plugins/sdd/agents/researcher.md",
+      "lines": 768,
+      "words": 3388,
+      "code_blocks": 24,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "business-analyst",
+      "description": "Use this agent when refining task descriptions and creating acceptance criteria for implementation tasks.",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/business-analyst.md",
+      "remote_path": "plugins/sdd/agents/business-analyst.md",
+      "lines": 107,
+      "words": 631,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "team-lead",
+      "description": "Use this agent when reorganizing implementation steps for maximum parallel execution with explicit dependency tracking and agent assignments. Transforms sequential implementation plans into paralleliz",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/team-lead.md",
+      "remote_path": "plugins/sdd/agents/team-lead.md",
+      "lines": 756,
+      "words": 3610,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "markdown"
+      ]
+    },
+    {
+      "name": "tech-writer",
+      "description": "Creates and maintains comprehensive, accessible technical documentation by transforming complex concepts into clear, structured content that helps users accomplish their tasks",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/tech-writer.md",
+      "remote_path": "plugins/sdd/agents/tech-writer.md",
+      "lines": 1136,
+      "words": 5505,
+      "code_blocks": 20,
+      "languages": [
+        "bash",
+        "javascript",
+        "markdown",
+        "text",
+        "typescript"
+      ]
+    },
+    {
+      "name": "software-architect",
+      "description": "Use this agent when synthesizing research findings, codebase analysis, and business requirements into architectural solutions for task specifications.",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/agents/software-architect.md",
+      "remote_path": "plugins/sdd/agents/software-architect.md",
+      "lines": 699,
+      "words": 3739,
+      "code_blocks": 17,
+      "languages": [
+        "markdown",
+        "typescript"
+      ]
+    },
+    {
       "name": "sdd:create-ideas",
       "description": "Generate ideas in one shot using creative sampling",
       "path": "NeoLabHQ--context-engineering-kit/plugins/sdd/skills/create-ideas/SKILL.md",
@@ -15109,6 +16235,22 @@
       "code_blocks": 1,
       "languages": [
         "markdown"
+      ]
+    },
+    {
+      "name": "fpf-agent",
+      "description": "First Principles Framework reasoning specialist that executes hypothesis generation, verification, validation, and trust calculus tasks using the ADI (Abduction-Deduction-Induction) cycle and knowledg",
+      "path": "NeoLabHQ--context-engineering-kit/plugins/fpf/agents/fpf-agent.md",
+      "remote_path": "plugins/fpf/agents/fpf-agent.md",
+      "lines": 6068,
+      "words": 55922,
+      "code_blocks": 43,
+      "languages": [
+        "markdown",
+        "mermaid",
+        "python",
+        "text",
+        "yaml"
       ]
     },
     {
@@ -15230,6 +16372,20 @@
     }
   ],
   "Orchestra-Research--AI-research-SKILLs": [
+    {
+      "name": "example-skill-name",
+      "description": "Brief third-person description of what this skill does and when to use it. Include key terms and triggers for discovery. Maximum 1024 characters.",
+      "path": "Orchestra-Research--AI-research-SKILLs/docs/SKILL_TEMPLATE.md",
+      "remote_path": "docs/SKILL_TEMPLATE.md",
+      "lines": 107,
+      "words": 275,
+      "code_blocks": 6,
+      "languages": [
+        "bash"
+      ],
+      "version": "1.0.0",
+      "license": "MIT"
+    },
     {
       "name": "autoresearch",
       "description": "Orchestrates end-to-end autonomous AI research projects using a two-loop architecture. The inner loop runs rapid experiment iterations with clear optimization targets. The outer loop synthesizes resul",
@@ -17469,6 +18625,36 @@
   ],
   "avifenesh--agentsys": [
     {
+      "name": "complete-agent",
+      "description": "A fully complete and valid agent",
+      "path": "avifenesh--agentsys/__tests__/fixtures/enhance/false-positives/agent-complete-valid.md",
+      "remote_path": "__tests__/fixtures/enhance/false-positives/agent-complete-valid.md",
+      "lines": 25,
+      "words": 86,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "test-agent",
+      "description": "A test agent without role section",
+      "path": "avifenesh--agentsys/__tests__/fixtures/enhance/true-positives/agent-missing-role.md",
+      "remote_path": "__tests__/fixtures/enhance/true-positives/agent-missing-role.md",
+      "lines": 13,
+      "words": 27,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "test-agent",
+      "description": "A test agent with unrestricted bash",
+      "path": "avifenesh--agentsys/__tests__/fixtures/enhance/true-positives/agent-unrestricted-bash.md",
+      "remote_path": "__tests__/fixtures/enhance/true-positives/agent-unrestricted-bash.md",
+      "lines": 17,
+      "words": 36,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "perf-analyzer",
       "description": "\"Use when synthesizing perf findings into evidence-backed recommendations and decisions.\"",
       "path": "avifenesh--agentsys/.kiro/skills/perf-analyzer/SKILL.md",
@@ -18111,6 +19297,19 @@
       "words": 650,
       "code_blocks": 0,
       "languages": [],
+      "license": "MIT"
+    },
+    {
+      "name": "react-native-best-practices",
+      "description": "Provides React Native performance optimization guidelines for FPS, TTI, bundle size, memory leaks, re-renders, and animations. Applies to tasks involving Hermes optimization, JS thread blocking, bridg",
+      "path": "callstackincubator--agent-skills/skills/react-native-best-practices/POWER.md",
+      "remote_path": "skills/react-native-best-practices/POWER.md",
+      "lines": 153,
+      "words": 793,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ],
       "license": "MIT"
     },
     {
@@ -18972,6 +20171,30 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "firecrawl-security",
+      "description": "|",
+      "path": "firecrawl--cli/skills/firecrawl-cli/rules/security.md",
+      "remote_path": "skills/firecrawl-cli/rules/security.md",
+      "lines": 27,
+      "words": 183,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "firecrawl-cli-installation",
+      "description": "|",
+      "path": "firecrawl--cli/skills/firecrawl-cli/rules/install.md",
+      "remote_path": "skills/firecrawl-cli/rules/install.md",
+      "lines": 64,
+      "words": 175,
+      "code_blocks": 5,
+      "languages": [
+        "bash"
+      ]
     }
   ],
   "hashicorp--agent-skills": [
@@ -19174,7 +20397,44 @@
     }
   ],
   "jananthan30--Resume-Builder": [],
-  "javiera-vasquez--claude-code-job-tailor": [],
+  "javiera-vasquez--claude-code-job-tailor": [
+    {
+      "name": "job-analysis",
+      "description": "Job posting analyst that extracts structured metadata and job analysis for tailored applications",
+      "path": "javiera-vasquez--claude-code-job-tailor/.claude/agents/job-analysis.md",
+      "remote_path": ".claude/agents/job-analysis.md",
+      "lines": 335,
+      "words": 1659,
+      "code_blocks": 8,
+      "languages": [
+        "yaml"
+      ]
+    },
+    {
+      "name": "tailor-resume-and-cover",
+      "description": "Tailor a resume and cover letter using job analysis data| argument-hint company-name",
+      "path": "javiera-vasquez--claude-code-job-tailor/.claude/agents/tailor-generate-assets.md",
+      "remote_path": ".claude/agents/tailor-generate-assets.md",
+      "lines": 363,
+      "words": 1855,
+      "code_blocks": 10,
+      "languages": [
+        "yaml"
+      ]
+    },
+    {
+      "name": "job-tailor",
+      "description": "Job tailoring specialist, analyzes job applications and creates customized job analysis and resumes",
+      "path": "javiera-vasquez--claude-code-job-tailor/.claude/agents/job-tailor.md",
+      "remote_path": ".claude/agents/job-tailor.md",
+      "lines": 396,
+      "words": 2365,
+      "code_blocks": 11,
+      "languages": [
+        "yaml"
+      ]
+    }
+  ],
   "jawwadfirdousi--agent-skills": [
     {
       "name": "supabase",
@@ -19272,6 +20532,28 @@
     }
   ],
   "mhattingpete--claude-skills-marketplace": [
+    {
+      "name": "plan-implementer",
+      "description": "Implement code based on a specific plan or task description. This agent is designed for focused, incremental implementation work where there is a clear specification or plan to execute. Use when there",
+      "path": "mhattingpete--claude-skills-marketplace/engineering-workflow-plugin/agents/plan-implementer.md",
+      "remote_path": "engineering-workflow-plugin/agents/plan-implementer.md",
+      "lines": 97,
+      "words": 624,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "ensemble-orchestrator",
+      "description": "Generates multiple solution approaches in parallel and selects the best result. Use for creative tasks, complex reasoning, architecture decisions, or code generation where exploring multiple angles im",
+      "path": "mhattingpete--claude-skills-marketplace/engineering-workflow-plugin/agents/ensemble-orchestrator/AGENT.md",
+      "remote_path": "engineering-workflow-plugin/agents/ensemble-orchestrator/AGENT.md",
+      "lines": 240,
+      "words": 1065,
+      "code_blocks": 5,
+      "languages": [
+        "markdown"
+      ]
+    },
     {
       "name": "ensemble-solving",
       "description": "Generate multiple diverse solutions in parallel and select the best. Use for architecture decisions, code generation with multiple valid approaches, or creative tasks where exploring alternatives impr",
@@ -19568,6 +20850,42 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "name": "neon-postgres-egress-optimizer",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v001.md",
+      "remote_path": "evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v001.md",
+      "lines": 206,
+      "words": 1165,
+      "code_blocks": 13,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
+      "name": "neon-postgres-egress-optimizer",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v002.md",
+      "remote_path": "evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v002.md",
+      "lines": 212,
+      "words": 1234,
+      "code_blocks": 13,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
+      "name": "neon-postgres-egress-optimizer",
+      "description": ">-",
+      "path": "neondatabase--agent-skills/evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v003.md",
+      "remote_path": "evals/neon-postgres-egress-optimizer/skill-versions/SKILL-v003.md",
+      "lines": 213,
+      "words": 1216,
+      "code_blocks": 13,
+      "languages": [
+        "sql"
+      ]
+    },
+    {
       "name": "score-eval",
       "description": "",
       "path": "neondatabase--agent-skills/evals/neon-postgres-egress-optimizer/.claude/skills/score-eval/SKILL.md",
@@ -19615,6 +20933,16 @@
     }
   ],
   "netlify--context-and-tools": [
+    {
+      "name": "\"netlify-deployment\"",
+      "description": "\"Deploy and manage websites on Netlify using CLI-first workflow with netlify.toml configuration\"",
+      "path": "netlify--context-and-tools/context/steering/netlify-deployment-power/POWER.md",
+      "remote_path": "context/steering/netlify-deployment-power/POWER.md",
+      "lines": 86,
+      "words": 364,
+      "code_blocks": 2,
+      "languages": []
+    },
     {
       "name": "netlify-db",
       "description": "Guide for using Netlify DB (managed Neon Postgres). Use when the project needs a relational database, structured data storage, SQL queries, or data that will grow over time. Covers provisioning, raw S",
@@ -19929,6 +21257,46 @@
     }
   ],
   "obra--superpowers": [
+    {
+      "name": "code-reviewer",
+      "description": "|",
+      "path": "obra--superpowers/agents/code-reviewer.md",
+      "remote_path": "agents/code-reviewer.md",
+      "lines": 49,
+      "words": 542,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Feature Request",
+      "description": "",
+      "path": "obra--superpowers/.github/ISSUE_TEMPLATE/feature_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "lines": 35,
+      "words": 188,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Bug Report",
+      "description": "",
+      "path": "obra--superpowers/.github/ISSUE_TEMPLATE/bug_report.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "lines": 53,
+      "words": 235,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "IDE / Platform Support Request",
+      "description": "",
+      "path": "obra--superpowers/.github/ISSUE_TEMPLATE/platform_support.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/platform_support.md",
+      "lines": 24,
+      "words": 112,
+      "code_blocks": 0,
+      "languages": []
+    },
     {
       "name": "test-driven-development",
       "description": "Use when implementing any feature or bugfix, before writing implementation code",
@@ -20514,6 +21882,26 @@
         "markdown",
         "python"
       ]
+    },
+    {
+      "name": "Feature Request",
+      "description": "",
+      "path": "omkamal--pypict-claude-skill/.github/ISSUE_TEMPLATE/feature_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "lines": 66,
+      "words": 271,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "Bug Report",
+      "description": "",
+      "path": "omkamal--pypict-claude-skill/.github/ISSUE_TEMPLATE/bug_report.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "lines": 58,
+      "words": 180,
+      "code_blocks": 2,
+      "languages": []
     }
   ],
   "proficientlyjobs--proficiently-claude-skills": [
@@ -20621,6 +22009,469 @@
       "words": 476,
       "code_blocks": 0,
       "languages": []
+    },
+    {
+      "name": "maps",
+      "description": "Make map animations with Mapbox",
+      "path": "remotion-dev--skills/skills/remotion/rules/maps.md",
+      "remote_path": "skills/remotion/rules/maps.md",
+      "lines": 413,
+      "words": 1291,
+      "code_blocks": 15,
+      "languages": [
+        "bash",
+        "tsx",
+        "txt"
+      ]
+    },
+    {
+      "name": "audio",
+      "description": "Using audio and sound in Remotion - importing, trimming, volume, speed, pitch",
+      "path": "remotion-dev--skills/skills/remotion/rules/audio.md",
+      "remote_path": "skills/remotion/rules/audio.md",
+      "lines": 170,
+      "words": 523,
+      "code_blocks": 12,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "sfx",
+      "description": "Including sound effects",
+      "path": "remotion-dev--skills/skills/remotion/rules/sfx.md",
+      "remote_path": "skills/remotion/rules/sfx.md",
+      "lines": 31,
+      "words": 74,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "lottie",
+      "description": "Embedding Lottie animations in Remotion.",
+      "path": "remotion-dev--skills/skills/remotion/rules/lottie.md",
+      "remote_path": "skills/remotion/rules/lottie.md",
+      "lines": 71,
+      "words": 226,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "voiceover",
+      "description": "Adding AI-generated voiceover to Remotion compositions using TTS",
+      "path": "remotion-dev--skills/skills/remotion/rules/voiceover.md",
+      "remote_path": "skills/remotion/rules/voiceover.md",
+      "lines": 100,
+      "words": 361,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "calculate-metadata",
+      "description": "Dynamically set composition duration, dimensions, and props",
+      "path": "remotion-dev--skills/skills/remotion/rules/calculate-metadata.md",
+      "remote_path": "skills/remotion/rules/calculate-metadata.md",
+      "lines": 135,
+      "words": 361,
+      "code_blocks": 6,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "audio-visualization",
+      "description": "Audio visualization patterns - spectrum bars, waveforms, bass-reactive effects",
+      "path": "remotion-dev--skills/skills/remotion/rules/audio-visualization.md",
+      "remote_path": "skills/remotion/rules/audio-visualization.md",
+      "lines": 199,
+      "words": 566,
+      "code_blocks": 7,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "measuring-dom-nodes",
+      "description": "Measuring DOM element dimensions in Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/measuring-dom-nodes.md",
+      "remote_path": "skills/remotion/rules/measuring-dom-nodes.md",
+      "lines": 35,
+      "words": 117,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "images",
+      "description": "Embedding images in Remotion using the <Img> component",
+      "path": "remotion-dev--skills/skills/remotion/rules/images.md",
+      "remote_path": "skills/remotion/rules/images.md",
+      "lines": 135,
+      "words": 360,
+      "code_blocks": 8,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "display-captions",
+      "description": "Displaying captions in Remotion with TikTok-style pages and word highlighting",
+      "path": "remotion-dev--skills/skills/remotion/rules/display-captions.md",
+      "remote_path": "skills/remotion/rules/display-captions.md",
+      "lines": 185,
+      "words": 658,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "compositions",
+      "description": "Defining compositions, stills, folders, default props and dynamic metadata",
+      "path": "remotion-dev--skills/skills/remotion/rules/compositions.md",
+      "remote_path": "skills/remotion/rules/compositions.md",
+      "lines": 155,
+      "words": 433,
+      "code_blocks": 6,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-duration",
+      "description": "Getting the duration of a video file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion/rules/get-video-duration.md",
+      "remote_path": "skills/remotion/rules/get-video-duration.md",
+      "lines": 61,
+      "words": 180,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "gif",
+      "description": "Displaying GIFs, APNG, AVIF and WebP in Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/gifs.md",
+      "remote_path": "skills/remotion/rules/gifs.md",
+      "lines": 142,
+      "words": 444,
+      "code_blocks": 11,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "subtitles",
+      "description": "subtitles and caption rules",
+      "path": "remotion-dev--skills/skills/remotion/rules/subtitles.md",
+      "remote_path": "skills/remotion/rules/subtitles.md",
+      "lines": 37,
+      "words": 119,
+      "code_blocks": 2,
+      "languages": [
+        "ts"
+      ]
+    },
+    {
+      "name": "light-leaks",
+      "description": "Light leak overlay effects for Remotion using @remotion/light-leaks.",
+      "path": "remotion-dev--skills/skills/remotion/rules/light-leaks.md",
+      "remote_path": "skills/remotion/rules/light-leaks.md",
+      "lines": 74,
+      "words": 281,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "charts",
+      "description": "Chart and data visualization patterns for Remotion. Use when creating bar charts, pie charts, line charts, stock graphs, or any data-driven animations.",
+      "path": "remotion-dev--skills/skills/remotion/rules/charts.md",
+      "remote_path": "skills/remotion/rules/charts.md",
+      "lines": 121,
+      "words": 371,
+      "code_blocks": 5,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "transitions",
+      "description": "Scene transitions and overlays for Remotion using TransitionSeries.",
+      "path": "remotion-dev--skills/skills/remotion/rules/transitions.md",
+      "remote_path": "skills/remotion/rules/transitions.md",
+      "lines": 198,
+      "words": 649,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "assets",
+      "description": "Importing images, videos, audio, and fonts into Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/assets.md",
+      "remote_path": "skills/remotion/rules/assets.md",
+      "lines": 79,
+      "words": 204,
+      "code_blocks": 6,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "parameters",
+      "description": "Make a video parametrizable by adding a Zod schema",
+      "path": "remotion-dev--skills/skills/remotion/rules/parameters.md",
+      "remote_path": "skills/remotion/rules/parameters.md",
+      "lines": 110,
+      "words": 334,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-audio-duration",
+      "description": "Getting the duration of an audio file in seconds with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion/rules/get-audio-duration.md",
+      "remote_path": "skills/remotion/rules/get-audio-duration.md",
+      "lines": 59,
+      "words": 177,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "measuring-text",
+      "description": "Measuring text dimensions, fitting text to containers, and checking overflow",
+      "path": "remotion-dev--skills/skills/remotion/rules/measuring-text.md",
+      "remote_path": "skills/remotion/rules/measuring-text.md",
+      "lines": 141,
+      "words": 372,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "ffmpeg",
+      "description": "Using FFmpeg and FFprobe in Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/ffmpeg.md",
+      "remote_path": "skills/remotion/rules/ffmpeg.md",
+      "lines": 39,
+      "words": 151,
+      "code_blocks": 3,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "get-video-dimensions",
+      "description": "Getting the width and height of a video file with Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion/rules/get-video-dimensions.md",
+      "remote_path": "skills/remotion/rules/get-video-dimensions.md",
+      "lines": 69,
+      "words": 202,
+      "code_blocks": 4,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "animations",
+      "description": "Fundamental animation skills for Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/animations.md",
+      "remote_path": "skills/remotion/rules/animations.md",
+      "lines": 28,
+      "words": 108,
+      "code_blocks": 1,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "text-animations",
+      "description": "Typography and text animation patterns for Remotion.",
+      "path": "remotion-dev--skills/skills/remotion/rules/text-animations.md",
+      "remote_path": "skills/remotion/rules/text-animations.md",
+      "lines": 21,
+      "words": 88,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "sequencing",
+      "description": "Sequencing patterns for Remotion - delay, trim, limit duration of items",
+      "path": "remotion-dev--skills/skills/remotion/rules/sequencing.md",
+      "remote_path": "skills/remotion/rules/sequencing.md",
+      "lines": 119,
+      "words": 333,
+      "code_blocks": 8,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "import-srt-captions",
+      "description": "Importing .srt subtitle files into Remotion using @remotion/captions",
+      "path": "remotion-dev--skills/skills/remotion/rules/import-srt-captions.md",
+      "remote_path": "skills/remotion/rules/import-srt-captions.md",
+      "lines": 70,
+      "words": 298,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "extract-frames",
+      "description": "Extract frames from videos at specific timestamps using Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion/rules/extract-frames.md",
+      "remote_path": "skills/remotion/rules/extract-frames.md",
+      "lines": 230,
+      "words": 585,
+      "code_blocks": 5,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "transparent-videos",
+      "description": "Rendering transparent videos in Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/transparent-videos.md",
+      "remote_path": "skills/remotion/rules/transparent-videos.md",
+      "lines": 107,
+      "words": 225,
+      "code_blocks": 6,
+      "languages": [
+        "bash",
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "can-decode",
+      "description": "Check if a video can be decoded by the browser using Mediabunny",
+      "path": "remotion-dev--skills/skills/remotion/rules/can-decode.md",
+      "remote_path": "skills/remotion/rules/can-decode.md",
+      "lines": 82,
+      "words": 232,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "videos",
+      "description": "Embedding videos in Remotion - trimming, volume, speed, looping, pitch",
+      "path": "remotion-dev--skills/skills/remotion/rules/videos.md",
+      "remote_path": "skills/remotion/rules/videos.md",
+      "lines": 172,
+      "words": 486,
+      "code_blocks": 13,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "3d",
+      "description": "3D content in Remotion using Three.js and React Three Fiber.",
+      "path": "remotion-dev--skills/skills/remotion/rules/3d.md",
+      "remote_path": "skills/remotion/rules/3d.md",
+      "lines": 87,
+      "words": 298,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "fonts",
+      "description": "Loading Google Fonts and local fonts in Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/fonts.md",
+      "remote_path": "skills/remotion/rules/fonts.md",
+      "lines": 153,
+      "words": 474,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "tsx"
+      ]
+    },
+    {
+      "name": "timing",
+      "description": "Interpolation curves in Remotion - linear, easing, spring animations",
+      "path": "remotion-dev--skills/skills/remotion/rules/timing.md",
+      "remote_path": "skills/remotion/rules/timing.md",
+      "lines": 180,
+      "words": 584,
+      "code_blocks": 12,
+      "languages": [
+        "ts",
+        "tsx"
+      ]
+    },
+    {
+      "name": "trimming",
+      "description": "Trimming patterns for Remotion - cut the beginning or end of animations",
+      "path": "remotion-dev--skills/skills/remotion/rules/trimming.md",
+      "remote_path": "skills/remotion/rules/trimming.md",
+      "lines": 52,
+      "words": 177,
+      "code_blocks": 3,
+      "languages": [
+        "tsx"
+      ]
+    },
+    {
+      "name": "tailwind",
+      "description": "Using TailwindCSS in Remotion.",
+      "path": "remotion-dev--skills/skills/remotion/rules/tailwind.md",
+      "remote_path": "skills/remotion/rules/tailwind.md",
+      "lines": 12,
+      "words": 56,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "transcribe-captions",
+      "description": "Transcribing audio to generate captions in Remotion",
+      "path": "remotion-dev--skills/skills/remotion/rules/transcribe-captions.md",
+      "remote_path": "skills/remotion/rules/transcribe-captions.md",
+      "lines": 71,
+      "words": 211,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "ts"
+      ]
     }
   ],
   "replicate--skills": [
@@ -20649,6 +22500,138 @@
         "markdown"
       ],
       "license": "Complete terms in LICENSE.txt"
+    },
+    {
+      "name": "source-researcher",
+      "description": "\"Use this agent when you need to research sources, analyze audiences, or study competitor content for writing projects. This agent consolidates research, audience analysis, and competitive research in",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/source-researcher.md",
+      "remote_path": "plugins/compound-writing/agents/source-researcher.md",
+      "lines": 153,
+      "words": 716,
+      "code_blocks": 4,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "structure-architect",
+      "description": "\"Use this agent when you need to create outlines, analyze content flow, or generate hooks for written content. This agent consolidates outlining, flow analysis, and hook creation into a unified struct",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/structure-architect.md",
+      "remote_path": "plugins/compound-writing/agents/structure-architect.md",
+      "lines": 202,
+      "words": 850,
+      "code_blocks": 5,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "fact-checker",
+      "description": "\"Use this agent when you need to verify claims, check statistics, and ensure factual accuracy in written content. This agent examines every assertion and verifies it against sources. <example>Context:",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/fact-checker.md",
+      "remote_path": "plugins/compound-writing/agents/fact-checker.md",
+      "lines": 137,
+      "words": 647,
+      "code_blocks": 3,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "voice-guardian",
+      "description": "\"Use this agent when you need to ensure voice consistency, calibrate tone, or match a specific writing style in content. This agent guards the voice profile and ensures all content matches the defined",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/voice-guardian.md",
+      "remote_path": "plugins/compound-writing/agents/voice-guardian.md",
+      "lines": 192,
+      "words": 774,
+      "code_blocks": 7,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "publishing-optimizer",
+      "description": "\"Use this agent when you need to optimize content for SEO, adapt it for social media, or format it for newsletters. This agent consolidates publishing optimization functions into a single service. <ex",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/publishing-optimizer.md",
+      "remote_path": "plugins/compound-writing/agents/publishing-optimizer.md",
+      "lines": 255,
+      "words": 904,
+      "code_blocks": 6,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "every-style-editor",
+      "description": "\"Use this agent when you need to review and edit text content to conform to Every's specific style guide. This includes reviewing articles, blog posts, newsletters, documentation, or any written conte",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/every-style-editor.md",
+      "remote_path": "plugins/compound-writing/agents/every-style-editor.md",
+      "lines": 65,
+      "words": 576,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "clarity-editor",
+      "description": "\"Use this agent when you need to improve clarity, cut unnecessary words, remove jargon, or eliminate passive voice in written content. This agent consolidates multiple editing functions into a single ",
+      "path": "robertguss--claude-skills/plugins/compound-writing/agents/clarity-editor.md",
+      "remote_path": "plugins/compound-writing/agents/clarity-editor.md",
+      "lines": 249,
+      "words": 1018,
+      "code_blocks": 8,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "writing:compound",
+      "description": "Capture learnings from successful writing to improve future work",
+      "path": "robertguss--claude-skills/plugins/compound-writing/commands/writing-compound.md",
+      "remote_path": "plugins/compound-writing/commands/writing-compound.md",
+      "lines": 323,
+      "words": 927,
+      "code_blocks": 14,
+      "languages": [
+        "markdown",
+        "yaml"
+      ]
+    },
+    {
+      "name": "writing:review",
+      "description": "Exhaustive parallel editorial review of written content",
+      "path": "robertguss--claude-skills/plugins/compound-writing/commands/writing-review.md",
+      "remote_path": "plugins/compound-writing/commands/writing-review.md",
+      "lines": 259,
+      "words": 815,
+      "code_blocks": 12,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "writing:plan",
+      "description": "Transform a topic or brief into a researched outline with sources",
+      "path": "robertguss--claude-skills/plugins/compound-writing/commands/writing-plan.md",
+      "remote_path": "plugins/compound-writing/commands/writing-plan.md",
+      "lines": 178,
+      "words": 696,
+      "code_blocks": 4,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
+      "name": "writing:draft",
+      "description": "Transform an outline into prose following style preferences",
+      "path": "robertguss--claude-skills/plugins/compound-writing/commands/writing-draft.md",
+      "remote_path": "plugins/compound-writing/commands/writing-draft.md",
+      "lines": 198,
+      "words": 702,
+      "code_blocks": 4,
+      "languages": [
+        "markdown"
+      ]
     },
     {
       "name": "writing-orchestration",
@@ -20965,6 +22948,51 @@
     }
   ],
   "sanity-io--agent-toolkit": [
+    {
+      "name": "sanity",
+      "description": "Lists available Sanity skills and help topics.",
+      "path": "sanity-io--agent-toolkit/commands/sanity.md",
+      "remote_path": "commands/sanity.md",
+      "lines": 32,
+      "words": 192,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "typegen",
+      "description": "Run Sanity TypeGen and troubleshoot type generation issues.",
+      "path": "sanity-io--agent-toolkit/commands/typegen.md",
+      "remote_path": "commands/typegen.md",
+      "lines": 70,
+      "words": 243,
+      "code_blocks": 2,
+      "languages": [
+        "bash",
+        "typescript"
+      ]
+    },
+    {
+      "name": "deploy-schema",
+      "description": "Deploy Sanity schema to the Content Lake with verification.",
+      "path": "sanity-io--agent-toolkit/commands/deploy-schema.md",
+      "remote_path": "commands/deploy-schema.md",
+      "lines": 61,
+      "words": 223,
+      "code_blocks": 1,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "review",
+      "description": "Review code for Sanity best practices and common issues.",
+      "path": "sanity-io--agent-toolkit/commands/review.md",
+      "remote_path": "commands/review.md",
+      "lines": 55,
+      "words": 195,
+      "code_blocks": 0,
+      "languages": []
+    },
     {
       "name": "content-experimentation-best-practices",
       "description": "Content experimentation and A/B testing guidance covering experiment design, hypotheses, metrics, sample size, statistical foundations, CMS-managed variants, and common analysis pitfalls. Use this ski",
@@ -21308,6 +23336,19 @@
   ],
   "stripe--ai": [
     {
+      "name": "\"stripe\"",
+      "description": "\"Build payment integrations with Stripe - accept payments, manage subscriptions, handle billing, and process refunds\"",
+      "path": "stripe--ai/providers/kiro/get-started-kiro.md",
+      "remote_path": "providers/kiro/get-started-kiro.md",
+      "lines": 361,
+      "words": 1545,
+      "code_blocks": 5,
+      "languages": [
+        "javascript",
+        "json"
+      ]
+    },
+    {
       "name": "upgrade-stripe",
       "description": "Guide for upgrading Stripe API versions and SDKs",
       "path": "stripe--ai/providers/cursor/plugin/skills/upgrade-stripe/SKILL.md",
@@ -21485,6 +23526,16 @@
       ]
     },
     {
+      "name": "trailofbits:burp-search",
+      "description": "Searches Burp Suite project files for security analysis",
+      "path": "trailofbits--skills/plugins/burpsuite-project-parser/commands/burp-search.md",
+      "remote_path": "plugins/burpsuite-project-parser/commands/burp-search.md",
+      "lines": 19,
+      "words": 58,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "burpsuite-project-parser",
       "description": "Searches and explores Burp Suite project files (.burp) from the command line. Use when searching response headers or bodies with regex patterns, extracting security audit findings, dumping proxy histo",
       "path": "trailofbits--skills/plugins/burpsuite-project-parser/skills/burpsuite-project-parser/SKILL.md",
@@ -21505,6 +23556,16 @@
       "lines": 328,
       "words": 2932,
       "code_blocks": 2,
+      "languages": []
+    },
+    {
+      "name": "trailofbits:semgrep-rule",
+      "description": "Creates Semgrep rules with test-first methodology",
+      "path": "trailofbits--skills/plugins/semgrep-rule-creator/commands/semgrep-rule.md",
+      "remote_path": "plugins/semgrep-rule-creator/commands/semgrep-rule.md",
+      "lines": 27,
+      "words": 86,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -21533,6 +23594,18 @@
       ]
     },
     {
+      "name": "workflow-skill-reviewer",
+      "description": "\"Reviews workflow-based Claude Code skills for structural quality, pattern adherence, tool assignment correctness, and anti-pattern detection. Use when auditing an existing skill or validating a newly",
+      "path": "trailofbits--skills/plugins/workflow-skill-design/agents/workflow-skill-reviewer.md",
+      "remote_path": "plugins/workflow-skill-design/agents/workflow-skill-reviewer.md",
+      "lines": 257,
+      "words": 1421,
+      "code_blocks": 2,
+      "languages": [
+        "markdown"
+      ]
+    },
+    {
       "name": "designing-workflow-skills",
       "description": ">-",
       "path": "trailofbits--skills/plugins/workflow-skill-design/skills/designing-workflow-skills/SKILL.md",
@@ -21556,6 +23629,18 @@
         "bash",
         "json",
         "python"
+      ]
+    },
+    {
+      "name": "semgrep-scanner",
+      "description": "\"Executes Semgrep CLI scans for a specific language category and produces SARIF output. Spawned by the semgrep skill as a parallel worker \u2014 one agent per detected language.\"",
+      "path": "trailofbits--skills/plugins/static-analysis/agents/semgrep-scanner.md",
+      "remote_path": "plugins/static-analysis/agents/semgrep-scanner.md",
+      "lines": 91,
+      "words": 386,
+      "code_blocks": 3,
+      "languages": [
+        "bash"
       ]
     },
     {
@@ -21595,6 +23680,16 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "trailofbits:diff-review",
+      "description": "Performs security-focused differential review of code changes",
+      "path": "trailofbits--skills/plugins/differential-review/commands/diff-review.md",
+      "remote_path": "plugins/differential-review/commands/diff-review.md",
+      "lines": 22,
+      "words": 64,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "differential-review",
@@ -21800,6 +23895,144 @@
       ]
     },
     {
+      "name": "6-test-generator",
+      "description": "\"Generates runtime validation test harnesses (C tests, MSAN, Valgrind targets) for confirmed zeroize-audit findings. Produces a Makefile for automated test execution.\"",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/6-test-generator.md",
+      "remote_path": "plugins/zeroize-audit/agents/6-test-generator.md",
+      "lines": 81,
+      "words": 421,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "3b-rust-compiler-analyzer",
+      "description": "\"Performs crate-level MIR and LLVM IR analysis for Rust in zeroize-audit. A single instance runs per crate (unlike 3-tu-compiler-analyzer which runs one per C/C++ TU). Detects dead-store elimination o",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/3b-rust-compiler-analyzer.md",
+      "remote_path": "plugins/zeroize-audit/agents/3b-rust-compiler-analyzer.md",
+      "lines": 292,
+      "words": 1714,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "1-mcp-resolver",
+      "description": "\"Resolves symbol definitions, types, and cross-file references using Serena MCP for zeroize-audit. Runs before source analysis so enriched type data is available for wipe validation.\"",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/1-mcp-resolver.md",
+      "remote_path": "plugins/zeroize-audit/agents/1-mcp-resolver.md",
+      "lines": 103,
+      "words": 535,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "0-preflight",
+      "description": "\"Performs preflight validation, config merging, TU enumeration, and work directory setup for zeroize-audit. Produces merged-config.yaml, preflight.json, and orchestrator-state.json.\"",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/0-preflight.md",
+      "remote_path": "plugins/zeroize-audit/agents/0-preflight.md",
+      "lines": 168,
+      "words": 801,
+      "code_blocks": 4,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "4-report-assembler",
+      "description": "\"Collects all findings from source and compiler analysis, applies supersessions and confidence gates, normalizes IDs, and produces a comprehensive markdown report with structured JSON for downstream t",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/4-report-assembler.md",
+      "remote_path": "plugins/zeroize-audit/agents/4-report-assembler.md",
+      "lines": 299,
+      "words": 1817,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json",
+        "markdown"
+      ]
+    },
+    {
+      "name": "5b-poc-validator",
+      "description": "\"Compiles and runs all PoCs for zeroize-audit findings. Produces poc_validation_results.json consumed by the verification agent and the orchestrator.\"",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/5b-poc-validator.md",
+      "remote_path": "plugins/zeroize-audit/agents/5b-poc-validator.md",
+      "lines": 121,
+      "words": 484,
+      "code_blocks": 5,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "2-source-analyzer",
+      "description": "\"Identifies sensitive objects, detects wipe calls, validates correctness, and performs data-flow/heap analysis for zeroize-audit. Produces the sensitive object list and source-level findings consumed ",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/2-source-analyzer.md",
+      "remote_path": "plugins/zeroize-audit/agents/2-source-analyzer.md",
+      "lines": 132,
+      "words": 862,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "2b-rust-source-analyzer",
+      "description": "\"Performs source-level zeroization analysis for Rust crates in zeroize-audit. Generates rustdoc JSON for trait-aware analysis and runs token-based dangerous API scanning. Produces sensitive objects an",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/2b-rust-source-analyzer.md",
+      "remote_path": "plugins/zeroize-audit/agents/2b-rust-source-analyzer.md",
+      "lines": 225,
+      "words": 1087,
+      "code_blocks": 9,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "3-tu-compiler-analyzer",
+      "description": "\"Performs per-TU compiler-level analysis (IR diff, assembly, semantic IR, CFG) for zeroize-audit. One instance runs per translation unit, enabling parallel execution across TUs.\"",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/3-tu-compiler-analyzer.md",
+      "remote_path": "plugins/zeroize-audit/agents/3-tu-compiler-analyzer.md",
+      "lines": 213,
+      "words": 1076,
+      "code_blocks": 8,
+      "languages": [
+        "bash",
+        "json"
+      ]
+    },
+    {
+      "name": "5c-poc-verifier",
+      "description": "\"Verifies that each zeroize-audit PoC actually proves the vulnerability it claims to demonstrate. Reads PoC source code, finding details, and original source to check alignment between the PoC and the",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/5c-poc-verifier.md",
+      "remote_path": "plugins/zeroize-audit/agents/5c-poc-verifier.md",
+      "lines": 215,
+      "words": 1557,
+      "code_blocks": 1,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "5-poc-generator",
+      "description": "\"Crafts bespoke proof-of-concept programs demonstrating that zeroize-audit findings are exploitable. Reads source code and finding details to generate tailored PoCs \u2014 each PoC is individually written,",
+      "path": "trailofbits--skills/plugins/zeroize-audit/agents/5-poc-generator.md",
+      "remote_path": "plugins/zeroize-audit/agents/5-poc-generator.md",
+      "lines": 332,
+      "words": 2257,
+      "code_blocks": 10,
+      "languages": [
+        "bash",
+        "json",
+        "rust",
+        "toml"
+      ]
+    },
+    {
       "name": "zeroize-audit",
       "description": "\"Detects missing zeroization of sensitive data in source code and identifies zeroization removed by compiler optimizations, with assembly-level analysis, and control-flow verification. Use for auditin",
       "path": "trailofbits--skills/plugins/zeroize-audit/skills/zeroize-audit/SKILL.md",
@@ -21856,6 +24089,16 @@
       "languages": []
     },
     {
+      "name": "trailofbits:entry-points",
+      "description": "Identifies state-changing entry points in smart contracts",
+      "path": "trailofbits--skills/plugins/entry-point-analyzer/commands/entry-points.md",
+      "remote_path": "plugins/entry-point-analyzer/commands/entry-points.md",
+      "lines": 19,
+      "words": 54,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "entry-point-analyzer",
       "description": "Analyzes smart contract codebases to identify state-changing entry points for security auditing. Detects externally callable functions that modify state, categorizes them by access level (public, admi",
       "path": "trailofbits--skills/plugins/entry-point-analyzer/skills/entry-point-analyzer/SKILL.md",
@@ -21867,6 +24110,36 @@
         "bash",
         "markdown"
       ]
+    },
+    {
+      "name": "data-flow-analyzer",
+      "description": "Analyzes data flow from source to vulnerability sink, mapping trust boundaries, API contracts, environment protections, and cross-references. Spawned by fp-check during Phase 1 verification.",
+      "path": "trailofbits--skills/plugins/fp-check/agents/data-flow-analyzer.md",
+      "remote_path": "plugins/fp-check/agents/data-flow-analyzer.md",
+      "lines": 103,
+      "words": 748,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "poc-builder",
+      "description": "Creates proof-of-concept exploits (pseudocode, executable, and unit tests) demonstrating a verified vulnerability, plus negative PoCs showing exploit preconditions. Spawned by fp-check during Phase 4 ",
+      "path": "trailofbits--skills/plugins/fp-check/agents/poc-builder.md",
+      "remote_path": "plugins/fp-check/agents/poc-builder.md",
+      "lines": 174,
+      "words": 967,
+      "code_blocks": 3,
+      "languages": []
+    },
+    {
+      "name": "exploitability-verifier",
+      "description": "Verifies whether a suspected vulnerability is actually exploitable by proving attacker control, mathematical bounds, and race condition feasibility. Spawned by fp-check during Phase 2 verification.",
+      "path": "trailofbits--skills/plugins/fp-check/agents/exploitability-verifier.md",
+      "remote_path": "plugins/fp-check/agents/exploitability-verifier.md",
+      "lines": 131,
+      "words": 763,
+      "code_blocks": 3,
+      "languages": []
     },
     {
       "name": "fp-check",
@@ -22094,6 +24367,16 @@
       ]
     },
     {
+      "name": "trailofbits:scan-apk",
+      "description": "Scans Android APKs for Firebase security misconfigurations",
+      "path": "trailofbits--skills/plugins/firebase-apk-scanner/commands/scan-apk.md",
+      "remote_path": "plugins/firebase-apk-scanner/commands/scan-apk.md",
+      "lines": 19,
+      "words": 55,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "firebase-apk-scanner",
       "description": "Scans Android APKs for Firebase security misconfigurations including open databases, storage buckets, authentication issues, and exposed cloud functions. Use when analyzing APK files for Firebase vuln",
       "path": "trailofbits--skills/plugins/firebase-apk-scanner/skills/firebase-apk-scanner/SKILL.md",
@@ -22113,6 +24396,26 @@
       "lines": 118,
       "words": 675,
       "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "spec-compliance-checker",
+      "description": "\"Performs full specification-to-code compliance analysis for blockchain audits. Use when verifying that smart contract implementations correctly match their formal specifications or whitepapers.\"",
+      "path": "trailofbits--skills/plugins/spec-to-code-compliance/agents/spec-compliance-checker.md",
+      "remote_path": "plugins/spec-to-code-compliance/agents/spec-compliance-checker.md",
+      "lines": 87,
+      "words": 758,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "trailofbits:spec-compliance",
+      "description": "Verifies code implements specification requirements",
+      "path": "trailofbits--skills/plugins/spec-to-code-compliance/commands/spec-compliance.md",
+      "remote_path": "plugins/spec-to-code-compliance/commands/spec-compliance.md",
+      "lines": 23,
+      "words": 68,
+      "code_blocks": 0,
       "languages": []
     },
     {
@@ -22194,6 +24497,16 @@
       ]
     },
     {
+      "name": "trailofbits:ct-check",
+      "description": "Detects timing side-channels in cryptographic code",
+      "path": "trailofbits--skills/plugins/constant-time-analysis/commands/ct-check.md",
+      "remote_path": "plugins/constant-time-analysis/commands/ct-check.md",
+      "lines": 21,
+      "words": 66,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "constant-time-analysis",
       "description": "Detects timing side-channel vulnerabilities in cryptographic code. Use when implementing or reviewing crypto code, encountering division on secrets, secret-dependent branches, or constant-time program",
       "path": "trailofbits--skills/plugins/constant-time-analysis/skills/constant-time-analysis/SKILL.md",
@@ -22208,6 +24521,16 @@
       ]
     },
     {
+      "name": "trailofbits:variants",
+      "description": "Finds similar vulnerabilities using pattern-based analysis",
+      "path": "trailofbits--skills/plugins/variant-analysis/commands/variants.md",
+      "remote_path": "plugins/variant-analysis/commands/variants.md",
+      "lines": 24,
+      "words": 76,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
       "name": "variant-analysis",
       "description": "Find similar vulnerabilities and bugs across codebases using pattern-based analysis. Use when hunting bug variants, building CodeQL/Semgrep queries, analyzing security vulnerabilities, or performing s",
       "path": "trailofbits--skills/plugins/variant-analysis/skills/variant-analysis/SKILL.md",
@@ -22217,6 +24540,72 @@
       "code_blocks": 1,
       "languages": [
         "bash"
+      ]
+    },
+    {
+      "name": "dimension-annotator",
+      "description": "Adds dimensional annotations to source code at anchor points using Reserve Protocol's format",
+      "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-annotator.md",
+      "remote_path": "plugins/dimensional-analysis/agents/dimension-annotator.md",
+      "lines": 303,
+      "words": 1286,
+      "code_blocks": 11,
+      "languages": [
+        "solidity"
+      ]
+    },
+    {
+      "name": "arithmetic-scanner",
+      "description": "Scans repo for files with dimensional arithmetic to scope discovery",
+      "path": "trailofbits--skills/plugins/dimensional-analysis/agents/arithmetic-scanner.md",
+      "remote_path": "plugins/dimensional-analysis/agents/arithmetic-scanner.md",
+      "lines": 268,
+      "words": 1632,
+      "code_blocks": 3,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "dimension-validator",
+      "description": "Validates dimensional consistency and detects dimensional bugs in annotated code",
+      "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-validator.md",
+      "remote_path": "plugins/dimensional-analysis/agents/dimension-validator.md",
+      "lines": 422,
+      "words": 1549,
+      "code_blocks": 19,
+      "languages": [
+        "json",
+        "markdown",
+        "solidity",
+        "text"
+      ]
+    },
+    {
+      "name": "dimension-propagator",
+      "description": "Propagates dimensional annotations through arithmetic and call chains, reporting mismatches found during propagation",
+      "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-propagator.md",
+      "remote_path": "plugins/dimensional-analysis/agents/dimension-propagator.md",
+      "lines": 219,
+      "words": 1405,
+      "code_blocks": 4,
+      "languages": [
+        "solidity"
+      ]
+    },
+    {
+      "name": "dimension-discoverer",
+      "description": "Discovers dimensional vocabulary for codebases by analyzing naming conventions and protocol patterns",
+      "path": "trailofbits--skills/plugins/dimensional-analysis/agents/dimension-discoverer.md",
+      "remote_path": "plugins/dimensional-analysis/agents/dimension-discoverer.md",
+      "lines": 257,
+      "words": 1214,
+      "code_blocks": 8,
+      "languages": [
+        "json",
+        "markdown",
+        "rust",
+        "solidity"
       ]
     },
     {
@@ -22243,6 +24632,26 @@
       "languages": [
         "bash"
       ]
+    },
+    {
+      "name": "function-analyzer",
+      "description": "\"Performs ultra-granular per-function deep analysis for security audit context building. Use when analyzing dense functions, data-flow chains, cryptographic implementations, or state machines.\"",
+      "path": "trailofbits--skills/plugins/audit-context-building/agents/function-analyzer.md",
+      "remote_path": "plugins/audit-context-building/agents/function-analyzer.md",
+      "lines": 141,
+      "words": 745,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "trailofbits:audit-context",
+      "description": "Builds deep architectural context before vulnerability hunting",
+      "path": "trailofbits--skills/plugins/audit-context-building/commands/audit-context.md",
+      "remote_path": "plugins/audit-context-building/commands/audit-context.md",
+      "lines": 22,
+      "words": 64,
+      "code_blocks": 0,
+      "languages": []
     },
     {
       "name": "audit-context-building",
@@ -22628,9 +25037,53 @@
       "words": 548,
       "code_blocks": 3,
       "languages": []
+    },
+    {
+      "name": "Feature Request",
+      "description": "",
+      "path": "asklokesh--claudeskill-loki-mode/.github/ISSUE_TEMPLATE/feature_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "lines": 24,
+      "words": 82,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Enterprise Issue",
+      "description": "",
+      "path": "asklokesh--claudeskill-loki-mode/.github/ISSUE_TEMPLATE/enterprise.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/enterprise.md",
+      "lines": 80,
+      "words": 244,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
+    {
+      "name": "Bug Report",
+      "description": "",
+      "path": "asklokesh--claudeskill-loki-mode/.github/ISSUE_TEMPLATE/bug_report.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "lines": 48,
+      "words": 145,
+      "code_blocks": 1,
+      "languages": []
     }
   ],
   "yusufkaraaslan--Skill_Seekers": [
+    {
+      "name": "skill-seekers",
+      "description": "Generate LLM skills from documentation, codebases, and GitHub repositories",
+      "path": "yusufkaraaslan--Skill_Seekers/scripts/skill_header.md",
+      "remote_path": "scripts/skill_header.md",
+      "lines": 45,
+      "words": 134,
+      "code_blocks": 2,
+      "languages": [
+        "bash"
+      ]
+    },
     {
       "name": "skill-builder",
       "description": "Automatically detect source types and build AI skills using Skill Seekers. Use when the user wants to create skills from documentation, repos, PDFs, videos, or other knowledge sources.",
@@ -22638,6 +25091,48 @@
       "remote_path": "distribution/claude-plugin/skills/skill-builder/SKILL.md",
       "lines": 70,
       "words": 443,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Feature Request",
+      "description": "",
+      "path": "yusufkaraaslan--Skill_Seekers/.github/ISSUE_TEMPLATE/feature_request.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "lines": 40,
+      "words": 143,
+      "code_blocks": 0,
+      "languages": []
+    },
+    {
+      "name": "Bug Report",
+      "description": "",
+      "path": "yusufkaraaslan--Skill_Seekers/.github/ISSUE_TEMPLATE/bug_report.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "lines": 53,
+      "words": 161,
+      "code_blocks": 1,
+      "languages": []
+    },
+    {
+      "name": "MCP Tool Request",
+      "description": "",
+      "path": "yusufkaraaslan--Skill_Seekers/.github/ISSUE_TEMPLATE/mcp_tool.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/mcp_tool.md",
+      "lines": 43,
+      "words": 134,
+      "code_blocks": 2,
+      "languages": [
+        "json"
+      ]
+    },
+    {
+      "name": "Documentation Improvement",
+      "description": "",
+      "path": "yusufkaraaslan--Skill_Seekers/.github/ISSUE_TEMPLATE/documentation.md",
+      "remote_path": ".github/ISSUE_TEMPLATE/documentation.md",
+      "lines": 42,
+      "words": 122,
       "code_blocks": 0,
       "languages": []
     }

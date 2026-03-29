@@ -51,10 +51,24 @@ def run(cmd, cwd=None):
 
 
 def count_skill_files(repo_path):
-    """Count actual SKILL.md files in the repo."""
+    """Count markdown files with skill frontmatter (name: + description:)."""
     if not repo_path.exists():
         return 0
-    return len(list(repo_path.rglob("SKILL.md")))
+    skip_names = {"readme.md", "license.md", "changelog.md", "contributing.md"}
+    count = 0
+    for f in repo_path.rglob("*.md"):
+        if f.name.lower() in skip_names:
+            continue
+        try:
+            head = f.read_text(encoding="utf-8", errors="replace")[:500]
+            if head.startswith("---"):
+                has_name = "\nname:" in head
+                has_desc = "\ndescription:" in head
+                if has_name and has_desc:
+                    count += 1
+        except Exception:
+            continue
+    return count
 
 
 def count_markdown_files(repo_path):
