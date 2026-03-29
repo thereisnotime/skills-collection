@@ -15,6 +15,7 @@ from pathlib import Path
 SKILLS_DIR = Path(__file__).parent / "skills"
 INVENTORY_PATH = Path(__file__).parent / "inventory.json"
 ANALYSIS_PATH = Path(__file__).parent / "analysis.json"
+SKILLS_LIST_PATH = Path(__file__).parent / "skills-list.json"
 
 
 def analyze_skill_file(path):
@@ -140,6 +141,20 @@ def analyze_repo(repo_dir):
     total_skill_words = sum(s["words"] for s in skills) if skills else 0
     total_code_blocks = sum(s["code_blocks"] for s in skills) if skills else 0
 
+    # Build skills list for skills-list.json
+    skills_list = []
+    for s in skills:
+        if s["name"]:
+            skills_list.append({
+                "name": s["name"],
+                "description": s["description"],
+                "path": s["path"],
+                "lines": s["lines"],
+                "words": s["words"],
+                "code_blocks": s["code_blocks"],
+                "languages": s["languages"],
+            })
+
     return {
         "skill_count": len(skills),
         "skill_lines_total": total_skill_lines,
@@ -162,6 +177,7 @@ def analyze_repo(repo_dir):
         "has_license": has_license,
         "has_readme": has_readme,
         "has_claude_md": has_claude_md,
+        "skills_list": skills_list,
     }
 
 
@@ -176,17 +192,24 @@ def main():
         if analysis:
             results[dir_name] = analysis
 
+    # Separate skills_list from analysis (keep analysis.json lean)
+    skills_list = {}
+    for dir_name, data in results.items():
+        skills_list[dir_name] = data.pop("skills_list", [])
+
     ANALYSIS_PATH.write_text(json.dumps(results, indent=2) + "\n")
+    SKILLS_LIST_PATH.write_text(json.dumps(skills_list, indent=2) + "\n")
 
     # Print summary
     total_skills = sum(r["skill_count"] for r in results.values())
+    total_named = sum(len(sl) for sl in skills_list.values())
     total_lines = sum(r["skill_lines_total"] for r in results.values())
     repos_with_evals = sum(1 for r in results.values() if r["eval_files"] > 0)
     repos_with_tests = sum(1 for r in results.values() if r["test_files"] > 0)
     repos_with_claude = sum(1 for r in results.values() if r["has_claude_md"])
 
     print(f"\n  Analysis complete: {len(results)} repos")
-    print(f"  Total skills: {total_skills}, total lines: {total_lines:,}")
+    print(f"  Total skills: {total_skills}, named skills: {total_named}, total lines: {total_lines:,}")
     print(f"  Repos with evals: {repos_with_evals}, tests: {repos_with_tests}, CLAUDE.md: {repos_with_claude}")
 
 
