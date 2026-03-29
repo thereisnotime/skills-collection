@@ -462,7 +462,7 @@ def sync_repos(repos, metadata):
     print(f"  Sync done: {updated} updated, {skipped} unchanged")
 
 
-def generate_readme(repos, metadata, sync_duration="n/a"):
+def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", analysis_duration="n/a"):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     previous = load_previous_stats()
     current_stats = {}
@@ -584,7 +584,9 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | **Total skill files** | {total_display} |
 | **Total size** | {total_size} MB |
 | **Last synced** | {now} |
+| **API fetch** | {api_duration} |
 | **Sync time** | {sync_duration} |
+| **Analysis time** | {analysis_duration} |
 
 {analysis_section}## Charts
 
@@ -676,7 +678,14 @@ def strip_nested_git(repos):
             print(f"  Stripped .git from {repo['dir']}")
 
 
+def format_duration(seconds):
+    m, s = divmod(int(seconds), 60)
+    return f"{m}m {s}s" if m else f"{s}s"
+
+
 if __name__ == "__main__":
+    from analysis import main as run_analysis
+
     repos = load_inventory()
     cleanup_stale_dirs(repos)
     cleanup_stale_data(repos)
@@ -684,18 +693,22 @@ if __name__ == "__main__":
     print("  Fetching metadata from GitHub API...")
     api_start = time.monotonic()
     metadata = fetch_repo_metadata(repos)
-    api_elapsed = time.monotonic() - api_start
-    print(f"  Metadata fetched for {len(metadata)}/{len(repos)} repos in {api_elapsed:.1f}s")
+    api_duration = format_duration(time.monotonic() - api_start)
+    print(f"  Metadata fetched for {len(metadata)}/{len(repos)} repos in {api_duration}")
 
     # Save repo-commits.json for the site
     repo_commits = {d: m.get("recent_commits", []) for d, m in metadata.items()}
     REPO_COMMITS_PATH.write_text(json.dumps(repo_commits, indent=2) + "\n")
     print(f"  Saved repo-commits.json ({len(repo_commits)} repos)")
 
-    start = time.monotonic()
+    sync_start = time.monotonic()
     sync_repos(repos, metadata)
-    elapsed = time.monotonic() - start
-    minutes, seconds = divmod(int(elapsed), 60)
-    sync_duration = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
-    generate_readme(repos, metadata, sync_duration)
+    sync_duration = format_duration(time.monotonic() - sync_start)
+
+    print("  Running analysis...")
+    analysis_start = time.monotonic()
+    run_analysis()
+    analysis_duration = format_duration(time.monotonic() - analysis_start)
+
+    generate_readme(repos, metadata, sync_duration, api_duration, analysis_duration)
     strip_nested_git(repos)

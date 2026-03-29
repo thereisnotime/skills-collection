@@ -32,9 +32,6 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT }}
         run: python generate_readme.py
 
-      - name: "\U0001F4CA Run repo analysis"
-        run: python analysis.py
-
       - name: "\U0001F4BE Commit & push"
         run: |
           git config user.name "thereisnotime"
