@@ -169,8 +169,8 @@
       "ttf": 54,
       "txt": 42,
       "xml": 6,
-      "json": 2,
       "sh": 2,
+      "json": 2,
       "pdf": 1,
       "js": 1
     },
@@ -282,9 +282,9 @@
     "file_types": {
       "md": 23,
       "tex": 5,
-      "cls": 2,
-      "png": 2,
       "pdf": 2,
+      "png": 2,
+      "cls": 2,
       "txt": 1,
       "py": 1
     },
@@ -331,14 +331,14 @@
     "file_types": {
       "md": 80,
       "py": 33,
-      "json": 4,
       "txt": 4,
+      "json": 4,
       "yml": 4,
       "ps1": 2,
       "sh": 2,
       "gif": 2,
-      "cff": 1,
-      "toml": 1
+      "toml": 1,
+      "cff": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -496,7 +496,7 @@
       "mjs": 3,
       "rb": 3,
       "yaml": 2,
-      "lock": 1
+      "png": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -536,7 +536,7 @@
       "xml": 6,
       "aspx": 4,
       "json": 3,
-      "exe": 2
+      "html": 2
     },
     "has_license": false,
     "has_readme": true,
@@ -574,8 +574,8 @@
       "json": 32,
       "txt": 4,
       "toml": 1,
-      "yml": 1,
-      "log": 1
+      "log": 1,
+      "yml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -664,9 +664,9 @@
       "json": 5,
       "xml": 5,
       "txt": 4,
-      "csv": 4,
       "sty": 4,
-      "sh": 3
+      "csv": 4,
+      "mplstyle": 3
     },
     "has_license": true,
     "has_readme": true,
@@ -713,7 +713,7 @@
       "sty": 12,
       "pdf": 7,
       "sh": 6,
-      "html": 3
+      "js": 3
     },
     "has_license": true,
     "has_readme": true,
@@ -756,16 +756,16 @@
     "reference_files": 0,
     "eval_files": 0,
     "test_files": 16,
-    "total_files": 299,
-    "total_size_mb": 3.37,
+    "total_files": 309,
+    "total_size_mb": 3.52,
     "file_types": {
-      "md": 255,
+      "md": 265,
       "json": 19,
       "sh": 7,
       "ts": 6,
       "yaml": 1,
-      "lockb": 1,
-      "png": 1
+      "png": 1,
+      "lockb": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -809,8 +809,8 @@
     "total_size_mb": 23.05,
     "file_types": {
       "md": 366,
-      "tex": 15,
       "sty": 15,
+      "tex": 15,
       "pdf": 11,
       "png": 10,
       "tsx": 10,
@@ -988,7 +988,7 @@
     "reference_files": 63,
     "eval_files": 0,
     "test_files": 70,
-    "total_files": 587,
+    "total_files": 588,
     "total_size_mb": 4.12,
     "file_types": {
       "md": 136,
@@ -998,7 +998,7 @@
       "yaml": 41,
       "conf": 23,
       "jenkinsfile": 21,
-      "hcl": 20,
+      "hcl": 21,
       "tf": 14,
       "dockerfile": 13
     },
@@ -1222,8 +1222,8 @@
       "job": 8,
       "json": 5,
       "pl": 2,
-      "yml": 1,
       "txt": 1,
+      "yml": 1,
       "rmd": 1
     },
     "has_license": true,
@@ -1371,8 +1371,8 @@
     "file_types": {
       "md": 3,
       "csv": 2,
-      "zip": 1,
       "txt": 1,
+      "zip": 1,
       "py": 1
     },
     "has_license": false,
@@ -1509,10 +1509,10 @@
     "reference_files": 0,
     "eval_files": 0,
     "test_files": 2,
-    "total_files": 47,
+    "total_files": 48,
     "total_size_mb": 4.41,
     "file_types": {
-      "md": 18,
+      "md": 19,
       "json": 7,
       "yml": 5,
       "py": 3,
@@ -1520,8 +1520,8 @@
       "js": 2,
       "jsonc": 1,
       "yaml": 1,
-      "sh": 1,
-      "tape": 1
+      "tape": 1,
+      "sh": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1631,8 +1631,8 @@
       "yaml": 2,
       "sh": 2,
       "mjs": 1,
-      "ps1": 1,
-      "rb": 1
+      "rb": 1,
+      "ps1": 1
     },
     "has_license": false,
     "has_readme": true,
@@ -1698,17 +1698,17 @@
     "reference_files": 0,
     "eval_files": 0,
     "test_files": 2,
-    "total_files": 69,
+    "total_files": 71,
     "total_size_mb": 1.31,
     "file_types": {
-      "py": 22,
+      "py": 24,
       "md": 19,
       "json": 18,
       "txt": 3,
       "yml": 2,
+      "toml": 1,
       "ps1": 1,
-      "example": 1,
-      "toml": 1
+      "example": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1741,8 +1741,8 @@
       "png": 4,
       "pdf": 3,
       "js": 2,
-      "example": 1,
-      "gif": 1
+      "gif": 1,
+      "lock": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1780,9 +1780,9 @@
       "sh": 4,
       "yaml": 2,
       "yml": 1,
-      "json": 1,
-      "txt": 1,
       "example": 1,
+      "txt": 1,
+      "json": 1,
       "py": 1
     },
     "has_license": false,
@@ -1919,8 +1919,8 @@
       "json": 6,
       "sh": 3,
       "gif": 1,
-      "example": 1,
-      "toml": 1
+      "toml": 1,
+      "example": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -1993,10 +1993,10 @@
       "json": 10,
       "mjs": 2,
       "lock": 2,
-      "yml": 1,
       "svg": 1,
       "csv": 1,
-      "toml": 1
+      "toml": 1,
+      "yml": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2079,9 +2079,9 @@
       "js": 5,
       "yml": 2,
       "cmd": 1,
-      "dot": 1,
+      "py": 1,
       "ts": 1,
-      "cjs": 1
+      "dot": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2257,8 +2257,8 @@
     "total_files": 10,
     "total_size_mb": 0.02,
     "file_types": {
-      "json": 3,
       "md": 3,
+      "json": 3,
       "yml": 1
     },
     "has_license": true,
@@ -2302,8 +2302,8 @@
       "py": 6,
       "yml": 5,
       "yaml": 4,
-      "lock": 1,
-      "toml": 1
+      "toml": 1,
+      "lock": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2340,8 +2340,8 @@
       "md": 5,
       "js": 4,
       "json": 3,
-      "css": 2,
       "pdf": 2,
+      "css": 2,
       "png": 2,
       "pptx": 1
     },
@@ -2486,9 +2486,9 @@
     "file_types": {
       "md": 4,
       "json": 1,
-      "svg": 1,
+      "yaml": 1,
       "png": 1,
-      "yaml": 1
+      "svg": 1
     },
     "has_license": true,
     "has_readme": true,
@@ -2519,13 +2519,13 @@
     "reference_files": 12,
     "eval_files": 0,
     "test_files": 83,
-    "total_files": 867,
+    "total_files": 868,
     "total_size_mb": 22.16,
     "file_types": {
       "ts": 155,
       "tsx": 127,
       "md": 91,
-      "json": 57,
+      "json": 58,
       "rb": 57,
       "py": 50,
       "sh": 43,
@@ -2651,7 +2651,7 @@
     "reference_files": 138,
     "eval_files": 0,
     "test_files": 28,
-    "total_files": 622,
+    "total_files": 623,
     "total_size_mb": 3.43,
     "file_types": {
       "md": 429,
@@ -3049,17 +3049,17 @@
     ],
     "reference_files": 21,
     "eval_files": 0,
-    "test_files": 244,
-    "total_files": 2209,
-    "total_size_mb": 39.4,
+    "test_files": 245,
+    "total_files": 2240,
+    "total_size_mb": 39.45,
     "file_types": {
       "patch": 649,
       "py": 476,
-      "md": 263,
-      "js": 233,
+      "md": 266,
+      "js": 240,
       "tsx": 154,
       "sh": 113,
-      "ts": 98,
+      "ts": 105,
       "json": 53,
       "yaml": 36,
       "html": 23
@@ -3087,7 +3087,7 @@
     "reference_files": 0,
     "eval_files": 0,
     "test_files": 152,
-    "total_files": 2525,
+    "total_files": 2526,
     "total_size_mb": 33.71,
     "file_types": {
       "html": 1730,
@@ -3096,7 +3096,7 @@
       "yaml": 81,
       "png": 24,
       "txt": 17,
-      "json": 15,
+      "json": 16,
       "svg": 14,
       "yml": 12,
       "sh": 8

@@ -145,10 +145,12 @@ def analyze_repo(repo_dir):
     skills_list = []
     for s in skills:
         if s["name"]:
+            remote_path = "/".join(s["path"].split("/")[1:])
             skills_list.append({
                 "name": s["name"],
                 "description": s["description"],
                 "path": s["path"],
+                "remote_path": remote_path,
                 "lines": s["lines"],
                 "words": s["words"],
                 "code_blocks": s["code_blocks"],
