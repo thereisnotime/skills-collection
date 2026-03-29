@@ -593,6 +593,36 @@ def cleanup_stale_dirs(repos):
             print(f"  Cleaned up stale dir: {child.name}")
 
 
+def cleanup_stale_data(repos):
+    """Prune removed repos from commits.json, repo-commits.json, and stats.json."""
+    inventory_dirs = {repo["dir"] for repo in repos}
+    cleaned = []
+
+    for path, loader in [
+        (COMMITS_PATH, load_commits),
+        (STATS_PATH, load_previous_stats),
+    ]:
+        if path.exists():
+            data = loader()
+            before = len(data)
+            pruned = {k: v for k, v in data.items() if k in inventory_dirs}
+            if len(pruned) < before:
+                path.write_text(json.dumps(pruned, indent=2) + "\n")
+                cleaned.append(f"{path.name}: {before - len(pruned)} stale entries removed")
+
+    if REPO_COMMITS_PATH.exists():
+        data = json.loads(REPO_COMMITS_PATH.read_text())
+        before = len(data)
+        pruned = {k: v for k, v in data.items() if k in inventory_dirs}
+        if len(pruned) < before:
+            REPO_COMMITS_PATH.write_text(json.dumps(pruned, indent=2) + "\n")
+            cleaned.append(f"repo-commits.json: {before - len(pruned)} stale entries removed")
+
+    if cleaned:
+        for msg in cleaned:
+            print(f"  {msg}")
+
+
 def strip_nested_git(repos):
     for repo in repos:
         git_dir = SKILLS_DIR / repo["dir"] / ".git"
@@ -604,6 +634,7 @@ def strip_nested_git(repos):
 if __name__ == "__main__":
     repos = load_inventory()
     cleanup_stale_dirs(repos)
+    cleanup_stale_data(repos)
 
     print("  Fetching metadata from GitHub API...")
     api_start = time.monotonic()
