@@ -22,6 +22,7 @@ STATS_PATH = Path(__file__).parent / "stats.json"
 INVENTORY_PATH = Path(__file__).parent / "inventory.json"
 HISTORY_PATH = Path(__file__).parent / "history.json"
 COMMITS_PATH = Path(__file__).parent / "commits.json"
+REPO_COMMITS_PATH = Path(__file__).parent / "repo-commits.json"
 CHARTS_DIR = Path(__file__).parent / "charts"
 
 # -- Chart colors --
@@ -76,12 +77,11 @@ def get_dir_size_mb(repo_path):
 
 
 def fetch_repo_metadata(repos):
-    """Batch-fetch stars and latest commit SHA for all repos via GraphQL.
-    Returns dict keyed by dir: {"stars": int, "sha": str}."""
+    """Batch-fetch stars, latest commit SHA, and recent commits for all repos via GraphQL.
+    Returns dict keyed by dir: {"stars": int, "sha": str, "recent_commits": [...]}."""
     results = {}
-    # GraphQL allows ~100 nodes per query, batch in chunks
-    for chunk_start in range(0, len(repos), 50):
-        chunk = repos[chunk_start:chunk_start + 50]
+    for chunk_start in range(0, len(repos), 20):
+        chunk = repos[chunk_start:chunk_start + 20]
         query_parts = []
         for i, repo in enumerate(chunk):
             slug = repo["url"].replace("https://github.com/", "")
@@ -90,7 +90,10 @@ def fetch_repo_metadata(repos):
             query_parts.append(
                 f'{alias}: repository(owner: "{owner}", name: "{name}") {{'
                 f'  stargazerCount'
-                f'  defaultBranchRef {{ target {{ oid }} }}'
+                f'  defaultBranchRef {{ target {{ ... on Commit {{'
+                f'    oid'
+                f'    history(first: 10) {{ nodes {{ oid message committedDate author {{ name }} }} }}'
+                f'  }} }} }}'
                 f'}}'
             )
         query = "query { " + " ".join(query_parts) + " }"
@@ -103,12 +106,22 @@ def fetch_repo_metadata(repos):
                     node = data.get(alias)
                     if node:
                         sha = None
+                        recent_commits = []
                         ref = node.get("defaultBranchRef")
                         if ref and ref.get("target"):
-                            sha = ref["target"]["oid"]
+                            target = ref["target"]
+                            sha = target.get("oid")
+                            for c in target.get("history", {}).get("nodes", []):
+                                recent_commits.append({
+                                    "sha": c["oid"][:7],
+                                    "message": c["message"].split("\n")[0][:120],
+                                    "date": c["committedDate"][:10],
+                                    "author": c.get("author", {}).get("name", "unknown"),
+                                })
                         results[repo["dir"]] = {
                             "stars": node.get("stargazerCount", "?"),
                             "sha": sha,
+                            "recent_commits": recent_commits,
                         }
         except Exception as e:
             print(f"  Warning: GraphQL batch failed: {e}")
@@ -597,6 +610,11 @@ if __name__ == "__main__":
     metadata = fetch_repo_metadata(repos)
     api_elapsed = time.monotonic() - api_start
     print(f"  Metadata fetched for {len(metadata)}/{len(repos)} repos in {api_elapsed:.1f}s")
+
+    # Save repo-commits.json for the site
+    repo_commits = {d: m.get("recent_commits", []) for d, m in metadata.items()}
+    REPO_COMMITS_PATH.write_text(json.dumps(repo_commits, indent=2) + "\n")
+    print(f"  Saved repo-commits.json ({len(repo_commits)} repos)")
 
     start = time.monotonic()
     sync_repos(repos, metadata)
