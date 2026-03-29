@@ -23,6 +23,7 @@ INVENTORY_PATH = Path(__file__).parent / "inventory.json"
 HISTORY_PATH = Path(__file__).parent / "history.json"
 COMMITS_PATH = Path(__file__).parent / "commits.json"
 REPO_COMMITS_PATH = Path(__file__).parent / "repo-commits.json"
+ANALYSIS_PATH = Path(__file__).parent / "analysis.json"
 CHARTS_DIR = Path(__file__).parent / "charts"
 
 # -- Chart colors --
@@ -522,6 +523,50 @@ def generate_readme(repos, metadata, sync_duration="n/a"):
     total_display = format_diff(total_skills, prev_total if previous else None)
     total_size = round(total_size, 1)
 
+    # Load analysis data for summary
+    analysis = {}
+    if ANALYSIS_PATH.exists():
+        try:
+            analysis = json.loads(ANALYSIS_PATH.read_text())
+        except Exception:
+            pass
+
+    analysis_section = ""
+    if analysis:
+        all_lines = [a["skill_lines_avg"] for a in analysis.values() if a["skill_lines_avg"] > 0]
+        all_words = [a["skill_words_avg"] for a in analysis.values() if a["skill_words_avg"] > 0]
+        total_lines = sum(a["skill_lines_total"] for a in analysis.values())
+        total_words = sum(a["skill_words_total"] for a in analysis.values())
+        total_code_blocks = sum(a["code_blocks_total"] for a in analysis.values())
+        total_refs = sum(a["reference_files"] for a in analysis.values())
+        repos_with_evals = sum(1 for a in analysis.values() if a["eval_files"] > 0)
+        repos_with_tests = sum(1 for a in analysis.values() if a["test_files"] > 0)
+        repos_with_license = sum(1 for a in analysis.values() if a["has_license"])
+        repos_with_claude = sum(1 for a in analysis.values() if a["has_claude_md"])
+        all_langs = set()
+        for a in analysis.values():
+            all_langs.update(a.get("code_languages", []))
+        avg_lines = round(sum(all_lines) / len(all_lines)) if all_lines else 0
+        avg_words = round(sum(all_words) / len(all_words)) if all_words else 0
+
+        analysis_section = f"""
+## Analysis
+
+| Metric | Value |
+|--------|-------|
+| **Total skill lines** | {total_lines:,} |
+| **Total skill words** | {total_words:,} |
+| **Avg lines per skill** | {avg_lines} |
+| **Avg words per skill** | {avg_words} |
+| **Total code blocks** | {total_code_blocks:,} |
+| **Reference files** | {total_refs:,} |
+| **Repos with evals** | {repos_with_evals} |
+| **Repos with tests** | {repos_with_tests} |
+| **Repos with license** | {repos_with_license} |
+| **Repos with CLAUDE.md** | {repos_with_claude} |
+| **Code languages** | {len(all_langs)} ({', '.join(sorted(all_langs)[:15])}{', ...' if len(all_langs) > 15 else ''}) |
+"""
+
     readme = f"""\
 # Skills Collection
 
@@ -541,7 +586,7 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 | **Last synced** | {now} |
 | **Sync time** | {sync_duration} |
 
-## Charts
+{analysis_section}## Charts
 
 ### Stars Over Time
 
@@ -567,7 +612,7 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 
 ## How it works
 
-A GitHub Actions workflow runs every 2 days to:
+A GitHub Actions workflow runs daily to:
 
 1. Clone or pull all skill repos into `skills/`
 2. Run `generate_readme.py` to regenerate this README with fresh stats and charts
