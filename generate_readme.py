@@ -78,11 +78,10 @@ def get_dir_size_mb(repo_path):
 
 
 def fetch_repo_metadata(repos):
-    """Batch-fetch stars, latest commit SHA, and recent commits for all repos via GraphQL.
-    Returns dict keyed by dir: {"stars": int, "sha": str, "recent_commits": [...]}."""
+    """Batch-fetch stars, commits, PRs, issues, and recent commits for all repos via GraphQL."""
     results = {}
-    for chunk_start in range(0, len(repos), 20):
-        chunk = repos[chunk_start:chunk_start + 20]
+    for chunk_start in range(0, len(repos), 15):
+        chunk = repos[chunk_start:chunk_start + 15]
         query_parts = []
         for i, repo in enumerate(chunk):
             slug = repo["url"].replace("https://github.com/", "")
@@ -91,9 +90,16 @@ def fetch_repo_metadata(repos):
             query_parts.append(
                 f'{alias}: repository(owner: "{owner}", name: "{name}") {{'
                 f'  stargazerCount'
+                f'  forkCount'
+                f'  issues_open: issues(states: OPEN) {{ totalCount }}'
+                f'  issues_closed: issues(states: CLOSED) {{ totalCount }}'
+                f'  prs_open: pullRequests(states: OPEN) {{ totalCount }}'
+                f'  prs_closed: pullRequests(states: CLOSED) {{ totalCount }}'
+                f'  prs_merged: pullRequests(states: MERGED) {{ totalCount }}'
                 f'  defaultBranchRef {{ target {{ ... on Commit {{'
                 f'    oid'
-                f'    history(first: 10) {{ nodes {{ oid message committedDate author {{ name }} }} }}'
+                f'    history {{ totalCount }}'
+                f'    recent: history(first: 10) {{ nodes {{ oid message committedDate author {{ name }} }} }}'
                 f'  }} }} }}'
                 f'}}'
             )
@@ -105,25 +111,35 @@ def fetch_repo_metadata(repos):
                 for i, repo in enumerate(chunk):
                     alias = f"r{chunk_start + i}"
                     node = data.get(alias)
-                    if node:
-                        sha = None
-                        recent_commits = []
-                        ref = node.get("defaultBranchRef")
-                        if ref and ref.get("target"):
-                            target = ref["target"]
-                            sha = target.get("oid")
-                            for c in target.get("history", {}).get("nodes", []):
-                                recent_commits.append({
-                                    "sha": c["oid"][:7],
-                                    "message": c["message"].split("\n")[0][:120],
-                                    "date": c["committedDate"][:10],
-                                    "author": c.get("author", {}).get("name", "unknown"),
-                                })
-                        results[repo["dir"]] = {
-                            "stars": node.get("stargazerCount", "?"),
-                            "sha": sha,
-                            "recent_commits": recent_commits,
-                        }
+                    if not node:
+                        continue
+                    sha = None
+                    total_commits = 0
+                    recent_commits = []
+                    ref = node.get("defaultBranchRef")
+                    if ref and ref.get("target"):
+                        target = ref["target"]
+                        sha = target.get("oid")
+                        total_commits = target.get("history", {}).get("totalCount", 0)
+                        for c in target.get("recent", {}).get("nodes", []):
+                            recent_commits.append({
+                                "sha": c["oid"][:7],
+                                "message": c["message"].split("\n")[0][:120],
+                                "date": c["committedDate"][:10],
+                                "author": c.get("author", {}).get("name", "unknown"),
+                            })
+                    results[repo["dir"]] = {
+                        "stars": node.get("stargazerCount", "?"),
+                        "forks": node.get("forkCount", 0),
+                        "sha": sha,
+                        "total_commits": total_commits,
+                        "issues_open": node.get("issues_open", {}).get("totalCount", 0),
+                        "issues_closed": node.get("issues_closed", {}).get("totalCount", 0),
+                        "prs_open": node.get("prs_open", {}).get("totalCount", 0),
+                        "prs_closed": node.get("prs_closed", {}).get("totalCount", 0),
+                        "prs_merged": node.get("prs_merged", {}).get("totalCount", 0),
+                        "recent_commits": recent_commits,
+                    }
         except Exception as e:
             print(f"  Warning: GraphQL batch failed: {e}")
 
@@ -488,7 +504,18 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
         skills_display = format_diff(skills_count, prev.get("skills"))
         stars_display = format_diff(stars, prev.get("stars"))
 
-        current_stats[repo["dir"]] = {"skills": skills_count, "stars": stars}
+        current_stats[repo["dir"]] = {
+            "skills": skills_count,
+            "stars": stars,
+            "forks": meta.get("forks", 0),
+            "total_commits": meta.get("total_commits", 0),
+            "issues_open": meta.get("issues_open", 0),
+            "issues_closed": meta.get("issues_closed", 0),
+            "prs_open": meta.get("prs_open", 0),
+            "prs_closed": meta.get("prs_closed", 0),
+            "prs_merged": meta.get("prs_merged", 0),
+            "contributors": contributors,
+        }
         repo_stars[repo["dir"]] = stars
         repo_skills[repo["dir"]] = skills_count
         repo_contributors[repo["dir"]] = contributors
@@ -531,6 +558,16 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
         except Exception:
             pass
 
+    # Aggregate GitHub activity stats
+    gh_total_commits = sum(s.get("total_commits", 0) for s in current_stats.values())
+    gh_total_prs_merged = sum(s.get("prs_merged", 0) for s in current_stats.values())
+    gh_total_prs_open = sum(s.get("prs_open", 0) for s in current_stats.values())
+    gh_total_prs_closed = sum(s.get("prs_closed", 0) for s in current_stats.values())
+    gh_total_issues_open = sum(s.get("issues_open", 0) for s in current_stats.values())
+    gh_total_issues_closed = sum(s.get("issues_closed", 0) for s in current_stats.values())
+    gh_total_forks = sum(s.get("forks", 0) for s in current_stats.values())
+    gh_total_contributors = sum(s.get("contributors", 0) for s in current_stats.values())
+
     analysis_section = ""
     if analysis:
         all_lines = [a["skill_lines_avg"] for a in analysis.values() if a["skill_lines_avg"] > 0]
@@ -550,7 +587,20 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
         avg_words = round(sum(all_words) / len(all_words)) if all_words else 0
 
         analysis_section = f"""
-## Analysis
+## GitHub Activity
+
+| Metric | Value |
+|--------|-------|
+| **Total commits** | {gh_total_commits:,} |
+| **Total PRs merged** | {gh_total_prs_merged:,} |
+| **PRs open** | {gh_total_prs_open:,} |
+| **PRs closed** | {gh_total_prs_closed:,} |
+| **Issues open** | {gh_total_issues_open:,} |
+| **Issues closed** | {gh_total_issues_closed:,} |
+| **Total forks** | {gh_total_forks:,} |
+| **Total contributors** | {gh_total_contributors:,} |
+
+## Content Analysis
 
 | Metric | Value |
 |--------|-------|

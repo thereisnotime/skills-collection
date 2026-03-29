@@ -1,326 +1,974 @@
 {
   "slavingia--skills": {
     "skills": 10,
-    "stars": 5203
+    "stars": 5219,
+    "forks": 370,
+    "total_commits": 8,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 4,
+    "prs_closed": 10,
+    "prs_merged": 3,
+    "contributors": 3
   },
   "zarazhangrui--codebase-to-course": {
     "skills": 3,
-    "stars": 2392
+    "stars": 2401,
+    "forks": 214,
+    "total_commits": 9,
+    "issues_open": 3,
+    "issues_closed": 0,
+    "prs_open": 2,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 2
   },
   "samber--cc-skills-golang": {
     "skills": 168,
-    "stars": 609
+    "stars": 617,
+    "forks": 25,
+    "total_commits": 31,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 6,
+    "contributors": 3
   },
   "realkimbarrett--advertising-skills": {
     "skills": 19,
-    "stars": 446
+    "stars": 449,
+    "forks": 21,
+    "total_commits": 6,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "ComposioHQ--awesome-claude-skills": {
     "skills": 889,
-    "stars": 49009
+    "stars": 49020,
+    "forks": 5058,
+    "total_commits": 53,
+    "issues_open": 78,
+    "issues_closed": 4,
+    "prs_open": 340,
+    "prs_closed": 77,
+    "prs_merged": 20,
+    "contributors": 13
   },
   "anthropics--skills": {
     "skills": 67,
-    "stars": 105450
+    "stars": 105473,
+    "forks": 11664,
+    "total_commits": 25,
+    "issues_open": 169,
+    "issues_closed": 27,
+    "prs_open": 435,
+    "prs_closed": 119,
+    "prs_merged": 24,
+    "contributors": 10
   },
   "1NickPappas--move-code-quality-skill": {
     "skills": 1,
-    "stars": 18
+    "stars": 18,
+    "forks": 0,
+    "total_commits": 5,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "ARPeeketi--claude-resume-kit": {
     "skills": 22,
-    "stars": 30
+    "stars": 30,
+    "forks": 5,
+    "total_commits": 12,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "AgriciDaniel--claude-blog": {
     "skills": 77,
-    "stars": 335
+    "stars": 335,
+    "forks": 91,
+    "total_commits": 53,
+    "issues_open": 0,
+    "issues_closed": 2,
+    "prs_open": 3,
+    "prs_closed": 1,
+    "prs_merged": 2,
+    "contributors": 2
   },
   "AgriciDaniel--claude-email": {
     "skills": 27,
-    "stars": 16
+    "stars": 16,
+    "forks": 7,
+    "total_commits": 14,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "ClickHouse--agent-skills": {
     "skills": 34,
-    "stars": 379
+    "stars": 379,
+    "forks": 16,
+    "total_commits": 13,
+    "issues_open": 1,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 4,
+    "prs_merged": 9,
+    "contributors": 5
   },
   "Digidai--product-manager-skills": {
     "skills": 27,
-    "stars": 33
+    "stars": 33,
+    "forks": 2,
+    "total_commits": 19,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 1,
+    "contributors": 1
   },
   "EveryInc--compound-engineering-plugin": {
     "skills": 232,
-    "stars": 11516
+    "stars": 11524,
+    "forks": 900,
+    "total_commits": 539,
+    "issues_open": 31,
+    "issues_closed": 108,
+    "prs_open": 20,
+    "prs_closed": 79,
+    "prs_merged": 198,
+    "contributors": 47
   },
   "Eyadkelleh--awesome-claude-skills-security": {
     "skills": 19,
-    "stars": 113
+    "stars": 113,
+    "forks": 18,
+    "total_commits": 6,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 1,
+    "contributors": 3
   },
   "HeshamFS--materials-simulation-skills": {
     "skills": 69,
-    "stars": 28
+    "stars": 28,
+    "forks": 2,
+    "total_commits": 23,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "Imbad0202--academic-research-skills": {
     "skills": 120,
-    "stars": 1567
+    "stars": 1573,
+    "forks": 183,
+    "total_commits": 61,
+    "issues_open": 0,
+    "issues_closed": 1,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 1,
+    "contributors": 1
   },
   "K-Dense-AI--claude-scientific-skills": {
     "skills": 921,
-    "stars": 16613
+    "stars": 16613,
+    "forks": 1815,
+    "total_commits": 374,
+    "issues_open": 4,
+    "issues_closed": 28,
+    "prs_open": 19,
+    "prs_closed": 18,
+    "prs_merged": 44,
+    "contributors": 28
   },
   "K-Dense-AI--claude-scientific-writer": {
     "skills": 502,
-    "stars": 1351
+    "stars": 1351,
+    "forks": 162,
+    "total_commits": 202,
+    "issues_open": 4,
+    "issues_closed": 5,
+    "prs_open": 2,
+    "prs_closed": 2,
+    "prs_merged": 5,
+    "contributors": 5
   },
   "NeoLabHQ--context-engineering-kit": {
-    "skills": 220,
-    "stars": 727
+    "skills": 230,
+    "stars": 728,
+    "forks": 62,
+    "total_commits": 265,
+    "issues_open": 5,
+    "issues_closed": 11,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 55,
+    "contributors": 5
   },
   "Orchestra-Research--AI-research-SKILLs": {
     "skills": 350,
-    "stars": 5795
+    "stars": 5797,
+    "forks": 446,
+    "total_commits": 198,
+    "issues_open": 3,
+    "issues_closed": 13,
+    "prs_open": 5,
+    "prs_closed": 6,
+    "prs_merged": 14,
+    "contributors": 12
   },
   "Paramchoudhary--ResumeSkills": {
     "skills": 27,
-    "stars": 195
+    "stars": 195,
+    "forks": 23,
+    "total_commits": 4,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "Valian--linear-cli-skill": {
     "skills": 2,
-    "stars": 13
+    "stars": 13,
+    "forks": 3,
+    "total_commits": 15,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 3,
+    "contributors": 1
   },
   "ahmedasmar--devops-claude-skills": {
     "skills": 41,
-    "stars": 108
+    "stars": 108,
+    "forks": 19,
+    "total_commits": 13,
+    "issues_open": 1,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 4,
+    "contributors": 1
   },
   "airowe--claude-a11y-skill": {
     "skills": 1,
-    "stars": 4
+    "stars": 4,
+    "forks": 1,
+    "total_commits": 1,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "akin-ozer--cc-devops-skills": {
     "skills": 126,
-    "stars": 143
+    "stars": 143,
+    "forks": 14,
+    "total_commits": 20,
+    "issues_open": 1,
+    "issues_closed": 4,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "alonw0--web-asset-generator": {
     "skills": 4,
-    "stars": 255
+    "stars": 255,
+    "forks": 15,
+    "total_commits": 12,
+    "issues_open": 1,
+    "issues_closed": 1,
+    "prs_open": 0,
+    "prs_closed": 1,
+    "prs_merged": 1,
+    "contributors": 2
   },
   "antonbabenko--terraform-skill": {
     "skills": 12,
-    "stars": 1405
+    "stars": 1405,
+    "forks": 106,
+    "total_commits": 26,
+    "issues_open": 2,
+    "issues_closed": 3,
+    "prs_open": 3,
+    "prs_closed": 0,
+    "prs_merged": 1,
+    "contributors": 3
   },
   "avifenesh--agentsys": {
     "skills": 90,
-    "stars": 667
+    "stars": 668,
+    "forks": 68,
+    "total_commits": 715,
+    "issues_open": 2,
+    "issues_closed": 160,
+    "prs_open": 0,
+    "prs_closed": 13,
+    "prs_merged": 139,
+    "contributors": 6
   },
   "better-auth--skills": {
     "skills": 7,
-    "stars": 162
+    "stars": 162,
+    "forks": 21,
+    "total_commits": 20,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 2,
+    "prs_closed": 1,
+    "prs_merged": 7,
+    "contributors": 6
   },
   "better-i18n--skills": {
     "skills": 24,
-    "stars": 1
+    "stars": 1,
+    "forks": 0,
+    "total_commits": 17,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 2
   },
   "brunoasm--my_claude_skills": {
     "skills": 13,
-    "stars": 9
+    "stars": 9,
+    "forks": 1,
+    "total_commits": 82,
+    "issues_open": 0,
+    "issues_closed": 19,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 9,
+    "contributors": 2
   },
   "callstackincubator--agent-skills": {
     "skills": 115,
-    "stars": 1148
+    "stars": 1148,
+    "forks": 74,
+    "total_commits": 43,
+    "issues_open": 2,
+    "issues_closed": 4,
+    "prs_open": 2,
+    "prs_closed": 5,
+    "prs_merged": 32,
+    "contributors": 13
   },
   "chrisvoncsefalvay--claude-d3js-skill": {
     "skills": 4,
-    "stars": 138
+    "stars": 138,
+    "forks": 12,
+    "total_commits": 1,
+    "issues_open": 2,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 1,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "cloudflare--skills": {
     "skills": 282,
-    "stars": 738
+    "stars": 738,
+    "forks": 84,
+    "total_commits": 26,
+    "issues_open": 5,
+    "issues_closed": 4,
+    "prs_open": 3,
+    "prs_closed": 4,
+    "prs_merged": 18,
+    "contributors": 12
   },
   "coffeefuelbump--csv-data-summarizer-claude-skill": {
     "skills": 1,
-    "stars": 317
+    "stars": 317,
+    "forks": 49,
+    "total_commits": 1,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 1,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "conorbronsdon--avoid-ai-writing": {
     "skills": 1,
-    "stars": 47
+    "stars": 47,
+    "forks": 2,
+    "total_commits": 35,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 5,
+    "contributors": 1
   },
   "conorluddy--ios-simulator-skill": {
     "skills": 8,
-    "stars": 681
+    "stars": 681,
+    "forks": 39,
+    "total_commits": 47,
+    "issues_open": 4,
+    "issues_closed": 3,
+    "prs_open": 0,
+    "prs_closed": 7,
+    "prs_merged": 16,
+    "contributors": 2
   },
   "coreyhaines31--marketingskills": {
     "skills": 174,
-    "stars": 17296
+    "stars": 17302,
+    "forks": 2609,
+    "total_commits": 169,
+    "issues_open": 1,
+    "issues_closed": 95,
+    "prs_open": 5,
+    "prs_closed": 45,
+    "prs_merged": 58,
+    "contributors": 8
   },
   "dreamiurg--claude-mountaineering-skills": {
-    "skills": 14,
-    "stars": 22
+    "skills": 15,
+    "stars": 22,
+    "forks": 0,
+    "total_commits": 79,
+    "issues_open": 12,
+    "issues_closed": 1,
+    "prs_open": 3,
+    "prs_closed": 3,
+    "prs_merged": 53,
+    "contributors": 3
   },
   "emaynard--claude-family-history-research-skill": {
     "skills": 14,
-    "stars": 49
+    "stars": 49,
+    "forks": 3,
+    "total_commits": 23,
+    "issues_open": 0,
+    "issues_closed": 2,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 3,
+    "contributors": 2
   },
   "expo--skills": {
     "skills": 38,
-    "stars": 1567
+    "stars": 1567,
+    "forks": 72,
+    "total_commits": 54,
+    "issues_open": 4,
+    "issues_closed": 0,
+    "prs_open": 12,
+    "prs_closed": 2,
+    "prs_merged": 20,
+    "contributors": 12
   },
   "firecrawl--cli": {
     "skills": 10,
-    "stars": 231
+    "stars": 231,
+    "forks": 34,
+    "total_commits": 275,
+    "issues_open": 1,
+    "issues_closed": 4,
+    "prs_open": 6,
+    "prs_closed": 8,
+    "prs_merged": 62,
+    "contributors": 7
   },
   "hashicorp--agent-skills": {
     "skills": 26,
-    "stars": 495
+    "stars": 495,
+    "forks": 60,
+    "total_commits": 45,
+    "issues_open": 7,
+    "issues_closed": 0,
+    "prs_open": 10,
+    "prs_closed": 4,
+    "prs_merged": 30,
+    "contributors": 9
   },
   "jananthan30--Resume-Builder": {
     "skills": 18,
-    "stars": 21
+    "stars": 21,
+    "forks": 8,
+    "total_commits": 35,
+    "issues_open": 2,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "javiera-vasquez--claude-code-job-tailor": {
     "skills": 15,
-    "stars": 105
+    "stars": 105,
+    "forks": 24,
+    "total_commits": 368,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 28,
+    "contributors": 1
   },
   "jawwadfirdousi--agent-skills": {
     "skills": 7,
-    "stars": 5
+    "stars": 5,
+    "forks": 1,
+    "total_commits": 23,
+    "issues_open": 1,
+    "issues_closed": 1,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 6,
+    "contributors": 1
   },
   "jthack--ffuf_claude_skill": {
     "skills": 3,
-    "stars": 130
+    "stars": 130,
+    "forks": 7,
+    "total_commits": 2,
+    "issues_open": 1,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "lackeyjb--playwright-skill": {
     "skills": 2,
-    "stars": 2240
+    "stars": 2240,
+    "forks": 144,
+    "total_commits": 21,
+    "issues_open": 7,
+    "issues_closed": 6,
+    "prs_open": 9,
+    "prs_closed": 8,
+    "prs_merged": 6,
+    "contributors": 2
   },
   "livelabs-ventures--nano-skills": {
     "skills": 1,
-    "stars": 8
+    "stars": 8,
+    "forks": 0,
+    "total_commits": 2,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "mhattingpete--claude-skills-marketplace": {
     "skills": 34,
-    "stars": 516
+    "stars": 516,
+    "forks": 59,
+    "total_commits": 21,
+    "issues_open": 6,
+    "issues_closed": 0,
+    "prs_open": 4,
+    "prs_closed": 1,
+    "prs_merged": 17,
+    "contributors": 1
   },
   "michalparkola--tapestry-skills-for-claude-code": {
     "skills": 7,
-    "stars": 305
+    "stars": 305,
+    "forks": 53,
+    "total_commits": 16,
+    "issues_open": 1,
+    "issues_closed": 2,
+    "prs_open": 2,
+    "prs_closed": 0,
+    "prs_merged": 1,
+    "contributors": 2
   },
   "neondatabase--agent-skills": {
     "skills": 13,
-    "stars": 43
+    "stars": 43,
+    "forks": 5,
+    "total_commits": 82,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 17,
+    "contributors": 7
   },
   "netlify--context-and-tools": {
     "skills": 44,
-    "stars": 10
+    "stars": 10,
+    "forks": 4,
+    "total_commits": 46,
+    "issues_open": 2,
+    "issues_closed": 0,
+    "prs_open": 2,
+    "prs_closed": 0,
+    "prs_merged": 12,
+    "contributors": 7
   },
   "obra--superpowers": {
     "skills": 69,
-    "stars": 122006
+    "stars": 122088,
+    "forks": 9925,
+    "total_commits": 407,
+    "issues_open": 87,
+    "issues_closed": 400,
+    "prs_open": 107,
+    "prs_closed": 335,
+    "prs_merged": 49,
+    "contributors": 31
   },
   "obra--superpowers-skills": {
     "skills": 46,
-    "stars": 582
+    "stars": 582,
+    "forks": 132,
+    "total_commits": 35,
+    "issues_open": 2,
+    "issues_closed": 12,
+    "prs_open": 5,
+    "prs_closed": 3,
+    "prs_merged": 6,
+    "contributors": 5
   },
   "omkamal--pypict-claude-skill": {
     "skills": 13,
-    "stars": 62
+    "stars": 62,
+    "forks": 8,
+    "total_commits": 17,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 1,
+    "contributors": 2
   },
   "proficientlyjobs--proficiently-claude-skills": {
     "skills": 24,
-    "stars": 79
+    "stars": 79,
+    "forks": 11,
+    "total_commits": 34,
+    "issues_open": 0,
+    "issues_closed": 1,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 4,
+    "contributors": 2
   },
   "remotion-dev--skills": {
     "skills": 38,
-    "stars": 2451
+    "stars": 2452,
+    "forks": 292,
+    "total_commits": 34,
+    "issues_open": 1,
+    "issues_closed": 2,
+    "prs_open": 3,
+    "prs_closed": 3,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "replicate--skills": {
     "skills": 2,
-    "stars": 26
+    "stars": 26,
+    "forks": 1,
+    "total_commits": 10,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 3,
+    "prs_closed": 0,
+    "prs_merged": 2,
+    "contributors": 1
   },
   "robertguss--claude-skills": {
     "skills": 244,
-    "stars": 55
+    "stars": 55,
+    "forks": 11,
+    "total_commits": 63,
+    "issues_open": 1,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 1,
+    "prs_merged": 5,
+    "contributors": 2
   },
   "ryanbbrown--revealjs-skill": {
     "skills": 4,
-    "stars": 241
+    "stars": 241,
+    "forks": 24,
+    "total_commits": 16,
+    "issues_open": 2,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "sanity-io--agent-toolkit": {
     "skills": 44,
-    "stars": 105
+    "stars": 105,
+    "forks": 10,
+    "total_commits": 78,
+    "issues_open": 3,
+    "issues_closed": 2,
+    "prs_open": 6,
+    "prs_closed": 6,
+    "prs_merged": 22,
+    "contributors": 9
   },
   "sanjay3290--ai-skills": {
     "skills": 24,
-    "stars": 181
+    "stars": 181,
+    "forks": 17,
+    "total_commits": 40,
+    "issues_open": 3,
+    "issues_closed": 4,
+    "prs_open": 0,
+    "prs_closed": 1,
+    "prs_merged": 1,
+    "contributors": 1
   },
   "smerchek--claude-epub-skill": {
     "skills": 5,
-    "stars": 103
+    "stars": 103,
+    "forks": 12,
+    "total_commits": 14,
+    "issues_open": 1,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "squirrelscan--skills": {
     "skills": 2,
-    "stars": 68
+    "stars": 68,
+    "forks": 7,
+    "total_commits": 41,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 3,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "stripe--ai": {
     "skills": 47,
-    "stars": 1411
+    "stars": 1411,
+    "forks": 240,
+    "total_commits": 317,
+    "issues_open": 8,
+    "issues_closed": 32,
+    "prs_open": 0,
+    "prs_closed": 93,
+    "prs_merged": 184,
+    "contributors": 33
   },
   "supabase--agent-skills": {
     "skills": 39,
-    "stars": 1727
+    "stars": 1727,
+    "forks": 112,
+    "total_commits": 51,
+    "issues_open": 2,
+    "issues_closed": 2,
+    "prs_open": 9,
+    "prs_closed": 12,
+    "prs_merged": 31,
+    "contributors": 7
   },
   "tinybirdco--tinybird-agent-skills": {
     "skills": 47,
-    "stars": 14
+    "stars": 14,
+    "forks": 0,
+    "total_commits": 50,
+    "issues_open": 1,
+    "issues_closed": 1,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 14,
+    "contributors": 6
   },
   "trailofbits--skills": {
     "skills": 389,
-    "stars": 4072
+    "stars": 4073,
+    "forks": 356,
+    "total_commits": 97,
+    "issues_open": 13,
+    "issues_closed": 7,
+    "prs_open": 12,
+    "prs_closed": 12,
+    "prs_merged": 94,
+    "contributors": 24
   },
   "typefully--agent-skills": {
     "skills": 4,
-    "stars": 39
+    "stars": 39,
+    "forks": 2,
+    "total_commits": 31,
+    "issues_open": 6,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 1,
+    "prs_merged": 11,
+    "contributors": 2
   },
   "varunr89--resume-tailoring-skill": {
     "skills": 12,
-    "stars": 199
+    "stars": 199,
+    "forks": 31,
+    "total_commits": 33,
+    "issues_open": 2,
+    "issues_closed": 0,
+    "prs_open": 2,
+    "prs_closed": 1,
+    "prs_merged": 2,
+    "contributors": 2
   },
   "vercel-labs--agent-skills": {
     "skills": 127,
-    "stars": 24046
+    "stars": 24049,
+    "forks": 2189,
+    "total_commits": 137,
+    "issues_open": 44,
+    "issues_closed": 22,
+    "prs_open": 61,
+    "prs_closed": 31,
+    "prs_merged": 43,
+    "contributors": 19
   },
   "vercel-labs--next-skills": {
     "skills": 24,
-    "stars": 783
+    "stars": 783,
+    "forks": 51,
+    "total_commits": 28,
+    "issues_open": 5,
+    "issues_closed": 2,
+    "prs_open": 3,
+    "prs_closed": 1,
+    "prs_merged": 2,
+    "contributors": 2
   },
   "wrsmith108--linear-claude-skill": {
     "skills": 7,
-    "stars": 74
+    "stars": 74,
+    "forks": 11,
+    "total_commits": 94,
+    "issues_open": 0,
+    "issues_closed": 7,
+    "prs_open": 1,
+    "prs_closed": 2,
+    "prs_merged": 7,
+    "contributors": 3
   },
   "wrsmith108--varlock-claude-skill": {
     "skills": 1,
-    "stars": 16
+    "stars": 16,
+    "forks": 0,
+    "total_commits": 5,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "zarazhangrui--frontend-slides": {
     "skills": 4,
-    "stars": 11618
+    "stars": 11619,
+    "forks": 859,
+    "total_commits": 13,
+    "issues_open": 7,
+    "issues_closed": 3,
+    "prs_open": 14,
+    "prs_closed": 9,
+    "prs_merged": 4,
+    "contributors": 6
   },
   "zxkane--aws-skills": {
     "skills": 19,
-    "stars": 224
+    "stars": 224,
+    "forks": 24,
+    "total_commits": 21,
+    "issues_open": 0,
+    "issues_closed": 2,
+    "prs_open": 0,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 1
   },
   "travisvn--awesome-claude-skills": {
     "skills": 0,
-    "stars": 10017
+    "stars": 10021,
+    "forks": 962,
+    "total_commits": 41,
+    "issues_open": 10,
+    "issues_closed": 15,
+    "prs_open": 206,
+    "prs_closed": 199,
+    "prs_merged": 1,
+    "contributors": 2
   },
   "obra--superpowers-lab": {
     "skills": 7,
-    "stars": 255
+    "stars": 255,
+    "forks": 17,
+    "total_commits": 6,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 1,
+    "prs_closed": 0,
+    "prs_merged": 0,
+    "contributors": 2
   },
   "asklokesh--claudeskill-loki-mode": {
-    "skills": 232,
-    "stars": 793
+    "skills": 235,
+    "stars": 793,
+    "forks": 159,
+    "total_commits": 848,
+    "issues_open": 0,
+    "issues_closed": 0,
+    "prs_open": 0,
+    "prs_closed": 11,
+    "prs_merged": 23,
+    "contributors": 5
   },
   "yusufkaraaslan--Skill_Seekers": {
     "skills": 172,
-    "stars": 11440
+    "stars": 11440,
+    "forks": 1124,
+    "total_commits": 681,
+    "issues_open": 96,
+    "issues_closed": 135,
+    "prs_open": 0,
+    "prs_closed": 26,
+    "prs_merged": 53,
+    "contributors": 34
   }
 }
