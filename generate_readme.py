@@ -24,6 +24,7 @@ HISTORY_PATH = Path(__file__).parent / "history.json"
 COMMITS_PATH = Path(__file__).parent / "commits.json"
 REPO_COMMITS_PATH = Path(__file__).parent / "repo-commits.json"
 ANALYSIS_PATH = Path(__file__).parent / "analysis.json"
+SKILLS_LIST_PATH = Path(__file__).parent / "skills-list.json"
 CHARTS_DIR = Path(__file__).parent / "charts"
 
 # -- Chart colors --
@@ -691,29 +692,24 @@ def cleanup_stale_dirs(repos):
 
 
 def cleanup_stale_data(repos):
-    """Prune removed repos from commits.json, repo-commits.json, and stats.json."""
+    """Prune removed repos from all per-repo data files."""
     inventory_dirs = {repo["dir"] for repo in repos}
     cleaned = []
 
-    for path, loader in [
-        (COMMITS_PATH, load_commits),
-        (STATS_PATH, load_previous_stats),
-    ]:
-        if path.exists():
-            data = loader()
-            before = len(data)
-            pruned = {k: v for k, v in data.items() if k in inventory_dirs}
-            if len(pruned) < before:
-                path.write_text(json.dumps(pruned, indent=2) + "\n")
-                cleaned.append(f"{path.name}: {before - len(pruned)} stale entries removed")
-
-    if REPO_COMMITS_PATH.exists():
-        data = json.loads(REPO_COMMITS_PATH.read_text())
+    for path in [COMMITS_PATH, STATS_PATH, REPO_COMMITS_PATH, ANALYSIS_PATH, SKILLS_LIST_PATH]:
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(data, dict):
+            continue
         before = len(data)
         pruned = {k: v for k, v in data.items() if k in inventory_dirs}
         if len(pruned) < before:
-            REPO_COMMITS_PATH.write_text(json.dumps(pruned, indent=2) + "\n")
-            cleaned.append(f"repo-commits.json: {before - len(pruned)} stale entries removed")
+            path.write_text(json.dumps(pruned, indent=2) + "\n")
+            cleaned.append(f"{path.name}: {before - len(pruned)} stale entries removed")
 
     if cleaned:
         for msg in cleaned:
