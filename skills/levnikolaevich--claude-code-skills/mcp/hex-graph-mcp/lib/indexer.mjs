@@ -11,15 +11,16 @@
  */
 
 import { readFileSync, statSync, readdirSync, existsSync, mkdirSync } from "node:fs";
-import { resolve, extname, relative, join, dirname, basename } from "node:path";
+import { resolve, extname, relative, join, basename } from "node:path";
 import { createHash } from "node:crypto";
 import { getStore, CODEGRAPH_DIR } from "./store.mjs";
 import { parseFile, languageFor, supportedExtensions } from "./parser.mjs";
+import { discoverWorkspace, persistWorkspace } from "./workspace.mjs";
 
 const IGNORE_DIRS = new Set([
     "node_modules", ".git", "dist", "build", "out", ".next",
     "__pycache__", ".venv", "venv", "vendor", "target",
-    CODEGRAPH_DIR, ".vs", "bin", "obj", "packages",
+    CODEGRAPH_DIR, ".vs", "bin", "obj",
 ]);
 
 const MAX_FILE_SIZE = 500_000; // 500KB
@@ -61,7 +62,9 @@ export async function indexProject(projectPath, { languages } = {}) {
 
     // Pass 1: SCAN
     const filesToIndex = [];
-    walkDir(absPath, absPath, allowedSet, store, filesToIndex);
+    const allSourceFiles = [];
+    walkDir(absPath, absPath, allowedSet, store, filesToIndex, allSourceFiles);
+    const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
 
     // Pass 2: PARSE
     let parsed = 0;
@@ -83,7 +86,15 @@ export async function indexProject(projectPath, { languages } = {}) {
         const { definitions, imports, calls, references } = result;
 
         // Bulk insert definitions + imports
-        const nodeIds = store.bulkInsert(relPath, mtime, hash, language, definitions, imports);
+        const nodeIds = store.bulkInsert(
+            relPath,
+            mtime,
+            hash,
+            language,
+            definitions,
+            imports,
+            workspace.ownershipIds.get(relPath) || null,
+        );
 
         // Insert clone detection data
         persistCloneData(store, definitions, nodeIds);
@@ -96,7 +107,7 @@ export async function indexProject(projectPath, { languages } = {}) {
     let edgeCount = 0;
     for (const [filePath, data] of fileNodeMap) {
         const { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, language, nodeIds } = data;
-        edgeCount += resolveFileEdges(store, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
+        edgeCount += resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
     }
     store.rebuildAllModuleLayerEdges();
 
@@ -133,11 +144,22 @@ export async function reindexFile(projectPath, filePath) {
     if (!language) return;
 
     const store = getStore(absPath);
+    const allSourceFiles = [];
+    walkDir(absPath, absPath, new Set(supportedExtensions()), store, [], allSourceFiles);
+    const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
     const { definitions, imports, calls, references, exports: fileExports, defaultExport, reexports } = await parseFile(fullPath, source, { cloneDetection: true });
-    const nodeIds = store.bulkInsert(filePath, stat.mtimeMs, hash, language, definitions, imports);
+    const nodeIds = store.bulkInsert(
+        filePath,
+        stat.mtimeMs,
+        hash,
+        language,
+        definitions,
+        imports,
+        workspace.ownershipIds.get(filePath) || null,
+    );
 
     persistCloneData(store, definitions, nodeIds);
-    resolveFileEdges(store, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
+    resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
     store.rebuildAllModuleLayerEdges();
 }
 
@@ -149,7 +171,7 @@ export async function reindexFile(projectPath, filePath) {
  * marks exported symbols, and persists module_edges.
  * @returns {number} count of call edges created
  */
-function resolveFileEdges(store, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language }) {
+function resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language }) {
     let callEdgeCount = 0;
 
     // 1. Create synthetic reexport nodes
@@ -208,43 +230,101 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
         }
     }
 
-    // 3. Build imported symbol map (specifier-aware resolution)
+    // 3. Build imported symbol map from workspace resolution.
     const importedSymbols = new Map();
+    const fileOwnership = workspace.ownershipIds.get(filePath) || null;
+    store.clearModuleEdges(filePath);
+    store.clearPackageEdgesForFile(filePath);
     for (const imp of imports) {
-        const resolvedFile = resolveImportSource(imp.source, filePath, store);
-        const targetNodes = resolvedFile ? store.nodesByFile(resolvedFile) : [];
-        const externalModule = !resolvedFile ? store.ensureExternalModuleNode(imp.source, language) : null;
+        const resolution = workspace.resolveImport(filePath, imp, language);
+        const dependencyTarget = materializeDependencyTarget(store, workspace, resolution, language);
+        const targetNodes = resolution.targetFile ? store.nodesByFile(resolution.targetFile) : [];
+        const importSpecs = imp.specifiers && imp.specifiers.length > 0
+            ? imp.specifiers
+            : imp.name.split(", ").map(name => ({ imported: name.trim(), local: name.trim(), type: "named" })).filter(spec => spec.imported);
 
-        if (imp.specifiers && imp.specifiers.length > 0) {
-            for (const spec of imp.specifiers) {
-                if (!resolvedFile) {
-                    if (spec.type === "named") {
-                        const target = store.ensureExternalSymbolNode(imp.source, spec.imported, language);
-                        importedSymbols.set(spec.local, target.id);
-                    } else if (spec.type === "default") {
-                        const target = store.ensureExternalSymbolNode(imp.source, "default", language);
-                        importedSymbols.set(spec.local, target.id);
-                    } else if ((spec.type === "namespace" || spec.type === "module") && externalModule) {
-                        importedSymbols.set(spec.local, externalModule.id);
+        if (fileOwnership?.package_id && fileOwnership?.workspace_module_id) {
+            store.insertPackageEdge({
+                source_module_id: fileOwnership.workspace_module_id,
+                target_module_id: dependencyTarget.target_module_id,
+                source_package_id: fileOwnership.package_id,
+                target_package_id: dependencyTarget.target_package_id,
+                source_file: filePath,
+                target_file: resolution.targetFile || null,
+                import_source: resolution.import_source || imp.source,
+                resolution: resolution.resolution || "unresolved",
+                is_reexport: 0,
+            });
+        }
+
+        const rawTargetFile = resolution.targetFile || store.externalModuleFile(imp.source);
+        store.insertModuleEdge({
+            source_file: filePath,
+            target_file: rawTargetFile,
+            line: imp.line,
+            is_side_effect: !imp.name || imp.name === "*" || imp.name === "" ? 1 : 0,
+            is_dynamic: 0,
+            is_reexport: 0,
+        });
+
+        const importNodeId = nodeIds.get(`import:${imp.source}:${imp.line}`);
+        const moduleNode = resolution.targetFile ? store.findByQualified(`${resolution.targetFile}:module`)[0] : null;
+
+        for (const spec of importSpecs) {
+            let target = null;
+
+            if (!resolution.targetFile) {
+                if (spec.type === "default") {
+                    target = store.ensureExternalSymbolNode(imp.source, "default", language);
+                } else if (spec.type === "named") {
+                    target = store.ensureExternalSymbolNode(imp.source, spec.imported, language);
+                } else if (spec.type === "namespace" || spec.type === "module") {
+                    target = store.ensureExternalModuleNode(imp.source, language);
+                }
+            } else if (spec.type === "default") {
+                target = targetNodes.find(node => node.is_default_export && node.kind !== "import") || null;
+            } else if (spec.type === "namespace") {
+                if (importNodeId) {
+                    const namespaceTargets = targetNodes.filter(node =>
+                        node.kind !== "import"
+                        && node.kind !== "module"
+                        && !node.is_default_export
+                    );
+                    for (const exported of namespaceTargets) {
+                        store.insertEdge({
+                            source_id: importNodeId,
+                            target_id: exported.id,
+                            layer: "symbol",
+                            kind: "imports",
+                            confidence: "namespace",
+                            origin: resolution.resolution || "workspace_resolved",
+                            file: filePath,
+                            line: imp.line,
+                        });
                     }
-                    continue;
                 }
-
-                if (spec.type === "named") {
-                    const target = targetNodes.find(n => n.name === spec.imported && n.kind !== "import");
-                    if (target) importedSymbols.set(spec.local, target.id);
-                } else if (spec.type === "default") {
-                    const target = targetNodes.find(n => n.is_default_export && n.kind !== "import");
-                    if (target) importedSymbols.set(spec.local, target.id);
-                }
+                continue;
+            } else if (spec.type === "module") {
+                target = moduleNode || null;
+            } else {
+                target = targetNodes.find(node => node.name === spec.imported && node.kind !== "import") || null;
             }
-        } else if (resolvedFile) {
-            // Fallback for non-structured imports (Python etc.)
-            for (const name of imp.name.split(", ")) {
-                const trimmed = name.trim();
-                if (!trimmed || trimmed === "*") continue;
-                const target = targetNodes.find(n => n.name === trimmed && n.kind !== "import");
-                if (target) importedSymbols.set(trimmed, target.id);
+
+            if (target && spec.local) {
+                importedSymbols.set(spec.local, target.id);
+            }
+
+            if (importNodeId && target) {
+                store.insertEdge({
+                    source_id: importNodeId,
+                    target_id: target.id,
+                    layer: "symbol",
+                    kind: "imports",
+                    confidence: resolution.targetFile ? "exact" : "low",
+                    origin: resolution.resolution || "unresolved",
+                    file: filePath,
+                    line: imp.line,
+                });
             }
         }
     }
@@ -305,79 +385,7 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
         }
     }
 
-    // 6. Persist symbol-level import edges
-    for (const imp of imports) {
-        const resolvedFile = resolveImportSource(imp.source, filePath, store);
-        if (!imp.specifiers || imp.specifiers.length === 0) continue;
-
-        const sourceId = nodeIds.get(`import:${imp.source}:${imp.line}`);
-        if (!sourceId) continue;
-
-        const targetNodes = resolvedFile ? store.nodesByFile(resolvedFile) : [];
-
-        for (const spec of imp.specifiers) {
-            let target;
-            const confidence = resolvedFile ? "exact" : "low";
-
-            if (!resolvedFile) {
-                if (spec.type === "default") {
-                    target = store.ensureExternalSymbolNode(imp.source, "default", language);
-                } else if (spec.type === "named") {
-                    target = store.ensureExternalSymbolNode(imp.source, spec.imported, language);
-                } else if (spec.type === "namespace" || spec.type === "module") {
-                    target = store.ensureExternalModuleNode(imp.source, language);
-                }
-            } else if (spec.type === "default") {
-                target = targetNodes.find(n => n.is_default_export && n.kind !== "import");
-            } else if (spec.type === "namespace") {
-                for (const tn of targetNodes) {
-                    if (tn.kind !== "import" && tn.is_exported) {
-                        store.insertEdge({
-                            source_id: sourceId, target_id: tn.id,
-                            layer: "symbol",
-                            kind: "imports", confidence: "namespace",
-                            origin: "resolved",
-                            file: filePath, line: imp.line,
-                        });
-                    }
-                }
-                continue;
-            } else {
-                target = targetNodes.find(n => n.name === spec.imported && n.kind !== "import");
-            }
-
-            if (target) {
-                store.insertEdge({
-                    source_id: sourceId, target_id: target.id,
-                    layer: "symbol",
-                    kind: "imports", confidence,
-                    origin: resolvedFile ? "resolved" : "unresolved",
-                    file: filePath, line: imp.line,
-                });
-            }
-        }
-    }
-
-    // 7. Persist module-level import edges (file-to-file)
-    store.clearModuleEdges(filePath);
-    for (const imp of imports) {
-        const resolvedFile = resolveImportSource(imp.source, filePath, store);
-        const targetFile = resolvedFile || store.externalModuleFile(imp.source);
-        if (!resolvedFile) {
-            store.ensureExternalModuleNode(imp.source, language);
-        }
-        const isSideEffect = !imp.name || imp.name === "*" || imp.name === "";
-        store.insertModuleEdge({
-            source_file: filePath,
-            target_file: targetFile,
-            line: imp.line,
-            is_side_effect: isSideEffect ? 1 : 0,
-            is_dynamic: 0,
-            is_reexport: 0,
-        });
-    }
-
-    // 8. Mark exported symbols
+    // 4. Mark exported symbols
     if (fileExports && fileExports.size > 0) {
         for (const exportName of fileExports) {
             for (const def of definitions) {
@@ -401,14 +409,12 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
         }
     }
 
-    // 9. Wire reexport edges
+    // 5. Wire reexport edges
     if (reexports && reexports.length > 0) {
         for (const re of reexports) {
-            const resolvedTarget = resolveImportSource(re.source, filePath, store);
-            const targetFile = resolvedTarget || store.externalModuleFile(re.source);
-            if (!resolvedTarget) {
-                store.ensureExternalModuleNode(re.source, language);
-            }
+            const resolution = workspace.resolveImport(filePath, { source: re.source, specifiers: re.specifiers }, language);
+            const dependencyTarget = materializeDependencyTarget(store, workspace, resolution, language);
+            const targetFile = resolution.targetFile || store.externalModuleFile(re.source);
 
             store.insertModuleEdge({
                 source_file: filePath,
@@ -419,9 +425,23 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
                 is_reexport: 1,
             });
 
-            if (!resolvedTarget) continue;
+            if (fileOwnership?.package_id && fileOwnership?.workspace_module_id) {
+                store.insertPackageEdge({
+                    source_module_id: fileOwnership.workspace_module_id,
+                    target_module_id: dependencyTarget.target_module_id,
+                    source_package_id: fileOwnership.package_id,
+                    target_package_id: dependencyTarget.target_package_id,
+                    source_file: filePath,
+                    target_file: resolution.targetFile || null,
+                    import_source: resolution.import_source || re.source,
+                    resolution: resolution.resolution || "unresolved",
+                    is_reexport: 1,
+                });
+            }
 
-            const targetNodes = store.nodesByFile(resolvedTarget);
+            if (!resolution.targetFile) continue;
+
+            const targetNodes = store.nodesByFile(resolution.targetFile);
 
             for (const spec of re.specifiers) {
                 if (spec.type === "namespace" && spec.local === "*") continue;
@@ -451,13 +471,13 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
         }
     }
 
-    // 10. Resolve and persist call edges
+    // 6. Resolve and persist call edges
     for (const call of calls) {
         const callerDef = findEnclosingDefinition(call.line, definitions);
         const callerId = callerDef ? nodeIds.get(callerDef.key) : moduleNodeId;
 
         let targetId = null;
-        let confidence = "exact";
+        const confidence = "exact";
 
         // 1. Same-class sibling method
         if (callerDef?.parent && classMethods.has(`${callerDef.parent}.${call.name}`)) {
@@ -471,21 +491,6 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
         else if (importedSymbols.has(call.name)) {
             targetId = importedSymbols.get(call.name);
         }
-        // 4. Module-connected or global unique
-        else {
-            const candidates = store.findByName(call.name);
-            const nonImport = candidates.filter(c => c.kind !== "import");
-
-            const moduleConnected = nonImport.filter(c => store.moduleEdgeExists(filePath, c.file));
-            if (moduleConnected.length === 1) {
-                targetId = moduleConnected[0].id;
-                confidence = "inferred";
-            } else if (nonImport.length === 1) {
-                targetId = nonImport[0].id;
-                confidence = "heuristic";
-            }
-        }
-
         if (targetId && targetId !== callerId) {
             store.insertEdge({
                 source_id: callerId,
@@ -501,7 +506,7 @@ function resolveFileEdges(store, filePath, { source, definitions, imports, calls
         }
     }
 
-    // 11. Resolve reference edges
+    // 7. Resolve reference edges
     if (references && references.length > 0) {
         for (const ref of references) {
             const enclosingDef = findEnclosingDefinition(ref.line, definitions);
@@ -638,6 +643,47 @@ function namesEqual(left, right) {
     return left.replace(/^\$/, "") === right.replace(/^\$/, "");
 }
 
+function materializeDependencyTarget(store, workspace, resolution, language) {
+    if (resolution.target_module_key || resolution.target_package_key) {
+        return {
+            target_module_id: resolution.target_module_key ? workspace.moduleIds.get(resolution.target_module_key) ?? null : null,
+            target_package_id: resolution.target_package_key ? workspace.packageIds.get(resolution.target_package_key) ?? null : null,
+        };
+    }
+
+    if (resolution.resolution !== "external" || !resolution.import_source) {
+        return {
+            target_module_id: null,
+            target_package_id: null,
+        };
+    }
+
+    const packageKey = `external:${language}:${resolution.import_source}`;
+    const moduleKey = `external-module:${language}:${resolution.import_source}`;
+    const pkg = store.ensurePackage({
+        package_key: packageKey,
+        name: resolution.import_source,
+        language,
+        root_path: resolution.import_source,
+        is_external: 1,
+    });
+    const mod = store.ensureWorkspaceModule({
+        module_key: moduleKey,
+        package_id: pkg.id,
+        name: resolution.import_source,
+        language,
+        root_path: resolution.import_source,
+        is_external: 1,
+    });
+    workspace.packageIds.set(packageKey, pkg.id);
+    workspace.moduleIds.set(moduleKey, mod.id);
+
+    return {
+        target_module_id: mod.id,
+        target_package_id: pkg.id,
+    };
+}
+
 function resolveTypeTarget(name, filePath, localSymbols, importedSymbols, store) {
     if (localSymbols.has(name) && localSymbols.get(name) != null) {
         const node = store.getNodeById(localSymbols.get(name));
@@ -651,11 +697,6 @@ function resolveTypeTarget(name, filePath, localSymbols, importedSymbols, store)
             return { ...node, confidence: "exact" };
         }
     }
-
-    const candidates = store.findByName(name).filter(c => c.kind === "class" || c.kind === "interface");
-    const moduleConnected = candidates.filter(c => store.moduleEdgeExists(filePath, c.file));
-    if (moduleConnected.length === 1) return { ...moduleConnected[0], confidence: "inferred" };
-    if (candidates.length === 1) return { ...candidates[0], confidence: "heuristic" };
     return null;
 }
 
@@ -684,7 +725,7 @@ function persistCloneData(store, definitions, nodeIds) {
     }
 }
 
-function walkDir(dir, root, allowedExts, store, results, depth = 0) {
+function walkDir(dir, root, allowedExts, store, changedResults, allResults, depth = 0) {
     if (depth > 12) return;
 
     let entries;
@@ -699,7 +740,7 @@ function walkDir(dir, root, allowedExts, store, results, depth = 0) {
 
         if (entry.isDirectory()) {
             if (IGNORE_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
-            walkDir(fullPath, root, allowedExts, store, results, depth + 1);
+            walkDir(fullPath, root, allowedExts, store, changedResults, allResults, depth + 1);
         } else if (entry.isFile()) {
             const ext = extname(entry.name).toLowerCase();
             if (!allowedExts.has(ext)) continue;
@@ -715,11 +756,13 @@ function walkDir(dir, root, allowedExts, store, results, depth = 0) {
 
             const relPath = relative(root, fullPath).replace(/\\/g, "/");
 
+            allResults.push({ relPath, fullPath, mtime: stat.mtimeMs, language: languageFor(ext) });
+
             // Check if file changed (mtime comparison)
             const existing = store.getFile(relPath);
             if (existing && Math.abs(existing.mtime - stat.mtimeMs) < 1) continue;
 
-            results.push({ relPath, fullPath, mtime: stat.mtimeMs });
+            changedResults.push({ relPath, fullPath, mtime: stat.mtimeMs, language: languageFor(ext) });
         }
     }
 }
@@ -736,31 +779,4 @@ function findEnclosingDefinition(line, definitions) {
         }
     }
     return best;
-}
-
-function resolveImportSource(source, fromFile, store) {
-    if (!source) return null;
-
-    // Skip external packages (no relative path)
-    if (!source.startsWith(".") && !source.startsWith("/")) return null;
-
-    const fromDir = dirname(fromFile);
-    const candidates = [
-        join(fromDir, source).replace(/\\/g, "/"),
-        join(fromDir, source + ".js").replace(/\\/g, "/"),
-        join(fromDir, source + ".mjs").replace(/\\/g, "/"),
-        join(fromDir, source + ".ts").replace(/\\/g, "/"),
-        join(fromDir, source + ".tsx").replace(/\\/g, "/"),
-        join(fromDir, source + ".py").replace(/\\/g, "/"),
-        join(fromDir, source, "index.js").replace(/\\/g, "/"),
-        join(fromDir, source, "index.ts").replace(/\\/g, "/"),
-        join(fromDir, source, "index.mjs").replace(/\\/g, "/"),
-    ];
-
-    for (const candidate of candidates) {
-        const normalized = candidate.replace(/^\.\//, "");
-        if (store.getFile(normalized)) return normalized;
-    }
-
-    return null;
 }

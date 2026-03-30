@@ -12,9 +12,25 @@ import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 3;
 export const CODEGRAPH_DIR = ".hex-skills/codegraph";
 const EXTERNAL_FILE_PREFIX = "[[external]]/";
+const NODE_SELECT_COLUMNS = `
+    id,
+    name,
+    qualified_name,
+    workspace_qualified_name,
+    kind,
+    language,
+    file,
+    line_start,
+    line_end,
+    signature,
+    is_exported,
+    is_default_export,
+    package_id,
+    workspace_module_id
+`;
 
 /**
  * User-facing display name for a node. Hides internal synthetic names.
@@ -83,20 +99,44 @@ class Store {
 
     _initSchema() {
         this.db.exec(`
+            CREATE TABLE IF NOT EXISTS packages (
+                id INTEGER PRIMARY KEY,
+                package_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                language TEXT NOT NULL,
+                root_path TEXT NOT NULL,
+                is_external INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE TABLE IF NOT EXISTS workspace_modules (
+                id INTEGER PRIMARY KEY,
+                module_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                package_id INTEGER REFERENCES packages(id) ON DELETE CASCADE,
+                language TEXT NOT NULL,
+                root_path TEXT NOT NULL,
+                is_external INTEGER NOT NULL DEFAULT 0
+            );
+
             CREATE TABLE IF NOT EXISTS files (
                 path TEXT PRIMARY KEY,
                 mtime REAL NOT NULL,
                 hash TEXT NOT NULL,
-                node_count INTEGER DEFAULT 0
+                node_count INTEGER DEFAULT 0,
+                package_id INTEGER REFERENCES packages(id) ON DELETE SET NULL,
+                workspace_module_id INTEGER REFERENCES workspace_modules(id) ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS nodes (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 qualified_name TEXT,
+                workspace_qualified_name TEXT,
                 kind TEXT NOT NULL,
                 language TEXT NOT NULL,
                 file TEXT NOT NULL REFERENCES files(path) ON DELETE CASCADE,
+                package_id INTEGER REFERENCES packages(id) ON DELETE SET NULL,
+                workspace_module_id INTEGER REFERENCES workspace_modules(id) ON DELETE SET NULL,
                 line_start INTEGER,
                 line_end INTEGER,
                 parent_id INTEGER REFERENCES nodes(id) ON DELETE SET NULL,
@@ -118,10 +158,17 @@ class Store {
                 edge_hash TEXT
             );
 
+            CREATE INDEX IF NOT EXISTS idx_packages_key ON packages(package_key);
+            CREATE INDEX IF NOT EXISTS idx_workspace_modules_key ON workspace_modules(module_key);
+            CREATE INDEX IF NOT EXISTS idx_files_package_id ON files(package_id);
+            CREATE INDEX IF NOT EXISTS idx_files_workspace_module_id ON files(workspace_module_id);
             CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
             CREATE INDEX IF NOT EXISTS idx_nodes_file ON nodes(file);
             CREATE INDEX IF NOT EXISTS idx_nodes_qualified ON nodes(qualified_name);
+            CREATE INDEX IF NOT EXISTS idx_nodes_workspace_qualified ON nodes(workspace_qualified_name);
             CREATE INDEX IF NOT EXISTS idx_nodes_kind ON nodes(kind);
+            CREATE INDEX IF NOT EXISTS idx_nodes_package_id ON nodes(package_id);
+            CREATE INDEX IF NOT EXISTS idx_nodes_workspace_module_id ON nodes(workspace_module_id);
             CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
             CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
             CREATE INDEX IF NOT EXISTS idx_edges_kind ON edges(kind, source_id);
@@ -232,7 +279,7 @@ class Store {
               AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
         `);
 
-        // Module-level import edges (file-to-file)
+        // Module-level import edges (file-to-file raw evidence)
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS module_edges (
                 id INTEGER PRIMARY KEY,
@@ -246,6 +293,27 @@ class Store {
 
             CREATE INDEX IF NOT EXISTS idx_module_edges_source ON module_edges(source_file);
             CREATE INDEX IF NOT EXISTS idx_module_edges_target ON module_edges(target_file);
+        `);
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS package_edges (
+                id INTEGER PRIMARY KEY,
+                source_module_id INTEGER NOT NULL REFERENCES workspace_modules(id) ON DELETE CASCADE,
+                target_module_id INTEGER REFERENCES workspace_modules(id) ON DELETE SET NULL,
+                source_package_id INTEGER NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
+                target_package_id INTEGER REFERENCES packages(id) ON DELETE SET NULL,
+                source_file TEXT NOT NULL REFERENCES files(path) ON DELETE CASCADE,
+                target_file TEXT,
+                import_source TEXT NOT NULL,
+                resolution TEXT NOT NULL,
+                is_reexport INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_package_edges_source_module ON package_edges(source_module_id);
+            CREATE INDEX IF NOT EXISTS idx_package_edges_target_module ON package_edges(target_module_id);
+            CREATE INDEX IF NOT EXISTS idx_package_edges_source_package ON package_edges(source_package_id);
+            CREATE INDEX IF NOT EXISTS idx_package_edges_target_package ON package_edges(target_package_id);
+            CREATE INDEX IF NOT EXISTS idx_package_edges_source_file ON package_edges(source_file);
         `);
 
         this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
@@ -284,15 +352,79 @@ class Store {
 
     _prepareStatements() {
         this._insertFile = this.db.prepare(
-            "INSERT OR REPLACE INTO files (path, mtime, hash, node_count) VALUES (?, ?, ?, ?)"
+            "INSERT OR REPLACE INTO files (path, mtime, hash, node_count, package_id, workspace_module_id) VALUES (?, ?, ?, ?, ?, ?)"
         );
         this._getFile = this.db.prepare("SELECT * FROM files WHERE path = ?");
         this._deleteFile = this.db.prepare("DELETE FROM files WHERE path = ?");
         this._allFiles = this.db.prepare("SELECT path FROM files");
+        this._insertPackage = this.db.prepare(
+            "INSERT INTO packages (package_key, name, language, root_path, is_external) VALUES (@package_key, @name, @language, @root_path, @is_external)"
+        );
+        this._getPackageByKey = this.db.prepare("SELECT * FROM packages WHERE package_key = ?");
+        this._insertWorkspaceModule = this.db.prepare(
+            "INSERT INTO workspace_modules (module_key, name, package_id, language, root_path, is_external) VALUES (@module_key, @name, @package_id, @language, @root_path, @is_external)"
+        );
+        this._getWorkspaceModuleByKey = this.db.prepare("SELECT * FROM workspace_modules WHERE module_key = ?");
+        this._clearPackageEdgesForFile = this.db.prepare("DELETE FROM package_edges WHERE source_file = ?");
+        this._insertPackageEdge = this.db.prepare(
+            `INSERT INTO package_edges (
+                source_module_id, target_module_id, source_package_id, target_package_id,
+                source_file, target_file, import_source, resolution, is_reexport
+            ) VALUES (
+                @source_module_id, @target_module_id, @source_package_id, @target_package_id,
+                @source_file, @target_file, @import_source, @resolution, @is_reexport
+            )`
+        );
+        this._workspaceModuleRows = this.db.prepare(`
+            SELECT
+                wm.id,
+                wm.module_key,
+                wm.name,
+                wm.language,
+                wm.root_path,
+                wm.is_external,
+                p.package_key,
+                p.name AS package_name,
+                COUNT(DISTINCT f.path) AS file_count,
+                COUNT(n.id) AS symbol_count
+            FROM workspace_modules wm
+            JOIN packages p ON p.id = wm.package_id
+            LEFT JOIN files f ON f.workspace_module_id = wm.id
+            LEFT JOIN nodes n ON n.file = f.path
+            GROUP BY wm.id
+        `);
+        this._packageEdges = this.db.prepare(`
+            SELECT
+                pe.source_file,
+                pe.target_file,
+                pe.import_source,
+                pe.resolution,
+                pe.is_reexport,
+                sm.module_key AS source_module_key,
+                sm.name AS source_module_name,
+                sp.package_key AS source_package_key,
+                sp.name AS source_package_name,
+                tm.module_key AS target_module_key,
+                tm.name AS target_module_name,
+                tp.package_key AS target_package_key,
+                tp.name AS target_package_name
+            FROM package_edges pe
+            JOIN workspace_modules sm ON sm.id = pe.source_module_id
+            JOIN packages sp ON sp.id = pe.source_package_id
+            LEFT JOIN workspace_modules tm ON tm.id = pe.target_module_id
+            LEFT JOIN packages tp ON tp.id = pe.target_package_id
+            ORDER BY pe.source_file, pe.import_source
+        `);
 
         this._insertNode = this.db.prepare(`
-            INSERT INTO nodes (name, qualified_name, kind, language, file, line_start, line_end, parent_id, signature)
-            VALUES (@name, @qualified_name, @kind, @language, @file, @line_start, @line_end, @parent_id, @signature)
+            INSERT INTO nodes (
+                name, qualified_name, workspace_qualified_name, kind, language, file,
+                package_id, workspace_module_id, line_start, line_end, parent_id, signature
+            )
+            VALUES (
+                @name, @qualified_name, @workspace_qualified_name, @kind, @language, @file,
+                @package_id, @workspace_module_id, @line_start, @line_end, @parent_id, @signature
+            )
         `);
 
         this._insertEdge = this.db.prepare(`
@@ -301,7 +433,21 @@ class Store {
         `);
 
         this._searchFts = this.db.prepare(`
-            SELECT n.id, n.name, n.kind, n.language, n.file, n.line_start, n.line_end, n.qualified_name, n.signature, n.is_exported, n.is_default_export
+            SELECT
+                n.id,
+                n.name,
+                n.qualified_name,
+                n.workspace_qualified_name,
+                n.kind,
+                n.language,
+                n.file,
+                n.line_start,
+                n.line_end,
+                n.signature,
+                n.is_exported,
+                n.is_default_export,
+                n.package_id,
+                n.workspace_module_id
             FROM nodes_fts fts
             JOIN nodes n ON n.id = fts.rowid
             WHERE nodes_fts MATCH ?
@@ -310,20 +456,40 @@ class Store {
         `);
 
         this._findByName = this.db.prepare(
-            "SELECT id, name, kind, language, file, line_start, line_end, qualified_name, signature, is_exported, is_default_export FROM nodes WHERE name = ?"
+            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE name = ?`
         );
 
         this._findByQualified = this.db.prepare(
-            "SELECT id, name, kind, language, file, line_start, line_end, qualified_name, signature, is_exported, is_default_export FROM nodes WHERE qualified_name = ?"
+            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE qualified_name = ?`
+        );
+
+        this._findByWorkspaceQualified = this.db.prepare(
+            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE workspace_qualified_name = ?`
         );
 
         this._getNodeById = this.db.prepare(
-            "SELECT id, name, kind, language, file, line_start, line_end, qualified_name, signature, is_exported, is_default_export FROM nodes WHERE id = ?"
+            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE id = ?`
         );
 
         this._nodesByFile = this.db.prepare(
-            "SELECT id, name, kind, language, line_start, line_end, qualified_name, signature, is_exported, is_default_export FROM nodes WHERE file = ? ORDER BY line_start"
+            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE file = ? ORDER BY line_start`
         );
+
+        this._fileOwnership = this.db.prepare(`
+            SELECT
+                f.package_id,
+                f.workspace_module_id,
+                p.package_key,
+                p.name AS package_name,
+                p.root_path AS package_root_path,
+                wm.module_key,
+                wm.name AS module_name,
+                wm.root_path AS module_root_path
+            FROM files f
+            LEFT JOIN packages p ON p.id = f.package_id
+            LEFT JOIN workspace_modules wm ON wm.id = f.workspace_module_id
+            WHERE f.path = ?
+        `);
 
         this._edgesFrom = this.db.prepare(
             "SELECT e.*, n.name as target_name, n.kind as target_kind, n.file as target_file, n.line_start as target_line, n.qualified_name as target_qualified_name, n.language as target_language FROM edges e JOIN nodes n ON n.id = e.target_id WHERE e.source_id = ?"
@@ -436,8 +602,15 @@ class Store {
 
     // --- File operations ---
 
-    upsertFile(path, mtime, hash, nodeCount) {
-        this._insertFile.run(path, mtime, hash, nodeCount);
+    upsertFile(path, mtime, hash, nodeCount, ownership = {}) {
+        this._insertFile.run(
+            path,
+            mtime,
+            hash,
+            nodeCount,
+            ownership.package_id ?? null,
+            ownership.workspace_module_id ?? null,
+        );
     }
 
     getFile(path) {
@@ -452,6 +625,22 @@ class Store {
         return this._allFiles.all().map(r => r.path);
     }
 
+    ensurePackage(pkg) {
+        const existing = this._getPackageByKey.get(pkg.package_key);
+        if (existing) return existing;
+        const normalized = { is_external: 0, ...pkg };
+        this._insertPackage.run(normalized);
+        return this._getPackageByKey.get(normalized.package_key);
+    }
+
+    ensureWorkspaceModule(mod) {
+        const existing = this._getWorkspaceModuleByKey.get(mod.module_key);
+        if (existing) return existing;
+        const normalized = { is_external: 0, ...mod };
+        this._insertWorkspaceModule.run(normalized);
+        return this._getWorkspaceModuleByKey.get(normalized.module_key);
+    }
+
     externalModuleFile(source) {
         return `${EXTERNAL_FILE_PREFIX}${source}`;
     }
@@ -459,14 +648,22 @@ class Store {
     // --- Node operations ---
 
     insertNode(node) {
-        const result = this._insertNode.run(node);
+        const ownership = node.file ? this.describeFileOwnership(node.file) : null;
+        const normalized = {
+            ...node,
+            workspace_qualified_name: node.workspace_qualified_name
+                ?? buildWorkspaceQualifiedName(node, ownership),
+            package_id: node.package_id ?? ownership?.package_id ?? null,
+            workspace_module_id: node.workspace_module_id ?? ownership?.workspace_module_id ?? null,
+        };
+        const result = this._insertNode.run(normalized);
         return result.lastInsertRowid;
     }
 
     ensureExternalModuleNode(source, language = "external") {
         const filePath = this.externalModuleFile(source);
         if (!this.getFile(filePath)) {
-            this._insertFile.run(filePath, 0, `external:${source}`, 1);
+            this._insertFile.run(filePath, 0, `external:${source}`, 1, null, null);
         }
         const qualifiedName = `${filePath}:module`;
         const existing = this._findByQualified.get(qualifiedName);
@@ -518,8 +715,16 @@ class Store {
         return this._findByQualified.all(qualifiedName);
     }
 
+    findByWorkspaceQualified(workspaceQualifiedName) {
+        return this._findByWorkspaceQualified.all(workspaceQualifiedName);
+    }
+
     getNodeById(id) {
         return this._getNodeById.get(id);
+    }
+
+    describeFileOwnership(filePath) {
+        return this._fileOwnership.get(filePath) || null;
     }
 
     // --- Edge operations ---
@@ -615,6 +820,14 @@ class Store {
         this._insertModuleEdge.run(params);
     }
 
+    clearPackageEdgesForFile(filePath) {
+        this._clearPackageEdgesForFile.run(filePath);
+    }
+
+    insertPackageEdge(params) {
+        this._insertPackageEdge.run(params);
+    }
+
     clearModuleEdges(filePath) {
         this._clearModuleEdges.run(filePath);
     }
@@ -641,6 +854,14 @@ class Store {
 
     allModuleEdges() {
         return this._allModuleEdges.all();
+    }
+
+    workspaceModuleRows() {
+        return this._workspaceModuleRows.all();
+    }
+
+    packageEdgeRows() {
+        return this._packageEdges.all();
     }
 
     rebuildAllModuleLayerEdges() {
@@ -730,13 +951,20 @@ class Store {
         this._deleteFile.run(filePath);
     }
 
-    bulkInsert(filePath, mtime, hash, language, definitions, imports) {
+    bulkInsert(filePath, mtime, hash, language, definitions, imports, ownership = null) {
         const tx = this.db.transaction(() => {
             // Clear old data for this file
             this._deleteFile.run(filePath);
 
             const allNodes = [...definitions, ...imports];
-            this._insertFile.run(filePath, mtime, hash, allNodes.length);
+            this._insertFile.run(
+                filePath,
+                mtime,
+                hash,
+                allNodes.length,
+                ownership?.package_id ?? null,
+                ownership?.workspace_module_id ?? null,
+            );
 
             const nodeIds = new Map();
             const classIndex = new Map(); // className -> nodeId
@@ -810,57 +1038,105 @@ class Store {
     // --- Query: Architecture report data ---
 
     architectureReportData(scopePath) {
-        // Group nodes by directory (module proxy)
+        // workspace-first architecture view
+        const normalizedScope = normalizeScopePath(scopePath);
         const allNodes = scopePath
             ? this.db.prepare("SELECT * FROM nodes WHERE file LIKE ? || '%' ESCAPE '\\'")
                 .all(scopePath.replace(/[%_\\]/g, m => "\\" + m))
             : this.db.prepare("SELECT * FROM nodes").all();
 
-        const modules = new Map();
-        for (const node of allNodes) {
-            const parts = node.file.replace(/\\/g, "/").split("/");
-            const moduleKey = parts.length > 1 ? parts.slice(0, -1).join("/") : ".";
-            if (!modules.has(moduleKey)) {
-                modules.set(moduleKey, { files: new Set(), symbols: 0, kinds: {} });
-            }
-            const mod = modules.get(moduleKey);
-            mod.files.add(node.file);
-            mod.symbols++;
-            mod.kinds[node.kind] = (mod.kinds[node.kind] || 0) + 1;
+        void allNodes;
+        const kindRows = this.db.prepare(`
+            SELECT
+                wm.module_key,
+                n.kind,
+                COUNT(*) AS count
+            FROM workspace_modules wm
+            LEFT JOIN files f ON f.workspace_module_id = wm.id
+            LEFT JOIN nodes n ON n.file = f.path
+            GROUP BY wm.module_key, n.kind
+        `).all();
+        const kindSummaryByModule = new Map();
+        for (const row of kindRows) {
+            if (!row.kind) continue;
+            const summary = kindSummaryByModule.get(row.module_key) || {};
+            summary[row.kind] = row.count;
+            kindSummaryByModule.set(row.module_key, summary);
         }
 
-        // Hotspots: complex functions with many callers
+        const modules = this.workspaceModuleRows()
+            .filter(row => moduleMatchesScope(row.root_path, normalizedScope))
+            .map(row => ({
+                module_key: row.module_key,
+                module_name: row.name,
+                module_root_path: row.root_path,
+                language: row.language,
+                package_key: row.package_key,
+                package_name: row.package_name,
+                file_count: row.file_count,
+                symbol_count: row.symbol_count,
+                is_external: Boolean(row.is_external),
+                kinds: kindSummaryByModule.get(row.module_key) || {},
+            }));
+
+        const allowedModules = new Set(modules.map(row => row.module_key));
         const hotspots = this.db.prepare(`
-            SELECT n.file, n.name, n.kind, n.line_start,
-                   COALESCE(cb.stmt_count, n.line_end - n.line_start + 1) AS complexity,
-                   (cb.stmt_count IS NOT NULL) AS has_stmts,
-                   COUNT(DISTINCT e.source_id) AS callers
+            SELECT
+                n.file,
+                n.name,
+                n.kind,
+                n.line_start,
+                COALESCE(cb.stmt_count, MAX(n.line_end - n.line_start + 1, 1)) AS complexity,
+                COUNT(DISTINCT e.source_id) AS callers,
+                wm.module_key,
+                wm.name AS module_name,
+                wm.root_path AS module_root_path,
+                p.package_key,
+                p.name AS package_name
             FROM nodes n
             LEFT JOIN clone_blocks cb ON cb.node_id = n.id
             LEFT JOIN edges e ON e.target_id = n.id AND e.kind = 'calls'
+            LEFT JOIN files f ON f.path = n.file
+            LEFT JOIN workspace_modules wm ON wm.id = f.workspace_module_id
+            LEFT JOIN packages p ON p.id = f.package_id
             WHERE n.kind IN ('function', 'method')
             GROUP BY n.id
             HAVING callers > 0
             ORDER BY complexity * callers DESC
-            LIMIT ?
-        `).all(15);
+            LIMIT 50
+        `).all().filter(row => !normalizedScope || moduleMatchesScope(row.module_root_path, normalizedScope));
 
-        // Cross-module edges come from the unified module layer only.
         const grouped = new Map();
-        for (const edge of this.moduleGraphEdges()) {
-            const srcDir = moduleDir(edge.source_file);
-            const tgtDir = moduleDir(edge.target_file);
-            if (srcDir === tgtDir) continue;
-            const key = `${srcDir}->${tgtDir}`;
-            grouped.set(key, {
-                src_dir: srcDir,
-                tgt_dir: tgtDir,
-                count: (grouped.get(key)?.count || 0) + 1,
-            });
+        for (const edge of this.packageEdgeRows()) {
+            const touchesScopedModule = !normalizedScope
+                || allowedModules.has(edge.source_module_key)
+                || (edge.target_module_key && allowedModules.has(edge.target_module_key));
+            if (!touchesScopedModule) continue;
+            if (edge.source_module_key === edge.target_module_key) continue;
+
+            const targetKey = edge.target_module_key || `unresolved:${edge.import_source}`;
+            const key = `${edge.source_module_key}->${targetKey}`;
+            const existing = grouped.get(key) || {
+                source_module_key: edge.source_module_key,
+                source_module_name: edge.source_module_name,
+                source_package_key: edge.source_package_key,
+                source_package_name: edge.source_package_name,
+                target_module_key: edge.target_module_key,
+                target_module_name: edge.target_module_name || edge.import_source,
+                target_package_key: edge.target_package_key,
+                target_package_name: edge.target_package_name || null,
+                edge_count: 0,
+                reexport_count: 0,
+                resolutions: {},
+            };
+            existing.edge_count++;
+            if (edge.is_reexport) existing.reexport_count++;
+            existing.resolutions[edge.resolution] = (existing.resolutions[edge.resolution] || 0) + 1;
+            grouped.set(key, existing);
         }
+
         const crossEdges = [...grouped.values()]
-            .sort((a, b) => b.count - a.count || a.src_dir.localeCompare(b.src_dir))
-            .slice(0, 20);
+            .sort((a, b) => b.edge_count - a.edge_count || a.source_module_key.localeCompare(b.source_module_key));
 
         return { modules, hotspots, crossEdges };
     }
@@ -905,43 +1181,63 @@ class Store {
     }
 
     moduleMetricRows({ scopePath, sort = "instability", minCoupling = 2 } = {}) {
+        const normalizedScope = normalizeScopePath(scopePath);
+        const modules = this.workspaceModuleRows()
+            .filter(row => moduleMatchesScope(row.root_path, normalizedScope));
+        const allowedModules = new Set(modules.map(row => row.module_key));
         const metrics = new Map();
         const incoming = new Map();
         const outgoing = new Map();
+        const unresolvedOutgoing = new Map();
 
-        for (const edge of this.moduleGraphEdges()) {
-            if (!outgoing.has(edge.source_file)) outgoing.set(edge.source_file, new Set());
-            if (!incoming.has(edge.target_file)) incoming.set(edge.target_file, new Set());
-            outgoing.get(edge.source_file).add(edge.target_file);
-            incoming.get(edge.target_file).add(edge.source_file);
+        for (const edge of this.packageEdgeRows()) {
+            const touchesScopedModule = !normalizedScope
+                || allowedModules.has(edge.source_module_key)
+                || (edge.target_module_key && allowedModules.has(edge.target_module_key));
+            if (!touchesScopedModule) continue;
+
+            if (!edge.target_module_key) {
+                unresolvedOutgoing.set(
+                    edge.source_module_key,
+                    (unresolvedOutgoing.get(edge.source_module_key) || 0) + 1,
+                );
+                continue;
+            }
+            if (edge.source_module_key === edge.target_module_key) continue;
+            if (!outgoing.has(edge.source_module_key)) outgoing.set(edge.source_module_key, new Set());
+            if (!incoming.has(edge.target_module_key)) incoming.set(edge.target_module_key, new Set());
+            outgoing.get(edge.source_module_key).add(edge.target_module_key);
+            incoming.get(edge.target_module_key).add(edge.source_module_key);
         }
 
-        const files = new Set([...incoming.keys(), ...outgoing.keys()]);
-        for (const file of files) {
-            const m = metrics.get(file) || { file, ca: 0, ce: 0 };
-            m.ca = incoming.get(file)?.size || 0;
-            m.ce = outgoing.get(file)?.size || 0;
-            metrics.set(file, m);
+        for (const mod of modules) {
+            metrics.set(mod.module_key, {
+                module_key: mod.module_key,
+                module_name: mod.name,
+                module_root_path: mod.root_path,
+                package_key: mod.package_key,
+                package_name: mod.package_name,
+                language: mod.language,
+                is_external: Boolean(mod.is_external),
+                ca: incoming.get(mod.module_key)?.size || 0,
+                ce: outgoing.get(mod.module_key)?.size || 0,
+                unresolved_outgoing: unresolvedOutgoing.get(mod.module_key) || 0,
+            });
         }
 
-        let result = [...metrics.values()]
+        const result = [...metrics.values()]
             .map(m => ({
-                file: m.file,
-                ca: m.ca,
-                ce: m.ce,
+                ...m,
                 instability: m.ca + m.ce > 0 ? m.ce / (m.ca + m.ce) : 0,
-                total_coupling: m.ca + m.ce,
+                total_coupling: m.ca + m.ce + m.unresolved_outgoing,
             }))
             .filter(m => m.total_coupling >= minCoupling);
-
-        if (scopePath) {
-            result = result.filter(m => m.file.startsWith(scopePath));
-        }
 
         const sortFns = {
             instability: (a, b) => b.instability - a.instability || b.total_coupling - a.total_coupling,
             ca: (a, b) => b.ca - a.ca || b.total_coupling - a.total_coupling,
             ce: (a, b) => b.ce - a.ce || b.total_coupling - a.total_coupling,
+            unresolved: (a, b) => b.unresolved_outgoing - a.unresolved_outgoing || b.total_coupling - a.total_coupling,
             coupling: (a, b) => b.total_coupling - a.total_coupling,
         };
         result.sort(sortFns[sort] || sortFns.instability);
@@ -1010,11 +1306,33 @@ export function resolveStore(path) {
     return _stores.values().next().value ?? null;
 }
 
-function serializeNode(node) {
+function moduleRelativeFilePath(filePath, moduleRootPath) {
+    const normalizedFile = normalizeScopePath(filePath || "");
+    const normalizedRoot = normalizeScopePath(moduleRootPath || ".");
+    if (!normalizedRoot || normalizedRoot === ".") return normalizedFile;
+    return normalizedFile.startsWith(`${normalizedRoot}/`)
+        ? normalizedFile.slice(normalizedRoot.length + 1)
+        : normalizedFile;
+}
+
+function buildWorkspaceQualifiedName(node, ownership) {
     if (!node) return null;
+    if (node.workspace_qualified_name) return node.workspace_qualified_name;
+    if (!ownership?.module_key) return node.qualified_name || null;
+    const relFile = moduleRelativeFilePath(node.file, ownership.module_root_path);
+    const localIdentity = node.qualified_name?.startsWith(`${node.file}:`)
+        ? node.qualified_name.slice(node.file.length + 1)
+        : (node.qualified_name || node.name);
+    return `${ownership.module_key}::${relFile}::${localIdentity}`;
+}
+
+function serializeNode(store, node) {
+    if (!node) return null;
+    const ownership = node.file ? store.describeFileOwnership(node.file) : null;
     return {
         symbol_id: node.id,
         qualified_name: node.qualified_name || null,
+        workspace_qualified_name: buildWorkspaceQualifiedName(node, ownership),
         display_name: displayName(node),
         name: node.name,
         kind: node.kind,
@@ -1025,6 +1343,14 @@ function serializeNode(node) {
         signature: node.signature || null,
         is_exported: !!node.is_exported,
         is_default_export: !!node.is_default_export,
+        package_id: node.package_id ?? ownership?.package_id ?? null,
+        package_key: ownership?.package_key || null,
+        package_name: ownership?.package_name || null,
+        package_root_path: ownership?.package_root_path || null,
+        workspace_module_id: node.workspace_module_id ?? ownership?.workspace_module_id ?? null,
+        module_key: ownership?.module_key || null,
+        module_name: ownership?.module_name || null,
+        module_root_path: ownership?.module_root_path || null,
     };
 }
 
@@ -1033,19 +1359,21 @@ function selectorError(code, message, recovery) {
 }
 
 function normalizeSelector(selector = {}) {
-    const { symbol_id, qualified_name, name, file } = selector;
+    const { symbol_id, workspace_qualified_name, qualified_name, name, file } = selector;
     const hasId = symbol_id !== undefined && symbol_id !== null;
+    const hasWorkspaceQualified = typeof workspace_qualified_name === "string" && workspace_qualified_name.length > 0;
     const hasQualified = typeof qualified_name === "string" && qualified_name.length > 0;
     const hasNameFile = typeof name === "string" && name.length > 0 && typeof file === "string" && file.length > 0;
-    const forms = [hasId, hasQualified, hasNameFile].filter(Boolean).length;
+    const forms = [hasId, hasWorkspaceQualified, hasQualified, hasNameFile].filter(Boolean).length;
     if (forms !== 1) {
         return selectorError(
             "INVALID_SELECTOR",
-            "Selector must provide exactly one of: symbol_id, qualified_name, or name+file",
+            "Selector must provide exactly one of: symbol_id, workspace_qualified_name, qualified_name, or name+file",
             "Use search_symbols first to discover valid identifiers"
         );
     }
     if (hasId) return { kind: "symbol_id", value: Number(symbol_id), query: { symbol_id: Number(symbol_id) } };
+    if (hasWorkspaceQualified) return { kind: "workspace_qualified_name", value: workspace_qualified_name, query: { workspace_qualified_name } };
     if (hasQualified) return { kind: "qualified_name", value: qualified_name, query: { qualified_name } };
     return { kind: "name_file", value: { name, file }, query: { name, file } };
 }
@@ -1073,11 +1401,29 @@ function resolveSelector(store, selector = {}) {
                     code: "AMBIGUOUS_SYMBOL",
                     message: `Multiple symbols matched qualified_name '${normalized.value}'`,
                     recovery: "Use symbol_id instead of qualified_name",
-                    candidates: matches.map(serializeNode),
+                    candidates: matches.map(node => serializeNode(store, node)),
                 },
             };
         }
         return { query: normalized.query, node: matches[0], reason: "resolved_by_qualified_name", confidence: "exact" };
+    }
+
+    if (normalized.kind === "workspace_qualified_name") {
+        const matches = store.findByWorkspaceQualified(normalized.value);
+        if (matches.length === 0) {
+            return selectorError("SYMBOL_NOT_FOUND", `No symbol with workspace_qualified_name '${normalized.value}'`, "Run search_symbols to inspect available workspace-qualified names");
+        }
+        if (matches.length > 1) {
+            return {
+                error: {
+                    code: "AMBIGUOUS_SYMBOL",
+                    message: `Multiple symbols matched workspace_qualified_name '${normalized.value}'`,
+                    recovery: "Use symbol_id instead of workspace_qualified_name",
+                    candidates: matches.map(node => serializeNode(store, node)),
+                },
+            };
+        }
+        return { query: normalized.query, node: matches[0], reason: "resolved_by_workspace_qualified_name", confidence: "exact" };
     }
 
     const { name, file } = normalized.value;
@@ -1094,7 +1440,7 @@ function resolveSelector(store, selector = {}) {
                 code: "AMBIGUOUS_SYMBOL",
                 message: `Multiple symbols named '${name}' matched file '${file}'`,
                 recovery: "Use symbol_id or qualified_name",
-                candidates: semantic.map(serializeNode),
+                candidates: semantic.map(node => serializeNode(store, node)),
             },
         };
     }
@@ -1104,7 +1450,7 @@ function resolveSelector(store, selector = {}) {
 
 function resolveOptionalSelector(store, selector = null) {
     if (!selector) return null;
-    const values = [selector.symbol_id, selector.qualified_name, selector.name, selector.file];
+    const values = [selector.symbol_id, selector.workspace_qualified_name, selector.qualified_name, selector.name, selector.file];
     if (values.every(value => value === undefined || value === null || value === "")) return null;
     return resolveSelector(store, selector);
 }
@@ -1119,7 +1465,7 @@ function collectReferenceRows(store, node, kind) {
     return refs;
 }
 
-function serializeFlowSummary(row) {
+function serializeFlowSummary(store, row) {
     return {
         kind: row.kind,
         source_name: row.source_name,
@@ -1128,16 +1474,19 @@ function serializeFlowSummary(row) {
         file: row.file,
         line: row.line,
         related_symbol: row.related_symbol_id
-            ? {
-                symbol_id: row.related_symbol_id,
+            ? serializeNode(store, {
+                id: row.related_symbol_id,
                 qualified_name: row.related_qualified_name || null,
-                display_name: displayName({ name: row.related_name, kind: row.related_kind }),
                 name: row.related_name,
                 kind: row.related_kind,
                 language: row.related_language || null,
                 file: row.related_file,
                 line_start: row.related_line,
-            }
+                line_end: row.related_line,
+                signature: null,
+                is_exported: 0,
+                is_default_export: 0,
+            })
             : null,
     };
 }
@@ -1155,10 +1504,18 @@ function serializeFlowEdge(row, direction) {
     };
 }
 
-function moduleDir(filePath) {
-    const normalized = filePath.replace(/\\/g, "/");
-    const idx = normalized.lastIndexOf("/");
-    return idx === -1 ? "." : normalized.slice(0, idx);
+function normalizeScopePath(scopePath) {
+    if (!scopePath) return null;
+    return scopePath.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function moduleMatchesScope(moduleRootPath, scopePath) {
+    if (!scopePath) return true;
+    const normalizedRoot = normalizeScopePath(moduleRootPath || ".");
+    if (normalizedRoot === ".") return true;
+    return normalizedRoot === scopePath
+        || normalizedRoot.startsWith(`${scopePath}/`)
+        || scopePath.startsWith(`${normalizedRoot}/`);
 }
 
 
@@ -1173,7 +1530,7 @@ export function findSymbols(query, { kind, limit = 20, path } = {}) {
     }
     return {
         query: { query, kind: kind || null, limit },
-        matches: results.map(serializeNode),
+        matches: results.map(node => serializeNode(store, node)),
         confidence: "exact",
         reason: "fts_lookup",
         evidence: { total_matches: results.length },
@@ -1193,35 +1550,51 @@ export function getSymbol(selector, { path } = {}) {
         confidence: e.confidence,
         file: e.file,
         line: e.line,
-        from: {
+        from: serializeNode(store, {
+            id: e.source_id,
+            qualified_name: e.source_qualified_name || null,
             name: e.source_name,
+            kind: e.source_kind,
+            language: e.source_language || null,
             file: e.source_file,
-            line: e.source_line,
-        },
+            line_start: e.source_line,
+            line_end: e.source_line,
+            signature: null,
+            is_exported: 0,
+            is_default_export: 0,
+        }),
     }));
     const outgoing = store.edgesFrom(node.id).map(e => ({
         kind: e.kind,
         confidence: e.confidence,
         file: e.file,
         line: e.line,
-        to: {
+        to: serializeNode(store, {
+            id: e.target_id,
+            qualified_name: e.target_qualified_name || null,
             name: e.target_name,
+            kind: e.target_kind,
+            language: e.target_language || null,
             file: e.target_file,
-            line: e.target_line,
-        },
+            line_start: e.target_line,
+            line_end: e.target_line,
+            signature: null,
+            is_exported: 0,
+            is_default_export: 0,
+        }),
     }));
     const moduleNode = store.nodesByFile(node.file).find(n => n.kind === "module");
 
     return {
         query: resolved.query,
         result: {
-            symbol: serializeNode(node),
-            module: serializeNode(moduleNode),
+            symbol: serializeNode(store, node),
+            module: serializeNode(store, moduleNode),
             incoming,
             outgoing,
             siblings: store.nodesByFile(node.file)
                 .filter(n => n.id !== node.id)
-                .map(serializeNode),
+                .map(sibling => serializeNode(store, sibling)),
         },
         confidence: resolved.confidence,
         reason: resolved.reason,
@@ -1317,7 +1690,7 @@ export function tracePaths(selector, {
     const queue = [{
         id: resolved.node.id,
         depth: 0,
-        nodes: [serializeNode(resolved.node)],
+        nodes: [serializeNode(store, resolved.node)],
         edges: [],
         seen: new Set([resolved.node.id]),
     }];
@@ -1336,7 +1709,7 @@ export function tracePaths(selector, {
             const nextPath = {
                 id: neighbor.nextId,
                 depth: current.depth + 1,
-                nodes: [...current.nodes, serializeNode(nextNode)],
+                nodes: [...current.nodes, serializeNode(store, nextNode)],
                 edges: [...current.edges, neighbor.edge],
                 seen: nextSeen,
             };
@@ -1383,19 +1756,21 @@ export function explainResolution(selector, { path } = {}) {
 
     let candidates = [];
     if (normalized.kind === "qualified_name") {
-        candidates = store.findByQualified(normalized.value).map(serializeNode);
+        candidates = store.findByQualified(normalized.value).map(node => serializeNode(store, node));
+    } else if (normalized.kind === "workspace_qualified_name") {
+        candidates = store.findByWorkspaceQualified(normalized.value).map(node => serializeNode(store, node));
     } else if (normalized.kind === "name_file") {
         candidates = store.findByName(normalized.value.name)
             .filter(n => n.file === normalized.value.file || n.file.endsWith(normalized.value.file) || n.file.endsWith(`/${normalized.value.file}`))
-            .map(serializeNode);
+            .map(node => serializeNode(store, node));
     } else {
-        candidates = [serializeNode(store.getNodeById(normalized.value))];
+        candidates = [serializeNode(store, store.getNodeById(normalized.value))];
     }
 
     return {
         query: normalized.query,
         result: {
-            resolved: serializeNode(resolved.node),
+            resolved: serializeNode(store, resolved.node),
             selector_kind: normalized.kind,
             candidates,
         },
@@ -1419,7 +1794,7 @@ export function getReferencesBySelector(selector, { kind, limit = 50, path } = {
     return {
         query: { ...resolved.query, kind: kind || "all", limit },
         result: {
-            symbol: serializeNode(resolved.node),
+            symbol: serializeNode(store, resolved.node),
             references: refs.map(r => ({ file: r.file, line: r.line, kind: r.kind })),
             total_by_kind: byKind,
             total: refs.length,
@@ -1446,16 +1821,19 @@ export function findImplementationsBySelector(selector, { limit = 50, path } = {
         .map(edge => ({
             kind: edge.kind,
             confidence: edge.confidence,
-            source: {
+            source: serializeNode(store, {
                 id: edge.source_id,
+                qualified_name: edge.source_qualified_name || null,
                 name: edge.source_name,
-                display_name: displayName({ name: edge.source_name, kind: edge.source_kind }),
                 kind: edge.source_kind,
-                language: edge.source_language,
+                language: edge.source_language || null,
                 file: edge.source_file,
                 line_start: edge.source_line,
-                qualified_name: edge.source_qualified_name || null,
-            },
+                line_end: edge.source_line,
+                signature: null,
+                is_exported: 0,
+                is_default_export: 0,
+            }),
             evidence: {
                 layer: edge.layer,
                 origin: edge.origin,
@@ -1467,7 +1845,7 @@ export function findImplementationsBySelector(selector, { limit = 50, path } = {
     return {
         query: resolved.query,
         result: {
-            symbol: serializeNode(resolved.node),
+            symbol: serializeNode(store, resolved.node),
             implementations: matches,
         },
         confidence: matches.some(match => match.confidence === "heuristic") ? "heuristic" : resolved.confidence,
@@ -1488,12 +1866,12 @@ export function findDataflowsBySelector(selector, { depth = 2, limit = 50, path,
 
     const rootNode = resolved.node;
     const rootSummaries = store.flowSummariesByOwner(rootNode.id);
-    const summaries = rootSummaries.slice(0, limit).map(serializeFlowSummary);
+    const summaries = rootSummaries.slice(0, limit).map(summary => serializeFlowSummary(store, summary));
     const paths = [];
     const queue = [{
         owner: rootNode,
         depth: 0,
-        symbols: [serializeNode(rootNode)],
+        symbols: [serializeNode(store, rootNode)],
         summaries: [],
         seen: new Set([rootNode.id]),
     }];
@@ -1503,7 +1881,7 @@ export function findDataflowsBySelector(selector, { depth = 2, limit = 50, path,
         if (current.depth >= depth) continue;
         const flowRows = store.flowSummariesByOwner(current.owner.id);
         for (const row of flowRows) {
-            const summary = serializeFlowSummary(row);
+            const summary = serializeFlowSummary(store, row);
             if (row.related_symbol_id) {
                 const nextNode = store.getNodeById(row.related_symbol_id);
                 if (nextNode && !current.seen.has(nextNode.id)) {
@@ -1512,7 +1890,7 @@ export function findDataflowsBySelector(selector, { depth = 2, limit = 50, path,
                     const nextPath = {
                         owner: nextNode,
                         depth: current.depth + 1,
-                        symbols: [...current.symbols, serializeNode(nextNode)],
+                        symbols: [...current.symbols, serializeNode(store, nextNode)],
                         summaries: [...current.summaries, summary],
                         seen: nextSeen,
                     };
@@ -1547,10 +1925,10 @@ export function findDataflowsBySelector(selector, { depth = 2, limit = 50, path,
     return {
         query: { ...resolved.query, depth, limit, target: resolvedTarget ? resolvedTarget.query : null },
         result: {
-            symbol: serializeNode(rootNode),
+            symbol: serializeNode(store, rootNode),
             summaries,
             paths,
-            target: targetNode ? serializeNode(targetNode) : null,
+            target: targetNode ? serializeNode(store, targetNode) : null,
         },
         confidence,
         reason: targetNode ? "targeted_flow_lookup" : "flow_summary_lookup",
@@ -1580,21 +1958,19 @@ export function getArchitectureReport({ scopePath, limit = 15, path } = {}) {
     const store = resolveStore(path);
     if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
     const { modules, hotspots, crossEdges } = store.architectureReportData(scopePath);
-    const moduleRows = [...modules.entries()].map(([name, mod]) => ({
-        module: name,
-        file_count: mod.files.size,
-        symbol_count: mod.symbols,
-        kinds: mod.kinds,
-    }));
     const stats = store.stats();
     return {
         query: { scopePath: scopePath || null, limit },
         result: {
-            modules: moduleRows,
+            modules,
             hotspots: hotspots.slice(0, limit).map(h => ({
                 name: displayName(h),
                 kind: h.kind,
                 file: h.file,
+                module_key: h.module_key,
+                module_name: h.module_name,
+                package_key: h.package_key,
+                package_name: h.package_name,
                 complexity: h.complexity,
                 callers: h.callers,
             })),

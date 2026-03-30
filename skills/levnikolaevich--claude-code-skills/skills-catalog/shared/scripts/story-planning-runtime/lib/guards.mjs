@@ -4,6 +4,7 @@ import {
     validatePlanningBaseTransition,
 } from "../../planning-runtime/lib/guards.mjs";
 import { PHASES } from "./phases.mjs";
+import { validateTemplateCompliance } from "../../planning-runtime/lib/template-compliance.mjs";
 
 const ALLOWED_TRANSITIONS = new Map([
     [PHASES.CONFIG, new Set([PHASES.CONTEXT_ASSEMBLY])],
@@ -50,6 +51,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
         if (expectedGroups > 0 && actualGroups < expectedGroups) {
             return { ok: false, error: "Not all epic groups produced worker summaries" };
         }
+    }
+    if (toPhase === PHASES.SELF_CHECK && !state.template_compliance_passed) {
+        return { ok: false, error: "Template compliance not verified. Fetch each created story via get_issue, run validateTemplateCompliance(description, 'story'), record template_compliance_passed in state." };
     }
     if (toPhase === PHASES.DONE) {
         if (!state.self_check_passed) {

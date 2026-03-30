@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Claude Code Plugin Validator v5.0 (Universal: Schema Registry + Anthropic Alignment)
+Claude Code Plugin Validator v5.1 (Universal: Schema Registry + Anthropic Alignment) (Anthropic Best Practices 2026)
 
 Unified validator for all Claude Code plugin content:
 - SKILL.md files (Agent Skills)
@@ -27,7 +27,7 @@ Usage:
     python scripts/validate-skills-schema.py path/to/SKILL.md           # Single-file mode
 
 Author: Jeremy Longshore <jeremy@intentsolutions.io>
-Version: 5.0.0
+Version: 5.1.0
 """
 
 import argparse
@@ -108,6 +108,12 @@ ABSOLUTE_PATH_PATTERNS = [
     (re.compile(r"/home/\w+/"), "/home/..."),
     (re.compile(r"/Users/\w+/"), "/Users/..."),
     (re.compile(r"[A-Za-z]:\\\\Users\\\\", re.IGNORECASE), "C:\\\\Users\\\\..."),
+]
+RE_XML_TAG = re.compile(r"[<>]")
+RE_TIME_SENSITIVE = [
+    re.compile(r"\b(20\d{2}[-/]\d{2}[-/]\d{2})\b"),
+    re.compile(r"\b(v\d+\.\d+\.\d+)\b", re.IGNORECASE),
+    re.compile(r"\b(as of|since|after|before) (January|February|March|April|May|June|July|August|September|October|November|December)\b", re.IGNORECASE),
 ]
 
 # === SCHEMA REGISTRY (Single Source of Truth) ===
@@ -1196,6 +1202,9 @@ def validate_frontmatter(path: Path, fm: dict, tier: str = TIER_STANDARD) -> Tup
             if name != folder_name:
                 warnings.append(f"[frontmatter] 'name' '{name}' differs from folder '{folder_name}' (best practice: match them)")
 
+            if RE_XML_TAG.search(str(name)):
+                errors.append("'name' must not contain XML tags (< or >)")
+
     # description field
     if 'description' in fm:
         desc = str(fm['description']).strip()
@@ -1234,6 +1243,9 @@ def validate_frontmatter(path: Path, fm: dict, tier: str = TIER_STANDARD) -> Tup
                     warnings.append("[frontmatter] 'description' should NOT use second person (You can / You should) - use third person")
                 else:
                     warnings.append("[frontmatter] 'description' uses second person - third person recommended")
+
+            if RE_XML_TAG.search(str(desc)):
+                errors.append("'description' must not contain XML tags (< or >)")
 
             # Reserved words (WARN - legitimate in AI/Claude product context)
             desc_lower = desc.lower()
@@ -1673,6 +1685,14 @@ def validate_body(path: Path, body: str, tier: str = TIER_STANDARD, fm: dict = N
         matches = list(re.finditer(pattern, body, re.IGNORECASE))
         for m in matches:
             warnings.append(f"[body] Time-sensitive information found: '{m.group()}' ({desc}) - may become stale")
+
+    # Time-sensitive information (skip code blocks to avoid false positives)
+    stripped = re.sub(r"```[\s\S]*?```", "", body)
+    stripped = re.sub(r"`[^`]+`", "", stripped)
+    for pat in RE_TIME_SENSITIVE:
+        if pat.search(stripped):
+            warnings.append("Body may contain time-sensitive information (dates, versions) that could go stale")
+            break
 
     # === SCRIPT QUALITY CHECKS ===
     # Check embedded scripts for error handling

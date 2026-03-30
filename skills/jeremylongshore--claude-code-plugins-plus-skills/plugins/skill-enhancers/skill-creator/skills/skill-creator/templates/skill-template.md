@@ -1,5 +1,6 @@
 ---
 # Required (AgentSkills.io)
+# NOTE: name and description must NOT contain XML tags (< or >)
 name: {{SKILL_NAME}}
 description: |
   {{PURPOSE_STATEMENT}}. Use when {{WHEN_TO_USE}}.
@@ -92,6 +93,21 @@ model: inherit
 
 - {{EDGE_CASE_1}}
 - {{EDGE_CASE_2}}
+
+<!-- Optional: Include for quality-critical workflows -->
+<!-- ## Feedback Loop
+Run validation after each major step. If issues found, fix and re-validate:
+1. Execute step
+2. Validate output
+3. If validation fails → fix → return to step 2
+4. Maximum 3 iterations before reporting -->
+
+<!-- Optional: Include if skill documents deprecated approaches -->
+<!-- ## Old Patterns
+These patterns are deprecated but users may encounter them:
+| Old Pattern | Replacement | Why Changed |
+|-------------|-------------|-------------|
+| {{OLD_1}} | {{NEW_1}} | {{REASON_1}} | -->
 
 ## Error Handling
 

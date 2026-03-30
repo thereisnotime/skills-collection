@@ -24,8 +24,8 @@ Everything in Standard, plus ALL 8 core fields REQUIRED as hard ERRORS:
 
 | # | Field | Validation |
 |---|-------|-----------|
-| 1 | `name` | 1-64 chars, kebab-case, matches directory name |
-| 2 | `description` | 1-1024 chars, third person, what + when + keywords, "Use when" pattern, "Trigger with" pattern |
+| 1 | `name` | 1-64 chars, kebab-case, matches directory name, no XML tags |
+| 2 | `description` | 1-1024 chars, third person, what + when + keywords, "Use when" pattern, "Trigger with" pattern, no XML tags |
 | 3 | `allowed-tools` | Non-empty, all tools from valid set, Bash scoped (unscoped = ERROR) |
 | 4 | `version` | Semver format (`X.Y.Z`) — top-level, NOT under metadata |
 | 5 | `author` | Non-empty string, email recommended (`Name <email>`) — top-level, NOT under metadata |
@@ -176,6 +176,11 @@ capabilities: []                  # NOTE: valid for agents ONLY, not skills
 | Line count 301-500 | Warning | Consider splitting to references |
 | Absolute paths | Error | No `/home/`, `/Users/`, `C:\` outside code blocks |
 | Has H1 title | Warning | Should have `# Title` |
+| No time-sensitive info | Warning | Avoid dates, version numbers, or temporal references that rot |
+| No XML tags in frontmatter | Error | XML tags in YAML frontmatter cause parse failures |
+| Consistent terminology | Warning | Same concept should use same term throughout |
+| Feedback loops present | Warning | Should include validation steps or self-check instructions |
+| Required packages listed | Warning | External dependencies should be declared in Prerequisites |
 
 ### Enterprise Tier (adds)
 
@@ -332,6 +337,9 @@ These are invented fields that appear in no Anthropic documentation:
 | Over-verbose | >5000 words in SKILL.md body | Warning |
 | Missing progressive disclosure | >300 lines + no `references/` directory | Warning |
 | Singular reference file | `reference.md` instead of `references/` directory | Error |
+| Time-sensitive info | Dates, version numbers, or temporal references that rot | Warning |
+| XML tags in frontmatter | `<tag>` syntax in YAML frontmatter fields | Error |
+| Missing feedback loops | No validation steps or self-check instructions in workflow | Warning |
 
 ---
 
@@ -349,10 +357,11 @@ These are invented fields that appear in no Anthropic documentation:
 | Description over 500 chars | -1 |
 | Has unnecessary TOC | -1 (modifier) |
 | Uses dynamic context injection | +1 (modifier) |
+| Reference files >100 lines have TOC | +1 |
 
 Score 4+: Excellent disclosure. Score 2-3: Good. Score 0-1: Needs improvement.
 
-**Navigation signals** are scored by section header density (7+ `##` headers = 5/5), not by TOC presence. TOC wastes tokens and is not part of the Anthropic spec.
+**Navigation signals** are scored by section header density (7+ `##` headers = 5/5), not by TOC presence. TOC in SKILL.md body wastes tokens and is not part of the Anthropic spec. However, reference files over 100 lines SHOULD have a TOC for navigability — this is a different context than the main SKILL.md body.
 
 ---
 
@@ -474,3 +483,46 @@ INFO-level suggestions emitted after grading. Not scored — purely advisory.
 - **Trigger**: `commands/*.md` files present without corresponding `skills/` entries
 - **Suggestion**: Consider migrating to SKILL.md format for auto-activation
 - **Why**: Skills activate automatically on context; commands require explicit `/name` invocation
+
+---
+
+## Anthropic Official Checklist Alignment
+
+22-item checklist mapped to validation checks, organized by category. Each item references the Anthropic best practices (2026) and maps to an existing validation rule or anti-pattern in this document.
+
+### Content Quality (8 items)
+
+| # | Checklist Item | Maps To | Level |
+|---|---------------|---------|-------|
+| 1 | Description is third person, action-oriented | Description Validation > Must Include | Error |
+| 2 | No first/second person pronouns | Description Validation > Must Not Include | Error |
+| 3 | Keywords present for discovery | Description Validation > Must Include | Warning |
+| 4 | No XML tags in frontmatter values | Enterprise Tier table (`name`, `description`), Body Validation > Standard Tier | Error |
+| 5 | No time-sensitive information (dates, versions that rot) | Body Validation > Standard Tier, Anti-Pattern Detection | Warning |
+| 6 | Consistent terminology throughout | Body Validation > Standard Tier | Warning |
+| 7 | No hardcoded model IDs (use `sonnet`/`haiku`/`opus`) | Anti-Pattern Detection > Hardcoded model IDs | Warning |
+| 8 | No absolute paths outside code blocks | Body Validation > Standard Tier | Error |
+
+### Structure & Disclosure (8 items)
+
+| # | Checklist Item | Maps To | Level |
+|---|---------------|---------|-------|
+| 9 | SKILL.md body under 500 lines | Body Validation > Standard Tier, SKILL.md Line Limits | Error |
+| 10 | Progressive disclosure used (references/ for heavy content) | Progressive Disclosure Scoring | Warning |
+| 11 | No TOC in SKILL.md body (wastes tokens) | Progressive Disclosure Scoring > Has unnecessary TOC | -1 modifier |
+| 12 | Reference files >100 lines have TOC | Progressive Disclosure Scoring > Reference files TOC | +1 modifier |
+| 13 | All `${CLAUDE_SKILL_DIR}/` references resolve to existing files | Body Validation > Enterprise Tier, Resource Validation | Error |
+| 14 | No path escapes (`../`) | Body Validation > Enterprise Tier, Resource Validation | Error |
+| 15 | Required packages and dependencies listed | Body Validation > Standard Tier > Required packages listed | Warning |
+| 16 | 7 required body sections present (Enterprise) | Body Validation > Enterprise Tier > 7 required sections | Error |
+
+### Testing & Evaluation (6 items)
+
+| # | Checklist Item | Maps To | Level |
+|---|---------------|---------|-------|
+| 17 | Feedback loops present (validation/self-check steps) | Body Validation > Standard Tier, Anti-Pattern Detection | Warning |
+| 18 | Error handling section documents failure modes and recovery | Body Validation > Enterprise Tier > Error handling | Warning |
+| 19 | Examples section has concrete input/output pairs | Body Validation > Enterprise Tier > Has examples | Warning |
+| 20 | Instructions have numbered steps | Body Validation > Enterprise Tier > Instructions have steps | Warning |
+| 21 | Stub detection passes (body >=30 lines, has code blocks or links) | Stub Detection Rules | Error (enterprise) |
+| 22 | DCI commands have error fallbacks | Dynamic Context Injection > DCI Validation Rules | Warning |

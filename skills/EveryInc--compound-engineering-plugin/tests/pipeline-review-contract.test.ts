@@ -48,6 +48,45 @@ describe("ce:work review contract", () => {
     expect(beta).toContain("`git-commit` skill")
     expect(beta).not.toContain("gh pr create")
   })
+
+  test("includes per-task testing deliberation in execution loop", async () => {
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-work/SKILL.md")
+
+    // Testing deliberation exists in the execution loop
+    expect(content).toContain("Assess testing coverage")
+
+    // Deliberation is between "Run tests after changes" and "Mark task as completed"
+    const runTestsIdx = content.indexOf("Run tests after changes")
+    const assessIdx = content.indexOf("Assess testing coverage")
+    const markDoneIdx = content.indexOf("Mark task as completed")
+    expect(runTestsIdx).toBeLessThan(assessIdx)
+    expect(assessIdx).toBeLessThan(markDoneIdx)
+  })
+
+  test("quality checklist says 'Testing addressed' not 'Tests pass'", async () => {
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-work/SKILL.md")
+
+    // New language present
+    expect(content).toContain("Testing addressed")
+
+    // Old language fully removed
+    expect(content).not.toContain("Tests pass (run project's test command)")
+    expect(content).not.toContain("- All tests pass")
+  })
+
+  test("ce:work-beta mirrors testing deliberation and checklist changes", async () => {
+    const beta = await readRepoFile("plugins/compound-engineering/skills/ce-work-beta/SKILL.md")
+
+    // Testing deliberation in loop
+    expect(beta).toContain("Assess testing coverage")
+
+    // New checklist language
+    expect(beta).toContain("Testing addressed")
+
+    // Old language removed
+    expect(beta).not.toContain("Tests pass (run project's test command)")
+    expect(beta).not.toContain("- All tests pass")
+  })
 })
 
 describe("ce:brainstorm review contract", () => {
@@ -61,6 +100,19 @@ describe("ce:brainstorm review contract", () => {
     // Handoff option is for additional passes, not the first review
     expect(content).toContain("**Run additional document review**")
     expect(content).not.toContain("**Review and refine**")
+  })
+})
+
+describe("ce:plan testing contract", () => {
+  test("flags blank test scenarios on feature-bearing units as incomplete", async () => {
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/SKILL.md")
+
+    // Phase 5.1 review checklist addresses blank test scenarios
+    expect(content).toContain("blank or missing test scenarios")
+    expect(content).toContain("Test expectation: none")
+
+    // Template comment mentions the annotation convention
+    expect(content).toContain("Test expectation: none -- [reason]")
   })
 })
 

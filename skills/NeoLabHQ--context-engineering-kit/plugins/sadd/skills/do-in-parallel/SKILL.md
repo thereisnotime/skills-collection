@@ -202,10 +202,11 @@ Generate an evaluation specification yaml for the following task applied to a sp
 
 CLAUDE_PLUGIN_ROOT=`${CLAUDE_PLUGIN_ROOT}`
 
+## User Prompt as Context
+{Original user prompt}
 
-## Task from User Prompt
-{Specific target for this meta-judge: file path, component name, etc. extracted from User Prompt}
-
+## Target
+{Specific target for this meta-judge: task description,file path, component name, etc. extracted from User Prompt}
 
 ## Context
 {Any relevant codebase context, file paths, constraints}
@@ -214,6 +215,7 @@ CLAUDE_PLUGIN_ROOT=`${CLAUDE_PLUGIN_ROOT}`
 {code | documentation | configuration | etc.}
 
 ## Instructions
+User prompt is provided as context, you should use it only as reference of changes that can occur in the project by other agents. Generate evaluation specification ONLY on the for the your specific target, generated from User Prompt. Your report will be used to verify only this particular task, not the all tasks in the user prompt.
 Return only the final evaluation specification YAML in your response.
 ```
 
@@ -479,7 +481,7 @@ CLAUDE_PLUGIN_ROOT=`${CLAUDE_PLUGIN_ROOT}`
 {Paths to files modified}
 
 ## Instructions
-
+User prompt is provided as context, you should use it only as reference of changes that can occur in the project by other agents. Evaluate ONLY on the task from User Prompt. Your job to verify only this particular of the target, not the all tasks in the user prompt.
 Follow your full judge process as defined in your agent instructions!
 
 ## Output

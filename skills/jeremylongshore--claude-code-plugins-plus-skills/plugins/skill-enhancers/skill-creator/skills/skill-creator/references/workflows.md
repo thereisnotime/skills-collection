@@ -177,6 +177,45 @@ Generate structured report:
 
 ---
 
+## Checklist Workflow
+
+Copy-pasteable progress tracking for complex multi-step processes. Claude checks items off as it completes them.
+
+```markdown
+## Instructions
+
+### Progress Checklist
+- [ ] Step 1: Gather requirements
+- [ ] Step 2: Validate inputs
+- [ ] Step 3: Execute primary operation
+- [ ] Step 4: Run verification checks
+- [ ] Step 5: Generate report
+
+### Step 1: Gather Requirements
+{{GATHER_INSTRUCTIONS}}
+Update checklist: mark Step 1 complete.
+
+### Step 2: Validate Inputs
+{{VALIDATION_INSTRUCTIONS}}
+Update checklist: mark Step 2 complete.
+
+### Step 3: Execute
+{{EXECUTION_INSTRUCTIONS}}
+Update checklist: mark Step 3 complete.
+
+### Step 4: Verify
+{{VERIFICATION_INSTRUCTIONS}}
+Update checklist: mark Step 4 complete.
+
+### Step 5: Report
+Show completed checklist with summary of each step's outcome.
+```
+
+**Best for**: Multi-step processes where progress visibility matters (releases, migrations, audits).
+**Degrees of freedom**: Low to Medium (defined steps, flexible execution within each).
+
+---
+
 ## Choosing the Right Pattern
 
 | If your skill... | Use this pattern |
@@ -187,6 +226,7 @@ Generate structured report:
 | Does something risky/irreversible | Plan-Validate-Execute |
 | Needs iterative quality | Feedback Loop |
 | Explores and reports on code | Search-Analyze-Report |
+| Needs visible progress tracking | Checklist |
 | Combines multiple concerns | Compose patterns together |
 
 Patterns can be composed. A deployment skill might use:

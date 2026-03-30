@@ -673,64 +673,64 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
-      "sha": "d2b24e0",
-      "message": "feat(skills): clean up argument-hint across ce:* skills (#436)",
+      "sha": "a01a8aa",
+      "message": "feat(cli-agent-readiness-reviewer): add smart output defaults criterion (#448)",
+      "date": "2026-03-30",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "739109c",
+      "message": "feat(ce-compound): add track-based schema for bug vs knowledge learnings (#445)",
       "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "03f5aa6",
-      "message": "feat(ce-review): improve signal-to-noise with confidence rubric, FP suppression, and intent verification (#434)",
+      "sha": "44e3e77",
+      "message": "feat(git-commit-push-pr): add conditional visual aids to PR descriptions (#444)",
       "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "ae69680",
-      "message": "chore: release main (#431)",
-      "date": "2026-03-29",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "6dabae6",
-      "message": "feat(ce-work): accept bare prompts and add test discovery (#423)",
+      "sha": "ca78057",
+      "message": "feat(ce-plan): add interactive deepening mode for on-demand plan strengthening (#443)",
       "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "9caaf07",
-      "message": "feat(review): make review mandatory across pipeline skills (#433)",
+      "sha": "f93d10c",
+      "message": "feat(converters): centralize model field normalization across targets (#442)",
       "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "0f5715d",
-      "message": "feat(document-review): collapse batch_confirm tier into auto (#432)",
+      "sha": "35678b8",
+      "message": "feat(testing): close the testing gap in ce:work, ce:plan, and testing-reviewer (#438)",
       "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "3706a97",
-      "message": "feat(ce-review): add headless mode for programmatic callers (#430)",
-      "date": "2026-03-28",
+      "sha": "a301a08",
+      "message": "feat(resolve-pr-feedback): add gated feedback clustering to detect systemic issues (#441)",
+      "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "125463b",
-      "message": "chore: release main (#428)",
-      "date": "2026-03-28",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "0bd29c7",
-      "message": "fix(release): align cli and compound-engineering versions with linked-versions plugin",
-      "date": "2026-03-28",
+      "sha": "4c7f51f",
+      "message": "feat(ce-plan): add conditional visual aids to plan documents (#440)",
+      "date": "2026-03-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "de8da43",
-      "message": "chore: release main (#426)",
-      "date": "2026-03-28",
-      "author": "github-actions[bot]"
+      "sha": "1f49948",
+      "message": "fix(git-commit-push-pr): quiet expected no-pr gh exit (#439)",
+      "date": "2026-03-29",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "bd02ca7",
+      "message": "feat(ce-brainstorm): add conditional visual aids to requirements documents (#437)",
+      "date": "2026-03-29",
+      "author": "Trevin Chow"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -835,6 +835,12 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "3941a43",
+      "message": "feat: add Information Systems Basket of 8 journals",
+      "date": "2026-03-30",
+      "author": "Imbad0202"
+    },
+    {
       "sha": "9c1c5dd",
       "message": "rename: AI Writing Lint \u2192 Writing Quality Check",
       "date": "2026-03-27",
@@ -885,12 +891,6 @@
     {
       "sha": "5c6729a",
       "message": "fix: remove last v4.0 reference in CHANGELOG.md",
-      "date": "2026-03-22",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "8a3dec4",
-      "message": "docs: add Substack guide articles to both READMEs",
       "date": "2026-03-22",
       "author": "Imbad0202"
     }
@@ -1021,6 +1021,18 @@
   ],
   "NeoLabHQ--context-engineering-kit": [
     {
+      "sha": "c4da85a",
+      "message": "Merge pull request #73 from NeoLabHQ/fix/vg/do-in-parallel-context-awerness-for-judges",
+      "date": "2026-03-29",
+      "author": "Vladislav Goncharov"
+    },
+    {
+      "sha": "26bbd0e",
+      "message": "fix(sadd): pass more context to judges so they will be aware of expected changes from other agents",
+      "date": "2026-03-29",
+      "author": "leovs09"
+    },
+    {
       "sha": "48d6d48",
       "message": "Merge pull request #72 from NeoLabHQ/fix/vg/code-review-and-do-in-parallel-skills",
       "date": "2026-03-29",
@@ -1065,18 +1077,6 @@
     {
       "sha": "889aa4e",
       "message": "docs: add deeper description of how rules work",
-      "date": "2026-03-21",
-      "author": "leovs09"
-    },
-    {
-      "sha": "0fd1b5c",
-      "message": "feat(sadd): use 5 why for rule creation analysis diring judging",
-      "date": "2026-03-21",
-      "author": "leovs09"
-    },
-    {
-      "sha": "347d1ea",
-      "message": "docs(ddd): update docs with new rules description",
       "date": "2026-03-21",
       "author": "leovs09"
     }
@@ -2063,6 +2063,36 @@
   ],
   "dreamiurg--claude-mountaineering-skills": [
     {
+      "sha": "f448402",
+      "message": "chore(deps): bump conventional-changelog-conventionalcommits (#70)",
+      "date": "2026-03-29",
+      "author": "dependabot[bot]"
+    },
+    {
+      "sha": "91c5af4",
+      "message": "chore(deps): bump @semantic-release/exec from 6.0.3 to 7.1.0 (#66)",
+      "date": "2026-03-29",
+      "author": "dependabot[bot]"
+    },
+    {
+      "sha": "5514dd7",
+      "message": "feat!: rename plugin to mountaineering and add slash commands (#73)",
+      "date": "2026-03-29",
+      "author": "Dmytro Gaivoronsky"
+    },
+    {
+      "sha": "b41b141",
+      "message": "ci(deps): bump the actions group with 3 updates (#64)",
+      "date": "2026-03-29",
+      "author": "dependabot[bot]"
+    },
+    {
+      "sha": "fe4b793",
+      "message": "perf: assign explicit model tiers to route-researcher agents (#74)",
+      "date": "2026-03-29",
+      "author": "Dmytro Gaivoronsky"
+    },
+    {
       "sha": "72118fb",
       "message": "refactor: simplify route-researcher tools and fix SKILL.md accuracy (#72)",
       "date": "2026-03-27",
@@ -2091,36 +2121,6 @@
       "message": "chore: add CI, dependabot, auto-merge, and supply chain review (#63)",
       "date": "2026-02-07",
       "author": "Dmytro Gaivoronsky"
-    },
-    {
-      "sha": "cea293a",
-      "message": "chore(release): 4.0.2 [skip ci]",
-      "date": "2026-01-30",
-      "author": "semantic-release-bot"
-    },
-    {
-      "sha": "1e5bab1",
-      "message": "fix: add version footer to SKILL.md for semantic-release (#62)",
-      "date": "2026-01-30",
-      "author": "Dmytro Gaivoronsky"
-    },
-    {
-      "sha": "cb84a3c",
-      "message": "chore(release): 4.0.1 (#61)",
-      "date": "2026-01-30",
-      "author": "Dmytro Gaivoronsky"
-    },
-    {
-      "sha": "38c65a9",
-      "message": "test(e2e): add multi-peak validation results for v4.0.0 release (#60)",
-      "date": "2026-01-30",
-      "author": "Dmytro Gaivoronsky"
-    },
-    {
-      "sha": "7991e47",
-      "message": "chore(release): 3.8.2 [skip ci]",
-      "date": "2026-01-30",
-      "author": "semantic-release-bot"
     }
   ],
   "emaynard--claude-family-history-research-skill": [
@@ -4517,6 +4517,12 @@
   ],
   "yusufkaraaslan--Skill_Seekers": [
     {
+      "sha": "00c72ea",
+      "message": "fix: resolve CI failures across all GitHub Actions workflows",
+      "date": "2026-03-29",
+      "author": "yusyus"
+    },
+    {
       "sha": "6fded97",
       "message": "feat: add Kotlin language support for codebase analysis (#287)",
       "date": "2026-03-28",
@@ -4567,12 +4573,6 @@
     {
       "sha": "31a57c4",
       "message": "style: apply ruff formatting to github_scraper.py",
-      "date": "2026-03-26",
-      "author": "yusyus"
-    },
-    {
-      "sha": "d71c1d3",
-      "message": "fix: filter non-integer metadata from GitHub languages API response (#322)",
       "date": "2026-03-26",
       "author": "yusyus"
     }
@@ -4997,6 +4997,12 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
+      "sha": "f6a8b26",
+      "message": "Workspace-aware package/module graph support",
+      "date": "2026-03-29",
+      "author": "levnikolaevich"
+    },
+    {
       "sha": "71d8338",
       "message": "feat(ln-310): fresh session, poll discipline, kill-after-parse order",
       "date": "2026-03-29",
@@ -5049,15 +5055,15 @@
       "message": "refactor: runtime unification \u2014 contracts, summary artifacts, review fixes",
       "date": "2026-03-27",
       "author": "levnikolaevich"
-    },
-    {
-      "sha": "f3e18aa",
-      "message": "refactor: audit runtime unification, worker independence, review-skills fixes",
-      "date": "2026-03-27",
-      "author": "levnikolaevich"
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
+    {
+      "sha": "3e83543",
+      "message": "feat(skill-creator): align with Anthropic best practices (2026)",
+      "date": "2026-03-30",
+      "author": "Jeremy Longshore"
+    },
     {
       "sha": "ef333c7",
       "message": "feat(blog): add intentcad-viewer-dwg-fastview-parity to tonsofskills.com/blog",
@@ -5111,74 +5117,68 @@
       "message": "feat(jeremy-github-actions-gcp): replace filePattern with native if conditional",
       "date": "2026-03-27",
       "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "b8a3b3e",
-      "message": "fix(catalog): convert x-bug-triage author field from string to object",
-      "date": "2026-03-27",
-      "author": "Jeremy Longshore"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
     {
-      "sha": "4c30d10",
-      "message": "Add entries from issues: clooks, gemini-claude-bridge, Notch So Good, background-timer, claude-sounds (#140)",
-      "date": "2026-03-27",
+      "sha": "e7ea944",
+      "message": "Merge pull request #104 from muxahu3bm/fix-marketplace-schema",
+      "date": "2026-03-30",
       "author": "Rohit Ghumare"
     },
     {
-      "sha": "f25992a",
-      "message": "feat: add claude-code-kickstart to Ecosystem section",
-      "date": "2026-03-27",
-      "author": "Yali Pollak"
+      "sha": "8f11945",
+      "message": "Merge pull request #96 from LXMedia1/add-obey-plugin",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "6ad4648",
-      "message": "Add claude-starter-kit to Ecosystem",
-      "date": "2026-03-27",
-      "author": "Serhii Kravchenko"
+      "sha": "fc164fc",
+      "message": "Merge pull request #88 from fullstackcrew-alpha/add-cost-optimizer",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "7c26f42",
-      "message": "Add claude-code-power-stack to Ecosystem (#121)",
-      "date": "2026-03-27",
-      "author": "Evyatar Bluzer"
+      "sha": "32169a0",
+      "message": "Merge pull request #81 from Payshak/add-claude-code-hooks-sdk",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "c48148e",
-      "message": "Add jarvis and jarvis-company-board (#120)",
-      "date": "2026-03-27",
-      "author": "Ramsbaby"
+      "sha": "0ddda5d",
+      "message": "Merge pull request #80 from 888wing/add-codetape",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "1ddb52c",
-      "message": "feat: add OpenClaw ecosystem tools to Ecosystem section",
-      "date": "2026-03-27",
-      "author": "Ramsbaby"
+      "sha": "b05f4c7",
+      "message": "Merge pull request #79 from pyramidheadshark/add-claude-scaffold",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "fb352b7",
-      "message": "Add The Pragmatic PM plugin (#137)",
-      "date": "2026-03-27",
-      "author": "martinf"
+      "sha": "e63bc91",
+      "message": "Merge pull request #75 from androidZzT/add-cc-statistics",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "ed17a84",
-      "message": "Add Pulse plugin (#123)",
-      "date": "2026-03-27",
-      "author": "Seongmin"
+      "sha": "cbf6e7f",
+      "message": "Merge pull request #72 from krodak/add-clickup-cli",
+      "date": "2026-03-30",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "667b394",
-      "message": "Add claude-node to Plugins (#118)",
-      "date": "2026-03-27",
-      "author": "Nicebean"
+      "sha": "cf01b8f",
+      "message": "Merge pull request #157 from HuiW86/add-skill-skillnav",
+      "date": "2026-03-29",
+      "author": "Rohit Ghumare"
     },
     {
-      "sha": "320e4c2",
-      "message": "Add claude-sounds plugin (#117)",
-      "date": "2026-03-27",
-      "author": "culminationA2"
+      "sha": "90f7ff9",
+      "message": "Merge pull request #155 from Houseofmvps/add-claude-rank",
+      "date": "2026-03-29",
+      "author": "Rohit Ghumare"
     }
   ],
   "daymade--claude-code-skills": [
@@ -5307,63 +5307,63 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "527c793",
-      "message": "Merge pull request #1000 from affaan-m/fix/codex-context7-compat-tests",
-      "date": "2026-03-29",
+      "sha": "a4d4b1d",
+      "message": "fix: resolve MINGW64 double-path conversion in install.sh (#1015)",
+      "date": "2026-03-30",
+      "author": "Michael"
+    },
+    {
+      "sha": "c90566f",
+      "message": "fix: harden codex sync CI hermeticity (#1020)",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "0ebcfc3",
-      "message": "fix(codex): broaden context7 config checks",
-      "date": "2026-03-29",
+      "sha": "b9a01d3",
+      "message": "fix: audit consumer projects from cwd (#1014)",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "bec1ebf",
-      "message": "Merge pull request #999 from affaan-m/fix/clv2-config-override-rebase",
-      "date": "2026-03-29",
+      "sha": "fab80c9",
+      "message": "fix: harden Trae install ownership (#1013)",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "be76918",
-      "message": "fix(clv2): honor CLV2_CONFIG in start-observer",
-      "date": "2026-03-29",
+      "sha": "8846210",
+      "message": "fix: unblock unicode safety CI lint (#1017)",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "99a154a",
-      "message": "Merge pull request #998 from affaan-m/fix/token-budget-advisor-trigger-clarity",
-      "date": "2026-03-29",
+      "sha": "cff28ef",
+      "message": "Merge pull request #854 from singularityjason/feat/add-omega-memory-mcp",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "ebf0f13",
-      "message": "fix(skills): clarify token-budget-advisor triggers",
-      "date": "2026-03-29",
+      "sha": "b575f2e",
+      "message": "fix: align omega-memory config description",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "2d27da5",
-      "message": "Merge pull request #997 from affaan-m/fix/readme-agent-count-tree",
-      "date": "2026-03-29",
+      "sha": "0f065af",
+      "message": "feat: add omega-memory MCP server to mcp-configs",
+      "date": "2026-03-30",
+      "author": "Jason Sosa"
+    },
+    {
+      "sha": "ded5d82",
+      "message": "Merge pull request #1011 from affaan-m/fix/stop-hook-and-mcp-schema",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "65c4a0f",
-      "message": "docs(readme): fix agent count in repo tree",
-      "date": "2026-03-29",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "ab49c9a",
-      "message": "Merge pull request #920 from Xabilimon1/main",
-      "date": "2026-03-29",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "b7a82cf",
-      "message": "Merge origin/main into Xabilimon1/main",
-      "date": "2026-03-29",
+      "sha": "ae272da",
+      "message": "Merge pull request #1002 from affaan-m/fix/unicode-safety-hardening",
+      "date": "2026-03-30",
       "author": "Affaan Mustafa"
     }
   ],
@@ -5555,6 +5555,24 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "2a4825b",
+      "message": "Add resource: claude-devtools (#1228)",
+      "date": "2026-03-30",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "e477e6a",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-03-30",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "508ef48",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-03-29",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "6122cd5",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-03-29",
@@ -5594,24 +5612,6 @@
       "sha": "f970924",
       "message": "Add resource: agnix (#1193)",
       "date": "2026-03-28",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "416fbe0",
-      "message": "Add resource: Codebase to Course (#1191)",
-      "date": "2026-03-28",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "7b60cab",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-03-28",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "7f0aafc",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-03-27",
       "author": "github-actions[bot]"
     }
   ],

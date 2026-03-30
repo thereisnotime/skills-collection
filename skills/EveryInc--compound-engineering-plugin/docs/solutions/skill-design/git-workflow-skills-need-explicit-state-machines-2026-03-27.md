@@ -42,6 +42,7 @@ The `git-commit` and `git-commit-push-pr` skills had accumulated branch-state an
 - Using a single early `git branch --show-current` result and referring back to it later. Once the workflow creates a branch, the earlier value is stale.
 - Using `git diff HEAD` as the definition of "has changes." It does not account for untracked files.
 - Treating every non-zero exit from `gh pr view` as a fatal failure. "No PR for this branch" is often a normal branch state.
+- Letting the shell tool surface that expected `gh pr view` non-zero exit as a visible failed step. Even when the logic recovers correctly, the UX looks broken and pushes future edits toward less-correct commands.
 - Switching from `gh pr view` to `gh pr list --head "<branch>"` to avoid the no-PR error path. This improved ergonomics but weakened correctness because `gh pr list` cannot disambiguate `<owner>:<branch>`.
 - Adding a "clean working tree" fast path before re-checking whether the current branch was still the default branch. That let the workflow skip the feature-branch safety gate and head straight toward invalid push/PR transitions.
 
@@ -111,6 +112,8 @@ Interpret it as a state check:
 - PR data returned -> PR exists for the current branch
 - Non-zero exit with output indicating no PR for the current branch -> expected "no PR yet" state
 - Any other failure -> real error
+
+When the shell/tooling layer renders non-zero exits as scary visible failures, wrap the command so the skill captures both the output and exit code and then interprets them explicitly. The user should see "no PR for this branch" as a normal state transition, not as a broken Bash step.
 
 This keeps PR detection tied to the current branch context instead of a bare branch name that may be reused across forks.
 
@@ -233,6 +236,7 @@ Learning: these skills should be designed and reviewed like tiny state machines,
 - Re-run the command that answers the current question at the point of decision. Do not rely on values gathered earlier if a mutating command may have changed them.
 - Use `git status` for "is there local work?" and reserve `git diff` for describing content, not determining whether work exists.
 - Model expected non-zero CLI exits explicitly when they represent state, such as `gh pr view` on a branch with no PR.
+- When a tool visually highlights non-zero exits as failures, capture the exit code yourself for expected state probes so correct logic does not still look broken to the user.
 - Avoid branch-name-only PR detection for multi-fork repos. If the command cannot disambiguate branch ownership, prefer a current-branch-aware command even if the failure path is slightly messier.
 - Keep default-branch safety checks in every path that can lead to push or PR creation, including "clean working tree but unpushed commits" shortcuts.
 - When editing skill logic, manually walk these cases before considering the change complete:

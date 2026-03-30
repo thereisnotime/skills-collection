@@ -17,6 +17,10 @@ description: |               # Third person, what + when + keywords
   Trigger with "/{skill-name}" or "{natural phrase}".
 ```
 
+**Frontmatter constraints (Anthropic spec):**
+- `name`: No XML tags (`<`, `>` characters prohibited). No reserved words (`anthropic`, `claude`) in isolation.
+- `description`: No XML tags. Description is injected into Claude's system prompt — third person prevents discovery issues where Claude speaks as the skill author.
+
 Identity fields (top-level — marketplace validator scores these here):
 ```yaml
 version: 1.0.0
@@ -88,8 +92,11 @@ Additional guidelines:
 - If skill has 3+ distinct user operations → split into individual `commands/*.md` files
 - Add DCI for common discovery: file existence checks, git status, tool version detection
 - Include edge cases that actually matter
-- No time-sensitive information
-- Consistent terminology throughout
+- No time-sensitive information — use an 'old patterns' section for deprecated approaches that users may encounter
+- Consistent terminology throughout — pick one term per concept and use it everywhere
+- Include feedback loops for quality-critical workflows (run validator -> fix -> repeat until passing)
+- No TOC in SKILL.md body (wastes tokens). For reference files >100 lines, include a TOC at the top
+- Checklist workflow pattern: for complex multi-step processes, include a copy-pasteable checklist
 - **No surprise behavior**: Skills must not contain malware, exploit code, or content that could compromise security. A skill's behavior should not surprise the user if described honestly
 
 **String substitutions available:**
@@ -112,7 +119,8 @@ Additional guidelines:
 
 **References** (`references/`):
 - Heavy documentation that doesn't need to load at activation
-- Use clear section headers for navigability (no TOC needed — wastes tokens)
+- Use clear section headers for navigability
+- For reference files >100 lines, include a TOC at the top so Claude can see full scope even with partial reads
 - One-level-deep references only (no `references/sub/dir/`)
 
 **Templates** (`templates/`):
@@ -163,6 +171,10 @@ Create `evals/evals.json` with minimum 3 scenarios: happy path, edge case, negat
 
 Run parallel evaluation: Claude A with skill installed vs Claude B without. Compare outputs against assertions — the skill should produce meaningfully better results for its target use cases.
 
+**Additional testing practices:**
+- **Team feedback**: If applicable, share the skill with teammates and observe usage patterns
+- **Observe Claude navigation**: Watch how Claude reads and navigates the skill — look for unexpected exploration paths, missed references, or overreliance on certain sections
+
 ## Step 8: Iterate
 
 1. Review which assertions passed/failed
@@ -180,7 +192,7 @@ Create 20 trigger evaluation queries (10 should-trigger, 10 should-not-trigger).
 
 **How skill triggering works:** Skills appear in Claude's available_skills list with their name + description. Claude decides whether to consult a skill based on that description. Important: Claude only consults skills for tasks it can't easily handle on its own — simple, one-step queries may not trigger a skill even if the description matches perfectly. Complex, multi-step, or specialized queries reliably trigger skills when the description matches. Design eval queries accordingly — make them substantive enough that Claude would benefit from consulting a skill.
 
-Tips: front-load distinctive keywords, include specific file types/tools/domains, add "Use when...", "Trigger with...", "Make sure to use whenever..." patterns. Avoid generic terms that overlap with other skills.
+Tips: front-load distinctive keywords, include specific file types/tools/domains, add "Use when...", "Trigger with...", "Make sure to use whenever..." patterns. Avoid generic terms that overlap with other skills. Ensure no XML tags (`<`, `>`) appear in the description.
 
 ## Step 10: Report
 

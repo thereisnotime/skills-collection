@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Skill Validator v5.0 - Two-Tier Validation + 100-Point Grading
+Skill Validator v5.1 (Anthropic Best Practices 2026) - Two-Tier Validation + 100-Point Grading
 
 Validates SKILL.md files against:
   - Standard tier (DEFAULT): AgentSkills.io minimum (name defaults to dir name, description recommended)
@@ -65,6 +65,13 @@ RE_WINDOWS_PATH = re.compile(r"[A-Za-z]:\\\\", re.IGNORECASE)
 RE_ARGUMENTS = re.compile(r"\$ARGUMENTS|\$\d+|\$ARGUMENTS\[\d+\]")
 RE_DYNAMIC_CONTEXT = re.compile(r"!`[^`]+`")
 
+RE_XML_TAG = re.compile(r"[<>]")
+RE_TIME_SENSITIVE = [
+    re.compile(r"\b(20\d{2}[-/]\d{2}[-/]\d{2})\b"),  # dates like 2025-01-01
+    re.compile(r"\b(v\d+\.\d+\.\d+)\b", re.IGNORECASE),  # version numbers like v1.2.3
+    re.compile(r"\b(as of|since|after|before) (January|February|March|April|May|June|July|August|September|October|November|December)\b", re.IGNORECASE),
+]
+
 ABSOLUTE_PATH_PATTERNS = [
     (re.compile(r"/home/\w+/"), "/home/..."),
     (re.compile(r"/Users/\w+/"), "/Users/..."),
@@ -114,6 +121,9 @@ def validate_name(fm: dict, path: Path, enterprise: bool = False) -> Tuple[List[
     if name != path.parent.name:
         warnings.append(f"'name' '{name}' differs from directory '{path.parent.name}'")
 
+    if RE_XML_TAG.search(name):
+        errors.append(f"'name' must not contain XML tags (< or >): '{name}'")
+
     return errors, warnings
 
 
@@ -149,6 +159,9 @@ def validate_description(fm: dict, enterprise: bool = False) -> Tuple[List[str],
             errors.append("'description' must not use second person (You can, You should, You will)")
         else:
             warnings.append("'description' should not use second person (You can, You should, You will)")
+
+    if RE_XML_TAG.search(desc):
+        errors.append("'description' must not contain XML tags (< or >)")
 
     return errors, warnings
 
@@ -395,6 +408,14 @@ def validate_body(body: str, path: Path, enterprise: bool) -> Tuple[List[str], L
                 info.append("Uses $ARGUMENTS but no 'argument-hint' in frontmatter")
         except Exception:
             pass
+
+    # Time-sensitive information detection (skip code blocks)
+    stripped_body = re.sub(r"```[\s\S]*?```", "", body)
+    stripped_body = re.sub(r"`[^`]+`", "", stripped_body)
+    for pattern in RE_TIME_SENSITIVE:
+        if pattern.search(stripped_body):
+            warnings.append("Body may contain time-sensitive information (dates, versions) that could go stale")
+            break
 
     return errors, warnings, info
 

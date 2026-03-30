@@ -471,6 +471,7 @@ function extractImport(node, grammar) {
         // P1b: Python structured import specifiers
         if (node.type === "import_from_statement") {
             const module = node.childForFieldName("module_name");
+            const relativeLevel = (node.text.match(/^from\s+(\.+)/)?.[1]?.length) || 0;
             const structuredSpecs = [];
             const localNames = [];
             for (let i = 0; i < node.childCount; i++) {
@@ -496,6 +497,7 @@ function extractImport(node, grammar) {
                 source: module ? module.text : "",
                 kind: "import",
                 specifiers: structuredSpecs,
+                relative_level: relativeLevel,
             };
         }
         if (node.type === "import_statement") {

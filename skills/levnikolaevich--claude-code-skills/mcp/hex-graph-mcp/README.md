@@ -22,10 +22,10 @@ Deterministic layered code graph MCP server. Indexes codebases into a SQLite gra
 | `explain_resolution` | Show how a selector/import/reference resolved | Candidate list + confidence |
 | `find_clones` | Detect exact, normalized, and near-miss clones | Hashes, MinHash, suppression heuristics |
 | `find_hotspots` | Rank risky symbols by complexity x dependency pressure | Uses unified graph and clone metadata |
-| `find_unused_exports` | Find exported symbols with no proven incoming usage | Confidence-aware, conservative outside JS/TS |
-| `find_cycles` | Detect circular dependencies in the module layer | SCC-based cycle detection |
-| `get_module_metrics` | Calculate coupling metrics from module edges | Ca/Ce/Instability, fan-in/fan-out |
-| `get_architecture` | Summarize module structure and cross-module edges | Built from the layered graph |
+| `find_unused_exports` | Find proven-unused exports and split uncertain cases | Workspace-aware, confidence-aware |
+| `find_cycles` | Detect circular dependencies between workspace modules | SCC-based cycle detection |
+| `get_module_metrics` | Calculate coupling metrics from workspace-module/package edges | Ca/Ce/Instability plus unresolved outgoing |
+| `get_architecture` | Summarize workspace modules, boundaries, and cross-module edges | Built from workspace ownership + package edges |
 
 ## Install
 
@@ -52,10 +52,18 @@ Or add to `.claude/settings.json` directly:
 All semantic tools use canonical selectors. Pass exactly one of:
 
 - `symbol_id`
+- `workspace_qualified_name`
 - `qualified_name`
 - `name` + `file`
 
 Plain `name` on its own is supported only in `search_symbols`. Ambiguous semantic selectors return `AMBIGUOUS_SYMBOL` instead of silently choosing the first match.
+
+All semantic symbol results expose both file-local and workspace-aware identity:
+
+- `qualified_name`
+- `workspace_qualified_name`
+- `package_key` / `package_name`
+- `module_key` / `module_name`
 
 ### index_project
 
@@ -82,7 +90,7 @@ Identity-safe symbol view: definition, incoming edges, outgoing edges, structura
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
+| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
 
 ### trace_paths
 
@@ -90,8 +98,8 @@ Traverse graph paths from one symbol through selected semantic layers.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `qualified_name` / `name`+`file` | selector | yes | Start selector |
-| `to_symbol_id` / `to_qualified_name` / `to_name`+`to_file` | selector | no | Optional target selector |
+| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Start selector |
+| `to_symbol_id` / `to_workspace_qualified_name` / `to_qualified_name` / `to_name`+`to_file` | selector | no | Optional target selector |
 | `path_kind` | string | no | `calls`, `references`, `imports`, `type`, `flow`, `mixed` |
 | `direction` | string | no | `forward`, `reverse`, `both` |
 | `depth` | number | no | Traversal depth |
@@ -103,7 +111,7 @@ Find incoming semantic references for one symbol identity.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
+| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
 | `kind` | string | no | Optional edge-kind filter |
 | `limit` | number | no | Max references |
 
@@ -113,7 +121,7 @@ Find `extends`, `implements`, and `overrides` relations anchored to one symbol i
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
+| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
 | `limit` | number | no | Max results |
 
 ### find_dataflows
@@ -122,8 +130,8 @@ Return deterministic flow summaries and targeted interprocedural flow paths for 
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
-| `to_symbol_id` / `to_qualified_name` / `to_name`+`to_file` | selector | no | Optional target selector |
+| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
+| `to_symbol_id` / `to_workspace_qualified_name` / `to_qualified_name` / `to_name`+`to_file` | selector | no | Optional target selector |
 | `depth` | number | no | Flow expansion depth |
 | `limit` | number | no | Max paths |
 
@@ -133,11 +141,20 @@ Explain how a selector/import/reference was resolved and why a candidate won.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
+| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
 
 ### watch_project
 
 Start file watcher for incremental graph updates. Reuses the same indexing pipeline as `index_project`.
+
+## Architecture Guardrails
+
+- Local-first by default: embedded SQLite graph store is the source of truth for normal use.
+- Parser-first by default: workspace discovery and semantic resolution run before edge materialization.
+- Workspace-first identity: semantic queries expose both file-local `qualified_name` and workspace-level `workspace_qualified_name`.
+- Precise providers are optional overlays, not replacements for the native graph.
+- Import/export interchange stays adapter-only. It is not the core storage model or primary UX.
+- Correctness is locked with semantic smoke fixtures, including permanent regressions for cross-file workspace resolution.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -202,7 +219,7 @@ Find exported symbols with no proven incoming usage.
 
 ### find_cycles
 
-Detect circular dependencies in the module layer.
+Detect circular dependencies between workspace modules.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -213,7 +230,7 @@ Detect circular dependencies in the module layer.
 
 ### get_module_metrics
 
-Calculate coupling metrics from the module layer.
+Calculate coupling metrics from workspace-module dependencies.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -225,7 +242,7 @@ Calculate coupling metrics from the module layer.
 
 ### get_architecture
 
-Project architecture overview from the unified layered graph.
+Project architecture overview from workspace ownership and resolved package/module boundaries.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -242,13 +259,13 @@ Project architecture overview from the unified layered graph.
 
 | Language | Extensions | Definitions & Calls | Exports | Imports (structured) | Type Layer | `find_unused_exports` |
 |----------|-----------|---------------------|---------|---------------------|-----------|------------------------|
-| JavaScript | .js .mjs .cjs .jsx | Full | ESM named/default/reexport | Full (alias, default, namespace) | Basic explicit syntax | Full workspace-local confidence |
-| TypeScript | .ts .tsx | Full | ESM named/default/reexport | Full (alias, default, namespace) | Basic explicit syntax | Full workspace-local confidence |
-| Python | .py | Full | `__all__` or underscore convention | Structured (named, alias, wildcard, module) | Basic explicit syntax | Export detection only |
-| C# | .cs | Full | `public` access modifier | Basic (`type: "module"`) | Basic explicit syntax | Export detection only |
-| PHP | .php | Full | Top-level + `public` methods | Basic (`type: "module"`) | Basic explicit syntax | Export detection only |
+| JavaScript | .js .mjs .cjs .jsx | Full | ESM named/default/reexport | Full (relative, workspace package, alias, default, namespace) | Basic explicit syntax | Proven unused + uncertain split |
+| TypeScript | .ts .tsx | Full | ESM named/default/reexport | Full (relative, workspace package, alias, default, namespace) | Basic explicit syntax | Proven unused + uncertain split |
+| Python | .py | Full | `__all__` or underscore convention | Workspace-aware absolute + relative imports | Basic explicit syntax | Proven unused + uncertain split |
+| C# | .cs | Full | `public` access modifier | Project/namespace ownership + references | Basic explicit syntax | Proven unused + uncertain split |
+| PHP | .php | Full | Top-level + `public` methods | PSR-4 namespace resolution | Basic explicit syntax | Proven unused + uncertain split |
 
-**Note:** Python/C#/PHP support is parser-strong and graph-aware, but `find_unused_exports` remains conservative because non-JS cross-file resolver coverage is narrower than JS/TS.
+**Note:** Architecture, cycle detection, and coupling reports are workspace-first. File-level edges remain raw evidence in the graph, but module/package ownership is the primary reporting layer.
 
 ```
 hex-graph-mcp/
@@ -290,7 +307,7 @@ hex-graph-mcp/
 |----------|------|---------|
 | Find candidate symbols | `search_symbols` | `query: "handleAuth"` |
 | Inspect one exact symbol | `get_symbol` | `name: "UserService", file: "src/services/user.ts"` |
-| Trace callers/callees/flows | `trace_paths` | `qualified_name: "...", path_kind: "mixed"` |
+| Trace callers/callees/flows | `trace_paths` | `workspace_qualified_name: "...", path_kind: "mixed"` |
 | Find semantic usages | `find_references` | `name: "handleAuth", file: "src/auth.ts"` |
 | Find implementations | `find_implementations` | `name: "BaseStore", file: "src/store.ts"` |
 | Explain ambiguous linking | `explain_resolution` | Same selector as above |

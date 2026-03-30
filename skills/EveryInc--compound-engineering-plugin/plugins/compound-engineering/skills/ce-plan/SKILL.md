@@ -1,7 +1,7 @@
 ---
 name: ce:plan
-description: "Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer ce:brainstorm first."
-argument-hint: "[optional: feature description, requirements doc path, or improvement idea]"
+description: "Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Also deepen existing plans with interactive review of sub-agent findings. Use for plan creation when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Use for plan deepening when the user says 'deepen the plan', 'deepen my plan', 'deepening pass', or uses 'deepen' in reference to a plan. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer ce:brainstorm first."
+argument-hint: "[optional: feature description, requirements doc path, plan path to deepen, or improvement idea]"
 ---
 
 # Create Technical Plan
@@ -61,9 +61,13 @@ If the user references an existing plan file or there is an obvious recent match
 - Confirm whether to update it in place or create a new plan
 - If updating, preserve completed checkboxes and revise only the still-relevant sections
 
-**Re-deepen fast path:** If the plan appears complete (all major sections present, implementation units defined, `status: active`) and the user's request is specifically about deepening or strengthening the plan — detected by signal words like "deepen", "strengthen", "confidence", "gaps", or an explicit request to re-deepen — short-circuit directly to Phase 5.3 (Confidence Check and Deepening). This avoids re-running the full planning workflow just to evaluate deepening.
+**Deepen intent:** The word "deepen" (or "deepening") in reference to a plan is the primary trigger for the deepening fast path. When the user says "deepen the plan", "deepen my plan", "run a deepening pass", or similar, the target document is a **plan** in `docs/plans/`, not a requirements document. Use any path, keyword, or context the user provides to identify the right plan. If a path is provided, verify it is actually a plan document. If the match is not obvious, confirm with the user before proceeding.
 
-Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit") should NOT trigger the fast path — they follow the standard resume flow.
+Words like "strengthen", "confidence", "gaps", and "rigor" are NOT sufficient on their own to trigger deepening. These words appear in normal editing requests ("strengthen that section about the diagram", "there are gaps in the test scenarios") and should not cause a holistic deepening pass. Only treat them as deepening intent when the request clearly targets the plan as a whole and does not name a specific section or content area to change — and even then, prefer to confirm with the user before entering the deepening flow.
+
+Once the plan is identified and appears complete (all major sections present, implementation units defined, `status: active`), short-circuit to Phase 5.3 (Confidence Check and Deepening) in **interactive mode**. This avoids re-running the full planning workflow and gives the user control over which findings are integrated.
+
+Normal editing requests (e.g., "update the test scenarios", "add a new implementation unit", "strengthen the risk section") should NOT trigger the fast path — they follow the standard resume flow.
 
 If the plan already has a `deepened: YYYY-MM-DD` frontmatter field and there is no explicit user request to re-deepen, the fast path still applies the same confidence-gap evaluation — it does not force deepening.
 
@@ -336,7 +340,7 @@ For each unit, include:
 - **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first, characterization-first, or external delegation
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
 - **Patterns to follow** - existing code or conventions to mirror
-- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage.
+- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
   - **Happy path behaviors** - core functionality with expected inputs and outputs
   - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
@@ -496,7 +500,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 - [Existing file, class, or pattern]
 
 **Test scenarios:**
-<!-- Include only categories that apply to this unit. Omit categories that don't. -->
+<!-- Include only categories that apply to this unit. Omit categories that don't. For units with no behavioral change, use "Test expectation: none -- [reason]" instead of leaving this section blank. -->
 - [Scenario: specific input/action -> expected outcome. Prefix with category — Happy path, Edge case, Error path, or Integration — to signal intent]
 
 **Verification:**
@@ -578,6 +582,38 @@ For larger `Deep` plans, extend the core template only when useful with sections
 - Do not expand implementation units into micro-step `RED/GREEN/REFACTOR` instructions
 - Do not pretend an execution-time question is settled just to make the plan look complete
 
+#### 4.4 Visual Communication in Plan Documents
+
+Section 3.4 covers diagrams about the *solution being planned* (pseudo-code, mermaid sequences, state diagrams). The existing Section 4.3 mermaid rule encourages those solution-design diagrams within Technical Design and per-unit fields. This guidance covers a different concern: visual aids that help readers *navigate and comprehend the plan document itself* -- dependency graphs, interaction diagrams, and comparison tables that make plan structure scannable.
+
+Visual aids are conditional on content patterns, not on plan depth classification -- a Lightweight plan about a complex multi-unit workflow may warrant a dependency graph; a Deep plan about a straightforward feature may not.
+
+**When to include:**
+
+| Plan describes... | Visual aid | Placement |
+|---|---|---|
+| 4+ implementation units with non-linear dependencies (parallelism, diamonds, fan-in/fan-out) | Mermaid dependency graph | Before or after the Implementation Units heading |
+| System-Wide Impact naming 3+ interacting surfaces or cross-layer effects | Mermaid interaction or component diagram | Within the System-Wide Impact section |
+| Problem/Overview involving 3+ behavioral modes, states, or variants | Markdown comparison table | Within Overview or Problem Frame |
+| Key Technical Decisions with 3+ interacting decisions, or Alternative Approaches with 3+ alternatives | Markdown comparison table | Within the relevant section |
+
+**When to skip:**
+- The plan has 3 or fewer units in a straight dependency chain -- the Dependencies field on each unit is sufficient
+- Prose already communicates the relationships clearly
+- The visual would duplicate what the High-Level Technical Design section already shows
+- The visual describes code-level detail (specific method names, SQL columns, API field lists)
+
+**Format selection:**
+- **Mermaid** (default) for dependency graphs and interaction diagrams -- 5-15 nodes, no in-box annotations, standard flowchart shapes. Use `TB` (top-to-bottom) direction so diagrams stay narrow in both rendered and source form. Source should be readable as fallback in diff views and terminals.
+- **ASCII/box-drawing diagrams** for annotated flows that need rich in-box content -- file path layouts, decision logic branches, multi-column spatial arrangements. More expressive than mermaid when the diagram's value comes from annotations within nodes. Follow 80-column max for code blocks, use vertical stacking.
+- **Markdown tables** for mode/variant comparisons and decision/approach comparisons.
+- Keep diagrams proportionate to the plan. A 6-unit linear chain gets a simple 6-node graph. A complex dependency graph with fan-out and fan-in may need 10-15 nodes -- that is fine if every node earns its place.
+- Place inline at the point of relevance, not in a separate section.
+- Plan-structure level only -- unit dependencies, component interactions, mode comparisons, impact surfaces. Not implementation architecture, data schemas, or code structure (those belong in Section 3.4).
+- Prose is authoritative: when a visual aid and its surrounding prose disagree, the prose governs.
+
+After generating a visual aid, verify it accurately represents the plan sections it illustrates -- correct dependency edges, no missing surfaces, no merged units.
+
 ### Phase 5: Final Review, Write File, and Handoff
 
 #### 5.1 Review Before Writing
@@ -590,9 +626,11 @@ Before finalizing, check:
 - If test-first or characterization-first posture was explicit or strongly implied, the relevant units carry it forward with a lightweight `Execution note`
 - Each feature-bearing unit has test scenarios from every applicable category (happy path, edge cases, error paths, integration) — right-sized to the unit's complexity, not padded or skimped
 - Test scenarios name specific inputs, actions, and expected outcomes without becoming test code
+- Feature-bearing units with blank or missing test scenarios are flagged as incomplete — feature-bearing units must have actual test scenarios, not just an annotation. The `Test expectation: none -- [reason]` annotation is only valid for non-feature-bearing units (pure config, scaffolding, styling)
 - Deferred items are explicit and not hidden as fake certainty
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
 - Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
+- Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
 
 If the plan originated from a requirements document, re-read that document and verify:
 - The chosen approach still matches the product intent
@@ -620,13 +658,20 @@ Plan written to docs/plans/[filename]
 
 #### 5.3 Confidence Check and Deepening
 
-After writing the plan file, automatically evaluate whether the plan needs strengthening. This phase runs without asking the user for approval. The user sees what is being strengthened but does not need to make a decision.
+After writing the plan file, automatically evaluate whether the plan needs strengthening.
+
+**Two deepening modes:**
+
+- **Auto mode** (default during plan generation): Runs without asking the user for approval. The user sees what is being strengthened but does not need to make a decision. Sub-agent findings are synthesized directly into the plan.
+- **Interactive mode** (activated by the re-deepen fast path in Phase 0.1): The user explicitly asked to deepen an existing plan. Sub-agent findings are presented individually for review before integration. The user can accept, reject, or discuss each agent's findings. Only accepted findings are synthesized into the plan.
+
+Interactive mode exists because on-demand deepening is a different user posture — the user already has a plan they are invested in and wants to be surgical about what changes. This applies whether the plan was generated by this skill, written by hand, or produced by another tool.
 
 `document-review` and this confidence check are different:
 - Use the `document-review` skill when the document needs clarity, simplification, completeness, or scope control
 - This confidence check strengthens rationale, sequencing, risk treatment, and system-wide thinking when the plan is structurally sound but still needs stronger grounding
 
-**Pipeline mode:** This phase runs in pipeline/disable-model-invocation mode using the same gate logic described below. No user interaction needed.
+**Pipeline mode:** This phase always runs in auto mode in pipeline/disable-model-invocation contexts. No user interaction needed.
 
 ##### 5.3.1 Classify Plan Depth and Topic Risk
 
@@ -715,6 +760,7 @@ If the plan already has a `deepened:` date:
 - Units are too large, too vague, or broken into micro-steps
 - Approach notes are thin or do not name the pattern to follow
 - Test scenarios are vague (don't name inputs and expected outcomes), skip applicable categories (e.g., no error paths for a unit with failure modes, no integration scenarios for a unit crossing layers), or are disproportionate to the unit's complexity
+- Feature-bearing units have blank or missing test scenarios (feature-bearing units require actual test scenarios; the `Test expectation: none` annotation is only valid for non-feature-bearing units)
 - Verification outcomes are vague or not expressed as observable results
 
 **System-Wide Impact**
@@ -835,9 +881,34 @@ If agent outputs conflict:
 - Prefer official framework documentation over secondary best-practice summaries when the conflict is about library behavior
 - If a real tradeoff remains, record it explicitly in the plan
 
+##### 5.3.6b Interactive Finding Review (Interactive Mode Only)
+
+Skip this step in auto mode — proceed directly to 5.3.7.
+
+In interactive mode, present each agent's findings to the user before integration. For each agent that returned findings:
+
+1. **Summarize the agent and its target section** — e.g., "The architecture-strategist reviewed Key Technical Decisions and found:"
+2. **Present the findings concisely** — bullet the key points, not the raw agent output. Include enough context for the user to evaluate: what the agent found, what evidence supports it, and what plan change it implies.
+3. **Ask the user** using the platform's blocking question tool when available (see Interaction Method):
+   - **Accept** — integrate these findings into the plan
+   - **Reject** — discard these findings entirely
+   - **Discuss** — the user wants to talk through the findings before deciding
+
+If the user chooses "Discuss", engage in brief dialogue about the findings and then re-ask with only accept/reject (no discuss option on the second ask). The user makes a deliberate choice either way.
+
+When presenting findings from multiple agents targeting the same section, present them one agent at a time so the user can make independent decisions. Do not merge findings from different agents before showing them.
+
+After all agents have been reviewed, carry only the accepted findings forward to 5.3.7.
+
+If the user accepted no findings, report "No findings accepted — plan unchanged." If artifact-backed mode was used, clean up the scratch directory before continuing. Then proceed directly to Phase 5.4 (skip document-review and synthesis — the plan was not modified).
+
+If findings were accepted and the plan was modified, proceed through 5.3.7 and 5.3.8 as normal — document-review acts as a quality gate on the changes.
+
 ##### 5.3.7 Synthesize and Update the Plan
 
 Strengthen only the selected sections. Keep the plan coherent and preserve its overall structure.
+
+**In interactive mode:** Only integrate findings the user accepted in 5.3.6b. If some findings from different agents touch the same section, reconcile them coherently but do not reintroduce rejected findings.
 
 Allowed changes:
 - Clarify or strengthen decision rationale

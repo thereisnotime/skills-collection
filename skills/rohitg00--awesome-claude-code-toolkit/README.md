@@ -67,6 +67,7 @@ Over 150 production-ready plugins that extend Claude Code with domain-specific c
 
 | Plugin | Description |
 |--------|-------------|
+| [skills-janitor](https://github.com/khendzel/skills-janitor) | Audit, deduplicate, check, fix, and track usage of your Claude Code skills. 9 slash commands, zero dependencies |
 | [aws-cost-saver](https://github.com/prajapatimehul/aws-cost-saver) | AWS cost optimization scanner with 173 automated checks, ML-powered rightsizing, and Zero Hallucination Pricing - Real result: 60% cost reduction |
 | [claude-agentic-coding-playbook](https://github.com/john-wilmes/claude-agentic-coding-playbook) | Evidence-based practices for LLM-assisted development -- hooks, skills, scripts, and a best-practices guide with 58 citations. Includes 19+ guard/lifecycle hooks, investigation workflow, fleet indexing, and claude-loop for autonomous task queues. |
 | [claude-code-mcp](https://github.com/steipete/claude-code-mcp) | Run Claude Code as a one-shot MCP server -- an agent in your agent. Permissions bypassed automatically. By Peter Steinberger. 1,100+ stars |
@@ -99,13 +100,16 @@ Over 150 production-ready plugins that extend Claude Code with domain-specific c
 | [claude-hooks-mastery](https://github.com/disler/claude-code-hooks-mastery) | Complete mastery guide for Claude Code hooks -- UV single-file Python scripts, sub-agents, meta-agent, team-based validation, AI-generated audio feedback. 3,300+ stars |
 | [claude-mem](https://github.com/thedotmack/claude-mem) | Automatically captures everything Claude does, compresses with AI, injects relevant context into future sessions. SQLite + full-text search. 35,900+ stars |
 | [claude-notifications-go](https://github.com/777genius/claude-notifications-go) | Cross-platform smart notifications -- 6 types, click-to-focus, context analysis, webhooks. Single Go binary, zero deps. 340+ stars |
+| [claude-scaffold](https://github.com/pyramidheadshark/claude-scaffold) | npx CLI that deploys CLAUDE.md, hooks, and 18 domain skills to any repository in one command. Skills auto-activate via hooks based on project context. Cross-repo sync via `update --all`. Install: `npx claude-scaffold init` |
 | [claude-recap](https://github.com/hatawong/claude-recap) | Per-topic session memory using Shell hooks — archives each conversation topic as a separate Markdown summary. Two hooks, bash + Node.js, 100% local |
+| [claude-rank](https://github.com/Houseofmvps/claude-rank) | SEO/GEO/AEO audit plugin — tells you why AI won't cite your site, then auto-fixes robots.txt, sitemap.xml, llms.txt, and JSON-LD. 170+ rules across 10 scanners, zero config |
 | [claude-sounds](https://github.com/culminationAI/claude-sounds) | Audio feedback for Claude Code hooks — 10 events, 21 sounds, random rotation. macOS (`afplay`). |
 | [claude-supermemory](https://github.com/supermemoryai/claude-supermemory) | Persistent memory across sessions and projects using Supermemory. User profile injection at session start, automatic conversation capture. 2,300+ stars |
 | [code-architect](plugins/code-architect/) | Generate architecture diagrams and technical design documents |
 | [code-explainer](plugins/code-explainer/) | Explain complex code and annotate files with inline documentation |
 | [code-guardian](plugins/code-guardian/) | Automated code review, security scanning, and quality enforcement |
 | [code-review-assistant](plugins/code-review-assistant/) | Automated code review with severity levels and actionable feedback |
+| [eliniscan](https://github.com/AlpYenigun/eliniscan) | AI full codebase scanner. Opens a separate Claude session for every file — reads every line, misses nothing. Finds bugs, security, performance issues and auto-fixes. |
 | [codebase-documenter](plugins/codebase-documenter/) | Auto-document entire codebase with inline comments and API docs |
 | [color-contrast](plugins/color-contrast/) | Color contrast checking and accessible color suggestions |
 | [commit-commands](plugins/commit-commands/) | Advanced commit workflows with smart staging and push automation |
@@ -114,9 +118,11 @@ Over 150 production-ready plugins that extend Claude Code with domain-specific c
 | [content-creator](plugins/content-creator/) | Technical content generation for blog posts and social media |
 | [context7-docs](plugins/context7-docs/) | Fetch up-to-date library documentation via Context7 for accurate coding |
 | [contract-tester](plugins/contract-tester/) | API contract testing with Pact for microservice compatibility |
+| [cozempic](https://github.com/Ruya-AI/cozempic) | ✨ v1.2.x — Self-updating now, atomic writes, strict session guard, zero false positives on team detection. 13 pruning strategies, Agent Team protection, MCP server, JSONL doctor. Install: `/plugin marketplace add Ruya-AI/cozempic` |
 | [create-worktrees](plugins/create-worktrees/) | Git worktree management for parallel development workflows |
 | [cron-scheduler](plugins/cron-scheduler/) | Cron job configuration and schedule validation |
 | [css-cleaner](plugins/css-cleaner/) | Find unused CSS and consolidate stylesheets |
+| [cup](https://github.com/krodak/clickup-cli) | ClickUp CLI for AI agents with task management, sprints, and time tracking |
 | [data-privacy](plugins/data-privacy/) | Data privacy implementation with PII detection and anonymization |
 | [database-optimizer](plugins/database-optimizer/) | Database query optimization with index recommendations and EXPLAIN analysis |
 | [dead-code-finder](plugins/dead-code-finder/) | Find and remove dead code across the codebase |
@@ -131,6 +137,7 @@ Over 150 production-ready plugins that extend Claude Code with domain-specific c
 | [jarvis](https://github.com/Ramsbaby/jarvis) | Turns an idle Claude Max subscription into a 24/7 AI ops system — Discord bot, 76 scheduled tasks, 12 AI teams, local LanceDB RAG, 98% context compression via Nexus CIG, and 4-layer self-healing infrastructure. Uses `claude -p` headless mode at $0 extra cost. |
 | [jarvis-company-board](https://github.com/Ramsbaby/jarvis-company-board) | Real-time AI agent collaboration board built on Next.js 15 and SQLite WAL — 8 named AI board members debate decisions via SSE push, with a DEV task approval workflow and Railway deploy support. |
 | [dna-claude-analysis](https://github.com/shmlkv/dna-claude-analysis) | Personal genome analysis toolkit that analyzes raw DNA data across 17 categories and generates a terminal-style HTML dashboard |
+| [codetape](https://github.com/888wing/codetape) | The flight recorder for AI coding — auto-records semantic traces and syncs README, CHANGELOG, CLAUDE.md. Zero deps. `npx codetape init` |
 | [doc-forge](plugins/doc-forge/) | Documentation generation, API docs, and README maintenance |
 | [docker-helper](plugins/docker-helper/) | Build optimized Docker images and improve Dockerfile best practices |
 | [double-check](plugins/double-check/) | Verify code correctness with systematic second-pass analysis |
@@ -172,9 +179,11 @@ Over 150 production-ready plugins that extend Claude Code with domain-specific c
 | [onboarding-guide](plugins/onboarding-guide/) | New developer onboarding documentation generator |
 | [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) | Teams-first multi-agent orchestration. 19 specialized agents, 28 skills. Full autonomous execution, Socratic questioning, N coordinated agents. 9,900+ stars |
 | [onWatch](https://github.com/onllm-dev/onwatch) | Open-source Go CLI that tracks AI API quota usage across 7 providers (Synthetic, Z.ai, Anthropic, Codex, GitHub Copilot, MiniMax, Antigravity) with a background daemon (<50 MB RAM), zero telemetry, and a Material Design 3 web dashboard |
+| [obey](https://github.com/Lexxes-Projects/obey) | Rule enforcement plugin. Save rules with natural language, enforce with 17 lifecycle hooks. Three scopes (global, stack-specific, project-local), active blocking via PreToolUse, completion checklists via Stop hook, audit trail, auto-detects rule-like language. Cross-platform. |
 | [opcode](https://github.com/winfunc/opcode) | Tauri 2 desktop GUI and toolkit for Claude Code. Manage sessions, create custom agents with visual editor, usage analytics, MCP integration. 21,000+ stars |
 | [openapi-expert](plugins/openapi-expert/) | OpenAPI spec generation, validation, and client code scaffolding |
 | [optimize](plugins/optimize/) | Code optimization for performance and bundle size reduction |
+| [oss-autopilot](https://github.com/costajohnt/oss-autopilot) | Open source contribution manager — tracks PRs across repos, discovers issues, diagnoses CI failures, drafts maintainer responses. 7 agents, interactive commands, MCP server. Install: `/plugin marketplace add costajohnt/oss-autopilot` |
 | [peon-ping](https://github.com/PeonPing/peon-ping) | Warcraft III Peon voice notifications (+ StarCraft, Portal, Zelda) for Claude Code and other agents. Desktop banners, auto-detects SSH/devcontainers. 3,900+ stars |
 | [perf-profiler](plugins/perf-profiler/) | Performance analysis, profiling, and optimization recommendations |
 | [performance-monitor](plugins/performance-monitor/) | Profile API endpoints and run benchmarks to identify performance bottlenecks |
@@ -340,6 +349,7 @@ One hundred thirty-five specialized agents organized into ten categories. Each a
 | Vector DB Engineer | [`vector-database-engineer.md`](agents/data-ai/vector-database-engineer.md) | FAISS, Pinecone, Qdrant, Weaviate, embeddings |
 | Data Visualization | [`data-visualization.md`](agents/data-ai/data-visualization.md) | D3.js, Chart.js, Matplotlib, Plotly dashboards |
 | Feature Engineer | [`feature-engineer.md`](agents/data-ai/feature-engineer.md) | Feature stores, pipelines, encoding strategies |
+| AutoResearch Agent | [`autoresearch-agent.md`](agents/data-ai/autoresearch-agent.md) | ML experiment automation via tree search, code optimization |
 
 ### Developer Experience (15 agents)
 
@@ -488,14 +498,18 @@ Thirty-five curated skill modules included in this repo, with access to **400,00
 |-------|---------|------------------|
 | [Reepl - LinkedIn Content Creation](https://github.com/reepl-io/skills) | `npx skillkit@latest install reepl-io/skills` | 18 tools for LinkedIn content management: drafts, publishing, scheduling, voice profiles, contacts, collections, templates, and AI image generation |
 | [avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing) | `git clone https://github.com/conorbronsdon/avoid-ai-writing ~/.claude/skills/avoid-ai-writing` | AI writing pattern detection and rewriting (21 categories, 43 replacements) |
+| [Edison](https://github.com/kilnside/edison) | `git clone https://github.com/kilnside/edison ~/.claude/skills/edison` | Design decision skill — the phase between brainstorming and building. Research-first progressive deepening with self-executing specs. Three modes: Check, Explore, Audit |
 | [MUSE](https://github.com/myths-labs/muse) | `git clone` + `./scripts/install.sh --tool claude` | Pure-Markdown memory OS with 48 skills, cross-conversation memory, 8 roles with permission isolation. Works with 6 AI coding tools. |
 | [Product Manager Skills](https://github.com/Digidai/product-manager-skills) | `clawhub install product-manager-skills` | Senior PM agent with 6 knowledge domains, 12 templates, and 30+ frameworks covering discovery, strategy, delivery, SaaS metrics, PM career coaching (IC to CPO), and AI product craft |
+| [OpenDivination](https://github.com/amenti-labs/opendivination) | `pipx install opendivination && npx skills add amenti-labs/opendivination --skill divination` | Tarot and I Ching skill with auditable entropy provenance, guided source setup across computer RNG, QRNG APIs, and local hardware, plus optional resonance mode |
 | [x-twitter-scraper](https://github.com/Xquik-dev/x-twitter-scraper) | `npx skills add Xquik-dev/x-twitter-scraper` | X API & Twitter scraper skill for AI coding agents -- tweet search, user lookup, follower extraction, engagement metrics, giveaway draws, trending topics, account monitoring, and 19 extraction tools |
 | [claude-skills](https://github.com/alirezarezvani/claude-skills) | `git clone` | 192 production-ready skills across 9 domains (engineering, marketing, product, compliance, C-level advisory) with 254 Python automation tools. 5,300+ stars |
 | [n8n-skills](https://github.com/czlonkowski/n8n-skills) | `git clone` | 7 complementary skills for building production-ready n8n workflows. Covers 525+ nodes, 2,653+ templates. 3,400+ stars |
 | [claude-code-best-practice](https://github.com/shanraisshan/claude-code-best-practice) | `git clone` | Comprehensive reference implementation for Claude Code configuration -- skills, subagents, hooks, commands with practical examples. 17,400+ stars |
 | [ADHX](https://github.com/itsmemeworks/adhx) | `/plugin marketplace add itsmemeworks/adhx` or `curl -sL https://raw.githubusercontent.com/itsmemeworks/adhx/main/skills/adhx/SKILL.md -o ~/.claude/skills/adhx/SKILL.md` | Fetch any X/Twitter post as clean LLM-friendly JSON — no scraping, works with tweets and full X Articles |
+| [SkillNav](https://github.com/skillnav-dev/skillnav-skill) | `clawhub install HuiW86/skillnav` | Search 3,900+ MCP servers with install commands, get daily AI brief, query arXiv papers, and discover trending tools -- all in Chinese. Curated by skillnav.dev editorial team |
 
+| [Cost Optimizer](https://github.com/fullstackcrew-alpha/skill-cost-optimizer) | `git clone https://github.com/fullstackcrew-alpha/skill-cost-optimizer` | Save 60-80% on AI token costs with smart model routing, context compression, heartbeat tuning, usage reports, and config generation |
 ### Installing Skills
 
 **Browse and install via SkillKit** (recommended):
@@ -652,12 +666,28 @@ Twenty hook scripts covering all eight Claude Code lifecycle events. Place `hook
 | `notification-log.js` | Notification | Log notifications for later review |
 | `prompt-check.js` | UserPromptSubmit | Detect vague prompts, suggest clarification |
 
+### Related SDKs
+
+If you prefer a typed, npm-installable foundation for writing hooks rather than raw scripts:
+
+- [claude-code-hooks](https://github.com/Payshak/claude-code-hooks) — TypeScript SDK with `defineHook()`, typed event payloads for all 5 hook events, response builders, and unit-testable `.handle()` method. Zero dependencies.
+
 ### Installing Hooks
 
 ```bash
 cp hooks/hooks.json .claude/hooks.json
 cp -r hooks/scripts/ .claude/hooks/scripts/
 ```
+
+### Quick Setup with cc-safe-setup
+
+Install 8 production-tested safety hooks in one command — destructive command blocker, branch push protection, secret leak prevention, syntax validation, and more:
+
+```bash
+npx cc-safe-setup
+```
+
+Includes `--audit` (score your setup 0-100), `--scan` (detect tech stack, recommend hooks), and `--verify` (test each hook). See [cc-safe-setup](https://github.com/yurukusa/cc-safe-setup) for details.
 
 ---
 
@@ -687,7 +717,8 @@ Fifteen coding rules that enforce consistent patterns. Add to `.claude/rules/` o
 
 ## Templates
 
-- **[claude-code-blueprint](https://github.com/faizkhairi/claude-code-blueprint)** - Battle-tested reference architecture for Claude Code power users. Specialized agents with model tiering, natural-language skills, lifecycle hooks, path-scoped rules, starter presets, benchmarks, battle stories, and cross-tool mapping. Zero dependencies, MIT licensed.
+- **[claude-code-blueprint](https://github.com/faizkhairi/claude-code-blueprint)** - Battle-tested reference architecture for Claude Code power users. Specialized agents with model hhtiering, natural-language skills, lifecycle hooks, path-scoped rules, starter presets, benchmarks, battle stories, and cross-tool mapping. Zero dependencies, MIT licensed.
+- **[The CLAUDE.md Bible](https://echochime3.gumroad.com/l/claudemd-bible)** - 25 stack-specific CLAUDE.md configs covering React, Next.js, FastAPI, Django, Svelte, Chrome Extensions, CLI tools, MCP servers, and more. Each config is 80-150 lines of tested rules for the specific patterns and pitfalls of each stack, plus a masterclass guide.
 
 
 Seven CLAUDE.md templates for different project types.
@@ -804,11 +835,13 @@ claude-code-toolkit/               800+ files
 | [Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow) | 1,400+ | JSON-driven multi-agent cadence-team framework with intelligent CLI orchestration (Gemini/Qwen/Codex) |
 | [ccswarm](https://github.com/nwiizo/ccswarm) | 127 | Rust-based multi-agent orchestration with specialized agent pools, Git worktree isolation, 93% token reduction |
 | [parallel-code](https://github.com/johannesjo/parallel-code) | 370+ | Run Claude Code, Codex, and Gemini side by side -- each in its own git worktree |
+| [Bernstein](https://github.com/chernistry/bernstein) | 5+ | Python multi-agent orchestrator — spawns Claude Code, Codex CLI, and Gemini CLI in parallel on isolated git worktrees, verifies with tests, auto-commits. Zero LLM tokens on coordination |
 | [Poirot](https://github.com/LeonardoCardoso/Poirot) | 96 | macOS app for browsing Claude Code sessions, viewing diffs, and re-running commands. Reads local transcripts, runs offline |
 | [TokenEater](https://github.com/AThevon/TokenEater) | 179 | Native macOS menu bar app for monitoring Claude AI usage limits and watching coding sessions live |
 | [Claw](https://github.com/jamesrochabrun/Claw) | 86 | Native macOS app wrapping Claude Code SDK in Swift. Plan Mode, MCP Integration, Custom System Prompts |
 | [The Claude Protocol](https://github.com/AvivK5498/The-Claude-Protocol) | 149 | Enforcement layer wrapping Claude Code with 13 hooks -- blocks unsafe operations, enforces worktree isolation |
 | [Notch So Good](https://github.com/deepshal99/notch-so-good) | new | macOS notch-based session monitor with pixel-art companion, 13 animations, smart notifications, multi-session support |
+| [crit](https://github.com/tomasz-tomczyk/crit) | 105 | Local browser UI for inline code review of any file or agent output; integrates with Claude Code via plan-hook to review and approve plans before execution, outputs structured .crit.json for agent consumption. |
 
 ---
 
@@ -822,6 +855,7 @@ Notable projects, directories, and resources across the Claude Code ecosystem.
 | [wshobson/agents](https://github.com/wshobson/agents) | 31,300+ | 112 specialized agents, 16 orchestrators, 146 skills, 79 tools in 72 focused plugins |
 | [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) | 9,900+ | Teams-first multi-agent orchestration with 19 specialized agents and 28 skills |
 | [ccusage](https://github.com/ryoppippi/ccusage) | 11,500+ | CLI for analyzing Claude Code usage from local JSONL files. Offline mode, zero API calls needed |
+| [cc-statistics](https://github.com/androidZzT/cc-statistics) | 270+ | Three-in-one Claude Code stats: CLI + Web + native macOS SwiftUI panel. Token costs, code changes by language, efficiency scoring, weekly reports. Supports Codex and Cursor too |
 | [ccpm](https://github.com/automazeio/ccpm) | 7,600+ | Project management with GitHub Issues + Git worktrees for parallel agent execution |
 | [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts) | 5,900+ | Extracted system prompts from Claude Code, updated for each release |
 | [claude-context](https://github.com/zilliztech/claude-context) | 5,600+ | Semantic code search MCP by Zilliz -- hybrid BM25 + vector search, ~40% token reduction |
@@ -833,17 +867,26 @@ Notable projects, directories, and resources across the Claude Code ecosystem.
 | [myclaude](https://github.com/stellarlinkco/myclaude) | 2,400+ | Multi-agent orchestration routing to Claude Code, Codex, Gemini, and OpenCode |
 | [claude-code-mcp](https://github.com/steipete/claude-code-mcp) | 1,100+ | Run Claude Code as a one-shot MCP server -- an agent in your agent |
 | [ccmanager](https://github.com/kbwo/ccmanager) | 940+ | Session manager supporting 8 coding agents with smart auto-approval |
+| [cog](https://github.com/marciopuga/cog) | 240+ | Cognitive architecture for Claude Code -- persistent memory, self-reflection, and foresight via plain-text conventions. Zero dependencies, just CLAUDE.md + markdown files |
 | [Cortex](https://github.com/SKULLFIRE07/cortex-memory) | -- | Persistent AI memory for coding assistants. Auto-captures decisions, patterns, and context across sessions. VSCode extension + CLI + MCP server. Free |
 | [openclaw-self-healing](https://github.com/Ramsbaby/openclaw-self-healing) | 32+ | 4-tier autonomous crash recovery for Claude Code and any service — 64% auto-resolved, LLM-agnostic (Claude/GPT-4/Gemini/Ollama), Prometheus metrics |
 | [openclaw-memorybox](https://github.com/Ramsbaby/openclaw-memorybox) | 8+ | Memory hygiene CLI for Claude Code — prevents context overflow crashes, 83% MEMORY.md size reduction, zero dependencies |
 | [openclaw-self-evolving](https://github.com/Ramsbaby/openclaw-self-evolving) | 2+ | Weekly self-improvement pipeline — scans Claude Code logs, proposes CLAUDE.md/AGENTS.md rule changes, zero API cost |
+| [caliber](https://github.com/caliber-ai-org/ai-setup) | -- | CLI that fingerprints projects and generates AI agent configs (CLAUDE.md, skills, AGENTS.md). Scores quality, auto-refreshes, supports Claude Code + Cursor + Codex |
 | [claude-starter-kit](https://github.com/awrshift/claude-starter-kit) | new | Ready-to-use project structure with persistent memory, session continuity, hooks, and 3 bundled skills (Gemini, Brainstorm, Design) |
 | [claude-code-kickstart](https://github.com/ypollak2/claude-code-kickstart) | New | Opinionated starter kit — one command to install curated MCP servers, hooks, agents, and profiles. Includes auto-detect, 12 agents, 10 profiles, and 20+ shell commands |
 | [claude-code-power-stack](https://github.com/bluzername/claude-code-power-stack) | new | Ghost memory, conversation search, session naming, and Manus-style planning in a single install with cheat sheet PDF |
 | [clooks](https://github.com/mauribadnights/clooks) | new | Persistent hook daemon that replaces per-invocation spawning -- 112x faster hooks with batching, dependency resolution, metrics |
+| [AIRIS MCP Gateway](https://github.com/agiletec-inc/airis-mcp-gateway) | new | Docker-based MCP multiplexer that aggregates 60+ tools behind 7 meta-tools, reducing context token usage by 97%. One command to start, auto-enables servers on demand |
 | [gemini-claude-bridge](https://github.com/weijiafu14/gemini-claude-bridge) | new | Gemini-to-Claude protocol converter for using Gemini models as Claude Code backend. Fixes 3 LiteLLM bugs |
+| [spartan-ai-toolkit](https://github.com/spartan-stratos/spartan-ai-toolkit) | new | Engineering discipline layer for Claude Code -- 67 slash commands, 20 coding rules, 27 skills, 9 agents, quality gates between every step. 8 stack profiles (Go, Python, Java, Kotlin, React, etc.), agent memory across sessions. Install: `npx @c0x12c/spartan-ai-toolkit@latest --local` |
 
 ---
+
+## XVARY Stock Research
+
+- [XVARY Stock Research](https://github.com/xvary-research/claude-code-stock-analysis-skill) — Claude Code skill for public SEC EDGAR + market data: `/analyze`, `/score`, `/compare`. MIT.
+
 
 ## Contributing
 

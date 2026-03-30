@@ -125,13 +125,16 @@ Commands that return data should expose a stable machine-readable representation
 - stdout vs stderr separation — data to stdout, messages/logs to stderr
 - What success output contains — structured data with IDs and URLs, or just "Done!"
 - TTY checks before emitting color codes, spinners, progress bars, or emoji
+- Output format defaults in non-interactive contexts — does the CLI default to structured output when stdout is not a terminal (piped, captured, or redirected)?
 
-**In plans, look for:** output format definitions, exit code semantics, whether structured output is mentioned at all.
+**In plans, look for:** output format definitions, exit code semantics, whether structured output is mentioned at all, whether the design distinguishes between interactive and non-interactive output defaults.
 
 **Severity guidance:**
 - **Blocker**: data-bearing commands are prose-only, ANSI-heavy, or mix data with diagnostics in ways that break parsing
-- **Friction**: some commands expose machine-readable output but coverage is inconsistent or polluted by stderr/stdout mixing
+- **Friction**: structured output is available via explicit flags, but the default output in non-interactive contexts (piped stdout, agent tool capture) is human-formatted — agents must remember to pass the right flag on every invocation, and forgetting means parsing formatted tables or prose
 - **Optimization**: structured output exists, but fields, identifiers, or format consistency could be improved
+
+A CLI that defaults to machine-readable output when not connected to a terminal is meaningfully better for agents than one that always requires an explicit flag. Agent tools (Claude Code's Bash, Codex, CI scripts) typically capture stdout as a pipe, so the CLI can detect this and choose the right format automatically. However, do not require a specific detection mechanism — TTY checks, environment variables, or `--format=auto` are all valid approaches. The issue is whether agents get structured output by default, not how the CLI detects the context.
 
 Do not require `--json` literally if the CLI has another well-documented stable machine format. The issue is machine readability, not one flag spelling.
 
@@ -337,7 +340,7 @@ Once you identify the CLI framework, use this knowledge to calibrate your review
 
 **Doesn't give you — must implement:**
 - `--json` output — add `@click.option('--json', 'output_json', is_flag=True)` and branch on it in the handler
-- TTY detection — use `sys.stdout.isatty()` or `click.get_text_stream('stdout').isatty()`
+- TTY detection — use `sys.stdout.isatty()` or `click.get_text_stream('stdout').isatty()`; can also drive smart output defaults (JSON when not a TTY, tables when interactive)
 - `--no-input` — Click prompts for missing values when `prompt=True` is set on an option; make sure required inputs are options with `required=True` (errors on missing) not `prompt=True` (blocks agents)
 - Stdin reading — use `click.get_text_stream('stdin')` or `type=click.File('-')`
 - Exit codes — Click uses `sys.exit(1)` on errors by default but doesn't differentiate error types; use `ctx.exit(code)` for distinct codes
@@ -372,10 +375,10 @@ Once you identify the CLI framework, use this knowledge to calibrate your review
 - `--help` on every command
 
 **Doesn't give you — must implement:**
-- `--json`/`--output` — common pattern is a persistent `--output` flag on root with `json`/`table`/`yaml` values
+- `--json`/`--output` — common pattern is a persistent `--output` flag on root with `json`/`table`/`yaml` values; can support `--output=auto` that selects based on TTY detection
 - `--dry-run` — entirely manual
 - Stdin — use `os.Stdin` or `cobra.ExactArgs` for validation, `cmd.InOrStdin()` for reading
-- TTY detection — use `golang.org/x/term` or `mattn/go-isatty`
+- TTY detection — use `golang.org/x/term` or `mattn/go-isatty`; can drive output format defaults
 
 **Anti-patterns to flag:**
 - Empty `Example:` fields on commands
@@ -394,7 +397,7 @@ Once you identify the CLI framework, use this knowledge to calibrate your review
 - `--json` output — use `serde_json::to_string_pretty` with a `--format` flag
 - `--dry-run` — manual flag and logic
 - Stdin — use `std::io::stdin()` with `is_terminal::IsTerminal` to detect piped input
-- TTY detection — `is-terminal` crate (`is_terminal::IsTerminal` trait)
+- TTY detection — `is-terminal` crate (`is_terminal::IsTerminal` trait); can drive output format defaults
 - Exit codes — use `std::process::exit()` with distinct codes or `ExitCode`
 
 **Anti-patterns to flag:**
@@ -409,9 +412,9 @@ Once you identify the CLI framework, use this knowledge to calibrate your review
 - oclif: layered help, examples; `--json` available but requires per-command opt-in via `static enableJsonFlag = true`
 
 **Doesn't give you — must implement:**
-- Commander: no built-in `--json`; stdin reading; TTY detection (`process.stdout.isTTY`)
-- yargs: `--json` is manual; stdin via `process.stdin`
-- oclif: `--json` requires per-command opt-in via `static enableJsonFlag = true`
+- Commander: no built-in `--json`; stdin reading; TTY detection (`process.stdout.isTTY`) for output format defaults
+- yargs: `--json` is manual; stdin via `process.stdin`; `process.stdout.isTTY` for smart defaults
+- oclif: `--json` requires per-command opt-in via `static enableJsonFlag = true`; can combine with TTY detection to default to JSON when piped
 
 **Anti-patterns to flag:**
 - Using `inquirer` or `prompts` without checking `process.stdin.isTTY` first
@@ -428,7 +431,7 @@ Once you identify the CLI framework, use this knowledge to calibrate your review
 **Doesn't give you — must implement:**
 - `--json` output — manual
 - Stdin — use `$stdin.read` or `ARGF`
-- TTY detection — `$stdout.tty?`
+- TTY detection — `$stdout.tty?`; can drive output format defaults
 - Exit codes — `exit 1` or `abort`
 
 **Anti-patterns to flag:**

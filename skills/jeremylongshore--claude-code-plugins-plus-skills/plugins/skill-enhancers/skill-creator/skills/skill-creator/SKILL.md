@@ -2,12 +2,12 @@
 name: skill-creator
 description: |
   Create production-grade agent skills aligned with the 2026 AgentSkills.io spec and Anthropic
-  best practices. Also validates existing skills against the Intent Solutions 100-point rubric.
+  best practices (2026). Also validates existing skills against the Intent Solutions 100-point rubric.
   Use when building, testing, validating, or optimizing Claude Code skills.
   Trigger with "/skill-creator", "create a skill", "validate my skill", or "check skill quality".
   Make sure to use this skill whenever creating a new skill, slash command, or agent capability.
 allowed-tools: "Read,Write,Edit,Glob,Grep,Bash(mkdir:*),Bash(chmod:*),Bash(python:*),Bash(claude:*),Task,AskUserQuestion"
-version: 5.0.0
+version: 5.1.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
@@ -92,12 +92,15 @@ Before writing, determine:
 | Medium | Defined workflow, flexible content (most skills) |
 | Low | Strict output format (compliance, API calls, configs) |
 
+Think of it as **narrow bridge vs open field**: a deployment skill is a narrow bridge (one safe path, guard rails everywhere), while a writing skill is an open field (Claude roams freely within broad boundaries). Match constraint level to the task.
+
 **Workflow Pattern** (see `${CLAUDE_SKILL_DIR}/references/workflows.md`):
 - Sequential: fixed steps in order
 - Conditional: branch based on input
 - Wizard: interactive multi-step gathering
 - Plan-Validate-Execute: verifiable intermediates
 - Feedback Loop: iterate until quality met
+- Checklist Workflow: copy-pasteable progress tracking for complex multi-step processes
 - Search-Analyze-Report: explore and summarize
 
 **Output Pattern** (see `${CLAUDE_SKILL_DIR}/references/output-patterns.md`):
@@ -129,6 +132,9 @@ Key rules:
 - Scope Bash: `Bash(git:*)` not bare `Bash`
 - Keep under 500 lines; offload to `references/` if longer
 - Include "Use when" and "Trigger with" in description for enterprise scoring
+- No XML tags in name or description (Anthropic spec prohibition)
+- No time-sensitive information; use 'old patterns' section for deprecated approaches
+- Include feedback loops for quality-critical workflows
 - Run `python3 ${CLAUDE_SKILL_DIR}/scripts/validate-skill.py --grade {skill-dir}/SKILL.md` to validate
 - Create `evals/evals.json` with 3+ scenarios, iterate until all assertions pass
 

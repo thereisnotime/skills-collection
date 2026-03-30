@@ -92,7 +92,7 @@ describe("find_clones", () => {
 
             store.close();
         } finally {
-            rmSync(dir, { recursive: true });
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
     });
 
@@ -270,7 +270,7 @@ export class B {
             assert.notStrictEqual(after[0].raw_hash, before[0].raw_hash, "hash changed after content change");
             store.close();
         } finally {
-            rmSync(dir, { recursive: true });
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
     });
 });
@@ -335,7 +335,7 @@ describe("find_hotspots", () => {
 
             store.close();
         } finally {
-            rmSync(dir, { recursive: true });
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
     });
 });
@@ -378,17 +378,23 @@ describe("find_cycles", () => {
     it("detects A->B->C->A circular dependency", async () => {
         const dir = makeTempDir();
         try {
+            mkdirSync(join(dir, "packages", "a"), { recursive: true });
+            mkdirSync(join(dir, "packages", "b"), { recursive: true });
+            mkdirSync(join(dir, "packages", "c"), { recursive: true });
+            writeFileSync(join(dir, "packages", "a", "package.json"), JSON.stringify({ name: "pkg-a" }));
+            writeFileSync(join(dir, "packages", "b", "package.json"), JSON.stringify({ name: "pkg-b" }));
+            writeFileSync(join(dir, "packages", "c", "package.json"), JSON.stringify({ name: "pkg-c" }));
             writeFileSync(
-                join(dir, "a.mjs"),
-                'import { b } from "./b.mjs";\nexport function a() { b(); }\n',
+                join(dir, "packages", "a", "index.mjs"),
+                'import { b } from "../b/index.mjs";\nexport function a() { b(); }\n',
             );
             writeFileSync(
-                join(dir, "b.mjs"),
-                'import { c } from "./c.mjs";\nexport function b() { c(); }\n',
+                join(dir, "packages", "b", "index.mjs"),
+                'import { c } from "../c/index.mjs";\nexport function b() { c(); }\n',
             );
             writeFileSync(
-                join(dir, "c.mjs"),
-                'import { a } from "./a.mjs";\nexport function a_caller() { a(); }\n',
+                join(dir, "packages", "c", "index.mjs"),
+                'import { a } from "../a/index.mjs";\nexport function a_caller() { a(); }\n',
             );
 
             cleanDb(dir);
@@ -398,11 +404,18 @@ describe("find_cycles", () => {
             const result = findCycles(store);
 
             assert.strictEqual(result.cycles.length, 1, "exactly 1 cycle");
-            assert.strictEqual(result.cycles[0].length, 3, "cycle has 3 files");
+            assert.strictEqual(result.cycles[0].length, 3, "cycle has 3 module hops");
+            const cycleModules = result.cycles[0].modules.map(module => module.module_key);
+            assert.equal(cycleModules[0], cycleModules.at(-1), "cycle path closes on the starting workspace module");
+            assert.deepEqual(
+                [...new Set(cycleModules.slice(0, -1))].sort(),
+                ["js-module:packages/a", "js-module:packages/b", "js-module:packages/c"],
+                "cycle path is reported at workspace-module level",
+            );
 
             store.close();
         } finally {
-            rmSync(dir, { recursive: true });
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
     });
 });
@@ -413,16 +426,22 @@ describe("get_module_metrics", () => {
     it("Ca/Ce correct for shared module", async () => {
         const dir = makeTempDir();
         try {
+            mkdirSync(join(dir, "app-a"), { recursive: true });
+            mkdirSync(join(dir, "app-b"), { recursive: true });
+            mkdirSync(join(dir, "shared"), { recursive: true });
+            writeFileSync(join(dir, "app-a", "package.json"), JSON.stringify({ name: "app-a" }));
+            writeFileSync(join(dir, "app-b", "package.json"), JSON.stringify({ name: "app-b" }));
+            writeFileSync(join(dir, "shared", "package.json"), JSON.stringify({ name: "shared" }));
             writeFileSync(
-                join(dir, "a.mjs"),
-                'import { shared } from "./shared.mjs";\nshared();\n',
+                join(dir, "app-a", "index.mjs"),
+                'import { shared } from "../shared/index.mjs";\nshared();\n',
             );
             writeFileSync(
-                join(dir, "b.mjs"),
-                'import { shared } from "./shared.mjs";\nshared();\n',
+                join(dir, "app-b", "index.mjs"),
+                'import { shared } from "../shared/index.mjs";\nshared();\n',
             );
             writeFileSync(
-                join(dir, "shared.mjs"),
+                join(dir, "shared", "index.mjs"),
                 'export function shared() {}\n',
             );
 
@@ -433,12 +452,12 @@ describe("get_module_metrics", () => {
             const rows = store.moduleMetricRows({ minCoupling: 0 });
             const report = getModuleMetricsReport({ minCoupling: 0, path: dir });
 
-            const sharedMetric = rows.find(r => r.file.includes("shared"));
-            assert.ok(sharedMetric, "shared.mjs appears in metrics");
-            assert.ok(sharedMetric.ca >= 2, "shared.mjs has Ca >= 2 (imported by a and b)");
-            assert.strictEqual(sharedMetric.ce, 0, "shared.mjs has Ce === 0 (imports nothing)");
-            const reportShared = report.result.find(r => r.file.includes("shared"));
-            assert.ok(reportShared, "shared.mjs appears in report");
+            const sharedMetric = rows.find(r => r.module_key === "js-module:shared");
+            assert.ok(sharedMetric, "shared workspace module appears in metrics");
+            assert.ok(sharedMetric.ca >= 2, "shared module has Ca >= 2 (imported by app-a and app-b)");
+            assert.strictEqual(sharedMetric.ce, 0, "shared module has Ce === 0 (imports nothing)");
+            const reportShared = report.result.find(r => r.module_key === "js-module:shared");
+            assert.ok(reportShared, "shared workspace module appears in report");
             assert.equal(reportShared.ca, sharedMetric.ca, "report Ca matches unified module graph metrics");
             assert.equal(reportShared.ce, sharedMetric.ce, "report Ce matches unified module graph metrics");
 
@@ -455,6 +474,8 @@ describe("architecture report", () => {
         try {
             mkdirSync(join(dir, "app"), { recursive: true });
             mkdirSync(join(dir, "shared"), { recursive: true });
+            writeFileSync(join(dir, "app", "package.json"), JSON.stringify({ name: "app" }));
+            writeFileSync(join(dir, "shared", "package.json"), JSON.stringify({ name: "shared" }));
             writeFileSync(
                 join(dir, "app", "a.mjs"),
                 'import { shared } from "../shared/shared.mjs";\nshared();\n',
@@ -469,10 +490,10 @@ describe("architecture report", () => {
 
             const report = getArchitectureReport({ path: dir, limit: 10 });
             const crossEdge = report.result.cross_module_edges.find(edge =>
-                edge.src_dir === "app" && edge.tgt_dir === "shared"
+                edge.source_module_key === "js-module:app" && edge.target_module_key === "js-module:shared"
             );
             assert.ok(crossEdge, "architecture report includes app -> shared module edge");
-            assert.ok(crossEdge.count >= 1, "cross-module edge count present");
+            assert.ok(crossEdge.edge_count >= 1, "cross-module edge count present");
         } finally {
             const store = getStore(dir);
             store.close();
@@ -552,7 +573,7 @@ describe("external module boundary", () => {
                 edge.target_id === externalSymbol.id
             );
             assert.ok(importEdge, "symbol-layer import edge points to external symbol");
-            assert.equal(importEdge.origin, "unresolved");
+            assert.equal(importEdge.origin, "external");
             assert.equal(importEdge.confidence, "low");
 
             const refs = getReferencesBySelector({ qualified_name: `${externalFile}:symbol:useState` }, { path: dir });
@@ -924,7 +945,7 @@ describe("PHP export extraction", () => {
 });
 
 describe("Non-JS find_unused_exports confidence", () => {
-    it("Python exports get export_only confidence, not high", async () => {
+    it("Python exports are treated as proven unused once workspace resolution exists", async () => {
         const tmp = mkdtempSync(join(tmpdir(), "hex-pyunused-"));
         mkdirSync(join(tmp, ".hex-skills/codegraph"), { recursive: true });
         writeFileSync(join(tmp, "lib.py"), 'def helper():\n    pass\n');
@@ -934,8 +955,8 @@ describe("Non-JS find_unused_exports confidence", () => {
             const result = findUnusedExports(store);
             const helper = result.unused.find(u => u.name === "helper" && u.file === "lib.py");
             assert.ok(helper, "Python export detected");
-            assert.equal(helper.confidence, "export_only", "Python gets export_only, not high");
-            assert.equal(helper.reason, "no_cross_file_resolver");
+            assert.equal(helper.confidence, "high", "Python proven-unused export gets high confidence");
+            assert.equal(result.uncertain.length, 0, "no uncertain records for simple Python fixture");
             store.close();
         } finally {
             rmSync(tmp, { recursive: true, force: true });
@@ -990,11 +1011,14 @@ describe("identity-first selector APIs", () => {
 
             const symbol = getSymbol({ name: "helper", file: "a.mjs" }, { path: dir });
             assert.equal(symbol.result.symbol.qualified_name, "a.mjs:helper");
+            assert.equal(symbol.result.symbol.package_key, "js:.");
+            assert.equal(symbol.result.symbol.module_key, "js-module:.");
+            assert.equal(symbol.result.symbol.workspace_qualified_name, "js-module:.::a.mjs::helper");
             assert.equal(symbol.reason, "resolved_by_name_file");
 
-            const explained = explainResolution({ qualified_name: "a.mjs:helper" }, { path: dir });
-            assert.equal(explained.result.selector_kind, "qualified_name");
-            assert.equal(explained.result.resolved.qualified_name, "a.mjs:helper");
+            const explained = explainResolution({ workspace_qualified_name: symbol.result.symbol.workspace_qualified_name }, { path: dir });
+            assert.equal(explained.result.selector_kind, "workspace_qualified_name");
+            assert.equal(explained.result.resolved.workspace_qualified_name, symbol.result.symbol.workspace_qualified_name);
         } finally {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
@@ -1095,11 +1119,57 @@ describe("search_symbols contract", () => {
 
             const all = findSymbols("helper*", { path: dir, limit: 10 });
             assert.ok(all.matches.length >= 2, "partial search returns multiple candidates");
-            assert.ok(all.matches.every(match => match.symbol_id && match.qualified_name && match.file), "matches expose canonical identity fields");
+            assert.ok(
+                all.matches.every(match =>
+                    match.symbol_id &&
+                    match.qualified_name &&
+                    match.workspace_qualified_name &&
+                    match.package_key &&
+                    match.module_key &&
+                    match.file
+                ),
+                "matches expose canonical identity and ownership fields",
+            );
 
             const onlyFns = findSymbols("helper*", { path: dir, kind: "function", limit: 10 });
             assert.ok(onlyFns.matches.length >= 1, "kind-filtered search returns function");
             assert.ok(onlyFns.matches.every(match => match.kind === "function"), "kind filter excludes non-functions");
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+});
+
+describe("workspace-qualified identity selectors", () => {
+    it("disambiguates same symbol names across workspace packages", async () => {
+        const dir = makeTempDir();
+        try {
+            mkdirSync(join(dir, "packages", "a"), { recursive: true });
+            mkdirSync(join(dir, "packages", "b"), { recursive: true });
+            writeFileSync(join(dir, "packages", "a", "package.json"), JSON.stringify({ name: "@repo/a" }, null, 2));
+            writeFileSync(join(dir, "packages", "b", "package.json"), JSON.stringify({ name: "@repo/b" }, null, 2));
+            writeFileSync(join(dir, "packages", "a", "index.mjs"), "export function helper() { return 'a'; }\n");
+            writeFileSync(join(dir, "packages", "b", "index.mjs"), "export function helper() { return 'b'; }\n");
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const matches = findSymbols("helper", { path: dir, kind: "function", limit: 10 }).matches
+                .filter(match => match.name === "helper");
+            assert.equal(matches.length, 2, "both package-local helpers are discoverable");
+            assert.notEqual(matches[0].workspace_qualified_name, matches[1].workspace_qualified_name, "workspace identities are distinct");
+
+            const aHelper = matches.find(match => match.package_name === "@repo/a");
+            const bHelper = matches.find(match => match.package_name === "@repo/b");
+            assert.ok(aHelper && bHelper, "package ownership is surfaced on matches");
+
+            const resolved = getSymbol({ workspace_qualified_name: aHelper.workspace_qualified_name }, { path: dir });
+            assert.equal(resolved.reason, "resolved_by_workspace_qualified_name");
+            assert.equal(resolved.result.symbol.package_name, "@repo/a");
+            assert.equal(resolved.result.symbol.file, "packages/a/index.mjs");
+
+            const explained = explainResolution({ workspace_qualified_name: bHelper.workspace_qualified_name }, { path: dir });
+            assert.equal(explained.result.selector_kind, "workspace_qualified_name");
+            assert.equal(explained.result.resolved.package_name, "@repo/b");
         } finally {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
@@ -1363,17 +1433,18 @@ describe("C# public method export", () => {
 // ==================== Bug 3: find_unused_exports text reason ====================
 
 describe("find_unused_exports text reason", () => {
-    it("text output includes reason for non-JS exports", async () => {
+    it("text output includes uncertain section when usage cannot be proven exactly", async () => {
         const tmp = mkdtempSync(join(tmpdir(), "hex-unusedreason-"));
         mkdirSync(join(tmp, ".hex-skills/codegraph"), { recursive: true });
-        writeFileSync(join(tmp, "lib.py"), 'def helper():\n    pass\n');
+        writeFileSync(join(tmp, "lib.mjs"), 'export function helper() {}\n');
+        writeFileSync(join(tmp, "consumer.mjs"), 'import * as lib from "./lib.mjs";\nconsole.log(lib.helper);\n');
         try {
             await indexProject(tmp);
             const store = getStore(tmp);
             const result = findUnusedExports(store);
             const { formatUnusedText } = await import("../lib/unused.mjs");
             const text = formatUnusedText(result, true);
-            assert.ok(text.includes("no_cross_file_resolver"), "Text output shows reason");
+            assert.ok(text.includes("Uncertain exports:"), "Text output shows uncertain section");
             store.close();
         } finally {
             try { rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }

@@ -15,8 +15,8 @@ Additional references:
 
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `name` | string | Yes | 1-64 chars, kebab-case, must match directory name |
-| `description` | string | Yes | 1-1024 chars, what + when to use, third person |
+| `name` | string | Yes | 1-64 chars, kebab-case, must match directory name, no XML tags (`<`, `>`) |
+| `description` | string | Yes | 1-1024 chars, what + when to use, third person, no XML tags |
 | `allowed-tools` | string | No | Comma-separated tool names |
 | `model` | string | No | `sonnet`, `haiku`, `opus`, `inherit`, or full model ID |
 | `effort` | string | No | `low`, `medium`, `high`, `max` |
@@ -235,7 +235,8 @@ Skills use progressive disclosure to minimize context window usage.
 ### Level 3: Bundled Resources (unlimited)
 - `references/`, `scripts/`, `templates/`, `assets/`
 - Loaded only when explicitly needed during execution
-- Use clear section headers for navigability (TOC not required — wastes tokens)
+- Use clear section headers for navigability
+- No TOC in SKILL.md body (wastes tokens). For reference files >100 lines, include a TOC at top so Claude can see full scope even with partial reads
 - Heavy content belongs here, not in SKILL.md body
 
 ### Design Implications
@@ -324,6 +325,8 @@ Skills have three levels of constraint:
 
 Choose the right level. Over-constraining wastes tokens and fights Claude's capabilities.
 
+**Analogy**: Think of it as a narrow bridge vs. an open field. Low degrees of freedom = narrow bridge (Claude must cross exactly this way). High degrees of freedom = open field (Claude picks the best path). Most skills should be medium — a wide road with guardrails, not a tightrope.
+
 ### Evaluation-Driven Development
 
 1. Write skill
@@ -336,6 +339,32 @@ Choose the right level. Over-constraining wastes tokens and fights Claude's capa
 5. Iterate based on evaluation results
 6. Optimize description with trigger eval queries (10 should-trigger, 10 should-not-trigger)
 7. Use train/test split (14/6) for description optimization — target >90% accuracy
+
+### Checklist Workflow Pattern
+
+For complex skills, structure the body as a checklist that Claude works through sequentially. Each item should be:
+- A concrete action (not a vague instruction)
+- Independently verifiable (Claude can confirm it's done)
+- Ordered by dependency (prerequisites first)
+
+This pattern reduces skipped steps and improves consistency across models (Haiku benefits most).
+
+### Observation of Claude Navigation
+
+Claude navigates SKILL.md and references differently than humans:
+- **Reads top-down on first activation** — front-load the most important instructions
+- **Searches by heading** when returning to a section — use descriptive H2/H3 headers
+- **Follows markdown links eagerly** — a `[reference](./references/foo.md)` link will trigger a Read tool call
+- **Skips content after long code blocks** — keep code examples short, move long ones to references
+- **Loses context in long files** — the 500-line limit exists because Claude's attention degrades past it
+
+### Team Feedback
+
+When multiple authors maintain skills in a shared plugin:
+- Establish a shared glossary of terms used in descriptions (prevents synonym drift)
+- Use PR review checklists that include trigger-eval accuracy checks
+- Rotate skill ownership periodically to catch assumptions baked into instructions
+- Track description optimization scores over time (should-trigger / should-not-trigger accuracy)
 
 ### Description Optimization ("Pushy" Pattern)
 
@@ -389,6 +418,10 @@ Enterprise-grade skills should include these 7 sections:
 - One-level-deep file references only
 - Clear section headers for navigability (TOC not required)
 - Code blocks with language identifiers
+- No time-sensitive information (dates, versions, URLs that change)
+- Consistent terminology throughout — pick terms and stick with them
+- Feedback loops: include verification steps so Claude can confirm each phase completed correctly
+- Required packages/tools documented in Prerequisites or description (don't assume availability)
 
 ---
 
@@ -529,6 +562,10 @@ Best for: dashboards, reports, documentation sites.
 | Mandatory format enforcement | Fights Anthropic guidance | Recommend, don't require |
 | Unscoped Bash in allowed-tools | Security risk | Use `Bash(git:*)` patterns |
 | Voodoo constants | Unmaintainable | Document why each value exists |
+| XML tags in name/description | Breaks frontmatter parsing | Use plain text, no `<` or `>` characters |
+| System prompt injection in description | Security risk, spec violation | Description is for discovery only, not behavioral instructions |
+| Reserved words in name (`anthropic`, `claude`) | Trademark conflict, confusing | Choose distinctive skill names |
+| Long code blocks in SKILL.md body | Claude loses context after them | Move to `references/examples.md` |
 | Using `compatibility` field | Not in Anthropic spec | Note requirements in body or description |
 | Using `metadata` field | Not in Anthropic spec | Use top-level fields instead |
 | Using `capabilities` / `expertise_level` | Invented fields, not in any spec | Remove entirely |
@@ -569,6 +606,20 @@ Best for: dashboards, reports, documentation sites.
 - [ ] Tested with Haiku, Sonnet, and Opus
 - [ ] Tested with real usage scenarios
 - [ ] Edge cases tested (empty args, missing files, etc.)
+
+### Anthropic Best Practices (2026)
+
+- [ ] No XML tags in `name` or `description` fields
+- [ ] No system prompt injection patterns in description
+- [ ] No reserved words (`anthropic`, `claude`) in skill name
+- [ ] Description uses "pushy" pattern with "Make sure to use this skill whenever..." language
+- [ ] Degrees of freedom explicitly chosen (high/medium/low) and documented
+- [ ] Checklist workflow pattern used for complex multi-step skills
+- [ ] Reference files >100 lines include TOC at top
+- [ ] No long code blocks in SKILL.md body (moved to references)
+- [ ] Trigger eval queries defined (10 should-trigger, 10 should-not-trigger)
+- [ ] DCI (`!`backtick`) used for always-needed small context (<5KB)
+- [ ] Feedback loops included (verification steps after each phase)
 
 ### Enterprise Extensions
 

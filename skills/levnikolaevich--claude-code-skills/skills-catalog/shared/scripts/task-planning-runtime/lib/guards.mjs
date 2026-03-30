@@ -4,6 +4,7 @@ import {
     validatePlanningBaseTransition,
 } from "../../planning-runtime/lib/guards.mjs";
 import { PHASES } from "./phases.mjs";
+import { validateTemplateCompliance } from "../../planning-runtime/lib/template-compliance.mjs";
 
 const ALLOWED_TRANSITIONS = new Map([
     [PHASES.CONFIG, new Set([PHASES.DISCOVERY])],
@@ -48,6 +49,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
     }
     if (toPhase === PHASES.SELF_CHECK && !state.verification_summary) {
         return { ok: false, error: "Verification summary missing" };
+    }
+    if (toPhase === PHASES.SELF_CHECK && !state.template_compliance_passed) {
+        return { ok: false, error: "Template compliance not verified. Fetch each created task via get_issue, run validateTemplateCompliance(description, 'task'), record template_compliance_passed in state." };
     }
     if (toPhase === PHASES.DONE) {
         if (!state.self_check_passed) {

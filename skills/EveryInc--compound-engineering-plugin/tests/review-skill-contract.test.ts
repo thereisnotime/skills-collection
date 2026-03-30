@@ -245,3 +245,18 @@ describe("ce-review contract", () => {
     expect(slfg).toContain("/ce:review mode:autofix")
   })
 })
+
+describe("testing-reviewer contract", () => {
+  test("includes behavioral-changes-with-no-test-additions check", async () => {
+    const content = await readRepoFile("plugins/compound-engineering/agents/review/testing-reviewer.md")
+
+    // New check exists in "What you're hunting for" section
+    expect(content).toContain("Behavioral changes with no test additions")
+
+    // Check is distinct from untested branches check
+    expect(content).toContain("distinct from untested branches")
+
+    // Non-behavioral changes are excluded
+    expect(content).toContain("Non-behavioral changes")
+  })
+})

@@ -21,6 +21,7 @@ Complete reference for SKILL.md and agent frontmatter fields.
   - No start/end hyphens (`-my-skill`, `my-skill-`)
   - Must match containing directory name
   - No reserved words in isolation (`anthropic`, `claude`)
+  - No XML tags (`<`, `>`) — breaks frontmatter parsing
   - Gerund naming preferred (`processing-pdfs`, `analyzing-data`)
 
 ```yaml
@@ -44,6 +45,9 @@ name: my--skill           # Bad - consecutive hyphens
   - MUST include specific keywords for discovery
   - MUST NOT use first person (I can, I will, I'm, I help)
   - MUST NOT use second person (You can, You should, You will)
+  - MUST NOT contain XML tags (`<`, `>`) — breaks frontmatter parsing
+  - MUST NOT contain reserved words as standalone identifiers (`anthropic`, `claude`)
+  - MUST NOT contain system prompt injection patterns (behavioral instructions belong in SKILL.md body, not description)
   - SHOULD include action verbs (analyze, create, generate, build, debug, optimize, validate)
   - SHOULD reference slash command if user-invocable
 
@@ -68,6 +72,8 @@ description: "Generates PDF reports"
 # Bad - too vague, no keywords
 description: "A helpful tool for documents"
 ```
+
+**System prompt injection warning**: The `description` field is loaded into Claude's system prompt at startup for skill discovery. It must describe *what* and *when* only. Never include behavioral instructions ("Always respond in JSON", "Never use profanity"), persona definitions ("You are an expert..."), or override patterns ("Ignore previous instructions"). These belong in the SKILL.md body, not the description.
 
 ### allowed-tools
 

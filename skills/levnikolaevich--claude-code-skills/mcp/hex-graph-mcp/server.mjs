@@ -41,6 +41,7 @@ function graphError(codeOrError, message, recovery) {
 function selectorSchema() {
     return {
         symbol_id: flexNum().describe("Canonical symbol id"),
+        workspace_qualified_name: z.string().optional().describe("Canonical workspace-qualified symbol name"),
         qualified_name: z.string().optional().describe("Canonical qualified symbol name"),
         name: z.string().optional().describe("Symbol name (must be paired with file)"),
         file: z.string().optional().describe("File path used with name to disambiguate symbol"),
@@ -50,6 +51,7 @@ function selectorSchema() {
 function targetSelectorSchema() {
     return {
         to_symbol_id: flexNum().describe("Optional target symbol id"),
+        to_workspace_qualified_name: z.string().optional().describe("Optional target workspace-qualified symbol name"),
         to_qualified_name: z.string().optional().describe("Optional target qualified symbol name"),
         to_name: z.string().optional().describe("Optional target symbol name (must be paired with to_file)"),
         to_file: z.string().optional().describe("Optional target file used with to_name"),
@@ -57,9 +59,10 @@ function targetSelectorSchema() {
 }
 
 function buildTargetSelector(params) {
-    const { to_symbol_id, to_qualified_name, to_name, to_file } = params;
+    const { to_symbol_id, to_workspace_qualified_name, to_qualified_name, to_name, to_file } = params;
     if (
         to_symbol_id === undefined &&
+        to_workspace_qualified_name === undefined &&
         to_qualified_name === undefined &&
         to_name === undefined &&
         to_file === undefined
@@ -68,6 +71,7 @@ function buildTargetSelector(params) {
     }
     return {
         symbol_id: to_symbol_id,
+        workspace_qualified_name: to_workspace_qualified_name,
         qualified_name: to_qualified_name,
         name: to_name,
         file: to_file,
@@ -180,6 +184,7 @@ server.registerTool("trace_paths", {
     const { path, format, path_kind, direction, depth, limit, ...selector } = coerceParams(rawParams);
     const target = buildTargetSelector(selector);
     delete selector.to_symbol_id;
+    delete selector.to_workspace_qualified_name;
     delete selector.to_qualified_name;
     delete selector.to_name;
     delete selector.to_file;
@@ -243,6 +248,7 @@ server.registerTool("find_dataflows", {
     const { path, format, depth, limit, ...selector } = coerceParams(rawParams);
     const target = buildTargetSelector(selector);
     delete selector.to_symbol_id;
+    delete selector.to_workspace_qualified_name;
     delete selector.to_qualified_name;
     delete selector.to_name;
     delete selector.to_file;
@@ -337,7 +343,7 @@ server.registerTool("find_hotspots", {
 
 server.registerTool("find_unused_exports", {
     title: "Find Unused Exports",
-    description: "Find exported symbols with zero proven imports.",
+    description: "Find proven-unused exports and surface uncertain cases separately.",
     inputSchema: z.object({
         path: z.string().describe("Indexed project root"),
         scope: z.string().optional(),
@@ -367,7 +373,7 @@ server.registerTool("find_unused_exports", {
 
 server.registerTool("find_cycles", {
     title: "Find Cycles",
-    description: "Detect circular module dependencies.",
+    description: "Detect circular dependencies between workspace modules.",
     inputSchema: z.object({
         path: z.string().describe("Indexed project root"),
         scope: z.string().optional(),
@@ -390,7 +396,7 @@ server.registerTool("find_cycles", {
 
 server.registerTool("get_module_metrics", {
     title: "Get Module Metrics",
-    description: "Calculate module coupling metrics from the graph.",
+    description: "Calculate workspace-module coupling metrics from resolved dependency edges.",
     inputSchema: z.object({
         path: z.string().describe("Indexed project root"),
         scope: z.string().optional(),
@@ -411,7 +417,7 @@ server.registerTool("get_module_metrics", {
 
 server.registerTool("get_architecture", {
     title: "Get Architecture",
-    description: "Summarize module structure, hotspots, and cross-module graph edges.",
+    description: "Summarize workspace modules, hotspots, and cross-module dependency boundaries.",
     inputSchema: z.object({
         path: z.string().optional().describe("Indexed project root"),
         scope: z.string().optional().describe("Optional file path prefix filter"),
