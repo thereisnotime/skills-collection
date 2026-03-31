@@ -67,6 +67,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
         if (!state.story_transition_done) {
             return { ok: false, error: "Story transition to To Review not recorded" };
         }
+        if (!state.final_result) {
+            return { ok: false, error: "Final result not recorded" };
+        }
     }
 
     return { ok: true };

@@ -1,6 +1,193 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
+import { PassThrough, Readable } from "node:stream";
+
+const defer = (callback) => process.nextTick(callback);
+
+function makeExecStream(stdout = "", stderr = "", exitCode = 0) {
+    const stream = new EventEmitter();
+    stream.stderr = new EventEmitter();
+    stream.close = () => stream.emit("close", exitCode);
+    defer(() => {
+        if (stdout) stream.emit("data", Buffer.from(stdout));
+        if (stderr) stream.stderr.emit("data", Buffer.from(stderr));
+        stream.emit("close", exitCode);
+    });
+    return stream;
+}
+
+function parentRemoteDir(filePath) {
+    const parts = filePath.split("/").filter(Boolean);
+    if (parts.length <= 1) return "/";
+    return "/" + parts.slice(0, -1).join("/");
+}
+
+function seedRemoteDirs(remoteFiles, remoteDirs) {
+    remoteDirs.add("/");
+    for (const filePath of remoteFiles.keys()) {
+        let current = "";
+        for (const part of filePath.split("/").filter(Boolean).slice(0, -1)) {
+            current += `/${part}`;
+            remoteDirs.add(current);
+        }
+    }
+}
+
+function makeStats(size, kind = "file") {
+    return {
+        size,
+        isFile: () => kind === "file",
+        isDirectory: () => kind === "dir",
+    };
+}
+
+function makeDelayedReadable(buffer, delayMs) {
+    const stream = new PassThrough();
+    setTimeout(() => stream.end(buffer), delayMs);
+    return stream;
+}
+
+function makeFakeClient(remoteFiles, execLog, options = {}) {
+    const remoteDirs = options.remoteDirs || new Set(["/"]);
+    const sftpLog = options.sftpLog || [];
+    const remoteMeta = options.remoteMeta || new Map();
+    const statSizeOverrides = options.statSizeOverrides || new Map();
+    const readDelayMs = options.readDelayMs || 0;
+    const enablePosixRename = options.enablePosixRename || false;
+    const enableFsync = options.enableFsync || false;
+    seedRemoteDirs(remoteFiles, remoteDirs);
+
+    const handlers = new Map();
+
+    return {
+        _sock: { writable: false },
+        on(event, callback) {
+            handlers.set(event, callback);
+            return this;
+        },
+        connect() {
+            this._sock.writable = true;
+            defer(() => handlers.get("ready")?.());
+        },
+        end() {
+            this._sock.writable = false;
+        },
+        exec(command, callback) {
+            execLog.push(command);
+            if (command.startsWith("rm -f --")) {
+                const match = command.match(/rm -f -- '([^']+)'/);
+                if (match) remoteFiles.delete(match[1]);
+            }
+            defer(() => callback(null, makeExecStream("", "", 0)));
+        },
+        sftp(callback) {
+            const sftp = {
+                createWriteStream(filePath, streamOptions = {}) {
+                    const stream = new PassThrough();
+                    const chunks = [];
+                    defer(() => {
+                        const parentDir = parentRemoteDir(filePath);
+                        if (!remoteDirs.has(parentDir)) {
+                            stream.destroy(new Error(`No such directory: ${parentDir}`));
+                            return;
+                        }
+                        stream.handle = Buffer.from(filePath);
+                        stream.emit("open", stream.handle);
+                        stream.emit("ready");
+                    });
+                    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+                    stream.on("finish", () => {
+                        remoteFiles.set(filePath, Buffer.concat(chunks));
+                        remoteMeta.set(filePath, {
+                            ...(remoteMeta.get(filePath) || {}),
+                            mode: streamOptions.mode,
+                        });
+                    });
+                    return stream;
+                },
+                createReadStream(filePath) {
+                    if (!remoteFiles.has(filePath)) {
+                        const stream = new PassThrough();
+                        defer(() => stream.destroy(new Error(`No such file: ${filePath}`)));
+                        return stream;
+                    }
+                    const buffer = remoteFiles.get(filePath);
+                    return readDelayMs > 0 ? makeDelayedReadable(buffer, readDelayMs) : Readable.from(buffer);
+                },
+                stat(filePath, callback) {
+                    defer(() => {
+                        if (remoteFiles.has(filePath)) {
+                            callback(null, makeStats(
+                                statSizeOverrides.has(filePath) ? statSizeOverrides.get(filePath) : remoteFiles.get(filePath).length,
+                                "file"
+                            ));
+                            return;
+                        }
+                        if (remoteDirs.has(filePath)) {
+                            callback(null, makeStats(0, "dir"));
+                            return;
+                        }
+                        callback(new Error(`No such file: ${filePath}`));
+                    });
+                },
+                rename(fromPath, toPath, callback) {
+                    defer(() => {
+                        if (!remoteFiles.has(fromPath)) {
+                            callback(new Error(`No such file: ${fromPath}`));
+                            return;
+                        }
+                        remoteFiles.set(toPath, remoteFiles.get(fromPath));
+                        remoteFiles.delete(fromPath);
+                        remoteMeta.set(toPath, remoteMeta.get(fromPath) || {});
+                        remoteMeta.delete(fromPath);
+                        callback(null);
+                    });
+                },
+                ext_openssh_rename(fromPath, toPath, callback) {
+                    if (!enablePosixRename) {
+                        throw new Error("Server does not support this extended request");
+                    }
+                    sftpLog.push(`posix-rename:${fromPath}->${toPath}`);
+                    return this.rename(fromPath, toPath, callback);
+                },
+                ext_openssh_fsync(handle, callback) {
+                    if (!enableFsync) {
+                        throw new Error("Server does not support this extended request");
+                    }
+                    sftpLog.push(`fsync:${handle.toString()}`);
+                    defer(() => callback(null));
+                },
+                close(handle, callback) {
+                    sftpLog.push(`close:${handle.toString()}`);
+                    defer(() => callback(null));
+                },
+                chmod(filePath, mode, callback) {
+                    remoteMeta.set(filePath, {
+                        ...(remoteMeta.get(filePath) || {}),
+                        mode,
+                    });
+                    sftpLog.push(`chmod:${filePath}:${mode}`);
+                    defer(() => callback(null));
+                },
+                mkdir(filePath, callback) {
+                    remoteDirs.add(filePath);
+                    sftpLog.push(`mkdir:${filePath}`);
+                    defer(() => callback(null));
+                },
+                unlink(filePath, callback) {
+                    remoteFiles.delete(filePath);
+                    remoteMeta.delete(filePath);
+                    sftpLog.push(`unlink:${filePath}`);
+                    defer(() => callback(null));
+                },
+                end() {},
+            };
+            defer(() => callback(null, sftp));
+        },
+    };
+}
 
 // ==================== hash cross-verification ====================
 
@@ -302,5 +489,296 @@ describe("connection pool", () => {
         assert.equal(typeof closeAllConnections, "function");
         // Should not throw when pool is empty
         closeAllConnections();
+    });
+});
+
+// ==================== Local transfer validation ====================
+
+describe("local transfer validation", () => {
+    it("rejects relative local paths and enforces ALLOWED_LOCAL_DIRS", async () => {
+        const { mkdtempSync, rmSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { validateLocalPath } = await import("../lib/transfer.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-local-"));
+        const allowedDir = join(tmpDir, "allowed");
+        try {
+            assert.throws(() => validateLocalPath("relative/file.txt"), /BAD_PATH/);
+            process.env.ALLOWED_LOCAL_DIRS = allowedDir;
+            assert.throws(() => validateLocalPath(join(tmpDir, "other", "file.txt")), /PATH_OUTSIDE_ROOT/);
+            assert.equal(validateLocalPath(join(allowedDir, "nested", "file.txt")), join(allowedDir, "nested", "file.txt"));
+        } finally {
+            delete process.env.ALLOWED_LOCAL_DIRS;
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("uses MAX_TRANSFER_BYTES when validating size", async () => {
+        const { validateTransferSize } = await import("../lib/transfer.mjs");
+        process.env.MAX_TRANSFER_BYTES = "4";
+        try {
+            assert.throws(() => validateTransferSize(5, "payload.bin"), /FILE_TOO_LARGE/);
+            assert.doesNotThrow(() => validateTransferSize(4, "payload.bin"));
+        } finally {
+            delete process.env.MAX_TRANSFER_BYTES;
+        }
+    });
+});
+
+// ==================== SFTP transfers ====================
+
+describe("sftp transfers", () => {
+    it("uploads a local file with durable OpenSSH finalize and metadata", async () => {
+        const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { uploadFile, formatTransferSummary } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-upload-"));
+        const localPath = join(tmpDir, "payload.bin");
+        const remoteFiles = new Map();
+        const execLog = [];
+        const sftpLog = [];
+        const remoteMeta = new Map();
+        writeFileSync(localPath, "hello upload");
+        _setClientFactory(() => makeFakeClient(remoteFiles, execLog, {
+            sftpLog,
+            remoteMeta,
+            enableFsync: true,
+            enablePosixRename: true,
+        }));
+
+        try {
+            const result = await uploadFile(
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                {
+                    localPath,
+                    remotePath: "/srv/app/nested/payload.bin",
+                    permissions: "0640",
+                    verify: "stat",
+                }
+            );
+
+            assert.equal(remoteFiles.get("/srv/app/nested/payload.bin").toString("utf8"), "hello upload");
+            assert.equal(execLog.length, 0, "upload should not need remote exec");
+            assert.ok(sftpLog.includes("mkdir:/srv"), "recursive mkdir should create /srv");
+            assert.ok(sftpLog.includes("mkdir:/srv/app"), "recursive mkdir should create /srv/app");
+            assert.ok(sftpLog.includes("mkdir:/srv/app/nested"), "recursive mkdir should create nested dir");
+            assert.ok(sftpLog.some((entry) => entry.startsWith("fsync:")), "OpenSSH fsync should run when available");
+            assert.ok(sftpLog.some((entry) => entry.startsWith("posix-rename:")), "OpenSSH rename should run when available");
+            assert.equal([...remoteFiles.keys()].filter((key) => key.includes(".hex-transfer-")).length, 0);
+            assert.equal(result.bytesTransferred, "hello upload".length);
+            assert.equal(result.verify, "stat");
+            assert.equal(result.durabilityPath, "openssh-ext");
+            assert.equal(remoteMeta.get("/srv/app/nested/payload.bin").mode, Number.parseInt("0640", 8));
+            assert.match(
+                formatTransferSummary(
+                    "Uploaded",
+                    result.localPath,
+                    result.remotePath,
+                    result.bytesTransferred,
+                    result.durationMs,
+                    result.verify,
+                    result.durabilityPath
+                ),
+                /verify=stat durabilityPath=openssh-ext/
+            );
+        } finally {
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("rejects upload overwrite by default and allows it explicitly", async () => {
+        const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { uploadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-upload-overwrite-"));
+        const localPath = join(tmpDir, "payload.bin");
+        const remoteFiles = new Map([
+            ["/srv/app/payload.bin", Buffer.from("old", "utf8")],
+        ]);
+        writeFileSync(localPath, "new");
+        _setClientFactory(() => makeFakeClient(remoteFiles, []));
+
+        try {
+            await assert.rejects(
+                () => uploadFile(
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { localPath, remotePath: "/srv/app/payload.bin" }
+                ),
+                /DESTINATION_EXISTS/
+            );
+            await uploadFile(
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { localPath, remotePath: "/srv/app/payload.bin", overwrite: true, verify: "none" }
+            );
+            assert.equal(remoteFiles.get("/srv/app/payload.bin").toString("utf8"), "new");
+        } finally {
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("downloads a remote file to the local machine with verification", async () => {
+        const { mkdtempSync, readFileSync, rmSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { downloadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-download-"));
+        const localPath = join(tmpDir, "logs", "app.log");
+        const remoteFiles = new Map([
+            ["/var/log/app.log", Buffer.from("remote log", "utf8")],
+        ]);
+        const execLog = [];
+        _setClientFactory(() => makeFakeClient(remoteFiles, execLog));
+
+        try {
+            const result = await downloadFile(
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { remotePath: "/var/log/app.log", localPath, verify: "stat" }
+            );
+
+            assert.equal(readFileSync(localPath, "utf8"), "remote log");
+            assert.equal(result.bytesTransferred, "remote log".length);
+            assert.equal(result.verify, "stat");
+            assert.equal(result.durabilityPath, "standard");
+            assert.equal(execLog.length, 0, "download should not need remote exec");
+        } finally {
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("rejects download overwrite by default and allows it explicitly", async () => {
+        const { mkdtempSync, readFileSync, rmSync, writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { downloadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-download-overwrite-"));
+        const localPath = join(tmpDir, "existing.log");
+        const remoteFiles = new Map([
+            ["/var/log/existing.log", Buffer.from("replacement", "utf8")],
+        ]);
+        writeFileSync(localPath, "old");
+        _setClientFactory(() => makeFakeClient(remoteFiles, []));
+
+        try {
+            await assert.rejects(
+                () => downloadFile(
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { remotePath: "/var/log/existing.log", localPath }
+                ),
+                /DESTINATION_EXISTS/
+            );
+            await downloadFile(
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { remotePath: "/var/log/existing.log", localPath, overwrite: true, verify: "none" }
+            );
+            assert.equal(readFileSync(localPath, "utf8"), "replacement");
+        } finally {
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("rejects oversized downloads before writing local content", async () => {
+        const { existsSync, mkdtempSync, rmSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { downloadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-limit-"));
+        const localPath = join(tmpDir, "large.bin");
+        const remoteFiles = new Map([
+            ["/srv/large.bin", Buffer.from("123456", "utf8")],
+        ]);
+        _setClientFactory(() => makeFakeClient(remoteFiles, []));
+        process.env.MAX_TRANSFER_BYTES = "4";
+
+        try {
+            await assert.rejects(
+                () => downloadFile(
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { remotePath: "/srv/large.bin", localPath }
+                ),
+                /FILE_TOO_LARGE/
+            );
+            assert.equal(existsSync(localPath), false);
+        } finally {
+            delete process.env.MAX_TRANSFER_BYTES;
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("fails verification when final remote size does not match expected upload size", async () => {
+        const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { uploadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-verify-upload-"));
+        const localPath = join(tmpDir, "payload.bin");
+        const remoteFiles = new Map();
+        const statSizeOverrides = new Map([
+            ["/srv/app/payload.bin", 1],
+        ]);
+        writeFileSync(localPath, "abcdef");
+        _setClientFactory(() => makeFakeClient(remoteFiles, [], { statSizeOverrides }));
+
+        try {
+            await assert.rejects(
+                () => uploadFile(
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { localPath, remotePath: "/srv/app/payload.bin", verify: "stat" }
+                ),
+                /VERIFY_FAILED/
+            );
+        } finally {
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("fails with TRANSFER_TIMEOUT when download stalls", async () => {
+        const { mkdtempSync, rmSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { downloadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-timeout-"));
+        const localPath = join(tmpDir, "timeout.bin");
+        const remoteFiles = new Map([
+            ["/srv/timeout.bin", Buffer.from("payload", "utf8")],
+        ]);
+        process.env.TRANSFER_TIMEOUT_MS = "20";
+        _setClientFactory(() => makeFakeClient(remoteFiles, [], { readDelayMs: 60 }));
+
+        try {
+            await assert.rejects(
+                () => downloadFile(
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { remotePath: "/srv/timeout.bin", localPath }
+                ),
+                /TRANSFER_TIMEOUT/
+            );
+        } finally {
+            delete process.env.TRANSFER_TIMEOUT_MS;
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
     });
 });

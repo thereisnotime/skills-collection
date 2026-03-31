@@ -31,6 +31,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
     if (toPhase === PHASES.CLEANUP && !state.quality_summary) {
         return { ok: false, error: "Docs quality summary missing" };
     }
+    if (toPhase === PHASES.SELF_CHECK && !state.quality_gate_passed) {
+        return { ok: false, error: "Quality gate must pass before self-check (checkpoint QUALITY_GATE with quality_gate_passed=true or ok=true)" };
+    }
     if (toPhase === PHASES.DONE) {
         if (!state.self_check_passed) {
             return { ok: false, error: "Self-check must pass before completion" };

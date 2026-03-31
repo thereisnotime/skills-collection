@@ -85,6 +85,9 @@ function applyCheckpointToState(state, phase, payload) {
     if (phase === PHASES.VERIFY) {
         nextState.verification_summary = payload.verification_summary || payload.summary || payload;
         nextState.final_result = payload.final_result || nextState.final_result;
+        if (payload.template_compliance_passed === true) {
+            nextState.template_compliance_passed = true;
+        }
     }
     if (phase === PHASES.SELF_CHECK) {
         nextState.self_check_passed = payload.pass === true;

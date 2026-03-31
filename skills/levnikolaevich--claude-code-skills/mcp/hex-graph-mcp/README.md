@@ -14,12 +14,12 @@ Deterministic layered code graph MCP server. Indexes codebases into a SQLite gra
 | `index_project` | Scan and index a project into a layered code graph | Idempotent, skips unchanged files |
 | `watch_project` | Keep the graph updated incrementally | Shared pipeline with full indexing |
 | `search_symbols` | Find candidate symbols by name | Discovery-only, returns identity candidates |
-| `get_symbol` | Return identity-safe symbol context | Canonical selector contract |
-| `trace_paths` | Traverse graph paths through selected layers | `calls`, `references`, `imports`, `type`, `flow`, `mixed` |
-| `find_references` | Find semantic usages of one symbol identity | Imports, calls, reads, types, reexports |
+| `get_symbol` | Return identity-safe symbol context | Canonical selector + provider status + confidence filter |
+| `trace_paths` | Traverse graph paths through selected layers | `calls`, `references`, `imports`, `type`, `flow`, `mixed` + `min_confidence` |
+| `find_references` | Find semantic usages of one symbol identity | Imports, calls, reads, types, reexports + `min_confidence` |
 | `find_implementations` | Find `extends`, `implements`, and `overrides` relations | Built from type-layer edges |
 | `find_dataflows` | Explain local and one-hop interprocedural flow | Deterministic flow summaries |
-| `explain_resolution` | Show how a selector/import/reference resolved | Candidate list + confidence |
+| `explain_resolution` | Show how a selector/import/reference resolved | Parsed candidates + precise-provider status |
 | `find_clones` | Detect exact, normalized, and near-miss clones | Hashes, MinHash, suppression heuristics |
 | `find_hotspots` | Rank risky symbols by complexity x dependency pressure | Uses unified graph and clone metadata |
 | `find_unused_exports` | Find proven-unused exports and split uncertain cases | Workspace-aware, confidence-aware |
@@ -65,9 +65,23 @@ All semantic symbol results expose both file-local and workspace-aware identity:
 - `package_key` / `package_name`
 - `module_key` / `module_name`
 
+Stage 2 precise overlay is additive:
+
+- parser/workspace facts stay in the graph
+- stronger provider facts use `confidence: "precise"`
+- provider availability is surfaced explicitly per language
+- `min_confidence` lets callers filter out weaker parser-only facts
+- `JavaScript/TypeScript` uses the embedded TypeScript compiler API
+- `Python`, `C#`, and `PHP` use detect-only external providers during indexing (`basedpyright`, `csharp-ls`, `phpactor`)
+- missing external tooling returns a direct human-actionable message the agent can relay as-is
+
 ### index_project
 
 Scan and index a project. Builds syntax, symbol, module, type, flow, and clone overlays from tree-sitter AST parsing.
+
+When an external precise provider is missing for a project language, `index_project` includes a clear remediation line such as:
+
+- `Python precise analysis is unavailable because basedpyright-langserver is not installed. Ask a human to install basedpyright and rerun index_project.`
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -91,6 +105,7 @@ Identity-safe symbol view: definition, incoming edges, outgoing edges, structura
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
+| `min_confidence` | string | no | Minimum fact tier: `low`, `inferred`, `exact`, `precise` |
 
 ### trace_paths
 
@@ -104,6 +119,7 @@ Traverse graph paths from one symbol through selected semantic layers.
 | `direction` | string | no | `forward`, `reverse`, `both` |
 | `depth` | number | no | Traversal depth |
 | `limit` | number | no | Max paths |
+| `min_confidence` | string | no | Filter out weaker facts below the requested tier |
 
 ### find_references
 
@@ -114,6 +130,7 @@ Find incoming semantic references for one symbol identity.
 | `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
 | `kind` | string | no | Optional edge-kind filter |
 | `limit` | number | no | Max references |
+| `min_confidence` | string | no | Filter out weaker facts below the requested tier |
 
 ### find_implementations
 

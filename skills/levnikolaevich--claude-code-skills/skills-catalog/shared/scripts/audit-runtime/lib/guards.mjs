@@ -50,6 +50,10 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
         return { ok: false, error: `Worker summaries missing for ${state.phase}` };
     }
 
+    if (toPhase === policy.aggregate_phase && state.worker_plan.length > 0 && workerResultsCount(state) < state.worker_plan.length) {
+        return { ok: false, error: `Not all planned workers produced summaries (${workerResultsCount(state)}/${state.worker_plan.length})` };
+    }
+
     if (state.phase === policy.aggregate_phase && !state.aggregation_summary) {
         return { ok: false, error: `Aggregation summary missing for ${state.phase}` };
     }
@@ -79,6 +83,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
         if (policy.cleanup_phase && !state.cleanup_completed) {
             return { ok: false, error: "Cleanup must complete before completion" };
         }
+        if (!state.final_result) {
+            return { ok: false, error: "Final result not recorded" };
+        }
     }
 
     return { ok: true };
@@ -101,6 +108,9 @@ export function computeResumeAction(manifest, state, checkpoints) {
     const policy = manifest.phase_policy || {};
     if ((policy.delegate_phases || []).includes(state.phase) && workerResultsCount(state) === 0 && !skippedCheckpoint(checkpoints, state.phase)) {
         return `Record worker summaries before advancing from ${state.phase}`;
+    }
+    if (state.worker_plan.length > 0 && workerResultsCount(state) < state.worker_plan.length) {
+        return `Record remaining worker summaries (${workerResultsCount(state)}/${state.worker_plan.length}) before advancing`;
     }
     if (state.phase === policy.aggregate_phase && !state.aggregation_summary) {
         return `Checkpoint ${state.phase} with aggregation_summary`;

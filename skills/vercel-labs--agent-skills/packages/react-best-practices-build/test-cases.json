@@ -65,6 +65,22 @@
   },
   {
     "ruleId": "",
+    "ruleTitle": "Check Cheap Conditions Before Async Flags",
+    "type": "bad",
+    "code": "const someFlag = await getFlag()\n\nif (someFlag && someCondition) {\n  // ...\n}",
+    "language": "typescript",
+    "description": "Incorrect example for Check Cheap Conditions Before Async Flags"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Check Cheap Conditions Before Async Flags",
+    "type": "good",
+    "code": "if (someCondition) {\n  const someFlag = await getFlag()\n  if (someFlag) {\n    // ...\n  }\n}",
+    "language": "typescript",
+    "description": "Correct example for Check Cheap Conditions Before Async Flags"
+  },
+  {
+    "ruleId": "",
     "ruleTitle": "Defer Await Until Needed",
     "type": "bad",
     "code": "async function handleRequest(userId: string, skipProcessing: boolean) {\n  const userData = await fetchUserData(userId)\n  \n  if (skipProcessing) {\n    // Returns immediately but still waited for userData\n    return { skipped: true }\n  }\n  \n  // Only this branch uses userData\n  return processUserData(userData)\n}",
@@ -942,6 +958,46 @@
     "code": "// RSC: send once\n<ClientList usernames={usernames} />\n\n// Client: transform there\n'use client'\nconst sorted = useMemo(() => [...usernames].sort(), [usernames])",
     "language": "tsx",
     "description": "sends 3 strings"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Hoist Static I/O to Module Level",
+    "type": "bad",
+    "code": "// app/api/og/route.tsx\nimport { ImageResponse } from 'next/og'\n\nexport async function GET(request: Request) {\n  // Runs on EVERY request - expensive!\n  const fontData = await fetch(\n    new URL('./fonts/Inter.ttf', import.meta.url)\n  ).then(res => res.arrayBuffer())\n\n  const logoData = await fetch(\n    new URL('./images/logo.png', import.meta.url)\n  ).then(res => res.arrayBuffer())\n\n  return new ImageResponse(\n    <div style={{ fontFamily: 'Inter' }}>\n      <img src={logoData} />\n      Hello World\n    </div>,\n    { fonts: [{ name: 'Inter', data: fontData }] }\n  )\n}",
+    "language": "typescript",
+    "description": "reads font file on every request"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Hoist Static I/O to Module Level",
+    "type": "good",
+    "code": "// app/api/og/route.tsx\nimport { ImageResponse } from 'next/og'\n\n// Module-level: runs ONCE when module is first imported\nconst fontData = fetch(\n  new URL('./fonts/Inter.ttf', import.meta.url)\n).then(res => res.arrayBuffer())\n\nconst logoData = fetch(\n  new URL('./images/logo.png', import.meta.url)\n).then(res => res.arrayBuffer())\n\nexport async function GET(request: Request) {\n  // Await the already-started promises\n  const [font, logo] = await Promise.all([fontData, logoData])\n\n  return new ImageResponse(\n    <div style={{ fontFamily: 'Inter' }}>\n      <img src={logo} />\n      Hello World\n    </div>,\n    { fonts: [{ name: 'Inter', data: font }] }\n  )\n}",
+    "language": "typescript",
+    "description": "loads once at module initialization"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Hoist Static I/O to Module Level",
+    "type": "good",
+    "code": "// app/api/og/route.tsx\nimport { ImageResponse } from 'next/og'\nimport { readFileSync } from 'fs'\nimport { join } from 'path'\n\n// Synchronous read at module level - blocks only during module init\nconst fontData = readFileSync(\n  join(process.cwd(), 'public/fonts/Inter.ttf')\n)\n\nconst logoData = readFileSync(\n  join(process.cwd(), 'public/images/logo.png')\n)\n\nexport async function GET(request: Request) {\n  return new ImageResponse(\n    <div style={{ fontFamily: 'Inter' }}>\n      <img src={logoData} />\n      Hello World\n    </div>,\n    { fonts: [{ name: 'Inter', data: fontData }] }\n  )\n}",
+    "language": "typescript",
+    "description": "synchronous fs at module level"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Hoist Static I/O to Module Level",
+    "type": "bad",
+    "code": "import fs from 'node:fs/promises'\n\nexport async function processRequest(data: Data) {\n  const config = JSON.parse(\n    await fs.readFile('./config.json', 'utf-8')\n  )\n  const template = await fs.readFile('./template.html', 'utf-8')\n\n  return render(template, data, config)\n}",
+    "language": "typescript",
+    "description": "reads config on every call"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Hoist Static I/O to Module Level",
+    "type": "good",
+    "code": "import fs from 'node:fs/promises'\n\nconst configPromise = fs\n  .readFile('./config.json', 'utf-8')\n  .then(JSON.parse)\nconst templatePromise = fs.readFile('./template.html', 'utf-8')\n\nexport async function processRequest(data: Data) {\n  const [config, template] = await Promise.all([\n    configPromise,\n    templatePromise,\n  ])\n\n  return render(template, data, config)\n}",
+    "language": "typescript",
+    "description": "hoists config and template to module level"
   },
   {
     "ruleId": "",

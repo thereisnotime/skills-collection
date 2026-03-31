@@ -54,6 +54,7 @@
 - [Repository Structure](#repository-structure)
 - [Use Cases](#use-cases)
 - [Contributors](#contributors)
+- [Citation](#citation)
 - [Community](#community)
 
 
@@ -442,6 +443,32 @@ claude-ai-research-skills/
 MIT License - See [LICENSE](LICENSE) for details.
 
 **Note**: Individual skills may reference libraries with different licenses. Please check each project's license before use.
+
+## Citation
+
+If you use AI Research Skills in your work or find it helpful for a publication, we'd appreciate a citation:
+
+**BibTeX**
+```bibtex
+@software{ai_research_skills,
+  title     = {AI Research Skills Library},
+  author    = {{Orchestra Research}},
+  year      = {2025},
+  url       = {https://github.com/orchestra-research/AI-research-SKILLs},
+  note      = {Open-source skills library enabling AI agents to autonomously conduct AI research}
+}
+```
+
+**APA**
+> Orchestra Research. (2025). *AI Research Skills Library* [Computer software]. https://github.com/orchestra-research/AI-research-SKILLs
+
+**Chicago**
+> Orchestra Research. "AI Research Skills Library." GitHub, 2025. https://github.com/orchestra-research/AI-research-SKILLs.
+
+**IEEE**
+> Orchestra Research, "AI Research Skills Library," 2025. [Online]. Available: https://github.com/orchestra-research/AI-research-SKILLs
+
+> **Tip**: You can also click **"Cite this repository"** in the GitHub sidebar for auto-formatted citations.
 
 ## Acknowledgments
 

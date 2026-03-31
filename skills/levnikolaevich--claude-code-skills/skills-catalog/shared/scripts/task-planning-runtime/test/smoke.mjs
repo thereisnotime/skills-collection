@@ -39,7 +39,7 @@ try {
     run(["record-plan", "--project-root", projectRoot, "--story", "PROJ-42", "--payload", "{\"schema_version\":\"1.0\",\"summary_kind\":\"task-plan\",\"run_id\":\"run-1\",\"identifier\":\"story-proj-42\",\"producer_skill\":\"ln-301\",\"produced_at\":\"2026-03-26T00:00:00Z\",\"payload\":{\"mode\":\"CREATE\",\"story_id\":\"PROJ-42\",\"task_type\":\"implementation\",\"tasks_created\":3,\"tasks_updated\":0,\"tasks_canceled\":0,\"task_urls\":[\"TASK-1\",\"TASK-2\",\"TASK-3\"],\"dry_warnings_count\":1,\"warnings\":[],\"kanban_updated\":true}}"]);
     run(["checkpoint", "--project-root", projectRoot, "--story", "PROJ-42", "--phase", "PHASE_5_DELEGATE"]);
     run(["advance", "--project-root", projectRoot, "--story", "PROJ-42", "--to", "PHASE_6_VERIFY"]);
-    run(["checkpoint", "--project-root", projectRoot, "--story", "PROJ-42", "--phase", "PHASE_6_VERIFY", "--payload", "{\"verification_summary\":{\"tasks_verified\":3},\"final_result\":\"PLAN_READY\"}"]);
+    run(["checkpoint", "--project-root", projectRoot, "--story", "PROJ-42", "--phase", "PHASE_6_VERIFY", "--payload", "{\"verification_summary\":{\"tasks_verified\":3},\"final_result\":\"PLAN_READY\",\"template_compliance_passed\":true}"]);
     run(["advance", "--project-root", projectRoot, "--story", "PROJ-42", "--to", "PHASE_7_SELF_CHECK"]);
     run(["checkpoint", "--project-root", projectRoot, "--story", "PROJ-42", "--phase", "PHASE_7_SELF_CHECK", "--payload", "{\"pass\":true,\"final_result\":\"PLAN_READY\"}"]);
     const completed = run(["complete", "--project-root", projectRoot, "--story", "PROJ-42"]);

@@ -11,7 +11,7 @@ import { statSync, writeFileSync } from "node:fs";
 import { diffLines } from "diff";
 import { fnv1a, lineTag, parseChecksum, parseRef } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { validatePath, normalizePath } from "./security.mjs";
-import { getGraphDB, callImpact, getRelativePath } from "./graph-enrich.mjs";
+import { getGraphDB, callImpact, cloneWarning, getRelativePath } from "./graph-enrich.mjs";
 import { MAX_DIFF_CHARS } from "./format.mjs";
 import {
     assertNonOverlappingTargets,
@@ -557,7 +557,7 @@ export function editFile(filePath, edits, opts = {}) {
         }
     }
 
-    // Call impact (before diff — usually visible)
+    // Graph enrichment: call impact + clone warnings
     try {
         const db = getGraphDB(real);
         const relFile = db ? getRelativePath(real) : null;
@@ -566,6 +566,11 @@ export function editFile(filePath, edits, opts = {}) {
             if (affected.length > 0) {
                 const list = affected.map(a => `${a.name} (${a.file}:${a.line})`).join(", ");
                 msg += `\n\n\u26a0 Call impact: ${affected.length} callers in other files\n  ${list}`;
+            }
+            const clones = cloneWarning(db, relFile, minLine, maxLine);
+            if (clones.length > 0) {
+                const list = clones.map(c => `${c.file}:${c.line}`).join(", ");
+                msg += `\n\n\u26a0 ${clones.length} clone(s): ${list}`;
             }
         }
     } catch { /* silent */ }

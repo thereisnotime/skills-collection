@@ -2,6 +2,14 @@
 
 <!-- SCOPE: User-facing changes only. Max 5 bullets per entry. Focus: new capabilities, workflow changes, breaking changes. -->
 
+## 2026-03-30
+
+- **hex-graph workspace-aware API** — tool parameters updated with explicit `path`, canonical selector rules, precision controls (`min_confidence`), and expanded language coverage (Python, C#, PHP with optional precise overlay)
+- **hex-ssh file transfer and interop** — new `transfer.mjs` module, interop test fixtures, and expanded SSH server capabilities
+- **State machine guards audit** — guards.mjs and store.mjs hardened across 12 runtimes with final_result/resumablePhases enforcement; new guard coverage tests for all runtime families
+- **CI workflow** — added `.github/workflows/test.yml` for automated testing
+- **review-skills R9 false positive fix** — auditor count check no longer triggers when site correctly omits volatile numbers
+
 ## 2026-03-29
 
 - **ln-310 quality-based refinement** — Codex iterative loop now exits by quality (MEDIUM/HIGH findings drive continuation), not just iteration count; added Architecture Gate, patience requirements, and risk mitigation criterion

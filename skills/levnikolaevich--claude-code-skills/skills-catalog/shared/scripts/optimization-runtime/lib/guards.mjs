@@ -93,6 +93,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
         if (!state.report_ready) {
             return { ok: false, error: "Final report checkpoint missing" };
         }
+        if (!state.final_result) {
+            return { ok: false, error: "Final result not recorded" };
+        }
     }
 
     return { ok: true };

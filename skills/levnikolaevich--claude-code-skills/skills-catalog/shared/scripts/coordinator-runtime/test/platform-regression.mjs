@@ -193,9 +193,59 @@ function testIsolationAcrossIdentifiers() {
     assert(ambiguousTask.ok === false, "Task planning status without story should fail when multiple runs exist");
 }
 
+function testInvalidResumeToPhase() {
+    const storyRoot = createProjectRoot("runtime-platform-bad-resume-");
+    const runStory = createJsonCliRunner(storyCli, storyRoot);
+    const manifest = writeManifest(storyRoot, "story-manifest", {
+        epic_id: "bad-1",
+        auto_approve: false,
+    });
+
+    runStory(["start", "--epic", "bad-1", "--manifest-file", manifest]);
+
+    // Test 1: invalid resume_to_phase at pause time
+    const badPause = runStory([
+        "pause", "--epic", "bad-1", "--reason", "Test",
+        "--payload", JSON.stringify({
+            kind: "test", question: "Test?", choices: ["yes", "no"],
+            default_choice: "yes", context: {},
+            resume_to_phase: "PHASE_99_INVALID", blocking: true,
+        }),
+    ], { allowFailure: true });
+    assert(badPause.ok === false, "Pause with invalid resume_to_phase should fail");
+
+    // Test 2: terminal phase (DONE) as resume target
+    const terminalPause = runStory([
+        "pause", "--epic", "bad-1", "--reason", "Test",
+        "--payload", JSON.stringify({
+            kind: "test", question: "Test?", choices: ["yes", "no"],
+            default_choice: "yes", context: {},
+            resume_to_phase: "DONE", blocking: true,
+        }),
+    ], { allowFailure: true });
+    assert(terminalPause.ok === false, "Pause with terminal resume_to_phase should fail");
+
+    // Test 3: valid pause, then invalid selected_choice
+    runStory([
+        "pause", "--epic", "bad-1", "--reason", "Test",
+        "--payload", JSON.stringify({
+            kind: "test", question: "Test?", choices: ["yes", "no"],
+            default_choice: "yes", context: {},
+            resume_to_phase: "PHASE_6_DELEGATE", blocking: true,
+        }),
+    ]);
+    const badChoice = runStory([
+        "set-decision", "--epic", "bad-1",
+        "--payload", JSON.stringify({ selected_choice: "maybe" }),
+    ], { allowFailure: true });
+    assert(badChoice.ok === false, "Decision with invalid selected_choice should fail");
+}
+
+
 testInactiveShape();
 testEnvironmentReplayFromHistory();
 testPauseResumeAcrossPlanningFamilies();
 testIsolationAcrossIdentifiers();
+testInvalidResumeToPhase();
 
 process.stdout.write("platform regression passed\n");

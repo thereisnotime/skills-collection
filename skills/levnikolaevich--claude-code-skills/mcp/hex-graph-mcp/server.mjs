@@ -14,6 +14,7 @@ import { coerceParams } from "@levnikolaevich/hex-common/runtime/coerce";
 import { findClones } from "./lib/clones.mjs";
 import { findCycles } from "./lib/cycles.mjs";
 import { resolveStore, findSymbols, getSymbol, tracePaths, getReferencesBySelector, findImplementationsBySelector, findDataflowsBySelector, getArchitectureReport, getHotspots, getModuleMetricsReport, explainResolution } from "./lib/store.mjs";
+import { CONFIDENCE_VALUES } from "./lib/confidence.mjs";
 import { findUnusedExports, formatUnusedText } from "./lib/unused.mjs";
 
 const { server, StdioServerTransport } = await createServerRuntime({
@@ -76,6 +77,10 @@ function buildTargetSelector(params) {
         name: to_name,
         file: to_file,
     };
+}
+
+function confidenceSchema() {
+    return z.enum(CONFIDENCE_VALUES).optional().describe("Filter out facts below this confidence tier");
 }
 
 function wrapResult(result, format = "json") {
@@ -157,13 +162,14 @@ server.registerTool("get_symbol", {
     description: "Return full graph context for one canonical symbol identity.",
     inputSchema: z.object({
         ...selectorSchema(),
+        min_confidence: confidenceSchema(),
         path: z.string().optional().describe("Indexed project root"),
         format: z.enum(["json", "text"]).default("json"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path, format, ...selector } = coerceParams(rawParams);
-    return wrapResult(getSymbol(selector, { path }), format);
+    const { path, format, min_confidence, ...selector } = coerceParams(rawParams);
+    return wrapResult(getSymbol(selector, { path, min_confidence }), format);
 });
 
 server.registerTool("trace_paths", {
@@ -176,12 +182,13 @@ server.registerTool("trace_paths", {
         direction: z.enum(["forward", "reverse", "both"]).default("reverse"),
         depth: flexNum().describe("Max traversal depth (default: 3)"),
         limit: flexNum().describe("Max paths (default: 50)"),
+        min_confidence: confidenceSchema(),
         path: z.string().optional().describe("Indexed project root"),
         format: z.enum(["json", "text"]).default("json"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path, format, path_kind, direction, depth, limit, ...selector } = coerceParams(rawParams);
+    const { path, format, path_kind, direction, depth, limit, min_confidence, ...selector } = coerceParams(rawParams);
     const target = buildTargetSelector(selector);
     delete selector.to_symbol_id;
     delete selector.to_workspace_qualified_name;
@@ -193,6 +200,7 @@ server.registerTool("trace_paths", {
         direction: direction ?? "reverse",
         depth: depth ?? 3,
         limit: limit ?? 50,
+        min_confidence: min_confidence ?? null,
         path,
         target,
     }), format);
@@ -205,15 +213,17 @@ server.registerTool("find_references", {
         ...selectorSchema(),
         kind: z.enum(["ref_read", "ref_type", "calls", "reexports", "imports", "all"]).default("all"),
         limit: flexNum().describe("Max references (default: 50)"),
+        min_confidence: confidenceSchema(),
         path: z.string().optional().describe("Indexed project root"),
         format: z.enum(["json", "text"]).default("json"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path, format, kind, limit, ...selector } = coerceParams(rawParams);
+    const { path, format, kind, limit, min_confidence, ...selector } = coerceParams(rawParams);
     return wrapResult(getReferencesBySelector(selector, {
         kind: kind ?? "all",
         limit: limit ?? 50,
+        min_confidence: min_confidence ?? null,
         path,
     }), format);
 });

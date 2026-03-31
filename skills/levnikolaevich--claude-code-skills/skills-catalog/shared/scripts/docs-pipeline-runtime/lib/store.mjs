@@ -33,6 +33,7 @@ const pipelineStore = createPlanningRuntimeStore({
         });
     },
     pausedPhase: PHASES.PAUSED,
+    resumablePhases: new Set(Object.values(PHASES).filter(p => p !== PHASES.PAUSED && p !== PHASES.DONE)),
 });
 
 export const {

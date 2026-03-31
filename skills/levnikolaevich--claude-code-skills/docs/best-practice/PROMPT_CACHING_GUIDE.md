@@ -75,9 +75,9 @@ Rule of thumb: 5 MCP servers x ~5K each = 25K tokens (12.5% of budget).
 | Source | Tokens | Notes |
 |--------|--------|-------|
 | hex-line MCP | ~1.5K | 9 tools x ~170 tokens each |
-| hex-ssh MCP | ~1.2K | 6 tools x ~200 tokens each |
+| hex-ssh MCP | ~1.6K | 8 tools x ~200 tokens each |
 | context7 + Ref + linear | ~5K | 3 external servers |
-| **Total MCP overhead** | **~8K** | All 5 servers combined |
+| **Total MCP overhead** | **~8.1K** | All 5 servers combined |
 | SessionStart hook | ~200 | One-time, not repeated |
 
 **Last Updated:** 2026-03-20

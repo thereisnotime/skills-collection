@@ -35,6 +35,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
     if (toPhase === PHASES.CLEANUP && !hasWorker(state, "ln-511")) {
         return { ok: false, error: "ln-511 summary missing" };
     }
+    if (toPhase === PHASES.AGENT_REVIEW && !hasWorker(state, "ln-512")) {
+        return { ok: false, error: "ln-512 summary missing" };
+    }
     if (toPhase === PHASES.LOG_ANALYSIS && !hasWorker(state, "ln-513")) {
         return { ok: false, error: "ln-513 summary missing" };
     }
@@ -64,6 +67,9 @@ export function computeResumeAction(manifest, state, checkpoints) {
     }
     if (state.phase === PHASES.CODE_QUALITY && !hasWorker(state, "ln-511")) {
         return "Record ln-511 worker summary before cleanup";
+    }
+    if (state.phase === PHASES.CLEANUP && !hasWorker(state, "ln-512")) {
+        return "Record ln-512 worker summary before agent review";
     }
     if (state.phase === PHASES.REGRESSION && !hasWorker(state, "ln-513")) {
         return "Record ln-513 worker summary before log analysis";

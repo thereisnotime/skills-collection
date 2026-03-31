@@ -108,6 +108,9 @@ export function setPendingDecision(projectRoot, runId, pendingDecision, reason =
     if (!validation.ok) {
         return validation;
     }
+    if (pendingDecision.resume_to_phase === PHASES.PAUSED || pendingDecision.resume_to_phase === PHASES.DONE) {
+        return { ok: false, error: `Invalid resume_to_phase: ${pendingDecision.resume_to_phase}` };
+    }
     return updateState(projectRoot, runId, state => ({
         ...state,
         phase: PHASES.PAUSED,
@@ -123,6 +126,13 @@ export function recordDecision(projectRoot, runId, decision) {
     }
     if (!run.state.pending_decision) {
         return { ok: false, error: "No pending decision recorded" };
+    }
+    if (run.state.pending_decision.resume_to_phase === PHASES.PAUSED || run.state.pending_decision.resume_to_phase === PHASES.DONE) {
+        return { ok: false, error: `Invalid resume_to_phase: ${run.state.pending_decision.resume_to_phase}` };
+    }
+    const choices = run.state.pending_decision.choices || [];
+    if (choices.length > 0 && !choices.includes(decision.selected_choice)) {
+        return { ok: false, error: `Invalid selected_choice: ${decision.selected_choice}. Valid: ${choices.join(", ")}` };
     }
     const nextDecision = {
         kind: run.state.pending_decision.kind,

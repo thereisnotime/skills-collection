@@ -76,6 +76,9 @@ function applyCheckpointToState(state, phase, payload) {
     }
     if (phase === PHASES.QUALITY_GATE) {
         nextState.quality_summary = payload.quality_summary || payload;
+        if (payload.quality_gate_passed === true || payload.ok === true) {
+            nextState.quality_gate_passed = true;
+        }
     }
     if (phase === PHASES.CLEANUP) {
         nextState.cleanup_summary = payload.cleanup_summary || payload;

@@ -245,6 +245,31 @@ function connectOne({ host, user, port, privateKey, lookupHost }) {
 }
 
 /**
+ * Acquire a pooled SSH connection and return the release key.
+ * @returns {Promise<{ conn: Client, key: string }>}
+ */
+async function acquireConnection({
+    host, user, port = 22, privateKeyPath,
+    originalHost, identityFiles = [], hostKeyAlias,
+}) {
+    validateHost(host, originalHost);
+    const lookupHost = hostKeyAlias || host;
+
+    const candidateKeys = getCandidateKeys(privateKeyPath, identityFiles);
+    const authId = createHash("sha256").update(candidateKeys[0]).digest("hex").slice(0, 8);
+    const key = makePoolKey(host, user, port, authId, lookupHost);
+
+    const conn = await acquirePooled(key, async () => {
+        const { client } = await connectWithKeyFallback({ host, user, port, candidateKeys, lookupHost });
+        client.on("error", () => evict(key));
+        client.on("close", () => evict(key));
+        return client;
+    });
+
+    return { conn, key };
+}
+
+/**
  * Try connecting with multiple candidate keys (like OpenSSH).
  * On auth failure, reconnect with the next key.
  * @returns {{ client: Client, privateKey: Buffer }} Winning connection + key
@@ -284,21 +309,14 @@ export async function executeCommand({
     host, user, command, privateKeyPath, port = 22,
     originalHost, identityFiles = [], hostKeyAlias,
 }) {
-    validateHost(host, originalHost);
-    const lookupHost = hostKeyAlias || host;
-
-    // Resolve candidate keys
-    const candidateKeys = getCandidateKeys(privateKeyPath, identityFiles);
-    const authId = createHash("sha256").update(candidateKeys[0]).digest("hex").slice(0, 8);
-    const key = makePoolKey(host, user, port, authId, lookupHost);
-
-    // Acquire or create pooled connection
-    const conn = await acquirePooled(key, async () => {
-        const { client } = await connectWithKeyFallback({ host, user, port, candidateKeys, lookupHost });
-        // Auto-evict on unexpected close/error
-        client.on("error", () => evict(key));
-        client.on("close", () => evict(key));
-        return client;
+    const { conn, key } = await acquireConnection({
+        host,
+        user,
+        port,
+        privateKeyPath,
+        originalHost,
+        identityFiles,
+        hostKeyAlias,
     });
 
     // Execute command on pooled connection
@@ -329,6 +347,43 @@ export async function executeCommand({
             });
             stream.on("data", (data) => { stdout += data.toString(); });
             stream.stderr.on("data", (data) => { stderr += data.toString(); });
+        });
+    });
+}
+
+/**
+ * Open an SFTP session on a pooled SSH connection.
+ * The callback must resolve only after all stream work is complete.
+ */
+export async function withSftp({
+    host, user, privateKeyPath, port = 22,
+    originalHost, identityFiles = [], hostKeyAlias,
+}, handler) {
+    const { conn, key } = await acquireConnection({
+        host,
+        user,
+        port,
+        privateKeyPath,
+        originalHost,
+        identityFiles,
+        hostKeyAlias,
+    });
+
+    return new Promise((resolve, reject) => {
+        conn.sftp((err, sftp) => {
+            if (err) {
+                releasePooled(key);
+                reject(new Error(`SFTP_INIT_FAILED: ${err.message}`));
+                return;
+            }
+
+            Promise.resolve()
+                .then(() => handler(sftp))
+                .then(resolve, reject)
+                .finally(() => {
+                    try { sftp.end?.(); } catch { /* ignore close errors */ }
+                    releasePooled(key);
+                });
         });
     });
 }

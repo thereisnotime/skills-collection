@@ -111,7 +111,7 @@ if git diff --name-only HEAD -- site/ 2>/dev/null | grep -q .; then
     [ "$site_skills" -gt 0 ] && [ "$site_skills" != "$market_skills" ] && { echo "  R9a: $plugin site=$site_skills marketplace=$market_skills" >&2; R9_FAILS=$((R9_FAILS + 1)); }
   done
   auditor_count=$(ls -d skills-catalog/ln-6*/SKILL.md 2>/dev/null | wc -l)
-  site_auditor=$(grep -oE '[0-9]+ parallel auditors' site/index.html 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+  site_auditor=$(grep -oE '[0-9]+ parallel auditors' site/index.html 2>/dev/null | grep -oE '[0-9]+' || true)
   [ -n "$site_auditor" ] && [ "$site_auditor" != "$auditor_count" ] && { echo "  R9b: site says $site_auditor auditors, actual $auditor_count" >&2; R9_FAILS=$((R9_FAILS + 1)); }
   [ "$R9_FAILS" -eq 0 ] && add_result R9 "Site fact-check" PASS || add_result R9 "Site fact-check" "FAIL ($R9_FAILS mismatches)"
 else
@@ -182,13 +182,16 @@ done
 R16_FAILS=$(rg -n '\.hex-skills/runtime-artifacts/(?!runs/)' skills-catalog README.md docs site AGENTS.md -P --glob '!skills-catalog/ln-162-skill-reviewer/**' --glob '!.claude/commands/review-skills.md' 2>/dev/null | wc -l)
 [ "$R16_FAILS" -eq 0 ] && add_result R16 "Run-scoped artifact paths" PASS || add_result R16 "Run-scoped artifact paths" "FAIL ($R16_FAILS non-run-scoped paths)"
 
-# === R17: Runtime smoke tests ===
-if [ -f skills-catalog/shared/scripts/review-runtime/test/smoke.mjs ]; then
-  SMOKE_OUT=$(node skills-catalog/shared/scripts/review-runtime/test/smoke.mjs 2>&1)
-  echo "$SMOKE_OUT" | grep -q 'smoke passed' && add_result R17 "Runtime smoke tests" PASS || add_result R17 "Runtime smoke tests" "FAIL ($SMOKE_OUT)"
-else
-  add_result R17 "Runtime smoke tests" SKIP
-fi
+# === R17: Runtime full test suite ===
+R17_FAILS=0
+R17_TOTAL=0
+for f in skills-catalog/shared/scripts/*/test/*.mjs skills-catalog/ln-1000-pipeline-orchestrator/scripts/test/*.mjs; do
+  [ -f "$f" ] || continue
+  basename "$f" | grep -q 'helpers' && continue
+  R17_TOTAL=$((R17_TOTAL + 1))
+  node "$f" >/dev/null 2>&1 || R17_FAILS=$((R17_FAILS + 1))
+done
+[ "$R17_FAILS" -eq 0 ] && add_result R17 "Runtime test suite ($R17_TOTAL files)" PASS || add_result R17 "Runtime test suite" "FAIL ($R17_FAILS/$R17_TOTAL failed)"
 
 # === R18: Exit reason enum sync ===
 R18_FAILS=0
@@ -197,7 +200,6 @@ WORKFLOW_FILE=skills-catalog/shared/references/agent_review_workflow.md
 if [ -f "$CATALOG_FILE" ] && [ -f "$WORKFLOW_FILE" ]; then
   CATALOG_REASONS=$(grep -oE '`(CONVERGED|CONVERGED_LOW_IMPACT|MAX_ITER|ERROR|SKIPPED)`' "$CATALOG_FILE" | tr -d '`' | sort -u)
   SCHEMA_REASONS=$(grep 'exit_reason:' "$WORKFLOW_FILE" | tail -1 | grep -oE '[A-Z_]+' | grep -vE '^(SKIPPED)$' | sort -u)
-  # Check that every reason in Output Schema exists in catalog
   for reason in $SCHEMA_REASONS; do
     echo "$CATALOG_REASONS" | grep -q "$reason" || R18_FAILS=$((R18_FAILS + 1))
   done
@@ -211,7 +213,6 @@ R19_FAILS=0
 CLI_FILE=skills-catalog/shared/scripts/review-runtime/cli.mjs
 CONTRACT_FILE=skills-catalog/shared/references/review_runtime_contract.md
 if [ -f "$CLI_FILE" ] && [ -f "$CONTRACT_FILE" ]; then
-  # Phase 6 must extract: iterations, exit_reason, applied
   grep -q 'refinement_iterations' "$CLI_FILE" || R19_FAILS=$((R19_FAILS + 1))
   grep -q 'refinement_exit_reason' "$CLI_FILE" || R19_FAILS=$((R19_FAILS + 1))
   grep -q 'refinement_applied' "$CLI_FILE" || R19_FAILS=$((R19_FAILS + 1))
@@ -219,6 +220,34 @@ if [ -f "$CLI_FILE" ] && [ -f "$CONTRACT_FILE" ]; then
 else
   add_result R19 "Checkpoint payload completeness" SKIP
 fi
+
+# === R20: Guard coverage tests (guards.mjs per runtime) ===
+R20_MISSING=""
+for runtime_dir in skills-catalog/shared/scripts/*-runtime; do
+  [ -d "$runtime_dir/test" ] || continue
+  [ -f "$runtime_dir/lib/guards.mjs" ] || continue
+  runtime=$(basename "$runtime_dir")
+  echo "$runtime" | grep -qE '^(coordinator|planning|story-planning|task-planning)-runtime$' && continue
+  [ -f "$runtime_dir/test/guards.mjs" ] || R20_MISSING="$R20_MISSING $runtime"
+done
+[ -z "$R20_MISSING" ] && add_result R20 "Guard coverage tests" PASS || add_result R20 "Guard coverage tests" "FAIL (missing:$R20_MISSING)"
+
+# === R21: resumablePhases in planning stores ===
+R21_FAILS=0
+for store in skills-catalog/shared/scripts/story-planning-runtime/lib/store.mjs skills-catalog/shared/scripts/task-planning-runtime/lib/store.mjs skills-catalog/shared/scripts/epic-planning-runtime/lib/store.mjs skills-catalog/shared/scripts/docs-pipeline-runtime/lib/store.mjs skills-catalog/shared/scripts/scope-decomposition-runtime/lib/store.mjs; do
+  [ -f "$store" ] || continue
+  grep -q 'resumablePhases' "$store" || R21_FAILS=$((R21_FAILS + 1))
+done
+[ "$R21_FAILS" -eq 0 ] && add_result R21 "resumablePhases in planning stores" PASS || add_result R21 "resumablePhases" "FAIL ($R21_FAILS stores missing)"
+
+# === R22: final_result guard on DONE ===
+R22_FAILS=0
+for guards in skills-catalog/shared/scripts/*-runtime/lib/guards.mjs; do
+  [ -f "$guards" ] || continue
+  grep -q 'DONE' "$guards" || continue
+  grep -q 'final_result' "$guards" || { R22_FAILS=$((R22_FAILS + 1)); echo "  R22: missing in $(dirname $(dirname $guards))" >&2; }
+done
+[ "$R22_FAILS" -eq 0 ] && add_result R22 "final_result guard on DONE" PASS || add_result R22 "final_result guard on DONE" "FAIL ($R22_FAILS missing)"
 echo ""
 echo "## Repo-Specific Review -- claude-code-skills"
 echo ""

@@ -1,0 +1,133 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  runtime-tests:
+    name: Runtime & MCP Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install MCP dependencies
+        run: cd mcp && npm install --ignore-scripts
+
+      - name: Coordinator runtime
+        run: |
+          node skills-catalog/shared/scripts/coordinator-runtime/test/platform-regression.mjs
+          node skills-catalog/shared/scripts/coordinator-runtime/test/consistency-scan.mjs
+
+      - name: Review runtime
+        run: |
+          node skills-catalog/shared/scripts/review-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/review-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/review-runtime/test/negative.mjs
+
+      - name: Story planning runtime
+        run: |
+          node skills-catalog/shared/scripts/story-planning-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/story-planning-runtime/test/negative.mjs
+
+      - name: Task planning runtime
+        run: |
+          node skills-catalog/shared/scripts/task-planning-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/task-planning-runtime/test/negative.mjs
+
+      - name: Epic planning runtime
+        run: |
+          node skills-catalog/shared/scripts/epic-planning-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/epic-planning-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/epic-planning-runtime/test/guards.mjs
+
+      - name: Scope decomposition runtime
+        run: |
+          node skills-catalog/shared/scripts/scope-decomposition-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/scope-decomposition-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/scope-decomposition-runtime/test/guards.mjs
+
+      - name: Docs pipeline runtime
+        run: |
+          node skills-catalog/shared/scripts/docs-pipeline-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/docs-pipeline-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/docs-pipeline-runtime/test/guards.mjs
+
+      - name: Audit runtime
+        run: |
+          node skills-catalog/shared/scripts/audit-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/audit-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/audit-runtime/test/guards.mjs
+
+      - name: Environment setup runtime
+        run: |
+          node skills-catalog/shared/scripts/environment-setup-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/environment-setup-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/environment-setup-runtime/test/guards.mjs
+
+      - name: Other runtimes
+        run: |
+          node skills-catalog/shared/scripts/story-execution-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/story-execution-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/story-execution-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/story-gate-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/story-gate-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/story-gate-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/optimization-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/optimization-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/optimization-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/quality-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/quality-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/quality-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/test-planning-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/test-planning-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/test-planning-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/docs-runtime/test/smoke.mjs
+          node skills-catalog/shared/scripts/docs-runtime/test/negative.mjs
+          node skills-catalog/shared/scripts/docs-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/docs-quality/test/smoke.mjs
+
+      - name: Pipeline orchestrator
+        run: |
+          node skills-catalog/ln-1000-pipeline-orchestrator/scripts/test/smoke.mjs
+          node skills-catalog/ln-1000-pipeline-orchestrator/scripts/test/isolation.mjs
+
+      - name: MCP hex-line lint + test
+        run: cd mcp/hex-line-mcp && npm run lint && npm test
+
+      - name: MCP hex-graph test
+        run: cd mcp/hex-graph-mcp && npm test
+
+      - name: MCP hex-ssh test
+        run: cd mcp/hex-ssh-mcp && npm test
+
+      - name: MCP hex-common test
+        run: cd mcp/hex-common && npm test
+
+  hex-ssh-interop:
+    name: hex-ssh interop
+    runs-on: ubuntu-latest
+    needs: runtime-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install MCP dependencies
+        run: cd mcp && npm install --ignore-scripts
+
+      - name: Docker version
+        run: |
+          docker --version
+          docker compose version
+
+      - name: MCP hex-ssh interop
+        run: cd mcp/hex-ssh-mcp && npm run test:interop

@@ -2,6 +2,8 @@
 
 Implementation patterns for every interactive element type used in courses. Pick the elements that best serve each module's teaching goal.
 
+> **Architecture note:** All CSS and JavaScript for these elements live in `references/styles.css` and `references/main.js`, which are copied verbatim into every course directory. When writing module HTML files, use only the HTML patterns below — do **not** inline `<style>` or `<script>` tags for these elements. The engines in `main.js` auto-initialize on page load by scanning for the relevant class names and `data-*` attributes described here.
+
 ## Table of Contents
 1. [Code ↔ English Translation Blocks](#code--english-translation-blocks)
 2. [Multiple-Choice Quizzes](#multiple-choice-quizzes)
@@ -115,10 +117,15 @@ The most important teaching element. Shows real code from the project on the lef
 
 For testing understanding with instant feedback. Each question has options, one correct answer, and per-question explanations.
 
+**Wiring:** `main.js` exposes `window.selectOption(btn)`, `window.checkQuiz(containerId)`, and `window.resetQuiz(containerId)`. Call them via `onclick`. Per-question explanations go in `data-explanation-right` and `data-explanation-wrong` on the `.quiz-question-block`.
+
 **HTML:**
 ```html
-<div class="quiz-container">
-  <div class="quiz-question-block" data-question="q1" data-correct="option-b">
+<div class="quiz-container" id="quiz-module3">
+  <div class="quiz-question-block"
+       data-correct="option-b"
+       data-explanation-right="Exactly — because X is responsible for Y in this architecture."
+       data-explanation-wrong="Not quite. Think about where Y lives in the codebase...">
     <h3 class="quiz-question">Question text here?</h3>
     <div class="quiz-options">
       <button class="quiz-option" data-value="option-a" onclick="selectOption(this)">
@@ -134,57 +141,12 @@ For testing understanding with instant feedback. Each question has options, one 
         <span>Answer C</span>
       </button>
     </div>
-    <div class="quiz-feedback" id="q1-feedback"></div>
+    <div class="quiz-feedback"></div>
   </div>
 
-  <button class="quiz-check-btn" onclick="checkQuiz('section-id')">Check Answers</button>
-  <button class="quiz-reset-btn" onclick="resetQuiz('section-id')">Try Again</button>
-  <div class="quiz-overall-feedback" id="section-overall"></div>
+  <button class="quiz-check-btn" onclick="checkQuiz('quiz-module3')">Check Answers</button>
+  <button class="quiz-reset-btn" onclick="resetQuiz('quiz-module3')">Try Again</button>
 </div>
-```
-
-**JS pattern:**
-```javascript
-window.selectOption = function(btn) {
-  // Deselect siblings
-  const block = btn.closest('.quiz-question-block');
-  block.querySelectorAll('.quiz-option').forEach(o => o.classList.remove('selected'));
-  btn.classList.add('selected');
-};
-
-window.checkQuiz = function(sectionId) {
-  const container = document.querySelector(`#${sectionId} .quiz-container`);
-  const questions = container.querySelectorAll('.quiz-question-block');
-  let correct = 0;
-
-  questions.forEach(q => {
-    const selected = q.querySelector('.quiz-option.selected');
-    const feedback = q.querySelector('.quiz-feedback');
-    const correctValue = q.dataset.correct;
-
-    if (!selected) {
-      feedback.textContent = 'Pick an answer first!';
-      feedback.className = 'quiz-feedback show warning';
-      return;
-    }
-
-    if (selected.dataset.value === correctValue) {
-      correct++;
-      selected.classList.add('correct');
-      feedback.innerHTML = '<strong>Exactly!</strong> ' + getExplanation(q, true);
-      feedback.className = 'quiz-feedback show success';
-    } else {
-      selected.classList.add('incorrect');
-      // Highlight the correct one
-      q.querySelector(`[data-value="${correctValue}"]`).classList.add('correct');
-      feedback.innerHTML = '<strong>Not quite.</strong> ' + getExplanation(q, false);
-      feedback.className = 'quiz-feedback show error';
-    }
-
-    // Disable further interaction
-    q.querySelectorAll('.quiz-option').forEach(o => o.disabled = true);
-  });
-};
 ```
 
 **CSS for quiz states:**
@@ -322,10 +284,12 @@ chips.forEach(chip => {
 
 iMessage/WeChat-style chat showing components "talking" to each other. Messages appear one by one with typing indicators.
 
+**Wiring:** `main.js` auto-initializes every `.chat-window` on page load. Give each chat window a unique `id`. Control buttons need these classes: `.chat-next-btn`, `.chat-all-btn`, `.chat-reset-btn`. The typing indicator avatar element should have `id="{chatWindowId}-typing-avatar"` or simply be the first `.chat-avatar` inside `.chat-typing`.
+
 **HTML:**
 ```html
-<div class="chat-window">
-  <div class="chat-messages" id="chat-messages">
+<div class="chat-window" id="chat-module2">
+  <div class="chat-messages">
     <div class="chat-message" data-msg="0" data-sender="actor-a" style="display:none">
       <div class="chat-avatar" style="background: var(--color-actor-1)">A</div>
       <div class="chat-bubble">
@@ -346,53 +310,12 @@ iMessage/WeChat-style chat showing components "talking" to each other. Messages 
   </div>
 
   <div class="chat-controls">
-    <button onclick="playChatNext()">Next Message</button>
-    <button onclick="playChatAll()">Play All</button>
-    <button onclick="resetChat()">Replay</button>
-    <span class="chat-progress">0 / N messages</span>
+    <button class="btn chat-next-btn">Next Message</button>
+    <button class="btn chat-all-btn">Play All</button>
+    <button class="btn chat-reset-btn">Replay</button>
+    <span class="chat-progress"></span>
   </div>
 </div>
-```
-
-**JS:**
-```javascript
-let chatIndex = 0;
-const chatMessages = document.querySelectorAll('#chat-messages .chat-message');
-
-// Actor color/avatar mapping
-const actors = {
-  'actor-a': { initials: 'A', color: 'var(--color-actor-1)' },
-  'actor-b': { initials: 'B', color: 'var(--color-actor-2)' },
-  'actor-c': { initials: 'C', color: 'var(--color-actor-3)' },
-};
-
-window.playChatNext = function() {
-  if (chatIndex >= chatMessages.length) return;
-  const msg = chatMessages[chatIndex];
-  const sender = msg.dataset.sender;
-
-  // Show typing indicator with correct avatar
-  const typing = document.getElementById('chat-typing');
-  const avatar = document.getElementById('typing-avatar');
-  avatar.textContent = actors[sender].initials;
-  avatar.style.background = actors[sender].color;
-  typing.style.display = 'flex';
-
-  setTimeout(() => {
-    typing.style.display = 'none';
-    msg.style.display = 'flex';
-    msg.style.animation = 'fadeSlideUp 0.3s var(--ease-out)';
-    chatIndex++;
-    updateChatProgress();
-  }, 800);
-};
-
-window.playChatAll = function() {
-  const interval = setInterval(() => {
-    if (chatIndex >= chatMessages.length) { clearInterval(interval); return; }
-    playChatNext();
-  }, 1200);
-};
 ```
 
 **CSS for typing dots:**
@@ -416,9 +339,17 @@ window.playChatAll = function() {
 
 Step-by-step visualization of data moving between components. User clicks "Next Step" to advance.
 
+**Wiring:** `main.js` auto-initializes every `.flow-animation` on page load. Pass steps as JSON in `data-steps`. Each step object: `{ highlight: "flow-actor-id", label: "description", packet: true, from: "actor-id-suffix", to: "actor-id-suffix" }`. Actor element IDs must be `flow-actor-1`, `flow-actor-2`, etc. Control buttons need classes `.flow-next-btn` and `.flow-reset-btn`.
+
+> **⚠️ Single quotes in step labels will break parsing.** The `data-steps` attribute is delimited by single quotes (`data-steps='[...]'`), so any single quote inside a label (e.g. `"the user's request"`) will terminate the attribute early and cause `JSON.parse` to fail silently — the entire animation will stop working. Either avoid apostrophes in labels, replace them with `&apos;`, or rewrite the attribute using double-quote delimiters with escaped inner quotes (`data-steps="[{\"label\":\"...\"}]"`).
+
 **HTML:**
 ```html
-<div class="flow-animation">
+<div class="flow-animation" data-steps='[
+  {"highlight":"flow-actor-1","label":"User clicks the button"},
+  {"highlight":"flow-actor-1","label":"Frontend sends request","packet":true,"from":"actor-1","to":"actor-2"},
+  {"highlight":"flow-actor-2","label":"Backend calls the database","packet":true,"from":"actor-2","to":"actor-3"}
+]'>
   <div class="flow-actors">
     <div class="flow-actor" id="flow-actor-1">
       <div class="flow-actor-icon">A</div>
@@ -439,42 +370,11 @@ Step-by-step visualization of data moving between components. User clicks "Next 
   <div class="flow-step-label" id="flow-label">Click "Next Step" to begin</div>
 
   <div class="flow-controls">
-    <button onclick="flowNext()">Next Step</button>
-    <button onclick="flowReset()">Restart</button>
-    <span class="flow-progress">Step 0 / N</span>
+    <button class="btn flow-next-btn">Next Step</button>
+    <button class="btn flow-reset-btn">Restart</button>
+    <span class="flow-progress"></span>
   </div>
 </div>
-```
-
-**JS pattern:**
-```javascript
-const flowSteps = [
-  { from: 'actor-1', to: 'actor-2', label: 'User clicks button → Actor 1 detects click event', highlight: 'actor-1' },
-  { from: 'actor-1', to: 'actor-2', label: 'Actor 1 sends message to Actor 2', highlight: 'actor-2', packet: true },
-  { from: 'actor-2', to: 'external', label: 'Actor 2 calls external API', highlight: 'actor-2', cloud: true },
-  // etc.
-];
-
-let flowStep = 0;
-window.flowNext = function() {
-  if (flowStep >= flowSteps.length) return;
-  const step = flowSteps[flowStep];
-
-  // Remove previous highlights
-  document.querySelectorAll('.flow-actor').forEach(a => a.classList.remove('active'));
-
-  // Highlight current actor
-  document.getElementById(`flow-${step.highlight}`).classList.add('active');
-
-  // Animate packet if needed
-  if (step.packet) {
-    animatePacket(step.from, step.to);
-  }
-
-  // Update label
-  document.getElementById('flow-label').textContent = step.label;
-  flowStep++;
-};
 ```
 
 **CSS for active actor glow:**

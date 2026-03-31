@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
 import { getStore, CODEGRAPH_DIR } from "./store.mjs";
 import { parseFile, languageFor, supportedExtensions } from "./parser.mjs";
 import { discoverWorkspace, persistWorkspace } from "./workspace.mjs";
+import { runPreciseOverlay } from "./precise/index.mjs";
 
 const IGNORE_DIRS = new Set([
     "node_modules", ".git", "dist", "build", "out", ".next",
@@ -24,6 +25,29 @@ const IGNORE_DIRS = new Set([
 ]);
 
 const MAX_FILE_SIZE = 500_000; // 500KB
+
+function importEdgeEvidence(imp, spec) {
+    return JSON.stringify({
+        source: imp.source,
+        imported: spec.imported || null,
+        local: spec.local || null,
+        specifier_type: spec.type || "named",
+    });
+}
+
+function callEdgeEvidence(call) {
+    return JSON.stringify({
+        token: call.name,
+        request_kind: "call",
+    });
+}
+
+function referenceEdgeEvidence(ref) {
+    return JSON.stringify({
+        token: ref.name,
+        request_kind: ref.refKind === "type_ref" ? "type_ref" : "read",
+    });
+}
 
 /**
  * Index a project.
@@ -65,6 +89,7 @@ export async function indexProject(projectPath, { languages } = {}) {
     const allSourceFiles = [];
     walkDir(absPath, absPath, allowedSet, store, filesToIndex, allSourceFiles);
     const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
+    const projectLanguages = [...new Set(allSourceFiles.map(file => file.language).filter(Boolean))];
 
     // Pass 2: PARSE
     let parsed = 0;
@@ -110,6 +135,12 @@ export async function indexProject(projectPath, { languages } = {}) {
         edgeCount += resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
     }
     store.rebuildAllModuleLayerEdges();
+    const precise = await runPreciseOverlay({
+        projectPath: absPath,
+        store,
+        languages: projectLanguages,
+        sourceFiles: allSourceFiles.map(file => file.relPath),
+    });
 
     const elapsed = Date.now() - t0;
     const stats = store.stats();
@@ -119,6 +150,11 @@ export async function indexProject(projectPath, { languages } = {}) {
         purged > 0 ? `Purged ${purged} deleted files` : null,
         `Parsed ${parsed} files (${filesToIndex.length - parsed} skipped, unchanged)`,
         `Built ${edgeCount} new call edges`,
+        precise.precise_edges > 0 ? `Added ${precise.precise_edges} precise overlay edges` : null,
+        ...(precise.providers || [])
+            .filter(provider => provider.status && provider.status !== "available")
+            .map(provider => provider.message)
+            .filter(Boolean),
     ].filter(Boolean).join("\n");
 }
 
@@ -147,6 +183,7 @@ export async function reindexFile(projectPath, filePath) {
     const allSourceFiles = [];
     walkDir(absPath, absPath, new Set(supportedExtensions()), store, [], allSourceFiles);
     const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
+    const projectLanguages = [...new Set(allSourceFiles.map(file => file.language).filter(Boolean))];
     const { definitions, imports, calls, references, exports: fileExports, defaultExport, reexports } = await parseFile(fullPath, source, { cloneDetection: true });
     const nodeIds = store.bulkInsert(
         filePath,
@@ -161,6 +198,12 @@ export async function reindexFile(projectPath, filePath) {
     persistCloneData(store, definitions, nodeIds);
     resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
     store.rebuildAllModuleLayerEdges();
+    await runPreciseOverlay({
+        projectPath: absPath,
+        store,
+        languages: projectLanguages,
+        sourceFiles: allSourceFiles.map(file => file.relPath),
+    });
 }
 
 // --- Helpers ---
@@ -300,6 +343,7 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
                             origin: resolution.resolution || "workspace_resolved",
                             file: filePath,
                             line: imp.line,
+                            evidence_json: importEdgeEvidence(imp, spec),
                         });
                     }
                 }
@@ -324,6 +368,7 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
                     origin: resolution.resolution || "unresolved",
                     file: filePath,
                     line: imp.line,
+                    evidence_json: importEdgeEvidence(imp, spec),
                 });
             }
         }
@@ -501,6 +546,7 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
                 origin: "resolved",
                 file: filePath,
                 line: call.line,
+                evidence_json: callEdgeEvidence(call),
             });
             callEdgeCount++;
         }
@@ -544,6 +590,7 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
                 origin: "resolved",
                 file: filePath,
                 line: ref.line,
+                evidence_json: referenceEdgeEvidence(ref),
             });
         }
     }

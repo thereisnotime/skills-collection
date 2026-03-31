@@ -11,7 +11,7 @@ Every remote file read returns FNV-1a hash-annotated lines and range checksums. 
 
 ## Features
 
-### 6 MCP Tools
+### 8 MCP Tools
 
 | Tool | Description | Key Feature |
 |------|-------------|-------------|
@@ -20,6 +20,8 @@ Every remote file read returns FNV-1a hash-annotated lines and range checksums. 
 | `ssh-edit-block` | Hash-verified anchor edits in remote files | Checksum verification + compact diff output |
 | `ssh-search-code` | Search remote files with grep | Deduplicated results with `(xN)` counts |
 | `ssh-write-chunk` | Write or append to remote files | Rewrite is atomic; append is direct |
+| `ssh-upload` | Upload a local file to a remote server via SFTP | Binary-safe transfer + durable remote finalize |
+| `ssh-download` | Download a remote file to the local machine via SFTP | Binary-safe transfer + verified local finalize |
 | `ssh-verify` | Check if held checksums are still valid | Single-line response avoids full re-read |
 
 ### Output Normalization
@@ -71,6 +73,9 @@ Connections are pooled and reused across tool calls to the same host with the sa
 |----------|-------------|
 | `SSH_CONFIG_PATH` | Override `~/.ssh/config` path |
 | `ALLOWED_HOSTS` | Comma-separated resolved hostnames/IPs (not aliases) |
+| `ALLOWED_LOCAL_DIRS` | Optional comma-separated local directory prefixes allowed for `ssh-upload`/`ssh-download` |
+| `MAX_TRANSFER_BYTES` | Optional max file size for SFTP transfers. Default: `134217728` (128 MiB) |
+| `TRANSFER_TIMEOUT_MS` | Optional transfer inactivity timeout for SFTP upload/download. Default: `120000` |
 
 ### Unsupported Directives (v1)
 
@@ -121,6 +126,8 @@ Set `REMOTE_SSH_MODE=safe` or `REMOTE_SSH_MODE=open` explicitly to enable the to
 
 All remote paths must be absolute (start with `/`). `..` segments are resolved before validation. Both file paths and `ALLOWED_DIRS` entries are canonicalized symmetrically.
 
+Local transfer paths for `ssh-upload` and `ssh-download` must be absolute paths or `~/...`. When `ALLOWED_LOCAL_DIRS` is set, local paths are canonicalized and checked against that allowlist before the transfer starts.
+
 ### Exec Timeout
 
 SSH commands are terminated after 120 seconds (`EXEC_TIMEOUT` error).
@@ -152,6 +159,32 @@ ALLOWED_DIRS=/home/deploy,/var/www,/etc/nginx
 
 When unset, all remote paths are permitted.
 
+### ALLOWED_LOCAL_DIRS (optional)
+
+Comma-separated list of permitted local directory prefixes for `ssh-upload` and `ssh-download`. When set, local paths outside these directories are rejected before transfer.
+
+```bash
+ALLOWED_LOCAL_DIRS=/Users/alice/projects,/tmp/hex-ssh
+```
+
+When unset, any absolute local path is permitted.
+
+### MAX_TRANSFER_BYTES (optional)
+
+Maximum allowed file size for `ssh-upload` and `ssh-download`. Transfers above the limit fail fast with `FILE_TOO_LARGE`.
+
+```bash
+MAX_TRANSFER_BYTES=134217728
+```
+
+### TRANSFER_TIMEOUT_MS (optional)
+
+Maximum allowed inactivity window for `ssh-upload` and `ssh-download`. If no transfer progress is observed before the timeout expires, the transfer fails with `TRANSFER_TIMEOUT`.
+
+```bash
+TRANSFER_TIMEOUT_MS=120000
+```
+
 ### SSH Key Authentication
 
 Key-only authentication (no passwords). Resolution order:
@@ -171,7 +204,7 @@ Execute shell commands on remote servers. Disabled by default; set `REMOTE_SSH_M
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `host` | string | yes | Remote hostname or IP |
-| `user` | string | yes | SSH username |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `command` | string | yes | Shell command to execute |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
@@ -183,7 +216,7 @@ Read remote file with FNV-1a hash-annotated lines and range checksums. Always pr
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `host` | string | yes | Remote hostname or IP |
-| `user` | string | yes | SSH username |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `filePath` | string | yes | Path to file on remote server |
 | `startLine` | number | no | Start line, 1-based (default: 1) |
 | `endLine` | number | no | End line (reads to limit if not set) |
@@ -210,7 +243,7 @@ Edit remote files using hash-verified anchors. Use `ssh-read-lines` first to get
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `host` | string | yes | Remote hostname or IP |
-| `user` | string | yes | SSH username |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `filePath` | string | yes | Path to file on remote server |
 | `newText` | string | yes | Replacement text (for anchor/range/insert edits) |
 | `anchor` | string | no | Hash anchor `ab.42` to set single line |
@@ -230,7 +263,7 @@ Search remote files with grep. Results are deduplicated (identical normalized li
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `host` | string | yes | Remote hostname or IP |
-| `user` | string | yes | SSH username |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `path` | string | yes | Directory to search on remote server |
 | `pattern` | string | yes | Text or regex pattern |
 | `filePattern` | string | no | Glob filter (e.g. `"*.js"`, `"*.py"`) |
@@ -247,12 +280,47 @@ Write content to remote files (rewrite or append). Creates parent directories. `
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `host` | string | yes | Remote hostname or IP |
-| `user` | string | yes | SSH username |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `filePath` | string | yes | Path to file on remote server |
 | `content` | string | yes | Content to write |
 | `mode` | string | no | `"rewrite"` or `"append"` (default: `"rewrite"`) |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+
+### ssh-upload
+
+Upload a local file to the remote server over SFTP. Supports text and binary files. Creates remote parent directories over SFTP, stages to a temp file, then uses the strongest available finalize path (`ext_openssh_fsync` / `ext_openssh_rename` when supported, standard close+rename otherwise).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `host` | string | yes | Remote hostname or IP |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
+| `localPath` | string | yes | Absolute local file path or `~/path` |
+| `remotePath` | string | yes | Absolute destination path on remote server |
+| `overwrite` | boolean | no | Replace existing destination when `true` (default: `false`) |
+| `verify` | `none` \| `stat` | no | Post-transfer verification mode (default: `stat`) |
+| `permissions` | string | no | Optional octal file mode for uploaded file, e.g. `0644` |
+| `privateKeyPath` | string | no | Path to SSH private key |
+| `port` | number | no | SSH port (default: 22) |
+
+Success output includes `bytes=`, `durationMs=`, `verify=`, and `durabilityPath=`. Existing destinations are rejected unless `overwrite=true`. Oversized transfers fail before streaming based on `MAX_TRANSFER_BYTES`.
+
+### ssh-download
+
+Download a remote file to the local machine over SFTP. Supports text and binary files. Writes to a temp file locally, fsyncs the staged file, then finalizes to the requested destination and verifies metadata when enabled.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `host` | string | yes | Remote hostname or IP |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
+| `remotePath` | string | yes | Absolute file path on remote server |
+| `localPath` | string | yes | Absolute local destination path or `~/path` |
+| `overwrite` | boolean | no | Replace existing destination when `true` (default: `false`) |
+| `verify` | `none` \| `stat` | no | Post-transfer verification mode (default: `stat`) |
+| `privateKeyPath` | string | no | Path to SSH private key |
+| `port` | number | no | SSH port (default: 22) |
+
+Success output includes `bytes=`, `durationMs=`, `verify=`, and `durabilityPath=`. Existing destinations are rejected unless `overwrite=true`. When `ALLOWED_LOCAL_DIRS` is set, the destination must resolve inside that allowlist.
 
 ### ssh-verify
 
@@ -261,7 +329,7 @@ Verify range checksums from prior `ssh-read-lines` calls without re-reading full
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `host` | string | yes | Remote hostname or IP |
-| `user` | string | yes | SSH username |
+| `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `filePath` | string | yes | Path to file on remote server |
 | `checksums` | string | yes | JSON array of checksum strings, e.g. `["1-50:f7e2a1b0"]` |
 | `privateKeyPath` | string | no | Path to SSH private key |
@@ -295,6 +363,20 @@ Current normalization diagnostic sample:
 
 Diagnostic summary: `72%` average reduction (`62,948 → 17,865 chars`).
 
+## Interop Coverage
+
+`hex-ssh-mcp` now has two transfer test layers:
+
+- `npm test` runs fast smoke tests with mocked SSH/SFTP seams
+- `npm run test:interop` runs real backend integration coverage
+
+The interop suite validates:
+
+- OpenSSH SFTP in Docker, including the opportunistic `openssh-ext` finalize path
+- a controlled `ssh2.Server` fallback backend with no OpenSSH durability extensions
+
+This means single-file `ssh-upload` / `ssh-download` behavior is covered across both the extension path and the standard fallback path. The interop suite requires Docker for the OpenSSH fixture.
+
 ### Normalization Rules
 
 | Pattern | Replacement | Example |
@@ -318,17 +400,14 @@ Output exceeding 60 lines (40 head + 20 tail) is truncated with a gap indicator 
 
 ```
 hex-ssh-mcp/
-  server.mjs          MCP server (stdio transport, 6 tools)
+  server.mjs          MCP server (stdio transport, 8 tools)
   package.json
   lib/
     ssh-client.mjs    SSH connection, host/path validation, key resolution
+    transfer.mjs      Local path validation and SFTP upload/download helpers
     hash.mjs          FNV-1a hashing, 2-char tags, range checksums
     normalize.mjs     Output normalization, deduplication, truncation
 ```
-
-### Relationship to hex-line-mcp
-
-Both servers share the same FNV-1a hash format and line annotation convention (`tag.lineNum\tcontent`). Checksums from `ssh-read-lines` are structurally identical to those from hex-line's `read_file`.
 
 ### Hash Format
 
@@ -361,14 +440,7 @@ No. Key-only authentication (RSA, ED25519, ECDSA). This is a security design dec
 <details>
 <summary><b>Can I connect to multiple servers in one session?</b></summary>
 
-Yes. Each tool call specifies `host` and `user` independently. There is no persistent connection -- each call opens a new SSH session. This avoids stale connection issues but adds ~1s overhead per call.
-
-</details>
-
-<details>
-<summary><b>How does output normalization differ from hex-line's RTK?</b></summary>
-
-Same concept, different trigger. hex-ssh normalizes inside the `remote-ssh` tool itself (always active). hex-line's RTK is a PostToolUse hook that filters Bash output (only triggers above 50 lines). Both use the same normalization patterns.
+Yes. Each tool call specifies `host` and can specify `user` directly, but connections are pooled and reused for the same resolved host/auth identity. Idle pooled connections close after 60 seconds, and the pool holds up to 10 entries.
 
 </details>
 
@@ -378,14 +450,6 @@ Same concept, different trigger. hex-ssh normalizes inside the `remote-ssh` tool
 All hosts are permitted. Setting `ALLOWED_HOSTS` is recommended for production use -- it restricts which remote servers the agent can connect to, preventing lateral movement if prompts are manipulated.
 
 </details>
-
-## Hex Family
-
-| Package | Purpose | npm |
-|---------|---------|-----|
-| [hex-line-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-line-mcp) | Local file editing with hash verification + hooks | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-line-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-line-mcp) |
-| [hex-ssh-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) | Remote file editing over SSH | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-ssh-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) |
-| [hex-graph-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) | Code knowledge graph with AST indexing | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-graph-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) |
 
 ## License
 

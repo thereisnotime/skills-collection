@@ -51,6 +51,121 @@ function makeTempDir() {
     return mkdtempSync(join(tmpdir(), "hex-graph-clone-"));
 }
 
+function providerEnvName(language) {
+    if (language === "python") return "HEX_GRAPH_PRECISE_PY_COMMAND";
+    if (language === "csharp") return "HEX_GRAPH_PRECISE_CS_COMMAND";
+    if (language === "php") return "HEX_GRAPH_PRECISE_PHP_COMMAND";
+    throw new Error(`Unsupported provider language '${language}'`);
+}
+
+async function withProviderCommand(language, command, fn) {
+    const envName = providerEnvName(language);
+    const previous = process.env[envName];
+    process.env[envName] = JSON.stringify(command);
+    try {
+        return await fn();
+    } finally {
+        if (previous == null) delete process.env[envName];
+        else process.env[envName] = previous;
+    }
+}
+
+function createFakeDefinitionProvider(dir, definitions) {
+    const providerDir = join(dir, ".hex-skills", "codegraph", "test-providers");
+    mkdirSync(providerDir, { recursive: true });
+    const providerPath = join(providerDir, "fake-lsp-provider.mjs");
+    const configPath = join(providerDir, "fake-lsp-provider.json");
+    writeFileSync(configPath, JSON.stringify({ definitions }, null, 2));
+    writeFileSync(providerPath, `
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const config = JSON.parse(readFileSync(process.argv[2], "utf8"));
+const openDocs = new Map();
+let nextBuffer = Buffer.alloc(0);
+
+function send(message) {
+  const body = Buffer.from(JSON.stringify(message), "utf8");
+  process.stdout.write(\`Content-Length: \${body.length}\\r\\n\\r\\n\`);
+  process.stdout.write(body);
+}
+
+function tokenAt(line, character) {
+  const regex = /[A-Za-z_][A-Za-z0-9_]*/g;
+  for (const match of line.matchAll(regex)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (character >= start && character < end) return match[0];
+  }
+  return null;
+}
+
+function normalizeUri(file) {
+  return pathToFileURL(file).href;
+}
+
+function handle(message) {
+  if (message.method === "initialize") {
+    send({ jsonrpc: "2.0", id: message.id, result: { capabilities: {}, serverInfo: { name: "fake-lsp", version: "1.0.0" } } });
+    return;
+  }
+  if (message.method === "shutdown") {
+    send({ jsonrpc: "2.0", id: message.id, result: null });
+    return;
+  }
+  if (message.method === "textDocument/didOpen") {
+    openDocs.set(message.params.textDocument.uri, message.params.textDocument.text);
+    return;
+  }
+  if (message.method === "textDocument/definition") {
+    const uri = message.params.textDocument.uri;
+    const text = openDocs.get(uri) || "";
+    const lines = text.split(/\\r?\\n/);
+    const line = lines[message.params.position.line] || "";
+    const token = tokenAt(line, message.params.position.character);
+    const target = token ? config.definitions[token] : null;
+    if (!target) {
+      send({ jsonrpc: "2.0", id: message.id, result: null });
+      return;
+    }
+    send({
+      jsonrpc: "2.0",
+      id: message.id,
+      result: {
+        uri: normalizeUri(target.file),
+        range: {
+          start: { line: target.line - 1, character: 0 },
+          end: { line: target.line - 1, character: 1 }
+        }
+      }
+    });
+  }
+}
+
+process.stdin.on("data", chunk => {
+  nextBuffer = Buffer.concat([nextBuffer, chunk]);
+  while (true) {
+    const marker = nextBuffer.indexOf("\\r\\n\\r\\n");
+    if (marker === -1) return;
+    const header = nextBuffer.subarray(0, marker).toString("utf8");
+    const match = header.match(/Content-Length:\\s*(\\d+)/i);
+    if (!match) {
+      nextBuffer = Buffer.alloc(0);
+      return;
+    }
+    const bodyLength = Number.parseInt(match[1], 10);
+    const bodyStart = marker + 4;
+    const bodyEnd = bodyStart + bodyLength;
+    if (nextBuffer.length < bodyEnd) return;
+    const body = JSON.parse(nextBuffer.subarray(bodyStart, bodyEnd).toString("utf8"));
+    nextBuffer = nextBuffer.subarray(bodyEnd);
+    handle(body);
+  }
+});
+`, "utf8");
+    return [process.execPath, providerPath, configPath];
+}
+
 function cleanDb(dir) {
     const dbPath = join(dir, ".hex-skills/codegraph", "index.db");
     if (existsSync(dbPath)) unlinkSync(dbPath);
@@ -740,14 +855,14 @@ describe("incremental reindex", () => {
             const store = getStore(dir);
             const caller = store.findByName("caller")[0];
             const edges = store.edgesFrom(caller.id).filter(e => e.kind === "calls");
-            assert.equal(edges.length, 1, "caller has one resolved call edge");
-            assert.equal(edges[0].layer, "symbol");
-            assert.equal(edges[0].origin, "resolved");
-            assert.ok(edges[0].edge_hash, "edge_hash present");
+            assert.ok(edges.length >= 1, "caller has at least one call edge");
+            assert.ok(edges.some(edge => edge.layer === "symbol" && edge.origin === "resolved"), "resolved call edge is preserved");
+            assert.ok(edges.some(edge => edge.layer === "symbol" && edge.origin === "precise_ts"), "precise overlay call edge is materialized");
+            assert.ok(edges.every(edge => edge.edge_hash), "edge_hash present on all call edges");
 
             store.close();
         } finally {
-            rmSync(dir, { recursive: true });
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
     });
 });
@@ -1019,6 +1134,7 @@ describe("identity-first selector APIs", () => {
             const explained = explainResolution({ workspace_qualified_name: symbol.result.symbol.workspace_qualified_name }, { path: dir });
             assert.equal(explained.result.selector_kind, "workspace_qualified_name");
             assert.equal(explained.result.resolved.workspace_qualified_name, symbol.result.symbol.workspace_qualified_name);
+            assert.ok(Array.isArray(explained.result.parsed_candidates), "parsed candidates are reported");
         } finally {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
@@ -1170,6 +1286,248 @@ describe("workspace-qualified identity selectors", () => {
             const explained = explainResolution({ workspace_qualified_name: bHelper.workspace_qualified_name }, { path: dir });
             assert.equal(explained.result.selector_kind, "workspace_qualified_name");
             assert.equal(explained.result.resolved.package_name, "@repo/b");
+            assert.ok(Array.isArray(explained.result.parsed_candidates), "parsed candidates remain explainable");
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+});
+
+describe("precise overlay contracts", () => {
+    it("adds TypeScript precise call edges and honors min_confidence", async () => {
+        const dir = makeTempDir();
+        try {
+            writeFileSync(join(dir, "tsconfig.json"), JSON.stringify({
+                compilerOptions: {
+                    target: "ES2022",
+                    module: "NodeNext",
+                    moduleResolution: "NodeNext",
+                    strict: true,
+                },
+            }, null, 2));
+            writeFileSync(join(dir, "types.ts"), "export interface Runner { run(): string; }\n");
+            writeFileSync(join(dir, "impl.ts"), [
+                "import type { Runner } from \"./types\";",
+                "export class Worker implements Runner {",
+                "    run(): string { return \"ok\"; }",
+                "}",
+                "",
+            ].join("\n"));
+            writeFileSync(join(dir, "consumer.ts"), [
+                "import { Worker } from \"./impl\";",
+                "export function exec() {",
+                "    const worker: Worker = new Worker();",
+                "    return worker.run();",
+                "}",
+                "",
+            ].join("\n"));
+
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const symbol = getSymbol({ name: "run", file: "impl.ts" }, { path: dir, min_confidence: "precise" });
+            assert.equal(symbol.result.provider_status.status, "available");
+            assert.equal(symbol.result.provider_status.provider, "precise_ts");
+
+            const preciseRefs = getReferencesBySelector({ name: "run", file: "impl.ts" }, {
+                path: dir,
+                min_confidence: "precise",
+            });
+            assert.ok(
+                preciseRefs.result.references.some(ref =>
+                    ref.file === "consumer.ts"
+                    && ref.kind === "calls"
+                    && ref.confidence === "precise"
+                    && ref.origin === "precise_ts"
+                ),
+                "precise references include typed member call from consumer.ts",
+            );
+
+            const traced = tracePaths({ name: "run", file: "impl.ts" }, {
+                path: dir,
+                path_kind: "calls",
+                direction: "reverse",
+                min_confidence: "precise",
+                depth: 3,
+            });
+            assert.ok(traced.result.length > 0, "precise path lookup returns typed call path");
+            assert.ok(traced.result.some(path => path.nodes.some(node => node.name === "exec")), "typed caller is surfaced in precise path trace");
+
+            const explained = explainResolution({ name: "run", file: "impl.ts" }, { path: dir });
+            assert.equal(explained.result.precise_provider_status.status, "available");
+            assert.ok(explained.result.precise_results.incoming_count > 0, "explain_resolution exposes precise overlay facts");
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
+    it("reports unavailable precise providers explicitly for non-TS languages", async () => {
+        const dir = makeTempDir();
+        try {
+            mkdirSync(join(dir, "pkg"), { recursive: true });
+            writeFileSync(join(dir, "pkg", "__init__.py"), "from .helpers import helper\n");
+            writeFileSync(join(dir, "pkg", "helpers.py"), "def helper():\n    return 1\n");
+
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const symbol = getSymbol({ name: "helper", file: "pkg/helpers.py" }, { path: dir });
+            assert.equal(symbol.result.provider_status.status, "unavailable");
+            assert.equal(symbol.result.provider_status.provider, "precise_py");
+            assert.match(symbol.result.provider_status.message, /Python precise analysis is unavailable because basedpyright-langserver is not installed/);
+            assert.equal(symbol.result.provider_status.install_hint, "basedpyright");
+
+            const explained = explainResolution({ name: "helper", file: "pkg/helpers.py" }, { path: dir });
+            assert.equal(explained.result.precise_provider_status.status, "unavailable");
+            assert.equal(explained.result.precise_provider_status.provider, "precise_py");
+            assert.match(explained.result.precise_provider_status.message, /Ask a human to install basedpyright and rerun index_project/);
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
+    it("adds Python precise edges via external provider and exposes a clear available status", async () => {
+        const dir = makeTempDir();
+        try {
+            mkdirSync(join(dir, "pkg"), { recursive: true });
+            writeFileSync(join(dir, "pkg", "__init__.py"), "from .helpers import helper\n");
+            writeFileSync(join(dir, "pkg", "helpers.py"), "def helper():\n    return 1\n");
+            writeFileSync(join(dir, "pkg", "main.py"), "from .helpers import helper\n\ndef run():\n    return helper()\n");
+            const command = createFakeDefinitionProvider(dir, {
+                helper: { file: join(dir, "pkg", "helpers.py"), line: 1 },
+            });
+
+            cleanDb(dir);
+            await withProviderCommand("python", command, async () => {
+                await indexProject(dir);
+            });
+
+            const symbol = getSymbol({ name: "helper", file: "pkg/helpers.py" }, { path: dir, min_confidence: "precise" });
+            assert.equal(symbol.result.provider_status.status, "available");
+            assert.equal(symbol.result.provider_status.provider, "precise_py");
+            assert.match(symbol.result.provider_status.message, /Python precise analysis is available via basedpyright/);
+
+            const preciseRefs = getReferencesBySelector({ name: "helper", file: "pkg/helpers.py" }, {
+                path: dir,
+                min_confidence: "precise",
+            });
+            assert.ok(
+                preciseRefs.result.references.some(ref =>
+                    ref.file === "pkg/main.py"
+                    && ref.kind === "calls"
+                    && ref.origin === "precise_py"
+                    && ref.confidence === "precise"
+                ),
+                "Python precise provider upgrades imported call usage to precise",
+            );
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
+    it("adds C# precise edges via external provider", async () => {
+        const dir = makeTempDir();
+        try {
+            writeFileSync(join(dir, "Service.cs"), [
+                "public class Service {",
+                "    public string Run() { return \"ok\"; }",
+                "}",
+                "",
+            ].join("\n"));
+            writeFileSync(join(dir, "Program.cs"), [
+                "public class Program {",
+                "    public string Execute() {",
+                "        var svc = new Service();",
+                "        return svc.Run();",
+                "    }",
+                "}",
+                "",
+            ].join("\n"));
+            const command = createFakeDefinitionProvider(dir, {
+                Run: { file: join(dir, "Service.cs"), line: 2 },
+            });
+
+            cleanDb(dir);
+            await withProviderCommand("csharp", command, async () => {
+                await indexProject(dir);
+            });
+
+            const symbol = getSymbol({ name: "Run", file: "Service.cs" }, { path: dir });
+            assert.equal(symbol.result.provider_status.status, "available");
+            assert.equal(symbol.result.provider_status.provider, "precise_cs");
+
+            const refs = getReferencesBySelector({ name: "Run", file: "Service.cs" }, {
+                path: dir,
+                min_confidence: "precise",
+            });
+            assert.ok(
+                refs.result.references.some(ref =>
+                    ref.file === "Program.cs"
+                    && ref.kind === "calls"
+                    && ref.origin === "precise_cs"
+                ),
+                "C# precise provider upgrades member call usage to precise",
+            );
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
+    it("adds PHP precise edges via external provider", async () => {
+        const dir = makeTempDir();
+        try {
+            mkdirSync(join(dir, "src"), { recursive: true });
+            writeFileSync(join(dir, "composer.json"), JSON.stringify({
+                autoload: {
+                    "psr-4": {
+                        "App\\\\": "src/",
+                    },
+                },
+            }, null, 2));
+            writeFileSync(join(dir, "src", "Helper.php"), [
+                "<?php",
+                "namespace App;",
+                "class Helper {",
+                "    public function run(): int { return 1; }",
+                "}",
+                "",
+            ].join("\n"));
+            writeFileSync(join(dir, "src", "Main.php"), [
+                "<?php",
+                "namespace App;",
+                "class Main {",
+                "    public function exec(): int {",
+                "        $helper = new Helper();",
+                "        return $helper->run();",
+                "    }",
+                "}",
+                "",
+            ].join("\n"));
+            const command = createFakeDefinitionProvider(dir, {
+                run: { file: join(dir, "src", "Helper.php"), line: 4 },
+            });
+
+            cleanDb(dir);
+            await withProviderCommand("php", command, async () => {
+                await indexProject(dir);
+            });
+
+            const symbol = getSymbol({ name: "run", file: "src/Helper.php" }, { path: dir });
+            assert.equal(symbol.result.provider_status.status, "available");
+            assert.equal(symbol.result.provider_status.provider, "precise_php");
+
+            const refs = getReferencesBySelector({ name: "run", file: "src/Helper.php" }, {
+                path: dir,
+                min_confidence: "precise",
+            });
+            assert.ok(
+                refs.result.references.some(ref =>
+                    ref.file === "src/Main.php"
+                    && ref.kind === "calls"
+                    && ref.origin === "precise_php"
+                ),
+                "PHP precise provider upgrades method call usage to precise",
+            );
         } finally {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }

@@ -2,15 +2,15 @@
 /**
  * hex-ssh-mcp -- Token-efficient SSH MCP server with hash-verified file ops.
  *
- * 6 tools: remote-ssh, ssh-read-lines, ssh-edit-block, ssh-search-code,
- *          ssh-write-chunk, ssh-verify
+ * 8 tools: remote-ssh, ssh-read-lines, ssh-edit-block, ssh-search-code,
+ *          ssh-write-chunk, ssh-upload, ssh-download, ssh-verify
  *
  * FNV-1a hash annotations on reads, checksum verification on edits.
  * Security: ALLOWED_HOSTS, ALLOWED_DIRS env vars.
  * Output: deduplication, normalization, smart truncation.
  * Transport: stdio
  *
- * MCP SDK ^1.17.0. FNV-1a hash verification from hex-line-mcp.
+ * MCP SDK runtime + FNV-1a hash verification.
  */
 
 import { z } from "zod";
@@ -32,6 +32,7 @@ import { shellQuote, assertSafeArg } from "./lib/shell-escape.mjs";
 import { validateCommand } from "./lib/command-policy.mjs";
 import { validateEditArgs } from "./lib/edit-validation.mjs";
 import { resolveHost } from "./lib/config-resolver.mjs";
+import { downloadFile, formatTransferSummary, getMaxTransferBytes, uploadFile } from "./lib/transfer.mjs";
 
 const { server, StdioServerTransport } = await createServerRuntime({
     name: "hex-ssh-mcp",
@@ -92,6 +93,22 @@ function okResult(text) {
     return textResult(text);
 }
 
+function transferError(code, message) {
+    if (code === "FILE_NOT_FOUND") {
+        return sshError(code, message, "Check that the source path exists and is a regular file");
+    }
+    if (code === "PATH_OUTSIDE_ROOT") {
+        return sshError(code, message, "Use a path inside ALLOWED_DIRS or ALLOWED_LOCAL_DIRS");
+    }
+    if (code === "FILE_TOO_LARGE") {
+        return sshError(code, message, `Raise MAX_TRANSFER_BYTES (current default ${getMaxTransferBytes()} bytes) or transfer a smaller file`);
+    }
+    if (code === "TRANSFER_FAILED") {
+        return sshError(code, message, "Check SSH permissions, disk space, and destination parent directory");
+    }
+    return errResult(`${code}: ${message}`);
+}
+
 
 // ==================== remote-ssh ====================
 
@@ -99,7 +116,7 @@ server.registerTool("remote-ssh", {
     title: "SSH Command",
     description:
         "Execute shell commands on remote servers. Disabled by default. " +
-        "Set REMOTE_SSH_MODE=open to bypass.",
+        "Set REMOTE_SSH_MODE=safe or REMOTE_SSH_MODE=open to enable.",
     inputSchema: {
         ...connProps,
         command: z.string().describe("Shell command to execute"),
@@ -553,6 +570,106 @@ server.registerTool("ssh-write-chunk", {
         const lineCount = args.content.split("\n").length;
         return okResult(`Written ${args.filePath} (${mode}, ~${lineCount} lines)\n${result.output}`);
     } catch (e) {
+        return errResult(e.message);
+    }
+});
+
+
+// ==================== ssh-upload ====================
+
+server.registerTool("ssh-upload", {
+    title: "SSH Upload File",
+    description:
+        "Upload a local file to a remote server over SFTP. Supports text and binary files, " +
+        "rejects existing destinations by default, validates path boundaries, and stages via the strongest available remote finalize path.",
+    inputSchema: {
+        ...connProps,
+        localPath: z.string().describe("Absolute local file path or ~/path to upload"),
+        remotePath: z.string().describe("Absolute destination path on remote server"),
+        overwrite: z.boolean().optional().describe("Replace existing destination when true. Default: false"),
+        verify: z.enum(["none", "stat"]).optional().describe("Post-transfer verification mode. Default: stat"),
+        permissions: z.string().optional().describe("Optional octal file mode for uploaded file, e.g. 0644"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, async (rawArgs) => {
+    const args = coerceParams(rawArgs);
+    try {
+        if (!args.host || !args.localPath || !args.remotePath) {
+            return errResult("Required: host, localPath, remotePath");
+        }
+
+        const result = await uploadFile(connParams(args), {
+            localPath: args.localPath,
+            remotePath: args.remotePath,
+            overwrite: args.overwrite,
+            verify: args.verify,
+            permissions: args.permissions,
+        });
+        return okResult(
+            formatTransferSummary(
+                "Uploaded",
+                result.localPath,
+                result.remotePath,
+                result.bytesTransferred,
+                result.durationMs,
+                result.verify,
+                result.durabilityPath
+            )
+        );
+    } catch (e) {
+        const [code, ...rest] = e.message.split(": ");
+        if (["FILE_NOT_FOUND", "PATH_OUTSIDE_ROOT", "FILE_TOO_LARGE", "TRANSFER_FAILED", "DESTINATION_EXISTS", "TRANSFER_TIMEOUT", "VERIFY_FAILED"].includes(code)) {
+            return transferError(code, rest.join(": "));
+        }
+        return errResult(e.message);
+    }
+});
+
+
+// ==================== ssh-download ====================
+
+server.registerTool("ssh-download", {
+    title: "SSH Download File",
+    description:
+        "Download a remote file to the local machine over SFTP. Supports text and binary files, " +
+        "rejects existing destinations by default, validates path boundaries, and stages to a verified local finalize path.",
+    inputSchema: {
+        ...connProps,
+        remotePath: z.string().describe("Absolute file path on remote server"),
+        localPath: z.string().describe("Absolute local destination path or ~/path"),
+        overwrite: z.boolean().optional().describe("Replace existing destination when true. Default: false"),
+        verify: z.enum(["none", "stat"]).optional().describe("Post-transfer verification mode. Default: stat"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+}, async (rawArgs) => {
+    const args = coerceParams(rawArgs);
+    try {
+        if (!args.host || !args.remotePath || !args.localPath) {
+            return errResult("Required: host, remotePath, localPath");
+        }
+
+        const result = await downloadFile(connParams(args), {
+            remotePath: args.remotePath,
+            localPath: args.localPath,
+            overwrite: args.overwrite,
+            verify: args.verify,
+        });
+        return okResult(
+            formatTransferSummary(
+                "Downloaded",
+                result.remotePath,
+                result.localPath,
+                result.bytesTransferred,
+                result.durationMs,
+                result.verify,
+                result.durabilityPath
+            )
+        );
+    } catch (e) {
+        const [code, ...rest] = e.message.split(": ");
+        if (["FILE_NOT_FOUND", "PATH_OUTSIDE_ROOT", "FILE_TOO_LARGE", "TRANSFER_FAILED", "DESTINATION_EXISTS", "TRANSFER_TIMEOUT", "VERIFY_FAILED"].includes(code)) {
+            return transferError(code, rest.join(": "));
+        }
         return errResult(e.message);
     }
 });

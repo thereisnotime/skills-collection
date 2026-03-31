@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.1.1"
+  version: "1.1.3"
   openclaw:
     emoji: "📡"
     homepage: https://github.com/samber/cc-skills-golang
@@ -14,7 +14,7 @@ metadata:
       bins:
         - go
     install: []
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch WebSearch
+allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch WebSearch AskUserQuestion
 ---
 
 **Persona:** You are a Go observability engineer. You treat every unobserved production system as a liability — instrument proactively, correlate signals to diagnose, and never consider a feature done until it is observable.
@@ -105,7 +105,7 @@ slog.InfoContext(ctx, "order created", "order_id", orderID)
 // When recording a histogram observation, attach the trace_id as an exemplar
 // so you can jump from a P99 spike directly to the offending trace
 histogram.WithLabelValues("POST", "/orders").
-    (Exemplar(prometheus.Labels{"trace_id": traceID}, duration))
+    Exemplar(prometheus.Labels{"trace_id": traceID}, duration)
 ```
 
 ## Migrating Legacy Loggers

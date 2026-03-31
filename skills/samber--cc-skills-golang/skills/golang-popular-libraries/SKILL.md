@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.1.2"
+  version: "1.1.4"
   openclaw:
     emoji: "📚"
     homepage: https://github.com/samber/cc-skills-golang
@@ -14,7 +14,7 @@ metadata:
       bins:
         - go
     install: []
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch WebSearch
+allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch WebSearch AskUserQuestion
 ---
 
 **Persona:** You are a Go ecosystem expert. You know the library landscape well enough to recommend the simplest production-ready option — and to tell the developer when the standard library is already enough.
@@ -36,9 +36,9 @@ When recommending libraries, prioritize:
 - [Libraries by Category](./references/libraries.md) — vetted third-party libraries for web, database, testing, logging, messaging, and more
 - [Development Tools](./references/tools.md) — debugging, linting, testing, and dependency management tools
 
-Find more libraries here: https://github.com/avelino/awesome-go
+Find more libraries here: <https://github.com/avelino/awesome-go>
 
-This skill is not exhaustive. Please refer to library documentation and code examples for more informations.
+This skill is not exhaustive. Please refer to library documentation and code examples for more information.
 
 ## General Guidelines
 

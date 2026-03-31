@@ -1,6 +1,6 @@
 {
   "name": "@levnikolaevich/hex-graph-mcp",
-  "version": "0.4.1",
+  "version": "0.5.1",
   "mcpName": "io.github.levnikolaevich/hex-graph-mcp",
   "type": "module",
   "description": "Deterministic layered code graph MCP server. Indexes codebases into a SQLite graph via tree-sitter AST, canonical symbol identities, hashes, and semantic overlays for navigation, architecture, clones, references, implementations, and flow analysis.",
@@ -32,11 +32,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
-    "tree-sitter-wasms": "^0.1.0",
-    "web-tree-sitter": "^0.25.0",
     "better-sqlite3": "^12.0.0",
     "chokidar": "^4.0.0",
     "picomatch": "^4.0.3",
+    "tree-sitter-wasms": "^0.1.0",
+    "typescript": "^6.0.2",
+    "web-tree-sitter": "^0.25.0",
     "zod": "^3.25.0"
   },
   "author": "Lev Nikolaevich <https://github.com/levnikolaevich>",

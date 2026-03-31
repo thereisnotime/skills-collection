@@ -44,7 +44,7 @@ try {
     run(["record-epic", "--project-root", projectRoot, "--epic", "7", "--payload", "{\"schema_version\":\"1.0\",\"summary_kind\":\"story-plan\",\"run_id\":\"run-1\",\"identifier\":\"epic-7\",\"producer_skill\":\"ln-221\",\"produced_at\":\"2026-03-26T00:00:00Z\",\"payload\":{\"mode\":\"CREATE\",\"epic_id\":\"7\",\"stories_planned\":3,\"stories_created\":3,\"stories_updated\":0,\"stories_canceled\":0,\"story_urls\":[\"US001\",\"US002\",\"US003\"],\"warnings\":[],\"kanban_updated\":true,\"research_path_used\":\"docs/research/rsh-007-auth.md\"}}"]);
     run(["checkpoint", "--project-root", projectRoot, "--epic", "7", "--phase", PHASES.DELEGATE]);
     run(["advance", "--project-root", projectRoot, "--epic", "7", "--to", PHASES.FINALIZE]);
-    run(["checkpoint", "--project-root", projectRoot, "--epic", "7", "--phase", PHASES.FINALIZE, "--payload", "{\"final_result\":\"CREATED\"}"]);
+    run(["checkpoint", "--project-root", projectRoot, "--epic", "7", "--phase", PHASES.FINALIZE, "--payload", "{\"final_result\":\"CREATED\",\"template_compliance_passed\":true}"]);
     run(["advance", "--project-root", projectRoot, "--epic", "7", "--to", PHASES.SELF_CHECK]);
     run(["checkpoint", "--project-root", projectRoot, "--epic", "7", "--phase", PHASES.SELF_CHECK, "--payload", "{\"pass\":true,\"final_result\":\"CREATED\"}"]);
     const completed = run(["complete", "--project-root", projectRoot, "--epic", "7"]);

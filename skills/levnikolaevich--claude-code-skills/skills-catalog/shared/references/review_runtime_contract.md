@@ -90,6 +90,7 @@ Required fields in `state.json`:
 - `merge_summary`
 - `refinement_iterations`
 - `self_check_passed`
+- `final_result`
 - `final_verdict`
 - `agents`
 
@@ -115,7 +116,7 @@ Per-agent fields:
 - `PHASE_5_MERGE` is blocked until all required agents are resolved.
 - `PHASE_6_REFINEMENT` requires a merge summary.
 - `story` mode cannot skip Phase 4 or Phase 7.
-- `DONE` requires `PHASE_8_SELF_CHECK` checkpoint with `pass=true`.
+- `DONE` requires `PHASE_8_SELF_CHECK` checkpoint with `pass=true` and `final_result` set (via `final_verdict` in APPROVE or SELF_CHECK checkpoint).
 
 ## Checkpoint Payload Guidance
 

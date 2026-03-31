@@ -11,8 +11,10 @@ import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
+import { confidenceAtLeast, dedupeStrongest } from "./confidence.mjs";
+import { normalizeProviderRun } from "./precise/provider-status.mjs";
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 5;
 export const CODEGRAPH_DIR = ".hex-skills/codegraph";
 const EXTERNAL_FILE_PREFIX = "[[external]]/";
 const NODE_SELECT_COLUMNS = `
@@ -153,9 +155,21 @@ class Store {
                 kind TEXT NOT NULL,
                 confidence TEXT DEFAULT 'exact',
                 origin TEXT NOT NULL DEFAULT 'parsed',
+                evidence_json TEXT,
                 file TEXT NOT NULL,
                 line INTEGER,
                 edge_hash TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS provider_runs (
+                id INTEGER PRIMARY KEY,
+                provider TEXT NOT NULL,
+                language TEXT NOT NULL,
+                status TEXT NOT NULL,
+                version TEXT,
+                detail TEXT,
+                indexed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(provider, language)
             );
 
             CREATE INDEX IF NOT EXISTS idx_packages_key ON packages(package_key);
@@ -175,6 +189,7 @@ class Store {
             CREATE INDEX IF NOT EXISTS idx_edges_kind_target ON edges(kind, target_id);
             CREATE INDEX IF NOT EXISTS idx_edges_layer_kind_source ON edges(layer, kind, source_id);
             CREATE INDEX IF NOT EXISTS idx_edges_layer_kind_target ON edges(layer, kind, target_id);
+            CREATE INDEX IF NOT EXISTS idx_provider_runs_language ON provider_runs(language);
             CREATE INDEX IF NOT EXISTS idx_nodes_exported ON nodes(is_exported) WHERE is_exported = 1;
         `);
 
@@ -223,7 +238,7 @@ class Store {
 
         this.db.exec(`
             CREATE VIEW IF NOT EXISTS hex_line_contract AS
-            SELECT 1 AS contract_version;
+            SELECT 2 AS contract_version;
 
             CREATE VIEW IF NOT EXISTS hex_line_symbol_annotations AS
             SELECT
@@ -238,12 +253,12 @@ class Store {
                     ELSE n.name
                 END AS display_name,
                 (
-                    SELECT COUNT(*)
+                    SELECT COUNT(DISTINCT e.target_id)
                     FROM edges e
                     WHERE e.source_id = n.id AND e.kind = 'calls'
                 ) AS callees,
                 (
-                    SELECT COUNT(*)
+                    SELECT COUNT(DISTINCT e.source_id)
                     FROM edges e
                     WHERE e.target_id = n.id AND e.kind = 'calls'
                 ) AS callers
@@ -277,6 +292,22 @@ class Store {
             WHERE e.kind = 'calls'
               AND src.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
               AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
+        `);
+
+        // hex-line clone siblings view (contract v2)
+        this.db.exec(`
+            CREATE VIEW IF NOT EXISTS hex_line_clone_siblings AS
+            SELECT
+                cb.node_id AS node_id,
+                cb.norm_hash AS norm_hash,
+                n.file AS file,
+                n.line_start AS line_start,
+                CASE
+                    WHEN n.name = '__default_export__' THEN 'default export'
+                    ELSE n.name
+                END AS display_name
+            FROM clone_blocks cb
+            JOIN nodes n ON n.id = cb.node_id;
         `);
 
         // Module-level import edges (file-to-file raw evidence)
@@ -428,8 +459,54 @@ class Store {
         `);
 
         this._insertEdge = this.db.prepare(`
-            INSERT INTO edges (source_id, target_id, layer, kind, confidence, origin, file, line, edge_hash)
-            VALUES (@source_id, @target_id, @layer, @kind, @confidence, @origin, @file, @line, @edge_hash)
+            INSERT INTO edges (source_id, target_id, layer, kind, confidence, origin, evidence_json, file, line, edge_hash)
+            VALUES (@source_id, @target_id, @layer, @kind, @confidence, @origin, @evidence_json, @file, @line, @edge_hash)
+        `);
+        this._clearEdgesByOrigin = this.db.prepare("DELETE FROM edges WHERE origin = ?");
+        this._upsertProviderRun = this.db.prepare(`
+            INSERT INTO provider_runs (provider, language, status, version, detail, indexed_at)
+            VALUES (@provider, @language, @status, @version, @detail, CURRENT_TIMESTAMP)
+            ON CONFLICT(provider, language) DO UPDATE SET
+                status = excluded.status,
+                version = excluded.version,
+                detail = excluded.detail,
+                indexed_at = CURRENT_TIMESTAMP
+        `);
+        this._providerRunByLanguage = this.db.prepare(
+            "SELECT provider, language, status, version, detail, indexed_at FROM provider_runs WHERE language = ? ORDER BY indexed_at DESC LIMIT 1"
+        );
+        this._preciseCandidateEdgesByLanguage = this.db.prepare(`
+            SELECT
+                e.id,
+                e.source_id,
+                e.target_id,
+                e.layer,
+                e.kind,
+                e.confidence,
+                e.origin,
+                e.evidence_json,
+                e.file,
+                e.line,
+                source.language AS source_language,
+                source.name AS source_name,
+                source.file AS source_file,
+                source.line_start AS source_line_start,
+                source.kind AS source_kind,
+                source.workspace_qualified_name AS source_workspace_qualified_name,
+                target.language AS target_language,
+                target.name AS target_name,
+                target.file AS target_file,
+                target.line_start AS target_line_start,
+                target.kind AS target_kind,
+                target.workspace_qualified_name AS target_workspace_qualified_name
+            FROM edges e
+            JOIN nodes source ON source.id = e.source_id
+            JOIN nodes target ON target.id = e.target_id
+            WHERE source.language = ?
+              AND e.layer = 'symbol'
+              AND e.kind IN ('imports', 'calls', 'ref_read', 'ref_type')
+              AND e.origin NOT LIKE 'precise_%'
+            ORDER BY e.file, e.line, e.id
         `);
 
         this._searchFts = this.db.prepare(`
@@ -591,8 +668,8 @@ class Store {
         );
 
         this._findReferences = this.db.prepare(`
-            SELECT e.kind, e.line, e.file, e.confidence,
-                   n.name, n.kind as node_kind, n.file as node_file, n.line_start
+            SELECT e.kind, e.line, e.file, e.confidence, e.origin, e.evidence_json,
+                   n.id as source_id, n.name, n.kind as node_kind, n.file as node_file, n.line_start, n.qualified_name as source_qualified_name
             FROM edges e
             JOIN nodes n ON n.id = e.source_id
             WHERE e.target_id = ?
@@ -734,6 +811,7 @@ class Store {
             layer: "syntax",
             confidence: "exact",
             origin: "parsed",
+            evidence_json: null,
             line: null,
             ...edge,
         };
@@ -751,6 +829,28 @@ class Store {
             .digest("hex")
             .slice(0, 16);
         this._insertEdge.run(normalized);
+    }
+
+    clearEdgesByOrigin(origin) {
+        this._clearEdgesByOrigin.run(origin);
+    }
+
+    upsertProviderRun(run) {
+        this._upsertProviderRun.run({
+            provider: run.provider,
+            language: run.language,
+            status: run.status,
+            version: run.version ?? null,
+            detail: run.detail ?? null,
+        });
+    }
+
+    providerStatusForLanguage(language) {
+        return normalizeProviderRun(this._providerRunByLanguage.get(language) || null, language);
+    }
+
+    preciseCandidateEdges(language) {
+        return this._preciseCandidateEdgesByLanguage.all(language);
     }
 
     edgesFrom(nodeId) {
@@ -1354,6 +1454,39 @@ function serializeNode(store, node) {
     };
 }
 
+function parseEvidence(evidenceJson) {
+    if (!evidenceJson) return null;
+    try {
+        return JSON.parse(evidenceJson);
+    } catch {
+        return { raw: evidenceJson };
+    }
+}
+
+function filterEdgesByConfidence(rows, minConfidence) {
+    if (!minConfidence) return rows;
+    return rows.filter(row => confidenceAtLeast(row.confidence, minConfidence));
+}
+
+function dedupeEdges(rows, directionKey) {
+    return dedupeStrongest(rows, row => [
+        directionKey === "incoming" ? row.source_id : row.target_id,
+        directionKey === "incoming" ? row.target_id : row.source_id,
+        row.kind,
+        row.file,
+        row.line ?? "",
+    ].join("|"));
+}
+
+function dedupeReferenceRows(rows) {
+    return dedupeStrongest(rows, row => [
+        row.source_id,
+        row.kind,
+        row.file,
+        row.line ?? "",
+    ].join("|"));
+}
+
 function selectorError(code, message, recovery) {
     return { error: { code, message, recovery } };
 }
@@ -1538,18 +1671,21 @@ export function findSymbols(query, { kind, limit = 20, path } = {}) {
     };
 }
 
-export function getSymbol(selector, { path } = {}) {
+export function getSymbol(selector, { min_confidence = null, path } = {}) {
     const store = resolveStore(path);
     if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
     const resolved = resolveSelector(store, selector);
     if (resolved.error) return resolved;
 
     const node = resolved.node;
-    const incoming = store.edgesTo(node.id).map(e => ({
+    const provider_status = store.providerStatusForLanguage(node.language);
+    const incoming = dedupeEdges(filterEdgesByConfidence(store.edgesTo(node.id), min_confidence), "incoming").map(e => ({
         kind: e.kind,
         confidence: e.confidence,
+        origin: e.origin,
         file: e.file,
         line: e.line,
+        evidence: parseEvidence(e.evidence_json),
         from: serializeNode(store, {
             id: e.source_id,
             qualified_name: e.source_qualified_name || null,
@@ -1564,11 +1700,13 @@ export function getSymbol(selector, { path } = {}) {
             is_default_export: 0,
         }),
     }));
-    const outgoing = store.edgesFrom(node.id).map(e => ({
+    const outgoing = dedupeEdges(filterEdgesByConfidence(store.edgesFrom(node.id), min_confidence), "outgoing").map(e => ({
         kind: e.kind,
         confidence: e.confidence,
+        origin: e.origin,
         file: e.file,
         line: e.line,
+        evidence: parseEvidence(e.evidence_json),
         to: serializeNode(store, {
             id: e.target_id,
             qualified_name: e.target_qualified_name || null,
@@ -1586,10 +1724,11 @@ export function getSymbol(selector, { path } = {}) {
     const moduleNode = store.nodesByFile(node.file).find(n => n.kind === "module");
 
     return {
-        query: resolved.query,
+        query: { ...resolved.query, min_confidence },
         result: {
             symbol: serializeNode(store, node),
             module: serializeNode(store, moduleNode),
+            provider_status,
             incoming,
             outgoing,
             siblings: store.nodesByFile(node.file)
@@ -1611,6 +1750,7 @@ export function tracePaths(selector, {
     direction = "reverse",
     depth = 3,
     limit = 50,
+    min_confidence = null,
     path,
     target = null,
 } = {}) {
@@ -1638,15 +1778,17 @@ export function tracePaths(selector, {
     const getNeighbors = (nodeId) => {
         const rows = [];
         if (direction === "forward" || direction === "both") {
-            for (const e of store.edgesFrom(nodeId)) {
+            for (const e of filterEdgesByConfidence(store.edgesFrom(nodeId), min_confidence)) {
                 if (!edgeKinds.has(e.kind)) continue;
                 rows.push({
                     nextId: e.target_id,
                     edge: {
                         kind: e.kind,
                         confidence: e.confidence,
+                        origin: e.origin,
                         file: e.file,
                         line: e.line,
+                        evidence: parseEvidence(e.evidence_json),
                         direction: "forward",
                     },
                 });
@@ -1662,15 +1804,17 @@ export function tracePaths(selector, {
             }
         }
         if (direction === "reverse" || direction === "both") {
-            for (const e of store.edgesTo(nodeId)) {
+            for (const e of filterEdgesByConfidence(store.edgesTo(nodeId), min_confidence)) {
                 if (!edgeKinds.has(e.kind)) continue;
                 rows.push({
                     nextId: e.source_id,
                     edge: {
                         kind: e.kind,
                         confidence: e.confidence,
+                        origin: e.origin,
                         file: e.file,
                         line: e.line,
+                        evidence: parseEvidence(e.evidence_json),
                         direction: "reverse",
                     },
                 });
@@ -1684,7 +1828,7 @@ export function tracePaths(selector, {
                 }
             }
         }
-        return rows;
+        return dedupeStrongest(rows, row => [row.nextId, row.edge.kind, row.edge.direction, row.edge.file, row.edge.line ?? ""].join("|"));
     };
 
     const queue = [{
@@ -1733,6 +1877,7 @@ export function tracePaths(selector, {
             direction,
             depth,
             limit,
+            min_confidence,
             target: resolvedTarget ? resolvedTarget.query : null,
         },
         result: paths,
@@ -1772,7 +1917,16 @@ export function explainResolution(selector, { path } = {}) {
         result: {
             resolved: serializeNode(store, resolved.node),
             selector_kind: normalized.kind,
-            candidates,
+            parsed_candidates: candidates,
+            precise_provider_status: store.providerStatusForLanguage(resolved.node.language),
+            precise_results: {
+                incoming_count: store.edgesTo(resolved.node.id).filter(edge => edge.origin?.startsWith("precise_")).length,
+                outgoing_count: store.edgesFrom(resolved.node.id).filter(edge => edge.origin?.startsWith("precise_")).length,
+            },
+            final_selection: {
+                reason: resolved.reason,
+                confidence: resolved.confidence,
+            },
         },
         confidence: resolved.confidence,
         reason: resolved.reason,
@@ -1781,21 +1935,29 @@ export function explainResolution(selector, { path } = {}) {
     };
 }
 
-export function getReferencesBySelector(selector, { kind, limit = 50, path } = {}) {
+export function getReferencesBySelector(selector, { kind, limit = 50, min_confidence = null, path } = {}) {
     const store = resolveStore(path);
     if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
     const resolved = resolveSelector(store, selector);
     if (resolved.error) return resolved;
 
-    const refs = collectReferenceRows(store, resolved.node, kind).slice(0, limit);
+    const refs = dedupeReferenceRows(filterEdgesByConfidence(collectReferenceRows(store, resolved.node, kind), min_confidence)).slice(0, limit);
     const byKind = {};
     for (const row of refs) byKind[row.kind] = (byKind[row.kind] || 0) + 1;
 
     return {
-        query: { ...resolved.query, kind: kind || "all", limit },
+        query: { ...resolved.query, kind: kind || "all", limit, min_confidence },
         result: {
             symbol: serializeNode(store, resolved.node),
-            references: refs.map(r => ({ file: r.file, line: r.line, kind: r.kind })),
+            provider_status: store.providerStatusForLanguage(resolved.node.language),
+            references: refs.map(r => ({
+                file: r.file,
+                line: r.line,
+                kind: r.kind,
+                confidence: r.confidence,
+                origin: r.origin,
+                evidence: parseEvidence(r.evidence_json),
+            })),
             total_by_kind: byKind,
             total: refs.length,
         },

@@ -314,7 +314,7 @@
     <div class="container">
       <a href="../index.html#mcp" class="back-link">&larr; Back to MCP servers</a>
       <h1>hex-ssh-mcp</h1>
-      <p class="subtitle">Token-efficient SSH MCP server with hash-verified remote file editing</p>
+      <p class="subtitle">Token-efficient SSH MCP server with hash-verified remote file editing and SFTP transfer</p>
       <div class="install-block" onclick="navigator.clipboard.writeText('npm i -g @levnikolaevich/hex-ssh-mcp'); this.querySelector('.copy').textContent='Copied!'">
         <span class="prompt">$</span>
         <span class="cmd">npm i -g @levnikolaevich/hex-ssh-mcp</span>
@@ -325,7 +325,7 @@
 
   <section>
     <div class="container">
-      <p class="intro">Your agent can read and edit local files &mdash; but what about the server running in production? hex-ssh-mcp brings the same hash-verified editing to remote machines over SSH. Every remote read returns FNV-1a hashes, every edit verifies them. Command output is normalized and deduplicated automatically.</p>
+      <p class="intro">Your agent can read and edit local files &mdash; but what about the server running in production? hex-ssh-mcp brings the same hash-verified editing to remote machines over SSH, plus binary-safe SFTP upload and download. Every remote read returns FNV-1a hashes, every edit verifies them, and file transfers stage to temp paths before rename.</p>
     </div>
   </section>
 
@@ -361,7 +361,7 @@
 
   <section>
     <div class="container">
-      <h2>6 tools</h2>
+      <h2>8 tools</h2>
       <div class="table-wrap">
         <table>
           <thead>
@@ -370,7 +370,7 @@
           <tbody>
             <tr>
               <td class="tool-name">remote-ssh</td>
-              <td class="tool-desc">Execute shell commands. Disabled by default; normalized output when enabled</td>
+              <td class="tool-desc">Execute shell commands. Disabled by default; set REMOTE_SSH_MODE=safe or open to enable</td>
             </tr>
             <tr>
               <td class="tool-name">ssh-read-lines</td>
@@ -387,6 +387,14 @@
             <tr>
               <td class="tool-name">ssh-write-chunk</td>
               <td class="tool-desc">Write or append to remote files. Rewrite is atomic; append is direct</td>
+            </tr>
+            <tr>
+              <td class="tool-name">ssh-upload</td>
+              <td class="tool-desc">Upload a local file over SFTP. Binary-safe, overwrite-safe by default, and staged via the strongest available remote finalize path</td>
+            </tr>
+            <tr>
+              <td class="tool-name">ssh-download</td>
+              <td class="tool-desc">Download a remote file over SFTP. Binary-safe, overwrite-safe by default, and staged to a verified local finalize path</td>
             </tr>
             <tr>
               <td class="tool-name">ssh-verify</td>
@@ -424,6 +432,11 @@
           <span class="example">ALLOWED_DIRS=/home/deploy,/var/www</span>
         </div>
         <div class="feature">
+          <h3>ALLOWED_LOCAL_DIRS</h3>
+          <p>Optional local allowlist for <code>ssh-upload</code> and <code>ssh-download</code>. When set, transfers outside these directories are rejected.</p>
+          <span class="example">ALLOWED_LOCAL_DIRS=/Users/alice/projects,/tmp/hex-ssh</span>
+        </div>
+        <div class="feature">
           <h3>Absolute Canonical Paths</h3>
           <p>Remote file operations require absolute paths. <code>.</code> and <code>..</code> segments are resolved before allowlist checks.</p>
           <span class="example">/home/deploy/app/config.js</span>
@@ -437,6 +450,16 @@
           <h3>Exec Timeout</h3>
           <p>Long-running SSH commands are terminated after 120 seconds instead of hanging the agent indefinitely.</p>
           <span class="example">EXEC_TIMEOUT after 120s</span>
+        </div>
+        <div class="feature">
+          <h3>Transfer Size Guard</h3>
+          <p><code>ssh-upload</code> and <code>ssh-download</code> fail fast when the file exceeds <code>MAX_TRANSFER_BYTES</code> (default 128 MiB).</p>
+          <span class="example">MAX_TRANSFER_BYTES=134217728</span>
+        </div>
+        <div class="feature">
+          <h3>Transfer Timeout</h3>
+          <p>SFTP uploads and downloads abort with <code>TRANSFER_TIMEOUT</code> when transfer activity stalls longer than <code>TRANSFER_TIMEOUT_MS</code>.</p>
+          <span class="example">TRANSFER_TIMEOUT_MS=120000</span>
         </div>
         <div class="feature">
           <h3>SSH Key Authentication</h3>
@@ -528,37 +551,6 @@
           <li><strong>Truncate</strong> &mdash; keep first 40 + last 20 lines, omit middle</li>
         </ol>
         <p style="margin-top: 14px;">This measures normalization, deduplication, and truncation efficiency only. It is not yet a benchmark against built-in remote workflows.</p>
-      </div>
-    </div>
-  </section>
-
-  <section style="background: var(--bg-secondary);">
-    <div class="container">
-      <h2>Hex MCP Family</h2>
-      <p class="section-desc">Three packages covering local, remote, and architectural analysis.</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Package</th><th>Purpose</th><th>Install</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="tool-name"><a href="hex-line.html">hex-line-mcp</a></td>
-              <td class="tool-desc">Local file editing with hash-verified lines, outline, grep, bulk replace</td>
-              <td class="tool-feature" style="font-family: var(--font-mono); font-size: 12px;">npm i -g @levnikolaevich/hex-line-mcp</td>
-            </tr>
-            <tr>
-              <td class="tool-name"><strong>hex-ssh-mcp</strong></td>
-              <td class="tool-desc">Remote file editing over SSH with output normalization and deduplication</td>
-              <td class="tool-feature" style="font-family: var(--font-mono); font-size: 12px;">npm i -g @levnikolaevich/hex-ssh-mcp</td>
-            </tr>
-            <tr>
-              <td class="tool-name"><a href="hex-graph.html">hex-graph-mcp</a></td>
-              <td class="tool-desc">Codebase indexing, symbol search, call tracing, impact analysis</td>
-              <td class="tool-feature" style="font-family: var(--font-mono); font-size: 12px;">npm i -g @levnikolaevich/hex-graph-mcp</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </div>
   </section>

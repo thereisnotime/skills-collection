@@ -55,7 +55,7 @@ try {
     run(["record-component", "--identifier", "docs-pipeline", "--payload", component("ln-110")]);
     run(["checkpoint", "--identifier", "docs-pipeline", "--phase", PHASES.DELEGATE, "--payload", "{\"delegated\":true}"]);
     run(["advance", "--identifier", "docs-pipeline", "--to", PHASES.QUALITY_GATE]);
-    run(["checkpoint", "--identifier", "docs-pipeline", "--phase", PHASES.QUALITY_GATE, "--payload", "{\"quality_summary\":{\"status\":\"passed\"}}"]);
+    run(["checkpoint", "--identifier", "docs-pipeline", "--phase", PHASES.QUALITY_GATE, "--payload", "{\"quality_summary\":{\"status\":\"passed\"},\"quality_gate_passed\":true}"]);
     run(["advance", "--identifier", "docs-pipeline", "--to", PHASES.CLEANUP]);
     run(["checkpoint", "--identifier", "docs-pipeline", "--phase", PHASES.CLEANUP, "--payload", "{\"cleanup_summary\":{\"status\":\"completed\"},\"final_result\":\"READY\"}"]);
     run(["advance", "--identifier", "docs-pipeline", "--to", PHASES.SELF_CHECK]);

@@ -48,6 +48,7 @@ export function createPlanningRuntimeStore({
     normalizeManifest,
     defaultState,
     pausedPhase,
+    resumablePhases,
 }) {
     const store = createRuntimeStore({
         baseRootParts,
@@ -65,6 +66,9 @@ export function createPlanningRuntimeStore({
         if (!validation.ok) {
             return validation;
         }
+        if (resumablePhases && !resumablePhases.has(pendingDecision.resume_to_phase)) {
+            return { ok: false, error: `Invalid resume_to_phase: ${pendingDecision.resume_to_phase}` };
+        }
         return store.updateState(projectRoot, runId, state => ({
             ...state,
             phase: pausedPhase,
@@ -80,6 +84,13 @@ export function createPlanningRuntimeStore({
         }
         if (!run.state.pending_decision) {
             return { ok: false, error: "No pending decision recorded" };
+        }
+        if (resumablePhases && !resumablePhases.has(run.state.pending_decision.resume_to_phase)) {
+            return { ok: false, error: `Invalid resume_to_phase: ${run.state.pending_decision.resume_to_phase}` };
+        }
+        const choices = run.state.pending_decision.choices || [];
+        if (choices.length > 0 && !choices.includes(decision.selected_choice)) {
+            return { ok: false, error: `Invalid selected_choice: ${decision.selected_choice}. Valid: ${choices.join(", ")}` };
         }
         const nextDecision = {
             kind: run.state.pending_decision.kind,

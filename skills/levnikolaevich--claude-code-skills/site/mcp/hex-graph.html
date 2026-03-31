@@ -323,8 +323,9 @@
   <!-- INTRO -->
   <section>
     <div class="container">
-      <p class="intro">Grep finds text. hex-graph understands code. It indexes your codebase into a SQLite knowledge graph via tree-sitter AST parsing &mdash; functions, classes, methods, imports, call edges. Then answers structural questions in milliseconds that would take an agent dozens of file reads.</p>
-      <div class="callout">The graph stores relationships, not just locations. When you ask &ldquo;who calls this function?&rdquo;, it doesn&rsquo;t grep &mdash; it walks edges.</div>
+      <p class="intro">Grep finds text. hex-graph understands code. It indexes your codebase into a SQLite knowledge graph via tree-sitter AST parsing, workspace ownership discovery, semantic edges, and optional precise overlays. Then answers structural questions in milliseconds that would take an agent dozens of file reads.</p>
+      <div class="callout">The graph stores relationships, not just locations. When you ask &ldquo;who calls this function?&rdquo;, it doesn&rsquo;t grep &mdash; it walks semantic edges.</div>
+      <div class="callout">Exact semantic queries use canonical selectors: <code>symbol_id</code>, <code>workspace_qualified_name</code>, <code>qualified_name</code>, or <code>name</code> + <code>file</code>. Precision filtering is explicit via <code>min_confidence</code>, and missing Python/C#/PHP tooling is surfaced as a direct human-actionable provider status instead of a silent downgrade.</div>
     </div>
   </section>
 
@@ -336,25 +337,25 @@
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#129300;</span> Understand an unfamiliar codebase</div>
-        <p>A new team member asks &ldquo;what does UserService do?&rdquo; An agent with grep reads the class definition, then searches for callers, then reads those files, then searches for their callers. Four separate tool calls, 38,611 characters of context. An agent with hex-graph calls <code>get_symbol(name="UserService", file="src/services/user.ts")</code> &mdash; one request returns the definition, incoming edges, outgoing edges, structural context, and confidence summary.</p>
+        <p>A new team member asks &ldquo;what does UserService do?&rdquo; An agent with grep reads the class definition, then searches for callers, then reads those files, then searches for their callers. Four separate tool calls, 38,611 characters of context. An agent with hex-graph calls <code>get_symbol(name="UserService", file="src/services/user.ts")</code> &mdash; one request returns the definition, incoming edges, outgoing edges, workspace ownership, provider status, and confidence summary.</p>
         <div class="scenario-result">38,611 &rarr; 1,274 ch. <strong>97% savings.</strong> 4 tool calls &rarr; 1.</div>
       </div>
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#128163;</span> Check blast radius before refactoring</div>
-        <p>&ldquo;What breaks if I change <code>calculateTotal</code>?&rdquo; Grep finds direct references but misses transitive dependencies &mdash; the function that calls the function that calls <code>calculateTotal</code>. hex-graph&rsquo;s <code>trace_paths</code> walks reverse call, reference, import, type, or mixed paths from one canonical symbol identity. It finds the complete chain instead of just the first hop.</p>
-        <div class="scenario-result">hex-graph returns <span class="note">MORE data (-167%)</span> because it finds what grep misses: the full dependency chain. <strong>Completeness, not inefficiency.</strong></div>
+        <p>&ldquo;What breaks if I change <code>calculateTotal</code>?&rdquo; Grep finds direct references but misses workspace-resolved dependencies and deeper callers. hex-graph&rsquo;s <code>trace_paths</code> walks reverse call, reference, import, type, or mixed paths from one canonical symbol identity and returns the proven chain up to the requested depth.</p>
+        <div class="scenario-result">hex-graph may return <span class="note">more graph-backed detail</span> because it surfaces dependency chains grep cannot prove. <strong>Completeness, not inefficiency.</strong></div>
       </div>
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#128269;</span> Find all entry points</div>
-        <p>&ldquo;Who ultimately calls <code>validateInput</code>?&rdquo; The agent needs to trace callers 3 levels deep. With grep: read the file, find callers, read those files, find their callers, read again &mdash; 12,716 characters across 4 tool calls. With hex-graph: <code>trace_paths(qualified_name="...", path_kind="calls", direction="reverse", depth=3)</code> &mdash; one call returns the full call chain, served from the graph.</p>
+        <p>&ldquo;Who ultimately calls <code>validateInput</code>?&rdquo; The agent needs to trace callers 3 levels deep. With grep: read the file, find callers, read those files, find their callers, read again &mdash; 12,716 characters across 4 tool calls. With hex-graph: <code>trace_paths(workspace_qualified_name="...", path_kind="calls", direction="reverse", depth=3)</code> &mdash; one call returns the full call chain, served from the graph.</p>
         <div class="scenario-result">12,716 &rarr; 477 ch. <strong>96% savings.</strong> 4 tool calls &rarr; 1.</div>
       </div>
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#127959;</span> Get architecture overview</div>
-        <p>New to a 50-file project? An agent needs to build a mental map. With built-in tools, it reads every file &mdash; 389,523 characters across 50 Read calls. With hex-graph: <code>get_architecture()</code> returns the module matrix (which directories depend on which), dependency counts between modules, and hotspot functions (most connected symbols). One call, 2,941 characters.</p>
+        <p>New to a 50-file project? An agent needs to build a mental map. With built-in tools, it reads every file &mdash; 389,523 characters across 50 Read calls. With hex-graph: <code>get_architecture()</code> returns workspace modules, ownership boundaries, and cross-module/package dependency edges. One call, 2,941 characters.</p>
         <div class="scenario-result">389,523 &rarr; 2,941 ch. <strong>99% savings.</strong> 50 tool calls &rarr; 1. The single most impactful scenario.</div>
       </div>
 
@@ -387,7 +388,7 @@
             </tr>
             <tr>
               <td class="tool-name">get_symbol</td>
-              <td class="tool-desc">Identity-safe symbol context: definition, incoming edges, outgoing edges, siblings, and module owner</td>
+              <td class="tool-desc">Identity-safe symbol context: definition, incoming edges, outgoing edges, workspace ownership, provider status, and confidence summary</td>
             </tr>
             <tr>
               <td class="tool-name">trace_paths</td>
@@ -407,11 +408,11 @@
             </tr>
             <tr>
               <td class="tool-name">explain_resolution</td>
-              <td class="tool-desc">Explain how a selector resolved, which candidates were considered, and why one won</td>
+              <td class="tool-desc">Explain how a selector resolved, which candidates were considered, provider status, and why one winner was selected</td>
             </tr>
             <tr>
               <td class="tool-name">get_architecture</td>
-              <td class="tool-desc">Module structure, cross-module dependencies, and hotspot summary from the layered graph</td>
+              <td class="tool-desc">Workspace modules, ownership boundaries, and cross-module/package dependency edges</td>
             </tr>
             <tr>
               <td class="tool-name">watch_project</td>
@@ -423,15 +424,15 @@
             </tr>
             <tr>
               <td class="tool-name">find_unused_exports</td>
-              <td class="tool-desc">Find exported symbols with no proven incoming usage. Confidence-aware outside JS/TS</td>
+              <td class="tool-desc">Find proven-unused exports and surface uncertain cases separately</td>
             </tr>
             <tr>
               <td class="tool-name">find_cycles</td>
-              <td class="tool-desc">Detect circular module dependencies via Tarjan&rsquo;s SCC algorithm</td>
+              <td class="tool-desc">Detect circular dependencies between workspace modules and package boundaries</td>
             </tr>
             <tr>
               <td class="tool-name">get_module_metrics</td>
-              <td class="tool-desc">Calculate coupling metrics (Ca/Ce/Instability) per file</td>
+              <td class="tool-desc">Calculate coupling metrics (Ca/Ce/Instability) for workspace modules and packages</td>
             </tr>
             <tr>
               <td class="tool-name">find_clones</td>
@@ -469,20 +470,20 @@
             <tr>
               <td class="tool-name">Python</td>
               <td class="tool-desc">.py</td>
-              <td class="tool-desc">Calls + exports + structured imports</td>
-              <td class="tool-desc">Export detection only</td>
+              <td class="tool-desc">Definitions, calls, `__all__` exports, workspace-aware absolute + relative imports</td>
+              <td class="tool-desc">Proven unused + uncertain split</td>
             </tr>
             <tr>
               <td class="tool-name">C#</td>
               <td class="tool-desc">.cs</td>
-              <td class="tool-desc">Calls + exports + type graph</td>
-              <td class="tool-desc">Export detection only</td>
+              <td class="tool-desc">Definitions, calls, public exports, project/namespace ownership, references</td>
+              <td class="tool-desc">Proven unused + uncertain split</td>
             </tr>
             <tr>
               <td class="tool-name">PHP</td>
               <td class="tool-desc">.php</td>
-              <td class="tool-desc">Calls + exports + structured imports</td>
-              <td class="tool-desc">Export detection only</td>
+              <td class="tool-desc">Definitions, calls, top-level/public exports, PSR-4 namespace resolution</td>
+              <td class="tool-desc">Proven unused + uncertain split</td>
             </tr>
           </tbody>
         </table>
@@ -550,9 +551,10 @@
       <div class="workflow-block">
         <p>Built on SQLite and tree-sitter &mdash; fast indexing, instant queries, zero external services.</p>
         <ul>
-          <li><strong>Storage:</strong> SQLite via better-sqlite3. Single <code>.codegraph/index.db</code> per project. FTS5 for fast symbol search.</li>
+          <li><strong>Storage:</strong> SQLite via better-sqlite3. Single <code>.hex-skills/codegraph/index.db</code> per project. FTS5 for fast symbol search.</li>
           <li><strong>Parsing:</strong> tree-sitter WASM with 6 configured grammars: JavaScript, TypeScript, TSX, Python, C#, PHP.</li>
-          <li><strong>Indexer:</strong> shared layered pipeline: PURGE &rarr; SCAN &rarr; PARSE &rarr; MATERIALIZE nodes &rarr; RESOLVE symbol/module/type/flow edges.</li>
+          <li><strong>Indexer:</strong> shared layered pipeline: discover workspace/package ownership &rarr; parse files &rarr; materialize parser/workspace graph &rarr; apply precise overlays.</li>
+          <li><strong>Precision:</strong> embedded TypeScript compiler API for JS/TS, plus detect-only external providers for Python, C#, and PHP with explicit provider status.</li>
           <li><strong>Watcher:</strong> Chokidar file system events. Incremental reparse on change, CASCADE cleanup on delete.</li>
         </ul>
       </div>

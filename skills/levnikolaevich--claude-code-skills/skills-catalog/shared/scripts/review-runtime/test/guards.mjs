@@ -149,6 +149,69 @@ try {
         })})\n`);
     }
 
+    // --- NON-STORY MODE: final_result guard ---
+    const nonStoryRoot = mkdtempSync(join(tmpdir(), "review-guards-nonstory-"));
+    try {
+        mkdirSync(join(nonStoryRoot, ".hex-skills", "agent-review"), { recursive: true });
+        const nsManifestPath = join(nonStoryRoot, "ns-manifest.json");
+        writeFileSync(nsManifestPath, JSON.stringify({
+            storage_mode: "file",
+            expected_agents: [],
+            phase_policy: { phase4: "skipped_by_mode", phase7: "skipped_by_mode" },
+        }, null, 2));
+
+        const nsRun = (args) => run([...args, "--project-root", nonStoryRoot]);
+
+        nsRun([
+            "start", "--skill", "ln-310", "--mode", "plan_review",
+            "--identifier", "NS-TEST", "--manifest-file", nsManifestPath,
+        ]);
+
+        // Fast-forward through phases for plan_review
+        nsRun(["checkpoint", "--skill", "ln-310", "--phase", PHASES.CONFIG]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.DISCOVERY]);
+        nsRun(["checkpoint", "--skill", "ln-310", "--phase", PHASES.DISCOVERY]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.AGENT_LAUNCH]);
+        nsRun([
+            "checkpoint", "--skill", "ln-310",
+            "--phase", PHASES.AGENT_LAUNCH,
+            "--payload", JSON.stringify({ health_check_done: true, agents_available: 0, agents_skipped_reason: "test" }),
+        ]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.RESEARCH]);
+        nsRun(["checkpoint", "--skill", "ln-310", "--phase", PHASES.RESEARCH]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.AUTOFIX]);
+        nsRun(["checkpoint", "--skill", "ln-310", "--phase", PHASES.AUTOFIX, "--payload", JSON.stringify({ status: "skipped_by_mode" })]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.MERGE]);
+        nsRun(["checkpoint", "--skill", "ln-310", "--phase", PHASES.MERGE, "--payload", JSON.stringify({ merge_summary: "test" })]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.REFINEMENT]);
+        nsRun([
+            "checkpoint", "--skill", "ln-310",
+            "--phase", PHASES.REFINEMENT,
+            "--payload", JSON.stringify({ iterations: 0, exit_reason: "SKIPPED" }),
+        ]);
+        nsRun(["advance", "--skill", "ln-310", "--to", PHASES.SELF_CHECK]);
+
+        // TEST 6: DONE without final_verdict (final_result=null) should BLOCK
+        nsRun([
+            "checkpoint", "--skill", "ln-310",
+            "--phase", PHASES.SELF_CHECK,
+            "--payload", JSON.stringify({ pass: true, processes_verified_dead: true }),
+        ]);
+        const t6 = nsRun(["advance", "--skill", "ln-310", "--to", PHASES.DONE]);
+        expect("non-story DONE without final_result blocks", t6, false);
+
+        // TEST 7: DONE with final_verdict should ALLOW
+        nsRun([
+            "checkpoint", "--skill", "ln-310",
+            "--phase", PHASES.SELF_CHECK,
+            "--payload", JSON.stringify({ pass: true, processes_verified_dead: true, final_verdict: "SUGGESTIONS" }),
+        ]);
+        const t7 = nsRun(["advance", "--skill", "ln-310", "--to", PHASES.DONE]);
+        expect("non-story DONE with final_result allows", t7, true);
+    } finally {
+        rmSync(nonStoryRoot, { recursive: true, force: true });
+    }
+
     process.stdout.write(`\nreview-runtime guards: ${passed} passed, ${failed} failed\n`);
     if (failed > 0) process.exit(1);
 } finally {

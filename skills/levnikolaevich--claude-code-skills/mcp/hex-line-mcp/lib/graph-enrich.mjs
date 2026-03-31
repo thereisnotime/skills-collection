@@ -6,6 +6,7 @@
  * - hex_line_contract
  * - hex_line_symbol_annotations
  * - hex_line_call_edges
+ * - hex_line_clone_siblings (contract v2+)
  *
  * Graceful fallback: if better-sqlite3, contract views, or DB are missing,
  * enrichment is disabled silently for that project.
@@ -15,7 +16,7 @@ import { existsSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { createRequire } from "node:module";
 
-const HEX_LINE_CONTRACT_VERSION = 1;
+const HEX_LINE_CONTRACT_VERSION = 2;
 const _dbs = new Map();
 let _driverUnavailable = false;
 
@@ -62,12 +63,13 @@ export function _resetGraphDBCache() {
     _driverUnavailable = false;
 }
 
+
 function validateHexLineContract(db) {
     try {
         const contract = db.prepare("SELECT contract_version FROM hex_line_contract LIMIT 1").get();
         if (!contract || contract.contract_version !== HEX_LINE_CONTRACT_VERSION) return false;
         db.prepare("SELECT node_id, file, line_start, line_end, display_name, kind, callees, callers FROM hex_line_symbol_annotations LIMIT 1").all();
-        db.prepare("SELECT source_id, target_id, source_file, source_line, source_display_name, target_file, target_line, target_display_name FROM hex_line_call_edges LIMIT 1").all();
+        db.prepare("SELECT source_id, target_id, source_file, source_line, source_display_name, target_file, target_line, target_display_name, confidence FROM hex_line_call_edges LIMIT 1").all();
         return true;
     } catch {
         return false;
@@ -148,7 +150,8 @@ export function callImpact(db, file, startLine, endLine) {
             const dependents = db.prepare(
                 `SELECT source_display_name AS name, source_file AS file, source_line AS line
                  FROM hex_line_call_edges
-                 WHERE target_id = ?`
+                 WHERE target_id = ?
+                   AND confidence IN ('exact', 'precise')`
             ).all(node.node_id);
 
             for (const dep of dependents) {
@@ -161,6 +164,53 @@ export function callImpact(db, file, startLine, endLine) {
         }
 
         return affected.slice(0, 10);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Clone warning: find structurally identical clones of symbols in the given line range.
+ * @param {object} db
+ * @param {string} file - relative file path
+ * @param {number} startLine
+ * @param {number} endLine
+ * @returns {Array<{name, file, line}>} clone siblings (max 10)
+ */
+export function cloneWarning(db, file, startLine, endLine) {
+    try {
+
+        const modified = db.prepare(
+            `SELECT node_id
+             FROM hex_line_symbol_annotations
+             WHERE file = ?
+               AND line_start <= ?
+               AND line_end >= ?`
+        ).all(file, endLine, startLine);
+
+        if (modified.length === 0) return [];
+
+        const clones = [];
+        const seen = new Set();
+
+        for (const node of modified) {
+            const siblings = db.prepare(
+                `SELECT s2.file, s2.line_start, s2.display_name
+                 FROM hex_line_clone_siblings s1
+                 JOIN hex_line_clone_siblings s2 ON s2.norm_hash = s1.norm_hash AND s2.node_id != s1.node_id
+                 WHERE s1.node_id = ?`
+            ).all(node.node_id);
+
+            for (const sib of siblings) {
+                const key = `${sib.file}:${sib.display_name}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    clones.push({ name: sib.display_name, file: sib.file, line: sib.line_start });
+                }
+            }
+        }
+
+        return clones.slice(0, 10);
     } catch {
         return [];
     }

@@ -4,7 +4,6 @@ import {
     validatePlanningBaseTransition,
 } from "../../planning-runtime/lib/guards.mjs";
 import { PHASES } from "./phases.mjs";
-import { validateTemplateCompliance } from "../../planning-runtime/lib/template-compliance.mjs";
 
 const ALLOWED_TRANSITIONS = new Map([
     [PHASES.CONFIG, new Set([PHASES.CONTEXT_ASSEMBLY])],

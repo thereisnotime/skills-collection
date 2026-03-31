@@ -111,7 +111,7 @@ Bundled MCP servers extend agent capabilities — hash-verified editing, code in
 |--------|-------------|-------|------|
 | **[hex-line-mcp](mcp/hex-line-mcp/)** | Every line carries a content hash — edits prove the agent sees current content. Prevents stale-context corruption. Includes validation hooks. | 11 | [README](mcp/hex-line-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-line-mcp) |
 | **[hex-graph-mcp](mcp/hex-graph-mcp/)** | Indexes codebase into a SQLite graph via tree-sitter AST. Find references, cycles, clones, unused exports, architecture overview. | 15 | [README](mcp/hex-graph-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) |
-| **[hex-ssh-mcp](mcp/hex-ssh-mcp/)** | Hash-verified remote file editing over SSH. Normalized output for minimal token usage. | 6 | [README](mcp/hex-ssh-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) |
+| **[hex-ssh-mcp](mcp/hex-ssh-mcp/)** | Hash-verified remote file editing and SFTP transfer over SSH. Normalized output for minimal token usage. | 8 | [README](mcp/hex-ssh-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) |
 
 ### External servers
 

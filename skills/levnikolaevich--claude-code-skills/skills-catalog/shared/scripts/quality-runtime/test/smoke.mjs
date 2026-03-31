@@ -52,6 +52,7 @@ try {
     run(["checkpoint", "--story", "PROJ-123", "--phase", PHASES.CODE_QUALITY, "--payload", "{\"quality_checked\":true}"]);
     run(["advance", "--story", "PROJ-123", "--to", PHASES.CLEANUP]);
     run(["checkpoint", "--story", "PROJ-123", "--phase", PHASES.CLEANUP, "--payload", "{\"cleanup_status\":\"completed\"}"]);
+    run(["record-worker", "--story", "PROJ-123", "--payload", summary("ln-512", "PASS")]);
     run(["advance", "--story", "PROJ-123", "--to", PHASES.AGENT_REVIEW]);
     run(["checkpoint", "--story", "PROJ-123", "--phase", PHASES.AGENT_REVIEW, "--payload", "{\"review_summary\":{\"status\":\"completed\"}}"]);
     run(["advance", "--story", "PROJ-123", "--to", PHASES.CRITERIA]);

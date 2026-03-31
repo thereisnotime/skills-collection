@@ -11,7 +11,7 @@ Diff-driven audit: find real transferable changes across hex-line-mcp, hex-ssh-m
 |--------|-----------|-------|------|
 | hex-line-mcp | `mcp/hex-line-mcp/` | 11 | Local file ops (source of current deltas) |
 | hex-ssh-mcp | `mcp/hex-ssh-mcp/` | 6 | SSH remote ops |
-| hex-graph-mcp | `mcp/hex-graph-mcp/` | 7 | Code knowledge graph |
+| hex-graph-mcp | `mcp/hex-graph-mcp/` | 15 | Workspace-first code knowledge graph |
 
 ---
 

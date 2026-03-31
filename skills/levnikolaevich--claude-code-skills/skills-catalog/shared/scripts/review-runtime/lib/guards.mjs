@@ -91,6 +91,9 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
     if (toPhase === PHASES.DONE && !state.self_check_passed) {
         return { ok: false, error: "Self-check must pass before completion" };
     }
+    if (toPhase === PHASES.DONE && !state.final_result) {
+        return { ok: false, error: "Final result not recorded" };
+    }
 
     return { ok: true };
 }

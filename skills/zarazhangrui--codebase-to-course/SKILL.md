@@ -5,7 +5,7 @@ description: "Turn any codebase into a beautiful, interactive single-page HTML c
 
 # Codebase-to-Course
 
-Transform any codebase into a stunning, interactive single-page HTML course. The output is a single self-contained HTML file (no dependencies except Google Fonts) that teaches how the code works through scroll-based modules, animated visualizations, embedded quizzes, and plain-English translations of code.
+Transform any codebase into a stunning, interactive course. The output is a **directory** containing a pre-built `styles.css`, `main.js`, per-module HTML files, and an assembled `index.html` — open it directly in the browser with no setup required (only external dependency: Google Fonts CDN). The course teaches how the code works through scroll-based modules, animated visualizations, embedded quizzes, and plain-English translations of code.
 
 ## First-Run Welcome
 
@@ -46,11 +46,11 @@ The learner already has context that traditional students don't — they've *use
 
 Every module answers **"why should I care?"** before "how does it work?" The answer to "why should I care?" is always practical: *because this knowledge helps you steer AI better, debug faster, or make smarter architectural decisions.*
 
-The single-file constraint is intentional: one HTML file means zero setup, instant sharing, works offline, and forces tight design decisions.
+The directory-based output is intentional: separating CSS/JS from content means AI never regenerates boilerplate, each module is written independently (keeping output size small and quality high), and the assembled `index.html` works offline with zero setup.
 
 ---
 
-## The Process (4 Phases)
+## The Process
 
 ### Phase 1: Codebase Analysis
 
@@ -68,7 +68,9 @@ Before writing course HTML, deeply understand the codebase. Read all the key fil
 
 ### Phase 2: Curriculum Design
 
-Structure the course as 5-8 modules. The arc always starts from what the learner already knows (the user-facing behavior) and moves toward what they don't (the code underneath). Think of it as zooming in: start wide with the experience, then progressively peel back layers.
+Structure the course as **4-6 modules**. Most courses need 4-6. Only go to 7-8 if the codebase genuinely has that many distinct concepts worth teaching. Fewer, better modules beat more, thinner ones.
+
+The arc always starts from what the learner already knows (the user-facing behavior) and moves toward what they don't (the code underneath). Think of it as zooming in: start wide with the experience, then progressively peel back layers.
 
 | Module Position | Purpose | Why it matters for a vibe coder |
 |---|---|---|
@@ -80,7 +82,7 @@ Structure the course as 5-8 modules. The arc always starts from what the learner
 | 6 | When things break | Build debugging intuition so you can escape AI bug loops |
 | 7 | The big picture | See the full architecture so you can make better decisions about what to build next |
 
-Not every codebase needs all 7. A simple CLI tool might only need 4-5 modules. A microservices app might need 8. Adapt the arc to the codebase's complexity — use your judgment on which modules are worth including based on what would actually help the learner steer AI and debug better.
+This is a **menu, not a checklist**. Pick the modules that serve the codebase — a simple CLI tool needs 4, not 7. Adapt the arc to the codebase's complexity.
 
 **The key principle:** Every module should connect back to a practical skill — steering AI, debugging, making decisions. If a module doesn't help the learner DO something better, cut it or reframe it until it does.
 
@@ -100,121 +102,97 @@ Not every codebase needs all 7. A simple CLI tool might only need 4-5 modules. A
 
 These five element types are the backbone of every course. Other interactive elements (architecture diagrams, layer toggles, pattern cards, etc.) are optional and should be added when they fit. But the five above must ALWAYS be present — no exceptions.
 
-**Do NOT present the curriculum for approval — just build it.** The user wants a course, not a planning document. Design the curriculum internally, then go straight to generating the HTML. If they want changes, they'll tell you after seeing the result.
+**Do NOT present the curriculum for approval — just build it.** The user wants a course, not a planning document. Design the curriculum internally, then go straight to building. If they want changes, they'll tell you after seeing the result.
+
+**After designing the curriculum, decide which build path to use:**
+
+- **Simple codebase** (single-purpose CLI, small web app, library, one clear entry point, 5 or fewer modules) → go directly to Phase 3 Sequential.
+- **Complex codebase** (full-stack app, multiple services, content-heavy site, monorepo, or 6+ modules) → go to Phase 2.5 first, then Phase 3 Parallel.
+
+### Phase 2.5: Module Briefs (complex codebases only)
+
+For complex codebases, write a brief for each module before writing any HTML. This is the critical step that enables parallel writing — each brief gives an agent everything it needs without re-reading the codebase.
+
+Read `references/module-brief-template.md` for the template structure. Read `references/content-philosophy.md` for the content rules that should guide brief writing.
+
+**For each module, write a brief to `course-name/briefs/0N-slug.md` containing:**
+- Teaching arc (metaphor, opening hook, key insight)
+- Pre-extracted code snippets (copy-pasted from the codebase with file paths and line numbers)
+- Interactive elements checklist with enough detail to build them
+- Which sections of which reference files the writing agent needs
+- What the previous and next modules cover (for transitions)
+
+The code snippets are the critical token-saving step. By pre-extracting them into the brief, writing agents never need to read the codebase at all.
 
 ### Phase 3: Build the Course
 
-Generate a single HTML file with embedded CSS and JavaScript. Read `references/design-system.md` for the complete CSS design tokens, typography, and color system. Read `references/interactive-elements.md` for implementation patterns of every interactive element type.
+The course output is a **directory**, not a single file. All CSS and JS are pre-built reference files — never regenerate them. Your job is to write only the HTML content.
 
-**Build order (task by task):**
+**Output structure:**
+```
+course-name/
+  styles.css       ← copied verbatim from references/styles.css
+  main.js          ← copied verbatim from references/main.js
+  _base.html       ← customized shell (title, accent color, nav dots)
+  _footer.html     ← copied verbatim from references/_footer.html
+  build.sh         ← copied verbatim from references/build.sh
+  briefs/          ← module briefs (complex codebases only, can delete after build)
+  modules/
+    01-intro.html
+    02-actors.html
+    ...
+  index.html       ← assembled by build.sh (do not write manually)
+```
 
-1. **Foundation first** — HTML shell with all module sections (empty), complete CSS design system, navigation bar with progress tracking, scroll-snap behavior, keyboard navigation, and scroll-triggered animations. After this step, you should have a working skeleton you can scroll through.
+**Step 1 (both paths): Setup** — Create the course directory. Copy these four files verbatim using Read + Write (do not regenerate their contents):
+- `references/styles.css` → `course-name/styles.css`
+- `references/main.js` → `course-name/main.js`
+- `references/_footer.html` → `course-name/_footer.html`
+- `references/build.sh` → `course-name/build.sh`
 
-2. **One module at a time** — Fill in each module's content, code translations, and interactive elements. Don't try to write all 8 modules in one pass — the quality drops. Build Module 1, verify it works, then Module 2, etc.
+**Step 2 (both paths): Customize `_base.html`** — Read `references/_base.html`, then write it to `course-name/_base.html` with exactly three substitutions:
+- Both instances of `COURSE_TITLE` → the actual course title
+- The four `ACCENT_*` placeholders → the chosen accent color values (pick one palette from the comments in `_base.html`)
+- `NAV_DOTS` → one `<button class="nav-dot" ...>` per module
 
-3. **Polish pass** — After all modules are built, do a final pass for transitions, mobile responsiveness, and visual consistency.
+**Step 3: Write modules** — This is where the paths diverge.
 
-**Critical implementation rules:**
-- The file must be completely self-contained (only external dependency: Google Fonts CDN)
-- Use CSS `scroll-snap-type: y proximity` (NOT `mandatory` — mandatory traps users in long modules)
-- Use `min-height: 100dvh` with `100vh` fallback for sections
-- Only animate `transform` and `opacity` for GPU performance
-- Wrap all JS in an IIFE, use `passive: true` on scroll listeners, throttle with `requestAnimationFrame`
-- Include touch support for drag-and-drop, keyboard navigation (arrow keys), and ARIA attributes
+#### Sequential path (simple codebases)
+
+Read `references/content-philosophy.md` and `references/gotchas.md`. Then write modules one at a time. For each module, write `course-name/modules/0N-slug.html` containing only the `<section class="module" id="module-N">` block and its contents. Do not include `<html>`, `<head>`, `<body>`, `<style>`, or `<script>` tags.
+
+Read `references/interactive-elements.md` for HTML patterns for each interactive element type. Read `references/design-system.md` for visual conventions.
+
+#### Parallel path (complex codebases)
+
+Dispatch modules to subagents in batches of up to 3. Each agent receives:
+- Its module brief (from `course-name/briefs/`)
+- `references/content-philosophy.md` and `references/gotchas.md`
+- Only the sections of `references/interactive-elements.md` and `references/design-system.md` listed in the brief
+
+Each agent writes its module file(s) to `course-name/modules/`. Short modules (3 screens, one quiz) can be paired — two briefs given to one agent.
+
+**What agents do NOT receive:** the full codebase (snippets are in the brief), SKILL.md, other modules' briefs, or unneeded reference file sections.
+
+After all agents finish, do a quick consistency check in the main context: nav dots match modules, transitions between modules are coherent, no obvious tone shifts.
+
+**Step 4 (both paths): Assemble** — Run `build.sh` from the course directory:
+```bash
+cd course-name && bash build.sh
+```
+This produces `index.html`. Open it in the browser.
+
+**Critical rules:**
+- **Never regenerate** `styles.css` or `main.js` — always copy from references
+- Module files contain only `<section>` content — no boilerplate
+- Use CSS `scroll-snap-type: y proximity` (NOT `mandatory`)
+- Use `min-height: 100dvh` with `100vh` fallback on `.module`
+- Interactive element JS is in `main.js`; wire up via `data-*` attributes and CSS class names as shown in `references/interactive-elements.md`
+- Chat containers need `id` attributes; flow animations need `data-steps='[...]'` JSON on `.flow-animation`
 
 ### Phase 4: Review and Open
 
-After generating the course HTML file, open it in the browser for the user to review. Walk them through what was built and ask for feedback on content, design, and interactivity.
-
----
-
-## Content Philosophy
-
-These principles are what separate a great course from a generic tutorial. They should guide every content decision:
-
-### Show, Don't Tell — Aggressively Visual
-People's eyes glaze over text blocks. The course should feel closer to an infographic than a textbook. Follow these hard rules:
-
-**Text limits:**
-- Max **2-3 sentences** per text block. If you're writing a fourth sentence, stop and convert it into a visual instead.
-- No text block should ever be wider than the content width AND taller than ~4 lines. If it is, break it up with a visual element.
-- Every screen must be **at least 50% visual** (diagrams, code blocks, cards, animations, badges — anything that isn't a paragraph).
-
-**Convert text to visuals:**
-- A list of 3+ items → **cards with icons** (pattern cards, feature cards)
-- A sequence of steps → **flow diagram with arrows** or **numbered step cards**
-- "Component A talks to Component B" → **animated data flow** or **group chat visualization**
-- "This file does X, that file does Y" → **visual file tree with annotations** or **icon + one-liner badges**
-- Explaining what code does → **code↔English translation block** (not a paragraph *about* the code)
-- Comparing two approaches → **side-by-side columns** with visual contrast
-
-**Visual breathing room:**
-- Use generous spacing between elements (`--space-8` to `--space-12` between sections)
-- Alternate between full-width visuals and narrow text blocks to create rhythm
-- Every module should have at least one "hero visual" — a diagram, animation, or interactive element that dominates the screen and teaches the core concept at a glance
-
-### Code ↔ English Translations
-Every code snippet gets a side-by-side plain English translation. Left panel: real code from the project with syntax highlighting. Right panel: line-by-line plain English explaining what each line does. This is the single most valuable teaching tool for non-technical learners.
-
-**Critical: No horizontal scrollbars on code.** All code must use `white-space: pre-wrap` so it wraps instead of scrolling. This is a course for non-technical people, not an IDE — readability beats preserving indentation structure.
-
-**Critical: Use original code exactly as-is.** Never modify, simplify, or trim code snippets from the codebase. The learner should be able to open the real file and see the exact same code they learned from — that builds trust. Instead of editing code to make it shorter, *choose* naturally short, punchy snippets (5-10 lines) from the codebase that illustrate the concept well. Every codebase has compact, self-contained moments — find those rather than butchering longer functions.
-
-### One Concept Per Screen
-No walls of text. Each screen within a module teaches exactly one idea. If you need more space, add another screen — don't cram.
-
-### Metaphors First, Then Reality
-Introduce every new concept with a metaphor from everyday life. Then immediately ground it: "In our code, this looks like..." The metaphor builds intuition; the code grounds it in reality.
-
-**Critical: No recycled metaphors.** Do NOT default to "restaurant" for everything — that's the #1 crutch. Each concept deserves its own metaphor that feels natural to *that specific idea*. A database is a library with a card catalog. Auth is a bouncer checking IDs. An event loop is an air traffic controller. Message passing is a postal system. API rate limiting is a nightclub with a capacity limit. Pick the metaphor that makes the concept click, not the one that's easiest to reach for. If you catch yourself using "restaurant" or "kitchen" more than once in a course, stop and rethink.
-
-### Learn by Tracing
-Follow what actually happens when the learner does something they already do every day in the app — trace the data flow end-to-end. "You know that button you click? Here's the journey your data takes after you click it..." This works because the learner has *already experienced the result* — now they're seeing the machinery behind it. It's like watching a behind-the-scenes documentary of a movie you loved.
-
-### Make It Memorable
-Use "aha!" callout boxes for universal CS insights. Use humor where natural (not forced). Give components personality — they're "characters" in a story, not abstract boxes on a diagram.
-
-### Glossary Tooltips — No Term Left Behind
-Every technical term (API, DOM, callback, middleware, etc.) gets a dashed-underline tooltip on first use in each module. Hover on desktop or tap on mobile to see a 1-2 sentence plain-English definition. The learner should never have to leave the page to Google a term. This is the difference between a course that *says* it's for non-technical people and one that actually *is*.
-
-**Be extremely aggressive with tooltips.** If there is even a 1% chance a non-technical person doesn't know a word, tooltip it. This includes:
-- Software names they might not know (Blender, GIMP, Audacity, etc.)
-- Everyday developer terms (REPL, JSON, flag, CLI, API, SDK, etc.)
-- Programming concepts (function, variable, dictionary, class, module, etc.)
-- Infrastructure terms (PATH, pip, namespace, entry point, etc.)
-- Acronyms — ALWAYS tooltip acronyms on first use
-
-**The vocabulary IS the learning.** One of the key goals is for learners to acquire the precise technical vocabulary they need to communicate with AI coding agents. Each tooltip should teach the term in a way that helps the learner USE it in their own instructions — e.g., "A **flag** is an option you add to a command to change its behavior — like adding '--json' to get structured data instead of plain text. When talking to AI, you'd say 'add a flag for verbose output.'"
-
-**Cursor:** Use `cursor: pointer` on terms (not `cursor: help`). The question-mark cursor feels clinical — a pointer feels clickable and inviting.
-
-**Tooltip overflow fix:** Translation blocks and other containers with `overflow: hidden` will clip tooltips. To fix this, the tooltip JS must use `position: fixed` and calculate coordinates from `getBoundingClientRect()` instead of relying on CSS `position: absolute` within the container. Append tooltips to `document.body` rather than inside the term element. This ensures tooltips are never clipped by any ancestor's overflow.
-
-### Quizzes That Test Application, Not Memory
-
-The goal of learning is practical application — being able to *do something* with what you learned. Quizzes should test whether the learner can use their knowledge to solve a new problem, not whether they can regurgitate a definition.
-
-**What to quiz (in order of value):**
-1. **"What would you do?" scenarios** — Present a new situation the learner hasn't seen and ask them to apply what they learned. e.g., "You want to add a 'save to favorites' feature. Which files would you need to change?" This is the gold standard.
-2. **Debugging scenarios** — "A user reports X is broken. Based on what you learned, where would you look first?" This tests whether they understood the architecture, not just memorized file names.
-3. **Architecture decisions** — "You're building a similar app from scratch. Would you put this logic in the frontend or backend? Why?" Tests whether they understood the *reasoning* behind design choices.
-4. **Tracing exercises** — "When a user does X, trace the path the data takes." Tests whether they can follow the flow.
-
-**What NOT to quiz:**
-- Definitions ("What does API stand for?") — that's what the glossary tooltips are for
-- File name recall ("Which file handles X?") — nobody memorizes file names
-- Syntax details ("What's the correct way to write a fetch call?") — this isn't a coding bootcamp
-- Anything that can be answered by scrolling up and copying — that tests scrolling, not understanding
-
-**Quiz tone:**
-- Wrong answers get encouraging, non-judgmental explanations ("Not quite — here's why...")
-- Correct answers get brief reinforcement of the underlying principle ("Exactly! This works because...")
-- Never punitive, never score-focused. No "You got 3/5!" — the quiz is a thinking exercise, not an exam
-- Wrong answer explanations should teach something new, not just say "wrong, the answer was B"
-
-**How many quizzes:** One per module, placed at the end after the learner has seen all the content. 3-5 questions per quiz. Each question should make the learner pause and *think*, not just pick the obvious answer.
-
-**Deciding what concepts are worth quizzing:** Quiz the things that would actually help someone in practice — architecture understanding ("where does this logic live and why?"), debugging intuition ("what would cause this symptom?"), and decision-making ("what's the tradeoff here?"). If a concept won't help someone debug a problem, steer an AI assistant, or make an architectural decision, it's not worth quizzing.
+After running `build.sh`, open `index.html` in the browser. Walk the user through what was built and ask for feedback on content, design, and interactivity.
 
 ---
 
@@ -232,42 +210,12 @@ The visual design should feel like a **beautiful developer notebook** — warm, 
 
 ---
 
-## Gotchas — Common Failure Points
-
-These are real problems encountered when building courses. Check every one before considering a course complete.
-
-### Tooltip Clipping
-Translation blocks use `overflow: hidden` for code wrapping. If tooltips use `position: absolute` inside the term element, they get clipped by the container. **Fix:** Tooltips must use `position: fixed` and be appended to `document.body`. Calculate position from `getBoundingClientRect()`. This is already specified in the reference files but is the #1 bug that appears in every build.
-
-### Not Enough Tooltips
-The most common failure is under-tooltipping. Non-technical learners don't know terms like REPL, JSON, flag, entry point, PATH, pip, namespace, function, class, module, PR, E2E, or even software names like Blender/GIMP. **Rule of thumb:** if a term wouldn't appear in everyday conversation with a non-technical friend, tooltip it. Err heavily on the side of too many. BUT: don't tooltip terms the user already knows well from their domain (e.g., AI/ML concepts for someone in AI).
-
-### Walls of Text
-The course looks like a textbook instead of an infographic. This happens when you write more than 2-3 sentences in a row without a visual break. Every screen must be at least 50% visual. Convert any list of 3+ items into cards, any sequence into step cards or flow diagrams, any code explanation into a code↔English translation block.
-
-### Recycled Metaphors
-Using "restaurant" or "kitchen" for everything. Every module needs its own metaphor that feels inevitable for that specific concept. If you catch yourself reaching for the same metaphor twice, stop and find one that fits the concept organically.
-
-### Code Modifications
-Trimming, simplifying, or "cleaning up" code snippets from the codebase. The learner should be able to open the real file and see the exact same code. Instead of editing code to be shorter, *choose* naturally short snippets (5-10 lines) from the codebase that illustrate the point.
-
-### Quiz Questions That Test Memory
-Asking "What does API stand for?" or "Which file handles X?" — those test recall, not understanding. Every quiz question should present a new scenario the learner hasn't seen and ask them to *apply* what they learned.
-
-### Scroll-Snap Mandatory
-Using `scroll-snap-type: y mandatory` traps users inside long modules. Always use `proximity`.
-
-### Module Quality Degradation
-Trying to write all modules in one pass causes later modules to be thin and rushed. Build one module at a time and verify each before moving on.
-
-### Missing Interactive Elements
-A module with only text and code blocks, no interactivity. Every module needs at least one of: quiz, data flow animation, group chat, architecture diagram, drag-and-drop. These aren't decorations — they're how non-technical learners actually process information.
-
----
-
 ## Reference Files
 
-The `references/` directory contains detailed implementation specs. Read them when you reach the relevant phase:
+The `references/` directory contains detailed specs. **Read them only when you reach the relevant phase** — not upfront. This keeps context lean.
 
-- **`references/design-system.md`** — Complete CSS custom properties, color palette, typography scale, spacing system, shadows, animations, scrollbar styling. Read this before writing any CSS.
-- **`references/interactive-elements.md`** — Implementation patterns for every interactive element: drag-and-drop quizzes, multiple-choice quizzes, code↔English translations, group chat animations, message flow visualizations, architecture diagrams, pattern cards, callout boxes. Read this before building any interactive elements.
+- **`references/content-philosophy.md`** — Visual density rules, metaphor guidelines, quiz design, tooltip rules, code translation guidance. Read during Phase 2.5 (briefs) and Phase 3 (writing modules).
+- **`references/gotchas.md`** — Common failure points checklist. Read during Phase 3 and Phase 4 (review).
+- **`references/module-brief-template.md`** — Template for Phase 2.5 module briefs. Read only for complex codebases using the parallel path.
+- **`references/design-system.md`** — Complete CSS custom properties, color palette, typography scale, spacing system, shadows, animations, scrollbar styling. Read during Phase 3 when writing module HTML.
+- **`references/interactive-elements.md`** — Implementation patterns for every interactive element: drag-and-drop quizzes, multiple-choice quizzes, code↔English translations, group chat animations, message flow visualizations, architecture diagrams, pattern cards, callout boxes. Read the relevant sections during Phase 3.
