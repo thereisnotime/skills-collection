@@ -25,7 +25,7 @@ Given these goals, articulate in your report's Goal section what is the REAL ris
 1. Read ALL referenced files from the working directory — they contain the full context for review
 2. Examine the surrounding codebase in your working directory for additional context
 3. Search the web for current best practices relevant to the domain
-4. DO NOT modify any files. This is a read-only review.
+4. Focus on analysis — avoid modifying project files unless a fix is trivial and obvious.
 
 ## Focus Areas
 {focus_areas}

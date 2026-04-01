@@ -1,9 +1,8 @@
 {mode_header}
 
 ## CRITICAL CONSTRAINTS
-- DO NOT modify, create, or delete any PROJECT files
-- You MAY write your review result to the output file if specified by -o flag
-- This is a READ-ONLY analysis task (read-only applies to project source code)
+- Write your review result to the output file specified by -o flag
+- Focus on analysis — avoid modifying project files unless a fix is trivial and obvious
 {mode_constraints}
 - If you cannot access a resource — report it clearly, do not skip silently
 - DO NOT ask clarifying questions or request additional context — you have everything you need. Follow this prompt to completion autonomously. If information is missing, make reasonable assumptions and proceed.
@@ -78,9 +77,13 @@ One sentence: {mode_verdict_question}
   "suggestions": [
     {
       "area": "{mode_areas}",
+      "file": "path/to/file.ext",
+      "line_start": 42,
+      "line_end": 58,
       "issue": "What is wrong or could be improved",
       "suggestion": "{mode_suggestion_desc}",
       "reason": "{mode_reason_desc}",
+      "recommended_action": "fix",
       "confidence": 95,
       "impact_percent": 15
     }

@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.2.0] — 2026-03-31
+
+### Added
+- **Detect mode**: flag-only mode that identifies AI patterns without rewriting. Trigger with "detect," "flag only," "audit only," "just flag," "scan," or similar. Returns issues grouped by severity (P0/P1/P2) plus an assessment of which flags are clear problems vs. judgment calls. Useful when flagged patterns are intentional, when auditing published or third-party content, or when you want a quick scan without a full rewrite.
+
+### Changed
+- Output format section now documents both rewrite (default) and detect mode outputs
+- Version bump to 3.2.0
+
+---
+
 ## [3.1.0] — 2026-03-25
 
 ### Added

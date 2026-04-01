@@ -3,9 +3,8 @@
 You are performing an independent quality review of {artifact_type} that has already been through initial validation and agent review. Your job is to find remaining issues that were missed.
 
 ## CRITICAL CONSTRAINTS
-- DO NOT modify, create, or delete any PROJECT files
-- You MAY write your review result to the output file if specified by -o flag
-- This is a READ-ONLY analysis task
+- Write your review result to the output file specified by -o flag
+- Focus on analysis — avoid modifying project files unless a fix is trivial and obvious
 - DO NOT ask clarifying questions — follow this prompt to completion autonomously
 - Target completing your analysis within 10 minutes
 
@@ -44,9 +43,14 @@ If no issues found AND all risks are mitigated, return verdict APPROVED with emp
   "suggestions": [
     {
       "area": "correctness | architecture | best_practices | optimality | unification | risk",
+      "file": "path/to/file.ext",
+      "line_start": 42,
+      "line_end": 58,
+      "location": "Section header or quote (for non-file artifacts)",
       "issue": "What is wrong",
       "suggestion": "Specific fix to apply",
-      "location": "Section header, line reference, or quote from the artifact",
+      "reason": "Why this is a problem",
+      "recommended_action": "fix",
       "confidence": 95,
       "impact_percent": 15
     }

@@ -25,7 +25,7 @@
  */
 
 import { normalizeOutput } from "@levnikolaevich/hex-common/output/normalize";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 
@@ -248,16 +248,27 @@ function getHookMode() {
     return _hookMode;
 }
 
+// ---- Safe exit: writeSync guarantees flush before process.exit ----
+
+function safeExit(fd, data, code) {
+    writeSync(fd, data);
+    process.exit(code);
+}
+
+function debugLog(action, reason) {
+    writeSync(2, `[hex-hook] ${action}: ${reason}\n`);
+}
 
 function block(reason, context) {
+    const msg = context ? `${reason}\n${context}` : reason;
     const output = {
         hookSpecificOutput: {
             permissionDecision: "deny",
         },
-        systemMessage: context ? `${reason}\n${context}` : reason,
+        systemMessage: msg,
     };
-    process.stdout.write(JSON.stringify(output));
-    process.exit(2);
+    debugLog("BLOCK", reason);
+    safeExit(1, JSON.stringify(output), 2);
 }
 
 function advise(reason, context) {
@@ -267,8 +278,7 @@ function advise(reason, context) {
         },
         systemMessage: context ? `${reason}\n${context}` : reason,
     };
-    process.stdout.write(JSON.stringify(output));
-    process.exit(0);
+    safeExit(1, JSON.stringify(output), 0);
 }
 
 /** Route to block or advise based on hook mode. Dangerous commands always block. */
@@ -302,29 +312,14 @@ function handlePreToolUse(data) {
             process.exit(0);
         }
 
-        // Skip plan-mode and system paths (normalize backslashes for Windows)
+        // Only redirect files within project directory (skip .claude/ subfolder)
         const normalPath = filePath.replace(/\\/g, "/");
-        if (normalPath.includes(".claude/plans/") || normalPath.includes("AppData")) {
+        const cwdNorm = process.cwd().replace(/\\/g, "/");
+        const isInProject = process.platform === "win32"
+            ? normalPath.toLowerCase().startsWith(cwdNorm.toLowerCase())
+            : normalPath.startsWith(cwdNorm);
+        if (!isInProject || normalPath.includes("/.claude/")) {
             process.exit(0);
-        }
-
-        // Skip Claude config files (settings.json, settings.local.json)
-        const ALLOWED_CONFIGS = new Set(["settings.json", "settings.local.json"]);
-        const fileName = normalPath.split("/").pop();
-        if (ALLOWED_CONFIGS.has(fileName)) {
-            let candidate = filePath;
-            if (candidate.startsWith("~/")) {
-                candidate = homedir().replace(/\\/g, "/") + candidate.slice(1);
-            }
-            const absPath = resolve(process.cwd(), candidate).replace(/\\/g, "/");
-            const projectClaude = resolve(process.cwd(), ".claude").replace(/\\/g, "/") + "/";
-            const globalClaude = resolve(homedir(), ".claude").replace(/\\/g, "/") + "/";
-            const cmp = process.platform === "win32"
-                ? (a, b) => a.toLowerCase().startsWith(b.toLowerCase())
-                : (a, b) => a.startsWith(b);
-            if (cmp(absPath, projectClaude) || cmp(absPath, globalClaude)) {
-                process.exit(0);
-            }
         }
 
         if (toolName === "Read") {
@@ -493,8 +488,7 @@ function handlePostToolUse(data) {
         "=".repeat(50),
     ].join("\n");
 
-    process.stderr.write(output);
-    process.exit(2);
+    safeExit(2, output, 2);
 }
 
 // ---- SessionStart: inject tool preferences ----
@@ -526,8 +520,7 @@ function handleSessionStart() {
         "- Multi-file rename/refactor: use bulk_replace\n" +
         "- New files: use write_file\n" +
         "Exceptions: images, PDFs, notebooks, .claude/settings.json, .claude/settings.local.json use built-in Read. Glob is always OK.";
-    process.stdout.write(JSON.stringify({ systemMessage: msg }));
-    process.exit(0);
+    safeExit(1, JSON.stringify({ systemMessage: msg }), 0);
 }
 
 // ---- Main: read stdin, route by hook_event_name ----

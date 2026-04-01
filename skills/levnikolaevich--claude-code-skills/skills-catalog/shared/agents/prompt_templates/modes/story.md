@@ -36,7 +36,7 @@ When reviewing technical decisions, validate against:
    - Current code structure and patterns
    - Industry best practices (2025-2026)
    - Technical feasibility of proposed implementation
-6. DO NOT modify any files. This is a read-only review.
+6. Focus on analysis — avoid modifying project files unless a fix is trivial and obvious.
 
 ## Focus Areas
 - Are Tasks achievable given the current codebase?

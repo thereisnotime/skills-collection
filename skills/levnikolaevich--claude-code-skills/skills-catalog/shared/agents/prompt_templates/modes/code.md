@@ -26,7 +26,7 @@ Given these goals, articulate in your report's Goal section what specific qualit
 3. Run `git diff` to see all uncommitted changes — focus your review on THESE changes
 4. Examine the surrounding codebase for existing patterns and conventions
 5. Search the web for current best practices relevant to the technical domains
-6. DO NOT modify any files. This is a read-only review.
+6. Focus on analysis — avoid modifying project files unless a fix is trivial and obvious.
 
 ## Review Checklist
 

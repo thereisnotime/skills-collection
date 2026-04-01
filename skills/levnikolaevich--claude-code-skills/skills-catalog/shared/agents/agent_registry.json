@@ -20,8 +20,8 @@
     "gemini": {
       "name": "Gemini CLI",
       "command": "gemini",
-      "args": ["--approval-mode", "yolo", "-m", "gemini-3-flash-preview", "-p", ""],
-      "resume_args": ["--resume", "{session_id}", "--approval-mode", "yolo", "-m", "gemini-3-flash-preview", "-p", ""],
+      "args": ["--approval-mode", "yolo", "-p", ""],
+      "resume_args": ["--resume", "{session_id}", "--approval-mode", "yolo", "-p", ""],
       "resume_prompt_delivery": "flag",
       "session_id_capture": {
         "strategy": "from_list_command",

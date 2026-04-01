@@ -1,7 +1,7 @@
 ---
 name: avoid-ai-writing
-description: Audit and rewrite content to remove AI writing patterns ("AI-isms"). Use this skill when asked to "remove AI-isms," "clean up AI writing," "edit writing for AI patterns," "audit writing for AI tells," or "make this sound less like AI."
-version: 3.1.0
+description: Audit and rewrite content to remove AI writing patterns ("AI-isms"). Use this skill when asked to "remove AI-isms," "clean up AI writing," "edit writing for AI patterns," "audit writing for AI tells," or "make this sound less like AI." Supports a detection-only mode that flags patterns without rewriting.
+version: 3.2.0
 license: MIT
 compatibility: Any AI coding assistant that supports agentskills.io SKILL.md format (Claude Code, Cursor, VS Code Copilot, Hermes Agent, OpenHands, etc.) or OpenClaw. No external tools or APIs required.
 metadata:
@@ -16,11 +16,32 @@ metadata:
 
 You are editing content to remove AI writing patterns ("AI-isms") that make text sound machine-generated.
 
-The user will provide a piece of writing. Your job is to:
+## Modes
+
+This skill operates in one of two modes:
+
+**`rewrite`** (default) — Flag AI-isms and rewrite the text to fix them.
+
+**`detect`** — Flag AI-isms only. No rewriting. Use this mode when:
+- The writer wants to see what's flagged and decide what to fix themselves
+- The flagged patterns might be intentional (AI patterns aren't always bad — they can be effective in small doses)
+- You're auditing text you don't want altered (published content, someone else's writing, reference material)
+- You want a quick scan without waiting for a full rewrite
+
+Trigger detect mode when the user says "detect," "flag only," "audit only," "just flag," "scan," "what AI patterns are in this," or similar. Default to rewrite mode if not specified.
+
+---
+
+In **rewrite** mode, your job is to:
 
 1. **Audit it**: identify every AI-ism present, citing the specific text
 2. **Rewrite it**: return a clean version with all AI-isms removed
 3. **Show a diff summary**: briefly list what you changed and why
+
+In **detect** mode, your job is to:
+
+1. **Audit it**: identify every AI-ism present, citing the specific text
+2. **Assess it**: note which flags are clear problems vs. patterns that may be intentional or effective in context
 
 ---
 
@@ -410,6 +431,8 @@ If auto-detection feels wrong, say which profile you're using and why. The user 
 
 ## Output format
 
+### Rewrite mode (default)
+
 Return your response in four sections:
 
 **1. Issues found**
@@ -423,6 +446,16 @@ A brief summary of the major edits made. Not every word, just the meaningful cha
 
 **4. Second-pass audit**
 Re-read the rewritten version from section 2. Identify any remaining AI tells that survived the first pass — recycled transitions, lingering inflation, copula avoidance, filler phrases, or anything else from the categories above. Fix them, return the corrected text inline, and note what changed in this pass. If the rewrite is clean, say so.
+
+### Detect mode
+
+Return your response in two sections:
+
+**1. Issues found**
+A bulleted list of every AI-ism identified, with the offending text quoted. Group by severity (P0, P1, P2).
+
+**2. Assessment**
+For each flag, note whether it's a clear problem or a judgment call. Some AI-associated patterns are effective writing techniques — uniform paragraph length is a problem, but a well-placed "however" isn't. Call out which flags the writer should definitely fix vs. which ones are worth a second look but might be fine in context. If the text is clean, say so.
 
 ---
 

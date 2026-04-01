@@ -14,7 +14,7 @@ For deterministic orchestration, pair this file with `shared/references/review_r
 
 | Skill Group | Primary Agent | Model | Fallback | Use Case |
 |-------------|--------------|-------|----------|----------|
-| Decomposition | Gemini | gemini-3-flash-preview | Opus | Scope analysis, epic planning |
+| Decomposition | Gemini | Auto (Gemini 3) | Opus | Scope analysis, epic planning |
 | Task management | Codex | gpt-5.4 | Opus | Task decomposition, plan review |
 | Execution | Opus (native) | claude-opus-4-6 | -- | Direct code writing |
 | Validation | codex + gemini | parallel | Self-review (if both fail) | Story/Tasks + context validation |
@@ -146,9 +146,9 @@ External agents run in non-interactive mode (`exec` / `-p`) with tool access for
 
 | Level | Codex | Gemini |
 |-------|-------|--------|
-| **CLI flags** | `--full-auto` (full tool access for analysis: read files, run commands, internet) | `--yolo` (auto-approve + sandbox, `permissive-open` profile — network allowed) |
-| **Output** | `--color never` (clean log) + `-o {file}` (final result to file) + `-C {cwd}` (working dir) | `-m gemini-3-flash-preview` |
-| **Prompt** | CRITICAL CONSTRAINTS: read-only for PROJECT files, may write to -o output | CRITICAL CONSTRAINTS: read-only for PROJECT files |
+| **CLI flags** | `--full-auto` (full tool access: read/write files, run commands, internet) | `--yolo` (auto-approve + sandbox, `permissive-open` profile — network allowed) |
+| **Output** | `--color never` (clean log) + `-o {file}` (final result to file) + `-C {cwd}` (working dir) | Auto model selection (no `-m` flag) |
+| **Prompt** | Focus on analysis; may write trivial fixes | Focus on analysis; may write trivial fixes |
 
 ## Agent Timeout Policy
 

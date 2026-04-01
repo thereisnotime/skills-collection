@@ -29,6 +29,7 @@ try {
 const DEFAULT_LIMIT = 100;
 const MAX_OUTPUT = 10 * 1024 * 1024; // 10 MB
 const TIMEOUT = 30000; // 30s
+const MAX_SEARCH_OUTPUT_CHARS = 80000; // Block-aware cap to prevent CC maxResultSizeChars truncation
 
 
 
@@ -292,9 +293,27 @@ async function contentMode(pattern, target, opts, plain, totalLimit) {
     flushGroup();
     // Graph-aware ranking: sort blocks by graphScore DESC (only reorders when graph DB is available)
     if (db) blocks.sort((a, b) => (b.meta.graphScore || 0) - (a.meta.graphScore || 0));
-    return blocks
-        .map(block => block.type === "edit_ready_block"
+    // Block-aware output cap: serialize incrementally, stop at budget
+    const parts = [];
+    let budget = MAX_SEARCH_OUTPUT_CHARS;
+    let capped = false;
+    for (const block of blocks) {
+        const serialized = block.type === "edit_ready_block"
             ? serializeSearchBlock(block, { plain })
-            : serializeDiagnosticBlock(block))
-        .join("\n\n");
+            : serializeDiagnosticBlock(block);
+        if (parts.length > 0 && budget - serialized.length < 0) {
+            capped = true;
+            break;
+        }
+        parts.push(serialized);
+        budget -= serialized.length;
+    }
+    if (capped) {
+        const remaining = blocks.length - parts.length;
+        parts.push(serializeDiagnosticBlock(buildDiagnosticBlock({
+            kind: "output_capped",
+            message: `OUTPUT_CAPPED: ${remaining} more search block(s) omitted (${MAX_SEARCH_OUTPUT_CHARS} char limit). Narrow with path= or glob= filters.`,
+        })));
+    }
+    return parts.join("\n\n");
 }

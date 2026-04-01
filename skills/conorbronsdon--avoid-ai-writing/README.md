@@ -2,7 +2,7 @@
 
 # avoid-ai-writing
 
-Audit and rewrite content to remove AI writing patterns. A practical skill for any AI coding assistant.
+Audit and rewrite content to remove AI writing patterns. A practical skill for any AI coding assistant. Supports detection-only mode.
 
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/avoid-ai-writing?style=social)](https://github.com/conorbronsdon/avoid-ai-writing/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -15,7 +15,9 @@ Audit and rewrite content to remove AI writing patterns. A practical skill for a
 
 A portable writing skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenClaw](https://github.com/openclaw/openclaw), and any [agentskills.io](https://agentskills.io)-compatible agent. Audits and rewrites content to remove AI writing patterns ("AI-isms").
 
-Paste any text or run against a file, get back a clean version with every AI tell identified, fixed, and explained. A built-in second pass re-reads the rewrite to catch patterns that survived the first edit.
+**Two modes:**
+- **Rewrite** (default) — flags AI patterns and rewrites the text to fix them. A built-in second pass catches patterns that survived the first edit.
+- **Detect** — flags AI patterns without rewriting. Shows which flags are real problems vs. judgment calls. Useful when patterns might be intentional, when auditing content you don't want altered, or when you just want a quick scan.
 
 ## Quick demo
 
@@ -35,6 +37,7 @@ A one-shot "make this sound human" prompt catches the obvious stuff. This skill 
 - **Two-pass detection** — the second pass re-reads the rewrite and catches patterns that survive the first edit: recycled transitions, lingering inflation, copula swaps that snuck through.
 - **109-entry word replacement table across 3 tiers** — not vibes-based. Every flagged word has a specific, plainer alternative. "Leverage" → "use." "Commence" → "start." Tier 1 words are always flagged, Tier 2 words flag when they cluster, Tier 3 words flag only at high density. This reduces false positives while catching real AI tells.
 - **36 pattern categories** — see the full list below, each with before/after examples. Includes rhythm/uniformity checks and a rewrite-vs-patch threshold.
+- **Detect mode** — flag patterns without rewriting. See which flags are real problems vs. judgment calls. Useful when patterns might be intentional or you're auditing content you don't want altered.
 - **Works with Claude Code and OpenClaw** — single `SKILL.md` with compatible frontmatter for both platforms.
 
 ## Installation & Usage
@@ -73,7 +76,7 @@ Then use `/clean-ai-writing <your text>` in Claude Code.
 
 ### OpenClaw
 
-**Option 1: [Install from ClawHub](ttps://clawhub.ai/conorbronsdon/avoid-ai-writing)**
+**Option 1: [Install from ClawHub](https://clawhub.ai/conorbronsdon/avoid-ai-writing)**
 
 ```bash
 clawhub install avoid-ai-writing
@@ -94,12 +97,19 @@ Once installed, ask your assistant to clean up AI writing:
 - "Make this sound less like AI"
 - "Clean up AI writing in this paragraph"
 
-The skill returns four sections:
+In **rewrite mode** (default), the skill returns four sections:
 
 1. **Issues found** — every AI-ism identified, with the text quoted
 2. **Rewritten version** — clean version with all AI-isms removed
 3. **What changed** — summary of the major edits
 4. **Second-pass audit** — re-reads the rewrite and catches any surviving tells
+
+In **detect mode**, the skill returns two sections:
+
+1. **Issues found** — every AI-ism identified, grouped by severity (P0/P1/P2)
+2. **Assessment** — which flags are clear problems vs. patterns that may be intentional or effective in context
+
+Trigger detect mode with: "detect," "flag only," "audit only," "just flag," "scan," or similar.
 
 ## 36 Patterns Detected
 

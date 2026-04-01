@@ -169,7 +169,7 @@ Multi-model review uses external AI agents (Codex + Gemini) for parallel code/st
 | Model | CLI | Version | Used by | Settings |
 |-------|-----|---------|---------|----------|
 | **[Codex](https://github.com/anthropics/codex-cli)** | `codex` | gpt-5.4 | ln-310, ln-510, ln-813 | `--json --full-auto` (read-only, internet access) |
-| **[Gemini](https://github.com/google/gemini-cli)** | `gemini` | gemini-3-flash-preview | ln-310, ln-510, ln-813 | `--yolo -m gemini-3-flash-preview` (sandbox, auto-approve) |
+| **[Gemini](https://github.com/google/gemini-cli)** | `gemini` | Auto (Gemini 3) | ln-310, ln-510, ln-813 | `--yolo` (sandbox, auto-approve, auto model selection) |
 
 **Review Workflow:**
 1. **Parallel Execution** — Both agents run simultaneously (background tasks)

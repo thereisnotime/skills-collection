@@ -1,4 +1,4 @@
-# Claude Code Skills for production-ready Golang projects
+# Agent Skills for production-ready Golang projects
 
 AI agent skills are reusable instruction sets that extend your coding assistant with domain-specific expertise, loaded on demand so they don't bloat your context. This repository covers **Go-specific** skills only (language, testing, security, observability, etc.); for dev workflow skills (git conventions, CI/CD, PR reviews) you'll want to add a separate skills plugin.
 
@@ -16,7 +16,7 @@ For generic skills, please visit [cc-skills](https://github.com/samber/cc-skills
 **Install with [skills](https://skills.sh/) CLI** (universal, works with any [Agent Skills](https://agentskills.io)-compatible tool):
 
 ```bash
-npx skills add https://github.com/samber/cc-skills-golang --skill '*'
+npx skills add https://github.com/samber/cc-skills-golang --all
 # or a single skill:
 npx skills add https://github.com/samber/cc-skills-golang --skill golang-performance
 ```

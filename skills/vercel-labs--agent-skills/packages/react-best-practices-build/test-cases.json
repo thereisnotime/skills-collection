@@ -1001,6 +1001,22 @@
   },
   {
     "ruleId": "",
+    "ruleTitle": "Avoid Shared Module State for Request Data",
+    "type": "bad",
+    "code": "let currentUser: User | null = null\n\nexport default async function Page() {\n  currentUser = await auth()\n  return <Dashboard />\n}\n\nasync function Dashboard() {\n  return <div>{currentUser?.name}</div>\n}",
+    "language": "tsx",
+    "description": "request data leaks across concurrent renders"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Avoid Shared Module State for Request Data",
+    "type": "good",
+    "code": "export default async function Page() {\n  const user = await auth()\n  return <Dashboard user={user} />\n}\n\nfunction Dashboard({ user }: { user: User | null }) {\n  return <div>{user?.name}</div>\n}",
+    "language": "tsx",
+    "description": "keep request data local to the render tree"
+  },
+  {
+    "ruleId": "",
     "ruleTitle": "Parallel Data Fetching with Component Composition",
     "type": "bad",
     "code": "export default async function Page() {\n  const header = await fetchHeader()\n  return (\n    <div>\n      <div>{header}</div>\n      <Sidebar />\n    </div>\n  )\n}\n\nasync function Sidebar() {\n  const items = await fetchSidebarItems()\n  return <nav>{items.map(renderItem)}</nav>\n}",

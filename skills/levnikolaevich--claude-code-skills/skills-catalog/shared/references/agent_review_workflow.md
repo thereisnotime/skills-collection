@@ -335,8 +335,12 @@ After returning results, run meta-analysis on agent delegation effectiveness: co
 verdict: "{verdict_acceptable} | SUGGESTIONS | SKIPPED"
 suggestions:
   - area: "..."
+    file: "path/to/file.ext"
+    line_start: 42
+    line_end: 58
     issue: "What is wrong"
     suggestion: "Specific fix"
+    recommended_action: "fix | investigate | monitor | accept_risk"
     confidence: 95
     impact_percent: 15
     source: "{agent}"

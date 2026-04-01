@@ -25,7 +25,7 @@ Given these goals, articulate in your report's Goal section what specific feasib
 1. Read the plan file specified in the Plan section above — it contains the exact path to the materialized file
 2. Examine the actual codebase to verify plan assumptions (file paths, APIs, patterns)
 3. Search the web for best practices relevant to the technical decisions
-4. DO NOT modify any files. This is a read-only review.
+4. Focus on analysis — avoid modifying project files unless a fix is trivial and obvious.
 
 ## Internal Reuse Check
 Before evaluating external alternatives, search the codebase for:

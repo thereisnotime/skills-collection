@@ -1,6 +1,6 @@
 {
   "name": "@levnikolaevich/hex-line-mcp",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "mcpName": "io.github.levnikolaevich/hex-line-mcp",
   "type": "module",
   "description": "Hash-verified file editing MCP + token efficiency hook for AI coding agents. 10 tools: read, edit, write, grep, outline, verify, directory_tree, file_info, changes, bulk_replace.",

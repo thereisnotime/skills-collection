@@ -2,6 +2,14 @@
 
 <!-- SCOPE: User-facing changes only. Max 5 bullets per entry. Focus: new capabilities, workflow changes, breaking changes. -->
 
+## 2026-03-31
+
+- **Gemini auto-model selection** — removed hardcoded `-m gemini-3-flash-preview` from agent registry; Gemini CLI now auto-selects best available model. ln-011 post-install disables Conseca safety checker
+- **hex-line search output cap** — block-aware 80K char limit prevents CC truncation on large search results; emits `OUTPUT_CAPPED` diagnostic with narrowing guidance
+- **Agent review suggestion schema v2** — added `file`, `line_start`, `line_end`, `recommended_action` fields to all review schemas and prompt templates; relaxed read-only constraint to allow trivial fixes
+- **model: claude-sonnet-4-6 in skills** — 32 SKILL.md files now declare explicit model; skills run on Sonnet 4.6 by default instead of inheriting parent model
+- **hex-line hook safeExit + path filter** — writeSync-based flush before exit prevents output loss; path filter simplified to project-dir check (drops complex settings.json allowlist)
+
 ## 2026-03-30
 
 - **hex-graph workspace-aware API** — tool parameters updated with explicit `path`, canonical selector rules, precision controls (`min_confidence`), and expanded language coverage (Python, C#, PHP with optional precise overlay)
