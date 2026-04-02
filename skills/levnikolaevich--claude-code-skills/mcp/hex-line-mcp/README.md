@@ -97,13 +97,15 @@ If a project already has `.hex-skills/codegraph/index.db`, `hex-line` can add li
 
 - Graph enrichment is optional. If `.hex-skills/codegraph/index.db` is missing, `hex-line` falls back to standard behavior silently.
 - `better-sqlite3` is optional. If it is unavailable, `hex-line` still works without graph hints.
-- `edit_file` reports **Call impact**, not full semantic blast radius. The warning uses call-graph callers only.
+- `edit_file` reports **Semantic impact** using explainable graph facts: external callers, downstream return/property flow, and clone peers when present.
 
 `hex-line` does not read `hex-graph` internals directly anymore. The integration uses a small read-only contract exposed by `hex-graph-mcp`:
 
-- `hex_line_contract`
-- `hex_line_symbol_annotations`
-- `hex_line_call_edges`
+- `hex_line_symbols`
+- `hex_line_line_facts`
+- `hex_line_edit_impacts`
+- `hex_line_edit_impact_facts`
+- `hex_line_clone_siblings`
 
 ## Tools Reference
 

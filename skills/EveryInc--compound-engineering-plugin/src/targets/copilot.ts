@@ -1,5 +1,5 @@
 import path from "path"
-import { backupFile, copySkillDir, ensureDir, sanitizePathName, writeJson, writeText } from "../utils/files"
+import { backupFile, copySkillDir, ensureDir, pathExists, readJson, sanitizePathName, writeJsonSecure, writeText } from "../utils/files"
 import { transformContentForCopilot } from "../converters/claude-to-copilot"
 import type { CopilotBundle } from "../types/copilot"
 
@@ -28,13 +28,67 @@ export async function writeCopilotBundle(outputRoot: string, bundle: CopilotBund
     }
   }
 
-  if (bundle.mcpConfig && Object.keys(bundle.mcpConfig).length > 0) {
-    const mcpPath = path.join(paths.githubDir, "copilot-mcp-config.json")
+  const mcpPath = path.join(paths.githubDir, "copilot-mcp-config.json")
+  const merged = await mergeCopilotMcpConfig(mcpPath, bundle.mcpConfig ?? {})
+  if (merged !== null) {
     const backupPath = await backupFile(mcpPath)
     if (backupPath) {
       console.log(`Backed up existing copilot-mcp-config.json to ${backupPath}`)
     }
-    await writeJson(mcpPath, { mcpServers: bundle.mcpConfig })
+    await writeJsonSecure(mcpPath, merged)
+  }
+}
+
+const MANAGED_KEY = "_compound_managed_mcp"
+
+async function mergeCopilotMcpConfig(
+  configPath: string,
+  incoming: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  let existing: Record<string, unknown> = {}
+  if (await pathExists(configPath)) {
+    try {
+      const parsed = await readJson<unknown>(configPath)
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        existing = parsed as Record<string, unknown>
+      }
+    } catch {
+      // Unparseable file — proceed with incoming only
+    }
+  }
+
+  const existingMcp = (typeof existing.mcpServers === "object" && existing.mcpServers !== null && !Array.isArray(existing.mcpServers))
+    ? { ...(existing.mcpServers as Record<string, unknown>) }
+    : {}
+
+  // Remove previously-managed plugin servers that are no longer in the bundle.
+  // Legacy migration: if no tracking key exists AND plugin has servers, assume all
+  // existing servers are plugin-managed (the old writer overwrote the entire file).
+  // When incoming is empty, skip pruning — there's nothing to migrate and we'd
+  // wrongly delete user servers from a pre-existing untracked config.
+  const incomingKeys = Object.keys(incoming)
+  const hasTrackingKey = Array.isArray(existing[MANAGED_KEY])
+  const prevManaged = hasTrackingKey
+    ? existing[MANAGED_KEY] as string[]
+    : incomingKeys.length > 0 ? Object.keys(existingMcp) : []
+  for (const name of prevManaged) {
+    if (!(name in incoming)) {
+      delete existingMcp[name]
+    }
+  }
+
+  const mergedMcp = { ...existingMcp, ...incoming }
+
+  // Nothing to write — no user servers, no plugin servers, no existing file
+  if (Object.keys(mergedMcp).length === 0 && Object.keys(existing).length === 0) {
+    return null
+  }
+
+  // Always write tracking key (even as []) to prevent legacy fallback on future installs
+  return {
+    ...existing,
+    mcpServers: mergedMcp,
+    [MANAGED_KEY]: incomingKeys,
   }
 }
 

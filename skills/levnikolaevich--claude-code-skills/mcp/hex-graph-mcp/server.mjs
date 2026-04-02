@@ -16,6 +16,7 @@ import { findCycles } from "./lib/cycles.mjs";
 import { resolveStore, findSymbols, getSymbol, tracePaths, getReferencesBySelector, findImplementationsBySelector, findDataflowsBySelector, getArchitectureReport, getHotspots, getModuleMetricsReport, explainResolution } from "./lib/store.mjs";
 import { CONFIDENCE_VALUES } from "./lib/confidence.mjs";
 import { findUnusedExports, formatUnusedText } from "./lib/unused.mjs";
+import { DEFAULT_FLOW_LIMIT, DEFAULT_FLOW_MAX_HOPS, FLOW_ANCHOR_KINDS } from "./lib/flow.mjs";
 
 const { server, StdioServerTransport } = await createServerRuntime({
     name: "hex-graph-mcp",
@@ -81,6 +82,17 @@ function buildTargetSelector(params) {
 
 function confidenceSchema() {
     return z.enum(CONFIDENCE_VALUES).optional().describe("Filter out facts below this confidence tier");
+}
+
+function flowPointSchema() {
+    return z.object({
+        symbol: z.object(selectorSchema()).describe("Canonical selector for the symbol that owns this flow point"),
+        anchor: z.object({
+            kind: z.enum(FLOW_ANCHOR_KINDS),
+            name: z.string().optional().describe("Anchor name for param/local/property"),
+            access_path: z.array(z.string()).optional().describe("Bounded property path segments for property anchors"),
+        }).describe("Anchor within the selected symbol"),
+    });
 }
 
 function wrapResult(result, format = "json") {
@@ -244,29 +256,29 @@ server.registerTool("find_implementations", {
 
 server.registerTool("find_dataflows", {
     title: "Find Dataflows",
-    description: "Find deterministic dataflow paths for a canonical symbol identity.",
+    description: "Find deterministic source-to-sink dataflow paths between anchored flow points.",
     inputSchema: z.object({
-        ...selectorSchema(),
-        ...targetSelectorSchema(),
-        depth: flexNum().describe("Max summary-propagation depth (default: 2)"),
-        limit: flexNum().describe("Max flow summaries/paths (default: 50)"),
+        source: flowPointSchema(),
+        sink: flowPointSchema().optional(),
+        flow_kind: z.enum(["value", "taint"]).default("value"),
+        max_hops: flexNum().describe(`Max flow propagation hops (default: ${DEFAULT_FLOW_MAX_HOPS})`),
+        limit: flexNum().describe(`Max flow paths (default: ${DEFAULT_FLOW_LIMIT})`),
+        min_confidence: confidenceSchema(),
         path: z.string().optional().describe("Indexed project root"),
         format: z.enum(["json", "text"]).default("json"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path, format, depth, limit, ...selector } = coerceParams(rawParams);
-    const target = buildTargetSelector(selector);
-    delete selector.to_symbol_id;
-    delete selector.to_workspace_qualified_name;
-    delete selector.to_qualified_name;
-    delete selector.to_name;
-    delete selector.to_file;
-    return wrapResult(findDataflowsBySelector(selector, {
-        depth: depth ?? 2,
-        limit: limit ?? 50,
+    const { path, format, source, sink, flow_kind, max_hops, limit, min_confidence } = coerceParams(rawParams);
+    return wrapResult(findDataflowsBySelector({
+        source,
+        sink,
+        flow_kind: flow_kind ?? "value",
+        max_hops: max_hops ?? DEFAULT_FLOW_MAX_HOPS,
+        min_confidence: min_confidence ?? null,
+    }, {
+        limit: limit ?? DEFAULT_FLOW_LIMIT,
         path,
-        target,
     }), format);
 });
 

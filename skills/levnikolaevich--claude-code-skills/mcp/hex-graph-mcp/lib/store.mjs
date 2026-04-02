@@ -13,8 +13,9 @@ import { join, resolve } from "node:path";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { confidenceAtLeast, dedupeStrongest } from "./confidence.mjs";
 import { normalizeProviderRun } from "./precise/provider-status.mjs";
+import { anchorKey, anchorsEqual, DEFAULT_FLOW_LIMIT, DEFAULT_FLOW_MAX_HOPS, normalizeAnchor } from "./flow.mjs";
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 7;
 export const CODEGRAPH_DIR = ".hex-skills/codegraph";
 const EXTERNAL_FILE_PREFIX = "[[external]]/";
 const NODE_SELECT_COLUMNS = `
@@ -237,77 +238,443 @@ class Store {
         `);
 
         this.db.exec(`
-            CREATE VIEW IF NOT EXISTS hex_line_contract AS
-            SELECT 2 AS contract_version;
+            CREATE TABLE IF NOT EXISTS flow_facts (
+                id INTEGER PRIMARY KEY,
+                source_symbol_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+                source_anchor_kind TEXT NOT NULL,
+                source_anchor_name TEXT NOT NULL,
+                source_access_path_json TEXT,
+                target_symbol_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+                target_anchor_kind TEXT NOT NULL,
+                target_anchor_name TEXT NOT NULL,
+                target_access_path_json TEXT,
+                flow_kind TEXT NOT NULL DEFAULT 'value',
+                file TEXT NOT NULL,
+                line INTEGER,
+                confidence TEXT NOT NULL DEFAULT 'exact',
+                origin TEXT NOT NULL DEFAULT 'parser_fact',
+                evidence_json TEXT,
+                fact_hash TEXT NOT NULL UNIQUE
+            );
 
-            CREATE VIEW IF NOT EXISTS hex_line_symbol_annotations AS
+            CREATE INDEX IF NOT EXISTS idx_flow_facts_source_symbol ON flow_facts(source_symbol_id);
+            CREATE INDEX IF NOT EXISTS idx_flow_facts_target_symbol ON flow_facts(target_symbol_id);
+            CREATE INDEX IF NOT EXISTS idx_flow_facts_source_anchor ON flow_facts(source_symbol_id, source_anchor_kind, source_anchor_name);
+            CREATE INDEX IF NOT EXISTS idx_flow_facts_target_anchor ON flow_facts(target_symbol_id, target_anchor_kind, target_anchor_name);
+            CREATE INDEX IF NOT EXISTS idx_flow_facts_kind ON flow_facts(flow_kind);
+        `);
+
+        this.db.exec(`
+            DROP VIEW IF EXISTS hex_line_contract;
+            DROP VIEW IF EXISTS hex_line_symbol_annotations;
+            DROP VIEW IF EXISTS hex_line_call_edges;
+            DROP VIEW IF EXISTS hex_line_clone_siblings;
+            DROP VIEW IF EXISTS hex_line_symbols;
+            DROP VIEW IF EXISTS hex_line_line_facts;
+            DROP VIEW IF EXISTS hex_line_edit_impacts;
+            DROP VIEW IF EXISTS hex_line_edit_impact_facts;
+
+            CREATE VIEW hex_line_symbols AS
+            WITH flow_in AS (
+                SELECT target_symbol_id AS node_id, COUNT(*) AS incoming_flow_count
+                FROM flow_facts
+                GROUP BY target_symbol_id
+            ),
+            flow_out AS (
+                SELECT source_symbol_id AS node_id, COUNT(*) AS outgoing_flow_count
+                FROM flow_facts
+                GROUP BY source_symbol_id
+            ),
+            through_points AS (
+                SELECT src.source_symbol_id AS node_id, COUNT(*) AS through_flow_count
+                FROM flow_facts src
+                JOIN flow_facts dst
+                  ON dst.source_symbol_id = src.target_symbol_id
+                 AND dst.source_anchor_kind = src.target_anchor_kind
+                 AND dst.source_anchor_name = src.target_anchor_name
+                 AND COALESCE(dst.source_access_path_json, '') = COALESCE(src.target_access_path_json, '')
+                GROUP BY src.source_symbol_id
+            ),
+            clone_counts AS (
+                SELECT a.node_id AS node_id, COUNT(DISTINCT b.node_id) AS clone_sibling_count
+                FROM clone_blocks a
+                JOIN clone_blocks b
+                  ON b.norm_hash = a.norm_hash
+                 AND b.node_id != a.node_id
+                GROUP BY a.node_id
+            )
             SELECT
                 n.id AS node_id,
                 n.file AS file,
                 n.line_start AS line_start,
                 n.line_end AS line_end,
-                n.kind AS kind,
                 n.name AS name,
                 CASE
                     WHEN n.name = '__default_export__' THEN 'default export'
                     ELSE n.name
                 END AS display_name,
-                (
-                    SELECT COUNT(DISTINCT e.target_id)
-                    FROM edges e
-                    WHERE e.source_id = n.id AND e.kind = 'calls'
-                ) AS callees,
+                n.kind AS kind,
                 (
                     SELECT COUNT(DISTINCT e.source_id)
                     FROM edges e
-                    WHERE e.target_id = n.id AND e.kind = 'calls'
-                ) AS callers
+                    WHERE e.target_id = n.id
+                      AND e.kind = 'calls'
+                      AND e.confidence IN ('exact', 'precise')
+                ) AS callers_exact,
+                (
+                    SELECT COUNT(DISTINCT e.target_id)
+                    FROM edges e
+                    WHERE e.source_id = n.id
+                      AND e.kind = 'calls'
+                      AND e.confidence IN ('exact', 'precise')
+                ) AS callees_exact,
+                COALESCE(flow_in.incoming_flow_count, 0) AS incoming_flow_count,
+                COALESCE(flow_out.outgoing_flow_count, 0) AS outgoing_flow_count,
+                COALESCE(through_points.through_flow_count, 0) AS through_flow_count,
+                COALESCE(clone_counts.clone_sibling_count, 0) AS clone_sibling_count,
+                n.is_exported AS is_exported,
+                n.is_default_export AS is_default_export
             FROM nodes n
+            LEFT JOIN flow_in ON flow_in.node_id = n.id
+            LEFT JOIN flow_out ON flow_out.node_id = n.id
+            LEFT JOIN through_points ON through_points.node_id = n.id
+            LEFT JOIN clone_counts ON clone_counts.node_id = n.id
             WHERE n.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
 
-            CREATE VIEW IF NOT EXISTS hex_line_call_edges AS
+            CREATE VIEW hex_line_line_facts AS
             SELECT
-                e.id AS edge_id,
-                e.source_id AS source_id,
-                e.target_id AS target_id,
-                e.file AS edge_file,
-                e.line AS edge_line,
+                n.file AS file,
+                n.line_start AS line_start,
+                n.line_end AS line_end,
+                n.id AS symbol_node_id,
+                CASE
+                    WHEN n.name = '__default_export__' THEN 'default export'
+                    ELSE n.name
+                END AS display_name,
+                n.kind AS kind,
+                'definition' AS fact_kind,
+                NULL AS related_symbol_id,
+                NULL AS related_display_name,
+                NULL AS related_file,
+                NULL AS related_line,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                'exact' AS confidence,
+                'graph_symbol' AS origin
+            FROM nodes n
+            WHERE n.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+
+            UNION ALL
+
+            SELECT
+                e.file AS file,
+                e.line AS line_start,
+                e.line AS line_end,
+                src.id AS symbol_node_id,
+                CASE WHEN src.name = '__default_export__' THEN 'default export' ELSE src.name END AS display_name,
+                src.kind AS kind,
+                'callee' AS fact_kind,
+                tgt.id AS related_symbol_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS related_display_name,
+                tgt.file AS related_file,
+                tgt.line_start AS related_line,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
                 e.confidence AS confidence,
-                e.origin AS origin,
-                src.file AS source_file,
-                src.line_start AS source_line,
-                CASE
-                    WHEN src.name = '__default_export__' THEN 'default export'
-                    ELSE src.name
-                END AS source_display_name,
-                tgt.file AS target_file,
-                tgt.line_start AS target_line,
-                CASE
-                    WHEN tgt.name = '__default_export__' THEN 'default export'
-                    ELSE tgt.name
-                END AS target_display_name
+                e.origin AS origin
             FROM edges e
             JOIN nodes src ON src.id = e.source_id
             JOIN nodes tgt ON tgt.id = e.target_id
             WHERE e.kind = 'calls'
               AND src.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
-              AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
-        `);
+              AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
 
-        // hex-line clone siblings view (contract v2)
-        this.db.exec(`
-            CREATE VIEW IF NOT EXISTS hex_line_clone_siblings AS
+            UNION ALL
+
             SELECT
-                cb.node_id AS node_id,
-                cb.norm_hash AS norm_hash,
-                n.file AS file,
-                n.line_start AS line_start,
+                e.file AS file,
+                e.line AS line_start,
+                e.line AS line_end,
+                tgt.id AS symbol_node_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS display_name,
+                tgt.kind AS kind,
+                'caller' AS fact_kind,
+                src.id AS related_symbol_id,
+                CASE WHEN src.name = '__default_export__' THEN 'default export' ELSE src.name END AS related_display_name,
+                src.file AS related_file,
+                src.line_start AS related_line,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                e.confidence AS confidence,
+                e.origin AS origin
+            FROM edges e
+            JOIN nodes src ON src.id = e.source_id
+            JOIN nodes tgt ON tgt.id = e.target_id
+            WHERE e.kind = 'calls'
+              AND src.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+              AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+
+            UNION ALL
+
+            SELECT
+                ff.file AS file,
+                ff.line AS line_start,
+                ff.line AS line_end,
+                src.id AS symbol_node_id,
+                CASE WHEN src.name = '__default_export__' THEN 'default export' ELSE src.name END AS display_name,
+                src.kind AS kind,
+                'outgoing_flow' AS fact_kind,
+                tgt.id AS related_symbol_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS related_display_name,
+                tgt.file AS related_file,
+                tgt.line_start AS related_line,
+                ff.source_anchor_kind AS source_anchor_kind,
+                ff.source_anchor_name AS source_anchor_name,
+                ff.target_anchor_kind AS target_anchor_kind,
+                ff.target_anchor_name AS target_anchor_name,
+                ff.target_access_path_json AS access_path_json,
+                ff.confidence AS confidence,
+                ff.origin AS origin
+            FROM flow_facts ff
+            JOIN nodes src ON src.id = ff.source_symbol_id
+            JOIN nodes tgt ON tgt.id = ff.target_symbol_id
+            WHERE src.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+              AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+
+            UNION ALL
+
+            SELECT
+                ff.file AS file,
+                ff.line AS line_start,
+                ff.line AS line_end,
+                tgt.id AS symbol_node_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS display_name,
+                tgt.kind AS kind,
+                'incoming_flow' AS fact_kind,
+                src.id AS related_symbol_id,
+                CASE WHEN src.name = '__default_export__' THEN 'default export' ELSE src.name END AS related_display_name,
+                src.file AS related_file,
+                src.line_start AS related_line,
+                ff.source_anchor_kind AS source_anchor_kind,
+                ff.source_anchor_name AS source_anchor_name,
+                ff.target_anchor_kind AS target_anchor_kind,
+                ff.target_anchor_name AS target_anchor_name,
+                ff.target_access_path_json AS access_path_json,
+                ff.confidence AS confidence,
+                ff.origin AS origin
+            FROM flow_facts ff
+            JOIN nodes src ON src.id = ff.source_symbol_id
+            JOIN nodes tgt ON tgt.id = ff.target_symbol_id
+            WHERE src.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+              AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+
+            UNION ALL
+
+            SELECT
+                ff.file AS file,
+                ff.line AS line_start,
+                ff.line AS line_end,
+                mid.id AS symbol_node_id,
+                CASE WHEN mid.name = '__default_export__' THEN 'default export' ELSE mid.name END AS display_name,
+                mid.kind AS kind,
+                'through_flow' AS fact_kind,
+                nxt.id AS related_symbol_id,
+                CASE WHEN nxt.name = '__default_export__' THEN 'default export' ELSE nxt.name END AS related_display_name,
+                nxt.file AS related_file,
+                nxt.line_start AS related_line,
+                ff2.source_anchor_kind AS source_anchor_kind,
+                ff2.source_anchor_name AS source_anchor_name,
+                ff2.target_anchor_kind AS target_anchor_kind,
+                ff2.target_anchor_name AS target_anchor_name,
+                ff2.target_access_path_json AS access_path_json,
+                ff2.confidence AS confidence,
+                ff2.origin AS origin
+            FROM flow_facts ff
+            JOIN flow_facts ff2
+              ON ff2.source_symbol_id = ff.target_symbol_id
+             AND ff2.source_anchor_kind = ff.target_anchor_kind
+             AND ff2.source_anchor_name = ff.target_anchor_name
+             AND COALESCE(ff2.source_access_path_json, '') = COALESCE(ff.target_access_path_json, '')
+            JOIN nodes mid ON mid.id = ff.target_symbol_id
+            JOIN nodes nxt ON nxt.id = ff2.target_symbol_id
+            WHERE mid.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+              AND nxt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
+
+            CREATE VIEW hex_line_clone_siblings AS
+            SELECT
+                a.node_id AS node_id,
+                CASE WHEN n1.name = '__default_export__' THEN 'default export' ELSE n1.name END AS display_name,
+                n1.file AS file,
+                n1.line_start AS line_start,
+                b.node_id AS clone_peer_id,
+                CASE WHEN n2.name = '__default_export__' THEN 'default export' ELSE n2.name END AS clone_peer_name,
+                n2.file AS clone_peer_file,
+                n2.line_start AS clone_peer_line,
                 CASE
-                    WHEN n.name = '__default_export__' THEN 'default export'
-                    ELSE n.name
-                END AS display_name
-            FROM clone_blocks cb
-            JOIN nodes n ON n.id = cb.node_id;
+                    WHEN a.raw_hash = b.raw_hash THEN 'exact'
+                    ELSE 'normalized'
+                END AS clone_type
+            FROM clone_blocks a
+            JOIN clone_blocks b
+              ON b.norm_hash = a.norm_hash
+             AND b.node_id != a.node_id
+            JOIN nodes n1 ON n1.id = a.node_id
+            JOIN nodes n2 ON n2.id = b.node_id;
+
+            CREATE VIEW hex_line_edit_impact_facts AS
+            SELECT DISTINCT
+                tgt.id AS edited_symbol_id,
+                'external_caller' AS fact_kind,
+                src.id AS target_symbol_id,
+                CASE WHEN src.name = '__default_export__' THEN 'default export' ELSE src.name END AS target_display_name,
+                src.file AS target_file,
+                src.line_start AS target_line,
+                NULL AS intermediate_symbol_id,
+                NULL AS intermediate_display_name,
+                'call' AS path_kind,
+                1 AS flow_hops,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                e.confidence AS confidence,
+                e.origin AS origin
+            FROM edges e
+            JOIN nodes src ON src.id = e.source_id
+            JOIN nodes tgt ON tgt.id = e.target_id
+            WHERE e.kind = 'calls'
+              AND src.file != tgt.file
+              AND e.confidence IN ('exact', 'precise')
+
+            UNION ALL
+
+            SELECT
+                ff.source_symbol_id AS edited_symbol_id,
+                CASE
+                    WHEN ff.target_anchor_kind = 'property' THEN 'property_flow_to_symbol'
+                    ELSE 'return_flow_to_symbol'
+                END AS fact_kind,
+                tgt.id AS target_symbol_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS target_display_name,
+                tgt.file AS target_file,
+                tgt.line_start AS target_line,
+                NULL AS intermediate_symbol_id,
+                NULL AS intermediate_display_name,
+                CASE
+                    WHEN ff.target_anchor_kind = 'property' THEN 'property_flow'
+                    WHEN ff.source_anchor_kind = 'return' THEN 'return_flow'
+                    ELSE 'flow'
+                END AS path_kind,
+                1 AS flow_hops,
+                ff.source_anchor_kind AS source_anchor_kind,
+                ff.source_anchor_name AS source_anchor_name,
+                ff.target_anchor_kind AS target_anchor_kind,
+                ff.target_anchor_name AS target_anchor_name,
+                ff.target_access_path_json AS access_path_json,
+                ff.confidence AS confidence,
+                ff.origin AS origin
+            FROM flow_facts ff
+            JOIN nodes tgt ON tgt.id = ff.target_symbol_id
+            WHERE ff.source_anchor_kind = 'return'
+              AND ff.source_symbol_id != ff.target_symbol_id
+
+            UNION ALL
+
+            SELECT
+                ff1.source_symbol_id AS edited_symbol_id,
+                CASE
+                    WHEN ff2.target_anchor_kind = 'property' THEN 'property_flow_to_symbol'
+                    ELSE 'flow_reaches_terminal_anchor'
+                END AS fact_kind,
+                tgt.id AS target_symbol_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS target_display_name,
+                tgt.file AS target_file,
+                tgt.line_start AS target_line,
+                mid.id AS intermediate_symbol_id,
+                CASE WHEN mid.name = '__default_export__' THEN 'default export' ELSE mid.name END AS intermediate_display_name,
+                'flow_chain' AS path_kind,
+                2 AS flow_hops,
+                ff1.source_anchor_kind AS source_anchor_kind,
+                ff1.source_anchor_name AS source_anchor_name,
+                ff2.target_anchor_kind AS target_anchor_kind,
+                ff2.target_anchor_name AS target_anchor_name,
+                ff2.target_access_path_json AS access_path_json,
+                ff2.confidence AS confidence,
+                ff2.origin AS origin
+            FROM flow_facts ff1
+            JOIN flow_facts ff2
+              ON ff2.source_symbol_id = ff1.target_symbol_id
+             AND ff2.source_anchor_kind = ff1.target_anchor_kind
+             AND ff2.source_anchor_name = ff1.target_anchor_name
+             AND COALESCE(ff2.source_access_path_json, '') = COALESCE(ff1.target_access_path_json, '')
+            JOIN nodes mid ON mid.id = ff1.target_symbol_id
+            JOIN nodes tgt ON tgt.id = ff2.target_symbol_id
+            WHERE ff1.source_anchor_kind = 'return'
+              AND ff1.source_symbol_id != ff2.target_symbol_id
+
+            UNION ALL
+
+            SELECT
+                c.node_id AS edited_symbol_id,
+                'clone_sibling' AS fact_kind,
+                c.clone_peer_id AS target_symbol_id,
+                c.clone_peer_name AS target_display_name,
+                c.clone_peer_file AS target_file,
+                c.clone_peer_line AS target_line,
+                NULL AS intermediate_symbol_id,
+                NULL AS intermediate_display_name,
+                c.clone_type AS path_kind,
+                1 AS flow_hops,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                'exact' AS confidence,
+                'clone_index' AS origin
+            FROM hex_line_clone_siblings c;
+
+            CREATE VIEW hex_line_edit_impacts AS
+            SELECT
+                s.node_id AS symbol_node_id,
+                s.file AS file,
+                s.line_start AS line_start,
+                s.line_end AS line_end,
+                s.display_name AS display_name,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'external_caller'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.target_file, '') || '|' || COALESCE(CAST(f.target_line AS TEXT), '')
+                END) AS external_callers_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'return_flow_to_symbol'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.path_kind, '') || '|' || COALESCE(f.target_anchor_kind, '')
+                END) AS downstream_return_flow_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'property_flow_to_symbol'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.path_kind, '') || '|' || COALESCE(f.access_path_json, '')
+                END) AS downstream_property_flow_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'flow_reaches_terminal_anchor'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.path_kind, '') || '|' || COALESCE(f.target_anchor_kind, '')
+                END) AS sink_reach_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'clone_sibling'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.path_kind, '')
+                END) AS clone_sibling_count
+            FROM hex_line_symbols s
+            LEFT JOIN hex_line_edit_impact_facts f
+              ON f.edited_symbol_id = s.node_id
+            GROUP BY s.node_id, s.file, s.line_start, s.line_end, s.display_name;
         `);
 
         // Module-level import edges (file-to-file raw evidence)
@@ -639,6 +1006,57 @@ class Store {
              WHERE fs.related_symbol_id = ?
              ORDER BY fs.line, fs.id`
         );
+        this._insertFlowFact = this.db.prepare(
+            `INSERT OR REPLACE INTO flow_facts (
+                source_symbol_id, source_anchor_kind, source_anchor_name, source_access_path_json,
+                target_symbol_id, target_anchor_kind, target_anchor_name, target_access_path_json,
+                flow_kind, file, line, confidence, origin, evidence_json, fact_hash
+            ) VALUES (
+                @source_symbol_id, @source_anchor_kind, @source_anchor_name, @source_access_path_json,
+                @target_symbol_id, @target_anchor_kind, @target_anchor_name, @target_access_path_json,
+                @flow_kind, @file, @line, @confidence, @origin, @evidence_json, @fact_hash
+            )`
+        );
+        this._flowFactsBySourceSymbol = this.db.prepare(
+            `SELECT ff.*,
+                    src.name AS source_symbol_name,
+                    src.kind AS source_symbol_kind,
+                    src.file AS source_symbol_file,
+                    src.line_start AS source_symbol_line,
+                    src.qualified_name AS source_symbol_qualified_name,
+                    src.language AS source_symbol_language,
+                    tgt.name AS target_symbol_name,
+                    tgt.kind AS target_symbol_kind,
+                    tgt.file AS target_symbol_file,
+                    tgt.line_start AS target_symbol_line,
+                    tgt.qualified_name AS target_symbol_qualified_name,
+                    tgt.language AS target_symbol_language
+             FROM flow_facts ff
+             JOIN nodes src ON src.id = ff.source_symbol_id
+             JOIN nodes tgt ON tgt.id = ff.target_symbol_id
+             WHERE ff.source_symbol_id = ?
+             ORDER BY ff.line, ff.id`
+        );
+        this._flowFactsByTargetSymbol = this.db.prepare(
+            `SELECT ff.*,
+                    src.name AS source_symbol_name,
+                    src.kind AS source_symbol_kind,
+                    src.file AS source_symbol_file,
+                    src.line_start AS source_symbol_line,
+                    src.qualified_name AS source_symbol_qualified_name,
+                    src.language AS source_symbol_language,
+                    tgt.name AS target_symbol_name,
+                    tgt.kind AS target_symbol_kind,
+                    tgt.file AS target_symbol_file,
+                    tgt.line_start AS target_symbol_line,
+                    tgt.qualified_name AS target_symbol_qualified_name,
+                    tgt.language AS target_symbol_language
+             FROM flow_facts ff
+             JOIN nodes src ON src.id = ff.source_symbol_id
+             JOIN nodes tgt ON tgt.id = ff.target_symbol_id
+             WHERE ff.target_symbol_id = ?
+             ORDER BY ff.line, ff.id`
+        );
 
         // --- Unused export detection statements ---
 
@@ -912,6 +1330,53 @@ class Store {
 
     flowSummariesByRelatedSymbol(nodeId) {
         return this._flowSummariesByRelated.all(nodeId);
+    }
+
+    insertFlowFact(fact) {
+        const sourceAnchor = normalizeAnchor(fact.source_anchor);
+        const targetAnchor = normalizeAnchor(fact.target_anchor);
+        if (!sourceAnchor || !targetAnchor) return;
+        const normalized = {
+            flow_kind: "value",
+            line: null,
+            confidence: "exact",
+            origin: "parser_fact",
+            evidence_json: null,
+            ...fact,
+            source_anchor_kind: sourceAnchor.kind,
+            source_anchor_name: sourceAnchor.name || "",
+            source_access_path_json: sourceAnchor.access_path ? JSON.stringify(sourceAnchor.access_path) : null,
+            target_anchor_kind: targetAnchor.kind,
+            target_anchor_name: targetAnchor.name || "",
+            target_access_path_json: targetAnchor.access_path ? JSON.stringify(targetAnchor.access_path) : null,
+        };
+        normalized.fact_hash = createHash("md5")
+            .update([
+                normalized.source_symbol_id,
+                normalized.source_anchor_kind,
+                normalized.source_anchor_name,
+                normalized.source_access_path_json || "",
+                normalized.target_symbol_id,
+                normalized.target_anchor_kind,
+                normalized.target_anchor_name,
+                normalized.target_access_path_json || "",
+                normalized.flow_kind,
+                normalized.file,
+                normalized.line ?? "",
+                normalized.confidence,
+                normalized.origin,
+            ].join("|"))
+            .digest("hex")
+            .slice(0, 16);
+        this._insertFlowFact.run(normalized);
+    }
+
+    flowFactsBySourceSymbol(symbolId) {
+        return this._flowFactsBySourceSymbol.all(symbolId);
+    }
+
+    flowFactsByTargetSymbol(symbolId) {
+        return this._flowFactsByTargetSymbol.all(symbolId);
     }
 
     // --- Module edge operations ---
@@ -1588,6 +2053,28 @@ function resolveOptionalSelector(store, selector = null) {
     return resolveSelector(store, selector);
 }
 
+function resolveFlowPoint(store, point, label) {
+    if (!point || typeof point !== "object") {
+        return selectorError("INVALID_FLOW_QUERY", `${label} must be an object with symbol and anchor`, "Provide source/sink as { symbol: selector, anchor: { kind, ... } }");
+    }
+    const symbol = resolveSelector(store, point.symbol || {});
+    if (symbol.error) return symbol;
+    const anchor = normalizeAnchor(point.anchor);
+    if (!anchor) {
+        return selectorError("INVALID_FLOW_ANCHOR", `${label}.anchor must include a valid kind/name/access_path`, "Use anchor kinds: param, local, return, property");
+    }
+    return {
+        query: {
+            symbol: symbol.query,
+            anchor,
+        },
+        point: {
+            symbol: symbol.node,
+            anchor,
+        },
+    };
+}
+
 function collectReferenceRows(store, node, kind) {
     let refs = store.findReferences(node.id);
     const reexportProxies = store.reexportSourcesTo(node.id);
@@ -1634,6 +2121,79 @@ function serializeFlowEdge(row, direction) {
         direction,
         source_name: row.source_name,
         target_name: row.target_name,
+    };
+}
+
+function parseAccessPath(value) {
+    if (!value) return null;
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function flowAnchorFromRow(prefix, row) {
+    return {
+        kind: row[`${prefix}_anchor_kind`],
+        name: row[`${prefix}_anchor_name`] || null,
+        access_path: parseAccessPath(row[`${prefix}_access_path_json`]),
+    };
+}
+
+function serializeFlowSymbol(store, prefix, row) {
+    return serializeNode(store, {
+        id: row[`${prefix}_symbol_id`],
+        qualified_name: row[`${prefix}_symbol_qualified_name`] || null,
+        name: row[`${prefix}_symbol_name`],
+        kind: row[`${prefix}_symbol_kind`],
+        language: row[`${prefix}_symbol_language`] || null,
+        file: row[`${prefix}_symbol_file`],
+        line_start: row[`${prefix}_symbol_line`],
+        line_end: row[`${prefix}_symbol_line`],
+        signature: null,
+        is_exported: 0,
+        is_default_export: 0,
+    });
+}
+
+function serializeFlowFact(store, row, direction = "forward") {
+    return {
+        layer: "flow",
+        flow_kind: row.flow_kind,
+        kind: parseEvidence(row.evidence_json)?.kind || "flow",
+        confidence: row.confidence,
+        origin: row.origin,
+        file: row.file,
+        line: row.line,
+        direction,
+        source_symbol: serializeFlowSymbol(store, "source", row),
+        target_symbol: serializeFlowSymbol(store, "target", row),
+        source_anchor: flowAnchorFromRow("source", row),
+        target_anchor: flowAnchorFromRow("target", row),
+        evidence: parseEvidence(row.evidence_json),
+    };
+}
+
+function filterFlowFacts(rows, { flowKind = "value", minConfidence = null, symbolId = null, anchor = null, direction = "source" } = {}) {
+    return rows.filter(row => {
+        if (flowKind && flowKind !== "taint" && row.flow_kind !== flowKind) return false;
+        if (minConfidence && !confidenceAtLeast(row.confidence, minConfidence)) return false;
+        if (symbolId == null && !anchor) return true;
+        const rowSymbolId = direction === "source" ? row.source_symbol_id : row.target_symbol_id;
+        if (symbolId != null && rowSymbolId !== symbolId) return false;
+        if (!anchor) return true;
+        const rowAnchor = direction === "source" ? flowAnchorFromRow("source", row) : flowAnchorFromRow("target", row);
+        return anchorsEqual(rowAnchor, anchor);
+    });
+}
+
+function formatAnchorNode(symbol, anchor) {
+    return {
+        type: "flow_point",
+        symbol,
+        anchor: normalizeAnchor(anchor),
     };
 }
 
@@ -1762,6 +2322,112 @@ export function tracePaths(selector, {
     if (resolvedTarget?.error) return resolvedTarget;
     const targetNode = resolvedTarget?.node || null;
 
+    if (path_kind === "flow") {
+        const forward = direction === "forward" || direction === "both";
+        const reverse = direction === "reverse" || direction === "both";
+        const paths = [];
+        const enqueueSeeds = [];
+        if (forward) {
+            for (const row of filterFlowFacts(store.flowFactsBySourceSymbol(resolved.node.id), { minConfidence: min_confidence })) {
+                enqueueSeeds.push({
+                    point: { symbol: resolved.node, anchor: flowAnchorFromRow("source", row) },
+                    depth: 0,
+                    nodes: [formatAnchorNode(serializeNode(store, resolved.node), flowAnchorFromRow("source", row))],
+                    edges: [],
+                    seen: new Set([anchorKey(resolved.node.id, flowAnchorFromRow("source", row))]),
+                    traversal: "forward",
+                });
+            }
+        }
+        if (reverse) {
+            for (const row of filterFlowFacts(store.flowFactsByTargetSymbol(resolved.node.id), { minConfidence: min_confidence, direction: "target" })) {
+                enqueueSeeds.push({
+                    point: { symbol: resolved.node, anchor: flowAnchorFromRow("target", row) },
+                    depth: 0,
+                    nodes: [formatAnchorNode(serializeNode(store, resolved.node), flowAnchorFromRow("target", row))],
+                    edges: [],
+                    seen: new Set([anchorKey(resolved.node.id, flowAnchorFromRow("target", row))]),
+                    traversal: "reverse",
+                });
+            }
+        }
+
+        const queue = dedupeStrongest(enqueueSeeds, seed => `${seed.traversal}:${anchorKey(seed.point.symbol.id, seed.point.anchor)}`);
+        while (queue.length > 0 && paths.length < limit) {
+            const current = queue.shift();
+            if (current.depth >= depth) continue;
+            const candidateRows = current.traversal === "forward"
+                ? filterFlowFacts(store.flowFactsBySourceSymbol(current.point.symbol.id), {
+                    minConfidence: min_confidence,
+                    symbolId: current.point.symbol.id,
+                    anchor: current.point.anchor,
+                    direction: "source",
+                })
+                : filterFlowFacts(store.flowFactsByTargetSymbol(current.point.symbol.id), {
+                    minConfidence: min_confidence,
+                    symbolId: current.point.symbol.id,
+                    anchor: current.point.anchor,
+                    direction: "target",
+                });
+
+            for (const row of candidateRows) {
+                const edge = current.traversal === "forward"
+                    ? serializeFlowFact(store, row, "forward")
+                    : {
+                        ...serializeFlowFact(store, row, "reverse"),
+                        source_symbol: serializeFlowSymbol(store, "target", row),
+                        target_symbol: serializeFlowSymbol(store, "source", row),
+                        source_anchor: flowAnchorFromRow("target", row),
+                        target_anchor: flowAnchorFromRow("source", row),
+                    };
+                const nextSymbol = current.traversal === "forward" ? edge.target_symbol : edge.target_symbol;
+                const nextAnchor = edge.target_anchor;
+                const nextStateKey = anchorKey(nextSymbol.symbol_id, nextAnchor);
+                if (!nextStateKey || current.seen.has(nextStateKey)) continue;
+                const nextSeen = new Set(current.seen);
+                nextSeen.add(nextStateKey);
+                const nextPath = {
+                    point: { symbol: store.getNodeById(nextSymbol.symbol_id), anchor: nextAnchor },
+                    depth: current.depth + 1,
+                    nodes: [...current.nodes, formatAnchorNode(nextSymbol, nextAnchor)],
+                    edges: [...current.edges, edge],
+                    seen: nextSeen,
+                    traversal: current.traversal,
+                };
+                const matchesTarget = !targetNode || nextSymbol.symbol_id === targetNode.id;
+                if (matchesTarget) {
+                    paths.push({
+                        depth: nextPath.depth,
+                        nodes: nextPath.nodes,
+                        edges: nextPath.edges,
+                    });
+                }
+                queue.push(nextPath);
+                if (paths.length >= limit) break;
+            }
+        }
+
+        return {
+            query: {
+                ...resolved.query,
+                path_kind,
+                direction,
+                depth,
+                limit,
+                min_confidence,
+                target: resolvedTarget ? resolvedTarget.query : null,
+            },
+            result: paths,
+            confidence: resolved.confidence,
+            reason: targetNode ? "targeted_flow_lookup" : resolved.reason,
+            evidence: {
+                traversed_path_count: paths.length,
+                target_found: targetNode ? paths.length > 0 : null,
+            },
+            limits_applied: { depth, limit },
+        };
+    }
+
     const includeFlow = path_kind === "flow" || path_kind === "mixed";
     const edgeKinds = path_kind === "calls"
         ? new Set(["calls"])
@@ -1794,11 +2460,11 @@ export function tracePaths(selector, {
                 });
             }
             if (includeFlow) {
-                for (const row of store.flowSummariesByOwner(nodeId)) {
-                    if (!row.related_symbol_id) continue;
+                for (const row of filterFlowFacts(store.flowFactsBySourceSymbol(nodeId), { minConfidence: min_confidence })) {
+                    if (row.target_symbol_id === nodeId) continue;
                     rows.push({
-                        nextId: row.related_symbol_id,
-                        edge: serializeFlowEdge(row, "forward"),
+                        nextId: row.target_symbol_id,
+                        edge: serializeFlowFact(store, row, "forward"),
                     });
                 }
             }
@@ -1820,10 +2486,17 @@ export function tracePaths(selector, {
                 });
             }
             if (includeFlow) {
-                for (const row of store.flowSummariesByRelatedSymbol(nodeId)) {
+                for (const row of filterFlowFacts(store.flowFactsByTargetSymbol(nodeId), { minConfidence: min_confidence, direction: "target" })) {
+                    if (row.source_symbol_id === nodeId) continue;
                     rows.push({
-                        nextId: row.owner_id,
-                        edge: serializeFlowEdge(row, "reverse"),
+                        nextId: row.source_symbol_id,
+                        edge: {
+                            ...serializeFlowFact(store, row, "reverse"),
+                            source_symbol: serializeFlowSymbol(store, "target", row),
+                            target_symbol: serializeFlowSymbol(store, "source", row),
+                            source_anchor: flowAnchorFromRow("target", row),
+                            target_anchor: flowAnchorFromRow("source", row),
+                        },
                     });
                 }
             }
@@ -2017,89 +2690,95 @@ export function findImplementationsBySelector(selector, { limit = 50, path } = {
     };
 }
 
-export function findDataflowsBySelector(selector, { depth = 2, limit = 50, path, target = null } = {}) {
+export function findDataflowsBySelector(selector, { depth = DEFAULT_FLOW_MAX_HOPS, limit = DEFAULT_FLOW_LIMIT, path, target = null } = {}) {
     const store = resolveStore(path);
     if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const resolved = resolveSelector(store, selector);
-    if (resolved.error) return resolved;
-    const resolvedTarget = resolveOptionalSelector(store, target);
-    if (resolvedTarget?.error) return resolvedTarget;
-    const targetNode = resolvedTarget?.node || null;
+    const options = selector && selector.source ? selector : { source: selector, sink: target };
+    const max_hops = selector?.max_hops ?? depth ?? DEFAULT_FLOW_MAX_HOPS;
+    const flow_kind = selector?.flow_kind || "value";
+    const min_confidence = selector?.min_confidence || null;
+    const resolvedSource = resolveFlowPoint(store, options.source, "source");
+    if (resolvedSource.error) return resolvedSource;
+    const resolvedSink = options.sink ? resolveFlowPoint(store, options.sink, "sink") : null;
+    if (resolvedSink?.error) return resolvedSink;
 
-    const rootNode = resolved.node;
-    const rootSummaries = store.flowSummariesByOwner(rootNode.id);
-    const summaries = rootSummaries.slice(0, limit).map(summary => serializeFlowSummary(store, summary));
-    const paths = [];
     const queue = [{
-        owner: rootNode,
+        point: resolvedSource.point,
         depth: 0,
-        symbols: [serializeNode(store, rootNode)],
-        summaries: [],
-        seen: new Set([rootNode.id]),
+        nodes: [formatAnchorNode(serializeNode(store, resolvedSource.point.symbol), resolvedSource.point.anchor)],
+        hops: [],
+        seen: new Set([anchorKey(resolvedSource.point.symbol.id, resolvedSource.point.anchor)]),
     }];
+    const paths = [];
 
     while (queue.length > 0 && paths.length < limit) {
         const current = queue.shift();
-        if (current.depth >= depth) continue;
-        const flowRows = store.flowSummariesByOwner(current.owner.id);
-        for (const row of flowRows) {
-            const summary = serializeFlowSummary(store, row);
-            if (row.related_symbol_id) {
-                const nextNode = store.getNodeById(row.related_symbol_id);
-                if (nextNode && !current.seen.has(nextNode.id)) {
-                    const nextSeen = new Set(current.seen);
-                    nextSeen.add(nextNode.id);
-                    const nextPath = {
-                        owner: nextNode,
-                        depth: current.depth + 1,
-                        symbols: [...current.symbols, serializeNode(store, nextNode)],
-                        summaries: [...current.summaries, summary],
-                        seen: nextSeen,
-                    };
-                    const matchesTarget = !targetNode || nextNode.id === targetNode.id;
-                    if (matchesTarget) {
-                        paths.push({
-                            depth: nextPath.depth,
-                            symbols: nextPath.symbols,
-                            summaries: nextPath.summaries,
-                        });
-                    }
-                    queue.push(nextPath);
-                    if (paths.length >= limit) break;
-                }
-            } else if (!targetNode && current.summaries.length === 0) {
+        if (current.depth >= max_hops) continue;
+        const rows = filterFlowFacts(store.flowFactsBySourceSymbol(current.point.symbol.id), {
+            flowKind: flow_kind,
+            minConfidence: min_confidence,
+            symbolId: current.point.symbol.id,
+            anchor: current.point.anchor,
+            direction: "source",
+        });
+        for (const row of rows) {
+            const hop = serializeFlowFact(store, row, "forward");
+            if (flow_kind === "taint") hop.flow_kind = "taint";
+            const nextSymbol = store.getNodeById(row.target_symbol_id);
+            const nextAnchor = hop.target_anchor;
+            const nextKey = anchorKey(row.target_symbol_id, nextAnchor);
+            if (!nextSymbol || !nextKey || current.seen.has(nextKey)) continue;
+            const nextSeen = new Set(current.seen);
+            nextSeen.add(nextKey);
+            const nextPath = {
+                point: { symbol: nextSymbol, anchor: nextAnchor },
+                depth: current.depth + 1,
+                nodes: [...current.nodes, formatAnchorNode(serializeNode(store, nextSymbol), nextAnchor)],
+                hops: [...current.hops, hop],
+                seen: nextSeen,
+            };
+            const matchesSink = !resolvedSink
+                || (nextSymbol.id === resolvedSink.point.symbol.id && anchorsEqual(nextAnchor, resolvedSink.point.anchor));
+            if (matchesSink || !resolvedSink) {
                 paths.push({
-                    depth: current.depth,
-                    symbols: current.symbols,
-                    summaries: [summary],
+                    depth: nextPath.depth,
+                    nodes: nextPath.nodes,
+                    hops: nextPath.hops,
                 });
-                if (paths.length >= limit) break;
             }
+            queue.push(nextPath);
+            if (paths.length >= limit) break;
         }
     }
 
-    const confidence = [...rootSummaries, ...paths.flatMap(path => path.summaries)].some(summary => summary.confidence === "heuristic")
+    const allHops = paths.flatMap(item => item.hops);
+    const confidence = allHops.some(hop => hop.confidence === "heuristic")
         ? "heuristic"
-        : [...rootSummaries, ...paths.flatMap(path => path.summaries)].some(summary => summary.confidence === "inferred")
+        : allHops.some(hop => hop.confidence === "inferred")
             ? "inferred"
-            : resolved.confidence;
+            : "exact";
 
     return {
-        query: { ...resolved.query, depth, limit, target: resolvedTarget ? resolvedTarget.query : null },
+        query: {
+            source: resolvedSource.query,
+            sink: resolvedSink ? resolvedSink.query : null,
+            flow_kind,
+            max_hops,
+            limit,
+            min_confidence,
+        },
         result: {
-            symbol: serializeNode(store, rootNode),
-            summaries,
+            source: formatAnchorNode(serializeNode(store, resolvedSource.point.symbol), resolvedSource.point.anchor),
+            sink: resolvedSink ? formatAnchorNode(serializeNode(store, resolvedSink.point.symbol), resolvedSink.point.anchor) : null,
             paths,
-            target: targetNode ? serializeNode(store, targetNode) : null,
         },
         confidence,
-        reason: targetNode ? "targeted_flow_lookup" : "flow_summary_lookup",
+        reason: resolvedSink ? "targeted_flow_lookup" : "flow_path_lookup",
         evidence: {
-            summary_count: summaries.length,
             path_count: paths.length,
-            target_found: targetNode ? paths.length > 0 : null,
+            target_found: resolvedSink ? paths.length > 0 : null,
         },
-        limits_applied: { depth, limit },
+        limits_applied: { max_hops, limit },
     };
 }
 

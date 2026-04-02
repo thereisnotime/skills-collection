@@ -353,6 +353,45 @@ function runTests() {
     }
   })) passed++; else failed++;
 
+  if (test('resolves CLAUDE_PLUGIN_ROOT placeholders in installed claude hooks', () => {
+    const homeDir = createTempDir('install-apply-home-');
+    const projectDir = createTempDir('install-apply-project-');
+
+    try {
+      const result = run(['--profile', 'core'], { cwd: projectDir, homeDir });
+      assert.strictEqual(result.code, 0, result.stderr);
+
+      const claudeRoot = path.join(homeDir, '.claude');
+      const settings = readJson(path.join(claudeRoot, 'settings.json'));
+      const installedHooks = readJson(path.join(claudeRoot, 'hooks', 'hooks.json'));
+
+      const autoTmuxEntry = settings.hooks.PreToolUse.find(entry => entry.id === 'pre:bash:auto-tmux-dev');
+      assert.ok(autoTmuxEntry, 'settings.json should include the auto tmux hook');
+      assert.ok(
+        autoTmuxEntry.hooks[0].command.includes(path.join(claudeRoot, 'scripts', 'hooks', 'auto-tmux-dev.js')),
+        'settings.json should use the installed Claude root for hook commands'
+      );
+      assert.ok(
+        !autoTmuxEntry.hooks[0].command.includes('${CLAUDE_PLUGIN_ROOT}'),
+        'settings.json should not retain CLAUDE_PLUGIN_ROOT placeholders after install'
+      );
+
+      const installedAutoTmuxEntry = installedHooks.hooks.PreToolUse.find(entry => entry.id === 'pre:bash:auto-tmux-dev');
+      assert.ok(installedAutoTmuxEntry, 'hooks/hooks.json should include the auto tmux hook');
+      assert.ok(
+        installedAutoTmuxEntry.hooks[0].command.includes(path.join(claudeRoot, 'scripts', 'hooks', 'auto-tmux-dev.js')),
+        'hooks/hooks.json should use the installed Claude root for hook commands'
+      );
+      assert.ok(
+        !installedAutoTmuxEntry.hooks[0].command.includes('${CLAUDE_PLUGIN_ROOT}'),
+        'hooks/hooks.json should not retain CLAUDE_PLUGIN_ROOT placeholders after install'
+      );
+    } finally {
+      cleanup(homeDir);
+      cleanup(projectDir);
+    }
+  })) passed++; else failed++;
+
   if (test('preserves existing settings fields and hook entries when merging hooks', () => {
     const homeDir = createTempDir('install-apply-home-');
     const projectDir = createTempDir('install-apply-project-');
@@ -416,6 +455,49 @@ function runTests() {
         afterSecondInstall.hooks.PreToolUse.length,
         preToolUseLength,
         'managed hook entries should not duplicate on reinstall'
+      );
+    } finally {
+      cleanup(homeDir);
+      cleanup(projectDir);
+    }
+  })) passed++; else failed++;
+
+  if (test('reinstall deduplicates legacy hooks without ids against new managed ids', () => {
+    const homeDir = createTempDir('install-apply-home-');
+    const projectDir = createTempDir('install-apply-project-');
+
+    try {
+      const firstInstall = run(['--profile', 'core'], { cwd: projectDir, homeDir });
+      assert.strictEqual(firstInstall.code, 0, firstInstall.stderr);
+
+      const settingsPath = path.join(homeDir, '.claude', 'settings.json');
+      const afterFirstInstall = readJson(settingsPath);
+      const legacySettings = JSON.parse(JSON.stringify(afterFirstInstall));
+
+      for (const entries of Object.values(legacySettings.hooks)) {
+        if (!Array.isArray(entries)) {
+          continue;
+        }
+        for (const entry of entries) {
+          delete entry.id;
+        }
+      }
+
+      fs.writeFileSync(settingsPath, JSON.stringify(legacySettings, null, 2));
+      const legacyPreToolUseLength = legacySettings.hooks.PreToolUse.length;
+
+      const secondInstall = run(['--profile', 'core'], { cwd: projectDir, homeDir });
+      assert.strictEqual(secondInstall.code, 0, secondInstall.stderr);
+
+      const afterSecondInstall = readJson(settingsPath);
+      assert.strictEqual(
+        afterSecondInstall.hooks.PreToolUse.length,
+        legacyPreToolUseLength,
+        'legacy hook installs should not duplicate when ids are introduced'
+      );
+      assert.ok(
+        afterSecondInstall.hooks.PreToolUse.every(entry => entry && typeof entry === 'object'),
+        'merged hook entries should remain valid objects'
       );
     } finally {
       cleanup(homeDir);

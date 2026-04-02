@@ -16,35 +16,30 @@ keep-coding-instructions: true
 | Grep | `mcp__hex-line__grep_search` | Edit-ready matches |
 | Edit (text rename) | `mcp__hex-line__bulk_replace` | Multi-file text rename/refactor |
 | Bash `find`/`tree` | `mcp__hex-line__directory_tree` | Pattern search, gitignore-aware |
+| Full code read | `mcp__hex-line__outline` then `read_file` with ranges | Structure first, read targeted |
 
-## Efficient File Reading
+**Bootstrap**: if hex-line calls fail, load schemas: `ToolSearch('+hex-line read edit')`
 
-For unfamiliar code files >100 lines, prefer:
-1. `outline` first
-2. `read_file` with `offset`/`limit` or `ranges`
-3. `paths` or `ranges` when batching several targets
+## Workflow Paths
 
-Avoid reading a large file in full. Prefer compact, targeted reads.
+| Path | When | Flow |
+|------|------|------|
+| Surgical | Know the target | `grep_search` → `edit_file` |
+| Exploratory | Need context first | `outline` → `read_file` (ranges) → `edit_file` |
+| Multi-file | Text rename/refactor | `bulk_replace` |
+| Verify | Check freshness | `verify` → reread only if STALE |
 
 Bash OK for: npm/node/git/docker/curl, pipes, compound commands.
 **Built-in OK for:** images, PDFs, notebooks, Glob (always), `.claude/settings.json`, `.claude/settings.local.json`.
 
 ## Edit Workflow
 
-Prefer:
-1. collect all known hunks for one file
-2. send one `edit_file` call with batched edits
-3. carry `revision` from `read_file` into `base_revision` on follow-up edits
-4. use `set_line`, `replace_lines`, `insert_after`, `replace_between` based on scope
-5. if edit returns CONFLICT, call `verify` with stale checksum — it reports VALID/STALE/INVALID without rereading the whole file
-6. only reread (`read_file`) when `verify` confirms STALE
-
-Post-edit output uses `block: post_edit` with checksum — use it directly for follow-up edits or verify.
-
-Avoid:
-- chained same-file `edit_file` calls when all edits are already known
-- full-file rewrites for local changes
-- using `bulk_replace` for structural block rewrites
+| Do | Don't |
+|----|-------|
+| Batch all hunks in one `edit_file` | Chain same-file `edit_file` calls |
+| Carry `revision` → `base_revision` | Full-file rewrite for local changes |
+| `verify` before reread | `bulk_replace` for block rewrites |
+| `post_edit` checksum for follow-up | — |
 
 
 ## hex-graph — Code Analysis

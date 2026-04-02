@@ -20,13 +20,13 @@ const checks = [
     {
         name: "legacy review phase alias in code or active skill docs",
         test(filePath, content) {
-            if (!/\bPHASE_6_REFINE\b/.test(content)) {
+            if (!/\bPHASE_6_REFINE\b/.test(content) && !/\bPHASE_6_REFINEMENT\b/.test(content)) {
                 return null;
             }
             if (allowedLegacyPhaseDocs.has(normalizePath(filePath))) {
                 return null;
             }
-            return "Use PHASE_6_REFINEMENT only; PHASE_6_REFINE must not appear outside explicit invalid-usage docs.";
+            return "Use PHASE_7_REFINEMENT only; PHASE_6_REFINE and PHASE_6_REFINEMENT must not appear outside explicit invalid-usage docs.";
         },
         include: filePath => isDocumentationLike(filePath) || isJavaScript(filePath),
     },

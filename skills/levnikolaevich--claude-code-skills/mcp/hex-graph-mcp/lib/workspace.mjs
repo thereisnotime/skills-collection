@@ -25,7 +25,7 @@ export function discoverWorkspace(projectPath, sourceEntries) {
     const fileSet = new Set(sourceEntries.map(entry => entry.relPath));
     const metadataFiles = collectMetadataFiles(absPath);
     const metadataByPath = new Map(
-        metadataFiles.map(relPath => [relPath, join(absPath, relPath.replace(/\//g, "\\"))]),
+        metadataFiles.map(relPath => [relPath, join(absPath, relPath)]),
     );
 
     const packages = new Map();

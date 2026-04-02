@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { PassThrough, Readable } from "node:stream";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const defer = (callback) => process.nextTick(callback);
 
@@ -529,6 +532,9 @@ describe("local transfer validation", () => {
 // ==================== SFTP transfers ====================
 
 describe("sftp transfers", () => {
+    const _fakeKeyDir = mkdtempSync(join(tmpdir(), "hex-ssh-fakekey-"));
+    const FAKE_KEY = join(_fakeKeyDir, "id_fake");
+    writeFileSync(FAKE_KEY, "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----\n");
     it("uploads a local file with durable OpenSSH finalize and metadata", async () => {
         const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
         const { join } = await import("node:path");
@@ -552,7 +558,7 @@ describe("sftp transfers", () => {
 
         try {
             const result = await uploadFile(
-                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                 {
                     localPath,
                     remotePath: "/srv/app/nested/payload.bin",
@@ -609,13 +615,13 @@ describe("sftp transfers", () => {
         try {
             await assert.rejects(
                 () => uploadFile(
-                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                     { localPath, remotePath: "/srv/app/payload.bin" }
                 ),
                 /DESTINATION_EXISTS/
             );
             await uploadFile(
-                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                 { localPath, remotePath: "/srv/app/payload.bin", overwrite: true, verify: "none" }
             );
             assert.equal(remoteFiles.get("/srv/app/payload.bin").toString("utf8"), "new");
@@ -642,7 +648,7 @@ describe("sftp transfers", () => {
 
         try {
             const result = await downloadFile(
-                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                 { remotePath: "/var/log/app.log", localPath, verify: "stat" }
             );
 
@@ -675,13 +681,13 @@ describe("sftp transfers", () => {
         try {
             await assert.rejects(
                 () => downloadFile(
-                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                     { remotePath: "/var/log/existing.log", localPath }
                 ),
                 /DESTINATION_EXISTS/
             );
             await downloadFile(
-                { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                 { remotePath: "/var/log/existing.log", localPath, overwrite: true, verify: "none" }
             );
             assert.equal(readFileSync(localPath, "utf8"), "replacement");
@@ -709,7 +715,7 @@ describe("sftp transfers", () => {
         try {
             await assert.rejects(
                 () => downloadFile(
-                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                     { remotePath: "/srv/large.bin", localPath }
                 ),
                 /FILE_TOO_LARGE/
@@ -741,7 +747,7 @@ describe("sftp transfers", () => {
         try {
             await assert.rejects(
                 () => uploadFile(
-                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                     { localPath, remotePath: "/srv/app/payload.bin", verify: "stat" }
                 ),
                 /VERIFY_FAILED/
@@ -770,7 +776,7 @@ describe("sftp transfers", () => {
         try {
             await assert.rejects(
                 () => downloadFile(
-                    { host: "example.com", user: "deploy", port: 22, identityFiles: [] },
+                    { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
                     { remotePath: "/srv/timeout.bin", localPath }
                 ),
                 /TRANSFER_TIMEOUT/

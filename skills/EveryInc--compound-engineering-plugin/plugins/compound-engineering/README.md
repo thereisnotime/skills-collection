@@ -8,7 +8,6 @@ AI-powered development tools that get smarter with every use. Make each unit of 
 |-----------|-------|
 | Agents | 35+ |
 | Skills | 40+ |
-| MCP Servers | 1 |
 
 ## Skills
 
@@ -175,24 +174,6 @@ Agents are specialized subagents invoked by skills — you typically don't call 
 |-------|-------------|
 | `ankane-readme-writer` | Create READMEs following Ankane-style template for Ruby gems |
 
-## MCP Servers
-
-| Server | Description |
-|--------|-------------|
-| `context7` | Framework documentation lookup via Context7 |
-
-### Context7
-
-**Tools provided:**
-- `resolve-library-id` - Find library ID for a framework/package
-- `get-library-docs` - Get documentation for a specific library
-
-Supports 100+ frameworks including Rails, React, Next.js, Vue, Django, Laravel, and more.
-
-MCP servers start automatically when the plugin is enabled.
-
-**Authentication:** To avoid anonymous rate limits, set the `CONTEXT7_API_KEY` environment variable with your Context7 API key. The plugin passes this automatically via the `x-api-key` header. Without it, requests go unauthenticated and will quickly hit the anonymous quota limit.
-
 ## Browser Automation
 
 This plugin uses **agent-browser CLI** for browser automation tasks. Install it globally:
@@ -209,30 +190,6 @@ The `agent-browser` skill provides comprehensive documentation on usage.
 ```bash
 claude /plugin install compound-engineering
 ```
-
-## Known Issues
-
-### MCP Servers Not Auto-Loading
-
-**Issue:** The bundled Context7 MCP server may not load automatically when the plugin is installed.
-
-**Workaround:** Manually add it to your project's `.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "context7": {
-      "type": "http",
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "x-api-key": "${CONTEXT7_API_KEY:-}"
-      }
-    }
-  }
-}
-```
-
-Set `CONTEXT7_API_KEY` in your environment to authenticate. Or add it globally in `~/.claude/settings.json` for all projects.
 
 ## Version History
 

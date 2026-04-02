@@ -18,6 +18,7 @@ import {
     normalizeTokens, computeRawHash, computeNormHash,
     ngrams, minhashSignature, lshBands,
 } from "./clone-hash.mjs";
+import { buildFlowIR } from "./flow.mjs";
 import { extname, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -95,7 +96,7 @@ function classifyTypeKind(nodeType) {
  * @param {string} filePath - absolute file path
  * @param {string} source - file content
  * @param {{cloneDetection?: boolean}} opts - options (default: {})
- * @returns {Promise<{definitions: Array, imports: Array, calls: Array, exports: Set<string>, defaultExport: string|null, reexports: Array}>}
+ * @returns {Promise<{definitions: Array, imports: Array, calls: Array, references: Array, exports: Set<string>, defaultExport: string|null, reexports: Array, flow_ir: Array}>}
  *
  * definitions: { name, kind, line_start, line_end, parent?, signature?, key, clone_data? }
  * imports:     { name, source, line, kind: "import" }
@@ -105,7 +106,7 @@ export async function parseFile(filePath, source, opts = {}) {
     const ext = extname(filePath).toLowerCase();
     const config = LANG_CONFIGS[ext];
     if (!config) {
-        return { definitions: [], imports: [], calls: [], references: [], exports: new Set(), defaultExport: null, reexports: [] };
+        return { definitions: [], imports: [], calls: [], references: [], exports: new Set(), defaultExport: null, reexports: [], flow_ir: [] };
     }
 
     const grammar = grammarForExtension(ext);
@@ -199,9 +200,9 @@ export async function parseFile(filePath, source, opts = {}) {
             const imp = extractImport(node, grammar);
             if (imp) imports.push({ ...imp, line: startLine });
         } else if (captureName === "call") {
-            const callName = extractCallName(node);
-            if (callName) {
-                calls.push({ name: callName, line: startLine });
+            const call = extractCallDetails(node);
+            if (call?.name) {
+                calls.push({ ...call, line: startLine });
             }
         } else if (captureName === "reference.identifier") {
             if (node.type === "identifier" || node.type === "name") {
@@ -311,9 +312,11 @@ export async function parseFile(filePath, source, opts = {}) {
         delete def._node;
     }
 
+    const flow_ir = buildFlowIR(source, grammar, definitions, calls);
+
     tree.delete();
 
-    return { definitions, imports, calls, references, exports: exportSet, defaultExport, reexports };
+    return { definitions, imports, calls, references, exports: exportSet, defaultExport, reexports, flow_ir };
 }
 
 // --- Helpers ---
@@ -324,21 +327,76 @@ function extractSignature(node) {
     return null;
 }
 
-function extractCallName(node) {
+function extractCallDetails(node) {
     // call_expression -> function field is the callee
     const fn = node.childForFieldName("function");
     if (!fn) return null;
+    const argsNode = node.childForFieldName("arguments");
+    const args = argsNode ? extractArgumentTexts(argsNode.text) : [];
 
     // method call: obj.method(...)
     if (fn.type === "member_expression" || fn.type === "attribute") {
         const prop = fn.childForFieldName("property") || fn.childForFieldName("attribute");
-        return prop ? prop.text : fn.text;
+        return {
+            name: prop ? prop.text : fn.text,
+            call_text: fn.text,
+            args,
+        };
     }
     // simple call: func(...)
     if (fn.type === "identifier" || fn.type === "name") {
-        return fn.text;
+        return {
+            name: fn.text,
+            call_text: fn.text,
+            args,
+        };
     }
-    return fn.text;
+    return {
+        name: fn.text,
+        call_text: fn.text,
+        args,
+    };
+}
+
+function extractArgumentTexts(argText) {
+    const value = String(argText || "").trim();
+    if (!value.startsWith("(") || !value.endsWith(")")) return [];
+    const inner = value.slice(1, -1).trim();
+    if (!inner) return [];
+    const parts = [];
+    let current = "";
+    let depthParen = 0;
+    let depthBracket = 0;
+    let depthBrace = 0;
+    let quote = null;
+    for (let index = 0; index < inner.length; index++) {
+        const ch = inner[index];
+        const prev = inner[index - 1];
+        if (quote) {
+            current += ch;
+            if (ch === quote && prev !== "\\") quote = null;
+            continue;
+        }
+        if (ch === "'" || ch === "\"" || ch === "`") {
+            quote = ch;
+            current += ch;
+            continue;
+        }
+        if (ch === "(") depthParen++;
+        else if (ch === ")") depthParen--;
+        else if (ch === "[") depthBracket++;
+        else if (ch === "]") depthBracket--;
+        else if (ch === "{") depthBrace++;
+        else if (ch === "}") depthBrace--;
+        if (ch === "," && depthParen === 0 && depthBracket === 0 && depthBrace === 0) {
+            if (current.trim()) parts.push(current.trim());
+            current = "";
+            continue;
+        }
+        current += ch;
+    }
+    if (current.trim()) parts.push(current.trim());
+    return parts;
 }
 
 function attachTypeMetadata(source, grammar, definitions) {

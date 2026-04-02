@@ -13,7 +13,8 @@ const HOOK_PATH = resolve(__dirname, "../hook.mjs");
 const require = createRequire(import.meta.url);
 const HAS_GRAPH_SQLITE = (() => {
     try {
-        require("better-sqlite3");
+        const db = require("better-sqlite3")(":memory:");
+        db.close();
         return true;
     } catch {
         return false;
@@ -35,7 +36,8 @@ function runHook(hookEvent, toolName, toolInput, extra = {}) {
     });
 }
 
-const CWD = "d:/Development/LevNikolaevich/claude-code-skills/mcp/hex-line-mcp";
+const CWD = resolve(__dirname, "..");
+const TMP = (name) => join(tmpdir(), name);
 
 function makeTempRepo(prefix, files) {
     const dir = fs.mkdtempSync(join(tmpdir(), prefix));
@@ -162,7 +164,7 @@ describe("edit business logic", () => {
     it("NOOP_EDIT when set_line produces identical content", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-noop.js";
+        const tmp = TMP("hex-test-noop.js");
         fs.writeFileSync(tmp, "const x = 1;\n");
         try {
             const tag = lineTag(fnv1a("const x = 1;"));
@@ -178,7 +180,7 @@ describe("edit business logic", () => {
     it("replace_lines preserves boundary content (no strip)", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-boundary.js";
+        const tmp = TMP("hex-test-boundary.js");
         const content = "function foo() {\n    const x = 1;\n    return x;\n}\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -206,7 +208,7 @@ describe("edit business logic", () => {
     it("replace_lines accepts wider checksum range than anchor range", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-wider-cs.js";
+        const tmp = TMP("hex-test-wider-cs.js");
         const content = "line1\nline2\nline3\nline4\nline5\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -234,7 +236,7 @@ describe("edit business logic", () => {
     it("replace_lines detects stale content outside anchor range but inside checksum", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-stale-outside.js";
+        const tmp = TMP("hex-test-stale-outside.js");
         const content = "line1\nline2\nline3\nline4\nline5\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -262,7 +264,7 @@ describe("edit business logic", () => {
     it("set_line preserves verbatim indent (no auto-fix)", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-indent.js";
+        const tmp = TMP("hex-test-indent.js");
         fs.writeFileSync(tmp, "function foo() {\n    const x = 1;\n}\n");
         try {
             const lines = "function foo() {\n    const x = 1;\n}\n".split("\n");
@@ -278,7 +280,7 @@ describe("edit business logic", () => {
 
     it("replace throws REPLACE_REMOVED with helpful message", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const tmp = "d:/tmp/hex-test-notfound.js";
+        const tmp = TMP("hex-test-notfound.js");
         fs.writeFileSync(tmp, "const a = 1;\nconst b = 2;\n");
         try {
             editFile(tmp, [{ replace: { old_text: "nonexistent text", new_text: "x", all: true } }]);
@@ -296,7 +298,7 @@ describe("edit business logic", () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-autorebase.js";
+        const tmp = TMP("hex-test-autorebase.js");
         const content = "head1\nhead2\ntargetA\ntargetB\ntail\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -336,7 +338,7 @@ describe("edit business logic", () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-conflict-remap.js";
+        const tmp = TMP("hex-test-conflict-remap.js");
         const content = "head1\nhead2\ntargetA\ntargetB\ntail\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -376,7 +378,7 @@ describe("edit business logic", () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-conflict.js";
+        const tmp = TMP("hex-test-conflict.js");
         const content = "head1\nhead2\ntargetA\ntargetB\ntail\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -410,7 +412,7 @@ describe("edit business logic", () => {
     it("replace_between rewrites a block without reciting old content", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-replace-between.js";
+        const tmp = TMP("hex-test-replace-between.js");
         const content = [
             "function demo() {",
             "    const a = 1;",
@@ -445,7 +447,7 @@ describe("edit business logic", () => {
     it("sanitizes noisy LLM edit payload before apply", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag } = await import("../lib/hash.mjs");
-        const tmp = "d:/tmp/hex-test-cleanup.js";
+        const tmp = TMP("hex-test-cleanup.js");
         const content = "const one = 1;\nconst two = 2;\n";
         fs.writeFileSync(tmp, content);
         try {
@@ -469,7 +471,7 @@ describe("edit business logic", () => {
     it("applies replace_lines directly from a canonical read block", async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const tmp = "d:/tmp/hex-test-read-block-edit.js";
+        const tmp = TMP("hex-test-read-block-edit.js");
         fs.writeFileSync(tmp, "alpha\nbeta\ngamma\ndelta\n");
         try {
             const readResult = readFile(tmp, { ranges: ["2-3"] });
@@ -498,7 +500,7 @@ describe("edit business logic", () => {
     it("applies set_line directly from a canonical search block", async () => {
         const { grepSearch } = await import("../lib/search.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const tmp = "d:/tmp/hex-test-search-block-edit.js";
+        const tmp = TMP("hex-test-search-block-edit.js");
         fs.writeFileSync(tmp, "const alpha = 1;\nconst target = 2;\nconst omega = 3;\n");
         try {
             const grepResult = await grepSearch("target", { path: tmp, context: 1 });
@@ -522,7 +524,7 @@ describe("edit business logic", () => {
     it("multi-edit result footer stays deterministic", async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const tmp = "d:/tmp/hex-test-deterministic-footer.js";
+        const tmp = TMP("hex-test-deterministic-footer.js");
         fs.writeFileSync(tmp, "first\nsecond\nthird\n");
         try {
             const readResult = readFile(tmp, { ranges: ["1-3"] });
@@ -559,7 +561,7 @@ describe("edit business logic", () => {
 describe("edit error messages", () => {
     it("out-of-range error includes boundary snippet with hashes", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const tmp = "d:/tmp/hex-test-oor.js";
+        const tmp = TMP("hex-test-oor.js");
         fs.writeFileSync(tmp, "line1\nline2\nline3\n");
         try {
             editFile(tmp, [{ set_line: { anchor: "xx.10", new_text: "new" } }]);
@@ -627,7 +629,7 @@ describe("directory_tree gitignore", () => {
 describe("read_file output", () => {
     it("includes revision and file checksum metadata", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-read-revision.js";
+        const tmp = TMP("hex-test-read-revision.js");
         fs.writeFileSync(tmp, "const x = 1;\n");
         try {
             const result = readFile(tmp);
@@ -645,7 +647,7 @@ describe("read_file output", () => {
 
     it("character cap triggers for files with very long lines", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-longlines.js";
+        const tmp = TMP("hex-test-longlines.js");
         // 100 lines × 1000 chars each = 100K chars, well over 40K limit
         const longLine = "x".repeat(1000);
         fs.writeFileSync(tmp, Array.from({ length: 100 }, () => longLine).join("\n"));
@@ -667,7 +669,7 @@ describe("read_file output", () => {
 
     it("supports string and object ranges", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-ranges.js";
+        const tmp = TMP("hex-test-ranges.js");
         fs.writeFileSync(tmp, Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join("\n"));
         try {
             const result = readFile(tmp, { ranges: ["2-3", { start: 10, end: 11 }] });
@@ -683,7 +685,7 @@ describe("read_file output", () => {
 
     it("returns an explicit diagnostic block for ranges outside EOF", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-invalid-range.js";
+        const tmp = TMP("hex-test-invalid-range.js");
         fs.writeFileSync(tmp, "line 1\nline 2\n");
         try {
             const result = readFile(tmp, { ranges: ["99-120"] });
@@ -698,7 +700,7 @@ describe("read_file output", () => {
 
     it("keeps valid blocks and diagnostics together for mixed ranges", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-mixed-ranges.js";
+        const tmp = TMP("hex-test-mixed-ranges.js");
         fs.writeFileSync(tmp, Array.from({ length: 5 }, (_, i) => `line ${i + 1}`).join("\n"));
         try {
             const result = readFile(tmp, { ranges: ["2-3", "50-60"] });
@@ -725,7 +727,7 @@ describe("graph enrichment", () => {
         }
     });
 
-    it("adds graph header, grep annotations, and call impact from hex-graph contract", { skip: !HAS_GRAPH_SQLITE }, async () => {
+    it("adds graph header, grep annotations, and semantic impact from hex-graph contract", { skip: !HAS_GRAPH_SQLITE }, async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { grepSearch } = await import("../lib/search.mjs");
         const { editFile } = await import("../lib/edit.mjs");
@@ -740,18 +742,22 @@ describe("graph enrichment", () => {
 
             const readResult = readFile(join(repo, "a.mjs"), { includeGraph: true });
             assert.ok(readResult.includes("\nGraph:"), "Graph header present");
-            assert.ok(readResult.includes("foo [function 0↓ 1↑]"), "Graph header uses annotation contract");
+            assert.ok(readResult.includes("foo [function"), "Graph header includes symbol summary");
+            assert.ok(readResult.includes("1↑"), "Graph header includes caller count");
+            assert.ok(readResult.includes("flow 1out"), "Graph header includes flow count");
 
             const grepResult = await grepSearch("export function foo", { path: join(repo, "a.mjs") });
-            assert.ok(grepResult.includes("[fn 0↓ 1↑]"), "grep match annotated via graph contract");
+            assert.ok(grepResult.includes("[fn"), "grep match annotated via line facts");
+            assert.ok(grepResult.includes("1↑"), "grep match annotation includes caller count");
 
             const anchor = `${lineTag(fnv1a("export function foo() {"))}.1`;
             const editResult = editFile(join(repo, "a.mjs"), [
                 { set_line: { anchor, new_text: "export function foo() {" } },
                 { set_line: { anchor: `${lineTag(fnv1a("  return 1;"))}.2`, new_text: "  return 2;" } },
             ]);
-            assert.ok(editResult.includes("Call impact: 1 callers in other files"), "Edit reports call impact");
-            assert.ok(editResult.includes("run (b.mjs:2)"), "Call impact names dependent caller");
+            assert.ok(editResult.includes("Semantic impact:"), "Edit reports semantic impact");
+            assert.ok(editResult.includes("external callers"), "Semantic impact includes caller totals");
+            assert.ok(editResult.includes("return_flow_to_symbol: run (b.mjs:2)"), "Semantic impact names concrete downstream fact");
         } finally {
             _resetGraphDBCache();
             await closeGraphRepo(repo);
@@ -778,9 +784,9 @@ describe("graph enrichment", () => {
             const readA = readFile(join(repoA, "a.mjs"), { includeGraph: true });
             const readB = readFile(join(repoB, "b.mjs"), { includeGraph: true });
 
-            assert.ok(readA.includes("alpha [function 0↓ 1↑]"), "Repo A uses its own graph");
+            assert.ok(readA.includes("alpha [function"), "Repo A uses its own graph");
             assert.ok(!readA.includes("beta [function"), "Repo A does not leak repo B graph");
-            assert.ok(readB.includes("beta [function 0↓ 1↑]"), "Repo B uses its own graph");
+            assert.ok(readB.includes("beta [function"), "Repo B uses its own graph");
             assert.ok(!readB.includes("alpha [function"), "Repo B does not leak repo A graph");
         } finally {
             _resetGraphDBCache();
@@ -998,7 +1004,7 @@ describe("edit_file replace removed", () => {
 
     it("bulk_replace handles text rename (replace moved here)", async () => {
         const { bulkReplace } = await import("../lib/bulk-replace.mjs");
-        const tmp = "d:/tmp/hex-test-bulk-rename";
+        const tmp = TMP("hex-test-bulk-rename");
         fs.mkdirSync(tmp, { recursive: true });
         fs.writeFileSync(tmp + "/rename.txt", "hello world\nhello world\nhello world\n");
         try {
@@ -1021,7 +1027,7 @@ describe("edit_file replace removed", () => {
 describe("bulk_replace", () => {
     it("replaces text in matched files", async () => {
         const { bulkReplace } = await import("../lib/bulk-replace.mjs");
-        const tmp = "d:/tmp/hex-test-bulk";
+        const tmp = TMP("hex-test-bulk");
         fs.mkdirSync(tmp, { recursive: true });
         fs.writeFileSync(tmp + "/a.txt", "hello world\n");
         fs.writeFileSync(tmp + "/b.txt", "hello planet\n");
@@ -1039,7 +1045,7 @@ describe("bulk_replace", () => {
 
     it("defaults to compact format with replacement counts", async () => {
         const { bulkReplace } = await import("../lib/bulk-replace.mjs");
-        const tmp = "d:/tmp/hex-test-bulk-compact";
+        const tmp = TMP("hex-test-bulk-compact");
         fs.mkdirSync(tmp, { recursive: true });
         fs.writeFileSync(tmp + "/a.txt", "foo bar foo\n");
         fs.writeFileSync(tmp + "/b.txt", "foo baz\n");
@@ -1063,7 +1069,7 @@ describe("bulk_replace", () => {
     it("caps per-file diff lines and total output in full mode", async () => {
         const { bulkReplace } = await import("../lib/bulk-replace.mjs");
         const { MAX_BULK_OUTPUT_CHARS } = await import("../lib/format.mjs");
-        const tmp = "d:/tmp/hex-test-bulk-cap";
+        const tmp = TMP("hex-test-bulk-cap");
         fs.mkdirSync(tmp, { recursive: true });
         // Create a large file with 600 lines, each containing the target text
         const lines = Array.from({ length: 600 }, (_, i) => `line ${i} target_text here`);
@@ -1081,7 +1087,7 @@ describe("bulk_replace", () => {
 
     it("handles chained rules, glob {a,b}, and old===new skip", async () => {
         const { bulkReplace } = await import("../lib/bulk-replace.mjs");
-        const tmp = "d:/tmp/hex-test-bulk-edge";
+        const tmp = TMP("hex-test-bulk-edge");
         fs.mkdirSync(tmp, { recursive: true });
         fs.writeFileSync(tmp + "/x.mjs", "foo calls foo\n");
         fs.writeFileSync(tmp + "/y.json", "foo here too\n");
@@ -1128,7 +1134,7 @@ describe("isHexLineDisabled", () => {
         const { isHexLineDisabled, _resetHexLineDisabledCache } = await import("../hook.mjs");
         _resetHexLineDisabledCache();
 
-        const tmp = "d:/tmp/hex-test-claude.json";
+        const tmp = TMP("hex-test-claude.json");
         const cwd = process.cwd().replace(/\\/g, "/");
         const config = {
             projects: {
@@ -1151,7 +1157,7 @@ describe("isHexLineDisabled", () => {
         const { isHexLineDisabled, _resetHexLineDisabledCache } = await import("../hook.mjs");
         _resetHexLineDisabledCache();
 
-        const tmp = "d:/tmp/hex-test-claude2.json";
+        const tmp = TMP("hex-test-claude2.json");
         const cwd = process.cwd().replace(/\\/g, "/");
         const config = {
             projects: {
@@ -1226,7 +1232,7 @@ describe("hook — Read config exception", () => {
         assert.notEqual(r.code, 0);
     });
     it("allows partial built-in Read on a small file", async () => {
-        const tmp = `d:/tmp/hex-hook-small-read-${Date.now()}.ts`;
+        const tmp = TMP(`hex-hook-small-read-${Date.now()}.ts`);
         fs.writeFileSync(tmp, "line 1\nline 2\nline 3\n");
         try {
             const r = await runHook("PreToolUse", "Read", { file_path: tmp, offset: 1, limit: 2 });
@@ -1236,7 +1242,7 @@ describe("hook — Read config exception", () => {
         }
     });
     it("blocks full built-in Read on a large file", async () => {
-        const tmp = `d:/tmp/hex-hook-large-read-${Date.now()}.ts`;
+        const tmp = TMP(`hex-hook-large-read-${Date.now()}.ts`);
         fs.writeFileSync(tmp, Array.from({ length: 1000 }, () => "const value = 1234567890;").join("\n"));
         try {
             const r = await runHook("PreToolUse", "Read", { file_path: tmp });
@@ -1279,8 +1285,8 @@ describe("hook — regressions", () => {
         const r = await runHook("PreToolUse", "Bash", { command: "rm -rf / # hex-confirmed" });
         assert.equal(r.code, 0);
     });
-    it("allows small built-in Edit on a small file", async () => {
-        const tmp = `d:/tmp/hex-hook-small-edit-${Date.now()}.ts`;
+    it("advises small built-in Edit on a small file", async () => {
+        const tmp = TMP(`hex-hook-small-edit-${Date.now()}.ts`);
         fs.writeFileSync(tmp, "const value = 1;\n");
         try {
             const r = await runHook("PreToolUse", "Edit", {
@@ -1288,13 +1294,14 @@ describe("hook — regressions", () => {
                 old_string: "value = 1",
                 new_string: "value = 2",
             });
-            assert.equal(r.code, 0);
+            assert.equal(r.code, 0, "Small edit is not blocked");
+            assert.ok(r.stdout.includes("mcp__hex-line__edit_file"), "Small edit advises hex-line edit_file");
         } finally {
             fs.rmSync(tmp, { force: true });
         }
     });
     it("blocks replace_all built-in Edit on a large file", async () => {
-        const tmp = `d:/tmp/hex-hook-large-edit-${Date.now()}.ts`;
+        const tmp = TMP(`hex-hook-large-edit-${Date.now()}.ts`);
         fs.writeFileSync(tmp, Array.from({ length: 1200 }, () => "const item = oldValue;").join("\n"));
         try {
             const r = await runHook("PreToolUse", "Edit", {
@@ -1308,11 +1315,18 @@ describe("hook — regressions", () => {
             fs.rmSync(tmp, { force: true });
         }
     });
-    it("SessionStart injects direct tool workflow guidance", async () => {
+    it("SessionStart injects structured instructions with deferred loading hint", async () => {
         const r = await runHook("SessionStart", "", {});
         assert.equal(r.code, 0);
         assert.ok(r.stdout.includes("Hex-line MCP available"), "SessionStart announces hex-line");
-        assert.ok(r.stdout.includes("Do not use ToolSearch"), "SessionStart suppresses tool discovery loops");
+        assert.ok(r.stdout.includes("deferred_loading"), "SessionStart includes deferred loading tag");
+        assert.ok(r.stdout.includes("ToolSearch"), "SessionStart includes ToolSearch bootstrap");
+        assert.ok(!r.stdout.includes("Do not use ToolSearch"), "SessionStart does NOT suppress ToolSearch");
+    });
+    it("redirect messages include deferred hint", async () => {
+        const r = await runHook("PreToolUse", "Write", { file_path: "test.ts", content: "hello" });
+        assert.notEqual(r.code, 0, "Write is redirected");
+        assert.ok(r.stdout.includes("ToolSearch"), "Redirect includes ToolSearch hint");
     });
 });
 
@@ -1430,7 +1444,7 @@ describe("kernel: snapshot", () => {
     it("createSnapshot returns deterministic revision and hashes", async () => {
         const { rememberSnapshot, _resetSnapshotCache } = await import("../lib/snapshot.mjs");
         _resetSnapshotCache();
-        const tmp = "d:/tmp/hex-test-kernel-snapshot.js";
+        const tmp = TMP("hex-test-kernel-snapshot.js");
         fs.writeFileSync(tmp, "line1\nline2\nline3\n");
         try {
             const stat = fs.statSync(tmp);
@@ -1447,7 +1461,7 @@ describe("kernel: snapshot", () => {
     it("buildRangeChecksum returns null for out-of-bounds", async () => {
         const { rememberSnapshot, buildRangeChecksum, _resetSnapshotCache } = await import("../lib/snapshot.mjs");
         _resetSnapshotCache();
-        const tmp = "d:/tmp/hex-test-kernel-range.js";
+        const tmp = TMP("hex-test-kernel-range.js");
         fs.writeFileSync(tmp, "a\nb\nc\n");
         try {
             const stat = fs.statSync(tmp);
@@ -1463,7 +1477,7 @@ describe("kernel: snapshot", () => {
 describe("protocol: read_file blocks", () => {
     it("single range returns edit_ready_block with checksum", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-proto-read.js";
+        const tmp = TMP("hex-test-proto-read.js");
         fs.writeFileSync(tmp, "alpha\nbeta\ngamma\ndelta\n");
         try {
             const result = readFile(tmp, { ranges: ["1-3"] });
@@ -1477,7 +1491,7 @@ describe("protocol: read_file blocks", () => {
 
     it("multi-range returns separate blocks", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-proto-multiread.js";
+        const tmp = TMP("hex-test-proto-multiread.js");
         fs.writeFileSync(tmp, Array.from({length: 20}, (_, i) => `line${i+1}`).join("\n") + "\n");
         try {
             const result = readFile(tmp, { ranges: ["1-5", "15-20"] });
@@ -1541,7 +1555,7 @@ describe("protocol: edit_file output", () => {
     it("post-edit contains block: post_edit with checksum", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-proto-edit.js";
+        const tmp = TMP("hex-test-proto-edit.js");
         fs.writeFileSync(tmp, "first\nsecond\nthird\n");
         try {
             const read = readFile(tmp, { ranges: ["1-3"] });
@@ -1558,7 +1572,7 @@ describe("protocol: edit_file output", () => {
     it("CHECKSUM_MISMATCH includes recovery guidance", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { readFile } = await import("../lib/read.mjs");
-        const tmp = "d:/tmp/hex-test-proto-recovery.js";
+        const tmp = TMP("hex-test-proto-recovery.js");
         fs.writeFileSync(tmp, "aaa\nbbb\nccc\n");
         try {
             const read = readFile(tmp, { ranges: ["1-3"] });
@@ -1591,7 +1605,7 @@ describe("protocol: outline", () => {
 
     it("markdown outline returns headings", async () => {
         const { fileOutline } = await import("../lib/outline.mjs");
-        const tmp = "d:/tmp/hex-test-outline.md";
+        const tmp = TMP("hex-test-outline.md");
         fs.writeFileSync(tmp, "# Title\n\nSome text\n\n## Section A\n\n### Subsection\n\n## Section B\n");
         try {
             const result = await fileOutline(tmp);
@@ -1625,7 +1639,7 @@ describe("E2E: workflow round-trips", () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { verifyChecksums } = await import("../lib/verify.mjs");
-        const tmp = "d:/tmp/hex-test-e2e-rev.js";
+        const tmp = TMP("hex-test-e2e-rev.js");
         fs.writeFileSync(tmp, "const x = 1;\nconst y = 2;\nconst z = 3;\n");
         try {
             // Read
@@ -1651,7 +1665,7 @@ describe("E2E: workflow round-trips", () => {
         const { grepSearch } = await import("../lib/search.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { verifyChecksums } = await import("../lib/verify.mjs");
-        const tmp = "d:/tmp/hex-test-e2e-grep.js";
+        const tmp = TMP("hex-test-e2e-grep.js");
         fs.writeFileSync(tmp, "function hello() {\n    return 'world';\n}\n");
         try {
             // Search
@@ -1677,7 +1691,7 @@ describe("remaining checklist tests", () => {
     it("snapshot cache returns same revision on repeated read", async () => {
         const { readSnapshot, _resetSnapshotCache } = await import("../lib/snapshot.mjs");
         _resetSnapshotCache();
-        const tmp = "d:/tmp/hex-test-cache-behavior.js";
+        const tmp = TMP("hex-test-cache-behavior.js");
         fs.writeFileSync(tmp, "cached\ncontent\n");
         try {
             const snap1 = readSnapshot(tmp);
@@ -1708,7 +1722,7 @@ describe("remaining checklist tests", () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { verifyChecksums } = await import("../lib/verify.mjs");
-        const tmp = "d:/tmp/hex-test-e2e-outline.js";
+        const tmp = TMP("hex-test-e2e-outline.js");
         fs.writeFileSync(tmp, "function foo() {\n    return 1;\n}\n\nfunction bar() {\n    return 2;\n}\n");
         try {
             // Outline
@@ -1737,7 +1751,7 @@ describe("remaining checklist tests", () => {
         const { grepSearch } = await import("../lib/search.mjs");
         const { editFile } = await import("../lib/edit.mjs");
         const { verifyChecksums } = await import("../lib/verify.mjs");
-        const tmp = "d:/tmp/hex-test-e2e-multi-grep.js";
+        const tmp = TMP("hex-test-e2e-multi-grep.js");
         fs.writeFileSync(tmp, "const AAA = 1;\nconst BBB = 2;\nconst CCC = 3;\nconst AAA_2 = 4;\n");
         try {
             // Search for AAA

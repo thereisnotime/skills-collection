@@ -11,7 +11,7 @@ import { statSync, writeFileSync } from "node:fs";
 import { diffLines } from "diff";
 import { fnv1a, lineTag, parseChecksum, parseRef } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { validatePath, normalizePath } from "./security.mjs";
-import { getGraphDB, callImpact, cloneWarning, getRelativePath } from "./graph-enrich.mjs";
+import { getGraphDB, semanticImpact, cloneWarning, getRelativePath } from "./graph-enrich.mjs";
 import { MAX_DIFF_CHARS } from "./format.mjs";
 import {
     assertNonOverlappingTargets,
@@ -302,10 +302,11 @@ function applyReplaceLinesEdit(edit, ctx) {
         const { start: csStart, end: csEnd, hex: csHex } = parseChecksum(rangeChecksum);
         if (!coverage.ok) {
             const snip = buildErrorSnippet(origLines, actualStart - 1);
+            const retryChecksum = buildRangeChecksum(currentSnapshot, actualStart, actualEnd);
             throw new Error(
                 `${coverage.reason}\n\n` +
                 `Current content (lines ${snip.start}-${snip.end}):\n${snip.text}\n\n` +
-                "Tip: Use updated hashes above for retry.",
+                (retryChecksum ? `Retry checksum: ${retryChecksum}` : "Tip: Use updated hashes above for retry."),
             );
         }
         const actual = buildRangeChecksum(currentSnapshot, csStart, csEnd);
@@ -376,7 +377,7 @@ export function editFile(filePath, edits, opts = {}) {
     const currentSnapshot = readSnapshot(real);
     const baseSnapshot = opts.baseRevision ? getSnapshotByRevision(opts.baseRevision) : null;
     const hasBaseSnapshot = !!(baseSnapshot && baseSnapshot.path === real);
-    const staleRevision = !!opts.baseRevision && opts.baseRevision !== currentSnapshot.revision;
+    const staleRevision = !!opts.baseRevision && opts.baseRevision !== currentSnapshot.revision && hasBaseSnapshot;
     const changedRanges = staleRevision && hasBaseSnapshot
         ? computeChangedRanges(baseSnapshot.lines, currentSnapshot.lines)
         : [];
@@ -510,7 +511,7 @@ export function editFile(filePath, edits, opts = {}) {
         displayDiff = displayDiff.slice(0, MAX_DIFF_CHARS) + `\n... (diff truncated, ${displayDiff.length} chars total)`;
     }
 
-    // Compute changed line range from fullDiff (used by post-edit + call impact)
+    // Compute changed line range from fullDiff (used by post-edit + semantic impact)
     const newLinesAll = content.split("\n");
     let minLine = Infinity, maxLine = 0;
     if (fullDiff) {
@@ -557,15 +558,34 @@ export function editFile(filePath, edits, opts = {}) {
         }
     }
 
-    // Graph enrichment: call impact + clone warnings
+    // Graph enrichment: semantic impact + clone warnings
     try {
         const db = getGraphDB(real);
         const relFile = db ? getRelativePath(real) : null;
         if (db && relFile && fullDiff && minLine <= maxLine) {
-            const affected = callImpact(db, relFile, minLine, maxLine);
-            if (affected.length > 0) {
-                const list = affected.map(a => `${a.name} (${a.file}:${a.line})`).join(", ");
-                msg += `\n\n\u26a0 Call impact: ${affected.length} callers in other files\n  ${list}`;
+            const impacts = semanticImpact(db, relFile, minLine, maxLine);
+            if (impacts.length > 0) {
+                const sections = impacts.map(impact => {
+                    const totals = [];
+                    if (impact.counts.externalCallers > 0) totals.push(`${impact.counts.externalCallers} external callers`);
+                    if (impact.counts.downstreamReturnFlow > 0) totals.push(`${impact.counts.downstreamReturnFlow} downstream return-flow`);
+                    if (impact.counts.downstreamPropertyFlow > 0) totals.push(`${impact.counts.downstreamPropertyFlow} property-flow`);
+                    if (impact.counts.sinkReach > 0) totals.push(`${impact.counts.sinkReach} terminal flow reach`);
+                    if (impact.counts.cloneSiblings > 0) totals.push(`${impact.counts.cloneSiblings} clone siblings`);
+                    const headline = totals.length > 0 ? totals.join(", ") : "no downstream graph facts";
+                    const factLines = impact.facts.slice(0, 5).map(fact => {
+                        const target = fact.target_display_name
+                            ? `${fact.target_display_name} (${fact.target_file}:${fact.target_line})`
+                            : `${fact.target_file}:${fact.target_line}`;
+                        const via = fact.path_kind ? ` via ${fact.path_kind}` : "";
+                        return `${fact.fact_kind}: ${target}${via}`;
+                    });
+                    return [
+                        `${impact.symbol}: ${headline}`,
+                        ...factLines.map(line => `  ${line}`),
+                    ].join("\n");
+                });
+                msg += `\n\n\u26a0 Semantic impact:\n${sections.join("\n")}`;
             }
             const clones = cloneWarning(db, relFile, minLine, maxLine);
             if (clones.length > 0) {

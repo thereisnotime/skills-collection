@@ -64,6 +64,7 @@ const reviewStore = createRuntimeStore({
             agents_available: 0,
             agents_skipped_reason: null,
             launch_ready: false,
+            docs_checkpoint: null,
             merge_summary: null,
             refinement_iterations: 0,
             self_check_passed: false,

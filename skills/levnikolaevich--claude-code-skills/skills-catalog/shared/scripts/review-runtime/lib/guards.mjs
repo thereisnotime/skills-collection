@@ -10,7 +10,8 @@ const ALLOWED_TRANSITIONS = new Map([
     [PHASES.CONFIG, new Set([PHASES.DISCOVERY])],
     [PHASES.DISCOVERY, new Set([PHASES.AGENT_LAUNCH])],
     [PHASES.AGENT_LAUNCH, new Set([PHASES.RESEARCH])],
-    [PHASES.RESEARCH, new Set([PHASES.AUTOFIX, PHASES.MERGE])],
+    [PHASES.RESEARCH, new Set([PHASES.DOCS])],
+    [PHASES.DOCS, new Set([PHASES.AUTOFIX, PHASES.MERGE])],
     [PHASES.AUTOFIX, new Set([PHASES.MERGE])],
     [PHASES.MERGE, new Set([PHASES.REFINEMENT])],
     [PHASES.REFINEMENT, new Set([PHASES.APPROVE, PHASES.SELF_CHECK])],
@@ -56,11 +57,14 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
         }
     }
 
-    if (toPhase === PHASES.MERGE) {
-        if (manifest.mode === "story" && state.phase !== PHASES.AUTOFIX) {
-            return { ok: false, error: "Story mode must pass through Phase 4 before merge" };
+    if (toPhase === PHASES.AUTOFIX || toPhase === PHASES.MERGE) {
+        if (state.phase === PHASES.DOCS && manifest.mode === "story" && !state.docs_checkpoint) {
+            return { ok: false, error: "Phase 4 docs checkpoint missing \u2014 record docs_created or docs_skipped_reason" };
         }
-        if (state.agents_available > 0 && !agentsResolved(state)) {
+        if (toPhase === PHASES.MERGE && manifest.mode === "story" && state.phase !== PHASES.AUTOFIX) {
+            return { ok: false, error: "Story mode must pass through Phase 5 before merge" };
+        }
+        if (toPhase === PHASES.MERGE && state.agents_available > 0 && !agentsResolved(state)) {
             return { ok: false, error: "Not all agents are resolved" };
         }
     }
@@ -71,7 +75,11 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
 
     if ((toPhase === PHASES.APPROVE || toPhase === PHASES.SELF_CHECK) && state.phase === PHASES.REFINEMENT) {
         if (!state.refinement_exit_reason) {
-            return { ok: false, error: "Refinement exit reason missing \u2014 checkpoint Phase 6 with exit_reason before advancing" };
+            return { ok: false, error: "Refinement exit reason missing \u2014 checkpoint Phase 7 with exit_reason before advancing" };
+        }
+        // Non-SKIPPED exit requires at least 1 iteration actually executed
+        if (state.refinement_exit_reason !== "SKIPPED" && (state.refinement_iterations || 0) < 1) {
+            return { ok: false, error: "Refinement exit requires iterations >= 1 \u2014 cannot claim CONVERGED/MAX_ITER without running" };
         }
         // SKIPPED is only valid when Codex was genuinely unavailable
         if (state.refinement_exit_reason === "SKIPPED" && state.agents_available > 0) {
@@ -79,7 +87,7 @@ export function validateTransition(manifest, state, checkpoints, toPhase) {
             const codex = state.agents?.codex;
             const codexDead = codex && (codex.status === "dead" || codex.status === "failed" || codex.status === "skipped");
             if (!codexDead) {
-                return { ok: false, error: "Refinement SKIPPED but Codex was available \u2014 Phase 6 is mandatory when Codex is healthy" };
+                return { ok: false, error: "Refinement SKIPPED but Codex was available \u2014 Phase 7 is mandatory when Codex is healthy" };
             }
         }
     }
@@ -115,7 +123,7 @@ export function computeResumeAction(manifest, state, checkpoints) {
         return "Record merge summary checkpoint before advancing";
     }
     if (state.phase === PHASES.SELF_CHECK && !state.self_check_passed) {
-        return "Fix self-check failures, then checkpoint Phase 8 with pass=true";
+        return "Fix self-check failures, then checkpoint Phase 9 with pass=true";
     }
 
     const nextPhase = Array.from(ALLOWED_TRANSITIONS.get(state.phase) || []).find(phase => {

@@ -31,7 +31,7 @@ try {
     writeFileSync(manifestPath, JSON.stringify({
         storage_mode: "file",
         expected_agents: ["codex"],
-        phase_policy: { phase4: "required", phase7: "required" },
+        phase_policy: { phase5: "required", phase8: "required" },
     }, null, 2));
 
     const started = run([
@@ -73,6 +73,12 @@ try {
     ]);
     run(["advance", "--project-root", projectRoot, "--skill", "ln-310", "--to", PHASES.RESEARCH]);
     run(["checkpoint", "--project-root", projectRoot, "--skill", "ln-310", "--phase", PHASES.RESEARCH]);
+    run(["advance", "--project-root", projectRoot, "--skill", "ln-310", "--to", PHASES.DOCS]);
+    run([
+        "checkpoint", "--project-root", projectRoot, "--skill", "ln-310",
+        "--phase", PHASES.DOCS,
+        "--payload", JSON.stringify({ docs_checkpoint: { docs_created: [], docs_skipped_reason: "test" } }),
+    ]);
     run(["advance", "--project-root", projectRoot, "--skill", "ln-310", "--to", PHASES.AUTOFIX]);
     run(["checkpoint", "--project-root", projectRoot, "--skill", "ln-310", "--phase", PHASES.AUTOFIX]);
 

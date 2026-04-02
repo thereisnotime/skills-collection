@@ -85,6 +85,10 @@ function applyCheckpointToState(state, phase, payload) {
         nextState.agents_skipped_reason = payload.agents_skipped_reason || null;
     }
 
+    if (phase === PHASES.DOCS && payload.docs_checkpoint) {
+        nextState.docs_checkpoint = payload.docs_checkpoint;
+    }
+
     if (phase === PHASES.MERGE) {
         nextState.merge_summary = payload.merge_summary || payload.summary || payload;
     }

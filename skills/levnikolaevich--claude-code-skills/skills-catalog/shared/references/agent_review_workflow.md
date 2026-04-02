@@ -306,6 +306,7 @@ Entry format (per `shared/references/agent_review_memory.md`):
 - Ensure `.hex-skills/agent-review/.gitignore` exists before creating files (only create if `.hex-skills/agent-review/` is new)
 - **HARD TIMEOUT (30 min default):** `agent_runner.mjs` kills the agent process after `hard_timeout_seconds` (configurable in registry, override via `--timeout`). On timeout, returns `success: false`. Monitor liveness via log file stat (growing = alive). **TaskStop is still FORBIDDEN** — the runner handles timeout internally.
 - **CRITICAL VERIFICATION:** Do NOT trust agent suggestions blindly. Claude MUST independently verify each suggestion. Accept only after verification.
+- **OUTPUT PATH GUARD:** ALL agent review artifacts (prompts, results, logs, metadata, refinement files, review history) MUST reside under `.hex-skills/agent-review/`. NEVER write agent review output to the project root directory or any path outside `.hex-skills/`.
 
 ## Definition of Done
 

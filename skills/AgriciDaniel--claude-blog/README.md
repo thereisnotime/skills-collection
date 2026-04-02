@@ -9,6 +9,8 @@
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![Sub-Skills](https://img.shields.io/badge/Sub--Skills-22-orange)
 
+> **Blog:** [See how claude-blog works](https://agricidaniel.com/blog/claude-code-blog-writer)
+
 claude-blog is a Claude Code skill ecosystem for creating, optimizing, and managing blog content at scale. It generates complete articles, briefs, calendars, and schemas, dual-optimized for Google rankings and AI citation platforms (ChatGPT, Perplexity, AI Overviews).
 
 ## Table of Contents
@@ -34,6 +36,16 @@ claude-blog is a Claude Code skill ecosystem for creating, optimizing, and manag
 ---
 
 ## Quick Start
+
+**Plugin Install (Claude Code 1.0.33+):**
+
+```bash
+# Add marketplace (one-time)
+/plugin marketplace add AgriciDaniel/claude-blog
+
+# Install plugin
+/plugin install claude-blog@AgriciDaniel-claude-blog
+```
 
 **One-command install (Unix/macOS):**
 

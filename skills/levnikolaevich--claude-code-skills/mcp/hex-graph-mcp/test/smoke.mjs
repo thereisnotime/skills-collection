@@ -171,6 +171,13 @@ function cleanDb(dir) {
     if (existsSync(dbPath)) unlinkSync(dbPath);
 }
 
+function flowPoint(symbol, anchor) {
+    return { symbol, anchor };
+}
+
+const FLOW_TEST_LIMIT = 10;
+const RELAY_FLOW_HOPS = 4;
+
 describe("find_clones", () => {
     it("exact + normalized clone detection across files", async () => {
         const dir = makeTempDir();
@@ -1185,7 +1192,12 @@ describe("identity query error contracts", () => {
                 freshStore.explainResolution({ qualified_name: "a.mjs:helper" }, { path: tmp }),
                 freshStore.getReferencesBySelector({ qualified_name: "a.mjs:helper" }, { path: tmp }),
                 freshStore.findImplementationsBySelector({ qualified_name: "a.mjs:helper" }, { path: tmp }),
-                freshStore.findDataflowsBySelector({ qualified_name: "a.mjs:helper" }, { path: tmp }),
+                freshStore.findDataflowsBySelector({
+                    source: flowPoint(
+                        { qualified_name: "a.mjs:helper" },
+                        { kind: "return" },
+                    ),
+                }, { path: tmp }),
                 freshStore.getModuleMetricsReport({ path: tmp }),
                 freshStore.getArchitectureReport({ path: tmp }),
             ];
@@ -1209,7 +1221,12 @@ describe("identity query error contracts", () => {
                 tracePaths({ name: "missing", file: "a.mjs" }, { path: dir }),
                 explainResolution({ name: "missing", file: "a.mjs" }, { path: dir }),
                 findImplementationsBySelector({ name: "missing", file: "a.mjs" }, { path: dir }),
-                findDataflowsBySelector({ name: "missing", file: "a.mjs" }, { path: dir }),
+                findDataflowsBySelector({
+                    source: flowPoint(
+                        { name: "missing", file: "a.mjs" },
+                        { kind: "return" },
+                    ),
+                }, { path: dir }),
             ];
             for (const result of checks) {
                 assert.equal(result.error?.code, "SYMBOL_NOT_FOUND");
@@ -1620,7 +1637,7 @@ describe("type graph and implementations", () => {
     });
 });
 
-describe("flow summaries and dataflows", () => {
+describe("richer flow facts and dataflows", () => {
     it("captures local param/return and one-hop call propagation", async () => {
         const dir = makeTempDir();
         try {
@@ -1640,65 +1657,100 @@ describe("flow summaries and dataflows", () => {
             cleanDb(dir);
             await indexProject(dir);
 
-            const passthroughFlow = findDataflowsBySelector({ name: "passthrough", file: "flow.mjs" }, { path: dir });
+            const passthroughFlow = findDataflowsBySelector({
+                source: flowPoint(
+                    { name: "passthrough", file: "flow.mjs" },
+                    { kind: "param", name: "value" },
+                ),
+                sink: flowPoint(
+                    { name: "passthrough", file: "flow.mjs" },
+                    { kind: "return" },
+                ),
+                max_hops: 2,
+            }, { path: dir, limit: FLOW_TEST_LIMIT });
+            assert.equal(passthroughFlow.reason, "targeted_flow_lookup");
+            assert.equal(passthroughFlow.evidence.target_found, true);
             assert.ok(
-                passthroughFlow.result.summaries.some(summary => summary.kind === "param_to_return" && summary.source_name === "value"),
-                "passthrough has param_to_return summary",
+                passthroughFlow.result.paths.some(path =>
+                    path.hops.some(hop => hop.source_anchor.kind === "param" && hop.target_anchor.kind === "return"),
+                ),
+                "passthrough exposes param-to-return flow",
             );
 
-            const relayFlow = findDataflowsBySelector({ name: "relay", file: "flow.mjs" }, { path: dir, depth: 2, limit: 10 });
+            const relayFlow = findDataflowsBySelector({
+                source: flowPoint(
+                    { name: "relay", file: "flow.mjs" },
+                    { kind: "param", name: "input" },
+                ),
+                sink: flowPoint(
+                    { name: "relay", file: "flow.mjs" },
+                    { kind: "return" },
+                ),
+                max_hops: RELAY_FLOW_HOPS,
+            }, { path: dir, limit: FLOW_TEST_LIMIT });
             assert.ok(
-                relayFlow.result.summaries.some(summary => summary.kind === "param_to_call" && summary.source_name === "input" && summary.target_name === "passthrough"),
-                "relay has param_to_call summary",
+                relayFlow.result.paths.some(path =>
+                    path.hops.some(hop => hop.evidence?.kind === "arg_pass")
+                    && path.hops.some(hop => hop.evidence?.kind === "return_to_call_result"),
+                ),
+                "relay flow captures argument and return propagation across callee",
             );
             assert.ok(
-                relayFlow.result.summaries.some(summary => summary.kind === "call_to_return" && summary.target_name === "return"),
-                "relay has call_to_return summary",
-            );
-            assert.ok(
-                relayFlow.result.paths.some(path => path.symbols.some(symbol => symbol.name === "passthrough")),
-                "relay dataflow propagates one hop into passthrough",
+                relayFlow.result.paths.some(path =>
+                    path.nodes.some(node => node.symbol.name === "passthrough"),
+                ),
+                "relay dataflow reaches passthrough flow points",
             );
 
             const tracedFlow = tracePaths({ name: "relay", file: "flow.mjs" }, {
                 path_kind: "flow",
                 direction: "forward",
-                depth: 2,
-                limit: 10,
+                depth: RELAY_FLOW_HOPS,
+                limit: FLOW_TEST_LIMIT,
                 path: dir,
             });
             assert.ok(
                 tracedFlow.result.some(path =>
-                    path.nodes.some(node => node.name === "passthrough") &&
-                    path.edges.some(edge => edge.layer === "flow" && edge.kind === "param_to_call"),
+                    path.nodes.some(node => node.symbol.name === "passthrough") &&
+                    path.edges.some(edge => edge.layer === "flow" && edge.source_anchor && edge.target_anchor),
                 ),
-                "trace_paths(flow) reaches callee through flow summaries",
+                "trace_paths(flow) returns anchor-aware flow edges",
             );
 
             const tracedMixed = tracePaths({ name: "passthrough", file: "flow.mjs" }, {
                 path_kind: "mixed",
                 direction: "reverse",
-                depth: 2,
-                limit: 10,
+                depth: RELAY_FLOW_HOPS,
+                limit: FLOW_TEST_LIMIT,
                 path: dir,
             });
             assert.ok(
-                tracedMixed.result.some(path => path.edges.some(edge => edge.layer === "flow")),
-                "trace_paths(mixed) includes flow-layer hops",
+                tracedMixed.result.some(path => path.edges.some(edge => edge.layer === "flow" && edge.source_anchor)),
+                "trace_paths(mixed) includes richer flow-layer hops",
             );
 
-            const targetedFlow = findDataflowsBySelector({ name: "relay", file: "flow.mjs" }, {
+            const targetedFlow = findDataflowsBySelector({
+                source: flowPoint(
+                    { name: "relay", file: "flow.mjs" },
+                    { kind: "param", name: "input" },
+                ),
+                sink: flowPoint(
+                    { name: "passthrough", file: "flow.mjs" },
+                    { kind: "param", name: "value" },
+                ),
+                max_hops: RELAY_FLOW_HOPS,
+            }, {
                 path: dir,
-                depth: 2,
-                limit: 10,
-                target: { name: "passthrough", file: "flow.mjs" },
+                limit: FLOW_TEST_LIMIT,
             });
             assert.equal(targetedFlow.reason, "targeted_flow_lookup");
             assert.equal(targetedFlow.evidence.target_found, true);
-            assert.equal(targetedFlow.result.target.name, "passthrough");
+            assert.equal(targetedFlow.result.sink.symbol.name, "passthrough");
             assert.ok(
-                targetedFlow.result.paths.every(path => path.symbols.some(symbol => symbol.name === "passthrough")),
-                "targeted flow lookup returns only paths that reach target",
+                targetedFlow.result.paths.every(path =>
+                    path.nodes.some(node => node.symbol.name === "passthrough" && node.anchor.kind === "param"),
+                ),
+                "targeted flow lookup returns only paths that reach the sink flow point",
             );
         } finally {
             const store = getStore(dir);
@@ -1886,7 +1938,7 @@ describe("WASM dependency contract", () => {
         assert.deepEqual(missing, [], `WASM files missing for: ${missing.join(", ")}`);
     });
 
-    it("dist/queries/ contains all .scm files after build", () => {
+    it("dist/queries/ contains all .scm files after build", { skip: !fs.existsSync(resolve(__dirname, "../dist")) }, () => {
         const distQueries = resolve(__dirname, "../dist/queries");
         const expected = ["javascript.scm", "typescript.scm", "python.scm", "c_sharp.scm", "php.scm"];
         const missing = expected.filter(f => !fs.existsSync(resolve(distQueries, f)));

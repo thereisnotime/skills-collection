@@ -32,6 +32,10 @@ Skills collection for Claude Code with config-driven Agile task management (Line
 | Built-in Write | `hex-line write_file` | Always (consistent workflow) |
 | Built-in Grep | `hex-line grep_search` | Before editing found code (grep→edit pipeline) |
 | Large code file | `hex-line outline` then `read_file` with range | Unfamiliar files >100 lines |
+| Edit (text rename) | `hex-line bulk_replace` | Multi-file rename/refactor |
+| Bash `find`/`tree` | `hex-line directory_tree` | Gitignore-aware file discovery |
+| Bash `diff` | `hex-line changes` | Semantic diff with symbol-level detail |
+| Re-read after CONFLICT | `hex-line verify` | Check freshness without rereading |
 
 **Built-in OK for:** images, PDFs, notebooks, Glob (always), `.claude/settings.json` and `.claude/settings.local.json`.
 

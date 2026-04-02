@@ -93,7 +93,11 @@ function convertAgent(agent: ClaudeAgent, options: ClaudeToOpenCodeOptions) {
     mode: options.agentMode,
   }
 
-  if (agent.model && agent.model !== "inherit") {
+  // Only write model for primary agents. Subagents inherit from the parent
+  // session, making them provider-agnostic. Writing an explicit model like
+  // "anthropic/claude-haiku-4-5" on a subagent causes ProviderModelNotFoundError
+  // when the user's OpenCode env uses a different provider. See #477.
+  if (agent.model && agent.model !== "inherit" && options.agentMode === "primary") {
     frontmatter.model = normalizeModelWithProvider(agent.model)
   }
 
@@ -259,6 +263,30 @@ function rewriteClaudePaths(body: string): string {
   return body
     .replace(/~\/\.claude\//g, "~/.config/opencode/")
     .replace(/\.claude\//g, ".opencode/")
+}
+
+/**
+ * Transform skill/agent content for OpenCode compatibility.
+ * Composes path rewriting with fully-qualified agent name flattening.
+ *
+ * OpenCode resolves agents by flat filename, so 3-segment FQ references
+ * like `compound-engineering:document-review:coherence-reviewer` must be
+ * rewritten to just `coherence-reviewer`. 2-segment skill references
+ * (e.g. `compound-engineering:document-review`) are left unchanged.
+ * See #477.
+ */
+export function transformSkillContentForOpenCode(body: string): string {
+  let result = rewriteClaudePaths(body)
+  // Rewrite 3-segment FQ agent refs: plugin:category:agent-name -> agent-name.
+  // Boundary assertions prevent partial matching on 4+ segment names
+  // (e.g. `a:b:c:d` would otherwise produce `c:d` or `a:d`).
+  // The `/` in the lookbehind prevents rewriting slash commands like
+  // `/team:ops:deploy` — agent names are never preceded by `/`.
+  result = result.replace(
+    /(?<![a-z0-9:/-])[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:([a-z][a-z0-9-]*)(?![a-z0-9:-])/g,
+    "$1",
+  )
+  return result
 }
 
 function inferTemperature(agent: ClaudeAgent): number | undefined {

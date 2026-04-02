@@ -1,23 +1,17 @@
 {
-  "name": "agricidaniel-blog-tools",
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "agricidaniel-blog",
   "owner": {
     "name": "AgriciDaniel"
   },
   "metadata": {
-    "description": "Blog creation and optimization plugins by AgriciDaniel",
-    "version": "1.0.0"
+    "description": "Blog creation and optimization tools for Claude Code"
   },
   "plugins": [
     {
       "name": "claude-blog",
       "source": "./",
-      "description": "AI-powered blog creation, optimization, and management with 21 commands, 4 agents, and 5-category scoring. Optimized for Google rankings and AI citations.",
-      "homepage": "https://github.com/AgriciDaniel/claude-blog",
-      "repository": "https://github.com/AgriciDaniel/claude-blog",
-      "license": "MIT",
-      "category": "content",
-      "tags": ["blog", "seo", "content-writing", "ai-citations", "wordpress"],
-      "keywords": ["blog", "seo", "content", "writing", "geo", "aeo"]
+      "description": "AI-powered blog creation, optimization, and management with 22 skills, 4 agents, and 5-category scoring. Optimized for Google rankings and AI citations."
     }
   ]
 }

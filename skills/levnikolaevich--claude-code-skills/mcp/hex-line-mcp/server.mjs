@@ -107,7 +107,7 @@ server.registerTool("read_file", {
 
 server.registerTool("edit_file", {
     title: "Edit File",
-    description: "Apply verified partial edits to one file.",
+    description: "Apply hash-verified partial edits to one file. Batch multiple edits in one call. Carry base_revision from prior read/edit for auto-rebase on concurrent changes.",
     inputSchema: z.object({
         path: z.string().describe("File to edit"),
         edits: z.union([z.string(), z.array(z.any())]).describe(
@@ -237,7 +237,7 @@ server.registerTool("outline", {
 
 server.registerTool("verify", {
     title: "Verify Checksums",
-    description: "Verify held checksums without rereading the file.",
+    description: "Check if held checksums are still valid without rereading. Use after edit_file returns CONFLICT to decide: VALID (retry), STALE (reread ranges), INVALID (reread file).",
     inputSchema: z.object({
         path: z.string().describe("File path"),
         checksums: z.array(z.string()).describe('Checksum strings, e.g. ["1-50:f7e2a1b0", "51-100:abcd1234"]'),
@@ -262,7 +262,7 @@ server.registerTool("verify", {
 server.registerTool("directory_tree", {
     title: "Directory Tree",
     description:
-        "Directory tree with .gitignore support. Pattern glob to find files/dirs by name. " +
+        "Gitignore-aware directory tree. Use pattern glob to find files/dirs by name instead of Bash find/ls. " +
         "Skips node_modules, .git, dist.",
     inputSchema: z.object({
         path: z.string().describe("Directory path"),
@@ -288,8 +288,8 @@ server.registerTool("directory_tree", {
 server.registerTool("get_file_info", {
     title: "File Info",
     description:
-        "File metadata without reading content: size, line count, modification time, type, binary detection. " +
-        "Use before reading large files to check size.",
+        "File metadata without reading content: size, line count, mtime, binary detection. " +
+        "Use before read_file on unknown files to decide offset/limit strategy.",
     inputSchema: z.object({
         path: z.string().describe("File path"),
     }),
@@ -309,7 +309,7 @@ server.registerTool("get_file_info", {
 server.registerTool("changes", {
     title: "Semantic Diff",
     description:
-        "Compare file or directory against git ref (default: HEAD). Shows added/removed/modified symbols or file stats.",
+        "Semantic diff against git ref (default: HEAD). Shows added/removed/modified symbols. Use to review changes before commit.",
     inputSchema: z.object({
         path: z.string().describe("File or directory path"),
         compare_against: z.string().optional().describe('Git ref to compare against (default: "HEAD")'),
@@ -329,7 +329,7 @@ server.registerTool("changes", {
 
 server.registerTool("bulk_replace", {
     title: "Bulk Replace",
-    description: "Search-and-replace across multiple files with compact or full diff output.",
+    description: "Search-and-replace text across multiple files. Use for renames, refactors. Compact or full diff output.",
     inputSchema: z.object({
         replacements: z.union([z.string(), replacementPairsSchema]).describe('JSON array of {old, new} pairs: [{"old":"foo","new":"bar"}]'),
         glob: z.string().optional().describe('File glob (default: "**/*.{md,mjs,json,yml,ts,js}")'),

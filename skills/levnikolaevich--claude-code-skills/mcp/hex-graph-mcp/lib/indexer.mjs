@@ -17,6 +17,7 @@ import { getStore, CODEGRAPH_DIR } from "./store.mjs";
 import { parseFile, languageFor, supportedExtensions } from "./parser.mjs";
 import { discoverWorkspace, persistWorkspace } from "./workspace.mjs";
 import { runPreciseOverlay } from "./precise/index.mjs";
+import { extractParamNames, normalizeAnchor } from "./flow.mjs";
 
 const IGNORE_DIRS = new Set([
     "node_modules", ".git", "dist", "build", "out", ".next",
@@ -124,15 +125,33 @@ export async function indexProject(projectPath, { languages } = {}) {
         // Insert clone detection data
         persistCloneData(store, definitions, nodeIds);
 
-        fileNodeMap.set(relPath, { source, definitions, imports, calls, references, exports: result.exports, defaultExport: result.defaultExport, reexports: result.reexports, language, nodeIds });
+        fileNodeMap.set(relPath, {
+            source,
+            definitions,
+            imports,
+            calls,
+            references,
+            flow_ir: result.flow_ir || [],
+            exports: result.exports,
+            defaultExport: result.defaultExport,
+            reexports: result.reexports,
+            language,
+            nodeIds,
+        });
         parsed++;
     }
 
     // Pass 3: RESOLVE — build edges (import, call, reexport)
     let edgeCount = 0;
     for (const [filePath, data] of fileNodeMap) {
-        const { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, language, nodeIds } = data;
-        edgeCount += resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
+        const {
+            source, definitions, imports, calls, references, flow_ir,
+            exports: fileExports, defaultExport, reexports, language, nodeIds,
+        } = data;
+        edgeCount += resolveFileEdges(store, workspace, filePath, {
+            source, definitions, imports, calls, references, flow_ir,
+            exports: fileExports, defaultExport, reexports, nodeIds, language,
+        });
     }
     store.rebuildAllModuleLayerEdges();
     const precise = await runPreciseOverlay({
@@ -184,7 +203,7 @@ export async function reindexFile(projectPath, filePath) {
     walkDir(absPath, absPath, new Set(supportedExtensions()), store, [], allSourceFiles);
     const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
     const projectLanguages = [...new Set(allSourceFiles.map(file => file.language).filter(Boolean))];
-    const { definitions, imports, calls, references, exports: fileExports, defaultExport, reexports } = await parseFile(fullPath, source, { cloneDetection: true });
+    const { definitions, imports, calls, references, flow_ir, exports: fileExports, defaultExport, reexports } = await parseFile(fullPath, source, { cloneDetection: true });
     const nodeIds = store.bulkInsert(
         filePath,
         stat.mtimeMs,
@@ -196,7 +215,10 @@ export async function reindexFile(projectPath, filePath) {
     );
 
     persistCloneData(store, definitions, nodeIds);
-    resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language });
+    resolveFileEdges(store, workspace, filePath, {
+        source, definitions, imports, calls, references, flow_ir,
+        exports: fileExports, defaultExport, reexports, nodeIds, language,
+    });
     store.rebuildAllModuleLayerEdges();
     await runPreciseOverlay({
         projectPath: absPath,
@@ -214,7 +236,7 @@ export async function reindexFile(projectPath, filePath) {
  * marks exported symbols, and persists module_edges.
  * @returns {number} count of call edges created
  */
-function resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, exports: fileExports, defaultExport, reexports, nodeIds, language }) {
+function resolveFileEdges(store, workspace, filePath, { source, definitions, imports, calls, references, flow_ir, exports: fileExports, defaultExport, reexports, nodeIds, language }) {
     let callEdgeCount = 0;
 
     // 1. Create synthetic reexport nodes
@@ -516,6 +538,14 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
         }
     }
 
+    const callEventsByLine = new Map();
+    for (const event of flow_ir || []) {
+        if (event.kind !== "call") continue;
+        const rows = callEventsByLine.get(event.line) || [];
+        rows.push(event);
+        callEventsByLine.set(event.line, rows);
+    }
+
     // 6. Resolve and persist call edges
     for (const call of calls) {
         const callerDef = findEnclosingDefinition(call.line, definitions);
@@ -523,10 +553,16 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
 
         let targetId = null;
         const confidence = "exact";
+        const callEvents = callEventsByLine.get(call.line) || [];
+        const matchingEvent = callEvents.find(event => event.owner_key === callerDef?.key && event.callee_name === call.name) || null;
 
         // 1. Same-class sibling method
         if (callerDef?.parent && classMethods.has(`${callerDef.parent}.${call.name}`)) {
             targetId = classMethods.get(`${callerDef.parent}.${call.name}`);
+        }
+        // 1b. Simple local receiver type inference (e.g. svc.run(), $helper->run())
+        else if (matchingEvent?.receiver_type && classMethods.has(`${matchingEvent.receiver_type}.${call.name}`)) {
+            targetId = classMethods.get(`${matchingEvent.receiver_type}.${call.name}`);
         }
         // 2. Local symbol (skip null = ambiguous)
         else if (localSymbols.has(call.name) && localSymbols.get(call.name) != null) {
@@ -595,100 +631,87 @@ function resolveFileEdges(store, workspace, filePath, { source, definitions, imp
         }
     }
 
-    materializeFlowSummaries(store, filePath, source, definitions, nodeIds);
+    materializeFlowFacts(store, filePath, nodeIds, flow_ir || []);
     return callEdgeCount;
 }
 
-function materializeFlowSummaries(store, filePath, source, definitions, nodeIds) {
-    if (!source) return;
-    const lines = source.split("\n");
+function materializeFlowFacts(store, filePath, nodeIds, flowIr) {
+    const paramCache = new Map();
 
-    for (const def of definitions) {
-        if (def.kind !== "function" && def.kind !== "method") continue;
-        const ownerId = nodeIds.get(def.key);
+    for (const event of flowIr) {
+        const ownerId = nodeIds.get(event.owner_key);
         if (!ownerId) continue;
 
-        const params = extractParamNames(def.signature);
-        if (params.length === 0) continue;
+        if (event.kind === "direct") {
+            store.insertFlowFact({
+                source_symbol_id: ownerId,
+                source_anchor: normalizeAnchor(event.source),
+                target_symbol_id: ownerId,
+                target_anchor: normalizeAnchor(event.target),
+                flow_kind: "value",
+                file: filePath,
+                line: event.line,
+                confidence: "exact",
+                origin: "parser_fact",
+                evidence_json: JSON.stringify({ kind: "direct", owner_key: event.owner_key }),
+            });
+            continue;
+        }
 
-        const bodyLines = lines.slice(def.line_start - 1, def.line_end);
-        const bodyByLine = new Map(bodyLines.map((line, index) => [def.line_start + index, line]));
-        const callEdges = store.edgesFrom(ownerId).filter(edge => edge.kind === "calls");
-
-        for (const [lineNo, text] of bodyByLine) {
-            const normalizedText = text || "";
-            const returnedIdentifier = extractReturnedIdentifier(normalizedText);
-            if (returnedIdentifier && params.some(param => namesEqual(param, returnedIdentifier))) {
-                store.insertFlowSummary({
-                    owner_id: ownerId,
-                    kind: "param_to_return",
-                    source_name: returnedIdentifier,
-                    target_name: "return",
+        if (event.kind !== "call") continue;
+        const callEdges = store.edgesFrom(ownerId).filter(edge => edge.kind === "calls" && edge.line === event.line);
+        for (const edge of callEdges) {
+            const targetNode = store.getNodeById(edge.target_id);
+            const calleeParams = targetNode ? getParamNames(targetNode.signature, paramCache) : [];
+            for (let index = 0; index < event.args.length && index < calleeParams.length; index++) {
+                const sourceAnchor = normalizeAnchor(event.args[index]);
+                if (!sourceAnchor) continue;
+                store.insertFlowFact({
+                    source_symbol_id: ownerId,
+                    source_anchor: sourceAnchor,
+                    target_symbol_id: edge.target_id,
+                    target_anchor: { kind: "param", name: calleeParams[index] },
+                    flow_kind: "value",
                     file: filePath,
-                    line: lineNo,
-                    confidence: "exact",
+                    line: event.line,
+                    confidence: edge.confidence,
+                    origin: edge.origin || "resolved",
+                    evidence_json: JSON.stringify({
+                        kind: "arg_pass",
+                        owner_key: event.owner_key,
+                        callee_name: edge.target_name,
+                        arg_index: index,
+                    }),
                 });
             }
-
-            const lineCalls = callEdges.filter(edge => edge.line === lineNo);
-            for (const edge of lineCalls) {
-                for (const param of params) {
-                    if (!containsIdentifier(normalizedText, param)) continue;
-                    store.insertFlowSummary({
-                        owner_id: ownerId,
-                        kind: "param_to_call",
-                        source_name: param,
-                        target_name: edge.target_name,
-                        related_symbol_id: edge.target_id,
-                        file: filePath,
-                        line: lineNo,
-                        confidence: edge.confidence,
-                    });
-                }
-                if (/\breturn\b/.test(normalizedText)) {
-                    store.insertFlowSummary({
-                        owner_id: ownerId,
-                        kind: "call_to_return",
-                        source_name: edge.target_name,
-                        target_name: "return",
-                        related_symbol_id: edge.target_id,
-                        file: filePath,
-                        line: lineNo,
-                        confidence: edge.confidence,
-                    });
-                }
+            if (event.result_target) {
+                store.insertFlowFact({
+                    source_symbol_id: edge.target_id,
+                    source_anchor: { kind: "return" },
+                    target_symbol_id: ownerId,
+                    target_anchor: normalizeAnchor(event.result_target),
+                    flow_kind: "value",
+                    file: filePath,
+                    line: event.line,
+                    confidence: edge.confidence,
+                    origin: edge.origin || "resolved",
+                    evidence_json: JSON.stringify({
+                        kind: "return_to_call_result",
+                        owner_key: event.owner_key,
+                        callee_name: edge.target_name,
+                    }),
+                });
             }
         }
     }
 }
 
-function extractParamNames(signature) {
+function getParamNames(signature, cache) {
     if (!signature) return [];
-    return signature
-        .replace(/^[({\[]|[)}\]]$/g, "")
-        .split(",")
-        .map(part => part.trim())
-        .map(part => part.replace(/=[^,]+$/g, "").trim())
-        .map(part => part.replace(/^(public|private|protected|readonly|async|ref|out|in)\s+/g, ""))
-        .map(part => part.replace(/:[^,]+$/g, "").trim())
-        .map(part => part.replace(/\s+/g, " ").split(" ").pop())
-        .map(part => part.replace(/^\*+/, "").replace(/^\$/,"").replace(/[?]$/g, ""))
-        .filter(Boolean);
+    if (!cache.has(signature)) cache.set(signature, extractParamNames(signature));
+    return cache.get(signature);
 }
 
-function extractReturnedIdentifier(lineText) {
-    const match = lineText.match(/\breturn\s+\$?([A-Za-z_]\w*)\b/);
-    return match ? match[1] : null;
-}
-
-function containsIdentifier(lineText, name) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(?<![\\w$])\\$?${escaped}(?![\\w$])`).test(lineText);
-}
-
-function namesEqual(left, right) {
-    return left.replace(/^\$/, "") === right.replace(/^\$/, "");
-}
 
 function materializeDependencyTarget(store, workspace, resolution, language) {
     if (resolution.target_module_key || resolution.target_package_key) {

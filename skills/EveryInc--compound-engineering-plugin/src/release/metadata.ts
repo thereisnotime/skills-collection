@@ -98,8 +98,13 @@ export async function countSkillDirectories(root: string): Promise<number> {
 
 export async function countMcpServers(pluginRoot: string): Promise<number> {
   const mcpPath = path.join(pluginRoot, ".mcp.json")
-  const manifest = await readJson<{ mcpServers?: Record<string, unknown> }>(mcpPath)
-  return Object.keys(manifest.mcpServers ?? {}).length
+  try {
+    const manifest = await readJson<{ mcpServers?: Record<string, unknown> }>(mcpPath)
+    return Object.keys(manifest.mcpServers ?? {}).length
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return 0
+    throw err
+  }
 }
 
 export async function getCompoundEngineeringCounts(root: string): Promise<CompoundEngineeringCounts> {

@@ -32,7 +32,7 @@ Allowed per-agent statuses:
 - `failed`
 - `skipped`
 
-Legacy aliases are invalid. Use `PHASE_6_REFINEMENT`, not `PHASE_6_REFINE`.
+Legacy aliases are invalid. Use `PHASE_7_REFINEMENT`, not `PHASE_6_REFINE` or `PHASE_6_REFINEMENT`.
 
 Resolved agent statuses:
 - `result_ready`
@@ -99,7 +99,7 @@ Cycle statuses:
 
 ## Iterative Refinement Exit Reasons
 
-Canonical exit reasons for `PHASE_6_REFINEMENT` checkpoint:
+Canonical exit reasons for `PHASE_7_REFINEMENT` checkpoint:
 - `CONVERGED` — verdict APPROVED, all risks mitigated
 - `CONVERGED_LOW_IMPACT` — all suggestions in iteration are LOW impact (<10%)
 - `MAX_ITER` — reached iteration limit (5); WARNING if MEDIUM/HIGH remain

@@ -172,8 +172,19 @@ export function readFile(filePath, opts = {}) {
         const annos = fileAnnotations(db, relFile);
         if (annos.length > 0) {
             const items = annos.map(a => {
-                const counts = (a.callees || a.callers) ? ` ${a.callees}\u2193 ${a.callers}\u2191` : "";
-                return `${a.name} [${a.kind}${counts}]`;
+                const parts = [];
+                if ((a.callees_exact || 0) > 0 || (a.callers_exact || 0) > 0) {
+                    parts.push(`${a.callees_exact}\u2193 ${a.callers_exact}\u2191`);
+                }
+                const flow = [];
+                if ((a.incoming_flow_count || 0) > 0) flow.push(`${a.incoming_flow_count}in`);
+                if ((a.outgoing_flow_count || 0) > 0) flow.push(`${a.outgoing_flow_count}out`);
+                if ((a.through_flow_count || 0) > 0) flow.push(`${a.through_flow_count}thru`);
+                if (flow.length > 0) parts.push(`flow ${flow.join(" ")}`);
+                if ((a.clone_sibling_count || 0) > 0) parts.push(`clone ${a.clone_sibling_count}`);
+                return parts.length > 0
+                    ? `${a.name} [${a.kind} ${parts.join(" | ")}]`
+                    : `${a.name} [${a.kind}]`;
             });
             graphLine = `\nGraph: ${items.join(" | ")}`;
         }

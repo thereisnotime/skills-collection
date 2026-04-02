@@ -223,6 +223,77 @@ describe("writeOpenCodeBundle", () => {
     expect(content).toBe("---\ndescription: Test\n---\n\nDo something.\n")
   })
 
+  test("rewrites FQ agent names in copied skill markdown (#477)", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-skill-transform-"))
+    const skillSrcDir = path.join(tempRoot, "src-skill")
+    const refsDir = path.join(skillSrcDir, "references")
+    await fs.mkdir(refsDir, { recursive: true })
+    await fs.writeFile(
+      path.join(skillSrcDir, "SKILL.md"),
+      "---\nname: test-skill\n---\n\n- `compound-engineering:review:coherence-reviewer`\n"
+    )
+    await fs.writeFile(
+      path.join(refsDir, "agents.md"),
+      "Use `compound-engineering:research:repo-research-analyst` for codebase analysis.\n"
+    )
+
+    const outputRoot = path.join(tempRoot, ".opencode")
+    const bundle: OpenCodeBundle = {
+      config: { $schema: "https://opencode.ai/config.json" },
+      agents: [],
+      plugins: [],
+      commandFiles: [],
+      skillDirs: [{ name: "test-skill", sourceDir: skillSrcDir }],
+    }
+
+    await writeOpenCodeBundle(outputRoot, bundle)
+
+    const skillContent = await fs.readFile(
+      path.join(outputRoot, "skills", "test-skill", "SKILL.md"),
+      "utf8"
+    )
+    expect(skillContent).toContain("`coherence-reviewer`")
+    expect(skillContent).not.toContain("compound-engineering:review:coherence-reviewer")
+
+    const refContent = await fs.readFile(
+      path.join(outputRoot, "skills", "test-skill", "references", "agents.md"),
+      "utf8"
+    )
+    expect(refContent).toContain("`repo-research-analyst`")
+    expect(refContent).not.toContain("compound-engineering:research:repo-research-analyst")
+  })
+
+  test("does not transform non-markdown files in skill directories", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-skill-nonmd-"))
+    const skillSrcDir = path.join(tempRoot, "src-skill")
+    const scriptsDir = path.join(skillSrcDir, "scripts")
+    await fs.mkdir(scriptsDir, { recursive: true })
+    await fs.writeFile(
+      path.join(skillSrcDir, "SKILL.md"),
+      "---\nname: test-skill\n---\n\nSkill body.\n"
+    )
+    const scriptContent = "#!/bin/bash\n# compound-engineering:review:security-sentinel\necho done\n"
+    await fs.writeFile(path.join(scriptsDir, "run.sh"), scriptContent)
+
+    const outputRoot = path.join(tempRoot, ".opencode")
+    const bundle: OpenCodeBundle = {
+      config: { $schema: "https://opencode.ai/config.json" },
+      agents: [],
+      plugins: [],
+      commandFiles: [],
+      skillDirs: [{ name: "test-skill", sourceDir: skillSrcDir }],
+    }
+
+    await writeOpenCodeBundle(outputRoot, bundle)
+
+    const copiedScript = await fs.readFile(
+      path.join(outputRoot, "skills", "test-skill", "scripts", "run.sh"),
+      "utf8"
+    )
+    // Non-markdown files should be copied verbatim — no FQ rewriting
+    expect(copiedScript).toBe(scriptContent)
+  })
+
   test("backs up existing command .md file before overwriting", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "opencode-cmd-backup-"))
     const outputRoot = path.join(tempRoot, ".opencode")

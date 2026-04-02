@@ -1,14 +1,15 @@
 /**
  * Graph enrichment for hex-line tools.
  *
- * Reads .hex-skills/codegraph/index.db (created by hex-graph-mcp) in readonly mode via a
- * small explicit compatibility contract:
- * - hex_line_contract
- * - hex_line_symbol_annotations
- * - hex_line_call_edges
- * - hex_line_clone_siblings (contract v2+)
+ * Reads .hex-skills/codegraph/index.db (created by hex-graph-mcp) in readonly mode
+ * via an explainable, fact-oriented contract:
+ * - hex_line_symbols
+ * - hex_line_line_facts
+ * - hex_line_edit_impacts
+ * - hex_line_edit_impact_facts
+ * - hex_line_clone_siblings
  *
- * Graceful fallback: if better-sqlite3, contract views, or DB are missing,
+ * Graceful fallback: if better-sqlite3, required views, or DB are missing,
  * enrichment is disabled silently for that project.
  */
 
@@ -16,16 +17,28 @@ import { existsSync } from "node:fs";
 import { join, dirname, relative } from "node:path";
 import { createRequire } from "node:module";
 
-const HEX_LINE_CONTRACT_VERSION = 2;
+const REQUIRED_VIEWS = [
+    "hex_line_symbols",
+    "hex_line_line_facts",
+    "hex_line_edit_impacts",
+    "hex_line_edit_impact_facts",
+    "hex_line_clone_siblings",
+];
+
+const FACT_PRIORITY = new Map([
+    ["definition", 0],
+    ["through_flow", 1],
+    ["outgoing_flow", 2],
+    ["incoming_flow", 3],
+    ["callee", 4],
+    ["caller", 5],
+    ["clone", 6],
+    ["hotspot", 7],
+]);
+
 const _dbs = new Map();
 let _driverUnavailable = false;
 
-/**
- * Get readonly graph DB for a project root.
- * Returns null if DB missing or contract unavailable.
- * @param {string} filePath - any file path inside the project
- * @returns {object|null} better-sqlite3 Database instance or null
- */
 export function getGraphDB(filePath) {
     if (_driverUnavailable) return null;
 
@@ -40,7 +53,7 @@ export function getGraphDB(filePath) {
         const require = createRequire(import.meta.url);
         const Database = require("better-sqlite3");
         const db = new Database(dbPath, { readonly: true });
-        if (!validateHexLineContract(db)) {
+        if (!validateContract(db)) {
             db.close();
             return null;
         }
@@ -52,9 +65,6 @@ export function getGraphDB(filePath) {
     }
 }
 
-/**
- * Test helper: close cached DB handles so each test can start clean.
- */
 export function _resetGraphDBCache() {
     for (const db of _dbs.values()) {
         try { db.close(); } catch { /* ignore */ }
@@ -63,126 +73,146 @@ export function _resetGraphDBCache() {
     _driverUnavailable = false;
 }
 
-
-function validateHexLineContract(db) {
+function validateContract(db) {
     try {
-        const contract = db.prepare("SELECT contract_version FROM hex_line_contract LIMIT 1").get();
-        if (!contract || contract.contract_version !== HEX_LINE_CONTRACT_VERSION) return false;
-        db.prepare("SELECT node_id, file, line_start, line_end, display_name, kind, callees, callers FROM hex_line_symbol_annotations LIMIT 1").all();
-        db.prepare("SELECT source_id, target_id, source_file, source_line, source_display_name, target_file, target_line, target_display_name, confidence FROM hex_line_call_edges LIMIT 1").all();
+        for (const viewName of REQUIRED_VIEWS) {
+            const row = db.prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'view' AND name = ? LIMIT 1"
+            ).get(viewName);
+            if (!row) return false;
+        }
+        db.prepare("SELECT node_id, file, line_start, line_end, display_name, kind FROM hex_line_symbols LIMIT 1").all();
+        db.prepare("SELECT fact_kind, related_display_name, confidence, origin FROM hex_line_line_facts LIMIT 1").all();
+        db.prepare("SELECT symbol_node_id, external_callers_count, downstream_return_flow_count, downstream_property_flow_count, sink_reach_count FROM hex_line_edit_impacts LIMIT 1").all();
+        db.prepare("SELECT edited_symbol_id, fact_kind, target_display_name, path_kind, flow_hops FROM hex_line_edit_impact_facts LIMIT 1").all();
         return true;
     } catch {
         return false;
     }
 }
 
-/**
- * Get [N↓ M↑] annotation for a symbol.
- * @param {object} db - better-sqlite3 instance
- * @param {string} file - relative file path
- * @param {string} name - symbol name
- * @returns {string|null} e.g. "[5↓ 3↑]" or null
- */
+function shortKind(kind) {
+    return { function: "fn", class: "cls", method: "mtd", variable: "var" }[kind] || kind;
+}
+
+function compactSymbolCounts(node) {
+    const parts = [];
+    if ((node.callees_exact || 0) > 0 || (node.callers_exact || 0) > 0) {
+        parts.push(`${node.callees_exact}\u2193 ${node.callers_exact}\u2191`);
+    }
+    const flowParts = [];
+    if ((node.incoming_flow_count || 0) > 0) flowParts.push(`${node.incoming_flow_count}in`);
+    if ((node.outgoing_flow_count || 0) > 0) flowParts.push(`${node.outgoing_flow_count}out`);
+    if ((node.through_flow_count || 0) > 0) flowParts.push(`${node.through_flow_count}thru`);
+    if (flowParts.length > 0) parts.push(`flow ${flowParts.join(" ")}`);
+    if ((node.clone_sibling_count || 0) > 0) parts.push(`clone ${node.clone_sibling_count}`);
+    return parts;
+}
+
 export function symbolAnnotation(db, file, name) {
     try {
         const node = db.prepare(
-            "SELECT callees, callers FROM hex_line_symbol_annotations WHERE file = ? AND name = ? LIMIT 1"
+            `SELECT display_name, kind, callers_exact, callees_exact, incoming_flow_count, outgoing_flow_count, through_flow_count, clone_sibling_count
+             FROM hex_line_symbols
+             WHERE file = ? AND name = ?
+             LIMIT 1`
         ).get(file, name);
         if (!node) return null;
-
-        if (node.callees === 0 && node.callers === 0) return null;
-        return `[${node.callees}\u2193 ${node.callers}\u2191]`;
+        const parts = compactSymbolCounts(node);
+        const prefix = shortKind(node.kind);
+        return parts.length > 0 ? `[${prefix} ${parts.join(" | ")}]` : `[${prefix}]`;
     } catch {
         return null;
     }
 }
 
-/**
- * Get all symbol annotations for a file (for read_file Graph: header).
- * @param {object} db
- * @param {string} file - relative file path
- * @returns {Array<{name, kind, callees, callers}>}
- */
 export function fileAnnotations(db, file) {
     try {
         const nodes = db.prepare(
-            `SELECT display_name, kind, callees, callers
-             FROM hex_line_symbol_annotations
+            `SELECT display_name, kind, callers_exact, callees_exact, incoming_flow_count, outgoing_flow_count, through_flow_count, clone_sibling_count
+             FROM hex_line_symbols
              WHERE file = ?
              ORDER BY line_start`
         ).all(file);
 
-        return nodes.map((node) => ({
+        return nodes.map(node => ({
             name: node.display_name,
             kind: node.kind,
-            callees: node.callees,
-            callers: node.callers,
+            callers_exact: node.callers_exact,
+            callees_exact: node.callees_exact,
+            incoming_flow_count: node.incoming_flow_count,
+            outgoing_flow_count: node.outgoing_flow_count,
+            through_flow_count: node.through_flow_count,
+            clone_sibling_count: node.clone_sibling_count,
         }));
     } catch {
         return [];
     }
 }
 
-/**
- * Call impact: callers affected by changes in given line range.
- * @param {object} db
- * @param {string} file - relative file path
- * @param {number} startLine
- * @param {number} endLine
- * @returns {Array<{name, file, line}>} affected symbols (max 10)
- */
-export function callImpact(db, file, startLine, endLine) {
-    try {
-        const modified = db.prepare(
-            `SELECT node_id
-             FROM hex_line_symbol_annotations
-             WHERE file = ?
-               AND line_start <= ?
-               AND line_end >= ?`
-        ).all(file, endLine, startLine);
-
-        if (modified.length === 0) return [];
-
-        const affected = [];
-        const seen = new Set();
-
-        for (const node of modified) {
-            const dependents = db.prepare(
-                `SELECT source_display_name AS name, source_file AS file, source_line AS line
-                 FROM hex_line_call_edges
-                 WHERE target_id = ?
-                   AND confidence IN ('exact', 'precise')`
-            ).all(node.node_id);
-
-            for (const dep of dependents) {
-                const key = `${dep.file}:${dep.name}`;
-                if (!seen.has(key) && dep.file !== file) {
-                    seen.add(key);
-                    affected.push({ name: dep.name, file: dep.file, line: dep.line });
-                }
-            }
-        }
-
-        return affected.slice(0, 10);
-    } catch {
-        return [];
+function formatLineFact(fact) {
+    const countParts = compactSymbolCounts(fact);
+    const suffix = countParts.length > 0 ? ` | ${countParts.join(" | ")}` : "";
+    switch (fact.fact_kind) {
+    case "definition":
+        return `[${shortKind(fact.kind)}${suffix}]`;
+    case "callee":
+        return fact.related_display_name ? `[callee:${fact.related_display_name}${suffix}]` : `[callee${suffix}]`;
+    case "caller":
+        return fact.related_display_name ? `[caller:${fact.related_display_name}${suffix}]` : `[caller${suffix}]`;
+    case "outgoing_flow":
+        return `[flow-out:${fact.target_anchor_kind || "?"}${suffix}]`;
+    case "incoming_flow":
+        return `[flow-in:${fact.target_anchor_kind || "?"}${suffix}]`;
+    case "through_flow":
+        return `[flow-through${suffix}]`;
+    case "clone":
+        return `[clone${suffix}]`;
+    case "hotspot":
+        return `[hotspot${suffix}]`;
+    default:
+        return `[${fact.fact_kind}${suffix}]`;
     }
 }
 
-/**
- * Clone warning: find structurally identical clones of symbols in the given line range.
- * @param {object} db
- * @param {string} file - relative file path
- * @param {number} startLine
- * @param {number} endLine
- * @returns {Array<{name, file, line}>} clone siblings (max 10)
- */
+function priorityForFact(factKind) {
+    return FACT_PRIORITY.get(factKind) ?? 99;
+}
+
+export function matchAnnotation(db, file, line) {
+    try {
+        const facts = db.prepare(
+            `SELECT
+                lf.display_name,
+                lf.kind,
+                lf.fact_kind,
+                lf.related_display_name,
+                lf.source_anchor_kind,
+                lf.target_anchor_kind,
+                hs.callers_exact,
+                hs.callees_exact,
+                hs.incoming_flow_count,
+                hs.outgoing_flow_count,
+                hs.through_flow_count,
+                hs.clone_sibling_count
+             FROM hex_line_line_facts lf
+             LEFT JOIN hex_line_symbols hs ON hs.node_id = lf.symbol_node_id
+             WHERE lf.file = ? AND lf.line_start <= ? AND lf.line_end >= ?
+             ORDER BY lf.line_start DESC`
+        ).all(file, line, line);
+        if (facts.length === 0) return null;
+        facts.sort((left, right) => priorityForFact(left.fact_kind) - priorityForFact(right.fact_kind));
+        return formatLineFact(facts[0]);
+    } catch {
+        return null;
+    }
+}
+
 export function cloneWarning(db, file, startLine, endLine) {
     try {
-
         const modified = db.prepare(
             `SELECT node_id
-             FROM hex_line_symbol_annotations
+             FROM hex_line_symbols
              WHERE file = ?
                AND line_start <= ?
                AND line_end >= ?`
@@ -192,71 +222,100 @@ export function cloneWarning(db, file, startLine, endLine) {
 
         const clones = [];
         const seen = new Set();
-
         for (const node of modified) {
             const siblings = db.prepare(
-                `SELECT s2.file, s2.line_start, s2.display_name
-                 FROM hex_line_clone_siblings s1
-                 JOIN hex_line_clone_siblings s2 ON s2.norm_hash = s1.norm_hash AND s2.node_id != s1.node_id
-                 WHERE s1.node_id = ?`
+                `SELECT clone_peer_name, clone_peer_file, clone_peer_line, clone_type
+                 FROM hex_line_clone_siblings
+                 WHERE node_id = ?`
             ).all(node.node_id);
-
-            for (const sib of siblings) {
-                const key = `${sib.file}:${sib.display_name}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    clones.push({ name: sib.display_name, file: sib.file, line: sib.line_start });
-                }
+            for (const sibling of siblings) {
+                const key = `${sibling.clone_peer_file}:${sibling.clone_peer_name}:${sibling.clone_peer_line}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                clones.push({
+                    name: sibling.clone_peer_name,
+                    file: sibling.clone_peer_file,
+                    line: sibling.clone_peer_line,
+                    cloneType: sibling.clone_type,
+                });
             }
         }
-
         return clones.slice(0, 10);
     } catch {
         return [];
     }
 }
 
-/**
- * Get symbol kind + annotation for a grep match.
- * @param {object} db
- * @param {string} file - relative file path
- * @param {number} line - line number
- * @returns {string|null} e.g. "[fn 5↓ 3↑]" or null
- */
-export function matchAnnotation(db, file, line) {
+export function semanticImpact(db, file, startLine, endLine) {
     try {
-        const node = db.prepare(
-            `SELECT display_name, kind, callees, callers
-             FROM hex_line_symbol_annotations
-             WHERE file = ? AND line_start <= ? AND line_end >= ?
-             ORDER BY line_start DESC
-             LIMIT 1`
-        ).get(file, line, line);
-        if (!node) return null;
+        const modified = db.prepare(
+            `SELECT symbol_node_id, display_name, external_callers_count, downstream_return_flow_count, downstream_property_flow_count, sink_reach_count, clone_sibling_count
+             FROM hex_line_edit_impacts
+             WHERE file = ?
+               AND line_start <= ?
+               AND line_end >= ?`
+        ).all(file, endLine, startLine);
 
-        const kindShort = { function: "fn", class: "cls", method: "mtd", variable: "var" }[node.kind] || node.kind;
-        if (node.callees === 0 && node.callers === 0) return `[${kindShort}]`;
-        return `[${kindShort} ${node.callees}\u2193 ${node.callers}\u2191]`;
+        if (modified.length === 0) return [];
+
+        return modified.map(item => {
+            const facts = db.prepare(
+                `SELECT fact_kind, target_display_name, target_file, target_line, intermediate_display_name, path_kind, flow_hops, source_anchor_kind, target_anchor_kind, access_path_json
+                 FROM hex_line_edit_impact_facts
+                 WHERE edited_symbol_id = ?
+                 ORDER BY
+                    CASE fact_kind
+                        WHEN 'external_caller' THEN 0
+                        WHEN 'return_flow_to_symbol' THEN 1
+                        WHEN 'property_flow_to_symbol' THEN 2
+                        WHEN 'flow_reaches_terminal_anchor' THEN 3
+                        WHEN 'clone_sibling' THEN 4
+                        ELSE 9
+                    END,
+                    target_file,
+                    target_line`
+            ).all(item.symbol_node_id);
+            const seen = new Set();
+            const dedupedFacts = facts.filter(fact => {
+                const key = [
+                    fact.fact_kind,
+                    fact.target_display_name || "",
+                    fact.target_file || "",
+                    fact.target_line || "",
+                    fact.path_kind || "",
+                    fact.flow_hops || "",
+                    fact.source_anchor_kind || "",
+                    fact.target_anchor_kind || "",
+                    fact.access_path_json || "",
+                ].join("|");
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            return {
+                symbol: item.display_name,
+                counts: {
+                    externalCallers: item.external_callers_count,
+                    downstreamReturnFlow: item.downstream_return_flow_count,
+                    downstreamPropertyFlow: item.downstream_property_flow_count,
+                    sinkReach: item.sink_reach_count,
+                    cloneSiblings: item.clone_sibling_count,
+                },
+                facts: dedupedFacts,
+            };
+        });
     } catch {
-        return null;
+        return [];
     }
 }
 
-/**
- * Get relative path from project root (matching DB paths).
- * @param {string} filePath - absolute file path
- * @returns {string|null} relative path with forward slashes, or null
- */
 export function getRelativePath(filePath) {
     const root = findProjectRoot(filePath);
     if (!root) return null;
     return relative(root, filePath).replace(/\\/g, "/");
 }
 
-// --- Helpers ---
-
 function findProjectRoot(filePath) {
-    // First pass: look for .hex-skills/codegraph/index.db (strongest signal)
     let dir = dirname(filePath);
     for (let i = 0; i < 10; i++) {
         if (existsSync(join(dir, ".hex-skills/codegraph", "index.db"))) return dir;
@@ -264,7 +323,6 @@ function findProjectRoot(filePath) {
         if (parent === dir) break;
         dir = parent;
     }
-    // Second pass: fallback to .git
     dir = dirname(filePath);
     for (let i = 0; i < 10; i++) {
         if (existsSync(join(dir, ".git"))) return dir;

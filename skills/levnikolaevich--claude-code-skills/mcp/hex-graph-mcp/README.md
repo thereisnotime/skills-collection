@@ -18,7 +18,7 @@ Deterministic layered code graph MCP server. Indexes codebases into a SQLite gra
 | `trace_paths` | Traverse graph paths through selected layers | `calls`, `references`, `imports`, `type`, `flow`, `mixed` + `min_confidence` |
 | `find_references` | Find semantic usages of one symbol identity | Imports, calls, reads, types, reexports + `min_confidence` |
 | `find_implementations` | Find `extends`, `implements`, and `overrides` relations | Built from type-layer edges |
-| `find_dataflows` | Explain local and one-hop interprocedural flow | Deterministic flow summaries |
+| `find_dataflows` | Explain anchored source-to-sink dataflow paths | Deterministic flow facts with path witnesses |
 | `explain_resolution` | Show how a selector/import/reference resolved | Parsed candidates + precise-provider status |
 | `find_clones` | Detect exact, normalized, and near-miss clones | Hashes, MinHash, suppression heuristics |
 | `find_hotspots` | Rank risky symbols by complexity x dependency pressure | Uses unified graph and clone metadata |
@@ -143,14 +143,23 @@ Find `extends`, `implements`, and `overrides` relations anchored to one symbol i
 
 ### find_dataflows
 
-Return deterministic flow summaries and targeted interprocedural flow paths for one symbol identity.
+Return deterministic source-to-sink flow paths between anchored flow points.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
-| `to_symbol_id` / `to_workspace_qualified_name` / `to_qualified_name` / `to_name`+`to_file` | selector | no | Optional target selector |
-| `depth` | number | no | Flow expansion depth |
+| `source` | object | yes | `{ symbol: selector, anchor: { kind, name?, access_path? } }` |
+| `sink` | object | no | Optional sink flow point with the same shape as `source` |
+| `flow_kind` | string | no | `value` or `taint` |
+| `max_hops` | number | no | Max flow propagation hops |
 | `limit` | number | no | Max paths |
+| `min_confidence` | string | no | Filter out weaker facts below the requested tier |
+
+Anchor kinds:
+
+- `param`
+- `local`
+- `return`
+- `property`
 
 ### explain_resolution
 

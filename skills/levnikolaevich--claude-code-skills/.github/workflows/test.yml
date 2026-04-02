@@ -17,8 +17,14 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install ripgrep
+        run: sudo apt-get update -qq && sudo apt-get install -y ripgrep
+
       - name: Install MCP dependencies
         run: cd mcp && npm install --ignore-scripts
+
+      - name: Rebuild native modules
+        run: cd mcp && npm rebuild better-sqlite3
 
       - name: Coordinator runtime
         run: |
@@ -28,7 +34,9 @@ jobs:
       - name: Review runtime
         run: |
           node skills-catalog/shared/scripts/review-runtime/test/smoke.mjs
-          node skills-catalog/shared/scripts/review-runtime/test/guards.mjs
+          node skills-catalog/shared/scripts/review-runtime/test/guards-lifecycle.mjs
+          node skills-catalog/shared/scripts/review-runtime/test/guards-docs.mjs
+          node skills-catalog/shared/scripts/review-runtime/test/guards-refinement.mjs
           node skills-catalog/shared/scripts/review-runtime/test/negative.mjs
 
       - name: Story planning runtime

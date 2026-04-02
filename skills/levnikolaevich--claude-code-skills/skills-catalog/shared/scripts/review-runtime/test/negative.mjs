@@ -33,7 +33,7 @@ try {
     writeFileSync(manifestPath, JSON.stringify({
         storage_mode: "file",
         expected_agents: [],
-        phase_policy: { phase4: "required", phase7: "required" },
+        phase_policy: { phase5: "required", phase8: "required" },
     }, null, 2));
 
     run([
@@ -72,11 +72,17 @@ try {
     run(["checkpoint", "--project-root", projectRoot, "--skill", "ln-310", "--phase", PHASES.RESEARCH]);
 
     // TEST 2: story mode must pass AUTOFIX before MERGE
+    run(["advance", "--project-root", projectRoot, "--skill", "ln-310", "--to", PHASES.DOCS]);
+    run([
+        "checkpoint", "--project-root", projectRoot, "--skill", "ln-310",
+        "--phase", PHASES.DOCS,
+        "--payload", JSON.stringify({ docs_checkpoint: { docs_created: [], docs_skipped_reason: "test" } }),
+    ]);
     const blocked2 = run([
         "advance", "--project-root", projectRoot,
         "--skill", "ln-310", "--to", PHASES.MERGE,
     ], { allowFailure: true });
-    if (blocked2.ok !== false || !String(blocked2.error || "").includes("Phase 4")) {
+    if (blocked2.ok !== false || !String(blocked2.error || "").includes("Phase 5")) {
         throw new Error("Expected MERGE blocked without AUTOFIX in story mode");
     }
 

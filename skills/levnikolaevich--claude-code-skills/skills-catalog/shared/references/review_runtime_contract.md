@@ -37,25 +37,26 @@ node shared/scripts/review-runtime/cli.mjs complete --skill ln-310
 ## Phase Graph
 
 | Phase | Purpose |
-|------|---------|
+|------|--------|
 | `PHASE_0_CONFIG` | tools/config resolved |
 | `PHASE_1_DISCOVERY` | inputs/materials loaded |
 | `PHASE_2_AGENT_LAUNCH` | health check + prompt persistence + launch bookkeeping |
 | `PHASE_3_RESEARCH` | foreground research/audit |
-| `PHASE_4_AUTOFIX` | story-only repair phase |
-| `PHASE_5_MERGE` | sync agents + critical verification + merge summary |
-| `PHASE_6_REFINEMENT` | deterministic Codex refinement loop |
-| `PHASE_7_APPROVE` | story-only approval/status mutation |
-| `PHASE_8_SELF_CHECK` | final machine-readable checklist |
+| `PHASE_4_DOCS` | domain extraction + inline documentation creation |
+| `PHASE_5_AUTOFIX` | story-only repair phase |
+| `PHASE_6_MERGE` | sync agents + critical verification + merge summary |
+| `PHASE_7_REFINEMENT` | deterministic Codex refinement loop |
+| `PHASE_8_APPROVE` | story-only approval/status mutation |
+| `PHASE_9_SELF_CHECK` | final machine-readable checklist |
 | `DONE` | terminal success |
 | `PAUSED` | terminal/manual intervention needed |
 
-Legacy aliases are invalid. Use `PHASE_6_REFINEMENT`; `PHASE_6_REFINE` is not accepted.
+Legacy aliases are invalid. Use `PHASE_7_REFINEMENT`; `PHASE_6_REFINE` and `PHASE_6_REFINEMENT` are not accepted.
 
 Mode rules:
 - `story`: all phases required
-- `plan_review`: Phase 4 and 7 must be checkpointed as `skipped_by_mode`
-- `context`: Phase 4 and 7 must be checkpointed as `skipped_by_mode`
+- `plan_review`: Phase 4, 5 and 8 must be checkpointed as `skipped_by_mode`
+- `context`: Phase 4, 5 and 8 must be checkpointed as `skipped_by_mode`
 
 ## Agent Status Contract
 
@@ -87,6 +88,7 @@ Required fields in `state.json`:
 - `agents_required`
 - `agents_available`
 - `agents_skipped_reason`
+- `docs_checkpoint`
 - `merge_summary`
 - `refinement_iterations`
 - `self_check_passed`
@@ -113,20 +115,23 @@ Per-agent fields:
 - No transition without a checkpoint for the current phase.
 - `PHASE_2_AGENT_LAUNCH -> PHASE_3_RESEARCH` requires recorded health check.
 - If `agents_available > 0`, launch bookkeeping must exist before Phase 3.
-- `PHASE_5_MERGE` is blocked until all required agents are resolved.
-- `PHASE_6_REFINEMENT` requires a merge summary.
-- `story` mode cannot skip Phase 4 or Phase 7.
-- `DONE` requires `PHASE_8_SELF_CHECK` checkpoint with `pass=true` and `final_result` set (via `final_verdict` in APPROVE or SELF_CHECK checkpoint).
+- `PHASE_3_RESEARCH -> PHASE_4_DOCS` always. `PHASE_4_DOCS -> PHASE_5_AUTOFIX/PHASE_6_MERGE` requires `docs_checkpoint` in state (story mode).
+- `PHASE_6_MERGE` is blocked until all required agents are resolved.
+- `PHASE_7_REFINEMENT` requires a merge summary.
+- Non-SKIPPED `PHASE_7_REFINEMENT` exit requires `refinement_iterations >= 1`.
+- `story` mode cannot skip Phase 4, 5, or Phase 8.
+- `DONE` requires `PHASE_9_SELF_CHECK` checkpoint with `pass=true` and `final_result` set.
 
 ## Checkpoint Payload Guidance
 
 | Phase | Required payload |
 |------|-------------------|
 | `PHASE_2_AGENT_LAUNCH` | `health_check_done`, `agents_available`, `agents_required`, optional `agents_skipped_reason` |
-| `PHASE_5_MERGE` | `merge_summary` |
-| `PHASE_6_REFINEMENT` | `iterations` (int), `exit_reason` (enum: CONVERGED, CONVERGED_LOW_IMPACT, MAX_ITER, ERROR, SKIPPED), `applied` (int: fixes applied across all iterations) |
-| `PHASE_7_APPROVE` | approval/status result summary |
-| `PHASE_8_SELF_CHECK` | `pass`, `processes_verified_dead` (bool: all agent PIDs confirmed dead), optional `final_verdict` |
+| `PHASE_4_DOCS` | `docs_checkpoint: { docs_created, docs_skipped_reason }` (story mode) |
+| `PHASE_6_MERGE` | `merge_summary` |
+| `PHASE_7_REFINEMENT` | `iterations` (int), `exit_reason` (enum: CONVERGED, CONVERGED_LOW_IMPACT, MAX_ITER, ERROR, SKIPPED), `applied` (int: fixes applied across all iterations) |
+| `PHASE_8_APPROVE` | approval/status result summary |
+| `PHASE_9_SELF_CHECK` | `pass`, `processes_verified_dead` (bool: all agent PIDs confirmed dead), optional `final_verdict` |
 
 ## Relationship to `agent_runner`
 

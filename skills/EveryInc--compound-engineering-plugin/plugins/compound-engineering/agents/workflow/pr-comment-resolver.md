@@ -24,6 +24,12 @@ user: "Cluster: 3 threads about missing input validation in src/auth/. <cluster-
 assistant: "Reading the full src/auth/ directory to understand the validation approach... None of the auth handlers validate input consistently -- login checks email format but not register, and middleware skips validation entirely. The individual comments are symptoms of a missing validation layer. Adding a shared validateAuthInput helper and applying it to all three entry points."
 <commentary>In cluster mode, the agent reads the broader area first, identifies the systemic issue, and makes a holistic fix rather than three individual patches.</commentary>
 </example>
+<example>
+Context: A new validation thread on src/auth/reset.ts, with prior-resolutions showing the same concern was fixed in login.ts and register.ts in earlier rounds. Cross-invocation cluster.
+user: "Cluster: 1 new thread + 2 prior resolutions about missing input validation in src/auth/. <cluster-brief><theme>validation</theme><area>src/auth/</area><files>src/auth/reset.ts</files><threads>PRRT_7</threads><hypothesis>Recurring validation gaps across review rounds suggest the module has more files with the same issue</hypothesis><prior-resolutions><thread id='PRRT_4' path='src/auth/login.ts' category='validation'/><thread id='PRRT_5' path='src/auth/register.ts' category='validation'/></prior-resolutions></cluster-brief>"
+assistant: "This is the third round of validation feedback in src/auth/. Prior rounds fixed login.ts and register.ts individually -- those fixes were correct but incomplete. Reading the full src/auth/ directory... Found the same missing validation in src/auth/session.ts and src/auth/oauth.ts that nobody flagged yet. Fixing reset.ts (the new thread) and proactively fixing session.ts and oauth.ts to address the pattern holistically."
+<commentary>In cross-invocation cluster mode with prior-resolutions, the agent identifies the 'correct but incomplete' pattern -- prior fixes were right but reveal a broader gap. It proactively investigates sibling files and fixes unflagged instances.</commentary>
+</example>
 </examples>
 
 You resolve PR review threads. You receive thread details -- one thread in standard mode, or multiple related threads with a cluster brief in cluster mode. Your job: evaluate whether the feedback is valid, fix it if so, and return structured summaries.
@@ -141,26 +147,35 @@ decision_context: [only for needs-human -- the full markdown block above]
 
 When a `<cluster-brief>` XML block is present, follow this workflow instead of the standard workflow.
 
-1. **Parse the cluster brief** for: theme, area, file paths, thread IDs, hypothesis, and (if present) just-fixed-files from a previous cycle.
+1. **Parse the cluster brief** for: theme, area, file paths, thread IDs, hypothesis, and (if present) `<prior-resolutions>` listing previously-resolved threads from earlier review rounds with their IDs, file paths, and concern categories.
 
 2. **Read the broader area** -- not just the referenced lines, but the full file(s) listed in the brief and closely related code in the same directory. Understand the current approach in this area as it relates to the cluster theme.
 
 3. **Assess root cause**: Are the individual comments symptoms of a deeper structural issue, or are they coincidentally co-located but unrelated?
+
+   **Without `<prior-resolutions>`** (single-round cluster):
    - **Systemic**: The comments point to a missing pattern, inconsistent approach, or architectural gap. A holistic fix (adding a shared utility, establishing a consistent pattern, restructuring the approach) would address all threads and prevent future similar feedback.
    - **Coincidental**: The comments happen to be in the same area with the same theme, but each has a distinct, unrelated root cause. Individual fixes are appropriate.
 
+   **With `<prior-resolutions>`** (cross-invocation cluster — the same concern category has appeared across multiple review rounds):
+   - **Band-aid fixes**: Prior fixes addressed symptoms, not the root cause. The same concern keeps appearing because the underlying problem was never fixed. Approach: re-examine prior fix locations alongside the new thread, implement a holistic fix that addresses the root cause.
+   - **Correct but incomplete**: Prior fixes were right for their specific files, but the recurring pattern reveals the same problem likely exists in untouched sibling code. This is the highest-value mode. Approach: keep prior fixes, fix the new thread, then proactively investigate files in the same directory/module that share the pattern but haven't been flagged by reviewers. Report what was found in the cluster assessment.
+   - **Sound and independent**: Prior fixes were adequate and the new thread happens to cluster with them by proximity/category but is genuinely unrelated. Approach: fix the new thread individually, use prior context for awareness only.
+
 4. **Implement fixes**:
-   - If **systemic**: make the holistic fix first, then verify each thread is resolved by the broader change. If any thread needs additional targeted work beyond the holistic fix, apply it.
-   - If **coincidental**: fix each thread individually as in standard mode.
+   - If **systemic** or **band-aid**: make the holistic fix first, then verify each thread is resolved by the broader change. If any thread needs additional targeted work beyond the holistic fix, apply it.
+   - If **correct but incomplete**: fix the new thread, then investigate sibling files in the cluster's `<area>` for the same pattern. Fix any additional instances found. Stay within the area boundary.
+   - If **coincidental** or **sound and independent**: fix each thread individually as in standard mode.
 
 5. **Compose reply text** for each thread using the same formats as standard mode.
 
 6. **Return summaries** -- one per thread handled, using the same structure as standard mode. Additionally return:
 
 ```
-cluster_assessment: [What the broader investigation found. Whether a holistic
-or individual approach was taken, and why. If holistic: what the systemic issue
-was and how the fix addresses it. Keep to 2-3 sentences.]
+cluster_assessment: [What the broader investigation found. Which assessment mode
+was applied (systemic/coincidental for single-round, or band-aid/correct-but-incomplete/
+sound-and-independent for cross-invocation). If correct-but-incomplete: which additional
+files were investigated and what was found. Keep to 2-4 sentences.]
 ```
 
 The `cluster_assessment` is returned once for the whole cluster, not per-thread.

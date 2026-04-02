@@ -1,5 +1,6 @@
 import path from "path"
-import { backupFile, copyDir, ensureDir, pathExists, readJson, resolveCommandPath, sanitizePathName, writeJson, writeText } from "../utils/files"
+import { backupFile, copySkillDir, ensureDir, pathExists, readJson, resolveCommandPath, sanitizePathName, writeJson, writeText } from "../utils/files"
+import { transformSkillContentForOpenCode } from "../converters/claude-to-opencode"
 import type { OpenCodeBundle, OpenCodeConfig } from "../types/opencode"
 
 // Merges plugin config into existing opencode.json. User keys win on conflict. See ADR-002.
@@ -100,7 +101,12 @@ export async function writeOpenCodeBundle(outputRoot: string, bundle: OpenCodeBu
   if (bundle.skillDirs.length > 0) {
     const skillsRoot = openCodePaths.skillsDir
     for (const skill of bundle.skillDirs) {
-      await copyDir(skill.sourceDir, path.join(skillsRoot, sanitizePathName(skill.name)))
+      await copySkillDir(
+        skill.sourceDir,
+        path.join(skillsRoot, sanitizePathName(skill.name)),
+        transformSkillContentForOpenCode,
+        true, // transform all .md files — FQ agent names appear in references too
+      )
     }
   }
 }

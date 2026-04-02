@@ -47,18 +47,18 @@ export async function runGraph(config) {
         graphOut.push(`| 16 | Graph: Read (${graphLines.length}L) | ${fmt(noGraphResult.length)} chars | ${fmt(withGraphResult.length)} chars | ${savings} | 2\u21921 | 2\u21921 |`);
     }
 
-    // TEST 17: Edit with/without call impact
+    // TEST 17: Edit with/without semantic impact
     {
         const editTmpPath = resolve(tmpdir(), `hex-bench-edit-${Date.now()}.js`);
         writeFileSync(editTmpPath, graphLines.join("\n"), "utf-8");
         try {
             const tag = lineTag(fnv1a(graphLines[5]));
             const editResult = editFile(editTmpPath, [{ set_line: { anchor: `${tag}.6`, new_text: graphLines[5] + " // modified" } }]);
-            const noBlastOut = editResult.replace(/\n.*Call impact.*$/s, "");
+            const noBlastOut = editResult.replace(/\n.*Semantic impact:.*$/s, "");
             const savings = pctSavings(noBlastOut.length, editResult.length);
-            graphOut.push(`| 17 | Graph: Edit + call impact | ${fmt(noBlastOut.length)} chars | ${fmt(editResult.length)} chars | ${savings} | 2\u21921 | 2\u21921 |`);
+            graphOut.push(`| 17 | Graph: Edit + semantic impact | ${fmt(noBlastOut.length)} chars | ${fmt(editResult.length)} chars | ${savings} | 2\u21921 | 2\u21921 |`);
         } catch {
-            graphOut.push(`| 17 | Graph: Edit + call impact | \u2014 | \u2014 | \u2014 | | |`);
+            graphOut.push(`| 17 | Graph: Edit + semantic impact | \u2014 | \u2014 | \u2014 | | |`);
         }
         try { unlinkSync(editTmpPath); } catch {}
     }

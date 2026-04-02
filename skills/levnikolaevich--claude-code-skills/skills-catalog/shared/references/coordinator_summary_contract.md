@@ -9,6 +9,12 @@ Machine-readable worker outputs for standalone workers and coordinator runtimes.
 - `summaryArtifactPath` is optional.
 - If `summaryArtifactPath` is provided, write the summary JSON to that exact path.
 - If `summaryArtifactPath` is not provided, return the same summary in structured output.
+
+### Output Path Guard
+
+- Workers MUST NOT write any artifact (summary, report, or intermediate file) to the project root directory.
+- When standalone (no `summaryArtifactPath`), workers generate a standalone `run_id` (format: `standalone-{skill}-{YYYYMMDD}-{short_hash}`) and write the summary JSON to `.hex-skills/runtime-artifacts/runs/{run_id}/{summary_kind}/{skill}.json`. Chat output is used for human-readable verdicts only.
+- **Prohibited filenames in project root:** `report.md`, `review_report.md`, `summary.json`, `results.md`, or any ad-hoc artifact directly in `./`.
 - Coordinators consume summaries, not prose chat output.
 - Runtime artifacts are always run-scoped:
   - `.hex-skills/runtime-artifacts/runs/{run_id}/{summary_kind}/{identifier}.json`

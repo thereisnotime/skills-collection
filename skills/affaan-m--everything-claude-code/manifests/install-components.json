@@ -140,9 +140,17 @@
     {
       "id": "capability:content",
       "family": "capability",
-      "description": "Business, writing, market, and investor communication skills.",
+      "description": "Business, writing, market, investor communication, and reusable voice-system skills.",
       "modules": [
         "business-content"
+      ]
+    },
+    {
+      "id": "capability:operators",
+      "family": "capability",
+      "description": "Connected-app operator workflows for setup audits, billing operations, program tracking, Google Workspace, and network optimization.",
+      "modules": [
+        "operator-workflows"
       ]
     },
     {
@@ -156,7 +164,7 @@
     {
       "id": "capability:media",
       "family": "capability",
-      "description": "Media generation and AI-assisted editing skills.",
+      "description": "Media generation, technical explainers, and AI-assisted editing skills.",
       "modules": [
         "media-generation"
       ]

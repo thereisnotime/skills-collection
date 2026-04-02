@@ -116,14 +116,20 @@ export async function copyDir(sourceDir: string, targetDir: string): Promise<voi
 }
 
 /**
- * Copy a skill directory, optionally transforming SKILL.md content.
- * All other files are copied verbatim. Used by target writers to apply
+ * Copy a skill directory, optionally transforming markdown content.
+ * Non-markdown files are copied verbatim. Used by target writers to apply
  * platform-specific content transforms to pass-through skills.
+ *
+ * By default only SKILL.md is transformed (safe for slash-command rewrites
+ * that shouldn't touch reference files). Set `transformAllMarkdown` to also
+ * transform reference .md files — needed when the transform rewrites content
+ * that appears in reference files (e.g. fully-qualified agent names).
  */
 export async function copySkillDir(
   sourceDir: string,
   targetDir: string,
   transformSkillContent?: (content: string) => string,
+  transformAllMarkdown?: boolean,
 ): Promise<void> {
   await ensureDir(targetDir)
   const entries = await fs.readdir(sourceDir, { withFileTypes: true })
@@ -133,9 +139,12 @@ export async function copySkillDir(
     const targetPath = path.join(targetDir, entry.name)
 
     if (entry.isDirectory()) {
-      await copySkillDir(sourcePath, targetPath, transformSkillContent)
+      await copySkillDir(sourcePath, targetPath, transformSkillContent, transformAllMarkdown)
     } else if (entry.isFile()) {
-      if (entry.name === "SKILL.md" && transformSkillContent) {
+      const shouldTransform = transformSkillContent && (
+        entry.name === "SKILL.md" || (transformAllMarkdown && entry.name.endsWith(".md"))
+      )
+      if (shouldTransform) {
         const content = await readText(sourcePath)
         await writeText(targetPath, transformSkillContent(content))
       } else {

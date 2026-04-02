@@ -78,6 +78,8 @@ const TOOL_HINTS = {
     bulk:    "mcp__hex-line__bulk_replace (multi-file search-replace)",
 };
 
+const DEFERRED_HINT = "If schemas not loaded: ToolSearch('+hex-line read edit')";
+
 const BASH_REDIRECTS = [
     { regex: /^cat\s+\S+/, key: "cat" },
     { regex: /^head\s+/, key: "head" },
@@ -312,14 +314,21 @@ function handlePreToolUse(data) {
             process.exit(0);
         }
 
-        // Only redirect files within project directory (skip .claude/ subfolder)
-        const normalPath = filePath.replace(/\\/g, "/");
+        // .claude/ config: allow only settings files at project root or home
+        const resolvedNorm = resolveToolPath(filePath).replace(/\\/g, "/");
         const cwdNorm = process.cwd().replace(/\\/g, "/");
-        const isInProject = process.platform === "win32"
-            ? normalPath.toLowerCase().startsWith(cwdNorm.toLowerCase())
-            : normalPath.startsWith(cwdNorm);
-        if (!isInProject || normalPath.includes("/.claude/")) {
+        const homeNorm = homedir().replace(/\\/g, "/");
+        const claudeAllow = [
+            cwdNorm + "/.claude/settings.json",
+            cwdNorm + "/.claude/settings.local.json",
+            homeNorm + "/.claude/settings.json",
+            homeNorm + "/.claude/settings.local.json",
+        ];
+        if (claudeAllow.some(p => resolvedNorm.toLowerCase() === p.toLowerCase())) {
             process.exit(0);
+        }
+        if (resolvedNorm.includes("/.claude/")) {
+            redirect("Protected .claude/ path. Use built-in tools for .claude/ config files.");
         }
 
         if (toolName === "Read") {
@@ -329,11 +338,11 @@ function handlePreToolUse(data) {
             if (fileSize !== null && fileSize <= LARGE_FILE_BYTES) {
                 const ext = filePath ? extOf(filePath) : "";
                 const hint = (filePath && OUTLINEABLE_EXT.has(ext))
-                    ? `mcp__hex-line__outline(path="${filePath}") gives a compact structural map. For edits, use mcp__hex-line__read_file(path="${filePath}") with ranges.`
+                    ? `Use mcp__hex-line__outline(path="${filePath}") for structure, then mcp__hex-line__read_file(path="${filePath}") with ranges.`
                     : filePath
-                        ? `NEXT READ: use mcp__hex-line__read_file(path="${filePath}"). Built-in Read allowed this time but wastes edit context.`
-                        : "NEXT READ: use mcp__hex-line__read_file. Built-in Read allowed this time but wastes edit context.";
-                advise(hint);
+                        ? `Use mcp__hex-line__read_file(path="${filePath}"). Built-in Read wastes edit context.`
+                        : "Use mcp__hex-line__read_file. Built-in Read wastes edit context.";
+                advise(hint, DEFERRED_HINT);
             }
             const ext = filePath ? extOf(filePath) : "";
             const outlineHint = (filePath && OUTLINEABLE_EXT.has(ext))
@@ -341,29 +350,32 @@ function handlePreToolUse(data) {
                 : filePath
                     ? `Use mcp__hex-line__read_file(path="${filePath}") with ranges or offset/limit`
                     : "Use mcp__hex-line__directory_tree or mcp__hex-line__read_file";
-            redirect(outlineHint, "Do not use built-in Read for full reads of large files.");
+            redirect(outlineHint, "Do not use built-in Read for full reads of large files.\n" + DEFERRED_HINT);
         }
 
         if (toolName === "Edit") {
             const oldText = String(toolInput.old_string || "");
             const isLargeEdit = Boolean(toolInput.replace_all) || oldText.length > LARGE_EDIT_CHARS || (fileSize !== null && fileSize > LARGE_FILE_BYTES);
             if (!isLargeEdit) {
-                process.exit(0);
+                const editHint = filePath
+                    ? `Prefer mcp__hex-line__edit_file(path="${filePath}") for hash-verified edits.`
+                    : "Prefer mcp__hex-line__edit_file for hash-verified edits.";
+                advise(editHint);
             }
             const target = filePath
                 ? `Use mcp__hex-line__grep_search or mcp__hex-line__read_file, then mcp__hex-line__edit_file with path="${filePath}"`
                 : "Use mcp__hex-line__grep_search or mcp__hex-line__read_file, then mcp__hex-line__edit_file";
-            redirect(target, "For large or repeated edits: locate anchors/checksums first, then call edit_file once with batched edits.");
+            redirect(target, "For large or repeated edits: locate anchors/checksums first, then call edit_file once with batched edits.\n" + DEFERRED_HINT);
         }
 
         if (toolName === "Write") {
             const pathNote = filePath ? ` with path="${filePath}"` : "";
-            redirect(`Use mcp__hex-line__write_file${pathNote}`, TOOL_HINTS.Write);
+            redirect(`Use mcp__hex-line__write_file${pathNote}`, TOOL_HINTS.Write + "\n" + DEFERRED_HINT);
         }
 
         if (toolName === "Grep") {
             const pathNote = filePath ? ` with path="${filePath}"` : "";
-            redirect(`Use mcp__hex-line__grep_search${pathNote}`, TOOL_HINTS.Grep);
+            redirect(`Use mcp__hex-line__grep_search${pathNote}`, TOOL_HINTS.Grep + "\n" + DEFERRED_HINT);
         }
     }
 
@@ -511,15 +523,26 @@ function handleSessionStart() {
 
     const prefix = styleActive ? "Hex-line MCP available. Output style active.\n" : "Hex-line MCP available.\n";
     const msg = prefix +
-        "Call hex-line tools directly. Do not use ToolSearch for hex-line tools.\n" +
-        "Workflow:\n" +
-        "- Discovery: outline for code and markdown files, read_file for targeted reads, grep_search for symbol/text lookup\n" +
-        "- Read cheaply: prefer offset/limit or ranges; avoid full-file Read on large files\n" +
-        "- Edit safely: read/grep first, then one batched edit_file call per file with base_revision when available\n" +
-        "- Verify before reread: use verify to check checksums or revision freshness\n" +
-        "- Multi-file rename/refactor: use bulk_replace\n" +
-        "- New files: use write_file\n" +
-        "Exceptions: images, PDFs, notebooks, .claude/settings.json, .claude/settings.local.json use built-in Read. Glob is always OK.";
+        "<hex-line_instructions>\n" +
+        "  <deferred_loading>If hex-line schemas not loaded, run: ToolSearch('+hex-line read edit')</deferred_loading>\n" +
+        "  <exploration>\n" +
+        "    <rule>Use outline for structure (code + markdown), not Read. ~10-20 lines vs hundreds.</rule>\n" +
+        "    <rule>Use read_file with offset/limit or ranges for targeted reads.</rule>\n" +
+        "    <rule>Use grep_search before editing to get hash anchors.</rule>\n" +
+        "  </exploration>\n" +
+        "  <editing>\n" +
+        "    <path name='surgical'>grep_search \u2192 edit_file (fastest: hash-verified, no full read needed)</path>\n" +
+        "    <path name='exploratory'>outline \u2192 read_file (ranges) \u2192 edit_file with base_revision</path>\n" +
+        "    <path name='multi-file'>bulk_replace for text rename/refactor across files</path>\n" +
+        "  </editing>\n" +
+        "  <tips>\n" +
+        "    <tip>Carry revision from read_file into base_revision on edit_file.</tip>\n" +
+        "    <tip>If edit returns CONFLICT, call verify \u2014 only reread when STALE.</tip>\n" +
+        "    <tip>Batch multiple edits to same file in one edit_file call.</tip>\n" +
+        "    <tip>Use write_file for new files (no prior Read needed).</tip>\n" +
+        "  </tips>\n" +
+        "  <exceptions>Built-in Read OK for: images, PDFs, notebooks, Glob (always), .claude/settings.json</exceptions>\n" +
+        "</hex-line_instructions>";
     safeExit(1, JSON.stringify({ systemMessage: msg }), 0);
 }
 

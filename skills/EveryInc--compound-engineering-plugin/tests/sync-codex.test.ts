@@ -56,9 +56,36 @@ describe("syncToCodex", () => {
     expect(content).toContain("[mcp_servers.remote]")
     expect(content).toContain("url = \"https://example.com/mcp\"")
     expect(content).toContain("http_headers")
-    expect(content.match(/# BEGIN compound-plugin Claude Code MCP/g)?.length).toBe(1)
+    // Old markers should be replaced with new ones
+    expect(content).not.toContain("# BEGIN compound-plugin Claude Code MCP")
+    expect(content.match(/# BEGIN Compound Engineering plugin MCP/g)?.length).toBe(1)
 
     const perms = (await fs.stat(configPath)).mode & 0o777
     expect(perms).toBe(0o600)
+  })
+
+  test("cleans up stale managed block when syncing with zero MCP servers", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "sync-codex-zero-"))
+    const fixtureSkillDir = path.join(import.meta.dir, "fixtures", "sample-plugin", "skills", "skill-one")
+    const configPath = path.join(tempRoot, "config.toml")
+
+    // First sync with MCP servers
+    const configWithServers: ClaudeHomeConfig = {
+      skills: [{ name: "skill-one", sourceDir: fixtureSkillDir, skillPath: path.join(fixtureSkillDir, "SKILL.md") }],
+      mcpServers: { old: { command: "old-server" } },
+    }
+    await syncToCodex(configWithServers, tempRoot)
+    expect(await fs.readFile(configPath, "utf8")).toContain("[mcp_servers.old]")
+
+    // Second sync with zero MCP servers
+    const configEmpty: ClaudeHomeConfig = {
+      skills: [{ name: "skill-one", sourceDir: fixtureSkillDir, skillPath: path.join(fixtureSkillDir, "SKILL.md") }],
+      mcpServers: {},
+    }
+    await syncToCodex(configEmpty, tempRoot)
+
+    const content = await fs.readFile(configPath, "utf8")
+    expect(content).not.toContain("[mcp_servers.old]")
+    expect(content).not.toContain("# BEGIN")
   })
 })
