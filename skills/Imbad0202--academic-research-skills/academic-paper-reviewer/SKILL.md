@@ -4,6 +4,10 @@ description: "Multi-perspective academic paper review with dynamic reviewer pers
 metadata:
   version: "1.4"
   last_updated: "2026-03-08"
+  status: active
+  related_skills:
+    - academic-paper
+    - academic-pipeline
 ---
 
 # Academic Paper Reviewer v1.4 — Multi-Perspective Academic Paper Review Agent Team

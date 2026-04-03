@@ -4,6 +4,10 @@ description: "Universal deep research agent team. 13-agent pipeline for rigorous
 metadata:
   version: "2.4"
   last_updated: "2026-03-27"
+  status: active
+  related_skills:
+    - academic-paper
+    - academic-pipeline
 ---
 
 # Deep Research — Universal Academic Research Agent Team

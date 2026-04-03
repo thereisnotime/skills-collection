@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, coderabbit, workflow, code-review]
-
 ---
 # CodeRabbit Core Workflow A: Automated PR Review
 

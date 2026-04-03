@@ -1,6 +1,22 @@
 [
   {
     "ruleId": "",
+    "ruleTitle": "Do Not Put Effect Events in Dependency Arrays",
+    "type": "bad",
+    "code": "import { useEffect, useEffectEvent } from 'react'\n\nfunction ChatRoom({ roomId, onConnected }: {\n  roomId: string\n  onConnected: () => void\n}) {\n  const handleConnected = useEffectEvent(onConnected)\n\n  useEffect(() => {\n    const connection = createConnection(roomId)\n    connection.on('connected', handleConnected)\n    connection.connect()\n\n    return () => connection.disconnect()\n  }, [roomId, handleConnected])\n}",
+    "language": "tsx",
+    "description": "Effect Event added as a dependency"
+  },
+  {
+    "ruleId": "",
+    "ruleTitle": "Do Not Put Effect Events in Dependency Arrays",
+    "type": "good",
+    "code": "import { useEffect, useEffectEvent } from 'react'\n\nfunction ChatRoom({ roomId, onConnected }: {\n  roomId: string\n  onConnected: () => void\n}) {\n  const handleConnected = useEffectEvent(onConnected)\n\n  useEffect(() => {\n    const connection = createConnection(roomId)\n    connection.on('connected', handleConnected)\n    connection.connect()\n\n    return () => connection.disconnect()\n  }, [roomId])\n}",
+    "language": "tsx",
+    "description": "depend on reactive values, not the Effect Event"
+  },
+  {
+    "ruleId": "",
     "ruleTitle": "Store Event Handlers in Refs",
     "type": "bad",
     "code": "function useWindowEvent(event: string, handler: (e) => void) {\n  useEffect(() => {\n    window.addEventListener(event, handler)\n    return () => window.removeEventListener(event, handler)\n  }, [event, handler])\n}",

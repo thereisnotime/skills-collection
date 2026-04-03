@@ -8,7 +8,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, openrouter, sdk, patterns]
-
 ---
 # OpenRouter SDK Patterns
 

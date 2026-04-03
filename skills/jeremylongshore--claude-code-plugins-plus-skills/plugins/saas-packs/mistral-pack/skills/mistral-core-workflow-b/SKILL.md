@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, mistral, llm, embeddings, workflow]
-
 ---
 # Mistral AI Core Workflow B: Embeddings & Function Calling
 

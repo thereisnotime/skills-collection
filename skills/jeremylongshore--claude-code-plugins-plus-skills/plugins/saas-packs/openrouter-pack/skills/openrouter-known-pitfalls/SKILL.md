@@ -8,7 +8,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, openrouter, best-practices, pitfalls]
-
 ---
 # OpenRouter Known Pitfalls
 

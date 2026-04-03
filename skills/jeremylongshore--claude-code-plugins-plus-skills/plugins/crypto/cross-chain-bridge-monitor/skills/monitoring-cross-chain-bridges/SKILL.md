@@ -12,7 +12,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [crypto, monitoring, monitoring-cross]
-
 ---
 # Cross-Chain Bridge Monitor
 

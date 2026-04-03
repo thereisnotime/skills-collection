@@ -11,7 +11,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, windsurf, cascade, write-mode, agentic]
-
 ---
 # Windsurf Core Workflow A — Cascade Write Mode
 

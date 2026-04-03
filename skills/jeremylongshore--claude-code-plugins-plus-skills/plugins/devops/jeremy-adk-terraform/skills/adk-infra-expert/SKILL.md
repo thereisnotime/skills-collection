@@ -8,7 +8,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [devops, deployment, terraform, iam]
-
 ---
 # Adk Infra Expert
 

@@ -10,7 +10,6 @@ license: MIT
 author: Bayram Annakov <bayram.annakov@gmail.com>
 compatible-with: claude-code, codex, openclaw
 tags: [community, claude-reflect]
-
 ---
 # Claude Reflect - Self-Learning System
 

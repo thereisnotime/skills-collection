@@ -7,7 +7,6 @@ author: "Martin Gontovnikas <martin@hypergrowthpartners.com>"
 compatible-with: claude-code
 tags: [business, webhooks, email-drafting]
 allowed-tools: Read, Bash(gog:*), Bash(mcporter:*), Bash(python3:*), Glob, Grep, Write
-
 ---
 # Email Drafting Skill
 

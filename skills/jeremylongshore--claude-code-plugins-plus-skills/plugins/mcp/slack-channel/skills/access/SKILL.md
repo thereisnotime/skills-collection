@@ -9,7 +9,6 @@ argument-hint: "pair <code> | policy <mode> | add <user_id> | remove <user_id> |
 allowed-tools: Read, Write, Edit
 compatible-with: claude-code
 tags: [mcp, access]
-
 ---
 
 # /slack-channel:access

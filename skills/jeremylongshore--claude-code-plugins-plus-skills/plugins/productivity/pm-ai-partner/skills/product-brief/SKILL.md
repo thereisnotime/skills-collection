@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [feature name]
 compatible-with: claude-code
 tags: [productivity, product-brief]
-
 ---
 
 # Product Brief Skill

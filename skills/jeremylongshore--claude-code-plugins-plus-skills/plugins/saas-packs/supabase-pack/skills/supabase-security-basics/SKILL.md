@@ -14,7 +14,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, supabase, security, rls, jwt, api-keys]
-
 ---
 # Supabase Security Basics
 

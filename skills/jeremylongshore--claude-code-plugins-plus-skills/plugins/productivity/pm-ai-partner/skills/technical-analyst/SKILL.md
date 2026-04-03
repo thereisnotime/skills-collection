@@ -8,7 +8,6 @@ allowed-tools: Read, Grep, Glob, Bash(git:*)
 argument-hint: [system, service, or file]
 compatible-with: claude-code
 tags: [productivity, technical-analyst]
-
 ---
 
 # Technical Analyst Mode

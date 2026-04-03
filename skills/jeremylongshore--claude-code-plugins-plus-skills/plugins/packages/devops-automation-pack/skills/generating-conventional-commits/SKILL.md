@@ -8,7 +8,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [packages, conventional-commits]
-
 ---
 # Devops Automation Pack
 

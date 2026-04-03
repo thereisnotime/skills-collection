@@ -10,7 +10,6 @@ license: MIT
 allowed-tools: Read, Write, Edit, Glob, Grep
 compatible-with: claude-code, codex, openclaw
 tags: [business, brand-strategy]
-
 ---
 # Brand Strategy Framework
 

@@ -1,13 +1,9 @@
 ---
 name: grammarly-upgrade-migration
 description: |
-description: |
-  
+  Upgrade and migration guidance for Grammarly API version changes. Use when migrating
+  between Grammarly API versions or updating endpoint references.
 allowed-tools: Read, Write, Edit, Bash(curl:*), Grep
-version: 1.0.0
-license: MIT
-author: Jeremy Longshore <jeremy@intentsolutions.io>
-allowed-tools: Read, Write, Edit, Grep
 version: 1.0.0
 license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>

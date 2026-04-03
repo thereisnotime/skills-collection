@@ -12,7 +12,6 @@ author: builtbyzac
 license: MIT
 compatible-with: claude-code
 tags: [productivity, audit, memory-kit]
-
 ---
 
 # Memory Kit

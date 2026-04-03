@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, customer-io, multi-environment, kubernetes]
-
 ---
 # Customer.io Multi-Environment Setup
 

@@ -7,7 +7,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [security, scanning-input]
-
 ---
 # Input Validation Scanner
 

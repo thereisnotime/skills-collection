@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, customer-io, best-practices, anti-patterns]
-
 ---
 # Customer.io Known Pitfalls
 

@@ -14,7 +14,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, sentry, security, compliance, gdpr, pii, data-privacy]
-
 ---
 # Sentry Data Handling
 

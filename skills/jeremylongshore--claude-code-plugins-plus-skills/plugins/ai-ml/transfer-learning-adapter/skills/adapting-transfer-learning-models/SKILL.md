@@ -8,7 +8,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [ai, ml, adapting-transfer]
-
 ---
 # Transfer Learning Adapter
 

@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, ideogram, workflow, editing, remix, upscale]
-
 ---
 # Ideogram Core Workflow B -- Edit, Remix, Upscale, Describe, Reframe
 

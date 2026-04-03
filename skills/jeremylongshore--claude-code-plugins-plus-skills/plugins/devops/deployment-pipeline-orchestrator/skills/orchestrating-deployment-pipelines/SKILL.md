@@ -12,7 +12,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [devops, deployment, ci-cd]
-
 ---
 # Orchestrating Deployment Pipelines
 

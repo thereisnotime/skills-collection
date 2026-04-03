@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, exa, workflow, similarity-search, answer]
-
 ---
 # Exa Core Workflow B — Similarity, Contents & Answer
 

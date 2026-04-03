@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [assumption or experiment]
 compatible-with: claude-code
 tags: [productivity, testing, hypothesis-tester]
-
 ---
 
 # Hypothesis Tester Mode

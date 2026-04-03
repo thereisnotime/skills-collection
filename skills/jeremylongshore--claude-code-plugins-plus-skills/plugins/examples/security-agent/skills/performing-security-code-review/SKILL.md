@@ -8,7 +8,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [example, security, authentication, audit]
-
 ---
 # Performing Security Code Review
 

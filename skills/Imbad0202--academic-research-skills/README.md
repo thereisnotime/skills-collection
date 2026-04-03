@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v2.9-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v2.9)
+[![Version](https://img.shields.io/badge/version-v2.9.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v2.9.1)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -461,6 +461,10 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## Changelog
+
+### v2.9.1 (2026-04-03) — Skill Metadata
+- Added `status: active` and `related_skills` cross-references to all 4 SKILL.md frontmatters
+- Enables skill discovery tools and cross-skill navigation for users with multiple skills installed
 
 ### v2.9 (2026-03-27) — Style Calibration + Writing Quality Check
 - **Style Calibration** (academic-paper intake Step 10, optional): Provide 3+ past papers and the pipeline learns your writing voice — sentence rhythm, vocabulary preferences, citation integration style. Applied as a soft guide during drafting; discipline conventions always take priority. Priority system: discipline norms (hard) > journal conventions (strong) > personal style (soft). See `shared/style_calibration_protocol.md`

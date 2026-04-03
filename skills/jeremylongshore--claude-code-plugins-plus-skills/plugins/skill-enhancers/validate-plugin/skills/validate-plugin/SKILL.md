@@ -15,7 +15,6 @@ user-invocable: true
 argument-hint: "<plugin-directory-path>"
 compatible-with: claude-code
 tags: [skill-development, audit, validate-plugin]
-
 ---
 
 # Validate Plugin

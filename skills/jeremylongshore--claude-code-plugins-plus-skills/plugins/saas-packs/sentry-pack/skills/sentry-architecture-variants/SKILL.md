@@ -14,7 +14,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, sentry, serverless, microservices, architecture, distributed-tracing, lambda, spa, mobile]
-
 ---
 # Sentry Architecture Variants
 

@@ -12,7 +12,6 @@ author: Jack Reis <hello@jack.digital>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [productivity, neurodivergent-visual]
-
 ---
 ## Mode System (v3.1.1)
 

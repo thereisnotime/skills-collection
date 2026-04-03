@@ -14,7 +14,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, sentry, ci-cd, github-actions, gitlab-ci, source-maps, deployment]
-
 ---
 # Sentry CI Integration
 

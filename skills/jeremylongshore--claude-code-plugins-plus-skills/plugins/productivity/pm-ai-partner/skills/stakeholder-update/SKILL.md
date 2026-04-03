@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [project or team]
 compatible-with: claude-code
 tags: [productivity, stakeholder-update]
-
 ---
 
 # Stakeholder Update Skill

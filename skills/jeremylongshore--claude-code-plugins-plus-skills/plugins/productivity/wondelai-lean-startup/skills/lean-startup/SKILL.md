@@ -8,7 +8,6 @@ author: Wondelai <hello@wondelai.com>
 version: 1.0.1
 compatible-with: claude-code, codex, openclaw
 tags: [productivity, testing, lean-startup]
-
 ---
 # Lean Startup Methodology
 

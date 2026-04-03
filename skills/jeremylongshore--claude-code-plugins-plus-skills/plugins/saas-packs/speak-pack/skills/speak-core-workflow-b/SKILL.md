@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, speak, voice-ai, workflow]
-
 ---
 # Speak Core Workflow B: Pronunciation Training
 

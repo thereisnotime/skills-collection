@@ -11,7 +11,6 @@ author: Claude Code Plugins <plugins@claudecodeplugins.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [productivity, yt-ideation]
-
 ---
 # YouTube Ideation
 

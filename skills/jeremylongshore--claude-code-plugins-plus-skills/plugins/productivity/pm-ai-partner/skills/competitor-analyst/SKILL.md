@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [competitor or market]
 compatible-with: claude-code
 tags: [productivity, competitor-analyst]
-
 ---
 
 # Competitor Analyst Mode

@@ -7,7 +7,6 @@ author: "Martin Gontovnikas <martin@hypergrowthpartners.com>"
 compatible-with: claude-code
 tags: [business, todoist-due]
 allowed-tools: Read, Bash(gog:*), Bash(mcporter:*), Bash(todoist-cli:*), Bash(python3:*), Bash(source:*), Glob, Grep, Write
-
 ---
 # Todoist Due-Today Email Drafts
 

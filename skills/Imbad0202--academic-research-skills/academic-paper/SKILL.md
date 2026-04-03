@@ -4,6 +4,11 @@ description: "Academic paper writing skill with 12-agent pipeline. v2.5: Style C
 metadata:
   version: "2.5"
   last_updated: "2026-03-27"
+  status: active
+  related_skills:
+    - deep-research
+    - academic-paper-reviewer
+    - academic-pipeline
 ---
 
 # Academic Paper — Academic Paper Writing Agent Team

@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, instantly, workflow, campaigns, cold-email]
-
 ---
 # Instantly Core Workflow A: Campaign Launch Pipeline
 

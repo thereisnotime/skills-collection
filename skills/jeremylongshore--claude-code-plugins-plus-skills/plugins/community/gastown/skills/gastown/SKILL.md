@@ -13,7 +13,6 @@ license: Apache-2.0
 author: Numman Ali <numman.ali@gmail.com>
 compatible-with: claude-code, codex, openclaw
 tags: [community, scaling, workflow]
-
 ---
 # Gastown
 

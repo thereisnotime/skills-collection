@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.9.1] - 2026-04-03
+
+### Added
+- `status` and `related_skills` metadata to all 4 SKILL.md frontmatters
+  - Enables skill discovery tools and cross-skill navigation for users with multiple skills installed
+  - `deep-research` ↔ `academic-paper` ↔ `academic-paper-reviewer` ↔ `academic-pipeline`
+
+## [2.9] - 2026-03-27
+
+### Added
+- **Style Calibration** — learn the author's writing voice from past papers (optional, intake Step 10)
+- **Writing Quality Check** — checklist catching overused AI-typical patterns (renamed from AI Writing Lint)
+- Information Systems Basket of 8 journals added to academic-paper reference list
+- Copilot philosophy tagline to README EN + zh-TW
+- Substack guide articles to both READMEs
+
+### Fixed
+- Skill Details section version numbers and agent descriptions updated
+- /simplify review — stale refs, lint sweep efficiency, schema fields
+- Removed last v4.0 reference in CHANGELOG
+
 ## [2.8] - 2026-03-22
 
 ### Added

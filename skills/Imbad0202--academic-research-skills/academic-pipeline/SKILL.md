@@ -5,6 +5,11 @@ metadata:
   version: "2.7"
   last_updated: "2026-03-27"
   depends_on: "deep-research, academic-paper, academic-paper-reviewer"
+  status: active
+  related_skills:
+    - deep-research
+    - academic-paper
+    - academic-paper-reviewer
 ---
 
 # Academic Pipeline v2.7 — Full Academic Research Workflow Orchestrator

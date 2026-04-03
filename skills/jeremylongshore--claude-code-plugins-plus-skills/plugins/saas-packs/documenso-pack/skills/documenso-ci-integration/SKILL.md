@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, documenso, deployment, testing, ci-cd]
-
 ---
 # Documenso CI Integration
 

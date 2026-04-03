@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, customer-io, testing, development, workflow]
-
 ---
 # Customer.io Local Dev Loop
 

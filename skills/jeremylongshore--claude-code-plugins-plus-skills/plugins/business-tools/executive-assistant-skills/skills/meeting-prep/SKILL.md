@@ -7,7 +7,6 @@ author: "Martin Gontovnikas <martin@hypergrowthpartners.com>"
 compatible-with: claude-code
 tags: [business, meeting-prep]
 allowed-tools: Read, Bash(gog:*), Bash(mcporter:*), Bash(python3:*), Bash(openclaw:*), Bash(curl:*), Glob, Grep, Write, WebSearch
-
 ---
 # Daily Meeting Prep
 

@@ -10,7 +10,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [community, migration, firestore-operations]
-
 ---
 # Firestore Operations Manager
 

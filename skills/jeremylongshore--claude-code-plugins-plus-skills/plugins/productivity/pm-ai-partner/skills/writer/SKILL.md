@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [document type or topic]
 compatible-with: claude-code
 tags: [productivity, writer]
-
 ---
 
 # Writer Mode

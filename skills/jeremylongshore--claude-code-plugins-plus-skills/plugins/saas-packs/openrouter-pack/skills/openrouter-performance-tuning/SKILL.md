@@ -8,7 +8,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, openrouter, performance, latency, optimization]
-
 ---
 # OpenRouter Performance Tuning
 

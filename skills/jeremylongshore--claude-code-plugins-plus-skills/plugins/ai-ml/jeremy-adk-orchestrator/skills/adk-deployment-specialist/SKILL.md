@@ -10,7 +10,6 @@ compatible-with: claude-code, codex, openclaw
 effort: high
 argument-hint: "<agent-name or project-id>"
 tags: [ai, deployment, ci-cd]
-
 ---
 # Adk Deployment Specialist
 

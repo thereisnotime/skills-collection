@@ -11,7 +11,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [security, compliance, audit]
-
 ---
 # Assisting With SOC 2 Audit Preparation
 

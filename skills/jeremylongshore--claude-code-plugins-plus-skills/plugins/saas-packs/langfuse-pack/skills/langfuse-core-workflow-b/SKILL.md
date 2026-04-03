@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, langfuse, llm, workflow, evaluation]
-
 ---
 # Langfuse Core Workflow B: Evaluation, Scoring & Datasets
 

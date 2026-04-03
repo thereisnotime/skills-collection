@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v2.9-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v2.9)
+[![Version](https://img.shields.io/badge/version-v2.9.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v2.9.1)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -460,6 +460,10 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v2.9.1 (2026-04-03) — Skill Metadata
+- 為 4 個 SKILL.md 加入 `status: active` 和 `related_skills` 交叉引用
+- 支援 skill 探索工具及跨技能導航
 
 ### v2.9 (2026-03-27) — 風格校準 + 寫作品質檢查
 - **風格校準**（academic-paper intake Step 10，可選）：提供 3+ 篇過去論文，pipeline 會學習你的寫作風格 — 句子節奏、詞彙偏好、引用整合方式。寫作時作為軟性指引；學科規範永遠優先。優先級系統：學科規範（硬性）> 期刊慣例（強）> 個人風格（軟性）。見 `shared/style_calibration_protocol.md`

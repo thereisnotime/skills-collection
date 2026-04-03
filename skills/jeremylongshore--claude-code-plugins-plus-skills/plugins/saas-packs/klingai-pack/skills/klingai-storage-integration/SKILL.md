@@ -10,7 +10,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, kling-ai, storage, s3, gcs]
-
 ---
 # Kling AI Storage Integration
 

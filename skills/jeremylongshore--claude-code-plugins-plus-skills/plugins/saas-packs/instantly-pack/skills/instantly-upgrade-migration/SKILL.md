@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, instantly, migration, upgrade]
-
 ---
 # Instantly Upgrade Migration: API v1 to v2
 

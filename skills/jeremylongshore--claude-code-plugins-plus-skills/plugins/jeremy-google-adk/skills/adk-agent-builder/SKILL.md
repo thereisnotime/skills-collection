@@ -8,7 +8,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [google-adk, react, adk-agent]
-
 ---
 # ADK Agent Builder
 

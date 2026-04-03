@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-Tons of Skills — Claude Code plugins marketplace (414 plugins, 2,788 skills). Live at https://tonsofskills.com
+Tons of Skills — Claude Code plugins marketplace (416 plugins, 2,574 skills). Live at https://tonsofskills.com
 
 **Monorepo structure:** pnpm workspaces (v9.15.9+)
 - `plugins/[category]/*` - AI instruction plugins (Markdown, ~98% of plugins)
@@ -94,13 +94,14 @@ ccpi CLI fetches and caches locally
 
 ## Marketplace Build Pipeline
 
-`npm run build` in `marketplace/` runs 5 steps sequentially via `scripts/build.mjs`:
+`npm run build` in `marketplace/` runs 6 steps sequentially via `scripts/build.mjs`:
 
 1. `discover-skills.mjs` - Scans all plugins, extracts SKILL.md data into `src/data/`
-2. `sync-catalog.mjs` - Copies catalog JSON into marketplace data
-3. `generate-unified-search.mjs` - Builds Fuse.js search index
-4. `build-cowork-zips.mjs` - Generates plugin zips, category bundles, mega-zip, and manifest for `/cowork` downloads
-5. `astro build` - Static site generation
+2. `extract-readme-sections.mjs` - Extracts README sections for plugin pages
+3. `sync-catalog.mjs` - Copies catalog JSON into marketplace data
+4. `generate-unified-search.mjs` - Builds Fuse.js search index
+5. `build-cowork-zips.mjs` - Generates plugin zips, category bundles, mega-zip, and manifest for `/cowork` downloads
+6. `astro build` - Static site generation
 
 **Gotcha:** `compressHTML` is disabled in `astro.config.mjs` because iOS Safari fails to render lines > 5000 chars. CI enforces this with a smoke test.
 
@@ -224,7 +225,7 @@ capabilities: ["capability1", "capability2"]
 
 ## Adding a New Plugin
 
-1. Copy from `templates/` (minimal, command, agent, or full)
+1. Copy from `templates/` (minimal, command, agent, skill, or full)
 2. Create `.claude-plugin/plugin.json` with required fields
 3. Add entry to `.claude-plugin/marketplace.extended.json`
 4. `pnpm run sync-marketplace`
@@ -237,6 +238,7 @@ PRs trigger parallel jobs:
 | Job | What it checks |
 |-----|---------------|
 | `validate` | JSON validity, plugin structure, catalog sync, secret scanning, dangerous patterns |
+| `verify` | Verification pipeline + badge generation |
 | `test` (matrix) | MCP plugin builds + vitest, Python pytest, universal validator v5.0 (smoke + enterprise report) + `ccpi validate --strict` |
 | `check-package-manager` | Enforces pnpm/npm policy per directory |
 | `marketplace-validation` | Astro build, route validation, link validation, smoke tests, cowork downloads/security, performance budget |
@@ -246,7 +248,7 @@ PRs trigger parallel jobs:
 
 ## Test Organization
 
-**Dev tests** (`marketplace/tests/T*.spec.ts`): T1–T9 covering homepage search, search results, mobile viewport, install CTA, playbooks nav, explore flows, cowork page/integration.
+**Dev tests** (`marketplace/tests/T*.spec.ts`): T1–T4, T6–T9 covering homepage search, search results, mobile viewport, install CTA, playbooks nav, explore flows, cowork page/integration.
 
 **Production tests** (`marketplace/tests/production/P*.spec.ts`): P1–P8 covering core page smoke tests, search flow, redirects, navigation, cowork downloads, mobile responsive, performance budgets, SEO meta.
 

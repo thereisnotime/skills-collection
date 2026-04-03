@@ -9,7 +9,6 @@ argument-hint: "<bot-token> <app-token>"
 allowed-tools: Read, Write, Bash(chmod:*)
 compatible-with: claude-code
 tags: [mcp, configure]
-
 ---
 
 # /slack-channel:configure

@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, instantly, workflow, warmup, analytics, deliverability]
-
 ---
 # Instantly Core Workflow B: Warmup & Analytics Pipeline
 

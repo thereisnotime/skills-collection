@@ -118,10 +118,11 @@ describe("ce:plan testing contract", () => {
 
 describe("ce:plan review contract", () => {
   test("requires document review after confidence check", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/SKILL.md")
+    // Document review instructions extracted to references/plan-handoff.md
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/references/plan-handoff.md")
 
     // Phase 5.3.8 runs document-review before final checks (5.3.9)
-    expect(content).toContain("##### 5.3.8 Document Review")
+    expect(content).toContain("## 5.3.8 Document Review")
     expect(content).toContain("`document-review` skill")
 
     // Document review must come before final checks so auto-applied edits are validated
@@ -130,8 +131,16 @@ describe("ce:plan review contract", () => {
     expect(docReviewIdx).toBeLessThan(finalChecksIdx)
   })
 
-  test("uses headless mode in pipeline context", async () => {
+  test("SKILL.md stub points to plan-handoff reference", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/SKILL.md")
+
+    // Stub references the handoff file and marks document review as mandatory
+    expect(content).toContain("`references/plan-handoff.md`")
+    expect(content).toContain("Document review is mandatory")
+  })
+
+  test("uses headless mode in pipeline context", async () => {
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/references/plan-handoff.md")
 
     // Pipeline mode runs document-review headlessly, not skipping it
     expect(content).toContain("document-review` with `mode:headless`")
@@ -139,7 +148,7 @@ describe("ce:plan review contract", () => {
   })
 
   test("handoff options recommend ce:work after review", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/SKILL.md")
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-plan/references/plan-handoff.md")
 
     // ce:work is recommended (review already happened)
     expect(content).toContain("**Start `/ce:work`** - Begin implementing this plan in the current environment (recommended)")

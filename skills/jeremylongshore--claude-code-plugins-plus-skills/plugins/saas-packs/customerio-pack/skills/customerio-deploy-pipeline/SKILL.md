@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, customer-io, deployment, cloud-run, kubernetes]
-
 ---
 # Customer.io Deploy Pipeline
 

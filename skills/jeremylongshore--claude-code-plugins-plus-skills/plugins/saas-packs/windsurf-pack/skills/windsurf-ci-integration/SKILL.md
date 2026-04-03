@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, windsurf, ci-cd, github-actions, automation]
-
 ---
 # Windsurf CI Integration
 

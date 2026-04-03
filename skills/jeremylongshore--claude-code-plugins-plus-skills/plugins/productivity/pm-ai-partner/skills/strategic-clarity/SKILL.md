@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [phase: absorb/audit/articulate/align]
 compatible-with: claude-code
 tags: [productivity, workflow, strategic-clarity]
-
 ---
 
 # Strategic Clarity Workflow

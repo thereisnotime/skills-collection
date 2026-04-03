@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, deepgram, testing, workflow, development]
-
 ---
 # Deepgram Local Dev Loop
 

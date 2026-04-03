@@ -10,7 +10,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, kling-ai, rate-limits, reliability]
-
 ---
 # Kling AI Rate Limits
 

@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, coderabbit, rate-limits, github-api]
-
 ---
 # CodeRabbit Rate Limits
 

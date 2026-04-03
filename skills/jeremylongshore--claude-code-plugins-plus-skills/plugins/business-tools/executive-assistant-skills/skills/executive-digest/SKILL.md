@@ -7,7 +7,6 @@ author: "Martin Gontovnikas <martin@hypergrowthpartners.com>"
 compatible-with: claude-code
 tags: [business, executive-digest]
 allowed-tools: Read, Bash(gog:*), Bash(mcporter:*), Bash(todoist-cli:*), Bash(python3:*), Bash(source:*), Bash(curl:*), Glob, Grep, Write
-
 ---
 # Daily Executive Digest
 

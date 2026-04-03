@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, vast-ai, workflow]
-
 ---
 # Vast.ai Core Workflow A: Instance Provisioning & Job Execution
 

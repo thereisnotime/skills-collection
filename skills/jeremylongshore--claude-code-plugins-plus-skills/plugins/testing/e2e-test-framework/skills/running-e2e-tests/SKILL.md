@@ -11,7 +11,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [testing, workflow, e2e-tests]
-
 ---
 # E2E Test Framework
 

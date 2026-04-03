@@ -8,7 +8,6 @@ author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: MIT
 compatible-with: claude-code, codex, openclaw
 tags: [devops, terraform, detecting-infrastructure]
-
 ---
 # Detecting Infrastructure Drift
 

@@ -1,13 +1,9 @@
 ---
 name: grammarly-security-basics
 description: |
-description: |
-  
+  Security fundamentals for Grammarly API credential management. Use when setting up
+  secure authentication and token handling for Grammarly integrations.
 allowed-tools: Read, Write, Edit, Bash(curl:*), Grep
-version: 1.0.0
-license: MIT
-author: Jeremy Longshore <jeremy@intentsolutions.io>
-allowed-tools: Read, Write, Edit, Grep
 version: 1.0.0
 license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>

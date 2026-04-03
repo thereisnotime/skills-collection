@@ -13,7 +13,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [obsidian, cost-optimization, sync, publish, storage]
-
 ---
 # Obsidian Cost Tuning
 

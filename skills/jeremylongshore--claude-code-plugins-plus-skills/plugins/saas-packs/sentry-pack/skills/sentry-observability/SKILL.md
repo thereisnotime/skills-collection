@@ -13,7 +13,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, sentry, observability, logging, metrics, apm, grafana, opentelemetry]
-
 ---
 # Sentry Observability Integration
 

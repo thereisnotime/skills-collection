@@ -8,7 +8,6 @@ allowed-tools: Read, Glob, Grep
 argument-hint: [topic or question]
 compatible-with: claude-code
 tags: [productivity, thought-partner]
-
 ---
 
 # Thought Partner Mode

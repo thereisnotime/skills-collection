@@ -12,7 +12,6 @@ license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 compatible-with: claude-code, codex, openclaw
 tags: [saas, obsidian, testing, workflow]
-
 ---
 # Obsidian Multi-Environment Setup
 

@@ -1,13 +1,9 @@
 ---
 name: grammarly-prod-checklist
 description: |
-description: |
-  
+  Production readiness checklist for Grammarly API integrations. Use when preparing
+  a Grammarly integration for production deployment.
 allowed-tools: Read, Write, Edit, Bash(curl:*), Grep
-version: 1.0.0
-license: MIT
-author: Jeremy Longshore <jeremy@intentsolutions.io>
-allowed-tools: Read, Write, Edit, Grep
 version: 1.0.0
 license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
