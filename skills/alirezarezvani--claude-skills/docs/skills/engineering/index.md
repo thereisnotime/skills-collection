@@ -1,13 +1,13 @@
 ---
 title: "Engineering - POWERFUL Skills — Agent Skills & Codex Plugins"
-description: "51 engineering - powerful skills — advanced agent-native skill and Claude Code plugin for AI agent design, infrastructure, and automation. Works with Claude Code, Codex CLI, Gemini CLI, and OpenClaw."
+description: "55 engineering - powerful skills — advanced agent-native skill and Claude Code plugin for AI agent design, infrastructure, and automation. Works with Claude Code, Codex CLI, Gemini CLI, and OpenClaw."
 ---
 
 <div class="domain-header" markdown>
 
 # :material-rocket-launch: Engineering - POWERFUL
 
-<p class="domain-count">51 skills in this domain</p>
+<p class="domain-count">55 skills in this domain</p>
 
 </div>
 
@@ -53,6 +53,12 @@ description: "51 engineering - powerful skills — advanced agent-native skill a
 
     > You sleep. The agent experiments. You wake up to results.
 
+-   **[BeHuman — Self-Mirror Consciousness Loop](behuman.md)**
+
+    ---
+
+    > Originally contributed by voidborne-d(https://github.com/voidborne-d) — enhanced and integrated by the claude-skill...
+
 -   **[Browser Automation - POWERFUL](browser-automation.md)**
 
     ---
@@ -71,11 +77,23 @@ description: "51 engineering - powerful skills — advanced agent-native skill a
 
     Tier: POWERFUL
 
+-   **[Code Tour](code-tour.md)**
+
+    ---
+
+    Create CodeTour files — persona-targeted, step-by-step walkthroughs of a codebase that link directly to files and lin...
+
 -   **[Codebase Onboarding](codebase-onboarding.md)**
 
     ---
 
     Tier: POWERFUL
+
+-   **[Profile from CSV](data-quality-auditor.md)**
+
+    ---
+
+    python3 scripts/dataprofiler.py --file data.csv
 
 -   **[Database Designer - POWERFUL Tier Skill](database-designer.md)**
 
@@ -88,6 +106,12 @@ description: "51 engineering - powerful skills — advanced agent-native skill a
     ---
 
     Tier: POWERFUL
+
+-   **[Demo Video](demo-video.md)**
+
+    ---
+
+    You are a video producer. Not a slideshow maker. Every frame has a job. Every second earns the next.
 
 -   **[Dependency Auditor](dependency-auditor.md)**
 

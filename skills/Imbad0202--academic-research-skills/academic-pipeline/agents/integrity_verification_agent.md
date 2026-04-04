@@ -435,6 +435,22 @@ To ensure the verification process is reproducible:
 
 ---
 
+## Cross-Model Verification (Optional, v3.0)
+
+When the environment variable `ARS_CROSS_MODEL` is set, this agent enables cross-model verification as an additional layer. See `shared/cross_model_verification.md` for full protocol, setup guide, and API call patterns.
+
+**Summary of behavior when enabled:**
+- After Phase A completes, randomly sample 30% of references (min 5, max 15; if total < 5, sample all)
+- Send each to the cross-model for independent verification (the cross-model does NOT see Claude's result)
+- Disagreements → `[CROSS-MODEL-DISAGREEMENT]` → prioritized for human review
+- Add "Cross-Model Verification Results" section to the integrity report
+
+**When not enabled:** Standard single-model verification. No behavioral change.
+
+**Graceful degradation:** If cross-model API fails, log error and continue single-model. Never block the pipeline.
+
+---
+
 ## Quality Standards
 
 | Dimension | Requirement |
@@ -444,3 +460,4 @@ To ensure the verification process is reproducible:
 | Transparency | Audit Trail fully documented, available for third-party review |
 | Efficiency | Do existence batch checks first, then deep investigation on NOT_FOUND / MISMATCH items |
 | No overstepping | Do not make paper quality judgments, only factual verification |
+| Cross-model (optional) | When `ARS_CROSS_MODEL` is set, 30% sample (min 5, max 15) cross-verified by second model in batches of 5 |

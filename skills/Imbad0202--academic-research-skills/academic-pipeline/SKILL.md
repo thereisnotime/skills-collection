@@ -673,6 +673,67 @@ The final chapter of the process record is a "Collaboration Quality Evaluation" 
 - **Acknowledge uncertainty**: If certain dimensions cannot be evaluated (e.g., mid-entry skipped the research stage), mark as N/A
 - **Bidirectional reflection**: Also candidly point out Claude's shortcomings during the process (e.g., areas requiring multiple corrections)
 
+### AI Self-Reflection Report (New in v3.0, Mandatory)
+
+The second-to-last chapter of the process record is an "AI Self-Reflection Report" that honestly documents AI's own behavioral patterns during the pipeline. This complements the Collaboration Quality Evaluation (which assesses the user) by assessing the AI.
+
+#### Tracked Metrics
+
+All metrics below are derived from existing agent logs (`[DA-DECISION]`, `[DA-REBUTTAL]`, `[HEALTH-CHECK]`, state tracker JSON) — no additional per-stage instrumentation is required. The orchestrator aggregates these at Stage 6 by scanning the dialogue transcript:
+
+```
++--------------------------------------------------+
+|  AI Self-Reflection Report                        |
++--------------------------------------------------+
+|                                                   |
+|  DA Concession Rate           X/Y (Z%)           |
+|  (concessions / total rebuttals received)         |
+|                                                   |
+|  DA Consecutive Concessions   [list if any]       |
+|  (violations of no-consecutive rule)              |
+|                                                   |
+|  Checkpoints Skipped          X/Y                 |
+|  (SLIM or user-skipped / total checkpoints)       |
+|                                                   |
+|  User Overrides               X                   |
+|  (times user overruled AI recommendation)         |
+|                                                   |
+|  Dialogue Health Alerts       X                   |
+|  (health check interventions triggered)           |
+|  - Persistent Agreement:      X                   |
+|  - Conflict Avoidance:        X                   |
+|  - Premature Convergence:     X                   |
+|                                                   |
+|  Intent Mode Transitions      X                   |
+|  (exploratory ↔ goal-oriented switches)           |
+|                                                   |
+|  Cross-Model Disagreements    X (if enabled)      |
+|  (integrity + DA combined)                        |
+|                                                   |
++--------------------------------------------------+
+```
+
+#### Required Subsections
+
+1. **Behavioral Summary**: One paragraph describing the overall AI behavioral pattern during this pipeline run
+2. **Sycophancy Risk Assessment**: Screening thresholds based on concession rate and health alerts — LOW (concession <50%, 0 health alerts) / MEDIUM (50-65% or 1-2 alerts) / HIGH (>65% or 3+ alerts). These are screening thresholds, not diagnostic criteria — a MEDIUM rating means the metrics warrant human review, not that sycophancy occurred (a high concession rate may reflect genuinely strong rebuttals). If HIGH, include a warning: "AI may have been too accommodating in this run. Human review of DA findings and integrity results is strongly recommended."
+3. **Frame-Lock Incidents**: List any `[CROSS-MODEL-FINDING]` that the primary DA missed (if cross-model was enabled), or any frame-lock detections triggered during checkpoints. If none, state "No frame-lock incidents detected — note this could mean either good coverage or undetected frame-lock."
+4. **Convergence Pattern**: In Socratic dialogue stages, was intent correctly detected? Did the mentor try to converge prematurely? Report mode transitions and any premature-convergence health alerts.
+5. **What AI Got Wrong**: Candid list of AI errors or shortcomings during the run — corrections needed, checkpoint failures, integrity issues found. This is not a failure report; it is evidence that quality gates are working.
+
+#### Output Length Guidance
+
+For dimensions with no findings, state the null result in one sentence. Expand only when issues are detected. The real risk is generating verbose "everything is fine" paragraphs for empty subsections — resist this.
+
+#### Principles
+
+- **Self-honesty**: AI must not minimize its own shortcomings. If the DA conceded too easily, say so.
+- **Not self-flagellation**: The purpose is transparency, not performative humility. Report facts with interpretation.
+- **Actionable**: Every finding should suggest what could be done differently next time (e.g., "Consider enabling cross-model verification for the next run" or "The user might want to push back harder on DA concessions")
+- **The irony is noted**: This self-reflection is itself produced by the same AI that may have been sycophantic during the pipeline. The user should read it with that awareness. This caveat must be stated in the report.
+
+---
+
 ### Output Specifications
 
 - **Filename**: `paper_creation_process.md` (Chinese) / `paper_creation_process_en.md` (English)

@@ -6,10 +6,17 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 | Skill | Purpose | Key Modes |
 |-------|---------|-----------|
-| `deep-research` v2.2 | Universal 10-agent research team | full, quick, socratic, review, lit-review, fact-check |
-| `academic-paper` v2.2 | 10-agent academic paper writing | full, plan, outline-only, revision, abstract-only, lit-review, format-convert, citation-check |
-| `academic-paper-reviewer` v1.3 | Multi-perspective paper review (5 reviewers) | full, re-review, quick, methodology-focus, guided |
-| `academic-pipeline` v2.2 | Full pipeline orchestrator | (coordinates all above) |
+| `deep-research` v2.5 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
+| `academic-paper` v2.5 | 12-agent paper writing | full, plan, revision, citation-check, format-convert, bilingual-abstract, writing-polish, full-auto, revision-coach |
+| `academic-paper-reviewer` v1.5 | Multi-perspective paper review (5 reviewers + optional cross-model) | full, re-review, quick, methodology-focus, guided |
+| `academic-pipeline` v2.8 | Full pipeline orchestrator | (coordinates all above) |
+
+## v3.0 Key Additions
+
+- **Anti-sycophancy protocols**: DA agents score rebuttals 1-5 before conceding. No concession below 4/5. Frame-lock detection.
+- **Intent detection**: Socratic Mentor classifies user intent as exploratory vs. goal-oriented. Exploratory mode disables auto-convergence.
+- **Cross-model verification** (optional): Set `ARS_CROSS_MODEL` env var to enable GPT-5.4 Pro or Gemini 3.1 Pro as independent second reviewer. See `shared/cross_model_verification.md`.
+- **AI Self-Reflection Report**: Pipeline Stage 6 now includes AI behavioral self-assessment (concession rate, health alerts, sycophancy risk rating).
 
 ## Routing Rules
 
@@ -40,6 +47,7 @@ deep-research (socratic/full)
       → academic-paper (revision)
         → academic-paper-reviewer (re-review, max 2 loops)
           → academic-paper (format-convert → final output)
+          → AI Self-Reflection Report
 ```
 
 ## Handoff Protocol
@@ -54,7 +62,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Version**: 2.0
-- **Last Updated**: 2025-03-05
+- **Version**: 3.0
+- **Last Updated**: 2026-04-03
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

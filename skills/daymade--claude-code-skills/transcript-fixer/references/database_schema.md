@@ -174,7 +174,7 @@ ORDER BY run_timestamp DESC LIMIT 10;
 
 -- Add new correction (use CLI instead for safety)
 INSERT INTO corrections (from_text, to_text, domain, source, confidence, added_by)
-VALUES ('错误词', '正确词', 'general', 'manual', 1.0, 'tiansheng');
+VALUES ('错误词', '正确词', 'general', 'manual', 1.0, 'user');
 
 -- Disable a correction
 UPDATE corrections SET is_active = 0 WHERE id = ?;

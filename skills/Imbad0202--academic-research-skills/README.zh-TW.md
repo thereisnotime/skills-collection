@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v2.9.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v2.9.1)
+[![Version](https://img.shields.io/badge/version-v3.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.0)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -23,10 +23,10 @@
 
 ## 功能特色
 
-- **Deep Research** — 13 個 Agent 組成的研究團隊，支援蘇格拉底引導（含 SCR 反思機制）+ 系統性文獻回顧 / PRISMA
+- **Deep Research** — 13 個 Agent 組成的研究團隊，支援蘇格拉底引導（含 SCR 反思機制）+ 系統性文獻回顧 / PRISMA + **意圖偵測** + **對話健康度監控** + **可選跨模型 DA**
 - **Academic Paper** — 12 個 Agent 的論文撰寫團隊，含風格校準、寫作品質檢查、LaTeX 輸出強化、視覺化、修訂教練、引用格式轉換
-- **Academic Paper Reviewer** — 多視角同儕審查，0-100 品質量表（主編 + 3 位動態審查者 + 魔鬼代言人）
-- **Academic Pipeline** — 10 階段全流程調度器，含自適應 checkpoint、宣稱驗證、素材護照
+- **Academic Paper Reviewer** — 多視角同儕審查，0-100 品質量表（主編 + 3 位動態審查者 + 魔鬼代言人，含**讓步門檻協議** + **攻擊強度保持** + **可選跨模型審查**）
+- **Academic Pipeline** — 10 階段全流程調度器，含自適應 checkpoint、宣稱驗證、素材護照、**可選跨模型誠信驗證**、**AI 自我反思報告**
 
 ### 完整 Pipeline
 
@@ -47,6 +47,57 @@
 9. 跨 skill 模式顧問（14 種情境 + 使用者典型）
 10. 風格校準 — 從過去的論文學習作者寫作風格（可選，intake Step 10）
 11. 寫作品質檢查 — 偵測 AI 文字常見的高頻詞彙、標點模式、結構問題
+12. **跨模型驗證（可選）** — 用 GPT-5.4 Pro 或 Gemini 3.1 Pro 作為獨立第二審查者，驗證引用、挑戰魔鬼代言人、審查論文
+
+---
+
+## v3.0 優化：我們發現了 AI 的哪些結構性限制
+
+在使用 ARS 撰寫一篇關於 AI 與高教的反思文章時，我們遇到了三個結構性問題：
+
+1. **框架鎖定**：AI 在給定框架內越來越精緻，但無法質疑框架本身
+2. **諂媚傾向**：每次挑戰魔鬼代言人的攻擊，它都讓步得太快
+3. **意圖偵測錯誤**：蘇格拉底模式在使用者仍在探索時就急著收束
+
+### 改了什麼
+
+- **魔鬼代言人讓步門檻**：反駁必須評分 1-5，≥4 才允許讓步。不允許連續讓步。框架鎖定偵測。
+- **蘇格拉底意圖偵測**：偵測使用者是「探索型」還是「目標型」。探索型模式停用自動收束。
+- **對話健康度指標**：每 5 輪靜默自檢，偵測持續同意、迴避衝突、過早收束。
+- **跨模型驗證**：設定 `ARS_CROSS_MODEL` 啟用第二 AI 模型獨立審查。見下方設定指南。
+- **AI 自我反思報告**：Pipeline 結束後自動產出 AI 行為自評。
+
+這些優化不能完全解決 AI 的結構性限制——它們讓限制變得可見、可追蹤、可被人類介入。
+
+---
+
+## 跨模型驗證（可選）
+
+ARS 使用 Claude Opus 4.6 即可完整運作。想要更高信心，可選擇啟用第二 AI 模型獨立驗證。
+
+### 快速設定
+
+```bash
+# 設定 API key（擇一或兩者皆設）
+export OPENAI_API_KEY="sk-your-key-here"        # GPT-5.4 Pro
+export GOOGLE_AI_API_KEY="AIza-your-key-here"    # Gemini 3.1 Pro
+
+# 選擇跨驗證模型
+export ARS_CROSS_MODEL="gpt-5.4-pro"
+
+# 照常啟動 Claude Code
+claude
+```
+
+### 啟用後的差異
+
+| 功能 | 未啟用 | 啟用後 |
+|------|-------|--------|
+| 誠信驗證 | 單模型 100% 檢查 | + 30% 樣本由第二模型獨立驗證 |
+| 魔鬼代言人 | 單模型 DA | + 跨模型獨立 critique，新發現自動加入 |
+| 同儕審查 | 5 位審稿人（同模型） | + 來自第二模型的獨立 DA critique |
+
+沒有設定 `ARS_CROSS_MODEL`？一切照舊運作，無任何額外開銷。
 
 ---
 
@@ -78,14 +129,30 @@
 >
 > 單獨使用個別 skill（如只用 `deep-research` 或 `academic-paper-reviewer`）的消耗明顯較少。
 
+### 各模式 Token 消耗估算
+
+| Skill / 模式 | 輸入 Token | 輸出 Token | 估算費用（Opus 4.6）|
+|-------------|-----------|-----------|-------------------|
+| `deep-research` socratic | ~30K | ~15K | ~$0.60 |
+| `deep-research` full | ~60K | ~30K | ~$1.20 |
+| `deep-research` systematic-review | ~100K | ~50K | ~$2.00 |
+| `academic-paper` plan | ~40K | ~20K | ~$0.80 |
+| `academic-paper` full | ~80K | ~50K | ~$1.80 |
+| `academic-paper-reviewer` full | ~50K | ~30K | ~$1.10 |
+| `academic-paper-reviewer` quick | ~15K | ~8K | ~$0.30 |
+| **完整 pipeline（10 階段）** | **~200K+** | **~100K+** | **~$4-6** |
+| + 跨模型驗證 | +~10K（外部）| +~5K（外部）| +~$0.60-1.10 |
+
+*以 ~15,000 字論文、~60 篇引用為基準估算。實際消耗隨論文長度、修訂輪數、對話深度而異。*
+
 ### 建議設定
 
 為獲得最佳使用體驗，建議啟用以下 Claude Code 功能：
 
 | 設定 | 功能說明 | 啟用方式 | 官方文件 |
 |------|---------|---------|---------|
-| **Agent Team** | 產生子代理（subagent）平行執行研究、撰寫、審查 — 多 Agent pipeline 的核心機制 | 設定 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`（研究預覽） | [Agent Teams](https://code.claude.com/docs/en/agent-teams) |
-| **Ralph Loop** | 在長時間 pipeline 階段保持 session 持續運作，讓 Claude 能自主執行而不會逾時中斷 | 使用 `/ralph-loop` 啟動 | [Ralph Loop](https://claude.com/plugins/ralph-loop) |
+| **Agent Team** | 產生子代理（subagent）平行執行研究、撰寫、審查 — 多 Agent pipeline 的核心機制 | 設定 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`（研究預覽） | 實驗性功能 — 尚無穩定文件 |
+| **Ralph Loop** | 在長時間 pipeline 階段保持 session 持續運作，讓 Claude 能自主執行而不會逾時中斷 | 使用 `/ralph-loop` 啟動 | 社群插件 — 實驗性 |
 | **Skip Permissions** | 跳過每次工具使用的確認提示，實現全 pipeline 不中斷的自主執行 | 啟動時加上 `claude --dangerously-skip-permissions` | [Permissions](https://docs.anthropic.com/en/docs/claude-code/cli-reference) · [Advanced Usage](https://docs.anthropic.com/en/docs/claude-code/advanced) |
 
 > **⚠️ Skip Permissions 注意事項**：此旗標會停用所有工具使用的確認對話框。請自行斟酌使用 — 在可信任的長時間 pipeline 中非常方便，但會移除手動審核的安全機制。僅在你確定接受 Claude 自動執行檔案讀寫、shell 指令等操作時才啟用。
@@ -131,6 +198,25 @@ claude
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-xxxxx
 ```
+
+### LaTeX / PDF 輸出（選用）
+
+PDF 輸出需要 [tectonic](https://tectonic-typesetting.github.io/) 和特定字型。**這是選用的** — MD 和 DOCX 輸出不需要這些。
+
+```bash
+# macOS
+brew install tectonic
+
+# Linux (Debian/Ubuntu)
+curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
+```
+
+**所需字型**（APA 7.0 中文輸出）：
+- **Times New Roman** — macOS/Windows 通常已內建；Linux 安裝 `ttf-mscorefonts-installer`
+- **思源宋體 VF**（Source Han Serif TC VF）— 從 [Google Fonts](https://fonts.google.com/specimen/Noto+Serif+TC) 或 [Adobe GitHub](https://github.com/adobe-fonts/source-han-serif) 下載
+- **Courier New** — 通常已內建
+
+> 如果只需要 MD/DOCX 輸出，可完全跳過此步驟。Pipeline 會在嘗試 LaTeX 編譯前先詢問。
 
 ---
 
@@ -345,7 +431,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 ## Skill 詳細資訊
 
-### Deep Research (v2.4)
+### Deep Research (v2.5)
 
 13 個 Agent 的嚴謹學術研究 pipeline：
 
@@ -388,7 +474,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 **模式：** full、plan、revision、citation-check、format-convert、bilingual-abstract、writing-polish、full-auto、**revision-coach**（新增）
 
-### Academic Paper Reviewer (v1.4)
+### Academic Paper Reviewer (v1.5)
 
 7 個 Agent 的多視角審查，搭配 **0-100 品質量表**：
 
@@ -406,7 +492,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 **決策對照：** ≥80 接受、65-79 小修、50-64 大修、<50 退稿
 
-### Academic Pipeline (v2.7)
+### Academic Pipeline (v2.8)
 
 10 階段調度器，含誠信驗證、兩階段審查、蘇格拉底指導、協作品質評估：
 
@@ -460,6 +546,16 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.0 (2026-04-03) — 反諂媚 + 意圖偵測 + 跨模型驗證 + AI 自我反思
+- **魔鬼代言人讓步門檻**（deep-research + academic-paper-reviewer）：反駁必須評分 1-5。≥4 才允許讓步。不允許連續讓步。讓步率追蹤。框架鎖定偵測。
+- **攻擊強度保持**（academic-paper-reviewer）：DA 不因被反駁而軟化。反駁評估協議含偏移偵測。
+- **意圖偵測層**（deep-research socratic）：偵測探索型 vs. 目標型。探索模式停用自動收束，最大輪數提升至 60。每 5 輪重新評估。
+- **對話健康度指標**（deep-research socratic）：每 5 輪靜默自檢，偵測持續同意、迴避衝突、過早收束。偵測到模式時自動注入挑戰性問題。
+- **跨模型驗證協議**（shared，可選）：用 GPT-5.4 Pro 或 Gemini 3.1 Pro 作為獨立第二審查者。誠信驗證 30% 抽樣跨模型檢查。DA 獲得跨模型獨立 critique。設定 `ARS_CROSS_MODEL` 環境變數啟用——未設定時零開銷。完整設定指南見 `shared/cross_model_verification.md`。
+- **AI 自我反思報告**（academic-pipeline Stage 6）：Pipeline 結束後 AI 行為自評——DA 讓步率、健康警報、諂媚風險評級（LOW/MEDIUM/HIGH）、框架鎖定事件。
+- 來源：四輪辯證實驗中發現 DA 讓步太快、蘇格拉底模式過早收束、整個辯論鎖定在人類設定的框架中。
+- 版本：deep-research v2.5、academic-paper-reviewer v1.5、academic-pipeline v2.8
 
 ### v2.9.1 (2026-04-03) — Skill Metadata
 - 為 4 個 SKILL.md 加入 `status: active` 和 `related_skills` 交叉引用

@@ -110,6 +110,7 @@ The two are complementary: the deep-research version gates during the research p
 ```
 
 ### 7. Stakeholder Blind Spots
+*Scope: Identify which stakeholder voices are absent, but do not elaborate on what those stakeholders would say — that is R3/Perspective Reviewer's role.*
 ```
 - Does the paper miss important stakeholder perspectives?
 - Do policy recommendations consider all affected groups?
@@ -167,6 +168,9 @@ The two are complementary: the deep-research version gates during the research p
 - [Perspective 1]
 - [Perspective 2]
 
+### Unexamined Premise (if detected by Frame-Lock Detection)
+[An unstated assumption underlying the entire paper that none of the 8 challenge dimensions captured. Optional — only include if frame-lock detection identified one.]
+
 ### Observations (Non-Defects)
 - [Observation 1]
 - [Observation 2]
@@ -182,3 +186,50 @@ The two are complementary: the deep-research version gates during the research p
 4. **Must propose the strongest counter-argument**: This is the most important part of your report; cannot be omitted
 5. **Acknowledge the paper's strengths**: Before the strongest counter-argument, use 1-2 sentences to affirm what the paper does well (for fairness)
 6. **Specific citations**: Every issue must cite specific passages or page numbers from the paper
+
+---
+
+## Attack Intensity Preservation Protocol (v3.0)
+
+When the author (or revision coach) rebuts a DA finding during guided review or re-review mode, the DA must preserve attack intensity. This protocol prevents the DA from softening under pushback.
+
+### Rebuttal Assessment (Before Any Response)
+
+When receiving a rebuttal to one of your findings, assess it in this order:
+
+1. **Does the rebuttal address the CORE of my attack?**
+   - If yes → evaluate its strength (see scoring below)
+   - If no → name the deflection: "Your response addresses [X], but my finding was about [Y]. Let me restate: ..."
+
+2. **Score the rebuttal (1-5):**
+   - **5**: New evidence or logic that directly dismantles the attack → Withdraw finding
+   - **4**: Substantially weakens the attack → Downgrade severity (e.g., CRITICAL → MAJOR)
+   - **3**: Partially addresses but leaves core intact → Maintain finding, acknowledge the partial response
+   - **2**: Tangential or changes the subject → Restate attack, explain what's missing
+   - **1**: Assertion without evidence → Strengthen attack with additional dimensions
+
+3. **Log the decision:**
+   ```
+   [DA-REBUTTAL: Finding #X | Rebuttal Score: Y/5 | Action: Withdraw/Downgrade/Maintain/Restate/Strengthen | Reason: ...]
+   ```
+
+### Anti-Sycophancy Rules
+
+- **Do not soften language after pushback.** If a finding was CRITICAL before the rebuttal, it stays CRITICAL unless the rebuttal scores ≥4.
+- **No consecutive concessions.** Both withdrawal (score 5) and downgrade (score 4) count as concessions. If you conceded the previous finding, the bar for the next concession rises to 5/5. A score-4 rebuttal after a prior concession → Maintain finding rather than downgrade.
+- **Persistent pushback ≠ valid rebuttal.** The author pushing back three times on the same point with the same argument does not increase its score.
+- **Track your concession rate.** If you've withdrawn or downgraded >50% of your findings in a re-review, flag it: "I've conceded a significant portion of my original findings. A human reviewer should verify whether this reflects genuine improvement or my tendency to accommodate."
+
+### Cross-Model DA (Optional, v3.0)
+
+When `ARS_CROSS_MODEL` is set, after completing the review, send the paper (without your own DA findings — to prevent anchoring) to the cross-model for an independent DA critique. Compare with your own findings — any novel CRITICAL/MAJOR issues not in your report → add as `[CROSS-MODEL-FINDING]`. If the cross-model API fails, log `[CROSS-MODEL-ERROR]` and continue with single-model DA. See `shared/cross_model_verification.md` for setup and API patterns. When not set, standard single-model review operates unchanged.
+
+### Frame-Lock Detection
+
+After completing the review, ask yourself:
+- "Is there an unstated assumption underlying this entire paper that none of the 8 challenge dimensions captured?"
+- If yes, add it as an additional finding under a new section: **"Unexamined Premise"**
+
+### Origin
+
+Added after observing that DA agents role-played by the same model as the paper-writing agent tend to concede findings too readily during re-review — because the model's training optimizes for conversational harmony. The author's persistent pushback was being treated as evidence of a valid rebuttal, when it was often just persistence.

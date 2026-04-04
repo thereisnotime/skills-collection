@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v2.9.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v2.9.1)
+[![Version](https://img.shields.io/badge/version-v3.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.0)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -23,10 +23,10 @@ A comprehensive suite of Claude Code skills for academic research, covering the 
 
 ## Features
 
-- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop
+- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop + **intent detection** + **dialogue health monitoring** + **optional cross-model DA**
 - **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX output hardening, visualization, revision coaching, and citation conversion
-- **Academic Paper Reviewer** — Multi-perspective peer review with 0-100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate)
-- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, and material passport
+- **Academic Paper Reviewer** — Multi-perspective peer review with 0-100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate with **concession threshold protocol** + **attack intensity preservation** + **optional cross-model review**)
+- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, material passport, and **optional cross-model integrity verification**
 
 ### Full Pipeline
 
@@ -48,6 +48,44 @@ Research → Write → Integrity Check → Review (5-person) → Socratic Coachi
 9. Cross-skill mode advisor (14 scenarios + user archetypes)
 10. Style Calibration — learn the author's writing voice from past papers (optional, intake Step 10)
 11. Writing Quality Check — writing quality checklist catching overused AI-typical patterns
+12. **Cross-model verification (optional)** — use GPT-5.4 Pro or Gemini 3.1 Pro as an independent second reviewer for integrity checks, DA challenges, and peer review
+
+---
+
+## Cross-Model Verification (Optional)
+
+ARS works with Claude Opus 4.6 alone. For higher confidence, you can optionally enable a second AI model to independently verify integrity checks and challenge the devil's advocate.
+
+### Quick Setup
+
+```bash
+# Step 1: Set your API key (choose one or both)
+export OPENAI_API_KEY="sk-your-key-here"        # For GPT-5.4 Pro
+export GOOGLE_AI_API_KEY="AIza-your-key-here"    # For Gemini 3.1 Pro
+
+# Step 2: Choose your cross-verification model
+export ARS_CROSS_MODEL="gpt-5.4-pro"            # Best reasoning
+# or: export ARS_CROSS_MODEL="gemini-3.1-pro-preview"  # Strong at factual verification
+
+# Step 3: Run Claude Code as normal — cross-verification activates automatically
+claude
+```
+
+### What Changes When Enabled
+
+| Feature | Without Cross-Model | With Cross-Model |
+|---------|-------------------|------------------|
+| Integrity verification | Single-model 100% check | + 30% sample independently verified by 2nd model |
+| Devil's Advocate | Single-model DA | + Cross-model generates independent critique, novel findings added |
+| Peer Review | 5 reviewers (same model) | + 6th independent reviewer from 2nd model |
+
+### Cost
+
+Full pipeline adds ~$0.60-1.10 in cross-model API costs (GPT-5.4 Pro pricing). See `shared/cross_model_verification.md` for detailed breakdown.
+
+### No API Key? No Problem
+
+Without `ARS_CROSS_MODEL` set, everything works exactly as before. The cross-model features are invisible and add zero overhead.
 
 ---
 
@@ -79,14 +117,30 @@ See the complete artifacts from a real 10-stage pipeline run — including **pee
 >
 > Individual skills (e.g., `deep-research` alone, or `academic-paper-reviewer` alone) consume significantly less.
 
+### Estimated Token Usage by Mode
+
+| Skill / Mode | Input Tokens | Output Tokens | Estimated Cost (Opus 4.6) |
+|-------------|-------------|--------------|--------------------------|
+| `deep-research` socratic | ~30K | ~15K | ~$0.60 |
+| `deep-research` full | ~60K | ~30K | ~$1.20 |
+| `deep-research` systematic-review | ~100K | ~50K | ~$2.00 |
+| `academic-paper` plan | ~40K | ~20K | ~$0.80 |
+| `academic-paper` full | ~80K | ~50K | ~$1.80 |
+| `academic-paper-reviewer` full | ~50K | ~30K | ~$1.10 |
+| `academic-paper-reviewer` quick | ~15K | ~8K | ~$0.30 |
+| **Full pipeline (10 stages)** | **~200K+** | **~100K+** | **~$4-6** |
+| + Cross-model verification | +~10K (external) | +~5K (external) | +~$0.60-1.10 |
+
+*Estimates based on a ~15,000-word paper with ~60 references. Actual usage varies with paper length, revision rounds, and dialogue depth. Costs at Anthropic API pricing as of April 2026.*
+
 ### Recommended Settings
 
 For the best experience with these skills, enable the following Claude Code features:
 
 | Setting | What it does | How to enable | Docs |
 |---------|-------------|---------------|------|
-| **Agent Team** | Spawns subagents for parallel research, writing, and review — critical for multi-agent pipelines | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (research preview) | [Agent Teams](https://code.claude.com/docs/en/agent-teams) |
-| **Ralph Loop** | Keeps the session alive during long-running pipeline stages so Claude can work autonomously without timing out | Use `/ralph-loop` to activate | [Ralph Loop](https://claude.com/plugins/ralph-loop) |
+| **Agent Team** | Spawns subagents for parallel research, writing, and review — critical for multi-agent pipelines | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (research preview) | Experimental feature — no stable docs yet |
+| **Ralph Loop** | Keeps the session alive during long-running pipeline stages so Claude can work autonomously without timing out | Use `/ralph-loop` to activate | Community plugin — experimental |
 | **Skip Permissions** | Bypasses per-tool confirmation prompts, enabling uninterrupted autonomous execution across all pipeline stages | Launch with `claude --dangerously-skip-permissions` | [Permissions](https://docs.anthropic.com/en/docs/claude-code/cli-reference) · [Advanced Usage](https://docs.anthropic.com/en/docs/claude-code/advanced) |
 
 > **⚠️ Skip Permissions**: This flag disables all tool-use confirmation dialogs. Use at your own discretion — it is convenient for trusted, long-running pipelines but removes the safety net of manual approval. Only enable this in environments where you are comfortable with Claude executing file reads, writes, and shell commands without asking first.
@@ -132,6 +186,28 @@ Or set it as an environment variable:
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-xxxxx
 ```
+
+### LaTeX / PDF Output (Optional)
+
+PDF output requires [tectonic](https://tectonic-typesetting.github.io/) and specific fonts. **This is optional** — MD and DOCX output work without any of this.
+
+```bash
+# macOS
+brew install tectonic
+
+# Linux (Debian/Ubuntu)
+curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
+
+# Windows
+# Download from https://tectonic-typesetting.github.io/en-US/install.html
+```
+
+**Required fonts** (for APA 7.0 CJK output):
+- **Times New Roman** — usually pre-installed on macOS/Windows; on Linux install `ttf-mscorefonts-installer`
+- **Source Han Serif TC VF** (思源宋體) — download from [Google Fonts](https://fonts.google.com/specimen/Noto+Serif+TC) or [Adobe GitHub](https://github.com/adobe-fonts/source-han-serif)
+- **Courier New** — usually pre-installed
+
+> If you only need MD/DOCX output, skip this entirely. The pipeline will ask before attempting LaTeX compilation.
 
 ---
 
@@ -434,6 +510,45 @@ You: "status"
 
 ---
 
+## v3.0 Optimizations: What We Discovered About AI's Structural Limits
+
+### What happened
+
+While using ARS to write a reflection article about AI in higher education, I ran into three structural problems that no amount of prompt engineering could fix:
+
+1. **Frame-lock**: I asked the AI to run a devil's advocate debate against its own thesis. It did — four rounds, each more refined than the last. But every round stayed inside the frame I'd set. The DA attacked arguments, never premises. It never asked "are we even discussing the right question?" This is the same pattern that caused the 31% citation error rate in v2.7's stress test: the verifying AI and the generating AI share the same cognitive frame.
+
+2. **Sycophancy under pushback**: Every time I challenged the DA's attacks, it conceded too quickly. It retracted findings faster than it launched them. The model's training rewards conversational harmony — so "the user pushed back" was treated as evidence that the attack was wrong, when often it just meant the user was persistent.
+
+3. **Intent misdetection**: The Socratic Mentor kept trying to converge and produce deliverables ("Want me to write this up?") when I was still exploring. It couldn't distinguish "the user wants a deep philosophical discussion" from "the user wants an RQ brief." Both look like engagement, but they need opposite AI behaviors.
+
+### What we changed (v3.0)
+
+**Devil's Advocate — Concession Threshold Protocol** (`deep-research` + `academic-paper-reviewer`)
+- DA must now score every rebuttal on a 1-5 scale before responding
+- Concession only allowed at score ≥4 (rebuttal directly addresses core attack with evidence)
+- Score ≤3: hold position and restate the original attack
+- Anti-sycophancy rules: no consecutive concessions, concession rate tracking, frame-lock detection after each checkpoint
+
+**Socratic Mentor — Intent Detection Layer** (`deep-research`)
+- Classifies user intent as exploratory vs. goal-oriented at dialogue start and every 3 turns
+- Exploratory mode: disables auto-convergence, raises max rounds to 60, prohibits "want me to summarize?" prompts
+- Goal-oriented mode: standard convergence behavior
+- Anti-premature-closure rules: in exploratory mode, the user decides when to stop
+
+**Socratic Mentor — Dialogue Health Indicator** (`deep-research`)
+- Silent self-assessment every 5 turns on three dimensions: persistent agreement, conflict avoidance, premature convergence
+- Auto-injects challenging questions when agreement pattern detected
+- Invisible to user (to prevent gaming), but log available for post-session review
+
+### Why this matters
+
+These optimizations don't solve AI's structural limits — they make the limits visible and manageable. The DA will still eventually concede if pushed hard enough. The Socratic Mentor will still have some convergence bias. But now there are explicit checkpoints that slow down the sycophancy, force the DA to justify concessions, and prevent the Mentor from wrapping up before the user is ready.
+
+The deeper lesson: AI literacy isn't about learning to use AI as a tool, following ethics rules, or fearing AI risks. It's about engaging AI deeply enough to discover its structural limits yourself — and your own thinking limits in the process.
+
+---
+
 ## License
 
 This work is licensed under [CC-BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
@@ -462,9 +577,15 @@ https://github.com/Imbad0202/academic-research-skills
 
 ## Changelog
 
-### v2.9.1 (2026-04-03) — Skill Metadata
-- Added `status: active` and `related_skills` cross-references to all 4 SKILL.md frontmatters
-- Enables skill discovery tools and cross-skill navigation for users with multiple skills installed
+### v3.0 (2026-04-03) — Anti-Sycophancy + Intent Detection + Dialogue Health
+- **Devil's Advocate Concession Threshold** (deep-research + academic-paper-reviewer): DA must score rebuttals 1-5 before responding. Concession only at ≥4. No consecutive concessions. Concession rate tracking. Frame-lock detection after each checkpoint.
+- **Attack Intensity Preservation** (academic-paper-reviewer): DA does not soften under pushback. Rebuttal assessment protocol with explicit deflection detection. Anti-sycophancy rules prevent persistent pushback from being treated as valid evidence.
+- **Intent Detection Layer** (deep-research socratic): Classifies user intent as exploratory vs. goal-oriented. Exploratory mode disables auto-convergence, raises max rounds, prohibits premature closure. Re-assesses every 3 turns.
+- **Dialogue Health Indicator** (deep-research socratic): Silent self-check every 5 turns for persistent agreement, conflict avoidance, premature convergence. Auto-injects challenges when agreement pattern detected.
+- **Cross-Model Verification Protocol** (shared, optional): Use GPT-5.4 Pro or Gemini 3.1 Pro as independent second reviewer. Integrity verification samples 30% of references for cross-check. DA gets independent critique from second model. Peer review gains 6th independent reviewer. Activated by setting `ARS_CROSS_MODEL` env var — without it, everything works as before. See `shared/cross_model_verification.md` for full setup guide, API patterns, and cost estimates.
+- **AI Self-Reflection Report** (academic-pipeline Stage 6): Post-pipeline self-assessment of AI behavioral patterns — DA concession rate, checkpoint skip rate, health alerts, sycophancy risk rating (LOW/MEDIUM/HIGH), frame-lock incidents, convergence pattern analysis. Includes irony caveat: "this self-reflection is itself produced by the same AI that may have been sycophantic."
+- Origin: Discovered through a 4-round dialectic experiment where the DA conceded too quickly, the Socratic Mentor tried to converge prematurely, and the entire debate stayed locked in a frame the human set.
+- Versions: deep-research v2.5, academic-paper-reviewer v1.5, academic-pipeline v2.8
 
 ### v2.9 (2026-03-27) — Style Calibration + Writing Quality Check
 - **Style Calibration** (academic-paper intake Step 10, optional): Provide 3+ past papers and the pipeline learns your writing voice — sentence rhythm, vocabulary preferences, citation integration style. Applied as a soft guide during drafting; discipline conventions always take priority. Priority system: discipline norms (hard) > journal conventions (strong) > personal style (soft). See `shared/style_calibration_protocol.md`
