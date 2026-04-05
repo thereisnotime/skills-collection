@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.23.0] - 2026-04-04
+
+### Added
+- **Skill-creator Anthropic alignment** - Updated to 2026 AgentSkills.io spec and Anthropic best practices
+- **Work Diary blog** - Added intentcad-viewer-dwg-fastview-parity post to tonsofskills.com/blog
+
+### Changed
+- **Homepage partner banner** - Moved strategic partners section above fold, replaced Agent37 with Nixtla sponsor
+- **CLAUDE.md accuracy** - Updated plugin/skill counts to 416/2,574, fixed build pipeline (6 steps), added verify CI job, corrected test file listing
+
+### Fixed
+- **YAML frontmatter repairs** - Fixed 1,252 SKILL.md files across the plugin ecosystem:
+  - 9 Wondelai skills: double-escaped quotes (`''` → `'`) in block scalars
+  - 3 Grammarly pack skills: duplicate frontmatter keys dropping `Bash(curl:*)` access
+  - 1,219 skills: removed blank lines before closing `---` delimiters
+- **README sponsor badge** - Added Nixtla sponsor badge, updated counts
+
+---
+
 ## [4.22.0] - 2026-03-27
 
 ### Added

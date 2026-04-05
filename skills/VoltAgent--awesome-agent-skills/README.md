@@ -63,7 +63,8 @@ The most contributed Agent Skills repository, built and maintained together with
 |---|---|---|
 | [Official Claude Skills](#official-claude-skills) | [Skills by VoltAgent](#skills-by-voltagent) | [Skills by Composio](#skills-by-composio-team) |
 | [Skills by Supabase](#skills-by-supabase-team) | [Skills by Google Gemini](#skills-by-google-gemini) | [Skills by Stripe](#skills-by-stripe-team) |
-| [Skills by CallStack](#skills-by-callstack) | [Skills by Expo](#skills-by-expo-team) | [Skills by Better Auth](#skills-by-better-auth-team) |
+| [Skills by Courier](#skills-by-courier) | [Skills by CallStack](#skills-by-callstack) | [Skills by Expo](#skills-by-expo-team) |
+| [Skills by Better Auth](#skills-by-better-auth-team) |
 | [Skills by Tinybird](#skills-by-tinybird-team) | [Skills by HashiCorp](#skills-by-hashicorp-team-for-terraform) | [Skills by Sanity](#skills-by-sanity-team) |
 | [Skills by Firecrawl](#skills-by-firecrawl-team) | [Skills by Neon](#skills-by-neon-team) | [Skill by ClickHouse](#skill-by-clickhouse) |
 | [Skills by Remotion](#skills-by-remotion) | [Skills by Replicate](#skills-by-replicate) | [Skills by Typefully](#skills-by-typefully) |
@@ -74,7 +75,8 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Skills by Figma](#skills-by-figma) | [Marketing Skills by Corey Haines](#marketing-skills-by-corey-haines) | [Skills by Binance](#skills-by-binance) |
 | [Product Manager Skills by Dean Peters](#product-manager-skills-by-dean-peters) | [Product Management Skills by Paweł Huryn](#product-management-skills-by-pawel-huryn) | [Skills by MiniMax](#skills-by-minimax-team) |
 | [Skills by DuckDB](#skills-by-duckdb) | [Skills by GSAP](#skills-by-gsap-greensock) | [Skills by Garry Tan (gstack)](#skills-by-garry-tan-gstack) |
-| [Skills by Notion](#skills-by-notion) | [Community Skills](#community-skills) | [Skill Quality Standards](#skill-quality-standards) |
+| [Skills by Notion](#skills-by-notion) | [Skills by Resend](#skills-by-resend) | [Community Skills](#community-skills) |
+| [Skill Quality Standards](#skill-quality-standards) | | |
 
 
 
@@ -134,6 +136,9 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 ### Skills by Stripe Team
 - **[stripe/stripe-best-practices](https://officialskills.sh/stripe/skills/stripe-best-practices)** - Best practices for building Stripe integrations
 - **[stripe/upgrade-stripe](https://officialskills.sh/stripe/skills/upgrade-stripe)** - Upgrade Stripe SDK and API versions
+
+### Skills by Courier
+- **[trycourier/courier-skills](https://github.com/trycourier/courier-skills)** - Multi-channel notifications via email, SMS, push, and chat
 
 ### Skills by CallStack
 - **[callstackincubator/react-native-best-practices](https://officialskills.sh/callstackincubator/skills/react-native-best-practices)** - Performance optimization for React Native apps from Callstack
@@ -945,7 +950,27 @@ Official skills from Notion's repositories — workspace-aware skills for captur
 
 </details>
 
+<details>
+<summary><h3 style="display:inline">Skills by Resend</h3></summary>
+
+Official Resend skills to send and receive emails, build email templates and power your agent with email expertise.
+
+- **[resend/resend](https://github.com/resend/resend-skills/tree/main/skills/resend)** - Send and manage emails via the Resend API
+- **[resend/react-email](https://github.com/resend/resend-skills/tree/main/skills/react-email)** - Build emails with React Email components
+- **[resend/email-best-practices](https://github.com/resend/resend-skills/tree/main/skills/email-best-practices)** - Email deliverability and design best practices
+- **[resend/agent-email-inbox](https://github.com/resend/resend-skills/tree/main/skills/agent-email-inbox)** - AI agent email inbox management
+- **[resend/resend-cli](https://github.com/resend/resend-skills/tree/main/skills/resend-cli)** - Resend CLI commands and workflows
+
+</details>
+
 ### Community Skills
+
+<details>
+<summary><h3 style="display:inline">Vector Databases</h3></summary>
+
+- **[qdrant/skills](https://github.com/qdrant/skills)** - Agent skills for Qdrant vector search, covering scaling, performance optimization, search quality, monitoring, deployment, model migration, version upgrades, and SDK usage across Python, TypeScript, Rust, Go, .NET, and Java
+
+</details>
 
 <details>
 <summary><h3 style="display:inline">Marketing</h3></summary>

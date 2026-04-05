@@ -68,6 +68,24 @@ A flat list view of all resources. Category: **Workflows** | Sorted: by date cre
 <td>A detailed blog post explaining the author's process for shipping a product with Claude Code, including CLAUDE.md files and other interesting resources.</td>
 </tr>
 <tr>
+<td><a href="https://github.com/revfactory/harness"><b>Harness</b></a><br>by <a href="https://github.com/revfactory">revfactory</a></td>
+<td>Workflows & Knowledge Guides</td>
+<td>Teams</td>
+<td>A meta-skill that designs domain-specific agent teams, defines specialized agents, and generates the skills they use. Resources are in Korean but can produce high-quality English-language output.</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/revfactory/harness?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/revfactory/harness?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/revfactory/harness?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/revfactory/harness?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/revfactory/harness?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/revfactory/harness?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/revfactory/harness?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/revfactory/harness?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/revfactory/harness?style=flat-square" alt="license"></td>
+</tr>
+<tr>
+<td><a href="https://github.com/panaversity/claude-code-agent-teams-exercises"><b>Claude Code Agent Teams: Exercises</b></a><br>by <a href="https://github.com/panaversity">Panaversity</a></td>
+<td>Workflows & Knowledge Guides</td>
+<td>Teams</td>
+<td>Practical exercises for Claude Code Agent Teams - 6 exercises + 2 capstones covering team creation, task coordination, quality hooks, and parallel code review - good learning resource.</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/panaversity/claude-code-agent-teams-exercises?style=flat-square" alt="license"></td>
+</tr>
+<tr>
 <td><a href="https://github.com/marcindulak/ralph-wiggum-bdd"><b>ralph-wiggum-bdd</b></a><br>by <a href="https://github.com/marcindulak">marcindulak</a></td>
 <td>Workflows & Knowledge Guides</td>
 <td>Ralph Wiggum</td>
@@ -342,6 +360,6 @@ A flat list view of all resources. Category: **Workflows** | Sorted: by date cre
 
 ---
 
-**Total Resources:** 32
+**Total Resources:** 34
 
-**Last Generated:** 2026-03-30
+**Last Generated:** 2026-04-04

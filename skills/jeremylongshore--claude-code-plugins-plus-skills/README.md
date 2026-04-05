@@ -1,12 +1,13 @@
 # Tons of Skills — Claude Code Plugins Marketplace
 
 [![CLI](https://img.shields.io/badge/CLI-ccpi-blueviolet?logo=npm)](https://www.npmjs.com/package/@intentsolutionsio/ccpi)
-[![Plugins](https://img.shields.io/badge/plugins-415-blue)](https://tonsofskills.com/explore)
-[![Skills](https://img.shields.io/badge/skills-2%2C811-green)](https://tonsofskills.com/skills)
+[![Plugins](https://img.shields.io/badge/plugins-416-blue)](https://tonsofskills.com/explore)
+[![Skills](https://img.shields.io/badge/skills-2%2C574-green)](https://tonsofskills.com/skills)
 [![GitHub Stars](https://img.shields.io/github/stars/jeremylongshore/claude-code-plugins-plus-skills?style=social)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills)
+[![Sponsor: Nixtla](https://img.shields.io/badge/Sponsor-nixtla.io-ff6b35)](https://nixtla.io)
 [![Buy me a monster](https://img.shields.io/badge/Buy%20me%20a-Monster-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jeremylongshore)
 
-415 plugins, 2,811 skills, 154 agents, 16 community contributors — validated and ready to install.
+416 plugins, 2,574 skills, 154 agents, 16 community contributors — validated and ready to install.
 
 ```bash
 pnpm add -g @intentsolutionsio/ccpi    # Install the CLI

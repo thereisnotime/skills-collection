@@ -685,6 +685,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "b223e39",
+      "message": "fix(document-review): promote pattern-resolved findings to auto (#507)",
+      "date": "2026-04-05",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "755116e",
       "message": "chore: release main (#485)",
       "date": "2026-04-04",
@@ -735,12 +741,6 @@
     {
       "sha": "577db53",
       "message": "fix(converters): OpenCode subagent model and FQ agent name resolution (#483)",
-      "date": "2026-04-01",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "428f4fd",
-      "message": "fix(git-commit-push-pr): filter fix-up commits from PR descriptions (#484)",
       "date": "2026-04-01",
       "author": "Trevin Chow"
     }
@@ -4467,6 +4467,12 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "0894c39",
+      "message": "update visual representation",
+      "date": "2026-04-04",
+      "author": "Lokesh Mure"
+    },
+    {
       "sha": "92543b0",
       "message": "Merge pull request #149 from asklokesh/claude/fix-license-error-mjwhF",
       "date": "2026-03-27",
@@ -4517,12 +4523,6 @@
     {
       "sha": "ad2cfbb",
       "message": "release: v6.74.1 - AI Chat sidebar UX, ProjectWorkspace improvements",
-      "date": "2026-03-24",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "febfef8",
-      "message": "fix: move AI Chat to left sidebar tab, suggestions inside chat",
       "date": "2026-03-24",
       "author": "asklokesh"
     }
@@ -4885,6 +4885,42 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "c22c8fe",
+      "message": "Merge pull request #355 from Goodnight77/add-qdrant-skills",
+      "date": "2026-04-04",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "27592de",
+      "message": "Merge pull request #351 from resend/add-resend-skills",
+      "date": "2026-04-04",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "5682442",
+      "message": "Merge pull request #345 from xehl/add-skill/trycourier-courier-skills",
+      "date": "2026-04-04",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "0fe2d7a",
+      "message": "better description version",
+      "date": "2026-04-02",
+      "author": "goodnight"
+    },
+    {
+      "sha": "a158e09",
+      "message": "Add Qdrant vector database skills section to README",
+      "date": "2026-04-02",
+      "author": "goodnight"
+    },
+    {
+      "sha": "399724a",
+      "message": "Add Resend skills",
+      "date": "2026-04-02",
+      "author": "Felipe Freitag"
+    },
+    {
       "sha": "91aa397",
       "message": "Merge pull request #350 from VoltAgent/update-skill-urls",
       "date": "2026-04-02",
@@ -4897,52 +4933,16 @@
       "author": "necatiozmen"
     },
     {
+      "sha": "4a683e9",
+      "message": "Add skill: trycourier/courier-skills",
+      "date": "2026-04-01",
+      "author": "Eric Lee"
+    },
+    {
       "sha": "23f7569",
       "message": "Merge pull request #329 from talkstream/add-ru-text",
       "date": "2026-04-01",
       "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "bbe515e",
-      "message": "Add ru-text: Russian text quality skill",
-      "date": "2026-03-30",
-      "author": "Arseniy Kamyshev"
-    },
-    {
-      "sha": "1bf39b7",
-      "message": "update README",
-      "date": "2026-03-29",
-      "author": "necatiozmen"
-    },
-    {
-      "sha": "c422f9c",
-      "message": "update README",
-      "date": "2026-03-29",
-      "author": "necatiozmen"
-    },
-    {
-      "sha": "51eb59a",
-      "message": "Merge pull request #300 from bitwize-music/add-claude-ai-music-skills",
-      "date": "2026-03-26",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "cf7f8ba",
-      "message": "Merge pull request #298 from nehal-a2z/codex/add-coderabbit-skills",
-      "date": "2026-03-26",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "45448db",
-      "message": "Add skill: bitwize-music-studio/claude-ai-music-skills",
-      "date": "2026-03-25",
-      "author": "bitwize"
-    },
-    {
-      "sha": "32588f5",
-      "message": "Add CodeRabbit skills",
-      "date": "2026-03-25",
-      "author": "nehal-a2z"
     }
   ],
   "BehiSecc--awesome-claude-skills": [
@@ -5071,6 +5071,18 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "ecf40dd",
+      "message": "chore(release): prepare v4.23.0",
+      "date": "2026-04-04",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "3a33532",
+      "message": "fix(homepage): move partner banner above fold, replace Agent37 with Nixtla",
+      "date": "2026-04-04",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "1a77e75",
       "message": "fix(skills): remove blank lines before closing --- in 1,219 SKILL.md frontmatters",
       "date": "2026-04-03",
@@ -5115,18 +5127,6 @@
     {
       "sha": "04b3571",
       "message": "fix(travel-assistant): normalize hooks.json to standard schema",
-      "date": "2026-03-27",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "8aa66e3",
-      "message": "fix(prettier-markdown-hook): normalize hooks.json to standard schema",
-      "date": "2026-03-27",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "6adc07f",
-      "message": "feat(formatter): add if conditional for supported file extensions",
       "date": "2026-03-27",
       "author": "Jeremy Longshore"
     }
@@ -5195,6 +5195,42 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "ccc10f3",
+      "message": "docs: update docs for directory structure preservation (v1.0.2)",
+      "date": "2026-04-05",
+      "author": "daymade"
+    },
+    {
+      "sha": "2833aae",
+      "message": "Fix PII: replace /Users/username/ with ~ and <username> placeholder",
+      "date": "2026-04-05",
+      "author": "daymade"
+    },
+    {
+      "sha": "22de8f0",
+      "message": "Fix claude-code-history-files-finder: preserve directory structure on recovery",
+      "date": "2026-04-05",
+      "author": "daymade"
+    },
+    {
+      "sha": "cfa702d",
+      "message": "fix(skill-creator): replace 500-line hard limit with info density principle, add date handling rules",
+      "date": "2026-04-04",
+      "author": "daymade"
+    },
+    {
+      "sha": "2ab0a76",
+      "message": "chore: ignore .skill artifacts and remove tracked packages",
+      "date": "2026-04-04",
+      "author": "daymade"
+    },
+    {
+      "sha": "5538258",
+      "message": "Update capture-screen skill docs and versioning",
+      "date": "2026-04-04",
+      "author": "daymade"
+    },
+    {
       "sha": "0715ffb",
       "message": "feat: add three-layer PII defense system (pre-commit + gitleaks + CLAUDE.md)",
       "date": "2026-04-04",
@@ -5216,42 +5252,6 @@
       "sha": "6d261ce",
       "message": "feat(deep-research): V6.1 source accessibility policy and Counter-Review Team",
       "date": "2026-04-04",
-      "author": "daymade"
-    },
-    {
-      "sha": "87221d9",
-      "message": "feat(pdf-creator): add theme system + Chrome backend; add terraform-skill draft",
-      "date": "2026-04-02",
-      "author": "daymade"
-    },
-    {
-      "sha": "b9facf3",
-      "message": "fix(doc-to-markdown): update marketplace.json description and version to 2.1.0",
-      "date": "2026-03-22",
-      "author": "daymade"
-    },
-    {
-      "sha": "d9e1967",
-      "message": "feat(doc-to-markdown): CJK bold spacing, JSON pretty-print, 31 tests, full rename cleanup",
-      "date": "2026-03-22",
-      "author": "daymade"
-    },
-    {
-      "sha": "a5f3a4b",
-      "message": "fix(tunnel-doctor): add OrbStack transparent proxy + TUN conflict diagnosis",
-      "date": "2026-03-22",
-      "author": "daymade"
-    },
-    {
-      "sha": "143995b",
-      "message": "refactor: rename markdown-tools \u2192 doc-to-markdown (v2.0.0)",
-      "date": "2026-03-22",
-      "author": "daymade"
-    },
-    {
-      "sha": "ee38ae4",
-      "message": "feat: add asr-transcribe-to-text skill + optimize skill-creator with AskUserQuestion",
-      "date": "2026-03-22",
       "author": "daymade"
     }
   ],
@@ -5381,6 +5381,12 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "a145335",
+      "message": "feat: add session-search skill \u2014 semantic search across Claude Code sessions",
+      "date": "2026-04-04",
+      "author": "glebis"
+    },
+    {
       "sha": "b338243",
       "message": "feat: add meeting-processor skill with leadgen, partnership, coaching extractors",
       "date": "2026-04-03",
@@ -5433,73 +5439,67 @@
       "message": "Added a new rendering for repo section",
       "date": "2026-03-11",
       "author": "Satyam Soni"
-    },
-    {
-      "sha": "44f018d",
-      "message": "Add target property to grid items for slide navigation",
-      "date": "2026-03-11",
-      "author": "Satyam Soni"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "8cad140",
-      "message": "update development workflows \u2014 ECC 136k leads Superpowers 134k, agents/commands/skills growth; update best-practice docs",
-      "date": "2026-04-03",
+      "sha": "f45616e",
+      "message": "add YouTube thumbnail PSD source file",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "3af5eaa",
-      "message": "update Startups table \u2014 fix Cowork/Computer Use competitors, add Claude in Chrome, Shayan tags, /voice tip",
-      "date": "2026-04-03",
+      "sha": "7e5359b",
+      "message": "add clickable YouTube thumbnail to How to Use section in README",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "9544733",
-      "message": "add oh-my-claudecode to workflows, restructure README \u2014 new Subscribe/Videos sections, badge system overhaul",
-      "date": "2026-04-03",
+      "sha": "714bc6d",
+      "message": "add YouTube video thumbnail for How to Use section",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "e2c5778",
-      "message": "follow section added",
-      "date": "2026-04-03",
+      "sha": "1860c11",
+      "message": "append development workflows changelog \u2014 refresh star counts for 6 repos",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "64039b4",
-      "message": "enrich Daily section \u2014 add r/Anthropic, official X accounts, full names + project labels for all community members",
-      "date": "2026-04-02",
+      "sha": "592201d",
+      "message": "append concepts changelog v2.1.92 \u2014 add Ultraplan and Claude Code Web concepts",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "92394fe",
-      "message": "update development workflows \u2014 ECC overtakes Superpowers (133k vs 132k), GSD agents 18\u219221; update best-practice docs (co",
-      "date": "2026-04-02",
+      "sha": "cc73fea",
+      "message": "append subagents changelog v2.1.92 \u2014 no drift detected",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "1690471",
-      "message": "add Power-ups + No Flicker Mode to Hot table, add power-ups best-practice doc with screenshots",
-      "date": "2026-04-02",
+      "sha": "9a7f411",
+      "message": "append skills changelog v2.1.92 \u2014 no drift detected",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "382b974",
-      "message": "add Fullscreen Rendering + Computer Use to Hot table, update best-practice docs to v2.1.89",
-      "date": "2026-04-01",
+      "sha": "f6e1127",
+      "message": "append commands changelog v2.1.92 \u2014 6 actions including /setup-bedrock, /ultraplan, /vim removal",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "f05c4ae",
-      "message": "add Source column to videos table with Dex/Boris tags, remove hyperlink from first title",
-      "date": "2026-03-31",
+      "sha": "4f58f50",
+      "message": "update subagents report badge to v2.1.92",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     },
     {
-      "sha": "dc10499",
-      "message": "update development workflows \u2014 star bumps (+29k combined), gstack skills 28\u219232, BMAD skills 40\u219243; update best-practice ",
-      "date": "2026-03-31",
+      "sha": "441502c",
+      "message": "update skills report badge to v2.1.92",
+      "date": "2026-04-04",
       "author": "Shayan Rais"
     }
   ],
@@ -5567,64 +5567,64 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
-      "sha": "047fbfb",
+      "sha": "bfea0cf",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-05",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "04bd8d9",
+      "message": "feat: filter generic \"claude-code\" repos from ticker, run every 3h",
+      "date": "2026-04-05",
+      "author": "Really Him"
+    },
+    {
+      "sha": "13100c0",
+      "message": "first tag",
+      "date": "2026-04-05",
+      "author": "Really Him"
+    },
+    {
+      "sha": "43ee015",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-05",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "8ead9f3",
+      "message": "move resource to Teams",
+      "date": "2026-04-04",
+      "author": "Really Him"
+    },
+    {
+      "sha": "419ca16",
+      "message": "feat: exempt repo owner from submission enforcement",
+      "date": "2026-04-04",
+      "author": "Really Him"
+    },
+    {
+      "sha": "f88df0a",
+      "message": "feat: add Teams subcategory to issue template dropdown",
+      "date": "2026-04-04",
+      "author": "Really Him"
+    },
+    {
+      "sha": "7e76a4e",
+      "message": "Add resource: Claude Code Agent Teams: Exercises (#1362)",
       "date": "2026-04-04",
       "author": "github-actions[bot]"
     },
     {
-      "sha": "0b52741",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-03",
-      "author": "github-actions[bot]"
+      "sha": "564945e",
+      "message": "feat: add Harness to Teams subcategory under Workflows",
+      "date": "2026-04-04",
+      "author": "Really Him"
     },
     {
-      "sha": "7104e31",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "874b276",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "d429010",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-03",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "f28c6b6",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-02",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "2d2b4bc",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-02",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "6e5f65d",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-02",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "8c6e0ad",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-02",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "01f86e5",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-01",
-      "author": "github-actions[bot]"
+      "sha": "78675ad",
+      "message": "feat: add \"Teams\" subcategory under Workflows & Knowledge Guides",
+      "date": "2026-04-04",
+      "author": "Really Him"
     }
   ],
   "jqueryscript--awesome-claude-code": [

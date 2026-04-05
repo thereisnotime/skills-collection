@@ -98,7 +98,7 @@
     },
     "autofix_classes": {
       "_principle": "Autofix class is independent of severity. A P1 finding can be auto if the fix is obvious. The test: is there one clear correct fix, or does resolving this require judgment?",
-      "auto": "One clear correct fix -- applied silently. Includes both internal reconciliation (summary/detail mismatches, wrong counts, stale cross-references, terminology drift) and additions mechanically implied by other content (missing steps, unstated thresholds, completeness gaps where the correct content is obvious). Must include suggested_fix.",
+      "auto": "One clear correct fix -- applied silently. Three categories: internal reconciliation (summary/detail mismatches, wrong counts, stale cross-references, terminology drift), additions mechanically implied by other content (missing steps, unstated thresholds, completeness gaps where the correct content is obvious), and codebase-pattern-resolved fixes (the reviewer cites a specific existing codebase pattern that makes one approach clearly correct, regardless of theoretical alternatives). Must include suggested_fix.",
       "present": "Requires individual user judgment -- strategic questions, design tradeoffs, or findings where reasonable people could disagree on the right action."
     },
     "finding_types": {

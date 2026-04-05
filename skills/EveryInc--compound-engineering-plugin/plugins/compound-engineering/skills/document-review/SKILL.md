@@ -174,20 +174,32 @@ Specific conflict patterns:
 - Feasibility says "this is impossible" + product-lens says "this is essential" -> P1 finding framed as a tradeoff
 - Multiple personas flag the same issue -> merge into single finding, note consensus, increase confidence
 
-### 3.6 Route by Autofix Class
+### 3.6 Promote Pattern-Resolved Findings
+
+Scan `present` findings for codebase-pattern-resolved auto-eligibility. Promote `present` -> `auto` when **all three** conditions are met:
+
+1. The finding's `why_it_matters` cites a specific existing codebase pattern -- not just "best practice" or "convention," but a concrete pattern with a file, function, or usage reference
+2. The finding includes a concrete `suggested_fix` that follows that cited pattern
+3. There is no genuine tradeoff -- the codebase context resolves any ambiguity about which approach to use
+
+The principle: when a reviewer mentions multiple theoretical approaches but the codebase already has an established pattern that makes one approach clearly correct, the codebase context settles the question. Alternatives mentioned in passing do not create a real tradeoff if the evidence shows the codebase has already chosen.
+
+Do not promote if the finding involves scope or priority changes where the document author may have weighed tradeoffs invisible to the reviewer.
+
+### 3.7 Route by Autofix Class
 
 **Severity and autofix_class are independent.** A P1 finding can be `auto` if the correct fix is obvious. The test is not "how important?" but "is there one clear correct fix, or does this require judgment?"
 
 | Autofix Class | Route |
 |---------------|-------|
-| `auto` | Apply automatically -- one clear correct fix. Includes both internal reconciliation (one part authoritative over another) and additions mechanically implied by the document's own content. |
+| `auto` | Apply automatically -- one clear correct fix. Includes internal reconciliation (one part authoritative over another), additions mechanically implied by the document's own content, and codebase-pattern-resolved fixes where codebase evidence makes one approach clearly correct. |
 | `present` | Present individually for user judgment |
 
 Demote any `auto` finding that lacks a `suggested_fix` to `present`.
 
-**Auto-eligible patterns:** summary/detail mismatch (body is authoritative over overview), wrong counts, missing list entries derivable from elsewhere in the document, stale internal cross-references, terminology drift, prose/diagram contradictions where prose is more detailed, missing steps mechanically implied by other content, unstated thresholds implied by surrounding context, completeness gaps where the correct addition is obvious. If the fix requires judgment about *what* to do (not just *what to write*), it belongs in `present`.
+**Auto-eligible patterns:** summary/detail mismatch (body is authoritative over overview), wrong counts, missing list entries derivable from elsewhere in the document, stale internal cross-references, terminology drift, prose/diagram contradictions where prose is more detailed, missing steps mechanically implied by other content, unstated thresholds implied by surrounding context, completeness gaps where the correct addition is obvious, codebase-pattern-resolved fixes where the reviewer cites a specific existing pattern and the suggested_fix follows it. If the fix requires judgment about *what* to do (not just *what to write*) and the codebase context does not resolve the ambiguity, it belongs in `present`.
 
-### 3.7 Sort
+### 3.8 Sort
 
 Sort findings for presentation: P0 -> P1 -> P2 -> P3, then by finding type (errors before omissions), then by confidence (descending), then by document order (section position).
 
