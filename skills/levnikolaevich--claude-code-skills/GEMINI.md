@@ -10,8 +10,8 @@ Skills collection for Gemini CLI with config-driven Agile task management (Linea
 
 | Rule | When to Apply | Details |
 |------|---------------|---------|
-| **Read Architecture Guide first** | Before working with skills | `cat docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` — L0-L3 hierarchy, SRP, Token Efficiency, Red Flags |
-| **MANDATORY READ pattern** | File references in SKILL.md | Use `**MANDATORY READ:** Load {file}`. Passive refs (`See`, `Per`, `Follows`) are NOT followed by agents. Group multiple into ONE block at section start |
+| **Read Architecture Guide first** | Before working with skills | `cat docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` - L0-L3 hierarchy, SRP, Token Efficiency, Red Flags |
+| **MANDATORY READ pattern** | File references in SKILL.md | Use `**MANDATORY READ:** Load {file}`. Passive refs are NOT followed by agents. Group multiple into ONE block at section start |
 | **Path Resolution** | File paths in SKILL.md | Relative to skills repo root, NOT target project. Every SKILL.md with file refs includes `> **Paths:**` note after frontmatter |
 | **Sequential Numbering** | Phases/Sections/Steps | 1, 2, 3, 4 (NOT 1, 1.5, 2). Exception: 4a (CREATE), 4b (REPLAN) |
 | **Docs in English** | All documentation | Stories/Tasks can be EN/RU regardless of provider |
@@ -25,17 +25,11 @@ Skills collection for Gemini CLI with config-driven Agile task management (Linea
 
 ## MCP Tool Preferences
 
-**PREFER** hex-line MCP for code files — hash-annotated reads enable safe edits:
-
-| Instead of | Use | When |
-|-----------|-----|------|
-| Built-in Read | `hex-line read_file` | Code files (hash-annotated, edit-ready) |
-| Built-in Edit | `hex-line edit_file` | Always (hash-verified anchors) |
-| Built-in Write | `hex-line write_file` | Always (consistent workflow) |
-| Built-in Grep | `hex-line grep_search` | Before editing found code (grep→edit pipeline) |
-| Large code file | `hex-line outline` then `read_file` with range | Unfamiliar files >100 lines |
-
-**Built-in OK for:** images, PDFs, notebooks, Glob (always), `.claude/settings.json` and `.claude/settings.local.json`.
+Prefer `hex-line` for code/config/script/test files.
+- Use `outline` before large reads, then `read_file` with ranges.
+- Use `edit_file` / `write_file` for writes, `bulk_replace` for multi-file text rename, `verify` after conflicts or delayed follow-up edits, and `changes` for diff review.
+- Use `hex-graph` only for symbol, reference, architecture, and semantic diff questions.
+- Built-in tools are still fine for images, PDFs, notebooks, Glob, and `.claude/settings*.json`.
 
 ## Quick Understanding
 
@@ -44,18 +38,18 @@ Skills collection for Gemini CLI with config-driven Agile task management (Linea
 | Project overview + full tree | `cat README.md` |
 | Skill count | `ls -d ln-*/SKILL.md \| wc -l` |
 | Architecture patterns (L0-L3) | `cat docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` |
-| Tool configuration (Linear/File Mode) | `cat skills-catalog/shared/references/tools_config_guide.md` |
-| Key workflow | `ln-700 → ln-100 → ln-200 → ln-1000` (or manually: `ln-400 → ln-500`) |
+| Tool configuration (Linear/File Mode) | `cat skills-catalog/shared/references/environment_state_contract.md` |
+| Key workflow | `ln-700 -> ln-100 -> ln-200 -> ln-1000` (or manually: `ln-400 -> ln-500`) |
 | Skill metadata | `head -20 {ln-NNN}/SKILL.md` (frontmatter + type/category) |
 
 ## Navigation
 
-**DAG:** GEMINI.md → `docs/README.md` → topic docs. Read SCOPE tag first in each doc.
+**DAG:** GEMINI.md -> `docs/README.md` -> topic docs. Read SCOPE tag first in each doc.
 
 | Topic | File |
 |-------|------|
-| Writing Guidelines | `docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` §Writing Guidelines |
-| Tool Configuration (Phase 0) | `skills-catalog/shared/references/tools_config_guide.md` |
+| Writing Guidelines | `docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` section Writing Guidelines |
+| Environment State (Phase 0) | `skills-catalog/shared/references/environment_state_contract.md` |
 | Risk-Based Testing | `skills-catalog/shared/references/risk_based_testing_guide.md` |
 
 ## Maintenance
@@ -64,7 +58,7 @@ Skills collection for Gemini CLI with config-driven Agile task management (Linea
 
 1. Update `**Version:**` in `{skill}/SKILL.md`
 2. Update version in README.md feature tables
-3. Update CHANGELOG.md — one summary paragraph per date (`## YYYY-MM-DD`), no duplicate dates
+3. Update CHANGELOG.md - one summary paragraph per date (`## YYYY-MM-DD`), no duplicate dates
 
 ## Compact Instructions
 

@@ -31,6 +31,12 @@ function renderRequestedSpan(block) {
     return `requested_span: ${block.requestedStartLine}-${block.requestedEndLine}`;
 }
 
+function renderMetaLines(meta = {}) {
+    return Object.entries(meta)
+        .filter(([, value]) => value !== undefined && value !== null && value !== "")
+        .map(([key, value]) => `${key}: ${value}`);
+}
+
 function renderBaseEntry(entry, plain = false) {
     return plain
         ? `${entry.lineNumber}|${entry.text}`
@@ -117,6 +123,7 @@ export function serializeReadBlock(block, opts = {}) {
     ];
     const requestedSpan = renderRequestedSpan(block);
     if (requestedSpan) lines.push(requestedSpan);
+    lines.push(...renderMetaLines(block.meta));
     lines.push(...block.entries.map(entry => serializeReadEntry(entry, opts)));
     lines.push(`checksum: ${block.checksum}`);
     return lines.join("\n");
@@ -135,6 +142,9 @@ export function serializeSearchBlock(block, opts = {}) {
         lines.push(`match_lines: ${block.meta.matchLines.join(",")}`);
     }
     if (block.meta.summary) lines.push(`summary: ${block.meta.summary}`);
+    lines.push(...renderMetaLines(Object.fromEntries(
+        Object.entries(block.meta).filter(([key]) => key !== "matchLines" && key !== "summary")
+    )));
     lines.push(...block.entries.map(entry => serializeSearchEntry(entry, opts)));
     lines.push(`checksum: ${block.checksum}`);
     return lines.join("\n");

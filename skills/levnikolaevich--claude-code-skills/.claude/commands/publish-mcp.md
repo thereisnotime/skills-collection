@@ -1,6 +1,6 @@
 ---
 description: "Publish MCP server to npm (hex-line-mcp, hex-ssh-mcp, or hex-graph-mcp). Auto-detects unpublished changes, suggests bump type, syncs server.mjs version."
-allowed-tools: Bash, Glob, AskUserQuestion, mcp__hex-line__read_file, mcp__hex-line__edit_file, mcp__hex-line__grep_search, mcp__hex-line__write_file
+allowed-tools: Bash, Glob, AskUserQuestion, mcp__hex-line__read_file, mcp__hex-line__edit_file, mcp__hex-line__grep_search, mcp__hex-line__write_file, mcp__hex-line__changes, mcp__hex-graph__index_project, mcp__hex-graph__find_symbols, mcp__hex-graph__find_references, mcp__hex-graph__analyze_changes
 ---
 
 # Publish MCP Server
@@ -84,16 +84,33 @@ Display the output to the user.
 
 ### 4. Suggest bump type
 
-Analyze the diff and commit messages:
-- Only existing file modifications, `fix:` commits → suggest **patch**
-- New files, new exports, `feat:` commits → suggest **minor**
-- Removed/renamed public API, `BREAKING CHANGE` or `!:` → suggest **major**
+Analyze the diff, commit messages, AND public API changes:
+
+**Semantic analysis via hex-graph** (run `index_project` once at start):
+
+```
+mcp__hex-graph__analyze_changes(path: "mcp/${PKG}", base_ref: "${LAST_TAG}")
+```
+
+Also discover exported symbols for before/after comparison:
+
+```
+mcp__hex-line__grep_search(pattern: "export", path: "mcp/${PKG}/server.mjs")
+```
+
+| Signal | Bump | How to detect |
+|--------|------|---------------|
+| Removed/renamed public exports | **major** | `find_symbols` on `${LAST_TAG}:server.mjs` vs current — missing symbols |
+| Changed tool parameter signatures | **major** | `analyze_changes` shows modified tool input schemas |
+| New tool registrations or exports | **minor** | `find_symbols` finds symbols absent from last tag |
+| Internal-only changes, `fix:` commits | **patch** | `analyze_changes` shows no public API diff |
+
+Fall back to commit message heuristics (`BREAKING CHANGE`, `feat:`, `fix:`) when graph evidence is inconclusive.
 
 AskUserQuestion with the recommendation marked "(Recommended)":
 - **patch** (X.Y.Z → X.Y.Z+1): bug fixes, tweaks
 - **minor** (X.Y.Z → X.Y+1.0): new features, new tools
 - **major** (X.Y.Z → X+1.0.0): breaking changes
-
 ### 5. Pre-publish checks
 
 ```bash
@@ -102,13 +119,86 @@ cd $PROJECT_ROOT/mcp/hex-common && npm test && cd $PROJECT_ROOT/mcp/${PKG} && np
 
 **Gate:** hex-common tests + package check/lint/test must all pass. If any fails — fix before proceeding.
 
-**README tool count check** (Bash grep OK here — runs on single files, not piped through built-in Grep):
-```bash
-actual=$(grep -c 'registerTool' $PROJECT_ROOT/mcp/${PKG}/server.mjs || echo 0)
-claimed=$(grep -oE '[0-9]+ MCP Tools' $PROJECT_ROOT/mcp/${PKG}/README.md | grep -oE '[0-9]+' || echo "0")
-[ "$actual" != "$claimed" ] && echo "FAIL: README claims $claimed tools, actual $actual — update README" || echo "README tool count OK ($actual)"
+**hex-graph blast radius check** (when `hex-common/` changed):
+
 ```
-If mismatch — update `N MCP Tools` in README.md before proceeding.
+mcp__hex-graph__find_references(symbol: "{changed_export}", path: "mcp/")
+```
+
+For each changed export in `hex-common/`, verify all consuming servers handle the new signature. Report any import that references a removed or renamed export.
+
+**README tool count check** — `grep_search` for tool registrations (hex-graph cannot index method calls like `server.tool()`):
+
+```
+mcp__hex-line__grep_search(pattern: "server\\.tool\\(", path: "mcp/${PKG}/server.mjs")
+```
+
+Count matches and compare against `N MCP Tools` in README.md. If mismatch — update README before proceeding.
+
+**MANDATORY READ:** Load `docs/best-practice/MCP_OUTPUT_CONTRACT_GUIDE.md`
+
+**Output contract + vocabulary gates**
+
+- Public outputs MUST keep canonical field ordering where applicable: `status` -> `reason` -> identity/query fields -> `next_action` / `next_actions` -> `summary` -> recovery helpers -> details.
+- Public `reason` values MUST be stable `snake_case`, not prose sentences.
+- Public `next_action` / `next_actions` MUST use canonical labels, not English advice sentences.
+- Do not introduce a new `status`, `reason`, or `next_action` label if an existing one already covers the same decision.
+- `hex-graph` success payloads MUST keep top-level `status: "OK"`; error payloads MUST keep the compact error envelope: `status`, `code`, `summary`, `next_action`, `recovery`.
+- `hex-line` text contracts MUST stay canonical and compact: prefer `summary` / `snippet` / `retry_edit` / `retry_edits` / `suggested_read_call` / `retry_plan` over long prose guidance blocks.
+
+**Docs and server-description sync gates**
+
+- `README.md`, package site/page content if touched, and `server.mjs` tool descriptions must agree on:
+  - tool count
+  - primary use cases
+  - current output contract fields
+  - status/reason/next_action vocabulary
+- `server.mjs` descriptions must describe **when to use** the tool and mention current recovery contract where relevant.
+- If a release changes public output wording or recovery fields, update README examples in the same release.
+
+**hex-line-specific release gates**
+
+- Hook behavior, `output-style.md`, README, and `hook.mjs` must agree on:
+  - whether built-in `Read` / `Edit` / `Write` / `Grep` are redirected or merely advised
+  - what Bash commands are redirected
+  - PostToolUse truncation thresholds and head/tail counts
+  - SessionStart bootstrap behavior
+- `edit_file` conflict output must still expose the current compact recovery contract:
+  - `status`
+  - `reason`
+  - `next_action`
+  - `summary`
+  - `snippet`
+  - recovery helpers such as `retry_edit`, `retry_edits`, `suggested_read_call`, `retry_plan`, `retry_checksum`, `recovery_ranges`
+- `verify` and `changes` must preserve canonical `status` / `reason` / `next_action` outputs; do not publish if they drift back to narrative/prose-first responses.
+
+**hex-graph-specific release gates**
+
+- Use-case wrappers and server-level overrides must keep the same action vocabulary; no mixed sentence-style `next_actions`.
+- `compact` / default outputs should prune empty sections instead of shipping null-heavy payloads.
+- Query success results must preserve the top-level pattern: `status`, `query`, `summary`, `reason`, `result`, optional `quality`, optional `warnings`, optional `next_actions`.
+
+**Suggested spot checks before publish**
+
+Run targeted searches via `hex-line` for edit-ready output if fixes needed:
+
+```
+mcp__hex-line__grep_search(pattern: "next_action|next_actions|status: |reason: ", path: "mcp/${PKG}/")
+mcp__hex-line__grep_search(pattern: "retry_edit|retry_edits|suggested_read_call|retry_plan|summary: |snippet: ", path: "mcp/${PKG}/")
+```
+
+Also run the contract checker:
+```bash
+node mcp/check-output-contracts.mjs
+```
+
+For `hex-line-mcp`, also inspect:
+
+```bash
+rg -n "HOOK_OUTPUT_POLICY|LINE_THRESHOLD|HEAD_LINES|TAIL_LINES|SessionStart|PreToolUse|PostToolUse" $PROJECT_ROOT/mcp/hex-line-mcp/hook.mjs $PROJECT_ROOT/mcp/hex-line-mcp/lib/hook-policy.mjs $PROJECT_ROOT/mcp/hex-line-mcp/README.md $PROJECT_ROOT/mcp/hex-line-mcp/output-style.md
+```
+
+If these checks reveal drift, fix it before version bumping.
 
 ### 6. Bump version
 
@@ -125,10 +215,11 @@ cd $PROJECT_ROOT/mcp/${PKG} && npm run build
 
 Version is injected at build time via esbuild `define: { __HEX_VERSION__ }`. No manual sync in server.mjs needed.
 
-Verify version in bundle using `mcp__hex-line__grep_search`:
-- pattern: `"${NEW_VERSION}"` (literal), path: `mcp/${PKG}/dist/server.mjs`, limit: 1
-
-### 7b. Sync version in server.json (MCP Registry metadata)
+Verify version in bundle:
+```
+mcp__hex-line__grep_search(pattern: "${NEW_VERSION}", path: "mcp/${PKG}/dist/server.mjs", literal: true, limit: 1)
+```
+### 8. Sync version in server.json (MCP Registry metadata)
 
 Update both `version` and `packages[0].version` in `mcp/${PKG}/server.json`:
 ```bash
@@ -140,7 +231,7 @@ Verify:
 jq '.version, .packages[0].version' $PROJECT_ROOT/mcp/${PKG}/server.json
 ```
 
-### 8. Commit + tag + push
+### 9. Commit + tag + push
 
 **CRITICAL:** Commit ALL repo changes (`git add -A`), not just the package directory. Other pending changes (skills, commands, docs) ride along with the release commit. Never scope `git add` to a subdirectory.
 
@@ -151,7 +242,7 @@ git tag ${TAG_PREFIX}${NEW_VERSION}
 git push origin master --tags
 ```
 
-### 9. Verify publish
+### 10. Verify publish
 
 Wait ~30s, then:
 ```bash
@@ -159,13 +250,13 @@ gh run list --limit 1
 npm view ${PKG_NAME} version
 ```
 
-### 10. Report
+### 11. Report
 
 Display: package name, old → new version, npm URL (`https://www.npmjs.com/package/${PKG_NAME}`), GitHub Actions run status.
 
 ---
 
-### 11. Meta-Analysis
+### 12. Meta-Analysis
 
 **MANDATORY READ:** Load `shared/references/meta_analysis_protocol.md`
 

@@ -3,7 +3,9 @@
  */
 
 import { readFileSync } from "node:fs";
-import { runN, rg } from "./helpers.mjs";
+import { resolve } from "node:path";
+import { runN, rg, git } from "./helpers.mjs";
+import { semanticGitDiff } from "@levnikolaevich/hex-common/git/semantic-diff";
 import {
     findSymbols,
     getSymbol,
@@ -15,15 +17,16 @@ import {
 } from "../lib/store.mjs";
 import { findCycles } from "../lib/cycles.mjs";
 import { findUnusedExports } from "../lib/unused.mjs";
+import { getPrImpact } from "../lib/pr-impact.mjs";
 
 /**
  * @param {object} store  — initialized graph store
  * @param {object} config — { repoRoot, allFiles, searchSym, contextSym, impactSym, traceSym }
  * @returns {object[]}    — array of workflow result rows
  */
-export function runWorkflows(store, config) {
+export async function runWorkflows(store, config) {
     const workflows = [];
-    const { repoRoot, allFiles, searchSym, impactSym } = config;
+    const { repoRoot, allFiles, searchSym, impactSym, prBaseRef, prHeadRef } = config;
     const selectorFor = (sym) => ({ name: sym.name, file: sym.file });
 
     // W1: derived from "Merge scanner and synchronizer into system configurator"
@@ -116,27 +119,35 @@ export function runWorkflows(store, config) {
 
     // W4: derived from PR/review sessions over server/store changes
     {
+        const diffRef = prHeadRef ? `${prBaseRef}...${prHeadRef}` : prBaseRef;
+        const semanticDiff = await semanticGitDiff(repoRoot, { baseRef: prBaseRef, headRef: prHeadRef || null });
+        const changedFiles = semanticDiff.changed_files.map(file => resolve(semanticDiff.repo_root, file.path));
         const withoutChars = runN(() => {
             let total = 0;
-            total += rg(`-n "function " --type js "${repoRoot}" --max-count 20`).length;
-            total += rg(`-n "export " --type js "${repoRoot}" --max-count 20`).length;
-            total += rg(`-n "import " --type js "${repoRoot}" --max-count 20`).length;
+            total += git(["diff", "--stat", "-M", ...(prHeadRef ? [`${prBaseRef}...${prHeadRef}`] : [prBaseRef]), "--", "."], repoRoot, true).length;
+            total += git(["diff", "--unified=0", "-M", ...(prHeadRef ? [`${prBaseRef}...${prHeadRef}`] : [prBaseRef]), "--", "."], repoRoot, true).length;
+            for (const file of changedFiles.slice(0, 5)) {
+                total += rg(`-n "function |class |export |def |public " "${file}" --max-count 20`).length;
+            }
             return total;
         });
 
-        const withChars = runN(() => {
-            let total = 0;
-            total += JSON.stringify(getSymbol(selectorFor(impactSym || searchSym))).length;
-            total += JSON.stringify(tracePaths(selectorFor(impactSym || searchSym), { path_kind: "mixed", direction: "reverse", depth: 3, limit: 50 })).length;
-            total += JSON.stringify(getReferencesBySelector(selectorFor(impactSym || searchSym))).length;
-            return total;
+        const withResult = await getPrImpact({
+            path: repoRoot,
+            baseRef: prBaseRef,
+            headRef: prHeadRef || null,
+            includePaths: false,
+            maxSymbols: 12,
+            maxPaths: 5,
         });
+        const withChars = runN(() => JSON.stringify(withResult).length, 1);
 
         workflows.push({
             id: "W4", scenario: "Review PR semantic risk snapshot",
             without: withoutChars, withG: withChars,
-            opsWithout: 3, opsWith: 2,
-            stepsWithout: 4, stepsWith: 2,
+            opsWithout: 4, opsWith: 1,
+            stepsWithout: 4, stepsWith: 1,
+            refs: diffRef,
         });
     }
 

@@ -27,6 +27,7 @@ Standard algorithm for updating `docs/tasks/kanban_board.md` with Epic/Story/Tas
 
 ## Link Format
 
+### Linear Mode
 ```markdown
 ## Backlog
 
@@ -36,6 +37,27 @@ Standard algorithm for updating `docs/tasks/kanban_board.md` with Epic/Story/Tas
     - ⚙️ [ID: T-002 Implement service](https://linear.app/team/T-002)
   - 📖 [ID: US002 Token Validation](https://linear.app/team/US002)
     _(tasks not created yet)_
+```
+
+### GitHub Mode
+```markdown
+## Backlog
+
+**Epic 7: OAuth Authentication**
+  - 📖 [ID: US001 Token Generation](https://github.com/owner/repo/issues/42)
+    - ⚙️ [ID: T-001 Create DB schema](https://github.com/owner/repo/issues/43)
+    - ⚙️ [ID: T-002 Implement service](https://github.com/owner/repo/issues/44)
+  - 📖 [ID: US002 Token Validation](https://github.com/owner/repo/issues/45)
+    _(tasks not created yet)_
+```
+
+### File Mode
+```markdown
+## Backlog
+
+**Epic 7: OAuth Authentication**
+  - 📖 [ID: US001 Token Generation](docs/tasks/epics/epic-7-oauth/stories/us001-token-gen/story.md)
+    - ⚙️ [ID: T-001 Create DB schema](docs/tasks/epics/epic-7-oauth/stories/us001-token-gen/tasks/T001-db-schema.md)
 ```
 
 ## Counter Update Algorithm
@@ -83,5 +105,5 @@ Follows `shared/references/kanban_update_algorithm.md`:
 ```
 
 ---
-**Version:** 1.0.0
-**Last Updated:** 2026-02-05
+**Version:** 2.0.0
+**Last Updated:** 2026-04-05

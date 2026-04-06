@@ -5,7 +5,7 @@
 import { statSync } from "node:fs";
 import { validatePath, normalizePath } from "./security.mjs";
 import { getGraphDB, fileAnnotations, getRelativePath } from "./graph-enrich.mjs";
-import { formatSize, relativeTime, listDirectory, MAX_OUTPUT_CHARS } from "./format.mjs";
+import { formatSize, relativeTime, MAX_OUTPUT_CHARS } from "./format.mjs";
 import { readSnapshot } from "./snapshot.mjs";
 import {
     buildDiagnosticBlock,
@@ -96,6 +96,10 @@ function buildReadBlock(snapshot, range, plain, remainingChars) {
             entries,
             requestedStartLine: range.requestedStartLine,
             requestedEndLine: range.requestedEndLine,
+            meta: {
+                eol: snapshot.eol,
+                trailing_newline: snapshot.trailingNewline,
+            },
         }),
         remainingChars: nextBudget,
         cappedAtLine,
@@ -107,10 +111,8 @@ export function readFile(filePath, opts = {}) {
     const real = validatePath(filePath);
     const stat = statSync(real);
 
-    // Directory listing fallback
     if (stat.isDirectory()) {
-        const { text } = listDirectory(real, { metadata: true });
-        return `Directory: ${filePath}\n\n\`\`\`\n${text}\n\`\`\``;
+        throw new Error(`READ_FILE_EXPECTS_FILE: ${filePath} is a directory. Use inspect_path for directory trees and path discovery.`);
     }
 
     const snapshot = readSnapshot(real);
@@ -165,14 +167,20 @@ export function readFile(filePath, opts = {}) {
         }
     }
 
-    const db = opts.includeGraph ? getGraphDB(real) : null;
+    const db = getGraphDB(real);
     const relFile = db ? getRelativePath(real) : null;
     let graphLine = "";
     if (db && relFile) {
-        const annos = fileAnnotations(db, relFile);
+        const visibleStart = blocks.length > 0 ? Math.min(...blocks.map(block => block.startLine)) : 1;
+        const visibleEnd = blocks.length > 0 ? Math.max(...blocks.map(block => block.endLine)) : total;
+        const annos = fileAnnotations(db, relFile, { startLine: visibleStart, endLine: visibleEnd, limit: 6 });
         if (annos.length > 0) {
             const items = annos.map(a => {
                 const parts = [];
+                if (a.is_exported) parts.push(a.is_default_export ? "default api" : "api");
+                if ((a.framework_incoming_count || 0) > 0) {
+                    parts.push(a.framework_incoming_count === 1 ? "entrypoint" : `entrypoint ${a.framework_incoming_count}`);
+                }
                 if ((a.callees_exact || 0) > 0 || (a.callers_exact || 0) > 0) {
                     parts.push(`${a.callees_exact}\u2193 ${a.callers_exact}\u2191`);
                 }
@@ -202,5 +210,5 @@ export function readFile(filePath, opts = {}) {
             requestedEndLine: cappedAtLine,
         })));
     }
-    return `File: ${filePath}${graphLine}\nmeta: ${meta}\nrevision: ${snapshot.revision}\nfile: ${snapshot.fileChecksum}\n\n${serializedBlocks.join("\n\n")}`.trim();
+    return `File: ${filePath}${graphLine}\nmeta: ${meta}\nrevision: ${snapshot.revision}\nfile: ${snapshot.fileChecksum}\neol: ${snapshot.eol}\ntrailing_newline: ${snapshot.trailingNewline}\n\n${serializedBlocks.join("\n\n")}`.trim();
 }

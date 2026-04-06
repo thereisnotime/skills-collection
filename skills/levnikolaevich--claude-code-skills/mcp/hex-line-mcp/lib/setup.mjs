@@ -14,7 +14,8 @@ import { homedir } from "node:os";
 // Stable hook location outside npm/npx cache.
 const STABLE_HOOK_DIR = resolve(homedir(), ".claude", "hex-line");
 const STABLE_HOOK_PATH = join(STABLE_HOOK_DIR, "hook.mjs").replace(/\\/g, "/");
-const HOOK_COMMAND = `node ${STABLE_HOOK_PATH}`;
+const NODE_COMMAND = process.execPath.replace(/\\/g, "/");
+const HOOK_COMMAND = `"${NODE_COMMAND}" "${STABLE_HOOK_PATH}"`;
 
 // Source hook.mjs location (for copying).
 const __filename = fileURLToPath(import.meta.url);

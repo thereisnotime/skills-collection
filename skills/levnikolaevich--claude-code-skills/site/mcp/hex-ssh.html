@@ -409,11 +409,11 @@
   <section style="background: var(--bg-secondary);">
     <div class="container">
       <h2>Security</h2>
-      <p class="section-desc">Security is not optional when agents talk to production servers. hex-ssh verifies host fingerprints, restricts host/path reachability, enforces absolute canonical paths, times out long commands, and keeps raw remote shell access disabled by default.</p>
+      <p class="section-desc">Security is not optional when agents talk to production servers. hex-ssh verifies host fingerprints, restricts host/path reachability, enforces platform-aware absolute canonical paths, times out long commands, and keeps raw remote shell access disabled by default.</p>
       <div class="features-grid">
         <div class="feature">
           <h3>Host Key Verification</h3>
-          <p>Connections fail closed unless the host fingerprint matches <code>ALLOWED_HOST_FINGERPRINTS</code> or a plain-entry <code>known_hosts</code> record. v1 does not parse hashed hostnames or <code>@cert-authority</code> markers.</p>
+          <p>Connections fail closed unless the host fingerprint matches <code>ALLOWED_HOST_FINGERPRINTS</code> or a matching <code>known_hosts</code> record. Plain, hashed, and marker-prefixed entries are parsed for fingerprint matching.</p>
           <span class="example">SHA256:&lt;base64&gt; or KNOWN_HOSTS_PATH</span>
         </div>
         <div class="feature">
@@ -438,8 +438,8 @@
         </div>
         <div class="feature">
           <h3>Absolute Canonical Paths</h3>
-          <p>Remote file operations require absolute paths. <code>.</code> and <code>..</code> segments are resolved before allowlist checks.</p>
-          <span class="example">/home/deploy/app/config.js</span>
+          <p>Remote file operations require absolute paths for their platform. POSIX shell tools stay POSIX-oriented; SFTP transfers also support Windows remote paths via <code>remotePlatform</code>. <code>.</code> and <code>..</code> segments are resolved before allowlist checks.</p>
+          <span class="example">/home/deploy/app/config.js or C:\repo\config.js</span>
         </div>
         <div class="feature">
           <h3>Write Semantics</h3>

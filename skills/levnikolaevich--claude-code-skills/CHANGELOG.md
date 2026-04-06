@@ -2,6 +2,20 @@
 
 <!-- SCOPE: User-facing changes only. Max 5 bullets per entry. Focus: new capabilities, workflow changes, breaking changes. -->
 
+## 2026-04-05
+
+- **hex-line v1.12.0** — conservative conflict recovery (retry_edit/retry_edits/retry_plan), hook policy extraction, canonical output contracts for verify/changes
+- **hex-graph v0.8.0** — output contract alignment (pruneEmpty, STATUS/ACTION constants, error mapping, DB busy handling), refactored platform and use-case API
+- **hex-ssh v1.4.0** — remotePlatform parameter (auto/posix/windows), requirePosixRemotePath validation, transfer improvements
+- **GitHub Actions Node.js 24** — upgraded checkout@v6, setup-node@v6, deploy-pages@v5
+- **MCP Registry fix** — shortened tool descriptions to ≤100 chars for hex-line and hex-graph
+
+## 2026-04-01
+
+- **hex-line v1.10.0** — tool descriptions refresh, graph-enrich refactor, hook safeExit, edit/read improvements
+- **hex-graph v0.6.0** — new flow.mjs dataflow module with find_dataflows source/sink API, store expansion
+- **CI fixes** — guards.mjs split path fix, hex-ssh sftp test isolation, hex-graph cross-platform workspace discovery, better-sqlite3 native binary rebuild on CI
+
 ## 2026-03-31
 
 - **Gemini auto-model selection** — removed hardcoded `-m gemini-3-flash-preview` from agent registry; Gemini CLI now auto-selects best available model. ln-011 post-install disables Conseca safety checker
@@ -70,7 +84,7 @@
 - **GitHub Pages MCP section** — hex-line, hex-ssh, hex-graph MCP servers showcased on site index with dedicated detail pages (`site/mcp/`)
 - **Plugin pages enhanced** — all 6 plugin detail pages now link each skill row to its SKILL.md source on GitHub
 - **GitHub Pages best practices** — new standards doc for site development guidelines
-- **hex-graph layered rewrite** — 15 MCP tools with canonical symbol identities, semantic edges, trace_paths, find_references, find_implementations, find_dataflows; replaces flat get_impact/get_context API
+- **hex-graph layered rewrite** — canonical symbol identities, layered semantic edges, and the current use-case graph analysis surface replaced the old flat impact/context API
 - **Agent review simplified** — debate protocol (challenge/follow-up rounds) replaced with AGREE/REJECT verification + iterative Codex refinement loop (max 5 iterations)
 - **hex-ssh security hardening** — 4 new modules: command-policy, edit-validation, host-verify, shell-escape
 

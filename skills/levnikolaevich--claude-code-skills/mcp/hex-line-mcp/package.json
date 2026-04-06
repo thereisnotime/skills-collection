@@ -1,9 +1,9 @@
 {
   "name": "@levnikolaevich/hex-line-mcp",
-  "version": "1.10.0",
+  "version": "1.14.0",
   "mcpName": "io.github.levnikolaevich/hex-line-mcp",
   "type": "module",
-  "description": "Hash-verified file editing MCP + token efficiency hook for AI coding agents. 10 tools: read, edit, write, grep, outline, verify, directory_tree, file_info, changes, bulk_replace.",
+  "description": "Hash-verified file editing MCP + token efficiency hook for AI coding agents. 9 tools: inspect_path, read, edit, write, grep, outline, verify, changes, bulk_replace.",
   "main": "dist/server.mjs",
   "bin": {
     "hex-line-mcp": "dist/server.mjs"
@@ -26,21 +26,20 @@
     "check": "node --check server.mjs && node --check hook.mjs"
   },
   "_dep_notes": {
-    "web-tree-sitter": "Pinned ^0.25.0: v0.26 ABI incompatible with tree-sitter-wasms 0.1.x (built with tree-sitter-cli 0.20.8). Language.load() silently fails.",
-    "zod": "Pinned ^3.25.0: zod 4 breaks zod-to-json-schema (used by MCP SDK internally). Tool parameter descriptions not sent to clients. Revisit when MCP SDK switches to z.toJSONSchema().",
+    "web-tree-sitter": "Tracks the latest stable runtime together with the repo-owned first-party grammar WASM bundle. Keep runtime upgrades coupled to grammar load/parse validation across Windows, macOS, and Linux.",
+    "zod": "Tracks Zod 4 natively with the current MCP SDK. Schema descriptions are contract-tested through listTools() output.",
     "better-sqlite3": "Optional. Used only by lib/graph-enrich.mjs for readonly access to hex-graph .hex-skills/codegraph/index.db. Graceful fallback if absent."
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.0",
-    "tree-sitter-wasms": "^0.1.0",
-    "web-tree-sitter": "^0.25.0",
-    "diff": "^8.0.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@vscode/ripgrep": "^1.17.1",
+    "diff": "^8.0.4",
     "ignore": "^7.0.5",
-    "zod": "^3.25.0",
-    "@vscode/ripgrep": "^1.15.9"
+    "web-tree-sitter": "^0.26.8",
+    "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^12.0.0"
+    "better-sqlite3": "^12.8.0"
   },
   "author": "Lev Nikolaevich <https://github.com/levnikolaevich>",
   "license": "MIT",
@@ -64,7 +63,7 @@
     "llm"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "repository": {
     "type": "git",
@@ -73,7 +72,6 @@
   },
   "homepage": "https://github.com/levnikolaevich/claude-code-skills/tree/master/mcp/hex-line-mcp",
   "devDependencies": {
-    "eslint": "^10.1.0",
-    "typescript": "^6.0.2"
+    "eslint": "^10.2.0"
   }
 }

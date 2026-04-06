@@ -1,5 +1,5 @@
 /**
- * Clone detection engine for find_clones tool.
+ * Clone detection engine used by audit_workspace.
  *
  * Detects exact, normalized, and near-miss code clones using hash grouping,
  * MinHash fingerprints, and LSH-based candidate generation with Union-Find

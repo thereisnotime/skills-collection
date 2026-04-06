@@ -19,7 +19,6 @@ const version = typeof __HEX_VERSION__ !== "undefined" ? __HEX_VERSION__ // esli
 import { createServerRuntime } from "@levnikolaevich/hex-common/runtime/mcp-bootstrap";
 import { flexBool, flexNum } from "@levnikolaevich/hex-common/runtime/schema";
 import { textResult, errorResult } from "@levnikolaevich/hex-common/runtime/results";
-import { coerceParams } from "@levnikolaevich/hex-common/runtime/coerce";
 import { checkForUpdates } from "@levnikolaevich/hex-common/runtime/update-check";
 import { fnv1a, lineTag, rangeChecksum, parseChecksum, parseRef } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { deduplicateLines, normalizeOutput } from "@levnikolaevich/hex-common/output/normalize";
@@ -46,7 +45,15 @@ const connProps = {
     user: z.string().optional().describe("SSH username (optional if set in ~/.ssh/config)"),
     privateKeyPath: z.string().optional().describe("Path to SSH private key (optional)"),
     port: flexNum().describe("SSH port (default: 22)"),
+    remotePlatform: z.enum(["auto", "posix", "windows"]).optional().describe('Remote path platform. Use "windows" for paths like C:\\\\repo\\\\file.txt. Default: auto'),
 };
+
+function connSchema(extraShape) {
+    return z.object({
+        ...connProps,
+        ...extraShape,
+    });
+}
 
 /**
  * Build connection params from tool args with SSH config resolution.
@@ -86,6 +93,16 @@ function sshError(code, message, recovery) {
     return { content: [{ type: "text", text: `${code}: ${message}\nRecovery: ${recovery}` }], isError: true };
 }
 
+function requirePosixRemotePath(args, filePath, label = "filePath") {
+    const { platform } = validateRemotePath(filePath, args.remotePlatform);
+    if (platform !== "posix") {
+        throw new Error(
+            `UNSUPPORTED_REMOTE_PLATFORM: ${label}=${filePath} resolved as ${platform}. ` +
+            "This tool uses POSIX shell commands on the remote host. Use remotePlatform=\"posix\" or use ssh-upload/ssh-download for Windows SFTP transfers."
+        );
+    }
+}
+
 /**
  * Standard success response.
  */
@@ -117,13 +134,12 @@ server.registerTool("remote-ssh", {
     description:
         "Execute shell commands on remote servers. Disabled by default. " +
         "Set REMOTE_SSH_MODE=safe or REMOTE_SSH_MODE=open to enable.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         command: z.string().describe("Shell command to execute"),
-    },
+    }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.command) {
             return errResult("Required: host, command");
@@ -154,24 +170,23 @@ server.registerTool("ssh-read-lines", {
     description:
         "Read remote file with hash-annotated lines. Use startLine/maxLines for large files. " +
         "Returns range checksums for edit verification.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         filePath: z.string().describe("Path to file on remote server"),
         startLine: flexNum().describe("Start line (1-based, default: 1)"),
         endLine: flexNum().describe("End line (optional, reads to limit if not set)"),
         maxLines: flexNum().describe("Max lines to read (default: 200)"),
         plain: flexBool().describe("Omit hashes (lineNum|content)"),
-    },
+    }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.filePath) {
             return errResult("Required: host, filePath");
         }
 
         assertSafeArg("filePath", args.filePath);
-        validateRemotePath(args.filePath);
+        requirePosixRemotePath(args, args.filePath);
 
         const startLine = args.startLine || 1;
         const maxLines = args.maxLines || 200;
@@ -257,8 +272,7 @@ server.registerTool("ssh-edit-block", {
     title: "SSH Edit File",
     description:
         "Edit remote files using hash-verified anchors. Use ssh-read-lines first to get hash anchors and checksums.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         filePath: z.string().describe("Path to file on remote server"),
         newText: z.string().optional().describe("Replacement text (for anchor/range/insert edits)"),
         checksum: z.string().optional().describe("Range checksum from ssh-read-lines (e.g. '1-50:f7e2a1b0'). If provided, verifies file unchanged before edit."),
@@ -266,10 +280,10 @@ server.registerTool("ssh-edit-block", {
         startAnchor: z.string().optional().describe("Start hash anchor 'ab.42' for range replace"),
         endAnchor: z.string().optional().describe("End hash anchor 'cd.45' for range replace"),
         insertAfter: z.string().optional().describe("Hash anchor 'ab.42' to insert after"),
-    },
+    }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.filePath) {
             return errResult("Required: host, filePath");
@@ -278,7 +292,7 @@ server.registerTool("ssh-edit-block", {
         if (validationError) return errResult(validationError);
 
         assertSafeArg("filePath", args.filePath);
-        validateRemotePath(args.filePath);
+        requirePosixRemotePath(args, args.filePath);
 
         // If checksum provided, verify file hasn't changed
         if (args.checksum) {
@@ -438,18 +452,17 @@ server.registerTool("ssh-search-code", {
     description:
         "Search remote files with grep. Returns hash-annotated matches with deduplication. " +
         "Use for finding code before ssh-edit-block.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         path: z.string().describe("Directory to search on remote server"),
         pattern: z.string().describe("Text/regex pattern to search"),
         filePattern: z.string().optional().describe('Glob filter (e.g. "*.js", "*.py")'),
         ignoreCase: flexBool().describe("Case-insensitive search (default: false)"),
         maxResults: flexNum().describe("Max result lines (default: 50)"),
         contextLines: flexNum().describe("Context lines around matches (default: 0)"),
-    },
+    }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.path || !args.pattern) {
             return errResult("Required: host, path, pattern");
@@ -458,7 +471,7 @@ server.registerTool("ssh-search-code", {
         assertSafeArg("path", args.path);
         assertSafeArg("pattern", args.pattern);
         if (args.filePattern) assertSafeArg("filePattern", args.filePattern);
-        validateRemotePath(args.path);
+        requirePosixRemotePath(args, args.path, "path");
 
         const maxResults = args.maxResults || 50;
         const contextLines = args.contextLines || 0;
@@ -525,22 +538,21 @@ server.registerTool("ssh-write-chunk", {
     description:
         "Write or append to remote files. Rewrite mode is atomic (temp file + rename). " +
         "Append mode is non-atomic (direct >>). Auto-creates parent directories.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         filePath: z.string().describe("Path to file on remote server"),
         content: z.string().describe("Content to write"),
         mode: z.enum(["rewrite", "append"]).optional().describe("Write mode (default: rewrite)"),
-    },
+    }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.filePath || args.content === undefined) {
             return errResult("Required: host, filePath, content");
         }
 
         assertSafeArg("filePath", args.filePath);
-        validateRemotePath(args.filePath);
+        requirePosixRemotePath(args, args.filePath);
 
         const mode = args.mode || "rewrite";
         const b64 = Buffer.from(args.content, "utf-8").toString("base64");
@@ -582,17 +594,16 @@ server.registerTool("ssh-upload", {
     description:
         "Upload a local file to a remote server over SFTP. Supports text and binary files, " +
         "rejects existing destinations by default, validates path boundaries, and stages via the strongest available remote finalize path.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         localPath: z.string().describe("Absolute local file path or ~/path to upload"),
         remotePath: z.string().describe("Absolute destination path on remote server"),
         overwrite: z.boolean().optional().describe("Replace existing destination when true. Default: false"),
         verify: z.enum(["none", "stat"]).optional().describe("Post-transfer verification mode. Default: stat"),
         permissions: z.string().optional().describe("Optional octal file mode for uploaded file, e.g. 0644"),
-    },
+    }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.localPath || !args.remotePath) {
             return errResult("Required: host, localPath, remotePath");
@@ -604,6 +615,7 @@ server.registerTool("ssh-upload", {
             overwrite: args.overwrite,
             verify: args.verify,
             permissions: args.permissions,
+            remotePlatform: args.remotePlatform,
         });
         return okResult(
             formatTransferSummary(
@@ -633,16 +645,15 @@ server.registerTool("ssh-download", {
     description:
         "Download a remote file to the local machine over SFTP. Supports text and binary files, " +
         "rejects existing destinations by default, validates path boundaries, and stages to a verified local finalize path.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         remotePath: z.string().describe("Absolute file path on remote server"),
         localPath: z.string().describe("Absolute local destination path or ~/path"),
         overwrite: z.boolean().optional().describe("Replace existing destination when true. Default: false"),
         verify: z.enum(["none", "stat"]).optional().describe("Post-transfer verification mode. Default: stat"),
-    },
+    }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.remotePath || !args.localPath) {
             return errResult("Required: host, remotePath, localPath");
@@ -653,6 +664,7 @@ server.registerTool("ssh-download", {
             localPath: args.localPath,
             overwrite: args.overwrite,
             verify: args.verify,
+            remotePlatform: args.remotePlatform,
         });
         return okResult(
             formatTransferSummary(
@@ -682,21 +694,20 @@ server.registerTool("ssh-verify", {
     description:
         "Check if range checksums still match remote file. Single-line response avoids full re-read. " +
         "Use before editing after a pause.",
-    inputSchema: {
-        ...connProps,
+    inputSchema: connSchema({
         filePath: z.string().describe("Path to file on remote server"),
         checksums: z.string().describe('JSON array of checksum strings, e.g. ["1-50:f7e2a1b0", "51-100:abcd1234"]'),
-    },
+    }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawArgs) => {
-    const args = coerceParams(rawArgs);
+    const args = rawArgs ?? {};
     try {
         if (!args.host || !args.filePath || !args.checksums) {
             return errResult("Required: host, filePath, checksums");
         }
 
         assertSafeArg("filePath", args.filePath);
-        validateRemotePath(args.filePath);
+        requirePosixRemotePath(args, args.filePath);
 
         const checksums = JSON.parse(args.checksums);
         if (!Array.isArray(checksums) || checksums.length === 0) {

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 const CACHE_FILE = join(tmpdir(), "hex-common-update.json");
 const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
 const TIMEOUT = 3000;
+const SEMVER_PART_COUNT = 3;
 
 async function readCache() {
     try {
@@ -35,7 +36,7 @@ async function fetchLatest(packageName) {
 function compareVersions(a, b) {
     const pa = a.split(".").map(Number);
     const pb = b.split(".").map(Number);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < SEMVER_PART_COUNT; i++) {
         if ((pa[i] || 0) < (pb[i] || 0)) return -1;
         if ((pa[i] || 0) > (pb[i] || 0)) return 1;
     }

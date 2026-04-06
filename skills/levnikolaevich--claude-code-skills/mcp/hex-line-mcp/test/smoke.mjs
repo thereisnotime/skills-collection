@@ -83,7 +83,7 @@ async function withMcpClient(run) {
 
 describe("FNV-1a hash", () => {
     it("deterministic: same content → same hash, whitespace normalized", async () => {
-        const { fnv1a, lineTag } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const h1 = fnv1a("const x = 1;");
         const h2 = fnv1a("const x = 1;");
         assert.equal(h1, h2, "Same content same hash");
@@ -99,7 +99,7 @@ describe("FNV-1a hash", () => {
     });
 
     it("rangeChecksum detects single-line change", async () => {
-        const { fnv1a, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const lines1 = ["line one", "line two", "line three"].map(fnv1a);
         const lines2 = ["line one", "LINE TWO", "line three"].map(fnv1a);
         const cs1 = rangeChecksum(lines1, 1, 3);
@@ -112,32 +112,11 @@ describe("FNV-1a hash", () => {
     });
 });
 
-// ==================== coerce ====================
-
-describe("coerce params (identity — no aliases)", () => {
-    it("passes canonical params through unchanged", async () => {
-        const { coerceParams } = await import("../lib/coerce.mjs");
-        const result = coerceParams({ path: "test.js", dry_run: true, pattern: "foo" });
-        assert.equal(result.path, "test.js");
-        assert.equal(result.dry_run, true);
-        assert.equal(result.pattern, "foo");
-    });
-
-    it("does not normalize old aliases", async () => {
-        const { coerceParams } = await import("../lib/coerce.mjs");
-        const result = coerceParams({ file_path: "test.js", dryRun: true, query: "foo" });
-        assert.equal(result.file_path, "test.js");  // NOT mapped to path
-        assert.equal(result.path, undefined);        // canonical not set
-        assert.equal(result.dryRun, true);            // NOT mapped to dry_run
-        assert.equal(result.query, "foo");            // NOT mapped to pattern
-    });
-});
-
 // ==================== normalize ====================
 
 describe("normalize output", () => {
     it("deduplicates identical lines with (xN) counts", async () => {
-        const { deduplicateLines } = await import("../lib/normalize.mjs");
+        const { deduplicateLines } = await import("@levnikolaevich/hex-common/output/normalize");
         const lines = ["ok", "error: timeout", "error: timeout", "error: timeout", "done"];
         const result = deduplicateLines(lines);
         const joined = result.join("\n");
@@ -147,7 +126,7 @@ describe("normalize output", () => {
     });
 
     it("smartTruncate keeps head and tail", async () => {
-        const { smartTruncate } = await import("../lib/normalize.mjs");
+        const { smartTruncate } = await import("@levnikolaevich/hex-common/output/normalize");
         const lines = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`);
         const result = smartTruncate(lines.join("\n"), 5, 3);
         assert.ok(result.includes("line 1"), "First line kept");
@@ -163,7 +142,7 @@ describe("normalize output", () => {
 describe("edit business logic", () => {
     it("NOOP_EDIT when set_line produces identical content", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-noop.js");
         fs.writeFileSync(tmp, "const x = 1;\n");
         try {
@@ -179,7 +158,7 @@ describe("edit business logic", () => {
 
     it("replace_lines preserves boundary content (no strip)", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-boundary.js");
         const content = "function foo() {\n    const x = 1;\n    return x;\n}\n";
         fs.writeFileSync(tmp, content);
@@ -207,7 +186,7 @@ describe("edit business logic", () => {
 
     it("replace_lines accepts wider checksum range than anchor range", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-wider-cs.js");
         const content = "line1\nline2\nline3\nline4\nline5\n";
         fs.writeFileSync(tmp, content);
@@ -235,7 +214,7 @@ describe("edit business logic", () => {
 
     it("replace_lines detects stale content outside anchor range but inside checksum", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-stale-outside.js");
         const content = "line1\nline2\nline3\nline4\nline5\n";
         fs.writeFileSync(tmp, content);
@@ -263,7 +242,7 @@ describe("edit business logic", () => {
 
     it("set_line preserves verbatim indent (no auto-fix)", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-indent.js");
         fs.writeFileSync(tmp, "function foo() {\n    const x = 1;\n}\n");
         try {
@@ -297,7 +276,7 @@ describe("edit business logic", () => {
     it("conservative mode auto-rebases non-overlapping stale replace_lines edits", async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-autorebase.js");
         const content = "head1\nhead2\ntargetA\ntargetB\ntail\n";
         fs.writeFileSync(tmp, content);
@@ -337,7 +316,7 @@ describe("edit business logic", () => {
     it("conflict output includes remapped refs when some anchors relocate before conflict", async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-conflict-remap.js");
         const content = "head1\nhead2\ntargetA\ntargetB\ntail\n";
         fs.writeFileSync(tmp, content);
@@ -368,7 +347,7 @@ describe("edit business logic", () => {
 
             assert.ok(result.includes("status: CONFLICT"), "Conflict status returned");
             assert.ok(result.includes("remapped_refs:"), "Conflict shows relocated refs");
-            assert.ok(result.includes(`${startTag}.3 -> ${startTag}.4`), "Relocated start anchor reported");
+            assert.ok(result.includes(`${startTag}.3->${startTag}.4`), "Relocated start anchor reported");
         } finally {
             fs.unlinkSync(tmp);
         }
@@ -377,7 +356,7 @@ describe("edit business logic", () => {
     it("conservative mode returns CONFLICT for overlapping stale edits", async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-conflict.js");
         const content = "head1\nhead2\ntargetA\ntargetB\ntail\n";
         fs.writeFileSync(tmp, content);
@@ -404,6 +383,101 @@ describe("edit business logic", () => {
 
             assert.ok(result.includes("status: CONFLICT"), "Conflict status returned");
             assert.ok(/reason: (overlap|stale_anchor)/.test(result), "Structured conflict reason returned");
+            assert.ok(result.includes("recovery_ranges: 3-3"), "Conflict reports recovery range");
+            assert.ok(result.includes("next_action: apply_retry_edit"), "Conflict reports canonical next action");
+            assert.ok(result.includes("retry_edit:"), "Conflict reports retry edit skeleton");
+            assert.ok(result.includes("summary:"), "Conflict reports compact summary");
+            assert.ok(result.includes("snippet: "), "Conflict reports compact snippet header");
+            assert.ok(result.includes('retry_plan: {"steps":[{"tool":"mcp__hex-line__edit_file"'), "Conflict reports direct retry plan");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
+    it("conservative mode reports all stale replace_lines conflicts in one batch", async () => {
+        const { readFile } = await import("../lib/read.mjs");
+        const { editFile } = await import("../lib/edit.mjs");
+        const tmp = TMP("hex-test-batch-conflicts.js");
+        fs.writeFileSync(tmp, "one\ntwo\nthree\nfour\nfive\n");
+        try {
+            const read = readFile(tmp, { ranges: ["1-5"] });
+            const anchors = [...read.matchAll(/([a-z2-7]{2}\.(?:2|4))\t(two|four)/g)].map((m) => m[1]);
+            const checksums = [...read.matchAll(/checksum: (\d+-\d+:[0-9a-f]{8})/g)].map((m) => m[1]);
+            assert.equal(anchors.length, 2, "Read returns both target anchors");
+            assert.equal(checksums.length, 1, "Read returns one broad checksum");
+
+            fs.writeFileSync(tmp, "ONE\ntwo\nthree\nfour\nFIVE\n");
+
+            const result = editFile(tmp, [
+                {
+                    replace_lines: {
+                        start_anchor: anchors[0],
+                        end_anchor: anchors[0],
+                        new_text: "two updated",
+                        range_checksum: checksums[0],
+                    }
+                },
+                {
+                    replace_lines: {
+                        start_anchor: anchors[1],
+                        end_anchor: anchors[1],
+                        new_text: "four updated",
+                        range_checksum: checksums[0],
+                    }
+                },
+            ], { conflictPolicy: "conservative" });
+
+            assert.ok(result.includes("status: CONFLICT"), "Conflict status returned");
+            assert.ok(result.includes("reason: batch_conflict"), "Batch conflict reason returned");
+            assert.ok(result.includes("edit_conflicts: 2"), "Conflict count returned");
+            assert.ok(result.includes("next_action: apply_retry_batch"), "Batch conflict reports canonical next action");
+            assert.ok(result.includes("edit: 1/2"), "First conflict section returned");
+            assert.ok(result.includes("edit: 2/2"), "Second conflict section returned");
+            assert.ok((result.match(/recovery_ranges: 2-2/g) || []).length >= 1, "First edit reports narrow recovery range");
+            assert.ok((result.match(/recovery_ranges: 4-4/g) || []).length >= 1, "Second edit reports narrow recovery range");
+            assert.ok((result.match(/retry_checksum:/g) || []).length >= 2, "Each stale replace_lines conflict reports retry checksum");
+            assert.ok((result.match(/retry_edit:/g) || []).length >= 2, "Each stale replace_lines conflict reports retry edit skeleton");
+            assert.ok((result.match(/summary:/g) || []).length >= 2, "Each stale replace_lines conflict reports compact summary");
+            assert.ok(result.includes('retry_edits: [{"replace_lines"'), "Batch conflict reports ready retry edits");
+            assert.ok(result.includes('retry_plan: {"steps":[{"tool":"mcp__hex-line__edit_file"'), "Batch conflict reports direct batch retry plan");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
+    it("batch conflicts fall back to suggested reread when not every edit can be retried directly", async () => {
+        const { readFile } = await import("../lib/read.mjs");
+        const { editFile } = await import("../lib/edit.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
+        const tmp = TMP("hex-test-reread-plan.js");
+        fs.writeFileSync(tmp, "alpha\nbeta\ngamma\ndelta\n");
+        try {
+            const read = readFile(tmp, { ranges: ["1-4"] });
+            const baseRevision = read.match(/revision: (\S+)/)?.[1];
+            assert.ok(baseRevision, "Read returns revision");
+
+            const lines = "alpha\nbeta\ngamma\ndelta\n".split("\n");
+            const alphaTag = lineTag(fnv1a(lines[0]));
+            const gammaTag = lineTag(fnv1a(lines[2]));
+
+            editFile(tmp, [
+                { set_line: { anchor: `${alphaTag}.1`, new_text: "alpha changed" } },
+                { set_line: { anchor: `${gammaTag}.3`, new_text: "gamma changed" } },
+            ]);
+
+            const alphaChangedTag = lineTag(fnv1a("alpha changed"));
+            const gammaChangedTag = lineTag(fnv1a("gamma changed"));
+            const result = editFile(tmp, [
+                { set_line: { anchor: `${alphaChangedTag}.1`, new_text: "alpha next" } },
+                { set_line: { anchor: `${gammaChangedTag}.3`, new_text: "gamma next" } },
+            ], { baseRevision, conflictPolicy: "conservative" });
+
+            assert.ok(result.includes("status: CONFLICT"), "Conflict status returned");
+            assert.ok(result.includes("reason: batch_conflict"), "Batch conflict reason returned");
+            assert.ok(result.includes("next_action: reread_then_retry"), "Batch conflict reports reread-first next action");
+            assert.ok(result.includes('suggested_read_call: {"tool":"mcp__hex-line__read_file"'), "Batch conflict suggests reread call");
+            assert.ok(result.includes('retry_plan: {"steps":[{"tool":"mcp__hex-line__read_file"'), "Batch conflict falls back to reread-first plan");
+            assert.ok(!result.includes("retry_edits:"), "No retry_edits reported for incomplete retryable batch");
         } finally {
             fs.unlinkSync(tmp);
         }
@@ -411,7 +485,7 @@ describe("edit business logic", () => {
 
     it("replace_between rewrites a block without reciting old content", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-replace-between.js");
         const content = [
             "function demo() {",
@@ -446,7 +520,7 @@ describe("edit business logic", () => {
 
     it("sanitizes noisy LLM edit payload before apply", async () => {
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const tmp = TMP("hex-test-cleanup.js");
         const content = "const one = 1;\nconst two = 2;\n";
         fs.writeFileSync(tmp, content);
@@ -576,37 +650,40 @@ describe("edit error messages", () => {
     });
 });
 
-// ==================== directory_tree ====================
+// ==================== inspect_path ====================
 
-describe("directory_tree pattern", () => {
-    it("globToRegex escapes dots and brackets", async () => {
-        const { directoryTree } = await import("../lib/tree.mjs");
-        // *.mjs should NOT match "xmjs" (dot must be literal)
-        const result = directoryTree(CWD + "/lib", { pattern: "*.mjs", type: "file" });
+describe("inspect_path", () => {
+    it("supports directory pattern mode", async () => {
+        const { inspectPath } = await import("../lib/inspect-path.mjs");
+        const result = inspectPath(CWD + "/lib", { pattern: "*.mjs", type: "file" });
         assert.ok(result.includes("tree.mjs"));
         assert.ok(!result.includes("xmjs"), "Dot is literal, not regex wildcard");
     });
 
-    it("pattern mode returns flat list, tree mode returns hierarchy", async () => {
-        const { directoryTree } = await import("../lib/tree.mjs");
-        const flat = directoryTree(CWD, { pattern: "lib", type: "dir" });
+    it("returns flat list for pattern mode and hierarchy for directory mode", async () => {
+        const { inspectPath } = await import("../lib/inspect-path.mjs");
+        const flat = inspectPath(CWD, { pattern: "lib", type: "dir" });
         assert.ok(flat.includes("Found"), "Pattern: flat header");
         assert.ok(flat.includes("lib/"), "Pattern: trailing slash for dirs");
 
-        const tree = directoryTree(CWD + "/lib", { max_depth: 1 });
+        const tree = inspectPath(CWD + "/lib", { max_depth: 1 });
         assert.ok(tree.startsWith("Directory:"), "Tree: hierarchy header");
     });
 
-    it("no matches returns descriptive message", async () => {
-        const { directoryTree } = await import("../lib/tree.mjs");
-        const none = directoryTree(CWD, { pattern: "nonexistent-xyz-42" });
+    it("returns descriptive no-match message", async () => {
+        const { inspectPath } = await import("../lib/inspect-path.mjs");
+        const none = inspectPath(CWD, { pattern: "nonexistent-xyz-42" });
         assert.ok(none.includes("No matches"));
     });
-});
+    it("returns file metadata for regular files", async () => {
+        const { inspectPath } = await import("../lib/inspect-path.mjs");
+        const result = inspectPath(CWD + "/package.json");
+        assert.ok(result.includes("Size:"), "file metadata includes size");
+        assert.ok(result.includes("Type:"), "file metadata includes type");
+    });
 
-describe("directory_tree gitignore", () => {
     it("respects path-based .gitignore rules", async () => {
-        const { directoryTree } = await import("../lib/tree.mjs");
+        const { inspectPath } = await import("../lib/inspect-path.mjs");
         const tmp = join(tmpdir(), "hex-test-gitignore");
         fs.mkdirSync(join(tmp, "nested"), { recursive: true });
         fs.writeFileSync(join(tmp, ".gitignore"), "nested/secret.txt\n");
@@ -614,7 +691,7 @@ describe("directory_tree gitignore", () => {
         fs.writeFileSync(join(tmp, "nested", "secret.txt"), "hidden\n");
         fs.writeFileSync(join(tmp, "nested", "other.txt"), "visible\n");
         try {
-            const result = directoryTree(tmp);
+            const result = inspectPath(tmp);
             assert.ok(result.includes("keep.txt"), "non-ignored file visible");
             assert.ok(result.includes("other.txt"), "non-ignored nested file visible");
             assert.ok(!result.includes("secret.txt"), "path-ignored file hidden");
@@ -663,7 +740,7 @@ describe("read_file output", () => {
 
     it("normal file is not capped", async () => {
         const { readFile } = await import("../lib/read.mjs");
-        const result = readFile(CWD + "/lib/hash.mjs");
+        const result = readFile(CWD + "/lib/info.mjs");
         assert.ok(!result.includes("OUTPUT_CAPPED"), "No cap for normal file");
     });
 
@@ -731,7 +808,7 @@ describe("graph enrichment", () => {
         const { readFile } = await import("../lib/read.mjs");
         const { grepSearch } = await import("../lib/search.mjs");
         const { editFile } = await import("../lib/edit.mjs");
-        const { fnv1a, lineTag } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
         const { _resetGraphDBCache } = await import("../lib/graph-enrich.mjs");
         const repo = makeTempRepo("hex-line-graph-", {
             "a.mjs": "export function foo() {\n  return 1;\n}\n",
@@ -740,15 +817,17 @@ describe("graph enrichment", () => {
         try {
             await indexGraphRepo(repo);
 
-            const readResult = readFile(join(repo, "a.mjs"), { includeGraph: true });
+            const readResult = readFile(join(repo, "a.mjs"));
             assert.ok(readResult.includes("\nGraph:"), "Graph header present");
             assert.ok(readResult.includes("foo [function"), "Graph header includes symbol summary");
             assert.ok(readResult.includes("1↑"), "Graph header includes caller count");
             assert.ok(readResult.includes("flow 1out"), "Graph header includes flow count");
+            assert.ok(readResult.includes("api"), "Graph header includes exported/public signal");
 
             const grepResult = await grepSearch("export function foo", { path: join(repo, "a.mjs") });
             assert.ok(grepResult.includes("[fn"), "grep match annotated via line facts");
             assert.ok(grepResult.includes("1↑"), "grep match annotation includes caller count");
+            assert.ok(grepResult.includes("[api"), "grep match annotation includes public API marker");
 
             const anchor = `${lineTag(fnv1a("export function foo() {"))}.1`;
             const editResult = editFile(join(repo, "a.mjs"), [
@@ -781,8 +860,8 @@ describe("graph enrichment", () => {
             await indexGraphRepo(repoB);
             _resetGraphDBCache();
 
-            const readA = readFile(join(repoA, "a.mjs"), { includeGraph: true });
-            const readB = readFile(join(repoB, "b.mjs"), { includeGraph: true });
+            const readA = readFile(join(repoA, "a.mjs"));
+            const readB = readFile(join(repoB, "b.mjs"));
 
             assert.ok(readA.includes("alpha [function"), "Repo A uses its own graph");
             assert.ok(!readA.includes("beta [function"), "Repo A does not leak repo B graph");
@@ -794,6 +873,30 @@ describe("graph enrichment", () => {
             await closeGraphRepo(repoB);
             fs.rmSync(repoA, { recursive: true, force: true });
             fs.rmSync(repoB, { recursive: true, force: true });
+        }
+    });
+
+    it("does not bind a nested package to a parent repo graph index", { skip: !HAS_GRAPH_SQLITE }, async () => {
+        const { readFile } = await import("../lib/read.mjs");
+        const { getGraphDB, _resetGraphDBCache } = await import("../lib/graph-enrich.mjs");
+        const repo = makeTempRepo("hex-line-graph-nested-", {
+            "src/outer.mjs": "export function outer() {\n  return 1;\n}\n",
+            "packages/app/package.json": "{\n  \"name\": \"app\"\n}\n",
+            "packages/app/src/inner.mjs": "export function inner() {\n  return 2;\n}\n",
+        });
+        const innerFile = join(repo, "packages/app/src/inner.mjs");
+        try {
+            await indexGraphRepo(repo);
+            _resetGraphDBCache();
+
+            assert.equal(getGraphDB(innerFile), null, "Nested package without its own graph DB must not reuse parent graph");
+            const readResult = readFile(innerFile);
+            assert.ok(!readResult.includes("\nGraph:"), "Nested package read should not emit parent graph header");
+            assert.ok(readResult.includes("inner"), "File content is still returned");
+        } finally {
+            _resetGraphDBCache();
+            await closeGraphRepo(repo);
+            fs.rmSync(repo, { recursive: true, force: true });
         }
     });
 });
@@ -879,6 +982,66 @@ describe("grep_search output modes", () => {
         }
     });
 
+    it("grep_search applies a default total_limit unless explicitly disabled", async () => {
+        const { grepSearch } = await import("../lib/search.mjs");
+        const dir = makeTempRepo("hex-test-grep-cap-", Object.fromEntries(
+            Array.from({ length: 3 }, (_, fileIdx) => [
+                `src/file-${fileIdx + 1}.txt`,
+                Array.from({ length: 100 }, (_, lineIdx) => `MATCH ${fileIdx}-${lineIdx}`).join("\n") + "\n",
+            ]),
+        ));
+        try {
+            const capped = await grepSearch("MATCH", { path: dir, limit: 100 });
+            assert.ok(
+                capped.includes("Search stopped after 200 match event(s)"),
+                "default total_limit should cap broad searches",
+            );
+
+            const uncapped = await grepSearch("MATCH", { path: dir, limit: 100, totalLimit: 0 });
+            assert.ok(
+                !uncapped.includes("Search stopped after 200 match event(s)"),
+                "explicit totalLimit=0 disables the default cap",
+            );
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("files/count modes use a wider default total_limit than content mode", async () => {
+        const { grepSearch } = await import("../lib/search.mjs");
+        const dir = makeTempRepo("hex-test-grep-list-cap-", Object.fromEntries(
+            Array.from({ length: 300 }, (_, fileIdx) => [
+                `src/file-${fileIdx + 1}.txt`,
+                "MATCH\n",
+            ]),
+        ));
+        try {
+            const files = await grepSearch("MATCH", { path: dir, output: "files" });
+            assert.ok(!files.includes("OUTPUT_CAPPED:"), "files mode should not hit the old 200-result default");
+            assert.equal(files.trim().split("\n").length, 300, "files mode should list all 300 matching files by default");
+
+            const counts = await grepSearch("MATCH", { path: dir, output: "count" });
+            assert.ok(!counts.includes("OUTPUT_CAPPED:"), "count mode should not hit the old 200-result default");
+            assert.equal(counts.trim().split("\n").length, 300, "count mode should list all 300 matching files by default");
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("read_file accepts /tmp aliases on Windows for temp files", async () => {
+        const { readFile } = await import("../lib/read.mjs");
+        const unique = `hex-test-temp-alias-${Date.now()}-${Math.random().toString(16).slice(2)}.txt`;
+        const tmp = join(tmpdir(), unique);
+        fs.writeFileSync(tmp, "temp alias works\n");
+        try {
+            const alias = process.platform === "win32" ? `/tmp/${unique}` : tmp;
+            const result = readFile(alias);
+            assert.ok(result.includes("temp alias works"), "temp alias path should resolve to the same file");
+        } finally {
+            fs.rmSync(tmp, { force: true });
+        }
+    });
+
     it("read checksum round-trips through verify with canonical report", async () => {
         const { readFile } = await import("../lib/read.mjs");
         const { verifyChecksums } = await import("../lib/verify.mjs");
@@ -890,8 +1053,10 @@ describe("grep_search output modes", () => {
             assert.ok(csMatch, "read should produce a checksum");
             const verifyResult = verifyChecksums(tmp, [csMatch[1]]);
             assert.ok(verifyResult.includes("status: OK"), `verify should report OK: ${verifyResult}`);
+            assert.ok(verifyResult.includes("reason: checksums_current"), "Verify should report canonical reason");
             assert.ok(verifyResult.includes("summary: valid=1 stale=0 invalid=0"), "Summary should classify the checksum set");
-            assert.ok(verifyResult.includes("VALID 1-2"), "Valid checksum entry should be listed");
+            assert.ok(verifyResult.includes("next_action: keep_using"), "Verify should report canonical next action");
+            assert.ok(verifyResult.includes("entry: 1/1 | status: VALID | span: 1-2"), "Valid checksum entry should be listed canonically");
         } finally {
             fs.unlinkSync(tmp);
         }
@@ -909,9 +1074,12 @@ describe("grep_search output modes", () => {
             fs.writeFileSync(tmp, "one\ntwo changed\nthree\n");
             const verifyResult = verifyChecksums(tmp, [checksum], { baseRevision });
             assert.ok(verifyResult.includes("status: STALE"), `verify should report stale: ${verifyResult}`);
+            assert.ok(verifyResult.includes("reason: checksums_stale"), "Verify should report canonical stale reason");
             assert.ok(verifyResult.includes(`base_revision: ${baseRevision}`), "Base revision should be echoed");
             assert.ok(verifyResult.includes("changed_ranges:"), "Changed ranges should be reported");
-            assert.ok(verifyResult.includes("STALE 1-2"), "Stale checksum entry should be listed");
+            assert.ok(verifyResult.includes("next_action: reread_ranges"), "Verify should report reread next action");
+            assert.ok(verifyResult.includes('suggested_read_call: {"tool":"mcp__hex-line__read_file"'), "Verify should suggest reread call");
+            assert.ok(verifyResult.includes("entry: 1/1 | status: STALE | span: 1-2"), "Stale checksum entry should be listed canonically");
         } finally {
             fs.unlinkSync(tmp);
         }
@@ -927,10 +1095,12 @@ describe("grep_search output modes", () => {
             const validChecksum = readResult.match(/checksum: (\d+-\d+:[0-9a-f]{8})/)[1];
             const verifyResult = verifyChecksums(tmp, [validChecksum, "99-120:deadbeef", "bad-checksum"]);
             assert.ok(verifyResult.includes("status: INVALID"), `mixed set should report INVALID: ${verifyResult}`);
+            assert.ok(verifyResult.includes("reason: checksums_invalid"), "Mixed invalid set should report canonical reason");
             assert.ok(verifyResult.includes("summary: valid=1 stale=0 invalid=2"), "Summary should classify mixed set");
-            assert.ok(verifyResult.includes("VALID 1-2"), "Valid entry should remain visible");
-            assert.ok(verifyResult.includes("INVALID 99-120"), "Out-of-range checksum should be classified");
-            assert.ok(verifyResult.includes("INVALID checksum: bad-checksum"), "Malformed checksum should be classified");
+            assert.ok(verifyResult.includes("next_action: fix_inputs"), "Mixed invalid set should report fix_inputs");
+            assert.ok(verifyResult.includes("entry: 1/3 | status: VALID | span: 1-2"), "Valid entry should remain visible");
+            assert.ok(verifyResult.includes("entry: 2/3 | status: INVALID | span: 99-120"), "Out-of-range checksum should be classified");
+            assert.ok(verifyResult.includes("entry: 3/3 | status: INVALID | checksum: bad-checksum"), "Malformed checksum should be classified");
         } finally {
             fs.unlinkSync(tmp);
         }
@@ -940,12 +1110,18 @@ describe("grep_search output modes", () => {
 describe("grep_search new params", () => {
     it("literal mode disables regex", async () => {
         const { grepSearch } = await import("../lib/search.mjs");
-        // '.' in regex matches any char; in literal mode matches only '.'
-        const regex = await grepSearch(".", { path: CWD + "/lib/hash.mjs", plain: true });
-        const literal = await grepSearch(".", { path: CWD + "/lib/hash.mjs", plain: true, literal: true });
-        const regexCount = regex.split("\n").filter(l => l.trim()).length;
-        const litCount = literal.split("\n").filter(l => l.trim()).length;
-        assert.ok(regexCount > litCount, `regex (${regexCount}) should match more than literal (${litCount})`);
+        const tmp = join(tmpdir(), "hex-test-literal-mode.txt");
+        fs.writeFileSync(tmp, "alpha\nbeta.gamma\nxyz\n");
+        try {
+            // '.' in regex matches any char; in literal mode matches only '.'
+            const regex = await grepSearch(".", { path: tmp, plain: true });
+            const literal = await grepSearch(".", { path: tmp, plain: true, literal: true });
+            const regexCount = regex.split("\n").filter(l => l.trim()).length;
+            const litCount = literal.split("\n").filter(l => l.trim()).length;
+            assert.ok(regexCount > litCount, `regex (${regexCount}) should match more than literal (${litCount})`);
+        } finally {
+            fs.rmSync(tmp, { force: true });
+        }
     });
 });
 
@@ -985,6 +1161,7 @@ describe("edit_file replace removed", () => {
                     name: "edit_file",
                     arguments: {
                         path: tmp,
+                        allow_external: true,
                         edits: JSON.stringify([{
                             type: "replace_lines",
                             start: 1,
@@ -1121,10 +1298,13 @@ describe("changes", () => {
     it("returns diff against HEAD for tracked file", async () => {
         const { fileChanges } = await import("../lib/changes.mjs");
         // Use a known tracked file — should return no changes or a diff
-        const result = await fileChanges(CWD + "/lib/hash.mjs", "HEAD");
+        const result = await fileChanges(CWD + "/lib/read.mjs", "HEAD");
         assert.ok(typeof result === "string", "should return string");
-        // If file is unchanged vs HEAD, result says "No changes" or shows symbols
         assert.ok(result.length > 0, "should have content");
+        assert.ok(result.includes("status:"), "changes returns canonical status");
+        assert.ok(result.includes("reason:"), "changes returns canonical reason");
+        assert.ok(result.includes("summary:"), "changes returns canonical summary");
+        assert.ok(result.includes("next_action:"), "changes returns canonical next action");
     });
 });
 // ==================== isHexLineDisabled ====================
@@ -1231,12 +1411,13 @@ describe("hook — Read config exception", () => {
         const r = await runHook("PreToolUse", "Read", { file_path: "src/index.ts" });
         assert.notEqual(r.code, 0);
     });
-    it("allows partial built-in Read on a small file", async () => {
+    it("redirects partial built-in Read on a small file", async () => {
         const tmp = TMP(`hex-hook-small-read-${Date.now()}.ts`);
         fs.writeFileSync(tmp, "line 1\nline 2\nline 3\n");
         try {
             const r = await runHook("PreToolUse", "Read", { file_path: tmp, offset: 1, limit: 2 });
-            assert.equal(r.code, 0);
+            assert.notEqual(r.code, 0);
+            assert.ok(r.stdout.includes("read_file"), "Partial read is redirected to hex-line read_file");
         } finally {
             fs.rmSync(tmp, { force: true });
         }
@@ -1285,7 +1466,7 @@ describe("hook — regressions", () => {
         const r = await runHook("PreToolUse", "Bash", { command: "rm -rf / # hex-confirmed" });
         assert.equal(r.code, 0);
     });
-    it("advises small built-in Edit on a small file", async () => {
+    it("redirects small built-in Edit on a small file", async () => {
         const tmp = TMP(`hex-hook-small-edit-${Date.now()}.ts`);
         fs.writeFileSync(tmp, "const value = 1;\n");
         try {
@@ -1294,8 +1475,8 @@ describe("hook — regressions", () => {
                 old_string: "value = 1",
                 new_string: "value = 2",
             });
-            assert.equal(r.code, 0, "Small edit is not blocked");
-            assert.ok(r.stdout.includes("mcp__hex-line__edit_file"), "Small edit advises hex-line edit_file");
+            assert.notEqual(r.code, 0, "Small edit is redirected");
+            assert.ok(r.stdout.includes("mcp__hex-line__edit_file"), "Small edit redirects to hex-line edit_file");
         } finally {
             fs.rmSync(tmp, { force: true });
         }
@@ -1413,27 +1594,23 @@ describe("PostToolUse RTK", () => {
 // ==================== WASM dependency contract ====================
 
 describe("WASM dependency contract", () => {
-    it("package.json declares tree-sitter runtime deps", () => {
+    it("package.json declares the parser runtime dependency only once", () => {
         const pkg = JSON.parse(fs.readFileSync(
             resolve(__dirname, "../package.json"), "utf8"
         ));
         const deps = pkg.dependencies || {};
         assert.ok(deps["web-tree-sitter"],
             "web-tree-sitter missing from dependencies — outline will fail after npm install");
-        assert.ok(deps["tree-sitter-wasms"],
-            "tree-sitter-wasms missing from dependencies — WASM grammars unavailable after npm install");
+        assert.ok(!deps["tree-sitter-wasms"],
+            "tree-sitter-wasms should not be a direct dependency anymore — grammars now come from hex-common artifacts");
     });
 
-    it("WASM files exist for all supported grammars", () => {
-        const pkgPath = require.resolve("tree-sitter-wasms/package.json");
-        const grammars = [
-            "javascript", "typescript", "tsx", "python", "go", "rust",
-            "java", "c", "cpp", "c_sharp", "ruby", "php", "kotlin", "swift", "bash"
-        ];
-        const missing = grammars.filter(g => {
-            const wasm = resolve(pkgPath, "..", "out", `tree-sitter-${g}.wasm`);
-            return !fs.existsSync(wasm);
-        });
+    it("hex-common artifact bundle exists for all supported grammars", () => {
+        const artifactDir = resolve(__dirname, "../../hex-common/artifacts/tree-sitter");
+        const manifest = JSON.parse(fs.readFileSync(resolve(artifactDir, "manifest.json"), "utf8"));
+        const missing = (manifest.grammars || [])
+            .map(entry => entry.file)
+            .filter(file => !fs.existsSync(resolve(artifactDir, file)));
         assert.deepEqual(missing, [], `WASM files missing for: ${missing.join(", ")}`);
     });
 });
@@ -1472,6 +1649,23 @@ describe("kernel: snapshot", () => {
             fs.unlinkSync(tmp);
         }
     });
+
+    it("keeps the same revision when only line endings change", async () => {
+        const { readSnapshot, _resetSnapshotCache } = await import("../lib/snapshot.mjs");
+        _resetSnapshotCache();
+        const tmp = TMP("hex-test-kernel-eol-stable.txt");
+        fs.writeFileSync(tmp, "alpha\r\nbeta\r\ngamma\r\n");
+        try {
+            const first = readSnapshot(tmp);
+            fs.writeFileSync(tmp, "alpha\nbeta\ngamma\n");
+            const second = readSnapshot(tmp);
+            assert.equal(second.revision, first.revision, "Logical revision stays stable across EOL-only rewrite");
+            assert.equal(second.fileChecksum, first.fileChecksum, "Checksum stays stable across EOL-only rewrite");
+            assert.equal(second.eol, "lf", "Latest snapshot still reflects current file EOL");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
 });
 
 describe("protocol: read_file blocks", () => {
@@ -1484,6 +1678,20 @@ describe("protocol: read_file blocks", () => {
             assert.ok(result.includes("block: read_range"), "Contains read_range block");
             assert.ok(result.includes("span: 1-3"), "Contains correct span");
             assert.ok(result.includes("checksum: 1-3:"), "Contains checksum for range");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
+    it("emits EOL and trailing newline metadata", async () => {
+        const { readFile } = await import("../lib/read.mjs");
+        const tmp = TMP("hex-test-proto-read-eol.txt");
+        fs.writeFileSync(tmp, "alpha\r\nbeta\r\n");
+        try {
+            const result = readFile(tmp, { ranges: ["1-2"] });
+            assert.ok(result.includes("eol: crlf"), "Top-level read output reports EOL");
+            assert.ok(result.includes("trailing_newline: true"), "Top-level read output reports trailing newline");
+            assert.ok(result.includes("block: read_range"), "Read block is still emitted");
         } finally {
             fs.unlinkSync(tmp);
         }
@@ -1513,6 +1721,23 @@ describe("protocol: grep_search blocks", () => {
 });
 
 describe("protocol: edit_file output", () => {
+    it("preserves CRLF bytes on edit", async () => {
+        const { editFile } = await import("../lib/edit.mjs");
+        const { readFile } = await import("../lib/read.mjs");
+        const tmp = TMP("hex-test-proto-edit-crlf.txt");
+        fs.writeFileSync(tmp, "first\r\nsecond\r\nthird\r\n");
+        try {
+            const read = readFile(tmp, { ranges: ["1-3"] });
+            const anchor = read.match(/([a-z2-7]{2}\.2)\tsecond/)?.[1];
+            assert.ok(anchor, "Got anchor from CRLF read");
+            editFile(tmp, [{ set_line: { anchor, new_text: "SECOND" } }]);
+            const written = fs.readFileSync(tmp, "utf8");
+            assert.equal(written, "first\r\nSECOND\r\nthird\r\n", "Edit preserves CRLF bytes");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
     it("read_file -> edit_file succeeds through the MCP tool boundary", async () => {
         const tmp = join(tmpdir(), `hex-test-mcp-edit-${Date.now()}-${Math.random().toString(16).slice(2)}.js`);
         fs.writeFileSync(tmp, "alpha\nbeta\ngamma\ndelta\n");
@@ -1532,6 +1757,7 @@ describe("protocol: edit_file output", () => {
                     name: "edit_file",
                     arguments: {
                         path: tmp,
+                        allow_external: true,
                         edits: JSON.stringify([{
                             replace_lines: {
                                 start_anchor: startAnchor,
@@ -1549,6 +1775,93 @@ describe("protocol: edit_file output", () => {
             });
         } finally {
             if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+        }
+    });
+
+    it("edit_file blocks outside-project edits by default and allows explicit override", async () => {
+        const tmp = join(tmpdir(), `hex-test-mcp-edit-external-${Date.now()}-${Math.random().toString(16).slice(2)}.js`);
+        fs.writeFileSync(tmp, "alpha\nbeta\n");
+        try {
+            await withMcpClient(async (client) => {
+                const readResult = await client.callTool({
+                    name: "read_file",
+                    arguments: { path: tmp, ranges: ["1-2"] },
+                });
+                const readText = readResult.content[0].text;
+                const anchor = readText.match(/([a-z2-7]{2}\.2)\tbeta/)?.[1];
+                assert.ok(anchor, "read_file still works for external temp paths");
+
+                const blocked = await client.callTool({
+                    name: "edit_file",
+                    arguments: {
+                        path: tmp,
+                        edits: JSON.stringify([{ set_line: { anchor, new_text: "BETA" } }]),
+                    },
+                });
+                assert.equal(blocked.isError, true, "external edit should be blocked by default");
+                assert.match(blocked.content[0].text, /PATH_OUTSIDE_PROJECT/);
+                assert.match(blocked.content[0].text, /allow_external=true/);
+
+                const allowed = await client.callTool({
+                    name: "edit_file",
+                    arguments: {
+                        path: tmp,
+                        edits: JSON.stringify([{ set_line: { anchor, new_text: "BETA" } }]),
+                        allow_external: true,
+                    },
+                });
+                assert.notEqual(allowed.isError, true, "explicit override should allow external edit");
+                assert.ok(fs.readFileSync(tmp, "utf8").includes("BETA"), "external edit applies once override is set");
+            });
+        } finally {
+            if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+        }
+    });
+
+    it("write_file and bulk_replace require allow_external for external targets", async () => {
+        const dir = join(tmpdir(), `hex-test-mcp-write-external-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        const filePath = join(dir, "note.txt");
+        fs.mkdirSync(dir, { recursive: true });
+        try {
+            await withMcpClient(async (client) => {
+                const blockedWrite = await client.callTool({
+                    name: "write_file",
+                    arguments: { path: filePath, content: "alpha\n" },
+                });
+                assert.equal(blockedWrite.isError, true, "external write should be blocked by default");
+                assert.match(blockedWrite.content[0].text, /allow_external=true/);
+
+                const allowedWrite = await client.callTool({
+                    name: "write_file",
+                    arguments: { path: filePath, content: "alpha\n", allow_external: true },
+                });
+                assert.notEqual(allowedWrite.isError, true, "explicit override should allow external write");
+
+                const blockedBulk = await client.callTool({
+                    name: "bulk_replace",
+                    arguments: {
+                        path: dir,
+                        replacements: JSON.stringify([{ old: "alpha", new: "beta" }]),
+                        glob: "*.txt",
+                    },
+                });
+                assert.equal(blockedBulk.isError, true, "external bulk replace should be blocked by default");
+                assert.match(blockedBulk.content[0].text, /allow_external=true/);
+
+                const allowedBulk = await client.callTool({
+                    name: "bulk_replace",
+                    arguments: {
+                        path: dir,
+                        replacements: JSON.stringify([{ old: "alpha", new: "beta" }]),
+                        glob: "*.txt",
+                        allow_external: true,
+                    },
+                });
+                assert.notEqual(allowedBulk.isError, true, "explicit override should allow external bulk replace");
+                assert.equal(fs.readFileSync(filePath, "utf8"), "beta\n");
+            });
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
         }
     });
 
@@ -1585,7 +1898,7 @@ describe("protocol: edit_file output", () => {
                 assert.fail("Should have thrown");
             } catch (e) {
                 assert.ok(e.message.includes("CHECKSUM_MISMATCH"), "Error is CHECKSUM_MISMATCH");
-                assert.ok(e.message.includes("Recovery:"), "Contains recovery guidance");
+                assert.ok(e.message.includes("next_action:"), "Contains canonical recovery guidance");
                 assert.ok(e.message.includes("read_file"), "Mentions read_file");
             }
         } finally {
@@ -1681,6 +1994,25 @@ describe("E2E: workflow round-trips", () => {
             const postChecksum = editResult.match(/checksum: (\S+)/)?.[1];
             const verifyResult = verifyChecksums(tmp, [postChecksum]);
             assert.ok(verifyResult.includes("valid=1"), "Post-edit checksum valid");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
+    it("verify stays current across an EOL-only rewrite", async () => {
+        const { readFile } = await import("../lib/read.mjs");
+        const { verifyChecksums } = await import("../lib/verify.mjs");
+        const tmp = TMP("hex-test-e2e-verify-eol.txt");
+        fs.writeFileSync(tmp, "one\r\ntwo\r\nthree\r\n");
+        try {
+            const read = readFile(tmp, { ranges: ["1-3"] });
+            const checksum = read.match(/checksum: (\S+)/)?.[1];
+            const baseRevision = read.match(/revision: (\S+)/)?.[1];
+            assert.ok(checksum && baseRevision, "Read exposes checksum and revision");
+            fs.writeFileSync(tmp, "one\ntwo\nthree\n");
+            const verify = verifyChecksums(tmp, [checksum], { baseRevision });
+            assert.ok(verify.includes("status: OK"), "EOL-only rewrite stays valid");
+            assert.ok(verify.includes("valid=1"), "Checksum remains current");
         } finally {
             fs.unlinkSync(tmp);
         }

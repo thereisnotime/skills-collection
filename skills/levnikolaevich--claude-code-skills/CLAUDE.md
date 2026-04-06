@@ -23,21 +23,11 @@ Skills collection for Claude Code with config-driven Agile task management (Line
 
 ## MCP Tool Preferences
 
-**PREFER** hex-line MCP for code files — hash-annotated reads enable safe edits:
-
-| Instead of | Use | When |
-|-----------|-----|------|
-| Built-in Read | `hex-line read_file` | Code files (hash-annotated, edit-ready) |
-| Built-in Edit | `hex-line edit_file` | Always (hash-verified anchors) |
-| Built-in Write | `hex-line write_file` | Always (consistent workflow) |
-| Built-in Grep | `hex-line grep_search` | Before editing found code (grep→edit pipeline) |
-| Large code file | `hex-line outline` then `read_file` with range | Unfamiliar files >100 lines |
-| Edit (text rename) | `hex-line bulk_replace` | Multi-file rename/refactor |
-| Bash `find`/`tree` | `hex-line directory_tree` | Gitignore-aware file discovery |
-| Bash `diff` | `hex-line changes` | Semantic diff with symbol-level detail |
-| Re-read after CONFLICT | `hex-line verify` | Check freshness without rereading |
-
-**Built-in OK for:** images, PDFs, notebooks, Glob (always), `.claude/settings.json` and `.claude/settings.local.json`.
+Prefer `hex-line` for code/config/script/test files.
+- Use `outline` before large reads, then `read_file` with ranges.
+- Use `edit_file` / `write_file` for writes, `bulk_replace` for multi-file text rename, `verify` after conflicts or delayed follow-up edits, and `changes` for diff review.
+- Use `hex-graph` only for symbol, reference, architecture, and semantic diff questions.
+- Built-in tools are still fine for images, PDFs, notebooks, Glob, and `.claude/settings*.json`.
 
 ## Quick Understanding
 
@@ -45,18 +35,18 @@ Skills collection for Claude Code with config-driven Agile task management (Line
 |------|-----|
 | Project overview + tree | `cat README.md` |
 | Architecture (L0-L3) | `cat docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` |
-| Key workflow | `ln-700 → ln-100 → ln-200 → ln-1000` |
-| Tool config (Linear/File) | `cat skills-catalog/shared/references/tools_config_guide.md` |
+| Key workflow | `ln-700 -> ln-100 -> ln-200 -> ln-1000` |
+| Tool config (Linear/File) | `cat skills-catalog/shared/references/environment_state_contract.md` |
 | Skill metadata | `head -20 {ln-NNN}/SKILL.md` |
 
 ## Navigation
 
-**DAG:** CLAUDE.md → `docs/README.md` → topic docs. Read SCOPE tag first.
+**DAG:** CLAUDE.md -> `docs/README.md` -> topic docs. Read SCOPE tag first.
 
 | Topic | File |
 |-------|------|
-| Writing Guidelines | `docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` §Writing Guidelines |
-| Tool Configuration | `skills-catalog/shared/references/tools_config_guide.md` |
+| Writing Guidelines | `docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` section Writing Guidelines |
+| Environment State | `skills-catalog/shared/references/environment_state_contract.md` |
 | Risk-Based Testing | `skills-catalog/shared/references/risk_based_testing_guide.md` |
 | Frontmatter fields | `skills-catalog/shared/references/frontmatter_reference.md` |
 | Hooks reference | `skills-catalog/shared/references/hooks_reference.md` |

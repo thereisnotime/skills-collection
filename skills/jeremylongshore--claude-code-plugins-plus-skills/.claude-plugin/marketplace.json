@@ -8004,6 +8004,31 @@
       "repository": "https://github.com/jeremylongshore/x-bug-triage-plugin",
       "homepage": "https://tonsofskills.com",
       "license": "MIT"
+    },
+    {
+      "name": "general-legal-assistant",
+      "source": "./plugins/business-tools/general-legal-assistant",
+      "description": "AI-powered contract review, risk analysis, document generation, and compliance auditing with 12 skills and 5 parallel agents",
+      "version": "1.0.0",
+      "category": "business-tools",
+      "author": {
+        "name": "Intent Solutions",
+        "email": "jeremy@intentsolutions.io"
+      },
+      "keywords": [
+        "legal",
+        "contracts",
+        "nda",
+        "compliance",
+        "gdpr",
+        "ccpa",
+        "risk-analysis",
+        "terms-of-service",
+        "privacy-policy"
+      ],
+      "repository": "https://github.com/jeremylongshore/claude-code-plugins-plus-skills",
+      "homepage": "https://tonsofskills.com",
+      "license": "MIT"
     }
   ]
 }

@@ -2,11 +2,11 @@
  * Shared helpers for hex-graph benchmark modules.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { readdirSync, statSync } from "node:fs";
 import { resolve, extname } from "node:path";
 
-export const CODE_EXTS = new Set([".js", ".ts", ".py", ".mjs", ".go", ".rs", ".java", ".c", ".cpp", ".rb", ".php"]);
+export const CODE_EXTS = new Set([".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".py", ".cs", ".php"]);
 export const RUNS = 3;
 
 export function fmt(n) {
@@ -69,5 +69,18 @@ export function rg(rgArgs) {
     } catch (e) {
         // rg exits 1 when no matches found
         return e.stdout || "";
+    }
+}
+
+export function git(args, cwd, allowFailure = false) {
+    try {
+        return execFileSync("git", args, {
+            cwd,
+            encoding: "utf8",
+            timeout: 10000,
+        }).replace(/\r\n/g, "\n");
+    } catch (error) {
+        if (allowFailure) return "";
+        throw error;
     }
 }

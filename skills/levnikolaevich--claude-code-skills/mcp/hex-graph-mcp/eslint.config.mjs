@@ -3,7 +3,7 @@ export default [
     {
         files: ["**/*.mjs"],
         languageOptions: {
-            ecmaVersion: 2024,
+            ecmaVersion: 2025,
             sourceType: "module",
             globals: {
                 process: "readonly",

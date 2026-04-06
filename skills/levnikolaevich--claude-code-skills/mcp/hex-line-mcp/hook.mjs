@@ -5,8 +5,9 @@
  * Handles three events:
  *
  * PreToolUse:
- *   - Tool redirect: advises Read to use hex-line (never blocks),
- *     blocks Edit/Write/Grep for text files redirecting to hex-line.
+ *   - Tool redirect: redirects Read/Edit/Write/Grep for text files
+ *     to hex-line, with narrow exceptions for binary/media and
+ *     allowed .claude/settings*.json paths.
  *   - Bash redirect: blocks simple cat/head/tail/ls/grep/sed/diff
  *     commands, redirecting to hex-line MCP equivalents.
  *   - Dangerous command blocker: blocks rm -rf /, force push,
@@ -25,128 +26,23 @@
  */
 
 import { normalizeOutput } from "@levnikolaevich/hex-common/output/normalize";
-import { readFileSync, statSync, writeSync } from "node:fs";
+import { readFileSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
-
-// ---- Constants ----
-
-const BINARY_EXT = new Set([
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".ico",
-    ".pdf", ".ipynb",
-    ".zip", ".tar", ".gz", ".7z", ".rar",
-    ".exe", ".dll", ".so", ".dylib", ".wasm",
-    ".mp3", ".mp4", ".wav", ".avi", ".mkv",
-    ".ttf", ".otf", ".woff", ".woff2",
-]);
-
-const OUTLINEABLE_EXT = new Set([
-    ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
-    ".py", ".go", ".rs", ".java", ".c", ".h", ".cpp", ".cs",
-    ".rb", ".php", ".kt", ".swift", ".sh", ".bash",
-]);
-
-const REVERSE_TOOL_HINTS = {
-    "mcp__hex-line__read_file":      "Read (file_path, offset, limit)",
-    "mcp__hex-line__edit_file":      "Edit (old_string, new_string, replace_all)",
-    "mcp__hex-line__write_file":     "Write (file_path, content)",
-    "mcp__hex-line__grep_search":    "Grep (pattern, path)",
-    "mcp__hex-line__directory_tree": "Glob (pattern) or Bash(ls)",
-    "mcp__hex-line__get_file_info":  "Bash(stat/wc)",
-    "mcp__hex-line__outline":        "Read with offset/limit",
-    "mcp__hex-line__verify":         "Read (re-read file to check freshness)",
-    "mcp__hex-line__changes":        "Bash(git diff)",
-    "mcp__hex-line__bulk_replace":   "Edit (text rename/refactor across files)",
-};
-
-const TOOL_HINTS = {
-    Read:  "mcp__hex-line__read_file (not Read). For writing: write_file (no prior Read needed)",
-    Edit:  "mcp__hex-line__edit_file for revision-aware hash edits. Batch same-file hunks, carry base_revision, use replace_between for block rewrites",
-    Write: "mcp__hex-line__write_file (not Write). No prior Read needed",
-    Grep:  "mcp__hex-line__grep_search (not Grep). Params: output, literal, context_before, context_after, multiline",
-    cat:   "mcp__hex-line__read_file (not cat/head/tail/less/more)",
-    head:  "mcp__hex-line__read_file with limit param (not head)",
-    tail:  "mcp__hex-line__read_file with offset param (not tail)",
-    ls:    "mcp__hex-line__directory_tree with pattern param (not ls/find/tree). E.g. pattern='*-mcp' type='dir'",
-    stat:  "mcp__hex-line__get_file_info (not stat/wc/file)",
-    grep:  "mcp__hex-line__grep_search (not grep/rg). Params: output, literal, context_before, context_after, multiline",
-    sed:   "mcp__hex-line__edit_file for hash edits, or mcp__hex-line__bulk_replace for text rename (not sed -i)",
-    diff:  "mcp__hex-line__changes (not diff). Git diff with change symbols",
-    outline: "mcp__hex-line__outline (before reading large code files)",
-    verify:  "mcp__hex-line__verify (staleness / revision check without re-read)",
-    changes: "mcp__hex-line__changes (git diff with change symbols)",
-    bulk:    "mcp__hex-line__bulk_replace (multi-file search-replace)",
-};
-
-const DEFERRED_HINT = "If schemas not loaded: ToolSearch('+hex-line read edit')";
-
-const BASH_REDIRECTS = [
-    { regex: /^cat\s+\S+/, key: "cat" },
-    { regex: /^head\s+/, key: "head" },
-    { regex: /^tail\s+(?!-[fF])/, key: "tail" },
-    { regex: /^(less|more)\s+/, key: "cat" },
-    { regex: /^ls\s+-\S*R(\s|$)/, key: "ls" },   // ls -R, ls -laR (recursive only)
-    { regex: /^dir\s+\/[sS](\s|$)/, key: "ls" }, // dir /s, dir /S (recursive only)
-    { regex: /^tree\s+/, key: "ls" },
-    { regex: /^find\s+/, key: "ls" },
-    { regex: /^(stat|wc)\s+/, key: "stat" },
-    { regex: /^(grep|rg)\s+/, key: "grep" },
-    { regex: /^sed\s+-i/, key: "sed" },
-];
-
-const TOOL_REDIRECT_MAP = {
-    Read: "Read",
-    Edit: "Edit",
-    Write: "Write",
-    Grep: "Grep",
-};
-
-const DANGEROUS_PATTERNS = [
-    {
-        regex: /rm\s+(-[rf]+\s+)*[/~]/,
-        reason: "rm -rf on root/home directory",
-    },
-    {
-        regex: /git\s+push\s+(-f|--force)/,
-        reason: "force push can overwrite remote history",
-    },
-    {
-        regex: /git\s+reset\s+--hard/,
-        reason: "hard reset discards uncommitted changes",
-    },
-    {
-        regex: /DROP\s+(TABLE|DATABASE)/i,
-        reason: "DROP destroys data permanently",
-    },
-    {
-        regex: /chmod\s+777/,
-        reason: "chmod 777 removes all access restrictions",
-    },
-    {
-        regex: /mkfs/,
-        reason: "filesystem format destroys all data",
-    },
-    {
-        regex: /dd\s+if=\/dev\/zero/,
-        reason: "direct disk write destroys data",
-    },
-];
-
-const COMPOUND_OPERATORS = /[|]|>>?|&&|\|\||;/;
-
-const CMD_PATTERNS = [
-    [/npm (install|ci|update|add)/i, "npm-install"],
-    [/npm test|jest|vitest|mocha|pytest|cargo test/i, "test"],
-    [/npm run build|tsc|webpack|vite build|cargo build/i, "build"],
-    [/pip install/i, "pip-install"],
-    [/git (log|diff|status)/i, "git"],
-];
-
-const LINE_THRESHOLD = 50;
-const HEAD_LINES = 15;
-const TAIL_LINES = 15;
-const LARGE_FILE_BYTES = 5 * 1024;
-const LARGE_EDIT_CHARS = 1200;
+import {
+    BASH_REDIRECTS,
+    BINARY_EXT,
+    CMD_PATTERNS,
+    COMPOUND_OPERATORS,
+    DANGEROUS_PATTERNS,
+    DEFERRED_HINT,
+    HOOK_OUTPUT_POLICY,
+    OUTLINEABLE_EXT,
+    REVERSE_TOOL_HINTS,
+    TOOL_HINTS,
+    TOOL_REDIRECT_MAP,
+    buildAllowedClaudeSettingsPaths,
+} from "./lib/hook-policy.mjs";
 
 // ---- Helpers ----
 
@@ -163,15 +59,6 @@ function resolveToolPath(filePath) {
     if (!filePath) return "";
     if (filePath.startsWith("~/")) return resolve(homedir(), filePath.slice(2));
     return resolve(process.cwd(), filePath);
-}
-
-function getFileSize(filePath) {
-    if (!filePath) return null;
-    try {
-        return statSync(resolveToolPath(filePath)).size;
-    } catch {
-        return null;
-    }
 }
 
 function isPartialRead(toolInput) {
@@ -307,7 +194,6 @@ function handlePreToolUse(data) {
     const hintKey = TOOL_REDIRECT_MAP[toolName];
     if (hintKey) {
         const filePath = getFilePath(toolInput);
-        const fileSize = getFileSize(filePath);
 
         // Skip binary extensions
         if (BINARY_EXT.has(extOf(filePath))) {
@@ -316,15 +202,8 @@ function handlePreToolUse(data) {
 
         // .claude/ config: allow only settings files at project root or home
         const resolvedNorm = resolveToolPath(filePath).replace(/\\/g, "/");
-        const cwdNorm = process.cwd().replace(/\\/g, "/");
-        const homeNorm = homedir().replace(/\\/g, "/");
-        const claudeAllow = [
-            cwdNorm + "/.claude/settings.json",
-            cwdNorm + "/.claude/settings.local.json",
-            homeNorm + "/.claude/settings.json",
-            homeNorm + "/.claude/settings.local.json",
-        ];
-        if (claudeAllow.some(p => resolvedNorm.toLowerCase() === p.toLowerCase())) {
+        const claudeAllow = buildAllowedClaudeSettingsPaths(process.cwd(), homedir());
+        if (claudeAllow.includes(resolvedNorm.toLowerCase())) {
             process.exit(0);
         }
         if (resolvedNorm.includes("/.claude/")) {
@@ -332,40 +211,23 @@ function handlePreToolUse(data) {
         }
 
         if (toolName === "Read") {
-            if (isPartialRead(toolInput)) {
-                process.exit(0);
-            }
-            if (fileSize !== null && fileSize <= LARGE_FILE_BYTES) {
-                const ext = filePath ? extOf(filePath) : "";
-                const hint = (filePath && OUTLINEABLE_EXT.has(ext))
-                    ? `Use mcp__hex-line__outline(path="${filePath}") for structure, then mcp__hex-line__read_file(path="${filePath}") with ranges.`
-                    : filePath
-                        ? `Use mcp__hex-line__read_file(path="${filePath}"). Built-in Read wastes edit context.`
-                        : "Use mcp__hex-line__read_file. Built-in Read wastes edit context.";
-                advise(hint, DEFERRED_HINT);
-            }
             const ext = filePath ? extOf(filePath) : "";
+            const rangeHint = isPartialRead(toolInput)
+                ? " Preserve the same offset/limit or ranges in read_file."
+                : "";
             const outlineHint = (filePath && OUTLINEABLE_EXT.has(ext))
-                ? `Use mcp__hex-line__outline(path="${filePath}") for structure, then mcp__hex-line__read_file(path="${filePath}") with ranges to read only what you need.`
+                ? `Use mcp__hex-line__outline(path="${filePath}") for structure, then mcp__hex-line__read_file(path="${filePath}") with ranges to read only what you need.${rangeHint}`
                 : filePath
-                    ? `Use mcp__hex-line__read_file(path="${filePath}") with ranges or offset/limit`
-                    : "Use mcp__hex-line__directory_tree or mcp__hex-line__read_file";
-            redirect(outlineHint, "Do not use built-in Read for full reads of large files.\n" + DEFERRED_HINT);
+                    ? `Use mcp__hex-line__read_file(path="${filePath}") with ranges or offset/limit.${rangeHint}`
+                    : "Use mcp__hex-line__inspect_path or mcp__hex-line__read_file";
+            redirect(outlineHint, "Use hex-line for text-file reads to keep hashes, revision metadata, and graph hints in one flow.\n" + DEFERRED_HINT);
         }
 
         if (toolName === "Edit") {
-            const oldText = String(toolInput.old_string || "");
-            const isLargeEdit = Boolean(toolInput.replace_all) || oldText.length > LARGE_EDIT_CHARS || (fileSize !== null && fileSize > LARGE_FILE_BYTES);
-            if (!isLargeEdit) {
-                const editHint = filePath
-                    ? `Prefer mcp__hex-line__edit_file(path="${filePath}") for hash-verified edits.`
-                    : "Prefer mcp__hex-line__edit_file for hash-verified edits.";
-                advise(editHint);
-            }
             const target = filePath
                 ? `Use mcp__hex-line__grep_search or mcp__hex-line__read_file, then mcp__hex-line__edit_file with path="${filePath}"`
                 : "Use mcp__hex-line__grep_search or mcp__hex-line__read_file, then mcp__hex-line__edit_file";
-            redirect(target, "For large or repeated edits: locate anchors/checksums first, then call edit_file once with batched edits.\n" + DEFERRED_HINT);
+            redirect(target, "Use hash-verified edits for text files. Locate anchors/checksums first, then call edit_file once with batched edits.\n" + DEFERRED_HINT);
         }
 
         if (toolName === "Write") {
@@ -476,14 +338,17 @@ function handlePostToolUse(data) {
     const originalCount = lines.length;
 
     // Short output - no filtering
-    if (originalCount < LINE_THRESHOLD) {
+    if (originalCount < HOOK_OUTPUT_POLICY.lineThreshold) {
         process.exit(0);
     }
 
     const type = detectCommandType(command);
 
     // Pipeline: normalize -> deduplicate -> smart truncate
-    const filtered = normalizeOutput(lines.join("\n"), { headLines: HEAD_LINES, tailLines: TAIL_LINES });
+    const filtered = normalizeOutput(lines.join("\n"), {
+        headLines: HOOK_OUTPUT_POLICY.headLines,
+        tailLines: HOOK_OUTPUT_POLICY.tailLines,
+    });
     const filteredCount = filtered.split("\n").length;
 
     const header = `RTK FILTERED: ${type} (${originalCount} lines -> ${filteredCount} lines)`;
@@ -521,28 +386,37 @@ function handleSessionStart() {
         } catch { /* file missing or invalid */ }
     }
 
-    const prefix = styleActive ? "Hex-line MCP available. Output style active.\n" : "Hex-line MCP available.\n";
-    const msg = prefix +
-        "<hex-line_instructions>\n" +
-        "  <deferred_loading>If hex-line schemas not loaded, run: ToolSearch('+hex-line read edit')</deferred_loading>\n" +
-        "  <exploration>\n" +
-        "    <rule>Use outline for structure (code + markdown), not Read. ~10-20 lines vs hundreds.</rule>\n" +
-        "    <rule>Use read_file with offset/limit or ranges for targeted reads.</rule>\n" +
-        "    <rule>Use grep_search before editing to get hash anchors.</rule>\n" +
-        "  </exploration>\n" +
-        "  <editing>\n" +
-        "    <path name='surgical'>grep_search \u2192 edit_file (fastest: hash-verified, no full read needed)</path>\n" +
-        "    <path name='exploratory'>outline \u2192 read_file (ranges) \u2192 edit_file with base_revision</path>\n" +
-        "    <path name='multi-file'>bulk_replace for text rename/refactor across files</path>\n" +
-        "  </editing>\n" +
-        "  <tips>\n" +
-        "    <tip>Carry revision from read_file into base_revision on edit_file.</tip>\n" +
-        "    <tip>If edit returns CONFLICT, call verify \u2014 only reread when STALE.</tip>\n" +
-        "    <tip>Batch multiple edits to same file in one edit_file call.</tip>\n" +
-        "    <tip>Use write_file for new files (no prior Read needed).</tip>\n" +
-        "  </tips>\n" +
-        "  <exceptions>Built-in Read OK for: images, PDFs, notebooks, Glob (always), .claude/settings.json</exceptions>\n" +
-        "</hex-line_instructions>";
+    const msg = styleActive
+        ? "Hex-line MCP available. Output style active.\n" +
+            "<hex-line_instructions>\n" +
+            "  <deferred_loading>If hex-line schemas not loaded, run: ToolSearch('+hex-line read edit')</deferred_loading>\n" +
+            "  <note>Follow the active hex-line output style for primary tool choices.</note>\n" +
+            "  <exceptions>Built-in tools stay OK for images, PDFs, notebooks, Glob, .claude/settings.json, and .claude/settings.local.json.</exceptions>\n" +
+            "</hex-line_instructions>"
+        : "Hex-line MCP available.\n" +
+            "<hex-line_instructions>\n" +
+            "  <deferred_loading>If hex-line schemas not loaded, run: ToolSearch('+hex-line read edit')</deferred_loading>\n" +
+            "  <exploration>\n" +
+            "    <rule>Use outline for structure (code + markdown), not Read. ~10-20 lines vs hundreds.</rule>\n" +
+            "    <rule>Use read_file with offset/limit or ranges for targeted reads.</rule>\n" +
+            "    <rule>Use grep_search before editing to get hash anchors.</rule>\n" +
+            "  </exploration>\n" +
+            "  <editing>\n" +
+            "    <path name='surgical'>grep_search \u2192 edit_file (fastest: hash-verified, no full read needed)</path>\n" +
+            "    <path name='exploratory'>outline \u2192 read_file (ranges) \u2192 edit_file with base_revision</path>\n" +
+            "    <path name='multi-file'>bulk_replace(path=&quot;&lt;project root&gt;&quot;) for text rename/refactor across files</path>\n" +
+            "  </editing>\n" +
+            "  <tips>\n" +
+            "    <tip>Auto-fill path from the active file or project root. Read-only tools may inspect explicit temp-file paths outside the repo. Mutating tools stay project-scoped unless you intentionally pass allow_external=true.</tip>\n" +
+            "    <tip>Never invent range_checksum. Copy it from fresh read_file or grep_search blocks.</tip>\n" +
+            "    <tip>Prefer set_line or insert_after for small local changes and replace_between for larger bounded rewrites.</tip>\n" +
+            "    <tip>Carry revision from read_file into base_revision on edit_file.</tip>\n" +
+            "    <tip>If edit returns CONFLICT, call verify \u2014 only reread when STALE.</tip>\n" +
+            "    <tip>Avoid large first-pass edit batches. Start with 1-2 hunks, then continue from the returned revision.</tip>\n" +
+            "    <tip>Use write_file for new files (no prior Read needed).</tip>\n" +
+            "  </tips>\n" +
+            "  <exceptions>Built-in tools stay OK for images, PDFs, notebooks, Glob, .claude/settings.json, and .claude/settings.local.json.</exceptions>\n" +
+            "</hex-line_instructions>";
     safeExit(1, JSON.stringify({ systemMessage: msg }), 0);
 }
 

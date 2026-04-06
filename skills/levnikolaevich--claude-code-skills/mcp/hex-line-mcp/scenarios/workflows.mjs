@@ -15,7 +15,7 @@
 import { copyFileSync, mkdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
-import { fnv1a, lineTag, rangeChecksum } from "../lib/hash.mjs";
+import { fnv1a, lineTag, rangeChecksum } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { readFile } from "../lib/read.mjs";
 import { verifyChecksums } from "../lib/verify.mjs";
 import { editFile } from "../lib/edit.mjs";
@@ -162,7 +162,7 @@ export async function runWorkflows(config) {
 
     // W4: fileOutline + readFile targeted + editFile dryRun (large smoke test review)
     {
-        const preferredLarge = allFiles.find((filePath) => filePath.endsWith("test\\smoke.mjs"))
+        const preferredLarge = allFiles.find((filePath) => filePath.replace(/\\/g, "/").endsWith("test/smoke.mjs"))
             || largeFiles[0]
             || allFiles[0];
         const largeLines = getFileLines(preferredLarge);

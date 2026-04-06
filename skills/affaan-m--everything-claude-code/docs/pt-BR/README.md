@@ -1,4 +1,4 @@
-**Idioma:** [English](../../README.md) | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](../ja-JP/README.md) | [한국어](../ko-KR/README.md) | Português (BR)
+**Idioma:** [English](../../README.md) | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](../ja-JP/README.md) | [한국어](../ko-KR/README.md) | Português (Brasil) | [Türkçe](../tr/README.md)
 
 # Everything Claude Code
 
@@ -16,15 +16,15 @@
 ![Java](https://img.shields.io/badge/-Java-ED8B00?logo=openjdk&logoColor=white)
 ![Markdown](https://img.shields.io/badge/-Markdown-000000?logo=markdown&logoColor=white)
 
-> **50K+ estrelas** | **6K+ forks** | **30 contribuidores** | **6 idiomas suportados** | **Vencedor do Hackathon Anthropic**
+> **140K+ estrelas** | **21K+ forks** | **170+ contribuidores** | **12+ ecossistemas de linguagem** | **Vencedor do Hackathon Anthropic**
 
 ---
 
 <div align="center">
 
-**Idioma / Language / 语言**
+**Idioma / Language / 语言 / Dil**
 
-[**English**](../../README.md) | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](../ja-JP/README.md) | [한국어](../ko-KR/README.md) | [Português (BR)](README.md)
+[**English**](../../README.md) | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](../ja-JP/README.md) | [한국어](../ko-KR/README.md) | [Português (Brasil)](README.md) | [Türkçe](../tr/README.md)
 
 </div>
 
@@ -34,7 +34,7 @@
 
 Não são apenas configurações. Um sistema completo: skills, instincts, otimização de memória, aprendizado contínuo, varredura de segurança e desenvolvimento com pesquisa em primeiro lugar. Agentes, hooks, comandos, regras e configurações MCP prontos para produção, desenvolvidos ao longo de 10+ meses de uso intensivo diário construindo produtos reais.
 
-Funciona com **Claude Code**, **Codex**, **Cowork** e outros harnesses de agentes de IA.
+Funciona com **Claude Code**, **Codex**, **Cursor**, **OpenCode**, **Gemini** e outros harnesses de agentes de IA.
 
 ---
 
@@ -89,7 +89,7 @@ Este repositório contém apenas o código. Os guias explicam tudo.
 - **Revisão de orquestração** — Pontuação de auditoria de harness tornado determinístico, status de orquestração e compatibilidade de launcher reforçados, prevenção de loop de observer com guarda de 5 camadas.
 - **Confiabilidade do observer** — Correção de explosão de memória com throttling e tail sampling, correção de acesso sandbox, lógica de início preguiçoso e guarda de reentrância.
 - **12 ecossistemas de linguagem** — Novas regras para Java, PHP, Perl, Kotlin/Android/KMP, C++ e Rust se juntam ao TypeScript, Python, Go e regras comuns existentes.
-- **Contribuições da comunidade** — Traduções para coreano e chinês, hook de segurança InsAIts, otimização de hook biome, skills VideoDB, skills operacionais Evos, instalador PowerShell, suporte ao IDE Antigravity.
+- **Contribuições da comunidade** — Traduções para coreano e chinês, otimização de hook biome, skills VideoDB, skills operacionais Evos, instalador PowerShell, suporte ao IDE Antigravity.
 - **CI reforçado** — 19 correções de falhas de teste, aplicação de contagem de catálogo, validação de manifesto de instalação e suíte de testes completa no verde.
 
 ### v1.8.0 — Sistema de Desempenho de Harness (Mar 2026)
@@ -112,10 +112,10 @@ Comece em menos de 2 minutos:
 
 ```bash
 # Adicionar marketplace
-/plugin marketplace add affaan-m/everything-claude-code
+/plugin marketplace add https://github.com/affaan-m/everything-claude-code
 
 # Instalar plugin
-/plugin install everything-claude-code@everything-claude-code
+/plugin install ecc@ecc
 ```
 
 ### Passo 2: Instalar as Regras (Obrigatório)
@@ -152,13 +152,13 @@ npx ecc-install typescript
 
 ```bash
 # Experimente um comando (a instalação do plugin usa forma com namespace)
-/everything-claude-code:plan "Adicionar autenticação de usuário"
+/ecc:plan "Adicionar autenticação de usuário"
 
 # Instalação manual (Opção 2) usa a forma mais curta:
 # /plan "Adicionar autenticação de usuário"
 
 # Verificar comandos disponíveis
-/plugin list everything-claude-code@everything-claude-code
+/plugin list ecc@ecc
 ```
 
 **Pronto!** Você agora tem acesso a 28 agentes, 116 skills e 59 comandos.
@@ -301,10 +301,10 @@ claude --version
 
 ```bash
 # Adicionar este repositório como marketplace
-/plugin marketplace add affaan-m/everything-claude-code
+/plugin marketplace add https://github.com/affaan-m/everything-claude-code
 
 # Instalar o plugin
-/plugin install everything-claude-code@everything-claude-code
+/plugin install ecc@ecc
 ```
 
 Ou adicione diretamente ao seu `~/.claude/settings.json`:
@@ -312,7 +312,7 @@ Ou adicione diretamente ao seu `~/.claude/settings.json`:
 ```json
 {
   "extraKnownMarketplaces": {
-    "everything-claude-code": {
+    "ecc": {
       "source": {
         "source": "github",
         "repo": "affaan-m/everything-claude-code"
@@ -320,7 +320,7 @@ Ou adicione diretamente ao seu `~/.claude/settings.json`:
     }
   },
   "enabledPlugins": {
-    "everything-claude-code@everything-claude-code": true
+    "ecc@ecc": true
   }
 }
 ```
@@ -399,8 +399,8 @@ Regras são diretrizes sempre seguidas, organizadas em `common/` (agnóstico à 
 
 | Quero... | Use este comando | Agente usado |
 |----------|-----------------|--------------|
-| Planejar um novo recurso | `/everything-claude-code:plan "Adicionar auth"` | planner |
-| Projetar arquitetura de sistema | `/everything-claude-code:plan` + agente architect | architect |
+| Planejar um novo recurso | `/ecc:plan "Adicionar auth"` | planner |
+| Projetar arquitetura de sistema | `/ecc:plan` + agente architect | architect |
 | Escrever código com testes primeiro | `/tdd` | tdd-guide |
 | Revisar código que acabei de escrever | `/code-review` | code-reviewer |
 | Corrigir build com falha | `/build-fix` | build-error-resolver |
@@ -415,7 +415,7 @@ Regras são diretrizes sempre seguidas, organizadas em `common/` (agnóstico à 
 
 **Começando um novo recurso:**
 ```
-/everything-claude-code:plan "Adicionar autenticação de usuário com OAuth"
+/ecc:plan "Adicionar autenticação de usuário com OAuth"
                                               → planner cria blueprint de implementação
 /tdd                                          → tdd-guide aplica escrita de testes primeiro
 /code-review                                  → code-reviewer verifica seu trabalho
@@ -443,7 +443,7 @@ Regras são diretrizes sempre seguidas, organizadas em `common/` (agnóstico à 
 <summary><b>Como verificar quais agentes/comandos estão instalados?</b></summary>
 
 ```bash
-/plugin list everything-claude-code@everything-claude-code
+/plugin list ecc@ecc
 ```
 </details>
 

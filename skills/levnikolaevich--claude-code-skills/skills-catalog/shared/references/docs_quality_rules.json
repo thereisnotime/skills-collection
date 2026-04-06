@@ -118,16 +118,6 @@
       "docRole": "canonical"
     },
     {
-      "match": "docs/tools_config.md",
-      "class": "root",
-      "requiresScope": true,
-      "requiresMetadata": true,
-      "requiresTopSections": true,
-      "requiresMaintenance": true,
-      "docKind": "reference",
-      "docRole": "canonical"
-    },
-    {
       "match": "docs/project/requirements.md",
       "class": "project",
       "requiresScope": true,

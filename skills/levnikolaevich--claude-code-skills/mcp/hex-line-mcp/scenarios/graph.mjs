@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { readFile } from "../lib/read.mjs";
 import { editFile } from "../lib/edit.mjs";
 import { grepSearch } from "../lib/search.mjs";
-import { fnv1a, lineTag } from "../lib/hash.mjs";
+import { fnv1a, lineTag } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { getFileLines, fmt, pctSavings } from "../lib/scenario-helpers.mjs";
 
 /**

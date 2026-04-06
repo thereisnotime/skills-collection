@@ -92,6 +92,22 @@
     }
     ,
     {
+      "id": "legal-compliance",
+      "name": "Legal & Compliance",
+      "description": "Contract review, document generation, risk analysis, and regulatory compliance across GDPR, CCPA, SOC 2, and more",
+      "icon": "\u2696\uFE0F",
+      "color": "#6366F1",
+      "plugins": [
+        "general-legal-assistant",
+        "gdpr-compliance-scanner",
+        "compliance-checker",
+        "pci-dss-validator",
+        "soc2-audit-helper",
+        "data-privacy-scanner"
+      ],
+      "featured": true
+    },
+    {
       "id": "jeremys-picks",
       "name": "Jeremy's Picks",
       "description": "Personal favorites and tools I actually use every day - built by the marketplace creator",
@@ -105,6 +121,6 @@
   ],
   "meta": {
     "version": "1.1.0",
-    "lastUpdated": "2026-03-12"
+    "lastUpdated": "2026-04-05"
   }
 }

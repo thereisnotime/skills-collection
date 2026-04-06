@@ -12,6 +12,7 @@ import {
     getSnapshotByRevision,
     readSnapshot,
 } from "./snapshot.mjs";
+import { ACTION, REASON, STATUS } from "./output-contract.mjs";
 
 function parseChecksumEntry(raw) {
     try {
@@ -81,15 +82,55 @@ function summarizeStatuses(entries) {
     }, { valid: 0, stale: 0, invalid: 0 });
 }
 
-function renderEntry(entry) {
-    const base = `checksum: ${entry.checksum}`;
-    if (entry.status === "VALID") {
-        return `${entry.status} ${entry.span} ${base}`;
-    }
-    if (entry.status === "STALE") {
-        return `${entry.status} ${entry.span} ${base} current=${entry.currentChecksum} | re-read to refresh`;
-    }
-    return `${entry.status}${entry.span ? ` ${entry.span}` : ""} ${base} reason=${entry.reason}`;
+function buildSuggestedReadCall(filePath, ranges) {
+    const deduped = [...new Set((ranges || []).filter(Boolean))];
+    if (!filePath || deduped.length === 0) return null;
+    return JSON.stringify({
+        tool: "mcp__hex-line__read_file",
+        arguments: {
+            path: filePath,
+            ranges: deduped,
+        }
+    });
+}
+
+function entryNextAction(entry) {
+    if (entry.status === "VALID") return ACTION.KEEP_USING;
+    if (entry.status === "STALE") return ACTION.REREAD_RANGE;
+    if (entry.span) return ACTION.FIX_INPUT_OR_REREAD;
+    return ACTION.FIX_INPUT;
+}
+
+function overallNextAction(summary) {
+    if (summary.invalid > 0 && summary.stale > 0) return ACTION.FIX_INPUTS_THEN_REREAD;
+    if (summary.invalid > 0) return ACTION.FIX_INPUTS;
+    if (summary.stale > 0) return ACTION.REREAD_RANGES;
+    return ACTION.KEEP_USING;
+}
+
+function overallReason(status) {
+    if (status === STATUS.OK) return REASON.CHECKSUMS_CURRENT;
+    if (status === STATUS.STALE) return REASON.CHECKSUMS_STALE;
+    return REASON.CHECKSUMS_INVALID;
+}
+
+function entrySummary(entry) {
+    if (entry.status === "VALID") return "checksum still current";
+    if (entry.status === "STALE") return "content changed since checksum capture";
+    return entry.reason;
+}
+
+function renderEntry(entry, index, total) {
+    const parts = [
+        `entry: ${index}/${total}`,
+        `status: ${entry.status}`,
+        entry.span ? `span: ${entry.span}` : null,
+        `checksum: ${entry.checksum}`,
+        entry.currentChecksum && entry.currentChecksum !== entry.checksum ? `current_checksum: ${entry.currentChecksum}` : null,
+        `next_action: ${entryNextAction(entry)}`,
+        `summary: ${entrySummary(entry)}`,
+    ].filter(Boolean);
+    return parts.join(" | ");
 }
 
 export function verifyChecksums(filePath, checksums, opts = {}) {
@@ -101,14 +142,17 @@ export function verifyChecksums(filePath, checksums, opts = {}) {
     const parsedEntries = (checksums || []).map(parseChecksumEntry);
     const results = parsedEntries.map(entry => classifyChecksum(currentSnapshot, entry));
     const summary = summarizeStatuses(results);
-    const status = summary.invalid > 0 ? "INVALID"
-        : summary.stale > 0 ? "STALE"
-            : "OK";
+    const status = summary.invalid > 0 ? STATUS.INVALID
+        : summary.stale > 0 ? STATUS.STALE
+            : STATUS.OK;
+    const staleRanges = results.filter((entry) => entry.status === "STALE" && entry.span).map((entry) => entry.span);
     const lines = [
         `status: ${status}`,
+        `reason: ${overallReason(status)}`,
         `revision: ${currentSnapshot.revision}`,
         `file: ${currentSnapshot.fileChecksum}`,
         `summary: valid=${summary.valid} stale=${summary.stale} invalid=${summary.invalid}`,
+        `next_action: ${overallNextAction(summary)}`,
     ];
 
     if (opts.baseRevision) {
@@ -120,8 +164,11 @@ export function verifyChecksums(filePath, checksums, opts = {}) {
         }
     }
 
+    const suggestedReadCall = buildSuggestedReadCall(filePath, staleRanges);
+    if (suggestedReadCall) lines.push(`suggested_read_call: ${suggestedReadCall}`);
+
     if (results.length > 0) {
-        lines.push("", ...results.map(renderEntry));
+        lines.push("", ...results.map((entry, index) => renderEntry(entry, index + 1, results.length)));
     }
 
     return lines.join("\n");

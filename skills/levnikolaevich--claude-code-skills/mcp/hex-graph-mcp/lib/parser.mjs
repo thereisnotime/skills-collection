@@ -126,6 +126,8 @@ export async function parseFile(filePath, source, opts = {}) {
     for (const { name: captureName, node } of captures) {
         const startLine = node.startPosition.row + 1;
         const endLine = node.endPosition.row + 1;
+        const startColumn = node.startPosition.column;
+        const endColumn = node.endPosition.column;
 
         if (captureName === "definition.function") {
             const nameNode = node.childForFieldName("name");
@@ -135,6 +137,8 @@ export async function parseFile(filePath, source, opts = {}) {
                     kind: "function",
                     line_start: startLine,
                     line_end: endLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
                     signature: extractSignature(node),
                     _node: node,
                 };
@@ -149,6 +153,8 @@ export async function parseFile(filePath, source, opts = {}) {
                     kind: classifyTypeKind(node.type),
                     line_start: startLine,
                     line_end: endLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
                 };
                 def.key = defKey(def);
                 definitions.push(def);
@@ -175,6 +181,8 @@ export async function parseFile(filePath, source, opts = {}) {
                     kind: "method",
                     line_start: startLine,
                     line_end: endLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
                     parent: parentName,
                     signature: extractSignature(node),
                     _node: node,
@@ -192,25 +200,51 @@ export async function parseFile(filePath, source, opts = {}) {
                     kind: "variable",
                     line_start: startLine,
                     line_end: endLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
                 };
                 def.key = defKey(def);
                 definitions.push(def);
             }
         } else if (captureName === "import") {
             const imp = extractImport(node, grammar);
-            if (imp) imports.push({ ...imp, line: startLine });
+            if (imp) {
+                imports.push({
+                    ...imp,
+                    line: startLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
+                });
+            }
         } else if (captureName === "call") {
             const call = extractCallDetails(node);
             if (call?.name) {
-                calls.push({ ...call, line: startLine });
+                calls.push({
+                    ...call,
+                    line: startLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
+                });
             }
         } else if (captureName === "reference.identifier") {
             if (node.type === "identifier" || node.type === "name") {
-                references.push({ name: node.text, line: startLine, refKind: "read" });
+                references.push({
+                    name: node.text,
+                    line: startLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
+                    refKind: "read",
+                });
             }
         } else if (captureName === "reference.type") {
             if (node.type === "type_identifier" || node.type === "identifier") {
-                references.push({ name: node.text, line: startLine, refKind: "type_ref" });
+                references.push({
+                    name: node.text,
+                    line: startLine,
+                    column_start: startColumn,
+                    column_end: endColumn,
+                    refKind: "type_ref",
+                });
             }
         }
     }
@@ -299,6 +333,8 @@ export async function parseFile(filePath, source, opts = {}) {
                     kind,
                     line_start: child.startPosition.row + 1,
                     line_end: child.endPosition.row + 1,
+                    column_start: child.startPosition.column,
+                    column_end: child.endPosition.column,
                 };
                 def.key = defKey(def);
                 definitions.push(def);

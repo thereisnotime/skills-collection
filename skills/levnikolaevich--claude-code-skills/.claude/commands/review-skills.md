@@ -1,6 +1,6 @@
 ---
 description: Run skill quality review with repo-specific checks for claude-code-skills
-allowed-tools: Skill, Bash, Grep, Glob, Read, AskUserQuestion
+allowed-tools: Skill, Bash, Grep, Glob, Read, AskUserQuestion, mcp__hex-graph__index_project, mcp__hex-graph__find_symbols, mcp__hex-graph__find_references, mcp__hex-graph__find_implementations, mcp__hex-graph__trace_paths, mcp__hex-graph__analyze_architecture
 ---
 
 # Review Skills
@@ -284,6 +284,110 @@ Merge results into:
 
 Then list all FAIL and WARN items grouped by severity, with file paths and fix descriptions.
 
+## Step 2b: Graph-Powered Runtime Checks (hex-graph)
+
+Requires `shared/scripts/` JavaScript runtimes. Run `mcp__hex-graph__index_project` once, then:
+
+### RG1: Cross-Runtime API Drift
+
+Detect exported functions with the same name but different signatures across runtimes.
+
+For each shared function name (e.g. `validateTransition`, `computeResumeAction`, `validateSchema`):
+
+```
+mcp__hex-graph__find_symbols(query: "{function_name}", path: "d:/Development/LevNikolaevich/claude-code-skills")
+```
+
+If found in 2+ runtimes, compare signatures via `inspect_symbol` on each. Report divergent parameter lists.
+
+**Discovery step:** use `grep_search` to find all `export function` declarations, then group by name.
+
+```
+mcp__hex-line__grep_search(pattern: "export function", path: "skills-catalog/shared/scripts", glob: "*/lib/*.mjs")
+```
+
+| Verdict | Condition |
+|---------|-----------|
+| PASS | All shared function names have identical signatures |
+| WARN | Same name, compatible but different param order or defaults |
+| FAIL | Same name, incompatible signatures (different param count/types) |
+### RG2: Dead Exports in Runtime Libraries
+
+Find exported functions/constants in `lib/*.mjs` that no other module imports.
+
+```
+mcp__hex-graph__find_references(symbol: "{export_name}", path: "skills-catalog/shared/scripts")
+```
+
+For each `export` in `lib/*.mjs`: if `find_references` returns 0 external consumers (excluding the defining file and its co-located test), mark as dead export.
+
+| Verdict | Condition |
+|---------|-----------|
+| PASS | All exports have at least 1 consumer |
+| WARN | 1-3 dead exports (may be intentional public API) |
+| FAIL | >3 dead exports per runtime |
+
+### RG3: Guards-Store Field Alignment
+
+Verify that `guards.mjs` field checks reference fields that exist in the runtime's store/phases.
+
+For each runtime with `guards.mjs`:
+
+```
+mcp__hex-graph__inspect_symbol(name: "guards", file: "skills-catalog/shared/scripts/{runtime}/lib/guards.mjs", path: "...")
+```
+
+`inspect_symbol` returns the full outgoing dependency chain (imports from `phases.mjs`, `store.mjs`, `runtime-constants.mjs`). Verify each imported constant actually exists in the source module via `find_symbols`.
+
+Also cross-check with `grep_search`:
+
+```
+mcp__hex-line__grep_search(pattern: "state\\.", path: "skills-catalog/shared/scripts/{runtime}/lib/guards.mjs")
+```
+
+Compare accessed `state.{field}` names against fields defined in `store.mjs` initialState.
+
+| Verdict | Condition |
+|---------|-----------|
+| PASS | All guard-referenced fields exist in store |
+| FAIL | Guard checks a field not in store schema |
+
+### RG4: Circular Dependencies
+
+Detect import cycles across runtime modules.
+
+```
+mcp__hex-graph__analyze_architecture(path: "skills-catalog/shared/scripts")
+```
+
+Report any circular dependency chains. Cycles between `lib/` modules within the same runtime are FAIL.
+
+| Verdict | Condition |
+|---------|-----------|
+| PASS | No circular imports |
+| FAIL | Any cycle detected within a runtime |
+
+### RG5: CLI Entrypoint Completeness
+
+Verify each runtime `cli.mjs` exposes all phases declared in its `phases.mjs`.
+
+```
+mcp__hex-graph__find_symbols(query: "PHASES", path: "d:/Development/LevNikolaevich/claude-code-skills")
+```
+
+For each `PHASES` constant found, `inspect_symbol` to get the phase enum values. Then check `cli.mjs` in same runtime:
+
+```
+mcp__hex-line__grep_search(pattern: "case |subcommand|command", path: "skills-catalog/shared/scripts/{runtime}/cli.mjs")
+```
+
+Compare phase names against CLI dispatch branches. Report phases with no handler.
+
+| Verdict | Condition |
+|---------|-----------|
+| PASS | Every phase in PHASES has a CLI handler |
+| WARN | Phase exists but CLI delegates to generic handler |
+| FAIL | Phase in PHASES with no CLI path at all |
 ---
 
 ## Step 4: Meta-Analysis

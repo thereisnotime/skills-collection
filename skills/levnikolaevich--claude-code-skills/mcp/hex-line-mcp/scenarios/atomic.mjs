@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, unlinkSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { performance } from "node:perf_hooks";
-import { fnv1a, lineTag, rangeChecksum } from "../lib/hash.mjs";
+import { fnv1a, lineTag, rangeChecksum } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { readFile } from "../lib/read.mjs";
 import { directoryTree } from "../lib/tree.mjs";
 import { fileInfo } from "../lib/info.mjs";
@@ -23,6 +23,8 @@ import {
     getFileLines,
     runN,
 } from "../lib/scenario-helpers.mjs";
+
+const BULK_REPLACE_SCENARIO_FILE_COUNT = 5;
 
 /**
  * Run TEST 1-14 atomic benchmarks (hex-line only).
@@ -224,7 +226,7 @@ export async function runAtomic(config) {
         const bulkTmpDir = resolve(tmpdir(), `hex-line-bulkdir-${ts}`);
         const { mkdirSync } = await import("node:fs");
         mkdirSync(bulkTmpDir, { recursive: true });
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < BULK_REPLACE_SCENARIO_FILE_COUNT; i++) {
             writeFileSync(resolve(bulkTmpDir, `file${i}.js`), tmpContent, "utf-8");
         }
 
@@ -239,7 +241,12 @@ export async function runAtomic(config) {
         const { rmSync } = await import("node:fs");
         try { rmSync(bulkTmpDir, { recursive: true }); } catch {}
 
-        results.push({ num: 10, scenario: "bulk_replace dry_run (5 files)", chars, latency });
+        results.push({
+            num: 10,
+            scenario: `bulk_replace dry_run (${BULK_REPLACE_SCENARIO_FILE_COUNT} files)`,
+            chars,
+            latency,
+        });
     }
 
     // ===================================================================

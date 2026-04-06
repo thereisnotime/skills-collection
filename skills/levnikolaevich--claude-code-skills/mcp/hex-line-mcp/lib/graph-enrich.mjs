@@ -26,18 +26,33 @@ const REQUIRED_VIEWS = [
 ];
 
 const FACT_PRIORITY = new Map([
-    ["definition", 0],
-    ["through_flow", 1],
-    ["outgoing_flow", 2],
-    ["incoming_flow", 3],
-    ["callee", 4],
-    ["caller", 5],
-    ["clone", 6],
-    ["hotspot", 7],
+    ["public_api", 0],
+    ["framework_entrypoint", 1],
+    ["definition", 2],
+    ["through_flow", 3],
+    ["outgoing_flow", 4],
+    ["incoming_flow", 5],
+    ["callee", 6],
+    ["caller", 7],
+    ["clone", 8],
+    ["hotspot", 9],
 ]);
 
 const _dbs = new Map();
 let _driverUnavailable = false;
+// Safety cap for parent-directory traversal while resolving the nearest project boundary.
+const MAX_PROJECT_ROOT_ASCENT = 25;
+const PROJECT_BOUNDARY_MARKERS = [
+    "package.json",
+    "pyproject.toml",
+    "go.mod",
+    "Cargo.toml",
+    "composer.json",
+    "Gemfile",
+    "deno.json",
+    "deno.jsonc",
+    ".git",
+];
 
 export function getGraphDB(filePath) {
     if (_driverUnavailable) return null;
@@ -81,9 +96,9 @@ function validateContract(db) {
             ).get(viewName);
             if (!row) return false;
         }
-        db.prepare("SELECT node_id, file, line_start, line_end, display_name, kind FROM hex_line_symbols LIMIT 1").all();
+        db.prepare("SELECT node_id, file, line_start, line_end, display_name, kind, is_exported, framework_incoming_count FROM hex_line_symbols LIMIT 1").all();
         db.prepare("SELECT fact_kind, related_display_name, confidence, origin FROM hex_line_line_facts LIMIT 1").all();
-        db.prepare("SELECT symbol_node_id, external_callers_count, downstream_return_flow_count, downstream_property_flow_count, sink_reach_count FROM hex_line_edit_impacts LIMIT 1").all();
+        db.prepare("SELECT symbol_node_id, external_callers_count, downstream_return_flow_count, downstream_property_flow_count, sink_reach_count, clone_sibling_count, public_api_count, framework_entrypoint_count, same_name_symbol_count FROM hex_line_edit_impacts LIMIT 1").all();
         db.prepare("SELECT edited_symbol_id, fact_kind, target_display_name, path_kind, flow_hops FROM hex_line_edit_impact_facts LIMIT 1").all();
         return true;
     } catch {
@@ -97,6 +112,10 @@ function shortKind(kind) {
 
 function compactSymbolCounts(node) {
     const parts = [];
+    if (node.is_exported) parts.push(node.is_default_export ? "default api" : "api");
+    if ((node.framework_incoming_count || 0) > 0) {
+        parts.push(node.framework_incoming_count === 1 ? "entrypoint" : `entrypoint ${node.framework_incoming_count}`);
+    }
     if ((node.callees_exact || 0) > 0 || (node.callers_exact || 0) > 0) {
         parts.push(`${node.callees_exact}\u2193 ${node.callers_exact}\u2191`);
     }
@@ -113,6 +132,7 @@ export function symbolAnnotation(db, file, name) {
     try {
         const node = db.prepare(
             `SELECT display_name, kind, callers_exact, callees_exact, incoming_flow_count, outgoing_flow_count, through_flow_count, clone_sibling_count
+                    , is_exported, is_default_export, framework_incoming_count
              FROM hex_line_symbols
              WHERE file = ? AND name = ?
              LIMIT 1`
@@ -126,14 +146,28 @@ export function symbolAnnotation(db, file, name) {
     }
 }
 
-export function fileAnnotations(db, file) {
+export function fileAnnotations(db, file, { startLine = null, endLine = null, limit = 8 } = {}) {
     try {
-        const nodes = db.prepare(
-            `SELECT display_name, kind, callers_exact, callees_exact, incoming_flow_count, outgoing_flow_count, through_flow_count, clone_sibling_count
-             FROM hex_line_symbols
-             WHERE file = ?
-             ORDER BY line_start`
-        ).all(file);
+        const hasRange = Number.isInteger(startLine) && Number.isInteger(endLine);
+        const nodes = hasRange
+            ? db.prepare(
+                `SELECT display_name, kind, callers_exact, callees_exact, incoming_flow_count, outgoing_flow_count, through_flow_count, clone_sibling_count,
+                        is_exported, is_default_export, framework_incoming_count, line_start
+                 FROM hex_line_symbols
+                 WHERE file = ?
+                   AND line_start <= ?
+                   AND line_end >= ?
+                 ORDER BY line_start
+                 LIMIT ?`
+            ).all(file, endLine, startLine, limit)
+            : db.prepare(
+                `SELECT display_name, kind, callers_exact, callees_exact, incoming_flow_count, outgoing_flow_count, through_flow_count, clone_sibling_count,
+                        is_exported, is_default_export, framework_incoming_count, line_start
+                 FROM hex_line_symbols
+                 WHERE file = ?
+                 ORDER BY line_start
+                 LIMIT ?`
+            ).all(file, limit);
 
         return nodes.map(node => ({
             name: node.display_name,
@@ -144,6 +178,10 @@ export function fileAnnotations(db, file) {
             outgoing_flow_count: node.outgoing_flow_count,
             through_flow_count: node.through_flow_count,
             clone_sibling_count: node.clone_sibling_count,
+            is_exported: !!node.is_exported,
+            is_default_export: !!node.is_default_export,
+            framework_incoming_count: node.framework_incoming_count,
+            line_start: node.line_start,
         }));
     } catch {
         return [];
@@ -154,6 +192,10 @@ function formatLineFact(fact) {
     const countParts = compactSymbolCounts(fact);
     const suffix = countParts.length > 0 ? ` | ${countParts.join(" | ")}` : "";
     switch (fact.fact_kind) {
+    case "public_api":
+        return `[api${suffix}]`;
+    case "framework_entrypoint":
+        return fact.related_display_name ? `[entry:${fact.related_display_name}${suffix}]` : `[entry${suffix}]`;
     case "definition":
         return `[${shortKind(fact.kind)}${suffix}]`;
     case "callee":
@@ -202,7 +244,15 @@ export function matchAnnotation(db, file, line) {
         ).all(file, line, line);
         if (facts.length === 0) return null;
         facts.sort((left, right) => priorityForFact(left.fact_kind) - priorityForFact(right.fact_kind));
-        return formatLineFact(facts[0]);
+        const labels = [];
+        const seenKinds = new Set();
+        for (const fact of facts) {
+            if (seenKinds.has(fact.fact_kind)) continue;
+            seenKinds.add(fact.fact_kind);
+            labels.push(formatLineFact(fact));
+            if (labels.length >= 3) break;
+        }
+        return labels.join(" ");
     } catch {
         return null;
     }
@@ -249,7 +299,8 @@ export function cloneWarning(db, file, startLine, endLine) {
 export function semanticImpact(db, file, startLine, endLine) {
     try {
         const modified = db.prepare(
-            `SELECT symbol_node_id, display_name, external_callers_count, downstream_return_flow_count, downstream_property_flow_count, sink_reach_count, clone_sibling_count
+            `SELECT symbol_node_id, display_name, external_callers_count, downstream_return_flow_count, downstream_property_flow_count, sink_reach_count,
+                    clone_sibling_count, public_api_count, framework_entrypoint_count, same_name_symbol_count
              FROM hex_line_edit_impacts
              WHERE file = ?
                AND line_start <= ?
@@ -300,6 +351,9 @@ export function semanticImpact(db, file, startLine, endLine) {
                     downstreamPropertyFlow: item.downstream_property_flow_count,
                     sinkReach: item.sink_reach_count,
                     cloneSiblings: item.clone_sibling_count,
+                    publicApi: item.public_api_count,
+                    frameworkEntrypoints: item.framework_entrypoint_count,
+                    sameNameSymbols: item.same_name_symbol_count,
                 },
                 facts: dedupedFacts,
             };
@@ -317,15 +371,9 @@ export function getRelativePath(filePath) {
 
 function findProjectRoot(filePath) {
     let dir = dirname(filePath);
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < MAX_PROJECT_ROOT_ASCENT; i++) {
         if (existsSync(join(dir, ".hex-skills/codegraph", "index.db"))) return dir;
-        const parent = dirname(dir);
-        if (parent === dir) break;
-        dir = parent;
-    }
-    dir = dirname(filePath);
-    for (let i = 0; i < 10; i++) {
-        if (existsSync(join(dir, ".git"))) return dir;
+        if (PROJECT_BOUNDARY_MARKERS.some((marker) => existsSync(join(dir, marker)))) return dir;
         const parent = dirname(dir);
         if (parent === dir) break;
         dir = parent;

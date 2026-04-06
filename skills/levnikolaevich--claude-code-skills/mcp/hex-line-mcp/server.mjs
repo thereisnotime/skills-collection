@@ -2,7 +2,7 @@
 /**
  * hex-line-mcp — MCP server for hash-verified file operations.
  *
- * 10 tools: read_file, edit_file, write_file, grep_search, outline, verify, directory_tree, get_file_info, changes, bulk_replace
+ * 9 tools: inspect_path, read_file, edit_file, write_file, grep_search, outline, verify, changes, bulk_replace
  * FNV-1a 2-char tags + range checksums
  * Security: root policy, path validation, binary/size rejection
  * Transport: stdio
@@ -15,7 +15,6 @@ const version = typeof __HEX_VERSION__ !== "undefined" ? __HEX_VERSION__ // esli
 import { z } from "zod";
 import { createServerRuntime } from "@levnikolaevich/hex-common/runtime/mcp-bootstrap";
 import { flexBool, flexNum } from "@levnikolaevich/hex-common/runtime/schema";
-import { coerceParams } from "@levnikolaevich/hex-common/runtime/coerce";
 import { checkForUpdates } from "@levnikolaevich/hex-common/runtime/update-check";
 // LLM clients may send booleans as strings ("true"/"false").
 // z.coerce.boolean() is unsafe: Boolean("false") === true.
@@ -29,9 +28,8 @@ import { editFile } from "./lib/edit.mjs";
 import { grepSearch } from "./lib/search.mjs";
 import { fileOutline } from "./lib/outline.mjs";
 import { verifyChecksums } from "./lib/verify.mjs";
-import { validateWritePath } from "./lib/security.mjs";
-import { directoryTree } from "./lib/tree.mjs";
-import { fileInfo } from "./lib/info.mjs";
+import { assertProjectScopedPath, validateWritePath } from "./lib/security.mjs";
+import { inspectPath } from "./lib/inspect-path.mjs";
 import { autoSync } from "./lib/setup.mjs";
 import { fileChanges } from "./lib/changes.mjs";
 import { bulkReplace } from "./lib/bulk-replace.mjs";
@@ -69,26 +67,25 @@ function parseReadRanges(rawRanges) {
 
 server.registerTool("read_file", {
     title: "Read File",
-    description: "Read file with hash-annotated lines, checksums, and revision metadata. Default: edit-ready output. Use plain:true for non-edit workflows.",
+    description: "Read file with hash-annotated lines, checksums, logical revision metadata, EOL/trailing-newline state, and graph hints when available. Default: edit-ready output.",
     inputSchema: z.object({
-        path: z.string().optional().describe("File or directory path"),
+        path: z.string().optional().describe("File path"),
         paths: z.array(z.string()).optional().describe("Array of file paths to read (batch mode)"),
         offset: flexNum().describe("Start line (1-indexed, default: 1)"),
         limit: flexNum().describe("Max lines (default: 2000, 0 = all)"),
         ranges: z.union([z.string(), z.array(readRangeSchema)]).optional().describe('Line ranges, e.g. ["10-25", {"start":40,"end":55}]'),
-        include_graph: flexBool().describe("Include graph annotations"),
         plain: flexBool().describe("Omit hashes (lineNum|content)"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path: p, paths: multi, offset, limit, ranges: rawRanges, include_graph, plain } = coerceParams(rawParams);
+    const { path: p, paths: multi, offset, limit, ranges: rawRanges, plain } = rawParams ?? {};
     try {
         const ranges = parseReadRanges(rawRanges);
         if (multi && multi.length > 0 && !p) {
             const results = [];
             for (const fp of multi) {
                 try {
-                    results.push(readFile(fp, { offset, limit, ranges, includeGraph: include_graph, plain }));
+                    results.push(readFile(fp, { offset, limit, ranges, plain }));
                 } catch (e) {
                     results.push(`File: ${fp}\n\nERROR: ${e.message}`);
                 }
@@ -96,7 +93,7 @@ server.registerTool("read_file", {
             return { content: [{ type: "text", text: results.join("\n\n---\n\n") }] };
         }
         if (!p) throw new Error("Either 'path' or 'paths' is required");
-        return { content: [{ type: "text", text: readFile(p, { offset, limit, ranges, includeGraph: include_graph, plain }) }] };
+        return { content: [{ type: "text", text: readFile(p, { offset, limit, ranges, plain }) }] };
     } catch (e) {
         return { content: [{ type: "text", text: e.message }], isError: true };
     }
@@ -107,7 +104,7 @@ server.registerTool("read_file", {
 
 server.registerTool("edit_file", {
     title: "Edit File",
-    description: "Apply hash-verified partial edits to one file. Batch multiple edits in one call. Carry base_revision from prior read/edit for auto-rebase on concurrent changes.",
+    description: "Apply hash-verified partial edits to one file. Carry base_revision on same-file follow-ups. Preserves existing line endings and trailing-newline shape; conservative conflicts return retry helpers.",
     inputSchema: z.object({
         path: z.string().describe("File to edit"),
         edits: z.union([z.string(), z.array(z.any())]).describe(
@@ -120,12 +117,14 @@ server.registerTool("edit_file", {
         dry_run: flexBool().describe("Preview changes without writing"),
         restore_indent: flexBool().describe("Auto-fix indentation to match anchor (default: false)"),
         base_revision: z.string().optional().describe("Prior revision from read_file/edit_file. Enables conservative auto-rebase for same-file follow-up edits."),
-        conflict_policy: z.enum(["strict", "conservative"]).optional().describe('Conflict handling (default: "conservative"). "conservative" returns structured CONFLICT output for stale edits instead of forcing reread.'),
+        conflict_policy: z.enum(["strict", "conservative"]).optional().describe('Conflict handling (default: "conservative"). "conservative" returns structured CONFLICT output with recovery_ranges, retry_edit/retry_edits, suggested_read_call, and retry_plan when available.'),
+        allow_external: flexBool().describe("Allow editing a path outside the current project root. Use only when you intentionally target a temp or external file."),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
 }, async (rawParams) => {
-    const { path: p, edits: json, dry_run, restore_indent, base_revision, conflict_policy } = coerceParams(rawParams);
+    const { path: p, edits: json, dry_run, restore_indent, base_revision, conflict_policy, allow_external } = rawParams ?? {};
     try {
+        assertProjectScopedPath(p, { allowExternal: !!allow_external });
         let parsed;
         try { parsed = typeof json === "string" ? JSON.parse(json) : json; }
         catch { throw new Error('edits: invalid JSON. Expected: [{"set_line":{"anchor":"xx.N","new_text":"..."}}]'); }
@@ -157,11 +156,13 @@ server.registerTool("write_file", {
     inputSchema: z.object({
         path: z.string().describe("File path"),
         content: z.string().describe("File content"),
+        allow_external: flexBool().describe("Allow writing a path outside the current project root. Use only when you intentionally target a temp or external file."),
     }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path: p, content } = coerceParams(rawParams);
+    const { path: p, content, allow_external } = rawParams ?? {};
     try {
+        assertProjectScopedPath(p, { allowExternal: !!allow_external });
         const abs = validateWritePath(p);
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, content, "utf-8");
@@ -191,13 +192,13 @@ server.registerTool("grep_search", {
         context_before: flexNum().describe("Context lines BEFORE match (-B)"),
         context_after: flexNum().describe("Context lines AFTER match (-A)"),
         limit: flexNum().describe("Max matches per file (default: 100)"),
-        total_limit: flexNum().describe("Total match events across all files; multiline matches count as 1 (0 = unlimited)"),
+        total_limit: flexNum().describe("Total match events across all files; multiline matches count as 1 (default: 200 for content, 1000 for files/count, 0 = unlimited)"),
         plain: flexBool().describe("Omit hash tags, return file:line:content"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
     const { pattern, path: p, glob, type, output, case_insensitive, smart_case, literal, multiline,
-            context, context_before, context_after, limit, total_limit, plain } = coerceParams(rawParams);
+            context, context_before, context_after, limit, total_limit, plain } = rawParams ?? {};
     try {
         const result = await grepSearch(pattern, {
             path: p, glob, type, output, caseInsensitive: case_insensitive, smartCase: smart_case,
@@ -217,13 +218,13 @@ server.registerTool("outline", {
     title: "File Outline",
     description:
         "AST-based structural outline with hash anchors for direct edit_file usage. " +
-        "Supports code files (JS/TS/Python/Go/Rust/Java/C/C++/C#/Ruby/PHP/Kotlin/Swift/Bash) and markdown headings (.md/.mdx, fence-aware).",
+        "Supports JavaScript/TypeScript, Python, C#, and PHP code files plus markdown headings (.md/.mdx, fence-aware).",
     inputSchema: z.object({
         path: z.string().describe("Source file path"),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path: p } = coerceParams(rawParams);
+    const { path: p } = rawParams ?? {};
     try {
         const result = await fileOutline(p);
         return { content: [{ type: "text", text: result }] };
@@ -237,7 +238,7 @@ server.registerTool("outline", {
 
 server.registerTool("verify", {
     title: "Verify Checksums",
-    description: "Check if held checksums are still valid without rereading. Use after edit_file returns CONFLICT to decide: VALID (retry), STALE (reread ranges), INVALID (reread file).",
+    description: "Check if held checksums are still valid without rereading. Use before delayed or mixed-tool follow-up edits; returns canonical status, next_action, and reread guidance.",
     inputSchema: z.object({
         path: z.string().describe("File path"),
         checksums: z.array(z.string()).describe('Checksum strings, e.g. ["1-50:f7e2a1b0", "51-100:abcd1234"]'),
@@ -245,7 +246,7 @@ server.registerTool("verify", {
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path: p, checksums, base_revision } = coerceParams(rawParams);
+    const { path: p, checksums, base_revision } = rawParams ?? {};
     try {
         if (!Array.isArray(checksums) || checksums.length === 0) {
             throw new Error("checksums must be a non-empty array of strings");
@@ -257,47 +258,25 @@ server.registerTool("verify", {
 });
 
 
-// ==================== directory_tree ====================
+// ==================== inspect_path ====================
 
-server.registerTool("directory_tree", {
-    title: "Directory Tree",
+server.registerTool("inspect_path", {
+    title: "Inspect Path",
     description:
-        "Gitignore-aware directory tree. Use pattern glob to find files/dirs by name instead of Bash find/ls. " +
-        "Skips node_modules, .git, dist.",
+        "Inspect a file or directory path. Files return compact metadata; directories return a gitignore-aware tree or pattern matches.",
     inputSchema: z.object({
-        path: z.string().describe("Directory path"),
+        path: z.string().describe("File or directory path"),
         pattern: z.string().optional().describe('Glob filter on names (e.g. "*-mcp", "*.mjs"). Returns flat match list instead of tree'),
         type: z.enum(["file", "dir", "all"]).optional().describe('"file", "dir", or "all" (default). Like find -type f/d'),
         max_depth: flexNum().describe("Max recursion depth (default: 3, or 20 in pattern mode)"),
         gitignore: flexBool().describe("Respect root .gitignore patterns (default: true). Nested .gitignore not supported"),
-        format: z.enum(["compact", "full"]).optional().describe('"compact" = names only, no sizes, depth 1. "full" = default with sizes'),
+        format: z.enum(["compact", "full"]).optional().describe('"compact" = shorter path view, "full" = include sizes/metadata where available'),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path: p, max_depth, gitignore, format, pattern, type: entryType } = coerceParams(rawParams);
+    const { path: p, max_depth, gitignore, format, pattern, type: entryType } = rawParams ?? {};
     try {
-        return { content: [{ type: "text", text: directoryTree(p, { max_depth, gitignore, format, pattern, type: entryType }) }] };
-    } catch (e) {
-        return { content: [{ type: "text", text: e.message }], isError: true };
-    }
-});
-
-
-// ==================== get_file_info ====================
-
-server.registerTool("get_file_info", {
-    title: "File Info",
-    description:
-        "File metadata without reading content: size, line count, mtime, binary detection. " +
-        "Use before read_file on unknown files to decide offset/limit strategy.",
-    inputSchema: z.object({
-        path: z.string().describe("File path"),
-    }),
-    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
-}, async (rawParams) => {
-    const { path: p } = coerceParams(rawParams);
-    try {
-        return { content: [{ type: "text", text: fileInfo(p) }] };
+        return { content: [{ type: "text", text: inspectPath(p, { max_depth, gitignore, format, pattern, type: entryType }) }] };
     } catch (e) {
         return { content: [{ type: "text", text: e.message }], isError: true };
     }
@@ -309,14 +288,14 @@ server.registerTool("get_file_info", {
 server.registerTool("changes", {
     title: "Semantic Diff",
     description:
-        "Semantic diff against git ref (default: HEAD). Shows added/removed/modified symbols. Use to review changes before commit.",
+        "Semantic diff against git ref (default: HEAD). Returns canonical status, summary, next_action, changed symbols, and graph-backed risk hints when available.",
     inputSchema: z.object({
         path: z.string().describe("File or directory path"),
         compare_against: z.string().optional().describe('Git ref to compare against (default: "HEAD")'),
     }),
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
 }, async (rawParams) => {
-    const { path: p, compare_against } = coerceParams(rawParams);
+    const { path: p, compare_against } = rawParams ?? {};
     try {
         return { content: [{ type: "text", text: await fileChanges(p, compare_against) }] };
     } catch (e) {
@@ -329,26 +308,28 @@ server.registerTool("changes", {
 
 server.registerTool("bulk_replace", {
     title: "Bulk Replace",
-    description: "Search-and-replace text across multiple files. Use for renames, refactors. Compact or full diff output.",
+    description: "Search-and-replace text across multiple files inside an explicit root path. Use for renames and refactors when the project scope is known.",
     inputSchema: z.object({
         replacements: z.union([z.string(), replacementPairsSchema]).describe('JSON array of {old, new} pairs: [{"old":"foo","new":"bar"}]'),
         glob: z.string().optional().describe('File glob (default: "**/*.{md,mjs,json,yml,ts,js}")'),
-        path: z.string().optional().describe("Root directory (default: cwd)"),
+        path: z.string().describe("Root directory for the replacement scope"),
         dry_run: flexBool().describe("Preview without writing (default: false)"),
         max_files: flexNum().describe("Max files to process (default: 100)"),
         format: z.enum(["compact", "full"]).optional().describe('"compact" (default) = summary only, "full" = include capped diffs'),
+        allow_external: flexBool().describe("Allow a replacement root outside the current project root. Use only when you intentionally target a temp or external directory."),
     }),
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
 }, async (rawParams) => {
     try {
-        const params = coerceParams(rawParams);
+        const params = rawParams ?? {};
+        assertProjectScopedPath(params.path, { allowExternal: !!params.allow_external });
         const raw = params.replacements;
         let replacementsInput;
         try { replacementsInput = typeof raw === "string" ? JSON.parse(raw) : raw; }
         catch { throw new Error('replacements: invalid JSON. Expected: [{"old":"text","new":"replacement"}]'); }
         const replacements = replacementPairsSchema.parse(replacementsInput);
         const result = bulkReplace(
-            params.path || process.cwd(),
+            params.path,
             params.glob || "**/*.{md,mjs,json,yml,ts,js}",
             replacements,
             { dryRun: params.dry_run || false, maxFiles: params.max_files || 100, format: params.format }

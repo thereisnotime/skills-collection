@@ -6,6 +6,8 @@
 
 `hex-line-mcp` is an edit-ready protocol for AI coding agents.
 
+`revision` tracks logical file content, not raw line-ending bytes alone. `hex-line` normalizes line endings for comparison and hashing, then preserves the existing line-ending and trailing-newline shape when it writes the file back.
+
 The protocol is built around three concepts:
 - `DocumentSnapshot` — current file truth: lines, hashes, checksums, revision
 - `EditReadyBlock` — canonical payload emitted by read and search workflows
@@ -15,6 +17,7 @@ The protocol is built around three concepts:
 
 `hex-line` owns all correctness-critical state:
 - normalized file content
+- raw line-ending metadata
 - absolute line numbers
 - per-line hashes
 - range and file checksums
@@ -59,6 +62,7 @@ Diagnostic blocks are explicit and never pretend to be edit-ready.
 
 - Anchors resolve against the current snapshot only.
 - Checksums always cover exactly the emitted block.
+- EOL normalization is for comparison only, not for silently rewriting existing user data.
 - `read_file` and `grep_search` emit the same class of edit-ready blocks.
 - Ranking changes order only, never payload semantics.
 - Graph enrichment changes summaries only, never correctness.

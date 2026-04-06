@@ -7,7 +7,7 @@
 
 import { Client } from "ssh2";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix as pathPosix, win32 as pathWin32 } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { buildHostVerifier } from "./host-verify.mjs";
@@ -133,35 +133,77 @@ function validateHost(resolvedHost, originalHost) {
 
 // --------------- Path Validation ---------------
 
-function canonicalize(raw) {
-    if (!raw.startsWith("/")) {
-        throw new Error(`BAD_PATH: absolute remote path required, got "${raw}"`);
-    }
-    const parts = raw.split("/").filter(Boolean);
-    const resolved = [];
-    for (const p of parts) {
-        if (p === "..") { if (resolved.length) resolved.pop(); }
-        else if (p !== ".") resolved.push(p);
-    }
-    return "/" + resolved.join("/");
+function normalizeRemotePlatform(remotePlatform = "auto") {
+    if (remotePlatform === undefined || remotePlatform === null || remotePlatform === "") return "auto";
+    if (remotePlatform === "auto" || remotePlatform === "posix" || remotePlatform === "windows") return remotePlatform;
+    throw new Error(`BAD_REMOTE_PLATFORM: expected auto, posix, or windows; got "${remotePlatform}"`);
 }
 
-export function validateRemotePath(filePath) {
+function detectRemotePlatform(raw) {
+    if (/^(?:[a-zA-Z]:[\\/]|\/[a-zA-Z]:[\\/]|\\\\)/.test(raw) || raw.includes("\\")) return "windows";
+    return "posix";
+}
+
+function canonicalizePosix(raw) {
+    if (!raw.startsWith("/")) {
+        throw new Error(`BAD_PATH: absolute POSIX remote path required, got "${raw}"`);
+    }
+    const canonical = pathPosix.normalize(raw);
+    if (!canonical.startsWith("/")) {
+        throw new Error(`BAD_PATH: absolute POSIX remote path required, got "${raw}"`);
+    }
+    return canonical;
+}
+
+function canonicalizeWindows(raw) {
+    let candidate = raw;
+    if (/^\/[a-zA-Z]:[\\/]/.test(candidate)) candidate = candidate.slice(1);
+    candidate = candidate.replace(/\//g, "\\");
+    if (!pathWin32.isAbsolute(candidate)) {
+        throw new Error(`BAD_PATH: absolute Windows remote path required, got "${raw}"`);
+    }
+    return pathWin32.normalize(candidate);
+}
+
+function isWithinRemoteRoot(filePath, rootPath, remotePlatform) {
+    if (remotePlatform === "windows") {
+        const relativePath = pathWin32.relative(rootPath.toLowerCase(), filePath.toLowerCase());
+        return relativePath === "" || (!relativePath.startsWith("..") && !pathWin32.isAbsolute(relativePath));
+    }
+    const relativePath = pathPosix.relative(rootPath, filePath);
+    return relativePath === "" || (!relativePath.startsWith("..") && !pathPosix.isAbsolute(relativePath));
+}
+
+export function canonicalizeRemotePath(filePath, remotePlatform = "auto") {
     assertSafeArg("filePath", filePath);
-    const canonical = canonicalize(filePath);
+    const normalizedPlatform = normalizeRemotePlatform(remotePlatform);
+    const effectivePlatform = normalizedPlatform === "auto"
+        ? detectRemotePlatform(filePath)
+        : normalizedPlatform;
+    const canonical = effectivePlatform === "windows"
+        ? canonicalizeWindows(filePath)
+        : canonicalizePosix(filePath);
+    return { platform: effectivePlatform, canonical };
+}
+
+export function validateRemotePath(filePath, remotePlatform = "auto") {
+    const { platform, canonical } = canonicalizeRemotePath(filePath, remotePlatform);
 
     const allowed = process.env.ALLOWED_DIRS;
-    if (!allowed) return;
+    if (!allowed) return { platform, canonical };
 
-    const dirs = allowed.split(",").map((d) => canonicalize(d.trim()));
-    const ok = dirs.some((dir) =>
-        canonical === dir || canonical.startsWith(dir + "/")
-    );
+    const dirs = allowed
+        .split(",")
+        .map((d) => d.trim())
+        .filter(Boolean)
+        .map((d) => canonicalizeRemotePath(d, platform).canonical);
+    const ok = dirs.some((dir) => isWithinRemoteRoot(canonical, dir, platform));
     if (!ok) {
         throw new Error(
             `PATH_OUTSIDE_ROOT: "${filePath}" (resolved: "${canonical}") not under ALLOWED_DIRS. Permitted: ${dirs.join(", ")}`
         );
     }
+    return { platform, canonical };
 }
 
 // --------------- Key Resolution ---------------

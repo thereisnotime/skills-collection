@@ -3,24 +3,30 @@
  * Returns only proven-unused exports, with uncertain cases split out explicitly.
  */
 
-const ENTRY_POINT_RE = /(?:^|[\\/])(?:index|main|server|app)\.[^.]+$/;
-const FRAMEWORK_HOOK_NAMES = new Set([
-    "setup", "teardown", "middleware", "configure",
-    "register", "init", "bootstrap",
-]);
-const TEST_FILE_RE = /(?:[\\/]test[\\/]|[\\/]__tests__[\\/]|\.test\.|\.spec\.)/;
+const ENTRY_POINT_RE = /(?:^|[\\\/])(?:index|main|server|app)\.[^.]+$/;
+const TEST_FILE_RE = /(?:[\\/]test[\\/]|[\\/]__tests__[\\/]|\.test\\.|\.spec\\.)/;
 
-function classifySuppression(file, name) {
-    if (ENTRY_POINT_RE.test(file)) {
-        return { suppressed: true, reason: "entry-point" };
+function classifySuppression(store, node) {
+    if (ENTRY_POINT_RE.test(node.file)) {
+        return { suppressed: true, reason: "entry-point", evidence: null };
     }
-    if (FRAMEWORK_HOOK_NAMES.has(name)) {
-        return { suppressed: true, reason: "framework-hook" };
+    const frameworkEdges = store.frameworkIncomingEdges(node.id);
+    if (frameworkEdges.length > 0) {
+        return {
+            suppressed: true,
+            reason: "framework-wired",
+            evidence: frameworkEdges.map(edge => ({
+                kind: edge.kind,
+                origin: edge.origin,
+                file: edge.file,
+                line: edge.line,
+            })),
+        };
     }
-    if (TEST_FILE_RE.test(file)) {
-        return { suppressed: true, reason: "test-utility" };
+    if (TEST_FILE_RE.test(node.file)) {
+        return { suppressed: true, reason: "test-utility", evidence: null };
     }
-    return { suppressed: false, reason: null };
+    return { suppressed: false, reason: null, evidence: null };
 }
 
 export function findUnusedExports(store, { scopePath, kind } = {}) {
@@ -74,7 +80,7 @@ export function findUnusedExports(store, { scopePath, kind } = {}) {
             continue;
         }
 
-        const { suppressed, reason } = classifySuppression(node.file, node.name);
+        const { suppressed, reason, evidence } = classifySuppression(store, node);
         if (suppressed) {
             suppressedCount++;
         }
@@ -84,6 +90,7 @@ export function findUnusedExports(store, { scopePath, kind } = {}) {
             confidence: suppressed ? "medium" : "high",
             suppressed,
             suppress_reason: reason,
+            suppress_evidence: evidence,
         });
     }
 
@@ -122,13 +129,8 @@ export function formatUnusedText(result, showSuppressed = false) {
         lines.push("");
         lines.push("Uncertain exports:");
         for (const item of result.uncertain) {
-            lines.push(`  ${item.file}:${item.line} ${item.name} [${item.reason}]`);
+            lines.push(`  ${item.file}:${item.line} ${item.name} (${item.reason})`);
         }
-    }
-
-    if (!showSuppressed && result.suppressed_count > 0) {
-        lines.push("");
-        lines.push("Suppressed entries hidden; use show_suppressed=true to include them.");
     }
 
     return lines.join("\n");

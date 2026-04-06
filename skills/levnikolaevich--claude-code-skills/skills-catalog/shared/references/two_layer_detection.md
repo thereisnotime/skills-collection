@@ -17,12 +17,12 @@ Fast, automated scan using Grep/Glob/Bash tools.
 | Run analysis tools | Bash | Execute linters, audit commands, type checkers |
 
 
-### Layer 1 Acceleration: find_clones
+### Layer 1 Acceleration: audit_workspace
 
-When hex-graph is available (project indexed via `mcp__hex-graph__index_project`), use `mcp__hex-graph__find_clones` for Layer 1 DRY candidate detection instead of Grep:
+When hex-graph is available (project indexed via `mcp__hex-graph__index_project`), use `mcp__hex-graph__audit_workspace` for Layer 1 DRY candidate detection instead of Grep:
 
 ```
-find_clones(path, type="all", format="json", cross_file=true, suppress=true)
+audit_workspace(path, detail_level="full")
 ```
 
 | Output field | Use |
@@ -34,7 +34,7 @@ find_clones(path, type="all", format="json", cross_file=true, suppress=true)
 
 Layer 2 verification still required: read actual code, confirm refactoring value.
 
-**Fall back to Grep when:** hex-graph not indexed, or domain-specific duplication (validation logic, error messages, SQL) — find_clones detects structural clones, not semantic similarity.
+**Fall back to Grep when:** hex-graph not indexed, or domain-specific duplication (validation logic, error messages, SQL) — `audit_workspace` surfaces structural clone groups, not arbitrary semantic similarity.
 **Output:** List of candidate locations (file:line) with matched pattern.
 
 ## Layer 2: Context Analysis

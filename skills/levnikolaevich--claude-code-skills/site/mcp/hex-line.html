@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>hex-line-mcp — Claude Code Skills</title>
-  <meta name="description" content="Hash-verified file editing MCP server + token efficiency hook for AI coding agents. 11 tools, hooks, output style.">
+  <meta name="description" content="Hash-verified file editing MCP server + token efficiency hook for AI coding agents. 9 tools, graph-aware hints, hooks, output style.">
   <link rel="icon" type="image/jpeg" href="../favicon.jpg">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -382,7 +382,7 @@
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#129529;</span> "Rename a variable across the project"</div>
-        <p>Five files need <code style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-light); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">oldName</code> replaced with <code style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-light); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">newName</code>. Built-in approach: open each file, find-and-replace, save &mdash; 5 separate edit calls. hex-line <code style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-light); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">bulk_replace</code>: one call with a glob pattern, dry-run preview, then apply. Per-file diffs returned.</p>
+        <p>Five files need <code style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-light); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">oldName</code> replaced with <code style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-light); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">newName</code>. Built-in approach: open each file, find-and-replace, save &mdash; 5 separate edit calls. hex-line <code style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-light); background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">bulk_replace</code>: one call with an explicit root path plus a glob pattern, dry-run preview, then apply. In normal use the agent auto-fills that scope from the current project. Per-file diffs returned.</p>
         <div class="scenario-result">
           2,795 &rarr; 1,706 ch. <strong>39% savings.</strong> 5 tool calls &rarr; 1.
         </div>
@@ -398,10 +398,10 @@
     </div>
   </section>
 
-  <!-- 11 Tools -->
+  <!-- 9 Tools -->
   <section>
     <div class="container">
-      <h2>11 tools</h2>
+      <h2>9 tools</h2>
       <p class="section-desc">Everything an agent needs to read, edit, search, and understand code.</p>
       <div class="table-wrap">
         <table>
@@ -427,31 +427,23 @@
             </tr>
             <tr>
               <td class="tool-name">outline</td>
-              <td class="tool-desc">AST structural overview via tree-sitter (15+ languages). 95% token reduction vs full read</td>
+              <td class="tool-desc">AST structural overview via tree-sitter for JavaScript/TypeScript, Python, C#, PHP, and markdown headings. 95% token reduction vs full read</td>
             </tr>
             <tr>
               <td class="tool-name">verify</td>
               <td class="tool-desc">Check if held checksums are still valid. Single-line response</td>
             </tr>
             <tr>
-              <td class="tool-name">directory_tree</td>
-              <td class="tool-desc">Compact tree with .gitignore support and file sizes</td>
-            </tr>
-            <tr>
-              <td class="tool-name">get_file_info</td>
-              <td class="tool-desc">Size, line count, mtime, type &mdash; without reading content</td>
+              <td class="tool-name">inspect_path</td>
+              <td class="tool-desc">Unified file-or-directory inspection: file metadata for files, tree or pattern search for directories</td>
             </tr>
             <tr>
               <td class="tool-name">changes</td>
-              <td class="tool-desc">Semantic diff against git ref: added/removed/modified symbols</td>
+              <td class="tool-desc">Semantic diff against git ref with graph-backed local review when a code graph is present</td>
             </tr>
             <tr>
               <td class="tool-name">bulk_replace</td>
-              <td class="tool-desc">Search-and-replace across files by glob. Dry-run mode</td>
-            </tr>
-            <tr>
-              <td class="tool-name">setup_hooks</td>
-              <td class="tool-desc">Installs Claude hooks and output style; Gemini/Codex use guidance only</td>
+              <td class="tool-desc">Search-and-replace across files by glob inside an explicit root path. Dry-run mode</td>
             </tr>
           </tbody>
         </table>
@@ -466,13 +458,16 @@
       <p class="section-desc">hex-line ships with a hook system that works alongside the MCP tools:</p>
 
       <div class="feature-card">
-        <p><strong>PreToolUse</strong> &mdash; blocks built-in Read/Edit/Write/Grep and redirects to hex-line equivalents. Also blocks dangerous Bash commands (<code>git push --force</code>, <code>rm -rf /</code>, <code>DROP</code>) until the user confirms.</p>
+        <p><strong>PreToolUse</strong> &mdash; advises small built-in <code>Read</code>/<code>Edit</code> calls, redirects heavier <code>Read</code>/<code>Edit</code> plus <code>Write</code>/<code>Grep</code> to hex-line, selectively redirects simple Bash, and blocks dangerous Bash commands (<code>git push --force</code>, <code>rm -rf /</code>, <code>DROP</code>) until the user confirms.</p>
       </div>
       <div class="feature-card">
-        <p><strong>PostToolUse</strong> &mdash; filters verbose Bash output (50+ lines): deduplicates, normalizes, truncates. Keeps first 12 + last 12 lines.</p>
+        <p><strong>PostToolUse</strong> &mdash; filters verbose Bash output (50+ lines): deduplicates, normalizes, truncates. Keeps first 15 + last 15 lines.</p>
       </div>
       <div class="feature-card">
-        <p><strong>Bash redirects</strong> &mdash; intercepts simple <code>cat</code>, <code>head</code>, <code>tail</code>, <code>ls</code>, <code>tree</code>, <code>find</code>, <code>grep</code> commands and routes them through hex-line.</p>
+        <p><strong>SessionStart</strong> &mdash; injects a short bootstrap hint at session start. If the <code>hex-line</code> output style is already active, the hook stays minimal and defers to that style.</p>
+      </div>
+      <div class="feature-card">
+        <p><strong>Bash redirects</strong> &mdash; intercepts simple <code>cat</code>, <code>head</code>, <code>tail</code>, <code>tree</code>, <code>find</code>, <code>stat</code>, <code>wc -l</code>, <code>grep</code>, <code>rg</code>, <code>sed -i</code> and redirects covered cases through hex-line. Recursive <code>ls</code>/<code>dir</code> is redirected; simple <code>ls path</code> is allowed.</p>
       </div>
 
       <div style="margin-top: 32px;">
@@ -480,7 +475,7 @@
         <div class="workflow-block">
           <p>
             A persistent <strong style="color: var(--text-primary);">Output Style</strong> installed to
-            <code>~/.claude/output-styles/hex-line.md</code> embeds tool preferences directly in Claude's system prompt &mdash; reducing hook firings by making Claude prefer hex-line tools from the start. Installed automatically by <code>setup_hooks</code> alongside Claude hooks; Gemini/Codex use the same preferences as manual guidance.
+            <code>~/.claude/output-styles/hex-line.md</code> embeds tool preferences directly in Claude's system prompt &mdash; reducing hook firings by making Claude prefer hex-line tools from the start. It is auto-synced on MCP server startup alongside Claude hooks; Gemini/Codex use the same preferences as manual guidance. The steering layer tells the agent to auto-fill file paths for file tools and the current project root for repo-wide tools, so scope stays explicit without making the user type it manually.
           </p>
         </div>
       </div>

@@ -3,12 +3,9 @@ import assert from "node:assert/strict";
 
 import { fnv1a, lineTag, rangeChecksum, parseChecksum, parseRef } from "../src/text-protocol/hash.mjs";
 import { deduplicateLines, smartTruncate } from "../src/output/normalize.mjs";
-import { coerceParams } from "../src/runtime/coerce.mjs";
-import { grammarForExtension, isSupportedExtension } from "../src/parser/languages.mjs";
-import { getParser, getLanguage } from "../src/parser/tree-sitter.mjs";
+import { grammarForExtension, isSupportedExtension, supportedExtensions } from "../src/parser/languages.mjs";
+import { getParser, getLanguage, treeSitterArtifactManifest, treeSitterArtifactPath } from "../src/parser/tree-sitter.mjs";
 import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import { resolve } from "node:path";
 
 test("hash protocol stays stable", () => {
     const hash = fnv1a("const x = 1;");
@@ -23,20 +20,21 @@ test("normalize helpers deduplicate and truncate", () => {
 });
 
 test("runtime and parser helpers are stable", () => {
-    assert.equal(coerceParams({ path: "a" }).path, "a");
     assert.equal(grammarForExtension(".ts"), "typescript");
     assert.equal(isSupportedExtension(".tsx"), true);
 });
 
-test("tree-sitter-wasms: WASM files exist for all supported grammars", () => {
-    const require = createRequire(import.meta.url);
-    const pkgPath = require.resolve("tree-sitter-wasms/package.json");
-    const grammars = [
-        "javascript", "typescript", "tsx", "python", "go", "rust",
-        "java", "c", "cpp", "c_sharp", "ruby", "php", "kotlin", "swift", "bash"
-    ];
+test("tree-sitter artifacts: manifest covers all supported grammars", () => {
+    const manifest = treeSitterArtifactManifest();
+    const grammars = [...new Set(supportedExtensions().map(ext => grammarForExtension(ext)))];
+    const declared = new Set((manifest.grammars || []).map(item => item.grammar));
+    assert.deepEqual([...declared].sort(), [...grammars].sort(), "manifest matches languages.mjs grammar set");
+});
+
+test("tree-sitter artifacts: WASM files exist for all supported grammars", () => {
+    const grammars = [...new Set(supportedExtensions().map(ext => grammarForExtension(ext)))];
     const missing = grammars.filter(g => {
-        const wasm = resolve(pkgPath, "..", "out", `tree-sitter-${g}.wasm`);
+        const wasm = treeSitterArtifactPath(g);
         return !existsSync(wasm);
     });
     assert.deepEqual(missing, [], `WASM files missing for: ${missing.join(", ")}`);

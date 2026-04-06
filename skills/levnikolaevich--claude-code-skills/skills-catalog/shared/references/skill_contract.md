@@ -118,6 +118,10 @@ Additional enforced rules:
 - no stale references to removed skills or files
 - no deprecated platform APIs in active skills
 - no contradictions between caller and callee contracts
+- MCP usage must match `shared/references/mcp_applicability_matrix.md`
+- skills that edit code/config/scripts must make `hex-line` primary and name built-in tools as fallback only
+- skills that depend on semantic code reasoning must make `hex-graph` primary and name grep/read as fallback only
+- skills without code-file or semantic-code decisions must not cargo-cult `hex-graph` requirements
 
 Special cases:
 - L1/L2 skills need Meta-Analysis with `shared/references/meta_analysis_protocol.md`

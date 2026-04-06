@@ -9,14 +9,16 @@
 
 import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import { join, resolve } from "node:path";
-import { existsSync, unlinkSync, mkdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { confidenceAtLeast, dedupeStrongest } from "./confidence.mjs";
 import { normalizeProviderRun } from "./precise/provider-status.mjs";
 import { anchorKey, anchorsEqual, DEFAULT_FLOW_LIMIT, DEFAULT_FLOW_MAX_HOPS, normalizeAnchor } from "./flow.mjs";
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 export const CODEGRAPH_DIR = ".hex-skills/codegraph";
+export const QUERY_STORE_IDLE_MS = 1_500;
+const SQLITE_BUSY_TIMEOUT_MS = 2_000;
 const EXTERNAL_FILE_PREFIX = "[[external]]/";
 const NODE_SELECT_COLUMNS = `
     id,
@@ -28,6 +30,8 @@ const NODE_SELECT_COLUMNS = `
     file,
     line_start,
     line_end,
+    column_start,
+    column_end,
     signature,
     is_exported,
     is_default_export,
@@ -53,51 +57,193 @@ function displayName(node) {
 
 // --- Singleton ---
 
-const _stores = new Map();
+const _writeStores = new Map();
+const _queryStores = new Map();
+
+function dbDirFor(projectPath) {
+    return join(projectPath, CODEGRAPH_DIR);
+}
+
+function dbPathFor(projectPath) {
+    return join(dbDirFor(projectPath), "index.db");
+}
+
+function dbSidecarPaths(projectPath) {
+    const dbPath = dbPathFor(projectPath);
+    return [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+}
+
+function isBusyError(error) {
+    const message = error?.message || "";
+    return error?.code === "EBUSY" || error?.code === "EPERM" || /busy or locked/i.test(message);
+}
+
+function graphStoreError(code, message, cause = null) {
+    const error = new Error(message);
+    error.code = code;
+    if (cause) error.cause = cause;
+    return error;
+}
+
+function probeSchemaState(dbPath) {
+    try {
+        const probe = new Database(dbPath, { readonly: true, fileMustExist: true });
+        const ver = probe.pragma("user_version", { simple: true });
+        probe.close();
+        return ver === SCHEMA_VERSION
+            ? { state: "current" }
+            : { state: "stale", version: ver };
+    } catch (error) {
+        if (isBusyError(error)) {
+            return { state: "busy", error };
+        }
+        return { state: "unreadable", error };
+    }
+}
+
+function clearEntryTimer(entry) {
+    if (entry?.idleTimer) {
+        clearTimeout(entry.idleTimer);
+        entry.idleTimer = null;
+    }
+}
+
+function buildStoreEntry(registry, projectPath, mode, idleMs) {
+    return {
+        registry,
+        projectPath,
+        mode,
+        idleMs,
+        idleTimer: null,
+        store: null,
+    };
+}
+
+function closeStoreEntry(entry) {
+    if (!entry?.store) return;
+    clearEntryTimer(entry);
+    const { store } = entry;
+    entry.store = null;
+    store.close();
+}
+
+function closeLocalStores(projectPath) {
+    closeStoreEntry(_queryStores.get(projectPath));
+    closeStoreEntry(_writeStores.get(projectPath));
+}
+
+function ensureWriterDbReady(projectPath) {
+    const dbDir = dbDirFor(projectPath);
+    if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
+    const dbPath = dbPathFor(projectPath);
+    if (!existsSync(dbPath)) return;
+
+    const probe = probeSchemaState(dbPath);
+    if (probe.state === "current") return;
+    if (probe.state === "busy") {
+        throw graphStoreError("GRAPH_DB_BUSY", probe.error?.message || `Graph DB is busy: ${dbPath}`, probe.error);
+    }
+
+    closeLocalStores(projectPath);
+    try {
+        for (const filePath of dbSidecarPaths(projectPath)) {
+            if (existsSync(filePath)) rmSync(filePath, { force: true });
+        }
+    } catch (error) {
+        if (isBusyError(error)) {
+            throw graphStoreError("GRAPH_DB_BUSY", error.message, error);
+        }
+        throw graphStoreError("GRAPH_DB_UNREADABLE", error.message, error);
+    }
+}
+
+function createStore(projectPath, { mode = "write", idleMs = QUERY_STORE_IDLE_MS } = {}) {
+    const registry = mode === "query" ? _queryStores : _writeStores;
+    const entry = buildStoreEntry(registry, projectPath, mode, idleMs);
+    const store = new Store(projectPath, entry);
+    entry.store = store;
+    registry.set(projectPath, entry);
+    if (mode === "query") store.touch();
+    return store;
+}
 
 /**
  * Get or create store for a project.
  * @param {string} projectPath - project root directory
+ * @param {{mode?: "write"|"query", idleMs?: number}} [options]
  * @returns {Store}
  */
-export function getStore(projectPath) {
-    if (_stores.has(projectPath)) return _stores.get(projectPath);
-
-    const dbDir = join(projectPath, CODEGRAPH_DIR);
-    const dbPath = join(dbDir, "index.db");
-
-    // Check schema version BEFORE creating store
-    if (existsSync(dbPath)) {
-        let needsReset = false;
-        try {
-            const probe = new Database(dbPath, { readonly: true });
-            const ver = probe.pragma("user_version", { simple: true });
-            probe.close();
-            needsReset = ver !== SCHEMA_VERSION;
-        } catch { needsReset = true; }
-        if (needsReset) {
-            unlinkSync(dbPath);  // delete stale cache
-        }
+export function getStore(projectPath, options = {}) {
+    const absPath = resolve(projectPath);
+    const mode = options.mode === "query" ? "query" : "write";
+    const registry = mode === "query" ? _queryStores : _writeStores;
+    const existing = registry.get(absPath)?.store;
+    if (existing) {
+        if (mode === "query") existing.touch(options.idleMs);
+        return existing;
     }
 
-    const store = new Store(projectPath);
-    _stores.set(projectPath, store);
-    return store;
+    if (mode === "write") {
+        ensureWriterDbReady(absPath);
+    }
+    return createStore(absPath, { mode, idleMs: options.idleMs });
+}
+
+function hasCurrentSchema(dbPath) {
+    return probeSchemaState(dbPath).state === "current";
+}
+
+function resolvePersistedProjectRoot(path) {
+    let current = resolve(path);
+
+    while (true) {
+        const dbPath = join(current, CODEGRAPH_DIR, "index.db");
+        if (existsSync(dbPath)) {
+            return hasCurrentSchema(dbPath) ? current : null;
+        }
+        const parent = dirname(current);
+        if (parent === current) return null;
+        current = parent;
+    }
 }
 
 // --- Store class ---
 
 class Store {
-    constructor(projectPath) {
+    constructor(projectPath, entry) {
         this.projectPath = projectPath;
-        const dbDir = join(projectPath, CODEGRAPH_DIR);
+        this.mode = entry?.mode || "write";
+        this.readonly = this.mode === "query";
+        this._entry = entry || null;
+        const dbDir = dbDirFor(projectPath);
         if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
-        const dbPath = join(dbDir, "index.db");
-        this.db = new Database(dbPath);
-        this.db.pragma("journal_mode = WAL");
-        this.db.pragma("foreign_keys = ON");
-        this._initSchema();
+        const dbPath = dbPathFor(projectPath);
+        this.db = new Database(dbPath, this.readonly ? { readonly: true, fileMustExist: true } : {});
+        this.db.pragma(`busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS}`);
+        if (!this.readonly) {
+            this.db.pragma("journal_mode = WAL");
+            this.db.pragma("foreign_keys = ON");
+            this._initSchema();
+        }
         this._prepareStatements();
+    }
+
+    touch(idleMs = this._entry?.idleMs ?? QUERY_STORE_IDLE_MS) {
+        if (this.mode !== "query" || !this._entry) return;
+        this._entry.idleMs = idleMs;
+        clearEntryTimer(this._entry);
+        this._entry.idleTimer = setTimeout(() => {
+            if (this._entry?.store === this) {
+                this.close();
+            }
+        }, idleMs);
+        if (typeof this._entry.idleTimer.unref === "function") {
+            this._entry.idleTimer.unref();
+        }
+    }
+
+    checkpoint() {
+        if (!this.readonly) this.db.checkpoint();
     }
 
     _initSchema() {
@@ -142,6 +288,8 @@ class Store {
                 workspace_module_id INTEGER REFERENCES workspace_modules(id) ON DELETE SET NULL,
                 line_start INTEGER,
                 line_end INTEGER,
+                column_start INTEGER,
+                column_end INTEGER,
                 parent_id INTEGER REFERENCES nodes(id) ON DELETE SET NULL,
                 signature TEXT,
                 is_exported INTEGER NOT NULL DEFAULT 0,
@@ -295,6 +443,12 @@ class Store {
                  AND COALESCE(dst.source_access_path_json, '') = COALESCE(src.target_access_path_json, '')
                 GROUP BY src.source_symbol_id
             ),
+            framework_in AS (
+                SELECT target_id AS node_id, COUNT(DISTINCT source_id || '|' || kind || '|' || COALESCE(file, '') || '|' || COALESCE(line, 0)) AS framework_incoming_count
+                FROM edges
+                WHERE layer = 'framework'
+                GROUP BY target_id
+            ),
             clone_counts AS (
                 SELECT a.node_id AS node_id, COUNT(DISTINCT b.node_id) AS clone_sibling_count
                 FROM clone_blocks a
@@ -332,6 +486,7 @@ class Store {
                 COALESCE(flow_out.outgoing_flow_count, 0) AS outgoing_flow_count,
                 COALESCE(through_points.through_flow_count, 0) AS through_flow_count,
                 COALESCE(clone_counts.clone_sibling_count, 0) AS clone_sibling_count,
+                COALESCE(framework_in.framework_incoming_count, 0) AS framework_incoming_count,
                 n.is_exported AS is_exported,
                 n.is_default_export AS is_default_export
             FROM nodes n
@@ -339,6 +494,7 @@ class Store {
             LEFT JOIN flow_out ON flow_out.node_id = n.id
             LEFT JOIN through_points ON through_points.node_id = n.id
             LEFT JOIN clone_counts ON clone_counts.node_id = n.id
+            LEFT JOIN framework_in ON framework_in.node_id = n.id
             WHERE n.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
 
             CREATE VIEW hex_line_line_facts AS
@@ -366,6 +522,64 @@ class Store {
                 'graph_symbol' AS origin
             FROM nodes n
             WHERE n.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+
+            UNION ALL
+
+            SELECT
+                n.file AS file,
+                n.line_start AS line_start,
+                n.line_end AS line_end,
+                n.id AS symbol_node_id,
+                CASE
+                    WHEN n.name = '__default_export__' THEN 'default export'
+                    ELSE n.name
+                END AS display_name,
+                n.kind AS kind,
+                'public_api' AS fact_kind,
+                NULL AS related_symbol_id,
+                CASE
+                    WHEN n.is_default_export = 1 THEN 'default export'
+                    ELSE 'exported symbol'
+                END AS related_display_name,
+                NULL AS related_file,
+                NULL AS related_line,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                'exact' AS confidence,
+                'export_index' AS origin
+            FROM nodes n
+            WHERE n.is_exported = 1
+              AND n.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+
+            UNION ALL
+
+            SELECT
+                tgt.file AS file,
+                tgt.line_start AS line_start,
+                tgt.line_end AS line_end,
+                tgt.id AS symbol_node_id,
+                CASE WHEN tgt.name = '__default_export__' THEN 'default export' ELSE tgt.name END AS display_name,
+                tgt.kind AS kind,
+                'framework_entrypoint' AS fact_kind,
+                src.id AS related_symbol_id,
+                e.kind AS related_display_name,
+                src.file AS related_file,
+                src.line_start AS related_line,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                e.confidence AS confidence,
+                e.origin AS origin
+            FROM edges e
+            JOIN nodes src ON src.id = e.source_id
+            JOIN nodes tgt ON tgt.id = e.target_id
+            WHERE e.layer = 'framework'
+              AND tgt.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
 
             UNION ALL
 
@@ -559,6 +773,58 @@ class Store {
             UNION ALL
 
             SELECT
+                n.id AS edited_symbol_id,
+                'public_api' AS fact_kind,
+                n.id AS target_symbol_id,
+                CASE
+                    WHEN n.is_default_export = 1 THEN 'default export'
+                    WHEN n.name = '__default_export__' THEN 'default export'
+                    ELSE n.name
+                END AS target_display_name,
+                n.file AS target_file,
+                n.line_start AS target_line,
+                NULL AS intermediate_symbol_id,
+                NULL AS intermediate_display_name,
+                'exported_symbol' AS path_kind,
+                0 AS flow_hops,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                'exact' AS confidence,
+                'export_index' AS origin
+            FROM nodes n
+            WHERE n.is_exported = 1
+
+            UNION ALL
+
+            SELECT DISTINCT
+                tgt.id AS edited_symbol_id,
+                'framework_entrypoint' AS fact_kind,
+                src.id AS target_symbol_id,
+                CASE WHEN src.name = '__default_export__' THEN 'default export' ELSE src.name END AS target_display_name,
+                src.file AS target_file,
+                src.line_start AS target_line,
+                NULL AS intermediate_symbol_id,
+                NULL AS intermediate_display_name,
+                e.kind AS path_kind,
+                1 AS flow_hops,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                e.confidence AS confidence,
+                e.origin AS origin
+            FROM edges e
+            JOIN nodes src ON src.id = e.source_id
+            JOIN nodes tgt ON tgt.id = e.target_id
+            WHERE e.layer = 'framework'
+
+            UNION ALL
+
+            SELECT
                 ff.source_symbol_id AS edited_symbol_id,
                 CASE
                     WHEN ff.target_anchor_kind = 'property' THEN 'property_flow_to_symbol'
@@ -642,7 +908,36 @@ class Store {
                 NULL AS access_path_json,
                 'exact' AS confidence,
                 'clone_index' AS origin
-            FROM hex_line_clone_siblings c;
+            FROM hex_line_clone_siblings c
+
+            UNION ALL
+
+            SELECT
+                src.id AS edited_symbol_id,
+                'same_name_symbol' AS fact_kind,
+                peer.id AS target_symbol_id,
+                CASE WHEN peer.name = '__default_export__' THEN 'default export' ELSE peer.name END AS target_display_name,
+                peer.file AS target_file,
+                peer.line_start AS target_line,
+                NULL AS intermediate_symbol_id,
+                NULL AS intermediate_display_name,
+                'same_name' AS path_kind,
+                1 AS flow_hops,
+                NULL AS source_anchor_kind,
+                NULL AS source_anchor_name,
+                NULL AS target_anchor_kind,
+                NULL AS target_anchor_name,
+                NULL AS access_path_json,
+                'low' AS confidence,
+                'name_index' AS origin
+            FROM nodes src
+            JOIN nodes peer
+              ON LOWER(peer.name) = LOWER(src.name)
+             AND peer.kind = src.kind
+             AND peer.id != src.id
+             AND peer.file != src.file
+            WHERE src.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol')
+              AND peer.kind NOT IN ('import', 'import_stmt', 'module', 'namespace_binding', 'reexport', 'external_module', 'external_symbol');
 
             CREATE VIEW hex_line_edit_impacts AS
             SELECT
@@ -670,7 +965,19 @@ class Store {
                 COUNT(DISTINCT CASE
                     WHEN f.fact_kind = 'clone_sibling'
                     THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.path_kind, '')
-                END) AS clone_sibling_count
+                END) AS clone_sibling_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'public_api'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '')
+                END) AS public_api_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'framework_entrypoint'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.path_kind, '')
+                END) AS framework_entrypoint_count,
+                COUNT(DISTINCT CASE
+                    WHEN f.fact_kind = 'same_name_symbol'
+                    THEN COALESCE(CAST(f.target_symbol_id AS TEXT), '') || '|' || COALESCE(f.target_file, '')
+                END) AS same_name_symbol_count
             FROM hex_line_symbols s
             LEFT JOIN hex_line_edit_impact_facts f
               ON f.edited_symbol_id = s.node_id
@@ -817,11 +1124,11 @@ class Store {
         this._insertNode = this.db.prepare(`
             INSERT INTO nodes (
                 name, qualified_name, workspace_qualified_name, kind, language, file,
-                package_id, workspace_module_id, line_start, line_end, parent_id, signature
+                package_id, workspace_module_id, line_start, line_end, column_start, column_end, parent_id, signature
             )
             VALUES (
                 @name, @qualified_name, @workspace_qualified_name, @kind, @language, @file,
-                @package_id, @workspace_module_id, @line_start, @line_end, @parent_id, @signature
+                @package_id, @workspace_module_id, @line_start, @line_end, @column_start, @column_end, @parent_id, @signature
             )
         `);
 
@@ -830,6 +1137,8 @@ class Store {
             VALUES (@source_id, @target_id, @layer, @kind, @confidence, @origin, @evidence_json, @file, @line, @edge_hash)
         `);
         this._clearEdgesByOrigin = this.db.prepare("DELETE FROM edges WHERE origin = ?");
+        this._clearEdgesByLayer = this.db.prepare("DELETE FROM edges WHERE layer = ?");
+        this._clearNodesByKind = this.db.prepare("DELETE FROM nodes WHERE kind = ?");
         this._upsertProviderRun = this.db.prepare(`
             INSERT INTO provider_runs (provider, language, status, version, detail, indexed_at)
             VALUES (@provider, @language, @status, @version, @detail, CURRENT_TIMESTAMP)
@@ -916,7 +1225,7 @@ class Store {
         );
 
         this._nodesByFile = this.db.prepare(
-            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE file = ? ORDER BY line_start`
+            `SELECT ${NODE_SELECT_COLUMNS} FROM nodes WHERE file = ? ORDER BY line_start, column_start`
         );
 
         this._fileOwnership = this.db.prepare(`
@@ -1145,11 +1454,21 @@ class Store {
     insertNode(node) {
         const ownership = node.file ? this.describeFileOwnership(node.file) : null;
         const normalized = {
-            ...node,
+            name: node.name,
+            qualified_name: node.qualified_name ?? null,
             workspace_qualified_name: node.workspace_qualified_name
                 ?? buildWorkspaceQualifiedName(node, ownership),
+            kind: node.kind,
+            language: node.language,
+            file: node.file,
             package_id: node.package_id ?? ownership?.package_id ?? null,
             workspace_module_id: node.workspace_module_id ?? ownership?.workspace_module_id ?? null,
+            line_start: node.line_start ?? null,
+            line_end: node.line_end ?? node.line_start ?? null,
+            column_start: node.column_start ?? null,
+            column_end: node.column_end ?? null,
+            parent_id: node.parent_id ?? null,
+            signature: node.signature ?? null,
         };
         const result = this._insertNode.run(normalized);
         return result.lastInsertRowid;
@@ -1251,6 +1570,16 @@ class Store {
 
     clearEdgesByOrigin(origin) {
         this._clearEdgesByOrigin.run(origin);
+    }
+
+    clearEdgesByLayer(layer) {
+        this._clearEdgesByLayer.run(layer);
+    }
+
+    clearNodesByKinds(kinds) {
+        for (const kind of kinds || []) {
+            this._clearNodesByKind.run(kind);
+        }
     }
 
     upsertProviderRun(run) {
@@ -1509,6 +1838,18 @@ class Store {
         return this._findReferences.all(nodeId);
     }
 
+    frameworkIncomingEdges(nodeId) {
+        return this.db.prepare(`
+            SELECT e.kind, e.line, e.file, e.confidence, e.origin, e.evidence_json,
+                   n.id as source_id, n.name, n.kind as node_kind, n.file as node_file, n.line_start, n.qualified_name as source_qualified_name
+            FROM edges e
+            JOIN nodes n ON n.id = e.source_id
+            WHERE e.target_id = ?
+              AND e.layer = 'framework'
+            ORDER BY e.kind, e.file, e.line
+        `).all(nodeId);
+    }
+
     // --- Bulk operations (transaction) ---
 
     clearFile(filePath) {
@@ -1545,6 +1886,8 @@ class Store {
                     file: filePath,
                     line_start: def.line_start,
                     line_end: def.line_end,
+                    column_start: def.column_start ?? null,
+                    column_end: def.column_end ?? null,
                     parent_id: def.parent ? (classIndex.get(def.parent) || null) : null,
                     signature: def.signature || null,
                 });
@@ -1570,6 +1913,8 @@ class Store {
                     file: filePath,
                     line_start: imp.line,
                     line_end: imp.line,
+                    column_start: imp.column_start ?? null,
+                    column_end: imp.column_end ?? null,
                     parent_id: null,
                     signature: null,
                 });
@@ -1703,7 +2048,15 @@ class Store {
         const crossEdges = [...grouped.values()]
             .sort((a, b) => b.edge_count - a.edge_count || a.source_module_key.localeCompare(b.source_module_key));
 
-        return { modules, hotspots, crossEdges };
+        const frameworkRows = this.db.prepare(`
+            SELECT kind, origin, COUNT(*) AS count
+            FROM edges
+            WHERE layer = 'framework'
+            GROUP BY kind, origin
+            ORDER BY count DESC, kind, origin
+        `).all();
+
+        return { modules, hotspots, crossEdges, frameworkRows };
     }
 
     // --- Query: Hotspots (complexity × callers) ---
@@ -1838,9 +2191,20 @@ class Store {
         return { files, nodes, edges };
     }
 
+    indexedLanguages() {
+        return this.db.prepare(`
+            SELECT DISTINCT language
+            FROM files
+            WHERE language IS NOT NULL AND language != ''
+            ORDER BY language
+        `).all().map(row => row.language);
+    }
+
     close() {
-        this.db.close();
-        _stores.delete(this.projectPath);
+        clearEntryTimer(this._entry);
+        if (this.db.open) this.db.close();
+        this._entry?.registry?.delete(this.projectPath);
+        this._entry = null;
     }
 }
 
@@ -1848,27 +2212,58 @@ export function resolveStore(path) {
     if (path) {
         const abs = resolve(path);
         // 1. Exact match in memory
-        const store = _stores.get(abs);
+        const store = _queryStores.get(abs)?.store;
         if (store) return store;
         // 2. Prefix match: abs is subdirectory of indexed project
-        for (const [key, s] of _stores) {
-            if (abs.startsWith(key + "/") || abs.startsWith(key + "\\")) return s;
+        for (const [key, entry] of _queryStores) {
+            if (abs.startsWith(key + "/") || abs.startsWith(key + "\\")) {
+                entry.store.touch();
+                return entry.store;
+            }
         }
-        // 3. Auto-open persisted DB from disk (readonly probe first)
-        const dbPath = join(abs, CODEGRAPH_DIR, "index.db");
-        if (existsSync(dbPath)) {
-            try {
-                const probe = new Database(dbPath, { readonly: true });
-                const ver = probe.pragma("user_version", { simple: true });
-                probe.close();
-                if (ver === SCHEMA_VERSION) {
-                    return getStore(abs);
-                }
-            } catch { /* corrupt DB — return null, don't delete */ }
+        // 3. Auto-open persisted DB from disk for the exact path or its nearest parent project.
+        const persistedRoot = resolvePersistedProjectRoot(abs);
+        if (persistedRoot) return getStore(persistedRoot, { mode: "query" });
+        // 4. Path-scoped lookups must never fall back to an unrelated in-memory store.
+        return null;
+    }
+    return null;
+}
+
+function activeQueryStoreForPath(path) {
+    if (!path) return null;
+    const abs = resolve(path);
+    const exact = _queryStores.get(abs)?.store;
+    if (exact) return exact;
+    for (const [key, entry] of _queryStores) {
+        if (abs.startsWith(key + "/") || abs.startsWith(key + "\\")) return entry.store;
+    }
+    return null;
+}
+
+export function withResolvedStore(path, fn) {
+    const existing = activeQueryStoreForPath(path);
+    const store = resolveStore(path);
+    if (!store) return fn(null);
+    try {
+        return fn(store);
+    } finally {
+        if (store.mode === "query" && !existing) {
+            store.close();
         }
     }
-    // 4. Fallback: first available store (for tools that omit path)
-    return _stores.values().next().value ?? null;
+}
+
+export function hasOpenStore(projectPath, { mode = "write" } = {}) {
+    const absPath = resolve(projectPath);
+    const registry = mode === "query" ? _queryStores : _writeStores;
+    return !!registry.get(absPath)?.store;
+}
+
+export function closeAllStores() {
+    for (const entry of [..._queryStores.values(), ..._writeStores.values()]) {
+        closeStoreEntry(entry);
+    }
 }
 
 function moduleRelativeFilePath(filePath, moduleRootPath) {
@@ -1956,6 +2351,28 @@ function selectorError(code, message, recovery) {
     return { error: { code, message, recovery } };
 }
 
+const QUERY_PATH_RECOVERY = "Run index_project on the project root first; symbol/query tools then accept that root or a file/subdirectory inside it as path";
+
+function selectorWarningsForNode(node) {
+    if (!node) return [];
+    if (node.kind === "import" || node.kind === "import_stmt") {
+        return [
+            "The selector resolved to an import usage, not a project-owned definition. find_references will show usages of that import node, not all downstream uses of the external symbol.",
+        ];
+    }
+    return [];
+}
+
+function resolvedSelectorResult(query, node, reason, confidence = "exact") {
+    return {
+        query,
+        node,
+        reason,
+        confidence,
+        warnings: selectorWarningsForNode(node),
+    };
+}
+
 function normalizeSelector(selector = {}) {
     const { symbol_id, workspace_qualified_name, qualified_name, name, file } = selector;
     const hasId = symbol_id !== undefined && symbol_id !== null;
@@ -1967,7 +2384,7 @@ function normalizeSelector(selector = {}) {
         return selectorError(
             "INVALID_SELECTOR",
             "Selector must provide exactly one of: symbol_id, workspace_qualified_name, qualified_name, or name+file",
-            "Use search_symbols first to discover valid identifiers"
+            "Use find_symbols first to discover valid identifiers"
         );
     }
     if (hasId) return { kind: "symbol_id", value: Number(symbol_id), query: { symbol_id: Number(symbol_id) } };
@@ -1983,15 +2400,15 @@ function resolveSelector(store, selector = {}) {
     if (normalized.kind === "symbol_id") {
         const node = store.getNodeById(normalized.value);
         if (!node) {
-            return selectorError("SYMBOL_NOT_FOUND", `No symbol with id ${normalized.value}`, "Run search_symbols to find a valid symbol_id");
+            return selectorError("SYMBOL_NOT_FOUND", `No symbol with id ${normalized.value}`, "Run find_symbols to find a valid symbol_id");
         }
-        return { query: normalized.query, node, reason: "resolved_by_symbol_id", confidence: "exact" };
+        return resolvedSelectorResult(normalized.query, node, "resolved_by_symbol_id");
     }
 
     if (normalized.kind === "qualified_name") {
         const matches = store.findByQualified(normalized.value);
         if (matches.length === 0) {
-            return selectorError("SYMBOL_NOT_FOUND", `No symbol with qualified_name '${normalized.value}'`, "Run search_symbols to inspect available qualified names");
+            return selectorError("SYMBOL_NOT_FOUND", `No symbol with qualified_name '${normalized.value}'`, "Run find_symbols to inspect available qualified names");
         }
         if (matches.length > 1) {
             return {
@@ -2003,13 +2420,13 @@ function resolveSelector(store, selector = {}) {
                 },
             };
         }
-        return { query: normalized.query, node: matches[0], reason: "resolved_by_qualified_name", confidence: "exact" };
+        return resolvedSelectorResult(normalized.query, matches[0], "resolved_by_qualified_name");
     }
 
     if (normalized.kind === "workspace_qualified_name") {
         const matches = store.findByWorkspaceQualified(normalized.value);
         if (matches.length === 0) {
-            return selectorError("SYMBOL_NOT_FOUND", `No symbol with workspace_qualified_name '${normalized.value}'`, "Run search_symbols to inspect available workspace-qualified names");
+            return selectorError("SYMBOL_NOT_FOUND", `No symbol with workspace_qualified_name '${normalized.value}'`, "Run find_symbols to inspect available workspace-qualified names");
         }
         if (matches.length > 1) {
             return {
@@ -2021,7 +2438,7 @@ function resolveSelector(store, selector = {}) {
                 },
             };
         }
-        return { query: normalized.query, node: matches[0], reason: "resolved_by_workspace_qualified_name", confidence: "exact" };
+        return resolvedSelectorResult(normalized.query, matches[0], "resolved_by_workspace_qualified_name");
     }
 
     const { name, file } = normalized.value;
@@ -2029,7 +2446,7 @@ function resolveSelector(store, selector = {}) {
         n.file === file || n.file.endsWith(file) || n.file.endsWith(`/${file}`)
     );
     if (matches.length === 0) {
-        return selectorError("SYMBOL_NOT_FOUND", `No symbol '${name}' found in '${file}'`, "Run search_symbols to inspect file paths and symbol names");
+        return selectorError("SYMBOL_NOT_FOUND", `No symbol '${name}' found in '${file}'`, "Run find_symbols to inspect file paths and symbol names");
     }
     const semantic = matches.filter(n => n.kind !== "import");
     if (semantic.length > 1) {
@@ -2043,7 +2460,7 @@ function resolveSelector(store, selector = {}) {
         };
     }
     const node = semantic[0] || matches[0];
-    return { query: normalized.query, node, reason: "resolved_by_name_file", confidence: "exact" };
+    return resolvedSelectorResult(normalized.query, node, "resolved_by_name_file");
 }
 
 function resolveOptionalSelector(store, selector = null) {
@@ -2214,95 +2631,98 @@ function moduleMatchesScope(moduleRootPath, scopePath) {
 
 // --- Exported query functions (for server.mjs tool handlers) ---
 export function findSymbols(query, { kind, limit = 20, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
 
-    let results = store.search(query, { kind, limit });
-    if (kind !== "all") {
-        results = results.filter(r => r.name !== "__default_export__" && r.kind !== "reexport");
-    }
-    return {
-        query: { query, kind: kind || null, limit },
-        matches: results.map(node => serializeNode(store, node)),
-        confidence: "exact",
-        reason: "fts_lookup",
-        evidence: { total_matches: results.length },
-        limits_applied: { limit },
-    };
+        let results = store.search(query, { kind, limit });
+        if (kind !== "all") {
+            results = results.filter(r => r.name !== "__default_export__" && r.kind !== "reexport");
+        }
+        return {
+            query: { query, kind: kind || null, limit },
+            matches: results.map(node => serializeNode(store, node)),
+            confidence: "exact",
+            reason: "fts_lookup",
+            evidence: { total_matches: results.length },
+            limits_applied: { limit },
+        };
+    });
 }
 
 export function getSymbol(selector, { min_confidence = null, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const resolved = resolveSelector(store, selector);
-    if (resolved.error) return resolved;
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const resolved = resolveSelector(store, selector);
+        if (resolved.error) return resolved;
 
-    const node = resolved.node;
-    const provider_status = store.providerStatusForLanguage(node.language);
-    const incoming = dedupeEdges(filterEdgesByConfidence(store.edgesTo(node.id), min_confidence), "incoming").map(e => ({
-        kind: e.kind,
-        confidence: e.confidence,
-        origin: e.origin,
-        file: e.file,
-        line: e.line,
-        evidence: parseEvidence(e.evidence_json),
-        from: serializeNode(store, {
-            id: e.source_id,
-            qualified_name: e.source_qualified_name || null,
-            name: e.source_name,
-            kind: e.source_kind,
-            language: e.source_language || null,
-            file: e.source_file,
-            line_start: e.source_line,
-            line_end: e.source_line,
-            signature: null,
-            is_exported: 0,
-            is_default_export: 0,
-        }),
-    }));
-    const outgoing = dedupeEdges(filterEdgesByConfidence(store.edgesFrom(node.id), min_confidence), "outgoing").map(e => ({
-        kind: e.kind,
-        confidence: e.confidence,
-        origin: e.origin,
-        file: e.file,
-        line: e.line,
-        evidence: parseEvidence(e.evidence_json),
-        to: serializeNode(store, {
-            id: e.target_id,
-            qualified_name: e.target_qualified_name || null,
-            name: e.target_name,
-            kind: e.target_kind,
-            language: e.target_language || null,
-            file: e.target_file,
-            line_start: e.target_line,
-            line_end: e.target_line,
-            signature: null,
-            is_exported: 0,
-            is_default_export: 0,
-        }),
-    }));
-    const moduleNode = store.nodesByFile(node.file).find(n => n.kind === "module");
+        const node = resolved.node;
+        const provider_status = store.providerStatusForLanguage(node.language);
+        const incoming = dedupeEdges(filterEdgesByConfidence(store.edgesTo(node.id), min_confidence), "incoming").map(e => ({
+            kind: e.kind,
+            confidence: e.confidence,
+            origin: e.origin,
+            file: e.file,
+            line: e.line,
+            evidence: parseEvidence(e.evidence_json),
+            from: serializeNode(store, {
+                id: e.source_id,
+                qualified_name: e.source_qualified_name || null,
+                name: e.source_name,
+                kind: e.source_kind,
+                language: e.source_language || null,
+                file: e.source_file,
+                line_start: e.source_line,
+                line_end: e.source_line,
+                signature: null,
+                is_exported: 0,
+                is_default_export: 0,
+            }),
+        }));
+        const outgoing = dedupeEdges(filterEdgesByConfidence(store.edgesFrom(node.id), min_confidence), "outgoing").map(e => ({
+            kind: e.kind,
+            confidence: e.confidence,
+            origin: e.origin,
+            file: e.file,
+            line: e.line,
+            evidence: parseEvidence(e.evidence_json),
+            to: serializeNode(store, {
+                id: e.target_id,
+                qualified_name: e.target_qualified_name || null,
+                name: e.target_name,
+                kind: e.target_kind,
+                language: e.target_language || null,
+                file: e.target_file,
+                line_start: e.target_line,
+                line_end: e.target_line,
+                signature: null,
+                is_exported: 0,
+                is_default_export: 0,
+            }),
+        }));
+        const moduleNode = store.nodesByFile(node.file).find(n => n.kind === "module");
 
-    return {
-        query: { ...resolved.query, min_confidence },
-        result: {
-            symbol: serializeNode(store, node),
-            module: serializeNode(store, moduleNode),
-            provider_status,
-            incoming,
-            outgoing,
-            siblings: store.nodesByFile(node.file)
-                .filter(n => n.id !== node.id)
-                .map(sibling => serializeNode(store, sibling)),
-        },
-        confidence: resolved.confidence,
-        reason: resolved.reason,
-        evidence: {
-            incoming_count: incoming.length,
-            outgoing_count: outgoing.length,
-        },
-        limits_applied: {},
-    };
+        return {
+            query: { ...resolved.query, min_confidence },
+            result: {
+                symbol: serializeNode(store, node),
+                module: serializeNode(store, moduleNode),
+                provider_status,
+                incoming,
+                outgoing,
+                siblings: store.nodesByFile(node.file)
+                    .filter(n => n.id !== node.id)
+                    .map(sibling => serializeNode(store, sibling)),
+            },
+            confidence: resolved.confidence,
+            reason: resolved.reason,
+            warnings: resolved.warnings || [],
+            evidence: {
+                incoming_count: incoming.length,
+                outgoing_count: outgoing.length,
+            },
+            limits_applied: {},
+        };
+    });
 }
 
 export function tracePaths(selector, {
@@ -2314,119 +2734,120 @@ export function tracePaths(selector, {
     path,
     target = null,
 } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const resolved = resolveSelector(store, selector);
-    if (resolved.error) return resolved;
-    const resolvedTarget = resolveOptionalSelector(store, target);
-    if (resolvedTarget?.error) return resolvedTarget;
-    const targetNode = resolvedTarget?.node || null;
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const resolved = resolveSelector(store, selector);
+        if (resolved.error) return resolved;
+        const resolvedTarget = resolveOptionalSelector(store, target);
+        if (resolvedTarget?.error) return resolvedTarget;
+        const targetNode = resolvedTarget?.node || null;
 
-    if (path_kind === "flow") {
-        const forward = direction === "forward" || direction === "both";
-        const reverse = direction === "reverse" || direction === "both";
-        const paths = [];
-        const enqueueSeeds = [];
-        if (forward) {
-            for (const row of filterFlowFacts(store.flowFactsBySourceSymbol(resolved.node.id), { minConfidence: min_confidence })) {
-                enqueueSeeds.push({
-                    point: { symbol: resolved.node, anchor: flowAnchorFromRow("source", row) },
-                    depth: 0,
-                    nodes: [formatAnchorNode(serializeNode(store, resolved.node), flowAnchorFromRow("source", row))],
-                    edges: [],
-                    seen: new Set([anchorKey(resolved.node.id, flowAnchorFromRow("source", row))]),
-                    traversal: "forward",
-                });
-            }
-        }
-        if (reverse) {
-            for (const row of filterFlowFacts(store.flowFactsByTargetSymbol(resolved.node.id), { minConfidence: min_confidence, direction: "target" })) {
-                enqueueSeeds.push({
-                    point: { symbol: resolved.node, anchor: flowAnchorFromRow("target", row) },
-                    depth: 0,
-                    nodes: [formatAnchorNode(serializeNode(store, resolved.node), flowAnchorFromRow("target", row))],
-                    edges: [],
-                    seen: new Set([anchorKey(resolved.node.id, flowAnchorFromRow("target", row))]),
-                    traversal: "reverse",
-                });
-            }
-        }
-
-        const queue = dedupeStrongest(enqueueSeeds, seed => `${seed.traversal}:${anchorKey(seed.point.symbol.id, seed.point.anchor)}`);
-        while (queue.length > 0 && paths.length < limit) {
-            const current = queue.shift();
-            if (current.depth >= depth) continue;
-            const candidateRows = current.traversal === "forward"
-                ? filterFlowFacts(store.flowFactsBySourceSymbol(current.point.symbol.id), {
-                    minConfidence: min_confidence,
-                    symbolId: current.point.symbol.id,
-                    anchor: current.point.anchor,
-                    direction: "source",
-                })
-                : filterFlowFacts(store.flowFactsByTargetSymbol(current.point.symbol.id), {
-                    minConfidence: min_confidence,
-                    symbolId: current.point.symbol.id,
-                    anchor: current.point.anchor,
-                    direction: "target",
-                });
-
-            for (const row of candidateRows) {
-                const edge = current.traversal === "forward"
-                    ? serializeFlowFact(store, row, "forward")
-                    : {
-                        ...serializeFlowFact(store, row, "reverse"),
-                        source_symbol: serializeFlowSymbol(store, "target", row),
-                        target_symbol: serializeFlowSymbol(store, "source", row),
-                        source_anchor: flowAnchorFromRow("target", row),
-                        target_anchor: flowAnchorFromRow("source", row),
-                    };
-                const nextSymbol = current.traversal === "forward" ? edge.target_symbol : edge.target_symbol;
-                const nextAnchor = edge.target_anchor;
-                const nextStateKey = anchorKey(nextSymbol.symbol_id, nextAnchor);
-                if (!nextStateKey || current.seen.has(nextStateKey)) continue;
-                const nextSeen = new Set(current.seen);
-                nextSeen.add(nextStateKey);
-                const nextPath = {
-                    point: { symbol: store.getNodeById(nextSymbol.symbol_id), anchor: nextAnchor },
-                    depth: current.depth + 1,
-                    nodes: [...current.nodes, formatAnchorNode(nextSymbol, nextAnchor)],
-                    edges: [...current.edges, edge],
-                    seen: nextSeen,
-                    traversal: current.traversal,
-                };
-                const matchesTarget = !targetNode || nextSymbol.symbol_id === targetNode.id;
-                if (matchesTarget) {
-                    paths.push({
-                        depth: nextPath.depth,
-                        nodes: nextPath.nodes,
-                        edges: nextPath.edges,
+        if (path_kind === "flow") {
+            const forward = direction === "forward" || direction === "both";
+            const reverse = direction === "reverse" || direction === "both";
+            const paths = [];
+            const enqueueSeeds = [];
+            if (forward) {
+                for (const row of filterFlowFacts(store.flowFactsBySourceSymbol(resolved.node.id), { minConfidence: min_confidence })) {
+                    enqueueSeeds.push({
+                        point: { symbol: resolved.node, anchor: flowAnchorFromRow("source", row) },
+                        depth: 0,
+                        nodes: [formatAnchorNode(serializeNode(store, resolved.node), flowAnchorFromRow("source", row))],
+                        edges: [],
+                        seen: new Set([anchorKey(resolved.node.id, flowAnchorFromRow("source", row))]),
+                        traversal: "forward",
                     });
                 }
-                queue.push(nextPath);
-                if (paths.length >= limit) break;
             }
-        }
+            if (reverse) {
+                for (const row of filterFlowFacts(store.flowFactsByTargetSymbol(resolved.node.id), { minConfidence: min_confidence, direction: "target" })) {
+                    enqueueSeeds.push({
+                        point: { symbol: resolved.node, anchor: flowAnchorFromRow("target", row) },
+                        depth: 0,
+                        nodes: [formatAnchorNode(serializeNode(store, resolved.node), flowAnchorFromRow("target", row))],
+                        edges: [],
+                        seen: new Set([anchorKey(resolved.node.id, flowAnchorFromRow("target", row))]),
+                        traversal: "reverse",
+                    });
+                }
+            }
 
-        return {
-            query: {
-                ...resolved.query,
-                path_kind,
-                direction,
-                depth,
-                limit,
-                min_confidence,
-                target: resolvedTarget ? resolvedTarget.query : null,
-            },
-            result: paths,
-            confidence: resolved.confidence,
-            reason: targetNode ? "targeted_flow_lookup" : resolved.reason,
-            evidence: {
-                traversed_path_count: paths.length,
-                target_found: targetNode ? paths.length > 0 : null,
-            },
-            limits_applied: { depth, limit },
-        };
-    }
+            const queue = dedupeStrongest(enqueueSeeds, seed => `${seed.traversal}:${anchorKey(seed.point.symbol.id, seed.point.anchor)}`);
+            while (queue.length > 0 && paths.length < limit) {
+                const current = queue.shift();
+                if (current.depth >= depth) continue;
+                const candidateRows = current.traversal === "forward"
+                    ? filterFlowFacts(store.flowFactsBySourceSymbol(current.point.symbol.id), {
+                        minConfidence: min_confidence,
+                        symbolId: current.point.symbol.id,
+                        anchor: current.point.anchor,
+                        direction: "source",
+                    })
+                    : filterFlowFacts(store.flowFactsByTargetSymbol(current.point.symbol.id), {
+                        minConfidence: min_confidence,
+                        symbolId: current.point.symbol.id,
+                        anchor: current.point.anchor,
+                        direction: "target",
+                    });
+
+                for (const row of candidateRows) {
+                    const edge = current.traversal === "forward"
+                        ? serializeFlowFact(store, row, "forward")
+                        : {
+                            ...serializeFlowFact(store, row, "reverse"),
+                            source_symbol: serializeFlowSymbol(store, "target", row),
+                            target_symbol: serializeFlowSymbol(store, "source", row),
+                            source_anchor: flowAnchorFromRow("target", row),
+                            target_anchor: flowAnchorFromRow("source", row),
+                        };
+                    const nextSymbol = edge.target_symbol;
+                    const nextAnchor = edge.target_anchor;
+                    const nextStateKey = anchorKey(nextSymbol.symbol_id, nextAnchor);
+                    if (!nextStateKey || current.seen.has(nextStateKey)) continue;
+                    const nextSeen = new Set(current.seen);
+                    nextSeen.add(nextStateKey);
+                    const nextPath = {
+                        point: { symbol: store.getNodeById(nextSymbol.symbol_id), anchor: nextAnchor },
+                        depth: current.depth + 1,
+                        nodes: [...current.nodes, formatAnchorNode(nextSymbol, nextAnchor)],
+                        edges: [...current.edges, edge],
+                        seen: nextSeen,
+                        traversal: current.traversal,
+                    };
+                    const matchesTarget = !targetNode || nextSymbol.symbol_id === targetNode.id;
+                    if (matchesTarget) {
+                        paths.push({
+                            depth: nextPath.depth,
+                            nodes: nextPath.nodes,
+                            edges: nextPath.edges,
+                        });
+                    }
+                    queue.push(nextPath);
+                    if (paths.length >= limit) break;
+                }
+            }
+
+            return {
+                query: {
+                    ...resolved.query,
+                    path_kind,
+                    direction,
+                    depth,
+                    limit,
+                    min_confidence,
+                    target: resolvedTarget ? resolvedTarget.query : null,
+                },
+                result: paths,
+                confidence: resolved.confidence,
+                reason: targetNode ? "targeted_flow_lookup" : resolved.reason,
+                warnings: resolved.warnings || [],
+                evidence: {
+                    traversed_path_count: paths.length,
+                    target_found: targetNode ? paths.length > 0 : null,
+                },
+                limits_applied: { depth, limit },
+            };
+        }
 
     const includeFlow = path_kind === "flow" || path_kind === "mixed";
     const edgeKinds = path_kind === "calls"
@@ -2439,7 +2860,10 @@ export function tracePaths(selector, {
                     ? new Set(["extends", "implements", "overrides"])
                     : path_kind === "flow"
                         ? new Set()
-                        : new Set(["calls", "ref_read", "ref_type", "imports", "reexports", "extends", "implements", "overrides"]);
+                        : new Set([
+                            "calls", "ref_read", "ref_type", "imports", "reexports", "extends", "implements", "overrides",
+                            "route_to_handler", "injects", "registers", "renders", "middleware_for",
+                        ]);
 
     const getNeighbors = (nodeId) => {
         const rows = [];
@@ -2543,290 +2967,303 @@ export function tracePaths(selector, {
         }
     }
 
-    return {
-        query: {
-            ...resolved.query,
-            path_kind,
-            direction,
-            depth,
-            limit,
-            min_confidence,
-            target: resolvedTarget ? resolvedTarget.query : null,
-        },
-        result: paths,
-        confidence: resolved.confidence,
-        reason: targetNode ? "targeted_path_lookup" : resolved.reason,
-        evidence: {
-            traversed_path_count: paths.length,
-            target_found: targetNode ? paths.length > 0 : null,
-        },
-        limits_applied: { depth, limit },
-    };
+        return {
+            query: {
+                ...resolved.query,
+                path_kind,
+                direction,
+                depth,
+                limit,
+                min_confidence,
+                target: resolvedTarget ? resolvedTarget.query : null,
+            },
+            result: paths,
+            confidence: resolved.confidence,
+            reason: targetNode ? "targeted_path_lookup" : resolved.reason,
+            warnings: resolved.warnings || [],
+            evidence: {
+                traversed_path_count: paths.length,
+                target_found: targetNode ? paths.length > 0 : null,
+            },
+            limits_applied: { depth, limit },
+        };
+    });
 }
 
 export function explainResolution(selector, { path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const normalized = normalizeSelector(selector);
-    if (normalized.error) return normalized;
-    const resolved = resolveSelector(store, selector);
-    if (resolved.error) return resolved;
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const normalized = normalizeSelector(selector);
+        if (normalized.error) return normalized;
+        const resolved = resolveSelector(store, selector);
+        if (resolved.error) return resolved;
 
-    let candidates = [];
-    if (normalized.kind === "qualified_name") {
-        candidates = store.findByQualified(normalized.value).map(node => serializeNode(store, node));
-    } else if (normalized.kind === "workspace_qualified_name") {
-        candidates = store.findByWorkspaceQualified(normalized.value).map(node => serializeNode(store, node));
-    } else if (normalized.kind === "name_file") {
-        candidates = store.findByName(normalized.value.name)
-            .filter(n => n.file === normalized.value.file || n.file.endsWith(normalized.value.file) || n.file.endsWith(`/${normalized.value.file}`))
-            .map(node => serializeNode(store, node));
-    } else {
-        candidates = [serializeNode(store, store.getNodeById(normalized.value))];
-    }
+        let candidates = [];
+        if (normalized.kind === "qualified_name") {
+            candidates = store.findByQualified(normalized.value).map(node => serializeNode(store, node));
+        } else if (normalized.kind === "workspace_qualified_name") {
+            candidates = store.findByWorkspaceQualified(normalized.value).map(node => serializeNode(store, node));
+        } else if (normalized.kind === "name_file") {
+            candidates = store.findByName(normalized.value.name)
+                .filter(n => n.file === normalized.value.file || n.file.endsWith(normalized.value.file) || n.file.endsWith(`/${normalized.value.file}`))
+                .map(node => serializeNode(store, node));
+        } else {
+            candidates = [serializeNode(store, store.getNodeById(normalized.value))];
+        }
 
-    return {
-        query: normalized.query,
-        result: {
-            resolved: serializeNode(store, resolved.node),
-            selector_kind: normalized.kind,
-            parsed_candidates: candidates,
-            precise_provider_status: store.providerStatusForLanguage(resolved.node.language),
-            precise_results: {
-                incoming_count: store.edgesTo(resolved.node.id).filter(edge => edge.origin?.startsWith("precise_")).length,
-                outgoing_count: store.edgesFrom(resolved.node.id).filter(edge => edge.origin?.startsWith("precise_")).length,
+        return {
+            query: normalized.query,
+            result: {
+                resolved: serializeNode(store, resolved.node),
+                selector_kind: normalized.kind,
+                parsed_candidates: candidates,
+                precise_provider_status: store.providerStatusForLanguage(resolved.node.language),
+                precise_results: {
+                    incoming_count: store.edgesTo(resolved.node.id).filter(edge => edge.origin?.startsWith("precise_")).length,
+                    outgoing_count: store.edgesFrom(resolved.node.id).filter(edge => edge.origin?.startsWith("precise_")).length,
+                },
+                final_selection: {
+                    reason: resolved.reason,
+                    confidence: resolved.confidence,
+                },
             },
-            final_selection: {
-                reason: resolved.reason,
-                confidence: resolved.confidence,
-            },
-        },
-        confidence: resolved.confidence,
-        reason: resolved.reason,
-        evidence: { candidate_count: candidates.length },
-        limits_applied: {},
-    };
+            confidence: resolved.confidence,
+            reason: resolved.reason,
+            warnings: resolved.warnings || [],
+            evidence: { candidate_count: candidates.length },
+            limits_applied: {},
+        };
+    });
 }
 
 export function getReferencesBySelector(selector, { kind, limit = 50, min_confidence = null, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const resolved = resolveSelector(store, selector);
-    if (resolved.error) return resolved;
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const resolved = resolveSelector(store, selector);
+        if (resolved.error) return resolved;
 
-    const refs = dedupeReferenceRows(filterEdgesByConfidence(collectReferenceRows(store, resolved.node, kind), min_confidence)).slice(0, limit);
-    const byKind = {};
-    for (const row of refs) byKind[row.kind] = (byKind[row.kind] || 0) + 1;
+        const refs = dedupeReferenceRows(filterEdgesByConfidence(collectReferenceRows(store, resolved.node, kind), min_confidence)).slice(0, limit);
+        const byKind = {};
+        for (const row of refs) byKind[row.kind] = (byKind[row.kind] || 0) + 1;
 
-    return {
-        query: { ...resolved.query, kind: kind || "all", limit, min_confidence },
-        result: {
-            symbol: serializeNode(store, resolved.node),
-            provider_status: store.providerStatusForLanguage(resolved.node.language),
-            references: refs.map(r => ({
-                file: r.file,
-                line: r.line,
-                kind: r.kind,
-                confidence: r.confidence,
-                origin: r.origin,
-                evidence: parseEvidence(r.evidence_json),
-            })),
-            total_by_kind: byKind,
-            total: refs.length,
-        },
-        confidence: resolved.confidence,
-        reason: resolved.reason,
-        evidence: { total_found: refs.length },
-        limits_applied: { limit },
-    };
+        return {
+            query: { ...resolved.query, kind: kind || "all", limit, min_confidence },
+            result: {
+                symbol: serializeNode(store, resolved.node),
+                provider_status: store.providerStatusForLanguage(resolved.node.language),
+                references: refs.map(r => ({
+                    file: r.file,
+                    line: r.line,
+                    kind: r.kind,
+                    confidence: r.confidence,
+                    origin: r.origin,
+                    evidence: parseEvidence(r.evidence_json),
+                })),
+                total_by_kind: byKind,
+                total: refs.length,
+            },
+            confidence: resolved.confidence,
+            reason: resolved.reason,
+            warnings: resolved.warnings || [],
+            evidence: { total_found: refs.length },
+            limits_applied: { limit },
+        };
+    });
 }
 
 export function findImplementationsBySelector(selector, { limit = 50, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const resolved = resolveSelector(store, selector);
-    if (resolved.error) return resolved;
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const resolved = resolveSelector(store, selector);
+        if (resolved.error) return resolved;
 
-    const allowedKinds = resolved.node.kind === "method"
-        ? new Set(["overrides"])
-        : new Set(["implements", "extends", "overrides"]);
-    const matches = store.edgesTo(resolved.node.id)
-        .filter(edge => edge.layer === "type" && allowedKinds.has(edge.kind))
-        .slice(0, limit)
-        .map(edge => ({
-            kind: edge.kind,
-            confidence: edge.confidence,
-            source: serializeNode(store, {
-                id: edge.source_id,
-                qualified_name: edge.source_qualified_name || null,
-                name: edge.source_name,
-                kind: edge.source_kind,
-                language: edge.source_language || null,
-                file: edge.source_file,
-                line_start: edge.source_line,
-                line_end: edge.source_line,
-                signature: null,
-                is_exported: 0,
-                is_default_export: 0,
-            }),
-            evidence: {
-                layer: edge.layer,
-                origin: edge.origin,
-                file: edge.file,
-                line: edge.line,
+        const allowedKinds = resolved.node.kind === "method"
+            ? new Set(["overrides"])
+            : new Set(["implements", "extends", "overrides"]);
+        const matches = store.edgesTo(resolved.node.id)
+            .filter(edge => edge.layer === "type" && allowedKinds.has(edge.kind))
+            .slice(0, limit)
+            .map(edge => ({
+                kind: edge.kind,
+                confidence: edge.confidence,
+                source: serializeNode(store, {
+                    id: edge.source_id,
+                    qualified_name: edge.source_qualified_name || null,
+                    name: edge.source_name,
+                    kind: edge.source_kind,
+                    language: edge.source_language || null,
+                    file: edge.source_file,
+                    line_start: edge.source_line,
+                    line_end: edge.source_line,
+                    signature: null,
+                    is_exported: 0,
+                    is_default_export: 0,
+                }),
+                evidence: {
+                    layer: edge.layer,
+                    origin: edge.origin,
+                    file: edge.file,
+                    line: edge.line,
+                },
+            }));
+
+        return {
+            query: resolved.query,
+            result: {
+                symbol: serializeNode(store, resolved.node),
+                implementations: matches,
             },
-        }));
-
-    return {
-        query: resolved.query,
-        result: {
-            symbol: serializeNode(store, resolved.node),
-            implementations: matches,
-        },
-        confidence: matches.some(match => match.confidence === "heuristic") ? "heuristic" : resolved.confidence,
-        reason: "type_graph_lookup",
-        evidence: { match_count: matches.length },
-        limits_applied: { limit },
-    };
+            confidence: matches.some(match => match.confidence === "heuristic") ? "heuristic" : resolved.confidence,
+            reason: "type_graph_lookup",
+            warnings: resolved.warnings || [],
+            evidence: { match_count: matches.length },
+            limits_applied: { limit },
+        };
+    });
 }
 
 export function findDataflowsBySelector(selector, { depth = DEFAULT_FLOW_MAX_HOPS, limit = DEFAULT_FLOW_LIMIT, path, target = null } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const options = selector && selector.source ? selector : { source: selector, sink: target };
-    const max_hops = selector?.max_hops ?? depth ?? DEFAULT_FLOW_MAX_HOPS;
-    const flow_kind = selector?.flow_kind || "value";
-    const min_confidence = selector?.min_confidence || null;
-    const resolvedSource = resolveFlowPoint(store, options.source, "source");
-    if (resolvedSource.error) return resolvedSource;
-    const resolvedSink = options.sink ? resolveFlowPoint(store, options.sink, "sink") : null;
-    if (resolvedSink?.error) return resolvedSink;
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const options = selector && selector.source ? selector : { source: selector, sink: target };
+        const max_hops = selector?.max_hops ?? depth ?? DEFAULT_FLOW_MAX_HOPS;
+        const flow_kind = selector?.flow_kind || "value";
+        const min_confidence = selector?.min_confidence || null;
+        const resolvedSource = resolveFlowPoint(store, options.source, "source");
+        if (resolvedSource.error) return resolvedSource;
+        const resolvedSink = options.sink ? resolveFlowPoint(store, options.sink, "sink") : null;
+        if (resolvedSink?.error) return resolvedSink;
 
-    const queue = [{
-        point: resolvedSource.point,
-        depth: 0,
-        nodes: [formatAnchorNode(serializeNode(store, resolvedSource.point.symbol), resolvedSource.point.anchor)],
-        hops: [],
-        seen: new Set([anchorKey(resolvedSource.point.symbol.id, resolvedSource.point.anchor)]),
-    }];
-    const paths = [];
+        const queue = [{
+            point: resolvedSource.point,
+            depth: 0,
+            nodes: [formatAnchorNode(serializeNode(store, resolvedSource.point.symbol), resolvedSource.point.anchor)],
+            hops: [],
+            seen: new Set([anchorKey(resolvedSource.point.symbol.id, resolvedSource.point.anchor)]),
+        }];
+        const paths = [];
 
-    while (queue.length > 0 && paths.length < limit) {
-        const current = queue.shift();
-        if (current.depth >= max_hops) continue;
-        const rows = filterFlowFacts(store.flowFactsBySourceSymbol(current.point.symbol.id), {
-            flowKind: flow_kind,
-            minConfidence: min_confidence,
-            symbolId: current.point.symbol.id,
-            anchor: current.point.anchor,
-            direction: "source",
-        });
-        for (const row of rows) {
-            const hop = serializeFlowFact(store, row, "forward");
-            if (flow_kind === "taint") hop.flow_kind = "taint";
-            const nextSymbol = store.getNodeById(row.target_symbol_id);
-            const nextAnchor = hop.target_anchor;
-            const nextKey = anchorKey(row.target_symbol_id, nextAnchor);
-            if (!nextSymbol || !nextKey || current.seen.has(nextKey)) continue;
-            const nextSeen = new Set(current.seen);
-            nextSeen.add(nextKey);
-            const nextPath = {
-                point: { symbol: nextSymbol, anchor: nextAnchor },
-                depth: current.depth + 1,
-                nodes: [...current.nodes, formatAnchorNode(serializeNode(store, nextSymbol), nextAnchor)],
-                hops: [...current.hops, hop],
-                seen: nextSeen,
-            };
-            const matchesSink = !resolvedSink
-                || (nextSymbol.id === resolvedSink.point.symbol.id && anchorsEqual(nextAnchor, resolvedSink.point.anchor));
-            if (matchesSink || !resolvedSink) {
-                paths.push({
-                    depth: nextPath.depth,
-                    nodes: nextPath.nodes,
-                    hops: nextPath.hops,
-                });
+        while (queue.length > 0 && paths.length < limit) {
+            const current = queue.shift();
+            if (current.depth >= max_hops) continue;
+            const rows = filterFlowFacts(store.flowFactsBySourceSymbol(current.point.symbol.id), {
+                flowKind: flow_kind,
+                minConfidence: min_confidence,
+                symbolId: current.point.symbol.id,
+                anchor: current.point.anchor,
+                direction: "source",
+            });
+            for (const row of rows) {
+                const hop = serializeFlowFact(store, row, "forward");
+                if (flow_kind === "taint") hop.flow_kind = "taint";
+                const nextSymbol = store.getNodeById(row.target_symbol_id);
+                const nextAnchor = hop.target_anchor;
+                const nextKey = anchorKey(row.target_symbol_id, nextAnchor);
+                if (!nextSymbol || !nextKey || current.seen.has(nextKey)) continue;
+                const nextSeen = new Set(current.seen);
+                nextSeen.add(nextKey);
+                const nextPath = {
+                    point: { symbol: nextSymbol, anchor: nextAnchor },
+                    depth: current.depth + 1,
+                    nodes: [...current.nodes, formatAnchorNode(serializeNode(store, nextSymbol), nextAnchor)],
+                    hops: [...current.hops, hop],
+                    seen: nextSeen,
+                };
+                const matchesSink = !resolvedSink
+                    || (nextSymbol.id === resolvedSink.point.symbol.id && anchorsEqual(nextAnchor, resolvedSink.point.anchor));
+                if (matchesSink || !resolvedSink) {
+                    paths.push({
+                        depth: nextPath.depth,
+                        nodes: nextPath.nodes,
+                        hops: nextPath.hops,
+                    });
+                }
+                queue.push(nextPath);
+                if (paths.length >= limit) break;
             }
-            queue.push(nextPath);
-            if (paths.length >= limit) break;
         }
-    }
 
-    const allHops = paths.flatMap(item => item.hops);
-    const confidence = allHops.some(hop => hop.confidence === "heuristic")
-        ? "heuristic"
-        : allHops.some(hop => hop.confidence === "inferred")
-            ? "inferred"
-            : "exact";
+        const allHops = paths.flatMap(item => item.hops);
+        const confidence = allHops.some(hop => hop.confidence === "heuristic")
+            ? "heuristic"
+            : allHops.some(hop => hop.confidence === "inferred")
+                ? "inferred"
+                : "exact";
 
-    return {
-        query: {
-            source: resolvedSource.query,
-            sink: resolvedSink ? resolvedSink.query : null,
-            flow_kind,
-            max_hops,
-            limit,
-            min_confidence,
-        },
-        result: {
-            source: formatAnchorNode(serializeNode(store, resolvedSource.point.symbol), resolvedSource.point.anchor),
-            sink: resolvedSink ? formatAnchorNode(serializeNode(store, resolvedSink.point.symbol), resolvedSink.point.anchor) : null,
-            paths,
-        },
-        confidence,
-        reason: resolvedSink ? "targeted_flow_lookup" : "flow_path_lookup",
-        evidence: {
-            path_count: paths.length,
-            target_found: resolvedSink ? paths.length > 0 : null,
-        },
-        limits_applied: { max_hops, limit },
-    };
+        return {
+            query: {
+                source: resolvedSource.query,
+                sink: resolvedSink ? resolvedSink.query : null,
+                flow_kind,
+                max_hops,
+                limit,
+                min_confidence,
+            },
+            result: {
+                source: formatAnchorNode(serializeNode(store, resolvedSource.point.symbol), resolvedSource.point.anchor),
+                sink: resolvedSink ? formatAnchorNode(serializeNode(store, resolvedSink.point.symbol), resolvedSink.point.anchor) : null,
+                paths,
+            },
+            confidence,
+            reason: resolvedSink ? "targeted_flow_lookup" : "flow_path_lookup",
+            evidence: {
+                path_count: paths.length,
+                target_found: resolvedSink ? paths.length > 0 : null,
+            },
+            limits_applied: { max_hops, limit },
+        };
+    });
 }
 
 export function getModuleMetricsReport({ scopePath, sort, minCoupling, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    return {
-        query: { scopePath: scopePath || null, sort: sort || "instability", minCoupling: minCoupling || 2 },
-        result: store.moduleMetricRows({ scopePath, sort, minCoupling }),
-        confidence: "exact",
-        reason: "module_graph_metrics",
-        evidence: {},
-        limits_applied: {},
-    };
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        return {
+            query: { scopePath: scopePath || null, sort: sort || "instability", minCoupling: minCoupling || 2 },
+            result: store.moduleMetricRows({ scopePath, sort, minCoupling }),
+            confidence: "exact",
+            reason: "module_graph_metrics",
+            evidence: {},
+            limits_applied: {},
+        };
+    });
 }
 
 export function getArchitectureReport({ scopePath, limit = 15, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    const { modules, hotspots, crossEdges } = store.architectureReportData(scopePath);
-    const stats = store.stats();
-    return {
-        query: { scopePath: scopePath || null, limit },
-        result: {
-            modules,
-            hotspots: hotspots.slice(0, limit).map(h => ({
-                name: displayName(h),
-                kind: h.kind,
-                file: h.file,
-                module_key: h.module_key,
-                module_name: h.module_name,
-                package_key: h.package_key,
-                package_name: h.package_name,
-                complexity: h.complexity,
-                callers: h.callers,
-            })),
-            cross_module_edges: crossEdges,
-            stats,
-        },
-        confidence: "exact",
-        reason: "architecture_summary",
-        evidence: {},
-        limits_applied: { limit },
-    };
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        const { modules, hotspots, crossEdges, frameworkRows } = store.architectureReportData(scopePath);
+        const stats = store.stats();
+        return {
+            query: { scopePath: scopePath || null, limit },
+            result: {
+                modules,
+                hotspots: hotspots.slice(0, limit).map(h => ({
+                    name: displayName(h),
+                    kind: h.kind,
+                    file: h.file,
+                    module_key: h.module_key,
+                    module_name: h.module_name,
+                    package_key: h.package_key,
+                    package_name: h.package_name,
+                    complexity: h.complexity,
+                    callers: h.callers,
+                })),
+                cross_module_edges: crossEdges,
+                framework: frameworkRows,
+                stats,
+            },
+            confidence: "exact",
+            reason: "architecture_summary",
+            evidence: {},
+            limits_applied: { limit },
+        };
+    });
 }
 
 export function getHotspots({ minCallers = 2, minComplexity = 15, limit = 20, scopePath, path } = {}) {
-    const store = resolveStore(path);
-    if (!store) return selectorError("NOT_INDEXED", "No project indexed", "Run index_project first");
-    return store.hotspots({ minCallers, minComplexity, limit, scopePath });
+    return withResolvedStore(path, (store) => {
+        if (!store) return selectorError("NOT_INDEXED", "No project indexed", QUERY_PATH_RECOVERY);
+        return store.hotspots({ minCallers, minComplexity, limit, scopePath });
+    });
 }

@@ -11,6 +11,7 @@ docs/
 |   `-- AGENT_DELEGATION_PLATFORM_GUIDE.md # Skill vs subagent runtime, recovery, Windows
 |-- best-practice/                   # Claude Code usage guidance
 |   |-- COMPONENT_SELECTION.md
+|   |-- MCP_OUTPUT_CONTRACT_GUIDE.md # Canonical MCP status/reason/next_action vocabulary
 |   `-- WORKFLOW_TIPS.md
 |-- plugins/                         # Per-plugin landing pages
 |   |-- agile-workflow.md
@@ -47,3 +48,10 @@ docs/
 | `plugins/` | Per-plugin landing pages, skill tables, workflow overviews | Skill internals |
 | `standards/` | Documentation quality requirements for generated project docs | Skill-specific writing contracts |
 | `TROUBLESHOOTING.md` | Known issues and solutions | Runtime protocols |
+
+## Key Maintainer References
+
+| Topic | File |
+|-------|------|
+| MCP tool design | [best-practice/MCP_TOOL_DESIGN_GUIDE.md](best-practice/MCP_TOOL_DESIGN_GUIDE.md) |
+| MCP output contract | [best-practice/MCP_OUTPUT_CONTRACT_GUIDE.md](best-practice/MCP_OUTPUT_CONTRACT_GUIDE.md) |

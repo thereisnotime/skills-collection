@@ -16,9 +16,12 @@ For single-session deep analysis: `ln-002-session-analyzer`. For skill self-audi
 
 | Agent | Path | Format |
 |-------|------|--------|
-| Claude | `~/.claude/projects/*/*.jsonl` | JSONL (`{hash}.{idx}\t{json}`) |
-| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | JSONL |
-| Gemini | `~/.gemini/tmp/*/chats/session-*.json` | JSON (`messages[]` array) |
+| Claude (conversations) | `~/.claude/projects/*/*.jsonl` | JSONL with `message.usage` token data |
+| Claude (active) | `~/.claude/sessions/{PID}.json` | JSON `{pid, sessionId, cwd, startedAt, kind, entrypoint}` |
+| Claude (index) | `~/.claude/history.jsonl` | JSONL `{sessionId, project, timestamp, display}` |
+| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | JSONL with `token_count` events |
+| Codex (index) | `~/.codex/history.jsonl` | JSONL `{session_id, ts, text, project}` |
+| Gemini | Platform-dependent; protobuf on Windows | Not grep-parseable |
 
 ## Analysis Dimensions
 
@@ -35,6 +38,34 @@ For single-session deep analysis: `ln-002-session-analyzer`. For skill self-audi
 | D9 | Chronology & Trends | `all`, `mcp`, `tokens` |
 
 ---
+
+## Step 0: Active Sessions
+
+Detect currently running agent sessions before scanning history.
+
+```bash
+echo "=== ACTIVE CLAUDE SESSIONS ==="
+ACTIVE_COUNT=0
+for f in "$HOME/.claude/sessions"/*.json; do
+  [ -f "$f" ] || continue
+  PID=$(basename "$f" .json)
+  if kill -0 "$PID" 2>/dev/null; then
+    ACTIVE_COUNT=$((ACTIVE_COUNT + 1))
+    echo "  ACTIVE: $(cat "$f")"
+  else
+    echo "  STALE: PID=$PID (process dead, file not cleaned up)"
+  fi
+done
+echo "  Active: $ACTIVE_COUNT"
+
+echo "=== ACTIVE CODEX PROCESSES ==="
+tasklist 2>/dev/null | grep -i codex | head -5 || ps aux 2>/dev/null | grep '[c]odex' | head -5 || echo "  None detected"
+```
+
+Present active sessions summary. Note stale PID files (Claude Code should clean these).
+
+---
+
 
 ## Step 1: Session Inventory
 
@@ -78,7 +109,8 @@ done
 echo "  Total: $X_COUNT sessions, $((X_SIZE / 1024))KB"
 
 echo "## Gemini"
-for f in "$HOME/.gemini/tmp"/*/chats/session-*.json; do
+# Try JSON path (Linux/macOS) then protobuf path (Windows)
+for f in "$HOME/.gemini/tmp"/*/chats/session-*.json "$HOME/.gemini/antigravity/implicit"/*.pb; do
   [ -f "$f" ] || continue
   MOD=$(stat -c %Y "$f" 2>/dev/null)
   [ -z "$MOD" ] && continue
@@ -86,10 +118,10 @@ for f in "$HOME/.gemini/tmp"/*/chats/session-*.json; do
   SIZE=$(wc -c < "$f" | tr -d ' ')
   G_SIZE=$((G_SIZE + SIZE)); G_COUNT=$((G_COUNT + 1))
   echo "$f" >> /tmp/audit_gemini.txt
-  PROJ=$(echo "$f" | sed 's|.*/tmp/||;s|/chats/.*||')
-  echo "  ${SIZE}B: $PROJ/$(basename "$f")"
+  echo "  ${SIZE}B: $(basename "$f")"
 done
 echo "  Total: $G_COUNT sessions, $((G_SIZE / 1024))KB"
+[ "$G_COUNT" -gt 0 ] && file "$(head -1 /tmp/audit_gemini.txt)" 2>/dev/null | grep -q 'data\|Protocol' && echo "  Note: Gemini sessions are protobuf — not grep-parseable"
 ```
 
 Present inventory as table. If `$ARGUMENTS` is set, note which dimensions apply.
@@ -128,9 +160,19 @@ while IFS= read -r f; do
 done < /tmp/audit_claude.txt | sed 's/.*"name"\s*:\s*"//;s/"//' | sort | uniq -c | sort -rn
 ```
 
-### 2c. Token Statistics (Codex — real data; Claude — tool count proxy)
+### 2c. Token Statistics (Claude + Codex — real data)
 
 ```bash
+echo "=== CLAUDE TOKEN STATS (real usage data) ==="
+while IFS= read -r f; do
+  SESSION=$(basename "$f" .jsonl | cut -c1-8)
+  TOTAL_IN=$(grep -oE '"input_tokens":[0-9]+' "$f" | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null)
+  TOTAL_OUT=$(grep -oE '"output_tokens":[0-9]+' "$f" | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null)
+  CACHE_CREATE=$(grep -oE '"cache_creation_input_tokens":[0-9]+' "$f" | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null)
+  CACHE_READ=$(grep -oE '"cache_read_input_tokens":[0-9]+' "$f" | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null)
+  [ "${TOTAL_IN:-0}" -gt 0 ] 2>/dev/null && echo "$SESSION: in=${TOTAL_IN:-0} out=${TOTAL_OUT:-0} cache_create=${CACHE_CREATE:-0} cache_read=${CACHE_READ:-0}"
+done < /tmp/audit_claude.txt | sort -t= -k2 -rn | head -20
+
 echo "=== CODEX TOKEN STATS ==="
 while IFS= read -r f; do
   SESSION=$(basename "$f" .jsonl | sed 's/rollout-//' | cut -c1-19)
@@ -142,15 +184,7 @@ while IFS= read -r f; do
   REASONING=$(echo "$LAST" | grep -oE '"reasoning_output_tokens":[0-9]+' | head -1 | grep -oE '[0-9]+')
   echo "$SESSION: in=${TOTAL_IN:-0} out=${TOTAL_OUT:-0} cached=${CACHED:-0} reasoning=${REASONING:-0}"
 done < /tmp/audit_codex.txt
-
-echo "=== CLAUDE TOOL CALL COUNTS (token proxy) ==="
-while IFS= read -r f; do
-  TOOLS=$(grep -c '"tool_use"' "$f" 2>/dev/null | tr -d '[:space:]')
-  [ "${TOOLS:-0}" -gt 0 ] 2>/dev/null && echo "$(basename "$f" .jsonl | cut -c1-8): $TOOLS tool_calls"
-done < /tmp/audit_claude.txt | sort -t: -k2 -rn | head -20
 ```
-
-Note: Claude JSONL does not include token usage data. Use tool call count as proxy for session weight.
 
 ### 2d. Errors & Hook Events
 

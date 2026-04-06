@@ -15,7 +15,7 @@
 import { existsSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { getStore } from "../lib/store.mjs";
-import { fmt, pctSavings, walkDir } from "./helpers.mjs";
+import { fmt, pctSavings, walkDir, git } from "./helpers.mjs";
 import { runAtomic } from "./atomic.mjs";
 import { runWorkflows } from "./workflows.mjs";
 import { runAmortization } from "./amortization.mjs";
@@ -29,6 +29,10 @@ let repoRoot = process.cwd();
 const repoIdx = args.indexOf("--repo");
 if (repoIdx !== -1 && args[repoIdx + 1]) repoRoot = resolve(args[repoIdx + 1]);
 const diagnostics = args.includes("--diagnostics");
+const baseRefIdx = args.indexOf("--base-ref");
+const headRefIdx = args.indexOf("--head-ref");
+let prBaseRef = baseRefIdx !== -1 && args[baseRefIdx + 1] ? args[baseRefIdx + 1] : null;
+let prHeadRef = headRefIdx !== -1 && args[headRefIdx + 1] ? args[headRefIdx + 1] : null;
 
 // Check DB
 const dbPath = resolve(repoRoot, ".hex-skills/codegraph/index.db");
@@ -93,6 +97,16 @@ function pickLargestFileSymbol() {
 // ---------------------------------------------------------------------------
 
 async function main() {
+    if (!prBaseRef) {
+        const previous = git(["rev-parse", "HEAD~1"], repoRoot, true).trim();
+        if (previous) {
+            prBaseRef = "HEAD~1";
+            prHeadRef ||= "HEAD";
+        } else {
+            prBaseRef = "HEAD";
+        }
+    }
+
     const allFiles = walkDir(repoRoot);
     if (allFiles.length === 0) {
         console.log(`No code files found in ${repoRoot}`);
@@ -118,9 +132,9 @@ async function main() {
     const impactSym = sym3 || sym1 || sym2;
     const traceSym = sym1 || sym3 || sym2;
 
-    const config = { repoRoot, allFiles, searchSym, contextSym, impactSym, traceSym };
+    const config = { repoRoot, allFiles, searchSym, contextSym, impactSym, traceSym, prBaseRef, prHeadRef };
 
-    const workflows = runWorkflows(store, config);
+    const workflows = await runWorkflows(store, config);
     const results = diagnostics ? runAtomic(store, config) : [];
     const amort = diagnostics ? await runAmortization(store, config) : null;
 

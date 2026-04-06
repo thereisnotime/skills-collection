@@ -1,6 +1,6 @@
 ---
 description: "Audit hex MCP servers for transferable optimizations using diff-driven transfer matrix"
-allowed-tools: "Bash,Agent,mcp__hex-line__read_file,mcp__hex-line__grep_search,mcp__hex-line__outline,mcp__hex-line__directory_tree,mcp__hex-line__edit_file,mcp__hex-line__write_file"
+allowed-tools: "Bash,Agent,mcp__hex-line__read_file,mcp__hex-line__grep_search,mcp__hex-line__outline,mcp__hex-line__edit_file,mcp__hex-line__write_file,mcp__hex-line__changes,mcp__hex-graph__index_project,mcp__hex-graph__find_symbols,mcp__hex-graph__find_references,mcp__hex-graph__find_implementations,mcp__hex-graph__inspect_symbol,mcp__hex-graph__analyze_changes,mcp__hex-graph__trace_paths"
 ---
 
 # Cross-Pollinate Hex MCP Servers
@@ -24,61 +24,79 @@ git diff --stat -- mcp/hex-line-mcp/
 git status -- mcp/hex-line-mcp/
 ```
 
-Read each changed file's diff. Classify changes into categories:
+**Semantic classification via hex-graph** (run `index_project` once at start):
 
-| Category | Examples |
-|----------|---------|
-| API/schema | New params, changed descriptions, tool registration |
-| Runtime behavior | Edit logic, search logic, error handling |
-| Output normalization | Dedup, truncate, format pipelines |
-| Shared infra | Version sourcing, update-check, coerce, security |
-| Tests | New test coverage |
-| Docs | README, descriptions |
+```
+mcp__hex-graph__analyze_changes(path: "mcp/hex-line-mcp")
+mcp__hex-graph__find_symbols(pattern: "export", path: "mcp/hex-line-mcp/server.mjs")
+```
+
+Classify each changed symbol by category:
+
+| Category | Detection method |
+|----------|------------------|
+| API/schema | `analyze_changes` shows modified `registerTool` calls or input schemas |
+| Runtime behavior | `analyze_changes` shows modified non-exported functions |
+| Output normalization | Changed functions with names matching `format`, `truncate`, `normalize`, `dedup` |
+| Shared infra | Changes in files imported by 2+ servers (`find_references` cross-check) |
+| Tests | Changed files under `test/` or `benchmark/` |
+| Docs | Changed `.md` files |
 
 ### Phase 1: Transfer Matrix
 
 For EACH change from Phase 0, check if it applies to hex-ssh and hex-graph.
 
-**Decision categories:**
-- `APPLY` — real gap, same pattern needed in target server
-- `ALREADY_PRESENT` — target already has equivalent implementation
-- `N/A_BY_DESIGN` — change is domain-specific to source (e.g., local-only, SSH-only)
-- `REJECT` — change would hurt target server
+**Use hex-graph to verify target server status:**
 
-**Required evidence:** file + line reference for BOTH source change AND target server status.
+```
+# Check if equivalent function exists in target
+mcp__hex-graph__find_symbols(pattern: "{function_name}", path: "mcp/hex-ssh-mcp/")
+mcp__hex-graph__find_symbols(pattern: "{function_name}", path: "mcp/hex-graph-mcp/")
+
+# Compare signatures between source and target
+mcp__hex-graph__inspect_symbol(symbol: "{function_name}", path: "mcp/hex-line-mcp/server.mjs")
+mcp__hex-graph__inspect_symbol(symbol: "{function_name}", path: "mcp/hex-ssh-mcp/server.mjs")
+
+# Trace dependency chain in target to understand blast radius
+mcp__hex-graph__trace_paths(from: "{changed_file}", to: "server.mjs", path: "mcp/hex-ssh-mcp/")
+```
+
+**Decision categories:**
+- `APPLY` -- real gap, same pattern needed in target server
+- `ALREADY_PRESENT` -- target already has equivalent (verified via `find_symbols`)
+- `N/A_BY_DESIGN` -- change is domain-specific to source (e.g., local-only, SSH-only)
+- `REJECT` -- change would hurt target server
+
+**Required evidence:** file + line reference for BOTH source change AND target server status. Use `hex-line grep_search` for edit-ready anchors.
 
 Output:
+### Shared optimization checks (verify via hex-graph + hex-line):
 
-| Change | Evidence (hex-line) | hex-ssh status | hex-graph status | Decision | Rationale |
-|--------|-------------------|----------------|-----------------|----------|-----------|
-
-### Shared optimization checks (always verify these):
-
-| Check | What to look for |
-|-------|-----------------|
-| Dynamic version | `createRequire(...)("./package.json")` vs hardcoded string in McpServer constructor and checkForUpdates |
-| Missing dependencies | All imports have matching entries in package.json dependencies |
-| Safe process spawning | `execFileSync` (arg array) vs `execSync` (shell string interpolation) in production code |
-| CRLF normalization | Consistent `.replace(/\r\n/g, "\n")` where files are read |
-| Benchmark parity | README claims token efficiency → benchmark.mjs exists with reproducible numbers |
+| Check | Query | What to look for |
+|-------|-------|------------------|
+| Dynamic version | `find_symbols(query: "createRequire")` | Should exist in all 3 servers; hardcoded version string = gap |
+| Dead imports | `find_references(name: "{import}", file: "{file}")` | 0 refs = dead import to remove |
+| Safe process spawning | `find_symbols(query: "execSync")` | Should be `execFileSync` (arg array) in production code |
+| Tool registration | `grep_search(pattern: "server\\.tool\\(")` | hex-graph can't index method calls; use grep |
+| CRLF normalization | `grep_search(pattern: "\\r\\n")` | Consistent `.replace(/\r\n/g, "\n")` where files are read |
+| Benchmark parity | `grep_search(pattern: "benchmark", glob: "*.mjs")` | README claims token efficiency -> benchmark.mjs must exist |
 
 ### Phase 2: Apply Transfers
 
 Implement all `APPLY` decisions from Phase 1.
 
 For each change:
-1. Read target file with hex-line tools
-2. Apply the change (edit_file or write_file)
-3. Verify syntax: `npm run check` in target package
-
+1. Read target file with `hex-line outline` then targeted `read_file` ranges
+2. Use `hex-graph analyze_edit_region` before editing to understand surrounding context
+3. Apply the change via `hex-line edit_file` (carry `base_revision` for follow-ups)
+4. Verify syntax: `npm run check` in target package
 ### Phase 3: Local Cleanup (optional)
 
-If Phase 0 revealed drift in hex-line's own docs (README factual errors, hook regex issues), fix them here. This is NOT cross-pollination — label findings as "local cleanup".
+If Phase 0 revealed drift in hex-line's own docs (README factual errors, hook regex issues), fix them here. Label findings as "local cleanup".
 
-Check only files touched by Phase 0 changes:
-- **README accuracy** — tool counts, parameter tables, constants match code
-- **Hook correctness** — regex patterns don't over-match (e.g., `find -exec rm`)
-
+Use `hex-line grep_search` for edit-ready matches in files touched by Phase 0:
+- **README accuracy** -- tool counts via `hex-graph find_symbols(pattern: "registerTool")`, parameter tables, constants match code
+- **Hook correctness** -- regex patterns don't over-match (e.g., `find -exec rm`)
 ### Phase 4: Verify
 
 ```bash

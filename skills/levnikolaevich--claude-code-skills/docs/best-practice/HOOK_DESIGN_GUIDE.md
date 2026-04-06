@@ -106,7 +106,7 @@ Flow: block -> agent sees reason -> asks user -> confirms -> retries with bypass
 | Stage | What It Does | Implementation |
 |-------|-------------|----------------|
 | Detect | Match command type (npm, test, build, pip, git) | Regex array -> type string |
-| Threshold | Skip if output < N lines | `LINE_THRESHOLD = 50` |
+| Threshold | Skip if output < N lines | `HOOK_OUTPUT_POLICY.lineThreshold = 50` |
 | Deduplicate | Normalize UUIDs/IPs/timestamps, group identical | `deduplicateLines()` with `(xN)` |
 | Truncate | First N + last N, gap indicator | `smartTruncate(text, 15, 15)` |
 | Header | Type + compression ratio | `RTK FILTERED: npm-install (847 -> 30 lines)` |

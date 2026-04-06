@@ -1,11 +1,12 @@
-# Loki Mode Docker Image
-# Build: docker build -t loki-mode .
-# Run: docker run -it -v $(pwd):/workspace loki-mode
+# Loki Mode Docker Image (multi-arch: amd64 + arm64)
+# Build: docker buildx build --platform linux/amd64,linux/arm64 -t loki-mode .
+# Run:   docker run -it -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" -v $(pwd):/workspace asklokesh/loki-mode start prd.md
+# Dash:  docker run -it -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" -p 57374:57374 -v $(pwd):/workspace asklokesh/loki-mode start --api prd.md
 
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="6.74.6"
+LABEL version="6.75.3"
 LABEL description="Loki Mode by Autonomi - Multi-agent autonomous startup system for Claude Code, Codex CLI, and Gemini CLI"
 LABEL url="https://www.autonomi.dev/"
 
@@ -110,8 +111,9 @@ EXPOSE 57374
 # Security: Switch to non-root user
 USER loki
 
-# Default command shows help
-CMD ["loki", "help"]
+# Entrypoint: `docker run asklokesh/loki-mode start prd.md` runs `loki start prd.md`
+ENTRYPOINT ["loki"]
+CMD ["help"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

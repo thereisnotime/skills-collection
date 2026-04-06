@@ -12,7 +12,7 @@
 import { statSync } from "node:fs";
 import { diffLines } from "diff";
 import { fnv1a, lineTag, rangeChecksum } from "@levnikolaevich/hex-common/text-protocol/hash";
-import { readText } from "./format.mjs";
+import { parseUtf8TextWithMetadata, readUtf8WithMetadata } from "@levnikolaevich/hex-common/text/file-text";
 
 const MAX_FILES = 200;
 const MAX_REVISIONS_PER_FILE = 5;
@@ -54,6 +54,10 @@ function pruneExpired(now = Date.now()) {
 
 function rememberRevisionId(filePath, revision) {
     const ids = fileRevisionIds.get(filePath) || [];
+    if (ids.includes(revision)) {
+        fileRevisionIds.set(filePath, ids);
+        return;
+    }
     ids.push(revision);
     while (ids.length > MAX_REVISIONS_PER_FILE) {
         const removed = ids.shift();
@@ -157,39 +161,49 @@ export function describeChangedRanges(ranges) {
     return ranges.map(r => `${r.start}-${r.end}${r.kind ? `(${r.kind})` : ""}`).join(", ");
 }
 
-function createSnapshot(filePath, content, mtimeMs, size, prevSnapshot = null) {
-    const lines = content.split("\n");
+function createSnapshot(filePath, parsed, mtimeMs, size, prevSnapshot = null, revisionOverride = null) {
+    const { content, lines, lineEndings, rawText, eol, defaultEol, trailingNewline } = parsed;
     const lineHashes = lines.map(line => fnv1a(line));
     const fileChecksum = computeFileChecksum(lineHashes);
-    const revision = `rev-${++revisionSeq}-${fileChecksum.split(":")[1]}`;
+    const revision = revisionOverride || `rev-${++revisionSeq}-${fileChecksum.split(":")[1]}`;
     return {
         revision,
         path: filePath,
         content,
+        rawText,
         lines,
+        lineEndings,
         lineHashes,
         fileChecksum,
         uniqueTagIndex: buildUniqueTagIndex(lineHashes),
         changedRangesFromPrev: prevSnapshot ? computeChangedRanges(prevSnapshot.lines, lines) : [],
         prevRevision: prevSnapshot?.revision || null,
+        eol,
+        defaultEol,
+        trailingNewline,
         mtimeMs,
         size,
         createdAt: Date.now(),
     };
 }
 
-export function rememberSnapshot(filePath, content, meta = {}) {
+export function rememberSnapshot(filePath, input, meta = {}) {
     pruneExpired();
     const latest = latestByFile.get(filePath);
+    const parsed = typeof input === "string"
+        ? parseUtf8TextWithMetadata(input)
+        : input;
     const mtimeMs = meta.mtimeMs ?? latest?.mtimeMs ?? Date.now();
-    const size = meta.size ?? Buffer.byteLength(content, "utf8");
+    const size = meta.size ?? Buffer.byteLength(parsed.rawText, "utf8");
 
-    if (latest && latest.content === content && latest.mtimeMs === mtimeMs && latest.size === size) {
+    if (latest && latest.content === parsed.content && latest.rawText === parsed.rawText && latest.mtimeMs === mtimeMs && latest.size === size) {
         touchFile(filePath);
         return latest;
     }
 
-    const snapshot = createSnapshot(filePath, content, mtimeMs, size, latest || null);
+    const snapshot = latest && latest.content === parsed.content
+        ? createSnapshot(filePath, parsed, mtimeMs, size, latest || null, latest.revision)
+        : createSnapshot(filePath, parsed, mtimeMs, size, latest || null);
     latestByFile.set(filePath, snapshot);
     revisionsById.set(snapshot.revision, snapshot);
     rememberRevisionId(filePath, snapshot.revision);
@@ -206,8 +220,8 @@ export function readSnapshot(filePath) {
         touchFile(filePath);
         return latest;
     }
-    const content = readText(filePath);
-    return rememberSnapshot(filePath, content, { mtimeMs: stat.mtimeMs, size: stat.size });
+    const parsed = readUtf8WithMetadata(filePath);
+    return rememberSnapshot(filePath, parsed, { mtimeMs: stat.mtimeMs, size: stat.size });
 }
 
 export function getLatestSnapshot(filePath) {

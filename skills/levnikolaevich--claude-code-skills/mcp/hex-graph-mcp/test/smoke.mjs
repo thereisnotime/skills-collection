@@ -3,49 +3,22 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { setTimeout as delay } from "node:timers/promises";
+import { countTestCases } from "../scripts/quality-support.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// ==================== coerce ====================
-
-describe("coerce params", () => {
-    it("does not remap aliases in breaking-release mode", async () => {
-        const { coerceParams } = await import("../lib/coerce.mjs");
-        const result = coerceParams({
-            root: "/project",
-            search: "myFunction",
-            fn: "doStuff",
-            max_depth: 5,
-            max_results: 10,
-        });
-        assert.equal(result.root, "/project");
-        assert.equal(result.search, "myFunction");
-        assert.equal(result.fn, "doStuff");
-        assert.equal(result.max_depth, 5);
-        assert.equal(result.max_results, 10);
-    });
-
-    it("returns the same object shape for selector params", async () => {
-        const { coerceParams } = await import("../lib/coerce.mjs");
-        const result = coerceParams({ symbol_id: 42, qualified_name: "a.mjs:helper" });
-        assert.equal(result.symbol_id, 42);
-        assert.equal(result.qualified_name, "a.mjs:helper");
-    });
-});
-
-
-// ==================== find_clones ====================
+// ==================== clone analysis substrate ====================
 
 import { mkdtempSync, writeFileSync, rmSync, existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { indexProject, reindexFile } from "../lib/indexer.mjs";
-import { getStore, resolveStore, findSymbols, getReferencesBySelector, getSymbol, tracePaths, explainResolution, findImplementationsBySelector, findDataflowsBySelector, getModuleMetricsReport, getArchitectureReport } from "../lib/store.mjs";
+import { QUERY_STORE_IDLE_MS, closeAllStores, getStore, hasOpenStore, resolveStore, findSymbols, getReferencesBySelector, getSymbol, tracePaths, explainResolution, findImplementationsBySelector, findDataflowsBySelector, getModuleMetricsReport, getArchitectureReport } from "../lib/store.mjs";
 import { findClones } from "../lib/clones.mjs";
 import { findCycles } from "../lib/cycles.mjs";
 import { findUnusedExports } from "../lib/unused.mjs";
+import { buildInlineQuality, collectFrameworksFromOrigins, getCapabilitiesArtifact, getCorporaManifest, getQualityReportArtifact, getQualityTargetsArtifact, inferLanguageFromFile, listQualityCorpora } from "../lib/quality.mjs";
 
 function makeTempDir() {
     return mkdtempSync(join(tmpdir(), "hex-graph-clone-"));
@@ -178,7 +151,7 @@ function flowPoint(symbol, anchor) {
 const FLOW_TEST_LIMIT = 10;
 const RELAY_FLOW_HOPS = 4;
 
-describe("find_clones", () => {
+describe("clone analysis substrate", () => {
     it("exact + normalized clone detection across files", async () => {
         const dir = makeTempDir();
         try {
@@ -397,9 +370,9 @@ export class B {
     });
 });
 
-// ==================== find_hotspots ====================
+// ==================== hotspot analysis substrate ====================
 
-describe("find_hotspots", () => {
+describe("hotspot analysis substrate", () => {
     it("high-complexity function with multiple callers appears in hotspots", async () => {
         const dir = makeTempDir();
         try {
@@ -462,9 +435,9 @@ describe("find_hotspots", () => {
     });
 });
 
-// ==================== find_unused_exports ====================
+// ==================== unused export audit substrate ====================
 
-describe("find_unused_exports", () => {
+describe("unused export audit substrate", () => {
     it("imported export NOT flagged, unused export IS flagged", async () => {
         const dir = makeTempDir();
         try {
@@ -494,9 +467,9 @@ describe("find_unused_exports", () => {
     });
 });
 
-// ==================== find_cycles ====================
+// ==================== cycle detection substrate ====================
 
-describe("find_cycles", () => {
+describe("cycle detection substrate", () => {
     it("detects A->B->C->A circular dependency", async () => {
         const dir = makeTempDir();
         try {
@@ -542,9 +515,9 @@ describe("find_cycles", () => {
     });
 });
 
-// ==================== get_module_metrics ====================
+// ==================== module metrics substrate ====================
 
-describe("get_module_metrics", () => {
+describe("module metrics substrate", () => {
     it("Ca/Ce correct for shared module", async () => {
         const dir = makeTempDir();
         try {
@@ -888,6 +861,7 @@ describe("barrel re-export", () => {
 
         try {
             await indexProject(tmp);
+            assert.equal(hasOpenStore(tmp, { mode: "write" }), false, "indexProject should release writer store after indexing");
             const store = getStore(tmp);
 
             // barrel should have a reexport node
@@ -896,7 +870,7 @@ describe("barrel re-export", () => {
             assert.ok(reexportNode, "barrel has synthetic reexport node for foo");
             assert.equal(reexportNode.is_exported, 1, "reexport node is exported");
 
-            // find_unused_exports should NOT flag foo in a.mjs
+            // Unused export audit should NOT flag foo in a.mjs
             const result = findUnusedExports(store);
             const fooUnused = result.unused.find(u => u.name === "foo" && u.file === "a.mjs");
             assert.equal(fooUnused, undefined, "foo in a.mjs is used via barrel, not flagged");
@@ -1066,7 +1040,7 @@ describe("PHP export extraction", () => {
     });
 });
 
-describe("Non-JS find_unused_exports confidence", () => {
+describe("Non-JS unused export audit confidence", () => {
     it("Python exports are treated as proven unused once workspace resolution exists", async () => {
         const tmp = mkdtempSync(join(tmpdir(), "hex-pyunused-"));
         mkdirSync(join(tmp, ".hex-skills/codegraph"), { recursive: true });
@@ -1124,7 +1098,7 @@ describe("find_references", () => {
 });
 
 describe("identity-first selector APIs", () => {
-    it("get_symbol resolves by name+file and explain_resolution reports selector strategy", async () => {
+    it("symbol inspection primitives resolve by name+file and report selector strategy", async () => {
         const dir = makeTempDir();
         try {
             writeFileSync(join(dir, "a.mjs"), 'export function helper() { return 1; }\n');
@@ -1203,6 +1177,7 @@ describe("identity query error contracts", () => {
             ];
             for (const result of queries) {
                 assert.equal(result.error?.code, "NOT_INDEXED");
+                assert.match(result.error?.recovery || "", /file\/subdirectory inside it as path/);
             }
         } finally {
             rmSync(tmp, { recursive: true, force: true });
@@ -1235,9 +1210,27 @@ describe("identity query error contracts", () => {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
     });
+
+    it("accepts subdirectory and file paths inside an indexed project", async () => {
+        const dir = makeTempDir();
+        try {
+            mkdirSync(join(dir, "src"), { recursive: true });
+            writeFileSync(join(dir, "src", "util.mjs"), "export function helper() { return 1; }\n");
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const fromSubdir = findSymbols("helper", { path: join(dir, "src"), limit: 10 });
+            assert.ok(fromSubdir.matches.some((match) => match.file === "src/util.mjs"));
+
+            const fromFile = getReferencesBySelector({ name: "helper", file: "src/util.mjs" }, { path: join(dir, "src", "util.mjs") });
+            assert.equal(fromFile.result.symbol.file, "src/util.mjs");
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
 });
 
-describe("search_symbols contract", () => {
+describe("symbol discovery substrate", () => {
     it("returns canonical identities and respects kind filter", async () => {
         const dir = makeTempDir();
         try {
@@ -1372,7 +1365,7 @@ describe("precise overlay contracts", () => {
 
             const explained = explainResolution({ name: "run", file: "impl.ts" }, { path: dir });
             assert.equal(explained.result.precise_provider_status.status, "available");
-            assert.ok(explained.result.precise_results.incoming_count > 0, "explain_resolution exposes precise overlay facts");
+            assert.ok(explained.result.precise_results.incoming_count > 0, "selector inspection exposes precise overlay facts");
         } finally {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
         }
@@ -1585,6 +1578,340 @@ describe("trace_paths reference and import layers", () => {
     });
 });
 
+describe("framework overlays for JavaScript and TypeScript", () => {
+    it("captures React renders, Next routes, Express middleware, and Nest DI wiring", async () => {
+        const dir = makeTempDir();
+        let store;
+        try {
+            mkdirSync(join(dir, "components"), { recursive: true });
+            mkdirSync(join(dir, "app", "api", "users"), { recursive: true });
+            writeFileSync(join(dir, "components", "Card.tsx"), "export function Card() { return <section />; }\n");
+            writeFileSync(
+                join(dir, "components", "App.tsx"),
+                'import { Card } from "./Card";\nexport function App() { return <Card />; }\n',
+            );
+            writeFileSync(
+                join(dir, "app", "api", "users", "route.ts"),
+                "export async function GET() { return Response.json({ ok: true }); }\n",
+            );
+            writeFileSync(join(dir, "middleware.ts"), "export function middleware() { return NextResponse.next(); }\n");
+            writeFileSync(
+                join(dir, "express-app.ts"),
+                [
+                    'import express from "express";',
+                    "const app = express();",
+                    "export function auth(req, res, next) { next(); }",
+                    "export function listUsers(req, res) { return []; }",
+                    'app.use("/api", auth);',
+                    'app.get("/api/users", listUsers);',
+                    "",
+                ].join("\n"),
+            );
+            writeFileSync(join(dir, "users.service.ts"), "@Injectable()\nexport class UsersService {}\n");
+            writeFileSync(join(dir, "logger.middleware.ts"), "export class LoggerMiddleware {}\n");
+            writeFileSync(
+                join(dir, "users.controller.ts"),
+                [
+                    '@Controller("users")',
+                    "export class UsersController {",
+                    "  constructor(private usersService: UsersService) {}",
+                    "  @Get()",
+                    "  list() { return this.usersService; }",
+                    "}",
+                    "",
+                ].join("\n"),
+            );
+            writeFileSync(
+                join(dir, "users.module.ts"),
+                [
+                    "@Module({ controllers: [UsersController], providers: [UsersService] })",
+                    "export class UsersModule {",
+                    "  configure(consumer) { consumer.apply(LoggerMiddleware).forRoutes(UsersController); }",
+                    "}",
+                    "",
+                ].join("\n"),
+            );
+
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const reactRefs = getReferencesBySelector({ qualified_name: "components/Card.tsx:Card" }, {
+                path: dir,
+                kind: "renders",
+            });
+            assert.equal(reactRefs.result.total_by_kind.renders, 1, "React component receives render edge");
+            assert.equal(reactRefs.result.references[0].origin, "framework:react:jsx-render");
+
+            const nextRefs = getReferencesBySelector({ name: "GET", file: "app/api/users/route.ts" }, {
+                path: dir,
+                kind: "route_to_handler",
+            });
+            assert.equal(nextRefs.result.total_by_kind.route_to_handler, 1, "Next route handler is wired");
+            assert.equal(nextRefs.result.references[0].evidence.route_path, "/api/users");
+
+            const nextMixed = tracePaths({ name: "GET", file: "app/api/users/route.ts" }, {
+                path: dir,
+                path_kind: "mixed",
+                direction: "reverse",
+                depth: 3,
+                limit: 10,
+            });
+            assert.ok(nextMixed.result.some(path => path.edges.some(edge => edge.kind === "middleware_for")), "mixed trace reaches Next middleware");
+
+            const expressRefs = getReferencesBySelector({ name: "listUsers", file: "express-app.ts" }, {
+                path: dir,
+                kind: "route_to_handler",
+            });
+            assert.equal(expressRefs.result.references[0].origin, "framework:express:route");
+
+            const nestInjectRefs = getReferencesBySelector({ name: "UsersService", file: "users.service.ts" }, {
+                path: dir,
+                kind: "injects",
+            });
+            assert.equal(nestInjectRefs.result.references[0].origin, "framework:nest:constructor-injection");
+
+            const frameworkRows = getArchitectureReport({ path: dir }).result.framework;
+            assert.ok(frameworkRows.some(row => row.origin === "framework:nest:controller-route"), "architecture includes Nest routes");
+            assert.ok(frameworkRows.some(row => row.origin === "framework:nest:middleware"), "architecture includes Nest middleware");
+            assert.ok(frameworkRows.some(row => row.origin === "framework:react:jsx-render"), "architecture includes React render edges");
+
+            store = getStore(dir);
+            const unused = findUnusedExports(store);
+            const nextGet = unused.unused.find(item => item.file === "app/api/users/route.ts" && item.name === "GET");
+            const nestService = unused.unused.find(item => item.file === "users.service.ts" && item.name === "UsersService");
+            assert.equal(nextGet?.suppress_reason, "framework-wired", "Next handler is suppressed by framework evidence");
+            assert.equal(nestService?.suppress_reason, "framework-wired", "Nest provider is suppressed by framework evidence");
+        } finally {
+            store?.close();
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+});
+
+describe("framework overlays for Python", () => {
+    it("captures Django urls, FastAPI dependencies, and Flask hooks", async () => {
+        const dir = makeTempDir();
+        let store;
+        try {
+            mkdirSync(join(dir, "users"), { recursive: true });
+            writeFileSync(
+                join(dir, "urls.py"),
+                'from django.urls import include, path\nurlpatterns = [path("api/", include("users.urls"))]\nMIDDLEWARE = ["project.middleware.AuthMiddleware"]\n',
+            );
+            writeFileSync(
+                join(dir, "users", "urls.py"),
+                'from django.urls import path\nfrom .views import users_view\nurlpatterns = [path("users/", users_view)]\n',
+            );
+            writeFileSync(join(dir, "users", "views.py"), "def users_view(request):\n    return None\n");
+            writeFileSync(
+                join(dir, "api.py"),
+                [
+                    "from fastapi import FastAPI, APIRouter, Depends",
+                    "app = FastAPI()",
+                    'router = APIRouter(prefix="/items")',
+                    "class AuthMiddleware:",
+                    "    pass",
+                    "def auth_dependency():",
+                    "    return True",
+                    '@router.get("/")',
+                    "def list_items(flag = Depends(auth_dependency)):",
+                    "    return []",
+                    "app.include_router(router)",
+                    "app.add_middleware(AuthMiddleware)",
+                    "",
+                ].join("\n"),
+            );
+            writeFileSync(
+                join(dir, "flask_app.py"),
+                [
+                    "from flask import Flask, Blueprint",
+                    "app = Flask(__name__)",
+                    'bp = Blueprint("admin", __name__, url_prefix="/admin")',
+                    '@bp.route("/ping")',
+                    "def ping():",
+                    '    return "ok"',
+                    "@bp.before_request",
+                    "def load_user():",
+                    "    return None",
+                    "app.register_blueprint(bp)",
+                    "",
+                ].join("\n"),
+            );
+
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const djangoRefs = getReferencesBySelector({ name: "users_view", file: "users/views.py" }, {
+                path: dir,
+                kind: "route_to_handler",
+            });
+            assert.equal(djangoRefs.result.references[0].origin, "framework:django:urlpattern");
+
+            const fastApiDeps = getReferencesBySelector({ name: "auth_dependency", file: "api.py" }, {
+                path: dir,
+                kind: "injects",
+            });
+            assert.equal(fastApiDeps.result.references[0].origin, "framework:fastapi:depends");
+
+            const fastApiMixed = tracePaths({ name: "list_items", file: "api.py" }, {
+                path: dir,
+                path_kind: "mixed",
+                direction: "reverse",
+                depth: 3,
+                limit: 10,
+            });
+            assert.ok(fastApiMixed.result.some(path => path.edges.some(edge => edge.kind === "middleware_for")), "FastAPI trace reaches middleware");
+
+            const flaskRefs = getReferencesBySelector({ name: "ping", file: "flask_app.py" }, {
+                path: dir,
+                kind: "route_to_handler",
+            });
+            assert.equal(flaskRefs.result.references[0].evidence.route_path, "/admin/ping");
+
+            const frameworkRows = getArchitectureReport({ path: dir }).result.framework;
+            assert.ok(frameworkRows.some(row => row.origin === "framework:django:middleware"), "architecture includes Django middleware");
+            assert.ok(frameworkRows.some(row => row.origin === "framework:fastapi:depends"), "architecture includes FastAPI dependencies");
+            assert.ok(frameworkRows.some(row => row.origin === "framework:flask:request-hook"), "architecture includes Flask hooks");
+
+            store = getStore(dir);
+            const unused = findUnusedExports(store);
+            const dep = unused.unused.find(item => item.file === "api.py" && item.name === "auth_dependency");
+            const flaskHook = unused.unused.find(item => item.file === "flask_app.py" && item.name === "load_user");
+            assert.equal(dep?.suppress_reason, "framework-wired", "FastAPI dependency is suppressed by framework evidence");
+            assert.equal(flaskHook?.suppress_reason, "framework-wired", "Flask request hook is suppressed by framework evidence");
+        } finally {
+            store?.close();
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+});
+
+describe("framework overlays for PHP", () => {
+    it("captures Laravel routes, middleware, and container bindings", async () => {
+        const dir = makeTempDir();
+        let store;
+        try {
+            mkdirSync(join(dir, "app", "Http", "Controllers"), { recursive: true });
+            writeFileSync(
+                join(dir, "routes.php"),
+                'Route::middleware("auth")->get("users", [UserController::class, "index"]);\n',
+            );
+            writeFileSync(
+                join(dir, "app", "Http", "Controllers", "UserController.php"),
+                "<?php\nclass UserController { public function index() {} }\n",
+            );
+            writeFileSync(
+                join(dir, "AppServiceProvider.php"),
+                "<?php\nclass AppServiceProvider extends ServiceProvider { public function register() { $this->app->singleton(UserService::class); } }\nclass UserService {}\n",
+            );
+
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const routeRefs = getReferencesBySelector({ name: "index", file: "app/Http/Controllers/UserController.php" }, {
+                path: dir,
+                kind: "route_to_handler",
+            });
+            assert.equal(routeRefs.result.references[0].origin, "framework:laravel:route");
+
+            const bindingRefs = getReferencesBySelector({ name: "UserService", file: "AppServiceProvider.php" }, {
+                path: dir,
+                kind: "registers",
+            });
+            assert.equal(bindingRefs.result.references[0].origin, "framework:laravel:container-binding");
+
+            const frameworkRows = getArchitectureReport({ path: dir }).result.framework;
+            assert.ok(frameworkRows.some(row => row.origin === "framework:laravel:route-middleware"), "architecture includes Laravel middleware");
+
+            store = getStore(dir);
+            const unused = findUnusedExports(store);
+            const action = unused.unused.find(item => item.file === "app/Http/Controllers/UserController.php" && item.name === "index");
+            const service = unused.unused.find(item => item.file === "AppServiceProvider.php" && item.name === "UserService");
+            assert.equal(action?.suppress_reason, "framework-wired", "Laravel action is suppressed by framework evidence");
+            assert.equal(service?.suppress_reason, "framework-wired", "Laravel service is suppressed by framework evidence");
+        } finally {
+            store?.close();
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+});
+
+describe("framework overlays for C#", () => {
+    it("captures ASP.NET controller routes, DI, and middleware", async () => {
+        const dir = makeTempDir();
+        let store;
+        try {
+            writeFileSync(
+                join(dir, "WeatherController.cs"),
+                [
+                    "using Microsoft.AspNetCore.Mvc;",
+                    '[Route("weather")]',
+                    "public class WeatherController : ControllerBase {",
+                    "  public WeatherController(IWeatherService service) {}",
+                    '  [HttpGet("today")]',
+                    "  public object GetWeather() => 1;",
+                    "}",
+                    "public interface IWeatherService {}",
+                    "",
+                ].join("\n"),
+            );
+            writeFileSync(
+                join(dir, "Program.cs"),
+                [
+                    "var app = builder.Build();",
+                    "builder.Services.AddScoped<WeatherService>();",
+                    "app.UseAuthentication();",
+                    "public class WeatherService {}",
+                    "",
+                ].join("\n"),
+            );
+
+            cleanDb(dir);
+            await indexProject(dir);
+
+            const actionRefs = getReferencesBySelector({ name: "GetWeather", file: "WeatherController.cs" }, {
+                path: dir,
+                kind: "route_to_handler",
+            });
+            assert.equal(actionRefs.result.references[0].evidence.route_path, "/weather/today");
+
+            const serviceRefs = getReferencesBySelector({ name: "WeatherService", file: "Program.cs" }, {
+                path: dir,
+                kind: "registers",
+            });
+            assert.equal(serviceRefs.result.references[0].origin, "framework:aspnet:service-registration");
+
+            const injectRefs = getReferencesBySelector({ name: "IWeatherService", file: "WeatherController.cs" }, {
+                path: dir,
+                kind: "injects",
+            });
+            assert.equal(injectRefs.result.references[0].origin, "framework:aspnet:constructor-injection");
+
+            const actionMixed = tracePaths({ name: "GetWeather", file: "WeatherController.cs" }, {
+                path: dir,
+                path_kind: "mixed",
+                direction: "reverse",
+                depth: 3,
+                limit: 10,
+            });
+            assert.ok(actionMixed.result.some(path => path.edges.some(edge => edge.kind === "middleware_for")), "ASP.NET trace reaches middleware");
+
+            const frameworkRows = getArchitectureReport({ path: dir }).result.framework;
+            assert.ok(frameworkRows.some(row => row.origin === "framework:aspnet:middleware"), "architecture includes ASP.NET middleware");
+
+            store = getStore(dir);
+            const unused = findUnusedExports(store);
+            const action = unused.unused.find(item => item.file === "WeatherController.cs" && item.name === "GetWeather");
+            const iface = unused.unused.find(item => item.file === "WeatherController.cs" && item.name === "IWeatherService");
+            assert.equal(action?.suppress_reason, "framework-wired", "ASP.NET action is suppressed by framework evidence");
+            assert.equal(iface?.suppress_reason, "framework-wired", "ASP.NET injected dependency is suppressed by framework evidence");
+        } finally {
+            store?.close();
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+});
+
 describe("type graph and implementations", () => {
     it("finds extends, implements, and overrides via type-layer edges", async () => {
         const dir = makeTempDir();
@@ -1785,7 +2112,7 @@ describe("find_references through barrel", () => {
 });
 
 describe("find_references ambiguity", () => {
-    it("requires canonical selector and uses search_symbols to disambiguate", async () => {
+    it("requires canonical selector and uses symbol discovery to disambiguate", async () => {
         const tmp = mkdtempSync(join(tmpdir(), "hex-ambrefs-"));
         mkdirSync(join(tmp, ".hex-skills/codegraph"), { recursive: true });
         writeFileSync(join(tmp, "a.mjs"), 'export function helper() { return 1; }\n');
@@ -1805,11 +2132,41 @@ describe("find_references ambiguity", () => {
                 match.kind === "function" &&
                 (match.file === "a.mjs" || match.file === "b.mjs")
             );
-            assert.equal(helperDefs.length, 2, "search_symbols returns both helper definitions");
+            assert.equal(helperDefs.length, 2, "symbol discovery returns both helper definitions");
 
             const aOnly = getReferencesBySelector({ name: "helper", file: "a.mjs" }, { path: tmp });
             assert.equal(aOnly.result.symbol.file, "a.mjs");
             assert.equal(aOnly.result.total, 2, "filtered result only includes a.mjs refs");
+
+            store.close();
+        } finally {
+            try { rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
+    it("warns when a selector resolves to an import usage node", async () => {
+        const tmp = mkdtempSync(join(tmpdir(), "hex-ambrefs-import-"));
+        mkdirSync(join(tmp, ".hex-skills/codegraph"), { recursive: true });
+        writeFileSync(join(tmp, "a.mjs"), 'export function helper() { return 1; }\n');
+        writeFileSync(join(tmp, "b.mjs"), 'import { helper } from "./a.mjs";\nexport function runB() { return helper(); }\n');
+        try {
+            await indexProject(tmp);
+            const store = getStore(tmp);
+
+            const importCandidate = findSymbols("helper", { path: tmp, limit: 10 }).matches.find((match) =>
+                match.kind === "import" && match.file === "b.mjs"
+            );
+            assert.ok(importCandidate, "import candidate is discoverable");
+
+            const importNodeRefs = getReferencesBySelector({
+                name: importCandidate.name,
+                file: importCandidate.file,
+            }, { path: tmp });
+            assert.equal(importNodeRefs.result.symbol.kind, "import");
+            assert.ok(
+                (importNodeRefs.warnings || []).some((warning) => warning.includes("import usage")),
+                "import warning is returned",
+            );
 
             store.close();
         } finally {
@@ -1840,9 +2197,9 @@ describe("C# public method export", () => {
     });
 });
 
-// ==================== Bug 3: find_unused_exports text reason ====================
+// ==================== Bug 3: unused export audit text reason ====================
 
-describe("find_unused_exports text reason", () => {
+describe("unused export audit text reason", () => {
     it("text output includes uncertain section when usage cannot be proven exactly", async () => {
         const tmp = mkdtempSync(join(tmpdir(), "hex-unusedreason-"));
         mkdirSync(join(tmp, ".hex-skills/codegraph"), { recursive: true });
@@ -1913,28 +2270,23 @@ describe("no self-edge for top-level references", () => {
 // ==================== WASM dependency contract ====================
 
 describe("WASM dependency contract", () => {
-    it("package.json declares tree-sitter runtime deps", () => {
+    it("package.json declares the parser runtime dependency only once", () => {
         const pkg = JSON.parse(fs.readFileSync(
             resolve(__dirname, "../package.json"), "utf8"
         ));
         const deps = pkg.dependencies || {};
         assert.ok(deps["web-tree-sitter"],
             "web-tree-sitter missing from dependencies — index_project will fail after npm install");
-        assert.ok(deps["tree-sitter-wasms"],
-            "tree-sitter-wasms missing from dependencies — WASM grammars unavailable after npm install");
+        assert.ok(!deps["tree-sitter-wasms"],
+            "tree-sitter-wasms should not be a direct dependency anymore — grammars now come from hex-common artifacts");
     });
 
-    it("WASM files exist for all supported grammars", () => {
-        const require = createRequire(import.meta.url);
-        const pkgPath = require.resolve("tree-sitter-wasms/package.json");
-        const grammars = [
-            "javascript", "typescript", "tsx", "python", "go", "rust",
-            "java", "c", "cpp", "c_sharp", "ruby", "php", "kotlin", "swift", "bash"
-        ];
-        const missing = grammars.filter(g => {
-            const wasm = resolve(pkgPath, "..", "out", `tree-sitter-${g}.wasm`);
-            return !fs.existsSync(wasm);
-        });
+    it("hex-common artifact bundle exists for all supported grammars", () => {
+        const artifactDir = resolve(__dirname, "../../hex-common/artifacts/tree-sitter");
+        const manifest = JSON.parse(fs.readFileSync(resolve(artifactDir, "manifest.json"), "utf8"));
+        const missing = (manifest.grammars || [])
+            .map(entry => entry.file)
+            .filter(file => !fs.existsSync(resolve(artifactDir, file)));
         assert.deepEqual(missing, [], `WASM files missing for: ${missing.join(", ")}`);
     });
 
@@ -1944,6 +2296,14 @@ describe("WASM dependency contract", () => {
         const missing = expected.filter(f => !fs.existsSync(resolve(distQueries, f)));
         assert.deepEqual(missing, [],
             `dist/queries/ missing: ${missing.join(", ")} — build.mjs must copy lib/queries/ to dist/queries/`);
+    });
+
+    it("dist/server.mjs keeps package metadata lookup inside the published package root", { skip: !fs.existsSync(resolve(__dirname, "../dist/server.mjs")) }, () => {
+        const distServer = fs.readFileSync(resolve(__dirname, "../dist/server.mjs"), "utf8");
+        assert.ok(!distServer.includes('require2("../../package.json")'),
+            "dist/server.mjs contains a broken ../../package.json lookup that escapes the published package root");
+        assert.ok(distServer.includes('require2("../package.json")') || distServer.includes('createRequire(import.meta.url)("../package.json")'),
+            "dist/server.mjs must keep package metadata lookup anchored at the package root");
     });
 });
 
@@ -1960,6 +2320,8 @@ describe("store persistence after restart", () => {
             store.close(); // simulates restart — removes from _stores
             const reopened = resolveStore(tmp);
             assert.ok(reopened, "resolveStore should auto-open from disk, not return null");
+            assert.equal(hasOpenStore(tmp, { mode: "write" }), false, "query reopen must not create a writer store");
+            assert.equal(hasOpenStore(tmp, { mode: "query" }), true, "query reopen should use a query store");
             assert.ok(reopened.allFilePaths().length > 0, "reopened store has data");
             reopened.close();
         } finally {
@@ -1982,6 +2344,22 @@ describe("store persistence after restart", () => {
         }
     });
 
+    it("resolveStore query stores idle-close automatically", async () => {
+        const tmp = makeTempDir();
+        try {
+            writeFileSync(join(tmp, "idle.mjs"), "export const idle = 1;\n");
+            await indexProject(tmp);
+            const store = resolveStore(tmp);
+            assert.ok(store, "query store should open from persisted DB");
+            assert.equal(hasOpenStore(tmp, { mode: "query" }), true, "query store should be tracked while active");
+            await delay(QUERY_STORE_IDLE_MS + 150);
+            assert.equal(hasOpenStore(tmp, { mode: "query" }), false, "query store should auto-close after idle timeout");
+        } finally {
+            closeAllStores();
+            try { rmSync(tmp, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
     it("resolveStore skips stale schema DB", async () => {
         const tmp = makeTempDir();
         try {
@@ -1995,12 +2373,7 @@ describe("store persistence after restart", () => {
             db.pragma("user_version = 99999");
             db.close();
             const result = resolveStore(tmp);
-            // Result is either null (no other stores) or a fallback store for a DIFFERENT project
-            // Key check: stale DB must NOT be opened as store for tmp
-            if (result) {
-                assert.notEqual(result.projectPath, resolve(tmp),
-                    "stale DB should not be opened — resolveStore returned store for this path");
-            }
+            assert.equal(result, null, "stale DB should not resolve to any store for a path-scoped lookup");
             // DB should NOT be deleted
             assert.ok(existsSync(join(tmp, ".hex-skills/codegraph", "index.db")), "stale DB must not be deleted");
         } finally {
@@ -2008,78 +2381,84 @@ describe("store persistence after restart", () => {
         }
     });
 
+    it("resolveStore never falls back to another in-memory workspace when a path is provided", async () => {
+        const indexed = makeTempDir();
+        const missing = makeTempDir();
+        try {
+            writeFileSync(join(indexed, "main.mjs"), "export function hello() { return 1; }\n");
+            await indexProject(indexed);
+            const primary = getStore(indexed);
+            assert.equal(primary.projectPath, resolve(indexed), "indexed workspace is open in memory");
+
+            rmSync(missing, { recursive: true, force: true });
+            const resolvedMissing = resolveStore(missing);
+            assert.equal(resolvedMissing, null, "path-scoped lookup must not return an unrelated in-memory store");
+        } finally {
+            const store = resolveStore(indexed);
+            store?.close();
+            try { rmSync(indexed, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
     it("resolveStore returns null for non-existent project", () => {
         const fake = join(tmpdir(), "hex-graph-nonexistent-" + Date.now());
         const result = resolveStore(fake);
-        // Should return null or fallback store, but NOT crash
-        assert.ok(result === null || result !== undefined, "should not crash on missing path");
+        assert.equal(result, null, "path-scoped lookup should not fall back to an unrelated store");
+    });
+
+    it("resolveStore without path returns null instead of an arbitrary open store", async () => {
+        const indexed = makeTempDir();
+        try {
+            writeFileSync(join(indexed, "main.mjs"), "export const value = 1;\n");
+            await indexProject(indexed);
+            assert.ok(resolveStore(indexed), "indexed project should still resolve by path");
+            assert.equal(resolveStore(), null, "no-path lookup must not select an arbitrary store");
+        } finally {
+            resolveStore(indexed)?.close();
+            try { rmSync(indexed, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
     });
 });
 
-import Database from "better-sqlite3";
+describe("quality artifacts", () => {
+    it("loads capability, target, report, and corpus artifacts", () => {
+        const capabilities = getCapabilitiesArtifact();
+        const targets = getQualityTargetsArtifact();
+        const report = getQualityReportArtifact();
+        const corpora = getCorporaManifest();
 
-describe("store persistence after restart", () => {
-    it("resolveStore auto-opens persisted DB", async () => {
-        const tmp = makeTempDir();
-        try {
-            writeFileSync(join(tmp, "a.mjs"), "export function hello() { return 1; }\n");
-            await indexProject(tmp);
-            const store1 = resolveStore(tmp);
-            assert.ok(store1, "store should exist after indexing");
-            const stats1 = store1.stats();
-            assert.ok(stats1.files > 0, "should have indexed files");
-
-            // Simulate restart: close store, clear in-memory cache
-            store1.close();
-
-            // resolveStore should auto-open from disk
-            const store2 = resolveStore(tmp);
-            assert.ok(store2, "store should auto-open from persisted DB");
-            const stats2 = store2.stats();
-            assert.equal(stats2.files, stats1.files, "file count should match after reopen");
-            store2.close();
-        } finally {
-            try { rmSync(tmp, { recursive: true, force: true }); } catch {}
-        }
+        assert.match(capabilities.generated_at, /^\d{4}-\d{2}-\d{2}$/);
+        assert.ok(capabilities.query_families.find_references, "find_references capability exists");
+        assert.equal(capabilities.query_families.scip_interop.default.tier, "experimental", "SCIP interop is surfaced as an experimental lane");
+        assert.ok(targets.lanes.parser_first, "parser_first targets exist");
+        assert.equal(report.summary.semantic_suite.passed, countTestCases(resolve(__dirname)), "quality report keeps semantic suite summary");
+        assert.equal(corpora.curated[0].path, "test/smoke.mjs");
+        assert.equal(listQualityCorpora("curated").length, 1, "curated corpus list is exposed");
+        assert.ok(listQualityCorpora("external").length >= 1, "external corpus list is exposed");
     });
 
-    it("resolveStore returns null for stale schema version (no fallback)", () => {
-        const tmp = makeTempDir();
-        try {
-            const dbDir = join(tmp, ".hex-skills/codegraph");
-            mkdirSync(dbDir, { recursive: true });
-            const db = new Database(join(dbDir, "index.db"));
-            db.pragma("user_version = 9999");
-            db.close();
+    it("derives inline quality conservatively across language and framework scopes", () => {
+        const quality = buildInlineQuality({
+            queryFamily: "find_references",
+            languages: ["typescript"],
+            frameworks: ["nextjs"],
+        });
 
-            // resolveStore may return a fallback store from _stores Map.
-            // Verify the stale DB is NOT opened (not deleted, not auto-opened).
-            const store = resolveStore(tmp);
-            if (store) {
-                // If fallback returned, it must NOT be for our stale tmp path
-                const stats = store.stats();
-                assert.ok(stats, "fallback store should have stats");
-            }
-            // DB file must NOT be deleted by resolveStore
-            assert.ok(existsSync(join(dbDir, "index.db")), "DB file should NOT be deleted");
-        } finally {
-            try { rmSync(tmp, { recursive: true, force: true }); } catch {}
-        }
+        assert.equal(quality.support_tier, "supported", "framework overlay lowers tier below base language verification");
+        assert.ok(quality.quality_basis.includes("fixture_golden"), "language basis included");
+        assert.ok(quality.quality_basis.includes("framework_overlay_fixture"), "framework basis included");
+        assert.ok(
+            quality.known_limitations.some(item => item.includes("App Router") || item.includes("route exports")),
+            "framework limitations preserved",
+        );
     });
 
-    it("resolveStore finds parent store for subdirectory path", async () => {
-        const tmp = makeTempDir();
-        try {
-            const subDir = join(tmp, "src");
-            mkdirSync(subDir, { recursive: true });
-            writeFileSync(join(subDir, "b.mjs"), "export const x = 1;\n");
-            await indexProject(tmp);
-
-            const store = resolveStore(subDir);
-            assert.ok(store, "should find parent store for subdirectory");
-            store.close();
-        } finally {
-            try { rmSync(tmp, { recursive: true, force: true }); } catch {}
-        }
+    it("infers language and framework scope from files and origins", () => {
+        assert.equal(inferLanguageFromFile("src/app/api/route.ts"), "typescript");
+        assert.equal(inferLanguageFromFile("app/UsersController.cs"), "csharp");
+        assert.deepEqual(
+            collectFrameworksFromOrigins(["framework:nextjs:route", "parser_call", "framework:nestjs:provider"]),
+            ["nextjs", "nestjs"],
+        );
     });
 });

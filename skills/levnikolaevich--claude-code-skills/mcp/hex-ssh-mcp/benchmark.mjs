@@ -8,8 +8,8 @@
  * Run: node benchmark.mjs
  */
 
-import { deduplicateLines, smartTruncate, normalizeOutput } from "./lib/normalize.mjs";
-import { fnv1a, lineTag } from "./lib/hash.mjs";
+import { deduplicateLines, smartTruncate, normalizeOutput } from "@levnikolaevich/hex-common/output/normalize";
+import { fnv1a, lineTag } from "@levnikolaevich/hex-common/text-protocol/hash";
 
 // ---- Helpers ----
 

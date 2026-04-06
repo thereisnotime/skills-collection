@@ -6,7 +6,7 @@ import { resolve, extname } from "node:path";
 // Constants (shared with benchmark.mjs)
 // ---------------------------------------------------------------------------
 
-const CODE_EXTS = new Set([".js", ".ts", ".py", ".mjs", ".go", ".rs", ".java", ".c", ".cpp", ".rb", ".php"]);
+const CODE_EXTS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".cs", ".php"]);
 const MAX_FILES_PER_CAT = 3;
 const RUNS = 5;
 

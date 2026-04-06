@@ -7,11 +7,13 @@ Hash-verified file editing MCP + token efficiency hook for AI coding agents.
 [![license](https://img.shields.io/npm/l/@levnikolaevich/hex-line-mcp)](./LICENSE)
 ![node](https://img.shields.io/node/v/@levnikolaevich/hex-line-mcp)
 
-Every line carries an FNV-1a content hash. Every edit must present those hashes back -- proving the agent is editing what it thinks it's editing. No stale context, no silent corruption.
+Every line carries an FNV-1a content hash. Every edit must present those hashes back -- proving the agent is editing what it thinks it's editing. No stale context, no silent corruption. Hashing works on normalized logical text; writes preserve the file's existing line endings and trailing-newline shape.
+
+By default, mutating tools stay inside the current project root. If you intentionally need to edit a temp or external path, pass `allow_external: true` on `edit_file`, `write_file`, or `bulk_replace`.
 
 ## Features
 
-### 10 MCP Tools
+### 9 MCP Tools
 
 Core day-to-day tools:
 
@@ -25,31 +27,29 @@ Core day-to-day tools:
 Advanced / occasional:
 
 - `write_file`
-- `directory_tree`
-- `get_file_info`
+- `inspect_path`
 - `changes`
 
 | Tool | Description | Key Feature |
 |------|-------------|-------------|
-| `read_file` | Read file with hash-annotated lines, checksums, and revision | Partial reads via `offset`/`limit` or `ranges`, compact output by default |
+| `read_file` | Read file with hash-annotated lines, checksums, revision, and automatic graph hints when available | Partial reads via `offset`/`limit` or `ranges`, compact output by default |
 | `edit_file` | Revision-aware anchor edits (`set_line`, `replace_lines`, `insert_after`, `replace_between`) | Batched same-file edits + conservative auto-rebase |
 | `write_file` | Create new file or overwrite, auto-creates parent dirs | Path validation, no hash overhead |
 | `grep_search` | Search with ripgrep, 3 output modes, per-group checksums | Plain `files`/`count`, compact edit-ready `content` |
-| `outline` | AST-based structural overview with hash anchors via tree-sitter WASM. Supports code (15+ langs) and fence-aware markdown headings | 95% token reduction, direct edit anchors |
+| `outline` | AST-based structural overview with hash anchors via tree-sitter WASM. Supports JavaScript/TypeScript, Python, C#, PHP, and fence-aware markdown headings | 95% token reduction, direct edit anchors |
 | `verify` | Check if held checksums / revision are still current | Staleness check without full re-read |
-| `directory_tree` | Compact directory tree with root .gitignore support | Skips node_modules/.git, shows file sizes |
-| `get_file_info` | File metadata without reading content | Size, lines, mtime, type, binary detection |
+| `inspect_path` | Unified file-or-directory inspection | File metadata for files, tree or pattern search for directories |
 | `changes` | Compare file against git ref, shows added/removed/modified symbols | AST-level semantic diff |
-| `bulk_replace` | Search-and-replace across multiple files by glob | Compact summary (default) or capped diffs via `format`, dry_run, max_files |
+| `bulk_replace` | Search-and-replace across multiple files inside an explicit root path | Compact summary (default) or capped diffs via `format`, dry_run, max_files |
 
-### Hooks (PreToolUse + PostToolUse)
+### Hooks (SessionStart + PreToolUse + PostToolUse)
 
 | Event | Trigger | Action |
 |-------|---------|--------|
-| **PreToolUse** | Read/Edit/Write/Grep on text files | Size-aware redirect: cheap small operations may pass, expensive ones are redirected |
+| **PreToolUse** | Read/Edit/Write/Grep on text files | Redirect-first policy for text files; built-in tools stay reserved for binary/media and `.claude/settings*.json` exceptions |
 | **PreToolUse** | Bash with dangerous commands | Blocks `rm -rf /`, `git push --force`, etc. Agent must confirm with user |
 | **PostToolUse** | Bash with 50+ lines output | RTK: deduplicates, truncates, shows filtered summary to Claude as feedback |
-| **SessionStart** | Session begins | Injects a short no-discovery workflow for hex-line tools |
+| **SessionStart** | Session begins | Injects a short bootstrap hint; defers to the active output style when `hex-line` style is enabled |
 
 
 ### Bash Redirects
@@ -66,11 +66,15 @@ claude mcp add -s user hex-line -- hex-line-mcp
 
 ripgrep is bundled via `@vscode/ripgrep` — no manual install needed for `grep_search`.
 
+Requires Node.js >= 20.19.0.
+
 ### Hooks
 
 Hooks and output style are auto-synced on every MCP server startup. The server compares installed files with bundled versions and updates only when content differs. First run after `npm i -g` triggers full install automatically.
 
 Hooks are written to global `~/.claude/settings.json` with absolute path to `hook.mjs`. Output style is installed to `~/.claude/output-styles/hex-line.md` and activated if no other style is set. To activate manually: `/config` > Output style > hex-line.
+
+No extra manual setup is required after install. The startup sync uses the current Node runtime and a stable hook path under `~/.claude/hex-line`, so the hook command survives spaces in the home directory on Windows, macOS, and Linux.
 
 ## Validation
 
@@ -93,11 +97,14 @@ Comparative built-in vs hex-line benchmarks are maintained outside this package.
 
 ### Optional Graph Enrichment
 
-If a project already has `.hex-skills/codegraph/index.db`, `hex-line` can add lightweight graph hints to `read_file`, `outline`, `grep_search`, and `edit_file`.
+If a project already has `.hex-skills/codegraph/index.db`, `hex-line` automatically adds lightweight graph hints to `read_file`, `outline`, `grep_search`, `edit_file`, and `changes`.
 
-- Graph enrichment is optional. If `.hex-skills/codegraph/index.db` is missing, `hex-line` falls back to standard behavior silently.
+- Graph enrichment is optional. If `.hex-skills/codegraph/index.db` is missing, stale, or unreadable, `hex-line` falls back to standard behavior silently.
+- Graph enrichment is project-deterministic. `hex-line` only uses the graph database that belongs to the resolved current project scope.
+- Nested projects do not inherit graph hints from a parent repo index once a nested project boundary is detected.
 - `better-sqlite3` is optional. If it is unavailable, `hex-line` still works without graph hints.
-- `edit_file` reports **Semantic impact** using explainable graph facts: external callers, downstream return/property flow, and clone peers when present.
+- `read_file`, `outline`, and `grep_search` stay compact: they only surface high-signal local facts such as `api`, framework entrypoints, callers, flow, and clone hints.
+- `edit_file` and `changes` surface the deeper review layer: external callers, downstream return/property flow, clone peers, public API risk, framework entrypoint risk, and same-name sibling warnings when present.
 
 `hex-line` does not read `hex-graph` internals directly anymore. The integration uses a small read-only contract exposed by `hex-graph-mcp`:
 
@@ -121,7 +128,8 @@ If a project already has `.hex-skills/codegraph/index.db`, `hex-line` can add li
 
 1. Carry `revision` from the earlier `read_file` or `edit_file`
 2. Pass it back as `base_revision`
-3. Use `verify` before rereading the file
+3. Use `verify` before delayed or mixed-tool follow-up edits
+4. If the server returns `retry_edit`, `retry_edits`, `retry_checksum`, or `retry_plan`, reuse those directly
 
 ### Rewrite a long block
 
@@ -129,20 +137,19 @@ Use `replace_between` inside `edit_file` when you know stable start/end anchors 
 
 ### Literal rename / refactor
 
-Use `bulk_replace` for text rename patterns across one or more files. Returns compact summary by default; pass `format: "full"` for capped diffs. Do not use it as a substitute for structured block rewrites.
+Use `bulk_replace` for text rename patterns across one or more files inside a known project root or directory scope. Pass `path` explicitly. In normal agent workflows that scope should be auto-filled from the current project root, not typed manually. Returns compact summary by default; pass `format: "full"` for capped diffs. Do not use it as a substitute for structured block rewrites.
 
 ### read_file
 
-Read a file as canonical edit-ready blocks. Each valid range becomes a `read_range` block with absolute span, line entries, and a checksum covering exactly the emitted lines. Invalid ranges become explicit diagnostic blocks. Supports batch reads, multi-range reads, and directory listing.
+Read a file as canonical edit-ready blocks. Each valid range becomes a `read_range` block with absolute span, line entries, and a checksum covering exactly the emitted lines. Invalid ranges become explicit diagnostic blocks. Supports batch reads and multi-range reads. Directories go through `inspect_path`.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `path` | string | yes | File or directory path |
+| `path` | string | yes | File path |
 | `paths` | string[] | no | Array of file paths to read (batch mode) |
 | `offset` | number | no | Start line, 1-indexed (default: 1) |
 | `limit` | number | no | Max lines to return (default: 2000, 0 = all) |
 | `ranges` | array | no | Explicit line ranges, e.g. `[{ "start": 10, "end": 30 }]` |
-| `include_graph` | boolean | no | Opt in to graph annotations when the graph index exists |
 | `plain` | boolean | no | Omit hashes, output `lineNum\|content` instead |
 
 Default output is compact but block-structured:
@@ -152,9 +159,13 @@ File: lib/search.mjs
 meta: 282 lines, 10.2KB, 2 hours ago
 revision: rev-12-a1b2c3d4
 file: 1-282:beefcafe
+eol: lf
+trailing_newline: true
 
 block: read_range
 span: 1-3
+eol: lf
+trailing_newline: true
 ab.1    import { resolve } from "node:path";
 cd.2    import { readFileSync } from "node:fs";
 ef.3    ...
@@ -173,6 +184,7 @@ Edit using revision-aware hash-verified anchors. Prefer one batched call per fil
 | `restore_indent` | boolean | no | Auto-fix indentation to match anchor context (default: false) |
 | `base_revision` | string | no | Prior revision from `read_file` / `edit_file` for same-file follow-up edits |
 | `conflict_policy` | enum | no | `conservative` or `strict` (default: `conservative`) |
+| `allow_external` | boolean | no | Allow editing a path outside the current project root |
 
 Edit operations (JSON array):
 
@@ -185,14 +197,30 @@ Edit operations (JSON array):
 ]
 ```
 
+Discipline:
+
+- Never invent `range_checksum`. Copy it from `read_file` or `grep_search(output:"content")`.
+- First mutation in a file: prefer `grep_search` for narrow targets, or `outline -> read_file(ranges)` for structural edits.
+- Prefer 1-2 hunks on the first pass. Once `edit_file` returns a fresh `revision`, continue from that state as `base_revision`.
+- `hex-line` preserves existing file line endings on write; repo-level line-ending cleanup should be a separate deliberate operation, not a side effect of `edit_file`.
+
 Result footer includes:
 
 - `status: OK | AUTO_REBASED | CONFLICT`
+- `reason: ...` as the canonical machine-readable cause for the current status
 - `revision: ...`
 - `file: ...`
 - `changed_ranges: ...` when relevant
+- `recovery_ranges: ...` with the narrowest recommended `read_file` ranges for retry
+- `next_action: ...` as the canonical immediate choice: `apply_retry_edit`, `apply_retry_batch`, or `reread_then_retry`
 - `remapped_refs: ...` when stale anchors were uniquely relocated
-- `retry_checksum: ...` on local conflicts
+- `retry_checksum: ...` on local conflicts, narrowed to the exact target range when possible
+- `retry_edit: ...` when the server can synthesize a ready-to-retry edit skeleton from current local state
+- `retry_edits: ...` on conservative batch conflicts when every conflicted edit can be retried directly
+- `suggested_read_call: ...` when rereading is the safest next step
+- `retry_plan: ...` with a compact machine-readable next-call plan
+- `summary: ...` and `snippet: ...` instead of long prose blocks
+- `edit_conflicts: N` on conservative multi-edit preflight conflicts
 
 ### write_file
 
@@ -202,6 +230,7 @@ Create a new file or overwrite an existing one. Creates parent directories autom
 |-----------|------|----------|-------------|
 | `path` | string | yes | File path |
 | `content` | string | yes | File content |
+| `allow_external` | boolean | no | Allow writing a path outside the current project root |
 
 ### grep_search
 
@@ -222,26 +251,26 @@ Search file contents using ripgrep. Three output modes: `content` (canonical `se
 | `context_before` | number | no | Context lines BEFORE match (`-B`) |
 | `context_after` | number | no | Context lines AFTER match (`-A`) |
 | `limit` | number | no | Max matches per file (default: 100) |
-| `total_limit` | number | no | Total match events across all files; multiline matches count as 1 (0 = unlimited) |
+| `total_limit` | number | no | Total match events across all files; multiline matches count as 1 (default: 200 for `content`, 1000 for `files`/`count`, 0 = unlimited) |
 | `plain` | boolean | no | Omit hash tags inside block entries, return `lineNum\|content` |
 
 `content` mode returns canonical `search_hunk` blocks with per-hunk checksums enabling direct `replace_lines` from grep results without intermediate `read_file`.
 
 ### outline
 
-AST-based structural outline with hash anchors for direct `edit_file` usage. Supports code files (15+ languages) and fence-aware markdown heading navigation (`.md`/`.mdx`). Each entry includes a hash tag for immediate anchor use without intermediate `read_file`.
+AST-based structural outline with hash anchors for direct `edit_file` usage. Supports JavaScript/TypeScript, Python, C#, PHP, and fence-aware markdown heading navigation (`.md`/`.mdx`). Each entry includes a hash tag for immediate anchor use without intermediate `read_file`.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `path` | string | yes | Source file path |
 
-Supported languages: JavaScript, TypeScript (JSX/TSX), Python, Go, Rust, Java, C, C++, C#, Ruby, PHP, Kotlin, Swift, Bash -- 15+ via tree-sitter WASM.
+Supported languages: JavaScript (`.js`, `.mjs`, `.cjs`, `.jsx`), TypeScript (`.ts`, `.tsx`), Python (`.py`), C# (`.cs`), and PHP (`.php`) via tree-sitter WASM.
 
 Not for `.json`, `.yaml`, `.txt` -- use `read_file` directly for those.
 
 ### verify
 
-Check if range checksums from prior read/search blocks are still valid, optionally relative to a prior `base_revision`. Returns a deterministic verification report with `status`, `summary`, and one line per checksum entry.
+Check if range checksums from prior read/search blocks are still valid, optionally relative to a prior `base_revision`. Returns a deterministic verification report with canonical `status`, `summary`, `next_action`, and compact entry lines.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -253,51 +282,46 @@ Example output:
 
 ```text
 status: STALE
+reason: checksums_stale
 revision: rev-17-deadbeef
 file: 1-120:abc123ef
 summary: valid=0 stale=1 invalid=0
+next_action: reread_ranges
 base_revision: rev-16-feedcafe
 changed_ranges: 10-12(replace)
+suggested_read_call: {"tool":"mcp__hex-line__read_file","arguments":{"path":"/repo/file.ts","ranges":["10-12"]}}
 
-STALE 10-12 checksum: 10-12:oldc0de0 current=10-12:newc0de0
+entry: 1/1 | status: STALE | span: 10-12 | checksum: 10-12:oldc0de0 | current_checksum: 10-12:newc0de0 | next_action: reread_range | summary: content changed since checksum capture
 ```
 
-### directory_tree
+### inspect_path
 
-Compact directory tree with root .gitignore support (path-based rules, negation, dir-only). Nested .gitignore files are not loaded.
+Inspect a file or directory path without guessing which low-level tool to call first.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `path` | string | yes | Directory path |
+| `path` | string | yes | File or directory path |
 | `pattern` | string | no | Glob filter on names (e.g. `"*-mcp"`, `"*.mjs"`). Returns flat match list instead of tree |
 | `type` | string | no | `"file"`, `"dir"`, or `"all"` (default). Like `find -type f/d` |
 | `max_depth` | number | no | Max recursion depth (default: 3, or 20 in pattern mode) |
 | `gitignore` | boolean | no | Respect root .gitignore patterns (default: true). Nested .gitignore not supported |
-| `format` | string | no | `"compact"` = names only, no sizes, depth 1. `"full"` = default with sizes |
+| `format` | string | no | `"compact"` = shorter path view. `"full"` = include sizes / metadata where available |
 
-Skips `node_modules`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `coverage` by default.
-
-### get_file_info
-
-File metadata without reading content.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | File path |
-
-Returns: size, line count, modification time (absolute + relative), file type, binary detection.
+- For regular files it returns compact metadata: size, line count when cheap, modification time, type, and binary flag.
+- For directories it returns a gitignore-aware tree.
+- With `pattern`, it switches to flat match mode and works as the preferred replacement for `find` / recursive `ls`.
 
 ## Hook
 
-The unified hook (`hook.mjs`) handles four events:
+The unified hook (`hook.mjs`) handles three Claude hook events:
 
 ### PreToolUse: Tool Redirect
 
-Blocks built-in `Read`, `Edit`, `Write`, `Grep` on text files and redirects to hex-line equivalents. Binary files (images, PDFs, notebooks, archives, executables, fonts, media) are excluded.
+Applies redirect-first steering to built-in `Read`, `Edit`, `Write`, and `Grep` on text files. Binary/media files (images, PDFs, notebooks, archives, executables, fonts, media) stay on built-in tools. `.claude/settings.json` and `.claude/settings.local.json` at project root or home are also allowed on built-in tools.
 
 ### PreToolUse: Bash Redirect + Dangerous Blocker
 
-Intercepts simple Bash commands (`cat`, `head`, `tail`, `ls`, `find`, `grep`, `sed -i`, etc.) and redirects to hex-line tools. Blocks dangerous commands (`rm -rf /`, `git push --force`, `git reset --hard`, `DROP TABLE`, `chmod 777`, `mkfs`, `dd`).
+Intercepts simple Bash commands (`cat`, `head`, `tail`, `tree`, `find`, `stat`, `wc -l`, `grep`, `rg`, `sed -i`, etc.) and redirects covered cases to hex-line tools. `ls`/`dir` are redirected only for recursive listing. Dangerous commands (`rm -rf /`, `git push --force`, `git reset --hard`, `DROP TABLE`, `chmod 777`, `mkfs`, `dd`) are blocked.
 
 ### PostToolUse: RTK Output Filter
 
@@ -308,7 +332,11 @@ Triggers on `Bash` tool output exceeding 50 lines. Pipeline:
 3. **Deduplicate** -- collapses identical normalized lines with `(xN)` counts
 4. **Truncate** -- keeps first 15 + last 15 lines, omits the middle
 
-Configuration constants in `hook.mjs`:
+### SessionStart: Bootstrap Hint
+
+Injects a compact startup reminder. If the `hex-line` output style is active, the hook emits only a minimal bootstrap hint plus `ToolSearch('+hex-line read edit')` fallback. Otherwise it injects the short preferred read/edit workflow directly, including the scope rule: use file paths for file tools and the current project root for repo-wide tools such as `bulk_replace`.
+
+Hook policy constants in `lib/hook-policy.mjs`:
 
 | Constant | Default | Purpose |
 |----------|---------|--------|
@@ -318,17 +346,18 @@ Configuration constants in `hook.mjs`:
 
 ### SessionStart: Tool Preferences
 
-Injects a short operational workflow into agent context at session start: no `ToolSearch`, prefer `outline -> read_file -> edit_file -> verify`, and use targeted reads over full-file reads.
+Injects a short operational workflow into agent context at session start. If schemas are not loaded yet, it includes the `ToolSearch('+hex-line read edit')` fallback. Primary flow stays `outline -> read_file -> edit_file -> verify`, with targeted reads over full-file reads.
 
 ## Architecture
 
 ```
 hex-line-mcp/
-  server.mjs          MCP server (stdio transport, 11 tools)
+  server.mjs          MCP server (stdio transport, 9 tools)
   hook.mjs            Unified hook (PreToolUse + PostToolUse + SessionStart)
   package.json
   lib/
-    hash.mjs          FNV-1a hashing, 2-char tags, range checksums
+    hook-policy.mjs   Shared hook policy: redirects, thresholds, danger patterns
+    setup.mjs         Startup autosync for hook + output style
     read.mjs          File reading with hash annotation
     edit.mjs          Anchor-based edits, diff output
     search.mjs        ripgrep wrapper with hash-annotated results
@@ -336,13 +365,15 @@ hex-line-mcp/
     verify.mjs        Range checksum verification
     info.mjs          File metadata (size, lines, mtime, type)
     tree.mjs          Directory tree with .gitignore support
+    inspect-path.mjs  Unified file/directory inspection
     changes.mjs       Semantic git diff via AST
     bulk-replace.mjs  Multi-file search-and-replace
     setup.mjs         Claude hook installation + output style setup
     format.mjs        Output formatting utilities
-    coerce.mjs        Parameter pass-through (identity)
     security.mjs      Path validation, binary detection, size limits
-    normalize.mjs     Output normalization, deduplication, truncation
+    @levnikolaevich/hex-common/
+      text-protocol/hash.mjs   Shared FNV-1a hashing and checksum protocol
+      output/normalize.mjs     Shared output normalization helpers
 ```
 
 ### Hash Format
@@ -392,7 +423,7 @@ The edit is rejected with an error showing which lines changed since the last re
 <details>
 <summary><b>Is outline available for all file types?</b></summary>
 
-Outline works on code files (15+ languages via tree-sitter WASM) and markdown heading navigation (`.md`/`.mdx`, fenced code blocks ignored). For JSON, YAML, and text files use `read_file` directly. Each outline entry includes a hash anchor (`tag.line-range: symbol`) for direct use in `edit_file`.
+Outline works on JavaScript/TypeScript, Python, C#, PHP, and markdown heading navigation (`.md`/`.mdx`, fenced code blocks ignored). For JSON, YAML, and text files use `read_file` directly. Each outline entry includes a hash anchor (`tag.line-range: symbol`) for direct use in `edit_file`.
 
 </details>
 
@@ -406,7 +437,7 @@ The PostToolUse hook normalizes Bash output (replaces UUIDs, timestamps, IPs wit
 <details>
 <summary><b>Can I disable the built-in tool blocking?</b></summary>
 
-Yes. Remove the PreToolUse hook from `.claude/settings.local.json`. The MCP tools will still work, but agents will be free to use built-in Read/Edit/Write/Grep alongside hex-line tools.
+Yes. To downgrade redirects to advice, set `.hex-skills/environment_state.json` to `{ "hooks": { "mode": "advisory" } }`. To remove the hook entirely, delete the `hex-line` hook entries from `~/.claude/settings.json`. To disable the MCP server for one project, add `hex-line` to `~/.claude.json -> projects.{cwd}.disabledMcpServers`.
 
 </details>
 

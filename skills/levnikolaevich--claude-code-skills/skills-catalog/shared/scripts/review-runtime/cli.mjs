@@ -137,19 +137,15 @@ function syncOneAgent(projectRoot, agentState) {
     const metadataPath = resolveTrackedPath(projectRoot, nextAgent.metadata_file);
     const resultPath = resolveTrackedPath(projectRoot, nextAgent.result_file);
 
+    // Read metadata only for PID (liveness check) and error details.
+    // Status is determined by result file existence, then PID liveness.
     const metadata = metadataPath && existsSync(metadataPath) ? readJsonFile(metadataPath) : null;
     if (metadata) {
         nextAgent.pid = metadata.pid ?? nextAgent.pid ?? null;
-        nextAgent.session_id = metadata.session_id ?? nextAgent.session_id ?? null;
-        nextAgent.started_at = metadata.started_at ?? nextAgent.started_at ?? null;
-        nextAgent.finished_at = metadata.finished_at ?? nextAgent.finished_at ?? null;
-        nextAgent.exit_code = metadata.exit_code ?? nextAgent.exit_code ?? null;
         nextAgent.error = metadata.error ?? nextAgent.error ?? null;
-        if (typeof metadata.status === "string") {
-            nextAgent.status = metadata.status;
-        }
     }
 
+    // Primary signal: result file existence → RESULT_READY
     if (resultPath && fileExists(resultPath)) {
         nextAgent.status = REVIEW_AGENT_STATUSES.RESULT_READY;
     } else if (metadata && (metadata.success === false || metadata.status === REVIEW_AGENT_STATUSES.FAILED)) {

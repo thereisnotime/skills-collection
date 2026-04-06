@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { once } from "node:events";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, posix as pathPosix, relative, resolve as resolvePath } from "node:path";
+import { dirname, isAbsolute, join, posix as pathPosix, relative, resolve as resolvePath, win32 as pathWin32 } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { withSftp, validateRemotePath } from "./ssh-client.mjs";
 import { assertSafeArg } from "./shell-escape.mjs";
@@ -217,14 +217,16 @@ async function cleanupRemoteStaged(sftp, stagedRemotePath) {
     }
 }
 
-async function ensureRemoteDirectoryRecursive(sftp, remotePath) {
-    const targetDir = pathPosix.dirname(remotePath);
-    if (targetDir === "/" || targetDir === ".") return;
+async function ensureRemoteDirectoryRecursive(sftp, remotePath, remotePlatform = "posix") {
+    const pathLib = remotePlatform === "windows" ? pathWin32 : pathPosix;
+    const targetDir = pathLib.dirname(remotePath);
+    const root = pathLib.parse(targetDir).root;
+    if (targetDir === root || targetDir === ".") return;
 
-    const parts = targetDir.split("/").filter(Boolean);
-    let current = "";
+    const parts = targetDir.slice(root.length).split(remotePlatform === "windows" ? /[\\/]+/ : /\//).filter(Boolean);
+    let current = root;
     for (const part of parts) {
-        current += `/${part}`;
+        current = current ? pathLib.join(current, part) : part;
         const existing = await sftpStatMaybe(sftp, current);
         if (existing) {
             if (typeof existing.isDirectory === "function" && !existing.isDirectory()) {
@@ -398,9 +400,10 @@ export async function uploadFile(connectionArgs, {
     overwrite = false,
     verify,
     permissions,
+    remotePlatform = "auto",
 }) {
     assertSafeArg("remotePath", remotePath);
-    validateRemotePath(remotePath);
+    const { platform, canonical: canonicalRemotePath } = validateRemotePath(remotePath, remotePlatform);
 
     const verifyMode = normalizeVerifyMode(verify);
     const remoteMode = parsePermissionsMode(permissions);
@@ -419,17 +422,17 @@ export async function uploadFile(connectionArgs, {
     }
     validateTransferSize(localStats.size, canonicalLocalPath);
 
-    const stagedRemotePath = tempRemotePath(remotePath);
+    const stagedRemotePath = tempRemotePath(canonicalRemotePath);
     const startedAt = Date.now();
     let durabilityPath = "standard";
 
     try {
         await withSftp(connectionArgs, async (sftp) => {
-            await ensureRemoteDirectoryRecursive(sftp, remotePath);
+            await ensureRemoteDirectoryRecursive(sftp, canonicalRemotePath, platform);
 
-            const existing = await sftpStatMaybe(sftp, remotePath);
+            const existing = await sftpStatMaybe(sftp, canonicalRemotePath);
             if (existing && !overwrite) {
-                throw new Error(`DESTINATION_EXISTS: remote destination ${remotePath} already exists`);
+                throw new Error(`DESTINATION_EXISTS: remote destination ${canonicalRemotePath} already exists`);
             }
 
             const writer = sftp.createWriteStream(stagedRemotePath, {
@@ -440,11 +443,11 @@ export async function uploadFile(connectionArgs, {
 
             try {
                 await once(writer, "open");
-                await runTimedPipeline(`upload ${canonicalLocalPath} -> ${remotePath}`, reader, writer);
+                await runTimedPipeline(`upload ${canonicalLocalPath} -> ${canonicalRemotePath}`, reader, writer);
                 const handle = getHandle(writer);
                 const usedFsync = await durableRemoteFlush(sftp, handle);
                 if (handle) await sftpClose(sftp, handle);
-                const usedRenameExtension = await durableRemoteRename(sftp, stagedRemotePath, remotePath);
+                const usedRenameExtension = await durableRemoteRename(sftp, stagedRemotePath, canonicalRemotePath);
                 durabilityPath = usedFsync || usedRenameExtension ? "openssh-ext" : "standard";
             } catch (err) {
                 const handle = getHandle(writer);
@@ -456,19 +459,19 @@ export async function uploadFile(connectionArgs, {
             }
 
             if (remoteMode !== undefined) {
-                await sftpChmod(sftp, remotePath, remoteMode);
+                await sftpChmod(sftp, canonicalRemotePath, remoteMode);
             }
             if (verifyMode === "stat") {
-                await verifyRemoteStatSize(sftp, remotePath, localStats.size);
+                await verifyRemoteStatSize(sftp, canonicalRemotePath, localStats.size);
             }
         });
     } catch (err) {
-        finalizeTransferError(err, `upload to ${remotePath} failed`);
+        finalizeTransferError(err, `upload to ${canonicalRemotePath} failed`);
     }
 
     return {
         localPath: canonicalLocalPath,
-        remotePath,
+        remotePath: canonicalRemotePath,
         bytesTransferred: localStats.size,
         durationMs: Date.now() - startedAt,
         verify: verifyMode,
@@ -481,9 +484,10 @@ export async function downloadFile(connectionArgs, {
     localPath,
     overwrite = false,
     verify,
+    remotePlatform = "auto",
 }) {
     assertSafeArg("remotePath", remotePath);
-    validateRemotePath(remotePath);
+    const { canonical: canonicalRemotePath } = validateRemotePath(remotePath, remotePlatform);
 
     const verifyMode = normalizeVerifyMode(verify);
     const canonicalLocalPath = validateLocalPath(localPath);
@@ -500,21 +504,21 @@ export async function downloadFile(connectionArgs, {
         await withSftp(connectionArgs, async (sftp) => {
             let remoteStats;
             try {
-                remoteStats = await sftpStat(sftp, remotePath);
+                remoteStats = await sftpStat(sftp, canonicalRemotePath);
             } catch (err) {
                 if (remoteFileMissing(err.message)) {
-                    throw new Error(`FILE_NOT_FOUND: remote file ${remotePath} does not exist`);
+                    throw new Error(`FILE_NOT_FOUND: remote file ${canonicalRemotePath} does not exist`);
                 }
                 throw err;
             }
 
             remoteSize = Number(remoteStats?.size || 0);
-            validateTransferSize(remoteSize, remotePath);
+            validateTransferSize(remoteSize, canonicalRemotePath);
 
-            const reader = sftp.createReadStream(remotePath);
+            const reader = sftp.createReadStream(canonicalRemotePath);
             const writer = createWriteStream(stagedLocalPath);
 
-            await runTimedPipeline(`download ${remotePath} -> ${canonicalLocalPath}`, reader, writer);
+            await runTimedPipeline(`download ${canonicalRemotePath} -> ${canonicalLocalPath}`, reader, writer);
         });
 
         closeLocalHandle(stagedLocalPath);
@@ -524,11 +528,11 @@ export async function downloadFile(connectionArgs, {
         }
     } catch (err) {
         rmSync(stagedLocalPath, { force: true });
-        finalizeTransferError(err, `download from ${remotePath} failed`);
+        finalizeTransferError(err, `download from ${canonicalRemotePath} failed`);
     }
 
     return {
-        remotePath,
+        remotePath: canonicalRemotePath,
         localPath: canonicalLocalPath,
         bytesTransferred: remoteSize,
         durationMs: Date.now() - startedAt,

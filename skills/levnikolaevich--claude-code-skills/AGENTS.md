@@ -27,17 +27,11 @@ Skills collection for Codex with config-driven Agile task management (Linear or 
 
 ## MCP Tool Preferences
 
-**Prefer** hex-line MCP for code files. Hash-annotated reads support safe edits.
-
-| Instead of | Use | When |
-|-----------|-----|------|
-| Built-in Read | `hex-line read_file` | Code files |
-| Built-in Edit | `hex-line edit_file` | Always |
-| Built-in Write | `hex-line write_file` | Always |
-| Built-in Grep | `hex-line grep_search` | Before editing found code |
-| Large code file | `hex-line outline` then `read_file` with range | Unfamiliar files over 100 lines |
-
-Built-in tools are still fine for images, PDFs, notebooks, Glob, and `.claude/settings*.json`.
+Prefer `hex-line` for code/config/script/test files.
+- Use `outline` before large reads, then `read_file` with ranges.
+- Use `edit_file` / `write_file` for writes, `bulk_replace` for multi-file text rename, `verify` after conflicts or delayed follow-up edits, and `changes` for diff review.
+- Use `hex-graph` only for symbol, reference, architecture, and semantic diff questions.
+- Built-in tools are still fine for images, PDFs, notebooks, Glob, and `.claude/settings*.json`.
 
 ## Quick Understanding
 
@@ -48,7 +42,7 @@ Built-in tools are still fine for images, PDFs, notebooks, Glob, and `.claude/se
 | Skill contract | `cat skills-catalog/shared/references/skill_contract.md` |
 | Architecture patterns (L0-L3) | `cat docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` |
 | Agent delegation runtime | `cat docs/architecture/AGENT_DELEGATION_PLATFORM_GUIDE.md` |
-| Tool configuration | `cat skills-catalog/shared/references/tools_config_guide.md` |
+| Tool configuration | `cat skills-catalog/shared/references/environment_state_contract.md` |
 | Key workflow | `ln-700 -> ln-100 -> ln-200 -> ln-1000` |
 | Skill metadata | `head -20 {ln-NNN}/SKILL.md` |
 | Reference files for a skill | `ls {ln-NNN}/references/` |
@@ -63,11 +57,12 @@ Built-in tools are still fine for images, PDFs, notebooks, Glob, and `.claude/se
 |-------|------|
 | Skill contract | `skills-catalog/shared/references/skill_contract.md` |
 | Writing guidelines | `docs/architecture/SKILL_ARCHITECTURE_GUIDE.md` |
-| Tool configuration | `skills-catalog/shared/references/tools_config_guide.md` |
+| Environment State | `skills-catalog/shared/references/environment_state_contract.md` |
 | Risk-Based Testing | `skills-catalog/shared/references/risk_based_testing_guide.md` |
 | Questions format | `skills-catalog/shared/references/questions_format.md` |
 | Hook design | `docs/best-practice/HOOK_DESIGN_GUIDE.md` |
 | MCP tool design | `docs/best-practice/MCP_TOOL_DESIGN_GUIDE.md` |
+| MCP output contract | `docs/best-practice/MCP_OUTPUT_CONTRACT_GUIDE.md` |
 | Token efficiency | `docs/standards/TOKEN_EFFICIENCY_PATTERNS.md` |
 | Prompt caching | `docs/best-practice/PROMPT_CACHING_GUIDE.md` |
 

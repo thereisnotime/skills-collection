@@ -6,23 +6,21 @@ const EXTENSION_GRAMMARS = {
     ".ts": "typescript",
     ".tsx": "tsx",
     ".py": "python",
-    ".go": "go",
-    ".rs": "rust",
-    ".java": "java",
-    ".c": "c",
-    ".h": "c",
-    ".cpp": "cpp",
     ".cs": "c_sharp",
-    ".rb": "ruby",
     ".php": "php",
-    ".kt": "kotlin",
-    ".swift": "swift",
-    ".sh": "bash",
-    ".bash": "bash"
 };
 
 export function grammarForExtension(ext) {
     return EXTENSION_GRAMMARS[ext.toLowerCase()] || null;
+}
+
+export function languageForExtension(ext) {
+    const grammar = grammarForExtension(ext);
+    if (!grammar) return null;
+    if (grammar === "tsx" || grammar === "typescript") return "typescript";
+    if (grammar === "javascript") return "javascript";
+    if (grammar === "c_sharp") return "csharp";
+    return grammar;
 }
 
 export function supportedExtensions() {

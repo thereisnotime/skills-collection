@@ -7,6 +7,7 @@
  */
 
 import { realpathSync, statSync, existsSync, openSync, readSync, closeSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, isAbsolute, dirname } from "node:path";
 import { listDirectory } from "./format.mjs";
 
@@ -17,10 +18,49 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
  * Node.js resolve() treats /c/ as absolute from current drive root, producing D:\c\Users.
  */
 export function normalizePath(p) {
-    if (process.platform === "win32" && /^\/[a-zA-Z]\//.test(p)) {
-        p = p[1] + ":" + p.slice(2);
+    if (process.platform === "win32") {
+        if (p === "/tmp" || p.startsWith("/tmp/")) {
+            const suffix = p.slice("/tmp".length).replace(/^\/+/, "");
+            p = suffix ? resolve(tmpdir(), suffix) : tmpdir();
+        } else if (p === "/var/tmp" || p.startsWith("/var/tmp/")) {
+            const suffix = p.slice("/var/tmp".length).replace(/^\/+/, "");
+            p = suffix ? resolve(tmpdir(), suffix) : tmpdir();
+        } else if (/^\/[a-zA-Z]\//.test(p)) {
+            p = p[1] + ":" + p.slice(2);
+        }
     }
     return p.replace(/\\/g, "/");
+}
+
+function normalizeScopeValue(value) {
+    const normalized = value.replace(/\\/g, "/");
+    return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function resolveInputPath(filePath) {
+    const normalized = normalizePath(filePath);
+    const abs = isAbsolute(normalized) ? normalized : resolve(process.cwd(), normalized);
+    return abs.replace(/\\/g, "/");
+}
+
+function isWithinRoot(rootPath, targetPath) {
+    const root = normalizeScopeValue(rootPath).replace(/\/+$/, "");
+    const target = normalizeScopeValue(targetPath);
+    return target === root || target.startsWith(`${root}/`);
+}
+
+export function assertProjectScopedPath(filePath, { allowExternal = false } = {}) {
+    if (!filePath) throw new Error("Empty file path");
+    const abs = resolveInputPath(filePath);
+    if (allowExternal) return abs;
+
+    const projectRoot = resolve(process.cwd()).replace(/\\/g, "/");
+    if (isWithinRoot(projectRoot, abs)) return abs;
+
+    throw new Error(
+        `PATH_OUTSIDE_PROJECT: ${abs}. Editing is restricted to the current project by default. ` +
+        "If you intentionally need a temp or external path, retry with allow_external=true."
+    );
 }
 
 /**

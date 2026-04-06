@@ -507,6 +507,32 @@ After BOTH meta-judge and implementation agent complete, dispatch an **independe
 
 CRITICAL: Provide to the judge EXACT meta-judge's evaluation specification YAML, do not skip or add anything, do not modify it in any way, do not shorten or summarize any text in it!
 
+##### 3.4.1 Analyze the Pre-existing Changes Section
+
+Before dispatching the judge for each step, assess whether there are pre-existing changes in the codebase that the judge needs to be aware of. The "Pre-existing Changes" section prevents the judge from confusing prior modifications with the current step's implementation agent's work.
+
+**When to include:**
+
+- Previous steps' changes from the SAME do-in-steps run (steps 1..N-1 when judging step N) — this is the most common case in sequential execution. When running step N, the judge MUST know about changes from steps 1..N-1 as pre-existing. Each completed step's output (files created/modified, key changes) becomes pre-existing context for subsequent step judges. 
+- Previous do-in-steps or do-and-judge task runs completed earlier in the same session
+- User's manual modifications made before invoking the skill (visible from conversation context or in git)
+- Changes from other tools or agents that ran before this task
+
+**When to omit:**
+
+- This is step 1 with no known prior changes (no earlier session tasks, no user modifications) — omit the section entirely
+- On retries within the SAME step, do NOT include the implementation agent's own previous attempt as "pre-existing changes" — those are part of the current step's iteration cycle
+
+**Content guidelines:**
+
+- Use a high-level summary: task description, list of affected files/modules, general nature of changes (created, modified, deleted)
+- Do NOT include code blocks, diffs, or line-level details — keep it concise
+- Label each source clearly: "Step 1: {description}", "Step 2: {description}", "User modifications (before current task)", etc.
+- If multiple sources of pre-existing changes exist, use separate subsections for each (one per completed step, plus any external sources)
+- Leverage the Context Passing Protocol output (section 3.1) — the "Completed Steps Summary" already tracks what each step produced
+
+CRITICAL: avoid reading full codebase or git history, just use high-level git diff/status to determine which files were changed, or use conversation context and completed step summaries to determine pre-existing changes.
+
 **Prompt template for step judge:**
 
 ```markdown
@@ -524,6 +550,20 @@ CLAUDE_PLUGIN_ROOT=`${CLAUDE_PLUGIN_ROOT}`
 
 ## Previous Steps Context
 {Summary of what previous steps accomplished}
+
+{IF pre-existing changes are known (previous steps, prior tasks, or user modifications), include the following section — otherwise omit entirely}
+
+## Pre-existing Changes (Context Only)
+
+The following changes were made BEFORE the current step's implementation agent started working. They are NOT part of the current step's output. Focus your evaluation on the current step's changes. Only verify pre-existing changed files/logic if they directly relate to the current step's requirements.
+
+### {Source of changes: e.g., "Step 1: {step description}" or "Previous Task: {task description}" or "User modifications (before current task)"}
+{High-level summary: what was done, which files/modules were created or modified}
+
+### {Additional source if applicable}
+{High-level summary}
+
+{END conditional section}
 
 ## Evaluation Specification
 
@@ -551,7 +591,7 @@ CRITICAL: NEVER provide score threshold, in any format, including `threshold_pas
 ```
 Use Task tool:
   - description: "Judge Step {N}/{total}: {subtask_name}"
-  - prompt: {judge verification prompt with exact meta-judge specification YAML}
+  - prompt: {judge verification prompt with exact meta-judge specification YAML, and Pre-existing Changes section if applicable}
   - model: opus
   - subagent_type: "sadd:judge"
 ```
@@ -801,130 +841,378 @@ Awaiting your decision...
 
 ## Examples
 
-### Example 1: Interface Change with Consumer Updates
+### Example 1: Sequential Steps Building on Each Other (Pre-existing Changes from Previous Steps)
 
 **Input:**
 
 ```
-/do-in-steps Change the return type of UserService.getUser() from User to UserDTO and update all consumers
+/do-in-steps implement user management feature
 ```
 
 **Phase 1 - Decomposition:**
 
 | Step | Subtask | Depends On | Complexity | Type | Output |
 |------|---------|------------|------------|------|--------|
-| 1 | Create UserDTO class with proper structure | - | Medium | Implementation | New UserDTO.ts file |
-| 2 | Update UserService.getUser() to return UserDTO | Step 1 | High | Implementation | Modified UserService |
-| 3 | Update UserController to handle UserDTO | Step 2 | Medium | Refactoring | Modified UserController |
-| 4 | Update tests for UserService and UserController | Steps 2,3 | Medium | Testing | Updated test files |
+| 1 | Create User model and database schema | - | Medium | Implementation | User model, migration files |
+| 2 | Add CRUD endpoints for users | Step 1 | Medium | Implementation | REST API routes, controller |
+| 3 | Add authentication integration | Steps 1,2 | High | Implementation | Auth middleware, JWT handling |
 
-**Phase 2 - Model Selection:**
-
-| Step | Subtask | Model | Agent | Rationale |
-|------|---------|-------|-------|-----------|
-| 1 | Create DTO | sonnet | sdd:developer | Medium complexity, standard pattern |
-| 2 | Update Service | opus | sdd:developer | High risk, core service change |
-| 3 | Update Controller | sonnet | sdd:developer | Medium complexity, follows patterns |
-| 4 | Update Tests | sonnet | sdd:tdd-developer | Test expertise |
-
-**Phase 3 - Execution with Parallel Meta-Judge and Judge Verification:**
+**Phase 3 - Execution with Pre-existing Changes Accumulation:**
 
 ```
-Step 1: Create UserDTO
-  Parallel dispatch (single message, 2 tool calls):
-    Tool call 1 — Meta-judge (Opus, sadd:meta-judge)...
-      → Generated step-specific evaluation specification YAML
-    Tool call 2 — Implementation (Sonnet, sdd:developer)...
-      → Created UserDTO.ts with id, name, email, createdAt fields
-  Judge Verification (Opus, sadd:judge, with step 1 meta-judge spec)...
-    → VERDICT: PASS, SCORE: 4.2/5.0
-    → IMPROVEMENTS: Consider adding validation methods
-  → Context passed: UserDTO interface, file path
+Step 1: Create User model and database schema
+  Parallel dispatch: Meta-judge + Implementation
+  Judge Verification (with step 1 meta-judge spec):
+    NOTE: No pre-existing changes — this is step 1 with no prior session tasks.
+    The "Pre-existing Changes" section is OMITTED from the judge prompt.
 
-Step 2: Update UserService (First Attempt Failed)
-  Parallel dispatch (single message, 2 tool calls):
-    Tool call 1 — Meta-judge (Opus, sadd:meta-judge)...
-      → Generated step-specific evaluation specification YAML
-    Tool call 2 — Implementation (Opus, sdd:developer)...
-      → Updated return type but missed mapping logic
-  Judge Verification (Opus, sadd:judge, with step 2 meta-judge spec)...
-    → VERDICT: FAIL, SCORE: 2.8/5.0
-    → ISSUES: Missing User->UserDTO mapping, return type changed but still returns User
-  Retry Implementation (Opus) with judge feedback...
-    → Added static fromUser() factory method
-    → Updated getUser() to use mapping
-  Judge Verification (Opus, sadd:judge, same step 2 meta-judge spec)...
-    → VERDICT: PASS, SCORE: 4.5/5.0
-  → Context passed: Method signature changed, mapping pattern used
+    Judge prompt sent:
+    ┌─────────────────────────────────────────────────────────
+    │ You are evaluating Step 1/3: Create User model and
+    │ database schema against an evaluation specification
+    │ produced by the meta judge.
+    │
+    │ CLAUDE_PLUGIN_ROOT=...
+    │
+    │ ## Original Task
+    │ Implement user management feature
+    │
+    │ ## Step Requirements
+    │ Create User model and database schema with proper
+    │ fields and relationships.
+    │
+    │ ## Previous Steps Context
+    │ None (first step)
+    │
+    │ ## Evaluation Specification
+    │ ```yaml
+    │ {meta-judge's evaluation specification YAML}
+    │ ```
+    │
+    │ ## Implementation Output
+    │ Files: src/models/User.ts (new), migrations/001_create_users.ts (new)
+    │ Key changes: Created User model with id, email, name, passwordHash...
+    │
+    │ ## Instructions
+    │ Follow your full judge process...
+    └─────────────────────────────────────────────────────────
 
-Step 3: Update UserController
-  Parallel dispatch (single message, 2 tool calls):
-    Tool call 1 — Meta-judge (Opus, sadd:meta-judge)...
-      → Generated step-specific evaluation specification YAML
-    Tool call 2 — Implementation (Sonnet, sdd:developer)...
-      → Updated controller to expect UserDTO
-  Judge Verification (Opus, sadd:judge, with step 3 meta-judge spec)...
-    → VERDICT: PASS, SCORE: 4.0/5.0
-  → Context passed: Endpoint contracts updated
+  → VERDICT: PASS, SCORE: 4.2/5.0
+  → Context passed forward: User model fields, migration file paths
 
-Step 4: Update Tests
-  Parallel dispatch (single message, 2 tool calls):
-    Tool call 1 — Meta-judge (Opus, sadd:meta-judge)...
-      → Generated step-specific evaluation specification YAML
-    Tool call 2 — Implementation (Sonnet, sdd:tdd-developer)...
-      → Updated service and controller tests
-  Judge Verification (Opus, sadd:judge, with step 4 meta-judge spec)...
-    → VERDICT: PASS, SCORE: 4.3/5.0
-  → All steps complete
+Step 2: Add CRUD endpoints for users
+  Parallel dispatch: Meta-judge + Implementation
+  Judge Verification (with step 2 meta-judge spec):
+    NOTE: Pre-existing changes detected — Step 1 created the User model.
+    Include "Pre-existing Changes" section so the judge does not confuse
+    Step 1's files with Step 2's implementation work.
+
+    Judge prompt sent:
+    ┌─────────────────────────────────────────────────────────
+    │ You are evaluating Step 2/3: Add CRUD endpoints for
+    │ users against an evaluation specification produced by
+    │ the meta judge.
+    │
+    │ CLAUDE_PLUGIN_ROOT=...
+    │
+    │ ## Original Task
+    │ Implement user management feature
+    │
+    │ ## Step Requirements
+    │ Add CRUD endpoints (create, read, update, delete) for
+    │ user management with proper validation and error handling.
+    │
+    │ ## Previous Steps Context
+    │ Step 1 created User model with fields: id, email, name,
+    │ passwordHash, createdAt, updatedAt.
+    │
+    │ ## Pre-existing Changes (Context Only)
+    │
+    │ The following changes were made BEFORE the current
+    │ step's implementation agent started working. They are
+    │ NOT part of the current step's output. Focus your
+    │ evaluation on the current step's changes. Only verify
+    │ pre-existing changed files/logic if they directly
+    │ relate to the current step's requirements.
+    │
+    │ ### Step 1: "Create User model and database schema"
+    │ The following files were created as part of Step 1:
+    │ - src/models/User.ts (new) - User model with fields:
+    │   id, email, name, passwordHash, createdAt, updatedAt
+    │ - migrations/001_create_users.ts (new) - Database
+    │   migration for users table
+    │
+    │ These files exist in the codebase and may be referenced
+    │ by the current step, but evaluate only the changes made
+    │ by Step 2's implementation agent.
+    │
+    │ ## Evaluation Specification
+    │ ```yaml
+    │ {meta-judge's evaluation specification YAML}
+    │ ```
+    │
+    │ ## Implementation Output
+    │ Files: src/controllers/UserController.ts (new),
+    │        src/routes/users.ts (new), src/app.ts (modified)
+    │ Key changes: Added REST endpoints for user CRUD...
+    │
+    │ ## Instructions
+    │ Follow your full judge process...
+    └─────────────────────────────────────────────────────────
+
+  → VERDICT: PASS, SCORE: 4.4/5.0
+  → Context passed forward: API routes, controller patterns
+
+Step 3: Add authentication integration
+  Parallel dispatch: Meta-judge + Implementation
+  Judge Verification (with step 3 meta-judge spec):
+    NOTE: Pre-existing changes include BOTH Step 1 AND Step 2.
+    The judge needs to know about all prior steps' output.
+
+    Judge prompt sent:
+    ┌─────────────────────────────────────────────────────────
+    │ You are evaluating Step 3/3: Add authentication
+    │ integration against an evaluation specification
+    │ produced by the meta judge.
+    │
+    │ CLAUDE_PLUGIN_ROOT=...
+    │
+    │ ## Original Task
+    │ Implement user management feature
+    │
+    │ ## Step Requirements
+    │ Add JWT-based authentication with login/register
+    │ endpoints and middleware for protecting user routes.
+    │
+    │ ## Previous Steps Context
+    │ Step 1 created User model. Step 2 added CRUD endpoints
+    │ at /api/users with UserController.
+    │
+    │ ## Pre-existing Changes (Context Only)
+    │
+    │ The following changes were made BEFORE the current
+    │ step's implementation agent started working. They are
+    │ NOT part of the current step's output. Focus your
+    │ evaluation on the current step's changes. Only verify
+    │ pre-existing changed files/logic if they directly
+    │ relate to the current step's requirements.
+    │
+    │ ### Step 1: "Create User model and database schema"
+    │ - src/models/User.ts (new) - User model with fields:
+    │   id, email, name, passwordHash, createdAt, updatedAt
+    │ - migrations/001_create_users.ts (new) - Database
+    │   migration for users table
+    │
+    │ ### Step 2: "Add CRUD endpoints for users"
+    │ - src/controllers/UserController.ts (new) - REST
+    │   controller with create, read, update, delete handlers
+    │ - src/routes/users.ts (new) - Express router for
+    │   /api/users endpoints
+    │ - src/app.ts (modified) - Registered user routes
+    │
+    │ These files exist in the codebase and may be modified
+    │ by the current step, but evaluate only the changes made
+    │ by Step 3's implementation agent.
+    │
+    │ ## Evaluation Specification
+    │ ```yaml
+    │ {meta-judge's evaluation specification YAML}
+    │ ```
+    │
+    │ ## Implementation Output
+    │ Files: src/auth/AuthMiddleware.ts (new),
+    │        src/routes/auth.ts (new), src/app.ts (modified),
+    │        src/routes/users.ts (modified)
+    │ Key changes: Added JWT auth with login/register...
+    │
+    │ ## Instructions
+    │ Follow your full judge process...
+    └─────────────────────────────────────────────────────────
+
+  → VERDICT: PASS, SCORE: 4.1/5.0
 ```
 
 **Final Summary:**
 
-- Total Agents: 13 (4 meta-judges + 4 implementations + 1 retry + 4 judges)
-- Steps with Retries: Step 2 (1 retry, reused step 2 meta-judge spec)
-- All Judge Scores: 4.2, 4.5, 4.0, 4.3
+- Total Agents: 10 (3 meta-judges + 3 implementations + 0 retries + 3 judges)
+- Pre-existing Changes Progression:
+  - Step 1 judge: None
+  - Step 2 judge: Step 1 output (2 files)
+  - Step 3 judge: Steps 1+2 output (5 files)
+- All Judge Scores: 4.2, 4.4, 4.1
 
 ---
 
-### Example 2: Feature Addition Across Layers
+### Example 2: User-Modified Codebase + Sequential Steps (Mixed Pre-existing Changes Sources)
+
+**Scenario:**
+
+The user has been working on a payment processing module during the conversation. They modified several files (added a new PaymentGateway interface, updated configuration) before invoking do-in-steps.
 
 **Input:**
 
 ```
-/do-in-steps Add email notification capability to the order processing system
+/do-in-steps fix and improve payment processing
 ```
 
 **Phase 1 - Decomposition:**
 
 | Step | Subtask | Depends On | Complexity | Type | Output |
 |------|---------|------------|------------|------|--------|
-| 1 | Create EmailService with send capability | - | Medium | Implementation | New EmailService class |
-| 2 | Add notification triggers to OrderService | Step 1 | Medium | Implementation | Modified OrderService |
-| 3 | Create email templates for order events | Step 2 | Low | Documentation | Template files |
-| 4 | Add configuration and environment variables | Step 1 | Low | Configuration | Updated config files |
-| 5 | Add integration tests for email flow | Steps 1-4 | Medium | Testing | Test files |
+| 1 | Fix payment validation bugs | - | Medium | Bug fix | Corrected validation logic |
+| 2 | Add retry logic for failed payments | Step 1 | High | Implementation | Retry mechanism with backoff |
 
-**Phase 2 - Model Selection:**
+**Phase 3 - Execution with Mixed Pre-existing Changes:**
 
-| Step | Subtask | Model | Rationale |
-|------|---------|-------|-----------|
-| 1 | EmailService | sonnet | Standard implementation |
-| 2 | Notification triggers | sonnet | Business logic |
-| 3 | Email templates | haiku | Simple content |
-| 4 | Configuration | haiku | Mechanical updates |
-| 5 | Integration tests | sonnet | Test expertise |
+```
+Step 1: Fix payment validation bugs
+  Parallel dispatch: Meta-judge + Implementation
+  Judge Verification (with step 1 meta-judge spec):
+    NOTE: Pre-existing changes detected from USER modifications.
+    The user modified payment files before this task — include those
+    so the judge focuses only on the bug fix, not the user's prior work.
 
-**Phase 3 - Execution Summary (each step has parallel meta-judge + implementation):**
+    Judge prompt sent:
+    ┌─────────────────────────────────────────────────────────
+    │ You are evaluating Step 1/2: Fix payment validation
+    │ bugs against an evaluation specification produced by
+    │ the meta judge.
+    │
+    │ CLAUDE_PLUGIN_ROOT=...
+    │
+    │ ## Original Task
+    │ Fix and improve payment processing
+    │
+    │ ## Step Requirements
+    │ Fix validation bugs in payment amount and currency
+    │ checks that allow invalid transactions to proceed.
+    │
+    │ ## Previous Steps Context
+    │ None (first step)
+    │
+    │ ## Pre-existing Changes (Context Only)
+    │
+    │ The following changes were made BEFORE the current
+    │ step's implementation agent started working. They are
+    │ NOT part of the current step's output. Focus your
+    │ evaluation on the current step's changes. Only verify
+    │ pre-existing changed files/logic if they directly
+    │ relate to the current step's requirements.
+    │
+    │ ### User modifications (before current task)
+    │ The user made changes to the following files/modules
+    │ before this task was started:
+    │ - src/payments/PaymentGateway.ts (new) - Payment
+    │   gateway interface definition
+    │ - src/payments/StripeAdapter.ts (modified) - Updated
+    │   to implement new PaymentGateway interface
+    │ - src/config/payment.config.ts (modified) - Added
+    │   gateway configuration settings
+    │
+    │ The current task focuses on fixing validation bugs.
+    │ Pre-existing changes to payment files may overlap with
+    │ the current step's scope — evaluate whether the
+    │ implementation agent's changes correctly fix the bugs
+    │ without breaking the pre-existing modifications.
+    │
+    │ ## Evaluation Specification
+    │ ```yaml
+    │ {meta-judge's evaluation specification YAML}
+    │ ```
+    │
+    │ ## Implementation Output
+    │ Files: src/payments/PaymentValidator.ts (modified),
+    │        tests/payments/PaymentValidator.test.ts (modified)
+    │ Key changes: Fixed amount validation to reject negative
+    │ values, added currency code format check...
+    │
+    │ ## Instructions
+    │ Follow your full judge process...
+    └─────────────────────────────────────────────────────────
 
-| Step | Subtask | Meta-Judge | Judge Score | Retries | Status |
-|------|---------|------------|-------------|---------|--------|
-| 1 | EmailService | Step-specific spec | 4.1/5.0 | 0 | PASS |
-| 2 | Notification triggers | Step-specific spec | 4.2/5.0 | 1 | PASS |
-| 3 | Email templates | Step-specific spec | 4.5/5.0 | 0 | PASS |
-| 4 | Configuration | Step-specific spec | 4.2/5.0 | 0 | PASS |
-| 5 | Integration tests | Step-specific spec | 4.0/5.0 | 0 | PASS |
+  → VERDICT: PASS, SCORE: 4.3/5.0
+  → Context passed forward: Validation fixes, affected files
 
-Total Agents: 16 (5 meta-judges + 5 implementations + 1 retry + 5 judges)
+Step 2: Add retry logic for failed payments
+  Parallel dispatch: Meta-judge + Implementation
+  Judge Verification (with step 2 meta-judge spec):
+    NOTE: Pre-existing changes now include BOTH the user's modifications
+    AND Step 1's output. The judge needs both sources to correctly
+    attribute changes.
+
+    Judge prompt sent:
+    ┌─────────────────────────────────────────────────────────
+    │ You are evaluating Step 2/2: Add retry logic for failed
+    │ payments against an evaluation specification produced by
+    │ the meta judge.
+    │
+    │ CLAUDE_PLUGIN_ROOT=...
+    │
+    │ ## Original Task
+    │ Fix and improve payment processing
+    │
+    │ ## Step Requirements
+    │ Add retry mechanism with exponential backoff for failed
+    │ payment transactions, with configurable max retries.
+    │
+    │ ## Previous Steps Context
+    │ Step 1 fixed payment validation bugs in
+    │ PaymentValidator.ts (amount and currency checks).
+    │
+    │ ## Pre-existing Changes (Context Only)
+    │
+    │ The following changes were made BEFORE the current
+    │ step's implementation agent started working. They are
+    │ NOT part of the current step's output. Focus your
+    │ evaluation on the current step's changes. Only verify
+    │ pre-existing changed files/logic if they directly
+    │ relate to the current step's requirements.
+    │
+    │ ### User modifications (before current task)
+    │ - src/payments/PaymentGateway.ts (new) - Payment
+    │   gateway interface definition
+    │ - src/payments/StripeAdapter.ts (modified) - Updated
+    │   to implement new PaymentGateway interface
+    │ - src/config/payment.config.ts (modified) - Added
+    │   gateway configuration settings
+    │
+    │ ### Step 1: "Fix payment validation bugs"
+    │ - src/payments/PaymentValidator.ts (modified) - Fixed
+    │   amount validation and currency code format checks
+    │ - tests/payments/PaymentValidator.test.ts (modified) -
+    │   Added regression tests for validation fixes
+    │
+    │ These files exist in the codebase and may be modified
+    │ by the current step, but evaluate only the changes made
+    │ by Step 2's implementation agent.
+    │
+    │ ## Evaluation Specification
+    │ ```yaml
+    │ {meta-judge's evaluation specification YAML}
+    │ ```
+    │
+    │ ## Implementation Output
+    │ Files: src/payments/PaymentRetryService.ts (new),
+    │        src/payments/StripeAdapter.ts (modified),
+    │        src/config/payment.config.ts (modified),
+    │        tests/payments/PaymentRetryService.test.ts (new)
+    │ Key changes: Added PaymentRetryService with exponential
+    │ backoff, integrated into StripeAdapter...
+    │
+    │ ## Instructions
+    │ Follow your full judge process...
+    └─────────────────────────────────────────────────────────
+
+  → VERDICT: PASS, SCORE: 4.5/5.0
+```
+
+**Final Summary:**
+
+- Total Agents: 7 (2 meta-judges + 2 implementations + 0 retries + 2 judges)
+- Pre-existing Changes Progression:
+  - Step 1 judge: User modifications (3 files)
+  - Step 2 judge: User modifications (3 files) + Step 1 output (2 files)
+- All Judge Scores: 4.3, 4.5
 
 ---
 
@@ -992,6 +1280,8 @@ Step 4-5: Each with parallel meta-judge + implementation, complete without issue
 
 Total Agents: 20 (5 meta-judges + 5 implementations + 5 retries + 5 judges)
 
+---
+
 ## Best Practices
 
 ### Task Decomposition
@@ -1031,6 +1321,7 @@ Total Agents: 20 (5 meta-judges + 5 implementations + 5 retries + 5 judges)
 - Omit internal details that don't affect subsequent steps
 - Highlight patterns/conventions to maintain consistency
 - Include judge IMPROVEMENTS as optional enhancements
+- **Track pre-existing changes** - Pass context about prior modifications (including previous steps) to the judge to prevent attribution confusion
 
 ### Meta-Judge + Judge Verification
 

@@ -91,7 +91,7 @@ The `description` field appears in npm search results and on the package page. I
 |------|-----|------|
 | Start with what it does | `"A great tool for..."` | `"Hash-verified file editing MCP server."` |
 | Include key differentiator | `"MCP server"` | `"MCP server with hash verification + token efficiency hooks."` |
-| List tool count if applicable | — | `"11 tools: read, edit, write, grep, outline..."` |
+| List tool count if applicable | — | `"9 tools: inspect_path, read, edit, grep, outline..."` |
 | No marketing language | `"The best MCP server"` | `"Token-efficient SSH MCP server."` |
 | 1-2 sentences max | 3+ sentences | Concise but complete |
 
@@ -155,7 +155,7 @@ npm renders README.md directly on the package page. Structure affects both reada
 | Package Type | Target | Maximum |
 |-------------|--------|---------|
 | Simple MCP server (3-5 tools) | 150-200 lines | 300 |
-| Full MCP server (6-11 tools) | 200-350 lines | 450 |
+| Full MCP server (6-14 tools) | 200-350 lines | 450 |
 | MCP server + hooks | 250-400 lines | 500 |
 
 ---

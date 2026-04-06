@@ -7,7 +7,7 @@ Token-efficient SSH MCP server with hash-verified remote file editing.
 [![license](https://img.shields.io/npm/l/@levnikolaevich/hex-ssh-mcp)](./LICENSE)
 ![node](https://img.shields.io/node/v/@levnikolaevich/hex-ssh-mcp)
 
-Every remote file read returns FNV-1a hash-annotated lines and range checksums. Edits verify those checksums before applying changes -- preventing stale-context corruption across SSH boundaries. Command output is normalized and deduplicated for minimal token usage.
+Every remote file read returns FNV-1a hash-annotated lines and range checksums. Edits verify those checksums before applying changes -- preventing stale-context corruption across SSH boundaries. Command output is normalized and deduplicated for minimal token usage. The MCP server itself runs on Windows, macOS, and Linux.
 
 ## Features
 
@@ -39,11 +39,13 @@ npm i -g @levnikolaevich/hex-ssh-mcp
 claude mcp add -s user hex-ssh -e ALLOWED_HOSTS=server1,server2 -- hex-ssh-mcp
 ```
 
-Requires Node.js >= 18.0.0.
+Requires Node.js >= 20.19.0.
 
 ## Supported Remote Targets
 
-Linux/POSIX hosts with standard coreutils (grep, sed, wc, base64).
+- Host runtime: Windows, macOS, and Linux.
+- Remote shell tools (`remote-ssh`, `ssh-read-lines`, `ssh-edit-block`, `ssh-search-code`, `ssh-write-chunk`, `ssh-verify`) expect a POSIX-style shell environment with standard coreutils (`grep`, `sed`, `wc`, `base64`).
+- SFTP transfer tools (`ssh-upload`, `ssh-download`) support platform-aware remote paths via `remotePlatform=auto|posix|windows`.
 
 
 ## SSH Config Support
@@ -93,7 +95,7 @@ SSH host keys are verified against known fingerprints (fail-closed). Sources che
 1. `ALLOWED_HOST_FINGERPRINTS` env -- comma-separated `SHA256:<base64>` values
 2. `~/.ssh/known_hosts` -- parsed, fingerprints computed from stored keys
 
-If neither source has a match, the connection is **rejected**. Override known_hosts path with `KNOWN_HOSTS_PATH` env. Note: v1 supports plain hostname entries only (hashed hostnames and @cert-authority markers are not parsed).
+If neither source has a match, the connection is **rejected**. Override known_hosts path with `KNOWN_HOSTS_PATH` env. Plain hostnames, hashed hostnames, and marker-prefixed `known_hosts` entries are parsed for fingerprint matching.
 
 ### Shell Escaping
 
@@ -124,7 +126,7 @@ Set `REMOTE_SSH_MODE=safe` or `REMOTE_SSH_MODE=open` explicitly to enable the to
 
 ### Path Canonicalization
 
-All remote paths must be absolute (start with `/`). `..` segments are resolved before validation. Both file paths and `ALLOWED_DIRS` entries are canonicalized symmetrically.
+Remote paths must be absolute for their platform. POSIX paths use `/...`; Windows remote paths use drive-qualified forms such as `C:\repo\file.txt` and should set `remotePlatform: "windows"` when auto-detection would be ambiguous. `.` and `..` segments are resolved before validation. Both file paths and `ALLOWED_DIRS` entries are canonicalized symmetrically.
 
 Local transfer paths for `ssh-upload` and `ssh-download` must be absolute paths or `~/...`. When `ALLOWED_LOCAL_DIRS` is set, local paths are canonicalized and checked against that allowlist before the transfer starts.
 
@@ -297,6 +299,7 @@ Upload a local file to the remote server over SFTP. Supports text and binary fil
 | `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `localPath` | string | yes | Absolute local file path or `~/path` |
 | `remotePath` | string | yes | Absolute destination path on remote server |
+| `remotePlatform` | `auto` \| `posix` \| `windows` | no | Remote path platform hint. Use `windows` for paths like `C:\repo\file.txt` |
 | `overwrite` | boolean | no | Replace existing destination when `true` (default: `false`) |
 | `verify` | `none` \| `stat` | no | Post-transfer verification mode (default: `stat`) |
 | `permissions` | string | no | Optional octal file mode for uploaded file, e.g. `0644` |
@@ -314,6 +317,7 @@ Download a remote file to the local machine over SFTP. Supports text and binary 
 | `host` | string | yes | Remote hostname or IP |
 | `user` | string | no | SSH username (optional if set in `~/.ssh/config`) |
 | `remotePath` | string | yes | Absolute file path on remote server |
+| `remotePlatform` | `auto` \| `posix` \| `windows` | no | Remote path platform hint. Use `windows` for paths like `C:\repo\file.txt` |
 | `localPath` | string | yes | Absolute local destination path or `~/path` |
 | `overwrite` | boolean | no | Replace existing destination when `true` (default: `false`) |
 | `verify` | `none` \| `stat` | no | Post-transfer verification mode (default: `stat`) |
@@ -339,7 +343,7 @@ Returns a single-line confirmation when all valid, or lists changed ranges with 
 
 ## Output Normalization
 
-The `normalize.mjs` module reduces token waste in command output. Applied automatically by `remote-ssh` and used internally by `ssh-search-code`.
+The shared `@levnikolaevich/hex-common/output/normalize` module reduces token waste in command output. It is applied automatically by `remote-ssh` and used internally by `ssh-search-code`.
 
 ### Measurement Note
 
@@ -405,8 +409,17 @@ hex-ssh-mcp/
   lib/
     ssh-client.mjs    SSH connection, host/path validation, key resolution
     transfer.mjs      Local path validation and SFTP upload/download helpers
-    hash.mjs          FNV-1a hashing, 2-char tags, range checksums
-    normalize.mjs     Output normalization, deduplication, truncation
+    config-resolver.mjs SSH config parsing and host resolution
+    command-policy.mjs Remote command safety policy
+
+Shared substrate lives in `@levnikolaevich/hex-common`:
+
+- `runtime/mcp-bootstrap`
+- `runtime/schema`
+- `runtime/results`
+- `runtime/update-check`
+- `text-protocol/hash`
+- `output/normalize`
 ```
 
 ### Hash Format

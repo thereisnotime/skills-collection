@@ -13,7 +13,8 @@
 import { readFileSync, statSync, readdirSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, extname, relative, join, basename } from "node:path";
 import { createHash } from "node:crypto";
-import { getStore, CODEGRAPH_DIR } from "./store.mjs";
+import { getStore, hasOpenStore, CODEGRAPH_DIR } from "./store.mjs";
+import { runFrameworkOverlay } from "./framework.mjs";
 import { parseFile, languageFor, supportedExtensions } from "./parser.mjs";
 import { discoverWorkspace, persistWorkspace } from "./workspace.mjs";
 import { runPreciseOverlay } from "./precise/index.mjs";
@@ -60,12 +61,15 @@ function referenceEdgeEvidence(ref) {
 export async function indexProject(projectPath, { languages } = {}) {
     const absPath = resolve(projectPath);
     const t0 = Date.now();
+    let store;
+    const shouldCloseStore = !hasOpenStore(absPath, { mode: "write" });
 
     // Ensure .hex-skills/codegraph dir exists
     const dbDir = join(absPath, CODEGRAPH_DIR);
     if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
 
-    const store = getStore(absPath);
+    try {
+        store = getStore(absPath);
 
     // Filter extensions by language if specified
     const allowedExts = languages
@@ -160,21 +164,33 @@ export async function indexProject(projectPath, { languages } = {}) {
         languages: projectLanguages,
         sourceFiles: allSourceFiles.map(file => file.relPath),
     });
+    const framework = runFrameworkOverlay({
+        projectPath: absPath,
+        store,
+        sourceFiles: allSourceFiles.map(file => file.relPath),
+    });
 
     const elapsed = Date.now() - t0;
     const stats = store.stats();
 
-    return [
-        `Indexed ${stats.files} files, ${stats.nodes} symbols, ${stats.edges} edges in ${elapsed}ms`,
-        purged > 0 ? `Purged ${purged} deleted files` : null,
-        `Parsed ${parsed} files (${filesToIndex.length - parsed} skipped, unchanged)`,
-        `Built ${edgeCount} new call edges`,
-        precise.precise_edges > 0 ? `Added ${precise.precise_edges} precise overlay edges` : null,
-        ...(precise.providers || [])
-            .filter(provider => provider.status && provider.status !== "available")
-            .map(provider => provider.message)
-            .filter(Boolean),
-    ].filter(Boolean).join("\n");
+        return [
+            `Indexed ${stats.files} files, ${stats.nodes} symbols, ${stats.edges} edges in ${elapsed}ms`,
+            purged > 0 ? `Purged ${purged} deleted files` : null,
+            `Parsed ${parsed} files (${filesToIndex.length - parsed} skipped, unchanged)`,
+            `Built ${edgeCount} new call edges`,
+            precise.precise_edges > 0 ? `Added ${precise.precise_edges} precise overlay edges` : null,
+            framework.edge_count > 0 ? `Added ${framework.edge_count} framework overlay edges` : null,
+            ...(precise.providers || [])
+                .filter(provider => provider.status && provider.status !== "available")
+                .map(provider => provider.message)
+                .filter(Boolean),
+        ].filter(Boolean).join("\n");
+    } finally {
+        if (store && shouldCloseStore) {
+            try { store.checkpoint(); } catch { /* best-effort WAL flush */ }
+            store.close();
+        }
+    }
 }
 
 /**
@@ -185,47 +201,61 @@ export async function indexProject(projectPath, { languages } = {}) {
 export async function reindexFile(projectPath, filePath) {
     const absPath = resolve(projectPath);
     const fullPath = resolve(absPath, filePath);
+    let store;
+    const shouldCloseStore = !hasOpenStore(absPath, { mode: "write" });
 
-    if (!existsSync(fullPath)) {
-        const store = getStore(absPath);
-        store.deleteFile(filePath);
-        return;
+    try {
+        if (!existsSync(fullPath)) {
+            store = getStore(absPath);
+            store.deleteFile(filePath);
+            return;
+        }
+
+        const source = readFileSync(fullPath, "utf-8").replace(/\r\n/g, "\n");
+        const hash = createHash("md5").update(source).digest("hex").slice(0, 12);
+        const stat = statSync(fullPath);
+        const language = languageFor(extname(filePath).toLowerCase());
+        if (!language) return;
+
+        store = getStore(absPath);
+        const allSourceFiles = [];
+        walkDir(absPath, absPath, new Set(supportedExtensions()), store, [], allSourceFiles);
+        const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
+        const projectLanguages = [...new Set(allSourceFiles.map(file => file.language).filter(Boolean))];
+        const { definitions, imports, calls, references, flow_ir, exports: fileExports, defaultExport, reexports } = await parseFile(fullPath, source, { cloneDetection: true });
+        const nodeIds = store.bulkInsert(
+            filePath,
+            stat.mtimeMs,
+            hash,
+            language,
+            definitions,
+            imports,
+            workspace.ownershipIds.get(filePath) || null,
+        );
+
+        persistCloneData(store, definitions, nodeIds);
+        resolveFileEdges(store, workspace, filePath, {
+            source, definitions, imports, calls, references, flow_ir,
+            exports: fileExports, defaultExport, reexports, nodeIds, language,
+        });
+        store.rebuildAllModuleLayerEdges();
+        await runPreciseOverlay({
+            projectPath: absPath,
+            store,
+            languages: projectLanguages,
+            sourceFiles: allSourceFiles.map(file => file.relPath),
+        });
+        runFrameworkOverlay({
+            projectPath: absPath,
+            store,
+            sourceFiles: allSourceFiles.map(file => file.relPath),
+        });
+    } finally {
+        if (store && shouldCloseStore) {
+            try { store.checkpoint(); } catch { /* best-effort WAL flush */ }
+            store.close();
+        }
     }
-
-    const source = readFileSync(fullPath, "utf-8").replace(/\r\n/g, "\n");
-    const hash = createHash("md5").update(source).digest("hex").slice(0, 12);
-    const stat = statSync(fullPath);
-    const language = languageFor(extname(filePath).toLowerCase());
-    if (!language) return;
-
-    const store = getStore(absPath);
-    const allSourceFiles = [];
-    walkDir(absPath, absPath, new Set(supportedExtensions()), store, [], allSourceFiles);
-    const workspace = persistWorkspace(store, discoverWorkspace(absPath, allSourceFiles));
-    const projectLanguages = [...new Set(allSourceFiles.map(file => file.language).filter(Boolean))];
-    const { definitions, imports, calls, references, flow_ir, exports: fileExports, defaultExport, reexports } = await parseFile(fullPath, source, { cloneDetection: true });
-    const nodeIds = store.bulkInsert(
-        filePath,
-        stat.mtimeMs,
-        hash,
-        language,
-        definitions,
-        imports,
-        workspace.ownershipIds.get(filePath) || null,
-    );
-
-    persistCloneData(store, definitions, nodeIds);
-    resolveFileEdges(store, workspace, filePath, {
-        source, definitions, imports, calls, references, flow_ir,
-        exports: fileExports, defaultExport, reexports, nodeIds, language,
-    });
-    store.rebuildAllModuleLayerEdges();
-    await runPreciseOverlay({
-        projectPath: absPath,
-        store,
-        languages: projectLanguages,
-        sourceFiles: allSourceFiles.map(file => file.relPath),
-    });
 }
 
 // --- Helpers ---

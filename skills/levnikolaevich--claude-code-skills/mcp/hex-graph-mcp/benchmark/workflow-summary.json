@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-04-04",
+  "repo": "hex-graph-mcp",
+  "source": "session_derived_workflows",
+  "rows": [
+    {
+      "id": "W1",
+      "workflow": "Explore unfamiliar MCP before refactor",
+      "built_in_chars": 144687,
+      "hex_graph_chars": 117320,
+      "savings_ratio": 0.19,
+      "ops_before": 12,
+      "ops_after": 3,
+      "steps_before": 12,
+      "steps_after": 3
+    },
+    {
+      "id": "W2",
+      "workflow": "Estimate blast radius before refactor",
+      "built_in_chars": 192510,
+      "hex_graph_chars": 157609,
+      "savings_ratio": 0.18,
+      "ops_before": 7,
+      "ops_after": 3,
+      "steps_before": 5,
+      "steps_after": 3
+    },
+    {
+      "id": "W3",
+      "workflow": "Audit cycles, dead exports, hotspots",
+      "built_in_chars": 61754,
+      "hex_graph_chars": 4184,
+      "savings_ratio": 0.93,
+      "ops_before": 22,
+      "ops_after": 4,
+      "steps_before": 22,
+      "steps_after": 4
+    },
+    {
+      "id": "W4",
+      "workflow": "Review PR semantic risk snapshot",
+      "built_in_chars": 4221,
+      "hex_graph_chars": 1518,
+      "savings_ratio": 0.64,
+      "ops_before": 4,
+      "ops_after": 1,
+      "steps_before": 4,
+      "steps_after": 1
+    }
+  ],
+  "summary": {
+    "average_token_savings_ratio": 0.49,
+    "operations_before": 45,
+    "operations_after": 11,
+    "steps_before": 43,
+    "steps_after": 11,
+    "status": "baseline_recorded"
+  }
+}

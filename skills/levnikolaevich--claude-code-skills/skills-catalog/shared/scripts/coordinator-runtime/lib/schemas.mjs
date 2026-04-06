@@ -381,14 +381,22 @@ export const auditWorkerSummarySchema = buildSummaryEnvelopeSchema(auditWorkerPa
 export const environmentStateSchema = {
     type: "object",
     required: ["scanned_at", "agents"],
-    additionalProperties: false,
     properties: {
         scanned_at: { type: "string", format: "date-time" },
         agents: {
             type: "object",
             required: ["codex", "gemini"],
-            additionalProperties: false,
             properties: {
+                claude: {
+                    type: "object",
+                    required: ["available"],
+                    properties: {
+                        available: { type: "boolean" },
+                        disabled: { type: "boolean" },
+                        version: { type: "string" },
+                        detail: { type: "string" },
+                    },
+                },
                 codex: {
                     type: "object",
                     required: ["available"],
@@ -398,6 +406,7 @@ export const environmentStateSchema = {
                         version: { type: "string" },
                         config_synced: { type: "boolean" },
                         servers_synced: { type: "integer" },
+                        sync_actions: stringArraySchema(),
                         detail: { type: "string" },
                     },
                 },
@@ -411,9 +420,39 @@ export const environmentStateSchema = {
                         config_synced: { type: "boolean" },
                         servers_synced: { type: "integer" },
                         hooks_synced: { type: "integer" },
+                        sync_actions: stringArraySchema(),
                         detail: { type: "string" },
                     },
                 },
+            },
+        },
+        task_management: {
+            type: "object",
+            properties: {
+                provider: { type: "string", enum: ["linear", "file", "github"] },
+                status: { type: "string" },
+                fallback: { type: "string", enum: ["file"] },
+                linear: {
+                    type: "object",
+                    properties: {
+                        team_id: { type: "string" },
+                    },
+                },
+                github: {
+                    type: "object",
+                    properties: {
+                        repository: { type: "string" },
+                        project_number: { type: "integer" },
+                    },
+                },
+            },
+        },
+        research: {
+            type: "object",
+            properties: {
+                provider: { type: "string" },
+                fallback_chain: stringArraySchema(),
+                status: { type: "string" },
             },
         },
         claude_md: {
@@ -421,23 +460,20 @@ export const environmentStateSchema = {
             properties: {
                 exists: { type: "boolean" },
                 has_compact_instructions: { type: "boolean" },
+                has_mcp_preferences: { type: "boolean" },
+                has_date_stamp: { type: "boolean" },
                 line_count: { type: "integer" },
                 has_timestamps: { type: "boolean" },
             },
         },
-        best_practices: {
-            type: "object",
-            properties: {
-                score: { type: "string" },
-                warnings: stringArraySchema(),
-                info: stringArraySchema(),
-            },
-        },
-        last_assessment: {
+        assessment: {
             type: "object",
             properties: {
                 assessed_at: { type: "string", format: "date-time" },
                 all_green: { type: "boolean" },
+                score: { type: "string" },
+                warnings: stringArraySchema(),
+                info: stringArraySchema(),
                 workers_run: stringArraySchema(),
                 workers_skipped: stringArraySchema(),
             },

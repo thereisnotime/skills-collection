@@ -337,7 +337,7 @@
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#129300;</span> Understand an unfamiliar codebase</div>
-        <p>A new team member asks &ldquo;what does UserService do?&rdquo; An agent with grep reads the class definition, then searches for callers, then reads those files, then searches for their callers. Four separate tool calls, 38,611 characters of context. An agent with hex-graph calls <code>get_symbol(name="UserService", file="src/services/user.ts")</code> &mdash; one request returns the definition, incoming edges, outgoing edges, workspace ownership, provider status, and confidence summary.</p>
+        <p>A new team member asks &ldquo;what does UserService do?&rdquo; An agent with grep reads the class definition, then searches for callers, then reads those files, then searches for their callers. Four separate tool calls, 38,611 characters of context. An agent with hex-graph calls <code>inspect_symbol(path="/project", name="UserService", file="src/services/user.ts")</code> &mdash; one request returns the canonical symbol briefing: definition, incoming edges, outgoing edges, workspace ownership, and confidence summary.</p>
         <div class="scenario-result">38,611 &rarr; 1,274 ch. <strong>97% savings.</strong> 4 tool calls &rarr; 1.</div>
       </div>
 
@@ -349,20 +349,20 @@
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#128269;</span> Find all entry points</div>
-        <p>&ldquo;Who ultimately calls <code>validateInput</code>?&rdquo; The agent needs to trace callers 3 levels deep. With grep: read the file, find callers, read those files, find their callers, read again &mdash; 12,716 characters across 4 tool calls. With hex-graph: <code>trace_paths(workspace_qualified_name="...", path_kind="calls", direction="reverse", depth=3)</code> &mdash; one call returns the full call chain, served from the graph.</p>
+        <p>&ldquo;Who ultimately calls <code>validateInput</code>?&rdquo; The agent needs to trace callers 3 levels deep. With grep: read the file, find callers, read those files, find their callers, read again &mdash; 12,716 characters across 4 tool calls. With hex-graph: <code>trace_paths(path="/project", workspace_qualified_name="...", path_kind="calls", direction="reverse", depth=3)</code> &mdash; one call returns the full call chain, served from the graph.</p>
         <div class="scenario-result">12,716 &rarr; 477 ch. <strong>96% savings.</strong> 4 tool calls &rarr; 1.</div>
       </div>
 
       <div class="scenario">
         <div class="scenario-title"><span class="scenario-icon">&#127959;</span> Get architecture overview</div>
-        <p>New to a 50-file project? An agent needs to build a mental map. With built-in tools, it reads every file &mdash; 389,523 characters across 50 Read calls. With hex-graph: <code>get_architecture()</code> returns workspace modules, ownership boundaries, and cross-module/package dependency edges. One call, 2,941 characters.</p>
+        <p>New to a 50-file project? An agent needs to build a mental map. With built-in tools, it reads every file &mdash; 389,523 characters across 50 Read calls. With hex-graph: <code>analyze_architecture()</code> returns workspace modules, ownership boundaries, cycles, coupling, and cross-module/package dependency edges. One call, 2,941 characters.</p>
         <div class="scenario-result">389,523 &rarr; 2,941 ch. <strong>99% savings.</strong> 50 tool calls &rarr; 1. The single most impactful scenario.</div>
       </div>
 
       <div class="scenario">
-        <div class="scenario-title"><span class="scenario-icon">&#128260;</span> Keep the graph current</div>
-        <p>Call <code>watch_project</code> once and forget about it. Chokidar monitors the file system &mdash; every save triggers an incremental AST reparse of just that file. Deleted files CASCADE-clean their graph nodes and edges. No manual reindex, no stale data. The graph is always current.</p>
-        <div class="scenario-result">Incremental updates stay available, but index cost and break-even numbers now live under diagnostics instead of the public benchmark headline.</div>
+        <div class="scenario-title"><span class="scenario-icon">&#128260;</span> Review a real diff fast</div>
+        <p>For a PR or local worktree diff, the hard part is not finding the changed files &mdash; it is understanding which changed symbols are risky. With hex-graph: <code>analyze_changes(base_ref="origin/main")</code> returns changed symbols, deleted API warnings, high-impact edits, and optional supporting paths in one compact semantic review snapshot.</p>
+        <div class="scenario-result">The review workflow now centers on one diff-aware graph call instead of stitching together grep, symbol lookup, and manual blast-radius checks.</div>
       </div>
     </div>
   </section>
@@ -370,8 +370,8 @@
   <!-- TOOLS -->
   <section>
     <div class="container">
-      <h2>15 Tools</h2>
-      <p class="section-desc">Query, analyze, and maintain the knowledge graph.</p>
+      <h2>14 tools</h2>
+      <p class="section-desc">Query, analyze, and maintain the knowledge graph. Symbol/query tools stay project-scoped by requiring <code>path</code>; agents should auto-fill that from the active project.</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -383,12 +383,24 @@
               <td class="tool-desc">Scan and index project into a knowledge graph. Idempotent, skips unchanged files</td>
             </tr>
             <tr>
-              <td class="tool-name">search_symbols</td>
-              <td class="tool-desc">Full-text search for candidate symbols. Identity-safe discovery step before semantic queries</td>
+              <td class="tool-name">install_graph_providers</td>
+              <td class="tool-desc">Detect or install graph-specific providers and optional SCIP exporters for the current project</td>
             </tr>
             <tr>
-              <td class="tool-name">get_symbol</td>
-              <td class="tool-desc">Identity-safe symbol context: definition, incoming edges, outgoing edges, workspace ownership, provider status, and confidence summary</td>
+              <td class="tool-name">export_scip</td>
+              <td class="tool-desc">Export indexed symbol facts to a binary SCIP artifact for external tooling</td>
+            </tr>
+            <tr>
+              <td class="tool-name">import_scip_overlay</td>
+              <td class="tool-desc">Import a binary SCIP artifact into provenance-tagged overlay facts without replacing the native graph</td>
+            </tr>
+            <tr>
+              <td class="tool-name">find_symbols</td>
+              <td class="tool-desc">Discover candidate symbols by name or partial name before deeper semantic analysis</td>
+            </tr>
+            <tr>
+              <td class="tool-name">inspect_symbol</td>
+              <td class="tool-desc">Canonical symbol briefing: resolution, symbol context, reference summary, implementation summary, and framework roles</td>
             </tr>
             <tr>
               <td class="tool-name">trace_paths</td>
@@ -396,47 +408,35 @@
             </tr>
             <tr>
               <td class="tool-name">find_references</td>
-              <td class="tool-desc">Find semantic usages of one symbol identity: imports, calls, reads, type refs, and reexports</td>
+              <td class="tool-desc">Find semantic usages of one symbol identity, including framework overlay wiring when present</td>
             </tr>
             <tr>
               <td class="tool-name">find_implementations</td>
-              <td class="tool-desc">Find type-layer implementations and overrides: extends, implements, overrides</td>
+              <td class="tool-desc">Find implementations and overrides for a canonical symbol identity</td>
             </tr>
             <tr>
-              <td class="tool-name">find_dataflows</td>
-              <td class="tool-desc">Deterministic flow summaries and targeted interprocedural flow paths</td>
+              <td class="tool-name">trace_dataflow</td>
+              <td class="tool-desc">Deterministic source-to-sink dataflow tracing between anchored flow points</td>
             </tr>
             <tr>
-              <td class="tool-name">explain_resolution</td>
-              <td class="tool-desc">Explain how a selector resolved, which candidates were considered, provider status, and why one winner was selected</td>
+              <td class="tool-name">analyze_changes</td>
+              <td class="tool-desc">Review a git diff, commit range, or worktree change set and return a compact semantic risk snapshot</td>
             </tr>
             <tr>
-              <td class="tool-name">get_architecture</td>
-              <td class="tool-desc">Workspace modules, ownership boundaries, and cross-module/package dependency edges</td>
+              <td class="tool-name">analyze_edit_region</td>
+              <td class="tool-desc">Inspect the semantic impact of editing a concrete file range, including callers, flow, duplicates, and framework wiring</td>
             </tr>
             <tr>
-              <td class="tool-name">watch_project</td>
-              <td class="tool-desc">File watcher for incremental graph updates. Reuses the same indexing pipeline as full indexing</td>
+              <td class="tool-name">analyze_architecture</td>
+              <td class="tool-desc">High-level architecture view with modules, dependency boundaries, cycles, coupling, and framework surfaces</td>
             </tr>
             <tr>
-              <td class="tool-name">find_hotspots</td>
-              <td class="tool-desc">Identify refactoring targets. Functions/methods ranked by risk = complexity &times; callers</td>
+              <td class="tool-name">audit_workspace</td>
+              <td class="tool-desc">Workspace cleanup and maintainability review: unused exports, hotspots, and clone groups</td>
             </tr>
             <tr>
-              <td class="tool-name">find_unused_exports</td>
-              <td class="tool-desc">Find proven-unused exports and surface uncertain cases separately</td>
-            </tr>
-            <tr>
-              <td class="tool-name">find_cycles</td>
-              <td class="tool-desc">Detect circular dependencies between workspace modules and package boundaries</td>
-            </tr>
-            <tr>
-              <td class="tool-name">get_module_metrics</td>
-              <td class="tool-desc">Calculate coupling metrics (Ca/Ce/Instability) for workspace modules and packages</td>
-            </tr>
-            <tr>
-              <td class="tool-name">find_clones</td>
-              <td class="tool-desc">Detect exact, normalized, and near-miss clones with suppression and scope controls</td>
+              <td class="tool-name">index_project</td>
+              <td class="tool-desc">Scan and index a project into the graph kernel, including precise and framework-aware overlays when available</td>
             </tr>
           </tbody>
         </table>

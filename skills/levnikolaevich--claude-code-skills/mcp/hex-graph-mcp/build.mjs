@@ -20,5 +20,6 @@ await build({
 
 // tree-sitter .scm queries are loaded at runtime via readFileSync
 cpSync("lib/queries", "dist/queries", { recursive: true });
+cpSync("../hex-common/artifacts/tree-sitter", "dist/artifacts/tree-sitter", { recursive: true });
 
-console.log("Built dist/server.mjs + dist/queries/");
+console.log("Built dist/server.mjs + dist/queries/ + dist/artifacts/tree-sitter/");

@@ -102,8 +102,10 @@ Session locations:
 | Agent | Path | Format |
 |-------|------|--------|
 | Claude (Agent tool) | Results visible in conversation context | Direct |
-| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | JSONL |
-| Gemini | `~/.gemini/tmp/*/chats/session-*.json` | JSON |
+| Claude (JSONL) | `~/.claude/projects/*/*.jsonl` | JSONL with `message.usage` token data |
+| Claude (active) | `~/.claude/sessions/{PID}.json` | JSON `{pid, sessionId, cwd}` |
+| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | JSONL with `token_count` events |
+| Gemini | Platform-dependent; protobuf on Windows | Not grep-parseable |
 
 For each agent that participated, produce a **separate** error table flagged with agent name:
 

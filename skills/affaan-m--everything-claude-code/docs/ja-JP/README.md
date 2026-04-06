@@ -1,4 +1,4 @@
-**言語:** English | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](README.md) | [한국어](../ko-KR/README.md)
+**言語:** [English](../../README.md) | [Português (Brasil)](../pt-BR/README.md) | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](README.md) | [한국어](../ko-KR/README.md) | [Türkçe](../tr/README.md)
 
 # Everything Claude Code
 
@@ -13,15 +13,15 @@
 ![Java](https://img.shields.io/badge/-Java-ED8B00?logo=openjdk&logoColor=white)
 ![Markdown](https://img.shields.io/badge/-Markdown-000000?logo=markdown&logoColor=white)
 
-> **42K+ stars** | **5K+ forks** | **24 contributors** | **6 languages supported**
+> **140K+ stars** | **21K+ forks** | **170+ contributors** | **12+ language ecosystems**
 
 ---
 
 <div align="center">
 
-**言語 / Language / 語言**
+**言語 / Language / 語言 / Dil**
 
-[**English**](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md)
+[**English**](../../README.md) | [Português (Brasil)](../pt-BR/README.md) | [简体中文](../../README.zh-CN.md) | [繁體中文](../zh-TW/README.md) | [日本語](README.md) | [한국어](../ko-KR/README.md) | [Türkçe](../tr/README.md)
 
 </div>
 
@@ -107,10 +107,10 @@
 
 ```bash
 # マーケットプレイスを追加
-/plugin marketplace add affaan-m/everything-claude-code
+/plugin marketplace add https://github.com/affaan-m/everything-claude-code
 
 # プラグインをインストール
-/plugin install everything-claude-code@everything-claude-code
+/plugin install ecc@ecc
 ```
 
 ### ステップ2：ルールをインストール（必須）
@@ -134,13 +134,13 @@ cp -r everything-claude-code/rules/golang/* ~/.claude/rules/
 
 ```bash
 # コマンドを試す（プラグインはネームスペース形式）
-/everything-claude-code:plan "ユーザー認証を追加"
+/ecc:plan "ユーザー認証を追加"
 
 # 手動インストール（オプション2）は短縮形式：
 # /plan "ユーザー認証を追加"
 
 # 利用可能なコマンドを確認
-/plugin list everything-claude-code@everything-claude-code
+/plugin list ecc@ecc
 ```
 
 **完了です！** これで13のエージェント、43のスキル、31のコマンドにアクセスできます。
@@ -424,10 +424,10 @@ Duplicate hook file detected: ./hooks/hooks.json is already resolved to a loaded
 
 ```bash
 # このリポジトリをマーケットプレイスとして追加
-/plugin marketplace add affaan-m/everything-claude-code
+/plugin marketplace add https://github.com/affaan-m/everything-claude-code
 
 # プラグインをインストール
-/plugin install everything-claude-code@everything-claude-code
+/plugin install ecc@ecc
 ```
 
 または、`~/.claude/settings.json` に直接追加：
@@ -435,7 +435,7 @@ Duplicate hook file detected: ./hooks/hooks.json is already resolved to a loaded
 ```json
 {
   "extraKnownMarketplaces": {
-    "everything-claude-code": {
+    "ecc": {
       "source": {
         "source": "github",
         "repo": "affaan-m/everything-claude-code"
@@ -443,7 +443,7 @@ Duplicate hook file detected: ./hooks/hooks.json is already resolved to a loaded
     }
   },
   "enabledPlugins": {
-    "everything-claude-code@everything-claude-code": true
+    "ecc@ecc": true
   }
 }
 ```

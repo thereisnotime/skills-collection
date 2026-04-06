@@ -467,6 +467,43 @@ To regenerate: `python3 extract_attack.py`
 
 ---
 
+## MITRE ATLAS Coverage (v5.5.0)
+
+81 skills mapped to ATLAS adversarial ML techniques.
+
+Key techniques applied:
+- AML.T0051 — LLM Prompt Injection (Execution)
+- AML.T0054 — LLM Jailbreak (Privilege Escalation)
+- AML.T0088 — Generate Deepfakes (AI Attack Staging)
+- AML.T0010 — AI Supply Chain Compromise (Initial Access)
+- AML.T0020 — Poison Training Data (Resource Development)
+- AML.T0070 — RAG Poisoning (Persistence)
+- AML.T0080 — AI Agent Context Poisoning (Persistence)
+- AML.T0056 — Extract LLM System Prompt (Exfiltration)
+
+## MITRE D3FEND Coverage (v1.3)
+
+11 skills mapped to D3FEND defensive countermeasures.
+
+Countermeasures applied span D3FEND tactical categories:
+Harden, Detect, Isolate, Deceive, Evict, Restore.
+Each skill's d3fend_techniques field lists the top 5 most relevant
+defensive countermeasures derived from the skill's ATT&CK technique tags.
+
+## NIST AI RMF Coverage (AI 100-1)
+
+85 skills mapped to NIST AI Risk Management Framework subcategories.
+
+Core functions covered:
+- GOVERN: Organizational accountability for AI risk (GOVERN-1.1, GOVERN-6.1, GOVERN-6.2)
+- MAP: AI risk identification and context (MAP-5.1, MAP-5.2, MAP-1.6)
+- MEASURE: AI risk analysis and evaluation (MEASURE-2.5, MEASURE-2.7, MEASURE-2.8, MEASURE-2.11)
+- MANAGE: AI risk response and recovery (MANAGE-2.4, MANAGE-3.1)
+
+GenAI-specific subcategories applied: GOVERN-6.1, GOVERN-6.2 (responsible deployment policies).
+
+---
+
 <p align="center">
   <sub>Part of <a href="https://github.com/mukul975/Anthropic-Cybersecurity-Skills">Anthropic Cybersecurity Skills</a> — 753+ open-source cybersecurity skills for AI agents</sub>
 </p>

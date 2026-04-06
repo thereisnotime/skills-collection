@@ -23,15 +23,6 @@ mise install        # Install Node.js (version defined in mise.toml)
 mise run install    # Install all npm dependencies
 ```
 
-For LLM evals, copy the env example and add your API keys:
-
-```bash
-cp packages/evals/.env.example packages/evals/.env
-# Edit packages/evals/.env with your ANTHROPIC_API_KEY and OPENAI_API_KEY
-```
-
-mise automatically loads `.env` files defined in `mise.toml`.
-
 ## Issues
 
 If you find a typo, have a suggestion for a new skill/reference, or want to improve
@@ -63,10 +54,7 @@ Before submitting your PR, make sure you have the right tooling and run these
 checks:
 
 ```bash
-mise install       # Ensure correct Node.js version
-mise run check     # Format and lint (auto-fix)
-mise run validate  # Check reference format and structure
-mise run build     # Generate AGENTS.md from references
+mise run test     # Run the test suite
 ```
 
 All commands must complete successfully.
@@ -79,12 +67,11 @@ To add a reference to an existing skill:
 2. Copy `_template.md` to `{prefix}-{your-reference-name}.md`
 3. Fill in the frontmatter (title, impact, tags)
 4. Write explanation and examples (Incorrect/Correct)
-5. Run validation and build:
-
-```bash
-mise run validate
-mise run build
-```
+5. Bump the `version` in the skill's `SKILL.md` frontmatter metadata
+6. Run the tests:
+   ```bash
+   mise run test
+   ```
 
 ## Creating a New Skill
 
@@ -106,9 +93,6 @@ license: MIT
 metadata:
   author: your-org
   version: "1.0.0"
-  organization: Your Org
-  date: January 2026
-  abstract: Detailed description of this skill for the compiled AGENTS.md.
 ---
 
 # My Skill
@@ -137,14 +121,6 @@ Instructions for agents using this skill.
 Name files as `{prefix}-{reference-name}.md` where prefix matches a section.
 
 Example: `first-example-reference.md` for section "First Category"
-
-### 5. Build
-
-```bash
-mise run build
-```
-
-The build system auto-discovers skills by looking for `SKILL.md` files.
 
 ## Questions or Feedback?
 

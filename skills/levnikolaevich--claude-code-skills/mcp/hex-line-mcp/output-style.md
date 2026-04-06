@@ -6,7 +6,7 @@ keep-coding-instructions: true
 
 # MCP Tool Preferences
 
-**PREFER** hex-line MCP for code files. Hash-annotated reads and verified edits keep context cheap and safe.
+Prefer `hex-line` for text files you may inspect or modify. Hash-annotated reads and verified edits keep context cheap and safe, and graph hints enrich the same flow when available.
 
 | Instead of | Use | Why |
 |-----------|-----|-----|
@@ -14,47 +14,60 @@ keep-coding-instructions: true
 | Edit | `mcp__hex-line__edit_file` | Hash-verified anchors + conservative auto-rebase |
 | Write | `mcp__hex-line__write_file` | No prior Read needed |
 | Grep | `mcp__hex-line__grep_search` | Edit-ready matches |
-| Edit (text rename) | `mcp__hex-line__bulk_replace` | Multi-file text rename/refactor |
-| Bash `find`/`tree` | `mcp__hex-line__directory_tree` | Pattern search, gitignore-aware |
-| Full code read | `mcp__hex-line__outline` then `read_file` with ranges | Structure first, read targeted |
+| Text rename across files | `mcp__hex-line__bulk_replace` | Multi-file text rename/refactor inside an explicit root path |
+| Path/tree/stat Bash | `mcp__hex-line__inspect_path` | Compact path info and pattern search |
+| Large code read | `mcp__hex-line__outline` then `read_file` with ranges | Structure first, targeted reads |
+| Re-check freshness | `mcp__hex-line__verify` | Avoid unnecessary rereads |
+| Git diff review | `mcp__hex-line__changes` | Compact semantic diff |
 
-**Bootstrap**: if hex-line calls fail, load schemas: `ToolSearch('+hex-line read edit')`
+**Bootstrap**: if hex-line schemas are not loaded, run `ToolSearch('+hex-line read edit')`.
 
 ## Workflow Paths
 
-| Path | When | Flow |
-|------|------|------|
-| Surgical | Know the target | `grep_search` → `edit_file` |
-| Exploratory | Need context first | `outline` → `read_file` (ranges) → `edit_file` |
-| Multi-file | Text rename/refactor | `bulk_replace` |
-| Verify | Check freshness | `verify` → reread only if STALE |
+| Path | Flow |
+|------|------|
+| Surgical | `grep_search -> edit_file` |
+| Exploratory | `outline -> read_file (ranges) -> edit_file(base_revision)` |
+| Multi-file | `bulk_replace(path=<project root>)` |
+| Follow-up after delay | `verify(base_revision) -> reread only if STALE -> retry with returned helpers` |
 
-Bash OK for: npm/node/git/docker/curl, pipes, compound commands.
-**Built-in OK for:** images, PDFs, notebooks, Glob (always), `.claude/settings.json`, `.claude/settings.local.json`.
+## Scope Discipline
 
-## Edit Workflow
+- Auto-fill `path` instead of leaving scope implicit.
+- For file tools (`read_file`, `edit_file`, `outline`, `changes` on one file), use the target file path.
+- Read-only file tools may target explicit temp-file paths outside the repo when you intentionally inspect a scratch file.
+- For repo-wide tools (`bulk_replace`, directory `inspect_path`, broad `grep_search`), use the resolved project root or intended directory scope.
+- Mutating tools stay inside the current project root by default. Add `allow_external=true` only when you intentionally edit a temp or external path.
+- Treat missing or ambiguous scope as an error to fix, not as a reason to guess across repositories.
 
-| Do | Don't |
-|----|-------|
-| Batch all hunks in one `edit_file` | Chain same-file `edit_file` calls |
-| Carry `revision` → `base_revision` | Full-file rewrite for local changes |
-| `verify` before reread | `bulk_replace` for block rewrites |
-| `post_edit` checksum for follow-up | — |
+## Edit Discipline
 
+- Never invent `range_checksum`. Copy it from a fresh `read_file` or `grep_search(output:"content")` block.
+- First mutation in a file: use `grep_search` for narrow targets, or `outline -> read_file(ranges)` for structural edits.
+- Preserve file conventions mentally: `hex-line` hashes normalized logical text, but `edit_file` preserves the file's existing line endings and trailing-newline shape on write.
+- Prefer `set_line` or `insert_after` for small local changes. Prefer `replace_between` for larger bounded block rewrites.
+- Use `replace_lines` only when you already hold the exact inclusive range checksum for that block.
+- Avoid large first-pass edit batches. Start with 1-2 hunks, then continue from the returned `revision` as `base_revision`.
+- Before a delayed follow-up edit, a formatter pass, or any mixed-tool workflow on the same file, run `verify` with the last checksums and `base_revision`.
+- If `edit_file` returns `retry_edit`, `retry_edits`, or `retry_plan`, reuse those directly instead of rebuilding anchors/checksums by hand.
+- Reuse `retry_checksum` when it is returned for the exact same target range.
+- Once `hex-line` owns a file edit session, avoid mixing built-in `Edit`/`Write` on that file unless you intentionally want a new baseline.
+- Follow `next_action` first. Treat `summary` and `snippet` as the compact local context, not as prose to reinterpret.
 
-## hex-graph — Code Analysis
+## Exceptions
 
-Run `index_project` once per session before using other graph tools.
+- Built-in `Read`/`Edit`/`Write`/`Grep` are fallback only. Built-in OK for images, PDFs, notebooks, Glob, `.claude/settings.json`, and `.claude/settings.local.json`.
+- Bash is still fine for npm, node, git, docker, curl, pipes, and compound commands.
 
-| Task | Tool | Output |
-|------|------|--------|
-| Refactoring / moving code | `find_references`, `find_implementations` | All usages + implementations |
-| Code review / tech debt | `find_cycles`, `find_hotspots` | Circular deps, complexity hotspots |
-| Dead code cleanup | `find_unused_exports` | Exports nobody imports |
-| Architecture overview | `get_architecture`, `get_module_metrics` | Module map + coupling metrics |
-| Duplicate detection | `find_clones` | Similar code blocks |
-| Impact analysis | `trace_paths` | Call chains A → B |
-| Symbol lookup | `search_symbols`, `get_symbol` | Find by name, get details |
+## hex-graph
+
+Use `hex-graph` only for semantic code questions:
+- `index_project` once per session before graph queries
+- `find_symbols` and `inspect_symbol` for symbol identity
+- `find_references` and `trace_paths` for usage and blast radius
+- `analyze_changes`, `audit_workspace`, and `analyze_architecture` for review and audit work
+- Always include `path` for `hex-graph` queries, using the active project root by default.
+
 # Response Style
 
 Keep responses compact and operational. Explain only what is needed to complete the task or justify a non-obvious decision.

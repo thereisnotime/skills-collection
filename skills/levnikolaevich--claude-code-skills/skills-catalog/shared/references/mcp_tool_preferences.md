@@ -1,46 +1,59 @@
-# Tool Preferences for Code Editing
+# Tool Preferences for Code Work
 
-Hash-verified file operations via `hex-line-mcp` MCP server.
+Repo-level MCP policy for code files and semantic codebase analysis.
 
-## hex-line-mcp (MCP — preferred)
+## Primary Policy
 
-MCP server at `mcp/hex-line-mcp/`. 11 tools with FNV-1a hash verification:
+- Use `hex-line` first when a skill materially reads or edits source code, config, scripts, or test files.
+- Use `hex-graph` first when a skill must reason about existing code semantics: symbol identity, references, edit blast radius, architecture, clone groups, or semantic diff risk.
+- Use built-in `Read/Edit/Write/Grep` only as named fallback when the relevant MCP is unavailable, unsupported for the file/task, or outside MCP scope.
+- Do not cargo-cult `hex-graph` into planning, docs, community, research, or runtime-only skills that do not make semantic code decisions.
 
-| Tool | Purpose | When to use |
-|------|---------|-------------|
-| `outline` | AST structural overview (10 lines vs 500) | Before reading large files |
-| `read_file` | Hash-annotated read with range checksums | Examining file contents |
-| `edit_file` | Hash-verified anchor edits (set_line, replace_lines, insert_after) | Modifying code — hash-only, no text replace |
-| `write_file` | Create new files | New files only |
-| `grep_search` | ripgrep with hash-annotated results | Finding code patterns |
-| `bulk_replace` | Text rename/refactor across files | Renaming variables, updating imports |
-| `verify` | Check if held checksums still valid | Before editing after a pause |
-| `directory_tree` | Compact tree with .gitignore support | Exploring project structure |
-| `get_file_info` | File metadata (size, mtime, type) | Quick file checks |
-| `changes` | Git-based semantic diff | Reviewing modifications |
-| `setup_hooks` | Install hooks for agents | Initial setup |
+## Applicability Matrix
 
-**Hash format:** `{tag}.{lineNum}\t{content}` where tag = 2-char FNV-1a.
-**Checksums:** `checksum: start-end:8hex` after each read range.
+| Skill behavior | Primary tool | Policy |
+|------|------|------|
+| Edits code, config, scripts, tests | `hex-line` | REQUIRED |
+| Reads existing code to make semantic decisions | `hex-graph` + `hex-line` | REQUIRED |
+| Reads code for local structure only | `hex-line` | RECOMMENDED |
+| Markdown/doc-only structure or content work | none by default | OPTIONAL |
+| Planning/business prioritization/external research | none by default | AVOID graph |
+| Community/GitHub engagement | none by default | AVOID both unless editing local templates |
+| Runtime verification, benchmark, profiling, container launch | none by default | AVOID graph as evidence source |
 
-## Detection Sequence
+## Operational Rules
 
-1. **hex-line-mcp MCP** — `read_file`/`outline` in tool list → use MCP
-2. **Standard tools** — fallback. Built-in Read/Edit/Write/Grep
+- Preferred `hex-line` flow: `outline -> read_file -> edit_file(base_revision) -> verify`
+- Preferred `hex-graph` flow: `index_project -> find_symbols/inspect_symbol -> analyze_edit_region or analyze_changes`
+- `find_symbols` is for symbol names or partial names, not code fragments like `export function` and not unresolved member calls like `server.tool()` or `app.get(...)`
+- Path-scoped `hex-graph` query tools accept the indexed project root or any file/subdirectory inside that indexed project
+- Use `grep_search` for raw method-call patterns such as `app.get(...)`, `router.use(...)`, or `server.registerTool(...)`
+- Use `hex-line` for config, scripts, and tests when those files are part of the deliverable
+- Use `hex-line outline` first for large markdown files, then targeted reads by section
+- Carry the latest `revision` into same-file follow-up edits as `base_revision`
+- Before delayed retries, formatter runs, or cross-tool follow-ups on the same file, run `verify` instead of blindly rereading
+- Treat `retry_edit`, `retry_edits`, `retry_checksum`, and `retry_plan` as canonical recovery helpers
+- `hex-line` hashes normalized logical text but preserves existing file line endings and trailing-newline shape on write
+- Use `hex-graph` for planning when Story or Task affects existing code and real affected modules or task boundaries are unclear
+- Use `hex-graph` for implementation or review before editing existing functions, classes, routes, or public APIs
+- Do not use `hex-graph` as a runtime profiler; benchmark and profiler data remain the source of truth
 
-## When to Use
+## Fallback Contract
 
-- **USE for CODE files** (.ts, .js, .py, .go, .rs, .java, etc.)
-- **USE for markdown structure discovery:** prefer `outline` first for larger `.md` files, then targeted reads by section
-- **DO NOT use for:** tiny JSON/YAML files where a full read is cheaper than hash/anchor setup
-- **Workflow:** outline → read (specific ranges) → edit by anchor → verify. Text rename → bulk_replace
+Use standard tools only when one of these is true:
+- MCP server is unavailable or failing
+- target language is unsupported by `hex-graph`
+- task is outside MCP scope, such as images, PDFs, notebooks, external websites, or pure GitHub mutations
+- target file is small markdown or metadata where MCP setup adds no value
 
-## Setup
+Fallbacks must be explicit in the skill:
+- `hex-line` fallback -> built-in `Read/Edit/Write/Grep`
+- `hex-graph` fallback -> built-in `Grep/Glob/Read` with manual reasoning
 
-```bash
-npx -y @levnikolaevich/hex-line-mcp
-claude mcp add -s user hex-line -- npx -y @levnikolaevich/hex-line-mcp
-```
+## Canonical Detail Sources
+
+- Package and tool behavior: `mcp/hex-line-mcp/README.md`, `mcp/hex-graph-mcp/README.md`, and the MCP server tool descriptions
+- Repo usage policy: this file plus `mcp_integration_patterns.md` and `mcp_applicability_matrix.md`
 
 ---
 **Version:** 5.0.0

@@ -27,6 +27,8 @@ try {
 } catch { /* system rg */ }
 
 const DEFAULT_LIMIT = 100;
+const DEFAULT_TOTAL_LIMIT_CONTENT = 200;
+const DEFAULT_TOTAL_LIMIT_LIST = 1000;
 const MAX_OUTPUT = 10 * 1024 * 1024; // 10 MB
 const TIMEOUT = 30000; // 30s
 const MAX_SEARCH_OUTPUT_CHARS = 80000; // Block-aware cap to prevent CC maxResultSizeChars truncation
@@ -89,18 +91,30 @@ export function grepSearch(pattern, opts = {}) {
     const target = normPath ? resolve(normPath) : process.cwd();
     const output = opts.output || "content";
     const plain = !!opts.plain;
-    const totalLimit = (opts.totalLimit && opts.totalLimit > 0) ? opts.totalLimit : 0;
+    const defaultTotalLimit = output === "content"
+        ? DEFAULT_TOTAL_LIMIT_CONTENT
+        : DEFAULT_TOTAL_LIMIT_LIST;
+    const totalLimit = opts.totalLimit === 0
+        ? 0
+        : (opts.totalLimit && opts.totalLimit > 0) ? opts.totalLimit : defaultTotalLimit;
 
     // Branch by output mode
-    if (output === "files") return filesMode(pattern, target, opts);
-    if (output === "count") return countMode(pattern, target, opts);
+    if (output === "files") return filesMode(pattern, target, opts, totalLimit);
+    if (output === "count") return countMode(pattern, target, opts, totalLimit);
     return contentMode(pattern, target, opts, plain, totalLimit);
+}
+
+function applyListModeTotalLimit(lines, totalLimit) {
+    if (!totalLimit || totalLimit <= 0 || lines.length <= totalLimit) return lines.join("\n");
+    const visible = lines.slice(0, totalLimit);
+    visible.push(`OUTPUT_CAPPED: ${lines.length - totalLimit} more result line(s) omitted. Narrow with path= or glob=, or raise total_limit.`);
+    return visible.join("\n");
 }
 
 /**
  * files mode: rg -l — just file paths.
  */
-async function filesMode(pattern, target, opts) {
+async function filesMode(pattern, target, opts, totalLimit) {
     // -l + shared flags (without -n/heading/-m since -l ignores them)
     const realArgs = ["-l"];
     if (opts.caseInsensitive) realArgs.push("-i");
@@ -118,13 +132,13 @@ async function filesMode(pattern, target, opts) {
 
     const lines = stdout.trimEnd().split("\n").filter(Boolean);
     const normalized = lines.map(l => l.replace(/\\/g, "/"));
-    return normalized.join("\n");
+    return applyListModeTotalLimit(normalized, totalLimit);
 }
 
 /**
  * count mode: rg -c — match counts per file.
  */
-async function countMode(pattern, target, opts) {
+async function countMode(pattern, target, opts, totalLimit) {
     const realArgs = ["-c"];
     if (opts.caseInsensitive) realArgs.push("-i");
     else if (opts.smartCase) realArgs.push("-S");
@@ -141,7 +155,7 @@ async function countMode(pattern, target, opts) {
 
     const lines = stdout.trimEnd().split("\n").filter(Boolean);
     const normalized = lines.map(l => l.replace(/\\/g, "/"));
-    return normalized.join("\n");
+    return applyListModeTotalLimit(normalized, totalLimit);
 }
 
 /**
@@ -278,7 +292,7 @@ async function contentMode(pattern, target, opts, plain, totalLimit) {
                 flushGroup();
                 blocks.push(buildDiagnosticBlock({
                     kind: "total_limit",
-                    message: `Search stopped after ${totalLimit} match event(s). Narrow the query to continue.`,
+                    message: `Search stopped after ${totalLimit} match event(s). Narrow the query, raise total_limit, or pass total_limit=0 to disable the cap.`,
                     path: String(target).replace(/\\/g, "/"),
                 }));
                 return blocks

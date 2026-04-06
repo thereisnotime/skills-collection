@@ -2,6 +2,8 @@
 
 > **SCOPE:** Rules for designing MCP tools consumed by AI agents. Naming, errors, output bounds, descriptions. Based on [Tw93/MCP best practices](https://tw93.fun/2025-04-28/mcp.html) and hex-line-mcp experience.
 
+For repo-wide output vocabulary and public response shapes, also read [MCP_OUTPUT_CONTRACT_GUIDE.md](./MCP_OUTPUT_CONTRACT_GUIDE.md).
+
 ## 1. Tool Naming
 
 MCP prepends `mcp__<server>__` automatically. Name the tool itself without the server prefix.
@@ -11,7 +13,7 @@ MCP prepends `mcp__<server>__` automatically. Name the tool itself without the s
 | Verb + noun | `read_file` | `mcp__hex-line__read_file` | Clear action |
 | No redundant prefix | ~~`hex_line_read`~~ | Double prefix | Server name already in path |
 | Underscore case | `grep_search` | MCP convention | No camelCase |
-| Group by system | `setup_hooks` | Shared prefix | Agents can allow `mcp__hex-line__*` |
+| Group by system | `read_file` | Shared family | Agents can allow `mcp__hex-line__*` |
 
 ## 2. Response Format — support `format: "compact"|"full"` for verbose tools
 
@@ -56,7 +58,7 @@ Pattern: `"Use [tool] when [situation]. Prefer over [alternative] because [reaso
 | Search result tools | `limit` per file, default 100 | `grep_search` limit param |
 | Hooks (PostToolUse) | `smartTruncate(text, HEAD, TAIL)` | head 15 + tail 15, gap indicator |
 | Hooks (SessionStart) | Fixed injection string | Single `systemMessage`, no file reads |
-| Directory listings | `max_depth`, default 3 | `directory_tree` depth limit |
+| Directory listings | `max_depth`, default 3 | `inspect_path` depth limit |
 
 Always show `--- N lines omitted ---` when truncating.
 
@@ -64,7 +66,7 @@ Always show `--- N lines omitted ---` when truncating.
 
 | Principle | Bad | Good |
 |-----------|-----|------|
-| No `list_all_*` | `list_all_files` returns 10K paths | `directory_tree` with depth limit |
+| No `list_all_*` | `list_all_files` returns 10K paths | `inspect_path` with depth limit |
 | One tool = one decision | `read_and_edit` (two decisions) | Separate `read_file` + `edit_file` |
 | Combine read workflows | Two calls always needed | Description guides: "use outline first" |
 | Separate user decisions | Tool auto-confirms danger | `AskUserQuestion` pattern: block + ask user |

@@ -1,19 +1,32 @@
 {
   "name": "mcp-workspace",
   "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "workspaces": [
     "hex-common",
     "hex-line-mcp",
     "hex-ssh-mcp",
     "hex-graph-mcp"
   ],
+  "scripts": {
+    "build:tree-sitter-artifacts": "node hex-common/scripts/build-tree-sitter-artifacts.mjs"
+  },
   "overrides": {
-    "@modelcontextprotocol/sdk": "^1.27.0",
-    "zod": "^3.25.0",
-    "web-tree-sitter": "^0.25.0",
-    "tree-sitter-wasms": "^0.1.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "brace-expansion": "^5.0.5",
+    "minimatch": {
+      "brace-expansion": "^5.0.5"
+    },
+    "path-to-regexp": "^8.4.2",
+    "router": {
+      "path-to-regexp": "^8.4.2"
+    },
+    "zod": "^4.3.6",
+    "web-tree-sitter": "^0.26.8"
   },
   "devDependencies": {
-    "esbuild": "^0.27.4"
+    "esbuild": "^0.28.0"
   }
 }

@@ -123,7 +123,7 @@ export function directoryTree(dirPath, opts = {}) {
     const maxDepth = compact ? 1 : (opts.max_depth ?? 3);
 
     const abs = resolve(normalizePath(dirPath));
-    if (!existsSync(abs)) throw new Error(`DIRECTORY_NOT_FOUND: ${abs}. Check path or use directory_tree on parent directory.`);
+    if (!existsSync(abs)) throw new Error(`DIRECTORY_NOT_FOUND: ${abs}. Check path or use inspect_path on the parent directory.`);
     const rootStat = statSync(abs);
     if (!rootStat.isDirectory()) throw new Error(`Not a directory: ${abs}`);
 

@@ -105,7 +105,6 @@ Required default mapping:
 | `docs/README.md` | `index` | `canonical` |
 | `docs/documentation_standards.md` | `reference` | `canonical` |
 | `docs/principles.md` | `explanation` | `canonical` |
-| `docs/tools_config.md` | `reference` | `canonical` |
 | `docs/project/requirements.md` | `explanation` | `canonical` |
 | `docs/project/architecture.md` | `explanation` | `canonical` |
 | `docs/project/tech_stack.md` | `reference` | `canonical` |

@@ -1229,15 +1229,78 @@ cp -r session-search ~/.claude/skills/
 
 **Use when:** Finding previous Claude Code sessions about specific topics, locating past debugging conversations, or searching for research/planning sessions.
 
+### [Balanced Dialog](./balanced/) ⭐ NEW
+Evidence-based dialogue mode that replaces sycophantic AI responses with structured, critical analysis. Five modes for different contexts — from quick gut-checks to deep Socratic dialogue.
+
+**Modes:**
+- **FULL** — 4-move structured analysis: Surface Merits → Rigorous Challenge → Expansion → Refinement
+- **INTERACTIVE** — Socratic Q&A, one move at a time with user input at each step
+- **TLDR** — 3-5 line insight box: one fact, one challenge, one action
+- **STEELMAN** — strongest argument + strongest counter-argument. For debate prep
+- **DECISION** — tradeoff table + the call. For when analysis is done
+
+**Output Modifiers:**
+- `--table` — ASCII pro/contra table
+- `--refs` — full academic citations with DOI validation
+
+**Meta-Rules:**
+- No flattery, no filler phrases, no opinion statements
+- Quantified confidence levels (~70% confident...)
+- Scientific citation format with DOI web-search validation
+- Explicit uncertainty flagging
+- Subjective vs objective separation
+
+**Quick Start:**
+```bash
+# Install via npx
+npx skills add glebis/claude-skills -s balanced
+
+# Or copy manually
+cp -r balanced ~/.claude/skills/
+
+# Quick analysis
+/balanced "AI agents will replace most knowledge work within 5 years"
+
+# Steelman mode for debate prep
+/balanced steelman "remote work is more productive than office work"
+
+# TLDR with table
+/balanced tldr --table "should I migrate from REST to GraphQL?"
+
+# Interactive Socratic dialogue
+/balanced i "consciousness is an illusion"
+
+# Onboarding — pick your default mode
+/balanced onboard
+```
+
+**Use when:** You need honest, structured feedback instead of agreement — testing assumptions, evaluating claims, preparing arguments, making decisions.
+
 ---
 
 ## 🚀 Installation
 
-### Using Claude Code
+### Plugin Marketplace (Claude Code)
 
-1. Download the skill zip file from the [releases](../../releases) or clone this repo
-2. Extract to your Claude Code skills directory (usually `~/.claude/skills/`)
-3. The skill will be automatically available in Claude Code
+Register the repo as a skill source, then install individual skills:
+
+```bash
+# One-time: add the marketplace
+claude plugin marketplace add glebis/claude-skills
+
+# Install any skill
+claude plugin install tdd@glebis-skills
+claude plugin install doctorg@glebis-skills
+claude plugin install deep-research@glebis-skills
+```
+
+### Using the `skills` CLI
+
+```bash
+npx skills add glebis/claude-skills --skill tdd
+npx skills add glebis/claude-skills --skill doctorg
+npx skills add glebis/claude-skills --skill deep-research
+```
 
 ### Manual Installation
 
@@ -1246,40 +1309,12 @@ cp -r session-search ~/.claude/skills/
 git clone https://github.com/glebis/claude-skills.git
 
 # Copy desired skill to Claude Code skills directory
-cp -r claude-skills/doctorg ~/.claude/skills/
-# or
-cp -r claude-skills/llm-cli ~/.claude/skills/
-# or
-cp -r claude-skills/deep-research ~/.claude/skills/
-# or
-cp -r claude-skills/youtube-transcript ~/.claude/skills/
-# or
-cp -r claude-skills/telegram ~/.claude/skills/
-# or
-cp -r claude-skills/gmail ~/.claude/skills/
-# or
-cp -r claude-skills/brand-agency ~/.claude/skills/
-# or
-cp -r claude-skills/health-data ~/.claude/skills/
-# or
-cp -r claude-skills/firecrawl-research ~/.claude/skills/
-# or
-cp -r claude-skills/transcript-analyzer ~/.claude/skills/
-# or
-cp -r claude-skills/retrospective ~/.claude/skills/
-# or
-cp -r claude-skills/github-gist ~/.claude/skills/
-# or
-cp -r claude-skills/decision-toolkit ~/.claude/skills/
-# or
-cp -r claude-skills/tdd ~/.claude/skills/
-# or
-cp -r claude-skills/daydream ~/.claude/skills/
-# or
-cp -r claude-skills/thinking-patterns ~/.claude/skills/
-# or
-cp -r claude-skills/meeting-processor ~/.claude/skills/
+cp -r claude-skills/<skill-name> ~/.claude/skills/
+```
 
+Some skills require additional setup after installation:
+
+```bash
 # For llm-cli: Install Python dependencies
 cd ~/.claude/skills/llm-cli
 pip install -r requirements.txt

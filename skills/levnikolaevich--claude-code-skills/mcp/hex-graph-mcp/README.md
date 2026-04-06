@@ -1,31 +1,32 @@
 # hex-graph-mcp
 
-Deterministic layered code graph MCP server. Indexes codebases into a SQLite graph via tree-sitter AST parsing, canonical symbol identities, semantic edges, and hash-based incrementality.
+Deterministic layered code graph MCP server. Indexes codebases into a SQLite graph via tree-sitter AST parsing, canonical symbol identities, semantic edges, precise overlays, framework-aware overlays, and hash-based incrementality.
 
 [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-graph-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp)
 [![downloads](https://img.shields.io/npm/dm/@levnikolaevich/hex-graph-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp)
 [![license](https://img.shields.io/npm/l/@levnikolaevich/hex-graph-mcp)](./LICENSE)
 ![node](https://img.shields.io/node/v/@levnikolaevich/hex-graph-mcp)
 
-### 15 MCP Tools
+### 14 MCP Tools
 
-| Tool | Description | Key Feature |
-|------|-------------|-------------|
-| `index_project` | Scan and index a project into a layered code graph | Idempotent, skips unchanged files |
-| `watch_project` | Keep the graph updated incrementally | Shared pipeline with full indexing |
-| `search_symbols` | Find candidate symbols by name | Discovery-only, returns identity candidates |
-| `get_symbol` | Return identity-safe symbol context | Canonical selector + provider status + confidence filter |
-| `trace_paths` | Traverse graph paths through selected layers | `calls`, `references`, `imports`, `type`, `flow`, `mixed` + `min_confidence` |
-| `find_references` | Find semantic usages of one symbol identity | Imports, calls, reads, types, reexports + `min_confidence` |
-| `find_implementations` | Find `extends`, `implements`, and `overrides` relations | Built from type-layer edges |
-| `find_dataflows` | Explain anchored source-to-sink dataflow paths | Deterministic flow facts with path witnesses |
-| `explain_resolution` | Show how a selector/import/reference resolved | Parsed candidates + precise-provider status |
-| `find_clones` | Detect exact, normalized, and near-miss clones | Hashes, MinHash, suppression heuristics |
-| `find_hotspots` | Rank risky symbols by complexity x dependency pressure | Uses unified graph and clone metadata |
-| `find_unused_exports` | Find proven-unused exports and split uncertain cases | Workspace-aware, confidence-aware |
-| `find_cycles` | Detect circular dependencies between workspace modules | SCC-based cycle detection |
-| `get_module_metrics` | Calculate coupling metrics from workspace-module/package edges | Ca/Ce/Instability plus unresolved outgoing |
-| `get_architecture` | Summarize workspace modules, boundaries, and cross-module edges | Built from workspace ownership + package edges |
+`hex-graph-mcp` now exposes a use-case-first contract instead of every internal primitive. The public surface is split into setup, symbol navigation, review/edit analysis, architecture/maintenance, and interop.
+
+| Domain | Tool | Use Case |
+|------|------|----------|
+| Setup | `index_project` | Build or refresh the graph index |
+| Setup | `install_graph_providers` | Detect or install graph-specific providers and SCIP exporters |
+| Symbol | `find_symbols` | Discover candidate symbols by name |
+| Symbol | `inspect_symbol` | Get canonical resolution plus symbol context |
+| Symbol | `find_references` | See semantic usages and framework wiring |
+| Symbol | `find_implementations` | See overrides, extends, and implements relations |
+| Symbol | `trace_paths` | Follow dependency and blast-radius paths |
+| Flow | `trace_dataflow` | Follow deterministic source-to-sink propagation |
+| Review | `analyze_changes` | Review PR / commit / worktree semantic risk |
+| Review | `analyze_edit_region` | Evaluate what a concrete file range change affects |
+| Architecture | `analyze_architecture` | Summarize modules, cycles, coupling, and framework surfaces |
+| Maintenance | `audit_workspace` | Find unused exports, hotspots, and clone groups |
+| Interop | `export_scip` | Export the graph to a `.scip` artifact |
+| Interop | `import_scip_overlay` | Import a `.scip` artifact as overlay evidence |
 
 ## Install
 
@@ -49,247 +50,109 @@ Or add to `.claude/settings.json` directly:
 
 ## Tools Reference
 
-All semantic tools use canonical selectors. Pass exactly one of:
+All symbol-oriented tools use canonical selectors. Pass exactly one of:
 
 - `symbol_id`
 - `workspace_qualified_name`
 - `qualified_name`
 - `name` + `file`
 
-Plain `name` on its own is supported only in `search_symbols`. Ambiguous semantic selectors return `AMBIGUOUS_SYMBOL` instead of silently choosing the first match.
+Plain `name` on its own belongs in `find_symbols`. Ambiguous semantic selectors return `AMBIGUOUS_SYMBOL` instead of silently choosing the first match.
 
-All semantic symbol results expose both file-local and workspace-aware identity:
+All symbol/query tools also require `path` as the project anchor. Pass the indexed project root, or a file/subdirectory inside that indexed project. Agents should auto-fill it from the active project; the server does not fall back to another open store or another repository when `path` is missing or ambiguous.
 
-- `qualified_name`
-- `workspace_qualified_name`
-- `package_key` / `package_name`
-- `module_key` / `module_name`
+`find_symbols` is name-oriented discovery, not free-form code search. If the input looks like `export function`, `server.tool()`, `app.get(...)`, or another raw code fragment, use `grep_search` or a framework-aware graph query instead.
 
-Stage 2 precise overlay is additive:
+All public responses now use the same top-level shape:
 
-- parser/workspace facts stay in the graph
-- stronger provider facts use `confidence: "precise"`
-- provider availability is surfaced explicitly per language
-- `min_confidence` lets callers filter out weaker parser-only facts
-- `JavaScript/TypeScript` uses the embedded TypeScript compiler API
-- `Python`, `C#`, and `PHP` use detect-only external providers during indexing (`basedpyright`, `csharp-ls`, `phpactor`)
-- missing external tooling returns a direct human-actionable message the agent can relay as-is
+- `status`
+- `query`
+- `summary`
+- `reason`
+- `result`
+- `quality` when language/framework support matters
+- `warnings`
+- `next_actions`
 
-### index_project
+`next_action` / `next_actions` use short canonical labels, not English sentences. Typical values:
 
-Scan and index a project. Builds syntax, symbol, module, type, flow, and clone overlays from tree-sitter AST parsing.
+- `inspect_symbol`
+- `find_references`
+- `find_implementations`
+- `trace_paths`
+- `trace_dataflow`
+- `analyze_changes`
+- `audit_workspace`
+- `analyze_edit_region`
+- `index_project`
+- `widen_query`
+- `widen_range`
+- `review_deleted_api`
+- `review_duplicates`
 
-When an external precise provider is missing for a project language, `index_project` includes a clear remediation line such as:
+Errors use a compact top-level shape:
 
-- `Python precise analysis is unavailable because basedpyright-langserver is not installed. Ask a human to install basedpyright and rerun index_project.`
+- `status: "ERROR"`
+- `code`
+- `summary`
+- `next_action`
+- `recovery`
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root directory |
-| `languages` | string[] | no | Restrict indexing to configured grammars |
+### Setup
 
-### search_symbols
+| Tool | What it returns |
+|------|-----------------|
+| `index_project` | Index summary, languages, providers, framework overlays, warnings, and next actions |
+| `install_graph_providers` | Detected stack, provider status, SCIP exporter status, install plan, remediation steps, and agent-ready instructions |
 
-Full-text search for candidate symbols by name. Returns matches you can feed into semantic queries.
+### Symbol Navigation
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `query` | string | yes | Symbol name or partial name |
-| `kind` | string | no | Optional node-kind filter |
-| `limit` | number | no | Max matches (default: 20) |
+| Tool | Best for | Key result sections |
+|------|----------|---------------------|
+| `find_symbols` | Discovery before you know the exact identity | `candidates`, `disambiguation_hints` |
+| `inspect_symbol` | One-stop symbol briefing | `symbol`, `resolution`, `context`, `references_summary`, `implementations_summary`, `framework_roles` |
+| `find_references` | All semantic usages of one symbol | `references`, `total_by_kind`, framework wiring, inline `quality` |
+| `find_implementations` | Override / implementation search | `implementations`, `summary`, `next_actions` |
+| `trace_paths` | Blast radius and dependency paths from a concrete symbol | `paths`, `summary`, `warnings`, inline `quality` |
+| `trace_dataflow` | Source-to-sink propagation | `flows`, `anchors`, `summary` |
 
-### get_symbol
+### Review and Editing
 
-Identity-safe symbol view: definition, incoming edges, outgoing edges, structural context, and confidence summary.
+| Tool | Best for | Key result sections |
+|------|----------|---------------------|
+| `analyze_changes` | PR / commit / worktree review | `diff_summary`, `changed_files`, `changed_symbols`, `high_risk_items`, `deleted_api_warnings` |
+| `analyze_edit_region` | What a file range edit affects | `edited_symbols`, `impact_summary`, `external_callers`, `downstream_flow`, `clone_siblings`, `similar_symbols`, `duplicate_risk`, `public_api_risk`, `framework_entrypoint_risk` |
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
-| `min_confidence` | string | no | Minimum fact tier: `low`, `inferred`, `exact`, `precise` |
+### Architecture and Maintenance
 
-### trace_paths
+| Tool | Best for | Key result sections |
+|------|----------|---------------------|
+| `analyze_architecture` | Workspace overview | `workspace_summary`, `modules`, `module_boundaries`, `cycles`, `coupling`, `framework_surfaces`, `top_risks` |
+| `audit_workspace` | Cleanup / maintainability review | `unused_exports`, `uncertain_unused_exports`, `hotspots`, `clones`, `risk_summary`, `suppressed_items` |
 
-Traverse graph paths from one symbol through selected semantic layers.
+### Interop
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Start selector |
-| `to_symbol_id` / `to_workspace_qualified_name` / `to_qualified_name` / `to_name`+`to_file` | selector | no | Optional target selector |
-| `path_kind` | string | no | `calls`, `references`, `imports`, `type`, `flow`, `mixed` |
-| `direction` | string | no | `forward`, `reverse`, `both` |
-| `depth` | number | no | Traversal depth |
-| `limit` | number | no | Max paths |
-| `min_confidence` | string | no | Filter out weaker facts below the requested tier |
+| Tool | Best for | Key result sections |
+|------|----------|---------------------|
+| `export_scip` | Send graph facts to external tooling | `artifact`, `language`, `documents`, `symbols`, `relationships`, `warnings` |
+| `import_scip_overlay` | Merge external SCIP evidence without replacing the native graph | `documents_processed`, `mapped_symbols`, `imported_edges`, `skipped_documents`, `warnings` |
 
-### find_references
+### Architectural Notes
 
-Find incoming semantic references for one symbol identity.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
-| `kind` | string | no | Optional edge-kind filter |
-| `limit` | number | no | Max references |
-| `min_confidence` | string | no | Filter out weaker facts below the requested tier |
-
-### find_implementations
-
-Find `extends`, `implements`, and `overrides` relations anchored to one symbol identity.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
-| `limit` | number | no | Max results |
-
-### find_dataflows
-
-Return deterministic source-to-sink flow paths between anchored flow points.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `source` | object | yes | `{ symbol: selector, anchor: { kind, name?, access_path? } }` |
-| `sink` | object | no | Optional sink flow point with the same shape as `source` |
-| `flow_kind` | string | no | `value` or `taint` |
-| `max_hops` | number | no | Max flow propagation hops |
-| `limit` | number | no | Max paths |
-| `min_confidence` | string | no | Filter out weaker facts below the requested tier |
-
-Anchor kinds:
-
-- `param`
-- `local`
-- `return`
-- `property`
-
-### explain_resolution
-
-Explain how a selector/import/reference was resolved and why a candidate won.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `symbol_id` / `workspace_qualified_name` / `qualified_name` / `name`+`file` | selector | yes | Canonical selector |
-
-### watch_project
-
-Start file watcher for incremental graph updates. Reuses the same indexing pipeline as `index_project`.
-
-## Architecture Guardrails
-
-- Local-first by default: embedded SQLite graph store is the source of truth for normal use.
-- Parser-first by default: workspace discovery and semantic resolution run before edge materialization.
-- Workspace-first identity: semantic queries expose both file-local `qualified_name` and workspace-level `workspace_qualified_name`.
-- Precise providers are optional overlays, not replacements for the native graph.
-- Import/export interchange stays adapter-only. It is not the core storage model or primary UX.
-- Correctness is locked with semantic smoke fixtures, including permanent regressions for cross-file workspace resolution.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root directory to watch |
-
-### find_clones
-
-Detects duplicated code at three confidence levels:
-
-| Tier | Detects | Method | Min Statements |
-|------|---------|--------|----------------|
-| exact | Identical copies (Type-1) | FNV-1a-64 hash of raw body | 3 |
-| normalized | Renamed identifiers (Type-2) | FNV-1a-64 hash of normalized body | 5 |
-| near_miss | Modified structure (Type-3) | MinHash fingerprint + Jaccard similarity | 8 |
-
-**Parameters:**
-
-- `path` required
-- `type` — `exact` | `normalized` | `near_miss` | `all`
-- `threshold` — Jaccard similarity for `near_miss`
-- `min_stmts`
-- `kind` — `function` | `method` | `all`
-- `scope`
-- `cross_file`
-- `format`
-- `suppress`
-
-**Suppression heuristics:**
-
-| Heuristic | Strength | Condition |
-|-----------|----------|-----------|
-| test-fixture | strong | all members in test files |
-| interface-impl-hint | weak | same signature, different parents |
-| bounded-context-hint | weak | different dirs, no shared callers |
-
-**Languages with full AST fingerprinting:** JavaScript, TypeScript, Python  
-**Other languages:** hash-only detection for exact and normalized tiers
-
-### find_hotspots
-
-Find high-risk symbols ranked by complexity x dependency pressure.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root (must be indexed) |
-| `min_callers` | number | no | Minimum caller count |
-| `min_complexity` | number | no | Minimum complexity threshold |
-| `limit` | number | no | Max results |
-| `scope` | string | no | File path prefix filter |
-| `format` | string | no | `json` or `text` |
-
-### find_unused_exports
-
-Find exported symbols with no proven incoming usage.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root directory |
-| `scope` | string | no | File path prefix filter |
-| `kind` | string | no | Optional export kind filter |
-| `format` | string | no | `json` or `text` |
-
-### find_cycles
-
-Detect circular dependencies between workspace modules.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root directory |
-| `scope` | string | no | Optional file/path prefix filter |
-| `limit` | number | no | Max cycles |
-| `format` | string | no | `json` or `text` |
-
-### get_module_metrics
-
-Calculate coupling metrics from workspace-module dependencies.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root directory |
-| `scope` | string | no | Optional file/path prefix filter |
-| `sort` | string | no | Sort mode |
-| `min_coupling` | number | no | Filter low-signal rows |
-| `format` | string | no | `json` or `text` |
-
-### get_architecture
-
-Project architecture overview from workspace ownership and resolved package/module boundaries.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `path` | string | yes | Project root directory |
-| `scope` | string | no | Scope to subdirectory |
-| `limit` | number | no | Max rows |
-| `format` | string | no | `json` or `text` |
-
-## Architecture
-
-`hex-graph-mcp` stores a layered graph in SQLite and treats semantic edges as first-class data.
+- Stage 2 precise overlay is additive: parser/workspace facts stay canonical; stronger provider facts use `confidence: "precise"`.
+- Stage 4 framework overlay is additive: framework-created facts keep explicit `origin` and structured evidence; mixed traces and review/audit tools consume that evidence.
+- Stage 5 quality is artifact-driven: `test/` is correctness, `evals/` is capability/status, `benchmark/` is workflow efficiency only.
+- Stage 6 SCIP interop is adapter-only: native SQLite storage stays canonical; imported facts use `origin: "scip_import"` and do not replace native flow semantics.
 
 ## Supported Languages
 
-| Language | Extensions | Definitions & Calls | Exports | Imports (structured) | Type Layer | `find_unused_exports` |
-|----------|-----------|---------------------|---------|---------------------|-----------|------------------------|
-| JavaScript | .js .mjs .cjs .jsx | Full | ESM named/default/reexport | Full (relative, workspace package, alias, default, namespace) | Basic explicit syntax | Proven unused + uncertain split |
-| TypeScript | .ts .tsx | Full | ESM named/default/reexport | Full (relative, workspace package, alias, default, namespace) | Basic explicit syntax | Proven unused + uncertain split |
-| Python | .py | Full | `__all__` or underscore convention | Workspace-aware absolute + relative imports | Basic explicit syntax | Proven unused + uncertain split |
-| C# | .cs | Full | `public` access modifier | Project/namespace ownership + references | Basic explicit syntax | Proven unused + uncertain split |
-| PHP | .php | Full | Top-level + `public` methods | PSR-4 namespace resolution | Basic explicit syntax | Proven unused + uncertain split |
+| Language | Extensions | Definitions & Calls | Exports | Imports (structured) | Type Layer | Framework Overlay | `audit_workspace` |
+|----------|-----------|---------------------|---------|---------------------|-----------|-------------------|------------------------|
+| JavaScript | .js .mjs .cjs .jsx | Full | ESM named/default/reexport | Full (relative, workspace package, alias, default, namespace) | Basic explicit syntax | React JSX renders, Express routes/middleware | Proven unused + uncertain split + framework suppression |
+| TypeScript | .ts .tsx | Full | ESM named/default/reexport | Full (relative, workspace package, alias, default, namespace) | Basic explicit syntax | React JSX renders, Next.js App Router, Express, NestJS | Proven unused + uncertain split + framework suppression |
+| Python | .py | Full | `__all__` or underscore convention | Workspace-aware absolute + relative imports | Basic explicit syntax | Django urls/middleware, FastAPI routes/Depends/middleware, Flask routes/hooks | Proven unused + uncertain split + framework suppression |
+| C# | .cs | Full | `public` access modifier | Project/namespace ownership + references | Basic explicit syntax | ASP.NET Core MVC routes, minimal APIs, DI, middleware | Proven unused + uncertain split + framework suppression |
+| PHP | .php | Full | Top-level + `public` methods | PSR-4 namespace resolution | Basic explicit syntax | Laravel routes, route middleware, container bindings | Proven unused + uncertain split + framework suppression |
 
 **Note:** Architecture, cycle detection, and coupling reports are workspace-first. File-level edges remain raw evidence in the graph, but module/package ownership is the primary reporting layer.
 
@@ -299,7 +162,9 @@ hex-graph-mcp/
   package.json
   lib/
     indexer.mjs       Shared indexing pipeline
+    framework.mjs     Framework-aware overlay extraction
     parser.mjs        Tree-sitter parsing and language extraction
+    scip/             Optional Stage 6 SCIP import/export adapter layer
     store.mjs         SQLite graph storage and query layer
     watcher.mjs       Chokidar-based incremental updates
     clones.mjs        Clone detection engine
@@ -310,14 +175,17 @@ hex-graph-mcp/
 ### Storage
 
 - **SQLite** via `better-sqlite3`
-- **Nodes** for symbols, module pseudo-nodes, and synthetic bindings
-- **Edges** as the semantic source of truth across syntax, symbol, module, type, and flow layers
+- **Query lifecycle** uses readonly query stores that auto-close after a short idle window
+- **Write lifecycle** opens writable stores only for `index_project`, reindex, and SCIP import work, then checkpoints and closes them
+- **Lock behavior** on Windows is therefore normally caused by another live `hex-graph-mcp` / editor session for the same project, not by cross-project reuse
+- **Nodes** for symbols, module pseudo-nodes, and synthetic framework entrypoints
+- **Edges** as the semantic source of truth across syntax, symbol, module, type, flow, precise, and framework layers
 - **FTS5** for symbol discovery
 - **Hashes** for incremental invalidation and clone analysis
 
 ### Parsing
 
-- **tree-sitter WASM** via `web-tree-sitter` and `tree-sitter-wasms`
+- **tree-sitter WASM** via `web-tree-sitter` and repo-owned grammar artifacts from `hex-common/artifacts/tree-sitter`
 - Extracts definitions, imports, exports, calls, references, and explicit inheritance syntax
 - Feeds a shared pipeline used by both full indexing and watcher-driven reindexing
 
@@ -331,26 +199,88 @@ hex-graph-mcp/
 
 | Scenario | Tool | Example |
 |----------|------|---------|
-| Find candidate symbols | `search_symbols` | `query: "handleAuth"` |
-| Inspect one exact symbol | `get_symbol` | `name: "UserService", file: "src/services/user.ts"` |
-| Trace callers/callees/flows | `trace_paths` | `workspace_qualified_name: "...", path_kind: "mixed"` |
-| Find semantic usages | `find_references` | `name: "handleAuth", file: "src/auth.ts"` |
-| Find implementations | `find_implementations` | `name: "BaseStore", file: "src/store.ts"` |
-| Explain ambiguous linking | `explain_resolution` | Same selector as above |
-| Codebase overview | `get_architecture` | First call after `index_project` |
-| Continuous sync | `watch_project` | Start once, graph stays current |
-| Detect duplicates | `find_clones` | `path: "/project", type: "near_miss"` |
-| Find risky code | `find_hotspots` | `path: "/project", min_callers: 3` |
-| Find dead exports | `find_unused_exports` | `path: "/project"` |
+| Find candidate symbols | `find_symbols` | `path: "/project", query: "handleAuth"` |
+| Search raw method-call pattern like `server.tool(...)` | `grep_search` | `path: "/project", pattern: "server\\.tool\\("` |
+| Inspect one exact symbol | `inspect_symbol` | `path: "/project", name: "UserService", file: "src/services/user.ts"` |
+| Find semantic usages of one symbol | `find_references` | `path: "/project", workspace_qualified_name: "...", kind: "all"` |
+| Find implementations / overrides | `find_implementations` | `path: "/project", workspace_qualified_name: "..."` |
+| Trace callers, callees, and framework edges | `trace_paths` | `path: "/project", workspace_qualified_name: "...", path_kind: "mixed"` |
+| Follow source-to-sink propagation | `trace_dataflow` | `path: "/project", source: { symbol: ..., anchor: ... }` |
+| Review a PR or worktree diff | `analyze_changes` | `base_ref: "origin/main"` |
+| Evaluate a planned edit in one file range | `analyze_edit_region` | `file: "src/auth.ts", line_start: 40, line_end: 78` |
+| Inspect architecture and coupling | `analyze_architecture` | First high-level call after `index_project` |
+| Audit cleanup and duplicate risk | `audit_workspace` | `scope: "src/"` |
+| Repair graph environment before indexing/export | `install_graph_providers` | `path: "/project", mode: "check"` |
 
-## Benchmark
+## Quality System
 
-`hex-graph-mcp` now distinguishes:
+`hex-graph-mcp` keeps the quality pipeline internal and artifact-driven:
 
-- `tests` — correctness and regression safety
-- `evals` — semantic quality on curated fixtures
-- `benchmarks` — comparative workflow efficiency against built-in tools
-- `diagnostics` — atomic query and latency inspection
+- `test/` handles correctness and regressions
+- `evals/` stores generated capability matrices, targets, and quality reports
+- `benchmark/` tracks workflow efficiency against built-in approaches
+- runtime tools expose compact inline `quality` metadata where support/coverage matters
+
+Inline `quality` metadata is currently surfaced by:
+
+- `inspect_symbol`
+- `find_references`
+- `trace_paths`
+- `analyze_changes`
+- `analyze_edit_region`
+- `analyze_architecture`
+- `audit_workspace`
+
+<!-- GENERATED:HEX_GRAPH_MCP_QUALITY:START -->
+### Generated Snapshot
+
+- MCP tools registered in server contract: `14`
+- Semantic suite: `89/89` passing
+- Corpora: `1` curated, `1` pinned external
+- Lanes: parser-first `green`, precise overlay `provider_conditional`
+
+| Query Family | JS | TS | PY | PHP | C# | Framework overlays |
+|--------------|----|----|----|-----|----|--------------------|
+| `find_references` | verified | verified | verified | verified | verified | 9 supported |
+| `trace_paths` | verified | verified | supported | supported | supported | n/a |
+| `audit_workspace` | verified | verified | verified | supported | supported | n/a |
+| `analyze_architecture` | verified | verified | supported | supported | supported | n/a |
+
+Public targets:
+- Parser-first semantic fixtures: `100%`
+- Parser-first steady-state query p50: `<=200ms`
+- Precise-overlay incremental reindex p50: `<=2s`
+- Workflow token savings target: `>=50%`
+
+Workflow baseline (`benchmark/workflow-summary.json`):
+
+| ID | Workflow | Built-in | hex-graph | Savings | Ops | Steps |
+|----|----------|---------:|----------:|--------:|----:|------:|
+| W1 | Explore unfamiliar MCP before refactor | 144,687 chars | 117,320 chars | 19% | 12->3 | 12->3 |
+| W2 | Estimate blast radius before refactor | 192,510 chars | 157,609 chars | 18% | 7->3 | 5->3 |
+| W3 | Audit cycles, dead exports, hotspots | 61,754 chars | 4,184 chars | 93% | 22->4 | 22->4 |
+| W4 | Review PR semantic risk snapshot | 4,221 chars | 1,518 chars | 64% | 4->1 | 4->1 |
+
+Workflow summary: `49%` average token savings, `45->11` ops, `43->11` steps.
+<!-- GENERATED:HEX_GRAPH_MCP_QUALITY:END -->
+
+Run the artifact snapshot locally:
+
+```bash
+npm run evals
+```
+
+Sync the generated README regions from those artifacts:
+
+```bash
+npm run docs:quality
+```
+
+Fail verification if docs drift from the artifacts:
+
+```bash
+npm run docs:quality:check
+```
 
 Public benchmark mode reports only comparative workflow scenarios:
 
@@ -363,17 +293,6 @@ Optional diagnostics stay available separately:
 ```bash
 npm run benchmark:diagnostic -- --repo /path/to/repo
 ```
-
-Current sample run on the `hex-graph-mcp` repo with session-derived workflows:
-
-| ID | Workflow | Built-in | hex-graph | Savings | Ops | Steps |
-|----|----------|---------:|----------:|--------:|----:|------:|
-| W1 | Explore unfamiliar MCP before refactor | 93,361 chars | 16,081 chars | 83% | 12→3 | 12→3 |
-| W2 | Estimate blast radius before refactor | 106,117 chars | 49,674 chars | 53% | 7→3 | 5→3 |
-| W3 | Audit cycles, dead exports, hotspots | 61,754 chars | 4,184 chars | 93% | 22→4 | 22→4 |
-| W4 | Review PR semantic risk snapshot | 51,390 chars | 44,474 chars | 13% | 3→2 | 4→2 |
-
-Workflow summary: `61%` average token savings, `44→12` ops, `43→12` steps.
 
 The workflow benchmark focuses on graph-native developer tasks derived from recent real sessions:
 
@@ -390,12 +309,12 @@ Atomic query comparisons and index-cost output still live under `benchmark/`, bu
 |---------|---------|
 | `@modelcontextprotocol/sdk` | MCP protocol implementation |
 | `better-sqlite3` | SQLite storage engine |
-| `web-tree-sitter` + `tree-sitter-wasms` | AST parsing |
+| `web-tree-sitter` + first-party grammar artifacts | AST parsing |
 | `chokidar` | File system watcher |
 | `picomatch` | Scope/glob matching |
 | `zod` | Input schema validation |
 
-Requires Node.js >= 20.0.0.
+Requires Node.js >= 20.19.0.
 
 ## FAQ
 
@@ -409,7 +328,7 @@ It is designed for local-to-mid-sized repositories and monorepo slices where det
 <details>
 <summary><b>Does it support monorepos?</b></summary>
 
-Yes. Point `index_project` at the monorepo root or at a package subtree. Use `get_architecture`, `get_module_metrics`, and `scope` filters to focus analysis.
+Yes. Point `index_project` at the monorepo root or at a package subtree. Use `analyze_architecture` with `scope` filters to focus analysis. In JavaScript and TypeScript, workspace module grouping follows the nearest `package.json`, so a single-package repo can appear as one workspace module. Use symbol-level traces or manual search when you need finer intra-package structure.
 
 </details>
 
@@ -420,20 +339,13 @@ The graph database is stored under the indexed project at `.hex-skills/codegraph
 
 </details>
 
-<details>
-<summary><b>Does watch_project survive server restarts?</b></summary>
-
-No. The watcher runs in-process and must be started again after the MCP server restarts.
-
-</details>
-
 ## Hex Family
 
 | Package | Purpose | npm |
 |---------|---------|-----|
 | [hex-line-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-line-mcp) | Local file editing with hash verification + hooks | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-line-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-line-mcp) |
 | [hex-ssh-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) | Remote file editing over SSH | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-ssh-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) |
-| [hex-graph-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) | Layered code graph with AST indexing, clones, references, and architecture analysis | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-graph-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) |
+| [hex-graph-mcp](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) | Layered code graph with AST indexing, framework-aware references, clones, and architecture analysis | [![npm](https://img.shields.io/npm/v/@levnikolaevich/hex-graph-mcp)](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) |
 
 ## License
 

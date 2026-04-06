@@ -53,3 +53,15 @@ export function getDisabledAgents(projectRoot) {
         disabled_agents: disabled,
     };
 }
+
+export function getTaskProvider(projectRoot) {
+    const loaded = loadEnvironmentState(projectRoot);
+    if (!loaded.ok || !loaded.state) return "file";
+    return loaded.state.task_management?.provider ?? "file";
+}
+
+export function getResearchChain(projectRoot) {
+    const loaded = loadEnvironmentState(projectRoot);
+    if (!loaded.ok || !loaded.state) return ["websearch"];
+    return loaded.state.research?.fallback_chain ?? [loaded.state.research?.provider ?? "websearch"];
+}

@@ -57,7 +57,7 @@ Source: [Claude Code Docs](https://code.claude.com/docs/en/) + [shanraisshan/cla
 | `argument-hint` | string | No | Hint during autocomplete (e.g., `[file-path]`) |
 | `disable-model-invocation` | boolean | No | `true` prevents Claude from auto-invoking |
 | `user-invocable` | boolean | No | `false` hides from `/` menu (background knowledge only) |
-| `allowed-tools` | string | No | Tools allowed without permission prompts. Include built-ins (Read, Grep, Glob, Bash) + unique MCP tools (mcp__hex-line__outline, mcp__hex-graph__find_clones, etc.) |
+| `allowed-tools` | string | No | Tools allowed without permission prompts. Include built-ins (Read, Grep, Glob, Bash) + unique MCP tools (mcp__hex-line__outline, mcp__hex-graph__audit_workspace, etc.) |
 | `model` | string | No | Model override: `haiku`, `sonnet`, `opus` |
 | `context` | string | No | `"fork"` runs skill in isolated subagent context |
 | `agent` | string | No | Subagent type when `context: fork` (default: `general-purpose`) |

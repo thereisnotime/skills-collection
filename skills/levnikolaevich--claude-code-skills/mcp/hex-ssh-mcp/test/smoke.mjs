@@ -1,10 +1,10 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { PassThrough, Readable } from "node:stream";
 import { mkdtempSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix as pathPosix, win32 as pathWin32 } from "node:path";
 import { tmpdir } from "node:os";
 
 const defer = (callback) => process.nextTick(callback);
@@ -21,18 +21,29 @@ function makeExecStream(stdout = "", stderr = "", exitCode = 0) {
     return stream;
 }
 
+function remotePathLib(filePath) {
+    return /^(?:[a-zA-Z]:\\|\\\\)/.test(filePath) ? pathWin32 : pathPosix;
+}
+
 function parentRemoteDir(filePath) {
-    const parts = filePath.split("/").filter(Boolean);
-    if (parts.length <= 1) return "/";
-    return "/" + parts.slice(0, -1).join("/");
+    const lib = remotePathLib(filePath);
+    const parent = lib.dirname(filePath);
+    const root = lib.parse(filePath).root || "/";
+    return parent === "." ? root : parent;
 }
 
 function seedRemoteDirs(remoteFiles, remoteDirs) {
     remoteDirs.add("/");
     for (const filePath of remoteFiles.keys()) {
-        let current = "";
-        for (const part of filePath.split("/").filter(Boolean).slice(0, -1)) {
-            current += `/${part}`;
+        const lib = remotePathLib(filePath);
+        const root = lib.parse(filePath).root || "/";
+        remoteDirs.add(root);
+        const parent = lib.dirname(filePath);
+        if (parent === root || parent === ".") continue;
+        const parts = parent.slice(root.length).split(lib === pathWin32 ? /[\\/]+/ : /\//).filter(Boolean);
+        let current = root;
+        for (const part of parts) {
+            current = current ? lib.join(current, part) : part;
             remoteDirs.add(current);
         }
     }
@@ -196,7 +207,7 @@ function makeFakeClient(remoteFiles, execLog, options = {}) {
 
 describe("FNV-1a hash (cross-verify with hex-line)", () => {
     it("produces same hashes as hex-line for same content", async () => {
-        const { fnv1a, lineTag, rangeChecksum } = await import("../lib/hash.mjs");
+        const { fnv1a, lineTag, rangeChecksum } = await import("@levnikolaevich/hex-common/text-protocol/hash");
 
         const h1 = fnv1a("const x = 1;");
         const h2 = fnv1a("const x = 1;");
@@ -214,7 +225,7 @@ describe("FNV-1a hash (cross-verify with hex-line)", () => {
 
 describe("normalize output", () => {
     it("deduplicates identical lines with (xN)", async () => {
-        const { deduplicateLines } = await import("../lib/normalize.mjs");
+        const { deduplicateLines } = await import("@levnikolaevich/hex-common/output/normalize");
         const lines = ["ok", "error: timeout", "error: timeout", "error: timeout", "done"];
         const result = deduplicateLines(lines);
         const joined = result.join("\n");
@@ -223,7 +234,7 @@ describe("normalize output", () => {
     });
 
     it("smartTruncate keeps head + tail, omits middle", async () => {
-        const { smartTruncate } = await import("../lib/normalize.mjs");
+        const { smartTruncate } = await import("@levnikolaevich/hex-common/output/normalize");
         const text = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`).join("\n");
         const result = smartTruncate(text, 5, 3);
         assert.ok(result.includes("line 1"), "Head kept");
@@ -291,6 +302,25 @@ describe("host key verification", () => {
         delete process.env.ALLOWED_HOST_FINGERPRINTS;
         delete process.env.KNOWN_HOSTS_PATH;
     });
+
+    it("accepts matching fingerprint from a hashed known_hosts entry", () => {
+        const fakeKey = Buffer.from("hashed-host-key");
+        const salt = Buffer.from("0123456789abcdef0123");
+        const host = "hashed.example.test";
+        const hostHash = createHmac("sha1", salt).update(host).digest("base64");
+        const keyB64 = fakeKey.toString("base64");
+        const dir = mkdtempSync(join(tmpdir(), "hex-ssh-known-hosts-"));
+        const knownHostsPath = join(dir, "known_hosts");
+        writeFileSync(knownHostsPath, `|1|${salt.toString("base64")}|${hostHash} ssh-ed25519 ${keyB64}\n`);
+        process.env.KNOWN_HOSTS_PATH = knownHostsPath;
+        delete process.env.ALLOWED_HOST_FINGERPRINTS;
+        try {
+            const verifier = buildHostVerifier(host);
+            assert.equal(verifier(fakeKey), true);
+        } finally {
+            delete process.env.KNOWN_HOSTS_PATH;
+        }
+    });
 });
 
 // ==================== shell escaping ====================
@@ -333,6 +363,22 @@ describe("path validation", () => {
         process.env.ALLOWED_DIRS = "/home/deploy/../deploy";
         assert.doesNotThrow(() => validateRemotePath("/home/deploy/app/server.js"));
         delete process.env.ALLOWED_DIRS;
+    });
+
+    it("supports Windows remote paths with auto-detection or explicit remotePlatform", () => {
+        process.env.ALLOWED_DIRS = "C:\\deploy";
+        try {
+            const autoDetected = validateRemotePath("C:/deploy/app/server.js");
+            assert.equal(autoDetected.platform, "windows");
+            assert.equal(autoDetected.canonical, "C:\\deploy\\app\\server.js");
+
+            const explicit = validateRemotePath("/C:/deploy/app/server.js", "windows");
+            assert.equal(explicit.canonical, "C:\\deploy\\app\\server.js");
+
+            assert.throws(() => validateRemotePath("C:\\other\\server.js", "windows"), /PATH_OUTSIDE_ROOT/);
+        } finally {
+            delete process.env.ALLOWED_DIRS;
+        }
     });
 });
 
@@ -657,6 +703,35 @@ describe("sftp transfers", () => {
             assert.equal(result.verify, "stat");
             assert.equal(result.durabilityPath, "standard");
             assert.equal(execLog.length, 0, "download should not need remote exec");
+        } finally {
+            closeAllConnections();
+            rmSync(tmpDir, { recursive: true, force: true });
+        }
+    });
+
+    it("uploads to a Windows remote path over SFTP", async () => {
+        const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+        const { join } = await import("node:path");
+        const os = await import("node:os");
+        const { uploadFile } = await import("../lib/transfer.mjs");
+        const { _setClientFactory, closeAllConnections } = await import("../lib/ssh-client.mjs");
+
+        const tmpDir = mkdtempSync(join(os.tmpdir(), "hex-ssh-upload-win-"));
+        const localPath = join(tmpDir, "payload.bin");
+        const remoteFiles = new Map();
+        const remoteDirs = new Set(["C:\\"]);
+        writeFileSync(localPath, "windows upload");
+        _setClientFactory(() => makeFakeClient(remoteFiles, [], { remoteDirs }));
+
+        try {
+            const result = await uploadFile(
+                { host: "example.com", user: "deploy", port: 22, identityFiles: [FAKE_KEY] },
+                { localPath, remotePath: "C:\\srv\\app\\payload.bin", overwrite: true, verify: "none", remotePlatform: "windows" }
+            );
+            assert.equal(result.remotePath, "C:\\srv\\app\\payload.bin");
+            assert.equal(remoteFiles.get("C:\\srv\\app\\payload.bin").toString("utf8"), "windows upload");
+            assert.ok(remoteDirs.has("C:\\srv"), "intermediate Windows directory created");
+            assert.ok(remoteDirs.has("C:\\srv\\app"), "nested Windows directory created");
         } finally {
             closeAllConnections();
             rmSync(tmpDir, { recursive: true, force: true });

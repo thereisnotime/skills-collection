@@ -479,14 +479,9 @@ function executeAgent(agentCfg, cmd, stdinPrompt, hardTimeout,
             writeMetadataFile(metadataFile, {
                 agent: agentName,
                 status: REVIEW_AGENT_STATUSES.FAILED,
-                started_at: startedAt,
-                finished_at: utcTimestamp(),
-                success: false,
-                exit_code: -1,
-                error: "Command '" + agentCfg.command + "' not found",
                 pid: null,
-                log_file: logPath,
-                output_file: outputFile,
+                error: "Command '" + agentCfg.command + "' not found",
+                success: false,
             });
             resolve({
                 success: false,
@@ -509,13 +504,8 @@ function executeAgent(agentCfg, cmd, stdinPrompt, hardTimeout,
             agent: agentName,
             status: REVIEW_AGENT_STATUSES.LAUNCHED,
             pid: child.pid,
-            started_at: startedAt,
-            success: null,
-            exit_code: null,
-            session_id: null,
             error: null,
-            log_file: logPath,
-            output_file: outputFile,
+            success: null,
         });
 
         // Handle spawn error (e.g., ENOENT)
@@ -529,14 +519,8 @@ function executeAgent(agentCfg, cmd, stdinPrompt, hardTimeout,
                 agent: agentName,
                 status: REVIEW_AGENT_STATUSES.FAILED,
                 pid: child.pid || null,
-                started_at: startedAt,
-                finished_at: utcTimestamp(),
-                success: false,
-                exit_code: -1,
-                session_id: null,
                 error: "Command '" + agentCfg.command + "' not found: " + err.message,
-                log_file: logPath,
-                output_file: outputFile,
+                success: false,
             });
             resolve({
                 success: false,
@@ -642,14 +626,8 @@ function executeAgent(agentCfg, cmd, stdinPrompt, hardTimeout,
                     agent: agentName,
                     status: REVIEW_AGENT_STATUSES.FAILED,
                     pid: child.pid || null,
-                    started_at: startedAt,
-                    finished_at: finishedAt,
-                    success: false,
-                    exit_code: code,
-                    session_id: null,
                     error: "Hard timeout after " + hardTimeout + " seconds",
-                    log_file: logPath,
-                    output_file: outputFile,
+                    success: false,
                 });
                 resolve({
                     success: false,
@@ -695,56 +673,27 @@ function executeAgent(agentCfg, cmd, stdinPrompt, hardTimeout,
                 }
             }
 
-            if (code !== 0) {
+            // Only write exit metadata if no result file was created.
+            // When result file exists, sync-agent determines RESULT_READY
+            // from file existence; exit_code is in result file headers.
+            const hasResultFile = outputFile && fs.existsSync(outputFile);
+            if (!hasResultFile) {
                 writeMetadataFile(metadataFile, {
                     agent: agentName,
-                    status: REVIEW_AGENT_STATUSES.FAILED,
+                    status: code === 0
+                        ? REVIEW_AGENT_STATUSES.RESULT_READY
+                        : REVIEW_AGENT_STATUSES.FAILED,
                     pid: child.pid || null,
-                    started_at: startedAt,
-                    finished_at: finishedAt,
-                    success: false,
-                    exit_code: code,
-                    session_id: sessionId,
-                    error: "Exit code " + code,
-                    log_file: logPath,
-                    output_file: outputFile,
+                    error: code !== 0 ? "Exit code " + code : null,
+                    success: code === 0,
                 });
-                resolve({
-                    success: false,
-                    agent: agentName,
-                    response: response || null,
-                    duration_seconds: duration,
-                    error: "Exit code " + code,
-                    session_id: sessionId,
-                    pid: child.pid || null,
-                    log_file: logPath,
-                    output_file: outputFile,
-                    started_at: startedAt,
-                    finished_at: finishedAt,
-                    exit_code: code,
-                });
-                return;
             }
-
-            writeMetadataFile(metadataFile, {
-                agent: agentName,
-                status: REVIEW_AGENT_STATUSES.RESULT_READY,
-                pid: child.pid || null,
-                started_at: startedAt,
-                finished_at: finishedAt,
-                success: true,
-                exit_code: code,
-                session_id: sessionId,
-                error: null,
-                log_file: logPath,
-                output_file: outputFile,
-            });
             resolve({
-                success: true,
+                success: code === 0,
                 agent: agentName,
-                response: response,
+                response: response || null,
                 duration_seconds: duration,
-                error: null,
+                error: code !== 0 ? "Exit code " + code : null,
                 session_id: sessionId,
                 pid: child.pid || null,
                 log_file: logPath,
