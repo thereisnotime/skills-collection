@@ -20,7 +20,18 @@ https://github.com/user-attachments/assets/ef57333e-f879-432a-afb9-180388982478
 
 ## Installation
 
-### For Claude Code Users
+### Via Plugin Marketplace (Recommended)
+
+Install directly from Claude Code in two commands:
+
+```bash
+/plugin marketplace add zarazhangrui/frontend-slides
+/plugin install frontend-slides@frontend-slides
+```
+
+Then use it by typing `/frontend-slides` in Claude Code.
+
+### Manual Installation
 
 Copy the skill files to your Claude Code skills directory:
 

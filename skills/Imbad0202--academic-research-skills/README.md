@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.0)
+[![Version](https://img.shields.io/badge/version-v3.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.1)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -23,10 +23,10 @@ A comprehensive suite of Claude Code skills for academic research, covering the 
 
 ## Features
 
-- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop + **intent detection** + **dialogue health monitoring** + **optional cross-model DA**
-- **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX output hardening, visualization, revision coaching, and citation conversion
-- **Academic Paper Reviewer** — Multi-perspective peer review with 0-100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate with **concession threshold protocol** + **attack intensity preservation** + **optional cross-model review**)
-- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, material passport, and **optional cross-model integrity verification**
+- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop + **intent detection** + **dialogue health monitoring** + **optional cross-model DA** + **argumentation & reasoning cognitive framework**
+- **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX output hardening, visualization, revision coaching, citation conversion, and **writing judgment framework**
+- **Academic Paper Reviewer** — Multi-perspective peer review with 0-100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate with **concession threshold protocol** + **attack intensity preservation** + **optional cross-model review**) + **R&R traceability matrix** + **read-only constraint** + **review quality thinking framework**
+- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, material passport, **optional cross-model integrity verification**, **mid-conversation reinforcement**, and **self-check questions**
 
 ### Full Pipeline
 
@@ -422,7 +422,7 @@ You: "status"
 
 ## Skill Details
 
-### Deep Research (v2.4)
+### Deep Research (v2.7)
 
 13-agent pipeline for rigorous academic research:
 
@@ -444,7 +444,7 @@ You: "status"
 
 **Modes:** full, quick, paper-review, lit-review, fact-check, socratic, **systematic-review** (new)
 
-### Academic Paper (v2.5)
+### Academic Paper (v2.8)
 
 12-agent pipeline for academic paper writing:
 
@@ -465,7 +465,7 @@ You: "status"
 
 **Modes:** full, plan, revision, citation-check, format-convert, bilingual-abstract, writing-polish, full-auto, **revision-coach** (new)
 
-### Academic Paper Reviewer (v1.4)
+### Academic Paper Reviewer (v1.7)
 
 7-agent multi-perspective review with **0-100 quality rubrics**:
 
@@ -483,7 +483,7 @@ You: "status"
 
 **Decision mapping:** ≥80 Accept, 65-79 Minor Revision, 50-64 Major Revision, <50 Reject
 
-### Academic Pipeline (v2.7)
+### Academic Pipeline (v3.0)
 
 10-stage orchestrator with integrity verification, two-stage review, Socratic coaching, and collaboration evaluation:
 
@@ -507,6 +507,8 @@ You: "status"
 - Integrity verification (Stage 2.5 + 4.5) cannot be skipped
 - Reproducible — standardized process with full audit trail
 - Post-pipeline collaboration evaluation with honest, evidence-based scoring
+- Mid-conversation reinforcement at every stage transition (IRON RULE + Anti-Pattern reminders)
+- R&R Traceability Matrix (Schema 11) independently verifies author revision claims
 
 ---
 
@@ -569,13 +571,39 @@ https://github.com/Imbad0202/academic-research-skills
 
 ---
 
-## Author
+## Contributors
 
-**Cheng-I Wu** (吳政宜)
+**Cheng-I Wu** (吳政宜) — Author and maintainer
+
+**[aspi6246](https://github.com/aspi6246)** — Contributor. The v3.1 optimization was inspired by patterns from [Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics): read-only constraint pattern, anti-pattern codification as first-class design, cognitive framework approach (teaching "how to think" not just procedures), and lean skill size philosophy.
 
 ---
 
 ## Changelog
+
+### v3.1 (2026-04-06) — Anti-Context-Rot + Cognitive Frameworks + Lean Size
+
+Inspired by patterns from [aspi6246/Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics).
+
+**Wave 1: Anti-Context-Rot Anchors**
+- 29 explicit Anti-Patterns across all 4 skills (7-8 per skill, tabular format with "Why It Fails" + "Correct Behavior")
+- 22 IRON RULE markers on critical rules that must not be violated even in long conversations
+- Read-only constraint on academic-paper-reviewer (reviewers cannot modify the manuscript)
+
+**Wave 2: Traceability + Cognitive Frameworks + Reinforcement**
+- R&R Traceability Matrix (Schema 11): adds "Author's Claim" and "Verified?" columns to re-review output, enabling independent verification of revision claims
+- 3 cognitive framework reference files teaching agents "how to think" not just "what to do":
+  - `argumentation_reasoning_framework.md` — Toulmin model, Bradford Hill causal reasoning, inference to best explanation, epistemic status classification
+  - `review_quality_thinking.md` — three lenses (internal validity, external validity, contribution), common reviewer traps, calibration questions
+  - `writing_judgment_framework.md` — clarity test, reader's journey, discipline-specific voice, revision decision matrix
+- Mid-conversation reinforcement protocol: stage-specific IRON RULE + Anti-Pattern reminders at every pipeline transition
+- Self-check questions at every FULL checkpoint (citation integrity, sycophantic concession, quality trajectory, scope discipline, completeness)
+
+**Wave 3: Lean Skill Size**
+- SKILL.md total size reduced from 142KB to 85KB (−40%) by extracting detailed protocols to `references/` files
+- ~15 new reference files created (re-review protocol, guided mode, systematic review, process summary, external review, etc.)
+- All IRON RULE markers preserved in SKILL.md; detailed content loaded on demand
+- New versions: deep-research v2.7, academic-paper v2.8, academic-paper-reviewer v1.7, academic-pipeline v3.0
 
 ### v3.0 (2026-04-03) — Anti-Sycophancy + Intent Detection + Dialogue Health
 - **Devil's Advocate Concession Threshold** (deep-research + academic-paper-reviewer): DA must score rebuttals 1-5 before responding. Concession only at ≥4. No consecutive concessions. Concession rate tracking. Frame-lock detection after each checkpoint.

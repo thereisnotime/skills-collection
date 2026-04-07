@@ -26,9 +26,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          jq --arg v "$VERSION" 
-            '.metadata.version = $v | .plugins[].version = $v' 
-            .claude-plugin/marketplace.json > tmp.json
+          jq --arg v "$VERSION" '.metadata.version = $v | .plugins[].version = $v' .claude-plugin/marketplace.json > tmp.json
           mv tmp.json .claude-plugin/marketplace.json
           echo "Updated marketplace.json to version $VERSION"
 

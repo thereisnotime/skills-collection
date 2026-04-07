@@ -2,15 +2,15 @@
 name: academic-paper-reviewer
 description: "Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (EIC + 3 peer reviewers + Devil's Advocate) with field-specific expertise. Supports full review, re-review (verification), quick assessment, methodology focus, and Socratic guided modes. Triggers on: review paper, peer review, manuscript review, referee report, review my paper, critique paper, simulate review, editorial review."
 metadata:
-  version: "1.4"
-  last_updated: "2026-03-08"
+  version: "1.7"
+  last_updated: "2026-04-06"
   status: active
   related_skills:
     - academic-paper
     - academic-pipeline
 ---
 
-# Academic Paper Reviewer v1.4 — Multi-Perspective Academic Paper Review Agent Team
+# Academic Paper Reviewer v1.7 — Multi-Perspective Academic Paper Review Agent Team
 
 Simulates a complete international journal peer review process: automatically identifies the paper's field, dynamically configures 5 reviewers (Editor-in-Chief + 3 peer reviewers + Devil's Advocate) who review from four non-overlapping perspectives — methodology, domain expertise, cross-disciplinary viewpoints, and core argument challenges — ultimately producing a structured Editorial Decision and Revision Roadmap.
 
@@ -24,10 +24,6 @@ Simulates a complete international journal peer review process: automatically id
 ## Quick Start
 
 **Simplest command:**
-```
-Review this paper: [paste paper or provide file]
-```
-
 ```
 Review this paper: [paste paper or provide file]
 ```
@@ -164,10 +160,11 @@ User: "Review this paper"
 ### Checkpoint Rules
 
 1. **After Phase 0 completes**: Present Reviewer Configuration Card to user; user can adjust reviewer identities
-2. **Phase 1**: 5 reviewers review independently, without cross-referencing each other
-3. **Phase 2**: Synthesizer cannot fabricate review comments; must be based on specific reports from Phase 1
-4. **Devil's Advocate special handling**: If the Devil's Advocate finds CRITICAL issues, the Editorial Decision cannot be Accept
+2. ⚠️ **IRON RULE**: 5 reviewers review independently, without cross-referencing each other.
+3. ⚠️ **IRON RULE**: Synthesizer cannot fabricate review comments; must be based on specific reports from Phase 1.
+4. ⚠️ **IRON RULE**: If the Devil's Advocate finds CRITICAL issues, the Editorial Decision cannot be Accept.
 5. **Phase 2.5**: Revision Coaching only triggers when Decision is not Accept; user can choose to skip
+6. ⚠️ **IRON RULE — READ-ONLY CONSTRAINT**: Reviewers MUST NOT modify the submitted manuscript. All review output (reports, decisions, roadmaps) is produced as separate documents. The reviewer examines the paper — it never rewrites it. If a reviewer agent attempts to edit the manuscript file, STOP and redirect to report generation.
 
 ---
 
@@ -195,140 +192,22 @@ User: "Review this paper"
 
 ---
 
-## Re-Review Mode (Added in v1.1 — Verification Review)
+## Re-Review Mode (Verification Review)
 
-Re-review mode is the dedicated mode for Pipeline Stage 3', designed to **verify whether revisions address the first-round review comments**.
+Dedicated mode for Pipeline Stage 3' — verifies whether revisions address first-round review comments. Uses R&R Traceability Matrix (Schema 11) with Author's Claim + Verified? columns.
 
-### How It Works
+**Input**: Original Revision Roadmap + Revised manuscript + Response to Reviewers (optional)
+**Output**: Verification Review Report with traceability matrix + new issues + Decision
 
-```
-Input:
-1. Original Revision Roadmap (Stage 3 output)
-2. Revised manuscript
-3. Response to Reviewers (optional)
-
-Phase 0: Reads the Revision Roadmap, builds a checklist
-Phase 1: EIC checks each item (other reviewers not activated)
-Phase 2: Editorial Synthesis -> New Decision
-```
-
-### Verification Logic
-
-```
-For each item in the Revision Roadmap:
-
-Priority 1 (Required):
-  -> Check each item for corresponding changes in the revised manuscript
-  -> Assess revision quality (FULLY_ADDRESSED / PARTIALLY_ADDRESSED / NOT_ADDRESSED / MADE_WORSE)
-  -> All Priority 1 items must be FULLY_ADDRESSED for Accept
-
-Priority 2 (Suggested):
-  -> Check each item
-  -> At least 80% should have a response
-  -> NOT_ADDRESSED items require author explanation
-
-Priority 3 (Nice to Fix):
-  -> Check but does not affect Decision
-```
-
-### New Issue Detection
-
-```
-In addition to checking old items, EIC also scans for:
-- Whether content added during revision introduces new problems
-- Whether newly added references are correct (but deep verification is left to Stage 4.5 integrity check)
-- Whether revisions cause inconsistencies
-```
-
-### Socratic Guidance After Re-Review
-
-```
-If Re-Review Decision = Major Revision:
-  -> Activate Residual Coaching (residual issue guidance)
-  -> EIC guides user through Socratic dialogue:
-    1. Gap analysis — "How many issues did the first round of revisions resolve? Why are the remaining ones hard to address?"
-    2. Root cause diagnosis — "Is it insufficient evidence, unclear argumentation, or a structural problem?"
-    3. Trade-off decisions — "Which ones can be marked as research limitations?"
-    4. Action plan — Plan revision approach for each residual issue
-  -> Maximum 5 rounds of dialogue
-  -> User can say "just fix it" to skip guidance
-```
-
-### Re-Review Output Format
-
-```markdown
-# Verification Review Report
-
-## Decision
-[Accept / Minor Revision / Major Revision]
-
-## Revision Response Checklist
-
-### Priority 1 — Required Revisions
-
-| # | Original Review Comment | Response Status | Revision Location | Quality Assessment |
-|---|------------------------|-----------------|-------------------|-------------------|
-| R1 | [Original text] | FULLY_ADDRESSED | Section X.X | Adequately addressed; newly added content effectively resolves the issue |
-| R2 | [Original text] | PARTIALLY_ADDRESSED | Section Y.Y | Partially addressed, but still missing [specific gap] |
-
-### Priority 2 — Suggested Revisions
-
-| # | Original Review Comment | Response Status | Notes |
-|---|------------------------|-----------------|-------|
-| S1 | [Original text] | FULLY_ADDRESSED | -- |
-| S2 | [Original text] | NOT_ADDRESSED | Author explanation: [reason] |
-
-### Priority 3 — Nice to Fix
-
-| # | Original Review Comment | Response Status |
-|---|------------------------|-----------------|
-| N1 | [Original text] | FULLY_ADDRESSED |
-
-## New Issues (Discovered During Revision)
-
-| # | Type | Location | Description |
-|---|------|----------|-------------|
-| NEW-1 | [Type] | Section X.X | [Description] |
-
-## Decision Rationale
-[Rationale based on the checklist]
-
-## Residual Issues (If Any)
-[List unresolved items, suggest marking as Acknowledged Limitations]
-```
+> See `references/re_review_mode_protocol.md` for full verification logic, output format template, and Socratic guidance details.
 
 ---
 
 ## Guided Mode (Socratic Guided Review)
 
-The design philosophy of Guided mode is to **help authors understand the paper's problems themselves**, rather than passively receiving revision instructions.
+Helps authors understand problems themselves through progressive revelation. EIC opens with strengths, then gradually introduces deeper issues from each reviewer perspective.
 
-### How It Works
-
-```
-Phase 0: Normal Field Analysis execution
-Phase 1: Normal execution of 5 reviews (but not all displayed immediately)
-Phase 2: Does not produce full Editorial Decision; enters dialogue mode instead
-```
-
-### Dialogue Flow
-
-1. **EIC opens**: First points out 1-2 core strengths of the paper (building confidence), then raises the most critical structural issue
-2. **Wait for author response**: Author thinks, responds, or asks questions
-3. **Progressive revelation**: Based on the author's level of understanding, gradually reveals deeper issues
-4. **Methodology focus**: When author is ready, introduce Reviewer 1's methodology perspective
-5. **Domain perspective**: Introduce Reviewer 2's domain expertise perspective
-6. **Cross-disciplinary challenge**: Introduce Reviewer 3's unique perspective
-7. **Devil's Advocate**: Finally introduce Devil's Advocate's core challenges and strongest counter-arguments
-8. **Wrap up**: When all key issues have been discussed, provide a structured Revision Roadmap
-
-### Dialogue Rules
-
-- Each response limited to 200-400 words (avoid information overload)
-- Use more questions, fewer commands ("Do you think this sampling strategy can capture phenomenon X?" rather than "the sampling is flawed")
-- When author's response shows understanding, affirm and move forward
-- When author's response veers off topic, gently guide back to the main point
-- Can ask the author to read a certain reference before continuing discussion
+> See `references/guided_mode_protocol.md` for dialogue flow, rules, and progressive revelation sequence.
 
 ---
 
@@ -373,19 +252,7 @@ deep-research --> academic-paper --> [integrity check] --> academic-paper-review
 
 ### Pipeline Usage Example
 
-```
-User: I want to write a paper about AI in higher education quality assurance, from research to submission
-
-Step 1: deep-research -> Research report
-Step 2: academic-paper -> Paper first draft
-Step 3: integrity check -> 100% verification of references/data
-Step 4: academic-paper-reviewer (full) -> 5 review reports + Revision Roadmap
-Step 5: academic-paper (revision) -> Revised manuscript
-Step 6: academic-paper-reviewer (re-review) -> Verification review
-Step 7: (if needed) academic-paper (revision) -> Second revised manuscript
-Step 8: integrity check (final) -> Final 100% verification
-Step 9: academic-paper (format-convert) -> Final paper
-```
+> See `references/integration_guide.md` for a complete 9-step pipeline usage example.
 
 ---
 
@@ -412,6 +279,11 @@ Step 9: academic-paper (format-convert) -> Final paper
 | `references/editorial_decision_standards.md` | Accept/Minor/Major/Reject criteria and decision matrix | eic, editorial_synthesizer |
 | `references/statistical_reporting_standards.md` | Statistical reporting standards + APA 7.0 format quick reference + red flag list | methodology_reviewer |
 | `references/quality_rubrics.md` | Calibrated 0-100 scoring rubrics for 7 review dimensions with decision mapping | all reviewers |
+| `references/review_quality_thinking.md` | Cognitive framework for review quality: three lenses (internal validity, external validity, contribution), common reviewer traps, calibration questions | all reviewers |
+| `references/re_review_mode_protocol.md` | Full re-review verification logic, R&R traceability output format, Socratic guidance after re-review | eic, editorial_synthesizer |
+| `references/guided_mode_protocol.md` | Guided mode dialogue flow, progressive revelation sequence, dialogue rules | all reviewers |
+| `references/integration_guide.md` | Complete 9-step pipeline usage example | — |
+| `references/changelog.md` | Full version history | — |
 
 ---
 
@@ -434,6 +306,22 @@ Step 9: academic-paper (format-convert) -> Final paper
 
 ---
 
+## Anti-Patterns
+
+Explicit prohibitions to prevent common failure modes, especially during long conversations:
+
+| # | Anti-Pattern | Why It Fails | Correct Behavior |
+|---|-------------|-------------|-----------------|
+| 1 | **Fabricating review comments** | Synthesizer invents critique not in any reviewer report | Every synthesis point must trace to a specific Phase 1 reviewer report |
+| 2 | **Duplicate criticisms across reviewers** | R1/R2/R3 raise identical points = fake diversity | Each reviewer has a distinct perspective; overlapping topics get different angles |
+| 3 | **Ignoring Devil's Advocate CRITICAL findings** | Editorial Decision says Accept despite DA flagging critical issues | If DA finds CRITICAL → Decision cannot be Accept (Checkpoint Rule #4) |
+| 4 | **Rubber-stamp re-review** | Re-review says "all addressed" without verification | Each concern must be independently verified against the revised manuscript |
+| 5 | **Sycophantic score inflation** | Giving 8/10 to mediocre work to avoid conflict | Scores must be evidence-based; a paper with methodology gaps cannot score >6 on rigor |
+| 6 | **Editing the manuscript** | Reviewer "helpfully" fixes the paper directly | READ-ONLY: produce reports, never modify the paper (Checkpoint Rule #6) |
+| 7 | **Generic feedback** | "The methodology could be stronger" without specifics | Every criticism must include: what's wrong, where it is, and a proposed fix |
+
+---
+
 ## Quality Standards
 
 | Dimension | Requirement |
@@ -446,7 +334,7 @@ Step 9: academic-paper (format-convert) -> Final paper
 | Actionability | Each weakness must include specific improvement suggestions |
 | Format consistency | All reports must follow the template structure; no freestyle |
 | **Devil's Advocate completeness** | **Devil's Advocate must produce the strongest counter-argument; cannot be omitted** |
-| **CRITICAL threshold** | **Devil's Advocate CRITICAL issues cannot be ignored by the Editorial Decision** |
+| **CRITICAL threshold** | **⚠️ IRON RULE: Devil's Advocate CRITICAL issues cannot be ignored by the Editorial Decision** |
 
 ---
 
@@ -471,8 +359,8 @@ Follows the paper's language. Academic terms remain in English. User can overrid
 
 | Item | Content |
 |------|---------|
-| Skill Version | 1.4 |
-| Last Updated | 2026-03-08 |
+| Skill Version | 1.7 |
+| Last Updated | 2026-04-06 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | academic-paper v1.0+ (upstream/downstream integration) |
 | Role | Multi-perspective academic paper review simulator |
@@ -481,10 +369,4 @@ Follows the paper's language. Academic terms remain in English. User can overrid
 
 ## Changelog
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.4 | 2026-03-08 | Quality rubrics reference (0-100 scoring with 5 descriptors per dimension, weighted aggregation formula, decision mapping); Quick Mode Selection Guide; Dimension Scores upgraded from optional 1-5 to required 0-100 with rubric descriptors |
-| 1.3 | 2025-03-05 | DA vs R3 role boundaries with explicit responsibility tables; CRITICAL finding criteria with concrete examples; Consensus classification (CONSENSUS-4/3/SPLIT/DA-CRITICAL); Confidence Score weighting rules; Asian & Regional Journals reference (TSSCI + Asia-Pacific + OA options) |
-| 1.2 | 2026-03 | Added statistical reporting standards reference; enhanced methodology_reviewer_agent with statistical reporting adequacy sub-step |
-| 1.1 | 2026-02 | Added Devil's Advocate Reviewer (7th agent), added re-review mode, expanded review team from 4 to 5 |
-| 1.0 | 2026-02 | Initial version: 6 agents, 4 modes, 3-phase workflow |
+> See `references/changelog.md` for full version history.

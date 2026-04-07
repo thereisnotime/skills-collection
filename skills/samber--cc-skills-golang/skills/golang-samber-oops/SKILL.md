@@ -14,6 +14,7 @@ metadata:
       bins:
         - go
     install: []
+    skill-library-version: "1.21.0"
 allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch mcp__context7__resolve-library-id mcp__context7__query-docs
 ---
 

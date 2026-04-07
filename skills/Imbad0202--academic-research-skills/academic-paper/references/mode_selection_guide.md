@@ -275,3 +275,23 @@ Before conversion, ALL of the following must be true:
 - Conversational filler from Socratic dialogue (greetings, confirmations, repetitions)
 - Tentative ideas explicitly marked as "maybe" or "not sure" by the user
 - Plan mode's iterative drafts (only the final version of each chapter plan carries over)
+
+---
+
+## Trigger-to-Mode Mapping Examples
+
+```
+"Write a paper on SDGs in HEI"           -> full
+"Give me a paper outline for..."         -> outline-only
+"Revise this paper based on feedback"    -> revision
+"Write an abstract for this paper"       -> abstract-only
+"Do a literature review on..."           -> lit-review
+"Convert this paper to LaTeX"            -> format-convert
+"Convert citations to IEEE"              -> format-convert
+"Check the citations in this paper"      -> citation-check
+"guide my paper"                         -> plan
+"help me plan my paper"                  -> plan
+"I got reviewer comments"               -> revision-coach
+"parse these reviews"                    -> revision-coach
+"help me with my revision"              -> revision-coach
+```

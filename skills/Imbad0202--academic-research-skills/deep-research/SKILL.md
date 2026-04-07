@@ -2,8 +2,8 @@
 name: deep-research
 description: "Universal deep research agent team. 13-agent pipeline for rigorous academic research on any topic. 7 modes: full research, quick brief, paper review, lit-review, fact-check, Socratic guided research dialogue, and systematic review with optional meta-analysis. Covers research question formulation, Socratic mentoring, methodology design, systematic literature search, source verification, cross-source synthesis, risk of bias assessment, meta-analysis, APA 7.0 report compilation, editorial review, devil's advocate challenges, ethics review, and post-research literature monitoring. Triggers on: research, deep research, literature review, systematic review, meta-analysis, PRISMA, evidence synthesis, fact-check, guide my research, help me think through, 研究, 深度研究, 文獻回顧, 文獻探討, 系統性回顧, 後設分析, 事實查核, 引導我的研究, 幫我釐清, 幫我想想, 我不確定要研究什麼, 研究方向, 研究主題."
 metadata:
-  version: "2.4"
-  last_updated: "2026-03-27"
+  version: "2.7"
+  last_updated: "2026-04-06"
   status: active
   related_skills:
     - academic-paper
@@ -243,174 +243,28 @@ User: "Research [topic]"
 
 ### Checkpoint Rules
 
-1. **Devil's Advocate** has 3 mandatory checkpoints; **Critical-severity** issues block progression
+1. ⚠️ **IRON RULE**: **Devil's Advocate** has 3 mandatory checkpoints; **Critical-severity** issues block progression
 2. Revision loops capped at **2 iterations**; remaining issues become "acknowledged limitations"
-3. **Ethics Review** can halt delivery for Critical ethics concerns
+3. ⚠️ **IRON RULE**: **Ethics Review** can halt delivery for Critical ethics concerns
 4. User confirmation required after Phase 1 before proceeding
 
 ---
 
-## Socratic Mode: GUIDED RESEARCH DIALOGUE
+## Socratic Mode: Guided Research Dialogue
 
-Core principle: From the perspective of a Q1 international journal editor-in-chief, guide users to clarify their research questions through Socratic questioning. Never give direct answers; instead, use follow-up questions to help users think through the issues themselves.
+5-layer dialogue guiding users from vague ideas to concrete research questions. Core principle: ⚠️ **IRON RULE**: Never give direct answers.
 
-See `agents/socratic_mentor_agent.md` for the detailed agent definition.
-See `references/socratic_questioning_framework.md` for the questioning framework.
+**Layers**: Clarification -> Assumption Probing -> Evidence/Reasoning -> Viewpoint/Perspective -> Implication/Consequence
 
-```
-User: "Guide my research on [topic]"
-     |
-=== Layer 1: PROBLEM FRAMING (corresponds to first half of Phase 1) ===
-     |
-     +-> [socratic_mentor_agent] -> Follow-up on research motivation and problem definition
-         [research_question_agent] -> Provide FINER guidance framework
-         - "What is the question you truly want to answer?"
-         - "Why does this question matter? To whom?"
-         - "If your research succeeds, how would the world be different?"
-         Extract [INSIGHT: ...] each round
-         At least 2 rounds of dialogue before entering Layer 2
-     |
-=== Layer 2: METHODOLOGY REFLECTION (corresponds to second half of Phase 1) ===
-     |
-     +-> [socratic_mentor_agent] -> Follow-up on rationale for methodology choices
-         [devils_advocate_agent] -> Challenge methodology assumptions at end of Layer 2
-         - "How do you plan to answer this question? Why this approach?"
-         - "Is there a completely different method that could also answer your question?"
-         - "What is the biggest weakness of your method?"
-         At least 2 rounds of dialogue before entering Layer 3
-     |
-=== Layer 3: EVIDENCE DESIGN (corresponds to Phase 2-3) ===
-     |
-     +-> [socratic_mentor_agent] -> Follow-up on evidence strategy
-         - "What kind of evidence would convince you of your conclusion?"
-         - "What evidence would make you change your conclusion?"
-         - "What are you most worried about not finding?"
-         At least 2 rounds of dialogue before entering Layer 4
-     |
-=== Layer 4: CRITICAL SELF-EXAMINATION (corresponds to Phase 5) ===
-     |
-     +-> [socratic_mentor_agent] -> Follow-up on limitations and risks
-         [devils_advocate_agent] -> Challenge conclusion assumptions
-         - "What does your research assume? What if those assumptions don't hold?"
-         - "How would someone with the opposite view refute you?"
-         - "What negative impact could your research have?"
-         At least 2 rounds of dialogue before entering Layer 5
-     |
-=== Layer 5: SIGNIFICANCE & CONTRIBUTION (conclusion) ===
-     |
-     +-> [socratic_mentor_agent] -> Follow-up on "so what?"
-         - "Why should readers care about your findings?"
-         - "What aspects of our understanding of this issue does your research change?"
-         At least 1 round of dialogue
-     |
-     +-> Compile all [INSIGHT]s into Research Plan Summary
-         Can directly hand off to academic-paper (plan mode)
-```
-
-### Socratic Mode Dialogue Management Rules
-
-- At least 2 rounds of dialogue per layer before moving to the next (Layer 5 requires at least 1)
-- Users can request to skip to the next layer at any time
-- Mentor responses limited to 200-400 words
-- If no convergence after 10 rounds -> suggest switching to `full` mode (see Failure Paths F6)
-- If dialogue exceeds 15 rounds -> automatically compile INSIGHTs and end
-- If user requests direct answers -> gently decline, explain the value of guided learning
+> See `references/socratic_mode_protocol.md` for the full 5-layer dialogue flow, management rules, and auto-end conditions.
 
 ---
 
 ## Systematic Review Mode
 
-Full PRISMA-compliant systematic literature review with optional meta-analysis. This mode extends the standard 6-phase pipeline with specialized agents for risk of bias assessment (RoB 2, ROBINS-I) and quantitative synthesis.
+PRISMA 2020-compliant systematic review with optional meta-analysis. Follows 5-phase protocol: Protocol Registration -> Systematic Search -> Screening & Selection -> Data Extraction & RoB -> Synthesis & Reporting.
 
-See `agents/risk_of_bias_agent.md` and `agents/meta_analysis_agent.md` for detailed agent definitions.
-See `references/systematic_review_toolkit.md` for the Cochrane/PRISMA/GRADE reference guide.
-
-```
-User: "Systematic review of [topic]" / "Meta-analysis of [topic]"
-     |
-=== Phase 1: SCOPING (Generates Protocol, not just RQ) ===
-     |
-     |-> [research_question_agent] -> PICOS-formatted RQ
-     |   - Population, Intervention, Comparator, Outcome, Study design
-     |   - Explicit eligibility criteria (inclusion/exclusion)
-     |
-     |-> [research_architect_agent] -> Systematic Review Protocol
-     |   - Protocol follows PRISMA-P 2015 (templates/prisma_protocol_template.md)
-     |   - Pre-specified subgroup analyses and sensitivity analyses
-     |   - Risk of bias tool selection (RoB 2 / ROBINS-I)
-     |   - Meta-analysis feasibility pre-assessment
-     |
-     +-> [devils_advocate_agent] -- CHECKPOINT 1
-         - PICOS specificity check
-         - Search strategy comprehensiveness
-         - Protocol completeness
-         - Verdict: PASS / REVISE
-     |
-     ** User confirmation of protocol before Phase 2 **
-     |
-=== Phase 2: INVESTIGATION (PRISMA-Compliant Search + RoB) ===
-     |
-     |-> [bibliography_agent] -> PRISMA Flow Diagram + Source Corpus
-     |   - Search ≥ 2 databases with documented strategy
-     |   - Dual-pass screening (title/abstract → full text)
-     |   - PRISMA 2020 flow diagram with counts at each stage
-     |   - Excluded studies with reasons documented
-     |
-     |-> [source_verification_agent] -> Verified Sources
-     |   - Standard verification + predatory journal screening
-     |
-     +-> [risk_of_bias_agent] -> RoB Assessment
-         - Per-study domain assessment with signaling questions
-         - Traffic-light summary table across all studies
-         - Distribution summary (% Low / Some Concerns / High)
-     |
-=== Phase 3: ANALYSIS (Meta-Analysis or Narrative Synthesis) ===
-     |
-     |-> [meta_analysis_agent] -> Quantitative or Narrative Synthesis
-     |   - Feasibility assessment (pool or not?)
-     |   - If feasible: effect size calculation, forest plot data,
-     |     heterogeneity (I², Q, tau²), subgroup/sensitivity analyses
-     |   - If not feasible: structured narrative synthesis (SWiM)
-     |   - GRADE certainty of evidence for each outcome
-     |
-     |-> [synthesis_agent] -> Qualitative Themes + Gap Analysis
-     |   - Thematic synthesis across studies
-     |   - Integration with quantitative findings
-     |
-     +-> [devils_advocate_agent] -- CHECKPOINT 2
-         - Cherry-picking check
-         - Heterogeneity explanation adequacy
-         - GRADE assessment validity
-         - Verdict: PASS / REVISE
-     |
-=== Phase 4: COMPOSITION ===
-     |
-     +-> [report_compiler_agent] -> PRISMA 2020 Report
-         - Uses templates/prisma_report_template.md
-         - All 27 PRISMA items mapped to sections
-         - Study characteristics table
-         - Risk of bias summary table
-         - Forest plot data (if meta-analysis)
-         - GRADE Summary of Findings table
-     |
-=== Phase 5: REVIEW (Parallel) ===
-     |
-     |-> [editor_in_chief_agent] -> Editorial Verdict
-     |-> [ethics_review_agent] -> Ethics Clearance
-     +-> [devils_advocate_agent] -- CHECKPOINT 3
-     |
-=== Phase 6: REVISION ===
-     |
-     +-> [report_compiler_agent] -> Final PRISMA Report
-```
-
-### Systematic Review Checkpoint Rules
-
-1. All standard checkpoint rules apply (see Checkpoint Rules below)
-2. **Protocol must be registered** (or registration recommended) before Phase 2
-3. **Risk of bias must be completed for all studies** before Phase 3
-4. **GRADE assessment required** for every pooled outcome
-5. **PRISMA checklist compliance** verified in Phase 5
+> See `references/systematic_review_protocol.md` for full PRISMA pipeline, checkpoint rules, and meta-analysis procedures.
 
 ---
 
@@ -449,24 +303,9 @@ Key failure path summary:
 
 ## Literature Monitoring (Optional Post-Pipeline)
 
-After any research mode is complete, users can optionally activate the `monitoring_agent` to set up post-research literature monitoring. This is not part of the main pipeline — it is an auxiliary capability triggered on demand.
+Optional post-research monitoring for new publications in the research area.
 
-See `agents/monitoring_agent.md` for the detailed agent definition.
-See `references/literature_monitoring_strategies.md` for platform-specific setup guides.
-
-**Trigger**: "monitor this topic", "set up alerts", "track new publications on this"
-
-**Capabilities**:
-- Weekly/monthly monitoring digest generation
-- Retraction alerts for cited sources
-- Contradictory findings detection
-- Key author tracking
-- Keyword evolution tracking
-
-**Input**: Completed bibliography + search strategy from any research mode
-**Output**: Monitoring configuration + digest template (markdown)
-
-**Limitation**: The monitoring agent produces configurations and templates for the user to act on. It cannot run autonomous background monitoring.
+> See `references/literature_monitoring_strategies.md` for setup instructions across academic databases.
 
 ---
 
@@ -535,6 +374,11 @@ See `academic-pipeline/SKILL.md` for the complete workflow.
 | `references/preregistration_guide.md` | Preregistration decision tree + platforms + checklist | research_architect |
 | `references/systematic_review_toolkit.md` | Cochrane v6.4, PRISMA 2020, RoB 2, ROBINS-I, I² guide, GRADE, protocol registration | risk_of_bias, meta_analysis, bibliography, report_compiler |
 | `references/literature_monitoring_strategies.md` | Google Scholar alerts, PubMed alerts, RSS feeds, Retraction Watch, citation tracking, monitoring cadence | monitoring_agent |
+| `references/argumentation_reasoning_framework.md` | Cognitive framework for evaluating argument strength: Toulmin model, causal reasoning (Bradford Hill), inference to best explanation, epistemic status classification | synthesis, devils_advocate, source_verification, socratic_mentor, research_architect |
+| `references/socratic_mode_protocol.md` | Full 5-layer Socratic dialogue flow, management rules, auto-end conditions | socratic_mentor, research_question |
+| `references/systematic_review_protocol.md` | Full PRISMA pipeline, checkpoint rules, meta-analysis procedures | risk_of_bias, meta_analysis, bibliography, report_compiler |
+| `references/cross_agent_quality_definitions.md` | Peer-reviewed source tiers, currency standards, severity definitions | all agents |
+| `references/changelog.md` | Full version history | — |
 
 ---
 
@@ -571,9 +415,23 @@ Follows the user's language. Academic terminology kept in English. Socratic mode
 
 ---
 
+## Anti-Patterns
+
+Explicit prohibitions to prevent common failure modes:
+
+| # | Anti-Pattern | Why It Fails | Correct Behavior |
+|---|-------------|-------------|-----------------|
+| 1 | **Confirmation bias in source selection** | Only finding sources that support the hypothesis | Devil's Advocate checkpoint must include counter-evidence search |
+| 2 | **Cherry-picking evidence** | Citing one supportive study while ignoring three contradicting ones | Report the full evidence landscape including conflicting findings |
+| 3 | **Vibe citing** | Mixing elements from 2-3 real papers into a fabricated reference | Every reference must be verified independently; mashup fabrication is the hardest to detect |
+| 4 | **⚠️ IRON RULE: Treating "difficult to verify" as acceptable** | Marking a reference as "uncertain" instead of FAIL | Gray zone = FAIL. If you cannot confirm it exists, it does not go in the report |
+| 5 | **Skipping phases** | Jumping to synthesis before completing source verification | Complete each phase fully; Phase N output is Phase N+1 input |
+| 6 | **Shallow Socratic mode** | Giving answers disguised as questions ("Wouldn't you say X is true?") | Ask genuine questions that expose assumptions; never lead to predetermined conclusions |
+| 7 | **Source tier inflation** | Treating a blog post as equivalent to a peer-reviewed journal | Apply evidence hierarchy strictly: Tier 1 (peer-reviewed) > Tier 2 (preprint) > Tier 3 (gray lit) |
+
 ## Quality Standards
 
-1. **Every claim must have a citation** — no unsupported assertions
+1. ⚠️ **IRON RULE**: **Every claim must have a citation** — no unsupported assertions
 2. **Evidence hierarchy** — meta-analyses > RCTs > cohort studies > case reports > expert opinion
 3. **Contradiction disclosure** — if sources disagree, report both sides with evidence quality comparison
 4. **Limitation transparency** — every report must have an explicit limitations section
@@ -583,18 +441,9 @@ Follows the user's language. Academic terminology kept in English. Socratic mode
 
 ## Cross-Agent Quality Alignment
 
-Unified definitions to prevent inconsistency across agents:
+Unified definitions across all agents. ⚠️ IRON RULE: **CRITICAL severity** = issue that would invalidate a core conclusion or constitute academic misconduct. Requires immediate resolution.
 
-| Concept | Definition | Applies To |
-|---------|-----------|------------|
-| **Peer-reviewed** | Published in a journal with formal peer review process (editorial review alone does not qualify). Conference proceedings count only if explicitly peer-reviewed | bibliography_agent, source_verification_agent |
-| **Currency Rule** | Default: published within 5 years. Override by domain: CS/AI = 3 years, History/Philosophy = 20 years, Law = depends on jurisdiction changes. Seminal works exempt regardless of age | bibliography_agent, ethics_review_agent |
-| **CRITICAL severity** | Issue that, if unresolved, would invalidate a core conclusion or constitute academic misconduct. Requires immediate resolution before pipeline can proceed | All agents |
-| **Source Tier** | tier_1 = top-quartile peer-reviewed journal; tier_2 = other peer-reviewed; tier_3 = academic but not peer-reviewed; tier_4 = grey literature | bibliography_agent, source_verification_agent |
-| **Minimum Source Count** | full = 15+, quick = 5-8, lit-review = 25+, systematic-review = all eligible (no limit), fact-check = 3+ per claim | bibliography_agent |
-| **Verification Threshold** | 100% DOI check + 50% WebSearch spot-check | source_verification_agent, ethics_review_agent |
-
-> **Cross-Skill Reference**: See `shared/handoff_schemas.md` for inter-stage data exchange formats.
+> See `references/cross_agent_quality_definitions.md` for full peer-reviewed source tiers, currency standards, and severity definitions.
 
 ---
 
@@ -613,13 +462,17 @@ deep-research (systematic-review) + academic-paper -> PRISMA systematic review p
 
 ---
 
+## Version Info
+
+| Item | Content |
+|------|---------|
+| Skill Version | 2.7 |
+| Last Updated | 2026-04-06 |
+| Maintainer | Cheng-I Wu |
+| Dependent Skills | academic-paper v1.0+ (downstream) |
+
+---
+
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 2.4 | 2026-03-27 | Report compiler now consumes optional Style Profile (from academic-paper intake) and runs Writing Quality Check checklist before finalizing reports. Style Profile applied as soft guide for Executive Summary and Synthesis sections; discipline conventions take priority. Writing Quality Check catches overused AI-typical terms, em dash overuse, throat-clearing openers, and monotonous sentence rhythm. See `academic-paper/references/writing_quality_check.md` and `shared/style_calibration_protocol.md` |
-| 2.3 | 2026-03-08 | Added systematic-review mode (7th mode): PRISMA 2020 compliant pipeline with risk_of_bias_agent (RoB 2 + ROBINS-I), meta_analysis_agent (effect sizes, heterogeneity, GRADE, narrative synthesis), 2 new templates (PRISMA protocol + report), systematic_review_toolkit reference. Added monitoring_agent (post-pipeline literature monitoring with digests, retraction alerts, author tracking) + literature_monitoring_strategies reference. Enhanced socratic_mentor_agent with 4 convergence signals, 4-type question taxonomy, and auto-end triggers. Added Quick Mode Selection Guide to SKILL.md |
-| 2.2 | 2025-03-05 | Added synthesis anti-patterns, Socratic quantified thresholds & auto-end conditions, reference existence verification (DOI + WebSearch), enhanced ethics reference integrity check (50% + Retraction Watch), mode transition matrix, cross-agent quality alignment definitions |
-| 2.1 | 2026-03 | Added IRB decision tree, EQUATOR reporting guidelines, preregistration guide + template; enhanced ethics_review_agent with human subjects dimension; enhanced research_architect_agent with ethics/EQUATOR/preregistration integration; enhanced methodology_patterns with EQUATOR cross-references |
-| 2.0 | 2026-02 | Added socratic mode (10th agent), failure paths, mode selection guide, handoff protocol, 2 new examples, 3 new references |
-| 1.0 | 2026-02 | Initial release: 9 agents, 5 modes, 6-phase pipeline |
+> See `references/changelog.md` for full version history.

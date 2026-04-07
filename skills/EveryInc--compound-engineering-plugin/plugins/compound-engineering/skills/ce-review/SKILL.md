@@ -387,6 +387,8 @@ The orchestrator (this skill) stays on the default model because it handles inte
 
 #### Spawning
 
+Omit the `mode` parameter when dispatching sub-agents so the user's configured permission settings apply. Do not pass `mode: "auto"`.
+
 Spawn each selected persona reviewer as a parallel sub-agent using the subagent template included below. Each persona sub-agent receives:
 
 1. Their persona file content (identity, failure modes, calibration, suppress conditions)

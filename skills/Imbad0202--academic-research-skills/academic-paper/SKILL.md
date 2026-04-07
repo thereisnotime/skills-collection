@@ -1,9 +1,9 @@
 ---
 name: academic-paper
-description: "Academic paper writing skill with 12-agent pipeline. v2.5: Style Calibration (learn author's writing voice from past papers) + Writing Quality Check (writing quality checklist for natural prose). Supports IMRaD, literature review, theoretical, case study, policy brief, and conference paper structures. APA 7.0 (default), Chicago, MLA, IEEE, Vancouver citation formats. Bilingual abstracts (zh-TW + EN). Multi-format output (LaTeX, DOCX, PDF, Markdown). Triggers on: write paper, academic paper, paper outline, write abstract, revise paper, check citations, convert to LaTeX, guide my paper, parse reviews, revision roadmap, 寫論文, 學術論文, 論文大綱, 寫摘要, 修改論文, 檢查引用, 引導我寫論文, 帶我規劃論文, 逐章規劃, 論文架構, 審查意見, 修訂路線圖."
+description: "12-agent academic paper writing pipeline. 9 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check). 6 paper types, 5 citation formats, bilingual abstracts, LaTeX/DOCX/PDF output. Style Calibration + Writing Quality Check + Anti-Patterns with IRON RULE markers. Triggers: write paper, academic paper, guide my paper, parse reviews, 寫論文, 學術論文, 引導我寫論文, 審查意見."
 metadata:
-  version: "2.5"
-  last_updated: "2026-03-27"
+  version: "2.8"
+  last_updated: "2026-04-06"
   status: active
   related_skills:
     - deep-research
@@ -52,20 +52,9 @@ Write a paper on the impact of declining birth rates on private university manag
 
 ### Plan Mode Activation
 
-Activate `plan` mode (Socratic chapter-by-chapter guidance) when the user's **intent** matches any of the following patterns, **regardless of language**. Detect meaning, not exact keywords.
+Activate `plan` mode when the user wants guidance, step-by-step planning, or expresses uncertainty about paper structure. **Default rule**: when ambiguous between `plan` and `full`, prefer `plan`.
 
-**Intent signals** (any one is sufficient):
-1. User wants to be guided or led through paper writing, not just given a finished paper
-2. User asks for step-by-step or chapter-by-chapter planning
-3. User expresses uncertainty about how to start or structure a paper
-4. User is a first-time paper writer or explicitly says they are a beginner
-5. User has research results but doesn't know how to turn them into a paper
-6. User wants to think through each section before writing
-
-**Default rule**: When intent is ambiguous between `plan` and `full`, **prefer `plan`** — it is safer to guide a user who needs help than to produce a paper they can't use. The user can always switch to `full` later.
-
-**Example triggers** (illustrative, not exhaustive):
-"guide my paper", "help me plan my paper", "I don't know how to start", 「引導我寫論文」「幫我規劃論文」, or equivalent in any language
+> See `references/plan_mode_protocol.md` for full intent signals and activation rules.
 
 ### Does NOT Trigger
 
@@ -124,102 +113,24 @@ APA 7.0 (default), Chicago (Author-Date or Notes-Bibliography), MLA 9, IEEE, Van
 ## Orchestration Workflow (8 Phases)
 
 ```
-User: "Write a paper on [topic]"
-     |
-=== Phase 0: CONFIG (Interactive) ===
-     |
-     +-> [intake_agent] -> Paper Configuration Record
-         - Paper type (IMRaD / Lit Review / Theoretical / Case Study / Policy Brief / Conference)
-         - Discipline and sub-field
-         - Target journal (optional)
-         - Citation format (APA 7 / Chicago / MLA / IEEE / Vancouver)
-         - Output format (LaTeX / DOCX / PDF / Markdown / Combined)
-         - Language (EN / zh-TW / bilingual sections)
-         - Bilingual abstract (Yes / EN-only / zh-TW-only)
-         - Word count target
-         - Existing materials (RQ, data, drafts, lit)
-     |
-     ** User confirms configuration **
-     |
-=== Phase 1: RESEARCH ===
-     |
-     +-> [literature_strategist_agent] -> Search Strategy + Source Corpus
-         - Database selection + search strings
-         - Inclusion/exclusion criteria
-         - Source screening + annotated bibliography
-         - Literature matrix (Source x Theme)
-         - Research gap mapping
-     |
-     ** User reviews sources (optional add/remove) **
-     |
-=== Phase 2: ARCHITECTURE ===
-     |
-     +-> [structure_architect_agent] -> Paper Outline + Evidence Map
-         - Structure pattern selection (from paper_structure_patterns.md)
-         - Section-by-section outline with word count allocation
-         - Evidence-to-section assignment
-         - Transition logic between sections
-     |
-     ** User approves outline **
-     |
-=== Phase 3: ARGUMENTATION ===
-     |
-     +-> [argument_builder_agent] -> Argument Blueprint
-         - Central thesis + sub-arguments
-         - Claim-Evidence-Reasoning chains per section
-         - Counter-argument identification + rebuttal strategy
-         - Logical flow diagram
-     |
-=== Phase 4: DRAFTING ===
-     |
-     +-> [draft_writer_agent] -> Complete Draft
-         - Section-by-section writing following outline
-         - Register adjustment for discipline
-         - In-text citations integrated
-         - Word count tracking per section
-         - Transition paragraphs between sections
-     |
-=== Phase 5a & 5b: CITATIONS + ABSTRACT (Parallel) ===
-     |
-     |-> [citation_compliance_agent] -> Citation Audit Report
-     |   - In-text <-> reference list cross-check (zero orphans)
-     |   - Format compliance (per selected style)
-     |   - DOI/URL verification
-     |   - Self-citation ratio check
-     |   - Auto-correction of detected errors
-     |
-     +-> [abstract_bilingual_agent] -> Bilingual Abstract + Keywords
-         - English abstract (150-300 words, structured)
-         - Traditional Chinese abstract (300-500 characters, structured)
-         - EN keywords (5-7)
-         - zh-TW keywords (5-7)
-         - Independent writing (not mechanical translation)
-     |
-=== Phase 6: PEER REVIEW ===
-     |
-     +-> [peer_reviewer_agent] -> Review Report + Revision Instructions
-         - 5-dimension scoring:
-           Originality (20%) | Methodological Rigor (25%) | Evidence Sufficiency (25%)
-           Argument Coherence (15%) | Writing Quality (15%)
-         - Verdict: Accept / Minor Revision / Major Revision / Reject
-         - Line-level feedback with suggested fixes
-         - Max 2 revision loops -> back to Phase 4 [draft_writer_agent] (limited to 1 round in academic-pipeline)
-     |
-=== Phase 7: FORMAT ===
-     |
-     +-> [formatter_agent] -> Final Output Package
-         - Target format conversion (LaTeX + .bib / DOCX / PDF / Markdown)
-         - Journal-specific formatting (if target journal specified)
-         - Cover letter (if journal submission)
-         - AI disclosure statement
-         - Final quality checklist
+Phase 0: CONFIG        -> [intake_agent]              -> Paper Configuration Record
+Phase 1: RESEARCH      -> [literature_strategist]      -> Search Strategy + Source Corpus
+Phase 2: ARCHITECTURE  -> [structure_architect]        -> Paper Outline + Evidence Map
+Phase 3: ARGUMENTATION -> [argument_builder]           -> Argument Blueprint
+Phase 4: DRAFTING      -> [draft_writer]               -> Complete Draft
+Phase 5a: CITATIONS    -> [citation_compliance] ──┐    -> Citation Audit Report
+Phase 5b: ABSTRACT     -> [abstract_bilingual]   ─┘    -> Bilingual Abstract + Keywords  (parallel)
+Phase 6: PEER REVIEW   -> [peer_reviewer]              -> Review Report (max 2 revision loops)
+Phase 7: FORMAT        -> [formatter]                  -> Final Output Package
 ```
+
+> See `references/workflow_phase_details.md` for detailed per-phase agent behavior and output descriptions.
 
 ### Checkpoint Rules
 
-1. **Phase 0 -> 1**: User must confirm Paper Configuration Record
+1. ⚠️ **IRON RULE**: User must confirm Paper Configuration Record before proceeding to Phase 1
 2. **Phase 2 -> 3**: User must approve outline (can request restructuring)
-3. **Phase 6**: Max 2 revision loops; unresolved items -> "Acknowledged Limitations"
+3. ⚠️ **IRON RULE**: Max 2 revision loops; unresolved items -> "Acknowledged Limitations"
 4. **Peer Review** Critical-severity issues block progression to Phase 7
 5. User can skip Phase 1 (literature) if providing own sources
 
@@ -259,99 +170,15 @@ Not sure? Start with `plan` — it will guide you step by step.
 
 ### Mode Selection Logic
 
-```
-"Write a paper on SDGs in HEI"           -> full
-"Give me a paper outline for..."         -> outline-only
-"Revise this paper based on feedback"    -> revision
-"Write an abstract for this paper"       -> abstract-only
-"Do a literature review on..."           -> lit-review
-"Convert this paper to LaTeX"            -> format-convert
-"Convert citations to IEEE"              -> format-convert
-"Check the citations in this paper"      -> citation-check
-"guide my paper"                         -> plan
-"help me plan my paper"                  -> plan
-"I got reviewer comments"               -> revision-coach
-"parse these reviews"                    -> revision-coach
-"help me with my revision"              -> revision-coach
-```
-
+> See `references/mode_selection_guide.md` for trigger-to-mode mappings and the full selection flowchart.
 
 ---
 
-## Plan Mode: CHAPTER-BY-CHAPTER GUIDED PLANNING
+## Plan Mode: Chapter-by-Chapter Guided Planning
 
-Core principle: From the perspective of a senior doctoral advisor and disciplinary methodology expert, guide users to think through every part of their paper chapter by chapter. Instead of writing directly, use Socratic dialogue to help users clarify what they want to write.
+Socratic mode that guides users through paper planning one chapter at a time. Builds a complete Paper Blueprint through structured dialogue.
 
-```
-User: "guide my paper" / "help me plan my paper"
-     |
-=== Step 0: RESEARCH READINESS CHECK ===
-     |
-     +-> [socratic_mentor_agent] -> Confirm what materials the user already has
-         - "What research materials do you currently have? (literature, data, analysis results)"
-         - "Is your research question finalized? Can you state it in one sentence?"
-         -> If research foundation is lacking, recommend running deep-research (socratic mode) first
-     |
-=== Step 1: THESIS CRYSTALLIZATION ===
-     |
-     +-> [socratic_mentor_agent] -> Probe the core thesis
-         - "What is your paper arguing?"
-         - "How would someone who disagrees with you respond?"
-         - "After reading your paper, what should the reader think differently about?"
-         Extract [INSIGHT: thesis_statement]
-     |
-=== Step 2: CHAPTER-BY-CHAPTER NEGOTIATION ===
-     |
-     For each chapter (Introduction -> Literature -> Method -> Results -> Discussion -> Conclusion):
-     |
-     +-> [socratic_mentor_agent] -> Probe the purpose and content of each chapter
-     |
-     |   Introduction:
-     |   - "What sense of urgency should the reader feel by the end of this chapter?"
-     |   - "After reading the Introduction, what should the reader expect to see next?"
-     |   - "What is your research gap? State it in one sentence."
-     |
-     |   Literature Review:
-     |   - "How many stories are you telling? What is the relationship between them?"
-     |   - "What conclusion should your literature review ultimately lead to?"
-     |   - "Is there an important work you disagree with? Why?"
-     |
-     |   Methodology:
-     |   - "If someone challenges your method, how would you respond?"
-     |   - "Is there a simpler method that could also answer your question? Why didn't you choose it?"
-     |   - "What is the biggest limitation of your method? How do you handle it?"
-     |
-     |   Results:
-     |   - "What is your most important finding? State it in one sentence."
-     |   - "Were there any unexpected results? How do you explain them?"
-     |   - "Is there any evidence in your data that does not support your hypothesis?"
-     |
-     |   Discussion:
-     |   - "How do your results dialogue with existing literature?"
-     |   - "What is the one thing you most want the reader to remember?"
-     |   - "What recommendations does your research have for practice/policy?"
-     |
-     |   Conclusion:
-     |   - "If you could only leave one paragraph, what would you say?"
-     |   - "What future research directions does your study open up?"
-     |
-     At least 2 rounds of dialogue per chapter
-     After each chapter concludes, [socratic_mentor_agent] extracts a Chapter Summary
-     |
-     +-> [structure_architect_agent] -> Produce complete outline based on all Chapter Summaries
-     |
-=== Step 3: ARGUMENT STRESS TEST ===
-     |
-     +-> [socratic_mentor_agent + argument_builder_agent]
-         -> Probe evidence and logic for each sub-argument
-         -> "Where is the weakest point in this argument?"
-         -> "If you reverse your argument, does it still hold?"
-         -> Final output: Chapter Plan (with core argument, supporting evidence, expected word count per chapter)
-     |
-Output: Chapter Plan + INSIGHT Collection
--> User can then use full mode to produce the complete paper
--> Or use academic-paper-reviewer to review the Chapter Plan
-```
+> See `references/plan_mode_protocol.md` for the full chapter-by-chapter dialogue flow and Paper Blueprint structure.
 
 ---
 
@@ -390,76 +217,39 @@ See `agents/intake_agent.md` for the complete field definitions of the Phase 0 c
 
 ---
 
-## Agent File References
+## File Structure
 
-| Agent | Definition File |
-|-------|----------------|
-| intake_agent | `agents/intake_agent.md` |
-| literature_strategist_agent | `agents/literature_strategist_agent.md` |
-| structure_architect_agent | `agents/structure_architect_agent.md` |
-| argument_builder_agent | `agents/argument_builder_agent.md` |
-| draft_writer_agent | `agents/draft_writer_agent.md` |
-| citation_compliance_agent | `agents/citation_compliance_agent.md` |
-| abstract_bilingual_agent | `agents/abstract_bilingual_agent.md` |
-| peer_reviewer_agent | `agents/peer_reviewer_agent.md` |
-| formatter_agent | `agents/formatter_agent.md` |
-| socratic_mentor_agent | `agents/socratic_mentor_agent.md` |
-| visualization_agent | `agents/visualization_agent.md` |
-| revision_coach_agent | `agents/revision_coach_agent.md` |
+**Agent definitions**: `agents/{agent_name}.md` — one file per agent (12 total, matching Agent Team table above).
 
----
+**References** (19 files in `references/`):
+- Citation: `apa7_extended_guide`, `apa7_chinese_citation_guide`, `citation_format_switcher`
+- Writing: `academic_writing_style`, `writing_quality_check`, `writing_judgment_framework`
+- Structure: `paper_structure_patterns` (6 types), `abstract_writing_guide`
+- Domain: `hei_domain_glossary` (bilingual), `journal_submission_guide`, `latex_template_reference`
+- Process: `failure_paths` (12 scenarios), `mode_selection_guide` (9 modes), `plan_mode_protocol`, `workflow_phase_details`
+- Ethics: `credit_authorship_guide` (CRediT 14 roles), `funding_statement_guide`, `statistical_visualization_standards`
+- Also: `deep-research/references/apa7_style_guide.md` (base reference, extended here)
 
-## Reference Files
+**Templates** (11 files in `templates/`): `imrad`, `literature_review`, `case_study`, `theoretical_paper`, `policy_brief`, `conference_paper`, `latex_article_template.tex`, `bilingual_abstract`, `credit_statement`, `funding_statement`, `revision_tracking` (4 status types).
 
-| Reference | Purpose | Used By |
-|-----------|---------|---------|
-| `references/apa7_extended_guide.md` | APA 7th extended guide (extends deep-research version) | citation_compliance, draft_writer, formatter |
-| `references/apa7_chinese_citation_guide.md` | APA 7.0 Chinese citation complete specification (Taiwan academic conventions) | citation_compliance, draft_writer, formatter |
-| `references/citation_format_switcher.md` | Multi-citation format switching rules (including Chinese formats) | citation_compliance, formatter |
-| `references/paper_structure_patterns.md` | 6 paper structure patterns | structure_architect, intake |
-| `references/academic_writing_style.md` | Academic writing style guide | draft_writer, peer_reviewer |
-| `references/hei_domain_glossary.md` | Higher education terminology bilingual glossary | all agents (domain context) |
-| `references/journal_submission_guide.md` | Journal submission guide | formatter, intake |
-| `references/abstract_writing_guide.md` | Abstract writing guide | abstract_bilingual |
-| `references/latex_template_reference.md` | LaTeX template reference | formatter |
-| `references/failure_paths.md` | Failure path map (12 scenarios + handling strategies) | all agents |
-| `references/mode_selection_guide.md` | 8 mode selection guide + transition paths | intake |
-| `references/credit_authorship_guide.md` | CRediT 14 roles + ICMJE + AI policy + contribution matrix | intake, formatter, draft_writer |
-| `references/funding_statement_guide.md` | Taiwan/international funding formats + statement templates | intake, formatter, draft_writer |
-| `references/statistical_visualization_standards.md` | APA 7.0 figure guidelines, accessible color palettes, chart type decision tree, matplotlib/ggplot2 code templates | visualization |
-
-Also references from `deep-research`:
-- `deep-research/references/apa7_style_guide.md` — base APA 7 reference (this skill extends, not duplicates)
+**Examples** (5 files in `examples/`): `imrad_hei_example`, `literature_review_example`, `plan_mode_guided_writing`, `chinese_paper_example`, `revision_mode_example`.
 
 ---
 
-## Templates
+## Anti-Patterns
 
-| Template | Purpose |
-|----------|---------|
-| `templates/imrad_template.md` | IMRaD structure template |
-| `templates/literature_review_template.md` | Literature review template |
-| `templates/case_study_template.md` | Case study template |
-| `templates/theoretical_paper_template.md` | Theoretical paper template |
-| `templates/policy_brief_template.md` | Policy brief template |
-| `templates/conference_paper_template.md` | Conference paper template |
-| `templates/latex_article_template.tex` | LaTeX starter template |
-| `templates/bilingual_abstract_template.md` | Bilingual abstract template |
-| `templates/credit_statement_template.md` | Author x Role contribution matrix + CRediT statement output |
-| `templates/funding_statement_template.md` | Funding source registration + statement output |
-| `templates/revision_tracking_template.md` | Systematic tracker for reviewer comments and resolutions during revision (4 status types: RESOLVED, DELIBERATE_LIMITATION, UNRESOLVABLE, REVIEWER_DISAGREE) |
+Explicit prohibitions to prevent common failure modes:
 
----
-
-## Examples
-
-| Example | Demonstrates |
-|---------|-------------|
-| `examples/imrad_hei_example.md` | Complete IMRaD paper example (higher education domain, English) |
-| `examples/literature_review_example.md` | Literature review paper example |
-| `examples/plan_mode_guided_writing.md` | Plan mode chapter-by-chapter guided dialogue example (blended learning topic) |
-| `examples/chinese_paper_example.md` | Complete Chinese academic paper example (IMRaD, Chinese APA 7.0 citations) |
-| `examples/revision_mode_example.md` | Revision mode complete workflow: peer review response + revision comparison table |
+| # | Anti-Pattern | Why It Fails | Correct Behavior |
+|---|-------------|-------------|-----------------|
+| 1 | **AI-typical overused terms** | "delve into", "crucial", "it is important to note" = instant AI detection | Use discipline-specific vocabulary; see `references/writing_quality_check.md` |
+| 2 | **Em dash abuse** | More than 2 em dashes per page signals AI writing | Use parentheses, commas, or restructure the sentence |
+| 3 | **Throat-clearing openers** | "In this section, we will discuss..." adds no information | Start with the claim or finding directly |
+| 4 | **Uniform paragraph lengths** | Every paragraph is 4-5 sentences = monotonous AI rhythm | Vary paragraph length naturally (2-8 sentences) |
+| 5 | **⚠️ IRON RULE: Fabricated citations** | Inventing plausible-sounding references that don't exist | Every citation must be verified via DOI or WebSearch; see `academic-pipeline/agents/integrity_verification_agent.md` |
+| 6 | **Sycophantic revision** | Accepting all reviewer feedback without critical evaluation | Use REVIEWER_DISAGREE status when reviewer is wrong; justify with evidence |
+| 7 | **Scope creep during revision** | Adding unrequested sections/analyses to "improve" the paper | Revision addresses reviewer concerns only; new content requires explicit user approval |
+| 8 | **Ignoring failure paths** | Continuing despite desk-reject signals or fatal methodology flaws | Check `references/failure_paths.md`; invoke F11 Desk-Reject Recovery when triggered |
 
 ---
 
@@ -480,7 +270,7 @@ Also references from `deep-research`:
 
 ### Citation Quality
 10. **Format compliance** — 100% adherence to selected citation style
-11. **DOI inclusion** — every source with a DOI must include it
+11. ⚠️ IRON RULE: **DOI inclusion** — every source with a DOI must include it; every citation must be verified via DOI or WebSearch
 12. **Currency** — flag sources older than 10 years (unless seminal works)
 13. **Self-citation ratio** — flag if >15%
 
@@ -490,6 +280,7 @@ Also references from `deep-research`:
 16. **Max 2 revision rounds** — unresolved items become Acknowledged Limitations
 
 ### Mandatory Inclusions
+⚠️ **IRON RULE**: Every paper MUST include: Data Availability Statement, Ethics Declaration, Author Contributions (CRediT), Conflict of Interest Statement, Funding Acknowledgment.
 17. **AI disclosure statement** — every paper must include a statement on AI tool usage
 18. **Limitations section** — explicitly discuss study limitations
 19. **Ethics statement** — when applicable (human subjects, sensitive data)
@@ -514,14 +305,17 @@ academic-paper + academic-paper-reviewer -> Peer review -> revision loop
 
 ---
 
+## Version Info
+
+| Item | Content |
+|------|---------|
+| Skill Version | 2.8 |
+| Last Updated | 2026-04-06 |
+| Maintainer | Cheng-I Wu |
+| Dependent Skills | deep-research v1.0+ (upstream), academic-paper-reviewer v1.0+ (downstream) |
+
+---
+
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 2.5 | 2026-03-27 | Style Calibration (intake Step 10: learn author's writing voice from 3+ past papers, produce Style Profile with 6 dimensions, consumed by draft_writer as soft guide with discipline-convention priority). Writing Quality Check (`references/writing_quality_check.md`: 25-term AI high-frequency word warnings, em dash limits, throat-clearing detection, structural pattern warnings, burstiness checks — applied in draft_writer self-review). Style Profile carried through academic-pipeline Material Passport (Schema 10 in `shared/handoff_schemas.md`). deep-research report_compiler also consumes both features optionally |
-| 2.4 | 2026-03-08 | LaTeX output formatting hardening: mandatory `apa7` document class for APA 7.0 output; text justification fix (`ragged2e` + `etoolbox` to override apa7 man mode `\raggedright`); table column width formula (`(\linewidth - N\tabcolsep) * \real{proportion}` — prevents overflow); bilingual abstract centering (`\begin{center}\textbf{...}\end{center}`); font stack standardized (Times New Roman + Source Han Serif TC VF + Courier New); `xurl` for URL line breaking; `fancyvrb` Verbatim with `fontsize` for wide content; PDF must compile from LaTeX via tectonic (no HTML-to-PDF) |
-| 2.3 | 2026-03-08 | NEW visualization_agent (11th: publication-quality figures with matplotlib/ggplot2, APA 7.0, colorblind-safe); NEW revision_coach_agent (12th: standalone reviewer comment parser → Revision Roadmap); Socratic convergence criteria (4 signals: thesis clarity, chapter coherence, evidence mapping, limitation honesty) + question taxonomy (clarifying, probing, structuring, challenging); revision tracking template (4 status types); citation format conversion in formatter_agent (APA 7 ↔ Chicago ↔ MLA ↔ IEEE ↔ Vancouver); Quick Mode Selection Guide; 9th mode: revision-coach |
-| 2.2 | 2025-03-05 | 4-level argument strength scoring with quantified thresholds; plagiarism & retraction screening protocol; F11 Desk-Reject Recovery + F12 Conference-to-Journal Conversion failure paths; Plan -> Full mode conversion protocol; cross-skill reference to `shared/handoff_schemas.md` |
-| 2.1 | 2026-03 | Added CRediT authorship guide, funding statement guide, 2 new templates (credit_statement_template, funding_statement_template); enhanced intake_agent with co-author + funding questions (Step 9-10); enhanced formatter_agent with CRediT + funding quality checks |
-| 2.0 | 2026-02 | NEW plan mode (Socratic guided chapter-by-chapter planning), deep-research handoff protocol, Chinese APA 7.0 citation guide, failure path handling, mode selection guide |
-| 1.0 | 2026-01 | Initial release: 9-agent pipeline, 6 paper types, 5 citation formats, bilingual abstracts, multi-format output |
+> See `references/changelog.md` for full version history.

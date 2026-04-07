@@ -4,6 +4,40 @@ Cross-skill fixes and update history.
 
 ---
 
+## 2026-04-06
+
+### Anti-Context-Rot + Cognitive Frameworks + Lean Size (v3.1)
+
+Inspired by patterns from [aspi6246/Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics).
+
+**Wave 1: Anti-Context-Rot Anchors**
+- Added `## Anti-Patterns` section to all 4 SKILL.md files (29 total: 7-8 per skill)
+- Added 22 `⚠️ IRON RULE` markers to critical rules across all skills
+- Added Read-Only constraint to academic-paper-reviewer (Checkpoint Rule #6)
+
+**Wave 2: Traceability + Cognitive Frameworks + Reinforcement**
+- R&R Traceability Matrix (Schema 11) in `shared/handoff_schemas.md`: `Author's Claim` + `Verified?` columns in re-review output
+- New reference: `deep-research/references/argumentation_reasoning_framework.md` (Toulmin, Bradford Hill, IBE, epistemic status)
+- New reference: `academic-paper-reviewer/references/review_quality_thinking.md` (three lenses, reviewer traps, calibration)
+- New reference: `academic-paper/references/writing_judgment_framework.md` (clarity test, reader's journey, voice, revision matrix)
+- Mid-conversation reinforcement protocol in pipeline: stage-specific IRON RULE + Anti-Pattern reminders at every transition
+- Self-check questions at every FULL checkpoint (5 questions: citation integrity, sycophancy, quality trajectory, scope, completeness)
+
+**Wave 3: Lean Skill Size**
+- Extracted detailed protocols from SKILL.md to `references/` files: 142KB → 85KB (−40%)
+- New reference files: `re_review_mode_protocol.md`, `guided_mode_protocol.md`, `integration_guide.md`, `plan_mode_protocol.md`, `workflow_phase_details.md`, `socratic_mode_protocol.md`, `systematic_review_protocol.md`, `cross_agent_quality_definitions.md`, `process_summary_protocol.md`, `external_review_protocol.md`, `integrity_review_protocol.md`, `two_stage_review_protocol.md`, `reproducibility_audit.md`, `progress_dashboard_template.md`, `reinforcement_content.md`
+- Changelog extracted from all 4 SKILL.md files to `references/changelog.md`
+- All IRON RULE markers preserved in SKILL.md; detailed content loaded on demand
+
+**Historical fixes**:
+- Fixed date typo `2025-03-05` → `2026-03-05` in all 4 changelogs
+- Added missing Version Info tables to academic-paper and deep-research
+- Fixed broken reference path `shared/integrity_verification_agent.md`
+
+**Version bumps**: deep-research v2.7, academic-paper v2.8, academic-paper-reviewer v1.7, academic-pipeline v3.0
+
+---
+
 ## 2026-03-27
 
 ### Style Calibration + Writing Quality Check (v2.9)

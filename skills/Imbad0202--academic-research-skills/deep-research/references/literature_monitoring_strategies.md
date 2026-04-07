@@ -239,3 +239,25 @@ Run this checklist every monitoring cycle:
 4. **Retraction Watch** (5 min): Run baseline check on all cited authors; subscribe to RSS feed
 5. **Citation tracking** (5 min): Set up citation alerts for your 5 most-cited sources in Google Scholar or Scopus
 6. **Preprints** (5 min): Subscribe to relevant arXiv/SSRN/bioRxiv categories if applicable to your field
+
+---
+
+## SKILL.md Extracted Content: Literature Monitoring (Optional Post-Pipeline)
+
+After any research mode is complete, users can optionally activate the `monitoring_agent` to set up post-research literature monitoring. This is not part of the main pipeline — it is an auxiliary capability triggered on demand.
+
+See `agents/monitoring_agent.md` for the detailed agent definition.
+
+**Trigger**: "monitor this topic", "set up alerts", "track new publications on this"
+
+**Capabilities**:
+- Weekly/monthly monitoring digest generation
+- Retraction alerts for cited sources
+- Contradictory findings detection
+- Key author tracking
+- Keyword evolution tracking
+
+**Input**: Completed bibliography + search strategy from any research mode
+**Output**: Monitoring configuration + digest template (markdown)
+
+**Limitation**: The monitoring agent produces configurations and templates for the user to act on. It cannot run autonomous background monitoring.

@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.0)
+[![Version](https://img.shields.io/badge/version-v3.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.1)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -23,10 +23,10 @@
 
 ## 功能特色
 
-- **Deep Research** — 13 個 Agent 組成的研究團隊，支援蘇格拉底引導（含 SCR 反思機制）+ 系統性文獻回顧 / PRISMA + **意圖偵測** + **對話健康度監控** + **可選跨模型 DA**
-- **Academic Paper** — 12 個 Agent 的論文撰寫團隊，含風格校準、寫作品質檢查、LaTeX 輸出強化、視覺化、修訂教練、引用格式轉換
-- **Academic Paper Reviewer** — 多視角同儕審查，0-100 品質量表（主編 + 3 位動態審查者 + 魔鬼代言人，含**讓步門檻協議** + **攻擊強度保持** + **可選跨模型審查**）
-- **Academic Pipeline** — 10 階段全流程調度器，含自適應 checkpoint、宣稱驗證、素材護照、**可選跨模型誠信驗證**、**AI 自我反思報告**
+- **Deep Research** — 13 個 Agent 組成的研究團隊，支援蘇格拉底引導（含 SCR 反思機制）+ 系統性文獻回顧 / PRISMA + **意圖偵測** + **對話健康度監控** + **可選跨模型 DA** + **論證與推理認知框架**
+- **Academic Paper** — 12 個 Agent 的論文撰寫團隊，含風格校準、寫作品質檢查、LaTeX 輸出強化、視覺化、修訂教練、引用格式轉換、**寫作判斷力框架**
+- **Academic Paper Reviewer** — 多視角同儕審查，0-100 品質量表（主編 + 3 位動態審查者 + 魔鬼代言人，含**讓步門檻協議** + **攻擊強度保持** + **可選跨模型審查**）+ **R&R 追溯矩陣** + **唯讀約束** + **審查品質思維框架**
+- **Academic Pipeline** — 10 階段全流程調度器，含自適應 checkpoint、宣稱驗證、素材護照、**可選跨模型誠信驗證**、**中途強化機制**、**自我檢查問題**
 
 ### 完整 Pipeline
 
@@ -431,7 +431,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 ## Skill 詳細資訊
 
-### Deep Research (v2.5)
+### Deep Research (v2.7)
 
 13 個 Agent 的嚴謹學術研究 pipeline：
 
@@ -453,7 +453,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 **模式：** full、quick、paper-review、lit-review、fact-check、socratic、**systematic-review**（新增）
 
-### Academic Paper (v2.5)
+### Academic Paper (v2.8)
 
 12 個 Agent 的學術論文撰寫 pipeline：
 
@@ -474,7 +474,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 **模式：** full、plan、revision、citation-check、format-convert、bilingual-abstract、writing-polish、full-auto、**revision-coach**（新增）
 
-### Academic Paper Reviewer (v1.5)
+### Academic Paper Reviewer (v1.7)
 
 7 個 Agent 的多視角審查，搭配 **0-100 品質量表**：
 
@@ -492,7 +492,7 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 
 **決策對照：** ≥80 接受、65-79 小修、50-64 大修、<50 退稿
 
-### Academic Pipeline (v2.8)
+### Academic Pipeline (v3.0)
 
 10 階段調度器，含誠信驗證、兩階段審查、蘇格拉底指導、協作品質評估：
 
@@ -516,6 +516,8 @@ claude.ai 的 Project 功能可以載入這些 skills，不需要安裝 Claude C
 - 誠信驗證（Stage 2.5 + 4.5）不可跳過
 - 可重現 — 標準化流程，含完整稽核軌跡
 - Pipeline 完成後自動產出協作品質評估，含 6 維度誠實評分
+- 每次 stage 轉換注入中途強化（IRON RULE + Anti-Pattern 提醒）
+- R&R 追溯矩陣（Schema 11）獨立驗證作者修訂宣稱
 
 ---
 
@@ -539,13 +541,39 @@ https://github.com/Imbad0202/academic-research-skills
 
 ---
 
-## 作者
+## 貢獻者
 
-**吳政宜** (Cheng-I Wu)
+**吳政宜** (Cheng-I Wu) — 作者與維護者
+
+**[aspi6246](https://github.com/aspi6246)** — 貢獻者。v3.1 優化靈感來自 [Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics)：唯讀約束模式、Anti-Pattern 作為一等公民設計、認知框架方法（教「如何思考」而非只有步驟）、精簡 skill 尺寸哲學。
 
 ---
 
 ## 更新紀錄
+
+### v3.1 (2026-04-06) — 抗 Context Rot + 認知框架 + 精簡尺寸
+
+靈感來自 [aspi6246/Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics)。
+
+**Wave 1：抗 Context Rot 錨定**
+- 4 個 skill 共 29 條 Anti-Patterns（每個 7-8 條，表格含「為何失敗」+「正確行為」）
+- 22 個 IRON RULE 標記，確保長對話中關鍵規則不被遺忘
+- 審查者唯讀約束（reviewer 不可修改論文原稿）
+
+**Wave 2：追溯性 + 認知框架 + 中途強化**
+- R&R 追溯矩陣（Schema 11）：Re-Review 新增「作者聲稱」+「已驗證？」欄位，獨立核實修訂宣稱
+- 3 個認知框架 reference 檔案，教 agent「如何思考」而非只是「做什麼」：
+  - 論證與推理框架（Toulmin 模型、Bradford Hill 因果推理、最佳解釋推論、認知狀態分類）
+  - 審查品質思維框架（三鏡頭法、常見審查陷阱、校準問題）
+  - 寫作判斷力框架（清晰度測試、讀者旅程、學科語態、修訂決策矩陣）
+- 中途強化機制：每次 stage 轉換注入對應 IRON RULE + Anti-Pattern 提醒
+- FULL checkpoint 前的 5 題自我檢查（引用完整性、諂媚讓步、品質軌跡、範圍紀律、完整性）
+
+**Wave 3：精簡 Skill 尺寸**
+- SKILL.md 總大小從 142KB 降至 85KB（-40%），詳細協議移至 `references/` 按需載入
+- 新增 ~15 個 reference 檔案（re-review protocol、guided mode、systematic review、process summary 等）
+- 所有 IRON RULE 保留在 SKILL.md；詳細內容按需載入
+- 新版本：deep-research v2.7、academic-paper v2.8、academic-paper-reviewer v1.7、academic-pipeline v3.0
 
 ### v3.0 (2026-04-03) — 反諂媚 + 意圖偵測 + 跨模型驗證 + AI 自我反思
 - **魔鬼代言人讓步門檻**（deep-research + academic-paper-reviewer）：反駁必須評分 1-5。≥4 才允許讓步。不允許連續讓步。讓步率追蹤。框架鎖定偵測。

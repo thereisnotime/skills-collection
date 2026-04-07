@@ -2,12 +2,16 @@
 
 # avoid-ai-writing
 
-Audit and rewrite content to remove AI writing patterns. A practical skill for any AI assistant. Supports detection-only mode.
+Audit & rewrite content to remove AI writing patterns. A practical skill for any AI assistant. Supports detection-only mode.
 
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/avoid-ai-writing?style=social)](https://github.com/conorbronsdon/avoid-ai-writing/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
+[![Web App](https://img.shields.io/badge/Try_the_web_app-ff6b35?style=flat-square&logo=vercel&logoColor=white)](https://avoid-ai-writing-app.vercel.app)
 
+</div>
+<div align="center">
+The community made a meme coin to support the project🤯 CA: BsidWuYJnayqMXVsLGr34524vmZ1BrWFhPer3198pump
 </div>
 
 ---
@@ -203,6 +207,20 @@ Trigger detect mode with: "detect," "flag only," "audit only," "just flag," "sca
 **What the skill caught:** chatbot artifacts (Certainly!, Feel free to reach out), 3 em dashes, promotional language (vibrant, nestled, thriving), significance inflation (watershed moment), copula avoidance (serves as, featuring, boasting, presenting), 10 word replacements (landscape, robust, seamless, paradigm, streamline, empower, foster, utilize, ascertain, endeavor), synonym cycling (developers/practitioners/builders/engineers), negative parallelism (It's not just X, it's Y), notability name-dropping (Sequoia, a16z, YC, Index stacked for credibility), vague attributions (Experts believe, Studies show), filler phrases (In order to, Moreover), inline-header list with emoji, superficial -ing analysis (symbolizing... reflecting... highlighting...), formulaic challenges (Despite challenges... continues to thrive), generic conclusion (the future looks bright, only time will tell), false range implied in the adoption bullet.
 
 That's 35+ AI tells.
+
+## $avoid token + web app
+
+The community created a Solana token around this project. You can burn $avoid tokens to run the audit skill through a web app:
+
+**[avoid-ai-writing-app.vercel.app](https://avoid-ai-writing-app.vercel.app)** — paste text, burn 1,000 $avoid, get a full audit + rewrite. Every token burned is permanently removed from circulation.
+
+| | |
+|---|---|
+| Web App | [avoid-ai-writing-app.vercel.app](https://avoid-ai-writing-app.vercel.app) |
+| DexScreener | [dexscreener.com/solana/4b5m...](https://dexscreener.com/solana/4b5mprekzapcwybrsbbaiewtk4amck62rpcznjcxz69m) |
+| Telegram | [t.me/avoidaiwriting](https://t.me/avoidaiwriting) |
+| X Community | [x.com/i/communities/2036440377356591415](https://x.com/i/communities/2036440377356591415) |
+| CA | `BsidWuYJnayqMXVsLGr34524vmZ1BrWFhPer3198pump` |
 
 ## Credits
 

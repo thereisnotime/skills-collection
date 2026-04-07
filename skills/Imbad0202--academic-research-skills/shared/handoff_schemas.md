@@ -528,6 +528,34 @@ See `shared/style_calibration_protocol.md` for full consumption rules and confli
 
 ---
 
+### Schema 11: R&R Traceability Matrix
+
+**Producer**: academic-paper-reviewer (re-review mode)
+**Consumer**: academic-paper (revision mode, if further revision needed), pipeline orchestrator
+
+**Purpose**: Maps every reviewer concern through the full revision cycle — what was raised, what the author claims to have done, where the change is, and whether it was independently verified.
+
+**Required fields**:
+- `concern_id`: Unique ID (R1, R2, S1, S2, N1...)
+- `priority`: `MUST_FIX` / `SHOULD_FIX` / `CONSIDER`
+- `original_comment`: The reviewer's original concern text
+- `authors_claim`: What the author states they did (from Response to Reviewers)
+- `revision_location`: Section/page/paragraph reference in revised manuscript
+- `verified`: `YES` (✅) / `PARTIAL` (⚠️) / `NO` (❌) / `CANNOT_VERIFY` (🔍)
+- `status`: `FULLY_ADDRESSED` / `PARTIALLY_ADDRESSED` / `NOT_ADDRESSED` / `MADE_WORSE`
+- `quality_assessment`: Free-text evaluation
+
+**Optional fields**:
+- `reviewer_source`: Which reviewer originally raised the concern (EIC, R1, R2, R3, DA)
+- `residual_action`: What remains to be done if not fully addressed
+
+**Validation**:
+- Every item from the original Revision Roadmap (Schema 7) must appear in the matrix
+- `authors_claim` cannot be empty for Priority 1 items (flag as `CANNOT_VERIFY` if missing)
+- Matrix is carried forward in Material Passport (Schema 9) for audit trail
+
+---
+
 ## Validation Rules
 
 1. **Required field check**: All schema fields marked without "(optional)" or "No" in the Required column are REQUIRED. Consumer agents MUST verify all required fields are present before proceeding

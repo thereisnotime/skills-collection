@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "marketing-skills",
-      "description": "33 marketing skills for technical marketers and founders: CRO, copywriting, cold email, SEO, AI SEO, paid ads, ad creative, churn prevention, pricing strategy, referral programs, revenue operations, sales enablement, customer research, site architecture, and more",
+      "description": "35 marketing skills for technical marketers and founders: CRO, copywriting, cold email, SEO, AI SEO, paid ads, ad creative, churn prevention, pricing strategy, referral programs, revenue operations, sales enablement, customer research, site architecture, and more",
       "source": "./",
       "strict": false,
       "skills": [
@@ -22,6 +22,7 @@
         "./skills/analytics-tracking",
         "./skills/churn-prevention",
         "./skills/cold-email",
+        "./skills/community-marketing",
         "./skills/competitor-alternatives",
         "./skills/content-strategy",
         "./skills/copy-editing",

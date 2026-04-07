@@ -5,15 +5,15 @@
     "email": "mukuljangra5@gmail.com"
   },
   "metadata": {
-    "description": "753 cybersecurity skills for AI agents and security practitioners covering web security, pentesting, forensics, threat intelligence, cloud security, and more.",
-    "version": "1.1.0"
+    "description": "754 cybersecurity skills for AI agents mapped to 5 frameworks: MITRE ATT&CK, NIST CSF 2.0, MITRE ATLAS, D3FEND, and NIST AI RMF.",
+    "version": "1.2.0"
   },
   "plugins": [
     {
       "name": "cybersecurity-skills",
       "source": "./",
-      "descripyion": "753 cybersecurity skills covering web security, pentesting, DFIR, threat intelligence, cloud security, malware analysis, and more.",
-      "version": "1.1.0",
+      "description": "754 cybersecurity skills covering web security, pentesting, DFIR, threat intelligence, cloud security, malware analysis, and more. Mapped to 5 frameworks.",
+      "version": "1.2.0",
       "author": {
         "name": "mukul975"
       },
