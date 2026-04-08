@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use ratatui::{
     prelude::*,
@@ -10,11 +10,14 @@ use ratatui::{
 use tokio::sync::broadcast;
 
 use super::widgets::{budget_state, format_currency, format_token_count, BudgetState, TokenMeter};
+use crate::comms;
 use crate::config::{Config, PaneLayout};
 use crate::observability::ToolLogEntry;
 use crate::session::output::{OutputEvent, OutputLine, SessionOutputStore, OutputStream, OUTPUT_BUFFER_LIMIT};
+use crate::session::manager;
 use crate::session::store::StateStore;
-use crate::session::{Session, SessionMetrics, SessionState, WorktreeInfo};
+use crate::session::{Session, SessionMessage, SessionMetrics, SessionState, WorktreeInfo};
+use crate::worktree;
 
 const DEFAULT_PANE_SIZE_PERCENT: u16 = 35;
 const DEFAULT_GRID_SIZE_PERCENT: u16 = 50;
@@ -31,10 +34,20 @@ pub struct Dashboard {
     output_rx: broadcast::Receiver<OutputEvent>,
     sessions: Vec<Session>,
     session_output_cache: HashMap<String, Vec<OutputLine>>,
+    unread_message_counts: HashMap<String, usize>,
+    global_handoff_backlog_leads: usize,
+    global_handoff_backlog_messages: usize,
+    selected_messages: Vec<SessionMessage>,
+    selected_parent_session: Option<String>,
+    selected_child_sessions: Vec<DelegatedChildSummary>,
+    selected_team_summary: Option<TeamSummary>,
+    selected_route_preview: Option<String>,
     logs: Vec<ToolLogEntry>,
+    selected_diff_summary: Option<String>,
     selected_pane: Pane,
     selected_session: usize,
     show_help: bool,
+    operator_note: Option<String>,
     output_follow: bool,
     output_scroll_offset: usize,
     last_output_height: usize,
@@ -51,6 +64,8 @@ struct SessionSummary {
     completed: usize,
     failed: usize,
     stopped: usize,
+    unread_messages: usize,
+    inbox_sessions: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -78,6 +93,23 @@ struct AggregateUsage {
     overall_state: BudgetState,
 }
 
+#[derive(Debug, Clone)]
+struct DelegatedChildSummary {
+    session_id: String,
+    state: SessionState,
+    unread_messages: usize,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TeamSummary {
+    total: usize,
+    idle: usize,
+    running: usize,
+    pending: usize,
+    failed: usize,
+    stopped: usize,
+}
+
 impl Dashboard {
     pub fn new(db: StateStore, cfg: Config) -> Self {
         Self::with_output_store(db, cfg, SessionOutputStore::default())
@@ -102,17 +134,32 @@ impl Dashboard {
             output_rx,
             sessions,
             session_output_cache: HashMap::new(),
+            unread_message_counts: HashMap::new(),
+            global_handoff_backlog_leads: 0,
+            global_handoff_backlog_messages: 0,
+            selected_messages: Vec::new(),
+            selected_parent_session: None,
+            selected_child_sessions: Vec::new(),
+            selected_team_summary: None,
+            selected_route_preview: None,
             logs: Vec::new(),
+            selected_diff_summary: None,
             selected_pane: Pane::Sessions,
             selected_session: 0,
             show_help: false,
+            operator_note: None,
             output_follow: true,
             output_scroll_offset: 0,
             last_output_height: 0,
             pane_size_percent,
             session_table_state,
         };
+        dashboard.unread_message_counts = dashboard.db.unread_message_counts().unwrap_or_default();
+        dashboard.sync_global_handoff_backlog();
         dashboard.sync_selected_output();
+        dashboard.sync_selected_diff();
+        dashboard.sync_selected_messages();
+        dashboard.sync_selected_lineage();
         dashboard.refresh_logs();
         dashboard
     }
@@ -187,22 +234,34 @@ impl Dashboard {
             return;
         }
 
-        let summary = SessionSummary::from_sessions(&self.sessions);
+        let summary = SessionSummary::from_sessions(&self.sessions, &self.unread_message_counts);
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(1), Constraint::Min(3)])
+            .constraints([Constraint::Length(2), Constraint::Min(3)])
             .split(inner_area);
 
-        frame.render_widget(Paragraph::new(summary_line(&summary)), chunks[0]);
+        frame.render_widget(
+            Paragraph::new(vec![summary_line(&summary), attention_queue_line(&summary)]),
+            chunks[0],
+        );
 
-        let rows = self.sessions.iter().map(session_row);
-        let header = Row::new(["ID", "Agent", "State", "Branch", "Tokens", "Duration"])
+        let rows = self.sessions.iter().map(|session| {
+            session_row(
+                session,
+                self.unread_message_counts
+                    .get(&session.id)
+                    .copied()
+                    .unwrap_or(0),
+            )
+        });
+        let header = Row::new(["ID", "Agent", "State", "Branch", "Inbox", "Tokens", "Duration"])
             .style(Style::default().add_modifier(Modifier::BOLD));
         let widths = [
             Constraint::Length(8),
             Constraint::Length(10),
             Constraint::Length(10),
             Constraint::Min(12),
+            Constraint::Length(7),
             Constraint::Length(8),
             Constraint::Length(8),
         ];
@@ -341,9 +400,14 @@ impl Dashboard {
 
     fn render_status_bar(&self, frame: &mut Frame, area: Rect) {
         let text = format!(
-            " [n]ew session  [s]top  [r]efresh  [Tab] switch pane  [j/k] scroll  [+/-] resize  [{}] layout  [?] help  [q]uit ",
+            " [n]ew session  [a]ssign  re[b]alance  dra[i]n inbox  [g]lobal dispatch  toggle [p]olicy  [,/.] dispatch limit  [s]top  [u]resume  [x]cleanup  [d]elete  [r]efresh  [Tab] switch pane  [j/k] scroll  [+/-] resize  [{}] layout  [?] help  [q]uit ",
             self.layout_label()
         );
+        let text = if let Some(note) = self.operator_note.as_ref() {
+            format!(" {} |{}", truncate_for_dashboard(note, 96), text)
+        } else {
+            text
+        };
         let aggregate = self.aggregate_usage();
         let (summary_text, summary_style) = self.aggregate_cost_summary();
         let block = Block::default()
@@ -381,7 +445,16 @@ impl Dashboard {
             "Keyboard Shortcuts:",
             "",
             "  n       New session",
+            "  a       Assign follow-up work from selected session",
+            "  b       Rebalance backed-up delegate inboxes for selected lead",
+            "  i       Drain unread task handoffs from selected session inbox",
+            "  g       Auto-dispatch unread handoffs across lead sessions",
+            "  p       Toggle daemon auto-dispatch policy and persist config",
+            "  ,/.     Decrease/increase auto-dispatch limit per lead",
             "  s       Stop selected session",
+            "  u       Resume selected session",
+            "  x       Cleanup selected worktree",
+            "  d       Delete selected inactive session",
             "  Tab     Next pane",
             "  S-Tab   Previous pane",
             "  j/↓     Scroll down",
@@ -443,6 +516,9 @@ impl Dashboard {
                 self.sync_selection();
                 self.reset_output_view();
                 self.sync_selected_output();
+                self.sync_selected_diff();
+                self.sync_selected_messages();
+                self.sync_selected_lineage();
                 self.refresh_logs();
             }
             Pane::Output => {
@@ -474,6 +550,9 @@ impl Dashboard {
                 self.sync_selection();
                 self.reset_output_view();
                 self.sync_selected_output();
+                self.sync_selected_diff();
+                self.sync_selected_messages();
+                self.sync_selected_lineage();
                 self.refresh_logs();
             }
             Pane::Output => {
@@ -492,21 +571,337 @@ impl Dashboard {
         }
     }
 
-    pub fn new_session(&mut self) {
-        tracing::info!("New session dialog requested");
-    }
+    pub async fn new_session(&mut self) {
+        if self.active_session_count() >= self.cfg.max_parallel_sessions {
+            tracing::warn!(
+                "Cannot queue new session: active session limit reached ({})",
+                self.cfg.max_parallel_sessions
+            );
+            return;
+        }
 
-    pub fn stop_selected(&mut self) {
-        if let Some(session) = self.sessions.get(self.selected_session) {
-            if let Err(error) =
-                self.db
-                    .update_state_and_pid(&session.id, &SessionState::Stopped, None)
-            {
-                tracing::warn!("Failed to stop session {}: {error}", session.id);
+        let task = self.new_session_task();
+        let agent = self.cfg.default_agent.clone();
+
+        let session_id = match manager::create_session(&self.db, &self.cfg, &task, &agent, true).await {
+            Ok(session_id) => session_id,
+            Err(error) => {
+                tracing::warn!("Failed to create new session from dashboard: {error}");
+                self.set_operator_note(format!("new session failed: {error}"));
                 return;
             }
-            self.refresh();
+        };
+
+        if let Some(source_session) = self.sessions.get(self.selected_session) {
+            let context = format!(
+                "Dashboard handoff from {} [{}] | cwd {}{}",
+                format_session_id(&source_session.id),
+                source_session.agent_type,
+                source_session.working_dir.display(),
+                source_session
+                    .worktree
+                    .as_ref()
+                    .map(|worktree| format!(
+                        " | worktree {} ({})",
+                        worktree.branch,
+                        worktree.path.display()
+                    ))
+                    .unwrap_or_default()
+            );
+            if let Err(error) = comms::send(
+                &self.db,
+                &source_session.id,
+                &session_id,
+                &comms::MessageType::TaskHandoff {
+                    task: source_session.task.clone(),
+                    context,
+                },
+            ) {
+                tracing::warn!(
+                    "Failed to send handoff from session {} to {}: {error}",
+                    source_session.id,
+                    session_id
+                );
+            }
         }
+
+        self.refresh();
+        self.sync_selection_by_id(Some(&session_id));
+        self.set_operator_note(format!("spawned session {}", format_session_id(&session_id)));
+        self.reset_output_view();
+        self.sync_selected_output();
+        self.sync_selected_diff();
+        self.sync_selected_messages();
+        self.sync_selected_lineage();
+        self.refresh_logs();
+    }
+
+    pub async fn assign_selected(&mut self) {
+        let Some(source_session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        let task = self.new_session_task();
+        let agent = self.cfg.default_agent.clone();
+
+        let outcome = match manager::assign_session(
+            &self.db,
+            &self.cfg,
+            &source_session.id,
+            &task,
+            &agent,
+            true,
+        )
+        .await
+        {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                tracing::warn!(
+                    "Failed to assign follow-up work from session {}: {error}",
+                    source_session.id
+                );
+                self.set_operator_note(format!("assignment failed: {error}"));
+                return;
+            }
+        };
+
+        self.refresh();
+        self.sync_selection_by_id(Some(&outcome.session_id));
+        self.set_operator_note(format!(
+            "assigned via {} -> {}",
+            assignment_action_label(outcome.action),
+            format_session_id(&outcome.session_id)
+        ));
+        self.reset_output_view();
+        self.sync_selected_output();
+        self.sync_selected_diff();
+        self.sync_selected_messages();
+        self.sync_selected_lineage();
+        self.refresh_logs();
+    }
+
+    pub async fn rebalance_selected_team(&mut self) {
+        let Some(source_session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        let agent = self.cfg.default_agent.clone();
+        let source_session_id = source_session.id.clone();
+        let outcomes = match manager::rebalance_team_backlog(
+            &self.db,
+            &self.cfg,
+            &source_session_id,
+            &agent,
+            true,
+            self.cfg.auto_dispatch_limit_per_session,
+        )
+        .await
+        {
+            Ok(outcomes) => outcomes,
+            Err(error) => {
+                tracing::warn!(
+                    "Failed to rebalance team backlog for session {}: {error}",
+                    source_session_id
+                );
+                self.set_operator_note(format!(
+                    "rebalance failed for {}: {error}",
+                    format_session_id(&source_session_id)
+                ));
+                return;
+            }
+        };
+
+        self.refresh();
+        self.sync_selection_by_id(Some(&source_session_id));
+        self.sync_selected_output();
+        self.sync_selected_diff();
+        self.sync_selected_messages();
+        self.sync_selected_lineage();
+        self.refresh_logs();
+
+        if outcomes.is_empty() {
+            self.set_operator_note(format!(
+                "no delegate backlog needed rebalancing for {}",
+                format_session_id(&source_session_id)
+            ));
+        } else {
+            self.set_operator_note(format!(
+                "rebalanced {} delegate handoff(s) for {}",
+                outcomes.len(),
+                format_session_id(&source_session_id)
+            ));
+        }
+    }
+
+    pub async fn drain_inbox_selected(&mut self) {
+        let Some(source_session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        let agent = self.cfg.default_agent.clone();
+        let source_session_id = source_session.id.clone();
+
+        let outcomes = match manager::drain_inbox(
+            &self.db,
+            &self.cfg,
+            &source_session_id,
+            &agent,
+            true,
+            self.cfg.max_parallel_sessions,
+        )
+        .await
+        {
+            Ok(outcomes) => outcomes,
+            Err(error) => {
+                tracing::warn!(
+                    "Failed to drain inbox for session {}: {error}",
+                    source_session_id
+                );
+                self.set_operator_note(format!(
+                    "drain inbox failed for {}: {error}",
+                    format_session_id(&source_session_id)
+                ));
+                return;
+            }
+        };
+
+        self.refresh();
+        self.sync_selection_by_id(Some(&source_session_id));
+        self.sync_selected_output();
+        self.sync_selected_diff();
+        self.sync_selected_messages();
+        self.sync_selected_lineage();
+        self.refresh_logs();
+
+        if outcomes.is_empty() {
+            self.set_operator_note(format!(
+                "no unread handoffs for {}",
+                format_session_id(&source_session_id)
+            ));
+        } else {
+            self.set_operator_note(format!(
+                "drained {} handoff(s) from {}",
+                outcomes.len(),
+                format_session_id(&source_session_id)
+            ));
+        }
+    }
+
+    pub async fn auto_dispatch_backlog(&mut self) {
+        let agent = self.cfg.default_agent.clone();
+        let lead_limit = self.sessions.len().max(1);
+
+        let outcomes = match manager::auto_dispatch_backlog(
+            &self.db,
+            &self.cfg,
+            &agent,
+            true,
+            lead_limit,
+        )
+        .await
+        {
+            Ok(outcomes) => outcomes,
+            Err(error) => {
+                tracing::warn!("Failed to auto-dispatch backlog from dashboard: {error}");
+                self.set_operator_note(format!("global auto-dispatch failed: {error}"));
+                return;
+            }
+        };
+
+        let total_routed: usize = outcomes.iter().map(|outcome| outcome.routed.len()).sum();
+        let selected_session_id = self
+            .sessions
+            .get(self.selected_session)
+            .map(|session| session.id.clone());
+
+        self.refresh();
+        self.sync_selection_by_id(selected_session_id.as_deref());
+        self.sync_selected_output();
+        self.sync_selected_diff();
+        self.sync_selected_messages();
+        self.sync_selected_lineage();
+        self.refresh_logs();
+
+        if total_routed == 0 {
+            self.set_operator_note("no unread handoff backlog found".to_string());
+        } else {
+            self.set_operator_note(format!(
+                "auto-dispatched {} handoff(s) across {} lead session(s)",
+                total_routed,
+                outcomes.len()
+            ));
+        }
+    }
+
+    pub async fn stop_selected(&mut self) {
+        let Some(session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        let session_id = session.id.clone();
+        if let Err(error) = manager::stop_session(&self.db, &session_id).await {
+            tracing::warn!("Failed to stop session {}: {error}", session.id);
+            self.set_operator_note(format!("stop failed for {}: {error}", format_session_id(&session_id)));
+            return;
+        }
+
+        self.refresh();
+        self.set_operator_note(format!("stopped session {}", format_session_id(&session_id)));
+    }
+
+    pub async fn resume_selected(&mut self) {
+        let Some(session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        let session_id = session.id.clone();
+        if let Err(error) = manager::resume_session(&self.db, &self.cfg, &session_id).await {
+            tracing::warn!("Failed to resume session {}: {error}", session.id);
+            self.set_operator_note(format!("resume failed for {}: {error}", format_session_id(&session_id)));
+            return;
+        }
+
+        self.refresh();
+        self.set_operator_note(format!("resumed session {}", format_session_id(&session_id)));
+    }
+
+    pub async fn cleanup_selected_worktree(&mut self) {
+        let Some(session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        if session.worktree.is_none() {
+            return;
+        }
+
+        let session_id = session.id.clone();
+        if let Err(error) = manager::cleanup_session_worktree(&self.db, &session_id).await {
+            tracing::warn!("Failed to cleanup session {} worktree: {error}", session.id);
+            self.set_operator_note(format!(
+                "cleanup failed for {}: {error}",
+                format_session_id(&session_id)
+            ));
+            return;
+        }
+
+        self.refresh();
+        self.set_operator_note(format!("cleaned worktree for {}", format_session_id(&session_id)));
+    }
+
+    pub async fn delete_selected_session(&mut self) {
+        let Some(session) = self.sessions.get(self.selected_session) else {
+            return;
+        };
+
+        let session_id = session.id.clone();
+        if let Err(error) = manager::delete_session(&self.db, &session_id).await {
+            tracing::warn!("Failed to delete session {}: {error}", session.id);
+            self.set_operator_note(format!("delete failed for {}: {error}", format_session_id(&session_id)));
+            return;
+        }
+
+        self.refresh();
+        self.set_operator_note(format!("deleted session {}", format_session_id(&session_id)));
     }
 
     pub fn refresh(&mut self) {
@@ -515,6 +910,52 @@ impl Dashboard {
 
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
+    }
+
+    pub fn toggle_auto_dispatch_policy(&mut self) {
+        self.cfg.auto_dispatch_unread_handoffs = !self.cfg.auto_dispatch_unread_handoffs;
+        match self.cfg.save() {
+            Ok(()) => {
+                let state = if self.cfg.auto_dispatch_unread_handoffs {
+                    "enabled"
+                } else {
+                    "disabled"
+                };
+                self.set_operator_note(format!(
+                    "daemon auto-dispatch {state} | saved to {}",
+                    crate::config::Config::config_path().display()
+                ));
+            }
+            Err(error) => {
+                self.cfg.auto_dispatch_unread_handoffs = !self.cfg.auto_dispatch_unread_handoffs;
+                self.set_operator_note(format!("failed to persist auto-dispatch policy: {error}"));
+            }
+        }
+    }
+
+    pub fn adjust_auto_dispatch_limit(&mut self, delta: isize) {
+        let next = (self.cfg.auto_dispatch_limit_per_session as isize + delta).clamp(1, 50) as usize;
+        if next == self.cfg.auto_dispatch_limit_per_session {
+            self.set_operator_note(format!(
+                "auto-dispatch limit unchanged at {} handoff(s) per lead",
+                self.cfg.auto_dispatch_limit_per_session
+            ));
+            return;
+        }
+
+        let previous = self.cfg.auto_dispatch_limit_per_session;
+        self.cfg.auto_dispatch_limit_per_session = next;
+        match self.cfg.save() {
+            Ok(()) => self.set_operator_note(format!(
+                "auto-dispatch limit set to {} handoff(s) per lead | saved to {}",
+                self.cfg.auto_dispatch_limit_per_session,
+                crate::config::Config::config_path().display()
+            )),
+            Err(error) => {
+                self.cfg.auto_dispatch_limit_per_session = previous;
+                self.set_operator_note(format!("failed to persist auto-dispatch limit: {error}"));
+            }
+        }
     }
 
     pub async fn tick(&mut self) {
@@ -539,9 +980,20 @@ impl Dashboard {
                 Vec::new()
             }
         };
+        self.unread_message_counts = match self.db.unread_message_counts() {
+            Ok(counts) => counts,
+            Err(error) => {
+                tracing::warn!("Failed to refresh unread message counts: {error}");
+                HashMap::new()
+            }
+        };
+        self.sync_global_handoff_backlog();
         self.sync_selection_by_id(selected_id.as_deref());
         self.ensure_selected_pane_visible();
         self.sync_selected_output();
+        self.sync_selected_diff();
+        self.sync_selected_messages();
+        self.sync_selected_lineage();
         self.refresh_logs();
     }
 
@@ -570,6 +1022,22 @@ impl Dashboard {
         }
     }
 
+    fn sync_global_handoff_backlog(&mut self) {
+        let limit = self.sessions.len().max(1);
+        match self.db.unread_task_handoff_targets(limit) {
+            Ok(targets) => {
+                self.global_handoff_backlog_leads = targets.len();
+                self.global_handoff_backlog_messages =
+                    targets.iter().map(|(_, unread_count)| *unread_count).sum();
+            }
+            Err(error) => {
+                tracing::warn!("Failed to refresh global handoff backlog: {error}");
+                self.global_handoff_backlog_leads = 0;
+                self.global_handoff_backlog_messages = 0;
+            }
+        }
+    }
+
     fn sync_selected_output(&mut self) {
         let Some(session_id) = self.selected_session_id().map(ToOwned::to_owned) else {
             self.output_scroll_offset = 0;
@@ -585,6 +1053,173 @@ impl Dashboard {
             Err(error) => {
                 tracing::warn!("Failed to load session output: {error}");
             }
+        }
+    }
+
+    fn sync_selected_diff(&mut self) {
+        self.selected_diff_summary = self
+            .sessions
+            .get(self.selected_session)
+            .and_then(|session| session.worktree.as_ref())
+            .and_then(|worktree| worktree::diff_summary(worktree).ok().flatten());
+    }
+
+    fn sync_selected_messages(&mut self) {
+        let Some(session_id) = self.selected_session_id().map(ToOwned::to_owned) else {
+            self.selected_messages.clear();
+            return;
+        };
+
+        let unread_count = self.unread_message_counts.get(&session_id).copied().unwrap_or(0);
+        if unread_count > 0 {
+            match self.db.mark_messages_read(&session_id) {
+                Ok(_) => {
+                    self.unread_message_counts.insert(session_id.clone(), 0);
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        "Failed to mark session {} messages as read: {error}",
+                        session_id
+                    );
+                }
+            }
+        }
+
+        self.selected_messages = match self.db.list_messages_for_session(&session_id, 5) {
+            Ok(messages) => messages,
+            Err(error) => {
+                tracing::warn!("Failed to load session messages: {error}");
+                Vec::new()
+            }
+        };
+    }
+
+    fn sync_selected_lineage(&mut self) {
+        let Some(session_id) = self.selected_session_id().map(ToOwned::to_owned) else {
+            self.selected_parent_session = None;
+            self.selected_child_sessions.clear();
+            self.selected_team_summary = None;
+            self.selected_route_preview = None;
+            return;
+        };
+
+        self.selected_parent_session = match self.db.latest_task_handoff_source(&session_id) {
+            Ok(parent) => parent,
+            Err(error) => {
+                tracing::warn!("Failed to load session parent linkage: {error}");
+                None
+            }
+        };
+
+        self.selected_child_sessions = match self.db.delegated_children(&session_id, 50) {
+            Ok(children) => {
+                let mut delegated = Vec::new();
+                let mut team = TeamSummary::default();
+                let mut route_candidates = Vec::new();
+
+                for child_id in children {
+                    match self.db.get_session(&child_id) {
+                        Ok(Some(session)) => {
+                            team.total += 1;
+                            let unread_messages = self
+                                .unread_message_counts
+                                .get(&child_id)
+                                .copied()
+                                .unwrap_or(0);
+                            let state = session.state.clone();
+                            match state {
+                                SessionState::Idle => team.idle += 1,
+                                SessionState::Running => team.running += 1,
+                                SessionState::Pending => team.pending += 1,
+                                SessionState::Failed => team.failed += 1,
+                                SessionState::Stopped => team.stopped += 1,
+                                SessionState::Completed => {}
+                            }
+
+                            route_candidates.push(DelegatedChildSummary {
+                                unread_messages,
+                                state: state.clone(),
+                                session_id: child_id.clone(),
+                            });
+                            delegated.push(DelegatedChildSummary {
+                                unread_messages,
+                                state,
+                                session_id: child_id,
+                            });
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            tracing::warn!(
+                                "Failed to load delegated child session {}: {error}",
+                                child_id
+                            );
+                        }
+                    }
+                }
+
+                self.selected_team_summary = if team.total > 0 { Some(team) } else { None };
+                self.selected_route_preview =
+                    self.build_route_preview(team.total, &route_candidates);
+                delegated.truncate(3);
+                delegated
+            }
+            Err(error) => {
+                tracing::warn!("Failed to load delegated child sessions: {error}");
+                self.selected_team_summary = None;
+                self.selected_route_preview = None;
+                Vec::new()
+            }
+        };
+    }
+
+    fn build_route_preview(
+        &self,
+        delegate_count: usize,
+        delegates: &[DelegatedChildSummary],
+    ) -> Option<String> {
+        if let Some(idle_clear) = delegates
+            .iter()
+            .filter(|delegate| delegate.state == SessionState::Idle && delegate.unread_messages == 0)
+            .min_by_key(|delegate| delegate.session_id.as_str())
+        {
+            return Some(format!(
+                "reuse idle {}",
+                format_session_id(&idle_clear.session_id)
+            ));
+        }
+
+        if delegate_count < self.cfg.max_parallel_sessions {
+            return Some("spawn new delegate".to_string());
+        }
+
+        if let Some(idle_backed_up) = delegates
+            .iter()
+            .filter(|delegate| delegate.state == SessionState::Idle)
+            .min_by_key(|delegate| (delegate.unread_messages, delegate.session_id.as_str()))
+        {
+            return Some(format!(
+                "reuse idle {} with inbox {}",
+                format_session_id(&idle_backed_up.session_id),
+                idle_backed_up.unread_messages
+            ));
+        }
+
+        if let Some(active_delegate) = delegates
+            .iter()
+            .filter(|delegate| matches!(delegate.state, SessionState::Running | SessionState::Pending))
+            .min_by_key(|delegate| (delegate.unread_messages, delegate.session_id.as_str()))
+        {
+            return Some(format!(
+                "reuse active {} with inbox {}",
+                format_session_id(&active_delegate.session_id),
+                active_delegate.unread_messages
+            ));
+        }
+
+        if delegate_count == 0 {
+            Some("spawn new delegate".to_string())
+        } else {
+            Some("spawn fallback delegate".to_string())
         }
     }
 
@@ -664,16 +1299,118 @@ impl Dashboard {
     fn selected_session_metrics_text(&self) -> String {
         if let Some(session) = self.sessions.get(self.selected_session) {
             let metrics = &session.metrics;
-            format!(
-                "Selected {} [{}]\nTokens {} | Tools {} | Files {}\nCost ${:.4} | Duration {}s",
-                &session.id[..8.min(session.id.len())],
-                session.state,
+            let mut lines = vec![
+                format!(
+                    "Selected {} [{}]",
+                    &session.id[..8.min(session.id.len())],
+                    session.state
+                ),
+                format!("Task {}", session.task),
+            ];
+
+            if let Some(parent) = self.selected_parent_session.as_ref() {
+                lines.push(format!("Delegated from {}", format_session_id(parent)));
+            }
+
+            if let Some(team) = self.selected_team_summary {
+                lines.push(format!(
+                    "Team {}/{} | idle {} | running {} | pending {} | failed {} | stopped {}",
+                    team.total,
+                    self.cfg.max_parallel_sessions,
+                    team.idle,
+                    team.running,
+                    team.pending,
+                    team.failed,
+                    team.stopped
+                ));
+            }
+
+            lines.push(format!(
+                "Global handoff backlog {} lead(s) / {} handoff(s) | Auto-dispatch {} @ {}/lead",
+                self.global_handoff_backlog_leads,
+                self.global_handoff_backlog_messages,
+                if self.cfg.auto_dispatch_unread_handoffs { "on" } else { "off" },
+                self.cfg.auto_dispatch_limit_per_session
+            ));
+
+            if let Some(route_preview) = self.selected_route_preview.as_ref() {
+                lines.push(format!("Next route {route_preview}"));
+            }
+
+            if !self.selected_child_sessions.is_empty() {
+                lines.push("Delegates".to_string());
+                for child in &self.selected_child_sessions {
+                    lines.push(format!(
+                        "- {} [{}] | inbox {}",
+                        format_session_id(&child.session_id),
+                        session_state_label(&child.state),
+                        child.unread_messages
+                    ));
+                }
+            }
+
+            if let Some(worktree) = session.worktree.as_ref() {
+                lines.push(format!(
+                    "Branch {} | Base {}",
+                    worktree.branch, worktree.base_branch
+                ));
+                lines.push(format!("Worktree {}", worktree.path.display()));
+                if let Some(diff_summary) = self.selected_diff_summary.as_ref() {
+                    lines.push(format!("Diff {diff_summary}"));
+                }
+            }
+
+            lines.push(format!(
+                "Tokens {} | Tools {} | Files {}",
                 format_token_count(metrics.tokens_used),
                 metrics.tool_calls,
                 metrics.files_changed,
-                metrics.cost_usd,
-                metrics.duration_secs
-            )
+            ));
+            lines.push(format!(
+                "Cost ${:.4} | Duration {}s",
+                metrics.cost_usd, metrics.duration_secs
+            ));
+
+            if let Some(last_output) = self.selected_output_lines().last() {
+                lines.push(format!(
+                    "Last output {}",
+                    truncate_for_dashboard(&last_output.text, 96)
+                ));
+            }
+
+            lines.push(String::new());
+            if self.selected_messages.is_empty() {
+                lines.push("Inbox clear".to_string());
+            } else {
+                lines.push("Recent messages:".to_string());
+                let recent = self
+                    .selected_messages
+                    .iter()
+                    .rev()
+                    .take(3)
+                    .collect::<Vec<_>>();
+                for message in recent.into_iter().rev() {
+                    lines.push(format!(
+                        "- {} {} -> {} | {}",
+                        self.short_timestamp(&message.timestamp.to_rfc3339()),
+                        format_session_id(&message.from_session),
+                        format_session_id(&message.to_session),
+                        comms::preview(&message.msg_type, &message.content)
+                    ));
+                }
+            }
+
+            let attention_items = self.attention_queue_items(3);
+            if attention_items.is_empty() {
+                lines.push(String::new());
+                lines.push("Attention queue clear".to_string());
+            } else {
+                lines.push(String::new());
+                lines.push("Needs attention:".to_string());
+                lines.extend(attention_items);
+            }
+
+            lines.join("\n")
         } else {
             "No metrics available".to_string()
         }
@@ -701,6 +1438,74 @@ impl Dashboard {
         }
 
         (text, aggregate.overall_state.style())
+    }
+
+    fn attention_queue_items(&self, limit: usize) -> Vec<String> {
+        let mut items = Vec::new();
+
+        for session in &self.sessions {
+            let unread = self
+                .unread_message_counts
+                .get(&session.id)
+                .copied()
+                .unwrap_or(0);
+            if unread > 0 {
+                items.push(format!(
+                    "- Inbox {} | {} unread | {}",
+                    format_session_id(&session.id),
+                    unread,
+                    truncate_for_dashboard(&session.task, 40)
+                ));
+            }
+
+            if matches!(
+                session.state,
+                SessionState::Failed | SessionState::Stopped | SessionState::Pending
+            ) {
+                items.push(format!(
+                    "- {} {} | {}",
+                    session_state_label(&session.state),
+                    format_session_id(&session.id),
+                    truncate_for_dashboard(&session.task, 48)
+                ));
+            }
+
+            if items.len() >= limit {
+                break;
+            }
+        }
+
+        items.truncate(limit);
+        items
+    }
+
+    fn set_operator_note(&mut self, note: String) {
+        self.operator_note = Some(note);
+    }
+
+    fn active_session_count(&self) -> usize {
+        self.sessions
+            .iter()
+            .filter(|session| {
+                matches!(
+                    session.state,
+                    SessionState::Pending | SessionState::Running | SessionState::Idle
+                )
+            })
+            .count()
+    }
+
+    fn new_session_task(&self) -> String {
+        self.sessions
+            .get(self.selected_session)
+            .map(|session| {
+                format!(
+                    "Follow up on {}: {}",
+                    format_session_id(&session.id),
+                    truncate_for_dashboard(&session.task, 96)
+                )
+            })
+            .unwrap_or_else(|| "New ECC 2.0 session".to_string())
     }
 
     fn pane_areas(&self, area: Rect) -> PaneAreas {
@@ -850,10 +1655,12 @@ impl Pane {
 }
 
 impl SessionSummary {
-    fn from_sessions(sessions: &[Session]) -> Self {
+    fn from_sessions(sessions: &[Session], unread_message_counts: &HashMap<String, usize>) -> Self {
         sessions.iter().fold(
             Self {
                 total: sessions.len(),
+                unread_messages: unread_message_counts.values().sum(),
+                inbox_sessions: unread_message_counts.values().filter(|count| **count > 0).count(),
                 ..Self::default()
             },
             |mut summary, session| {
@@ -871,7 +1678,7 @@ impl SessionSummary {
     }
 }
 
-fn session_row(session: &Session) -> Row<'static> {
+fn session_row(session: &Session, unread_messages: usize) -> Row<'static> {
     Row::new(vec![
         Cell::from(format_session_id(&session.id)),
         Cell::from(session.agent_type.clone()),
@@ -881,6 +1688,18 @@ fn session_row(session: &Session) -> Row<'static> {
                 .add_modifier(Modifier::BOLD),
         ),
         Cell::from(session_branch(session)),
+        Cell::from(if unread_messages == 0 {
+            "-".to_string()
+        } else {
+            unread_messages.to_string()
+        })
+        .style(if unread_messages == 0 {
+            Style::default()
+        } else {
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD)
+        }),
         Cell::from(session.metrics.tokens_used.to_string()),
         Cell::from(format_duration(session.metrics.duration_secs)),
     ])
@@ -906,6 +1725,43 @@ fn summary_span(label: &str, value: usize, color: Color) -> Span<'static> {
         format!("{label} {value}  "),
         Style::default().fg(color).add_modifier(Modifier::BOLD),
     )
+}
+
+fn attention_queue_line(summary: &SessionSummary) -> Line<'static> {
+    if summary.failed == 0
+        && summary.stopped == 0
+        && summary.pending == 0
+        && summary.unread_messages == 0
+    {
+        return Line::from(vec![
+            Span::styled(
+                "Attention queue clear",
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw("  no failed, stopped, or pending sessions"),
+        ]);
+    }
+
+    Line::from(vec![
+        Span::styled(
+            "Attention queue  ",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ),
+        summary_span("Inbox", summary.unread_messages, Color::Magenta),
+        summary_span("Failed", summary.failed, Color::Red),
+        summary_span("Stopped", summary.stopped, Color::DarkGray),
+        summary_span("Pending", summary.pending, Color::Yellow),
+    ])
+}
+
+fn truncate_for_dashboard(value: &str, max_chars: usize) -> String {
+    let trimmed = value.trim();
+    if trimmed.chars().count() <= max_chars {
+        return trimmed.to_string();
+    }
+
+    let truncated: String = trimmed.chars().take(max_chars.saturating_sub(1)).collect();
+    format!("{truncated}…")
 }
 
 fn session_state_label(state: &SessionState) -> &'static str {
@@ -934,6 +1790,14 @@ fn format_session_id(id: &str) -> String {
     id.chars().take(8).collect()
 }
 
+fn assignment_action_label(action: manager::AssignmentAction) -> &'static str {
+    match action {
+        manager::AssignmentAction::Spawned => "spawned",
+        manager::AssignmentAction::ReusedIdle => "reused idle",
+        manager::AssignmentAction::ReusedActive => "reused active",
+    }
+}
+
 fn session_branch(session: &Session) -> String {
     session
         .worktree
@@ -954,6 +1818,7 @@ mod tests {
     use anyhow::Result;
     use chrono::Utc;
     use ratatui::{backend::TestBackend, Terminal};
+    use std::path::PathBuf;
     use uuid::Uuid;
 
     use super::*;
@@ -983,17 +1848,88 @@ mod tests {
             1,
         );
 
-        let rendered = render_dashboard_text(dashboard, 150, 24);
+        let rendered = render_dashboard_text(dashboard, 180, 24);
         assert!(rendered.contains("ID"));
-        assert!(rendered.contains("Agent"));
-        assert!(rendered.contains("State"));
         assert!(rendered.contains("Branch"));
-        assert!(rendered.contains("Tokens"));
-        assert!(rendered.contains("Duration"));
         assert!(rendered.contains("Total 2"));
         assert!(rendered.contains("Running 1"));
         assert!(rendered.contains("Completed 1"));
+        assert!(rendered.contains("Attention queue clear"));
         assert!(rendered.contains("done-876"));
+    }
+
+    #[test]
+    fn selected_session_metrics_text_includes_worktree_output_and_attention_queue() {
+        let mut dashboard = test_dashboard(
+            vec![
+                sample_session(
+                    "focus-12345678",
+                    "planner",
+                    SessionState::Running,
+                    Some("ecc/focus"),
+                    512,
+                    42,
+                ),
+                sample_session(
+                    "failed-87654321",
+                    "reviewer",
+                    SessionState::Failed,
+                    Some("ecc/failed"),
+                    64,
+                    5,
+                ),
+            ],
+            0,
+        );
+        dashboard
+            .session_output_cache
+            .insert(
+                "focus-12345678".to_string(),
+                vec![OutputLine {
+                    stream: OutputStream::Stdout,
+                    text: "last useful output".to_string(),
+                }],
+            );
+        dashboard.selected_diff_summary = Some("1 file changed, 2 insertions(+)".to_string());
+
+        let text = dashboard.selected_session_metrics_text();
+        assert!(text.contains("Branch ecc/focus | Base main"));
+        assert!(text.contains("Worktree /tmp/ecc/focus"));
+        assert!(text.contains("Diff 1 file changed, 2 insertions(+)"));
+        assert!(text.contains("Last output last useful output"));
+        assert!(text.contains("Needs attention:"));
+        assert!(text.contains("Failed failed-8 | Render dashboard rows"));
+    }
+
+    #[test]
+    fn selected_session_metrics_text_includes_team_capacity_summary() {
+        let mut dashboard = test_dashboard(
+            vec![sample_session(
+                "focus-12345678",
+                "planner",
+                SessionState::Running,
+                Some("ecc/focus"),
+                512,
+                42,
+            )],
+            0,
+        );
+        dashboard.selected_team_summary = Some(TeamSummary {
+            total: 3,
+            idle: 1,
+            running: 1,
+            pending: 1,
+            failed: 0,
+            stopped: 0,
+        });
+        dashboard.global_handoff_backlog_leads = 2;
+        dashboard.global_handoff_backlog_messages = 5;
+        dashboard.selected_route_preview = Some("reuse idle worker-1".to_string());
+
+        let text = dashboard.selected_session_metrics_text();
+        assert!(text.contains("Team 3/8 | idle 1 | running 1 | pending 1 | failed 0 | stopped 0"));
+        assert!(text.contains("Global handoff backlog 2 lead(s) / 5 handoff(s) | Auto-dispatch off @ 5/lead"));
+        assert!(text.contains("Next route reuse idle worker-1"));
     }
 
     #[test]
@@ -1012,6 +1948,43 @@ mod tests {
     }
 
     #[test]
+    fn new_session_task_uses_selected_session_context() {
+        let dashboard = test_dashboard(
+            vec![sample_session(
+                "focus-12345678",
+                "planner",
+                SessionState::Running,
+                Some("ecc/focus"),
+                512,
+                42,
+            )],
+            0,
+        );
+
+        assert_eq!(
+            dashboard.new_session_task(),
+            "Follow up on focus-12: Render dashboard rows"
+        );
+    }
+
+    #[test]
+    fn active_session_count_only_counts_live_queue_states() {
+        let dashboard = test_dashboard(
+            vec![
+                sample_session("pending-1", "planner", SessionState::Pending, None, 1, 1),
+                sample_session("running-1", "planner", SessionState::Running, None, 1, 1),
+                sample_session("idle-1", "planner", SessionState::Idle, None, 1, 1),
+                sample_session("failed-1", "planner", SessionState::Failed, None, 1, 1),
+                sample_session("stopped-1", "planner", SessionState::Stopped, None, 1, 1),
+                sample_session("done-1", "planner", SessionState::Completed, None, 1, 1),
+            ],
+            0,
+        );
+
+        assert_eq!(dashboard.active_session_count(), 3);
+    }
+
+    #[test]
     fn refresh_preserves_selected_session_by_id() -> Result<()> {
         let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
         let db = StateStore::open(&db_path)?;
@@ -1021,6 +1994,7 @@ mod tests {
             id: "older".to_string(),
             task: "older".to_string(),
             agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
             state: SessionState::Idle,
             pid: None,
             worktree: None,
@@ -1033,6 +2007,7 @@ mod tests {
             id: "newer".to_string(),
             task: "newer".to_string(),
             agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
             state: SessionState::Running,
             pid: None,
             worktree: None,
@@ -1061,6 +2036,7 @@ mod tests {
             id: "session-1".to_string(),
             task: "inspect output".to_string(),
             agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
             state: SessionState::Running,
             pid: None,
             worktree: None,
@@ -1099,6 +2075,7 @@ mod tests {
             id: "session-1".to_string(),
             task: "tail output".to_string(),
             agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
             state: SessionState::Running,
             pid: None,
             worktree: None,
@@ -1118,6 +2095,208 @@ mod tests {
 
         assert_eq!(dashboard.output_scroll_offset, 8);
         assert!(dashboard.selected_output_text().contains("line 11"));
+
+        let _ = std::fs::remove_file(db_path);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stop_selected_uses_session_manager_transition() -> Result<()> {
+        let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
+        let db = StateStore::open(&db_path)?;
+        let now = Utc::now();
+
+        db.insert_session(&Session {
+            id: "running-1".to_string(),
+            task: "stop me".to_string(),
+            agent_type: "claude".to_string(),
+            state: SessionState::Running,
+            working_dir: PathBuf::from("/tmp"),
+            pid: Some(999_999),
+            worktree: None,
+            created_at: now,
+            updated_at: now,
+            metrics: SessionMetrics::default(),
+        })?;
+
+        let dashboard_store = StateStore::open(&db_path)?;
+        let mut dashboard = Dashboard::new(dashboard_store, Config::default());
+        dashboard.stop_selected().await;
+
+        let session = db
+            .get_session("running-1")?
+            .expect("session should exist after stop");
+        assert_eq!(session.state, SessionState::Stopped);
+        assert_eq!(session.pid, None);
+
+        let _ = std::fs::remove_file(db_path);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn resume_selected_requeues_failed_session() -> Result<()> {
+        let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
+        let db = StateStore::open(&db_path)?;
+        let now = Utc::now();
+
+        db.insert_session(&Session {
+            id: "failed-1".to_string(),
+            task: "resume me".to_string(),
+            agent_type: "claude".to_string(),
+            state: SessionState::Failed,
+            working_dir: PathBuf::from("/tmp/ecc2-resume"),
+            pid: None,
+            worktree: Some(WorktreeInfo {
+                path: PathBuf::from("/tmp/ecc2-resume"),
+                branch: "ecc/failed-1".to_string(),
+                base_branch: "main".to_string(),
+            }),
+            created_at: now,
+            updated_at: now,
+            metrics: SessionMetrics::default(),
+        })?;
+
+        let dashboard_store = StateStore::open(&db_path)?;
+        let mut dashboard = Dashboard::new(dashboard_store, Config::default());
+        dashboard.resume_selected().await;
+
+        let session = db
+            .get_session("failed-1")?
+            .expect("session should exist after resume");
+        assert_eq!(session.state, SessionState::Pending);
+        assert_eq!(session.pid, None);
+
+        let _ = std::fs::remove_file(db_path);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cleanup_selected_worktree_clears_session_metadata() -> Result<()> {
+        let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
+        let db = StateStore::open(&db_path)?;
+        let now = Utc::now();
+        let worktree_path = std::env::temp_dir().join(format!("ecc2-cleanup-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&worktree_path)?;
+
+        db.insert_session(&Session {
+            id: "stopped-1".to_string(),
+            task: "cleanup me".to_string(),
+            agent_type: "claude".to_string(),
+            state: SessionState::Stopped,
+            working_dir: worktree_path.clone(),
+            pid: None,
+            worktree: Some(WorktreeInfo {
+                path: worktree_path.clone(),
+                branch: "ecc/stopped-1".to_string(),
+                base_branch: "main".to_string(),
+            }),
+            created_at: now,
+            updated_at: now,
+            metrics: SessionMetrics::default(),
+        })?;
+
+        let dashboard_store = StateStore::open(&db_path)?;
+        let mut dashboard = Dashboard::new(dashboard_store, Config::default());
+        dashboard.cleanup_selected_worktree().await;
+
+        let session = db
+            .get_session("stopped-1")?
+            .expect("session should exist after cleanup");
+        assert!(session.worktree.is_none(), "worktree metadata should be cleared");
+
+        let _ = std::fs::remove_dir_all(worktree_path);
+        let _ = std::fs::remove_file(db_path);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn delete_selected_session_removes_inactive_session() -> Result<()> {
+        let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
+        let db = StateStore::open(&db_path)?;
+        let now = Utc::now();
+
+        db.insert_session(&Session {
+            id: "done-1".to_string(),
+            task: "delete me".to_string(),
+            agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
+            state: SessionState::Completed,
+            pid: None,
+            worktree: None,
+            created_at: now,
+            updated_at: now,
+            metrics: SessionMetrics::default(),
+        })?;
+
+        let dashboard_store = StateStore::open(&db_path)?;
+        let mut dashboard = Dashboard::new(dashboard_store, Config::default());
+        dashboard.delete_selected_session().await;
+
+        assert!(db.get_session("done-1")?.is_none(), "session should be deleted");
+
+        let _ = std::fs::remove_file(db_path);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn auto_dispatch_backlog_sets_operator_note_when_clear() -> Result<()> {
+        let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
+        let db = StateStore::open(&db_path)?;
+        let now = Utc::now();
+
+        db.insert_session(&Session {
+            id: "lead-1".to_string(),
+            task: "coordinate".to_string(),
+            agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
+            state: SessionState::Running,
+            pid: None,
+            worktree: None,
+            created_at: now,
+            updated_at: now,
+            metrics: SessionMetrics::default(),
+        })?;
+
+        let dashboard_store = StateStore::open(&db_path)?;
+        let mut dashboard = Dashboard::new(dashboard_store, Config::default());
+        dashboard.auto_dispatch_backlog().await;
+
+        assert_eq!(
+            dashboard.operator_note.as_deref(),
+            Some("no unread handoff backlog found")
+        );
+
+        let _ = std::fs::remove_file(db_path);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rebalance_selected_team_sets_operator_note_when_clear() -> Result<()> {
+        let db_path = std::env::temp_dir().join(format!("ecc2-dashboard-{}.db", Uuid::new_v4()));
+        let db = StateStore::open(&db_path)?;
+        let now = Utc::now();
+
+        db.insert_session(&Session {
+            id: "lead-1".to_string(),
+            task: "coordinate".to_string(),
+            agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
+            state: SessionState::Running,
+            pid: None,
+            worktree: None,
+            created_at: now,
+            updated_at: now,
+            metrics: SessionMetrics::default(),
+        })?;
+
+        let dashboard_store = StateStore::open(&db_path)?;
+        let mut dashboard = Dashboard::new(dashboard_store, Config::default());
+        dashboard.rebalance_selected_team().await;
+
+        assert_eq!(
+            dashboard.operator_note.as_deref(),
+            Some("no delegate backlog needed rebalancing for lead-1")
+        );
 
         let _ = std::fs::remove_file(db_path);
         Ok(())
@@ -1191,10 +2370,20 @@ mod tests {
             output_rx,
             sessions,
             session_output_cache: HashMap::new(),
+            unread_message_counts: HashMap::new(),
+            global_handoff_backlog_leads: 0,
+            global_handoff_backlog_messages: 0,
+            selected_messages: Vec::new(),
+            selected_parent_session: None,
+            selected_child_sessions: Vec::new(),
+            selected_team_summary: None,
+            selected_route_preview: None,
             logs: Vec::new(),
+            selected_diff_summary: None,
             selected_pane: Pane::Sessions,
             selected_session,
             show_help: false,
+            operator_note: None,
             output_follow: true,
             output_scroll_offset: 0,
             last_output_height: 0,
@@ -1215,6 +2404,9 @@ mod tests {
             task: "Render dashboard rows".to_string(),
             agent_type: agent_type.to_string(),
             state,
+            working_dir: branch
+                .map(|branch| PathBuf::from(format!("/tmp/{branch}")))
+                .unwrap_or_else(|| PathBuf::from("/tmp")),
             pid: None,
             worktree: branch.map(|branch| WorktreeInfo {
                 path: PathBuf::from(format!("/tmp/{branch}")),
@@ -1240,6 +2432,7 @@ mod tests {
             task: "Budget tracking".to_string(),
             agent_type: "claude".to_string(),
             state: SessionState::Running,
+            working_dir: PathBuf::from("/tmp"),
             pid: None,
             worktree: None,
             created_at: now,

@@ -1,12 +1,13 @@
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::observability::{ToolLogEntry, ToolLogPage};
 
 use super::output::{OutputLine, OutputStream, OUTPUT_BUFFER_LIMIT};
-use super::{Session, SessionMetrics, SessionState};
+use super::{Session, SessionMessage, SessionMetrics, SessionState};
 
 pub struct StateStore {
     conn: Connection,
@@ -29,6 +30,7 @@ impl StateStore {
                 id TEXT PRIMARY KEY,
                 task TEXT NOT NULL,
                 agent_type TEXT NOT NULL,
+                working_dir TEXT NOT NULL DEFAULT '.',
                 state TEXT NOT NULL DEFAULT 'pending',
                 pid INTEGER,
                 worktree_path TEXT,
@@ -84,6 +86,15 @@ impl StateStore {
     }
 
     fn ensure_session_columns(&self) -> Result<()> {
+        if !self.has_column("sessions", "working_dir")? {
+            self.conn
+                .execute(
+                    "ALTER TABLE sessions ADD COLUMN working_dir TEXT NOT NULL DEFAULT '.'",
+                    [],
+                )
+                .context("Failed to add working_dir column to sessions table")?;
+        }
+
         if !self.has_column("sessions", "pid")? {
             self.conn
                 .execute("ALTER TABLE sessions ADD COLUMN pid INTEGER", [])
@@ -105,12 +116,13 @@ impl StateStore {
 
     pub fn insert_session(&self, session: &Session) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO sessions (id, task, agent_type, state, pid, worktree_path, worktree_branch, worktree_base, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO sessions (id, task, agent_type, working_dir, state, pid, worktree_path, worktree_branch, worktree_base, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             rusqlite::params![
                 session.id,
                 session.task,
                 session.agent_type,
+                session.working_dir.to_string_lossy().to_string(),
                 session.state.to_string(),
                 session.pid.map(i64::from),
                 session
@@ -202,6 +214,21 @@ impl StateStore {
         Ok(())
     }
 
+    pub fn clear_worktree(&self, session_id: &str) -> Result<()> {
+        let updated = self.conn.execute(
+            "UPDATE sessions
+             SET worktree_path = NULL, worktree_branch = NULL, worktree_base = NULL, updated_at = ?1
+             WHERE id = ?2",
+            rusqlite::params![chrono::Utc::now().to_rfc3339(), session_id],
+        )?;
+
+        if updated == 0 {
+            anyhow::bail!("Session not found: {session_id}");
+        }
+
+        Ok(())
+    }
+
     pub fn update_metrics(&self, session_id: &str, metrics: &SessionMetrics) -> Result<()> {
         self.conn.execute(
             "UPDATE sessions SET tokens_used = ?1, tool_calls = ?2, files_changed = ?3, duration_secs = ?4, cost_usd = ?5, updated_at = ?6 WHERE id = ?7",
@@ -228,7 +255,7 @@ impl StateStore {
 
     pub fn list_sessions(&self) -> Result<Vec<Session>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, task, agent_type, state, pid, worktree_path, worktree_branch, worktree_base,
+            "SELECT id, task, agent_type, working_dir, state, pid, worktree_path, worktree_branch, worktree_base,
                     tokens_used, tool_calls, files_changed, duration_secs, cost_usd,
                     created_at, updated_at
              FROM sessions ORDER BY updated_at DESC",
@@ -236,25 +263,26 @@ impl StateStore {
 
         let sessions = stmt
             .query_map([], |row| {
-                let state_str: String = row.get(3)?;
+                let state_str: String = row.get(4)?;
                 let state = SessionState::from_db_value(&state_str);
 
-                let worktree_path: Option<String> = row.get(5)?;
+                let worktree_path: Option<String> = row.get(6)?;
                 let worktree = worktree_path.map(|path| super::WorktreeInfo {
                     path: PathBuf::from(path),
-                    branch: row.get::<_, String>(6).unwrap_or_default(),
-                    base_branch: row.get::<_, String>(7).unwrap_or_default(),
+                    branch: row.get::<_, String>(7).unwrap_or_default(),
+                    base_branch: row.get::<_, String>(8).unwrap_or_default(),
                 });
 
-                let created_str: String = row.get(13)?;
-                let updated_str: String = row.get(14)?;
+                let created_str: String = row.get(14)?;
+                let updated_str: String = row.get(15)?;
 
                 Ok(Session {
                     id: row.get(0)?,
                     task: row.get(1)?,
                     agent_type: row.get(2)?,
+                    working_dir: PathBuf::from(row.get::<_, String>(3)?),
                     state,
-                    pid: row.get::<_, Option<u32>>(4)?,
+                    pid: row.get::<_, Option<u32>>(5)?,
                     worktree,
                     created_at: chrono::DateTime::parse_from_rfc3339(&created_str)
                         .unwrap_or_default()
@@ -263,11 +291,11 @@ impl StateStore {
                         .unwrap_or_default()
                         .with_timezone(&chrono::Utc),
                     metrics: SessionMetrics {
-                        tokens_used: row.get(8)?,
-                        tool_calls: row.get(9)?,
-                        files_changed: row.get(10)?,
-                        duration_secs: row.get(11)?,
-                        cost_usd: row.get(12)?,
+                        tokens_used: row.get(9)?,
+                        tool_calls: row.get(10)?,
+                        files_changed: row.get(11)?,
+                        duration_secs: row.get(12)?,
+                        cost_usd: row.get(13)?,
                     },
                 })
             })?
@@ -287,6 +315,32 @@ impl StateStore {
             .find(|session| session.id == id || session.id.starts_with(id)))
     }
 
+    pub fn delete_session(&self, session_id: &str) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM session_output WHERE session_id = ?1",
+            rusqlite::params![session_id],
+        )?;
+        self.conn.execute(
+            "DELETE FROM tool_log WHERE session_id = ?1",
+            rusqlite::params![session_id],
+        )?;
+        self.conn.execute(
+            "DELETE FROM messages WHERE from_session = ?1 OR to_session = ?1",
+            rusqlite::params![session_id],
+        )?;
+
+        let deleted = self.conn.execute(
+            "DELETE FROM sessions WHERE id = ?1",
+            rusqlite::params![session_id],
+        )?;
+
+        if deleted == 0 {
+            anyhow::bail!("Session not found: {session_id}");
+        }
+
+        Ok(())
+    }
+
     pub fn send_message(&self, from: &str, to: &str, content: &str, msg_type: &str) -> Result<()> {
         self.conn.execute(
             "INSERT INTO messages (from_session, to_session, content, msg_type, timestamp)
@@ -294,6 +348,163 @@ impl StateStore {
             rusqlite::params![from, to, content, msg_type, chrono::Utc::now().to_rfc3339()],
         )?;
         Ok(())
+    }
+
+    pub fn list_messages_for_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionMessage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, from_session, to_session, content, msg_type, read, timestamp
+             FROM messages
+             WHERE from_session = ?1 OR to_session = ?1
+             ORDER BY id DESC
+             LIMIT ?2",
+        )?;
+
+        let mut messages = stmt
+            .query_map(rusqlite::params![session_id, limit as i64], |row| {
+                let timestamp: String = row.get(6)?;
+
+                Ok(SessionMessage {
+                    id: row.get(0)?,
+                    from_session: row.get(1)?,
+                    to_session: row.get(2)?,
+                    content: row.get(3)?,
+                    msg_type: row.get(4)?,
+                    read: row.get::<_, i64>(5)? != 0,
+                    timestamp: chrono::DateTime::parse_from_rfc3339(&timestamp)
+                        .unwrap_or_default()
+                        .with_timezone(&chrono::Utc),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        messages.reverse();
+        Ok(messages)
+    }
+
+    pub fn unread_message_counts(&self) -> Result<HashMap<String, usize>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT to_session, COUNT(*)
+             FROM messages
+             WHERE read = 0
+             GROUP BY to_session",
+        )?;
+
+        let counts = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+            })?
+            .collect::<Result<HashMap<_, _>, _>>()?;
+
+        Ok(counts)
+    }
+
+    pub fn unread_task_handoffs_for_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<SessionMessage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, from_session, to_session, content, msg_type, read, timestamp
+             FROM messages
+             WHERE to_session = ?1 AND msg_type = 'task_handoff' AND read = 0
+             ORDER BY id ASC
+             LIMIT ?2",
+        )?;
+
+        let messages = stmt.query_map(rusqlite::params![session_id, limit as i64], |row| {
+            let timestamp: String = row.get(6)?;
+
+            Ok(SessionMessage {
+                id: row.get(0)?,
+                from_session: row.get(1)?,
+                to_session: row.get(2)?,
+                content: row.get(3)?,
+                msg_type: row.get(4)?,
+                read: row.get::<_, i64>(5)? != 0,
+                timestamp: chrono::DateTime::parse_from_rfc3339(&timestamp)
+                    .unwrap_or_default()
+                    .with_timezone(&chrono::Utc),
+            })
+        })?;
+
+        messages
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn unread_task_handoff_targets(&self, limit: usize) -> Result<Vec<(String, usize)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT to_session, COUNT(*) as unread_count
+             FROM messages
+             WHERE msg_type = 'task_handoff' AND read = 0
+             GROUP BY to_session
+             ORDER BY unread_count DESC, MAX(id) ASC
+             LIMIT ?1",
+        )?;
+
+        let targets = stmt.query_map(rusqlite::params![limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+        })?;
+
+        targets
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn mark_messages_read(&self, session_id: &str) -> Result<usize> {
+        let updated = self.conn.execute(
+            "UPDATE messages SET read = 1 WHERE to_session = ?1 AND read = 0",
+            rusqlite::params![session_id],
+        )?;
+
+        Ok(updated)
+    }
+
+    pub fn mark_message_read(&self, message_id: i64) -> Result<usize> {
+        let updated = self.conn.execute(
+            "UPDATE messages SET read = 1 WHERE id = ?1 AND read = 0",
+            rusqlite::params![message_id],
+        )?;
+
+        Ok(updated)
+    }
+
+    pub fn latest_task_handoff_source(&self, session_id: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row(
+                "SELECT from_session
+                 FROM messages
+                 WHERE to_session = ?1 AND msg_type = 'task_handoff'
+                 ORDER BY id DESC
+                 LIMIT 1",
+                rusqlite::params![session_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn delegated_children(&self, session_id: &str, limit: usize) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT to_session
+             FROM messages
+             WHERE from_session = ?1 AND msg_type = 'task_handoff'
+             GROUP BY to_session
+             ORDER BY MAX(id) DESC
+             LIMIT ?2",
+        )?;
+
+        let children = stmt
+            .query_map(rusqlite::params![session_id, limit as i64], |row| {
+                row.get::<_, String>(0)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(children)
     }
 
     pub fn append_output_line(
@@ -477,6 +688,7 @@ mod tests {
             id: id.to_string(),
             task: "task".to_string(),
             agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
             state,
             pid: None,
             worktree: None,
@@ -515,6 +727,7 @@ mod tests {
                 id TEXT PRIMARY KEY,
                 task TEXT NOT NULL,
                 agent_type TEXT NOT NULL,
+                working_dir TEXT NOT NULL DEFAULT '.',
                 state TEXT NOT NULL DEFAULT 'pending',
                 worktree_path TEXT,
                 worktree_branch TEXT,
@@ -537,6 +750,7 @@ mod tests {
             .query_map([], |row| row.get::<_, String>(1))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
+        assert!(column_names.iter().any(|column| column == "working_dir"));
         assert!(column_names.iter().any(|column| column == "pid"));
         Ok(())
     }
@@ -551,6 +765,7 @@ mod tests {
             id: "session-1".to_string(),
             task: "buffer output".to_string(),
             agent_type: "claude".to_string(),
+            working_dir: PathBuf::from("/tmp"),
             state: SessionState::Running,
             pid: None,
             worktree: None,
@@ -570,6 +785,73 @@ mod tests {
         assert_eq!(texts.first().copied(), Some("line-5"));
         let expected_last_line = format!("line-{}", OUTPUT_BUFFER_LIMIT + 4);
         assert_eq!(texts.last().copied(), Some(expected_last_line.as_str()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn message_round_trip_tracks_unread_counts_and_read_state() -> Result<()> {
+        let tempdir = TestDir::new("store-messages")?;
+        let db = StateStore::open(&tempdir.path().join("state.db"))?;
+
+        db.insert_session(&build_session("planner", SessionState::Running))?;
+        db.insert_session(&build_session("worker", SessionState::Pending))?;
+
+        db.send_message("planner", "worker", "{\"question\":\"Need context\"}", "query")?;
+        db.send_message(
+            "worker",
+            "planner",
+            "{\"summary\":\"Finished pass\",\"files_changed\":[\"src/app.rs\"]}",
+            "completed",
+        )?;
+
+        let unread = db.unread_message_counts()?;
+        assert_eq!(unread.get("worker"), Some(&1));
+        assert_eq!(unread.get("planner"), Some(&1));
+
+        let worker_messages = db.list_messages_for_session("worker", 10)?;
+        assert_eq!(worker_messages.len(), 2);
+        assert_eq!(worker_messages[0].msg_type, "query");
+        assert_eq!(worker_messages[1].msg_type, "completed");
+
+        let updated = db.mark_messages_read("worker")?;
+        assert_eq!(updated, 1);
+
+        let unread_after = db.unread_message_counts()?;
+        assert_eq!(unread_after.get("worker"), None);
+        assert_eq!(unread_after.get("planner"), Some(&1));
+
+        db.send_message(
+            "planner",
+            "worker-2",
+            "{\"task\":\"Review auth flow\",\"context\":\"Delegated from planner\"}",
+            "task_handoff",
+        )?;
+        db.send_message(
+            "planner",
+            "worker-3",
+            "{\"task\":\"Check billing\",\"context\":\"Delegated from planner\"}",
+            "task_handoff",
+        )?;
+
+        assert_eq!(
+            db.latest_task_handoff_source("worker-2")?,
+            Some("planner".to_string())
+        );
+        assert_eq!(
+            db.delegated_children("planner", 10)?,
+            vec![
+                "worker-3".to_string(),
+                "worker-2".to_string(),
+            ]
+        );
+        assert_eq!(
+            db.unread_task_handoff_targets(10)?,
+            vec![
+                ("worker-2".to_string(), 1),
+                ("worker-3".to_string(), 1),
+            ]
+        );
 
         Ok(())
     }

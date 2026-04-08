@@ -36,6 +36,24 @@ Some skills include `references/` subdirectories with deeper content:
 
 ## Installation
 
+### Codex Desktop App
+
+Install the Netlify plugin from the [Codex plugin directory](https://developers.openai.com/codex/plugins/) in the Codex desktop app.
+
+The plugin lets Codex deploy to Netlify without leaving your coding workflow. You can create projects, generate preview URLs, deploy to production, validate build configuration, and inspect deploy status and logs. For full details, refer to [Deploy from Codex with the Netlify Plugin](https://www.netlify.com/changelog/2026-03-27-deploy-from-codex-netlify-plugin/).
+
+### Codex CLI
+
+Copy the pre-built `codex/` directory into your project root:
+
+```bash
+git clone --depth 1 https://github.com/netlify/context-and-tools.git /tmp/netlify-skills && \
+  cp -r /tmp/netlify-skills/codex . && \
+  rm -rf /tmp/netlify-skills
+```
+
+This gives you `codex/AGENTS.md` (the skill router) and `codex/skills/` with all Netlify skills. Codex discovers `AGENTS.md` automatically and activates skills by name using `$skill-name` syntax.
+
 ### Claude Code
 
 Add the marketplace and install the plugin:
@@ -76,17 +94,7 @@ This copies `.mdc` rule files into `.cursor/rules/`, where Cursor automatically 
 
 </details>
 
-### Codex
 
-Copy the pre-built `codex/` directory into your project root:
-
-```bash
-git clone --depth 1 https://github.com/netlify/context-and-tools.git /tmp/netlify-skills && \
-  cp -r /tmp/netlify-skills/codex . && \
-  rm -rf /tmp/netlify-skills
-```
-
-This gives you `codex/AGENTS.md` (the skill router) and `codex/skills/` with all Netlify skills. Codex discovers `AGENTS.md` automatically and activates skills by name using `$skill-name` syntax.
 
 ### Other AI agents
 
