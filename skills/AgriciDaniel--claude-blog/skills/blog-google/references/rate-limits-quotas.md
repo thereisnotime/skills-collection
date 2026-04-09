@@ -11,7 +11,7 @@
 | CrUX API | 150 QPM (shared) | Unlimited | Free | API Key | Per project |
 | CrUX History API | 150 QPM (shared with CrUX) | Unlimited | Free | API Key | Per project |
 | Indexing API | 380 RPM total, 180 read/min | 200 publish/day | Free | Service Account | Per project |
-| GA4 Data API | 10 concurrent | ~25K tokens/day | Free | Service Account | Per property/project |
+| GA4 Data API | 10 concurrent (50 for 360) | 200,000 Core Tokens/day (std); 2M (360) | Free | Service Account | Per property/project |
 | Knowledge Graph | -- | 100,000 QPD | Free | API Key | Per project |
 | Custom Search | -- | 10,000 QPD max | 100 free, $5/1K | API Key | Per project |
 | Web Risk | 6,000 QPM | 100K/month | Free tier | API Key | Per project |
@@ -55,9 +55,10 @@ GA4 uses a token system rather than simple request counts:
 - Simple 1-dimension, 1-metric report: ~1-5 tokens
 - Complex multi-dimension, multi-metric: ~10-100 tokens
 - Set `returnPropertyQuota: true` to monitor consumption
-- Daily limit: 25,000 tokens per property per project
-- Hourly limit: 5,000 tokens per property per project
-- Concurrent: max 10 simultaneous requests
+- Daily limit: **200,000 Core Tokens/day** per standard property (2,000,000 for 360)
+- Hourly limit: **40,000 tokens/hour** per property; **14,000/hour** per project per property
+- Concurrent: max 10 simultaneous requests (50 for 360)
+- Source: developers.google.com/analytics/devguides/reporting/data/v1/quotas (updated 2026-03-26)
 
 ## CrUX Shared Quota
 
@@ -69,7 +70,7 @@ The CrUX API and CrUX History API share the same 150 QPM quota per project. Plan
 - PSI, CrUX, CrUX History (API key, unlimited free)
 - GSC (service account, 30M QPD)
 - Indexing API (service account, 200 publish/day)
-- GA4 Data API (service account, 25K tokens/day)
+- GA4 Data API (service account, 200K tokens/day standard)
 - Knowledge Graph (API key, 100K QPD)
 
 Only Custom Search and Web Risk have paid tiers at high volumes.

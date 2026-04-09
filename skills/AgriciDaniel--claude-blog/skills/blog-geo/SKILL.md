@@ -19,12 +19,12 @@ Readiness score with platform-specific recommendations.
 
 Reference these benchmarks throughout the audit:
 
-- Only 12% of sources cited match across ChatGPT, Perplexity, and AI Overviews
-- 80% of LLM citations don't rank in Google's top 100
-- Brands 6.5x more likely cited through third-party sources
-- 120-180 word sections get 70% more ChatGPT citations
-- Comparison tables with `<thead>` achieve 47% higher AI citation rates
-- Content freshness: 76.4% of top citations updated within 30 days
+- Only 11% of domains cited by both ChatGPT and Perplexity (Digital Bloom, domain-level)
+- 80% of LLM citations don't rank in Google's top 100 (Ahrefs)
+- Brands 6.5x more likely cited through third-party sources (AirOps)
+- 120-180 word sections get 70% more ChatGPT citations (SE Ranking, Nov 2025)
+- Comparison tables with `<thead>` achieve 47% higher AI citation rates (directional)
+- Content freshness: 76.4% of top citations updated within 30 days (Ahrefs, ~17M citations)
 
 ## Audit Process
 

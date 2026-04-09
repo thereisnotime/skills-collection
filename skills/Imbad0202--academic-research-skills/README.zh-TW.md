@@ -547,9 +547,15 @@ https://github.com/Imbad0202/academic-research-skills
 
 **[aspi6246](https://github.com/aspi6246)** — 貢獻者。v3.1 優化靈感來自 [Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics)：唯讀約束模式、Anti-Pattern 作為一等公民設計、認知框架方法（教「如何思考」而非只有步驟）、精簡 skill 尺寸哲學。
 
+**[cloudenochcsis](https://github.com/cloudenochcsis)** — 貢獻者。將 `academic-paper-reviewer/references/top_journals_by_field.md` 中的資訊系統章節從 AIS *Basket of 8* 擴充為完整的 *Senior Scholars' Basket of 11*，補上 *Decision Support Systems*、*Information & Management*、*Information and Organization* 三本期刊及其出版社與影響因子資料。資料來源為 [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals) — 全球 IS 博士班與終身職評鑑委員會引用的權威清單（[PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)）。
+
 ---
 
 ## 更新紀錄
+
+### v3.1.1 (2026-04-09) — 資訊系統 Senior Scholars' Basket of 11
+
+[@cloudenochcsis](https://github.com/cloudenochcsis) 的外部貢獻（[PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)）。將 `academic-paper-reviewer/references/top_journals_by_field.md` 第 7 節從 v2.9 加入的 AIS *Basket of 8* 擴充為完整的 *Senior Scholars' Basket of 11*，補上 *Decision Support Systems*、*Information & Management*、*Information and Organization* 三本期刊。資料來源：[AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals) — 全球 IS 博士班與終身職評鑑委員會引用的權威清單。
 
 ### v3.1 (2026-04-06) — 抗 Context Rot + 認知框架 + 精簡尺寸
 

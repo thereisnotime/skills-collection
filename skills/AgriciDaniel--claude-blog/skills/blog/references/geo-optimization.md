@@ -7,18 +7,17 @@ GEO methods boost AI visibility by up to 40%.
 
 | Technique | Improvement |
 |-----------|-------------|
-| Citing authoritative sources | +115.1% visibility (5th-ranked sites) |
-| Quotation addition | +37% |
-| Statistics addition | +22% |
-| Answer-first formatting | +340% (Seenos) |
-| FAQ schema | +28% (Search Engine Land) |
+| Citing authoritative sources | +115.1% visibility (5th-ranked sites, main experiment) |
+| Quotation addition | +28% (main experiment); +37% (Perplexity.ai validation, Table 7) |
+| Statistics addition | +41% (main experiment); +22% (Perplexity.ai validation, Table 7) |
+| FAQ schema | +28% (sponsored article on SEL; not editorial research) |
 
 Traditional keyword stuffing performs **worse than baseline** in generative engines.
 
 ### Cross-Platform Citation Divergence
 
-- Only 12% of sources cited match across ChatGPT, Perplexity, and AI Overviews
-  (Digital Bloom, 2025) - each platform has distinct citation preferences
+- Only 11% of domains are cited by both ChatGPT and Perplexity (Digital Bloom, 2025;
+  domain-level, not URL-level; AI Overviews not included in that study)
 - 80% of LLM citations don't rank in Google's top 100 (Ahrefs, Aug 2025) - traditional
   SEO rankings are a poor predictor of AI citation
 - Brands are 6.5x more likely to be cited through third-party sources than their own
@@ -42,14 +41,13 @@ Three critical stages:
 
 | Format | Impact | Source |
 |--------|--------|--------|
-| Listicles | 50% of top AI citations | Onely |
-| Tables/structured data | 2.5x more citations | Onely |
-| Long-form (2,000+ words) | 3x more citations | Onely |
-| Answer-first formatting | +340% improvement | Seenos |
-| FAQ schema | +28% increase | Search Engine Land |
+| Listicles | 50% of top AI citations (Onely/nobori.ai; Wix/Peec 75K-answer study found 21.9%) |
+| Tables/structured data | 2.5x more citations (Onely citing Averi AI) |
+| Long-form (2,000+ words) | ~3x more citations (Moz 2025 found 3.2x; SE Ranking found 1.6x) |
+| FAQ schema | +28% (sponsored SEL article, not editorial research) |
 | Content with statistics | +40% higher citation rates | Onely |
 | Sections of 120-180 words between headings | 70% more ChatGPT citations | SE Ranking, Nov 2025 |
-| Comparison tables with `<thead>` | 47% higher AI citation rates | SEL experiment |
+| Comparison tables with `<thead>` | 47% higher AI citation rates (SEL; primary source unlocatable) |
 
 ## Platform-Specific Citation Patterns
 
@@ -67,7 +65,7 @@ freshness-dependent platform. Content older than 1 week sees sharp citation drop
 
 ## Content Freshness Requirements
 
-- 76.4% of ChatGPT's most-cited pages updated within 30 days (Digitaloft)
+- 76.4% of ChatGPT's most-cited pages updated within 30 days (Ahrefs, ~17M citations)
 - URLs cited in AI results are 25.7% fresher than traditional search
 - Content < 3 months old is 3x more likely to get cited
 - **Action**: Update critical content quarterly with at least 30% changes
@@ -86,7 +84,7 @@ freshness-dependent platform. Content older than 1 week sees sharp citation drop
 ### Platform-Specific Citation Rates
 
 **YouTube**:
-- Citations in AI Overviews up 414% (Q1 2025, BrightEdge)
+- Citations in AI Overviews up 414% (Q1 2025, NP Digital, 10K+ AIO analysis)
 - How-to videos up 651%
 - Visual demos up 592%
 - 200x more cited than any other video platform
@@ -99,13 +97,14 @@ freshness-dependent platform. Content older than 1 week sees sharp citation drop
 - Strategy: Authentic participation in 3-5 subreddits BEFORE any promotional content
 
 **Review Platforms (B2B)**:
-- G2 accounts for 22-23% of review-platform citations
-- 33% of review citations come from G2
+- G2 accounts for 22-23% of review-platform citations (Radix via G2's own blog;
+  self-reported — Hall.com's independent analysis found G2 at only 8.25% of B2B
+  software citations in ChatGPT)
+- 33% of review citations come from G2 (Profound via G2's blog; treat as directional)
 - Multi-platform presence: 4.6-6.3 citations vs 1.8 without (2.6-3.5x multiplier)
 
 **Wikipedia/Wikidata**:
-- 22% of AI training data
-- 7.8% of all ChatGPT citations
+- 7.8% of all ChatGPT citations (Profound)
 - Used as "credibility tiebreaker" when sources conflict
 
 ### Budget Allocation
@@ -142,7 +141,7 @@ Use SSR, SSG, or ISR. Test by disabling JS and reloading.
 - Crawlers implement 3-5 second hard timeouts (Getpassionfruit)
 - Core Web Vitals are a constraint, not a growth lever - good CWV doesn't reliably
   outperform, but severe LCP failure creates disadvantage (Search Engine Land, 107,352 pages)
-- 46% of AI agent visits begin in reading mode (text-only, no JS/CSS)
+- Top 10 domains capture 46% of all ChatGPT citations per topic (Growth Memo, Mar 2026)
 - Slow pages are excluded from AI citation candidate pools entirely
 - Vercel analysis of 500+ million GPTBot fetches found zero evidence of JS execution
 
@@ -162,14 +161,10 @@ Allow: /
 Markdown file at site root helping LLMs understand content at inference time.
 Keep under 10KB, plain URLs with brief comments.
 
-## Attribution Crisis (Strauss et al., June 2025)
+## Attribution Gaps
 
-- 24% of ChatGPT (GPT-4o) responses generated without fetching any online content
-- 34% of Gemini responses skip web retrieval entirely
-- 92% of Gemini answers provide no clickable citations
-- Perplexity visits ~10 pages per query but cites only 3-4
-
-**Implication**: Optimizing for retrieval is critical - content must enter the
+Perplexity visits ~10 pages per query but cites only 3-4. Not all AI responses
+include citations - optimizing for retrieval is critical. Content must enter the
 candidate set before citation is possible.
 
 ## GEO Case Study Results
@@ -200,7 +195,8 @@ Readability directly impacts AI citation rates. Content in the Flesch 60-75
 band receives significantly more AI citations across all major platforms.
 
 ### Flesch Score & AI Citation Rates
-- **Flesch 60-75 = 31% more AI citations** (Spotlight, 18,000 monitored prompts)
+- **Flesch 60-75 = 31% more AI citations** (Spotlight, 18,000 monitored prompts;
+  self-reported internal data from a commercial platform, no independent verification)
 - Teams improving Flesch from 52→68 saw parallel citation lifts within two
   crawl windows
 - Content that is too complex (Flesch <50) or too simple (Flesch >80) gets
@@ -220,9 +216,8 @@ Princeton GEO paper (KDD 2024) findings on readability-related tactics:
 - Keyword stuffing performs -10% WORSE than baseline
 
 ### Schema & Structure for AI Citation
-- Schema markup increases AI citations by **44%** (BrightEdge 2025)
 - Comparison tables with proper HTML (`<thead>`, `<tbody>`) = **47% higher**
-  AI citation rates (Search Engine Land experiment)
+  AI citation rates (attributed to SEL; primary source unlocatable — treat as directional)
 - SearchVIU confirmed ChatGPT, Claude, Perplexity, and Gemini all process
   Schema Markup during citation selection
 
@@ -233,8 +228,8 @@ Princeton GEO paper (KDD 2024) findings on readability-related tactics:
 | Perplexity | Reddit = 46.7% of top-10 sources; strongest depth correlation (0.191) | 2-3 day content decay; heavily weights recency |
 | AI Overviews | 93.67% from top-10 organic; avg 10.2 links per response | Prefers established authority + clear answers |
 
-Only 11% of domains are cited by both ChatGPT and Perplexity. Only 12% of URLs
-cited by ChatGPT, Perplexity, AND Copilot rank in Google's top 10.
+Only 11% of domains are cited by both ChatGPT and Perplexity (Digital Bloom). Only 12%
+of URLs cited by ChatGPT, Perplexity, and Copilot rank in Google's top 10 (Ahrefs).
 
 ### Content Freshness for AI Citation
 - **65%** of AI bot hits target content published within the past year (Seer Interactive)

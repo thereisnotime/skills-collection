@@ -7,77 +7,90 @@ Reference architecture for generating slide presentations. Every presentation fo
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presentation Title</title>
 
     <!-- Fonts: use Fontshare or Google Fonts — never system fonts -->
-    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=...">
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=..." />
 
     <style>
-        /* ===========================================
+      /* ===========================================
            CSS CUSTOM PROPERTIES (THEME)
            Change these to change the whole look
            =========================================== */
-        :root {
-            /* Colors — from chosen style preset */
-            --bg-primary: #0a0f1c;
-            --bg-secondary: #111827;
-            --text-primary: #ffffff;
-            --text-secondary: #9ca3af;
-            --accent: #00ffcc;
-            --accent-glow: rgba(0, 255, 204, 0.3);
+      :root {
+        /* Colors — from chosen style preset */
+        --bg-primary: #0a0f1c;
+        --bg-secondary: #111827;
+        --text-primary: #ffffff;
+        --text-secondary: #9ca3af;
+        --accent: #00ffcc;
+        --accent-glow: rgba(0, 255, 204, 0.3);
 
-            /* Typography — MUST use clamp() */
-            --font-display: 'Clash Display', sans-serif;
-            --font-body: 'Satoshi', sans-serif;
-            --title-size: clamp(2rem, 6vw, 5rem);
-            --subtitle-size: clamp(0.875rem, 2vw, 1.25rem);
-            --body-size: clamp(0.75rem, 1.2vw, 1rem);
+        /* Typography — MUST use clamp() */
+        --font-display: "Clash Display", sans-serif;
+        --font-body: "Satoshi", sans-serif;
+        --title-size: clamp(2rem, 6vw, 5rem);
+        --subtitle-size: clamp(0.875rem, 2vw, 1.25rem);
+        --body-size: clamp(0.75rem, 1.2vw, 1rem);
 
-            /* Spacing — MUST use clamp() */
-            --slide-padding: clamp(1.5rem, 4vw, 4rem);
-            --content-gap: clamp(1rem, 2vw, 2rem);
+        /* Spacing — MUST use clamp() */
+        --slide-padding: clamp(1.5rem, 4vw, 4rem);
+        --content-gap: clamp(1rem, 2vw, 2rem);
 
-            /* Animation */
-            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-            --duration-normal: 0.6s;
-        }
+        /* Animation */
+        --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+        --duration-normal: 0.6s;
+      }
 
-        /* ===========================================
+      /* ===========================================
            BASE STYLES
            =========================================== */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        /* --- PASTE viewport-base.css CONTENTS HERE --- */
+      /* --- PASTE viewport-base.css CONTENTS HERE --- */
 
-        /* ===========================================
+      /* ===========================================
            ANIMATIONS
            Trigger via .visible class (added by JS on scroll)
            =========================================== */
-        .reveal {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity var(--duration-normal) var(--ease-out-expo),
-                        transform var(--duration-normal) var(--ease-out-expo);
-        }
+      .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition:
+          opacity var(--duration-normal) var(--ease-out-expo),
+          transform var(--duration-normal) var(--ease-out-expo);
+      }
 
-        .slide.visible .reveal {
-            opacity: 1;
-            transform: translateY(0);
-        }
+      .slide.visible .reveal {
+        opacity: 1;
+        transform: translateY(0);
+      }
 
-        /* Stagger children for sequential reveal */
-        .reveal:nth-child(1) { transition-delay: 0.1s; }
-        .reveal:nth-child(2) { transition-delay: 0.2s; }
-        .reveal:nth-child(3) { transition-delay: 0.3s; }
-        .reveal:nth-child(4) { transition-delay: 0.4s; }
+      /* Stagger children for sequential reveal */
+      .reveal:nth-child(1) {
+        transition-delay: 0.1s;
+      }
+      .reveal:nth-child(2) {
+        transition-delay: 0.2s;
+      }
+      .reveal:nth-child(3) {
+        transition-delay: 0.3s;
+      }
+      .reveal:nth-child(4) {
+        transition-delay: 0.4s;
+      }
 
-        /* ... preset-specific styles ... */
+      /* ... preset-specific styles ... */
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <!-- Optional: Progress bar -->
     <div class="progress-bar"></div>
 
@@ -86,59 +99,63 @@ Reference architecture for generating slide presentations. Every presentation fo
 
     <!-- Slides -->
     <section class="slide title-slide">
-        <h1 class="reveal">Presentation Title</h1>
-        <p class="reveal">Subtitle or author</p>
+      <h1 class="reveal">Presentation Title</h1>
+      <p class="reveal">Subtitle or author</p>
     </section>
 
     <section class="slide">
-        <div class="slide-content">
-            <h2 class="reveal">Slide Title</h2>
-            <p class="reveal">Content...</p>
-        </div>
+      <div class="slide-content">
+        <h2 class="reveal">Slide Title</h2>
+        <p class="reveal">Content...</p>
+      </div>
     </section>
 
     <!-- More slides... -->
 
     <script>
-        /* ===========================================
+      /* ===========================================
            SLIDE PRESENTATION CONTROLLER
            =========================================== */
-        class SlidePresentation {
-            constructor() {
-                this.slides = document.querySelectorAll('.slide');
-                this.currentSlide = 0;
-                this.setupIntersectionObserver();
-                this.setupKeyboardNav();
-                this.setupTouchNav();
-                this.setupProgressBar();
-                this.setupNavDots();
-            }
-
-            setupIntersectionObserver() {
-                // Add .visible class when slides enter viewport
-                // Triggers CSS animations efficiently
-            }
-
-            setupKeyboardNav() {
-                // Arrow keys, Space, Page Up/Down
-            }
-
-            setupTouchNav() {
-                // Touch/swipe support for mobile
-            }
-
-            setupProgressBar() {
-                // Update progress bar on scroll
-            }
-
-            setupNavDots() {
-                // Generate and manage navigation dots
-            }
+      class SlidePresentation {
+        constructor() {
+          this.slides = document.querySelectorAll(".slide");
+          this.currentSlide = 0;
+          this.setupIntersectionObserver();
+          this.setupKeyboardNav();
+          this.setupTouchNav();
+          this.setupProgressBar();
+          this.setupNavDots();
         }
 
-        new SlidePresentation();
+        setupIntersectionObserver() {
+          // Add .visible class when slides enter viewport
+          // Triggers CSS animations efficiently
+        }
+
+        setupKeyboardNav() {
+          // Arrow keys, Space, Page Up/Down
+        }
+
+        setupTouchNav() {
+          // Touch/swipe support for mobile
+        }
+
+        setupProgressBar() {
+          // Update progress bar on scroll
+        }
+
+        setupNavDots() {
+          // IMPORTANT: Always clear before building — if outerHTML was
+          // captured while dots were rendered, re-opening the file would
+          // append a duplicate set on top of the existing ones.
+          this.navDotsContainer.innerHTML = "";
+          // Generate and manage navigation dots
+        }
+      }
+
+      new SlidePresentation();
     </script>
-</body>
+  </body>
 </html>
 ```
 
@@ -180,76 +197,124 @@ Every presentation must include:
 **Required approach: JS-based hover with 400ms delay timeout.**
 
 HTML:
+
 ```html
 <div class="edit-hotzone"></div>
 <button class="edit-toggle" id="editToggle" title="Edit mode (E)">✏️</button>
 ```
 
 CSS (visibility controlled by JS classes only):
+
 ```css
 /* Do NOT use CSS ~ sibling selector for this!
    pointer-events: none breaks the hover chain.
    Must use JS with delay timeout. */
 .edit-hotzone {
-    position: fixed; top: 0; left: 0;
-    width: 80px; height: 80px;
-    z-index: 10000;
-    cursor: pointer;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 80px;
+  z-index: 10000;
+  cursor: pointer;
 }
 .edit-toggle {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-    z-index: 10001;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10001;
 }
 .edit-toggle.show,
 .edit-toggle.active {
-    opacity: 1;
-    pointer-events: auto;
+  opacity: 1;
+  pointer-events: auto;
 }
 ```
 
 JS (three interaction methods):
+
 ```javascript
 // 1. Click handler on the toggle button
-document.getElementById('editToggle').addEventListener('click', () => {
-    editor.toggleEditMode();
+document.getElementById("editToggle").addEventListener("click", () => {
+  editor.toggleEditMode();
 });
 
 // 2. Hotzone hover with 400ms grace period
-const hotzone = document.querySelector('.edit-hotzone');
-const editToggle = document.getElementById('editToggle');
+const hotzone = document.querySelector(".edit-hotzone");
+const editToggle = document.getElementById("editToggle");
 let hideTimeout = null;
 
-hotzone.addEventListener('mouseenter', () => {
-    clearTimeout(hideTimeout);
-    editToggle.classList.add('show');
+hotzone.addEventListener("mouseenter", () => {
+  clearTimeout(hideTimeout);
+  editToggle.classList.add("show");
 });
-hotzone.addEventListener('mouseleave', () => {
-    hideTimeout = setTimeout(() => {
-        if (!editor.isActive) editToggle.classList.remove('show');
-    }, 400);
+hotzone.addEventListener("mouseleave", () => {
+  hideTimeout = setTimeout(() => {
+    if (!editor.isActive) editToggle.classList.remove("show");
+  }, 400);
 });
-editToggle.addEventListener('mouseenter', () => {
-    clearTimeout(hideTimeout);
+editToggle.addEventListener("mouseenter", () => {
+  clearTimeout(hideTimeout);
 });
-editToggle.addEventListener('mouseleave', () => {
-    hideTimeout = setTimeout(() => {
-        if (!editor.isActive) editToggle.classList.remove('show');
-    }, 400);
+editToggle.addEventListener("mouseleave", () => {
+  hideTimeout = setTimeout(() => {
+    if (!editor.isActive) editToggle.classList.remove("show");
+  }, 400);
 });
 
 // 3. Hotzone direct click
-hotzone.addEventListener('click', () => {
-    editor.toggleEditMode();
+hotzone.addEventListener("click", () => {
+  editor.toggleEditMode();
 });
 
 // 4. Keyboard shortcut (E key, skip when editing text)
-document.addEventListener('keydown', (e) => {
-    if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute('contenteditable')) {
-        editor.toggleEditMode();
-    }
+document.addEventListener("keydown", (e) => {
+  if (
+    (e.key === "e" || e.key === "E") &&
+    !e.target.getAttribute("contenteditable")
+  ) {
+    editor.toggleEditMode();
+  }
 });
+```
+
+**CRITICAL: `exportFile()` must strip edit state before capturing outerHTML.**
+
+When the user presses Ctrl+S in edit mode, `document.documentElement.outerHTML` captures the live DOM —
+including `body.edit-active`, `contenteditable="true"` on every text element, and `.active`/`.show` classes on
+the toggle button and banner. Anyone opening the saved file sees dashed outlines, a checkmark button, and an
+edit banner, as if permanently stuck in edit mode.
+
+Always implement `exportFile()` like this:
+
+```javascript
+exportFile() {
+    // Temporarily strip edit state so the saved file opens cleanly
+    const editableEls = Array.from(document.querySelectorAll('[contenteditable]'));
+    editableEls.forEach(el => el.removeAttribute('contenteditable'));
+    document.body.classList.remove('edit-active');
+
+    // Also strip UI classes from toggle button and banner
+    const editToggle = document.getElementById('editToggle');
+    const editBanner = document.querySelector('.edit-banner');
+    editToggle?.classList.remove('active', 'show');
+    editBanner?.classList.remove('active', 'show');
+
+    const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+    // Restore edit state so the user can keep editing
+    document.body.classList.add('edit-active');
+    editableEls.forEach(el => el.setAttribute('contenteditable', 'true'));
+    editToggle?.classList.add('active');
+    editBanner?.classList.add('active');
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'presentation.html';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
 ```
 
 ## Image Pipeline (Skip If No Images)
@@ -282,11 +347,11 @@ def resize_max(input_path, output_path, max_dim=1200):
     img.save(output_path, quality=85)
 ```
 
-| Situation | Operation |
-|-----------|-----------|
-| Square logo on rounded aesthetic | `crop_circle()` |
-| Image > 1MB | `resize_max(max_dim=1200)` |
-| Wrong aspect ratio | Manual crop with `img.crop()` |
+| Situation                        | Operation                     |
+| -------------------------------- | ----------------------------- |
+| Square logo on rounded aesthetic | `crop_circle()`               |
+| Image > 1MB                      | `resize_max(max_dim=1200)`    |
+| Wrong aspect ratio               | Manual crop with `img.crop()` |
 
 Save processed images with `_processed` suffix. Never overwrite originals.
 
@@ -295,24 +360,28 @@ Save processed images with `_processed` suffix. Never overwrite originals.
 **Use direct file paths** (not base64) — presentations are viewed locally:
 
 ```html
-<img src="assets/logo_round.png" alt="Logo" class="slide-image logo">
-<img src="assets/screenshot.png" alt="Screenshot" class="slide-image screenshot">
+<img src="assets/logo_round.png" alt="Logo" class="slide-image logo" />
+<img
+  src="assets/screenshot.png"
+  alt="Screenshot"
+  class="slide-image screenshot"
+/>
 ```
 
 ```css
 .slide-image {
-    max-width: 100%;
-    max-height: min(50vh, 400px);
-    object-fit: contain;
-    border-radius: 8px;
+  max-width: 100%;
+  max-height: min(50vh, 400px);
+  object-fit: contain;
+  border-radius: 8px;
 }
 .slide-image.screenshot {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 .slide-image.logo {
-    max-height: min(30vh, 200px);
+  max-height: min(30vh, 200px);
 }
 ```
 
@@ -327,6 +396,7 @@ Save processed images with `_processed` suffix. Never overwrite originals.
 **Comments:** Every section needs clear comments explaining what it does and how to modify it.
 
 **Accessibility:**
+
 - Semantic HTML (`<section>`, `<nav>`, `<main>`)
 - Keyboard navigation works fully
 - ARIA labels where needed
@@ -335,12 +405,14 @@ Save processed images with `_processed` suffix. Never overwrite originals.
 ## File Structure
 
 Single presentations:
+
 ```
 presentation.html    # Self-contained, all CSS/JS inline
 assets/              # Images only, if any
 ```
 
 Multiple presentations in one project:
+
 ```
 [name].html
 [name]-assets/

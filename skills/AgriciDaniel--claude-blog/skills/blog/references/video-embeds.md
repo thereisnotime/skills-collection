@@ -5,8 +5,8 @@
 Video is the strongest signal for AI visibility. Key data points:
 
 - **0.737 correlation** with AI visibility, the strongest single signal (Ahrefs 75K-brand study)
-- Video citations in AI Overviews up **414%** year-over-year (BrightEdge Q1 2025)
-- How-to video citations up **651%**, visual demo citations up **592%** (BrightEdge)
+- Video citations in AI Overviews up **414%** year-over-year (NP Digital Q1 2025, 10K+ AIO analysis)
+- How-to video citations up **651%**, visual demo citations up **592%** (NP Digital)
 - YouTube is cited **200x more** than any other video platform by AI systems
 - Pages with embedded video have **53x higher chance** of front-page ranking (Forrester)
 

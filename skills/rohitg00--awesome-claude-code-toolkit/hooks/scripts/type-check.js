@@ -20,7 +20,13 @@ if (!fs.existsSync(path.join(tsconfigDir, "tsconfig.json"))) {
 }
 
 try {
-  execFileSync("npx", ["tsc", "--noEmit", "--pretty"], {
+  const tscBin = path.join(
+    tsconfigDir,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "tsc.cmd" : "tsc"
+  );
+  execFileSync(tscBin, ["--noEmit", "--pretty"], {
     stdio: "pipe",
     timeout: 30000,
     cwd: tsconfigDir,
@@ -37,7 +43,7 @@ try {
     JSON.stringify({
       typeCheck: "fail",
       file: filePath,
-      errors: relevantErrors || output.slice(0, 500),
+      errors: relevantErrors || output.slice(0, 500) || (e.message || "Type check failed"),
     })
   );
 }

@@ -21,15 +21,19 @@ Allow: /
 User-agent: ChatGPT-User
 Allow: /
 
-# Anthropic
+# Anthropic (three-bot framework)
 User-agent: ClaudeBot
 Allow: /
 
-User-agent: Claude-Web
+User-agent: Claude-SearchBot
 Allow: /
 
-User-agent: anthropic-ai
+User-agent: Claude-User
 Allow: /
+
+# Deprecated Anthropic strings (kept for legacy compatibility):
+# User-agent: Claude-Web
+# User-agent: anthropic-ai
 
 # Google AI (training & AI Overviews)
 User-agent: Google-Extended
@@ -37,6 +41,25 @@ Allow: /
 
 # Perplexity
 User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Meta
+User-agent: Meta-ExternalAgent
+Allow: /
+
+# ByteDance
+User-agent: Bytespider
+Allow: /
+
+# Google AI agents (Project Mariner)
+User-agent: Google-Agent
+Allow: /
+
+# DuckDuckGo AI
+User-agent: DuckAssistBot
 Allow: /
 
 # Apple (Siri, Apple Intelligence)
@@ -84,22 +107,43 @@ Sitemap: https://example.com/sitemap.xml
 
 ### Crawler Identification Reference
 
-| Crawler | Operator | Purpose | Respects robots.txt |
-|---------|----------|---------|---------------------|
-| GPTBot | OpenAI | Training data & ChatGPT browsing | Yes |
-| OAI-SearchBot | OpenAI | SearchGPT results | Yes |
-| ChatGPT-User | OpenAI | ChatGPT user-initiated browsing | Yes |
-| ClaudeBot | Anthropic | Training data collection | Yes |
-| Claude-Web | Anthropic | Claude web search | Yes |
-| anthropic-ai | Anthropic | General crawling | Yes |
-| Google-Extended | Google | Gemini/AI training (separate from Googlebot) | Yes |
-| PerplexityBot | Perplexity | Answer engine indexing | Yes |
-| Applebot-Extended | Apple | Apple Intelligence / Siri | Yes |
+Each provider now operates a **three-bot framework**: training bot, search/indexing bot, and
+retrieval bot. Blocking the search/indexing bot means your content won't appear in that AI
+platform's answers. Retrieval bots (user-triggered) may not fully respect robots.txt.
+
+| Crawler | Operator | Type | Respects robots.txt |
+|---------|----------|------|---------------------|
+| GPTBot | OpenAI | Training | Yes |
+| OAI-SearchBot | OpenAI | Search indexing | Yes |
+| ChatGPT-User | OpenAI | User retrieval | Yes |
+| ClaudeBot | Anthropic | Training | Yes |
+| Claude-SearchBot | Anthropic | Search indexing | Yes |
+| Claude-User | Anthropic | User retrieval | Yes |
+| ~~Claude-Web~~ | Anthropic | Deprecated | — |
+| ~~anthropic-ai~~ | Anthropic | Deprecated | — |
+| Google-Extended | Google | AI/Gemini training | Yes |
+| Google-Agent | Google | Project Mariner agentic (2026) | Yes |
+| PerplexityBot | Perplexity | Search indexing | Yes |
+| Perplexity-User | Perplexity | User retrieval | Partial |
+| Applebot-Extended | Apple | Apple Intelligence training | Yes |
+| Meta-ExternalAgent | Meta | High-volume data collection | Yes |
+| Bytespider | ByteDance | Training/indexing | Partial (documented issues) |
 | Amazonbot | Amazon | Alexa / product search | Yes |
+| DuckAssistBot | DuckDuckGo | DuckAssist AI answers | Yes |
 | YouBot | You.com | AI search engine | Yes |
 | PhindBot | Phind | Developer-focused AI search | Yes |
 | ExaBot | Exa | Neural search engine | Yes |
 | CCBot | Common Crawl | Open dataset (used by many LLMs) | Yes |
+
+### robots.txt Strategy by Bot Type
+
+Treat each bot category differently based on your goals:
+- **Training bots** (GPTBot, ClaudeBot, CCBot): Your choice. Blocking has no direct search
+  visibility impact, but affects whether your content influences future model training.
+- **Search/indexing bots** (OAI-SearchBot, Claude-SearchBot, PerplexityBot): **Allow these.**
+  Blocking means your content won't appear in ChatGPT, Claude, or Perplexity answers.
+- **Retrieval bots** (ChatGPT-User, Perplexity-User): May not fully respect robots.txt. These
+  are triggered by live user queries and may fetch content regardless of directives.
 
 ---
 
@@ -147,8 +191,13 @@ If you get a 403 or an HTML page with "Cloudflare" in it, the crawler is blocked
 
 ## llms.txt Implementation
 
-The `llms.txt` standard (proposed by llmstxt.org) provides a machine-readable
+The `llms.txt` standard (proposed by llmstxt.org, Sep 2024) provides a machine-readable
 summary of your site for LLMs. Place at site root: `https://example.com/llms.txt`.
+
+**Important caveat:** No major AI platform has confirmed reading llms.txt. Google's Gary Illyes
+stated Google doesn't support it (Jul 2025). Semrush testing showed zero AI crawler visits to
+llms.txt files across 9 test sites. It is low-cost to implement but benefits are currently
+unproven. Implement it — but don't rely on it as a visibility strategy.
 
 ### Specification
 
@@ -217,16 +266,21 @@ JavaScript is invisible to all AI systems except Googlebot and AppleBot.
 | Crawler | Executes JavaScript | Renders Pages |
 |---------|-------------------|---------------|
 | GPTBot | No | No |
-| ChatGPT-User | No | No |
 | OAI-SearchBot | No | No |
+| ChatGPT-User | No | No |
 | ClaudeBot | No | No |
-| Claude-Web | No | No |
+| Claude-SearchBot | No | No |
+| Claude-User | No | No |
 | PerplexityBot | No | No |
+| Perplexity-User | No | No |
+| Meta-ExternalAgent | No | No |
+| Bytespider | No | No |
 | Amazonbot | No | No |
-| YouBot | No | No |
 | CCBot | No | No |
 | **Googlebot** | **Yes** | **Yes** |
 | **AppleBot** | **Yes** | **Yes** |
+| **ChatGPT Operator** (agentic) | **Yes** | **Yes** |
+| **Google-Agent** (agentic) | **Yes** | **Yes** |
 
 ### Vercel Findings
 
@@ -234,12 +288,25 @@ Vercel analyzed 500M+ GPTBot fetches and found **zero evidence of JavaScript
 execution**. GPTBot reads raw HTML only. Content loaded via React hydration,
 Vue mounting, or any client-side framework is completely invisible.
 
+### Exception: Agentic Tools
+
+Standard AI crawlers do not execute JavaScript. However, **agentic tools** are different:
+- **ChatGPT Operator** (OpenAI): Full JS rendering with computer vision capabilities.
+- **Google-Agent / Project Mariner** (Google, 2026): Operates through Chrome with full rendering.
+
+These are user-directed agents, not automated crawlers. They can see JS-rendered content,
+but they do not replace the need for SSR — standard crawlers still dominate citation indexing.
+
 ---
 
 ## Performance Requirements
 
 AI retrieval systems have strict latency budgets. Slow sites are excluded from
 candidate answer pools before content quality is even evaluated.
+
+**Note:** The thresholds below are industry best practices and observations from SEO tooling
+(Discovered Labs, Prerender.io, Kevin Indig). They are NOT officially published specifications
+from OpenAI, Anthropic, or Perplexity. Treat as directional targets, not guaranteed cutoffs.
 
 ### Thresholds
 
@@ -317,16 +384,9 @@ to serve these crawlers are losing compounding visibility.
 | GPTBot traffic growth | +305% YoY | Cloudflare Radar, 2025 |
 | PerplexityBot traffic growth | +157,490% YoY | Cloudflare Radar, 2025 |
 | AI crawling volume overall | +32% YoY | Cloudflare, 2025 |
-| AI visits starting in reading mode | 46% | Vercel analysis, 2025 |
+| Top 10 domains' citation share | 46% of all ChatGPT citations per topic | Growth Memo, Mar 2026 |
 | AI referral traffic share | 1.08% of all web traffic | Similarweb, May 2025 |
 | AI referral traffic growth | +527% Jan-May 2025 | Similarweb, 2025 |
-
-### Content Consumption Pattern
-
-46% of AI visits begin in "reading mode" -- the AI system fetches the raw text
-content without any rendering, JavaScript execution, or asset loading. This
-means nearly half of all AI interactions with your content are text-only
-extractions from raw HTML.
 
 ---
 

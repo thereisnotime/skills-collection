@@ -235,7 +235,7 @@ Falls back to HTML if weasyprint is unavailable.
 | GSC Search Analytics | 1,200 QPM/site | 30M QPD | Service Account |
 | GSC URL Inspection | 600 QPM | 2,000 QPD/site | Service Account |
 | Indexing API | 380 RPM | 200 publish/day | Service Account |
-| GA4 Data API | 10 concurrent | ~25K tokens/day | Service Account |
+| GA4 Data API | 10 concurrent (50 for 360) | 200K Core Tokens/day (2M for 360) | Service Account |
 | YouTube Data | -- | 10,000 units/day | API Key |
 | NLP API | -- | 5,000 units/month | API Key (billing) |
 

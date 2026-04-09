@@ -16,19 +16,22 @@ metadata in a single structured entity.
 
 ### Full Property Reference
 
-| Property | Required | Type | Description |
-|----------|----------|------|-------------|
-| `@context` | Yes | URL | Always `"https://schema.org"` |
-| `@type` | Yes | String | Always `"BlogPosting"` |
-| `@id` | Yes | URI | Stable identifier: `{siteUrl}/blog/{slug}#article` |
-| `headline` | Yes | String | Post title, max 110 characters |
-| `description` | Yes | String | Meta description, 150-160 characters |
-| `datePublished` | Yes | ISO 8601 | Original publish date |
-| `dateModified` | Yes | ISO 8601 | Last content update date |
-| `author` | Yes | Person | Author entity (use @id reference) |
-| `publisher` | Yes | Organization | Site/company entity (use @id reference) |
-| `image` | Yes | ImageObject or URL | Featured image, min 1200x630px |
-| `mainEntityOfPage` | Yes | WebPage | The page URL |
+**Note:** Google states "there are no required properties" for BlogPosting — all properties
+below are recommended. `@context` and `@type` are required by the JSON-LD spec itself.
+
+| Property | Status | Type | Description |
+|----------|--------|------|-------------|
+| `@context` | JSON-LD required | URL | Always `"https://schema.org"` |
+| `@type` | JSON-LD required | String | Always `"BlogPosting"` |
+| `@id` | Recommended | URI | Stable identifier: `{siteUrl}/blog/{slug}#article` |
+| `headline` | Recommended | String | Post title, max 110 characters |
+| `description` | Recommended | String | Meta description, 150-160 characters |
+| `datePublished` | Recommended | ISO 8601 | Original publish date |
+| `dateModified` | Recommended | ISO 8601 | Last content update date |
+| `author` | Recommended | Person | Author entity (use @id reference) |
+| `publisher` | Recommended | Organization | Site/company entity (use @id reference) |
+| `image` | Recommended | ImageObject or URL | Featured image, min 1200x630px |
+| `mainEntityOfPage` | Recommended | WebPage | The page URL |
 | `wordCount` | Recommended | Integer | Total word count of article body |
 | `articleSection` | Recommended | String | Category/topic (e.g., "SEO") |
 | `keywords` | Recommended | String or Array | Comma-separated or array of keywords |
@@ -229,9 +232,14 @@ Each breadcrumb item requires `@type`, `position`, `name`, and `item` (URL).
 
 ## FAQPage Schema
 
-**Important**: Since August 2023, FAQ rich results are restricted to government
-and health authority websites. However, the markup still helps AI systems extract
-question-answer pairs for citation. Continue using it for AI visibility.
+**Important**: Since August 2023, Google restricted FAQ rich results to government and health
+authority websites only. For all other sites, **no FAQ rich results will appear in Google
+Search** — the markup produces no visual search enhancement.
+
+However, the markup is still worth including for AI citation reasons: LLMs parse your page's
+**visible FAQ text** (not the JSON-LD) and Q&A-formatted content improves extractability for
+citation. Google says there is "no need to proactively remove" existing FAQPage markup and it
+"does not cause problems for Search." Implement for AI citation value, not rich results.
 
 ### Structure
 
@@ -256,7 +264,7 @@ FAQPage
       "name": "How does technical SEO affect AI visibility?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Technical SEO directly determines whether AI crawlers can access and extract your content. Since AI crawlers do not execute JavaScript, server-side rendered HTML with structured data markup is essential. Sites with proper technical SEO see up to 340% more AI citations."
+        "text": "Technical SEO directly determines whether AI crawlers can access and extract your content. Since AI crawlers do not execute JavaScript, server-side rendered HTML with structured data markup is essential. Sites with proper technical SEO and accessible content structure are significantly more likely to earn AI citations."
       }
     },
     {
@@ -477,6 +485,7 @@ but wastes implementation effort and may trigger rich result validation warnings
 |------|------------|------|-------|
 | HowTo | Yes | September 2023 | Rich results removed entirely |
 | SpecialAnnouncement | Yes | July 2025 | COVID-era, no longer processed |
+| ClaimReview | Yes | June 2025 | Google structured data simplification; no longer generates rich results |
 | Practice Problem | Yes | -- | Educational, no longer generates rich results |
 | Dataset | Yes | -- | For general search; still works in Google Dataset Search |
 | Sitelinks Search Box | Yes | -- | Google generates these algorithmically now |
@@ -489,6 +498,39 @@ but wastes implementation effort and may trigger rich result validation warnings
 | HowTo | Use standard BlogPosting with clear step headings (H2/H3) |
 | Q&A | Use FAQPage for editorial Q&A; no replacement for community Q&A |
 | SpecialAnnouncement | Use standard Article or NewsArticle |
+| ClaimReview | No direct replacement for blogs; use Author entity with credentials |
+
+---
+
+## ProfilePage Schema (Author Pages)
+
+Fully supported since December 2025. Add to author bio/team pages to strengthen E-E-A-T
+signals and improve eligibility for the "Discussions and Forums" SERP feature.
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  "dateCreated": "2024-01-01T00:00:00Z",
+  "dateModified": "2026-04-01T00:00:00Z",
+  "mainEntity": {
+    "@type": "Person",
+    "@id": "https://example.com/author/jane-smith#person",
+    "name": "Jane Smith",
+    "url": "https://example.com/author/jane-smith",
+    "jobTitle": "Senior Content Strategist",
+    "description": "Jane writes about SEO and content marketing with 8 years of experience.",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://example.com/images/jane-smith.jpg"
+    },
+    "sameAs": [
+      "https://linkedin.com/in/janesmith",
+      "https://twitter.com/janesmith"
+    ]
+  }
+}
+```
 
 ---
 

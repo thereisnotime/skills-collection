@@ -6,7 +6,8 @@ Consolidated reference for all Google APIs used by the blog-google skill.
 
 ## PageSpeed Insights v5
 
-**Endpoint:** `GET https://www.googleapis.com/pagespeedonline/v5/runPagespeed`
+**Endpoint:** `GET https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed` (canonical)
+Legacy hostname also works: `https://www.googleapis.com/pagespeedonline/v5/runPagespeed`
 
 | Param | Type | Description |
 |-------|------|-------------|
@@ -17,7 +18,10 @@ Consolidated reference for all Google APIs used by the blog-google skill.
 
 Response contains `loadingExperience` (URL-level CrUX), `originLoadingExperience` (origin CrUX), and `lighthouseResult` with category scores and audit details.
 
-**Note:** Google is migrating CrUX field data out of PSI. Use CrUX API directly for field data; use PSI primarily for Lighthouse lab data.
+**Note:** Google has signaled intent to remove CrUX from PSI, but as of April 2026 CrUX field
+data (`loadingExperience`, `originLoadingExperience`) is still returned in PSI responses. The
+standalone CrUX API is the recommended long-term solution for field data; use PSI primarily
+for Lighthouse lab scores.
 
 ---
 
@@ -38,7 +42,7 @@ Response contains `loadingExperience` (URL-level CrUX), `originLoadingExperience
 - Each metric returns `histogram` (density buckets), `percentiles.p75`, and `category`.
 - **CLS p75 is a string** (e.g., `"0.05"` not `0.05`). Always parse as float.
 - 404 = insufficient Chrome traffic (not an auth error).
-- Updated daily ~04:00 UTC with ~2-day lag.
+- Updated daily on a best-effort basis with ~2-day lag. No guaranteed update time; timezone is PST.
 
 ---
 
@@ -46,7 +50,9 @@ Response contains `loadingExperience` (URL-level CrUX), `originLoadingExperience
 
 **Endpoint:** `POST https://chromeuxreport.googleapis.com/v1/records:queryHistoryRecord?key={API_KEY}`
 
-Same request format as CrUX API. Returns up to **25 weekly collection periods** as timeseries arrays (`p75s[]`, `densities[]`).
+Same request format as CrUX API. Returns up to **40 weekly collection periods** (~10 months)
+as timeseries arrays (`p75s[]`, `densities[]`). Default is 25; configurable via
+`collectionPeriodCount` parameter (range: 1–40).
 
 - Updated **Mondays** ~04:00 UTC.
 - Each period = 28-day rolling average ending on a Sunday.
@@ -58,11 +64,18 @@ Same request format as CrUX API. Returns up to **25 weekly collection periods** 
 
 Current as of March 2026. INP replaced FID on March 12, 2024.
 
+**Core Web Vitals (the 3 official CWV):**
+
 | Metric | Good | Needs Improvement | Poor |
 |--------|------|-------------------|------|
 | **LCP** | ≤ 2,500ms | 2,500-4,000ms | > 4,000ms |
 | **INP** | ≤ 200ms | 200-500ms | > 500ms |
 | **CLS** | ≤ 0.1 | 0.1-0.25 | > 0.25 |
+
+**Diagnostic metrics (not CWV — informational only):**
+
+| Metric | Good | Needs Improvement | Poor |
+|--------|------|-------------------|------|
 | **FCP** | ≤ 1,800ms | 1,800-3,000ms | > 3,000ms |
 | **TTFB** | ≤ 800ms | 800-1,800ms | > 1,800ms |
 
@@ -83,7 +96,7 @@ Current as of March 2026. INP replaced FID on March 12, 2024.
 | `dimensionFilterGroups` | object[] | Filter groups with `dimension`, `operator`, `expression` |
 | `rowLimit` | int | 1-25000 (default: 1000) |
 | `startRow` | int | Pagination offset (default: 0) |
-| `dataState` | string | `final` (default), `all` |
+| `dataState` | string | `final` (default), `all`, `hourly_all` (April 2025, requires `HOUR` dimension) |
 
 ### Filter Operators
 `contains`, `equals`, `notContains`, `notEquals`, `includingRegex`, `excludingRegex`
@@ -91,7 +104,7 @@ Current as of March 2026. INP replaced FID on March 12, 2024.
 ### Response Fields
 Each row: `keys[]`, `clicks`, `impressions`, `ctr`, `position`.
 
-- Data has a **2-3 day lag**, available for ~16 months.
+- Data lag by `dataState`: `final` = ~2-3 days; `all` = shorter lag; `hourly_all` = few hours (April 2025). Retention: ~16 months.
 - Country codes are **ISO 3166-1 alpha-3** (e.g., `USA`, `GBR`).
 
 ---
@@ -147,7 +160,8 @@ Key fields: `property`, `dimensions[]`, `metrics[]`, `dateRanges[]`, `dimensionF
 }
 ```
 
-Uses token-based quotas (25K tokens/day per property). Set `returnPropertyQuota: true` to monitor.
+Uses token-based quotas (200,000 Core Tokens/day per standard property; 2M for 360).
+Set `returnPropertyQuota: true` to monitor consumption.
 
 ---
 
@@ -160,6 +174,7 @@ Uses token-based quotas (25K tokens/day per property). Set `returnPropertyQuota:
 | `extractEntities` | People, orgs, places with salience scores | Topic coverage depth, entity optimization |
 | `extractDocumentSentiment` | Document + sentence-level sentiment | Content tone assessment |
 | `classifyText` | Map content to 700+ Google categories | Topic relevance verification |
+| `moderateText` | Detect harmful/sensitive content categories | Content safety screening |
 
 Each entity includes `name`, `type`, `salience` (0-1), `sentiment`, and `metadata` (Wikipedia URL, Knowledge Graph MID).
 
@@ -183,7 +198,12 @@ Default quota: **10,000 units/day** (free). API key only, no OAuth needed.
 
 ## Keyword Planner (Google Ads API)
 
-Gold-standard source for keyword search volume. Methods: **GenerateKeywordIdeas** (suggestions from seeds) and **GenerateKeywordHistoricalMetrics** (volume for specific keywords). Returns volume, competition, CPC bids.
+Gold-standard source for keyword search volume. Methods: **GenerateKeywordIdeas** (suggestions
+from seeds), **GenerateKeywordHistoricalMetrics** (volume for specific keywords), and
+**GenerateKeywordForecastMetrics** (future projections). Returns volume, competition, CPC bids.
+
+**Current API version:** v23.1 (released Feb 25, 2026). Monthly release cadence since Jan 2026.
+Any version below v20 is sunset. Update versioned endpoint paths accordingly.
 
 - Without active ad spend, volumes are **bucketed ranges** ("1K-10K") not exact numbers
 - `competition` measures **advertiser competition**, not organic difficulty

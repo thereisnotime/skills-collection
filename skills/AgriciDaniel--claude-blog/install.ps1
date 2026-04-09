@@ -3,7 +3,7 @@
 # Installs the blog skill ecosystem to ~/.claude/skills/ and ~/.claude/agents/
 #
 # One-command install:
-#   irm https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.ps1 | iex
+#   iex (irm https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.ps1)
 
 $ErrorActionPreference = "Stop"
 
@@ -42,7 +42,7 @@ function Main {
         try {
             $null = Get-Command python -ErrorAction Stop
         } catch {
-            Write-Color Yellow "WARNING: Python not found. The analyze_blog.py script requires Python 3.12+."
+            Write-Color Yellow "WARNING: Python not found. The analyze_blog.py script requires Python 3.11+."
         }
     }
 
@@ -149,8 +149,8 @@ function Main {
 "@
 
     Write-Color White "Installed:"
-    Write-Color Green "  Main skill:   blog/ (orchestrator + 12 references + 12 templates)"
-    Write-Color Green "  Sub-skills:   20 (19 commands + 1 internal)"
+    Write-Color Green "  Main skill:   blog/ (orchestrator + 13 references + 13 templates)"
+    Write-Color Green "  Sub-skills:   22 (21 commands + 1 internal)"
     Write-Color Green "  Agents:       4 specialists"
     Write-Color Green "  Scripts:      analyze_blog.py"
     Write-Color White ""

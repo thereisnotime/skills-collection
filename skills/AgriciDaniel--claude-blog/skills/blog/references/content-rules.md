@@ -1,6 +1,6 @@
 # Content Structure Rules -- Dual Optimization
 
-## Answer-First Formatting (+340% AI Citation Improvement)
+## Answer-First Formatting (Strong AI Citation Improvement)
 
 The most impactful single optimization. Every H2 section must open with a
 40-60 word paragraph that:
@@ -172,7 +172,9 @@ where prose works better - lists are for scannable parallel items, not for
 every piece of information.
 
 ### Visual Impact
-Content with visuals gets 94% more views and 150% more social engagement.
+Content with visuals gets 94% more views (MDG Advertising, c. 2014 via Jeff Bullas; stat is
+10+ years old) and 150% more social engagement. More recent: Semrush 2026 found blogs with
+7+ images per post receive 116% more organic traffic.
 NNGroup: visitors read only ~20% of words on a page - visuals anchor scanning
 patterns and guide the eye to key information.
 
@@ -268,7 +270,8 @@ consensus but cannot create new data. Optimize by:
 Pattern: "[Key statistic]. Here's how [strategy] delivers [outcome] in 2026."
 
 Rules:
-- 150-160 characters
+- 150-160 characters (desktop ~920px); mobile shows only ~120 characters (~680px)
+- Front-load key information in the first 120 characters for full mobile visibility
 - Include one specific statistic
 - No keyword stuffing
 - End with value proposition or call to action

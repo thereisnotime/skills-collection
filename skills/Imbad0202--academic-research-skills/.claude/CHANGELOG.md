@@ -4,6 +4,28 @@ Cross-skill fixes and update history.
 
 ---
 
+## 2026-04-09
+
+### Information Systems — Basket of 8 → Senior Scholars' Basket of 11 (v3.1.1)
+
+External contribution from [@cloudenochcsis](https://github.com/cloudenochcsis) via [PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8).
+
+**Files changed**: 1 file, +20 / −2 lines
+
+**`academic-paper-reviewer/references/top_journals_by_field.md`**
+- Section 7 heading: "Information Systems (Basket of 8)" → "Information Systems (Senior Scholars' Basket of 11)"
+- Added 3 journals to complete the AIS official list:
+  - *Decision Support Systems* (Elsevier, IF 6-8) — Analytics, decision-making, DSS design and evaluation
+  - *Information & Management* (Elsevier, IF 8-11) — IS management, technology adoption, organizational impact
+  - *Information and Organization* (Elsevier, IF 5-7) — Socio-material perspectives, qualitative and interpretive research
+- Subsequent sections renumbered: Interdisciplinary → 8, Asian & Regional → 9
+
+**Why Basket of 11 instead of Basket of 8**: The "Basket of 8" is a widely-cited shorthand, but the [AIS College of Senior Scholars](https://aisnet.org/page/SeniorScholarListofPremierJournals) officially recognizes 11 premier journals. Most IS doctoral programs and tenure committees reference the full Basket of 11. AIS is the authoritative IS academic organization (equivalent to ACM for computer science or APA for psychology).
+
+**Verification**: All 11 journals cross-checked against the AIS official page. cloudenochcsis's diff matched 1:1 against the source list and used the same metadata format established by the v2.9 Basket of 8 entries.
+
+---
+
 ## 2026-04-06
 
 ### Anti-Context-Rot + Cognitive Frameworks + Lean Size (v3.1)

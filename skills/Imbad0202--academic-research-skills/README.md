@@ -577,9 +577,15 @@ https://github.com/Imbad0202/academic-research-skills
 
 **[aspi6246](https://github.com/aspi6246)** — Contributor. The v3.1 optimization was inspired by patterns from [Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics): read-only constraint pattern, anti-pattern codification as first-class design, cognitive framework approach (teaching "how to think" not just procedures), and lean skill size philosophy.
 
+**[cloudenochcsis](https://github.com/cloudenochcsis)** — Contributor. Extended the Information Systems section in `academic-paper-reviewer/references/top_journals_by_field.md` from the AIS *Basket of 8* to the full *Senior Scholars' Basket of 11* — adding *Decision Support Systems*, *Information & Management*, and *Information and Organization* with publisher and impact factor metadata. Sourced from the [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals), the authoritative IS list referenced by doctoral programs and tenure committees worldwide ([PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)).
+
 ---
 
 ## Changelog
+
+### v3.1.1 (2026-04-09) — IS Senior Scholars' Basket of 11
+
+External contribution from [@cloudenochcsis](https://github.com/cloudenochcsis) ([PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)). Extended `academic-paper-reviewer/references/top_journals_by_field.md` Section 7 from the AIS *Basket of 8* (added in v2.9) to the full *Senior Scholars' Basket of 11*, adding *Decision Support Systems*, *Information & Management*, and *Information and Organization*. Source: [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals) — the authoritative IS list referenced by doctoral programs and tenure committees.
 
 ### v3.1 (2026-04-06) — Anti-Context-Rot + Cognitive Frameworks + Lean Size
 

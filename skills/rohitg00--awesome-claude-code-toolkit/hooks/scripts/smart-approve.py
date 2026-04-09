@@ -129,18 +129,16 @@ def command_matches_pattern(cmd, patterns):
 
 
 def extract_subshells(command):
-    """Extract contents of $() and backtick subshells, recursively.
+    """Extract contents of executable substitutions, recursively.
 
-    Returns a list of subshell content strings.
+    Returns a list of substitution content strings.
     """
     subshells = []
 
-    # Extract $(...) — handle nested parens, but skip $((...)) arithmetic
     i = 0
     while i < len(command):
         if command[i] == '$' and i + 1 < len(command) and command[i + 1] == '(' \
                 and not (i + 2 < len(command) and command[i + 2] == '('):
-            # Find matching closing paren
             depth = 0
             start = i + 2
             j = i + 1
@@ -152,17 +150,33 @@ def extract_subshells(command):
                     if depth == 0:
                         content = command[start:j]
                         subshells.append(content)
-                        # Recurse into content for nested subshells
                         subshells.extend(extract_subshells(content))
                         break
                 j += 1
             i = j + 1
-        else:
-            i += 1
+            continue
 
-    # Extract backtick subshells (no nesting)
+        if command[i] in ('<', '>') and i + 1 < len(command) and command[i + 1] == '(':
+            depth = 0
+            start = i + 2
+            j = i + 1
+            while j < len(command):
+                if command[j] == '(':
+                    depth += 1
+                elif command[j] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        content = command[start:j]
+                        subshells.append(content)
+                        subshells.extend(extract_subshells(content))
+                        break
+                j += 1
+            i = j + 1
+            continue
+
+        i += 1
+
     parts = command.split('`')
-    # Odd-indexed parts are inside backticks
     for idx in range(1, len(parts), 2):
         content = parts[idx]
         if content.strip():

@@ -13,12 +13,16 @@ is the dominant factor in whether AI systems cite your content.
 
 ## Reddit (Highest Growth Channel for AI Visibility)
 
+**Platform change (June 2023):** Reddit's API became paid ($0.24/1,000 calls). Free API
+access is gone. All Reddit strategy must rely on **organic participation only** — no
+programmatic posting, scraping, or API-driven automation without a paid plan.
+
 ### Why Reddit Matters for AI
 - Reddit visibility in AI citations grew 450% (1.30% to 7.15%)
 - Google's $60M annual API deal surfaces Reddit content in AI training
-- 7,702 of 10,000 keyphrases show "Discussions and Forums" SERP features
+- 7,085 of 10,000 keyphrases show "Discussions and Forums" SERP features
 - 2.2-21% of AI Overview citations by query type come from Reddit
-- 77% of keyphrases with product reviews show Discussion features in SERPs
+- 70.85% of keyphrases with product reviews show Discussion features in SERPs
 
 ### Subreddit Research Methodology
 
@@ -92,7 +96,7 @@ adds value, your blog post becomes the authoritative source.
 
 ### Why YouTube Matters for AI
 - 0.737 correlation with AI visibility (strongest signal in Ahrefs 75,000-brand study)
-- Citations in AI Overviews up 414% (Q1 2025, BrightEdge)
+- Citations in AI Overviews up 414% (Q1 2025, NP Digital)
 - How-to video citations up 651%
 - Visual demo citations up 592%
 - 200x more cited than any other video platform
@@ -173,9 +177,23 @@ Resources mentioned:
 | CTR | 5%+ | Indicates compelling title/thumbnail |
 | Upload frequency | 1-2/week | Consistent publishing builds authority |
 
+### YouTube Shorts Note
+
+**Algorithm change (late 2025):** YouTube Shorts' recommendation engine was fully decoupled
+from long-form video. Shorts no longer directly boost long-form channel authority or
+subscriber counts. Treat Shorts as a **separate discovery surface** with its own metrics —
+do not rely on Shorts to cross-promote your long-form content or blog. Use Shorts for
+top-of-funnel awareness only.
+
 ---
 
 ## LinkedIn
+
+**Algorithm change (360Brew, late 2024-2025):** LinkedIn replaced its recommendation
+algorithm with an AI system called 360Brew. Impact: views down ~50%, engagement down ~25%
+industry-wide. External links are penalized ~60% in reach. **Native content strongly
+outperforms link posts** — text posts, native documents (carousels), and native video
+dramatically outreach posts with external URLs.
 
 ### Content Adaptation
 Adapt blog posts for LinkedIn as shorter articles (800-1,200 words).
@@ -312,7 +330,7 @@ and early traffic signals that benefit both traditional and AI search.
 | Formula | Example |
 |---------|---------|
 | `[Stat]: [Key Finding]` | "61% CTR Decline: How AI Overviews Are Reshaping Search" |
-| `How [Strategy] Delivers [Outcome]` | "How Answer-First Formatting Delivers 340% More AI Citations" |
+| `How [Strategy] Delivers [Outcome]` | "How Answer-First Formatting Drives More AI Citations" |
 | `[Number] [Things] That [Outcome]` | "5 Off-Site Signals That Drive AI Citations (Data Inside)" |
 | `The [Adjective] Truth About [Topic]` | "The Uncomfortable Truth About SEO in 2026" |
 | `We Analyzed [N] [Things]. Here's What We Found` | "We Analyzed 75,000 Brands. Here's What Drives AI Visibility" |
@@ -353,8 +371,9 @@ and early traffic signals that benefit both traditional and AI search.
 ### Why Reviews Drive AI Citations
 - Multi-platform review presence gives 2.6-3.5x citation multiplier
   (Authoritas, 2025)
-- G2 accounts for 22-23% of review-platform citations
-- 33% of all review citations come from G2
+- G2 accounts for 22-23% of review-platform citations (Radix via G2's own blog;
+  self-reported — Hall.com independent analysis found only 8.25%)
+- 33% of all review citations come from G2 (Profound via G2's blog; treat as directional)
 - Companies with profiles on 3+ platforms: 4.6-6.3 citations vs 1.8
   without (2.6-3.5x multiplier)
 
@@ -393,8 +412,7 @@ and early traffic signals that benefit both traditional and AI search.
 ## Wikipedia and Wikidata
 
 ### Why Wikipedia Matters
-- 22% of AI training data comes from Wikipedia
-- 7.8% of all ChatGPT citations reference Wikipedia
+- 7.8% of all ChatGPT citations reference Wikipedia (Profound)
 - Used as a "credibility tiebreaker" when AI sources conflict
 - Wikidata Q-IDs strengthen entity recognition in Knowledge Graph
 

@@ -28,7 +28,7 @@ curl -sL https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.ps1 | iex
+iex (irm https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.ps1)
 ```
 
 Both installers automatically copy all skills, agents, references, templates,

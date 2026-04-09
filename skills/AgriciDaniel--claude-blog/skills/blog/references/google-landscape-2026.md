@@ -5,7 +5,7 @@
 Ran December 11-29, 2025 (18 days). Google's official statement: "designed to better
 surface relevant, satisfying content." Rewarded authentic first-hand experience and
 penalized "fake freshness." 71% of affiliate sites without original testing were
-negatively impacted. E-E-A-T requirements expanded beyond YMYL to ALL competitive queries.
+negatively impacted (ALM Corp). E-E-A-T requirements expanded beyond YMYL to ALL competitive queries.
 
 ### Authenticity Signals Google Evaluates
 
@@ -23,15 +23,16 @@ negatively impacted. E-E-A-T requirements expanded beyond YMYL to ALL competitiv
 - Content without unique perspective or original information
 
 ### Key Clarification
-John Mueller (November 2025): "Our systems don't care if content is created by AI or
-humans. What matters is whether it's helpful for users." AI as research tool is fine
- -  AI as sole content creator without expertise is not.
+John Mueller has stated in multiple Google Office Hours sessions that Google's systems
+evaluate content quality regardless of origin. AI as a research tool is fine; AI as sole
+content creator without human expertise and oversight is not.
 
-### SISTRIX Analysis -- Winners & Losers
+### Post-Update Analysis -- Winners & Losers
 
-Post-December 2025 core update visibility shifts (SISTRIX data):
+Post-December 2025 core update visibility shifts:
 - Sites with original testing, case studies, and first-hand experience gained visibility
-- 71% of affiliate sites without original testing lost rankings
+- 71% of affiliate sites without original testing lost rankings (ALM Corp analysis of 847
+  sites across 23 industries; methodology not independently verified)
 - E-E-A-T expanded beyond YMYL to ALL competitive queries - this is the biggest shift
   since E-A-T was introduced
 - Winners share a common trait: unique data or perspectives AI cannot replicate
@@ -77,8 +78,9 @@ Now fully integrated into core ranking (not Helpful Content System).
 Identifies content from forums, social media, niche blogs where people share
 "first-hand knowledge and personal insights."
 
-- 77% of keyphrases with product reviews show "Discussions and Forums" SERP feature
-- 7,702 of 10,000 keyphrases show "Discussions and Forums" features (Hidden Gems data)
+- 70.85% of keyphrases with product reviews show "Discussions and Forums" SERP feature
+  (Jul 2024 re-analysis; original Feb 2024 figure was 77%, now outdated)
+- 7,085 of 10,000 keyphrases show "Discussions and Forums" features (Detailed.com)
 - Perspectives filter replaced by "Forums" filter (March 2024)
 - User-generated content (YouTube, TikTok, Instagram) appears in carousels
 
@@ -87,16 +89,21 @@ Identifies content from forums, social media, niche blogs where people share
 ### Active (Recommend Freely)
 - BlogPosting, Article
 - Organization, LocalBusiness
-- FAQPage (keep answers 40-60 words)
+- FAQPage (keep answers 40-60 words; note: rich results only shown for government/health
+  sites since Aug 2023 — still valuable for AI citation, not for Google rich snippets)
 - BreadcrumbList
 - Person (author credentials)
 - Product, SoftwareApplication
-- AggregateRating, Review
+- AggregateRating, Review (only supported on eligible types: Product, Recipe,
+  SoftwareApplication, LocalBusiness, Movie, Book — NOT on BlogPosting directly)
 
 ### Deprecated (Never Recommend)
 - HowTo (Sept 2023)
 - SpecialAnnouncement (July 2025)
-- Practice Problem, Dataset for general search, Sitelinks Search Box, Q&A (Jan 2026)
+- ClaimReview (June 2025, Google structured data simplification)
+- Practice Problem (Jan 2026, confirmed via Google Search Console changelog)
+- Dataset for general search, Sitelinks Search Box, Q&A (Jan 2026 per secondary sources;
+  primary Google documentation not directly confirmed for these three)
 
 ### Critical Technical Note
 Schema must appear in HTML source, not injected via JavaScript.
@@ -106,8 +113,9 @@ Most AI crawlers cannot execute JS. 72% of first-page results use schema markup.
 
 ### Coverage
 - AI Overviews appear in 49% of SERPs (across all query types)
-- 15-21% global (conservative) to 60% US queries (Advanced Web Ranking, Nov 2025)
-- Doubled from 6.49% (Jan 2025) to 24.61% peak (July 2025), stabilized ~15.69%
+- 15-21% global (conservative) to 60% US queries
+- Doubled from 6.49% (Jan 2025) to 24.61% peak (July 2025), stabilized ~15.69% (Semrush,
+  10M+ keywords, Dec 2025)
 
 ### Traffic Impact (Seer Interactive, 3,119 queries, 42 orgs)
 - Organic CTR declined 61% with AI Overviews (1.76% → 0.61%)
@@ -116,7 +124,7 @@ Most AI crawlers cannot execute JS. 72% of first-page results use schema markup.
 - BUT: brands cited in AI Overviews see 35% higher organic CTR, 91% higher paid CTR
 
 ### AI Mode (Separate Product)
-- 120 countries, 100 million monthly users
+- 200+ countries, 100 million monthly users
 - 300-word average responses (vs 157 for AI Overviews)
 - 12.6 links per response (vs 9.26)
 - 93% zero-click rate
@@ -124,12 +132,14 @@ Most AI crawlers cannot execute JS. 72% of first-page results use schema markup.
 
 ## Market Context
 
-- Google market share below 90% for first time since 2015 (87.3%)
-- ChatGPT: 800M weekly users, 2.5B daily queries
+- Google market share below 90% for first time since 2015 (87.3% US; global share ~89%)
+- ChatGPT: 900M weekly users (Feb 2026), 2.5B daily queries (Jul 2025)
 - AI referral traffic: 1.08% of all web traffic, grew 527% (Jan-May 2025)
 - Zero-click searches: 58-60%, projected 65-70% by mid-2026
 - Gartner: 25% decline in traditional search volume by 2026 (appears accurate)
 - B2B SaaS discovery search declined 70-80% as buyers use AI assistants instead
+  (primarily based on HubSpot case study; no rigorous sector-wide study confirms this as
+  an industry average)
 
 ## Agentic Commerce & AI Advertising
 
@@ -141,7 +151,8 @@ Emerging trends reshaping search monetization:
 - **AI Overview Ads**: Sponsored placements in AI Overviews grew from 1% to 25% of queries;
   projected to reach 50%+ by end of 2026
 - **ChatGPT shopping traffic**: 11.4% conversion rate vs 5.3% organic search
-  (Search Engine Journal)
+  (Similarweb/Digiday, Sep 2025; finding contested by University of Hamburg/Frankfurt
+  School study of 973 sites that found organic search outperforming ChatGPT by ~13%)
 - **Perplexity**: Launched sponsored answers (Nov 2024, $50+ CPM), paused new
   advertisers (Oct 2025); OpenAI confirmed ad testing in ChatGPT during 2026
 - **Implication for blogs**: Content must be structured for AI agent extraction (clear
@@ -149,7 +160,8 @@ Emerging trends reshaping search monetization:
 
 ## AI Content Prevalence in Search
 
-- 17.31% of top 20 search results contain AI-generated content (icoda.io)
+- 17.31% of top 20 search results contain AI-generated content (Originality.ai, Sep 2025,
+  tracking 500 keywords)
 - AI-generated content is now embedded across all verticals, not just low-quality niches
 - Google's systems evaluate quality regardless of origin - but the sheer volume of AI
   content raises the bar for differentiation through original research and experience
@@ -176,8 +188,8 @@ Raptive analysis (published Feb 2026, high reliability) found:
 - Winning pages averaged 393 days freshness vs 500 for losers
 - Sites with >4% branded search clicks showed stronger resilience
 - Ad-to-content ratio <25% correlated with 4pp better performance
-- **LCP >3 seconds** = 23% more traffic loss
-- **INP >300ms** = 31% more traffic loss
+- **LCP >3 seconds** = 23% more traffic loss (ALM Corp, not Raptive)
+- **INP >300ms** = 31% more traffic loss (ALM Corp, not Raptive)
 - Thin content, template-based pages, and generic AI aggregation were penalized
 
 ### E-E-A-T Expansion
@@ -196,6 +208,6 @@ queries - the biggest scope expansion since E-A-T was introduced.
 ### Hidden Gems Ranking System
 Hidden Gems is its own ranking system (Brad Kellett confirmation), separate from
 core ranking. It surfaces experience-based niche content from forums, social media,
-and small blogs. 77% of keyphrases with product reviews now show "Discussions and
-Forums" SERP features. Domain authority influence is diminishing - depth,
+and small blogs. 70.85% of keyphrases with product reviews now show "Discussions and
+Forums" SERP features (Jul 2024 re-analysis, Detailed.com). Domain authority influence is diminishing - depth,
 originality, and strong intent alignment matter more.

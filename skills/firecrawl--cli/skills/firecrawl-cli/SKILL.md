@@ -13,6 +13,8 @@ Web scraping, search, and page interaction CLI. Returns clean markdown optimized
 
 Run `firecrawl --help` or `firecrawl <command> --help` for full option details.
 
+If the task is to integrate Firecrawl into an application, add `FIRECRAWL_API_KEY` to a project, or choose endpoint usage in product code, use the Firecrawl skills repo instead of relying on this CLI skill alone: `npx skills add firecrawl/skills`.
+
 ## Prerequisites
 
 Must be installed and authenticated. Check with `firecrawl --status`.
@@ -29,6 +31,13 @@ Must be installed and authenticated. Check with `firecrawl --status`.
 - **Credits**: Remaining API credits. Each scrape/crawl consumes credits.
 
 If not ready, see [rules/install.md](rules/install.md). For output handling guidelines, see [rules/security.md](rules/security.md).
+
+Before doing real work, verify the setup with one small request:
+
+```bash
+mkdir -p .firecrawl
+firecrawl scrape "https://firecrawl.dev" -o .firecrawl/install-check.md
+```
 
 ```bash
 firecrawl search "query" --scrape --limit 3
@@ -66,6 +75,19 @@ For detailed command reference, run `firecrawl <command> --help`.
 
 - `search --scrape` already fetches full page content. Don't re-scrape those URLs.
 - Check `.firecrawl/` for existing data before fetching again.
+
+## When to Load References
+
+- **Searching the web or finding sources first** -> [firecrawl-search](../firecrawl-search/SKILL.md)
+- **Scraping a known URL** -> [firecrawl-scrape](../firecrawl-scrape/SKILL.md)
+- **Finding URLs on a known site** -> [firecrawl-map](../firecrawl-map/SKILL.md)
+- **Bulk extraction from a docs section or site** -> [firecrawl-crawl](../firecrawl-crawl/SKILL.md)
+- **AI-powered structured extraction from complex sites** -> [firecrawl-agent](../firecrawl-agent/SKILL.md)
+- **Clicks, forms, login, pagination, or post-scrape browser actions** -> [firecrawl-interact](../firecrawl-interact/SKILL.md)
+- **Downloading a site to local files** -> [firecrawl-download](../firecrawl-download/SKILL.md)
+- **Install, auth, or setup problems** -> [rules/install.md](rules/install.md)
+- **Output handling and safe file-reading patterns** -> [rules/security.md](rules/security.md)
+- **Integrating Firecrawl into an app, adding `FIRECRAWL_API_KEY` to `.env`, or choosing endpoint usage in product code** -> install the Firecrawl skills repo with `npx skills add firecrawl/skills`
 
 ## Output & Organization
 
