@@ -41,3 +41,9 @@ Execution steps:
    - FAIL -> fix -> re-verify -> PASS -> Stage 5
 5. ⚠️ **IRON RULE**: Must PASS with zero issues to proceed to Stage 5
 ```
+
+## Score Trajectory Tracking (v3.3)
+
+Reference: `academic-pipeline/references/score_trajectory_protocol.md`
+
+At Stage 3' (RE-REVIEW), the `pipeline_orchestrator_agent` tracks per-dimension score deltas and triggers a MANDATORY checkpoint on regressions. Results stored in Integrity Report `score_trajectory` field (Schema 5).

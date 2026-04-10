@@ -6,10 +6,26 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 | Skill | Purpose | Key Modes |
 |-------|---------|-----------|
-| `deep-research` v2.5 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
-| `academic-paper` v2.5 | 12-agent paper writing | full, plan, revision, citation-check, format-convert, bilingual-abstract, writing-polish, full-auto, revision-coach |
-| `academic-paper-reviewer` v1.5 | Multi-perspective paper review (5 reviewers + optional cross-model) | full, re-review, quick, methodology-focus, guided |
-| `academic-pipeline` v2.8 | Full pipeline orchestrator | (coordinates all above) |
+| `deep-research` v2.8 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
+| `academic-paper` v3.0 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
+| `academic-paper-reviewer` v1.8 | Multi-perspective paper review (5 reviewers + optional cross-model) | full, re-review, quick, methodology-focus, guided, calibration |
+| `academic-pipeline` v3.2 | Full pipeline orchestrator | (coordinates all above) |
+
+## v3.3 Key Additions
+
+- **Semantic Scholar API Verification**: Tier 0 programmatic reference verification. See `deep-research/references/semantic_scholar_api_protocol.md`.
+- **Anti-Leakage Protocol**: Knowledge isolation prioritizing session materials over LLM memory. See `academic-paper/references/anti_leakage_protocol.md`.
+- **VLM Figure Verification**: Optional closed-loop figure verification via vision LLM. See `academic-paper/references/vlm_figure_verification.md`.
+- **Score Trajectory Protocol**: Per-dimension rubric score delta tracking across revision rounds. See `academic-pipeline/references/score_trajectory_protocol.md`.
+- **Stage 2 Parallelization**: Visualization and argument building can run in parallel after outline.
+
+## v3.2 Key Additions
+
+- **7-mode AI Research Failure Mode Checklist**: blocks pipeline at Stage 2.5/4.5 on suspected failures (Lu 2026). See `academic-pipeline/references/ai_research_failure_modes.md`.
+- **Reviewer Calibration Mode**: opt-in FNR/FPR/balanced-accuracy measurement. See `academic-paper-reviewer/references/calibration_mode_protocol.md`.
+- **Disclosure Mode**: venue-specific AI-usage statement (ICLR/NeurIPS/Nature/Science/ACL/EMNLP). See `academic-paper/references/disclosure_mode_protocol.md`.
+- **Early-Stopping + Budget Transparency**: convergence check + token cost estimate at pipeline start.
+- **Fidelity-Originality Mode Spectrum**: classifies all modes. See `shared/mode_spectrum.md`.
 
 ## v3.0 Key Additions
 
@@ -62,7 +78,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Version**: 3.0
-- **Last Updated**: 2026-04-03
+- **Suite version**: 3.3 (per CHANGELOG.md)
+- **Last Updated**: 2026-04-09
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

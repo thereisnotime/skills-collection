@@ -1,4 +1,4 @@
-const VERSION = '0.3.1';
+const VERSION = process.env.PACKAGE_VERSION || '0.0.0-development';
 const BASE_USER_AGENT = `stripe-mcp-local/${VERSION}`;
 
 /**

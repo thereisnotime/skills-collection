@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.1)
+[![Version](https://img.shields.io/badge/version-v3.3-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.3)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -11,6 +11,25 @@ A comprehensive suite of Claude Code skills for academic research, covering the 
 > **AI is your copilot, not the pilot.** This tool won't write your paper for you. It handles the grunt work — hunting down references, formatting citations, verifying data, checking logical consistency — so you can focus on the parts that actually require your brain: defining the question, choosing the method, interpreting what the data means, and writing the sentence after "I argue that."
 >
 > Unlike a humanizer, this tool doesn't help you hide the fact that you used AI. It helps you write better. Style Calibration learns your voice from past work. Writing Quality Check catches the patterns that make prose feel machine-generated. The goal is quality, not cheating.
+
+### Why human-in-the-loop, not full automation?
+
+Lu et al. (2026, *Nature* 651:914-919) built **The AI Scientist** — the first fully autonomous AI research system to publish a paper through blind peer review at a top-tier ML venue (ICLR 2025 workshop, score 6.33/10 vs workshop average 4.87). It is the strongest published benchmark of what end-to-end autonomous AI research can do as of 2026.
+
+Their own Limitations section enumerates the failure modes that any fully-autonomous AI research pipeline inherits:
+- Implementation bugs that pass AI self-review but poison the results
+- Hallucinated experimental results that look plausible
+- Shortcut reliance (models exploiting spurious features and writing papers about "solving" the task)
+- Implementation bugs reframed as novel insights
+- Methodology fabrication (Methods section drifting from what was actually run)
+- Frame-lock at early stages (wrong hyperparameter direction the pipeline cannot back out of)
+- Citation hallucinations
+
+ARS is built on the premise that **a human researcher augmented by AI avoids these failure modes better than either alone**. v3.2 directly operationalizes the Lu 2026 failure-mode taxonomy: the pipeline's Stage 2.5 and Stage 4.5 integrity gates now run a 7-mode blocking checklist (see `academic-pipeline/references/ai_research_failure_modes.md`), and the reviewer offers an opt-in calibration mode that measures its own FNR/FPR against a user-supplied gold set (see `academic-paper-reviewer/references/calibration_mode_protocol.md`).
+
+The AI Scientist shows that autonomous AI research is now possible. ARS is designed to give you the leverage of that capability without inheriting its failure modes.
+
+v3.3 was inspired by [**PaperOrchestra**](https://arxiv.org/abs/2604.05018) (Song, Song, Pfister & Yoon, 2026, Google), a multi-agent framework that autonomously authors LaTeX manuscripts from raw research materials. We integrated several of their techniques: **Semantic Scholar API verification** for programmatic citation checking, an **anti-leakage protocol** that prevents the LLM from silently filling gaps with parametric memory, **VLM figure verification** for closed-loop visual quality checks, and **score trajectory tracking** that detects when revisions inadvertently degrade specific quality dimensions.
 
 ---
 
@@ -23,10 +42,10 @@ A comprehensive suite of Claude Code skills for academic research, covering the 
 
 ## Features
 
-- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop + **intent detection** + **dialogue health monitoring** + **optional cross-model DA** + **argumentation & reasoning cognitive framework**
-- **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX output hardening, visualization, revision coaching, citation conversion, and **writing judgment framework**
+- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop + **intent detection** + **dialogue health monitoring** + **optional cross-model DA** + **argumentation & reasoning cognitive framework** + **Semantic Scholar API verification**
+- **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX output hardening, visualization, revision coaching, citation conversion, **writing judgment framework**, **anti-leakage protocol**, and **VLM figure verification**
 - **Academic Paper Reviewer** — Multi-perspective peer review with 0-100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate with **concession threshold protocol** + **attack intensity preservation** + **optional cross-model review**) + **R&R traceability matrix** + **read-only constraint** + **review quality thinking framework**
-- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, material passport, **optional cross-model integrity verification**, **mid-conversation reinforcement**, and **self-check questions**
+- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, material passport, **optional cross-model integrity verification**, **mid-conversation reinforcement**, **self-check questions**, and **score trajectory tracking**
 
 ### Full Pipeline
 
@@ -49,6 +68,10 @@ Research → Write → Integrity Check → Review (5-person) → Socratic Coachi
 10. Style Calibration — learn the author's writing voice from past papers (optional, intake Step 10)
 11. Writing Quality Check — writing quality checklist catching overused AI-typical patterns
 12. **Cross-model verification (optional)** — use GPT-5.4 Pro or Gemini 3.1 Pro as an independent second reviewer for integrity checks, DA challenges, and peer review
+13. **Semantic Scholar API verification** — programmatic Tier 0 reference existence check with Levenshtein title matching and DOI mismatch detection
+14. **Anti-leakage protocol** — Knowledge Isolation Directive prioritizes session materials over LLM memory; flags `[MATERIAL GAP]` for missing content
+15. **VLM figure verification (optional)** — closed-loop visual quality check using a vision-capable LLM with 10-point checklist
+16. **Score trajectory tracking** — per-dimension rubric score delta tracking across revision rounds with regression detection
 
 ---
 
@@ -208,6 +231,24 @@ curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
 - **Courier New** — usually pre-installed
 
 > If you only need MD/DOCX output, skip this entirely. The pipeline will ask before attempting LaTeX compilation.
+
+---
+
+## Companion: Experiment Agent
+
+If your research involves running experiments (code or human studies) before writing, the [Experiment Agent](https://github.com/Imbad0202/experiment-agent) skill fills the gap between ARS Stage 1 (RESEARCH) and Stage 2 (WRITE).
+
+```
+ARS Stage 1 RESEARCH  →  RQ Brief + Methodology Blueprint
+        ↓
+  experiment-agent     →  run/manage experiments → validate results
+        ↓
+ARS Stage 2 WRITE     →  write paper with verified experiment results
+```
+
+**What it does**: executes code experiments (Python, R, etc.) with real-time monitoring, manages human study protocols with IRB ethics checklist, interprets statistics with 11-type fallacy detection, and verifies reproducibility.
+
+**How to use together**: pause the ARS pipeline after Stage 1, run experiments in a separate experiment-agent session, then bring the results (with Material Passport) back to ARS Stage 2. ARS requires zero modification. See the [experiment-agent README](https://github.com/Imbad0202/experiment-agent) for setup instructions.
 
 ---
 
@@ -577,15 +618,39 @@ https://github.com/Imbad0202/academic-research-skills
 
 **[aspi6246](https://github.com/aspi6246)** — Contributor. The v3.1 optimization was inspired by patterns from [Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics): read-only constraint pattern, anti-pattern codification as first-class design, cognitive framework approach (teaching "how to think" not just procedures), and lean skill size philosophy.
 
-**[cloudenochcsis](https://github.com/cloudenochcsis)** — Contributor. Extended the Information Systems section in `academic-paper-reviewer/references/top_journals_by_field.md` from the AIS *Basket of 8* to the full *Senior Scholars' Basket of 11* — adding *Decision Support Systems*, *Information & Management*, and *Information and Organization* with publisher and impact factor metadata. Sourced from the [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals), the authoritative IS list referenced by doctoral programs and tenure committees worldwide ([PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)).
+**[mchesbro1](https://github.com/mchesbro1)** — Contributor. Originally proposed and drafted the IS Basket of 8 journals for `academic-paper-reviewer/references/top_journals_by_field.md` ([Issue #5](https://github.com/Imbad0202/academic-research-skills/issues/5)).
+
+**[cloudenochcsis](https://github.com/cloudenochcsis)** — Contributor. Extended the IS section from the *Basket of 8* to the full *Senior Scholars' Basket of 11* — adding *Decision Support Systems*, *Information & Management*, and *Information and Organization* ([Issue #7](https://github.com/Imbad0202/academic-research-skills/issues/7), [PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)). Sourced from the [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals).
 
 ---
 
 ## Changelog
 
+### v3.3 (2026-04-09) — PaperOrchestra-Inspired Enhancements
+
+Integrates techniques from [PaperOrchestra](https://arxiv.org/abs/2604.05018) (Song, Song, Pfister & Yoon, 2026, Google).
+
+- **Semantic Scholar API Verification** — Tier 0 programmatic reference existence check via S2 API. Levenshtein >= 0.70 title matching, DOI mismatch detection, bibliography deduplication via S2 IDs. Graceful degradation if API unavailable.
+- **Anti-Leakage Protocol** — Knowledge Isolation Directive prioritizes session materials over LLM parametric memory. Flags `[MATERIAL GAP]` for missing content instead of filling from memory. Reduces Mode 5/6 failure risk.
+- **VLM Figure Verification** (optional) — Closed-loop verification of rendered figures using vision-capable LLM. 10-point checklist, max 2 refinement iterations.
+- **Score Trajectory Protocol** — Per-dimension rubric score delta tracking across revision rounds (7 dimensions). Detects regressions (delta < -3) and triggers mandatory checkpoint.
+- **Stage 2 Parallelization** — Visualization and argument building can run in parallel after outline completion.
+- New versions: deep-research v2.8, academic-paper v3.0, academic-pipeline v3.2
+
+### v3.2 (2026-04-09) — Lu 2026 Nature Integration
+
+Integrates insights from Lu et al. (2026, *Nature* 651:914-919) — the first end-to-end autonomous AI research system to pass blind peer review.
+
+- **7-mode AI Research Failure Mode Checklist** — blocks pipeline at Stage 2.5/4.5 on suspected implementation bugs, hallucinated results, shortcut reliance, bug-as-insight, methodology fabrication, frame-lock. Extends existing 5-type citation hallucination taxonomy.
+- **Reviewer Calibration Mode** (academic-paper-reviewer v1.8) — opt-in FNR/FPR/balanced-accuracy measurement against user-supplied gold set. 5× ensembling, cross-model default-on, session-scoped confidence disclosure.
+- **Disclosure Mode** (academic-paper v2.9) — venue-specific AI-usage statement generator. v1 covers ICLR, NeurIPS, Nature, Science, ACL, EMNLP.
+- **Early-Stopping Criterion** (academic-pipeline v3.1) — convergence check + budget transparency at pipeline start.
+- **Fidelity-Originality Mode Spectrum** — classifies all modes across 3 skills per Lu 2026 Fig 1c.
+- New versions: academic-paper v2.9, academic-paper-reviewer v1.8, academic-pipeline v3.1
+
 ### v3.1.1 (2026-04-09) — IS Senior Scholars' Basket of 11
 
-External contribution from [@cloudenochcsis](https://github.com/cloudenochcsis) ([PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)). Extended `academic-paper-reviewer/references/top_journals_by_field.md` Section 7 from the AIS *Basket of 8* (added in v2.9) to the full *Senior Scholars' Basket of 11*, adding *Decision Support Systems*, *Information & Management*, and *Information and Organization*. Source: [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals) — the authoritative IS list referenced by doctoral programs and tenure committees.
+External contributions: [@mchesbro1](https://github.com/mchesbro1) originally proposed and drafted the IS Basket of 8 journals ([Issue #5](https://github.com/Imbad0202/academic-research-skills/issues/5)); [@cloudenochcsis](https://github.com/cloudenochcsis) extended it to the full Senior Scholars' Basket of 11 ([Issue #7](https://github.com/Imbad0202/academic-research-skills/issues/7), [PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)). Updated `academic-paper-reviewer/references/top_journals_by_field.md` Section 7, adding *Decision Support Systems*, *Information & Management*, and *Information and Organization*. Source: [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals).
 
 ### v3.1 (2026-04-06) — Anti-Context-Rot + Cognitive Frameworks + Lean Size
 

@@ -4,6 +4,14 @@
 
 Provides calibrated scoring rubrics for the 7 review dimensions used by all reviewers (R1, R2, R3, DA). Ensures consistent, reproducible scoring across different papers and review sessions.
 
+## Known error profile (v3.2)
+
+These rubrics define *what* to measure, not *how accurate* the measurement is. A single LLM reviewer's absolute rubric score has calibration error that depends on domain, paper type, and model version.
+
+For users who want to know this reviewer's empirical FNR / FPR / balanced accuracy before relying on these rubric scores, run the opt-in **calibration mode** (see `calibration_mode_protocol.md`). Calibration mode compares this reviewer's decisions against a user-supplied gold set and produces a Calibration Report that attaches as a confidence disclosure to subsequent reviews in the same session.
+
+Without calibration, treat rubric scores as *ordinally* meaningful (papers scored 85 are better than papers scored 65) but *not cardinally* interpretable (a 85 does not guarantee venue acceptance).
+
 ## Scoring Scale
 
 All dimensions scored 0-100. Final weighted score determines editorial decision.

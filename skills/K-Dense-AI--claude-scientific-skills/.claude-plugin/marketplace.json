@@ -1,11 +1,11 @@
 {
-  "name": "claude-scientific-skills",
+  "name": "scientific-agent-skills",
   "owner": {
     "name": "K-Dense Inc.",
     "email": "contact@k-dense.ai"
   },
   "metadata": {
-    "description": "Claude scientific skills from K-Dense Inc",
+    "description": "Scientific agent skills from K-Dense Inc",
     "version": "2.34.1"
   },
   "plugins": [

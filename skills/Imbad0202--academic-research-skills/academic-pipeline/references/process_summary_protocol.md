@@ -152,6 +152,7 @@ All metrics below are derived from existing agent logs (`[DA-DECISION]`, `[DA-RE
 3. **Frame-Lock Incidents**: List any `[CROSS-MODEL-FINDING]` that the primary DA missed (if cross-model was enabled), or any frame-lock detections triggered during checkpoints. If none, state "No frame-lock incidents detected — note this could mean either good coverage or undetected frame-lock."
 4. **Convergence Pattern**: In Socratic dialogue stages, was intent correctly detected? Did the mentor try to converge prematurely? Report mode transitions and any premature-convergence health alerts.
 5. **What AI Got Wrong**: Candid list of AI errors or shortcomings during the run — corrections needed, checkpoint failures, integrity issues found. This is not a failure report; it is evidence that quality gates are working.
+6. **Failure Mode Audit Log** (v3.2): For each of the 7 AI research failure modes from the Stage 2.5 / 4.5 checklist (see `references/ai_research_failure_modes.md`), report (a) final status at 4.5 — `CLEAR` / `OVERRIDDEN`, (b) history — was it ever `SUSPECTED` during the pipeline? At which stage? How was it resolved? (c) if `OVERRIDDEN`, the user's recorded reasoning. This makes the failure-mode defences part of the permanent process record. Modes with no history can be listed as `CLEAR (no flags)` in one line; expand only on modes that were flagged.
 
 ### Output Length Guidance
 

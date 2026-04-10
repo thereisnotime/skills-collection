@@ -46,6 +46,20 @@ DOCUMENT TYPES: [journal articles, reports, grey literature, etc.]
 - **Pass 1** (Title + Abstract): Rapid relevance screening
 - **Pass 2** (Full text): Detailed quality + relevance assessment
 
+### Step 4.5: Semantic Scholar Deduplication — NEW v3.3
+
+Reference: `references/semantic_scholar_api_protocol.md`
+
+After screening, resolve each included source to a Semantic Scholar ID:
+1. Query S2 API for each source (DOI lookup preferred, title search fallback)
+2. Record `semantic_scholar_id` in the source metadata
+3. If two sources resolve to the same `semantic_scholar_id`, they are duplicates — keep the one with more complete bibliographic data
+4. If a source cannot be resolved in S2 (`S2_NOT_FOUND`), retain it but tag as `s2_unresolved` for downstream verification
+
+**Purpose**: PaperOrchestra demonstrated that deduplication via S2 IDs prevents the same paper from appearing with slightly different metadata (e.g., preprint vs published version, conference vs journal version). This is especially important when sources come from multiple search layers (Layers 1-4).
+
+**Graceful degradation**: If S2 API is unavailable, skip this step entirely. Duplicates will be caught by the existing title-based deduplication in Step 3.
+
 ### Step 5: Annotated Bibliography
 
 For each source:

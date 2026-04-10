@@ -1,9 +1,9 @@
 ---
 name: academic-pipeline
-description: "Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-research, academic-paper, and academic-paper-reviewer into a seamless 9-stage workflow with mandatory integrity verification, two-stage peer review, and reproducible quality gates. Triggers on: academic pipeline, research to paper, full paper workflow, paper pipeline, end-to-end paper, research-to-publication, complete paper workflow."
+description: "Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-research, academic-paper, and academic-paper-reviewer into a seamless 10-stage workflow with mandatory integrity verification, two-stage peer review, and reproducible quality gates. Triggers on: academic pipeline, research to paper, full paper workflow, paper pipeline, end-to-end paper, research-to-publication, complete paper workflow."
 metadata:
-  version: "3.0"
-  last_updated: "2026-04-06"
+  version: "3.2"
+  last_updated: "2026-04-09"
   depends_on: "deep-research, academic-paper, academic-paper-reviewer"
   status: active
   related_skills:
@@ -12,7 +12,7 @@ metadata:
     - academic-paper-reviewer
 ---
 
-# Academic Pipeline v3.0 — Full Academic Research Workflow Orchestrator
+# Academic Pipeline v3.2 — Full Academic Research Workflow Orchestrator
 
 A lightweight orchestrator that manages the complete academic pipeline from research exploration to final manuscript. It does not perform substantive work — it only detects stages, recommends modes, dispatches skills, manages transitions, and tracks state.
 
@@ -91,6 +91,13 @@ I received reviewer comments, help me revise
 | **4.5** | **FINAL INTEGRITY** | **`integrity_verification_agent`** | **final-check** | **Final verification report (must achieve 100% pass to proceed)** |
 | 5 | FINALIZE | `academic-paper` | format-convert | Final Paper (default MD + DOCX; ask about LaTeX; confirm correctness; PDF) |
 | **6** | **PROCESS SUMMARY** | **orchestrator** | **auto** | **Paper creation process record MD + LaTeX to PDF (bilingual)** |
+
+**Parallelization opportunity (v3.3)**: Within Stage 2, the `academic-paper` skill's Phase 1 (literature_strategist_agent) and the `visualization_agent` can operate in parallel after Phase 2 (structure_architect_agent) completes the outline. Specifically:
+- Once the outline includes a visualization plan, `visualization_agent` can begin figure generation
+- Simultaneously, `argument_builder_agent` can build CER chains
+- `draft_writer_agent` waits for both to complete before beginning Phase 4
+
+This mirrors PaperOrchestra's parallel execution of Plot Generation (Step 2) and Literature Review (Step 3) after Outline (Step 1), which reduces overall pipeline latency. The parallelization is optional — sequential execution remains the default for simplicity.
 
 ---
 
@@ -286,7 +293,10 @@ Stage 2.5 (pre-review) and Stage 4.5 (post-revision) verification. 5-phase proto
 
 ⚠️ **IRON RULE**: Stage 4.5 must PASS with zero issues to proceed to Stage 5. Stage 4.5 verifies from scratch independently.
 
-> See `references/integrity_review_protocol.md` for full 5-phase verification procedures.
+⚠️ **IRON RULE (v3.2)**: Both Stage 2.5 and Stage 4.5 must also run the **AI Research Failure Mode Checklist** — a 7-mode taxonomy extending the citation hallucination checks into implementation bugs, hallucinated results, shortcut reliance, bug-as-insight, methodology fabrication, and pipeline-level frame-lock. If any of the 7 modes is `SUSPECTED`, or if Modes 1/3/5/6 are `INSUFFICIENT EVIDENCE`, the pipeline **blocks** and the user must acknowledge (confirm / override with reasoning / revise) before the pipeline proceeds. There is no `--no-block` escape hatch. Stage 6 PROCESS SUMMARY then reports the full failure-mode audit log as part of the AI Self-Reflection Report.
+
+> See `references/integrity_review_protocol.md` for the 5-phase citation/claim verification procedures.
+> See `references/ai_research_failure_modes.md` for the 7-mode AI research failure checklist and block/override logic.
 
 ---
 
@@ -337,6 +347,14 @@ ASCII dashboard shown at FULL checkpoints to display pipeline progress.
 - Mark unresolved issues as Acknowledged Limitations
 - Provide cumulative revision history (each round's decision, items addressed, unresolved items)
 
+### Early-Stopping Criterion (v3.2)
+
+At the end of each revision round, if **delta < 3 points** on the 0-100 rubric AND **no P0 issues remain**, suggest stopping the revision loop ("converged"). User can override. Hard cap: 2 full revision loops (Stage 4 + Stage 4').
+
+### Budget Transparency (v3.2)
+
+At pipeline start, estimate token cost based on paper length, mode, and cross-model toggle. Present estimate and ask for user confirmation before Stage 1 begins.
+
 ---
 
 ## Reproducibility
@@ -368,6 +386,7 @@ Explicit prohibitions to prevent common failure modes:
 | 5 | **Silently dropping reviewer concerns** | Revision addresses 8 of 10 concerns and hopes nobody notices | The R&R tracking table must account for every concern with explicit status |
 | 6 | **Re-verifying only known issues at Stage 4.5** | Final integrity check only re-checks Stage 2.5 findings | Stage 4.5 must verify from scratch independently; revision may introduce new issues |
 | 7 | **Inflating Collaboration Quality scores** | Giving 90/100 to avoid awkward self-criticism | Honesty first: no inflation, no pleasantries; cite specific evidence for every score |
+| 8 | **Bypassing the Failure Mode Checklist block** (v3.2) | "The 7-mode checklist is new, let's skip it this run" | Stage 2.5/4.5 Failure Mode Checklist is MANDATORY and BLOCKING; no `--no-block` flag exists; overrides require user reasoning recorded for Stage 6 |
 
 ---
 
@@ -381,9 +400,12 @@ Explicit prohibitions to prevent common failure modes:
 | State tracking | Pipeline state updated in real time; Progress Dashboard accurate |
 | **Mandatory checkpoint** | **User confirmation required after each stage completion** |
 | **Mandatory integrity check** | **Stage 2.5 and 4.5 cannot be skipped, must PASS** |
+| **Mandatory failure mode checklist** (v3.2) | **Stage 2.5 and 4.5 must run the 7-mode AI research failure checklist; suspected failures block; overrides require user reasoning** |
 | No overstepping | ⚠️ IRON RULE: Orchestrator does not perform substantive research/writing/reviewing, only dispatching |
 | No forcing | ⚠️ IRON RULE: User can pause or exit pipeline at any time (but cannot skip integrity checks) |
 | Reproducible | Same input follows the same workflow across different sessions |
+| **Convergence-aware stopping** (v3.2) | **If delta < 3 points AND no P0 issues, suggest stopping revision loop; user can override** |
+| **Budget transparency** (v3.2) | **Token cost estimate + user confirmation at pipeline start** |
 
 ---
 
@@ -423,6 +445,7 @@ Explicit prohibitions to prevent common failure modes:
 | `references/plagiarism_detection_protocol.md` | Phase D originality verification protocol + self-plagiarism + AI text characteristics |
 | `references/mode_advisor.md` | Unified cross-skill decision tree: maps user intent to optimal skill + mode |
 | `references/claim_verification_protocol.md` | Phase E claim verification protocol: claim extraction, source tracing, cross-referencing, verdict taxonomy |
+| `references/ai_research_failure_modes.md` | 7-mode AI research failure checklist (Lu 2026), run at Stage 2.5 + 4.5 with blocking behaviour, reported at Stage 6 |
 | `references/team_collaboration_protocol.md` | Multi-person team coordination: role definitions, handoff protocol, version control, conflict resolution |
 | `references/integrity_review_protocol.md` | Stage 2.5 + 4.5 integrity verification: 5-phase protocol details |
 | `references/two_stage_review_protocol.md` | Two-stage review: Stage 3 full review + Stage 3' verification review |
@@ -508,8 +531,8 @@ Stage 5: academic-paper (format-convert mode)
 
 | Item | Content |
 |------|---------|
-| Skill Version | 3.0 |
-| Last Updated | 2026-04-06 |
+| Skill Version | 3.2 |
+| Last Updated | 2026-04-09 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | deep-research v2.0+, academic-paper v2.0+, academic-paper-reviewer v1.1+ |
 | Role | Full academic research workflow orchestrator |

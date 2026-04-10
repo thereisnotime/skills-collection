@@ -62,6 +62,22 @@ Reference: `references/source_quality_hierarchy.md`
 
 A hybrid verification strategy to catch hallucinated or fabricated references:
 
+#### Tier 0: Semantic Scholar API Verification (100% coverage) — NEW v3.3
+
+Reference: `references/semantic_scholar_api_protocol.md`
+
+For every source in the bibliography, query the Semantic Scholar API:
+- If DOI is available: use DOI lookup (`GET /paper/DOI:{doi}`)
+- If no DOI: use title search (`GET /paper/search?query={title}`)
+- Accept match if Levenshtein title similarity >= 0.70 and year matches (or within +/-1 year)
+- Record `semantic_scholar_id` in the verification audit trail for each matched reference
+- References that PASS Tier 0 (matched with score >= 0.70) may skip Tier 2 WebSearch spot-check
+- References that FAIL Tier 0 (S2_NOT_FOUND) MUST proceed through Tier 1 + Tier 2
+
+**DOI mismatch detection**: If a DOI resolves in S2 but the returned title has Levenshtein < 0.70 against the reference title, flag as `DOI_MISMATCH` — this is a known hallucination pattern (Compound Deception Pattern #5: DOI Misdirection).
+
+**Graceful degradation**: If S2 API is unavailable, skip Tier 0 and proceed with Tier 1 + Tier 2 as before. Log `[S2-API-UNAVAILABLE]` in the audit trail.
+
 #### Tier 1: Automated DOI Verification (100% coverage)
 - Every source with a DOI → verify via `https://doi.org/{doi}` resolution
 - Check: DOI resolves to a real page, title matches, authors match
@@ -83,10 +99,11 @@ Flag immediately if ANY of:
 - [ ] The source is suspiciously perfect (exactly supports the claim with no caveats)
 
 #### Verification Outcome
-- `VERIFIED`: DOI resolves + metadata matches
-- `PLAUSIBLE`: No DOI but WebSearch confirms existence
+- `S2_VERIFIED`: Semantic Scholar API match (Levenshtein >= 0.70 + year match). Strongest programmatic evidence.
+- `VERIFIED`: DOI resolves + metadata matches (Tier 1)
+- `PLAUSIBLE`: No DOI but WebSearch confirms existence (Tier 2)
 - `UNVERIFIABLE`: Cannot confirm existence through any method → flag for human review
-- `FABRICATED`: Evidence of non-existence (404 DOI + no WebSearch results) → CRITICAL, must remove
+- `FABRICATED`: Evidence of non-existence (all tiers fail) → CRITICAL, must remove
 
 ### 5. Currency Assessment
 

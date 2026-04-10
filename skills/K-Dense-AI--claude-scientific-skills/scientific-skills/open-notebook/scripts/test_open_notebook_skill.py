@@ -2,7 +2,7 @@
 Test-Driven Development tests for the Open-Notebook skill.
 
 These tests validate the structure, content completeness, and correctness
-of the open-notebook skill implementation for the claude-scientific-skills repository.
+of the open-notebook skill implementation for the scientific-agent-skills repository.
 
 Run with: python -m pytest test_open_notebook_skill.py -v
 Or:       python -m unittest test_open_notebook_skill.py -v

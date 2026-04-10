@@ -191,7 +191,6 @@ Look for signals such as:
 - The user explicitly asks for TDD, test-first, or characterization-first work
 - The origin document calls for test-first implementation or exploratory hardening of legacy code
 - Local research shows the target area is legacy, weakly tested, or historically fragile, suggesting characterization coverage before changing behavior
-- The user asks for external delegation, says "use codex", "delegate mode", or mentions token conservation -- add `Execution target: external-delegate` to implementation units that are pure code writing
 
 When the signal is clear, carry it forward silently in the relevant implementation units.
 
@@ -349,6 +348,20 @@ Frame every sketch with: *"This illustrates the intended approach and is directi
 
 Keep sketches concise — enough to validate direction, not enough to copy-paste into production.
 
+#### 3.4b Output Structure (Optional)
+
+For greenfield plans that create a new directory structure (new plugin, service, package, or module), include an `## Output Structure` section with a file tree showing the expected layout. This gives reviewers the overall shape before diving into per-unit details.
+
+**When to include it:**
+- The plan creates 3+ new files in a new directory hierarchy
+- The directory layout itself is a meaningful design decision
+
+**When to skip it:**
+- The plan only modifies existing files
+- The plan creates 1-2 files in an existing directory — the per-unit file lists are sufficient
+
+The tree is a scope declaration showing the expected output shape. It is not a constraint — the implementer may adjust the structure if implementation reveals a better layout. The per-unit `**Files:**` sections remain authoritative for what each unit creates or modifies.
+
 #### 3.5 Define Each Implementation Unit
 
 For each unit, include:
@@ -357,7 +370,7 @@ For each unit, include:
 - **Dependencies** - what must exist first
 - **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
 - **Approach** - key decisions, data flow, component boundaries, or integration notes
-- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first, characterization-first, or external delegation
+- **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first or characterization-first
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
 - **Patterns to follow** - existing code or conventions to mirror
 - **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
@@ -373,7 +386,6 @@ Use `Execution note` sparingly. Good uses include:
 - `Execution note: Start with a failing integration test for the request/response contract.`
 - `Execution note: Add characterization coverage before modifying this legacy parser.`
 - `Execution note: Implement new domain behavior test-first.`
-- `Execution note: Execution target: external-delegate`
 
 Do not expand units into literal `RED/GREEN/REFACTOR` substeps.
 
@@ -456,6 +468,12 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Explicit non-goal or exclusion]
 
+<!-- Optional: When some items are planned work that will happen in a separate PR, issue,
+     or repo, use this sub-heading to distinguish them from true non-goals. -->
+### Deferred to Separate Tasks
+
+- [Work that will be done separately]: [Where or when -- e.g., "separate PR in repo-x", "future iteration"]
+
 ## Context & Research
 
 ### Relevant Code and Patterns
@@ -483,6 +501,14 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 ### Deferred to Implementation
 
 - [Question or unknown]: [Why it is intentionally deferred]
+
+<!-- Optional: Include when the plan creates a new directory structure (greenfield plugin,
+     new service, new package). Shows the expected output shape at a glance. Omit for plans
+     that only modify existing files. This is a scope declaration, not a constraint --
+     the implementer may adjust the structure if implementation reveals a better layout. -->
+## Output Structure
+
+    [directory tree showing new directories and files]
 
 <!-- Optional: Include this section only when the work involves DSL design, multi-component
      integration, complex data flow, state-heavy lifecycle, or other cases where prose alone
@@ -512,7 +538,7 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 **Approach:**
 - [Key design or sequencing decision]
 
-**Execution note:** [Optional test-first, characterization-first, external-delegate, or other execution posture signal]
+**Execution note:** [Optional test-first, characterization-first, or other execution posture signal]
 
 **Technical design:** *(optional -- pseudo-code or diagram when the unit's approach is non-obvious. Directional guidance, not implementation specification.)*
 
@@ -623,6 +649,8 @@ Before finalizing, check:
 - Deferred items are explicit and not hidden as fake certainty
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
 - Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
+- If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?
+- If Scope Boundaries lists items that are planned work for a separate PR or task, are they under `### Deferred to Separate Tasks` rather than mixed with true non-goals?
 - Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
 
 If the plan originated from a requirements document, re-read that document and verify:

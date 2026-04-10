@@ -353,6 +353,12 @@ Note. [Additional details]
 
 ### Placement Recommendation
 [Single/double column; suggested section for placement]
+
+### VLM Verification (v3.3, optional)
+- **Status**: [PASS / PASS_WITH_NOTES / NEEDS_REVIEW / SKIPPED]
+- **Iterations**: [N or N/A]
+- **Issues found**: [list or "none"]
+- **Remaining issues**: [list or "none"]
 ```
 
 ---
@@ -395,6 +401,16 @@ Step 6: Quality Check
   6.1 Run all 10 mandatory checks
   6.2 Verify no common pitfalls present
   6.3 Confirm data accuracy (plotted values match source)
+
+Step 6.5: VLM Figure Verification (Optional) — NEW v3.3
+  Reference: `references/vlm_figure_verification.md`
+  6.5.1 Check if multimodal/vision capability is available
+  6.5.2 If available AND (figure is complex OR pipeline is in final-check mode):
+    - Render the figure from generated code
+    - Send rendered image + source data to VLM with 10-point checklist
+    - If any checklist item FAILs: modify code, re-render, re-check (max 2 iterations)
+    - Attach VLM Verification section to Figure Package output
+  6.5.3 If not available or figure is simple: skip (note "VLM verification: skipped" in Figure Package)
 
 Step 7: Package Output
   7.1 Compile Figure Package for each figure

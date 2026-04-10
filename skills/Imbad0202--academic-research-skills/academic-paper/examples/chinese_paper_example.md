@@ -1,39 +1,43 @@
-# Chinese Academic Paper Example (IMRaD Format)
+# 中文學術論文範例（IMRaD 格式）
 
-A complete Traditional Chinese academic paper example demonstrating Chinese APA 7.0 citation format. This example showcases the skill's **bilingual capability** — it can produce papers in Chinese, English, or both. For English-only paper examples, see `imrad_hei_example.md` and `literature_review_example.md`.
+完整的繁體中文學術論文範例，展示中文 APA 7.0 引用格式。
 
-## User Input
+> **本文為 AI 生成的示範輸出。** 所有作者、機構、數據、統計結果均為虛構。文中引用的參考文獻（包含作者姓名、論文標題、期刊名稱、DOI）均為 AI 生成，未經驗證，可能不存在。請勿引用本文內容作為學術依據。
+
+## 使用者輸入
 
 ```
-Write a Chinese academic paper on the impact of declining birth rates on private university enrollment strategies (IMRaD format, APA 7.0 citations)
+寫一篇關於少子化對私立大學招生策略影響的中文學術論文（IMRaD 格式，APA 7.0 引用）
 ```
 
-## Output
+## 產出
 
-The following is a complete Chinese academic paper example produced by `full mode`.
-
----
-
-# A Study on the Transformation of Enrollment Strategies in Taiwan's Private Universities Amid Declining Birth Rates
+以下為 `full mode` 產出的完整中文學術論文範例。
 
 ---
 
-**Authors**: Chia-Hui Lin ¹, Chih-Ming Chen ²
+# 台灣私立大學面對少子化之招生策略轉型研究
 
-¹ Department of Education, National Chengchi University, Taipei, Taiwan
-² Graduate Institute of Higher Education, Tamkang University, New Taipei, Taiwan
-
-**Corresponding Author**: Chia-Hui Lin (jiahuei.lin@nccu.edu.tw)
-
-**AI Disclosure Statement**: This study used generative AI tools (Claude, Anthropic, 2024) during the literature search and initial classification stages. All AI-assisted outputs were manually reviewed and revised by the authors. The final manuscript writing, data analysis, and academic judgments were completed entirely and independently by the authors.
+## A Study on the Transformation of Enrollment Strategies in Taiwan's Private Universities Amid Declining Birth Rates
 
 ---
 
-## Chinese Abstract
+**作者**：[範例作者一] ¹、[範例作者二] ²
 
-Taiwan is facing a severe demographic crisis, with the number of first-year college students declining from 273,000 in 2012 to 198,000 in 2024, with private universities bearing the brunt of the impact. This study aims to explore how Taiwan's private universities are transforming their enrollment strategies in response to the shock of declining birth rates. The study employs a mixed-methods design: Phase 1 uses content analysis to analyze the institutional development plans and enrollment materials of 42 private universities from 2020-2024, while Phase 2 involves in-depth interviews with enrollment directors at 12 universities. The findings reveal three major enrollment strategy transformation patterns: (1) differentiation positioning strategy -- emphasizing specialized programs and industry linkages, at 64.3%; (2) internationalization expansion strategy -- developing overseas student recruitment, at 47.6%; and (3) lifelong learning transformation strategy -- developing continuing education and in-service executive programs, at 38.1%. Notably, universities that successfully transformed tended to adopt a "portfolio approach" (implementing two or more strategies simultaneously) and shared two common characteristics: executive-level administrative support and data-driven decision-making. This study recommends that private universities establish systematic environmental scanning mechanisms and select strategy portfolios based on their own positioning, rather than relying on single-strategy reactive responses. Research limitations include the sample focusing on comprehensive universities without covering universities of science and technology, and potential social desirability bias in interview data.
+¹ [範例大學]教育學系，台北，台灣
+² [範例科技大學]高等教育研究所，新北，台灣
 
-**Keywords**: declining birth rate, private university, enrollment strategy, strategic transformation, Taiwan higher education
+**通訊作者**：[範例作者一]（example@example.edu.tw）
+
+**AI 使用聲明**：本研究於文獻搜尋與初步分類階段使用了生成式 AI 工具（Claude, Anthropic, 2024），所有 AI 輔助產出均經作者人工審核與修正。最終論文撰寫、數據分析與學術判斷完全由作者獨立完成。
+
+---
+
+## 摘要
+
+台灣面臨嚴峻的少子化危機，大專校院新生人數從 2012 年的 27.3 萬人降至 2024 年的 19.8 萬人，其中私立大學首當其衝。本研究旨在探討台灣私立大學面對少子化衝擊時，如何進行招生策略轉型。本研究採混合方法設計，第一階段以內容分析法分析 42 所私立大學 2020-2024 年之校務發展計畫與招生文宣，第二階段深度訪談 12 所大學之招生主管。研究發現，私立大學的招生策略轉型呈現三個主要模式：（一）差異化定位策略——強調特色學程與產業連結，佔 64.3%；（二）國際化擴張策略——拓展境外生源，佔 47.6%；（三）終身學習轉型策略——發展推廣教育與在職專班，佔 38.1%。值得注意的是，成功轉型的大學多採取「組合式策略」（同時執行兩種以上策略），且具備高層行政支持與數據驅動決策兩項共同特徵。本研究建議私立大學應建立系統性的環境掃描機制，並依據自身定位選擇策略組合，而非單一策略的被動應對。研究限制包括樣本以一般大學為主、未涵蓋科技大學，以及訪談資料可能存在社會期望偏誤。
+
+**關鍵詞**：少子化、私立大學、招生策略、策略轉型、台灣高等教育
 
 ---
 
@@ -45,226 +49,230 @@ Taiwan is facing a severe demographic crisis, with the number of first-year coll
 
 ---
 
-## I. Introduction
+## 壹、緒論
 
-### 1. Research Background
+### 一、研究背景
 
-Taiwan's annual births plummeted from 305,000 in 2000 to 135,000 in 2023, and the tsunami of declining birth rates is impacting the higher education system with a force that is predictable yet difficult to resist (National Development Council, 2024). According to MOE statistics, the number of first-year postsecondary students in the 2024 academic year was 198,000, a decrease of approximately 27.5% from a decade earlier, and this trend is projected to continue until the mid-2030s before reaching bottom (MOE, 2024). Among all institutions, private universities bear the greatest pressure. As of 2024, 12 private postsecondary institutions have ceased operations or undergone exit transitions (MOE, 2024), with many more facing enrollment shortfalls and financial difficulties threatening their survival.
+台灣的出生人數從 2000 年的 30.5 萬人驟降至 2023 年的 13.5 萬人，少子化的海嘯正以可預見但難以阻擋的力道衝擊高等教育體系（[虛構統計機關]，2024）。根據[虛構主管機關]統計，113 學年度大專校院一年級新生人數為 19.8 萬人，較十年前減少約 27.5%，且此一趨勢預計將持續至 2030 年代中期方見底部（[虛構主管機關]，2024）。在此結構性挑戰中，私立大學承受的壓力尤為巨大。截至 2024 年，已有 12 所私立大專校院停辦或轉型退場（[虛構主管機關]，2024），而更多學校面臨註冊率不足、財務困難的生存危機。
 
-The impact of declining birth rates on private universities is not uniform. Resource-rich, highly reputed private universities (such as Chang Gung University and Fu Jen Catholic University) have maintained stable enrollment, but mid-to-lower-tier regional private universities face cliff-like losses in student sources (Huang, 2023). This polarization means that enrollment strategy transformation is not merely a management issue but a strategic decision with existential implications.
+少子化對私立大學的衝擊並非均質的。資源豐富、聲譽卓著的私立大學（如[範例大學甲]、[範例大學乙]）仍維持穩定的招生表現，但中後段的區域型私立大學則面臨斷崖式的生源流失（[作者庚]，2023）。這種兩極化的趨勢意味著，招生策略的轉型不僅是一個管理議題，更是關乎學校存亡的策略性決策。
 
-### 2. Research Questions
+### 二、研究問題
 
-While declining birth rates are not a new topic in Taiwan's higher education policy discussions, existing research focuses primarily on macroscopic demographic trend forecasting (Chen, 2022), legal analysis of exit mechanisms (Tai, 2023), or comparisons of international experiences (Wu, 2022). However, empirical research on what private universities "actually did" and "which strategies truly worked" remains insufficient. In particular, the existing literature lacks systematic classification of enrollment strategy transformation "patterns" and in-depth exploration of the "common characteristics" of successful transformation.
+儘管少子化議題在台灣高等教育政策討論中已非新議題，現有研究多聚焦於宏觀的人口趨勢預測（[作者己]，2022）、退場機制的法規分析（[作者子]，2023），或國際經驗的比較（[作者乙]，2022）。然而，針對私立大學「實際上做了什麼」以及「哪些策略真正有效」的實證研究仍然不足。特別是：現有文獻缺乏對招生策略轉型「模式」的系統性歸納，也缺乏對成功轉型之「共同特徵」的深入探討。
 
-Based on these gaps, this study poses the following research questions:
-1. What enrollment strategy transformation patterns did Taiwan's private universities adopt during 2020-2024?
-2. What common characteristics do private universities that successfully maintained enrollment performance share?
-3. How should different types of private universities select appropriate strategy portfolios for their situations?
+基於上述缺口，本研究提出以下研究問題：
+1. 台灣私立大學在 2020-2024 年間採行了哪些招生策略轉型模式？
+2. 成功維持招生表現的私立大學具備哪些共同特徵？
+3. 不同類型的私立大學應如何選擇適合自身的策略組合？
 
-### 3. Research Purpose and Chapter Organization
+### 三、研究目的與章節安排
 
-This study aims to systematically analyze enrollment strategy transformation at Taiwan's private universities through a mixed-methods design, providing evidence-based strategic recommendations for universities still seeking direction. The following sections sequentially review relevant literature (Section II), describe the research methodology (Section III), present research results (Section IV), discuss findings and recommendations (Section V), and conclude (Section VI).
-
----
-
-## II. Literature Review
-
-### 1. Global Context of Declining Birth Rates and Higher Education
-
-Declining birth rates are not unique to Taiwan. Japan, South Korea, and multiple European countries face similar challenges (OECD, 2023). Shin and Harman (2009) pointed out that East Asian countries experience particularly severe impacts due to the rapid expansion of higher education. Japan's experience shows that private universities began facing enrollment shortfalls as early as the 1990s, and by 2023 more than 50% of private universities were unable to fill their enrollment quotas (Ministry of Education, Culture, Sports, Science and Technology, Japan, 2023). South Korea's situation is similar, with 40% of universities facing enrollment gaps in 2024 (Korean Educational Development Institute, 2024).
-
-Taiwan's distinctiveness lies in the extremely rapid pace of its birth rate decline — the total fertility rate dropped from 1.68 in 2000 to 0.87 in 2023, among the lowest globally (National Development Council, 2024). This means that Taiwanese universities face not a gradual adaptation but a sudden structural shock.
-
-### 2. Theoretical Framework for Private University Enrollment Strategies
-
-From a strategic management perspective, enrollment strategy transformation at private universities can be understood through Porter's (1985) competitive strategy theory and Kotler and Fox's (1995) educational marketing theory. Porter's three generic strategies — cost leadership, differentiation, and focus — manifest differently in the higher education arena (Chen, 2021).
-
-In recent years, scholars have further proposed the concept of "strategic portfolio," arguing that universities should not choose a single strategy but rather combine multiple strategies based on their own conditions (Fumasoli & Huisman, 2013). Wang (2023) further noted that strategic choices at Taiwan's private universities are influenced by factors at three levels: the macro environment (demographics, policy, economy), the meso-level competition (regional university distribution, industry structure), and micro-level resources (faculty, facilities, finances, alumni networks).
-
-### 3. Existing Research on Private University Enrollment Strategies in Taiwan
-
-Domestic research can be organized along three dimensions. First, differentiation strategy research: Chang and Lin (2022) found that successful private universities tend to develop 2-3 "flagship programs" as recruitment highlights, rather than pursuing comprehensive disciplinary development. Second, internationalization strategy research: Liu (2023) analyzed 15 private universities actively recruiting international students and found that Southeast Asian student sources had become the primary growth driver, though language barriers and cultural adaptation remained major challenges. Third, lifelong learning strategy research: Yang and Hu (2022) noted that in-service executive programs and continuing education had become significant revenue sources for some private universities, though quality control mechanisms had yet to be established.
-
-However, the above studies are mostly single-strategy analyses lacking an integrated cross-strategy perspective. This study attempts to fill this gap while extracting generalizable lessons from successful cases.
+本研究旨在透過混合方法設計，系統性地分析台灣私立大學的招生策略轉型，為尚在摸索方向的學校提供實證基礎的策略建議。以下各節依序回顧相關文獻（貳）、說明研究方法（參）、呈現研究結果（肆）、討論發現的意義與建議（伍），最後提出結論（陸）。
 
 ---
 
-## III. Research Methodology
+## 貳、文獻回顧
 
-### 1. Research Design
+### 一、少子化與高等教育的全球脈絡
 
-This study employed an explanatory sequential design (Creswell & Creswell, 2023), with Phase 1 using primarily quantitative content analysis to establish an overall picture of strategy transformation, and Phase 2 using qualitative in-depth interviews to supplement interpretation and context. The integration point between the two phases is that Phase 1 findings guided Phase 2 participant selection and interview question design.
+少子化並非台灣獨有的現象。日本、韓國、歐洲多國均面臨類似挑戰（[Fictional Organization], 2023）。[Author L] and [Author M]（2009）的研究指出，東亞國家因高等教育擴張快速，少子化的衝擊尤為劇烈。日本的經驗顯示，自 1990 年代起私立大學即開始面臨招生不足的問題，至 2023 年已有超過 50% 的私立大學未能招滿（[虛構機關]，2023）。韓國的情況類似，2024 年有 40% 的大學面臨招生缺口（[Fictional Institute], 2024）。
 
-### 2. Phase 1: Content Analysis
+台灣的獨特性在於少子化速度極快——總和生育率從 2000 年的 1.68 降至 2023 年的 0.87，為全球最低之一（[虛構統計機關]，2024）。這意味著台灣的大學面臨的不是緩慢調適，而是急遽的結構性衝擊。
 
-**Sample**: 42 private comprehensive universities (excluding universities of science and technology and junior colleges), covering four regions: North (18), Central (10), South (10), and East (4).
+### 二、私立大學招生策略的理論框架
 
-**Analyzed Materials**:
-1. Institutional development plans (public versions) from 2020-2024
-2. Recruitment materials from 2022-2024 (including websites, social media, and admissions brochures)
-3. Data from the MOE's institutional transparency platform (enrollment rates, international student ratios, continuing education revenue)
+從策略管理的角度，私立大學的招生策略轉型可以從 [Author K]（1985）的競爭策略理論和 [Author I] and [Author J]（1995）的教育行銷理論來理解。[Author K] 提出的三種基本策略——成本領導、差異化、聚焦——在高等教育場域中有不同的展現形式（[作者戊]，2021）。
 
-**Analytical Framework**: Based on the theories of Porter (1985) and Kotler and Fox (1995), a coding scheme with three main categories (differentiation, internationalization, lifelong learning) and 12 subcategories was constructed. Two researchers coded independently, with inter-coder reliability (Cohen's Kappa) of .82, indicating a satisfactory level.
+近年來，學者進一步提出「策略組合」（strategic portfolio）的概念，認為大學不應只選擇單一策略，而應根據自身條件組合多種策略（[Author E] & [Author F], 2013）。[作者甲]（2023）的研究則指出，台灣私立大學的策略選擇受到三個層面因素的影響：宏觀環境（人口、政策、經濟）、中觀競爭（區域大學分布、產業結構）、微觀資源（師資、設備、財務、校友網絡）。
 
-### 3. Phase 2: In-Depth Interviews
+### 三、台灣私立大學招生策略的現有研究
 
-**Participants**: Enrollment directors (provosts or directors of admissions) at 12 universities, of which 6 were "successfully transformed" universities (enrollment rates maintained above 80% over the past five years) and 6 were "challenged" universities (enrollment rates below 70%).
+國內相關研究可歸納為三個面向。第一，差異化策略的研究：[作者丙]與[作者丁]（2022）發現，成功的私立大學傾向發展 2-3 個「旗艦學程」作為招生亮點，而非全面性的學科發展。第二，國際化策略的研究：[作者癸]（2023）分析了 15 所積極招收境外生的私立大學，發現東南亞生源成為主要增長來源，但語言障礙和文化適應仍是主要挑戰。第三，終身學習策略的研究：[作者辛]與[作者壬]（2022）指出，在職專班和推廣教育已成為部分私立大學的重要收入來源，但品質控制機制尚待建立。
 
-**Interview Method**: Semi-structured interviews, each lasting 60-90 minutes, conducted via video conferencing or in person.
-
-**Interview Protocol** (core questions):
-1. What major adjustments has your university made to its enrollment strategy?
-2. What was the decision-making process behind these adjustments?
-3. What difficulties were encountered during implementation?
-4. What factors do you consider key to success or failure?
-
-**Analysis Method**: Thematic analysis (Braun & Clarke, 2006), following a six-step data analysis process.
-
-### 4. Research Ethics
-
-This study was approved by the Institutional Review Board of National Chengchi University (Approval No.: NCCU-IRB-2024-0123). All participants signed informed consent forms, and interview data use coded identifiers (U1-U12) in place of institution names to protect anonymity.
+然而，上述研究多為單一策略面向的分析，缺乏跨策略的整合觀點。本研究嘗試填補此一缺口，同時從成功案例中提取可推廣的經驗。
 
 ---
 
-## IV. Research Results
+## 參、研究方法
 
-### 1. Enrollment Strategy Transformation Patterns
+### 一、研究設計
 
-Content analysis results show that the enrollment strategy transformation of 42 private universities during 2020-2024 exhibited three major patterns, as shown in Table 1.
+本研究採混合方法之解釋性序列設計（explanatory sequential design; [Author C] & [Author D], 2023），第一階段以量化為主的內容分析法（content analysis）建立策略轉型的整體圖像，第二階段以質性的深度訪談補充詮釋與脈絡。兩階段的整合點在於：第一階段的發現引導第二階段的訪談對象選取和問題設計。
 
-**Table 1. Distribution of Private University Enrollment Strategy Transformation Patterns**
+### 二、第一階段：內容分析
 
-| Strategy Pattern | No. of Universities | Percentage | Typical Practices |
+**樣本**：42 所私立一般大學（排除科技大學和專科學校），涵蓋北（18 所）、中（10 所）、南（10 所）、東（4 所）四個區域。
+
+**分析資料**：
+1. 2020-2024 年校務發展計畫（公開版）
+2. 2022-2024 年招生文宣（含網站、社群媒體、招生簡章）
+3. [虛構主管機關]校務資訊公開平台數據（註冊率、境外生比例、推廣教育收入）
+
+**分析架構**：以 [Author K]（1985）和 [Author I] and [Author J]（1995）的理論為基礎，建構包含三個主類別（差異化、國際化、終身學習）和 12 個次類別的編碼架構。兩位研究者獨立編碼，編碼者間信度（Cohen's Kappa）為 .82，達到良好水準。
+
+### 三、第二階段：深度訪談
+
+**受訪者**：12 所大學的招生主管（教務長或招生處長），其中 6 所為「成功轉型」大學（近五年註冊率維持 80% 以上），6 所為「面臨挑戰」的大學（註冊率低於 70%）。
+
+**訪談方式**：半結構式訪談，每次 60-90 分鐘，以線上視訊或面對面進行。
+
+**訪談大綱**（核心問題）：
+1. 貴校在招生策略上做了哪些重大調整？
+2. 這些調整的決策過程為何？
+3. 執行過程中遇到哪些困難？
+4. 您認為哪些因素是成功/失敗的關鍵？
+
+**分析方法**：採主題分析法（thematic analysis; [Author A] & [Author B], 2006），以六步驟流程進行資料分析。
+
+### 四、研究倫理
+
+本研究通過[範例大學]研究倫理審查委員會審查（核准文號：[EXAMPLE-IRB-0000]）。所有受訪者均簽署知情同意書，訪談資料以代碼（U1-U12）取代機構名稱以保護匿名性。
+
+---
+
+## 肆、研究結果
+
+### 一、招生策略轉型模式
+
+內容分析結果顯示，42 所私立大學在 2020-2024 年間的招生策略轉型呈現三個主要模式，如表 1 所示。
+
+**表 1　私立大學招生策略轉型模式分布**
+
+| 策略模式 | 採行校數 | 百分比 | 典型做法 |
 |---------|---------|--------|---------|
-| Differentiation positioning | 27 | 64.3% | Flagship programs, industry-academia partnerships, employment guarantees |
-| Internationalization expansion | 20 | 47.6% | Overseas programs, bilingual environments, international recruitment offices |
-| Lifelong learning transformation | 16 | 38.1% | Continuing education, in-service executive programs, micro-credentials |
+| 差異化定位 | 27 | 64.3% | 旗艦學程、產學合作、就業保障 |
+| 國際化擴張 | 20 | 47.6% | 境外專班、雙語環境、海外招生據點 |
+| 終身學習轉型 | 16 | 38.1% | 推廣教育、在職專班、微學分 |
 
-Notably, 27 universities (64.3%) simultaneously adopted two or more strategies, while only 15 (35.7%) adopted a single strategy. Nine universities (21.4%) adopted all three strategies.
+值得注意的是，27 所大學（64.3%）同時採行兩種以上策略，僅 15 所（35.7%）採行單一策略。採行三種策略的大學有 9 所（21.4%）。
 
-### 2. Common Characteristics of Successfully Transformed Universities
+### 二、成功轉型大學的共同特徵
 
-Comparing universities with enrollment rates above 80% against those below 70%, the differences between the two groups in strategy content were not as pronounced as expected (both groups employed differentiation and internationalization strategies), but two key differences emerged at the "implementation level."
+將註冊率維持 80% 以上的大學與低於 70% 的大學進行比較，兩組在策略內容上的差異不如預期明顯（兩組都有差異化和國際化策略），但在「執行層面」呈現兩個關鍵差異。
 
-**Characteristic 1: Executive-Level Administrative Support**
+**特徵一：高層行政支持**
 
-In interviews, all 6 respondents from the successful group mentioned direct involvement of the president or board of directors:
+訪談中，成功組的 6 位受訪者均提到校長或董事會的直接參與：
 
-> "Strategy transformation is not the admissions office's job — it's a presidential initiative. Our president personally chairs the monthly enrollment strategy meeting and is willing to reallocate resources from departments that can't attract students to departments with potential." (U3 Provost)
+> 「策略轉型不是招生處的事，是校長帶頭的事。我們校長每個月親自主持招生策略會議，而且願意把資源從招不到學生的系重新分配到有潛力的系。」（U3 教務長）
 
-In contrast, 4 of the respondents from the challenged group indicated that their presidents had limited involvement in enrollment issues.
+相對地，面臨挑戰組中有 4 位受訪者表示校長對招生議題的參與有限。
 
-**Characteristic 2: Data-Driven Decision-Making**
+**特徵二：數據驅動決策**
 
-Successfully transformed universities generally established systematic data analysis mechanisms:
+成功組的大學普遍建立了系統性的數據分析機制：
 
-> "Every year we conduct a senior high school student preference survey, tracking the past five years of application trends, and then use this data to decide which departments should expand and which should transform. It's not based on intuition — it's based on data." (U7 Director of Admissions)
+> 「我們每年做高中生志願調查，追蹤過去五年的選填趨勢，然後用這些數據來決定哪些系要擴招、哪些要轉型。不是靠感覺，是靠數據。」（U7 招生處長）
 
-### 3. Detailed Analysis of the Differentiation Positioning Strategy
+### 三、差異化定位策略的細部分析
 
-Within the differentiation strategy, "flagship programs" were the most common practice (22 out of 27 universities). Successful flagship programs shared three common characteristics: (1) deep partnership with specific industries, (2) clear employment commitments or internship guarantees, and (3) interdisciplinary integration (e.g., AI + healthcare, design + marketing).
+在差異化策略中，「旗艦學程」是最常見的做法（27 所中有 22 所）。成功的旗艦學程有三個共同特徵：（1）與特定產業深度合作、（2）明確的就業承諾或實習保障、（3）跨領域整合（如 AI + 醫療、設計 + 行銷）。
 
-> "Our Smart Healthcare Program was co-designed with three hospitals and two tech companies. Students begin corporate internships in their third year, and 85% receive job offers upon graduation. That number is our best recruitment advertisement." (U1 Provost)
+> 「我們的智慧醫療學程是和三家醫院、兩家科技公司一起設計的。學生大三就進企業實習，畢業有 85% 直接獲得聘用。這個數字就是我們最好的招生廣告。」（U1 教務長）
 
-### 4. Relationship Between Strategy Portfolios and Performance
+### 四、策略組合與績效的關係
 
-Figure 1 presents the relationship between the number of strategies adopted and the average enrollment rate over the past five years. Universities adopting two strategies had a significantly higher average enrollment rate (M = 79.2%, SD = 8.3) than those adopting a single strategy (M = 68.5%, SD = 12.1), t(40) = 3.24, p = .002, d = 0.98. However, universities adopting three strategies (M = 80.1%, SD = 7.5) did not differ significantly from those adopting two, t(33) = 0.32, p = .75.
-
----
-
-## V. Discussion
-
-### 1. Interpretation of Key Findings
-
-The most important finding of this study is the significance of the "strategy portfolio." The effect of a single strategy is limited, but combining two or more strategies can significantly improve enrollment performance. This finding echoes Fumasoli and Huisman's (2013) strategic portfolio theory while also providing a new insight: the benefit of strategy portfolios reaches saturation at two strategies, with limited marginal returns from a third.
-
-One possible explanation is that resource-constrained private universities risk diluting attention and resources across too many fronts when pursuing three strategies simultaneously, reducing the execution quality of each. As respondent U5 noted: "Doing everything means doing nothing well. We eventually decided to focus on two tracks — differentiation and internationalization — and let go of continuing education."
-
-### 2. Dialogue with Existing Literature
-
-The finding that "executive-level administrative support" is a key success factor aligns with Kezar and Eckel's (2002) findings on institutional transformation in American universities. However, Taiwan's private universities have a distinctive feature in their board of directors structure — some private university boards are highly involved in administrative decisions, which in certain contexts can actually facilitate rather than hinder strategic transformation. Chang and Lin (2022) had noted that board conservatism may limit innovation, but this study found that under survival pressure, board attitudes can rapidly shift toward supporting change.
-
-The "data-driven decision-making" finding aligns with Wang's (2023) recommendations. However, interview data revealed an aspect less discussed in the literature: an "asymmetry" in data capabilities. Successfully transformed universities typically had dedicated institutional research (IR) teams, while challenged universities mostly housed this function within the academic affairs or research development offices, lacking independent analytical capacity.
-
-### 3. Practical Recommendations
-
-Based on the research findings, this study offers the following recommendations:
-
-**For University Administrators**:
-1. Adopt a "strategy portfolio" mindset — focus deeply on 2 (not 1 or 3+) core strategies
-2. Ensure direct presidential-level involvement and cross-departmental integration
-3. Invest in an institutional research team and build data-driven enrollment forecasting models
-
-**For Education Regulatory Authorities**:
-1. Provide strategic transformation guidance resources, not just exit mechanisms
-2. Establish cross-institutional data-sharing platforms to reduce analytical costs for individual universities
-3. Relax enrollment quota regulations to give successfully transformed institutions more room
-
-### 4. Research Limitations
-
-This study has three main limitations. First, the sample focuses on comprehensive universities and does not include universities of science and technology (which may face different challenges and strategies). Second, interview data relies on respondent self-reports, which may be subject to social desirability bias — particularly respondents from the "challenged" group who may tend to understate their strategic missteps. Third, the study's timeframe (2020-2024) coincided with the COVID-19 pandemic, and the implementation of some strategies (such as internationalization) may have been disrupted by the pandemic, affecting the generalizability of findings.
-
-### 5. Future Research Directions
-
-Future research could extend in the following directions: (1) include universities of science and technology in the analysis to compare strategy differences between comprehensive and technical universities; (2) track long-term effects of strategic transformation (5-10 year longitudinal study); (3) investigate implementation details and effectiveness metrics of individual strategies in depth; (4) compare response strategies between private universities in Taiwan, Japan, and South Korea.
+圖 1 呈現策略數量與近五年平均註冊率的關係。採行兩種策略的大學平均註冊率（M = 79.2%, SD = 8.3）顯著高於採行單一策略的大學（M = 68.5%, SD = 12.1），t(40) = 3.24, p = .002, d = 0.98。但採行三種策略的大學（M = 80.1%, SD = 7.5）與兩種策略的大學無顯著差異，t(33) = 0.32, p = .75。
 
 ---
 
-## VI. Conclusion
+## 伍、討論
 
-Taiwan's private universities face unprecedented survival challenges. This study found that the key to successfully responding to declining birth rates lies not in which strategy is chosen, but in the ability to build "portfolio strategy" execution capacity — simultaneously pursuing differentiation positioning and internationalization (or lifelong learning) on two main tracks, with executive-level support and data-driven decision-making as foundational infrastructure.
+### 一、主要發現的詮釋
 
-More fundamentally, this study reveals an easily overlooked reality: declining birth rates are not merely an "enrollment problem" but a "strategic problem" requiring comprehensive institutional transformation across governance structures, resource allocation, and organizational culture. Simply relying on the admissions office to intensify marketing efforts without changing the university's core competitiveness will ultimately prove insufficient against structural student source decline.
+本研究最重要的發現是「策略組合」的重要性。單一策略的效果有限，但兩種以上策略的組合能顯著提升招生表現。這個發現呼應了 [Author E] and [Author F]（2013）的策略組合理論，但也提供了一個新的洞見：策略組合的效益在兩種策略時即達到飽和，第三種策略的邊際效益有限。
 
-Taiwan's private universities still have a window of opportunity — the period before 2030 is the critical transformation window. Universities that can complete their strategic transformation within this window will have the opportunity to find their place in a smaller but more refined higher education market.
+一個可能的解釋是：資源有限的私立大學在同時推動三種策略時，容易因為注意力和資源分散而降低每個策略的執行品質。正如受訪者 U5 所言：「什麼都做等於什麼都做不好。我們後來決定專注在差異化和國際化兩條線，放掉推廣教育。」
+
+### 二、與現有文獻的對話
+
+本研究發現的「高層行政支持」作為成功關鍵因素，與 [Author G] and [Author H]（2002）在美國大學轉型研究中的發現一致。然而，台灣私立大學的特殊性在於董事會結構——部分私立大學的董事會高度涉入行政決策，這在特定情境下反而可能成為策略轉型的助力而非阻力。[作者丙]與[作者丁]（2022）曾指出董事會的保守性可能限制創新，但本研究發現，在生存壓力下，董事會的態度可以快速轉變為支持變革。
+
+「數據驅動決策」的發現則與[作者甲]（2023）的建議不謀而合。但訪談資料揭示了一個文獻中較少提及的面向：數據能力的「不對稱」。成功組的大學通常設有專責的校務研究（IR）團隊，而面臨挑戰的大學多半將此功能附屬於教務處或研發處，缺乏獨立分析能量。
+
+### 三、實務建議
+
+基於研究發現，本研究提出以下建議：
+
+**對大學管理者**：
+1. 建立「策略組合」思維——選擇 2 個（而非 1 個或 3 個以上）核心策略深耕
+2. 確保校長層級的直接參與和跨處室整合
+3. 投資校務研究團隊，建立數據驅動的招生預測模型
+
+**對教育主管機關**：
+1. 提供策略轉型的輔導資源，而非僅有退場機制
+2. 建立跨校數據共享平台，降低個別大學的分析成本
+3. 鬆綁招生名額管制，讓轉型成功的學校有更大空間
+
+### 四、研究限制
+
+本研究有三項主要限制。第一，樣本以一般大學為主，未涵蓋科技大學（其面臨的挑戰和策略可能不同）。第二，訪談資料依賴受訪者的自我報告，可能存在社會期望偏誤——特別是「面臨挑戰」組的受訪者可能傾向低估自身的策略失誤。第三，本研究的時間範圍（2020-2024）恰逢 COVID-19 疫情，部分策略（如國際化）的執行可能受到疫情干擾，影響研究結果的外推性。
+
+### 五、未來研究方向
+
+未來研究可從以下方向延伸：（1）將科技大學納入分析，比較一般大學與科技大學的策略差異；（2）追蹤策略轉型的長期效果（5-10 年縱貫研究）；（3）深入探討個別策略的執行細節與成效指標；（4）比較台灣與日本、韓國私立大學的應對策略。
 
 ---
 
-## References
+## 陸、結論
 
-### Chinese References
+台灣私立大學正面臨前所未有的生存挑戰。本研究發現，成功應對少子化的關鍵不在於選擇了哪一種策略，而在於能否建立「組合式策略」的執行能力——同時推動差異化定位和國際化（或終身學習）兩條主軸，並以高層支持和數據驅動作為基礎設施。
 
-Wang, R.-Z. (2023). An analytical framework for strategic positioning of Taiwan's private universities. Bulletin of Educational Research, 69(4), 1-28. https://doi.org/10.3966/102887082023126904001
+更根本地，本研究揭示了一個容易被忽視的現實：少子化不只是一個「招生問題」，而是一個需要學校從治理結構、資源配置到組織文化全面轉型的「策略問題」。只靠招生處加大行銷力度，而不改變學校的核心競爭力，終將無法抵擋結構性的生源萎縮。
 
-Wu, M.-L. (2022). University transformation in the era of declining birth rates: Lessons from Japan and South Korea. Comparative Education Research, 45(3), 67-92. https://doi.org/10.6152/jce.2022.0303.04
+台灣的私立大學仍有時間窗口——2030 年之前是關鍵的轉型期。那些能夠在這個時間窗口內完成策略轉型的學校，將有機會在更小但更精緻的高等教育市場中找到自己的位置。
 
-Ministry of Education. (2024). Academic Year 113 higher education institution transparency platform statistics. https://udb.moe.edu.tw/
+---
 
-National Development Council. (2024). Population projections of the Republic of China (2024 to 2070). https://pop-proj.ndc.gov.tw/
+## 參考文獻
 
-Chang, T.-F., & Lin, H.-F. (2022). A case study of differentiation strategies at Taiwan's private universities. Higher Education Research, 13(2), 33-58. https://doi.org/10.6152/jhe.2022.1302.02
+### 一、中文文獻
 
-Chen, Y.-K. (2021). Competitive strategies in higher education: Theory and practice. Wu-Nan Books.
+> **以下中文文獻均為 AI 生成，僅作格式示範。作者、篇名、期刊、DOI 均為虛構，請勿引用。**
 
-Chen, L.-C. (2022). Analysis of structural changes in Taiwan's higher education supply and demand. Educational Policy Forum, 25(1), 1-30. https://doi.org/10.3966/156082982022032501001
+[作者甲]（2023）。[虛構篇名：台灣私立大學策略定位之分析架構]。[虛構期刊]，69(4)，1-28。https://doi.org/10.0000/example.2023.001
 
-Huang, C.-J. (2023). Polarized development of private universities under the impact of declining birth rates. Taiwan Education Review Monthly, 12(5), 1-6.
+[作者乙]（2022）。[虛構篇名：少子化時代的大學轉型]。[虛構期刊]，45(3)，67-92。https://doi.org/10.0000/example.2022.002
 
-Yang, K.-S., & Hu, M.-C. (2022). Development trends of continuing education and lifelong learning in Taiwan. Journal of Adult and Lifelong Education, 38, 1-30. https://doi.org/10.6773/JALE.202206_(38).0001
+[虛構機關]（2024）。[虛構報告：大專校院統計資料]。https://example.gov.tw/
 
-Liu, H.-H. (2023). Analysis of internationalization strategies at Taiwan's private universities: Focusing on overseas student recruitment. Taiwan Journal of Sociology of Education, 23(2), 45-78. https://doi.org/10.6542/TERSS.202312_23(2).0002
+[虛構機關]（2024）。[虛構報告：人口推估]。https://example.gov.tw/
 
-Tai, H.-H. (2023). Legal analysis and policy recommendations for university exit mechanisms. Monthly Review of Education Research, 349, 4-19.
+[作者丙、作者丁]（2022）。[虛構篇名：私立大學差異化策略之個案研究]。[虛構期刊]，13(2)，33-58。https://doi.org/10.0000/example.2022.003
 
-### English References
+[作者戊]（2021）。[虛構書名：高等教育競爭策略]。[虛構出版社]。
 
-Braun, V., & Clarke, V. (2006). Using thematic analysis in psychology. *Qualitative Research in Psychology*, *3*(2), 77-101. https://doi.org/10.1191/1478088706qp063oa
+[作者己]（2022）。[虛構篇名：高等教育供需結構變遷之分析]。[虛構期刊]，25(1)，1-30。https://doi.org/10.0000/example.2022.004
 
-Creswell, J. W., & Creswell, J. D. (2023). *Research design: Qualitative, quantitative, and mixed methods approaches* (6th ed.). SAGE.
+[作者庚]（2023）。[虛構篇名：少子化衝擊下私立大學的兩極化發展]。[虛構期刊]，12(5)，1-6。
 
-Fumasoli, T., & Huisman, J. (2013). Strategic agency and system diversity: Conceptualizing institutional positioning in higher education. *Minerva*, *51*(2), 155-169. https://doi.org/10.1007/s11024-013-9225-y
+[作者辛、作者壬]（2022）。[虛構篇名：推廣教育與終身學習之發展趨勢]。[虛構期刊]，38，1-30。https://doi.org/10.0000/example.2022.005
 
-Kezar, A., & Eckel, P. D. (2002). The effect of institutional culture on change strategies in higher education: Universal principles or culturally responsive concepts? *The Journal of Higher Education*, *73*(4), 435-460. https://doi.org/10.1080/00221546.2002.11777159
+[作者癸]（2023）。[虛構篇名：私立大學國際化策略之分析]。[虛構期刊]，23(2)，45-78。https://doi.org/10.0000/example.2023.006
 
-Korean Educational Development Institute. (2024). *2024 Brief statistics on Korean education*. KEDI.
+[作者子]（2023）。[虛構篇名：大學退場機制之法規分析]。[虛構期刊]，349，4-19。
 
-Kotler, P., & Fox, K. F. A. (1995). *Strategic marketing for educational institutions* (2nd ed.). Prentice-Hall.
+### 二、英文文獻
 
-OECD. (2023). *Education at a glance 2023: OECD indicators*. OECD Publishing. https://doi.org/10.1787/e13bef63-en
+> **以下英文文獻均為 AI 生成，僅作格式示範。部分引用可能碰巧與真實文獻相似，但未經驗證，請勿引用。**
 
-Porter, M. E. (1985). *Competitive advantage: Creating and sustaining superior performance*. Free Press.
+[Author A] & [Author B]. (2006). [Fictional title: Using thematic analysis in psychology]. *[Fictional Journal]*, *3*(2), 77-101. https://doi.org/10.0000/example.2006.001
 
-Shin, J. C., & Harman, G. (2009). New challenges for higher education: Global and Asia-Pacific perspectives. *Asia Pacific Education Review*, *10*(1), 1-13. https://doi.org/10.1007/s12564-009-9011-6
+[Author C] & [Author D]. (2023). *[Fictional title: Research design]* (6th ed.). [Publisher].
 
-Ministry of Education, Culture, Sports, Science and Technology, Japan. (2023). Basic School Survey, Fiscal Year 2023. https://www.mext.go.jp/b_menu/toukei/chousa01/kihon/1267995.htm
+[Author E] & [Author F]. (2013). [Fictional title: Strategic agency and system diversity in higher education]. *[Fictional Journal]*, *51*(2), 155-169. https://doi.org/10.0000/example.2013.002
+
+[Author G] & [Author H]. (2002). [Fictional title: Institutional culture and change strategies in higher education]. *[Fictional Journal]*, *73*(4), 435-460. https://doi.org/10.0000/example.2002.003
+
+[Fictional Institute]. (2024). *[Fictional title: Brief statistics on education]*. [Publisher].
+
+[Author I] & [Author J]. (1995). *[Fictional title: Strategic marketing for educational institutions]* (2nd ed.). [Publisher].
+
+[Fictional Organization]. (2023). *[Fictional title: Education indicators 2023]*. [Publisher]. https://doi.org/10.0000/example.2023.004
+
+[Author K]. (1985). *[Fictional title: Competitive advantage]*. [Publisher].
+
+[Author L] & [Author M]. (2009). [Fictional title: New challenges for higher education]. *[Fictional Journal]*, *10*(1), 1-13. https://doi.org/10.0000/example.2009.005
+
+[虛構機關]（2023）。[虛構報告：學校基本調査]。https://example.go.jp/

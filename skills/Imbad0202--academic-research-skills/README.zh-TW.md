@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.1)
+[![Version](https://img.shields.io/badge/version-v3.3-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.3)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -11,6 +11,26 @@
 > **AI 是你的副駕駛，不是機長。** 這工具不會幫你寫論文。它處理苦工 — 搜文獻、排格式、驗數據、查邏輯一致性 — 讓你專注在真正需要你腦子的事：定義問題、選方法、詮釋數據的意義、寫出「我認為」後面那句話。
 >
 > 跟 humanizer 不同，這工具不是幫你隱藏用 AI 協作的事實，而是幫你把關文章品質。風格校準從你過去的文章學習你的聲音，寫作品質檢查抓出讓文字讀起來像機器產的模式。目標是品質，不是遮掩。
+
+### 為什麼選「人機協作」而不是「全自動」？
+
+Lu 等人（2026，*Nature* 651:914-919）發表的 **The AI Scientist** 是第一個端到端全自動的 AI 研究系統，其生成的論文通過 ICLR 2025 workshop 的盲審（評分 6.33/10，workshop 平均 4.87）。這是截至 2026 年「全自動 AI 研究」能達到的最強公開基準。
+
+但他們自己的 Limitations 段落也列出這類系統會遇到的結構性失敗模式：
+
+- 實作錯誤通過 AI 自我審查，污染後續結果
+- 幻覺的實驗數字（看起來合理但沒有對應的實際 run）
+- 模型靠虛假特徵取巧，論文卻宣稱「解決了任務」
+- 實作錯誤被重新包裝成「意外發現」
+- 方法章節飄離實際執行的內容（methodology fabrication）
+- 早期階段的框架鎖定（選錯方向後整個 pipeline 無法回頭）
+- 引用幻覺
+
+ARS 建立在這個前提上：**人類研究者 + AI 的組合，比純自動或純人工都更能避開這些失敗模式**。v3.2 把 Lu 2026 的失敗模式清單直接操作化：pipeline 的 Stage 2.5 與 Stage 4.5 integrity gate 新增一份 7 類阻斷式檢查清單（見 `academic-pipeline/references/ai_research_failure_modes.md`），reviewer 也提供一個 opt-in 的 calibration mode，用使用者自備的 gold set 測量這個 reviewer 本身的 FNR/FPR（見 `academic-paper-reviewer/references/calibration_mode_protocol.md`）。
+
+The AI Scientist 證明了自動 AI 研究已經可行。ARS 的設計是讓你拿到這種能力的槓桿，但不用繼承它的失敗模式。
+
+v3.3 的靈感來自 [**PaperOrchestra**](https://arxiv.org/abs/2604.05018)（Song, Song, Pfister & Yoon, 2026, Google）— 一個能從原始研究素材自動生成 LaTeX 論文的多 Agent 框架。我們整合了其中幾項技術：**Semantic Scholar API 驗證**提供程式化引用查核、**反洩漏協議**防止 LLM 用訓練記憶偷偷填補空缺、**VLM 圖表驗證**用視覺模型閉環檢查生成的圖表品質、**分數軌跡追蹤**偵測修訂是否意外損害特定品質維度。
 
 ---
 
@@ -23,10 +43,10 @@
 
 ## 功能特色
 
-- **Deep Research** — 13 個 Agent 組成的研究團隊，支援蘇格拉底引導（含 SCR 反思機制）+ 系統性文獻回顧 / PRISMA + **意圖偵測** + **對話健康度監控** + **可選跨模型 DA** + **論證與推理認知框架**
-- **Academic Paper** — 12 個 Agent 的論文撰寫團隊，含風格校準、寫作品質檢查、LaTeX 輸出強化、視覺化、修訂教練、引用格式轉換、**寫作判斷力框架**
+- **Deep Research** — 13 個 Agent 組成的研究團隊，支援蘇格拉底引導（含 SCR 反思機制）+ 系統性文獻回顧 / PRISMA + **意圖偵測** + **對話健康度監控** + **可選跨模型 DA** + **論證與推理認知框架** + **Semantic Scholar API 驗證**
+- **Academic Paper** — 12 個 Agent 的論文撰寫團隊，含風格校準、寫作品質檢查、LaTeX 輸出強化、視覺化、修訂教練、引用格式轉換、**寫作判斷力框架**、**反洩漏協議**、**VLM 圖表驗證**
 - **Academic Paper Reviewer** — 多視角同儕審查，0-100 品質量表（主編 + 3 位動態審查者 + 魔鬼代言人，含**讓步門檻協議** + **攻擊強度保持** + **可選跨模型審查**）+ **R&R 追溯矩陣** + **唯讀約束** + **審查品質思維框架**
-- **Academic Pipeline** — 10 階段全流程調度器，含自適應 checkpoint、宣稱驗證、素材護照、**可選跨模型誠信驗證**、**中途強化機制**、**自我檢查問題**
+- **Academic Pipeline** — 10 階段全流程調度器，含自適應 checkpoint、宣稱驗證、素材護照、**可選跨模型誠信驗證**、**中途強化機制**、**自我檢查問題**、**分數軌跡追蹤**
 
 ### 完整 Pipeline
 
@@ -48,6 +68,10 @@
 10. 風格校準 — 從過去的論文學習作者寫作風格（可選，intake Step 10）
 11. 寫作品質檢查 — 偵測 AI 文字常見的高頻詞彙、標點模式、結構問題
 12. **跨模型驗證（可選）** — 用 GPT-5.4 Pro 或 Gemini 3.1 Pro 作為獨立第二審查者，驗證引用、挑戰魔鬼代言人、審查論文
+13. **Semantic Scholar API 驗證** — 程式化 Tier 0 引用存在性查核，Levenshtein 標題比對 + DOI 不符偵測
+14. **反洩漏協議** — 知識隔離指令優先使用 session 內材料，缺少的內容標記 `[MATERIAL GAP]` 而非用 LLM 記憶填補
+15. **VLM 圖表驗證（可選）** — 用視覺模型閉環檢查生成圖表，10 項檢核清單
+16. **分數軌跡追蹤** — 跨修訂輪次的逐維度評分差異追蹤，偵測退步（delta < -3 觸發強制 checkpoint）
 
 ---
 
@@ -217,6 +241,24 @@ curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
 - **Courier New** — 通常已內建
 
 > 如果只需要 MD/DOCX 輸出，可完全跳過此步驟。Pipeline 會在嘗試 LaTeX 編譯前先詢問。
+
+---
+
+## 搭配工具：Experiment Agent
+
+如果你的研究需要在寫作前跑實驗（程式碼或人工研究），[Experiment Agent](https://github.com/Imbad0202/experiment-agent) 技能填補 ARS Stage 1（研究）和 Stage 2（寫作）之間的空缺。
+
+```
+ARS Stage 1 研究      →  RQ Brief + Methodology Blueprint
+        ↓
+  experiment-agent     →  執行/管理實驗 → 驗證結果
+        ↓
+ARS Stage 2 寫作      →  用驗證過的實驗結果撰寫論文
+```
+
+**功能**：執行程式碼實驗（Python、R 等）並即時監控、管理人工研究 protocol 與 IRB 倫理審查、11 種統計謬誤偵測、重現性驗證。
+
+**搭配使用方式**：ARS pipeline 跑完 Stage 1 後暫停，在另一個 experiment-agent session 中跑實驗，完成後將結果（含 Material Passport）帶回 ARS Stage 2。ARS 不需要任何修改。詳見 [experiment-agent README](https://github.com/Imbad0202/experiment-agent)。
 
 ---
 
@@ -547,15 +589,39 @@ https://github.com/Imbad0202/academic-research-skills
 
 **[aspi6246](https://github.com/aspi6246)** — 貢獻者。v3.1 優化靈感來自 [Claude-Code-Skills-for-Academics](https://github.com/aspi6246/Claude-Code-Skills-for-Academics)：唯讀約束模式、Anti-Pattern 作為一等公民設計、認知框架方法（教「如何思考」而非只有步驟）、精簡 skill 尺寸哲學。
 
-**[cloudenochcsis](https://github.com/cloudenochcsis)** — 貢獻者。將 `academic-paper-reviewer/references/top_journals_by_field.md` 中的資訊系統章節從 AIS *Basket of 8* 擴充為完整的 *Senior Scholars' Basket of 11*，補上 *Decision Support Systems*、*Information & Management*、*Information and Organization* 三本期刊及其出版社與影響因子資料。資料來源為 [AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals) — 全球 IS 博士班與終身職評鑑委員會引用的權威清單（[PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)）。
+**[mchesbro1](https://github.com/mchesbro1)** — 貢獻者。最初提出並撰寫了 IS Basket of 8 期刊清單（[Issue #5](https://github.com/Imbad0202/academic-research-skills/issues/5)）。
+
+**[cloudenochcsis](https://github.com/cloudenochcsis)** — 貢獻者。將 IS 章節從 *Basket of 8* 擴充為完整的 *Senior Scholars' Basket of 11*，補上 *Decision Support Systems*、*Information & Management*、*Information and Organization*（[Issue #7](https://github.com/Imbad0202/academic-research-skills/issues/7)、[PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)）。資料來源：[AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals)。
 
 ---
 
 ## 更新紀錄
 
+### v3.3 (2026-04-09) — PaperOrchestra 啟發的強化
+
+整合 [PaperOrchestra](https://arxiv.org/abs/2604.05018)（Song, Song, Pfister & Yoon, 2026, Google）的技術。
+
+- **Semantic Scholar API 驗證** — Tier 0 程式化引用存在性查核。Levenshtein >= 0.70 標題比對、DOI 不符偵測、S2 ID 去重。API 不可用時優雅降級。
+- **反洩漏協議** — 知識隔離指令優先使用 session 內材料，缺少的內容標記 `[MATERIAL GAP]` 而非用 LLM 記憶填補。降低 Mode 5/6 失敗風險。
+- **VLM 圖表驗證**（可選）— 用視覺模型閉環檢查生成圖表。10 項檢核清單，最多 2 輪修正。
+- **分數軌跡協議** — 跨修訂輪次的逐維度評分差異追蹤（7 個維度）。偵測退步（delta < -3）觸發強制 checkpoint。
+- **Stage 2 並行化** — 視覺化與論證建構可在大綱完成後並行執行。
+- 新版本：deep-research v2.8、academic-paper v3.0、academic-pipeline v3.2
+
+### v3.2 (2026-04-09) — Lu 2026 Nature 整合
+
+整合 Lu 等人（2026，*Nature* 651:914-919）的研究洞見——第一個通過盲審的端到端全自動 AI 研究系統。
+
+- **7 類 AI 研究失敗模式檢查清單** — 在 Stage 2.5/4.5 阻斷管線：偵測實作錯誤、幻覺實驗結果、取巧特徵依賴、錯誤包裝為發現、方法偽造、框架鎖定。擴充現有 5 類引用幻覺分類。
+- **Reviewer 校準模式**（academic-paper-reviewer v1.8）— opt-in 的 FNR/FPR/balanced accuracy 測量，使用者提供 gold set。5 次集成、跨模型預設開啟、session 內強制附加信心揭露。
+- **揭露模式**（academic-paper v2.9）— 針對特定期刊/會議的 AI 使用聲明生成器。v1 涵蓋 ICLR、NeurIPS、Nature、Science、ACL、EMNLP。
+- **提前停止機制**（academic-pipeline v3.1）— 收斂檢查 + pipeline 開始時的 token 預算透明化。
+- **忠實度-原創性模式光譜** — 按 Lu 2026 Fig 1c 分類所有 3 個 skill 的模式。
+- 新版本：academic-paper v2.9、academic-paper-reviewer v1.8、academic-pipeline v3.1
+
 ### v3.1.1 (2026-04-09) — 資訊系統 Senior Scholars' Basket of 11
 
-[@cloudenochcsis](https://github.com/cloudenochcsis) 的外部貢獻（[PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)）。將 `academic-paper-reviewer/references/top_journals_by_field.md` 第 7 節從 v2.9 加入的 AIS *Basket of 8* 擴充為完整的 *Senior Scholars' Basket of 11*，補上 *Decision Support Systems*、*Information & Management*、*Information and Organization* 三本期刊。資料來源：[AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals) — 全球 IS 博士班與終身職評鑑委員會引用的權威清單。
+外部貢獻：[@mchesbro1](https://github.com/mchesbro1) 最初提出並撰寫了 IS Basket of 8 期刊清單（[Issue #5](https://github.com/Imbad0202/academic-research-skills/issues/5)）；[@cloudenochcsis](https://github.com/cloudenochcsis) 將其擴充為完整的 Senior Scholars' Basket of 11（[Issue #7](https://github.com/Imbad0202/academic-research-skills/issues/7)、[PR #8](https://github.com/Imbad0202/academic-research-skills/pull/8)）。更新 `academic-paper-reviewer/references/top_journals_by_field.md` 第 7 節，補上 *Decision Support Systems*、*Information & Management*、*Information and Organization*。資料來源：[AIS Senior Scholars' List of Premier Journals](https://aisnet.org/page/SeniorScholarListofPremierJournals)。
 
 ### v3.1 (2026-04-06) — 抗 Context Rot + 認知框架 + 精簡尺寸
 

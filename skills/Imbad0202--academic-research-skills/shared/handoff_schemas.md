@@ -100,6 +100,7 @@ Consuming agents should validate input and request re-generation if schema viola
 | `annotation` | string | Yes | 2-3 sentence summary of key findings and relevance |
 | `verified` | boolean | No | Whether DOI/existence has been verified |
 | `retraction_check` | boolean | No | Whether checked against Retraction Watch |
+| `semantic_scholar_id` | string / null | No | Semantic Scholar paper ID (v3.3). Null if S2 lookup failed or API unavailable. Used for deduplication and re-verification. |
 
 ### Optional Fields
 
@@ -258,6 +259,7 @@ AI-assisted assessment's primary advantage lies in the immediacy of feedback, re
 | `overall_issues` | object | `{SERIOUS: integer, MEDIUM: integer, MINOR: integer}` |
 | `citation_integrity_score` | float | 0.0-1.0 score for citation accuracy |
 | `fabrication_risk_score` | float | 0.0-1.0 score (0 = no risk detected) |
+| `score_trajectory` | object / null | Review score delta tracking (v3.3, optional). Present only during re-review. See Score Trajectory Structure below. |
 | `timestamp` | string | ISO 8601 timestamp of verification |
 
 ### Phase Structure
@@ -291,6 +293,53 @@ phases: {
   }
 }
 ```
+
+### Score Trajectory Structure (v3.3, optional)
+
+Present only when the integrity report is for a re-review (Stage 3' or 4'). Tracks rubric score changes across revision rounds.
+
+Dimensions match the 7 universal review dimensions from `academic-paper-reviewer/references/review_criteria_framework.md` plus an overall score:
+
+```
+score_trajectory: {
+  round: integer,          // revision round number (1 or 2)
+  previous_scores: {       // rubric scores from prior review (1-5 scale)
+    originality: float,
+    methodological_rigor: float,
+    evidence_sufficiency: float,
+    argument_coherence: float,
+    writing_quality: float,
+    literature_integration: float,
+    significance_impact: float,
+    overall: float
+  },
+  current_scores: {        // rubric scores from this review (1-5 scale)
+    originality: float,
+    methodological_rigor: float,
+    evidence_sufficiency: float,
+    argument_coherence: float,
+    writing_quality: float,
+    literature_integration: float,
+    significance_impact: float,
+    overall: float
+  },
+  deltas: {                // current - previous for each dimension
+    originality: float,
+    methodological_rigor: float,
+    evidence_sufficiency: float,
+    argument_coherence: float,
+    writing_quality: float,
+    literature_integration: float,
+    significance_impact: float,
+    overall: float
+  },
+  regression_detected: boolean,  // true if any delta < -3
+  regressed_dimensions: list[string],  // names of dimensions where delta < -3
+  early_stop_eligible: boolean   // true if overall delta < 3 AND no P0 issues (existing criterion)
+}
+```
+
+**Consumer**: `pipeline_orchestrator_agent` uses `regression_detected` to trigger a warning checkpoint. `editorial_synthesizer_agent` includes trajectory in re-review reports.
 
 ### Issue Severity Levels
 

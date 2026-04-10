@@ -80,6 +80,21 @@ This project's own paper contained a Mashup Fabrication (Pattern #3):
 
 Perform the following checks on **every** entry in the reference list:
 
+#### A0. Semantic Scholar API Batch Verification — NEW v3.3
+
+Reference: `deep-research/references/semantic_scholar_api_protocol.md` (see for query patterns, matching rules, and rate limits)
+
+Before WebSearch-based verification, run a batch S2 API check on ALL references. Routing:
+
+| S2 Result | Action |
+|-----------|--------|
+| `S2_VERIFIED` | Proceed to A2 (bibliographic accuracy) — skip A1 WebSearch |
+| `S2_NOT_FOUND` | Proceed to A1 (WebSearch existence check) as normal |
+| `DOI_MISMATCH` | Flag as SERIOUS — possible DOI Misdirection (Compound Deception Pattern #5) |
+| `API_UNAVAILABLE` | Skip A0, proceed to A1 for all references |
+
+A0 is additive — it does not replace A1. The audit trail must record both A0 and A1 results.
+
 #### A1. Existence Check
 ```
 For each reference:
