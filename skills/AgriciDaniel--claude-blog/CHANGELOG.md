@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.8] - 2026-04-08
+
+### Fixed
+- install.ps1: Fixed Windows PowerShell 5.1 ParameterBindingException (`irm|iex` to `iex (irm)`)
+- install.ps1: Corrected Python version warning from 3.12+ to 3.11+
+- ci.yml: Bumped actions/checkout and actions/setup-python from v4/v5 to v6
+- docs/INSTALLATION.md: Updated Windows one-liner to match install.ps1 fix
+
+## [1.6.7] - 2026-04-08
+
+### Fixed
+- 29 corrections across API endpoints, crawler specs, schema markup, and distribution playbook
+- GA4 quota corrected from 25K to 200K Core Tokens/day
+- Removed misquoted "46% reading mode" stat; replaced with actual Kevin Indig finding
+- Added 8 new AI crawlers to ai-crawler-guide.md
+- BlogPosting schema properties corrected from "Required" to "Recommended" per Google docs
+- Sweep-up: 5 residual attribution fixes from Areas 3-7 audit
+
+## [1.6.6] - 2026-04-08
+
+### Fixed
+- Corrected 20 misattributed or unverifiable statistics in google-landscape-2026.md and geo-optimization.md
+- Removed fabricated Mueller quote; replaced with paraphrase of documented position
+- Removed unverifiable +340% Seenos citation claim from SKILL.md, content-rules.md, schema-stack.md, distribution-playbook.md
+- Added caveats to FAQPage (+28%, sponsored SEL article), G2 stats (self-reported), B2B SaaS decline (single case study)
+- Updated ChatGPT users 800M to 900M, AI Mode countries 120 to 200+, Hidden Gems 77% to 70.85%
+
 ## [1.6.5] - 2026-03-28
 
 ### Added

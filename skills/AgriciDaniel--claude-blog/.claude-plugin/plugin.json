@@ -1,7 +1,7 @@
 {
   "name": "claude-blog",
   "description": "AI-powered blog skill with 21 commands, Google API integration (PageSpeed, CrUX, GSC, GA4, YouTube, NLP, Keywords), YouTube video embedding, persona-driven writing, fact-checking, cannibalization detection, CMS taxonomy sync, NotebookLM research, Gemini TTS audio narration, 5-category scoring, 4 agents, and Gemini image generation. Optimized for Google rankings and AI citations (GEO/AEO).",
-  "version": "1.6.8",
+  "version": "1.6.9",
   "author": {
     "name": "AgriciDaniel",
     "url": "https://github.com/AgriciDaniel"

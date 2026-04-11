@@ -129,7 +129,7 @@ Tag and category management supporting WordPress REST, Shopify GraphQL, Ghost, S
 ### Dual Optimization
 Every article targets both Google rankings and AI citation platforms:
 - **Google**: December 2025 Core Update compliance, E-E-A-T, schema markup, internal linking
-- **AI Citations**: Answer-first formatting (+340% citations), citation capsules, passage-level citability, FAQ schema (+28% citations)
+- **AI Citations**: Answer-first formatting, citation capsules, passage-level citability, FAQ schema
 
 ### Visual Media
 - Pixabay/Unsplash/Pexels image sourcing with alt text
@@ -164,7 +164,7 @@ claude-blog/
 ├── skills/
 │   ├── blog/                           # Main orchestrator
 │   │   ├── SKILL.md                    # Routes all 21 commands
-│   │   ├── references/                 # 13 on-demand reference docs
+│   │   ├── references/                 # 14 on-demand reference docs
 │   │   └── templates/                  # 12 content type templates
 │   ├── blog-write/SKILL.md            # Sub-skills (21 user-facing + 1 internal)
 │   ├── blog-rewrite/SKILL.md
@@ -275,3 +275,20 @@ MIT License. See [LICENSE](LICENSE) for details.
 ---
 
 Built by [AgriciDaniel](https://github.com/AgriciDaniel) with Claude Code.
+
+---
+
+## Publishing Platform
+
+For a full GUI-based content publishing workflow, see [Rankenstein](https://rankenstein.pro) - research to publish in one platform.
+
+---
+
+## Author
+
+Built by [Agrici Daniel](https://agricidaniel.com/about) - AI Workflow Architect.
+
+- [Blog](https://agricidaniel.com/blog) - Deep dives on AI marketing automation
+- [AI Marketing Hub](https://www.skool.com/ai-marketing-hub) - Free community, 2,800+ members
+- [YouTube](https://www.youtube.com/@AgriciDaniel) - Tutorials and demos
+- [All open-source tools](https://github.com/AgriciDaniel)

@@ -26,7 +26,7 @@ According to a 2025 Ahrefs study, 43.8% of AI citations come from well-structure
 
 ## What Are AI Citations?
 
-AI citations occur when platforms like ChatGPT, Perplexity, or Google AI Overviews reference your content. A 2025 study found that answer-first formatting increases citation rates by 340%.
+AI citations occur when platforms like ChatGPT, Perplexity, or Google AI Overviews reference your content. Research suggests that answer-first formatting and citing authoritative sources significantly increase AI citation visibility.
 
 ### Why They Matter
 

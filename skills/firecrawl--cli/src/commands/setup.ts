@@ -5,7 +5,11 @@
 
 import { execSync } from 'child_process';
 import { getApiKey } from '../utils/config';
-import { buildSkillsInstallArgs } from './skills-install';
+import {
+  buildSkillsInstallArgs,
+  cleanNpmEnv,
+  SKILL_REPOS,
+} from './skills-install';
 import { hasNpx, installSkillsNative } from './skills-native';
 
 export type SetupSubcommand = 'skills' | 'mcp';
@@ -41,33 +45,36 @@ export async function handleSetupCommand(
 }
 
 async function installSkills(options: SetupOptions): Promise<void> {
-  if (hasNpx()) {
-    const args = buildSkillsInstallArgs({
-      agent: options.agent,
-      global: true,
-      includeNpxYes: true,
-    });
+  for (const repo of SKILL_REPOS) {
+    if (hasNpx()) {
+      const args = buildSkillsInstallArgs({
+        repo,
+        agent: options.agent,
+        global: true,
+        includeNpxYes: true,
+      });
 
-    const cmd = args.join(' ');
-    console.log(`Running: ${cmd}\n`);
+      const cmd = args.join(' ');
+      console.log(`Running: ${cmd}\n`);
 
+      try {
+        execSync(cmd, { stdio: 'inherit', env: cleanNpmEnv() });
+        continue;
+      } catch {
+        process.exit(1);
+      }
+    }
+
+    // Fallback: native install (no npx/Node required)
     try {
-      execSync(cmd, { stdio: 'inherit' });
-      return;
-    } catch {
+      await installSkillsNative(repo);
+    } catch (error) {
+      console.error(
+        `Failed to install skills from ${repo}:`,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
       process.exit(1);
     }
-  }
-
-  // Fallback: native install (no npx/Node required)
-  try {
-    await installSkillsNative();
-  } catch (error) {
-    console.error(
-      'Failed to install skills:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-    process.exit(1);
   }
 }
 
@@ -102,7 +109,7 @@ async function installMcp(options: SetupOptions): Promise<void> {
   try {
     execSync(cmd, {
       stdio: 'inherit',
-      env: { ...process.env, FIRECRAWL_API_KEY: apiKey },
+      env: { ...cleanNpmEnv(), FIRECRAWL_API_KEY: apiKey },
     });
   } catch {
     process.exit(1);

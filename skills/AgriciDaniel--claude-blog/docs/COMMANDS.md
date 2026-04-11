@@ -450,9 +450,9 @@ visibility on AI platforms (ChatGPT, Perplexity, Google AI Overviews).
 
 ### Checks Performed
 
-- Answer-first formatting (critical for +340% AI citations)
+- Answer-first formatting (critical for AI citation visibility)
 - Content freshness (76% of top citations updated within 30 days)
-- FAQ schema presence (+28% AI citations)
+- FAQ schema presence (improves AI citation visibility)
 - Source authority tier quality
 - Content extractability (50-150 word chunks)
 - JavaScript dependency (AI crawlers cannot execute JS)

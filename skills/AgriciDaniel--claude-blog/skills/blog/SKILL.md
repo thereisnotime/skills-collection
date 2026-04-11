@@ -1,7 +1,7 @@
 ---
 name: blog
 description: >
-  Full-lifecycle blog engine with 20 commands, 12 content templates, 5-category
+  Full-lifecycle blog engine with 21 commands, 12 content templates, 5-category
   100-point scoring, and 4 specialized agents. Optimized for Google rankings
   (December 2025 Core Update, E-E-A-T) and AI citations (GEO/AEO). Writes,
   rewrites, analyzes, outlines, audits, and repurposes blog content with
@@ -18,9 +18,9 @@ license: MIT
 compatibility: Requires Claude Code and Python 3.11+ for quality scoring
 metadata:
   author: AgriciDaniel
-  version: "1.6.5"
+  version: "1.6.9"
 user-invokable: true
-argument-hint: "[write|rewrite|analyze|brief|calendar|cannibalization|strategy|outline|seo-check|schema|repurpose|geo|image|audit|factcheck|persona|taxonomy|notebooklm|audio] [topic-or-file]"
+argument-hint: "[write|rewrite|analyze|brief|calendar|cannibalization|strategy|outline|seo-check|schema|repurpose|geo|image|audit|factcheck|persona|taxonomy|notebooklm|audio|google|update] [topic-or-file]"
 ---
 
 # Blog -- Content Engine for Rankings & AI Citations

@@ -595,8 +595,8 @@ Validate both content quality and technical readiness for AI crawlers:
 |------------|--------|----------|
 | Nano Banana (Gemini) | **Available** | AI image generation for blog content |
 | DataForSEO | **Available** | Recommended: covers SERP, keywords, backlinks, on-page, domain, content, AI optimization |
-| Google Search Console | Planned | High - for first-party traffic/CTR data |
-| Google Analytics (GA4) | Future | Low |
+| Google Search Console | **Available** (via `/blog google gsc`) | First-party traffic/CTR data |
+| Google Analytics (GA4) | **Available** (via `/blog google ga4`) | Organic traffic reports |
 | WordPress REST API | Future | Low |
 | Contentful / Sanity CMS | Future | Low |
 

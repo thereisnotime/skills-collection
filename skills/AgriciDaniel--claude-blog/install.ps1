@@ -149,7 +149,7 @@ function Main {
 "@
 
     Write-Color White "Installed:"
-    Write-Color Green "  Main skill:   blog/ (orchestrator + 13 references + 13 templates)"
+    Write-Color Green "  Main skill:   blog/ (orchestrator + 14 references + 12 templates)"
     Write-Color Green "  Sub-skills:   22 (21 commands + 1 internal)"
     Write-Color Green "  Agents:       4 specialists"
     Write-Color Green "  Scripts:      analyze_blog.py"

@@ -1,17 +1,13 @@
-.claude
+# OS
 .DS_Store
 
-temp/
-
-pyproject.toml
-uv.lock
-
+# Python
 .venv/
 .python-version
-main.py
-
 __pycache__/
 
+# Secrets
 .env
 
-scan_skills.py
+# Project
+temp/

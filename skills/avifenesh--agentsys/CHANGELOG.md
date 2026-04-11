@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.8.3] - 2026-04-11
+
+### Fixed
+- **next-task v1.1.1** - SubagentStop hook now only fires during active /next-task workflows, not on every subagent stop (agent-sh/agentsys#325). Cross-platform guard script replaces unconditional prompt injection that wasted 136K+ tokens per unrelated agent.
+
+### Changed
+- Bump next-task marketplace version to 1.1.1
+
+## [5.8.2] - 2026-04-11
+
+### Added
+- Codex CLI plugin manifest (`.codex-plugin/plugin.json`) for native Codex discovery
+
+### Fixed
+- Flaky stale items test - use >= 99 threshold for date boundary tolerance
+
+## [5.8.1] - 2026-03-28
+
+### Added
+- `exports` field in `lib/package.json` for `@agentsys/lib` module resolution
+- Inline pipeline steps in each command panel on website
+- Dynamic How It Works tab system for all 20 commands on website
+
+### Fixed
+- Code-point safe `truncate()` to prevent surrogate pair corruption across all truncation sites
+- agnix stats updated to current counts (385 rules, 102 auto-fix, 36 categories)
+- Site: command tab wrapping, skills grouping, How It Works rendering
+
+### Changed
+- Bumped repo-intel marketplace version to 0.2.0
+- Synced agnix rule count 342 -> 385
+
 ## [5.8.0] - 2026-03-25
 
 ### Added
