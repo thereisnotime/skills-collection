@@ -126,7 +126,7 @@ helm install <new-release-name> <chart> -n <namespace>
 
 **Symptoms:**
 ```
-Error: INSTALLATION FAILED: chart requires kubeVersion: >=1.20.0 which is incompatible with Kubernetes v1.19.0
+Error: INSTALLATION FAILED: chart requires kubeVersion: >=1.33.0 which is incompatible with Kubernetes v1.32.0
 ```
 
 **Investigation:**

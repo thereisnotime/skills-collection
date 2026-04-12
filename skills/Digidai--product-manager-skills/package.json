@@ -1,7 +1,7 @@
 {
   "name": "product-manager-skills",
-  "version": "0.4.0",
-  "description": "PM skill for Claude Code, Codex, Cursor, and Windsurf: diagnose SaaS metrics, critique PRDs, plan roadmaps, run discovery, and coach PM career transitions.",
+  "version": "0.5.4",
+  "description": "PM skill for Claude Code, Codex, Cursor, Windsurf, and GitHub-based skill loaders. Diagnoses SaaS metrics, critiques PRDs, plans roadmaps, runs discovery, coaches PM career transitions, designs PLG growth strategies, and pressure-tests AI product decisions across seven knowledge domains.",
   "keywords": [
     "product-manager-skills",
     "openclaw-skill",
@@ -15,8 +15,13 @@
     "product-strategy",
     "discovery",
     "positioning",
+    "growth-plg",
+    "product-led-growth",
+    "activation",
     "career-coaching",
     "saas-metrics",
+    "ai-product",
+    "pm-sprint",
     "claude-code",
     "cursor",
     "codex",
@@ -34,12 +39,20 @@
   },
   "author": "Gene Dai <gene@genedai.me> (https://genedai.me/)",
   "license": "CC-BY-NC-SA-4.0",
+  "scripts": {
+    "check:release": "bash bin/validate-release"
+  },
   "files": [
     "SKILL.md",
+    "VERSION",
+    "bin/",
     "knowledge/",
     "templates/",
     "examples/",
     "STARTER-PROMPTS.md",
+    "ETHOS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
     "README.zh-CN.md",
     "README.md",
     "LICENSE"

@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { homedir } from 'os';
 import { join } from 'path';
+import { parseLinVersion } from './lib';
 
 interface SetupResult {
   ready: boolean;
@@ -109,10 +110,19 @@ async function checkSdkInstalled(): Promise<{ installed: boolean; issues: string
   }
 }
 
-function checkLinearCli(): { installed: boolean; path?: string } {
+function checkLinearDesktopCli(): { installed: boolean; path?: string } {
   try {
-    const path = execSync('which linear 2>/dev/null', { encoding: 'utf8' }).trim();
-    return { installed: true, path };
+    execSync('linear --version', { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+    return { installed: true };
+  } catch {
+    return { installed: false };
+  }
+}
+
+function checkLinCli(): { installed: boolean; version?: string } {
+  try {
+    const output = execSync('lin --version', { encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+    return { installed: true, version: parseLinVersion(output) };
   } catch {
     return { installed: false };
   }
@@ -184,14 +194,26 @@ async function runSetupCheck(): Promise<SetupResult> {
     }
   }
 
-  // 3. Check Linear CLI (optional)
-  log('Checking Linear CLI (optional)...');
-  const cliResult = checkLinearCli();
+  // 3. Check Linear Desktop CLI (optional)
+  log('Checking Linear Desktop CLI (optional)...');
+  const cliResult = checkLinearDesktopCli();
   if (cliResult.installed) {
-    log(`  [OK] Linear CLI found at ${cliResult.path}\n`);
+    log('  [OK] Linear Desktop CLI found\n');
   } else {
-    log('  [INFO] Linear CLI not installed (optional)\n');
+    log('  [INFO] Linear Desktop CLI not installed (optional)\n');
     log('  To install: Download Linear Desktop from https://linear.app/download\n');
+  }
+
+  // 3b. Check lin CLI (optional fast-path)
+  log('Checking lin CLI (optional fast-path)...');
+  const linResult = checkLinCli();
+  if (linResult.installed) {
+    log(`  [OK] lin v${linResult.version} found`);
+    log('       Enables faster execution + search/list-issues commands\n');
+  } else {
+    log('  [INFO] lin CLI not installed (optional)');
+    log('         Enables faster execution for status updates, listings, and search');
+    log('  To install: brew install aaronkwhite/tap/lin\n');
   }
 
   // 4. Check MCP configuration (optional)

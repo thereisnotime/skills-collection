@@ -34,6 +34,20 @@ Coach me on my Director transition plan. I need honest feedback on my gaps.
 Coach me on this problem: we need to build a notification preferences dashboard. (Watch it push back on the solution-first framing.)
 ```
 
+## PM Sprint Workflow (new in v0.5)
+
+```text
+Take this from idea to PRD: we think mid-market ops managers need better pipeline visibility.
+```
+
+```text
+Full PM sprint on this feature: AI-powered meeting summary for sales teams. Start from discovery.
+```
+
+```text
+Help me go from problem to roadmap for reducing onboarding drop-off. Run all 6 phases.
+```
+
 ## Discovery And Research
 
 ```text
@@ -88,6 +102,20 @@ Should we build this retention feature? Assume dev cost is $60k and estimate ROI
 
 ```text
 Compare these two acquisition channels on payback, LTV:CAC, and strategic fit.
+```
+
+## Growth And PLG
+
+```text
+We're considering adding a free tier to our B2B analytics tool. Assess our PLG readiness and recommend a freemium model.
+```
+
+```text
+Our activation rate is 12% on a 14-day free trial. Diagnose where users are dropping off and recommend fixes.
+```
+
+```text
+Design a viral loop for our collaborative project management tool. Be realistic about K-factor expectations.
 ```
 
 ## Career And Leadership

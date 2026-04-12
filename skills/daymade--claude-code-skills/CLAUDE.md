@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Claude Code skills marketplace containing 43 production-ready skills organized in a plugin marketplace structure. Each skill is a self-contained package that extends Claude's capabilities with specialized knowledge, workflows, and bundled resources.
+This is a Claude Code skills marketplace containing 48 production-ready skills organized in a plugin marketplace structure. Most plugins expose one skill for narrow installs; suite plugins expose related skills under shared namespaces for combined installation workflows.
 
 **Essential Skill**: `skill-creator` is the most important skill in this marketplace - it's a meta-skill that enables users to create their own skills. Always recommend it first for users interested in extending Claude Code.
 
@@ -61,13 +61,13 @@ claude plugin install skill-creator@daymade-skills
 
 ```bash
 # Quick validation of a skill
-skill-creator/scripts/quick_validate.py /path/to/skill
+cd skill-creator && uv run --with PyYAML python -m scripts.quick_validate ../skill-name
 
 # Package a skill (includes automatic validation)
-skill-creator/scripts/package_skill.py /path/to/skill [output-dir]
+cd skill-creator && uv run --with PyYAML python -m scripts.package_skill ../skill-name [output-dir]
 
 # Initialize a new skill from template
-skill-creator/scripts/init_skill.py <skill-name> --path <output-directory>
+uv run python skill-creator/scripts/init_skill.py <skill-name> --path <output-directory>
 ```
 
 ### Testing Skills Locally
@@ -89,10 +89,13 @@ In Claude Code, use `/plugin ...` slash commands. In your terminal, use `claude 
 
 ### Git Operations
 
-This repository uses standard git workflow:
+This repository uses standard git workflow, but **always stage files by name**,
+never `git add -A` / `git add .`. Multiple agents may have unstaged changes in
+the same worktree — a blanket stage piggybacks their work into your commit:
+
 ```bash
 git status
-git add .
+git add path/to/file1 path/to/file2   # specific files only
 git commit -m "message"
 git push
 ```
@@ -122,7 +125,7 @@ Skills for public distribution must NOT contain:
 - Personal usernames, company names, product names
 - Phone numbers, personal email addresses
 - OneDrive paths or environment-specific absolute paths
-- Use relative paths within skill bundle or standard placeholders (`~/workspace/`, `<user_id>`)
+- Use relative paths within skill bundle or standard placeholders (`<workspace>/`, `<user_id>`)
 
 **Three-layer defense system:**
 1. **CLAUDE.md rules** (this section) — Claude avoids generating sensitive content
@@ -143,9 +146,10 @@ If it fires, fix the issue — do NOT use `--no-verify` to bypass.
 ## Marketplace Configuration
 
 The marketplace is configured in `.claude-plugin/marketplace.json`:
-- Contains 43 plugins, each mapping to one skill
+- Contains 50 plugin entries: most map to one skill, while suite plugins map to multiple related skills
 - Each plugin has: name, description, version, category, keywords, skills array
 - Marketplace metadata: name, owner, version, homepage
+- Suite plugins use `suites/<suite-name>/` as the canonical source for their member skills so suite caches contain only those skills. Single-skill plugin entries for suite members should point to the same canonical subdirectories.
 
 ### Versioning Architecture
 
@@ -153,8 +157,8 @@ The marketplace is configured in `.claude-plugin/marketplace.json`:
 
 1. **Marketplace Version** (`.claude-plugin/marketplace.json` → `metadata.version`)
    - Tracks the marketplace catalog as a whole
-   - Current: v1.39.0
-   - Bump when: Adding/removing skills, major marketplace restructuring
+   - Current: v1.45.1
+   - Bump when: Adding/removing skills, adding/removing suite plugins, major marketplace restructuring
    - Semantic versioning: MAJOR.MINOR.PATCH
 
 2. **Individual Skill Versions** (`.claude-plugin/marketplace.json` → `plugins[].version`)
@@ -229,6 +233,11 @@ This applies when you change ANY file under a skill directory:
 41. **capture-screen** - Programmatically capture macOS application windows using Swift window ID discovery and screencapture workflows
 42. **continue-claude-work** - Recover local `.claude` session context via compact-boundary extraction, subagent workflow recovery, and session end reason detection, then continue interrupted work without `claude --resume`
 43. **scrapling-skill** - Install, troubleshoot, and use Scrapling CLI for static/dynamic web extraction, WeChat article capture, and verified output validation
+44. **ima-copilot** - One-stop companion and installer for the official Tencent IMA skill with zero-config three-agent installation via vercel-labs/skills, XDG credential management, read-only diagnostic, known-issue auto-repair under user consent, and personalized fan-out search with priority-based knowledge base boosting
+45. **claude-export-txt-better** - Fixes broken line wrapping in Claude Code exported `.txt` conversation files; reconstructs tables, paragraphs, paths, and tool calls hard-wrapped at fixed column widths; ships with a 53-check automated validation suite
+46. **douban-skill** - Exports and syncs Douban (豆瓣) book/movie/music/game collections to local CSV files via the reverse-engineered Frodo API; supports full export and RSS incremental sync with no login, cookies, or browser required
+48. **wechat-article-scraper** - World-class WeChat article extraction with 6-level strategy routing, OG metadata fallback, image-paragraph association, and Sogou search discovery; supports Markdown/JSON/HTML/PDF export
+47. **terraform-skill** - Operational traps for Terraform provisioners, multi-environment isolation, and zero-to-deployment reliability; covers provisioner timing races, SSH connection conflicts, DNS record duplication, volume permissions, database bootstrap gaps, Cloudflare credential errors, and init-data-only-on-first-boot pitfalls
 
 **Recommendation**: Always suggest `skill-creator` first for users interested in creating skills or extending Claude Code.
 
@@ -283,20 +292,33 @@ For the full step-by-step guide with templates and examples, see [references/new
 
 **Quick workflow**:
 ```bash
-# 1. Validate & package
-cd skill-creator && python3 scripts/security_scan.py ../skill-name --verbose
-python3 scripts/package_skill.py ../skill-name
+# 1. Validate & package the skill itself
+cd skill-creator
+uv run python -m scripts.security_scan ../skill-name --verbose
+uv run --with PyYAML python -m scripts.package_skill ../skill-name
 
-# 2. Update all files listed above (see references/new-skill-guide.md for details)
+# 2. Update all files listed above (see references/new-skill-guide.md for the
+#    detailed step-by-step, including 7 README locations and 3 CLAUDE.md spots)
 
-# 3. Validate, commit, push, release
-cd .. && python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
-git add -A && git commit -m "Release vX.Y.0: Add skill-name"
+# 3. One-shot marketplace validation (ships with marketplace-dev skill)
+cd .. && bash marketplace-dev/scripts/check_marketplace.sh
+# Runs: JSON syntax → claude plugin validate → source+skills resolution →
+# reverse sync (warns when a disk SKILL.md is not registered). A WARN on
+# reverse sync is the canary for orphan skills — register them or delete them.
+
+# 4. Stage specific files by name, never `git add -A` or `git add .`
+#    (a parallel agent once piggybacked another session's unstaged changes
+#    into its commit via `git add -A`; the fix is to stage explicitly)
+git add .claude-plugin/marketplace.json CHANGELOG.md README.md README.zh-CN.md \
+        CLAUDE.md skill-name/
+git commit -m "Release vX.Y.0: Add skill-name"
 git push
+
+# 5. Release
 gh release create vX.Y.0 --title "Release vX.Y.0: Add skill-name" --notes "..."
 ```
 
-**Top mistakes**: Forgetting to push to GitHub, forgetting README.zh-CN.md, inconsistent version numbers across files.
+**Top mistakes**: Forgetting to push to GitHub, forgetting README.zh-CN.md, inconsistent version numbers across files, leaving an orphan SKILL.md on disk unregistered (caught by `check_marketplace.sh` reverse sync), using `git add -A` in a repo where multiple agents may have unstaged changes.
 
 ## Chinese User Support
 

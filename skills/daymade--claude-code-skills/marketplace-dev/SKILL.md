@@ -21,6 +21,33 @@ can install skills via `claude plugin marketplace add` and get auto-updates.
 **Input**: a repo with `skills/` directories containing SKILL.md files.
 **Output**: `.claude-plugin/marketplace.json` + validated + installation-tested + PR-ready.
 
+## Phase 0: Evidence Intake
+
+Before editing an existing marketplace, collect evidence instead of relying on the
+default template:
+
+1. Read the current `.claude-plugin/marketplace.json`.
+2. Read this repo's marketplace rules (`CLAUDE.md`, README install section, changelog).
+3. Read official docs for marketplace/plugin path semantics.
+4. If refining from prior failures, mine local Claude Code session history.
+
+Each project's sessions live under `~/.claude/projects/<escaped-cwd>/`:
+- Top-level files: `<session-id>.jsonl`
+- Subagent transcripts: `<session-id>/subagents/agent-*.jsonl`
+
+Useful search patterns (adjust keywords to the failure you are debugging):
+
+```bash
+grep -lc "marketplace.json\|claude plugin validate\|claude plugin install" \
+  ~/.claude/projects/<escaped-cwd>/*.jsonl
+grep -lc "Unrecognized key\|Plugin not found\|No manifest found\|Duplicate plugin" \
+  ~/.claude/projects/<escaped-cwd>/*.jsonl \
+  ~/.claude/projects/<escaped-cwd>/*/subagents/*.jsonl
+```
+
+Extract lessons as evidence-backed rules: command attempted, observed output, root
+cause, final working command/config. Do not encode guesses from memory.
+
 ## Phase 1: Analyze the Target Repo
 
 ### Step 1: Discover all skills
@@ -49,6 +76,29 @@ Group skills by function. Categories are freeform strings. Good patterns:
 
 Ask the user to confirm categories if grouping is ambiguous.
 
+### Step 4: Choose plugin boundaries
+
+Claude Code has three separate levels:
+
+```text
+marketplace -> plugin -> skill
+```
+
+- Marketplace name is used for install identity: `plugin@marketplace`.
+- Plugin name is the slash namespace: `/plugin-name:skill-name`.
+- Skill name comes from `SKILL.md` frontmatter when the skill path points to a
+  directory containing `SKILL.md` directly.
+
+Choose each plugin boundary by installation/update/cache intent:
+
+- **Single-skill plugin**: use when the skill should install, update, and roll back
+  independently with a narrow cache.
+- **Suite plugin**: use when related skills should share one namespace and one
+  install command, for example `/daymade-docs:mermaid-tools`.
+
+For detailed source/cache patterns and pitfalls, read
+`references/cache_and_source_patterns.md` before changing `source` or `skills`.
+
 ## Phase 2: Create marketplace.json
 
 ### The official schema (memorize this)
@@ -65,7 +115,11 @@ Key rules that are NOT obvious from the docs:
 5. **`strict: false`** is required when there's no `plugin.json` in the repo.
    With `strict: false`, the marketplace entry IS the entire plugin definition.
    Having BOTH `strict: false` AND a `plugin.json` with components causes a load failure.
-6. **`source: "./"` with `skills: ["./skills/<name>"]`** is the pattern for skills in the same repo.
+6. **`source` defines the installed plugin root**. All `skills` paths are relative
+   to that root. Use `source: "./"` only when a full repo snapshot is intended.
+   Use `source: "./path/to/skill"` + `skills: ["./"]` for a single-skill narrow
+   cache. Use `source: "./suites/<suite>"` for suite plugins whose cache should
+   contain only the suite members.
 7. **Reserved marketplace names** that CANNOT be used: `claude-code-marketplace`,
    `claude-code-plugins`, `claude-plugins-official`, `anthropic-marketplace`,
    `anthropic-plugins`, `agent-skills`, `knowledge-work-plugins`, `life-sciences`.
@@ -132,21 +186,38 @@ When adding a new plugin to an existing marketplace.json:
 3. **Set new plugin `version` to `"1.0.0"`** — it's new to the marketplace.
 4. **Bump existing plugin `version`** when its SKILL.md content changes.
    Claude Code uses version to detect updates — same version = skip update.
-5. **Audit `metadata` for invalid fields** — `metadata.homepage` is a common
+5. **Bump existing plugin `version`** when its `source` or `skills` changes.
+   The installed cache path and component resolution changed even if SKILL.md did not.
+6. **Audit `metadata` for invalid fields** — `metadata.homepage` is a common
    mistake (not in spec, silently ignored). Remove if found.
 
 ## Phase 3: Validate
 
-### Step 1: CLI validation
+### Step 1: One-shot pre-flight check
+
+Run the bundled validator. It runs four checks in sequence and exits non-zero on
+any required failure:
 
 ```bash
-claude plugin validate .
+bash scripts/check_marketplace.sh          # validates current repo
+bash scripts/check_marketplace.sh /path    # validates a target repo
 ```
 
-This catches schema errors. Common failures and fixes:
+What it checks:
+
+| # | Check | Failure means |
+|---|-------|---------------|
+| 1 | JSON syntax of `.claude-plugin/marketplace.json` | file is not parseable JSON |
+| 2 | `claude plugin validate .` (skipped if `claude` CLI missing) | schema-level rejection (e.g. `Unrecognized key: "$schema"`, duplicate names) |
+| 3 | `source` + `skills` resolution for every plugin entry | a plugin entry points to a SKILL.md that does not exist on disk |
+| 4 | Reverse sync (disk → manifest) | WARN-only: a SKILL.md on disk is not registered in any plugin entry |
+
+Common schema failures and fixes:
 - `Unrecognized key: "$schema"` → remove the `$schema` field
 - `Duplicate plugin name` → ensure all names are unique
 - `Path contains ".."` → use `./` relative paths only
+- `No manifest found in directory` when validating an installed cache path → validate
+  the marketplace manifest or plugin source, not a `strict: false` cache directory.
 
 ### Step 2: Installation test
 
@@ -168,7 +239,29 @@ claude plugin uninstall <plugin-name>@<marketplace-name>
 claude plugin marketplace remove <marketplace-name>
 ```
 
-### Step 3: GitHub installation test (if pushed)
+### Step 3: Cache footprint test
+
+After installation or update, inspect the actual cache. This is the only way to
+confirm `source` produced the intended snapshot:
+
+```bash
+PLUGIN=<plugin-name>
+MARKET=<marketplace-name>
+CACHE=$(jq -r --arg id "$PLUGIN@$MARKET" '.plugins[$id][0].installPath' ~/.claude/plugins/installed_plugins.json)
+find "$CACHE" -maxdepth 1 -mindepth 1 -exec basename {} \; | sort
+```
+
+Expected results:
+
+- Single-skill plugin cache: `SKILL.md` plus its own `scripts/`, `references/`,
+  `assets/` as applicable.
+- Suite plugin cache: only the suite member skill directories and suite-scoped
+  resources.
+- If unrelated skill directories appear, `source` is too broad.
+- If cache entries are symlinks, the plugin is not self-contained; use canonical
+  source directories instead of symlink farms.
+
+### Step 4: GitHub installation test (if pushed)
 
 ```bash
 # Test from GitHub (requires the branch to be pushed)
@@ -187,27 +280,15 @@ claude plugin marketplace remove <marketplace-name>
 
 Run this checklist after every marketplace.json change. Do not skip items.
 
-### Sync check: skills ↔ marketplace.json
+### Automated checks
 
 ```bash
-# List all skill directories on disk
-DISK_SKILLS=$(find skills -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)
-
-# List all skills registered in marketplace.json
-JSON_SKILLS=$(python3 -c "
-import json
-with open('.claude-plugin/marketplace.json') as f:
-    data = json.load(f)
-for p in data['plugins']:
-    for s in p.get('skills', []):
-        print(s.split('/')[-1])
-" | sort)
-
-# Compare — must match
-diff <(echo "$DISK_SKILLS") <(echo "$JSON_SKILLS")
+bash scripts/check_marketplace.sh
 ```
 
-If diff shows output, skills are out of sync. Fix before proceeding.
+All four checks must pass. Treat the reverse-sync WARN as a real signal: an
+unregistered `SKILL.md` on disk is almost always either an accidentally-dropped
+skill you forgot to register, or dead code that should be removed.
 
 ### Metadata check
 
@@ -224,17 +305,20 @@ For each plugin entry:
 
 - [ ] `description` matches SKILL.md frontmatter EXACTLY (not rewritten)
 - [ ] `version` is `"1.0.0"` for new plugins, bumped for changed plugins
-- [ ] `source` is `"./"` and `skills` path starts with `"./"`
+- [ ] `source` starts with `"./"` and intentionally matches the plugin cache boundary
+- [ ] Every `skills` path starts with `"./"` and resolves relative to `source`
+- [ ] If `source` points directly at a skill root, `skills` is `["./"]`
 - [ ] `strict` is `false` (no plugin.json in repo)
 - [ ] `name` is kebab-case, unique across all entries
 
 ### Final validation
 
 ```bash
-claude plugin validate .
+bash scripts/check_marketplace.sh
 ```
 
-Must show `✔ Validation passed` before creating PR.
+Must print `RESULT: PASSED` before creating a PR. A `WARN [4/4]` is acceptable
+only when you have consciously decided to leave a SKILL.md unregistered.
 
 ## Phase 4: Create PR
 
@@ -266,6 +350,25 @@ Include:
 - Design decisions (pure incremental, original descriptions, etc.)
 - Validation evidence (`claude plugin validate .` passed)
 - Test plan (install commands to verify)
+
+## Bundled hooks (optional, auto-activated)
+
+This skill ships two PostToolUse hooks under `hooks/`:
+
+- `hooks/post_edit_validate.sh` — runs `claude plugin validate` whenever a
+  `marketplace.json` file is written or edited.
+- `hooks/post_edit_sync_check.sh` — warns when a `SKILL.md` is edited but the
+  matching plugin entry in `marketplace.json` does not bump its `version`.
+
+Both hooks are declared in this plugin's own manifest entry (`plugins[].hooks`),
+so they activate automatically when the plugin is enabled in a Claude Code
+session. No manual `settings.json` edit is required. To disable them, remove
+the `hooks` block from this plugin entry in the user's installed copy or use
+`/plugin disable marketplace-dev` (they take effect only when the plugin is
+enabled).
+
+These hooks are editor-time guardrails. They do NOT replace
+`scripts/check_marketplace.sh` — always run the pre-flight check before a PR.
 
 ## Anti-Patterns (things that went wrong and how to fix them)
 

@@ -20,7 +20,7 @@
 <div align="center">
 
 [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
-![Skills Count](https://img.shields.io/badge/Skills-1060+-blue?style=flat-square)
+![Skills Count](https://img.shields.io/badge/Skills-1086+-blue?style=flat-square)
 ![Last Update](https://img.shields.io/github/last-commit/VoltAgent/awesome-agent-skills?label=Last%20update&style=flat-square)
 <a href="https://github.com/VoltAgent/voltagent">
   <img alt="VoltAgent" src="https://cdn.voltagent.dev/website/logo/logo-2-svg.svg" height="20" />
@@ -76,7 +76,8 @@ The most contributed Agent Skills repository, built and maintained together with
 | [fal.ai](#skills-by-falai-team) | [WordPress](#skills-by-wordpress-development-team) | [OpenAI](#skills-by-openai) | [Figma](#skills-by-figma) |
 | [Corey Haines](#marketing-skills-by-corey-haines) | [Binance](#skills-by-binance) | [Dean Peters](#product-manager-skills-by-dean-peters) | [Paweł Huryn](#product-management-skills-by-pawel-huryn) |
 | [MiniMax](#skills-by-minimax-team) | [DuckDB](#skills-by-duckdb) | [GSAP](#skills-by-gsap-greensock) | [Garry Tan (gstack)](#skills-by-garry-tan-gstack) |
-| [Notion](#skills-by-notion) | [Resend](#skills-by-resend) | [Community](#community-skills) | [Quality Standards](#skill-quality-standards) |
+| [Notion](#skills-by-notion) | [Resend](#skills-by-resend) | [Addy Osmani (Web Quality)](#skills-by-addy-osmani-web-quality) | [MongoDB](#skills-by-mongodb) |
+| [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Community](#community-skills) | [Quality Standards](#skill-quality-standards) | |
 
 
 
@@ -669,6 +670,26 @@ Official marketing skills by [Corey Haines](https://github.com/coreyhaines31), c
 </details>
 
 <details>
+<summary><h3 style="display:inline">Advertising Skills by Kim Barrett</h3></summary>
+
+Direct-response advertising skills by Kim Barrett, organized into foundations, copy-chief, operator-os, orchestrators, and QA — covering avatar work, offer design, Schwartz-style copywriting, creative testing, and full-funnel campaign orchestration.
+
+- **[realkimbarrett/avatar-extraction](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/foundations/avatar-extraction)** - Define exactly who the buyer is, what they want, what they've tried, and what's driving their decisions
+- **[realkimbarrett/offer-extraction](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/foundations/offer-extraction)** - Turn a product or service into a compelling, high-converting offer
+- **[realkimbarrett/schwartz-awareness-mapper](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/copy-chief/schwartz-awareness-mapper)** - Determine audience awareness level and the correct messaging approach
+- **[realkimbarrett/mechanism-builder](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/copy-chief/mechanism-builder)** - Explain why your solution works and others failed with a unique mechanism
+- **[realkimbarrett/headline-matrix](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/copy-chief/headline-matrix)** - Generate high-performing headline variations across different angles
+- **[realkimbarrett/objection-crusher](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/copy-chief/objection-crusher)** - Identify and neutralize buyer objections and hesitation
+- **[realkimbarrett/ad-angle-multiplier](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/operator-os/ad-angle-multiplier)** - Expand a core idea into multiple distinct ad angles for creative testing
+- **[realkimbarrett/scroll-stopping-creative](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/operator-os/scroll-stopping-creative)** - Create ad concepts that stop attention in the first 3 seconds
+- **[realkimbarrett/conversion-path-builder](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/operator-os/conversion-path-builder)** - Design the optimal funnel from click to conversion and booked calls
+- **[realkimbarrett/performance-diagnosis](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/operator-os/performance-diagnosis)** - Diagnose why campaigns are underperforming — low conversion, high CPL, bad ads
+- **[realkimbarrett/full-funnel-campaign-orchestrator](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/orchestrators/full-funnel-campaign-orchestrator)** - Coordinate all skills to build a complete ads + funnel campaign end-to-end
+- **[realkimbarrett/generic-language-killer](https://github.com/realkimbarrett/advertising-skills/tree/main/skills/qa/generic-language-killer)** - Remove vague, corporate, or AI-sounding language and replace it with clear, specific, human wording
+
+</details>
+
+<details>
 <summary><h3 style="display:inline">Skills by Binance</h3></summary>
 
 Official Web3 and trading skills from the Binance team. Includes crypto market data, on-chain analytics, token security auditing, and spot trading via the Binance API.
@@ -959,6 +980,35 @@ Official Resend skills to send and receive emails, build email templates and pow
 
 </details>
 
+<details>
+<summary><h3 style="display:inline">Skills by - Google Chrome team - Addy Osmani (Web Quality)</h3></summary>
+
+Lighthouse-style web quality skills from Addy Osmani(Google Chrome team) covering performance, Core Web Vitals, accessibility, SEO, and modern best practices — the same pillars Google Lighthouse audits.
+
+- **[addyosmani/web-quality-audit](https://officialskills.sh/addyosmani/skills/web-quality-audit)** - Comprehensive quality review across performance, accessibility, SEO, and best practices categories
+- **[addyosmani/performance](https://officialskills.sh/addyosmani/skills/performance)** - Loading speed, runtime efficiency, and resource optimization
+- **[addyosmani/core-web-vitals](https://officialskills.sh/addyosmani/skills/core-web-vitals)** - LCP, INP, and CLS-specific optimizations
+- **[addyosmani/accessibility](https://officialskills.sh/addyosmani/skills/accessibility)** - WCAG compliance, screen reader support, and keyboard navigation
+- **[addyosmani/seo](https://officialskills.sh/addyosmani/skills/seo)** - Search engine optimization, crawlability, and structured data
+- **[addyosmani/best-practices](https://officialskills.sh/addyosmani/skills/best-practices)** - Security, modern web APIs, and code quality patterns
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by MongoDB</h3></summary>
+
+Official MongoDB Agent Skills for agentic workflows — connection management, schema design, query optimization, natural language querying, and Atlas Stream Processing.
+
+- **[mongodb/mongodb-mcp-setup](https://officialskills.sh/mongodb/skills/mongodb-mcp-setup)** - Set up the MongoDB MCP server with authentication and connection configuration
+- **[mongodb/mongodb-connection](https://officialskills.sh/mongodb/skills/mongodb-connection)** - Optimize MongoDB client connection pools, timeouts, and serverless patterns
+- **[mongodb/mongodb-schema-design](https://officialskills.sh/mongodb/skills/mongodb-schema-design)** - Design efficient document schemas with validation and indexing patterns
+- **[mongodb/atlas-stream-processing](https://officialskills.sh/mongodb/skills/atlas-stream-processing)** - Build, operate, and debug Atlas Stream Processing pipelines with Kafka, S3, and Lambda integrations
+- **[mongodb/mongodb-natural-language-querying](https://officialskills.sh/mongodb/skills/mongodb-natural-language-querying)** - Translate natural language into MongoDB queries and aggregation pipelines
+- **[mongodb/mongodb-query-optimizer](https://officialskills.sh/mongodb/skills/mongodb-query-optimizer)** - Analyze and optimize query performance using Atlas Performance Advisor
+- **[mongodb/mongodb-search-and-ai](https://officialskills.sh/mongodb/skills/mongodb-search-and-ai)** - Implement Atlas Search and AI-powered recommendations with vector search
+
+</details>
+
 ### Community Skills
 
 <details>
@@ -1016,6 +1066,7 @@ Official Resend skills to send and receive emails, build email templates and pow
 - **[Charlie85270/Dorothy](https://github.com/Charlie85270/Dorothy)** - Orchestrate multiple AI CLI agents with automations and MCP servers
 - **[Digidai/product-manager-skills](https://github.com/Digidai/product-manager-skills)** - Senior PM agent with 30+ frameworks and SaaS metrics
 - **[deusyu/translate-book](https://github.com/deusyu/translate-book)** - Translate books (PDF/DOCX/EPUB) via parallel sub-agents with resume
+- **[mvanhorn/last30days-skill](https://github.com/mvanhorn/last30days-skill)** - Research any topic across Reddit, X, YouTube, HN, Polymarket, and the web, ranked by upvotes, likes, and real money instead of editors
 
 </details>
 

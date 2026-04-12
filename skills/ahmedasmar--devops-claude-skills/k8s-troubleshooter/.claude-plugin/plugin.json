@@ -1,7 +1,7 @@
 {
   "name": "k8s-troubleshooter",
-  "description": "Systematic Kubernetes troubleshooting and incident response. Use when diagnosing pod failures, cluster issues, performance problems, networking issues, storage failures, or responding to production incidents. Provides diagnostic workflows, automated health checks, and comprehensive remediation guidance for common Kubernetes problems.",
-  "version": "1.0.0",
+  "description": "Systematic Kubernetes troubleshooting and incident response. Use this skill whenever the user mentions Kubernetes, K8s, kubectl, pods, containers, or clusters. Triggers include diagnosing CrashLoopBackOff, ImagePullBackOff, OOMKilled, or Pending pods, responding to production incidents, troubleshooting node NotReady or DiskPressure, debugging service connectivity or networking, investigating PVC or storage failures, analyzing performance degradation, checking cluster health, troubleshooting Helm releases, and conducting post-incident reviews.",
+  "version": "2.0.0",
   "author": {
     "name": "Ahmad Asmar"
   }

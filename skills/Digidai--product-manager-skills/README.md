@@ -6,10 +6,10 @@ Turn Claude Code, Codex, Cursor, or Windsurf into a product manager that can cri
 
 [![Release](https://img.shields.io/github/v/release/Digidai/product-manager-skills)](https://github.com/Digidai/product-manager-skills/releases)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-green)](LICENSE)
-[![Security](https://img.shields.io/badge/security-zero%20scripts%2C%20pure%20markdown-brightgreen)](https://github.com/Digidai/product-manager-skills)
+[![Security](https://img.shields.io/badge/security-pure%20markdown%20%2B%20optional%20update%20check-brightgreen)](https://github.com/Digidai/product-manager-skills)
 [![Works With](https://img.shields.io/badge/works%20with-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Windsurf-blue)](#install-in-60-seconds)
 
-> Zero scripts. Zero dependencies. Zero network calls. Pure Markdown knowledge you can inspect line by line before you install.
+> Human-readable Markdown you can inspect line by line. Optional helper scripts for manual maintenance, zero automatic runtime execution.
 
 ## Why People Reuse It
 
@@ -29,7 +29,10 @@ Most AI PM tooling is good at writing polished nonsense. This skill is designed 
 | **Director readiness coaching** | "I'm a senior PM interviewing for Director roles in 90 days. Diagnose my gaps and coach me." | [Director coaching demo](examples/director-coaching.md) |
 
 More prompts: [STARTER-PROMPTS.md](STARTER-PROMPTS.md)  
-中文说明: [README.zh-CN.md](README.zh-CN.md)
+中文说明: [README.zh-CN.md](README.zh-CN.md)  
+Core philosophy: [ETHOS.md](ETHOS.md)  
+Version history: [CHANGELOG.md](CHANGELOG.md)
+Worked examples: [Growth & PLG readiness](examples/growth-plg-readiness.md), [Growth activation recovery](examples/growth-plg-activation-recovery.md), [PM Sprint from idea to PRD](examples/pm-sprint-idea-to-prd.md), [PM Sprint from sales request to PRD](examples/pm-sprint-sales-request-to-prd.md)
 
 ## Install In 60 Seconds
 
@@ -121,6 +124,7 @@ Full example: [examples/director-coaching.md](examples/director-coaching.md)
 | **Strategy & Positioning** | Position products, prioritize work, size markets, build roadmaps | Geoffrey Moore, PESTEL, TAM/SAM/SOM, RICE, ICE, Kano |
 | **Artifacts & Delivery** | Write and critique PRDs, user stories, epics, PRFAQs, recommendation docs | Cohn + Gherkin, Story Mapping, Epic Breakdown, PRFAQ |
 | **Finance & Metrics** | Calculate 32 SaaS metrics and diagnose business health | MRR, ARR, NRR, CAC, LTV, Rule of 40, Magic Number |
+| **Growth & PLG** | Design PLG strategy, optimize activation, model viral loops, diagnose conversion | PLG Readiness, Activation Framework, Viral Loop Design, Freemium Conversion |
 | **Career & Leadership** | Coach PM to Director to VP transitions | Altitude-Horizon, Three Ps, 30-60-90 onboarding |
 | **AI Product Craft** | Pressure-test AI-native product decisions | AI-Shaped Readiness, Context Engineering, Agent Orchestration |
 
@@ -146,6 +150,10 @@ Full example: [examples/director-coaching.md](examples/director-coaching.md)
 - Users who only want passive template filling and never want the AI to challenge the framing.
 - Non-technical buyers who prefer turnkey SaaS onboarding over local or repo-based installation.
 
+## PM Sprint Workflow (new in v0.5)
+
+Say "take this from idea to PRD" or "full PM sprint on this feature" and the skill runs a 6-phase end-to-end workflow: Discover, Position, Prioritize, Specify, Validate, Measure. Each phase feeds output to the next. Skip, reorder, or stop at any phase.
+
 ## Interaction Style
 
 This skill is optimized for a fast first useful draft:
@@ -153,7 +161,7 @@ This skill is optimized for a fast first useful draft:
 - If the request is clear enough, it answers immediately and labels assumptions inline.
 - If context is partial, it gives the best draft first and only asks the minimum follow-up questions needed.
 - If the task is genuinely exploratory, it can switch into guided mode one question at a time.
-- Every answer is expected to end with decisions made, assumptions to validate, and a recommended next step.
+- Every answer ends with decisions made, assumptions to validate, recommended next step, and a completion status (DONE, DONE_WITH_CONCERNS, BLOCKED, or NEEDS_CONTEXT).
 
 ### Coaching Mode (new in v0.4)
 
@@ -177,7 +185,7 @@ Most PM work is recurring. This skill is strongest when you reuse it weekly:
 | Environment | Install |
 |---|---|
 | Claude Code / OpenClaw | `clawhub install product-manager-skills` |
-| Codex / Cursor / Windsurf | `npx skills add Digidai/product-manager-skills` |
+| Codex / Cursor / Windsurf / GitHub-based skill loaders | `npx skills add Digidai/product-manager-skills` |
 | Claude Projects | Upload `SKILL.md`, `knowledge/`, and `templates/` |
 | Any LLM with local file loading | Point the system prompt at `SKILL.md` and keep sibling folders intact |
 
@@ -185,24 +193,33 @@ Most PM work is recurring. This skill is strongest when you reuse it weekly:
 
 ```text
 SKILL.md
+VERSION
+bin/update-check
+bin/validate-release
 knowledge/
 templates/
 examples/
 STARTER-PROMPTS.md
+ETHOS.md
+CHANGELOG.md
+CONTRIBUTING.md
 README.zh-CN.md
+README.md
+LICENSE
 ```
 
-Core repo size: 27 Markdown files, ~3,000 lines, under 200 KB of PM knowledge, templates, and coaching rules.
+Current footprint stays small: 7 knowledge modules, 12 templates, 8 worked examples, and 2 small shell scripts.
 
 ## Trust And Security
 
-This project is instruction-only:
+The runtime behavior is Markdown-first. The repo ships two small shell scripts for manual maintenance:
 
-- No executable scripts
-- No external network calls
-- No environment variables or credentials required
-- No privilege escalation
-- Every shipped file is human-readable Markdown
+- `bin/update-check`: an optional manual helper that compares your local `VERSION` file against the remote version on GitHub. It caches results and times out after 5 seconds. No telemetry, no data collection.
+- `bin/validate-release`: a maintainer-facing consistency check used before publishing. It validates version sync and packaged assets, but it is not invoked during normal skill usage.
+- All knowledge, templates, and routing logic remain human-readable Markdown with no executable code.
+- No environment variables or credentials required.
+- No privilege escalation.
+- The skill itself does not auto-run these scripts during normal usage.
 
 ## Featured In
 

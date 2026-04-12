@@ -1,8 +1,8 @@
 {
   "name": "gitops-workflows",
-  "description": "GitOps workflows with ArgoCD and Flux CD including multi-cluster management, secrets, and progressive delivery",
-  "version": "1.0.0",
+  "description": "GitOps deployment workflows with ArgoCD and Flux. Use this skill whenever the user mentions GitOps, ArgoCD, Flux, Flagger, Argo Rollouts, or continuous deployment to Kubernetes. Triggers include setting up ArgoCD or Flux from scratch, designing Git repository structures (monorepo vs polyrepo, app-of-apps), deploying to multiple clusters with ApplicationSets, managing secrets in Git (SOPS, Sealed Secrets, External Secrets Operator), implementing canary or blue-green deployments, troubleshooting sync or reconciliation issues, working with OCI artifacts, and comparing ArgoCD vs Flux.",
+  "version": "2.0.0",
   "author": {
-    "name": "DevOps Claude Skills"
+    "name": "Ahmad Asmar"
   }
 }

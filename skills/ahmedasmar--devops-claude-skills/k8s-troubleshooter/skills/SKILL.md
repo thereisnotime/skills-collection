@@ -1,22 +1,11 @@
 ---
 name: k8s-troubleshooter
-description: Systematic Kubernetes troubleshooting and incident response. Use when diagnosing pod failures, cluster issues, performance problems, networking issues, storage failures, or responding to production incidents. Provides diagnostic workflows, automated health checks, and comprehensive remediation guidance for common Kubernetes problems.
+description: "Systematic Kubernetes troubleshooting and incident response. Use this skill whenever the user mentions Kubernetes, K8s, kubectl, pods, containers, or clusters. Triggers include diagnosing CrashLoopBackOff, ImagePullBackOff, OOMKilled, or Pending pods, responding to production incidents, troubleshooting node NotReady or DiskPressure, debugging service connectivity or networking, investigating PVC or storage failures, analyzing performance degradation, checking cluster health, troubleshooting Helm releases, and conducting post-incident reviews."
 ---
 
 # Kubernetes Troubleshooter & Incident Response
 
 Systematic approach to diagnosing and resolving Kubernetes issues in production environments.
-
-## When to Use This Skill
-
-Use this skill when:
-- Investigating pod failures (CrashLoopBackOff, ImagePullBackOff, Pending, etc.)
-- Responding to production incidents or outages
-- Troubleshooting cluster health issues
-- Diagnosing networking or service connectivity problems
-- Investigating storage/volume issues
-- Analyzing performance degradation
-- Conducting post-incident analysis
 
 ## Core Troubleshooting Workflow
 
@@ -33,15 +22,20 @@ Follow this systematic approach for any Kubernetes issue:
 
 Run cluster health check:
 ```bash
-python3 scripts/cluster_health.py
+# Check node status and health
+kubectl get nodes
+
+# Find non-running pods across all namespaces
+kubectl get pods -A --field-selector status.phase!=Running
+
+# Check node resource usage
+kubectl top nodes
 ```
 
 This provides an overview of:
 - Node health status
-- System pod health
-- Pending pods
-- Failed pods
-- Crash loop pods
+- Pending and failed pods across all namespaces
+- Node resource utilization
 
 ### 3. Deep Dive Investigation
 
@@ -63,21 +57,26 @@ This provides comprehensive namespace health:
 
 **For Pod Issues:**
 ```bash
-python3 scripts/diagnose_pod.py <namespace> <pod-name>
+# Get full pod details (status, events, conditions, resource config)
+kubectl describe pod <pod-name> -n <namespace>
+
+# Check current and previous container logs
+kubectl logs <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace> --previous
+
+# Get events specific to the pod
+kubectl get events -n <namespace> --field-selector involvedObject.name=<pod-name>
 ```
 
-This analyzes:
+This reveals:
 - Pod phase and readiness
 - Container statuses and states
-- Restart counts
-- Recent events
-- Resource usage
+- Restart counts and exit codes
+- Recent events and scheduling decisions
+- Resource requests and limits
 
-**For specific investigations:**
-- Review pod details: `kubectl describe pod <pod> -n <namespace>`
-- Check logs: `kubectl logs <pod> -n <namespace>`
-- Check previous logs if restarting: `kubectl logs <pod> -n <namespace> --previous`
-- Check events: `kubectl get events -n <namespace> --sort-by='.lastTimestamp'`
+**For additional investigations:**
+- Check all namespace events: `kubectl get events -n <namespace> --sort-by='.lastTimestamp'`
 
 ### 4. Identify Root Cause
 
@@ -194,18 +193,6 @@ kubectl get rolebindings,clusterrolebindings -n <namespace>
 
 ## Diagnostic Scripts
 
-### cluster_health.py
-Comprehensive cluster health check covering:
-- Node status and health
-- System pod status (kube-system, etc.)
-- Pending pods across all namespaces
-- Failed pods
-- Pods in crash loops
-
-Usage: `python3 scripts/cluster_health.py`
-
-Best used as first diagnostic step to get overall cluster health snapshot.
-
 ### check_namespace.py
 
 Namespace-level health check and diagnostics:
@@ -232,18 +219,35 @@ python3 scripts/check_namespace.py <namespace> --events 20
 
 Best used when troubleshooting issues in a specific namespace or assessing overall namespace health.
 
-### diagnose_pod.py
-Detailed pod-level diagnostics:
-- Pod phase and status
-- Container states (waiting, running, terminated)
-- Restart counts and patterns
-- Resource configuration issues
-- Recent events
-- Actionable recommendations
+### Cluster-Level Diagnostics (kubectl)
 
-Usage: `python3 scripts/diagnose_pod.py <namespace> <pod-name>`
+For cluster-wide health checks, use kubectl directly:
+```bash
+# Node health and status
+kubectl get nodes
+kubectl top nodes
 
-Best used when investigating specific pod failures or behavior.
+# Find non-running pods across all namespaces
+kubectl get pods -A --field-selector status.phase!=Running
+
+# System pod health
+kubectl get pods -n kube-system
+```
+
+### Pod-Level Diagnostics (kubectl)
+
+For detailed pod investigation, use kubectl directly:
+```bash
+# Full pod details (status, events, conditions, resource config)
+kubectl describe pod <pod-name> -n <namespace>
+
+# Current and previous container logs
+kubectl logs <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace> --previous
+
+# Events specific to the pod
+kubectl get events -n <namespace> --field-selector involvedObject.name=<pod-name>
+```
 
 ## Reference Documentation
 
@@ -311,26 +315,3 @@ Read this when:
 - Debugging Helm release states
 - Managing chart dependencies
 
-## Best Practices
-
-**Always:**
-- Start with high-level health check before deep diving
-- Document symptoms and findings as you investigate
-- Check recent changes (deployments, config, infrastructure)
-- Preserve logs and state before making destructive changes
-- Test fixes in non-production when possible
-- Monitor after applying fixes to verify resolution
-
-**Never:**
-- Make production changes without understanding impact
-- Delete resources without confirming they're safe to remove
-- Restart pods repeatedly without investigating root cause
-- Apply fixes without documentation
-- Skip post-incident review
-
-**Key Principles:**
-- Systematic over random troubleshooting
-- Evidence-based diagnosis
-- Fix root cause, not symptoms
-- Learn and improve from each incident
-- Prevention is better than reaction

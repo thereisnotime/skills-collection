@@ -106,8 +106,8 @@ terraform apply
 **Symptom:**
 ```
 Error: Failed to load state
-Error: state snapshot was created by Terraform v1.5.0, 
-which is newer than current v1.3.0
+Error: state snapshot was created by Terraform v1.14.8, 
+which is newer than current v1.12.0
 ```
 
 **Common Causes:**
@@ -120,8 +120,8 @@ which is newer than current v1.3.0
 1. **Version mismatch:**
 ```bash
 # Upgrade to matching version
-tfenv install 1.5.0
-tfenv use 1.5.0
+tfenv install 1.14.8
+tfenv use 1.14.8
 ```
 
 2. **Restore from backup:**

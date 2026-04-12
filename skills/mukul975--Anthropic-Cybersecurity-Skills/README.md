@@ -18,6 +18,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/mukul975/Anthropic-Cybersecurity-Skills?style=flat-square)](https://github.com/mukul975/Anthropic-Cybersecurity-Skills/commits/main)
 [![agentskills.io](https://img.shields.io/badge/standard-agentskills.io-ff6600?style=flat-square)](https://agentskills.io)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+[![Playground](https://img.shields.io/badge/Playground-Casky.ai-blue)](https://casky.ai/?utm_source=github&utm_medium=readme&utm_campaign=cohort_launch#waitlist)
 
 **754 production-grade cybersecurity skills · 26 security domains · 5 framework mappings · 26+ AI platforms**
 
@@ -65,7 +66,19 @@ cd Anthropic-Cybersecurity-Skills
 ```
 
 Works immediately with Claude Code, GitHub Copilot, OpenAI Codex CLI, Cursor, Gemini CLI, and any [agentskills.io](https://agentskills.io)-compatible platform. 
+## 🚀 Try it on the Playground
 
+Experience Casky.ai hands-on — no setup required.
+
+**[→ Launch Playground on Casky.ai](https://casky.ai/?utm_source=github&utm_medium=readme&utm_campaign=cohort_launch#waitlist)**
+
+The playground lets you:
+- Run live cybersecurity skill exercises against real targets
+- See AI agents execute structured skills in real time
+- Explore MITRE ATT&CK mapped workflows interactively
+- Test threat hunting, DFIR, and penetration testing scenarios
+
+No installation. No configuration. Just open and start.
 ## Why this exists
 
 The cybersecurity workforce gap hit **4.8 million unfilled roles** globally in 2024 (ISC2). AI agents can help close that gap — but only if they have structured domain knowledge to work from. Today's agents can write code and search the web, but they lack the practitioner playbooks that turn a generic LLM into a capable security analyst.

@@ -1,0 +1,8 @@
+{
+  "name": "monitoring-observability",
+  "description": "Monitoring and observability strategy, implementation, and troubleshooting. Use this skill whenever the user mentions monitoring, observability, metrics, logs, traces, alerting, SLOs, Prometheus, Grafana, Datadog, Loki, or OpenTelemetry. Triggers include designing metrics strategy (Four Golden Signals, RED/USE), setting up Prometheus/Grafana/Loki, creating alerts or dashboards, calculating SLOs and error budgets, instrumenting with OpenTelemetry, analyzing performance issues, choosing between monitoring tools, optimizing Datadog costs, migrating to open-source stack, and setting up distributed tracing.",
+  "version": "2.0.0",
+  "author": {
+    "name": "Ahmad Asmar"
+  }
+}

@@ -90,6 +90,28 @@ D) Skip testing for now — just build the skill and iterate by feel
 
 This upfront classification drives the entire evaluation strategy downstream. Get it right here to avoid wasted effort later.
 
+### Specialized Workflow: Wrapper Skills for Third-Party CLI Tools
+
+Before committing to the generic skill-creation flow, check whether the session that led up to this point actually calls for the **wrapper skill** workflow instead. A wrapper skill is a companion that installs, configures, diagnoses, and repairs a pre-existing third-party CLI tool or skill package — code that someone else wrote and that the user has just spent a session getting to work on their machine.
+
+Signals this applies (any two together are enough):
+
+- The user has been installing a tool in the current conversation — downloading a `.zip`, running `npx` / `pip install` / `brew install`, dealing with an official installer.
+- The session has produced real, concrete error messages and the user and Claude have worked out concrete fixes for them (edited files, added flags, bypassed aliases).
+- The user says something like "wrap this up as a skill", "save this as a wrapper skill", "so other people don't have to go through this again", "把这次 session 做成一个 skill".
+- The user explicitly mentions a third-party tool by name and wants other agents or other people to be able to use it without the learning curve they just paid.
+
+Signals it does **not** apply (use the generic workflow above instead):
+
+- The user wants a skill for something they're going to write from scratch.
+- The session was smooth — no real friction to capture.
+- The skill would wrap a service the user owns or controls (it's their code; edit the source instead of wrapping it).
+- The "tool" is actually a methodology or workflow that doesn't involve installing any binary or package.
+
+When the wrapper skill workflow applies, **do not** continue reading the sections below. Jump to [`workflows/wrapper-skill/workflow.md`](workflows/wrapper-skill/workflow.md) and follow that workflow end-to-end. It is a **retrospective distillation** workflow — its job is to mine the current conversation for the install flow, the bugs that were fixed, and the design decisions that were made, and to turn that mining output into a complete, self-contained wrapper skill that another user can install and benefit from without reliving the debugging session.
+
+The wrapper skill workflow has its own architecture contract, code templates, and verification protocol — it does not share test-case infrastructure with the generic workflow, because its output is a user's install state rather than a file that can be easily asserted on. The canonical reference implementation is [`ima-copilot`](../ima-copilot), a wrapper around the Tencent IMA skill distilled from a real session using this exact workflow.
+
 ### Prior Art Research (Do Not Skip)
 
 The user's private methodology — their domain rules, workflow decisions, competitive edge — is what makes a skill valuable. No public repo can provide that. But the user shouldn't waste time reinventing infrastructure (API clients, auth flows, rate limiting) when mature tools exist. Prior art research finds building blocks for the infrastructure layer so the skill can focus on encoding the user's unique methodology.
@@ -453,11 +475,11 @@ Files not intended to be loaded into context, but rather used within the output 
 
 **CRITICAL**: Skills intended for public distribution must not contain user-specific or company-specific information:
 
-- **Forbidden**: Absolute paths to user directories (`/home/username/`, `/Users/username/`)
+- **Forbidden**: Absolute paths to user directories (for example, user home directories)
 - **Forbidden**: Personal usernames, company names, product names
 - **Forbidden**: Hardcoded skill installation paths like `~/.claude/skills/`
 - **Allowed**: Relative paths within the skill bundle (`scripts/example.py`, `references/guide.md`)
-- **Allowed**: Standard placeholders (`~/workspace/project`, `username`, `your-company`)
+- **Allowed**: Standard placeholders (`<workspace>/project`, `<user>`, `<organization>`)
 
 ##### Versioning
 
@@ -831,7 +853,7 @@ Take `best_description` from the JSON output and update the skill's SKILL.md fro
 ~/.claude/plugins/cache/daymade-skills/my-skill/1.0.0/my-skill/SKILL.md
 
 # RIGHT - source repository
-/path/to/your/claude-code-skills/my-skill/SKILL.md
+<repo-root>/my-skill/SKILL.md
 ```
 
 **Before any edit**, confirm the file path does NOT contain `/cache/` or `/plugins/cache/`.
@@ -848,7 +870,7 @@ Before starting any skill work, auto-detect all dependencies and proactively ins
 
 Run the quick check from [references/prerequisites.md](references/prerequisites.md), auto-install what you can, and present the user a summary checklist. Only proceed when all blocking dependencies are satisfied.
 
-Key blockers: Python 3, PyYAML (validation/packaging), gitleaks (security scan), claude CLI (evals). All scripts must be invoked via `python3 -m scripts.<name>` from the skill-creator root directory — direct `python3 scripts/<name>.py` fails due to relative imports.
+Key blockers: Python 3, uv, PyYAML (validation/packaging), gitleaks (security scan), claude CLI (evals). Run Python tools with explicit uv dependency declarations, for example `uv run --with PyYAML python -m scripts.quick_validate <skill-path>` from the skill-creator root directory. Bare `python3` depends on ambient site packages and can miss PyYAML.
 
 ### Step 1: Understanding the Skill with Concrete Examples
 
@@ -976,13 +998,15 @@ C) Override and proceed — I accept the risk for internal distribution
 Once the skill is ready, package it into a distributable file:
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder>
+cd <skill-creator-path>
+uv run --with PyYAML python -m scripts.package_skill <path/to/skill-folder>
 ```
 
 Optional output directory:
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder> ./dist
+cd <skill-creator-path>
+uv run --with PyYAML python -m scripts.package_skill <path/to/skill-folder> ./dist
 ```
 
 The packaging script will:
@@ -1039,7 +1063,7 @@ After testing the skill, users may request improvements. Often this happens righ
 Check whether you have access to the `present_files` tool. If you don't, skip this step. If you do, package the skill and present the .skill file to the user:
 
 ```bash
-python -m scripts.package_skill <path/to/skill-folder>
+uv run --with PyYAML python -m scripts.package_skill <path/to/skill-folder>
 ```
 
 After packaging, direct the user to the resulting `.skill` file path so they can install it.

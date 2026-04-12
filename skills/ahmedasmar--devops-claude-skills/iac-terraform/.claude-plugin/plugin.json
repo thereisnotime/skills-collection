@@ -1,7 +1,7 @@
 {
   "name": "iac-terraform",
-  "description": "Infrastructure as Code with Terraform and Terragrunt. Use for creating, validating, troubleshooting, and managing Terraform configurations, modules, and state. Covers Terraform workflows, best practices, module development, state management, Terragrunt patterns, and common issue resolution.",
-  "version": "1.0.0",
+  "description": "Infrastructure as Code with Terraform and Terragrunt. Use this skill whenever the user mentions Terraform, Terragrunt, HCL, or infrastructure as code. Triggers include writing or reviewing .tf files, creating reusable modules, debugging terraform plan/apply errors, managing remote state and locks, fixing state drift, setting up CI/CD for Terraform, scaffolding new modules, validating module structure, and implementing Terragrunt DRY patterns across environments.",
+  "version": "2.0.0",
   "author": {
     "name": "Ahmad Asmar"
   }

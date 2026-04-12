@@ -1,3 +1,29 @@
+## [2.7.2](https://github.com/wrsmith108/linear-claude-skill/compare/v2.7.1...v2.7.2) (2026-04-11)
+
+
+### Bug Fixes
+
+* remove `as any` casts from linear-ops.ts (SMI-4085) ([60bd268](https://github.com/wrsmith108/linear-claude-skill/commit/60bd268cdd3d8141314d7a99c5d965a7d072f1c6))
+
+## [2.7.1](https://github.com/wrsmith108/linear-claude-skill/compare/v2.7.0...v2.7.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* compile test files via esbuild for Node 20 compatibility ([5ae179a](https://github.com/wrsmith108/linear-claude-skill/commit/5ae179ada74434dc093a2caf183af0610af91503))
+
+# [2.7.0](https://github.com/wrsmith108/linear-claude-skill/compare/v2.6.3...v2.7.0) (2026-04-11)
+
+
+### Bug Fixes
+
+* address code review findings for lin CLI integration ([6a45417](https://github.com/wrsmith108/linear-claude-skill/commit/6a454176c8c50a437b854da2f21f78cc3436bfc4))
+
+
+### Features
+
+* integrate lin CLI as optional fast-path for common operations ([58867ca](https://github.com/wrsmith108/linear-claude-skill/commit/58867caa0f2e8c026de84a20cfaa5036ed6d58dd))
+
 ## [2.6.3](https://github.com/wrsmith108/linear-claude-skill/compare/v2.6.2...v2.6.3) (2026-04-08)
 
 

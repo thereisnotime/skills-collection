@@ -17,6 +17,7 @@ A comprehensive [Claude Code](https://claude.ai/code) skill for managing Linear 
 - **Bulk Sync** — Synchronize code changes with Linear via CLI, agents, or hooks
 - **Image Uploads** — Upload images to Linear's S3 storage and attach to issues
 - **Smoke Tests** — Automated verification of build output and CLI behavior
+- **`lin` CLI Integration** — Optional fast-path via [aaronkwhite/linear-cli](https://github.com/aaronkwhite/linear-cli) Rust binary with silent SDK fallback
 
 ## Quick Start (New Users)
 
@@ -99,6 +100,12 @@ cd ~/.claude/skills/linear && npm install
 ## Prerequisites
 
 - **Linear API Key** — Generate at Linear → Settings → Security & access → Personal API keys
+- **`lin` CLI** (Optional) — Faster execution for status updates, search, and listings:
+  ```bash
+  brew install aaronkwhite/tap/lin    # macOS (Homebrew)
+  cargo install lincli                # Any platform with Rust
+  ```
+  Set `LINEAR_USE_LIN=0` to disable even when installed.
 - **Linear MCP Server** (Recommended) — Use the **official Linear MCP server** for best reliability:
 
 ```json
@@ -381,6 +388,23 @@ See `sync.md` for complete patterns including AgentDB integration.
 - Added `scripts/upload-image.ts` and `scripts/extract-image.ts` for image management
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
+
+## Development
+
+### Prerequisites
+
+- Node.js >= 20.11.0 (see `.nvmrc`)
+- npm
+
+### Quick Start
+
+```bash
+git clone https://github.com/wrsmith108/linear-claude-skill.git
+cd linear-claude-skill
+npm ci
+npm test        # builds and runs smoke tests (no API key needed)
+npm run build   # compile TypeScript to dist/
+```
 
 ## Contributing
 

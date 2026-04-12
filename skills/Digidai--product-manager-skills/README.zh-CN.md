@@ -21,7 +21,7 @@
 clawhub install product-manager-skills
 ```
 
-### Codex / Cursor / Windsurf
+### Codex / Cursor / Windsurf / 基于 GitHub 的 skill loader
 
 ```bash
 npx skills add Digidai/product-manager-skills
@@ -38,6 +38,7 @@ npx skills add Digidai/product-manager-skills
 ```
 
 更多可直接复用的提示词见：[STARTER-PROMPTS.md](STARTER-PROMPTS.md)
+更多完整示例见：[examples/growth-plg-readiness.md](examples/growth-plg-readiness.md)、[examples/growth-plg-activation-recovery.md](examples/growth-plg-activation-recovery.md)、[examples/pm-sprint-idea-to-prd.md](examples/pm-sprint-idea-to-prd.md) 和 [examples/pm-sprint-sales-request-to-prd.md](examples/pm-sprint-sales-request-to-prd.md)
 
 ## 三个最值得先试的场景
 
@@ -49,9 +50,9 @@ npx skills add Digidai/product-manager-skills
 
 ## 这个项目包含什么
 
-- 6 个知识域：发现研究、战略定位、交付执行、财务指标、职业发展、AI 产品
+- 7 个知识域：发现研究、战略定位、交付执行、财务指标、增长与 PLG、职业发展、AI 产品
 - 12 个模板：PRD、User Story、Problem Statement、Roadmap、Competitive Analysis 等
-- 30+ 个框架：JTBD、Geoffrey Moore、PRFAQ、OST、RICE、Kano 等
+- 40+ 个框架：JTBD、Geoffrey Moore、PRFAQ、OST、RICE、Kano、PLG Readiness、Viral Loop 等
 - 32 个 SaaS 指标：带公式、阶段基准值、红旗等级
 - 一套统一质量门槛：要求标注假设、量化结果、说明取舍、识别反模式
 
@@ -63,6 +64,10 @@ npx skills add Digidai/product-manager-skills
 | 会说“优化用户体验降低流失” | 会算出 8% 月流失约等于 63% 年流失，并判断是否应该先停投放 |
 | 会接受模糊目标 | 会要求 baseline、target、timeframe |
 | 容易顺着你说 | 会主动推回来，指出坏 framing 和错误取舍 |
+
+## PM Sprint 工作流 (v0.5 新增)
+
+说"从想法到 PRD"或"帮我完整做一遍这个功能"，技能会启动 6 阶段端到端工作流：发现、定位、优先级、规格化、验证、度量。每个阶段的输出会喂给下一个阶段。可以跳过、重排或随时停止。
 
 ## Coaching 模式 (v0.4 新增)
 
@@ -86,18 +91,22 @@ npx skills add Digidai/product-manager-skills
 
 ## 信任与安全
 
-这是一个纯 Markdown 项目：
+运行时能力仍然以纯 Markdown 为主。仓库里有两个很小的 shell 脚本，供手动维护使用：
 
-- 没有脚本
-- 没有网络调用
+- `bin/update-check`：可选的手动更新辅助脚本。它会把本地 `VERSION` 和 GitHub 上的远端版本做比对，带超时和缓存，不上传业务数据。
+- `bin/validate-release`：维护者发布前使用的一致性校验脚本，用来检查版本号、打包内容和文档同步情况。正常使用技能时不会运行它。
+- knowledge、templates、路由逻辑仍然都是可审查的 Markdown
 - 不需要密钥
 - 没有提权
-- 所有内容都可审查
+- 技能本身不会在正常使用过程中自动执行这些脚本
 
 ## 相关文件
 
 - 英文主 README：[README.md](README.md)
 - 快速提示词：[STARTER-PROMPTS.md](STARTER-PROMPTS.md)
 - 技能入口：[SKILL.md](SKILL.md)
+- 核心哲学：[ETHOS.md](ETHOS.md)
+- 版本历史：[CHANGELOG.md](CHANGELOG.md)
+- 贡献方式：[CONTRIBUTING.md](CONTRIBUTING.md)
 
 [CC BY-NC-SA 4.0](LICENSE)
