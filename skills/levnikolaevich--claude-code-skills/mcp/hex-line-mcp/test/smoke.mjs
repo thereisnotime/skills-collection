@@ -3,10 +3,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+
+// Structured MCP result accessors — no legacy fallbacks
+function textOf(r) { return r.structuredContent.content; }
+function errMsgOf(r) { return r.structuredContent.error.message; }
+function assertStructuredTextMirror(r) { assert.equal(r.content[0].text, JSON.stringify(r.structuredContent)); }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOOK_PATH = resolve(__dirname, "../hook.mjs");
@@ -51,6 +56,10 @@ function makeTempRepo(prefix, files) {
         fs.writeFileSync(fullPath, content);
     }
     return dir;
+}
+
+function git(repo, args) {
+    execFileSync("git", args, { cwd: repo, stdio: "ignore" });
 }
 
 async function indexGraphRepo(dir) {
@@ -651,6 +660,69 @@ describe("edit error messages", () => {
         } finally {
             fs.unlinkSync(tmp);
         }
+    });
+});
+
+describe("hash collision safety", () => {
+    it("findLine rejects global relocation when full hash differs (collision)", async () => {
+        const { editFile } = await import("../lib/edit.mjs");
+        const { readSnapshot } = await import("../lib/snapshot.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
+        const tmp = TMP("hex-test-collision.txt");
+
+        // "line_content_13" and "line_content_40" share tag "cf" but differ on full 32-bit hash
+        const lineA = "line_content_13";
+        const lineB = "line_content_40";
+        assert.strictEqual(lineTag(fnv1a(lineA)), lineTag(fnv1a(lineB)), "Tags must collide");
+        assert.notStrictEqual(fnv1a(lineA), fnv1a(lineB), "Full hashes must differ");
+
+        // Place collision partners >10 lines apart so steps 1-4 can't match
+        const padding = Array.from({ length: 15 }, (_, i) => `pad_${i}`).join("\n");
+        // lineB at line 2, lineA at line 18 (separated by 16 lines)
+        fs.writeFileSync(tmp, `header\n${lineB}\n${padding}\n${lineA}\nfooter\n`);
+        try {
+            const snap1 = readSnapshot(tmp);
+            const revision1 = snap1.revision;
+            const tagA = lineTag(fnv1a(lineA));
+            const anchorA = `${tagA}.18`; // lineA is at line 18
+
+            // Mutate: remove lineA, lineB stays at line 2 (>10 lines from 18)
+            fs.writeFileSync(tmp, `header\n${lineB}\n${padding}\nfooter\n`);
+
+            // Edit with baseRevision — step 5 should detect collision via full hash mismatch
+            editFile(tmp, [{ set_line: { anchor: anchorA, new_text: "replaced" } }], { baseRevision: revision1 });
+            assert.fail("Should have thrown HASH_MISMATCH, not silently edited wrong line");
+        } catch (e) {
+            assert.ok(e.message.includes("HASH_MISMATCH"), `Expected HASH_MISMATCH, got: ${e.message.slice(0, 100)}`);
+            assert.ok(e.message.includes("hash collision"), "Error should mention collision");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
+    it("findLine allows global relocation when full hash matches", async () => {
+        const { editFile } = await import("../lib/edit.mjs");
+        const { readSnapshot } = await import("../lib/snapshot.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
+        const tmp = TMP("hex-test-relocation.txt");
+
+        const uniqueLine = "this_is_a_unique_line_for_relocation_test";
+        const tag = lineTag(fnv1a(uniqueLine));
+
+        // Create file: uniqueLine at line 3
+        fs.writeFileSync(tmp, `header\npadding\n${uniqueLine}\nfooter\n`);
+        // Read to create initial snapshot with base_revision
+        const snap1 = readSnapshot(tmp);
+        const revision1 = snap1.revision;
+
+        // Mutate: insert a line at top, uniqueLine shifts to line 4
+        fs.writeFileSync(tmp, `new_top\nheader\npadding\n${uniqueLine}\nfooter\n`);
+
+        // Edit using old anchor (tag.3) with base_revision — should relocate to line 4
+        const result = editFile(tmp, [{ set_line: { anchor: `${tag}.3`, new_text: "relocated_ok" } }], { baseRevision: revision1 });
+        const content = fs.readFileSync(tmp, "utf8");
+        assert.ok(content.includes("relocated_ok"), "Relocation should succeed for genuine content move");
+        assert.ok(!content.includes(uniqueLine), "Original line should be replaced");
     });
 });
 
@@ -1338,7 +1410,7 @@ describe("edit_file replace removed", () => {
                     },
                 });
                 assert.equal(result.isError, true, "Tool rejects non-canonical edit payload");
-                assert.match(result.content[0].text, /BAD_INPUT: unknown edit type/, "Failure is reported at the public contract boundary");
+                assert.match(errMsgOf(result), /BAD_INPUT: unknown edit type/, "Failure is reported at the public contract boundary");
             });
         } finally {
             if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
@@ -1476,6 +1548,150 @@ describe("changes", () => {
         assert.ok(result.includes("removed_api_warning_count:"), "changes returns API warning count preview");
         assert.ok(result.includes("payload_sections:"), "changes returns payload section preview");
         assert.ok(result.includes("provenance_summary:"), "changes returns provenance summary");
+    });
+});
+
+describe("MCP structured status contract", () => {
+    it("changes exposes NO_CHANGES and CHANGED as structured statuses", async () => {
+        const repo = makeTempRepo("hex-test-mcp-changes-", { "src/app.js": "export const value = 1;\n" });
+        try {
+            git(repo, ["init"]);
+            git(repo, ["config", "user.email", "hex-line@example.test"]);
+            git(repo, ["config", "user.name", "hex-line"]);
+            git(repo, ["add", "."]);
+            git(repo, ["commit", "-m", "initial"]);
+
+            await withMcpClient(async (client) => {
+                const clean = await client.callTool({
+                    name: "changes",
+                    arguments: { path: repo, compare_against: "HEAD" },
+                });
+                assert.equal(clean.structuredContent.status, "NO_CHANGES");
+                assert.equal(clean.structuredContent.next_action, "no_action");
+                assertStructuredTextMirror(clean);
+
+                fs.writeFileSync(join(repo, "src/app.js"), "export const value = 2;\n");
+                const dirty = await client.callTool({
+                    name: "changes",
+                    arguments: { path: repo, compare_against: "HEAD" },
+                });
+                assert.equal(dirty.structuredContent.status, "CHANGED");
+                assert.equal(dirty.structuredContent.next_action, "inspect_file");
+                assertStructuredTextMirror(dirty);
+            });
+        } finally {
+            fs.rmSync(repo, { recursive: true, force: true });
+        }
+    });
+
+    it("verify exposes STALE as a structured status", async () => {
+        const tmp = join(tmpdir(), `hex-test-mcp-verify-${Date.now()}-${Math.random().toString(16).slice(2)}.js`);
+        fs.writeFileSync(tmp, "alpha\nbeta\ngamma\n");
+        try {
+            await withMcpClient(async (client) => {
+                const read = await client.callTool({
+                    name: "read_file",
+                    arguments: { path: tmp, ranges: ["1-3"], edit_ready: true, verbosity: "full" },
+                });
+                const checksum = textOf(read).match(/checksum: (\d+-\d+:[0-9a-f]{8})/)?.[1];
+                assert.ok(checksum, "read_file exposes checksum");
+
+                fs.writeFileSync(tmp, "alpha\nBETA\ngamma\n");
+                const verify = await client.callTool({
+                    name: "verify",
+                    arguments: { path: tmp, checksums: [checksum] },
+                });
+                assert.equal(verify.structuredContent.status, "STALE");
+                assert.equal(verify.structuredContent.next_action, "reread_ranges");
+                assertStructuredTextMirror(verify);
+            });
+        } finally {
+            fs.rmSync(tmp, { force: true });
+        }
+    });
+
+    it("edit_file exposes AUTO_REBASED and CONFLICT as structured statuses", async () => {
+        const tmp = join(tmpdir(), `hex-test-mcp-edit-status-${Date.now()}-${Math.random().toString(16).slice(2)}.js`);
+        const original = "head1\nhead2\ntargetA\ntargetB\ntail\n";
+        fs.writeFileSync(tmp, original);
+        try {
+            await withMcpClient(async (client) => {
+                const read = await client.callTool({
+                    name: "read_file",
+                    arguments: { path: tmp, ranges: ["1-1", "3-4"], edit_ready: true, verbosity: "full" },
+                });
+                const readText = textOf(read);
+                const baseRevision = readText.match(/revision: (\S+)/)?.[1];
+                const headTag = readText.match(/([a-z2-7]{2}\.1)\thead1/)?.[1];
+                const startAnchor = readText.match(/([a-z2-7]{2}\.3)\ttargetA/)?.[1];
+                const endAnchor = readText.match(/([a-z2-7]{2}\.4)\ttargetB/)?.[1];
+                const checksum = readText.match(/checksum: (3-4:[0-9a-f]{8})/)?.[1];
+                assert.ok(baseRevision && headTag && startAnchor && endAnchor && checksum, "read_file exposes base edit metadata");
+
+                await client.callTool({
+                    name: "edit_file",
+                    arguments: {
+                        path: tmp,
+                        allow_external: true,
+                        edits: JSON.stringify([{ insert_after: { anchor: headTag, text: "inserted" } }]),
+                    },
+                });
+                const autoRebased = await client.callTool({
+                    name: "edit_file",
+                    arguments: {
+                        path: tmp,
+                        allow_external: true,
+                        base_revision: baseRevision,
+                        conflict_policy: "conservative",
+                        edits: JSON.stringify([{
+                            replace_lines: {
+                                start_anchor: startAnchor,
+                                end_anchor: endAnchor,
+                                new_text: "targetA\nupdatedB",
+                                range_checksum: checksum,
+                            },
+                        }]),
+                    },
+                });
+                assert.equal(autoRebased.structuredContent.status, "AUTO_REBASED");
+                assert.equal(autoRebased.structuredContent.next_action, "keep_using");
+                assertStructuredTextMirror(autoRebased);
+
+                fs.writeFileSync(tmp, original);
+                const conflictRead = await client.callTool({
+                    name: "read_file",
+                    arguments: { path: tmp, ranges: ["3-4"], edit_ready: true, verbosity: "full" },
+                });
+                const conflictText = textOf(conflictRead);
+                const conflictBaseRevision = conflictText.match(/revision: (\S+)/)?.[1];
+                const conflictStart = conflictText.match(/([a-z2-7]{2}\.3)\ttargetA/)?.[1];
+                const conflictEnd = conflictText.match(/([a-z2-7]{2}\.4)\ttargetB/)?.[1];
+                const conflictChecksum = conflictText.match(/checksum: (3-4:[0-9a-f]{8})/)?.[1];
+                fs.writeFileSync(tmp, "head1\nhead2\notherChange\ntargetB\ntail\n");
+                const conflict = await client.callTool({
+                    name: "edit_file",
+                    arguments: {
+                        path: tmp,
+                        allow_external: true,
+                        base_revision: conflictBaseRevision,
+                        conflict_policy: "conservative",
+                        edits: JSON.stringify([{
+                            replace_lines: {
+                                start_anchor: conflictStart,
+                                end_anchor: conflictEnd,
+                                new_text: "targetA\nupdatedB",
+                                range_checksum: conflictChecksum,
+                            },
+                        }]),
+                    },
+                });
+                assert.equal(conflict.structuredContent.status, "CONFLICT");
+                assert.equal(conflict.structuredContent.next_action, "apply_retry_edit");
+                assertStructuredTextMirror(conflict);
+            });
+        } finally {
+            fs.rmSync(tmp, { force: true });
+        }
     });
 });
 // ==================== isHexLineDisabled ====================
@@ -1829,7 +2045,8 @@ describe("hook — advisory mode", () => {
         try {
             const r = await runHook("PreToolUse", "Read", { file_path: "src/index.ts" }, {}, { cwd: repo });
             assert.equal(r.code, 0);
-            assert.ok(r.stdout.includes("\"permissionDecision\":\"allow\""));
+            assert.ok(!r.stdout.includes("\"permissionDecision\""), "advisory mode must NOT set permissionDecision");
+            assert.ok(r.stdout.includes("\"additionalContext\""), "advisory mode uses additionalContext");
             assert.ok(r.stdout.includes("read_file"));
         } finally {
             fs.rmSync(repo, { recursive: true, force: true });
@@ -1843,7 +2060,8 @@ describe("hook — advisory mode", () => {
         try {
             const r = await runHook("PreToolUse", "Bash", { command: "cat src/index.ts" }, {}, { cwd: repo });
             assert.equal(r.code, 0);
-            assert.ok(r.stdout.includes("\"permissionDecision\":\"allow\""));
+            assert.ok(!r.stdout.includes("\"permissionDecision\""), "advisory mode must NOT set permissionDecision");
+            assert.ok(r.stdout.includes("\"additionalContext\""), "advisory mode uses additionalContext");
             assert.ok(r.stdout.includes("read_file"));
         } finally {
             fs.rmSync(repo, { recursive: true, force: true });
@@ -1857,7 +2075,8 @@ describe("hook — advisory mode", () => {
         try {
             const r = await runHook("PreToolUse", "Glob", { pattern: "**/*.ts" }, {}, { cwd: repo });
             assert.equal(r.code, 0);
-            assert.ok(r.stdout.includes("\"permissionDecision\":\"allow\""));
+            assert.ok(!r.stdout.includes("\"permissionDecision\""), "advisory mode must NOT set permissionDecision");
+            assert.ok(r.stdout.includes("\"additionalContext\""), "advisory mode uses additionalContext");
             assert.ok(r.stdout.includes("inspect_path"));
         } finally {
             fs.rmSync(repo, { recursive: true, force: true });
@@ -2112,7 +2331,7 @@ describe("protocol: edit_file output", () => {
                     name: "read_file",
                     arguments: { path: tmp, ranges: ["2-3"] },
                 });
-                const defaultText = defaultRead.content[0].text;
+                const defaultText = textOf(defaultRead);
                 assert.ok(defaultText.includes("2|beta"), "default read_file is discovery-first plain output");
                 assert.ok(!defaultText.includes("checksum:"), "default read_file omits edit-ready checksums");
 
@@ -2120,7 +2339,7 @@ describe("protocol: edit_file output", () => {
                     name: "read_file",
                     arguments: { path: tmp, ranges: ["2-3"], edit_ready: true, verbosity: "full" },
                 });
-                const readText = readResult.content[0].text;
+                const readText = textOf(readResult);
                 const startAnchor = readText.match(/([a-z2-7]{2}\.2)\tbeta/)?.[1];
                 const endAnchor = readText.match(/([a-z2-7]{2}\.3)\tgamma/)?.[1];
                 const checksum = readText.match(/checksum: (\d+-\d+:[0-9a-f]{8})/)?.[1];
@@ -2142,7 +2361,7 @@ describe("protocol: edit_file output", () => {
                     },
                 });
                 assert.notEqual(editResult.isError, true, "Canonical edit payload succeeds");
-                const editText = editResult.content[0].text;
+                const editText = textOf(editResult);
                 assert.ok(editText.includes("status: OK"), "Edit reports success");
                 assert.ok(editText.includes("block: post_edit"), "Edit returns post-edit canonical block");
             });
@@ -2160,7 +2379,7 @@ describe("protocol: edit_file output", () => {
                     name: "read_file",
                     arguments: { path: tmp, ranges: ["1-2"], edit_ready: true, verbosity: "full" },
                 });
-                const readText = readResult.content[0].text;
+                const readText = textOf(readResult);
                 const anchor = readText.match(/([a-z2-7]{2}\.2)\tbeta/)?.[1];
                 assert.ok(anchor, "read_file still works for external temp paths");
 
@@ -2172,8 +2391,8 @@ describe("protocol: edit_file output", () => {
                     },
                 });
                 assert.equal(blocked.isError, true, "external edit should be blocked by default");
-                assert.match(blocked.content[0].text, /PATH_OUTSIDE_PROJECT/);
-                assert.match(blocked.content[0].text, /allow_external=true/);
+                assert.match(errMsgOf(blocked), /PATH_OUTSIDE_PROJECT/);
+                assert.ok(errMsgOf(blocked).includes("allow_external"), "error message mentions allow_external");
 
                 const allowed = await client.callTool({
                     name: "edit_file",
@@ -2200,7 +2419,7 @@ describe("protocol: edit_file output", () => {
                     name: "grep_search",
                     arguments: { path: tmp, pattern: "AAA" },
                 });
-                const summaryText = summaryResult.content[0].text;
+                const summaryText = textOf(summaryResult);
                 assert.ok(summaryText.includes("summary:"), "default grep_search returns summary output");
                 assert.ok(summaryText.includes("snippets:"), "summary output includes snippets");
                 assert.ok(!summaryText.includes("block: search_hunk"), "summary output omits canonical hunks");
@@ -2209,7 +2428,7 @@ describe("protocol: edit_file output", () => {
                     name: "grep_search",
                     arguments: { path: tmp, pattern: "AAA", output: "content", edit_ready: true },
                 });
-                const contentText = contentResult.content[0].text;
+                const contentText = textOf(contentResult);
                 assert.ok(contentText.includes("block: search_hunk"), "explicit content mode returns search hunks");
                 assert.ok(contentText.includes("checksum:"), "explicit content mode returns checksums");
             });
@@ -2229,7 +2448,7 @@ describe("protocol: edit_file output", () => {
                     arguments: { path: filePath, content: "alpha\n" },
                 });
                 assert.equal(blockedWrite.isError, true, "external write should be blocked by default");
-                assert.match(blockedWrite.content[0].text, /allow_external=true/);
+                assert.match(errMsgOf(blockedWrite), /allow_external=true/);
 
                 const allowedWrite = await client.callTool({
                     name: "write_file",
@@ -2246,7 +2465,7 @@ describe("protocol: edit_file output", () => {
                     },
                 });
                 assert.equal(blockedBulk.isError, true, "external bulk replace should be blocked by default");
-                assert.match(blockedBulk.content[0].text, /allow_external=true/);
+                assert.match(errMsgOf(blockedBulk), /allow_external=true/);
 
                 const allowedBulk = await client.callTool({
                     name: "bulk_replace",

@@ -154,14 +154,16 @@ claude mcp add -s user --transport http linear-server https://mcp.linear.app/mcp
 
 ### Agent steering
 
-MCP servers can be installed correctly and still lose to built-ins in practice. `hex-line-mcp` keeps Claude aligned through one output style and three Claude hook events:
+MCP servers can be installed correctly and still lose to built-ins in practice. `hex-line-mcp` keeps Claude aligned through one output style and five Claude hook events:
 
 | Mechanism | How it works |
 |-----------|-------------|
 | **[Output style](mcp/hex-line-mcp/output-style.md)** | Injected into system prompt — maps built-in tools to MCP equivalents (`Read` → `hex-line read_file`, `Edit` → `hex-line edit_file`) |
 | **SessionStart hook** | Injects a compact bootstrap hint and defers to the active `hex-line` output style when present |
-| **PreToolUse hook** | Hard-redirects project text `Read`/`Edit`/`Write`/`Grep`/`Glob`, redirects project file-inspection Bash commands, blocks dangerous commands |
-| **PostToolUse hook** | Filters only verbose Bash output (50+ lines), keeping first 15 + last 15 lines after normalization and dedupe |
+| **PreToolUse hook** | Hard-redirects project text `Read`/`Edit`/`Write`/`Grep`/`Glob`, redirects Bash file-inspection commands, blocks dangerous commands, enforces plan mode for mutating MCP tools |
+| **PostToolUse hook** | Filters verbose Bash output (50+ lines): normalize, deduplicate, truncate to first 15 + last 15 lines |
+| **ConfigChange hook** | Invalidates cached state when settings change mid-session |
+| **PermissionDenied hook** | Observability: logs when Claude denies a tool call after redirect hint |
 
 Hooks and output style auto-sync on `hex-line-mcp` startup. First run after install performs the initial sync automatically.
 
@@ -422,7 +424,7 @@ Skills are designed for token efficiency. Each worker loads only the files it ne
 <details>
 <summary><b>Can I customize or create my own skills?</b></summary>
 
-Yes. Skills are markdown files in `.claude/commands/`. You can create standalone L3 workers or compose them into L2 coordinators and L1 orchestrators. See [SKILL_ARCHITECTURE_GUIDE.md](docs/architecture/SKILL_ARCHITECTURE_GUIDE.md) for the 4-level hierarchy (L0 → L1 → L2 → L3) and writing guidelines.
+Yes. Skills are `SKILL.md` files in skill directories. Legacy-compatible `.claude/commands/*.md` files still work as slash commands, but new reusable capabilities should use the skill structure. You can create standalone L3 workers or compose them into L2 coordinators and L1 orchestrators. See [SKILL_ARCHITECTURE_GUIDE.md](docs/architecture/SKILL_ARCHITECTURE_GUIDE.md) for the 4-level hierarchy (L0 → L1 → L2 → L3) and writing guidelines.
 
 </details>
 
@@ -438,7 +440,7 @@ Yes, but the mapping differs by agent. Gemini can use a shared symlink/junction 
 ## What's Inside
 
 <details>
-<summary><b>Full Skill Tree (129 skills)</b></summary>
+<summary><b>Full Skill Tree</b></summary>
 
 ```
 claude-code-skills/                      # MARKETPLACE
@@ -652,12 +654,12 @@ Papers, docs, and methodologies studied and implemented in the skill architectur
 
 | Source | Learned | Changed |
 |--------|---------|--------|
-| [STAR Framework](https://arxiv.org/abs/2602.21814) (2025) | Forced goal articulation: +85pp accuracy; structured reasoning > context injection 2.83x | [`goal_articulation_gate.md`](skills-catalog/shared/references/goal_articulation_gate.md) — 4-question gate in 6 skills + 6 templates |
+| [STAR Framework](https://arxiv.org/abs/2602.21814) (2025) | Forced goal articulation: +85pp accuracy; structured reasoning > context injection 2.83x | [`goal_articulation_gate.md`](skills-catalog/shared/references/goal_articulation_gate.md) — qualitative goal-articulation gate for relevant skills and templates |
 | [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) (Anthropic, 2024) | Orchestrator-Worker, prompt chaining, evaluator-optimizer patterns | Core 4-level hierarchy (L0→L3), single responsibility per skill |
 | [Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system) (Anthropic, 2025) | Production orchestration: 90.2% perf improvement with specialized agents | `ln-1000` pipeline orchestrator, parallel agent reviews (`ln-310`, `ln-510`) |
 | [Scheduler Agent Supervisor](https://learn.microsoft.com/azure/architecture/patterns/scheduler-agent-supervisor) (Microsoft) | Separation of scheduling, execution, and supervision | `ln-400`/`ln-402`/`ln-500` executor-reviewer-gate split |
 | [DIATAXIS](https://diataxis.fr) | 4-type docs: Tutorial / How-to / Reference / Explanation | Documentation levels in AGENTS.md/docs, progressive disclosure |
-| [Sinks, Not Pipes](https://ianbull.com/posts/software-architecture) (Ian Bull, 2026) | "The architecture is the prompt" — AI agents can't reason about side-effect chains >2 levels deep; sinks (self-contained) > pipes (cascading) | [`ai_ready_architecture.md`](skills-catalog/shared/references/ai_ready_architecture.md) — cascade depth, architectural honesty, flat orchestration checks across 12 skills |
+| [Sinks, Not Pipes](https://ianbull.com/posts/software-architecture) (Ian Bull, 2026) | "The architecture is the prompt" — AI agents can't reason about side-effect chains >2 levels deep; sinks (self-contained) > pipes (cascading) | [`ai_ready_architecture.md`](skills-catalog/shared/references/ai_ready_architecture.md) — cascade depth, architectural honesty, flat orchestration checks across relevant skills |
 | [Test Desiderata](https://testdesiderata.com/) (Kent Beck, 2019) | 12 properties of valuable tests — behavioral, predictive, specific, inspiring, deterministic... No numerical targets, only usefulness | [`risk_based_testing_guide.md`](skills-catalog/shared/references/risk_based_testing_guide.md) — 6 Test Usefulness Criteria (Risk Priority ≥15, Confidence ROI, Behavioral, Predictive, Specific, Non-Duplicative) |
 | Vertical Slicing ([Humanizing Work](https://www.humanizingwork.com/the-humanizing-work-guide-to-splitting-user-stories/)) | "Never split by architectural layer" | Foundation-First task ordering |
 | [Claude Code Picks](https://amplifying.ai/research/claude-code-picks) (Amplifying AI, 2026) | Claude's tool preferences are learned maturity signals, not bias — Drizzle/Vitest/Zustand chosen for objective quality. Build-not-buy in 12/20 categories. "Correcting" valid preferences = recommending worse tools | Research-to-Action Gate in AGENTS.md — require concrete defect before turning research into skill changes |

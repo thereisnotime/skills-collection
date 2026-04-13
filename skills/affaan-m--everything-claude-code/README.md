@@ -179,7 +179,7 @@ Get up and running in under 2 minutes:
 ### Step 2: Install Rules (Required)
 
 > WARNING: **Important:** Claude Code plugins cannot distribute `rules` automatically. Install them manually:
-
+>
 > If your local Claude setup was wiped or reset, that does not mean you need to repurchase ECC. Start with `ecc list-installed`, then run `ecc doctor` and `ecc repair` before reinstalling anything. That usually restores ECC-managed files without rebuilding your setup. If the problem is account or marketplace access for ECC Tools, handle billing/account recovery separately.
 
 ```bash
@@ -705,7 +705,9 @@ cp everything-claude-code/commands/*.md ~/.claude/commands/
 
 #### Add hooks to settings.json
 
-Copy the hooks from `hooks/hooks.json` to your `~/.claude/settings.json`.
+Manual install only: copy the hooks from `hooks/hooks.json` to your `~/.claude/settings.json` if you are not installing ECC as a Claude plugin.
+
+If you installed ECC via `/plugin install`, do not copy those hooks into `settings.json`. Claude Code v2.1+ already auto-loads plugin `hooks/hooks.json`, and duplicating them in `settings.json` causes duplicate execution and `${CLAUDE_PLUGIN_ROOT}` resolution failures.
 
 #### Configure MCPs
 

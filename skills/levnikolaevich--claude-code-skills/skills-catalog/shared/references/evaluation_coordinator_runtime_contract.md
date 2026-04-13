@@ -8,7 +8,7 @@ Use this contract for:
 - repository audits
 - optimization-plan feasibility review
 
-Do not mix `review-runtime`, `quality-runtime`, and `audit-runtime` semantics in new coordinators. New work uses `evaluation-runtime`.
+Evaluation coordinators must use `evaluation-runtime` semantics only.
 
 ## Goals
 
@@ -70,6 +70,8 @@ Optional manifest fields:
 - `phase_policy`
 - `expected_agents`
 - `required_research`
+- `research_freshness_hours`
+- `extra_evidence_workers`
 
 `phase_policy` may define:
 - `delegate_phases`

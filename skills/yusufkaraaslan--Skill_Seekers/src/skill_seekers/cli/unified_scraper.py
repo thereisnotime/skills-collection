@@ -26,6 +26,7 @@ try:
     from skill_seekers.cli.agent_client import get_default_timeout
     from skill_seekers.cli.config_validator import validate_config
     from skill_seekers.cli.conflict_detector import ConflictDetector
+    from skill_seekers.cli.defaults import DEFAULTS
     from skill_seekers.cli.merge_sources import AIEnhancedMerger, RuleBasedMerger
     from skill_seekers.cli.skill_converter import SkillConverter
     from skill_seekers.cli.unified_skill_builder import UnifiedSkillBuilder
@@ -261,12 +262,24 @@ class UnifiedScraper(SkillConverter):
         doc_source = {
             "type": "documentation",
             "base_url": source["base_url"],
+            "display_name": self.name,
+            "description": source.get(
+                "description", self.config.get("description", f"Documentation for {self.name}")
+            ),
             "selectors": source.get("selectors", {}),
             "url_patterns": source.get("url_patterns", {}),
             "categories": source.get("categories", {}),
-            "rate_limit": source.get("rate_limit", 0.5),
-            "max_pages": source.get("max_pages", 500),
+            "rate_limit": source.get("rate_limit", DEFAULTS["scraping"]["rate_limit"]),
+            "max_pages": source.get("max_pages", DEFAULTS["scraping"]["max_pages"]),
         }
+
+        if "version" in source or self.config.get("version"):
+            doc_source["version"] = source.get("version", self.config.get("version", ""))
+
+        if "doc_version" in source or self.config.get("doc_version"):
+            doc_source["doc_version"] = source.get(
+                "doc_version", self.config.get("doc_version", "")
+            )
 
         # Pass through llms.txt settings (so unified configs behave the same as doc_scraper configs)
         if "llms_txt_url" in source:
@@ -289,13 +302,28 @@ class UnifiedScraper(SkillConverter):
 
         doc_config = {
             "name": f"{self.name}_docs",
-            "description": f"Documentation for {self.name}",
+            "display_name": self.name,
+            "description": source.get(
+                "description", self.config.get("description", f"Documentation for {self.name}")
+            ),
             "base_url": source["base_url"],
-            "browser": source.get("browser", False),
-            "browser_wait_until": source.get("browser_wait_until", "domcontentloaded"),
-            "browser_extra_wait": source.get("browser_extra_wait", 0),
+            "browser": source.get("browser", DEFAULTS["scraping"]["browser"]),
+            "browser_wait_until": source.get(
+                "browser_wait_until", DEFAULTS["scraping"]["browser_wait_until"]
+            ),
+            "browser_extra_wait": source.get(
+                "browser_extra_wait", DEFAULTS["scraping"]["browser_extra_wait"]
+            ),
             "sources": [doc_source],
         }
+
+        if "version" in source or self.config.get("version"):
+            doc_config["version"] = source.get("version", self.config.get("version", ""))
+
+        if "doc_version" in source or self.config.get("doc_version"):
+            doc_config["doc_version"] = source.get(
+                "doc_version", self.config.get("doc_version", "")
+            )
 
         # Run doc_scraper directly (no subprocess needed with ExecutionContext)
         logger.info(f"Scraping documentation from {source['base_url']}")
@@ -313,7 +341,7 @@ class UnifiedScraper(SkillConverter):
             # Create child context with doc-specific overrides
             doc_ctx = ExecutionContext.get().override(
                 output__name=f"{self.name}_docs",
-                scraping__max_pages=source.get("max_pages", 500),
+                scraping__max_pages=source.get("max_pages", DEFAULTS["scraping"]["max_pages"]),
             )
 
             with doc_ctx:
@@ -1253,7 +1281,7 @@ class UnifiedScraper(SkillConverter):
             "username": source.get("username"),
             "token": source.get("token"),
             "description": source.get("description", f"{source_id} Confluence content"),
-            "max_pages": source.get("max_pages", 500),
+            "max_pages": source.get("max_pages", DEFAULTS["scraping"]["max_pages"]),
         }
 
         logger.info(f"Scraping Confluence: {source_id}")
@@ -1311,7 +1339,7 @@ class UnifiedScraper(SkillConverter):
             "export_path": source.get("path"),
             "token": source.get("token"),
             "description": source.get("description", f"{source_id} Notion content"),
-            "max_pages": source.get("max_pages", 500),
+            "max_pages": source.get("max_pages", DEFAULTS["scraping"]["max_pages"]),
         }
 
         logger.info(f"Scraping Notion: {source_id}")

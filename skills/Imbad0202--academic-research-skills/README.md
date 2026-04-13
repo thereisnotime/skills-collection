@@ -330,41 +330,43 @@ Skills will auto-load when relevant to your conversation — e.g., saying "help 
 - Claude Desktop (latest version) with Cowork enabled
 - Paid plan (Pro, Max, Team, or Enterprise)
 
-### Method 4: Upload to claude.ai
+### Method 4: Use with claude.ai (Web)
 
-You can load these skills via claude.ai's Project feature without installing Claude Code.
+You can use these skills on [claude.ai](https://claude.ai) via the **Project** feature with GitHub integration — no Claude Code installation needed.
 
 **Steps:**
 
-1. Download all 4 `SKILL.md` files from this repo:
-   - `deep-research/SKILL.md`
-   - `academic-paper/SKILL.md`
-   - `academic-paper-reviewer/SKILL.md`
-   - `academic-pipeline/SKILL.md`
+1. Sign in to [claude.ai](https://claude.ai) (requires a paid plan)
 
-2. Sign in to [claude.ai](https://claude.ai)
-
-3. Create a new Project:
+2. Create a new Project:
    - Click **Projects** → **Create Project** in the sidebar
    - Name it "Academic Research" (or any name you prefer)
 
-4. Upload SKILL.md files:
-   - Open the Project → click **Project Knowledge** (right panel)
-   - Click **Add Content** → **Upload Files**
-   - Upload all 4 `SKILL.md` files
+3. Import from GitHub:
+   - In the Project, click **Files** (right panel) → **+** → **GitHub**
+   - Select `Imbad0202/academic-research-skills`
+   - **Recommended selections** (to stay within capacity):
 
-5. (Optional) Upload reference and template files for better results:
-   - Files under `deep-research/references/` (APA guide, methodology templates, etc.)
-   - Files under `academic-paper/references/` (citation formats, writing style, etc.)
-   - Files under `academic-paper/templates/` (paper structure templates)
+     | Select | Directory | Why |
+     |--------|-----------|-----|
+     | ✅ | `.claude/` | Routing rules |
+     | ✅ | `deep-research/` | Core skill |
+     | ✅ | `academic-paper/` | Core skill |
+     | ✅ | `academic-paper-reviewer/` | Core skill |
+     | ✅ | `academic-pipeline/` | Core skill |
+     | ✅ | `shared/` | Cross-model verification, handoff schemas |
+     | ✅ | `MODE_REGISTRY.md` | Mode definitions |
+     | ❌ | `examples/` | Takes ~39% capacity — skip unless you have room |
+     | ❌ | `.github/`, READMEs, LICENSE, etc. | Not needed for functionality |
 
-6. Start chatting: Open a new conversation in the Project and say "Guide my research on X" or "Help me write a paper"
+4. (Optional) Set **Instructions** in the Project to the content of `.claude/CLAUDE.md` for better routing
 
-**claude.ai Limitations:**
-- Project Knowledge file size limit: 200KB per file
-- `version` and `last_updated` in SKILL.md YAML frontmatter must be under `metadata:`, otherwise upload will fail
-- claude.ai does not support parallel multi-agent execution; results may not be as comprehensive as Claude Code
-- Recommended: upload at least 4 SKILL.md files + core references for best results
+5. Start chatting: "Guide my research on X" or "Help me write a paper about Y"
+
+**claude.ai vs Claude Code:**
+- claude.ai does not support parallel multi-agent execution or shell commands; results may be less comprehensive than Claude Code
+- Cross-model verification (`ARS_CROSS_MODEL`) requires Claude Code with API keys
+- LaTeX/PDF output requires Claude Code with `tectonic` installed; claude.ai can produce Markdown and DOCX
 
 ---
 

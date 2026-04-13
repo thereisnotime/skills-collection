@@ -2,7 +2,7 @@
 
 Standard pattern for skills delegating work to external CLI AI agents (Codex, Gemini) via `shared/agents/agent_runner.mjs`.
 
-For deterministic orchestration, pair this file with `shared/references/review_runtime_contract.md`. Runtime-enabled skills keep agent state in `.hex-skills/agent-review/runtime/` and use `--metadata-file` for launch/finish bookkeeping.
+For deterministic orchestration, pair this file with the active coordinator runtime contract for the skill family. Evaluation-platform validators use `shared/references/evaluation_coordinator_runtime_contract.md`, keep run state in `.hex-skills/evaluation/`, and use `--metadata-file` for launch/finish bookkeeping.
 
 ## When to Use
 
@@ -165,6 +165,10 @@ External agents run in non-interactive mode (`exec` / `-p`) with tool access for
 | Agent process crashed/disappeared | Mark as FAILED |
 
 **FORBIDDEN:** Using TaskStop to kill agent background tasks. The runner handles timeout internally.
+
+**Optional: Agent log streaming (Claude Code 2.1.98+):**
+`Monitor(command="tail -f {agent_log} | grep --line-buffered -E 'Phase|ERROR|DONE'", timeout_ms=1800000, description="{agent} progress")`
+Supplementary to `run_in_background` — adds observability, not control.
 
 ## MCP Failure Resilience
 

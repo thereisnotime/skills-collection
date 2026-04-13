@@ -133,7 +133,7 @@ describe("hook PreToolUse JSON schema", () => {
         assertPreToolUseSchema(output, "deny");
     });
 
-    it("advise() emits hookEventName when hooks.mode is advisory", () => {
+    it("advise() omits permissionDecision and uses additionalContext in advisory mode", () => {
         mkdirSync(join(tmpRoot, ".hex-skills"), { recursive: true });
         writeFileSync(
             join(tmpRoot, ".hex-skills", "environment_state.json"),
@@ -150,9 +150,26 @@ describe("hook PreToolUse JSON schema", () => {
                     tool_input: { file_path: filePath },
                 },
             });
-            assert.equal(result.status, 0, "advisory mode must exit 0 (allow)");
+            assert.equal(result.status, 0, "advisory mode must exit 0");
             const output = parseStructuredOutput(result.stdout);
-            assertPreToolUseSchema(output, "allow");
+            // Advisory mode: no permissionDecision (not allow, not defer)
+            assert.equal(
+                output.hookSpecificOutput.permissionDecision,
+                undefined,
+                "advisory mode must NOT set permissionDecision — omit it entirely"
+            );
+            // Must have additionalContext for the redirect hint
+            assert.equal(
+                typeof output.hookSpecificOutput.additionalContext,
+                "string",
+                "advisory mode must set hookSpecificOutput.additionalContext"
+            );
+            assert.ok(
+                output.hookSpecificOutput.additionalContext.length > 0,
+                "additionalContext must not be empty"
+            );
+            // Must have systemMessage
+            assert.equal(typeof output.systemMessage, "string", "advisory must set systemMessage");
         } finally {
             rmSync(join(tmpRoot, ".hex-skills"), { recursive: true, force: true });
         }
@@ -169,6 +186,109 @@ describe("hook PreToolUse JSON schema", () => {
         });
         assert.equal(result.status, 0, "mcp__hex-line__ tools must always pass through");
         assert.equal(result.stdout, "", "pass-through must not write stdout");
+    });
+
+    // ---- Plan mode enforcement ----
+
+    it("blocks mutating hex-line tools in plan mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "plan",
+                tool_name: "mcp__hex-line__edit_file",
+                tool_input: { path: "foo.md" },
+            },
+        });
+        assert.equal(result.status, 2, "plan mode must hard-block mutating hex-line tools");
+        const output = parseStructuredOutput(result.stdout);
+        assertPreToolUseSchema(output, "deny");
+        assert.ok(
+            output.hookSpecificOutput.permissionDecisionReason.includes("PLAN_MODE"),
+            "reason must mention PLAN_MODE"
+        );
+    });
+
+    it("blocks write_file in plan mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "plan",
+                tool_name: "mcp__hex-line__write_file",
+                tool_input: { path: "foo.md", content: "x" },
+            },
+        });
+        assert.equal(result.status, 2);
+        const output = parseStructuredOutput(result.stdout);
+        assertPreToolUseSchema(output, "deny");
+    });
+
+    it("blocks bulk_replace in plan mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "plan",
+                tool_name: "mcp__hex-line__bulk_replace",
+                tool_input: { path: ".", replacements: [] },
+            },
+        });
+        assert.equal(result.status, 2);
+        const output = parseStructuredOutput(result.stdout);
+        assertPreToolUseSchema(output, "deny");
+    });
+
+    it("allows read-only hex-line tools in plan mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "plan",
+                tool_name: "mcp__hex-line__read_file",
+                tool_input: { path: "foo.md" },
+            },
+        });
+        assert.equal(result.status, 0, "read-only hex-line tools must pass in plan mode");
+    });
+
+    it("allows hex-line write to .hex-skills/ in plan mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "plan",
+                tool_name: "mcp__hex-line__write_file",
+                tool_input: { path: ".hex-skills/agent-review/codex/result.md", content: "x" },
+            },
+        });
+        assert.equal(result.status, 0, ".hex-skills/ writes must pass in plan mode");
+    });
+
+    it("allows hex-line edit to .claude/ in plan mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "plan",
+                tool_name: "mcp__hex-line__edit_file",
+                tool_input: { path: "C:\\Users\\test\\.claude\\plans\\myplan.md", edits: [] },
+            },
+        });
+        assert.equal(result.status, 0, ".claude/ writes must pass in plan mode");
+    });
+
+    it("does not block hex-line edit in default mode", () => {
+        const result = runHook({
+            cwd: tmpRoot,
+            payload: {
+                hook_event_name: "PreToolUse",
+                permission_mode: "default",
+                tool_name: "mcp__hex-line__edit_file",
+                tool_input: { path: "foo.md" },
+            },
+        });
+        assert.equal(result.status, 0, "edit_file must pass in default mode");
     });
 
     it("passes through Read on files outside the current project root", () => {

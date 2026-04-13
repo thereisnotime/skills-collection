@@ -1,11 +1,19 @@
 ---
-description: "Publish MCP server to npm (hex-line-mcp, hex-ssh-mcp, or hex-graph-mcp). Auto-detects unpublished changes, suggests bump type, syncs server.mjs version."
+description: "Publish a hex MCP server to npm with checks, version sync, tags, and verification"
 allowed-tools: Bash, Glob, AskUserQuestion, mcp__hex-line__read_file, mcp__hex-line__edit_file, mcp__hex-line__grep_search, mcp__hex-line__write_file, mcp__hex-line__changes, mcp__hex-graph__index_project, mcp__hex-graph__find_symbols, mcp__hex-graph__find_references, mcp__hex-graph__analyze_changes
 ---
 
 # Publish MCP Server
 
 Publishes one of the bundled MCP servers to npm. Tag push triggers GitHub Actions → `npm publish --provenance`.
+
+## Source
+
+| Field | Value |
+|-------|-------|
+| Source | Repo-maintained MCP publish command |
+| Review Contract | `skills-catalog/ln-162-skill-reviewer/references/command_review_criteria.md` |
+| Publish Guidance | `docs/best-practice/MCP_TOOL_DESIGN_GUIDE.md` |
 
 **IMPORTANT:** Set `PROJECT_ROOT` to the absolute path of the repo root at the start. Use `$PROJECT_ROOT` in all `cd` and path references to avoid CWD-related failures.
 
@@ -171,6 +179,8 @@ Count matches and compare against `N MCP Tools` in README.md. If mismatch — up
   - `snippet`
   - recovery helpers such as `retry_edit`, `retry_edits`, `suggested_read_call`, `retry_plan`, `retry_checksum`, `recovery_ranges`
 - `verify` and `changes` must preserve canonical `status` / `reason` / `next_action` outputs; do not publish if they drift back to narrative/prose-first responses.
+- `edit_file`, `verify`, `changes`, and `bulk_replace` must expose the same canonical line-report status in `structuredContent.status`; do not accept wrapper-level `OK` when the report says `CONFLICT`, `STALE`, `CHANGED`, `NO_CHANGES`, or `AUTO_REBASED`.
+- `mcp/hex-line-mcp/test/smoke.mjs` must include structured status assertions for `NO_CHANGES`, `CHANGED`, `STALE`, `AUTO_REBASED`, and `CONFLICT`.
 
 **hex-graph-specific release gates**
 
@@ -261,3 +271,6 @@ Display: package name, old → new version, npm URL (`https://www.npmjs.com/pack
 **MANDATORY READ:** Load `shared/references/meta_analysis_protocol.md`
 
 Analyze this session per protocol §7. Output per protocol format.
+
+---
+**Last Updated:** 2026-04-12

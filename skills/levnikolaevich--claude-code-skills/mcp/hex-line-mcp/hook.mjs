@@ -2,7 +2,8 @@
 /**
  * Unified hook for hex-line-mcp.
  *
- * Handles three events:
+ * Handles five events: SessionStart, PreToolUse, PostToolUse,
+ * ConfigChange, PermissionDenied.
  *
  * PreToolUse:
  *   - Tool redirect: redirects project-scoped text Read/Edit/Write/Grep/Glob
@@ -16,14 +17,34 @@
  *
  * PostToolUse:
  *   - RTK output filter: compresses verbose Bash output
- *     (npm install, test, build, pip, git). Stderr shown to
- *     Claude as feedback.
+ *     (npm install, test, build, pip, git).
  *
  * SessionStart:
  *   - Injects tool preference list into agent context.
  *
- * Exit 0 = approve / no feedback / systemMessage
- * Exit 2 = block (PreToolUse) or stderr feedback (PostToolUse)
+ * ConfigChange:
+ *   - Invalidates cached hook mode and disabled flag so settings edits
+ *     apply mid-session without requiring restart.
+ *
+ * PermissionDenied:
+ *   - Observability only. Logs when Claude denies a tool call after our
+ *     redirect hint was delivered.
+ *
+ * Output protocol: stdout JSON + exit code.
+ *   - exit 0 + {hookSpecificOutput:{additionalContext:"..."}}       = advisory hint (no decision)
+ *   - exit 0 + {hookSpecificOutput:{permissionDecision:"allow"}}    = explicit allow (rare)
+ *   - exit 2 + {hookSpecificOutput:{permissionDecision:"deny"}}     = block
+ *   - exit 0 + {systemMessage:"..."}                                = inject context
+ *   - exit 0 silent                                                 = no modification
+ *
+ * Advisory mode: omit permissionDecision entirely; deliver hint via
+ *   systemMessage + hookSpecificOutput.additionalContext. This avoids
+ *   force-allow (original bug) AND avoids misuse of "defer" which is
+ *   reserved for non-interactive claude -p deferral (tool_deferred).
+ *   In interactive sessions defer is ignored with a warning.
+ * Blocking mode: use permissionDecision: "deny" + exit 2.
+ *
+ * Hooks MUST fail open. Any unhandled exception exits 0.
  */
 
 import { normalizeOutput } from "@levnikolaevich/hex-common/output/normalize";
@@ -45,6 +66,14 @@ import {
     isWithinDir,
     normalizePolicyPath,
 } from "./lib/hook-policy.mjs";
+
+// ---- Plan mode: mutating hex-line tools blocked during planning ----
+
+const HEX_LINE_MUTATING = new Set([
+    "mcp__hex-line__edit_file",
+    "mcp__hex-line__write_file",
+    "mcp__hex-line__bulk_replace",
+]);
 
 // ---- Helpers ----
 
@@ -332,11 +361,16 @@ function block(reason, context) {
 }
 
 function advise(reason, context) {
+    // Advisory mode: omit permissionDecision entirely.
+    // Deliver the redirect hint via additionalContext + systemMessage.
+    // Why not "allow": it force-overrides permission rules (original bug).
+    // Why not "defer": per Claude Code hook docs, defer is for non-interactive
+    // claude -p deferral only; in interactive sessions it is ignored with a
+    // warning and additionalContext is ignored.
     const output = {
         hookSpecificOutput: {
             hookEventName: "PreToolUse",
-            permissionDecision: "allow",
-            permissionDecisionReason: reason,
+            additionalContext: reason,
         },
         systemMessage: context ? `${reason}\n${context}` : reason,
     };
@@ -357,6 +391,22 @@ function redirect(reason, context) {
 function handlePreToolUse(data) {
     const toolName = data.tool_name || "";
     const toolInput = data.tool_input || {};
+
+    // Plan mode: block mutating hex-line tools, allow read-only
+    // Exception: .hex-skills/ and .claude/ are runtime/config artifacts, not project files
+    if (data.permission_mode === "plan" && HEX_LINE_MUTATING.has(toolName)) {
+        const targetPath = (toolInput.path || "").replace(/\\/g, "/");
+        const isPlanSafe = targetPath.includes("/.hex-skills/") ||
+            targetPath.includes(".hex-skills/") ||
+            targetPath.includes("/.claude/") ||
+            targetPath.includes(".claude/");
+        if (!isPlanSafe) {
+            block(
+                "PLAN_MODE: hex-line write tools are blocked during planning.",
+                "Use read-only tools: read_file, grep_search, outline, verify, inspect_path, changes."
+            );
+        }
+    }
 
     // Already using hex-line - approve silently
     if (toolName.startsWith("mcp__hex-line__")) {
@@ -594,6 +644,30 @@ function handleSessionStart() {
     safeExit(1, JSON.stringify({ systemMessage: msg }), 0);
 }
 
+// ---- ConfigChange: invalidate cached state ----
+
+function handleConfigChange(data) {
+    const source = data.source || "";
+    if (["project_settings", "local_settings", "user_settings", "policy_settings"].includes(source)) {
+        _hookMode = undefined;
+        _hexLineDisabled = null;
+    }
+    process.exit(0);
+}
+
+// ---- PermissionDenied: observability ----
+
+function handlePermissionDenied(data) {
+    // Official Claude Code input field is `reason` (not permission_decision_reason).
+    const reason = data.reason || "";
+    const toolName = data.tool_name || "";
+    if (reason.includes("mcp__hex-line__") || toolName === "Bash") {
+        debugLog("PERMISSION_DENIED_AFTER_HEX_HINT", `${toolName}: ${reason.slice(0, 120)}`);
+    }
+    process.exit(0);
+}
+
+
 // ---- Main: read stdin, route by hook_event_name ----
 // Guard: only run when executed directly, not when imported for testing
 
@@ -610,16 +684,24 @@ if (_norm(process.argv[1]) === _norm(fileURLToPath(import.meta.url))) {
             const data = JSON.parse(input);
             const event = data.hook_event_name || "";
 
+            // ConfigChange MUST dispatch BEFORE isHexLineDisabled() so that
+            // cache invalidation works even when hex-line is disabled —
+            // otherwise toggling hex-line on/off mid-session has no effect.
+            if (event === "ConfigChange") {
+                handleConfigChange(data);
+            }
+
             if (isHexLineDisabled()) {
                 // REVERSE MODE: block hex-line calls, approve everything else
                 if (event === "PreToolUse") handlePreToolUseReverse(data);
-                process.exit(0); // SessionStart, PostToolUse — silent exit
+                process.exit(0); // SessionStart, PostToolUse, PermissionDenied — silent exit
             }
 
             // NORMAL MODE
             if (event === "SessionStart") handleSessionStart();
             else if (event === "PreToolUse") handlePreToolUse(data);
             else if (event === "PostToolUse") handlePostToolUse(data);
+            else if (event === "PermissionDenied") handlePermissionDenied(data);
             else process.exit(0);
         } catch {
             process.exit(0);

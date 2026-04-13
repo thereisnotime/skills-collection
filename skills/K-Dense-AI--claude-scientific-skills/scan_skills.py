@@ -25,9 +25,9 @@ OUTPUT_FILE = "SECURITY.md"
 
 def build_scanner() -> SkillScanner:
     policy = ScanPolicy.from_preset("balanced")
-    policy.llm_analysis.max_instruction_body_chars = 50_000
-    policy.llm_analysis.max_referenced_file_chars = 50_000
-    policy.llm_analysis.max_code_file_chars = 50_000
+    policy.llm_analysis.max_instruction_body_chars = 75_000
+    policy.llm_analysis.max_referenced_file_chars = 75_000
+    policy.llm_analysis.max_code_file_chars = 75_000
     policy.llm_analysis.max_total_prompt_chars = 500_000
     llm_model = os.getenv("SKILL_SCANNER_LLM_MODEL", "anthropic/claude-sonnet-4-6")
     llm_key = os.getenv("SKILL_SCANNER_LLM_API_KEY")
