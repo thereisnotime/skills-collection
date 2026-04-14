@@ -1,13 +1,13 @@
 {
   "meta": {
     "version": "1.0.0",
-    "generated": "2026-03-27T19:36:25.033Z",
+    "generated": "2026-04-08T16:37:52.472Z",
     "generator": "scripts/generate-unified-search.mjs"
   },
   "stats": {
-    "totalPlugins": 416,
-    "totalSkills": 2787,
-    "totalItems": 3203,
+    "totalPlugins": 423,
+    "totalSkills": 2793,
+    "totalItems": 3216,
     "categories": [
       "ai-agency",
       "ai-ml",
@@ -42,6 +42,7 @@
     ],
     "skillTools": [
       "\"Read",
+      "Agent",
       "AskUserQuestion",
       "AskUserQuestion\"",
       "Bash",
@@ -134,6 +135,7 @@
       "Bash(general:*)",
       "Bash(gh:*)",
       "Bash(git:*)",
+      "Bash(git:*)\"",
       "Bash(gog:*)",
       "Bash(gpg:*)",
       "Bash(gradle:*)",
@@ -226,6 +228,7 @@
       "Bash(snowsql:*)",
       "Bash(source:*)",
       "Bash(sqlcmd:*)",
+      "Bash(sqlite3:*)",
       "Bash(ssh:*)",
       "Bash(supabase:*)",
       "Bash(sw_vers:*)",
@@ -270,6 +273,7 @@
       "Bash(vault:*)",
       "Bash(vercel:*)",
       "Bash(vmstat:*)",
+      "Bash(wc:*)",
       "Bash(webpack:*)",
       "Bash(yarn:*)",
       "Bash(zip:*)",
@@ -279,10 +283,13 @@
       "Grep",
       "Grep\"",
       "Read",
+      "Skill",
       "Task",
       "WebFetch",
+      "WebFetch\"",
       "WebSearch",
-      "Write"
+      "Write",
+      "[]"
     ],
     "allKeywords": [
       "CLAUDE.md",
@@ -350,6 +357,7 @@
       "ai-sdk",
       "ai-search",
       "ai-studio",
+      "ai-team",
       "ai-travel",
       "ai-tutor",
       "ai-video",
@@ -377,6 +385,7 @@
       "apify",
       "apm",
       "apollo",
+      "app-builder",
       "appfolio",
       "appium",
       "apple",
@@ -394,6 +403,7 @@
       "assemblyai",
       "assessment",
       "assets",
+      "astro",
       "attio",
       "audience-architecture",
       "audio",
@@ -410,6 +420,7 @@
       "automation",
       "automl",
       "autonomous",
+      "autonomous-agent",
       "autonomy",
       "autoscaling",
       "aws",
@@ -516,11 +527,13 @@
       "code-examples",
       "code-execution",
       "code-generation",
+      "code-generator",
       "code-quality",
       "code-review",
       "codegen",
       "codeium",
       "coderabbit",
+      "cognitive-accessibility",
       "cohere",
       "cold-calling",
       "cold-email",
@@ -624,6 +637,7 @@
       "deepgram",
       "defi",
       "delta-lake",
+      "demo-video",
       "dependencies",
       "deployment",
       "deployments",
@@ -653,15 +667,18 @@
       "documents",
       "don-norman",
       "donald-miller",
+      "dotfiles",
       "download",
       "dr",
       "drift",
       "e-signature",
       "e2e",
       "easy-mode",
+      "ecosystem",
       "ecr",
       "edge-cases",
       "edge-functions",
+      "edge-tts",
       "edtech",
       "education",
       "elevenlabs",
@@ -726,6 +743,7 @@
       "feature-flags",
       "features",
       "fees",
+      "ffmpeg",
       "fifo",
       "figma",
       "file-sync",
@@ -760,6 +778,7 @@
       "framer",
       "framework",
       "free-ai",
+      "freshie",
       "frontend-cloud",
       "fts",
       "fullstack",
@@ -790,6 +809,7 @@
       "github-integration",
       "gitlab-ci",
       "gitops",
+      "giveaway",
       "gke",
       "glean",
       "glm-4",
@@ -879,6 +899,7 @@
       "interpretability",
       "interviews",
       "intrinsic-motivation",
+      "inventory",
       "investment",
       "investment-banking",
       "ios",
@@ -1028,6 +1049,7 @@
       "motivation",
       "movers",
       "multi-agent",
+      "multi-machine",
       "multi-model",
       "multichain",
       "multimodal",
@@ -1170,6 +1192,7 @@
       "private-equity",
       "procedure",
       "procore",
+      "product",
       "product-analytics",
       "product-design",
       "product-management",
@@ -1180,6 +1203,7 @@
       "production-ready",
       "production-validation",
       "productivity",
+      "profiles",
       "profiling",
       "profit",
       "project-management",
@@ -1289,6 +1313,7 @@
       "schema",
       "scorecard",
       "scraper",
+      "scraping",
       "screen-reader",
       "screencast",
       "screenshot-testing",
@@ -1347,6 +1372,7 @@
       "soc2",
       "social",
       "social-currency",
+      "social-media",
       "social-proof",
       "socket-mode",
       "socket.io",
@@ -1363,6 +1389,7 @@
       "splunk",
       "sprint",
       "sql",
+      "sqlite",
       "sre",
       "sso",
       "stackblitz",
@@ -1388,6 +1415,7 @@
       "stryker",
       "stub",
       "stubs",
+      "subagents",
       "subtitles",
       "success",
       "summaries",
@@ -1395,11 +1423,13 @@
       "supabase",
       "supervised",
       "svelte",
+      "sveltekit",
       "swagger",
       "swap",
       "swift",
       "swiftdata",
       "swiftui",
+      "sync",
       "synthetic-monitoring",
       "tags",
       "tailwind",
@@ -1468,7 +1498,9 @@
       "trivy",
       "tuning",
       "tutorial",
+      "tweets",
       "twinmind",
+      "twitter",
       "type-hierarchy",
       "typeface",
       "typescript",
@@ -1562,6 +1594,7 @@
       "workhuman",
       "workload-identity-federation",
       "ws",
+      "x",
       "x-twitter",
       "xcode",
       "xcuitest",
@@ -1575,13 +1608,13 @@
       "zero-cost",
       "zod"
     ],
-    "totalAgents": 121,
+    "totalAgents": 129,
     "totalHooks": 14,
-    "pluginsWithAgents": 40,
+    "pluginsWithAgents": 42,
     "pluginsWithHooks": 11,
-    "officialPlugins": 372,
-    "communityPlugins": 44,
-    "communityContributors": 17
+    "officialPlugins": 373,
+    "communityPlugins": 50,
+    "communityContributors": 23
   },
   "items": [
     {
@@ -12774,7 +12807,7 @@
       "badges": [
         "new"
       ],
-      "skillCount": 1,
+      "skillCount": 2,
       "searchText": "skill creator create and validate production-grade agent skills with 100-point marketplace grading. supports creation workflows, eval-driven development, and auto-fix for spec compliance. skill-enhancers skill-creation validation meta-tooling grading anthropic-spec"
     },
     {
@@ -15144,6 +15177,226 @@
       ],
       "skillCount": 5,
       "searchText": "x bug triage plugin closed-loop bug triage: x complaints → clusters → repo evidence → owner routing → slack review → filed issues devops bug-triage x-twitter slack devops mcp"
+    },
+    {
+      "type": "plugin",
+      "id": "claudebase",
+      "slug": "claudebase",
+      "name": "claudebase",
+      "displayName": "claudebase",
+      "description": "Back up, restore, and sync your Claude Code config to a private GitHub repo with named profiles, secret scanning, and multi-machine conflict detection.",
+      "category": "productivity",
+      "keywords": [
+        "backup",
+        "sync",
+        "config",
+        "profiles",
+        "dotfiles",
+        "multi-machine"
+      ],
+      "author": {
+        "name": "Rohit Hazra",
+        "email": ""
+      },
+      "authorType": "community",
+      "version": "1.0.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 6,
+      "searchText": "claudebase back up, restore, and sync your claude code config to a private github repo with named profiles, secret scanning, and multi-machine conflict detection. productivity backup sync config profiles dotfiles multi-machine"
+    },
+    {
+      "type": "plugin",
+      "id": "framecraft",
+      "slug": "framecraft",
+      "name": "framecraft",
+      "displayName": "framecraft",
+      "description": "Generate polished demo videos from a single prompt. Orchestrates Playwright, FFmpeg, and Edge TTS MCP servers to produce 1920x1080 videos with voiceover, transitions, and CSS animations.",
+      "category": "community",
+      "keywords": [
+        "demo-video",
+        "video-generation",
+        "playwright",
+        "ffmpeg",
+        "edge-tts",
+        "mcp"
+      ],
+      "author": {
+        "name": "vaddisrinivas",
+        "url": "https://github.com/vaddisrinivas"
+      },
+      "authorType": "community",
+      "version": "1.0.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 1,
+      "searchText": "framecraft generate polished demo videos from a single prompt. orchestrates playwright, ffmpeg, and edge tts mcp servers to produce 1920x1080 videos with voiceover, transitions, and css animations. community demo-video video-generation playwright ffmpeg edge-tts mcp"
+    },
+    {
+      "type": "plugin",
+      "id": "freshie-inventory-manager",
+      "slug": "freshie-inventory-manager",
+      "name": "freshie-inventory-manager",
+      "displayName": "freshie inventory manager",
+      "description": "Interactive command center for the freshie ecosystem inventory database — conversational wizard with subagents for discovery scans, compliance grading, batch remediation, querying, reporting, and email PDF delivery across 50 tables of plugin/skill/pack metadata",
+      "category": "database",
+      "keywords": [
+        "database",
+        "inventory",
+        "freshie",
+        "compliance",
+        "sqlite",
+        "ecosystem",
+        "audit",
+        "subagents"
+      ],
+      "author": {
+        "name": "Jeremy Longshore",
+        "email": "jeremy@intentsolutions.io"
+      },
+      "authorType": "official",
+      "version": "1.0.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 1,
+      "searchText": "freshie inventory manager interactive command center for the freshie ecosystem inventory database — conversational wizard with subagents for discovery scans, compliance grading, batch remediation, querying, reporting, and email pdf delivery across 50 tables of plugin/skill/pack metadata database database inventory freshie compliance sqlite ecosystem audit subagents"
+    },
+    {
+      "type": "plugin",
+      "id": "hyperfocus",
+      "slug": "hyperfocus",
+      "name": "hyperfocus",
+      "displayName": "hyperfocus",
+      "description": "ADHD-friendly output formatting for Claude Code. Restructures responses with evidence-based cognitive accessibility: chunking, visual hierarchy, front-loaded key points, and progressive disclosure.",
+      "category": "productivity",
+      "keywords": [
+        "accessibility",
+        "adhd",
+        "neurodivergent",
+        "formatting",
+        "readability",
+        "productivity",
+        "cognitive-accessibility"
+      ],
+      "author": {
+        "name": "Nestor Magalhaes",
+        "email": "nestor.magalhaes@appex.world"
+      },
+      "authorType": "community",
+      "version": "0.1.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 1,
+      "searchText": "hyperfocus adhd-friendly output formatting for claude code. restructures responses with evidence-based cognitive accessibility: chunking, visual hierarchy, front-loaded key points, and progressive disclosure. productivity accessibility adhd neurodivergent formatting readability productivity cognitive-accessibility"
+    },
+    {
+      "type": "plugin",
+      "id": "shipwright",
+      "slug": "shipwright",
+      "name": "shipwright",
+      "displayName": "shipwright",
+      "description": "Describe your app in plain English — Shipwright builds, tests, and deploys it autonomously via a 9-phase pipeline.",
+      "category": "ai-agency",
+      "keywords": [
+        "app-builder",
+        "code-generator",
+        "autonomous-agent",
+        "pipeline",
+        "nextjs",
+        "supabase",
+        "sveltekit",
+        "astro",
+        "ai-agency"
+      ],
+      "author": {
+        "name": "Nate Nelson",
+        "url": "https://github.com/Wynelson94"
+      },
+      "authorType": "community",
+      "version": "1.0.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 1,
+      "searchText": "shipwright describe your app in plain english — shipwright builds, tests, and deploys it autonomously via a 9-phase pipeline. ai-agency app-builder code-generator autonomous-agent pipeline nextjs supabase sveltekit astro ai-agency"
+    },
+    {
+      "type": "plugin",
+      "id": "tonone",
+      "slug": "tonone",
+      "name": "tonone",
+      "displayName": "tonone",
+      "description": "23-agent AI team for software teams: 15 engineering specialists (Apex, Forge, Relay, Spine, Flux, Warden, Vigil, Prism, Cortex, Touch, Volt, Atlas, Lens, Proof, Pave) + 8 product agents (Helm, Echo, Lumen, Draft, Form, Crest, Pitch, Surge) with a formal Helm→Apex handoff interface and 125 skills.",
+      "category": "ai-agency",
+      "keywords": [
+        "ai-team",
+        "multi-agent",
+        "orchestration",
+        "engineering",
+        "product",
+        "agents",
+        "ai-agency"
+      ],
+      "author": {
+        "name": "thisisfatih",
+        "url": "https://github.com/thisisfatih"
+      },
+      "authorType": "community",
+      "version": "0.6.5",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 125,
+      "searchText": "tonone 23-agent ai team for software teams: 15 engineering specialists (apex, forge, relay, spine, flux, warden, vigil, prism, cortex, touch, volt, atlas, lens, proof, pave) + 8 product agents (helm, echo, lumen, draft, form, crest, pitch, surge) with a formal helm→apex handoff interface and 125 skills. ai-agency ai-team multi-agent orchestration engineering product agents ai-agency"
+    },
+    {
+      "type": "plugin",
+      "id": "tweetclaw",
+      "slug": "tweetclaw",
+      "name": "tweetclaw",
+      "displayName": "tweetclaw",
+      "description": "X/Twitter automation - post, reply, like, retweet, follow, DM, search, extract data, monitor accounts, run giveaways. 121 endpoints via Xquik REST API.",
+      "category": "automation",
+      "keywords": [
+        "twitter",
+        "x",
+        "automation",
+        "social-media",
+        "tweets",
+        "monitoring",
+        "giveaway",
+        "scraping"
+      ],
+      "author": {
+        "name": "Burak Bayir",
+        "email": "burak@xquik.com",
+        "url": "https://xquik.com"
+      },
+      "authorType": "community",
+      "version": "1.5.3",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 1,
+      "searchText": "tweetclaw x/twitter automation - post, reply, like, retweet, follow, dm, search, extract data, monitor accounts, run giveaways. 121 endpoints via xquik rest api. automation twitter x automation social-media tweets monitoring giveaway scraping"
     },
     {
       "type": "skill",
@@ -18007,6 +18260,34 @@
         "category": "productivity"
       },
       "searchText": "agent-context-loader execute proactive auto-loading: automatically detects and loads agents.md files. use when appropriate context detected. trigger with relevant phrases based on skill purpose. productivity read write edit grep glob bash(general:*) bash(util:*) claude-code codex openclaw"
+    },
+    {
+      "type": "skill",
+      "id": "agent-creator",
+      "slug": "agent-creator",
+      "name": "agent-creator",
+      "description": "Create production-grade agent .md files aligned with the Anthropic 2026 spec (16-field schema). Also validates existing agents against the marketplace compliance rules. Use when building custom subagents, reviewing agent quality, or creating parallel agent architectures for orchestrator skills. Trigger with \"/agent-creator\", \"create an agent\", \"build a subagent\", or \"validate my agent\". Make sure to use this skill whenever creating agents/*.md files for plugins or standalone use.",
+      "category": "skill-enhancers",
+      "allowedTools": [
+        "\"Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash(python:*)",
+        "AskUserQuestion\""
+      ],
+      "compatibleWith": [
+        "claude-code",
+        "codex",
+        "openclaw"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "skill-creator",
+        "category": "skill-enhancers"
+      },
+      "searchText": "agent-creator create production-grade agent .md files aligned with the anthropic 2026 spec (16-field schema). also validates existing agents against the marketplace compliance rules. use when building custom subagents, reviewing agent quality, or creating parallel agent architectures for orchestrator skills. trigger with \"/agent-creator\", \"create an agent\", \"build a subagent\", or \"validate my agent\". make sure to use this skill whenever creating agents/*.md files for plugins or standalone use. skill-enhancers \"read write edit glob grep bash(python:*) askuserquestion\" claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -31449,7 +31730,7 @@
       "id": "cro-methodology",
       "slug": "cro-methodology",
       "name": "cro-methodology",
-      "description": "Audit websites and landing pages for conversion issues and design evidence-based A/B tests. Use when the user mentions \"landing page isn''t converting\", \"conversion rate\", \"A/B test\", \"why visitors leave\", or \"objection handling\". Covers funnel mapping, persuasion assets, and objection/counter-objection frameworks. For overall marketing strategy, see one-page-marketing. For usability issues, see ux-heuristics. Trigger with 'cro', 'methodology'.",
+      "description": "Audit websites and landing pages for conversion issues and design evidence-based A/B tests. Use when the user mentions \"landing page isn't converting\", \"conversion rate\", \"A/B test\", \"why visitors leave\", or \"objection handling\". Covers funnel mapping, persuasion assets, and objection/counter-objection frameworks. For overall marketing strategy, see one-page-marketing. For usability issues, see ux-heuristics. Trigger with 'cro', 'methodology'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -31466,7 +31747,7 @@
         "name": "wondelai-cro-methodology",
         "category": "business-tools"
       },
-      "searchText": "cro-methodology audit websites and landing pages for conversion issues and design evidence-based a/b tests. use when the user mentions \"landing page isn''t converting\", \"conversion rate\", \"a/b test\", \"why visitors leave\", or \"objection handling\". covers funnel mapping, persuasion assets, and objection/counter-objection frameworks. for overall marketing strategy, see one-page-marketing. for usability issues, see ux-heuristics. trigger with 'cro', 'methodology'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "cro-methodology audit websites and landing pages for conversion issues and design evidence-based a/b tests. use when the user mentions \"landing page isn't converting\", \"conversion rate\", \"a/b test\", \"why visitors leave\", or \"objection handling\". covers funnel mapping, persuasion assets, and objection/counter-objection frameworks. for overall marketing strategy, see one-page-marketing. for usability issues, see ux-heuristics. trigger with 'cro', 'methodology'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -33442,6 +33723,30 @@
     },
     {
       "type": "skill",
+      "id": "demo-video",
+      "slug": "demo-video",
+      "name": "demo-video",
+      "description": "Generate polished demo videos from a single prompt. Use when the user asks to create a demo video, product walkthrough, feature showcase, or animated presentation. Trigger with \"make a demo video\", \"create a product video\", \"demo walkthrough\", or \"feature showcase video\".",
+      "category": "community",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Glob"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "framecraft",
+        "category": "community"
+      },
+      "searchText": "demo-video generate polished demo videos from a single prompt. use when the user asks to create a demo video, product walkthrough, feature showcase, or animated presentation. trigger with \"make a demo video\", \"create a product video\", \"demo walkthrough\", or \"feature showcase video\". community read write edit bash glob claude-code"
+    },
+    {
+      "type": "skill",
       "id": "deploying-machine-learning-models",
       "slug": "deploying-machine-learning-models",
       "name": "deploying-machine-learning-models",
@@ -34387,7 +34692,7 @@
       "id": "drive-motivation",
       "slug": "drive-motivation",
       "name": "drive-motivation",
-      "description": "Design motivation systems using Autonomy, Mastery, and Purpose (AMP) for products and teams. Use when the user mentions \"intrinsic motivation\", \"gamification isn''t working\", \"team incentives\", \"autonomy\", \"mastery\", or \"purpose-driven\". Covers why carrot-and-stick fails and how to build progress systems. For habit-forming product loops, see hooked-ux. For retention behavior design, see improve-retention. Trigger with 'drive', 'motivation'.",
+      "description": "Design motivation systems using Autonomy, Mastery, and Purpose (AMP) for products and teams. Use when the user mentions \"intrinsic motivation\", \"gamification isn't working\", \"team incentives\", \"autonomy\", \"mastery\", or \"purpose-driven\". Covers why carrot-and-stick fails and how to build progress systems. For habit-forming product loops, see hooked-ux. For retention behavior design, see improve-retention. Trigger with 'drive', 'motivation'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -34404,7 +34709,7 @@
         "name": "wondelai-drive-motivation",
         "category": "business-tools"
       },
-      "searchText": "drive-motivation design motivation systems using autonomy, mastery, and purpose (amp) for products and teams. use when the user mentions \"intrinsic motivation\", \"gamification isn''t working\", \"team incentives\", \"autonomy\", \"mastery\", or \"purpose-driven\". covers why carrot-and-stick fails and how to build progress systems. for habit-forming product loops, see hooked-ux. for retention behavior design, see improve-retention. trigger with 'drive', 'motivation'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "drive-motivation design motivation systems using autonomy, mastery, and purpose (amp) for products and teams. use when the user mentions \"intrinsic motivation\", \"gamification isn't working\", \"team incentives\", \"autonomy\", \"mastery\", or \"purpose-driven\". covers why carrot-and-stick fails and how to build progress systems. for habit-forming product loops, see hooked-ux. for retention behavior design, see improve-retention. trigger with 'drive', 'motivation'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -41375,6 +41680,40 @@
     },
     {
       "type": "skill",
+      "id": "freshie-inventory",
+      "slug": "freshie-inventory",
+      "name": "freshie-inventory",
+      "description": "Manage the freshie ecosystem inventory database — a CMDB tracking all plugins, skills, packs, and compliance grades across 50 SQLite tables. Use when checking ecosystem health, running discovery scans, validating compliance, remediating issues, querying inventory data, comparing runs, exporting data, or generating status reports. Trigger with \"freshie status\", \"inventory scan\", \"ecosystem audit\", \"grade report\", \"compliance check\", \"remediate skills\", \"query freshie\", \"compare runs\", \"export grades\", or \"freshie report\".",
+      "category": "database",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(sqlite3:*)",
+        "Bash(python3:*)",
+        "Bash(node:*)",
+        "Bash(mkdir:*)",
+        "Bash(wc:*)",
+        "Glob",
+        "Grep",
+        "AskUserQuestion",
+        "Skill",
+        "Agent"
+      ],
+      "compatibleWith": [
+        "claude-code",
+        "codex",
+        "openclaw"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "freshie-inventory-manager",
+        "category": "database"
+      },
+      "searchText": "freshie-inventory manage the freshie ecosystem inventory database — a cmdb tracking all plugins, skills, packs, and compliance grades across 50 sqlite tables. use when checking ecosystem health, running discovery scans, validating compliance, remediating issues, querying inventory data, comparing runs, exporting data, or generating status reports. trigger with \"freshie status\", \"inventory scan\", \"ecosystem audit\", \"grade report\", \"compliance check\", \"remediate skills\", \"query freshie\", \"compare runs\", \"export grades\", or \"freshie report\". database read write edit bash(sqlite3:*) bash(python3:*) bash(node:*) bash(mkdir:*) bash(wc:*) glob grep askuserquestion skill agent claude-code codex openclaw"
+    },
+    {
+      "type": "skill",
       "id": "fuzzing-apis",
       "slug": "fuzzing-apis",
       "name": "fuzzing-apis",
@@ -43727,12 +44066,13 @@
       "id": "grammarly-prod-checklist",
       "slug": "grammarly-prod-checklist",
       "name": "grammarly-prod-checklist",
-      "description": "",
+      "description": "Production readiness checklist for Grammarly API integrations. Use when preparing a Grammarly integration for production deployment.",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Write",
         "Edit",
+        "Bash(curl:*)",
         "Grep"
       ],
       "compatibleWith": [
@@ -43743,7 +44083,7 @@
         "name": "grammarly-pack",
         "category": "saas-packs"
       },
-      "searchText": "grammarly-prod-checklist  saas-packs read write edit grep claude-code"
+      "searchText": "grammarly-prod-checklist production readiness checklist for grammarly api integrations. use when preparing a grammarly integration for production deployment. saas-packs read write edit bash(curl:*) grep claude-code"
     },
     {
       "type": "skill",
@@ -43815,12 +44155,13 @@
       "id": "grammarly-security-basics",
       "slug": "grammarly-security-basics",
       "name": "grammarly-security-basics",
-      "description": "",
+      "description": "Security fundamentals for Grammarly API credential management. Use when setting up secure authentication and token handling for Grammarly integrations.",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Write",
         "Edit",
+        "Bash(curl:*)",
         "Grep"
       ],
       "compatibleWith": [
@@ -43831,19 +44172,20 @@
         "name": "grammarly-pack",
         "category": "saas-packs"
       },
-      "searchText": "grammarly-security-basics  saas-packs read write edit grep claude-code"
+      "searchText": "grammarly-security-basics security fundamentals for grammarly api credential management. use when setting up secure authentication and token handling for grammarly integrations. saas-packs read write edit bash(curl:*) grep claude-code"
     },
     {
       "type": "skill",
       "id": "grammarly-upgrade-migration",
       "slug": "grammarly-upgrade-migration",
       "name": "grammarly-upgrade-migration",
-      "description": "",
+      "description": "Upgrade and migration guidance for Grammarly API version changes. Use when migrating between Grammarly API versions or updating endpoint references.",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
         "Write",
         "Edit",
+        "Bash(curl:*)",
         "Grep"
       ],
       "compatibleWith": [
@@ -43854,7 +44196,7 @@
         "name": "grammarly-pack",
         "category": "saas-packs"
       },
-      "searchText": "grammarly-upgrade-migration  saas-packs read write edit grep claude-code"
+      "searchText": "grammarly-upgrade-migration upgrade and migration guidance for grammarly api version changes. use when migrating between grammarly api versions or updating endpoint references. saas-packs read write edit bash(curl:*) grep claude-code"
     },
     {
       "type": "skill",
@@ -46147,7 +46489,7 @@
       "id": "hooked-ux",
       "slug": "hooked-ux",
       "name": "hooked-ux",
-      "description": "Build habit-forming product loops using the Hook Model (Trigger, Action, Variable Reward, Investment). Use when the user mentions \"users aren''t coming back\", \"engagement loops\", \"habit formation\", \"push notifications\", or \"variable rewards\". Covers ethics evaluation and onboarding for habits. For friction reduction and B=MAP, see improve-retention. For viral sharing, see contagious. Trigger with 'hooked', 'ux'.",
+      "description": "Build habit-forming product loops using the Hook Model (Trigger, Action, Variable Reward, Investment). Use when the user mentions \"users aren't coming back\", \"engagement loops\", \"habit formation\", \"push notifications\", or \"variable rewards\". Covers ethics evaluation and onboarding for habits. For friction reduction and B=MAP, see improve-retention. For viral sharing, see contagious. Trigger with 'hooked', 'ux'.",
       "category": "design",
       "allowedTools": [
         "Read",
@@ -46164,7 +46506,7 @@
         "name": "wondelai-hooked-ux",
         "category": "design"
       },
-      "searchText": "hooked-ux build habit-forming product loops using the hook model (trigger, action, variable reward, investment). use when the user mentions \"users aren''t coming back\", \"engagement loops\", \"habit formation\", \"push notifications\", or \"variable rewards\". covers ethics evaluation and onboarding for habits. for friction reduction and b=map, see improve-retention. for viral sharing, see contagious. trigger with 'hooked', 'ux'. design read glob grep claude-code codex openclaw"
+      "searchText": "hooked-ux build habit-forming product loops using the hook model (trigger, action, variable reward, investment). use when the user mentions \"users aren't coming back\", \"engagement loops\", \"habit formation\", \"push notifications\", or \"variable rewards\". covers ethics evaluation and onboarding for habits. for friction reduction and b=map, see improve-retention. for viral sharing, see contagious. trigger with 'hooked', 'ux'. design read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -47297,6 +47639,26 @@
     },
     {
       "type": "skill",
+      "id": "hyperfocus",
+      "slug": "hyperfocus",
+      "name": "hyperfocus",
+      "description": ">",
+      "category": "productivity",
+      "allowedTools": [
+        "[]"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "0.1.0",
+      "parentPlugin": {
+        "name": "hyperfocus",
+        "category": "productivity"
+      },
+      "searchText": "hyperfocus > productivity [] claude-code"
+    },
+    {
+      "type": "skill",
       "id": "hypothesis-tester",
       "slug": "hypothesis-tester",
       "name": "hypothesis-tester",
@@ -48049,7 +48411,7 @@
       "id": "influence-psychology",
       "slug": "influence-psychology",
       "name": "influence-psychology",
-      "description": "Apply the six principles of ethical persuasion (reciprocity, commitment, social proof, authority, liking, scarcity) to product design, copy, and sales. Use when the user mentions \"social proof\", \"persuasive copy\", \"why users don''t convert\", or \"ethical persuasion\". For deal negotiation tactics, see negotiation. For viral word-of-mouth, see contagious. Trigger with 'influence', 'psychology'.",
+      "description": "Apply the six principles of ethical persuasion (reciprocity, commitment, social proof, authority, liking, scarcity) to product design, copy, and sales. Use when the user mentions \"social proof\", \"persuasive copy\", \"why users don't convert\", or \"ethical persuasion\". For deal negotiation tactics, see negotiation. For viral word-of-mouth, see contagious. Trigger with 'influence', 'psychology'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -48066,7 +48428,7 @@
         "name": "wondelai-influence-psychology",
         "category": "business-tools"
       },
-      "searchText": "influence-psychology apply the six principles of ethical persuasion (reciprocity, commitment, social proof, authority, liking, scarcity) to product design, copy, and sales. use when the user mentions \"social proof\", \"persuasive copy\", \"why users don''t convert\", or \"ethical persuasion\". for deal negotiation tactics, see negotiation. for viral word-of-mouth, see contagious. trigger with 'influence', 'psychology'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "influence-psychology apply the six principles of ethical persuasion (reciprocity, commitment, social proof, authority, liking, scarcity) to product design, copy, and sales. use when the user mentions \"social proof\", \"persuasive copy\", \"why users don't convert\", or \"ethical persuasion\". for deal negotiation tactics, see negotiation. for viral word-of-mouth, see contagious. trigger with 'influence', 'psychology'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -53924,7 +54286,7 @@
       "id": "linktree-performance-tuning",
       "slug": "linktree-performance-tuning",
       "name": "linktree-performance-tuning",
-      "description": "Performance Tuning for Linktree. Trigger: \"linktree performance tuning\".",
+      "description": "Optimize Linktree API integration performance with caching, batching, and rate limit strategies. Use when Linktree API calls are slow, hitting rate limits, or profile pages serve stale link data. Trigger with \"linktree performance tuning\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -53940,7 +54302,7 @@
         "name": "linktree-pack",
         "category": "saas-packs"
       },
-      "searchText": "linktree-performance-tuning performance tuning for linktree. trigger: \"linktree performance tuning\". saas-packs read write edit grep claude-code"
+      "searchText": "linktree-performance-tuning optimize linktree api integration performance with caching, batching, and rate limit strategies. use when linktree api calls are slow, hitting rate limits, or profile pages serve stale link data. trigger with \"linktree performance tuning\". saas-packs read write edit grep claude-code"
     },
     {
       "type": "skill",
@@ -55030,7 +55392,7 @@
       "id": "lucidchart-performance-tuning",
       "slug": "lucidchart-performance-tuning",
       "name": "lucidchart-performance-tuning",
-      "description": "Performance Tuning for Lucidchart. Trigger: \"lucidchart performance tuning\".",
+      "description": "Optimize Lucidchart API integration performance with caching, batch shape operations, and pagination strategies. Use when diagram exports are slow, shape updates hit rate limits, or document list queries time out. Trigger with \"lucidchart performance tuning\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -55046,7 +55408,7 @@
         "name": "lucidchart-pack",
         "category": "saas-packs"
       },
-      "searchText": "lucidchart-performance-tuning performance tuning for lucidchart. trigger: \"lucidchart performance tuning\". saas-packs read write edit grep claude-code"
+      "searchText": "lucidchart-performance-tuning optimize lucidchart api integration performance with caching, batch shape operations, and pagination strategies. use when diagram exports are slow, shape updates hit rate limits, or document list queries time out. trigger with \"lucidchart performance tuning\". saas-packs read write edit grep claude-code"
     },
     {
       "type": "skill",
@@ -55209,7 +55571,7 @@
       "id": "made-to-stick",
       "slug": "made-to-stick",
       "name": "made-to-stick",
-      "description": "Create messages that are understood, remembered, and drive action using the SUCCESs checklist (Simple, Unexpected, Concrete, Credible, Emotional, Stories). Use when the user mentions \"make it memorable\", \"sticky messaging\", \"tagline\", \"value proposition\", or \"why the message isn''t landing\". For narrative brand frameworks, see storybrand-messaging. For viral sharing, see contagious. Trigger with 'made', 'to', 'stick'.",
+      "description": "Create messages that are understood, remembered, and drive action using the SUCCESs checklist (Simple, Unexpected, Concrete, Credible, Emotional, Stories). Use when the user mentions \"make it memorable\", \"sticky messaging\", \"tagline\", \"value proposition\", or \"why the message isn't landing\". For narrative brand frameworks, see storybrand-messaging. For viral sharing, see contagious. Trigger with 'made', 'to', 'stick'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -55226,7 +55588,7 @@
         "name": "wondelai-made-to-stick",
         "category": "business-tools"
       },
-      "searchText": "made-to-stick create messages that are understood, remembered, and drive action using the success checklist (simple, unexpected, concrete, credible, emotional, stories). use when the user mentions \"make it memorable\", \"sticky messaging\", \"tagline\", \"value proposition\", or \"why the message isn''t landing\". for narrative brand frameworks, see storybrand-messaging. for viral sharing, see contagious. trigger with 'made', 'to', 'stick'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "made-to-stick create messages that are understood, remembered, and drive action using the success checklist (simple, unexpected, concrete, credible, emotional, stories). use when the user mentions \"make it memorable\", \"sticky messaging\", \"tagline\", \"value proposition\", or \"why the message isn't landing\". for narrative brand frameworks, see storybrand-messaging. for viral sharing, see contagious. trigger with 'made', 'to', 'stick'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -56604,7 +56966,7 @@
       "id": "mindtickle-performance-tuning",
       "slug": "mindtickle-performance-tuning",
       "name": "mindtickle-performance-tuning",
-      "description": "Performance Tuning for MindTickle. Trigger: \"mindtickle performance tuning\".",
+      "description": "Optimize MindTickle API integration performance with caching, bulk progress queries, and webhook processing. Use when learner progress queries are slow, report generation times out, or completion webhooks cause backpressure. Trigger with \"mindtickle performance tuning\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -56620,7 +56982,7 @@
         "name": "mindtickle-pack",
         "category": "saas-packs"
       },
-      "searchText": "mindtickle-performance-tuning performance tuning for mindtickle. trigger: \"mindtickle performance tuning\". saas-packs read write edit grep claude-code"
+      "searchText": "mindtickle-performance-tuning optimize mindtickle api integration performance with caching, bulk progress queries, and webhook processing. use when learner progress queries are slow, report generation times out, or completion webhooks cause backpressure. trigger with \"mindtickle performance tuning\". saas-packs read write edit grep claude-code"
     },
     {
       "type": "skill",
@@ -58863,7 +59225,7 @@
       "id": "negotiation",
       "slug": "negotiation",
       "name": "negotiation",
-      "description": "Prepare and execute negotiations using tactical empathy, calibrated questions, and the Ackerman method. Use when the user mentions \"salary negotiation\", \"contract terms\", \"handling objections\", \"mirroring and labeling\", or \"difficult conversation\". Covers accusation audits, Black Swan discovery, and the \"That''s Right\" technique. For persuasion in product/marketing, see influence-psychology. Trigger with 'negotiation'.",
+      "description": "Prepare and execute negotiations using tactical empathy, calibrated questions, and the Ackerman method. Use when the user mentions \"salary negotiation\", \"contract terms\", \"handling objections\", \"mirroring and labeling\", or \"difficult conversation\". Covers accusation audits, Black Swan discovery, and the \"That's Right\" technique. For persuasion in product/marketing, see influence-psychology. Trigger with 'negotiation'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -58880,7 +59242,7 @@
         "name": "wondelai-negotiation",
         "category": "business-tools"
       },
-      "searchText": "negotiation prepare and execute negotiations using tactical empathy, calibrated questions, and the ackerman method. use when the user mentions \"salary negotiation\", \"contract terms\", \"handling objections\", \"mirroring and labeling\", or \"difficult conversation\". covers accusation audits, black swan discovery, and the \"that''s right\" technique. for persuasion in product/marketing, see influence-psychology. trigger with 'negotiation'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "negotiation prepare and execute negotiations using tactical empathy, calibrated questions, and the ackerman method. use when the user mentions \"salary negotiation\", \"contract terms\", \"handling objections\", \"mirroring and labeling\", or \"difficult conversation\". covers accusation audits, black swan discovery, and the \"that's right\" technique. for persuasion in product/marketing, see influence-psychology. trigger with 'negotiation'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -60300,7 +60662,7 @@
       "id": "obviously-awesome",
       "slug": "obviously-awesome",
       "name": "obviously-awesome",
-      "description": "Build product positioning by mapping competitive alternatives, unique attributes, and best-fit customers to the right market category. Use when the user mentions \"positioning\", \"competitive alternatives\", \"how to position\", \"market category\", or \"why customers don''t get it\". Covers positioning canvas and team workshops. For customer jobs analysis, see jobs-to-be-done. For go-to-market, see crossing-the-chasm. Trigger with 'obviously', 'awesome'.",
+      "description": "Build product positioning by mapping competitive alternatives, unique attributes, and best-fit customers to the right market category. Use when the user mentions \"positioning\", \"competitive alternatives\", \"how to position\", \"market category\", or \"why customers don't get it\". Covers positioning canvas and team workshops. For customer jobs analysis, see jobs-to-be-done. For go-to-market, see crossing-the-chasm. Trigger with 'obviously', 'awesome'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -60317,7 +60679,7 @@
         "name": "wondelai-obviously-awesome",
         "category": "business-tools"
       },
-      "searchText": "obviously-awesome build product positioning by mapping competitive alternatives, unique attributes, and best-fit customers to the right market category. use when the user mentions \"positioning\", \"competitive alternatives\", \"how to position\", \"market category\", or \"why customers don''t get it\". covers positioning canvas and team workshops. for customer jobs analysis, see jobs-to-be-done. for go-to-market, see crossing-the-chasm. trigger with 'obviously', 'awesome'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "obviously-awesome build product positioning by mapping competitive alternatives, unique attributes, and best-fit customers to the right market category. use when the user mentions \"positioning\", \"competitive alternatives\", \"how to position\", \"market category\", or \"why customers don't get it\". covers positioning canvas and team workshops. for customer jobs analysis, see jobs-to-be-done. for go-to-market, see crossing-the-chasm. trigger with 'obviously', 'awesome'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -73888,6 +74250,35 @@
     },
     {
       "type": "skill",
+      "id": "shipwright-pipeline",
+      "slug": "shipwright-pipeline",
+      "name": "shipwright-pipeline",
+      "description": "Autonomous app builder that converts plain-English descriptions into fully built, tested applications. Use when the user wants to build a new app, scaffold a project, generate a full-stack application, or create an app from a description. Trigger with \"build me an app\", \"create a new app\", \"shipwright build\", \"scaffold a project\", \"generate an application\".",
+      "category": "ai-agency",
+      "allowedTools": [
+        "\"Read",
+        "Write",
+        "Edit",
+        "Grep",
+        "Glob",
+        "Bash(pip:*)",
+        "Bash(python:*)",
+        "Bash(npm:*)",
+        "Bash(npx:*)",
+        "Bash(git:*)\""
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "\"1.0.0\"",
+      "parentPlugin": {
+        "name": "shipwright",
+        "category": "ai-agency"
+      },
+      "searchText": "shipwright-pipeline autonomous app builder that converts plain-english descriptions into fully built, tested applications. use when the user wants to build a new app, scaffold a project, generate a full-stack application, or create an app from a description. trigger with \"build me an app\", \"create a new app\", \"shipwright build\", \"scaffold a project\", \"generate an application\". ai-agency \"read write edit grep glob bash(pip:*) bash(python:*) bash(npm:*) bash(npx:*) bash(git:*)\" claude-code"
+    },
+    {
+      "type": "skill",
       "id": "shopify-advanced-troubleshooting",
       "slug": "shopify-advanced-troubleshooting",
       "name": "shopify-advanced-troubleshooting",
@@ -74633,7 +75024,7 @@
       "id": "skill-creator",
       "slug": "skill-creator",
       "name": "skill-creator",
-      "description": "Create production-grade agent skills aligned with the 2026 AgentSkills.io spec and Anthropic best practices. Also validates existing skills against the Intent Solutions 100-point rubric. Use when building, testing, validating, or optimizing Claude Code skills. Trigger with \"/skill-creator\", \"create a skill\", \"validate my skill\", or \"check skill quality\". Make sure to use this skill whenever creating a new skill, slash command, or agent capability.",
+      "description": "Create production-grade agent skills aligned with the 2026 AgentSkills.io spec and Anthropic best practices (2026). Also validates existing skills against the Intent Solutions 100-point rubric. Use when building, testing, validating, or optimizing Claude Code skills. Trigger with \"/skill-creator\", \"create a skill\", \"validate my skill\", or \"check skill quality\". Make sure to use this skill whenever creating a new skill, slash command, or agent capability.",
       "category": "skill-enhancers",
       "allowedTools": [
         "\"Read",
@@ -74653,12 +75044,12 @@
         "codex",
         "openclaw"
       ],
-      "version": "5.0.0",
+      "version": "5.1.0",
       "parentPlugin": {
         "name": "skill-creator",
         "category": "skill-enhancers"
       },
-      "searchText": "skill-creator create production-grade agent skills aligned with the 2026 agentskills.io spec and anthropic best practices. also validates existing skills against the intent solutions 100-point rubric. use when building, testing, validating, or optimizing claude code skills. trigger with \"/skill-creator\", \"create a skill\", \"validate my skill\", or \"check skill quality\". make sure to use this skill whenever creating a new skill, slash command, or agent capability. skill-enhancers \"read write edit glob grep bash(mkdir:*) bash(chmod:*) bash(python:*) bash(claude:*) task askuserquestion\" claude-code codex openclaw"
+      "searchText": "skill-creator create production-grade agent skills aligned with the 2026 agentskills.io spec and anthropic best practices (2026). also validates existing skills against the intent solutions 100-point rubric. use when building, testing, validating, or optimizing claude code skills. trigger with \"/skill-creator\", \"create a skill\", \"validate my skill\", or \"check skill quality\". make sure to use this skill whenever creating a new skill, slash command, or agent capability. skill-enhancers \"read write edit glob grep bash(mkdir:*) bash(chmod:*) bash(python:*) bash(claude:*) task askuserquestion\" claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -76496,7 +76887,7 @@
       "id": "storybrand-messaging",
       "slug": "storybrand-messaging",
       "name": "storybrand-messaging",
-      "description": "Build clear brand messaging using narrative structure that positions the customer as hero. Use when the user mentions \"brand message\", \"website copy\", \"elevator pitch\", \"one-liner\", \"messaging isn''t resonating\", or \"brand script\". Covers landing page copy, marketing collateral, and consistent communication. For memorable messaging, see made-to-stick. For product positioning, see obviously-awesome. Trigger with 'storybrand', 'messaging'.",
+      "description": "Build clear brand messaging using narrative structure that positions the customer as hero. Use when the user mentions \"brand message\", \"website copy\", \"elevator pitch\", \"one-liner\", \"messaging isn't resonating\", or \"brand script\". Covers landing page copy, marketing collateral, and consistent communication. For memorable messaging, see made-to-stick. For product positioning, see obviously-awesome. Trigger with 'storybrand', 'messaging'.",
       "category": "business-tools",
       "allowedTools": [
         "Read",
@@ -76513,7 +76904,7 @@
         "name": "wondelai-storybrand-messaging",
         "category": "business-tools"
       },
-      "searchText": "storybrand-messaging build clear brand messaging using narrative structure that positions the customer as hero. use when the user mentions \"brand message\", \"website copy\", \"elevator pitch\", \"one-liner\", \"messaging isn''t resonating\", or \"brand script\". covers landing page copy, marketing collateral, and consistent communication. for memorable messaging, see made-to-stick. for product positioning, see obviously-awesome. trigger with 'storybrand', 'messaging'. business-tools read glob grep claude-code codex openclaw"
+      "searchText": "storybrand-messaging build clear brand messaging using narrative structure that positions the customer as hero. use when the user mentions \"brand message\", \"website copy\", \"elevator pitch\", \"one-liner\", \"messaging isn't resonating\", or \"brand script\". covers landing page copy, marketing collateral, and consistent communication. for memorable messaging, see made-to-stick. for product positioning, see obviously-awesome. trigger with 'storybrand', 'messaging'. business-tools read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",
@@ -78797,6 +79188,30 @@
     },
     {
       "type": "skill",
+      "id": "tweetclaw",
+      "slug": "tweetclaw",
+      "name": "tweetclaw",
+      "description": "X/Twitter automation plugin. Post tweets, reply, like, retweet, follow, unfollow, send DMs, search tweets, look up users, extract bulk data, monitor accounts, run giveaway draws, and compose algorithm-optimized tweets via Xquik REST API. Use when the user asks about Twitter, X, tweets, followers, social media automation, tweet analytics, or giveaway management. Trigger with \"post tweet\", \"search tweets\", \"extract followers\", \"run giveaway\", \"monitor account\", \"compose tweet\", \"trending topics\".",
+      "category": "automation",
+      "allowedTools": [
+        "\"Read",
+        "Bash(curl:*)",
+        "WebFetch\""
+      ],
+      "compatibleWith": [
+        "claude-code",
+        "codex",
+        "openclaw"
+      ],
+      "version": "\"1.5.3\"",
+      "parentPlugin": {
+        "name": "tweetclaw",
+        "category": "automation"
+      },
+      "searchText": "tweetclaw x/twitter automation plugin. post tweets, reply, like, retweet, follow, unfollow, send dms, search tweets, look up users, extract bulk data, monitor accounts, run giveaway draws, and compose algorithm-optimized tweets via xquik rest api. use when the user asks about twitter, x, tweets, followers, social media automation, tweet analytics, or giveaway management. trigger with \"post tweet\", \"search tweets\", \"extract followers\", \"run giveaway\", \"monitor account\", \"compose tweet\", \"trending topics\". automation \"read bash(curl:*) webfetch\" claude-code codex openclaw"
+    },
+    {
+      "type": "skill",
       "id": "twinmind-ci-integration",
       "slug": "twinmind-ci-integration",
       "name": "twinmind-ci-integration",
@@ -79427,7 +79842,7 @@
       "id": "ux-heuristics",
       "slug": "ux-heuristics",
       "name": "ux-heuristics",
-      "description": "Evaluate and improve interface usability using heuristic analysis. Use when the user mentions \"usability audit\", \"UX review\", \"users are confused\", \"heuristic evaluation\", \"form usability\", or \"navigation problems\". Covers Nielsen''s 10 heuristics, severity ratings, and information architecture. For visual design fixes, see refactoring-ui. For conversion-focused audits, see cro-methodology. Trigger with 'ux', 'heuristics'.",
+      "description": "Evaluate and improve interface usability using heuristic analysis. Use when the user mentions \"usability audit\", \"UX review\", \"users are confused\", \"heuristic evaluation\", \"form usability\", or \"navigation problems\". Covers Nielsen's 10 heuristics, severity ratings, and information architecture. For visual design fixes, see refactoring-ui. For conversion-focused audits, see cro-methodology. Trigger with 'ux', 'heuristics'.",
       "category": "design",
       "allowedTools": [
         "Read",
@@ -79444,7 +79859,7 @@
         "name": "wondelai-ux-heuristics",
         "category": "design"
       },
-      "searchText": "ux-heuristics evaluate and improve interface usability using heuristic analysis. use when the user mentions \"usability audit\", \"ux review\", \"users are confused\", \"heuristic evaluation\", \"form usability\", or \"navigation problems\". covers nielsen''s 10 heuristics, severity ratings, and information architecture. for visual design fixes, see refactoring-ui. for conversion-focused audits, see cro-methodology. trigger with 'ux', 'heuristics'. design read glob grep claude-code codex openclaw"
+      "searchText": "ux-heuristics evaluate and improve interface usability using heuristic analysis. use when the user mentions \"usability audit\", \"ux review\", \"users are confused\", \"heuristic evaluation\", \"form usability\", or \"navigation problems\". covers nielsen's 10 heuristics, severity ratings, and information architecture. for visual design fixes, see refactoring-ui. for conversion-focused audits, see cro-methodology. trigger with 'ux', 'heuristics'. design read glob grep claude-code codex openclaw"
     },
     {
       "type": "skill",

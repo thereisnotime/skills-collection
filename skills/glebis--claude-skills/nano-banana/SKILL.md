@@ -1,6 +1,6 @@
 ---
 name: nano-banana
-description: This skill generates images using Google's Gemini image generation models (Nano Banana). It should be used when the user needs to create, generate, or produce images from text prompts -- for presentations, articles, concepts, illustrations, or any visual content. Supports fast generation (Gemini 2.5 Flash Image) and high-quality generation (Gemini 3 Pro Image).
+description: This skill generates images using Google's Gemini image generation models (Nano Banana). It should be used when the user needs to create, generate, or produce images from text prompts -- for presentations, articles, concepts, illustrations, or any visual content. Default model is Nano Banana 2 (gemini-3.1-flash-image-preview). Also supports Nano Banana Pro (gemini-3-pro-image-preview) for highest quality and original Nano Banana (gemini-2.5-flash-image).
 ---
 
 # Nano Banana - Gemini Image Generation
@@ -16,7 +16,7 @@ Generate images from text prompts via Google's Gemini image generation API.
 
 ## Requirements
 
-- `GEMINI_API_KEY` environment variable (get from https://ai.google.dev/)
+- `GEMINI_API_KEY` — auto-decrypted from `secrets.enc.yaml` via SOPS + age. No env var needed if sops and age key are configured. Fallback: `export GEMINI_API_KEY=...` (get from https://ai.google.dev/)
 
 ## Quick Start
 
@@ -29,14 +29,38 @@ scripts/generate_image.sh "a minimalist flat illustration of a rocket" ./output.
 The script accepts three arguments:
 1. **Prompt** (required) -- text description of the image
 2. **Output path** (optional, default: `./generated_image.png`)
-3. **Model** (optional, default: `gemini-2.5-flash-image`)
+3. **Model** (optional, default: `gemini-3.1-flash-image-preview`)
 
 ## Models
 
-| Model | Use When |
-|-------|----------|
-| `gemini-2.5-flash-image` (default) | Fast iteration, bulk generation, most tasks |
-| `gemini-3-pro-image-preview` | Text in images, final polished assets, complex scenes |
+| Model | Nano Banana Name | Use When |
+|-------|-----------------|----------|
+| `gemini-3.1-flash-image-preview` (default) | **Nano Banana 2** | Best instruction following, fast, most tasks |
+| `gemini-3-pro-image-preview` | **Nano Banana Pro** | Highest quality, text in images, complex scenes |
+| `gemini-2.5-flash-image` | **Nano Banana** (original) | Legacy, fast iteration |
+
+## Presets
+
+Style presets wrap your subject in a curated prompt template for consistent visual output.
+
+```bash
+scripts/generate_image.sh --list-presets           # show available presets
+scripts/generate_image.sh --preset editorial "network of nodes" ./out.png
+scripts/generate_image.sh --preset ink "a mountain" ./mountain.png
+```
+
+| Preset | Style |
+|--------|-------|
+| `editorial` | Thin lines on black, muted palette, technical diagram feel |
+| `blueprint` | White/cyan lines on dark navy, engineering drawing |
+| `ink` | Japanese sumi-e ink wash, organic brushstrokes, monochrome |
+| `risograph` | Flat colors, grain, terracotta + sage, zine aesthetic |
+| `wireframe` | 3D wireframe mesh, glowing edges on black |
+| `constellation` | Star map dots connected by faint lines, celestial |
+| `brutalist` | Bold shapes, thick borders, hard shadows, flat colors |
+| `grain` | Film grain photo, high ISO, warm cinematic tones |
+
+Presets are defined in `presets.yaml` -- add your own by copying the pattern.
 
 ## Workflow
 

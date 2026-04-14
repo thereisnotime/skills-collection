@@ -4,31 +4,102 @@
 #
 # Usage:
 #   ./generate_image.sh "prompt text" [output_path] [model]
+#   ./generate_image.sh --preset <name> "subject" [output_path] [model]
+#   ./generate_image.sh --list-presets
 #
 # Arguments:
 #   prompt      - Text description of the image to generate (required)
 #   output_path - Where to save the image (default: ./generated_image.png)
-#   model       - Model to use (default: gemini-2.5-flash-image)
-#                 Options: gemini-2.5-flash-image, gemini-3-pro-image-preview
+#   model       - Model to use (default: gemini-3.1-flash-image-preview)
+#                 Options: gemini-3.1-flash-image-preview (Nano Banana 2 - fastest, best instruction following)
+#                          gemini-3-pro-image-preview     (Nano Banana Pro - highest quality, text in images)
+#                          gemini-2.5-flash-image         (Nano Banana - original, fast)
+#
+# Presets:
+#   --preset <name>   Apply a style preset from presets.yaml (wraps subject in style prompt)
+#   --list-presets    Show available presets and exit
 #
 # Environment:
-#   GEMINI_API_KEY - Required. Google AI API key from https://ai.google.dev/
+#   GEMINI_API_KEY - Auto-decrypted from secrets.enc.yaml or set manually
 #
 # Examples:
 #   ./generate_image.sh "a cat sitting on a laptop"
-#   ./generate_image.sh "minimalist logo" ./logo.png
-#   ./generate_image.sh "detailed portrait" ./art.png gemini-3-pro-image-preview
+#   ./generate_image.sh --preset editorial "interconnected nodes in a loop" ./overlay.png
+#   ./generate_image.sh --preset ink "a mountain landscape" ./mountain.png
+#   ./generate_image.sh --list-presets
 
 set -euo pipefail
 
-PROMPT="${1:?Error: prompt is required. Usage: $0 \"prompt\" [output_path] [model]}"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PRESETS_FILE="${SCRIPT_DIR}/presets.yaml"
+
+# Handle --list-presets
+if [ "${1:-}" = "--list-presets" ]; then
+  if [ ! -f "$PRESETS_FILE" ]; then
+    echo "No presets file found at $PRESETS_FILE" >&2
+    exit 1
+  fi
+  python3 -c "
+import yaml, sys
+with open('$PRESETS_FILE') as f:
+    presets = yaml.safe_load(f)
+for name, conf in presets.items():
+    print(f'  {name:16s} {conf[\"description\"]}')
+"
+  exit 0
+fi
+
+# Handle --preset <name>
+PRESET=""
+if [ "${1:-}" = "--preset" ]; then
+  PRESET="${2:?Error: --preset requires a preset name}"
+  shift 2
+fi
+
+SUBJECT="${1:?Error: prompt/subject is required. Usage: $0 [--preset name] \"prompt\" [output_path] [model]}"
 OUTPUT="${2:-./generated_image.png}"
-MODEL="${3:-gemini-2.5-flash-image}"
+MODEL="${3:-gemini-3.1-flash-image-preview}"
+
+# Apply preset if specified
+if [ -n "$PRESET" ]; then
+  if [ ! -f "$PRESETS_FILE" ]; then
+    echo "Error: presets file not found at $PRESETS_FILE" >&2
+    exit 1
+  fi
+  PROMPT=$(python3 -c "
+import yaml, sys
+with open('$PRESETS_FILE') as f:
+    presets = yaml.safe_load(f)
+name = '$PRESET'
+if name not in presets:
+    print(f'Error: preset \"{name}\" not found. Available: {list(presets.keys())}', file=sys.stderr)
+    sys.exit(1)
+template = presets[name]['prompt']
+subject = '''$SUBJECT'''
+print(template.replace('{subject}', subject))
+")
+  echo "Preset: ${PRESET}"
+else
+  PROMPT="$SUBJECT"
+fi
 
 if [ -z "${GEMINI_API_KEY:-}" ]; then
-  echo "Error: GEMINI_API_KEY environment variable is not set." >&2
-  echo "Get a key from https://ai.google.dev/" >&2
-  exit 1
+  SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+  CENTRAL_SECRETS="${SCRIPT_DIR}/../secrets.enc.yaml"
+  LOCAL_SECRETS="${SCRIPT_DIR}/secrets.enc.yaml"
+  if command -v sops >/dev/null 2>&1; then
+    for f in "$LOCAL_SECRETS" "$CENTRAL_SECRETS"; do
+      if [ -f "$f" ]; then
+        GEMINI_API_KEY=$(sops --decrypt --extract '["GEMINI_API_KEY"]' "$f" 2>/dev/null)
+        [ -n "$GEMINI_API_KEY" ] && break
+      fi
+    done
+  fi
+  if [ -z "${GEMINI_API_KEY:-}" ]; then
+    echo "Error: GEMINI_API_KEY not set and could not decrypt from secrets.enc.yaml" >&2
+    echo "Either: export GEMINI_API_KEY=... or ensure sops + age key are configured" >&2
+    exit 1
+  fi
 fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent"

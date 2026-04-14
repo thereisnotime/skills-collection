@@ -15,7 +15,7 @@ const logo = `
 /**
  * Welcome screen
  */
-export function showWelcome(skillCount = 82, categoryCount = 20, agentCount = 6) {
+export function showWelcome(skillCount = 88, categoryCount = 22, agentCount = 9) {
   console.clear();
   console.log(chalk.white(logo));
   console.log();
@@ -159,6 +159,7 @@ export function showNoAgents() {
   console.log('                  ○  Gemini CLI');
   console.log('                  ○  Qwen Code');
   console.log('                  ○  .agents (shared)');
+  console.log('                  ○  Hermes Agent');
   console.log();
   console.log();
 }

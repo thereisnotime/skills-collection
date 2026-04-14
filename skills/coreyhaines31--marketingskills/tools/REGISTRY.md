@@ -61,7 +61,7 @@ Quick reference for AI agents to discover tool capabilities and integration meth
 | meta-ads | Ads | ✓ | - | [✓](clis/meta-ads.js) | ✓ | [meta-ads.md](integrations/meta-ads.md) |
 | linkedin-ads | Ads | ✓ | - | [✓](clis/linkedin-ads.js) | - | [linkedin-ads.md](integrations/linkedin-ads.md) |
 | tiktok-ads | Ads | ✓ | - | [✓](clis/tiktok-ads.js) | ✓ | [tiktok-ads.md](integrations/tiktok-ads.md) |
-| zapier | Automation | ✓ | ✓ | [✓](clis/zapier.js) | - | [zapier.md](integrations/zapier.md) |
+| zapier | Automation | ✓ | ✓ | [✓](clis/zapier.js) | ✓ | [zapier.md](integrations/zapier.md) |
 | hotjar | CRO | ✓ | - | [✓](clis/hotjar.js) | - | [hotjar.md](integrations/hotjar.md) |
 | optimizely | A/B Testing | ✓ | - | [✓](clis/optimizely.js) | ✓ | [optimizely.md](integrations/optimizely.md) |
 | calendly | Scheduling | ✓ | - | [✓](clis/calendly.js) | - | [calendly.md](integrations/calendly.md) |
@@ -202,9 +202,9 @@ Workflow automation and integration platforms.
 
 | Tool | Best For | MCP Available |
 |------|----------|:-------------:|
-| **zapier** | No-code integrations | ✓ |
+| **zapier** | No-code integrations + SDK for 8,000+ apps | ✓ |
 
-**Agent recommendation**: Zapier for connecting tools without code.
+**Agent recommendation**: Zapier SDK for agents that need to interact with any app directly. Zaps for always-on automations.
 
 ### CRO & A/B Testing
 
@@ -456,7 +456,7 @@ These tools have Model Context Protocol servers available, enabling direct agent
 - **mailchimp** - Email campaign management
 - **google-ads** - Ad campaign management
 - **resend** - Transactional email sending
-- **zapier** - Workflow automation
+- **zapier** - Workflow automation + SDK for 8,000+ app integrations
 - **zoominfo** - B2B contacts and intent data
 - **clay** - Data enrichment and outbound automation
 - **supermetrics** - Cross-platform marketing data

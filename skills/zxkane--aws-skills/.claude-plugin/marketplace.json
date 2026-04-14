@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "AWS development skills for Claude Code including CDK, serverless architecture, cost optimization, and Bedrock AgentCore for AI agent deployment",
-    "version": "2.2.1"
+    "version": "2.4.0"
   },
   "plugins": [
     {
@@ -131,8 +131,8 @@
     },
     {
       "name": "aws-agentic-ai",
-      "description": "AWS Bedrock AgentCore comprehensive expert for deploying and managing all AgentCore services including Gateway, Runtime, Memory, Identity, Code Interpreter, Browser, and Observability",
-      "version": "1.2.1",
+      "description": "AWS Bedrock AgentCore comprehensive expert for deploying and managing all AgentCore services including Gateway, Runtime, Memory, Identity, Code Interpreter, Browser, Observability, Agent Registry, and Evaluations",
+      "version": "1.4.0",
       "author": {
         "name": "Kane Zhu",
         "email": "me@kane.mx"
@@ -140,13 +140,25 @@
       "homepage": "https://github.com/zxkane/aws-skills",
       "repository": "https://github.com/zxkane/aws-skills",
       "license": "MIT",
-      "keywords": ["aws", "bedrock", "agentcore", "ai-agents", "mcp", "gateway", "runtime", "memory", "identity"],
+      "keywords": ["aws", "bedrock", "agentcore", "ai-agents", "mcp", "gateway", "runtime", "memory", "identity", "agent-registry", "discovery", "evaluations"],
       "category": "development",
       "source": "./plugins/aws-agentic-ai",
       "strict": false,
       "skills": [
         "./skills/aws-agentic-ai"
-      ]
+      ],
+      "mcpServers": {
+        "acdocs": {
+          "type": "stdio",
+          "command": "uvx",
+          "args": [
+            "awslabs.amazon-bedrock-agentcore-mcp-server@latest"
+          ],
+          "env": {
+            "FASTMCP_LOG_LEVEL": "ERROR"
+          }
+        }
+      }
     }
   ]
 }

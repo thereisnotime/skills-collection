@@ -531,6 +531,60 @@ describe("edit business logic", () => {
         }
     });
 
+    it("replace_between auto-strips tail boundary echo (duplicate closing brace)", async () => {
+        const { editFile } = await import("../lib/edit.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
+        const tmp = TMP("hex-test-echo-tail.js");
+        const content = "if (x) {\n    doSomething();\n}\n";
+        fs.writeFileSync(tmp, content);
+        try {
+            const lines = content.split("\n");
+            // LLM picks doSomething() as end anchor instead of }
+            const startTag = lineTag(fnv1a(lines[0]));
+            const endTag = lineTag(fnv1a(lines[1]));
+            const result = editFile(tmp, [{
+                replace_between: {
+                    start_anchor: `${startTag}.1`,
+                    end_anchor: `${endTag}.2`,
+                    new_text: "if (x) {\n    doOther();\n}",
+                    boundary_mode: "inclusive",
+                }
+            }]);
+            assert.ok(result.includes("boundary_echo_stripped"), "Reports boundary echo correction");
+            const written = fs.readFileSync(tmp, "utf-8");
+            assert.strictEqual(written, "if (x) {\n    doOther();\n}\n", "Exactly one closing brace");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
+    it("replace_between does not strip empty-line boundary echo", async () => {
+        const { editFile } = await import("../lib/edit.mjs");
+        const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
+        const tmp = TMP("hex-test-echo-empty.txt");
+        const content = "a\n\n\nb\n";
+        fs.writeFileSync(tmp, content);
+        try {
+            const lines = content.split("\n");
+            const startTag = lineTag(fnv1a(lines[0]));
+            const endTag = lineTag(fnv1a(lines[1]));
+            // Replace "a" + first empty line with "c" + empty line; next line is also empty
+            const result = editFile(tmp, [{
+                replace_between: {
+                    start_anchor: `${startTag}.1`,
+                    end_anchor: `${endTag}.2`,
+                    new_text: "c\n",
+                    boundary_mode: "inclusive",
+                }
+            }]);
+            assert.ok(!result.includes("boundary_echo_stripped"), "No false strip on empty lines");
+            const written = fs.readFileSync(tmp, "utf-8");
+            assert.ok(written.includes("\n\n"), "Empty lines preserved");
+        } finally {
+            fs.unlinkSync(tmp);
+        }
+    });
+
     it("sanitizes noisy LLM edit payload before apply", async () => {
         const { editFile } = await import("../lib/edit.mjs");
         const { fnv1a, lineTag } = await import("@levnikolaevich/hex-common/text-protocol/hash");
@@ -690,7 +744,7 @@ describe("hash collision safety", () => {
             fs.writeFileSync(tmp, `header\n${lineB}\n${padding}\nfooter\n`);
 
             // Edit with baseRevision — step 5 should detect collision via full hash mismatch
-            editFile(tmp, [{ set_line: { anchor: anchorA, new_text: "replaced" } }], { baseRevision: revision1 });
+            editFile(tmp, [{ set_line: { anchor: anchorA, new_text: "replaced" } }], { baseRevision: revision1, conflictPolicy: "strict" });
             assert.fail("Should have thrown HASH_MISMATCH, not silently edited wrong line");
         } catch (e) {
             assert.ok(e.message.includes("HASH_MISMATCH"), `Expected HASH_MISMATCH, got: ${e.message.slice(0, 100)}`);

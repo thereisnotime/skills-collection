@@ -60,7 +60,7 @@ Lightweight alternatives to the full [Google Workspace MCP server](https://githu
 
 ## Installation
 
-> **[`npx skills`](https://github.com/nicepkg/skills)** — The package manager for the open [Agent Skills](https://agentskills.io) ecosystem. One command to install skills into any AI coding agent.
+> **[`npx skills`](https://github.com/vercel-labs/skills)** — The package manager for the open [Agent Skills](https://agentskills.io) ecosystem. One command to install skills into any AI coding agent.
 
 ### Install Skills
 
@@ -364,7 +364,7 @@ Once installed, skills activate automatically based on your requests. Just ask n
 
 ## Skill Structure
 
-All skills follow the [Agent Skills Standard](https://agentskills.io):
+All skills follow the [Agent Skills Standard](https://agentskills.io/specification):
 
 ```
 skill-name/

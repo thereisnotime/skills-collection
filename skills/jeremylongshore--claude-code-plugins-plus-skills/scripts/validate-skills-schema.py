@@ -7,10 +7,12 @@ Unified validator for all Claude Code plugin content:
 - commands/*.md files (Slash Commands)
 - agents/*.md files (Custom Agents)
 
-Two-tier validation system:
+Three-tier validation system:
 - Standard (DEFAULT): Anthropic spec only. Validates field types and values.
 - Enterprise: Intent Solutions marketplace. All 8 core fields required as ERRORS.
   7 body sections required. 100-point rubric with Anthropic schema registry.
+- Deep (--deep): Intent Solutions Deep Evaluation Engine. 10 weighted dimensions,
+  trust badges, Elo competitive ranking, optional LLM-as-judge via Groq.
 - Auto-detect: if CI=true or GITHUB_ACTIONS=true → enterprise by default.
 
 Schema registry derived from:
@@ -21,13 +23,16 @@ Usage:
     python scripts/validate-skills-schema.py [--verbose|-v]              # Standard tier (default)
     python scripts/validate-skills-schema.py --enterprise [--verbose]    # Enterprise tier
     python scripts/validate-skills-schema.py --standard [--verbose]      # Explicit standard
+    python scripts/validate-skills-schema.py --deep [--verbose]         # Deep Evaluation Engine
+    python scripts/validate-skills-schema.py --deep --thorough          # Deep + LLM (Groq)
+    python scripts/validate-skills-schema.py --deep --report-format html  # HTML report
     python scripts/validate-skills-schema.py --skills-only
     python scripts/validate-skills-schema.py --commands-only
     python scripts/validate-skills-schema.py --agents-only
     python scripts/validate-skills-schema.py path/to/SKILL.md           # Single-file mode
 
 Author: Jeremy Longshore <jeremy@intentsolutions.io>
-Version: 5.1.0
+Version: 6.0.0
 """
 
 import argparse
@@ -412,15 +417,29 @@ def score_ease_of_use(path: Path, body: str, fm: dict) -> dict:
     meta_score = min(meta_score, 10)
     breakdown['metadata_quality'] = (meta_score, ", ".join(meta_notes) if meta_notes else "Complete metadata")
 
-    # Discoverability (6 pts)
+    # Discoverability (6 pts) — trigger quality assessment
     disc_score = 0
     disc_notes = []
     if 'use when' in desc:
-        disc_score += 3
+        disc_score += 2
         disc_notes.append("has 'Use when'")
     if 'trigger with' in desc or 'trigger phrase' in desc:
-        disc_score += 3
+        disc_score += 2
         disc_notes.append("has trigger phrases")
+    # Bonus: description contains action verbs that help model match intent
+    trigger_verbs = ['analyze', 'audit', 'build', 'check', 'create', 'debug',
+                     'deploy', 'detect', 'fix', 'generate', 'implement', 'manage',
+                     'monitor', 'optimize', 'review', 'scan', 'test', 'validate']
+    verb_matches = [v for v in trigger_verbs if v in desc]
+    if len(verb_matches) >= 2:
+        disc_score += 1
+        disc_notes.append(f"action verbs: {', '.join(verb_matches[:3])}")
+    # Bonus: description length in sweet spot for matching (50-300 chars)
+    desc_len = len(str(fm.get('description', '')))
+    if 50 <= desc_len <= 300:
+        disc_score += 1
+        disc_notes.append("description length in trigger sweet spot")
+    disc_score = min(disc_score, 6)
     if not disc_notes:
         disc_notes.append("missing discovery cues")
     breakdown['discoverability'] = (disc_score, ", ".join(disc_notes))
@@ -763,37 +782,79 @@ def calculate_modifiers(path: Path, body: str, fm: dict) -> dict:
     if '<' in body and '>' in body and re.search(r'<[a-z]+>', body):
         modifiers['xml_tags'] = (-1, "XML-like tags in body")
 
-    # Stub penalty: skill meets one or more stub criteria -3
+    # === ANTI-PATTERN DETECTION (graduated penalty system) ===
+    # Each detected anti-pattern reduces score by 1pt, floor at -5
     skill_dir = path.parent
     code_blocks = len(re.findall(r'```', body)) // 2
     md_links = len(re.findall(r'\[.*?\]\((?!https?://)[^)]+\)', body))
     body_word_count = len(body.split())
+
+    anti_patterns_found = []
+
+    # AP1: Over-constrained — excessive MUST/NEVER/ALWAYS keywords
+    constraint_words = len(re.findall(r'\b(MUST|NEVER|ALWAYS|SHALL NOT|REQUIRED)\b', body))
+    if constraint_words > 15:
+        anti_patterns_found.append(f"over-constrained ({constraint_words} MUST/NEVER/ALWAYS — reduces flexibility)")
+    elif constraint_words > 10:
+        anti_patterns_found.append(f"moderately constrained ({constraint_words} MUST/NEVER/ALWAYS)")
+
+    # AP2: Missing trigger phrase — description lacks activation cues
+    desc_lower_ap = desc.lower()
+    has_trigger_cue = any(phrase in desc_lower_ap for phrase in [
+        'use when', 'use this', 'trigger', 'use proactively', 'activate',
+        'use for', 'invoke when',
+    ])
+    if not has_trigger_cue and len(desc) > 20:
+        anti_patterns_found.append("missing trigger phrase in description — autonomous activation impossible")
+
+    refs_dir = skill_dir / "references"
+
+    # AP3: Orphan references — markdown links to files that don't exist
+    if refs_dir.exists():
+        orphan_refs = []
+        for match in re.finditer(r'\[([^\]]*)\]\((references/[^)]+)\)', body):
+            ref_target = skill_dir / match.group(2)
+            if not ref_target.exists():
+                orphan_refs.append(match.group(2))
+        if orphan_refs:
+            anti_patterns_found.append(f"orphan references: {', '.join(orphan_refs[:3])}")
+
+    # AP5: Stub detection (replaces old flat -3 penalty with graduated system)
     placeholder_tokens = ['TODO', 'FIXME', 'REPLACE_ME', 'TBD', '[YOUR_', '<insert']
     placeholder_count = sum(
         len(re.findall(re.escape(tok), body, re.IGNORECASE))
         for tok in placeholder_tokens
     ) + len(re.findall(r'\{[a-z_]+\}', body))
     placeholder_density = placeholder_count / body_word_count if body_word_count > 0 else 0.0
-    stub_criteria_met = (
-        lines < 30
-        or (code_blocks == 0 and md_links == 0)
-        or body_word_count < 150
-        or placeholder_density > 0.05
-    )
-    if stub_criteria_met:
-        stub_reasons_mod = []
-        if lines < 30:
-            stub_reasons_mod.append(f"{lines} lines")
-        if code_blocks == 0 and md_links == 0:
-            stub_reasons_mod.append("no code blocks or links")
-        if body_word_count < 150:
-            stub_reasons_mod.append(f"{body_word_count} words")
-        if placeholder_density > 0.05:
-            stub_reasons_mod.append(f"placeholder density {placeholder_density:.1%}")
-        modifiers['stub_penalty'] = (-3, f"Stub skill: {', '.join(stub_reasons_mod)}")
+    stub_signals = 0
+    stub_reasons_mod = []
+    if lines < 30:
+        stub_signals += 1
+        stub_reasons_mod.append(f"{lines} lines")
+    if code_blocks == 0 and md_links == 0:
+        stub_signals += 1
+        stub_reasons_mod.append("no code blocks or links")
+    if body_word_count < 150:
+        stub_signals += 1
+        stub_reasons_mod.append(f"{body_word_count} words")
+    if placeholder_density > 0.05:
+        stub_signals += 1
+        stub_reasons_mod.append(f"placeholder density {placeholder_density:.1%}")
+    if stub_signals >= 2:
+        anti_patterns_found.append(f"stub skill: {', '.join(stub_reasons_mod)}")
+
+    # AP6: Ecosystem coherence — bonus for cross-referencing siblings
+    has_cross_ref = bool(re.search(r'(?i)(see also|related skill|sibling|cross-reference|companion)', body))
+    has_see_also_links = bool(re.search(r'\[.*?\]\(\.\./.*?/SKILL\.md\)', body))
+    if has_cross_ref or has_see_also_links:
+        modifiers['ecosystem_coherence'] = (+1, "cross-references sibling skills")
+
+    # Apply graduated anti-pattern penalty: -1 per pattern, max -5
+    if anti_patterns_found:
+        penalty = min(len(anti_patterns_found), 5)
+        modifiers['anti_pattern_penalty'] = (-penalty, f"{len(anti_patterns_found)} anti-pattern(s): {'; '.join(anti_patterns_found)}")
 
     # Supporting files bonus: has references/ with real content +1
-    refs_dir = skill_dir / "references"
     if refs_dir.exists():
         ref_files = [f for f in refs_dir.glob("*.md") if f.stat().st_size > 100]
         if ref_files:
@@ -802,7 +863,7 @@ def calculate_modifiers(path: Path, body: str, fm: dict) -> dict:
     total = sum(v[0] for v in modifiers.values())
     # Cap modifiers at ±15
     total = max(-15, min(15, total))
-    return {'score': total, 'max_bonus': 6, 'max_penalty': -7, 'items': modifiers}
+    return {'score': total, 'max_bonus': 8, 'max_penalty': -10, 'items': modifiers}
 
 
 def grade_skill(path: Path, body: str, fm: dict) -> dict:
@@ -3009,6 +3070,23 @@ def main() -> int:
         help="Write validation results to SQLite database (e.g., freshie/inventory.sqlite)",
     )
     parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Run Intent Solutions Deep Evaluation Engine (10 dimensions, badges, rankings)",
+    )
+    parser.add_argument(
+        "--thorough",
+        action="store_true",
+        help="With --deep: enable LLM quality assessment via Groq (requires GROQ_API_KEY)",
+    )
+    parser.add_argument(
+        "--report-format",
+        type=str,
+        default="terminal",
+        choices=["terminal", "json", "markdown", "html"],
+        help="Output format for --deep mode (default: terminal)",
+    )
+    parser.add_argument(
         "path",
         nargs="?",
         default=None,
@@ -3102,6 +3180,44 @@ def main() -> int:
                     for item_name, (pts, note) in pillar_data.get('breakdown', {}).items():
                         print(f"    {item_name:<28} {pts} - {note}")
             print(f"{'=' * 70}")
+
+            # Deep eval in single-file mode
+            if args.deep and target.name == 'SKILL.md':
+                try:
+                    from deep_eval.engine import DeepEvalEngine
+                    from deep_eval.reporter import format_terminal, format_json
+
+                    print(f"\n{'=' * 70}")
+                    print(f"🔬 DEEP EVALUATION")
+                    print(f"{'=' * 70}\n")
+
+                    content = target.read_text(encoding='utf-8')
+                    fm, body = parse_frontmatter(content)
+                    engine = DeepEvalEngine(use_llm=args.thorough, verbose=verbose)
+                    deep_result = engine.evaluate_skill(
+                        target, body, fm,
+                        letter_grade=letter, deterministic_score=score,
+                    )
+                    deep_summary = engine.summary([deep_result])
+
+                    if args.report_format == 'json':
+                        print(format_json([deep_result], deep_summary))
+                    else:
+                        print(format_terminal([deep_result], deep_summary, verbose=True))
+
+                    # Write to DB if requested
+                    if args.populate_db:
+                        from deep_eval.db import populate_deep_eval_db
+                        run_id = populate_deep_eval_db(
+                            args.populate_db, [deep_result], deep_summary,
+                            run_config={'single_file': True, 'use_llm': args.thorough},
+                        )
+                        print(f"📊 Deep eval written to {args.populate_db} (run_id={run_id})")
+
+                except ImportError as e:
+                    print(f"\n❌ Deep eval not available: {e}")
+                except Exception as e:
+                    print(f"\n❌ Deep eval failed: {e}")
 
             return 1 if result['errors'] else 0
         else:
@@ -3326,6 +3442,85 @@ def main() -> int:
             print(f"   agent_compliance: {len(json_agent_results)} rows", flush=True)
         except Exception as e:
             print(f"\n❌ Failed to write compliance DB: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+
+    # === DEEP EVALUATION ENGINE ===
+    if args.deep and skills:
+        try:
+            from deep_eval.engine import DeepEvalEngine
+            from deep_eval.reporter import format_terminal, format_json, format_markdown, format_html
+            from deep_eval.db import populate_deep_eval_db
+
+            print(f"\n{'=' * 70}")
+            print(f"🔬 INTENT SOLUTIONS DEEP EVALUATION ENGINE v1.0")
+            print(f"{'=' * 70}\n")
+
+            use_llm = args.thorough
+            engine = DeepEvalEngine(use_llm=use_llm, verbose=verbose)
+
+            # Build skill data for deep eval from already-validated skills
+            deep_eval_skills = []
+            for skill_path in skills:
+                try:
+                    content = skill_path.read_text(encoding='utf-8')
+                    fm, body = parse_frontmatter(content)
+                    # Find matching json result for grade/score
+                    matching = [r for r in json_skill_results if Path(r.get('path', '')).resolve() == skill_path.resolve() or r.get('path', '').endswith(str(skill_path.relative_to(repo_root)))]
+                    grade = matching[0].get('grade', 'F') if matching else 'F'
+                    score = matching[0].get('score', 0) if matching else 0
+                    deep_eval_skills.append({
+                        'path': str(skill_path),
+                        'body': body,
+                        'fm': fm,
+                        'name': fm.get('name', skill_path.stem),
+                        'grade': grade,
+                        'score': score,
+                    })
+                except Exception:
+                    continue
+
+            if deep_eval_skills:
+                # Run deep evaluation
+                deep_results = engine.evaluate_batch(deep_eval_skills)
+                deep_summary = engine.summary(deep_results)
+
+                # Run rankings
+                deep_rankings = engine.rank_results(deep_results)
+
+                # Output in requested format
+                if args.report_format == 'json':
+                    print(format_json(deep_results, deep_summary, deep_rankings))
+                elif args.report_format == 'markdown':
+                    print(format_markdown(deep_results, deep_summary, deep_rankings))
+                elif args.report_format == 'html':
+                    html_output = format_html(deep_results, deep_summary, deep_rankings)
+                    html_path = repo_root / 'deep-eval-report.html'
+                    html_path.write_text(html_output, encoding='utf-8')
+                    print(f"HTML report written to: {html_path}")
+                else:
+                    print(format_terminal(deep_results, deep_summary, deep_rankings, verbose=verbose))
+
+                # Write to freshie DB if --populate-db is set
+                if args.populate_db:
+                    try:
+                        run_id = populate_deep_eval_db(
+                            args.populate_db,
+                            deep_results,
+                            deep_summary,
+                            rankings=deep_rankings,
+                            run_config={'use_llm': use_llm, 'thorough': args.thorough},
+                        )
+                        print(f"\n📊 Deep eval data written to {args.populate_db} (run_id={run_id})")
+                        print(f"   deep_eval_results: {len(deep_results)} rows")
+                    except Exception as e:
+                        print(f"\n❌ Failed to write deep eval DB: {e}")
+
+        except ImportError as e:
+            print(f"\n❌ Deep eval engine not available: {e}")
+            print("   Ensure scripts/deep_eval/ package exists")
+        except Exception as e:
+            print(f"\n❌ Deep eval failed: {e}")
             import traceback
             traceback.print_exc()
 

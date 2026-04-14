@@ -764,6 +764,35 @@ sources:
       - ".github/**"
 
   # ============================================================
+  # CLI Power Skills (Yuriy Kotik)
+  # https://github.com/ykotik/cli-power-skills
+  # ============================================================
+
+  - name: cli-power-skills
+    description: Agentic CLI tool skills — 7 domain-grouped skills covering 26 CLI tools
+    repo: ykotik/cli-power-skills
+    source_path: .
+    target_path: plugins/productivity/cli-power-skills
+    author:
+      name: Yuriy Kotik
+      github: ykotik
+    license: MIT
+    category: productivity
+    verified: false
+    include:
+      - ".claude-plugin/**"
+      - "skills/**"
+      - "package.json"
+      - "README.md"
+      - "INSTALL.md"
+      - "LICENSE"
+    exclude:
+      - "node_modules/**"
+      - ".git/**"
+      - "*.log"
+      - "docs/**"
+
+  # ============================================================
   # Add more external sources below
   # ============================================================
 

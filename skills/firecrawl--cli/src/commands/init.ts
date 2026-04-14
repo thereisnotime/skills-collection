@@ -252,11 +252,6 @@ async function stepInstall(): Promise<boolean> {
 }
 
 async function stepAuth(options: InitOptions): Promise<boolean> {
-  if (isAuthenticated()) {
-    console.log(`  ${green}✓${reset} Already authenticated\n`);
-    return true;
-  }
-
   if (options.apiKey) {
     try {
       saveCredentials({ apiKey: options.apiKey });
@@ -270,6 +265,11 @@ async function stepAuth(options: InitOptions): Promise<boolean> {
       );
       return false;
     }
+  }
+
+  if (isAuthenticated()) {
+    console.log(`  ${green}✓${reset} Already authenticated\n`);
+    return true;
   }
 
   const { select } = await import('@inquirer/prompts');
@@ -680,8 +680,8 @@ export async function handleInitCommand(
 
 async function runNonInteractive(options: InitOptions): Promise<void> {
   const steps: string[] = [];
-  if (!options.skipInstall) steps.push('install');
   if (!options.skipAuth) steps.push('auth');
+  if (!options.skipInstall) steps.push('install');
   if (!options.skipSkills) steps.push('skills');
   const total = steps.length;
   let current = 0;
@@ -691,24 +691,8 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
     return `${bold}[${current}/${total}]${reset}`;
   };
 
-  if (!options.skipInstall) {
-    console.log(`${stepLabel()} Installing firecrawl-cli globally...`);
-    try {
-      execSync('npm install -g firecrawl-cli', { stdio: 'inherit' });
-      console.log(`${green}✓${reset} CLI installed globally\n`);
-    } catch {
-      console.error(
-        '\nFailed to install firecrawl-cli globally. You may need to run with sudo or fix npm permissions.'
-      );
-      process.exit(1);
-    }
-  }
-
   if (!options.skipAuth) {
-    if (isAuthenticated()) {
-      console.log(`${stepLabel()} Authenticating...`);
-      console.log(`${green}✓${reset} Already authenticated\n`);
-    } else if (options.apiKey) {
+    if (options.apiKey) {
       console.log(`${stepLabel()} Authenticating with API key...`);
       try {
         saveCredentials({ apiKey: options.apiKey });
@@ -721,6 +705,9 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
         );
         process.exit(1);
       }
+    } else if (isAuthenticated()) {
+      console.log(`${stepLabel()} Authenticating...`);
+      console.log(`${green}✓${reset} Already authenticated\n`);
     } else {
       console.log(`${stepLabel()} Authenticating with Firecrawl...`);
       try {
@@ -741,6 +728,21 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
         );
         console.log('You can authenticate later with: firecrawl login\n');
       }
+    }
+  }
+
+  if (!options.skipInstall) {
+    console.log(`${stepLabel()} Installing firecrawl-cli globally...`);
+    try {
+      execSync('npm install -g firecrawl-cli', { stdio: 'inherit' });
+      console.log(`${green}✓${reset} CLI installed globally\n`);
+    } catch {
+      console.error(
+        `\n${dim}Failed to install firecrawl-cli globally. You may need sudo or fix npm permissions.${reset}`
+      );
+      console.log(
+        `${dim}Continuing — the CLI is already running via npx.${reset}\n`
+      );
     }
   }
 

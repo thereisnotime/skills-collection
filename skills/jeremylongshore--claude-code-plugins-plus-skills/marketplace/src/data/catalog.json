@@ -1,17 +1,17 @@
 {
   "meta": {
     "version": "1.0.0",
-    "generated": "2026-03-27T19:36:24.739Z",
+    "generated": "2026-04-08T16:37:52.171Z",
     "source": "marketplace.extended.json",
     "generator": "scripts/sync-catalog.mjs"
   },
   "stats": {
-    "totalPlugins": 416,
-    "totalSkills": 2800,
-    "totalCommands": 75,
-    "pluginsWithSkills": 389,
+    "totalPlugins": 423,
+    "totalSkills": 2937,
+    "totalCommands": 81,
+    "pluginsWithSkills": 396,
     "byCategory": {
-      "productivity": 41,
+      "productivity": 43,
       "security": 29,
       "testing": 25,
       "ai-ml": 76,
@@ -22,16 +22,16 @@
       "skill-enhancers": 8,
       "debugging": 1,
       "packages": 1,
-      "database": 30,
+      "database": 31,
       "design": 8,
-      "ai-agency": 6,
+      "ai-agency": 8,
       "business-tools": 52,
       "fullstack": 1,
       "example": 3,
       "finance": 1,
       "code-quality": 3,
-      "automation": 2,
-      "community": 6,
+      "automation": 3,
+      "community": 7,
       "development": 1,
       "data-engineering": 2,
       "enterprise": 2,
@@ -39,12 +39,12 @@
       "saas-packs": 1
     },
     "byStatus": {
-      "active": 397,
+      "active": 404,
       "maintained": 19
     },
     "featured": 7,
-    "new": 395,
-    "generatedAt": "2026-03-27T19:36:24.739Z"
+    "new": 402,
+    "generatedAt": "2026-04-08T16:37:52.171Z"
   },
   "plugins": [
     {
@@ -11669,7 +11669,7 @@
         "anthropic-spec"
       ],
       "hasSkills": true,
-      "skillCount": 1,
+      "skillCount": 2,
       "commandCount": 0,
       "installCommand": "/plugin install skill-creator",
       "sourcePath": "./plugins/skill-enhancers/skill-creator",
@@ -14153,6 +14153,254 @@
       "isNew": true,
       "author": {
         "name": "Claude Code Plugins"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "claudebase",
+      "name": "claudebase",
+      "displayName": "claudebase",
+      "description": "Back up, restore, and sync your Claude Code config to a private GitHub repo with named profiles, secret scanning, and multi-machine conflict detection.",
+      "version": "1.0.0",
+      "category": "productivity",
+      "keywords": [
+        "backup",
+        "sync",
+        "config",
+        "profiles",
+        "dotfiles",
+        "multi-machine"
+      ],
+      "hasSkills": true,
+      "skillCount": 6,
+      "commandCount": 0,
+      "installCommand": "/plugin install claudebase",
+      "sourcePath": "./plugins/productivity/claudebase",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Rohit Hazra",
+        "email": ""
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "framecraft",
+      "name": "framecraft",
+      "displayName": "framecraft",
+      "description": "Generate polished demo videos from a single prompt. Orchestrates Playwright, FFmpeg, and Edge TTS MCP servers to produce 1920x1080 videos with voiceover, transitions, and CSS animations.",
+      "version": "1.0.0",
+      "category": "community",
+      "keywords": [
+        "demo-video",
+        "video-generation",
+        "playwright",
+        "ffmpeg",
+        "edge-tts",
+        "mcp"
+      ],
+      "hasSkills": true,
+      "skillCount": 1,
+      "commandCount": 0,
+      "installCommand": "/plugin install framecraft",
+      "sourcePath": "./plugins/community/framecraft",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "vaddisrinivas",
+        "url": "https://github.com/vaddisrinivas"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "freshie-inventory-manager",
+      "name": "freshie-inventory-manager",
+      "displayName": "freshie inventory manager",
+      "description": "Interactive command center for the freshie ecosystem inventory database — conversational wizard with subagents for discovery scans, compliance grading, batch remediation, querying, reporting, and email PDF delivery across 50 tables of plugin/skill/pack metadata",
+      "version": "1.0.0",
+      "category": "database",
+      "keywords": [
+        "database",
+        "inventory",
+        "freshie",
+        "compliance",
+        "sqlite",
+        "ecosystem",
+        "audit",
+        "subagents"
+      ],
+      "hasSkills": true,
+      "skillCount": 1,
+      "commandCount": 0,
+      "installCommand": "/plugin install freshie-inventory-manager",
+      "sourcePath": "./plugins/database/freshie-inventory-manager",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Jeremy Longshore",
+        "email": "jeremy@intentsolutions.io"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "hyperfocus",
+      "name": "hyperfocus",
+      "displayName": "hyperfocus",
+      "description": "ADHD-friendly output formatting for Claude Code. Restructures responses with evidence-based cognitive accessibility: chunking, visual hierarchy, front-loaded key points, and progressive disclosure.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "keywords": [
+        "accessibility",
+        "adhd",
+        "neurodivergent",
+        "formatting",
+        "readability",
+        "productivity",
+        "cognitive-accessibility"
+      ],
+      "hasSkills": true,
+      "skillCount": 1,
+      "commandCount": 0,
+      "installCommand": "/plugin install hyperfocus",
+      "sourcePath": "./plugins/productivity/hyperfocus",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Nestor Magalhaes",
+        "email": "nestor.magalhaes@appex.world"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "shipwright",
+      "name": "shipwright",
+      "displayName": "shipwright",
+      "description": "Describe your app in plain English — Shipwright builds, tests, and deploys it autonomously via a 9-phase pipeline.",
+      "version": "1.0.0",
+      "category": "ai-agency",
+      "keywords": [
+        "app-builder",
+        "code-generator",
+        "autonomous-agent",
+        "pipeline",
+        "nextjs",
+        "supabase",
+        "sveltekit",
+        "astro",
+        "ai-agency"
+      ],
+      "hasSkills": true,
+      "skillCount": 1,
+      "commandCount": 4,
+      "installCommand": "/plugin install shipwright",
+      "sourcePath": "./plugins/ai-agency/shipwright",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Nate Nelson",
+        "url": "https://github.com/Wynelson94"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "tonone",
+      "name": "tonone",
+      "displayName": "tonone",
+      "description": "23-agent AI team for software teams: 15 engineering specialists (Apex, Forge, Relay, Spine, Flux, Warden, Vigil, Prism, Cortex, Touch, Volt, Atlas, Lens, Proof, Pave) + 8 product agents (Helm, Echo, Lumen, Draft, Form, Crest, Pitch, Surge) with a formal Helm→Apex handoff interface and 125 skills.",
+      "version": "0.6.5",
+      "category": "ai-agency",
+      "keywords": [
+        "ai-team",
+        "multi-agent",
+        "orchestration",
+        "engineering",
+        "product",
+        "agents",
+        "ai-agency"
+      ],
+      "hasSkills": true,
+      "skillCount": 125,
+      "commandCount": 0,
+      "installCommand": "/plugin install tonone",
+      "sourcePath": "./plugins/ai-agency/tonone",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "thisisfatih",
+        "url": "https://github.com/thisisfatih"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "tweetclaw",
+      "name": "tweetclaw",
+      "displayName": "tweetclaw",
+      "description": "X/Twitter automation - post, reply, like, retweet, follow, DM, search, extract data, monitor accounts, run giveaways. 121 endpoints via Xquik REST API.",
+      "version": "1.5.3",
+      "category": "automation",
+      "keywords": [
+        "twitter",
+        "x",
+        "automation",
+        "social-media",
+        "tweets",
+        "monitoring",
+        "giveaway",
+        "scraping"
+      ],
+      "hasSkills": true,
+      "skillCount": 1,
+      "commandCount": 2,
+      "installCommand": "/plugin install tweetclaw",
+      "sourcePath": "./plugins/automation/tweetclaw",
+      "lastUpdatedEpoch": 1775666203,
+      "lastUpdatedDate": "2026-04-08T16:36:43.549Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Burak Bayir",
+        "email": "burak@xquik.com",
+        "url": "https://xquik.com"
       },
       "type": "instruction-plugin"
     }

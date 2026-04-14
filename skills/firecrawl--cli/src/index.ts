@@ -1305,13 +1305,14 @@ program
   .option('--skip-auth', 'Skip authentication')
   .option('--skip-skills', 'Skip skills installation')
   .action(async (template, options) => {
+    const globalOptions = program.opts();
     await handleInitCommand({
       template,
       global: options.global,
       agent: options.agent,
       all: options.all,
       yes: options.yes,
-      apiKey: options.apiKey,
+      apiKey: options.apiKey ?? globalOptions.apiKey,
       browser: options.browser,
       skipInstall: options.skipInstall,
       skipAuth: options.skipAuth,
