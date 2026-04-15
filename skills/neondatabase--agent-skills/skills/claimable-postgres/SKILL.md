@@ -46,10 +46,10 @@ curl -s -X POST "https://neon.new/api/v1/database" \
   -d '{"ref": "agent-skills"}'
 ```
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `ref` | Yes | Tracking tag that identifies who provisioned the database. Use `"agent-skills"` when provisioning through this skill. |
-| `enable_logical_replication` | No | Enable logical replication (default: false, cannot be disabled once enabled) |
+| Parameter                    | Required | Description                                                                                                           |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `ref`                        | Yes      | Tracking tag that identifies who provisioned the database. Use `"agent-skills"` when provisioning through this skill. |
+| `enable_logical_replication` | No       | Enable logical replication (default: false, cannot be disabled once enabled)                                          |
 
 The `connection_string` returned by the API is a pooled connection URL. For a direct (non-pooled) connection (e.g. Prisma migrations), remove `-pooler` from the hostname. The CLI writes both pooled and direct URLs automatically.
 
@@ -78,11 +78,11 @@ Returns the same response shape. Status transitions: `UNCLAIMED` -> `CLAIMING` -
 
 ### Error responses
 
-| Condition | HTTP | Message |
-|-----------|------|---------|
-| Missing or empty `ref` | 400 | `Missing referrer` |
-| Invalid database ID | 400 | `Database not found` |
-| Invalid JSON body | 500 | `Failed to create the database.` |
+| Condition              | HTTP | Message                          |
+| ---------------------- | ---- | -------------------------------- |
+| Missing or empty `ref` | 400  | `Missing referrer`               |
+| Invalid database ID    | 400  | `Database not found`             |
+| Invalid JSON body      | 500  | `Failed to create the database.` |
 
 ## CLI
 
@@ -106,15 +106,15 @@ Get confirmation before proceeding.
 
 ### Options
 
-| Option | Alias | Description | Default |
-|--------|-------|-------------|---------|
-| `--yes` | `-y` | Skip prompts, use defaults | `false` |
-| `--env` | `-e` | .env file path | `./.env` |
-| `--key` | `-k` | Connection string env var key | `DATABASE_URL` |
-| `--prefix` | `-p` | Prefix for generated public env vars | `PUBLIC_` |
-| `--seed` | `-s` | Path to seed SQL file | none |
-| `--logical-replication` | `-L` | Enable logical replication | `false` |
-| `--ref` | `-r` | Referrer id (use `agent-skills` when provisioning through this skill) | none |
+| Option                  | Alias | Description                                                           | Default        |
+| ----------------------- | ----- | --------------------------------------------------------------------- | -------------- |
+| `--yes`                 | `-y`  | Skip prompts, use defaults                                            | `false`        |
+| `--env`                 | `-e`  | .env file path                                                        | `./.env`       |
+| `--key`                 | `-k`  | Connection string env var key                                         | `DATABASE_URL` |
+| `--prefix`              | `-p`  | Prefix for generated public env vars                                  | `PUBLIC_`      |
+| `--seed`                | `-s`  | Path to seed SQL file                                                 | none           |
+| `--logical-replication` | `-L`  | Enable logical replication                                            | `false`        |
+| `--ref`                 | `-r`  | Referrer id (use `agent-skills` when provisioning through this skill) | none           |
 
 Alternative package managers: `yarn dlx neon-new@latest`, `pnpm dlx neon-new@latest`, `bunx neon-new@latest`, `deno run -A neon-new@latest`.
 
@@ -133,12 +133,13 @@ PUBLIC_POSTGRES_CLAIM_URL=https://neon.new/claim/...
 Use for scripts and programmatic provisioning flows.
 
 ```typescript
-import { instantPostgres } from 'neon-new';
+import { instantPostgres } from "neon-new";
 
-const { databaseUrl, databaseUrlDirect, claimUrl, claimExpiresAt } = await instantPostgres({
-  referrer: 'agent-skills',
-  seed: { type: 'sql-script', path: './init.sql' },
-});
+const { databaseUrl, databaseUrlDirect, claimUrl, claimExpiresAt } =
+  await instantPostgres({
+    referrer: "agent-skills",
+    seed: { type: "sql-script", path: "./init.sql" },
+  });
 ```
 
 Returns `databaseUrl` (pooled), `databaseUrlDirect` (direct, for migrations), `claimUrl`, and `claimExpiresAt` (Date object). The `referrer` parameter is required.
@@ -195,20 +196,20 @@ Users cannot claim into Vercel-linked orgs; they must choose another Neon org.
 
 ## Defaults and Limits
 
-| Parameter | Value |
-|-----------|-------|
-| Provider | AWS |
-| Region | us-east-2 |
-| Postgres | 17 |
+| Parameter | Value     |
+| --------- | --------- |
+| Provider  | AWS       |
+| Region    | us-east-2 |
+| Postgres  | 17        |
 
 Region cannot be changed for claimable databases. Unclaimed databases have stricter quotas. Claiming resets limits to free plan defaults.
 
-| | Unclaimed | Claimed (Free plan) |
-|---|-----------|---------------------|
-| Storage | 100 MB | 512 MB |
-| Transfer | 1 GB | ~5 GB |
-| Branches | No | Yes |
-| Expiration | 72 hours | None |
+|            | Unclaimed | Claimed (Free plan) |
+| ---------- | --------- | ------------------- |
+| Storage    | 100 MB    | 512 MB              |
+| Transfer   | 1 GB      | ~5 GB               |
+| Branches   | No        | Yes                 |
+| Expiration | 72 hours  | None                |
 
 ## Auto-provisioning
 

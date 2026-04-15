@@ -32,6 +32,14 @@ if (manifest?.bundles) {
   }
 }
 
+// Map individual plugin data by name for SaaS packs
+const pluginMap = new Map();
+if (manifest?.plugins) {
+  for (const p of manifest.plugins) {
+    pluginMap.set(p.name, p);
+  }
+}
+
 // SVG icon map (inline SVGs for zero-dependency rendering)
 const icons: Record<string, string> = {
   'brain': '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 3 2 5.5 4 7.5S12 22 12 22s3-3.5 3-5.5 4-4.5 4-7.5a7 7 0 0 0-7-7z"/></svg>',
@@ -181,8 +189,21 @@ const icons: Record<string, string> = {
 
 <div class="cowork-grid">
   {displayPacks.map(pack => {
-    const bundle = bundleMap.get(pack.category);
+    // For individual SaaS packs, use plugin data; for category bundles, use bundle data
+    const isSaasPack = pack.isSaasPack;
+    const plugin = isSaasPack ? pluginMap.get(pack.packName) : null;
+    const bundle = !isSaasPack ? bundleMap.get(pack.category) : null;
     const iconSvg = icons[pack.icon] || icons['package'];
+
+    // Determine download path and stats
+    const downloadPath = isSaasPack
+      ? (plugin?.path || `/downloads/plugins/${pack.packName}.zip`)
+      : (bundle?.path || `/downloads/bundles/${pack.category}.zip`);
+    const downloadName = isSaasPack ? `${pack.packName}.zip` : `${pack.category}.zip`;
+    const sizeFormatted = isSaasPack
+      ? (plugin?.sizeFormatted || 'Loading...')
+      : (bundle?.sizeFormatted || 'Loading...');
+
     return (
       <div class="cowork-card" data-pack-id={pack.id}>
         <div class="cowork-header">
@@ -201,15 +222,23 @@ const icons: Record<string, string> = {
           </div>
         )}
 
+        {plugin && (
+          <div class="cowork-stats">
+            {plugin.skillCount > 0 && <span class="cowork-stat">{plugin.skillCount} skills</span>}
+            {plugin.commandCount > 0 && <span class="cowork-stat">{plugin.commandCount} commands</span>}
+          </div>
+        )}
+
         <div class="cowork-footer">
           <span class="cowork-stat">
-            {bundle ? bundle.sizeFormatted : 'Loading...'}
+            {sizeFormatted}
           </span>
           <a
-            href={bundle ? bundle.path : `/downloads/bundles/${pack.category}.zip`}
-            download={`${pack.category}.zip`}
+            href={downloadPath}
+            download={downloadName}
             class="download-btn"
             data-category={pack.category}
+            data-pack={pack.packName || ''}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" role="img" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Download

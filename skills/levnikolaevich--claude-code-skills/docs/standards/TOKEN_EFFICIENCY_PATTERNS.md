@@ -48,7 +48,7 @@ Analysis of RTK (Rust Token Killer) — CLI proxy reducing output by 60-90%.
 | 3 | SQLite token analytics (`rtk gain`) | Skip | Over-engineering. `/cost` and ccusage cover this |
 | 4 | Session history analysis (`rtk learn`) | Adapt | Pattern valuable; JSONL parsing fragile. Better as a skill reading Claude Code history |
 | 5 | Missed optimization discovery (`rtk discover`) | Skip | Specific to RTK. Concept already in ln-511, ln-640 |
-| 6 | Error output recovery (`rtk tee`) | **Adopt** | PostToolUse hook saves full output on failure. ~25 lines bash |
+| 6 | Error output recovery (`rtk tee`) | **Skip** | Claude Code already persists the full session transcript (JSONL at `transcript_path`) including Bash stdout/stderr for both success and failure. A custom `.hex-skills/logs/error_recovery/` duplicates that without adding actionable value — short-lived v1.21.0–1.21.1 hook reverted in v1.22.0 |
 | 7 | Dual hooks: rewrite + suggest (`systemMessage`) | **Adopt** | Non-blocking `systemMessage` ideal for skill recommendations |
 | 8 | Slim awareness file (compact LLM context) | Adapt | Good idea; Claude Code already supports per-directory CLAUDE.md natively |
 | 9 | Ultra-compact mode (`--ultra-compact`) | Skip | Agent reads SKILL.md, not CLI output. Irrelevant |
@@ -58,9 +58,6 @@ Analysis of RTK (Rust Token Killer) — CLI proxy reducing output by 60-90%.
 | 13 | Hook integrity check (`rtk init --show`) | **Adopt** | Validate hooks.json, script existence, dependencies |
 
 ### Adopted Patterns Detail
-
-**Pattern 6 (Error Recovery Hook):**
-PostToolUse:Bash hook. On exit_code != 0: save full stderr+stdout to `logs/error_recovery/` with 20-file rotation, 1MB cap. Return `systemMessage` with path. Script: `hooks/error-recovery.sh` (~25 lines).
 
 **Pattern 7 (Suggest Hook):**
 PreToolUse:Bash hook. `systemMessage`-only (no blocking, no modification). Pattern-matches Bash commands to recommend relevant skills. Example: `npm test` → "For test analysis, consider ln-513/ln-514". Script: `hooks/skill-suggest.sh` (~40 lines).
@@ -88,6 +85,8 @@ Integrated into `ln-010` assessment and verification flow. Validates: JSON synta
 | Automatic command rewriting | Hides real commands, violates "no magic parameters" principle |
 | Output compression at transport level | Agent's built-in tools (Read, Grep) already handle this |
 | Inline executable tests | Our tests are DoD checklists + ln-310 multi-agent validation |
+| External style-wrappers (headroom, caveman) | Same rationale as RTK binary §4: runtime proxies / response-style hijackers conflict with per-skill output contracts and hide failure context |
+| Custom error-recovery logs (when Claude Code transcript covers it) | Claude Code already stores tool stdout/stderr (incl. failures) in the session transcript at `transcript_path`. A separate `.hex-skills/logs/error_recovery/` directory duplicates that, costs context tokens via `additionalContext`, and adds maintenance with zero recovery benefit for the agent |
 
 ---
 **Last Updated:** 2026-03-20

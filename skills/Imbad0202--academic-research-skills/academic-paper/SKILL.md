@@ -2,9 +2,11 @@
 name: academic-paper
 description: "12-agent academic paper writing pipeline. 10 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure). 6 paper types, 5 citation formats, bilingual abstracts, LaTeX/DOCX/PDF output. Style Calibration + Writing Quality Check + Anti-Patterns with IRON RULE markers. Triggers: write paper, academic paper, guide my paper, parse reviews, AI disclosure, 寫論文, 學術論文, 引導我寫論文, 審查意見."
 metadata:
-  version: "3.0"
-  last_updated: "2026-04-09"
+  version: "3.0.1"
+  last_updated: "2026-04-15"
   status: active
+  data_access_level: redacted
+  task_type: open-ended
   related_skills:
     - deep-research
     - academic-paper-reviewer
@@ -136,7 +138,7 @@ Phase 7: FORMAT        -> [formatter]                  -> Final Output Package
 
 ---
 
-## Operational Modes (9 Modes)
+## Operational Modes (10 Modes)
 
 See `references/mode_selection_guide.md` for details.
 
@@ -314,8 +316,8 @@ academic-paper + academic-paper-reviewer -> Peer review -> revision loop
 
 | Item | Content |
 |------|---------|
-| Skill Version | 3.0 |
-| Last Updated | 2026-04-09 |
+| Skill Version | 3.0.1 |
+| Last Updated | 2026-04-15 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | deep-research v1.0+ (upstream), academic-paper-reviewer v1.0+ (downstream) |
 

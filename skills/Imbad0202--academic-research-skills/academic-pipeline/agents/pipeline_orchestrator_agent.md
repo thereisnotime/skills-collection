@@ -72,13 +72,13 @@ You can adjust any stage's mode at any time. Ready to begin?
 | Type | When Used | Content |
 |------|-----------|---------|
 | FULL | First checkpoint; after integrity boundaries; before finalization | Full deliverables list + decision dashboard + all options |
-| SLIM | After 2+ consecutive "continue" responses on non-critical stages | One-line status + auto-continue in 5 seconds |
+| SLIM | After 2+ consecutive "continue" responses on non-critical stages | One-line status + explicit continue/pause prompt |
 | MANDATORY | Integrity FAIL; Review decision; Stage 5 | Cannot be skipped; requires explicit user input |
 
 #### Checkpoint Type Rules
 
 1. First checkpoint in the pipeline: always FULL
-2. After 2+ consecutive "continue" without reviewing deliverables: switch to SLIM and prompt user awareness ("You've auto-continued 3 times. Want to review progress?")
+2. After 2+ consecutive "continue" without reviewing deliverables: switch to SLIM and prompt user awareness ("You've continued 3 times in a row. Want to review progress?")
 3. Integrity boundaries (Stage 2.5, 4.5): always MANDATORY
 4. Review decisions (Stage 3, 3'): always MANDATORY
 5. Before finalization (Stage 5): always MANDATORY
@@ -94,7 +94,7 @@ consecutive_continue_count: integer (reset to 0 when user chooses any action oth
 
 - `consecutive_continue_count < 2` -> FULL checkpoint (unless rules above override)
 - `consecutive_continue_count >= 2` -> SLIM checkpoint (unless rules above override to MANDATORY)
-- `consecutive_continue_count >= 4` -> SLIM + awareness prompt ("You've auto-continued [N] times...")
+- `consecutive_continue_count >= 4` -> SLIM + awareness prompt ("You've continued [N] times in a row...")
 
 #### Steps
 
@@ -109,7 +109,7 @@ consecutive_continue_count: integer (reset to 0 when user chooses any action oth
    - "adjust" "change settings" -> reset count; let user adjust settings
    - "view progress" -> reset count; display Dashboard
    - "redo" "roll back" -> reset count; return to previous stage
-   - "skip" -> validate skip safety; proceed if allowed
+   - "skip" -> only allowed for explicitly skippable non-critical stages; never for integrity or failure-mode blocks
    - "abort" "terminate" -> reset count; terminate pipeline
 ```
 
@@ -156,7 +156,8 @@ For FULL checkpoints, the orchestrator must collect from state_tracker:
 #### SLIM Checkpoint Template
 
 ```
-━━━ [OK] Stage [X] [Name] -> Stage [Y] [Name] (auto-continuing...) ━━━
+━━━ [OK] Stage [X] [Name] -> Stage [Y] [Name] ready ━━━
+Reply `continue` to proceed or `pause` to stop here.
 ```
 
 #### MANDATORY Checkpoint Template (Integrity)
@@ -195,7 +196,7 @@ Users respond to checkpoint prompts with one of these commands. The orchestrator
 | `pause` | Pause pipeline; can resume later | `pipeline_state` = `paused`; all materials preserved |
 | `adjust` | Allow user to modify next stage's mode or parameters | Prompt user for adjustments; apply before proceeding |
 | `redo` / `roll back` | Return to previous stage and re-execute | Roll back `pipeline_state` to previous stage; increment version label |
-| `skip` | Skip next stage (only non-critical stages) | Validate skip is safe (see below); proceed to stage after next |
+| `skip` | Skip next stage (only explicitly skippable non-critical stages) | Validate skip is safe (see below); proceed only if the stage is marked skippable |
 | `abort` / `terminate` | Terminate pipeline entirely | `pipeline_state` = `aborted`; save all materials with current versions |
 
 **Skippable vs Non-Skippable Stages**:
@@ -269,13 +270,13 @@ When a sub-skill stage fails or produces unacceptable output:
 | Exception Scenario | Handling |
 |-------------------|---------|
 | User abandons midway | Save current pipeline state; inform user they can resume anytime |
-| User wants to skip a stage | Assess risk: Stage 2.5 and 4.5 cannot be skipped; others can be skipped with warning |
+| User wants to skip a stage | Assess risk: integrity stages and failure-mode blocks cannot be skipped; only explicitly skippable stages may be skipped with warning |
 | Review result is Reject | Provide two options: (a) return to Stage 2 for major restructuring (b) abandon this paper |
 | Stage 3' gives Major | Enter Stage 4' (last revision opportunity); after revision, proceed directly to Stage 4.5 |
 | Integrity check FAIL for 3 rounds | List unverifiable items; user decides how to proceed |
 | User requests jumping directly to Stage 5 | Check if Stage 4.5 has been passed; if not, must do final integrity verification first |
 | Stage 5 output process | Step 1: Auto-produce MD + DOCX -> Step 2: Ask "Need LaTeX?" -> Step 3: User confirms content is correct -> Step 4: Produce PDF (final version) |
-| Error during skill execution | Do not self-repair; report error and suggest: retry / switch mode / skip this stage |
+| Error during skill execution | Do not self-repair; report error and suggest: retry / switch mode / pause. Do not skip mandatory integrity or failure-mode gates |
 
 ---
 
@@ -391,22 +392,19 @@ Mid-Entry Material Passport Check:
    YES -> Require re-verification
          "The paper has been modified since the last integrity check
           (version [old] -> [new]). Re-verification is required."
-   NO  -> Offer to skip Stage 2.5:
-         "Your paper passed integrity check on [date] (version [label]).
-          No content changes detected. How would you like to proceed?
-          [1] SKIP — Trust previous verification and proceed to Stage 3
-          [2] SPOT-CHECK 10% — Quick re-verification of key claims and references
-          [3] FULL RE-VERIFY — Complete Stage 2.5 from scratch"
+   NO  -> Require Stage 2.5 verification:
+         "Your paper passed integrity check on [date] (version [label]),
+          but Stage 2.5 remains mandatory for this pipeline run.
+          Re-run Stage 2.5 and attach the prior report as context."
 ```
 
 ### Rules
 
-- **Stage 2.5 skip requires explicit user confirmation** — the orchestrator MUST NOT auto-skip even if the passport is valid
+- **Stage 2.5 can NEVER be skipped** via Material Passport. Prior reports can inform the rerun, but Stage 2.5 still executes in every pipeline run
 - **Stage 4.5 can NEVER be skipped** via Material Passport, regardless of passport status. Final integrity check always requires full Mode 2 verification
-- **SPOT-CHECK option**: If user selects spot-check, run integrity_verification_agent with a reduced scope: Phase A (10% random sample), Phase B (10% random sample), Phase C (10% random sample), Phase D (10% random sample), Phase E (10% random sample). Any issue found -> escalate to full re-verification
 - **Passport freshness threshold**: 24 hours. Sessions that span multiple days should trigger re-verification
 - **Content hash comparison**: If `content_hash` is available in the passport, use it for reliable change detection. If not available, fall back to `version_label` comparison
-- **Audit trail**: Log the passport check decision (skip/spot-check/full) in state_tracker for the pipeline audit trail
+- **Audit trail**: Log the passport check decision (rerun required / stale / changed) in state_tracker for the pipeline audit trail
 
 ---
 

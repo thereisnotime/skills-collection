@@ -20,7 +20,7 @@
 <div align="center">
 
 [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
-![Skills Count](https://img.shields.io/badge/Skills-1086+-blue?style=flat-square)
+![Skills Count](https://img.shields.io/badge/Skills-1184+-blue?style=flat-square)
 ![Last Update](https://img.shields.io/github/last-commit/VoltAgent/awesome-agent-skills?label=Last%20update&style=flat-square)
 <a href="https://github.com/VoltAgent/voltagent">
   <img alt="VoltAgent" src="https://cdn.voltagent.dev/website/logo/logo-2-svg.svg" height="20" />
@@ -77,7 +77,9 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Corey Haines](#marketing-skills-by-corey-haines) | [Binance](#skills-by-binance) | [Dean Peters](#product-manager-skills-by-dean-peters) | [Paweł Huryn](#product-management-skills-by-pawel-huryn) |
 | [MiniMax](#skills-by-minimax-team) | [DuckDB](#skills-by-duckdb) | [GSAP](#skills-by-gsap-greensock) | [Garry Tan (gstack)](#skills-by-garry-tan-gstack) |
 | [Notion](#skills-by-notion) | [Resend](#skills-by-resend) | [Addy Osmani (Web Quality)](#skills-by-addy-osmani-web-quality) | [MongoDB](#skills-by-mongodb) |
-| [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Community](#community-skills) | [Quality Standards](#skill-quality-standards) | |
+| [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Apollo GraphQL](#skills-by-apollo-graphql) | [Auth0](#skills-by-auth0) | [Brave](#skills-by-brave) |
+| [Browserbase](#skills-by-browserbase) | [CodeRabbit](#skills-by-coderabbit) | [Coinbase](#skills-by-coinbase) | [Datadog Labs](#skills-by-datadog-labs) |
+| [Firebase](#skills-by-firebase) | [Flutter](#skills-by-flutter) | [Community](#community-skills) | [Quality Standards](#skill-quality-standards) |
 
 
 
@@ -705,6 +707,176 @@ Official Web3 and trading skills from the Binance team. Includes crypto market d
 </details>
 
 <details>
+<summary><h3 style="display:inline">Skills by Apollo GraphQL</h3></summary>
+
+Official skills from the Apollo GraphQL team for building GraphQL clients, servers, federated supergraphs, and the Apollo Router.
+
+- **[apollographql/apollo-client](https://officialskills.sh/apollographql/skills/apollo-client)** - Build React applications with Apollo Client 4
+- **[apollographql/apollo-connectors](https://officialskills.sh/apollographql/skills/apollo-connectors)** - Integrate REST APIs into GraphQL supergraphs using Apollo Connectors
+- **[apollographql/apollo-federation](https://officialskills.sh/apollographql/skills/apollo-federation)** - Write Apollo Federation 2 subgraph schemas and compose them into a supergraph
+- **[apollographql/apollo-kotlin](https://officialskills.sh/apollographql/skills/apollo-kotlin)** - A GraphQL client for Android, JVM, and Kotlin Multiplatform projects
+- **[apollographql/apollo-mcp-server](https://officialskills.sh/apollographql/skills/apollo-mcp-server)** - Connect AI agents to GraphQL APIs through the Model Context Protocol
+- **[apollographql/apollo-router](https://officialskills.sh/apollographql/skills/apollo-router)** - Version-aware configuration generator for the Rust-based Apollo Router
+- **[apollographql/apollo-router-plugin-creator](https://officialskills.sh/apollographql/skills/apollo-router-plugin-creator)** - Write native Rust plugins for Apollo Router
+- **[apollographql/apollo-server](https://officialskills.sh/apollographql/skills/apollo-server)** - Build GraphQL servers using Apollo Server 5
+- **[apollographql/graphql-operations](https://officialskills.sh/apollographql/skills/graphql-operations)** - Write GraphQL queries, mutations, and subscriptions following best practices
+- **[apollographql/graphql-schema](https://officialskills.sh/apollographql/skills/graphql-schema)** - Reference guide for designing clean, evolvable GraphQL schemas
+- **[apollographql/rover](https://officialskills.sh/apollographql/skills/rover)** - CLI tool for managing GraphQL schemas in Apollo GraphOS
+- **[apollographql/rust-best-practices](https://officialskills.sh/apollographql/skills/rust-best-practices)** - Rust coding guidelines drawn from Apollo GraphQL's internal handbook
+- **[apollographql/skill-creator](https://officialskills.sh/apollographql/skills/skill-creator)** - Create and structure Agent Skills focused on Apollo GraphQL
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Auth0</h3></summary>
+
+Official authentication and identity skills from the Auth0 team. Covers SDKs for popular frameworks plus workflows for MFA, migration, and quickstart detection.
+
+- **[auth0/auth0-android](https://officialskills.sh/auth0/skills/auth0-android)** - Add authentication to native Android apps using the Auth0 SDK
+- **[auth0/auth0-angular](https://officialskills.sh/auth0/skills/auth0-angular)** - Add authentication to Angular apps using @auth0/auth0-angular
+- **[auth0/auth0-aspnetcore-api](https://officialskills.sh/auth0/skills/auth0-aspnetcore-api)** - Add JWT access token validation to ASP.NET Core APIs
+- **[auth0/auth0-express](https://officialskills.sh/auth0/skills/auth0-express)** - Add session-based authentication to Express.js apps
+- **[auth0/auth0-fastify](https://officialskills.sh/auth0/skills/auth0-fastify)** - Add session-based authentication to Fastify web apps
+- **[auth0/auth0-fastify-api](https://officialskills.sh/auth0/skills/auth0-fastify-api)** - Secure Fastify API endpoints with JWT Bearer token validation
+- **[auth0/auth0-mfa](https://officialskills.sh/auth0/skills/auth0-mfa)** - Add Multi-Factor Authentication to Auth0-powered apps
+- **[auth0/auth0-migration](https://officialskills.sh/auth0/skills/auth0-migration)** - Migrate users and auth flows from other providers to Auth0
+- **[auth0/auth0-nextjs](https://officialskills.sh/auth0/skills/auth0-nextjs)** - Add authentication to Next.js apps
+- **[auth0/auth0-nuxt](https://officialskills.sh/auth0/skills/auth0-nuxt)** - Add Auth0 authentication to Nuxt 3/4 apps with encrypted cookie sessions
+- **[auth0/auth0-quickstart](https://officialskills.sh/auth0/skills/auth0-quickstart)** - Detect your framework and scaffold Auth0 integration automatically
+- **[auth0/auth0-react](https://officialskills.sh/auth0/skills/auth0-react)** - Add authentication to React SPAs using @auth0/auth0-react
+- **[auth0/auth0-react-native](https://officialskills.sh/auth0/skills/auth0-react-native)** - Add authentication to React Native and Expo mobile apps
+- **[auth0/auth0-vue](https://officialskills.sh/auth0/skills/auth0-vue)** - Add authentication to Vue.js apps
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Brave</h3></summary>
+
+Official skills from the Brave team for accessing Brave Search APIs including web, images, videos, news, and local point-of-interest data.
+
+- **[brave/answers](https://officialskills.sh/brave/skills/answers)** - AI-generated answers grounded in live web search results
+- **[brave/bx](https://officialskills.sh/brave/skills/bx)** - CLI tool for web search built for AI agents
+- **[brave/images-search](https://officialskills.sh/brave/skills/images-search)** - Search for images using the Brave Search API
+- **[brave/llm-context](https://officialskills.sh/brave/skills/llm-context)** - Return pre-extracted web content (text, tables, code) from Brave Search
+- **[brave/local-descriptions](https://officialskills.sh/brave/skills/local-descriptions)** - Fetch AI-generated text descriptions for points of interest
+- **[brave/local-pois](https://officialskills.sh/brave/skills/local-pois)** - Retrieve detailed local business and POI information
+- **[brave/news-search](https://officialskills.sh/brave/skills/news-search)** - Search Brave's news index with article metadata
+- **[brave/spellcheck](https://officialskills.sh/brave/skills/spellcheck)** - Check search queries for spelling errors and get corrections
+- **[brave/suggest](https://officialskills.sh/brave/skills/suggest)** - Query autocomplete suggestions via the Brave Search API
+- **[brave/videos-search](https://officialskills.sh/brave/skills/videos-search)** - Search for videos across the web via the Brave Search API
+- **[brave/web-search](https://officialskills.sh/brave/skills/web-search)** - Search the web via Brave's Search API with ranked results
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Browserbase</h3></summary>
+
+Official browser automation skills from the Browserbase team. Covers headless browsing, cookie sync, serverless functions, and adversarial UI testing.
+
+- **[browserbase/browser](https://officialskills.sh/browserbase/skills/browser)** - Automate web browser interactions through natural language CLI commands
+- **[browserbase/browserbase-cli](https://officialskills.sh/browserbase/skills/browserbase-cli)** - CLI wrapper around the Browserbase platform
+- **[browserbase/cookie-sync](https://officialskills.sh/browserbase/skills/cookie-sync)** - Export cookies from local Chrome into a Browserbase persistent context
+- **[browserbase/fetch](https://officialskills.sh/browserbase/skills/fetch)** - Fetch HTML, JSON, headers, and status codes through the Browserbase API
+- **[browserbase/functions](https://officialskills.sh/browserbase/skills/functions)** - Deploy browser automation scripts as serverless cloud functions
+- **[browserbase/search](https://officialskills.sh/browserbase/skills/search)** - Search the web via the Browserbase API with structured results
+- **[browserbase/ui-test](https://officialskills.sh/browserbase/skills/ui-test)** - Run adversarial UI tests by analyzing git diffs in a real browser
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by CodeRabbit</h3></summary>
+
+Official AI code review skills from the CodeRabbit team.
+
+- **[coderabbitai/autofix](https://officialskills.sh/coderabbitai/skills/autofix)** - Fetch unresolved CodeRabbit review comments from GitHub PRs and apply fixes
+- **[coderabbitai/code-review](https://officialskills.sh/coderabbitai/skills/code-review)** - Run AI-powered code reviews through the CodeRabbit CLI
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Coinbase</h3></summary>
+
+Official wallet, payments, and trading skills from the Coinbase team. Covers USDC transfers, onchain queries, x402 paid APIs, and Base trading.
+
+- **[coinbase/authenticate-wallet](https://officialskills.sh/coinbase/skills/authenticate-wallet)** - Handle sign-in for the Coinbase payments wallet via email OTP
+- **[coinbase/fund](https://officialskills.sh/coinbase/skills/fund)** - Add USDC to a Coinbase-powered wallet through Coinbase Onramp
+- **[coinbase/monetize-service](https://officialskills.sh/coinbase/skills/monetize-service)** - Scaffold an Express server that charges USDC per request using x402
+- **[coinbase/pay-for-service](https://officialskills.sh/coinbase/skills/pay-for-service)** - Call paid API endpoints that use the x402 protocol with automatic USDC
+- **[coinbase/query-onchain-data](https://officialskills.sh/coinbase/skills/query-onchain-data)** - Query decoded onchain data (events, tx, blocks) on Base
+- **[coinbase/search-for-service](https://officialskills.sh/coinbase/skills/search-for-service)** - Search and browse the x402 bazaar marketplace
+- **[coinbase/send-usdc](https://officialskills.sh/coinbase/skills/send-usdc)** - Send USDC to any Ethereum address or ENS name on Base
+- **[coinbase/trade](https://officialskills.sh/coinbase/skills/trade)** - Swap and trade tokens on Base using the CDP Swap API
+- **[coinbase/x402](https://officialskills.sh/coinbase/skills/x402)** - Discover and call paid API endpoints using the x402 payment protocol
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Datadog Labs</h3></summary>
+
+Observability skills from Datadog Labs for APM, logs, monitors, and LLM observability workflows powered by the pup CLI.
+
+- **[datadog-labs/dd-apm](https://officialskills.sh/datadog-labs/skills/dd-apm)** - Query Datadog APM data directly from your editor
+- **[datadog-labs/dd-docs](https://officialskills.sh/datadog-labs/skills/dd-docs)** - Look up Datadog documentation via the LLM-optimized docs index
+- **[datadog-labs/dd-llmo-eval-bootstrap](https://officialskills.sh/datadog-labs/skills/dd-llmo-eval-bootstrap)** - Analyze production LLM traces and generate evaluators
+- **[datadog-labs/dd-llmo-eval-trace-rca](https://officialskills.sh/datadog-labs/skills/dd-llmo-eval-trace-rca)** - Root-cause LLM app failures using eval traces
+- **[datadog-labs/dd-llmo-experiment-analyzer](https://officialskills.sh/datadog-labs/skills/dd-llmo-experiment-analyzer)** - Analyze single or comparative LLM experiment results
+- **[datadog-labs/dd-logs](https://officialskills.sh/datadog-labs/skills/dd-logs)** - Search, filter, and archive Datadog logs through pup CLI
+- **[datadog-labs/dd-monitors](https://officialskills.sh/datadog-labs/skills/dd-monitors)** - Manage Datadog monitors through the pup CLI
+- **[datadog-labs/dd-pup](https://officialskills.sh/datadog-labs/skills/dd-pup)** - Rust-based CLI (pup) for talking to the Datadog API
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Firebase</h3></summary>
+
+Official skills from the Firebase team for setup, auth, Firestore, hosting, Genkit AI SDKs, and security rule auditing.
+
+- **[firebase/developing-genkit-dart](https://officialskills.sh/firebase/skills/developing-genkit-dart)** - Build AI apps with the Genkit Dart SDK
+- **[firebase/developing-genkit-go](https://officialskills.sh/firebase/skills/developing-genkit-go)** - Build AI apps with the Genkit Go SDK
+- **[firebase/developing-genkit-js](https://officialskills.sh/firebase/skills/developing-genkit-js)** - Build AI-powered apps with Firebase Genkit in Node.js
+- **[firebase/firebase-ai-logic-basics](https://officialskills.sh/firebase/skills/firebase-ai-logic-basics)** - Call Gemini models from web and mobile apps via Firebase AI Logic
+- **[firebase/firebase-app-hosting-basics](https://officialskills.sh/firebase/skills/firebase-app-hosting-basics)** - Deploy and manage full-stack web apps (Next.js, Angular, etc.)
+- **[firebase/firebase-auth-basics](https://officialskills.sh/firebase/skills/firebase-auth-basics)** - Set up Firebase Authentication with sign-in providers
+- **[firebase/firebase-basics](https://officialskills.sh/firebase/skills/firebase-basics)** - Handle Firebase CLI install, auth, and day-to-day workflow
+- **[firebase/firebase-data-connect-basics](https://officialskills.sh/firebase/skills/firebase-data-connect-basics)** - Build Firebase Data Connect backends backed by Cloud SQL
+- **[firebase/firebase-firestore-enterprise-native-mode](https://officialskills.sh/firebase/skills/firebase-firestore-enterprise-native-mode)** - Set up and use Firestore Enterprise Native Mode
+- **[firebase/firebase-firestore-standard](https://officialskills.sh/firebase/skills/firebase-firestore-standard)** - Complete guide for Cloud Firestore Standard Edition
+- **[firebase/firebase-hosting-basics](https://officialskills.sh/firebase/skills/firebase-hosting-basics)** - Deploy static sites, SPAs, and microservices to Firebase Hosting
+- **[firebase/firebase-security-rules-auditor](https://officialskills.sh/firebase/skills/firebase-security-rules-auditor)** - Audit Firestore security rules and flag risky patterns
+
+</details>
+
+<details>
+<summary><h3 style="display:inline">Skills by Flutter</h3></summary>
+
+Official skills from the Flutter team covering layouts, state, navigation, native interop, platform setup, and testing for cross-platform Flutter apps.
+
+- **[flutter/flutter-adding-home-screen-widgets](https://officialskills.sh/flutter/skills/flutter-adding-home-screen-widgets)** - Add home screen widgets to Flutter apps on Android and iOS
+- **[flutter/flutter-animating-apps](https://officialskills.sh/flutter/skills/flutter-animating-apps)** - Implement animated effects, transitions, and motion
+- **[flutter/flutter-architecting-apps](https://officialskills.sh/flutter/skills/flutter-architecting-apps)** - Structure a Flutter app using layered architecture
+- **[flutter/flutter-building-forms](https://officialskills.sh/flutter/skills/flutter-building-forms)** - Build Flutter forms with validation and user input
+- **[flutter/flutter-building-layouts](https://officialskills.sh/flutter/skills/flutter-building-layouts)** - Build and fix layouts using the constraint system (Row, Column, Stack)
+- **[flutter/flutter-building-plugins](https://officialskills.sh/flutter/skills/flutter-building-plugins)** - Create Flutter plugins that bridge Dart with platform code
+- **[flutter/flutter-caching-data](https://officialskills.sh/flutter/skills/flutter-caching-data)** - Implement offline-first caching strategies
+- **[flutter/flutter-embedding-native-views](https://officialskills.sh/flutter/skills/flutter-embedding-native-views)** - Embed native Android, iOS, and macOS views in Flutter widgets
+- **[flutter/flutter-handling-concurrency](https://officialskills.sh/flutter/skills/flutter-handling-concurrency)** - Run heavy work in background Dart isolates
+- **[flutter/flutter-handling-http-and-json](https://officialskills.sh/flutter/skills/flutter-handling-http-and-json)** - Handle HTTP requests and JSON serialization
+- **[flutter/flutter-implementing-navigation-and-routing](https://officialskills.sh/flutter/skills/flutter-implementing-navigation-and-routing)** - Handle routing, navigation, and deep linking
+- **[flutter/flutter-improving-accessibility](https://officialskills.sh/flutter/skills/flutter-improving-accessibility)** - Configure Flutter for screen readers and assistive tech
+- **[flutter/flutter-interoperating-with-native-apis](https://officialskills.sh/flutter/skills/flutter-interoperating-with-native-apis)** - Bridge Flutter with native platform APIs
+- **[flutter/flutter-localizing-apps](https://officialskills.sh/flutter/skills/flutter-localizing-apps)** - Configure Flutter for multiple languages and regions
+- **[flutter/flutter-managing-state](https://officialskills.sh/flutter/skills/flutter-managing-state)** - Manage local widget state and shared application state
+- **[flutter/flutter-reducing-app-size](https://officialskills.sh/flutter/skills/flutter-reducing-app-size)** - Measure and optimize Flutter app bundle sizes
+- **[flutter/flutter-setting-up-on-linux](https://officialskills.sh/flutter/skills/flutter-setting-up-on-linux)** - Set up a Linux machine for Flutter desktop development
+- **[flutter/flutter-setting-up-on-macos](https://officialskills.sh/flutter/skills/flutter-setting-up-on-macos)** - Set up a macOS machine for Flutter development
+- **[flutter/flutter-setting-up-on-windows](https://officialskills.sh/flutter/skills/flutter-setting-up-on-windows)** - Set up a Windows machine for Flutter development
+- **[flutter/flutter-testing-apps](https://officialskills.sh/flutter/skills/flutter-testing-apps)** - Implement unit, widget, and integration tests
+- **[flutter/flutter-theming-apps](https://officialskills.sh/flutter/skills/flutter-theming-apps)** - Customize Flutter app appearance through the theming system
+- **[flutter/flutter-working-with-databases](https://officialskills.sh/flutter/skills/flutter-working-with-databases)** - Build a structured data layer using SQLite
+
+</details>
+
+<details>
 <summary><h3 style="display:inline">Product Manager Skills by Dean Peters</h3></summary>
 
 46 battle-tested product management skills by [Dean Peters](https://github.com/deanpeters). Frame problems, hunt opportunities, scaffold validation experiments, and kill bad bets fast — with frameworks from Teresa Torres, Geoffrey Moore, Amazon, MITRE, and more.
@@ -866,8 +1038,9 @@ Official Web3 and trading skills from the Binance team. Includes crypto market d
 <details>
 <summary><h3 style="display:inline">Skills by MiniMax Team</h3></summary>
 
-10 development and document generation skills from the MiniMax AI team. Covers frontend, fullstack, mobile, shader development, and document creation (PDF, DOCX, XLSX, PPTX) with MiniMax API integration.
+11 development and document generation skills from the MiniMax AI team. Covers frontend, fullstack, mobile, shader development, document creation (PDF, DOCX, XLSX, PPTX), and the MiniMax AI CLI with MiniMax API integration.
 
+- **[MiniMax-AI/cli](https://officialskills.sh/MiniMax-AI/skills/cli)** - Generate text, image, video, speech, and music via MiniMax AI
 - **[MiniMax-AI/frontend-dev](https://officialskills.sh/MiniMax-AI/skills/frontend-dev)** - Full-stack frontend with cinematic animations, AI-generated media via MiniMax API, and generative art
 - **[MiniMax-AI/fullstack-dev](https://officialskills.sh/MiniMax-AI/skills/fullstack-dev)** - Backend architecture with REST API design, auth flows, real-time features, and database integration
 - **[MiniMax-AI/android-native-dev](https://officialskills.sh/MiniMax-AI/skills/android-native-dev)** - Android native development with Kotlin/Jetpack Compose, Material Design 3, and accessibility

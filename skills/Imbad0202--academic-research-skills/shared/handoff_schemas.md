@@ -619,3 +619,26 @@ See `shared/style_calibration_protocol.md` for full consumption rules and confli
 10. **Passport freshness**: A Material Passport's integrity results are considered STALE if `integrity_pass_date` is more than 24 hours old relative to the current timestamp. Stale passports require re-verification before proceeding
 11. **Stage-skip eligibility via passport**: A passport allows skipping Stage 2.5 (pre-review integrity) ONLY when ALL of the following conditions are met: (a) `verification_status` = `"VERIFIED"`, (b) `integrity_pass_date` is within the current session or less than 24 hours old, (c) `version_label` matches the current artifact version (content has not been modified since verification), and (d) the user explicitly confirms the skip. If any condition fails, full Stage 2.5 re-verification is required
 12. **Passport does not grant Stage 4.5 skip**: The final integrity check (Stage 4.5) can NEVER be skipped via Material Passport, regardless of passport status. Stage 4.5 always requires full Mode 2 verification
+
+## `data_access_level` (v3.3.2+)
+
+Every top-level `SKILL.md` declares `metadata.data_access_level` with one of three values:
+
+- `raw` — consumes unverified sources; must assume adversarial/hallucinated input
+- `redacted` — operates on sanitized material; no new raw ingestion
+- `verified_only` — runs only after upstream integrity gates
+
+This is a declarative signal (not a runtime permission system). Enforced by `scripts/check_data_access_level.py` in CI. When adding a new skill, pick the value matching the *dirtiest* input the skill may legitimately consume.
+
+## `task_type` (v3.3.2+)
+
+Every top-level `SKILL.md` declares `metadata.task_type` with one of two values:
+
+- `outcome-gradable` — the task has an objective scalar metric the skill optimizes against; a third party can score the output without deep context
+- `open-ended` — the task's quality depends on domain judgment, interpretive work, or context no metric captures
+
+This is a declarative truth-in-advertising signal. All current ARS skills are `open-ended` because ARS targets humanities/QA/policy work, not benchmark tasks. When adding a new skill, do not invent a third value; if the skill genuinely spans both, split it into two skills.
+
+Enforced by `scripts/check_task_type.py` in CI.
+
+See [`ground_truth_isolation_pattern.md`](ground_truth_isolation_pattern.md) for the rationale and rules behind this annotation.

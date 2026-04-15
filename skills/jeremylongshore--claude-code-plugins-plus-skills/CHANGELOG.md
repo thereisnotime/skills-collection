@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.25.0] - 2026-04-14
+
+### Added
+- **Shopify Skill Pack v2.0** - Complete overhaul: 30 → 38 skills, 116 reference files extracted. Added 8 new skills (metafields-metaobjects, functions, storefront-headless, checkout-extensions, theme-performance, graphql-cost-optimizer, b2b-wholesale, ai-toolkit-wrapper). Enterprise score: 81.9 → 93.1/100.
+- **Deep Evaluation Engine v1.0** - Intent Solutions 10-dimension skill quality assessment with coaching system and professional tier.
+- **CLI Power Skills** - External plugin sync for enhanced CLI automation workflows.
+- **CCHub plugin** - Desktop control panel for Claude Code / Codex / Gemini CLI management.
+- **Work Diary blog** - Added Apr 6-13 posts to tonsofskills.com/blog.
+
+### Changed
+- **Shopify sdk-patterns rewrite** - Removed generic Zod/retry patterns, added codegen-typed operations, bulk operation helpers, and webhook registry.
+- **Marketplace data sync** - Updated plugin counts to 430 plugins, 2,838 skills.
+
+### Metrics
+- Commits since v4.24.0: 10 (6 features, 2 chores, 2 merges)
+- Shopify skills upgraded: 30 → 38 (+8 new)
+- Reference files created: 116
+- Lines added: +9,950 / -4,893
+
+---
+
 ## [4.24.0] - 2026-04-06
 
 ### Added

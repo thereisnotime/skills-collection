@@ -46,30 +46,41 @@ Claude Code is a cutting-edge CLI-based coding assistant and agent released by [
 ## Latest Additions ✨ [🔝](#awesome-claude-code)
 
 
+[`claude-pace`](https://github.com/Astro-Han/claude-pace) &nbsp; by &nbsp; [Astro-Han](https://github.com/Astro-Han)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;MIT  
+A lightweight Bash + jq statusline for Claude Code that displays rate limit pace delta (burn rate vs. time remaining), 5h/7d usage percentage, context window usage, git branch and diff stats. Compares current consumption rate against time remaining in each rate limit window to indicate whether quota is being used faster or slower than the window allows. Single file with no external dependencies beyond jq.
+
+<details>
+<summary>📊 GitHub Stats</summary>
+
+![GitHub Stats for claude-pace](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=claude-pace&username=Astro-Han&all_stats=true&stats_only=true)
+
+</details>
+<br>
+
+[`Clawd on Desk`](https://github.com/rullerzhou-afk/clawd-on-desk) &nbsp; by &nbsp; [Ruller_Lulu](https://github.com/rullerzhou-afk)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;MIT  
+A desktop pet that reacts to your Claude Code sessions in real-time — thinking, typing, juggling, sleeping, and more. Yep. It's undeniably endearing. And at the end of the day, isn't that what Claude Code is all about?
+
+<details>
+<summary>📊 GitHub Stats</summary>
+
+![GitHub Stats for clawd-on-desk](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=clawd-on-desk&username=rullerzhou-afk&all_stats=true&stats_only=true)
+
+</details>
+<br>
+
+[`ccxray`](https://github.com/lis186/ccxray) &nbsp; by &nbsp; [lis186](https://github.com/lis186)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;MIT  
+A transparent HTTP proxy and real-time dashboard that sits between Claude Code and the Anthropic API. Captures every request and response without configuration, presenting them in a Miller-column interface with session grouping, token/cost tracking, and context-window visualization.
+
+<details>
+<summary>📊 GitHub Stats</summary>
+
+![GitHub Stats for ccxray](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=ccxray&username=lis186&all_stats=true&stats_only=true)
+
+</details>
+<br>
+
 [`Encyclopedia of Agentic Coding Patterns`](https://aipatternbook.com) &nbsp; by &nbsp; [Wolf McNally](https://github.com/wolfmcnally)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;&copy;  
 A freely available reference covering 190+ patterns for AI-assisted software development (and actually a whole bunch of related technical topics) from foundational concepts through agentic construction patterns, governance, testing, and socio-technical systems. Each entry follows a consistent pattern-language format with Context, Problem, Forces, Solution, Consequences, and Related Patterns. Opinionated and erudiate, which is actually good for an "encyclopedia" in some ways.
-
-[`Claude Code Agent Teams: Exercises`](https://github.com/panaversity/claude-code-agent-teams-exercises) &nbsp; by &nbsp; [Panaversity](https://github.com/panaversity)    
-Practical exercises for Claude Code Agent Teams - 6 exercises + 2 capstones covering team creation, task coordination, quality hooks, and parallel code review - good learning resource.
-
-<details>
-<summary>📊 GitHub Stats</summary>
-
-![GitHub Stats for claude-code-agent-teams-exercises](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=claude-code-agent-teams-exercises&username=panaversity&all_stats=true&stats_only=true)
-
-</details>
-<br>
-
-[`Harness`](https://github.com/revfactory/harness) &nbsp; by &nbsp; [revfactory](https://github.com/revfactory)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;Apache-2.0  
-A meta-skill that designs domain-specific agent teams, defines specialized agents, and generates the skills they use. Resources are in Korean but can produce high-quality English-language output.
-
-<details>
-<summary>📊 GitHub Stats</summary>
-
-![GitHub Stats for harness](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=harness&username=revfactory&all_stats=true&stats_only=true)
-
-</details>
-<br>
 
 
 ## Contents [🔝](#awesome-claude-code)
@@ -1078,6 +1089,17 @@ A VSCode extension that brings Claude Code directly into your editor with intera
 </details>
 <br>
 
+[`Clawd on Desk`](https://github.com/rullerzhou-afk/clawd-on-desk) &nbsp; by &nbsp; [Ruller_Lulu](https://github.com/rullerzhou-afk)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;MIT  
+A desktop pet that reacts to your Claude Code sessions in real-time — thinking, typing, juggling, sleeping, and more. Yep. It's undeniably endearing. And at the end of the day, isn't that what Claude Code is all about?
+
+<details>
+<summary>📊 GitHub Stats</summary>
+
+![GitHub Stats for clawd-on-desk](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=clawd-on-desk&username=rullerzhou-afk&all_stats=true&stats_only=true)
+
+</details>
+<br>
+
 </details>
 
 <details open>
@@ -1112,6 +1134,17 @@ A well-maintained and feature-enhanced fork of the glorious `ccflare` usage dash
 <summary>📊 GitHub Stats</summary>
 
 ![GitHub Stats for better-ccflare](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=better-ccflare&username=tombii&all_stats=true&stats_only=true)
+
+</details>
+<br>
+
+[`ccxray`](https://github.com/lis186/ccxray) &nbsp; by &nbsp; [lis186](https://github.com/lis186)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;MIT  
+A transparent HTTP proxy and real-time dashboard that sits between Claude Code and the Anthropic API. Captures every request and response without configuration, presenting them in a Miller-column interface with session grouping, token/cost tracking, and context-window visualization.
+
+<details>
+<summary>📊 GitHub Stats</summary>
+
+![GitHub Stats for ccxray](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=ccxray&username=lis186&all_stats=true&stats_only=true)
 
 </details>
 <br>
@@ -1355,6 +1388,17 @@ Enhanced 4-line statusline for Claude Code with themes, cost tracking, and MCP s
 <summary>📊 GitHub Stats</summary>
 
 ![GitHub Stats for claude-code-statusline](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=claude-code-statusline&username=rz1989s&all_stats=true&stats_only=true)
+
+</details>
+<br>
+
+[`claude-pace`](https://github.com/Astro-Han/claude-pace) &nbsp; by &nbsp; [Astro-Han](https://github.com/Astro-Han)  &nbsp;&nbsp;⚖️&nbsp;&nbsp;MIT  
+A lightweight Bash + jq statusline for Claude Code that displays rate limit pace delta (burn rate vs. time remaining), 5h/7d usage percentage, context window usage, git branch and diff stats. Compares current consumption rate against time remaining in each rate limit window to indicate whether quota is being used faster or slower than the window allows. Single file with no external dependencies beyond jq.
+
+<details>
+<summary>📊 GitHub Stats</summary>
+
+![GitHub Stats for claude-pace](https://github-readme-stats-fork-orpin.vercel.app/api/pin/?repo=claude-pace&username=Astro-Han&all_stats=true&stats_only=true)
 
 </details>
 <br>

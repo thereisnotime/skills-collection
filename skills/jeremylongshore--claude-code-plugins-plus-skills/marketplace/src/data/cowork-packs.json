@@ -20,12 +20,145 @@
     },
     {
       "id": "saas-packs",
-      "name": "SaaS Integrations",
-      "description": "Pre-built packs for Stripe, Vercel, Supabase, Sentry, and 38+ more services",
+      "name": "SaaS Integrations (All 106)",
+      "description": "Complete bundle of all 106 SaaS packs - Stripe, Shopify, Vercel, Supabase, and more",
       "icon": "package",
       "color": "#F59E0B",
       "category": "saas-packs",
-      "featured": true
+      "featured": true,
+      "isBundleAll": true
+    },
+    {
+      "id": "shopify-pack",
+      "name": "Shopify",
+      "description": "38 skills for Shopify GraphQL API, webhooks, checkout, themes, and app development",
+      "icon": "package",
+      "color": "#96BF48",
+      "category": "saas-packs",
+      "packName": "shopify-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "clerk-pack",
+      "name": "Clerk",
+      "description": "Authentication, user management, organizations, and Clerk SDK integration",
+      "icon": "shield",
+      "color": "#6C47FF",
+      "category": "saas-packs",
+      "packName": "clerk-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "vercel-pack",
+      "name": "Vercel",
+      "description": "Deployments, serverless functions, Edge Config, and Vercel platform skills",
+      "icon": "rocket",
+      "color": "#000000",
+      "category": "saas-packs",
+      "packName": "vercel-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "supabase-pack",
+      "name": "Supabase",
+      "description": "Postgres, Auth, Edge Functions, Realtime, Storage, and Supabase SDK patterns",
+      "icon": "database",
+      "color": "#3ECF8E",
+      "category": "saas-packs",
+      "packName": "supabase-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "notion-pack",
+      "name": "Notion",
+      "description": "Notion API, databases, pages, blocks, and workspace automation",
+      "icon": "book-open",
+      "color": "#000000",
+      "category": "saas-packs",
+      "packName": "notion-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "linear-pack",
+      "name": "Linear",
+      "description": "Issue tracking, project management, cycles, and Linear API integration",
+      "icon": "check-circle",
+      "color": "#5E6AD2",
+      "category": "saas-packs",
+      "packName": "linear-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "figma-pack",
+      "name": "Figma",
+      "description": "Design tokens, Figma API, plugins, and design-to-code workflows",
+      "icon": "star",
+      "color": "#F24E1E",
+      "category": "saas-packs",
+      "packName": "figma-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "sentry-pack",
+      "name": "Sentry",
+      "description": "Error tracking, performance monitoring, alerts, and Sentry SDK integration",
+      "icon": "shield",
+      "color": "#362D59",
+      "category": "saas-packs",
+      "packName": "sentry-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "posthog-pack",
+      "name": "PostHog",
+      "description": "Product analytics, feature flags, session replay, and A/B testing",
+      "icon": "trending-up",
+      "color": "#F9BD2B",
+      "category": "saas-packs",
+      "packName": "posthog-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "hubspot-pack",
+      "name": "HubSpot",
+      "description": "CRM, marketing automation, contacts, deals, and HubSpot API integration",
+      "icon": "users",
+      "color": "#FF7A59",
+      "category": "saas-packs",
+      "packName": "hubspot-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "salesforce-pack",
+      "name": "Salesforce",
+      "description": "SOQL, Apex, Lightning, REST API, and Salesforce platform development",
+      "icon": "briefcase",
+      "color": "#00A1E0",
+      "category": "saas-packs",
+      "packName": "salesforce-pack",
+      "featured": true,
+      "isSaasPack": true
+    },
+    {
+      "id": "anthropic-pack",
+      "name": "Anthropic",
+      "description": "Claude API, prompt engineering, tool use, and Anthropic SDK patterns",
+      "icon": "brain",
+      "color": "#D4A27F",
+      "category": "saas-packs",
+      "packName": "anthropic-pack",
+      "featured": true,
+      "isSaasPack": true
     },
     {
       "id": "security",

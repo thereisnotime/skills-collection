@@ -6,10 +6,10 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 | Skill | Purpose | Key Modes |
 |-------|---------|-----------|
-| `deep-research` v2.8 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
-| `academic-paper` v3.0 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
-| `academic-paper-reviewer` v1.8 | Multi-perspective paper review (5 reviewers + optional cross-model) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.2 | Full pipeline orchestrator | (coordinates all above) |
+| `deep-research` v2.8.1 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
+| `academic-paper` v3.0.1 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
+| `academic-paper-reviewer` v1.8.1 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
+| `academic-pipeline` v3.2.1 | Full pipeline orchestrator | (coordinates all above) |
 
 ## v3.3 Key Additions
 
@@ -31,12 +31,12 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 - **Anti-sycophancy protocols**: DA agents score rebuttals 1-5 before conceding. No concession below 4/5. Frame-lock detection.
 - **Intent detection**: Socratic Mentor classifies user intent as exploratory vs. goal-oriented. Exploratory mode disables auto-convergence.
-- **Cross-model verification** (optional): Set `ARS_CROSS_MODEL` env var to enable GPT-5.4 Pro or Gemini 3.1 Pro as independent second reviewer. See `shared/cross_model_verification.md`.
+- **Cross-model verification** (optional): Set `ARS_CROSS_MODEL` env var to enable GPT-5.4 Pro or Gemini 3.1 Pro for integrity sample checks and independent Devil's Advocate critique. Peer-review sixth-reviewer support remains planned. See `shared/cross_model_verification.md`.
 - **AI Self-Reflection Report**: Pipeline Stage 6 now includes AI behavioral self-assessment (concession rate, health alerts, sycophancy risk rating).
 
 ## Routing Rules
 
-1. **academic-pipeline vs individual skills**: academic-pipeline = full pipeline orchestrator (research → write → review → revise → finalize). If the user only needs a single function (just research, just write, just review), trigger the corresponding skill directly without the pipeline.
+1. **academic-pipeline vs individual skills**: academic-pipeline = full pipeline orchestrator (research → write → integrity → review → revise → final integrity → finalize). If the user only needs a single function (just research, just write, just review), trigger the corresponding skill directly without the pipeline.
 
 2. **deep-research vs academic-paper**: Complementary. deep-research = upstream research engine (investigation + fact-checking), academic-paper = downstream publication engine (paper writing + bilingual abstracts). Recommended flow: deep-research → academic-paper.
 
@@ -59,11 +59,13 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 ```
 deep-research (socratic/full)
   → academic-paper (plan/full)
-    → academic-paper-reviewer (full/guided)
-      → academic-paper (revision)
-        → academic-paper-reviewer (re-review, max 2 loops)
-          → academic-paper (format-convert → final output)
-          → AI Self-Reflection Report
+    → integrity check (Stage 2.5)
+      → academic-paper-reviewer (full/guided)
+        → academic-paper (revision)
+          → academic-paper-reviewer (re-review, max 2 loops)
+            → final integrity check (Stage 4.5)
+              → academic-paper (format-convert → final output)
+                → Process Summary + AI Self-Reflection Report
 ```
 
 ## Handoff Protocol
@@ -78,7 +80,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Suite version**: 3.3 (per CHANGELOG.md)
-- **Last Updated**: 2026-04-09
+- **Suite version**: 3.3.2 (per CHANGELOG.md)
+- **Last Updated**: 2026-04-15
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

@@ -1,0 +1,35 @@
+name: Spec Consistency
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  spec-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: scripts/_skill_lint.py
+
+      - name: Install lint dependencies
+        run: pip install pyyaml
+
+      - name: Run spec consistency check
+        run: python3 scripts/check_spec_consistency.py
+
+      - name: Check data_access_level declarations
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_data_access_level.py
+
+      - name: Check task_type declarations
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_task_type.py

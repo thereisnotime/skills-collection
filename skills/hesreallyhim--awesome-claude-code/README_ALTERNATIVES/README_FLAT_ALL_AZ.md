@@ -716,6 +716,15 @@ A flat list view of all resources. Category: **All** | Sorted: alphabetically by
 <td colspan="4"><img src="https://img.shields.io/github/stars/sirmalloc/ccstatusline?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/sirmalloc/ccstatusline?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/sirmalloc/ccstatusline?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/sirmalloc/ccstatusline?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/sirmalloc/ccstatusline?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/sirmalloc/ccstatusline?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/sirmalloc/ccstatusline?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/sirmalloc/ccstatusline?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/sirmalloc/ccstatusline?style=flat-square" alt="license"></td>
 </tr>
 <tr>
+<td><a href="https://github.com/lis186/ccxray"><b>ccxray</b></a><br>by <a href="https://github.com/lis186">lis186</a></td>
+<td>Tooling</td>
+<td>Usage Monitors</td>
+<td>A transparent HTTP proxy and real-time dashboard that sits between Claude Code and the Anthropic API. Captures every request and response without configuration, presenting them in a Miller-column interface with session grouping, token/cost tracking, and context-window visualization.</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/lis186/ccxray?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/lis186/ccxray?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/lis186/ccxray?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/lis186/ccxray?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/lis186/ccxray?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/lis186/ccxray?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/lis186/ccxray?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/lis186/ccxray?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/lis186/ccxray?style=flat-square" alt="license"></td>
+</tr>
+<tr>
 <td><a href="https://github.com/opactorai/Claudable"><b>Claudable</b></a><br>by <a href="https://www.linkedin.com/in/seongil-park/">Ethan Park</a></td>
 <td>Alternative Clients</td>
 <td>General</td>
@@ -1070,6 +1079,15 @@ A flat list view of all resources. Category: **All** | Sorted: alphabetically by
 <td colspan="4"><img src="https://img.shields.io/github/stars/johnlindquist/claude-hooks?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/johnlindquist/claude-hooks?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/johnlindquist/claude-hooks?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/johnlindquist/claude-hooks?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/johnlindquist/claude-hooks?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/johnlindquist/claude-hooks?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/johnlindquist/claude-hooks?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/johnlindquist/claude-hooks?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/johnlindquist/claude-hooks?style=flat-square" alt="license"></td>
 </tr>
 <tr>
+<td><a href="https://github.com/Astro-Han/claude-pace"><b>claude-pace</b></a><br>by <a href="https://github.com/Astro-Han">Astro-Han</a></td>
+<td>Status Lines</td>
+<td>General</td>
+<td>A lightweight Bash + jq statusline for Claude Code that displays rate limit pace delta (burn rate vs. time remaining), 5h/7d usage percentage, context window usage, git branch and diff stats. Compares current consumption rate against time remaining in each rate limit window to indicate whether quota is being used faster or slower than the window allows. Single file with no external dependencies beyond jq.</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/Astro-Han/claude-pace?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/Astro-Han/claude-pace?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/Astro-Han/claude-pace?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/Astro-Han/claude-pace?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/Astro-Han/claude-pace?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/Astro-Han/claude-pace?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/Astro-Han/claude-pace?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/Astro-Han/claude-pace?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/Astro-Han/claude-pace?style=flat-square" alt="license"></td>
+</tr>
+<tr>
 <td><a href="https://github.com/Owloops/claude-powerline"><b>claude-powerline</b></a><br>by <a href="https://github.com/Owloops">Owloops</a></td>
 <td>Status Lines</td>
 <td>General</td>
@@ -1167,6 +1185,15 @@ A flat list view of all resources. Category: **All** | Sorted: alphabetically by
 </tr>
 <tr>
 <td colspan="4"><img src="https://img.shields.io/github/stars/JSONbored/claudepro-directory?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/JSONbored/claudepro-directory?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/JSONbored/claudepro-directory?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/JSONbored/claudepro-directory?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/JSONbored/claudepro-directory?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/JSONbored/claudepro-directory?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/JSONbored/claudepro-directory?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/JSONbored/claudepro-directory?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/JSONbored/claudepro-directory?style=flat-square" alt="license"></td>
+</tr>
+<tr>
+<td><a href="https://github.com/rullerzhou-afk/clawd-on-desk"><b>Clawd on Desk</b></a><br>by <a href="https://github.com/rullerzhou-afk">Ruller_Lulu</a></td>
+<td>Tooling</td>
+<td>IDE Integrations</td>
+<td>A desktop pet that reacts to your Claude Code sessions in real-time — thinking, typing, juggling, sleeping, and more. Yep. It's undeniably endearing. And at the end of the day, isn't that what Claude Code is all about?</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="license"></td>
 </tr>
 <tr>
 <td><a href="https://github.com/zarazhangrui/codebase-to-course"><b>Codebase to Course</b></a><br>by <a href="https://github.com/zarazhangrui">Zara Zhang</a></td>
@@ -1833,6 +1860,6 @@ A flat list view of all resources. Category: **All** | Sorted: alphabetically by
 
 ---
 
-**Total Resources:** 199
+**Total Resources:** 202
 
-**Last Generated:** 2026-04-14
+**Last Generated:** 2026-04-15

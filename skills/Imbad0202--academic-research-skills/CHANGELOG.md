@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.2] - 2026-04-15
+
+### Added
+- `metadata.data_access_level` field on every top-level SKILL.md. Three-tier vocabulary (`raw` | `redacted` | `verified_only`) declaring what kind of data each skill may consume. Inspired by the three-tier isolation pattern in Anthropic's automated-w2s-researcher (2026).
+  - `deep-research` = `raw`
+  - `academic-paper` = `redacted`
+  - `academic-paper-reviewer` = `verified_only`
+  - `academic-pipeline` = `verified_only`
+- `scripts/check_data_access_level.py` lint script with unit tests; wired into `.github/workflows/spec-consistency.yml`.
+- Pointer section in `shared/handoff_schemas.md` documenting the vocabulary for future skill authors.
+- `metadata.task_type` field on every top-level SKILL.md. Two-value vocabulary (`open-ended` | `outcome-gradable`) declaring whether the task has a scalar ground-truth metric. All current ARS skills are `open-ended` — the field is a truth-in-advertising signal that ARS targets domain-judgment work, not benchmark tasks.
+- `scripts/check_task_type.py` lint script with 4 unit tests; wired into the same CI workflow.
+- Pointer section in `shared/handoff_schemas.md` for the `task_type` vocabulary.
+- `shared/ground_truth_isolation_pattern.md` — narrative pattern doc explaining the three-layer model behind `data_access_level` and `task_type`. Cross-references existing protocols (S2 verification, anti-leakage, integrity gates, calibration mode). Linked from `handoff_schemas.md` and `CONTRIBUTING.md`.
+
+### Changed
+- Per-skill `metadata.version` patch-bumped on all 4 SKILL.md files; `last_updated` refreshed to 2026-04-15.
+- Suite version bumped to 3.3.2 across `README.md`, `README.zh-TW.md`, and `.claude/CLAUDE.md`.
+
+## [3.3.1] - 2026-04-14
+
+### Fixed
+- Public contract drift across `README.md`, `README.zh-TW.md`, `.claude/CLAUDE.md`, `MODE_REGISTRY.md`, and the affected `SKILL.md` files
+- Cross-model wording now matches the implemented scope: integrity sample verification and independent DA critique are shipped; sixth-reviewer peer review remains planned
+- `academic-pipeline` checkpoint docs now state that SLIM checkpoints still wait for explicit user confirmation
+- `academic-pipeline` integrity gate docs now consistently state that Stage 2.5 and Stage 4.5 cannot be skipped
+- `academic-paper/SKILL.md` mode-count heading and `academic-paper-reviewer/SKILL.md` Version Info block
+
+### Added
+- `scripts/check_spec_consistency.py` to catch mode-count, version-block, and forbidden-claim drift
+- `.github/workflows/spec-consistency.yml` to run the consistency check on pushes and pull requests
+
 ## [3.3] - 2026-04-09
 
 ### Added — PaperOrchestra-inspired enhancements

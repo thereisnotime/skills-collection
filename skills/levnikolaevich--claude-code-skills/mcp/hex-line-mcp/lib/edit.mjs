@@ -11,7 +11,7 @@ import { statSync, writeFileSync } from "node:fs";
 import { diffLines } from "diff";
 import { fnv1a, lineTag, parseChecksum, parseRef } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { validatePath, normalizePath } from "./security.mjs";
-import { getGraphDB, semanticImpact, cloneWarning, getRelativePath } from "./graph-enrich.mjs";
+import { getGraphDB, semanticImpact, cloneWarning, getRelativePath, isGraphFreshAtMtime, graphUnavailableHint } from "./graph-enrich.mjs";
 import { MAX_DIFF_CHARS } from "./format.mjs";
 import {
     assertNonOverlappingTargets,
@@ -282,15 +282,14 @@ function buildConflictEntryModel({ lines, centerIdx, reason, details, recoveryRa
     };
 }
 
-function renderConflictEntry(entry) {
+function renderConflictEntry(entry, { skipRetryEdit = false } = {}) {
     let msg = "";
     if (entry.edit) msg += `edit: ${entry.edit}\n`;
     msg += `reason: ${entry.reason}`;
     if (entry.recovery_ranges?.length) msg += `\nrecovery_ranges: ${entry.recovery_ranges.join(", ")}`;
     if (entry.retry_checksum) msg += `\nretry_checksum: ${entry.retry_checksum}`;
-    if (entry.retry_edit) msg += `\nretry_edit: ${entry.retry_edit}`;
+    if (entry.retry_edit && !skipRetryEdit) msg += `\nretry_edit: ${entry.retry_edit}`;
     if (entry.remapped_refs) msg += `\nremapped_refs: ${entry.remapped_refs}`;
-    msg += `\nsummary: ${entry.summary}`;
     msg += `\nsnippet: ${entry.snippet.range}\n${entry.snippet.text}`;
     return msg;
 }
@@ -327,8 +326,7 @@ function renderSingleConflictReport(report) {
     let msg =
         `status: ${report.status}\n` +
         `reason: ${report.reason}\n` +
-        `revision: ${report.revision}\n` +
-        `file: ${report.file}`;
+        `revision: ${report.revision}`;
     if (report.path) msg += `\npath: ${report.path}`;
     if (report.changed_ranges) msg += `\nchanged_ranges: ${report.changed_ranges}`;
     if (report.recovery_ranges?.length) msg += `\nrecovery_ranges: ${report.recovery_ranges.join(", ")}`;
@@ -338,7 +336,6 @@ function renderSingleConflictReport(report) {
     if (report.suggested_read_call) msg += `\nsuggested_read_call: ${report.suggested_read_call}`;
     if (report.retry_plan) msg += `\nretry_plan: ${report.retry_plan}`;
     if (report.remapped_refs) msg += `\nremapped_refs: ${report.remapped_refs}`;
-    msg += `\nsummary: ${report.summary}`;
     msg += `\nsnippet: ${report.snippet.range}\n${report.snippet.text}`;
     return msg;
 }
@@ -399,14 +396,14 @@ function buildSuggestedReadCall(filePath, recoveryRanges) {
     });
 }
 
-function buildRetryPlan(filePath, { recoveryRanges = [], retryEdit = null, retryEdits = null } = {}) {
+function buildRetryPlan(filePath, { retryEdit = null, retryEdits = null } = {}) {
     if (!filePath) return null;
     const steps = [];
     const parsedRetryEdits = Array.isArray(retryEdits)
         ? retryEdits.map(parseRetryEdit).filter(Boolean)
         : [];
     const parsedRetryEdit = parsedRetryEdits.length === 0 ? parseRetryEdit(retryEdit) : null;
-    const dedupedRanges = dedupeRanges(recoveryRanges);
+
 
     if (parsedRetryEdits.length > 0) {
         steps.push({
@@ -426,15 +423,10 @@ function buildRetryPlan(filePath, { recoveryRanges = [], retryEdit = null, retry
                 conflict_policy: "conservative",
             }
         });
-    } else if (dedupedRanges.length > 0) {
-        steps.push({
-            tool: "mcp__hex-line__read_file",
-            arguments: {
-                path: filePath,
-                ranges: dedupedRanges,
-            }
-        });
     }
+    // No retry_edit available: suggested_read_call already covers the reread case.
+    // Skip emitting a single-step read_file retry_plan (duplicates suggested_read_call).
+
 
     if (steps.length === 0) return null;
     return JSON.stringify({ steps });
@@ -527,7 +519,7 @@ function buildRetryEdit(edit, lines, options = {}) {
 function buildBatchConflictMessage({
     filePath,
     revision,
-    fileChecksum,
+    fileChecksum: _fileChecksum,
     lines,
     changedRanges,
     conflicts,
@@ -556,16 +548,15 @@ function buildBatchConflictMessage({
         `status: ${STATUS.CONFLICT}\n` +
         `reason: ${REASON.BATCH_CONFLICT}\n` +
         `revision: ${revision}\n` +
-        `file: ${fileChecksum}\n` +
         `edit_conflicts: ${conflicts.length}`;
     if (filePath) msg += `\npath: ${filePath}`;
     if (changedRanges) msg += `\nchanged_ranges: ${describeChangedRanges(changedRanges)}`;
     msg += `\nnext_action: ${recovery.next_action}`;
     if (hasCompleteRetryBatch) msg += `\nretry_edits: ${JSON.stringify(recovery.retry_edits)}`;
     if (recovery.suggested_read_call) msg += `\nsuggested_read_call: ${recovery.suggested_read_call}`;
-    if (recovery.retry_plan) msg += `\nretry_plan: ${recovery.retry_plan}`;
+    if (recovery.retry_plan && conflicts.length > 1) msg += `\nretry_plan: ${recovery.retry_plan}`;
     for (const entry of entries) {
-        msg += `\n\n${renderConflictEntry(entry)}`;
+        msg += `\n\n${renderConflictEntry(entry, { skipRetryEdit: conflicts.length === 1 })}`;
     }
     return msg;
 }
@@ -1069,8 +1060,7 @@ export function editFile(filePath, edits, opts = {}) {
         let msg =
             `status: ${STATUS.CONFLICT}\n` +
             `reason: ${reason}\n` +
-            `revision: ${currentSnapshot.revision}\n` +
-            `file: ${currentSnapshot.fileChecksum}`;
+            `revision: ${currentSnapshot.revision}`;
         if (filePath) msg += `\npath: ${filePath}`;
         if (staleRevision && hasBaseSnapshot) msg += `\nchanged_ranges: ${describeChangedRanges(changedRanges)}`;
         if (recoveryRanges?.length) msg += `\nrecovery_ranges: ${recoveryRanges.join(", ")}`;
@@ -1079,7 +1069,6 @@ export function editFile(filePath, edits, opts = {}) {
         if (retryEdit) msg += `\nretry_edit: ${retryEdit}`;
         if (suggestedReadCall) msg += `\nsuggested_read_call: ${suggestedReadCall}`;
         if (retryPlan) msg += `\nretry_plan: ${retryPlan}`;
-        msg += `\nsummary: ${summarizeConflictDetails(details)}`;
         msg += `\nsnippet: ${snip.start}-${snip.end}\n${snip.text}`;
         return new Error(msg);
     };
@@ -1245,16 +1234,12 @@ export function editFile(filePath, edits, opts = {}) {
     const changedSpan = summarizeChangedSpan(minLine, maxLine);
 
     if (opts.dryRun) {
-        let msg = `status: ${autoRebased ? STATUS.AUTO_REBASED : STATUS.OK}\nreason: ${REASON.DRY_RUN_PREVIEW}\nrevision: ${currentSnapshot.revision}\nfile: ${currentSnapshot.fileChecksum}`;
+        let msg = `status: ${autoRebased ? STATUS.AUTO_REBASED : STATUS.OK}\nreason: ${REASON.DRY_RUN_PREVIEW}\nrevision: ${currentSnapshot.revision}`;
         if (staleRevision && hasBaseSnapshot) msg += `\nchanged_ranges: ${describeChangedRanges(changedRanges)}`;
         msg += `\nsummary: lines_changed=${changedSpan} diff_entries=${diffEntryCount} lines_after=${lines.length}`;
-        msg += `\nnext_action: ${ACTION.KEEP_USING}`;
         msg += `\npayload_sections: ${payloadSections(displayDiff ? ["diff"] : [])}`;
-        msg += "\ngraph_enrichment: unavailable";
-        msg += "\nsemantic_impact_count: 0";
-        msg += "\nsemantic_fact_count: 0";
-        msg += "\nclone_warning_count: 0";
-        msg += "\nprovenance_summary: edit_protocol=snapshot+anchors graph=unavailable";
+        const hint = graphUnavailableHint(real);
+        if (hint.length > 0) msg += `\n${hint.join("\n")}`;
         msg += `\nDry run: ${filePath} would change (${lines.length} lines)`;
         if (displayDiff) msg += `\n\nDiff:\n\`\`\`diff\n${displayDiff}\n\`\`\``;
         return msg;
@@ -1266,19 +1251,19 @@ export function editFile(filePath, edits, opts = {}) {
     let msg =
         `status: ${autoRebased ? STATUS.AUTO_REBASED : STATUS.OK}\n` +
         `reason: ${autoRebased ? REASON.EDIT_AUTO_REBASED : REASON.EDIT_APPLIED}\n` +
-        `revision: ${nextSnapshot.revision}\n` +
-        `file: ${nextSnapshot.fileChecksum}`;
+        `revision: ${nextSnapshot.revision}`;
     if (autoRebased && staleRevision && hasBaseSnapshot) {
         msg += `\nchanged_ranges: ${describeChangedRanges(changedRanges)}`;
+        msg += `\nnext_action: ${ACTION.KEEP_USING}`;
     }
-    msg += `\nnext_action: ${ACTION.KEEP_USING}`;
     if (remaps.length > 0) {
         msg += `\nremapped_refs:\n${remaps.map(({ from, to }) => `${from} -> ${to}`).join("\n")}`;
     }
-    let hasPostEditBlock = false;
-    let graphEnrichment = "unavailable";
+    let hasPostEditBlock = false; // v1.23.1 smoke
     let semanticImpacts = [];
     let cloneWarnings = [];
+    let graphDbAvailable = false;
+    let graphFresh = true;
     msg += `\nUpdated ${filePath} (${lines.length} lines)`;
 
     // Post-edit context (before diff — always visible even if output truncated)
@@ -1306,7 +1291,8 @@ export function editFile(filePath, edits, opts = {}) {
         const db = getGraphDB(real, { allowStale: true });
         const relFile = db ? getRelativePath(real) : null;
         if (db && relFile && fullDiff && minLine <= maxLine) {
-            graphEnrichment = "available";
+            graphDbAvailable = true;
+            graphFresh = isGraphFreshAtMtime(db, real, currentSnapshot.mtimeMs);
             semanticImpacts = semanticImpact(db, relFile, minLine, maxLine);
             if (semanticImpacts.length > 0) {
                 const sections = semanticImpacts.map(impact => {
@@ -1321,7 +1307,7 @@ export function editFile(filePath, edits, opts = {}) {
                     if (impact.counts.sameNameSymbols > 0) totals.push(`${impact.counts.sameNameSymbols} same-name siblings`);
                     const headline = totals.length > 0 ? totals.join(", ") : "no downstream graph facts";
                     const factLines = impact.facts.slice(0, 6).map(fact => {
-                        if (fact.fact_kind === "public_api") return "public_api: exported symbol";
+                        if (fact.fact_kind === "public_api") return null;
                         const location = fact.target_file && fact.target_line
                             ? ` (${fact.target_file}:${fact.target_line})`
                             : "";
@@ -1330,7 +1316,7 @@ export function editFile(filePath, edits, opts = {}) {
                             : `${fact.target_file}:${fact.target_line}`;
                         const via = fact.path_kind ? ` via ${fact.path_kind}` : "";
                         return `${fact.fact_kind}: ${target}${via}`;
-                    });
+                    }).filter(Boolean);
                     return [
                         `${impact.symbol}: ${headline}`,
                         ...factLines.map(line => `  ${line}`),
@@ -1340,27 +1326,24 @@ export function editFile(filePath, edits, opts = {}) {
             }
             cloneWarnings = cloneWarning(db, relFile, minLine, maxLine);
             if (cloneWarnings.length > 0) {
-                const list = cloneWarnings.map(c => `${c.file}:${c.line}`).join(", ");
+                const list = cloneWarnings.map(c => `${c.file}:${c.line}${c.cloneType ? ` (${c.cloneType})` : ""}`).join(", ");
                 msg += `\n\n\u26a0 ${cloneWarnings.length} clone(s): ${list}`;
             }
         }
     } catch { /* silent */ }
+    if (!graphFresh) msg += "\ngraph_fresh: stale";
 
     const payloadKinds = [];
     if (hasPostEditBlock) payloadKinds.push("post_edit");
     if (semanticImpacts.length > 0) payloadKinds.push("semantic_impact");
     if (cloneWarnings.length > 0) payloadKinds.push("clone_warning");
     if (displayDiff) payloadKinds.push("diff");
-    const semanticFactCount = semanticImpacts.reduce((sum, impact) => sum + (impact.facts?.length || 0), 0);
-    const summaryLines = [
+    const summaryLineParts = [
         `summary: lines_changed=${changedSpan} diff_entries=${diffEntryCount} lines_after=${lines.length}${editContext.corrections.length > 0 ? ` boundary_echo_stripped=${editContext.corrections.length}` : ``}`,
         `payload_sections: ${payloadSections(payloadKinds)}`,
-        `graph_enrichment: ${graphEnrichment}`,
-        `semantic_impact_count: ${semanticImpacts.length}`,
-        `semantic_fact_count: ${semanticFactCount}`,
-        `clone_warning_count: ${cloneWarnings.length}`,
-        `provenance_summary: edit_protocol=snapshot+anchors graph=${graphEnrichment === "available" ? "hex_line_contract" : "unavailable"}`,
-    ].join("\n");
+    ];
+    if (!graphDbAvailable) summaryLineParts.push(...graphUnavailableHint(real));
+    const summaryLines = summaryLineParts.join("\n");
     msg = msg.replace(`\nUpdated ${filePath} (${lines.length} lines)`, `\n${summaryLines}\nUpdated ${filePath} (${lines.length} lines)`);
 
     // Diff (last — safe to truncate by Claude Code)

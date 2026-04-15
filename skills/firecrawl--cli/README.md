@@ -1,6 +1,6 @@
 # 🔥 Firecrawl CLI
 
-Command-line interface for Firecrawl. Scrape, crawl, and extract data from any website directly from your terminal.
+Command-line interface for Firecrawl. Search, scrape, and interact with the web directly from your terminal.
 
 ## Installation
 
@@ -32,7 +32,7 @@ This installs skills globally across all detected coding editors by default. Use
 
 The init command installs both sets of Firecrawl agent skills into AI coding agents (Cursor, Claude Code, Windsurf, etc.):
 
-- **CLI skills** — teach agents how to use the Firecrawl CLI for live web work (search, scrape, interact, crawl, map)
+- **CLI skills** — teach agents how to use the Firecrawl CLI for live web work (search, scrape, interact, map, crawl)
 - **Build skills** — teach agents how to integrate Firecrawl into application code (choose endpoints, wire SDKs, set up API keys)
 
 To reinstall skills manually:
@@ -61,7 +61,7 @@ On first run, you'll be prompted to authenticate:
 
 ```
   🔥 firecrawl cli
-  Turn websites into LLM-ready data
+  Search, scrape, and interact with the web
 
 Welcome! To get started, authenticate with your Firecrawl account.
 
@@ -203,7 +203,7 @@ Search the web and optionally scrape content from search results.
 
 ```bash
 # Basic search
-firecrawl search "firecrawl web scraping"
+firecrawl search "firecrawl"
 
 # Limit results
 firecrawl search "AI news" --limit 10
@@ -218,7 +218,7 @@ firecrawl search "landscape photography" --sources images
 firecrawl search "machine learning" --sources web,news,images
 
 # Filter by category (GitHub, research papers, PDFs)
-firecrawl search "web scraping python" --categories github
+firecrawl search "web data python" --categories github
 firecrawl search "transformer architecture" --categories research
 firecrawl search "machine learning" --categories github,research
 
@@ -235,7 +235,7 @@ firecrawl search "firecrawl tutorials" --scrape
 firecrawl search "API documentation" --scrape --scrape-formats markdown,links
 
 # Output as pretty JSON
-firecrawl search "web scraping"
+firecrawl search "AI data tools"
 ```
 
 #### Search Options
@@ -263,7 +263,7 @@ firecrawl search "web scraping"
 firecrawl search "React Server Components" --tbs qdr:m --limit 10
 
 # Find GitHub repositories
-firecrawl search "web scraping library" --categories github --limit 20
+firecrawl search "web data library" --categories github --limit 20
 
 # Search and get full content
 firecrawl search "firecrawl documentation" --scrape --scrape-formats markdown --json -o results.json

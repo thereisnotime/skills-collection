@@ -146,6 +146,15 @@ A flat list view of all resources. Category: **Tooling** | Sorted: alphabeticall
 <td colspan="4"><img src="https://img.shields.io/github/stars/Brads3290/cclogviewer?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/Brads3290/cclogviewer?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/Brads3290/cclogviewer?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/Brads3290/cclogviewer?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/Brads3290/cclogviewer?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/Brads3290/cclogviewer?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/Brads3290/cclogviewer?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/Brads3290/cclogviewer?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/Brads3290/cclogviewer?style=flat-square" alt="license"></td>
 </tr>
 <tr>
+<td><a href="https://github.com/lis186/ccxray"><b>ccxray</b></a><br>by <a href="https://github.com/lis186">lis186</a></td>
+<td>Tooling</td>
+<td>Usage Monitors</td>
+<td>A transparent HTTP proxy and real-time dashboard that sits between Claude Code and the Anthropic API. Captures every request and response without configuration, presenting them in a Miller-column interface with session grouping, token/cost tracking, and context-window visualization.</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/lis186/ccxray?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/lis186/ccxray?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/lis186/ccxray?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/lis186/ccxray?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/lis186/ccxray?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/lis186/ccxray?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/lis186/ccxray?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/lis186/ccxray?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/lis186/ccxray?style=flat-square" alt="license"></td>
+</tr>
+<tr>
 <td><a href="https://marketplace.visualstudio.com/items?itemName=AndrePimenta.claude-code-chat"><b>Claude Code Chat</b></a><br>by <a href="https://github.com/andrepimenta">andrepimenta</a></td>
 <td>Tooling</td>
 <td>IDE Integrations</td>
@@ -341,6 +350,15 @@ A flat list view of all resources. Category: **Tooling** | Sorted: alphabeticall
 <td colspan="4"><img src="https://img.shields.io/github/stars/Haleclipse/Claudix?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/Haleclipse/Claudix?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/Haleclipse/Claudix?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/Haleclipse/Claudix?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/Haleclipse/Claudix?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/Haleclipse/Claudix?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/Haleclipse/Claudix?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/Haleclipse/Claudix?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/Haleclipse/Claudix?style=flat-square" alt="license"></td>
 </tr>
 <tr>
+<td><a href="https://github.com/rullerzhou-afk/clawd-on-desk"><b>Clawd on Desk</b></a><br>by <a href="https://github.com/rullerzhou-afk">Ruller_Lulu</a></td>
+<td>Tooling</td>
+<td>IDE Integrations</td>
+<td>A desktop pet that reacts to your Claude Code sessions in real-time — thinking, typing, juggling, sleeping, and more. Yep. It's undeniably endearing. And at the end of the day, isn't that what Claude Code is all about?</td>
+</tr>
+<tr>
+<td colspan="4"><img src="https://img.shields.io/github/stars/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="stars"> <img src="https://img.shields.io/github/forks/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="forks"> <img src="https://img.shields.io/github/issues/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="issues"> <img src="https://img.shields.io/github/issues-pr/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="prs"> <img src="https://img.shields.io/github/created-at/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="created"> <img src="https://img.shields.io/github/last-commit/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="last-commit"> <img src="https://img.shields.io/github/release-date/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="release-date"> <img src="https://img.shields.io/github/v/release/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="version"> <img src="https://img.shields.io/github/license/rullerzhou-afk/clawd-on-desk?style=flat-square" alt="license"></td>
+</tr>
+<tr>
 <td><a href="https://github.com/dagger/container-use"><b>Container Use</b></a><br>by <a href="https://github.com/dagger">dagger</a></td>
 <td>Tooling</td>
 <td>General</td>
@@ -498,6 +516,6 @@ A flat list view of all resources. Category: **Tooling** | Sorted: alphabeticall
 
 ---
 
-**Total Resources:** 49
+**Total Resources:** 51
 
-**Last Generated:** 2026-04-14
+**Last Generated:** 2026-04-15

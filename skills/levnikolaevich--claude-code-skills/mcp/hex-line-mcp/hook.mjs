@@ -75,6 +75,13 @@ const HEX_LINE_MUTATING = new Set([
     "mcp__hex-line__bulk_replace",
 ]);
 
+// Folders whose contents are runtime/config artifacts, not project files.
+// Plan-mode write tools are allowed when the target path contains any of these.
+const PLAN_SAFE_FOLDERS = [
+    ".hex-skills/",
+    ".claude/",
+];
+
 // ---- Helpers ----
 
 function extOf(filePath) {
@@ -396,10 +403,7 @@ function handlePreToolUse(data) {
     // Exception: .hex-skills/ and .claude/ are runtime/config artifacts, not project files
     if (data.permission_mode === "plan" && HEX_LINE_MUTATING.has(toolName)) {
         const targetPath = (toolInput.path || "").replace(/\\/g, "/");
-        const isPlanSafe = targetPath.includes("/.hex-skills/") ||
-            targetPath.includes(".hex-skills/") ||
-            targetPath.includes("/.claude/") ||
-            targetPath.includes(".claude/");
+        const isPlanSafe = PLAN_SAFE_FOLDERS.some((folder) => targetPath.includes(folder));
         if (!isPlanSafe) {
             block(
                 "PLAN_MODE: You are in planning mode. Write your plan to the plan file, then call ExitPlanMode to get approval before making changes.",
@@ -437,20 +441,20 @@ function handlePreToolUse(data) {
                 ? ` For structure-first discovery: mcp__hex-line__outline then mcp__hex-line__read_file with ranges.`
                 : "";
             const target = filePath
-                ? `Use mcp__hex-line__read_file(path="${filePath}").${rangeHint}${outlineTip}`
+                ? `Use mcp__hex-line__read_file(file_path="${filePath}").${rangeHint}${outlineTip}`
                 : "Use mcp__hex-line__read_file or mcp__hex-line__inspect_path.";
             redirect(target, DEFERRED_HINT);
         }
 
         if (toolName === "Edit") {
             const target = filePath
-                ? `Use mcp__hex-line__edit_file(path="${filePath}"). If you need hash anchors first: mcp__hex-line__grep_search(output="content", edit_ready=true).`
-                : "Use mcp__hex-line__edit_file. If you need hash anchors first: mcp__hex-line__grep_search(output=\"content\", edit_ready=true).";
+                ? `Use mcp__hex-line__edit_file(file_path="${filePath}"). If you need hash anchors first: mcp__hex-line__grep_search(output_mode="content", edit_ready=true).`
+                : "Use mcp__hex-line__edit_file. If you need hash anchors first: mcp__hex-line__grep_search(output_mode=\"content\", edit_ready=true).";
             redirect(target, "Hash-verified edits for project text files.\n" + DEFERRED_HINT);
         }
 
         if (toolName === "Write") {
-            const pathNote = filePath ? ` with path="${filePath}"` : "";
+            const pathNote = filePath ? ` with file_path="${filePath}"` : "";
             redirect(`Use mcp__hex-line__write_file${pathNote}`, TOOL_HINTS.Write + "\n" + DEFERRED_HINT);
         }
 
@@ -558,6 +562,8 @@ function handlePostToolUse(data) {
         process.exit(0);
     }
 
+    const type = detectCommandType(command);
+
     const lines = rawText.split("\n");
     const originalCount = lines.length;
 
@@ -565,8 +571,6 @@ function handlePostToolUse(data) {
     if (originalCount < HOOK_OUTPUT_POLICY.lineThreshold) {
         process.exit(0);
     }
-
-    const type = detectCommandType(command);
 
     // Pipeline: normalize -> deduplicate -> smart truncate
     const filtered = normalizeOutput(lines.join("\n"), {

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "agentsys",
-    "description": "A modular runtime and orchestration system for AI agents. 19 plugins, 47 agents, 40 skills - structured pipelines for Claude Code, OpenCode, Codex CLI, Cursor, and Kiro.",
+    "description": "A modular runtime and orchestration system for AI agents. 19 plugins, 49 agents, 40 skills - structured pipelines for Claude Code, OpenCode, Codex CLI, Cursor, and Kiro.",
     "url": "https://agent-sh.github.io/agentsys",
     "repo": "https://github.com/agent-sh/agentsys",
     "npm": "https://www.npmjs.com/package/agentsys",
@@ -28,7 +28,7 @@
       "suffix": ""
     },
     {
-      "value": "47",
+      "value": "49",
       "label": "Agents",
       "suffix": ""
     },
@@ -112,7 +112,7 @@
     {
       "name": "/agnix",
       "tagline": "Lint agent configs before they break",
-      "description": "385 validation rules (102 auto-fixable) for Skills, Memory, Hooks, MCP, and Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, Cline, Windsurf, Roo Code, and Amp. SARIF output for GitHub Code Scanning.",
+      "description": "399 validation rules (126 auto-fixable) for Skills, Memory, Hooks, MCP, and Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, Cline, Windsurf, Roo Code, and Amp. SARIF output for GitHub Code Scanning.",
       "example": "/agnix --fix",
       "category": "linting"
     },
@@ -154,7 +154,7 @@
     {
       "name": "/enhance",
       "tagline": "Analyze everything that shapes agent behavior",
-      "description": "Seven parallel analyzers check your prompts, agents, plugins, docs, hooks, and skills. Certainty-graded findings with auto-fix support. Auto-learns false positives over time.",
+      "description": "Eight parallel analyzers check your prompts, agents, plugins, docs, hooks, and skills. Certainty-graded findings with auto-fix support. Auto-learns false positives over time.",
       "example": "/enhance",
       "category": "analysis"
     },
@@ -373,8 +373,8 @@
     }
   ],
   "agents": {
-    "total": 47,
-    "file_based": 37,
+    "total": 49,
+    "file_based": 39,
     "role_based": 10,
     "by_model": [
       {

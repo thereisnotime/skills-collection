@@ -107,6 +107,118 @@ export function getGraphDB(filePath, { allowStale = false } = {}) {
     }
 }
 
+function diagnoseFreshness(db, projectRoot, filePath) {
+    try {
+        const stat = statSync(filePath);
+        if (!stat.isFile()) return "ok";
+        const relativeFile = normalizeRelativeFile(projectRoot, filePath);
+        if (!relativeFile) return "ok";
+        const indexedMtime = lookupIndexedMtime(db, relativeFile);
+        if (indexedMtime == null) return "file_not_indexed";
+        if (Math.abs(indexedMtime - stat.mtimeMs) < FRESHNESS_TOLERANCE_MS) return "ok";
+        return "stale";
+    } catch {
+        return "ok";
+    }
+}
+
+export function diagnoseGraph(filePath) {
+    if (_driverUnavailable) return { reason: "driver_missing" };
+    try {
+        const projectRoot = findProjectRoot(filePath);
+        if (!projectRoot) return { reason: "no_project_root" };
+        const dbPath = join(projectRoot, ".hex-skills/codegraph", "index.db");
+        if (!existsSync(dbPath)) return { reason: "index_missing", projectRoot };
+        if (_dbs.has(dbPath)) {
+            const cached = _dbs.get(dbPath);
+            return { reason: diagnoseFreshness(cached, projectRoot, filePath), projectRoot };
+        }
+        const require = createRequire(import.meta.url);
+        const Database = require("better-sqlite3");
+        const db = new Database(dbPath, { readonly: true });
+        if (!validateContract(db)) {
+            db.close();
+            return { reason: "contract_mismatch", projectRoot };
+        }
+        _dbs.set(dbPath, db);
+        return { reason: diagnoseFreshness(db, projectRoot, filePath), projectRoot };
+    } catch {
+        _driverUnavailable = true;
+        return { reason: "driver_missing" };
+    }
+}
+
+export function diagnoseGraphForProject(directoryPath) {
+    if (_driverUnavailable) return { reason: "driver_missing" };
+    try {
+        if (!directoryPath) return { reason: "no_project_root" };
+        const projectRoot = findProjectRoot(join(directoryPath, "__hex-line_probe__"));
+        if (!projectRoot) return { reason: "no_project_root" };
+        const dbPath = join(projectRoot, ".hex-skills/codegraph", "index.db");
+        if (!existsSync(dbPath)) return { reason: "index_missing", projectRoot };
+        if (_dbs.has(dbPath)) {
+            return { reason: "ok", projectRoot };
+        }
+        const require = createRequire(import.meta.url);
+        const Database = require("better-sqlite3");
+        const db = new Database(dbPath, { readonly: true });
+        if (!validateContract(db)) {
+            db.close();
+            return { reason: "contract_mismatch", projectRoot };
+        }
+        _dbs.set(dbPath, db);
+        return { reason: "ok", projectRoot };
+    } catch {
+        _driverUnavailable = true;
+        return { reason: "driver_missing" };
+    }
+}
+
+export function getGraphDBForProject(directoryPath) {
+    const { reason, projectRoot } = diagnoseGraphForProject(directoryPath);
+    if (reason !== "ok" || !projectRoot) return null;
+    const dbPath = join(projectRoot, ".hex-skills/codegraph", "index.db");
+    return _dbs.get(dbPath) || null;
+}
+
+export function graphUnavailableHint(filePath) {
+    const { reason, projectRoot } = diagnoseGraph(filePath);
+    if (reason === "ok" || reason === "file_not_indexed") return [];
+    const at = projectRoot ? ` at ${projectRoot.replace(/\\/g, "/")}` : "";
+    switch (reason) {
+    case "driver_missing":
+        return ["graph_enrichment: unavailable", "graph_fix: install better-sqlite3 in hex-line-mcp package"];
+    case "no_project_root":
+        return ["graph_enrichment: unavailable", "graph_fix: file is outside any project root (no package.json / pyproject.toml / .git marker)"];
+    case "index_missing":
+        return ["graph_enrichment: unavailable", `graph_fix: run mcp__hex-graph__index_project${at}`];
+    case "contract_mismatch":
+        return ["graph_enrichment: unavailable", `graph_fix: index built by incompatible hex-graph version; re-run mcp__hex-graph__index_project${at}`];
+    case "stale":
+        return ["graph_enrichment: unavailable", `graph_fix: file modified after last index; re-run mcp__hex-graph__index_project${at} or wait for background refresh`];
+    default:
+        return ["graph_enrichment: unavailable"];
+    }
+}
+
+export function graphUnavailableHintForProject(projectRoot) {
+    const { reason } = diagnoseGraphForProject(projectRoot);
+    if (reason === "ok") return [];
+    const at = projectRoot ? ` at ${projectRoot.replace(/\\/g, "/")}` : "";
+    switch (reason) {
+    case "driver_missing":
+        return ["graph_enrichment: unavailable", "graph_fix: install better-sqlite3 in hex-line-mcp package"];
+    case "no_project_root":
+        return ["graph_enrichment: unavailable", "graph_fix: directory is outside any project root"];
+    case "index_missing":
+        return ["graph_enrichment: unavailable", `graph_fix: run mcp__hex-graph__index_project${at}`];
+    case "contract_mismatch":
+        return ["graph_enrichment: unavailable", `graph_fix: index built by incompatible hex-graph version; re-run mcp__hex-graph__index_project${at}`];
+    default:
+        return ["graph_enrichment: unavailable"];
+    }
+}
+
 export function _resetGraphDBCache() {
     for (const db of _dbs.values()) {
         try { db.close(); } catch { /* ignore */ }
@@ -245,6 +357,21 @@ export function ensureGraphFreshForFile(db, absoluteFilePath) {
         const fresh = isFilePathFresh(db, projectRoot, absoluteFilePath);
         if (!fresh) _graphRefreshStats.staleSuppressions++;
         return fresh;
+    } catch {
+        return true;
+    }
+}
+
+export function isGraphFreshAtMtime(db, absoluteFilePath, mtimeMs) {
+    if (!db) return false;
+    try {
+        const projectRoot = findProjectRoot(absoluteFilePath);
+        if (!projectRoot) return true;
+        const relativeFile = normalizeRelativeFile(projectRoot, absoluteFilePath);
+        if (!relativeFile) return true;
+        const indexedMtime = lookupIndexedMtime(db, relativeFile);
+        if (indexedMtime == null) return false;
+        return mtimeMs <= indexedMtime + FRESHNESS_TOLERANCE_MS;
     } catch {
         return true;
     }

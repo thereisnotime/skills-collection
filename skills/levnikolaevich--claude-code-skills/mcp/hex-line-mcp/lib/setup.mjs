@@ -107,6 +107,17 @@ function writeHooksToFile(settingsPath) {
         }
     }
 
+    // Remove stale hex-line entries for events no longer in CLAUDE_HOOKS
+    // (e.g. feature rollback). Only touches entries carrying HOOK_SIGNATURE.
+    for (const event of Object.keys(config.hooks)) {
+        if (event in CLAUDE_HOOKS) continue;
+        if (!Array.isArray(config.hooks[event])) continue;
+        const idx = findEntryByCommand(config.hooks[event]);
+        if (idx < 0) continue;
+        config.hooks[event].splice(idx, 1);
+        if (config.hooks[event].length === 0) delete config.hooks[event];
+        changed = true;
+    }
 
     if (changed) writeJson(settingsPath, config);
     return changed;
