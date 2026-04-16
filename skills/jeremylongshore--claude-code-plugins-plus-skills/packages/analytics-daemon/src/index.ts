@@ -22,6 +22,18 @@ const DEFAULT_API_PORT = 3333;
 const DEFAULT_HOST = 'localhost';
 
 /**
+ * Safely extract a string value from an unknown metadata field.
+ * Returns undefined if the value is absent or not a string.
+ */
+function stringMeta(
+  meta: Record<string, unknown> | undefined,
+  key: string
+): string | undefined {
+  const val = meta?.[key];
+  return typeof val === 'string' ? val : undefined;
+}
+
+/**
  * Main daemon class
  */
 class AnalyticsDaemon {
@@ -32,32 +44,26 @@ class AnalyticsDaemon {
   private conversationsPath: string;
 
   constructor() {
-    // Detect conversations directory
     this.conversationsPath = join(homedir(), '.claude', 'conversations');
 
-    // Initialize watcher
     this.watcher = new ConversationWatcher({
       conversationsPath: this.conversationsPath,
       debounceMs: 500,
       ignoreInitial: true,
     });
 
-    // Initialize WebSocket server
     this.server = new AnalyticsServer({
       port: parseInt(process.env.CCP_ANALYTICS_PORT ?? String(DEFAULT_WS_PORT)),
       host: process.env.CCP_ANALYTICS_HOST ?? DEFAULT_HOST,
     });
 
-    // Initialize attribution engine
     this.attribution = new AttributionEngine();
 
-    // Initialize HTTP API
     this.api = new AnalyticsAPI(this.watcher, this.server, this.attribution, {
       port: parseInt(process.env.CCP_API_PORT ?? String(DEFAULT_API_PORT)),
       host: process.env.CCP_API_HOST ?? DEFAULT_HOST,
     });
 
-    // Wire up events
     this.watcher.on('event', (event: AnalyticsEvent) => {
       this.handleEvent(event);
     });
@@ -66,7 +72,6 @@ class AnalyticsDaemon {
       console.error('Watcher error:', error);
     });
 
-    // Wire up attribution events
     this.attribution.onAttribution((event: AttributionEvent) => {
       this.handleAttributionEvent(event);
     });
@@ -82,19 +87,15 @@ class AnalyticsDaemon {
     console.log();
 
     try {
-      // Initialize attribution engine
       await this.attribution.initialize();
       console.log('✓ Attribution engine initialized');
 
-      // Start HTTP API server
       await this.api.start();
       console.log();
 
-      // Start WebSocket server
       await this.server.start();
       console.log();
 
-      // Start file watcher
       this.watcher.start();
       console.log();
 
@@ -125,13 +126,9 @@ class AnalyticsDaemon {
    * Handle analytics event
    */
   private handleEvent(event: AnalyticsEvent): void {
-    // Log event for debugging
     console.log(`[${new Date(event.timestamp).toISOString()}] ${event.type}`);
-
-    // Broadcast to connected clients
     this.server.broadcast(event);
 
-    // Additional event-specific handling
     switch (event.type) {
       case 'plugin.activation':
         console.log(`  Plugin: ${event.pluginName}`);
@@ -153,7 +150,6 @@ class AnalyticsDaemon {
         break;
     }
 
-    // Feed events to attribution engine for analysis
     if (event.type === 'conversation.updated' || event.type === 'conversation.created') {
       const conversation = this.watcher.getConversation(event.conversationId);
       if (conversation) {
@@ -168,7 +164,6 @@ class AnalyticsDaemon {
    * Handle attribution event
    */
   private handleAttributionEvent(event: AttributionEvent): void {
-    // Convert attribution event to analytics event format
     let analyticsEvent: AnalyticsEvent;
 
     switch (event.type) {
@@ -178,7 +173,7 @@ class AnalyticsDaemon {
           timestamp: event.timestamp,
           conversationId: event.conversationId,
           pluginName: event.name,
-          marketplace: event.metadata?.marketplace as string | undefined,
+          marketplace: stringMeta(event.metadata, 'marketplace'),
         };
         break;
 
@@ -188,7 +183,7 @@ class AnalyticsDaemon {
           timestamp: event.timestamp,
           conversationId: event.conversationId,
           skillName: event.name,
-          pluginName: (event.metadata?.pluginName as string) ?? 'unknown',
+          pluginName: stringMeta(event.metadata, 'pluginName') ?? 'unknown',
         };
         break;
 
@@ -198,12 +193,11 @@ class AnalyticsDaemon {
           timestamp: event.timestamp,
           conversationId: event.conversationId,
           toolName: event.name,
-          mcpServer: event.metadata?.mcpServer as string | undefined,
+          mcpServer: stringMeta(event.metadata, 'mcpServer'),
         };
         break;
     }
 
-    // Broadcast attribution event
     this.server.broadcast(analyticsEvent);
   }
 
@@ -258,7 +252,6 @@ class AnalyticsDaemon {
 async function main() {
   const daemon = new AnalyticsDaemon();
 
-  // Handle graceful shutdown
   process.on('SIGINT', async () => {
     await daemon.stop();
     process.exit(0);
@@ -269,11 +262,9 @@ async function main() {
     process.exit(0);
   });
 
-  // Start daemon
   await daemon.start();
 }
 
-// Run if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
     console.error('Fatal error:', error);

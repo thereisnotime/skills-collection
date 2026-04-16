@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { mdToHtml } from './md-to-html.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, '..', '..');
@@ -27,105 +28,6 @@ const SECTION_MATCHERS = {
   useCases: /^(use cases|example scenarios|example workflow|examples?)$/i,
   troubleshooting: /^(troubleshooting|faq|common issues)$/i,
 };
-
-/**
- * Minimal markdown-to-HTML converter. Handles headings, lists, code blocks,
- * bold, italic, links, inline code, and paragraphs. Zero dependencies.
- */
-function mdToHtml(md) {
-  const lines = md.split('\n');
-  const out = [];
-  let inCodeBlock = false;
-  let inList = false;
-  let listType = null; // 'ul' or 'ol'
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Fenced code blocks
-    if (line.trimStart().startsWith('```')) {
-      if (inCodeBlock) {
-        out.push('</code></pre>');
-        inCodeBlock = false;
-      } else {
-        if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
-        out.push('<pre><code>');
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      out.push(escapeHtml(line));
-      continue;
-    }
-
-    const trimmed = line.trim();
-
-    // Empty line — close list if open
-    if (!trimmed) {
-      if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
-      continue;
-    }
-
-    // Headings (h3-h6 only, h2 is section delimiter)
-    const headingMatch = trimmed.match(/^(#{3,6})\s+(.+)$/);
-    if (headingMatch) {
-      if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
-      const level = headingMatch[1].length;
-      out.push(`<h${level}>${inlineFormat(headingMatch[2])}</h${level}>`);
-      continue;
-    }
-
-    // Unordered list
-    if (/^[-*+]\s/.test(trimmed)) {
-      if (!inList || listType !== 'ul') {
-        if (inList) out.push(`</${listType}>`);
-        out.push('<ul>');
-        inList = true;
-        listType = 'ul';
-      }
-      out.push(`<li>${inlineFormat(trimmed.replace(/^[-*+]\s+/, ''))}</li>`);
-      continue;
-    }
-
-    // Ordered list
-    if (/^\d+[.)]\s/.test(trimmed)) {
-      if (!inList || listType !== 'ol') {
-        if (inList) out.push(`</${listType}>`);
-        out.push('<ol>');
-        inList = true;
-        listType = 'ol';
-      }
-      out.push(`<li>${inlineFormat(trimmed.replace(/^\d+[.)]\s+/, ''))}</li>`);
-      continue;
-    }
-
-    // Paragraph
-    if (inList) { out.push(`</${listType}>`); inList = false; listType = null; }
-    out.push(`<p>${inlineFormat(trimmed)}</p>`);
-  }
-
-  if (inList) out.push(`</${listType}>`);
-  if (inCodeBlock) out.push('</code></pre>');
-
-  return out.join('\n');
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/** Convert inline markdown: bold, italic, code, links */
-function inlineFormat(text) {
-  return text
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_]+)_/g, '<em>$1</em>');
-}
 
 /**
  * Split README content into named sections based on ## headings.

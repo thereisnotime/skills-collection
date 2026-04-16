@@ -13,26 +13,14 @@
   --brand-blue: oklch(62% 0.15 250);
   --brand-green: var(--positive);
 
-  /* Legacy support - map to neutral scale */
-  --slate-950: var(--neutral-950);
-  --slate-900: var(--neutral-900);
-  --slate-850: var(--neutral-800);
-  --slate-800: var(--neutral-200);
-  --slate-700: var(--neutral-400);
-  --slate-600: var(--neutral-400);
-  --slate-500: var(--neutral-400);
-  --slate-400: var(--neutral-400);
+  /* Legacy support - map to neutral scale (only those still referenced) */
   --slate-300: var(--neutral-200);
   --slate-200: var(--neutral-100);
   --slate-100: var(--neutral-50);
 
-  --green-600: var(--primary-dark);
-  --green-500: var(--primary);
   --green-400: var(--primary);
   --green-300: var(--primary-light);
 
-  --blue-500: var(--brand-blue);
-  --blue-400: var(--brand-blue);
   --yellow-500: var(--warning);
   --red-500: var(--danger);
 
@@ -133,17 +121,6 @@ pre code {
 }
 
 /* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes fadeInOut {
   0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
   15% { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -171,13 +148,6 @@ pre code {
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.5s var(--ease-out);
-}
-
-.animate-slide-in {
-  animation: slideIn 0.5s var(--ease-out);
-}
 
 /* Scrollbar */
 ::-webkit-scrollbar {

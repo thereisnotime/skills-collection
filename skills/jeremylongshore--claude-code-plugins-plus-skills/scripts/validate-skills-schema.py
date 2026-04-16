@@ -1004,6 +1004,52 @@ def find_agent_files(root: Path) -> List[Path]:
     return results
 
 
+def find_plugin_json_files(root: Path) -> List[Path]:
+    """Find all plugin.json files in plugins/."""
+    results = []
+    plugins_dir = root / "plugins"
+    if plugins_dir.exists():
+        for pj_file in plugins_dir.rglob(".claude-plugin/plugin.json"):
+            if pj_file.is_file():
+                results.append(pj_file)
+    return results
+
+
+def validate_plugin_json(path: Path) -> Dict[str, Any]:
+    """Validate a single plugin.json file (standalone, for batch mode)."""
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    try:
+        pj = json_module.loads(path.read_text(encoding='utf-8'))
+    except json_module.JSONDecodeError as e:
+        return {'errors': [f"Invalid JSON: {e}"], 'warnings': []}
+
+    if not isinstance(pj, dict):
+        return {'errors': ["Must be a JSON object"], 'warnings': []}
+
+    if 'name' not in pj:
+        errors.append("Missing required field: 'name'")
+
+    valid_fields = set(PLUGIN_JSON_FIELDS.keys())
+    for key in pj:
+        if key not in valid_fields:
+            errors.append(f"Unknown field: '{key}' — not in Anthropic spec")
+
+    TYPE_MAP = {'string': str, 'object': dict, 'array': list}
+    for key, value in pj.items():
+        if key in PLUGIN_JSON_FIELDS:
+            expected = PLUGIN_JSON_FIELDS[key].get('type', '')
+            allowed = tuple(TYPE_MAP[t] for t in expected.split('|') if t in TYPE_MAP)
+            if allowed and not isinstance(value, allowed):
+                errors.append(f"Field '{key}' must be {expected}, got {type(value).__name__}")
+
+    if isinstance(pj.get('author'), dict) and 'name' not in pj['author']:
+        errors.append("author object must have 'name' field")
+
+    return {'errors': errors, 'warnings': warnings}
+
+
 def validate_agent(path: Path) -> Dict[str, Any]:
     """Validate an agent markdown file against Anthropic 2026 spec."""
     try:
@@ -2646,24 +2692,13 @@ def validate_plugin(plugin_dir: Path, tier: str = TIER_STANDARD) -> Dict[str, An
 
     plugin_json_path = plugin_dir / '.claude-plugin' / 'plugin.json'
 
-    # 1. Validate plugin.json
+    # 1. Validate plugin.json — delegate to validate_plugin_json to avoid duplicating logic
     if plugin_json_path.exists():
-        try:
-            pj = json_module.loads(plugin_json_path.read_text(encoding='utf-8'))
-            if not isinstance(pj, dict):
-                errors.append("[plugin.json] Must be a JSON object")
-            else:
-                # Check required field
-                if 'name' not in pj:
-                    errors.append("[plugin.json] Missing required field: 'name'")
-
-                # Check for invalid fields
-                valid_fields = set(PLUGIN_JSON_FIELDS.keys())
-                for key in pj:
-                    if key not in valid_fields:
-                        errors.append(f"[plugin.json] Unknown field: '{key}' — not in Anthropic spec")
-        except json_module.JSONDecodeError as e:
-            errors.append(f"[plugin.json] Invalid JSON: {e}")
+        pj_result = validate_plugin_json(plugin_json_path)
+        for err in pj_result['errors']:
+            errors.append(f"[plugin.json] {err}")
+        for warn in pj_result['warnings']:
+            warnings.append(f"[plugin.json] {warn}")
     else:
         warnings.append("[plugin.json] No .claude-plugin/plugin.json found")
 
@@ -3432,6 +3467,31 @@ def main() -> int:
             files_compliant.append(str(rel))
             if verbose:
                 print(f"✅ {rel} (agent) - OK")
+
+    # Validate plugin.json files (batch mode)
+    plugin_jsons = find_plugin_json_files(repo_root)
+    if plugin_jsons and not args.json:
+        print(f"\nFound {len(plugin_jsons)} plugin.json files")
+    for pj_file in plugin_jsons:
+        rel = pj_file.relative_to(repo_root)
+        result = validate_plugin_json(pj_file)
+
+        if result['errors']:
+            print(f"❌ {rel} (plugin.json):")
+            for error in result['errors']:
+                print(f"   ERROR: {error}")
+            total_errors += len(result['errors'])
+            files_with_errors.append(str(rel))
+        elif result['warnings']:
+            print(f"⚠️  {rel} (plugin.json):")
+            for warning in result['warnings']:
+                print(f"   WARN: {warning}")
+            total_warnings += len(result['warnings'])
+            files_with_warnings.append(str(rel))
+        else:
+            files_compliant.append(str(rel))
+            if verbose:
+                print(f"✅ {rel} (plugin.json) - OK")
 
     # Populate compliance database if requested (after all validations complete)
     if args.populate_db:

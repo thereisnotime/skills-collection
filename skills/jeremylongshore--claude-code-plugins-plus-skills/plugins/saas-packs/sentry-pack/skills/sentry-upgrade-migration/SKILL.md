@@ -438,7 +438,7 @@ Result: SDK upgraded to 2.x, `configure_scope` replaced with `get_current_scope`
 
 ## Next Steps
 
-- Run [sentry-performance-tracing](../sentry-performance-tracing/SKILL.md) to configure v8 span-based tracing
-- Run [sentry-ci-integration](../sentry-ci-integration/SKILL.md) to update CI source map upload after SDK change
-- Run [sentry-release-management](../sentry-release-management/SKILL.md) to tag the upgraded release
-- Run [sentry-known-pitfalls](../sentry-known-pitfalls/SKILL.md) to review common post-upgrade issues
+- Run sentry-performance-tracing to configure v8 span-based tracing
+- Run sentry-ci-integration to update CI source map upload after SDK change
+- Run sentry-release-management to tag the upgraded release
+- Run sentry-known-pitfalls to review common post-upgrade issues

@@ -3,7 +3,7 @@ import ora from 'ora';
 import * as os from 'os';
 import { promises as fs } from 'fs';
 import { existsSync } from 'fs';
-import { detectClaudePaths, isMarketplaceInstalled } from '../utils/paths.js';
+import { detectClaudePaths, isMarketplaceInstalled, type ClaudePaths } from '../utils/paths.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -24,6 +24,39 @@ interface CheckResult {
   status: 'pass' | 'warn' | 'fail' | 'fixed';
   message: string;
   details?: string;
+}
+
+/** Minimal plugin shape we actually inspect in integrity checks */
+interface CatalogPlugin {
+  name?: string;
+  version?: string;
+  description?: string;
+}
+
+/** Subset of the marketplace catalog JSON we actually inspect */
+interface MarketplaceCatalog {
+  plugins?: CatalogPlugin[];
+}
+
+/** MCP server configuration from Claude settings.json */
+interface MCPServerConfig {
+  command?: string;
+  cmd?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  port?: number | string;
+  logPath?: string;
+}
+
+/** Represents a detected MCP server entry */
+interface MCPServerEntry {
+  name: string;
+  config: MCPServerConfig;
+}
+
+/** Subset of installed_plugins.json structure */
+interface InstalledPluginsData {
+  plugins?: Record<string, Array<{ scope?: string }>>;
 }
 
 /**
@@ -217,10 +250,10 @@ async function runPluginChecks(): Promise<DiagnosticResult> {
 
     if (existsSync(installedPluginsPath)) {
       const fileContent = await fs.readFile(installedPluginsPath, 'utf-8');
-      const data = JSON.parse(fileContent);
+      const data = JSON.parse(fileContent) as InstalledPluginsData;
 
       if (data.plugins) {
-        const pluginEntries = Object.values(data.plugins) as any[];
+        const pluginEntries = Object.values(data.plugins);
         totalPlugins = pluginEntries.length;
 
         // Count by scope
@@ -343,7 +376,7 @@ async function runMarketplaceChecks(fixMode: boolean = false): Promise<Diagnosti
 /**
  * Check marketplace catalog integrity
  */
-async function checkMarketplaceIntegrity(paths: any, fixMode: boolean = false): Promise<CheckResult[]> {
+async function checkMarketplaceIntegrity(paths: ClaudePaths, fixMode: boolean = false): Promise<CheckResult[]> {
   const checks: CheckResult[] = [];
   const marketplaceSlug = 'claude-code-plugins-plus';
   const marketplacePath = `${paths.marketplacesDir}/${marketplaceSlug}`;
@@ -367,8 +400,8 @@ async function checkMarketplaceIntegrity(paths: any, fixMode: boolean = false): 
     }
 
     // Validate JSON structure
-    let catalog: any;
-    let extended: any;
+    let catalog: MarketplaceCatalog;
+    let extended: MarketplaceCatalog;
 
     try {
       const catalogContent = await fs.readFile(catalogPath, 'utf-8');
@@ -571,8 +604,8 @@ async function runMCPChecks(): Promise<DiagnosticResult> {
 /**
  * Detect MCP servers from Claude settings
  */
-async function detectMCPServers(paths: any): Promise<any[]> {
-  const servers: any[] = [];
+async function detectMCPServers(paths: ClaudePaths): Promise<MCPServerEntry[]> {
+  const servers: MCPServerEntry[] = [];
 
   try {
     // Check for MCP settings in Claude config
@@ -583,20 +616,23 @@ async function detectMCPServers(paths: any): Promise<any[]> {
     }
 
     const settingsContent = await fs.readFile(settingsPath, 'utf-8');
-    const settings = JSON.parse(settingsContent);
+    const settings = JSON.parse(settingsContent) as {
+      mcp?: { servers?: Record<string, MCPServerConfig> };
+      mcpServers?: Record<string, MCPServerConfig>;
+    };
 
     // MCP servers are typically in settings.mcp.servers or settings.mcpServers
-    const mcpConfig = settings.mcp?.servers || settings.mcpServers || {};
+    const mcpConfig: Record<string, MCPServerConfig> = settings.mcp?.servers ?? settings.mcpServers ?? {};
 
     for (const [name, config] of Object.entries(mcpConfig)) {
       servers.push({
         name,
-        config: config as any,
+        config,
       });
     }
 
-  } catch (error) {
-    // Settings file might not exist or be invalid - not an error
+  } catch {
+    // settings.json may not exist yet — not an error condition
   }
 
   return servers;
@@ -605,7 +641,7 @@ async function detectMCPServers(paths: any): Promise<any[]> {
 /**
  * Check individual MCP server health
  */
-async function checkMCPServer(server: any): Promise<CheckResult[]> {
+async function checkMCPServer(server: MCPServerEntry): Promise<CheckResult[]> {
   const checks: CheckResult[] = [];
   const serverName = server.name;
   const config = server.config;

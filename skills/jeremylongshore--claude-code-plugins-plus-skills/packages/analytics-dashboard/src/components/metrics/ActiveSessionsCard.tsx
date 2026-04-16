@@ -49,7 +49,7 @@ export function ActiveSessionsCard() {
               <p className="text-sm text-gray-700 font-medium truncate">
                 {event.type === 'conversation.created'
                   ? event.title || 'New Conversation'
-                  : `${(event as any).messageCount || 0} messages`}
+                  : `${event.type === 'conversation.updated' ? event.messageCount : 0} messages`}
               </p>
               <p className="text-xs text-gray-500">
                 {formatTimestamp(event.timestamp)}

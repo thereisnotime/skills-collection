@@ -1,27 +1,18 @@
 # scripts/test_check_task_type.py
 """Unit tests for check_task_type.py lint script."""
-import os
 import subprocess
-import sys
 import textwrap
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from scripts._test_helpers import run_skill_linter
+
 SCRIPT = Path(__file__).resolve().parent / "check_task_type.py"
 
 
 def _run(root: Path) -> subprocess.CompletedProcess:
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(SCRIPT.parent) + (
-        os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
-    )
-    return subprocess.run(
-        [sys.executable, str(SCRIPT), "--path", str(root)],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
+    return run_skill_linter(SCRIPT, root)
 
 
 def _write_skill(root: Path, name: str, frontmatter_body: str) -> None:
@@ -100,6 +91,34 @@ class TestTaskTypeLint(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("malformed YAML frontmatter", result.stdout)
             self.assertNotIn("malformed YAML frontmatter", result.stderr)
+
+    def test_missing_closing_fence_reports_on_stdout(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill_dir = root / "broken"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: broken\nmetadata:\n  task_type: open-ended\n# missing closing fence\n",
+                encoding="utf-8",
+            )
+            result = _run(root)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("missing closing YAML frontmatter fence", result.stdout)
+            self.assertNotIn("missing closing YAML frontmatter fence", result.stderr)
+
+    def test_non_mapping_frontmatter_reports_on_stdout(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill_dir = root / "broken"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(
+                "---\n- just\n- a\n- list\n---\n",
+                encoding="utf-8",
+            )
+            result = _run(root)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("must be a mapping/object", result.stdout)
+            self.assertNotIn("must be a mapping/object", result.stderr)
 
 
 if __name__ == "__main__":

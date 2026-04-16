@@ -157,7 +157,7 @@ def sha256_file(path: Path) -> str:
             for chunk in iter(lambda: fh.read(65536), b""):
                 h.update(chunk)
     except OSError:
-        pass
+        return ""
     return h.hexdigest()
 
 

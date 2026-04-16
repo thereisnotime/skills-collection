@@ -7,6 +7,7 @@ a value drawn from a closed vocabulary.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -50,12 +51,19 @@ def parse_frontmatter(path: Path) -> dict | None:
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---"):
         return None
-    _, _, rest = text.partition("---\n")
-    fm, _, _ = rest.partition("\n---\n")
+    match = re.match(r"\A---\r?\n(?P<fm>.*?)(?:\r?\n)---(?:\r?\n|$)", text, re.DOTALL)
+    if not match:
+        raise FrontmatterError(f"{path}: missing closing YAML frontmatter fence")
+    fm = match.group("fm")
     try:
-        return yaml.safe_load(fm) or {}
+        data = yaml.safe_load(fm) or {}
     except yaml.YAMLError as exc:
         raise FrontmatterError(f"{path}: malformed YAML frontmatter: {exc}") from exc
+    if not isinstance(data, dict):
+        raise FrontmatterError(
+            f"{path}: YAML frontmatter must be a mapping/object, got {type(data).__name__}"
+        )
+    return data
 
 
 def check_metadata_field(

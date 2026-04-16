@@ -4,37 +4,14 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 import type { ClaudePaths } from '../utils/paths.js';
+import type { PluginMetadata, InstalledPlugin, PluginUpdate } from '../types.js';
+import { MARKETPLACE_SLUG, CATALOG_URL } from '../utils/constants.js';
 
 interface UpgradeOptions {
   check?: boolean;
   all?: boolean;
   plugin?: string;
 }
-
-interface PluginMetadata {
-  name: string;
-  version: string;
-  description: string;
-  author: string;
-  category?: string;
-}
-
-interface InstalledPlugin {
-  version: string;
-  scope?: string;
-  installedAt?: string;
-}
-
-interface PluginUpdate {
-  name: string;
-  currentVersion: string;
-  latestVersion: string;
-  description?: string;
-}
-
-const MARKETPLACE_REPO = 'jeremylongshore/claude-code-plugins';
-const MARKETPLACE_SLUG = 'claude-code-plugins-plus';
-const CATALOG_URL = 'https://raw.githubusercontent.com/jeremylongshore/claude-code-plugins/main/.claude-plugin/marketplace.json';
 
 /**
  * Main upgrade command handler
@@ -129,7 +106,8 @@ async function getInstalledPlugins(paths: ClaudePaths): Promise<Record<string, I
     const content = await fs.readFile(installedPluginsPath, 'utf-8');
     const data = JSON.parse(content);
     return data.plugins || {};
-  } catch {
+  } catch (error) {
+    console.warn(chalk.yellow(`Warning: Could not read installed_plugins.json: ${error instanceof Error ? error.message : String(error)}`));
     return {};
   }
 }

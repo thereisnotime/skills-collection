@@ -7,10 +7,7 @@
   },
   "license": "MIT",
   "homepage": "https://dr.eamer.dev/geepers/",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/lukeslp/geepers"
-  },
+  "repository": "https://github.com/lukeslp/geepers",
   "keywords": [
     "mcp",
     "orchestration",

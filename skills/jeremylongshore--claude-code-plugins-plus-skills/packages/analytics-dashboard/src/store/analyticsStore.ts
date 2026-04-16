@@ -29,33 +29,27 @@ interface AnalyticsState {
  * Create analytics store with Zustand
  */
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
-  // Initial state
   connectionStatus: 'disconnected',
   lastEventTimestamp: null,
   events: [],
-  maxEvents: 1000, // Keep last 1000 events
+  maxEvents: 1000,
   pluginActivations: new Map(),
   skillTriggers: new Map(),
   totalCost: 0,
 
-  // Update connection status
   setConnectionStatus: (status: ConnectionStatus) => {
     set({ connectionStatus: status });
   },
 
-  // Add new event
   addEvent: (event: AnalyticsEvent) => {
     set((state) => {
-      // Update last event timestamp
       const lastEventTimestamp = event.timestamp;
 
-      // Add event to array, keep only last maxEvents
       const events = [...state.events, event];
       if (events.length > state.maxEvents) {
-        events.shift(); // Remove oldest event
+        events.shift();
       }
 
-      // Update metrics based on event type
       let pluginActivations = new Map(state.pluginActivations);
       let skillTriggers = new Map(state.skillTriggers);
       let totalCost = state.totalCost;
@@ -87,7 +81,6 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     });
   },
 
-  // Clear all events
   clearEvents: () => {
     set({
       events: [],
@@ -98,7 +91,6 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     });
   },
 
-  // Get events by type
   getEventsByType: (type: string) => {
     return get().events.filter((event) => event.type === type);
   },

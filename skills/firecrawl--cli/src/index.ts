@@ -50,6 +50,7 @@ import {
   createCodexCommand,
   createOpenCodeCommand,
 } from './commands/experimental';
+import { createCreateCommand } from './commands/create';
 
 // Initialize global configuration from environment variables
 initializeConfig();
@@ -1190,6 +1191,11 @@ program.addCommand(createInteractCommand());
 
 // Hidden: deprecated browser command (still works, just not in --help)
 program.addCommand(createBrowserCommand(), { hidden: true });
+
+// Hidden: `firecrawl create <kind>` — scaffolds Firecrawl starter projects.
+// Undocumented until `firecrawl-agent-cli` is published to npm; flip to
+// visible by removing `{ hidden: true }`.
+program.addCommand(createCreateCommand(), { hidden: true });
 
 // Experimental: download, AI workflow commands
 const experimental = new Command('experimental')

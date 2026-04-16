@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.6] - 2026-04-15
+
+### Added
+- `docs/ARCHITECTURE.md` — single source of truth for pipeline structure (flow, stage × dimension matrix, data-access flow, skill dependency graph, quality gates, modes). Merged into main via PR #18.
+- `docs/SETUP.md` + `docs/SETUP.zh-TW.md` — prerequisites, API keys, Pandoc / tectonic setup, cross-model verification (`ARS_CROSS_MODEL`), and four installation methods.
+- `docs/PERFORMANCE.md` + `docs/PERFORMANCE.zh-TW.md` — per-mode token budgets, full-pipeline cost estimate, and recommended Claude Code settings (Agent Team, Ralph Loop, Skip Permissions).
+
+### Changed
+- `README.md` and `README.zh-TW.md` streamlined: removed the ASCII pipeline diagram and the 16-point key-feature list (superseded by `docs/ARCHITECTURE.md`). Setup, performance, and installation sections relocated to `docs/`. Skill Details now anchors version numbers and routes readers to ARCHITECTURE.md §3 for per-agent rosters.
+- `scripts/check_spec_consistency.py` — bumped README version expectations to `v3.3.6`; DOCX contract expectations (both EN and zh-TW) moved from READMEs to the new `docs/SETUP.*` docs; added `check_setup_docs()` step.
+- Suite version bumped to `3.3.6` across `README.md`, `README.zh-TW.md`, `.claude/CLAUDE.md`, and `MODE_REGISTRY.md`.
+
+### Notes
+- No functional change to any skill. Pure documentation reorganization.
+
+## [3.3.5] - 2026-04-15
+
+### Added
+- `shared/benchmark_report.schema.json` — JSON Schema (draft-2020-12) defining required fields for ARS benchmark reports. Catches the "n=2 author-conducted baseline" failure mode from Anthropic's automated-w2s-researcher paper.
+- `shared/benchmark_report_pattern.md` — narrative hub doc explaining the schema.
+- `scripts/check_benchmark_report.py` + tests — validator with self-scored and small-sample warnings.
+- `examples/benchmark_report_template.json` — fillable template.
+- `repro_lock` optional sub-block added to Material Passport (Schema 9 in `shared/handoff_schemas.md`). Configuration lockfile; NOT a deterministic replay guarantee.
+- `shared/artifact_reproducibility_pattern.md` — hub doc with mandatory "not a replay guarantee" disclaimer section and required `stochasticity_declaration` field.
+- `scripts/check_repro_lock.py` + tests — passport validator.
+- `examples/passport_with_repro_lock.yaml` — example.
+- `requirements-dev.txt` — formal Python dev dep manifest (pyyaml + jsonschema).
+
+### Changed
+- `.github/workflows/spec-consistency.yml` installs via `pip install -r requirements-dev.txt` instead of ad-hoc `pip install`.
+- `academic-pipeline/references/reproducibility_audit.md` cross-links to new artifact-reproducibility pattern.
+
+## [3.3.4] - 2026-04-15
+
+### Fixed
+- Embedded changelog sections in `README.md` and `README.zh-TW.md` now include the missing `v3.3.3` and `v3.3.2` summaries, so the README history matches the published releases.
+- `scripts/check_spec_consistency.py` now verifies that the README changelog summaries include the latest release entries, so future drift fails CI.
+
+### Changed
+- Suite version bumped to `3.3.4` across release-facing docs after the README changelog sync patch release.
+
+## [3.3.3] - 2026-04-15
+
+### Fixed
+- `scripts/_skill_lint.py` now rejects SKILL frontmatter that is missing a closing `---` fence instead of silently treating the rest of the file as YAML.
+- `scripts/_skill_lint.py` now reports a readable error when frontmatter parses as valid YAML but not as a mapping object, instead of crashing with `AttributeError`.
+- Broken showcase link for the post-publication audit report corrected in both `README.md` and `README.zh-TW.md`.
+- `scripts/check_spec_consistency.py` now validates README relative Markdown links so future dead links fail CI.
+
+### Changed
+- DOCX generation contract aligned across README, `academic-paper/SKILL.md`, `academic-paper/agents/formatter_agent.md`, `academic-pipeline/SKILL.md`, and `academic-pipeline/agents/pipeline_orchestrator_agent.md`: direct `.docx` output is Pandoc-dependent, with Markdown + conversion instructions as the fallback.
+- Added regression tests covering missing closing fences and non-mapping YAML frontmatter in both lint test suites.
+- Suite version bumped to `3.3.3` across release-facing docs; `academic-paper` patch-bumped to `3.0.2` and `academic-pipeline` patch-bumped to `3.2.2`.
+
 ## [3.3.2] - 2026-04-15
 
 ### Added

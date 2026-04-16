@@ -499,6 +499,7 @@ score_trajectory: {
 | `integrity_pass_date` | string | ISO 8601 timestamp of last integrity verification pass (if applicable) |
 | `content_hash` | string | SHA-256 hash of the content (for change detection) |
 | `upstream_dependencies` | list[string] | Version labels of artifacts this one depends on |
+| `repro_lock` | object \| null | configuration lockfile for artifact reproducibility. See [`artifact_reproducibility_pattern.md`](artifact_reproducibility_pattern.md). `null` = honest opt-out. Required from v3.3.5+ — omitted key fails lint. |
 
 ### Example
 
@@ -642,3 +643,9 @@ This is a declarative truth-in-advertising signal. All current ARS skills are `o
 Enforced by `scripts/check_task_type.py` in CI.
 
 See [`ground_truth_isolation_pattern.md`](ground_truth_isolation_pattern.md) for the rationale and rules behind this annotation.
+
+
+## v3.3.5 additions
+
+- `benchmark_report.schema.json` + [`benchmark_report_pattern.md`](benchmark_report_pattern.md) — schema for publishing ARS benchmark comparisons with required human baseline + independence fields.
+- `repro_lock` sub-block on Material Passport + [`artifact_reproducibility_pattern.md`](artifact_reproducibility_pattern.md) — configuration lockfile (NOT replay guarantee).

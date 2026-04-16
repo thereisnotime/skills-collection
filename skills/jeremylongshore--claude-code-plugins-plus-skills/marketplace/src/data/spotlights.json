@@ -1,19 +1,31 @@
 {
-  "week": "2026-W13",
+  "week": "2026-W16",
   "title": "Killer Skill of the Week",
   "spotlight": {
-    "pluginSlug": "token-optimizer",
-    "headline": "Ghost tokens eat your context. Find them. Fix them. Prevent rot.",
-    "whyKiller": "Claude gets measurably dumber as your context fills. Compaction destroys 60-70% of your conversation. Ghost tokens burn through your rate limits on every message. Token Optimizer tracks all of it: live quality scoring on your status line, smart compaction that saves your decisions before they're lost, full analytics dashboard with per-session cost breakdowns, and 6 parallel audit agents that optimize your entire setup. Not a one-time scan. An ongoing intelligence layer for your Claude Code workflow.",
-    "author": "Alex Greenshpun",
-    "authorGithub": "alexgreensh",
+    "pluginSlug": "code-cleanup",
+    "headline": "11-dimensional codebase cleanup with confidence scoring and build verification gates.",
+    "whyKiller": "Born from a real cleanup session — 25,000 lines removed, 4 bugs caught — packaged into a reusable plugin. 11 specialized agents scan for dead code, AI slop, weak types, security vulnerabilities, N+1 queries, floating promises, circular deps, and more. Every finding gets a confidence score (HIGH/MEDIUM/LOW). LOW-risk dimensions auto-apply after build verification. HIGH-risk dimensions flag only — never touch your code without proof. One command, full codebase hygiene.",
+    "author": "Jeremy Longshore",
+    "authorGithub": "jeremylongshore",
     "grade": "A",
-    "skillCount": null,
-    "category": "productivity",
-    "link": "https://github.com/alexgreensh/token-optimizer",
-    "quote": "My Claude Code kept leaking tokens. So I built this. Now my limits last longer, context stays fresh, and I have full visibility and control over my usage & setup."
+    "skillCount": 1,
+    "category": "code-quality",
+    "link": "/plugins/code-cleanup",
+    "quote": "8 parallel agents, 25K lines removed, 4 bugs found. Now it's a plugin anyone can run."
   },
   "hallOfFame": [
+    {
+      "week": "2026-W13",
+      "pluginSlug": "token-optimizer",
+      "headline": "Ghost tokens eat your context. Find them. Fix them. Prevent rot.",
+      "author": "Alex Greenshpun",
+      "authorGithub": "alexgreensh",
+      "grade": "A",
+      "skillCount": null,
+      "category": "productivity",
+      "link": "https://github.com/alexgreensh/token-optimizer",
+      "quote": "My Claude Code kept leaking tokens. So I built this. Now my limits last longer, context stays fresh, and I have full visibility and control over my usage & setup."
+    },
     {
       "week": "2026-W12",
       "pluginSlug": "executive-assistant-skills",
@@ -63,7 +75,7 @@
   ],
   "meta": {
     "version": "2.1.0",
-    "lastUpdated": "2026-03-23",
+    "lastUpdated": "2026-04-15",
     "curatedBy": "Jeremy Longshore"
   }
 }

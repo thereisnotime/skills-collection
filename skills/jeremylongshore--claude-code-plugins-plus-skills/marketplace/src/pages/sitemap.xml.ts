@@ -8,11 +8,15 @@ export const GET: APIRoute = async () => {
 
   // Load marketplace catalog
   const catalogPath = join(process.cwd(), '../.claude-plugin/marketplace.json');
-  const catalog = JSON.parse(readFileSync(catalogPath, 'utf-8'));
+  const catalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as {
+    plugins: Array<{ name: string }>;
+  };
 
   // Load skills catalog
   const skillsCatalogPath = join(process.cwd(), 'src/data/skills-catalog.json');
-  const skillsCatalog = JSON.parse(readFileSync(skillsCatalogPath, 'utf-8'));
+  const skillsCatalog = JSON.parse(readFileSync(skillsCatalogPath, 'utf-8')) as {
+    skills: Array<{ slug: string }>;
+  };
 
   // Discover docs pages from content directory
   const docsDir = join(process.cwd(), 'src/content/docs');
@@ -65,12 +69,12 @@ ${docsPages.map(page => `  <url>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
   </url>`).join('\n')}
-${catalog.plugins.map((plugin: any) => `  <url>
+${catalog.plugins.map((plugin) => `  <url>
     <loc>${siteUrl}/plugins/${encodeURIComponent(plugin.name)}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>`).join('\n')}
-${skillsCatalog.skills.map((skill: any) => `  <url>
+${skillsCatalog.skills.map((skill) => `  <url>
     <loc>${siteUrl}/skills/${encodeURIComponent(skill.slug)}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>

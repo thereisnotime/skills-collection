@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.3.2-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.3.2)
+[![Version](https://img.shields.io/badge/version-v3.3.6-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.3.6)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -14,118 +14,56 @@ A comprehensive suite of Claude Code skills for academic research, covering the 
 
 ### Why human-in-the-loop, not full automation?
 
-Lu et al. (2026, *Nature* 651:914-919) built **The AI Scientist** — the first fully autonomous AI research system to publish a paper through blind peer review at a top-tier ML venue (ICLR 2025 workshop, score 6.33/10 vs workshop average 4.87). It is the strongest published benchmark of what end-to-end autonomous AI research can do as of 2026.
+Lu et al. (2026, *Nature* 651:914-919) built **The AI Scientist** — the first fully autonomous AI research system to publish a paper through blind peer review at a top-tier ML venue (ICLR 2025 workshop, score 6.33/10 vs workshop average 4.87). Their Limitations section enumerates the failure modes that any fully-autonomous AI research pipeline inherits: implementation bugs, hallucinated results, shortcut reliance, bug-as-insight reframing, methodology fabrication, frame-lock, citation hallucinations.
 
-Their own Limitations section enumerates the failure modes that any fully-autonomous AI research pipeline inherits:
-- Implementation bugs that pass AI self-review but poison the results
-- Hallucinated experimental results that look plausible
-- Shortcut reliance (models exploiting spurious features and writing papers about "solving" the task)
-- Implementation bugs reframed as novel insights
-- Methodology fabrication (Methods section drifting from what was actually run)
-- Frame-lock at early stages (wrong hyperparameter direction the pipeline cannot back out of)
-- Citation hallucinations
+ARS is built on the premise that **a human researcher augmented by AI avoids these failure modes better than either alone**. Stage 2.5 and Stage 4.5 integrity gates run a 7-mode blocking checklist (see [`academic-pipeline/references/ai_research_failure_modes.md`](academic-pipeline/references/ai_research_failure_modes.md)); the reviewer offers an opt-in calibration mode that measures its own FNR/FPR against a user-supplied gold set.
 
-ARS is built on the premise that **a human researcher augmented by AI avoids these failure modes better than either alone**. v3.2 directly operationalizes the Lu 2026 failure-mode taxonomy: the pipeline's Stage 2.5 and Stage 4.5 integrity gates now run a 7-mode blocking checklist (see `academic-pipeline/references/ai_research_failure_modes.md`), and the reviewer offers an opt-in calibration mode that measures its own FNR/FPR against a user-supplied gold set (see `academic-paper-reviewer/references/calibration_mode_protocol.md`).
-
-The AI Scientist shows that autonomous AI research is now possible. ARS is designed to give you the leverage of that capability without inheriting its failure modes.
-
-v3.3 was inspired by [**PaperOrchestra**](https://arxiv.org/abs/2604.05018) (Song, Song, Pfister & Yoon, 2026, Google), a multi-agent framework that autonomously authors LaTeX manuscripts from raw research materials. We integrated several of their techniques: **Semantic Scholar API verification** for programmatic citation checking, an **anti-leakage protocol** that prevents the LLM from silently filling gaps with parametric memory, **VLM figure verification** for closed-loop visual quality checks, and **score trajectory tracking** that detects when revisions inadvertently degrade specific quality dimensions.
+v3.3 was inspired by [**PaperOrchestra**](https://arxiv.org/abs/2604.05018) (Song, Song, Pfister & Yoon, 2026, Google): Semantic Scholar API verification, anti-leakage protocol, VLM figure verification, and score trajectory tracking.
 
 ---
 
-## Guides & Articles
+## Architecture & pipeline
 
-- [Academic Writing Shouldn't Be a Solo Act](https://open.substack.com/pub/edwardwu223235/p/academic-writing-shouldnt-be-a-solo?r=4dczl&utm_medium=ios) — A detailed walkthrough of the full pipeline workflow (English)
+**👉 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the full pipeline view: flow diagram, stage-by-stage matrix, data-access flow, skill dependency graph, quality gates, and mode list.
+
+The architecture doc supersedes the sprawling pipeline description that used to live here. Everything about *what runs in which stage* now lives in one place.
+
+## Setup & installation
+
+**👉 [docs/SETUP.md](docs/SETUP.md)** — install Claude Code, set up API keys, optional Pandoc/tectonic for DOCX/PDF, cross-model verification (`ARS_CROSS_MODEL`), and four installation methods including claude.ai Project import.
+
+## Performance & cost
+
+**👉 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)** — per-mode token budgets, full-pipeline estimate (~$4–6 for a 15k-word paper), and recommended Claude Code settings (Agent Team, Ralph Loop, Skip Permissions).
+
+## Guides & articles
+
+- [Academic Writing Shouldn't Be a Solo Act](https://open.substack.com/pub/edwardwu223235/p/academic-writing-shouldnt-be-a-solo?r=4dczl&utm_medium=ios) — full pipeline walkthrough (English)
 - [學術寫作不該是一個人的事：一套開源 AI 協作工具如何改變研究者的工作流](https://open.substack.com/pub/edwardwu223235/p/ai?r=4dczl&utm_medium=ios) — 完整使用指南（繁體中文）
 
 ---
 
-## Features
+## Features at a glance
 
-- **Deep Research** — 13-agent research team with Socratic guided mode + systematic review / PRISMA + SCR Loop + **intent detection** + **dialogue health monitoring** + **optional cross-model DA** + **argumentation & reasoning cognitive framework** + **Semantic Scholar API verification**
-- **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX output hardening, visualization, revision coaching, citation conversion, **writing judgment framework**, **anti-leakage protocol**, and **VLM figure verification**
-- **Academic Paper Reviewer** — Multi-perspective peer review with 0-100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate with **concession threshold protocol** + **attack intensity preservation** + **optional cross-model DA critique / calibration**) + **R&R traceability matrix** + **read-only constraint** + **review quality thinking framework**
-- **Academic Pipeline** — Full 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, material passport, **optional cross-model integrity verification**, **mid-conversation reinforcement**, **self-check questions**, and **score trajectory tracking**
-- **Data Access Level Metadata** (v3.3.2+) — Every skill declares a `data_access_level` (`raw`, `redacted`, or `verified_only`) so pipelines and CI can reason about isolation boundaries. Enforced by `scripts/check_data_access_level.py`. Pattern adapted from Anthropic's automated-w2s-researcher (2026).
-- **Task Type Annotation** (v3.3.2+) — Every skill declares a `task_type` (`open-ended` or `outcome-gradable`). All current ARS skills are `open-ended`: a truth-in-advertising signal that ARS targets domain-judgment work, not benchmark tasks. Enforced by `scripts/check_task_type.py`.
-
-### Skill posture (v3.3.2+)
-
-Each SKILL.md declares `data_access_level` and `task_type` in its frontmatter. See [`shared/handoff_schemas.md`](shared/handoff_schemas.md) for the vocabulary and [`shared/ground_truth_isolation_pattern.md`](shared/ground_truth_isolation_pattern.md) for the rationale.
-
-### Full Pipeline
-
-```
-Research → Write → Integrity Check → Review (5-person) → Socratic Coaching
-  → Revise → Re-Review → Re-Revise → Final Integrity Check → Finalize
-  → Process Summary (with Collaboration Quality Evaluation)
-```
-
-**Key Features:**
-1. Adaptive checkpoints (FULL / SLIM / MANDATORY) after every stage
-2. Pre-review integrity verification — 100% reference, data, and claim validation (Phase A-E)
-3. Two-stage review with Devil's Advocate + 0-100 quality rubrics
-4. Socratic revision coaching with SCR Loop (State-Challenge-Reflect, user-togglable) between review and revision stages
-5. Final integrity verification before publication
-6. Output: MD + DOCX + LaTeX (APA 7.0 `apa7` class / IEEE / Chicago) → PDF via tectonic
-7. Post-pipeline process summary with 6-dimension collaboration quality scoring (1–100)
-8. Material passport for mid-entry provenance tracking
-9. Cross-skill mode advisor (14 scenarios + user archetypes)
-10. Style Calibration — learn the author's writing voice from past papers (optional, intake Step 10)
-11. Writing Quality Check — writing quality checklist catching overused AI-typical patterns
-12. **Cross-model verification (optional)** — use GPT-5.4 Pro or Gemini 3.1 Pro for integrity sample checks and independent DA challenges; sixth-reviewer peer review remains planned, not yet implemented
-13. **Semantic Scholar API verification** — programmatic Tier 0 reference existence check with Levenshtein title matching and DOI mismatch detection
-14. **Anti-leakage protocol** — Knowledge Isolation Directive prioritizes session materials over LLM memory; flags `[MATERIAL GAP]` for missing content
-15. **VLM figure verification (optional)** — closed-loop visual quality check using a vision-capable LLM with 10-point checklist
-16. **Score trajectory tracking** — per-dimension rubric score delta tracking across revision rounds with regression detection
+- **Deep Research** — 13-agent research team with Socratic guided mode, PRISMA systematic review, intent detection, dialogue health monitoring, optional cross-model DA, Semantic Scholar API verification.
+- **Academic Paper** — 12-agent paper writing with Style Calibration, Writing Quality Check, LaTeX hardening, visualization, revision coaching, citation conversion, anti-leakage protocol, and VLM figure verification.
+- **Academic Paper Reviewer** — 7-agent multi-perspective peer review with 0–100 quality rubrics (EIC + 3 dynamic reviewers + Devil's Advocate), concession threshold protocol, attack intensity preservation, optional cross-model DA critique / calibration, R&R traceability matrix, read-only constraint.
+- **Academic Pipeline** — 10-stage pipeline orchestrator with adaptive checkpoints, claim verification, Material Passport, optional `repro_lock`, optional cross-model integrity verification, mid-conversation reinforcement, and score trajectory tracking.
+- **Data Access Level Metadata** (v3.3.2+) — every skill declares `data_access_level` (`raw` / `redacted` / `verified_only`); enforced by `scripts/check_data_access_level.py`. Pattern adapted from Anthropic's automated-w2s-researcher (2026). See [`shared/ground_truth_isolation_pattern.md`](shared/ground_truth_isolation_pattern.md).
+- **Task Type Annotation** (v3.3.2+) — every skill declares `task_type` (`open-ended` or `outcome-gradable`). All current ARS skills are `open-ended`.
+- **Benchmark Report Schema** (v3.3.5+) — JSON Schema + lint for honest benchmark comparisons. See [`shared/benchmark_report_pattern.md`](shared/benchmark_report_pattern.md).
+- **Artifact Reproducibility Lockfile** (v3.3.5+) — optional `repro_lock` sub-block on Material Passport. **Configuration documentation, not replay guarantee** — LLM outputs are not byte-reproducible. See [`shared/artifact_reproducibility_pattern.md`](shared/artifact_reproducibility_pattern.md).
 
 ---
 
-## Cross-Model Verification (Optional)
+## Showcase: real pipeline output
 
-ARS works with Claude Opus 4.6 alone. For higher confidence, you can optionally enable a second AI model to independently verify integrity checks and challenge the devil's advocate.
-
-### Quick Setup
-
-```bash
-# Step 1: Set your API key (choose one or both)
-export OPENAI_API_KEY="sk-your-key-here"        # For GPT-5.4 Pro
-export GOOGLE_AI_API_KEY="AIza-your-key-here"    # For Gemini 3.1 Pro
-
-# Step 2: Choose your cross-verification model
-export ARS_CROSS_MODEL="gpt-5.4-pro"            # Best reasoning
-# or: export ARS_CROSS_MODEL="gemini-3.1-pro-preview"  # Strong at factual verification
-
-# Step 3: Run Claude Code as normal — cross-verification activates automatically
-claude
-```
-
-### What Changes When Enabled
-
-| Feature | Without Cross-Model | With Cross-Model |
-|---------|-------------------|------------------|
-| Integrity verification | Single-model 100% check | + 30% sample independently verified by 2nd model |
-| Devil's Advocate | Single-model DA | + Cross-model generates independent critique, novel findings added |
-| Peer Review | 5 reviewers (same model) | Same 5 reviewers + cross-model DA critique/calibration support |
-
-### Cost
-
-Full pipeline adds ~$0.60-1.10 in cross-model API costs (GPT-5.4 Pro pricing). See `shared/cross_model_verification.md` for detailed breakdown.
-
-### No API Key? No Problem
-
-Without `ARS_CROSS_MODEL` set, everything works exactly as before. The cross-model features are invisible and add zero overhead.
-
----
-
-## Showcase: Real Pipeline Output
-
-See the complete artifacts from a real 10-stage pipeline run — including **peer review reports, integrity verification reports, and the final paper**:
+See the complete artifacts from a real 10-stage pipeline run — peer review reports, integrity verification reports, and the final paper:
 
 **[Browse all pipeline artifacts →](examples/showcase/)**
 
 | Artifact | Description |
-|----------|-------------|
+|---|---|
 | [Final Paper (EN)](examples/showcase/full_paper_apa7.pdf) | APA 7.0 formatted, LaTeX-compiled |
 | [Final Paper (ZH)](examples/showcase/full_paper_zh_apa7.pdf) | Chinese version, APA 7.0 |
 | [Integrity Report — Pre-Review](examples/showcase/integrity_report_stage2.5.pdf) | Stage 2.5: caught 15 fabricated refs + 3 statistical errors |
@@ -134,109 +72,7 @@ See the complete artifacts from a real 10-stage pipeline run — including **pee
 | [Re-Review](examples/showcase/stage3prime_rereview_report.pdf) | Verification after revisions |
 | [Peer Review Round 2](examples/showcase/stage3_review_report_r2.pdf) | Follow-up review |
 | [Response to Reviewers](examples/showcase/response_to_reviewers_r2.pdf) | Point-by-point author response |
-| [Post-Publication Audit Report](examples/showcase/post_publication_audit_2026-03-09.md) | Independent full-reference audit: found 21/68 issues missed by 3 rounds of integrity checks |
-
----
-
-## Performance Notes
-
-> **Recommended model: Claude Opus 4.6** with **Max plan** (or equivalent extended-thinking configuration).
->
-> The full academic pipeline (10 stages) consumes a **large amount of tokens** — a single end-to-end run can exceed 200K input + 100K output tokens depending on paper length and revision rounds. Budget accordingly.
->
-> Individual skills (e.g., `deep-research` alone, or `academic-paper-reviewer` alone) consume significantly less.
-
-### Estimated Token Usage by Mode
-
-| Skill / Mode | Input Tokens | Output Tokens | Estimated Cost (Opus 4.6) |
-|-------------|-------------|--------------|--------------------------|
-| `deep-research` socratic | ~30K | ~15K | ~$0.60 |
-| `deep-research` full | ~60K | ~30K | ~$1.20 |
-| `deep-research` systematic-review | ~100K | ~50K | ~$2.00 |
-| `academic-paper` plan | ~40K | ~20K | ~$0.80 |
-| `academic-paper` full | ~80K | ~50K | ~$1.80 |
-| `academic-paper-reviewer` full | ~50K | ~30K | ~$1.10 |
-| `academic-paper-reviewer` quick | ~15K | ~8K | ~$0.30 |
-| **Full pipeline (10 stages)** | **~200K+** | **~100K+** | **~$4-6** |
-| + Cross-model verification | +~10K (external) | +~5K (external) | +~$0.60-1.10 |
-
-*Estimates based on a ~15,000-word paper with ~60 references. Actual usage varies with paper length, revision rounds, and dialogue depth. Costs at Anthropic API pricing as of April 2026.*
-
-### Recommended Settings
-
-For the best experience with these skills, enable the following Claude Code features:
-
-| Setting | What it does | How to enable | Docs |
-|---------|-------------|---------------|------|
-| **Agent Team** | Spawns subagents for parallel research, writing, and review — critical for multi-agent pipelines | Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` (research preview) | Experimental feature — no stable docs yet |
-| **Ralph Loop** | Keeps the session alive during long-running pipeline stages so Claude can work autonomously without timing out | Use `/ralph-loop` to activate | Community plugin — experimental |
-| **Skip Permissions** | Bypasses per-tool confirmation prompts, enabling uninterrupted autonomous execution across all pipeline stages | Launch with `claude --dangerously-skip-permissions` | [Permissions](https://docs.anthropic.com/en/docs/claude-code/cli-reference) · [Advanced Usage](https://docs.anthropic.com/en/docs/claude-code/advanced) |
-
-> **⚠️ Skip Permissions**: This flag disables all tool-use confirmation dialogs. Use at your own discretion — it is convenient for trusted, long-running pipelines but removes the safety net of manual approval. Only enable this in environments where you are comfortable with Claude executing file reads, writes, and shell commands without asking first.
-
----
-
-## Prerequisites
-
-### Install Claude Code
-
-**Recommended: Native installer** (no Node.js required, auto-updates):
-
-```bash
-# macOS / Linux
-curl -fsSL https://claude.ai/install.sh | bash
-
-# Windows (PowerShell)
-irm https://claude.ai/install.ps1 | iex
-```
-
-<details>
-<summary>Alternative: npm install (deprecated)</summary>
-
-Requires Node.js 18+.
-
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-</details>
-
-### Set Up API Key
-
-You need an Anthropic API key. Get one at https://console.anthropic.com/
-
-```bash
-# Claude Code will prompt for your API key on first run
-claude
-```
-
-Or set it as an environment variable:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-xxxxx
-```
-
-### LaTeX / PDF Output (Optional)
-
-PDF output requires [tectonic](https://tectonic-typesetting.github.io/) and specific fonts. **This is optional** — MD and DOCX output work without any of this.
-
-```bash
-# macOS
-brew install tectonic
-
-# Linux (Debian/Ubuntu)
-curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
-
-# Windows
-# Download from https://tectonic-typesetting.github.io/en-US/install.html
-```
-
-**Required fonts** (for APA 7.0 CJK output):
-- **Times New Roman** — usually pre-installed on macOS/Windows; on Linux install `ttf-mscorefonts-installer`
-- **Source Han Serif TC VF** (思源宋體) — download from [Google Fonts](https://fonts.google.com/specimen/Noto+Serif+TC) or [Adobe GitHub](https://github.com/adobe-fonts/source-han-serif)
-- **Courier New** — usually pre-installed
-
-> If you only need MD/DOCX output, skip this entirely. The pipeline will ask before attempting LaTeX compilation.
+| [Post-Publication Audit Report](examples/showcase/post_publication_audit_2026-03-09.pdf) | Independent full-reference audit: found 21/68 issues missed by 3 rounds of integrity checks |
 
 ---
 
@@ -255,124 +91,6 @@ ARS Stage 2 WRITE     →  write paper with verified experiment results
 **What it does**: executes code experiments (Python, R, etc.) with real-time monitoring, manages human study protocols with IRB ethics checklist, interprets statistics with 11-type fallacy detection, and verifies reproducibility.
 
 **How to use together**: pause the ARS pipeline after Stage 1, run experiments in a separate experiment-agent session, then bring the results (with Material Passport) back to ARS Stage 2. ARS requires zero modification. See the [experiment-agent README](https://github.com/Imbad0202/experiment-agent) for setup instructions.
-
----
-
-## Installation
-
-### Method 1: As Project Skills (Recommended)
-
-Clone this repo into your project's `.claude/skills/` directory:
-
-```bash
-# Navigate to your project root
-cd /path/to/your/project
-
-# Create skills directory if it doesn't exist
-mkdir -p .claude/skills
-
-# Clone the skills
-git clone https://github.com/Imbad0202/academic-research-skills.git .claude/skills/academic-research-skills
-```
-
-Then copy the `.claude/CLAUDE.md` content into your project's `.claude/CLAUDE.md` (merge with existing if you have one).
-
-> **Global installation:** To make skills available across all your projects, install to `~/.claude/skills/` instead:
-> ```bash
-> mkdir -p ~/.claude/skills
-> git clone https://github.com/Imbad0202/academic-research-skills.git ~/.claude/skills/academic-research-skills
-> ```
-
-### Method 2: As a Standalone Project
-
-```bash
-# Clone the repo
-git clone https://github.com/Imbad0202/academic-research-skills.git
-
-# Navigate to the project
-cd academic-research-skills
-
-# Start Claude Code
-claude
-```
-
-<details>
-<summary><strong>Don't have Git?</strong> Download as ZIP instead</summary>
-
-1. Go to https://github.com/Imbad0202/academic-research-skills
-2. Click the green **Code** button → **Download ZIP**
-3. Extract the ZIP to your desired location
-4. For Method 1: move the extracted folder to `.claude/skills/academic-research-skills` inside your project
-5. For standalone use: open a terminal in the extracted folder and run `claude`
-
-</details>
-
-### Method 3: Claude Cowork (Desktop)
-
-Use these skills in [Claude Cowork](https://claude.com/product/cowork) — Claude Desktop's agentic workspace for knowledge work.
-
-**Option A: Folder Access (Quickest)**
-
-1. Clone this repo to a local folder:
-   ```bash
-   git clone https://github.com/Imbad0202/academic-research-skills.git ~/academic-research-skills
-   ```
-2. Open Claude Desktop → click **Cowork** tab (top bar)
-3. Select the cloned `academic-research-skills` folder as the working directory
-4. Claude will auto-detect the skills from `SKILL.md` files and load them as needed
-
-**Option B: As Project Skills**
-
-If you already have a project folder in Cowork:
-```bash
-cd /path/to/your/project
-mkdir -p .claude/skills
-git clone https://github.com/Imbad0202/academic-research-skills.git .claude/skills/academic-research-skills
-```
-
-Skills will auto-load when relevant to your conversation — e.g., saying "help me write a paper" triggers `academic-paper`.
-
-**Requirements:**
-- Claude Desktop (latest version) with Cowork enabled
-- Paid plan (Pro, Max, Team, or Enterprise)
-
-### Method 4: Use with claude.ai (Web)
-
-You can use these skills on [claude.ai](https://claude.ai) via the **Project** feature with GitHub integration — no Claude Code installation needed.
-
-**Steps:**
-
-1. Sign in to [claude.ai](https://claude.ai) (requires a paid plan)
-
-2. Create a new Project:
-   - Click **Projects** → **Create Project** in the sidebar
-   - Name it "Academic Research" (or any name you prefer)
-
-3. Import from GitHub:
-   - In the Project, click **Files** (right panel) → **+** → **GitHub**
-   - Select `Imbad0202/academic-research-skills`
-   - **Recommended selections** (to stay within capacity):
-
-     | Select | Directory | Why |
-     |--------|-----------|-----|
-     | ✅ | `.claude/` | Routing rules |
-     | ✅ | `deep-research/` | Core skill |
-     | ✅ | `academic-paper/` | Core skill |
-     | ✅ | `academic-paper-reviewer/` | Core skill |
-     | ✅ | `academic-pipeline/` | Core skill |
-     | ✅ | `shared/` | Cross-model verification, handoff schemas |
-     | ✅ | `MODE_REGISTRY.md` | Mode definitions |
-     | ❌ | `examples/` | Takes ~39% capacity — skip unless you have room |
-     | ❌ | `.github/`, READMEs, LICENSE, etc. | Not needed for functionality |
-
-4. (Optional) Set **Instructions** in the Project to the content of `.claude/CLAUDE.md` for better routing
-
-5. Start chatting: "Guide my research on X" or "Help me write a paper about Y"
-
-**claude.ai vs Claude Code:**
-- claude.ai does not support parallel multi-agent execution or shell commands; results may be less comprehensive than Claude Code
-- Cross-model verification (`ARS_CROSS_MODEL`) requires Claude Code with API keys
-- LaTeX/PDF output requires Claude Code with `tectonic` installed; claude.ai can produce Markdown and DOCX
 
 ---
 
@@ -400,10 +118,11 @@ You: "status"
 ### Individual Skills
 
 #### Deep Research (7 modes)
+
 ```
 "Research the impact of AI on higher education"       → full mode
 "Give me a quick brief on X"                          → quick mode
-"Do a systematic review on X with PRISMA"             → systematic-review mode (new)
+"Do a systematic review on X with PRISMA"             → systematic-review mode
 "Guide my research on X"                              → socratic mode (guided)
 "Fact-check these claims"                             → fact-check mode
 "Do a literature review on X"                         → lit-review mode
@@ -411,12 +130,13 @@ You: "status"
 ```
 
 #### Academic Paper (10 modes)
+
 ```
 "Write a paper on X"                                  → full mode
 "Guide me through writing a paper"                    → plan mode (guided)
 "Build a paper outline"                               → outline-only mode
 "I have a draft, here are reviewer comments"          → revision mode
-"Parse these reviewer comments into a roadmap"        → revision-coach mode (new)
+"Parse these reviewer comments into a roadmap"        → revision-coach mode
 "Write an abstract for this paper"                    → abstract-only mode
 "Turn this into a literature review paper"            → lit-review mode
 "Convert to LaTeX" / "Convert citations to IEEE"      → format-convert mode
@@ -425,6 +145,7 @@ You: "status"
 ```
 
 #### Academic Paper Reviewer (6 modes)
+
 ```
 "Review this paper"                                   → full mode (EIC + R1/R2/R3 + Devil's Advocate)
 "Quick assessment of this paper"                      → quick mode
@@ -435,11 +156,13 @@ You: "status"
 ```
 
 #### Academic Pipeline (Orchestrator)
+
 ```
 "I want to write a complete research paper"           → full pipeline from Stage 1
 "I already have a paper, review it"                   → mid-entry at Stage 2.5 (integrity first)
 "I received reviewer comments"                        → mid-entry at Stage 4
 ```
+
 > Pipeline ends with **Stage 6: Process Summary** — auto-generates a paper creation process record with 6-dimension Collaboration Quality Evaluation (1–100 scoring).
 
 ### Supported Languages
@@ -473,93 +196,23 @@ You: "status"
 
 ## Skill Details
 
+Per-agent responsibilities and per-stage artifacts now live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Version numbers are anchored here so release metadata stays in one place.
+
 ### Deep Research (v2.8)
 
-13-agent pipeline for rigorous academic research:
-
-| Agent | Role |
-|-------|------|
-| Research Question Agent | FINER-scored RQ formulation |
-| Research Architect | Methodology design |
-| Bibliography Agent | Systematic literature search |
-| Source Verification Agent | Evidence grading, predatory journal detection |
-| Synthesis Agent | Cross-source integration |
-| Report Compiler | APA 7.0 report drafting + optional Style Profile + Writing Quality Check |
-| Editor-in-Chief | Q1 journal editorial review |
-| Devil's Advocate | Assumption challenging (3 checkpoints) |
-| Ethics Review Agent | AI disclosure, attribution integrity |
-| Socratic Mentor | Guided research dialogue with convergence criteria + SCR reflection (togglable) |
-| Risk of Bias Agent | RoB 2 + ROBINS-I assessment, traffic-light output |
-| Meta-Analysis Agent | Effect sizes, heterogeneity, forest plot data, GRADE |
-| Monitoring Agent | Post-pipeline literature monitoring alerts |
-
-**Modes:** full, quick, review, lit-review, fact-check, socratic, **systematic-review** (new)
+13-agent research team. Modes: full, quick, review, lit-review, fact-check, socratic, systematic-review. Full agent roster and artifacts: see ARCHITECTURE.md §3.
 
 ### Academic Paper (v3.0)
 
-12-agent pipeline for academic paper writing:
-
-| Agent | Role |
-|-------|------|
-| Intake Agent | Configuration interview + handoff detection + Style Calibration (optional) |
-| Literature Strategist | Search strategy + annotated bibliography |
-| Structure Architect | Paper outline + word allocation |
-| Argument Builder | Thesis + claim-evidence chains |
-| Draft Writer | Section-by-section writing + Writing Quality Check sweep + Style Profile application |
-| Citation Compliance | Multi-format citation audit + APA↔Chicago↔MLA↔IEEE↔Vancouver conversion |
-| Abstract Bilingual | EN + Chinese abstracts |
-| Peer Reviewer | 5-dimension review (max 2 rounds) |
-| Formatter | LaTeX/DOCX/PDF output — mandatory `apa7` class, XeCJK bilingual, `ragged2e` justification fix, tectonic compilation |
-| Socratic Mentor | Chapter-by-chapter guided planning with convergence criteria + SCR reflection (togglable) |
-| Visualization Agent | 9 chart types, matplotlib/ggplot2, APA 7.0 standards |
-| Revision Coach Agent | Parses unstructured reviewer comments → Revision Roadmap |
-
-**Modes:** full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, **disclosure**
+12-agent paper writing pipeline. Modes: full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure. Output: MD + DOCX (via Pandoc when available) + LaTeX (APA 7.0 `apa7` class / IEEE / Chicago) → PDF via tectonic. Full agent roster and per-phase responsibilities: see ARCHITECTURE.md §3.
 
 ### Academic Paper Reviewer (v1.8)
 
-7-agent multi-perspective review with **0-100 quality rubrics**:
-
-| Agent | Role |
-|-------|------|
-| Field Analyst | Identifies domain, configures reviewer personas |
-| Editor-in-Chief | Journal fit, novelty, significance |
-| Methodology Reviewer | Research design, statistics, reproducibility |
-| Domain Reviewer | Literature coverage, theoretical framework |
-| Perspective Reviewer | Cross-disciplinary, practical impact |
-| Devil's Advocate Reviewer | Core thesis challenge, logical fallacy detection, strongest counter-argument |
-| Editorial Synthesizer | Consensus analysis, revision roadmap, **rubric-based scoring** |
-
-**Modes:** full, re-review (verification), quick, methodology-focus, guided, **calibration**
-
-**Decision mapping:** ≥80 Accept, 65-79 Minor Revision, 50-64 Major Revision, <50 Reject
+7-agent multi-perspective review with **0-100 quality rubrics**. Modes: full, re-review, quick, methodology-focus, guided, calibration. **Decision mapping:** ≥80 Accept, 65-79 Minor Revision, 50-64 Major Revision, <50 Reject. First-round review team vs. narrow re-review team boundary: see ARCHITECTURE.md §3 Stage 3 / Stage 3'.
 
 ### Academic Pipeline (v3.2)
 
-10-stage orchestrator with integrity verification, two-stage review, Socratic coaching, and collaboration evaluation:
-
-| Stage | Skill | Purpose |
-|-------|-------|---------|
-| 1. RESEARCH | deep-research | Clarify RQ, find literature |
-| 2. WRITE | academic-paper | Draft the paper |
-| **2.5. INTEGRITY** | **integrity_verification_agent** | **100% reference & data verification (v2.0: anti-hallucination mandate)** |
-| 3. REVIEW | academic-paper-reviewer | 5-person review (EIC + R1/R2/R3 + Devil's Advocate) |
-| → | *Socratic Revision Coaching* | *Guide user through review feedback* |
-| 4. REVISE | academic-paper | Address review comments |
-| 3'. RE-REVIEW | academic-paper-reviewer | Verification review of revisions |
-| → | *Socratic Residual Coaching* | *Guide user through remaining issues (if Major)* |
-| 4'. RE-REVISE | academic-paper | Final revision (if needed) |
-| **4.5. FINAL INTEGRITY** | **integrity_verification_agent** | **100% final verification (zero issues required)** |
-| 5. FINALIZE | academic-paper | Ask format style → MD + DOCX + LaTeX → tectonic → PDF |
-| **6. PROCESS SUMMARY** | **pipeline** | **Paper creation process record + Collaboration Quality Evaluation (1–100)** |
-
-**Pipeline guarantees:**
-- Every stage requires user confirmation checkpoint
-- Integrity verification (Stage 2.5 + 4.5) cannot be skipped
-- Reproducible — standardized process with full audit trail
-- Post-pipeline collaboration evaluation with honest, evidence-based scoring
-- Mid-conversation reinforcement at every stage transition (IRON RULE + Anti-Pattern reminders)
-- R&R Traceability Matrix (Schema 11) independently verifies author revision claims
+10-stage orchestrator with integrity verification, two-stage review, Socratic coaching, and collaboration evaluation. Pipeline guarantees: every stage requires user confirmation checkpoint; integrity verification (Stage 2.5 + 4.5) cannot be skipped; R&R Traceability Matrix (Schema 11) independently verifies author revision claims. Stage-by-stage matrix with agents, artifacts, and gates: see ARCHITECTURE.md §3.
 
 ---
 
@@ -635,6 +288,36 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## Changelog
+
+### v3.3.6 (2026-04-15) — README Streamlining + ARCHITECTURE doc
+
+- Added `docs/ARCHITECTURE.md` as the single source of truth for pipeline structure (flow, matrix, data-access, dependency graph, quality gates, modes). Merged into main via PR #18.
+- Added `docs/SETUP.md` (prerequisites, API keys, Pandoc/tectonic, cross-model verification, installation methods) and `docs/PERFORMANCE.md` (token budgets, recommended Claude Code settings). README links to both instead of inlining them.
+- Streamlined README: removed the ASCII pipeline diagram and 16-point key-feature list (superseded by ARCHITECTURE.md); Skill Details section now anchors version numbers and points readers to ARCHITECTURE.md §3 for per-agent rosters.
+- Note: no functional change to any skill. Pure documentation reorganization. Suite version bumped to `3.3.6`.
+
+### v3.3.5 (2026-04-15)
+- Added `benchmark_report.schema.json` + `repro_lock` optional block on Material Passport. Both ship with pattern docs, lints, and examples. First formal Python dev dep manifest (`requirements-dev.txt`).
+
+### v3.3.4 (2026-04-15) — README Changelog Sync Patch
+
+- Synced the embedded changelog sections in `README.md` and `README.zh-TW.md` so they include the missing `v3.3.3` and `v3.3.2` release summaries.
+- Extended `scripts/check_spec_consistency.py` so future README changelog drift fails CI.
+### v3.3.3 (2026-04-15) — Release Prep + Lint Hardening
+
+- Hardened SKILL frontmatter linting: missing closing `---` fences now fail cleanly instead of being parsed as valid YAML.
+- Frontmatter that parses as valid YAML but not as a mapping now reports a readable error instead of crashing.
+- Fixed the broken showcase link for the post-publication audit report in both READMEs.
+- Added README relative-link validation to the spec consistency check so dead links fail CI.
+- Aligned the DOCX output contract across the docs: direct `.docx` generation is Pandoc-dependent, with Markdown + conversion instructions as fallback.
+- Prepared the `v3.3.3` release: suite version bump, `academic-paper` -> v3.0.2, `academic-pipeline` -> v3.2.2.
+
+### v3.3.2 (2026-04-15) — Data Access Levels + Task Type Metadata
+
+- Added `metadata.data_access_level` to all top-level `SKILL.md` files with enforced vocabulary: `raw`, `redacted`, `verified_only`.
+- Added `metadata.task_type` to all top-level `SKILL.md` files with enforced vocabulary: `open-ended`, `outcome-gradable`.
+- Added lint scripts and unit tests for both metadata fields, wired into the GitHub Actions spec consistency workflow.
+- Added `shared/ground_truth_isolation_pattern.md` and linked the new vocabulary from `shared/handoff_schemas.md`.
 
 ### v3.3.1 (2026-04-14) — Spec Consistency Patch
 
@@ -766,7 +449,7 @@ Inspired by patterns from [aspi6246/Claude-Code-Skills-for-Academics](https://gi
 - **academic-paper-reviewer v1.1**: +Devil's Advocate Reviewer (7th agent), +re-review mode (verification), +post-review Socratic coaching
 - New agent: `integrity_verification_agent` — 100% reference/data verification with audit trail
 - New agent: `devils_advocate_reviewer_agent` — 8-dimension thesis challenger
-- Output order: MD + DOCX → ask LaTeX → confirm → PDF
+- Output order: MD → DOCX via Pandoc when available (else instructions) → ask LaTeX → confirm → PDF
 
 ### v1.0 (2026-02)
 - Initial release

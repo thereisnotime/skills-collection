@@ -19,8 +19,8 @@
 </p>
 
 <p align="center">
-  <b>19 plugins · 49 agents · 40 skills (across all repos) · 30k lines of lib code · 3,583 tests · 5 platforms</b><br>
-  <em>Plugins distributed as standalone repos under <a href="https://github.com/agent-sh">agent-sh</a> org — agentsys is the marketplace &amp; installer</em>
+  <b>19 plugins · 49 agents · 41 skills (across all repos) · 30k lines of lib code · 3,507 tests · 5 platforms</b><br>
+  <em>Plugins distributed as standalone repos under <a href="https://github.com/agent-sh">agent-sh</a> org - agentsys is the marketplace &amp; installer</em>
 </p>
 
 <p align="center">
@@ -38,14 +38,14 @@
 
 ---
 
-AI models can write code. That's not the hard part anymore. The hard part is everything around it — task selection, branch management, code review, artifact cleanup, CI, PR comments, deployment. **AgentSys is the runtime that orchestrates agents to handle all of it** — structured pipelines, gated phases, specialized agents, and persistent state that survives session boundaries.
+AI models can write code. That's not the hard part anymore. The hard part is everything around it - task selection, branch management, code review, artifact cleanup, CI, PR comments, deployment. **AgentSys is the runtime that orchestrates agents to handle all of it** - structured pipelines, gated phases, specialized agents, and persistent state that survives session boundaries.
 
 ---
 > Building custom skills, agents, hooks, or MCP tools? [agnix](https://github.com/agent-sh/agnix) is the CLI + LSP linter that catches config errors before they fail silently - real-time IDE validation, auto suggestions, auto-fix, and 399 rules for Claude Code, Codex, OpenCode, Cursor, Kiro, Copilot, Gemini CLI, Cline, Windsurf, Roo Code, Amp, and more.
 
 ## What This Is
 
-An agent orchestration system — 19 plugins, 49 agents (39 file-based + 10 role-based specialists in audit-project), and 40 skills that compose into structured pipelines for software development. Each plugin lives in its own standalone repo under the [agent-sh](https://github.com/agent-sh) org. agentsys is the marketplace and installer that ties them together.
+An agent orchestration system - 19 plugins, 49 agents (39 file-based + 10 role-based specialists in audit-project), and 41 skills that compose into structured pipelines for software development. Each plugin lives in its own standalone repo under the [agent-sh](https://github.com/agent-sh) org. agentsys is the marketplace and installer that ties them together.
 
 Each agent has a single responsibility, a specific model assignment, and defined inputs/outputs. Pipelines enforce phase gates so agents can't skip steps. State persists across sessions so work survives interruptions.
 
@@ -57,8 +57,8 @@ The system runs on Claude Code, OpenCode, Codex CLI, Cursor, and Kiro. Install v
 
 **Code does code work. AI does AI work.**
 
-- **Detection**: regex, AST analysis, static analysis—fast, deterministic, no tokens wasted
-- **Judgment**: LLM calls for synthesis, planning, review—where reasoning matters
+- **Detection**: regex, AST analysis, static analysis - fast, deterministic, no tokens wasted
+- **Judgment**: LLM calls for synthesis, planning, review - where reasoning matters
 - **Result**: 77% fewer tokens for [/drift-detect](#drift-detect) vs multi-agent approaches, certainty-graded findings throughout
 
 **Certainty levels exist because not all findings are equal:**
@@ -142,7 +142,7 @@ Each command works standalone. Together, they compose into end-to-end pipelines.
 
 ## Skills
 
-40 skills included across the plugins:
+41 skills included across the plugins:
 
 | Category | Skills |
 |----------|--------|
@@ -157,6 +157,7 @@ Each command works standalone. Together, they compose into end-to-end pipelines.
 | **Web** | `web-auth`, `web-browse` |
 | **Release** | `release` |
 | **Analysis** | `drift-analysis`, `repo-intel` |
+| **Linting** | `agnix` |
 
 **External skill plugins** (standalone repos, installed separately):
 
@@ -175,7 +176,7 @@ Skills are the reusable implementation units. Agents invoke skills; commands orc
 | [The Approach](#the-approach) | Why it's built this way |
 | [Benchmarks](#benchmarks) | Sonnet + agentsys vs raw Opus |
 | [Commands](#commands) | All 20 commands overview |
-| [Skills](#skills) | 40 skills across plugins |
+| [Skills](#skills) | 41 skills across plugins |
 | [Skill-Only Plugins](#skill-only-plugins) | glide-mq and other non-command plugins |
 | [Command Details](#command-details) | Deep dive into each command |
 | [How Commands Work Together](#how-commands-work-together) | Standalone vs integrated |
@@ -442,7 +443,7 @@ If something can't be fixed, the workflow replies explaining why and resolves th
 
 ### /deslop
 
-**Purpose:** Finds AI slop—debug statements, placeholder text, verbose comments, TODOs—and removes it.
+**Purpose:** Finds AI slop - debug statements, placeholder text, verbose comments, TODOs - and removes it.
 
 **How detection works:**
 
@@ -679,7 +680,7 @@ Backed by [agent-analyzer](https://github.com/agent-sh/agent-analyzer) Rust bina
 
 ### /sync-docs
 
-**Purpose:** Sync documentation with actual code changes—find outdated refs, update CHANGELOG, flag stale examples.
+**Purpose:** Sync documentation with actual code changes - find outdated refs, update CHANGELOG, flag stale examples.
 
 **The problem it solves:**
 
@@ -1093,7 +1094,7 @@ Same principle as good code: single responsibility. The exploration-agent explor
 
 **2. Pipeline with gates, not a monolith**
 
-Same principle as DevOps. Each step must pass before the next begins. Can't push before review. Can't merge before CI passes. Hooks enforce this—agents literally cannot skip phases.
+Same principle as DevOps. Each step must pass before the next begins. Can't push before review. Can't merge before CI passes. Hooks enforce this - agents literally cannot skip phases.
 
 **3. Tools do tool work, agents do agent work**
 
@@ -1236,7 +1237,7 @@ The system is built on research, not guesswork.
 - Instruction following reliability
 
 **Testing:**
-- 3,583 tests passing
+- 3,507 tests passing
 - Drift-detect validated on 1,000+ repositories
 - E2E workflow testing across all commands
 - Cross-platform validation (Claude Code, OpenCode, Codex CLI, Cursor, Kiro)

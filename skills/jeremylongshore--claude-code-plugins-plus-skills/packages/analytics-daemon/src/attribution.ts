@@ -224,12 +224,10 @@ export class AttributionEngine {
       this.data.plugins.set(pluginName, stats);
     }
 
-    // Update stats
     stats.activationCount++;
     stats.lastActivated = Date.now();
     stats.conversationIds.add(conversationId);
 
-    // Emit event
     this.emitAttribution({
       type: 'plugin',
       name: pluginName,
@@ -257,12 +255,10 @@ export class AttributionEngine {
       this.data.skills.set(skillName, stats);
     }
 
-    // Update stats
     stats.activationCount++;
     stats.lastActivated = Date.now();
     stats.conversationIds.add(conversationId);
 
-    // Emit event
     this.emitAttribution({
       type: 'skill',
       name: skillName,
@@ -290,12 +286,10 @@ export class AttributionEngine {
       this.data.mcpTools.set(toolName, stats);
     }
 
-    // Update stats
     stats.activationCount++;
     stats.lastActivated = Date.now();
     stats.conversationIds.add(conversationId);
 
-    // Emit event
     this.emitAttribution({
       type: 'mcp',
       name: toolName,
@@ -404,13 +398,12 @@ export class AttributionEngine {
   private async loadData(): Promise<void> {
     try {
       if (!existsSync(this.storagePath)) {
-        return; // No existing data to load
+        return;
       }
 
       const content = await readFile(this.storagePath, 'utf-8');
       const serializable: SerializableAttributionData = JSON.parse(content);
 
-      // Reconstruct Maps with Sets
       this.data.plugins = new Map(
         serializable.plugins.map(stat => [
           stat.name,

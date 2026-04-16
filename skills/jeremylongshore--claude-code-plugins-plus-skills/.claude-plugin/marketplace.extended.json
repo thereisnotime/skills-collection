@@ -10,7 +10,7 @@
     "version": "1.6.0",
     "homepage": "https://github.com/jeremylongshore/claude-code-plugins",
     "pluginRoot": "./plugins",
-    "totalPlugins": 341,
+    "totalPlugins": 424,
     "skillsEnabled": 268,
     "lastUpdated": "2026-03-07"
   },
@@ -3077,7 +3077,7 @@
     {
       "name": "freshie-inventory-manager",
       "source": "./plugins/database/freshie-inventory-manager",
-      "description": "Interactive command center for the freshie ecosystem inventory database — conversational wizard with subagents for discovery scans, compliance grading, batch remediation, querying, reporting, and email PDF delivery across 50 tables of plugin/skill/pack metadata",
+      "description": "Interactive command center for the freshie ecosystem inventory database \u2014 conversational wizard with subagents for discovery scans, compliance grading, batch remediation, querying, reporting, and email PDF delivery across 50 tables of plugin/skill/pack metadata",
       "version": "1.0.0",
       "category": "database",
       "keywords": [
@@ -4537,6 +4537,34 @@
       }
     },
     {
+      "name": "code-cleanup",
+      "source": "./plugins/code-quality/code-cleanup",
+      "description": "Comprehensive codebase cleanup across 11 quality dimensions — dead code, duplication, weak types, circular deps, defensive cruft, legacy code, AI slop, type consolidation, security, performance, and async patterns. Confidence scoring and build verification gates.",
+      "version": "1.0.0",
+      "category": "code-quality",
+      "keywords": [
+        "code-quality",
+        "cleanup",
+        "refactoring",
+        "dead-code",
+        "deduplication",
+        "type-safety",
+        "security",
+        "performance",
+        "async",
+        "tech-debt",
+        "code-review"
+      ],
+      "author": {
+        "name": "Jeremy Longshore",
+        "email": "jeremy@intentsolutions.io"
+      },
+      "components": {
+        "skills": 1,
+        "agents": 11
+      }
+    },
+    {
       "name": "project-health-auditor",
       "source": "./plugins/mcp/project-health-auditor",
       "description": "Multi-dimensional code health analysis with complexity, churn, and test coverage - identifies technical debt hot spots",
@@ -4562,6 +4590,33 @@
         "bmad_compatible": true,
         "ccr_compatible": true,
         "category": "code-quality"
+      }
+    },
+    {
+      "name": "promptbook",
+      "source": "./plugins/analytics/promptbook",
+      "description": "Opt-in session analytics for Claude Code. After setup consent, tracks prompts, tokens, build time, and lines changed per session. Publishes shareable build cards on promptbook.gg. Strict consent gating \u2014 no data transmitted without explicit opt-in. Background submission after session end.",
+      "version": "1.4.0",
+      "category": "analytics",
+      "keywords": [
+        "analytics",
+        "telemetry",
+        "builds",
+        "portfolio",
+        "tracking",
+        "metrics",
+        "sessions"
+      ],
+      "author": {
+        "name": "Promptbook",
+        "email": "contact@promptbook.gg"
+      },
+      "homepage": "https://promptbook.gg",
+      "repository": "https://github.com/promptbookgg/claude-code-plugin",
+      "license": "MIT",
+      "components": {
+        "skills": 2,
+        "hooks": 4
       }
     },
     {
@@ -5789,32 +5844,6 @@
         "hooks": 2,
         "scripts": 3,
         "total": 15
-      }
-    },
-    {
-      "name": "tonone",
-      "source": "./plugins/ai-agency/tonone",
-      "description": "23-agent AI team for software teams: 15 engineering specialists (Apex, Forge, Relay, Spine, Flux, Warden, Vigil, Prism, Cortex, Touch, Volt, Atlas, Lens, Proof, Pave) + 8 product agents (Helm, Echo, Lumen, Draft, Form, Crest, Pitch, Surge) with a formal Helm→Apex handoff interface and 125 skills.",
-      "version": "0.6.5",
-      "category": "ai-agency",
-      "keywords": [
-        "ai-team",
-        "multi-agent",
-        "orchestration",
-        "engineering",
-        "product",
-        "agents",
-        "ai-agency"
-      ],
-      "author": {
-        "name": "thisisfatih",
-        "url": "https://github.com/thisisfatih"
-      },
-      "repository": "https://github.com/tonone-ai/tonone",
-      "license": "MIT",
-      "components": {
-        "agents": 23,
-        "skills": 125
       }
     },
     {
@@ -8225,7 +8254,7 @@
     {
       "name": "b12-claude-plugin",
       "source": "./plugins/community/b12-claude-plugin",
-      "description": "B12 Website Generator — an official plugin by B12.io. Ships a single auto-activating skill (website-generator) that collects a business name and description, then generates a production-ready B12 website signup link instantly.",
+      "description": "B12 Website Generator \u2014 an official plugin by B12.io. Ships a single auto-activating skill (website-generator) that collects a business name and description, then generates a production-ready B12 website signup link instantly.",
       "version": "1.0.0",
       "category": "community",
       "keywords": [
@@ -11062,7 +11091,7 @@
     {
       "name": "pr-to-spec",
       "source": "./plugins/mcp/pr-to-spec",
-      "description": "The flight envelope for agentic coding — convert PRs and local diffs into structured, agent-consumable specs with intent drift detection",
+      "description": "The flight envelope for agentic coding \u2014 convert PRs and local diffs into structured, agent-consumable specs with intent drift detection",
       "version": "0.8.0",
       "category": "code-quality",
       "repository": "https://github.com/jeremylongshore/pr-to-prompt",
@@ -11085,7 +11114,7 @@
     {
       "name": "slack-channel",
       "source": "./plugins/mcp/slack-channel",
-      "description": "Two-way Slack channel for Claude Code — chat from Slack DMs and channels via Socket Mode",
+      "description": "Two-way Slack channel for Claude Code \u2014 chat from Slack DMs and channels via Socket Mode",
       "version": "0.1.0",
       "category": "productivity",
       "keywords": [
@@ -11114,7 +11143,7 @@
     {
       "name": "x-bug-triage-plugin",
       "source": "./plugins/mcp/x-bug-triage",
-      "description": "Closed-loop bug triage: X complaints → clusters → repo evidence → owner routing → Slack review → filed issues",
+      "description": "Closed-loop bug triage: X complaints \u2192 clusters \u2192 repo evidence \u2192 owner routing \u2192 Slack review \u2192 filed issues",
       "version": "0.3.0",
       "category": "devops",
       "author": {
@@ -11196,7 +11225,7 @@
     {
       "name": "shipwright",
       "source": "./plugins/ai-agency/shipwright",
-      "description": "Describe your app in plain English — Shipwright builds, tests, and deploys it autonomously via a 9-phase pipeline.",
+      "description": "Describe your app in plain English \u2014 Shipwright builds, tests, and deploys it autonomously via a 9-phase pipeline.",
       "version": "1.0.0",
       "category": "ai-agency",
       "author": {
@@ -11222,34 +11251,6 @@
       "components": {
         "skills": 1,
         "commands": 4
-      }
-    },
-    {
-      "name": "claudebase",
-      "source": "./plugins/productivity/claudebase",
-      "description": "Back up, restore, and sync your Claude Code config to a private GitHub repo with named profiles, secret scanning, and multi-machine conflict detection.",
-      "version": "1.0.0",
-      "category": "productivity",
-      "author": {
-        "name": "Rohit Hazra",
-        "email": ""
-      },
-      "keywords": [
-        "backup",
-        "sync",
-        "config",
-        "profiles",
-        "dotfiles",
-        "multi-machine"
-      ],
-      "repository": "https://github.com/rohithzr/claudebase",
-      "homepage": "https://github.com/rohithzr/claudebase",
-      "license": "MIT",
-      "featured": false,
-      "pricing": "free",
-      "components": {
-        "skills": 6,
-        "agents": 0
       }
     },
     {

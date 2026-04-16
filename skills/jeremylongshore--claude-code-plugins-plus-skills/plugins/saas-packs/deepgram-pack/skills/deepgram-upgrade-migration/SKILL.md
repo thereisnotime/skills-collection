@@ -2,7 +2,7 @@
 name: deepgram-upgrade-migration
 description: |
   Plan and execute Deepgram SDK upgrades and model migrations.
-  Use when upgrading SDK versions (v3->v4->v5), migrating models
+  Use when upgrading SDK versions (v3 to v4 to v5), migrating models
   (Nova-2 to Nova-3), or planning API version transitions.
   Trigger: "upgrade deepgram", "deepgram migration", "update deepgram SDK",
   "deepgram version upgrade", "nova-3 migration".

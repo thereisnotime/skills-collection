@@ -1,4 +1,4 @@
-import express, { type Express, type Request, type Response } from 'express';
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import { createServer, type Server } from 'http';
 import type { ConversationWatcher } from './watcher.js';
@@ -137,7 +137,7 @@ export class AnalyticsAPI {
     });
 
     // Error handler
-    this.app.use((err: Error, req: Request, res: Response, next: Function) => {
+    this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
       console.error('API error:', err);
       res.status(500).json({
         error: 'Internal Server Error',

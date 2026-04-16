@@ -12,6 +12,8 @@ import {
   validateAllFrontmatter,
   validateSkillFile,
   validateFrontmatterFile,
+  type SkillValidationSummary,
+  type FrontmatterValidationSummary,
 } from '../lib/validator/index.js';
 
 export interface ValidateOptions {
@@ -38,7 +40,7 @@ export async function validateCommand(
   if (targetPath) {
     baseDir = path.isAbsolute(targetPath) ? targetPath : path.resolve(process.cwd(), targetPath);
     if (!existsSync(baseDir)) {
-      console.error(chalk.red(`Error: Path not found: \${CLAUDE_SKILL_DIR}`));
+      console.error(chalk.red(`Error: Path not found: ${baseDir}`));
       process.exit(1);
     }
   } else {
@@ -56,7 +58,6 @@ export async function validateCommand(
     return;
   }
 
-  // Determine what to validate
   const validateSkillsOnly = options.skills && !options.frontmatter;
   const validateFrontmatterOnly = options.frontmatter && !options.skills;
 
@@ -84,7 +85,6 @@ export async function validateCommand(
         process.exit(1);
       }
     } else {
-      // Validate all
       const result = await validateAll(baseDir, options.strict);
       spinner?.stop();
 
@@ -183,7 +183,7 @@ async function validateSingleFile(filePath: string, options: ValidateOptions): P
 /**
  * Display skills validation result
  */
-function displaySkillsResult(result: any, options: ValidateOptions): void {
+function displaySkillsResult(result: SkillValidationSummary, options: ValidateOptions): void {
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -192,7 +192,6 @@ function displaySkillsResult(result: any, options: ValidateOptions): void {
   console.log(chalk.bold('Skills Validation'));
   console.log(chalk.gray('─'.repeat(50)));
 
-  // Show errors and warnings
   for (const skill of result.results) {
     if (skill.fatal) {
       console.log(chalk.red(`${skill.file}`));
@@ -214,7 +213,6 @@ function displaySkillsResult(result: any, options: ValidateOptions): void {
     }
   }
 
-  // Summary
   console.log('');
   console.log(chalk.bold('Skills Summary:'));
   console.log(`  Total: ${result.total}`);
@@ -230,7 +228,7 @@ function displaySkillsResult(result: any, options: ValidateOptions): void {
 /**
  * Display frontmatter validation result
  */
-function displayFrontmatterResult(result: any, options: ValidateOptions): void {
+function displayFrontmatterResult(result: FrontmatterValidationSummary, options: ValidateOptions): void {
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -239,7 +237,6 @@ function displayFrontmatterResult(result: any, options: ValidateOptions): void {
   console.log(chalk.bold('Frontmatter Validation'));
   console.log(chalk.gray('─'.repeat(50)));
 
-  // Show errors
   for (const file of result.results) {
     if (file.error || file.errors.length > 0) {
       console.log(chalk.red(`x ${file.file} (${file.fileType})`));
@@ -254,7 +251,6 @@ function displayFrontmatterResult(result: any, options: ValidateOptions): void {
     }
   }
 
-  // Summary
   console.log('');
   console.log(chalk.bold('Frontmatter Summary:'));
   console.log(`  Total: ${result.total}`);

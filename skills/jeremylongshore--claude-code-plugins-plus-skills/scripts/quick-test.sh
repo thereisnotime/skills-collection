@@ -52,7 +52,7 @@ echo ""
 
 # Test 5: Validation
 echo -e "${BLUE}Validating plugins...${NC}"
-if bash scripts/validate-all-plugins.sh > /tmp/quick-test-validate.log 2>&1; then
+if python3 scripts/validate-skills-schema.py > /tmp/quick-test-validate.log 2>&1; then
     echo -e "${GREEN}✓ Validation passed${NC}"
 else
     echo -e "${YELLOW}⚠ Validation warnings${NC}"

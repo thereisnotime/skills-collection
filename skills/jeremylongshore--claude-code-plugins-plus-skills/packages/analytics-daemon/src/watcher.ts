@@ -113,7 +113,6 @@ export class ConversationWatcher extends EventEmitter {
 
       this.emit('event', event);
 
-      // Emit events for new messages/plugins
       this.emitPluginEvents(conversation, cachedConversation);
       this.emitLLMEvents(conversation, cachedConversation);
     } catch (error) {
@@ -129,7 +128,6 @@ export class ConversationWatcher extends EventEmitter {
       const content = await readFile(filePath, 'utf-8');
       const data = JSON.parse(content) as ConversationData;
 
-      // Basic validation
       if (!data.id || !Array.isArray(data.messages)) {
         console.warn(`Invalid conversation file: ${filePath}`);
         return null;
@@ -155,7 +153,6 @@ export class ConversationWatcher extends EventEmitter {
     const currentPlugins = new Set(conversation.metadata?.plugins ?? []);
     const previousPlugins = new Set(previousConversation?.metadata?.plugins ?? []);
 
-    // Find newly activated plugins
     for (const pluginName of currentPlugins) {
       if (!previousPlugins.has(pluginName)) {
         const event: PluginActivationEvent = {
@@ -169,7 +166,6 @@ export class ConversationWatcher extends EventEmitter {
       }
     }
 
-    // Check for skill triggers in messages
     this.emitSkillEvents(conversation, previousConversation);
   }
 

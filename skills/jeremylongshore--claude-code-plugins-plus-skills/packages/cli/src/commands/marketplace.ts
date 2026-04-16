@@ -2,9 +2,7 @@ import chalk from 'chalk';
 import { existsSync } from 'fs';
 import * as path from 'path';
 import type { ClaudePaths } from '../utils/paths.js';
-
-const MARKETPLACE_REPO = 'jeremylongshore/claude-code-plugins';
-const MARKETPLACE_SLUG = 'claude-code-plugins-plus';
+import { MARKETPLACE_REPO, MARKETPLACE_SLUG } from '../utils/constants.js';
 
 interface MarketplaceOptions {
   verify?: boolean;

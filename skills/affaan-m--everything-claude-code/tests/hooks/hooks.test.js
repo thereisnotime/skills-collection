@@ -1889,6 +1889,33 @@ async function runTests() {
   else failed++;
 
   if (
+    test('hooks.json consolidates Bash hooks into one pre and one post dispatcher', () => {
+      const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
+      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+
+      const preBash = hooks.hooks.PreToolUse.filter(entry => entry.matcher === 'Bash');
+      const postBash = hooks.hooks.PostToolUse.filter(entry => entry.matcher === 'Bash');
+
+      assert.strictEqual(preBash.length, 1, 'Should have exactly one PreToolUse Bash dispatcher');
+      assert.strictEqual(postBash.length, 1, 'Should have exactly one PostToolUse Bash dispatcher');
+      assert.strictEqual(preBash[0].id, 'pre:bash:dispatcher');
+      assert.strictEqual(postBash[0].id, 'post:bash:dispatcher');
+
+      const preCommand = Array.isArray(preBash[0].hooks[0].command)
+        ? preBash[0].hooks[0].command.join(' ')
+        : preBash[0].hooks[0].command;
+      const postCommand = Array.isArray(postBash[0].hooks[0].command)
+        ? postBash[0].hooks[0].command.join(' ')
+        : postBash[0].hooks[0].command;
+
+      assert.ok(preCommand.includes('pre-bash-dispatcher.js'), 'PreToolUse Bash hook should use the pre dispatcher');
+      assert.ok(postCommand.includes('post-bash-dispatcher.js'), 'PostToolUse Bash hook should use the post dispatcher');
+    })
+  )
+    passed++;
+  else failed++;
+
+  if (
     test('SessionEnd marker hook is async and cleanup-safe', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
       const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
@@ -1898,6 +1925,27 @@ async function runTests() {
       assert.ok(markerHook, 'SessionEnd should invoke session-end-marker.js');
       assert.strictEqual(markerHook.async, true, 'SessionEnd marker hook should run async during cleanup');
       assert.ok(Number.isInteger(markerHook.timeout) && markerHook.timeout > 0, 'SessionEnd marker hook should define a timeout');
+    })
+  )
+    passed++;
+  else failed++;
+
+  if (
+    test('all hook commands use string form for Claude Code schema compatibility', () => {
+      const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
+      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+
+      for (const [eventName, hookArray] of Object.entries(hooks.hooks)) {
+        for (const entry of hookArray) {
+          for (const hook of entry.hooks) {
+            assert.strictEqual(
+              typeof hook.command,
+              'string',
+              `${eventName}/${entry.id || entry.matcher || 'hook'} should use string command form`,
+            );
+          }
+        }
+      }
     })
   )
     passed++;
@@ -1941,10 +1989,8 @@ async function runTests() {
       const sessionStartHook = hooks.hooks.SessionStart?.[0]?.hooks?.[0];
 
       assert.ok(sessionStartHook, 'Should define a SessionStart hook');
-      const commandText = Array.isArray(sessionStartHook.command)
-        ? sessionStartHook.command.join(' ')
-        : sessionStartHook.command;
-      assert.ok(Array.isArray(sessionStartHook.command), 'SessionStart should use argv form for cross-platform safety');
+      const commandText = sessionStartHook.command;
+      assert.strictEqual(typeof sessionStartHook.command, 'string', 'SessionStart should use string command form for Claude Code compatibility');
       assert.ok(
         commandText.includes('session-start-bootstrap.js'),
         'SessionStart should delegate to the extracted bootstrap script'

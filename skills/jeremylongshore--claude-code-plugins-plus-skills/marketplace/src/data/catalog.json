@@ -1,15 +1,15 @@
 {
   "meta": {
     "version": "1.0.0",
-    "generated": "2026-04-08T16:37:52.171Z",
+    "generated": "2026-04-16T00:36:50.446Z",
     "source": "marketplace.extended.json",
     "generator": "scripts/sync-catalog.mjs"
   },
   "stats": {
-    "totalPlugins": 423,
-    "totalSkills": 2937,
+    "totalPlugins": 425,
+    "totalSkills": 2948,
     "totalCommands": 81,
-    "pluginsWithSkills": 396,
+    "pluginsWithSkills": 398,
     "byCategory": {
       "productivity": 43,
       "security": 29,
@@ -29,22 +29,22 @@
       "fullstack": 1,
       "example": 3,
       "finance": 1,
-      "code-quality": 3,
+      "code-quality": 4,
       "automation": 3,
       "community": 7,
       "development": 1,
       "data-engineering": 2,
       "enterprise": 2,
-      "analytics": 1,
+      "analytics": 2,
       "saas-packs": 1
     },
     "byStatus": {
-      "active": 404,
+      "active": 406,
       "maintained": 19
     },
     "featured": 7,
-    "new": 402,
-    "generatedAt": "2026-04-08T16:37:52.171Z"
+    "new": 404,
+    "generatedAt": "2026-04-16T00:36:50.446Z"
   },
   "plugins": [
     {
@@ -13804,7 +13804,7 @@
         "integration"
       ],
       "hasSkills": true,
-      "skillCount": 30,
+      "skillCount": 38,
       "commandCount": 0,
       "installCommand": "/plugin install shopify-pack",
       "sourcePath": "./plugins/saas-packs/shopify-pack",
@@ -14401,6 +14401,80 @@
         "name": "Burak Bayir",
         "email": "burak@xquik.com",
         "url": "https://xquik.com"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "promptbook",
+      "name": "promptbook",
+      "displayName": "promptbook",
+      "description": "Opt-in session analytics for Claude Code. After setup consent, tracks prompts, tokens, build time, and lines changed per session. Publishes shareable build cards on promptbook.gg. Strict consent gating — no data transmitted without explicit opt-in. Background submission after session end.",
+      "version": "1.4.0",
+      "category": "analytics",
+      "keywords": [
+        "analytics",
+        "telemetry",
+        "builds",
+        "portfolio",
+        "tracking",
+        "metrics",
+        "sessions"
+      ],
+      "hasSkills": true,
+      "skillCount": 2,
+      "commandCount": 0,
+      "installCommand": "/plugin install promptbook",
+      "sourcePath": "./plugins/analytics/promptbook",
+      "lastUpdatedEpoch": 1776226719,
+      "lastUpdatedDate": "2026-04-15T04:18:39.358Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Promptbook",
+        "email": "contact@promptbook.gg"
+      },
+      "type": "instruction-plugin"
+    },
+    {
+      "slug": "code-cleanup",
+      "name": "code-cleanup",
+      "displayName": "code cleanup",
+      "description": "Comprehensive codebase cleanup across 11 quality dimensions — dead code, duplication, weak types, circular deps, defensive cruft, legacy code, AI slop, type consolidation, security, performance, and async patterns. Confidence scoring and build verification gates.",
+      "version": "1.0.0",
+      "category": "code-quality",
+      "keywords": [
+        "code-quality",
+        "cleanup",
+        "refactoring",
+        "dead-code",
+        "deduplication",
+        "type-safety",
+        "security",
+        "performance",
+        "async",
+        "tech-debt",
+        "code-review"
+      ],
+      "hasSkills": true,
+      "skillCount": 1,
+      "commandCount": 0,
+      "installCommand": "/plugin install code-cleanup",
+      "sourcePath": "./plugins/code-quality/code-cleanup",
+      "lastUpdatedEpoch": 1776299810,
+      "lastUpdatedDate": "2026-04-16T00:36:50.446Z",
+      "status": "active",
+      "badges": [
+        "new"
+      ],
+      "isFeatured": false,
+      "isNew": true,
+      "author": {
+        "name": "Jeremy Longshore",
+        "email": "jeremy@intentsolutions.io"
       },
       "type": "instruction-plugin"
     }

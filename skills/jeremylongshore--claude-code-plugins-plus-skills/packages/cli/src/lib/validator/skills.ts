@@ -54,7 +54,7 @@ export interface SkillValidationSummary {
 /**
  * Parse YAML frontmatter from content
  */
-function parseYamlFrontmatter(content: string): Record<string, any> | null {
+function parseYamlFrontmatter(content: string): Record<string, unknown> | null {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) {
     return null;
@@ -71,7 +71,7 @@ function parseYamlFrontmatter(content: string): Record<string, any> | null {
  * Parse allowed-tools which can be string or list
  * Uses simple comma split per Intent Solutions standard
  */
-function parseAllowedTools(toolsValue: any): string[] {
+function parseAllowedTools(toolsValue: unknown): string[] {
   if (Array.isArray(toolsValue)) {
     return toolsValue.map(String);
   } else if (typeof toolsValue === 'string') {
@@ -183,8 +183,7 @@ export async function validateSkillFile(filePath: string): Promise<SkillValidati
       result.info.push(`name '${name}' differs from folder '${folderName}' (best practice: match them)`);
     }
 
-    // Check name format (kebab-case)
-    if (name.length > 1 && !/^[a-z][a-z0-9-]*[a-z0-9]$/.test(name)) {
+      if (name.length > 1 && !/^[a-z][a-z0-9-]*[a-z0-9]$/.test(name)) {
       result.warnings.push(`name should be kebab-case: ${name}`);
     }
 
@@ -205,7 +204,6 @@ export async function validateSkillFile(filePath: string): Promise<SkillValidati
       result.errors.push('description exceeds 1024 characters');
     }
 
-    // Check for imperative language
     const imperativeStarts = [
       'analyze', 'create', 'generate', 'build', 'debug',
       'optimize', 'validate', 'test', 'deploy', 'monitor',
@@ -265,9 +263,9 @@ export async function validateSkillFile(filePath: string): Promise<SkillValidati
   // === OPTIONAL FIELDS ===
 
   if ('model' in frontmatter) {
-    const model = frontmatter.model;
-    if (!['inherit', 'sonnet', 'haiku'].includes(model) && !String(model).startsWith('claude-')) {
-      result.warnings.push(`Unknown model value: ${model}`);
+    const modelStr = String(frontmatter.model);
+    if (!['inherit', 'sonnet', 'haiku'].includes(modelStr) && !modelStr.startsWith('claude-')) {
+      result.warnings.push(`Unknown model value: ${modelStr}`);
     }
   }
 
@@ -343,7 +341,6 @@ export async function validateAllSkills(baseDir: string): Promise<SkillValidatio
   const pluginsDir = path.join(baseDir, 'plugins');
   const skillFiles = await findSkillFiles(pluginsDir);
 
-  // Also check standalone skills
   const standaloneDir = path.join(baseDir, 'skills');
   const standaloneFiles = await findSkillFiles(standaloneDir);
   skillFiles.push(...standaloneFiles);

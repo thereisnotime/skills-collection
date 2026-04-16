@@ -5,6 +5,8 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import axios from 'axios';
 import type { ClaudePaths } from '../utils/paths.js';
+import type { PluginMetadata } from '../types.js';
+import { MARKETPLACE_REPO, MARKETPLACE_SLUG, CATALOG_URL } from '../utils/constants.js';
 
 export interface InstallOptions {
   yes?: boolean;
@@ -14,18 +16,6 @@ export interface InstallOptions {
   pack?: string;
   category?: string;
 }
-
-interface PluginMetadata {
-  name: string;
-  version: string;
-  description: string;
-  author: string;
-  category?: string;
-}
-
-const MARKETPLACE_REPO = 'jeremylongshore/claude-code-plugins';
-const MARKETPLACE_SLUG = 'claude-code-plugins-plus';
-const CATALOG_URL = 'https://raw.githubusercontent.com/jeremylongshore/claude-code-plugins/main/.claude-plugin/marketplace.json';
 
 // Known plugin packs (curated collections)
 const PLUGIN_PACKS: Record<string, string[]> = {
@@ -66,7 +56,6 @@ export async function installPlugin(
   paths: ClaudePaths,
   options: InstallOptions
 ): Promise<void> {
-  // Handle bulk install options
   if (options.all) {
     await installAllPlugins(paths, options);
     return;
@@ -87,7 +76,6 @@ export async function installPlugin(
     return;
   }
 
-  // Single plugin install
   if (!pluginName) {
     console.log(chalk.red('Error: Plugin name required\n'));
     console.log(chalk.gray('Usage:'));
@@ -101,7 +89,6 @@ export async function installPlugin(
   console.log(chalk.bold(`\nInstalling ${chalk.cyan(pluginName)}...\n`));
 
   try {
-    // Step 1: Check if marketplace is added
     const marketplaceInstalled = await checkMarketplaceInstalled(paths);
 
     if (!marketplaceInstalled) {
@@ -110,7 +97,6 @@ export async function installPlugin(
       return;
     }
 
-    // Step 2: Verify plugin exists in catalog
     const plugin = await findPluginInCatalog(pluginName);
 
     if (!plugin) {
@@ -122,7 +108,6 @@ export async function installPlugin(
       process.exit(1);
     }
 
-    // Step 3: Check if already installed
     const alreadyInstalled = await checkPluginInstalled(paths, pluginName);
 
     if (alreadyInstalled) {
@@ -133,7 +118,6 @@ export async function installPlugin(
       return;
     }
 
-    // Step 4: Guide installation
     await guidePluginInstall(plugin, options);
 
   } catch (error) {
@@ -166,7 +150,6 @@ async function installAllPlugins(paths: ClaudePaths, options: InstallOptions): P
     console.log(chalk.yellow(`\nThis will install ALL ${plugins.length} plugins.\n`));
     console.log(chalk.gray('Run these commands in Claude Code:\n'));
 
-    // Group by category for better organization
     const byCategory: Record<string, PluginMetadata[]> = {};
     for (const plugin of plugins) {
       const cat = plugin.category || 'other';
@@ -326,7 +309,8 @@ async function checkPluginInstalled(paths: ClaudePaths, pluginName: string): Pro
     }
 
     return pluginName in data.plugins;
-  } catch {
+  } catch (error) {
+    console.warn(chalk.yellow(`Warning: Could not read installed_plugins.json: ${error instanceof Error ? error.message : String(error)}`));
     return false;
   }
 }

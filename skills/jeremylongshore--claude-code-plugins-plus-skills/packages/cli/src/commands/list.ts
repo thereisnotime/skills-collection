@@ -91,7 +91,7 @@ async function listAllPlugins(paths: ClaudePaths): Promise<void> {
   console.log(chalk.bold(`\nAvailable Plugins (${plugins.length}):\n`));
 
   // Group by category if available
-  const categorized: Record<string, any[]> = {};
+  const categorized: Record<string, PluginInfo[]> = {};
 
   for (const plugin of plugins) {
     const category = plugin.category || 'Other';

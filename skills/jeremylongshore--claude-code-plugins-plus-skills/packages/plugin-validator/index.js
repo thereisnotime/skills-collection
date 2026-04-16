@@ -322,7 +322,13 @@ class PluginValidator {
       }
     });
 
-    // Check version format
+    if (data.author && typeof data.author === 'string') {
+      this.error('plugin.json "author" must be an object {name, email?}, not a string', 'string-author', 5);
+    }
+    if (data.author && typeof data.author === 'object' && !data.author.name) {
+      this.error('plugin.json author object must have "name" field', 'missing-author-name', 3);
+    }
+
     if (data.version && !/^\d+\.\d+\.\d+$/.test(data.version)) {
       this.warning(`⚠ version should follow semver format (x.y.z)`, null, 3);
     }
@@ -363,14 +369,12 @@ class PluginValidator {
 
       const content = fs.readFileSync(skillFile, 'utf8');
 
-      // Check for YAML frontmatter
       if (!content.startsWith('---')) {
         this.error(`✗ Skill "${skillName}" missing YAML frontmatter`, 'missing-2025-schema', 5);
         this.addFix('missing-2025-schema', { skill: skillName, file: skillFile });
         return;
       }
 
-      // Extract frontmatter
       const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
       if (!frontmatterMatch) {
         this.error(`✗ Skill "${skillName}" has invalid frontmatter`, null, 5);
@@ -379,7 +383,6 @@ class PluginValidator {
 
       const frontmatter = frontmatterMatch[1];
 
-      // Check 2025 schema compliance
       const has2025Schema =
         frontmatter.includes('allowed-tools:') &&
         frontmatter.includes('version:');
@@ -391,7 +394,6 @@ class PluginValidator {
         this.addFix('missing-2025-schema', { skill: skillName, file: skillFile });
       }
 
-      // Check for trigger phrases in description
       if (!frontmatter.includes('description:')) {
         this.error(`✗ Skill "${skillName}" missing description`, null, 5);
       } else {
@@ -404,7 +406,7 @@ class PluginValidator {
     const scriptsDir = path.join(this.pluginPath, 'scripts');
 
     if (!fs.existsSync(scriptsDir)) {
-      return; // Scripts are optional
+      return;
     }
 
     const scripts = fs.readdirSync(scriptsDir)
@@ -414,7 +416,6 @@ class PluginValidator {
       const scriptPath = path.join(scriptsDir, script);
       const stats = fs.statSync(scriptPath);
 
-      // Check executable bit
       const isExecutable = (stats.mode & 0o111) !== 0;
 
       if (isExecutable) {
@@ -424,7 +425,6 @@ class PluginValidator {
         this.addFix('script-not-executable', { script, scriptPath });
       }
 
-      // Check for dangerous patterns
       const content = fs.readFileSync(scriptPath, 'utf8');
 
       if (content.includes('rm -rf /')) {
@@ -506,13 +506,11 @@ class PluginValidator {
     this.log(`🔍 Validating Plugin: ${this.pluginName}`, 'bold');
     this.log('='.repeat(60) + '\n', 'cyan');
 
-    // Check required files
     this.log('📄 Checking Required Files...', 'blue');
     this.checkFileExists('README.md', true, 10, 'missing-readme');
     this.checkFileExists('LICENSE', true, 10, 'missing-license');
     this.checkFileExists('.claude-plugin/plugin.json', true, 10, 'missing-plugin-json');
 
-    // Validate JSONs
     this.log('\n📋 Validating Configuration Files...', 'blue');
     this.validateJSON('.claude-plugin/plugin.json');
 
@@ -520,17 +518,14 @@ class PluginValidator {
       this.validateJSON('.claude-plugin/hooks.json');
     }
 
-    // Check components
     this.log('\n🧩 Checking Plugin Components...', 'blue');
     this.hasComponents();
     this.validateSkills();
     this.validateScripts();
 
-    // Security checks
     this.log('\n🔒 Security Checks...', 'blue');
     this.checkSecrets();
 
-    // Generate report
     this.generateReport();
   }
 
@@ -554,12 +549,10 @@ class PluginValidator {
       this.errors.forEach(e => this.log(`  ${e.message}`, 'red'));
     }
 
-    // Show fixes
     if (this.fixes.length > 0 && this.options.showFixes !== false) {
       this.showFixInstructions();
     }
 
-    // Calculate score
     const percentage = this.maxScore > 0 ? Math.round((this.score / this.maxScore) * 100) : 0;
     const grade =
       percentage >= 90 ? 'A' :
@@ -701,7 +694,6 @@ function findInstalledPlugins() {
   return plugins;
 }
 
-// CLI usage
 if (require.main === module) {
   const args = process.argv.slice(2);
   const flags = {

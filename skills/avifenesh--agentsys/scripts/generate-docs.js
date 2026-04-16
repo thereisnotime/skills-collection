@@ -109,7 +109,8 @@ const STATIC_SKILLS = [
   { plugin: 'audit-project', name: 'audit-project' },
   { plugin: 'glidemq', name: 'glide-mq' },
   { plugin: 'glidemq', name: 'glide-mq-migrate-bullmq' },
-  { plugin: 'glidemq', name: 'glide-mq-migrate-bee' }
+  { plugin: 'glidemq', name: 'glide-mq-migrate-bee' },
+  { plugin: 'agnix', name: 'agnix' }
 ];
 
 // Purpose mapping for architecture table
@@ -192,7 +193,7 @@ function generateCommandsTable(commands) {
     'next-task': 'Task workflow: discovery, implementation, PR, merge',
     'prepare-delivery': 'Pre-ship quality gates: deslop, review, validation, docs sync',
     'gate-and-ship': 'Quality gates then ship (/prepare-delivery + /ship)',
-    'agnix': 'Lint agent configurations (385 rules)',
+    'agnix': 'Lint agent configurations (399 rules)',
     'ship': 'PR creation, CI monitoring, merge',
     'deslop': 'Clean AI slop patterns',
     'perf': 'Performance investigation with baselines and profiling',
@@ -396,9 +397,33 @@ function generateAgentCounts(agents, plugins) {
  * Update counts in site/content.json programmatically.
  */
 // Static counts for cross-repo plugins not discoverable locally.
-// 39 file-based agents across 17 plugin repos + 10 role-based specialists in audit-project = 49.
-const STATIC_PLUGIN_COUNT = 19;
-const STATIC_AGENT_COUNT = 49;
+// Per-plugin file-based agent counts. Update this map when agents are added/removed
+// in a plugin repo - it's the canonical source for the STATIC_AGENT_COUNT fallback.
+const STATIC_PLUGIN_AGENT_COUNTS = {
+  'next-task': 8,
+  'prepare-delivery': 3,
+  'gate-and-ship': 0,
+  'ship': 1,
+  'deslop': 1,
+  'audit-project': 0,
+  'drift-detect': 1,
+  'enhance': 8,
+  'sync-docs': 1,
+  'repo-intel': 1,
+  'perf': 6,
+  'learn': 1,
+  'agnix': 1,
+  'consult': 1,
+  'debate': 1,
+  'web-ctl': 1,
+  'skillers': 2,
+  'onboard': 1,
+  'can-i-help': 1
+};
+const STATIC_PLUGIN_COUNT = Object.keys(STATIC_PLUGIN_AGENT_COUNTS).length;
+const STATIC_FILE_BASED_AGENT_COUNT = Object.values(STATIC_PLUGIN_AGENT_COUNTS).reduce((sum, count) => sum + count, 0);
+// Total = file-based + role-based (audit-project specialists, spawned dynamically)
+const STATIC_AGENT_COUNT = STATIC_FILE_BASED_AGENT_COUNT + ROLE_BASED_AGENT_COUNT;
 
 function updateSiteContent(plugins, agents, skills) {
   const contentPath = path.join(ROOT_DIR, 'site', 'content.json');
@@ -653,6 +678,8 @@ module.exports = {
   PURPOSE_MAP,
   ROLE_BASED_AGENT_COUNT,
   STATIC_SKILLS,
+  STATIC_PLUGIN_AGENT_COUNTS,
   STATIC_PLUGIN_COUNT,
+  STATIC_FILE_BASED_AGENT_COUNT,
   STATIC_AGENT_COUNT
 };

@@ -1,8 +1,8 @@
 ---
 name: academic-paper
-description: "12-agent academic paper writing pipeline. 10 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure). 6 paper types, 5 citation formats, bilingual abstracts, LaTeX/DOCX/PDF output. Style Calibration + Writing Quality Check + Anti-Patterns with IRON RULE markers. Triggers: write paper, academic paper, guide my paper, parse reviews, AI disclosure, 寫論文, 學術論文, 引導我寫論文, 審查意見."
+description: "12-agent academic paper writing pipeline. 10 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure). 6 paper types, 5 citation formats, bilingual abstracts, LaTeX/DOCX-via-Pandoc/PDF output. Style Calibration + Writing Quality Check + Anti-Patterns with IRON RULE markers. Triggers: write paper, academic paper, guide my paper, parse reviews, AI disclosure, 寫論文, 學術論文, 引導我寫論文, 審查意見."
 metadata:
-  version: "3.0.1"
+  version: "3.0.2"
   last_updated: "2026-04-15"
   status: active
   data_access_level: redacted
@@ -40,7 +40,7 @@ Write a paper on the impact of declining birth rates on private university manag
 5. Full-text drafting — section-by-section draft, register adjustment
 6. Citation compliance + bilingual abstract (parallel)
 7. Peer review — five-dimension scoring, revision suggestions
-8. Output formatting — LaTeX/DOCX/PDF/Markdown
+8. Output formatting — LaTeX/DOCX (via Pandoc)/PDF/Markdown
 
 ---
 
@@ -75,7 +75,7 @@ Activate `plan` mode when the user wants guidance, step-by-step planning, or exp
 | Citation | Multi-format (APA/Chicago/MLA/IEEE/Vancouver) | APA 7.0 only |
 | Abstract | Bilingual (zh-TW + EN) | Single language |
 | Peer review | Simulated 5-dimension review | Editorial review |
-| Output format | LaTeX/DOCX/PDF/Markdown | Markdown only |
+| Output format | LaTeX/DOCX (via Pandoc)/PDF/Markdown | Markdown only |
 | Revision loop | Max 2 rounds with targeted feedback | Max 2 rounds |
 
 ---
@@ -92,7 +92,7 @@ Activate `plan` mode when the user wants guidance, step-by-step planning, or exp
 | 6 | `citation_compliance_agent` | Citation format verification, reference list completeness, DOI checking | Phase 5a |
 | 7 | `abstract_bilingual_agent` | Bilingual abstract (zh-TW + EN), 5-7 keywords each | Phase 5b |
 | 8 | `peer_reviewer_agent` | Simulated double-blind review, five-dimension scoring, revision suggestions (max 2 rounds) | Phase 6 |
-| 9 | `formatter_agent` | Convert to LaTeX/DOCX/PDF/Markdown, journal formatting, cover letter, citation format conversion (APA 7 / Chicago / MLA / IEEE / Vancouver) | Phase 7 |
+| 9 | `formatter_agent` | Convert to LaTeX/DOCX (via Pandoc)/PDF/Markdown, journal formatting, cover letter, citation format conversion (APA 7 / Chicago / MLA / IEEE / Vancouver) | Phase 7 |
 | 10 | `socratic_mentor_agent` | Plan mode Socratic mentor: chapter-by-chapter guidance, convergence criteria (4 signals), question taxonomy (4 types), INSIGHT extraction | Plan Step 0-3 |
 | 11 | `visualization_agent` | Parse paper data and generate publication-quality figure code (Python matplotlib / R ggplot2) with APA 7.0 formatting, colorblind-safe palettes, and LaTeX integration | Phase 4 / Phase 7 |
 | 12 | `revision_coach_agent` | Parse unstructured reviewer comments into structured Revision Roadmap; classify, map, and prioritize comments; works standalone without prior pipeline execution | Revision-Coach mode |
@@ -316,7 +316,7 @@ academic-paper + academic-paper-reviewer -> Peer review -> revision loop
 
 | Item | Content |
 |------|---------|
-| Skill Version | 3.0.1 |
+| Skill Version | 3.0.2 |
 | Last Updated | 2026-04-15 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | deep-research v1.0+ (upstream), academic-paper-reviewer v1.0+ (downstream) |

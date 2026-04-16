@@ -37,12 +37,13 @@ Reference: `references/latex_template_reference.md`
 - DOI field included where available
 - Consistent citation keys: `AuthorYear` or `Author_Year_Keyword`
 
-### 3. DOCX (Instructions for Word)
-Since direct DOCX generation is not available, provide:
-- Complete markdown with DOCX conversion instructions
-- Style mapping guide (Heading 1 = Level 1, etc.)
-- Font/margin/spacing specifications
-- Instructions for Pandoc conversion: `pandoc input.md -o output.docx --reference-doc=template.docx`
+### 3. DOCX (via Pandoc when available)
+Preferred behavior:
+- If Pandoc is available, generate the `.docx` file directly
+- If Pandoc is unavailable, provide complete markdown + DOCX conversion instructions
+- Include a style mapping guide (Heading 1 = Level 1, etc.)
+- Include font/margin/spacing specifications
+- Use Pandoc command: `pandoc input.md -o output.docx --reference-doc=template.docx`
 
 ### 4. PDF (via LaTeX or Pandoc)
 - Provide LaTeX source that compiles to PDF
@@ -297,7 +298,7 @@ Step 1: Confirm Output Requirements
   1.2 Determine which files to generate:
       ├── Markdown -> always generated (as base format)
       ├── LaTeX -> if output_format includes LaTeX or Combined
-      ├── DOCX instructions -> if output_format includes DOCX or Combined
+      ├── DOCX -> generate via Pandoc when available; otherwise provide conversion instructions
       ├── PDF instructions -> if output_format includes PDF or Combined
       └── Cover Letter -> if target_journal is specified
 

@@ -21,6 +21,13 @@ const VALID_EXPERTISE = ['intermediate', 'advanced', 'expert'];
 const VALID_PRIORITIES = ['low', 'medium', 'high', 'critical'];
 const VALID_EFFORT_LEVELS = ['low', 'medium', 'high'];
 
+/**
+ * Type-safe check that an unknown value is a string contained in a string array.
+ */
+function isStringIn(value: unknown, allowed: string[]): boolean {
+  return typeof value === 'string' && allowed.includes(value);
+}
+
 export interface FrontmatterValidationResult {
   file: string;
   fileType: 'command' | 'agent' | 'unknown';
@@ -38,7 +45,7 @@ export interface FrontmatterValidationSummary {
 /**
  * Extract YAML frontmatter from markdown file
  */
-function extractFrontmatter(content: string): { frontmatter: Record<string, any> | null; error: string | null } {
+function extractFrontmatter(content: string): { frontmatter: Record<string, unknown> | null; error: string | null } {
   const match = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
   if (!match) {
     return { frontmatter: null, error: 'No frontmatter found' };
@@ -56,11 +63,10 @@ function extractFrontmatter(content: string): { frontmatter: Record<string, any>
  * Validate frontmatter for command files
  * Matches nixtla/004-scripts/validate_command_agent_frontmatter.py
  */
-function validateCommandFrontmatter(frontmatter: Record<string, any>, filePath: string): string[] {
+function validateCommandFrontmatter(frontmatter: Record<string, unknown>, filePath: string): string[] {
   const errors: string[] = [];
   const fileName = path.basename(filePath, '.md');
 
-  // Required field: name (must be kebab-case, match filename)
   if (!('name' in frontmatter)) {
     errors.push('Missing required field: name');
   } else if (typeof frontmatter.name !== 'string') {
@@ -75,7 +81,6 @@ function validateCommandFrontmatter(frontmatter: Record<string, any>, filePath: 
     }
   }
 
-  // Required field: description
   if (!('description' in frontmatter)) {
     errors.push('Missing required field: description');
   } else if (typeof frontmatter.description !== 'string') {
@@ -89,7 +94,6 @@ function validateCommandFrontmatter(frontmatter: Record<string, any>, filePath: 
     }
   }
 
-  // Optional field: shortcut
   if ('shortcut' in frontmatter) {
     const shortcut = frontmatter.shortcut;
     if (typeof shortcut !== 'string') {
@@ -107,16 +111,14 @@ function validateCommandFrontmatter(frontmatter: Record<string, any>, filePath: 
     }
   }
 
-  // Optional field: category
   if ('category' in frontmatter) {
-    if (!VALID_CATEGORIES.includes(frontmatter.category)) {
+    if (!isStringIn(frontmatter.category, VALID_CATEGORIES)) {
       errors.push(`Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}`);
     }
   }
 
-  // Optional field: difficulty
   if ('difficulty' in frontmatter) {
-    if (!VALID_DIFFICULTIES.includes(frontmatter.difficulty)) {
+    if (!isStringIn(frontmatter.difficulty, VALID_DIFFICULTIES)) {
       errors.push(`Invalid difficulty. Must be one of: ${VALID_DIFFICULTIES.join(', ')}`);
     }
   }
@@ -128,10 +130,9 @@ function validateCommandFrontmatter(frontmatter: Record<string, any>, filePath: 
  * Validate frontmatter for agent files
  * Matches nixtla/004-scripts/validate_command_agent_frontmatter.py
  */
-function validateAgentFrontmatter(frontmatter: Record<string, any>, filePath: string): string[] {
+function validateAgentFrontmatter(frontmatter: Record<string, unknown>, filePath: string): string[] {
   const errors: string[] = [];
 
-  // Required field: name (must be kebab-case)
   if (!('name' in frontmatter)) {
     errors.push('Missing required field: name');
   } else if (typeof frontmatter.name !== 'string') {
@@ -143,7 +144,7 @@ function validateAgentFrontmatter(frontmatter: Record<string, any>, filePath: st
     }
   }
 
-  // Required field: description (20-200 chars per nixtla standard)
+  // 20-200 chars per nixtla standard
   if (!('description' in frontmatter)) {
     errors.push('Missing required field: description');
   } else if (typeof frontmatter.description !== 'string') {
@@ -157,7 +158,6 @@ function validateAgentFrontmatter(frontmatter: Record<string, any>, filePath: st
     }
   }
 
-  // Required field: capabilities
   if (!('capabilities' in frontmatter)) {
     errors.push('Missing required field: capabilities');
   } else if (!Array.isArray(frontmatter.capabilities)) {
@@ -169,7 +169,6 @@ function validateAgentFrontmatter(frontmatter: Record<string, any>, filePath: st
     if (frontmatter.capabilities.length > 10) {
       errors.push("Field 'capabilities' must have 10 or fewer items");
     }
-    // Check each capability is a string
     for (let i = 0; i < frontmatter.capabilities.length; i++) {
       if (typeof frontmatter.capabilities[i] !== 'string') {
         errors.push(`Field 'capabilities[${i}]' must be a string`);
@@ -177,35 +176,33 @@ function validateAgentFrontmatter(frontmatter: Record<string, any>, filePath: st
     }
   }
 
-  // Optional field: expertise_level
   if ('expertise_level' in frontmatter) {
-    if (!VALID_EXPERTISE.includes(frontmatter.expertise_level)) {
+    if (!isStringIn(frontmatter.expertise_level, VALID_EXPERTISE)) {
       errors.push(`Invalid expertise_level. Must be one of: ${VALID_EXPERTISE.join(', ')}`);
     }
   }
 
-  // Optional field: activation_priority
   if ('activation_priority' in frontmatter) {
-    if (!VALID_PRIORITIES.includes(frontmatter.activation_priority)) {
+    if (!isStringIn(frontmatter.activation_priority, VALID_PRIORITIES)) {
       errors.push(`Invalid activation_priority. Must be one of: ${VALID_PRIORITIES.join(', ')}`);
     }
   }
 
-  // Optional field: effort (v2.1.78+ — model reasoning effort per turn)
+  // v2.1.78+: model reasoning effort per turn
   if ('effort' in frontmatter) {
-    if (!VALID_EFFORT_LEVELS.includes(frontmatter.effort)) {
+    if (!isStringIn(frontmatter.effort, VALID_EFFORT_LEVELS)) {
       errors.push(`Invalid effort. Must be one of: ${VALID_EFFORT_LEVELS.join(', ')}`);
     }
   }
 
-  // Optional field: maxTurns (v2.1.78+ — caps agentic loop iterations)
+  // v2.1.78+: caps agentic loop iterations
   if ('maxTurns' in frontmatter) {
     if (typeof frontmatter.maxTurns !== 'number' || !Number.isInteger(frontmatter.maxTurns) || frontmatter.maxTurns < 1) {
       errors.push("Field 'maxTurns' must be a positive integer");
     }
   }
 
-  // Optional field: disallowedTools (v2.1.78+ — tool denylist)
+  // v2.1.78+: tool denylist (opposite of skills' allowed-tools)
   if ('disallowedTools' in frontmatter) {
     if (!Array.isArray(frontmatter.disallowedTools)) {
       errors.push("Field 'disallowedTools' must be an array");
@@ -231,7 +228,6 @@ export async function validateFrontmatterFile(filePath: string): Promise<Frontma
     errors: [],
   };
 
-  // Determine file type
   if (filePath.includes('/commands/')) {
     result.fileType = 'command';
   } else if (filePath.includes('/agents/')) {
@@ -258,7 +254,6 @@ export async function validateFrontmatterFile(filePath: string): Promise<Frontma
     return result;
   }
 
-  // Validate based on file type
   if (result.fileType === 'command') {
     result.errors = validateCommandFrontmatter(frontmatter, filePath);
   } else if (result.fileType === 'agent') {

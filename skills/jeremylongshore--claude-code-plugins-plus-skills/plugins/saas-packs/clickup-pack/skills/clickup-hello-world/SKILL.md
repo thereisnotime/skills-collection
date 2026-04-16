@@ -3,7 +3,7 @@ name: clickup-hello-world
 description: |
   Make your first ClickUp API v2 calls: list workspaces, spaces, and create a task.
   Use when starting a new ClickUp integration, testing your setup,
-  or learning the ClickUp hierarchy (Workspace > Space > Folder > List > Task).
+  or learning the ClickUp hierarchy (Workspace, Space, Folder, List, Task).
   Trigger: "clickup hello world", "clickup first call", "clickup quick start",
   "test clickup API", "create clickup task".
 allowed-tools: Read, Write, Edit, Bash(curl:*)

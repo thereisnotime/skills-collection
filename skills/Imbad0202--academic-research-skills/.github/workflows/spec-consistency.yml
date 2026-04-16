@@ -16,10 +16,10 @@ jobs:
         with:
           python-version: "3.x"
           cache: pip
-          cache-dependency-path: scripts/_skill_lint.py
+          cache-dependency-path: requirements-dev.txt
 
       - name: Install lint dependencies
-        run: pip install pyyaml
+        run: pip install -r requirements-dev.txt
 
       - name: Run spec consistency check
         run: python3 scripts/check_spec_consistency.py

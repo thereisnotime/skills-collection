@@ -1,0 +1,2 @@
+pyyaml
+jsonschema>=4.17

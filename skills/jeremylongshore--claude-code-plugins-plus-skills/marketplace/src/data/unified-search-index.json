@@ -1,13 +1,13 @@
 {
   "meta": {
     "version": "1.0.0",
-    "generated": "2026-04-08T16:37:52.472Z",
+    "generated": "2026-04-16T00:36:50.782Z",
     "generator": "scripts/generate-unified-search.mjs"
   },
   "stats": {
-    "totalPlugins": 423,
-    "totalSkills": 2793,
-    "totalItems": 3216,
+    "totalPlugins": 425,
+    "totalSkills": 2804,
+    "totalItems": 3229,
     "categories": [
       "ai-agency",
       "ai-ml",
@@ -174,6 +174,7 @@
       "Bash(ngrok:*)",
       "Bash(nix:*)",
       "Bash(node:*)",
+      "Bash(nohup:*)",
       "Bash(npm:*)",
       "Bash(npx playwright:*)",
       "Bash(npx supabase *)",
@@ -230,6 +231,7 @@
       "Bash(sqlcmd:*)",
       "Bash(sqlite3:*)",
       "Bash(ssh:*)",
+      "Bash(stat:*)",
       "Bash(supabase:*)",
       "Bash(sw_vers:*)",
       "Bash(system:*)\"",
@@ -266,6 +268,7 @@
       "Bash(todoist-cli:*)",
       "Bash(top:*)",
       "Bash(traceroute:*)",
+      "Bash(tsc:*)",
       "Bash(uname:*)",
       "Bash(util:*)",
       "Bash(util:*)\"",
@@ -275,6 +278,7 @@
       "Bash(vmstat:*)",
       "Bash(wc:*)",
       "Bash(webpack:*)",
+      "Bash(xdg-open:*)",
       "Bash(yarn:*)",
       "Bash(zip:*)",
       "Edit",
@@ -288,8 +292,7 @@
       "WebFetch",
       "WebFetch\"",
       "WebSearch",
-      "Write",
-      "[]"
+      "Write"
     ],
     "allKeywords": [
       "CLAUDE.md",
@@ -404,6 +407,7 @@
       "assessment",
       "assets",
       "astro",
+      "async",
       "attio",
       "audience-architecture",
       "audio",
@@ -468,6 +472,7 @@
       "budget",
       "bug-triage",
       "build-measure-learn",
+      "builds",
       "bulk",
       "business-continuity",
       "cache",
@@ -506,6 +511,7 @@
       "claude-code",
       "clay",
       "cleaning",
+      "cleanup",
       "clerk",
       "clickhouse",
       "clickup",
@@ -628,11 +634,13 @@
       "datadog",
       "dbscan",
       "dcf",
+      "dead-code",
       "deadlock",
       "deals",
       "debugging",
       "decision-support",
       "decision-trees",
+      "deduplication",
       "deep-learning",
       "deepgram",
       "defi",
@@ -1441,10 +1449,12 @@
       "tdd",
       "team-collaboration",
       "team-management",
+      "tech-debt",
       "technical-analysis",
       "technical-debt",
       "technology-adoption",
       "techsmith",
+      "telemetry",
       "templates",
       "terraform",
       "test-coverage",
@@ -1502,6 +1512,7 @@
       "twinmind",
       "twitter",
       "type-hierarchy",
+      "type-safety",
       "typeface",
       "typescript",
       "typography",
@@ -1608,13 +1619,13 @@
       "zero-cost",
       "zod"
     ],
-    "totalAgents": 129,
-    "totalHooks": 14,
-    "pluginsWithAgents": 42,
-    "pluginsWithHooks": 11,
-    "officialPlugins": 373,
-    "communityPlugins": 50,
-    "communityContributors": 23
+    "totalAgents": 140,
+    "totalHooks": 15,
+    "pluginsWithAgents": 43,
+    "pluginsWithHooks": 12,
+    "officialPlugins": 374,
+    "communityPlugins": 51,
+    "communityContributors": 24
   },
   "items": [
     {
@@ -14855,7 +14866,7 @@
       "badges": [
         "new"
       ],
-      "skillCount": 30,
+      "skillCount": 38,
       "verificationScore": 79,
       "verificationGrade": "C",
       "verificationBadge": "silver",
@@ -15397,6 +15408,72 @@
       ],
       "skillCount": 1,
       "searchText": "tweetclaw x/twitter automation - post, reply, like, retweet, follow, dm, search, extract data, monitor accounts, run giveaways. 121 endpoints via xquik rest api. automation twitter x automation social-media tweets monitoring giveaway scraping"
+    },
+    {
+      "type": "plugin",
+      "id": "promptbook",
+      "slug": "promptbook",
+      "name": "promptbook",
+      "displayName": "promptbook",
+      "description": "Opt-in session analytics for Claude Code. After setup consent, tracks prompts, tokens, build time, and lines changed per session. Publishes shareable build cards on promptbook.gg. Strict consent gating — no data transmitted without explicit opt-in. Background submission after session end.",
+      "category": "analytics",
+      "keywords": [
+        "analytics",
+        "telemetry",
+        "builds",
+        "portfolio",
+        "tracking",
+        "metrics",
+        "sessions"
+      ],
+      "author": {
+        "name": "Promptbook",
+        "email": "contact@promptbook.gg"
+      },
+      "authorType": "community",
+      "version": "1.4.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 2,
+      "searchText": "promptbook opt-in session analytics for claude code. after setup consent, tracks prompts, tokens, build time, and lines changed per session. publishes shareable build cards on promptbook.gg. strict consent gating — no data transmitted without explicit opt-in. background submission after session end. analytics analytics telemetry builds portfolio tracking metrics sessions"
+    },
+    {
+      "type": "plugin",
+      "id": "code-cleanup",
+      "slug": "code-cleanup",
+      "name": "code-cleanup",
+      "displayName": "code cleanup",
+      "description": "Comprehensive codebase cleanup across 11 quality dimensions — dead code, duplication, weak types, circular deps, defensive cruft, legacy code, AI slop, type consolidation, security, performance, and async patterns. Confidence scoring and build verification gates.",
+      "category": "code-quality",
+      "keywords": [
+        "code-quality",
+        "cleanup",
+        "refactoring",
+        "dead-code",
+        "deduplication",
+        "type-safety",
+        "security",
+        "performance",
+        "async",
+        "tech-debt",
+        "code-review"
+      ],
+      "author": {
+        "name": "Jeremy Longshore",
+        "email": "jeremy@intentsolutions.io"
+      },
+      "authorType": "official",
+      "version": "1.0.0",
+      "isFeatured": false,
+      "isNew": true,
+      "badges": [
+        "new"
+      ],
+      "skillCount": 1,
+      "searchText": "code cleanup comprehensive codebase cleanup across 11 quality dimensions — dead code, duplication, weak types, circular deps, defensive cruft, legacy code, ai slop, type consolidation, security, performance, and async patterns. confidence scoring and build verification gates. code-quality code-quality cleanup refactoring dead-code deduplication type-safety security performance async tech-debt code-review"
     },
     {
       "type": "skill",
@@ -27838,6 +27915,41 @@
     },
     {
       "type": "skill",
+      "id": "cleanup-code",
+      "slug": "cleanup-code",
+      "name": "cleanup-code",
+      "description": "Comprehensive codebase cleanup across 11 quality dimensions: dead code, duplication, weak types, circular deps, defensive cruft, legacy code, AI slop, type consolidation, security, performance, and async patterns. Analyzes code with confidence scoring and verifies changes with build/test gates. Use when codebase has accumulated tech debt, after major feature work, before releases, or when code quality metrics are declining. Trigger with \"/cleanup-code-code\", \"clean up the codebase\", \"remove dead code\", \"fix code quality\".",
+      "category": "code-quality",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash(git:*)",
+        "Bash(npm:*)",
+        "Bash(npx:*)",
+        "Bash(pnpm:*)",
+        "Bash(python3:*)",
+        "Bash(tsc:*)",
+        "Bash(wc:*)",
+        "Bash(ls:*)",
+        "AskUserQuestion"
+      ],
+      "compatibleWith": [
+        "claude-code",
+        "codex",
+        "openclaw"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "code-cleanup",
+        "category": "code-quality"
+      },
+      "searchText": "cleanup-code comprehensive codebase cleanup across 11 quality dimensions: dead code, duplication, weak types, circular deps, defensive cruft, legacy code, ai slop, type consolidation, security, performance, and async patterns. analyzes code with confidence scoring and verifies changes with build/test gates. use when codebase has accumulated tech debt, after major feature work, before releases, or when code quality metrics are declining. trigger with \"/cleanup-code-code\", \"clean up the codebase\", \"remove dead code\", \"fix code quality\". code-quality read write edit glob grep bash(git:*) bash(npm:*) bash(npx:*) bash(pnpm:*) bash(python3:*) bash(tsc:*) bash(wc:*) bash(ls:*) askuserquestion claude-code codex openclaw"
+    },
+    {
+      "type": "skill",
       "id": "clerk-ci-integration",
       "slug": "clerk-ci-integration",
       "name": "clerk-ci-integration",
@@ -34091,6 +34203,31 @@
         "category": "productivity"
       },
       "searchText": "devil-advocate constructive critic and stress-tester for ideas and proposals. use when the user needs someone to challenge their thinking, find weaknesses, anticipate objections, or strengthen an argument. triggers include \"challenge\", \"critique\", \"push back\", \"poke holes\", \"stress test\", \"what am i missing\", or \"play devil's advocate\". productivity read glob grep claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "doctor",
+      "slug": "doctor",
+      "name": "doctor",
+      "description": "Diagnose Promptbook setup — check config, hooks, API key, and session tracking health. Use when Promptbook seems broken or the user wants to verify their setup. Trigger with \"/doctor\" or \"check promptbook health\".",
+      "category": "analytics",
+      "allowedTools": [
+        "Bash(node:*)",
+        "Bash(curl:*)",
+        "Bash(ls:*)",
+        "Bash(stat:*)",
+        "Bash(cat:*)",
+        "Read"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.4.0",
+      "parentPlugin": {
+        "name": "promptbook",
+        "category": "analytics"
+      },
+      "searchText": "doctor diagnose promptbook setup — check config, hooks, api key, and session tracking health. use when promptbook seems broken or the user wants to verify their setup. trigger with \"/doctor\" or \"check promptbook health\". analytics bash(node:*) bash(curl:*) bash(ls:*) bash(stat:*) bash(cat:*) read claude-code"
     },
     {
       "type": "skill",
@@ -47644,9 +47781,7 @@
       "name": "hyperfocus",
       "description": ">",
       "category": "productivity",
-      "allowedTools": [
-        "[]"
-      ],
+      "allowedTools": [],
       "compatibleWith": [
         "claude-code"
       ],
@@ -47655,7 +47790,7 @@
         "name": "hyperfocus",
         "category": "productivity"
       },
-      "searchText": "hyperfocus > productivity [] claude-code"
+      "searchText": "hyperfocus > productivity  claude-code"
     },
     {
       "type": "skill",
@@ -74250,6 +74385,36 @@
     },
     {
       "type": "skill",
+      "id": "setup",
+      "slug": "setup",
+      "name": "setup",
+      "description": "Set up Promptbook — connect your account to start tracking builds. Use when the user wants to enable session analytics on promptbook.gg. Trigger with \"/setup\" or \"set up promptbook\".",
+      "category": "analytics",
+      "allowedTools": [
+        "Bash(curl:*)",
+        "Bash(open:*)",
+        "Bash(xdg-open:*)",
+        "Bash(mkdir:*)",
+        "Bash(cat:*)",
+        "Bash(chmod:*)",
+        "Bash(node:*)",
+        "Bash(nohup:*)",
+        "Bash(find:*)",
+        "Bash(wc:*)",
+        "Read"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.4.0",
+      "parentPlugin": {
+        "name": "promptbook",
+        "category": "analytics"
+      },
+      "searchText": "setup set up promptbook — connect your account to start tracking builds. use when the user wants to enable session analytics on promptbook.gg. trigger with \"/setup\" or \"set up promptbook\". analytics bash(curl:*) bash(open:*) bash(xdg-open:*) bash(mkdir:*) bash(cat:*) bash(chmod:*) bash(node:*) bash(nohup:*) bash(find:*) bash(wc:*) read claude-code"
+    },
+    {
+      "type": "skill",
       "id": "shipwright-pipeline",
       "slug": "shipwright-pipeline",
       "name": "shipwright-pipeline",
@@ -74282,7 +74447,7 @@
       "id": "shopify-advanced-troubleshooting",
       "slug": "shopify-advanced-troubleshooting",
       "name": "shopify-advanced-troubleshooting",
-      "description": "Debug complex Shopify API issues using cost analysis, request tracing, webhook delivery inspection, and GraphQL introspection. Trigger with phrases like \"shopify hard bug\", \"shopify mystery error\", \"shopify deep debug\", \"difficult shopify issue\", \"shopify intermittent failure\".",
+      "description": "Debug complex Shopify API issues using cost analysis, request tracing, webhook delivery inspection, and GraphQL introspection. Use when encountering intermittent failures, throttling mysteries, or webhook delivery gaps. Trigger with phrases like \"shopify hard bug\", \"shopify mystery error\", \"shopify deep debug\", \"difficult shopify issue\", \"shopify intermittent failure\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74298,14 +74463,38 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-advanced-troubleshooting debug complex shopify api issues using cost analysis, request tracing, webhook delivery inspection, and graphql introspection. trigger with phrases like \"shopify hard bug\", \"shopify mystery error\", \"shopify deep debug\", \"difficult shopify issue\", \"shopify intermittent failure\". saas-packs read grep bash(curl:*) bash(node:*) claude-code"
+      "searchText": "shopify-advanced-troubleshooting debug complex shopify api issues using cost analysis, request tracing, webhook delivery inspection, and graphql introspection. use when encountering intermittent failures, throttling mysteries, or webhook delivery gaps. trigger with phrases like \"shopify hard bug\", \"shopify mystery error\", \"shopify deep debug\", \"difficult shopify issue\", \"shopify intermittent failure\". saas-packs read grep bash(curl:*) bash(node:*) claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-ai-toolkit-wrapper",
+      "slug": "shopify-ai-toolkit-wrapper",
+      "name": "shopify-ai-toolkit-wrapper",
+      "description": "Integrate Shopify's AI Toolkit MCP server with Claude Code for GraphQL validation, Liquid linting, and documentation search. Use when setting up Shopify MCP integration, validating GraphQL queries, or linting Liquid templates. Trigger with phrases like \"shopify ai toolkit\", \"shopify mcp\", \"shopify claude integration\", \"shopify graphql validation\", \"shopify liquid lint\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-ai-toolkit-wrapper integrate shopify's ai toolkit mcp server with claude code for graphql validation, liquid linting, and documentation search. use when setting up shopify mcp integration, validating graphql queries, or linting liquid templates. trigger with phrases like \"shopify ai toolkit\", \"shopify mcp\", \"shopify claude integration\", \"shopify graphql validation\", \"shopify liquid lint\". saas-packs read write edit bash(npm:*) grep claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-architecture-variants",
       "slug": "shopify-architecture-variants",
       "name": "shopify-architecture-variants",
-      "description": "Choose between Shopify app architectures: embedded Remix app, headless storefront with Hydrogen, standalone integration, or theme app extension. Trigger with phrases like \"shopify architecture decision\", \"shopify embedded vs headless\", \"shopify Hydrogen\", \"shopify app types\", \"which shopify architecture\".",
+      "description": "Choose between Shopify app architectures: embedded Remix app, headless storefront with Hydrogen, standalone integration, or theme app extension. Use when starting a new Shopify project and deciding which architecture pattern to follow. Trigger with phrases like \"shopify architecture decision\", \"shopify embedded vs headless\", \"shopify Hydrogen\", \"shopify app types\", \"which shopify architecture\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74319,14 +74508,62 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-architecture-variants choose between shopify app architectures: embedded remix app, headless storefront with hydrogen, standalone integration, or theme app extension. trigger with phrases like \"shopify architecture decision\", \"shopify embedded vs headless\", \"shopify hydrogen\", \"shopify app types\", \"which shopify architecture\". saas-packs read grep claude-code"
+      "searchText": "shopify-architecture-variants choose between shopify app architectures: embedded remix app, headless storefront with hydrogen, standalone integration, or theme app extension. use when starting a new shopify project and deciding which architecture pattern to follow. trigger with phrases like \"shopify architecture decision\", \"shopify embedded vs headless\", \"shopify hydrogen\", \"shopify app types\", \"which shopify architecture\". saas-packs read grep claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-b2b-wholesale",
+      "slug": "shopify-b2b-wholesale",
+      "name": "shopify-b2b-wholesale",
+      "description": "Build Shopify Plus B2B features with companies, catalogs, and wholesale pricing. Use when setting up wholesale accounts, creating price lists, or configuring B2B checkout with purchase orders. Trigger with phrases like \"shopify b2b\", \"shopify wholesale\", \"shopify company api\", \"shopify price lists\", \"shopify catalog api\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-b2b-wholesale build shopify plus b2b features with companies, catalogs, and wholesale pricing. use when setting up wholesale accounts, creating price lists, or configuring b2b checkout with purchase orders. trigger with phrases like \"shopify b2b\", \"shopify wholesale\", \"shopify company api\", \"shopify price lists\", \"shopify catalog api\". saas-packs read write edit bash(npm:*) grep claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-checkout-extensions",
+      "slug": "shopify-checkout-extensions",
+      "name": "shopify-checkout-extensions",
+      "description": "Build Checkout UI Extensions to customize Shopify checkout with sandboxed React-like components. Use when replacing checkout.liquid (deprecated Aug 2025), adding custom fields to checkout, displaying banners, or reading checkout state with hooks. Trigger with phrases like \"shopify checkout extension\", \"shopify checkout ui\", \"checkout customization shopify\", \"checkout.liquid migration\", \"shopify checkout components\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-checkout-extensions build checkout ui extensions to customize shopify checkout with sandboxed react-like components. use when replacing checkout.liquid (deprecated aug 2025), adding custom fields to checkout, displaying banners, or reading checkout state with hooks. trigger with phrases like \"shopify checkout extension\", \"shopify checkout ui\", \"checkout customization shopify\", \"checkout.liquid migration\", \"shopify checkout components\". saas-packs read write edit bash(npm:*) grep claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-ci-integration",
       "slug": "shopify-ci-integration",
       "name": "shopify-ci-integration",
-      "description": "Configure CI/CD pipelines for Shopify apps with GitHub Actions, API version testing, and Shopify CLI deployment. Trigger with phrases like \"shopify CI\", \"shopify GitHub Actions\", \"shopify automated tests\", \"CI shopify\", \"shopify deploy pipeline\".",
+      "description": "Configure CI/CD pipelines for Shopify apps with GitHub Actions, API version testing, and Shopify CLI deployment. Use when setting up automated testing, deployment pipelines, or API version monitoring for Shopify apps. Trigger with phrases like \"shopify CI\", \"shopify GitHub Actions\", \"shopify automated tests\", \"CI shopify\", \"shopify deploy pipeline\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74342,7 +74579,7 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-ci-integration configure ci/cd pipelines for shopify apps with github actions, api version testing, and shopify cli deployment. trigger with phrases like \"shopify ci\", \"shopify github actions\", \"shopify automated tests\", \"ci shopify\", \"shopify deploy pipeline\". saas-packs read write edit bash(gh:*) claude-code"
+      "searchText": "shopify-ci-integration configure ci/cd pipelines for shopify apps with github actions, api version testing, and shopify cli deployment. use when setting up automated testing, deployment pipelines, or api version monitoring for shopify apps. trigger with phrases like \"shopify ci\", \"shopify github actions\", \"shopify automated tests\", \"ci shopify\", \"shopify deploy pipeline\". saas-packs read write edit bash(gh:*) claude-code"
     },
     {
       "type": "skill",
@@ -74419,7 +74656,7 @@
       "id": "shopify-cost-tuning",
       "slug": "shopify-cost-tuning",
       "name": "shopify-cost-tuning",
-      "description": "Optimize Shopify app costs through plan selection, API usage monitoring, and Shopify Plus upgrade analysis. Trigger with phrases like \"shopify cost\", \"shopify billing\", \"shopify pricing\", \"shopify Plus worth it\", \"shopify API usage\", \"reduce shopify costs\".",
+      "description": "Optimize Shopify app costs through plan selection, API usage monitoring, and Shopify Plus upgrade analysis. Use when analyzing API spend, choosing between Shopify plans, or reducing billable API calls. Trigger with phrases like \"shopify cost\", \"shopify billing\", \"shopify pricing\", \"shopify Plus worth it\", \"shopify API usage\", \"reduce shopify costs\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74433,14 +74670,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-cost-tuning optimize shopify app costs through plan selection, api usage monitoring, and shopify plus upgrade analysis. trigger with phrases like \"shopify cost\", \"shopify billing\", \"shopify pricing\", \"shopify plus worth it\", \"shopify api usage\", \"reduce shopify costs\". saas-packs read grep claude-code"
+      "searchText": "shopify-cost-tuning optimize shopify app costs through plan selection, api usage monitoring, and shopify plus upgrade analysis. use when analyzing api spend, choosing between shopify plans, or reducing billable api calls. trigger with phrases like \"shopify cost\", \"shopify billing\", \"shopify pricing\", \"shopify plus worth it\", \"shopify api usage\", \"reduce shopify costs\". saas-packs read grep claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-data-handling",
       "slug": "shopify-data-handling",
       "name": "shopify-data-handling",
-      "description": "Handle Shopify customer PII, implement GDPR/CCPA compliance, and manage data retention with Shopify's mandatory privacy webhooks. Trigger with phrases like \"shopify data\", \"shopify PII\", \"shopify GDPR\", \"shopify customer data\", \"shopify privacy\", \"shopify CCPA\", \"shopify data request\".",
+      "description": "Handle Shopify customer PII, implement GDPR/CCPA compliance, and manage data retention with Shopify's mandatory privacy webhooks. Use when building apps that store customer data, preparing for App Store review, or implementing deletion workflows. Trigger with phrases like \"shopify data\", \"shopify PII\", \"shopify GDPR\", \"shopify customer data\", \"shopify privacy\", \"shopify CCPA\", \"shopify data request\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74455,7 +74692,7 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-data-handling handle shopify customer pii, implement gdpr/ccpa compliance, and manage data retention with shopify's mandatory privacy webhooks. trigger with phrases like \"shopify data\", \"shopify pii\", \"shopify gdpr\", \"shopify customer data\", \"shopify privacy\", \"shopify ccpa\", \"shopify data request\". saas-packs read write edit claude-code"
+      "searchText": "shopify-data-handling handle shopify customer pii, implement gdpr/ccpa compliance, and manage data retention with shopify's mandatory privacy webhooks. use when building apps that store customer data, preparing for app store review, or implementing deletion workflows. trigger with phrases like \"shopify data\", \"shopify pii\", \"shopify gdpr\", \"shopify customer data\", \"shopify privacy\", \"shopify ccpa\", \"shopify data request\". saas-packs read write edit claude-code"
     },
     {
       "type": "skill",
@@ -74512,7 +74749,7 @@
       "id": "shopify-enterprise-rbac",
       "slug": "shopify-enterprise-rbac",
       "name": "shopify-enterprise-rbac",
-      "description": "Implement Shopify Plus access control patterns with staff permissions, multi-location management, and Shopify Organization features. Trigger with phrases like \"shopify permissions\", \"shopify staff\", \"shopify Plus organization\", \"shopify roles\", \"shopify multi-location\".",
+      "description": "Implement Shopify Plus access control patterns with staff permissions, multi-location management, and Shopify Organization features. Use when building apps for Shopify Plus merchants, implementing per-staff permissions, or managing multi-store organizations. Trigger with phrases like \"shopify permissions\", \"shopify staff\", \"shopify Plus organization\", \"shopify roles\", \"shopify multi-location\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74527,7 +74764,55 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-enterprise-rbac implement shopify plus access control patterns with staff permissions, multi-location management, and shopify organization features. trigger with phrases like \"shopify permissions\", \"shopify staff\", \"shopify plus organization\", \"shopify roles\", \"shopify multi-location\". saas-packs read write edit claude-code"
+      "searchText": "shopify-enterprise-rbac implement shopify plus access control patterns with staff permissions, multi-location management, and shopify organization features. use when building apps for shopify plus merchants, implementing per-staff permissions, or managing multi-store organizations. trigger with phrases like \"shopify permissions\", \"shopify staff\", \"shopify plus organization\", \"shopify roles\", \"shopify multi-location\". saas-packs read write edit claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-functions",
+      "slug": "shopify-functions",
+      "name": "shopify-functions",
+      "description": "Build Shopify Functions for custom discount, payment, and delivery logic in a WASM sandbox. Use when creating custom discount rules, payment customizations, delivery options, or cart transformations that run server-side at checkout. Trigger with phrases like \"shopify functions\", \"shopify discounts\", \"shopify wasm\", \"custom discount function\", \"shopify checkout customization\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-functions build shopify functions for custom discount, payment, and delivery logic in a wasm sandbox. use when creating custom discount rules, payment customizations, delivery options, or cart transformations that run server-side at checkout. trigger with phrases like \"shopify functions\", \"shopify discounts\", \"shopify wasm\", \"custom discount function\", \"shopify checkout customization\". saas-packs read write edit bash(npm:*) grep claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-graphql-cost-optimizer",
+      "slug": "shopify-graphql-cost-optimizer",
+      "name": "shopify-graphql-cost-optimizer",
+      "description": "Master Shopify's calculated query cost system to avoid throttling. Use when hitting THROTTLED errors, optimizing GraphQL queries, or deciding when to use bulk operations instead. Trigger with phrases like \"shopify query cost\", \"shopify graphql cost\", \"shopify rate limit graphql\", \"shopify throttled\", \"shopify bulk operations\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-graphql-cost-optimizer master shopify's calculated query cost system to avoid throttling. use when hitting throttled errors, optimizing graphql queries, or deciding when to use bulk operations instead. trigger with phrases like \"shopify query cost\", \"shopify graphql cost\", \"shopify rate limit graphql\", \"shopify throttled\", \"shopify bulk operations\". saas-packs read write edit bash(npm:*) grep claude-code"
     },
     {
       "type": "skill",
@@ -74559,7 +74844,7 @@
       "id": "shopify-incident-runbook",
       "slug": "shopify-incident-runbook",
       "name": "shopify-incident-runbook",
-      "description": "Execute Shopify incident response with triage using Shopify status page, API health checks, and rate limit diagnosis. Trigger with phrases like \"shopify incident\", \"shopify outage\", \"shopify down\", \"shopify on-call\", \"shopify emergency\", \"shopify not responding\".",
+      "description": "Execute Shopify incident response with triage using Shopify status page, API health checks, and rate limit diagnosis. Use when a Shopify integration is down, returning errors, or behaving unexpectedly in production. Trigger with phrases like \"shopify incident\", \"shopify outage\", \"shopify down\", \"shopify on-call\", \"shopify emergency\", \"shopify not responding\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74574,7 +74859,7 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-incident-runbook execute shopify incident response with triage using shopify status page, api health checks, and rate limit diagnosis. trigger with phrases like \"shopify incident\", \"shopify outage\", \"shopify down\", \"shopify on-call\", \"shopify emergency\", \"shopify not responding\". saas-packs read grep bash(curl:*) claude-code"
+      "searchText": "shopify-incident-runbook execute shopify incident response with triage using shopify status page, api health checks, and rate limit diagnosis. use when a shopify integration is down, returning errors, or behaving unexpectedly in production. trigger with phrases like \"shopify incident\", \"shopify outage\", \"shopify down\", \"shopify on-call\", \"shopify emergency\", \"shopify not responding\". saas-packs read grep bash(curl:*) claude-code"
     },
     {
       "type": "skill",
@@ -74607,7 +74892,7 @@
       "id": "shopify-known-pitfalls",
       "slug": "shopify-known-pitfalls",
       "name": "shopify-known-pitfalls",
-      "description": "Identify and avoid Shopify API anti-patterns: ignoring userErrors, wrong API version, REST instead of GraphQL, missing GDPR webhooks, and webhook timeout issues. Trigger with phrases like \"shopify mistakes\", \"shopify anti-patterns\", \"shopify pitfalls\", \"shopify what not to do\", \"shopify code review\".",
+      "description": "Identify and avoid Shopify API anti-patterns: ignoring userErrors, wrong API version, REST instead of GraphQL, missing GDPR webhooks, and webhook timeout issues. Use when reviewing a Shopify codebase, preparing for App Store submission, or debugging mysterious API failures. Trigger with phrases like \"shopify mistakes\", \"shopify anti-patterns\", \"shopify pitfalls\", \"shopify what not to do\", \"shopify code review\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74621,14 +74906,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-known-pitfalls identify and avoid shopify api anti-patterns: ignoring usererrors, wrong api version, rest instead of graphql, missing gdpr webhooks, and webhook timeout issues. trigger with phrases like \"shopify mistakes\", \"shopify anti-patterns\", \"shopify pitfalls\", \"shopify what not to do\", \"shopify code review\". saas-packs read grep claude-code"
+      "searchText": "shopify-known-pitfalls identify and avoid shopify api anti-patterns: ignoring usererrors, wrong api version, rest instead of graphql, missing gdpr webhooks, and webhook timeout issues. use when reviewing a shopify codebase, preparing for app store submission, or debugging mysterious api failures. trigger with phrases like \"shopify mistakes\", \"shopify anti-patterns\", \"shopify pitfalls\", \"shopify what not to do\", \"shopify code review\". saas-packs read grep claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-load-scale",
       "slug": "shopify-load-scale",
       "name": "shopify-load-scale",
-      "description": "Load test Shopify integrations respecting API rate limits, plan capacity with k6, and scale for Shopify Plus burst events (flash sales, BFCM). Trigger with phrases like \"shopify load test\", \"shopify scale\", \"shopify BFCM\", \"shopify flash sale\", \"shopify capacity\", \"shopify k6 test\".",
+      "description": "Load test Shopify integrations respecting API rate limits, plan capacity with k6, and scale for Shopify Plus burst events (flash sales, BFCM). Use when preparing for high-traffic events, benchmarking API throughput, or sizing infrastructure for Shopify webhook volume. Trigger with phrases like \"shopify load test\", \"shopify scale\", \"shopify BFCM\", \"shopify flash sale\", \"shopify capacity\", \"shopify k6 test\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74645,7 +74930,7 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-load-scale load test shopify integrations respecting api rate limits, plan capacity with k6, and scale for shopify plus burst events (flash sales, bfcm). trigger with phrases like \"shopify load test\", \"shopify scale\", \"shopify bfcm\", \"shopify flash sale\", \"shopify capacity\", \"shopify k6 test\". saas-packs read write edit bash(k6:*) bash(curl:*) claude-code"
+      "searchText": "shopify-load-scale load test shopify integrations respecting api rate limits, plan capacity with k6, and scale for shopify plus burst events (flash sales, bfcm). use when preparing for high-traffic events, benchmarking api throughput, or sizing infrastructure for shopify webhook volume. trigger with phrases like \"shopify load test\", \"shopify scale\", \"shopify bfcm\", \"shopify flash sale\", \"shopify capacity\", \"shopify k6 test\". saas-packs read write edit bash(k6:*) bash(curl:*) claude-code"
     },
     {
       "type": "skill",
@@ -74676,10 +74961,34 @@
     },
     {
       "type": "skill",
+      "id": "shopify-metafields-metaobjects",
+      "slug": "shopify-metafields-metaobjects",
+      "name": "shopify-metafields-metaobjects",
+      "description": "Model custom data with Shopify metafields and metaobjects via the GraphQL Admin API. Use when adding custom fields to products/orders, creating custom content types, or building structured data models beyond Shopify's default schema. Trigger with phrases like \"shopify metafields\", \"shopify metaobjects\", \"custom data shopify\", \"shopify custom fields\", \"metafield definition\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-metafields-metaobjects model custom data with shopify metafields and metaobjects via the graphql admin api. use when adding custom fields to products/orders, creating custom content types, or building structured data models beyond shopify's default schema. trigger with phrases like \"shopify metafields\", \"shopify metaobjects\", \"custom data shopify\", \"shopify custom fields\", \"metafield definition\". saas-packs read write edit bash(npm:*) grep claude-code"
+    },
+    {
+      "type": "skill",
       "id": "shopify-migration-deep-dive",
       "slug": "shopify-migration-deep-dive",
       "name": "shopify-migration-deep-dive",
-      "description": "Migrate e-commerce data to Shopify using bulk operations, product imports, and the strangler fig pattern for gradual platform migration. Trigger with phrases like \"migrate to shopify\", \"shopify data migration\", \"import products shopify\", \"shopify replatform\", \"move to shopify\".",
+      "description": "Migrate e-commerce data to Shopify using bulk operations, product imports, and the strangler fig pattern for gradual platform migration. Use when replatforming to Shopify, importing product catalogs, or migrating customer and order data from another e-commerce system. Trigger with phrases like \"migrate to shopify\", \"shopify data migration\", \"import products shopify\", \"shopify replatform\", \"move to shopify\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74697,14 +75006,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-migration-deep-dive migrate e-commerce data to shopify using bulk operations, product imports, and the strangler fig pattern for gradual platform migration. trigger with phrases like \"migrate to shopify\", \"shopify data migration\", \"import products shopify\", \"shopify replatform\", \"move to shopify\". saas-packs read write edit bash(npm:*) bash(node:*) bash(curl:*) claude-code"
+      "searchText": "shopify-migration-deep-dive migrate e-commerce data to shopify using bulk operations, product imports, and the strangler fig pattern for gradual platform migration. use when replatforming to shopify, importing product catalogs, or migrating customer and order data from another e-commerce system. trigger with phrases like \"migrate to shopify\", \"shopify data migration\", \"import products shopify\", \"shopify replatform\", \"move to shopify\". saas-packs read write edit bash(npm:*) bash(node:*) bash(curl:*) claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-multi-env-setup",
       "slug": "shopify-multi-env-setup",
       "name": "shopify-multi-env-setup",
-      "description": "Configure Shopify apps across development, staging, and production environments with separate stores, API credentials, and app instances. Trigger with phrases like \"shopify environments\", \"shopify staging\", \"shopify dev vs prod\", \"shopify multi-store\", \"shopify environment setup\".",
+      "description": "Configure Shopify apps across development, staging, and production environments with separate stores, API credentials, and app instances. Use when setting up isolated dev/staging/prod environments for a Shopify app, managing multiple development stores, or configuring per-environment credentials. Trigger with phrases like \"shopify environments\", \"shopify staging\", \"shopify dev vs prod\", \"shopify multi-store\", \"shopify environment setup\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74720,14 +75029,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-multi-env-setup configure shopify apps across development, staging, and production environments with separate stores, api credentials, and app instances. trigger with phrases like \"shopify environments\", \"shopify staging\", \"shopify dev vs prod\", \"shopify multi-store\", \"shopify environment setup\". saas-packs read write edit bash(shopify:*) claude-code"
+      "searchText": "shopify-multi-env-setup configure shopify apps across development, staging, and production environments with separate stores, api credentials, and app instances. use when setting up isolated dev/staging/prod environments for a shopify app, managing multiple development stores, or configuring per-environment credentials. trigger with phrases like \"shopify environments\", \"shopify staging\", \"shopify dev vs prod\", \"shopify multi-store\", \"shopify environment setup\". saas-packs read write edit bash(shopify:*) claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-observability",
       "slug": "shopify-observability",
       "name": "shopify-observability",
-      "description": "Set up observability for Shopify app integrations with query cost tracking, rate limit monitoring, webhook delivery metrics, and structured logging. Trigger with phrases like \"shopify monitoring\", \"shopify metrics\", \"shopify observability\", \"monitor shopify API\", \"shopify alerts\", \"shopify dashboard\".",
+      "description": "Set up observability for Shopify app integrations with query cost tracking, rate limit monitoring, webhook delivery metrics, and structured logging. Use when instrumenting a Shopify app for production monitoring, setting up Prometheus metrics for API health, or configuring alerts for rate limit issues. Trigger with phrases like \"shopify monitoring\", \"shopify metrics\", \"shopify observability\", \"monitor shopify API\", \"shopify alerts\", \"shopify dashboard\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74742,14 +75051,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-observability set up observability for shopify app integrations with query cost tracking, rate limit monitoring, webhook delivery metrics, and structured logging. trigger with phrases like \"shopify monitoring\", \"shopify metrics\", \"shopify observability\", \"monitor shopify api\", \"shopify alerts\", \"shopify dashboard\". saas-packs read write edit claude-code"
+      "searchText": "shopify-observability set up observability for shopify app integrations with query cost tracking, rate limit monitoring, webhook delivery metrics, and structured logging. use when instrumenting a shopify app for production monitoring, setting up prometheus metrics for api health, or configuring alerts for rate limit issues. trigger with phrases like \"shopify monitoring\", \"shopify metrics\", \"shopify observability\", \"monitor shopify api\", \"shopify alerts\", \"shopify dashboard\". saas-packs read write edit claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-performance-tuning",
       "slug": "shopify-performance-tuning",
       "name": "shopify-performance-tuning",
-      "description": "Optimize Shopify API performance with GraphQL query cost reduction, bulk operations, caching strategies, and Storefront API for high-traffic storefronts. Trigger with phrases like \"shopify performance\", \"optimize shopify\", \"shopify slow\", \"shopify caching\", \"shopify bulk operation\", \"shopify query cost\".",
+      "description": "Optimize Shopify API performance with GraphQL query cost reduction, bulk operations, caching strategies, and Storefront API for high-traffic storefronts. Use when queries are slow or hitting THROTTLED errors, exporting large datasets, or optimizing API throughput for a high-traffic storefront. Trigger with phrases like \"shopify performance\", \"optimize shopify\", \"shopify slow\", \"shopify caching\", \"shopify bulk operation\", \"shopify query cost\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74764,14 +75073,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-performance-tuning optimize shopify api performance with graphql query cost reduction, bulk operations, caching strategies, and storefront api for high-traffic storefronts. trigger with phrases like \"shopify performance\", \"optimize shopify\", \"shopify slow\", \"shopify caching\", \"shopify bulk operation\", \"shopify query cost\". saas-packs read write edit claude-code"
+      "searchText": "shopify-performance-tuning optimize shopify api performance with graphql query cost reduction, bulk operations, caching strategies, and storefront api for high-traffic storefronts. use when queries are slow or hitting throttled errors, exporting large datasets, or optimizing api throughput for a high-traffic storefront. trigger with phrases like \"shopify performance\", \"optimize shopify\", \"shopify slow\", \"shopify caching\", \"shopify bulk operation\", \"shopify query cost\". saas-packs read write edit claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-policy-guardrails",
       "slug": "shopify-policy-guardrails",
       "name": "shopify-policy-guardrails",
-      "description": "Implement Shopify app policy enforcement with ESLint rules for API key detection, query cost budgets, and App Store compliance checks. Trigger with phrases like \"shopify policy\", \"shopify lint\", \"shopify guardrails\", \"shopify compliance\", \"shopify eslint\", \"shopify app review\".",
+      "description": "Implement Shopify app policy enforcement with ESLint rules for API key detection, query cost budgets, and App Store compliance checks. Use when hardening a Shopify app against secret leaks, enforcing query cost limits, or preparing for App Store submission review. Trigger with phrases like \"shopify policy\", \"shopify lint\", \"shopify guardrails\", \"shopify compliance\", \"shopify eslint\", \"shopify app review\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74787,14 +75096,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-policy-guardrails implement shopify app policy enforcement with eslint rules for api key detection, query cost budgets, and app store compliance checks. trigger with phrases like \"shopify policy\", \"shopify lint\", \"shopify guardrails\", \"shopify compliance\", \"shopify eslint\", \"shopify app review\". saas-packs read write edit bash(npx:*) claude-code"
+      "searchText": "shopify-policy-guardrails implement shopify app policy enforcement with eslint rules for api key detection, query cost budgets, and app store compliance checks. use when hardening a shopify app against secret leaks, enforcing query cost limits, or preparing for app store submission review. trigger with phrases like \"shopify policy\", \"shopify lint\", \"shopify guardrails\", \"shopify compliance\", \"shopify eslint\", \"shopify app review\". saas-packs read write edit bash(npx:*) claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-prod-checklist",
       "slug": "shopify-prod-checklist",
       "name": "shopify-prod-checklist",
-      "description": "Execute Shopify app production deployment checklist covering App Store requirements, mandatory webhooks, API versioning, and rollback procedures. Trigger with phrases like \"shopify production\", \"deploy shopify\", \"shopify go-live\", \"shopify launch checklist\", \"shopify app store submit\".",
+      "description": "Execute Shopify app production deployment checklist covering App Store requirements, mandatory webhooks, API versioning, and rollback procedures. Use when preparing a Shopify app for production launch, submitting to the App Store, or auditing an existing deployment for compliance gaps. Trigger with phrases like \"shopify production\", \"deploy shopify\", \"shopify go-live\", \"shopify launch checklist\", \"shopify app store submit\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74809,7 +75118,7 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-prod-checklist execute shopify app production deployment checklist covering app store requirements, mandatory webhooks, api versioning, and rollback procedures. trigger with phrases like \"shopify production\", \"deploy shopify\", \"shopify go-live\", \"shopify launch checklist\", \"shopify app store submit\". saas-packs read bash(curl:*) grep claude-code"
+      "searchText": "shopify-prod-checklist execute shopify app production deployment checklist covering app store requirements, mandatory webhooks, api versioning, and rollback procedures. use when preparing a shopify app for production launch, submitting to the app store, or auditing an existing deployment for compliance gaps. trigger with phrases like \"shopify production\", \"deploy shopify\", \"shopify go-live\", \"shopify launch checklist\", \"shopify app store submit\". saas-packs read bash(curl:*) grep claude-code"
     },
     {
       "type": "skill",
@@ -74838,7 +75147,7 @@
       "id": "shopify-reference-architecture",
       "slug": "shopify-reference-architecture",
       "name": "shopify-reference-architecture",
-      "description": "Implement Shopify app reference architecture with Remix, Prisma session storage, and the official app template patterns. Trigger with phrases like \"shopify architecture\", \"shopify app structure\", \"shopify project layout\", \"shopify Remix template\", \"shopify app design\".",
+      "description": "Implement Shopify app reference architecture with Remix, Prisma session storage, and the official app template patterns. Use when setting up a new Shopify app, structuring a Remix-based project, or configuring Prisma session storage for production. Trigger with phrases like \"shopify architecture\", \"shopify app structure\", \"shopify project layout\", \"shopify Remix template\", \"shopify app design\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74852,14 +75161,14 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-reference-architecture implement shopify app reference architecture with remix, prisma session storage, and the official app template patterns. trigger with phrases like \"shopify architecture\", \"shopify app structure\", \"shopify project layout\", \"shopify remix template\", \"shopify app design\". saas-packs read grep claude-code"
+      "searchText": "shopify-reference-architecture implement shopify app reference architecture with remix, prisma session storage, and the official app template patterns. use when setting up a new shopify app, structuring a remix-based project, or configuring prisma session storage for production. trigger with phrases like \"shopify architecture\", \"shopify app structure\", \"shopify project layout\", \"shopify remix template\", \"shopify app design\". saas-packs read grep claude-code"
     },
     {
       "type": "skill",
       "id": "shopify-reliability-patterns",
       "slug": "shopify-reliability-patterns",
       "name": "shopify-reliability-patterns",
-      "description": "Implement reliability patterns for Shopify apps including circuit breakers for API outages, webhook retry handling, and graceful degradation. Trigger with phrases like \"shopify reliability\", \"shopify circuit breaker\", \"shopify resilience\", \"shopify fallback\", \"shopify retry webhook\".",
+      "description": "Implement reliability patterns for Shopify apps including circuit breakers for API outages, webhook retry handling, and graceful degradation. Use when building fault-tolerant Shopify integrations, handling webhook retry storms, or adding resilience to API calls. Trigger with phrases like \"shopify reliability\", \"shopify circuit breaker\", \"shopify resilience\", \"shopify fallback\", \"shopify retry webhook\".",
       "category": "saas-packs",
       "allowedTools": [
         "Read",
@@ -74874,7 +75183,7 @@
         "name": "shopify-pack",
         "category": "saas-packs"
       },
-      "searchText": "shopify-reliability-patterns implement reliability patterns for shopify apps including circuit breakers for api outages, webhook retry handling, and graceful degradation. trigger with phrases like \"shopify reliability\", \"shopify circuit breaker\", \"shopify resilience\", \"shopify fallback\", \"shopify retry webhook\". saas-packs read write edit claude-code"
+      "searchText": "shopify-reliability-patterns implement reliability patterns for shopify apps including circuit breakers for api outages, webhook retry handling, and graceful degradation. use when building fault-tolerant shopify integrations, handling webhook retry storms, or adding resilience to api calls. trigger with phrases like \"shopify reliability\", \"shopify circuit breaker\", \"shopify resilience\", \"shopify fallback\", \"shopify retry webhook\". saas-packs read write edit claude-code"
     },
     {
       "type": "skill",
@@ -74919,6 +75228,54 @@
         "category": "saas-packs"
       },
       "searchText": "shopify-security-basics apply shopify security best practices for api credentials, webhook hmac validation, and access scope management. use when securing api keys, validating webhook signatures, or auditing shopify security configuration. trigger with phrases like \"shopify security\", \"shopify secrets\", \"secure shopify\", \"shopify hmac\", \"shopify webhook verify\". saas-packs read write grep claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-storefront-headless",
+      "slug": "shopify-storefront-headless",
+      "name": "shopify-storefront-headless",
+      "description": "Build headless storefronts with Shopify's Storefront API and Cart API. Use when building custom frontends, setting up Hydrogen, querying products for customer-facing apps, or managing cart operations programmatically. Trigger with phrases like \"shopify headless\", \"shopify storefront api\", \"shopify hydrogen\", \"shopify cart api\", \"headless commerce shopify\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-storefront-headless build headless storefronts with shopify's storefront api and cart api. use when building custom frontends, setting up hydrogen, querying products for customer-facing apps, or managing cart operations programmatically. trigger with phrases like \"shopify headless\", \"shopify storefront api\", \"shopify hydrogen\", \"shopify cart api\", \"headless commerce shopify\". saas-packs read write edit bash(npm:*) grep claude-code"
+    },
+    {
+      "type": "skill",
+      "id": "shopify-theme-performance",
+      "slug": "shopify-theme-performance",
+      "name": "shopify-theme-performance",
+      "description": "Optimize Shopify theme performance for Core Web Vitals (LCP, CLS, INP). Use when diagnosing slow page loads, fixing lazy-loaded hero images, profiling Liquid render times, or optimizing image delivery. Trigger with phrases like \"shopify theme performance\", \"shopify core web vitals\", \"shopify lcp\", \"shopify liquid profiler\", \"shopify image optimization\".",
+      "category": "saas-packs",
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash(npm:*)",
+        "Grep"
+      ],
+      "compatibleWith": [
+        "claude-code"
+      ],
+      "version": "1.0.0",
+      "parentPlugin": {
+        "name": "shopify-pack",
+        "category": "saas-packs"
+      },
+      "searchText": "shopify-theme-performance optimize shopify theme performance for core web vitals (lcp, cls, inp). use when diagnosing slow page loads, fixing lazy-loaded hero images, profiling liquid render times, or optimizing image delivery. trigger with phrases like \"shopify theme performance\", \"shopify core web vitals\", \"shopify lcp\", \"shopify liquid profiler\", \"shopify image optimization\". saas-packs read write edit bash(npm:*) grep claude-code"
     },
     {
       "type": "skill",

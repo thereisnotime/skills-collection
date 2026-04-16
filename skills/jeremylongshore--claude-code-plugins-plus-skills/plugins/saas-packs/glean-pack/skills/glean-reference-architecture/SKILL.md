@@ -1,7 +1,7 @@
 ---
 name: glean-reference-architecture
 description: |
-  Enterprise architecture: Source Systems -> Connectors (Cloud Run/Lambda, event-driven or scheduled) -> Glean Indexing API -> Glean Search Index -> Client API (Search + Chat) -> Your Apps (Slack bot, portal, internal tools).
+  Enterprise architecture: Source Systems to Connectors (Cloud Run/Lambda, event-driven or scheduled) to Glean Indexing API to Glean Search Index to Client API (Search + Chat) to Your Apps (Slack bot, portal, internal tools).
   Trigger: "glean reference architecture", "reference-architecture".
 allowed-tools: Read, Write, Edit, Bash(npm:*), Bash(curl:*), Grep
 version: 1.0.0

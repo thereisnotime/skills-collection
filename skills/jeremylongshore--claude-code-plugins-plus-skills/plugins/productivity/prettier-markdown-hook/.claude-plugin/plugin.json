@@ -6,10 +6,7 @@
     "name": "Terry Li"
   },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/jeremylongshore/claude-code-plugins"
-  },
+  "repository": "https://github.com/jeremylongshore/claude-code-plugins",
   "keywords": [
     "prettier",
     "markdown",

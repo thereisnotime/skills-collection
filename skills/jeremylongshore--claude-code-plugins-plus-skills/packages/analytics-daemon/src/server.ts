@@ -56,7 +56,6 @@ export class AnalyticsServer {
         return;
       }
 
-      // Close all client connections
       for (const client of this.clients) {
         client.close();
       }

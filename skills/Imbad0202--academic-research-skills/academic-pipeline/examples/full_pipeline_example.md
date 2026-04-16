@@ -36,7 +36,7 @@ Recommended Pipeline Configuration:
   Stage 2 WRITE:    plan     -- Chapter-by-chapter guidance to plan your paper structure
   Stage 3 REVIEW:   full     -- Complete 4-person review, simulating real submission experience
   Stage 4 REVISE:   revision -- Item-by-item revision based on review comments
-  Stage 5 FINALIZE: format   -- Convert to your desired format (LaTeX/DOCX/PDF)
+  Stage 5 FINALIZE: format   -- Convert to your desired format (LaTeX/DOCX via Pandoc/PDF)
 
 You can adjust any stage's mode at any time. Ready to begin?
 ```

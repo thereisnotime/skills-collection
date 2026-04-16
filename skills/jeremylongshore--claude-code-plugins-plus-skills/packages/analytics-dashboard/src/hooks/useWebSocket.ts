@@ -16,7 +16,6 @@ export function useWebSocket() {
   const { addEvent, setConnectionStatus } = useAnalyticsStore();
 
   useEffect(() => {
-    // Create WebSocket service
     const service = new WebSocketService({
       url: WS_URL,
       reconnectDelay: 3000,
@@ -25,30 +24,21 @@ export function useWebSocket() {
 
     serviceRef.current = service;
 
-    // Subscribe to events
     const unsubscribeEvent = service.onEvent((event) => {
-      console.log('[useWebSocket] Event received:', event.type);
       addEvent(event);
     });
 
-    // Subscribe to status changes
     const unsubscribeStatus = service.onStatusChange((status: ConnectionStatus) => {
-      console.log('[useWebSocket] Status changed:', status);
       setConnectionStatus(status);
     });
 
-    // Subscribe to errors
     const unsubscribeError = service.onError((error) => {
       console.error('[useWebSocket] Error:', error.message);
     });
 
-    // Connect to WebSocket
-    console.log('[useWebSocket] Connecting to', WS_URL);
     service.connect();
 
-    // Cleanup on unmount
     return () => {
-      console.log('[useWebSocket] Cleaning up');
       unsubscribeEvent();
       unsubscribeStatus();
       unsubscribeError();
