@@ -1,5 +1,5 @@
 /**
- * Vendored from firecrawl/firecrawl-agent:.internal/cli/src/utils/credentials.ts
+ * Vendored from firecrawl/web-agent:.internal/cli/src/utils/credentials.ts
  *
  * Resolves the Firecrawl API key from env or the shared `firecrawl-cli` config
  * directory. Same path as the root CLI's own credentials store (that's the

@@ -1,5 +1,5 @@
 /**
- * Vendored from firecrawl/firecrawl-agent:.internal/cli/src/utils/ui.ts
+ * Vendored from firecrawl/web-agent:.internal/cli/src/utils/ui.ts
  * Keep in sync if upstream changes — this file intentionally mirrors the
  * agent repo's CLI output style so scaffold messages match docs verbatim.
  */

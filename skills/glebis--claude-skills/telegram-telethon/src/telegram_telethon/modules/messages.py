@@ -13,6 +13,8 @@ from telethon import TelegramClient, functions, types
 from telethon.tl.types import User, Chat, Channel
 from telethon.errors import FloodWaitError
 
+from telegram_telethon.modules.markdown import convert_markdown_to_telegram_html
+
 logger = logging.getLogger(__name__)
 
 
@@ -315,8 +317,20 @@ async def send_message(
     reply_to: Optional[int] = None,
     file_path: Optional[str] = None,
     allowed_groups: Optional[List[str]] = None,
+    markdown: bool = False,
+    schedule: Optional[datetime] = None,
 ) -> Dict:
-    """Send a message or file to a chat."""
+    """Send a message or file to a chat.
+
+    When ``markdown`` is True, ``text`` is converted to Telegram-flavored
+    HTML via ``modules.markdown.convert_markdown_to_telegram_html`` and
+    sent with ``parse_mode='html'``.
+
+    When ``schedule`` is a datetime, the message is handed to Telegram's
+    scheduled-delivery queue instead of being sent immediately. The
+    result dict carries ``scheduled_for`` (ISO string) so callers can
+    surface the booking time to the user.
+    """
     import os
 
     entity, resolved_name = await resolve_entity(client, chat_name)
@@ -338,6 +352,12 @@ async def send_message(
                 "chat_id": entity_id
             }
 
+    body = text
+    parse_mode: Optional[str] = None
+    if markdown and text:
+        body = convert_markdown_to_telegram_html(text)
+        parse_mode = "html"
+
     try:
         if file_path:
             if not os.path.exists(file_path):
@@ -346,10 +366,12 @@ async def send_message(
             msg = await client.send_file(
                 entity,
                 file_path,
-                caption=text if text else None,
-                reply_to=reply_to
+                caption=body if body else None,
+                reply_to=reply_to,
+                parse_mode=parse_mode,
+                schedule=schedule,
             )
-            return {
+            result = {
                 "sent": True,
                 "chat": resolved_name,
                 "message_id": msg.id,
@@ -360,13 +382,20 @@ async def send_message(
                 }
             }
         else:
-            msg = await client.send_message(entity, text, reply_to=reply_to)
-            return {
+            msg = await client.send_message(
+                entity, body, reply_to=reply_to, parse_mode=parse_mode,
+                schedule=schedule,
+            )
+            result = {
                 "sent": True,
                 "chat": resolved_name,
                 "message_id": msg.id,
                 "reply_to": reply_to
             }
+
+        if schedule is not None:
+            result["scheduled_for"] = schedule.isoformat()
+        return result
     except Exception as e:
         return {"sent": False, "error": str(e)}
 
@@ -423,8 +452,14 @@ async def forward_messages(
     from_chat: str,
     to_chat: str,
     message_ids: List[int],
+    allowed_groups: Optional[List[str]] = None,
 ) -> Dict:
-    """Forward messages to another chat."""
+    """Forward messages to another chat.
+
+    allowed_groups gates forwarding to destination groups/channels — mirrors
+    the whitelist on send_message/send_draft so forward can't be used as a
+    bypass for the same protection.
+    """
     from_entity, from_name = await resolve_entity(client, from_chat)
     to_entity, to_name = await resolve_entity(client, to_chat)
 
@@ -432,6 +467,19 @@ async def forward_messages(
         return {"forwarded": False, "error": f"Source chat '{from_chat}' not found"}
     if to_entity is None:
         return {"forwarded": False, "error": f"Destination chat '{to_chat}' not found"}
+
+    to_type = get_chat_type(to_entity)
+    if to_type in ["group", "channel"]:
+        allowed = allowed_groups or []
+        to_id = getattr(to_entity, 'id', None)
+        if to_name not in allowed and str(to_id) not in allowed:
+            return {
+                "forwarded": False,
+                "error": f"Forwarding to groups/channels requires whitelist. Add '{to_name}' to allowed_send_groups.",
+                "to_chat_type": to_type,
+                "to_chat": to_name,
+                "to_chat_id": to_id,
+            }
 
     try:
         result = await client.forward_messages(to_entity, message_ids, from_entity)

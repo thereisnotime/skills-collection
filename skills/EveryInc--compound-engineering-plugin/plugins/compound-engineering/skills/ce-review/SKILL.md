@@ -678,6 +678,17 @@ After presenting findings and verdict (Stage 6), route the next steps by mode. R
   - residual actionable work
   - advisory-only outputs
   Per-agent full-detail JSON files (`{reviewer_name}.json`) are already present in this directory from Stage 4 dispatch.
+- Also write `metadata.json` alongside the findings so downstream skills (e.g., `ce:polish-beta`) can verify the artifact matches the current branch and HEAD. Minimum fields:
+  ```json
+  {
+    "run_id": "<run-id>",
+    "branch": "<git branch --show-current at dispatch time>",
+    "head_sha": "<git rev-parse HEAD at dispatch time>",
+    "verdict": "<Ready to merge | Ready with fixes | Not ready>",
+    "completed_at": "<ISO 8601 UTC timestamp>"
+  }
+  ```
+  Capture `branch` and `head_sha` at dispatch time (before any autofixes land), and write the file after the verdict is finalized. This file is additive -- pre-existing artifacts that predate this field are still valid, and downstream skills fall back to file mtime when it is missing.
 - In autofix mode, create durable todo files only for unresolved actionable findings whose final owner is `downstream-resolver`. Load the `todo-create` skill for the canonical directory path, naming convention, YAML frontmatter structure, and template. Each todo should map the finding's severity to the todo priority (`P0`/`P1` -> `p1`, `P2` -> `p2`, `P3` -> `p3`) and set `status: ready` since these findings have already been triaged by synthesis.
 - Do not create todos for `advisory` findings, `owner: human`, `owner: release`, or protected-artifact cleanup suggestions.
 - If only advisory outputs remain, create no todos.

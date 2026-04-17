@@ -3,7 +3,7 @@
  *
  * Hidden from --help until the flow is battle-tested in the wild. The
  * scaffolder is vendored under `src/utils/agent-scaffold/` (mirrored from
- * `firecrawl/firecrawl-agent`). At runtime it clones the public agent repo
+ * `firecrawl/web-agent`). At runtime it clones the public agent repo
  * to get templates — no separate npm package for the agent CLI.
  *
  * Once visible, the command tree will grow to include additional kinds

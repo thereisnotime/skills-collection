@@ -96,32 +96,29 @@ focus: <optional focus hint>
 | # | Idea | Reason Rejected |
 |---|------|-----------------|
 | 1 | <Idea> | <Reason rejected> |
-
-## Session Log
-- YYYY-MM-DD: Initial ideation — <candidate count> generated, <survivor count> survived
 ```
 
 If resuming:
 - update the existing file in place
-- append to the session log
 - preserve explored markers
 
 ## Phase 6: Refine or Hand Off
 
-After presenting the results, ask what should happen next.
+After presenting the results, ask what should happen next using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the numbered options in chat and wait for the user's reply before proceeding.
+
+**Question:** "Ideation saved. What's next?"
 
 Offer these options:
-1. brainstorm a selected idea
-2. refine the ideation
-3. share to Proof
-4. end the session
+1. **Brainstorm a selected idea** — hand off to `ce:brainstorm` with the selected idea as the seed
+2. **Refine the ideation** — add, re-evaluate, or deepen ideas before handing off
+3. **Open in Proof (web app) — review and comment to iterate with the agent** — open the doc in Every's Proof editor, iterate via comments, or copy a link to share with others
+4. **End the session** — no further action; the ideation doc is saved
 
 ### 6.1 Brainstorm a Selected Idea
 
 If the user selects an idea:
 - write or update the ideation doc first
 - mark that idea as `Explored`
-- note the brainstorm date in the session log
 - invoke `ce:brainstorm` with the selected idea as the seed
 
 Do **not** skip brainstorming and go straight to planning from ideation output.
@@ -136,13 +133,26 @@ Route refinement by intent:
 
 After each refinement:
 - update the ideation document before any handoff, sharing, or session end
-- append a session log entry
 
-### 6.3 Share to Proof
+### 6.3 Open in Proof (web app)
 
-If requested, share the ideation document using the standard Proof markdown upload pattern already used elsewhere in the plugin.
+If requested, hand off the ideation document to the proof skill in HITL review mode. This uploads the doc, runs an iterative review loop (user annotates in Proof, agent ingests feedback and applies tracked edits), and syncs the reviewed markdown back to `docs/ideation/`.
 
-Return to the next-step options after sharing.
+Load the `proof` skill in HITL-review mode with:
+
+- **source file:** the ideation document path written in Phase 5 (e.g., `docs/ideation/YYYY-MM-DD-<topic>-ideation.md`)
+- **doc title:** `Ideation: <topic>` or the H1 of the ideation doc
+- **identity:** `ai:compound-engineering` / `Compound Engineering`
+- **recommended next step:** `/ce:brainstorm` (shown in the proof skill's final terminal output)
+
+If the initial upload fails (network error, Proof API down), retry once after a short wait. If it still fails, tell the user the upload didn't succeed and briefly explain why, then return to the next-step options — don't leave them wondering why the option did nothing.
+
+When the proof skill returns control:
+
+- `status: proceeded` with `localSynced: true` → the ideation doc on disk now reflects the review. Return to the next-step options.
+- `status: proceeded` with `localSynced: false` → the reviewed version lives in Proof at `docUrl` but the local copy is stale. Offer to pull the Proof doc to `localPath` using the proof skill's Pull workflow. Return to the next-step options; if the pull was declined, include a one-line note above the menu that `<localPath>` is stale vs. Proof so the next handoff doesn't read the old content silently.
+- `status: done_for_now` → the doc on disk may be stale if the user edited in Proof before leaving. Offer to pull the Proof doc to `localPath` so the local ideation artifact stays in sync, then return to the next-step options. `done_for_now` means the user stopped the HITL loop — it does not mean they ended the whole ideation session; they may still want to brainstorm or refine. If the pull was declined, include the stale-local note above the menu.
+- `status: aborted` → fall back to the next-step options without changes.
 
 ### 6.4 End the Session
 

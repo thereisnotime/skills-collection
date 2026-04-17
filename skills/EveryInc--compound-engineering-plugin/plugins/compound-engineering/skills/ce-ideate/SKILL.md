@@ -62,7 +62,7 @@ If a relevant doc exists, ask whether to:
 If continuing:
 - read the document
 - summarize what has already been explored
-- preserve previous idea statuses and session log entries
+- preserve previous idea statuses
 - update the existing file instead of creating a duplicate
 
 #### 0.2 Interpret Focus and Volume

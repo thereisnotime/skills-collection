@@ -23,8 +23,8 @@
       "description": "Tech stack reconnaissance — 26 skills and 5 agents for DNS, cloud detection, subdomain enumeration, and more"
     },
     {
-      "name": "skiller",
-      "path": "plugins/skiller",
+      "name": "skill-update",
+      "path": "plugins/skill-update",
       "description": "Skill creation meta-tool — automates skill generation, validation, and PR submission for Claude Code plugins"
     }
   ]

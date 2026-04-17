@@ -516,16 +516,26 @@ async def cmd_thread(args):
 async def cmd_send(args):
     """Send a message."""
     from telegram_telethon.modules.messages import send_message
+    from telegram_telethon.modules.schedule import parse_schedule
 
     client = await get_client()
     try:
         config = Config.load(DEFAULT_CONFIG_DIR / "config.yaml")
         allowed_groups = config.allowed_send_groups
 
+        schedule_dt = None
+        if args.schedule:
+            try:
+                schedule_dt = parse_schedule(args.schedule)
+            except ValueError as exc:
+                print(json.dumps({"sent": False, "error": str(exc)}, indent=2, ensure_ascii=False))
+                return
+
         reply_to = args.topic if args.topic else args.reply_to
         result = await send_message(
             client, chat_name=args.chat, text=args.text or "",
             reply_to=reply_to, file_path=args.file, allowed_groups=allowed_groups,
+            markdown=args.markdown, schedule=schedule_dt,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
     finally:
@@ -551,11 +561,13 @@ async def cmd_forward(args):
     """Forward messages."""
     from telegram_telethon.modules.messages import forward_messages
 
+    config = Config.load()
+    allowed_groups = config.allowed_send_groups
     client = await get_client()
     try:
         result = await forward_messages(
             client, from_chat=args.from_chat, to_chat=args.to_chat,
-            message_ids=args.message_ids,
+            message_ids=args.message_ids, allowed_groups=allowed_groups,
         )
         print(json.dumps(result, indent=2, ensure_ascii=False))
     finally:
@@ -683,6 +695,91 @@ async def cmd_draft_send(args):
         await client.disconnect()
 
 
+async def cmd_publish(args):
+    """Publish a draft markdown file to its configured Telegram channel."""
+    from telegram_telethon.modules.publish import publish_draft
+    from telegram_telethon.modules.schedule import parse_schedule
+
+    schedule_dt = None
+    if args.schedule:
+        try:
+            schedule_dt = parse_schedule(args.schedule)
+        except ValueError as exc:
+            print(json.dumps({"published": False, "error": str(exc)}, indent=2, ensure_ascii=False))
+            return
+
+    client = await get_client()
+    try:
+        result = await publish_draft(
+            client,
+            args.draft,
+            dry_run=args.dry_run,
+            schedule=schedule_dt,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    finally:
+        await client.disconnect()
+
+
+async def cmd_lint_channel(args):
+    """Scan recent messages in a channel for unrendered markdown/HTML markup."""
+    from telegram_telethon.modules.lint import detect_unrendered_markup
+    from telegram_telethon.modules.messages import resolve_entity
+
+    client = await get_client()
+    try:
+        entity, resolved_name = await resolve_entity(client, args.chat)
+        if entity is None:
+            print(json.dumps({"error": f"Chat '{args.chat}' not found"}, indent=2))
+            return
+
+        if args.message_id:
+            msg = await client.get_messages(entity, ids=args.message_id)
+            messages = [msg] if msg else []
+        else:
+            messages = [m async for m in client.iter_messages(entity, limit=args.limit)]
+
+        report = []
+        for msg in messages:
+            if msg is None:
+                continue
+            text = getattr(msg, "raw_text", None) or getattr(msg, "text", None) or ""
+            entities = getattr(msg, "entities", None) or []
+            findings = detect_unrendered_markup(text, entities)
+            if findings:
+                report.append({
+                    "message_id": msg.id,
+                    "date": msg.date.isoformat() if getattr(msg, "date", None) else None,
+                    "preview": (text[:120] + "…") if len(text) > 120 else text,
+                    "findings": [f.to_dict() for f in findings],
+                })
+
+        summary = {
+            "chat": resolved_name,
+            "scanned": sum(1 for m in messages if m is not None),
+            "flagged": len(report),
+            "findings": report,
+        }
+
+        if args.json:
+            print(json.dumps(summary, indent=2, ensure_ascii=False))
+            return
+
+        print(f"Scanned {summary['scanned']} messages in '{resolved_name}'")
+        if not report:
+            print("Clean — no unrendered markup detected.")
+            return
+        print(f"Flagged {len(report)} message(s):\n")
+        for item in report:
+            print(f"  msg {item['message_id']} ({item['date']})")
+            print(f"    preview: {item['preview']}")
+            for f in item["findings"]:
+                print(f"    - [{f['kind']}] {f['match']!r} @ offset {f['offset']}")
+            print()
+    finally:
+        await client.disconnect()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Telegram Telethon CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -747,6 +844,15 @@ def main():
     send_p.add_argument("--file", help="File to send")
     send_p.add_argument("--reply-to", type=int, help="Reply to message ID")
     send_p.add_argument("--topic", type=int, help="Forum topic ID")
+    send_p.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Convert markdown (**bold**, _italic_, [text](url), ## Header, * bullet) to Telegram HTML before sending",
+    )
+    send_p.add_argument(
+        "--schedule",
+        help="Schedule for future delivery. Accepts ISO (2026-04-10T10:00), relative (+1h, +30m, +2h30m), or 'tomorrow HH:MM' — times without a tz default to Europe/Berlin",
+    )
 
     # Edit
     edit_p = subparsers.add_parser("edit", help="Edit message")
@@ -804,6 +910,28 @@ def main():
     draft_send_p = subparsers.add_parser("draft-send", help="Send draft as message")
     draft_send_p.add_argument("--chat", required=True, help="Chat to send draft from")
 
+    # Publish - post a draft markdown file to its channel
+    pub_p = subparsers.add_parser(
+        "publish",
+        help="Publish a draft markdown file to its Telegram channel",
+    )
+    pub_p.add_argument("--draft", required=True, help="Path or slug of the draft (relative to vault OK)")
+    pub_p.add_argument("--dry-run", action="store_true", help="Preview without sending")
+    pub_p.add_argument(
+        "--schedule",
+        help="Schedule delivery. Accepts ISO, relative (+1h/+30m), or 'tomorrow HH:MM'",
+    )
+
+    # Lint channel - scan published messages for unrendered markup
+    lint_p = subparsers.add_parser(
+        "lint-channel",
+        help="Scan recent messages in a channel for unrendered markdown/HTML",
+    )
+    lint_p.add_argument("--chat", required=True, help="Chat/channel to scan")
+    lint_p.add_argument("--limit", type=int, default=50, help="Max messages to scan")
+    lint_p.add_argument("--message-id", type=int, help="Scan a single message by ID instead of recent N")
+    lint_p.add_argument("--json", action="store_true", help="JSON output")
+
     args = parser.parse_args()
 
     if args.command == "setup":
@@ -849,6 +977,10 @@ def main():
         asyncio.run(cmd_drafts(args))
     elif args.command == "draft-send":
         asyncio.run(cmd_draft_send(args))
+    elif args.command == "lint-channel":
+        asyncio.run(cmd_lint_channel(args))
+    elif args.command == "publish":
+        asyncio.run(cmd_publish(args))
 
 
 if __name__ == "__main__":

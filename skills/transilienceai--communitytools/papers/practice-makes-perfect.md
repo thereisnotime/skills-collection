@@ -100,7 +100,7 @@ The diagnosis step is critical. Each failure points to a specific gap: the agent
 
 ### 2.3 Using Claude Code to Improve Its Own Skills
 
-The skill files live in `projects/pentest/.claude/skills/` — the same directory where Claude Code runs during benchmarks. To update them, we used Claude Code itself with the `/skiller` command, which enforces structural constraints:
+The skill files live in `projects/pentest/.claude/skills/` — the same directory where Claude Code runs during benchmarks. To update them, we used Claude Code itself with the `/skill-update` command, which enforces structural constraints:
 
 - **SKILL.md** files (skill entry points): maximum 150 lines
 - **Reference files** (detailed techniques): maximum 200 lines
@@ -110,7 +110,7 @@ A typical update cycle looked like this:
 
 1. **Read the failed agent's output** — what did it try? Where did it get stuck?
 2. **Identify the missing technique** — not "the answer to this challenge" but "the general class of bypass the agent didn't know"
-3. **Open Claude Code in `projects/pentest/`** and use `/skiller` to update the relevant skill file
+3. **Open Claude Code in `projects/pentest/`** and use `/skill-update` to update the relevant skill file
 4. **Write the technique in vulnerability-class vocabulary** — behavioral triggers ("when keyword filtering is detected"), not benchmark references ("for XBEN-006")
 5. **Verify the addition is general** — would a security professional recognize this as standard knowledge?
 
@@ -170,7 +170,7 @@ Every time we added a technique after a benchmark failure, we applied three chec
 
 **2. Replace tag-based triggers with behavioral conditions.** Early skill drafts used tag-based lookup tables ("when tags include `sqli`, try these payloads"). These were replaced with behavioral triggers based on what the agent can observe: "when error messages reveal database type," "when login forms are present," "when POST parameters are reflected in output." The agent receives only a URL — no tags, no hints.
 
-**3. Compress and deduplicate.** After each addition, we checked whether the new content overlapped with existing techniques. The `/skiller` tool enforces line limits (150 for SKILL.md, 200 for reference files), which forces compression into tables, matrices, and step lists rather than verbose prose.
+**3. Compress and deduplicate.** After each addition, we checked whether the new content overlapped with existing techniques. The `/skill-update` tool enforces line limits (150 for SKILL.md, 200 for reference files), which forces compression into tables, matrices, and step lists rather than verbose prose.
 
 This process does not eliminate all bias. The skill set is disproportionately detailed in areas where the benchmarks revealed gaps: SQL filter bypass techniques get more coverage than OAuth token manipulation; Docker-internal smuggling has a dedicated section because one challenge required it. The *depth distribution* of the skill content reflects the benchmark suite, even though the individual techniques are general-purpose. We discuss this residual bias further in Section 6.
 
@@ -235,7 +235,7 @@ The system comprises 230 markdown files (~173K lines) organized into three layer
   [coordination], [Multi-agent orchestration, test planning, reporting],
   [hackerone], [Bug bounty automation, scope parsing, submission generation],
   [cve-poc-generator], [CVE research, standalone PoC script and report generation],
-  [transilience-report-style], [Branded PDF report design and formatting],
+  [formats/transilience-report-style], [Branded PDF report design and formatting],
 )
 ```
 
@@ -264,9 +264,9 @@ Phase 1: Reconnaissance Deepening
 - **Escalates systematically.** Six complexity levels: standard payloads → encoding bypasses → chained attacks → framework-specific CVEs → source code analysis → polyglot/multi-vector.
 - **Chains attacks.** When multiple attack surfaces are present, exploit the simpler one first and use the result (credentials, sessions, internal access) to unlock the harder one.
 
-### 3.4 Skill File Structure and the /skiller Tool
+### 3.4 Skill File Structure and the /skill-update Tool
 
-Skill files follow a strict structure enforced by the `/skiller` command in Claude Code:
+Skill files follow a strict structure enforced by the `/skill-update` command in Claude Code:
 
 ```
 skills/
@@ -281,7 +281,7 @@ skills/
 
 The line limits are deliberate constraints. They force knowledge to be compressed into actionable formats — escalation ladders, bypass matrices, decision trees — rather than verbose explanations. A 200-line reference file cannot contain a textbook chapter on SQL injection; it *must* be a practitioner's cheat sheet.
 
-When updating skills after a failure, `/skiller` validates:
+When updating skills after a failure, `/skill-update` validates:
 - Line counts are within limits
 - The new content uses behavioral triggers, not benchmark references
 - The skill file structure remains consistent
@@ -592,7 +592,7 @@ The iterative approach worked better for three reasons:
 
 **1. Failures reveal what the model actually lacks.** A textbook covers SQL injection broadly. The agent already knows broad SQL injection. What it's missing is the specific bypass for when `OR` is stripped by `str.replace` — a detail that a textbook might mention in a footnote but that an escalation ladder puts front and center.
 
-**2. Compression is forced by real constraints.** The `/skiller` line limits mean every addition competes for space. When a new technique is added, it must earn its lines by being more useful than what it displaces. This natural selection pressure produces dense, high-signal content.
+**2. Compression is forced by real constraints.** The `/skill-update` line limits mean every addition competes for space. When a new technique is added, it must earn its lines by being more useful than what it displaces. This natural selection pressure produces dense, high-signal content.
 
 **3. The testing loop catches generalization failures.** When a technique is written too specifically, the re-run on other challenges reveals the problem — the agent tries to apply a narrow pattern where it doesn't fit, or ignores a broader pattern because the narrow one didn't trigger. This feedback corrects toward generality.
 

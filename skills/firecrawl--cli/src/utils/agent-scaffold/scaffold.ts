@@ -1,5 +1,5 @@
 /**
- * Vendored from firecrawl/firecrawl-agent:.internal/cli/src/utils/scaffold.ts
+ * Vendored from firecrawl/web-agent:.internal/cli/src/utils/scaffold.ts
  * Copies templates from the cloned agent repo into the user's project dir,
  * then merges agent-core deps and writes .env. No divergence from upstream
  * — keep in sync if upstream changes scaffolding behavior.

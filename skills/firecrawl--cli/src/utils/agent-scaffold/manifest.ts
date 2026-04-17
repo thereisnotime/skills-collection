@@ -1,5 +1,5 @@
 /**
- * Vendored from firecrawl/firecrawl-agent:.internal/cli/src/utils/manifest.ts
+ * Vendored from firecrawl/web-agent:.internal/cli/src/utils/manifest.ts
  *
  * Divergence from upstream: removed the "look for agent-manifest.json next to
  * the bundled CLI" branch — when this code runs inside the root firecrawl-cli
@@ -50,7 +50,7 @@ export interface Manifest {
 let cached: Manifest | null = null;
 let cachedSourceRoot: string | null = null;
 
-const DEFAULT_REMOTE = 'firecrawl/firecrawl-agent';
+const DEFAULT_REMOTE = 'firecrawl/web-agent';
 
 export function loadManifest(): Manifest {
   if (cached) return cached;

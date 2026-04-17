@@ -1,5 +1,5 @@
 /**
- * Vendored from firecrawl/firecrawl-agent:.internal/cli/src/commands/init.ts
+ * Vendored from firecrawl/web-agent:.internal/cli/src/commands/init.ts
  *
  * This is the interactive-to-non-interactive create flow. The original file
  * also exposed a `createInitCommand` commander builder — we drop that here

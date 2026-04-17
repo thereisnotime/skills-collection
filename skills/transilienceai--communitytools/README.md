@@ -9,7 +9,7 @@
 
 **Open-source Claude Code skills and agents for AI-powered penetration testing, bug bounty hunting, AI threat testing, and security reconnaissance — from the team at [Transilience.ai](https://www.transilience.ai)**
 
-[Quick Start](#-quick-start) | [Skills & Agents](#-skills--agents) | [Architecture](#-architecture) | [Contributing](CONTRIBUTING.md) | [Website](https://www.transilience.ai)
+[Quick Start](#-quick-start) | [Skills](#-skills) | [Architecture](#-architecture) | [Contributing](CONTRIBUTING.md) | [Website](https://www.transilience.ai)
 
 </div>
 
@@ -27,16 +27,37 @@ We built an autonomous pentesting agent that scores **100% (104/104)** on a publ
 
 ## Overview
 
-**Transilience AI Community Tools** is a consolidated Claude Code security testing suite — **23 skills**, **8 agents**, and **2 tool integrations** that cover the full penetration testing lifecycle from reconnaissance to reporting.
+**Transilience AI Community Tools** is a consolidated Claude Code security testing suite — **26 skills** and **3 tool integrations** that cover the full penetration testing lifecycle from reconnaissance to reporting. Agent roles (coordinator, executor, validator) are defined in `skills/coordination/` with reference material in `skills/coordination/reference/`, and spawned dynamically via `Agent(prompt=...)`.
 
 ### Why Choose Transilience Community Tools?
 
-- **AI-Powered Automation** — Claude orchestrates intelligent security testing workflows
+- **AI-Powered Automation** — Claude coordinates intelligent security testing workflows
 - **Complete OWASP Coverage** — 100% OWASP Top 10 + OWASP LLM Top 10
 - **Professional Reporting** — CVSS 3.1, CWE, MITRE ATT&CK, Transilience-branded PDF reports
 - **Playwright Integration** — Browser automation for client-side vulnerability testing
 - **Payload-Enriched References** — 160+ reference files with inline PayloadsAllTheThings techniques
 - **Open Source** — MIT licensed for commercial and personal use
+
+---
+
+## Prerequisites
+
+### Local Setup
+
+- **Claude Code** — [Install Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview)
+- **Playwright** — Required for client-side testing, HackTheBox/HackerOne automation, and browser-based evidence capture. Install via: `npm install -g @playwright/mcp && npx playwright install chromium`
+- **Python 3** — Required for tools (`env-reader.py`, `nvd-lookup.py`, `slack-send.py`)
+- **Kali Linux tools** (optional) — nmap, gobuster, ffuf, sqlmap, testssl, etc. Only needed for network/infrastructure testing
+
+### Docker Setup (Recommended)
+
+A single script spins up a Kali Linux container with Claude Code, Playwright (headed via Xvfb), and all Kali security tools pre-installed:
+
+```bash
+bash scripts/kali-claude-setup.sh projects/pentest
+```
+
+This builds a Docker image with Kali Rolling + Node.js + Claude Code + Playwright + Chromium, mounts the project workspace, and launches Claude Code with `--dangerously-skip-permissions`. Use `--rebuild` to force a fresh image build.
 
 ---
 
@@ -49,20 +70,7 @@ git clone https://github.com/transilienceai/communitytools.git
 cd communitytools/projects/pentest
 ```
 
-### 2. Install tools (optional but recommended)
-
-```bash
-# Browser automation (XSS, CSRF, clickjacking testing)
-.claude/tools/playwright/install.sh
-
-# CLI tools (nmap, sqlmap, nikto, gobuster, ffuf, testssl)
-.claude/tools/kali/install.sh
-
-# Verify
-.claude/tools/check-all.sh
-```
-
-### 3. Open Claude Code and run skills
+### 2. Open Claude Code and run skills
 
 ```bash
 claude    # Launch Claude Code from the projects/pentest directory
@@ -71,7 +79,7 @@ claude    # Launch Claude Code from the projects/pentest directory
 Then use slash commands inside the Claude session:
 
 ```
-/coordination https://target.com     # Full penetration test
+Pentest https://target.com            # Full penetration test (skills/coordination/)
 /hackthebox                          # HackTheBox challenge automation
 /hackerone                           # Bug bounty workflow
 /techstack-identification            # Passive tech stack recon
@@ -81,24 +89,13 @@ Then use slash commands inside the Claude session:
 
 ---
 
-## Skills & Agents
+## Skills
 
-All skills and agents live under `projects/pentest/.claude/`.
+All canonical skill and tool definitions live at the **repo root** (`skills/`, `tools/`). Each project under `projects/` symlinks only the ones it needs — see [Repository Structure](#repository-structure) for details.
 
-### Agents (8)
+Agent roles (coordinator, executor, validator) are defined in `skills/coordination/` with reference material in `skills/coordination/reference/`, spawned dynamically via `Agent(prompt=...)`.
 
-| Agent | Role |
-|-------|------|
-| **Pentester Orchestrator** | Coordinates pentests — plans, dispatches parallel agent batches, analyzes results, adapts |
-| **Pentester Executor** | Thin experiment runner — executes specific tests, returns raw results |
-| **Pentester Validator** | Validates findings against raw evidence — all 5 checks must pass or finding is rejected |
-| **HackTheBox** | Platform automation — login, challenge selection, VPN, delegates solving, logs proceedings |
-| **HackerOne Hunter** | Bug bounty automation — scope parsing, parallel testing, PoC validation, submission reports |
-| **Script Generator** | Generates optimized scripts for pentest agents — parallelization, syntax validation |
-| **PATT Fetcher** | On-demand PayloadsAllTheThings retrieval when local payloads are insufficient |
-| **Skiller** | Skill creation and management — scaffolding, validation, GitHub workflow |
-
-### Skills by Category (23)
+### Skills by Category (26)
 
 #### Vulnerability Testing (10)
 
@@ -123,12 +120,14 @@ All skills and agents live under `projects/pentest/.claude/`.
 | `/osint` | Repository enumeration, secret scanning, git history analysis, employee footprint |
 | `/techstack-identification` | Passive tech stack inference across 17 intelligence domains |
 
-#### Specialized (3)
+#### Specialized (5)
 
 | Skill | Purpose |
 |-------|---------|
 | `/ai-threat-testing` | OWASP LLM Top 10 — prompt injection, model extraction, data poisoning, supply chain |
+| `/blockchain-security` | Smart contract security, EVM storage, delegatecall, CREATE/CREATE2, DeFi exploits |
 | `/cve-poc-generator` | CVE research, NVD lookup, safe Python PoC generation, vulnerability reports |
+| `/dfir` | Digital forensics, incident response, Windows event logs, PCAP analysis, AD attack detection |
 | `/source-code-scanning` | SAST — OWASP Top 10, CWE Top 25, dependency CVEs, hardcoded secrets |
 
 #### Platform Integrations (2)
@@ -138,54 +137,60 @@ All skills and agents live under `projects/pentest/.claude/`.
 | `/hackerone` | Scope CSV parsing, parallel asset testing, PoC validation, platform-ready submissions |
 | `/hackthebox` | Playwright-based login, challenge browsing, VPN management, automated solving |
 
-#### Orchestration & Tooling (5)
+#### Tooling (6)
 
 | Skill | Purpose |
 |-------|---------|
-| `/coordination` | Engagement orchestration, test planning, output structure |
 | `/essential-tools` | Burp Suite, Playwright automation, methodology, reporting standards |
-| `/transilience-report-style` | Transilience-branded PDF report generation (ReportLab) |
+| `/patt-fetcher` | On-demand payload extraction from PayloadsAllTheThings |
+| `/script-generator` | Optimized, syntax-validated script generation |
+| `formats/transilience-report-style` | Transilience-branded PDF report generation (ReportLab) |
 | `/github-workflow` | Git branching, commits, PRs, issues, code review |
-| `/skiller` | Skill scaffolding, validation, GitHub workflow automation |
+| `/skill-update` | Skill scaffolding, validation, GitHub workflow automation |
 
-### Tool Integrations (2)
+### Tool Integrations (3)
 
 | Tool | Purpose |
 |------|---------|
 | **Playwright** | Browser automation for client-side testing via MCP |
 | **Kali Linux Tools** | nmap, masscan, nikto, gobuster, ffuf, sqlmap, testssl, and more |
+| **NVD / CVE Risk Score** | Auto-invoked CVE lookup (`/cve-risk-score`) — CVSS score, severity, CWE from NVD |
 
 ---
 
 ## Architecture
 
-The suite uses a hybrid **AGENTS.md + Skills** architecture based on [Vercel research](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals) showing 100% pass rate vs 53-79% for skills alone:
+The suite uses a **skills-only** architecture with canonical definitions at the repo root, symlinked into isolated project environments:
 
-- **AGENTS.md** (root) — Passive knowledge base, always loaded. Compressed security payloads, methodologies (PTES, OWASP, MITRE), CVSS scoring, PoC standards.
-- **Skills** (`.claude/skills/`) — User-triggered workflows invoked with `/skill-name`. Multi-step orchestration, parallel agents, checkpointing.
-- **Agents** (`.claude/agents/`) — Autonomous workers spawned by skills and orchestrators.
+- **Skills** (`skills/` at root, symlinked into each project's `.claude/skills/`) — User-triggered workflows invoked with `/skill-name`. Each skill contains a `SKILL.md` definition and `reference/` directory with attack techniques, cheat sheets, payloads, and agent role prompts.
+- **Coordination** (`skills/coordination/`) — Defines the 3 agent roles (coordinator, executor, validator) as a skill with role-based context injection. Read at runtime and passed to `Agent(prompt=...)`.
+- **Tools** (`tools/` at root, symlinked into each project's `.claude/tools/`) — Utility scripts for environment reading, integrations.
 
 ### Multi-Agent Execution Flow
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Skill as Skill Layer
-    participant Orch as Orchestrator Agent
-    participant Agents as Specialized Agents
+    participant Coord as Coordinator (inline)
+    participant Roles as Role Definitions (skills/coordination/)
+    participant Agents as Spawned Agents
     participant Output as Standardized Outputs
 
-    User->>Skill: /pentest https://target.com
-    Skill->>Orch: Initialize 7-phase workflow
+    User->>Coord: Pentest https://target.com
+    Coord->>Roles: Read skills/coordination/SKILL.md
+    Coord->>Coord: Execute coordinator workflow inline
 
-    Orch->>Agents: Phase 1-2: Deploy recon agents
-    Agents-->>Output: inventory/*.json + analysis/*.md
-
-    Orch->>Agents: Phase 3-4: Deploy vuln agents in parallel
+    Coord->>Roles: Read skills/coordination/reference/executor-role.md
+    Coord->>Agents: Agent(prompt=executor_role + chain + skills) × N
     Note over Agents: SQL/XSS/SSRF/JWT/OAuth/SSTI/XXE...
     Agents-->>Output: findings/*.json + evidence/*.png
 
-    Orch->>Output: Phase 5: Generate reports
+    Coord->>Roles: Read skills/coordination/reference/validator-role.md
+    Coord->>Agents: Agent(prompt=validator_role + evidence ONLY) × N
+    Note over Agents: Blind review — no attack chain context
+    Agents-->>Output: validated/*.json
+
+    Coord->>Output: Phase 6: Generate reports
     Output-->>User: Executive + technical reports
 ```
 
@@ -193,31 +198,74 @@ sequenceDiagram
 
 ```
 communitytools/
-├── AGENTS.md                    # Passive security knowledge (always loaded)
-├── CLAUDE.md                    # Project instructions
-├── marketplace.json             # Machine-readable project manifest
-├── papers/                      # Research papers
-├── benchmarks/                  # XBOW benchmark runner
-└── projects/pentest/            # Main project
-    └── .claude/
-        ├── agents/              # 8 agent definitions
-        │   ├── pentester-orchestrator.md
-        │   ├── pentester-executor.md
-        │   ├── pentester-validator.md
-        │   ├── hackthebox.md
-        │   ├── hackerone.md
-        │   ├── script-generator.md
-        │   ├── patt-fetcher.md
-        │   ├── skiller.md
-        │   └── reference/       # Output structure, test plan format
-        ├── skills/              # 23 skill directories
-        │   ├── {skill-name}/
-        │   │   ├── SKILL.md     # Skill definition
-        │   │   └── reference/   # Attack techniques, cheat sheets, payloads
-        │   └── ...
-        └── tools/               # Tool integrations
-            ├── playwright/
-            └── kali/
+├── CLAUDE.md                        # Project instructions
+├── marketplace.json                 # Machine-readable project manifest
+├── papers/                          # Research papers
+├── benchmarks/                      # XBOW benchmark runner
+│
+├── skills/                          # ← Canonical skill definitions (source of truth)
+│   ├── coordination/               # ← Agent roles + coordination reference
+│   │   ├── SKILL.md                # Coordinator logic (entry point)
+│   │   └── reference/
+│   │       ├── executor-role.md    # Executor role prompt
+│   │       ├── validator-role.md   # Validator role prompt (blind review)
+│   │       ├── context-injection.md # What context each role receives
+│   │       ├── ATTACK_INDEX.md     # 53 attack types mapped to skills
+│   │       ├── OUTPUT_STRUCTURE.md # Engagement output directory spec
+│   │       ├── VALIDATION.md       # 5-check finding validation framework
+│   │       ├── GIT_CONVENTIONS.md  # Branch/commit/PR standards
+│   │       └── PATT_STANDARD.md    # PayloadsAllTheThings integration
+│   ├── injection/
+│   │   ├── SKILL.md
+│   │   └── reference/
+│   ├── reconnaissance/
+│   ├── server-side/
+│   └── ...                          # 27 skill directories total
+│
+├── tools/                           # ← Canonical tool integrations (source of truth)
+│   ├── env-reader.py
+│   └── slack-send.py
+│
+└── projects/                        # ← Isolated project environments
+    └── pentest/
+        └── .claude/
+            ├── skills/              # Real directory, contents are symlinks
+            │   ├── injection/ → ../../../../skills/injection/
+            │   └── ...              # Each project picks what it needs
+            └── tools/               # Real directory, contents are symlinks
+                ├── env-reader.py → ../../../../tools/env-reader.py
+                └── ...
+```
+
+### Why This Structure?
+
+**Canonical root directories** (`skills/`, `tools/`) hold the single source of truth for all definitions. No duplication, no drift.
+
+**Project directories** (`projects/`) are isolated environments designed to be run independently with `claude` from within the project folder. Each project has its own `.claude/` directory with real `skills/` and `tools/` folders — but the contents are **symlinks** pointing back to the canonical sources.
+
+This design gives you:
+
+- **Isolation** — Each project is a self-contained working directory. Run `claude` from `projects/pentest/` and it discovers only the skills that project has symlinked.
+- **Single source of truth** — Edit a skill once in `skills/`, and every project that symlinks it gets the update immediately.
+- **Selective inclusion** — A new project doesn't need all 23 skills. Symlink only what's relevant.
+- **Claude Code compatibility** — Claude Code resolves symlinks transparently via the OS.
+
+**Adding a new project:**
+
+```bash
+mkdir -p projects/myproject/.claude/{skills,tools}
+cd projects/myproject/.claude/skills
+
+# Symlink only the skills this project needs
+ln -s ../../../../skills/injection injection
+# Coordination is a skill like any other — symlink if needed
+ln -s ../../../../skills/coordination coordination
+ln -s ../../../../skills/reconnaissance reconnaissance
+# ... add more as needed
+
+# Same for tools
+cd ../tools
+ln -s ../../../../tools/env-reader.py env-reader.py
 ```
 
 ---
@@ -228,9 +276,9 @@ We welcome contributions from the security community!
 
 **Read the full guide:** [CONTRIBUTING.md](CONTRIBUTING.md)
 
-**Quick path using the Skiller:**
+**Quick path using Skill Update:**
 ```bash
-/skiller
+/skill-update
 # Select: CREATE → provide details → automated GitHub workflow
 # Handles: issue creation, branch, skill generation, validation, commit, PR
 ```
@@ -280,9 +328,9 @@ If you discover a vulnerability using these tools:
 
 | Category | Count |
 |----------|-------|
-| **Skills** | 23 |
-| **Agents** | 8 |
-| **Tool Integrations** | 2 |
+| **Skills** | 27 |
+| **Role Prompts** | 3 (in coordination skill) |
+| **Tool Integrations** | 3 |
 | **Attack Types** | 53 |
 | **Reference Files** | 160+ |
 
