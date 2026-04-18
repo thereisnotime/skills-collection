@@ -64,6 +64,7 @@ For `/ce-optimize`, see [`skills/ce-optimize/README.md`](./skills/ce-optimize/RE
 | `/onboarding` | Generate `ONBOARDING.md` to help new contributors understand the codebase |
 | `/ce-setup` | Diagnose environment, install missing tools, and bootstrap project config |
 | `/ce-update` | Check compound-engineering plugin version and fix stale cache (Claude Code only) |
+| `/ce:release-notes` | Summarize recent compound-engineering plugin releases, or answer a question about a past release with a version citation |
 | `/todo-resolve` | Resolve todos in parallel |
 | `/todo-triage` | Triage and prioritize pending todos |
 
@@ -164,6 +165,7 @@ Agents are specialized subagents invoked by skills — you typically don't call 
 | `repo-research-analyst` | Research repository structure and conventions |
 | `session-historian` | Search prior Claude Code, Codex, and Cursor sessions for related investigation context |
 | `slack-researcher` | Search Slack for organizational context relevant to the current task |
+| `web-researcher` | Perform iterative web research and return structured external grounding (prior art, adjacent solutions, market signals, cross-domain analogies) |
 
 ### Design
 

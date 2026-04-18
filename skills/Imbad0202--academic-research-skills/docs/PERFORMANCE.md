@@ -1,6 +1,6 @@
 # ARS Performance Notes
 
-> **Recommended model: Claude Opus 4.6** with **Max plan** (or equivalent extended-thinking configuration).
+> **Recommended model: Claude Opus 4.7** with **Max plan** (or equivalent configuration). Opus 4.7 uses adaptive thinking; you no longer set a fixed thinking budget.
 >
 > The full academic pipeline (10 stages) consumes a **large amount of tokens** — a single end-to-end run can exceed 200K input + 100K output tokens depending on paper length and revision rounds. Budget accordingly.
 >
@@ -8,7 +8,7 @@
 
 ## Estimated token usage by mode
 
-| Skill / Mode | Input Tokens | Output Tokens | Estimated Cost (Opus 4.6) |
+| Skill / Mode | Input Tokens | Output Tokens | Estimated Cost (Opus 4.7) |
 |---|---|---|---|
 | `deep-research` socratic | ~30K | ~15K | ~$0.60 |
 | `deep-research` full | ~60K | ~30K | ~$1.20 |

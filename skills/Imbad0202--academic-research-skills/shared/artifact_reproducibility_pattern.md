@@ -49,7 +49,7 @@ repro_lock:
 
   model:
     family: claude                          # provider family
-    id: claude-opus-4-6                    # model identifier (not weight hash)
+    id: claude-opus-4-7                    # model identifier (not weight hash)
     weight_stable: false                    # always false until signed attestation exists
 
   prompts:

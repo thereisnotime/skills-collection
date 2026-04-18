@@ -8164,6 +8164,54 @@
       "repository": "https://github.com/nextor2k/hyperfocus",
       "homepage": "https://github.com/nextor2k/hyperfocus",
       "license": "MIT"
+    },
+    {
+      "name": "local-tts",
+      "source": "./plugins/ai-ml/local-tts",
+      "description": "Offline text-to-speech via VoxCPM2 — 30 languages, voice design, voice cloning. Runs locally on Apple Silicon.",
+      "version": "1.0.0",
+      "category": "ai-ml",
+      "keywords": [
+        "tts",
+        "text-to-speech",
+        "voice",
+        "voice-cloning",
+        "voice-design",
+        "offline",
+        "voxcpm",
+        "apple-silicon",
+        "audio",
+        "narration"
+      ],
+      "author": {
+        "name": "Bubble Invest",
+        "email": "contact@bubbleinvest.com"
+      },
+      "license": "Apache-2.0",
+      "repository": "https://github.com/vdk888/local-tts"
+    },
+    {
+      "name": "boycott-filter",
+      "source": "./plugins/community/boycott-filter",
+      "description": "Personal boycott list managed conversationally by your AI agent. Chrome extension warns you on pages from brands you've decided to avoid.",
+      "version": "1.0.0",
+      "category": "community",
+      "keywords": [
+        "boycott",
+        "consumer",
+        "shopping",
+        "brands",
+        "chrome-extension",
+        "conversational",
+        "privacy",
+        "ethical-consumption"
+      ],
+      "author": {
+        "name": "Bubble Invest",
+        "email": "contact@bubbleinvest.com"
+      },
+      "license": "MIT",
+      "repository": "https://github.com/vdk888/boycott-filter"
     }
   ]
 }

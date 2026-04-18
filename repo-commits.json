@@ -691,6 +691,24 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "7924f5c",
+      "message": "chore: release main (#586)",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "12aaad3",
+      "message": "feat(ce-ideate): mode-aware v2 ideation (#588)",
+      "date": "2026-04-17",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "59dbaef",
+      "message": "feat(ce-release-notes): add skill for browsing plugin release history (#589)",
+      "date": "2026-04-17",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "e7cf0ae",
       "message": "feat(proof, ce-brainstorm, ce-plan, ce-ideate): HITL review-loop mode (#580)",
       "date": "2026-04-17",
@@ -731,24 +749,6 @@
       "message": "chore(claude-permissions-optimizer)!: remove skill (#578)",
       "date": "2026-04-16",
       "author": "Trevin Chow"
-    },
-    {
-      "sha": "070092d",
-      "message": "feat(ce-polish-beta): human-in-the-loop polish phase between /ce:review and merge (#568)",
-      "date": "2026-04-16",
-      "author": "Kieran Klaassen"
-    },
-    {
-      "sha": "3d96c0f",
-      "message": "fix(ce-plan, ce-brainstorm): reliable interactive handoff menus (#575)",
-      "date": "2026-04-16",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "ee86dc3",
-      "message": "chore: release main (#570)",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -853,6 +853,18 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "4e38eb6",
+      "message": "Merge pull request #22 from Imbad0202/feat/opus-4-7-alignment",
+      "date": "2026-04-17",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "5c6de49",
+      "message": "docs: align model references with Opus 4.7 + adaptive thinking",
+      "date": "2026-04-17",
+      "author": "Imbad0202"
+    },
+    {
       "sha": "9385dff",
       "message": "Merge pull request #20 from Imbad0202/docs/security-policy",
       "date": "2026-04-16",
@@ -899,21 +911,21 @@
       "message": "docs(architecture): correct versions, highlight human gates, reorder sections",
       "date": "2026-04-15",
       "author": "Imbad0202"
-    },
-    {
-      "sha": "cfd8c70",
-      "message": "docs: add ARCHITECTURE.md \u2014 full pipeline reference (v3.3.5)",
-      "date": "2026-04-15",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "3d3fbff",
-      "message": "Merge pull request #17 from Imbad0202/feat/human-baseline+artifact-repro",
-      "date": "2026-04-15",
-      "author": "Edward Cheng-I Wu"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
+    {
+      "sha": "aaf95ee",
+      "message": "chore: update version of scientific-agent-skills to 2.37.1",
+      "date": "2026-04-17",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "de480b6",
+      "message": "docs: enhance README with installation options for Scientific Agent Skills",
+      "date": "2026-04-17",
+      "author": "Timothy Kassis"
+    },
     {
       "sha": "1420470",
       "message": "chore: update security scan report [skip ci]",
@@ -961,18 +973,6 @@
       "message": "fix: trim skill descriptions to fit Codex 1024-char limit",
       "date": "2026-04-12",
       "author": "Konrad Stawiski"
-    },
-    {
-      "sha": "3c09cde",
-      "message": "Update Parallel Web skill",
-      "date": "2026-04-12",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "33c927f",
-      "message": "Update parallel-web skill",
-      "date": "2026-04-12",
-      "author": "Timothy Kassis"
     }
   ],
   "K-Dense-AI--claude-scientific-writer": [
@@ -1693,6 +1693,18 @@
   ],
   "brunoasm--my_claude_skills": [
     {
+      "sha": "2a19b68",
+      "message": "Fix bulk upload format: CSV with Emu field names only, fix PolParentRef.irn",
+      "date": "2026-04-17",
+      "author": "Bruno de Medeiros"
+    },
+    {
+      "sha": "6a63f9e",
+      "message": "Update Emu template to 49 columns and merge field reference files",
+      "date": "2026-04-17",
+      "author": "Bruno de Medeiros"
+    },
+    {
       "sha": "6e94e42",
       "message": "Improve accounting skill with pattern learning and proactive file reading",
       "date": "2026-04-02",
@@ -1737,18 +1749,6 @@
     {
       "sha": "580a922",
       "message": "Add README with author credits to Emu bulk upload skill",
-      "date": "2026-03-27",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "d656dfb",
-      "message": "Add screenshot-guided Emu sites export walkthrough",
-      "date": "2026-03-27",
-      "author": "Bruno de Medeiros"
-    },
-    {
-      "sha": "3ea640a",
-      "message": "Improve Emu upload skill UX and fix parent search bug",
       "date": "2026-03-27",
       "author": "Bruno de Medeiros"
     }
@@ -1895,6 +1895,12 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
+      "sha": "cbf885e",
+      "message": "docs: add Modular disclaimer to README",
+      "date": "2026-04-18",
+      "author": "Conor Bronsdon"
+    },
+    {
       "sha": "b38ee9f",
       "message": "Update README to reflect 'AI agent' terminology",
       "date": "2026-04-11",
@@ -1945,12 +1951,6 @@
     {
       "sha": "376e072",
       "message": "Revise meme coin support message in README",
-      "date": "2026-04-06",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "c652f76",
-      "message": "Update README with meme coin information",
       "date": "2026-04-06",
       "author": "Conor Bronsdon"
     }
@@ -2329,6 +2329,12 @@
   ],
   "hashicorp--agent-skills": [
     {
+      "sha": "de4323a",
+      "message": "fix(ci): escape backticks in skill-review workflow to avoid command substitution (#67)",
+      "date": "2026-04-17",
+      "author": "robw-tessl"
+    },
+    {
       "sha": "a4e097d",
       "message": "[COMPLIANCE] Add/Update Copyright Headers (#61)",
       "date": "2026-04-14",
@@ -2381,12 +2387,6 @@
       "message": "feat: add terraform query import (#23)",
       "date": "2026-03-03",
       "author": "Manu Chandrasekhar"
-    },
-    {
-      "sha": "ba20005",
-      "message": "terraform-stacks: describe .terraform-version file (#39)",
-      "date": "2026-02-25",
-      "author": "Baraa Basata"
     }
   ],
   "jananthan30--Resume-Builder": [
@@ -4597,6 +4597,12 @@
   ],
   "mukul975--Anthropic-Cybersecurity-Skills": [
     {
+      "sha": "888bbe4",
+      "message": "Delete star.yml",
+      "date": "2026-04-18",
+      "author": "Mahipal"
+    },
+    {
       "sha": "c60cb4a",
       "message": "Update star.yml",
       "date": "2026-04-15",
@@ -4647,12 +4653,6 @@
     {
       "sha": "dcc2dc3",
       "message": "fix: jq command line continuation in sync-marketplace workflow",
-      "date": "2026-04-06",
-      "author": "mukul975"
-    },
-    {
-      "sha": "c0ab6cf",
-      "message": "docs: update README for v1.2.0 \u2014 5-framework coverage, 754 skills",
       "date": "2026-04-06",
       "author": "mukul975"
     }
@@ -4909,6 +4909,12 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "13b4fa8",
+      "message": "Update README.md",
+      "date": "2026-04-17",
+      "author": "Necati \u00d6zmen"
+    },
+    {
       "sha": "4a300f7",
       "message": "Merge pull request #444 from tanveer-farooq/tanveer-farooq-patch-1",
       "date": "2026-04-16",
@@ -4961,12 +4967,6 @@
       "message": "Merge pull request #432 from octo-patch/feat/tap-minimax-cli",
       "date": "2026-04-14",
       "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "89e3aee",
-      "message": "update gitignore",
-      "date": "2026-04-14",
-      "author": "necatiozmen"
     }
   ],
   "BehiSecc--awesome-claude-skills": [
@@ -5095,6 +5095,42 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "5585c45",
+      "message": "feat(marketplace): register local-tts + boycott-filter from PR #520",
+      "date": "2026-04-17",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "4d0751b",
+      "message": "docs: fix plugin/skill/agent counts and clarify repo slugs",
+      "date": "2026-04-17",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "c0e7ab8",
+      "message": "Merge pull request #520 from vdk888/add/bubble-invest-plugins",
+      "date": "2026-04-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "713df81",
+      "message": "security: tighten local-tts allowed-tools per review",
+      "date": "2026-04-17",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "6cabae6",
+      "message": "feat(readme): add Umami + MCP details to skill of the week description",
+      "date": "2026-04-17",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "11ad9f7",
+      "message": "feat(readme): update Killer Skill of the Week to web-analytics",
+      "date": "2026-04-17",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "9fad7ed",
       "message": "feat(blog): add Apr 14-15 posts to tonsofskills.com/blog",
       "date": "2026-04-16",
@@ -5117,42 +5153,6 @@
       "message": "Merge pull request #526 from jeremylongshore/feat/codebase-cleanup-8-agents",
       "date": "2026-04-16",
       "author": "intentsolutions.io"
-    },
-    {
-      "sha": "bd19775",
-      "message": "fix: obfuscate private key regex pattern to pass CI secret scan",
-      "date": "2026-04-16",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "b9a5dba",
-      "message": "fix: remove phantom catalog entries for tonone and claudebase",
-      "date": "2026-04-16",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "bb1c08d",
-      "message": "chore: track promptbook plugin \u2014 fixes CI catalog validation",
-      "date": "2026-04-16",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "2f5d300",
-      "message": "fix: normalize plugin.json author fields to object format (33 plugins)",
-      "date": "2026-04-16",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "4e07649",
-      "message": "fix: resolve 27 validation errors \u2014 disallowedTools, repository fields, sentry links",
-      "date": "2026-04-16",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "11f7b5b",
-      "message": "fix: split 13 SKILL.md files exceeding 500-line limit into references/",
-      "date": "2026-04-16",
-      "author": "Jeremy Longshore"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5467,6 +5467,18 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "6fa7bcf",
+      "message": "updated ques",
+      "date": "2026-04-17",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "db0efc8",
+      "message": "updated",
+      "date": "2026-04-17",
+      "author": "Shayan Rais"
+    },
+    {
       "sha": "72f8aaf",
       "message": "bump Claude Code badge to v2.1.112 (Apr 17, 2026 6:37 AM PKT)",
       "date": "2026-04-17",
@@ -5511,18 +5523,6 @@
     {
       "sha": "e9851f9",
       "message": "rename boris-10-mar-26 asset folder to boris-26-3-10",
-      "date": "2026-04-17",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "2d1e458",
-      "message": "rename boris-12-feb-26 asset folder to boris-26-2-12",
-      "date": "2026-04-17",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "9c59bcf",
-      "message": "rename boris-1-feb-26 asset folder to boris-26-2-1",
       "date": "2026-04-17",
       "author": "Shayan Rais"
     }
@@ -5591,6 +5591,54 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "26076d2",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "1dd3a8e",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-18",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "ee942e7",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "bd785d3",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "3e174bb",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "5d4b3fe",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "72648ef",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "3171780",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-17",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "70c31e6",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-04-17",
@@ -5600,54 +5648,6 @@
       "sha": "6581722",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-04-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "9b23a66",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "5f1d46e",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "da0a35f",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "206561a",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "7946d51",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "be32cd8",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "64730dd",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e5fcf94",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-16",
       "author": "github-actions[bot]"
     }
   ],

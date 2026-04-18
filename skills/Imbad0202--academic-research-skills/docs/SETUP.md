@@ -1,6 +1,6 @@
 # ARS Setup
 
-Prerequisites and optional setup for Academic Research Skills. If you only need Markdown output and the default Claude Opus 4.6 pipeline, you can skip most of this — see "Minimum viable setup" below.
+Prerequisites and optional setup for Academic Research Skills. If you only need Markdown output and the default Claude Opus 4.7 pipeline, you can skip most of this — see "Minimum viable setup" below.
 
 ---
 
@@ -92,7 +92,7 @@ curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
 
 ## Cross-model verification (optional)
 
-ARS works with Claude Opus 4.6 alone. For higher confidence, you can optionally enable a second AI model to independently verify integrity checks and challenge the devil's advocate.
+ARS works with Claude Opus 4.7 alone. For higher confidence, you can optionally enable a second AI model to independently verify integrity checks and challenge the devil's advocate.
 
 ### Quick setup
 

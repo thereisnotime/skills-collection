@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-Tons of Skills — Claude Code plugins marketplace (430 plugins, 2,838 skills). Live at https://tonsofskills.com
+Tons of Skills — Claude Code plugins marketplace (423 plugins, 2,849 skills, 177 agents). Live at https://tonsofskills.com
 
 **Monorepo structure:** pnpm workspaces (v9.15.9+)
 - `plugins/[category]/*` - AI instruction plugins (Markdown, ~98% of plugins)
@@ -291,8 +291,11 @@ PRs trigger parallel jobs:
 
 - **Brand:** Tons of Skills by Intent Solutions
 - **Domain:** tonsofskills.com
-- **Slug:** `claude-code-plugins-plus`
-- **Install:** `/plugin marketplace add jeremylongshore/claude-code-plugins`
+- **GitHub repo:** `jeremylongshore/claude-code-plugins-plus-skills` (canonical)
+- **Marketplace catalog id:** `claude-code-plugins-plus` (the suffix in `plugin@claude-code-plugins-plus` install commands — this is the `name` field in `marketplace.json`)
+- **Public install command:** `/plugin marketplace add jeremylongshore/claude-code-plugins` (uses the legacy repo slug, which GitHub 301-redirects to the current repo — kept stable for users' bookmarked commands and CLI cache keys)
+
+These three names are intentionally distinct. Do not "normalize" them without understanding the blast radius: the legacy `claude-code-plugins` slug is hardcoded in `packages/cli/src/utils/constants.ts`, the marketplace Hero install snippet, blog posts, and hundreds of plugin READMEs. A rename is a breaking change to a public API.
 
 ## Freshie — Ecosystem Inventory & Compliance
 

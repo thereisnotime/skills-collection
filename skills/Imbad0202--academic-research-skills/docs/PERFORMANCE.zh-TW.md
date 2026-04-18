@@ -1,6 +1,6 @@
 # ARS 效能說明
 
-> **建議模型：Claude Opus 4.6**，搭配 **Max plan**（或同等的延伸思考設定）。
+> **建議模型：Claude Opus 4.7**，搭配 **Max plan**（或同等配置）。Opus 4.7 採用 adaptive thinking，不需要手動指定 thinking budget。
 >
 > 完整學術 pipeline（10 階段）會消耗**大量 token** — 單次完整執行可能超過 200K 輸入 + 100K 輸出 token，視論文長度和修訂輪數而定。請依預算斟酌使用。
 >
@@ -8,7 +8,7 @@
 
 ## 各模式 Token 消耗估算
 
-| Skill / 模式 | 輸入 Token | 輸出 Token | 估算費用（Opus 4.6）|
+| Skill / 模式 | 輸入 Token | 輸出 Token | 估算費用（Opus 4.7）|
 |---|---|---|---|
 | `deep-research` socratic | ~30K | ~15K | ~$0.60 |
 | `deep-research` full | ~60K | ~30K | ~$1.20 |

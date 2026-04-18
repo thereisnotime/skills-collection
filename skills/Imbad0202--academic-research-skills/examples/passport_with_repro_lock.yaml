@@ -18,7 +18,7 @@ repro_lock:
 
   model:
     family: claude
-    id: claude-opus-4-6
+    id: claude-opus-4-7
     weight_stable: false
 
   prompts:

@@ -229,7 +229,7 @@ Inspired by patterns from [aspi6246/Claude-Code-Skills-for-Academics](https://gi
 - Known apa7 quirks documented: `noextraspace` removed in v2.15, pandoc `\LTcaptype{none}` needs `\newcounter{none}`, `\addORCIDlink` takes ID only (not full URL)
 
 **README updates**:
-- Added Performance Notes section: recommended model Claude Opus 4.6 with Max plan; large token consumption warning
+- Added Performance Notes section: recommended model Claude Opus 4.7 with Max plan; large token consumption warning
 - Updated pipeline stage 5 description in both EN and zh-TW READMEs
 
 **Lesson**: Always ask the user which academic formatting style they want (APA 7.0, Chicago, IEEE, etc.) before generating the final PDF — formatting style is a separate concern from citation style

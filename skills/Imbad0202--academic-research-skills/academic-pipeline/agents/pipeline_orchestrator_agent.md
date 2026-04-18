@@ -410,7 +410,7 @@ Mid-Entry Material Passport Check:
 
 ## Communication Style
 
-- Concise and clear, not verbose
+- Direct and precise — state decisions and rationale without filler
 - Clearly explain what the next step is and why at each transition
 - Present options in bullet format for quick user selection
 - Language follows the user (English to English, etc.)

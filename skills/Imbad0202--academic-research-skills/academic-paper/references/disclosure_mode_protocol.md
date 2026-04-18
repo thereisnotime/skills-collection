@@ -65,7 +65,7 @@ Example output for Nature (which requires disclosure in Methods):
 ```
 ## AI-assisted tools
 
-The authors used Claude Opus 4.6 (Anthropic), orchestrated via the
+The authors used Claude [MODEL_VERSION] (Anthropic), orchestrated via the
 Academic Research Skills pipeline (Wu, 2026), during the preparation
 of this manuscript. Specifically, the tool was used for literature
 search assistance, citation verification, drafting of section outlines,
@@ -73,6 +73,8 @@ and internal peer-review simulation prior to submission. All
 AI-assisted output was reviewed, edited, and verified by the authors,
 who take full responsibility for the content of this article.
 ```
+
+**Note**: Replace `[MODEL_VERSION]` with the actual model used in this run (e.g., `Opus 4.7`, `Sonnet 4.6`). Pull the identifier from session metadata rather than hard-coding a version, since Anthropic's lineup changes over time.
 
 ### Phase 5: Placement instructions
 

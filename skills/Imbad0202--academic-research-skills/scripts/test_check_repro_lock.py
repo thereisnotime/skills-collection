@@ -27,7 +27,7 @@ def _valid_passport_yaml() -> str:
           ars_version: "3.3.5"
           model:
             family: claude
-            id: claude-opus-4-6
+            id: claude-opus-4-7
             weight_stable: false
           prompts:
             hash_timing: skill-load

@@ -1,6 +1,6 @@
 # ARS 安裝設定
 
-Academic Research Skills 的前置需求與選用設定。只需要 Markdown 輸出 + 預設 Claude Opus 4.6 pipeline 的人，大部分內容可以略過 — 見下方「最小可行設定」。
+Academic Research Skills 的前置需求與選用設定。只需要 Markdown 輸出 + 預設 Claude Opus 4.7 pipeline 的人，大部分內容可以略過 — 見下方「最小可行設定」。
 
 ---
 
@@ -92,7 +92,7 @@ curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
 
 ## 跨模型驗證（選用）
 
-ARS 使用 Claude Opus 4.6 即可完整運作。想要更高信心，可選擇啟用第二 AI 模型獨立驗證。
+ARS 使用 Claude Opus 4.7 即可完整運作。想要更高信心，可選擇啟用第二 AI 模型獨立驗證。
 
 ### 快速設定
 
