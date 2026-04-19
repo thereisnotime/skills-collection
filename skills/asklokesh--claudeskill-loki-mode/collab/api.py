@@ -46,7 +46,7 @@ def create_collab_routes(app):
         WebSocketDisconnect,
         Query,
     )
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel, ConfigDict, Field
 
     # Pydantic schemas
     class JoinRequest(BaseModel):
@@ -90,6 +90,8 @@ def create_collab_routes(app):
 
     class UserResponse(BaseModel):
         """User information response."""
+        model_config = ConfigDict(from_attributes=True)
+
         id: str
         name: str
         client_type: str
@@ -97,9 +99,6 @@ def create_collab_routes(app):
         color: str
         joined_at: str
         current_file: Optional[str]
-
-        class Config:
-            from_attributes = True
 
     class PresenceSummary(BaseModel):
         """Presence summary response."""

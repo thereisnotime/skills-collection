@@ -3,6 +3,7 @@ import { promises as fs } from "fs"
 import path from "path"
 import os from "os"
 import { writeKiroBundle } from "../src/targets/kiro"
+import { parseFrontmatter } from "../src/utils/frontmatter"
 import type { KiroBundle } from "../src/types/kiro"
 
 async function exists(filePath: string): Promise<boolean> {
@@ -14,6 +15,15 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
+async function pluginDescription(relativePath: string): Promise<string> {
+  const raw = await fs.readFile(path.join(import.meta.dir, "..", relativePath), "utf8")
+  const { data } = parseFrontmatter(raw, relativePath)
+  if (typeof data.description !== "string") {
+    throw new Error(`Missing description in ${relativePath}`)
+  }
+  return data.description
+}
+
 const emptyBundle: KiroBundle = {
   agents: [],
   generatedSkills: [],
@@ -23,6 +33,37 @@ const emptyBundle: KiroBundle = {
 }
 
 describe("writeKiroBundle", () => {
+  test("removes legacy Kiro agent config and prompt files during rename cleanup", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-cleanup-"))
+    const kiroRoot = path.join(tempRoot, ".kiro")
+    await fs.mkdir(path.join(kiroRoot, "agents", "prompts"), { recursive: true })
+    const sessionHistorianDescription = await pluginDescription(
+      "plugins/compound-engineering/agents/research/ce-session-historian.agent.md",
+    )
+
+    await fs.writeFile(
+      path.join(kiroRoot, "agents", "session-historian.json"),
+      JSON.stringify({
+        name: "session-historian",
+        description: sessionHistorianDescription,
+        prompt: "file://./prompts/session-historian.md",
+        tools: ["*"],
+        resources: ["file://.kiro/steering/**/*.md", "skill://.kiro/skills/**/SKILL.md"],
+        includeMcpJson: true,
+        welcomeMessage: `Switching to the session-historian agent. ${sessionHistorianDescription}`,
+      }),
+    )
+    await fs.writeFile(
+      path.join(kiroRoot, "agents", "prompts", "session-historian.md"),
+      "Legacy session-historian prompt\n",
+    )
+
+    await writeKiroBundle(kiroRoot, emptyBundle)
+
+    expect(await exists(path.join(kiroRoot, "agents", "session-historian.json"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "agents", "prompts", "session-historian.md"))).toBe(false)
+  })
+
   test("writes agents, skills, steering, and mcp.json", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-test-"))
     const bundle: KiroBundle = {
@@ -106,7 +147,7 @@ describe("writeKiroBundle", () => {
     await fs.writeFile(
       path.join(sourceSkillDir, "SKILL.md"),
       `---
-name: ce:plan
+name: ce-plan
 description: Planning workflow
 ---
 
@@ -120,7 +161,7 @@ Run these research agents:
 
     const bundle: KiroBundle = {
       ...emptyBundle,
-      skillDirs: [{ name: "ce:plan", sourceDir: sourceSkillDir }],
+      skillDirs: [{ name: "ce-plan", sourceDir: sourceSkillDir }],
     }
 
     await writeKiroBundle(tempRoot, bundle)

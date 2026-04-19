@@ -477,9 +477,16 @@ describe("transformSkillContentForOpenCode", () => {
     expect(transformSkillContentForOpenCode(input)).toBe(input)
   })
 
-  test("preserves 2-segment plugin:agent names (no category)", () => {
+  test("rewrites 2-segment category:ce-agent refs to flat names", () => {
+    const input = "Dispatch `review:ce-correctness-reviewer` for logic checks."
+    expect(transformSkillContentForOpenCode(input)).toBe(
+      "Dispatch `ce-correctness-reviewer` for logic checks.",
+    )
+  })
+
+  test("preserves 2-segment refs without ce- prefix", () => {
     const input = "Spawn `compound-engineering:coherence-reviewer` as subagent."
-    // 2-segment names could be skill refs or flat agent refs — not rewritten
+    // 2-segment names without ce- prefix could be skill refs — not rewritten
     expect(transformSkillContentForOpenCode(input)).toBe(input)
   })
 

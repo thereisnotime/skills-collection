@@ -1,6 +1,6 @@
 # Universal Planning Workflow
 
-This file is loaded when ce:plan detects a non-software task (Phase 0.1b). It replaces the software-specific phases (0.2 through 5.1) with a domain-agnostic planning workflow.
+This file is loaded when ce-plan detects a non-software task (Phase 0.1b). It replaces the software-specific phases (0.2 through 5.1) with a domain-agnostic planning workflow.
 
 ## Before starting: verify classification
 
@@ -8,7 +8,9 @@ The detection stub in SKILL.md routes here for anything that isn't clearly softw
 
 - **Is this actually a software task?** The key distinction is task-type, not topic-domain. A study guide about Rust is non-software (producing educational content). A Rust library refactor is software (modifying code). If this is actually software, return to Phase 0.2 in the main SKILL.md.
 - **Is this a quick-help request, not a planning task?** Error messages, factual questions, and single-step tasks don't need a plan. Respond directly and exit. Examples: "zsh: command not found: brew", "what's the capital of France."
-- **Pipeline mode?** If invoked from LFG, SLFG, or any `disable-model-invocation` context: output "This is a non-software task. The LFG/SLFG pipeline requires ce:work, which only supports software tasks. Use `/ce:plan` directly for non-software planning." and stop.
+- **Pipeline mode?** If invoked from LFG, SLFG, or any `disable-model-invocation` context: output "This is a non-software task. The LFG/SLFG pipeline requires ce-work, which only supports software tasks. Use `/ce-plan` directly for non-software planning." and stop.
+
+Once past these checks, commit to producing a plan. Do not exit because the task looks like a "lookup" or "research question" — the user invoked `ce-plan` because they want a structured output.
 
 ---
 
@@ -28,11 +30,11 @@ Evaluate two things before planning:
 | **None** | Generic, timeless, or conceptual plan (study curriculum methodology, project management approach, personal goal breakdown) | Skip research. Model knowledge is sufficient. After structuring the plan, offer: "I based this on general knowledge. Want me to search for [specific thing research would improve]?" — e.g., sourced recipes, current product recommendations, expert frameworks. Only if the user accepts. |
 | **Recommended** | Plan references specific locations, venues, dates, prices, schedules, seasonal availability, or current events — anything where stale information would break the plan (closed restaurants, changed prices, cancelled events, wrong seasonal dates). | Research before planning. Decompose into 2-5 focused research questions and dispatch parallel web searches. In Claude Code, use the Agent tool with `model: "haiku"` for each search to reduce cost. Collate findings before structuring the plan. |
 
-When research is recommended, do it — don't just offer. Stale recommendations (closed restaurants, rethemed attractions, outdated prices) are worse than no recommendations. The user invoked `/ce:plan` because they want a good plan, not a disclaimer about training data.
+When research is recommended, do it — don't just offer. Stale recommendations (closed restaurants, rethemed attractions, outdated prices) are worse than no recommendations. The user invoked `/ce-plan` because they want a good plan, not a disclaimer about training data.
 
 **Research decomposition pattern:**
 1. Identify 2-5 independent research questions based on the task. Good questions target facts the model is least confident about: current prices, hours, availability, recent changes, seasonal specifics.
-2. Dispatch parallel web searches (one per question). Keep queries broad at first, then narrow based on findings.
+2. Dispatch parallel research. Prefer user-named surfaces first per Core Principle 8 in SKILL.md; fall back to web search for questions those surfaces don't cover.
 3. Collate findings into a brief research summary before proceeding to planning.
 
 Example for "plan a date night in Seattle this Saturday":
@@ -105,8 +107,8 @@ After structuring the plan, ask the user how they want to receive it using the p
    - Use filename convention: `YYYY-MM-DD-<descriptive-name>-plan.md`
    - Start the document with a `# Title` heading, followed by `Created: YYYY-MM-DD` on the next line. No YAML frontmatter.
 
-2. **Open in Proof (web app) — review and comment to iterate with the agent** — Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others. Load the `proof` skill to create and open the document.
+2. **Open in Proof (web app) — review and comment to iterate with the agent** — Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others. Load the `ce-proof` skill to create and open the document.
 
 3. **Save to disk AND open in Proof** — Do both: write the markdown file to disk and open the doc in Proof for review.
 
-Do not offer `/ce:work` (software-only) or issue creation (not applicable to non-software plans).
+Do not offer `/ce-work` (software-only) or issue creation (not applicable to non-software plans).

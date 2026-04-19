@@ -2,10 +2,16 @@ import path from "path"
 import { backupFile, copySkillDir, ensureDir, pathExists, readJson, sanitizePathName, writeJsonSecure, writeText } from "../utils/files"
 import { transformContentForCopilot } from "../converters/claude-to-copilot"
 import type { CopilotBundle } from "../types/copilot"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 export async function writeCopilotBundle(outputRoot: string, bundle: CopilotBundle): Promise<void> {
   const paths = resolveCopilotPaths(outputRoot)
   await ensureDir(paths.githubDir)
+
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  const skillsDir = path.join(paths.githubDir, "skills")
+  await cleanupStaleSkillDirs(skillsDir)
+  await cleanupStaleAgents(path.join(paths.githubDir, "agents"), ".agent.md")
 
   if (bundle.agents.length > 0) {
     const agentsDir = path.join(paths.githubDir, "agents")

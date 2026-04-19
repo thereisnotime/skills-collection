@@ -147,7 +147,7 @@ After the selected tier produces an artifact, read `references/upload-and-approv
 
 ## Output
 
-Return these values to the caller (e.g., git-commit-push-pr):
+Return these values to the caller (e.g., ce-commit-push-pr):
 
 ```
 === Evidence Capture Complete ===

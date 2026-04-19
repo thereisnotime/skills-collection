@@ -1,6 +1,6 @@
 ---
 name: ce-pr-description
-description: "Write or regenerate a value-first pull-request description (title + body) for the current branch's commits or for a specified PR. Use when the user says 'write a PR description', 'refresh the PR description', 'regenerate the PR body', 'rewrite this PR', 'freshen the PR', 'update the PR description', 'draft a PR body for this diff', 'describe this PR properly', 'generate the PR title', or pastes a GitHub PR URL / #NN / number. Also used internally by git-commit-push-pr (single-PR flow) and ce-pr-stack (per-layer stack descriptions) so all callers share one writing voice. Input is a natural-language prompt. A PR reference (a full GitHub PR URL, `pr:561`, `#561`, or a bare number alone) picks a specific PR; anything else is treated as optional steering for the default 'describe my current branch' mode. Returns structured {title, body_file} (body written to an OS temp file) for the caller to apply via gh pr edit or gh pr create — this skill never edits the PR itself and never prompts for confirmation."
+description: "Write or regenerate a value-first pull-request description (title + body) for the current branch's commits or for a specified PR. Use when the user says 'write a PR description', 'refresh the PR description', 'regenerate the PR body', 'rewrite this PR', 'freshen the PR', 'update the PR description', 'draft a PR body for this diff', 'describe this PR properly', 'generate the PR title', or pastes a GitHub PR URL / #NN / number. Also used internally by ce-commit-push-pr (single-PR flow) and ce-pr-stack (per-layer stack descriptions) so all callers share one writing voice. Input is a natural-language prompt. A PR reference (a full GitHub PR URL, `pr:561`, `#561`, or a bare number alone) picks a specific PR; anything else is treated as optional steering for the default 'describe my current branch' mode. Returns structured {title, body_file} (body written to an OS temp file) for the caller to apply via gh pr edit or gh pr create — this skill never edits the PR itself and never prompts for confirmation."
 argument-hint: "[PR ref e.g. pr:561 | #561 | URL] [free-text steering]"
 ---
 
@@ -8,9 +8,9 @@ argument-hint: "[PR ref e.g. pr:561 | #561 | URL] [free-text steering]"
 
 Generate a conventional-commit-style title and a value-first body describing a pull request's work. Returns structured `{title, body_file}` for the caller to apply — this skill never invokes `gh pr edit` or `gh pr create`, and never prompts for interactive confirmation.
 
-Why a separate skill: several callers need the same writing logic without the single-PR interactive scaffolding that lives in `git-commit-push-pr`. `ce-pr-stack`'s splitting workflow runs this once per layer as a batch; `git-commit-push-pr` runs it inside its full-flow and refresh-mode paths. Extracting keeps one source of truth for the writing principles.
+Why a separate skill: several callers need the same writing logic without the single-PR interactive scaffolding that lives in `ce-commit-push-pr`. `ce-pr-stack`'s splitting workflow runs this once per layer as a batch; `ce-commit-push-pr` runs it inside its full-flow and refresh-mode paths. Extracting keeps one source of truth for the writing principles.
 
-**Naming rationale:** `ce-pr-description`, not `git-pr-description`. Stacking and PR creation are GitHub features; the "PR" in the name refers to the GitHub artifact. Using the `ce-` prefix matches the future convention for plugin skills; sibling `git-*` skills will rename to `ce-*` later, and this skill starts there directly.
+**Naming rationale:** `ce-pr-description`, not `git-pr-description`. Stacking and PR creation are GitHub features; the "PR" in the name refers to the GitHub artifact. Using the `ce-` prefix matches the plugin naming convention for all skills.
 
 ---
 
@@ -32,7 +32,7 @@ No specific grammar is required — read the argument as natural language and id
 
 Steering text is always optional. If present, incorporate it alongside the diff-derived narrative; do not let it override the value-first principles or fabricate content unsupported by the diff.
 
-**Optional `base:<ref>` override (current-branch mode only).** When a caller already knows the intended base branch (e.g., `git-commit-push-pr` has detected `origin/develop` or `origin/release/2026-04` as the target), it can pass `base:<ref>` to pin the base explicitly. The ref must resolve locally. This overrides auto-detection for current-branch mode; PR mode ignores it (PRs already define their own base via `baseRefName`). Most invocations don't need this — auto-detection (existing PR's `baseRefName` → `origin/HEAD`) covers the common case.
+**Optional `base:<ref>` override (current-branch mode only).** When a caller already knows the intended base branch (e.g., `ce-commit-push-pr` has detected `origin/develop` or `origin/release/2026-04` as the target), it can pass `base:<ref>` to pin the base explicitly. The ref must resolve locally. This overrides auto-detection for current-branch mode; PR mode ignores it (PRs already define their own base via `baseRefName`). Most invocations don't need this — auto-detection (existing PR's `baseRefName` → `origin/HEAD`) covers the common case.
 
 **Examples**:
 
@@ -369,6 +369,8 @@ Format the return as a clearly labeled block the caller can extract cleanly:
 Do not emit the body markdown in the return block — the caller reads it from `BODY_FILE`.
 
 If Step 1 exited gracefully (closed/merged PR, invalid range, empty commit list), do not create a body file — just return the reason string.
+
+**The return block is a hand-off, not task completion.** When invoked by a parent skill (e.g., `git-commit-push-pr`), emit the return block and then continue executing the parent's remaining steps (typically `gh pr create` or `gh pr edit` with the returned title and body file). Do not stop after the return block unless invoked directly by the user with no parent workflow.
 
 ---
 

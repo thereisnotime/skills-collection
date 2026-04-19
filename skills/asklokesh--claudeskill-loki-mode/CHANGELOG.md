@@ -5,13 +5,370 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [6.75.3] - 2026-03-24 - AI Chat sidebar UX, ProjectWorkspace improvements
+## [6.80.1] - Shellcheck fix for benchmarks/magic-ab/run.sh
+
+v6.80.0's Release workflow shipped successfully (npm, Docker, Homebrew,
+VSCode all green via the gate), but the separate Tests workflow matrix
+failed on a shellcheck warning I missed locally: SC2034 -- unused
+`REPO_ROOT` variable in `benchmarks/magic-ab/run.sh`. Removed.
+
+Local shellcheck now clean on the file. Pre-push hook (pytest) did
+not catch this because shellcheck is not currently part of the hook.
+Adding it is a follow-up candidate.
+
+## [6.80.0] - Magic Modules distribution fix (real bug found by running it) + A/B benchmark with first honest results
+
+This release ships from a real end-to-end execution of `loki start` against
+the Claude provider, not just unit tests. That run uncovered a previously
+silent shipping bug and produced the first measured A/B comparison of the
+magic debate gate.
+
+### Fixed (real-world bug surfaced by actually running the orchestrator)
+- **`magic/` Python package was missing from npm tarball**
+  (`package.json` `files` field) and from both Docker images
+  (`Dockerfile`, `Dockerfile.sandbox`). Every `npm install -g loki-mode`
+  user since v6.76.0 silently skipped Magic Modules with the log line
+  `[magic] Token extraction skipped: No module named 'magic'`. The
+  feature compiled, the tests passed, but the package didn't ship the
+  code. Found by running `loki start` end-to-end on a real PRD and
+  noticing the skip message. Adding `"magic/"` to `files` and
+  `COPY --chown=loki:loki magic/ ./magic/` to both Dockerfiles
+  restores the feature for all distribution channels.
+
+### Added
+- **`benchmarks/magic-ab/`**: A/B benchmark harness (`run.sh`,
+  `compare.py`, `prd.md`, `README.md`) that runs the same PRD twice
+  -- once with `LOKI_GATE_MAGIC_DEBATE=true` and once with `false`
+  -- and emits a side-by-side metrics report.
+- **`benchmarks/magic-ab/RESULTS-2026-04-18.md`**: first measurement
+  results with full honest interpretation. Headline: at 1-iteration
+  scale on a small (single-component) PRD the gate did **not**
+  visibly differentiate output -- both arms produced clean,
+  accessible Counter implementations of comparable quality.
+  Probable reasons documented (PRD scanner did not seed any specs;
+  council declared completion in 1 iter; SDLC ACCESSIBILITY phase
+  already pushes a11y in both arms). Worth re-running on a larger
+  multi-component PRD over more iterations.
+
+### Verification (executed live, not just static)
+- `loki start --provider claude` ran twice end-to-end (gate ON and
+  gate OFF arms). Both completed cleanly in 1 iteration with status
+  `completion_promise_fulfilled`.
+- BOOTSTRAP hook fired: `[magic] Extracted design tokens: 0 colors,
+  0 spacing` -- confirming `magic/core/design_tokens.py` is reachable
+  and runs (the 0/0 is the correct empty-codebase result, not a bug).
+- `npm pack --dry-run | grep magic/ | wc -l` -> 20 files now in
+  tarball (was 0 before this commit).
+- Pre-push hook 567/567 pass.
+
+### Known follow-ups (not blocking this release)
+- Multi-iteration A/B (5-10 iters per arm) on a multi-component PRD
+  to surface the gate's effect under realistic conditions.
+- PRD scanner vocab does not match "Counter" -- the seeded specs were
+  empty in both arms. Either widen `UI_COMPONENT_VOCAB` or document
+  the contract more explicitly.
+- Token cost tracking: `.loki/metrics/efficiency/` was empty after
+  both runs, so cost-side comparison was not possible. Investigate
+  whether the cost recorder is wired in for non-Cline providers.
+
+## [6.79.0] - Release-gate dep fix, contributor docs, state-machine doc auto-regen, providers/models endpoint, model-catalog probe cron
+
+v6.78.0 introduced a `gate` job in the Release workflow that successfully blocked
+the publish jobs -- but the gate itself failed because its pip install was
+narrower than the matrix Tests workflow, so v6.78.0 never reached npm/Docker
+despite passing the full Tests matrix. This release fixes the gate and adds the
+remaining Release 2 work: contributor policy, doc-staleness automation, the
+backend half of the dynamic model catalog wiring, and a weekly cron that surfaces
+new provider models for review.
 
 ### Fixed
-- **AI Chat UX**: Moved AI Chat from bottom panel to left sidebar tab toggle (Files / Chat icons)
-- **ActivityPanel**: Removed Chat tab from bottom panel (Terminal + Activity only remain); cleaner layout
-- **AI Chat layout**: Full-height chat in sidebar with SmartSuggestions rendered inside chat area (ChatGPT-style)
-- **ProjectWorkspace**: Refactored component for improved layout and stability
+- **Release gate dependency install** (`.github/workflows/release.yml`):
+  the gate now installs the same package set as `python-tests` in
+  `test.yml` (`fastapi httpx pydantic sqlalchemy[asyncio] aiosqlite uvicorn`).
+  Previously it pip-installed only `pytest`, so the test collection failed
+  with `ModuleNotFoundError: httpx / sqlalchemy` and blocked the publish.
+
+### Added
+- **`/api/providers/models` endpoint** (`dashboard/server.py`): returns
+  `providers/model_catalog.json` verbatim with a degraded fallback if the
+  file is missing. Future frontend rebuilds can drop hardcoded model lists
+  in favour of this endpoint -- this release ships the backend half only,
+  so the change is purely additive.
+- **`tools/regen-state-machine-refs.py`**: scans
+  `docs/architecture/STATE-MACHINES.md` for ``<file>:<line> (func_name)``
+  patterns, locates each named function in the source, and reports or fixes
+  any drift. Run `--fix` to rewrite, `--strict` for CI gating. Initial run
+  on this commit corrected 12 stale line references (run.sh and
+  completion-council.sh have grown since v6.6.1).
+- **`tools/probe-model-catalog.py`**: probes Anthropic / OpenAI / Google
+  docs pages for model IDs not yet in `model_catalog.json` and emits a
+  human or `--json` report. Conservative regex set, no auto-rewrite.
+- **`.github/workflows/model-catalog-probe.yml`**: weekly cron (Mondays
+  14:00 UTC) runs the probe. If new candidates appear, opens or updates a
+  draft PR on `auto/model-catalog-probe` with the report. Idempotent.
+- **`CONTRIBUTING.md` updates**: documents the pre-push hook installer,
+  the fact that `claude-review` is intentionally skipped on fork PRs, the
+  no-version-bump-in-PR rule, and the maintainer-may-re-implement
+  convention with explicit credit. Spells out when a PR is closed
+  vs. merged so contributor expectations are clear up front.
+
+### Changed
+- `docs/architecture/STATE-MACHINES.md`: 12 line-number references updated
+  by `regen-state-machine-refs.py --fix`. Function names are unchanged;
+  only the trailing line numbers moved as the source files grew.
+
+### Verification
+- Pre-push hook: 567/567 pytest pass.
+- `python3 tools/regen-state-machine-refs.py` -> "OK -- no drift".
+- `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/model-catalog-probe.yml'))"`: valid.
+- Endpoint smoke-tested: `dashboard/server.py` imports cleanly, catalog
+  file resolves to 5 providers (`claude codex gemini cline aider`).
+
+## [6.78.0] - CI hardening: pre-push hook, Release gated on tests, claude-review scoped to internal PRs, Pydantic v2 config migration
+
+After v6.77.1 shipped a test-suite-red commit to main (caught only because I
+happened to be watching CI), it's clear the release pipeline needed two
+reinforcements: a local guard that runs the tests before `git push`, and a
+server-side gate that blocks the Release workflow from running until tests
+pass. Both land in this release.
+
+### Added
+- **Pre-push git hook** (`.githooks/pre-push`): runs `bash -n` on
+  `autonomy/run.sh` and `autonomy/loki`, then `python3 -m pytest -q`.
+  Aborts the push if anything fails. Bypass with `PRE_PUSH_SKIP=1 git push`
+  (intentionally inconvenient).
+- **`scripts/install-hooks.sh`**: one-shot installer that sets
+  `git config core.hooksPath .githooks`. Idempotent.
+
+### Changed
+- **`.github/workflows/release.yml`**: new `gate` job runs `bash -n` and
+  `pytest` before any publish job. All downstream jobs (`release`,
+  `publish-npm`, `publish-docker`, `publish-vscode`, `publish-ts-sdk`,
+  `publish-python-sdk`, `update-homebrew`, `notify-slack`) cannot start
+  until the gate passes. This is why v6.77.1's in-flight Release was
+  manually cancelled; v6.78.0 makes the cancellation automatic.
+- **`.github/workflows/claude-code-review.yml`**: guarded with
+  `if: github.event.pull_request.head.repo.fork == false`. Fork PRs no
+  longer show a perpetually-red claude-review check they cannot fix
+  (GitHub does not expose secrets or OIDC tokens to fork-triggered
+  workflows). Internal PRs still get the AI review.
+- **`collab/api.py`**: migrated `class Config: from_attributes = True`
+  on `UserResponse` to the Pydantic v2 `model_config = ConfigDict(...)`
+  idiom, removing the `PydanticDeprecatedSince20` warning from CI logs.
+
+### Verification
+- `.githooks/pre-push` executes locally: bash syntax clean, 567/567
+  pytest green.
+- `python3 -m pytest -W error::DeprecationWarning tests/test_api_v2.py`
+  passes (was emitting the Pydantic v2 warning previously).
+- `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml'))"`:
+  YAML valid; `release` job declares `needs: gate`.
+
+## [6.77.2] - Test fix: update test_task_ids_hierarchical for scoped IDs
+
+v6.77.1 added change-scoping to OpenSpec task IDs (`openspec-<change>-N.M`),
+but the pre-existing `tests/test_openspec_adapter.py::TestTasksParser::
+test_task_ids_hierarchical` still asserted the old unscoped `openspec-N.M`
+format and started failing on CI. Fix: rewrite the assertion to recognize
+the scoped form while still verifying the trailing `N.M` is numeric.
+Local full suite: 567/567 pass.
+
+## [6.77.1] - Orchestrator robustness: unbound var, Grep quoting, OpenSpec sentinel scoping
+
+Three independent bugs that affected the autonomous loop. All three were first
+surfaced by external contributors (thank you @alilxxey for reports feeding into
+#152 and #153, and @vishnujayvel for #151); the fixes are re-implemented here
+under the maintainer's release cadence so version-bump and CHANGELOG cadence
+stay consistent.
+
+### Fixed
+- **`track_iteration_start` unbound-variable crash** (`autonomy/run.sh:3598`):
+  under `set -uo pipefail`, `local task_json` without an initializer becomes
+  unset. When the pending queue is empty (iteration 2+ on many runs), the
+  enrichment block is skipped and the subsequent `[[ -z "$task_json" ]]`
+  check fires "unbound variable" and kills the run. Fix: initialize
+  `local task_json=""`, guard the intermediate reads with `${var:-}`, and
+  fall back cleanly if `python3` exits non-zero.
+- **Claude stream processor `NameError` on every Grep tool call**
+  (`autonomy/run.sh:9843`): the Grep branch used an f-string containing a
+  single-quoted Python literal (`tool_input.get('pattern', '')`) inside a
+  `python3 -u -c '...'` heredoc that is itself wrapped in bash single
+  quotes. The inner single quote closed bash SQ mid-code, Python saw a bare
+  identifier, and every Grep tool call crashed with `NameError`. Fix: use
+  double quotes and string concatenation so no SQ appears in the Python
+  block. Matches the style already used by the neighbouring Glob branch.
+- **OpenSpec sentinel leaks tasks across changes**
+  (`autonomy/run.sh populate_openspec_queue`, `autonomy/openspec-adapter.py
+  parse_tasks`): the sentinel `.loki/queue/.openspec-populated` was a
+  single-touch marker, so switching `--openspec A` to `--openspec B` left
+  change A's tasks in the pending queue and silently skipped loading B.
+  Fix: sentinel now stores change path + content hash (two lines); same
+  change + same content preserves progress on crash-restart; different
+  path purges OpenSpec tasks from all three queue files and repopulates;
+  different hash does the same. `parse_tasks()` gains an optional
+  `change_name` argument that scopes task IDs as
+  `openspec-<change>-<num>` so tasks from different changes cannot
+  collide. Legacy single-line sentinels are safely treated as stale and
+  trigger a clean reload.
+
+### Added
+- `tests/test-openspec-sentinel.sh` — 10 focused integration tests covering
+  the six state transitions (fresh run, crash-restart, change switch,
+  content edit, non-OpenSpec task preservation, legacy-sentinel upgrade).
+  All 10 pass.
+- `purge_openspec_from_queue()` helper in `autonomy/run.sh` that uses `jq`
+  to atomically rewrite queue files keeping only `source != "openspec"`
+  tasks.
+- `_openspec_content_hash()` helper using Python `hashlib.md5` so hashing
+  is identical on macOS and Linux (no `md5sum` vs `md5 -q` fork).
+
+### Closed
+- PR #152 (@alilxxey) — `task_json` init. Rolled into this release.
+- PR #153 (@alilxxey) — Grep branch quoting. Rolled into this release.
+- PR #151 (@vishnujayvel) — OpenSpec sentinel scope. Rolled into this release.
+
+## [6.77.0] - Claude Opus 4.7 + dynamic model catalog + magic extractor fixes
+
+Two areas of progress this release: (1) Claude Opus 4.7 becomes the default
+Opus-tier model with 1M context and adaptive thinking, and a single catalog
+file replaces hardcoded dated model IDs across providers. (2) Magic Modules
+extractors now work on arbitrary project layouts (not just loki-mode's) and
+the memory bridge's happy path works end-to-end against the real memory API.
+
+### Added
+- **Dynamic model catalog** (`providers/model_catalog.json`, `providers/models.sh`):
+  single source of truth for provider/tier -> model ID mapping. New releases
+  update one JSON file; every provider, doc, and dashboard picks it up.
+  Resolution order: `LOKI_<PROVIDER>_MODEL_<TIER>` env > `LOKI_<PROVIDER>_MODEL` >
+  catalog `latest_<tier>` entry.
+- **Opus 4.7 defaults** (`providers/claude.sh`): 1M context at standard pricing,
+  xhigh default effort, adaptive thinking. Claude CLI aliases `opus`/`sonnet`/
+  `haiku` always resolve to the latest model -- no dated suffixes in shell.
+- **Regression tests** (`tests/test_magic_extractors.py`): 10 unit tests covering
+  design token extraction on generic layouts, PRD compound-name rules, MCP
+  tool registration/callability, and the memory bridge store-then-recall path.
+
+### Fixed
+- **Design token extractor** (`magic/core/design_tokens.py`): previously only
+  scanned loki-mode-specific paths (`web-app/src/`, `dashboard-ui/`) and
+  returned 0 colors / 0 spacing for any other project. Now uses generic
+  `**/*.css`, `**/*.tsx`, etc. patterns with an exclusion list
+  (node_modules, dist, build, caches, VCS).
+- **PRD scanner compound names** (`magic/core/prd_scanner.py`): phrases like
+  "dashboard includes navigation" produced noisy compound names like
+  `DashboardIncludesNavigation`, and "navigation sidebar search bar" spanned
+  two unrelated components into `NavigationSidebarSearchBar`. Stop-word list
+  now covers verb forms (includes, contains, built, ...) and modifier
+  scanning stops at another UI component keyword.
+- **Memory bridge API mismatch** (`magic/core/memory_bridge.py`): previously
+  called `MemoryEngine(project_dir=...)` and `store_episode(content=..., tags=...)`
+  which do not exist. Now correctly uses `MemoryEngine(base_path=...)`,
+  constructs `EpisodeTrace` / `SemanticPattern` dataclasses, and calls
+  `retrieve_relevant(context=..., top_k=...)`.
+
+### Changed
+- `providers/cline.sh` and `providers/aider.sh` default model now resolves
+  from the catalog instead of a hardcoded dated ID.
+- `web-app/src/pages/SettingsPage.tsx` + `SystemSettingsPage.tsx`: default
+  Claude model is `claude-opus-4-7`; undated model IDs throughout.
+- `wiki/Providers.md`, `references/multi-provider.md`, `skills/production.md`,
+  `benchmarks/submission-template/metadata.yaml`: updated to Opus 4.7 and
+  Sonnet 4.6 references.
+
+### Verification
+- `python3 tests/test_magic_extractors.py` -- 10/10 PASS
+- `bash -n providers/{claude,cline,aider,models}.sh autonomy/run.sh` -- all clean
+- `bash -c 'source providers/models.sh; loki_latest_model claude planning'` -> `claude-opus-4-7`
+- Design token extraction on loki-mode itself: 69 colors, 19 spacing, 3 radii,
+  6 typography (previously 0/0 on any non-loki layout).
+
+## [6.76.1] - Magic Modules embedded in RARV-C (autonomous, no CLI invocation needed)
+
+Magic Modules is now woven into the autonomous orchestrator. Users do not run
+`loki magic` commands explicitly. Agents generate, debate, and compound
+components during normal RARV-C phases.
+
+### Added
+- **BOOTSTRAP hook** (`autonomy/run.sh`): design tokens auto-extracted from
+  project at iteration 0; saved to `.loki/magic/tokens.json`.
+- **REASON phase** (`magic/core/prd_scanner.py`): PRD scanner detects UI
+  component mentions (42-keyword vocab + 7 intent markers) and pre-seeds
+  stub specs at `.loki/magic/specs/<Name>.md`.
+- **ACT phase** (`autonomy/run.sh build_prompt`): magic context block
+  injected into agent prompts listing existing specs and the
+  edit-spec-to-regenerate workflow.
+- **VERIFY phase** Gate 12 (`autonomy/run.sh run_magic_debate_gate`): auto
+  runs `magic update` + `magic debate` on most recently changed spec.
+  Blocks iteration if any persona returns severity=block. Controllable
+  via `LOKI_GATE_MAGIC_DEBATE=false`.
+- **COMPOUND phase** (`magic/core/memory_bridge.py`): component generation
+  events captured as episodes; tag clusters with >=80% debate pass rate
+  become semantic patterns; refined tokens become procedural skills.
+  Degrades gracefully when memory package unavailable.
+- **Skill auto-load**: `skills/00-index.md` routes UI-component / design-
+  token / Gate-12 tasks to `skills/magic-modules.md` automatically.
+- **Reference doc**: `references/magic-rarv-integration.md` explains the
+  autonomous flow phase by phase with an end-to-end example.
+- **Integration tests** (`tests/test-magic-rarv.sh`): 8 tests covering PRD
+  scanner, design token extraction, memory bridge degradation, end-to-end
+  magic update from seeded spec.
+
+### Fixed
+- `update_components()` accepts arbitrary kwargs (registry_path etc.) for
+  CLI-call compatibility.
+
+## [6.76.0] - Magic Modules: spec-driven component generation with multi-persona debate
+
+Inspired by [MagicModules](https://github.com/romannurik/MagicModules-Experiment)
+(Roman Nurik, Google Labs) and [MoMoA](https://github.com/retomeier/MoMoA)
+(Reto Meier, Google Labs). Combines spec-first generation (MagicModules) with
+multi-persona debate (MoMoA) into a native Loki subsystem.
+
+### Added
+- **`loki magic` CLI**: New command family with 6 subcommands
+  - `magic generate <name>` -- create React + Web Component from description, spec, or screenshot
+  - `magic update` -- incremental regen via SHA256 freshness check
+  - `magic list` / `registry stats|prune|show` -- browse component inventory
+  - `magic debate <name>` -- run multi-persona quality review
+  - `magic remove` -- deregister a component
+- **Generation engine** (`magic/core/generator.py`): TypeScript React + Custom Element
+  (LokiElement base class) + Vitest/Playwright tests. Claude Vision path for
+  screenshot-to-spec. Deterministic template fallback when no provider available.
+- **Spec + freshness** (`magic/core/spec.py`, `freshness.py`): markdown specs as
+  source of truth; `LOKI-MAGIC-HASH` SHA256 header on generated files triggers
+  regeneration when spec changes.
+- **Design tokens** (`magic/core/design_tokens.py`): colors, spacing, typography,
+  radii, shadows, motion defaults extracted from existing Loki UI; project-level
+  overrides at `.loki/magic/tokens.json`; `to_prompt_context()` injects tokens
+  into generation prompts.
+- **Multi-persona debate** (`magic/core/debate.py`): 4 conflicting expert
+  personas -- Creative Developer, Conservative Engineer, A11y Advocate,
+  Performance Engineer. 3-round debate with parallel round-1/2 review and
+  synthesis round 3. Severity ladder `info | suggestion | warning | block`;
+  block severity escalates to HITL.
+- **Registry** (`magic/core/registry.py`): atomic JSON registry with semver
+  auto-bump, tag search, per-target filtering, deprecation lifecycle,
+  corruption recovery.
+- **Testing** (`magic/testing/test_generator.py`, `snapshot.py`): auto-generated
+  Vitest + RTL tests (React), Playwright tests (Web Components), Storybook
+  stories, HTML snapshot management.
+- **MCP tools** (`mcp/magic_tools.py`): 7 MCP tools (`loki_magic_generate`,
+  `loki_magic_list`, `loki_magic_get`, `loki_magic_update`, `loki_magic_debate`,
+  `loki_magic_tokens_extract`, `loki_magic_stats`) registered via
+  `register_magic_tools(mcp)` at MCP server startup.
+- **Purple Lab UI**: new `/magic` page with generator form and component
+  registry grid/list views (`web-app/src/pages/MagicPage.tsx`,
+  `MagicGeneratorPanel.tsx`, `MagicComponentCard.tsx`).
+- **Backend API**: `/api/magic/components`, `/api/magic/generate`,
+  `/api/magic/components/{name}/spec`, `/api/magic/components/{name}/debate`,
+  `DELETE /api/magic/components/{name}`.
+- **Documentation**: `skills/magic-modules.md` (skill module with credits),
+  `references/magic-modules-patterns.md` (10-section reference with examples
+  and competitor comparison), `magic/tokens/README.md`, `magic/debate/personas/*.md`.
+- **Integration tests**: `tests/test-magic.sh` -- 6-case end-to-end test suite.
+
+### Fixed (carried forward from 6.75.x)
+- AI Chat sidebar UX; ProjectWorkspace refactor; ShellCheck green.
 
 ## [6.72.0] - 2026-03-24 - Dark Mode, RBAC/Teams, GitPanel, Template Gallery, CI/CD Pipeline, NotificationSystem
 

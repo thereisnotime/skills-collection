@@ -116,8 +116,8 @@ Once the root cause is confirmed, present:
 Then offer next steps (use the platform's question tool — `AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini — or present numbered options and wait):
 
 1. **Fix it now** — proceed to Phase 3
-2. **View in Proof** (`/proof`) — for easy review and sharing with others
-3. **Rethink the design** (`/ce:brainstorm`) — only when the root cause reveals a design problem (see below)
+2. **View in Proof** (`/ce-proof`) — for easy review and sharing with others
+3. **Rethink the design** (`/ce-brainstorm`) — only when the root cause reveals a design problem (see below)
 
 Do not assume the user wants action right now. The test recommendations are part of the diagnosis regardless of which path is chosen.
 
@@ -135,7 +135,7 @@ If 2-3 hypotheses are exhausted without confirmation, diagnose why:
 
 | Pattern | Diagnosis | Next move |
 |---------|-----------|-----------|
-| Hypotheses point to different subsystems | Architecture/design problem, not a localized bug | Present findings, suggest `/ce:brainstorm` |
+| Hypotheses point to different subsystems | Architecture/design problem, not a localized bug | Present findings, suggest `/ce-brainstorm` |
 | Evidence contradicts itself | Wrong mental model of the code | Step back, re-read the code path without assumptions |
 | Works locally, fails in CI/prod | Environment problem | Focus on env differences, config, dependencies, timing |
 | Fix works but prediction was wrong | Symptom fix, not root cause | The real cause is still active — keep investigating |
@@ -165,7 +165,7 @@ If the user chose Proof or brainstorm at the end of Phase 2, skip this phase —
 Check whether the same gap exists at those locations. Skip when the root cause is a one-off error.
 
 **Conditional post-mortem** (trigger: the bug was in production, OR the pattern appears in 3+ locations):
-How was this introduced? What allowed it to survive? If a systemic gap was found: "This pattern appears in N other files. Want to capture it with `/ce:compound`?"
+How was this introduced? What allowed it to survive? If a systemic gap was found: "This pattern appears in N other files. Want to capture it with `/ce-compound`?"
 
 ---
 
@@ -185,7 +185,7 @@ How was this introduced? What allowed it to survive? If a systemic gap was found
 
 **Handoff options** (use platform question tool, or present numbered options and wait):
 1. Commit the fix (if Phase 3 ran)
-2. Document as a learning (`/ce:compound`)
+2. Document as a learning (`/ce-compound`)
 3. Post findings to the issue (if entry came from an issue tracker) — convey: confirmed root cause, verified reproduction steps, relevant code references, and suggested fix direction; keep it concise and useful for whoever picks up the issue next
-4. View in Proof (`/proof`) — for easy review and sharing with others
+4. View in Proof (`/ce-proof`) — for easy review and sharing with others
 5. Done

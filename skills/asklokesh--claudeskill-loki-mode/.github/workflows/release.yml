@@ -9,8 +9,34 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Gate: every downstream job (release, npm, docker, homebrew, vscode, ...) waits
+  # for this job to pass. Prevents publishing artifacts when the test suite is red.
+  # Mirrors the checks in .github/workflows/test.yml at minimum cost (single Python
+  # version, no matrix) -- the full Tests workflow still runs separately on push.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install minimal deps
+        # Mirror python-tests installs in test.yml exactly so the gate has the
+        # same import surface as the matrix jobs (httpx, sqlalchemy, etc.).
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pytest pytest-asyncio
+          python3 -m pip install fastapi httpx pydantic sqlalchemy[asyncio] aiosqlite uvicorn
+      - name: Bash syntax validation
+        run: |
+          bash -n autonomy/run.sh
+          bash -n autonomy/loki
+      - name: Python tests
+        run: python3 -m pytest -q
+
   release:
     runs-on: ubuntu-latest
+    needs: gate
     permissions:
       contents: write
 

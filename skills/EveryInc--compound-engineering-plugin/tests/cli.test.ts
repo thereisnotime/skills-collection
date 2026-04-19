@@ -177,7 +177,7 @@ describe("CLI", () => {
     expect(stdout).toContain("Installed compound-engineering")
     // OpenCode global config lives at ~/.config/opencode per XDG spec
     expect(await exists(path.join(tempRoot, ".config", "opencode", "opencode.json"))).toBe(true)
-    expect(await exists(path.join(tempRoot, ".config", "opencode", "agents", "repo-research-analyst.md"))).toBe(true)
+    expect(await exists(path.join(tempRoot, ".config", "opencode", "agents", "ce-repo-research-analyst.md"))).toBe(true)
   })
 
   test("install uses bundled compound-engineering plugin for codex output", async () => {
@@ -215,7 +215,6 @@ describe("CLI", () => {
 
     expect(stdout).toContain("Installed compound-engineering")
     expect(stdout).toContain(codexRoot)
-    expect(await exists(path.join(codexRoot, "prompts", "ce-plan.md"))).toBe(true)
     expect(await exists(path.join(codexRoot, "skills", "ce-plan", "SKILL.md"))).toBe(true)
     expect(await exists(path.join(codexRoot, "AGENTS.md"))).toBe(true)
   })

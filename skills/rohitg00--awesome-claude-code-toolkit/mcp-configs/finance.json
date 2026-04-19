@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "helium": {
+      "url": "https://heliumtrades.com/mcp",
+      "description": "Real-time news with bias scoring across 5,000+ sources, live stock/ETF/crypto data with AI bull/bear cases and price forecasts, ML options pricing with probability ITM, balanced news synthesis, and meme search. 9 tools, free tier (50 queries), no API key needed."
+    },
     "chart-library": {
       "command": "python",
       "args": ["-m", "chartlibrary_mcp"],

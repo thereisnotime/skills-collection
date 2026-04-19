@@ -1,4 +1,4 @@
-# Documentation schema for learnings written by ce:compound
+# Documentation schema for learnings written by ce-compound
 # Treat this as the canonical frontmatter contract for docs/solutions/.
 #
 # The schema has two tracks based on problem_type:

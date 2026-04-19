@@ -3,6 +3,7 @@ import { promises as fs } from "fs"
 import path from "path"
 import os from "os"
 import { writePiBundle } from "../src/targets/pi"
+import { parseFrontmatter } from "../src/utils/frontmatter"
 import type { PiBundle } from "../src/types/pi"
 
 async function exists(filePath: string): Promise<boolean> {
@@ -14,7 +15,45 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
+async function pluginDescription(relativePath: string): Promise<string> {
+  const raw = await fs.readFile(path.join(import.meta.dir, "..", relativePath), "utf8")
+  const { data } = parseFrontmatter(raw, relativePath)
+  if (typeof data.description !== "string") {
+    throw new Error(`Missing description in ${relativePath}`)
+  }
+  return data.description
+}
+
 describe("writePiBundle", () => {
+  test("removes stale generated agent skills without touching prompt files", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-cleanup-targets-"))
+    const outputRoot = path.join(tempRoot, ".pi")
+
+    const sessionHistorianDescription = await pluginDescription(
+      "plugins/compound-engineering/agents/research/ce-session-historian.agent.md",
+    )
+
+    await fs.mkdir(path.join(outputRoot, "skills", "session-historian"), { recursive: true })
+    await fs.writeFile(
+      path.join(outputRoot, "skills", "session-historian", "SKILL.md"),
+      `---\nname: session-historian\ndescription: ${JSON.stringify(sessionHistorianDescription)}\n---\n\nLegacy agent\n`,
+    )
+    await fs.mkdir(path.join(outputRoot, "prompts"), { recursive: true })
+    await fs.writeFile(path.join(outputRoot, "prompts", "session-historian.md"), "user-owned prompt")
+
+    const bundle: PiBundle = {
+      prompts: [],
+      skillDirs: [],
+      generatedSkills: [],
+      extensions: [],
+    }
+
+    await writePiBundle(outputRoot, bundle)
+
+    expect(await exists(path.join(outputRoot, "skills", "session-historian"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "prompts", "session-historian.md"))).toBe(true)
+  })
+
   test("writes prompts, skills, extensions, mcporter config, and AGENTS.md block", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-writer-"))
     const outputRoot = path.join(tempRoot, ".pi")
@@ -58,7 +97,7 @@ describe("writePiBundle", () => {
     await fs.writeFile(
       path.join(sourceSkillDir, "SKILL.md"),
       `---
-name: ce:plan
+name: ce-plan
 description: Planning workflow
 ---
 
@@ -72,7 +111,7 @@ Run these research agents:
 
     const bundle: PiBundle = {
       prompts: [],
-      skillDirs: [{ name: "ce:plan", sourceDir: sourceSkillDir }],
+      skillDirs: [{ name: "ce-plan", sourceDir: sourceSkillDir }],
       generatedSkills: [],
       extensions: [],
     }

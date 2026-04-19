@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Loki Mode pre-push hook
+#
+# Runs before `git push` to catch the failure modes that have actually
+# burned us in past releases:
+#   1. A pre-existing test asserts on a contract you changed (v6.77.1 hot-fix)
+#   2. A bash syntax error slips into autonomy/run.sh or autonomy/loki
+#
+# Install:  ./scripts/install-hooks.sh
+# Skip once: PRE_PUSH_SKIP=1 git push   (use sparingly; CI will catch you)
+
+set -euo pipefail
+
+if [[ "${PRE_PUSH_SKIP:-0}" == "1" ]]; then
+    echo "[pre-push] PRE_PUSH_SKIP=1 set, skipping"
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+failures=0
+
+echo "[pre-push] bash -n autonomy/run.sh"
+if ! bash -n autonomy/run.sh; then
+    echo "[pre-push] FAIL: autonomy/run.sh has syntax errors" >&2
+    failures=$((failures + 1))
+fi
+
+echo "[pre-push] bash -n autonomy/loki"
+if ! bash -n autonomy/loki; then
+    echo "[pre-push] FAIL: autonomy/loki has syntax errors" >&2
+    failures=$((failures + 1))
+fi
+
+if command -v python3 >/dev/null 2>&1 && [[ -f pytest.ini ]]; then
+    echo "[pre-push] python3 -m pytest -q"
+    if ! python3 -m pytest -q 2>&1 | tail -25; then
+        echo "[pre-push] FAIL: python tests failed (full output above)" >&2
+        failures=$((failures + 1))
+    fi
+fi
+
+if [[ $failures -gt 0 ]]; then
+    echo "[pre-push] $failures check(s) failed -- aborting push" >&2
+    echo "[pre-push] Re-run after fixing, or skip with PRE_PUSH_SKIP=1 git push" >&2
+    exit 1
+fi
+
+echo "[pre-push] all checks passed"

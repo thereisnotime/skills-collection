@@ -42,7 +42,7 @@ The current `document-review` applies five generic criteria (Clarity, Completene
 
 - `plugins/compound-engineering/skills/ce-review/SKILL.md` -- Multi-agent orchestration reference: parallel dispatch via Task tool, always-on + conditional agents, P1/P2/P3 severity, finding synthesis with dedup
 - `plugins/compound-engineering/skills/document-review/SKILL.md` -- Current single-voice skill to replace. Key contract: "Review complete" terminal signal
-- `plugins/compound-engineering/agents/review/*.md` -- 15 existing review agents. Frontmatter schema: `name`, `description`, `model: inherit`. Body: examples block, role definition, analysis protocol, output format
+- `plugins/compound-engineering/agents/review/ce-*.agent.md` -- 15 existing review agents. Frontmatter schema: `name`, `description`, `model: inherit`. Body: examples block, role definition, analysis protocol, output format
 - `plugins/compound-engineering/AGENTS.md` -- Agent naming: fully-qualified `compound-engineering:<category>:<agent-name>`. Agent placement: `agents/<category>/<name>.md`
 
 ### Caller Integration Points
@@ -214,8 +214,8 @@ Orchestrator routing (document review simplification):
 **Dependencies:** None
 
 **Files:**
-- Create: `plugins/compound-engineering/agents/review/coherence-reviewer.md`
-- Create: `plugins/compound-engineering/agents/review/feasibility-reviewer.md`
+- Create: `plugins/compound-engineering/agents/document-review/ce-coherence-reviewer.agent.md`
+- Create: `plugins/compound-engineering/agents/document-review/ce-feasibility-reviewer.agent.md`
 
 **Approach:**
 - Follow existing agent structure: frontmatter (name, description, model: inherit), examples block, role definition, analysis protocol
@@ -237,8 +237,8 @@ Orchestrator routing (document review simplification):
 - Suppress: implementation style choices, testing strategy details, code organization preferences, theoretical scalability concerns
 
 **Patterns to follow:**
-- `plugins/compound-engineering/agents/review/code-simplicity-reviewer.md` for agent structure and output format conventions
-- `plugins/compound-engineering/agents/review/architecture-strategist.md` for systematic analysis protocol style
+- `plugins/compound-engineering/agents/review/ce-code-simplicity-reviewer.agent.md` for agent structure and output format conventions
+- `plugins/compound-engineering/agents/review/ce-architecture-strategist.agent.md` for systematic analysis protocol style
 - iterative-engineering agents for confidence calibration and suppress conditions pattern
 
 **Test scenarios:**
@@ -267,10 +267,10 @@ Orchestrator routing (document review simplification):
 **Dependencies:** Unit 1 (for consistent agent structure)
 
 **Files:**
-- Create: `plugins/compound-engineering/agents/review/product-lens-reviewer.md`
-- Create: `plugins/compound-engineering/agents/review/design-lens-reviewer.md`
-- Create: `plugins/compound-engineering/agents/review/security-lens-reviewer.md`
-- Create: `plugins/compound-engineering/agents/review/scope-guardian-reviewer.md`
+- Create: `plugins/compound-engineering/agents/document-review/ce-product-lens-reviewer.agent.md`
+- Create: `plugins/compound-engineering/agents/document-review/ce-design-lens-reviewer.agent.md`
+- Create: `plugins/compound-engineering/agents/document-review/ce-security-lens-reviewer.agent.md`
+- Create: `plugins/compound-engineering/agents/document-review/ce-scope-guardian-reviewer.agent.md`
 
 **Approach:**
 All four use the same structure established in Unit 1 (frontmatter, examples, role, protocol, confidence calibration, suppress conditions). Output normalization handled by shared reference files.
@@ -311,7 +311,7 @@ All four use the same structure established in Unit 1 (frontmatter, examples, ro
 
 **Patterns to follow:**
 - Unit 1 agents for consistent structure
-- `plugins/compound-engineering/agents/review/security-sentinel.md` for security analysis style (plan-level adaptation)
+- `plugins/compound-engineering/agents/review/ce-security-sentinel.agent.md` for security analysis style (plan-level adaptation)
 
 **Test scenarios:**
 - product-lens-reviewer challenges a plan that builds a complex admin dashboard when the stated goal is "improve user onboarding"

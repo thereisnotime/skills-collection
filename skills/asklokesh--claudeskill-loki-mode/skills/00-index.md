@@ -10,6 +10,7 @@
 > - `references/memory-system.md` - Episodic/semantic/procedural memory
 > - `references/tool-orchestration.md` - NVIDIA ToolOrchestra efficiency metrics
 > - `references/quality-control.md` - Code review and guardrails
+> - `references/magic-rarv-integration.md` - Autonomous magic generation in RARV-C cycle
 
 ## Module Selection Rules
 
@@ -30,6 +31,7 @@
 | OpenSpec delta context, brownfield modifications | `openspec-integration.md` |
 | MiroFish market validation, `--mirofish` flag | `mirofish-integration.md` |
 | Writing/updating documentation, `loki docs` | `documentation.md` |
+| UI components, design tokens, .loki/magic/, Gate 12 | `magic-modules.md` |
 | Legacy healing, modernization, archaeology | `healing.md` |
 | Plan deepening, knowledge extraction | `compound-learning.md` |
 

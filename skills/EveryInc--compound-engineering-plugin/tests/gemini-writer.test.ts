@@ -15,6 +15,32 @@ async function exists(filePath: string): Promise<boolean> {
 }
 
 describe("writeGeminiBundle", () => {
+  test("removes stale generated agent skill dirs before writing Gemini generated skills", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gemini-cleanup-"))
+    const legacySkillPath = path.join(tempRoot, ".gemini", "skills", "security-reviewer", "SKILL.md")
+    await fs.mkdir(path.dirname(legacySkillPath), { recursive: true })
+    await fs.writeFile(
+      legacySkillPath,
+      `---\nname: security-reviewer\ndescription: ${JSON.stringify("Conditional code-review persona, selected when the diff touches auth middleware, public endpoints, user input handling, or permission checks. Reviews code for exploitable vulnerabilities.")}\n---\n\nLegacy agent\n`,
+    )
+
+    const bundle: GeminiBundle = {
+      generatedSkills: [
+        {
+          name: "security-reviewer",
+          content: "---\nname: security-reviewer\ndescription: Security\n---\n\nFresh generated skill.",
+        },
+      ],
+      skillDirs: [],
+      commands: [],
+    }
+
+    await writeGeminiBundle(tempRoot, bundle)
+
+    const rewritten = await fs.readFile(legacySkillPath, "utf8")
+    expect(rewritten).toContain("Fresh generated skill.")
+  })
+
   test("writes skills, commands, and settings.json", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "gemini-test-"))
     const bundle: GeminiBundle = {
@@ -73,7 +99,7 @@ describe("writeGeminiBundle", () => {
     await fs.writeFile(
       path.join(sourceSkillDir, "SKILL.md"),
       `---
-name: ce:plan
+name: ce-plan
 description: Planning workflow
 ---
 
@@ -87,7 +113,7 @@ Run these research agents:
 
     const bundle: GeminiBundle = {
       generatedSkills: [],
-      skillDirs: [{ name: "ce:plan", sourceDir: sourceSkillDir }],
+      skillDirs: [{ name: "ce-plan", sourceDir: sourceSkillDir }],
       commands: [],
     }
 

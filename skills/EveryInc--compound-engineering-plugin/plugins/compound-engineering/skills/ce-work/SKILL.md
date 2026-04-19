@@ -1,5 +1,5 @@
 ---
-name: ce:work
+name: ce-work
 description: Execute work efficiently while maintaining quality and finishing features
 argument-hint: "[Plan doc path or description of work. Blank to auto use latest plan doc]"
 ---
@@ -38,7 +38,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    |-----------|---------|--------|
    | **Trivial** | 1-2 files, no behavioral change (typo, config, rename) | Proceed to Phase 1 step 2 (environment setup), then implement directly — no task list, no execution loop. Apply Test Discovery if the change touches behavior-bearing code |
    | **Small / Medium** | Clear scope, under ~10 files | Build a task list from discovery. Proceed to Phase 1 step 2 |
-   | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Inform the user this would benefit from `/ce:brainstorm` or `/ce:plan` to surface edge cases and scope boundaries. Honor their choice. If proceeding, build a task list and continue to Phase 1 step 2 |
+   | **Large** | Cross-cutting, architectural decisions, 10+ files, touches auth/payments/migrations | Inform the user this would benefit from `/ce-brainstorm` or `/ce-plan` to surface edge cases and scope boundaries. Honor their choice. If proceeding, build a task list and continue to Phase 1 step 2 |
 
 ---
 
@@ -55,7 +55,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - Review any references or links provided in the plan
    - If the user explicitly asks for TDD, test-first, or characterization-first execution in this session, honor that request even if the plan has no `Execution note`
    - If anything is unclear or ambiguous, ask clarifying questions now
-   - Get user approval to proceed
+   - If clarifying questions were needed above, get user approval on the resolved answers. If no clarifications were needed, proceed without a separate approval step — plan scope is the plan's authority, not something to renegotiate
    - **Do not skip this** - better to ask questions now than build the wrong thing
 
 2. **Setup Environment**
@@ -97,7 +97,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
 
    **Option B: Use a worktree (recommended for parallel development)**
    ```bash
-   skill: git-worktree
+   skill: ce-worktree
    # The skill will create a new branch from the default branch in an isolated worktree
    ```
 
@@ -285,7 +285,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    For UI work with Figma designs:
 
    - Implement components following design specs
-   - Use figma-design-sync agent iteratively to compare
+   - Use ce-figma-design-sync agent iteratively to compare
    - Fix visual differences identified
    - Repeat until implementation matches design
 
@@ -341,3 +341,4 @@ When all Phase 2 tasks are complete and execution transitions to quality check, 
 - **Forgetting to track progress** - Update task status as you go or lose track of what's done
 - **80% done syndrome** - Finish the feature, don't move on early
 - **Skipping review** - Every change gets reviewed; only the depth varies
+- **Re-scoping the plan into human-time phases** - The plan's Implementation Units define the scope of execution. Do not estimate human-hours per unit, propose multi-day breakdowns, or ask the user to pick a subset of units for "this session". Agents execute at agent speed, and context-window pressure is addressed by subagent dispatch (Phase 1 Step 4), not by phased sessions. If a plan-file input is genuinely too large for a single execution, say so plainly and suggest the user return to `/ce-plan` to reduce scope — don't invent session phases as a workaround. For bare-prompt input, Phase 0's Large routing already handles oversized work

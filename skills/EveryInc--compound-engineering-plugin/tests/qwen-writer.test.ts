@@ -21,7 +21,29 @@ function makeBundle(mcpServers?: Record<string, { command: string }>): QwenBundl
   }
 }
 
+const LEGACY_LINT_DESCRIPTION = "Use this agent when you need to run linting and code quality checks on Ruby and ERB files. Run before pushing to origin."
+
 describe("writeQwenBundle", () => {
+  test("cleans legacy agents before writing new agent files", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "qwen-agent-cleanup-order-"))
+
+    const bundle: QwenBundle = {
+      ...makeBundle(),
+      agents: [
+        {
+          name: "lint",
+          format: "markdown",
+          content: `---\nname: lint\ndescription: ${JSON.stringify(LEGACY_LINT_DESCRIPTION)}\n---\n\nReplacement agent\n`,
+        },
+      ],
+    }
+
+    await writeQwenBundle(tempRoot, bundle)
+
+    const lintPath = path.join(tempRoot, "agents", "lint.md")
+    expect(await fs.readFile(lintPath, "utf8")).toContain("Replacement agent")
+  })
+
   test("removes stale plugin MCP servers on re-install", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "qwen-converge-"))
 

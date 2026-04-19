@@ -218,7 +218,7 @@ Check whether the input is:
 
 ### 0.3 Search Prior Learnings
 
-Dispatch `compound-engineering:research:learnings-researcher` to search for prior optimization work on similar topics. If relevant learnings exist, incorporate them into the approach.
+Dispatch `research:ce-learnings-researcher` to search for prior optimization work on similar topics. If relevant learnings exist, incorporate them into the approach.
 
 ### 0.4 Run Identity Detection
 
@@ -373,7 +373,7 @@ Read the code within `scope.mutable` to understand:
 - Obvious improvement opportunities
 - Constraints and dependencies between components
 
-Optionally dispatch `compound-engineering:research:repo-research-analyst` for deeper codebase analysis if the scope is large or unfamiliar.
+Optionally dispatch `research:ce-repo-research-analyst` for deeper codebase analysis if the scope is large or unfamiliar.
 
 ### 2.2 Generate Hypothesis List
 
@@ -640,8 +640,8 @@ The experiment log and strategy digest remain in local `.context/...` scratch sp
 
 Present post-completion options via the platform question tool:
 
-1. **Run `/ce:review`** on the cumulative diff (baseline to final). Load the `ce:review` skill with `mode:autofix` on the optimization branch.
-2. **Run `/ce:compound`** to document the winning strategy as an institutional learning.
+1. **Run `/ce-code-review`** on the cumulative diff (baseline to final). Load the `ce-code-review` skill with `mode:autofix` on the optimization branch.
+2. **Run `/ce-compound`** to document the winning strategy as an institutional learning.
 3. **Create PR** from the optimization branch to the default branch.
 4. **Continue** with more experiments: re-enter Phase 3 with the current state. State re-read first.
 5. **Done** -- leave the optimization branch for manual review.

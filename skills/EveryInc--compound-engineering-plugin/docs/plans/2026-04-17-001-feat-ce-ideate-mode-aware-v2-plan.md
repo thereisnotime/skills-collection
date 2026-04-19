@@ -103,9 +103,9 @@ Numbered requirements that this plan must satisfy. Carries forward applicable v1
 - `plugins/compound-engineering/skills/ce-ideate/references/post-ideation-workflow.md` — current Phase 3-6 spec; persistence and handoff logic to rewrite
 - `plugins/compound-engineering/skills/ce-brainstorm/SKILL.md:59-71` — Phase 0.1b "Classify Task Domain" — the mode classification pattern to mirror
 - `plugins/compound-engineering/skills/ce-brainstorm/references/universal-brainstorming.md` — 56-line shape to mirror for `universal-ideation.md`
-- `plugins/compound-engineering/agents/research/learnings-researcher.md` — frontmatter and structure exemplar (mid-size, ~9.6K)
-- `plugins/compound-engineering/agents/research/issue-intelligence-analyst.md` — methodology + tool guidance + integration points pattern (~13.9K)
-- `plugins/compound-engineering/agents/research/slack-researcher.md` — `model: sonnet` exemplar; precondition-check pattern
+- `plugins/compound-engineering/agents/research/ce-learnings-researcher.agent.md` — frontmatter and structure exemplar (mid-size, ~9.6K)
+- `plugins/compound-engineering/agents/research/ce-issue-intelligence-analyst.agent.md` — methodology + tool guidance + integration points pattern (~13.9K)
+- `plugins/compound-engineering/agents/research/ce-slack-researcher.agent.md` — `model: sonnet` exemplar; precondition-check pattern
 - `plugins/compound-engineering/skills/proof/SKILL.md` — Proof skill API and HITL handoff contract; line 3 already names ce:ideate as a consumer
 
 ### Institutional Learnings
@@ -193,7 +193,7 @@ These were resolved in conversation but reviewers raised non-trivial counterargu
 **Dependencies:** None
 
 **Files:**
-- Create: `plugins/compound-engineering/agents/research/web-researcher.md`
+- Create: `plugins/compound-engineering/agents/research/ce-web-researcher.agent.md`
 - Modify: `plugins/compound-engineering/README.md` (add row to research agents table; update agent count — current count is 49, adding `web-researcher` crosses the 50+ threshold and **README count update is required, not conditional**)
 
 **Approach:**
@@ -207,9 +207,9 @@ These were resolved in conversation but reviewers raised non-trivial counterargu
 - README update: add row to the research agents table in alphabetical position (after `slack-researcher`); update the agent count in the component count table (49 → 50, crosses 50+ threshold).
 
 **Patterns to follow:**
-- `plugins/compound-engineering/agents/research/learnings-researcher.md` — frontmatter, mid-size structure
-- `plugins/compound-engineering/agents/research/slack-researcher.md` — `model: sonnet`, precondition pattern, tool guidance
-- `plugins/compound-engineering/agents/research/issue-intelligence-analyst.md` — phased methodology with ~Step N structure
+- `plugins/compound-engineering/agents/research/ce-learnings-researcher.agent.md` — frontmatter, mid-size structure
+- `plugins/compound-engineering/agents/research/ce-slack-researcher.agent.md` — `model: sonnet`, precondition pattern, tool guidance
+- `plugins/compound-engineering/agents/research/ce-issue-intelligence-analyst.agent.md` — phased methodology with ~Step N structure
 
 **Test scenarios:**
 - Happy path: agent file passes `bun test tests/frontmatter.test.ts` (YAML strict-parses, required fields present).
@@ -591,7 +591,7 @@ These were resolved in conversation but reviewers raised non-trivial counterargu
   - `plugins/compound-engineering/skills/ce-brainstorm/SKILL.md:59-71` (mode classifier reference)
   - `plugins/compound-engineering/skills/ce-brainstorm/references/universal-brainstorming.md` (universal-ideation reference shape)
   - `plugins/compound-engineering/skills/proof/SKILL.md` (Proof handoff contract)
-  - `plugins/compound-engineering/agents/research/learnings-researcher.md`, `slack-researcher.md`, `issue-intelligence-analyst.md` (agent file conventions)
+  - `plugins/compound-engineering/agents/research/ce-learnings-researcher.agent.md`, `slack-researcher.md`, `issue-intelligence-analyst.md` (agent file conventions)
 - **Related learnings:**
   - `docs/solutions/skill-design/claude-permissions-optimizer-classification-fix.md`
   - `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md`

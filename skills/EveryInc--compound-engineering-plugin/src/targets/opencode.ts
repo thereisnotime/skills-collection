@@ -2,6 +2,7 @@ import path from "path"
 import { backupFile, copySkillDir, ensureDir, pathExists, readJson, resolveCommandPath, sanitizePathName, writeJson, writeText } from "../utils/files"
 import { transformSkillContentForOpenCode } from "../converters/claude-to-opencode"
 import type { OpenCodeBundle, OpenCodeConfig } from "../types/opencode"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 // Merges plugin config into existing opencode.json. User keys win on conflict. See ADR-002.
 async function mergeOpenCodeConfig(
@@ -69,6 +70,10 @@ export async function writeOpenCodeBundle(outputRoot: string, bundle: OpenCodeBu
   if (hadExistingConfig) {
     console.log("Merged plugin config into existing opencode.json (user settings preserved)")
   }
+
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  await cleanupStaleSkillDirs(openCodePaths.skillsDir)
+  await cleanupStaleAgents(openCodePaths.agentsDir, ".md")
 
   const agentsDir = openCodePaths.agentsDir
   const seenAgents = new Set<string>()

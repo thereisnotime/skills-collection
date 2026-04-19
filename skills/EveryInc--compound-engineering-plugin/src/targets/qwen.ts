@@ -1,6 +1,7 @@
 import path from "path"
 import { backupFile, copyDir, ensureDir, readJson, resolveCommandPath, sanitizePathName, pathExists, writeJsonSecure, writeText } from "../utils/files"
 import type { QwenBundle, QwenExtensionConfig } from "../types/qwen"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 export async function writeQwenBundle(outputRoot: string, bundle: QwenBundle): Promise<void> {
   const qwenPaths = resolveQwenPaths(outputRoot)
@@ -20,9 +21,14 @@ export async function writeQwenBundle(outputRoot: string, bundle: QwenBundle): P
     await writeText(qwenPaths.contextPath, bundle.contextFile + "\n")
   }
 
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  await cleanupStaleSkillDirs(qwenPaths.skillsDir)
+
   // Write agents
   const agentsDir = qwenPaths.agentsDir
   await ensureDir(agentsDir)
+  await cleanupStaleAgents(agentsDir, ".yaml")
+  await cleanupStaleAgents(agentsDir, ".md")
   for (const agent of bundle.agents) {
     const ext = agent.format === "yaml" ? "yaml" : "md"
     await writeText(path.join(agentsDir, `${sanitizePathName(agent.name)}.${ext}`), agent.content + "\n")

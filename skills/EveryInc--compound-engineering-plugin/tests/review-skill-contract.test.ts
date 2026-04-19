@@ -7,15 +7,15 @@ async function readRepoFile(relativePath: string): Promise<string> {
   return readFile(path.join(process.cwd(), relativePath), "utf8")
 }
 
-describe("ce-review contract", () => {
+describe("ce-code-review contract", () => {
   test("documents explicit modes and orchestration boundaries", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-review/SKILL.md")
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
     expect(content).toContain("## Mode Detection")
     expect(content).toContain("mode:autofix")
     expect(content).toContain("mode:report-only")
     expect(content).toContain("mode:headless")
-    expect(content).toContain(".context/compound-engineering/ce-review/<run-id>/")
+    expect(content).toContain(".context/compound-engineering/ce-code-review/<run-id>/")
     expect(content).toContain("Do not create residual todos or `.context` artifacts.")
     expect(content).toContain(
       "Do not start a mutating review round concurrently with browser testing on the same checkout.",
@@ -27,7 +27,7 @@ describe("ce-review contract", () => {
   })
 
   test("documents headless mode contract for programmatic callers", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-review/SKILL.md")
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
     // Headless mode has its own rules section
     expect(content).toContain("### Headless mode rules")
@@ -70,20 +70,82 @@ describe("ce-review contract", () => {
   })
 
   test("documents policy-driven routing and residual handoff", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-review/SKILL.md")
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
+    // Routing taxonomy and fixer queue semantics
     expect(content).toContain("## Action Routing")
     expect(content).toContain("Only `safe_auto -> review-fixer` enters the in-skill fixer queue automatically.")
-    expect(content).toContain(
-      "Only include `gated_auto` findings in the fixer queue after the user explicitly approves the specific items.",
-    )
-    expect(content).toContain(
-      "If no `gated_auto` or `manual` findings remain after safe fixes, skip the policy question entirely",
-    )
+
+    // Interactive mode four-option routing structure: each distinguishing word must appear
+    // as a routing-option label so truncation-safe menus stay intact.
+    // Assert presence rather than exact copy — wording can be improved without breaking the test.
+    expect(content).toMatch(/\(A\)\s*`Review each finding one by one/)
+    expect(content).toMatch(/\(B\)\s*`LFG\./)
+    expect(content).toMatch(/\(C\)\s*`File a \[TRACKER\] ticket/)
+    expect(content).toMatch(/\(D\)\s*`Report only/)
+
+    // The new routing question dispatches to focused reference files, not inline prose.
+    expect(content).toContain("references/walkthrough.md")
+    expect(content).toContain("references/bulk-preview.md")
+    expect(content).toContain("references/tracker-defer.md")
+
+    // Stem is third-person (AGENTS.md:127 — no first-person "I" / "me" in the new routing question).
+    // The Interactive branch of After Review Step 2 must not reintroduce the removed bucket-policy wording.
+    expect(content).not.toContain("What should I do with the remaining findings?")
+    expect(content).not.toContain("What should I do?")
+
+    // Zero-remaining case: routing question is skipped with a completion summary.
+    expect(content).toMatch(/skip the routing question entirely/i)
+
+    // Stage 5 tie-breaking rule — the walk-through's recommendation is deterministic.
+    expect(content).toMatch(/Skip\s*>\s*Defer\s*>\s*Apply/)
+
+    // Autofix-mode residual todo handoff is preserved (mode isolation).
     expect(content).toContain(
       "In autofix mode, create durable todo files only for unresolved actionable findings whose final owner is `downstream-resolver`.",
     )
     expect(content).toContain("If only advisory outputs remain, create no todos.")
+
+    // Tracker fallback chain explicitly forbids extending the internal todos system.
+    const trackerDefer = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/tracker-defer.md",
+    )
+    expect(trackerDefer).toContain(".context/compound-engineering/todos/")
+    expect(trackerDefer).toMatch(/Never fall back to `\.context\/compound-engineering\/todos\//)
+
+    // Subagent template carries the why_it_matters framing guidance that replaces the
+    // rejected synthesis-time rewrite pass. Assert presence of the observable-behavior
+    // rule and the required-field reminder without pinning exact prose.
+    const subagentTemplate = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/subagent-template.md",
+    )
+    expect(subagentTemplate).toMatch(/observable behavior/i)
+    expect(subagentTemplate).toMatch(/required/i)
+
+    // walkthrough.md carries the four per-finding option labels (Apply / Defer / Skip /
+    // LFG the rest). Assert presence of each distinguishing word so renaming an option
+    // breaks the test. Exact label wording may be refined for clarity — these assertions
+    // check the structural contract, not the prose.
+    const walkthrough = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/walkthrough.md",
+    )
+    expect(walkthrough).toContain("Apply the proposed fix")
+    expect(walkthrough).toContain("Defer — file a [TRACKER] ticket")
+    expect(walkthrough).toContain("Skip — don't apply, don't track")
+    expect(walkthrough).toMatch(/LFG the rest/)
+
+    // bulk-preview.md contract: exactly Proceed / Cancel, no third option.
+    const bulkPreview = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/bulk-preview.md",
+    )
+    expect(bulkPreview).toContain("Proceed")
+    expect(bulkPreview).toContain("Cancel")
+
+    // Step 5 final-next-steps flow is gated on fixes-applied count, not routing option.
+    expect(content).toContain("fixes_applied_count")
+    expect(content).toMatch(/Step 5 runs only when `fixes_applied_count > 0`/i)
+
+    // Final-next-steps wording preserved.
     expect(content).toContain("**On the resolved review base/default branch:**")
     expect(content).toContain("git push --set-upstream origin HEAD")
     expect(content).not.toContain("**On main/master:**")
@@ -91,7 +153,7 @@ describe("ce-review contract", () => {
 
   test("keeps findings schema and downstream docs aligned", async () => {
     const rawSchema = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-review/references/findings-schema.json",
+      "plugins/compound-engineering/skills/ce-code-review/references/findings-schema.json",
     )
     const schema = JSON.parse(rawSchema) as {
       _meta: { confidence_thresholds: { suppress: string } }
@@ -127,27 +189,27 @@ describe("ce-review contract", () => {
     expect(schema.properties.findings.items.properties.requires_verification.type).toBe("boolean")
     expect(schema._meta.confidence_thresholds.suppress).toContain("0.60")
 
-    const fileTodos = await readRepoFile("plugins/compound-engineering/skills/todo-create/SKILL.md")
-    expect(fileTodos).toContain("/ce:review mode:autofix")
-    expect(fileTodos).toContain("/todo-resolve")
+    const fileTodos = await readRepoFile("plugins/compound-engineering/skills/ce-todo-create/SKILL.md")
+    expect(fileTodos).toContain("/ce-code-review mode:autofix")
+    expect(fileTodos).toContain("/ce-todo-resolve")
 
-    const resolveTodos = await readRepoFile("plugins/compound-engineering/skills/todo-resolve/SKILL.md")
-    expect(resolveTodos).toContain("ce:review mode:autofix")
+    const resolveTodos = await readRepoFile("plugins/compound-engineering/skills/ce-todo-resolve/SKILL.md")
+    expect(resolveTodos).toContain("ce-code-review mode:autofix")
     expect(resolveTodos).toContain("safe_auto")
   })
 
   test("documents stack-specific conditional reviewers for the JSON pipeline", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-review/SKILL.md")
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
     const catalog = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-review/references/persona-catalog.md",
+      "plugins/compound-engineering/skills/ce-code-review/references/persona-catalog.md",
     )
 
     for (const agent of [
-      "compound-engineering:review:dhh-rails-reviewer",
-      "compound-engineering:review:kieran-rails-reviewer",
-      "compound-engineering:review:kieran-python-reviewer",
-      "compound-engineering:review:kieran-typescript-reviewer",
-      "compound-engineering:review:julik-frontend-races-reviewer",
+      "review:ce-dhh-rails-reviewer",
+      "review:ce-kieran-rails-reviewer",
+      "review:ce-kieran-python-reviewer",
+      "review:ce-kieran-typescript-reviewer",
+      "review:ce-julik-frontend-races-reviewer",
     ]) {
       expect(content).toContain(agent)
       expect(catalog).toContain(agent)
@@ -160,23 +222,23 @@ describe("ce-review contract", () => {
   test("stack-specific reviewer agents follow the structured findings contract", async () => {
     const reviewers = [
       {
-        path: "plugins/compound-engineering/agents/review/dhh-rails-reviewer.md",
+        path: "plugins/compound-engineering/agents/review/ce-dhh-rails-reviewer.agent.md",
         reviewer: "dhh-rails",
       },
       {
-        path: "plugins/compound-engineering/agents/review/kieran-rails-reviewer.md",
+        path: "plugins/compound-engineering/agents/review/ce-kieran-rails-reviewer.agent.md",
         reviewer: "kieran-rails",
       },
       {
-        path: "plugins/compound-engineering/agents/review/kieran-python-reviewer.md",
+        path: "plugins/compound-engineering/agents/review/ce-kieran-python-reviewer.agent.md",
         reviewer: "kieran-python",
       },
       {
-        path: "plugins/compound-engineering/agents/review/kieran-typescript-reviewer.md",
+        path: "plugins/compound-engineering/agents/review/ce-kieran-typescript-reviewer.agent.md",
         reviewer: "kieran-typescript",
       },
       {
-        path: "plugins/compound-engineering/agents/review/julik-frontend-races-reviewer.md",
+        path: "plugins/compound-engineering/agents/review/ce-julik-frontend-races-reviewer.agent.md",
         reviewer: "julik-frontend-races",
       },
     ]
@@ -200,7 +262,7 @@ describe("ce-review contract", () => {
 
   test("leaves data-migration-expert as the unstructured review format", async () => {
     const content = await readRepoFile(
-      "plugins/compound-engineering/agents/review/data-migration-expert.md",
+      "plugins/compound-engineering/agents/review/ce-data-migration-expert.agent.md",
     )
 
     expect(content).toContain("## Reviewer Checklist")
@@ -209,7 +271,7 @@ describe("ce-review contract", () => {
   })
 
   test("fails closed when merge-base is unresolved instead of falling back to git diff HEAD", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/skills/ce-review/SKILL.md")
+    const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
     // No scope path should fall back to `git diff HEAD` or `git diff --cached` — those only
     // show uncommitted changes and silently produce empty diffs on clean feature branches.
@@ -224,7 +286,7 @@ describe("ce-review contract", () => {
     // The script itself emits ERROR: when the base is unresolved.
     expect(content).toContain("references/resolve-base.sh")
     const resolveScript = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-review/references/resolve-base.sh",
+      "plugins/compound-engineering/skills/ce-code-review/references/resolve-base.sh",
     )
     expect(resolveScript).toContain("ERROR:")
 
@@ -236,14 +298,13 @@ describe("ce-review contract", () => {
 
   test("orchestration callers pass explicit mode flags", async () => {
     const lfg = await readRepoFile("plugins/compound-engineering/skills/lfg/SKILL.md")
-    expect(lfg).toContain("/ce:review mode:autofix")
-
+    expect(lfg).toContain("/ce-code-review mode:autofix")
   })
 })
 
 describe("testing-reviewer contract", () => {
   test("includes behavioral-changes-with-no-test-additions check", async () => {
-    const content = await readRepoFile("plugins/compound-engineering/agents/review/testing-reviewer.md")
+    const content = await readRepoFile("plugins/compound-engineering/agents/review/ce-testing-reviewer.agent.md")
 
     // New check exists in "What you're hunting for" section
     expect(content).toContain("Behavioral changes with no test additions")

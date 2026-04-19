@@ -4,6 +4,7 @@ import { formatFrontmatter } from "../utils/frontmatter"
 import { transformContentForWindsurf } from "../converters/claude-to-windsurf"
 import type { WindsurfBundle } from "../types/windsurf"
 import type { TargetScope } from "./index"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 /**
  * Write a WindsurfBundle directly into outputRoot.
@@ -13,6 +14,11 @@ import type { TargetScope } from "./index"
  */
 export async function writeWindsurfBundle(outputRoot: string, bundle: WindsurfBundle, scope?: TargetScope): Promise<void> {
   await ensureDir(outputRoot)
+
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  const skillsDir = path.join(outputRoot, "skills")
+  await cleanupStaleSkillDirs(skillsDir)
+  await cleanupStaleAgents(skillsDir, null) // agents are written as skill dirs in Windsurf
 
   // Write agent skills (before pass-through copies so pass-through takes precedence on collision)
   if (bundle.agentSkills.length > 0) {

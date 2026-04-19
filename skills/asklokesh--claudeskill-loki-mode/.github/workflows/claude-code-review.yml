@@ -12,11 +12,12 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip on fork PRs: GitHub does not expose secrets (CLAUDE_CODE_OAUTH_TOKEN,
+    # ANTHROPIC_API_KEY) or OIDC tokens to workflows triggered from forks, so the
+    # action would always fail with `Unable to get ACTIONS_ID_TOKEN_REQUEST_URL`.
+    # External contributors saw a perpetually-red check they could not fix; gate
+    # to non-fork PRs only. Internal PRs still get the AI review.
+    if: github.event.pull_request.head.repo.fork == false
 
     runs-on: ubuntu-latest
     permissions:

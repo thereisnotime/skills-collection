@@ -270,10 +270,12 @@ function rewriteClaudePaths(body: string): string {
  * Transform skill/agent content for OpenCode compatibility.
  * Composes path rewriting with fully-qualified agent name flattening.
  *
- * OpenCode resolves agents by flat filename, so 3-segment FQ references
- * like `compound-engineering:document-review:coherence-reviewer` must be
- * rewritten to just `coherence-reviewer`. 2-segment skill references
- * (e.g. `compound-engineering:document-review`) are left unchanged.
+ * OpenCode resolves agents by flat filename, so fully-qualified agent
+ * references must be flattened. Both 3-segment legacy refs
+ * (`compound-engineering:document-review:coherence-reviewer` -> `coherence-reviewer`)
+ * and 2-segment category-qualified refs (`review:ce-correctness-reviewer` ->
+ * `ce-correctness-reviewer`) are handled. 2-segment skill references without
+ * `ce-` prefix (e.g. `compound-engineering:document-review`) are left unchanged.
  * See #477.
  */
 export function transformSkillContentForOpenCode(body: string): string {
@@ -285,6 +287,13 @@ export function transformSkillContentForOpenCode(body: string): string {
   // `/team:ops:deploy` — agent names are never preceded by `/`.
   result = result.replace(
     /(?<![a-z0-9:/-])[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:([a-z][a-z0-9-]*)(?![a-z0-9:-])/g,
+    "$1",
+  )
+  // Rewrite 2-segment category-qualified agent refs: category:ce-agent -> ce-agent.
+  // Only matches when the agent segment starts with `ce-` to avoid false positives
+  // on slash commands or other colon-separated patterns.
+  result = result.replace(
+    /(?<![a-z0-9:/-])[a-z][a-z0-9-]*:(ce-[a-z][a-z0-9-]*)(?![a-z0-9:-])/g,
     "$1",
   )
   return result

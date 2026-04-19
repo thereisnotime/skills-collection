@@ -616,12 +616,12 @@ The table is the full surface area: there are no other untrusted inputs into pol
   - `plugins/compound-engineering/skills/ce-work-beta/SKILL.md` (beta posture)
   - `plugins/compound-engineering/skills/ce-review/references/resolve-base.sh` (base-branch resolver — duplicated, not referenced)
   - `plugins/compound-engineering/skills/ce-review/references/subagent-template.md` (sub-agent prompt shape)
-  - `plugins/compound-engineering/agents/design/design-iterator.md`
-  - `plugins/compound-engineering/agents/design/design-implementation-reviewer.md`
-  - `plugins/compound-engineering/agents/design/figma-design-sync.md`
-  - `plugins/compound-engineering/agents/review/code-simplicity-reviewer.md`
-  - `plugins/compound-engineering/agents/review/maintainability-reviewer.md`
-  - `plugins/compound-engineering/agents/review/julik-frontend-races-reviewer.md`
+  - `plugins/compound-engineering/agents/design/ce-design-iterator.agent.md`
+  - `plugins/compound-engineering/agents/design/ce-design-implementation-reviewer.agent.md`
+  - `plugins/compound-engineering/agents/design/ce-figma-design-sync.agent.md`
+  - `plugins/compound-engineering/agents/review/ce-code-simplicity-reviewer.agent.md`
+  - `plugins/compound-engineering/agents/review/ce-maintainability-reviewer.agent.md`
+  - `plugins/compound-engineering/agents/review/ce-julik-frontend-races-reviewer.agent.md`
 - Institutional learnings:
   - `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
   - `docs/solutions/skill-design/compound-refresh-skill-improvements.md`

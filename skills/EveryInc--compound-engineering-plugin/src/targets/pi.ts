@@ -11,6 +11,7 @@ import {
 } from "../utils/files"
 import { transformContentForPi } from "../converters/claude-to-pi"
 import type { PiBundle } from "../types/pi"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 const PI_AGENTS_BLOCK_START = "<!-- BEGIN COMPOUND PI TOOL MAP -->"
 const PI_AGENTS_BLOCK_END = "<!-- END COMPOUND PI TOOL MAP -->"
@@ -33,6 +34,10 @@ export async function writePiBundle(outputRoot: string, bundle: PiBundle): Promi
   await ensureDir(paths.skillsDir)
   await ensureDir(paths.promptsDir)
   await ensureDir(paths.extensionsDir)
+
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  await cleanupStaleSkillDirs(paths.skillsDir)
+  await cleanupStaleAgents(paths.skillsDir, null)
 
   for (const prompt of bundle.prompts) {
     await writeText(path.join(paths.promptsDir, `${sanitizePathName(prompt.name)}.md`), prompt.content + "\n")

@@ -1453,7 +1453,7 @@ get_provider_tier_param() {
             echo "${CLINE_DEFAULT_MODEL:-${LOKI_CLINE_MODEL:-default}}"
             ;;
         aider)
-            echo "${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-sonnet-4-5-20250929}}"
+            echo "${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
             ;;
         *)
             echo "development"
@@ -3143,7 +3143,7 @@ invoke_cline_capture() {
 invoke_aider() {
     local prompt="$1"
     shift
-    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-sonnet-4-5-20250929}}"
+    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
     local extra_flags="${LOKI_AIDER_FLAGS:-}"
     # shellcheck disable=SC2086
     # < /dev/null prevents aider from blocking on stdin in non-interactive mode
@@ -3156,7 +3156,7 @@ invoke_aider() {
 invoke_aider_capture() {
     local prompt="$1"
     shift
-    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-sonnet-4-5-20250929}}"
+    local model="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
     local extra_flags="${LOKI_AIDER_FLAGS:-}"
     # shellcheck disable=SC2086
     aider --message "$prompt" --yes-always --no-auto-commits \
@@ -3594,9 +3594,13 @@ except: pass
     local prd_escaped
     prd_escaped=$(printf '%s' "${prd:-Codebase Analysis}" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g')
 
-    # Build enriched task JSON with pending task context
-    local task_json
-    if [[ -n "$next_task_context" ]]; then
+    # Build enriched task JSON with pending task context.
+    # Must initialize to empty: this script runs under `set -u` (line 152),
+    # so `local task_json` without a value leaves it unset. When the pending
+    # queue is empty, the enrichment `if` is skipped and the `-z` check below
+    # would fire on an unset variable and kill the run.
+    local task_json=""
+    if [[ -n "${next_task_context:-}" ]]; then
         task_json=$(python3 -c "
 import json, sys
 ctx = json.loads('''$next_task_context''')
@@ -3619,11 +3623,11 @@ if ctx.get('source'):
 if ctx.get('project'):
     task['project'] = ctx['project']
 print(json.dumps(task, indent=2))
-" 2>/dev/null)
+" 2>/dev/null) || task_json=""
     fi
 
     # Fallback to basic task JSON if enrichment failed
-    if [[ -z "$task_json" ]]; then
+    if [[ -z "${task_json:-}" ]]; then
         task_json=$(cat <<EOF
 {
   "id": "$task_id",
@@ -3749,7 +3753,7 @@ track_iteration_complete() {
     elif [ "${PROVIDER_NAME:-claude}" = "cline" ]; then
         model_tier="${CLINE_DEFAULT_MODEL:-${LOKI_CLINE_MODEL:-sonnet}}"
     elif [ "${PROVIDER_NAME:-claude}" = "aider" ]; then
-        model_tier="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-sonnet-4-5-20250929}}"
+        model_tier="${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}"
     fi
     local phase="${LAST_KNOWN_PHASE:-}"
     [ -z "$phase" ] && phase=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', 'unknown'))" 2>/dev/null || echo "unknown")
@@ -5782,6 +5786,53 @@ run_doc_quality_gate() {
 
     # Gate passes if score >= 70
     [ "$score" -ge 70 ]
+}
+
+# ============================================================================
+# Magic Modules Debate Gate - Gate 12 (v6.77.0)
+# Runs when any .loki/magic/specs/*.md changed since last iteration.
+# Blocks iteration completion if debate flags any block severity.
+# ============================================================================
+
+run_magic_debate_gate() {
+    local specs_dir="$TARGET_DIR/.loki/magic/specs"
+    if [ ! -d "$specs_dir" ]; then
+        return 0
+    fi
+
+    local has_specs
+    has_specs=$(find "$specs_dir" -maxdepth 1 -name "*.md" 2>/dev/null | head -1)
+    if [ -z "$has_specs" ]; then
+        return 0
+    fi
+
+    # Auto-run update to catch stale generated files
+    log_info "Magic Modules: running incremental update"
+    (cd "$TARGET_DIR" && PYTHONPATH="$PROJECT_DIR" LOKI_PROVIDER="${PROVIDER_NAME:-claude}" \
+        "$PROJECT_DIR/autonomy/loki" magic update 2>&1 | tail -10) || true
+
+    # Run debate on most recently modified component
+    local latest_spec
+    latest_spec=$(find "$specs_dir" -maxdepth 1 -name "*.md" -type f -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1)
+    if [ -z "$latest_spec" ]; then
+        return 0
+    fi
+    local latest_name
+    latest_name=$(basename "$latest_spec" .md)
+
+    log_info "Magic Modules: running debate on '$latest_name'"
+    local debate_out
+    debate_out=$(cd "$TARGET_DIR" && PYTHONPATH="$PROJECT_DIR" LOKI_PROVIDER="${PROVIDER_NAME:-claude}" \
+        timeout 300 "$PROJECT_DIR/autonomy/loki" magic debate "$latest_name" --rounds 2 2>&1 || true)
+
+    # Parse debate outcome; block if any persona set severity=block
+    if echo "$debate_out" | grep -qi '"severity"[[:space:]]*:[[:space:]]*"block"'; then
+        log_warn "Magic Modules Gate 12: debate returned BLOCK severity for '$latest_name'"
+        return 1
+    fi
+
+    log_info "Magic Modules Gate 12: PASS"
+    return 0
 }
 
 # ============================================================================
@@ -7905,6 +7956,24 @@ except Exception as e:
 PYEOF
 }
 
+# Magic Modules COMPOUND: record successful component patterns (v6.77.0)
+# Called at end of each iteration to capture generated/updated components
+# as semantic memory patterns via magic.core.memory_bridge.
+_magic_compound_capture() {
+    local registry="$TARGET_DIR/.loki/magic/registry.json"
+    if [ ! -f "$registry" ]; then
+        return 0
+    fi
+    # Delegate to memory_bridge (built by agent 3)
+    PYTHONPATH="$PROJECT_DIR" python3 -c "
+try:
+    from magic.core.memory_bridge import capture_iteration_compound
+    capture_iteration_compound('${TARGET_DIR}', iteration=${ITERATION_COUNT:-0})
+except Exception as exc:
+    pass
+" 2>/dev/null || true
+}
+
 # Automatic episode capture with enriched context (v6.15.0)
 # Captures git changes, files modified, and RARV phase automatically
 # after every iteration -- no manual invocation needed.
@@ -8583,6 +8652,21 @@ except Exception:
 " 2>/dev/null || true)
     fi
 
+    # Magic Modules context injection
+    local magic_context=""
+    local magic_specs_dir="$TARGET_DIR/.loki/magic/specs"
+    if [ -d "$magic_specs_dir" ]; then
+        local spec_count
+        spec_count=$(find "$magic_specs_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$spec_count" -gt 0 ]; then
+            local spec_list
+            spec_list=$(find "$magic_specs_dir" -maxdepth 1 -name "*.md" -exec basename {} .md \; 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+            magic_context="MAGIC_MODULES: ${spec_count} component specs exist: ${spec_list}. To add or update a component: write markdown to ${magic_specs_dir}/<Name>.md and run 'loki magic update'. The spec becomes source of truth; implementation regenerates automatically. Debate runs in VERIFY phase -- if accessibility or performance blocks, refine the spec and re-run."
+        else
+            magic_context="MAGIC_MODULES: available. To create UI components, write spec at ${magic_specs_dir}/<Name>.md and run 'loki magic update'. Spec-driven generation produces React + Web Component variants with auto-generated tests. Debate gate runs in VERIFY."
+        fi
+    fi
+
     # Degraded providers with small models need simplified prompts
     # Full RARV/SDLC instructions overwhelm models < 30B parameters
     if [ "${PROVIDER_DEGRADED:-false}" = "true" ]; then
@@ -8607,15 +8691,15 @@ except Exception:
     else
         if [ $retry -eq 0 ]; then
             if [ -n "$prd" ]; then
-                echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
             else
-                echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
             fi
         else
             if [ -n "$prd" ]; then
-                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
             else
-                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
             fi
         fi
     fi
@@ -8821,18 +8905,68 @@ bmad_write_back() {
 # OpenSpec Task Queue Population
 #===============================================================================
 
-# Populate the task queue from OpenSpec task artifacts
-# Only runs once -- skips if queue was already populated from OpenSpec
+# Compute a content hash for a file (cross-platform: uses Python hashlib so
+# behavior is identical on macOS and Linux, no md5/md5sum fork).
+_openspec_content_hash() {
+    local file="$1"
+    [[ -f "$file" ]] || { echo "none"; return 0; }
+    python3 -c "import hashlib,sys; print(hashlib.md5(open(sys.argv[1],'rb').read()).hexdigest())" "$file" 2>/dev/null || echo "none"
+}
+
+# Remove all tasks with source=="openspec" from a queue JSON file, preserving
+# every other source (prd, bmad, mirofish). Atomic: writes tmp + renames.
+purge_openspec_from_queue() {
+    local queue_file="$1"
+    [[ -f "$queue_file" ]] || return 0
+    local tmp="${queue_file}.tmp.$$"
+    if jq '[.[] | select(.source != "openspec")]' "$queue_file" > "$tmp" 2>/dev/null; then
+        local before after
+        before=$(jq 'length' "$queue_file" 2>/dev/null || echo 0)
+        after=$(jq 'length' "$tmp" 2>/dev/null || echo 0)
+        mv "$tmp" "$queue_file"
+        if [[ "$before" != "$after" ]]; then
+            log_info "Purged $((before - after)) OpenSpec tasks from $(basename "$queue_file")"
+        fi
+    else
+        rm -f "$tmp"
+        log_warn "Could not purge OpenSpec tasks from $(basename "$queue_file") (jq failed)"
+        return 1
+    fi
+}
+
+# Populate the task queue from OpenSpec task artifacts.
+# The sentinel .loki/queue/.openspec-populated is scoped per change:
+#   line 1 = change path, line 2 = content hash of openspec-tasks.json.
+# Same path + same hash -> skip (crash-restart preserves progress).
+# Different path -> change switched, purge stale tasks and repopulate.
+# Same path + different hash -> tasks.md edited, purge and repopulate.
 populate_openspec_queue() {
     # Skip if no OpenSpec tasks file
     if [[ ! -f ".loki/openspec-tasks.json" ]]; then
         return 0
     fi
 
-    # Skip if already populated (marker file)
-    if [[ -f ".loki/queue/.openspec-populated" ]]; then
-        log_info "OpenSpec queue already populated, skipping"
-        return 0
+    local sentinel=".loki/queue/.openspec-populated"
+    local current_path="${OPENSPEC_CHANGE_PATH:-}"
+    local current_hash
+    current_hash="$(_openspec_content_hash ".loki/openspec-tasks.json")"
+
+    if [[ -f "$sentinel" ]]; then
+        local stored_path stored_hash
+        stored_path="$(sed -n '1p' "$sentinel")"
+        stored_hash="$(sed -n '2p' "$sentinel")"
+        if [[ "$stored_path" == "$current_path" ]] && [[ "$stored_hash" == "$current_hash" ]]; then
+            log_info "OpenSpec queue already populated for this change (path + hash match), skipping"
+            return 0
+        fi
+        if [[ "$stored_path" != "$current_path" ]]; then
+            log_info "OpenSpec change switched (was: ${stored_path:-<legacy>}, now: ${current_path:-<unset>}) -- purging stale OpenSpec tasks"
+        else
+            log_info "OpenSpec tasks.md content changed (hash mismatch) -- purging and reloading"
+        fi
+        purge_openspec_from_queue ".loki/queue/pending.json"
+        purge_openspec_from_queue ".loki/queue/in-progress.json"
+        purge_openspec_from_queue ".loki/queue/completed.json"
     fi
 
     log_step "Populating task queue from OpenSpec tasks..."
@@ -8905,8 +9039,9 @@ OPENSPEC_QUEUE_EOF
         return 0
     fi
 
-    # Mark as populated so we don't re-add on restart
-    touch ".loki/queue/.openspec-populated"
+    # Mark as populated for this specific change + content hash so we don't
+    # re-add on restart but DO repopulate when change-switching or tasks.md edits.
+    printf '%s\n%s\n' "${OPENSPEC_CHANGE_PATH:-}" "$current_hash" > ".loki/queue/.openspec-populated"
     log_info "OpenSpec queue population complete"
 }
 
@@ -9475,6 +9610,22 @@ run_autonomous() {
     # Populate task queue from PRD (if no adapters already populated, runs once)
     populate_prd_queue "$prd_path"
 
+    # Magic Modules BOOTSTRAP: extract design tokens from project so component
+    # generation matches the codebase design language from iteration 1.
+    if [ -x "${PROJECT_DIR}/autonomy/loki" ]; then
+        PYTHONPATH="${PROJECT_DIR}" python3 -c "
+try:
+    from magic.core.design_tokens import DesignTokens
+    dt = DesignTokens('${TARGET_DIR}')
+    observed = dt.extract_from_codebase(save=True)
+    print(f'[magic] Extracted design tokens: '
+          f'{len(observed.get(\"colors\",{}))} colors, '
+          f'{len(observed.get(\"spacing\",{}))} spacing')
+except Exception as exc:
+    print(f'[magic] Token extraction skipped: {exc}')
+" 2>&1 | grep -E '\[magic\]' || true
+    fi
+
     # Check max iterations before starting
     if check_max_iterations; then
         log_error "Max iterations already reached. Reset with: rm .loki/autonomy-state.json"
@@ -9740,7 +9891,13 @@ def process_stream():
                         elif tool == "Bash":
                             tool_desc = tool_input.get("description", tool_input.get("command", "")[:60])
                         elif tool == "Grep":
-                            tool_desc = f"pattern: {tool_input.get('pattern', '')}"
+                            # This Python block runs inside bash `python3 -u -c '...'`,
+                            # wrapped in a bash single-quoted string. A single-quoted
+                            # Python literal here would close bash SQ mid-code and
+                            # Python would receive a bare identifier instead of the
+                            # "pattern" string, crashing with NameError on every Grep
+                            # tool call. Use double quotes + concatenation only.
+                            tool_desc = "pattern: " + tool_input.get("pattern", "")
                         elif tool == "Glob":
                             tool_desc = tool_input.get("pattern", "")
 
@@ -9895,8 +10052,8 @@ if __name__ == "__main__":
                 ;;
             aider)
                 # Aider: Tier 3 - degraded mode, 18+ providers
-                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-sonnet-4-5-20250929}}, tier: $tier_param" >> "$log_file"
-                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-sonnet-4-5-20250929}}, tier: $tier_param" >> "$agent_log"
+                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}, tier: $tier_param" >> "$log_file"
+                echo "[loki] Aider model: ${AIDER_DEFAULT_MODEL:-${LOKI_AIDER_MODEL:-claude-opus-4-7}}, tier: $tier_param" >> "$agent_log"
                 { invoke_aider "$prompt" 2>&1 | tee -a "$log_file" "$agent_log" "$iter_output"; \
                 } && exit_code=0 || exit_code=$?
                 ;;
@@ -10087,6 +10244,18 @@ if __name__ == "__main__":
                     log_warn "Documentation coverage gate: Score below threshold ($dc_count consecutive)"
                 fi
             fi
+            # Magic Modules debate gate - Gate 12 (v6.77.0)
+            if [ "${LOKI_GATE_MAGIC_DEBATE:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
+                log_info "Quality gate: magic modules debate..."
+                if run_magic_debate_gate; then
+                    clear_gate_failure "magic_debate"
+                else
+                    local md_count
+                    md_count=$(track_gate_failure "magic_debate")
+                    gate_failures="${gate_failures}magic_debate,"
+                    log_warn "Magic Modules debate gate: BLOCK severity detected ($md_count consecutive)"
+                fi
+            fi
             # Store gate failures for prompt injection
             if [ -n "$gate_failures" ]; then
                 echo "$gate_failures" > "${TARGET_DIR:-.}/.loki/quality/gate-failures.txt"
@@ -10105,6 +10274,9 @@ if __name__ == "__main__":
         # Captures RARV phase, git changes, and iteration context automatically
         auto_capture_episode "$ITERATION_COUNT" "$exit_code" "${rarv_phase:-iteration}" \
             "${prd_path:-codebase-analysis}" "$duration" "$log_file"
+
+        # Magic Modules COMPOUND capture (v6.77.0): record component patterns
+        _magic_compound_capture
 
         # BUG-QG-008: Track iteration for convergence regardless of exit code
         if type council_track_iteration &>/dev/null; then

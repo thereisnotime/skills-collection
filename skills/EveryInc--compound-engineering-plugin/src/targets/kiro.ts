@@ -2,10 +2,16 @@ import path from "path"
 import { backupFile, copySkillDir, ensureDir, pathExists, readJson, sanitizePathName, writeJson, writeText } from "../utils/files"
 import { transformContentForKiro } from "../converters/claude-to-kiro"
 import type { KiroBundle } from "../types/kiro"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 export async function writeKiroBundle(outputRoot: string, bundle: KiroBundle): Promise<void> {
   const paths = resolveKiroPaths(outputRoot)
   await ensureDir(paths.kiroDir)
+
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  await cleanupStaleSkillDirs(paths.skillsDir)
+  await cleanupStaleAgents(path.join(paths.agentsDir, "prompts"), ".md")
+  await cleanupStaleAgents(paths.agentsDir, ".json")
 
   // Write agents
   if (bundle.agents.length > 0) {

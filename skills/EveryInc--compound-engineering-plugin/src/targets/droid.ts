@@ -2,10 +2,15 @@ import path from "path"
 import { copySkillDir, ensureDir, resolveCommandPath, sanitizePathName, writeText } from "../utils/files"
 import { transformContentForDroid } from "../converters/claude-to-droid"
 import type { DroidBundle } from "../types/droid"
+import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
 
 export async function writeDroidBundle(outputRoot: string, bundle: DroidBundle): Promise<void> {
   const paths = resolveDroidPaths(outputRoot)
   await ensureDir(paths.root)
+
+  // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
+  await cleanupStaleSkillDirs(paths.skillsDir)
+  await cleanupStaleAgents(paths.droidsDir, ".md")
 
   if (bundle.commands.length > 0) {
     await ensureDir(paths.commandsDir)
