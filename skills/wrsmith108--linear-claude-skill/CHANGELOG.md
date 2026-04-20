@@ -1,3 +1,34 @@
+# [3.2.0](https://github.com/wrsmith108/linear-claude-skill/compare/v3.1.0...v3.2.0) (2026-04-19)
+
+
+### Features
+
+* **labels:** add retry/backoff wrapper so 429 responses don't fail the run (SMI-4346) ([#23](https://github.com/wrsmith108/linear-claude-skill/issues/23)) ([bb8c87e](https://github.com/wrsmith108/linear-claude-skill/commit/bb8c87ec9d6f955685210a898f7edfb4bada6ebb))
+
+# [3.1.0](https://github.com/wrsmith108/linear-claude-skill/compare/v3.0.0...v3.1.0) (2026-04-19)
+
+
+### Features
+
+* close MCP AC gap + sync SKILL.md version on release (SMI-4324, SMI-4325) ([#20](https://github.com/wrsmith108/linear-claude-skill/issues/20)) ([2c2350c](https://github.com/wrsmith108/linear-claude-skill/commit/2c2350c95f4293c4c3c02ad06ab4e70c548381ae))
+
+# [3.0.0](https://github.com/wrsmith108/linear-claude-skill/compare/v2.7.2...v3.0.0) (2026-04-19)
+
+
+* feat(issues)!: require Acceptance Criteria on new issues (SMI-4324) ([fb04c0e](https://github.com/wrsmith108/linear-claude-skill/commit/fb04c0e80c4a4b558468df9b5fca0293d4521ae9))
+
+
+### BREAKING CHANGES
+
+* CLI create-issue / create-sub-issue / batch project
+creation now exit non-zero when the description fails validation.
+Scripts that previously passed short or empty descriptions must be
+updated. Set LINEAR_REQUIRE_ACCEPTANCE_CRITERIA=0 to restore prior
+behavior globally, or pass --strict=false per call.
+
+Co-Authored-By: claude-flow <ruv@ruv.net>
+Co-Authored-By: Claude <noreply@anthropic.com>
+
 ## [2.7.2](https://github.com/wrsmith108/linear-claude-skill/compare/v2.7.1...v2.7.2) (2026-04-11)
 
 

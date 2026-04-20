@@ -20,7 +20,7 @@
 <div align="center">
 
 [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
-![Skills Count](https://img.shields.io/badge/Skills-1184+-blue?style=flat-square)
+![Skills Count](https://img.shields.io/badge/Skills-1100+-blue?style=flat-square)
 ![Last Update](https://img.shields.io/github/last-commit/VoltAgent/awesome-agent-skills?label=Last%20update&style=flat-square)
 <a href="https://github.com/VoltAgent/voltagent">
   <img alt="VoltAgent" src="https://cdn.voltagent.dev/website/logo/logo-2-svg.svg" height="20" />
@@ -66,7 +66,7 @@ The most contributed Agent Skills repository, built and maintained together with
 
 | | | | |
 |---|---|---|---|
-| [Claude](#official-claude-skills) | [VoltAgent](#skills-by-voltagent) | [Composio](#skills-by-composio-team) | [Supabase](#skills-by-supabase-team) |
+| [Claude](#official-claude-skills) | [VoltAgent](#skills-by-voltagent) | [Angular](#skills-by-angular) | [Composio](#skills-by-composio-team) | [Supabase](#skills-by-supabase-team) |
 | [Google Gemini](#skills-by-google-gemini) | [Stripe](#skills-by-stripe-team) | [Courier](#skills-by-courier) | [CallStack](#skills-by-callstack) |
 | [Expo](#skills-by-expo-team) | [Better Auth](#skills-by-better-auth-team) | [Tinybird](#skills-by-tinybird-team) | [HashiCorp](#skills-by-hashicorp-team-for-terraform) |
 | [Sanity](#skills-by-sanity-team) | [Firecrawl](#skills-by-firecrawl-team) | [Neon](#skills-by-neon-team) | [ClickHouse](#skill-by-clickhouse) |
@@ -119,6 +119,10 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 - **[voltagent/voltagent-best-practices](https://officialskills.sh/voltagent/skills/voltagent-best-practices)** - Architecture and usage patterns for agents, workflows, memory, and servers
 - **[voltagent/voltagent-core-reference](https://officialskills.sh/voltagent/skills/voltagent-core-reference)** - Reference for the VoltAgent class options and lifecycle methods
 - **[voltagent/voltagent-docs-bundle](https://officialskills.sh/voltagent/skills/voltagent-docs-bundle)** - Lookup embedded docs from @voltagent/core for version-matched documentation
+
+### Skills by Angular
+- **[angular/angular-developer](https://github.com/angular/skills)** - Generate Angular code and architectural guidance for components, services, reactivity
+- **[angular/angular-new-app](https://github.com/angular/skills)** - Create new Angular apps using CLI with modern best practices
 
 ### Skills by Composio Team
 - **[composiohq/composio](https://officialskills.sh/composiohq/skills/composio)** - Connect AI agents to 1000+ external apps with managed authentication
@@ -179,14 +183,11 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 - **[sanity-io/content-experimentation-best-practices](https://officialskills.sh/sanity-io/skills/content-experimentation-best-practices)** - Content A/B testing and experimentation workflows
 
 ### Skills by Firecrawl Team
-- **[firecrawl/firecrawl-cli](https://officialskills.sh/firecrawl/skills/firecrawl-cli)** - Scrape, crawl, search, and map the web via CLI
-- **[firecrawl/firecrawl-agent](https://officialskills.sh/firecrawl/skills/firecrawl-agent)** - AI agent for autonomous web scraping and data extraction
-- **[firecrawl/firecrawl-browser](https://officialskills.sh/firecrawl/skills/firecrawl-browser)** - Browser-based web scraping and interaction
-- **[firecrawl/firecrawl-crawl](https://officialskills.sh/firecrawl/skills/firecrawl-crawl)** - Crawl websites and extract structured data
-- **[firecrawl/firecrawl-download](https://officialskills.sh/firecrawl/skills/firecrawl-download)** - Download web content and files
-- **[firecrawl/firecrawl-map](https://officialskills.sh/firecrawl/skills/firecrawl-map)** - Map website structure and sitemaps
-- **[firecrawl/firecrawl-scrape](https://officialskills.sh/firecrawl/skills/firecrawl-scrape)** - Scrape web pages and extract content
-- **[firecrawl/firecrawl-search](https://officialskills.sh/firecrawl/skills/firecrawl-search)** - Search the web and extract results
+- **[firecrawl/firecrawl-build](https://officialskills.sh/firecrawl/skills/firecrawl-build)** - Integrate Firecrawl into application code for web search, scraping, extraction, and browser interaction
+- **[firecrawl/firecrawl-build-interact](https://officialskills.sh/firecrawl/skills/firecrawl-build-interact)** - Multi-step Firecrawl browser flows: clicks, form fills, pagination, and auth-aware navigation
+- **[firecrawl/firecrawl-build-onboarding](https://officialskills.sh/firecrawl/skills/firecrawl-build-onboarding)** - Set up Firecrawl credentials and SDK in a project for the first integration
+- **[firecrawl/firecrawl-build-scrape](https://officialskills.sh/firecrawl/skills/firecrawl-build-scrape)** - Integrate Firecrawl `/scrape` for single-page extraction from product code
+- **[firecrawl/firecrawl-build-search](https://officialskills.sh/firecrawl/skills/firecrawl-build-search)** - Integrate Firecrawl `/search` for query-first discovery with optional content hydration
 
 ### Skills by Neon
 - **[neondatabase/neon-postgres](https://officialskills.sh/neondatabase/skills/neon-postgres)** - Best practices for Neon Serverless Postgres
@@ -194,8 +195,13 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 - **[neondatabase/neon-postgres-egress-optimizer](https://officialskills.sh/neondatabase/skills/neon-postgres-egress-optimizer)** - Optimize Neon Postgres egress and data transfer
 
 
-### Skill by ClickHouse 
+### Skills by ClickHouse
 - **[clickhouse/clickhouse-best-practices](https://officialskills.sh/clickhouse/skills/clickhouse-best-practices)** - Best practices for working with ClickHouse
+- **[clickhouse/chdb-datastore](https://officialskills.sh/clickhouse/skills/chdb-datastore)** - Drop-in pandas replacement with ClickHouse performance across 16+ data sources
+- **[clickhouse/chdb-sql](https://officialskills.sh/clickhouse/skills/chdb-sql)** - In-process ClickHouse SQL engine for Python — query files, databases, and cloud storage without a server
+- **[clickhouse/clickhouse-architecture-advisor](https://officialskills.sh/clickhouse/skills/clickhouse-architecture-advisor)** - Design ClickHouse architectures and translate best practices into workload-specific decisions
+- **[clickhouse/clickhousectl-cloud-deploy](https://officialskills.sh/clickhouse/skills/clickhousectl-cloud-deploy)** - Deploy to ClickHouse Cloud and migrate from local setups with clickhousectl
+- **[clickhouse/clickhousectl-local-dev](https://officialskills.sh/clickhouse/skills/clickhousectl-local-dev)** - Spin up a local ClickHouse development environment from zero with clickhousectl
 
 ### Skills by Remotion 
 - **[remotion-dev/remotion](https://officialskills.sh/remotion-dev/skills/remotion)** - Programmatic video creation with React
@@ -223,10 +229,12 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 <summary><h3 style="display:inline">Skills by Cloudflare Team</h3></summary>
 
 - **[cloudflare/agents-sdk](https://officialskills.sh/cloudflare/skills/agents-sdk)** - Build stateful AI agents with scheduling, RPC, and MCP servers
-- **[cloudflare/building-ai-agent-on-cloudflare](https://officialskills.sh/cloudflare/skills/building-ai-agent-on-cloudflare)** - Build AI agents with state and WebSockets on Cloudflare
-- **[cloudflare/building-mcp-server-on-cloudflare](https://officialskills.sh/cloudflare/skills/building-mcp-server-on-cloudflare)** - Build remote MCP servers with tools and OAuth
+- **[cloudflare/cloudflare](https://officialskills.sh/cloudflare/skills/cloudflare)** - Comprehensive Cloudflare platform skill covering Workers, Pages, storage, AI, networking, security, and IaC
+- **[cloudflare/cloudflare-email-service](https://officialskills.sh/cloudflare/skills/cloudflare-email-service)** - Send transactional email and route inbound mail with Cloudflare Email Sending and Email Routing
 - **[cloudflare/durable-objects](https://officialskills.sh/cloudflare/skills/durable-objects)** - Stateful coordination with RPC, SQLite, and WebSockets
+- **[cloudflare/sandbox-sdk](https://officialskills.sh/cloudflare/skills/sandbox-sdk)** - Build sandboxed applications for secure, isolated code execution on Workers
 - **[cloudflare/web-perf](https://officialskills.sh/cloudflare/skills/web-perf)** - Audit Core Web Vitals and render-blocking resources
+- **[cloudflare/workers-best-practices](https://officialskills.sh/cloudflare/skills/workers-best-practices)** - Review and author Workers code against production best practices and wrangler.jsonc conventions
 - **[cloudflare/wrangler](https://officialskills.sh/cloudflare/skills/wrangler)** - Deploy and manage Workers, KV, R2, D1, Vectorize, Queues, Workflows
 
 </details>
@@ -358,13 +366,34 @@ Official AI agent skills from the Hugging Face team for ML workflows.
 <details>
 <summary><h3 style="display:inline">Skills by Sentry team for their dev team.</h3></summary>
 
-- **[getsentry/agents-md](https://officialskills.sh/getsentry/skills/agents-md)** - Generate and manage AGENTS.md files
-- **[getsentry/claude-settings-audit](https://officialskills.sh/getsentry/skills/claude-settings-audit)** - Audit Claude settings configuration
-- **[getsentry/code-review](https://officialskills.sh/getsentry/skills/code-review)** - Perform code reviews
-- **[getsentry/commit](https://officialskills.sh/getsentry/skills/commit)** - Create commits with best practices
-- **[getsentry/create-pr](https://officialskills.sh/getsentry/skills/create-pr)** - Create pull requests
-- **[getsentry/find-bugs](https://officialskills.sh/getsentry/skills/find-bugs)** - Find and identify bugs in code
-- **[getsentry/iterate-pr](https://officialskills.sh/getsentry/skills/iterate-pr)** - Iterate on pull request feedback
+- **[getsentry/sentry-sdk-setup](https://officialskills.sh/getsentry/skills/sentry-sdk-setup)** - Set up Sentry in any language or framework — detects platform and routes to the right SDK
+- **[getsentry/sentry-workflow](https://officialskills.sh/getsentry/skills/sentry-workflow)** - End-to-end Sentry workflow: fix production issues and review code with Sentry context
+- **[getsentry/sentry-fix-issues](https://officialskills.sh/getsentry/skills/sentry-fix-issues)** - Find and fix Sentry issues with stack trace, breadcrumb, and trace context via MCP
+- **[getsentry/sentry-code-review](https://officialskills.sh/getsentry/skills/sentry-code-review)** - Review code changes using Sentry issue and trace context
+- **[getsentry/sentry-pr-code-review](https://officialskills.sh/getsentry/skills/sentry-pr-code-review)** - Review PR comments from Seer Bug Prediction and Sentry feedback
+- **[getsentry/sentry-create-alert](https://officialskills.sh/getsentry/skills/sentry-create-alert)** - Create Sentry alerts with email, Slack, PagerDuty, Discord, and more
+- **[getsentry/sentry-feature-setup](https://officialskills.sh/getsentry/skills/sentry-feature-setup)** - Configure advanced Sentry features: AI monitoring, OTel pipelines, and alerts
+- **[getsentry/sentry-otel-exporter-setup](https://officialskills.sh/getsentry/skills/sentry-otel-exporter-setup)** - Configure the OpenTelemetry Collector with Sentry Exporter
+- **[getsentry/sentry-setup-ai-monitoring](https://officialskills.sh/getsentry/skills/sentry-setup-ai-monitoring)** - Instrument OpenAI, Anthropic, Vercel AI, LangChain, Google GenAI, and Pydantic AI
+- **[getsentry/sentry-sdk-upgrade](https://officialskills.sh/getsentry/skills/sentry-sdk-upgrade)** - Upgrade the Sentry JavaScript SDK across major versions
+- **[getsentry/sentry-sdk-skill-creator](https://officialskills.sh/getsentry/skills/sentry-sdk-skill-creator)** - Create a new Sentry SDK skill bundle for a platform
+- **[getsentry/sentry-android-sdk](https://officialskills.sh/getsentry/skills/sentry-android-sdk)** - Full Sentry SDK setup for Android (Kotlin and Java)
+- **[getsentry/sentry-browser-sdk](https://officialskills.sh/getsentry/skills/sentry-browser-sdk)** - Full Sentry SDK setup for browser JavaScript
+- **[getsentry/sentry-cloudflare-sdk](https://officialskills.sh/getsentry/skills/sentry-cloudflare-sdk)** - Full Sentry SDK setup for Cloudflare Workers, Pages, Durable Objects, Queues, and Workflows
+- **[getsentry/sentry-cocoa-sdk](https://officialskills.sh/getsentry/skills/sentry-cocoa-sdk)** - Full Sentry SDK setup for Apple platforms (iOS, macOS, tvOS, watchOS, visionOS)
+- **[getsentry/sentry-dotnet-sdk](https://officialskills.sh/getsentry/skills/sentry-dotnet-sdk)** - Full Sentry SDK setup for .NET (ASP.NET Core, MAUI, WPF, WinForms, Blazor, Azure Functions)
+- **[getsentry/sentry-elixir-sdk](https://officialskills.sh/getsentry/skills/sentry-elixir-sdk)** - Full Sentry SDK setup for Elixir, Phoenix, Plug, LiveView, Oban, and Quantum
+- **[getsentry/sentry-flutter-sdk](https://officialskills.sh/getsentry/skills/sentry-flutter-sdk)** - Full Sentry SDK setup for Flutter and Dart across all platforms
+- **[getsentry/sentry-go-sdk](https://officialskills.sh/getsentry/skills/sentry-go-sdk)** - Full Sentry SDK setup for Go (net/http, Gin, Echo, Fiber, FastHTTP, Iris, Negroni)
+- **[getsentry/sentry-nestjs-sdk](https://officialskills.sh/getsentry/skills/sentry-nestjs-sdk)** - Full Sentry SDK setup for NestJS with Express or Fastify, GraphQL, microservices
+- **[getsentry/sentry-nextjs-sdk](https://officialskills.sh/getsentry/skills/sentry-nextjs-sdk)** - Full Sentry SDK setup for Next.js 13+ (App Router and Pages Router)
+- **[getsentry/sentry-node-sdk](https://officialskills.sh/getsentry/skills/sentry-node-sdk)** - Full Sentry SDK setup for Node.js, Bun, and Deno
+- **[getsentry/sentry-php-sdk](https://officialskills.sh/getsentry/skills/sentry-php-sdk)** - Full Sentry SDK setup for PHP, Laravel, and Symfony
+- **[getsentry/sentry-python-sdk](https://officialskills.sh/getsentry/skills/sentry-python-sdk)** - Full Sentry SDK setup for Python (Django, Flask, FastAPI, Celery, Starlette, AIOHTTP, Tornado)
+- **[getsentry/sentry-react-native-sdk](https://officialskills.sh/getsentry/skills/sentry-react-native-sdk)** - Full Sentry SDK setup for React Native and Expo
+- **[getsentry/sentry-react-sdk](https://officialskills.sh/getsentry/skills/sentry-react-sdk)** - Full Sentry SDK setup for React (React Router v5-v7, TanStack Router, Redux, Vite, webpack)
+- **[getsentry/sentry-ruby-sdk](https://officialskills.sh/getsentry/skills/sentry-ruby-sdk)** - Full Sentry SDK setup for Ruby (Rails, Sinatra, Rack, Sidekiq, Resque)
+- **[getsentry/sentry-svelte-sdk](https://officialskills.sh/getsentry/skills/sentry-svelte-sdk)** - Full Sentry SDK setup for Svelte and SvelteKit
 
 </details>
 
@@ -1204,6 +1233,7 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[blader/humanizer](https://github.com/blader/humanizer)** - Remove signs of AI-generated writing from text, making it sound more natural and human
 - **[Eronred/aso-skills](https://github.com/Eronred/aso-skills)** - 30+ App Store Optimization skills for keyword research, metadata optimization, competitor analysis, creative optimization, and mobile growth strategies via Appeeky API
 - **[degausai/wonda](https://github.com/degausai/wonda)** - AI content creation: images, video, music, audio, editing, publishing
+- **[gitroomhq/postiz-agent](https://github.com/gitroomhq/postiz-agent)** - Schedule social media posts across 28+ platforms programmatically
 
 </details>
 
@@ -1335,6 +1365,7 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[muratcankoylan/tool-design](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering/tree/main/skills/tool-design)** - Build tools that agents can use effectively, including architectural reduction patterns
 - **[muratcankoylan/evaluation](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering/tree/main/skills/evaluation)** - Build evaluation frameworks for agent systems
 - **[k-kolomeitsev/data-structure-protocol](https://github.com/k-kolomeitsev/data-structure-protocol)** - Graph-based long-term memory skill for AI (LLM) coding agents — faster context, fewer tokens, safer refactors
+- **[awrshift/claude-memory-kit](https://github.com/awrshift/claude-memory-kit)** - Persistent memory with hooks, wiki, and daily synthesis for multi-project workflows
 - **[NeoLabHQ/prompt-engineering](https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/customaize-agent/skills/prompt-engineering)** - Widely used prompt engineering techniques and patterns, including Anthropic best practices and agent persuasion principles.
 
 </details>

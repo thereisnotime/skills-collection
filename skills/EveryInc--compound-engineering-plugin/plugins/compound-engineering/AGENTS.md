@@ -83,6 +83,7 @@ When adding or modifying skills, verify compliance with the skill spec:
 - [ ] `name:` present and matches directory name (lowercase-with-hyphens)
 - [ ] `description:` present and describes **what it does and when to use it** (per official spec: "Explains code with diagrams. Use when exploring how code works.")
 - [ ] `description:` value is quoted (single or double) if it contains colons -- unquoted colons break `js-yaml` strict parsing and crash `install --to opencode/codex`. Run `bun test tests/frontmatter.test.ts` to verify.
+- [ ] `description:` value does not contain raw angle-bracket tokens like `<skill-name>`, `<tag>`, or `<placeholder>` -- Cowork's plugin validator parses descriptions as HTML and rejects unknown tags with a generic "Plugin validation failed" banner (see issue #602). Claude Code tolerates them, so the bug only surfaces downstream. Backtick-wrap the token (`` `<skill-name>` ``) or rephrase. Enforced by `tests/frontmatter.test.ts`.
 
 ### Reference File Inclusion (Required if references/ exists)
 
@@ -214,6 +215,10 @@ Beta skills use a `-beta` suffix and `disable-model-invocation: true` to prevent
 ### Stable/Beta Sync
 
 When modifying a skill that has a `-beta` counterpart (or vice versa), always check the other version and **state your sync decision explicitly** before committing — e.g., "Propagated to beta — shared test guidance" or "Not propagating — this is the experimental delegate mode beta exists to test." Syncing to both, stable-only, and beta-only are all valid outcomes. The goal is deliberate reasoning, not a default rule.
+
+## Documented Solutions
+
+`docs/solutions/` holds documented solutions to past problems — bugs, architecture patterns, design patterns, tooling decisions, conventions, workflow practices, and other institutional knowledge. Entries use YAML frontmatter with fields including `module`, `tags`, and `problem_type`. Knowledge-track `problem_type` values are `architecture_pattern`, `design_pattern`, `tooling_decision`, `convention`, `workflow_issue`, `developer_experience`, `documentation_gap`, and `best_practice` (fallback). Bug-track values cover `build_error`, `test_failure`, `runtime_error`, `performance_issue`, `database_issue`, `security_issue`, `ui_bug`, `integration_issue`, and `logic_error`. Search this directory before designing new solutions so institutional memory compounds across changes.
 
 ## Documentation
 

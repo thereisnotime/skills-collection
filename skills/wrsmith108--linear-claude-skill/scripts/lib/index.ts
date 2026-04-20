@@ -71,6 +71,18 @@ export {
   formatSuggestions
 } from './taxonomy-validation'
 
+// Issue description validation
+export {
+  validateIssueDescription,
+  buildIssueTemplate,
+  formatDescriptionValidationResult,
+  formatWarningsOnly,
+  isStrictMode,
+  MIN_BODY_CHARS,
+  MIN_AC_ITEMS,
+  type DescriptionValidationResult
+} from './issue-description'
+
 export {
   selectAgentsForIssue,
   getLabelsForAgent,
@@ -130,3 +142,14 @@ export {
   type IssueConfig,
   type CreateResult
 } from './project-template'
+
+// Retry helper
+export {
+  withRetry,
+  extractStatusCode,
+  extractRetryAfterMs,
+  isRetryableStatus,
+  isRetryDisabled,
+  computeBackoffMs,
+  type RetryOptions
+} from './retry'
