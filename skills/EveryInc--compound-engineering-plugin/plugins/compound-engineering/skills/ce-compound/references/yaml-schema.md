@@ -89,3 +89,30 @@ Docs created before the track system may have `symptoms`/`root_cause`/`resolutio
 7. Array fields must respect min/max item counts.
 8. `date` must match `YYYY-MM-DD`.
 9. `rails_version`, if present, must match `X.Y.Z` and only applies to bug-track docs.
+
+## YAML Safety Rules
+
+Strict YAML 1.2 parsers (`yq`, `js-yaml` strict, PyYAML) reject array items
+that start with a reserved indicator character as unquoted scalars. When
+writing items for any array-of-strings field (`symptoms`, `applies_when`,
+`tags`, `related_components`, or any future array field), wrap the value in
+double quotes if it starts with any of:
+
+`` ` ``, `[`, `*`, `&`, `!`, `|`, `>`, `%`, `@`, `?`
+
+Also quote if the value contains the substring `": "` — that punctuation
+confuses flow-style parsers.
+
+Example — before (breaks strict YAML):
+
+    symptoms:
+      - `sudo dscacheutil -flushcache` does not restore in-container mDNS
+
+Example — after (parses cleanly):
+
+    symptoms:
+      - "`sudo dscacheutil -flushcache` does not restore in-container mDNS"
+
+This rule applies to all array-of-strings frontmatter fields. Scalar string
+fields like `description:` have their own quoting rules (see plugin
+`AGENTS.md` under "YAML Frontmatter").

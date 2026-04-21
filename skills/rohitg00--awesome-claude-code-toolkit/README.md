@@ -2,6 +2,14 @@
 
 **The most comprehensive toolkit for Claude Code -- 135 agents, 35 curated skills (+400,000 via [SkillKit](https://agenstskills.com)), 42 commands, 176+ plugins, 20 hooks, 15 rules, 7 templates, 14 MCP configs, 26 companion apps, 53 ecosystem entries, and more.**
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/21839" target="_blank">
+    <img src="https://trendshift.io/api/badge/repositories/21839"
+         alt="rohitg00/awesome-claude-code-toolkit | Trendshift"
+         width="250" height="55" />
+  </a>
+</p>
+  
 [![Awesome](https://cdn.rawgit.com/sindresorhus/awesome/d7305f38d29fed78fa85652e3a63e154dd8e8829/media/badge.svg)](https://github.com/sindresorhus/awesome)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)

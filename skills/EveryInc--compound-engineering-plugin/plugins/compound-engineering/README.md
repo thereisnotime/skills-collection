@@ -17,7 +17,7 @@ After installing, run `/ce-setup` in any project. It diagnoses your environment,
 
 ### Core Workflow
 
-The primary entry points for engineering work, invoked as slash commands:
+The primary entry points for engineering work are skills invoked with slash syntax:
 
 | Skill | Description |
 |-------|-------------|

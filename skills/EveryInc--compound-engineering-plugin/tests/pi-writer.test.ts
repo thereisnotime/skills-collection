@@ -5,6 +5,8 @@ import os from "os"
 import { writePiBundle } from "../src/targets/pi"
 import { parseFrontmatter } from "../src/utils/frontmatter"
 import type { PiBundle } from "../src/types/pi"
+import { loadClaudePlugin } from "../src/parsers/claude"
+import { convertClaudeToPi } from "../src/converters/claude-to-pi"
 
 async function exists(filePath: string): Promise<boolean> {
   try {
@@ -59,6 +61,7 @@ describe("writePiBundle", () => {
     const outputRoot = path.join(tempRoot, ".pi")
 
     const bundle: PiBundle = {
+      pluginName: "compound-engineering",
       prompts: [{ name: "workflows-plan", content: "Prompt content" }],
       skillDirs: [
         {
@@ -82,6 +85,7 @@ describe("writePiBundle", () => {
     expect(await exists(path.join(outputRoot, "skills", "repo-research-analyst", "SKILL.md"))).toBe(true)
     expect(await exists(path.join(outputRoot, "extensions", "compound-engineering-compat.ts"))).toBe(true)
     expect(await exists(path.join(outputRoot, "compound-engineering", "mcporter.json"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "compound-engineering", "install-manifest.json"))).toBe(true)
 
     const agentsPath = path.join(outputRoot, "AGENTS.md")
     const agentsContent = await fs.readFile(agentsPath, "utf8")
@@ -174,5 +178,126 @@ Run these research agents:
 
     const currentConfig = JSON.parse(await fs.readFile(configPath, "utf8")) as { mcpServers: Record<string, unknown> }
     expect(currentConfig.mcpServers.linear).toBeDefined()
+  })
+
+  test("removes previously managed Pi artifacts that disappear on reinstall", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-managed-cleanup-"))
+    const outputRoot = path.join(tempRoot, ".pi")
+
+    await writePiBundle(outputRoot, {
+      pluginName: "compound-engineering",
+      prompts: [{ name: "old-prompt", content: "Prompt content" }],
+      skillDirs: [
+        {
+          name: "skill-one",
+          sourceDir: path.join(import.meta.dir, "fixtures", "sample-plugin", "skills", "skill-one"),
+        },
+      ],
+      generatedSkills: [{ name: "old-agent", content: "---\nname: old-agent\n---\n\nBody" }],
+      extensions: [{ name: "compound-engineering-compat.ts", content: "export default function first() {}" }],
+    })
+
+    await writePiBundle(outputRoot, {
+      pluginName: "compound-engineering",
+      prompts: [{ name: "new-prompt", content: "Prompt content" }],
+      skillDirs: [],
+      generatedSkills: [{ name: "new-agent", content: "---\nname: new-agent\n---\n\nBody" }],
+      extensions: [],
+    })
+
+    expect(await exists(path.join(outputRoot, "prompts", "old-prompt.md"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "prompts", "new-prompt.md"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "skills", "skill-one", "SKILL.md"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "skills", "old-agent", "SKILL.md"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "skills", "new-agent", "SKILL.md"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "extensions", "compound-engineering-compat.ts"))).toBe(false)
+  })
+
+  test("namespaces managed install manifests per plugin so installs do not collide", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-multi-plugin-"))
+    const outputRoot = path.join(tempRoot, ".pi")
+
+    // Install plugin A first, with a prompt, skill, generated skill, and extension
+    await writePiBundle(outputRoot, {
+      pluginName: "compound-engineering",
+      prompts: [{ name: "ce-prompt", content: "CE prompt" }],
+      skillDirs: [
+        {
+          name: "ce-skill",
+          sourceDir: path.join(import.meta.dir, "fixtures", "sample-plugin", "skills", "skill-one"),
+        },
+      ],
+      generatedSkills: [{ name: "ce-gen-skill", content: "---\nname: ce-gen-skill\n---\n\nBody" }],
+      extensions: [{ name: "ce-ext.ts", content: "export default function () {}" }],
+    })
+
+    // Install plugin B into the same Pi root
+    await writePiBundle(outputRoot, {
+      pluginName: "coding-tutor",
+      prompts: [{ name: "tutor-prompt", content: "Tutor prompt" }],
+      skillDirs: [
+        {
+          name: "tutor-skill",
+          sourceDir: path.join(import.meta.dir, "fixtures", "sample-plugin", "skills", "skill-one"),
+        },
+      ],
+      generatedSkills: [{ name: "tutor-gen-skill", content: "---\nname: tutor-gen-skill\n---\n\nBody" }],
+      extensions: [{ name: "tutor-ext.ts", content: "export default function () {}" }],
+    })
+
+    // Both plugins must keep their own namespaced manifest
+    expect(await exists(path.join(outputRoot, "compound-engineering", "install-manifest.json"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "coding-tutor", "install-manifest.json"))).toBe(true)
+
+    // Reinstall plugin A with no artifacts — it must clean up only its own
+    // managed artifacts, leaving plugin B's intact (the bug the namespacing fix
+    // addresses: a shared manifest path would have lost B's manifest after A
+    // was installed, and a later A reinstall would skip B's stale-file cleanup).
+    await writePiBundle(outputRoot, {
+      pluginName: "compound-engineering",
+      prompts: [],
+      skillDirs: [],
+      generatedSkills: [],
+      extensions: [],
+    })
+
+    expect(await exists(path.join(outputRoot, "prompts", "ce-prompt.md"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "skills", "ce-skill"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "skills", "ce-gen-skill"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "extensions", "ce-ext.ts"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "prompts", "tutor-prompt.md"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "skills", "tutor-skill"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "skills", "tutor-gen-skill"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "extensions", "tutor-ext.ts"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "coding-tutor", "install-manifest.json"))).toBe(true)
+  })
+
+  test("moves legacy flat Pi CE artifacts to a namespaced backup", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "pi-legacy-artifacts-"))
+    const outputRoot = path.join(tempRoot, ".pi")
+
+    await fs.mkdir(path.join(outputRoot, "skills", "reproduce-bug"), { recursive: true })
+    await fs.writeFile(path.join(outputRoot, "skills", "reproduce-bug", "SKILL.md"), "legacy removed skill")
+    await fs.mkdir(path.join(outputRoot, "skills", "bug-reproduction-validator"), { recursive: true })
+    await fs.writeFile(path.join(outputRoot, "skills", "bug-reproduction-validator", "SKILL.md"), "legacy removed agent skill")
+    await fs.mkdir(path.join(outputRoot, "prompts"), { recursive: true })
+    await fs.writeFile(path.join(outputRoot, "prompts", "reproduce-bug.md"), "legacy removed prompt")
+    await fs.writeFile(path.join(outputRoot, "prompts", "report-bug.md"), "legacy deleted command prompt")
+
+    const plugin = await loadClaudePlugin(path.join(import.meta.dir, "..", "plugins", "compound-engineering"))
+    const bundle = convertClaudeToPi(plugin, {
+      agentMode: "subagent",
+      inferTemperature: true,
+      permissions: "none",
+    })
+    await writePiBundle(outputRoot, bundle)
+
+    expect(await exists(path.join(outputRoot, "skills", "reproduce-bug"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "skills", "bug-reproduction-validator"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "prompts", "reproduce-bug.md"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "prompts", "report-bug.md"))).toBe(false)
+    expect(await exists(path.join(outputRoot, "skills", "ce-plan", "SKILL.md"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "skills", "ce-repo-research-analyst", "SKILL.md"))).toBe(true)
+    expect(await exists(path.join(outputRoot, "compound-engineering", "legacy-backup"))).toBe(true)
   })
 })

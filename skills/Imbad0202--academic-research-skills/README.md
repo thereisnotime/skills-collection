@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.3.6-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.3.6)
+[![Version](https://img.shields.io/badge/version-v3.4.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.4.0)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -288,6 +288,15 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## Changelog
+
+### v3.4.0 (2026-04-20) — Compliance Agent + Schema 12
+
+- **Compliance Agent** (shared): single mode-aware agent running PRISMA-trAIce 17 items (SR mode only) + RAISE 4 principles + 8-role matrix. Hooks existing Stage 2.5 / 4.5 Integrity Gates; tier-based block (Mandatory → block, HR → warn, R/O → info). Non-SR entries run principles-only, warn-only.
+- **Schema 12 compliance_report** appended to Material Passport via `compliance_history[]` (append-only).
+- **3-round user-override ladder** auto-injects `disclosure_addendum` into manuscript. No detection evasion possible.
+- **Calibration with transparent reporting**, no hard FNR/FPR gate — self-consistent with `task_type: open-ended`.
+- **Upstream freshness CI** warns on PRISMA-trAIce drift (non-blocking).
+- **Long-running session docs**: Material Passport as cross-session resume mechanism.
 
 ### v3.3.6 (2026-04-15) — README Streamlining + ARCHITECTURE doc
 

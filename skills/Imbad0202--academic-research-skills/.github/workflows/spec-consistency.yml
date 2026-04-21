@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: spec-consistency-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   spec-consistency:
     runs-on: ubuntu-latest
@@ -33,3 +37,8 @@ jobs:
         env:
           PYTHONPATH: scripts
         run: python3 scripts/check_task_type.py
+
+      - name: Run compliance validator + fixture unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_compliance_report scripts.test_validate_compliance_fixtures -v

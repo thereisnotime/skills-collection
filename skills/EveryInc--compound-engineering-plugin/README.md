@@ -19,7 +19,7 @@ Compound engineering inverts this. 80% is in planning and review, 20% is in exec
 
 **Learn more**
 
-- [Full component reference](plugins/compound-engineering/README.md) - all agents, commands, skills
+- [Full component reference](plugins/compound-engineering/README.md) - all agents and skills
 - [Compound engineering: how Every codes with agents](https://every.to/chain-of-thought/compound-engineering-how-every-codes-with-agents)
 - [The story behind compounding engineering](https://every.to/source-code/my-ai-had-already-fixed-the-code-before-i-saw-it)
 
@@ -31,7 +31,7 @@ Brainstorm -> Plan -> Work -> Review -> Compound -> Repeat
   Ideate (optional -- when you need ideas)
 ```
 
-| Command | Purpose |
+| Skill | Purpose |
 |---------|---------|
 | `/ce-ideate` | Discover high-impact project improvements through divergent ideation and adversarial filtering |
 | `/ce-brainstorm` | Explore requirements and approaches before planning |
@@ -63,13 +63,114 @@ After installing, run `/ce-setup` in any project. It checks your environment, in
 
 ### Cursor
 
+In Cursor Agent chat, install from the plugin marketplace:
+
 ```text
 /add-plugin compound-engineering
 ```
 
-### OpenCode, Codex, Droid, Pi, Gemini, Copilot, Kiro, Windsurf, OpenClaw & Qwen (experimental)
+Or search for "compound engineering" in the plugin marketplace.
 
-This repo includes a Bun/TypeScript CLI that converts Claude Code plugins to OpenCode, Codex, Factory Droid, Pi, Gemini CLI, GitHub Copilot, Kiro CLI, Windsurf, OpenClaw, and Qwen Code.
+### Codex
+
+Three steps: register the marketplace, install the agent set, then enable the plugin inside Codex.
+
+1. **Register the marketplace with Codex:**
+
+   ```bash
+   codex plugin marketplace add EveryInc/compound-engineering-plugin
+   ```
+
+2. **Install the agent set** (Codex's plugin spec doesn't register custom agents yet):
+
+   ```bash
+   bunx @every-env/compound-plugin install compound-engineering --to codex
+   ```
+
+3. **Enable the plugin inside Codex:** launch `codex`, run `/plugins`, find the **Compound Engineering** marketplace, select the **compound-engineering** plugin, and choose **Install**. Restart Codex after install completes. Codex's CLI doesn't currently have a subcommand for enabling a plugin from an added marketplace — the `/plugins` TUI is the canonical flow.
+
+All three steps are needed. The marketplace registration + TUI install handles skills; the Bun step adds the review, research, and workflow agents that skills like `ce-code-review`, `ce-plan`, and `ce-work` spawn via `Task`. Without the agent step, delegating skills will report missing agents. The Bun step defaults to agents-only so it doesn't double-register skills.
+
+> **Heads up:** once Codex's native plugin spec supports custom agents, the Bun agent step goes away — the TUI install alone will be sufficient.
+
+If you previously used the Bun-only Codex install, back up stale CE artifacts before switching (safe to re-run):
+
+```bash
+bunx @every-env/compound-plugin cleanup --target codex
+```
+
+<details>
+<summary>Standalone install without <code>codex plugin marketplace add</code></summary>
+
+If you can't use Codex's plugin marketplace for some reason, the Bun converter can emit the full bundle on its own:
+
+```bash
+bunx @every-env/compound-plugin install compound-engineering --to codex --include-skills
+```
+
+Don't combine this with the marketplace + `/plugins` install — skills will register twice. The recommended path is the three-step flow above.
+
+</details>
+
+### GitHub Copilot CLI
+
+Inside Copilot CLI:
+
+```text
+/plugin marketplace add EveryInc/compound-engineering-plugin
+/plugin install compound-engineering@compound-engineering-plugin
+```
+
+From a shell:
+
+```bash
+copilot plugin marketplace add EveryInc/compound-engineering-plugin
+copilot plugin install compound-engineering@compound-engineering-plugin
+```
+
+Copilot CLI reads the existing `.claude-plugin/marketplace.json` and plugin manifests, so no separate Bun install step is needed.
+
+If you previously used the old Bun Copilot install, back up stale CE artifacts before switching to the native plugin:
+
+```bash
+bunx @every-env/compound-plugin cleanup --target copilot
+```
+
+This also backs up CE-owned skills in `~/.agents/skills` that would shadow Copilot's native plugin skills.
+
+### Factory Droid
+
+```bash
+droid plugin marketplace add https://github.com/EveryInc/compound-engineering-plugin
+droid plugin install compound-engineering@compound-engineering-plugin
+```
+
+Droid installs the existing Claude Code-compatible plugin marketplace and translates the plugin format automatically, so no Bun install step is needed.
+
+If you previously used the old Bun Droid install, back up stale CE artifacts before switching to the native plugin:
+
+```bash
+bunx @every-env/compound-plugin cleanup --target droid
+```
+
+### Qwen Code
+
+```bash
+qwen extensions install EveryInc/compound-engineering-plugin:compound-engineering
+```
+
+Qwen Code installs Claude Code-compatible plugins directly from GitHub and converts the plugin format during install, so no Bun install step is needed.
+
+If you previously used the old Bun Qwen install, back up stale CE artifacts before switching to the native extension:
+
+```bash
+bunx @every-env/compound-plugin cleanup --target qwen
+```
+
+### OpenCode, Pi, Gemini & Kiro (experimental)
+
+This repo includes a Bun/TypeScript CLI that converts Claude Code plugins to OpenCode, Pi, Gemini CLI, and Kiro CLI.
+Use the native plugin install instructions above for Claude Code, Cursor, Codex, GitHub Copilot CLI, Factory Droid, and Qwen Code.
 
 ```bash
 # convert the compound-engineering plugin into OpenCode format
@@ -78,52 +179,45 @@ bunx @every-env/compound-plugin install compound-engineering --to opencode
 # convert to Codex format
 bunx @every-env/compound-plugin install compound-engineering --to codex
 
-# convert to Factory Droid format
-bunx @every-env/compound-plugin install compound-engineering --to droid
-
 # convert to Pi format
 bunx @every-env/compound-plugin install compound-engineering --to pi
 
 # convert to Gemini CLI format
 bunx @every-env/compound-plugin install compound-engineering --to gemini
 
-# convert to GitHub Copilot format
-bunx @every-env/compound-plugin install compound-engineering --to copilot
-
 # convert to Kiro CLI format
 bunx @every-env/compound-plugin install compound-engineering --to kiro
 
-# convert to OpenClaw format
-bunx @every-env/compound-plugin install compound-engineering --to openclaw
-
-# convert to Windsurf format (global scope by default)
-bunx @every-env/compound-plugin install compound-engineering --to windsurf
-
-# convert to Windsurf workspace scope
-bunx @every-env/compound-plugin install compound-engineering --to windsurf --scope workspace
-
-# convert to Qwen Code format
-bunx @every-env/compound-plugin install compound-engineering --to qwen
-
-# auto-detect installed tools and install to all
+# auto-detect custom-install targets and install to all
 bunx @every-env/compound-plugin install compound-engineering --to all
 ```
+
+The custom install targets run CE legacy cleanup during install. To run cleanup manually for a specific target:
+
+```bash
+bunx @every-env/compound-plugin cleanup --target codex
+bunx @every-env/compound-plugin cleanup --target opencode
+bunx @every-env/compound-plugin cleanup --target pi
+bunx @every-env/compound-plugin cleanup --target gemini
+bunx @every-env/compound-plugin cleanup --target kiro
+bunx @every-env/compound-plugin cleanup --target copilot   # old Bun installs only
+bunx @every-env/compound-plugin cleanup --target droid     # old Bun installs only
+bunx @every-env/compound-plugin cleanup --target qwen      # old Bun installs only
+bunx @every-env/compound-plugin cleanup --target windsurf  # deprecated legacy installs only
+```
+
+Cleanup moves known CE artifacts into a `compound-engineering/legacy-backup/` directory under the target root.
 
 <details>
 <summary>Output format details per target</summary>
 
 | Target | Output path | Notes |
 |--------|------------|-------|
-| `opencode` | `~/.config/opencode/` | Commands as `.md` files; `opencode.json` MCP config deep-merged; backups made before overwriting |
-| `codex` | `~/.codex/prompts` + `~/.codex/skills` | Claude commands become prompt + skill pairs; all skills copied directly; deprecated `workflows:*` aliases are omitted |
-| `droid` | `~/.factory/` | Tool names mapped (`Bash`->`Execute`, `Write`->`Create`); namespace prefixes stripped |
+| `opencode` | `~/.config/opencode/` | Skills and agents are written to OpenCode discovery roots; `opencode.json` MCP config is deep-merged; source commands, if present, are written as `.md` files |
+| `codex` | `~/.codex/prompts` + `~/.codex/skills/<plugin>/` + `~/.codex/agents/<plugin>/` | CE skills install under a namespaced Codex skill root; Claude agents become Codex TOML custom agents; Claude source commands, if present, become prompt + skill pairs; deprecated `workflows:*` aliases are omitted; legacy CE `.agents` symlinks are cleaned up but no new `.agents` files are written |
 | `pi` | `~/.pi/agent/` | Prompts, skills, extensions, and `mcporter.json` for MCPorter interoperability |
-| `gemini` | `.gemini/` | Skills from agents; commands as `.toml`; namespaced commands become directories (`workflows:plan` -> `commands/workflows/plan.toml`) |
-| `copilot` | `.github/` | Agents as `.agent.md` with Copilot frontmatter; MCP env vars prefixed with `COPILOT_MCP_` |
+| `gemini` | `~/.gemini/` | Skills under `skills/` and subagents under `agents/`; source commands, if present, are written as `.toml` |
 | `kiro` | `.kiro/` | Agents as JSON configs + prompt `.md` files; only stdio MCP servers supported |
-| `openclaw` | `~/.openclaw/extensions/<plugin>/` | Entry-point TypeScript skill file; `openclaw-extension.json` for MCP servers |
-| `windsurf` | `~/.codeium/windsurf/` (global) or `.windsurf/` (workspace) | Agents become skills; commands become flat workflows; `mcp_config.json` merged |
-| `qwen` | `~/.qwen/extensions/<plugin>/` | Agents as `.yaml`; env vars with placeholders extracted as settings; colon separator for nested commands |
 
 All provider targets are experimental and may change as the formats evolve.
 
@@ -223,74 +317,4 @@ ccb feat/new-agents --verbose    # extra flags forwarded to claude
 codex-ceb feat/new-agents        # install a pushed branch to Codex
 ```
 
----
-
-## Sync Personal Config
-
-Sync your personal Claude Code config (`~/.claude/`) to other AI coding tools. Omit `--target` to sync to all detected supported tools automatically:
-
-```bash
-# Sync to all detected tools (default)
-bunx @every-env/compound-plugin sync
-
-# Sync skills and MCP servers to OpenCode
-bunx @every-env/compound-plugin sync --target opencode
-
-# Sync to Codex
-bunx @every-env/compound-plugin sync --target codex
-
-# Sync to Pi
-bunx @every-env/compound-plugin sync --target pi
-
-# Sync to Droid
-bunx @every-env/compound-plugin sync --target droid
-
-# Sync to GitHub Copilot (skills + MCP servers)
-bunx @every-env/compound-plugin sync --target copilot
-
-# Sync to Gemini (skills + MCP servers)
-bunx @every-env/compound-plugin sync --target gemini
-
-# Sync to Windsurf
-bunx @every-env/compound-plugin sync --target windsurf
-
-# Sync to Kiro
-bunx @every-env/compound-plugin sync --target kiro
-
-# Sync to Qwen
-bunx @every-env/compound-plugin sync --target qwen
-
-# Sync to OpenClaw (skills only; MCP is validation-gated)
-bunx @every-env/compound-plugin sync --target openclaw
-
-# Sync to all detected tools
-bunx @every-env/compound-plugin sync --target all
-```
-
-This syncs:
-- Personal skills from `~/.claude/skills/` (as symlinks)
-- Personal slash commands from `~/.claude/commands/` (as provider-native prompts, workflows, or converted skills where supported)
-- MCP servers from `~/.claude/settings.json`
-
-Skills are symlinked (not copied) so changes in Claude Code are reflected immediately.
-
-Supported sync targets:
-- `opencode`
-- `codex`
-- `pi`
-- `droid`
-- `copilot`
-- `gemini`
-- `windsurf`
-- `kiro`
-- `qwen`
-- `openclaw`
-
-Notes:
-- Codex sync preserves non-managed `config.toml` content and now includes remote MCP servers.
-- Command sync reuses each provider's existing Claude command conversion, so some targets receive prompts or workflows while others receive converted skills.
-- Copilot sync writes personal skills to `~/.copilot/skills/` and MCP config to `~/.copilot/mcp-config.json`.
-- Gemini sync writes MCP config to `~/.gemini/` and avoids mirroring skills that Gemini already discovers from `~/.agents/skills`, which prevents duplicate-skill warnings.
-- Droid, Windsurf, Kiro, and Qwen sync merge MCP servers into the provider's documented user config.
-- OpenClaw currently syncs skills only. Personal command sync is skipped because this repo does not yet have a documented user-level OpenClaw command surface, and MCP sync is skipped because the current official OpenClaw docs do not clearly document an MCP server config contract.
-
+Codex installs keep generated plugin skills isolated under `~/.codex/skills/compound-engineering/` and do not write new files into `~/.agents`. The installer removes old CE-managed `.agents/skills` symlinks when it can prove they point back to CE's Codex-managed store, which prevents stale Codex installs from shadowing Copilot's native plugin install.

@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.3.6-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.3.6)
+[![Version](https://img.shields.io/badge/version-v3.4.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.4.0)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -269,6 +269,15 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.4.0（2026-04-20）— Compliance Agent + Schema 12
+
+- **Compliance Agent（shared）**：單一 mode-aware agent，同時跑 PRISMA-trAIce 17 項（限 SR mode）+ RAISE 四原則 + 8-role matrix。掛載既有 Stage 2.5 / 4.5 Integrity Gate；tier-based block（Mandatory → block、HR → warn、R/O → info）。非 SR 入口只跑原則、warn-only。
+- **Schema 12 compliance_report** 附加到 Material Passport 的 `compliance_history[]`（append-only）。
+- **三回合 user-override 階梯**，自動注入 `disclosure_addendum` 到 manuscript。無法規避揭露。
+- **Calibration 以透明公布取代硬門檻**，與 `task_type: open-ended` 自洽。
+- **Upstream freshness CI** 偵測 PRISMA-trAIce 上游漂移（non-blocking）。
+- **長時間 session 文件**：Material Passport 作為跨 session 續跑機制。
 
 ### v3.3.6 (2026-04-15) — README 精簡 + ARCHITECTURE 文件
 

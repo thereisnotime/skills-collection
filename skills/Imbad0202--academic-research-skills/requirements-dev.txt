@@ -1,2 +1,2 @@
 pyyaml
-jsonschema>=4.17
+jsonschema[format]>=4.17

@@ -135,6 +135,38 @@ describe("cleanupStaleSkillDirs", () => {
     expect(await exists(path.join(root, "ce-document-review"))).toBe(false)
   })
 
+  test("removes raw colon workflow skill directories", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "cleanup-colon-workflows-"))
+    await createDir(
+      path.join(root, "ce:plan"),
+      skillContent(
+        "ce:plan",
+        await pluginDescription("plugins/compound-engineering/skills/ce-plan/SKILL.md"),
+      ),
+    )
+    await createDir(
+      path.join(root, "workflows:review"),
+      skillContent(
+        "workflows:review",
+        await pluginDescription("plugins/compound-engineering/skills/ce-code-review/SKILL.md"),
+      ),
+    )
+    await createDir(
+      path.join(root, "ce:plan-beta"),
+      skillContent(
+        "ce:plan-beta",
+        "[BETA] Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer ce:brainstorm first.",
+      ),
+    )
+
+    const removed = await cleanupStaleSkillDirs(root)
+
+    expect(removed).toBe(3)
+    expect(await exists(path.join(root, "ce:plan"))).toBe(false)
+    expect(await exists(path.join(root, "workflows:review"))).toBe(false)
+    expect(await exists(path.join(root, "ce:plan-beta"))).toBe(false)
+  })
+
   test("returns 0 when directory does not exist", async () => {
     const removed = await cleanupStaleSkillDirs("/tmp/nonexistent-cleanup-dir-12345")
     expect(removed).toBe(0)

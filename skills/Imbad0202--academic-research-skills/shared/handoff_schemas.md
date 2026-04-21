@@ -500,6 +500,7 @@ score_trajectory: {
 | `content_hash` | string | SHA-256 hash of the content (for change detection) |
 | `upstream_dependencies` | list[string] | Version labels of artifacts this one depends on |
 | `repro_lock` | object \| null | configuration lockfile for artifact reproducibility. See [`artifact_reproducibility_pattern.md`](artifact_reproducibility_pattern.md). `null` = honest opt-out. Required from v3.3.5+ — omitted key fails lint. |
+| `compliance_history` | list[object] | Append-only audit trail of `compliance_report` entries (Schema 12). Added v3.4.0+. See [Schema 12](#schema-12--compliance-report-v340) and [`shared/compliance_report.schema.json`](compliance_report.schema.json). |
 
 ### Example
 
@@ -603,6 +604,45 @@ See `shared/style_calibration_protocol.md` for full consumption rules and confli
 - Every item from the original Revision Roadmap (Schema 7) must appear in the matrix
 - `authors_claim` cannot be empty for Priority 1 items (flag as `CANNOT_VERIFY` if missing)
 - Matrix is carried forward in Material Passport (Schema 9) for audit trail
+
+---
+
+## Schema 12 — Compliance Report (v3.4.0+)
+
+**Source of truth:** [`shared/compliance_report.schema.json`](compliance_report.schema.json)
+
+Mode-aware output of [`compliance_agent`](agents/compliance_agent.md). Three top-level subtrees: `prisma_trAIce` (null for primary research), `raise` (always present), and decision aggregation fields.
+
+- **Emitted by:** `compliance_agent` at Stage 2.5 / 4.5 (pipeline) or pre-finalize (standalone skills)
+- **Consumed by:** orchestrator (for checkpoint dashboard), `report_compiler_agent` (for AI Self-Reflection Report compliance summary at Stage 6)
+- **Appended to:** `material_passport.compliance_history[]` (append-only)
+
+### Key fields
+
+- `mode`: dispatches payload (see [`shared/agents/compliance_agent.md`](agents/compliance_agent.md) §Dispatch logic)
+- `stage`: `"2.5"` or `"4.5"`
+- `prisma_trAIce`: `null` when `mode != "systematic_review"`; otherwise tier-bucketed item results
+- `raise.mode`: `"full"` (SR + other_evidence_synthesis) or `"principles_only"` (primary_research)
+- `raise.principles`: 4 keys, each with `pass` / `warn` / `fail`
+- `raise.roles`: 8 keys, populated only when `raise.mode == "full"`
+- `overall_decision`: aggregate across compliance + legacy integrity + v3.2 failure mode
+- `user_override`: only present after a user overrides a block; rationale required
+- `upstream_sync_status`: `"current"` or `"stale"` (from freshness check)
+
+Full field spec: [`shared/compliance_report.schema.json`](compliance_report.schema.json).
+
+### Material Passport extension
+
+Schema 9 Material Passport gains one optional field, `compliance_history`:
+
+```yaml
+compliance_history:
+  - <compliance_report entry>
+  - <compliance_report entry>
+  # append-only; never overwrite, never reorder
+```
+
+Ordering: chronological by `generated_at`. A Stage 2.5 FAIL followed by backfill + retry-pass produces two adjacent entries for Stage 2.5 — both preserved.
 
 ---
 

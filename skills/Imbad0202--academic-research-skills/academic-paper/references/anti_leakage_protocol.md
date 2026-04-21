@@ -58,6 +58,8 @@ data, and methodology descriptions must come from session materials.
 
 ### [MATERIAL GAP] handling
 
+> **Tag vocabulary.** The `[MATERIAL GAP]`, `[WEAK EVIDENCE]`, `[GAP]` tags used throughout this protocol are canonically defined in [`shared/compliance_checkpoint_protocol.md#canonical-gap-tag-vocabulary`](../../shared/compliance_checkpoint_protocol.md#canonical-gap-tag-vocabulary). This section describes how the anti-leakage writing-time flag interacts with that vocabulary during manuscript production.
+
 When a `[MATERIAL GAP]` is flagged:
 1. The gap is surfaced at the next checkpoint
 2. The user can provide additional materials, or authorize LLM supplementation for that specific gap

@@ -3,9 +3,12 @@ import { backupFile, copySkillDir, ensureDir, pathExists, readJson, sanitizePath
 import { transformContentForKiro } from "../converters/claude-to-kiro"
 import type { KiroBundle } from "../types/kiro"
 import { cleanupStaleSkillDirs, cleanupStaleAgents } from "../utils/legacy-cleanup"
+import { getLegacyKiroArtifacts } from "../data/plugin-legacy-artifacts"
+import { moveLegacyArtifactToBackup, sanitizeManagedPluginName } from "./managed-artifacts"
 
 export async function writeKiroBundle(outputRoot: string, bundle: KiroBundle): Promise<void> {
   const paths = resolveKiroPaths(outputRoot)
+  const pluginName = bundle.pluginName ? sanitizeManagedPluginName(bundle.pluginName) : undefined
   await ensureDir(paths.kiroDir)
 
   // TODO(cleanup): Remove after v3 transition (circa Q3 2026)
@@ -100,6 +103,10 @@ export async function writeKiroBundle(outputRoot: string, bundle: KiroBundle): P
     const merged = { ...existingConfig, mcpServers: { ...existingServers, ...bundle.mcpServers } }
     await writeJson(mcpPath, merged)
   }
+
+  if (pluginName) {
+    await cleanupKnownLegacyKiroArtifacts(paths, bundle)
+  }
 }
 
 function resolveKiroPaths(outputRoot: string) {
@@ -108,6 +115,7 @@ function resolveKiroPaths(outputRoot: string) {
   if (base === ".kiro") {
     return {
       kiroDir: outputRoot,
+      managedDir: path.join(outputRoot, "compound-engineering"),
       agentsDir: path.join(outputRoot, "agents"),
       skillsDir: path.join(outputRoot, "skills"),
       steeringDir: path.join(outputRoot, "steering"),
@@ -118,10 +126,31 @@ function resolveKiroPaths(outputRoot: string) {
   const kiroDir = path.join(outputRoot, ".kiro")
   return {
     kiroDir,
+    managedDir: path.join(kiroDir, "compound-engineering"),
     agentsDir: path.join(kiroDir, "agents"),
     skillsDir: path.join(kiroDir, "skills"),
     steeringDir: path.join(kiroDir, "steering"),
     settingsDir: path.join(kiroDir, "settings"),
+  }
+}
+
+async function cleanupKnownLegacyKiroArtifacts(
+  paths: ReturnType<typeof resolveKiroPaths>,
+  bundle: KiroBundle,
+): Promise<void> {
+  const legacyArtifacts = getLegacyKiroArtifacts(bundle)
+  for (const skillName of legacyArtifacts.skills) {
+    await moveLegacyArtifactToBackup(paths.managedDir, "skills", paths.skillsDir, skillName, "Kiro skill")
+  }
+  for (const agentName of legacyArtifacts.agents) {
+    await moveLegacyArtifactToBackup(paths.managedDir, "agents", paths.agentsDir, `${agentName}.json`, "Kiro agent")
+    await moveLegacyArtifactToBackup(
+      paths.managedDir,
+      "agents",
+      path.join(paths.agentsDir, "prompts"),
+      `${agentName}.md`,
+      "Kiro agent prompt",
+    )
   }
 }
 

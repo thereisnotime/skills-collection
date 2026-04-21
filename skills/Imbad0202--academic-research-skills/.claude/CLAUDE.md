@@ -6,10 +6,17 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 | Skill | Purpose | Key Modes |
 |-------|---------|-----------|
-| `deep-research` v2.8.1 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
-| `academic-paper` v3.0.2 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
+| `deep-research` v2.9.0 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
+| `academic-paper` v3.1.0 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
 | `academic-paper-reviewer` v1.8.1 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.2.2 | Full pipeline orchestrator | (coordinates all above) |
+| `academic-pipeline` v3.3.0 | Full pipeline orchestrator | (coordinates all above) |
+
+## v3.4 Key Additions
+
+- **Compliance Agent (shared)**: single mode-aware agent running PRISMA-trAIce 17 items + RAISE 4 principles + 8-role matrix. Hooks Stage 2.5 / 4.5 Integrity Gates with tier-based block. Non-SR entries run principles-only warn-only. See `shared/agents/compliance_agent.md`.
+- **Schema 12 compliance_report**: append-only audit trail in Material Passport via `compliance_history[]`.
+- **3-round override ladder**: user overrides produce auto-injected `disclosure_addendum`. See `shared/compliance_checkpoint_protocol.md`.
+- **Long-running session docs**: `docs/PERFORMANCE.md` now covers cross-session resume via Material Passport.
 
 ## v3.3 Key Additions
 
@@ -80,7 +87,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Suite version**: 3.3.6 (per CHANGELOG.md)
-- **Last Updated**: 2026-04-15
+- **Suite version**: 3.4.0 (per CHANGELOG.md)
+- **Last Updated**: 2026-04-20
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

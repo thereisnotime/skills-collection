@@ -2,8 +2,8 @@
 name: academic-paper
 description: "12-agent academic paper writing pipeline. 10 modes (full/plan/outline/revision/revision-coach/abstract/lit-review/format-convert/citation-check/disclosure). 6 paper types, 5 citation formats, bilingual abstracts, LaTeX/DOCX-via-Pandoc/PDF output. Style Calibration + Writing Quality Check + Anti-Patterns with IRON RULE markers. Triggers: write paper, academic paper, guide my paper, parse reviews, AI disclosure, 寫論文, 學術論文, 引導我寫論文, 審查意見."
 metadata:
-  version: "3.0.2"
-  last_updated: "2026-04-15"
+  version: "3.1.0"
+  last_updated: "2026-04-20"
   status: active
   data_access_level: redacted
   task_type: open-ended
@@ -137,6 +137,8 @@ Phase 7: FORMAT        -> [formatter]                  -> Final Output Package
 5. User can skip Phase 1 (literature) if providing own sources
 
 ---
+
+> **v3.4.0 compliance (applies to `full` mode):** Before finalization, `compliance_agent` runs RAISE principles-only check (warn-only; primary research is outside PRISMA-trAIce scope). Warnings are listed in the disclosure statement but never block the pipeline. See `shared/raise_framework.md §Scope disclaimer`.
 
 ## Operational Modes (10 Modes)
 
@@ -316,8 +318,8 @@ academic-paper + academic-paper-reviewer -> Peer review -> revision loop
 
 | Item | Content |
 |------|---------|
-| Skill Version | 3.0.2 |
-| Last Updated | 2026-04-15 |
+| Skill Version | 3.1.0 |
+| Last Updated | 2026-04-20 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | deep-research v1.0+ (upstream), academic-paper-reviewer v1.0+ (downstream) |
 

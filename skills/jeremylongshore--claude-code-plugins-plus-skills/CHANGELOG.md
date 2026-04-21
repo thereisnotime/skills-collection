@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.26.0] - 2026-04-20
+
+### Added
+- **npm Download Tracking Infrastructure** - Daily stats aggregation (`fetch-npm-stats.mjs`), hero marquee showing top 8 packages with 30-day counts, Slack digest at 1pm Central via #operation-hired webhook (#543)
+- **npm Publish Workflows** - Mass publish (`publish-all-packages.yml` with confirmation gate) and incremental publish (`publish-changed-packages.yml` on push to main) for all @intentsolutionsio/* packages (#542)
+- **Plugin Package.json Scaffolding** - Generated package.json for 305+ catalog plugins under @intentsolutionsio scope, enabling npm download tracking (#541)
+- **README Awesome-List TOC** - Auto-generated table of contents with category counts, enforced by CI via `generate-readme-toc.mjs --check` (#531)
+- **agent37.com Partner Integration** - Added to hero partner marquee alongside Nixtla (#532, #533)
+- **Ultimate Code Cleanup Plugin** - 11-dimension, 11-agent comprehensive code analysis tool scoring 98/100 A+ enterprise grade
+- **Bubble Invest Plugins** - local-tts (voice synthesis), boycott-filter (ethical filtering) from community PR #520
+- **Killer Skill of the Week** - web-analytics skill with Umami MCP integration
+
+### Fixed
+- **Marquee Symmetry** - Restored translateX(-50%) pattern duplication so agent37 actually renders in seamless loop (#533)
+- **Catalog Validation** - Removed phantom entries (tonone, claudebase), normalized 33 plugin author fields to object format
+- **SKILL.md Compliance** - Split 13 files exceeding 500-line limit into references/, removed XML tags from frontmatter
+- **Cowork Downloads** - Replaced non-existent stripe-pack with clerk-pack
+- **CodeQL Finding** - Removed unused tableHeaderDone variable
+
+### Changed
+- **Micro-Category Consolidation** - Merged analytics→business-tools, code-quality→testing, finance→business-tools, automation→devops with CLI aliases for backwards compatibility (#530)
+- **FS=Catalog Invariant** - Enforced filesystem path matching catalog category via `validate-catalog-invariants.py`
+- **SaaS Pack Display** - Individual cards on /cowork page for better discoverability
+- **Comprehensive Codebase Cleanup** - 8-parallel-agent refactor addressing code quality across repository
+
+### Metrics
+- Commits since v4.25.0: 34 (10 features, 8 fixes, 3 chore)
+- Plugins with npm tracking: 305+ (newly scaffolded package.json files)
+- Categories consolidated: 4 (analytics, code-quality, finance, automation)
+- SaaS packs corrected: 106 → 105 (removed windsurf duplicate)
+
+---
+
 ## [4.25.0] - 2026-04-14
 
 ### Added

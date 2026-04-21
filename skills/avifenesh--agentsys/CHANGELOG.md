@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.8.4] - 2026-04-20
+
+### Fixed
+- **tasks.json atomic optimistic locking** (#331) - Concurrent `/next-task` and `/ship` runs could silently lose claims or leave stale registry entries due to unguarded read-modify-write on `tasks.json`. Fix uses `_version` + per-write `_writerId` optimistic locking (mirrors existing `flow.json` pattern): write atomically via rename, re-read and verify both fields match before declaring success, retry up to 5× with jitter on mismatch.
+- **tasks.json schema unification** - `worktree-manager` wrote `{ version, tasks[] }` while `workflow-state.js` read `{ active }`, causing claim exclusion in `discover-tasks` to always return an empty set. Unified schema is `{ active, tasks[], _version, _writerId }` with on-read normalization of both legacy formats — no migration needed.
+- **Silent corruption risk** - `readTasks()` now throws on corrupted JSON instead of returning a safe default, preventing `updateTasks` from silently overwriting potentially recoverable data.
+- **Agent prompt raw file writes** - `worktree-manager` Phase 6 and Cleanup Reference replaced inline `fs.writeFileSync` with `workflowState.claimTask()` / `workflowState.releaseTask()` library calls that are atomic and retry-safe.
+
+### Added
+- `updateTasks(mutatorFn)` - optimistic-lock loop for `tasks.json` mutations (mirrors `updateFlow`)
+- `claimTask(entry, projectPath)` - atomic upsert into `tasks[]` registry for worktree-manager
+- `releaseTask(taskId, projectPath)` - atomic removal from `tasks[]` registry for ship/abort; idempotent
+
 ## [5.8.3] - 2026-04-11
 
 ### Fixed

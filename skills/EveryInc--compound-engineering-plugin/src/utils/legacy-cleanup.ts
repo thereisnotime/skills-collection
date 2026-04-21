@@ -20,9 +20,30 @@ import { parseFrontmatter } from "./frontmatter"
 
 /** Old skill directory names that no longer exist after the v3 rename. */
 const STALE_SKILL_DIRS = [
-  // ce: -> ce- (dirs were already hyphenated by sanitizePathName, so these
-  // only collide if the old name was exactly the same after sanitization —
-  // which it was for all 8 workflow skills. No orphans from this group.)
+  // ce: -> ce-. Some targets sanitized these to ce-*; others left raw colon
+  // directories on filesystems that permit them.
+  "ce:brainstorm",
+  "ce:compound",
+  "ce:compound-refresh",
+  "ce:ideate",
+  "ce:plan",
+  "ce:plan-beta",
+  "ce:review",
+  "ce:review-beta",
+  "ce:work",
+  "ce:work-beta",
+
+  // workflows:* -> ce-*.
+  "workflows:brainstorm",
+  "workflows:compound",
+  "workflows:plan",
+  "workflows:review",
+  "workflows:work",
+  "workflows-brainstorm",
+  "workflows-compound",
+  "workflows-plan",
+  "workflows-review",
+  "workflows-work",
 
   // git-* -> ce-*
   "git-commit",
@@ -62,6 +83,8 @@ const STALE_SKILL_DIRS = [
   // ce-review -> ce-code-review, ce-document-review -> ce-doc-review
   "ce-review",
   "ce-document-review",
+  "ce-plan-beta",
+  "ce-review-beta",
 ]
 
 /** Old agent names (used as generated skill dirs or flat .md files). */
@@ -225,6 +248,14 @@ const LEGACY_ONLY_SKILL_DESCRIPTIONS: Record<string, string> = {
     "This skill should be used when orchestrating multi-agent swarms using Claude Code's TeammateTool and Task system. It applies when coordinating multiple agents, running parallel code reviews, creating pipeline workflows with dependencies, building self-organizing task queues, or any task benefiting from divide-and-conquer patterns.",
   "reproduce-bug":
     "Systematically reproduce and investigate a bug from a GitHub issue. Use when the user provides a GitHub issue number or URL for a bug they want reproduced or investigated.",
+  "ce:plan-beta":
+    "[BETA] Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer ce:brainstorm first.",
+  "ce-plan-beta":
+    "[BETA] Transform feature descriptions or requirements into structured implementation plans grounded in repo patterns and research. Use when the user says 'plan this', 'create a plan', 'write a tech plan', 'plan the implementation', 'how should we build', 'what's the approach for', 'break this down', or when a brainstorm/requirements document is ready for technical planning. Best when requirements are at least roughly defined; for exploratory or ambiguous requests, prefer ce:brainstorm first.",
+  "ce:review-beta":
+    "[BETA] Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR.",
+  "ce-review-beta":
+    "[BETA] Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR.",
 }
 
 /**
@@ -248,6 +279,19 @@ type LegacyFingerprints = {
 let legacyFingerprintsPromise: Promise<LegacyFingerprints> | null = null
 
 function currentSkillNameForLegacy(legacyName: string): string {
+  if (legacyName === "ce:review" || legacyName === "workflows:review" || legacyName === "workflows-review") {
+    return "ce-code-review"
+  }
+  if (legacyName.startsWith("ce:")) {
+    return legacyName.replace(/^ce:/, "ce-")
+  }
+  if (legacyName.startsWith("workflows:")) {
+    return `ce-${legacyName.slice("workflows:".length)}`
+  }
+  if (legacyName.startsWith("workflows-")) {
+    return `ce-${legacyName.slice("workflows-".length)}`
+  }
+
   switch (legacyName) {
     case "git-commit":
       return "ce-commit"
@@ -622,4 +666,45 @@ export async function cleanupStalePrompts(promptsDir: string): Promise<number> {
     if (await removeIfExists(targetPath)) removed++
   }
   return removed
+}
+
+/**
+ * Ownership verdict for an individual Codex prompt file at a shared path like
+ * `~/.codex/prompts/<file>.md`. Used by callers in the Codex install and
+ * standalone-cleanup paths to gate legacy-name allow-list moves before
+ * renaming a file into `compound-engineering/legacy-backup/`.
+ *
+ * Verdicts:
+ *   - `"ce-owned"`: body + frontmatter fingerprint match a known
+ *     compound-engineering prompt-wrapper shape. Safe to move.
+ *   - `"foreign"`: we have a fingerprint on record for this filename and the
+ *     file does NOT match it. A user or sibling plugin authored this file —
+ *     leave it alone. `~/.codex/prompts/` is a cross-plugin directory, so a
+ *     name-only match (e.g. `ce-plan.md`) is not a strong enough signal.
+ *   - `"unknown"`: we have no fingerprint on record for this filename. This
+ *     applies to historical prompt wrappers whose corresponding CE skill no
+ *     longer ships (e.g. `reproduce-bug.md`, `report-bug.md`) — user
+ *     collisions at those names are unlikely, and the historical allow-list
+ *     was written specifically to clean them up. Callers may fall back to
+ *     name-only cleanup in this case.
+ *
+ * Rationale for the three-way split: `LEGACY_PROMPT_CURRENT_SKILL_FOR_FILE`
+ * + `LEGACY_PROMPT_DESCRIPTION_ALIASES` only cover prompt filenames whose
+ * corresponding ce-* skill is still shipped. For names that are fully
+ * retired, we have no description to compare against, so a strict ownership
+ * gate would strand genuinely-owned orphan wrappers. Reporting `"unknown"`
+ * lets callers keep the historical allow-list behavior for those while still
+ * gating the realistic collision vectors.
+ */
+export type CodexPromptOwnership = "ce-owned" | "foreign" | "unknown"
+
+export async function classifyCodexLegacyPromptOwnership(
+  promptPath: string,
+): Promise<CodexPromptOwnership> {
+  const fileName = path.basename(promptPath)
+  const { prompts } = await loadLegacyFingerprints()
+  const hasFingerprint = prompts.has(fileName) || fileName in LEGACY_PROMPT_DESCRIPTION_ALIASES
+  if (!hasFingerprint) return "unknown"
+  const ceOwned = await isLegacyPromptWrapper(promptPath, prompts.get(fileName))
+  return ceOwned ? "ce-owned" : "foreign"
 }

@@ -46,11 +46,59 @@ const fixturePlugin: ClaudePlugin = {
 }
 
 describe("convertClaudeToCodex", () => {
-  test("converts commands to prompts and agents to skills", () => {
+  test("default (agents-only): emits only agent conversions, no skills or prompts or command-skills", () => {
     const bundle = convertClaudeToCodex(fixturePlugin, {
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      // codexIncludeSkills omitted -> defaults to false
+    })
+
+    // Native Codex plugin install handles skills, commands, and MCP via the
+    // .codex-plugin/plugin.json manifest. The Bun converter only fills the
+    // agent gap, so skillDirs / prompts / generatedSkills / mcpServers are
+    // all empty by default.
+    expect(bundle.skillDirs).toEqual([])
+    expect(bundle.prompts).toEqual([])
+    expect(bundle.generatedSkills).toEqual([])
+    expect(bundle.mcpServers).toBeUndefined()
+
+    // Custom agents (TOML) still land with instructions populated.
+    expect(bundle.agents).toHaveLength(1)
+    const agent = bundle.agents[0]!
+    expect(agent.name).toBe("security-reviewer")
+    expect(agent.description).toBe("Security-focused agent")
+    expect(agent.instructions).toContain("Focus on vulnerabilities.")
+    expect(agent.instructions).toContain("Threat modeling")
+  })
+
+  test("default with zero agents: emits fully empty bundle (no duplicate install possible)", () => {
+    const pluginWithNoAgents: ClaudePlugin = {
+      ...fixturePlugin,
+      agents: [],
+    }
+    const bundle = convertClaudeToCodex(pluginWithNoAgents, {
+      agentMode: "subagent",
+      inferTemperature: false,
+      permissions: "none",
+    })
+
+    expect(bundle.skillDirs).toEqual([])
+    expect(bundle.prompts).toEqual([])
+    expect(bundle.generatedSkills).toEqual([])
+    expect(bundle.agents).toEqual([])
+    expect(bundle.mcpServers).toBeUndefined()
+    // invocationTargets still populated so any future --include-skills call
+    // on the same plugin would have a consistent reference graph.
+    expect(bundle.invocationTargets).toBeDefined()
+  })
+
+  test("converts commands to prompts and agents to custom agents", () => {
+    const bundle = convertClaudeToCodex(fixturePlugin, {
+      agentMode: "subagent",
+      inferTemperature: false,
+      permissions: "none",
+      codexIncludeSkills: true,
     })
 
     expect(bundle.prompts).toHaveLength(1)
@@ -64,7 +112,8 @@ describe("convertClaudeToCodex", () => {
     expect(parsedPrompt.body).toContain("Plan the work.")
 
     expect(bundle.skillDirs[0]?.name).toBe("existing-skill")
-    expect(bundle.generatedSkills).toHaveLength(2)
+    expect(bundle.generatedSkills).toHaveLength(1)
+    expect(bundle.agents).toHaveLength(1)
 
     const commandSkill = bundle.generatedSkills.find((skill) => skill.name === "workflows-plan")
     expect(commandSkill).toBeDefined()
@@ -73,16 +122,14 @@ describe("convertClaudeToCodex", () => {
     expect(parsedCommandSkill.data.description).toBe("Planning command")
     expect(parsedCommandSkill.body).toContain("Allowed tools")
 
-    const agentSkill = bundle.generatedSkills.find((skill) => skill.name === "security-reviewer")
-    expect(agentSkill).toBeDefined()
-    const parsedSkill = parseFrontmatter(agentSkill!.content)
-    expect(parsedSkill.data.name).toBe("security-reviewer")
-    expect(parsedSkill.data.description).toBe("Security-focused agent")
-    expect(parsedSkill.body).toContain("Capabilities")
-    expect(parsedSkill.body).toContain("Threat modeling")
+    const agent = bundle.agents.find((item) => item.name === "security-reviewer")
+    expect(agent).toBeDefined()
+    expect(agent!.description).toBe("Security-focused agent")
+    expect(agent!.instructions).toContain("Capabilities")
+    expect(agent!.instructions).toContain("Threat modeling")
   })
 
-  test("drops model field (Codex skill frontmatter does not support model)", () => {
+  test("drops model field from Codex custom agents", () => {
     const plugin: ClaudePlugin = {
       ...fixturePlugin,
       agents: [
@@ -102,10 +149,12 @@ describe("convertClaudeToCodex", () => {
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
-    const skill = bundle.generatedSkills.find((s) => s.name === "fast-agent")
-    expect(parseFrontmatter(skill!.content).data.model).toBeUndefined()
+    const agent = bundle.agents.find((s) => s.name === "fast-agent")
+    expect(agent).toBeDefined()
+    expect("model" in agent!).toBe(false)
   })
 
   test("copies workflow skills as regular skills and omits workflows aliases", () => {
@@ -136,6 +185,7 @@ describe("convertClaudeToCodex", () => {
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     // No prompt wrappers for workflow skills — they're directly invocable as skills
@@ -173,6 +223,7 @@ describe("convertClaudeToCodex", () => {
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     expect(bundle.prompts).toHaveLength(0)
@@ -184,13 +235,14 @@ describe("convertClaudeToCodex", () => {
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     expect(bundle.mcpServers?.local?.command).toBe("echo")
     expect(bundle.mcpServers?.local?.args).toEqual(["hello"])
   })
 
-  test("transforms Task agent calls to skill references", () => {
+  test("transforms known Task agent calls to custom agent spawns", () => {
     const plugin: ClaudePlugin = {
       ...fixturePlugin,
       commands: [
@@ -208,7 +260,26 @@ Task best-practices-researcher(topic)`,
           sourcePath: "/tmp/plugin/commands/plan.md",
         },
       ],
-      agents: [],
+      agents: [
+        {
+          name: "repo-research-analyst",
+          description: "Repo research",
+          body: "Research repositories.",
+          sourcePath: "/tmp/plugin/agents/repo-research-analyst.md",
+        },
+        {
+          name: "learnings-researcher",
+          description: "Learning research",
+          body: "Search learnings.",
+          sourcePath: "/tmp/plugin/agents/learnings-researcher.md",
+        },
+        {
+          name: "best-practices-researcher",
+          description: "Best practices",
+          body: "Search best practices.",
+          sourcePath: "/tmp/plugin/agents/best-practices-researcher.md",
+        },
+      ],
       skills: [],
     }
 
@@ -216,23 +287,23 @@ Task best-practices-researcher(topic)`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     const commandSkill = bundle.generatedSkills.find((s) => s.name === "plan")
     expect(commandSkill).toBeDefined()
     const parsed = parseFrontmatter(commandSkill!.content)
 
-    // Task calls should be transformed to skill references
-    expect(parsed.body).toContain("Use the $repo-research-analyst skill to: feature_description")
-    expect(parsed.body).toContain("Use the $learnings-researcher skill to: feature_description")
-    expect(parsed.body).toContain("Use the $best-practices-researcher skill to: topic")
+    expect(parsed.body).toContain("Spawn the custom agent `repo-research-analyst` with task: feature_description")
+    expect(parsed.body).toContain("Spawn the custom agent `learnings-researcher` with task: feature_description")
+    expect(parsed.body).toContain("Spawn the custom agent `best-practices-researcher` with task: topic")
 
     // Original Task syntax should not remain
     expect(parsed.body).not.toContain("Task repo-research-analyst")
     expect(parsed.body).not.toContain("Task learnings-researcher")
   })
 
-  test("transforms namespaced Task agent calls to skill references using final segment", () => {
+  test("transforms namespaced Task agent calls to category-qualified custom agents", () => {
     const plugin: ClaudePlugin = {
       ...fixturePlugin,
       commands: [
@@ -241,16 +312,35 @@ Task best-practices-researcher(topic)`,
           description: "Planning with namespaced agents",
           body: `Run these agents in parallel:
 
-- Task compound-engineering:research:repo-research-analyst(feature_description)
-- Task compound-engineering:research:learnings-researcher(feature_description)
+- Task compound-engineering:research:ce-repo-research-analyst(feature_description)
+- Task compound-engineering:research:ce-learnings-researcher(feature_description)
 
 Then consolidate findings.
 
-Task compound-engineering:review:security-reviewer(code_diff)`,
+Task compound-engineering:review:ce-security-reviewer(code_diff)`,
           sourcePath: "/tmp/plugin/commands/plan.md",
         },
       ],
-      agents: [],
+      agents: [
+        {
+          name: "ce-repo-research-analyst",
+          description: "Repo research",
+          body: "Research repositories.",
+          sourcePath: "/tmp/plugin/agents/research/ce-repo-research-analyst.agent.md",
+        },
+        {
+          name: "ce-learnings-researcher",
+          description: "Learning research",
+          body: "Search learnings.",
+          sourcePath: "/tmp/plugin/agents/research/ce-learnings-researcher.agent.md",
+        },
+        {
+          name: "ce-security-reviewer",
+          description: "Security review",
+          body: "Review security.",
+          sourcePath: "/tmp/plugin/agents/review/ce-security-reviewer.agent.md",
+        },
+      ],
       skills: [],
     }
 
@@ -258,16 +348,16 @@ Task compound-engineering:review:security-reviewer(code_diff)`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     const commandSkill = bundle.generatedSkills.find((s) => s.name === "plan")
     expect(commandSkill).toBeDefined()
     const parsed = parseFrontmatter(commandSkill!.content)
 
-    // Namespaced Task calls should use only the final segment as the skill name
-    expect(parsed.body).toContain("Use the $repo-research-analyst skill to: feature_description")
-    expect(parsed.body).toContain("Use the $learnings-researcher skill to: feature_description")
-    expect(parsed.body).toContain("Use the $security-reviewer skill to: code_diff")
+    expect(parsed.body).toContain("Spawn the custom agent `research-ce-repo-research-analyst` with task: feature_description")
+    expect(parsed.body).toContain("Spawn the custom agent `research-ce-learnings-researcher` with task: feature_description")
+    expect(parsed.body).toContain("Spawn the custom agent `review-ce-security-reviewer` with task: code_diff")
 
     // Original namespaced Task syntax should not remain
     expect(parsed.body).not.toContain("Task compound-engineering:")
@@ -284,7 +374,14 @@ Task compound-engineering:review:security-reviewer(code_diff)`,
           sourcePath: "/tmp/plugin/commands/review.md",
         },
       ],
-      agents: [],
+      agents: [
+        {
+          name: "ce-code-simplicity-reviewer",
+          description: "Simplicity review",
+          body: "Review simplicity.",
+          sourcePath: "/tmp/plugin/agents/review/ce-code-simplicity-reviewer.agent.md",
+        },
+      ],
       skills: [],
     }
 
@@ -292,12 +389,13 @@ Task compound-engineering:review:security-reviewer(code_diff)`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     const commandSkill = bundle.generatedSkills.find((s) => s.name === "review")
     expect(commandSkill).toBeDefined()
     const parsed = parseFrontmatter(commandSkill!.content)
-    expect(parsed.body).toContain("Use the $code-simplicity-reviewer skill")
+    expect(parsed.body).toContain("Spawn the custom agent `review-ce-code-simplicity-reviewer`")
     expect(parsed.body).not.toContain("compound-engineering:")
     expect(parsed.body).not.toContain("skill to:")
   })
@@ -327,6 +425,7 @@ Don't confuse with file paths like /tmp/output.md or /dev/null.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     const commandSkill = bundle.generatedSkills.find((s) => s.name === "plan")
@@ -370,17 +469,17 @@ Don't confuse with file paths like /tmp/output.md or /dev/null.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
-    const agentSkill = bundle.generatedSkills.find((s) => s.name === "session-historian")
-    expect(agentSkill).toBeDefined()
-    expect(agentSkill!.sidecarDirs).toEqual([
+    const agent = bundle.agents.find((s) => s.name === "research-session-historian")
+    expect(agent).toBeDefined()
+    expect(agent!.sidecarDirs).toEqual([
       { sourceDir: scriptDir, targetName: "session-history-scripts" },
     ])
 
-    const parsed = parseFrontmatter(agentSkill!.content)
-    expect(parsed.body).toContain("<script-dir>/discover-sessions.sh")
-    expect(parsed.body).not.toContain("<script-dir>/prompts:discover-sessions.sh")
+    expect(agent!.instructions).toContain("<script-dir>/discover-sessions.sh")
+    expect(agent!.instructions).not.toContain("<script-dir>/prompts:discover-sessions.sh")
   })
 
   test("transforms workflow skill slash commands to Codex skill references", () => {
@@ -427,6 +526,7 @@ If planning is complete, continue with /ce-work.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     const commandSkill = bundle.generatedSkills.find((s) => s.name === "review")
@@ -464,6 +564,7 @@ If planning is complete, continue with /ce-work.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     // Only normal command should produce a prompt
@@ -499,6 +600,7 @@ Run \`/compound-engineering-setup\` to create a settings file.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
     const commandSkill = bundle.generatedSkills.find((s) => s.name === "review")
@@ -509,7 +611,7 @@ Run \`/compound-engineering-setup\` to create a settings file.`,
     expect(parsed.body).toContain("compound-engineering.local.md")
   })
 
-  test("rewrites .claude/ paths in agent skill bodies", () => {
+  test("preserves tool-agnostic paths in Codex custom agent instructions", () => {
     const plugin: ClaudePlugin = {
       ...fixturePlugin,
       commands: [],
@@ -528,17 +630,15 @@ Run \`/compound-engineering-setup\` to create a settings file.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
-    const agentSkill = bundle.generatedSkills.find((s) => s.name === "config-reader")
-    expect(agentSkill).toBeDefined()
-    const parsed = parseFrontmatter(agentSkill!.content)
-
-    // Tool-agnostic path in project root — no rewriting needed
-    expect(parsed.body).toContain("compound-engineering.local.md")
+    const agent = bundle.agents.find((s) => s.name === "config-reader")
+    expect(agent).toBeDefined()
+    expect(agent!.instructions).toContain("compound-engineering.local.md")
   })
 
-  test("truncates generated skill descriptions to Codex limits and single line", () => {
+  test("truncates custom agent descriptions to Codex limits and single line", () => {
     const longDescription = `Line one\nLine two ${"a".repeat(2000)}`
     const plugin: ClaudePlugin = {
       ...fixturePlugin,
@@ -558,11 +658,10 @@ Run \`/compound-engineering-setup\` to create a settings file.`,
       agentMode: "subagent",
       inferTemperature: false,
       permissions: "none",
+      codexIncludeSkills: true,
     })
 
-    const generated = bundle.generatedSkills[0]
-    const parsed = parseFrontmatter(generated.content)
-    const description = String(parsed.data.description ?? "")
+    const description = bundle.agents[0].description
     expect(description.length).toBeLessThanOrEqual(1024)
     expect(description).not.toContain("\n")
     expect(description.endsWith("...")).toBe(true)

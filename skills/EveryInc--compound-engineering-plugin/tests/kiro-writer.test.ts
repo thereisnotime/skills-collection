@@ -64,6 +64,34 @@ describe("writeKiroBundle", () => {
     expect(await exists(path.join(kiroRoot, "agents", "prompts", "session-historian.md"))).toBe(false)
   })
 
+  test("moves historical CE Kiro artifacts to backup during install", async () => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-legacy-artifacts-"))
+    const kiroRoot = path.join(tempRoot, ".kiro")
+    const sourceSkillDir = path.join(tempRoot, "source-skill")
+    await fs.mkdir(sourceSkillDir, { recursive: true })
+    await fs.writeFile(
+      path.join(sourceSkillDir, "SKILL.md"),
+      "---\nname: ce-plan\ndescription: Plan\n---\n\nPlan.",
+    )
+    await fs.mkdir(path.join(kiroRoot, "skills", "reproduce-bug"), { recursive: true })
+    await fs.writeFile(path.join(kiroRoot, "skills", "reproduce-bug", "SKILL.md"), "legacy skill")
+    await fs.mkdir(path.join(kiroRoot, "agents", "prompts"), { recursive: true })
+    await fs.writeFile(path.join(kiroRoot, "agents", "repo-research-analyst.json"), "{}")
+    await fs.writeFile(path.join(kiroRoot, "agents", "prompts", "repo-research-analyst.md"), "legacy prompt")
+
+    await writeKiroBundle(kiroRoot, {
+      ...emptyBundle,
+      pluginName: "compound-engineering",
+      skillDirs: [{ name: "ce-plan", sourceDir: sourceSkillDir }],
+    })
+
+    expect(await exists(path.join(kiroRoot, "skills", "reproduce-bug"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "agents", "repo-research-analyst.json"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "agents", "prompts", "repo-research-analyst.md"))).toBe(false)
+    expect(await exists(path.join(kiroRoot, "skills", "ce-plan", "SKILL.md"))).toBe(true)
+    expect(await exists(path.join(kiroRoot, "compound-engineering", "legacy-backup"))).toBe(true)
+  })
+
   test("writes agents, skills, steering, and mcp.json", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "kiro-test-"))
     const bundle: KiroBundle = {
