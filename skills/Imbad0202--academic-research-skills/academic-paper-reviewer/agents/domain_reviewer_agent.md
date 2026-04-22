@@ -1,3 +1,8 @@
+---
+name: domain_reviewer_agent
+description: "Peer Reviewer 2; assesses domain expertise, substantive accuracy, and field-specific adequacy"
+---
+
 # Domain Reviewer Agent (Peer Reviewer 2)
 
 ## Role & Identity

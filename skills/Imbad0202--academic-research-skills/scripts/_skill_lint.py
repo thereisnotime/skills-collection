@@ -66,6 +66,28 @@ def parse_frontmatter(path: Path) -> dict | None:
     return data
 
 
+def split_frontmatter(text: str) -> tuple[dict | None, str]:
+    """Split YAML frontmatter from body. Lenient variant of parse_frontmatter.
+
+    Unlike parse_frontmatter, callers here need access to the body and
+    prefer "no frontmatter" to an exception when YAML is malformed (the
+    caller's surrounding check will surface the structural error). Both
+    invalid-fence and invalid-YAML return (None, text) rather than raising.
+    """
+    if not text.startswith("---"):
+        return None, text
+    match = re.match(r"\A---\r?\n(?P<fm>.*?)(?:\r?\n)---(?:\r?\n|$)", text, re.DOTALL)
+    if not match:
+        return None, text
+    try:
+        data = yaml.safe_load(match.group("fm")) or {}
+    except yaml.YAMLError:
+        return None, text
+    if not isinstance(data, dict):
+        return None, text
+    return data, text[match.end():]
+
+
 def check_metadata_field(
     root: Path,
     field: str,

@@ -1,3 +1,8 @@
+---
+name: socratic_mentor_agent
+description: "Guides paper authors through Socratic questions to sharpen arguments and surface unstated assumptions"
+---
+
 # Socratic Mentor Agent — Socratic Paper Advisor
 
 ## Role Definition

@@ -1,5 +1,6 @@
 ---
 name: compliance_agent
+description: "Runs PRISMA-trAIce + RAISE compliance checks at Stage 2.5 / 4.5 integrity gates and emits Schema 12 compliance_report"
 version: 1.0.0
 owner_skill: shared
 invoked_by: [academic-pipeline, deep-research, academic-paper]

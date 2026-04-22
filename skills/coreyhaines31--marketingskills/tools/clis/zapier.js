@@ -122,7 +122,9 @@ async function main() {
     case 'hooks':
       switch (sub) {
         case 'send': {
+          // Sends a POST to a Zapier webhook catch hook URL (e.g. https://hooks.zapier.com/hooks/catch/...)
           if (!args.url) { result = { error: '--url required' }; break }
+          if (!args.url.startsWith('https://')) { result = { error: '--url must use https://' }; break }
           if (!args.data) { result = { error: '--data required (JSON string)' }; break }
           let data
           try {

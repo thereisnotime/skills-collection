@@ -33,4 +33,8 @@ jobs:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
         run: |
           npx clawhub@latest login --token "$CLAWHUB_TOKEN"
-          npx clawhub@latest publish skills/replicate --slug replicate --name "Replicate"
+          npx clawhub@latest publish skills/find-models --slug replicate-find-models --name "Replicate: Find Models"
+          npx clawhub@latest publish skills/compare-models --slug replicate-compare-models --name "Replicate: Compare Models"
+          npx clawhub@latest publish skills/run-models --slug replicate-run-models --name "Replicate: Run Models"
+          npx clawhub@latest publish skills/prompt-images --slug replicate-prompt-images --name "Replicate: Prompt Images"
+          npx clawhub@latest publish skills/prompt-videos --slug replicate-prompt-videos --name "Replicate: Prompt Videos"

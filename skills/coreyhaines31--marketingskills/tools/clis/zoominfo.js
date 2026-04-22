@@ -92,7 +92,14 @@ async function main() {
         break
       }
       const token = await authenticate()
-      result = { jwt: token }
+      if (args['show-token']) {
+        result = { jwt: token }
+      } else {
+        const masked = token.length > 12
+          ? token.slice(0, 6) + '…' + token.slice(-6)
+          : '***'
+        result = { jwt: masked, hint: 'Use --show-token to reveal full JWT' }
+      }
       break
     }
 
@@ -188,7 +195,7 @@ async function main() {
       result = {
         error: 'Unknown command',
         usage: {
-          auth: 'auth — authenticate and get JWT token',
+          auth: 'auth [--show-token] — authenticate and get JWT token (masked by default)',
           contacts: {
             search: 'contacts search [--job-title <t>] [--company <c>] [--location <l>] [--seniority <s>] [--department <d>] [--page <n>]',
             enrich: 'contacts enrich --email <email> | --person-id <id>',

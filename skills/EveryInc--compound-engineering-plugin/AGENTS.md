@@ -70,6 +70,9 @@ When changing `plugins/compound-engineering/` content:
 - Do not hand-bump release-owned versions in plugin or marketplace manifests.
 - Do not hand-add release entries to `CHANGELOG.md` or treat it as the canonical source for new releases.
 - Run `bun run release:validate` if agents, commands, skills, MCP servers, or release-owned descriptions/counts may have changed.
+- When removing a skill, agent, or command, add its name to both cleanup registries so stale flat-install artifacts are swept on upgrade:
+  - `STALE_SKILL_DIRS` / `STALE_AGENT_NAMES` / `STALE_PROMPT_FILES` in `src/utils/legacy-cleanup.ts`
+  - `EXTRA_LEGACY_ARTIFACTS_BY_PLUGIN["compound-engineering"]` in `src/data/plugin-legacy-artifacts.ts`
 
 Useful validation commands:
 
@@ -120,13 +123,11 @@ Only add a provider when the target format is stable, documented, and has a clea
 
 ## Agent References in Skills
 
-When referencing agents from within skill SKILL.md files (e.g., via the `Agent` or `Task` tool), use the **category-qualified namespace** with the `ce-` prefix: `<category>:ce-<agent-name>`. Never use the bare agent name alone.
+When referencing agents from within skill SKILL.md files (e.g., via the `Agent` or `Task` tool), use the bare `ce-<agent-name>` form. The `ce-` prefix identifies the agent as a compound-engineering component and is sufficient for uniqueness across plugins.
 
 Example:
-- `research:ce-learnings-researcher` (correct)
-- `learnings-researcher` (wrong - will fail to resolve at runtime)
-
-This prevents resolution failures when the plugin is installed alongside other plugins that may define agents with the same short name.
+- `ce-learnings-researcher` (correct)
+- `learnings-researcher` (wrong — the `ce-` prefix is required; it's what prevents collisions with agents from other plugins that might share a short name)
 
 ## File References in Skills
 

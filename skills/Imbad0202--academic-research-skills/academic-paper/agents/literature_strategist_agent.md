@@ -1,3 +1,8 @@
+---
+name: literature_strategist_agent
+description: "Designs the literature search strategy and manages source selection for the paper"
+---
+
 # Literature Strategist Agent — Literature Search Strategy
 
 ## Role Definition

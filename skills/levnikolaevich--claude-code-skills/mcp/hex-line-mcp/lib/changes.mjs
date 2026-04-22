@@ -8,10 +8,6 @@ import { semanticGitDiff } from "@levnikolaevich/hex-common/git/semantic-diff";
 import { getGraphDB, getGraphDBForProject, getRelativePath, semanticImpact, graphUnavailableHint, graphUnavailableHintForProject } from "./graph-enrich.mjs";
 import { ACTION, REASON } from "./output-contract.mjs";
 
-function payloadSections(sections) {
-    return sections.length > 0 ? sections.join(",") : "summary_only";
-}
-
 function exportedLooking(symbol) {
     return /^\s*(export|public)\b/.test(symbol.text || "");
 }
@@ -77,9 +73,6 @@ export async function fileChanges(filePath, compareAgainst = "HEAD") {
                 ...graphHint,
             ].join("\n");
         }
-        let emittedRiskCount = 0;
-        let emittedRemovedApiWarnings = 0;
-        const sectionKinds = ["files"];
         const sections = [
             "status: CHANGED",
             `reason: ${REASON.DIRECTORY_CHANGED}`,
@@ -99,20 +92,13 @@ export async function fileChanges(filePath, compareAgainst = "HEAD") {
             sections.push(parts.join(" | "));
             const riskLines = summarizeGraphRisk(db, file.path.replace(/\\/g, "/"), file);
             const visibleRiskLines = riskLines.slice(0, 2);
-            emittedRiskCount += visibleRiskLines.length;
             for (const line of visibleRiskLines) sections.push(`risk_summary: ${summarizeRiskLine(line)}`);
             for (const symbol of file.removed_symbols.slice(0, 2)) {
                 if (exportedLooking(symbol)) {
-                    emittedRemovedApiWarnings += 1;
                     sections.push(`removed_api_warning: ${symbol.text}`);
                 }
             }
         }
-        if (emittedRiskCount > 0) sectionKinds.push("risk_summary");
-        if (emittedRemovedApiWarnings > 0) sectionKinds.push("removed_api_warning");
-        const spliceLines = [];
-        if (sectionKinds.length > 0) spliceLines.push(`payload_sections: ${payloadSections(sectionKinds)}`);
-        sections.splice(7 + graphHint.length, 0, ...spliceLines);
         return sections.join("\n");
     }
 
@@ -146,7 +132,6 @@ export async function fileChanges(filePath, compareAgainst = "HEAD") {
     const relFile = getRelativePath(real) || file.path?.replace(/\\/g, "/");
     const riskLines = summarizeGraphRisk(db, relFile, file);
     const removedApiWarnings = file.removed_symbols.filter(exportedLooking).slice(0, 4);
-    const sectionKinds = [];
     const parts = [
         "status: CHANGED",
         `reason: ${REASON.FILE_CHANGED}`,
@@ -158,21 +143,18 @@ export async function fileChanges(filePath, compareAgainst = "HEAD") {
     ];
 
     if (file.added_symbols.length) {
-        sectionKinds.push("added");
         parts.push(`next_action: ${ACTION.REVIEW_RISKS}`);
         parts.push("");
         parts.push("added:");
         for (const symbol of file.added_symbols) parts.push(`  + ${symbol.start}-${symbol.end}: ${symbol.text}`);
     }
     if (file.removed_symbols.length) {
-        sectionKinds.push("removed");
         if (!parts.includes(`next_action: ${ACTION.REVIEW_RISKS}`)) parts.push(`next_action: ${ACTION.REVIEW_RISKS}`);
         parts.push("");
         parts.push("removed:");
         for (const symbol of file.removed_symbols) parts.push(`  - ${symbol.start}-${symbol.end}: ${symbol.text}`);
     }
     if (file.modified_symbols.length) {
-        sectionKinds.push("modified");
         if (!parts.includes(`next_action: ${ACTION.REVIEW_RISKS}`)) parts.push(`next_action: ${ACTION.REVIEW_RISKS}`);
         parts.push("");
         parts.push("modified:");
@@ -187,12 +169,6 @@ export async function fileChanges(filePath, compareAgainst = "HEAD") {
         parts.push(`next_action: ${ACTION.INSPECT_RAW_DIFF}`);
         parts.push("");
         parts.push("summary_detail: no symbol changes detected");
-    }
-    if (riskLines.length > 0) sectionKinds.push("risk_summary");
-    if (removedApiWarnings.length > 0) sectionKinds.push("removed_api_warning");
-    if (sectionKinds.length > 0) {
-        const insertIdx = 6 + graphHint.length;
-        parts.splice(insertIdx, 0, `payload_sections: ${payloadSections(sectionKinds)}`);
     }
     if (riskLines.length || removedApiWarnings.length) {
         parts.push("");

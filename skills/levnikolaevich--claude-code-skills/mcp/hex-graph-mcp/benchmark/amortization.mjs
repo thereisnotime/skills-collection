@@ -17,8 +17,8 @@ import {
 } from "../lib/store.mjs";
 import { findClones } from "../lib/clones.mjs";
 import { findCycles } from "../lib/cycles.mjs";
-import { findUnusedExports } from "../lib/unused.mjs";
 import { indexProject } from "../lib/indexer.mjs";
+import { runAuditWorkspaceUseCase } from "../lib/use-cases.mjs";
 
 /**
  * @param {object} store  — initialized graph store
@@ -29,7 +29,7 @@ export async function runAmortization(store, config) {
     const { repoRoot, searchSym, contextSym, impactSym, traceSym } = config;
     const selectorFor = (sym) => ({ name: sym.name, file: sym.file });
 
-    // Measure index time (re-index -- mostly skips unchanged files)
+    // Measure full rebuild index time.
     const t0 = performance.now();
     await indexProject(repoRoot);
     const indexTimeMs = performance.now() - t0;
@@ -44,7 +44,7 @@ export async function runAmortization(store, config) {
         () => getArchitectureReport(),
         () => findClones(store, { type: "all", threshold: 0.80, minStmts: 3, crossFile: true, format: "text", suppress: true }),
         () => getHotspots({ limit: 10 }),
-        () => findUnusedExports(store),
+        () => runAuditWorkspaceUseCase({ path: repoRoot, verbosity: "minimal", limit: 5, cloneMemberLimit: 3 }),
         () => findCycles(store),
         () => getModuleMetricsReport(),
         () => getReferencesBySelector(selectorFor(searchSym)),

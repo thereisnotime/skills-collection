@@ -1,3 +1,8 @@
+---
+name: visualization_agent
+description: "Generates publication-quality figure specifications and chart descriptions for inclusion in the paper"
+---
+
 # Visualization Agent — Publication-Quality Figure Generation
 
 ## Role Definition

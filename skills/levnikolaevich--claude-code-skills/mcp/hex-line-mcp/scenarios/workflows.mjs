@@ -21,6 +21,7 @@ import { verifyChecksums } from "../lib/verify.mjs";
 import { editFile } from "../lib/edit.mjs";
 import { bulkReplace } from "../lib/bulk-replace.mjs";
 import { fileOutline } from "../lib/outline.mjs";
+import { grepSearch } from "../lib/search.mjs";
 import { getFileLines, runN } from "../lib/scenario-helpers.mjs";
 
 function ensureLine(lines, matcher, label) {
@@ -37,9 +38,113 @@ function copyIntoTemp(tempRoot, sourceRoot, relPath) {
     return dst;
 }
 
+function selectGenericFile(allFiles, largeFiles) {
+    return [...largeFiles, ...allFiles].find((file) => {
+        const lines = getFileLines(file);
+        return lines && lines.length >= 10;
+    });
+}
+
+function selectGenericPattern(lines) {
+    const joined = lines.join("\n");
+    for (const pattern of ["function", "class", "async", "import", "def", "export", "const"]) {
+        if (joined.includes(pattern)) return pattern;
+    }
+    const line = lines.find((entry) => /\w{4,}/.test(entry)) || "";
+    return line.match(/\w{4,}/)?.[0] || "TODO";
+}
+
+async function runGenericExternalWorkflows(config) {
+    const { repoRoot, allFiles, largeFiles, ts } = config;
+    const workflowResults = [];
+    const sourcePath = selectGenericFile(allFiles, largeFiles);
+    const sourceLines = sourcePath ? getFileLines(sourcePath) : null;
+    if (!sourcePath || !sourceLines) return workflowResults;
+
+    // W1: outline + targeted read on a real large file.
+    {
+        let chars = 0;
+        chars += (await fileOutline(sourcePath)).length;
+        chars += readFile(sourcePath, { offset: 1, limit: Math.min(80, sourceLines.length) }).length;
+        workflowResults.push({
+            id: "W1",
+            scenario: "External repo structure-first large-file read",
+            chars,
+            ops: 2,
+        });
+    }
+
+    // W2: summary-first search, then edit-ready hunks only for a narrowed file.
+    {
+        const pattern = selectGenericPattern(sourceLines);
+        let chars = 0;
+        chars += (await grepSearch(pattern, {
+            path: repoRoot,
+            output: "summary",
+            totalLimit: 50,
+            limit: 10,
+        })).length;
+        chars += (await grepSearch(pattern, {
+            path: sourcePath,
+            output: "content",
+            editReady: true,
+            totalLimit: 20,
+            limit: 5,
+        })).length;
+        workflowResults.push({
+            id: "W2",
+            scenario: "External repo search summary to edit-ready hunks",
+            chars,
+            ops: 2,
+        });
+    }
+
+    // W3: verified dry-run edit on a temp copy so external repos stay untouched.
+    {
+        const targetIdx = sourceLines.findIndex((line) => line.trim() && !line.trim().startsWith("//"));
+        if (targetIdx !== -1) {
+            const tempPath = resolve(tmpdir(), `hex-line-external-wf3-${ts}.tmp`);
+            copyFileSync(sourcePath, tempPath);
+            const start = Math.max(1, targetIdx + 1 - 2);
+            const end = Math.min(sourceLines.length, targetIdx + 1 + 2);
+            const hashes = sourceLines.slice(start - 1, end).map((line) => fnv1a(line));
+            const checksum = rangeChecksum(hashes, start, end);
+            const tag = lineTag(fnv1a(sourceLines[targetIdx]));
+            const updatedLine = `${sourceLines[targetIdx]} `;
+            const { value: chars } = runN(() => {
+                let total = 0;
+                total += readFile(tempPath, { offset: start, limit: end - start + 1, editReady: true, verbosity: "full" }).length;
+                try {
+                    total += editFile(tempPath, [{ set_line: { anchor: `${tag}.${targetIdx + 1}`, new_text: updatedLine } }], { dryRun: true }).length;
+                } catch (e) {
+                    total += e.message.length;
+                }
+                try {
+                    total += verifyChecksums(tempPath, [checksum]).length;
+                } catch (e) {
+                    total += e.message.length;
+                }
+                return total;
+            });
+            workflowResults.push({
+                id: "W3",
+                scenario: "External repo verified dry-run edit on temp copy",
+                chars,
+                ops: 3,
+            });
+            try { unlinkSync(tempPath); } catch {}
+        }
+    }
+
+    return workflowResults;
+}
+
 export async function runWorkflows(config) {
     const { repoRoot, allFiles, largeFiles } = config;
     const workflowResults = [];
+    if (!getFileLines(resolve(repoRoot, "hook.mjs")) || !getFileLines(resolve(repoRoot, "lib", "setup.mjs"))) {
+        return runGenericExternalWorkflows(config);
+    }
 
     // W1: grep tag + editFile (debug hex-line hook formatting)
     {
@@ -51,7 +156,8 @@ export async function runWorkflows(config) {
             sourceLines,
             (line) =>
                 line.includes("ls -R, ls -laR (recursive only)")
-                || line.includes("Bash redirect: blocks simple cat/head/tail/ls/grep/sed/diff"),
+                || line.includes("Bash redirect: blocks simple cat/head/tail/ls/grep/sed/diff")
+                || line.includes("Bash redirect: blocks project-scoped file inspection commands"),
             "hook redirect comment",
         );
         const tempPath = resolve(tmpdir(), `hex-line-wf1-${Date.now()}.mjs`);
@@ -59,7 +165,9 @@ export async function runWorkflows(config) {
 
         const updatedLine = sourceLines[targetIdx].includes("recursive only")
             ? sourceLines[targetIdx].replace("recursive only", "recursive listing only")
-            : sourceLines[targetIdx].replace("grep/sed/diff", "grep/sed/diff/find");
+            : sourceLines[targetIdx].includes("file inspection commands")
+                ? sourceLines[targetIdx].replace("file inspection commands", "project file inspection commands")
+                : sourceLines[targetIdx].replace("grep/sed/diff", "grep/sed/diff/find");
 
         const { value: chars } = runN(() => {
             let total = 0;
@@ -177,7 +285,7 @@ export async function runWorkflows(config) {
         if (largeLines && largeLines.length > 100) {
             const targetIdx = ensureLine(
                 largeLines,
-                (line) => line.includes("describe(\"hook — ls redirect\""),
+                (line) => line.includes("describe(\"hook — project Bash redirect scope\""),
                 "large smoke test anchor",
             );
             const sliceStart = Math.max(0, targetIdx - 5);

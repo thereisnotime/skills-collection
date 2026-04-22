@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.4.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.4.0)
+[![Version](https://img.shields.io/badge/version-v3.5.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.5.0)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -210,9 +210,9 @@ ARS Stage 2 寫作      →  用驗證過的實驗結果撰寫論文
 
 7 個 Agent 的多視角審查，搭配 **0-100 品質量表**。模式：full、re-review、quick、methodology-focus、guided、calibration。**決策對照：** ≥80 接受、65-79 小修、50-64 大修、<50 退稿。第一輪審查團隊 vs. 精簡再審團隊的分界：見 ARCHITECTURE.md §3 Stage 3 / Stage 3'。
 
-### Academic Pipeline (v3.2)
+### Academic Pipeline (v3.5)
 
-10 階段調度器，含誠信驗證、兩階段審查、蘇格拉底指導、協作品質評估。Pipeline 保證：每個階段都需使用者確認 checkpoint；誠信驗證（Stage 2.5 + 4.5）不可跳過；R&R 追溯矩陣（Schema 11）獨立驗證作者修訂宣稱。逐階段矩陣（agent、產出物、閘門）：見 ARCHITECTURE.md §3。
+10 階段調度器，含誠信驗證、兩階段審查、蘇格拉底指導、協作品質評估。Pipeline 保證：每個階段都需使用者確認 checkpoint；誠信驗證（Stage 2.5 + 4.5）不可跳過；R&R 追溯矩陣（Schema 11）獨立驗證作者修訂宣稱。v3.4 新增 Compliance Agent（PRISMA-trAIce + RAISE）於 Stage 2.5 / 4.5。v3.5 新增 **協作深度觀察員**（`collaboration_depth_agent`，僅諮詢性質、永不阻擋流程）於每一次 FULL/SLIM checkpoint 與 pipeline 完成時。MANDATORY 誠信閘門（2.5 / 4.5）明確跳過觀察員，避免稀釋合規檢查。理論基礎：Wang & Zhang (2026), IJETHE 23:11。逐階段矩陣（agent、產出物、閘門）：見 ARCHITECTURE.md §3。
 
 ---
 
@@ -269,6 +269,15 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.5.0（2026-04-21）— 協作深度觀察員（Collaboration Depth Observer）
+
+- **新增 agent**：`academic-pipeline` 新增 `collaboration_depth_agent`（Agent Team 從 3 成長為 4）。每個 FULL/SLIM checkpoint 與 pipeline 完成後（Stage 6 之後）觸發，依 4 維度 rubric 對使用者與 AI 的協作模式評分。**純觀察建議，永不阻擋流程**。MANDATORY checkpoints（Stages 2.5 / 4.5 的完整性檢查）**不**觸發 observer，完整性閘門完全保留。
+- **新增 rubric**：[`shared/collaboration_depth_rubric.md`](shared/collaboration_depth_rubric.md) v1.0。四個維度：Delegation Intensity、Cognitive Vigilance、Cognitive Reallocation、Zone Classification（Zone 1 / Zone 2 / Zone 3）。理論依據為 Wang, S., & Zhang, H. (2026). "Pedagogical partnerships with generative AI in higher education: how dual cognitive pathways paradoxically enable transformative learning." *International Journal of Educational Technology in Higher Education*, 23:11. DOI [10.1186/s41239-026-00585-x](https://doi.org/10.1186/s41239-026-00585-x)。
+- **Cross-model 分歧顯式標示，不默默平均**：當 `ARS_CROSS_MODEL` 設定時，observer 於兩個模型同時執行；若任一維度分差 > 2 分即標記為 `cross_model_divergence`。另提供 `ARS_CROSS_MODEL_SAMPLE_INTERVAL` 調控成本。
+- **Short-stage guard**：stage 內使用者 turn < 5 時注入靜態 `insufficient_evidence` 區塊，不派發全模型 observer call。
+- **反諂媚規範**：分數 ≥ 7 必須附具體對話 turn 引用；Zone 3 觸發 re-audit；禁止鼓勵性語言。
+- `academic-pipeline` SKILL 版本：`3.3.0 → 3.4.0`。Suite 版本升至 `3.5.0`。新增 lint `scripts/check_collaboration_depth_rubric.py` 加 10 個測試。
 
 ### v3.4.0（2026-04-20）— Compliance Agent + Schema 12
 

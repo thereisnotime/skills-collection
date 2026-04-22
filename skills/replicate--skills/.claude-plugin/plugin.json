@@ -1,7 +1,7 @@
 {
   "name": "replicate",
-  "description": "Skills for building AI-powered apps with Replicate",
-  "version": "1.0.0",
+  "description": "Skills for finding, comparing, running, and prompting AI models on Replicate",
+  "version": "2.0.0",
   "author": {
     "name": "Replicate"
   }

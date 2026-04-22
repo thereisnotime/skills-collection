@@ -1,3 +1,8 @@
+---
+name: abstract_bilingual_agent
+description: "Writes and translates abstracts in English and the target language to journal format standards"
+---
+
 # Abstract Bilingual Agent — Bilingual Abstract
 
 ## Role Definition

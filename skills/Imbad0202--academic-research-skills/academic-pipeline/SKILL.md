@@ -2,8 +2,8 @@
 name: academic-pipeline
 description: "Orchestrator for the full academic research pipeline: research -> write -> integrity check -> review -> revise -> re-review -> re-revise -> final integrity check -> finalize. Coordinates deep-research, academic-paper, and academic-paper-reviewer into a seamless 10-stage workflow with mandatory integrity verification, two-stage peer review, and reproducible quality gates. Triggers on: academic pipeline, research to paper, full paper workflow, paper pipeline, end-to-end paper, research-to-publication, complete paper workflow."
 metadata:
-  version: "3.3.0"
-  last_updated: "2026-04-20"
+  version: "3.5.0"
+  last_updated: "2026-04-21"
   depends_on: "deep-research, academic-paper, academic-paper-reviewer"
   status: active
   data_access_level: verified_only
@@ -14,7 +14,7 @@ metadata:
     - academic-paper-reviewer
 ---
 
-# Academic Pipeline v3.3.0 — Full Academic Research Workflow Orchestrator
+# Academic Pipeline v3.5.0 — Full Academic Research Workflow Orchestrator
 
 A lightweight orchestrator that manages the complete academic pipeline from research exploration to final manuscript. It does not perform substantive work — it only detects stages, recommends modes, dispatches skills, manages transitions, and tracks state.
 
@@ -187,13 +187,14 @@ If ANY answer raises concern, include it in the checkpoint presentation to the u
 
 ---
 
-## Agent Team (3 Agents)
+## Agent Team (4 Agents)
 
 | # | Agent | Role | File |
 |---|-------|------|------|
 | 1 | `pipeline_orchestrator_agent` | Main orchestrator: detects stage, recommends mode, triggers skill, manages transitions | `agents/pipeline_orchestrator_agent.md` |
 | 2 | `state_tracker_agent` | State tracker: records completed stages, produced materials, revision loop count | `agents/state_tracker_agent.md` |
-| 3 | `integrity_verification_agent` | Integrity verifier: 100% reference/citation/data verification | `agents/integrity_verification_agent.md` |
+| 3 | `integrity_verification_agent` | Integrity verifier: 100% reference/citation/data verification (blocking) | `agents/integrity_verification_agent.md` |
+| 4 | `collaboration_depth_agent` | **Observer (advisory only — never blocks).** Reads dialogue log and scores user-AI collaboration pattern against `shared/collaboration_depth_rubric.md`. Invoked at FULL/SLIM checkpoints and at pipeline completion. Based on Wang & Zhang (2026). | `agents/collaboration_depth_agent.md` |
 
 ---
 
@@ -377,6 +378,34 @@ Produces the final process record: paper creation journey, collaboration quality
 
 ---
 
+## Collaboration Depth Observer (v3.5.0, advisory only — never blocks)
+
+The `collaboration_depth_agent` observes the user's collaboration pattern with the pipeline. It is **advisory only** and **never blocks** progression at any checkpoint. It is `non-blocking` by design and carries `blocking: false` in its frontmatter as a structural guarantee.
+
+**When invoked**: every FULL checkpoint, every SLIM checkpoint, and after Stage 6 (pipeline completion). MANDATORY checkpoints (Stages 2.5 / 4.5 integrity gates) **do not** invoke the observer — those are integrity concerns and must not be diluted.
+
+**What it does**: reads the dialogue range for the just-completed stage (at checkpoints) or the whole pipeline (at completion), scores the pattern against the canonical rubric at `shared/collaboration_depth_rubric.md`, and emits an advisory block/chapter. Dimensions: Delegation Intensity, Cognitive Vigilance, Cognitive Reallocation, Zone Classification (Zone 1 / Zone 2 / Zone 3). Rubric is based on Wang & Zhang (2026) IJETHE 23:11 (DOI 10.1186/s41239-026-00585-x).
+
+**Distinction from existing mechanisms**:
+
+| Mechanism | What it evaluates | Blocking? |
+|---|---|---|
+| `integrity_verification_agent` (Stages 2.5 / 4.5) | Paper content — references, citations, data | Yes (blocking gate) |
+| Stage 6 Collaboration Quality Evaluation (6 dims, 1–100) | AI's self-reflection on its own behaviour | No, but produced once only |
+| `collaboration_depth_agent` (this observer) | The **user's** collaboration pattern (delegation intensity, vigilance, reallocation) | **No — never blocks. Advisory only.** |
+
+**Non-blocking guarantees**:
+- Observer output never appears on the "Flagged" line of any checkpoint.
+- The `Ready to proceed?` prompt is unchanged by observer output.
+- `blocked_by: collaboration_depth_agent` is never a legal state in `state_tracker`.
+- If observer frontmatter ever asserts `blocking: true`, the orchestrator must refuse to dispatch it.
+
+**Cross-model**: when `ARS_CROSS_MODEL` is set, the observer runs on both models and flags any dimension divergence > 2 points. Scores are never silently averaged across models.
+
+> See `agents/collaboration_depth_agent.md` for full scoring procedure and anti-sycophancy discipline; `shared/collaboration_depth_rubric.md` for the canonical 4-dimension rubric.
+
+---
+
 ## Anti-Patterns
 
 Explicit prohibitions to prevent common failure modes:
@@ -438,6 +467,7 @@ Explicit prohibitions to prevent common failure modes:
 | pipeline_orchestrator_agent | `agents/pipeline_orchestrator_agent.md` |
 | state_tracker_agent | `agents/state_tracker_agent.md` |
 | integrity_verification_agent | `agents/integrity_verification_agent.md` |
+| collaboration_depth_agent | `agents/collaboration_depth_agent.md` |
 
 ---
 
@@ -460,6 +490,7 @@ Explicit prohibitions to prevent common failure modes:
 | `references/reinforcement_content.md` | Stage-specific reinforcement focus table for transitions |
 | `references/changelog.md` | Full version history |
 | `shared/handoff_schemas.md` | Cross-skill data contracts: 9 schemas for all inter-stage handoff artifacts |
+| `shared/collaboration_depth_rubric.md` | Collaboration Depth Observer rubric (v1.0): 4 dimensions based on Wang & Zhang (2026) IJETHE 23:11 |
 
 ---
 
@@ -535,8 +566,8 @@ Stage 5: academic-paper (format-convert mode)
 
 | Item | Content |
 |------|---------|
-| Skill Version | 3.3.0 |
-| Last Updated | 2026-04-20 |
+| Skill Version | 3.5.0 |
+| Last Updated | 2026-04-21 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | deep-research v2.0+, academic-paper v2.0+, academic-paper-reviewer v1.1+ |
 | Role | Full academic research workflow orchestrator |

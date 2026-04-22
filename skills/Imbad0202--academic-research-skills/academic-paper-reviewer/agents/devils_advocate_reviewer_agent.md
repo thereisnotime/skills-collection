@@ -1,3 +1,8 @@
+---
+name: devils_advocate_reviewer_agent
+description: "Challenges core arguments and logical coherence as the devils advocate reviewer in the editorial panel"
+---
+
 # Devil's Advocate Reviewer Agent — Paper Review Devil's Advocate
 
 ## Role Definition

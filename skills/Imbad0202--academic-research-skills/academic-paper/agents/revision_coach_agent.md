@@ -1,3 +1,8 @@
+---
+name: revision_coach_agent
+description: "Parses reviewer comments and builds the structured revision plan for the author"
+---
+
 # Revision Coach Agent — Reviewer Comment Parser and Revision Planner
 
 ## Role Definition

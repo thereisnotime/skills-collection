@@ -20,7 +20,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
 
    Every change gets reviewed before shipping. The depth scales with the change's risk profile, but review itself is never skipped.
 
-   **Tier 2: Full review (default)** -- REQUIRED unless Tier 1 criteria are explicitly met. Invoke the `ce-code-review` skill with `mode:autofix` to run specialized reviewer agents, auto-apply safe fixes, and surface residual work as todos. When the plan file path is known, pass it as `plan:<path>`. This is the mandatory default -- proceed to Tier 1 only after confirming every criterion below.
+   **Tier 2: Full review (default)** -- REQUIRED unless Tier 1 criteria are explicitly met. Invoke the `ce-code-review` skill with `mode:autofix` to run specialized reviewer agents, auto-apply safe fixes, and record residual downstream work in the per-run artifact. When the plan file path is known, pass it as `plan:<path>`. This is the mandatory default -- proceed to Tier 1 only after confirming every criterion below.
 
    **Tier 1: Inline self-review** -- A lighter alternative permitted only when **all four** criteria are true. Before choosing Tier 1, explicitly state which criteria apply and why. If any criterion is uncertain, use Tier 2.
    - Purely additive (new files only, no existing behavior modified)
@@ -28,7 +28,23 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - Pattern-following (implementation mirrors an existing example with no novel logic)
    - Plan-faithful (no scope growth, no deferred questions resolved with surprising answers)
 
-3. **Final Validation**
+3. **Residual Work Gate** (REQUIRED when Tier 2 ran)
+
+   After Tier 2 code review completes, inspect the Residual Actionable Work summary it returned (or read the run artifact directly if the summary was not emitted). If one or more residual `downstream-resolver` findings remain, do not proceed to Final Validation until the user decides how to handle them.
+
+   Ask the user using the platform's blocking question tool (`AskUserQuestion` in Claude Code with `ToolSearch select:AskUserQuestion` pre-loaded if needed, `request_user_input` in Codex, `ask_user` in Gemini). Fall back to numbered options in chat only when the harness genuinely lacks a blocking tool. Never silently skip the gate.
+
+   Stem: `Code review found N residual finding(s) the skill did not auto-fix. How should the agent proceed?`
+
+   Options (four or fewer, self-contained labels):
+   - `Apply/fix now` — loop back into review with focused fixes; the agent investigates each finding, applies changes where safe, and re-runs review.
+   - `File tickets via project tracker` — load `references/tracker-defer.md` in Interactive mode; the agent files tickets in the project's detected tracker (or `gh` fallback, or leaves them in the report if no sink exists) and proceeds to Final Validation.
+   - `Accept and proceed` — record the residual findings verbatim in a durable "Known Residuals" sink before shipping. If a PR will be created or updated in Phase 4, include them in the PR description's "Known Residuals" section (the agent owns this when calling `ce-commit-push-pr`). If the user later chooses the no-PR `ce-commit` path, create `docs/residual-review-findings/<branch-or-head-sha>.md`, include the accepted findings and source review-run context, stage it with the implementation commit, and mention the file path in the final summary. The user has acknowledged the risk, but the findings must not live only in the transient session.
+   - `Stop — do not ship` — abort the shipping workflow. The user will handle findings manually before re-invoking.
+
+   Skip this gate entirely when the review reported `Residual actionable work: none.` or when only Tier 1 (inline self-review) was used. Do not proceed past this gate on an `Accept and proceed` decision until the agent has recorded whether the durable sink is `PR Known Residuals` or `docs/residual-review-findings/<branch-or-head-sha>.md`.
+
+4. **Final Validation**
    - All tasks marked completed
    - Testing addressed -- tests pass and new/changed behavior has corresponding test coverage (or an explicit justification for why tests are not needed)
    - Linting passes
@@ -38,7 +54,7 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - If the plan has a `Requirements Trace`, verify each requirement is satisfied by the completed work
    - If any `Deferred to Implementation` questions were noted, confirm they were resolved during execution
 
-4. **Prepare Operational Validation Plan** (REQUIRED)
+5. **Prepare Operational Validation Plan** (REQUIRED)
    - Add a `## Post-Deploy Monitoring & Validation` section to the PR description for every change.
    - Include concrete:
      - Log queries/search terms
@@ -72,7 +88,8 @@ This file contains the shipping workflow (Phase 3-4). Load it only when all Phas
    - Testing notes (tests added/modified, manual testing performed)
    - Evidence context from step 1, so `ce-commit-push-pr` can decide whether to ask about capturing evidence
    - Figma design link (if applicable)
-   - The Post-Deploy Monitoring & Validation section (see Phase 3 Step 4)
+   - The Post-Deploy Monitoring & Validation section (see Phase 3 Step 5)
+   - Any "Known Residuals" accepted in the Phase 3 Residual Work Gate, rendered as a dedicated section in the PR body with severity, file:line, and title per finding
 
    If the user prefers to commit without creating a PR, load the `ce-commit` skill instead.
 
@@ -103,7 +120,7 @@ Before creating PR, verify:
 
 Every change gets reviewed. The tier determines depth, not whether review happens.
 
-**Tier 2 (full review)** -- REQUIRED default. Invoke `ce-code-review mode:autofix` with `plan:<path>` when available. Safe fixes are applied automatically; residual work surfaces as todos. Always use this tier unless all four Tier 1 criteria are explicitly confirmed.
+**Tier 2 (full review)** -- REQUIRED default. Invoke `ce-code-review mode:autofix` with `plan:<path>` when available. Safe fixes are applied automatically; residual work is recorded in the run artifact for downstream routing. Always use this tier unless all four Tier 1 criteria are explicitly confirmed.
 
 **Tier 1 (inline self-review)** -- permitted only when all four are true (state each explicitly before choosing):
 - Purely additive (new files only, no existing behavior modified)

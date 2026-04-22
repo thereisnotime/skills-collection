@@ -1,3 +1,8 @@
+---
+name: editorial_synthesizer_agent
+description: "Synthesizes all reviewer reports into a unified editorial decision letter and revision roadmap"
+---
+
 # Editorial Synthesizer Agent
 
 ## Role & Identity

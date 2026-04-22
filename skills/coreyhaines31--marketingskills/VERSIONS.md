@@ -8,12 +8,17 @@ Current versions of all skills. Agents can compare against local versions to che
 | ad-creative | 1.2.0 | 2026-03-14 |
 | ai-seo | 1.2.0 | 2026-03-14 |
 | analytics-tracking | 1.2.0 | 2026-03-14 |
+| aso-audit | 1.0.0 | 2026-04-21 |
 | churn-prevention | 1.2.0 | 2026-03-14 |
 | cold-email | 1.2.0 | 2026-03-14 |
 | competitor-alternatives | 1.2.0 | 2026-03-14 |
+| community-marketing | 1.0.0 | 2026-04-21 |
+| competitor-profiling | 1.0.0 | 2026-04-07 |
 | content-strategy | 1.2.0 | 2026-03-14 |
 | copy-editing | 1.2.0 | 2026-03-14 |
 | copywriting | 1.2.0 | 2026-03-14 |
+| customer-research | 1.0.0 | 2026-04-21 |
+| directory-submissions | 1.0.0 | 2026-04-21 |
 | email-sequence | 1.2.0 | 2026-03-14 |
 | form-cro | 1.2.0 | 2026-03-14 |
 | free-tool-strategy | 1.2.0 | 2026-03-14 |
@@ -39,6 +44,19 @@ Current versions of all skills. Agents can compare against local versions to che
 | social-content | 1.2.0 | 2026-03-14 |
 
 ## Recent Changes
+
+### 2026-04-21
+- Added `directory-submissions` skill for Product Hunt, G2, AI directories, and backlink strategy
+- Added `competitor-profiling` skill for competitive intelligence research
+- Added international SEO & localization section to `seo-audit` (1.2.0)
+- Added conversion tracking reference to `paid-ads` (cross-platform pixel setup)
+- Added Zapier SDK integration for 8,000+ app access
+- Fixed plugin loading: removed `./` prefix from marketplace.json skill paths (#243)
+- Hardened CLI tools: Supermetrics API key moved to header, ZoomInfo JWT masked by default
+- Fixed community-marketing YAML frontmatter (#240)
+- Fixed Zapier webhook URL validation (#247)
+- Added missing skills to VERSIONS.md (aso-audit, community-marketing, customer-research — shipped in prior releases)
+- Total skills: 38
 
 ### 2026-03-14
 - Added `lead-magnets` skill for lead magnet strategy, format selection, and conversion optimization

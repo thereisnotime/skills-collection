@@ -63,20 +63,39 @@ All symbol/query tools also require `path` as the project anchor. Pass the index
 
 `find_symbols` is name-oriented discovery, not free-form code search. If the input looks like `export function`, `server.tool()`, `app.get(...)`, or another raw code fragment, use `grep_search` or a framework-aware graph query instead.
 
-`find_symbols` is also intentionally compact for overloaded names. The default detailed slice is `8`; when more candidates exist, the response reports `candidate_count`, `shown_count`, `truncated`, `overflow_groups`, and stronger `disambiguation_hints` so the next call narrows with `path`, `name + file`, or `workspace_qualified_name`.
+`find_symbols` is also intentionally compact for overloaded names. The default detailed slice is `8`; when more candidates exist, the action-line reports `partial ... total=N returned=M truncated=1` and the body carries warning/detail rows so the next call narrows with `path`, `name + file`, or `workspace_qualified_name`.
 
-Heavy tools now default to `verbosity: "compact"` and summary-first output. They return counts, previews, `available_expansions`, `expansion_hints`, `resolution_quality`, and `provenance_summary` first, so the client sees upfront how much a deeper expansion will return and which layer the current answer comes from. Use `expand`, `expand_limit`, `limit`, `depth`, `max_hops`, `kind`, and `min_confidence` to request a bounded deeper slice instead of dumping the whole graph in one call.
+Heavy tools use summary-first output. They return counts, bounded previews, provenance sections, quality metadata, and executable `>` follow-up pointers first, so the client sees upfront how much a deeper expansion will return and which layer the current answer comes from. Use `expand`, `expand_limit`, `limit`, `clone_member_limit`, `depth`, `max_hops`, `kind`, and `min_confidence` to request a bounded deeper slice instead of dumping the whole graph in one call.
 
-All public responses now use the same top-level shape:
+All responses use the text-only grammar defined in [`PROTOCOL.md`](PROTOCOL.md). The MCP envelope carries a single `content[0].text` string; there is **no** `structuredContent` mirror and **no** `outputSchema` declaration. Line 1 is the action-line:
 
-- `status`
-- `query`
-- `summary`
-- `reason`
-- `result`
-- `quality` when language/framework support matters
-- `warnings`
-- `next_actions`
+    <status> <next_action> [key=val ...]
+
+Body lines use single-char prefixes:
+
+- `#section-name kv=v kv=v` — section header (e.g. `#evidence tier_1=5 tier_2=3`, `#location src/a.ts:42-58 exported=1 kind=function`, `#refs total=8`, `#flow in=2 out=3`, `#summary unused=2 hotspots=1 clone_groups=3`).
+- `.name file:line kv=v` — primary entry (symbol, ref, impl, clone member). Path rows use `.A->B->C file:line depth=N`.
+- `>mcp__hex-graph__<tool> k=v ...` — executable follow-up pointer. Paste the literal string into the next tool call.
+- `!code=... !message=... !reason=... !warning=...` — error and advisory details.
+- `?hint=...` — verbosity=full only.
+
+Example `find_references` response:
+
+    ok keep_using total=8 conf=exact
+    #evidence precise_provider=5 parser_or_workspace=3
+    .ref src/a.ts:42 kind=calls conf=exact origin=typescript
+    .ref src/b.ts:18 kind=calls conf=medium origin=parser
+    >mcp__hex-graph__find_references path=/tmp/project symbol_id=42 expand=references expand_limit=10
+
+Example `audit_workspace` (clone members are flat rows, not an indent tree):
+
+    ok review_duplicates path=/tmp/project
+    #summary unused=2 hotspots=1 clone_groups=1
+    .clone_group id=g1 type=normalized members=12 shown=3 impact=medium
+    .clone_member group=g1 file=src/foo.ts lines=42-58 name=foo callers=3
+    .clone_member group=g1 file=src/bar.ts lines=70-86 name=bar callers=1
+    .clone_member group=g1 file=src/baz.ts lines=21-37 name=baz callers=1
+    .clone_members_more group=g1 omitted=9
 
 `next_action` / `next_actions` use short canonical labels, not English sentences. Typical values:
 
@@ -94,52 +113,50 @@ All public responses now use the same top-level shape:
 - `review_deleted_api`
 - `review_duplicates`
 
-Errors use a compact top-level shape:
+Errors use the same grammar, not a JSON error envelope:
 
-- `status: "ERROR"`
-- `code`
-- `summary`
-- `next_action`
-- `recovery`
+    error fix_path path=/tmp/project
+    !code=PATH_NOT_FOUND
+    !message=/tmp/project does not exist
 
 ### Setup
 
 | Tool | What it returns |
 |------|-----------------|
-| `index_project` | Index summary, languages, providers, framework overlays, warnings, and next actions |
+| `index_project` | Gitignore-aware index summary, languages, providers, framework overlays, warnings, and next actions |
 | `install_graph_providers` | Detected stack, provider status, SCIP exporter status, install plan, remediation steps, and agent-ready instructions |
 
 ### Symbol Navigation
 
 | Tool | Best for | Key result sections |
 |------|----------|---------------------|
-| `find_symbols` | Discovery before you know the exact identity | `candidates`, `candidate_count`, `shown_count`, `truncated`, `overflow_groups`, `disambiguation_hints` |
-| `inspect_symbol` | One-stop symbol briefing | `symbol`, `resolution`, `context`, `counts`, `references_summary`, `implementations_summary`, `available_expansions`, optional `expanded` |
-| `find_references` | All semantic usages of one symbol | `total`, `total_by_kind`, `preview`, `available_expansions`, optional `expanded`, inline `quality` |
-| `find_implementations` | Override / implementation search | `total`, `preview`, `available_expansions`, optional `expanded` |
-| `trace_paths` | Blast radius and dependency paths from a concrete symbol | `path_count`, `path_previews`, `available_expansions`, optional `expanded`, inline `quality` |
-| `trace_dataflow` | Source-to-sink propagation | `source`, `sink`, `path_count`, `path_previews`, `available_expansions`, optional `expanded` |
+| `find_symbols` | Discovery before you know the exact identity | action-line counts, `.symbol` rows, `!warning` overflow groups, `>` inspect pointers |
+| `inspect_symbol` | One-stop symbol briefing | `#location`, `#refs`, `#flow`, `.ref` rows, `>expansion` pointers |
+| `find_references` | All semantic usages of one symbol | `#evidence`, `.ref` rows, `>mcp__hex-graph__find_references` pointer, `#quality` in full output |
+| `find_implementations` | Override / implementation search | `#evidence`, `.impl` rows, `>mcp__hex-graph__find_implementations` pointer |
+| `trace_paths` | Blast radius and dependency paths from a concrete symbol | `.A->B->C` path rows, `#provenance`, `>mcp__hex-graph__trace_paths` pointer, `#quality` in full output |
+| `trace_dataflow` | Source-to-sink propagation | `.A->B->C kind=...` rows, `#provenance`, `>mcp__hex-graph__trace_dataflow` pointer |
 
 ### Review and Editing
 
 | Tool | Best for | Key result sections |
 |------|----------|---------------------|
-| `analyze_changes` | PR / commit / worktree review | `diff_summary`, `changed_files`, `changed_symbols`, `high_risk_items`, `deleted_api_warnings` |
-| `analyze_edit_region` | What a file range edit affects | `edited_symbols`, `impact_summary`, `external_callers`, `downstream_flow`, `clone_siblings`, `similar_symbols`, `duplicate_risk`, `public_api_risk`, `framework_entrypoint_risk` |
+| `analyze_changes` | PR / commit / worktree review | `#summary`, `.changed_symbol`, `.deleted_api`, `#quality`, `>` review pointers |
+| `analyze_edit_region` | What a file range edit affects | `#summary`, `.edited_symbol`, `.caller`, `.flow`, `.clone`, `.similar`, `!warning` risk details |
 
 ### Architecture and Maintenance
 
 | Tool | Best for | Key result sections |
 |------|----------|---------------------|
-| `analyze_architecture` | Workspace overview | `workspace_summary`, `modules`, `module_boundaries`, `cycles`, `coupling`, `framework_surfaces`, `top_risks` |
-| `audit_workspace` | Cleanup / maintainability review | `unused_exports`, `uncertain_unused_exports`, `hotspots`, `clones`, `risk_summary`, `suppressed_items` |
+| `analyze_architecture` | Workspace overview | `#summary`, `.module`, `.cycle`, `.coupling`, `.framework`, `.risk` |
+| `audit_workspace` | Cleanup / maintainability review | `#summary`, bounded `.unused`, `.hotspot`, `.clone_group`, `.clone_member`, `.clone_members_more`, `!warning` suppressed/uncertain items |
 
 ### Interop
 
 | Tool | Best for | Key result sections |
 |------|----------|---------------------|
-| `export_scip` | Send graph facts to external tooling | `artifact`, `language`, `documents`, `symbols`, `relationships`, `warnings` |
-| `import_scip_overlay` | Merge external SCIP evidence without replacing the native graph | `documents_processed`, `mapped_symbols`, `imported_edges`, `skipped_documents`, `warnings` |
+| `export_scip` | Send graph facts to external tooling | `#summary`, `.artifact`, `!warning` exporter gaps |
+| `import_scip_overlay` | Merge external SCIP evidence without replacing the native graph | `#summary`, `.mapped_symbol`, `.imported_edge`, `!warning` skipped documents |
 
 ### Architectural Notes
 
@@ -189,6 +206,7 @@ hex-graph-mcp/
 
 ### Parsing
 
+- File discovery honors Git excludes by default. Git repositories use `git ls-files -co --exclude-standard`; non-Git directories use the deterministic fallback walker with root `.gitignore` rules and generated-directory exclusions.
 - **tree-sitter WASM** via `web-tree-sitter` and repo-owned grammar artifacts from `hex-common/artifacts/tree-sitter`
 - Extracts definitions, imports, exports, calls, references, and explicit inheritance syntax
 - Feeds a shared pipeline used by both full indexing and watcher-driven reindexing
@@ -239,7 +257,7 @@ Inline `quality` metadata is currently surfaced by:
 ### Generated Snapshot
 
 - MCP tools registered in server contract: `14`
-- Semantic suite: `95/95` passing
+- Semantic suite: `103/103` passing
 - Corpora: `1` curated, `1` pinned external
 - Lanes: parser-first `green`, precise overlay `provider_conditional`
 
@@ -262,12 +280,12 @@ Workflow baseline (`benchmark/workflow-summary.json`):
 
 | ID | Workflow | Built-in | hex-graph | Savings | Ops | Steps |
 |----|----------|---------:|----------:|--------:|----:|------:|
-| W1 | Explore unfamiliar MCP before refactor | 144,687 chars | 117,320 chars | 19% | 12->3 | 12->3 |
-| W2 | Estimate blast radius before refactor | 192,510 chars | 157,609 chars | 18% | 7->3 | 5->3 |
-| W3 | Audit cycles, dead exports, hotspots | 61,754 chars | 4,184 chars | 93% | 22->4 | 22->4 |
-| W4 | Review PR semantic risk snapshot | 4,221 chars | 1,518 chars | 64% | 4->1 | 4->1 |
+| W1 | Explore unfamiliar MCP before refactor | 153,580 chars | 609 chars | 100% | 12->3 | 12->3 |
+| W2 | Estimate blast radius before refactor | 166,672 chars | 609 chars | 100% | 7->3 | 5->3 |
+| W3 | Audit cycles, dead exports, hotspots | 175,063 chars | 7,196 chars | 96% | 22->4 | 22->4 |
+| W4 | Review PR semantic risk snapshot | 72,053 chars | 23,504 chars | 67% | 4->1 | 4->1 |
 
-Workflow summary: `49%` average token savings, `45->11` ops, `43->11` steps.
+Workflow summary: `91%` average token savings, `45->11` ops, `43->11` steps.
 <!-- GENERATED:HEX_GRAPH_MCP_QUALITY:END -->
 
 Run the artifact snapshot locally:

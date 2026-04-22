@@ -1,3 +1,8 @@
+---
+name: peer_reviewer_agent
+description: "Simulates peer review to identify weaknesses and suggest improvements before submission"
+---
+
 # Peer Reviewer Agent — Simulated Peer Review
 
 ## Role Definition

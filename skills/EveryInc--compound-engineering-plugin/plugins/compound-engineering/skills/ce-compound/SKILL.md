@@ -32,7 +32,7 @@ When spawning subagents, pass the relevant file contents into the task prompt so
 
 ## Execution Strategy
 
-Present the user with two options before proceeding, using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the options and wait for the user's reply.
+Present the user with two options before proceeding, using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini. Fall back to presenting options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 ```
 1. Full (recommended) — the complete compound workflow. Researches,
@@ -168,7 +168,7 @@ Launch research subagents. Each returns text data to the orchestrator.
 
 #### 4. **Session Historian** (foreground, after launching the above — only if the user opted in)
    - **Skip entirely** if the user declined session history in the follow-up question
-   - Dispatched as `research:ce-session-historian`
+   - Dispatched as `ce-session-historian`
    - Dispatch in **foreground** — this agent reads session files outside the working directory (`~/.claude/projects/`, `~/.codex/sessions/`, `~/.cursor/projects/`) which background agents may not have access to
    - Searches prior Claude Code, Codex, and Cursor sessions for the same project to find related investigation context
    - Correlates sessions by repo name across all platforms (matches sessions from main checkouts, worktrees, and Conductor workspaces)
@@ -304,7 +304,7 @@ After the learning is written and the refresh decision is made, check whether th
 
       `docs/solutions/` — documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`). Relevant when implementing or debugging in documented areas.
       ```
-   c. In full mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) won't know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini) to get consent before making the edit. If no question tool is available, present the proposal and wait for the user's reply. In lightweight mode, output a one-liner note and move on
+   c. In full mode, explain to the user why this matters — agents working in this repo (including fresh sessions, other tools, or collaborators without the plugin) won't know to check `docs/solutions/` unless the instruction file surfaces it. Show the proposed change and where it would go, then use the platform's blocking question tool to get consent before making the edit: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini. Fall back to presenting the proposal in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. In lightweight mode, output a one-liner note and move on
 
 ### Phase 3: Optional Enhancement
 
@@ -314,13 +314,13 @@ After the learning is written and the refresh decision is made, check whether th
 
 Based on problem type, optionally invoke specialized agents to review the documentation:
 
-- **performance_issue** → `review:ce-performance-oracle`
-- **security_issue** → `review:ce-security-sentinel`
-- **database_issue** → `review:ce-data-integrity-guardian`
-- Any code-heavy issue → always run `review:ce-code-simplicity-reviewer`, and additionally run the kieran reviewer that matches the repo's primary stack:
-  - Ruby/Rails → also run `review:ce-kieran-rails-reviewer`
-  - Python → also run `review:ce-kieran-python-reviewer`
-  - TypeScript/JavaScript → also run `review:ce-kieran-typescript-reviewer`
+- **performance_issue** → `ce-performance-oracle`
+- **security_issue** → `ce-security-sentinel`
+- **database_issue** → `ce-data-integrity-guardian`
+- Any code-heavy issue → always run `ce-code-simplicity-reviewer`, and additionally run the kieran reviewer that matches the repo's primary stack:
+  - Ruby/Rails → also run `ce-kieran-rails-reviewer`
+  - Python → also run `ce-kieran-python-reviewer`
+  - TypeScript/JavaScript → also run `ce-kieran-typescript-reviewer`
   - Other stacks → no kieran reviewer needed
 
 </parallel_tasks>
@@ -460,7 +460,7 @@ What's next?
 5. Other
 ```
 
-**After displaying the success output, present the "What's next?" options using the platform's blocking question tool** (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the numbered options and wait for the user's reply before proceeding. Do not continue the workflow or end the turn without the user's selection.
+**After displaying the success output, present the "What's next?" options using the platform's blocking question tool:** `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question. Do not continue the workflow or end the turn without the user's selection.
 
 **Alternate output (when updating an existing doc due to high overlap):**
 
@@ -509,20 +509,20 @@ Writes the final learning directly into `docs/solutions/`.
 Based on problem type, these agents can enhance documentation:
 
 ### Code Quality & Review
-- **review:ce-kieran-rails-reviewer**: Reviews code examples for Rails best practices
-- **review:ce-kieran-python-reviewer**: Reviews code examples for Python best practices
-- **review:ce-kieran-typescript-reviewer**: Reviews code examples for TypeScript best practices
-- **review:ce-code-simplicity-reviewer**: Ensures solution code is minimal and clear
-- **review:ce-pattern-recognition-specialist**: Identifies anti-patterns or repeating issues
+- **ce-kieran-rails-reviewer**: Reviews code examples for Rails best practices
+- **ce-kieran-python-reviewer**: Reviews code examples for Python best practices
+- **ce-kieran-typescript-reviewer**: Reviews code examples for TypeScript best practices
+- **ce-code-simplicity-reviewer**: Ensures solution code is minimal and clear
+- **ce-pattern-recognition-specialist**: Identifies anti-patterns or repeating issues
 
 ### Specific Domain Experts
-- **review:ce-performance-oracle**: Analyzes performance_issue category solutions
-- **review:ce-security-sentinel**: Reviews security_issue solutions for vulnerabilities
-- **review:ce-data-integrity-guardian**: Reviews database_issue migrations and queries
+- **ce-performance-oracle**: Analyzes performance_issue category solutions
+- **ce-security-sentinel**: Reviews security_issue solutions for vulnerabilities
+- **ce-data-integrity-guardian**: Reviews database_issue migrations and queries
 
 ### Enhancement & Research
-- **research:ce-best-practices-researcher**: Enriches solution with industry best practices
-- **research:ce-framework-docs-researcher**: Links to framework/library documentation references
+- **ce-best-practices-researcher**: Enriches solution with industry best practices
+- **ce-framework-docs-researcher**: Links to framework/library documentation references
 
 ### When to Invoke
 - **Auto-triggered** (optional): Agents can run post-documentation for enhancement

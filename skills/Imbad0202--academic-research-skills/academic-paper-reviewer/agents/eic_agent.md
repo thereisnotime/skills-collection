@@ -1,3 +1,8 @@
+---
+name: eic_agent
+description: "Editor-in-Chief; orchestrates the review panel and delivers the final editorial decision"
+---
+
 # EIC Agent (Editor-in-Chief)
 
 ## Role & Identity

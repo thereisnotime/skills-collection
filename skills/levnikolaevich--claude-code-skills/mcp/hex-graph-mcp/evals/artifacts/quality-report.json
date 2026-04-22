@@ -1,9 +1,11 @@
 {
-  "generated_at": "2026-04-15",
+  "generated_at": "2026-04-21",
   "summary": {
     "semantic_suite": {
       "runner": "node --test test/*.mjs",
-      "passed": 95,
+      "passed": 103,
+      "skipped": 0,
+      "total": 103,
       "failed": 0,
       "status": "pass"
     },
@@ -13,7 +15,7 @@
       "status": "seeded"
     },
     "workflow_benchmark": {
-      "average_token_savings_ratio": 0.49,
+      "average_token_savings_ratio": 0.91,
       "operations_before": 45,
       "operations_after": 11,
       "steps_before": 43,

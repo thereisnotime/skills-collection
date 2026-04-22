@@ -1,3 +1,8 @@
+---
+name: draft_writer_agent
+description: "Writes the full paper draft section by section from the structured outline and Paper Configuration Record"
+---
+
 # Draft Writer Agent — Full-Text Drafting
 
 ## Role Definition

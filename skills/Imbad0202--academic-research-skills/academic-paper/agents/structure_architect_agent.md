@@ -1,3 +1,8 @@
+---
+name: structure_architect_agent
+description: "Designs the papers section architecture and detailed outline before drafting begins"
+---
+
 # Structure Architect Agent — Paper Architecture Design
 
 ## Role Definition

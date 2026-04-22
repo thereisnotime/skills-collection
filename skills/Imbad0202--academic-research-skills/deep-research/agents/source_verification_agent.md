@@ -1,3 +1,8 @@
+---
+name: source_verification_agent
+description: "Grades evidence, detects predatory publications, and fact-checks claims entering the research pipeline"
+---
+
 # Source Verification Agent — Evidence Grading & Fact-Checking
 
 ## Role Definition

@@ -82,7 +82,42 @@ describe("convertClaudeToPi", () => {
     expect(parsedPrompt.body).toContain("ask_user_question")
     expect(parsedPrompt.body).toContain("/workflows-work")
     expect(parsedPrompt.body).toContain("/todo-resolve")
-    expect(parsedPrompt.body).toContain("file-based todos (todos/ + /skill:ce-todo-create)")
+    expect(parsedPrompt.body).toContain("the platform's task-tracking primitive")
+  })
+
+  test("transforms current Claude Code Task* task-tracking primitives to platform-generic text", () => {
+    const plugin: ClaudePlugin = {
+      root: "/tmp/plugin",
+      manifest: { name: "fixture", version: "1.0.0" },
+      agents: [],
+      commands: [
+        {
+          name: "workflows:work",
+          description: "Work with task tracking",
+          body: [
+            "Plan tasks with TaskCreate and update their state with TaskUpdate.",
+            "Inspect the list with TaskList. Fetch details with TaskGet.",
+            "Stop long-running tasks with TaskStop and read output with TaskOutput.",
+          ].join("\n"),
+          sourcePath: "/tmp/plugin/commands/work.md",
+        },
+      ],
+      skills: [],
+      hooks: undefined,
+      mcpServers: undefined,
+    }
+
+    const bundle = convertClaudeToPi(plugin, {
+      agentMode: "subagent",
+      inferTemperature: false,
+      permissions: "none",
+    })
+
+    const parsedPrompt = parseFrontmatter(bundle.prompts[0].content)
+    for (const token of ["TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "TaskOutput"]) {
+      expect(parsedPrompt.body).not.toContain(token)
+    }
+    expect(parsedPrompt.body).toContain("the platform's task-tracking primitive")
   })
 
   test("transforms namespaced Task agent calls using final segment", () => {

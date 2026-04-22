@@ -7,9 +7,29 @@
   },
   "plugins": [
     {
-      "name": "replicate",
-      "source": "./",
-      "description": "Skills for building AI-powered apps with Replicate"
+      "name": "find-models",
+      "source": "skills/find-models",
+      "description": "Find AI models on Replicate using search and curated collections."
+    },
+    {
+      "name": "compare-models",
+      "source": "skills/compare-models",
+      "description": "Compare Replicate models by cost, speed, quality, and capabilities."
+    },
+    {
+      "name": "run-models",
+      "source": "skills/run-models",
+      "description": "Run AI models on Replicate via predictions, webhooks, and streaming."
+    },
+    {
+      "name": "prompt-images",
+      "source": "skills/prompt-images",
+      "description": "Prompting techniques for AI image generation and editing models on Replicate."
+    },
+    {
+      "name": "prompt-videos",
+      "source": "skills/prompt-videos",
+      "description": "Prompting techniques for AI video generation models on Replicate."
     }
   ]
 }

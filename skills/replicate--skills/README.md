@@ -1,9 +1,14 @@
 # Replicate Skills
 
+A collection of [Agent Skills](https://agentskills.io) for building AI-powered apps with [Replicate](https://replicate.com).
 
-A collection of [Agent Skills](https://agentskills.io) for building AI-powered apps with [Replicate](https://replicate.com). 
+Skills included:
 
-Discover, compare, and run AI models using Replicate's API.
+- **find-models** — search for models, browse collections, read schemas, pick the right model
+- **compare-models** — evaluate models by cost, speed, quality, and capabilities
+- **run-models** — create predictions, poll, use webhooks, stream, handle files, run concurrently
+- **prompt-images** — prompting techniques for image generation and editing models
+- **prompt-videos** — prompting techniques for video generation and editing models
 
 ## Installing
 

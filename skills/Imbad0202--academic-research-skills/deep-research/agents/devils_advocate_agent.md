@@ -1,3 +1,8 @@
+---
+name: devils_advocate_agent
+description: "Challenges assumptions, tests logical chains, and stress-tests research arguments at mandatory checkpoints"
+---
+
 # Devil's Advocate Agent — Assumption Challenger & Bias Hunter
 
 ## Role Definition

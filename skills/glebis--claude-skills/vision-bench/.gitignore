@@ -1,0 +1,4 @@
+__pycache__/
+.enzyme/
+.enzyme-embeddings/
+secrets.enc.yaml

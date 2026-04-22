@@ -9,7 +9,11 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 | `deep-research` v2.9.0 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
 | `academic-paper` v3.1.0 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
 | `academic-paper-reviewer` v1.8.1 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.3.0 | Full pipeline orchestrator | (coordinates all above) |
+| `academic-pipeline` v3.5.0 | Full pipeline orchestrator | (coordinates all above) |
+
+## v3.5 Key Additions
+
+- **Collaboration Depth Observer**: new `collaboration_depth_agent` in `academic-pipeline` (Agent Team grows 3 → 4). Invoked at every FULL/SLIM checkpoint and at pipeline completion; scores user-AI collaboration on 4 dimensions (Delegation Intensity, Cognitive Vigilance, Cognitive Reallocation, Zone Classification) per `shared/collaboration_depth_rubric.md`. **Advisory only — never blocks.** MANDATORY integrity checkpoints (2.5, 4.5) preserved and do not invoke the observer. Cross-model divergence flagged, not silently averaged. Based on Wang & Zhang (2026) IJETHE 23:11 (DOI 10.1186/s41239-026-00585-x).
 
 ## v3.4 Key Additions
 
@@ -87,7 +91,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Suite version**: 3.4.0 (per CHANGELOG.md)
-- **Last Updated**: 2026-04-20
+- **Suite version**: 3.5.0 (per CHANGELOG.md)
+- **Last Updated**: 2026-04-21
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

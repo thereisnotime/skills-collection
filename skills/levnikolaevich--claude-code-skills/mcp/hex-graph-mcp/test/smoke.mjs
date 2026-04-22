@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
-import { countTestCases } from "../scripts/quality-support.mjs";
+import { countAlwaysSkippedTestCases, countTestCases } from "../scripts/quality-support.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // ==================== clone analysis substrate ====================
@@ -363,6 +363,58 @@ export class B {
             const after = store.getAllCloneBlocks(1);
             assert.strictEqual(after.length, countBefore, "same block count after reindex");
             assert.notStrictEqual(after[0].raw_hash, before[0].raw_hash, "hash changed after content change");
+            store.close();
+        } finally {
+            try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
+        }
+    });
+
+    it("indexProject excludes .gitignore entries and purges previously indexed ignored files", async () => {
+        const dir = makeTempDir();
+        try {
+            mkdirSync(join(dir, "src"), { recursive: true });
+            mkdirSync(join(dir, "ignored-vendor"), { recursive: true });
+            writeFileSync(join(dir, "src/app.mjs"), "export function app() { return 1; }\n");
+            writeFileSync(join(dir, "ignored-vendor/ghost.mjs"), "export function ghost() { return 2; }\n");
+
+            cleanDb(dir);
+            await indexProject(dir);
+            let store = getStore(dir);
+            assert.ok(store.getFile("src/app.mjs"), "regular source indexed before ignore rule");
+            assert.ok(store.getFile("ignored-vendor/ghost.mjs"), "source indexed before ignore rule exists");
+            const stalePkg = store.ensurePackage({
+                package_key: "js:ignored-vendor",
+                name: "ignored-vendor",
+                language: "javascript",
+                root_path: "ignored-vendor",
+                is_external: 0,
+            });
+            store.ensureWorkspaceModule({
+                module_key: "js-module:ignored-vendor",
+                name: "ignored-vendor",
+                package_id: stalePkg.id,
+                package_key: stalePkg.package_key,
+                language: "javascript",
+                root_path: "ignored-vendor",
+                is_external: 0,
+            });
+            store.close();
+
+            writeFileSync(join(dir, ".gitignore"), "ignored-vendor/\n");
+            await indexProject(dir);
+            store = getStore(dir);
+            assert.ok(store.getFile("src/app.mjs"), "regular source remains indexed");
+            assert.equal(store.getFile("ignored-vendor/ghost.mjs"), undefined, "ignored source purged from graph");
+            assert.equal(
+                store.db.prepare("SELECT COUNT(*) AS count FROM workspace_modules WHERE root_path = 'ignored-vendor'").get().count,
+                0,
+                "full index rebuild purges stale workspace modules",
+            );
+            assert.equal(
+                store.db.prepare("SELECT COUNT(*) AS count FROM packages WHERE root_path = 'ignored-vendor'").get().count,
+                0,
+                "full index rebuild purges stale packages",
+            );
             store.close();
         } finally {
             try { rmSync(dir, { recursive: true, force: true }); } catch { /* Windows WAL lock */ }
@@ -2431,7 +2483,11 @@ describe("quality artifacts", () => {
         assert.ok(capabilities.query_families.find_references, "find_references capability exists");
         assert.equal(capabilities.query_families.scip_interop.default.tier, "experimental", "SCIP interop is surfaced as an experimental lane");
         assert.ok(targets.lanes.parser_first, "parser_first targets exist");
-        assert.equal(report.summary.semantic_suite.passed, countTestCases(resolve(__dirname)), "quality report keeps semantic suite summary");
+        const totalTests = countTestCases(resolve(__dirname));
+        const skippedTests = countAlwaysSkippedTestCases(resolve(__dirname));
+        assert.equal(report.summary.semantic_suite.total, totalTests, "quality report keeps semantic suite total");
+        assert.equal(report.summary.semantic_suite.skipped, skippedTests, "quality report keeps semantic suite skipped count");
+        assert.equal(report.summary.semantic_suite.passed, totalTests - skippedTests, "quality report keeps semantic suite passed count");
         assert.equal(corpora.curated[0].path, "test/smoke.mjs");
         assert.equal(listQualityCorpora("curated").length, 1, "curated corpus list is exposed");
         assert.ok(listQualityCorpora("external").length >= 1, "external corpus list is exposed");

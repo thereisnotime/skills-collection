@@ -42,3 +42,24 @@ jobs:
         env:
           PYTHONPATH: .
         run: python3 -m unittest scripts.test_check_compliance_report scripts.test_validate_compliance_fixtures -v
+
+      - name: Check collaboration depth rubric + observer contract
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_collaboration_depth_rubric.py
+
+      - name: Run collaboration depth rubric unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_collaboration_depth_rubric -v
+
+      - name: Check version consistency (CLAUDE.md / SKILL.md / CHANGELOG)
+        env:
+          PYTHONPATH: scripts
+        run: python3 scripts/check_version_consistency.py
+
+      - name: Run version consistency unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_version_consistency -v
+

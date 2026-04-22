@@ -11,11 +11,14 @@ import { statSync, writeFileSync } from "node:fs";
 import { diffLines } from "diff";
 import { fnv1a, lineTag, parseChecksum, parseRef } from "@levnikolaevich/hex-common/text-protocol/hash";
 import { validatePath, normalizePath } from "./security.mjs";
-import { getGraphDB, semanticImpact, cloneWarning, getRelativePath, isGraphFreshAtMtime, graphUnavailableHint } from "./graph-enrich.mjs";
-import { MAX_DIFF_CHARS } from "./format.mjs";
+import { getGraphDB, semanticImpact, cloneWarning, getRelativePath, graphUnavailableHint } from "./graph-enrich.mjs";
 import {
     assertNonOverlappingTargets,
+    braceDelta,
     collectEditTargets,
+    isAmbiguousDelimiter,
+    isFileGloballyBalanced,
+    lexicalBraceCounts,
     normalizeAnchoredEdits,
     sortEditsForApply,
     targetRangeForReplaceBetween,
@@ -390,7 +393,7 @@ function buildSuggestedReadCall(filePath, recoveryRanges) {
     return JSON.stringify({
         tool: "mcp__hex-line__read_file",
         arguments: {
-            path: filePath,
+            file_path: filePath,
             ranges: dedupeRanges(recoveryRanges),
         }
     });
@@ -458,15 +461,6 @@ function summarizeChangedSpan(minLine, maxLine) {
     return Number.isFinite(minLine) && Number.isFinite(maxLine) && minLine !== Infinity && maxLine > 0
         ? `${minLine}-${maxLine}`
         : "unknown";
-}
-
-function countDiffEntries(fullDiff) {
-    if (!fullDiff) return 0;
-    return fullDiff.split("\n").filter((line) => /^[+-]\d+\|/.test(line)).length;
-}
-
-function payloadSections(sections) {
-    return sections.length > 0 ? sections.join(",") : "summary_only";
 }
 
 function buildRetryEdit(edit, lines, options = {}) {
@@ -954,7 +948,18 @@ function applyReplaceLinesEdit(edit, ctx) {
 }
 
 function applyReplaceBetweenEdit(edit, ctx) {
-    const { lines, lineEndings, defaultEol, opts, locateOrConflict, ensureRevisionContext } = ctx;
+    const {
+        lines,
+        lineEndings,
+        defaultEol,
+        opts,
+        locateOrConflict,
+        ensureRevisionContext,
+        currentSnapshot,
+        buildStrictChecksumMismatchError,
+        conflictIfNeeded,
+        origLines,
+    } = ctx;
     const boundaryMode = edit.replace_between.boundary_mode || "inclusive";
     if (boundaryMode !== "inclusive" && boundaryMode !== "exclusive") {
         throw new Error(`BAD_INPUT: replace_between boundary_mode must be inclusive or exclusive, got ${boundaryMode}`);
@@ -978,6 +983,74 @@ function applyReplaceBetweenEdit(edit, ctx) {
     }));
     if (conflict) return conflict;
 
+    // T1c: optional range_checksum validation; on ambiguous-delimiter anchors
+    // without checksum, emit lone_delimiter_anchors warning (conservative) or
+    // CONFLICT before write (strict).
+    const rangeChecksum = edit.replace_between.range_checksum;
+    const startAmbiguous = isAmbiguousDelimiter(lines[startIdx]);
+    const endAmbiguous = isAmbiguousDelimiter(lines[endIdx]);
+    const bothAmbiguous = startAmbiguous && endAmbiguous;
+    const actualStart = targetRange.start;
+    const actualEnd = targetRange.end;
+
+    if (rangeChecksum) {
+        const coverage = validateChecksumCoverage(rangeChecksum, actualStart, actualEnd);
+        if (!coverage.ok) {
+            const snip = buildErrorSnippet(origLines, actualStart - 1);
+            const retryChecksum = buildRangeChecksum(currentSnapshot, actualStart, actualEnd);
+            throw new Error(
+                `${coverage.reason}\n\n` +
+                `Current content (lines ${snip.start}-${snip.end}):\n${snip.text}\n\n` +
+                (retryChecksum ? `Retry checksum: ${retryChecksum}` : "Tip: Use updated hashes above for retry."),
+            );
+        }
+        const { start: csStart, end: csEnd, hex: csHex } = parseChecksum(rangeChecksum);
+        const actual = buildRangeChecksum(currentSnapshot, csStart, csEnd);
+        const actualHex = actual?.split(":")[1];
+        if (!actual || csHex !== actualHex) {
+            const exactRetryChecksum = buildRangeChecksum(currentSnapshot, actualStart, actualEnd);
+            const details = `CHECKSUM_MISMATCH: expected ${rangeChecksum}, got ${actual}. Content at lines ${csStart}-${csEnd} differs from when you read it.\nRecovery: read_file path ranges=["${csStart}-${csEnd}"], then retry edit with fresh checksum.`;
+            if (opts.conflictPolicy !== "strict") {
+                return conflictIfNeeded(
+                    "stale_checksum",
+                    csStart - 1,
+                    exactRetryChecksum || actual,
+                    details,
+                    [`${actualStart}-${actualEnd}`],
+                    buildRetryEdit(edit, lines, {
+                        startAnchor: `${lineTag(fnv1a(lines[startIdx]))}.${actualStart}`,
+                        endAnchor: `${lineTag(fnv1a(lines[endIdx]))}.${actualEnd}`,
+                        retryChecksum: exactRetryChecksum || actual,
+                    })
+                );
+            }
+            throw buildStrictChecksumMismatchError(details, csStart, actual);
+        }
+    } else if (bothAmbiguous) {
+        if (opts.conflictPolicy !== "strict") {
+            ctx.warnings.push({
+                code: "lone_delimiter_anchors",
+                suggestion: "provide range_checksum or use replace_lines",
+                start_anchor_line: startIdx + 1,
+                end_anchor_line: endIdx + 1,
+            });
+        } else {
+            const retryChecksum = buildRangeChecksum(currentSnapshot, actualStart, actualEnd);
+            return conflictIfNeeded(
+                "lone_delimiter_anchors",
+                startIdx,
+                retryChecksum,
+                `Both replace_between anchors are lone delimiters (line-content hashes are ambiguous and may match a sibling closing delimiter). Provide range_checksum to disambiguate, or use replace_lines with range_checksum.`,
+                [`${actualStart}-${actualEnd}`],
+                buildRetryEdit(edit, lines, {
+                    startAnchor: `${lineTag(fnv1a(lines[startIdx]))}.${startIdx + 1}`,
+                    endAnchor: `${lineTag(fnv1a(lines[endIdx]))}.${endIdx + 1}`,
+                    retryChecksum,
+                })
+            );
+        }
+    }
+
     const txt = edit.replace_between.new_text;
     let newLines = sanitizeEditText(txt ?? "").split("\n");
     const sliceStart = boundaryMode === "exclusive" ? startIdx + 1 : startIdx;
@@ -991,26 +1064,75 @@ function applyReplaceBetweenEdit(edit, ctx) {
     }
     replaceLogicalRange(lines, lineEndings, sliceStart, sliceStart + removeCount - 1, newLines, defaultEol);
 
-    // Boundary echo detection: auto-strip duplicate lines at replace boundaries.
-    // LLMs often pick the last line inside a block as end_anchor instead of the
-    // closing delimiter, so new_text includes e.g. "}" while the original "}" remains.
+    // T1a: auto-strip duplicate boundary lines, BUT preserve structural closing
+    // delimiters (}, ), ], });, etc). For those, hash-only match cannot tell an
+    // LLM echo apart from a legitimate sibling brace of an outer scope — silent
+    // deletion there produces CS1513-style errors far from the actual cause.
+    let boundaryEchoSkipped = false;
     const insertEnd = sliceStart + newLines.length;
     if (newLines.length > 0 && insertEnd < lines.length) {
         const lastNew = newLines[newLines.length - 1].trim();
         const firstAfter = lines[insertEnd].trim();
         if (lastNew && lastNew === firstAfter) {
-            lines.splice(insertEnd, 1);
-            lineEndings.splice(insertEnd, 1);
-            ctx.corrections.push({ type: "tail_echo", line: insertEnd + 1, content: firstAfter });
+            if (isAmbiguousDelimiter(firstAfter)) {
+                boundaryEchoSkipped = true;
+                ctx.warnings.push({
+                    code: "boundary_echo_skipped",
+                    position: "tail",
+                    line: insertEnd + 1,
+                    content: firstAfter,
+                });
+            } else {
+                lines.splice(insertEnd, 1);
+                lineEndings.splice(insertEnd, 1);
+                ctx.corrections.push({ type: "tail_echo", line: insertEnd + 1, content: firstAfter });
+            }
         }
     }
     if (newLines.length > 0 && sliceStart > 0) {
         const firstNew = newLines[0].trim();
         const lineBefore = lines[sliceStart - 1].trim();
         if (firstNew && firstNew === lineBefore) {
-            lines.splice(sliceStart - 1, 1);
-            lineEndings.splice(sliceStart - 1, 1);
-            ctx.corrections.push({ type: "head_echo", line: sliceStart, content: lineBefore });
+            if (isAmbiguousDelimiter(lineBefore)) {
+                boundaryEchoSkipped = true;
+                ctx.warnings.push({
+                    code: "boundary_echo_skipped",
+                    position: "head",
+                    line: sliceStart,
+                    content: lineBefore,
+                });
+            } else {
+                lines.splice(sliceStart - 1, 1);
+                lineEndings.splice(sliceStart - 1, 1);
+                ctx.corrections.push({ type: "head_echo", line: sliceStart, content: lineBefore });
+            }
+        }
+    }
+
+    // T1b: advisory post-edit lexical brace balance check. Heuristic only —
+    // lexical counts ignore strings/template literals/JSX/comments. Gated on a
+    // structural-risk signal so normal edits involving strings with braces
+    // don't trigger noisy warnings.
+    const delta = braceDelta(origRange, newLines);
+    if (delta.totalAbs >= 2) {
+        const preCounts = lexicalBraceCounts(origLines);
+        if (isFileGloballyBalanced(preCounts)) {
+            const postCounts = lexicalBraceCounts(lines);
+            if (!isFileGloballyBalanced(postCounts)) {
+                const hasStructuralSignal =
+                    startAmbiguous ||
+                    endAmbiguous ||
+                    boundaryEchoSkipped ||
+                    newLines.some(l => isAmbiguousDelimiter(l)) ||
+                    origRange.some(l => isAmbiguousDelimiter(l));
+                if (hasStructuralSignal) {
+                    ctx.warnings.push({
+                        code: "brace_imbalance",
+                        delta: { brace: delta.brace, paren: delta.paren, bracket: delta.bracket },
+                        range: [sliceStart + 1, sliceStart + newLines.length],
+                    });
+                }
+            }
         }
     }
 
@@ -1166,6 +1288,7 @@ export function editFile(filePath, edits, opts = {}) {
         origLines,
         staleRevision,
         corrections: [],
+        warnings: [],
     };
 
     const batchConflicts = collectBatchConflicts({
@@ -1212,12 +1335,6 @@ export function editFile(filePath, edits, opts = {}) {
 
 
     const fullDiff = simpleDiff(origLines, lines);
-    let displayDiff = fullDiff;
-    if (displayDiff && displayDiff.length > MAX_DIFF_CHARS) {
-        displayDiff = displayDiff.slice(0, MAX_DIFF_CHARS) + `\n... (diff truncated, ${displayDiff.length} chars total)`;
-    }
-
-    // Compute changed line range from fullDiff (used by post-edit + semantic impact)
     const newLinesAll = lines;
     let minLine = Infinity, maxLine = 0;
     if (fullDiff) {
@@ -1230,46 +1347,56 @@ export function editFile(filePath, edits, opts = {}) {
             }
         }
     }
-    const diffEntryCount = countDiffEntries(fullDiff);
     const changedSpan = summarizeChangedSpan(minLine, maxLine);
 
     if (opts.dryRun) {
         let msg = `status: ${autoRebased ? STATUS.AUTO_REBASED : STATUS.OK}\nreason: ${REASON.DRY_RUN_PREVIEW}\nrevision: ${currentSnapshot.revision}`;
         if (staleRevision && hasBaseSnapshot) msg += `\nchanged_ranges: ${describeChangedRanges(changedRanges)}`;
-        msg += `\nsummary: lines_changed=${changedSpan} diff_entries=${diffEntryCount} lines_after=${lines.length}`;
-        msg += `\npayload_sections: ${payloadSections(displayDiff ? ["diff"] : [])}`;
+        msg += `\nsummary: lines_changed=${changedSpan} lines_after=${lines.length}`;
         const hint = graphUnavailableHint(real);
         if (hint.length > 0) msg += `\n${hint.join("\n")}`;
         msg += `\nDry run: ${filePath} would change (${lines.length} lines)`;
-        if (displayDiff) msg += `\n\nDiff:\n\`\`\`diff\n${displayDiff}\n\`\`\``;
         return msg;
     }
 
     writeFileSync(real, content, "utf-8");
     const nextStat = statSync(real);
     const nextSnapshot = rememberSnapshot(real, content, { mtimeMs: nextStat.mtimeMs, size: nextStat.size });
+    // Determine single canonical next_action: warnings take precedence over the
+    // auto-rebased KEEP_USING hint (reread_range when anchor ambiguity detected,
+    // review_risks for structural heuristic signals).
+    const warnings = editContext.warnings;
+    let warningsNextAction = null;
+    if (warnings.length > 0) {
+        const codes = new Set(warnings.map(w => w.code));
+        if (codes.has("lone_delimiter_anchors")) warningsNextAction = ACTION.REREAD_RANGE;
+        else if (codes.has("brace_imbalance") || codes.has("boundary_echo_skipped")) warningsNextAction = ACTION.REVIEW_RISKS;
+    }
+    const nextActionValue = warningsNextAction || (autoRebased && staleRevision && hasBaseSnapshot ? ACTION.KEEP_USING : null);
+
     let msg =
         `status: ${autoRebased ? STATUS.AUTO_REBASED : STATUS.OK}\n` +
-        `reason: ${autoRebased ? REASON.EDIT_AUTO_REBASED : REASON.EDIT_APPLIED}\n` +
         `revision: ${nextSnapshot.revision}`;
     if (autoRebased && staleRevision && hasBaseSnapshot) {
         msg += `\nchanged_ranges: ${describeChangedRanges(changedRanges)}`;
-        msg += `\nnext_action: ${ACTION.KEEP_USING}`;
+    }
+    if (nextActionValue) {
+        msg += `\nnext_action: ${nextActionValue}`;
     }
     if (remaps.length > 0) {
         msg += `\nremapped_refs:\n${remaps.map(({ from, to }) => `${from} -> ${to}`).join("\n")}`;
     }
-    let hasPostEditBlock = false; // v1.23.1 smoke
+    if (warnings.length > 0) {
+        msg += `\nwarnings: ${JSON.stringify(warnings)}`;
+    }
     let semanticImpacts = [];
     let cloneWarnings = [];
     let graphDbAvailable = false;
-    let graphFresh = true;
-    msg += `\nUpdated ${filePath} (${lines.length} lines)`;
 
     // Post-edit context (before diff — always visible even if output truncated)
     if (fullDiff && minLine <= maxLine) {
-        const ctxStart = Math.max(0, minLine - 6) + 1; // 1-indexed for snapshot
-        const ctxEnd = Math.min(newLinesAll.length, maxLine + 5);
+        const ctxStart = Math.max(0, minLine - 4) + 1; // 1-indexed for snapshot (±3 lines context)
+        const ctxEnd = Math.min(newLinesAll.length, maxLine + 3);
         const entries = createSnapshotEntries(nextSnapshot, ctxStart, ctxEnd);
         if (entries.length > 0) {
             const block = buildEditReadyBlock({
@@ -1281,7 +1408,6 @@ export function editFile(filePath, edits, opts = {}) {
                     trailing_newline: nextSnapshot.trailingNewline,
                 },
             });
-            hasPostEditBlock = true;
             msg += `\n\n${serializeReadBlock(block)}`;
         }
     }
@@ -1292,7 +1418,6 @@ export function editFile(filePath, edits, opts = {}) {
         const relFile = db ? getRelativePath(real) : null;
         if (db && relFile && fullDiff && minLine <= maxLine) {
             graphDbAvailable = true;
-            graphFresh = isGraphFreshAtMtime(db, real, currentSnapshot.mtimeMs);
             semanticImpacts = semanticImpact(db, relFile, minLine, maxLine);
             if (semanticImpacts.length > 0) {
                 const sections = semanticImpacts.map(impact => {
@@ -1319,35 +1444,25 @@ export function editFile(filePath, edits, opts = {}) {
                     }).filter(Boolean);
                     return [
                         `${impact.symbol}: ${headline}`,
-                        ...factLines.map(line => `  ${line}`),
+                        ...factLines.map(line => `.${line}`),
                     ].join("\n");
                 });
-                msg += `\n\n\u26a0 Semantic impact:\n${sections.join("\n")}`;
+                msg += `\n\n#semantic_impact\n${sections.join("\n")}`;
             }
             cloneWarnings = cloneWarning(db, relFile, minLine, maxLine);
             if (cloneWarnings.length > 0) {
                 const list = cloneWarnings.map(c => `${c.file}:${c.line}${c.cloneType ? ` (${c.cloneType})` : ""}`).join(", ");
-                msg += `\n\n\u26a0 ${cloneWarnings.length} clone(s): ${list}`;
+                msg += `\n\n!clone_siblings count=${cloneWarnings.length} list=${list}`;
             }
         }
     } catch { /* silent */ }
-    if (!graphFresh) msg += "\ngraph_fresh: stale";
 
-    const payloadKinds = [];
-    if (hasPostEditBlock) payloadKinds.push("post_edit");
-    if (semanticImpacts.length > 0) payloadKinds.push("semantic_impact");
-    if (cloneWarnings.length > 0) payloadKinds.push("clone_warning");
-    if (displayDiff) payloadKinds.push("diff");
     const summaryLineParts = [
-        `summary: lines_changed=${changedSpan} diff_entries=${diffEntryCount} lines_after=${lines.length}${editContext.corrections.length > 0 ? ` boundary_echo_stripped=${editContext.corrections.length}` : ``}`,
-        `payload_sections: ${payloadSections(payloadKinds)}`,
+        `summary: lines_changed=${changedSpan} lines_after=${lines.length}`,
     ];
     if (!graphDbAvailable) summaryLineParts.push(...graphUnavailableHint(real));
     const summaryLines = summaryLineParts.join("\n");
-    msg = msg.replace(`\nUpdated ${filePath} (${lines.length} lines)`, `\n${summaryLines}\nUpdated ${filePath} (${lines.length} lines)`);
-
-    // Diff (last — safe to truncate by Claude Code)
-    if (displayDiff) msg += `\n\nDiff:\n\`\`\`diff\n${displayDiff}\n\`\`\``;
+    msg = msg.replace(/\nrevision: ([^\n]+)/, `\nrevision: $1\n${summaryLines}`);
 
     return msg;
 }

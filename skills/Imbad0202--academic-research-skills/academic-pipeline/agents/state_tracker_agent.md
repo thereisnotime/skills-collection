@@ -1,3 +1,8 @@
+---
+name: state_tracker_agent
+description: "Tracks pipeline state and maintains the research session history across multi-phase workflows"
+---
+
 # State Tracker Agent v2.0
 
 ## Role Definition
@@ -15,7 +20,16 @@ The State Tracker is the **single source of truth** for pipeline state. No other
 | `pipeline_orchestrator` | Request state changes via `request_update(field, value)` | Direct state mutation |
 | `state_tracker` | All fields (sole writer) | N/A (is the writer) |
 | `integrity_verification` | `integrity_report` field only (via `submit_report()`) | `pipeline_state`, `current_stage`, materials |
+| `collaboration_depth_agent` | `collaboration_depth_history[]` append-only (via `append_observer_report()`); never writes `pipeline_state`, `current_stage`, blocking flags, or materials | All other fields |
 | Sub-skill agents | Their own `stage_output` (via `submit_output()`) | Any other field |
+
+### Dialogue log references (v3.3.0)
+
+For every stage transition, the tracker records a `dialogue_log_ref` containing the turn range covering that stage (e.g. `turns #47..#91`). This is a lightweight pointer — the full dialogue lives in the live conversation, not in state. The pointer is passed to `collaboration_depth_agent` when the orchestrator invokes it at checkpoints and at pipeline completion. Turn-range entries are immutable once a stage closes.
+
+### `collaboration_depth_history[]`
+
+Append-only list. Each entry is an observer report produced at a FULL/SLIM checkpoint or at pipeline completion. Entries never gate state transitions — they are stored for the final Process Record's "Collaboration Depth Trajectory" chapter only. The tracker must reject any write request that attempts to turn observer output into a blocking condition.
 
 ### State Update Protocol
 
@@ -75,7 +89,8 @@ Every material artifact produced by the pipeline carries a version label. These 
       "schema_validated": true,
       "assigned_to": null,
       "approval_gate": false,
-      "team_notes": null
+      "team_notes": null,
+      "dialogue_log_ref": "turns #3..#15"
     },
     "2": {
       "name": "WRITE",
@@ -275,7 +290,19 @@ Every material artifact produced by the pipeline carries a version label. These 
     "review_coordinator": null,
     "integration_lead": null
   },
-  "loop_count": 0
+  "loop_count": 0,
+  "collaboration_depth_history": [
+    {
+      "stage_id": "1",
+      "checkpoint_type": "FULL",
+      "timestamp": "conversation turn #15",
+      "dialogue_log_ref": "turns #3..#15",
+      "zone": "Zone 2",
+      "scores": { "delegation_intensity": 4, "cognitive_vigilance": 3, "cognitive_reallocation": 2 },
+      "cross_model_divergence": null,
+      "advisory_only": true
+    }
+  ]
 }
 ```
 
@@ -370,7 +397,24 @@ missing_recommended: [list]
 warning: "string or null"
 ```
 
-### 7. generate_dashboard()
+### 7. append_observer_report(stage_id, checkpoint_type, report)
+
+Append a Collaboration Depth Observer report (added in v3.3.0, behind `measures: collaboration_depth`). This is the **only** way to write `collaboration_depth_history[]`, which is append-only. The tracker MUST reject any caller other than `collaboration_depth_agent` and MUST reject any write that would turn the observer output into a blocking condition (e.g. attempting to set `current_stage` or `pipeline_state` in the same request).
+
+| Parameter | Description |
+|-----------|-------------|
+| stage_id | Stage the observer scored, or `"pipeline"` for the whole-pipeline pass at completion |
+| checkpoint_type | "FULL", "SLIM", or "pipeline_completion" (MANDATORY checkpoints MUST NOT call this function) |
+| report | Object with `timestamp`, `dialogue_log_ref`, `zone`, `scores`, `cross_model_divergence`, and always `advisory_only: true` |
+
+**Preconditions:**
+- Caller identity is `collaboration_depth_agent`
+- `report.advisory_only === true`
+- No other state fields are mutated in the same request
+
+Violations are rejected with reason, consistent with the State Update Protocol.
+
+### 8. generate_dashboard()
 
 Produce the Progress Dashboard. Format as follows:
 

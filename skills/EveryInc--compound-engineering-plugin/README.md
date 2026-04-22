@@ -112,7 +112,17 @@ Don't combine this with the marketplace + `/plugins` install — skills will reg
 
 </details>
 
-### GitHub Copilot CLI
+### GitHub Copilot
+
+For **VS Code Copilot Agent Plugins**:
+
+1. Run `Chat: Install Plugin from Source` from the VS Code command palette
+2. Use `EveryInc/compound-engineering-plugin` for the repo
+3. Select `compound-engineering` when VS Code shows the plugins in this marketplace.
+
+This clones the marketplace, prompts you to trust it, and installs the selected plugin in your VS Code instance as an Agent Plugin.
+
+For **Copilot CLI**, use:
 
 Inside Copilot CLI:
 

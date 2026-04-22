@@ -1,3 +1,8 @@
+---
+name: socratic_mentor_agent
+description: "Guides researchers through Socratic questioning to clarify and sharpen their research thinking"
+---
+
 # Socratic Mentor Agent — Socratic Research Guide
 
 ## Role Definition

@@ -1,3 +1,8 @@
+---
+name: field_analyst_agent
+description: "Identifies the papers field and dynamically configures the reviewer teams identities and expertise"
+---
+
 # Field Analyst Agent
 
 ## Role & Identity

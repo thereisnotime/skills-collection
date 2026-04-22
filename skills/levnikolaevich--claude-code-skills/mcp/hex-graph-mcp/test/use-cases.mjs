@@ -54,12 +54,12 @@ describe("use-case wrappers", () => {
             assert.ok(inspect.result.references_summary.total >= 1);
             assert.ok(inspect.result.counts.references >= 1);
             assert.ok(Array.isArray(inspect.result.references_summary.preview));
-            assert.ok(Array.isArray(inspect.result.available_expansions));
+            assert.ok(Array.isArray(inspect.result.expansion_hints));
+            assert.ok(inspect.result.expansion_hints.every(hint => typeof hint.pointer === "string" && hint.pointer.startsWith(">mcp__hex-graph__")));
             assert.equal(inspect.result.resolution.ownership.file, "src/util.ts");
             assert.equal(inspect.result.resolution.resolution_quality.selector_specificity, "exact_id");
-            assert.ok(inspect.result.provenance_summary.total_rows >= 1);
+            assert.ok(Array.isArray(inspect.result.provenance_summary.tiers));
             assert.equal("siblings" in inspect.result.context, false);
-            assert.ok(inspect.summary.includes("reference"));
             assert.ok(inspect.next_actions.includes("find_references"));
             assert.ok(inspect.next_actions.includes("trace_paths"));
         } finally {
@@ -244,6 +244,16 @@ describe("use-case wrappers", () => {
                 "}",
                 "",
             ].join("\n"), "utf8");
+            for (let idx = 3; idx <= 7; idx++) {
+                writeFileSync(join(dir, "src", `dup-${idx}.js`), [
+                    `export function duplicateExtra${idx}(input) {`,
+                    "  const trimmed = input.trim();",
+                    "  if (!trimmed) return null;",
+                    "  return trimmed.toUpperCase();",
+                    "}",
+                    "",
+                ].join("\n"), "utf8");
+            }
             await indexProject(dir);
 
             const architecture = runAnalyzeArchitectureUseCase({ path: dir, verbosity: "minimal", limit: 3 });
@@ -259,9 +269,22 @@ describe("use-case wrappers", () => {
             assert.ok(Array.isArray(audit.result.unused_exports), "minimal audit still returns visible cleanup targets");
             assert.ok(Array.isArray(audit.result.hotspots), "minimal audit still returns hotspots");
             assert.ok(Array.isArray(audit.result.clones), "minimal audit still returns clone groups");
+            assert.ok(audit.result.clones.length <= 5, "minimal audit bounds clone groups");
+            assert.ok(
+                audit.result.clones.every(group => (group.members || []).length <= 3),
+                "minimal audit bounds clone members per group",
+            );
+            assert.ok(
+                audit.result.clones.some(group => group.members_omitted > 0),
+                "large clone groups report omitted member counts",
+            );
             assert.deepEqual(audit.result.uncertain_unused_exports, [], "minimal audit omits uncertain exports");
             assert.deepEqual(audit.result.suppressed_items, [], "minimal audit omits suppressed detail");
             assert.equal(audit.query.verbosity, "minimal");
+            assert.equal(audit.query.limit, 5);
+            assert.equal(audit.query.clone_member_limit, 3);
+            assert.equal(audit.limits_applied.limit, 5);
+            assert.equal(audit.limits_applied.clone_member_limit, 3);
         } finally {
             resolveStore(dir)?.close();
             rmSync(dir, { recursive: true, force: true });
@@ -307,7 +330,7 @@ describe("use-case wrappers", () => {
             assert.ok(Array.isArray(references.result.preview));
             assert.ok(Array.isArray(references.result.expanded.references));
             assert.ok(references.result.expanded.references.length <= 2);
-            assert.ok(references.result.provenance_summary.analyzed_rows >= 1);
+            assert.ok(Array.isArray(references.result.provenance_summary.tiers));
 
             const implementations = runFindImplementationsUseCase(
                 { symbol_id: symbol.symbol_id },
@@ -315,7 +338,7 @@ describe("use-case wrappers", () => {
             );
             assert.ok(Array.isArray(implementations.result.preview));
             assert.ok(Array.isArray(implementations.result.expansion_hints));
-            assert.ok(implementations.result.provenance_summary.total_rows >= 0);
+            assert.ok(Array.isArray(implementations.result.provenance_summary.tiers));
         } finally {
             resolveStore(dir)?.close();
             rmSync(dir, { recursive: true, force: true });
@@ -354,7 +377,7 @@ describe("use-case wrappers", () => {
             assert.ok(Array.isArray(trace.result.path_previews));
             assert.ok(Array.isArray(trace.result.expanded.paths));
             assert.ok(trace.result.expanded.paths.length <= 2);
-            assert.ok(trace.result.provenance_summary.analyzed_rows >= 1);
+            assert.ok(Array.isArray(trace.result.provenance_summary.tiers));
 
             const dataflow = runTraceDataflowUseCase({
                 source: {

@@ -138,7 +138,7 @@ describe("CLI", () => {
     await fs.mkdir(path.join(codexRoot, "skills", "ce:review-beta"), { recursive: true })
     await fs.writeFile(path.join(codexRoot, "skills", "ce:review-beta", "SKILL.md"), "legacy raw colon beta skill")
     await fs.mkdir(path.join(codexRoot, "skills", "ce-update"), { recursive: true })
-    await fs.writeFile(path.join(codexRoot, "skills", "ce-update", "SKILL.md"), "legacy claude-only skill")
+    await fs.writeFile(path.join(codexRoot, "skills", "ce-update", "SKILL.md"), "legacy pre-namespaced flat skill")
     // A user-authored skill at a flat path whose name happens to collide with
     // a current CE skill name (ce-debug is a current CE skill that has never
     // been on the historical flat-path allow-list). The cleanup MUST NOT move
@@ -202,9 +202,12 @@ describe("CLI", () => {
     }
 
     expect(stdout).toContain("Cleaned codex")
-    // 6 historical artifacts get backed up: ce:plan, ce:review-beta, ce-update,
-    // report-bug.md, the .agents/skills/ce-plan symlink-equivalent, and the
-    // namespaced compound-engineering/repo-research-analyst directory.
+    // 6 historical artifacts get backed up: ce:plan, ce:review-beta, ce-update
+    // (pre-namespaced flat path; ce-update is a current skill but its managed
+    // install is at ~/.codex/skills/compound-engineering/ce-update, so the
+    // flat path is legacy), report-bug.md, the .agents/skills/ce-plan
+    // symlink-equivalent, and the namespaced
+    // compound-engineering/repo-research-analyst directory.
     // The user-authored ce-debug skill is preserved.
     expect(stdout).toContain("backed up 6 artifact")
     expect(await exists(path.join(codexRoot, "skills", "ce:plan"))).toBe(false)

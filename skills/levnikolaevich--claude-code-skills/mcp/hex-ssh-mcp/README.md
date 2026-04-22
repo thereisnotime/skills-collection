@@ -130,9 +130,18 @@ Remote paths must be absolute for their platform. POSIX paths use `/...`; Window
 
 Local transfer paths for `ssh-upload` and `ssh-download` must be absolute paths or `~/...`. When `ALLOWED_LOCAL_DIRS` is set, local paths are canonicalized and checked against that allowlist before the transfer starts.
 
-### Exec Timeout
+### Per-call Timeouts
 
-SSH commands are terminated after 120 seconds (`EXEC_TIMEOUT` error).
+Timeout fields are scoped to the operation type. Missing or invalid values fall back to the default.
+
+| Field | Default | Applies to | Notes |
+|---|---|---|---|
+| `connectTimeoutMs` | `20000` | all tools, connection handshake (new connection only) | Different values create separate pooled connections (max 10 per host). Changes ignored for cached connections. |
+| `keepaliveIntervalMs` | `30000` | all tools, SSH keepalive on new connection | Same pool-key behavior as `connectTimeoutMs`. |
+| `execTimeoutMs` | `120000` | `remote-ssh`, `ssh-read-lines`, `ssh-edit-block`, `ssh-search-code`, `ssh-write-chunk`, `ssh-verify` | Per-command timeout. On expiry: `EXEC_TIMEOUT` error. |
+| `transferTimeoutMs` | `120000` (env `TRANSFER_TIMEOUT_MS` overrides default) | `ssh-upload`, `ssh-download` | SFTP inactivity timeout. Resets on each data chunk. On expiry: `TRANSFER_TIMEOUT` error. |
+
+Priority for `transferTimeoutMs`: per-call arg > `TRANSFER_TIMEOUT_MS` env var > built-in default. The other timeout fields have no env override; pass the arg to change them.
 
 ### Atomic File Writes
 
@@ -181,7 +190,7 @@ MAX_TRANSFER_BYTES=134217728
 
 ### TRANSFER_TIMEOUT_MS (optional)
 
-Maximum allowed inactivity window for `ssh-upload` and `ssh-download`. If no transfer progress is observed before the timeout expires, the transfer fails with `TRANSFER_TIMEOUT`.
+Default transfer inactivity window for `ssh-upload` and `ssh-download` when no per-call `transferTimeoutMs` is supplied. If no transfer progress is observed before the timeout expires, the transfer fails with `TRANSFER_TIMEOUT`. Per-call `transferTimeoutMs` always overrides this. See "Per-call Timeouts" above.
 
 ```bash
 TRANSFER_TIMEOUT_MS=120000
@@ -210,6 +219,9 @@ Execute shell commands on remote servers. Disabled by default; set `REMOTE_SSH_M
 | `command` | string | yes | Shell command to execute |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `execTimeoutMs` | number | no | Per-command execution timeout in ms (default: 120000) |
 
 ### ssh-read-lines
 
@@ -226,6 +238,9 @@ Read remote file with FNV-1a hash-annotated lines and range checksums. Always pr
 | `plain` | boolean | no | Omit hashes, output `lineNum\|content` instead |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `execTimeoutMs` | number | no | Per-command execution timeout in ms (default: 120000) |
 
 Output format:
 
@@ -255,6 +270,9 @@ Edit remote files using hash-verified anchors. Use `ssh-read-lines` first to get
 | `checksum` | string | no | Range checksum from `ssh-read-lines` (e.g. `1-50:f7e2a1b0`) |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `execTimeoutMs` | number | no | Per-command execution timeout in ms (default: 120000) |
 
 Returns a compact diff of applied changes. If checksum is stale, returns an error with the current checksum.
 
@@ -274,6 +292,9 @@ Search remote files with grep. Results are deduplicated (identical normalized li
 | `contextLines` | number | no | Context lines around matches (default: 0) |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `execTimeoutMs` | number | no | Per-command execution timeout in ms (default: 120000) |
 
 ### ssh-write-chunk
 
@@ -288,6 +309,9 @@ Write content to remote files (rewrite or append). Creates parent directories. `
 | `mode` | string | no | `"rewrite"` or `"append"` (default: `"rewrite"`) |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `execTimeoutMs` | number | no | Per-command execution timeout in ms (default: 120000) |
 
 ### ssh-upload
 
@@ -305,6 +329,9 @@ Upload a local file to the remote server over SFTP. Supports text and binary fil
 | `permissions` | string | no | Optional octal file mode for uploaded file, e.g. `0644` |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `transferTimeoutMs` | number | no | SFTP inactivity timeout in ms (default: 120000; `TRANSFER_TIMEOUT_MS` overrides default) |
 
 Success output includes `bytes=`, `durationMs=`, `verify=`, and `durabilityPath=`. Existing destinations are rejected unless `overwrite=true`. Oversized transfers fail before streaming based on `MAX_TRANSFER_BYTES`.
 
@@ -323,6 +350,9 @@ Download a remote file to the local machine over SFTP. Supports text and binary 
 | `verify` | `none` \| `stat` | no | Post-transfer verification mode (default: `stat`) |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `transferTimeoutMs` | number | no | SFTP inactivity timeout in ms (default: 120000; `TRANSFER_TIMEOUT_MS` overrides default) |
 
 Success output includes `bytes=`, `durationMs=`, `verify=`, and `durabilityPath=`. Existing destinations are rejected unless `overwrite=true`. When `ALLOWED_LOCAL_DIRS` is set, the destination must resolve inside that allowlist.
 
@@ -338,6 +368,9 @@ Verify range checksums from prior `ssh-read-lines` calls without re-reading full
 | `checksums` | string | yes | JSON array of checksum strings, e.g. `["1-50:f7e2a1b0"]` |
 | `privateKeyPath` | string | no | Path to SSH private key |
 | `port` | number | no | SSH port (default: 22) |
+| `connectTimeoutMs` | number | no | SSH handshake timeout in ms (default: 20000) |
+| `keepaliveIntervalMs` | number | no | SSH keepalive interval in ms (default: 30000) |
+| `execTimeoutMs` | number | no | Per-command execution timeout in ms (default: 120000) |
 
 Returns a single-line confirmation when all valid, or lists changed ranges with current checksums.
 

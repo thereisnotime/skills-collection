@@ -18,7 +18,7 @@ import {
 } from "./store.mjs";
 import { findUnusedExports } from "./unused.mjs";
 import { ACTION, nextActions } from "./output-contract.mjs";
-import { confidenceRank, normalizeConfidence } from "./confidence.mjs";
+import { normalizeConfidence } from "./confidence.mjs";
 
 const QUERY_PATH_RECOVERY = "Run index_project on the project root first; symbol/query tools then accept that root or a file/subdirectory inside it as path";
 
@@ -190,6 +190,7 @@ function buildPathPreview(path) {
 }
 
 function buildExpansionHint({
+    toolName,
     expansion,
     total,
     returnedByDefault,
@@ -197,17 +198,19 @@ function buildExpansionHint({
     includeEvidence = false,
     extra = {},
 }) {
+    const remaining = Math.max(0, total - returnedByDefault);
+    const limit = Math.min(expandLimit, Math.max(total, returnedByDefault, 1));
+    const parts = [`>mcp__hex-graph__${toolName}`, `expand=${expansion}`, `expand_limit=${limit}`];
+    if (includeEvidence) parts.push("include_evidence=1");
+    for (const [key, value] of Object.entries(extra)) {
+        if (value === null || value === undefined) continue;
+        parts.push(`${key}=${value}`);
+    }
     return {
         expansion,
         total,
-        returned_by_default: returnedByDefault,
-        remaining: Math.max(0, total - returnedByDefault),
-        suggested_params: {
-            expand: [expansion],
-            expand_limit: Math.min(expandLimit, Math.max(total, returnedByDefault, 1)),
-            include_evidence: includeEvidence,
-            ...extra,
-        },
+        remaining,
+        pointer: parts.join(" "),
     };
 }
 
@@ -234,35 +237,19 @@ function classifyProvenanceTier(origin) {
     return "parser_or_workspace";
 }
 
-function buildProvenanceSummary(rows, { totalRows = null, originLimit = 5 } = {}) {
+function buildProvenanceSummary(rows, { originLimit = 5 } = {}) {
     const sourceRows = rows.filter(Boolean);
     const byOrigin = new Map();
     const byTier = new Map();
     const byConfidence = new Map();
-    let strongestConfidence = "low";
-    let strongestTier = "unknown";
     for (const row of sourceRows) {
         const confidence = normalizeConfidence(row.confidence);
         const tier = classifyProvenanceTier(row.origin);
         incrementCount(byOrigin, row.origin || "unknown");
         incrementCount(byTier, tier);
         incrementCount(byConfidence, confidence);
-        if (confidenceRank(confidence) > confidenceRank(strongestConfidence)) {
-            strongestConfidence = confidence;
-        }
-        if ((byTier.get(tier) || 0) > 0 && (byTier.get(strongestTier) || 0) === 0) {
-            strongestTier = tier;
-        }
     }
-    const analyzedRows = sourceRows.length;
-    const expectedTotal = totalRows ?? analyzedRows;
     return {
-        total_rows: expectedTotal,
-        analyzed_rows: analyzedRows,
-        remaining_rows: Math.max(0, expectedTotal - analyzedRows),
-        coverage_ratio: expectedTotal > 0 ? Number((analyzedRows / expectedTotal).toFixed(2)) : 1,
-        strongest_confidence: strongestConfidence,
-        strongest_tier: strongestTier,
         tiers: summarizeCounts(byTier, originLimit),
         confidences: summarizeCounts(byConfidence, originLimit),
         origins: summarizeCounts(byOrigin, originLimit),
@@ -343,16 +330,6 @@ function classifyFindSymbolsQuery(query) {
     return warnings;
 }
 
-function buildSymbolSummary(symbol, references, implementations) {
-    const parts = [
-        `${symbol.kind} \`${symbol.display_name || symbol.name}\``,
-        `in ${symbol.file}:${symbol.line_start}`,
-        `${summarizeCount(references.total || 0, "reference")}`,
-        `${summarizeCount(implementations.length || 0, "implementation link")}`,
-    ];
-    return parts.join(", ");
-}
-
 function directoryBucket(file) {
     if (!file) return ".";
     const normalized = String(file).replace(/\\/g, "/");
@@ -404,12 +381,8 @@ export function runFindSymbolsUseCase(query, { kind, limit = 20, path } = {}) {
     )
         ? [`"${query}" is a broad bare symbol query. Narrow path or refine with name + file before deeper graph inspection.`]
         : [];
-    const summary = candidates.length
-        ? `Found ${summarizeCount(candidates.length, "candidate symbol")} for "${query}"${candidates.length > shownCandidates.length ? `; showing top ${shownCandidates.length}.` : "."}`
-        : `No candidate symbols matched "${query}".`;
     return {
-        query: base.query,
-        summary,
+        query: { ...base.query, path },
         result: {
             candidates: shownCandidates,
             candidate_count: candidates.length,
@@ -514,14 +487,10 @@ export function runInspectSymbolUseCase(selector, {
     return {
         query: {
             ...symbolResult.query,
+            path,
             reference_limit: referenceLimit,
             implementation_limit: implementationLimit,
         },
-        summary: buildSymbolSummary(
-            symbol,
-            referencesResult.result,
-            implementationsResult.result.implementations || [],
-        ),
         result: {
             symbol,
             resolution: buildResolutionPayload(resolutionResult.result, symbol),
@@ -548,17 +517,14 @@ export function runInspectSymbolUseCase(selector, {
             provenance_summary: buildProvenanceSummary([
                 ...referencesResult.result.references,
                 ...implementationsResult.result.implementations,
-            ], {
-                totalRows: totalReferences + totalImplementations,
-            }),
+            ]),
             framework_roles: frameworkOrigins,
-            available_expansions: ["siblings", "incoming", "outgoing", "references", "implementations"],
             expansion_hints: [
-                buildExpansionHint({ expansion: "siblings", total: siblings.length, returnedByDefault: 0, expandLimit: detailLimit, includeEvidence }),
-                buildExpansionHint({ expansion: "incoming", total: incoming.length, returnedByDefault: 0, expandLimit: detailLimit, includeEvidence }),
-                buildExpansionHint({ expansion: "outgoing", total: outgoing.length, returnedByDefault: 0, expandLimit: detailLimit, includeEvidence }),
-                buildExpansionHint({ expansion: "references", total: totalReferences, returnedByDefault: referencesPreview.length, expandLimit: detailLimit, includeEvidence }),
-                buildExpansionHint({ expansion: "implementations", total: totalImplementations, returnedByDefault: implementationsPreview.length, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "inspect_symbol", expansion: "siblings", total: siblings.length, returnedByDefault: 0, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "inspect_symbol", expansion: "incoming", total: incoming.length, returnedByDefault: 0, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "inspect_symbol", expansion: "outgoing", total: outgoing.length, returnedByDefault: 0, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "find_references", expansion: "references", total: totalReferences, returnedByDefault: referencesPreview.length, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "find_implementations", expansion: "implementations", total: totalImplementations, returnedByDefault: implementationsPreview.length, expandLimit: detailLimit, includeEvidence }),
             ],
             ...(Object.keys(expanded).length ? { expanded } : {}),
         },
@@ -619,20 +585,16 @@ export function runFindReferencesUseCase(selector, {
         }
         : null;
     return {
-        query: base.query,
-        summary: base.result.total
-            ? `Found ${summarizeCount(base.result.total, "semantic reference")} across ${Object.keys(base.result.total_by_kind || {}).length || 1} kind(s).`
-            : "No semantic reference matched the requested symbol.",
+        query: { ...base.query, path },
         result: {
             symbol: base.result.symbol,
             provider_status: base.result.provider_status,
             total: base.result.total,
             total_by_kind: base.result.total_by_kind,
             preview,
-            provenance_summary: buildProvenanceSummary(base.result.references, { totalRows: base.result.total }),
-            available_expansions: ["references"],
+            provenance_summary: buildProvenanceSummary(base.result.references),
             expansion_hints: [
-                buildExpansionHint({ expansion: "references", total: base.result.total, returnedByDefault: preview.length, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "find_references", expansion: "references", total: base.result.total, returnedByDefault: preview.length, expandLimit: detailLimit, includeEvidence }),
             ],
             ...(expanded ? { expanded } : {}),
         },
@@ -679,18 +641,14 @@ export function runFindImplementationsUseCase(selector, {
         }
         : null;
     return {
-        query: { ...base.query, limit: fetchLimit },
-        summary: base.result.total
-            ? `Found ${summarizeCount(base.result.total, "implementation relation")} for the requested symbol.`
-            : "No implementation or override relation matched the requested symbol.",
+        query: { ...base.query, path, limit: fetchLimit },
         result: {
             symbol: base.result.symbol,
             total: base.result.total,
             preview,
-            provenance_summary: buildProvenanceSummary(base.result.implementations, { totalRows: base.result.total }),
-            available_expansions: ["implementations"],
+            provenance_summary: buildProvenanceSummary(base.result.implementations),
             expansion_hints: [
-                buildExpansionHint({ expansion: "implementations", total: base.result.total, returnedByDefault: preview.length, expandLimit: detailLimit, includeEvidence }),
+                buildExpansionHint({ toolName: "find_implementations", expansion: "implementations", total: base.result.total, returnedByDefault: preview.length, expandLimit: detailLimit, includeEvidence }),
             ],
             ...(expanded ? { expanded } : {}),
         },
@@ -749,18 +707,15 @@ export function runTracePathsUseCase(selector, {
         }
         : null;
     return {
-        query: base.query,
-        summary: pathRows.length
-            ? `Found ${summarizeCount(pathRows.length, "graph path")} through ${pathKind} edges.`
-            : "No path matched the requested traversal.",
+        query: { ...base.query, path },
         result: {
             path_count: pathRows.length,
             target_found: target ? pathRows.length > 0 : null,
             path_previews: pathPreviews,
-            provenance_summary: buildProvenanceSummary(traceRowsForProvenance(pathRows), { totalRows: traceRowsForProvenance(pathRows).length }),
-            available_expansions: ["paths"],
+            provenance_summary: buildProvenanceSummary(traceRowsForProvenance(pathRows)),
             expansion_hints: [
                 buildExpansionHint({
+                    toolName: "trace_paths",
                     expansion: "paths",
                     total: pathRows.length,
                     returnedByDefault: pathPreviews.length,
@@ -816,20 +771,17 @@ export function runTraceDataflowUseCase(selector, {
         }
         : null;
     return {
-        query: base.query,
-        summary: flows.length
-            ? `Found ${summarizeCount(flows.length, "dataflow path")} from the requested source.`
-            : "No dataflow path matched the requested source/sink anchors.",
+        query: { ...base.query, path },
         result: {
             source: base.result?.source,
             sink: base.result?.sink,
             path_count: flows.length,
             target_found: base.evidence?.target_found ?? null,
             path_previews: flows.slice(0, previewLimit).map(buildPathPreview),
-            provenance_summary: buildProvenanceSummary(traceRowsForProvenance(flows), { totalRows: traceRowsForProvenance(flows).length }),
-            available_expansions: ["paths"],
+            provenance_summary: buildProvenanceSummary(traceRowsForProvenance(flows)),
             expansion_hints: [
                 buildExpansionHint({
+                    toolName: "trace_dataflow",
                     expansion: "paths",
                     total: flows.length,
                     returnedByDefault: Math.min(previewLimit, flows.length),
@@ -878,7 +830,7 @@ export async function runAnalyzeChangesUseCase({
     const summary = base.result.summary;
     const highRiskItems = (base.result.symbols || []).filter(symbol => symbol.risk_level === "high");
     return {
-        query: base.query,
+        query: { ...base.query, path },
         summary: [
             `${summarizeCount(summary.changed_file_count, "changed file")}`,
             `${summarizeCount(summary.changed_symbol_count, "changed symbol")}`,
@@ -1027,6 +979,8 @@ export function runAuditWorkspaceUseCase({
     detailLevel = "compact",
     verbosity = null,
     showSuppressed = false,
+    limit = null,
+    cloneMemberLimit = null,
     cloneType = "all",
     cloneThreshold = 0.80,
     cloneMinStmts = null,
@@ -1036,7 +990,8 @@ export function runAuditWorkspaceUseCase({
             return { error: { code: "NOT_INDEXED", message: "No project indexed", recovery: QUERY_PATH_RECOVERY } };
         }
         const responseVerbosity = verbosity || detailLevel;
-        const discoveryLimit = responseVerbosity === "full" ? 15 : 5;
+        const discoveryLimit = clampLimit(limit, 5, 25);
+        const memberLimit = clampLimit(cloneMemberLimit, responseVerbosity === "full" ? 10 : 3, 25);
         const unused = findUnusedExports(store, { scopePath: scope, kind: "all" });
         const visibleUnused = showSuppressed ? unused.unused : unused.unused.filter(item => !item.suppressed);
         const hotspots = getHotspots({ path, scopePath: scope, minCallers: 2, minComplexity: 15, limit: 20 });
@@ -1050,12 +1005,24 @@ export function runAuditWorkspaceUseCase({
             format: "json",
             suppress: true,
         });
+        const previewCloneGroup = (group) => {
+            const members = Array.isArray(group.members) ? group.members : [];
+            return {
+                ...group,
+                members: members.slice(0, memberLimit),
+                members_total: members.length,
+                members_shown: Math.min(members.length, memberLimit),
+                members_omitted: Math.max(0, members.length - memberLimit),
+            };
+        };
         return {
             query: {
                 path,
                 scope,
                 verbosity: responseVerbosity,
                 show_suppressed: showSuppressed,
+                limit: discoveryLimit,
+                clone_member_limit: memberLimit,
                 clone_type: cloneType,
             },
             summary: [
@@ -1064,12 +1031,12 @@ export function runAuditWorkspaceUseCase({
                 `${summarizeCount(clones.summary?.total_groups || 0, "clone group")}`,
             ].join(", "),
             result: {
-                unused_exports: trimForDetail(visibleUnused, responseVerbosity, discoveryLimit),
+                unused_exports: visibleUnused.slice(0, discoveryLimit),
                 uncertain_unused_exports: responseVerbosity === "minimal"
                     ? []
-                    : trimForDetail(unused.uncertain || [], responseVerbosity, discoveryLimit),
-                hotspots: trimForDetail(hotspots, responseVerbosity, discoveryLimit),
-                clones: trimForDetail(clones.groups || [], responseVerbosity, discoveryLimit),
+                    : (unused.uncertain || []).slice(0, discoveryLimit),
+                hotspots: hotspots.slice(0, discoveryLimit),
+                clones: (clones.groups || []).slice(0, discoveryLimit).map(previewCloneGroup),
                 risk_summary: {
                     unused_exports: visibleUnused.length,
                     uncertain_unused_exports: unused.uncertain.length,
@@ -1077,7 +1044,7 @@ export function runAuditWorkspaceUseCase({
                     clone_groups: clones.summary?.total_groups || 0,
                 },
                 suppressed_items: showSuppressed && responseVerbosity !== "minimal"
-                    ? trimForDetail(unused.unused.filter(item => item.suppressed), responseVerbosity, discoveryLimit)
+                    ? unused.unused.filter(item => item.suppressed).slice(0, discoveryLimit)
                     : [],
             },
             warnings: nextActions([
@@ -1096,7 +1063,7 @@ export function runAuditWorkspaceUseCase({
                 hotspot_count: hotspots.length,
                 clone_group_count: clones.summary?.total_groups || 0,
             },
-            limits_applied: { verbosity: responseVerbosity },
+            limits_applied: { verbosity: responseVerbosity, limit: discoveryLimit, clone_member_limit: memberLimit },
         };
     });
 }

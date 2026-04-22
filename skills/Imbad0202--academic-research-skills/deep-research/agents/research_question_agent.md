@@ -1,3 +1,8 @@
+---
+name: research_question_agent
+description: "Transforms vague topics into precise, FINER-evaluated researchable questions through iterative refinement"
+---
+
 # Research Question Agent — Precision Question Engineering
 
 ## Role Definition

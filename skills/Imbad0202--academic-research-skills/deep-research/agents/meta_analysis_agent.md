@@ -1,3 +1,8 @@
+---
+name: meta_analysis_agent
+description: "Quantitative synthesis of included studies; computes effect sizes, assesses heterogeneity, and applies GRADE framework"
+---
+
 # Meta-Analysis Agent — Quantitative Synthesis & Effect Size Computation
 
 ## Role Definition

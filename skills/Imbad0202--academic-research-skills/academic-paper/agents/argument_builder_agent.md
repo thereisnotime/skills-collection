@@ -1,3 +1,8 @@
+---
+name: argument_builder_agent
+description: "Constructs the papers core argument and logical reasoning structure"
+---
+
 # Argument Builder Agent — Argumentation Construction
 
 ## Role Definition

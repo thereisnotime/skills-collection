@@ -12,7 +12,7 @@ import {
     getSnapshotByRevision,
     readSnapshot,
 } from "./snapshot.mjs";
-import { ACTION, REASON, STATUS } from "./output-contract.mjs";
+import { ACTION, STATUS } from "./output-contract.mjs";
 
 function parseChecksumEntry(raw) {
     try {
@@ -88,7 +88,7 @@ function buildSuggestedReadCall(filePath, ranges) {
     return JSON.stringify({
         tool: "mcp__hex-line__read_file",
         arguments: {
-            path: filePath,
+            file_path: filePath,
             ranges: deduped,
         }
     });
@@ -108,30 +108,21 @@ function overallNextAction(summary) {
     return ACTION.KEEP_USING;
 }
 
-function overallReason(status) {
-    if (status === STATUS.OK) return REASON.CHECKSUMS_CURRENT;
-    if (status === STATUS.STALE) return REASON.CHECKSUMS_STALE;
-    return REASON.CHECKSUMS_INVALID;
-}
-
 function entrySummary(entry) {
-    if (entry.status === "VALID") return "checksum still current";
-    if (entry.status === "STALE") return "content changed since checksum capture";
     return entry.reason;
 }
 
-function renderEntry(entry, index, total, topLevelNextAction) {
+function renderEntry(entry, index, total) {
     const parts = [
         `entry: ${index}/${total}`,
-        `status: ${entry.status}`,
+        entry.status,
         entry.span ? `span: ${entry.span}` : null,
         `checksum: ${entry.checksum}`,
         entry.currentChecksum && entry.currentChecksum !== entry.checksum ? `current_checksum: ${entry.currentChecksum}` : null,
     ].filter(Boolean);
-    const action = entryNextAction(entry);
-    if (action !== topLevelNextAction) parts.push(`next_action: ${action}`);
-    if (entry.status !== "VALID") parts.push(`summary: ${entrySummary(entry)}`);
-    return parts.join(" | ");
+    if (entry.status === "INVALID") parts.push(`next_action: ${entryNextAction(entry)}`);
+    if (entry.status === "INVALID") parts.push(`summary: ${entrySummary(entry)}`);
+    return parts.join(" ");
 }
 
 export function verifyChecksums(filePath, checksums, opts = {}) {
@@ -151,10 +142,14 @@ export function verifyChecksums(filePath, checksums, opts = {}) {
     const verboseSummary = results.length > 1 || summary.stale > 0 || summary.invalid > 0;
     const lines = [
         `status: ${status}`,
-        `reason: ${overallReason(status)}`,
         `revision: ${currentSnapshot.revision}`,
     ];
-    if (verboseSummary) lines.push(`summary: valid=${summary.valid} stale=${summary.stale} invalid=${summary.invalid}`);
+    if (verboseSummary) {
+        const sumParts = [`valid=${summary.valid}`];
+        if (summary.stale > 0) sumParts.push(`stale=${summary.stale}`);
+        if (summary.invalid > 0) sumParts.push(`invalid=${summary.invalid}`);
+        lines.push(`summary: ${sumParts.join(" ")}`);
+    }
     lines.push(`next_action: ${topLevelNextAction}`);
 
     if (opts.baseRevision && opts.baseRevision !== currentSnapshot.revision) {
@@ -171,7 +166,7 @@ export function verifyChecksums(filePath, checksums, opts = {}) {
     if (suggestedReadCall) lines.push(`suggested_read_call: ${suggestedReadCall}`);
 
     if (results.length > 0) {
-        lines.push("", ...results.map((entry, index) => renderEntry(entry, index + 1, results.length, topLevelNextAction)));
+        lines.push("", ...results.map((entry, index) => renderEntry(entry, index + 1, results.length)));
     }
 
     return lines.join("\n");

@@ -1349,6 +1349,107 @@ cp -r balanced ~/.claude/skills/
 
 ---
 
+### [Linear CLI](./linear/) ⭐ NEW
+Standalone CLI for the Linear issue tracker with browser-based OAuth via Linear's MCP server. Zero dependencies beyond Python 3 — authenticates through Dynamic Client Registration + PKCE, communicates via MCP JSON-RPC over Streamable HTTP.
+
+**Features:**
+- 🔐 Browser OAuth (no API keys needed) — dynamic client registration + PKCE flow
+- 📋 List, create, update issues with human-readable output
+- 🔍 Filter by team, status, assignee, priority
+- 💬 Add comments to issues
+- 📊 View teams, statuses, labels, workflow states
+- 🛠️ `tools` command to discover all available MCP operations
+- 🗂️ Config stored in `~/.config/linear/` (XDG compliant)
+- 📦 Single Python file, no pip dependencies
+
+**Quick Start:**
+```bash
+# Copy to skills directory
+cp -r linear ~/.claude/skills/
+
+# Authenticate (opens browser)
+~/.claude/skills/linear/scripts/linear auth
+
+# List teams
+~/.claude/skills/linear/scripts/linear teams
+
+# Create an issue
+~/.claude/skills/linear/scripts/linear create "Fix login bug" --team GLE --priority high --assignee me --due today
+
+# List your issues
+~/.claude/skills/linear/scripts/linear list --mine
+
+# Update an issue
+~/.claude/skills/linear/scripts/linear update GLE-123 --state "In Progress"
+```
+
+**Use when:** Managing Linear issues from the terminal or Claude Code — creating tasks, querying backlogs, updating statuses, or integrating Linear into automated workflows.
+
+---
+
+### [Skill Studio](https://github.com/glebis/skill-studio) ⭐ NEW
+Interview-driven automation design tool. Runs a coverage-driven JTBD interview (text or voice) to capture what to build, for whom, and why — then exports a one-page `design.md` spec plus an SVG design map. Sits between "should I automate this?" (automation-advisor) and "how do I package this as a skill?" (skill-creator).
+
+**Features:**
+- 🎯 Coverage-driven JTBD interview with 22-field DesignJSON schema
+- 🎙️ Text mode (runs natively in Claude Code) or voice mode (Daily + Groq Whisper + Deepgram TTS)
+- 📊 3 depth levels: sprint (~5–7 questions), standard (~15–20), deep (~25–35)
+- 🎨 4 interview styles: scenario-first, socratic, metaphor-first, form
+- 🔄 4 presets: ai-agent, life-automation, knowledge-work, custom
+- 📥 Session seeding from prior Claude Code transcripts (`propose-from-session`)
+- 📝 Exports `design.md` + `design.svg` — ready to hand off to skill-creator
+
+**Quick Start:**
+```bash
+# Install CLI
+pip install -e ~/.claude/skills/skill-studio
+
+# Text mode (default)
+/skill-studio
+
+# Voice mode (requires Daily, Groq, Deepgram keys)
+skill-studio new --voice --preset ai-agent --depth standard
+```
+
+**Use when:** Designing a new skill, agent, automation, or workflow — transforms "I want a bot that..." into a structured spec with concrete scenarios, triggers, inputs/outputs, and guardrails.
+
+---
+
+### [Nano Banana (Gemini Image Generation)](./nano-banana/) ⭐ NEW
+Generate and edit images using Google's Gemini image generation models. Supports style presets, platform-specific sizing, variants, image editing, and reference images for style transfer.
+
+**Features:**
+- 🎨 Text-to-image generation via Gemini API (Nano Banana 2 model)
+- 🖼️ Platform presets: YouTube thumbnails, slides, blog headers, social media
+- 🎭 Style presets with customizable parameters
+- ✏️ Image editing via inlineData (modify existing images)
+- 🔄 Variant generation from existing outputs
+- 📐 Reference images for style transfer
+- 🔐 SOPS-encrypted API key management
+
+**Quick Start:**
+```bash
+cp -r nano-banana ~/.claude/skills/
+# Requires Google AI API key (auto-decrypted via SOPS)
+```
+
+**Use when:** Generating images for presentations, social media, blog posts, or editing existing images with AI.
+
+---
+
+### [Lab Retro](./lab-retro/)
+Final retrospective and self-assessment for Claude Code Lab graduates. Four interactive exercises: progress audit, best prompt showcase, monthly plan, and structured feedback.
+
+**Quick Start:**
+```bash
+cp -r lab-retro ~/.claude/skills/
+/lab-retro
+```
+
+**Use when:** Completing a Claude Code Lab cohort — consolidates learning, captures best work, and generates a forward plan.
+
+---
+
 ## 🚀 Installation
 
 ### Plugin Marketplace (Claude Code)

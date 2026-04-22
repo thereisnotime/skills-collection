@@ -16,7 +16,7 @@ This workflow produces a durable implementation plan. It does **not** implement 
 
 ## Interaction Method
 
-Use the platform's question tool when available. When asking the user a question, prefer the platform's blocking question tool if one exists (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). Otherwise, present numbered options in chat and wait for the user's reply before proceeding.
+When asking the user a question, use the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 Ask one question at a time. Prefer a concise single-select choice when natural options exist.
 
@@ -104,8 +104,9 @@ If a relevant requirements document exists:
 2. Announce that it will serve as the origin document for planning
 3. Carry forward all of the following:
    - Problem frame
+   - Actors (A-IDs), Key Flows (F-IDs), and Acceptance Examples (AE-IDs) when present — preserve these as constraints that implementation units must honor
    - Requirements and success criteria
-   - Scope boundaries
+   - Scope boundaries (including "Deferred for later" and "Outside this product's identity" subsections when present)
    - Key decisions and rationale
    - Dependencies or assumptions
    - Outstanding questions, preserving whether they are blocking or deferred
@@ -174,8 +175,8 @@ Prepare a concise planning context summary (a paragraph or two) to pass as input
 
 Run these agents in parallel:
 
-- Task research:ce-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
-- Task research:ce-learnings-researcher(planning context summary)
+- Task ce-repo-research-analyst(Scope: technology, architecture, patterns. {planning context summary})
+- Task ce-learnings-researcher(planning context summary)
 Collect:
 - Technology stack and versions (used in section 1.2 to make sharper external research decisions)
 - Architectural patterns and conventions to follow
@@ -185,7 +186,7 @@ Collect:
 
 **Slack context** (opt-in) — never auto-dispatch. Route by condition:
 
-- **Tools available + user asked**: Dispatch `research:ce-slack-researcher` with the planning context summary in parallel with other Phase 1.1 agents. If the origin document has a Slack context section, pass it verbatim so the researcher focuses on gaps. Include findings in consolidation.
+- **Tools available + user asked**: Dispatch `ce-slack-researcher` with the planning context summary in parallel with other Phase 1.1 agents. If the origin document has a Slack context section, pass it verbatim so the researcher focuses on gaps. Include findings in consolidation.
 - **Tools available + user didn't ask**: Note in output: "Slack tools detected. Ask me to search Slack for organizational context at any point, or include it in your next prompt."
 - **No tools + user asked**: Note in output: "Slack context was requested but no Slack tools are available. Install and authenticate the Slack plugin to enable organizational context search."
 
@@ -243,8 +244,8 @@ Announce the decision briefly before continuing. Examples:
 
 If Step 1.2 indicates external research is useful, run these agents in parallel:
 
-- Task research:ce-best-practices-researcher(planning context summary)
-- Task research:ce-framework-docs-researcher(planning context summary)
+- Task ce-best-practices-researcher(planning context summary)
+- Task ce-framework-docs-researcher(planning context summary)
 
 #### 1.4 Consolidate Research
 
@@ -272,7 +273,7 @@ This ensures flow analysis (Phase 1.5) runs and the confidence check (Phase 5.3)
 
 For **Standard** or **Deep** plans, or when user flow completeness is still unclear, run:
 
-- Task workflow:ce-spec-flow-analyzer(planning context summary, research findings)
+- Task ce-spec-flow-analyzer(planning context summary, research findings)
 
 Use the output to:
 - Identify missing edge cases, state transitions, or handoff gaps
@@ -327,6 +328,8 @@ Avoid:
 - Units that span multiple unrelated concerns
 - Units that are so vague an implementer still has to invent the plan
 
+Each unit carries a stable plan-local **U-ID** assigned in Phase 3.5 (`U1`, `U2`, …). U-IDs survive reordering, splitting, and deletion: new units take the next unused number, gaps are fine, and existing IDs are never renumbered. This lets `ce-work` reference units unambiguously across plan edits.
+
 #### 3.4 High-Level Technical Design (Optional)
 
 Before detailing implementation units, decide whether an overview would help a reviewer validate the intended approach. This section communicates the *shape* of the solution — how pieces fit together — without dictating implementation.
@@ -370,16 +373,20 @@ The tree is a scope declaration showing the expected output shape. It is not a c
 
 #### 3.5 Define Each Implementation Unit
 
+Each unit's heading carries a stable U-ID prefix matching the format used for R/A/F/AE in requirements docs: `- [ ] U1. **[Name]**`. The prefix is plain text, not bolded — the bold is reserved for the unit name. Number sequentially within the plan starting at U1.
+
+**Stability rule.** Once assigned, a U-ID is never renumbered. Reordering units leaves their IDs in place (e.g., U1, U3, U5 in their new order is correct; renumbering to U1, U2, U3 is not). Splitting a unit keeps the original U-ID on the original concept and assigns the next unused number to the new unit. Deletion leaves a gap; gaps are fine. This rule matters most during deepening (Phase 5.3), which is the most likely accidental-renumber vector.
+
 For each unit, include:
 - **Goal** - what this unit accomplishes
-- **Requirements** - which requirements or success criteria it advances
-- **Dependencies** - what must exist first
+- **Requirements** - which requirements or success criteria it advances (cite R-IDs, and A/F/AE IDs when origin supplies them)
+- **Dependencies** - what must exist first (cite by U-ID, e.g., "U1, U3")
 - **Files** - repo-relative file paths to create, modify, or test (never absolute paths)
 - **Approach** - key decisions, data flow, component boundaries, or integration notes
 - **Execution note** - optional, only when the unit benefits from a non-default execution posture such as test-first or characterization-first
 - **Technical design** - optional pseudo-code or diagram when the unit's approach is non-obvious and prose alone would leave it ambiguous. Frame explicitly as directional guidance, not implementation specification
 - **Patterns to follow** - existing code or conventions to mirror
-- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank.
+- **Test scenarios** - enumerate the specific test cases the implementer should write, right-sized to the unit's complexity and risk. Consider each category below and include scenarios from every category that applies to this unit. A simple config change may need one scenario; a payment flow may need a dozen. The quality signal is specificity — each scenario should name the input, action, and expected outcome so the implementer doesn't have to invent coverage. For units with no behavioral change (pure config, scaffolding, styling), use `Test expectation: none -- [reason]` instead of leaving the field blank. **AE-link convention:** when a test scenario directly enforces an origin Acceptance Example, prefix it with `Covers AE<N>.` (or `Covers F<N> / AE<N>.`). This is sparse-by-design — most test scenarios are finer-grained than AEs and do not link. Do not force AE links onto tests that only cover lower-level implementation details.
   - **Happy path behaviors** - core functionality with expected inputs and outputs
   - **Edge cases** (when the unit has meaningful boundaries) - boundary values, empty inputs, nil/null states, concurrent access
   - **Error and failure paths** (when the unit has failure modes) - invalid input, downstream service failures, timeout behavior, permission denials
@@ -443,6 +450,8 @@ For sufficiently large, risky, or cross-cutting work, add the sections that genu
 
 Do not add these as boilerplate. Include them only when they improve execution quality or stakeholder alignment.
 
+**Alternatives Considered — what to vary.** When this section is included, alternatives must differ on *how* the work is built: architecture, sequencing, boundaries, integration pattern, rollout strategy. Tiny implementation variants (which hash function, which serialization format) belong in Key Technical Decisions, not Alternatives. Product-shape alternatives (different actors, different core outcome, different positioning) belong in `ce-brainstorm`, not here — surface them back upstream rather than re-litigating product questions during planning.
+
 #### 4.2 Core Plan Template
 
 Omit clearly inapplicable optional sections, especially for Lightweight plans.
@@ -463,24 +472,72 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 [What is changing and why]
 
+---
+
 ## Problem Frame
 
 [Summarize the user/business problem and context. Reference the origin doc when present.]
+
+---
 
 ## Requirements Trace
 
 - R1. [Requirement or success criterion this plan must satisfy]
 - R2. [Requirement or success criterion this plan must satisfy]
 
+<!-- Origin trace sub-blocks: include only when the upstream requirements doc supplies the
+     corresponding section. Each sub-block is independent — include only the ones that apply.
+     Omit cleanly (no header, no empty line) when no origin doc exists or the origin had no
+     Actors / Key Flows / Acceptance Examples sections. -->
+
+**Origin actors:** [A1 (role/name), A2 (role/name), …]
+**Origin flows:** [F1 (flow name), F2 (flow name), …]
+**Origin acceptance examples:** [AE1 (covers R1, R4), AE2 (covers R3), …]
+
+---
+
 ## Scope Boundaries
+
+<!-- Default structure (no origin doc, or origin was Lightweight / Standard / Deep-feature):
+     a single bulleted list of explicit non-goals. The optional `### Deferred to Follow-Up Work`
+     subsection below may still be included when this plan's implementation is intentionally
+     split across other PRs/issues/repos. -->
 
 - [Explicit non-goal or exclusion]
 
-<!-- Optional: When some items are planned work that will happen in a separate PR, issue,
-     or repo, use this sub-heading to distinguish them from true non-goals. -->
-### Deferred to Separate Tasks
+<!-- Optional plan-local subsection — include when this plan's implementation is intentionally
+     split across other PRs, issues, or repos. Distinct from origin-carried "Deferred for later"
+     (product sequencing) and "Outside this product's identity" (positioning). -->
+### Deferred to Follow-Up Work
 
 - [Work that will be done separately]: [Where or when -- e.g., "separate PR in repo-x", "future iteration"]
+
+<!-- Triggered structure: replace the single list above with the three subsections below ONLY
+     when the origin doc is Deep-product (detectable by presence of an "Outside this product's
+     identity" subsection in the origin's Scope Boundaries). At all other tiers and when no
+     origin exists, use the single-list structure above. -->
+
+<!--
+### Deferred for later
+
+[Carried from origin — product/version sequencing. Work that will be done eventually but not in v1.]
+
+- [Item]
+
+### Outside this product's identity
+
+[Carried from origin — positioning rejection. Adjacent product the plan must not accidentally build.]
+
+- [Item]
+
+### Deferred to Follow-Up Work
+
+[Plan-local — implementation work intentionally split across other PRs/issues/repos. Distinct from origin's "Deferred for later" (product) and "Outside this product's identity" (positioning).]
+
+- [Item]
+-->
+
+---
 
 ## Context & Research
 
@@ -496,9 +553,13 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Relevant external docs or best-practice source, if used]
 
+---
+
 ## Key Technical Decisions
 
 - [Decision]: [Rationale]
+
+---
 
 ## Open Questions
 
@@ -510,6 +571,8 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Question or unknown]: [Why it is intentionally deferred]
 
+---
+
 <!-- Optional: Include when the plan creates a new directory structure (greenfield plugin,
      new service, new package). Shows the expected output shape at a glance. Omit for plans
      that only modify existing files. This is a scope declaration, not a constraint --
@@ -517,6 +580,8 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 ## Output Structure
 
     [directory tree showing new directories and files]
+
+---
 
 <!-- Optional: Include this section only when the work involves DSL design, multi-component
      integration, complex data flow, state-heavy lifecycle, or other cases where prose alone
@@ -528,15 +593,23 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 [Pseudo-code grammar, mermaid diagram, data flow sketch, or state diagram — choose the medium that best communicates the solution shape for this work.]
 
+---
+
 ## Implementation Units
 
-- [ ] **Unit 1: [Name]**
+<!-- Each unit carries a stable plan-local U-ID (U1, U2, …) assigned sequentially.
+     U-IDs are never renumbered: reordering preserves them in place, splitting keeps the
+     original U-ID and assigns the next unused number to the new unit, deletion leaves
+     a gap. This anchor is what ce-work references in blockers and verification, so
+     stability across plan edits is load-bearing. -->
+
+- [ ] U1. **[Name]**
 
 **Goal:** [What this unit accomplishes]
 
 **Requirements:** [R1, R2]
 
-**Dependencies:** [None / Unit 1 / external prerequisite]
+**Dependencies:** [None / U1 / external prerequisite]
 
 **Files:**
 - Create: `path/to/new_file`
@@ -560,6 +633,8 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 **Verification:**
 - [Outcome that should hold when this unit is complete]
 
+---
+
 ## System-Wide Impact
 
 - **Interaction graph:** [What callbacks, middleware, observers, or entry points may be affected]
@@ -569,15 +644,21 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 - **Integration coverage:** [Cross-layer scenarios unit tests alone will not prove]
 - **Unchanged invariants:** [Existing APIs, interfaces, or behaviors that this plan explicitly does not change — and how the new work relates to them. Include when the change touches shared surfaces and reviewers need blast-radius assurance]
 
+---
+
 ## Risks & Dependencies
 
 | Risk | Mitigation |
 |------|------------|
 | [Meaningful risk] | [How it is addressed or accepted] |
 
+---
+
 ## Documentation / Operational Notes
 
 - [Docs, rollout, monitoring, or support impacts when relevant]
+
+---
 
 ## Sources & References
 
@@ -594,19 +675,27 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 - [Approach]: [Why rejected or not chosen]
 
+---
+
 ## Success Metrics
 
 - [How we will know this solved the intended problem]
 
+---
+
 ## Dependencies / Prerequisites
 
 - [Technical, organizational, or rollout dependency]
+
+---
 
 ## Risk Analysis & Mitigation
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | [Risk] | [Low/Med/High] | [Low/Med/High] | [How addressed] |
+
+---
 
 ## Phased Delivery
 
@@ -616,9 +705,13 @@ For larger `Deep` plans, extend the core template only when useful with sections
 ### Phase 2
 - [What follows and why]
 
+---
+
 ## Documentation Plan
 
 - [Docs or runbooks to update]
+
+---
 
 ## Operational / Rollout Notes
 
@@ -627,6 +720,7 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 #### 4.3 Planning Rules
 
+- **Horizontal rules (`---`) between top-level sections** in Standard and Deep plans, mirroring the `ce-brainstorm` requirements doc convention. Improves scannability of dense plans where many H2 sections sit close together. Omit for Lightweight plans where the whole doc fits on a single screen.
 - **All file paths must be repo-relative** — never use absolute paths like `/Users/name/Code/project/src/file.ts`. Use `src/file.ts` instead. Absolute paths make plans non-portable across machines, worktrees, and teammates. When a plan targets a different repo than the document's home, state the target repo once at the top of the plan (e.g., `**Target repo:** my-other-project`) and use repo-relative paths throughout
 - Prefer path plus class/component/pattern references over brittle line numbers
 - Keep implementation units checkable with `- [ ]` syntax for progress tracking
@@ -658,7 +752,8 @@ Before finalizing, check:
 - If a High-Level Technical Design section is included, it uses the right medium for the work, carries the non-prescriptive framing, and does not contain implementation code (no imports, exact signatures, or framework-specific syntax)
 - Per-unit technical design fields, if present, are concise and directional rather than copy-paste-ready
 - If the plan creates a new directory structure, would an Output Structure tree help reviewers see the overall shape?
-- If Scope Boundaries lists items that are planned work for a separate PR or task, are they under `### Deferred to Separate Tasks` rather than mixed with true non-goals?
+- If Scope Boundaries lists items that are planned work for a separate PR, issue, or repo, are they under `### Deferred to Follow-Up Work` rather than mixed with true non-goals?
+- U-IDs are unique within the plan and follow the stability rule — no two units share an ID; reordering or splitting did not renumber existing units; gaps from deletions are preserved
 - Would a visual aid (dependency graph, interaction diagram, comparison table) help a reader grasp the plan structure faster than scanning prose alone?
 
 If the plan originated from a requirements document, re-read that document and verify:
@@ -666,6 +761,8 @@ If the plan originated from a requirements document, re-read that document and v
 - Scope boundaries and success criteria are preserved
 - Blocking questions were either resolved, explicitly assumed, or sent back to `ce-brainstorm`
 - Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
+- If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements Trace, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
+- If origin was Deep-product (origin contains an `Outside this product's identity` subsection): the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
 
 #### 5.2 Write Plan File
 
@@ -735,7 +832,7 @@ When deepening is warranted, read `references/deepening-workflow.md` for confide
 
 **Load `references/plan-handoff.md` now.** It contains the full instructions for 5.3.8 (document review), 5.3.9 (final checks and cleanup), and 5.4 (post-generation handoff, including the Proof HITL flow, post-HITL re-review, and Issue Creation branching). Document review is mandatory — do not skip it even if the confidence check already ran.
 
-After document review and final checks, present this menu using the platform's blocking question tool (`AskUserQuestion` in Claude Code, `request_user_input` in Codex, `ask_user` in Gemini). If no question tool is available, present the numbered options in chat and wait for the user's reply before proceeding.
+After document review and final checks, present this menu using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini. Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
 **Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
 

@@ -1,18 +1,29 @@
 import { describe, expect, test } from "bun:test"
 import path from "path"
 
-const SCRIPTS_DIR = path.join(
+const INVENTORY_SCRIPTS_DIR = path.join(
   __dirname,
-  "../plugins/compound-engineering/agents/research/session-history-scripts"
+  "../plugins/compound-engineering/skills/ce-session-inventory/scripts"
+)
+const EXTRACT_SCRIPTS_DIR = path.join(
+  __dirname,
+  "../plugins/compound-engineering/skills/ce-session-extract/scripts"
 )
 const FIXTURES_DIR = path.join(__dirname, "fixtures/session-history")
+
+function scriptsDirFor(scriptName: string): string {
+  if (scriptName === "extract-metadata.py" || scriptName === "discover-sessions.sh") {
+    return INVENTORY_SCRIPTS_DIR
+  }
+  return EXTRACT_SCRIPTS_DIR
+}
 
 async function runScript(
   scriptName: string,
   args: string[] = [],
   stdin?: string
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const scriptPath = path.join(SCRIPTS_DIR, scriptName)
+  const scriptPath = path.join(scriptsDirFor(scriptName), scriptName)
   const proc = Bun.spawn(["python3", scriptPath, ...args], {
     stdin: stdin ? new TextEncoder().encode(stdin) : undefined,
     stdout: "pipe",
@@ -420,7 +431,7 @@ describe("discover-sessions", () => {
   async function runDiscover(
     ...args: string[]
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const scriptPath = path.join(SCRIPTS_DIR, "discover-sessions.sh")
+    const scriptPath = path.join(scriptsDirFor("discover-sessions.sh"), "discover-sessions.sh")
     const proc = Bun.spawn(["bash", scriptPath, ...args], {
       stdout: "pipe",
       stderr: "pipe",

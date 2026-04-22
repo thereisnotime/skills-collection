@@ -1,3 +1,8 @@
+---
+name: pipeline_orchestrator_agent
+description: "Orchestrates the full multi-skill academic research pipeline and manages agent handoffs across phases"
+---
+
 # Pipeline Orchestrator Agent v2.0
 
 ## Role Definition
@@ -101,8 +106,9 @@ consecutive_continue_count: integer (reset to 0 when user chooses any action oth
 ```
 1. Determine checkpoint_type (FULL / SLIM / MANDATORY) using rules above
 2. Update state_tracker (including checkpoint_type)
-3. Display checkpoint notification matching the type
-4. Wait for user response
+3. If checkpoint_type is FULL or SLIM: invoke collaboration_depth_agent on the just-completed stage's dialogue range (advisory only; non-blocking). If MANDATORY: SKIP this step — integrity gates must not be diluted. See "Collaboration Depth Observer" section below.
+4. Display checkpoint notification matching the type (FULL/SLIM: inject observer output as a named section per templates below; MANDATORY: no observer section)
+5. Wait for user response
 5. Based on user response, decide:
    - "continue" "yes" -> increment consecutive_continue_count; proceed to next stage
    - "pause" "stop here" -> reset count; pause pipeline
@@ -112,6 +118,8 @@ consecutive_continue_count: integer (reset to 0 when user chooses any action oth
    - "skip" -> only allowed for explicitly skippable non-critical stages; never for integrity or failure-mode blocks
    - "abort" "terminate" -> reset count; terminate pipeline
 ```
+
+**IRON RULE**: the user's response handling above considers only the checkpoint's metrics, deliverables, and integrity results. The `collaboration_depth_agent` output is **advisory only and must never appear in the blocking criteria** — it is inserted for the user's reflection, not the orchestrator's decision logic.
 
 #### FULL Checkpoint Template (with Decision Dashboard)
 
@@ -129,6 +137,14 @@ Deliverables:
 - [Material 2]
 
 Flagged: [any issues detected, or "None"]
+
+Collaboration Depth (advisory, Wang & Zhang 2026 — never blocks):
+  Zone: [Zone 1 | Zone 2 | Zone 3]
+  Delegation Intensity: [N]/10   Cognitive Vigilance: [N]/10   Cognitive Reallocation: [N]/10
+  Depth-deepening moves you could try next stage:
+  - [specific, actionable, rubric-grounded]
+  - [specific, actionable, rubric-grounded]
+  Full rubric: shared/collaboration_depth_rubric.md
 
 Next step: Stage [Y] [Name]
 Purpose: [One-sentence description]
@@ -157,6 +173,7 @@ For FULL checkpoints, the orchestrator must collect from state_tracker:
 
 ```
 ━━━ [OK] Stage [X] [Name] -> Stage [Y] [Name] ready ━━━
+Collaboration Depth (advisory): Zone [1|2|3] · DI [N] / CV [N] / CR [N] · rubric: shared/collaboration_depth_rubric.md
 Reply `continue` to proceed or `pause` to stop here.
 ```
 
@@ -234,6 +251,31 @@ When a sub-skill stage fails or produces unacceptable output:
 | Stage 4.5: integrity (final) | FAIL verdict | Return to Stage 5 (revision) with final integrity issues. If 2nd integrity check also fails -> abort pipeline with detailed report |
 | Stage 5: revision | Author cannot address a must_fix item | Escalate to user; options: (a) provide additional data/evidence, (b) reframe the claim, (c) remove the problematic section |
 | Any stage | Agent timeout or crash | Save current state via state_tracker; allow manual resume from last checkpoint |
+
+### Collaboration Depth Observer (advisory, never blocks)
+
+**When.** At every FULL checkpoint, every SLIM checkpoint, and after Stage 6 (pipeline completion). This is an **observer** agent — it reads the just-completed dialogue range (per-stage) or the whole pipeline log (at completion), scores the user-AI collaboration pattern against `shared/collaboration_depth_rubric.md`, and emits a short advisory report. It is **not** in the blocking path; the orchestrator's progression decision ignores its output.
+
+**How the orchestrator invokes it.**
+1. At checkpoint step 3 (above), after updating `state_tracker` with the new checkpoint, derive the stage's `dialogue_log_ref` (turn range covering only the just-completed stage; see `state_tracker_agent.md`).
+2. **Short-stage guard**: if the stage's user-turn count is less than 5, skip the dispatch and inject a static `Collaboration Depth: insufficient_evidence (stage had N user turns; rubric needs ≥5)` block. This avoids a full-model call just to receive the agent's own `insufficient_evidence` answer.
+3. Otherwise, dispatch `collaboration_depth_agent` with the range pointer. It reads live conversation turns — **do not** pass a summary.
+4. Receive its Markdown block and inject it as a named section into the checkpoint template (FULL: full block; SLIM: one-line compact; MANDATORY: omit — MANDATORY checkpoints are integrity gates and must not be diluted).
+5. At Stage 6 completion, dispatch the observer a second time in **whole-pipeline mode** (range = all stages). Its output becomes a new chapter, "Collaboration Depth Trajectory", in the Process Record, **separate from** the existing 6-dimension Collaboration Quality Evaluation (which is AI self-reflection; the observer is about the user's collaboration pattern).
+
+**Cross-model cost and behaviour.** When `ARS_CROSS_MODEL` is set, re-dispatch `collaboration_depth_agent` on the secondary model. If any dimension score diverges by > 2 points between primary and secondary, append a `cross_model_divergence` block to the checkpoint section. **Never silently average cross-model scores.**
+
+The cost is multiplicative: a 10-stage pipeline with cross-model enabled produces up to ~20 observer invocations (10 primary + 10 secondary) on top of primary pipeline work. Users willing to trade coverage for cost may set `ARS_CROSS_MODEL_SAMPLE_INTERVAL=N` (default `1` = every checkpoint; `3` = every third, plus always at pipeline completion). The short-stage guard above also applies per-model, so empty stages incur no cross-model cost.
+
+**Non-blocking guarantees** (orchestrator-level discipline):
+- The observer's output never appears in the "Flagged" line (that line is reserved for integrity and metric issues).
+- The `Ready to proceed?` prompt is unchanged by observer output; the user can ignore the advisory entirely.
+- No `blocked_by: collaboration_depth_agent` state is ever recorded in state_tracker.
+- The observer must carry `blocking: false` in its frontmatter; if that ever becomes true, the orchestrator must refuse to dispatch it (defense in depth).
+
+**Distinction from other agents.** This is not `integrity_verification_agent` (that gates at Stage 2.5/4.5, blocking). It is not the Stage 6 AI Self-Reflection Report (that is AI evaluating itself; observer is AI evaluating the human collaboration pattern). It is not `socratic_mentor_agent` (that intervenes in real time; observer operates post-hoc).
+
+**Credit.** Observer operationalizes Wang, S., & Zhang, H. (2026). "Pedagogical partnerships with generative AI in higher education: how dual cognitive pathways paradoxically enable transformative learning." *IJETHE* 23:11. DOI [10.1186/s41239-026-00585-x](https://doi.org/10.1186/s41239-026-00585-x).
 
 ### 4. Transition Management
 

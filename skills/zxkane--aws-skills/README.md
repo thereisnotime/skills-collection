@@ -67,6 +67,8 @@ AWS Bedrock AgentCore comprehensive expert for deploying and managing AI agents.
 
 ## Installation
 
+### Option 1: Claude Code Plugin Marketplace
+
 Add the marketplace to Claude Code:
 
 ```bash
@@ -85,6 +87,29 @@ Install plugins individually:
 /plugin install serverless-eda@aws-skills
 /plugin install aws-agentic-ai@aws-skills
 ```
+
+### Option 2: Install Individual Skills via npx
+
+Install a single skill directly from the repository using [skills.sh](https://skills.sh):
+
+```bash
+# AWS CDK development skill
+npx skills add https://github.com/zxkane/aws-skills --skill aws-cdk-development
+
+# AWS cost & operations skill
+npx skills add https://github.com/zxkane/aws-skills --skill aws-cost-operations
+
+# AWS serverless & event-driven architecture skill
+npx skills add https://github.com/zxkane/aws-skills --skill aws-serverless-eda
+
+# AWS Bedrock AgentCore skill
+npx skills add https://github.com/zxkane/aws-skills --skill aws-agentic-ai
+
+# AWS MCP setup (shared dependency)
+npx skills add https://github.com/zxkane/aws-skills --skill aws-mcp-setup
+```
+
+Browse all skills at [skills.sh/zxkane/aws-skills](https://skills.sh/zxkane/aws-skills).
 
 ## Core CDK Principles
 

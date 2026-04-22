@@ -1,6 +1,6 @@
 # Claude Code Skills
 
-![Version](https://img.shields.io/badge/version-2026.04.10-blue)
+![Version](https://img.shields.io/badge/version-2026.04.21-blue)
 ![Skills](https://img.shields.io/badge/skills-135-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![GitHub stars](https://img.shields.io/github/stars/levnikolaevich/claude-code-skills?style=social)](https://github.com/levnikolaevich/claude-code-skills)
@@ -116,7 +116,7 @@ Bundled MCP servers extend agent capabilities — hash-verified editing, code in
 Deterministic scope rule: `hex-line` and `hex-graph` keep `path` as the project anchor. In normal use the agent fills it automatically from the active file or project root, so users usually do not need to type it manually. `hex-ssh` runs on Windows/macOS/Linux hosts; remote shell tools stay POSIX-oriented, while SFTP transfers support platform-aware remote paths.
 
 <!-- GENERATED:HEX_GRAPH_MCP_STATUS:START -->
-`hex-graph-mcp` quality snapshot: `95/95` tests passing, `1` curated corpus, `1` pinned external corpora, parser-first `green`.
+`hex-graph-mcp` quality snapshot: `103/103` tests passing, `1` curated corpus, `1` pinned external corpora, parser-first `green`.
 <!-- GENERATED:HEX_GRAPH_MCP_STATUS:END -->
 
 ### External servers

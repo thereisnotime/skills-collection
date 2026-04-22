@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.5.0] - 2026-04-21
+
+### Added
+- `shared/collaboration_depth_rubric.md` v1.0 — canonical 4-dimension rubric (Delegation Intensity, Cognitive Vigilance, Cognitive Reallocation, Zone Classification). Based on Wang, S., & Zhang, H. (2026). "Pedagogical partnerships with generative AI in higher education: how dual cognitive pathways paradoxically enable transformative learning." *International Journal of Educational Technology in Higher Education*, 23:11. DOI 10.1186/s41239-026-00585-x. Licensed CC-BY-NC 4.0.
+- `academic-pipeline/agents/collaboration_depth_agent.md` — observer agent (Agent Team grows 3 → 4). Invoked at every FULL/SLIM checkpoint and at pipeline completion; scores user-AI collaboration pattern against the canonical rubric. **Advisory only — never blocks progression.** Frontmatter declares `blocking: false`, `measures: collaboration_depth`, `rubric_ref: shared/collaboration_depth_rubric.md`.
+- `scripts/check_collaboration_depth_rubric.py` + `scripts/test_check_collaboration_depth_rubric.py` — new lint enforces: (1) rubric file exists; (2) rubric cites Wang & Zhang 2026 with DOI; (3) `rubric_version` frontmatter field; (4) four canonical dimension headings; (5)/(6) any agent claiming `measures: collaboration_depth` references the canonical rubric path and declares `blocking: false`; (7)/(8) orchestrator and SKILL.md mention observer with non-blocking semantics. 10 unit tests, all green.
+- `academic-pipeline/references/changelog.md` row v2.8.
+- `academic-pipeline/references/reinforcement_content.md` row for FULL/SLIM checkpoint — IRON RULE: observer is advisory only, never blocks, never a leaderboard.
+
+### Changed
+- `academic-pipeline/SKILL.md` — version bump `3.3.0 → 3.4.0`. Agent Team table grows to 4 rows. New "Collaboration Depth Observer" section with explicit non-blocking guarantees and distinction from integrity verification and Stage 6 self-reflection. Reference Files table adds rubric entry.
+- `academic-pipeline/agents/pipeline_orchestrator_agent.md` — checkpoint Steps flow amended: after `state_tracker` update the orchestrator invokes `collaboration_depth_agent` on the just-completed stage's dialogue range (FULL/SLIM only; MANDATORY integrity gates explicitly skip) and injects its output into checkpoint templates as a named "Collaboration Depth" section. FULL checkpoint template expanded with the observer block; SLIM template gains a one-line compact observer summary; MANDATORY template unchanged (integrity gates never dilute). New "Collaboration Depth Observer" subsection under §3 Checkpoint Management covers invocation, cross-model behaviour, short-stage guard, and non-blocking IRON RULE.
+- `academic-pipeline/agents/state_tracker_agent.md` — Write Access Control adds `collaboration_depth_agent` (append-only `collaboration_depth_history[]`). New `dialogue_log_ref` turn-range pointer per stage; new `collaboration_depth_history[]` root-level array; new `append_observer_report()` function (only function that writes the history; preconditions block any attempt to turn observer output into a blocking condition).
+- `scripts/_skill_lint.py` — new shared `split_frontmatter(text) -> (dict|None, str)` lenient helper, reused by the new lint.
+- Suite version bumped to `3.5.0` across `README.md`, `README.zh-TW.md`, `MODE_REGISTRY.md`, `.claude/CLAUDE.md`; new `### v3.5.0 (2026-04-21)` section in both READMEs; new `## v3.5 Key Additions` block in `.claude/CLAUDE.md`.
+- `scripts/check_spec_consistency.py` — README version expectations bumped to `v3.5.0`; `MODE_REGISTRY.md` last-updated expectation updated; `.claude/CLAUDE.md` suite version expectation updated. New embedded-changelog regression checks for `### v3.5.0 (2026-04-21)` entries.
+
+### Notes
+- MANDATORY integrity checkpoints (Stages 2.5, 4.5) are **not** instrumented by the observer. The observer never appears in the "Flagged" line of any checkpoint. `blocked_by: collaboration_depth_agent` is never a legal state. The orchestrator's numbered Step 3 explicitly branches on checkpoint_type.
+- Cross-model behaviour (`ARS_CROSS_MODEL`): observer runs on both models; dimension disagreement > 2 points is flagged explicitly, never silently averaged. `ARS_CROSS_MODEL_SAMPLE_INTERVAL` escape hatch documented.
+- Short-stage guard: if the completed stage has fewer than 5 user turns, a static `insufficient_evidence` block is injected and the full-model observer call is skipped.
+- Credit: Wang & Zhang (2026) introduced the dual-pathway SEM and three-zone (Zone 1 / Zone 2 / Zone 3) framework that anchors the rubric's dimension operationalisation and synthesis rule.
+
 ## [3.4.0] - 2026-04-20
 
 ### Added

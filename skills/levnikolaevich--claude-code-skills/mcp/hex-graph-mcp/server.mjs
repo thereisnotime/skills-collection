@@ -31,24 +31,443 @@ import {
     runTraceDataflowUseCase,
 } from "./lib/use-cases.mjs";
 import { ACTION, pruneEmpty, STATUS } from "./lib/output-contract.mjs";
-import { result as mcpResult, errorResult } from "@levnikolaevich/hex-common/runtime/results";
 
-// Graph envelope output schema — shared by all 14 tools
-const GRAPH_OUTPUT_SCHEMA = z.object({
-    status: z.enum(["OK", "ERROR"]),
-    query: z.record(z.string(), z.unknown()).optional(),
-    result: z.unknown().optional(),
-    confidence: z.string().optional(),
-    reason: z.string().optional(),
-    evidence: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).optional(),
-    limits_applied: z.record(z.string(), z.unknown()).optional(),
-    quality: z.record(z.string(), z.unknown()).optional(),
-    next_action: z.string().optional(),
-    summary: z.string().optional(),
-    code: z.string().optional(),
-    recovery: z.string().optional(),
-    error: z.object({ code: z.string(), message: z.string(), recovery: z.string() }).optional(),
-});
+// Local text-only MCP result helpers. Drops structuredContent mirror and
+// outputSchema dependency (see PROTOCOL.md §MCP envelope policy).
+const LARGE_RESULT_META = { "anthropic/maxResultSizeChars": 500_000 };
+
+
+function textResult(text, { large = false } = {}) {
+    const response = {
+        content: [{ type: "text", text: typeof text === "string" ? text : String(text ?? "") }],
+    };
+    if (large) response._meta = LARGE_RESULT_META;
+    return response;
+}
+
+function textErrorResult(text, { large = false } = {}) {
+    const response = textResult(text, { large });
+    response.isError = true;
+    return response;
+}
+
+// Grammar body renderer — text-only MCP response per PROTOCOL.md.
+// Produces: <status> <next_action> [kv...]  then #section / .row / >pointer / !code / ?debug lines.
+function escapeValue(value) {
+    if (value === null || value === undefined) return "";
+    const str = String(value);
+    return str.includes("\n") ? str.replace(/\n/g, " ") : str;
+}
+
+function kvString(kvs) {
+    const parts = [];
+    for (const [k, v] of kvs) {
+        if (v === null || v === undefined || v === "") continue;
+        parts.push(`${k}=${escapeValue(v)}`);
+    }
+    return parts.join(" ");
+}
+
+function pointerHasKey(pointer, key) {
+    return new RegExp(`(?:^|\\s)${key}=`).test(pointer);
+}
+
+function appendPointerKv(pointer, key, value) {
+    if (value === null || value === undefined || value === "" || pointerHasKey(pointer, key)) {
+        return pointer;
+    }
+    return `${pointer} ${key}=${escapeValue(value)}`;
+}
+
+function canonicalSelectorForPointer(payload) {
+    const symbol = payload?.result?.symbol || {};
+    const query = payload?.query || {};
+    if (symbol.symbol_id != null) return { symbol_id: symbol.symbol_id };
+    if (symbol.workspace_qualified_name) return { workspace_qualified_name: symbol.workspace_qualified_name };
+    if (symbol.qualified_name) return { qualified_name: symbol.qualified_name };
+    if (query.symbol_id != null) return { symbol_id: query.symbol_id };
+    if (query.workspace_qualified_name) return { workspace_qualified_name: query.workspace_qualified_name };
+    if (query.qualified_name) return { qualified_name: query.qualified_name };
+    const name = symbol.name || query.name;
+    const file = symbol.file || query.file;
+    return name && file ? { name, file } : {};
+}
+
+function pointerFromHint(hint, payload) {
+    if (hint && typeof hint.pointer === "string" && hint.pointer.startsWith(">mcp__hex-graph__")) {
+        let pointer = hint.pointer;
+        pointer = appendPointerKv(pointer, "path", payload?.query?.path);
+        const selector = canonicalSelectorForPointer(payload);
+        for (const [key, value] of Object.entries(selector)) {
+            pointer = appendPointerKv(pointer, key, value);
+        }
+        return pointer;
+    }
+    return null;
+}
+
+function buildActionLine(payload, toolName) {
+    const status = (payload?.status || "ok").toLowerCase();
+    const nextAction = String(payload?.next_action || "keep_using").toLowerCase();
+    const kv = [];
+    const rev = payload?.evidence?.rev || payload?.rev || payload?.query?.rev;
+    if (rev) kv.push(["rev", rev]);
+    const total = payload?.result?.total
+        ?? payload?.result?.path_count
+        ?? payload?.result?.candidate_count;
+    if (total != null) kv.push(["total", total]);
+    if (payload?.result?.shown_count != null && payload.result.shown_count !== total) {
+        kv.push(["returned", payload.result.shown_count]);
+    }
+    if (payload?.result?.truncated || payload?.limits_applied?.truncated) {
+        kv.push(["truncated", 1]);
+    }
+    if (payload?.confidence && payload.confidence !== "heuristic") {
+        kv.push(["conf", payload.confidence]);
+    }
+    const sym = payload?.result?.symbol?.name || payload?.result?.symbol?.display_name;
+    if (sym && toolName === "inspect_symbol") kv.push(["sym", sym]);
+    const qpath = payload?.query?.path;
+    if (qpath && (toolName === "audit_workspace" || toolName === "analyze_architecture" || toolName === "analyze_edit_region" || toolName === "index_project")) {
+        kv.push(["path", qpath]);
+    }
+    const pattern = payload?.query?.query;
+    if (pattern && toolName === "find_symbols") kv.push(["pattern", pattern]);
+    const limit = payload?.limits_applied?.limit;
+    if (limit != null) kv.push(["limit", limit]);
+    const expandLimit = payload?.limits_applied?.expand_limit;
+    if (expandLimit != null) kv.push(["expand_limit", expandLimit]);
+    const kvStr = kvString(kv);
+    return kvStr.length ? `${status} ${nextAction} ${kvStr}` : `${status} ${nextAction}`;
+}
+
+function tierKv(tiers) {
+    if (!Array.isArray(tiers) || !tiers.length) return "";
+    return tiers.map(t => `${t.value}=${t.count}`).join(" ");
+}
+
+function emitWarningsAndPointers(payload, lines) {
+    const warnings = payload?.warnings || [];
+    for (const warning of warnings) {
+        if (typeof warning === "string" && warning.trim()) {
+            lines.push(`!warning=${escapeValue(warning)}`);
+        }
+    }
+    const hints = payload?.result?.expansion_hints || [];
+    for (const hint of hints) {
+        const ptr = pointerFromHint(hint, payload);
+        if (ptr) lines.push(ptr);
+    }
+}
+
+function renderFindSymbols(payload, lines) {
+    const candidates = payload?.result?.candidates || [];
+    for (const candidate of candidates) {
+        const name = candidate.name || candidate.display_name || "?";
+        const file = candidate.file || "?";
+        const line = candidate.line_start ?? candidate.line ?? "?";
+        const kind = candidate.kind || "?";
+        const exported = candidate.is_exported ? 1 : 0;
+        lines.push(`.${name} ${file}:${line} kind=${kind} exported=${exported}`);
+    }
+}
+
+function renderInspectSymbol(payload, lines) {
+    const result = payload?.result || {};
+    const symbol = result.symbol || {};
+    if (symbol.file) {
+        const range = symbol.line_end ? `${symbol.line_start}-${symbol.line_end}` : `${symbol.line_start ?? "?"}`;
+        const exported = symbol.is_exported ? 1 : 0;
+        lines.push(`#location ${symbol.file}:${range} exported=${exported} kind=${symbol.kind || "?"}`);
+    }
+    const counts = result.counts || {};
+    const refsTotal = result.references_summary?.total ?? counts.references;
+    if (refsTotal != null) lines.push(`#refs total=${refsTotal}`);
+    if (counts.incoming != null || counts.outgoing != null) {
+        const parts = [];
+        if (counts.incoming != null) parts.push(`in=${counts.incoming}`);
+        if (counts.outgoing != null) parts.push(`out=${counts.outgoing}`);
+        if (counts.siblings != null) parts.push(`siblings=${counts.siblings}`);
+        if (counts.implementations != null) parts.push(`impls=${counts.implementations}`);
+        lines.push(`#flow ${parts.join(" ")}`);
+    }
+    const prov = result.provenance_summary;
+    if (prov && Array.isArray(prov.tiers) && prov.tiers.length) {
+        lines.push(`#provenance ${tierKv(prov.tiers)}`);
+    }
+    const refPreview = result.references_summary?.preview || [];
+    for (const ref of refPreview) {
+        const f = ref.file || "?";
+        const l = ref.line ?? "?";
+        lines.push(`.ref ${f}:${l} kind=${ref.kind || "?"} conf=${ref.confidence || "?"} origin=${ref.origin || "?"}`);
+    }
+    const implPreview = result.implementations_summary?.preview || [];
+    for (const impl of implPreview) {
+        lines.push(`.impl kind=${impl.kind || "?"} conf=${impl.confidence || "?"} source=${impl.source || "?"}`);
+    }
+}
+
+function renderFindReferences(payload, lines) {
+    const result = payload?.result || {};
+    const prov = result.provenance_summary;
+    if (prov && Array.isArray(prov.tiers) && prov.tiers.length) {
+        lines.push(`#evidence ${tierKv(prov.tiers)}`);
+    }
+    const rows = result.expanded?.references || result.preview || [];
+    for (const ref of rows) {
+        const f = ref.file || "?";
+        const l = ref.line ?? "?";
+        lines.push(`.ref ${f}:${l} kind=${ref.kind || "?"} conf=${ref.confidence || "?"} origin=${ref.origin || "?"}`);
+    }
+}
+
+function renderFindImplementations(payload, lines) {
+    const result = payload?.result || {};
+    const prov = result.provenance_summary;
+    if (prov && Array.isArray(prov.tiers) && prov.tiers.length) {
+        lines.push(`#evidence ${tierKv(prov.tiers)}`);
+    }
+    const rows = result.expanded?.implementations || result.preview || [];
+    for (const impl of rows) {
+        lines.push(`.impl kind=${impl.kind || "?"} conf=${impl.confidence || "?"} source=${impl.source || "?"}`);
+    }
+}
+
+function renderPathRow(path, kindHint) {
+    const nodes = Array.isArray(path?.nodes) ? path.nodes : [];
+    const names = nodes.map(node => node?.display_name || node?.name || "?");
+    const arrow = names.length ? names.join("->") : "?";
+    const depth = path?.depth ?? Math.max(0, (path?.edges?.length ?? path?.edge_count ?? 0));
+    const start = path?.start;
+    const anchor = start ? ` ${start.file || "?"}:${start.line ?? "?"}` : "";
+    const kindPart = kindHint ? ` kind=${kindHint}` : "";
+    return `.${arrow}${anchor} depth=${depth}${kindPart}`;
+}
+
+function renderTracePaths(payload, lines) {
+    const result = payload?.result || {};
+    const rows = result.expanded?.paths || result.path_previews || [];
+    for (const path of rows) lines.push(renderPathRow(path, null));
+    const prov = result.provenance_summary;
+    if (prov && Array.isArray(prov.tiers) && prov.tiers.length) {
+        lines.push(`#provenance ${tierKv(prov.tiers)}`);
+    }
+}
+
+function renderTraceDataflow(payload, lines) {
+    const result = payload?.result || {};
+    const rows = result.expanded?.paths || result.path_previews || [];
+    for (const path of rows) {
+        const kind = path?.edges?.[0]?.kind || path?.hops?.[0]?.kind || null;
+        lines.push(renderPathRow(path, kind));
+    }
+    const prov = result.provenance_summary;
+    if (prov && Array.isArray(prov.tiers) && prov.tiers.length) {
+        lines.push(`#provenance ${tierKv(prov.tiers)}`);
+    }
+}
+
+function renderAnalyzeArchitecture(payload, lines) {
+    const result = payload?.result || {};
+    const modules = result.modules || [];
+    for (const module of modules) {
+        lines.push(`.module name=${module.module_name || module.module_key || "?"} files=${module.exported_symbols ?? "?"} imports=${module.imported_modules ?? "?"} instability=${module.instability ?? "?"}`);
+    }
+    const cycles = result.cycles || [];
+    if (cycles.length) lines.push(`#cycles total=${cycles.length}`);
+    const risks = result.top_risks || [];
+    if (risks.length) {
+        lines.push(`#hotspots total=${risks.length}`);
+        for (const risk of risks) {
+            lines.push(`.hotspot ${risk.file || "?"} symbol=${risk.symbol || "?"} reason=${risk.reason || "?"} rank=${risk.rank ?? "?"}`);
+        }
+    }
+}
+
+function renderAnalyzeChanges(payload, lines) {
+    const result = payload?.result || {};
+    const summary = result.diff_summary || {};
+    const changedFiles = result.changed_files || [];
+    for (const file of changedFiles) {
+        const glyph = file.status === "added" ? "+" : file.status === "deleted" ? "-" : "~";
+        lines.push(`.change ${glyph} file=${file.file}`);
+    }
+    const changedSymbols = result.changed_symbols || [];
+    for (const sym of changedSymbols) {
+        const risk = sym.risk_level || "?";
+        lines.push(`.impact symbol=${sym.symbol || "?"} file=${sym.file || "?"} risk=${risk}`);
+    }
+    if (summary.changed_file_count != null || summary.changed_symbol_count != null) {
+        const parts = [];
+        if (summary.changed_file_count != null) parts.push(`changed=${summary.changed_file_count}`);
+        if (summary.changed_symbol_count != null) parts.push(`impacted=${summary.changed_symbol_count}`);
+        if (summary.risk_counts?.high != null) parts.push(`high=${summary.risk_counts.high}`);
+        lines.push(`#summary ${parts.join(" ")}`);
+    }
+    const deleted = result.deleted_api_warnings || [];
+    for (const del of deleted) {
+        lines.push(`.deleted symbol=${del.symbol || "?"} file=${del.file || "?"} kind=${del.kind || "?"}`);
+    }
+}
+
+function renderAnalyzeEditRegion(payload, lines) {
+    const result = payload?.result || {};
+    const range = result.range || {};
+    if (result.file) {
+        lines.push(`.region file=${result.file}:${range.line_start ?? "?"}-${range.line_end ?? "?"}`);
+    }
+    const impact = result.impact_summary || {};
+    const parts = [];
+    if (impact.external_callers != null) parts.push(`callers=${impact.external_callers}`);
+    if (impact.downstream_flows != null) parts.push(`flows=${impact.downstream_flows}`);
+    if (impact.clone_siblings != null) parts.push(`clones=${impact.clone_siblings}`);
+    if (parts.length) lines.push(`#impact ${parts.join(" ")}`);
+    const edited = result.edited_symbols || [];
+    for (const sym of edited) {
+        const file = sym.file || "?";
+        const line = sym.line_start ?? sym.line ?? "?";
+        lines.push(`.edited ${file}:${line} name=${sym.display_name || sym.name || "?"} kind=${sym.kind || "?"}`);
+    }
+}
+
+function renderAuditWorkspace(payload, lines) {
+    const result = payload?.result || {};
+    const risk = result.risk_summary || {};
+    const summaryParts = [];
+    if (risk.unused_exports != null) summaryParts.push(`unused=${risk.unused_exports}`);
+    if (risk.hotspots != null) summaryParts.push(`hotspots=${risk.hotspots}`);
+    if (risk.clone_groups != null) summaryParts.push(`clone_groups=${risk.clone_groups}`);
+    if (summaryParts.length) lines.push(`#summary ${summaryParts.join(" ")}`);
+    const unused = result.unused_exports || [];
+    for (const item of unused) {
+        const file = item.file || "?";
+        const line = item.line_start ?? item.line ?? "?";
+        const exported = item.is_exported || item.exported ? 1 : 0;
+        lines.push(`.unused ${file}:${line} fn=${item.name || "?"} exported=${exported}`);
+    }
+    const hotspots = result.hotspots || [];
+    for (const item of hotspots) {
+        const file = item.file || "?";
+        const line = item.line_start ?? "?";
+        const complexity = item.complexity ?? item.stmt_count ?? "?";
+        const callers = item.callers ?? "?";
+        lines.push(`.hotspot ${file}:${line} name=${item.name || "?"} complexity=${complexity} callers=${callers}`);
+    }
+    const clones = result.clones || [];
+    for (const group of clones) {
+        const id = group.id || "?";
+        const members = group.members || [];
+        const totalMembers = group.members_total ?? members.length;
+        const omittedMembers = group.members_omitted ?? Math.max(0, totalMembers - members.length);
+        lines.push(`.clone_group id=${id} type=${group.type || "?"} members=${totalMembers} shown=${members.length} impact=${group.impact || "?"}`);
+        for (const member of members) {
+            const linesPair = Array.isArray(member.lines) ? `${member.lines[0]}-${member.lines[1]}` : "?";
+            lines.push(`.clone_member group=${id} file=${member.file || "?"} lines=${linesPair} name=${member.name || "?"} callers=${member.callers ?? "?"}`);
+        }
+        if (omittedMembers > 0) {
+            lines.push(`.clone_members_more group=${id} omitted=${omittedMembers}`);
+        }
+    }
+}
+
+function renderExportScip(payload, lines) {
+    const result = payload?.result || {};
+    const path = result.output_path || result.outputPath || result.path || "?";
+    const rev = result.rev || payload?.evidence?.rev || "?";
+    lines.push(`#scip rev=${rev} path=${path}`);
+}
+
+function renderImportScipOverlay(payload, lines) {
+    const result = payload?.result || {};
+    const applied = result.applied ?? result.imported ?? result.edges_imported ?? 0;
+    lines.push(`#overlay applied=${applied}`);
+}
+
+function renderInstallGraphProviders(payload, lines) {
+    const result = payload?.result || {};
+    const items = result.items || [];
+    const summary = result.summary || {};
+    for (const item of items) {
+        const state = item.status === "ok" || item.status === "installed" ? "installed" : item.status === "skipped" ? "skipped" : "missing";
+        lines.push(`.provider name=${item.id || "?"} state=${state} kind=${item.kind || "?"}`);
+    }
+    if (items.length || summary.missing_count != null) {
+        lines.push(`#providers total=${items.length} installed=${summary.installed_count ?? 0} missing=${summary.missing_count ?? 0}`);
+    }
+}
+
+function renderIndexProject(payload, lines) {
+    const status = payload?.result?.status || {};
+    const rev = status.rev || status.revision || "?";
+    const files = status.files ?? status.file_count ?? "?";
+    const symbols = status.symbols ?? status.node_count ?? "?";
+    lines.push(`#index rev=${rev} files=${files} symbols=${symbols}`);
+}
+
+function renderQuality(payload, lines) {
+    const quality = payload?.quality;
+    if (!quality) return;
+    const parts = [];
+    if (quality.query_family) parts.push(`family=${quality.query_family}`);
+    if (quality.support_tier) parts.push(`tier=${quality.support_tier}`);
+    if (Array.isArray(quality.languages) && quality.languages.length) parts.push(`langs=${quality.languages.join(",")}`);
+    if (Array.isArray(quality.frameworks) && quality.frameworks.length) parts.push(`frameworks=${quality.frameworks.join(",")}`);
+    if (Array.isArray(quality.quality_basis) && quality.quality_basis.length) parts.push(`basis=${quality.quality_basis.join(",")}`);
+    if (Array.isArray(quality.known_limitations) && quality.known_limitations.length) parts.push(`limitations=${quality.known_limitations.length}`);
+    if (parts.length) lines.push(`#quality ${parts.join(" ")}`);
+}
+
+const TOOL_RENDERERS = {
+    find_symbols: renderFindSymbols,
+    inspect_symbol: renderInspectSymbol,
+    find_references: renderFindReferences,
+    find_implementations: renderFindImplementations,
+    trace_paths: renderTracePaths,
+    trace_dataflow: renderTraceDataflow,
+    analyze_architecture: renderAnalyzeArchitecture,
+    analyze_changes: renderAnalyzeChanges,
+    analyze_edit_region: renderAnalyzeEditRegion,
+    audit_workspace: renderAuditWorkspace,
+    export_scip: renderExportScip,
+    import_scip_overlay: renderImportScipOverlay,
+    install_graph_providers: renderInstallGraphProviders,
+    index_project: renderIndexProject,
+};
+
+function renderGrammar(payload, toolName) {
+    const lines = [buildActionLine(payload, toolName)];
+    try {
+        const status = (payload?.status || "ok").toLowerCase();
+        if (status === "error" || payload?.error) {
+            const err = payload?.error || {};
+            const code = err.code || payload?.code || "UNKNOWN";
+            const message = err.message || payload?.summary || "";
+            lines.push(`!code=${escapeValue(code)}`);
+            if (message) lines.push(`!message=${escapeValue(message)}`);
+            const recovery = err.recovery || payload?.recovery;
+            if (typeof recovery === "string" && recovery.startsWith(">mcp__hex-graph__")) {
+                lines.push(recovery);
+            }
+            return lines.join("\n");
+        }
+        if (status === "not_found") lines.push(`!reason=${escapeValue(payload?.reason || "no_matches")}`);
+        if (status === "stale") lines.push(`!reason=${escapeValue(payload?.reason || "stale_index")}`);
+        const renderer = TOOL_RENDERERS[toolName];
+        if (renderer) {
+            renderer(payload, lines);
+        } else {
+            lines.push(`!code=RENDER_FALLBACK`);
+            lines.push(`?debug=${escapeValue(JSON.stringify(payload).slice(0, 4000))}`);
+        }
+        renderQuality(payload, lines);
+        emitWarningsAndPointers(payload, lines);
+    } catch (err) {
+        lines.push(`!code=RENDER_FALLBACK`);
+        lines.push(`?debug=${escapeValue(String(err?.message || err).slice(0, 400))}`);
+    }
+    return lines.join("\n");
+}
+
 
 const REFERENCE_KINDS = [
     "ref_read",
@@ -123,14 +542,16 @@ function graphError(codeOrError, message, recovery) {
             message,
             recovery: recovery || fallbackRecovery,
         };
-    return errorResult(error.code, error.message, error.recovery, {
-        extra: pruneEmpty({
-            code: error.code,
-            summary: error.message,
-            next_action: graphNextAction(error.code),
-            recovery: error.recovery,
-        }),
-    });
+    const payload = pruneEmpty({
+        status: STATUS.ERROR,
+        code: error.code,
+        summary: error.message,
+        next_action: graphNextAction(error.code),
+        recovery: error.recovery,
+        error: { code: error.code, message: error.message, recovery: error.recovery },
+    }) || { status: STATUS.ERROR };
+    const text = renderGrammar(payload, null);
+    return textErrorResult(text);
 }
 
 function selectorSchema() {
@@ -214,16 +635,74 @@ function pruneForVerbosity(payload, verbosity = "full") {
     return pruneEmpty(next) || {};
 }
 
-function wrapResult(useCaseResult, _format = "json", verbosity = "full") {
+function previewCount(result) {
+    if (!result || typeof result !== "object") return null;
+    if (Array.isArray(result.candidates)) return result.candidates.length;
+    if (Array.isArray(result.preview)) return result.preview.length;
+    if (Array.isArray(result.path_previews)) return result.path_previews.length;
+    return null;
+}
+
+function resultTotal(result) {
+    if (!result || typeof result !== "object") return null;
+    return result.total ?? result.path_count ?? result.candidate_count ?? null;
+}
+
+function isPartialPayload(payload) {
+    const result = payload?.result || {};
+    if (result.truncated || payload?.limits_applied?.truncated) return true;
+    const total = resultTotal(result);
+    const returned = result.shown_count ?? previewCount(result);
+    return total != null && returned != null && total > returned;
+}
+
+function isNotFoundPayload(payload, toolName) {
+    const result = payload?.result || {};
+    if (toolName === "find_symbols") return result.candidate_count === 0;
+    if (toolName === "find_references" || toolName === "find_implementations") return result.total === 0;
+    if (toolName === "trace_paths" || toolName === "trace_dataflow") return result.path_count === 0;
+    if (toolName === "analyze_edit_region") return Array.isArray(result.edited_symbols) && result.edited_symbols.length === 0;
+    return false;
+}
+
+function deriveStatus(payload, toolName) {
+    if (payload?.status && payload.status !== STATUS.OK) return payload.status;
+    if (isNotFoundPayload(payload, toolName)) return STATUS.NOT_FOUND;
+    if (isPartialPayload(payload)) return STATUS.PARTIAL;
+    return STATUS.OK;
+}
+
+function selectNextAction(payload, toolName) {
+    if (payload?.next_action) return payload.next_action;
+    const actions = payload?.next_actions || [];
+    const status = deriveStatus(payload, toolName);
+    if (status === STATUS.PARTIAL) return "expand";
+    if (status === STATUS.NOT_FOUND) {
+        return actions.find(action => [ACTION.WIDEN_QUERY, ACTION.ADJUST_QUERY, ACTION.INDEX_PROJECT, ACTION.WIDEN_RANGE].includes(action))
+            || ACTION.WIDEN_QUERY;
+    }
+    if (actions.length) return actions[0];
+    return "keep_using";
+}
+
+function preparePayload(useCaseResult, toolName) {
+    const payload = pruneEmpty({
+        status: STATUS.OK,
+        ...useCaseResult,
+    }) || {};
+    payload.status = deriveStatus(payload, toolName);
+    payload.next_action = selectNextAction(payload, toolName);
+    return payload;
+}
+
+function wrapResult(useCaseResult, toolName, verbosity = "full") {
     if (useCaseResult?.error) {
         return graphError(useCaseResult.error);
     }
-    const payload = pruneForVerbosity(pruneEmpty({
-        status: STATUS.OK,
-        ...useCaseResult,
-    }) || {}, verbosity);
-    const large = JSON.stringify(payload).length > 50_000;
-    return mcpResult(payload, { large });
+    const payload = pruneForVerbosity(preparePayload(useCaseResult, toolName), verbosity);
+    const text = renderGrammar(payload, toolName);
+    const large = text.length > 50_000;
+    return textResult(text, { large });
 }
 
 function unique(values) {
@@ -311,12 +790,11 @@ function auditQuality(result) {
 
 server.registerTool("index_project", {
     title: "Index Project",
-    description: "Scan and index a project into the graph kernel, including precise and framework-aware overlays when available.",
+    description: "Scan and index a project into the graph kernel, honoring Git excludes by default and including precise/framework overlays when available.",
     inputSchema: z.object({
         path: z.string().describe("Project root directory"),
         languages: z.array(z.string()).optional().describe("Filter indexed languages"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
     const { path: projectPath, languages } = rawParams;
@@ -330,7 +808,7 @@ server.registerTool("index_project", {
             reason: "index_project_completed",
             evidence: {},
             limits_applied: {},
-        }, "json", "full");
+        }, "index_project", "full");
     } catch (e) {
         const message = e?.message || String(e);
         if (e?.code === "GRAPH_DB_UNREADABLE") {
@@ -350,12 +828,10 @@ server.registerTool("install_graph_providers", {
         path: z.string().describe("Project root used for language detection and provider planning"),
         mode: z.enum(["check", "install"]).default("check").describe("`check` reports the plan and remediation steps only. `install` runs the provider install commands when they are available for the current platform."),
         include_optional_scip: z.boolean().default(true).describe("Include optional SCIP exporter checks alongside precise providers."),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 }, async (rawParams) => {
-    const { path, mode, include_optional_scip, format } = rawParams;
+    const { path, mode, include_optional_scip } = rawParams;
     try {
         const result = installGraphProviders({
             path,
@@ -373,7 +849,7 @@ server.registerTool("install_graph_providers", {
             reason: mode === "install" ? "graph_providers_install_attempted" : "graph_providers_checked",
             evidence: { layer: "environment", origin: "graph_provider_planner" },
             limits_applied: {},
-        }, format, "full");
+        }, "install_graph_providers", "full");
     } catch (error) {
         return graphError("GRAPH_PROVIDER_SETUP_FAILED", error.message, "Verify the project path exists, then rerun install_graph_providers in `check` mode to inspect remediation steps.");
     }
@@ -392,9 +868,7 @@ server.registerTool("export_scip", {
         target_only: z.string().optional().describe("Python only: optional subdirectory to index instead of the full project."),
         environment_path: z.string().optional().describe("Python only: optional path to a scip-python environment JSON file."),
         working_directory: z.string().optional().describe("C# only: optional working directory passed through to scip-dotnet."),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 }, async (rawParams) => {
     const {
@@ -407,7 +881,6 @@ server.registerTool("export_scip", {
         target_only,
         environment_path,
         working_directory,
-        format,
     } = rawParams;
     try {
         const result = await exportScip({
@@ -438,7 +911,7 @@ server.registerTool("export_scip", {
             reason: "scip_export_completed",
             evidence: { layer: "interop", origin: "scip_export" },
             limits_applied: {},
-        }, format, "full");
+        }, "export_scip", "full");
     } catch (error) {
         return graphError("SCIP_EXPORT_FAILED", error.message, "Run index_project first, verify the output path is writable, and install the required upstream SCIP indexer when using Python, PHP, or C#");
     }
@@ -451,12 +924,10 @@ server.registerTool("import_scip_overlay", {
         path: z.string().describe("Indexed project root"),
         artifact_path: z.string().describe("Path to a `.scip` artifact. Relative paths resolve from the project root."),
         replace_existing: z.boolean().default(true).describe("Clear prior `scip_import` overlay edges before importing this artifact."),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 }, async (rawParams) => {
-    const { path, artifact_path, replace_existing, format } = rawParams;
+    const { path, artifact_path, replace_existing } = rawParams;
     try {
         const result = await importScipOverlay({
             path,
@@ -470,7 +941,7 @@ server.registerTool("import_scip_overlay", {
             reason: "scip_import_completed",
             evidence: { layer: "interop", origin: "scip_import" },
             limits_applied: {},
-        }, format, "full");
+        }, "import_scip_overlay", "full");
     } catch (error) {
         return graphError("SCIP_IMPORT_FAILED", error.message, "Run index_project first, verify the SCIP artifact path, and ensure the artifact contains supported document languages");
     }
@@ -484,14 +955,12 @@ server.registerTool("find_symbols", {
         kind: z.string().optional().describe("Optional kind filter"),
         limit: flexNum().describe("Max detailed candidate symbols to return (default: 8)"),
         path: z.string().describe("Indexed project root or a file/directory inside the indexed project"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { query, kind, limit, path, format } = rawParams;
+    const { query, kind, limit, path } = rawParams;
     const result = runFindSymbolsUseCase(query, { kind, limit: limit ?? 8, path });
-    return wrapResult(result, format, "minimal");
+    return wrapResult(result, "find_symbols", "minimal");
 });
 
 server.registerTool("inspect_symbol", {
@@ -505,12 +974,10 @@ server.registerTool("inspect_symbol", {
         expand_limit: expandLimitSchema(),
         include_evidence: includeEvidenceSchema(),
         path: z.string().describe("Indexed project root or a file/directory inside the indexed project"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, format, min_confidence, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
+    const { path, min_confidence, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
     const result = runInspectSymbolUseCase(selector, {
         path,
         minConfidence: min_confidence ?? null,
@@ -519,7 +986,7 @@ server.registerTool("inspect_symbol", {
         expandLimit: expand_limit ?? null,
         includeEvidence: include_evidence ?? false,
     });
-    return wrapResult(withQuality(result, inspectQuality(result)), format, verbosity ?? "compact");
+    return wrapResult(withQuality(result, inspectQuality(result)), "inspect_symbol", verbosity ?? "compact");
 });
 
 server.registerTool("trace_paths", {
@@ -538,12 +1005,10 @@ server.registerTool("trace_paths", {
         expand_limit: expandLimitSchema(),
         include_evidence: includeEvidenceSchema(),
         path: z.string().describe("Indexed project root or a file/directory inside the indexed project"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, format, path_kind, direction, depth, limit, min_confidence, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
+    const { path, path_kind, direction, depth, limit, min_confidence, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
     const target = buildTargetSelector(selector);
     delete selector.to_symbol_id;
     delete selector.to_workspace_qualified_name;
@@ -563,7 +1028,7 @@ server.registerTool("trace_paths", {
         expandLimit: expand_limit ?? null,
         includeEvidence: include_evidence ?? false,
     });
-    return wrapResult(withQuality(result, traceQuality(result)), format, verbosity ?? "compact");
+    return wrapResult(withQuality(result, traceQuality(result)), "trace_paths", verbosity ?? "compact");
 });
 
 server.registerTool("find_references", {
@@ -579,12 +1044,10 @@ server.registerTool("find_references", {
         expand_limit: expandLimitSchema(),
         include_evidence: includeEvidenceSchema(),
         path: z.string().describe("Indexed project root or a file/directory inside the indexed project"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, format, kind, limit, min_confidence, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
+    const { path, kind, limit, min_confidence, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
     const result = runFindReferencesUseCase(selector, {
         kind: kind ?? "all",
         limit: limit ?? 10,
@@ -595,7 +1058,7 @@ server.registerTool("find_references", {
         expandLimit: expand_limit ?? null,
         includeEvidence: include_evidence ?? false,
     });
-    return wrapResult(withQuality(result, referencesQuality(result)), format, verbosity ?? "compact");
+    return wrapResult(withQuality(result, referencesQuality(result)), "find_references", verbosity ?? "compact");
 });
 
 server.registerTool("find_implementations", {
@@ -609,12 +1072,10 @@ server.registerTool("find_implementations", {
         expand_limit: expandLimitSchema(),
         include_evidence: includeEvidenceSchema(),
         path: z.string().describe("Indexed project root or a file/directory inside the indexed project"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, format, limit, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
+    const { path, limit, verbosity, expand, expand_limit, include_evidence, ...selector } = rawParams;
     const result = runFindImplementationsUseCase(selector, {
         path,
         limit: limit ?? 10,
@@ -623,7 +1084,7 @@ server.registerTool("find_implementations", {
         expandLimit: expand_limit ?? null,
         includeEvidence: include_evidence ?? false,
     });
-    return wrapResult(result, format, verbosity ?? "compact");
+    return wrapResult(result, "find_implementations", verbosity ?? "compact");
 });
 
 server.registerTool("trace_dataflow", {
@@ -641,12 +1102,10 @@ server.registerTool("trace_dataflow", {
         expand_limit: expandLimitSchema(),
         include_evidence: includeEvidenceSchema(),
         path: z.string().describe("Indexed project root or a file/directory inside the indexed project"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, format, source, sink, flow_kind, max_hops, limit, min_confidence, verbosity, expand, expand_limit, include_evidence } = rawParams;
+    const { path, source, sink, flow_kind, max_hops, limit, min_confidence, verbosity, expand, expand_limit, include_evidence } = rawParams;
     const result = runTraceDataflowUseCase({
         source,
         sink,
@@ -661,7 +1120,7 @@ server.registerTool("trace_dataflow", {
         expandLimit: expand_limit ?? null,
         includeEvidence: include_evidence ?? false,
     });
-    return wrapResult(result, format, verbosity ?? "compact");
+    return wrapResult(result, "trace_dataflow", verbosity ?? "compact");
 });
 
 server.registerTool("analyze_changes", {
@@ -674,12 +1133,10 @@ server.registerTool("analyze_changes", {
         include_paths: z.boolean().default(false).describe("Include reverse mixed graph paths for the returned symbols. Default is false to keep the snapshot compact."),
         max_symbols: flexNum().describe("Maximum changed symbols to return after risk ranking (default: 10)"),
         max_paths: flexNum().describe("Maximum supporting paths per symbol when `include_paths` is true (default: 3)"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, base_ref, head_ref, include_paths, max_symbols, max_paths, format } = rawParams;
+    const { path, base_ref, head_ref, include_paths, max_symbols, max_paths } = rawParams;
     try {
         const result = await runAnalyzeChangesUseCase({
             path,
@@ -692,7 +1149,7 @@ server.registerTool("analyze_changes", {
         if (result?.error) {
             return graphError(result.error);
         }
-        return wrapResult(withQuality(result, changesQuality(result)), format, "minimal");
+        return wrapResult(withQuality(result, changesQuality(result)), "analyze_changes", "minimal");
     } catch (error) {
         return graphError("ANALYZE_CHANGES_FAILED", error.message, "Run index_project first, then verify the git refs and project path.");
     }
@@ -707,12 +1164,10 @@ server.registerTool("analyze_edit_region", {
         line_start: flexNum().describe("1-based starting line of the edited region"),
         line_end: flexNum().describe("1-based ending line of the edited region"),
         verbosity: verbositySchema(),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, file, line_start, line_end, verbosity, format } = rawParams;
+    const { path, file, line_start, line_end, verbosity } = rawParams;
     const result = runAnalyzeEditRegionUseCase({
         path,
         file,
@@ -723,7 +1178,7 @@ server.registerTool("analyze_edit_region", {
     if (result?.error) {
         return graphError(result.error);
     }
-    return wrapResult(withQuality(result, editRegionQuality(result)), format, verbosity ?? "compact");
+    return wrapResult(withQuality(result, editRegionQuality(result)), "analyze_edit_region", verbosity ?? "compact");
 });
 
 server.registerTool("analyze_architecture", {
@@ -734,12 +1189,10 @@ server.registerTool("analyze_architecture", {
         scope: z.string().optional().describe("Optional file path prefix filter"),
         limit: flexNum().describe("Max module, cycle, coupling, and hotspot rows to surface (default: 5)"),
         verbosity: verbositySchema(),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, scope, limit, verbosity, format } = rawParams;
+    const { path, scope, limit, verbosity } = rawParams;
     const result = runAnalyzeArchitectureUseCase({
         path,
         scope: scope || null,
@@ -749,7 +1202,7 @@ server.registerTool("analyze_architecture", {
     if (result?.error) {
         return graphError(result.error);
     }
-    return wrapResult(withQuality(result, architectureQuality(result)), format, verbosity ?? "minimal");
+    return wrapResult(withQuality(result, architectureQuality(result)), "analyze_architecture", verbosity ?? "minimal");
 });
 
 server.registerTool("audit_workspace", {
@@ -759,23 +1212,25 @@ server.registerTool("audit_workspace", {
         path: z.string().describe("Indexed project root"),
         scope: z.string().optional().describe("Optional file path prefix filter"),
         verbosity: verbositySchema(),
+        limit: flexNum().describe("Max unused, hotspot, and clone group rows to surface (default: 5, capped at 25)"),
+        clone_member_limit: flexNum().describe("Max clone members per group to surface (default: 3, or 10 with verbosity=full, capped at 25)"),
         show_suppressed: flexBool().describe("Include suppressed unused exports in the visible result"),
-        format: z.enum(["json", "text"]).default("json"),
     }),
-    outputSchema: GRAPH_OUTPUT_SCHEMA,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 }, async (rawParams) => {
-    const { path, scope, verbosity, show_suppressed, format } = rawParams;
+    const { path, scope, verbosity, show_suppressed, limit, clone_member_limit } = rawParams;
     const result = runAuditWorkspaceUseCase({
         path,
         scope: scope || null,
         verbosity: verbosity ?? "minimal",
         showSuppressed: show_suppressed ?? false,
+        limit,
+        cloneMemberLimit: clone_member_limit,
     });
     if (result?.error) {
         return graphError(result.error);
     }
-    return wrapResult(withQuality(result, auditQuality(result)), format, verbosity ?? "minimal");
+    return wrapResult(withQuality(result, auditQuality(result)), "audit_workspace", verbosity ?? "minimal");
 });
 
 const transport = new StdioServerTransport();

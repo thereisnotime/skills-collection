@@ -12,3 +12,4 @@ Stage-specific reinforcement content for the Mid-Conversation Reinforcement Prot
 | Stage 3'→4' | IRON RULE: Max 2 revision loops. Anti-Pattern: Silently dropping reviewer concerns. |
 | Stage 4/4'→4.5 | IRON RULE: Must PASS with zero issues. Anti-Pattern: Re-verifying only known issues. |
 | Stage 4.5→5 | IRON RULE: PDF from LaTeX only. Anti-Pattern: Orchestrator doing substantive work. |
+| Any FULL/SLIM checkpoint | IRON RULE: `collaboration_depth_agent` output is **advisory only** and never blocks progression. Anti-Pattern: treating the observer's Zone/scores as a gate or a leaderboard. |
