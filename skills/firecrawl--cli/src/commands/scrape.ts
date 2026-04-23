@@ -118,6 +118,10 @@ export async function executeScrape(
     scrapeParams.profile = options.profile;
   }
 
+  if (options.lockdown) {
+    scrapeParams.lockdown = true;
+  }
+
   // Execute scrape with timing - only wrap the scrape call in try-catch
   const requestStartTime = Date.now();
 

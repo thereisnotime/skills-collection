@@ -21,8 +21,8 @@ The primary entry points for engineering work are skills invoked with slash synt
 
 | Skill | Description |
 |-------|-------------|
-| `/ce-ideate` | Discover high-impact project improvements through divergent ideation and adversarial filtering |
-| `/ce-brainstorm` | Explore requirements and approaches before planning |
+| `/ce-ideate` | Optional big-picture ideation: generate and critically evaluate grounded ideas, then route the strongest one into brainstorming |
+| `/ce-brainstorm` | Interactive Q&A to think through a feature or problem and write a right-sized requirements doc before planning |
 | `/ce-plan` | Create structured plans for any multi-step task -- software features, research workflows, events, study plans -- with automatic confidence checking |
 | `/ce-code-review` | Structured code review with tiered persona agents, confidence gating, and dedup pipeline |
 | `/ce-work` | Execute work items systematically |
@@ -182,9 +182,7 @@ Agents are specialized subagents invoked by skills — you typically don't call 
 
 ## Installation
 
-```bash
-claude /plugin install compound-engineering
-```
+See the repo root [Install section](../../README.md#install) for current installation instructions across Claude Code, Codex, Cursor, Copilot, Droid, Qwen, and converter-backed targets.
 
 Then run `/ce-setup` to check your environment and install recommended tools.
 

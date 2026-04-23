@@ -62,6 +62,8 @@ export interface ScrapeOptions {
     name: string;
     saveChanges?: boolean;
   };
+  /** Enable lockdown mode for the scrape */
+  lockdown?: boolean;
 }
 
 export interface ScrapeResult {

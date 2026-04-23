@@ -67,3 +67,11 @@ User: "Guide my research on [topic]"
 - If no convergence after 10 rounds -> suggest switching to `full` mode (see Failure Paths F6)
 - If dialogue exceeds 15 rounds -> automatically compile INSIGHTs and end
 - If user requests direct answers -> gently decline, explain the value of guided learning
+
+## Reading Probe (opt-in, goal-oriented only)
+
+When `ARS_SOCRATIC_READING_PROBE=1`, the Mentor runs a one-time honesty probe at the Layer 2 → Layer 3 transition, but only for goal-oriented sessions where the user has already cited a specific paper.
+
+The probe asks the user to paraphrase one passage from that paper. The user may decline; the decline is logged without penalty. The probe is not a gate — it records user self-report only. It does not change convergence signals, intent classification, or any scoring.
+
+Default is OFF. Exploratory sessions never probe. See `agents/socratic_mentor_agent.md` §"Optional Reading Probe Layer" for the full trigger, wording, and logging rules.

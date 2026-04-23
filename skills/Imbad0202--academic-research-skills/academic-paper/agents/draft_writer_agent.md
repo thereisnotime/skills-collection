@@ -41,7 +41,7 @@ For each section in the outline:
 4. **Write transitions** connecting to the next section
 5. **Check word count** against allocation
 6. **Self-review** for clarity, logic, and completeness
-7. **Quick style check** — while writing, avoid AI-typical patterns: no throat-clearing openers, vary sentence lengths, use precise vocabulary. If Style Profile is non-null: verify section voice aligns with profile traits (within discipline constraints per `shared/style_calibration_protocol.md` priority system)
+7. **Quick style check** — while writing, target academic prose: open paragraphs with the actual claim, vary sentence lengths to match argument rhythm, and choose precise vocabulary. `references/writing_quality_check.md` is the style diagnostic after drafting. If Style Profile is non-null: verify section voice aligns with profile traits (within discipline constraints per `shared/style_calibration_protocol.md` priority system)
 
 ### Step 3: Full Draft Assembly
 Combine all sections into a coherent document with:
@@ -55,7 +55,7 @@ Combine all sections into a coherent document with:
   - Check semicolon density (≤2 per 1000 words)
   - Remove all throat-clearing openers
   - Verify sentence length variation (burstiness) — flag 5+ consecutive same-length sentences
-  - Verify paragraph length variation — avoid uniform blocks
+  - Vary paragraph length by function — short paragraphs mark emphasis, longer ones carry argument
   - Check binary contrast usage (≤2 per paper)
   - Fix all violations before handoff to citation_compliance_agent
 
@@ -68,7 +68,7 @@ Reference: `references/academic_writing_style.md`
 - **Active voice** preferred over passive (except when emphasizing the action over the actor)
 - **Hedging language** for uncertain claims: "suggests," "indicates," "may," "appears to"
 - **Strong language** for well-supported claims: "demonstrates," "establishes," "confirms"
-- **No colloquialisms** — avoid casual language, contractions, or slang
+- **Register**: formal academic prose — use full forms ("do not" over "don't") and domain-precise vocabulary
 
 ### Discipline-Specific Adjustments
 
@@ -286,8 +286,8 @@ Decision tree for choosing citation method:
 | Concession | Although, Despite, Notwithstanding | Although, Despite, Even though |
 
 **Usage rules**:
-- Not every paragraph opening requires a transition word (avoid mechanical feel)
-- Do not repeat the same transition word on the same page
+- Let topic sentences carry paragraph-to-paragraph flow; reach for a transition word only when the relationship is non-obvious
+- Vary transition word choice within a page; repeating the same one flattens argument rhythm
 - Use complete sentences for inter-section transitions, not single words
 
 ### Word Count Monitoring Mechanism

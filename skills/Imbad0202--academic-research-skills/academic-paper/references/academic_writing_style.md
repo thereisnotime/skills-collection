@@ -20,9 +20,9 @@ Used by `draft_writer_agent` and `peer_reviewer_agent`.
 - Acknowledge limitations and alternative interpretations
 
 ### 4. Formality
-- No contractions (don't → do not)
-- No colloquialisms or slang
-- No first person unless discipline conventions allow it
+- Use full forms ("do not" over "don't")
+- Use formal academic vocabulary; reserve colloquialisms and slang for informal writing
+- Use third person unless discipline conventions allow first person
 
 ## Register Adjustment by Discipline
 

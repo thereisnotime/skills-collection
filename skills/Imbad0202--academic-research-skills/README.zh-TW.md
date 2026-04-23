@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.5.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.5.0)
+[![Version](https://img.shields.io/badge/version-v3.5.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.5.1)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -269,6 +269,13 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.5.1（2026-04-22）— 選用式 Socratic 誠實探測
+
+v3.5.1 新增 Socratic Mentor 的選用式誠實探測（設定 `ARS_SOCRATIC_READING_PROBE=1` 啟用）。預設關閉。詳見 CHANGELOG。
+
+- **選用式閱讀誠實探測**：設定 `ARS_SOCRATIC_READING_PROBE=1` 後，Socratic Mentor 在目標導向 session 中引用特定論文時，觸發一次性誠實探測，請使用者摘述一段文字。拒絕回答僅記錄，不扣分。探測結果寫入研究計畫摘要，並帶入 Stage 6 AI 自我反思報告。不新增 agent，不變更 schema。
+- `deep-research` SKILL 版本：`2.9.0 → 2.9.1`。`academic-pipeline` SKILL 版本：`3.5.0 → 3.5.1`。Suite 版本升至 `3.5.1`。
 
 ### v3.5.0（2026-04-21）— 協作深度觀察員（Collaboration Depth Observer）
 

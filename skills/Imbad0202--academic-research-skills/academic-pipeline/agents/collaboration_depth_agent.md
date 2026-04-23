@@ -149,10 +149,10 @@ Note: divergence > 2 points; no silent averaging performed. Original evidence:
 
 These are scope clarifications beyond the rubric's discipline (the rubric owns scoring rules; these are about what this agent refuses to do in the pipeline):
 
-- Do not score the paper, the research, or the AI's work — you score the collaboration pattern.
-- Do not accumulate a cross-session leaderboard. The rubric is per-pipeline only; no global scoreboard is produced.
-- Do not speak in the first person about the user's character or ability. Describe the observable pattern, not the person.
-- Next-stage suggestions must be phrased as options ("you could try X"), never as duties ("you should X") — the rubric is descriptive.
+- **Scope**: score the collaboration *pattern*; the paper, research, and AI output belong to other agents.
+- **Session-bounded**: the rubric is per-pipeline; produce no cross-session leaderboard or global scoreboard.
+- **Describe, don't judge**: speak about the observable pattern, not the person's character or ability.
+- **Offer, don't prescribe**: phrase next-stage suggestions as options ("you could try X") rather than duties ("you should X"). The rubric is descriptive.
 
 ---
 

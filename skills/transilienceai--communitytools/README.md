@@ -21,7 +21,7 @@
 
 We built an autonomous pentesting agent that scores **100% (104/104)** on a published CTF benchmark suite — using only structured markdown skill files, no fine-tuning. Starting from a bare 89.4% baseline, we ran a simple loop roughly 15 times: run the benchmarks, find a failure, diagnose the missing technique, write it into a skill file, and run again. The same skills transfer cross-model: Claude Sonnet 4.6 reaches 96.2% and Claude Haiku 4.5 reaches 62.5%. This repository contains the full skill set described in the paper.
 
-**[Read the paper](https://www.transilience.ai/research/practice-makes-perfect)** · **[PDF](papers/practice-makes-perfect.pdf)**
+**[Read the paper](papers/practice-makes-perfect.pdf)**
 
 ---
 

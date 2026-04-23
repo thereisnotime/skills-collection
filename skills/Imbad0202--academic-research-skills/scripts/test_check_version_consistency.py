@@ -95,11 +95,36 @@ def _write_aligned_fixture(root: Path) -> None:
     _write_changelog(root, latest_version="3.5.0")
 
 
+def _write_aligned_fixture_v351(root: Path) -> None:
+    """v3.5.1 suite: deep-research 2.9.1, academic-pipeline 3.5.1."""
+    skills = [
+        ("deep-research", "2.9.1"),
+        ("academic-paper", "3.1.0"),
+        ("academic-paper-reviewer", "1.8.1"),
+        ("academic-pipeline", "3.5.1"),
+    ]
+    for name, ver in skills:
+        _write_skill(root, name, ver)
+    _write_claude_md(root, suite_version="3.5.1", table_rows=skills)
+    _write_changelog(root, latest_version="3.5.1")
+
+
 class TestVersionConsistency(unittest.TestCase):
     def test_all_aligned_passes(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             _write_aligned_fixture(root)
+            result = _run(root)
+            self.assertEqual(
+                result.returncode, 0,
+                msg=f"stdout={result.stdout!r} stderr={result.stderr!r}",
+            )
+
+    def test_all_aligned_v351_passes(self) -> None:
+        """v3.5.1 suite (deep-research 2.9.1, academic-pipeline 3.5.1) must pass."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_aligned_fixture_v351(root)
             result = _run(root)
             self.assertEqual(
                 result.returncode, 0,

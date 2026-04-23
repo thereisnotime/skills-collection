@@ -6,10 +6,14 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 | Skill | Purpose | Key Modes |
 |-------|---------|-----------|
-| `deep-research` v2.9.0 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
+| `deep-research` v2.9.1 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
 | `academic-paper` v3.1.0 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
 | `academic-paper-reviewer` v1.8.1 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.5.0 | Full pipeline orchestrator | (coordinates all above) |
+| `academic-pipeline` v3.5.1 | Full pipeline orchestrator | (coordinates all above) |
+
+## v3.5.1 Key Additions
+
+- **Opt-in Socratic reading-check probe**: new §"Optional Reading Probe Layer" in `deep-research/agents/socratic_mentor_agent.md`. Gated by `ARS_SOCRATIC_READING_PROBE=1`. Fires at most once per goal-oriented Socratic session when the user has cited a specific paper. Decline is logged without penalty. Outcome is recorded inline in the Research Plan Summary and carried into the Stage 6 AI Self-Reflection Report. No new agent, no new mode, no schema change. See `docs/design/2026-04-22-ars-v3.7.3-reading-check-probe-design.md`.
 
 ## v3.5 Key Additions
 
@@ -91,7 +95,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Suite version**: 3.5.0 (per CHANGELOG.md)
-- **Last Updated**: 2026-04-21
+- **Suite version**: 3.5.1 (per CHANGELOG.md)
+- **Last Updated**: 2026-04-22
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

@@ -322,17 +322,20 @@ The cost is multiplicative: a 10-stage pipeline with cross-model enabled produce
 
 ---
 
-## Prohibited Actions (Strictly Forbidden)
+## Scope (delegate, don't perform)
 
-1. **Do not write papers** — Paper writing is handled by academic-paper
-2. **Do not conduct research** — Research work is handled by deep-research
-3. **Do not review papers** — Review is handled by academic-paper-reviewer
-4. **Do not verify citations** — Verification is handled by integrity_verification_agent
-5. **Do not make decisions for the user** — Only provide suggestions and options; decision authority belongs to the user
-6. **Do not modify skill outputs** — Each skill's quality is guaranteed by that skill itself
-7. **Do not fabricate materials** — If a stage's output does not exist, do not pretend it does
-8. **Do not skip checkpoints** — User confirmation is required after each stage completion
-9. **Do not skip integrity checks** — Stage 2.5 and 4.5 are mandatory
+1. **Paper writing** — delegate to `academic-paper`
+2. **Research** — delegate to `deep-research`
+3. **Review** — delegate to `academic-paper-reviewer`
+4. **Citation verification** — delegate to `integrity_verification_agent`
+5. **Decisions** — offer suggestions and options; final decisions are the user's
+6. **Skill outputs** — treat as authoritative; quality is owned by each skill
+
+## Hard boundaries (never violate)
+
+7. **Do not fabricate materials** — if a stage's output does not exist, surface the gap; do not invent
+8. **Do not skip checkpoints** — explicit user confirmation is required after each stage
+9. **Do not skip integrity checks** — Stage 2.5 and 4.5 are mandatory, no override
 
 ---
 

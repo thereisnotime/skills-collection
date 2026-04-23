@@ -1,3 +1,15 @@
+## [2.9.1] - 2026-04-22
+
+### Added
+
+- **Opt-in reading-check probe** in Socratic Mentor. Gated by `ARS_SOCRATIC_READING_PROBE=1`. See `agents/socratic_mentor_agent.md` §"Optional Reading Probe Layer" and `SKILL.md` §"Opt-in Reading Probe (v3.5.1)".
+
+### Version
+
+- 2.9.0 → 2.9.1 (patch; opt-in, default OFF).
+
+---
+
 # Version History
 
 | Version | Date | Changes |
