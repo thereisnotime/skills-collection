@@ -4,6 +4,57 @@ A collection of skills for [Claude Code](https://claude.com/claude-code) that ex
 
 ## 📦 Available Skills
 
+### [GPT Image 2 (OpenAI Image Generation)](./gpt-image-2/) ⭐ NEW
+
+Generate and edit images using OpenAI's GPT Image 2 model — the first image model with built-in reasoning ("thinking mode"). Mirrors the [Nano Banana](./nano-banana/) architecture but targets OpenAI's API with superior text rendering, thinking mode for complex compositions, and cost controls.
+
+![GPT Image 2](./gpt-image-2/screenshot.png)
+
+**Features:**
+- 🎨 Text-to-image generation with 99%+ text rendering accuracy
+- 🧠 Thinking mode (off/low/medium/high) for complex compositions — infographics, diagrams, posters
+- 🖼️ 14 style presets: 8 visual (editorial, blueprint, ink, risograph, wireframe, constellation, brutalist, grain) + 6 text-heavy (infographic, slide, diagram, poster, menu, manga)
+- 📐 8 platform presets: YouTube, slides, blog, X/Twitter, Instagram square, story, Pinterest
+- ✏️ Image editing via multipart upload (transform photos into preset styles)
+- 🔄 Variant generation (up to 10 natively) with contact sheet assembly
+- 💰 Draft mode (`--draft`): 512x512 low quality at ~$0.02/image (10× cheaper for iteration)
+- ⚠️ Cost confirmation: prompts before spending >$0.50, skip with `-y`
+- 💵 Cost estimation (`--estimate`): preview cost before generating
+- 🌐 OpenRouter support (`--provider openrouter`) for unified billing
+- 🔐 SOPS + age encrypted API key management
+- 📊 JSONL history tracking + metadata JSON sidecars
+- 🔄 Re-roll last prompt (`again`) and history browser
+
+**Quick Start:**
+```bash
+# Copy to skills directory
+cp -r gpt-image-2 ~/.claude/skills/
+
+# First-time setup
+scripts/gpt_image_2.py init
+
+# Simple generation
+scripts/gpt_image_2.py "a minimalist rocket illustration" ./rocket.png
+
+# With style preset
+scripts/gpt_image_2.py --preset editorial "neural networks" ./nn.png
+
+# Edit a photo into a style
+scripts/gpt_image_2.py --edit photo.png --platform square "transform into constellation star map style" ./styled.png
+
+# Draft mode for cheap iteration
+scripts/gpt_image_2.py --draft --preset infographic "AI adoption trends" ./draft.png
+
+# Cost estimate for a batch
+scripts/gpt_image_2.py --estimate --n 10 --thinking high "carousel slides"
+```
+
+**Depends on:** OpenAI API key, Python 3 + PyYAML, ImageMagick (optional, for platform resize), SOPS + age (optional, for encrypted keys)
+
+**Use when:** Generating images with readable text (infographics, slides, posters, carousels), editing photos into artistic styles, creating social media content, or any image generation where text rendering quality matters.
+
+---
+
 ### [TDD (Test-Driven Development)](./tdd/)
 Multi-agent TDD orchestration with architecturally enforced context isolation. Uses Claude Code's Task tool to spawn separate subagents for test writing and implementation -- the Test Writer never sees implementation code, and the Implementer never sees the specification.
 
@@ -1447,6 +1498,58 @@ cp -r lab-retro ~/.claude/skills/
 ```
 
 **Use when:** Completing a Claude Code Lab cohort — consolidates learning, captures best work, and generates a forward plan.
+
+---
+
+### [JTBD (Jobs to Be Done)](./jtbd/) ⭐ NEW
+Terminal-first JTBD engine. Interview fast, kill jargon, capture real switching forces (Push/Pull/Habit/Anxiety), score opportunities with ODI, and export structured artifacts that product, marketing, and design workflows can use immediately.
+
+**Features:**
+- 🎙️ 4 modes: live interview, transcript ingest, review mining, update existing brief
+- 🔄 3-pass interview: core questions → Switch forces (with 6-moment timeline) → Job Map decomposition
+- 🚫 Jargon Kill Switch with 30+ banned phrases and evidence-demand replacements
+- 📊 Granularity Gate: 5-dimension validator (actor, context, workaround, outcome, evidence) blocks vague output
+- 🎯 ODI opportunity scoring: importance × satisfaction → prioritized outcomes
+- 📝 4 output templates: `jtbd.json`, `one-pager.md`, `messaging-angles.md`, `gtm-brief.md`
+- 🔍 Review mining: 3-axis clustering (pain × outcome × workaround) with convergence threshold and uniqueness filter
+- 📋 Transcript ingest: auto-detect Q/A or speaker format, map to schema fields with confidence scores
+- ✅ 97 tests, zero external dependencies — all scripts work offline
+
+**Architecture:**
+```
+jtbd/
+├── SKILL.md              # 4 modes, 3 passes, tone + scope rules
+├── references/           # Switch forces, ODI, job map, jargon blacklist,
+│                         # granularity fixes, review taxonomy
+├── scripts/              # validate_granularity.py, validate_outcome.py,
+│                         # ingest_transcript.py, mine_reviews.py, odi_score.py
+├── templates/            # one-pager, messaging-angles, gtm-brief, review-brief,
+│                         # example_good.json, example_bad_then_fixed.json
+└── tests/                # 97 tests across 5 test files
+```
+
+**Quick Start:**
+```bash
+# Copy to skills directory
+cp -r jtbd ~/.claude/skills/
+
+# Live interview
+/jtbd
+
+# Ingest a transcript
+/jtbd "Turn this interview into a JTBD brief" (then provide path)
+
+# Mine reviews
+/jtbd "Mine these reviews for jobs" (then provide CSV/JSON path)
+
+# Update existing brief
+/jtbd "Update my JTBD brief with new data"
+
+# Run tests
+cd ~/.claude/skills/jtbd && python3 -m pytest tests/ -v
+```
+
+**Use when:** Articulating what a project does, who it's for, and why it matters. Converting interview transcripts or product reviews into structured briefs. Prioritizing what to build next. Generating messaging copy from switching forces.
 
 ---
 

@@ -577,7 +577,7 @@ Signals are inter-process communication files in `.loki/signals/` that trigger a
 | Any drift detected | Return to REASON phase immediately |
 | 1 drift in task | Log warning, continue with corrected action |
 | 2 drifts in same task | Escalate to orchestrator for task review |
-| 3+ drifts accumulated | Trigger context clear + full state reload |
+| 3+ drifts accumulated | Escalate to orchestrator, consolidate state to CONTINUITY.md |
 | High/Critical severity | Pause task, dispatch opus reviewer |
 
 **Automated Responses:**
@@ -590,9 +590,9 @@ immediate:
 
 accumulated_threshold: 3
 accumulated_action:
-  - Create CONTEXT_CLEAR_REQUESTED
-  - Wait for wrapper to reset context
-  - Resume with fresh context + ledger state
+  - Consolidate working memory to CONTINUITY.md
+  - Escalate to orchestrator for task review
+  - Rely on provider-native context management (no explicit clear signal)
 ```
 
 **How to Write:**
@@ -602,42 +602,6 @@ cat >> .loki/signals/DRIFT_DETECTED << EOF
 {"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","task_id":"task-042","severity":"medium","detected_drift":"description"}
 EOF
 ```
-
----
-
-### CONTEXT_CLEAR_REQUESTED Signal
-
-**Purpose:** Agent requests context window reset while preserving state.
-
-**Schema:** File presence only (empty file is sufficient).
-
-**When to Create:**
-- Context feels heavy/slow
-- After 25+ iterations
-- Conversation history exceeds 50KB
-- Agent detects own confusion or loops
-- 3+ accumulated DRIFT_DETECTED events
-
-**Processing (by run.sh wrapper):**
-1. Detect signal file
-2. Load ledger context from `.loki/memory/ledgers/`
-3. Load recent handoffs from `.loki/memory/handoffs/`
-4. Delete signal file
-5. Start new Claude session with injected context
-6. Continue from last CONTINUITY.md state
-
-**How to Create:**
-```bash
-touch .loki/signals/CONTEXT_CLEAR_REQUESTED
-```
-
-**Thresholds:**
-| Trigger | Threshold |
-|---------|-----------|
-| Iteration count | Every 25 iterations (compaction reminder) |
-| Drift accumulation | 3+ DRIFT_DETECTED events |
-| Agent self-assessment | "Context feels heavy" |
-| Error loop detection | Same error 3+ times |
 
 ---
 
@@ -762,7 +726,6 @@ These signals coordinate parallel worktrees (see `skills/parallel-workflows.md`)
 ```
 .loki/signals/
   DRIFT_DETECTED              # Append-only log (JSON lines)
-  CONTEXT_CLEAR_REQUESTED     # Presence flag (empty file OK)
   HUMAN_REVIEW_NEEDED         # JSON with review context
   HUMAN_APPROVED              # JSON with decision
   FEATURE_READY_auth          # Worktree signal

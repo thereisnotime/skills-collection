@@ -1,5 +1,23 @@
 # Model Selection & Task Tool
 
+## Session-Pinned Model (default)
+
+Since v6.81.0, the main RARV loop uses **one pinned model per session** instead of rotating models per RARV phase. This eliminates per-iteration tier churn and keeps the main loop behavior predictable.
+
+- Controlled by `LOKI_SESSION_MODEL` (default: `sonnet`).
+- Accepted values: `opus`, `sonnet`, `haiku`, or a raw tier name (`planning`, `development`, `fast`). Model names are mapped to abstract tiers (opus -> planning, sonnet -> development, haiku -> fast) so provider helpers resolve correctly.
+- `get_rarv_tier()` is retained and still used for subagent Task-tool dispatches (planning vs implementation vs fast work), not for the main loop.
+
+**Rollback (legacy RARV tier rotation in the main loop):**
+
+```bash
+LOKI_LEGACY_TIER_SWITCHING=true ./autonomy/run.sh ./prd.md
+```
+
+Set `LOKI_LEGACY_TIER_SWITCHING=true` to restore the previous per-iteration `get_rarv_tier "$ITERATION_COUNT"` behavior in the main loop.
+
+---
+
 ## Multi-Provider Support (v5.0.0)
 
 Loki Mode supports five AI providers. Claude has full features; all others run in **degraded mode** (sequential execution only, no Task tool, no parallel agents).

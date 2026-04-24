@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Imbad0202/academic-research-skills/shared/sprint_contract.schema.json",
+  "title": "ARS Sprint Contract (Schema 13)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "mode",
+    "stage",
+    "baseline_version",
+    "panel_size",
+    "acceptance_dimensions",
+    "measurement_procedure",
+    "failure_conditions"
+  ],
+  "properties": {
+    "contract_id": {
+      "type": "string",
+      "pattern": "^[a-z_]+/[a-z_]+/v\\d+$"
+    },
+    "mode": {
+      "enum": [
+        "reviewer_full",
+        "reviewer_methodology_focus",
+        "reviewer_re_review",
+        "reviewer_calibration",
+        "reviewer_guided"
+      ]
+    },
+    "stage": { "type": "string", "minLength": 1 },
+    "baseline_version": {
+      "type": "string",
+      "pattern": "^v\\d+\\.\\d+\\.\\d+$"
+    },
+    "panel_size": { "type": "integer", "minimum": 1 },
+    "acceptance_dimensions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "description", "priority"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^D[1-9][0-9]?$" },
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "description": { "type": "string", "minLength": 1 },
+          "priority": { "$ref": "#/$defs/priority" }
+        }
+      }
+    },
+    "measurement_procedure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_must_output_before_paper",
+        "scoring_plan_schema",
+        "paraphrase_minimum_dimensions"
+      ],
+      "properties": {
+        "reviewer_must_output_before_paper": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "scoring_plan_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required"],
+          "properties": {
+            "required": {
+              "type": "array",
+              "minItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "dimension_id",
+                  "what_to_look_for",
+                  "what_triggers_block",
+                  "what_triggers_warn"
+                ]
+              },
+              "$comment": "Codex P2-2: the four canonical Phase-1 fields are fixed by sprint_contract_protocol.md §4. minItems:4 + uniqueItems:true + enum-constrained items rejects empty lists, partial lists, and typoed entries (e.g. what_trigger_block) at CI time instead of letting them fail at runtime as Phase-1 lint."
+            }
+          }
+        },
+        "paraphrase_minimum_dimensions": {
+          "anyOf": [
+            { "const": "all" },
+            { "type": "integer", "minimum": 1 }
+          ]
+        }
+      }
+    },
+    "failure_conditions": {
+      "type": "array",
+      "minItems": 1,
+      "contains": {
+        "type": "object",
+        "properties": {
+          "condition_id": { "const": "F0" },
+          "action": { "const": "editorial_decision=accept" }
+        },
+        "required": ["condition_id", "action"]
+      },
+      "$comment": "Codex P2-1: every contract must include an F0 accept-grade condition. Without it the synthesizer can reach a 'no condition fired' state with no editorial_decision to emit, aborting the review round at runtime instead of failing CI. Pinning F0's action to editorial_decision=accept also prevents future templates from misusing the reserved id.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["condition_id", "severity", "expression", "action"],
+        "properties": {
+          "condition_id": {
+            "type": "string",
+            "pattern": "^F(0|[1-9][0-9]?)$",
+            "$comment": "F0 reserved for accept-grade conditions per shipped templates §6.1+§6.2; spec §3.2 line 174 mistakenly writes ^F[1-9][0-9]?$ — DO NOT 'align' the schema back. Leading-zero forms (F00, F01) rejected to keep ordinal-position tie-break (§3.2 severity precedence) unambiguous."
+          },
+          "severity": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "cross_reviewer_quantifier": { "enum": ["any", "majority", "all"] },
+          "expression": { "type": "string", "minLength": 1 },
+          "action": {
+            "enum": [
+              "editorial_decision=accept",
+              "editorial_decision=minor_revision",
+              "editorial_decision=major_revision",
+              "editorial_decision=reject_or_major_revision",
+              "editorial_decision=reject"
+            ]
+          }
+        }
+      }
+    },
+    "override_ladder": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["round", "trigger", "required"],
+        "properties": {
+          "round": { "type": "integer", "enum": [1, 2, 3] },
+          "trigger": { "type": "string", "minLength": 1 },
+          "required": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "agent_amendments": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stage_specific_notes": { "type": "string", "maxLength": 500 },
+        "additional_measurement_hints": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "mode": { "pattern": "^reviewer_" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "failure_conditions": {
+            "items": { "required": ["cross_reviewer_quantifier"] }
+          }
+        }
+      }
+    },
+    {
+      "if": { "required": ["override_ladder"] },
+      "then": {
+        "properties": {
+          "override_ladder": {
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [
+              { "properties": { "round": { "const": 1 } } },
+              { "properties": { "round": { "const": 2 } } },
+              { "properties": { "round": { "const": 3 } } }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "score": { "enum": ["block", "warn", "pass"] },
+    "priority": { "enum": ["mandatory", "high", "normal"] }
+  }
+}

@@ -13,8 +13,9 @@ ce_platforms: [claude]
 
 # Check Plugin Version
 
-Verify the installed compound-engineering plugin version matches the latest
-release, and recommend the update command if it doesn't. Claude Code only.
+Verify the installed compound-engineering plugin version matches the upstream
+`plugin.json` on `main`, and recommend the update command if it doesn't.
+Claude Code only.
 
 ## Pre-resolved context
 
@@ -28,11 +29,17 @@ at skill-load time. For a marketplace-cached install it looks like
 `~/.claude/plugins/cache/<marketplace>/compound-engineering/<version>/skills/ce-update`,
 so the currently-loaded version is the basename two `dirname` levels up.
 
+The upstream version comes from `plugins/compound-engineering/.claude-plugin/plugin.json`
+on `main` rather than the latest GitHub release tag, because the marketplace
+installs plugin contents from `main` HEAD. Comparing against release tags
+false-positives whenever `main` is ahead of the last tag (the normal state
+between releases).
+
 **Skill directory:**
 !`echo "${CLAUDE_SKILL_DIR}"`
 
-**Latest released version:**
-!`gh release list --repo EveryInc/compound-engineering-plugin --limit 30 --json tagName --jq '[.[] | select(.tagName | startswith("compound-engineering-v"))][0].tagName | sub("compound-engineering-v";"")' 2>/dev/null || echo '__CE_UPDATE_VERSION_FAILED__'`
+**Latest upstream version:**
+!`version=$(gh api repos/EveryInc/compound-engineering-plugin/contents/plugins/compound-engineering/.claude-plugin/plugin.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__CE_UPDATE_VERSION_FAILED__'`
 
 **Currently loaded version:**
 !`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/compound-engineering/*/skills/ce-update) basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" ;; *) echo '__CE_UPDATE_NOT_MARKETPLACE__' ;; esac`
@@ -49,8 +56,8 @@ requires Claude Code and stop. No further action.
 
 ### 2. Handle failure cases
 
-If **Latest released version** contains `__CE_UPDATE_VERSION_FAILED__`: tell
-the user the latest release could not be fetched (gh may be unavailable or
+If **Latest upstream version** contains `__CE_UPDATE_VERSION_FAILED__`: tell
+the user the upstream version could not be fetched (gh may be unavailable or
 rate-limited) and stop.
 
 If **Currently loaded version** contains `__CE_UPDATE_NOT_MARKETPLACE__`: this
@@ -68,13 +75,13 @@ Then stop.
 
 ### 3. Compare versions
 
-**Up to date** — `{currently loaded} == {latest}`:
+**Up to date** — `{currently loaded} == {latest upstream}`:
 
 > "compound-engineering **v{version}** is installed and up to date."
 
-**Out of date** — `{currently loaded} != {latest}`:
+**Out of date** — `{currently loaded} != {latest upstream}`:
 
-> "compound-engineering is on **v{currently loaded}** but **v{latest}** is available.
+> "compound-engineering is on **v{currently loaded}** but **v{latest upstream}** is available.
 >
 > Update with:
 > ```

@@ -2,8 +2,8 @@
 name: academic-paper-reviewer
 description: "Multi-perspective academic paper review with dynamic reviewer personas. Simulates 5 independent reviewers (EIC + 3 peer reviewers + Devil's Advocate) with field-specific expertise. Supports full review, re-review (verification), quick assessment, methodology focus, Socratic guided, and calibration modes. Triggers on: review paper, peer review, manuscript review, referee report, review my paper, critique paper, simulate review, editorial review, calibrate reviewer, reviewer calibration, measure reviewer accuracy."
 metadata:
-  version: "1.8.1"
-  last_updated: "2026-04-15"
+  version: "1.9.0"
+  last_updated: "2026-04-23"
   status: active
   data_access_level: verified_only
   task_type: open-ended
@@ -12,7 +12,7 @@ metadata:
     - academic-pipeline
 ---
 
-# Academic Paper Reviewer v1.8.1 — Multi-Perspective Academic Paper Review Agent Team
+# Academic Paper Reviewer v1.9.0 — Multi-Perspective Academic Paper Review Agent Team
 
 Simulates a complete international journal peer review process: automatically identifies the paper's field, dynamically configures 5 reviewers (Editor-in-Chief + 3 peer reviewers + Devil's Advocate) who review from four non-overlapping perspectives — methodology, domain expertise, cross-disciplinary viewpoints, and core argument challenges — ultimately producing a structured Editorial Decision and Revision Roadmap.
 
@@ -180,7 +180,7 @@ User: "Review this paper"
 | `full` | Default / "full review" | All 7 agents | 5 review reports + Editorial Decision + Revision Roadmap |
 | **`re-review`** | **Pipeline Stage 3' / "verification review"** | **field_analyst + eic + editorial_synthesizer** | **Revision response checklist + residual issues + new Decision** |
 | `quick` | "quick review" | field_analyst + eic | EIC quick assessment + key issues list (15-minute version) |
-| `methodology-focus` | "check methodology" | field_analyst + methodology_reviewer | In-depth methodology review report |
+| `methodology-focus` | "check methodology" | field_analyst + eic + methodology_reviewer | In-depth methodology review report (panel 2 under v3.6.2 sprint contract: EIC + methodology) |
 | `guided` | "guide me" | All + Socratic dialogue | Socratic issue-by-issue guided review |
 | **`calibration`** (v3.2) | **"calibrate reviewer" / "measure reviewer accuracy"** | **All 7 agents, 5x per gold paper, cross-model default-on** | **Calibration Report: FNR/FPR/balanced accuracy/AUC + per-dimension calibration error + session-scoped confidence disclosure** |
 
@@ -372,12 +372,22 @@ Follows the paper's language. Academic terms remain in English. User can overrid
 
 ---
 
+## v3.6.2 Sprint Contract Hard Gate
+
+- **Reviewer hard gate.** All reviewer modes that ship with contracts (`reviewer_full`, `reviewer_methodology_focus`) now run two-call Phase 1 (paper-content-blind) + Phase 2 (paper-visible) orchestration. See `references/sprint_contract_protocol.md`.
+- **Schema 13 sprint contract.** Template-driven acceptance criteria with `panel_size`, `acceptance_dimensions`, `failure_conditions` (with `severity` precedence + `cross_reviewer_quantifier` panel-relative thresholds), `measurement_procedure`, optional `override_ladder`, bounded `agent_amendments`. Validator: `scripts/check_sprint_contract.py`. Schema: `shared/sprint_contract.schema.json`.
+- **Synthesizer three-step mechanical protocol.** Build cross-reviewer matrix → evaluate each failure_condition with panel-relative quantifier + expression vocabulary → resolve precedence by severity. Forbidden operations explicit in `agents/editorial_synthesizer_agent.md`.
+- **methodology_focus reduced panel.** `reviewer_methodology_focus` mode runs a 2-reviewer panel (EIC + methodology only) instead of the default 5.
+- **Templates:** `shared/contracts/reviewer/full.json` (panel 5) and `shared/contracts/reviewer/methodology_focus.json` (panel 2). Reserved modes (`reviewer_re_review`, `reviewer_calibration`, `reviewer_guided`) keep pre-v3.6.2 behaviour until follow-up patch templates land.
+
+---
+
 ## Version Info
 
 | Item | Content |
 |------|---------|
-| Skill Version | 1.8.1 |
-| Last Updated | 2026-04-15 |
+| Skill Version | 1.9.0 |
+| Last Updated | 2026-04-23 |
 | Maintainer | Cheng-I Wu |
 | Dependent Skills | academic-paper v1.0+ (upstream/downstream integration) |
 | Role | Multi-perspective academic paper review simulator |

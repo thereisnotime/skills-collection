@@ -49,3 +49,38 @@
 | `academic-paper full`（pre-finalize）| +~3–5K | +~2–3K | +~$0.08 |
 
 以上為既有 per-skill 成本之上的額外增量（與上表共用 15,000 字 / 60 篇引用基準，見上表下方 footnote）。跨模型驗證成本（若啟用）維持不變。
+
+### v3.6.3 Passport 重置邊界（opt-in）
+
+設定 `ARS_PASSPORT_RESET=1` 後，每個 FULL checkpoint 變成 context 重置邊界。預期工作流程：
+
+1. Session A 跑完一個 stage 到 FULL checkpoint。
+2. 從 checkpoint 通知抄下 `[PASSPORT-RESET: hash=<hash>, stage=<completed>, next=<next>]` tag。
+3. 開新的 Claude Code session（session B），貼入 `resume_from_passport=<hash>`。支援可選覆蓋：`resume_from_passport=<hash> stage=<n> mode=<m>`。
+4. Session B 只讀 passport ledger，不重播 session A 的對話。Orchestrator 找到相符的 `kind: boundary` entry，append 一個 `kind: resume` entry 完成消費，然後繼續。繼續的 stage 由以下順序決定：使用者在 resume 指令附上 `stage=` 時以其為準，否則當 boundary 帶 `pending_decision` 時由 orchestrator 先重新詢問使用者再用對應選項的 `next_stage`，否則才採用記錄的 `next` 欄位。所有選項都終止時，`next` 可以是 `null`。
+
+**何時重置比延續划算：**
+
+- 長 pipeline，session A 累積 >100K input token，下個 stage 不需要這些上下文。
+- `systematic-review` 模式，stage 獨立性由 Material Passport 精確界定。
+- 撞到 5 分鐘 prompt cache TTL：重置讓下個 stage 重新起算，不用在臃腫 context 上付 cache miss。
+
+**何時延續仍然比較好：**
+
+- 短 pipeline（end-to-end < 30K input token）。
+- Stage 有 in-session 隱含狀態、passport 沒帶的情況（例如使用者想保溫的 Socratic 對話分支）。
+- Flag OFF 時，延續是不變的 pre-v3.6.3 預設。
+
+**Passport 檔案位置規約：**
+
+Orchestrator 預設在目前工作目錄下尋找 `./passports/<slug>/` 或 `./material_passport*.yaml`。將 hash 解析到磁碟上的 passport 檔案是整合方的責任，orchestrator 載入呼叫端工具提供的 passport。預設位置見上方 `./passports/<slug>/` 規約。
+
+Resume 指令只定義 hash 與可選的 stage/mode 覆蓋：
+
+```
+resume_from_passport=<hash> [stage=<n>] [mode=<m>]
+```
+
+Resume 指令本身沒有路徑語法。客製 passport 位置在專案的 `CLAUDE.md` 設定，或由整合方的工具在呼叫 orchestrator 前處理。
+
+**實測 token 節省：** 尚待真實 `systematic-review` 搭配儀器化測量。取得實測資料後會回填本節。目前不做任何數值宣稱。完整協議見 [`../academic-pipeline/references/passport_as_reset_boundary.md`](../academic-pipeline/references/passport_as_reset_boundary.md)。

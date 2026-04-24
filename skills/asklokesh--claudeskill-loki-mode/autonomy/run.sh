@@ -294,7 +294,6 @@ parse_simple_yaml() {
     set_from_yaml "$file" "model.planning" "LOKI_MODEL_PLANNING"
     set_from_yaml "$file" "model.development" "LOKI_MODEL_DEVELOPMENT"
     set_from_yaml "$file" "model.fast" "LOKI_MODEL_FAST"
-    set_from_yaml "$file" "model.compaction_interval" "LOKI_COMPACTION_INTERVAL"
 
     # Parallel
     set_from_yaml "$file" "parallel.enabled" "LOKI_PARALLEL_MODE"
@@ -432,7 +431,6 @@ parse_yaml_with_yq() {
         "model.prompt_repetition:LOKI_PROMPT_REPETITION"
         "model.confidence_routing:LOKI_CONFIDENCE_ROUTING"
         "model.autonomy_mode:LOKI_AUTONOMY_MODE"
-        "model.compaction_interval:LOKI_COMPACTION_INTERVAL"
         "parallel.enabled:LOKI_PARALLEL_MODE"
         "parallel.max_worktrees:LOKI_MAX_WORKTREES"
         "parallel.max_sessions:LOKI_MAX_PARALLEL_SESSIONS"
@@ -637,8 +635,14 @@ PROMPT_REPETITION=${LOKI_PROMPT_REPETITION:-true}
 CONFIDENCE_ROUTING=${LOKI_CONFIDENCE_ROUTING:-true}
 AUTONOMY_MODE=${LOKI_AUTONOMY_MODE:-perpetual}  # perpetual|checkpoint|supervised
 
-# Proactive Context Management (OpenCode/Sisyphus pattern, validated by Opus)
-COMPACTION_INTERVAL=${LOKI_COMPACTION_INTERVAL:-25}  # Suggest compaction every N iterations
+# Session-pinned model (S0.1): pin a single tier for the whole main loop.
+# Default is "sonnet" -> resolved via the "development" tier in the abstract
+# tier map. Set LOKI_LEGACY_TIER_SWITCHING=true to restore the old
+# per-iteration RARV-driven tier rotation in the main loop. The
+# get_rarv_tier function is preserved for subagent dispatch regardless.
+LOKI_SESSION_MODEL="${LOKI_SESSION_MODEL:-sonnet}"
+LOKI_LEGACY_TIER_SWITCHING="${LOKI_LEGACY_TIER_SWITCHING:-false}"
+export LOKI_SESSION_MODEL LOKI_LEGACY_TIER_SWITCHING
 
 # Parallel Workflows (Git Worktrees)
 PARALLEL_MODE=${LOKI_PARALLEL_MODE:-false}
@@ -7618,16 +7622,6 @@ check_max_iterations() {
     return 1
 }
 
-# Check if context clear was requested by agent
-check_context_clear_signal() {
-    if [ -f ".loki/signals/CONTEXT_CLEAR_REQUESTED" ]; then
-        log_info "Context clear signal detected from agent"
-        rm -f ".loki/signals/CONTEXT_CLEAR_REQUESTED"
-        return 0
-    fi
-    return 1
-}
-
 # Load latest ledger content for context injection
 load_ledger_context() {
     local ledger_content=""
@@ -8389,13 +8383,7 @@ build_prompt() {
     local analysis_instruction="CODEBASE_ANALYSIS_MODE: No PRD. FIRST: Analyze codebase - scan structure, read package.json/requirements.txt, examine README. THEN: Generate PRD at .loki/generated-prd.md. FINALLY: Execute SDLC phases."
 
     # Context Memory Instructions (integrated with new memory system)
-    local memory_instruction="MEMORY SYSTEM: Relevant context from past sessions is provided below (if any). Your actions will be automatically recorded for future reference. For complex handoffs: create .loki/memory/handoffs/{timestamp}.md. For important decisions: they will be captured in the timeline. Check .loki/CONTINUITY.md for session-level working memory. If context feels heavy, create .loki/signals/CONTEXT_CLEAR_REQUESTED and the wrapper will reset context with your ledger preserved."
-
-    # Proactive Compaction Reminder (every N iterations)
-    local compaction_reminder=""
-    if [ $((iteration % COMPACTION_INTERVAL)) -eq 0 ] && [ $iteration -gt 0 ]; then
-        compaction_reminder="PROACTIVE_CONTEXT_CHECK: You are at iteration $iteration. Review context size - if conversation history is long, consolidate to CONTINUITY.md and consider creating .loki/signals/CONTEXT_CLEAR_REQUESTED to reset context while preserving state."
-    fi
+    local memory_instruction="MEMORY SYSTEM: Relevant context from past sessions is provided below (if any). Your actions will be automatically recorded for future reference. For complex handoffs: create .loki/memory/handoffs/{timestamp}.md. For important decisions: they will be captured in the timeline. Check .loki/CONTINUITY.md for session-level working memory."
 
     # Load existing context if resuming
     local context_injection=""
@@ -8691,15 +8679,15 @@ except Exception:
     else
         if [ $retry -eq 0 ]; then
             if [ -n "$prd" ]; then
-                echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
             else
-                echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
             fi
         else
             if [ -n "$prd" ]; then
-                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
             else
-                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $compaction_reminder $completion_instruction $sdlc_instruction $autonomous_suffix"
+                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
             fi
         fi
     fi
@@ -9728,9 +9716,25 @@ except Exception as exc:
         echo "=== Provider: ${PROVIDER_NAME:-claude} ===" | tee -a "$log_file" "$agent_log"
         echo "=== Prompt (truncated): ${prompt:0:200}... ===" | tee -a "$log_file" "$agent_log"
 
-        # Dynamic tier selection based on RARV cycle phase
-        CURRENT_TIER=$(get_rarv_tier "$ITERATION_COUNT")
-        # NEW BUG FIX: Export LOKI_CURRENT_TIER so provider helper functions
+        # Tier selection (S0.1):
+        # Default: pin a single tier for the whole session via LOKI_SESSION_MODEL.
+        # Legacy: LOKI_LEGACY_TIER_SWITCHING=true restores RARV-driven rotation.
+        if [ "${LOKI_LEGACY_TIER_SWITCHING:-false}" = "true" ]; then
+            CURRENT_TIER=$(get_rarv_tier "$ITERATION_COUNT")
+        else
+            # Map session-pinned model name to an abstract tier so provider
+            # helpers (which expect tier names) resolve correctly. Unknown
+            # model strings are passed through as-is; provider loaders fall
+            # back to a sane default.
+            case "${LOKI_SESSION_MODEL:-sonnet}" in
+                opus)   CURRENT_TIER="planning" ;;
+                sonnet) CURRENT_TIER="development" ;;
+                haiku)  CURRENT_TIER="fast" ;;
+                planning|development|fast) CURRENT_TIER="${LOKI_SESSION_MODEL}" ;;
+                *)      CURRENT_TIER="${LOKI_SESSION_MODEL}" ;;
+            esac
+        fi
+        # Export LOKI_CURRENT_TIER so provider helper functions
         # (e.g., gemini.sh:provider_get_current_model) can resolve the correct model.
         # Without this, LOKI_CURRENT_TIER is always empty and defaults to "planning".
         LOKI_CURRENT_TIER="$CURRENT_TIER"

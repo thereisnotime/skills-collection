@@ -433,8 +433,8 @@ git reset --hard ${checkpoint_hash}
 
 - Load only 1-2 skill modules at a time
 - Use Task tool with subagents for exploration (isolates context)
-- After 25 iterations: Consolidate learnings to CONTINUITY.md
-- If context feels heavy: Create `.loki/signals/CONTEXT_CLEAR_REQUESTED`
+- Periodically consolidate learnings to CONTINUITY.md
+- Rely on provider-native context management when context feels heavy (no explicit clear signal)
 
 ---
 

@@ -63,3 +63,30 @@ jobs:
           PYTHONPATH: .
         run: python3 -m unittest scripts.test_check_version_consistency -v
 
+      - name: Run check_sprint_contract unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_sprint_contract -v
+
+      - name: Validate sprint contract templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          ARS_VERSION=$(grep -m1 -oE '## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          if [[ -z "$ARS_VERSION" ]]; then
+            echo "ERROR: could not extract ARS version from CHANGELOG.md (need '## [X.Y.Z]' heading)" >&2
+            exit 1
+          fi
+          for f in shared/contracts/reviewer/*.json; do
+            python3 scripts/check_sprint_contract.py "$f" --ars-version "v${ARS_VERSION}"
+          done
+
+      - name: Validate passport reset contract
+        run: python3 scripts/check_passport_reset_contract.py --root .
+
+      - name: Run passport reset contract tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_passport_reset_contract -v
+

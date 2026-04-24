@@ -28,3 +28,7 @@ Phase 2: Does not produce full Editorial Decision; enters dialogue mode instead
 - When author's response shows understanding, affirm and move forward
 - When author's response veers off topic, gently guide back to the main point
 - Can ask the author to read a certain reference before continuing discussion
+
+### v3.6.2 sprint contract status
+
+v3.6.2 introduces sprint contracts for `reviewer_full` and `reviewer_methodology_focus` only. A template for this mode will follow in a subsequent patch release. Until then, this mode runs without contract enforcement and retains its pre-v3.6.2 behaviour.

@@ -1,6 +1,6 @@
 {
   "name": "agentsys",
-  "version": "5.8.4",
+  "version": "5.8.6",
   "description": "A modular runtime and orchestration system for AI agents - works with Claude Code, OpenCode, and Codex CLI",
   "main": "lib/platform/detect-platform.js",
   "type": "commonjs",
@@ -37,8 +37,8 @@
     "bump": "node bin/dev-cli.js bump",
     "detect": "node bin/dev-cli.js detect",
     "verify": "node bin/dev-cli.js verify",
-    "version": "node scripts/stamp-version.js && git add -A",
-    "prepare": "node bin/dev-cli.js setup-hooks"
+    "version": "node scripts/stamp-version.js && git add package.json package-lock.json .claude-plugin/plugin.json .claude-plugin/marketplace.json site/content.json CHANGELOG.md",
+    "setup-hooks": "node bin/dev-cli.js setup-hooks"
   },
   "repository": {
     "type": "git",
@@ -82,7 +82,7 @@
   },
   "dependencies": {
     "agentsys": "^5.0.0",
-    "js-yaml": "^4.1.1"
+    "js-yaml": "~4.1.1"
   },
   "devDependencies": {
     "jest": "^29.7.0"

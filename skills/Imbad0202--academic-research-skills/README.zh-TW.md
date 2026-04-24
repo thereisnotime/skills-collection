@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.5.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.5.1)
+[![Version](https://img.shields.io/badge/version-v3.6.3-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.6.3)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -210,7 +210,7 @@ ARS Stage 2 寫作      →  用驗證過的實驗結果撰寫論文
 
 7 個 Agent 的多視角審查，搭配 **0-100 品質量表**。模式：full、re-review、quick、methodology-focus、guided、calibration。**決策對照：** ≥80 接受、65-79 小修、50-64 大修、<50 退稿。第一輪審查團隊 vs. 精簡再審團隊的分界：見 ARCHITECTURE.md §3 Stage 3 / Stage 3'。
 
-### Academic Pipeline (v3.5)
+### Academic Pipeline (v3.6)
 
 10 階段調度器，含誠信驗證、兩階段審查、蘇格拉底指導、協作品質評估。Pipeline 保證：每個階段都需使用者確認 checkpoint；誠信驗證（Stage 2.5 + 4.5）不可跳過；R&R 追溯矩陣（Schema 11）獨立驗證作者修訂宣稱。v3.4 新增 Compliance Agent（PRISMA-trAIce + RAISE）於 Stage 2.5 / 4.5。v3.5 新增 **協作深度觀察員**（`collaboration_depth_agent`，僅諮詢性質、永不阻擋流程）於每一次 FULL/SLIM checkpoint 與 pipeline 完成時。MANDATORY 誠信閘門（2.5 / 4.5）明確跳過觀察員，避免稀釋合規檢查。理論基礎：Wang & Zhang (2026), IJETHE 23:11。逐階段矩陣（agent、產出物、閘門）：見 ARCHITECTURE.md §3。
 
@@ -269,6 +269,26 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.6.3（2026-04-23）— 選用式 Passport 重置邊界
+
+- **Opt-in passport 重置邊界**（`ARS_PASSPORT_RESET=1`）。把每個 FULL checkpoint 提升為 context 重置邊界。新增 `resume_from_passport=<hash>` 模式，讓使用者在新的 Claude Code session 單憑 Material Passport ledger 就恢復 pipeline，不重播先前對話。`systematic-review` 模式 flag ON 時，每個 FULL checkpoint 一律強制重置；其他模式視重置為 flag 開啟後的強預設。Flag OFF 時 byte-for-byte 維持 pre-v3.6.3 行為。
+- Schema 9 新增 append-only `reset_boundary[]` ledger，兩種 entry kind（`kind: boundary` + `kind: resume`）。Hash 用 JSON Canonical Form + SHA-256，搭配 canonical placeholder 處理自我參照問題。選填 `pending_decision` 負責 MANDATORY 分支決策。
+- 新 CI lint `scripts/check_passport_reset_contract.py`：任何提到 flag 的檔案都必須指向權威協議文件。
+- 協議文件：`academic-pipeline/references/passport_as_reset_boundary.md`。
+- `docs/PERFORMANCE.zh-TW.md` 更新 long-running session 指引。
+- 無破壞性變更，flag 預設關閉。
+
+### v3.6.2（2026-04-23）— 審稿 Sprint Contract Hard Gate
+
+v3.6.2 引入 Schema 13 sprint contract 與 hard-gate 編排，強制審稿人在閱讀論文前先承諾評分準則。本次只動審稿端（reviewer-only first test case）；writer/evaluator 留到 v3.6.4。詳見 CHANGELOG。
+
+- **Schema 13 sprint contract**：`panel_size`、`acceptance_dimensions`、`failure_conditions`（含 `severity` 優先序 + 隨 panel 變動的 `cross_reviewer_quantifier`）、`measurement_procedure`、選用 `override_ladder`、限定 `agent_amendments`。驗證器：`scripts/check_sprint_contract.py`。
+- **兩段 hard gate**：審稿人先在「論文內容盲」Phase 1 預先承諾評分計畫，Phase 2 才看到論文；Phase 1 輸出包在 `<phase1_output>...</phase1_output>` 資料分隔符內，縮窄 self-injection 面。
+- **合成者三步機械協議**：建構跨審稿矩陣 → 依 panel-relative quantifier + 認可表達式詞彙評估每條 `failure_condition` → 用 `severity` 決優先。禁止操作清單寫在 `editorial_synthesizer_agent`。
+- **出貨兩份審稿模板**：`shared/contracts/reviewer/full.json`（panel 5）與 `shared/contracts/reviewer/methodology_focus.json`（panel 2）。`reviewer_re_review`、`reviewer_calibration`、`reviewer_guided` 三個 mode 在 schema enum 中保留，但 v3.6.2 不出 template，繼續沿用 pre-v3.6.2 行為；`reviewer_quick` 完全排除於 enum 外。
+- `academic-paper-reviewer` SKILL 版本：`1.8.1 → 1.9.0`。`academic-pipeline` SKILL 版本：`3.5.1 → 3.6.2`（suite-version invariant）。Suite 版本升至 `3.6.2`。
+- 詳見設計稿 [`docs/design/2026-04-23-ars-v3.6.2-sprint-contract-design.md`](docs/design/2026-04-23-ars-v3.6.2-sprint-contract-design.md) 與協定 [`academic-paper-reviewer/references/sprint_contract_protocol.md`](academic-paper-reviewer/references/sprint_contract_protocol.md)。
 
 ### v3.5.1（2026-04-22）— 選用式 Socratic 誠實探測
 

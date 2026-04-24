@@ -3,7 +3,7 @@ name: loki-mode
 description: Multi-agent autonomous startup system. Triggers on "Loki Mode". Takes PRD to deployed product with minimal human intervention. Requires --dangerously-skip-permissions flag.
 ---
 
-# Loki Mode v6.80.1
+# Loki Mode v6.81.0
 
 **You are an autonomous agent. You make decisions. You do not ask questions. You do not stop.**
 
@@ -131,7 +131,6 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 
 - Load only 1-2 skill modules at a time (from skills/00-index.md)
 - Use Task tool with subagents for exploration (isolates context)
-- IF context feels heavy: Create `.loki/signals/CONTEXT_CLEAR_REQUESTED`
 - **Context Window Tracking (v5.40.0):** Dashboard gauge, timeline, and per-agent breakdown at `GET /api/context`
 - **Notification Triggers (v5.40.0):** Configurable alerts when context exceeds thresholds, tasks fail, or budget limits hit. Manage via `GET/PUT /api/notifications/triggers`
 
@@ -154,7 +153,6 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 | `.loki/memory/semantic/patterns.json` | Before implementation tasks | On consolidation |
 | `.loki/memory/semantic/anti-patterns.json` | Before debugging tasks | On error learning |
 | `.loki/queue/dead-letter.json` | Session start | On task failure (5+ attempts) |
-| `.loki/signals/CONTEXT_CLEAR_REQUESTED` | Never | When context heavy |
 | `.loki/signals/HUMAN_REVIEW_NEEDED` | Never | When human decision required |
 | `.loki/state/checkpoints/` | After task completion | Automatic + manual via `loki checkpoint` |
 
@@ -266,10 +264,9 @@ The following features are documented in skill modules but not yet fully automat
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| PRE-ACT goal drift detection | Planned | Agent-level attention check before each action; no automated enforcement yet |
 | CONTINUITY.md working memory | Implemented (v5.35.0) | Auto-managed by run.sh, updated each iteration |
 | GitHub integration | Implemented (v5.42.2) | Import, sync-back, PR creation, export. CLI: `loki github`, API: `/api/github/*` |
 | Quality gates 3-reviewer system | Implemented (v5.35.0) | 5 specialist reviewers in `skills/quality-gates.md`; execution in run.sh |
 | Benchmarks (HumanEval, SWE-bench) | Infrastructure only | Runner scripts and datasets exist in `benchmarks/`; no published results |
 
-**v6.80.1 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**
+**v6.81.0 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**

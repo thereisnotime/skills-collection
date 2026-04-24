@@ -5,6 +5,21 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.81.0] - 2026-04-23
+
+### Tier 0 deletions — stop compensating for native Claude capabilities
+
+First slice of the RARV-C lean-harness upgrade plan (see /Users/lokesh/.claude/plans/polished-waddling-stardust.md):
+
+- **S0.1 Session-pinned model (cache hygiene).** Added `LOKI_SESSION_MODEL` env var (default `sonnet`); main loop no longer switches models per-iteration. `get_rarv_tier` preserved for subagent dispatch (S1.3 scope). Rollback: `LOKI_LEGACY_TIER_SWITCHING=true`. Fixes prompt-cache invalidation on every 4-iteration RARV cycle.
+- **S0.3 Removed `CONTEXT_CLEAR_REQUESTED` signal.** Claude 4.6/4.7 manages its own context natively via compaction + context editing. Deleted `check_context_clear_signal()` and signal references across run.sh, SKILL.md, skills/troubleshooting.md, autonomy/CONSTITUTION.md.
+- **S0.4 Removed PRE-ACT goal-drift scaffolding.** Documented as "Planned" with no automated enforcement — phantom feature. Deleted from SKILL.md Planned Features table and references/core-workflow.md RARV diagram.
+- **S0.5 Removed proactive compaction reminder.** Per-iteration "PROACTIVE_CONTEXT_CHECK" block and `COMPACTION_INTERVAL` variable deleted. Claude handles compaction natively.
+
+### Notes
+
+Dead-weight deletion only — no functional additions. `skills/quality-gates.md`, completion council, RARV-C generator-verifier loop, and all existing safety gates preserved unchanged. Next release in the plan: S0.2 (completion-tool call) + S1.1 (prompt inversion) for prompt-cache recovery.
+
 ## [6.80.1] - Shellcheck fix for benchmarks/magic-ab/run.sh
 
 v6.80.0's Release workflow shipped successfully (npm, Docker, Homebrew,

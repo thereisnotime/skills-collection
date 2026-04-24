@@ -61,7 +61,7 @@ def check_relative_markdown_links(rel_path: str) -> None:
 def check_mode_registry() -> None:
     rel_path = "MODE_REGISTRY.md"
     text = read(rel_path)
-    expect_contains(rel_path, "Last updated: v3.5.0 (2026-04-21)")
+    expect_contains(rel_path, "Last updated: v3.6.3 (2026-04-23)")
     for heading in (
         "## deep-research (7 modes)",
         "## academic-paper (10 modes)",
@@ -75,7 +75,7 @@ def check_claude_md() -> None:
     rel_path = ".claude/CLAUDE.md"
     expect_contains(rel_path, "integrity check (Stage 2.5)")
     expect_contains(rel_path, "final integrity check (Stage 4.5)")
-    expect_contains(rel_path, "**Suite version**: 3.5.1")
+    expect_contains(rel_path, "**Suite version**: 3.6.3")
     for forbidden in (
         "6th independent reviewer",
         "Peer review gains 6th independent reviewer",
@@ -136,8 +136,10 @@ def check_readme_sections() -> None:
     rel_path = "README.md"
     text = read(rel_path)
 
-    expect_contains(rel_path, "version-v3.5.1-blue")
-    expect_contains(rel_path, "releases/tag/v3.5.1")
+    expect_contains(rel_path, "version-v3.6.3-blue")
+    expect_contains(rel_path, "releases/tag/v3.6.3")
+    expect_contains(rel_path, "### v3.6.3 (2026-04-23)")
+    expect_contains(rel_path, "### v3.6.2 (2026-04-23)")
     expect_contains(rel_path, "### v3.5.1 (2026-04-22)")
     expect_contains(rel_path, "### v3.5.0 (2026-04-21)")
     expect_contains(rel_path, "### v3.4.0 (2026-04-20)")
@@ -153,7 +155,7 @@ def check_readme_sections() -> None:
         "### Deep Research (v2.8)",
         "### Academic Paper (v3.0)",
         "### Academic Paper Reviewer (v1.8)",
-        "### Academic Pipeline (v3.5)",
+        "### Academic Pipeline (v3.6)",
     ):
         if heading not in text:
             fail(f"{rel_path}: missing heading {heading!r}")
@@ -196,8 +198,10 @@ def check_readme_zh_sections() -> None:
     rel_path = "README.zh-TW.md"
     text = read(rel_path)
 
-    expect_contains(rel_path, "version-v3.5.1-blue")
-    expect_contains(rel_path, "releases/tag/v3.5.1")
+    expect_contains(rel_path, "version-v3.6.3-blue")
+    expect_contains(rel_path, "releases/tag/v3.6.3")
+    expect_contains(rel_path, "### v3.6.3（2026-04-23）")
+    expect_contains(rel_path, "### v3.6.2（2026-04-23）")
     expect_contains(rel_path, "### v3.5.1（2026-04-22）")
     expect_contains(rel_path, "### v3.5.0（2026-04-21）")
     expect_contains(rel_path, "### v3.4.0（2026-04-20）")
@@ -213,7 +217,7 @@ def check_readme_zh_sections() -> None:
         "### Deep Research (v2.8)",
         "### Academic Paper (v3.0)",
         "### Academic Paper Reviewer (v1.8)",
-        "### Academic Pipeline (v3.5)",
+        "### Academic Pipeline (v3.6)",
     ):
         if heading not in text:
             fail(f"{rel_path}: missing heading {heading!r}")
@@ -301,6 +305,32 @@ def check_docx_contract() -> None:
         expect_absent(rel_path, "Auto-produce MD + DOCX")
 
 
+def check_reference_docs() -> None:
+    expect_contains(
+        "academic-pipeline/references/passport_as_reset_boundary.md",
+        "# Passport as Reset Boundary (v3.6.3)",
+    )
+    expect_contains(
+        "academic-pipeline/references/passport_as_reset_boundary.md",
+        "## `resume_from_passport` mode contract",
+    )
+    expect_contains(
+        "academic-pipeline/references/passport_as_reset_boundary.md",
+        "## Iron rules",
+    )
+    # Unified PASSPORT-RESET tag format across protocol doc + orchestrator emission + checkpoint template.
+    # Divergence here breaks cross-session machine-stable handoff.
+    tag_format = "[PASSPORT-RESET: hash=<hash>, stage=<completed>, next=<next>]"
+    expect_contains(
+        "academic-pipeline/references/passport_as_reset_boundary.md",
+        tag_format,
+    )
+    expect_contains(
+        "academic-pipeline/agents/pipeline_orchestrator_agent.md",
+        tag_format,
+    )
+
+
 def main() -> int:
     check_mode_registry()
     check_claude_md()
@@ -310,6 +340,7 @@ def main() -> int:
     check_readme_zh_sections()
     check_setup_docs()
     check_docx_contract()
+    check_reference_docs()
 
     if ERRORS:
         print("Spec consistency check failed:")

@@ -105,3 +105,7 @@ If Re-Review Decision = Major Revision:
 ## Residual Issues (If Any)
 [List unresolved items, suggest marking as Acknowledged Limitations]
 ```
+
+## v3.6.2 sprint contract status
+
+v3.6.2 introduces sprint contracts for `reviewer_full` and `reviewer_methodology_focus` only. A template for this mode will follow in a subsequent patch release. Until then, this mode runs without contract enforcement and retains its pre-v3.6.2 behaviour.

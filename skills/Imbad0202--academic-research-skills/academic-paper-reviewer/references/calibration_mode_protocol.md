@@ -182,3 +182,7 @@ If the user's gold set is itself biased (e.g., all papers from one lab, all from
 - Efron, B. & Tibshirani, R. J. (1993). *An Introduction to the Bootstrap*. Chapman & Hall/CRC — bootstrap CI methodology.
 - ARS `shared/cross_model_verification.md` — cross-model reviewer integration.
 - ARS `academic-paper-reviewer/references/quality_rubrics.md` — scoring rubric definitions.
+
+## v3.6.2 sprint contract status
+
+v3.6.2 introduces sprint contracts for `reviewer_full` and `reviewer_methodology_focus` only. A template for this mode will follow in a subsequent patch release. Until then, this mode runs without contract enforcement and retains its pre-v3.6.2 behaviour.

@@ -110,6 +110,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    - If anything is unclear or ambiguous, ask clarifying questions now
    - If clarifying questions were needed above, get user approval on the resolved answers. If no clarifications were needed, proceed without a separate approval step — plan scope is the plan's authority, not something to renegotiate
    - **Do not skip this** - better to ask questions now than build the wrong thing
+   - **Do not edit the plan body during execution.** The plan is a decision artifact; progress lives in git commits and the task tracker. The only plan mutation during ce-work is the final `status: active → completed` flip at shipping (see `references/shipping-workflow.md` Phase 4 Step 2). Legacy plans may contain `- [ ]` / `- [x]` marks on unit headings — ignore them as state; per-unit completion is determined during execution by reading the current file state.
 
 2. **Setup Environment**
 
@@ -213,7 +214,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    1. Review the subagent's diff — verify changes match the unit's scope and `Files:` list
    2. Run the relevant test suite to confirm the tree is healthy
    3. If tests fail, diagnose and fix before proceeding — do not dispatch dependent units on a broken tree
-   4. Update the plan checkboxes and task list
+   4. Update the task list (do not edit the plan body — progress is carried by the commit)
    5. Dispatch the next unit
 
    **After all parallel subagents in a batch complete:**
@@ -221,7 +222,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    2. Cross-check for discovered file collisions: compare the actual files modified by all subagents in the batch (not just their declared `Files:` lists). Subagents may create or modify files not anticipated during planning — this is expected, since plans describe *what* not *how*. A collision only matters when 2+ subagents in the same batch modified the same file. In a shared working directory, only the last writer's version survives — the other unit's changes to that file are lost. If a collision is detected: commit all non-colliding files from all units first, then re-run the affected units serially for the shared file so each builds on the other's committed work
    3. For each completed unit, in dependency order: review the diff, run the relevant test suite, stage only that unit's files, and commit with a conventional message derived from the unit's Goal
    4. If tests fail after committing a unit's changes, diagnose and fix before committing the next unit
-   5. Update the plan checkboxes and task list
+   5. Update the task list (do not edit the plan body — progress is carried by the commits just made)
    6. Dispatch the next batch of independent units, or the next dependent unit
 
 ### Phase 2: Execute
@@ -234,6 +235,7 @@ Determine how to proceed based on what was provided in `<input_document>`.
    while (tasks remain):
      - Mark task as in-progress
      - Read any referenced files from the plan or discovered during Phase 0
+     - **If the unit's work is already present and matches the plan's intent** (files exist with the expected capability, or the unit's `Verification` criteria are already satisfied by the current code), the work has likely shipped on a prior branch or session. Verify it matches, mark the task complete, and move on. Do not silently reimplement.
      - Look for similar patterns in codebase
      - Find existing test files for implementation files being changed (Test Discovery — see below)
      - If delegation_active: branch to the Codex Delegation Execution Loop

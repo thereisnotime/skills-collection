@@ -1,10 +1,10 @@
 # Mode Registry
 
-Single source of truth for all modes across the ARS suite. **24 modes** across 4 skills.
+Single source of truth for all modes across the ARS suite. **25 modes** across 4 skills.
 
 When adding or modifying modes, update this file first — SKILL.md files and CLAUDE.md should reference this registry.
 
-Last updated: v3.5.0 (2026-04-21)
+Last updated: v3.6.3 (2026-04-23)
 
 ---
 
@@ -46,11 +46,12 @@ Last updated: v3.5.0 (2026-04-21)
 | `guided` | Originality | Socratic issue-by-issue dialogue | Very High | "guide me to improve", "walk me through issues" |
 | `calibration` | Fidelity | Calibration Report (FNR/FPR/AUC) + confidence disclosure | Medium | "calibrate reviewer", "measure reviewer accuracy" |
 
-## academic-pipeline (1 orchestrator)
+## academic-pipeline (1 orchestrator + 1 resume mode)
 
 | Mode | Spectrum | Output | Oversight | Triggers |
 |------|----------|--------|-----------|----------|
 | (pipeline) | Balanced | 10-stage orchestrated workflow | Very High | "academic pipeline", "research to paper", "full paper workflow" |
+| `resume_from_passport=<hash>` | Fidelity | Resume a prior pipeline run from a Material Passport reset boundary. Opt-in (`ARS_PASSPORT_RESET=1`). See `academic-pipeline/references/passport_as_reset_boundary.md`. | High | "resume from passport", "continue pipeline from reset boundary" |
 
 ---
 
@@ -58,10 +59,10 @@ Last updated: v3.5.0 (2026-04-21)
 
 | Metric | Count |
 |--------|-------|
-| Total modes | 24 |
-| Fidelity | 13 (54%) |
-| Balanced | 7 (29%) |
-| Originality | 4 (17%) |
+| Total modes | 25 |
+| Fidelity | 14 (56%) |
+| Balanced | 7 (28%) |
+| Originality | 4 (16%) |
 
 ### Oversight levels
 
