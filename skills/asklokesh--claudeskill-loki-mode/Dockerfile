@@ -6,7 +6,7 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="6.81.0"
+LABEL version="7.2.0"
 LABEL description="Loki Mode by Autonomi - Multi-agent autonomous startup system for Claude Code, Codex CLI, and Gemini CLI"
 LABEL url="https://www.autonomi.dev/"
 
@@ -77,6 +77,7 @@ COPY --chown=loki:loki skills/ ./skills/
 COPY --chown=loki:loki references/ ./references/
 COPY --chown=loki:loki docs/ ./docs/
 COPY --chown=loki:loki providers/ ./providers/
+COPY --chown=loki:loki agents/ ./agents/
 COPY --chown=loki:loki memory/ ./memory/
 COPY --chown=loki:loki events/ ./events/
 COPY --chown=loki:loki dashboard/ ./dashboard/

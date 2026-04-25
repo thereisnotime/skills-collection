@@ -5,6 +5,453 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.2.0] - 2026-04-25
+
+MINOR release. VSCode extension deprecated, dashboard rebuild fixes a
+v7.1.0 packaging miss, full E2E gap closure run with honest disclosure.
+Default behavior unchanged for non-VSCode users.
+
+### Deprecated
+
+- VSCode extension. The `publish-vscode` workflow job is removed; the
+  extension marketplace listing remains for legacy users on v7.1.0 and
+  earlier but will not receive updates. `vscode-extension/` source stays
+  in the repo for users who want to build locally; it is excluded from
+  the npm tarball. Use `loki dashboard start` instead.
+
+### Fixes
+
+- **Dashboard frontend rebuilt: v7.1.0's managed-memory panel now
+  actually ships in the served HTML.** v7.1.0 added the new
+  `loki-managed-memory-panel.js` Web Component but did not run
+  `cd dashboard-ui && npm run build:all`, so `dashboard/static/index.html`
+  remained on the Apr 18 build that pre-dated the panel. v7.2.0 includes
+  the rebuilt 563KB `dashboard/static/index.html` (+1.6KB
+  `dashboard-ui/dist/loki-dashboard-standalone.html`) with the panel
+  registered. Verified via `grep -c "loki-managed-memory-panel"
+  dashboard/static/index.html` = 2 (was 0). Lesson: CLAUDE.md release
+  workflow step 2 (build dashboard) is mandatory before EVERY release;
+  missed in v7.1.0, added explicitly to release-day checklist via
+  `cd dashboard-ui && npm run build:all` invocation.
+
+### Verified gap closures (E2E run on this machine)
+
+- **Docker container actually boots from inside the image.**
+  `docker run --rm asklokesh/loki-mode:7.1.0 version` returned
+  `Loki Mode v7.1.0`. `--help` returned full command list. Mounted PRD
+  at `/workspace/prd.md` produced complete `loki plan` output (Sonnet x4
+  cost estimate). The v7.0.2 NOT-tested entry "Docker container actual
+  boot" is now CLOSED.
+- **Homebrew install works (with correct tap name).** `brew tap
+  asklokesh/tap` (NOT `asklokesh/loki-mode` as I misremembered),
+  `brew upgrade loki-mode` -> v7.1.0 live in `/opt/homebrew/bin/loki`.
+  Old v6.82.0 cleanup verified. Documentation update added correct tap
+  name to `docs/INSTALLATION.md`.
+- **CLI user scenarios E2E.** Stream 1 (fresh user `loki version`,
+  `loki --help`), Stream 2 (PRD analysis + missing-PRD fail-fast),
+  Stream 3 (issue routing + deprecated `loki run` notice), Stream 4
+  (managed flag fail-fast: `LOKI_MANAGED_MEMORY=true` without parent ->
+  exit 2 with clear error), Stream 5 (provider/status). All passed
+  on the locally-installed npm v7.1.0 binary.
+- **Dashboard browser smoke.** `loki dashboard start`,
+  `curl /api/status` -> 200 JSON with `version: "7.1.0"`,
+  `curl /api/managed/status` -> `{enabled: false}` (correct default-off
+  behavior), `curl /api/managed/events` -> `{events: [], count: 0}`.
+  Discovered the dashboard-rebuild gap above during this smoke and
+  fixed it.
+
+### Verification
+
+- `bash -n` clean on autonomy/run.sh, autonomy/loki, autonomy/completion-council.sh
+- `python3 -m pytest tests/` = 644 passed, 7 skipped (unchanged from v7.1.0)
+- `npm test` = 7/7 pass
+- `npm run test:integration` = 7/7 pass
+- `cd dashboard-ui && npm run build:all` = clean
+- SDK isolation invariant: still PASS (only allowlisted files import anthropic)
+- Pre-push hook fired and ran 644 pytest before push allowed
+
+### Still NOT tested (honest, unchanged)
+
+- Live Anthropic Managed Agents API (no beta access in this env)
+- Multiagent `callable_agents` happy path against real session
+- Long-horizon multi-hour autonomous session with managed flags on
+- Beta header rotation behavior
+
+These remain explicit limitations. `tests/live/` infrastructure is ready
+for users with beta access.
+
+## [7.1.0] - 2026-04-24
+
+MINOR release closing every gap surfaced by the v7.0.2 audit cycle. New
+dashboard UI panel for managed memory + 4 quality fixes. Default behavior
+unchanged from v7.0.2; every new feature is opt-in or additive.
+
+Shipped via full SDLC: 1 product owner, 5 dev teams in worktrees, 15 blind
+reviewers (3 per item), integration tester, release manager. 14 SHIP
+verdicts + 1 false-positive cleared.
+
+### Added
+
+- **Dashboard managed-memory panel.** New Web Component
+  `dashboard-ui/components/loki-managed-memory-panel.js` (~580 lines).
+  Fetches `/api/managed/status` first, gates further calls on `enabled=true`,
+  renders events table + memory-version lookup. Status-disabled state shows
+  informational notice. Uses CSS custom properties + LokiElement base class
+  matching existing panel conventions. Registered in `dashboard-ui/index.js`
+  + componentModules array. Backed by new public `get(endpoint)` method on
+  `loki-api-client.js`. E2E test added to `dashboard-ui/tests/e2e/dashboard.spec.js`.
+
+- **Live-API gated test infrastructure.** New `tests/live/` directory with
+  `__init__.py`, `conftest.py`, `README.md`, and 3 test modules:
+  `test_memory_roundtrip.py` (3 tests), `test_retrieve.py` (2 tests),
+  `test_shadow_write.py` (2 tests). 7 tests total. Skip guard requires
+  BOTH `LOKI_LIVE_TESTS=1` AND `ANTHROPIC_API_KEY` -- default `pytest tests/`
+  reports them all SKIPPED, zero API calls made. Tests delete created
+  resources in tearDown using `loki-livetest-` prefix for traceability.
+  README documents opt-in semantics + zero-network guarantee.
+
+- **Auto-stamped correlation IDs in `emit_managed_event`.** Every managed
+  event payload now includes `loki_version` (from VERSION file, cached at
+  module load), and `iteration_id` / `session_id` when their respective env
+  vars (`LOKI_ITERATION_COUNT`, `LOKI_SESSION_ID`) are set. Caller-supplied
+  keys WIN over auto-stamp (no clobber). Missing env vars OMIT the key
+  (not null). Single-writer invariant preserved -- no new file handles.
+  Operators tailing `.loki/managed/events.ndjson` can now correlate
+  fallbacks back to specific iterations + sessions.
+
+### Fixes
+
+- **Bare SDK calls in `memory/managed_memory/client.py` now wrapped.**
+  All 5 SDK call sites (`stores.list`, `stores.create`, `memories.create`,
+  `memories.retrieve`, `memories.list`) wrapped in `try/except Exception
+  as e: raise ManagedDisabled(...) from e`. Pre-existing `ManagedDisabled`
+  re-raised first to avoid double-wrapping. Original exception message
+  embedded in the new message + chained via `from e`. Defensively
+  consistent with the rest of the codebase. New unit test
+  `tests/managed_memory/test_client_error_translation.py` (8 tests, all
+  pass) injects a fake SDK that raises on each method.
+
+- **Test setUp tightening for 3 vulnerable test files.** v7.0.2's pytest
+  test-isolation fix (snapshot+restore env vars) now applied to
+  `tests/managed/test_registry_lazy.py`,
+  `tests/managed_memory/test_shadow_write_mock.py`, and
+  `tests/managed_memory/test_retrieve_mock.py`. Eliminates the remaining
+  vulnerable surface to env-stripper tests landing in the future. All
+  three files now match the v7.0.2 reference pattern in
+  `test_providers_managed_mock.py`. Stress test verified: pytest run with
+  council strippers AND registry tests in same invocation = all green.
+
+### Documentation
+
+- `skills/memory.md` updated to v7.1.0 header. Honestly notes that the
+  previously-documented `loki_memory_promote` MCP tool is on the roadmap
+  but NOT shipped (continues v7.0.2's cleanup of the hallucinated
+  reference; documents manual-promotion-via-API workflow instead).
+
+### Verification
+
+- `bash -n` clean on autonomy/run.sh, autonomy/loki, autonomy/completion-council.sh
+- `python3 -m pytest tests/` = **644 passed, 7 skipped** (was 624 passed in v7.0.2; +20 new tests for T1/T3 + 7 live tests skip)
+- `npm test` = 7/7 pass
+- `npm run test:integration` = 7/7 pass
+- `cd dashboard-ui && npm run build` = clean (ESM 513KB + IIFE 514KB)
+- `node dashboard-ui/scripts/check-parity.js` = PASS
+- SDK isolation invariant: PASS (only `memory/managed_memory/client.py` and `providers/managed.py` import anthropic)
+- Kill-switch test: PASS, fallback events now include `loki_version` correlation field
+- Pre-push hook fired and ran `bash -n` + `pytest -q` (644 pass) before push allowed
+- CLAUDE.md section 3a: `loki version` returns 7.1.0 after fresh install (verified post-publish)
+
+### Still NOT tested locally end-to-end (honest disclosure, unchanged from v7.0.2)
+
+- Live Anthropic Managed Agents API roundtrip (no beta access in this env)
+  -- `tests/live/` infrastructure now ready for users with access
+- Multiagent `callable_agents` happy path against real session
+- Docker container actual boot from inside the image (daemon not running)
+- Homebrew install on a fresh Mac
+- VSCode extension load in actual VSCode UI
+- Dashboard UI managed panel render in actual browser (component code +
+  build verified; manual browser smoke deferred)
+
+### Statistics
+
+23 files changed: ~1,100 lines added (panel component, live test infra,
+correlation IDs, SDK wrapping, test fixtures, CHANGELOG, version bumps).
+14 version locations bumped to 7.1.0. 5 dev teams + 15 blind reviewers
+ran in parallel via worktree isolation. Single-release SDLC cycle wall
+time: ~2 hours from gap-list to ship.
+
+## [7.0.2] - 2026-04-24
+
+Quality patch closing gaps surfaced by 5 deep-audit agent teams + CLAUDE.md
+section 3a pre-publish validation. No behavior change for users on default
+flags. Every fix is backed by a real bug found in v7.0.1.
+
+### Fixes
+
+- **Hallucinated MCP tool removed from docs.** `skills/memory.md` documented
+  a `loki_memory_promote` MCP tool that does not exist anywhere in the
+  codebase. Replaced with honest "manual promotion via the Managed Agents
+  API; tool on the roadmap but NOT shipped" guidance.
+
+- **Phase-3 fallback events now reach the dashboard.** v7.0.0 emitted four
+  managed-review-council events (3 fallbacks + 1 success) via
+  `emit_event_json` to `.loki/events.jsonl`, which the dashboard's
+  `/api/managed/*` endpoints do NOT read. Operators tailing
+  `.loki/managed/events.ndjson` saw nothing for review-council failures.
+  v7.0.2 adds a bash helper `emit_managed_event_bash` (mirrors the Python
+  `emit_managed_event` schema) and dual-emits at all four sites in
+  `_run_managed_review_council` so events appear in both logs.
+
+- **ReDoS guard on `loki_memory_redact`.** `mcp/managed_tools.py` previously
+  passed user-supplied regex straight to `re.compile`. A pattern like
+  `(a+)+$` against any non-trivial content can hang the MCP server.
+  v7.0.2 caps pattern length at 512 chars (generous for legitimate
+  PII/compliance patterns) and rejects non-string input.
+
+- **Pytest test isolation: root cause fixed (not just patched).** v7.0.0 CI
+  Python matrix failed on 3 tests; v7.0.1 patched the symptom by
+  re-asserting env vars in setUp. Root cause investigation found the
+  actual culprit:
+  `tests/council/test_managed_completion_fallback.py::tearDown` was
+  unconditionally `os.environ.pop()`-ing 3 flags without saving prior
+  state. Pytest collection runs `tests/council/` alphabetically before
+  `tests/managed/`, leaving the latter's tests starting with stripped env.
+  v7.0.2 (a) snapshots prior env state in setUp and restores in tearDown,
+  and (b) fixes the same `if old is not None` foot-gun in 4 sibling test
+  files (`test_hydrate_mock`, `test_shadow_write_mock`, `test_retrieve_mock`,
+  `test_providers_managed_mock`) that would have failed similarly under
+  any future test that strips env. Verified: full pytest run = 624/624
+  pass.
+
+- **`asdict` unused import removed** from `providers/managed.py` (pyflakes
+  warning).
+
+### Verification
+
+- `bash -n` clean on run.sh, loki, completion-council.sh
+- All Python AST parses clean
+- `npm test` = 7/7 pass
+- `npm run test:integration` = 7/7 pass
+- `python3 -m pytest tests/` = 624/624 pass (CI-equivalent invocation)
+- Pre-push git hook installed (`scripts/install-hooks.sh`); will fire on
+  this and future pushes
+- CLAUDE.md section 3a pre-publish validation completed: `npm pack`
+  produced 499-file 2.1MB tarball; `npm install -g ./loki-mode-7.0.1.tgz`
+  succeeded; `loki version` returned 7.0.1; `loki web` started cleanly on
+  port 57375 and stopped cleanly. (Done for v7.0.1; will repeat for v7.0.2
+  after publish.)
+
+### Still NOT tested locally end-to-end (honest disclosure)
+
+- Live Anthropic Managed Agents API roundtrip (no beta access in this env)
+- Multiagent `callable_agents` happy path against real session
+- Docker container actual boot (`docker pull` succeeded, but Docker daemon
+  not running locally; cannot exec `loki version` from inside the image)
+- Homebrew install on a fresh machine
+- VSCode extension load in actual VSCode UI
+- Dashboard UI rendering (only API smoke; no browser test)
+
+These are documented limitations, not regressions.
+
+## [7.0.1] - 2026-04-24
+
+### Fixes
+
+- **`tests/managed/test_providers_managed_mock.py` flag-reassert in setUp.**
+  v7.0.0 Python 3.10-3.13 matrix test jobs failed on 3 tests because
+  sibling test modules mutated `os.environ` and pytest's class-level
+  ordering left `LOKI_EXPERIMENTAL_MANAGED_AGENTS` flipped to false for
+  later tests. `setUp` now unconditionally re-asserts both flags to
+  "true" so `providers.managed.is_enabled()` returns True inside the
+  test body regardless of prior state. Shell tests, integration tests,
+  and all other test suites were green on v7.0.0; only this one class
+  needed isolation.
+- No runtime behavior change.
+
+## [7.0.0] - 2026-04-24
+
+MAJOR release: full Claude Managed Agents integration, `loki start`/`run`
+unification, enterprise-grade observability. Every new feature is opt-in
+behind a flag; default behavior is identical to v6.83.1.
+
+### Added (all opt-in; default off)
+
+- **Phase 2 - Session-boot memory hydrate.** `LOKI_MANAGED_MEMORY_HYDRATE=true`
+  pulls semantic patterns + procedural skills from the managed store into
+  `.loki/memory/` once at `init_loki_dir` time. 10s hard timeout.
+  Idempotent via `.loki/managed/hydrate.lock` sentinel. Local wins on
+  conflict.
+- **Phase 3 - Managed code-review council (EXPERIMENTAL, research preview).**
+  `LOKI_EXPERIMENTAL_MANAGED_REVIEW=true` routes `run_code_review` through
+  `providers/managed.py::run_council` with `callable_agents`. Tool-confirmation
+  payloads replace file-polling. Legacy `.loki/quality/reviews/$id/*.txt`
+  layout preserved for dashboard compatibility (single-writer invariant).
+- **Phase 4 - Managed completion council (EXPERIMENTAL, research preview).**
+  `LOKI_EXPERIMENTAL_MANAGED_COUNCIL=true` routes `council_should_stop` through
+  `providers/managed.py::run_completion_council`. Severity budget + unanimous+DA
+  override + circuit breaker + hard checklist gate all untouched.
+- **Phase 5 - Dashboard + PII redact.** New endpoints:
+  `GET /api/managed/events`, `GET /api/managed/status`,
+  `GET /api/managed/memory_versions/:memory_id`. New MCP tool
+  `loki_memory_redact(pattern, scope)` wraps `memory_versions.redact`.
+- **`providers/managed.py` foundation (789 lines).** `ManagedClient`,
+  `run_council`, `run_completion_council`, `resolve_agent_ids`, typed
+  `ManagedUnavailable`. 8 distinct fallback modes each emit structured
+  `managed_agents_fallback` events.
+- **`agents/managed_registry.py`.** Lazy materialization of callable agents
+  from `agents/types.json`; cache at `.loki/managed/agent_ids.json`.
+- **`skills/memory.md`** (new). Comprehensive integration guide with flag
+  hierarchy, schema mapping, rollback, troubleshooting.
+- **Integration test suite `tests/integration/`** (7 scripts). Flag matrix,
+  SDK isolation, kill-switches, RARV-C memory flow, dashboard API smoke,
+  default-behavior parity, start/run unified.
+
+### Changed (UX improvements)
+
+- **`loki start` and `loki run` unified.** `loki start` is the single entry
+  point. Auto-detects input type: `.md/.json/.txt/.yaml/.yml` -> PRD mode;
+  GitHub/GitLab/Jira/Azure DevOps URLs or bare issue numbers -> issue mode.
+  `--prd FILE` / `--issue REF` explicit flags override detection. Backward
+  compat: `loki run <issue>` still works and prints a deprecation notice.
+  Help text marks `run` as `(deprecated)`.
+- **PRD path fail-fast.** `loki start /path/to/missing.md` now exits 1 with
+  a clear "Error: PRD file not found" message instead of silently falling
+  through to the no-PRD case. (R8 gap from Wave 1 review.)
+
+### Security / Safety
+
+- **SDK isolation invariant.** `anthropic` SDK is imported ONLY from
+  `memory/managed_memory/client.py` and `providers/managed.py`. CI grep
+  enforces this.
+- **Flag hierarchy + fail-fast.** Every new flag has a parent; child-on +
+  parent-off exits 2 with a clear error. No silent downgrades.
+- **Path-traversal safe.** `council_verdicts_to_txt_files` sanitizes
+  reviewer names before writing to `.loki/quality/reviews/$id/$name.txt`.
+  `memory_id` path-traversal guard on dashboard endpoints.
+- **15s timeout on background shadow-writes.** Prevents zombie processes
+  under network partitions.
+
+### Rollback
+
+- `LOKI_MANAGED_AGENTS=false` (default) restores identical v6.83.1 behavior.
+- Every child flag can be toggled independently.
+- API unreachable: automatic fallback to local with a `managed_agents_fallback`
+  event to `.loki/managed/events.ndjson`.
+
+### NOT tested (honest disclosure)
+
+- **Live Anthropic Managed Agents API.** All automated CI uses
+  `memory/managed_memory/fakes.py` and `FakeMultiagentSession`. A real
+  ANTHROPIC_API_KEY + beta access roundtrip has NOT been run. Architecture
+  contains all plausible SDK shape mismatches via defense-in-depth
+  (getattr guards + outer `except Exception` + subprocess timeout +
+  background `timeout 15` + kill-switch test).
+- **Multiagent `callable_agents` happy path.** Research preview. Beta
+  header `managed-agents-2026-04-01` will rotate; centralized in
+  `memory/managed_memory/_beta.py` for single-point update.
+- **`loki_memory_redact` against a real store.** Fake client only.
+- **Cross-project org-store distribution at scale.** Manually seeded
+  stores work; auto-promotion heuristic is future work.
+- **Long-horizon (multi-hour) citation quality.** Requires real API usage.
+
+### Statistics
+
+~5,000 lines added. 14 version locations bumped. 20 new test files. 6
+new rollback flags. 3 new dashboard endpoints. 1 new MCP tool. Zero
+breaking changes for users with all flags off.
+
+## [6.83.1] - 2026-04-24
+
+### Fixes
+
+- **Shellcheck SC2164 in managed memory test scripts.** v6.83.0 shipped with
+  unguarded `cd "$REPO"` in `tests/managed_memory/test_flag_matrix.sh`,
+  `test_sdk_isolation.sh`, and `test_kill_switch.sh`. CI shell-tests job
+  failed on shellcheck. All three now use `cd "$REPO" || exit 1`.
+- No runtime behavior change; tests still pass identically.
+
+## [6.83.0] - 2026-04-24
+
+### Added
+
+- **Managed Agents Memory integration -- Phase 1 MVP (opt-in).** Loki can now
+  mirror a whitelisted subset of RARV-C learnings to a Claude Managed Agents
+  memory store, giving cross-project audited history. Fully embedded in the
+  RARV-C cycle; no new commands. REASON phase augments context with related
+  prior patterns/verdicts pulled from the managed store; REFLECT/VERIFY phase
+  shadow-writes high-importance episodes and completion-council verdicts.
+- Parent flag: LOKI_MANAGED_AGENTS=false (default). Child: LOKI_MANAGED_MEMORY=false
+  (default). Both must be true for any managed path to activate. Child on with
+  parent off fails fast at startup with a clear error and exit code 2.
+- New package memory/managed_memory/ contains the single anthropic SDK import
+  in the codebase. CI invariant: grep -r "^import anthropic" autonomy/
+  providers/ mcp/ dashboard/ must remain empty.
+- API unreachable falls back to local path with a managed_agents_fallback event
+  to .loki/managed/events.ndjson (single-writer convention). No retry-storm;
+  one WARN line per failure.
+- Beta header pinned: managed-agents-2026-04-01. Centralized in
+  memory/managed_memory/_beta.py::BETA_HEADER.
+- FakeManagedClient (memory/managed_memory/fakes.py) for deterministic CI
+  tests. Five new tests under tests/managed_memory/ cover the flag matrix,
+  SDK isolation invariant, kill-switch fallback, shadow-write envelope + 409
+  retry path, and retrieve/hydrate semantics.
+
+### Not tested (honest disclosure)
+
+- End-to-end roundtrip against a real ANTHROPIC_API_KEY + beta access
+  (requires live API). Automated CI uses FakeManagedClient. The client module
+  is validated only through the kill-switch test (unreachable URL + invalid
+  key) which proves graceful fallback -- not successful round-trip.
+- Long-horizon cross-project citation quality.
+- Multiagent callable_agents (scheduled for Phase 3+, EXPERIMENTAL).
+
+### Rollback
+
+- LOKI_MANAGED_AGENTS=false (default) restores identical v6.82.0 behavior.
+
+## [6.82.0] - 2026-04-24
+
+### Added
+
+- **S0.2 loki_complete_task MCP tool.** Structured replacement for the previous
+  COMPLETION PROMISE FULFILLED string-match. Agents declaring task completion
+  now call the tool with completion_statement, evidence, and confidence fields;
+  a structured event and signal file drive run.sh detection. Legacy grep is
+  available via LOKI_LEGACY_COMPLETION_MATCH=true for rollback.
+
+### Changed
+
+- **S1.1 build_prompt restructured to static-first with a cache breakpoint.**
+  The 17 dynamic context blobs are now wrapped in a <dynamic_context> tail
+  block; the stable RARV/SDLC/autonomy instructions form the prefix. A literal
+  CACHE_BREAKPOINT marker sits between them, documenting the stable prefix
+  boundary and preparing the codebase for Claude API cache_control when the
+  CLI path is migrated. Expected cache-hit-rate improvement on multi-iteration
+  sessions. Rollback: LOKI_LEGACY_PROMPT_ORDERING=true restores the previous
+  concatenation order.
+
+### Notes
+
+Token-economics instrumentation now captures cache_read_input_tokens and
+cache_creation_input_tokens from the Claude stream-json usage frames when
+present; values stored in .loki/memory/token_economics.json. Cache hit ratio
+can be computed as cache_read / (cache_read + cache_creation).
+
+## [6.81.1] - 2026-04-24
+
+### Fixes
+
+- **loki plan estimator honors LOKI_SESSION_MODEL.** The cost/iteration estimator in `autonomy/loki` was still computing the old per-iteration tier rotation even after v6.81.0 pinned the main-loop model. With the default LOKI_SESSION_MODEL=sonnet, real cost is ~60% lower than the old estimate quoted. LOKI_LEGACY_TIER_SWITCHING=true restores the legacy rotation display for users who override.
+
+### UX improvement
+
+- **Plan auto-shown in `loki start` and `loki run`.** Users no longer need to invoke `loki plan` separately. The PRD analysis (complexity, iterations, token and cost estimate, time estimate) prints automatically at the start of `loki start` and `loki run`. Opt out with `--no-plan`. `loki plan` remains available as a standalone command for explicit analysis.
+- Plan-analysis logic extracted to a reusable shell function -- no duplicated code.
+
+### CI
+
+- **Release workflow: Docker Hub description update is non-blocking.** Image publish and description-update are now independent; PATs lacking admin scope no longer fail the release. Image push still fully gates the workflow.
+
 ## [6.81.0] - 2026-04-23
 
 ### Tier 0 deletions — stop compensating for native Claude capabilities

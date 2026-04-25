@@ -64,7 +64,7 @@ Get detailed session status. Reads from `.loki/` flat files (dashboard-state.jso
 ```json
 {
   "status": "running",
-  "version": "6.81.0",
+  "version": "7.2.0",
   "uptime_seconds": 1234.5,
   "active_sessions": 1,
   "running_agents": 3,
@@ -284,6 +284,46 @@ Get memory index (Layer 1 - lightweight discovery).
 
 #### `GET /api/memory/timeline`
 Get memory timeline (Layer 2 - progressive disclosure).
+
+---
+
+### Managed Agents Endpoints (v7.0.0)
+
+Opt-in endpoints for the Managed Agents integration. Always safe to call;
+return `{enabled: false}` / `[]` when flags are off.
+
+#### `GET /api/managed/status`
+Returns current flag state + beta header:
+```json
+{
+  "enabled": false,
+  "parent_flag": false,
+  "child_flags": {
+    "memory": false,
+    "memory_hydrate": false,
+    "experimental_agents": false,
+    "experimental_review": false,
+    "experimental_council": false
+  },
+  "beta_header": "managed-agents-2026-04-01",
+  "last_fallback_ts": null
+}
+```
+
+#### `GET /api/managed/events`
+Tail `.loki/managed/events.ndjson`. Safe to poll for dashboards.
+
+Query params:
+- `limit` (int, default 100, cap 10000)
+- `since` (ISO-8601 timestamp, e.g. `2026-04-24T00:00:00Z`)
+- `type` (filter by event type, e.g. `managed_agents_fallback`)
+
+Response: `{events: [...], count: N, source: "local"}`
+
+#### `GET /api/managed/memory_versions/{memory_id}`
+Returns version history for a specific memory. Requires
+`LOKI_MANAGED_MEMORY=true`. Returns 503 when flags off, 404 on unknown
+id, 502 on upstream error.
 
 ---
 

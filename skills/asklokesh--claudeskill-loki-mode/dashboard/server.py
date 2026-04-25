@@ -5560,6 +5560,241 @@ def start_migration_phase(migration_id: str, request_body: dict):
 
 
 # ---------------------------------------------------------------------------
+# Managed Agents Memory bridge (Phase 5, read-only)
+#
+# These endpoints expose the contents of .loki/managed/events.ndjson plus a
+# thin proxy to beta.memory_stores.memory_versions.list(). All endpoints are
+# safe to call when the managed-agents flags are off: they return empty
+# lists / {enabled: false} rather than 500s. No endpoint writes to the
+# managed store -- the only writer in the codebase remains
+# memory/managed_memory/shadow_write.py.
+# ---------------------------------------------------------------------------
+
+_MANAGED_EVENTS_TAIL_MAX = 10000  # Safety ceiling on tail reads.
+
+
+def _managed_events_path() -> _Path:
+    """Return the absolute path to .loki/managed/events.ndjson."""
+    return _get_loki_dir() / "managed" / "events.ndjson"
+
+
+def _managed_flags_snapshot() -> dict[str, Any]:
+    """Read managed-agents flags without importing the SDK path."""
+    parent = os.environ.get("LOKI_MANAGED_AGENTS", "").strip().lower() == "true"
+    child = os.environ.get("LOKI_MANAGED_MEMORY", "").strip().lower() == "true"
+    try:
+        from memory.managed_memory._beta import BETA_HEADER as _beta_header
+    except Exception:
+        _beta_header = "managed-agents-2026-04-01"
+    return {
+        "enabled": parent and child,
+        "parent_flag": parent,
+        "child_flags": {"LOKI_MANAGED_MEMORY": child},
+        "beta_header": _beta_header,
+    }
+
+
+def _tail_ndjson(
+    path: _Path,
+    limit: int,
+    since_iso: Optional[str],
+    event_type: Optional[str],
+) -> list[dict[str, Any]]:
+    """
+    Return the last *limit* records from an ndjson file, optionally filtered
+    by ts >= since_iso and/or type == event_type. The file is streamed line
+    by line; malformed lines are skipped rather than raising.
+    """
+    if not path.exists():
+        return []
+    try:
+        # Read lines (file is small: rotation at 10MB per the writer).
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+
+    results: list[dict[str, Any]] = []
+    # Scan from newest to oldest so we can early-exit once we have enough.
+    for raw in reversed(lines):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        if event_type and record.get("type") != event_type:
+            continue
+        if since_iso:
+            ts = record.get("ts", "")
+            if isinstance(ts, str) and ts < since_iso:
+                # ISO-8601 strings sort lexicographically with Z suffix; once
+                # we pass the floor we can stop scanning.
+                break
+        results.append(record)
+        if len(results) >= limit:
+            break
+    # Return in chronological order (oldest first) for UI convenience.
+    results.reverse()
+    return results
+
+
+def _last_fallback_ts(events: list[dict[str, Any]]) -> Optional[str]:
+    """Return the ts of the most recent managed_agents_fallback event, if any."""
+    for rec in reversed(events):
+        if rec.get("type") == "managed_agents_fallback":
+            ts = rec.get("ts")
+            return ts if isinstance(ts, str) else None
+    return None
+
+
+@app.get("/api/managed/events")
+async def get_managed_events(
+    limit: int = Query(default=100, ge=1, le=_MANAGED_EVENTS_TAIL_MAX),
+    since: Optional[str] = Query(default=None),
+    type: Optional[str] = Query(default=None, alias="type"),
+):
+    """
+    Return the tail of .loki/managed/events.ndjson.
+
+    Works regardless of flag state. When the flags are off or the file does
+    not exist yet, returns an empty list. Never raises on I/O error.
+    """
+    try:
+        path = _managed_events_path()
+        records = _tail_ndjson(path, limit=limit, since_iso=since, event_type=type)
+        return {
+            "events": records,
+            "count": len(records),
+            "source": str(path),
+        }
+    except Exception as exc:  # defensive: never 500 on read-only tail.
+        logger.warning("managed events tail failed: %s", exc)
+        return {"events": [], "count": 0, "error": str(exc)}
+
+
+@app.get("/api/managed/status")
+async def get_managed_status():
+    """
+    Return the managed-agents flag snapshot plus last_fallback_ts.
+
+    When flags are off, returns {enabled: false, ...} rather than 503. This
+    endpoint is meant to be polled by the UI to decide whether to surface
+    the managed-memory panel at all.
+    """
+    snapshot = _managed_flags_snapshot()
+    # last_fallback_ts is best-effort from the local events file.
+    try:
+        events = _tail_ndjson(
+            _managed_events_path(),
+            limit=500,
+            since_iso=None,
+            event_type="managed_agents_fallback",
+        )
+        snapshot["last_fallback_ts"] = _last_fallback_ts(events)
+    except Exception:
+        snapshot["last_fallback_ts"] = None
+    return snapshot
+
+
+@app.get("/api/managed/memory_versions/{memory_id}")
+async def list_managed_memory_versions(memory_id: str):
+    """
+    Proxy to beta.memory_stores.memory_versions.list(memory_id=...).
+
+    Returns 503 with a helpful JSON body when flags are off or the SDK does
+    not expose the expected attribute path. On any SDK / transport error the
+    endpoint returns 502 with the error detail -- the managed store owns the
+    source of truth, so we do NOT silently return an empty list here.
+    """
+    # Validate memory_id early so we don't leak path-traversal attempts into
+    # the SDK payload. The managed API uses opaque identifiers; alphanumerics,
+    # hyphens, underscores only.
+    if (
+        not memory_id
+        or len(memory_id) > 256
+        or ".." in memory_id
+        or not re.match(r"^[a-zA-Z0-9_\-]+$", memory_id)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid memory_id")
+
+    snapshot = _managed_flags_snapshot()
+    if not snapshot["enabled"]:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "managed memory disabled: set LOKI_MANAGED_AGENTS=true and "
+                "LOKI_MANAGED_MEMORY=true to enable"
+            ),
+        )
+
+    try:
+        from memory.managed_memory import ManagedDisabled
+        from memory.managed_memory.client import get_client
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"managed client unavailable: {exc}")
+
+    try:
+        client = get_client()
+    except ManagedDisabled as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    # Resolve beta.memory_stores.memory_versions.list(...) defensively. Some
+    # SDK versions may not expose this path yet; treat missing attributes as
+    # 503 (flag state prevents us from guaranteeing anything else).
+    try:
+        beta = getattr(client._client, "beta", None)  # type: ignore[attr-defined]
+        memory_stores = getattr(beta, "memory_stores", None) if beta is not None else None
+        memory_versions = (
+            getattr(memory_stores, "memory_versions", None)
+            if memory_stores is not None
+            else None
+        )
+        list_fn = getattr(memory_versions, "list", None) if memory_versions is not None else None
+        if list_fn is None:
+            raise HTTPException(
+                status_code=503,
+                detail="memory_versions.list not available in installed SDK",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"SDK introspection failed: {exc}")
+
+    try:
+        result = list_fn(memory_id=memory_id)
+    except Exception as exc:
+        # Distinguish "not found" from transport errors when we can.
+        status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+        if status == 404:
+            raise HTTPException(status_code=404, detail=f"memory_id not found: {memory_id}")
+        logger.warning("memory_versions.list failed: %s", exc)
+        raise HTTPException(status_code=502, detail=f"managed API error: {exc}")
+
+    # Normalize to a list of dicts.
+    data = getattr(result, "data", result)
+    if data is None:
+        data = []
+    items: list[dict[str, Any]] = []
+    for entry in data:
+        if isinstance(entry, dict):
+            items.append(entry)
+            continue
+        to_dict = getattr(entry, "model_dump", None) or getattr(entry, "dict", None)
+        if callable(to_dict):
+            try:
+                items.append(to_dict())
+                continue
+            except Exception:
+                pass
+        items.append({"raw": str(entry)})
+    return {"memory_id": memory_id, "versions": items, "count": len(items)}
+
+
+# ---------------------------------------------------------------------------
 # SPA catch-all: serve index.html for any path not matched by API routes
 # or static asset mounts.  This lets the dashboard UI handle client-side routing.
 # Must be registered LAST so it never shadows an API endpoint.

@@ -4,7 +4,7 @@ Shared project-scoped contract for `.hex-skills/environment_state.json`.
 
 Use this contract when a skill:
 - checks disabled agents
-- decides whether Codex or Gemini should be probed
+- decides whether Claude or Codex should be probed
 - needs environment setup health or sync metadata
 - needs skill-root discovery health or duplicate-skill diagnostics
 - routes operations by task provider (linear/file/github)
@@ -37,15 +37,14 @@ Related contract:
 ## Required Shape
 
 - `scanned_at`
+- `agents.claude.available`
 - `agents.codex.available`
-- `agents.gemini.available`
-- `agents.antigravity.available` (optional: present only when Antigravity IDE is detected)
 
 ## Sections
 
 | Section | Purpose |
 |---------|---------|
-| `agents` | Agent availability, versions, sync status (codex, gemini, claude, optional antigravity), plus Codex skill-root discovery and execution-default health |
+| `agents` | Agent availability, versions, alignment status (claude, codex), plus marketplace plugin, Codex skill-root discovery, and execution-default health |
 | `task_management` | Provider routing (linear/file/github), provider-specific config nested under `linear` or `github` |
 | `research` | Provider, fallback_chain |
 | `claude_md` | Instruction file metadata |
@@ -77,7 +76,7 @@ When present, `agents.codex` should capture:
 - `duplicate_skill_names` -> duplicate skill directory names still visible under the Codex discovery root
 - `discovery_violation` -> `true` when cache or foreign install surfaces remain visible under `~/.codex/skills`
 
-Writers should treat `discovery_violation=true` as environment drift that requires ln-013 remediation before Codex is considered cleanly synced.
+Writers should treat `discovery_violation=true` as environment drift that requires ln-013 remediation before Codex is considered cleanly aligned.
 
 ## Codex Execution Defaults
 

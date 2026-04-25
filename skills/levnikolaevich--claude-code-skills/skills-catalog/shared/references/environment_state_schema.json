@@ -6,7 +6,7 @@
     "scanned_at": { "type": "string", "format": "date-time" },
     "agents": {
       "type": "object",
-      "required": ["codex", "gemini"],
+      "required": ["claude", "codex"],
       "properties": {
         "claude": {
           "type": "object",
@@ -25,8 +25,9 @@
             "available": { "type": "boolean" },
             "disabled": { "type": "boolean" },
             "version": { "type": "string" },
-            "config_synced": { "type": "boolean" },
-            "servers_synced": { "type": "integer" },
+            "config_aligned": { "type": "boolean" },
+            "servers_aligned": { "type": "integer" },
+            "marketplace_plugins": { "type": "array", "items": { "type": "string" } },
             "active_skill_roots": { "type": "array", "items": { "type": "string" } },
             "cache_roots": { "type": "array", "items": { "type": "string" } },
             "duplicate_skill_names": { "type": "array", "items": { "type": "string" } },
@@ -34,36 +35,7 @@
             "approval_policy": { "type": "string" },
             "sandbox_mode": { "type": "string" },
             "permissions_default_ready": { "type": "boolean" },
-            "sync_actions": { "type": "array", "items": { "type": "string" } },
-            "detail": { "type": "string" }
-          }
-        },
-        "gemini": {
-          "type": "object",
-          "required": ["available"],
-          "properties": {
-            "available": { "type": "boolean" },
-            "disabled": { "type": "boolean" },
-            "version": { "type": "string" },
-            "config_synced": { "type": "boolean" },
-            "servers_synced": { "type": "integer" },
-            "hooks_synced": { "type": "integer" },
-            "sync_actions": { "type": "array", "items": { "type": "string" } },
-            "detail": { "type": "string" }
-          }
-        },
-        "antigravity": {
-          "type": "object",
-          "required": ["available"],
-          "properties": {
-            "available": { "type": "boolean" },
-            "disabled": { "type": "boolean" },
-            "version": { "type": "string" },
-            "config_synced": { "type": "boolean" },
-            "servers_synced": { "type": "integer" },
-            "hooks_synced": { "type": "integer" },
-            "workspace_skills_root": { "type": "string", "description": "Absolute path to <workspace>/.agents/skills. Optional; present only when workspace-scoped root was materialized." },
-            "sync_actions": { "type": "array", "items": { "type": "string" } },
+            "alignment_actions": { "type": "array", "items": { "type": "string" } },
             "detail": { "type": "string" }
           }
         }

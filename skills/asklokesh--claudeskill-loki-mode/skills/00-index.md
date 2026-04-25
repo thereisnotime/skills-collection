@@ -34,6 +34,7 @@
 | UI components, design tokens, .loki/magic/, Gate 12 | `magic-modules.md` |
 | Legacy healing, modernization, archaeology | `healing.md` |
 | Plan deepening, knowledge extraction | `compound-learning.md` |
+| Managed Agents memory, multiagent council, flag hierarchy | `memory.md` |
 
 ## Module Descriptions
 

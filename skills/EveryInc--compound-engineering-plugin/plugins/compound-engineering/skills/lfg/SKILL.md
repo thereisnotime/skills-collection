@@ -5,33 +5,31 @@ argument-hint: "[feature description]"
 disable-model-invocation: true
 ---
 
-CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required step. Do NOT jump ahead to coding or implementation. The plan phase (step 2) MUST be completed and verified BEFORE any work begins. Violating this order produces bad output.
+CRITICAL: You MUST execute every step below IN ORDER. Do NOT skip any required step. Do NOT jump ahead to coding or implementation. The plan phase (step 1) MUST be completed and verified BEFORE any work begins. Violating this order produces bad output.
 
 When invoking any skill referenced below, resolve its name against the available-skills list the host platform provides and use that exact entry. Some platforms list skills under a plugin namespace (e.g., `compound-engineering:ce-plan`); others list the bare name. Invoking a short-form guess that isn't in the list will fail — always match a listed entry verbatim before calling the Skill/Task tool.
 
-1. **Optional:** If the `ralph-loop` skill is available, invoke it with `"finish all slash commands" --completion-promise "DONE"`. If not available or it fails, skip and continue to step 2 immediately.
+1. Invoke the `ce-plan` skill with `$ARGUMENTS`.
 
-2. Invoke the `ce-plan` skill with `$ARGUMENTS`.
+   GATE: STOP. If ce-plan reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `ce-plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, invoke `ce-plan` again with `$ARGUMENTS`. Do NOT proceed to step 2 until a written plan exists. **Record the plan file path** — it will be passed to ce-code-review in step 3.
 
-   GATE: STOP. If ce-plan reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `ce-plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, invoke `ce-plan` again with `$ARGUMENTS`. Do NOT proceed to step 3 until a written plan exists. **Record the plan file path** — it will be passed to ce-code-review in step 4.
+2. Invoke the `ce-work` skill.
 
-3. Invoke the `ce-work` skill.
+   GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 3 if no code changes were made.
 
-   GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 4 if no code changes were made.
+3. Invoke the `ce-code-review` skill with `mode:autofix plan:<plan-path-from-step-1>`.
 
-4. Invoke the `ce-code-review` skill with `mode:autofix plan:<plan-path-from-step-2>`.
+   Pass the plan file path from step 1 so ce-code-review can verify requirements completeness. Read the Residual Actionable Work summary the skill emits.
 
-   Pass the plan file path from step 2 so ce-code-review can verify requirements completeness. Read the Residual Actionable Work summary the skill emits.
+4. **Persist review autofixes** (REQUIRED after step 3, before residual handoff)
 
-5. **Persist review autofixes** (REQUIRED after step 4, before residual handoff)
+   Check `git status --short`. If `ce-code-review mode:autofix` changed files, stage only those review-fix files, commit them with `fix(review): apply autofix feedback`, and push the current branch before continuing. If an upstream exists, run `git push`. If no upstream exists, resolve a writable remote dynamically: prefer `origin` when present, otherwise use `git remote` and choose the first configured remote. Then run `git push --set-upstream <remote> HEAD`. Do not proceed to step 5, run browser tests, or output DONE while review autofix edits remain only in the working tree. If no files changed, explicitly note that there were no review autofixes to persist.
 
-   Check `git status --short`. If `ce-code-review mode:autofix` changed files, stage only those review-fix files, commit them with `fix(review): apply autofix feedback`, and push the current branch before continuing. If an upstream exists, run `git push`. If no upstream exists, resolve a writable remote dynamically: prefer `origin` when present, otherwise use `git remote` and choose the first configured remote. Then run `git push --set-upstream <remote> HEAD`. Do not proceed to step 6, run browser tests, or output DONE while review autofix edits remain only in the working tree. If no files changed, explicitly note that there were no review autofixes to persist.
-
-6. **Autonomous residual handoff** (only when step 4 reported one or more residual `downstream-resolver` findings; skip when it reported `Residual actionable work: none.`)
+5. **Autonomous residual handoff** (only when step 3 reported one or more residual `downstream-resolver` findings; skip when it reported `Residual actionable work: none.`)
 
    Do not prompt the user. This step embraces the autopilot contract: residuals must become durable before DONE, but the agent never stops to ask.
 
-   1. Load `references/tracker-defer.md` in **non-interactive mode**. Pass the residual actionable findings from step 4's summary (or the run artifact when the summary was truncated).
+   1. Load `references/tracker-defer.md` in **non-interactive mode**. Pass the residual actionable findings from step 3's summary (or the run artifact when the summary was truncated).
    2. Collect the structured return: `{ filed: [...], failed: [...], no_sink: [...] }`.
    3. Compose a `## Residual Review Findings` markdown section from the structured return:
       - For each item in `filed`: a bullet with severity, file:line, title, and a link to the tracker ticket URL.
@@ -53,8 +51,12 @@ When invoking any skill referenced below, resolve its name against the available
 
    Never block DONE on tracker filing failures once residuals have been durably recorded. A `no_sink` outcome is success only when the findings are present in the PR body or in the pushed fallback file.
 
-7. Invoke the `ce-test-browser` skill.
+6. Invoke the `ce-test-browser` skill with `mode:pipeline`.
+
+7. Invoke the `ce-commit-push-pr` skill.
+
+   This commits any remaining changes, pushes the branch, and opens a pull request. If step 5 already opened a PR (check with `gh pr view --json number,url,state 2>/dev/null`), skip PR creation but still commit and push any uncommitted changes.
 
 8. Output `<promise>DONE</promise>` when complete
 
-Start with step 2 now (or step 1 if ralph-loop is available). Remember: plan FIRST, then work. Never skip the plan.
+Start with step 1 now. Remember: plan FIRST, then work. Never skip the plan.

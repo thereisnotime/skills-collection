@@ -644,6 +644,76 @@ LOKI_SESSION_MODEL="${LOKI_SESSION_MODEL:-sonnet}"
 LOKI_LEGACY_TIER_SWITCHING="${LOKI_LEGACY_TIER_SWITCHING:-false}"
 export LOKI_SESSION_MODEL LOKI_LEGACY_TIER_SWITCHING
 
+# Managed Agents (v6.83.0 Phase 1): opt-in integration with Claude Managed Agents
+# Memory store backend. Parent flag gates everything; child flags gate features.
+# Both off (default) => zero behavior change from v6.82.0.
+LOKI_MANAGED_AGENTS="${LOKI_MANAGED_AGENTS:-false}"
+LOKI_MANAGED_MEMORY="${LOKI_MANAGED_MEMORY:-false}"
+# v7.0.0 Phase 2: remote->local hydrate on session boot (grandchild of MEMORY).
+# Pulls semantic patterns + procedural skills once at init_loki_dir time.
+LOKI_MANAGED_MEMORY_HYDRATE="${LOKI_MANAGED_MEMORY_HYDRATE:-false}"
+# v7.0.0 Phase 3+4 foundation: umbrella flag for the multiagent-session path.
+# Gates every providers/managed.py entry point (run_council,
+# run_completion_council). Off by default because the Managed Agents
+# multiagent surface is a research preview.
+LOKI_EXPERIMENTAL_MANAGED_AGENTS="${LOKI_EXPERIMENTAL_MANAGED_AGENTS:-false}"
+# v7.0.0 Phase 3 (T5): managed code-review council. Routes run_code_review
+# through providers/managed.py::run_council when true. Requires parent +
+# umbrella.
+LOKI_EXPERIMENTAL_MANAGED_REVIEW="${LOKI_EXPERIMENTAL_MANAGED_REVIEW:-false}"
+# v7.0.0 Phase 4 (T6): managed completion council. Routes council_should_stop
+# through providers/managed.py::run_completion_council when true. Requires
+# parent + umbrella.
+LOKI_EXPERIMENTAL_MANAGED_COUNCIL="${LOKI_EXPERIMENTAL_MANAGED_COUNCIL:-false}"
+export LOKI_MANAGED_AGENTS LOKI_MANAGED_MEMORY LOKI_MANAGED_MEMORY_HYDRATE LOKI_EXPERIMENTAL_MANAGED_AGENTS LOKI_EXPERIMENTAL_MANAGED_REVIEW LOKI_EXPERIMENTAL_MANAGED_COUNCIL
+
+# Fail-fast: child on with parent off is a misconfiguration.
+if [ "$LOKI_MANAGED_MEMORY" = "true" ] && [ "$LOKI_MANAGED_AGENTS" != "true" ]; then
+    echo "ERROR: LOKI_MANAGED_MEMORY=true requires LOKI_MANAGED_AGENTS=true" >&2
+    exit 2
+fi
+
+# Phase 2 fail-fast: HYDRATE is a grandchild of MEMORY.
+if [ "$LOKI_MANAGED_MEMORY_HYDRATE" = "true" ] && [ "$LOKI_MANAGED_MEMORY" != "true" ]; then
+    echo "ERROR: LOKI_MANAGED_MEMORY_HYDRATE=true requires LOKI_MANAGED_MEMORY=true" >&2
+    exit 2
+fi
+
+# Same fail-fast for the experimental multiagent session path.
+if [ "$LOKI_EXPERIMENTAL_MANAGED_AGENTS" = "true" ] && [ "$LOKI_MANAGED_AGENTS" != "true" ]; then
+    echo "ERROR: LOKI_EXPERIMENTAL_MANAGED_AGENTS=true requires LOKI_MANAGED_AGENTS=true" >&2
+    exit 2
+fi
+
+# Phase 3 fail-fast: REVIEW requires parent AND umbrella.
+if [ "$LOKI_EXPERIMENTAL_MANAGED_REVIEW" = "true" ]; then
+    if [ "$LOKI_MANAGED_AGENTS" != "true" ]; then
+        echo "ERROR: LOKI_EXPERIMENTAL_MANAGED_REVIEW=true requires LOKI_MANAGED_AGENTS=true" >&2
+        exit 2
+    fi
+    if [ "$LOKI_EXPERIMENTAL_MANAGED_AGENTS" != "true" ]; then
+        echo "ERROR: LOKI_EXPERIMENTAL_MANAGED_REVIEW=true requires LOKI_EXPERIMENTAL_MANAGED_AGENTS=true" >&2
+        exit 2
+    fi
+fi
+
+# Phase 4 fail-fast: COUNCIL requires parent AND umbrella.
+if [ "$LOKI_EXPERIMENTAL_MANAGED_COUNCIL" = "true" ]; then
+    if [ "$LOKI_MANAGED_AGENTS" != "true" ]; then
+        echo "ERROR: LOKI_EXPERIMENTAL_MANAGED_COUNCIL=true requires LOKI_MANAGED_AGENTS=true" >&2
+        exit 2
+    fi
+    if [ "$LOKI_EXPERIMENTAL_MANAGED_AGENTS" != "true" ]; then
+        echo "ERROR: LOKI_EXPERIMENTAL_MANAGED_COUNCIL=true requires LOKI_EXPERIMENTAL_MANAGED_AGENTS=true" >&2
+        exit 2
+    fi
+fi
+
+# Research-preview warning banner.
+if [ "$LOKI_EXPERIMENTAL_MANAGED_AGENTS" = "true" ]; then
+    echo "WARN: LOKI_EXPERIMENTAL_MANAGED_AGENTS uses Managed Agents research preview; expect beta churn." >&2
+fi
+
 # Parallel Workflows (Git Worktrees)
 PARALLEL_MODE=${LOKI_PARALLEL_MODE:-false}
 MAX_WORKTREES=${LOKI_MAX_WORKTREES:-5}
@@ -968,6 +1038,41 @@ emit_event_json() {
     echo "$json_event" >> "$events_file"
 
     log_debug "Event: $event_type - $json_data"
+}
+
+# v7.0.2: Bash helper to emit a managed-agents event to the dashboard's
+# managed event log (.loki/managed/events.ndjson). Mirrors the Python
+# emit_managed_event helper so bash callers can land events in the same
+# stream the dashboard reads. Schema: {ts, type, payload}.
+emit_managed_event_bash() {
+    local event_type="$1"
+    shift
+    local target_dir="${TARGET_DIR:-.}"
+    local events_file="$target_dir/.loki/managed/events.ndjson"
+    mkdir -p "$target_dir/.loki/managed"
+
+    local timestamp
+    timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    # Build payload JSON from key=value args (same convention as emit_event_json)
+    local payload="{"
+    local first=true
+    while [ $# -gt 0 ]; do
+        local key="${1%%=*}"
+        local value="${1#*=}"
+        if [ "$first" = true ]; then first=false; else payload+=","; fi
+        if [[ "$value" =~ ^[0-9]+\.?[0-9]*$ ]] || [[ "$value" =~ ^(true|false|null)$ ]]; then
+            payload+="\"$key\":$value"
+        else
+            value=$(printf '%s' "$value" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g')
+            payload+="\"$key\":\"$value\""
+        fi
+        shift
+    done
+    payload+="}"
+
+    local json_event="{\"ts\":\"$timestamp\",\"type\":\"$event_type\",\"payload\":$payload}"
+    echo "$json_event" >> "$events_file"
 }
 
 # Emit event to .loki/events/pending/ directory (for event bus subscribers)
@@ -3008,6 +3113,30 @@ BUDGET_EOF
         log_info "Budget limit set: \$$BUDGET_LIMIT"
     fi
 
+    # v7.0.0 Phase 2: remote->local hydrate. Runs ONCE at session boot (not
+    # per iteration) to pull semantic patterns + procedural skills from the
+    # managed store into .loki/memory/semantic/patterns.json and
+    # .loki/memory/skills/*.json. Gated on parent + MEMORY + HYDRATE; all
+    # three must be "true". 10s hard timeout so a slow remote never blocks
+    # startup. Idempotent (sentinel: .loki/managed/hydrate.lock).
+    if [ "$LOKI_MANAGED_AGENTS" = "true" ] \
+        && [ "$LOKI_MANAGED_MEMORY" = "true" ] \
+        && [ "$LOKI_MANAGED_MEMORY_HYDRATE" = "true" ]; then
+        local _hydrate_target="${TARGET_DIR:-$(pwd)}"
+        local _hydrate_out
+        _hydrate_out=$(
+            cd "$PROJECT_DIR" 2>/dev/null && \
+            LOKI_TARGET_DIR="$_hydrate_target" \
+            timeout 10 python3 -m memory.managed_memory.retrieve --hydrate 2>/dev/null || true
+        )
+        if [ -n "$_hydrate_out" ]; then
+            log_info "Managed hydrate: $_hydrate_out"
+        else
+            LOKI_TARGET_DIR="$_hydrate_target" \
+            python3 -c "from memory.managed_memory.events import emit_managed_event; emit_managed_event('managed_memory_hydrate_timeout', {'phase': 'init'})" 2>/dev/null || true
+        fi
+    fi
+
     log_info "Loki directory initialized: .loki/"
 }
 
@@ -3763,9 +3892,12 @@ track_iteration_complete() {
     [ -z "$phase" ] && phase=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', 'unknown'))" 2>/dev/null || echo "unknown")
 
     # Read token data from context tracker output (v5.42.0)
+    # v6.82.0: also capture cache_read_tokens / cache_creation_tokens for
+    # prompt-cache hit-rate analysis (S1.1 prompt restructure).
     local iter_input=0 iter_output=0 iter_cost=0
+    local iter_cache_read=0 iter_cache_creation=0
     if [ -f ".loki/context/tracking.json" ]; then
-        read iter_input iter_output iter_cost < <(python3 -c "
+        read iter_input iter_output iter_cost iter_cache_read iter_cache_creation < <(python3 -c "
 import json
 try:
     t = json.load(open('.loki/context/tracking.json'))
@@ -3773,11 +3905,17 @@ try:
     match = [i for i in iters if i.get('iteration') == $iteration]
     if match:
         m = match[-1]
-        print(m.get('input_tokens', 0), m.get('output_tokens', 0), m.get('cost_usd', 0))
+        print(
+            m.get('input_tokens', 0),
+            m.get('output_tokens', 0),
+            m.get('cost_usd', 0),
+            m.get('cache_read_tokens', 0),
+            m.get('cache_creation_tokens', 0),
+        )
     else:
-        print(0, 0, 0)
-except: print(0, 0, 0)
-" 2>/dev/null || echo "0 0 0")
+        print(0, 0, 0, 0, 0)
+except: print(0, 0, 0, 0, 0)
+" 2>/dev/null || echo "0 0 0 0 0")
     fi
 
     cat > ".loki/metrics/efficiency/iteration-${iteration}.json" << EFF_EOF
@@ -3790,6 +3928,8 @@ except: print(0, 0, 0)
   "status": "$status_str",
   "input_tokens": ${iter_input:-0},
   "output_tokens": ${iter_output:-0},
+  "cache_read_tokens": ${iter_cache_read:-0},
+  "cache_creation_tokens": ${iter_cache_creation:-0},
   "cost_usd": ${iter_cost:-0},
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
@@ -5845,6 +5985,252 @@ run_magic_debate_gate() {
 # architecture-strategist always included, 2 more selected by keyword scoring
 # ============================================================================
 
+# Write managed-council verdicts into the legacy per-reviewer .txt layout so
+# the dashboard quality panel (which only reads .loki/quality/reviews/$id/*.txt)
+# stays functional. Called from the managed branch of run_code_review().
+# Single-writer invariant: either this helper writes the files, or the legacy
+# CLI fan-out does -- never both for the same review_id.
+council_verdicts_to_txt_files() {
+    local review_id="$1"
+    local verdicts_json="$2"
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local review_dir="$loki_dir/quality/reviews/$review_id"
+    mkdir -p "$review_dir"
+
+    # Use python3 to fan the JSON verdict list out to individual .txt files
+    # in the same VERDICT/FINDINGS format the legacy parser expects.
+    local out_dir_env="$review_dir"
+    export LOKI_COUNCIL_OUT_DIR="$out_dir_env"
+    export LOKI_COUNCIL_VERDICTS_JSON="$verdicts_json"
+    python3 << 'COUNCIL_WRITE'
+import json
+import os
+import re
+
+out_dir = os.environ["LOKI_COUNCIL_OUT_DIR"]
+raw = os.environ.get("LOKI_COUNCIL_VERDICTS_JSON", "").strip()
+if not raw:
+    raise SystemExit(0)
+
+try:
+    payload = json.loads(raw)
+except json.JSONDecodeError:
+    raise SystemExit("council_verdicts_to_txt_files: invalid JSON")
+
+if isinstance(payload, dict):
+    verdicts = payload.get("verdicts") or []
+else:
+    verdicts = payload or []
+
+SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
+DOT_RUN = re.compile(r"\.{2,}")
+
+def _pool_name(v):
+    name = v.get("pool_name") or v.get("name") or v.get("agent_id") or "reviewer"
+    cleaned = SAFE_NAME.sub("-", str(name))
+    # Defend against path-traversal via ".." in pool names.
+    cleaned = DOT_RUN.sub("-", cleaned).strip("-.")
+    return cleaned[:80] or "reviewer"
+
+def _verdict_token(v):
+    token = str(v.get("verdict") or "").strip().upper()
+    if token in ("APPROVE", "PASS"):
+        return "PASS"
+    if token in ("REQUEST_CHANGES", "REJECT", "FAIL"):
+        return "FAIL"
+    return "PASS"  # ABSTAIN => PASS per legacy behavior
+
+def _findings(v):
+    rationale = (v.get("rationale") or "").strip()
+    sev = v.get("severity")
+    if not rationale:
+        return "- None"
+    lines = []
+    for line in rationale.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.lstrip().startswith("- ["):
+            lines.append(line)
+        else:
+            tag = f"[{sev.capitalize()}]" if sev else "[Medium]"
+            lines.append(f"- {tag} {line}")
+    return "\n".join(lines) if lines else "- None"
+
+for v in verdicts:
+    if not isinstance(v, dict):
+        continue
+    name = _pool_name(v)
+    path = os.path.join(out_dir, f"{name}.txt")
+    body = f"VERDICT: {_verdict_token(v)}\nFINDINGS:\n{_findings(v)}\n"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(body)
+COUNCIL_WRITE
+    local rc=$?
+    unset LOKI_COUNCIL_OUT_DIR LOKI_COUNCIL_VERDICTS_JSON
+    return $rc
+}
+
+# Execute the managed-agents multiagent council path. Writes legacy .txt
+# files via council_verdicts_to_txt_files() on success so the existing
+# aggregation loop below can read them exactly like the CLI path.
+# Returns 0 on success, 1 on ManagedUnavailable (caller should fall back).
+_run_managed_review_council() {
+    local review_id="$1"
+    local diff_file="$2"
+    local files_file="$3"
+    local review_dir="${TARGET_DIR:-.}/.loki/quality/reviews/$review_id"
+    mkdir -p "$review_dir"
+
+    export LOKI_MANAGED_REVIEW_ID="$review_id"
+    export LOKI_MANAGED_REVIEW_DIFF_FILE="$diff_file"
+    export LOKI_MANAGED_REVIEW_FILES_FILE="$files_file"
+    export LOKI_MANAGED_REVIEW_OUT_JSON="$review_dir/managed_result.json"
+    local project_dir_env="${PROJECT_DIR:-.}"
+    export LOKI_MANAGED_REVIEW_PROJECT_DIR="$project_dir_env"
+
+    local result_json
+    result_json=$(python3 << 'MANAGED_REVIEW' 2>&1
+import json
+import os
+import sys
+
+project_dir = os.environ.get("LOKI_MANAGED_REVIEW_PROJECT_DIR", ".")
+if project_dir and project_dir not in sys.path:
+    sys.path.insert(0, project_dir)
+
+try:
+    from providers import managed as managed_mod
+except Exception as e:
+    print(json.dumps({"status": "unavailable", "reason": f"import_failed: {e}"}))
+    sys.exit(0)
+
+# Test hook: allow tests to inject a fake run_council by setting
+# LOKI_MANAGED_REVIEW_FAKE_MODULE to a dotted path exposing run_council.
+fake_mod = os.environ.get("LOKI_MANAGED_REVIEW_FAKE_MODULE", "").strip()
+if fake_mod:
+    try:
+        import importlib
+        fm = importlib.import_module(fake_mod)
+        if hasattr(fm, "install"):
+            fm.install(managed_mod)
+    except Exception as e:
+        print(json.dumps({"status": "unavailable", "reason": f"fake_install_failed: {e}"}))
+        sys.exit(0)
+
+if not managed_mod.is_enabled():
+    print(json.dumps({"status": "unavailable", "reason": "is_enabled_false"}))
+    sys.exit(0)
+
+diff_path = os.environ.get("LOKI_MANAGED_REVIEW_DIFF_FILE", "")
+files_path = os.environ.get("LOKI_MANAGED_REVIEW_FILES_FILE", "")
+diff_text = ""
+files_text = ""
+if diff_path and os.path.exists(diff_path):
+    with open(diff_path, "r", encoding="utf-8", errors="replace") as f:
+        diff_text = f.read()
+if files_path and os.path.exists(files_path):
+    with open(files_path, "r", encoding="utf-8", errors="replace") as f:
+        files_text = f.read()
+
+target_paths = [p.strip() for p in files_text.splitlines() if p.strip()]
+
+pool = ["security-sentinel", "test-coverage-auditor", "performance-oracle"]
+context = {
+    "diff": diff_text,
+    "files": target_paths,
+    "target_paths": target_paths,
+}
+
+try:
+    result = managed_mod.run_council(pool, context, timeout_s=300)
+except managed_mod.ManagedUnavailable as e:
+    print(json.dumps({"status": "unavailable", "reason": str(e)}))
+    sys.exit(0)
+except Exception as e:
+    # Anything else is unexpected; bubble up as unavailable so the caller
+    # falls back rather than aborting the iteration.
+    print(json.dumps({"status": "unavailable", "reason": f"unexpected: {e}"}))
+    sys.exit(0)
+
+verdicts_out = []
+for v in (result.verdicts or []):
+    verdicts_out.append({
+        "agent_id": getattr(v, "agent_id", ""),
+        "pool_name": getattr(v, "pool_name", ""),
+        "verdict": getattr(v, "verdict", ""),
+        "rationale": getattr(v, "rationale", ""),
+        "severity": getattr(v, "severity", None),
+    })
+out = {
+    "status": "ok",
+    "verdicts": verdicts_out,
+    "session_id": getattr(result, "session_id", None),
+    "elapsed_ms": getattr(result, "elapsed_ms", 0),
+    "partial": getattr(result, "partial", False),
+}
+print(json.dumps(out))
+MANAGED_REVIEW
+)
+    local py_rc=$?
+    unset LOKI_MANAGED_REVIEW_ID LOKI_MANAGED_REVIEW_DIFF_FILE LOKI_MANAGED_REVIEW_FILES_FILE
+    unset LOKI_MANAGED_REVIEW_OUT_JSON LOKI_MANAGED_REVIEW_PROJECT_DIR
+
+    if [ $py_rc -ne 0 ] || [ -z "$result_json" ]; then
+        emit_event_json "managed_agents_fallback" \
+            "op=run_code_review" \
+            "reason=subprocess_failed" \
+            "review_id=$review_id"
+        emit_managed_event_bash "managed_agents_fallback" \
+            "op=run_code_review" \
+            "reason=subprocess_failed" \
+            "review_id=$review_id"
+        return 1
+    fi
+
+    local status
+    status=$(printf '%s' "$result_json" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('status',''))" 2>/dev/null || echo "")
+
+    if [ "$status" != "ok" ]; then
+        local reason
+        reason=$(printf '%s' "$result_json" | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('reason',''))" 2>/dev/null || echo "")
+        emit_event_json "managed_agents_fallback" \
+            "op=run_code_review" \
+            "reason=managed_unavailable" \
+            "detail=${reason//\"/}" \
+            "review_id=$review_id"
+        emit_managed_event_bash "managed_agents_fallback" \
+            "op=run_code_review" \
+            "reason=managed_unavailable" \
+            "detail=${reason//\"/}" \
+            "review_id=$review_id"
+        return 1
+    fi
+
+    # Persist the raw managed result for observability and write legacy .txt
+    # files for the dashboard panel / aggregation loop.
+    printf '%s\n' "$result_json" > "$review_dir/managed_result.json"
+    if ! council_verdicts_to_txt_files "$review_id" "$result_json"; then
+        emit_event_json "managed_agents_fallback" \
+            "op=run_code_review" \
+            "reason=verdict_write_failed" \
+            "review_id=$review_id"
+        emit_managed_event_bash "managed_agents_fallback" \
+            "op=run_code_review" \
+            "reason=verdict_write_failed" \
+            "review_id=$review_id"
+        return 1
+    fi
+
+    emit_event_json "managed_review_council_ok" \
+        "review_id=$review_id" \
+        "iteration=${ITERATION_COUNT:-0}"
+    emit_managed_event_bash "managed_review_council_ok" \
+        "review_id=$review_id" \
+        "iteration=${ITERATION_COUNT:-0}"
+    return 0
+}
+
 run_code_review() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local review_dir="$loki_dir/quality/reviews"
@@ -5864,6 +6250,51 @@ run_code_review() {
     changed_files=$(git -C "${TARGET_DIR:-.}" diff --name-only HEAD~1 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --name-only --cached 2>/dev/null || echo "")
 
     log_header "CODE REVIEW: $review_id"
+
+    # Phase 3 (v7.0.0): managed code-review council. When the flag is on,
+    # route to providers/managed.py::run_council. On ManagedUnavailable,
+    # emit a fallback event and drop through to the legacy CLI fan-out
+    # below -- the existing v6.83.1 behavior is preserved.
+    if [ "${LOKI_EXPERIMENTAL_MANAGED_REVIEW:-false}" = "true" ]; then
+        local managed_diff_file="$review_dir/$review_id/diff.txt"
+        local managed_files_file="$review_dir/$review_id/files.txt"
+        printf '%s\n' "$diff_content" > "$managed_diff_file"
+        printf '%s\n' "$changed_files" > "$managed_files_file"
+        log_info "Managed review council: attempting multiagent session (Phase 3)"
+        if _run_managed_review_council "$review_id" "$managed_diff_file" "$managed_files_file"; then
+            log_info "Managed review council: verdicts written, skipping CLI fan-out"
+            # Managed path wrote legacy .txt files; skip CLI fan-out but let
+            # the aggregation step run by setting a minimal selection.json
+            # the downstream loop can read.
+            emit_event_json "code_review_complete" \
+                "review_id=$review_id" \
+                "source=managed" \
+                "iteration=${ITERATION_COUNT:-0}"
+            # Build a selection.json so any downstream consumer can find the
+            # reviewer list. Mirrors the shape the CLI path writes below.
+            python3 - "$review_dir/$review_id/selection.json" << 'MANAGED_SELECTION'
+import json
+import sys
+
+path = sys.argv[1]
+selection = {
+    "reviewers": [
+        {"name": "security-sentinel", "focus": "managed", "checks": "managed council"},
+        {"name": "test-coverage-auditor", "focus": "managed", "checks": "managed council"},
+        {"name": "performance-oracle", "focus": "managed", "checks": "managed council"},
+    ],
+    "scores": {},
+    "pool_size": 3,
+    "source": "managed",
+}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(selection, f)
+MANAGED_SELECTION
+            return 0
+        fi
+        log_warn "Managed review council unavailable; falling back to CLI fan-out"
+    fi
+
     log_info "Selecting 3 specialist reviewers from pool..."
 
     # Write diff/files to temp files for python to read (avoid env var size limits)
@@ -7596,18 +8027,87 @@ except Exception:
     return 0
 }
 
-# Check if completion promise is fulfilled in log output
+# Check if the loki_complete_task MCP tool was invoked in this iteration.
+# The tool writes a payload to .loki/signals/TASK_COMPLETION_CLAIMED with the
+# structured completion claim. When the signal exists, we read it, log the
+# structured event, and consume (remove) the file. Returns 0 on detection.
+#
+# Output on stdout: the JSON payload (for callers that want to log it).
+check_task_completion_signal() {
+    local signal_file=".loki/signals/TASK_COMPLETION_CLAIMED"
+    if [ ! -f "$signal_file" ]; then
+        return 1
+    fi
+
+    local payload
+    payload=$(cat "$signal_file" 2>/dev/null || echo "")
+    if [ -z "$payload" ]; then
+        # Empty signal -- treat as noise and clean up
+        rm -f "$signal_file" 2>/dev/null
+        return 1
+    fi
+
+    # Emit a structured event for observability (best-effort).
+    local statement evidence confidence
+    statement=$(python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    print(d.get('statement',''))
+except Exception:
+    pass
+" <<< "$payload" 2>/dev/null || echo "")
+    evidence=$(python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    print(d.get('evidence',''))
+except Exception:
+    pass
+" <<< "$payload" 2>/dev/null || echo "")
+    confidence=$(python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    print(d.get('confidence','medium'))
+except Exception:
+    print('medium')
+" <<< "$payload" 2>/dev/null || echo "medium")
+
+    emit_event_json "task_completion_claim" \
+        "statement=${statement:0:500}" \
+        "confidence=${confidence}" \
+        "evidence_length=${#evidence}"
+
+    # Return the payload on stdout
+    printf '%s\n' "$payload"
+
+    # Consume the signal (next iteration would otherwise re-trigger)
+    rm -f "$signal_file" 2>/dev/null
+    return 0
+}
+
+# Check if completion promise is fulfilled in log output.
+#
+# As of v6.82.0, the default path is the MCP tool `loki_complete_task`
+# (detected via check_task_completion_signal above). The legacy grep-based
+# detection is retained behind LOKI_LEGACY_COMPLETION_MATCH=true for rollback.
 check_completion_promise() {
     local log_file="$1"
 
-    # Check for the completion promise phrase in recent log output
-    if grep -q "COMPLETION PROMISE FULFILLED" "$log_file" 2>/dev/null; then
+    # New default: structured signal from the loki_complete_task MCP tool.
+    if check_task_completion_signal >/dev/null 2>&1; then
         return 0
     fi
 
-    # Check for custom completion promise text
-    if [ -n "$COMPLETION_PROMISE" ] && grep -qF "$COMPLETION_PROMISE" "$log_file" 2>/dev/null; then
-        return 0
+    # Legacy grep fallback (opt-in via env flag for rollback).
+    if [ "${LOKI_LEGACY_COMPLETION_MATCH:-false}" = "true" ]; then
+        if grep -q "COMPLETION PROMISE FULFILLED" "$log_file" 2>/dev/null; then
+            return 0
+        fi
+        if [ -n "$COMPLETION_PROMISE" ] && grep -qF "$COMPLETION_PROMISE" "$log_file" 2>/dev/null; then
+            return 0
+        fi
     fi
 
     return 1
@@ -7897,6 +8397,32 @@ try:
 except Exception as e:
     pass  # Silently fail if memory not available
 PYEOF
+
+    # v6.83.0 Phase 1: RARV-C REASON augment. When both managed flags are on,
+    # pull related prior verdicts from the Claude Managed Agents store and
+    # append them AFTER local results. 5s hard timeout so a slow remote never
+    # blocks the loop. On timeout or error, emit a fallback event and continue.
+    if [ "$LOKI_MANAGED_AGENTS" = "true" ] && [ "$LOKI_MANAGED_MEMORY" = "true" ]; then
+        local managed_start_ms
+        managed_start_ms=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
+        local managed_out
+        managed_out=$(
+            cd "$PROJECT_DIR" 2>/dev/null && \
+            LOKI_TARGET_DIR="$target_dir" \
+            timeout 5 python3 -m memory.managed_memory.retrieve \
+                --query "$goal" --top-k 3 2>/dev/null || true
+        )
+        if [ -n "$managed_out" ]; then
+            echo ""
+            echo "RELATED PRIOR LEARNINGS (managed store):"
+            echo "$managed_out"
+        else
+            # No output could mean: flags off (unreachable here), timeout, or
+            # zero hits. Emit a fallback event only if a timeout likely occurred.
+            LOKI_TARGET_DIR="$target_dir" \
+            python3 -c "from memory.managed_memory.events import emit_managed_event; emit_managed_event('managed_memory_retrieve_empty', {'phase': '$phase'})" 2>/dev/null || true
+        fi
+    fi
 }
 
 # Store episode trace after task completion
@@ -8000,14 +8526,21 @@ auto_capture_episode() {
     fi
 
     # Pass all context via environment variables (prevents injection)
+    # v6.83.0: also stash the resolved episode path so the bash caller can
+    # optionally shadow-write it to the managed store if importance >= 0.6.
+    local episode_path_file="/tmp/loki-episode-path-$$"
+    : > "$episode_path_file"
     _LOKI_PROJECT_DIR="$PROJECT_DIR" _LOKI_TARGET_DIR="$target_dir" \
     _LOKI_ITERATION="$iteration" _LOKI_EXIT_CODE="$exit_code" \
     _LOKI_RARV_PHASE="$rarv_phase" _LOKI_GOAL="$goal" \
     _LOKI_DURATION="$duration" _LOKI_OUTCOME="$outcome" \
     _LOKI_FILES_MODIFIED="$files_modified" _LOKI_GIT_COMMIT="$git_commit" \
+    _LOKI_EPISODE_PATH_FILE="$episode_path_file" \
     python3 << 'PYEOF' 2>/dev/null || true
 import sys
 import os
+import json
+from pathlib import Path
 
 project_dir = os.environ.get('_LOKI_PROJECT_DIR', '')
 target_dir = os.environ.get('_LOKI_TARGET_DIR', '.')
@@ -8018,6 +8551,7 @@ duration = os.environ.get('_LOKI_DURATION', '0')
 outcome = os.environ.get('_LOKI_OUTCOME', 'success')
 files_modified = os.environ.get('_LOKI_FILES_MODIFIED', '')
 git_commit = os.environ.get('_LOKI_GIT_COMMIT', '')
+path_out_file = os.environ.get('_LOKI_EPISODE_PATH_FILE', '')
 
 sys.path.insert(0, project_dir)
 try:
@@ -8040,9 +8574,47 @@ try:
     trace.files_modified = [f for f in files_modified.split('|') if f] if files_modified else []
 
     engine.store_episode(trace)
+
+    # v6.83.0: surface the on-disk episode path + importance so bash can
+    # decide whether to shadow-write. Writing to a known file (not stdout)
+    # keeps the existing stdout contract intact.
+    try:
+        importance = float(getattr(trace, 'importance', 0.0) or 0.0)
+    except (TypeError, ValueError):
+        importance = 0.0
+    episode_file = Path(f'{target_dir}/.loki/memory/episodic') / f'{trace.id}.json'
+    if path_out_file:
+        try:
+            with open(path_out_file, 'w', encoding='utf-8') as f:
+                json.dump({'path': str(episode_file), 'importance': importance}, f)
+        except OSError:
+            pass
 except Exception:
     pass  # Silently fail -- memory capture must never break the loop
 PYEOF
+
+    # v6.83.0 Phase 1: RARV-C REFLECT/VERIFY shadow-write. Only when both
+    # managed flags are on AND the episode meets the consolidation importance
+    # threshold (>= 0.6). Fully non-blocking (backgrounded subprocess).
+    if [ "$LOKI_MANAGED_AGENTS" = "true" ] && [ "$LOKI_MANAGED_MEMORY" = "true" ] \
+        && [ -s "$episode_path_file" ]; then
+        local _ep_path _ep_imp
+        _ep_path=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('path',''))" "$episode_path_file" 2>/dev/null || echo "")
+        _ep_imp=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('importance',0.0))" "$episode_path_file" 2>/dev/null || echo "0")
+        if [ -n "$_ep_path" ] && [ -f "$_ep_path" ]; then
+            local _above_threshold
+            _above_threshold=$(python3 -c "print('yes' if float('$_ep_imp') >= 0.6 else 'no')" 2>/dev/null || echo "no")
+            if [ "$_above_threshold" = "yes" ]; then
+                (
+                    cd "$PROJECT_DIR" 2>/dev/null && \
+                    LOKI_TARGET_DIR="$target_dir" \
+                    timeout 15 python3 -m memory.managed_memory.shadow_write --path "$_ep_path" >/dev/null 2>&1 || true
+                ) &
+                disown 2>/dev/null || true
+            fi
+        fi
+    fi
+    rm -f "$episode_path_file" 2>/dev/null || true
 }
 
 # Run memory consolidation pipeline
@@ -8360,12 +8932,16 @@ build_prompt() {
     # Ralph Wiggum Mode - Reason-Act-Reflect-VERIFY cycle with self-verification loop (Boris Cherny pattern)
     local rarv_instruction="RALPH WIGGUM MODE ACTIVE. Use Reason-Act-Reflect-VERIFY cycle: 1) REASON - READ .loki/CONTINUITY.md including 'Mistakes & Learnings' section to avoid past errors. CHECK .loki/state/relevant-learnings.json for cross-project learnings from previous projects (mistakes to avoid, patterns to apply). Check .loki/state/ and .loki/queue/, identify next task. CHECK .loki/state/resources.json for system resource warnings - if CPU or memory is high, reduce parallel agent spawning or pause non-critical tasks. Limit to MAX_PARALLEL_AGENTS=${MAX_PARALLEL_AGENTS}. If queue empty, find new improvements. 2) ACT - Execute task, write code, commit changes atomically (git checkpoint). 3) REFLECT - Update .loki/CONTINUITY.md with progress, update state, identify NEXT improvement. Save valuable learnings for future projects. 4) VERIFY - Run automated tests (unit, integration, E2E), check compilation/build, verify against spec. IF VERIFICATION FAILS: a) Capture error details (stack trace, logs), b) Analyze root cause, c) UPDATE 'Mistakes & Learnings' in CONTINUITY.md with what failed, why, and how to prevent, d) Rollback to last good git checkpoint if needed, e) Apply learning and RETRY from REASON. If verification passes, mark task complete and continue. This self-verification loop achieves 2-3x quality improvement. CRITICAL: There is NEVER a 'finished' state - always find the next improvement, optimization, test, or feature."
 
-    # Completion promise instruction (only if set)
+    # Completion instruction (S0.2 -- structured tool call).
+    # When PRD requirements are implemented, tests pass, and the checklist is
+    # at or near 100%, the agent MUST invoke the `loki_complete_task` MCP tool
+    # (defined in mcp/server.py) with completion_statement + evidence fields,
+    # instead of emitting a prose completion string.
     local completion_instruction=""
     if [ -n "$COMPLETION_PROMISE" ]; then
-        completion_instruction="COMPLETION_PROMISE: [$COMPLETION_PROMISE]. ONLY output 'COMPLETION PROMISE FULFILLED: $COMPLETION_PROMISE' when this EXACT condition is met."
+        completion_instruction="COMPLETION_PROMISE: [$COMPLETION_PROMISE]. When all PRD requirements are implemented, tests pass, and the PRD checklist is at or near 100%, invoke the loki_complete_task MCP tool with your completion_statement and evidence (cite tests that passed, checklist items verified, files created/modified). Do NOT emit a completion string in prose -- use the tool call."
     else
-        completion_instruction="NO COMPLETION PROMISE SET. Continue finding improvements. The Completion Council will evaluate your progress periodically. Iteration $iteration of max $MAX_ITERATIONS."
+        completion_instruction="NO COMPLETION PROMISE SET. Continue finding improvements. The Completion Council will evaluate your progress periodically. Iteration $iteration of max $MAX_ITERATIONS. If you do decide the task is complete, invoke the loki_complete_task MCP tool with a structured statement and evidence rather than emitting prose."
     fi
 
     # Core autonomous instructions - NO questions, NO waiting, NEVER say done
@@ -8373,7 +8949,7 @@ build_prompt() {
     if [ "$AUTONOMY_MODE" = "perpetual" ] || [ "$PERPETUAL_MODE" = "true" ]; then
         autonomous_suffix="CRITICAL AUTONOMY RULES: 1) NEVER ask questions - just decide. 2) NEVER wait for confirmation - just act. 3) NEVER say 'done' or 'complete' - there's always more to improve. 4) NEVER stop voluntarily - if out of tasks, create new ones (add tests, optimize, refactor, add features). 5) Work continues PERPETUALLY. Even if PRD is implemented, find bugs, add tests, improve UX, optimize performance."
     else
-        autonomous_suffix="CRITICAL AUTONOMY RULES: 1) NEVER ask questions - just decide. 2) NEVER wait for confirmation - just act. 3) When all PRD requirements are implemented and tests pass, output the completion promise text EXACTLY: '$COMPLETION_PROMISE'. 4) If out of tasks but PRD is not fully implemented, continue working on remaining requirements. 5) Focus on completing PRD scope, not endless improvements."
+        autonomous_suffix="CRITICAL AUTONOMY RULES: 1) NEVER ask questions - just decide. 2) NEVER wait for confirmation - just act. 3) When all PRD requirements are implemented and tests pass, invoke the loki_complete_task MCP tool (completion_statement='$COMPLETION_PROMISE' plus evidence + confidence). Do not emit completion prose. 4) If out of tasks but PRD is not fully implemented, continue working on remaining requirements. 5) Focus on completing PRD scope, not endless improvements."
     fi
 
     # Skill files are always copied to .loki/skills/ for all providers
@@ -8655,42 +9231,154 @@ except Exception:
         fi
     fi
 
-    # Degraded providers with small models need simplified prompts
-    # Full RARV/SDLC instructions overwhelm models < 30B parameters
+    # S1.1 -- Static-first prompt assembly with cache-breakpoint marker.
+    #
+    # The prior shape (v<=6.81.x) concatenated ~13 dynamic blobs BEFORE the
+    # 4-5 static instruction blobs, which destroyed Claude's prefix cache on
+    # every iteration. The new layout places the stable instruction set first
+    # (prd_anchor + RARV/SDLC/autonomy/memory instructions), emits a literal
+    # [CACHE_BREAKPOINT] marker, then appends the volatile per-iteration
+    # context inside a <dynamic_context> tag.
+    #
+    # The [CACHE_BREAKPOINT] marker is a documentation anchor today. When the
+    # Claude CLI migration exposes cache_control, the orchestrator can split
+    # the prompt at this marker and set cache_control on the prefix half.
+    #
+    # Rollback: set LOKI_LEGACY_PROMPT_ORDERING=true to restore the previous
+    # dynamic-first concatenation order.
+
+    if [ "${LOKI_LEGACY_PROMPT_ORDERING:-false}" = "true" ]; then
+        # Legacy dynamic-first ordering (pre-v6.82.0). Retained for rollback.
+        if [ "${PROVIDER_DEGRADED:-false}" = "true" ]; then
+            local _legacy_prd_content=""
+            if [ -n "$prd" ] && [ -f "$prd" ]; then
+                _legacy_prd_content=$(head -c 4000 "$prd")
+            fi
+            if [ $retry -eq 0 ]; then
+                if [ -n "$prd" ]; then
+                    echo "You are a coding assistant. Read and implement the requirements from the PRD below. Write working code, run tests if possible, and commit changes. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks} PRD contents: $_legacy_prd_content"
+                else
+                    echo "You are a coding assistant. Analyze this codebase and suggest improvements. Write working code and commit changes. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks}"
+                fi
+            else
+                if [ -n "$prd" ]; then
+                    echo "You are a coding assistant. Continue working on iteration $iteration. Review what exists, implement remaining PRD requirements, fix any issues, add tests. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks} PRD contents: $_legacy_prd_content"
+                else
+                    echo "You are a coding assistant. Continue working on iteration $iteration. Review what exists, improve code, fix bugs, add tests. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks}"
+                fi
+            fi
+        else
+            if [ $retry -eq 0 ]; then
+                if [ -n "$prd" ]; then
+                    echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                else
+                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                fi
+            else
+                if [ -n "$prd" ]; then
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                else
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                fi
+            fi
+        fi
+        return 0
+    fi
+
+    # --- New static-first layout (v6.82.0+) ---
+    #
+    # assemble_prompt_static outputs the cache-stable prefix:
+    #   <loki_system>
+    #   {prd_anchor}
+    #   {rarv_instruction + sdlc_instruction + autonomous_suffix + memory_instruction}
+    #   </loki_system>
+    #   [CACHE_BREAKPOINT]
+    #
+    # assemble_prompt_dynamic outputs the volatile tail wrapped in
+    # <dynamic_context iteration=".." retry=".."> ... </dynamic_context>.
+    #
+    # Keeping these as inline local helpers (nested functions via eval are
+    # awkward in bash) -- we emit them as two contiguous printf blocks so the
+    # logic is self-documenting and byte-reproducible.
+
     if [ "${PROVIDER_DEGRADED:-false}" = "true" ]; then
+        # Degraded providers: simpler wording, but still static-first.
         local prd_content=""
         if [ -n "$prd" ] && [ -f "$prd" ]; then
             prd_content=$(head -c 4000 "$prd")
         fi
 
-        if [ $retry -eq 0 ]; then
-            if [ -n "$prd" ]; then
-                echo "You are a coding assistant. Read and implement the requirements from the PRD below. Write working code, run tests if possible, and commit changes. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks} PRD contents: $prd_content"
-            else
-                echo "You are a coding assistant. Analyze this codebase and suggest improvements. Write working code and commit changes. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks}"
-            fi
+        local degraded_prd_anchor="Loki Mode"
+        [ -n "$prd" ] && degraded_prd_anchor="Loki Mode with PRD"
+
+        # STATIC PREFIX (cache-stable across iterations)
+        printf '<loki_system>\n'
+        printf '%s\n' "$degraded_prd_anchor"
+        if [ -n "$prd" ]; then
+            printf 'You are a coding assistant. Read and implement the requirements from the PRD. Write working code, run tests if possible, and commit changes.\n'
         else
-            if [ -n "$prd" ]; then
-                echo "You are a coding assistant. Continue working on iteration $iteration. Review what exists, implement remaining PRD requirements, fix any issues, add tests. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks} PRD contents: $prd_content"
-            else
-                echo "You are a coding assistant. Continue working on iteration $iteration. Review what exists, improve code, fix bugs, add tests. ${human_directive:+Priority: $human_directive} ${queue_tasks:+Tasks: $queue_tasks}"
-            fi
+            printf 'You are a coding assistant. Analyze this codebase and suggest improvements. Write working code and commit changes.\n'
         fi
+        printf '</loki_system>\n'
+        printf '[CACHE_BREAKPOINT]\n'
+
+        # DYNAMIC TAIL (changes every iteration)
+        printf '<dynamic_context iteration="%s" retry="%s">\n' "$iteration" "$retry"
+        [ -n "$human_directive" ] && printf 'Priority: %s\n' "$human_directive"
+        [ -n "$queue_tasks" ] && printf 'Tasks: %s\n' "$queue_tasks"
+        if [ -n "$prd" ]; then
+            printf 'PRD contents: %s\n' "$prd_content"
+        fi
+        printf '</dynamic_context>\n'
+        return 0
+    fi
+
+    # Full-featured providers (Claude, etc.)
+    local prd_anchor
+    if [ -n "$prd" ]; then
+        prd_anchor="Loki Mode with PRD at $prd"
     else
-        if [ $retry -eq 0 ]; then
-            if [ -n "$prd" ]; then
-                echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
-            else
-                echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
-            fi
+        prd_anchor="Loki Mode"
+    fi
+
+    # STATIC PREFIX (cache-stable across iterations).
+    # Order is deterministic so the prefix is byte-identical for iter N and N+1.
+    printf '<loki_system>\n'
+    printf '%s\n' "$prd_anchor"
+    printf '%s\n' "$rarv_instruction"
+    printf '%s\n' "$sdlc_instruction"
+    printf '%s\n' "$autonomous_suffix"
+    printf '%s\n' "$memory_instruction"
+    # For codebase-analysis mode (no PRD), analysis_instruction is part of the
+    # static prefix so it remains cache-stable.
+    if [ -z "$prd" ]; then
+        printf '%s\n' "$analysis_instruction"
+    fi
+    printf '</loki_system>\n'
+    printf '[CACHE_BREAKPOINT]\n'
+
+    # DYNAMIC TAIL -- all per-iteration context goes here.
+    printf '<dynamic_context iteration="%s" retry="%s">\n' "$iteration" "$retry"
+    if [ $retry -gt 0 ]; then
+        if [ -n "$prd" ]; then
+            printf 'Resume iteration #%s (retry #%s). PRD: %s\n' "$iteration" "$retry" "$prd"
         else
-            if [ -n "$prd" ]; then
-                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
-            else
-                echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
-            fi
+            printf 'Resume iteration #%s (retry #%s). Use .loki/generated-prd.md if exists.\n' "$iteration" "$retry"
         fi
     fi
+    [ -n "$human_directive" ] && printf '%s\n' "$human_directive"
+    [ -n "$gate_failure_context" ] && printf '%s\n' "$gate_failure_context"
+    [ -n "$queue_tasks" ] && printf '%s\n' "$queue_tasks"
+    [ -n "$bmad_context" ] && printf '%s\n' "$bmad_context"
+    [ -n "$openspec_context" ] && printf '%s\n' "$openspec_context"
+    [ -n "$mirofish_context" ] && printf '%s\n' "$mirofish_context"
+    [ -n "$magic_context" ] && printf '%s\n' "$magic_context"
+    [ -n "$checklist_status" ] && printf '%s\n' "$checklist_status"
+    [ -n "$app_runner_info" ] && printf '%s\n' "$app_runner_info"
+    [ -n "$playwright_info" ] && printf '%s\n' "$playwright_info"
+    [ -n "$memory_context_section" ] && printf '%s\n' "$memory_context_section"
+    printf '%s\n' "$completion_instruction"
+    printf '</dynamic_context>\n'
 }
 
 #===============================================================================
@@ -10317,12 +11005,21 @@ if __name__ == "__main__":
                 return 0
             fi
 
-            # Only stop if EXPLICIT completion promise text was output
-            # BUG-RUN-001: Use per-iteration output, not stale daily log
-            if [ -n "$COMPLETION_PROMISE" ] && check_completion_promise "$iter_output"; then
+            # Stop if either:
+            #   (a) the agent invoked the loki_complete_task MCP tool
+            #       (detected via .loki/signals/TASK_COMPLETION_CLAIMED), OR
+            #   (b) LOKI_LEGACY_COMPLETION_MATCH=true AND the completion
+            #       promise text appears in the iteration output.
+            # The check_completion_promise() helper encapsulates both.
+            # BUG-RUN-001: Use per-iteration output, not stale daily log.
+            if check_completion_promise "$iter_output"; then
                 echo ""
-                log_header "COMPLETION PROMISE FULFILLED: $COMPLETION_PROMISE"
-                log_info "Explicit completion promise detected in output."
+                if [ -n "$COMPLETION_PROMISE" ]; then
+                    log_header "COMPLETION PROMISE FULFILLED: $COMPLETION_PROMISE"
+                else
+                    log_header "TASK COMPLETION CLAIMED (via loki_complete_task)"
+                fi
+                log_info "Explicit completion signal detected."
                 # Run memory consolidation on successful completion
                 log_info "Running memory consolidation..."
                 run_memory_consolidation

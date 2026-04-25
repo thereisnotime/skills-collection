@@ -133,6 +133,8 @@ Priority order for commit messages and PR titles:
 2. **Recent commit history** -- match the pattern in the last 10 commits.
 3. **Default** -- `type(scope): description` (conventional commits).
 
+When using conventional commits, choose the type that most precisely describes the change. Where `fix:` and `feat:` both seem to fit, default to `fix:`: a change that remedies broken or missing behavior is `fix:` even when implemented by adding code. Reserve `feat:` for capabilities the user could not previously accomplish. Other types (`chore:`, `refactor:`, `docs:`, `perf:`, `test:`, `ci:`, `build:`, `style:`) remain primary when they fit better. The user may override for a specific change.
+
 ### Step 3: Check for existing PR
 
 Use the current branch and existing PR check from context. If the branch is empty, report detached HEAD and stop.

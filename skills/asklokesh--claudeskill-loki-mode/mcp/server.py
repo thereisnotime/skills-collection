@@ -1005,6 +1005,111 @@ async def loki_consolidate_memory(since_hours: int = 24) -> str:
         return json.dumps({"error": str(e)})
 
 
+@mcp.tool()
+async def loki_complete_task(
+    completion_statement: str,
+    evidence: str,
+    confidence: str = "medium",
+) -> str:
+    """
+    Declare that the current PRD / task is complete.
+
+    Replaces the legacy 'COMPLETION PROMISE FULFILLED: ...' prose string with a
+    structured tool call. The orchestrator (run.sh) detects this via a signal
+    file and stops the iteration loop gracefully.
+
+    Args:
+        completion_statement: A short statement of what is complete (for example,
+            "PRD requirements implemented, all tests passing, checklist 100%").
+        evidence: Concrete evidence supporting the claim -- tests that passed,
+            checklist items verified, files created/modified, metrics hit.
+        confidence: One of 'high', 'medium', 'low' (default 'medium').
+            'low' signals the orchestrator should still run the completion council.
+
+    Returns:
+        JSON: {"recorded": true, "path": ".loki/events.jsonl"} on success,
+        {"error": "..."} otherwise.
+    """
+    _emit_tool_event_async(
+        'loki_complete_task', 'start',
+        parameters={
+            'confidence': confidence,
+            'statement_len': len(completion_statement or ''),
+            'evidence_len': len(evidence or ''),
+        },
+    )
+
+    # Validate inputs
+    if not completion_statement or not completion_statement.strip():
+        _emit_tool_event_async(
+            'loki_complete_task', 'complete',
+            result_status='error', error='completion_statement required')
+        return json.dumps({"error": "completion_statement is required"})
+    if not evidence or not evidence.strip():
+        _emit_tool_event_async(
+            'loki_complete_task', 'complete',
+            result_status='error', error='evidence required')
+        return json.dumps({"error": "evidence is required"})
+
+    confidence_norm = (confidence or 'medium').strip().lower()
+    if confidence_norm not in ('high', 'medium', 'low'):
+        confidence_norm = 'medium'
+
+    timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+    payload = {
+        'type': 'task_completion_claim',
+        'statement': completion_statement.strip(),
+        'evidence': evidence.strip(),
+        'confidence': confidence_norm,
+        'timestamp': timestamp,
+    }
+
+    # Wrap event record with timestamp and type at the outer level so it matches
+    # the shape of other events in .loki/events.jsonl.
+    event_record = {
+        'timestamp': timestamp,
+        'type': 'task_completion_claim',
+        'data': payload,
+    }
+
+    try:
+        # Ensure .loki/ and .loki/signals/ exist under the project root
+        loki_dir = safe_path_join('.loki')
+        os.makedirs(loki_dir, exist_ok=True)
+        signals_dir = safe_path_join('.loki', 'signals')
+        os.makedirs(signals_dir, exist_ok=True)
+
+        events_path = safe_path_join('.loki', 'events.jsonl')
+        with safe_open(events_path, 'a') as f:
+            f.write(json.dumps(event_record) + '\n')
+
+        signal_path = safe_path_join('.loki', 'signals', 'TASK_COMPLETION_CLAIMED')
+        with safe_open(signal_path, 'w') as f:
+            f.write(json.dumps(payload, indent=2))
+
+        _emit_tool_event_async(
+            'loki_complete_task', 'complete', result_status='success')
+        return json.dumps({
+            "recorded": True,
+            "path": ".loki/events.jsonl",
+            "signal": ".loki/signals/TASK_COMPLETION_CLAIMED",
+            "confidence": confidence_norm,
+        })
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked in loki_complete_task: {e}")
+        _emit_tool_event_async(
+            'loki_complete_task', 'complete',
+            result_status='error', error='Access denied')
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"loki_complete_task failed: {e}")
+        _emit_tool_event_async(
+            'loki_complete_task', 'complete',
+            result_status='error', error=str(e))
+        return json.dumps({"error": str(e)})
+
+
 # ============================================================
 # RESOURCES - Data that can be read
 # ============================================================
@@ -1952,6 +2057,28 @@ async def loki_phase_report() -> str:
 6. Next Steps
 
 Use loki_state_get and loki_task_queue_list to gather data."""
+
+
+# ============================================================
+# MANAGED MEMORY TOOLS (PII redaction, read proxy)
+#
+# The actual implementation lives in mcp/managed_tools.py so unit tests can
+# import the core redact function without booting the FastMCP runtime.
+# loki_memory_redact appears below for grep-ability and is a thin wrapper.
+# ============================================================
+
+try:
+    from mcp.managed_tools import register_managed_tools
+    register_managed_tools(mcp)
+    # Emit tool-call events by wrapping the registered tool's underlying
+    # callable. We reference loki_memory_redact by name here for discoverability.
+    _MANAGED_MEMORY_TOOLS = ("loki_memory_redact",)
+except Exception as _managed_err:
+    import sys as _sys
+    print(
+        f"[warn] managed_tools registration skipped: {_managed_err}",
+        file=_sys.stderr,
+    )
 
 
 # ============================================================

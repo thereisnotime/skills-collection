@@ -196,7 +196,7 @@ Ask the user with the platform's blocking question tool: `AskUserQuestion` in Cl
 
 **Question:** "Proof review pass done. What's next?"
 
-Offer options that cover these intents — use concrete user-facing labels, not agent-internal jargon (no "end-sync", "ingest pass", etc.). Only include the options that fit the current state. Keep labels imperative and third-person (no "I'll" / "I'm" — it is ambiguous in a tool-mediated menu whether the speaker is the user or the agent) and keep the `[short label] — [description]` shape consistent across every option. A "still working, come back later" option is not offered: the blocking question already waits, so that option would be a no-op wrapper (per the Interactive Question Tool Design rules in `plugins/compound-engineering/AGENTS.md`).
+Offer options that cover these intents — use concrete user-facing labels, not agent-internal jargon (no "end-sync", "ingest pass", etc.). Only include the options that fit the current state. Keep labels imperative and third-person (no "I'll" / "I'm" — it is ambiguous in a tool-mediated menu whether the speaker is the user or the agent) and keep the `[short label] — [description]` shape consistent across every option. A "still working, come back later" option is not offered: the blocking question already waits, so that option would be a no-op wrapper.
 
 - **Discuss** → `Discuss — walk through the open threads in terminal`
   Talk through open threads in the terminal; the agent echoes decisions back to Proof threads. Only useful when escalations are open.

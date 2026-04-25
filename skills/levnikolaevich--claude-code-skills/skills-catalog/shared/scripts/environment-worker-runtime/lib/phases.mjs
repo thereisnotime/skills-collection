@@ -2,10 +2,9 @@ export const WORKER_PHASES = Object.freeze({
     "ln-011": Object.freeze([
         "PHASE_0_CONFIG",
         "PHASE_1_INSTALL_VERIFY",
-        "PHASE_2_POST_GEMINI_CONFIG",
-        "PHASE_3_POST_CODEX_SANITY_CHECK",
-        "PHASE_4_WRITE_SUMMARY",
-        "PHASE_5_SELF_CHECK",
+        "PHASE_2_POST_CODEX_SANITY_CHECK",
+        "PHASE_3_WRITE_SUMMARY",
+        "PHASE_4_SELF_CHECK",
     ]),
     "ln-012": Object.freeze([
         "PHASE_0_CONFIG",
@@ -22,9 +21,9 @@ export const WORKER_PHASES = Object.freeze({
     "ln-013": Object.freeze([
         "PHASE_0_CONFIG",
         "PHASE_1_DISCOVER_STATE",
-        "PHASE_2_SYNC_SKILLS_MAPPING",
-        "PHASE_3_SYNC_MCP_SETTINGS",
-        "PHASE_4_SYNC_HOOKS_AND_POLICY",
+        "PHASE_2_VERIFY_MARKETPLACE_INSTALLS",
+        "PHASE_3_ALIGN_MCP_SETTINGS",
+        "PHASE_4_ALIGN_CODEX_POLICY",
         "PHASE_4A_MCP_PROVIDER_CHECK",
         "PHASE_5_WRITE_SUMMARY",
         "PHASE_6_SELF_CHECK",

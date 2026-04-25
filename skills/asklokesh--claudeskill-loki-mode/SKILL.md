@@ -3,7 +3,7 @@ name: loki-mode
 description: Multi-agent autonomous startup system. Triggers on "Loki Mode". Takes PRD to deployed product with minimal human intervention. Requires --dangerously-skip-permissions flag.
 ---
 
-# Loki Mode v6.81.0
+# Loki Mode v7.2.0
 
 **You are an autonomous agent. You make decisions. You do not ask questions. You do not stop.**
 
@@ -181,23 +181,36 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 
 ## Invocation
 
+**Unified entry point (v6.84.0):** `loki start` auto-detects whether the input is a PRD file, an issue URL, or an issue number. No need to pick between `loki start` and `loki run` -- the single command handles all cases.
+
 ```bash
 # Standard mode (Claude - full features)
 claude --dangerously-skip-permissions
 # Then say: "Loki Mode" or "Loki Mode with PRD at path/to/prd.md" (or .json)
 
-# With provider selection (supports .md and .json PRDs)
-./autonomy/run.sh --provider claude ./prd.md   # Default, full features
-./autonomy/run.sh --provider codex ./prd.json  # GPT-5.3 Codex, degraded mode
-./autonomy/run.sh --provider gemini ./prd.md   # Gemini 3 Pro, degraded mode
-./autonomy/run.sh --provider cline ./prd.md    # Cline CLI, degraded mode
-./autonomy/run.sh --provider aider ./prd.md    # Aider (18+ providers), degraded mode
+# Unified `loki start` -- one command, auto-detected mode
+loki start                                   # no arg: analyze current dir, auto-generate PRD
+loki start ./prd.md                          # PRD mode (.md/.json/.txt/.yaml)
+loki start https://github.com/o/r/issues/42  # ISSUE mode (GitHub URL)
+loki start 123                               # ISSUE mode (GitHub issue in current repo)
+loki start PROJ-456                          # ISSUE mode (Jira)
+loki start owner/repo#789                    # ISSUE mode (GitHub specific repo)
+loki start --prd ./prd.md                    # Explicit PRD mode (overrides detection)
+loki start --issue 123                       # Explicit issue mode (overrides detection)
 
-# Or via CLI wrapper
-loki start --provider codex ./prd.md
+# With provider selection (supports .md and .json PRDs)
+loki start --provider claude ./prd.md        # Default, full features
+loki start --provider codex ./prd.json       # GPT-5.3 Codex, degraded mode
+loki start --provider gemini ./prd.md        # Gemini 3 Pro, degraded mode
+loki start --provider cline ./prd.md         # Cline CLI, degraded mode
+loki start --provider aider ./prd.md         # Aider (18+ providers), degraded mode
 
 # Parallel mode (git worktrees, Claude only)
-./autonomy/run.sh --parallel ./prd.md
+loki start ./prd.md --parallel
+loki start 123 --ship                        # Issue -> PR -> auto-merge
+
+# Legacy: `loki run <issue>` still works but prints a deprecation notice.
+# It is an alias for `loki start <issue>` and will be removed in a future major.
 ```
 
 **Provider capabilities:**
@@ -258,6 +271,44 @@ Auto-detected or force with `LOKI_COMPLEXITY`:
 
 ---
 
+## Managed Agents Integration (v7.2.0)
+
+Opt-in integration with Claude Managed Agents (released Apr 2026). Gives
+Loki cross-project audited memory and real multiagent councils. Features
+are BAKED INTO existing RARV-C and council flows -- no new commands to
+learn.
+
+**All flags default false.** Default behavior is identical to v7.2.0.
+
+| Flag | Purpose | Status |
+|------|---------|--------|
+| `LOKI_MANAGED_AGENTS` | Parent gate; required for every managed path | stable |
+| `LOKI_MANAGED_MEMORY` | REASON augment + REFLECT shadow-write from `.loki/memory/` to Managed Agents store | stable (tested with fakes) |
+| `LOKI_MANAGED_MEMORY_HYDRATE` | Session-boot pull of semantic patterns + skills from store | stable (tested with fakes) |
+| `LOKI_EXPERIMENTAL_MANAGED_AGENTS` | Umbrella for multiagent session path | RESEARCH PREVIEW |
+| `LOKI_EXPERIMENTAL_MANAGED_REVIEW` | Managed code-review council via `callable_agents` | RESEARCH PREVIEW |
+| `LOKI_EXPERIMENTAL_MANAGED_COUNCIL` | Managed completion council via `callable_agents` | RESEARCH PREVIEW |
+
+Fail-fast: child-on + parent-off exits 2 with clear error. API
+unreachable falls back to local path with a `managed_agents_fallback`
+event to `.loki/managed/events.ndjson`. No retry storm.
+
+**Flip-on order (recommended):**
+1. `LOKI_MANAGED_AGENTS=true LOKI_MANAGED_MEMORY=true` (memory mirror).
+2. Add `LOKI_MANAGED_MEMORY_HYDRATE=true` after one-week soak.
+3. Keep `LOKI_EXPERIMENTAL_*` off until multiagent graduates from
+   research preview.
+
+**NOT TESTED against live Anthropic API.** Automated CI uses
+`memory/managed_memory/fakes.py`. Beta header pinned to
+`managed-agents-2026-04-01`. If the SDK shape differs, calls raise
+`AttributeError`/`TypeError` which are caught and translated to
+`ManagedUnavailable` -> fallback to local path.
+
+See `skills/memory.md` for the full integration guide.
+
+---
+
 ## Planned Features
 
 The following features are documented in skill modules but not yet fully automated:
@@ -269,4 +320,4 @@ The following features are documented in skill modules but not yet fully automat
 | Quality gates 3-reviewer system | Implemented (v5.35.0) | 5 specialist reviewers in `skills/quality-gates.md`; execution in run.sh |
 | Benchmarks (HumanEval, SWE-bench) | Infrastructure only | Runner scripts and datasets exist in `benchmarks/`; no published results |
 
-**v6.81.0 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**
+**v7.2.0 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**

@@ -73,6 +73,38 @@ COUNCIL_TOTAL_DONE_SIGNALS=0
 COUNCIL_LAST_DIFF_HASH=""
 
 #===============================================================================
+# v6.83.0 Phase 1: Managed Agents memory augmentation (opt-in).
+#
+# When LOKI_MANAGED_AGENTS=true AND LOKI_MANAGED_MEMORY=true, this function
+# pulls up to 3 related prior verdicts from the Claude Managed Agents store
+# and writes them to a file the council prompt-assembly step appends as
+# "RELATED PRIOR VERDICTS". 5s hard timeout so a slow/unreachable API can
+# never block the council. Silent no-op when the flags are off.
+#===============================================================================
+council_augment_from_managed_memory() {
+    if [ "${LOKI_MANAGED_AGENTS:-false}" != "true" ] || \
+       [ "${LOKI_MANAGED_MEMORY:-false}" != "true" ]; then
+        return 0
+    fi
+    local target_dir="${TARGET_DIR:-.}"
+    local project_dir="${PROJECT_DIR:-$(pwd)}"
+    local out_file="$target_dir/.loki/managed/council-augment.txt"
+    mkdir -p "$target_dir/.loki/managed" 2>/dev/null || true
+    (
+        cd "$project_dir" 2>/dev/null && \
+        LOKI_TARGET_DIR="$target_dir" \
+        timeout 5 python3 -m memory.managed_memory.retrieve \
+            --query "completion-council verdict context" --top-k 3 \
+            > "$out_file" 2>/dev/null || true
+    ) || true
+    if [ -s "$out_file" ]; then
+        echo "RELATED PRIOR VERDICTS:"
+        cat "$out_file"
+    fi
+    return 0
+}
+
+#===============================================================================
 # Initialization
 #===============================================================================
 
@@ -1353,6 +1385,220 @@ council_evaluate() {
 }
 
 #===============================================================================
+# v7.0.0 Phase 4: Managed completion council (flag-gated).
+#
+# When LOKI_EXPERIMENTAL_MANAGED_COUNCIL=true AND the parent flags are on,
+# this function replaces the local Bash voting with a single managed-agents
+# multiagent session. Each voter's AgentVerdict is projected onto the legacy
+# verdict file layout at $COUNCIL_STATE_DIR/verdicts/<role>.txt so that the
+# existing aggregation (severity-budget + unanimous DA override) code stays
+# completely UNCHANGED and simply consumes whatever produced those files.
+#
+# On ManagedUnavailable (SDK missing / API flake / session shape drift /
+# overall budget timeout / flags racing), emits a fallback event and returns
+# non-zero so the caller falls through to the existing Bash voting path.
+#
+# Returns:
+#   0 -- managed council ran successfully, verdicts materialized for aggregation
+#   1 -- managed council disabled or unavailable, caller must fall back
+#===============================================================================
+council_managed_should_stop() {
+    # Flag gate: all three required. Silent no-op otherwise.
+    if [ "${LOKI_EXPERIMENTAL_MANAGED_COUNCIL:-false}" != "true" ]; then
+        return 1
+    fi
+    if [ "${LOKI_EXPERIMENTAL_MANAGED_AGENTS:-false}" != "true" ]; then
+        return 1
+    fi
+    if [ "${LOKI_MANAGED_AGENTS:-false}" != "true" ]; then
+        return 1
+    fi
+
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local project_dir="${PROJECT_DIR:-$(pwd)}"
+    local round="${ITERATION_COUNT:-0}"
+    local verdicts_dir="$COUNCIL_STATE_DIR/verdicts"
+    mkdir -p "$verdicts_dir" 2>/dev/null || true
+
+    # Build session context: diff_summary, test_summary, pending_tasks.
+    # Kept deliberately small so we never choke the session budget.
+    local diff_summary=""
+    diff_summary=$(cd "$project_dir" 2>/dev/null && git diff --stat 2>/dev/null | tail -20 | tr '\n' ' ' || echo "")
+    local test_summary=""
+    if [ -f "$loki_dir/quality/test-results.json" ]; then
+        test_summary=$(_TRF="$loki_dir/quality/test-results.json" python3 -c "
+import json, os
+try:
+    d = json.load(open(os.environ['_TRF']))
+    print((d.get('summary') or '')[:400])
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+    fi
+    local pending_tasks="[]"
+    if [ -f "$loki_dir/queue/pending.json" ]; then
+        pending_tasks=$(_QF="$loki_dir/queue/pending.json" python3 -c "
+import json, os
+try:
+    d = json.load(open(os.environ['_QF']))
+    tasks = d.get('tasks', []) if isinstance(d, dict) else d
+    # Compact preview: titles only, capped.
+    print(json.dumps([t.get('title','') if isinstance(t, dict) else str(t) for t in tasks[:20]]))
+except Exception:
+    print('[]')
+" 2>/dev/null || echo "[]")
+    fi
+
+    # Invoke providers.managed.run_completion_council. The Python module is
+    # responsible for emitting a fallback event on any failure; we still emit
+    # a marker so a tail of events.ndjson tells the full story.
+    local exit_code=0
+    _CC_DIFF="$diff_summary" \
+    _CC_TEST="$test_summary" \
+    _CC_PENDING="$pending_tasks" \
+    _CC_ROUND="$round" \
+    _CC_VERDICTS_DIR="$verdicts_dir" \
+    _CC_LOKI_DIR="$loki_dir" \
+    LOKI_TARGET_DIR="${TARGET_DIR:-$(pwd)}" \
+    python3 - <<'PYEOF' 2>/dev/null || exit_code=$?
+import json, os, sys, pathlib
+
+# Path setup: prefer project_dir so providers.managed resolves from main tree.
+project_dir = os.environ.get("PROJECT_DIR") or os.getcwd()
+sys.path.insert(0, project_dir)
+
+try:
+    from providers.managed import (
+        run_completion_council,
+        ManagedUnavailable,
+        is_enabled,
+    )
+    from memory.managed_memory.events import emit_managed_event
+except ImportError as e:
+    # Module not on PYTHONPATH -- caller falls back to Bash path.
+    sys.stderr.write(f"managed council: import failed ({e})\n")
+    sys.exit(2)
+
+if not is_enabled():
+    emit_managed_event(
+        "managed_agents_fallback",
+        {"op": "managed_completion_council", "reason": "is_enabled_false"},
+    )
+    sys.exit(3)
+
+context = {
+    "diff_summary": os.environ.get("_CC_DIFF", ""),
+    "test_summary": os.environ.get("_CC_TEST", ""),
+    "pending_tasks": os.environ.get("_CC_PENDING", "[]"),
+    "iteration": int(os.environ.get("_CC_ROUND", "0") or 0),
+}
+
+try:
+    result = run_completion_council(
+        voters=["requirements_verifier", "test_auditor", "devils_advocate"],
+        context=context,
+        timeout_s=180,
+    )
+except ManagedUnavailable as e:
+    emit_managed_event(
+        "managed_agents_fallback",
+        {"op": "managed_completion_council", "reason": "managed_unavailable", "detail": str(e)},
+    )
+    sys.exit(4)
+except Exception as e:
+    emit_managed_event(
+        "managed_agents_fallback",
+        {"op": "managed_completion_council", "reason": "unexpected_error", "detail": str(e)},
+    )
+    sys.exit(5)
+
+# Project AgentVerdicts -> legacy verdict files consumed by
+# council_aggregate_votes. The existing aggregator reads lines of the form:
+#   VOTE: APPROVE|REJECT|CANNOT_VALIDATE
+#   REASON: <free text>
+#   ISSUES: <SEV>: <desc>
+# We map voting verdicts STOP -> APPROVE, CONTINUE -> REJECT, ABSTAIN ->
+# CANNOT_VALIDATE. Severity is copied through when the agent emitted one.
+def _vote_to_legacy(verdict_str: str) -> str:
+    v = (verdict_str or "").upper()
+    if v in ("STOP", "APPROVE"):
+        return "APPROVE"
+    if v in ("CONTINUE", "REJECT", "REQUEST_CHANGES"):
+        return "REJECT"
+    return "CANNOT_VALIDATE"
+
+verdicts_dir = pathlib.Path(os.environ["_CC_VERDICTS_DIR"])
+verdicts_dir.mkdir(parents=True, exist_ok=True)
+
+summary = {
+    "round": int(os.environ.get("_CC_ROUND", "0") or 0),
+    "session_id": result.session_id,
+    "elapsed_ms": result.elapsed_ms,
+    "partial": result.partial,
+    "majority": result.majority,
+    "voters": [],
+}
+
+for vote in result.votes:
+    role = vote.pool_name or "unknown_voter"
+    legacy_vote = _vote_to_legacy(vote.verdict)
+    reason = (vote.rationale or "").replace("\r", " ").strip()
+    # Cap the reason so legacy parsers stay happy.
+    if len(reason) > 2000:
+        reason = reason[:2000] + "... [truncated]"
+    lines = [
+        f"VOTE: {legacy_vote}",
+        f"REASON: {reason or 'managed council: no rationale'}",
+    ]
+    if vote.severity:
+        lines.append(f"ISSUES: {vote.severity.upper()}: managed voter flagged issue")
+    out = "\n".join(lines) + "\n"
+    fpath = verdicts_dir / f"{role}.txt"
+    try:
+        fpath.write_text(out, encoding="utf-8")
+    except OSError as e:
+        sys.stderr.write(f"managed council: failed to write {fpath}: {e}\n")
+        sys.exit(6)
+    summary["voters"].append({
+        "role": role,
+        "agent_id": vote.agent_id,
+        "verdict": vote.verdict,
+        "legacy": legacy_vote,
+        "severity": vote.severity,
+    })
+
+# Drop a JSON sidecar so operators can inspect the managed run.
+try:
+    sidecar = pathlib.Path(os.environ["_CC_LOKI_DIR"]) / "managed" / f"completion-council-round-{summary['round']}.json"
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+except OSError:
+    pass
+
+emit_managed_event(
+    "managed_completion_council_success",
+    {
+        "op": "managed_completion_council",
+        "round": summary["round"],
+        "voters": len(summary["voters"]),
+        "majority": summary["majority"],
+        "elapsed_ms": summary["elapsed_ms"],
+        "partial": summary["partial"],
+    },
+)
+sys.exit(0)
+PYEOF
+
+    if [ $exit_code -eq 0 ]; then
+        log_info "[Council] Managed completion council produced verdicts for round $round"
+        return 0
+    fi
+
+    log_warn "[Council] Managed completion council unavailable (exit=$exit_code); falling back to Bash voting"
+    return 1
+}
+
+#===============================================================================
 # Main Entry Point - Should the loop stop?
 #===============================================================================
 
@@ -1365,6 +1611,23 @@ council_should_stop() {
     if [ "$ITERATION_COUNT" -lt "$COUNCIL_MIN_ITERATIONS" ]; then
         return 1
     fi
+
+    # v7.0.0 Phase 4: Managed council branch (opt-in, flag-gated).
+    # When enabled, runs a single multiagent session via providers.managed
+    # and projects verdicts onto the legacy verdict files. Aggregation,
+    # severity-budget, unanimous+DA override, circuit breaker, hard checklist
+    # gate -- all unchanged below. On ManagedUnavailable, silently falls
+    # through to the existing Bash voting path.
+    if [ "${LOKI_EXPERIMENTAL_MANAGED_COUNCIL:-false}" = "true" ]; then
+        if council_managed_should_stop; then
+            log_info "[Council] Managed voting materialized; proceeding to aggregation"
+        fi
+    fi
+
+    # v6.83.0 Phase 1: silent no-op unless both managed flags are on.
+    # Writes related prior verdicts into $TARGET_DIR/.loki/managed/council-augment.txt
+    # which the council prompt assembly step can read and append to its prompt.
+    council_augment_from_managed_memory >/dev/null 2>&1 || true
 
     # Check circuit breaker first (stagnation detection)
     local circuit_triggered=false
@@ -1395,6 +1658,27 @@ council_should_stop() {
 
         # Store final council report
         council_write_report
+
+        # v6.83.0 Phase 1: shadow-write the final council verdict to the
+        # managed memory store. Backgrounded + silent; flags gate the work
+        # inside the Python module so no-op when off.
+        if [ "${LOKI_MANAGED_AGENTS:-false}" = "true" ] && \
+           [ "${LOKI_MANAGED_MEMORY:-false}" = "true" ]; then
+            local _verdict_file="$loki_dir/council/verdicts/iteration-$ITERATION_COUNT.json"
+            if [ ! -f "$_verdict_file" ]; then
+                # Fall back to the round vote file as the verdict payload.
+                _verdict_file="$COUNCIL_STATE_DIR/votes/round-${ITERATION_COUNT}.json"
+            fi
+            if [ -f "$_verdict_file" ]; then
+                (
+                    cd "${PROJECT_DIR:-$(pwd)}" 2>/dev/null && \
+                    LOKI_TARGET_DIR="$loki_dir/.." \
+                    timeout 15 python3 -m memory.managed_memory.shadow_write \
+                        --verdict "$_verdict_file" >/dev/null 2>&1 || true
+                ) &
+                disown 2>/dev/null || true
+            fi
+        fi
 
         return 0  # STOP
     fi

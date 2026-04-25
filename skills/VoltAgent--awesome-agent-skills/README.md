@@ -66,7 +66,8 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Notion](#skills-by-notion) | [Resend](#skills-by-resend) | [Addy Osmani (Web Quality)](#skills-by-addy-osmani-web-quality) | [MongoDB](#skills-by-mongodb) |
 | [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Apollo GraphQL](#skills-by-apollo-graphql) | [Auth0](#skills-by-auth0) | [Brave](#skills-by-brave) |
 | [Browserbase](#skills-by-browserbase) | [CodeRabbit](#skills-by-coderabbit) | [Coinbase](#skills-by-coinbase) | [Datadog Labs](#skills-by-datadog-labs) |
-| [Firebase](#skills-by-firebase) | [Flutter](#skills-by-flutter) | [Community](#community-skills) | [Quality Standards](#skill-quality-standards) |
+| [Firebase](#skills-by-firebase) | [Flutter](#skills-by-flutter) | [Venice.ai](#skills-by-veniceai) | [Community](#community-skills) |
+| [Quality Standards](#skill-quality-standards) |  |  |  |
 
 
 
@@ -198,6 +199,33 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 
 ### Skills by Typefully 
 - **[typefully/typefully](https://officialskills.sh/typefully/skills/typefully)** - Create, schedule, and publish social media content across X, LinkedIn, Threads, Bluesky, and Mastodon
+
+<details open>
+<summary><h3 style="display:inline">Skills by Venice.ai</h3></summary>
+
+Official skills by Venice.ai for the Venice API.
+
+- **[veniceai/venice-api-overview](https://github.com/veniceai/skills/tree/main/skills/venice-api-overview)** - API basics, auth modes, pricing, and versioning
+- **[veniceai/venice-auth](https://github.com/veniceai/skills/tree/main/skills/venice-auth)** - API keys and wallet-based Venice authentication
+- **[veniceai/venice-chat](https://github.com/veniceai/skills/tree/main/skills/venice-chat)** - Chat completions, multimodal inputs, tools, and streaming
+- **[veniceai/venice-responses](https://github.com/veniceai/skills/tree/main/skills/venice-responses)** - OpenAI-compatible Responses API for Venice
+- **[veniceai/venice-embeddings](https://github.com/veniceai/skills/tree/main/skills/venice-embeddings)** - Embeddings models, dimensions, and encoding formats
+- **[veniceai/venice-image-generate](https://github.com/veniceai/skills/tree/main/skills/venice-image-generate)** - Image generation endpoints and available styles
+- **[veniceai/venice-image-edit](https://github.com/veniceai/skills/tree/main/skills/venice-image-edit)** - Image edits, upscaling, and background removal
+- **[veniceai/venice-audio-speech](https://github.com/veniceai/skills/tree/main/skills/venice-audio-speech)** - Text-to-speech models, voices, formats, and streaming
+- **[veniceai/venice-audio-music](https://github.com/veniceai/skills/tree/main/skills/venice-audio-music)** - Music generation queueing, retrieval, and completion endpoints
+- **[veniceai/venice-audio-transcription](https://github.com/veniceai/skills/tree/main/skills/venice-audio-transcription)** - Audio transcription models and speech-to-text options
+- **[veniceai/venice-video](https://github.com/veniceai/skills/tree/main/skills/venice-video)** - Video generation and transcription workflows
+- **[veniceai/venice-models](https://github.com/veniceai/skills/tree/main/skills/venice-models)** - Model catalog, traits, and compatibility mappings
+- **[veniceai/venice-characters](https://github.com/veniceai/skills/tree/main/skills/venice-characters)** - Character endpoints and `character_slug` usage
+- **[veniceai/venice-api-keys](https://github.com/veniceai/skills/tree/main/skills/venice-api-keys)** - API key CRUD, rate limits, and Web3 keys
+- **[veniceai/venice-billing](https://github.com/veniceai/skills/tree/main/skills/venice-billing)** - Balance, usage, and billing analytics endpoints
+- **[veniceai/venice-x402](https://github.com/veniceai/skills/tree/main/skills/venice-x402)** - Wallet credits and x402 payments on Base
+- **[veniceai/venice-crypto-rpc](https://github.com/veniceai/skills/tree/main/skills/venice-crypto-rpc)** - JSON-RPC proxying for supported crypto networks
+- **[veniceai/venice-augment](https://github.com/veniceai/skills/tree/main/skills/venice-augment)** - Search, scraping, and text parsing endpoints
+- **[veniceai/venice-errors](https://github.com/veniceai/skills/tree/main/skills/venice-errors)** - Error handling, retries, and API status codes
+
+</details>
 
 <details open>
 <summary><h3 style="display:inline">Skills by Vercel Engineering Team</h3></summary>

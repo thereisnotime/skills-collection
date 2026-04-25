@@ -4,7 +4,7 @@ Shared contract for active skill discovery roots versus cache roots across suppo
 
 Use this contract when a skill:
 - audits agent setup health
-- repairs cross-agent skill mapping
+- repairs marketplace/plugin alignment
 - diagnoses duplicate skills
 - writes Codex skill-root metadata into environment state
 
@@ -20,16 +20,14 @@ Use this contract when a skill:
 | Agent | Discovery Root | Active Install Surface | Cache Root | Discovery Rule |
 |-------|----------------|------------------------|------------|----------------|
 | Claude Code | `~/.claude/plugins/marketplaces/{marketplace}` | Active marketplace/plugin install under `marketplaces/` | `~/.claude/plugins/cache/{marketplace}/{family}/{snapshot}` | Cache is not an active install surface |
-| Gemini CLI | `~/.gemini/skills` | Symlink/junction to the chosen active skill source | No Gemini-owned skill cache under discovery root | Discovery root may be a single shared link |
 | Codex CLI | `~/.codex/skills` | `.system` plus `marketplaces/{marketplace}` under the Codex root | `~/.codex/skill-cache/{marketplace}` or another path outside `~/.codex/skills` | Cache under `~/.codex/skills/cache/**` is invalid |
-| Antigravity IDE | `~/.gemini/antigravity/skills` (global) + `<workspace>/.agents/skills` (workspace) | Symlink/junction to the active skill source | No Antigravity-owned cache under discovery root | Both global and workspace roots may be active simultaneously |
 
 ## Codex-Specific Rules
 
 - `~/.codex/skills` is the Codex discovery root. Do not map this root to `~/.claude/plugins` or any other foreign plugin tree.
 - `~/.codex/skills/marketplaces/{marketplace}` is the active marketplace surface. Use one active copy per marketplace.
 - `~/.codex/skills/known_marketplaces.json` must point `installLocation` to the Codex active install surface, not to `~/.claude/plugins/...`.
-- `~/.codex/skills/cache/**` is a discovery violation even if the cache was created by a previous sync run.
+- `~/.codex/skills/cache/**` is a discovery violation even if the cache was created by a previous alignment run.
 - If duplicate skill names remain after cache relocation and install-location repair, treat the Codex mapping as drifted and not healthy.
 
 ## Environment State Fields
