@@ -691,63 +691,63 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "053c1db",
+      "message": "fix(ce-work): codify worktree isolation for parallel subagent dispatch (#698)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "7eea2d1",
+      "message": "feat(ce-compound): add frontmatter parser-safety validator (#697)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "ad9577e",
+      "message": "fix(ce-code-review): tighten autofix_class rubric for safe_auto/gated_auto boundary (#695)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "bd72818",
+      "message": "fix(ce-resolve-pr-feedback): add declined verdict for harmful suggestions (#694)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "e21156e",
+      "message": "fix(ce-debug): default to commit-and-PR and tighten learning offer (#693)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "50bf65e",
+      "message": "fix(ce-doc-review): rename LFG path to best-judgment to avoid /lfg collision (#691)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "f30404e",
+      "message": "fix(ce-demo-reel): wait for network idle and reject blank frames (#692)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "85e9a20",
+      "message": "fix(ce-code-review): move run artifacts from .context/ to /tmp per AGENTS.md (#690)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "9ba41a1",
+      "message": "fix(ce-code-review): replace LFG with best-judgment auto-resolve (#685)",
+      "date": "2026-04-26",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "1284290",
       "message": "fix(ce-debug): delegate commit/PR and add branch check (#683)",
       "date": "2026-04-25",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "ea8721e",
-      "message": "chore: release main (#680)",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "304a975",
-      "message": "feat(ce-brainstorm): probe rigor gaps with prose before Phase 2 (#677)",
-      "date": "2026-04-24",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "bc8ae1a",
-      "message": "fix(main): recover version drift, fix stale test, document learnings (#678)",
-      "date": "2026-04-24",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "47350c3",
-      "message": "fix(ce-test-browser): skip headed/headless question in pipeline mode",
-      "date": "2026-04-24",
-      "author": "Kieran Klaassen"
-    },
-    {
-      "sha": "22d493b",
-      "message": "feat(ce-test-browser): gate port scan and auto-start on pipeline mode",
-      "date": "2026-04-24",
-      "author": "Kieran Klaassen"
-    },
-    {
-      "sha": "f8720da",
-      "message": "feat(ce-test-browser): free-port scan and auto-server start",
-      "date": "2026-04-24",
-      "author": "Kieran Klaassen"
-    },
-    {
-      "sha": "1f20c38",
-      "message": "feat(lfg): add ce-commit-push-pr step and remove ralph-loop",
-      "date": "2026-04-24",
-      "author": "Kieran Klaassen"
-    },
-    {
-      "sha": "bc3709f",
-      "message": "chore: release main (#675)",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "ab44d89",
-      "message": "fix(release): remove stale release-as pin (#674)",
-      "date": "2026-04-24",
       "author": "Trevin Chow"
     }
   ],
@@ -853,63 +853,63 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
-      "sha": "8306a5b",
-      "message": "Merge pull request #39 from Imbad0202/feat/v3.6.4-literature-corpus-adapters",
-      "date": "2026-04-23",
+      "sha": "aa96fa6",
+      "message": "Merge pull request #40 from Imbad0202/feat/v3.6.4-literature-corpus-adapters",
+      "date": "2026-04-25",
       "author": "Edward Cheng-I Wu"
     },
     {
-      "sha": "0b72f66",
-      "message": "docs(v3.6.4): implementation plan for literature corpus adapters",
-      "date": "2026-04-23",
+      "sha": "68a9f61",
+      "message": "ci(v3.6.4): fix pytest workflow PYTHONPATH for first PR run",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "56639ae",
-      "message": "docs(v3.6.4): literature corpus adapters + input port design",
-      "date": "2026-04-23",
+      "sha": "1e7ee53",
+      "message": "docs(v3.6.4): PERFORMANCE sections on literature_corpus ingestion",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "6430031",
-      "message": "Merge pull request #38 from Imbad0202/feat/v3.6.3-passport-reset-boundary",
-      "date": "2026-04-23",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "afe741e",
-      "message": "docs(v3.6.3): fix round 5 P2 \u2014 CHANGELOG lint name + PERFORMANCE resume flow",
-      "date": "2026-04-23",
+      "sha": "8fa21c5",
+      "message": "docs(v3.6.4): scripts/adapters/README.md user-facing how-to",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "e61a551",
-      "message": "feat(v3.6.3): fix round 4 P1+P2 \u2014 nullable next, value uniqueness, lock cap",
-      "date": "2026-04-23",
+      "sha": "d54bd78",
+      "message": "chore(v3.6.4): version bump sweep + CHANGELOG + T14/T15 combined",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "bca6d27",
-      "message": "feat(v3.6.3): fix P1-b \u2014 advisory lock contract + undersync cleanup",
-      "date": "2026-04-23",
+      "sha": "a5f6694",
+      "message": "docs(v3.6.4): Schema 9 literature_corpus row + retire deferred caveats",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "99cee2c",
-      "message": "feat(v3.6.3): fix P1-a \u2014 pending_decision options carry branch\u2192stage mapping",
-      "date": "2026-04-23",
+      "sha": "4fefa1d",
+      "message": "ci(v3.6.4): add literature_corpus schema + adapter docs + pytest CI",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "f3bd876",
-      "message": "chore(v3.6.3): /simplify pass \u2014 unify PASSPORT-RESET tag + fix iron-rule ref + pin format",
-      "date": "2026-04-23",
+      "sha": "0fe4f4f",
+      "message": "feat(v3.6.4): sync_adapter_docs schema\u2192overview.md drift detector",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     },
     {
-      "sha": "a1f9335",
-      "message": "style(check_spec_consistency): remove redundant what-comment in check_reference_docs",
-      "date": "2026-04-23",
+      "sha": "0a90cdb",
+      "message": "docs(v3.6.4): adapter contract overview.md",
+      "date": "2026-04-25",
+      "author": "Imbad0202"
+    },
+    {
+      "sha": "a4cc661",
+      "message": "fix(v3.6.4): T9 obsidian patch \u2014 codex review P1 + 2\u00d7P2 + P3 coverage",
+      "date": "2026-04-25",
       "author": "Imbad0202"
     }
   ],
@@ -1507,6 +1507,30 @@
   ],
   "avifenesh--agentsys": [
     {
+      "sha": "bd56794",
+      "message": "fix: repair 3 pre-existing test failures blocking release",
+      "date": "2026-04-26",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "491b72a",
+      "message": "5.9.0",
+      "date": "2026-04-26",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "c346376",
+      "message": "chore: prepare CHANGELOG for v5.9.0",
+      "date": "2026-04-26",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "fef9109",
+      "message": "feat: register zig-lsp plugin in agentsys marketplace (#346)",
+      "date": "2026-04-26",
+      "author": "Avi Fenesh"
+    },
+    {
       "sha": "b1516bb",
       "message": "chore: sync core lib and CLAUDE.md from agent-core",
       "date": "2026-04-25",
@@ -1541,30 +1565,6 @@
       "message": "fix: move prepare lifecycle hook to explicit setup-hooks script (#334)",
       "date": "2026-04-23",
       "author": "xiaolai"
-    },
-    {
-      "sha": "df582c8",
-      "message": "fix: pin js-yaml to exact version 4.1.1 (#335)",
-      "date": "2026-04-23",
-      "author": "xiaolai"
-    },
-    {
-      "sha": "d9e145d",
-      "message": "fix: replace hardcoded /Users/avifen path with ~/ in web-ctl skills (#333)",
-      "date": "2026-04-23",
-      "author": "xiaolai"
-    },
-    {
-      "sha": "16c5c8b",
-      "message": "chore: release v5.8.4",
-      "date": "2026-04-20",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "aa577a9",
-      "message": "fix: atomic optimistic locking for tasks.json read-modify-write (#331) (#332)",
-      "date": "2026-04-20",
-      "author": "Avi Fenesh"
     }
   ],
   "better-auth--skills": [
@@ -4909,6 +4909,12 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "fd4f0e9",
+      "message": "Merge pull request #480 from antonbabenko/update-terraform-skill-desc",
+      "date": "2026-04-25",
+      "author": "Necati \u00d6zmen"
+    },
+    {
       "sha": "5d53f4f",
       "message": "Merge pull request #494 from joshua-mo-143/main",
       "date": "2026-04-25",
@@ -4925,6 +4931,12 @@
       "message": "Clean up README by removing extra content",
       "date": "2026-04-23",
       "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "3ae0850",
+      "message": "update antonbabenko/terraform-skill description",
+      "date": "2026-04-22",
+      "author": "Anton Babenko"
     },
     {
       "sha": "28db237",
@@ -4955,18 +4967,6 @@
       "message": "Add skill: awrshift/claude-memory-kit",
       "date": "2026-04-17",
       "author": "Sergey"
-    },
-    {
-      "sha": "13b4fa8",
-      "message": "Update README.md",
-      "date": "2026-04-17",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "9e0d487",
-      "message": "Add skill: gitroomhq/postiz-agent",
-      "date": "2026-04-17",
-      "author": "Nevo David"
     }
   ],
   "BehiSecc--awesome-claude-skills": [
@@ -5033,6 +5033,12 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
+      "sha": "b56e470",
+      "message": "release: MCP packages minor versions",
+      "date": "2026-04-25",
+      "author": "levnikolaevich"
+    },
+    {
       "sha": "8a926d0",
       "message": "release: @levnikolaevich/hex-line-mcp v1.29.0",
       "date": "2026-04-24",
@@ -5083,12 +5089,6 @@
     {
       "sha": "c534e63",
       "message": "release: @levnikolaevich/hex-line-mcp v1.27.1",
-      "date": "2026-04-21",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "7bdae6b",
-      "message": "release: v2026.04.21",
       "date": "2026-04-21",
       "author": "levnikolaevich"
     }
@@ -5467,6 +5467,36 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "8e7f2aa",
+      "message": "updated presentation",
+      "date": "2026-04-25",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "38aceb2",
+      "message": "gemini workflow",
+      "date": "2026-04-25",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "2359c02",
+      "message": "Remove obsolete third-most-starred badge SVG",
+      "date": "2026-04-25",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "0dd2bee",
+      "message": "Update README badges: bump Claude Code to v2.1.119, swap rank to 2nd Most \u2605, refresh timestamp",
+      "date": "2026-04-25",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "2a64ab5",
+      "message": "Add second-most-starred badge SVG",
+      "date": "2026-04-25",
+      "author": "Shayan Rais"
+    },
+    {
       "sha": "e9af40e",
       "message": "FINAL",
       "date": "2026-04-24",
@@ -5493,36 +5523,6 @@
     {
       "sha": "deaaccd",
       "message": "context",
-      "date": "2026-04-24",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "fcc3830",
-      "message": "skills",
-      "date": "2026-04-24",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "634ae5f",
-      "message": "context",
-      "date": "2026-04-24",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "3184fcb",
-      "message": "Update index.html",
-      "date": "2026-04-24",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "b65f9d7",
-      "message": "Update index.html",
-      "date": "2026-04-24",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "10937f7",
-      "message": "skills added",
       "date": "2026-04-24",
       "author": "Shayan Rais"
     }
@@ -5591,6 +5591,54 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "7273b4e",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-26",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "d5d9811",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-26",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "a7c07ad",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-25",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "96f6375",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-25",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "81c5b4c",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-25",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "f010e7b",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-25",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "a056693",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-25",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "6ebceef",
+      "message": "chore: update repo ticker data and SVGs [skip ci]",
+      "date": "2026-04-25",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "2800e7a",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-04-25",
@@ -5600,54 +5648,6 @@
       "sha": "2c87a7c",
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-04-25",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "ef54b52",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "5f27bfb",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "8e43909",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "bd407c4",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "1e4e77e",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "3b2d0bb",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "d8d87f7",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "672a061",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-24",
       "author": "github-actions[bot]"
     }
   ],

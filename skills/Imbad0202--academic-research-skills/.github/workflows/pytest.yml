@@ -1,0 +1,46 @@
+name: pytest
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/adapters/**'
+      - 'scripts/check_literature_corpus_schema.py'
+      - 'scripts/sync_adapter_docs.py'
+      - 'shared/contracts/passport/**'
+      - 'academic-pipeline/references/adapters/**'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/adapters/**'
+      - 'scripts/check_literature_corpus_schema.py'
+      - 'scripts/sync_adapter_docs.py'
+      - 'shared/contracts/passport/**'
+      - 'academic-pipeline/references/adapters/**'
+
+concurrency:
+  group: pytest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt pytest
+
+      - name: Run adapter tests
+        env:
+          PYTHONPATH: .
+        run: pytest scripts/adapters/tests/ -v

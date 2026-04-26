@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.6.4] - 2026-04-25
+
+### Added
+
+- **Material Passport `literature_corpus[]` input port**. Schema 9 gains an optional `literature_corpus[]` field defined by `shared/contracts/passport/literature_corpus_entry.schema.json`. Each entry carries `citation_key`, CSL-JSON `authors`, `year`, `title`, and a `source_pointer` back to the user's own KB. `abstract` and `user_notes` are private optional fields with copyright caveats.
+- **Adapter contract** (`academic-pipeline/references/adapters/overview.md`): language-neutral specification for producing literature_corpus entries from user-owned corpus sources. Covers fail-soft entry-level error handling, mandatory `rejection_log.yaml` output, deterministic ordering (sort by `citation_key` / `source`), and extension points for user-written adapters.
+- **Three reference Python adapters** (`scripts/adapters/`): `folder_scan.py` (filesystem of PDFs), `zotero.py` (Better BibTeX JSON export), `obsidian.py` (vault frontmatter, BibTeX-style or literature-note convention). Each ships with pytest tests, fixtures, and golden expected outputs.
+- **Rejection log contract** (`shared/contracts/passport/rejection_log.schema.json`). Always emitted; empty when no rejections; closed enum of categorical reason values.
+- **CI lint + pytest job**: `scripts/check_literature_corpus_schema.py` (schema + adapter example validation), `scripts/sync_adapter_docs.py --check` (schema→docs drift detector with auto-regen mode), and a new `.github/workflows/pytest.yml` running `scripts/adapters/tests/` on path-filtered triggers.
+- `_common.ensure_unique_citekey(key, existing)` helper for adapters whose source already supplies a citekey (zotero, obsidian frontmatter), with sanitization to satisfy the schema pattern and a/b/...zz alpha-suffix collision disambiguation.
+- `_common.path_to_file_uri(path)` helper that delegates to `Path.as_uri()` so spaces and reserved characters in filenames are properly percent-encoded.
+
+### Changed
+
+- `academic-pipeline/references/passport_as_reset_boundary.md`: "deferred to v3.6.4, PR-B" placeholders replaced with forward references to `adapters/overview.md` and `literature_corpus_entry.schema.json`.
+- `shared/handoff_schemas.md`: Schema 9 optional fields table adds `literature_corpus`; new "Literature Corpus Input Port (v3.6.4)" subsection appended after Reset Boundary Extension.
+- `academic-pipeline/SKILL.md` bumped 3.6.3 → 3.6.4 (suite version invariant). Other skills retain independent semver.
+- `.claude/CLAUDE.md`, `MODE_REGISTRY.md`, `README.md`, `README.zh-TW.md`, `scripts/check_spec_consistency.py` updated for the version bump (suite version, badge, tag, changelog heading).
+
+### Not changed (explicit non-goals)
+
+- No ARS agent consumes `literature_corpus[]` yet. Consumer-side integration is deferred to v3.6.5+. v3.6.4 defines the input port only.
+- No PDF parsing, no text extraction, no live API clients, no authenticated library crawling. The reference adapters read filenames or local export files and never make network calls.
+
 ## [3.6.3] - 2026-04-23
 
 ### Added

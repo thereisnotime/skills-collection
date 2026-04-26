@@ -82,6 +82,12 @@ jobs:
             python3 scripts/check_sprint_contract.py "$f" --ars-version "v${ARS_VERSION}"
           done
 
+      - name: Validate literature_corpus schemas and examples
+        run: python3 scripts/check_literature_corpus_schema.py
+
+      - name: Check adapter docs up-to-date
+        run: python3 scripts/sync_adapter_docs.py --check
+
       - name: Validate passport reset contract
         run: python3 scripts/check_passport_reset_contract.py --root .
 

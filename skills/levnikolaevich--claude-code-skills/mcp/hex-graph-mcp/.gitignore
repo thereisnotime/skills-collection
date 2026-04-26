@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.hex-skills/
+.codegraph/
+tmp-*/
+definitely-missing-for-error-contract/

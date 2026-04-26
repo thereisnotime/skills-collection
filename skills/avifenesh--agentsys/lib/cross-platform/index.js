@@ -310,8 +310,12 @@ function formatSection(title, content) {
  * @returns {string} Truncated text
  */
 function truncate(text, maxLength) {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + '...';
+  // Negative or zero maxLength: return original text unchanged
+  if (maxLength <= 0) return text;
+  // Use Array.from to iterate over code points (handles emoji/surrogate pairs)
+  const codePoints = Array.from(text);
+  if (codePoints.length <= maxLength) return text;
+  return codePoints.slice(0, maxLength - 3).join('') + '...';
 }
 
 /**

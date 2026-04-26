@@ -84,3 +84,26 @@ resume_from_passport=<hash> [stage=<n>] [mode=<m>]
 Resume 指令本身沒有路徑語法。客製 passport 位置在專案的 `CLAUDE.md` 設定，或由整合方的工具在呼叫 orchestrator 前處理。
 
 **實測 token 節省：** 尚待真實 `systematic-review` 搭配儀器化測量。取得實測資料後會回填本節。目前不做任何數值宣稱。完整協議見 [`../academic-pipeline/references/passport_as_reset_boundary.md`](../academic-pipeline/references/passport_as_reset_boundary.md)。
+
+## 文獻語料庫導入（v3.6.4+）
+
+Material Passport 的 `literature_corpus[]` 欄位由**使用者自行撰寫的 adapter** 產出，不是 ARS 本身。v3.6.4 附三個 reference adapter：`scripts/adapters/folder_scan.py`、`scripts/adapters/zotero.py`、`scripts/adapters/obsidian.py`。執行方式與自行撰寫 adapter 的指引見 [`scripts/adapters/README.md`](../scripts/adapters/README.md)。
+
+### 效能定位
+
+- Adapter 在 ARS session 之外執行（跑 ARS 前跑）；執行時間由使用者自行負責，不進 ARS 的時間預算。
+- Adapter 必須具備 determinism：同一份 input 重跑產出 byte-identical 輸出（時間戳除外）。
+- `literature_corpus[]` 依 `citation_key` 排序；`rejection_log.rejected[]` 依 `source` 排序。
+- Adapter 輸出大小與語料庫大小線性成長。500 筆 Zotero 書目約產出 300 KB 的 passport YAML。大型語料庫建議 ARS 消費端採 lazy load。
+
+### v3.6.4 **不做** 的事
+
+- 不讀 PDF 內容、不做文字抽取、不跑 OCR。
+- 不呼叫 Zotero Web API、Notion API 或任何遠端服務。
+- 不抓付費牆後內容、不用使用者憑證連線機構圖書館。
+
+這些邊界是刻意的，反映 ARS 的 data-layer 定位：ARS 是 writing / review layer 的框架，語料整合留在 user-owned code。如需 API-based live-sync adapter，由使用者以三個 reference adapter 為起點自行撰寫。
+
+### 消費端整合
+
+v3.6.4 時沒有任何 ARS agent 讀取 `literature_corpus[]`。此欄位僅為 input port 定義，消費端整合（agent 實際使用語料做研究規劃 / citation 生成 / ...）留待 v3.6.5+。

@@ -116,8 +116,8 @@ Without coordination, two processes can complete step 2 in parallel before eithe
 
 ## What this protocol does NOT do
 
-- Does not define Zotero / Obsidian / folder-scan adapter shapes (deferred to v3.6.4, PR-B).
-- Does not define `literature_corpus` entry shape (deferred to v3.6.4, PR-B).
+- Does not define Zotero / Obsidian / folder-scan adapter shapes (defined in [`academic-pipeline/references/adapters/overview.md`](adapters/overview.md) from v3.6.4+).
+- Does not define `literature_corpus` entry shape (defined in [`shared/contracts/passport/literature_corpus_entry.schema.json`](../../shared/contracts/passport/literature_corpus_entry.schema.json) from v3.6.4+).
 - Does not add runtime CLI tooling. Passport resolution is the user's responsibility — the orchestrator loads from the path the user provides.
 - Does not claim specific token savings numbers. Empirical measurement goes in `docs/PERFORMANCE.md` only after real runs.
 

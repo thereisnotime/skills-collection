@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Imbad0202/academic-research-skills/shared/contracts/passport/literature_corpus_entry.schema.json",
+  "title": "Material Passport Literature Corpus Entry",
+  "description": "One entry in Material Passport Schema 9 literature_corpus[]. Represents a single piece of literature the user has included in their corpus. Produced by user-written adapters; see academic-pipeline/references/adapters/overview.md. ARS does NOT produce these entries itself.",
+
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "citation_key",
+    "title",
+    "authors",
+    "year",
+    "source_pointer"
+  ],
+
+  "properties": {
+    "citation_key": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_:-]*$",
+      "description": "Stable unique identifier for this entry within the passport. Typically BibTeX citekey (e.g., 'chen2024ai'). MUST be unique within literature_corpus[]. Uniqueness is enforced by the CI lint, not by JSON Schema."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/csl_name" },
+      "description": "CSL-JSON name format. Each item is either a personal name ({family, given, ...}) or a corporate/institution name ({literal}). See CSL-JSON spec at https://docs.citationstyles.org/en/stable/specification.html#names."
+    },
+    "year": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 2100,
+      "description": "Publication year. If the adapter cannot determine a year, the entry MUST be rejected (go to rejection_log.yaml) rather than coerced to a placeholder."
+    },
+    "source_pointer": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable URI locating this work in the user's own KB. Examples: 'zotero://select/items/0_ABCD1234', 'obsidian://open?vault=kb&file=Chen2024', 'file:///Users/me/refs/chen2024.pdf', 'https://doi.org/10.1234/xyz'. ARS does NOT dereference this; consumers that want the full text fetch it from the pointer themselves."
+    },
+
+    "venue":                  { "type": "string", "minLength": 1 },
+    "doi": {
+      "type": "string",
+      "pattern": "^10\\.[0-9]{4,9}/[^\\s]+$",
+      "description": "DOI without leading 'doi:' or URL prefix."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "User-assigned tags from the source KB. Adapter-specific; treat as free-form."
+    },
+
+    "obtained_via": {
+      "type": "string",
+      "enum": ["zotero-api", "zotero-bbt-export", "obsidian-vault", "folder-scan", "manual", "other"],
+      "description": "Strongly recommended. Which adapter produced this entry. 'other' is permitted for user-written custom adapters; those SHOULD also set adapter_name. Note: v3.6.4 reference implementations only use 'zotero-bbt-export', 'obsidian-vault', and 'folder-scan'. The remaining enum values ('zotero-api', 'manual') are reserved for user-written adapters and are permitted in the schema so such adapters remain valid without schema extension."
+    },
+    "obtained_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Strongly recommended. ISO 8601 timestamp when the adapter produced this entry."
+    },
+    "adapter_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional. Required when obtained_via='other'."
+    },
+    "adapter_version": {
+      "type": "string",
+      "minLength": 1
+    },
+
+    "abstract": {
+      "type": "string",
+      "description": "PRIVATE FIELD. May contain publisher-copyrighted material. Do NOT share passports containing this field publicly without confirming your right to do so. ARS consumers treat this as optional input; absence never causes failure."
+    },
+    "user_notes": {
+      "type": "string",
+      "description": "PRIVATE FIELD. User's own annotations from their KB. May contain copyrighted excerpts. Same sharing caveat as abstract."
+    }
+  },
+
+  "allOf": [
+    {
+      "description": "When obtained_via='other' (user-written custom adapter), adapter_name MUST be set so consumers can attribute the entry. Reference adapters (folder-scan, zotero-bbt-export, obsidian-vault) and other enum values do not trigger this constraint.",
+      "if": {
+        "properties": { "obtained_via": { "const": "other" } },
+        "required": ["obtained_via"]
+      },
+      "then": {
+        "required": ["adapter_name"]
+      }
+    }
+  ],
+
+  "$defs": {
+    "csl_name": {
+      "oneOf": [
+        { "$ref": "#/$defs/csl_personal_name" },
+        { "$ref": "#/$defs/csl_literal_name" }
+      ]
+    },
+    "csl_personal_name": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family"],
+      "properties": {
+        "family":                { "type": "string", "minLength": 1 },
+        "given":                 { "type": "string" },
+        "suffix":                { "type": "string" },
+        "dropping-particle":     { "type": "string" },
+        "non-dropping-particle": { "type": "string" },
+        "comma-suffix":          { "type": ["string", "boolean"] },
+        "static-ordering":       { "type": ["string", "boolean"] },
+        "parse-names":           { "type": ["string", "boolean"] }
+      }
+    },
+    "csl_literal_name": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["literal"],
+      "properties": {
+        "literal": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

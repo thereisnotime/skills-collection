@@ -84,3 +84,26 @@ resume_from_passport=<hash> [stage=<n>] [mode=<m>]
 There is no path syntax on the resume command itself. Custom passport locations are configured in the project's `CLAUDE.md` or handled by the integrator's tooling before the orchestrator is invoked.
 
 **Empirical token savings:** measurement pending a real `systematic-review` run with instrumentation. This section will be updated with observed token deltas once available; until then, no numeric claim is made. See [`../academic-pipeline/references/passport_as_reset_boundary.md`](../academic-pipeline/references/passport_as_reset_boundary.md) for the full protocol.
+
+## Literature corpus ingestion (v3.6.4+)
+
+The Material Passport `literature_corpus[]` field is populated by user-written adapters, not ARS itself. Three reference adapters ship with v3.6.4: `scripts/adapters/folder_scan.py`, `scripts/adapters/zotero.py`, `scripts/adapters/obsidian.py`. See [`scripts/adapters/README.md`](../scripts/adapters/README.md) for how to run them and how to write your own.
+
+### Performance posture
+
+- Adapters run out-of-band (before an ARS session, not during). Their runtime is the user's problem, not ARS's.
+- Adapters must be deterministic: re-running on identical input produces byte-identical output modulo timestamps.
+- `literature_corpus[]` entries are sorted by `citation_key`; rejections are sorted by `source`.
+- Adapter output size grows linearly with corpus size. A 500-entry Zotero library typically produces a passport of ~300 KB YAML. ARS consumers should lazy-load when the corpus is large.
+
+### What v3.6.4 does NOT do
+
+- Does not ingest PDFs, extract text, or run OCR.
+- Does not call the Zotero Web API, Notion API, or any live service.
+- Does not fetch paywalled content or use user credentials to access institutional libraries.
+
+These boundaries are deliberate and reflect the ARS data-layer decision: ARS is a writing/review-layer framework; corpus integration stays in user-owned code. Users who want API-based live-sync adapters are expected to write them themselves, using the three reference adapters as starting points.
+
+### Consumer-side integration
+
+As of v3.6.4, no ARS agent reads `literature_corpus[]`. The field is a defined input port only. Consumer-side integration (agents that actually USE the corpus for research planning, citation generation, etc.) is deferred to v3.6.5+.

@@ -9,7 +9,16 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 | `deep-research` v2.9.1 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
 | `academic-paper` v3.1.0 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
 | `academic-paper-reviewer` v1.9.0 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.6.3 | Full pipeline orchestrator | (coordinates all above) |
+| `academic-pipeline` v3.6.4 | Full pipeline orchestrator | (coordinates all above) |
+
+## v3.6.4 Key Additions
+
+- **Material Passport `literature_corpus[]` input port**: Schema 9 gains an optional `literature_corpus[]` field defined by `shared/contracts/passport/literature_corpus_entry.schema.json`. Entries carry CSL-JSON authors, year, title, and `source_pointer` back to the user's own KB. `abstract` and `user_notes` are private optional fields with copyright caveats.
+- **Language-neutral adapter contract**: `academic-pipeline/references/adapters/overview.md` specifies how any adapter produces literature_corpus entries. Fail-soft error handling with mandatory `rejection_log.yaml`, deterministic ordering (sort by `citation_key` / `source`), and extension points for user-written adapters.
+- **Three reference Python adapters**: `scripts/adapters/{folder_scan,zotero,obsidian}.py` with tests and fixtures. Starting points only; users are expected to write their own adapters for non-reference corpus sources.
+- **Rejection log contract**: `shared/contracts/passport/rejection_log.schema.json`. Always emitted, empty when no rejections; closed enum of categorical reason values.
+- **CI lint + pytest job**: `scripts/check_literature_corpus_schema.py` validates schemas + examples; `scripts/sync_adapter_docs.py --check` prevents schema→docs drift; new `pytest.yml` workflow runs `scripts/adapters/tests/` on path-filtered triggers.
+- **Not yet shipped**: no ARS agent reads `literature_corpus[]` yet. Consumer-side integration deferred to v3.6.5+. v3.6.4 defines the input port only.
 
 ## v3.6.3 Key Additions
 
@@ -106,7 +115,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Suite version**: 3.6.3 (per CHANGELOG.md)
-- **Last Updated**: 2026-04-23
+- **Suite version**: 3.6.4 (per CHANGELOG.md)
+- **Last Updated**: 2026-04-25
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.6.3-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.6.3)
+[![Version](https://img.shields.io/badge/version-v3.6.4-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.6.4)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -269,6 +269,16 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.6.4（2026-04-25）— Material Passport `literature_corpus[]` 輸入埠
+
+- **Schema 9 新增 `literature_corpus[]`** 選填欄位作為使用者文獻的輸入埠。每筆 entry 符合 `shared/contracts/passport/literature_corpus_entry.schema.json`（CSL-JSON authors / year / title / source_pointer，加上 PRIVATE 選填的 `abstract` / `user_notes`）。
+- **語言中性的 adapter 契約** 放在 `academic-pipeline/references/adapters/overview.md`：任何語言寫的程式都能讀使用者自己的 corpus source 並產出符合契約的 `passport.yaml` + `rejection_log.yaml`。Entry-level 錯誤 fail-soft、adapter-level 錯誤 fail-loud、輸出順序確定。
+- **三個 reference Python adapter** 在 `scripts/adapters/`：`folder_scan.py`（檔案系統的 PDF 資料夾）、`zotero.py`（Better BibTeX JSON export）、`obsidian.py`（vault frontmatter）。僅供起點參考；非 reference source 預期使用者自行實作 adapter。
+- **Rejection log 契約** 在 `shared/contracts/passport/rejection_log.schema.json`，採用封閉 enum 的 categorical reason 值；永遠輸出（無 rejection 時為空）。
+- **CI 把關**：`scripts/check_literature_corpus_schema.py` 驗 schemas + adapter examples；`scripts/sync_adapter_docs.py --check` 防 schema→docs drift；新 `pytest.yml` workflow 在 path-filtered 觸發跑 `scripts/adapters/tests/`。
+- **尚未推進的部分**：v3.6.4 還沒有任何 ARS agent 讀 `literature_corpus[]`。Consumer-side 整合延到 v3.6.5+，v3.6.4 只定義輸入埠。
+- 無破壞性變更。
 
 ### v3.6.3（2026-04-23）— 選用式 Passport 重置邊界
 
