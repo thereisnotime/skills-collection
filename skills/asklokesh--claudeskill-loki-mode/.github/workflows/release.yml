@@ -7,6 +7,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_republish:
+        description: 'Re-run publish jobs even if the GitHub release already exists (for fixing failed Docker/brew jobs)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   # Gate: every downstream job (release, npm, docker, homebrew, ...) waits
@@ -180,7 +189,7 @@ jobs:
 
   notify-slack:
     needs: release
-    if: needs.release.outputs.release_created == 'true'
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (for changelog)
@@ -263,7 +272,7 @@ jobs:
 
   publish-npm:
     needs: release
-    if: needs.release.outputs.release_created == 'true'
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -274,6 +283,15 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun
+        # Required so the npm prepack hook can build the loki-ts dist artifact
+        # before publishing. Without bun on PATH the prepack falls back to the
+        # committed dist (if any) and emits a WARN, which is not desirable for
+        # release builds.
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
 
       - name: Build dashboard frontend
         working-directory: dashboard-ui
@@ -292,7 +310,7 @@ jobs:
 
   publish-python-sdk:
     needs: release
-    if: needs.release.outputs.release_created == 'true'
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -326,7 +344,7 @@ jobs:
 
   publish-ts-sdk:
     needs: release
-    if: needs.release.outputs.release_created == 'true'
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -358,7 +376,7 @@ jobs:
 
   publish-docker:
     needs: release
-    if: needs.release.outputs.release_created == 'true'
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -378,6 +396,19 @@ jobs:
       - name: Verify dashboard static exists
         run: |
           test -f dashboard/static/index.html || { echo "FATAL: dashboard/static/index.html not found after build"; exit 1; }
+
+      - name: Setup Bun (for loki-ts build before docker context)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Build loki-ts dist (Dockerfile COPY needs loki-ts/dist/loki.js)
+        working-directory: loki-ts
+        run: |
+          bun install --production
+          bun run build
+          test -f dist/loki.js || { echo "FATAL: loki-ts/dist/loki.js not built"; exit 1; }
+          ls -la dist/
 
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
@@ -421,7 +452,7 @@ jobs:
 
   update-homebrew:
     needs: [release, publish-npm, publish-docker]
-    if: needs.release.outputs.release_created == 'true'
+    if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Compute SHA256
@@ -456,10 +487,15 @@ jobs:
             license "MIT"
 
             depends_on "node"
+            depends_on "oven-sh/bun/bun"
 
             def install
               libexec.install Dir["*"]
-              bin.install_symlink libexec/"autonomy/loki" => "loki"
+              # v7.4.2 fix (BUG-4): bin/loki is the Bun-aware shim that routes
+              # ported commands to Bun and falls through to autonomy/loki for
+              # everything else. Linking bin/loki (NOT autonomy/loki) is
+              # required for brew users to get the Phase 2/3+ Bun route.
+              bin.install_symlink libexec/"bin/loki" => "loki"
             end
 
             test do

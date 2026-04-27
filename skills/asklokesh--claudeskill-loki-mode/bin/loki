@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+#===============================================================================
+# Loki Mode shim
+#
+# Routes commands ported in Phase 2 (bash->Bun migration) to the Bun CLI;
+# everything else falls through to autonomy/loki (bash).
+#
+# Set LOKI_LEGACY_BASH=1 to force bash for every command (rollback flag).
+# See docs/architecture/ADR-001-runtime-migration.md and
+# /Users/lokesh/.claude/plans/polished-waddling-stardust.md.
+#===============================================================================
+set -euo pipefail
+
+# Resolve script directory (handles symlinks like the bash CLI does).
+_resolve_path() {
+    local script="$1"
+    if command -v realpath &>/dev/null; then
+        realpath "$script" 2>/dev/null || echo "$script"
+    else
+        while [ -L "$script" ]; do
+            local dir
+            dir=$(dirname "$script")
+            script=$(readlink "$script")
+            [[ "$script" != /* ]] && script="$dir/$script"
+        done
+        echo "$script"
+    fi
+}
+
+SCRIPT_PATH=$(_resolve_path "$0")
+SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+REPO_ROOT=$(cd "$SCRIPT_DIR/.." 2>/dev/null && pwd)
+BASH_CLI="$REPO_ROOT/autonomy/loki"
+
+# Resolve which Bun entry to use:
+#   1. LOKI_TS_ENTRY=...   -- explicit override (custom builds, tests)
+#   2. BUN_FROM_SOURCE=1   -- prefer src/cli.ts (used by bench --compare-dist
+#                             and during Phase 3 development before dist ships)
+#   3. dist/loki.js exists -- production path (npm/Docker/Homebrew artifact)
+#   4. fall back to src    -- in-repo development before first build
+#
+# v7.4.2 fix (BUG-1): BUN_FROM_SOURCE=1 used to hard-fail on npm/Docker/brew
+# installs because src/ is excluded by .npmignore. Now we warn once and fall
+# back to dist if src/cli.ts is missing.
+if [ -n "${LOKI_TS_ENTRY:-}" ]; then
+    BUN_CLI="$LOKI_TS_ENTRY"
+elif [ "${BUN_FROM_SOURCE:-0}" = "1" ] || [ "${BUN_FROM_SOURCE:-}" = "true" ]; then
+    if [ -f "$REPO_ROOT/loki-ts/src/cli.ts" ]; then
+        BUN_CLI="$REPO_ROOT/loki-ts/src/cli.ts"
+    elif [ -f "$REPO_ROOT/loki-ts/dist/loki.js" ]; then
+        echo "WARN: BUN_FROM_SOURCE set but loki-ts/src/cli.ts missing (typical for npm/Docker/brew installs); using dist/loki.js" >&2
+        BUN_CLI="$REPO_ROOT/loki-ts/dist/loki.js"
+    else
+        echo "ERROR: BUN_FROM_SOURCE set but neither src/cli.ts nor dist/loki.js found; falling through to bash" >&2
+        exec "$BASH_CLI" "$@"
+    fi
+elif [ -f "$REPO_ROOT/loki-ts/dist/loki.js" ]; then
+    BUN_CLI="$REPO_ROOT/loki-ts/dist/loki.js"
+elif [ -f "$REPO_ROOT/loki-ts/src/cli.ts" ]; then
+    BUN_CLI="$REPO_ROOT/loki-ts/src/cli.ts"
+else
+    # Neither dist nor src available; fall through to bash silently.
+    exec "$BASH_CLI" "$@"
+fi
+
+# v7.4.13: one-shot first-run telemetry, MOVED from autonomy/loki main()
+# into the shim because the 8 ported commands (version, status, doctor,
+# stats, provider, memory) bypass main() entirely -- only unported
+# commands triggered the original hook. Now fires regardless of route.
+# Fire-and-forget; opt-out via LOKI_TELEMETRY_DISABLED=true or
+# DO_NOT_TRACK=1 (mirrors autonomy/telemetry.sh contract).
+if [ -z "${LOKI_TELEMETRY_DISABLED:-}" ] && [ "${DO_NOT_TRACK:-}" != "1" ] && [ ! -f "${HOME}/.loki-first-run" ] 2>/dev/null; then
+    touch "${HOME}/.loki-first-run" 2>/dev/null || true
+    if command -v curl &>/dev/null && [ -f "$REPO_ROOT/autonomy/telemetry.sh" ]; then
+        # Source telemetry helpers + fire installed event in background
+        # so the user does not pay latency on first invocation.
+        ( SCRIPT_DIR="$REPO_ROOT/autonomy"; source "$SCRIPT_DIR/telemetry.sh" 2>/dev/null && loki_telemetry "installed" "first_command=${1:-}" 2>/dev/null ) &
+        disown 2>/dev/null || true
+    fi
+fi
+
+# Force-fall-through to bash when the rollback flag is set.
+if [ "${LOKI_LEGACY_BASH:-0}" = "1" ] || [ "${LOKI_LEGACY_BASH:-}" = "true" ]; then
+    exec "$BASH_CLI" "$@"
+fi
+
+# Bun must be installed for the new path; if it isn't, fall through to bash
+# silently rather than fail. This keeps users on systems without Bun working.
+if ! command -v bun &>/dev/null; then
+    exec "$BASH_CLI" "$@"
+fi
+
+# Commands ported in Phase 2 -- route to Bun. Everything else goes to bash.
+# Two-token routes (provider show/list, memory list/index) match on the first
+# token only; the Bun dispatcher handles subcommand routing internally.
+case "${1:-}" in
+    version|--version|-v|status|stats|doctor|provider|memory)
+        exec bun "$BUN_CLI" "$@"
+        ;;
+    *)
+        exec "$BASH_CLI" "$@"
+        ;;
+esac

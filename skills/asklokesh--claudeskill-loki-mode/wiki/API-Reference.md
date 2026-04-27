@@ -2,6 +2,8 @@
 
 Complete REST API documentation for Loki Mode.
 
+**VERIFIED 2026-04-26** -- Endpoint list re-audited against `dashboard/server.py` route definitions on this date. Endpoints listed under "Recently Added Endpoints" near the bottom are present in `dashboard/server.py` and were not previously documented in this wiki page. No endpoints documented in this page were found missing from `dashboard/server.py` during the audit.
+
 ---
 
 ## Overview
@@ -64,7 +66,7 @@ Get detailed session status. Reads from `.loki/` flat files (dashboard-state.jso
 ```json
 {
   "status": "running",
-  "version": "7.2.0",
+  "version": "7.4.20",
   "uptime_seconds": 1234.5,
   "active_sessions": 1,
   "running_agents": 3,
@@ -1093,6 +1095,114 @@ curl -H "Authorization: Bearer loki_xxx..." http://localhost:57374/api/status
 ```
 
 See [[Enterprise Features]] for details.
+
+---
+
+## Recently Added Endpoints
+
+The following endpoints exist in `dashboard/server.py` but were not previously documented above. They are included here in summary form. Refer to `dashboard/server.py` for request/response schemas; the source is the authoritative reference until the entries above are expanded.
+
+### Discovery
+
+- `GET /api/providers/models` -- list provider model catalog.
+- `GET /.well-known/agent.json` -- agent discovery descriptor (excluded from OpenAPI schema).
+
+### Projects (CRUD)
+
+- `GET /api/projects` -- list projects.
+- `POST /api/projects` -- create project (control scope).
+- `GET /api/projects/{project_id}` -- read project.
+- `PUT /api/projects/{project_id}` -- update project (control scope).
+- `DELETE /api/projects/{project_id}` -- delete project (control scope, 204).
+
+### Tasks (per-id)
+
+- `GET /api/tasks/{task_id}` -- read task.
+- `PUT /api/tasks/{task_id}` -- update task (control scope).
+- `DELETE /api/tasks/{task_id}` -- delete task (control scope, 204).
+- `POST /api/tasks/{task_id}/move` -- reorder/move task (control scope).
+
+### Focus
+
+- `GET /api/focus` -- read current focus selection.
+- `POST /api/focus` -- set focus (control scope).
+- `DELETE /api/focus` -- clear focus (control scope).
+
+### Memory (additional)
+
+- `GET /api/memory/search` -- query the memory store.
+- `GET /api/memory/stats` -- aggregate memory statistics.
+
+### GitHub Integration
+
+- `GET /api/github/status` -- integration status.
+- `GET /api/github/tasks` -- imported issue/task list.
+- `GET /api/github/sync-log` -- recent sync operations.
+
+### Checklist and Waivers
+
+- `GET /api/checklist` -- current checklist state.
+- `GET /api/checklist/summary` -- summary view.
+- `GET /api/checklist/waivers` -- list waivers.
+- `POST /api/checklist/waivers` -- create waiver (control scope).
+- `DELETE /api/checklist/waivers/{item_id}` -- delete waiver (control scope).
+
+### PRD Observations and Council Gate
+
+- `GET /api/prd-observations` -- PRD observation log.
+- `GET /api/council/gate` -- council gate status.
+
+### App Runner
+
+- `GET /api/app-runner/status` -- runtime status of the user app.
+- `GET /api/app-runner/logs` -- streamed logs.
+- `POST /api/control/app-restart` -- restart user app (control scope).
+- `POST /api/control/app-stop` -- stop user app (control scope).
+
+### Playwright Smoke Tests
+
+- `GET /api/playwright/results` -- recent smoke test results.
+- `GET /api/playwright/screenshot` -- screenshot artifact.
+
+### Failures and Prompt Engineering
+
+- `GET /api/failures` -- aggregated failure log.
+- `GET /api/prompt-versions` -- prompt template revision history.
+- `POST /api/prompt-optimize` -- trigger prompt optimization (control scope).
+
+### Activity Feed and Diffs
+
+- `GET /api/activity` -- recent activity entries.
+- `POST /api/activity` -- record activity (control scope).
+- `GET /api/session-diff` -- session-level diff summary.
+
+### Quality Score
+
+- `GET /api/quality-score` -- current quality score.
+- `GET /api/quality-score/history` -- score time series.
+- `POST /api/quality-scan` -- trigger a quality scan (control scope).
+- `GET /api/quality-report` -- latest quality report.
+
+### Migration (Healing) Workflow
+
+- `GET /api/migration/list` -- list migrations (read scope).
+- `POST /api/migration/start` -- start a migration (control scope).
+- `GET /api/migration/{migration_id}/status` -- status (read scope).
+- `GET /api/migration/{migration_id}/plan` -- plan (read scope).
+- `GET /api/migration/{migration_id}/features` -- detected features (read scope).
+- `GET /api/migration/{migration_id}/seams` -- detected seams (read scope).
+- `POST /api/migration/{migration_id}/advance` -- advance phase (control scope).
+- `POST /api/migration/{migration_id}/start-phase` -- start a specific phase (control scope).
+
+### Static Assets
+
+- `GET /favicon.svg` -- favicon (excluded from OpenAPI schema).
+- `GET /` -- dashboard root (excluded from OpenAPI schema).
+- `GET /{full_path:path}` -- catch-all for SPA routing (excluded from OpenAPI schema).
+
+### Deprecated
+
+No endpoints documented in this page were found missing from `dashboard/server.py` as of the verification date. If a deprecation is needed in a future release, it will be marked here.
 
 ---
 

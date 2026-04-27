@@ -52,7 +52,7 @@ Example of a schema-valid finding (all required fields, correct enum values, cor
   "why_it_matters": "The plan acknowledges both deploy orderings produce incorrect state but resolves neither, leaving implementers with no safe deploy recipe.",
   "finding_type": "omission",
   "autofix_class": "gated_auto",
-  "suggested_fix": "Require Units 1-4 to land in a single atomic PR, or define the sequence explicitly.",
+  "suggested_fix": "Require Units 1-4 to land in a single atomic PR.",
   "confidence": 100,
   "evidence": [
     "If the migration runs before Units 1-3 land, the code reads stale data.",
@@ -93,7 +93,18 @@ Rules:
   - Framework-native-API substitutions — a hand-rolled implementation duplicates first-class framework behavior (cite the framework API in `why_it_matters`)
   - Completeness additions mechanically implied by the document's own explicit decisions (not high-level goals — a goal can be satisfied by multiple valid requirements)
 
+- **Classify your `suggested_fix` by what's written, not by the minimum fix that would have resolved the finding.** Ask: *"What's the smallest fix that addresses this issue?"* If your `suggested_fix` is larger — adds inferred claims, opportunistic refactors, or asserts things the document doesn't establish — those additions are part of what the user has to evaluate, so the higher tier applies. Two responses: **trim** the fix back to the minimum to keep `safe_auto` (and emit the trimmed-out content as a separate finding if it carries its own evidence at anchor 50+), or **gate** at `gated_auto` so the user can see and confirm the inferred scope. Trim when the additions are weak or speculative; gate when they're substantively right but the document doesn't compel them.
+
+  Example: a finding flags that Phase B doesn't surface a U6→U7 sequencing dependency declared on U7. The minimum fix — `Add a Phase B note that U7 follows U6` — is `safe_auto` (purely mechanical, the dependency is on the page, just not in this section). Appending `and U4, U5, U8 can proceed in parallel` goes beyond the minimum because the document doesn't establish those units as independent — that's a persona inference. Trim the parallelism claim to recover `safe_auto`, or emit the bundled fix at `gated_auto`.
+
 - `suggested_fix` is required for `safe_auto` and `gated_auto` findings. For `manual` findings, include only when the fix is obvious.
+
+- **`suggested_fix` commits to one recommendation — no menus of alternatives.** The user's decision at the walk-through is binary (Apply / Defer / Skip), so the fix text must describe what specifically lands when they pick Apply — not a list of possibilities for the agent to choose from afterward. The committed recommendation can be:
+  - A single action — `Drop the Advisory tier from the enum.`
+  - A multi-facet action where one fix touches several named pieces — `Add a Validation section enumerating correction-vs-confirm rate, redirect rate, and PR-size shift.`
+  - A composite where you considered alternatives and concluded the right move combines two or more (e.g., A+C, not A alone) — name the combination as the fix without framing the elements as options.
+
+  What's not allowed is an alternative menu that punts the choice to Apply time: `(a)/(b)/(c)` lists, "either X or Y", "consider A, B, or C", "add A or, alternatively, B." The test: at Apply time, would the agent still need to pick which sub-option to implement? If yes, rewrite as the committed choice (single, multi-facet, or composite). If the alternatives are genuinely independent and each worth taking on its own, emit N findings instead. Negative example to avoid: `Add a Validation section that (a) confirms the mechanism works, (b) flags ritualization, and (c) gates Phase B` — leaves the user guessing whether Apply will write all three, pick one, or paraphrase. If the persona's actual recommendation is "do (a) and (c) together," the fix should say so directly: `Add a Validation section that names correction-vs-confirm rate as the working signal and gates Phase B on Phase A's observed value.`
 - If you find no issues, return an empty findings array. Still populate residual_risks and deferred_questions if applicable.
 - Use your suppress conditions. Do not flag issues that belong to other personas.
 
@@ -101,7 +112,7 @@ Writing `why_it_matters` (required field, every finding):
 
 The `why_it_matters` field is how the reader — a developer triaging findings, a reader returning to the doc months later, a downstream automated surface — understands the problem without re-reading the file. Treat it as the most important prose field in your output; every downstream surface (walk-through questions, bulk-action previews, Open Questions entries, headless output) depends on it being good.
 
-- **Lead with observable consequence.** Describe what goes wrong from the reader's or implementer's perspective — what breaks, what gets misread, what decision gets made wrong, what the downstream audience experiences. Do not lead with document structure ("Section X on line Y says..."). Start with the effect ("Implementers will disagree on which tier applies when..."). Section references appear later, only when the reader needs them to locate the issue.
+- **Lead with observable consequence.** Describe what goes wrong from the reader's or implementer's perspective — what breaks, what gets misread, what decision gets made wrong, what the downstream audience experiences. Do not lead with document structure ("Section X on line Y says...") or with quoted document text — a "The plan says X. The brainstorm says Y. Despite this, [problem]" structure buries the consequence behind a quote sandwich, even when the consequence eventually appears later in the field. Start with the effect ("Implementers will disagree on which tier applies when..."), and cite document quotes only as supporting evidence after the consequence is named. Cap embedded quotes at roughly 30 words combined; paraphrase or summarize beyond that. Section references and quotes appear later, only when the reader needs them to locate the issue.
 - **Explain why the fix resolves the problem.** If you include a `suggested_fix`, the `why_it_matters` should make clear why that specific fix addresses the root cause. When a similar pattern exists elsewhere in the document or codebase (a parallel section, an established convention, a cited code pattern), reference it so the recommendation is grounded in what the team has already chosen.
 - **Keep it tight.** Approximately 2-4 sentences. Longer framings are a regression — downstream surfaces have narrow display budgets, and verbose content gets truncated or skimmed.
 - **Always produce substantive content.** `why_it_matters` is required by the schema. Empty strings, nulls, and single-phrase entries are validation failures. If you found something worth flagging at anchor `50` or higher, you can explain it — the field exists because every finding needs a reason.

@@ -5,7 +5,7 @@
     "url": "https://agent-sh.github.io/agentsys",
     "repo": "https://github.com/agent-sh/agentsys",
     "npm": "https://www.npmjs.com/package/agentsys",
-    "version": "5.9.0",
+    "version": "5.12.0",
     "author": "Avi Fenesh",
     "author_url": "https://github.com/avifenesh"
   },
@@ -453,7 +453,7 @@
       "highlights": [
         "Agent-analyzer Phase 1 - git intelligence with 21 queries",
         "Repo-intel integration across 11 plugins",
-        "agnix v0.16.0 - 385 validation rules"
+        "agnix v0.22.0 - 414 validation rules"
       ]
     },
     {

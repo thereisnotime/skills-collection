@@ -43,29 +43,29 @@ After extracting tokens from arguments, resolve the delegation state using this 
 3. **Hard default** -- `false` (delegation off)
 
 **Config (pre-resolved):**
-!`cat "$(git rev-parse --show-toplevel 2>/dev/null)/.compound-engineering/config.local.yaml" 2>/dev/null || cat "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")/.compound-engineering/config.local.yaml" 2>/dev/null || echo '__NO_CONFIG__'`
+!`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.compound-engineering/config.local.yaml" 2>/dev/null) || (common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ] && cat "$(dirname "$common")/.compound-engineering/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
 
 If the block above contains YAML key-value pairs, extract values for the keys listed below.
 If it shows `__NO_CONFIG__`, the file does not exist — all settings fall through to defaults.
 If it shows an unresolved command string, read `.compound-engineering/config.local.yaml` from the repo root using the native file-read tool (e.g., Read in Claude Code, read_file in Codex). If the file does not exist, all settings fall through to defaults.
 
-If any setting has an unrecognized value, fall through to the hard default for that setting.
+If any setting has an unrecognized value, fall through to the hard default for that setting. For optional settings without a hard default (`work_delegate_model`, `work_delegate_effort`), an unrecognized or unparseable value resolves to **unset** — the corresponding flag is omitted from the `codex exec` invocation so Codex resolves from `~/.codex/config.toml`. Never substitute an invalid value into the CLI flags.
 
 Config keys:
 - `work_delegate` -- `codex` or default `false`
 - `work_delegate_consent` -- `true` or default `false`
 - `work_delegate_sandbox` -- `yolo` (default) or `full-auto`
 - `work_delegate_decision` -- `auto` (default) or `ask`
-- `work_delegate_model` -- Codex model to use (default `gpt-5.4`). Passthrough — any valid model name accepted.
-- `work_delegate_effort` -- `minimal`, `low`, `medium`, `high` (default), or `xhigh`
+- `work_delegate_model` -- Codex model to use. Optional — when unset or unparseable, defers to the user's `~/.codex/config.toml` default. Passthrough — any non-empty string is accepted as valid; only YAML parse failures or empty values resolve to unset.
+- `work_delegate_effort` -- one of `minimal`, `low`, `medium`, `high`, or `xhigh`. Optional — when unset or set to a value outside this enum, resolves to unset and defers to the user's `~/.codex/config.toml` default.
 
 Store the resolved state for downstream consumption:
 - `delegation_active` -- boolean, whether delegation mode is on
 - `delegation_source` -- `argument` or `config` or `default` -- how delegation was resolved (used by environment guard to decide notification verbosity)
 - `sandbox_mode` -- `yolo` or `full-auto` (from config or default `yolo`)
 - `consent_granted` -- boolean (from config `work_delegate_consent`)
-- `delegate_model` -- string (from config or default `gpt-5.4`)
-- `delegate_effort` -- string (from config or default `high`)
+- `delegate_model` -- string from config, or unset (defer to Codex config)
+- `delegate_effort` -- string from config, or unset (defer to Codex config)
 
 ---
 

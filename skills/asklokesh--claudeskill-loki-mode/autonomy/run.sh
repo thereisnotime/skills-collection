@@ -3049,7 +3049,16 @@ init_loki_dir() {
             fi
         fi
         if [ "$can_cleanup" = "true" ]; then
+            # v7.4.16: extended stale-signal cleanup. Pre-v7.4.16 only
+            # PAUSE / STOP / HUMAN_INPUT.md were cleaned -- but
+            # PAUSE_AT_CHECKPOINT, PAUSED.md, and COMPLETED were added
+            # to the signal-file family later without updating this
+            # cleanup. A stale PAUSE_AT_CHECKPOINT from a prior session
+            # (created by Ctrl+C in checkpoint mode) caused fresh
+            # `loki start` to pause immediately when PRD-driven mode
+            # auto-switched to checkpoint. User-reported regression.
             rm -f .loki/PAUSE .loki/STOP .loki/HUMAN_INPUT.md 2>/dev/null
+            rm -f .loki/PAUSE_AT_CHECKPOINT .loki/PAUSED.md .loki/COMPLETED 2>/dev/null
             rm -f .loki/loki.pid 2>/dev/null
             rm -f .loki/session.lock 2>/dev/null
         fi
@@ -5786,16 +5795,32 @@ enforce_test_coverage() {
         fi
     fi
 
-    # Python
+    # Python.
+    # v7.4.17: only fire pytest when there is actually a Python project
+    # to test. Pre-v7.4.17 the gate fired on the mere existence of a
+    # `tests/` directory -- which a JS-only project (e.g. `tests/foo.test.js`)
+    # commonly has. pytest then collected 0 tests and the gate reported
+    # FAILED, derailing the next iteration with a fake "fix the tests"
+    # injection. User reported this exact regression in v7.4.15 quick mode.
     if [ "$test_runner" = "none" ]; then
-        if [ -f "${TARGET_DIR:-.}/setup.py" ] || [ -f "${TARGET_DIR:-.}/pyproject.toml" ] || \
-           [ -d "${TARGET_DIR:-.}/tests" ]; then
-            if command -v pytest &>/dev/null; then
-                test_runner="pytest"
-                local output
-                output=$(cd "${TARGET_DIR:-.}" && pytest --tb=short 2>&1) || test_passed=false
-                details="pytest: $(echo "$output" | tail -5 | tr '\n' ' ')"
+        local has_python_project=false
+        if [ -f "${TARGET_DIR:-.}/setup.py" ] || [ -f "${TARGET_DIR:-.}/pyproject.toml" ] \
+           || [ -f "${TARGET_DIR:-.}/setup.cfg" ] || [ -f "${TARGET_DIR:-.}/pytest.ini" ] \
+           || [ -f "${TARGET_DIR:-.}/conftest.py" ]; then
+            has_python_project=true
+        elif [ -d "${TARGET_DIR:-.}/tests" ]; then
+            # Confirm tests/ actually has Python test files.
+            if find "${TARGET_DIR:-.}/tests" -maxdepth 3 -type f \
+                \( -name 'test_*.py' -o -name '*_test.py' -o -name 'conftest.py' \) \
+                -print -quit 2>/dev/null | grep -q .; then
+                has_python_project=true
             fi
+        fi
+        if [ "$has_python_project" = "true" ] && command -v pytest &>/dev/null; then
+            test_runner="pytest"
+            local output
+            output=$(cd "${TARGET_DIR:-.}" && pytest --tb=short 2>&1) || test_passed=false
+            details="pytest: $(echo "$output" | tail -5 | tr '\n' ' ')"
         fi
     fi
 
@@ -6306,6 +6331,15 @@ MANAGED_SELECTION
 
     # Select specialists via keyword scoring (python3 reads files, not env vars)
     # Loads from agents/types.json when available, falls back to hardcoded pool (v6.7.0)
+    # v7.4.20: gate legacy-healing-auditor on healing-mode signals to match
+    # the documented contract in skills/quality-gates.md (Gate 10).
+    local healing_active="false"
+    if [ "${LOKI_HEAL_MODE:-}" = "true" ] || [ "${LOKI_HEAL_MODE:-}" = "1" ]; then
+        healing_active="true"
+    elif [ -f "${PROJECT_DIR}/.loki/healing/friction-map.json" ]; then
+        healing_active="true"
+    fi
+    export LOKI_REVIEW_HEALING_ACTIVE="$healing_active"
     export LOKI_REVIEW_DIFF_FILE="$diff_file"
     export LOKI_REVIEW_FILES_FILE="$files_file"
     export LOKI_AGENTS_TYPES_FILE="${PROJECT_DIR}/agents/types.json"
@@ -6393,6 +6427,16 @@ if files_path and os.path.exists(files_path):
 
 search_text = diff_text + " " + files_text
 
+# v7.4.20: gate legacy-healing-auditor on healing-mode signals to match
+# skills/quality-gates.md (Gate 10) which documents it as conditional. The
+# auditor BLOCKs on missing characterization tests / missing adapters, which
+# is a contract a greenfield project never agreed to maintain. agentbudget
+# regression: the auditor pinned 9 of 10 iterations to forced PAUSE because
+# common tokens like "refactor"/"adapter" landed it in the keyword pool.
+healing_active = os.environ.get("LOKI_REVIEW_HEALING_ACTIVE", "false") == "true"
+if not healing_active and "legacy-healing-auditor" in SPECIALISTS:
+    del SPECIALISTS["legacy-healing-auditor"]
+
 # Score each specialist by keyword matches
 scores = {}
 for name, spec in SPECIALISTS.items():
@@ -6430,7 +6474,7 @@ result = {
 print(json.dumps(result))
 SPECIALIST_SELECT
     )
-    unset LOKI_REVIEW_DIFF_FILE LOKI_REVIEW_FILES_FILE LOKI_AGENTS_TYPES_FILE
+    unset LOKI_REVIEW_DIFF_FILE LOKI_REVIEW_FILES_FILE LOKI_AGENTS_TYPES_FILE LOKI_REVIEW_HEALING_ACTIVE
 
     if [ -z "$selected_specialists" ]; then
         log_error "Code review: Specialist selection failed"
@@ -8032,9 +8076,40 @@ except Exception:
 # structured completion claim. When the signal exists, we read it, log the
 # structured event, and consume (remove) the file. Returns 0 on detection.
 #
+# v7.4.17: also accepts a file-based fallback at .loki/signals/
+# COMPLETION_REQUESTED -- the LLM can `touch` this file directly when the
+# MCP tool isn't surfaced in its environment (e.g., harness limitations,
+# Codex CLI, Gemini CLI). User reproduction: the LLM said "the
+# loki_complete_task MCP tool isn't loaded in this environment" and
+# tried to signal completion via state files; we now honor that.
+#
 # Output on stdout: the JSON payload (for callers that want to log it).
 check_task_completion_signal() {
     local signal_file=".loki/signals/TASK_COMPLETION_CLAIMED"
+    local fallback_file=".loki/signals/COMPLETION_REQUESTED"
+
+    # Prefer the structured MCP-tool signal if present.
+    if [ ! -f "$signal_file" ] && [ -f "$fallback_file" ]; then
+        # Fallback path: synthesize a minimal payload from the optional
+        # contents of COMPLETION_REQUESTED (LLM may have written a
+        # statement; if not, use a generic one).
+        local fb_content
+        fb_content=$(cat "$fallback_file" 2>/dev/null || echo "")
+        local fb_statement="${fb_content:-All PRD requirements implemented and tests passing}"
+        # Build minimal JSON payload
+        signal_file="$fallback_file"
+        # Write the synthesized payload back into the signal file so the
+        # rest of this function can read it uniformly.
+        python3 -c "
+import json, sys
+print(json.dumps({
+    'statement': sys.argv[1][:1000],
+    'evidence': 'file-based completion via COMPLETION_REQUESTED fallback',
+    'confidence': 'medium',
+    'source': 'completion_requested_file_fallback'
+}))" "$fb_statement" > "$fallback_file" 2>/dev/null || echo '{}' > "$fallback_file"
+    fi
+
     if [ ! -f "$signal_file" ]; then
         return 1
     fi
@@ -8938,10 +9013,16 @@ build_prompt() {
     # (defined in mcp/server.py) with completion_statement + evidence fields,
     # instead of emitting a prose completion string.
     local completion_instruction=""
+    # v7.4.17: explicit fallback path. The loki_complete_task MCP tool is
+    # not always surfaced in the LLM's environment (Codex CLI, Gemini CLI,
+    # certain Claude Code harness configs). When unavailable, the LLM
+    # should `touch .loki/signals/COMPLETION_REQUESTED` instead -- the
+    # runner's check_task_completion_signal honors that file as a
+    # synthesized completion claim with confidence=medium.
     if [ -n "$COMPLETION_PROMISE" ]; then
-        completion_instruction="COMPLETION_PROMISE: [$COMPLETION_PROMISE]. When all PRD requirements are implemented, tests pass, and the PRD checklist is at or near 100%, invoke the loki_complete_task MCP tool with your completion_statement and evidence (cite tests that passed, checklist items verified, files created/modified). Do NOT emit a completion string in prose -- use the tool call."
+        completion_instruction="COMPLETION_PROMISE: [$COMPLETION_PROMISE]. When all PRD requirements are implemented, tests pass, and the PRD checklist is at or near 100%, invoke the loki_complete_task MCP tool with your completion_statement and evidence (cite tests that passed, checklist items verified, files created/modified). Do NOT emit a completion string in prose -- use the tool call. FALLBACK: if the loki_complete_task tool is not available in your environment, instead run \`touch .loki/signals/COMPLETION_REQUESTED\` (optionally write a one-line statement to that file via \`echo 'statement' > .loki/signals/COMPLETION_REQUESTED\`); the runner detects this file and treats it as a completion claim."
     else
-        completion_instruction="NO COMPLETION PROMISE SET. Continue finding improvements. The Completion Council will evaluate your progress periodically. Iteration $iteration of max $MAX_ITERATIONS. If you do decide the task is complete, invoke the loki_complete_task MCP tool with a structured statement and evidence rather than emitting prose."
+        completion_instruction="NO COMPLETION PROMISE SET. Continue finding improvements. The Completion Council will evaluate your progress periodically. Iteration $iteration of max $MAX_ITERATIONS. If you do decide the task is complete, invoke the loki_complete_task MCP tool with a structured statement and evidence rather than emitting prose. FALLBACK if that tool is unavailable: \`touch .loki/signals/COMPLETION_REQUESTED\`."
     fi
 
     # Core autonomous instructions - NO questions, NO waiting, NEVER say done
@@ -9224,7 +9305,11 @@ except Exception:
         spec_count=$(find "$magic_specs_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
         if [ "$spec_count" -gt 0 ]; then
             local spec_list
-            spec_list=$(find "$magic_specs_dir" -maxdepth 1 -name "*.md" -exec basename {} .md \; 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+            # v7.4.9: pipe through `sort` so output is filesystem-independent.
+            # Pre-v7.4.9 this was raw `find` order which varies between macOS
+            # (APFS creation order) and Linux (ext4 hash-table order). Sorting
+            # alphabetically here matches the TS port which now also sorts.
+            spec_list=$(find "$magic_specs_dir" -maxdepth 1 -name "*.md" -exec basename {} .md \; 2>/dev/null | sort | tr '\n' ',' | sed 's/,$//')
             magic_context="MAGIC_MODULES: ${spec_count} component specs exist: ${spec_list}. To add or update a component: write markdown to ${magic_specs_dir}/<Name>.md and run 'loki magic update'. The spec becomes source of truth; implementation regenerates automatically. Debate runs in VERIFY phase -- if accessibility or performance blocks, refine the spec and re-run."
         else
             magic_context="MAGIC_MODULES: available. To create UI components, write spec at ${magic_specs_dir}/<Name>.md and run 'loki magic update'. Spec-driven generation produces React + Web Component variants with auto-generated tests. Debate gate runs in VERIFY."
@@ -10616,11 +10701,36 @@ def process_stream():
                             save_agents()
                             print(f"\n{MAGENTA}[Agent Spawned: {agent_type}]{NC} {description}", flush=True)
 
-                        # Track TodoWrite for task updates
+                        # Track TodoWrite for task updates.
+                        # v7.4.17: enrich the entry so the dashboard task-detail
+                        # modal has more than a one-liner. TodoWrite items are
+                        # internal LLM scratch (not PRD-derived work) so they
+                        # do not have acceptance_criteria or user stories, but
+                        # we surface the activeForm and a source tag.
+                        # Note: this whole block is inside a python3 -u -c
+                        # single-quoted shell string -- avoid apostrophes.
                         elif tool == "TodoWrite":
                             todos = tool_input.get("todos", [])
                             in_progress = [t for t in todos if t.get("status") == "in_progress"]
-                            save_in_progress([{"id": f"todo-{i}", "type": "todo", "payload": {"action": t.get("content", "")}} for i, t in enumerate(in_progress)])
+                            enriched = []
+                            for i, t in enumerate(in_progress):
+                                content = t.get("content", "")
+                                active_form = t.get("activeForm", "") or content
+                                enriched.append({
+                                    "id": f"todo-{i}",
+                                    "type": "todo",
+                                    "title": content,
+                                    "description": (
+                                        "Internal task tracked by the agent TodoWrite tool. "
+                                        "This is LLM scratch, not a PRD-derived work item, so "
+                                        "it has no acceptance criteria or user story. "
+                                        "Active form: " + active_form
+                                    ),
+                                    "source": "claude_code_todowrite",
+                                    "priority": "medium",
+                                    "payload": {"action": content, "activeForm": active_form},
+                                })
+                            save_in_progress(enriched)
                             print(f"\n{CYAN}[Tool: {tool}]{NC} {len(todos)} items", flush=True)
 
                         else:

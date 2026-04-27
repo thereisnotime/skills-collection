@@ -38,6 +38,18 @@
 1. **階段間 cache miss 是常態。** 當 stage checkpoint 停留超過 5 分鐘，下一階段會以未快取狀態讀取 context。這是 human-paced pipeline 不可避免的成本。
 2. **跨 session 續跑依賴 Material Passport。** ARS 本身不跨 session 保留 orchestrator 狀態。要在新 session 續跑，把 Material Passport YAML 貼回即可；orchestrator 讀取 `compliance_history[]` 與階段完成標記定位中斷點。
 
+### v3.6.2 Sprint Contract 審稿成本（`full` / `methodology-focus` 模式必跑）
+
+Schema 13 sprint contract 把每個 reviewer agent 切成 Phase 1（不見論文、先承諾評分準則）+ Phase 2（看論文做審稿）兩階段。已 ship template 的兩個模式（`full` panel 5 + `methodology-focus` panel 2）下，每位 reviewer 約等於跑兩個 LLM turn。保留模式（`re-review` / `calibration` / `guided` / `quick`）維持 pre-v3.6.2 行為。
+
+| Skill / 模式 | Token 影響 | 備註 |
+|---|---|---|
+| `academic-paper-reviewer full` | 每位 reviewer 約 +30-40% input + 小幅 output × 5 位 | Phase 1 讀 contract template + 論文 metadata；Phase 2 讀完整論文 |
+| `academic-paper-reviewer methodology-focus` | 同上 shape，panel 2 | EIC + methodology 兩位 reviewer 各跑兩階段 |
+| Synthesizer（固定一個）| +~2-3K input | 讀 contract + 各 reviewer 輸出，跑三步機械協議 |
+
+實測待真實大規模審稿後校準。兩階段架構是 gated mode 的不可選 overhead，不是 tunable。
+
 ### v3.4.0 compliance agent 成本
 
 在 Stage 2.5 與 Stage 4.5 加上 mode-aware `compliance_agent` 會讓 SR 全 pipeline token 多出：
@@ -96,7 +108,7 @@ Material Passport 的 `literature_corpus[]` 欄位由**使用者自行撰寫的 
 - `literature_corpus[]` 依 `citation_key` 排序；`rejection_log.rejected[]` 依 `source` 排序。
 - Adapter 輸出大小與語料庫大小線性成長。500 筆 Zotero 書目約產出 300 KB 的 passport YAML。大型語料庫建議 ARS 消費端採 lazy load。
 
-### v3.6.4 **不做** 的事
+### 導入層邊界
 
 - 不讀 PDF 內容、不做文字抽取、不跑 OCR。
 - 不呼叫 Zotero Web API、Notion API 或任何遠端服務。
@@ -106,4 +118,19 @@ Material Passport 的 `literature_corpus[]` 欄位由**使用者自行撰寫的 
 
 ### 消費端整合
 
-v3.6.4 時沒有任何 ARS agent 讀取 `literature_corpus[]`。此欄位僅為 input port 定義，消費端整合（agent 實際使用語料做研究規劃 / citation 生成 / ...）留待 v3.6.5+。
+v3.6.5 起，Phase 1 兩個文獻 agent 透過 **corpus-first、search-fills-gap** 流程讀取 `literature_corpus[]`：`deep-research/agents/bibliography_agent.md` 與 `academic-paper/agents/literature_strategist_agent.md`。兩者走相同的五步流程與四條 Iron Rule（Same criteria / No silent skip / No corpus mutation / Graceful fallback on parse failure）。Search Strategy 報告新增 PRE-SCREENED 可重現區塊，列出已納入／排除／略過的 corpus entry，並含 F3 zero-hit 與 F4 provenance 報告。消費端啟動採 presence-based — passport 帶非空 `literature_corpus[]` 且解析成功時自動進入；解析失敗時 fallback 到 external-DB-only flow，並 surface `[CORPUS PARSE FAILURE]`。
+
+完整 consumer 協定見 [`academic-pipeline/references/literature_corpus_consumers.md`](../academic-pipeline/references/literature_corpus_consumers.md)。`citation_compliance_agent` 的 corpus 整合留到 v3.6.6+。
+
+### v3.6.5 corpus consumer 成本（presence 觸發）
+
+Material Passport 帶非空 `literature_corpus[]` 時，Phase 1 讀取量隨 corpus 大小線性增長。PRE-SCREENED block 的 emit 本身屬 prompt-layer（成本可忽略）；LLM 成本來自 Step 1 pre-screening — 對每筆 corpus entry 套用當前 Inclusion / Exclusion 條件，比對 `title`（一定有）與已填的選填欄位（`abstract` / `tags`）。
+
+| Corpus 規模 | Step 1 pre-screening（每位 consumer）| 備註 |
+|---|---|---|
+| 空 / 不存在 | 0 | external-DB-only flow 維持原樣 |
+| ~50 筆（典型 Zotero 子集）| +~3-5K input + ~1-2K output | title + abstract 掃描 |
+| ~200 筆 | +~10-15K input + ~3-5K output | title-only 掃描為主，abstract 視填充情況 |
+| ~500 筆（大型文獻庫）| +~25-40K input + ~8-12K output | passport emit 前考慮先精簡 corpus |
+
+Step 2 search-fills-gap 在 `uncovered_topics` 小（case A）時會降低 external-DB 成本，可部分抵銷 Step 1。淨效應實測待真實 SR run instrumentation 後校準；目前不下總體數字結論。Parse 失敗約一個短 turn 成本（parse + emit `[CORPUS PARSE FAILURE]` + fallback）。

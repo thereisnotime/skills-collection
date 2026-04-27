@@ -35,12 +35,18 @@
 
 ## Get Started in 30 Seconds
 
+**Recommended (Bun, fastest):**
+
 ```bash
-npm install -g loki-mode
-loki doctor                        # verify environment
+# Install Bun once (skip if you already have it)
+curl -fsSL https://bun.sh/install | bash      # macOS / Linux
+# or: brew install oven-sh/bun/bun
+
+bun install -g loki-mode
+loki doctor                                   # verify environment
 loki init my-app --template simple-todo-app
 cd my-app
-loki start prd.md                  # autonomous build starts
+loki start prd.md                             # autonomous build starts
 ```
 
 Or skip scaffolding and go straight to a quick task:
@@ -48,6 +54,66 @@ Or skip scaffolding and go straight to a quick task:
 ```bash
 loki quick "build a landing page with a signup form"
 ```
+
+**Other install methods (all work, all keep working):**
+
+| Method | Command | Notes |
+|--------|---------|-------|
+| **Bun (recommended)** | `bun install -g loki-mode` | Fastest. v8 will be Bun-only. |
+| **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` | Auto-installs Bun as a dep |
+| **Docker** | `docker pull asklokesh/loki-mode && docker run --rm asklokesh/loki-mode start prd.md` | Bun pre-installed in image |
+| **npm (compat)** | `npm install -g loki-mode` | Works without Bun (bash fallback). Migrate any time with `loki self-update --to bun`. |
+
+**Upgrading:**
+
+```bash
+loki self-update                  # upgrade in place via current manager
+loki self-update --to bun         # switch from npm/brew to Bun
+loki self-update --check          # show current install path + manager
+```
+
+`loki self-update` auto-detects which package manager installed loki and runs the right upgrade. If you installed via npm and want to switch to Bun (recommended for v8.0.0 forward-compat), `loki self-update --to bun` does the migration in one command (installs via Bun first, then uninstalls the npm copy).
+
+See the [Installation Guide](docs/INSTALLATION.md) for the long form.
+
+---
+
+## Runtime Architecture
+
+Loki Mode is in the middle of a phased migration from a Bash-based runtime to a TypeScript/Bun runtime. The work is happening on the `feat/bun-migration` branch and is being shipped incrementally.
+
+**What ships today:**
+
+- A small set of read-only commands is routed to the Bun runtime when `bun` is on `PATH`. The router lives in `bin/loki` and currently routes: `version`, `--version`, `-v`, `status`, `stats`, `doctor`, `provider` (covers `provider show` and `provider list`), `memory` (covers `memory list` and `memory index`).
+- Every other command continues to execute on the existing Bash CLI (`autonomy/loki`).
+- If `bun` is not on `PATH`, the shim falls through to Bash silently. Existing users without Bun installed see no behavior change.
+
+**Rollback flag:**
+
+Force every command to take the legacy Bash path:
+
+```bash
+LOKI_LEGACY_BASH=1 loki <cmd>
+```
+
+This is the documented escape hatch for any user who hits a regression on the Bun route. The Bash path remains the source of truth through Phase 5.
+
+**Phase 6 (planned, calendar TBD):**
+
+The next major release sunsets the Bash runtime entirely. There is no firm calendar date. Users who need to stay on the Bash route should pin the last v7.x release.
+
+**Cost:**
+
+- Adds a Bun runtime dependency (Bun 1.3.0 or newer recommended; the shim works as long as `bun` resolves).
+- Adds a Bun toolchain to the system (Bun itself is roughly 50 MB installed via `brew install` or the official curl installer). The published `loki-ts/dist/loki.js` bundle inside the npm tarball is approximately 152 KB.
+- Speedup on the ported commands is measured in `.loki/metrics/migration_bench_soak.jsonl` and analysed in [ADR-001](docs/architecture/ADR-001-runtime-migration.md). Recorded soak results show roughly 3x to 5x faster execution on the ported commands (per-command range 2.9x to 5.0x); treat as indicative, not contractual.
+
+**More:**
+
+- [UPGRADING.md](UPGRADING.md) -- per-version upgrade and rollback guidance.
+- [ADR-001: Runtime Migration](docs/architecture/ADR-001-runtime-migration.md) -- design rationale and phase definitions.
+
+---
 
 <details>
 <summary><strong>Other install methods</strong></summary>

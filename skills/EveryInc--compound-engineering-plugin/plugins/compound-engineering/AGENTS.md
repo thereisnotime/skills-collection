@@ -213,9 +213,9 @@ Plugin config lives at `.compound-engineering/config.local.yaml` in the repo roo
 
 2. **Worktrees:** Gitignored files are per-worktree. A config file created in the main checkout does not exist in worktrees. When reading config, fall back to the main repo root if the file is missing in the current worktree:
    ```
-   !`cat "$(git rev-parse --show-toplevel 2>/dev/null)/.compound-engineering/config.local.yaml" 2>/dev/null || cat "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)")/.compound-engineering/config.local.yaml" 2>/dev/null || echo '__NO_CONFIG__'`
+   !`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.compound-engineering/config.local.yaml" 2>/dev/null) || (common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ] && cat "$(dirname "$common")/.compound-engineering/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
    ```
-   The first `cat` tries the current worktree root. The second derives the main repo root from `git-common-dir` as a fallback. In a regular (non-worktree) checkout, both paths are identical.
+   The first subshell tries the current worktree root. The second derives the main repo root from `git-common-dir` as a fallback. The `[ -n "$top" ]` and `[ -n "$common" ]` guards matter: outside a git repo, both `git rev-parse` invocations emit empty, and an unguarded `cat "$(dirname "")/.compound-engineering/config.local.yaml"` would resolve to a CWD-relative `./...config.local.yaml` and could succeed against a stray file in the user's working directory. Guarded, both branches simply fail and the `__NO_CONFIG__` sentinel takes over. In a regular (non-worktree) checkout, both repo paths are identical.
 
 If neither path has the file, fall through to defaults — never fail or block on missing config.
 

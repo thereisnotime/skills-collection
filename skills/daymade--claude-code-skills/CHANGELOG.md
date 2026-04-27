@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-04-26
+
+### Added
+- **debugging-network-issues** v1.0.0: Evidence-driven, falsification-first methodology for network, streaming, and protocol-layer bugs where the obvious cause is probably wrong. Built from a real 5-hour production case (SSE RST_STREAM at exactly 130s, traced to a CGNAT idle timeout). Provides layered-isolation experiments (run the same logical request through 3+ paths differing by one hop), env-gated runtime instrumentation patterns, and a counter-review four-question filter to challenge single-cause assumptions before shipping a fix. Bundles probe scripts (`layered-isolation-probe.sh`, `mock-idle-upstream.py`) and reference docs covering counter-review, packet-capture recipes, instrumentation patterns, and cognitive traps. Triggers on `ECONNRESET`, HTTP/2 `RST_STREAM`, `INTERNAL_ERROR`, fixed-time SSE drops, CDN/proxy/CGNAT idle timeouts, and "works sometimes / fails after N seconds" patterns.
+- **stepfun-tts** v1.0.0: Generate Chinese/Japanese speech with `stepaudio-2.5-tts` and transcribe long audio with `stepaudio-2.5-asr` (SSE endpoint, 32K context, ~100x RTF, up to 30-minute single call). Encapsulates the three non-obvious StepAudio 2.5 pitfalls that cost hours: `voice_label` removal (replaced by `instruction` + inline `()` prosody), `/v1/audio/asr/sse` endpoint mismatch (returns misleading `model not supported` error otherwise), and stricter censorship rules. Bundled scripts: `tts_generate.py` (with `--batch <jsonl>`), `asr_transcribe.py`, `ab_compare.sh`. API key resolution: `$STEPFUN_API_KEY` → `${CLAUDE_PLUGIN_DATA}/config.json` fallback. Reference docs cover migration from `step-tts-2`, the censorship rewrite list, and the verified-on-2026-04-23 known-issues registry.
+
+### Changed
+- Marketplace skill count: 49 → 51
+- Marketplace plugin entry count: 53 → 55
+- Marketplace version: 1.50.0 → 1.51.0
+- README.md, README.zh-CN.md: badges, descriptions, skill sections (#49 + #50), Use Cases entries, Documentation Quick Links, Requirements
+- CLAUDE.md: overview count, marketplace plugin count, Available Skills list
+
+### Note
+Plugin entries for these two skills were inadvertently committed in v1.50.0's path-rewrite operation (the entries existed as uncommitted draft modifications in `marketplace.json` and were carried along when that file was rewritten). v1.51.0 completes the registration that v1.50.0 left half-done by landing the skill directories themselves and synchronizing all documentation surfaces.
+
+## [1.50.0] - 2026-04-26
+
+### Changed
+- **Suite directory flattening**: Moved both suite directories from `suites/<suite-name>/` to the repo root: `suites/daymade-docs/` → `daymade-docs/` and `suites/daymade-claude-code/` → `daymade-claude-code/`. The `suites/` intermediate directory has been removed. Plugin names, install commands, and skill invocations are unchanged for end users — only the on-disk layout and the `source` paths in `marketplace.json` (and doc links) were affected. `claude plugin update` will re-fetch from the new paths automatically.
+- Updated all 15 `source` entries in `.claude-plugin/marketplace.json` from `./suites/<suite>/...` to `./<suite>/...`.
+- Updated documentation references in `CLAUDE.md`, `README.md`, `README.zh-CN.md`, `references/new-skill-guide.md`, `daymade-claude-code/marketplace-dev/SKILL.md`, and `daymade-claude-code/marketplace-dev/references/cache_and_source_patterns.md`.
+- Fixed pre-existing double-prefix typo (`suites/daymade-claude-code/suites/daymade-claude-code/...`) in two README locations during the path rewrite.
+
+## [1.49.0] - 2026-04-19
+
+### Added
+- **slides-creator** v1.0.0: Narrative-first slide deck creation. Guides users through structured narrative design (ABCDEFG model), then delegates visual generation to baoyu-slide-deck. Focuses on what machines can't do — narrative co-design with humans. Six-phase workflow: source collection → narrative discussion → content structuring → prompt generation → image generation → post-processing with directory reorganization and speaker notes extraction. Triggers on "create slides", "make a presentation", "generate deck", "slide deck", "PPT", or when user needs to turn content into visual slides.
+
+### Changed
+- Updated marketplace skills count from 48 to 49
+- Updated marketplace plugin entries from 52 to 53
+- Updated marketplace version from 1.48.0 to 1.49.0
+- Updated README.md badges, skill listings, use cases, and documentation quick links
+- Updated README.zh-CN.md badges, skill listings, use cases, and documentation quick links
+- Updated CLAUDE.md skill count (48 → 49), plugin entry count (52 → 53), and Available Skills list
+
 ## [1.48.0] - 2026-04-19
 
 ### Added

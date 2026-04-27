@@ -42,10 +42,10 @@ between releases).
 !`version=$(gh api repos/EveryInc/compound-engineering-plugin/contents/plugins/compound-engineering/.claude-plugin/plugin.json --jq '.content | @base64d | fromjson | .version' 2>/dev/null) && [ -n "$version" ] && echo "$version" || echo '__CE_UPDATE_VERSION_FAILED__'`
 
 **Currently loaded version:**
-!`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/compound-engineering/*/skills/ce-update) basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" ;; *) echo '__CE_UPDATE_NOT_MARKETPLACE__' ;; esac`
+!`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/compound-engineering/.*/skills/ce-update$" && basename "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")" || echo '__CE_UPDATE_NOT_MARKETPLACE__'`
 
 **Marketplace name:**
-!`case "${CLAUDE_SKILL_DIR}" in */plugins/cache/*/compound-engineering/*/skills/ce-update) basename "$(dirname "$(dirname "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")")")" ;; *) echo '__CE_UPDATE_NOT_MARKETPLACE__' ;; esac`
+!`echo "${CLAUDE_SKILL_DIR}" | grep -q "/plugins/cache/.*/compound-engineering/.*/skills/ce-update$" && basename "$(dirname "$(dirname "$(dirname "$(dirname "${CLAUDE_SKILL_DIR}")")")")" || echo '__CE_UPDATE_NOT_MARKETPLACE__'`
 
 ## Decision logic
 

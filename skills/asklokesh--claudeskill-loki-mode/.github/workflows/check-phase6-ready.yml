@@ -1,0 +1,112 @@
+name: Phase 6 Readiness (weekly)
+
+# Runs `bun loki-ts/scripts/check-phase6-ready.ts` weekly. Uploads the
+# result as an artifact. If a precondition fails for the first time (no
+# open issue with the `phase6-not-ready` label), opens a tracking issue.
+
+on:
+  schedule:
+    # Mondays at 08:00 UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  check-phase6:
+    name: check-phase6-ready
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install loki-ts dependencies
+        working-directory: loki-ts
+        run: bun install
+
+      - name: Run check-phase6-ready
+        id: check
+        working-directory: loki-ts
+        run: |
+          set +e
+          bun run scripts/check-phase6-ready.ts | tee /tmp/phase6-output.txt
+          ec=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
+          if [ "$ec" -eq 0 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Capture JSON snapshot (best-effort)
+        if: always()
+        run: |
+          mkdir -p /tmp/phase6
+          cp /tmp/phase6-output.txt /tmp/phase6/output.txt 2>/dev/null || true
+          # Synthesize a JSON envelope so downstream tooling has structured data.
+          python3 - <<'PY'
+          import json, os
+          out = ""
+          try:
+              with open("/tmp/phase6-output.txt") as f:
+                  out = f.read()
+          except Exception:
+              pass
+          envelope = {
+              "exit_code": int("${{ steps.check.outputs.exit_code }}" or "1"),
+              "ready": "${{ steps.check.outputs.ready }}" == "true",
+              "output": out,
+              "ref": os.environ.get("GITHUB_REF", ""),
+              "sha": os.environ.get("GITHUB_SHA", ""),
+          }
+          with open("/tmp/phase6/result.json", "w") as f:
+              json.dump(envelope, f, indent=2)
+          PY
+
+      - name: Upload Phase 6 readiness artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase6-readiness
+          path: /tmp/phase6/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Open issue on first-time failure
+        if: steps.check.outputs.ready == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing=$(gh issue list --label phase6-not-ready --state open --json number --jq '.[0].number' || echo "")
+          if [ -n "$existing" ]; then
+            echo "Existing tracking issue #$existing -- not opening a duplicate"
+            exit 0
+          fi
+          TITLE="Phase 6 readiness regression ($(date -u +%Y-%m-%d))"
+          {
+            echo "Weekly Phase 6 readiness check failed."
+            echo ""
+            echo "Output:"
+            echo '```'
+            cat /tmp/phase6-output.txt
+            echo '```'
+            echo ""
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > /tmp/phase6/issue-body.md
+          gh issue create --title "$TITLE" --body-file /tmp/phase6/issue-body.md --label phase6-not-ready || \
+            gh issue create --title "$TITLE" --body-file /tmp/phase6/issue-body.md

@@ -6,9 +6,10 @@ Thank you for your interest in contributing to Loki Mode. This guide covers ever
 
 ### Prerequisites
 
-- **Bash 4+** (macOS ships with 3.x; install via `brew install bash`)
-- **Node.js 16+** (for dashboard frontend)
-- **Python 3.10+** (for dashboard backend and memory system)
+- **Bun 1.3+** (`brew install oven-sh/bun/bun` or `curl -fsSL https://bun.sh/install | bash`) -- powers the TypeScript runner under `loki-ts/`
+- **Bash 4+** (macOS ships 3.x; install via `brew install bash` or use Bun-route commands which are bash-version-agnostic)
+- **Node.js 18+** (npm tooling, dashboard frontend)
+- **Python 3.12** (dashboard backend, memory system, MCP server). Python 3.14 is NOT compatible with `chromadb` -- use 3.12 explicitly.
 - **jq** (`brew install jq` or `apt-get install jq`)
 - **Git**
 
@@ -18,39 +19,89 @@ Thank you for your interest in contributing to Loki Mode. This guide covers ever
 git clone https://github.com/asklokesh/loki-mode.git
 cd loki-mode
 
-# Install dashboard frontend dependencies
+# loki-ts (TypeScript runner; Bun)
+cd loki-ts && bun install && cd ..
+
+# Dashboard frontend (npm)
 cd dashboard-ui && npm install && cd ..
 
-# Install dashboard backend dependencies (optional, for API development)
+# Dashboard backend + memory system (Python; optional unless touching those areas)
 pip install -r dashboard/requirements.txt
 ```
 
-## Running Tests
+## Runtime architecture (read this first)
 
-### Shell Syntax Validation
+Loki Mode runs on two routes that share the same `.loki/` state contract:
+
+- **Bun route** (`bin/loki` shim -> `loki-ts/dist/loki.js`): handles 8 read-only commands (`version`, `status`, `stats`, `doctor`, `provider show/list`, `memory list/index`) plus the runner loop on `feat/bun-migration` after v7.4.x. ~3-5x faster than bash on these commands.
+- **Bash route** (`autonomy/loki`): handles every other command. The shim falls through silently when bun is not on PATH so npm-without-Bun installs keep working.
+
+`LOKI_LEGACY_BASH=1` forces the bash route for every command. See [docs/architecture/ADR-001-runtime-migration.md](docs/architecture/ADR-001-runtime-migration.md).
+
+## Running tests
+
+### TypeScript (Bun)
+
+```bash
+cd loki-ts
+bun run typecheck       # tsc --noEmit, strict
+bun test                # full unit + parity + integration suite
+bun test --coverage     # coverage report (lcov + text summary)
+```
+
+The full suite is ~550 tests / ~45 seconds and must be green before submitting.
+
+### Bash CLI dual-route tests
+
+```bash
+# Bun route (default if bun is on PATH)
+bash tests/test-cli-commands.sh
+
+# Bash route (LOKI_LEGACY_BASH=1 forces fallthrough)
+LOKI_LEGACY_BASH=1 bash tests/test-cli-commands.sh
+```
+
+Both routes must report 14/14 passed. Add new CLI tests to `tests/test-cli-commands.sh` when you add a new top-level command.
+
+### Bash syntax + Python
 
 ```bash
 bash -n autonomy/run.sh
 bash -n autonomy/loki
+python3.12 -m pytest -q
 ```
 
-All shell scripts must pass `bash -n` before submission.
-
-### Shell Unit Tests
+### Dashboard E2E (Playwright)
 
 ```bash
-# Run provider loader tests
-bash tests/test-provider-loader.sh
+loki dashboard start   # boots on http://127.0.0.1:57374
+cd dashboard-ui && npx playwright test
 ```
 
-### Dashboard E2E Tests (Playwright)
+## Adding a new ported command
 
-Requires the dashboard running on port 57374:
+If you are porting a bash command to the Bun route:
 
-```bash
-cd dashboard-ui
-npx playwright test
-```
+1. Implement under `loki-ts/src/commands/<name>.ts` mirroring an existing command (e.g. `version.ts`, `status.ts`).
+2. Wire it into the dispatcher at `loki-ts/src/cli.ts`.
+3. Add the route token to `bin/loki:80` (the case statement).
+4. Add a parity entry to `.github/workflows/bun-parity.yml` matrix (`<label>|<args>|<text|json>`).
+5. Add a unit test under `loki-ts/tests/commands/<name>.test.ts`.
+6. Verify both routes produce the same output (the parity matrix enforces this on every PR).
+
+## Adding a build_prompt parity fixture
+
+`loki-ts/tests/fixtures/build_prompt/` contains 60 sha256-checked fixtures covering different runner contexts. To add a new one:
+
+1. Create `fixture-N/` with `env.sh` (env vars), `prd.md`, optional `.loki/` scratch state, and `manifest.txt`.
+2. Run the bash baseline to produce `expected.txt`:
+   ```bash
+   bash loki-ts/tests/fixtures/build_prompt/run-bash.sh fixture-N
+   ```
+3. Compute `expected.sha256` and add an entry to `index.json`.
+4. Confirm `bun test loki-ts/tests/parity/build_prompt.test.ts` includes your new fixture and passes on macOS + Linux.
+
+If your fixture depends on filesystem traversal order (e.g. listing files in a directory), make sure both bash and TS sort deterministically -- the v7.4.9 magic-specs sort fix is the canonical example.
 
 ## Pull Request Process
 

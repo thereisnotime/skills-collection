@@ -31,6 +31,23 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
+# v7.4.5 (BUG-15 bash route): honor NO_COLOR convention (https://no-color.org/)
+# Mirrors the equivalent fix in loki-ts/src/util/colors.ts. Required for parity
+# when the shim falls through to the bash route (e.g., when bun is missing).
+if [ -n "${NO_COLOR:-}" ]; then
+    RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; DIM=''; NC=''
+fi
+
+# v7.4.10: opt-in debug tracer. When LOKI_DEBUG is set (any non-empty value)
+# every loki_debug call emits "[loki-debug] <ISO-timestamp> <msg>" to stderr.
+# When unset it is a true no-op (no syscalls, zero observable output).
+loki_debug() {
+    if [ -z "${LOKI_DEBUG:-}" ]; then return 0; fi
+    local ts
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "?")
+    printf '[loki-debug] %s %s\n' "$ts" "$*" >&2
+}
+
 # Logging functions (portable across bash/zsh)
 log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
@@ -440,6 +457,7 @@ show_help() {
     echo "  reset [target]   Reset session state (all|retries|failed)"
     echo "  doctor [--json]  Check system prerequisites and skill symlinks"
     echo "  setup-skill      Create skill symlinks for all providers"
+    echo "  self-update      Upgrade loki via current manager (use --to bun|npm|brew to switch)"
     echo "  watchdog [cmd]   Process health monitoring (status|help)"
     echo "  telemetry [cmd]  OpenTelemetry management (status|enable|disable)"
     echo "  worktree [cmd]   Parallel worktree management (list|merge|clean|status)"
@@ -2529,7 +2547,8 @@ if reviews_total > 0:
 if gate_failures:
     failure_parts = [f'{k} ({v})' for k, v in gate_failures.items() if v > 0]
     if failure_parts:
-        print(f'  Gate failures: {', '.join(failure_parts)}')
+        sep = ', '
+        print(f'  Gate failures: {sep.join(failure_parts)}')
 print()
 
 # Efficiency
@@ -6212,6 +6231,214 @@ cmd_setup_skill() {
     return 0
 }
 
+# v7.4.14: cmd_self_update -- one upgrade command for everyone.
+#
+# Auto-detects which package manager installed `loki` (npm, bun, brew) by
+# resolving the binary path, and runs the right upgrade command.
+#
+# `--to <mgr>` switches managers (installs via the new one, then uninstalls
+# the old). Useful for npm users wanting to migrate to Bun (the v8.0.0
+# direction).
+#
+# Usage:
+#   loki self-update                Upgrade in-place via current manager
+#   loki self-update --to bun       Switch from current to Bun
+#   loki self-update --to npm       Switch from current to npm
+#   loki self-update --to brew      Switch from current to Homebrew
+#   loki self-update --check        Print detection result + exit 0
+#
+cmd_self_update() {
+    local target_manager=""
+    local check_only=false
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --to)
+                if [ -z "${2:-}" ]; then
+                    echo -e "${RED}--to requires an argument: bun|npm|brew${NC}" >&2
+                    return 1
+                fi
+                target_manager="$2"
+                shift 2
+                ;;
+            --check)
+                check_only=true
+                shift
+                ;;
+            --help|-h)
+                cat <<'EOF'
+loki self-update -- detect manager and upgrade in place, or switch managers
+
+Usage:
+  loki self-update                    Upgrade via current manager
+  loki self-update --to bun           Switch to Bun (recommended for v8)
+  loki self-update --to npm           Switch to npm
+  loki self-update --to brew          Switch to Homebrew
+  loki self-update --check            Print detected manager and exit
+  loki self-update --help             Show this help
+
+Auto-detection looks at the resolved path of the `loki` binary:
+  ~/.bun/bin/loki                  -> bun
+  /opt/homebrew/Cellar/loki-mode   -> brew (also /usr/local/Cellar)
+  npm prefix + /bin/loki           -> npm
+  anywhere else                    -> unknown
+
+Switching managers installs via the new one first (so a failed install
+does not leave you with no loki), then uninstalls the old one.
+EOF
+                return 0
+                ;;
+            *)
+                echo -e "${RED}Unknown argument: $1${NC}" >&2
+                echo "Run 'loki self-update --help' for usage." >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Detect current install path. v7.4.15 fix: use BASH_SOURCE (the
+    # running script's own path) instead of `command -v loki`. The latter
+    # depended on the caller's PATH, which fails when the user invokes
+    # loki via absolute path or a symlink directory that isn't on PATH.
+    # BASH_SOURCE always resolves to the actual installed location.
+    local current_mgr=""
+    local script_real pkg_dir
+    if command -v realpath >/dev/null 2>&1; then
+        script_real=$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")
+    else
+        script_real="${BASH_SOURCE[0]}"
+    fi
+    # autonomy/loki sits at <pkg_dir>/autonomy/loki -- walk two up to get pkg_dir.
+    pkg_dir=$(dirname "$(dirname "$script_real")")
+
+    # Also resolve the public binary path (what the user types). We try
+    # `command -v loki` but tolerate failure -- $pkg_dir is sufficient.
+    local resolved=""
+    resolved=$(command -v loki 2>/dev/null || echo "${BASH_SOURCE[0]}")
+
+    case "$pkg_dir" in
+        */.bun/install/global/*|*/.bun/*)
+            current_mgr="bun"
+            ;;
+        */Cellar/loki-mode/*|*/homebrew/Cellar/loki-mode/*|*/linuxbrew/Cellar/loki-mode/*)
+            current_mgr="brew"
+            ;;
+        */node_modules/loki-mode*|*/lib/node_modules/loki-mode*)
+            current_mgr="npm"
+            ;;
+        *)
+            # Last resort: ask npm if it knows about a global loki-mode
+            if command -v npm >/dev/null 2>&1; then
+                local npm_root
+                npm_root=$(npm root -g 2>/dev/null || true)
+                if [ -n "$npm_root" ] && [[ "$pkg_dir" == "$npm_root"/* ]]; then
+                    current_mgr="npm"
+                fi
+            fi
+            ;;
+    esac
+
+    [ -z "$current_mgr" ] && current_mgr="unknown"
+
+    if [ "$check_only" = "true" ]; then
+        echo "loki binary:    $resolved"
+        echo "package dir:    $pkg_dir"
+        echo "current mgr:    $current_mgr"
+        return 0
+    fi
+
+    # Default target: same as current (in-place upgrade)
+    [ -z "$target_manager" ] && target_manager="$current_mgr"
+
+    echo -e "${BOLD}loki self-update${NC}"
+    echo "  current: $current_mgr ($pkg_dir)"
+    echo "  target:  $target_manager"
+    echo
+
+    # Same-manager upgrade
+    if [ "$target_manager" = "$current_mgr" ]; then
+        case "$current_mgr" in
+            npm)
+                echo "Running: npm install -g loki-mode@latest"
+                npm install -g loki-mode@latest
+                ;;
+            bun)
+                echo "Running: bun update -g loki-mode (falling back to install if not present)"
+                bun update -g loki-mode 2>/dev/null || bun install -g loki-mode@latest
+                ;;
+            brew)
+                echo "Running: brew upgrade loki-mode"
+                brew upgrade loki-mode
+                ;;
+            unknown)
+                echo -e "${YELLOW}Cannot auto-detect package manager from: $pkg_dir${NC}" >&2
+                if [ -d "$pkg_dir/.git" ]; then
+                    echo "This looks like a git clone. To upgrade:" >&2
+                    echo "  cd $pkg_dir && git pull && (cd loki-ts && bun install && bun run build)" >&2
+                else
+                    echo "Specify the target manager explicitly:" >&2
+                    echo "  loki self-update --to bun" >&2
+                    echo "  loki self-update --to npm" >&2
+                    echo "  loki self-update --to brew" >&2
+                fi
+                return 1
+                ;;
+        esac
+        local rc=$?
+        if [ "$rc" -eq 0 ]; then
+            echo
+            echo -e "${GREEN}Upgrade complete.${NC} Verify with: loki version"
+        fi
+        return "$rc"
+    fi
+
+    # Cross-manager switch: install new, then uninstall old
+    case "$target_manager" in
+        bun)
+            if ! command -v bun >/dev/null 2>&1; then
+                echo -e "${RED}bun is not installed.${NC} Install it first:" >&2
+                echo "  brew install oven-sh/bun/bun  # macOS via Homebrew" >&2
+                echo "  curl -fsSL https://bun.sh/install | bash  # any platform" >&2
+                return 1
+            fi
+            echo "Installing via Bun: bun install -g loki-mode@latest"
+            bun install -g loki-mode@latest || return 1
+            ;;
+        npm)
+            command -v npm >/dev/null 2>&1 || { echo -e "${RED}npm not found${NC}" >&2; return 1; }
+            echo "Installing via npm: npm install -g loki-mode@latest"
+            npm install -g loki-mode@latest || return 1
+            ;;
+        brew)
+            command -v brew >/dev/null 2>&1 || { echo -e "${RED}brew not found${NC}" >&2; return 1; }
+            echo "Tapping + installing via Homebrew"
+            brew tap asklokesh/tap 2>/dev/null || true
+            brew install loki-mode || brew upgrade loki-mode || return 1
+            ;;
+        *)
+            echo -e "${RED}Unknown target manager: $target_manager${NC} (use bun, npm, or brew)" >&2
+            return 1
+            ;;
+    esac
+
+    # New install succeeded -- uninstall old. Best-effort; failures are
+    # non-fatal because the user already has the new binary working.
+    if [ "$current_mgr" != "unknown" ]; then
+        echo
+        echo "Removing old install via $current_mgr..."
+        case "$current_mgr" in
+            npm) npm uninstall -g loki-mode 2>/dev/null || true ;;
+            bun) bun remove -g loki-mode 2>/dev/null || true ;;
+            brew) brew uninstall loki-mode 2>/dev/null || true ;;
+        esac
+    fi
+
+    echo
+    echo -e "${GREEN}Switched from $current_mgr to $target_manager.${NC}"
+    echo "New binary: $(command -v loki 2>/dev/null || echo 'restart your shell to pick up new PATH')"
+    return 0
+}
+
 # Check system prerequisites
 cmd_doctor() {
     local json_output=false
@@ -6290,6 +6517,9 @@ cmd_doctor() {
                 ;;
             bash)
                 version=$("$cmd" --version 2>/dev/null | head -1 | sed 's/.*version \([0-9.]*\).*/\1/')
+                ;;
+            bun)
+                version=$(bun --version 2>/dev/null | head -1 | tr -d 'v ')
                 ;;
             jq)
                 version=$(jq --version 2>/dev/null | tr -d 'jq-')
@@ -6485,15 +6715,22 @@ cmd_doctor() {
 
     echo -e "${CYAN}System:${NC}"
     doctor_check "bash (>= 4.0)"      bash     recommended  4.0  || true
+    # v7.4.9: Bun powers ported commands; warn if missing so users notice the
+    # speedup is unavailable (bin/loki falls through to bash silently).
+    doctor_check "Bun (>= 1.3)"       bun      recommended  1.3  || true
 
     # Disk space check
     local disk_avail
     if command -v df &> /dev/null; then
-        # Get available space in GB (works on macOS and Linux)
-        disk_avail=$(df -g "$HOME" 2>/dev/null | tail -1 | awk '{print $4}')
+        # Get available space in GB (works on macOS and Linux).
+        # v7.4.12: || true on the pipes so set -euo pipefail doesn't exit
+        # the whole doctor when df -g fails on Linux (which doesn't support
+        # the -g flag). Pre-v7.4.12 bash route truncated after the System
+        # section on Linux because of this exact early exit.
+        disk_avail=$(df -g "$HOME" 2>/dev/null | tail -1 | awk '{print $4}' || true)
         if [ -z "$disk_avail" ]; then
             # Linux fallback (df -g may not work)
-            disk_avail=$(df -BG "$HOME" 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'G')
+            disk_avail=$(df -BG "$HOME" 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'G' || true)
         fi
         if [ -n "$disk_avail" ] && [ "$disk_avail" -gt 0 ] 2>/dev/null; then
             if [ "$disk_avail" -lt 1 ]; then
@@ -6581,6 +6818,7 @@ checks.append(check_tool('jq', 'jq', 'required'))
 checks.append(check_tool('git', 'git', 'required'))
 checks.append(check_tool('curl', 'curl', 'required'))
 checks.append(check_tool('bash', 'bash', 'recommended', '4.0'))
+checks.append(check_tool('Bun', 'bun', 'recommended', '1.3'))
 checks.append(check_tool('Claude CLI', 'claude', 'optional'))
 checks.append(check_tool('Codex CLI', 'codex', 'optional'))
 checks.append(check_tool('Gemini CLI', 'gemini', 'optional'))
@@ -11507,6 +11745,9 @@ main() {
     local command="$1"
     shift
 
+    # v7.4.13: first-run telemetry moved to bin/loki shim so it fires for
+    # both Bun-routed and bash-routed commands (autonomy/loki main() never
+    # runs for the 8 ported commands). Marker file: ~/.loki-first-run.
     loki_telemetry "cli_command" "command=$command" 2>/dev/null || true
 
     case "$command" in
@@ -11624,6 +11865,9 @@ main() {
             ;;
         setup-skill)
             cmd_setup_skill "$@"
+            ;;
+        self-update|self_update|update)
+            cmd_self_update "$@"
             ;;
         watchdog)
             cmd_watchdog "$@"

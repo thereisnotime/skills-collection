@@ -1,0 +1,149 @@
+name: Parity Drift (nightly)
+
+# Runs the 8 ported commands via both bash and bun routes, diffs outputs.
+# If any diverge, opens an issue (or appends to the existing open one).
+# Cron: 06:00 UTC daily.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  parity-drift:
+    name: nightly parity drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Setup Python (for bash route fallthroughs)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install jq
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+
+      - name: Build loki-ts (Bun)
+        working-directory: loki-ts
+        run: |
+          bun install
+          bun run build
+
+      - name: Run dual-route parity matrix
+        id: parity
+        shell: bash
+        run: |
+          set -uo pipefail
+          MATRIX=(
+            "version|--version|text"
+            "provider-show|provider show|text"
+            "provider-list|provider list|text"
+            "memory-list|memory list|text"
+            "status|status|text"
+            "status-json|status --json|json"
+            "stats|stats|text"
+            "stats-json|stats --json|json"
+            "doctor|doctor|text"
+            "doctor-json|doctor --json|json"
+          )
+          mkdir -p /tmp/parity
+          : > /tmp/parity/report.md
+          FAILED=()
+          for entry in "${MATRIX[@]}"; do
+            label="${entry%%|*}"
+            rest="${entry#*|}"
+            args="${rest%%|*}"
+            mode="${rest##*|}"
+            bun_out="/tmp/parity/${label}.bun"
+            bash_out="/tmp/parity/${label}.bash"
+            diff_out="/tmp/parity/${label}.diff"
+            set +e
+            bin/loki $args >"$bun_out" 2>/dev/null
+            LOKI_LEGACY_BASH=1 bin/loki $args >"$bash_out" 2>/dev/null
+            set -e
+            if [ "$mode" = "json" ]; then
+              jq -S . "$bun_out" >"${bun_out}.s" 2>/dev/null || cp "$bun_out" "${bun_out}.s"
+              jq -S . "$bash_out" >"${bash_out}.s" 2>/dev/null || cp "$bash_out" "${bash_out}.s"
+              if ! diff -u "${bash_out}.s" "${bun_out}.s" >"$diff_out"; then
+                FAILED+=("$label")
+                {
+                  echo "### $label"
+                  echo '```diff'
+                  head -200 "$diff_out"
+                  echo '```'
+                } >> /tmp/parity/report.md
+              fi
+            else
+              if ! diff -u "$bash_out" "$bun_out" >"$diff_out"; then
+                FAILED+=("$label")
+                {
+                  echo "### $label"
+                  echo '```diff'
+                  head -200 "$diff_out"
+                  echo '```'
+                } >> /tmp/parity/report.md
+              fi
+            fi
+          done
+          echo "failed_count=${#FAILED[@]}" >> "$GITHUB_OUTPUT"
+          if [ "${#FAILED[@]}" -gt 0 ]; then
+            printf '%s\n' "${FAILED[@]}" > /tmp/parity/failed.txt
+            echo "drift_detected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift_detected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-drift-report
+          path: /tmp/parity/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Open issue on drift
+        if: steps.parity.outputs.drift_detected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Bun parity drift detected ($(date -u +%Y-%m-%d))"
+          BODY_FILE=/tmp/parity/issue-body.md
+          {
+            echo "Nightly parity drift workflow detected divergence between bash and Bun routes."
+            echo ""
+            echo "Failed commands:"
+            sed 's/^/- /' /tmp/parity/failed.txt
+            echo ""
+            echo "Detail:"
+            cat /tmp/parity/report.md
+            echo ""
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > "$BODY_FILE"
+          # Reuse open drift issue if one exists; else create a new one.
+          existing=$(gh issue list --label parity-drift --state open --json number --jq '.[0].number' || echo "")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$BODY_FILE"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY_FILE" --label parity-drift || \
+              gh issue create --title "$TITLE" --body-file "$BODY_FILE"
+          fi
