@@ -138,7 +138,19 @@ If the bootstrap uncovers major unresolved product questions:
 
 If the bootstrap reveals that a different workflow would serve the user better:
 
-- **Symptom without a root cause** (user describes broken behavior but hasn't identified why) — announce that investigation is needed before planning and load the `ce-debug` skill. A plan requires a known problem to solve; debugging identifies what that problem is. Announce the routing clearly: "This needs investigation before planning — switching to ce-debug to find the root cause."
+- **Bug-shaped prompt** (user describes broken behavior — "fix the bug where X", error message, regression, "doesn't work"). Surface `ce-debug` as a route-out option alongside continuing with `ce-plan` whenever the bug surface is reachable (in cwd OR named repo found at another local path). Stay in `ce-plan` silently when the named code can't be found anywhere local — paper-planning is the only useful output for unreachable surfaces.
+
+  **When the bug is at another local path (not cwd):**
+  - Announce the target explicitly **before** any cross-repo investigation: which path will be read AND where plan outputs will land (default: target repo's `docs/plans/`, not cwd's).
+  - Default: proceed from the target repo for both investigation and plan-write. The user can interrupt to redirect (switch context, paper-plan, abandon, etc.). No location menu — the announcement makes the cross-repo nature visible, and the user can speak up if they want something unusual.
+  - **After** announcing and proceeding, fire the standard ce-debug routing menu (continue with `ce-plan` vs switch to `ce-debug`) — same shape as the in-cwd case. Cross-repo location and ce-debug skill routing are orthogonal decisions; do not merge them into a single question.
+
+  Reading code at another path is fine in principle — that's just file access. The harm to avoid is silent operation on the wrong repo, especially writing the plan doc somewhere it won't be discovered (a busyblock plan landing in `cli-printing-press/docs/plans/` is a discoverability disaster). The announcement requirement makes the target visible; defaulting to the target repo for both investigation and outputs respects the user's stated intent (they named that repo); the orthogonal ce-debug menu keeps the skill-choice question clean.
+
+  The accessibility classification is conservative and may under-suggest in monorepos, dependency bugs, or after renames. Users can always invoke `/ce-debug` manually.
+
+  **Headless mode**: skip the ce-debug suggestion menu entirely; default to continuing with `/ce-plan` (the user's explicit invocation). There is no synchronous user to resolve a route-out choice, and auto-routing to ce-debug would change the skill mid-flight without authorization.
+
 - **Clear task ready to execute** (known root cause, obvious fix, no architectural decisions) — suggest `ce-work` as a faster alternative alongside continuing with planning. The user decides.
 
 #### 0.5 Classify Outstanding Questions Before Planning
@@ -164,6 +176,16 @@ Classify the work into one of these plan depths:
 - **Deep** - cross-cutting, strategic, high-risk, or highly ambiguous implementation work
 
 If depth is unclear, ask one targeted question and then continue.
+
+#### 0.7 Solo-Mode Scope Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The discipline rules, prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, content focus for the solo variant, and bucket-content routing into plan body sections all live there. Composing a synthesis without these rules loaded reliably produces malformed output — missing prose summary, implementation-detail leakage, the proposal-pitch anti-pattern. This is not optional supplementary reading; it is the source of truth for how the phase behaves.
+
+Surface a synthesis to the user — the agent's interpretation of scope after the brief Phase 0.4 bootstrap — so scope can be corrected **before Phase 1 research is spent**. Sub-agent dispatch (repo-research-analyst, learnings-researcher, etc.) is the expensive next step this phase guards against wasted effort on.
+
+Fires **only in solo invocation** — when Phase 0.2 found no upstream brainstorm doc AND Phase 0.4 stayed in ce-plan (did not route to ce-debug, ce-work, or universal-planning) AND Phase 0.5 cleared (no unresolved blockers) AND not on Phase 0.1 fast paths (resume normal, deepen-intent). Each guard is an explicit conditional. Skip Phase 0.7 entirely when any guard fails — brainstorm-sourced invocations defer to Phase 5.1.5 instead.
+
+**Headless mode**: synthesis is composed but not confirmed (no synchronous user). Continue to Phase 1 research as normal. At plan-write time (Phase 5.2), Inferred bets route to a `## Assumptions` section in the plan instead of Key Technical Decisions. See `references/synthesis-summary.md` Headless mode for the full routing.
 
 ### Phase 1: Gather Context
 
@@ -411,6 +433,12 @@ Examples:
 - Runtime behavior that depends on seeing actual test failures
 - Refactors that may become unnecessary once implementation starts
 
+#### 3.7 Anti-Expansion: Tangential Cleanup and Scope Creep Go to Deferred
+
+Distinct from 3.6 (which is about *unknowns* at plan time): 3.7 is about *known but tangential* work that the agent notices while planning but that falls outside the user's confirmed scope. When research surfaces an adjacent refactor, a "while we're here" cleanup, or a scope-adjacent nice-to-have ("we could also add rate limiting"), route it to the existing `### Deferred to Follow-Up Work` subsection in Scope Boundaries (Phase 4.2 Core Plan Template), not into active Implementation Units.
+
+This reinforces the synthesis discipline established at Phase 0.7 / Phase 5.1.5 — the user's confirmed scope is what the active plan executes; everything else is deferred. Does NOT impose architectural bias on extend-vs-invent decisions within confirmed scope — that judgment stays with the agent (and is surfaced via the Phase 5.1.5 synthesis when material). The user's explicit ask overrides this default — if the user explicitly requested a refactor, it's in-scope, not deferred.
+
 ### Phase 4: Write the Plan
 
 **NEVER CODE during this skill.** Research, decide, and write the plan — do not start implementation.
@@ -467,27 +495,39 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 # [Plan Title]
 
-## Overview
+## Summary
 
-[What is changing and why]
+[1-3 line prose summary — what the plan is proposing, in plain language. Forward-looking. With an origin requirements doc, focus on HOW the implementation approaches the work (the WHAT is in origin); without one, carry both WHAT scope and HOW execution. Required for all tiers; skip only for truly-trivial plans (≤ 2 Requirements bullets that echo the prompt).]
 
 ---
 
 ## Problem Frame
 
-[Summarize the user/business problem and context. Reference the origin doc when present.]
+[Backward-looking / situational: the user/business problem and context that motivates this plan. Establishes the pain — does NOT restate the proposal (that lives in Summary). With an origin requirements doc, keep this brief (1-2 sentences plus any plan-specific framing) and link to origin via Sources & References. Without one, carry the full pain narrative. **Omit entirely at Lightweight tier when Summary already carries the situational context** — a focused bug fix or one-line change rarely needs both sections.]
 
 ---
 
-## Requirements Trace
+<!-- Include ONLY in non-interactive (headless) mode when the agent had Inferred bets that
+     were not user-confirmed. Lists the un-validated agent inferences explicitly so downstream
+     review (ce-doc-review, ce-work, human PR review) can scrutinize them as bets, not as
+     authoritative decisions. Omit entirely in interactive mode — Inferred bets get user-
+     corrected in chat and become Key Technical Decisions or are revised away. -->
+## Assumptions
+
+*This plan was authored without synchronous user confirmation. The items below are agent inferences that fill gaps in the input — un-validated bets that should be reviewed before implementation proceeds.*
+
+- [Inferred item the agent chose without user confirmation]
+
+---
+
+## Requirements
 
 - R1. [Requirement or success criterion this plan must satisfy]
 - R2. [Requirement or success criterion this plan must satisfy]
 
-<!-- Origin trace sub-blocks: include only when the upstream requirements doc supplies the
-     corresponding section. Each sub-block is independent — include only the ones that apply.
-     Omit cleanly (no header, no empty line) when no origin doc exists or the origin had no
-     Actors / Key Flows / Acceptance Examples sections. -->
+<!-- With an origin requirements doc, R-IDs trace to origin's; without one, R-IDs are derived
+     during planning. The optional origin trace sub-blocks below carry forward what's relevant
+     when origin actors/flows/acceptance examples exist. -->
 
 **Origin actors:** [A1 (role/name), A2 (role/name), …]
 **Origin flows:** [F1 (flow name), F2 (flow name), …]
@@ -558,9 +598,15 @@ deepened: YYYY-MM-DD  # optional, set when the confidence check substantively st
 
 - [Decision]: [Rationale]
 
+<!-- With an origin requirements doc, scope this section to plan-time architectural choices —
+     product-level decisions are in origin's Key Decisions. Without an origin, both belong here. -->
+
 ---
 
 ## Open Questions
+
+<!-- With an origin requirements doc, scope this section to plan-time questions; product-level
+     open questions stay in origin's Outstanding Questions. -->
 
 ### Resolved During Planning
 
@@ -731,7 +777,7 @@ For larger `Deep` plans, extend the core template only when useful with sections
 
 #### 4.4 Visual Communication in Plan Documents
 
-When the plan contains 4+ implementation units with non-linear dependencies, 3+ interacting surfaces in System-Wide Impact, 3+ behavioral modes/variants in Overview or Problem Frame, or 3+ interacting decisions in Key Technical Decisions or alternatives in Alternative Approaches, read `references/visual-communication.md` for diagram and table guidance. This covers plan-structure visuals (dependency graphs, interaction diagrams, comparison tables) — not solution-design diagrams, which are covered in Section 3.4.
+When the plan contains 4+ implementation units with non-linear dependencies, 3+ interacting surfaces in System-Wide Impact, 3+ behavioral modes/variants in Summary or Problem Frame, or 3+ interacting decisions in Key Technical Decisions or alternatives in Alternative Approaches, read `references/visual-communication.md` for diagram and table guidance. This covers plan-structure visuals (dependency graphs, interaction diagrams, comparison tables) — not solution-design diagrams, which are covered in Section 3.4.
 
 ### Phase 5: Final Review, Write File, and Handoff
 
@@ -759,8 +805,18 @@ If the plan originated from a requirements document, re-read that document and v
 - Scope boundaries and success criteria are preserved
 - Blocking questions were either resolved, explicitly assumed, or sent back to `ce-brainstorm`
 - Every section of the origin document is addressed in the plan — scan each section to confirm nothing was silently dropped
-- If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements Trace, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
+- If origin supplies A/F/AE IDs: every origin R/F/AE that *affects implementation* is referenced in Requirements, a U-ID unit, test scenarios, verification, scope boundaries, or explicitly deferred. Actors are carried forward when they affect behavior, permissions, UX, orchestration, handoff, or verification. The standard is preservation of product intent, not mandatory ID spam — irrelevant origin IDs may be omitted
 - If origin was Deep-product (origin contains an `Outside this product's identity` subsection): the plan's Scope Boundaries preserves the three-way split — `Deferred for later` and `Outside this product's identity` carried verbatim from origin, `Deferred to Follow-Up Work` reserved for plan-local implementation sequencing
+
+#### 5.1.5 Brainstorm-Sourced Scope Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The discipline rules, prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, content focus for the brainstorm-sourced variant, doc-body reading rules, and bucket-content routing into plan body sections all live there. Composing a synthesis without these rules loaded reliably produces malformed output — missing prose summary, implementation-detail leakage, the proposal-pitch anti-pattern. This is not optional supplementary reading; it is the source of truth for how the phase behaves.
+
+Surface the agent's plan-time decisions to the user before Phase 5.2 commits the plan to disk — the latest cheap moment to catch plan-time scope errors. The brainstorm already validated WHAT to build; this phase surfaces HOW the plan will execute.
+
+Fires **only when the plan was sourced from an upstream brainstorm doc** (Phase 0.2 found a `*-requirements.md` match) AND not on Phase 0.1 fast paths (resume normal, deepen-intent). Skip Phase 5.1.5 in solo invocation — solo plans handled their synthesis in Phase 0.7.
+
+**Headless mode**: synthesis is composed but not confirmed (no synchronous user). Proceed to Phase 5.2 plan-write. Inferred bets route to a `## Assumptions` section in the plan instead of Key Technical Decisions. See `references/synthesis-summary.md` Headless mode for the full routing.
 
 #### 5.2 Write Plan File
 
@@ -772,13 +828,13 @@ Use the Write tool to save the complete plan to:
 docs/plans/YYYY-MM-DD-NNN-<type>-<descriptive-name>-plan.md
 ```
 
-Confirm:
+Confirm (use absolute path so the reference is clickable in modern terminals):
 
 ```text
-Plan written to docs/plans/[filename]
+Plan written to <absolute path to plan>
 ```
 
-**Pipeline mode:** If invoked from an automated workflow such as LFG, SLFG, or any `disable-model-invocation` context, skip interactive questions. Make the needed choices automatically and proceed to writing the plan.
+**Pipeline mode:** If invoked from an automated workflow such as LFG or any `disable-model-invocation` context, skip interactive questions. Make the needed choices automatically and proceed to writing the plan.
 
 #### 5.3 Confidence Check and Deepening
 
@@ -832,7 +888,7 @@ When deepening is warranted, read `references/deepening-workflow.md` for confide
 
 After document review and final checks, present this menu using the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (requires the `pi-ask-user` extension). Fall back to numbered options in chat only when no blocking tool exists in the harness or the call errors (e.g., Codex edit modes) — not because a schema load is required. Never silently skip the question.
 
-**Question:** "Plan ready at `docs/plans/YYYY-MM-DD-NNN-<type>-<name>-plan.md`. What would you like to do next?"
+**Question:** "Plan ready at `<absolute path to plan>`. What would you like to do next?" (use absolute path so the reference is clickable in modern terminals)
 
 **Options:**
 1. **Start `/ce-work`** (recommended) - Begin implementing this plan in the current session
@@ -844,4 +900,4 @@ Routing each selection, contextual surfacing of residual document-review finding
 
 **Completion check:** This skill is not complete until the post-generation menu above has been presented and the user has selected an action. If you have written the plan file and have not yet presented the menu, you are not done — go to the load instruction above and continue.
 
-**Pipeline mode exception:** In LFG, SLFG, or any `disable-model-invocation` context, skip the interactive menu and return control to the caller after the plan file is written, confidence check has run, and `ce-doc-review` has run in headless mode (per `references/plan-handoff.md`).
+**Pipeline mode exception:** In LFG or any `disable-model-invocation` context, skip the interactive menu and return control to the caller after the plan file is written, confidence check has run, and `ce-doc-review` has run in headless mode (per `references/plan-handoff.md`).

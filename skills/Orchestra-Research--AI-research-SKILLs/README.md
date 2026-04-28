@@ -17,12 +17,12 @@
 
 <div align="center">
 
-### **87 Skills Powering AI Research in 2026**
+### **98 Skills Powering AI Research in 2026**
 
 </div>
 
 <details>
-<summary><b>View All 22 Categories</b></summary>
+<summary><b>View All 23 Categories</b></summary>
 
 <div align="center">
 
@@ -35,7 +35,7 @@
 | **Safety & Alignment** (4) | **Agents** (4) | **RAG** (5) |
 | **Multimodal** (7) | **Prompt Engineering** (4) | **MLOps** (3) |
 | **Observability** (2) | **Infrastructure** (3) | **Mech Interp** (4) |
-| **Emerging Techniques** (6) | | |
+| **Emerging Techniques** (6) | **Agent-Native Research Artifact** (3) | |
 
 </div>
 
@@ -74,7 +74,7 @@ AI Researchers spend more time debugging infrastructure than testing hypotheses 
 We provide a comprehensive skills library that enables AI agents to autonomously conduct the full research lifecycle — from brainstorming ideas to writing the paper.
   - Autonomous Research - The **autoresearch** skill orchestrates the entire research workflow using a two-loop architecture, routing to domain skills as needed
   - Specialized Expertise - Each domain skill provides deep, production-ready knowledge of a specific framework (Megatron-LM, vLLM, TRL, etc.)
-  - End-to-End Coverage - 87 skills spanning the full AI research lifecycle, from ideation and literature survey to experiments and paper writing
+  - End-to-End Coverage - 98 skills spanning the full AI research lifecycle, from ideation and literature survey to experiments and paper writing
   - Research-Grade Quality - Documentation sourced from official repos, real GitHub issues, and battle-tested production workflows
 
 ## Available AI Research Engineering Skills
@@ -95,7 +95,7 @@ npx @orchestra-research/ai-research-skills
 Read https://www.orchestra-research.com/ai-research-skills/welcome.md and follow the instructions to install and use AI Research Skills.
 ```
 
-This installs all 87 skills, loads the **autoresearch** orchestration layer, and starts autonomous research.
+This installs all 98 skills, loads the **autoresearch** orchestration layer, and starts autonomous research.
 
 <details>
 <summary><b>What the installer does</b></summary>
@@ -131,7 +131,7 @@ Install skill categories directly using the **Claude Code CLI**:
 # Add the marketplace
 /plugin marketplace add orchestra-research/AI-research-SKILLs
 
-# Install by category (22 categories available)
+# Install by category (23 categories available)
 /plugin install fine-tuning@ai-research-skills        # Axolotl, LLaMA-Factory, PEFT, Unsloth
 /plugin install post-training@ai-research-skills      # TRL, GRPO, OpenRLHF, SimPO, verl, slime, miles, torchforge
 /plugin install inference-serving@ai-research-skills  # vLLM, TensorRT-LLM, llama.cpp, SGLang
@@ -141,7 +141,7 @@ Install skill categories directly using the **Claude Code CLI**:
 
 </details>
 
-### All 22 Categories (87 Skills)
+### All 23 Categories (98 Skills)
 
 | Category | Skills | Included |
 |----------|--------|----------|
@@ -167,9 +167,10 @@ Install skill categories directly using the **Claude Code CLI**:
 | Observability | 2 | LangSmith, Phoenix |
 | Multimodal | 7 | CLIP, Whisper, LLaVA, BLIP-2, SAM, Stable Diffusion, AudioCraft |
 | Emerging | 6 | MoE, Model Merging, Long Context, Speculative Decoding, Distillation, Pruning |
+| Agent-Native Research Artifact | 3 | ARA Compiler, Research Manager, Rigor Reviewer |
 
 <details>
-<summary><b>View All 87 Skills in Details</b></summary>
+<summary><b>View All 98 Skills in Details</b></summary>
 
 ### 🔬 Autoresearch (1 skill) — Central Orchestration Layer
 - **[Autoresearch](0-autoresearch-skill/)** - Autonomous research orchestration using a two-loop architecture (inner optimization + outer synthesis). Manages the full lifecycle from literature survey to paper writing, routing to all domain-specific skills. Supports Claude Code /loop and OpenClaw heartbeat for continuous operation (390 lines + 3 refs)
@@ -303,6 +304,11 @@ Install skill categories directly using the **Claude Code CLI**:
 - **[Research Brainstorming](21-research-ideation/brainstorming-research-ideas/)** - Structured ideation frameworks for discovering high-impact research directions with 10 complementary lenses (384 lines)
 - **[Creative Thinking](21-research-ideation/creative-thinking-for-research/)** - Cognitive science frameworks (bisociation, structure-mapping, constraint manipulation) for genuinely novel research ideas (366 lines)
 
+### 🧬 Agent-Native Research Artifact (3 skills)
+- **[ARA Compiler](22-agent-native-research-artifact/compiler/)** - Compiles any research input (PDF papers, repos, experiment logs, raw notes) into a complete Agent-Native Research Artifact with claims, exploration graph, evidence, and code stubs (245 lines + 3 refs)
+- **[ARA Research Manager](22-agent-native-research-artifact/research-manager/)** - Post-task research recorder that runs at session end to extract decisions, experiments, dead ends, and pivots from conversation history into the `ara/` directory with user-vs-AI provenance tags (324 lines + 3 refs)
+- **[ARA Rigor Reviewer](22-agent-native-research-artifact/rigor-reviewer/)** - ARA Seal Level 2 semantic epistemic review scoring six dimensions of research rigor (evidence relevance, falsifiability, scope, coherence, exploration integrity, methodology) with severity-ranked findings (322 lines + 1 ref)
+
 
 </details>
 
@@ -416,7 +422,8 @@ claude-ai-research-skills/
 ├── 18-multimodal/               (7 skills ✓ - CLIP, Whisper, LLaVA, Stable Diffusion, SAM, BLIP-2, AudioCraft)
 ├── 19-emerging-techniques/      (6 skills ✓ - MoE, Model Merging, Long Context, Speculative Decoding, Distillation, Pruning)
 ├── 20-ml-paper-writing/         (2 skills ✓ - ML Paper Writing with LaTeX templates, Academic Plotting)
-├── 21-research-ideation/                 (2 skills ✓ - Research Brainstorming, Creative Thinking)
+├── 21-research-ideation/           (2 skills ✓ - Research Brainstorming, Creative Thinking)
+├── 22-agent-native-research-artifact/ (3 skills ✓ - ARA Compiler, Research Manager, Rigor Reviewer)
 └── packages/ai-research-skills/ (npm package for one-command installation)
 ```
 
@@ -499,6 +506,20 @@ We welcome contributions from the AI research community! See [CONTRIBUTING.md](C
 ## Recent Updates
 
 <details open>
+<summary><b>April 2026 - v1.6.0 🧬 Agent-Native Research Artifact (ARA) — 23rd Category, 98 Skills</b></summary>
+
+- 🧬 **NEW CATEGORY**: `22-agent-native-research-artifact/` (the 23rd category) — three skills that turn research outputs into a falsifiable, agent-traversable artifact:
+  - 🛠️ **[ARA Compiler](22-agent-native-research-artifact/compiler/)** — compiles any input (PDF papers, GitHub repos, experiment logs, raw notes) into a structured ARA with cognitive layer (claims, concepts, heuristics), physical layer (configs, code stubs), exploration graph (research DAG), and grounded evidence
+  - 📋 **[ARA Research Manager](22-agent-native-research-artifact/research-manager/)** — post-task epilogue that scans conversation history at session end and writes decisions, experiments, dead ends, claims, heuristics, and pivots into the `ara/` directory with `user` / `ai-suggested` / `ai-executed` / `user-revised` provenance tags
+  - 🔍 **[ARA Rigor Reviewer](22-agent-native-research-artifact/rigor-reviewer/)** — Seal Level 2 semantic epistemic review scoring six dimensions of research rigor (evidence relevance, falsifiability, scope calibration, argument coherence, exploration integrity, methodological rigor) and emitting a severity-ranked report with a Strong Accept-to-Reject recommendation
+- 🔗 Sourced from the [Agent-Native-Research-Artifact-Init](https://github.com/Orchestra-Research/Agent-Native-Research-Artifact-Init) reference repo, restructured to AI-research-SKILLs standards (kebab-case names, third-person descriptions, Title-Case tags, one-level-deep references)
+- 🧩 Plugin entry `agent-native-research-artifact` added to `.claude-plugin/marketplace.json`; CLI category registered as `22-agent-native-research-artifact` with three individual skill entries in the npm installer
+- 🔄 Auto-syncs to Orchestra marketplace via `sync-skills.yml` on push; npm package republished as `@orchestra-research/ai-research-skills@1.6.0` via `publish-npm.yml` on version bump
+- 📊 **98 total skills** across **23 categories** — full lifecycle from idea → paper → falsifiable, auditable artifact
+
+</details>
+
+<details>
 <summary><b>March 2026 - v1.4.0 🔬 Autoresearch & 86 Skills — Full Research Lifecycle</b></summary>
 
 - 🔬 **NEW SKILL**: **Autoresearch** — autonomous research orchestration using a two-loop architecture (inner optimization loop + outer synthesis loop)

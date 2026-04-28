@@ -4,7 +4,11 @@ A collection of skills for [Claude Code](https://claude.com/claude-code) that ex
 
 ## 📦 Available Skills
 
-### [GPT Image 2 (OpenAI Image Generation)](./gpt-image-2/) ⭐ NEW
+### [Cognitive Toolkit (CBT/DBT)](https://github.com/glebis/claude-cognitive-toolkit) ⭐ NEW
+
+Evidence-based CBT and DBT intervention skills — guided thought records, opposite action, DEAR MAN roleplay, crisis skills with HRV biofeedback. Configurable therapeutic pushback. Works standalone or via Telegram. **[Standalone repo →](https://github.com/glebis/claude-cognitive-toolkit)**
+
+### [GPT Image 2 (OpenAI Image Generation)](./gpt-image-2/)
 
 Generate and edit images using OpenAI's GPT Image 2 model — the first image model with built-in reasoning ("thinking mode"). Mirrors the [Nano Banana](./nano-banana/) architecture but targets OpenAI's API with superior text rendering, thinking mode for complex compositions, and cost controls.
 
@@ -1550,6 +1554,37 @@ cd ~/.claude/skills/jtbd && python3 -m pytest tests/ -v
 ```
 
 **Use when:** Articulating what a project does, who it's for, and why it matters. Converting interview transcripts or product reviews into structured briefs. Prioritizing what to build next. Generating messaging copy from switching forces.
+
+---
+
+### [timeBuzzer LED](./timebuzzer-led/) ⭐ NEW
+Control the [timeBuzzer](https://timebuzzer.com) hardware LED via MIDI — set colors, run effects (pulse, strobe, rainbow, fade), and send semantic status signals that pair with the Hue skill.
+
+**Features:**
+- 🎨 Named colors (red, orange, yellow, green, cyan, blue, purple, magenta, pink, white, warm) + hex + RGB
+- 💫 Effects: pulse (BPM-controlled), strobe, rainbow, fade
+- 🚦 8 semantic signals: success, error, warning, thinking, working, idle, attention, focus
+- 🔲 Per-segment control (3 independent RGB segments)
+- 🔗 Same signal vocabulary as the Hue skill for synchronized desk + room feedback
+
+**Quick Start:**
+```bash
+# Copy to skills directory
+cp -r timebuzzer-led ~/.claude/skills/
+
+# Set a color
+python3 scripts/buzzer_led.py color blue
+
+# Run an effect
+python3 scripts/buzzer_led.py pulse cyan --bpm 30 --seconds 5
+
+# Send a status signal
+python3 scripts/buzzer_led.py signal success
+```
+
+**Depends on:** timeBuzzer USB device, `python-rtmidi` (`pip install python-rtmidi`)
+
+**Use when:** You want visual desk feedback for task status, build results, or ambient signaling — especially combined with Hue for room-wide effects.
 
 ---
 

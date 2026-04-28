@@ -82,7 +82,7 @@ Before proceeding to Phase 0.2, classify whether this is a software task. The ke
 - Constrained, well-defined scope
 
 **If requirements are already clear:**
-Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Only write a short requirements document when a durable handoff to planning or later review would be valuable. Skip Phase 1.1 and 1.2 entirely — go straight to Phase 1.3 or Phase 3.
+Keep the interaction brief. Confirm understanding and present concise next-step options rather than forcing a long brainstorm. Only write a short requirements document when a durable handoff to planning or later review would be valuable. Skip Phase 1.1 and 1.2 entirely — go straight to Phase 1.3 or Phase 2.5 in announce-mode (synthesis emitted for visibility, no blocking confirmation), then to Phase 3.
 
 #### 0.3 Assess Scope
 
@@ -200,6 +200,8 @@ For each approach, provide:
 - Key risks or unknowns
 - When it's best suited
 
+**Approach granularity: mechanism / product shape, not architecture.** Approach descriptions name mechanism-level distinctions ("pause as a rule property" vs "pause as an event filter" vs "pause as a separate entity") and product-relevant trade-offs (plan-tier coupling, complexity surface, migration difficulty). They do NOT name implementation specifics — column names, table names, file paths, service classes, JSON shapes, exact method names. Those are ce-plan's job. Bringing architecture forward at brainstorm time forces the user to make architectural decisions on ce-brainstorm's intentionally-shallow research, and the synthesis at Phase 2.5 then has to filter out the leak.
+
 After presenting all approaches, state your recommendation and explain why. Prefer simpler solutions when added complexity creates real carrying cost, but do not reject low-cost, high-value polish just because it is not strictly necessary.
 
 If one approach is clearly best and alternatives are not meaningful, skip the menu and state the recommendation directly.
@@ -208,6 +210,18 @@ If relevant, call out whether the choice is:
 - Reuse an existing pattern
 - Extend an existing capability
 - Build something net new
+
+### Phase 2.5: Synthesis Summary
+
+**STOP. Before composing the synthesis, read `references/synthesis-summary.md`.** The discipline rules, prose-summary requirement, three-bucket structure, anti-pattern guidance, soft-cut behavior, self-redirect support, prose-feedback rules, and bucket-content routing into doc body sections all live there. Composing a synthesis without these rules loaded reliably produces malformed output — missing prose summary, implementation-detail leakage, the proposal-pitch anti-pattern. This is not optional supplementary reading; it is the source of truth for how the phase behaves.
+
+Surface a synthesis to the user before Phase 3 writes the requirements doc — the user's last opportunity to correct scope before the artifact lands.
+
+Fires for **all tiers** including Lightweight. Skip Phase 2.5 entirely on the Phase 0.1b non-software (universal-brainstorming) route.
+
+**Headless mode** (LFG / `disable-model-invocation`): the synthesis is composed but not confirmed. Inferred bets route to a `## Assumptions` section in the doc (so downstream review can scrutinize them as un-validated), not into Key Decisions. See `references/synthesis-summary.md` Headless mode for the full routing.
+
+**Announce-mode (Phase 0.2 fast path)**: on the "requirements already clear" fast path, Phase 2.5 fires in announce-mode — emit the synthesis (Stated / Inferred / Out) for visibility, then **end the turn**. Do NOT call the Write tool in the same turn as the synthesis emission. On the user's next message: if it's an acknowledgment, follow-up, or any non-correcting input, proceed to Phase 3 doc-write; if it indicates a correction (push-back on an Inferred bullet, scope adjustment), revise the synthesis and emit again. Lighter than full Phase 2.5 (no `AskUserQuestion` menu, no formal confirm option) but still gives the user a real interruption window before the doc lands. ce-brainstorm sits early in the workflow; a wrong-doc has downstream consequence (feeds ce-plan, then implementation), so the turn boundary is justified even on the fast path.
 
 ### Phase 3: Capture the Requirements
 

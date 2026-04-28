@@ -27,6 +27,7 @@ export const CATEGORIES = [
   { id: '19-emerging-techniques', name: 'Emerging Techniques', skills: 6, examples: 'MoE, Model Merging, Speculative Decoding' },
   { id: '20-ml-paper-writing', name: 'ML Paper Writing', skills: 1, examples: 'NeurIPS/ICML paper writing' },
   { id: '21-research-ideation', name: 'Research Ideation', skills: 2, examples: 'Brainstorming, Creative Thinking' },
+  { id: '22-agent-native-research-artifact', name: 'Agent-Native Research Artifact', skills: 3, examples: 'ARA Compiler, Research Manager, Rigor Reviewer' },
 ];
 
 /**
@@ -69,6 +70,10 @@ export const INDIVIDUAL_SKILLS = [
   { id: '21-research-ideation/creative-thinking-for-research', name: 'Creative Thinking', category: 'Ideation' },
   // Autoresearch
   { id: '0-autoresearch-skill', name: 'Autoresearch', category: 'Research' },
+  // Agent-Native Research Artifact
+  { id: '22-agent-native-research-artifact/compiler', name: 'ARA Compiler', category: 'ARA' },
+  { id: '22-agent-native-research-artifact/research-manager', name: 'ARA Research Manager', category: 'ARA' },
+  { id: '22-agent-native-research-artifact/rigor-reviewer', name: 'ARA Rigor Reviewer', category: 'ARA' },
 ];
 
 /**

@@ -92,6 +92,38 @@ Important: Just because the developer's installed plugin may be out of date, it'
 
 **Proof HITL surfaces a ghost "AI collaborator" agent** (noted 2026-04-16, may change): The Proof API auto-joins any header-less `/state` read under a synthetic `ai:auto-<hash>` identity, so docs created by the `skills/proof/` HITL workflow show a phantom participant alongside `Compound Engineering`. The only way to suppress it is to set `ownerId: "agent:ai:compound-engineering"` on create — but that transfers document ownership to the agent and prevents the user from claiming it into their Proof library, so we don't use it. Treat as cosmetic noise; don't reintroduce the `ownerId` workaround. Tracked upstream: https://github.com/EveryInc/proof/issues/951.
 
+## Skill Design Principles
+
+Skills are guardrails for an intelligent agent, not a step-by-step controller for a non-intelligent one. The principles below were learned from real-world testing and should guide future skill edits.
+
+**Calibrate prescription level to the failure mode.** Three rough levels:
+
+- **Hard rules** for deterministic safety (e.g., "don't silently `cd` to another repo and write outputs there"). The agent's judgment must not vary — the failure mode is bad enough that mechanical adherence is right.
+- **Strong guidance with examples** for judgment calls where there's a clear bias to teach (e.g., "name the decision; don't expand it" with bad-vs-good pairs). Concrete examples teach better than abstract principles, but anchor them at the principle level so the agent can generalize.
+- **Trust** for cases where prescription would harm: codebase exploration tactics, how many clarifying questions to ask, when to lean on memory, prose phrasing. Over-prescription robs the agent of intelligence and memory.
+
+Match the level to the failure mode in both directions. Over-prescribing produces rote output; under-prescribing produces inconsistent behavior and drifted artifacts. The right test: can you name a specific bad outcome the prescription prevents? If yes, prescription is justified. If the rule exists "to be safe" without a concrete failure mode, lean toward trust.
+
+**SKILL.md content caches at session start; references load on demand.** Implications:
+
+- For load-bearing rules (those that MUST fire reliably), put strong language at the top of the relevant phase in SKILL.md, not just in the reference. References can be skipped; SKILL.md is always loaded.
+- When the same rule is duplicated across SKILL.md and a reference, both must be updated together. Drift produces confusing agent behavior — the agent follows whichever copy is loaded.
+- Inline content in SKILL.md that describes what's also in a reference makes the reference feel optional ("I have enough from inline"). For references that should always load, minimize the inline alternative or keep it strictly load-instruction-only.
+
+**Split orthogonal decisions into sequential questions.** When a blocking question's options span multiple decision axes (e.g., "where to operate" plus "which skill to use"), users have to reason about both axes simultaneously and individual options end up underspecified. Sequential menus addressing one decision at a time produce clearer interaction shapes — the user resolves one axis, then sees a follow-up for the next. Location vs. skill routing, scope-tier vs. depth, and other multi-axis questions all benefit from this separation.
+
+**Process exhaust stays out of artifacts.** Engineering process metadata — "captured at Phase X.Y" notes, `## Next Steps` pointing to the next skill, italic provenance lines — does not belong in user-facing docs. Doc readers want the doc; they do not need to trace which engineering phase produced which section. Keep skill state in chat (where it is interactive and can be acted on) and durable content in the artifact.
+
+**Distinguish process exhaust from audit content.** Sections that exist for the agent's own bookkeeping are exhaust; sections that exist because downstream readers need to know something about the artifact's authorship are audit content and belong in the doc. The clearest example is non-interactive mode — when no synchronous user confirmed the agent's inferences, those un-validated bets must be visibly labeled in the artifact (e.g., a `## Assumptions` section) so downstream review can scrutinize them as bets rather than mistaking them for user-confirmed decisions. The reader needs that information to do their job; the agent's phase-numbering does not. When evaluating "is this process exhaust?", ask whether removing the section degrades a downstream reader's ability to evaluate the artifact correctly. If yes, it's audit content; keep it.
+
+**Test the spec by running it, not just by reading it.** Real-world test runs surface failure modes that desk review misses: load reliability, plugin caching across sessions, agent interpretation drift, conflation in menu shapes, edge-case interactions with the user's repo layout. When a test reveals unexpected behavior, ask three questions before tightening the spec:
+
+- Is the agent's behavior actually wrong, or is it expressing better judgment than the rule encoded?
+- Did the spec drift between SKILL.md and references such that the agent saw inconsistent rules?
+- Is this load-reliability (rule never reached) or rule-content (rule reached but produces wrong output)?
+
+The fix differs by answer. Sometimes "fix the spec" means loosening over-prescription, not adding more rules. Sometimes the right answer is "accept the variance — the agent's adaptation was correct for the case."
+
 ## Skill Compliance Checklist
 
 When adding or modifying skills, verify compliance with the skill spec:

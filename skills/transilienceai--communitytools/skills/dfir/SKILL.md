@@ -68,6 +68,10 @@ brew install wireshark p7zip hashcat
 ## Critical Rules
 
 - **Answer formatting**: When forensics questions ask for "the value" of a code variable (e.g., PHP `$shell`), include language-specific string delimiters and terminators (e.g., `'value';` not just `value`). Check placeholder hints for format clues.
+- For malicious Office OOXML, inspect more than VBA streams: attackers may split staged Base64 or script content across drawing/object descriptors, shared strings, named cells, and hidden UserForm control captions/values.
+- When a VBA byte array starts with an `fnstenv`/`pop` decoder stub, convert signed integers to raw bytes and test a Shikata-style rolling XOR decode before treating the shellcode as corrupt.
+- For legacy Excel BIFF/XLS malware, inspect `BOUNDSHEET` records for `hidden` or `very hidden` worksheets and specifically check for Excel 4.0 macro sheets; changing the hidden-state byte or parsing the sheet directly can expose staged strings and flag fragments that never appear in normal workbook views.
+- For webshell traffic in PCAPs, recover static keys from the uploaded server-side code first, then decrypt operator tasking before chasing later payloads; if a dropped XOR key file is referenced by a shellcode stage, verify where the encoded region actually starts instead of XORing the whole blob from offset zero.
 - All timestamps in **UTC** — convert from local time zones in pcap/logs. **AM/PM trap**: 12:XX AM = 00:XX (midnight), 12:XX PM = 12:XX (noon). 12 AM ≠ 01:00.
 - Parse EVTX with `python-evtx` (XML namespace: `http://schemas.microsoft.com/win/2004/08/events/event`)
 - Use `tshark` for pcap (not scapy for large files) — filter with `-Y` display filters

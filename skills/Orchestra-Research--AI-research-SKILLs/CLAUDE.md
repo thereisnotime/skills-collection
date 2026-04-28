@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**AI Research Skills Library** - A comprehensive open-source library of 87 AI research skills enabling AI agents to autonomously conduct AI research — from idea to paper. Each skill provides expert-level guidance (200-500 lines) with real code examples, troubleshooting guides, and production-ready workflows.
+**AI Research Skills Library** - A comprehensive open-source library of 90 AI research skills enabling AI agents to autonomously conduct AI research — from idea to paper. Each skill provides expert-level guidance (200-500 lines) with real code examples, troubleshooting guides, and production-ready workflows.
 
 **Mission**: Enable AI agents to autonomously conduct AI research from hypothesis to experimental verification, covering the full lifecycle: literature survey, ideation, dataset preparation, training pipelines, model deployment, evaluation, and paper writing.
 
 ## Repository Architecture
 
-### Directory Structure (86 Skills Across 22 Categories)
+### Directory Structure (90 Skills Across 23 Categories)
 
 Skills are organized into numbered categories representing the AI research lifecycle:
 
@@ -36,6 +36,7 @@ Skills are organized into numbered categories representing the AI research lifec
 - `19-emerging-techniques/` - Advanced methods (6 skills: MoE Training, Model Merging, Long Context, Speculative Decoding, Knowledge Distillation, Model Pruning)
 - `20-ml-paper-writing/` - Paper writing (1 skill: ML Paper Writing with LaTeX templates for NeurIPS, ICML, ICLR, ACL, AAAI, COLM)
 - `21-research-ideation/` - Ideation (2 skills: Research Brainstorming, Creative Thinking)
+- `22-agent-native-research-artifact/` - Agent-Native Research Artifact tooling (3 skills: ARA Compiler, ARA Research Manager, ARA Rigor Reviewer — ingestion, post-task provenance recording, and Seal Level 2 epistemic review)
 
 ### Skill File Structure
 
@@ -153,10 +154,10 @@ python -c "import yaml; yaml.safe_load(open('skill-name/SKILL.md').read().split(
 
 ## Key Files
 
-- **README.md** - Project overview, all 87 skills listed with descriptions and stats
+- **README.md** - Project overview, all 90 skills listed with descriptions and stats
 - **CONTRIBUTING.md** - Complete contribution guidelines and quality standards
 - **SKILL_TEMPLATE.md** - Copy-paste scaffold for new skills
-- **ROADMAP.md** - Development roadmap (87 skills achieved)
+- **ROADMAP.md** - Development roadmap (90 skills achieved)
 - **anthropic_official_docs/** - Anthropic's official best practices for skills
 
 ## Git Workflow

@@ -5,8 +5,8 @@
     "email": "zechen@orchestra-research.com"
   },
   "metadata": {
-    "description": "Comprehensive library of 91 AI research engineering skills enabling autonomous AI research from hypothesis to experimental verification",
-    "version": "1.1.1"
+    "description": "Comprehensive library of 98 AI research engineering skills enabling autonomous AI research from hypothesis to experimental verification",
+    "version": "1.2.0"
   },
   "plugins": [
     {
@@ -276,6 +276,17 @@
       "skills": [
         "./21-research-ideation/brainstorming-research-ideas",
         "./21-research-ideation/creative-thinking-for-research"
+      ]
+    },
+    {
+      "name": "agent-native-research-artifact",
+      "description": "Agent-Native Research Artifact (ARA) tooling: compile any research input (paper, repo, notes) into a structured artifact, record session provenance as a post-task epilogue, and run Seal Level 2 epistemic review. Use when ingesting research into a falsifiable, agent-traversable artifact, capturing how a research project actually evolved, or auditing an ARA for evidence-claim alignment.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./22-agent-native-research-artifact/compiler",
+        "./22-agent-native-research-artifact/research-manager",
+        "./22-agent-native-research-artifact/rigor-reviewer"
       ]
     }
   ]
