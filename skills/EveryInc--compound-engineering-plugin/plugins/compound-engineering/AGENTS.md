@@ -198,7 +198,7 @@ Design rules for blocking question menus (`AskUserQuestion` / `request_user_inpu
 ### Cross-Platform Sub-Agent Dispatch
 
 - [ ] When a skill dispatches sub-agents, instruct use of the platform's subagent primitive and name the known equivalents (`Agent`/`Task` in Claude Code, `spawn_agent` in Codex, `subagent` in Pi via the `pi-subagents` extension)
-- [ ] Prefer parallel execution but include a sequential fallback for platforms that do not support parallel dispatch
+- [ ] Prefer bounded parallel execution: respect platform active-subagent limits, queue overflow work, and treat limit-related spawn errors as backpressure. Include a sequential fallback for platforms that do not support parallel dispatch
 - [ ] Prefer sub-agents shipped with this plugin (`ce-*`) over platform built-ins. Built-ins have different names on each target (e.g., Claude Code's `Explore` is `explorer` on Codex via `spawn_agent`'s `agent_type`, `scout` on Pi via `pi-subagents`) — using our own avoids the enumeration tax. Exception: when a built-in offers a meaningful benefit worth keeping, enumerate the per-platform equivalents inline at the call site so the model can route correctly on each target.
 
 ### Script Path References in Skills
@@ -225,7 +225,34 @@ Why: shell-heavy exploration causes avoidable permission prompts in sub-agent wo
 - [ ] Never instruct agents to use `find`, `ls`, `cat`, `head`, `tail`, `grep`, `rg`, `wc`, or `tree` through a shell for routine file discovery, content search, or file reading
 - [ ] Describe tools by capability class with platform hints — e.g., "Use the native file-search/glob tool (e.g., Glob in Claude Code)" — not by Claude Code-specific tool names alone
 - [ ] When shell is the only option (e.g., `ast-grep`, `bundle show`, git commands), instruct one simple command at a time — no action chaining (`cmd1 && cmd2`, `cmd1 ; cmd2`) and no error suppression (`2>/dev/null`, `|| true`). Two narrow exceptions: boolean conditions within if/while guards (`[ -n "$X" ] || [ -n "$Y" ]`) are fine — that is normal conditional logic, not action chaining. **Value-producing preparatory commands** (`VAR=$(cmd1) && cmd2 "$VAR"`) are also fine when `cmd2` strictly consumes `cmd1`'s output and splitting would require manually threading the value through model context across bash calls (e.g., `BODY_FILE=$(mktemp -u) && cat > "$BODY_FILE" <<EOF ... EOF`). Simple pipes (e.g., `| jq .field`) and output redirection (e.g., `> file`) are acceptable when they don't obscure failures
-- [ ] **Pre-resolution exception:** `!` backtick pre-resolution commands run at skill load time, not at agent runtime. They may use chaining (`&&`, `||`), error suppression (`2>/dev/null`), and fallback sentinels (e.g., `|| echo '__NO_CONFIG__'`) to produce a clean, parseable value for the model. This is the preferred pattern for environment probes (CLI availability, config file reads) that would otherwise require runtime shell calls with chaining. Example: `` !`command -v codex >/dev/null 2>&1 && echo "AVAILABLE" || echo "NOT_FOUND"` ``
+- [ ] **Pre-resolution exception:** `!` backtick pre-resolution commands run at skill load time, not at agent runtime. They may use chaining (`&&`, `||`), error suppression (`2>/dev/null`), and fallback sentinels (e.g., `|| echo '__NO_CONFIG__'`) to produce a clean, parseable value for the model. This is the preferred pattern for environment probes (CLI availability, config file reads) that would otherwise require runtime shell calls with chaining. Three shapes are rejected by Claude Code's safety check and must be avoided in `!` backticks:
+  - **`case ... esac`** is rejected as `Contains case_statement`. Use `&&` chaining or pipe-to-sed, or extract to a script.
+  - **`[A] && B || C`** (mixing `&&` and `||` at the same lexical depth) is rejected as `ambiguous syntax with command separators` (issue #710). Wrap the `&&` chain in a subshell so only `||` remains at top level — `(A && B) || C` — or emit the raw value and let the agent's prose decide. Example of the safe shape: `` !`(top=$(...); [ -n "$top" ] && cat "$top/file") || echo '__SENTINEL__'` ``
+  - **`$(...)` containing a double-quoted string** (e.g., `basename "$(dirname "$common")"`) is rejected as `Unhandled node type: string` (issue #709). Replace nested `$()` with parameter expansion (`${common%/.git}`), pipe to sed (`| sed -E 's|/\.git/?$||; s|.*/||'`), or extract to a script invoked as `` !`bash "${CLAUDE_SKILL_DIR}/scripts/<name>.sh"` ``.
+
+  When the logic is non-trivial, prefer extracting to a script under the skill's `scripts/` directory; the safety check then sees only `bash <quoted-path>`, which sidesteps both current and future safety-check tightenings. Tests in `tests/skill-shell-safety.test.ts` enforce all three patterns.
+
+  **Permission gate on extracted scripts — invoke from the skill body, not from `!` pre-resolution.** A pre-resolution `bash "${CLAUDE_SKILL_DIR}/scripts/<name>.sh"` form passes the safety check but trips Claude Code's permission check at skill-load time, which does *not* honor `defaultMode: bypassPermissions`. Allow-listing via `allowed-tools` frontmatter is unreliable at *load time*: empirically, broad `Bash(bash *)` patterns appear to load with bypass on but narrow filename-pinned patterns like `Bash(bash *upstream-version.sh)` fail with bypass off. Move the script invocation into the skill body so it runs via the runtime Bash tool instead. Two pieces are required for it to actually work:
+
+  1. **Use `${CLAUDE_SKILL_DIR}` for the script path**, not bare relative paths. The runtime Bash tool runs from the user's project CWD, not the skill directory — `bash scripts/<name>.sh` fails with "No such file or directory" empirically. The `${CLAUDE_SKILL_DIR}` env var resolves correctly across `claude --plugin-dir` and standard marketplace-cached installs.
+  2. **Declare narrow `allowed-tools` patterns** pinned to each script filename. At runtime, `allowed-tools` granting is documented to apply, so users without `bypassPermissions` skip the approval prompt. Pin per filename rather than using broad `Bash(bash *)`.
+
+  ```yaml
+  allowed-tools: Bash(bash *upstream-version.sh), Bash(bash *currently-loaded-version.sh)
+  ```
+
+  ````markdown
+  ## Step 1: Probe X
+
+  Run via the Bash tool, in parallel:
+
+  ```bash
+  bash "${CLAUDE_SKILL_DIR}/scripts/upstream-version.sh"
+  bash "${CLAUDE_SKILL_DIR}/scripts/currently-loaded-version.sh"
+  ```
+  ````
+
+  Use this whenever a `!` pre-resolution would invoke `bash <path>`. Reserve pre-resolution for commands whose first token already matches common user allow rules (`git status`, `gh api`, `cat <path>`, `command -v <name>`).
 - [ ] Do not encode shell recipes for routine exploration when native tools can do the job; encode intent and preferred tool classes instead
 - [ ] For shell-only workflows (e.g., `gh`, `git`, `bundle show`, project CLIs), explicit command examples are acceptable when they are simple, task-scoped, and not chained together
 
@@ -245,9 +272,9 @@ Plugin config lives at `.compound-engineering/config.local.yaml` in the repo roo
 
 2. **Worktrees:** Gitignored files are per-worktree. A config file created in the main checkout does not exist in worktrees. When reading config, fall back to the main repo root if the file is missing in the current worktree:
    ```
-   !`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.compound-engineering/config.local.yaml" 2>/dev/null) || (common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); [ -n "$common" ] && cat "$(dirname "$common")/.compound-engineering/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
+   !`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.compound-engineering/config.local.yaml" 2>/dev/null) || (common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); main="${common%/.git}"; [ -n "$main" ] && cat "$main/.compound-engineering/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
    ```
-   The first subshell tries the current worktree root. The second derives the main repo root from `git-common-dir` as a fallback. The `[ -n "$top" ]` and `[ -n "$common" ]` guards matter: outside a git repo, both `git rev-parse` invocations emit empty, and an unguarded `cat "$(dirname "")/.compound-engineering/config.local.yaml"` would resolve to a CWD-relative `./...config.local.yaml` and could succeed against a stray file in the user's working directory. Guarded, both branches simply fail and the `__NO_CONFIG__` sentinel takes over. In a regular (non-worktree) checkout, both repo paths are identical.
+   The first subshell tries the current worktree root. The second derives the main repo root from `git-common-dir` (stripping the trailing `/.git` with `${common%/.git}`) as a fallback. Use parameter expansion rather than `dirname` because Claude Code's safety check rejects nested `$(dirname "$common")` inside double-quoted strings as "Unhandled node type: string" (see issue #709). The `[ -n "$top" ]` and `[ -n "$main" ]` guards matter: outside a git repo, both `git rev-parse` invocations emit empty, and an unguarded `cat "/.compound-engineering/config.local.yaml"` would attempt to read from `/`. Guarded, both branches simply fail and the `__NO_CONFIG__` sentinel takes over. In a regular (non-worktree) checkout, both repo paths are identical.
 
 If neither path has the file, fall through to defaults — never fail or block on missing config.
 

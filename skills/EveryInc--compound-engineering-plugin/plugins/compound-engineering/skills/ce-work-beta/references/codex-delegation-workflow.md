@@ -55,12 +55,11 @@ If `inside_sandbox` is true, delegation would recurse or fail.
 
 **2. Availability Check**
 
-**Codex availability (pre-resolved):**
-!`command -v codex >/dev/null 2>&1 && echo "CODEX_AVAILABLE" || echo "CODEX_NOT_FOUND"`
+**Codex CLI path (pre-resolved):**
+!`command -v codex 2>/dev/null`
 
-If the line above shows `CODEX_AVAILABLE`, proceed to the next check.
-If it shows `CODEX_NOT_FOUND`, the Codex CLI is not installed. Emit "Codex CLI not found (install via `npm install -g @openai/codex` or `brew install codex`) -- using standard mode." and set `delegation_active` to false.
-If it shows an unresolved command string, run `command -v codex` using a shell tool. If the command prints a path, proceed. If it fails or prints nothing, emit the same message and set `delegation_active` to false.
+If the line above shows an absolute path (starts with `/`, e.g., `/opt/homebrew/bin/codex`), the Codex CLI is available — proceed to the next check.
+Otherwise — empty, an unresolved command string like `command -v codex 2>/dev/null` left in place by a non-Claude harness that doesn't process `!` pre-resolution, or any other non-path value — run `command -v codex` via the shell/Bash tool to verify at runtime. If that prints an absolute path, the Codex CLI is available; proceed. If it fails or prints nothing, emit "Codex CLI not found (install via `npm install -g @openai/codex` or `brew install codex`) -- using standard mode." and set `delegation_active` to false.
 
 **3. Consent Flow**
 
