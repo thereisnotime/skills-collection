@@ -257,6 +257,22 @@ VERIFY: Run the test.
                 (Amazon: "the hardest part is teaching why workflows fail")
 ```
 
+### RARV-C Closure Flags (v7.5.0+)
+
+The Phase 1 RARV-C closure pipeline is also useful in healing runs because
+characterization-test failures generate structured findings that benefit
+from override-council adjudication and persistent learnings:
+
+```bash
+LOKI_INJECT_FINDINGS=1     # structured findings -> next-iteration prompt
+LOKI_OVERRIDE_COUNCIL=1    # 3-judge override council on BLOCK
+LOKI_AUTO_LEARNINGS=1      # persist code_review failures as learnings
+LOKI_HANDOFF_MD=1          # write handoff doc before PAUSE
+```
+
+Full spec and counter-evidence schema: `skills/quality-gates.md` (v7.5.0
+Phase 1 environment flags section).
+
 ---
 
 ## Structured Fault Injection (Honest Alternative to RL Gyms)
@@ -489,3 +505,15 @@ loki heal --report
 # Strict mode: block any behavioral change without approval
 LOKI_HEAL_STRICT=true loki heal ./legacy-app
 ```
+
+## Checkpoint metadata hardening (v7.5.8)
+
+As defense-in-depth for the healing checkpoint store, the checkpoint
+writer now rejects ASCII control characters (U+0000-U+001F except TAB,
+LF, CR, plus U+007F) anywhere in checkpoint metadata keys or values
+before persisting `.loki/healing/checkpoints/<phase>.json`. This blocks
+log-injection and JSON-poisoning vectors where adapter output, friction
+notes, or institutional-knowledge excerpts could smuggle terminal
+escapes or NUL bytes into the resume path. Rejected writes raise a
+typed error and never partially overwrite the prior checkpoint, so
+`loki heal --resume` always restarts from a clean, validated state.

@@ -19,7 +19,6 @@ const fs = require('fs');
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..');
-const repoRootWithSep = `${repoRoot}${path.sep}`;
 const packageJsonPath = path.join(repoRoot, 'package.json');
 const packageLockPath = path.join(repoRoot, 'package-lock.json');
 const rootAgentsPath = path.join(repoRoot, 'AGENTS.md');
@@ -68,16 +67,6 @@ function loadJsonObject(filePath, label) {
   );
 
   return parsed;
-}
-
-function assertSafeRepoRelativePath(relativePath, label) {
-  const normalized = path.posix.normalize(relativePath.replace(/\\/g, '/'));
-
-  assert.ok(!path.isAbsolute(relativePath), `${label} must not be absolute: ${relativePath}`);
-  assert.ok(
-    !normalized.startsWith('../') && !normalized.includes('/../'),
-    `${label} must not traverse directories: ${relativePath}`,
-  );
 }
 
 function collectMarkdownFiles(rootPath) {
@@ -226,6 +215,24 @@ test('claude plugin.json skills is an array', () => {
 
 test('claude plugin.json commands is an array', () => {
   assert.ok(Array.isArray(claudePlugin.commands), 'Expected commands to be an array');
+});
+
+test('claude plugin.json disables bundled MCP servers for provider tool-name compatibility', () => {
+  const reportedOverlongToolName = `mcp__plugin_${claudePlugin.name}_github__create_pull_request_review`;
+
+  assert.ok(
+    reportedOverlongToolName.length > 64,
+    'Expected the reported GitHub MCP tool name to exceed strict provider limits without the MCP opt-out',
+  );
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(claudePlugin, 'mcpServers'),
+    'Expected mcpServers to be explicitly declared so Claude Code does not auto-load root .mcp.json',
+  );
+  assert.deepStrictEqual(
+    claudePlugin.mcpServers,
+    {},
+    'Claude plugin installs must not auto-bundle root MCP servers; document/manual MCP install remains supported',
+  );
 });
 
 test('claude plugin.json does NOT have explicit hooks declaration', () => {

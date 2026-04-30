@@ -2,26 +2,32 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.5.1
+**Version:** v7.5.13
 
 ---
 
-## What's New in v7.5.0
+## What's New in v7.5.x
 
-### Phase 1 RARV-C closure (Bun route, default-off feature flags)
+### Phase 1 RARV-C closure (shipped v7.5.0, default-on as of v7.5.3)
+Phase 1 closure features now activate automatically when you run
+`loki start` -- no env flags required. Power users can opt out by
+setting any flag to `0`.
+
 - `findings_injector.ts` -- structured per-finding records (severity, file,
   line, reviewer) injected into the next iteration's prompt instead of bare
-  comma-separated tokens. Enable with `LOKI_INJECT_FINDINGS=1`.
-- `counter_evidence.ts` -- 3-judge override council. Drop a
+  comma-separated tokens. Default: ON. Opt out with `LOKI_INJECT_FINDINGS=0`.
+- `counter_evidence.ts` -- override council. Drop a
   `.loki/state/counter-evidence-<iter>.json` to dispute reviewer findings;
-  2-of-3 approval lifts the BLOCK. Enable with `LOKI_OVERRIDE_COUNCIL=1`
-  (requires `LOKI_INJECT_FINDINGS=1`).
+  approval lifts the BLOCK. Default: ON. Opt out with `LOKI_OVERRIDE_COUNCIL=0`.
 - `learnings_writer.ts` -- automatic structured learnings to
   `.loki/state/relevant-learnings.json` on every code_review failure.
-  Enable with `LOKI_AUTO_LEARNINGS=1`.
+  Default: ON. Opt out with `LOKI_AUTO_LEARNINGS=0`.
 - `escalation_handoff.ts` -- structured human-handoff doc to
-  `.loki/escalations/handoff-*.md` before PAUSE. Enable with
-  `LOKI_HANDOFF_MD=1`.
+  `.loki/escalations/handoff-*.md` before PAUSE. Default: ON. Opt out
+  with `LOKI_HANDOFF_MD=0`.
+- `loki status` shows a "Phase 1 artifacts" section when findings,
+  learnings, or escalations exist (added v7.5.5; see the `phase1` block
+  in `loki status --json`).
 - See `skills/quality-gates.md` for full schema and reachability notes.
 
 ### Earlier highlights still in scope
@@ -122,15 +128,25 @@ package, while `loki-mode-sdk` is the thin client.
 
 ## Quick Start
 
+Drop a spec -- any artifact that describes what you want built -- and Loki
+Mode takes it from spec to deployed app. Specs can be a markdown PRD, a
+GitHub issue URL, or a YAML feature description.
+
 ```bash
-# CLI mode (works with any provider)
-loki start ./prd.md
-loki start ./prd.md --provider codex
-loki start ./prd.md --provider gemini
+# CLI mode (works with any provider) -- spec as markdown PRD
+loki start ./spec.md
+loki start ./spec.md --provider codex
+loki start ./spec.md --provider gemini
+
+# Spec as a GitHub issue
+loki start --github-issue https://github.com/owner/repo/issues/42
+
+# Spec as a YAML feature description
+loki start ./feature.yaml
 
 # Interactive mode (inside your coding agent)
 claude --dangerously-skip-permissions
-# Then say: "Loki Mode with PRD at ./my-prd.md"
+# Then say: "Loki Mode with spec at ./my-spec.md"
 ```
 
 ---
@@ -192,11 +208,11 @@ Run Loki Mode in an isolated Docker container for enhanced security.
 ### Usage
 
 ```bash
-# Run in sandbox mode
-./autonomy/sandbox.sh ./my-prd.md
+# Run in sandbox mode (spec can be PRD, issue link, or YAML)
+./autonomy/sandbox.sh ./my-spec.md
 
 # With provider selection
-./autonomy/sandbox.sh --provider codex ./my-prd.md
+./autonomy/sandbox.sh --provider codex ./my-spec.md
 ```
 
 ### Security Controls
@@ -207,10 +223,10 @@ By default, prompt injection is **disabled** for enterprise safety:
 
 ```bash
 # Default: prompt injection disabled
-./autonomy/run.sh ./my-prd.md
+./autonomy/run.sh ./my-spec.md
 
 # Opt-in to enable prompt injection
-LOKI_PROMPT_INJECTION_ENABLED=true ./autonomy/run.sh ./my-prd.md
+LOKI_PROMPT_INJECTION_ENABLED=true ./autonomy/run.sh ./my-spec.md
 ```
 
 #### Human Input Security
@@ -222,7 +238,7 @@ The `HUMAN_INPUT.md` file has security controls:
 
 ### When to Use Sandbox Mode
 
-- Running untrusted PRD files
+- Running untrusted spec files (PRD, issue export, YAML)
 - Enterprise environments with strict security requirements
 - Automated CI/CD pipelines
 - Multi-tenant deployments
@@ -266,13 +282,13 @@ Use the `--provider` flag when invoking Loki Mode:
 
 ```bash
 # Use Claude (default)
-loki start ./my-prd.md --provider claude
+loki start ./my-spec.md --provider claude
 
 # Use OpenAI Codex
-loki start ./my-prd.md --provider codex
+loki start ./my-spec.md --provider codex
 
 # Use Google Gemini
-loki start ./my-prd.md --provider gemini
+loki start ./my-spec.md --provider gemini
 ```
 
 #### Docker
@@ -283,12 +299,12 @@ Pass the provider as an environment variable:
 # Use Codex with Docker
 docker run -e LOKI_PROVIDER=codex \
   -v $(pwd):/workspace -w /workspace \
-  asklokesh/loki-mode:latest start ./my-prd.md
+  asklokesh/loki-mode:latest start ./my-spec.md
 
 # Use Gemini with Docker
 docker run -e LOKI_PROVIDER=gemini \
   -v $(pwd):/workspace -w /workspace \
-  asklokesh/loki-mode:latest start ./my-prd.md
+  asklokesh/loki-mode:latest start ./my-spec.md
 ```
 
 ### Degraded Mode
@@ -439,7 +455,7 @@ description: Multi-Agent Autonomous Startup System
 
 1. Start a new conversation
 2. Type: `Loki Mode`
-3. Claude should recognize the skill and ask for a PRD
+3. Claude should recognize the skill and ask for a spec (PRD, GitHub issue link, or YAML)
 
 ### For API Console
 
@@ -469,7 +485,7 @@ loki-mode/
 ├── autonomy/             # Autonomous runner (CLI only)
 │   ├── run.sh
 │   └── README.md
-├── templates/            # 22 PRD templates for project scaffolding
+├── templates/            # 22 spec templates (PRD-style) for project scaffolding
 │   ├── simple-todo-app.md
 │   ├── api-only.md
 │   ├── static-landing-page.md
@@ -622,7 +638,7 @@ The completion scripts support:
 * **Smart Context**
 
   * `loki start --provider <TAB>` shows only installed providers (`claude`, `codex`, `gemini`).
-  * `loki start <TAB>` defaults to file completion for PRD templates.
+  * `loki start <TAB>` defaults to file completion for spec files (PRD templates, YAML).
 
 * **Nested Commands**
   Handles specific subcommands for `council`, `memory`, `config`, `audit`, `metrics`, `watchdog`, and `secrets`.
@@ -791,9 +807,9 @@ After installation:
    cd my-app
    ```
 
-3. **Start Building:** Launch autonomous development
+3. **Start Building:** Launch autonomous development from any spec (PRD, GitHub issue, or YAML)
    ```bash
-   loki start prd.md
+   loki start spec.md
    ```
 
 4. **Read Documentation:** Check out [README.md](../README.md) for usage guides

@@ -853,6 +853,24 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "b4fbffd",
+      "message": "docs(v3.6.7): Step 7 \u2014 CHANGELOG entry + version sweep (#49)",
+      "date": "2026-04-30",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "d9fac3e",
+      "message": "v3.6.7 Step 1+2: downstream-agent pattern protection (references + agent prompts) (#48)",
+      "date": "2026-04-30",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "5c906b2",
+      "message": "docs(design): add v3.6.7 downstream-agent pattern protection spec (#47)",
+      "date": "2026-04-29",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "602af4b",
       "message": "fix(v3.6.5.2): mark claude.ai Method 4a not recommended for this Claude Code-native suite (#46)",
       "date": "2026-04-27",
@@ -891,24 +909,6 @@
     {
       "sha": "68a9f61",
       "message": "ci(v3.6.4): fix pytest workflow PYTHONPATH for first PR run",
-      "date": "2026-04-25",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "1e7ee53",
-      "message": "docs(v3.6.4): PERFORMANCE sections on literature_corpus ingestion",
-      "date": "2026-04-25",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "8fa21c5",
-      "message": "docs(v3.6.4): scripts/adapters/README.md user-facing how-to",
-      "date": "2026-04-25",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "d54bd78",
-      "message": "chore(v3.6.4): version bump sweep + CHANGELOG + T14/T15 combined",
       "date": "2026-04-25",
       "author": "Imbad0202"
     }
@@ -1957,6 +1957,12 @@
   ],
   "conorluddy--ios-simulator-skill": [
     {
+      "sha": "28a6e11",
+      "message": "Fix plugin structure: move skills into skills/<name>/ directory (#40)",
+      "date": "2026-04-30",
+      "author": "Conor"
+    },
+    {
       "sha": "21a3869",
       "message": "Bump version to 1.4.0 (#39)",
       "date": "2026-04-12",
@@ -2007,12 +2013,6 @@
     {
       "sha": "84c1156",
       "message": "Add skills path to plugin.json for SKILL.md discovery",
-      "date": "2026-04-12",
-      "author": "Conor Luddy"
-    },
-    {
-      "sha": "04ae43e",
-      "message": "Add plugin marketplace for streamlined installation",
       "date": "2026-04-12",
       "author": "Conor Luddy"
     }
@@ -3721,6 +3721,18 @@
   ],
   "supabase--agent-skills": [
     {
+      "sha": "e5f7a7c",
+      "message": "fix: update Data API doc link and bump supabase skill to v0.1.1 (#73)",
+      "date": "2026-04-29",
+      "author": "Pedro Rodrigues"
+    },
+    {
+      "sha": "5a6542e",
+      "message": "fix: bump supabase skill to v0.1.1 and fix Data API broken link (#72)",
+      "date": "2026-04-29",
+      "author": "Pedro Rodrigues"
+    },
+    {
       "sha": "f15a5a4",
       "message": "feat: instructions on exposing tables to the data api (#71)",
       "date": "2026-04-24",
@@ -3766,18 +3778,6 @@
       "sha": "bf1aa75",
       "message": "chore: add supabase skill to marketplace (#60)",
       "date": "2026-04-07",
-      "author": "Pedro Rodrigues"
-    },
-    {
-      "sha": "6612032",
-      "message": "Update issue templates (#53)",
-      "date": "2026-04-05",
-      "author": "Pedro Rodrigues"
-    },
-    {
-      "sha": "f4e2277",
-      "message": "fix: correct broken reference link in postgres best practices skill (#58)",
-      "date": "2026-04-05",
       "author": "Pedro Rodrigues"
     }
   ],
@@ -4473,67 +4473,85 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "94d2c6d",
-      "message": "release: v7.5.1 - bug-hunt fixes (5 code + 6 docs + 5 UX) + doctor runtime route",
+      "sha": "dfeb1b3",
+      "message": "release: v7.5.13 - shellcheck fixup for v7.5.12 test files",
+      "date": "2026-04-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "5802f70",
+      "message": "release: v7.5.12 - real-user adoption fixes (12 verified)",
+      "date": "2026-04-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "b26f30b",
+      "message": "Doc update",
+      "date": "2026-04-30",
+      "author": "Lokesh Mure"
+    },
+    {
+      "sha": "e393e41",
+      "message": "release: v7.5.11 - spec rename + supported-formats table + 5 providers in npm desc",
+      "date": "2026-04-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "464b98b",
+      "message": "release: v7.5.10 - mega-batch (12 fixes incl L8 critical + L5 BUG-9)",
+      "date": "2026-04-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "ce5f605",
+      "message": "release: v7.5.9 - in-operator hardening + control-char extension + gate-count reconcile",
       "date": "2026-04-29",
       "author": "asklokesh"
     },
     {
-      "sha": "6911f41",
-      "message": "release: v7.5.0 - Part B Phase 1 RARV-C closure (findings injection + override council + auto-learnings + handoff)",
+      "sha": "fd8e3b3",
+      "message": "release: v7.5.8 - mega-batch (12 code fixes + full doc audit)",
       "date": "2026-04-29",
       "author": "asklokesh"
     },
     {
-      "sha": "d69548b",
-      "message": "release: v7.4.20 - gate legacy-healing-auditor on healing-mode signals",
-      "date": "2026-04-27",
+      "sha": "264d9b6",
+      "message": "release: v7.5.7 - 20-agent bug-hunt + 7 verified fixes",
+      "date": "2026-04-29",
       "author": "asklokesh"
     },
     {
-      "sha": "b7fbc6c",
-      "message": "release: v7.4.19 - BMAD per-story scope filter + parallel BMAD docs",
-      "date": "2026-04-27",
+      "sha": "c17aaad",
+      "message": "release: v7.5.6 - council-driven hardening + CI parity fix",
+      "date": "2026-04-29",
       "author": "asklokesh"
     },
     {
-      "sha": "c6b1260",
-      "message": "release: v7.4.18 - codex provider aligned with @openai/codex v0.125.0",
-      "date": "2026-04-27",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "9f6b51d",
-      "message": "release: v7.4.17 - dashboard task modal + pytest gate skip + completion fallback",
-      "date": "2026-04-27",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "81436be",
-      "message": "release: v7.4.16 - CRITICAL: clean stale PAUSE_AT_CHECKPOINT on start",
-      "date": "2026-04-27",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "7266db1",
-      "message": "release: v7.4.15 - self-update --check works without loki on PATH",
-      "date": "2026-04-27",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "9e70e4b",
-      "message": "release: v7.4.14 - loki self-update + README Bun-first",
-      "date": "2026-04-27",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "48fd3da",
-      "message": "release: v7.4.13 - first-run telemetry fires for Bun-route users too",
-      "date": "2026-04-26",
+      "sha": "13e0976",
+      "message": "release: v7.5.5 - flock + status phase1 + internal help + e2e tests",
+      "date": "2026-04-29",
       "author": "asklokesh"
     }
   ],
   "yusufkaraaslan--Skill_Seekers": [
+    {
+      "sha": "7409f25",
+      "message": "fix(unified): emit C3.x output for local sources (#363) (#372)",
+      "date": "2026-04-29",
+      "author": "yusyus"
+    },
+    {
+      "sha": "6e31e73",
+      "message": "feat: GitHub issue filtering, per-issue files, and Pinecone frontmatter (#367)",
+      "date": "2026-04-29",
+      "author": "GreenFlux"
+    },
+    {
+      "sha": "2fb4848",
+      "message": "Add IBM Bob packaging target and agent install support (#366)",
+      "date": "2026-04-29",
+      "author": "Rafflesia Khan"
+    },
     {
       "sha": "26638b2",
       "message": "fix: pass language filter to C3.x clone analysis (fixes #361) (#370)",
@@ -4573,24 +4591,6 @@
     {
       "sha": "8ec5d71",
       "message": "fix: resolve CI failures from merge (lint, format, MCP test)",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "5e415c1",
-      "message": "fix: post-merge cleanup for PR #360 quality improvements",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "9e8101c",
-      "message": "Merge commit 'refs/pull/360/head' of https://github.com/yusufkaraaslan/Skill_Seekers into development",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "e4a7565",
-      "message": "fix: centralize defaults and fix rate_limit None TypeError (#356)",
       "date": "2026-04-12",
       "author": "yusyus"
     }
@@ -5107,63 +5107,63 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
-      "sha": "4dee593",
-      "message": "feat(validator): schema 3.3.1 \u2014 spec-compliance fixes + compatible-with \u2192 compatibility (#611)",
-      "date": "2026-04-28",
+      "sha": "cadd8b0",
+      "message": "chore(migration): compatible-with \u2192 compatibility (saas-packs 6/6, 416 skills) (#628)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "3076d78",
-      "message": "chore(release): prepare v4.28.0",
-      "date": "2026-04-23",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "d1bf0d3",
-      "message": "feat: plane-sync workflow (GitHub \u2192 Plane quiet-mode bridge) (#529)",
-      "date": "2026-04-23",
+      "sha": "c8f2509",
+      "message": "chore(migration): compatible-with \u2192 compatibility (saas-packs 5/6, 398 skills) (#627)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "7124cff",
-      "message": "fix(agents): testing/code-cleanup frontmatter (#604 Phase 2A) (#607)",
-      "date": "2026-04-23",
+      "sha": "d290598",
+      "message": "chore(migration): compatible-with \u2192 compatibility (saas-packs 4/6, 433 skills) (#626)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "51ce81c",
-      "message": "fix(agents): fullstack-starter-pack frontmatter (#604 Phase 2A) (#606)",
-      "date": "2026-04-23",
+      "sha": "ea08a1d",
+      "message": "chore(migration): compatible-with \u2192 compatibility (saas-packs 3/6, 408 skills) (#625)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "6d0864d",
-      "message": "fix(commands): frontmatter cleanup Phase 1 \u2014 5 trivial fixes (#604) (#605)",
-      "date": "2026-04-23",
+      "sha": "a462437",
+      "message": "chore(migration): compatible-with \u2192 compatibility (saas-packs 1/6, 422 skills) (#624)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "68093d7",
-      "message": "fix(skills): correct 3 pre-existing allowed-tools errors blocking ccpi validate (#603)",
-      "date": "2026-04-23",
+      "sha": "5f64d65",
+      "message": "chore(migration): compatible-with \u2192 compatibility (saas-packs 2/6, 438 skills) (#623)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "b692b45",
-      "message": "feat(blog): sync 4 backfill posts from startaitools.com (Apr 19-22)",
-      "date": "2026-04-23",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "6f7e80d",
-      "message": "fix(ci): revive Gemini PR reviewer + add contributor philosophy (#602)",
-      "date": "2026-04-23",
+      "sha": "1776116",
+      "message": "chore(migration): compatible-with \u2192 compatibility (18 categories, 300 skills) (#622)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "4b84821",
-      "message": "fix(marketplace): wrap playbooks in BaseLayout; retire /spotlight page (#601)",
-      "date": "2026-04-22",
+      "sha": "7623f2c",
+      "message": "chore(migration): compatible-with \u2192 compatibility (ai-ml category, 34 skills) (#620)",
+      "date": "2026-04-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "6cec733",
+      "message": "fix(freshie): anomaly detector + populator drift + x-bug-triage template (#618)",
+      "date": "2026-04-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "b6499fa",
+      "message": "docs(adr): four ADRs declining audit-tests roadmap recommendations (#619)",
+      "date": "2026-04-30",
       "author": "intentsolutions.io"
     }
   ],
@@ -5355,63 +5355,63 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "c7c7d37",
-      "message": "Merge remote-tracking branch 'origin/main' into feat/ecc2-rc1-preview-surface",
-      "date": "2026-04-29",
+      "sha": "e1d6d85",
+      "message": "fix: namespace cursor agent installs",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "b6b5b6d",
-      "message": "test: cover CI catalog validator",
-      "date": "2026-04-29",
+      "sha": "5881554",
+      "message": "fix: add no-hooks minimal install path",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "f6acf6e",
-      "message": "Merge pull request #1606 from affaan-m/fix/1598-observer-sigusr1-wait",
-      "date": "2026-04-29",
+      "sha": "d26d66f",
+      "message": "fix: inject learned skills at session start",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "46aa301",
-      "message": "Merge remote-tracking branch 'origin/main' into feat/ecc2-rc1-preview-surface",
-      "date": "2026-04-29",
+      "sha": "0c61710",
+      "message": "fix: disable claude plugin bundled mcps",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "fd95cf6",
-      "message": "fix: retry observer wait after signal",
-      "date": "2026-04-29",
+      "sha": "d49f032",
+      "message": "fix: avoid cursor nested AGENTS context pollution",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "83d6bb2",
-      "message": "Merge pull request #1605 from affaan-m/fix/1587-codex-skills-validation",
-      "date": "2026-04-29",
+      "sha": "95ce9ea",
+      "message": "fix: remove canonical Anthropic skill duplicates",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "6c8a6bd",
-      "message": "docs: remove unicode markers from hook addendum",
-      "date": "2026-04-29",
+      "sha": "06f9eca",
+      "message": "fix: retire legacy command shims from default surface",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "d89f8d8",
-      "message": "fix: normalize codex skill metadata",
-      "date": "2026-04-29",
+      "sha": "affbd33",
+      "message": "fix: avoid opencode shell file probes",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "0a87323",
-      "message": "feat(ecc2): finalize rc1 release surface",
-      "date": "2026-04-29",
+      "sha": "9627c20",
+      "message": "test: harden mcp health http probe fixture",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "5595c07",
-      "message": "Merge pull request #1555 from affaan-m/fix/install-uninstall-readme-clarity",
-      "date": "2026-04-29",
+      "sha": "1188aea",
+      "message": "fix: refine gateguard destructive git detection",
+      "date": "2026-04-30",
       "author": "Affaan Mustafa"
     }
   ],

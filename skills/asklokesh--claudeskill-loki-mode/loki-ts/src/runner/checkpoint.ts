@@ -32,6 +32,7 @@ import {
 import { join, dirname } from "node:path";
 import { lokiDir } from "../util/paths.ts";
 import { run } from "../util/shell.ts";
+import { withFileLockSync } from "../util/atomic.ts";
 
 // Schema mirrors metadata.json exactly. Field names and types are load-bearing
 // (consumed by rollback_to_checkpoint and the dashboard). Do not rename.
@@ -91,8 +92,12 @@ let _chain: Promise<unknown> = Promise.resolve();
 function serialize<T>(fn: () => Promise<T>): Promise<T> {
   const next = _chain.then(fn, fn);
   // Swallow rejections in the chain so one failure does not poison subsequent
-  // calls. Each caller still receives its own error via `next`.
-  _chain = next.catch(() => undefined);
+  // calls. Each caller still receives its own error via `next`. Surface the
+  // failure on stderr so silent rejection-swallow does not hide bugs (L4#4).
+  _chain = next.catch((err: unknown) => {
+    console.warn("[checkpoint] serialized op rejected:", err);
+    return undefined;
+  });
   return next;
 }
 
@@ -262,8 +267,14 @@ async function _createCheckpointImpl(
   atomicWriteFile(join(cpDir, "metadata.json"), serializeMetadata(metadata));
 
   // Append to index.jsonl. Single appendFileSync writes are atomic for small
-  // payloads on POSIX (PIPE_BUF = 4096+ bytes); index lines are well under
-  // that. The serialize() chain prevents in-process interleaving as well.
+  // payloads on POSIX (PIPE_BUF = 4096+ bytes), and the serialize() chain
+  // prevents in-process interleaving. v7.5.7: wrap the append in a
+  // cross-process advisory lock (withFileLockSync) so concurrent appends
+  // from parallel worktrees / sibling processes cannot interleave on disks
+  // where PIPE_BUF guarantees do not hold (NFS, some FUSE mounts) or when
+  // a future change pushes line size near the boundary. Lock sentinel is
+  // `${indexPath}.lock`, which lives alongside index.jsonl; tests scanning
+  // the checkpoints dir filter for `cp-*` names so the sentinel is ignored.
   const idxLine: CheckpointIndexEntry = {
     id: metadata.id,
     ts: metadata.timestamp,
@@ -271,7 +282,10 @@ async function _createCheckpointImpl(
     task: metadata.task_description,
     sha: metadata.git_sha,
   };
-  appendFileSync(indexPath(base), `${serializeIndexLine(idxLine)}\n`);
+  const idxPath = indexPath(base);
+  withFileLockSync(idxPath, () => {
+    appendFileSync(idxPath, `${serializeIndexLine(idxLine)}\n`);
+  });
 
   // Retention: prune oldest above RETENTION_LIMIT, then rebuild index atomically.
   enforceRetention(base);
@@ -330,14 +344,25 @@ function enforceRetention(base: string): void {
   rebuildIndex(base);
 }
 
-function rebuildIndex(base: string): void {
+// Exported for tests; also used internally by enforceRetention.
+export function rebuildIndex(base: string): void {
   const remaining = sortByEpoch(listCheckpointDirs(base));
   const lines: string[] = [];
   for (const id of remaining) {
     const metaPath = join(checkpointsRoot(base), id, "metadata.json");
-    if (!existsSync(metaPath)) continue;
+    const cpDir = join(checkpointsRoot(base), id);
+    if (!existsSync(metaPath)) {
+      emitMetadataDroppedEvent(base, cpDir, "missing_field", "metadata.json");
+      continue;
+    }
     try {
-      const m = JSON.parse(readFileSync(metaPath, "utf-8")) as CheckpointMetadata;
+      const parsed: unknown = JSON.parse(readFileSync(metaPath, "utf-8"));
+      const result = validateCheckpointMetadataDetailed(parsed, metaPath);
+      if (!result.ok) {
+        emitMetadataDroppedEvent(base, cpDir, result.reason, result.field);
+        continue;
+      }
+      const m = result.value;
       lines.push(
         serializeIndexLine({
           id: m.id,
@@ -348,12 +373,45 @@ function rebuildIndex(base: string): void {
         }),
       );
     } catch {
-      // Skip corrupt metadata, mirror bash `|| true`.
+      // Skip corrupt metadata (JSON parse failure), mirror bash `|| true`.
+      emitMetadataDroppedEvent(base, cpDir, "invalid_type", "metadata.json");
     }
   }
   const target = indexPath(base);
   const contents = lines.length > 0 ? `${lines.join("\n")}\n` : "";
   atomicWriteFile(target, contents);
+}
+
+// v7.5.8: structured event emission for dropped checkpoint metadata.
+// Replaces bare console.warn so on-call dashboards / log shippers can pick
+// up corruption signals from .loki/events.jsonl. Best-effort: a write
+// failure here must not break checkpoint creation.
+function emitMetadataDroppedEvent(
+  base: string,
+  cpDir: string,
+  reason: "missing_field" | "invalid_type" | "control_chars",
+  field: string,
+): void {
+  const eventsPath = join(base, "events.jsonl");
+  const event = {
+    timestamp: new Date().toISOString(),
+    type: "checkpoint.metadata.dropped",
+    checkpoint_dir: cpDir,
+    reason,
+    field,
+  };
+  // v7.5.9: serialize cross-process appends. Multiple parallel-worktree
+  // checkpoint operations could otherwise interleave partial JSONL lines
+  // (POSIX append is atomic only for <PIPE_BUF and not all platforms
+  // honor it). Lock target = events.jsonl itself; sentinel at .lock.
+  try {
+    mkdirSync(dirname(eventsPath), { recursive: true });
+    withFileLockSync(eventsPath, () => {
+      appendFileSync(eventsPath, `${JSON.stringify(event)}\n`);
+    });
+  } catch {
+    // Swallow -- event emission is observability, never load-bearing.
+  }
 }
 
 // Public: list checkpoints by reading metadata.json for each cp-* directory.
@@ -373,10 +431,138 @@ function readCheckpointSafe(base: string, id: string): CheckpointMetadata | null
   const metaPath = join(checkpointsRoot(base), id, "metadata.json");
   if (!existsSync(metaPath)) return null;
   try {
-    return JSON.parse(readFileSync(metaPath, "utf-8")) as CheckpointMetadata;
+    const parsed: unknown = JSON.parse(readFileSync(metaPath, "utf-8"));
+    return validateCheckpointMetadata(parsed, metaPath);
   } catch {
     return null;
   }
+}
+
+// v7.5.7: runtime validator for metadata.json. Replaces bare
+// `as CheckpointMetadata` casts that would silently propagate corrupt or
+// truncated metadata (partial write, foreign tooling, accidental edit) to
+// callers that subsequently relied on `iteration` being a number,
+// `git_sha` being a non-empty string, etc. Returns null on any field
+// missing or wrong type, after logging a one-line warning so on-call has
+// a breadcrumb. We do NOT throw -- the surrounding code paths
+// (readCheckpointSafe, rebuildIndex, listCheckpoints) already treat null
+// as "skip this checkpoint" and continue.
+function validateCheckpointMetadata(
+  raw: unknown,
+  source: string,
+): CheckpointMetadata | null {
+  const r = validateCheckpointMetadataDetailed(raw, source);
+  return r.ok ? r.value : null;
+}
+
+// v7.5.8: detailed variant returns structured failure reasons so callers
+// (rebuildIndex) can emit precise events. Same validation logic as
+// validateCheckpointMetadata, but returns reason/field on failure.
+type ValidationResult =
+  | { ok: true; value: CheckpointMetadata }
+  | {
+      ok: false;
+      reason: "missing_field" | "invalid_type" | "control_chars";
+      field: string;
+    };
+
+// v7.5.8: control-character whitelist. Tab (\x09) is allowed in
+// task_description; everything else < 0x20 is rejected. This blocks NUL,
+// CR, LF, and other non-printable bytes from leaking into rebuilt index
+// lines (which would corrupt the JSONL stream) and from being silently
+// accepted by readCheckpoint / listCheckpoints.
+// v7.5.9 (council R4#3 follow-up): extended to reject 0x7f (DEL) and the
+// C1 control range 0x80-0x9f. DEL on a TTY can erase prior output;
+// C1 controls in dashboard / log shippers can be misinterpreted as
+// control sequences. Tab (0x09) intentionally allowed.
+const CONTROL_CHAR_RE = /[\x00-\x08\x0a-\x1f\x7f-\x9f]/;
+
+// Subset of stringFields where control chars are forbidden. We exclude
+// task_description because it is user-supplied free text and the bash
+// implementation does not sanitize it; tightening that field would break
+// existing checkpoints.
+const CONTROL_CHAR_GUARDED_FIELDS: ReadonlyArray<keyof CheckpointMetadata> = [
+  "id",
+  "task_id",
+  "git_sha",
+  "git_branch",
+  "provider",
+  "phase",
+];
+
+function validateCheckpointMetadataDetailed(
+  raw: unknown,
+  source: string,
+): ValidationResult {
+  if (raw === null || typeof raw !== "object") {
+    console.warn(`[checkpoint] invalid metadata at ${source}: not an object`);
+    return { ok: false, reason: "invalid_type", field: "<root>" };
+  }
+  const o = raw as Record<string, unknown>;
+  const stringFields: Array<keyof CheckpointMetadata> = [
+    "id",
+    "timestamp",
+    "task_id",
+    "task_description",
+    "git_sha",
+    "git_branch",
+    "provider",
+    "phase",
+  ];
+  for (const f of stringFields) {
+    if (!(f in o)) {
+      console.warn(
+        `[checkpoint] invalid metadata at ${source}: field "${f}" missing`,
+      );
+      return { ok: false, reason: "missing_field", field: f };
+    }
+    if (typeof o[f] !== "string") {
+      console.warn(
+        `[checkpoint] invalid metadata at ${source}: field "${f}" not a string`,
+      );
+      return { ok: false, reason: "invalid_type", field: f };
+    }
+  }
+  // v7.5.9 (council R4#1 follow-up): use hasOwnProperty.call to avoid
+  // walking Object.prototype chain on JSON-parsed input.
+  if (!Object.prototype.hasOwnProperty.call(o, "iteration")) {
+    console.warn(
+      `[checkpoint] invalid metadata at ${source}: field "iteration" missing`,
+    );
+    return { ok: false, reason: "missing_field", field: "iteration" };
+  }
+  if (typeof o["iteration"] !== "number" || !Number.isFinite(o["iteration"])) {
+    console.warn(
+      `[checkpoint] invalid metadata at ${source}: field "iteration" not a finite number`,
+    );
+    return { ok: false, reason: "invalid_type", field: "iteration" };
+  }
+  // v7.5.8: control-character rejection on a whitelist of fields. NUL/CR/LF
+  // in id or git_sha could break the cp-* directory listing, the JSONL
+  // index, or downstream shell consumers (logging, dashboard).
+  for (const f of CONTROL_CHAR_GUARDED_FIELDS) {
+    const v = o[f] as string;
+    if (CONTROL_CHAR_RE.test(v)) {
+      console.warn(
+        `[checkpoint] invalid metadata at ${source}: field "${f}" contains control characters`,
+      );
+      return { ok: false, reason: "control_chars", field: f };
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      id: o["id"] as string,
+      timestamp: o["timestamp"] as string,
+      iteration: o["iteration"] as number,
+      task_id: o["task_id"] as string,
+      task_description: o["task_description"] as string,
+      git_sha: o["git_sha"] as string,
+      git_branch: o["git_branch"] as string,
+      provider: o["provider"] as string,
+      phase: o["phase"] as string,
+    },
+  };
 }
 
 // Validation: matches bash autonomy/run.sh:7006 regex.
@@ -468,6 +654,11 @@ export function executeRollback(plan: RollbackPlan): { restored: number; errors:
   let restored = 0;
   for (const entry of plan.restore) {
     try {
+      // v7.5.2 fix: ensure the destination's parent directory exists.
+      // Pre-v7.5.2 this assumed `.loki/queue/` and `.loki/state/` already
+      // existed; restoring into a fresh project (where they don't) failed
+      // with ENOENT. The new `loki rollback` CLI exposed this regression.
+      mkdirSync(dirname(entry.to), { recursive: true });
       const tmp = `${entry.to}.tmp.${process.pid}.${++_tmpCounter}`;
       copyFileSync(entry.from, tmp);
       renameSync(tmp, entry.to);

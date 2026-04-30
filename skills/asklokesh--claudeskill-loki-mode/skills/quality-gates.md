@@ -110,6 +110,24 @@ LOKI_HANDOFF_MD=1          # write a structured handoff doc to
 Optional: `LOKI_AUTO_LEARNINGS_EPISODE=1` also writes the learning into
 the Python episodic memory layer via `memory.engine.save_episode`.
 
+**Override-judge knobs (v7.5.4+):**
+
+```bash
+LOKI_OVERRIDE_JUDGES=claude,gemini   # csv of provider names for the
+                                     # 3-judge override council. Defaults
+                                     # to the available installed providers
+                                     # (claude, codex, gemini, cline, aider).
+LOKI_OVERRIDE_REAL_JUDGE=0           # force the deterministic stub-judge
+                                     # path (hermetic CI / cost control).
+                                     # Default: 1 = real provider-backed
+                                     # judges when their CLIs are present;
+                                     # falls back to stub on missing CLI
+                                     # or transient provider failure.
+```
+
+Implementation: `loki-ts/src/runner/quality_gates.ts:760` (judge dispatch),
+`:780` (csv parse), `:987` (real-judge gate).
+
 **Reachability note (v7.5.0/v7.5.1)**: these flags activate inside the
 Bun runtime. Today `loki start <prd>` routes through the bash runner via
 `bin/loki` shim fall-through, so the flags do not yet trigger on a real
@@ -141,6 +159,16 @@ of the finding's raw text>`. `proofType` MUST be one of:
 are silently dropped at load time. The override council uses a stub
 judge in v7.5.x that approves any of those six trusted proofTypes;
 real provider-backed judges land in Phase 2 of Part B.
+
+**Cross-process gate counter (v7.5.5+)**: the per-iteration gate counter
+at `.loki/state/gate-counter-<iter>.json` is now incremented under a
+cross-process file lock via `withFileLockSync` in
+`loki-ts/src/util/atomic.ts`. Concurrent gate runs (parallel worktrees,
+overlapping `runQualityGates` invocations) no longer race the
+read-modify-write, so override-council quotas and per-finding counters
+remain consistent across processes. The lock file lives at
+`.loki/state/gate-counter-<iter>.json.lock` and is released even on
+crash via the primitive's `finally` cleanup.
 
 ---
 

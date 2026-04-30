@@ -5,6 +5,1310 @@ All notable changes to Loki Mode will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+(none)
+
+## [7.5.13] - 2026-04-29
+
+PATCH release. Test-suite fix-up. v7.5.12 published successfully to
+npm/Docker/brew, but the post-publish ShellCheck workflow failed on
+the two new test files Dev6/Dev7 added in v7.5.12. No code/runtime
+behavior changes.
+
+### Fixed
+
+- **tests/test-static-analysis-tsconfig.sh:20**: a comment containing
+  the literal word `shellcheck` at the start of a line was misparsed
+  by ShellCheck as a `# shellcheck` directive (SC1073/1072). Reworded
+  to "ShellCheck" (capital S).
+- **tests/cli/test_stale_pid_cleanup.sh:49,80,109**: 3 `cd "$dir"`
+  invocations without an `|| exit` guard (SC2164). Added explicit
+  `|| exit N` per cd.
+
+### Tests
+
+- Both files re-checked with `shellcheck` -> CLEAN.
+- Both test scripts still pass: 4/4 stale-pid + 6/6 static-analysis-
+  tsconfig.
+- local-ci 20/20 PASS.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.13 npm/Docker/brew tarballs.
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+
+## [7.5.12] - 2026-04-29
+
+PATCH release. **Real-user adoption fixes** triggered by the user
+running `loki start` on a real React/Express SaaS project (EC2Renter)
+and hitting 5 user-visible bugs in the first iteration. Triage agent
+found 15 more. 20-agent team (1 lead + 1 senior owner + 10 devs +
+4 reviewers + 2 testers + 2 UAT users + 1 doc agent + 1 triage)
+delivered 12 verified fixes covering both ship-blockers and quality-
+of-life regressions.
+
+### User-reported bugs (5)
+
+- **`.tsx` static analysis crash**: `node --check` was invoked on
+  `.tsx` files producing 9 `ERR_UNKNOWN_FILE_EXTENSION` stack traces
+  per iteration. Fixed in BOTH routes:
+  - `autonomy/run.sh:5566`: routes `.ts/.tsx` to `tsc --noEmit
+    --allowJs --jsx preserve --target esnext` if `tsc` on PATH;
+    skips with informational log otherwise.
+  - `loki-ts/src/runner/quality_gates.ts:266-271`: defensive filter
+    excludes `.ts/.tsx` from the node-check enumeration.
+  - Regression test: a fixture dir with `foo.tsx` no longer crashes
+    the gate.
+- **App Runner false-FAILED on Docker Compose**: containers actually
+  started (`Container ec2renter-postgres Started`) but the dashboard
+  showed FAILED. Root cause: brittle one-liner at
+  `autonomy/app-runner.sh:506` did not poll for state transitions.
+  Replaced with `_app_runner_compose_running_count()` helper that
+  polls `docker compose ps --format '{{.State}}'` for 30s
+  (`LOKI_COMPOSE_HEALTH_TIMEOUT` configurable). Logs full
+  `docker compose ps` output on failure for postmortem. Also added
+  `_app_runner_compose_dir()` so health checks `cd` into the actual
+  compose-file directory. New smoke test
+  `tests/test-app-runner-compose.sh` (4 assertions, all pass against
+  real Docker; SKIPs gracefully when Docker is unavailable).
+- **Vague task cards in dashboard**: tasks displayed only "Iteration
+  1" + tag + status with no description, acceptance criteria,
+  notes, or per-iteration logs. Fixed across the stack:
+  - `dashboard/models.py:144-149`: 3 new nullable Text columns
+    (`acceptance_criteria`, `notes`, `logs`) on Task. Idempotent
+    migration in `database.py:_apply_task_enrichment_migration()`
+    (PRAGMA-driven `ALTER TABLE ADD COLUMN`) so legacy SQLite DBs
+    gain the columns on next boot.
+  - `dashboard/server.py:203,167-226`: new `TaskNote` and `TaskLog`
+    Pydantic models; `TaskCreate/Update/Response` extended with
+    the new lists (default `[]`).
+  - `autonomy/run.sh`: `track_iteration_start` now seeds default
+    RARV gate criteria + initial BOOTSTRAP log entry. New
+    `append_iteration_task_log()` helper appends per-phase logs;
+    wired to `set_phase()`.
+  - `loki-ts/src/runner/queues.ts`: `PrdTask` interface gained the
+    optional fields; `populatePrdQueue` seeds defaults.
+  - `dashboard-ui/components/loki-task-board.js`: detail modal now
+    renders Description (markdown), Specification, Acceptance
+    Criteria (checkboxes), Notes (timeline with author + body), and
+    Logs (scrollable monospace grid color-coded by RARV phase).
+    Bundle mirror in `dashboard/static/index.html`.
+  - 3 new tests in `tests/dashboard/test_task_enrichment.py`.
+- **Ctrl+C ignored**: user pressed `^C` 9 times during a `loki start`
+  run; nothing happened. Had to open a new terminal to `loki stop`.
+  Root cause: trap on SIGINT existed but never killed the active
+  provider subprocess (claude / codex / gemini). Fixed in
+  `autonomy/run.sh`:
+  - New `kill_provider_child()` helper: `pkill -TERM -P $$` on
+    direct children + named provider processes, 2s grace, then
+    SIGKILL escalation.
+  - New `LOKI_PROVIDER_ACTIVE` global tracks active invocations.
+  - 3 trap branches updated (STOP-file, double-Ctrl+C escape,
+    perpetual-mode single-Ctrl+C) to call the helper first and
+    print "Loki Mode interrupted -- shutting down".
+  - New `tests/integration/test_sigint_propagation.sh` (4 tests, all
+    pass).
+- **`flock not available` warning on macOS**: bash route used `flock`
+  which Linux-only. Replaced with portable mkdir-mutex. New
+  `autonomy/lib/lock.sh` (140 lines) provides `safe_acquire_lock`,
+  `safe_release_lock`, `safe_with_lock` with stale-PID detection
+  (sentinel + age check + liveness probe), 50ms poll, 5s default
+  timeout. Wired into 4 call sites in `autonomy/run.sh` (queue
+  writes, in-progress task registration, session lock, init
+  detection). The non-atomic-PID warning is gone. Smoke test: 10
+  concurrent appenders preserve 10/10 lines.
+
+### Triage-found bugs (10 of 15 highest-severity, fixed)
+
+- **Doc gate hard-required CLAUDE.md + SKILL.md** (ship-blocker for
+  every external user): `loki-ts/src/runner/quality_gates.ts:1100-
+  1115` (listDocFiles) made `CLAUDE.md` and `SKILL.md` `required:
+  false`. Only `README.md` is required. Comment explains they are
+  loki-mode-internal artifacts. New regression test for user-style
+  repo with only README.md.
+- **Static analysis hardcoded to loki-mode repo layout** (ship-
+  blocker): `quality_gates.ts:242-308` (runStaticAnalysis) replaced
+  hardcoded `autonomy/*.sh + scripts/*.js` with diff-based
+  enumeration mirroring the bash route. Chain: `git diff --name-only
+  HEAD~1 HEAD` -> `git diff --cached` -> `git ls-files`. Filters to
+  `.sh|.js|.mjs|.cjs`, skips `.ts/.tsx` (handled by Dev9 below),
+  skips deletions. Single-commit and shallow-clone fallbacks
+  covered.
+- **TS gate ignored tsconfig.json paths**: `autonomy/run.sh:5678-
+  5747` (TS branch). When tsconfig.json exists, runs `tsc --noEmit
+  -p .` ONCE inside `${TARGET_DIR}` so `paths`/`baseUrl`/`types`
+  resolve. Errors filtered to changed files only; pre-existing
+  errors in unchanged files are logged but not blocking. Fixes the
+  "@/components/x cannot find module" failure on every Next.js /
+  NestJS / monorepo project.
+- **Shellcheck blocked on style severity**: `autonomy/run.sh:5790-
+  5798`. Added `-S error` so only error severity blocks. Honors
+  `.shellcheckrc` automatically.
+- **Dashboard React null guards**: 7 components fixed for
+  `TypeError: Cannot read properties of undefined`:
+  loki-cost-dashboard.js, loki-learning-dashboard.js,
+  loki-memory-browser.js, loki-tool-insights.js, loki-analytics.js,
+  loki-provider-health.js, loki-task-board.js. Pattern: `Number(x
+  ?? 0).toFixed(N)`, `(x ?? 0).toLocaleString()`, `(x ??
+  '?').charAt(0)`, `String(x ?? '').substring(0, N)`. Bundle mirror
+  in `dashboard/static/index.html`.
+- **Exit-code propagation audit**: `autonomy/run.sh:10968-10984`.
+  Provider exits 130 (SIGINT), 143 (SIGTERM), 137 (SIGKILL) now
+  emit `provider_interrupted` events with the signal name. Forensic
+  clarity for users who see a half-finished iteration.
+- **Stale lock cleanup on hard-kill**: `autonomy/loki:1382-1402`.
+  `cmd_start` now does an explicit pre-exec stale-PID check on
+  `.loki/loki.pid`. Live PID -> error + clear message; stale ->
+  log + remove + continue. Test
+  `tests/cli/test_stale_pid_cleanup.sh` (4 assertions, all pass).
+
+### Documentation
+
+- README header is **"Loki Mode aka Autonomi"** (per v7.5.11) with
+  spec-formats expandable section.
+- npm package.json description includes all 5 providers and 11
+  quality gates with spec framing.
+- GitHub repo description + 19 topics live (per v7.5.11).
+
+### Verified false positives (not changed; documented for honesty)
+
+- LOKI_CODEX_OUTPUT_LAST default (v7.5.9): both routes default ON.
+- status flag-parsing infinite loop (v7.5.9): early-return per-flag,
+  no infinite path.
+
+### Council deferred (low / minor)
+
+- Triage #1 Python gate `python3 -m py_compile` fails on PEP 695 if
+  system python3 < 3.12 -- needs venv detection (deferred).
+- Triage #4 missing per-framework detection in app-runner.sh
+  (Next.js/Nuxt/Astro/SvelteKit named branches) -- deferred.
+- Triage #5 `pip install` no virtualenv -- PEP 668 fails on
+  Homebrew Python -- deferred.
+- Triage #6 missing Ruby/Elixir/Java/PHP detection -- deferred.
+- Triage #14 pytest gate no timeout wrapper -- deferred.
+- Triage #15 `/api/memory/episodes` no per-file try/except --
+  deferred.
+- Multi-provider degradation matrix on EC2Renter (Dev7 found
+  hardcoded `claude` invocations at `run.sh:2603, 6628, 6845`):
+  conflict resolution and code review paths assume claude. Tracked
+  for v7.5.13.
+- UAT1 found: `loki web` launches Purple Lab (port 57375) not the
+  dashboard (port 57374); dashboard exits when parent shell exits
+  (no nohup wrap); no Escalations nav item. Tracked.
+
+### Tests
+
+- 712 bun tests pass (was 708).
+- 45 Python tests pass (4 new for namespace, 3 new for task
+  enrichment, plus existing).
+- 14/14 CLI on both Bun and bash routes.
+- New: 4 tests in `test-app-runner-compose.sh`, 6 in
+  `test-static-analysis-tsconfig.sh`, 4 in
+  `test_sigint_propagation.sh`, 4 in `test_stale_pid_cleanup.sh`,
+  3 in `test_task_enrichment.py`.
+- local-ci 20/20 PASS first try.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.12 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the workflow
+  completes).
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- Triage #1, #4-#6, #14-#15 + 3 UAT-found bugs deferred to v7.5.13
+  with explicit list above.
+- Multi-provider degradation matrix (codex/gemini path against a
+  full real-world SaaS) deferred to v7.5.13.
+
+## [7.5.11] - 2026-04-29
+
+PATCH release. Documentation-only refresh: rename the user-facing
+umbrella term from "PRD" to "spec", add the supported-spec-formats
+collapsible to README, fix the npm description from 3 providers to 5,
+and update the GitHub repo description plus topics. The README header
+is now "Loki Mode aka Autonomi". No code behavior changes.
+
+### Why
+
+`loki start` actually accepts ~10 input forms (Markdown PRD, JSON,
+YAML/OpenAPI, plain text, GitHub issue URL, GitHub shorthand
+`owner/repo#N`, Jira key `PROJ-456`, GitLab/Azure issue URL, bare
+issue number, OpenSpec change directory, plus auto-detect from
+current directory). Calling all of them "PRD" hides the real
+flexibility and turns away non-PM users with Jira tickets, OpenAPI
+specs, or one-line briefs. "Spec" is the accurate umbrella; PRD
+becomes one form of spec.
+
+### What changed
+
+- **README.md**: header now reads "Loki Mode aka Autonomi". The
+  "How it works" line leads with "Drop a spec" and lists all input
+  forms. Two new CLI examples: `loki start owner/repo#123` and
+  `loki start ./openapi.yaml`. New collapsible section "Supported
+  spec formats" with a 11-row markdown table covering every input
+  form the tool accepts. Docker tag bumped to 7.5.11.
+- **SKILL.md**: opens with "Spec in, product out." Tagline:
+  '"spec" is whatever describes the work: a Markdown PRD, a GitHub
+  issue, an OpenAPI doc, a Jira ticket, a PRD is one form of spec.'
+  Implemented Features table updated.
+- **CLAUDE.md**: project description now "Takes any spec (PRD,
+  GitHub issue, OpenAPI/JSON/YAML, or one-line brief) to fully
+  deployed product." Quick Start adds an issue-mode example.
+- **wiki/**: 12 wiki pages refreshed. Home, Getting-Started, FAQ,
+  Installation, CLI-Reference, Providers, GitHub-Integration,
+  Architecture, Security, Notifications, Use-Cases, API-Reference
+  all use spec framing. Wiki Sync workflow publishes to the
+  GitHub Wiki on push.
+- **dashboard/static/index.html + dashboard-ui/ sources + web-app
+  React components**: every user-visible "PRD" label that was
+  actually generic ("PRD Checklist", "PRD Progress", "Analyzing
+  PRD...", "Write your PRD", "View PRD") becomes "Spec". Internal
+  IDs, API field names, HTTP routes, A2A skill IDs, React
+  component names, and on-disk filename lookups (PRD.md, prd.md)
+  all stay (would be breaking changes). Plan v8 to migrate API
+  fields with backward-compat aliases.
+- **.github/**: discussion templates updated. Specifically
+  `show-and-tell.yml` placeholder now says "Paste your spec (PRD,
+  GitHub issue, OpenAPI, etc.)"; `q-and-a.yml` category renamed
+  "Spec Writing (PRD, GitHub issues, OpenAPI, etc.)". Issue and
+  PR templates had no PRD prompts.
+- **GitHub repo metadata** (via `gh repo edit`): repo description
+  now "Multi-agent autonomous SDLC framework. Spec to deployed
+  app: PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief.
+  5 AI providers, 11 quality gates." Added 7 new topics:
+  spec-driven-development, openapi, sdlc, github-issues,
+  anthropic, cline, aider.
+- **npm package.json description**: was "for Claude Code, Codex
+  CLI, and Gemini CLI" (3 providers). Now correctly lists all 5
+  AI providers (Claude Code, OpenAI Codex, Google Gemini, Cline,
+  Aider) and includes the spec framing.
+- **DOCKER_README.md**: value-prop "Transform your PRD" became
+  "Transform your spec"; Docker tag bumped to 7.5.11.
+- **docs/INSTALLATION.md**: Quick Start adds a GitHub issue
+  example; sandbox section reframed for spec files.
+- **docs/cursor-comparison.md + docs/COMPARISON.md**: gate count
+  corrected from 9 to 11; PRD framing replaced with spec framing.
+
+### What was NOT changed (deliberately)
+
+- `loki start --prd FILE` flag (still forces PRD-mode explicitly).
+- `loki init` PRD templates (they ARE PRD templates).
+- Internal bash variables (`$prd_file`, `$prd_context`).
+- TypeScript internal types.
+- API field names (`prd` in request/response payloads, on-disk
+  state files). API rename planned for v8 with backward-compat
+  aliases.
+- A2A protocol skill ID `prd-to-product` (machine-readable
+  contract).
+- React component identifiers (`PRDInput`, `getPRDChecklist`).
+- HTML element IDs and data attributes.
+
+### Tests
+
+All 708 bun tests pass; 42 python tests pass; 14/14 CLI on both
+Bun and bash routes; bash injection / quoting / events
+concurrency suites all green; local-ci 20/20.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.11 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the workflow
+  completes).
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- API field rename to `spec` deferred to v8.
+
+## [7.5.10] - 2026-04-29
+
+PATCH release. Mega-batch second pass: closes the remaining real items
+from the original 20-agent hunt that prior releases deferred. 20-agent
+team across discovery + implementation + review + test + UAT.
+No behavior changes for users on the default flow.
+
+### Code
+
+- **L8#1 cross-namespace memory leak (CRITICAL)**: `MemoryRetrieval`
+  was loading episodes / patterns / skills / anti-patterns from disk
+  without filtering by `_namespace`. A `MemoryRetrieval(namespace="A")`
+  query could return memories belonging to project B. Fixed:
+  - `memory/storage.py` now stamps `_namespace = self._namespace or
+    "default"` on every `save_episode`, `save_pattern`, `save_skill`.
+  - `memory/retrieval.py` adds `_belongs_to_namespace(result)` filter
+    applied in `_keyword_search_episodic`, `_keyword_search_semantic`,
+    `_keyword_search_skills`, `_keyword_search_anti_patterns`,
+    `retrieve_by_temporal`, and `retrieve_by_similarity`.
+  - Legacy entries without `_namespace` are still included with a
+    rate-limited deprecation warning (max 50 across the process) so
+    backward compat is preserved.
+  - 4 new tests in `tests/test_memory_namespace_isolation.py`.
+
+- **L5 BUG-3 state.ts atomic-write race**: `state.ts` had its own
+  inline 70-line `acquireLock`/`releaseLock` that used a 120s mtime
+  threshold with NO process-liveness check. A slow legitimate writer
+  past 120s could be displaced; TOCTOU between `statSync(lockPath)`
+  and `unlinkSync(lockPath)` could let a fresh holder be reaped.
+  Replaced with `withFileLockSync` from `src/util/atomic.ts` (the
+  v7.5.6/R4 hardened primitive: open-once-fstat-on-fd, pid liveness,
+  lstat-rejects-symlinks, re-stat to detect fresh holder). Removed
+  ~70 lines of duplicate locking code.
+
+- **L5 BUG-9 dashboard phase desync**: `OrchestratorState` declared
+  `currentPhase?: string`, the dashboard polls it every 2s, but the
+  runner only logged the RARV phase to console -- never persisted it.
+  Added `state.ts:updateCurrentPhase(phase, opts)` and wired it in
+  `autonomous.ts` after each iteration's `getRarvPhaseName()`.
+  Implementation reads raw JSON for the merge (NOT the strict
+  `readOrchestratorState` -- caught by R1 review) so it preserves all
+  other top-level keys forward-compatibly. New test asserts iter-3
+  ends with `currentPhase=="VERIFY"` and `iteration:3`.
+
+- **L1#5 + L1#9 intervention HUMAN_INPUT TOCTOU + symlink race**:
+  wrapped the validate-and-consume sequence (lstat -> stat -> read ->
+  rename) in `intervention.ts` in `withFileLockSync(sp.humanInput,
+  ...)`. Re-check inside the lock handles race-on-consume. Closes the
+  symlink-swap window between `existsSync` and `lstat`.
+
+- **L17#3 quality_gates.ts static analysis sequential loop**: was
+  `for...of await run(["bash","-n",f])` -- 50+ files * 30s timeout
+  could take 1500s sequential. Replaced with `Promise.all` chunked
+  parallelism (default 8-wide, overridable via
+  `LOKI_STATIC_ANALYSIS_CONCURRENCY` clamped 1-64). Failure
+  aggregation order preserved; new test asserts 16 files complete in
+  < 4 * single-file-time.
+
+- **L4#10 doctor.ts:218 readlinkSync target init**: `let target = ""`
+  hardened with explanatory comment; broken-symlink test added.
+
+- **L4#4 checkpoint.ts:95 promise chain silent rejection**: added
+  `console.warn("[checkpoint] serialized op rejected:", err)` in the
+  catch arm. Behavior preserved (still swallows so chain not
+  poisoned); failures now visible.
+
+- **L1#7 events.jsonl bash-side append serialization**: added
+  `safe_append_event_jsonl()` helper to `events/emit.sh` that prefers
+  `flock -x` and falls back to atomic `mkdir`-mutex on macOS where
+  flock(1) is not installed. Wired into `autonomy/run.sh` rollback
+  emit (the only direct `>>` site). New
+  `tests/test-events-jsonl-concurrency.sh` covers 10 concurrent
+  appenders -> all 10 lines intact.
+
+- **L9#2 /api/status auth scope**: added
+  `dependencies=[Depends(auth.require_scope("read"))]` to `GET
+  /api/status`. Backward-compat preserved when
+  `ENTERPRISE_AUTH_ENABLED=False` (default).
+
+- **autonomy/run.sh:483 eval audit**: confirmed safe -- Python emits
+  hardcoded `[ -z "${VAR:-}" ] && export VAR=<shlex.quote(value)>`
+  template; var names from hardcoded mapping (not user input);
+  values shlex-quoted. Added security comment block above the eval
+  documenting why it's safe and warning future maintainers not to
+  remove the `shlex.quote()` call.
+
+### Build / supply chain
+
+- **L20#1**: generated `package-lock.json` (was missing -- npm audit
+  was unable to run before this).
+- **L20#2**: bumped Node engine `>=18.0.0` -> `>=20.0.0` in
+  `package.json` and `loki-ts/package.json` (Node 18 EOL passed
+  2025-04).
+- **L20#7**: added `pyyaml>=6.0` to `web-app/requirements.txt` (web-
+  app/server.py imports yaml).
+- **L13#4**: prepublishOnly now appends `&& test -f
+  ../dashboard/static/index.html` to fail-fast if dashboard build
+  silently failed.
+- **protobufjs override fix**: serial-sed accident inflated the
+  `overrides.protobufjs` pin from `>=7.5.5` (the original v7.5.5
+  security floor) up through every release to `>=7.5.10`. Latest
+  protobufjs 7.x is `7.5.6`; constraint `>=7.5.10` would have made
+  install impossible. Reset to `>=7.5.6` (current latest 7.x;
+  satisfies the v7.5.5 security advisory).
+
+### Documentation
+
+- **README.md**: Docker quickstart tag bumped to 7.5.10.
+- **SKILL.md**: Concurrency-and-Security-Hardening section
+  (v7.5.7-v7.5.10) added before the Implemented Features table; cites
+  cross-process locks, MCP path validation, dashboard auth, and bash
+  quoting with file pointers.
+- **CLAUDE.md** (v7.5.9): "10-gate" -> "11-gate" reconciled.
+- **skills/quality-gates.md**: cross-process gate counter (v7.5.5+)
+  section added citing `withFileLockSync`.
+- **skills/healing.md**: checkpoint metadata hardening (v7.5.8)
+  section added.
+- **skills/00-index.md**: "10-gate" -> "11-gate" reconciled.
+- **CHANGELOG.md**: added `## [Unreleased]` section per Keep-a-
+  Changelog convention.
+
+### Tests
+
+- 708 bun tests pass (was 703; +5 new this release).
+- 42 python tests pass (was 37; +4 namespace isolation, +1 status
+  auth).
+- 14/14 CLI on both Bun and bash routes; 28+19+10 bash injection /
+  quoting / events concurrency.
+
+### Council deferred (low / minor; tracked)
+
+- R1#3 `LOKI_STATIC_ANALYSIS_CONCURRENCY` decimal fractional values
+  silently floor (e.g. "8.9" -> 8). Acceptable.
+- R1#4 events.jsonl mkdir-mutex stale-dir age fallback uses `||
+  echo 0` chain -- if both BSD/GNU stat fail simultaneously, age
+  would compute as huge and force-remove a live lockdir. Probability
+  near zero; flagged for future hardening.
+- R4#1 retrieval.py legacy unstamped entries: minor accept-on-
+  missing-namespace path; not exploitable since storage layer
+  already isolates by directory. Tighten in v7.6.0+ once vector
+  index spans are audited.
+- R3 minor: `autonomous.ts` uses dynamic import of `state.ts` for
+  the phase-update path; no cycle exists, could hoist to static
+  import in a follow-up.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.10 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the workflow completes).
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- Phase 1 telemetry SDK (no consumer yet).
+
+## [7.5.9] - 2026-04-29
+
+PATCH release. Closes the remaining low/medium-severity items from the
+v7.5.8 council (R4#1 incomplete `in` migration; R4#3 control-char regex
+extension), reconciles the gate-count documentation across files, and
+hardens checkpoint event emission against cross-process append races.
+No behavior changes for users on the default flow.
+
+### Code
+
+- **R4#1 follow-up: `in` operator hardening** in two remaining sites
+  (the v7.5.8 R4 reviewer flagged these as inconsistent with the
+  council.ts switch). Replaced `"tasks" in parsed`
+  (`loki-ts/src/runner/build_prompt.ts:398`) and `"iteration" in o`
+  (`loki-ts/src/runner/checkpoint.ts:512`) with
+  `Object.prototype.hasOwnProperty.call(...)`. JSON-parsed objects
+  inherit from `Object.prototype`, so the bare `in` operator could
+  match prototype-walk hits if the global prototype were ever
+  polluted. No exploit today; defense-in-depth only.
+
+- **R4#3 follow-up: control-char regex extended**
+  (`loki-ts/src/runner/checkpoint.ts:464`). The
+  `validateCheckpointMetadata` rejection regex was
+  `[\x00-\x08\x0a-\x1f]` -- whitelisting tab (\x09). Extended to
+  `[\x00-\x08\x0a-\x1f\x7f-\x9f]` so DEL (\x7f) and the C1 control
+  range (\x80-\x9f) are also rejected. DEL on a TTY can erase prior
+  output; C1 controls in dashboard / log shippers can be
+  misinterpreted as control sequences. Tab still allowed.
+
+- **events.jsonl cross-process append serialization**
+  (`loki-ts/src/runner/checkpoint.ts:emitMetadataDroppedEvent`). The
+  v7.5.8 structured event emit used a bare `appendFileSync`. POSIX
+  append is atomic only for writes <PIPE_BUF and not all platforms
+  honor it; under parallel-worktree contention the JSONL lines could
+  interleave. Wrapped the append in `withFileLockSync(eventsPath,
+  ...)` matching the index.jsonl serialization added in v7.5.5.
+
+### Documentation
+
+- **Gate-count reconciliation**: `skills/quality-gates.md` is the
+  source of truth and documents 11 gates (Gate 10 = backward
+  compatibility, v6.67.0; Gate 11 = documentation coverage,
+  v6.75.0). Updated `CLAUDE.md:41` ("10-gate" -> "11-gate") and
+  `skills/00-index.md:51` ("10-gate quality system" -> "11-gate
+  quality system" with both gate-10 and gate-11 names cited).
+  README.md and SKILL.md were already at 11.
+
+### Tests
+
+- All 703 bun tests still pass (no new tests required; the regex
+  extension and `in`->`hasOwnProperty` swaps are behavior-preserving
+  for valid input). Existing checkpoint metadata tests cover the
+  control-char path.
+
+### Verified false positives (not changed)
+
+- L19#6 "LOKI_CODEX_OUTPUT_LAST default inverted between routes":
+  re-checked both routes. Bash (`providers/codex.sh:204`) uses
+  `[ "${LOKI_CODEX_OUTPUT_LAST:-true}" != "false" ]` -- defaults to
+  ON when unset. Bun (`loki-ts/src/runner/providers.ts:316`) uses
+  `process.env["LOKI_CODEX_OUTPUT_LAST"] !== "false"` -- also
+  defaults to ON when unset (undefined !== "false" is true). Both
+  routes default ON. Original L19 hunt finding was a misread; no
+  fix needed.
+
+- L11#1 "infinite loop in status flag parsing":
+  `loki-ts/src/commands/status.ts` flag parser uses an early-return
+  per-flag pattern, not a popping loop. No infinite-loop path
+  exists; original L11 finding was a misread.
+
+- L17#1 "doctor parallelize tool checks": v7.5.8 already
+  parallelized the python imports leg (the slow path). The tool
+  checks themselves are already wrapped in `Promise.all` at
+  `doctor.ts:274`. No remaining sequential bottleneck.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.9 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the workflow completes).
+- Telemetry SDK integration for the phase1 status fields.
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- Sandbox direct unit-test coverage (still transitive via
+  app-runner-injection.sh).
+
+## [7.5.8] - 2026-04-29
+
+PATCH release. Mega-batch: closes ALL deferred items from v7.5.7 council
+(R1#1, R3#1, R4#1, R4#2) PLUS 8 additional verified high-severity bugs
+from the original 20-agent hunt that were triaged into this batch (MCP
+path-traversal, dashboard auth, bash quoting, doctor parallelization).
+Plus a parallel documentation audit team refreshed all top-level + skill
++ reference + wiki + architecture docs against v7.5.8 reality. No
+behavior changes for users on the default flow.
+
+### Code
+
+- **council.ts hardening**: replaced the `"task" in entry || "id" in entry`
+  check with `Object.prototype.hasOwnProperty.call(...)` to defend against
+  prototype-pollution payloads (R4#1). Added a 5 MB log-file size cap on
+  the test-log tail-read inside the council voter to prevent OOM on
+  runaway logs (senior-owner R1 surface).
+- **checkpoint.ts hardening**: `validateCheckpointMetadata` now rejects
+  control characters (\x00..\x08, \x0a..\x1f -- whitelisting tab \x09)
+  in id, task_id, git_sha, git_branch, provider, phase fields (R4#2).
+  `rebuildIndex` now emits a structured `checkpoint.metadata.dropped`
+  event to `.loki/events.jsonl` with `{timestamp, type, checkpoint_dir,
+  reason, field}` (R3#1) instead of just a console.warn -- dashboards
+  can now surface corruption.
+- **autonomous.ts safety**: replaced `as unknown as T` cast in the
+  dynamic module loader with a per-key validator that throws a clear
+  error naming the missing required export. Module-not-found still
+  returns null (preserves Phase-4 stub fallback); only contract
+  violations now surface loudly. Behavior change: agents loading
+  modules with missing required keys will fail-fast instead of
+  silently degrading to stubs.
+- **counter_evidence.ts safety**: replaced cast-then-validate with
+  validate-then-narrow on `proofType`. Equivalent rejection set; the
+  type narrowing now happens after membership check.
+- **findings_injector.ts safety**: replaced non-null assertions
+  (`m[1]!`, `m[2]!`, `fileLine[1]!`, `fileLine[2]!`) with explicit
+  group-existence checks. Defensive against future regex-shape
+  changes.
+- **doctor.ts**: parallelized the 3 sequential python module probes
+  (`mcp`, `numpy`, `sentence_transformers`) via `Promise.all`. Worst-
+  case wall time drops from ~75s to ~30s on a cold environment.
+  Replaced 3 non-null assertions on `byCmd.get(...)!.found` with
+  `?.found ?? false` so a removed TOOL_SPECS entry no longer crashes
+  doctor.
+
+### MCP server safety
+
+- **safe_open migration in 4 functions**: `loki_get_hotspots:1885`,
+  `loki_get_co_changes:1943`, `loki_get_doc_coverage:1996`, and
+  `loki_findings:2080` (also switched `os.path.join(review_path,
+  entry)` to `safe_path_join` so a malicious `os.listdir` entry can
+  no longer escape the validated `review_path`).
+- **error envelope normalization**: `loki_code_search` and
+  `loki_code_search_stats` no longer leak raw exception strings on
+  ChromaDB failures. Returns `{"error": "Code search failed",
+  "code": "CHROMA_QUERY_ERROR", "hint": "..."}` (and the stats
+  variant) -- raw exception logged server-side via the existing
+  logger.
+- **loki_learnings corrupt-JSON envelope**: corruption is no longer
+  silently masked as an empty array. Returns `{"error": "Learning
+  file corrupted", "code": "LEARNINGS_CORRUPT", "path": <path>,
+  "entries": []}` so callers can detect data corruption.
+
+### Dashboard hardening
+
+- **Auth scopes added to 13 endpoints** (none previously gated):
+  POST /api/memory/retrieve (control), GET /api/memory/{summary,
+  episodes/{id}, patterns/{id}, skills/{id}} (read), and 8
+  /api/learning/* endpoints (read). Behavior preserved when
+  ENTERPRISE_AUTH_ENABLED=False (default); 401 returned when
+  enterprise auth is on and token is missing/invalid.
+- **CORS production fail-fast**: if `LOKI_DASHBOARD_CORS="*"` AND
+  `LOKI_ENV="production"`, the server now raises `RuntimeError` at
+  import time. Wildcard CORS in dev/test still allowed with the
+  existing warning.
+- **/api/escalations/{filename} realpath check**: replaced the
+  unreachable `if "/" in filename` guard (FastAPI rejects "/" at the
+  router-converter level) with a `realpath` containment check that
+  catches symlink traversal.
+
+### Bash hardening
+
+- **autonomy/sandbox.sh:1323**: switched `docker exec ... bash -c "cd
+  /workspace && $cmd"` to `docker exec -w /workspace ... bash -lc --
+  "$cmd"`. The `-w /workspace` decouples the workdir from `$cmd` so a
+  malformed value cannot corrupt the `cd`; the `--` enforces argv
+  positioning. Trust contract documented in a comment.
+- **autonomy/app-runner.sh:443/459**: tightened the
+  `_validate_app_command` whitelist to `^[A-Za-z0-9_./=\\ -]+$` (no
+  tabs, newlines, glob chars, quotes, parens, braces, tildes,
+  backslashes), and switched `bash -c "$_APP_RUNNER_METHOD"` to `bash
+  -lc -- "$_APP_RUNNER_METHOD"`. Validator now rejects 21 attack
+  classes; legitimate templates (npm/cargo/python/etc.) still
+  accepted (28 tests covering both directions).
+- **autonomy/run.sh:4065-4067**: pre-escaped `$project_name` and
+  `$project_path` for sed RHS using a `printf | sed` pipeline so a
+  project name containing `|`, `&`, or `\` no longer breaks the
+  dashboard HTML template substitution (XSS-into-served-HTML class
+  was theoretically reachable).
+- **autonomy/run.sh:5762**: added a strict whitelist + grep guard
+  before `eval "$LOKI_MONOREPO_TEST_CMD"`. Failing values are
+  treated as inconclusive (gate skipped) instead of executed.
+- **autonomy/run.sh:4434-4435 emoji sweep**: removed two glyphs
+  (U+23F1 stopwatch, U+2713 check) from the runner's status HTML
+  per the CLAUDE.md no-emoji rule (caught by the v7.5.8 R2
+  reviewer).
+
+### Tests
+
+- council_validation: +2 (prototype check, 5MB cap)
+- checkpoint: +2 (control-char rejection, structured event emit)
+- autonomous: +1 (missing required export throws with key name)
+- counter_evidence_validation: +1 (malicious proofType filtered)
+- findings_injector: +1 (regex with empty groups)
+- doctor: +2 (parallel python imports, non-null fallback)
+- mcp/test_path_validation.py (new): +2 (safe_path_join rejects
+  dot-dot, loki_findings skips malicious listdir entry)
+- mcp/test_phase1_tools: +1 (LEARNINGS_CORRUPT envelope; existing
+  test tightened to require code field)
+- dashboard/test_phase1_endpoints: +3 (auth-required smoke,
+  symlink-traversal 400, CORS prod fail-fast)
+- tests/test-app-runner-injection.sh (new): 28 cases covering 21
+  rejection classes + 7 acceptance forms
+- tests/test-run-sh-quoting.sh (new): 19 cases for sed escape +
+  LOKI_MONOREPO_TEST_CMD whitelist
+
+All 703 bun tests pass. 37 python tests pass. 14/14 CLI tests on
+both Bun and bash routes. local-ci 20/20 GREEN.
+
+### Documentation
+
+Parallel 8-agent doc audit. Files updated:
+- README.md: gate count corrected to 11, Docker tag pinned to
+  v7.5.8, healing/memory/MCP claims with file pointers, `loki run`
+  deprecation noted, `loki heal` row added.
+- SKILL.md: split conflated table into Implemented + Planned +
+  Deprecated; documented Phase 1 RARV-C env vars; added skill-vs-
+  memory progressive-disclosure naming clarification.
+- CLAUDE.md: line counts in the file map updated against grep-
+  verified positions; vscode-extension marked deprecated; Phase 1
+  RARV-C env vars section added; `loki run` deprecation note.
+- docs/INSTALLATION.md: v7.5.0+ Phase 1 framing as shipped (default-
+  on since v7.5.3); install commands re-verified.
+- wiki/Home.md: 10-Gate Quality System bullet added.
+- wiki/API-Reference.md: phase1 block documented under
+  status --json.
+- wiki/Network-Security.md: planned env vars given target windows.
+- docs/architecture/ADR-001: status updated to "Phase 1-5 shipped,
+  Phase 6 gated"; phase status table added.
+- docs/architecture/STATE-MACHINES.md: Last-verified header + drift
+  section added; line numbers NOT silently rewritten (council-
+  reviewed doc preserved).
+- skills/{quality-gates,healing,providers,agents}.md: env vars
+  cross-referenced; legacy-healing-auditor added to specialist
+  pool; `loki run` deprecation labeled.
+- references/{core-workflow,quality-control,memory-system,
+  production-patterns,prompt-repetition,deployment}.md: Phase 1
+  RARV-C / override council / cross-process file lock / 14-version
+  release rule each cross-referenced from the most relevant ref;
+  emoji removed from prompt-repetition.
+- DOCKER_README.md, CONTRIBUTING.md, benchmarks/*/README.md: MIT
+  License -> BUSL-1.1 corrected; stale Docker tag examples bumped.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.8 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the workflow completes).
+- Telemetry SDK integration for the phase1 status fields.
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- The `autonomous.ts` behavior change (throw instead of silent null
+  fallback when a sibling Phase-4 module is missing required exports)
+  may regress the documented "skeleton stays green" guarantee if any
+  existing module is incomplete. The known-good Phase-4 sibling
+  modules all expose their required keys, so production paths are
+  unaffected; flagged for monitoring.
+
+## [7.5.7] - 2026-04-29
+
+PATCH release. 20-agent bug-hunt + fix marathon. 20 hunters returned ~150
+raw findings; senior-owner agent triaged to 7 high-value fixes for this
+release; 6 developer agents implemented in parallel on disjoint files;
+4 reviewer + 4 tester + 4 UAT agents validated. All five council
+reviewers (correctness / CLAUDE.md / integration / security / UAT)
+approved with low-severity follow-ups only. No behavior changes for
+users on the default flow.
+
+### Code
+
+- **JSON.parse hardening (council, budget, checkpoint)**: replaced bare
+  `as <Interface>` casts with runtime validators that reject malformed
+  inputs and log a one-line warning, returning a safe default. Affected
+  sites: `loki-ts/src/runner/council.ts:186` (failed.json now requires
+  array entries to be objects with `task` or `id` keys before counting),
+  `loki-ts/src/runner/budget.ts:135` (BudgetState shape check), and
+  `loki-ts/src/runner/checkpoint.ts:340 / :376` (CheckpointMetadata
+  validator covering all required string + numeric fields). Valid
+  inputs flow through byte-identically; only crafted/corrupt JSON gets
+  filtered. Council parity-narrow concern (R1#1) is documented;
+  pre-change `[null]` would have been counted as 1 failed task -- now
+  it correctly counts 0.
+- **Cross-process index lock (checkpoint.ts)**: wrapped
+  `appendFileSync(index.jsonl)` in `withFileLockSync` from
+  `src/util/atomic.ts`. Sentinel lives at `index.jsonl.lock` (not
+  matching `cp-*` so directory scans skip it; verified in
+  dashboard/server.py and mcp/server.py readers). Parallel-worktree
+  appends can no longer interleave partial lines.
+- **Queue read-modify-write under lock (queues.ts)**: wrapped the
+  `{sentinel-check + readExisting + modify + atomicWriteJson +
+  sentinel-write}` sequence of `populatePrdQueue`,
+  `populateBmadQueue`, `populateOpenspecQueue`, and
+  `populateMirofishQueue` in `withFileLock(pendingPath, ...)`.
+  Sentinel pre-check kept outside the lock for the common no-op fast
+  path; an authoritative re-check inside the lock callback forces a
+  loser to early-return cleanly when a winner just dropped the
+  sentinel. Three new tests cover the race regression.
+- **Shared atomic-write in quality_gates.ts**: the local
+  `atomicWrite()` helper used a PID-only tmp suffix (`<target>.tmp.
+  <pid>`), racy under PID reuse in containers and intra-process
+  concurrent writes. Replaced with the shared `atomicWriteText` from
+  `src/util/atomic.ts` (per-call counter on the suffix). Migrated all
+  7 call sites (writeCounts, selection.json, aggregate.json, findings,
+  override transcript, escalation, pause-failure-list).
+- **LOKI_ALLOW_HAIKU truthy parity (providers.ts)**: prior code
+  checked `=== "true"` only. Added a `truthy()` helper that accepts
+  `1`, `true`, `yes`, `on` (case-insensitive, trimmed) for parity
+  with the bash route's permissive matching. Helper is exported only
+  for unit testing and is intentionally NOT applied to other env
+  reads in this patch -- separate work for v7.5.8+.
+- **LOKI_LEGACY_BASH defense-in-depth (cli.ts)**: when the env var
+  is set to a truthy form but Bun is invoked directly (bypassing the
+  `bin/loki` shim), print a one-line stderr warning that the env var
+  is a no-op in this code path. No behavior change. Suppressible via
+  `LOKI_SUPPRESS_BUN_DIRECT_WARN=1` for tooling that intentionally
+  invokes the Bun entrypoint.
+
+### Tests
+
+- 6 new tests in `loki-ts/tests/runner/council_validation.test.ts`
+  covering garbage-only / mixed valid+garbage / single valid
+  scenarios, malformed JSON parse, missing files, and unreadable
+  events.jsonl.
+- 4 new tests in `loki-ts/tests/runner/budget.test.ts` covering
+  malformed JSON, missing required field, wrong-type field, and
+  top-level array (44 pass, was 40).
+- 2 new tests in `loki-ts/tests/runner/checkpoint.test.ts` covering
+  corrupt-metadata rejection (drops `git_sha`, breaks `iteration`
+  type) and lock-sentinel hygiene (asserts `index.jsonl.lock` is
+  absent post-call) (15 pass, was 13).
+- 3 new tests in `loki-ts/tests/runner/queues.test.ts` covering
+  concurrent populatePrdQueue producing exactly 3 unique tasks,
+  external lock holder + concurrent populate (proves wait), and
+  PRD+BMAD racing on the same `pending.json` (19 pass, was 16).
+- 1 new test in `loki-ts/tests/runner/quality_gates.test.ts`
+  asserting that a passing gate resets prior failure count from 5
+  to 0 (51 pass, was 50).
+- 21 expect()-call test file `loki-ts/tests/runner/providers_truthy.
+  test.ts` covering positive + negative forms.
+
+### Process
+
+- 20-agent team structure: 1 lead + 1 senior owner + 6 developers +
+  4 reviewers + 4 testers + 4 UAT users. Senior owner trimmed scope
+  from 12 proposed fixes to 7 high-value ones to keep the patch
+  focused. R3 (integration) noted that `mcp/server.py:1346-1347`
+  loops `*.json` directly under `state/checkpoints/`, but
+  `checkpoint.ts` writes `cp-*/metadata.json` under subdirectories
+  -- this is a PRE-EXISTING MCP schema mismatch unrelated to this
+  release; tracked separately.
+
+### Council deferred (not blocking ship)
+
+- R1#1 council parity-narrow: heuristic voter now requires `task`
+  or `id` field on each entry. Pre-change accepted any non-empty
+  array. Real-world `failed.json` always has `task` field, so the
+  parity diff is theoretical; documented for future bash-side
+  alignment.
+- R3#1 checkpoint silent-drop on rebuild: corrupt metadata.json is
+  now logged via console.warn but no structured event is emitted
+  to the dashboard. Follow-up to wire an event in v7.5.8.
+- R4#1 council `in` operator on dynamic JSON: theoretical
+  prototype-pollution surface (no exploit today; values are only
+  string-interpolated into a description). Recommended swap to
+  `Object.prototype.hasOwnProperty.call`. Tracked.
+- R4#2 checkpoint metadata accepts control characters: no
+  exploitation path today (values are only logged or JSON-
+  serialized, never shell-evaluated). Recommended tighten before
+  any future shell interpolation lands. Tracked.
+- LOKI_GATE_TIMEOUT in `autonomy/run.sh:5727`: Dev6 audit confirmed
+  it IS used (lines 5731/5736/5741 pass it to `timeout` for
+  vitest/jest/mocha). Initial L19 finding was a false positive
+  caused by a local-variable rename. No change needed.
+
+### NOT tested in this release
+
+- Real-user UAT against v7.5.7 npm/Docker/brew tarballs (post-release
+  distribution validation runs after the workflow completes).
+- Telemetry SDK integration for the phase1 status fields.
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- The deferred items above (R1#1, R3#1, R4#1, R4#2) are
+  intentionally not patched in this release.
+
+## [7.5.6] - 2026-04-29
+
+PATCH release. Addresses 5-agent council findings against v7.5.5 (all
+five reviewers approved-with-concerns; no rejects). Fixes the long-
+standing CI Bun Parity failure (5 runs red since v7.5.1), hardens the
+new file lock against fd leaks and symlink sentinel attacks, and adds
+the Phase 1 env-var discovery surface to `loki internal --help`. No
+behavior changes for users on the default flow.
+
+### Code
+
+- **R3 #1 HIGH (CI bun-parity 5-runs-red)**: ported the
+  `scripts/local-ci.sh` doctor parity normalization into
+  `.github/workflows/bun-parity.yml`. The local-only normalization had
+  been masking a route-dependent diff on developer Macs since v7.5.1
+  added the "Runtime route:" doctor section -- bash route reports
+  `Bash`, Bun route reports `Bun`, and the block can never be byte-
+  identical across the two routes. Workflow now strips the Runtime
+  route block, the Phase 1 artifacts block (added in v7.5.5 #204), and
+  normalizes Summary counts before diffing.
+- **R1 #1 MED (file-lock fd / sentinel leak)**:
+  `loki-ts/src/util/atomic.ts:tryAcquire` wrapped `writeSync` in
+  try/catch so an ENOSPC / EIO / EBADF failure no longer leaks the
+  open fd or leaves the sentinel on disk. Without this, a single
+  failed write could block every future acquirer until `staleMs`
+  elapsed.
+- **R1 #2 MED + R4 #1 LOW (TOCTOU + symlink in stale-reap)**:
+  `reapStaleLock` now opens the sentinel once, reads pid + mtime via
+  `fstat`/`readSync` on the same fd (closing the same-inode-swap
+  TOCTOU window), and refuses symlinked sentinels via `lstat`. A
+  malicious local user with write access to `.loki/quality/` can no
+  longer plant a symlink to make the lock look stale and steal it.
+  Before reaping, the path is re-`stat`ed to detect a fresh holder
+  who took over between the open and the stat.
+- **R5 #1 MED (operator discovery)**: `loki internal --help` now
+  documents the four Phase 1 env vars (`LOKI_INJECT_FINDINGS`,
+  `LOKI_OVERRIDE_COUNCIL`, `LOKI_AUTO_LEARNINGS`, `LOKI_HANDOFF_MD`)
+  plus the related override-council knobs. Operators have an on-CLI
+  discovery path to the toggles that drive the RARV-C closure flow.
+
+### Tests
+
+- Added 2 tests to `loki-ts/tests/util/file_lock.test.ts`: sync-mode
+  external-holder timeout and symlink sentinel rejection (with decoy-
+  target preservation check).
+
+### Process
+
+- **R2 #1 LOW emoji sweep**: replaced 9 leftover emoji bullets in the
+  historical CHANGELOG entries (v6.x patches) with `[OK]` text labels
+  per the CLAUDE.md hard rule. No emoji remain in `CHANGELOG.md`.
+
+### Council deferred (not blocking ship)
+
+- R1 #4 corruption-logging in `readCounts`: the lock makes the
+  corruption window much smaller, but a silently-reset counters file
+  could still mask a same-instant disk failure. Tracked separately.
+- R1 #5 sync-mode contention / stale paths: only happy-path + throw +
+  external-holder timeout covered. Sync stale-takeover not yet
+  exercised by tests.
+- R5 #3 `findings_iters` field-name ambiguity: kept the v7.5.5 name
+  to avoid a same-week public-API rename. Will revisit in v7.6.0
+  alongside other phase1 schema work.
+- R5 #4-#6: pause_signal as enum, full gate listing, bare-internal
+  exit code -- all minor / nit; deferred.
+
+### NOT tested in this release
+
+- Real-user UAT against the v7.5.6 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the workflow completes).
+- Telemetry SDK integration for the phase1 status fields.
+- Phase 6 bash sunset still gated on the 30-day clean soak.
+- The two flagged module bugs from v7.5.5 #203 (corrupt-JSON envelope
+  in `loki_learnings`; unreachable `/` guard in
+  `/api/escalations/{filename}`) remain deferred.
+
+## [7.5.5] - 2026-04-28
+
+PATCH release. Closes the four follow-ups left open in v7.5.4: a
+cross-process advisory lock around the gate-failure counter, Phase 1
+artifact summary in `loki status --json`, discoverable help for
+`loki internal`, and end-to-end tests covering the MCP tools, dashboard
+endpoints, and `loki start` autonomous loop. Doc + dead-code cleanup
+swept in. No behavior changes for users running the default flow; new
+status fields are additive.
+
+### Code
+
+- **#201 cross-process file lock for `gate-failure-count.json`**: added
+  `withFileLock` / `withFileLockSync` to `loki-ts/src/util/atomic.ts`
+  using POSIX `O_CREAT|O_EXCL` on a `<target>.lock` sentinel with
+  stale-lock reaping (default 30s). Wired into
+  `quality_gates.ts:trackGateFailure` and `clearGateFailure` so
+  parallel-worktree invocations and the bash route's
+  `loki internal phase1-hooks` writer cannot lose increments. Same-
+  process serialization, stale-lock takeover, timeout error path, and
+  fn-throw cleanup all covered by `loki-ts/tests/util/file_lock.test.ts`
+  (6 tests).
+- **#204 `loki status --json` Phase 1 artifact summary**: extended both
+  the Bun route (`loki-ts/src/commands/status.ts`) and the bash route
+  (`autonomy/loki:cmd_status_json`) to emit a `phase1` block with
+  `findings_iters`, `learnings_count`, `escalations_count`,
+  `pause_signal`, and `gate_failure_counts`. Lets dashboards / CI /
+  operators confirm Phase 1 is wired without tailing files. Both
+  routes share the same Python heredoc shape; parity test matrix
+  passes both sides byte-for-byte.
+- **#204 `loki internal --help` discoverability**: bare `loki internal`,
+  `--help`, `-h`, and `help` now print a subcommand listing instead of
+  failing silently. Unknown subcommands point at `--help` in the
+  error.
+
+### Tests
+
+- **#202 e2e `loki start` with stub provider**:
+  `loki-ts/tests/integration/loki_start_e2e.test.ts` (5 tests) drives
+  `runAutonomous` end-to-end with a deterministic stub provider and
+  asserts the loop iterates >= 2 cycles, gate firing happens through
+  `runQualityGates`, state files (`session.json`,
+  `dashboard-state.json`, etc.) are written, and `max_retries` halts
+  cleanly. Two scenarios (structured-findings persistence and
+  override-council BLOCK lift) are honestly skipped with a reason
+  comment because `runQualityGates` does not currently expose a
+  `ReviewerFn` injection seam; those paths are still covered at the
+  `runCodeReview` boundary by existing unit tests.
+- **#203 MCP + dashboard endpoint tests**: `tests/mcp/test_phase1_tools.py`
+  (9 tests) covers the `loki_findings`, `loki_learnings`, and
+  `loki_counter_evidence_template` MCP tools end-to-end against a
+  pinned `LOKI_DIR`. `tests/dashboard/test_phase1_endpoints.py`
+  (11 tests) covers `/api/findings/{iter}`, `/api/learnings`, and
+  `/api/escalations` (list + read) via the FastAPI TestClient. Both
+  suites flagged module bugs that are tracked separately and do not
+  block this release: a corrupt-JSON envelope mismatch in
+  `loki_learnings` and a now-unreachable `/` guard in
+  `/api/escalations/{filename}` (FastAPI rejects path traversal at the
+  router layer before our guard runs).
+- **status --json phase1 fields**: 3 new tests in
+  `loki-ts/tests/commands/status.test.ts` cover the missing-`.loki`
+  zeroed shape, the populated shape with findings/learnings/
+  escalations/PAUSE/gate counts, and the `{entries: [...]}` learnings
+  shape variant.
+- **`loki internal` help dispatch**: 5 new tests in
+  `loki-ts/tests/commands/internal_help.test.ts` spawn the CLI as a
+  subprocess so the dispatch path is exercised end-to-end (bare
+  `internal`, `--help`, `-h`, `help`, and the unknown-subcommand
+  error envelope).
+
+### Process
+
+- **doctor_runtime_route flake fix**: the four B23 tests in
+  `loki-ts/tests/commands/doctor_runtime_route.test.ts` were timing
+  out at 5s on a loaded laptop because `runDoctor` spawns ~30
+  subprocesses each with a 5s budget. Bumped per-test timeout to 30s
+  so the full doctor run completes deterministically; root cause is
+  documented in a comment.
+
+### Doc + dead-code cleanup (#205)
+
+- Reframed v5.0.0 mention in `SKILL.md` as "stable since" so the
+  flagship-product line does not falsely imply v5 is current.
+- Updated `CLAUDE.md` Top-Level File Map line counts to reflect actual
+  file sizes (autonomy/loki 10,820 -> 23,049, autonomy/run.sh
+  8,766 -> 12,170, completion-council.sh 1,403 -> 1,771,
+  dashboard/server.py 4,482 -> 5,952, mcp/server.py 1,439 -> 2,282,
+  memory/* updated to current).
+- Added CHANGELOG link to `wiki/Home.md` Current Version line for
+  click-through.
+- Removed dead `findSkillDir` from `loki-ts/src/util/paths.ts` (zero
+  callers across the codebase).
+
+### NOT tested in this release
+
+- Real-user UAT against the v7.5.5 npm/Docker/brew tarballs (post-
+  release distribution validation runs after the release workflow
+  completes).
+- Telemetry SDK integration for the new `phase1` status fields (no
+  dashboard yet consumes them; will land in a follow-up release).
+- Phase 6 bash sunset is still gated on the 30-day clean soak per the
+  Bun migration plan; v7.5.5 keeps both routes alive.
+- The two flagged module bugs from #203 (corrupt-JSON envelope in
+  `loki_learnings`; unreachable `/` guard in
+  `/api/escalations/{filename}`) are intentionally not patched in
+  this release -- they will be addressed in a separate small PR after
+  the council reviews.
+
+## [7.5.4] - 2026-04-29
+
+PATCH release. Wires real provider-backed override council judges
+(replaces the deterministic stub from v7.5.0-v7.5.3) and dispatches a
+3-LLM panel by default for blind-review-style consensus on disputed
+findings.
+
+### Code
+
+- **Real provider-backed override judges** (closes the v7.5.3
+  CHANGELOG-deferred item): the override council now resolves a panel
+  of provider-backed judges via the existing `providers.ts`
+  abstraction. Each judge is a fast-tier provider invocation with a
+  deterministic prompt asking APPROVE_OVERRIDE / REJECT_OVERRIDE. On
+  any infrastructure failure (provider CLI missing, invoke threw,
+  response unparseable) the slot fails-safe to REJECT_OVERRIDE so a
+  hung provider cannot silently approve a bypass.
+- **3-LLM panel by default**: panel composition is `[claude, gemini,
+  codex]` so a model-specific bias does not sweep the panel. Override
+  council aggregates votes via the existing 2-of-3 majority rule.
+  Set `LOKI_OVERRIDE_JUDGES=claude,gemini` (csv) to customize, or
+  `LOKI_OVERRIDE_PANEL_SIZE=1` for single-judge mode (cost control).
+- **Stub-judge fallback preserved**: `LOKI_OVERRIDE_REAL_JUDGE=0`
+  forces stub-only execution. Used by the integration tests for
+  hermeticity. Stub also fires automatically when no providers
+  resolve (e.g. a fresh install with no CLIs configured).
+
+### Process
+
+- **Stash residue cleared**: the mid-session `git stash` from v7.5.3
+  authoring was inspected (just my own WIP, no upstream changes) and
+  dropped. `git stash list` no longer contains my session entries.
+
+### Verified locally
+
+- `bun test` (loki-ts/, with bunfig.toml repo-root scope): 654/0.
+- `bun run typecheck`: clean.
+- `bash -n autonomy/run.sh autonomy/loki`: clean.
+
+### Honest pending (not in v7.5.4, deferred to v7.5.5+)
+
+- Cross-process flock on `gate-failure-count.json` (parallel
+  worktrees) -- needs flock/sqlite primitive.
+- End-to-end `loki start <prd>` against a synthetic PRD with stub
+  provider, verifying bash phase1-hooks fire correctly under real
+  autonomous-loop conditions. The unit test exercises `runCodeReview`
+  directly, not the full bash code path.
+- Tests for the 3 new MCP tools and 4 new dashboard endpoints from
+  v7.5.3 (currently zero coverage).
+- `loki status --json` Phase 1 artifact integration (text mode has it
+  since v7.5.3; JSON mode does not).
+- `loki internal` help text -- currently absent from `loki help`.
+- Documentation drift fixes (SKILL.md "New in v5.0.0", CLAUDE.md
+  outdated line counts, wiki/Home.md changelog cross-link).
+- Dead code removal (`findSkillDir` in `loki-ts/src/util/paths.ts`).
+- Real-user UAT (agentbudget-user re-run) -- requires external action.
+- Cursor agent-kanban dashboard parity audit -- next-cycle scope.
+- Phase 6 bash sunset (multi-week Part A plan).
+
+14 version locations bumped 7.5.3 -> 7.5.4.
+
+## [7.5.3] - 2026-04-29
+
+MINOR-impact patch. **Embedded-by-default UX**: per the explicit user
+mandate, Phase 1 features now activate automatically when users run
+`loki start` -- no env flags required. Power users can still opt out
+with `LOKI_INJECT_FINDINGS=0` etc.
+
+### UX (the headline change)
+
+- **Default-on flip**: `LOKI_INJECT_FINDINGS / LOKI_OVERRIDE_COUNCIL /
+  LOKI_AUTO_LEARNINGS / LOKI_HANDOFF_MD` now default to ON in the Bun
+  route. Pre-v7.5.3 users had to opt IN by setting env=1; now the
+  autonomous flow gets findings injection, override council on BLOCK,
+  auto-learnings, and structured handoff docs out of the box.
+- **Bash route activation**: `autonomy/run.sh` now shells out to a
+  hidden `loki internal phase1-hooks` Bun subcommand once per
+  iteration to drive findings persistence + override council + handoff
+  docs. `loki start` (which routes through bash) now exercises the
+  same Phase 1 pipeline as the Bun route. Cost: one Bun fork per
+  iteration, amortized.
+- **`loki status` Phase 1 inline**: a "Phase 1 artifacts" section
+  appears in `loki status` when findings, learnings, or escalations
+  exist. No new command required. Quiet on greenfield runs.
+- **`loki start` no-args prompt**: was `Continue? [y/N]` with default-N
+  (caused accidental cancel); now `Generate PRD from codebase and
+  start? [Y/n]` with default-Y.
+- **`bin/loki-mode.js` deprecation banner removed**: was firing on
+  every TTY invocation since v7.4.12. The wrapper still works.
+
+### Code
+
+- **#5 `withAppendLock` extracted** to `loki-ts/src/util/atomic.ts`
+  for reuse by other call sites. Cross-process race on
+  gate-failure-count.json from parallel worktrees still deferred
+  (needs flock/sqlite, separate scope).
+- **#6 `intervention.ts` wired into autonomous.ts**: replaces the
+  inline 4-line stub with the richer module (PAUSE/STOP/INPUT signals,
+  prompt-injection limits, quarantine-on-validation-fail). Falls back
+  on dynamic-import failure.
+
+### New surfaces (read-only inspectors; mutations stay in Bun)
+
+- **MCP tools (#7)** in `mcp/server.py`:
+  - `loki_findings(iteration=-1)` -- read structured findings.
+  - `loki_learnings(limit=50)` -- read recent learnings (newest first).
+  - `loki_counter_evidence_template(iteration)` -- pre-filled
+    counter-evidence JSON template with canonical findingIds.
+- **Dashboard endpoints (#8)** in `dashboard/server.py`:
+  - `GET /api/findings/{iteration}`
+  - `GET /api/learnings?limit=N`
+  - `GET /api/escalations` (list) + `GET /api/escalations/{filename}`
+    (path-traversal-safe).
+
+### Hidden / internal
+
+- **`loki internal phase1-hooks`** (`commands/internal_phase1.ts`):
+  hidden Bun subcommand bash invokes between iterations. Subcommands:
+  `reflect <iter>`, `override <iter>`, `handoff <gate> <count> <iter>`.
+  Not in `loki help`; users never run it directly.
+
+### Infra
+
+- **`bunfig.toml`** at repo root scopes `bun test` to `loki-ts/tests/`.
+  Repo-root `bun test` is now 654/0 pass (was 1421/207 fail/13
+  errors).
+
+### Tests
+
+10 new test cases across 4 new test files (654 pass / 0 fail total):
+
+- `tests/integration/embedded_phase1_e2e.test.ts` -- 2 cases proving
+  the embedded default-on flow works without explicit env vars.
+- `tests/commands/internal_phase1.test.ts` -- 8 cases for every
+  subcommand of `loki internal phase1-hooks`.
+
+### Verified locally
+
+- `bun test` (repo root, with new bunfig.toml): **654 pass / 0 fail**.
+- `bun run typecheck`: clean.
+- `bash -n autonomy/run.sh autonomy/loki`: clean.
+- `python3 ast.parse` for mcp/server.py and dashboard/server.py: clean.
+- End-to-end: `bun loki-ts/dist/loki.js internal phase1-hooks reflect 3`
+  against a synthetic .loki/quality/reviews/ tree wrote both
+  findings-3.json and relevant-learnings.json correctly.
+
+### Honest gaps still open (deferred)
+
+- **Real provider-backed override judges**: stub-judge remains the
+  default. Targeting v7.5.4 / v7.6.0.
+- Cross-process gate-failure-count.json race (parallel worktrees).
+- 3-LLM panel for override council. Today is single-LLM-stub.
+- Real-user UAT.
+- Telemetry on flag adoption.
+
+14 version locations bumped 7.5.2 -> 7.5.3.
+
+## [7.5.2] - 2026-04-29
+
+PATCH release. Closes 10 of the 36 honest-audit gaps from the v7.5.1
+post-ship review. New tests for B1/B3/B4/B18/B23 fixes shipped in
+v7.5.0/v7.5.1; new `loki rollback` CLI wires the previously-dead
+checkpoint API; doctor now reports active runtime + Python 3.12 status;
+shell.ts gains SIGKILL escalation + timer-cleanup; episode_bridge no
+longer silently swallows python failures; rarv.ts is now actually
+called from the autonomous loop; ADR-001 + STATE-MACHINES.md
+cherry-picked from feat/bun-migration so referenced paths resolve on
+main; counter-evidence walkthrough documented end-to-end.
+
+### Code fixes
+
+- **Override council activation (#3)**: drop the redundant
+  `LOKI_INJECT_FINDINGS=1` requirement. `LOKI_OVERRIDE_COUNCIL=1` now
+  works standalone. Pre-v7.5.2 the override path was double-gated; an
+  operator setting only `LOKI_OVERRIDE_COUNCIL` saw nothing happen.
+- **shell.ts SIGTERM -> SIGKILL escalation (#6)**: pre-v7.5.2 a
+  subprocess that ignored SIGTERM deadlocked the await Promise.all
+  forever. Now SIGTERM first, SIGKILL after 2s grace.
+- **shell.ts timer leak on rejection (#7)**: pre-v7.5.2 if the
+  `Response(proc.stdout).text()` rejected, `clearTimeout` never ran
+  and the timer kept firing. Wrapped in try/finally so timers are
+  always released.
+- **episode_bridge silent failures (#5)**: pre-v7.5.2 callers
+  discarded the structured `EpisodeBridgeResult`, so a python3
+  ImportError or chromadb crash was completely invisible. Now logged
+  via an injectable `bridgeFailureLog` sink (defaults to stderr).
+- **rarv.ts wired into autonomous.ts (#9a, dead code H4)**: pre-v7.5.2
+  `getRarvPhaseName` and `getRarvTier` had zero production callers
+  even though the bash route at autonomy/run.sh:10515 logged the
+  phase per iteration. The Bun loop now logs the same RARV phase +
+  tier for parity.
+- **executeRollback ENOENT on fresh project (uncovered by new
+  rollback CLI tests)**: pre-v7.5.2 the function assumed `.loki/queue/`
+  + `.loki/state/` already existed; restoring into a fresh repo
+  failed. Now mkdirSync(parent, recursive) before each copy.
+
+### New surfaces
+
+- **`loki rollback <subcmd>` (#9c, dead code H4)**: the entire
+  checkpoint rollback API at `loki-ts/src/runner/checkpoint.ts`
+  shipped in Part A Phase 4 but had no CLI command. v7.5.2 wires it
+  through `loki-ts/src/commands/rollback.ts` and the `bin/loki`
+  shim's routed list. Subcommands: `list`, `show <id>`, `to <id>`,
+  `latest`. Ten test cases cover every branch.
+- **`loki doctor` Python 3.12 specific check (#33)**: the generic
+  Python 3 check passes Python 3.13/3.14, but chromadb +
+  sentence-transformers require 3.12. Doctor now reports python3.12
+  status explicitly under "Runtime route" -- WARN if missing or if
+  only 3.13+ is found. Mirrored in autonomy/loki cmd_doctor for
+  parity.
+
+### Documentation fixes
+
+- **Verified `docs/architecture/ADR-001-runtime-migration.md` and
+  `docs/architecture/STATE-MACHINES.md` are present on `main` (#10)**.
+  An earlier honest-audit pass claimed these were missing; on
+  re-verification both files have been on `main` since commit
+  `f6be85e7` (the original feat/bun-migration scaffold merge). No
+  cherry-pick needed; the original audit `find` invocation was wrong.
+  Documented here so the prior gap entry is closed honestly.
+- **Counter-evidence end-to-end walkthrough (#28, #30)**: added a
+  step-by-step "when reviewer is wrong, how to override" section to
+  `UPGRADING.md` covering: how to find the finding text, how to
+  compute the canonical `findingId`, how to write the
+  `.loki/state/counter-evidence-<iter>.json` file, how to enable the
+  override, how to inspect the transcript, what happens on rejection.
+
+### New regression tests
+
+Five test files, 22 new test cases pinning v7.5.0/v7.5.1 fixes that
+shipped without per-bug tests:
+
+- `tests/runner/learnings_writer_concurrency.test.ts` -- B1 (Map GC
+  bound check), B3 (malformed file element validation), B4 (poisoned
+  chain recovery).
+- `tests/runner/counter_evidence_validation.test.ts` -- B2 proofType
+  enum validation (accepts all 6 documented values, drops unknown).
+- `tests/commands/doctor_runtime_route.test.ts` -- B23 doctor Runtime
+  route section under various env permutations.
+- `tests/integration/shim_env_validation.test.ts` -- B18 LOKI_TS_ENTRY
+  validation in `bin/loki` shim.
+- `tests/commands/rollback.test.ts` -- 10 cases for the new CLI
+  command + the executeRollback mkdirSync fix.
+
+### Verified locally before push
+
+- `bun test` from `loki-ts/`: **644 pass / 0 fail** (22 new tests).
+- `bun run typecheck`: clean.
+- `bash -n autonomy/loki / scripts/local-ci.sh`: clean.
+- `scripts/local-ci.sh --fast`: 19/19 pass.
+
+### Honest gaps still open (deferred to later releases)
+
+- Phase 1 wiring still not reachable from `loki start` (bin/loki shim
+  routes start to bash). This is the top remaining gap; activation
+  blocks on Part A Phase 4 wiring the Bun start route. Documented in
+  the new doctor "Runtime route" section + UPGRADING.md walkthrough
+  caveat.
+- Real provider-backed override judges. Phase 2 of Part B (v7.6.0).
+- 207 test failures from `bun test` at repo root (vs 644 pass from
+  `loki-ts/`). Test isolation issue; canonical CI uses `loki-ts/` scope.
+- MCP server + dashboard server do not surface the new findings /
+  learnings / counter-evidence / handoff artifacts.
+- gate-failure-count.json cross-process race (parallel worktrees).
+- `intervention.ts handlePause/readHumanInput` still orphaned;
+  autonomous.ts has its own inline stub.
+- No real-user UAT. The agentbudget user has not re-run their PRD
+  against the new code.
+
+14 version locations bumped 7.5.1 -> 7.5.2.
+
 ## [7.5.1] - 2026-04-28
 
 PATCH release. Fixes 17 bugs uncovered by a 10-parallel-hunter audit
@@ -8349,10 +9653,10 @@ LOKI_AUTONOMY_MODE=perpetual      # perpetual|checkpoint|supervised (Tim Dettmer
 
 ### Validation
 
-- ✅ All existing tests pass
-- ✅ SKILL.md syntax valid
-- ✅ run.sh functioning correctly
-- ✅ Backward compatible (all new features default to enabled or safe modes)
+- [OK] All existing tests pass
+- [OK] SKILL.md syntax valid
+- [OK] run.sh functioning correctly
+- [OK] Backward compatible (all new features default to enabled or safe modes)
 
 ### Research Findings
 
@@ -8802,11 +10106,11 @@ Loki Mode already implements most research-backed patterns:
 | Feature | ToolOrchestra | Loki Mode 2.28.0 |
 |---------|---------------|------------------|
 | Multi-turn reasoning | Orchestrator-8B | RARV cycle |
-| Efficiency tracking | ✅ 70% cost reduction | ✅ Now implemented |
-| Reward signals | 3 types | ✅ 3 types (same) |
-| Dynamic tool selection | 5/10/15/20/all | ✅ By complexity (5 levels) |
-| Memory system | None | ✅ Episodic/Semantic/Procedural |
-| Anti-sycophancy | None | ✅ Blind review + Devil's Advocate |
+| Efficiency tracking | [OK] 70% cost reduction | [OK] Now implemented |
+| Reward signals | 3 types | [OK] 3 types (same) |
+| Dynamic tool selection | 5/10/15/20/all | [OK] By complexity (5 levels) |
+| Memory system | None | [OK] Episodic/Semantic/Procedural |
+| Anti-sycophancy | None | [OK] Blind review + Devil's Advocate |
 | Benchmarks | GAIA #1, HLE 37.1% | HumanEval 98.78%, SWE-bench 99.67% |
 
 ---

@@ -164,6 +164,78 @@ def _sanitize_text_field(value: str) -> str:
     return cleaned
 
 
+def _decode_task_json_list(raw: Optional[str]) -> list:
+    """Decode a JSON-encoded list column on the Task model.
+
+    v7.5.12 enrichment columns (acceptance_criteria, notes, logs) are stored
+    as JSON-encoded text. Returns [] for NULL / empty / malformed values so
+    the API response is always shape-stable.
+    """
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+def _encode_task_json_list(value: Any) -> Optional[str]:
+    """Encode a list (or list-of-pydantic-models) as JSON for storage.
+
+    Pydantic models are dumped via .model_dump(mode='json') so nested
+    datetimes serialize as ISO strings. Plain dicts go through a
+    datetime-aware encoder fallback (PUT requests reach here as dicts
+    via model_dump(exclude_unset=True), which leaves datetimes raw).
+    Returns None for empty/None input so we don't write empty strings
+    into the column.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, list) or not value:
+        return None
+    out = []
+    for item in value:
+        if hasattr(item, "model_dump"):
+            out.append(item.model_dump(mode="json"))
+        else:
+            out.append(item)
+    return json.dumps(out, default=_json_default)
+
+
+def _json_default(obj: Any) -> Any:
+    """JSON encoder fallback for datetime / date objects."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _task_response_from_db(task: Any) -> "TaskResponse":
+    """Build a TaskResponse from a Task ORM row, decoding JSON columns."""
+    payload = {
+        "id": task.id,
+        "project_id": task.project_id,
+        "title": task.title,
+        "description": task.description,
+        "status": task.status,
+        "priority": task.priority,
+        "position": task.position,
+        "assigned_agent_id": task.assigned_agent_id,
+        "parent_task_id": task.parent_task_id,
+        "estimated_duration": task.estimated_duration,
+        "actual_duration": task.actual_duration,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
+        "completed_at": task.completed_at,
+        "acceptance_criteria": _decode_task_json_list(
+            getattr(task, "acceptance_criteria", None)
+        ),
+        "notes": _decode_task_json_list(getattr(task, "notes", None)),
+        "logs": _decode_task_json_list(getattr(task, "logs", None)),
+    }
+    return TaskResponse.model_validate(payload)
+
+
 class ProjectCreate(BaseModel):
     """Schema for creating a project."""
     name: str = Field(..., min_length=1, max_length=255)
@@ -200,6 +272,26 @@ class ProjectResponse(BaseModel):
     completed_task_count: int = 0
 
 
+class TaskNote(BaseModel):
+    """A single note attached to a task (v7.5.12)."""
+    timestamp: datetime
+    author: str = "system"
+    body: str
+
+
+class TaskLog(BaseModel):
+    """A single log entry attached to a task (v7.5.12).
+
+    Written by the runner after each RARV phase (REASON, ACT, REFLECT,
+    VERIFY) so the dashboard can show per-iteration progress.
+    """
+    timestamp: datetime
+    iteration: Optional[int] = None
+    level: str = "info"  # info | warn | error
+    phase: Optional[str] = None  # REASON | ACT | REFLECT | VERIFY | ...
+    message: str
+
+
 class TaskCreate(BaseModel):
     """Schema for creating a task."""
     project_id: int
@@ -210,6 +302,10 @@ class TaskCreate(BaseModel):
     position: int = 0
     parent_task_id: Optional[int] = None
     estimated_duration: Optional[int] = None
+    # v7.5.12 enrichment (additive, all optional, default to empty list).
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    notes: list[TaskNote] = Field(default_factory=list)
+    logs: list[TaskLog] = Field(default_factory=list)
 
     @field_validator("title")
     @classmethod
@@ -227,6 +323,11 @@ class TaskUpdate(BaseModel):
     assigned_agent_id: Optional[int] = None
     estimated_duration: Optional[int] = None
     actual_duration: Optional[int] = None
+    # v7.5.12 enrichment. Clients PUT a full replacement list when supplied;
+    # omitted fields are left untouched (Pydantic exclude_unset semantics).
+    acceptance_criteria: Optional[list[str]] = None
+    notes: Optional[list[TaskNote]] = None
+    logs: Optional[list[TaskLog]] = None
 
 
 class TaskMove(BaseModel):
@@ -253,6 +354,12 @@ class TaskResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime]
+    # v7.5.12 enrichment. Always present in the response (default to []) so
+    # frontend code can rely on the shape; legacy DB rows with NULL columns
+    # surface as empty lists via _decode_task_json_list().
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    notes: list[TaskNote] = Field(default_factory=list)
+    logs: list[TaskLog] = Field(default_factory=list)
 
 
 class SessionInfo(BaseModel):
@@ -622,15 +729,21 @@ app = FastAPI(
 # Set LOKI_DASHBOARD_CORS to override (comma-separated origins).
 _cors_default = "http://localhost:57374,http://127.0.0.1:57374"
 _cors_raw = os.environ.get("LOKI_DASHBOARD_CORS", _cors_default)
-if _cors_raw.strip() == "*":
+_cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+if "*" in _cors_origins or _cors_raw.strip() == "*":
+    if os.environ.get("LOKI_ENV") == "production":
+        raise RuntimeError(
+            "Wildcard CORS ('*') is not allowed in production. "
+            "Set LOKI_DASHBOARD_CORS to a specific origin list, "
+            "or set LOKI_ENV != production."
+        )
     logger.warning(
         "LOKI_DASHBOARD_CORS is set to '*' -- all origins are allowed. "
         "This is insecure for production deployments."
     )
-_cors_origins = _cors_raw.split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
@@ -734,7 +847,7 @@ async def agent_card() -> dict:
 
 
 # Status endpoint - reads from .loki/ flat files (primary) + DB (fallback)
-@app.get("/api/status", response_model=StatusResponse)
+@app.get("/api/status", response_model=StatusResponse, dependencies=[Depends(auth.require_scope("read"))])
 async def get_status() -> StatusResponse:
     """Get system status from .loki/ session files."""
     loki_dir = _get_loki_dir()
@@ -1422,6 +1535,12 @@ async def list_tasks(
                                     task_entry["project"] = item["project"]
                                 if item.get("source"):
                                     task_entry["source"] = item["source"]
+                                # v7.5.12: pass-through enrichment fields so
+                                # the dashboard can render notes + per-phase logs.
+                                if isinstance(item.get("notes"), list):
+                                    task_entry["notes"] = item["notes"]
+                                if isinstance(item.get("logs"), list):
+                                    task_entry["logs"] = item["logs"]
                                 all_tasks.append(task_entry)
                 except (json.JSONDecodeError, KeyError):
                     pass
@@ -1513,6 +1632,9 @@ async def create_task(
         position=task.position,
         parent_task_id=task.parent_task_id,
         estimated_duration=task.estimated_duration,
+        acceptance_criteria=_encode_task_json_list(task.acceptance_criteria),
+        notes=_encode_task_json_list(task.notes),
+        logs=_encode_task_json_list(task.logs),
     )
     db.add(db_task)
     await db.flush()
@@ -1529,7 +1651,7 @@ async def create_task(
         },
     })
 
-    return TaskResponse.model_validate(db_task)
+    return _task_response_from_db(db_task)
 
 
 @app.get("/api/tasks/{task_id}", response_model=TaskResponse)
@@ -1546,7 +1668,7 @@ async def get_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    return TaskResponse.model_validate(task)
+    return _task_response_from_db(task)
 
 
 @app.put("/api/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(auth.require_scope("control"))])
@@ -1573,6 +1695,11 @@ async def update_task(
         else:
             update_data["completed_at"] = None
 
+    # v7.5.12: encode enrichment list columns as JSON before persisting.
+    for _enrich_col in ("acceptance_criteria", "notes", "logs"):
+        if _enrich_col in update_data:
+            update_data[_enrich_col] = _encode_task_json_list(update_data[_enrich_col])
+
     for field, value in update_data.items():
         setattr(task, field, value)
 
@@ -1590,7 +1717,7 @@ async def update_task(
         },
     })
 
-    return TaskResponse.model_validate(task)
+    return _task_response_from_db(task)
 
 
 @app.delete("/api/tasks/{task_id}", status_code=204, dependencies=[Depends(auth.require_scope("control"))])
@@ -1690,7 +1817,7 @@ async def move_task(
         },
     })
 
-    return TaskResponse.model_validate(task)
+    return _task_response_from_db(task)
 
 
 # WebSocket endpoint
@@ -2244,7 +2371,7 @@ def _sanitize_agent_id(agent_id: str) -> str:
         )
     return agent_id
 
-@app.get("/api/memory/summary")
+@app.get("/api/memory/summary", dependencies=[Depends(auth.require_scope("read"))])
 async def get_memory_summary():
     """Get memory system summary from .loki/memory/."""
     # Try SQLite backend first for accurate counts
@@ -2371,7 +2498,7 @@ async def list_episodes(limit: int = Query(default=50, ge=1, le=1000)):
     return episodes
 
 
-@app.get("/api/memory/episodes/{episode_id}")
+@app.get("/api/memory/episodes/{episode_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_episode(episode_id: str):
     """Get a specific episodic memory entry."""
     # Try SQLite first
@@ -2432,7 +2559,7 @@ async def list_patterns():
     return []
 
 
-@app.get("/api/memory/patterns/{pattern_id}")
+@app.get("/api/memory/patterns/{pattern_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_pattern(pattern_id: str):
     """Get a specific semantic pattern."""
     patterns = await list_patterns()
@@ -2471,7 +2598,7 @@ async def list_skills():
     return skills
 
 
-@app.get("/api/memory/skills/{skill_id}")
+@app.get("/api/memory/skills/{skill_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_skill(skill_id: str):
     """Get a specific procedural skill."""
     loki_dir = _get_loki_dir()
@@ -2510,7 +2637,7 @@ async def consolidate_memory(hours: int = 24):
     return {"status": "ok", "message": f"Consolidation for last {hours}h", "consolidated": 0, "patternsCreated": 0, "patternsMerged": 0, "episodesProcessed": 0}
 
 
-@app.post("/api/memory/retrieve")
+@app.post("/api/memory/retrieve", dependencies=[Depends(auth.require_scope("control"))])
 async def retrieve_memory(query: dict = None):
     """Search memories by query."""
     return {"results": [], "query": query}
@@ -2678,7 +2805,7 @@ def _read_learning_signals(signal_type: Optional[str] = None, limit: int = 50) -
     return signals[:limit]
 
 
-@app.get("/api/learning/metrics")
+@app.get("/api/learning/metrics", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_metrics(
     timeRange: str = Query("7d", pattern=r"^\d{1,4}[hdm]$"),
     signalType: Optional[str] = None,
@@ -2747,7 +2874,7 @@ async def get_learning_metrics(
     }
 
 
-@app.get("/api/learning/trends")
+@app.get("/api/learning/trends", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_trends(
     timeRange: str = Query("7d", pattern=r"^\d{1,4}[hdm]$"),
     signalType: Optional[str] = None,
@@ -2767,7 +2894,7 @@ async def get_learning_trends(
     return {"dataPoints": data_points, "maxValue": max_val, "period": timeRange}
 
 
-@app.get("/api/learning/signals")
+@app.get("/api/learning/signals", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_signals(
     timeRange: str = Query("7d", pattern=r"^\d{1,4}[hdm]$"),
     signalType: Optional[str] = None,
@@ -2793,7 +2920,7 @@ async def get_learning_signals(
     return combined[offset:offset + limit]
 
 
-@app.get("/api/learning/aggregation")
+@app.get("/api/learning/aggregation", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_aggregation():
     """Get latest learning aggregation result, merging file-based aggregation with live signals."""
     result = {"preferences": [], "error_patterns": [], "success_patterns": [], "tool_efficiencies": []}
@@ -2976,7 +3103,7 @@ async def trigger_aggregation():
     return result
 
 
-@app.get("/api/learning/preferences")
+@app.get("/api/learning/preferences", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_preferences(limit: int = Query(default=50, ge=1, le=1000)):
     """Get aggregated user preferences from events and learning signals directory."""
     events = _read_events("30d")
@@ -2988,7 +3115,7 @@ async def get_learning_preferences(limit: int = Query(default=50, ge=1, le=1000)
     return combined[:limit]
 
 
-@app.get("/api/learning/errors")
+@app.get("/api/learning/errors", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_errors(limit: int = Query(default=50, ge=1, le=1000)):
     """Get aggregated error patterns from events and learning signals directory."""
     events = _read_events("30d")
@@ -3000,7 +3127,7 @@ async def get_learning_errors(limit: int = Query(default=50, ge=1, le=1000)):
     return combined[:limit]
 
 
-@app.get("/api/learning/success")
+@app.get("/api/learning/success", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_success(limit: int = Query(default=50, ge=1, le=1000)):
     """Get aggregated success patterns from events and learning signals directory."""
     events = _read_events("30d")
@@ -3012,7 +3139,7 @@ async def get_learning_success(limit: int = Query(default=50, ge=1, le=1000)):
     return combined[:limit]
 
 
-@app.get("/api/learning/tools")
+@app.get("/api/learning/tools", dependencies=[Depends(auth.require_scope("read"))])
 async def get_tool_efficiency(limit: int = Query(default=50, ge=1, le=1000)):
     """Get tool efficiency rankings from events and learning signals directory."""
     events = _read_events("30d")
@@ -5792,6 +5919,119 @@ async def list_managed_memory_versions(memory_id: str):
                 pass
         items.append({"raw": str(entry)})
     return {"memory_id": memory_id, "versions": items, "count": len(items)}
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 artifact endpoints (v7.5.3) -- read-only inspectors.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/findings/{iteration}")
+async def get_findings(iteration: int):
+    """Read structured code-review findings for a given iteration."""
+    base = _get_loki_dir()
+    persisted = base / "state" / f"findings-{iteration}.json"
+    if persisted.exists():
+        data = _safe_json_read(persisted, default=None)
+        if data is not None:
+            return data
+    reviews_dir = base / "quality" / "reviews"
+    if reviews_dir.exists():
+        candidates = sorted(
+            d.name for d in reviews_dir.iterdir()
+            if d.is_dir() and d.name.startswith("review-")
+            and d.name.endswith(f"-{iteration}")
+        )
+        if candidates:
+            review_dir = reviews_dir / candidates[-1]
+            agg = _safe_json_read(review_dir / "aggregate.json", default=None)
+            return {
+                "iteration": iteration,
+                "review_id": agg.get("review_id") if isinstance(agg, dict) else candidates[-1],
+                "findings": [],
+                "note": "findings-<iter>.json not found; review dir present",
+            }
+    raise HTTPException(status_code=404,
+                        detail=f"No findings for iteration {iteration}")
+
+
+@app.get("/api/learnings")
+async def get_learnings(limit: int = 50):
+    """Read recent learnings (newest first)."""
+    base = _get_loki_dir()
+    path = base / "state" / "relevant-learnings.json"
+    if not path.exists():
+        return {"version": 1, "learnings": [], "total": 0}
+    data = _safe_json_read(path, default={})
+    if not isinstance(data, dict):
+        return {"version": 1, "learnings": [], "total": 0}
+    learnings = data.get("learnings", [])
+    if not isinstance(learnings, list):
+        learnings = []
+    limit_clamped = max(1, int(limit)) if isinstance(limit, int) else 50
+    sliced = list(reversed(learnings))[:limit_clamped]
+    return {"version": data.get("version", 1), "total": len(learnings),
+            "learnings": sliced}
+
+
+@app.get("/api/escalations")
+async def list_escalations():
+    """List handoff documents under .loki/escalations/."""
+    base = _get_loki_dir()
+    esc_dir = base / "escalations"
+    if not esc_dir.exists():
+        return {"escalations": []}
+    items = []
+    try:
+        for entry in sorted(esc_dir.iterdir(),
+                            key=lambda p: p.name, reverse=True):
+            if not entry.name.endswith(".md"):
+                continue
+            try:
+                stat = entry.stat()
+                items.append({
+                    "filename": entry.name,
+                    "size_bytes": stat.st_size,
+                    "modified_at": (
+                        __import__("datetime").datetime
+                        .fromtimestamp(stat.st_mtime,
+                                       tz=__import__("datetime").timezone.utc)
+                        .isoformat()
+                    ),
+                })
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return {"escalations": items}
+
+
+@app.get("/api/escalations/{filename}")
+async def get_escalation(filename: str):
+    """Read one handoff document. Path-traversal-safe."""
+    if "\\" in filename or filename.startswith("."):
+        raise HTTPException(status_code=400, detail="invalid filename")
+    if not filename.endswith(".md"):
+        raise HTTPException(status_code=400,
+                            detail="only .md handoffs are served")
+    escalations_dir = str(_get_loki_dir() / "escalations")
+    # Resolve symlinks on both sides to catch symlink traversal that the
+    # router-level "/" rejection misses (e.g. a symlink whose target
+    # escapes the escalations directory).
+    target = os.path.realpath(os.path.join(escalations_dir, filename))
+    base = os.path.realpath(escalations_dir)
+    if not target.startswith(base + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    path = _Path(target)
+    if not path.exists():
+        raise HTTPException(status_code=404,
+                            detail=f"handoff not found: {filename}")
+    try:
+        body = _safe_read_text(path)
+    except OSError as exc:
+        raise HTTPException(status_code=500,
+                            detail=f"read failed: {exc}") from exc
+    return PlainTextResponse(content=body, media_type="text/markdown")
 
 
 # ---------------------------------------------------------------------------

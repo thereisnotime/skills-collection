@@ -395,7 +395,13 @@ function extractQueueTasks(path: string, prefix: string): string {
   let tasks: unknown;
   if (Array.isArray(parsed)) {
     tasks = parsed;
-  } else if (parsed !== null && typeof parsed === "object" && "tasks" in parsed) {
+  } else if (
+    parsed !== null &&
+    typeof parsed === "object" &&
+    Object.prototype.hasOwnProperty.call(parsed, "tasks")
+  ) {
+    // v7.5.9 (council R4#1 follow-up): use hasOwnProperty.call to avoid
+    // walking Object.prototype chain on JSON-parsed input.
     tasks = (parsed as Record<string, unknown>)["tasks"];
   } else {
     tasks = parsed;
@@ -492,7 +498,7 @@ async function buildGateFailureContext(cwd: string): Promise<string> {
   // records (severity, file:line, reviewer) parsed from the previous
   // iteration's per-reviewer *.txt files. Default off so existing prompts
   // are byte-identical when the flag is not set.
-  if (process.env["LOKI_INJECT_FINDINGS"] === "1") {
+  if (process.env["LOKI_INJECT_FINDINGS"] !== "0") {
     const findingsBlock = await buildStructuredFindingsBlock(cwd);
     if (findingsBlock.length > 0) {
       ctx += `\n\n${findingsBlock}\n`;

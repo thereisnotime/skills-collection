@@ -90,6 +90,7 @@
         ".gemini",
         ".opencode",
         "mcp-configs",
+        "scripts/auto-update.js",
         "scripts/setup-package-manager.js"
       ],
       "targets": [
@@ -124,7 +125,6 @@
         "skills/django-tdd",
         "skills/django-verification",
         "skills/dotnet-patterns",
-        "skills/frontend-design",
         "skills/frontend-patterns",
         "skills/frontend-slides",
         "skills/golang-patterns",
@@ -272,7 +272,6 @@
       "kind": "skills",
       "description": "Research and API integration skills for deep investigations and model integrations.",
       "paths": [
-        "skills/claude-api",
         "skills/deep-research",
         "skills/exa-search",
         "skills/research-ops"
@@ -416,7 +415,6 @@
       "description": "Worktree/tmux orchestration runtime and workflow docs.",
       "paths": [
         "commands/multi-workflow.md",
-        "commands/orchestrate.md",
         "commands/sessions.md",
         "scripts/lib/orchestration-session.js",
         "scripts/lib/tmux-worktree-orchestrator.js",

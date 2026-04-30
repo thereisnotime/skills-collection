@@ -1,13 +1,15 @@
 ---
 name: loki-mode
-description: Multi-agent autonomous startup system. Triggers on "Loki Mode". Takes PRD to deployed product with minimal human intervention. Requires --dangerously-skip-permissions flag.
+description: Multi-agent autonomous startup system. Triggers on "Loki Mode". Takes a spec (PRD, GitHub issue, OpenAPI doc, etc.) to deployed product with minimal human intervention. Requires --dangerously-skip-permissions flag.
 ---
 
-# Loki Mode v7.5.1
+# Loki Mode v7.5.13
 
 **You are an autonomous agent. You make decisions. You do not ask questions. You do not stop.**
 
-**New in v5.0.0:** Multi-provider support (Claude/Codex/Gemini/Cline/Aider), abstract model tiers, degraded mode for non-Claude providers. See `skills/providers.md`.
+**Spec in, product out.** A "spec" is whatever describes the work: a Markdown PRD, a GitHub issue, an OpenAPI doc, a Jira ticket -- a PRD is one form of spec.
+
+**Multi-provider (stable since v5.0.0):** Claude/Codex/Gemini/Cline/Aider with abstract model tiers and degraded mode for non-Claude providers. See `skills/providers.md`. **Current track (v7.5.x):** Phase 1 RARV-C closure -- real provider judges, gate-failure flock, synthetic PRD e2e, status `--json`, dead code cleanup.
 
 **Runtime migration in progress:** A bash-to-Bun migration is underway on the `feat/bun-migration` branch. The first phase (shipped in v7.3.0) routes a small set of read-only commands -- `version`, `status`, `stats`, `doctor`, `provider show/list`, `memory list/index` -- through a Bun runtime via `bin/loki`. Every other command remains on the Bash runtime (`autonomy/loki`). Rollback is available with `LOKI_LEGACY_BASH=1`. See `UPGRADING.md` and `docs/architecture/ADR-001-runtime-migration.md` for the full plan.
 
@@ -89,11 +91,11 @@ These rules guide autonomous operation. Test results and code quality always tak
 
 ## Model Selection
 
-**Default (v5.3.0):** Haiku disabled for quality. Use `--allow-haiku` or `LOKI_ALLOW_HAIKU=true` to enable.
+**Default since v5.3.0 (reaffirmed in v7.5.13):** Haiku disabled for quality. Use `--allow-haiku` or `LOKI_ALLOW_HAIKU=true` to enable.
 
 | Task Type | Tier | Claude (default) | Claude (--allow-haiku) | Codex (GPT-5.3) | Gemini |
 |-----------|------|------------------|------------------------|------------------|--------|
-| PRD analysis, architecture, system design | **planning** | opus | opus | effort=xhigh | thinking=high |
+| Spec analysis, architecture, system design | **planning** | opus | opus | effort=xhigh | thinking=high |
 | Feature implementation, complex bugs | **development** | opus | sonnet | effort=high | thinking=medium |
 | Code review (planned: 3 parallel reviewers) | **development** | opus | sonnet | effort=high | thinking=medium |
 | Integration tests, E2E, deployment | **development** | opus | sonnet | effort=high | thinking=medium |
@@ -113,7 +115,7 @@ These rules guide autonomous operation. Test results and code quality always tak
 
 ```
 BOOTSTRAP ──[project initialized]──> DISCOVERY
-DISCOVERY ──[PRD analyzed, requirements clear]──> ARCHITECTURE
+DISCOVERY ──[spec analyzed, requirements clear]──> ARCHITECTURE
 ARCHITECTURE ──[design approved, specs written]──> DEEPEN_PLAN (standard/complex only)
 DEEPEN_PLAN ──[plan enhanced by 4 research agents]──> INFRASTRUCTURE
 INFRASTRUCTURE ──[cloud/DB ready]──> DEVELOPMENT
@@ -160,7 +162,9 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 
 ---
 
-## Module Loading Protocol
+## Module Loading Protocol (Skills)
+
+This protocol governs **skill module** loading -- task-scoped instruction files in `skills/`. It is distinct from the Memory System Progressive Disclosure (see below), which governs persistent **memory layers** in `.loki/memory/`.
 
 ```
 1. Read skills/00-index.md (once per session)
@@ -179,24 +183,27 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 5. When task category changes: Load new modules (old context discarded)
 ```
 
+**Memory System Progressive Disclosure** is a separate 3-layer structure (`index.json` -> `timeline.json` -> `episodic/*.json`) for retrieving past episodes/patterns. See `skills/memory.md` and `references/memory-system.md`.
+
 ---
 
 ## Invocation
 
-**Unified entry point (v6.84.0):** `loki start` auto-detects whether the input is a PRD file, an issue URL, or an issue number. No need to pick between `loki start` and `loki run` -- the single command handles all cases.
+**Unified entry point (v6.84.0):** `loki start [SPEC|ISSUE-REF]` auto-detects whether the input is a PRD file, an issue URL, an issue number, or another spec format (e.g. OpenAPI). No need to pick between `loki start` and `loki run` -- the single command handles all cases.
 
 ```bash
 # Standard mode (Claude - full features)
 claude --dangerously-skip-permissions
-# Then say: "Loki Mode" or "Loki Mode with PRD at path/to/prd.md" (or .json)
+# Then say: "Loki Mode" or "Loki Mode with spec at path/to/spec" (PRD .md/.json, OpenAPI .yaml, etc.)
 
 # Unified `loki start` -- one command, auto-detected mode
-loki start                                   # no arg: analyze current dir, auto-generate PRD
-loki start ./prd.md                          # PRD mode (.md/.json/.txt/.yaml)
+loki start                                   # no arg: analyze current dir, auto-generate spec
+loki start ./prd.md                          # PRD mode (.md/.json/.txt/.yaml) -- a PRD is one form of spec
+loki start ./openapi.yaml                    # SPEC mode (OpenAPI doc treated as the spec)
+loki start owner/repo#123                    # ISSUE mode (GitHub specific repo)
 loki start https://github.com/o/r/issues/42  # ISSUE mode (GitHub URL)
 loki start 123                               # ISSUE mode (GitHub issue in current repo)
 loki start PROJ-456                          # ISSUE mode (Jira)
-loki start owner/repo#789                    # ISSUE mode (GitHub specific repo)
 loki start --prd ./prd.md                    # Explicit PRD mode (overrides detection)
 loki start --issue 123                       # Explicit issue mode (overrides detection)
 
@@ -311,15 +318,67 @@ See `skills/memory.md` for the full integration guide.
 
 ---
 
-## Planned Features
+## Phase 1 RARV-C Closure (v7.5.x)
 
-The following features are documented in skill modules but not yet fully automated:
+The current track wires real evidence into RARV-C feedback. Documented here and in `loki internal --help`:
 
-| Feature | Status | Notes |
+| Env Var | Effect |
+|---------|--------|
+| `LOKI_INJECT_FINDINGS=true` | Injects council findings + gate failures into the next REASON prompt |
+| `LOKI_OVERRIDE_COUNCIL=true` | Promotes real provider judges over fakes when available |
+| `LOKI_AUTO_LEARNINGS=true` | Auto-extracts learnings into semantic memory after VERIFY |
+| `LOKI_HANDOFF_MD=true` | Emits a `handoff.md` continuity doc at session boundaries |
+
+See `references/core-workflow.md` for the full RARV-C contract.
+
+---
+
+## Concurrency and Security Hardening (v7.5.7 - v7.5.13)
+
+Three back-to-back patches closed cross-process and security gaps. No user-facing behavior change on the default flow; verify via the cited paths.
+
+- **Cross-process file locks** on append-or-rewrite state, so parallel runs / dashboard / MCP do not corrupt shared files: gate counter (`autonomy/run.sh` gate-counter writes), task queues (`autonomy/run.sh` queue read-modify-write), checkpoint index (`autonomy/run.sh` checkpoint index updates), `events.jsonl` append (event emission paths in `events/emit.sh` and `autonomy/run.sh`), human intervention signal files (`autonomy/run.sh:check_human_intervention()` at line ~8059 / 7897 per state-machine doc).
+- **MCP path validation** -- file/path arguments to `mcp/server.py` tools are normalized and rejected if they escape the project root (path-traversal fix from v7.5.8).
+- **Dashboard auth** now required on `/api/memory/*`, `/api/learning/*`, and `/api/status` in `dashboard/server.py` (previously unauthenticated read paths).
+- **Bash quoting hardening** across `autonomy/run.sh` and `autonomy/loki` -- variable expansions inside command substitution and `[ ]` tests quoted to prevent word-splitting on paths with spaces.
+
+See `CHANGELOG.md` entries [7.5.7], [7.5.8], [7.5.13] for the per-fix list and reviewer sign-off.
+
+---
+
+## Implemented Features
+
+| Feature | Added | Notes |
+|---------|-------|-------|
+| Multi-provider support (5 providers) | v5.0.0 | claude, codex, gemini, cline, aider -- see `providers/` |
+| CONTINUITY.md working memory | v5.35.0 | Auto-managed by run.sh, updated each iteration |
+| Quality gates 3-reviewer system | v5.35.0 | 5 specialist reviewers in `skills/quality-gates.md`; execution in run.sh |
+| Memory System (episodic/semantic/procedural) | v5.15.0 | Full implementation in `memory/` |
+| Context Window Tracking | v5.40.0 | Dashboard gauge, per-agent breakdown at `GET /api/context` |
+| Notification Triggers | v5.40.0 | `GET/PUT /api/notifications/triggers` |
+| GitHub integration | v5.42.2 | Import, sync-back, PR creation, export. CLI: `loki github`, API: `/api/github/*` |
+| Legacy System Healing | v6.67.0 | `loki heal <path>` -- friction-as-semantics, characterization tests |
+| Unified `loki start` | v6.84.0 | Auto-detects spec (PRD, OpenAPI, etc.) vs issue input |
+| Managed Agents (memory mirror) | v7.2.0 | Opt-in via `LOKI_MANAGED_AGENTS` -- see Managed Agents section |
+| Bun runtime (Phase 1) | v7.3.0 | Read-only commands routed through `bin/loki`; `LOKI_LEGACY_BASH=1` to revert |
+| Phase 1 RARV-C closure | v7.5.x | Findings injection, real judges, auto-learnings, handoff.md |
+
+## Planned / In-Progress Features
+
+| Feature | Target | Notes |
 |---------|--------|-------|
-| CONTINUITY.md working memory | Implemented (v5.35.0) | Auto-managed by run.sh, updated each iteration |
-| GitHub integration | Implemented (v5.42.2) | Import, sync-back, PR creation, export. CLI: `loki github`, API: `/api/github/*` |
-| Quality gates 3-reviewer system | Implemented (v5.35.0) | 5 specialist reviewers in `skills/quality-gates.md`; execution in run.sh |
-| Benchmarks (HumanEval, SWE-bench) | Infrastructure only | Runner scripts and datasets exist in `benchmarks/`; no published results |
+| Bun runtime (Phase 2+) | TBD | Migrate write-path commands; tracked on `feat/bun-migration` |
+| Managed Agents multiagent path | TBD | `LOKI_EXPERIMENTAL_MANAGED_*` flags -- RESEARCH PREVIEW, not on live API |
+| Benchmarks (HumanEval, SWE-bench) | TBD | Runner scripts and datasets exist in `benchmarks/`; no published results |
+| `loki run` removal | next major | Currently a deprecated alias for `loki start` |
 
-**v7.5.1 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**
+## Deprecated
+
+| Item | Deprecated In | Notes |
+|------|---------------|-------|
+| `loki run <issue>` | v6.84.0 | Alias for `loki start`. Will be removed in next major. |
+| VSCode extension (`vscode-extension/`) | v7.2.0 | No longer actively maintained; dashboard web UI is the supported front-end. |
+
+---
+
+**v7.5.13 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**

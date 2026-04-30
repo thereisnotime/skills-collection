@@ -46,6 +46,13 @@ if not os.path.isdir(loki_dir):
     result['pid'] = None
     result['elapsed_time'] = 0
     result['task_counts'] = {'total': 0, 'completed': 0, 'failed': 0, 'pending': 0}
+    result['phase1'] = {
+        'findings_iters': 0,
+        'learnings_count': 0,
+        'escalations_count': 0,
+        'pause_signal': False,
+        'gate_failure_counts': {},
+    }
     print(json.dumps(result, indent=2))
     sys.exit(0)
 
@@ -163,6 +170,60 @@ if os.path.isdir(queue_dir):
                 pass
     task_counts['total'] = task_counts['pending'] + task_counts['completed'] + task_counts['failed']
 result['task_counts'] = task_counts
+
+# v7.5.5 (#204): Phase 1 (RARV-C closure) artifact summary so dashboard /
+# CI / operators can confirm the embedded-by-default flow is wired without
+# tailing files. All counts are read-only and degrade silently to zero.
+phase1 = {
+    'findings_iters': 0,
+    'learnings_count': 0,
+    'escalations_count': 0,
+    'pause_signal': False,
+    'gate_failure_counts': {},
+}
+state_dir = os.path.join(loki_dir, 'state')
+if os.path.isdir(state_dir):
+    try:
+        phase1['findings_iters'] = sum(
+            1 for n in os.listdir(state_dir)
+            if n.startswith('findings-') and n.endswith('.json')
+        )
+    except Exception:
+        pass
+    learnings_file = os.path.join(state_dir, 'relevant-learnings.json')
+    if os.path.isfile(learnings_file):
+        try:
+            with open(learnings_file) as f:
+                learnings = json.load(f)
+            if isinstance(learnings, list):
+                phase1['learnings_count'] = len(learnings)
+            elif isinstance(learnings, dict):
+                entries = learnings.get('entries')
+                if isinstance(entries, list):
+                    phase1['learnings_count'] = len(entries)
+        except Exception:
+            pass
+escalations_dir = os.path.join(loki_dir, 'escalations')
+if os.path.isdir(escalations_dir):
+    try:
+        phase1['escalations_count'] = sum(
+            1 for n in os.listdir(escalations_dir) if n.endswith('.md')
+        )
+    except Exception:
+        pass
+phase1['pause_signal'] = os.path.isfile(os.path.join(loki_dir, 'PAUSE'))
+gate_count_file = os.path.join(loki_dir, 'quality', 'gate-failure-count.json')
+if os.path.isfile(gate_count_file):
+    try:
+        with open(gate_count_file) as f:
+            gc = json.load(f)
+        if isinstance(gc, dict):
+            phase1['gate_failure_counts'] = {
+                k: v for k, v in gc.items() if isinstance(v, (int, float))
+            }
+    except Exception:
+        pass
+result['phase1'] = phase1
 
 print(json.dumps(result, indent=2))
 `;
@@ -467,10 +528,117 @@ async function runStatusText(): Promise<number> {
     }
   }
 
+  // v7.5.3: Phase 1 artifacts (findings, learnings, escalations) are
+  // surfaced inline so users see them where they already look. Per the
+  // "embedded by default" mandate. Falls silent if no artifacts exist.
+  await renderPhase1Section(dir);
+
   process.stdout.write(`\n`);
   process.stdout.write(`${DIM}  Tip: loki context show   - detailed token breakdown${NC}\n`);
   process.stdout.write(`${DIM}  Tip: loki code overview   - codebase intelligence${NC}\n`);
   return 0;
+}
+
+// v7.5.3: surface Phase 1 artifacts inline. Quiet on greenfield runs.
+async function renderPhase1Section(lokiBase: string): Promise<void> {
+  const stateDir = resolve(lokiBase, "state");
+  const findingsFiles = listFindingsFiles(stateDir);
+  const learningsPath = resolve(stateDir, "relevant-learnings.json");
+  const escalationsDir = resolve(lokiBase, "escalations");
+  const hasFindings = findingsFiles.length > 0;
+  const hasLearnings = existsSync(learningsPath);
+  const hasEscalations = existsSync(escalationsDir);
+  if (!hasFindings && !hasLearnings && !hasEscalations) return;
+
+  process.stdout.write(`\n${CYAN}Phase 1 artifacts:${NC}\n`);
+
+  if (hasFindings) {
+    const latest = findingsFiles[findingsFiles.length - 1]!;
+    const data = safeReadJson(latest) as
+      | { iteration?: number; findings?: Array<{ severity?: string }> }
+      | null;
+    if (data && Array.isArray(data.findings)) {
+      const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 } as Record<string, number>;
+      for (const f of data.findings) {
+        const s = String(f.severity ?? "");
+        if (s in counts) counts[s] = (counts[s] ?? 0) + 1;
+      }
+      const summary = Object.entries(counts)
+        .filter(([, n]) => n > 0)
+        .map(([s, n]) => `${n} ${s.toLowerCase()}`)
+        .join(", ");
+      process.stdout.write(
+        `  Findings (iter ${data.iteration ?? "?"}): ${summary || "none"} -- ${data.findings.length} total\n`,
+      );
+    }
+  }
+
+  if (hasLearnings) {
+    const data = safeReadJson(learningsPath) as
+      | { learnings?: Array<{ trigger?: string }> }
+      | null;
+    if (data && Array.isArray(data.learnings) && data.learnings.length > 0) {
+      const counts = new Map<string, number>();
+      for (const l of data.learnings) {
+        const t = String(l.trigger ?? "unknown");
+        counts.set(t, (counts.get(t) ?? 0) + 1);
+      }
+      const top = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([t, n]) => `${n} ${t}`)
+        .join(", ");
+      process.stdout.write(`  Learnings: ${data.learnings.length} total (${top})\n`);
+    }
+  }
+
+  if (hasEscalations) {
+    let mdCount = 0;
+    let latestName = "";
+    try {
+      const fs = await import("node:fs");
+      const entries = fs.readdirSync(escalationsDir).filter((n) => n.endsWith(".md"));
+      mdCount = entries.length;
+      if (entries.length > 0) {
+        entries.sort();
+        latestName = entries[entries.length - 1] ?? "";
+      }
+    } catch {
+      // best-effort
+    }
+    if (mdCount > 0) {
+      process.stdout.write(
+        `  Escalations: ${mdCount} handoff doc${mdCount === 1 ? "" : "s"} (latest: ${latestName})\n`,
+      );
+    }
+  }
+}
+
+function listFindingsFiles(stateDir: string): string[] {
+  if (!existsSync(stateDir)) return [];
+  try {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const all = fs
+      .readdirSync(stateDir)
+      .filter((n) => /^findings-\d+\.json$/.test(n))
+      .sort((a, b) => {
+        const na = Number.parseInt(a.replace(/[^0-9]/g, ""), 10) || 0;
+        const nb = Number.parseInt(b.replace(/[^0-9]/g, ""), 10) || 0;
+        return na - nb;
+      });
+    return all.map((n) => resolve(stateDir, n));
+  } catch {
+    return [];
+  }
+}
+
+function safeReadJson(path: string): unknown {
+  try {
+    const fs = require("node:fs") as typeof import("node:fs");
+    return JSON.parse(fs.readFileSync(path, "utf-8"));
+  } catch {
+    return null;
+  }
 }
 
 async function runStatusJson(): Promise<number> {
