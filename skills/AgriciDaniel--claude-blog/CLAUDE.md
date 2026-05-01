@@ -4,20 +4,25 @@
 
 This repository contains **Claude Blog**, a Tier 4 Claude Code skill for blog content
 creation, optimization, and management. It follows the Agent Skills open standard and the
-3-layer architecture (directive, orchestration, execution). 22 sub-skills, 4 specialized
+3-layer architecture (directive, orchestration, execution). 28 sub-skills, 5 specialized
 subagents, and 12 content templates are dual-optimized for Google rankings (December 2025
-Core Update, E-E-A-T) and AI citations (GEO/AEO).
+Core Update, E-E-A-T) and AI citations (GEO/AEO). Includes FLOW framework integration,
+semantic topic-cluster planning + execution, and multilingual publishing (Pro Hub Challenge
+v1.7.0 community release).
 
 ## Architecture
 
 ```
 claude-blog/
   CLAUDE.md                          # Project instructions (this file)
-  .claude-plugin/plugin.json         # Plugin manifest (v1.6.9)
+  CONTRIBUTORS.md                    # Pro Hub Challenge attribution and integration decisions
+  CHANGELOG.md                       # Keep a Changelog format
+  .claude-plugin/plugin.json         # Plugin manifest (v1.7.0)
   .claude-plugin/marketplace.json    # Marketplace catalog for distribution
   .mcp.json                          # MCP server configuration (nanobanana-mcp)
   pyproject.toml                     # Python packaging (3.11+)
-  skills/                            # 22 sub-skills (blog/ is the orchestrator)
+  scripts/sync_flow.py               # Pulls FLOW references (stdlib, sandboxed)
+  skills/                            # 28 sub-skills (blog/ is the orchestrator)
     blog/SKILL.md                   # Main orchestrator, routing, scoring
       references/                   # 14 on-demand knowledge files
       templates/                    # 12 content templates
@@ -56,12 +61,28 @@ claude-blog/
       references/                 # 3 reference docs (auth, API, quotas)
       scripts/                    # 11 Google API scripts + venv wrapper
       assets/templates/           # 3 report templates
-  agents/                            # 4 specialized subagents
+    blog-cluster/                  # Semantic topic-cluster planning + execution (v1.7.0)
+      SKILL.md                    # Cluster planning + execute orchestrator
+      references/                 # 3 ref docs (semantic clustering, architecture, execution)
+    blog-flow/                     # FLOW framework prompts (v1.7.0)
+      SKILL.md                    # FLOW orchestrator (find/optimize/win/prompts/sync)
+      references/                 # Synced from github.com/AgriciDaniel/flow (CC BY 4.0)
+    blog-multilingual/             # One-command international publishing (v1.7.0)
+      SKILL.md                    # Multilingual orchestrator
+    blog-translate/                # SEO-optimized translation (v1.7.0)
+      SKILL.md
+      references/                 # Translation rules + cultural adaptation profiles
+    blog-localize/                 # Cultural deep-adaptation (v1.7.0)
+      SKILL.md
+    blog-locale-audit/             # Multilingual content QA (v1.7.0)
+      SKILL.md
+  agents/                            # 5 specialized subagents
     blog-researcher.md              # Statistics and source research
     blog-writer.md                  # Content generation
     blog-seo.md                     # SEO validation
-    blog-reviewer.md                # Quality scoring
-  tests/                             # 44 pytest tests + CI config
+    blog-reviewer.md                # Quality scoring (no Bash, post v1.7.0 hardening)
+    blog-translator.md              # Multilingual translation (no Bash, v1.7.0)
+  tests/                             # pytest suite incl. test_security_guardrails.py
 ```
 
 ## Commands
@@ -89,6 +110,12 @@ claude-blog/
 | `/blog notebooklm` | Query NotebookLM for source-grounded research |
 | `/blog audio` | Generate audio narration via Gemini TTS |
 | `/blog google` | Google API data: PSI, CrUX, GSC, GA4, NLP, YouTube, Keywords |
+| `/blog cluster` | Semantic topic-cluster planning + execution (v1.7.0) |
+| `/blog multilingual` | Write + translate + localize + emit hreflang in one command (v1.7.0) |
+| `/blog translate` | SEO-optimized translation with format preservation (v1.7.0) |
+| `/blog localize` | Cultural deep-adaptation per locale (v1.7.0) |
+| `/blog locale-audit` | Multilingual content QA (v1.7.0) |
+| `/blog flow` | FLOW framework prompts: find, optimize, win, prompts index, sync (v1.7.0) |
 
 ## Development Rules
 
@@ -118,3 +145,13 @@ Submit at: claude.ai/settings/plugins/submit or platform.claude.com/plugins/subm
 ```bash
 curl -sL https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.sh | bash
 ```
+
+## Release Blog Post
+
+After cutting a new release (git tag + `gh release create`), run:
+
+```
+/release-blog
+```
+
+This generates a blog post on https://claude-blog.md/blog/, handles cover image generation, SEO metadata, FAQ schema, internal linking, sitemap/llms.txt updates, Vercel deployment, and Google indexing.

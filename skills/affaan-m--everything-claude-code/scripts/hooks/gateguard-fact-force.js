@@ -38,10 +38,25 @@ const READ_HEARTBEAT_MS = 60 * 1000;
 const MAX_CHECKED_ENTRIES = 500;
 const MAX_SESSION_KEYS = 50;
 const ROUTINE_BASH_SESSION_KEY = '__bash_session__';
+const EDIT_WRITE_HOOK_ID = 'pre:edit-write:gateguard-fact-force';
+const BASH_HOOK_ID = 'pre:bash:gateguard-fact-force';
+const ECC_DISABLE_VALUES = new Set(['0', 'false', 'off', 'disabled', 'disable']);
 
 const DESTRUCTIVE_BASH = /\b(rm\s+-rf|git\s+reset\s+--hard|git\s+checkout\s+--|git\s+clean\s+-f|drop\s+table|delete\s+from|truncate|git\s+push\s+--force(?!-with-lease)|git\s+commit\s+--amend|dd\s+if=)\b/i;
 
 // --- State management (per-session, atomic writes, bounded) ---
+
+function normalizeEnvValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isGateGuardDisabled() {
+  if (normalizeEnvValue(process.env.GATEGUARD_DISABLED) === '1') {
+    return true;
+  }
+
+  return ECC_DISABLE_VALUES.has(normalizeEnvValue(process.env.ECC_GATEGUARD));
+}
 
 function sanitizeSessionKey(value) {
   const raw = String(value || '').trim();
@@ -171,6 +186,7 @@ function saveState(state) {
       }
     }
     tmpFile = null;
+    return true;
   } catch (_) {
     if (tmpFile) {
       try {
@@ -179,6 +195,7 @@ function saveState(state) {
         /* ignore */
       }
     }
+    return false;
   }
 }
 
@@ -186,8 +203,9 @@ function markChecked(key) {
   const state = loadState();
   if (!state.checked.includes(key)) {
     state.checked.push(key);
-    saveState(state);
+    return saveState(state);
   }
+  return true;
 }
 
 function isChecked(key) {
@@ -349,17 +367,35 @@ function routineBashMsg() {
   ].join('\n');
 }
 
+function withRecoveryHint(message, hookIds = [EDIT_WRITE_HOOK_ID]) {
+  const disableTargets = hookIds.map(hookId => `\`${hookId}\``).join(' or ');
+  return [
+    message,
+    '',
+    `Recovery: if GateGuard is blocking setup or repair work, run this session with \`ECC_GATEGUARD=off\` or add ${disableTargets} to \`ECC_DISABLED_HOOKS\`.`
+  ].join('\n');
+}
+
 // --- Deny helper ---
 
-function denyResult(reason) {
+function denyResult(reason, options = {}) {
+  const includeRecoveryHint = options.includeRecoveryHint !== false;
+  const hookIds = Array.isArray(options.hookIds) && options.hookIds.length > 0 ? options.hookIds : [EDIT_WRITE_HOOK_ID];
   return {
     stdout: JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
         permissionDecision: 'deny',
-        permissionDecisionReason: reason
+        permissionDecisionReason: includeRecoveryHint ? withRecoveryHint(reason, hookIds) : reason
       }
     }),
+    exitCode: 0
+  };
+}
+
+function allowWithStateWarning() {
+  return {
+    stderr: '[Fact-Forcing Gate] GateGuard state could not be persisted; allowing this operation to avoid a permanent retry loop. Check GATEGUARD_STATE_DIR or filesystem permissions.',
     exitCode: 0
   };
 }
@@ -373,6 +409,11 @@ function run(rawInput) {
   } catch (_) {
     return rawInput; // allow on parse error
   }
+
+  if (isGateGuardDisabled()) {
+    return rawInput;
+  }
+
   activeStateFile = null;
   getStateFile(data);
 
@@ -389,7 +430,9 @@ function run(rawInput) {
     }
 
     if (!isChecked(filePath)) {
-      markChecked(filePath);
+      if (!markChecked(filePath)) {
+        return allowWithStateWarning();
+      }
       return denyResult(toolName === 'Edit' ? editGateMsg(filePath) : writeGateMsg(filePath));
     }
 
@@ -401,7 +444,9 @@ function run(rawInput) {
     for (const edit of edits) {
       const filePath = edit.file_path || '';
       if (filePath && !isClaudeSettingsPath(filePath) && !isChecked(filePath)) {
-        markChecked(filePath);
+        if (!markChecked(filePath)) {
+          return allowWithStateWarning();
+        }
         return denyResult(editGateMsg(filePath));
       }
     }
@@ -418,15 +463,19 @@ function run(rawInput) {
       // Gate destructive commands on first attempt; allow retry after facts presented
       const key = '__destructive__' + crypto.createHash('sha256').update(command).digest('hex').slice(0, 16);
       if (!isChecked(key)) {
-        markChecked(key);
-        return denyResult(destructiveBashMsg());
+        if (!markChecked(key)) {
+          return allowWithStateWarning();
+        }
+        return denyResult(destructiveBashMsg(), { includeRecoveryHint: false });
       }
       return rawInput; // allow retry after facts presented
     }
 
     if (!isChecked(ROUTINE_BASH_SESSION_KEY)) {
-      markChecked(ROUTINE_BASH_SESSION_KEY);
-      return denyResult(routineBashMsg());
+      if (!markChecked(ROUTINE_BASH_SESSION_KEY)) {
+        return allowWithStateWarning();
+      }
+      return denyResult(routineBashMsg(), { hookIds: [BASH_HOOK_ID] });
     }
 
     return rawInput; // allow

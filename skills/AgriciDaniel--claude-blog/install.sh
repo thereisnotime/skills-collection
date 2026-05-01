@@ -104,11 +104,20 @@ main() {
     cp "${SCRIPT_DIR}/scripts/analyze_blog.py" "${SKILL_DIR}/blog/scripts/analyze_blog.py"
     chmod +x "${SKILL_DIR}/blog/scripts/analyze_blog.py"
 
-    # Install Python dependencies
+    # Install Python dependencies (closes audit VULN-507/804: capture stderr
+    # to a logfile instead of swallowing it. Operator can diagnose failures.)
     if [ -f "${SCRIPT_DIR}/requirements.txt" ] && command -v pip3 &>/dev/null; then
         echo "→ Installing Python dependencies..."
-        pip3 install --quiet -r "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || \
-        echo "  Skipped: Install manually with 'pip3 install -r requirements.txt'"
+        local pip_log
+        pip_log="$(mktemp -t claude-blog-pip-XXXXXX.log)"
+        if pip3 install --quiet -r "${SCRIPT_DIR}/requirements.txt" 2>"${pip_log}"; then
+            rm -f "${pip_log}"
+        else
+            echo "  WARNING: pip install failed."
+            echo "  See log: ${pip_log}"
+            echo "  First error: $(head -n1 "${pip_log}" 2>/dev/null || echo '(empty)')"
+            echo "  Manual install: pip3 install -r requirements.txt"
+        fi
         echo "  Tip: Consider using a virtual environment: python3 -m venv .venv && source .venv/bin/activate"
     fi
 
@@ -118,10 +127,10 @@ main() {
     echo "  ╚══════════════════════════════════════╝"
     echo ""
     echo "  Installed:"
-    echo "    Main skill:   blog/ (orchestrator + references + templates)"
-    echo "    Sub-skills:   20 (19 commands + 1 internal)"
-    echo "    Agents:       4 specialists"
-    echo "    Scripts:      analyze_blog.py"
+    echo "    Main skill:   blog/ (orchestrator + 14 references + 12 templates)"
+    echo "    Sub-skills:   28 (27 commands + 1 internal blog-chart)"
+    echo "    Agents:       5 specialists"
+    echo "    Scripts:      analyze_blog.py + per-skill scripts"
     echo ""
     echo "  Commands available:"
     echo "    /blog write <topic>        Write a new blog post"

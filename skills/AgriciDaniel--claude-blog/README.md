@@ -7,7 +7,7 @@
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blueviolet)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Sub-Skills](https://img.shields.io/badge/Sub--Skills-22-orange)
+![Sub-Skills](https://img.shields.io/badge/Sub--Skills-28-orange)
 
 > **Blog:** [See how claude-blog works](https://agricidaniel.com/blog/claude-code-blog-writer)
 
@@ -47,19 +47,26 @@ claude-blog is a Claude Code skill ecosystem for creating, optimizing, and manag
 /plugin install claude-blog@AgriciDaniel-claude-blog
 ```
 
-**One-command install (Unix/macOS):**
+**Recommended: clone then verify before installing** (lets you inspect
+install.sh and pin a release tag, closing audit VULN-005):
+
+```bash
+git clone https://github.com/AgriciDaniel/claude-blog.git
+cd claude-blog
+git checkout v1.7.1          # pin to a release tag
+chmod +x install.sh && ./install.sh
+```
+
+**Convenience one-command install (Unix/macOS, only if you trust the
+upstream `AgriciDaniel/claude-blog` GitHub account):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.sh | bash
 ```
 
-**Or clone and install manually:**
-
-```bash
-git clone https://github.com/AgriciDaniel/claude-blog.git
-cd claude-blog
-chmod +x install.sh && ./install.sh
-```
+> Note: piping curl to bash gives the script execution authority on your
+> machine. The clone-then-checkout-tag flow above is safer because you
+> can inspect what runs.
 
 **Windows (PowerShell):**
 ```powershell
@@ -93,7 +100,7 @@ Restart Claude Code after installation to activate.
 | `/blog audio [generate\|voices\|setup]` | Generate audio narration via Gemini TTS |
 | `/blog google [command] [args]` | Google API data: PSI, CrUX, GSC, GA4, NLP, YouTube, Keywords |
 
-> **22 sub-skills total**: 20 user-facing commands above + `blog-chart` (internal SVG generation) + `blog-image` (also callable internally by write/rewrite).
+> **28 sub-skills total**: 26 user-facing commands above + `blog-chart` (internal SVG generation) + `blog-image` (also callable internally by write/rewrite). v1.7.0 added `blog-cluster`, `blog-multilingual`, `blog-translate`, `blog-localize`, `blog-locale-audit`, and `blog-flow`.
 
 ## Features
 
@@ -163,7 +170,7 @@ claude-blog/
 │   └── plugin.json                     # Plugin metadata (name, description, author)
 ├── skills/
 │   ├── blog/                           # Main orchestrator
-│   │   ├── SKILL.md                    # Routes all 21 commands
+│   │   ├── SKILL.md                    # Routes all 27 commands
 │   │   ├── references/                 # 14 on-demand reference docs
 │   │   └── templates/                  # 12 content type templates
 │   ├── blog-write/SKILL.md            # Sub-skills (21 user-facing + 1 internal)
@@ -200,7 +207,7 @@ claude-blog/
 │       ├── references/                # 3 reference docs (auth, API, quotas)
 │       ├── scripts/                   # 11 Google API scripts + venv wrapper
 │       └── assets/templates/          # 3 report templates
-├── agents/                             # 4 specialized agents
+├── agents/                             # 5 specialized agents
 │   ├── blog-researcher.md
 │   ├── blog-writer.md
 │   ├── blog-seo.md

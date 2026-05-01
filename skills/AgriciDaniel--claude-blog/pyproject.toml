@@ -1,6 +1,19 @@
+[build-system]
+# Required so `pip install -e ".[dev]"` works in CI. Without this, setuptools
+# falls back to legacy and refuses with "Multiple top-level packages discovered
+# in a flat-layout" because the repo root has assets/, skills/, agents/, etc.
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# This repo is a Claude Code skill bundle, not a Python package. Declare an
+# empty distribution so the editable install gives us only the metadata
+# (extras groups, etc.) without trying to import skill directories.
+py-modules = []
+
 [project]
 name = "claude-blog"
-version = "1.6.9"
+version = "1.7.1"
 description = "AI-powered blog creation and optimization skill for Claude Code"
 readme = "README.md"
 license = {text = "MIT"}
@@ -11,29 +24,38 @@ authors = [
 
 [project.optional-dependencies]
 core = [
-    "textstat>=0.7.3",
-    "beautifulsoup4>=4.12.0",
+    # Bounded ranges align with requirements.txt to ensure both install paths
+    # resolve to compatible majors (closes audit VULN-407 mismatch).
+    "textstat>=0.7.3,<1.0.0",
+    "beautifulsoup4>=4.12.0,<5.0.0",
 ]
 advanced = [
-    "lxml",
-    "jsonschema",
-    "spacy",
-    "sentence-transformers",
-    "scikit-learn",
-    "language-tool-python",
+    # Closes audit VULN-406. All entries previously unbounded.
+    "lxml>=5.0.0,<7.0.0",
+    "jsonschema>=4.20.0,<5.0.0",
+    "spacy>=3.7.0,<4.0.0",
+    "sentence-transformers>=2.5.0,<5.0.0",
+    "scikit-learn>=1.4.0,<2.0.0",
+    "language-tool-python>=2.7.1,<3.0.0",
 ]
 google = [
-    "requests>=2.32.4",
-    "google-api-python-client>=2.100.0",
-    "google-auth>=2.20.0",
-    "google-auth-oauthlib>=1.0.0",
-    "google-auth-httplib2>=0.2.0",
-    "google-analytics-data>=0.18.0",
+    "requests>=2.32.4,<3.0.0",
+    "google-api-python-client>=2.100.0,<3.0.0",
+    "google-auth>=2.20.0,<3.0.0",
+    "google-auth-oauthlib>=1.0.0,<2.0.0",
+    "google-auth-httplib2>=0.2.0,<1.0.0",
+    "google-analytics-data>=0.18.0,<1.0.0",
+]
+ads = [
+    # Optional: enables skills/blog-google/scripts/keyword_planner.py.
+    # Closes audit VULN-404 phantom-import (was previously imported with no
+    # manifest declaration).
+    "google-ads>=22.0.0,<26.0.0",
 ]
 dev = [
-    "pytest>=8.0",
-    "textstat>=0.7.3",
-    "beautifulsoup4>=4.12.0",
+    "pytest>=8.0,<9.0",
+    "textstat>=0.7.3,<1.0.0",
+    "beautifulsoup4>=4.12.0,<5.0.0",
 ]
 
 [tool.pytest.ini_options]

@@ -10,7 +10,7 @@
     {
       "name": "claude-blog",
       "source": "./",
-      "description": "AI-powered blog creation, optimization, and management with 22 skills, 4 agents, and 5-category scoring. Optimized for Google rankings and AI citations."
+      "description": "AI-powered blog creation, optimization, and management with 28 skills, 5 agents, FLOW framework integration, semantic topic-cluster execution, multilingual publishing, and 5-category scoring. Optimized for Google rankings and AI citations."
     }
   ]
 }

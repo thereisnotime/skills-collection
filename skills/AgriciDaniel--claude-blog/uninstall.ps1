@@ -9,8 +9,8 @@ function Write-Color($Color, $Text) {
 }
 
 function Main {
-    $SkillDir = Join-Path $env:USERPROFILE ".claude" "skills"
-    $AgentDir = Join-Path $env:USERPROFILE ".claude" "agents"
+    $SkillDir = Join-Path (Join-Path $env:USERPROFILE ".claude") "skills"
+    $AgentDir = Join-Path (Join-Path $env:USERPROFILE ".claude") "agents"
 
     Write-Color Cyan "=== Uninstalling claude-blog ==="
     Write-Host ""
@@ -22,27 +22,38 @@ function Main {
         Write-Color Green "  Removed: $blogDir"
     }
 
-    # Remove sub-skills
-    $subSkills = @(
-        "blog-write", "blog-rewrite", "blog-analyze", "blog-brief",
-        "blog-calendar", "blog-strategy", "blog-outline", "blog-seo-check",
-        "blog-schema", "blog-repurpose", "blog-geo", "blog-audit", "blog-chart", "blog-image"
-    )
-    foreach ($skill in $subSkills) {
-        $skillPath = Join-Path $SkillDir $skill
-        if (Test-Path $skillPath) {
-            Remove-Item -Recurse -Force $skillPath
-            Write-Color Green "  Removed: $skillPath"
+    # Remove sub-skills via glob (closes audit VULN-035: prior static array
+    # was stale and missed v1.7.0 sub-skills like blog-cluster, blog-flow,
+    # blog-multilingual, blog-translate, blog-localize, blog-locale-audit,
+    # blog-notebooklm, blog-audio, blog-google. The glob pattern is the
+    # same approach uninstall.sh already uses.)
+    if (Test-Path $SkillDir) {
+        Get-ChildItem -Path $SkillDir -Directory -Filter "blog-*" | ForEach-Object {
+            Remove-Item -Recurse -Force $_.FullName
+            Write-Color Green "  Removed: $($_.FullName)"
         }
     }
 
-    # Remove agents
-    $agents = @("blog-researcher", "blog-writer", "blog-seo", "blog-reviewer")
-    foreach ($agent in $agents) {
-        $agentPath = Join-Path $AgentDir "$agent.md"
-        if (Test-Path $agentPath) {
-            Remove-Item -Force $agentPath
-            Write-Color Green "  Removed: $agentPath"
+    # Remove agents via glob (closes VULN-035: blog-translator was missing
+    # from the static list).
+    if (Test-Path $AgentDir) {
+        Get-ChildItem -Path $AgentDir -Filter "blog-*.md" | ForEach-Object {
+            Remove-Item -Force $_.FullName
+            Write-Color Green "  Removed: $($_.FullName)"
+        }
+    }
+
+    # Purge credential artifacts from cross-skill data dirs (audit follow-up
+    # to VULN-805 in cybersec audit: cookies/tokens left behind post-uninstall
+    # is a meaningful exposure window).
+    $credPaths = @(
+        (Join-Path (Join-Path (Join-Path $env:USERPROFILE ".config") "claude-seo") "oauth-token.json"),
+        (Join-Path (Join-Path (Join-Path $env:USERPROFILE ".config") "claude-seo") "google-api.json")
+    )
+    foreach ($credPath in $credPaths) {
+        if (Test-Path $credPath) {
+            Remove-Item -Force $credPath -ErrorAction SilentlyContinue
+            Write-Color Green "  Removed credential: $credPath"
         }
     }
 

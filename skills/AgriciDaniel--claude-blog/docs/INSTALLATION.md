@@ -291,8 +291,9 @@ chmod +x uninstall.sh
 This removes:
 
 - `~/.claude/skills/blog/` (main skill, references, templates, scripts)
-- `~/.claude/skills/blog-*/` (all 14 sub-skills including blog-chart and blog-image)
-- `~/.claude/agents/blog-*.md` (all 4 agents)
+- `~/.claude/skills/blog-*/` (all 27 sub-skills including blog-chart, blog-image, blog-flow, blog-cluster, and the multilingual suite)
+- `~/.claude/agents/blog-*.md` (all 5 agents)
+- `~/.claude/scripts/sync_flow.py` (FLOW reference sync script)
 
 ### Manual Uninstall
 

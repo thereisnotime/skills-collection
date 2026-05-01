@@ -78,7 +78,6 @@ Each skill includes:
 - [Troubleshooting](#troubleshooting)
 - [FAQ](#faq)
 - [Support](#support)
-- [Join Our Community](#join-our-community)
 - [Citation](#citation)
 - [License](#license)
 
@@ -709,21 +708,6 @@ Need help? Here's how to get support:
 - 🐛 **Bug Reports**: [Open an issue](https://github.com/K-Dense-AI/scientific-agent-skills/issues)
 - 💡 **Feature Requests**: [Submit a feature request](https://github.com/K-Dense-AI/scientific-agent-skills/issues/new)
 - 💼 **Enterprise Support**: Contact [K-Dense](https://k-dense.ai/) for commercial support
-- 🌐 **Community**: [Join our Slack](https://join.slack.com/t/k-densecommunity/shared_invite/zt-3iajtyls1-EwmkwIZk0g_o74311Tkf5g)
-
----
-
-## 🎉 Join Our Community!
-
-**We'd love to have you join us!** 🚀
-
-Connect with other scientists, researchers, and AI enthusiasts using AI agents for scientific computing. Share your discoveries, ask questions, get help with your projects, and collaborate with the community!
-
-🌟 **[Join our Slack Community](https://join.slack.com/t/k-densecommunity/shared_invite/zt-3iajtyls1-EwmkwIZk0g_o74311Tkf5g)** 🌟
-
-Whether you're just getting started or you're a power user, our community is here to support you. We share tips, troubleshoot issues together, showcase cool projects, and discuss the latest developments in AI-powered scientific research.
-
-**See you there!** 💬
 
 ---
 

@@ -7,7 +7,6 @@ description: >
   AI-detectable phrases. Invoked for quality review tasks during blog workflows.
 tools:
   - Read
-  - Bash
   - Grep
   - Glob
 ---

@@ -56,17 +56,27 @@ photo sourcing from Pixabay/Unsplash/Pexels.
 
 ### Configuration
 
-The project `.mcp.json` is pre-configured. Set your API key:
+The setup script writes to Claude Code's user-private global settings by
+default (safer; never reaches git). To use project-local `.mcp.json`, opt in
+with `--project` (the script will refuse to write a literal key into a
+tracked file).
 
 ```bash
-# Option 1: Run the setup script
+# Recommended: writes ~/.claude/settings.json (user-private, mode 0600)
 python3 skills/blog-image/scripts/setup_image_mcp.py --key YOUR_KEY
 
-# Option 2: Set environment variable
+# Project-local (env-expansion only, NEVER stores literal key)
+python3 skills/blog-image/scripts/setup_image_mcp.py --key YOUR_KEY --project
+# Then export the key in your shell so the env-expansion resolves:
 export GOOGLE_AI_API_KEY="your-key-from-aistudio.google.com"
 ```
 
 Get a free API key at: https://aistudio.google.com/apikey
+
+> **Security**: `.mcp.json` is gitignored as of 2026-04-27. A tracked
+> `.mcp.example.json` template lives alongside. The setup script pins the
+> nanobanana-mcp package version (`@ycse/nanobanana-mcp@1.1.1`) to mitigate
+> supply-chain risk on `npx -y` auto-update.
 
 ### Verify Setup
 

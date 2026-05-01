@@ -420,5 +420,9 @@ After installation, `claude-blog` occupies this structure inside `~/.claude/`:
     └── blog-reviewer.md
 ```
 
-**Component counts**: 1 orchestrator, 12 sub-skills, 4 agents, 12 references,
-12 templates, 1 Python script = **42 files total**.
+**Component counts (v1.7.0)**: 1 orchestrator + 27 sub-skills (28 total), 5 agents,
+13+ references (plus per-sub-skill references and 30 synced FLOW prompts),
+12 content templates, multiple Python scripts (`scripts/sync_flow.py`,
+`skills/blog/scripts/analyze_blog.py`, plus per-sub-skill scripts under
+`blog-google/`, `blog-notebooklm/`, `blog-audio/`, `blog-image/`).
+Note: this section was historically out of date; counts revised in v1.7.0.

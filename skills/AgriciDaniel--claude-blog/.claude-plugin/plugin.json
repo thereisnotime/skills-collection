@@ -1,7 +1,7 @@
 {
   "name": "claude-blog",
-  "description": "AI-powered blog skill with 21 commands, Google API integration (PageSpeed, CrUX, GSC, GA4, YouTube, NLP, Keywords), YouTube video embedding, persona-driven writing, fact-checking, cannibalization detection, CMS taxonomy sync, NotebookLM research, Gemini TTS audio narration, 5-category scoring, 4 agents, and Gemini image generation. Optimized for Google rankings and AI citations (GEO/AEO).",
-  "version": "1.6.9",
+  "description": "AI-powered blog skill suite with 28 sub-skills and 5 agents. FLOW framework integration (Find/Optimize/Win, 30 evidence-led prompts), semantic topic-cluster planning + execution, multilingual publishing (translate/localize/locale-audit), Google API integration (PageSpeed, CrUX, GSC, GA4, YouTube, NLP, Keywords), YouTube video embedding, persona-driven writing, fact-checking, cannibalization detection, CMS taxonomy sync, NotebookLM research, Gemini TTS audio narration, 5-category scoring, and Gemini image generation. Optimized for Google rankings and AI citations (GEO/AEO).",
+  "version": "1.7.1",
   "author": {
     "name": "AgriciDaniel",
     "url": "https://github.com/AgriciDaniel"
@@ -13,6 +13,8 @@
     "blog", "seo", "content", "writing", "ai-citations",
     "geo", "aeo", "eeat", "google-rankings", "content-optimization",
     "blog-writing", "markdown", "mdx", "wordpress",
-    "google-api", "youtube", "pagespeed", "search-console"
+    "google-api", "youtube", "pagespeed", "search-console",
+    "flow-framework", "topic-clusters", "hub-and-spoke",
+    "multilingual", "translation", "localization", "hreflang", "i18n"
   ]
 }

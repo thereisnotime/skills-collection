@@ -1,8 +1,13 @@
 # Command Reference
 
-Complete reference for all 17 `/blog` slash commands. Every command is invoked
-through the main orchestrator (`skills/blog/SKILL.md`), which routes to the appropriate
-sub-skill.
+Complete reference for all 27 `/blog` slash commands (28 sub-skills total;
+`blog-chart` is internal-only, invoked from blog-write/blog-rewrite).
+Every command is invoked through the main orchestrator
+(`skills/blog/SKILL.md`), which routes to the appropriate sub-skill.
+
+> **For detailed command flows beyond the overview table below, see each
+> sub-skill's `SKILL.md` directly. Sections in this file are abbreviated
+> for the v1.7.0 commands that joined after this doc was originally written.**
 
 ## Command Overview
 
@@ -521,6 +526,206 @@ changes and focuses on updating data and signals.
 
 - `/blog rewrite` -- Full rewrite (more aggressive than update)
 - `/blog audit` -- Find posts that need updating
+
+---
+
+## /blog image
+
+**Purpose**: AI image generation and editing via the nanobanana-mcp server (Gemini).
+
+```
+/blog image generate <description>
+/blog image edit <path> <instructions>
+/blog image setup
+```
+
+**Flow**: See `skills/blog-image/SKILL.md` -- Creative Director pattern with
+the 6-component Reasoning Brief (Subject, Action, Context, Composition,
+Lighting, Style). The `setup` subcommand defaults to `--global` (writes
+user-private `~/.claude/settings.json`, mode 0600) per audit VULN-001 fix.
+
+---
+
+## /blog cannibalization
+
+**Purpose**: detect keyword overlap across posts in a directory.
+
+```
+/blog cannibalization [directory]
+```
+
+**Flow**: See `skills/blog-cannibalization/SKILL.md`.
+
+---
+
+## /blog factcheck
+
+**Purpose**: verify statistics in a draft against cited sources.
+
+```
+/blog factcheck <file-path>
+```
+
+**Flow**: See `skills/blog-factcheck/SKILL.md`.
+
+---
+
+## /blog persona
+
+**Purpose**: manage writing personas and voice profiles.
+
+```
+/blog persona create
+/blog persona list
+/blog persona apply <name>
+```
+
+**Flow**: See `skills/blog-persona/SKILL.md`. Personas live in
+`skills/blog/references/personas/`.
+
+---
+
+## /blog taxonomy
+
+**Purpose**: tag/category CMS management for blog content.
+
+```
+/blog taxonomy sync
+/blog taxonomy audit
+/blog taxonomy suggest
+```
+
+**Flow**: See `skills/blog-taxonomy/SKILL.md`.
+
+---
+
+## /blog notebooklm
+
+**Purpose**: query NotebookLM for source-grounded research via patchright
+browser automation.
+
+```
+/blog notebooklm <question>
+```
+
+**Flow**: See `skills/blog-notebooklm/SKILL.md`. Cookies at
+`~/.claude/skills/blog-notebooklm/data/` written mode 0600 per audit
+VULN-004 fix.
+
+---
+
+## /blog audio
+
+**Purpose**: generate audio narration via Gemini TTS.
+
+```
+/blog audio generate <file-path>
+/blog audio voices
+/blog audio setup
+```
+
+**Flow**: See `skills/blog-audio/SKILL.md`. 30-voice catalog in references.
+
+---
+
+## /blog google
+
+**Purpose**: Google API data integration (PSI, CrUX, GSC, GA4, Indexing,
+NLP, YouTube, Keywords).
+
+```
+/blog google <command> [args]
+```
+
+**Flow**: See `skills/blog-google/SKILL.md`. 13 commands across 4 credential
+tiers. OAuth state CSRF + chmod 0600 token storage per audit VULN-002 +
+VULN-008 fixes. Default scopes are read-only (`gsc_readonly + ga4`); pass
+`--scopes` to elevate.
+
+---
+
+## /blog cluster (v1.7.0)
+
+**Purpose**: semantic topic-cluster planning + execution. Hub-and-spoke
+architecture with shared cluster context.
+
+```
+/blog cluster <seed-topic>
+```
+
+**Flow**: See `skills/blog-cluster/SKILL.md`. Adapted from
+[semantic-cluster-engine](https://github.com/Drfiya/semantic-cluster-engine)
+(AI Marketing Hub Pro Hub Challenge winner).
+
+---
+
+## /blog flow (v1.7.0)
+
+**Purpose**: FLOW framework prompts (find / optimize / win / prompts / sync).
+
+```
+/blog flow find
+/blog flow optimize
+/blog flow win
+/blog flow prompts
+/blog flow sync [--ref <sha>] [--allow-drift]
+```
+
+**Flow**: See `skills/blog-flow/SKILL.md`. Sync uses `scripts/sync_flow.py`
+with HTTPS-only host allowlist + 5MB cap + path-traversal guard + blocking
+lockfile drift gate (per audit VULN-018 fix).
+
+---
+
+## /blog multilingual (v1.7.0)
+
+**Purpose**: one-command write + translate + localize + emit hreflang.
+
+```
+/blog multilingual <topic> --languages de,fr,es
+```
+
+**Flow**: See `skills/blog-multilingual/SKILL.md`. Orchestrates blog-write,
+blog-translate, blog-localize, plus optional `seo-hreflang`.
+
+---
+
+## /blog translate (v1.7.0)
+
+**Purpose**: SEO-optimized translation with format preservation.
+
+```
+/blog translate <file-path> <target-lang>
+```
+
+**Flow**: See `skills/blog-translate/SKILL.md`. Spawns `blog-translator`
+agent (least-privilege: Read/Write/Edit/Glob/Grep, no Bash, no Web).
+
+---
+
+## /blog localize (v1.7.0)
+
+**Purpose**: cultural deep-adaptation per locale (DACH, Francophone,
+Hispanic, Japanese profiles + custom template).
+
+```
+/blog localize <file-path> <locale>
+```
+
+**Flow**: See `skills/blog-localize/SKILL.md`.
+
+---
+
+## /blog locale-audit (v1.7.0)
+
+**Purpose**: multilingual content QA (completeness matrix, hreflang
+correctness, meta-tag parity, freshness).
+
+```
+/blog locale-audit <directory>
+```
+
+**Flow**: See `skills/blog-locale-audit/SKILL.md`.
 
 ---
 

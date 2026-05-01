@@ -25,11 +25,27 @@ main() {
         fi
     done
 
-    # Remove agents
-    for agent in blog-researcher blog-writer blog-seo blog-reviewer; do
-        if [ -f "${AGENT_DIR}/${agent}.md" ]; then
-            rm -f "${AGENT_DIR}/${agent}.md"
-            echo "  Removed: ${AGENT_DIR}/${agent}.md"
+    # Remove agents via glob (closes meta-audit follow-up: prior static list
+    # missed blog-translator added in v1.7.0; mirror the install.ps1 pattern).
+    if [ -d "${AGENT_DIR}" ]; then
+        for agent_file in "${AGENT_DIR}"/blog-*.md; do
+            if [ -f "${agent_file}" ]; then
+                rm -f "${agent_file}"
+                echo "  Removed: ${agent_file}"
+            fi
+        done
+    fi
+
+    # Purge credential artifacts (mirrors uninstall.ps1 audit fix VULN-805
+    # follow-up: cookies/tokens left behind post-uninstall is a meaningful
+    # exposure window).
+    for cred_path in \
+        "${HOME}/.config/claude-seo/oauth-token.json" \
+        "${HOME}/.config/claude-seo/google-api.json"
+    do
+        if [ -f "${cred_path}" ]; then
+            rm -f "${cred_path}"
+            echo "  Removed credential: ${cred_path}"
         fi
     done
 

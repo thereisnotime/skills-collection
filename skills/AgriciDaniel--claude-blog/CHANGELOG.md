@@ -7,6 +7,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-04-27
+
+### Security audit + remediation arc (12 commits, all CRITICAL + HIGH closed)
+
+The 2026-04-27 cybersecurity audit (via `/cybersecurity` skill) identified
+1 CRITICAL + 5 HIGH + 14 MEDIUM + 11 LOW + 8 INFO findings (39 total).
+This release closes all of them across 10 focused commits.
+
+#### Security (Critical / High)
+- **CRITICAL VULN-001**: `setup_image_mcp.py` defaulted to project-local
+  `.mcp.json` (which was tracked) and wrote literal `GOOGLE_AI_API_KEY`.
+  Default flipped to `--global` (writes user-private `~/.claude/settings.json`,
+  mode 0600); `--project` opts in to env-expansion-only mode and refuses to
+  write into a tracked file.
+- **HIGH**: `.mcp.json` removed from git tracking, added to `.gitignore`;
+  new tracked `.mcp.example.json` template with env-expansion + pinned
+  `@ycse/nanobanana-mcp@1.1.1`.
+- **HIGH**: `_save_oauth_token` and NotebookLM `_save_browser_state` now
+  use atomic write + `chmod 0o600`. `_harden_perms` helper applied to
+  every credential-write site.
+- **HIGH**: OAuth flow gains CSRF state token via `secrets.token_urlsafe`,
+  validated in handler with 403 on mismatch. Listener bound to 127.0.0.1.
+- **HIGH**: 4 hash-pinned lock files (1915 LoC) for all pip manifests via
+  `pip-compile --generate-hashes --strip-extras --allow-unsafe`.
+- **HIGH**: README install ordering reframed (clone+checkout-tag now
+  recommended; curl-pipe-bash documented as convenience with trust caveat).
+
+#### Security (Medium)
+- OAuth scopes downgraded to per-command least-privilege (`gsc_readonly +
+  ga4` default; `--scopes` flag for explicit elevation).
+- `--no-sandbox` removed from NotebookLM Chromium launch (env opt-in only).
+- `sync_flow.py` lockfile drift now BLOCKS via `sys.exit(2)` unless
+  `--allow-drift` explicitly passed; drift fires before filesystem mutation.
+- `google_report.py` `--domain` whitelist regex + path containment check.
+- CI workflow gains top-level `permissions: contents: read`, concurrency
+  cancel-in-progress, and `pip install -e ".[dev]"` (was unpinned).
+- Dependabot adds 3 nested-manifest entries (was missing 80% of dep surface).
+- `pyproject.toml` advanced extras now bounded; new `[ads]` group declares
+  previously-phantom `google-ads` dep.
+- GitHub Actions SHA-pinned (`actions/checkout` + `actions/setup-python`).
+
+#### Security (Low / INFO)
+- `traceback.print_exc()` in NotebookLM error path replaced with clean
+  error; verbose trace gated behind `BLOG_DEBUG` env.
+- 6 bare `except:` blocks changed to `except Exception:` so signals
+  propagate.
+- `__init__.py` import-time side effects removed (no more silent
+  venv.create + Chrome download on test discovery).
+- API key masking changed from `key[:8]+...+key[-4:]` to length-only.
+- Unexecutable Bash instruction removed from `blog-writer` agent prompt.
+- `uninstall.sh` and `uninstall.ps1` now glob `blog-*` (was static list
+  missing v1.7.0 sub-skills) and purge `~/.config/claude-seo/` credentials.
+- CLI input length caps on `ask_question.py` and `notebook_manager.py`.
+
+#### PowerShell 5.1 compatibility (post-audit pushback)
+- `install.ps1` + `uninstall.ps1` 3-arg `Join-Path` calls (PS 6.0+ only)
+  rewritten as nested 2-arg form. Default Windows 10/11 ships PS 5.1; the
+  prior code would fail with "A positional parameter cannot be found"
+  on every install attempt.
+- The `??` null-coalescing operator (also PS 6.0+) was already removed
+  in an earlier hotfix commit (96ef396).
+
+#### Tests
+- `test_google_auth_write_secret_atomic_sets_mode_0600`: behavioral test
+  loading the helper via `importlib.spec_from_file_location` + `tmp_path`.
+- `test_notebooklm_credential_files_contain_chmod_hardening`: static test
+  requiring `_harden_perms(` count >= 2 (def + at least 1 call).
+- `test_mcp_json_is_gitignored`: regression gate for `.gitignore` entry.
+- `test_user_invokable_skills_have_complete_frontmatter` (NEW): asserts
+  every user-invokable SKILL.md has `description`, `argument-hint`, and
+  `license` fields. Closes the verifier blind spot that allowed
+  blog-rewrite (and 14 other skills) to ship without these fields.
+
+#### Docs
+- New comprehensive `SECURITY.md`: vulnerability disclosure flow, in/out
+  of scope, T1-T11 trust boundaries with STRIDE, dual-use technology notes
+  (patchright stealth-fork rationale, WebFetch indirect prompt injection
+  risk model, sync_flow defenses), audit history, hardening checklist.
+- `docs/MCP-INTEGRATION.md` updated with new `--global` default flow.
+- `skills/blog-image/SKILL.md` setup section reflects new defaults +
+  pinning convention.
+- `docs/COMMANDS.md` updated to cover all 27 user commands (was 17).
+- `agents/blog-researcher.md` adds explicit prompt-injection framing for
+  WebFetch / WebSearch content (T9 boundary defense).
+- `agents/blog-writer.md` clarifies dual install path for analyze script.
+
+#### Dependencies
+- Generated 4 hash-pinned lock files (`requirements.lock` at root +
+  3 nested `skills/*/scripts/requirements.lock`). All install paths
+  via `setup_environment.py` now prefer `--require-hashes -r .lock`
+  when present.
+- pyproject.toml: bound previously-unbounded `advanced` extras (`lxml`,
+  `jsonschema`, `spacy`, `sentence-transformers`, `scikit-learn`,
+  `language-tool-python`); synced `core` upper bounds with
+  `requirements.txt`; added `[ads]` optional group with `google-ads`.
+
+#### Skills (frontmatter completeness)
+- All 27 user-invokable SKILL.md files now declare `argument-hint` and
+  `license: MIT` consistently. Caught by full-skill test pass + 9-agent
+  meta-audit; previously 15 skills were missing one or both fields.
+
+### Audit + meta-audit dispatch summary
+- 7-agent cybersecurity audit dispatch (parallel, single message)
+- 28-agent full-skill test dispatch (one per sub-skill, parallel)
+- 9-agent meta-audit (re-audit the audit + fix arc)
+- Independent code-reviewer agent caught 5 issues post-commit (build-system
+  missing, bare-filename crash, PS 5.1 incompatibility, weak test, missing
+  ValueError handler) -> hotfix commit applied.
+- Codex GPT-5.5 high-reasoning council used 4 times for plan validation;
+  each returned APPROVE-WITH-CHANGES with substantive corrections that
+  materially improved the plan.
+
+### Open follow-ups (not release-blocking)
+- `blog-write/SKILL.md` Phase 5 extraction: currently 535 lines, ideal
+  is < 500. Extract Phase 5 to a reference file in next iteration.
+- `sentence-transformers` upper bound `<5.0.0` is one major behind current
+  5.4.1; re-evaluate when next minor lands.
+- E-E-A-T overlap consolidation across `eeat-signals.md`, `geo-optimization.md`,
+  `quality-scoring.md` (architectural).
+
+## [1.7.0] - 2026-04-27
+
+### Pro Hub Challenge community release + FLOW framework integration
+
+#### Added
+- **`blog-cluster`** sub-skill (winner of the AI Marketing Hub Pro Hub Challenge, March 2026, by Lutfiya Miller). Semantic topic-cluster planning + execution engine. SERP-based keyword grouping, hub-and-spoke architecture, sequential `blog-write` orchestration with shared cluster context and automatic internal-link injection. XSS-hardened cluster-map.html (no inline JavaScript). Adapted from [semantic-cluster-engine](https://github.com/Drfiya/semantic-cluster-engine).
+- **`blog-multilingual`** sub-skill (by Chris Mueller, AI Marketing Hub Pro). One-command international publishing. Orchestrates `blog-write`, `blog-translate`, `blog-localize`, plus optional `seo-hreflang` integration. Adapted from [claude-blog-multilingual](https://github.com/Chriss54/multilingual-int).
+- **`blog-translate`** sub-skill (by Chris Mueller). SEO-optimized translation with format preservation, machine-translation artifact detection, and locale-correct number/date/currency formatting.
+- **`blog-localize`** sub-skill (by Chris Mueller). Cultural deep-adaptation with built-in profiles for DACH, Francophone, Hispanic, and Japanese markets, plus a custom-locale template.
+- **`blog-locale-audit`** sub-skill (by Chris Mueller). Multilingual quality control: completeness matrix, hreflang correctness, meta-tag parity, freshness checks.
+- **`blog-translator`** specialized agent (no `Bash` tool, per the v1.9.6 lesson from claude-seo).
+- **`blog-flow`** sub-skill. FLOW framework integration ([github.com/AgriciDaniel/flow](https://github.com/AgriciDaniel/flow), CC BY 4.0 prompt content + MIT code). Commands: `/blog flow [find|optimize|win|prompts|sync]`. Surfaces 30 blog-applicable evidence-led prompts; the local-SEO stage is intentionally excluded (use claude-seo for those).
+- **`scripts/sync_flow.py`**. Pulls FLOW references from GitHub. Stdlib only. HTTPS-only host allowlist (`api.github.com`). 5 MB cap. Atomic writes. Path-traversal guard. Anonymous-first GitHub API. Supports `--dry-run` and `--ref <sha>` pinning. SHA-256 lockfile drift detection. Injects CC BY 4.0 license header on every synced markdown file plus the auto-generated index README.
+- **`tests/test_security_guardrails.py`**. Four mechanical pytest gates that fail CI if (1) any agent grants `Bash`, (2) any SKILL.md uses the invalid `allowed-tools` field, (3) skill names collide, or (4) the FLOW sync script loses a security invariant.
+- **`CONTRIBUTORS.md`** crediting Pro Hub Challenge contributors and recording the integration decisions.
+
+#### Changed
+- Plugin description bumped to mention 27 commands, 5 agents, FLOW + cluster + multilingual capabilities.
+- Marketplace description updated to "28 skills, 5 agents, FLOW framework integration, semantic topic-cluster execution, multilingual publishing".
+- `skills/blog/SKILL.md` orchestrator: routing entries added for `cluster`, `multilingual`, `translate`, `localize`, `locale-audit`, and `flow`. Quick Reference table updated. Version bumped to 1.7.0.
+- `CLAUDE.md` file counts updated (28 sub-skills, 5 agents).
+- Plugin keywords expanded to include `flow-framework`, `topic-clusters`, `hub-and-spoke`, `multilingual`, `translation`, `localization`, `hreflang`, `i18n`.
+
+#### Fixed
+- **Pre-existing security debt**: removed `Bash` from `agents/blog-reviewer.md` tools list. The agent scores text and only needs `Read`, `Grep`, `Glob`. Aligns with the v1.9.6 lesson from claude-seo (prompt-injection blast radius on agents with shell access). Now enforced mechanically by `test_no_bash_tool_in_any_agent_frontmatter`.
+
 ## [1.6.8] - 2026-04-08
 
 ### Fixed
