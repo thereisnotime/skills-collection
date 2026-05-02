@@ -56,16 +56,16 @@ Return resolver wrapper structs, not domain models directly — keeps GraphQL pr
 | --- | --- | --- |
 | `ID` | `graphql.ID` | string alias |
 | `Int` | `int32` | **NOT `int`** — mismatch is a parse-time error |
-| `Float` | `float64` | |
-| `String` | `string` | |
-| `Boolean` | `bool` | |
-| `[T]` | `[]*T` or `[]T` | |
+| `Float` | `float64` |  |
+| `String` | `string` |  |
+| `Boolean` | `bool` |  |
+| `[T]` | `[]*T` or `[]T` |  |
 | Nullable `T` | `*T` | pointer = nullable |
 | Non-null `T!` | `T` | non-pointer |
-| Custom scalar | implement `UnmarshalGraphQL(input any) error` + `MarshalJSON() ([]byte, error)` | |
-| Enum | typed string alias | |
-| Input | exported struct with field tags optional | |
-| Interface/Union | Go interface returned; `ToConcreteType() (*T, bool)` discriminators | |
+| Custom scalar | implement `UnmarshalGraphQL(input any) error` + `MarshalJSON() ([]byte, error)` |  |
+| Enum | typed string alias |  |
+| Input | exported struct with field tags optional |  |
+| Interface/Union | Go interface returned; `ToConcreteType() (*T, bool)` discriminators |  |
 
 Common mistake: using `int` for an `Int!` field — the parser rejects it with a type mismatch error.
 
@@ -107,7 +107,9 @@ func (d DateTime) MarshalJSON() ([]byte, error) {
 ## Interfaces and Unions
 
 ```graphql
-interface Node { id: ID! }
+interface Node {
+  id: ID!
+}
 union SearchResult = User | Post
 ```
 
@@ -245,11 +247,11 @@ For HTTP-level tests, drive `relay.Handler` with `httptest.NewRecorder()`.
 
 ## graph-gophers vs gqlgen Summary
 
-| Concern | graph-gophers | gqlgen |
-| --- | --- | --- |
-| Type safety | Parse-time reflection | Compile-time codegen |
-| Build complexity | None | `go generate` step |
-| Performance | Slower (reflection) | Faster (static dispatch) |
-| Federation | Manual | First-class (v2) |
-| File uploads | Manual | Built-in MultipartForm |
-| Best for | Small/medium schemas | Large schemas, strict teams |
+| Concern          | graph-gophers         | gqlgen                      |
+| ---------------- | --------------------- | --------------------------- |
+| Type safety      | Parse-time reflection | Compile-time codegen        |
+| Build complexity | None                  | `go generate` step          |
+| Performance      | Slower (reflection)   | Faster (static dispatch)    |
+| Federation       | Manual                | First-class (v2)            |
+| File uploads     | Manual                | Built-in MultipartForm      |
+| Best for         | Small/medium schemas  | Large schemas, strict teams |

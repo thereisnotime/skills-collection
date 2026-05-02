@@ -62,31 +62,31 @@ ccpi update                     # Pull latest versions
 
 ### 📦 Live npm Downloads
 
-Across **26 published packages** in the 
+Across **340 published packages** in the 
 [claude-code-plugins](https://www.npmjs.com/~jeremylongshore) namespace. Updated daily by GitHub Actions.
 
 | Window | Downloads |
 |--------|----------:|
-| Last 24 hours | 11 |
-| Last 7 days | 117 |
-| Last 30 days | 665 |
+| Last 24 hours | 366 |
+| Last 7 days | 3,937 |
+| Last 30 days | 41,975 |
 
 **Top 10 by last 30 days:**
 
 | # | Package | Last 30d |
 |---|---------|---------:|
-| 1 | [`@intentsolutionsio/ccpi`](https://www.npmjs.com/package/@intentsolutionsio/ccpi) | 274 |
-| 2 | [`@intentsolutionsio/langchain-pack`](https://www.npmjs.com/package/@intentsolutionsio/langchain-pack) | 56 |
-| 3 | [`@intentsolutionsio/openrouter-pack`](https://www.npmjs.com/package/@intentsolutionsio/openrouter-pack) | 52 |
-| 4 | [`@intentsolutionsio/retellai-pack`](https://www.npmjs.com/package/@intentsolutionsio/retellai-pack) | 33 |
-| 5 | [`@intentsolutionsio/windsurf-pack`](https://www.npmjs.com/package/@intentsolutionsio/windsurf-pack) | 33 |
-| 6 | [`@intentsolutionsio/firecrawl-pack`](https://www.npmjs.com/package/@intentsolutionsio/firecrawl-pack) | 22 |
-| 7 | [`@intentsolutionsio/sentry-pack`](https://www.npmjs.com/package/@intentsolutionsio/sentry-pack) | 20 |
-| 8 | [`@intentsolutionsio/supabase-pack`](https://www.npmjs.com/package/@intentsolutionsio/supabase-pack) | 17 |
-| 9 | [`@intentsolutionsio/vercel-pack`](https://www.npmjs.com/package/@intentsolutionsio/vercel-pack) | 13 |
-| 10 | [`@intentsolutionsio/customerio-pack`](https://www.npmjs.com/package/@intentsolutionsio/customerio-pack) | 12 |
+| 1 | [`@intentsolutionsio/ccpi`](https://www.npmjs.com/package/@intentsolutionsio/ccpi) | 339 |
+| 2 | [`@intentsolutionsio/market-price-tracker`](https://www.npmjs.com/package/@intentsolutionsio/market-price-tracker) | 202 |
+| 3 | [`@intentsolutionsio/excel-analyst-pro`](https://www.npmjs.com/package/@intentsolutionsio/excel-analyst-pro) | 181 |
+| 4 | [`@intentsolutionsio/openbb-terminal`](https://www.npmjs.com/package/@intentsolutionsio/openbb-terminal) | 166 |
+| 5 | [`@intentsolutionsio/crypto-portfolio-tracker`](https://www.npmjs.com/package/@intentsolutionsio/crypto-portfolio-tracker) | 161 |
+| 6 | [`@intentsolutionsio/skill-creator`](https://www.npmjs.com/package/@intentsolutionsio/skill-creator) | 155 |
+| 7 | [`@intentsolutionsio/crypto-tax-calculator`](https://www.npmjs.com/package/@intentsolutionsio/crypto-tax-calculator) | 154 |
+| 8 | [`@intentsolutionsio/blockchain-explorer-cli`](https://www.npmjs.com/package/@intentsolutionsio/blockchain-explorer-cli) | 153 |
+| 9 | [`@intentsolutionsio/ml-model-trainer`](https://www.npmjs.com/package/@intentsolutionsio/ml-model-trainer) | 153 |
+| 10 | [`@intentsolutionsio/compliance-checker`](https://www.npmjs.com/package/@intentsolutionsio/compliance-checker) | 152 |
 
-<sub>Last refreshed 2026-04-21T01:30:15.018Z.</sub>
+<sub>Last refreshed 2026-05-02T04:09:18.799Z.</sub>
 
 <!-- NPM-STATS:END -->
 

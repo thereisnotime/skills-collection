@@ -53,8 +53,8 @@ For deep-dive on each library, see [gqlgen reference](./references/gqlgen.md) an
 # ✓ Good — explicit nullability; ID scalar for opaque identifiers
 type User {
   id: ID!
-  email: String!    # non-null: the server can always return this
-  bio: String       # nullable: may be unset
+  email: String! # non-null: the server can always return this
+  bio: String # nullable: may be unset
   posts(first: Int = 10, after: String): PostConnection!
 }
 

@@ -695,7 +695,24 @@ sources:
       - "tests/**"
       - "bun.lock"
       - "**/.gitkeep"
-
+  - name: skyvern
+    description: AI browser automation via CLI — navigate sites, fill forms, extract data, handle logins
+    repo: Skyvern-AI/skyvern
+    source_path: skyvern/cli/skills/skyvern
+    target_path: plugins/productivity/skyvern
+    author:
+      name: Skyvern-AI
+      github: Skyvern-AI
+    license: AGPL-3.0
+    category: productivity
+    include:
+      - "SKILL.md"
+      - "references/**"
+      - "examples/**"
+    exclude:
+      - "node_modules/**"
+      - ".git/**"
+      - "*.log"
   # ============================================================
   # Claudebase (Rohit Hazra / rohithzr)
   # https://github.com/rohithzr/claudebase

@@ -13,6 +13,8 @@
 
 | Skill                           | Version | Assertions | With Skill | Without Skill | Delta     | Uplift    | Concern                     |
 | ------------------------------- | ------- | ---------- | ---------- | ------------- | --------- | --------- | --------------------------- |
+| `golang-spf13-viper`            | v1.0.0  | 53         | 98%        | **100%**      | -2pp      | 0.98×     | **Low delta, high without** |
+| `golang-spf13-cobra`            | v1.0.0  | 50         | 100%       | **98%**       | +2pp      | 1.02×     | **Low delta, high without** |
 | `golang-naming`                 | v1.0.0  | 51         | 94%        | **71%**       | +24pp     | 1.32×     | **Low delta, high without** |
 | `golang-swagger`                | v1.0.0  | 60         | 97%        | **72%**       | +25pp     | 1.35×     | **Low delta, high without** |
 | `golang-error-handling`         | v1.0.0  | 60         | 98%        | **72%**       | +27pp     | 1.36×     | **Low delta, high without** |
@@ -50,9 +52,10 @@
 | `golang-samber-lo`              | v1.0.0  | 86         | 97%        | 57%           | +40pp     | 1.70×     |                             |
 | `golang-uber-fx`                | v1.0.0  | 21         | 100%       | **95%**       | +5pp      | 1.05×     | **Low delta, high without** |
 | `golang-uber-dig`               | v1.0.0  | 20         | 100%       | **90%**       | +10pp     | 1.11×     | **Low delta, high without** |
+| `golang-google-wire`            | v1.0.0  | 50         | 98%        | **82%**       | +16pp     | 1.20×     | **Low delta, high without** |
 | `golang-graphql`                | v0.0.2  | 59         | 100%       | **83%**       | +17pp     | 1.20×     | **Low delta, high without** |
 | `golang-samber-do`              | v1.0.0  | 53         | 100%       | 19%           | +81pp     | 5.26×     |                             |
-| **Total (38 skills)**           |         | **3242**   | **98%**    | **55%**       | **+43pp** | **1.79×** |                             |
+| **Total (41 skills)**           |         | **3395**   | **98%**    | **56%**       | **+41pp** | **1.73×** |                             |
 
 ## `golang-naming` — v1.0.0
 
@@ -4500,6 +4503,247 @@
 | 10.5 | Mentions a blocking OnStart hangs the boot                                       | <span class="g">✓</span>       | <span class="g">✓</span>                         |
 
 **Analyst pass:** 3 of 4 evals score equally with and without the skill — the model's baseline knowledge of fx is very strong (lifecycle hooks, fxtest.New, OnStart/goroutine pattern). Only eval 6 differentiates: without the skill the agent picks `fx.Decorate` and skips the `fx.As` interface binding that the production graph requires. This is consistent with a well-known framework where the skill mainly adds value on subtle API choices. Future iterations should target less common patterns: fx.Annotate vs fx.Out trade-offs, fx.Module decorator scoping, fxevent customization, manual lifecycle for CLI embedding.
+
+</details>
+
+## `golang-google-wire` — v1.0.0
+
+|             | With Skill      | Without Skill   | Delta     |
+| ----------- | --------------- | --------------- | --------- |
+| **Overall** | **49/50 (98%)** | **41/50 (82%)** | **+16pp** |
+
+<details>
+<summary>Full breakdown (50 assertions)</summary>
+
+**Model:** Claude Sonnet 4.6 | **Runs:** 10 evals × 2 configs = 20 subagents | **Grading:** LLM-as-Judge
+
+| #    | Assertion                                                                                           | With                           | Without                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
+|      | **1. build-constraint-on-injector** — missing `//go:build wireinject` causes duplicate symbols      | **<span class="g">5/5</span>** | **<span class="r">3/5</span>**                                                     |
+| 1.1  | Identifies the missing `//go:build wireinject` build tag as the root cause                         | <span class="g">✓</span>       | <span class="r">✗</span> suggested `//go:build ignore` instead                    |
+| 1.2  | Shows `//go:build wireinject` as the first line of the injector file                               | <span class="g">✓</span>       | <span class="r">✗</span> showed `//go:build ignore`                               |
+| 1.3  | Explains that the tag prevents the stub from being compiled into the binary                        | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 1.4  | Does NOT suggest renaming the function or reorganizing packages as the fix                         | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 1.5  | Does NOT suggest deleting wire_gen.go as the fix                                                   | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **2. interface-binding-required** — `wire.Bind` must be explicit; wire never auto-resolves         | **<span class="g">5/5</span>** | **<span class="r">4/5</span>**                                                     |
+| 2.1  | Explains that wire never auto-resolves interface satisfaction — bindings must be explicit          | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 2.2  | Shows `wire.Bind(new(UserStore), new(*PostgresUserRepo))` added to the provider set               | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 2.3  | Places `wire.Bind` inside the same `wire.NewSet` (or adds it to a set in `wire.Build`)            | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 2.4  | Explains WHY wire requires explicit bindings (predictability — avoids surprise rebinding)          | <span class="g">✓</span>       | <span class="r">✗</span> cited ambiguity concern, not predictability rationale     |
+| 2.5  | Does NOT suggest changing `NewUserRepo` to return `UserStore` directly as the primary fix         | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **3. duplicate-type-named-wrapper** — named types disambiguate same underlying type               | **<span class="g">5/5</span>** | **<span class="r">4/5</span>**                                                     |
+| 3.1  | Introduces distinct named types (e.g., `type PrimaryDSN string` and `type ReplicaDSN string`)    | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 3.2  | Updates `NewPrimaryDSN` to return `PrimaryDSN` and `NewReplicaDSN` to return `ReplicaDSN`        | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 3.3  | Updates `NewPrimaryDB` and `NewReplicaDB` signatures to accept the named types                    | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 3.4  | Explains that wire enforces one provider per type, so distinct named types are the correct fix    | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 3.5  | Does NOT suggest using a single Config struct with both DSNs as the primary fix                   | <span class="g">✓</span>       | <span class="r">✗</span> presented Config struct as co-primary recommendation      |
+|      | **4. cleanup-signature** — `(T, func(), error)` cleanup propagated through injector              | **<span class="g">5/5</span>** | **<span class="r">4/5</span>**                                                     |
+| 4.1  | Changes `NewDB` to return `(*sql.DB, func(), error)` where cleanup calls `db.Close()`            | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 4.2  | Changes the injector function to return `(*App, func(), error)` to propagate the cleanup chain   | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 4.3  | Shows main calling `defer cleanup()` after the nil-check                                          | <span class="g">✓</span>       | <span class="r">✗</span> called `defer cleanup()` directly without nil guard       |
+| 4.4  | Explains that wire chains cleanup functions in reverse construction order                         | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 4.5  | Does NOT suggest passing db as an extra return value from InitApp alongside *App                  | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **5. no-edit-wire-gen** — never edit `wire_gen.go`; re-run `wire ./...`                           | **<span class="g">5/5</span>** | **<span class="g">5/5</span>**                                                     |
+| 5.1  | Explicitly says NOT to edit wire_gen.go (it is always overwritten)                               | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 5.2  | Instructs running `wire ./...` to regenerate wire_gen.go                                          | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 5.3  | Explains that `*zap.Logger` must be provided in the graph (via a provider or `wire.Value`)       | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 5.4  | Shows how to add `NewLogger` (or `wire.Value`) to the appropriate `wire.NewSet`                  | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 5.5  | Does NOT present editing wire_gen.go as an option                                                | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **6. provider-set-organization** — per-package `wire.NewSet`, not one giant set in main          | **<span class="g">5/5</span>** | **<span class="g">5/5</span>**                                                     |
+| 6.1  | Introduces per-package `wire.NewSet` variables (e.g., InfraSet, RepoSet, ServiceSet)             | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 6.2  | Each set lives in its own package's wire.go file (not all in main)                               | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 6.3  | The injector `wire.Build` references the set variables rather than individual providers           | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 6.4  | `wire.Bind` declarations move into the relevant package's set (not into `wire.Build` directly)   | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 6.5  | Explains the benefit: per-package sets are independently composable                               | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **7. injector-parameter-vs-value-provider** — injector parameters vs `wire.Value` for pre-built values | **<span class="r">4/5</span>** | **<span class="g">5/5</span>**                                                |
+| 7.1  | Shows the injector-parameter approach: `func InitApp(cfg *Config) (*App, func(), error)`         | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 7.2  | OR shows `wire.Value(cfg)` inside `wire.Build` — both are valid answers                           | <span class="r">✗</span>       | <span class="g">✓</span>                                                           |
+| 7.3  | Explains that injector parameters are treated as pre-built providers by wire                     | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 7.4  | Does NOT use a global variable as the recommended solution                                        | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 7.5  | Does NOT suggest using `init()` to set the value                                                  | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **8. fields-of-struct** — `wire.FieldsOf` promotes struct fields without manual extractors        | **<span class="g">5/5</span>** | **<span class="r">1/5</span>**                                                     |
+| 8.1  | Uses `wire.FieldsOf(new(Config), "DatabaseDSN", "CacheAddress", "APIKey")` or a subset           | <span class="g">✓</span>       | <span class="r">✗</span> actively discouraged `wire.FieldsOf`                     |
+| 8.2  | Places `wire.FieldsOf` inside the provider set or `wire.Build`                                   | <span class="g">✓</span>       | <span class="r">✗</span> `wire.FieldsOf` not used                                 |
+| 8.3  | Updates `NewDB`, `NewCache`, `NewExternalClient` to accept the string fields as parameters        | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 8.4  | Explains that `wire.FieldsOf` promotes struct fields as individual graph nodes                   | <span class="g">✓</span>       | <span class="r">✗</span> dismissed rather than explained                           |
+| 8.5  | Does NOT suggest three separate extractor functions as the primary recommendation                 | <span class="g">✓</span>       | <span class="r">✗</span> `ProvideDatabaseDSN` etc. were the only recommendation    |
+|      | **9. test-injector-pattern** — test-only `wire.NewSet` with fake bindings                        | **<span class="g">5/5</span>** | **<span class="g">5/5</span>**                                                     |
+| 9.1  | Creates a test-only provider set with `NewFakeMailer` and `wire.Bind(new(Mailer), new(*FakeMailer))` | <span class="g">✓</span>   | <span class="g">✓</span>                                                           |
+| 9.2  | Creates a test injector function in a `_test.go` file with `//go:build wireinject`               | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 9.3  | The test injector's `wire.Build` composes production sets with the test-only set                  | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 9.4  | Does NOT suggest global variables, monkey-patching, or a runtime DI container for tests          | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 9.5  | Mentions that `wire ./...` (or `go generate`) must be run to produce the test-injector code      | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+|      | **10. wire-vs-fx-for-daemon** — wire lacks lifecycle; recommend fx for long-running services     | **<span class="g">5/5</span>** | **<span class="g">5/5</span>**                                                     |
+| 10.1 | Identifies that wire has no built-in lifecycle management (no OnStart/OnStop hooks)              | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 10.2 | Identifies that wire has no built-in signal handling (SIGINT/SIGTERM)                            | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 10.3 | Recommends uber-go/fx (or flags it as the better fit) for a long-running HTTP daemon             | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 10.4 | Does NOT recommend wire as sufficient for a service requiring graceful shutdown                   | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+| 10.5 | Mentions that with wire the developer must implement shutdown and signal handling manually        | <span class="g">✓</span>       | <span class="g">✓</span>                                                           |
+
+**Analyst pass:** 5 of 10 evals score equally with and without the skill — evals 5, 6, 9, 10 reflect strong model priors for well-known wire patterns (never-edit wire_gen.go, per-package sets, test injectors, fx-vs-wire comparison). The clearest skill uplift is eval 8 (`wire.FieldsOf`): without the skill, the model actively discourages `wire.FieldsOf` and recommends manual extractor functions instead. Eval 1 also differentiates: without the skill, the model suggests `//go:build ignore` rather than the correct `//go:build wireinject` tag. Eval 7 produced a false negative for the with-skill run — the skill correctly notes `wire.Value` only accepts constant expressions and rejected it for a runtime-parsed config; this is technically correct behavior but the assertion accepts both forms as valid. Future iterations should redesign assertion 7.2 to credit the correct injector-parameter approach when `wire.Value` is rightly excluded.
+
+</details>
+
+## `golang-spf13-cobra` — v1.0.0
+
+|             | With Skill       | Without Skill    | Delta    |
+| ----------- | ---------------- | ---------------- | -------- |
+| **Overall** | **50/50 (100%)** | **49/50 (98%)**  | **+2pp** |
+
+<details>
+<summary>Full breakdown (50 assertions)</summary>
+
+**Model:** Claude Sonnet 4.6 | **Runs:** 12 evals × 2 configs = 24 self-graded evaluations | **Grading:** self-graded (⚠️ biased — model sees assertions in prompt; without-skill baseline inflated; human-as-judge evaluation recommended for accurate uplift)
+
+| #    | Assertion                                                                   | With                           | Without                        |
+| ---- | --------------------------------------------------------------------------- | ------------------------------ | ------------------------------ |
+|      | **1. rune-vs-run** — RunE vs Run, defer bypass                              | **<span class="g">5/5</span>** | **<span class="g">5/5</span>** |
+| 1.1  | Identifies that Run cannot return an error                                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.2  | Explains only escape from Run is os.Exit or panic, bypassing defers         | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.3  | Recommends switching to RunE                                                | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.4  | Shows RunE signature: func(cmd *cobra.Command, args []string) error         | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.5  | Does NOT suggest goroutine or recover() as the fix                          | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **2. args-validator** — len(args) in RunE vs Args field                     | **<span class="g">4/4</span>** | **<span class="r">3/4</span>** |
+| 2.1  | Recommends cobra.ExactArgs(1) in the Args field                             | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.2  | Shows the Args field on cobra.Command, not inside RunE                      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.3  | Explains cobra generates standard error messages automatically              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.4  | Does NOT suggest keeping the len(args) check inside RunE                    | <span class="g">✓</span>       | <span class="r">✗</span>       |
+|      | **3. outstdout** — cmd.OutOrStdout vs os.Stdout                             | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 3.1  | Identifies os.Stdout (via fmt.Println) as root cause — can't redirect       | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.2  | Recommends cmd.OutOrStdout() as the io.Writer for output                    | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.3  | Shows cmd.SetOut(buf) in test setup to redirect output                      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.4  | Does NOT suggest using os.Pipe() as the fix                                 | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **4. persistentprerun-chain** — PersistentPreRunE replacement not chaining  | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 4.1  | Explains cobra does NOT chain PersistentPreRunE — child replaces parent     | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.2  | Recommends explicitly calling parent's PersistentPreRunE from child         | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.3  | Shows calling parent hook: rootCmd.PersistentPreRunE(cmd, args)             | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.4  | Does NOT suggest using PreRunE instead as the fix                           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **5. silenceusage** — SilenceUsage and SilenceErrors configuration          | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 5.1  | Recommends SilenceUsage: true on the root command                           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 5.2  | Recommends SilenceErrors: true if app prints errors itself                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 5.3  | Explains SilenceUsage prevents full usage wall on every error               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 5.4  | Shows setting fields on root cobra.Command struct                           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **6. addgroup-ordering** — AddGroup before AddCommand                       | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 6.1  | Identifies root cause: AddGroup must be called BEFORE AddCommand            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 6.2  | Explains cobra does not retroactively assign groups                         | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 6.3  | Shows correct order: AddGroup, GroupID, AddCommand                          | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 6.4  | Does NOT suggest AddCommand before AddGroup as workaround                   | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **7. validargsfunction** — dynamic positional arg completion                | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 7.1  | Uses ValidArgsFunction (not just ValidArgs []string)                        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 7.2  | Shows correct signature with args and toComplete parameters                 | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 7.3  | Returns ShellCompDirectiveNoFileComp to suppress file fallback              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 7.4  | Does NOT suggest parsing shell completion scripts manually                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **8. registerflagcompletionfunc** — flag value completion                   | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 8.1  | Uses RegisterFlagCompletionFunc (not ValidArgs on the command)              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.2  | Shows function registered for the specific flag name "format"               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.3  | Returns the static list ["json", "yaml", "table"]                           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.4  | Does NOT suggest modifying shell rc files or completion scripts             | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **9. test-isolation** — fresh command tree per test                         | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 9.1  | Identifies cobra accumulates flag state across Execute() calls              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 9.2  | Recommends building a fresh command tree per test                           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 9.3  | Suggests factory function (e.g. newRootCmd()) for fresh trees               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 9.4  | Does NOT recommend -count=1 as the primary fix                              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **10. matchall** — composing cobra validators                               | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 10.1 | Uses cobra.MatchAll() to compose validators                                 | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 10.2 | Shows cobra.MatchAll(cobra.ExactArgs(2), cobra.OnlyValidArgs)               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 10.3 | Sets ValidArgs on the command for OnlyValidArgs to work                     | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 10.4 | Does NOT suggest custom validator duplicating ExactArgs logic               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **11. cobra-vs-viper** — cobra does not handle config files                 | **<span class="g">5/5</span>** | **<span class="g">5/5</span>** |
+| 11.1 | Clearly states cobra does NOT handle config file parsing                    | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.2 | Recommends viper (spf13/viper) for config file support                      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.3 | Explains cobra handles command tree/flags, viper handles config resolution  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.4 | Mentions BindPFlag as the integration point between cobra and viper         | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.5 | Does NOT suggest cobra alone is sufficient for YAML/JSON config files       | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **12. cobra-cli-scaffolder** — cobra-cli scaffolding tool                   | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 12.1 | Mentions cobra-cli as the scaffolding tool                                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 12.2 | Shows cobra-cli init or cobra-cli add commands                              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 12.3 | Explains cobra-cli generates command boilerplate                            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 12.4 | Does NOT suggest writing boilerplate from scratch as the only option        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+
+**Analyst pass:** Almost all 12 evals score equally with and without the skill because the model's baseline cobra knowledge is strong — RunE, Args validators, OutOrStdout, SilenceUsage, and completions are well-documented. The only differentiating eval is 2.4 (explicitly discouraging len(args) checks in RunE as a backup). The self-grading methodology inflates the without-skill baseline — a human-as-judge rerun is recommended to measure true uplift, particularly on the subtler evals (4: PersistentPreRunE non-chaining, 6: AddGroup ordering, 9: test isolation with factory function).
+
+</details>
+
+## `golang-spf13-viper` — v1.0.0
+
+|             | With Skill       | Without Skill    | Delta    |
+| ----------- | ---------------- | ---------------- | -------- |
+| **Overall** | **52/53 (98%)**  | **53/53 (100%)** | **-2pp** |
+
+<details>
+<summary>Full breakdown (53 assertions)</summary>
+
+**Model:** Claude Sonnet 4.6 | **Runs:** 12 evals × 2 configs = 24 self-graded evaluations | **Grading:** self-graded (⚠️ biased — model sees assertions in prompt; without-skill baseline inflated; human-as-judge evaluation recommended for accurate uplift. Negative delta on eval 8.5: with-skill model mentions GetDuration as alternative, which fails the "Does NOT suggest" assertion; without-skill model omits it, which passes.)
+
+| #    | Assertion                                                                         | With                           | Without                        |
+| ---- | --------------------------------------------------------------------------------- | ------------------------------ | ------------------------------ |
+|      | **1. env-key-replacer-nested-keys** — SetEnvKeyReplacer for nested keys           | **<span class="g">5/5</span>** | **<span class="g">5/5</span>** |
+| 1.1  | Identifies the root cause as missing SetEnvKeyReplacer                            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.2  | Explains viper preserves the dot in 'database.host' when looking up env var       | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.3  | Provides the fix: viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))          | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.4  | Shows full setup requires prefix + replacer + AutomaticEnv together               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 1.5  | Does NOT suggest renaming the config key to avoid dots                            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **2. sub-returns-nil** — viper.Sub() returns nil for missing keys                 | **<span class="g">5/5</span>** | **<span class="g">5/5</span>** |
+| 2.1  | Identifies that viper.Sub() returns nil when the key doesn't exist                | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.2  | Shows nil check: if sub := viper.Sub("database"); sub != nil { ... }              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.3  | Suggests returning error or using defaults when sub is nil                        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.4  | Does NOT suggest checking err from Sub() (returns no error, only nil)             | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 2.5  | Optionally suggests UnmarshalKey("database", &dbCfg) as an alternative           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **3. config-file-not-found-graceful** — ConfigFileNotFoundError handling          | **<span class="g">5/5</span>** | **<span class="g">5/5</span>** |
+| 3.1  | Uses errors.As(err, &notFound) with *viper.ConfigFileNotFoundError                | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.2  | Only propagates errors that are NOT ConfigFileNotFoundError                       | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.3  | Continues execution normally when config file is not found                        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.4  | Does NOT use os.Stat or file existence check as the solution                      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 3.5  | Does NOT ignore all errors from ReadInConfig (real errors still propagate)        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **4. global-viper-test-pollution** — viper.New() for test isolation               | **<span class="g">5/5</span>** | **<span class="g">5/5</span>** |
+| 4.1  | Identifies root cause as shared global viper state across tests                   | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.2  | Recommends viper.New() per test for isolated instance                             | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.3  | Shows v := viper.New() with v.SetConfigFile, v.ReadInConfig, etc.                 | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.4  | Does NOT recommend viper.Reset() as the primary solution                          | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 4.5  | Explains why tests are order-dependent (state persists to next test)              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **5. unmarshal-mapstructure-tags** — mapstructure struct tags required            | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 5.1  | Identifies missing mapstructure struct tag as the root cause                      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 5.2  | Shows adding `mapstructure:"max_conn"` to the MaxConn field                       | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 5.3  | Explains mapstructure does case-insensitive matching but not underscore-camelcase | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 5.4  | Does NOT suggest using viper.GetInt as the fix                                    | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **6. bind-pflag-timing** — BindPFlag must be before Execute()                     | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 6.1  | Identifies BindPFlag must be called before Execute() / before RunE runs           | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 6.2  | Recommends moving BindPFlag to init() or PersistentPreRunE                        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 6.3  | Explains cobra parses flags before RunE — binding after misses Changed state      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 6.4  | Shows correct pattern: define flag + BindPFlag in init()                          | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **7. viper-key-case-insensitivity** — viper keys always lowercase                 | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 7.1  | Explains viper normalizes all keys to lowercase internally                        | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 7.2  | Recommends using lowercase keys consistently in viper.Get* calls                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 7.3  | Identifies viper.GetString("database_host") as the correct form                   | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 7.4  | Notes DATABASE_HOST works via lowercasing but is a source of confusion            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **8. duration-decode-hook** — StringToTimeDurationHookFunc for time.Duration      | **<span class="r">4/5</span>** | **<span class="g">5/5</span>** |
+| 8.1  | Identifies mapstructure cannot decode duration string without a hook              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.2  | Shows viper.Unmarshal with DecodeHook using StringToTimeDurationHookFunc          | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.3  | Uses mapstructure.StringToTimeDurationHookFunc() as part of the hook              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.4  | Does NOT suggest changing config value to nanoseconds                             | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 8.5  | Does NOT suggest using viper.GetDuration as a workaround                          | <span class="r">✗</span>       | <span class="g">✓</span>       |
+|      | **9. watch-config-atomic-rename-trap** — fsnotify inode replacement by editors    | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 9.1  | Explains vim writes atomically via rename (write-to-temp, then rename)            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 9.2  | Explains fsnotify watches inode, replaced by rename-based writes                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 9.3  | Recommends testing with direct writes (os.WriteFile or echo >>) not editor saves  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 9.4  | Does NOT suggest downgrading vim or switching editors as the fix                  | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **10. viper-alone-no-cobra** — viper usable without cobra                         | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 10.1 | Clearly states viper can be used without cobra                                    | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 10.2 | Explains cobra is for command trees/flags, not needed for HTTP service            | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 10.3 | Shows viper setup without any cobra imports                                       | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 10.4 | Does NOT recommend adding cobra just for configuration purposes                   | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **11. unmarshal-key-vs-sub** — UnmarshalKey vs Sub+Unmarshal                      | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 11.1 | Recommends viper.UnmarshalKey("database", &dbCfg) as the simpler alternative     | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.2 | Explains it avoids the nil check required with Sub()                              | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.3 | Shows correct usage: viper.UnmarshalKey("database", &dbCfg)                      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 11.4 | If mentioning Sub+Unmarshal, notes the nil risk                                   | <span class="g">✓</span>       | <span class="g">✓</span>       |
+|      | **12. allow-empty-env** — AllowEmptyEnv for empty string env vars                 | **<span class="g">4/4</span>** | **<span class="g">4/4</span>** |
+| 12.1 | Explains viper treats empty string env vars as 'not set' by default               | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 12.2 | Introduces viper.AllowEmptyEnv(true) as the fix                                   | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 12.3 | Explains with AllowEmptyEnv(true), empty env var overrides config file value      | <span class="g">✓</span>       | <span class="g">✓</span>       |
+| 12.4 | Does NOT suggest using viper.Set() as a workaround                                | <span class="g">✓</span>       | <span class="g">✓</span>       |
+
+**Analyst pass:** All 12 evals score equally or better without the skill because the model's baseline viper knowledge is strong — ConfigFileNotFoundError, viper.New() for tests, mapstructure tags, and UnmarshalKey are all well-documented. The single differentiating point is eval 8.5 (negative): the skill makes the model mention viper.GetDuration as an alternative, which fails the "Does NOT suggest" assertion. The skill's reference to the unmarshal section may be over-helpful on this eval. The self-grading methodology inflates the without-skill baseline throughout. A human-as-judge rerun is recommended targeting evals 1 (env key replacer — the subtlest viper gotcha), 8 (decode hook), and 12 (AllowEmptyEnv — lesser-known API).
 
 </details>
 

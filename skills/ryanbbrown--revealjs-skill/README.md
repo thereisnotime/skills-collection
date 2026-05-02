@@ -1,6 +1,6 @@
 # revealjs-skill
 
-A Claude Code skill for creating polished, professional [Reveal.js](https://revealjs.com/) HTML presentations using natural language.
+A coding agent skill for creating polished, professional [Reveal.js](https://revealjs.com/) HTML presentations using natural language.
 
 **[View Example Presentation](https://ryanbbrown.com/revealjs-skill/examples/revealjs/presentation.html)**
 
@@ -94,3 +94,20 @@ Beyond base Reveal.js, this skill adds:
 - **Overflow detection** - Automated checking catches content that extends beyond slide boundaries, faster than taking and reviewing screenshots
 - **Chart export mode** - `?export` query parameter disables Chart.js animations so charts render fully in PDF/screenshots
 - **Dynamic viewport color** - Viewport background color matches each slide's background for seamless full-screen presentation
+
+## Star History
+
+<picture>
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="https://api.star-history.com/svg?repos=ryanbbrown/revealjs-skill&type=Date&theme=dark"
+  />
+  <source
+    media="(prefers-color-scheme: light)"
+    srcset="https://api.star-history.com/svg?repos=ryanbbrown/revealjs-skill&type=Date"
+  />
+  <img
+    alt="Star History Chart"
+    src="https://api.star-history.com/svg?repos=ryanbbrown/revealjs-skill&type=Date"
+  />
+</picture>

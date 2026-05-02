@@ -42,13 +42,13 @@ model:
   package: model
 
 resolver:
-  layout: follow-schema          # one resolvers file per schema file
+  layout: follow-schema # one resolvers file per schema file
   dir: graph
   package: graph
   filename_template: "{name}.resolvers.go"
 
 autobind:
-  - github.com/me/app/internal/domain  # reuse existing structs
+  - github.com/me/app/internal/domain # reuse existing structs
 
 models:
   # ID: graphql.IntID  # legacy only — use opaque string IDs for new schemas
@@ -56,7 +56,7 @@ models:
     model: github.com/me/app/internal/domain.User
     fields:
       posts:
-        resolver: true  # force a custom resolver (required for DataLoader fields)
+        resolver: true # force a custom resolver (required for DataLoader fields)
 
 omit_slice_element_pointers: true
 struct_fields_always_pointers: false
@@ -245,7 +245,10 @@ Schema:
 
 ```graphql
 extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@shareable", "@external"])
+  @link(
+    url: "https://specs.apollo.dev/federation/v2.3"
+    import: ["@key", "@shareable", "@external"]
+  )
 
 type User @key(fields: "id") {
   id: ID!
