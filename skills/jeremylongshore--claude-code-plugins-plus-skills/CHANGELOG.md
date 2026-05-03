@@ -7,7 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.29.0] - 2026-04-28
+## [4.29.0] - 2026-05-02
+
+This release bundles a major validator overhaul (schema 3.3.1), a fleet-wide
+`compatible-with` → `compatibility` migration across ~3,200 skills, the testing
+infrastructure rollout (husky, lint-staged, commitlint, audit-harness, a11y,
+RTM/PERSONAS/JOURNEYS), the npm publish pipeline that broke the v1.0.0 freeze,
+the Umami analytics tracker, two new external plugin sources (Skyvern,
+ali5ter/claude-workflow-skills), and a long tail of CI hardening + sync-workflow
+fixes. The validator section below is the original 4.29.0 entry from 2026-04-28
+(the version was documented but never tagged); everything in subsequent sections
+landed between 2026-04-28 and 2026-05-02 and is included in this release.
+
+---
+
+### Added (post-2026-04-28)
+
+- **Release automation pipeline** (#647) — Broke the v1.0.0 plugin-freeze by adding three workflows: `auto-bump-on-pr.yml` (per-PR patch bumps for changed plugins), `publish-changed-packages.yml` (per-merge `npm publish --provenance` + per-package git tags + GitHub Releases), and a one-shot `publish-all-packages.yml` recovery workflow. Per-package tag convention is `@scope/name@version`. Full operator flow lives in `RELEASING.md`.
+- **Umami analytics tracker** (#651) — Wired into `BaseLayout.astro` via env-driven script tag (`UMAMI_WEBSITE_ID` + `UMAMI_SCRIPT_URL`). Fail-soft: missing env = no tracker, no console error. Closes the empty-data gap that the `/analytics` skill kept hitting.
+- **Testing infrastructure rollout** (#621, #629, #631) — Three-PR sequence installing the canonical Intent Solutions testing stack:
+  - `@intentsolutions/audit-harness` as a dev dependency, `tests/TESTING.md` policy doc, coverage thresholds, hash-pinning manifest (#621)
+  - Husky + lint-staged + commitlint + root ESLint/Prettier on every commit/PR (#629)
+  - Marketplace a11y suite, RTM/PERSONAS/JOURNEYS files, CLI performance budget (#631)
+- **External plugin sources** — Two new third-party repos added to the daily sync:
+  - Skyvern (browser-automation MCP) — `productivity/skyvern` (#547, #650)
+  - `ali5ter/claude-workflow-skills` (#649)
+- **Killer Skill of the Week tooling** (#648) — Promoted Skyvern. Added `scripts/promote-spotlight.mjs` (atomic rotation: previous spotlight → top of hallOfFame) + `scripts/render-spotlight.mjs` (generates the README KILLER-SKILL block from `marketplace/src/data/spotlights.json`). CI enforces drift between `spotlights.json` and the README block.
+- **Blog content** — Two case-study posts to `tonsofskills.com/blog`: `vps-as-the-home-day-1` (Contabo VPS migration program kickoff) and `propagation-day` (the harness/skills version-lock pattern). Plus 6 backfilled engineering posts covering 2026-04-23 → 2026-04-29 (#632).
+- **ADRs declining audit-tests roadmap recommendations** (#619) — Four architectural decision records explaining why specific audit-tests roadmap items are not adopted in this repo.
+
+### Fixed (post-2026-04-28)
+
+- **Hero marquees** (#653) — Vertical spacing tightened and partner/npm-stats scroll speeds normalized so neither marquee runs in a visible "wait then jump" pattern.
+- **`update-npm-stats` accuracy + Slack channel hygiene** (#646) — Drift fixes for `marketplace/src/data/npm-stats.json` (rate-limit was undercounting on retries), and the daily Slack download digest now posts to the correct channel only.
+- **Orphaned plugins exposed** — `jeremy-google-adk` and `jeremy-vertex-ai` were on disk but absent from the catalog (#634, closes #597). Plus `plugins/**/skills/` orphan paths cleaned up + stragglers migrated to `compatibility` (#644, closes #630).
+- **`x-bug-triage` SKILL.md compliance** (#633) — Five files brought to marketplace tier (frontmatter + body fixes).
+- **Sync-external workflow stabilized** — Six-PR sequence working through cascading failures in the daily external-source sync workflow:
+  - Replaced `peter-evans/create-pull-request` with hand-rolled `gh pr create` (#642) — eliminated the GHA-bot signature mismatch that was breaking branch protection
+  - Disabled husky in the auto-PR step (#639) — pre-commit hook was rejecting bot commits
+  - Switched to `--no-frozen-lockfile` for post-sync installs (#638) — synced packages can introduce dep changes
+  - Graceful handling of empty files, submodules, and partial-failure scenarios (#637)
+  - Workspace-aware install instead of bare `pnpm add` (#636)
+  - Removed the duplicate pnpm version pin (#635) — was conflicting with the root `packageManager` field
+- **Freshie anomaly detector + populator drift** (#618) — Run-versioning now correctly stamps `run_id` and normalizes paths. `x-bug-triage` template hardened.
+
+### Changed (post-2026-04-28)
+
+- **`compatible-with` → `compatibility` fleet migration** (#620, #622–#628) — The schema 3.3.1 migration from the original 4.29.0 work was applied across the entire skill catalog in eight batches: `ai-ml` category (34 skills, #620), 18 other categories (300 skills, #622), saas-packs 1/6 through 6/6 (~2,500 skills total, #623–#628). Total: ~2,850 skills now use the AgentSkills.io free-text `compatibility` field. The IS-invented closed-CSV `compatible-with` field is fully deprecated repo-wide; it still parses with a deprecation warning for any external sync that drags in legacy frontmatter.
+- **Doc-filing standard v4.3** (#640) — Pulled the latest standard from `~/.claude/skills/doc-filing` and fixed a `.gitignore` re-include bug that was hiding `000-docs/*.md` files from `git status` after standard-driven renames.
+- **CI: trust Gemini workspace + install bun for mcp-plugins tests** (#617) — Gemini PR Reviewer's GCP workspace is now in the trusted list; the mcp-plugins matrix job installs `bun` so the deno-style test entry-points actually run.
+
+---
 
 ### Validator: spec-compliance fixes + `compatible-with` → `compatibility` migration
 

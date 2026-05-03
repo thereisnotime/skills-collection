@@ -2,12 +2,12 @@
 
 [![CLI](https://img.shields.io/badge/CLI-ccpi-blueviolet?logo=npm)](https://www.npmjs.com/package/@intentsolutionsio/ccpi)
 [![Plugins](https://img.shields.io/badge/plugins-425-blue)](https://tonsofskills.com/explore)
-[![Skills](https://img.shields.io/badge/skills-2%2C851-green)](https://tonsofskills.com/skills)
+[![Skills](https://img.shields.io/badge/skills-2%2C810-green)](https://tonsofskills.com/skills)
 [![GitHub Stars](https://img.shields.io/github/stars/jeremylongshore/claude-code-plugins-plus-skills?style=social)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills)
 [![Sponsor: Nixtla](https://img.shields.io/badge/Sponsor-nixtla.io-ff6b35)](https://nixtla.io)
 [![Buy me a monster](https://img.shields.io/badge/Buy%20me%20a-Monster-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jeremylongshore)
 
-425 plugins, 2,851 skills, 177 agents, 16 community contributors — validated and ready to install.
+425 plugins, 2,810 skills, 200 agents, 16 community contributors — validated and ready to install.
 
 ```bash
 pnpm add -g @intentsolutionsio/ccpi    # Install the CLI
@@ -21,17 +21,19 @@ Or use Claude's built-in command:
 
 **[Browse the marketplace](https://tonsofskills.com)** | **[Explore plugins](https://tonsofskills.com/explore)** | **[Download bundles](https://tonsofskills.com/cowork)**
 
-> **Killer Skill of the Week** — [web-analytics](https://tonsofskills.com/plugins/web-analytics) by Jeremy Longshore ([@jeremylongshore](https://github.com/jeremylongshore))
+<!-- KILLER-SKILL:START — do not edit; run `node scripts/render-spotlight.mjs` -->
+> **Killer Skill of the Week** — [skyvern](https://github.com/Skyvern-AI/skyvern) by [Skyvern-AI](https://github.com/Skyvern-AI)
 >
-> **Your dashboards don't talk. This skill does.**
+> **AI agents that drive your browser. 21,000 stars of Selenium-killer.**
 >
-> A push-based analytics intelligence team — 9 specialist agents that fetch your data, detect anomalies, analyze funnels, verify claims, and deliver narrative reports. Powered by self-hosted [Umami](https://umami.is/) via MCP (Model Context Protocol) — agents call the Umami API in real time to pull visitor counts, pageviews, referrers, events, and session data across your entire site portfolio. GA4 as fallback. Not a dashboard you check. An analytics team that finds you. Three tiers: `/analytics` for a 30-second pulse, `/analytics medium` for a daily brief with traffic + content + anomaly detection, `/analytics full` for a deep dive across all sites with adversarial verification. One config file — swap your sites and it works for any portfolio.
+> Skyvern automates browser-based workflows with vision-language models — point it at a page, describe the goal, and the agent navigates, fills forms, handles 2FA, and extracts data. Where Selenium and Playwright break the moment a page redesigns, Skyvern adapts because it sees the page like a human would. The CLI skill exposes Skyvern's task runner inside Claude Code: navigate, fill forms, extract data, handle logins, and stream back structured results. Pulled into the marketplace via daily external sync from Skyvern-AI/skyvern (AGPL-3.0). Sourced into the catalog by community contributor @mark1ian.
 >
-> *"I stopped checking dashboards. Now my analytics team wakes me up when something matters."* — Jeremy Longshore
+> *"Automate browser-based workflows using LLMs and computer vision."* — Skyvern-AI
 >
-> Grade: A | Week of April 17, 2026 | [Browse on Marketplace](https://tonsofskills.com/plugins/web-analytics)
+> Grade: A | Week of May 2, 2026 (W18) | [View on GitHub](https://github.com/Skyvern-AI/skyvern)
 >
-> Previous picks: [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
+> Previous picks: [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
+<!-- KILLER-SKILL:END -->
 
 ---
 
@@ -757,23 +759,23 @@ Generates idempotent Ansible playbooks following infrastructure-as-code best pra
 
 | Metric | Count |
 |--------|-------|
-| Total skills | 2,811 |
-| Plugins (marketplace) | 415 |
-| Agents | 154 |
-| Plugin categories | 22 |
+| Total skills | 2,810 |
+| Plugins (marketplace) | 425 |
+| Agents | 200 |
+| Plugin categories | 18 |
 | Contributors | 16 |
 
 ---
 
 ## Plugin Types
 
-### AI Instruction Plugins (295 plugins)
+### AI Instruction Plugins (309 plugins)
 Markdown files that guide Claude's behavior through structured instructions, skills, commands, and agents. No external code — everything runs through Claude's built-in capabilities.
 
-### MCP Server Plugins (9 plugins)
+### MCP Server Plugins (10 plugins)
 TypeScript applications that run as separate Node.js processes. Claude communicates with them through the Model Context Protocol.
 
-### SaaS Skill Packs (111 plugins across 22 pack collections)
+### SaaS Skill Packs (106 plugins across 22 pack collections)
 Pre-built skill collections for specific platforms — Deepgram, LangChain, Linear, Gamma, and others. Each pack includes install/auth, core workflows, debugging, deployment, and advanced pattern skills.
 
 ---
@@ -971,4 +973,4 @@ MIT License — See [LICENSE](LICENSE) for details.
 
 ---
 
-**Version**: 4.20.0 | **Last Updated**: March 2026 | **Skills**: 2,811 | **Plugins**: 415
+**Version**: 4.20.0 | **Last Updated**: March 2026 | **Skills**: 2,810 | **Plugins**: 425

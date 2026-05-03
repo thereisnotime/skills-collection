@@ -225,6 +225,12 @@
   ],
   "ComposioHQ--awesome-claude-skills": [
     {
+      "sha": "48ffe0c",
+      "message": "Update README.md",
+      "date": "2026-05-02",
+      "author": "Prathit"
+    },
+    {
       "sha": "3bf63cd",
       "message": "docs(readme): Update README to include new skills and add GitHub Actions workflow for PR validation",
       "date": "2026-05-01",
@@ -277,12 +283,6 @@
       "message": "Add lean-ctx skill (#749)",
       "date": "2026-04-30",
       "author": "Yves Gugger"
-    },
-    {
-      "sha": "c48e0d7",
-      "message": "Add solo-skills under Productivity & Organization (#754)",
-      "date": "2026-04-30",
-      "author": "Maxiom-Rock"
     }
   ],
   "anthropics--skills": [
@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "9539bf0",
+      "message": "fix(ce-compound, ce-sessions): remove bash parameter expansion from ! backtick  (#752)",
+      "date": "2026-05-02",
+      "author": "David Ger\u0151"
+    },
+    {
       "sha": "74624f8",
       "message": "refactor(ce-simplify-code): scope tests by ripple risk, not full suite (#749)",
       "date": "2026-05-01",
@@ -743,12 +749,6 @@
       "message": "feat(ce-simplify-code): add skill for simplifying recent code changes (#735)",
       "date": "2026-05-01",
       "author": "Trevin Chow"
-    },
-    {
-      "sha": "3873b9e",
-      "message": "fix(ce-commit-push-pr): URL-encode parens in badge model-slug examples (#725)",
-      "date": "2026-05-01",
-      "author": "Dan Dombrowski"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -853,6 +853,24 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "61fd9be",
+      "message": "spec(v3.6.6): generator-evaluator contract design \u2014 full spec ready for impl (#58)",
+      "date": "2026-05-03",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "c941903",
+      "message": "chore(gitignore): ignore ROADMAP.md (private, lives in claude-memory-sync) (#57)",
+      "date": "2026-05-02",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "5945b15",
+      "message": "feat(v3.6.7 Step 6 Phase 6.3): audit artifact consistency lint script + 135-test pytest suite (#56)",
+      "date": "2026-05-02",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "092a0b9",
       "message": "feat(v3.6.7 Step 6 Phase 6.1): codex audit wrapper + JSONL parser + byte-exact snapshot helper (#55)",
       "date": "2026-05-02",
@@ -892,24 +910,6 @@
       "sha": "b4fbffd",
       "message": "docs(v3.6.7): Step 7 \u2014 CHANGELOG entry + version sweep (#49)",
       "date": "2026-04-30",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "d9fac3e",
-      "message": "v3.6.7 Step 1+2: downstream-agent pattern protection (references + agent prompts) (#48)",
-      "date": "2026-04-30",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "5c906b2",
-      "message": "docs(design): add v3.6.7 downstream-agent pattern protection spec (#47)",
-      "date": "2026-04-29",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "602af4b",
-      "message": "fix(v3.6.5.2): mark claude.ai Method 4a not recommended for this Claude Code-native suite (#46)",
-      "date": "2026-04-27",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -4535,6 +4535,30 @@
   ],
   "yusufkaraaslan--Skill_Seekers": [
     {
+      "sha": "8bec44e",
+      "message": "fix(unified): generate codebase_analysis index, fix broken SKILL.md links (#362) (#376)",
+      "date": "2026-05-02",
+      "author": "yusyus"
+    },
+    {
+      "sha": "9ae7d43",
+      "message": "fix(unified): drop guides truthy placeholder so fallback can fire (#364) (#375)",
+      "date": "2026-05-02",
+      "author": "yusyus"
+    },
+    {
+      "sha": "f55abd9",
+      "message": "fix: detect HTML URLs before treating as local files (#373)",
+      "date": "2026-05-02",
+      "author": "Bartek Stoli\u0144ski"
+    },
+    {
+      "sha": "5071837",
+      "message": "fix: insert markdown image refs for extracted_images in PDF output (#369)",
+      "date": "2026-05-02",
+      "author": "Octopus"
+    },
+    {
       "sha": "7409f25",
       "message": "fix(unified): emit C3.x output for local sources (#363) (#372)",
       "date": "2026-04-29",
@@ -4567,30 +4591,6 @@
     {
       "sha": "006822f",
       "message": "fix: update hardcoded version strings in tests to 3.5.1",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "5d3a712",
-      "message": "release: v3.5.1 \u2014 hotfix for rate_limit TypeError + centralized defaults",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "7a535e8",
-      "message": "fix: handle unlimited max_pages in notion/confluence scrapers",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "e6f69e5",
-      "message": "fix: prevent config file from overwriting defaults with None",
-      "date": "2026-04-12",
-      "author": "yusyus"
-    },
-    {
-      "sha": "8ec5d71",
-      "message": "fix: resolve CI failures from merge (lint, format, MCP test)",
       "date": "2026-04-12",
       "author": "yusyus"
     }
@@ -4859,64 +4859,64 @@
   ],
   "alirezarezvani--claude-skills": [
     {
-      "sha": "03118a2",
-      "message": "Merge pull request #581 from alirezarezvani/dev",
-      "date": "2026-04-28",
+      "sha": "7d493fe",
+      "message": "Merge pull request #594 from alirezarezvani/dev",
+      "date": "2026-05-02",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "2163c8b",
+      "sha": "9c749de",
       "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-04-28",
+      "date": "2026-05-02",
       "author": "alirezarezvani"
     },
     {
-      "sha": "235fe59",
-      "message": "Merge pull request #536 from prefrontalsys/fix/si-subskill-routing",
-      "date": "2026-04-28",
+      "sha": "d442af8",
+      "message": "Merge pull request #595 from alirezarezvani/fix/ci-tests-and-sync-after-restructure",
+      "date": "2026-05-02",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "f517b87",
+      "sha": "d6d757b",
+      "message": "fix(ci): update test paths and sync script for new ./skills/ layout",
+      "date": "2026-05-02",
+      "author": "Reza Rezvani"
+    },
+    {
+      "sha": "2a382cc",
+      "message": "Merge pull request #593 from alirezarezvani/fix/plugin-restructure-multi-skill-domains",
+      "date": "2026-05-02",
+      "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "1851c8f",
+      "message": "fix(plugins): restructure 9 multi-skill domain plugins into ./skills/ layout",
+      "date": "2026-05-02",
+      "author": "Reza Rezvani"
+    },
+    {
+      "sha": "d641436",
+      "message": "Merge pull request #592 from alirezarezvani/dev",
+      "date": "2026-05-02",
+      "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "46aa396",
       "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-04-28",
+      "date": "2026-05-02",
       "author": "alirezarezvani"
     },
     {
-      "sha": "d305d70",
-      "message": "Merge pull request #550 from CaleCorbett/main",
-      "date": "2026-04-28",
+      "sha": "d5cde3b",
+      "message": "Merge pull request #591 from alirezarezvani/fix/plugin-json-skills-path-539",
+      "date": "2026-05-02",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "54fb2ae",
-      "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-04-28",
-      "author": "alirezarezvani"
-    },
-    {
-      "sha": "00cb3f8",
-      "message": "Merge pull request #557 from lg320531124/add-command-guide-v2",
-      "date": "2026-04-28",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "10163ea",
-      "message": "Merge pull request #576 from Pallav46/feature/augment-skills-directory",
-      "date": "2026-04-28",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "48d07de",
-      "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-04-28",
-      "author": "alirezarezvani"
-    },
-    {
-      "sha": "8639a1c",
-      "message": "Merge pull request #580 from LewisLiu007/feature/full-page-screenshot",
-      "date": "2026-04-28",
-      "author": "Alireza Rezvani"
+      "sha": "c480173",
+      "message": "fix(plugins): restructure 21 single-skill plugins into ./skills/<name>/ layout",
+      "date": "2026-05-02",
+      "author": "Reza Rezvani"
     }
   ],
   "VoltAgent--awesome-agent-skills": [
@@ -5045,6 +5045,24 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
+      "sha": "6588472",
+      "message": "Port ln-030 relay bot to Node runtime",
+      "date": "2026-05-02",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "9eb5880",
+      "message": "Refactor SKILL.md and add reference docs",
+      "date": "2026-05-01",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "f552190",
+      "message": "Add ln-030 VPS bootstrap and relay fixes",
+      "date": "2026-04-30",
+      "author": "levnikolaevich"
+    },
+    {
       "sha": "30e5895",
       "message": "Relay bot: v6 text-only, DB schema & control lane",
       "date": "2026-04-30",
@@ -5085,86 +5103,68 @@
       "message": "release: @levnikolaevich/hex-line-mcp v1.28.0, @levnikolaevich/hex-ssh-mcp v1.7.0, @levnikolaevich/hex-graph-mcp v0.19.0",
       "date": "2026-04-22",
       "author": "levnikolaevich"
-    },
-    {
-      "sha": "30b0981",
-      "message": "test(hex-line): de-flake anchor-extraction regexes in smoke.mjs",
-      "date": "2026-04-22",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "d72675b",
-      "message": "release: @levnikolaevich/hex-graph-mcp v0.18.0",
-      "date": "2026-04-21",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "e02545f",
-      "message": "release: @levnikolaevich/hex-graph-mcp v0.17.0",
-      "date": "2026-04-21",
-      "author": "levnikolaevich"
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
-      "sha": "5203ed1",
-      "message": "feat(sources): add Skyvern (browser automation) external plugin source (#547)",
+      "sha": "4778c8f",
+      "message": "chore(release): prepare v4.29.0",
+      "date": "2026-05-03",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "9031e4a",
+      "message": "feat(blog): add propagation-day case study to tonsofskills.com/blog (#654)",
       "date": "2026-05-02",
-      "author": "mark1ian"
-    },
-    {
-      "sha": "35c3d49",
-      "message": "fix(plugins): close #630 \u2014 remove orphan skills/ paths + migrate stale compatible-with (#644)",
-      "date": "2026-05-01",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "38b9461",
-      "message": "chore(sync): update external plugins from upstream (#643)",
-      "date": "2026-05-01",
+      "sha": "78c39ff",
+      "message": "fix(hero): space + speed up partners + npm-stats marquees (#653)",
+      "date": "2026-05-02",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "884cfc9",
-      "message": "fix(ci): replace peter-evans/create-pull-request with hand-rolled bash (#642)",
-      "date": "2026-05-01",
+      "sha": "3bf3f1b",
+      "message": "feat(release): break v1.0.0 freeze \u2014 tags + GitHub Releases + auto-bump on PR (#647)",
+      "date": "2026-05-02",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "aa8676b",
-      "message": "chore(docs): pull v4.3 doc-filing standard + fix gitignore re-include bug (#640)",
-      "date": "2026-05-01",
+      "sha": "250a3ab",
+      "message": "fix(stats): drift fixes + npm-stats rate-limit accuracy + slack-channel hygiene (#646)",
+      "date": "2026-05-02",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "12f58a0",
-      "message": "fix(ci): disable husky pre-commit in sync-external auto-PR step (#639)",
-      "date": "2026-05-01",
+      "sha": "c5abd88",
+      "message": "feat(analytics): wire Umami tracker into BaseLayout (closes empty-data gap) (#651)",
+      "date": "2026-05-02",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "2d2169c",
-      "message": "fix(ci): use --no-frozen-lockfile in sync-external post-sync install (#638)",
-      "date": "2026-05-01",
+      "sha": "13274dc",
+      "message": "feat(sources): add ali5ter/claude-workflow-skills external plugin source (#649)",
+      "date": "2026-05-02",
+      "author": "Alister Lewis-Bowen"
+    },
+    {
+      "sha": "eabcb8e",
+      "message": "chore(sync): add Skyvern plugin files (productivity/skyvern) (#650)",
+      "date": "2026-05-02",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "d2c3cf7",
-      "message": "fix(sync): handle empty files + submodules + partial failures gracefully (#637)",
-      "date": "2026-05-01",
+      "sha": "f1e7d27",
+      "message": "feat(spotlight): promote Skyvern to Killer Skill of the Week + auto-render tooling (#648)",
+      "date": "2026-05-02",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "e29e891",
-      "message": "fix(ci): install workspace deps instead of pnpm-add in sync-external (#636)",
-      "date": "2026-05-01",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "0ccfbdb",
-      "message": "fix(ci): remove pnpm version conflict in sync-external workflow (#635)",
-      "date": "2026-05-01",
-      "author": "intentsolutions.io"
+      "sha": "b8e95fd",
+      "message": "feat(blog): add vps-as-the-home-day-1 to tonsofskills.com/blog",
+      "date": "2026-05-02",
+      "author": "Jeremy Longshore"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5479,63 +5479,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "41f503c",
-      "message": "Update README.md",
-      "date": "2026-05-01",
+      "sha": "64fffd5",
+      "message": "karparthy added",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "f75bd49",
-      "message": "add /workflows:skill-collections row to Developed by table; renumber subsequent rows",
-      "date": "2026-05-01",
+      "sha": "3126a0e",
+      "message": "add Matt Pocock to Subscribe X handles list",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "fccaa0f",
-      "message": "updated tweets",
-      "date": "2026-05-01",
+      "sha": "79d42d5",
+      "message": "unbold \"community\" in WhatsApp banner SVG",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "ca7e155",
-      "message": "add Extras section with 5 affiliation/community banners; move Star History above Other Repos",
-      "date": "2026-05-01",
+      "sha": "21b4412",
+      "message": "update video.psd thumbnail source",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "9876143",
-      "message": "add WhatsApp banner SVG for Claude Pakistan community invite",
-      "date": "2026-05-01",
+      "sha": "814fcd0",
+      "message": "add Videos and Presentations sub-sections to How to Use",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "b079499",
-      "message": "strip prose from CONCEPTS + Hot table Description columns; cluster Scheduled Tasks \u2192 Routines \u2192 Tasks rows",
-      "date": "2026-05-01",
+      "sha": "1e8a5e5",
+      "message": "add presentation-1.png thumbnail",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "60f6831",
-      "message": "log v2.1.126 settings workflow run with 14 actions",
-      "date": "2026-05-01",
+      "sha": "e9b36f7",
+      "message": "rework How to Use section into 7-step guide and add TIP callout",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "27ff6b6",
-      "message": "update settings report to Claude Code v2.1.126",
-      "date": "2026-05-01",
+      "sha": "c45bcfc",
+      "message": "add HD How to Use badge SVG",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "438df7f",
-      "message": "log 2026-05-01 dev workflows update: add addyosmani/agent-skills row",
-      "date": "2026-05-01",
+      "sha": "cd4f082",
+      "message": "delete second-most-starred badge SVG",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     },
     {
-      "sha": "bec6e07",
-      "message": "log 2026-05-01 skill collections updates: 4 star bumps + agent-skills add",
-      "date": "2026-05-01",
+      "sha": "80433d9",
+      "message": "remove 2nd-most-starred badge reference from README header",
+      "date": "2026-05-02",
       "author": "Shayan Rais"
     }
   ],
