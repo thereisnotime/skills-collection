@@ -22,6 +22,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import prettier from 'prettier';
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), '..');
 const SPOTLIGHTS = join(ROOT, 'marketplace', 'src', 'data', 'spotlights.json');
@@ -31,8 +32,18 @@ const START = '<!-- KILLER-SKILL:START — do not edit; run `node scripts/render
 const END = '<!-- KILLER-SKILL:END -->';
 
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 // 2026-W18 → "Week of May 2, 2026 (W18)" — derived from the ISO week so
@@ -88,9 +99,7 @@ function renderBlock(data) {
   // Optional headline + quote — fall back gracefully if absent.
   const headlineLine = s.headline ? `> **${s.headline}**\n>\n` : '';
   const whyLine = s.whyKiller ? `> ${s.whyKiller}\n>\n` : '';
-  const quoteLine = s.quote
-    ? `> *"${s.quote}"* — ${s.author || 'Anonymous'}\n>\n`
-    : '';
+  const quoteLine = s.quote ? `> *"${s.quote}"* — ${s.author || 'Anonymous'}\n>\n` : '';
 
   const lines = [
     START,
@@ -108,19 +117,31 @@ function splice(readme, block) {
   const s = readme.indexOf(START);
   const e = readme.indexOf(END);
   if (s === -1 || e === -1) {
-    throw new Error(
-      `README.md missing KILLER-SKILL sentinels. Add:\n${START}\n${END}\n`
-    );
+    throw new Error(`README.md missing KILLER-SKILL sentinels. Add:\n${START}\n${END}\n`);
   }
   return readme.slice(0, s) + block + readme.slice(e + END.length);
 }
 
-function main() {
+// Pipe the entire spliced README through Prettier so the generator owns both
+// the bounded block AND Prettier's surrounding-whitespace expectations.
+// Without this, `prettier --check README.md` and this script's `--check` mode
+// fight over blank lines around the sentinels (issue #657).
+//
+// resolveConfig() loads the repo's Prettier settings (.prettierrc and friends)
+// — without it, prettier.format() runs with library defaults and produces
+// output that disagrees with what `prettier --check` from the CLI expects.
+async function formatReadme(content) {
+  const options = (await prettier.resolveConfig(README)) || {};
+  return prettier.format(content, { ...options, filepath: README });
+}
+
+async function main() {
   const check = process.argv.includes('--check');
   const data = JSON.parse(readFileSync(SPOTLIGHTS, 'utf-8'));
   const block = renderBlock(data);
   const readme = readFileSync(README, 'utf-8');
-  const updated = splice(readme, block);
+  const spliced = splice(readme, block);
+  const updated = await formatReadme(spliced);
 
   if (updated === readme) {
     console.log('✓ README KILLER-SKILL block already in sync with spotlights.json');
@@ -137,9 +158,7 @@ function main() {
   console.log('✓ README KILLER-SKILL block regenerated from spotlights.json');
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   console.error(err.message || err);
   process.exit(1);
-}
+});

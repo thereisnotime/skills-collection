@@ -650,6 +650,10 @@ function generateStandaloneHTML(bundleCode) {
           <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           Analytics
         </button>
+        <button class="nav-link" data-section="escalations" id="nav-escalations">
+          <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Escalations
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -724,6 +728,7 @@ function generateStandaloneHTML(bundleCode) {
           <h2 class="section-page-title">Completion Council</h2>
         </div>
         <loki-council-dashboard id="council-dashboard"></loki-council-dashboard>
+        <loki-council-transcripts id="council-transcripts"></loki-council-transcripts>
       </div>
 
       <!-- Quality -->
@@ -785,6 +790,14 @@ function generateStandaloneHTML(bundleCode) {
         </div>
         <loki-analytics id="analytics-dashboard"></loki-analytics>
       </div>
+
+      <!-- Escalations (handoff documents under .loki/escalations/) -->
+      <div class="section-page" id="page-escalations">
+        <div class="section-page-header">
+          <h2 class="section-page-title">Escalations</h2>
+        </div>
+        <loki-escalations id="escalations-panel"></loki-escalations>
+      </div>
     </main>
   </div>
 
@@ -809,6 +822,7 @@ function generateStandaloneHTML(bundleCode) {
         <div class="shortcut-row"><span class="shortcut-desc">Notifications</span><span class="shortcut-keys"><kbd class="shortcut-key">0</kbd></span></div>
         <div class="shortcut-row"><span class="shortcut-desc">Migration</span><span class="shortcut-keys"><kbd class="shortcut-key">m</kbd></span></div>
         <div class="shortcut-row"><span class="shortcut-desc">Analytics</span><span class="shortcut-keys"><kbd class="shortcut-key">a</kbd></span></div>
+        <div class="shortcut-row"><span class="shortcut-desc">Escalations</span><span class="shortcut-keys"><kbd class="shortcut-key">e</kbd></span></div>
       </div>
       <div class="shortcuts-group">
         <div class="shortcuts-group-title">Session</div>
@@ -889,7 +903,9 @@ document.addEventListener('DOMContentLoaded', function() {
       'quality-gates',
       'rarv-timeline',
       'migration-dashboard',
-      'analytics-dashboard'
+      'analytics-dashboard',
+      'escalations-panel',
+      'council-transcripts'
     ];
     components.forEach(function(id) {
       var el = document.getElementById(id);
@@ -973,7 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('keydown', function(e) {
     if ((e.metaKey || e.ctrlKey) && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
       e.preventDefault();
-      var sections = ['overview', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'checkpoint', 'context', 'notifications', 'migration', 'analytics'];
+      var sections = ['overview', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
       var idx = e.key === '0' ? 9 : parseInt(e.key) - 1;
       if (idx < sections.length) switchSection(sections[idx]);
     }
@@ -1014,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Skip if modifier keys are held (let browser defaults work)
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-    var sections = ['overview', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'checkpoint', 'context', 'notifications', 'migration', 'analytics'];
+    var sections = ['overview', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
 
     switch (e.key) {
       // Section navigation: 1-9, 0
@@ -1037,6 +1053,12 @@ document.addEventListener('DOMContentLoaded', function() {
       case 'a':
         e.preventDefault();
         switchSection('analytics');
+        break;
+
+      // Escalations page
+      case 'e':
+        e.preventDefault();
+        switchSection('escalations');
         break;
 
       // Help overlay

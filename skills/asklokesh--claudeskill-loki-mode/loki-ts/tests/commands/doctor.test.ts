@@ -611,3 +611,51 @@ describe("doctor v7.5.8 byCmd non-null fallback", () => {
     expect(geminiFound).toBe(false);
   });
 });
+
+// ---- BUG-002 regression: Python 3.12 patch-version display ------------------
+//
+// The Bun route previously printed only major.minor (e.g. "3.12") while the
+// bash route printed major.minor.micro (e.g. "3.12.11"). This test guards
+// that the version string shown in `loki doctor` output now includes the
+// patch component when Python 3.12 is available on this host.
+
+describe("doctor BUG-002 Python 3.12 patch-version parity", () => {
+  it("displays full major.minor.micro version for Python 3.12 when available", async () => {
+    // Detect whether Python 3.12 is reachable via the same priority list used
+    // by findPython3(): /opt/homebrew/bin/python3.12 first, then PATH.
+    const { existsSync } = await import("node:fs");
+    const { run } = await import("../../src/util/shell.ts");
+
+    let py312: string | null = null;
+    if (existsSync("/opt/homebrew/bin/python3.12")) {
+      py312 = "/opt/homebrew/bin/python3.12";
+    } else {
+      const res = await run(["which", "python3.12"]);
+      if (res.exitCode === 0 && res.stdout.trim()) {
+        py312 = res.stdout.trim();
+      }
+    }
+
+    if (py312 === null) {
+      // Python 3.12 is not available on this host; skip rather than fabricate.
+      console.log("SKIP: python3.12 not found on PATH -- skipping BUG-002 regression test");
+      return;
+    }
+
+    // Probe the version string the same way doctor.ts does.
+    const verRes = await run(
+      [py312, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"],
+      { timeoutMs: 5000 },
+    );
+    const ver = verRes.stdout.trim();
+
+    // Must match major.minor.micro (e.g. "3.12.11"), not just major.minor.
+    expect(ver).toMatch(/^3\.12\.\d+$/);
+
+    // Confirm the doctor text output also includes the full patch version.
+    const { runDoctor } = await import("../../src/commands/doctor.ts");
+    const { cap } = await captureStdio(() => runDoctor([]));
+    // The Python 3.12 line must contain the full version string, not just "3.12".
+    expect(cap.out).toContain(`Python 3.12 (chromadb / sentence-transformers): ${ver} at ${py312}`);
+  }, 30_000);
+});

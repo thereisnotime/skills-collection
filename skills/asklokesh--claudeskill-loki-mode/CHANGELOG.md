@@ -9,6 +9,339 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.5.17] - 2026-05-04
+
+PATCH release. 7 bugs found via end-to-end testing of v7.5.16 against the real
+loki CLI (Bun route). Each bug was tasked individually under the one-agent-one-bug
+model, with 3 blind reviewers per fix (correctness + boundary + anti-fabrication).
+All 21 reviewers returned APPROVE unanimously.
+
+### Fixed
+
+- **BUG-001 since validation order** (`dashboard/server.py`). The `/api/council/transcripts`
+  endpoint short-circuited on missing transcripts dir BEFORE validating the `since`
+  query param, so `?since=garbage` returned 200 with empty list when no transcripts
+  on disk. Fix: move ISO8601 parsing to run before the missing-dir early return.
+- **BUG-002 Bun Python 3.12 micro version** (`loki-ts/src/commands/doctor.ts`). The
+  Bun-route Python 3.12 probe requested only `major.minor` and displayed `3.12`
+  instead of full `3.12.X`. Fix: probe also requests `micro`. Restores parity
+  with bash route which already shows `3.12.13`.
+- **BUG-003 iter_min negative values** (`dashboard/server.py`).
+  `?iter_min=-5` returned ALL records (no validation). Fix: add
+  `Query(default=None, ge=0)`. Now returns 422 on negative; positive and zero
+  still accepted.
+- **BUG-004 sentrux setup hint redirected to wrong subcommand** (`autonomy/loki`).
+  When sentrux binary not on PATH, `loki sentrux gate` said "Run 'loki sentrux
+  baseline' for setup hints" -- but baseline ALSO needs sentrux. Fix: every
+  not-installed branch now shows `brew install sentrux/tap/sentrux` + curl install
+  line + GitHub URL. `init-rules` correctly does NOT show install hint.
+- **BUG-005 bash transcript writer hardcoded threshold** (`autonomy/completion-council.sh`).
+  `council_write_transcript()` hardcoded `'threshold': 2` in its python3 heredoc
+  instead of reading the dynamic `effective_threshold` from `council_vote()` scope.
+  Fix: pass effective_threshold as 5th arg (default 0 backward-compat); 5 call
+  sites updated.
+- **BUG-006 single-record corrupt JSON returns 500 vs list skips** (`dashboard/server.py`).
+  List endpoint silently skipped corrupt JSON; single-record raised
+  HTTPException 500. Fix: single-record returns 410 Gone with detail naming the
+  iteration_id.
+- **BUG-007 latest_id KeyError on missing iteration_id** (`dashboard/server.py`).
+  `records[0]["iteration_id"]` could KeyError if a transcript shipped without the
+  field. Fix: per-file loop now skips records with missing or non-string
+  `iteration_id` (with logger.warning); return uses `.get()` defense-in-depth.
+
+### Verified locally
+
+- All 7 bug-fix test suites green (totals after merge: 17 dashboard pytest,
+  720 Bun, 200 bash council threshold, 155 sentrux setup hints, plus pre-existing).
+- `bash scripts/local-ci.sh` 21/21 PASS.
+- 21 blind reviewers (3 per fix x 7 fixes) all returned APPROVE; zero CONCERNs.
+- Bun dist rebuilt; bun-parity matrix passes.
+- 13 version files at 7.5.17 (vscode-extension intentionally skipped per
+  CLAUDE.md v7.2.0 deprecation).
+
+### Verified end-to-end on the real loki CLI before push
+
+- All 4 v7.5.14/15 sentrux features work after `bun install -g loki-mode@7.5.16`:
+  help, init-rules, doctor --json sentrux entry, web/dashboard help cross-refs.
+- `/api/council/transcripts` endpoint returns correct shape on empty + seeded
+  state; 404 on missing single record; 422 on bounds violations.
+- The 4 dashboard/server.py merges (BUG-001, 003, 006, 007) had one trivial
+  conflict in the test file (different methods at same line); resolved by
+  keeping both methods.
+
+### NOT in this release (honest list)
+
+- Dashboard panel visual smoke (Dev C couldn't browser-test); covered indirectly
+  by the new component being present in `dashboard/static/index.html`.
+- Real-PRD end-to-end exercise of the v7.5.16 council writer (would burn
+  provider credits); only synthetic transcripts have been written via the
+  test harness.
+- The 3 retrospective docs (audit, postmortem, failure-modes) still pending
+  unanimous reviewer approval; will ship in a separate retro bundle.
+
+### Migration / rollback
+
+No migration. Each fix is additive or strict bug correction. Rollback:
+`npm install -g loki-mode@7.5.16`. No state migrations.
+
+## [7.5.16] - 2026-05-04
+
+PATCH release. Adds council transcript persistence across both bash and Bun council paths, a REST API to query transcripts, and a live dashboard panel. Motivation: YC demo readiness -- a partner clicking through the dashboard can now see the full multi-reviewer council record (who voted what, whether the devil's advocate triggered, and whether it flipped the outcome) without digging into raw log files.
+
+### Added
+
+- **Bash council transcript writer** (`autonomy/completion-council.sh`): new function
+  `council_write_transcript()` persists a structured JSON record per council round to
+  `.loki/council/transcripts/iter-<N>-<TIMESTAMP>.json`. Handles both council code paths:
+  - Path A: `council_vote()` (legacy v1 path) -- parses per-voter data from
+    `votes/iteration-N/member-M.txt` free-text files with regex fallback.
+  - Path B: `council_evaluate()` + `council_aggregate_votes()` (v2 path) -- reads from
+    structured `votes/round-N.json` with Priority 1; falls back to member txt files.
+  Wire-in calls added to `council_vote()` (after emit_event_json, Path A) and to
+  `council_evaluate()` at all exit branches (after DA check, Path B).
+  -- Dev E
+
+- **REST API endpoints** (`dashboard/server.py`):
+  - `GET /api/council/transcripts` -- list transcripts, descending by iteration;
+    query params: `limit` (default 20, max 200), `since` (ISO8601), `iter_min`.
+  - `GET /api/council/transcripts/{iteration_id}` -- fetch single transcript by id or
+    return 404. Both endpoints use `_get_loki_dir()` for path resolution and return
+    gracefully when the transcripts directory does not yet exist.
+  -- Dev B
+
+- **Dashboard panel** (`dashboard-ui/scripts/build-standalone.js`):
+  new `<loki-council-transcripts>` custom element added inside `id="page-council"` after
+  the existing `<loki-council-dashboard>` element. Renders per-iteration transcript cards
+  with: iteration number, timestamp, task/PRD preview, per-voter verdict badges
+  (APPROVE=green, REJECT=red, CANNOT_VALIDATE=yellow), contrarian section (only when
+  triggered), outcome badge, and OVERRIDE highlight when `contrarian_flipped=true`.
+  Polls `GET /api/council/transcripts?limit=10` on connect and every 30s. Empty state
+  shows "No council rounds recorded yet". No new top-level nav item added.
+  -- Dev C
+
+- **Bun transcript writer + tests**:
+  `councilWriteTranscript()` added to `loki-ts/src/runner/council.ts`, called from
+  `councilEvaluate()` after the devil's advocate check. Tests in
+  `loki-ts/tests/runner/council_transcripts.test.ts` (6 unit) and
+  `tests/test-council-transcripts-api.sh` (bash E2E).
+  -- Dev D
+
+### Verified locally
+
+- `bash -n autonomy/completion-council.sh` clean.
+- `shellcheck -S error autonomy/completion-council.sh` clean.
+- Bash writer integration test: synthetic `round-5.json` + `council_write_transcript 5 APPROVED true false` produces valid JSON at `iter-5-<TIMESTAMP>.json`; all required Q2 schema fields present (verified via `python3 -c "import json; json.load(...)"`).
+- Unit tests (Bun): [placeholder -- fill in after Dev D lands].
+- API tests (bash E2E): [placeholder -- fill in after Dev D lands].
+
+### NOT in this release
+
+- Real-time WebSocket push for transcripts (dashboard polls every 30s only; push is a separate effort).
+- Backfill of pre-7.5.16 transcripts (writer fires only for rounds that run after upgrade).
+- Authentication on the new `/api/council/transcripts` endpoints (same open-localhost model as all other council endpoints).
+- Transcript viewer as a separate top-level nav item (sub-section under Council tab by design).
+
+### Migration
+
+None required. Change is fully additive: new files written to `.loki/council/transcripts/`,
+two new API endpoints, one new dashboard panel. Existing behavior is unchanged.
+
+Rollback: `npm install -g loki-mode@7.5.15`.
+
+## [7.5.15] - 2026-05-03
+
+MINOR release. 8 coordinated improvements landed via parallel sub-agent fleet.
+Closes most of the v7.5.12 council-deferred backlog and the v7.5.14 sentrux
+follow-ups. Zero breaking changes; every new behavior is opt-in or additive.
+
+### Added
+
+- **Sentrux iteration-loop wire-in** (autonomy/run.sh, opt-in via
+  `LOKI_SENTRUX_GATE=1`, default OFF). Two helper functions
+  (`_loki_sentrux_iteration_start`, `_loki_sentrux_iteration_end`) save a
+  baseline at iteration start and emit a structured Finding JSON to
+  `.loki/state/findings-sentrux-<iter>.json` on DEGRADED verdict.
+  No-op when sentrux not on PATH; single env-check cost when flag unset.
+  Tests: `tests/test-sentrux-iteration-wireup.sh` (7/7 PASS).
+- **Dashboard `/api/quality/architecture` endpoint** (dashboard/server.py).
+  Globs `.loki/state/findings-sentrux-*.json`, returns sorted series with
+  `{series, current, samples}` shape. Resilient to missing dir, empty state,
+  corrupt files, non-object payloads. Tests: 5/5 PASS.
+- **`loki sentrux init-rules [<path>] [--force]`** (autonomy/loki cmd_sentrux).
+  Scaffolds a conservative `.sentrux/rules.toml` with `max_cycles=0`,
+  `no_god_files=true`, `max_cc=30` and commented layer-enforcement examples.
+  Refuses to overwrite existing files unless `--force`. Tests: 9/9 PASS.
+- **`loki doctor --json` includes sentrux state** (autonomy/loki +
+  loki-ts/src/commands/doctor.ts). New top-level `sentrux` field
+  `{found, version, status, required: "optional"}`. Sibling of `checks`/`disk`
+  -- intentionally NOT counted in `summary` so existing dashboard consumers
+  remain byte-compatible. bun-parity matrix passes. Tests: 13/13 PASS.
+- **Escalations sidebar UI** (dashboard-ui/components/loki-escalations.js).
+  Surfaces the existing `/api/escalations` server-side feature that had no
+  UI. Polls list, click to view markdown body, keyboard shortcut `e`.
+  Tests: 13/13 PASS.
+- **`loki web` and `loki dashboard` --help clarification** (autonomy/loki).
+  Each command's help block now explains the relationship between the two
+  (Purple Lab on port 57375 vs Operations Dashboard on port 57374) -- closes
+  the v7.5.12 UAT "loki web vs dashboard confusion" gap.
+- **`.github/workflows/sentrux-real.yml`** -- new workflow, manual
+  + nightly schedule, runs `tests/integration/test_sentrux_real.sh` against
+  the real binary on Linux. `continue-on-error: true`, does not block any
+  other workflow.
+
+### Fixed
+
+- **Pytest gate timeout wrapper** (autonomy/run.sh `enforce_test_coverage` +
+  new `_loki_run_pytest_with_timeout`). Wraps the pytest invocation with
+  `gtimeout`/`timeout` (configurable via `LOKI_PYTEST_TIMEOUT`, default 300s).
+  Distinguishes exit code 124 (timeout) from genuine test failure. Degrades
+  gracefully when neither timeout binary is available. Closes Triage #14.
+  Tests: 5/5 PASS.
+- **Episode JSON load resilience** (memory/storage.py `_load_json`). Per-file
+  try/except now catches `json.JSONDecodeError`, `UnicodeDecodeError`, and
+  `OSError`. Logs a warning, skips the file, continues -- one corrupt file
+  no longer breaks the entire memory load. All callers (`engine.py`,
+  `retrieval.py`, `consolidation.py`) inherit the fix via the centralized
+  loader. Closes Triage #15. Tests: 8/8 PASS.
+- **Linux CI coverage for sentrux unit test** (tests/run-all-tests.sh +
+  scripts/local-ci.sh). The bash-only `tests/test-sentrux-gate.sh` was not
+  in the explicit Linux test runner allow-list; now it is. Real-binary
+  integration test correctly remains gated to the new manual workflow.
+  Tests: 4/4 PASS.
+- **All 7 new v7.5.15 test suites wired into tests/run-all-tests.sh**.
+  Devil's Advocate review caught that 7 of 8 new tests were only invoked
+  manually and would silently rot. Fixed via direct registration plus two
+  small wrapper scripts (`tests/dashboard/run_quality_architecture_tests.sh`,
+  `tests/memory/run_episode_load_resilience_tests.sh`) so the bash runner
+  surfaces pytest failures alongside bash failures. Final tests/run-all-tests.sh
+  exit: 24/25 PASS (the single failure is pre-existing `pip install mcp` env
+  gap on the dev machine, unrelated to this release).
+
+### Verified locally before push
+
+- All 7 new test suites green: 15+9+7+13+5+13+4 = 66/66 PASS.
+- `bash scripts/local-ci.sh` -- 20/20 PASS (will re-verify after final
+  release commit).
+- All branches merged via 6 standard `git merge --no-ff` operations; the
+  remaining 2 worktrees applied via inspected `cp` of specific files.
+- `bash -n` clean on every modified shell script.
+- `bun run typecheck` + `bun run build` clean; loki-ts/dist/loki.js rebuilt.
+
+### NOT in this release (honest list, in CHANGELOG for traceability)
+
+- "Parent-shell exit dependency" (v7.5.12 UAT item #2). Requires deeper
+  investigation of dashboard daemonization (`setsid`/`disown`/proper fork);
+  Dev5 explicitly punted to avoid regressing `loki dashboard stop` PID
+  tracking.
+- Bash-to-Bun migration Phases 2-6 (the published ADR-001 roadmap is
+  ~13 weeks, can't be combined with this release).
+- RARV-C Part B Phases 2-5 (groundedness, OTel bridge, typed tasks,
+  gateway routing) -- Phase 1 needs to ship first.
+- 4th reviewer agent calling sentrux MCP (the 9 MCP tools need their own
+  verification cycle).
+- Counter-evidence proof type `'sentrux-clean'` -- depends on the
+  RARV-C Phase 1 override council code that doesn't exist on main yet.
+- Per-framework app-runner detection (Next.js/Nuxt/Astro/SvelteKit -- each
+  needs research and fixtures).
+- pip PEP 668 / venv detection (Triage #5) -- needs design discussion.
+- Ruby/Elixir/Java/PHP detection (Triage #6) -- 4 independent helpers.
+- Multi-language sentrux coverage at scale -- 52 languages supported by
+  sentrux; we exercised TypeScript only in the integration fixture.
+
+### Migration / rollback
+
+No migration required. Every new behavior is opt-in (env flag) or additive
+(new endpoints, new subcommands, new help text, more resilient error
+handling). To roll back: `npm install -g loki-mode@7.5.14`. No state
+migrations.
+
+## [7.5.14] - 2026-05-03
+
+MINOR release. Adds an optional, opt-in architectural-drift gate that wraps
+the external `sentrux` Rust CLI (https://github.com/sentrux/sentrux). Zero
+behavior change for users who do not install sentrux; zero touch to the
+iteration hot path in this release.
+
+### Why
+
+Loki's existing 11 quality gates and 3-reviewer council catch correctness
+and behavioral regressions, but no current gate produces a deterministic
+per-iteration architectural-drift number. sentrux scores codebase structure
+(modularity, acyclicity, depth, equality, redundancy) into one 0-10000
+signal with a `gate --save` baseline plus `gate` compare workflow. We do
+not bundle the binary, do not auto-install, and do not modify the iteration
+loop in this release. Users opt in via the new `loki sentrux` subcommand
+and a `loki doctor` line that reports presence.
+
+### Added
+
+- **autonomy/lib/sentrux-gate.sh** (new helper, ~150 LOC).
+  Public functions: `sentrux_available`, `sentrux_version`,
+  `sentrux_baseline_save`, `sentrux_baseline_quality`, `sentrux_gate_diff`.
+  Reads `.sentrux/baseline.json` directly via python3 (already a hard
+  Loki dependency) and parses `sentrux gate` stdout. Defensive against the
+  inconsistent v0.5.7 exit code on DEGRADED -- helper relies on text parse,
+  not exit status.
+- **autonomy/loki: cmd_sentrux**. New subcommand `loki sentrux baseline|gate|status|help`.
+  - `baseline [<path>]`: writes `<path>/.sentrux/baseline.json`.
+  - `gate [<path>]`: parses verdict (OK/DEGRADED/UNKNOWN), exits 1 on DEGRADED,
+    2 on UNKNOWN or when sentrux is unavailable.
+  - `status [<path>]`: prints version + baseline quality.
+  Subcommand wired into the dispatch table next to `doctor`.
+- **autonomy/loki: cmd_doctor sentrux check**. One line in the optional-services
+  section reports `sentrux <version>` (PASS) or "not installed" (WARN). Mirrors
+  the existing ChromaDB and MiroFish optional-service entries. JSON output
+  unchanged (consistent with how ChromaDB/MiroFish are handled).
+- **tests/test-sentrux-gate.sh** (new). 15 unit assertions exercising every
+  parser + JSON-reader path: missing binary, missing baseline, malformed JSON,
+  missing `quality_signal` field, OK verdict, DEGRADED verdict despite non-zero
+  exit code, empty stdout, output without a Quality line. Uses a fake on-PATH
+  `sentrux` binary so the test runs anywhere.
+- **tests/integration/test_sentrux_real.sh** (new). 6 assertions against the
+  REAL sentrux binary on a synthesized degradation fixture. Skips cleanly with
+  PASS when sentrux is not on PATH (matches opt-in posture).
+
+### Verified locally
+
+- `bash tests/test-sentrux-gate.sh` -- 15/15 PASS.
+- `bash tests/integration/test_sentrux_real.sh` -- 6/6 PASS with sentrux
+  v0.5.7 on PATH; 1/1 PASS (graceful skip) without.
+- `bash autonomy/loki sentrux help|status|baseline|gate <fixture>` --
+  exercised end-to-end against /tmp fixtures, exit codes verified
+  (0 OK, 1 DEGRADED, 2 unavailable/UNKNOWN).
+- `bash autonomy/loki doctor` -- sentrux line renders correctly with and
+  without the binary on PATH.
+- `bash -n` + `shellcheck -S error` clean on the helper, the subcommand
+  block, both new tests, and `autonomy/loki` as a whole.
+
+### NOT tested in this release (honest list)
+
+- Iteration-loop integration. The helper is NOT wired into
+  `run_autonomous()` in this release. Doing so safely requires a real-PRD
+  smoke test (provider credits + 5+ minute wall-clock), which is out of
+  scope for this patch. Tracked for v7.5.15+.
+- Bun route. The helper and subcommand are bash-only in v7.5.14.
+  `LOKI_LEGACY_BASH=0` users see the same behavior because dispatch is in
+  `autonomy/loki` which both routes share.
+- Real `loki start <prd>` end-to-end. The new subcommand is standalone;
+  it does not interact with any existing iteration code path.
+- Multi-language coverage at scale. sentrux supports 52 languages via
+  tree-sitter; we exercised TypeScript only in the integration fixture.
+- MCP server integration. sentrux exposes 9 MCP tools; none are wired
+  into Loki's MCP server. Deferred.
+- Linux. Binary tested on darwin-arm64 only (the dev machine). The CI
+  matrix runs on linux-x86_64 and will surface any platform-specific
+  parsing issues against the fake binary used in the unit test.
+
+### Migration / rollback
+
+No migration required. Users without sentrux installed see one new WARN
+line in `loki doctor` (mirroring how ChromaDB/MiroFish are reported). To
+opt in, install sentrux via `brew install sentrux/tap/sentrux` or the
+upstream curl installer, then run `loki sentrux baseline` in any project.
+
+To roll back: `npm install -g loki-mode@7.5.13`. No state migrations.
+
 ## [7.5.13] - 2026-04-29
 
 PATCH release. Test-suite fix-up. v7.5.12 published successfully to

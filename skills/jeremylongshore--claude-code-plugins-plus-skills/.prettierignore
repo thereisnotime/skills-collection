@@ -36,6 +36,7 @@ marketplace/src/data/unified-search-index.json
 marketplace/src/data/cowork-manifest.json
 marketplace/src/data/npm-stats.json
 
+
 # Out-of-scope subtrees (own formatters / large surface area — handle in follow-up PRs)
 marketplace/
 plugins/

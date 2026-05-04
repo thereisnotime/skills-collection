@@ -72,6 +72,31 @@ run_test "Process Supervisor Tests" "$SCRIPT_DIR/test-process-supervisor.sh"
 run_test "Mock Detector (Gate #8)" "$SCRIPT_DIR/detect-mock-problems.sh"
 run_test "Test Mutation Detector (Gate #9)" "$SCRIPT_DIR/detect-test-mutations.sh"
 
+# Sentrux Gate (v7.5.14) -- unit tests only; uses fake on-PATH binary so safe
+# on every CI host (Linux/macOS). The real-binary integration test lives at
+# tests/integration/test_sentrux_real.sh and is gated to a manual workflow.
+run_test "Sentrux Gate Unit Tests" "$SCRIPT_DIR/test-sentrux-gate.sh"
+
+# CI Coverage Verification (v7.5.15) -- asserts sentrux test wiring is intact
+run_test "CI Sentrux Coverage" "$SCRIPT_DIR/test-ci-sentrux-coverage.sh"
+
+# v7.5.15 fleet additions -- registered after Devil's Advocate flagged that
+# 7 of 8 new tests would otherwise rot silently (only invoked manually).
+run_test "Sentrux Iteration Wireup (Dev1)" "$SCRIPT_DIR/test-sentrux-iteration-wireup.sh"
+run_test "Sentrux Init-Rules (Dev3)" "$SCRIPT_DIR/test-sentrux-init-rules.sh"
+run_test "Doctor JSON Sentrux Parity (Dev4)" "$SCRIPT_DIR/test-doctor-json-sentrux.sh"
+run_test "Dashboard Nav UAT (Dev5)" "$SCRIPT_DIR/test-dashboard-nav-uat.sh"
+run_test "Pytest Gate Timeout (Dev6)" "$SCRIPT_DIR/test-pytest-gate-timeout.sh"
+# Python tests (Dev2 + Dev7) -- registered via tiny wrapper scripts so the
+# bash runner (which expects a single executable file per entry) can include
+# them alongside the bash tests.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import pytest" >/dev/null 2>&1; then
+    run_test "Quality Architecture Endpoint (Dev2 pytest)" \
+        "$SCRIPT_DIR/dashboard/run_quality_architecture_tests.sh"
+    run_test "Episode Load Resilience (Dev7 pytest)" \
+        "$SCRIPT_DIR/memory/run_episode_load_resilience_tests.sh"
+fi
+
 # Linting
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 

@@ -470,10 +470,172 @@ with open(state_file, 'w') as f:
         "threshold=$effective_threshold" \
         "result=$([ $approve_count -ge $effective_threshold ] && echo 'APPROVED' || echo 'REJECTED')" 2>/dev/null || true
 
+    # Write transcript for this council round (Path A: council_vote path)
+    local _ct_outcome
+    _ct_outcome=$([ $approve_count -ge $effective_threshold ] && echo "APPROVED" || echo "REJECTED")
+    local _ct_triggered="false"
+    local _ct_flipped="false"
+    if [ $approve_count -eq $COUNCIL_SIZE ] && [ $COUNCIL_SIZE -ge 2 ]; then
+        _ct_triggered="true"
+    fi
+    # contrarian_flipped: DA voted REJECT/CANNOT_VALIDATE causing approve_count drop
+    # Detect by checking if approve dropped from unanimous (COUNCIL_SIZE) to less
+    # We infer flip if triggered AND final approve < COUNCIL_SIZE
+    if [ "$_ct_triggered" = "true" ] && [ $approve_count -lt $COUNCIL_SIZE ]; then
+        _ct_flipped="true"
+    fi
+    council_write_transcript "${ITERATION_COUNT:-0}" "$_ct_outcome" "$_ct_triggered" "$_ct_flipped" "$effective_threshold"
+
     if [ $approve_count -ge $effective_threshold ]; then
         return 0  # Council says DONE
     fi
     return 1  # Council says CONTINUE
+}
+
+#===============================================================================
+# Council Transcript Writer - persists per-iteration council round as JSON
+#
+# Arguments:
+#   $1 - iteration number
+#   $2 - outcome: APPROVED | REJECTED | BLOCKED_BY_GATE
+#   $3 - contrarian_triggered: true | false
+#   $4 - contrarian_flipped: true | false
+#   $5 - effective_threshold: votes needed for approval (0 = unknown/sentinel)
+#
+# Output: .loki/council/transcripts/iter-<N>-<TIMESTAMP>.json
+#===============================================================================
+
+council_write_transcript() {
+    local iteration="${1:-${ITERATION_COUNT:-0}}"
+    local outcome="${2:-REJECTED}"
+    local contrarian_triggered="${3:-false}"
+    local contrarian_flipped="${4:-false}"
+    local effective_threshold="${5:-0}"
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    # Remove colons and hyphens from timestamp for filename safety
+    local ts_safe="${timestamp//[:\-]/}"
+    local iteration_id="iter-${iteration}-${ts_safe}"
+    local transcript_dir="$COUNCIL_STATE_DIR/transcripts"
+    mkdir -p "$transcript_dir"
+    local transcript_file="$transcript_dir/${iteration_id}.json"
+
+    # Read prd preview from state or prd file
+    local task_or_prd=""
+    if [ -n "$COUNCIL_PRD_PATH" ] && [ -f "$COUNCIL_PRD_PATH" ]; then
+        task_or_prd=$(head -5 "$COUNCIL_PRD_PATH" | tr '\n' ' ' | cut -c1-200)
+    fi
+
+    local round_file="$COUNCIL_STATE_DIR/votes/round-${iteration}.json"
+    local da_file="$COUNCIL_STATE_DIR/votes/devils-advocate-round-${iteration}.json"
+
+    _IT="$iteration" _TS="$timestamp" _IID="$iteration_id" \
+    _OUTCOME="$outcome" _CT="$contrarian_triggered" _CF="$contrarian_flipped" \
+    _TASK="$task_or_prd" _PRD="${COUNCIL_PRD_PATH:-}" \
+    _ROUND_FILE="${round_file}" _DA_FILE="${da_file}" \
+    _MEMBERS_DIR="$COUNCIL_STATE_DIR/votes/iteration-${iteration}" \
+    _THRESHOLD="$effective_threshold" \
+    _OUT="$transcript_file" \
+    python3 -c "
+import json, os, pathlib, re
+
+iteration_id = os.environ['_IID']
+voters = []
+
+# Priority 1: structured round file (Path B -- council_aggregate_votes)
+rfile = pathlib.Path(os.environ['_ROUND_FILE'])
+if rfile.exists():
+    try:
+        rd = json.loads(rfile.read_text())
+        for v in rd.get('votes', []):
+            voters.append({
+                'name': v.get('role', 'unknown'),
+                'role_index': v.get('member', 0),
+                'verdict': 'APPROVE' if v.get('vote') == 'COMPLETE' else 'REJECT',
+                'reasoning': v.get('reason', ''),
+                'issues': [],
+                'is_contrarian': False,
+            })
+    except Exception:
+        pass
+
+# Priority 2: member txt files (Path A -- council_vote)
+if not voters:
+    mdir = pathlib.Path(os.environ['_MEMBERS_DIR'])
+    roles = ['requirements_verifier', 'test_auditor', 'devils_advocate']
+    if mdir.exists():
+        for mf in sorted(mdir.glob('member-*.txt')):
+            content = mf.read_text(errors='replace').strip()
+            vote_match = re.search(r'VOTE\s*:\s*(APPROVE|REJECT|CANNOT_VALIDATE)', content)
+            reason_match = re.search(r'REASON\s*:\s*(.+?)(?:\n|\$)', content)
+            issues = []
+            for im in re.finditer(r'ISSUES\s*:\s*(CRITICAL|HIGH|MEDIUM|LOW)\s*:\s*(.+?)(?:\n|\$)', content):
+                issues.append({'severity': im.group(1), 'description': im.group(2).strip()})
+            idx = int(re.sub(r'\D', '', mf.stem) or '0') - 1
+            role = roles[idx % len(roles)] if idx >= 0 else 'unknown'
+            voters.append({
+                'name': role,
+                'role_index': idx + 1,
+                'verdict': vote_match.group(1) if vote_match else 'REJECT',
+                'reasoning': reason_match.group(1).strip() if reason_match else '',
+                'issues': issues,
+                'is_contrarian': False,
+            })
+
+# Add DA voter if triggered
+ct = os.environ['_CT'] == 'true'
+cf = os.environ['_CF'] == 'true'
+if ct:
+    da_challenges = []
+    dafile = pathlib.Path(os.environ['_DA_FILE'])
+    if dafile.exists():
+        try:
+            da = json.loads(dafile.read_text())
+            details = da.get('details', '')
+            if details and details != 'none':
+                da_challenges = [d.strip() for d in details.split(';') if d.strip()]
+        except Exception:
+            pass
+    # Also check contrarian.txt for reasoning
+    cfile = pathlib.Path(os.environ['_MEMBERS_DIR']) / 'contrarian.txt'
+    da_reasoning = ''
+    da_verdict = 'REJECT' if cf else 'APPROVE'
+    if cfile.exists():
+        content = cfile.read_text(errors='replace').strip()
+        reason_match = re.search(r'REASON\s*:\s*(.+?)(?:\n|\$)', content)
+        if reason_match:
+            da_reasoning = reason_match.group(1).strip()
+    voters.append({
+        'name': 'devils_advocate',
+        'role_index': len(voters) + 1,
+        'verdict': da_verdict,
+        'reasoning': da_reasoning,
+        'issues': [],
+        'challenges': da_challenges,
+        'is_contrarian': True,
+        'triggered': True,
+    })
+
+task_or_prd = os.environ.get('_TASK', '')[:200]
+non_contrarian = [v for v in voters if not v.get('is_contrarian')]
+transcript = {
+    'iteration_id': iteration_id,
+    'iteration': int(os.environ['_IT']),
+    'timestamp': os.environ['_TS'],
+    'task_or_prd': task_or_prd,
+    'prd_path': os.environ.get('_PRD', ''),
+    'voters': voters,
+    'outcome': os.environ['_OUTCOME'],
+    'contrarian_triggered': ct,
+    'contrarian_flipped': cf,
+    'approve_count': sum(1 for v in non_contrarian if v.get('verdict') == 'APPROVE'),
+    'reject_count': sum(1 for v in non_contrarian if v.get('verdict') in ('REJECT', 'CANNOT_VALIDATE')),
+    'threshold': int(os.environ.get('_THRESHOLD', '0')),
+    'total_members': len(non_contrarian),
+}
+with open(os.environ['_OUT'], 'w') as f:
+    json.dump(transcript, f, indent=2)
+" || log_warn "Failed to write council transcript"
 }
 
 #===============================================================================
@@ -1353,6 +1515,9 @@ council_evaluate() {
         return 1  # CONTINUE - can't complete with critical failures
     fi
 
+    # Compute threshold using the same ceiling(2/3) formula as council_vote and council_aggregate_votes
+    local _eval_threshold=$(( (COUNCIL_SIZE * 2 + 2) / 3 ))
+
     # Step 1: Aggregate votes from all members
     local aggregate_result
     aggregate_result=$(council_aggregate_votes)
@@ -1372,14 +1537,23 @@ council_evaluate() {
             da_result=$(council_devils_advocate_review "$ITERATION_COUNT")
             if [ "$da_result" = "OVERRIDE_CONTINUE" ]; then
                 log_warn "Council evaluate: devil's advocate overrode unanimous COMPLETE"
+                # Write transcript: DA triggered and flipped the outcome (Path B)
+                council_write_transcript "${ITERATION_COUNT:-0}" "REJECTED" "true" "true" "$_eval_threshold"
                 return 1  # CONTINUE
             fi
+            # Write transcript: DA triggered but did NOT flip (Path B, unanimous COMPLETE confirmed)
+            council_write_transcript "${ITERATION_COUNT:-0}" "APPROVED" "true" "false" "$_eval_threshold"
+        else
+            # Write transcript: not unanimous, DA not triggered (Path B)
+            council_write_transcript "${ITERATION_COUNT:-0}" "APPROVED" "false" "false" "$_eval_threshold"
         fi
 
         log_info "Council evaluate: verdict is COMPLETE"
         return 0  # COMPLETE (should stop)
     fi
 
+    # Write transcript: aggregate voted CONTINUE (Path B)
+    council_write_transcript "${ITERATION_COUNT:-0}" "REJECTED" "false" "false" "$_eval_threshold"
     log_info "Council evaluate: verdict is CONTINUE"
     return 1  # CONTINUE
 }

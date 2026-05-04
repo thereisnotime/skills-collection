@@ -449,19 +449,185 @@ export async function councilEvaluate(cec: CouncilEvaluateContext): Promise<Aggr
 
   if (aggregate.unanimous && aggregate.decision === "COMPLETE") {
     const contrarian = await councilDevilsAdvocate(verdicts, { lokiDir: cec.ctx.lokiDir });
-    if (contrarian.verdict === "REJECT") {
-      return {
+    if (contrarian.verdict === "REJECT" || contrarian.verdict === "CANNOT_VALIDATE") {
+      const flippedAggregate: AggregateResult = {
         ...aggregate,
         decision: "CONTINUE",
         unanimous: false,
         rejectCount: aggregate.rejectCount + 1,
         votes: [...aggregate.votes, contrarian],
       };
+      // Write transcript: DA triggered and flipped the outcome.
+      await councilWriteTranscript(flippedAggregate, contrarian, cec.iteration, cec.ctx.prdPath, {
+        lokiDir: cec.ctx.lokiDir,
+      });
+      return flippedAggregate;
     }
-    return { ...aggregate, votes: [...aggregate.votes, contrarian] };
+    const approvedAggregate: AggregateResult = { ...aggregate, votes: [...aggregate.votes, contrarian] };
+    // Write transcript: DA triggered but upheld the unanimous APPROVE.
+    await councilWriteTranscript(approvedAggregate, contrarian, cec.iteration, cec.ctx.prdPath, {
+      lokiDir: cec.ctx.lokiDir,
+    });
+    return approvedAggregate;
   }
 
+  // Non-unanimous or non-complete: write transcript without DA entry.
+  await councilWriteTranscript(aggregate, null, cec.iteration, cec.ctx.prdPath, {
+    lokiDir: cec.ctx.lokiDir,
+  });
   return aggregate;
+}
+
+// ---------------------------------------------------------------------------
+// CouncilTranscript -- canonical per-iteration transcript shape (v7.5.16).
+// Written to .loki/council/transcripts/iter-<N>-<TIMESTAMP>.json after every
+// councilEvaluate() call. The backend API (dashboard/server.py) reads these
+// files to serve GET /api/council/transcripts.
+// ---------------------------------------------------------------------------
+
+export type TranscriptVoter = {
+  name: string;
+  role_index: number;
+  verdict: "APPROVE" | "REJECT" | "CANNOT_VALIDATE";
+  reasoning: string;
+  issues: { severity: string; description: string }[];
+  is_contrarian: boolean;
+  // Only present when is_contrarian=true and triggered=true:
+  challenges?: string[];
+  triggered?: boolean;
+};
+
+export type CouncilTranscript = {
+  iteration_id: string;
+  iteration: number;
+  timestamp: string;
+  task_or_prd: string;
+  prd_path: string;
+  voters: TranscriptVoter[];
+  outcome: "APPROVED" | "REJECTED" | "BLOCKED_BY_GATE";
+  contrarian_triggered: boolean;
+  contrarian_flipped: boolean;
+  approve_count: number;
+  reject_count: number;
+  threshold: number;
+  total_members: number;
+};
+
+// ---------------------------------------------------------------------------
+// councilWriteTranscript -- writes a canonical transcript JSON file.
+//
+// Called from councilEvaluate() after the DA check. No-op on errors (logs
+// a warning but does not throw). Idempotent: same iteration+timestamp
+// produces the same filename; re-running overwrites the file cleanly.
+// ---------------------------------------------------------------------------
+
+export async function councilWriteTranscript(
+  aggregate: AggregateResult,
+  daResult: AgentVerdict | null,
+  iteration: number,
+  prdPath: string | undefined,
+  opts: { lokiDir?: string } = {},
+): Promise<void> {
+  try {
+    const root = opts.lokiDir ?? defaultLokiDir();
+    const transcriptsDir = resolve(root, "council", "transcripts");
+    mkdirSync(transcriptsDir, { recursive: true });
+
+    const timestamp = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+    // Compact timestamp for filename: strip punctuation to keep it filename-safe.
+    const tsCompact = timestamp.replace(/[-:]/g, "").replace("T", "T").replace("Z", "Z");
+    const iterationId = `iter-${iteration}-${tsCompact}`;
+    const transcriptPath = resolve(transcriptsDir, `${iterationId}.json`);
+
+    // Read first 200 chars of PRD content for task_or_prd field.
+    let taskOrPrd = "";
+    if (prdPath) {
+      try {
+        if (existsSync(prdPath)) {
+          taskOrPrd = readFileSync(prdPath, "utf-8").slice(0, 200);
+        }
+      } catch {
+        // best-effort; leave as ""
+      }
+    }
+
+    // Determine contrarian flags.
+    // contrarian_triggered: DA was invoked (council.ts:450 condition -- unanimous APPROVE).
+    // contrarian_flipped: DA returned REJECT or CANNOT_VALIDATE, overriding the unanimous APPROVE.
+    const contrarianTriggered = daResult !== null;
+    const contrarianFlipped =
+      daResult !== null &&
+      (daResult.verdict === "REJECT" || daResult.verdict === "CANNOT_VALIDATE");
+
+    // Build voters array from the aggregate votes.
+    // When DA was triggered, councilEvaluate appended the DA AgentVerdict as the
+    // last element of aggregate.votes. We strip it here and reconstruct it as a
+    // TranscriptVoter with is_contrarian=true so the transcript shape is correct.
+    const regularVotes = contrarianTriggered
+      ? aggregate.votes.slice(0, -1)
+      : aggregate.votes;
+
+    const voters: TranscriptVoter[] = regularVotes.map((v, idx) => ({
+      name: v.role,
+      role_index: idx + 1,
+      verdict: v.verdict,
+      reasoning: v.reason,
+      issues: v.issues.map((i) => ({ severity: i.severity, description: i.description })),
+      is_contrarian: false,
+    }));
+
+    // Append the DA voter entry if triggered.
+    if (contrarianTriggered && daResult !== null) {
+      const daVoter: TranscriptVoter = {
+        name: "devils_advocate",
+        role_index: voters.length + 1,
+        verdict: daResult.verdict,
+        reasoning: daResult.reason,
+        issues: daResult.issues.map((i) => ({ severity: i.severity, description: i.description })),
+        is_contrarian: true,
+        triggered: true,
+        challenges: daResult.issues.map((i) => i.description),
+      };
+      voters.push(daVoter);
+    }
+
+    const nonContrarianVoters = voters.filter((v) => !v.is_contrarian);
+    const approveCount = nonContrarianVoters.filter((v) => v.verdict === "APPROVE").length;
+    const rejectCount = nonContrarianVoters.filter(
+      (v) => v.verdict === "REJECT" || v.verdict === "CANNOT_VALIDATE",
+    ).length;
+
+    // Determine outcome.
+    let outcome: CouncilTranscript["outcome"];
+    if (aggregate.decision === "COMPLETE") {
+      outcome = "APPROVED";
+    } else {
+      outcome = "REJECTED";
+    }
+
+    const transcript: CouncilTranscript = {
+      iteration_id: iterationId,
+      iteration,
+      timestamp,
+      task_or_prd: taskOrPrd,
+      prd_path: prdPath ?? "",
+      voters,
+      outcome,
+      contrarian_triggered: contrarianTriggered,
+      contrarian_flipped: contrarianFlipped,
+      approve_count: approveCount,
+      reject_count: rejectCount,
+      threshold: aggregate.threshold,
+      total_members: nonContrarianVoters.length,
+    };
+
+    atomicWriteFile(transcriptPath, JSON.stringify(transcript, null, 2) + "\n");
+  } catch (err) {
+    // Writer errors must never crash the caller.
+    console.warn(
+      `[council] transcript write failed (iter=${iteration}): ${(err as Error).message}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

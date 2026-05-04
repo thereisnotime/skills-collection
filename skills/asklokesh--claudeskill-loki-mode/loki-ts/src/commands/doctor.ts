@@ -38,9 +38,20 @@ export type DiskCheck = {
   status: Status;
 };
 
+// v7.5.15: sentrux architectural-drift gate state exposed in --json output.
+// Sibling of checks/disk -- intentionally not counted in the summary tally
+// to keep summary numbers backwards-compatible with v7.5.14 consumers.
+export type SentruxCheck = {
+  found: boolean;
+  version: string | null;
+  status: Status;
+  required: "optional";
+};
+
 export type DoctorJson = {
   checks: ToolCheck[];
   disk: DiskCheck;
+  sentrux: SentruxCheck;
   summary: {
     passed: number;
     failed: number;
@@ -292,11 +303,24 @@ async function runAllToolChecks(): Promise<ToolRow[]> {
 
 // ---------- JSON mode ---------------------------------------------------------
 
+// v7.5.15: probe the sentrux binary for the JSON output. Mirrors the bash
+// cmd_doctor_json sentrux block byte-for-byte (subject to the bun-parity
+// matrix's jq -S key-sort + disk float normalization). Always returns a
+// SentruxCheck record; the `found` field discriminates installed vs not.
+async function checkSentrux(): Promise<SentruxCheck> {
+  const path = await commandExists("sentrux");
+  const found = path !== null;
+  const version = found ? await probeVersion("sentrux") : null;
+  const status: Status = found ? "pass" : "warn";
+  return { found, version, status, required: "optional" };
+}
+
 export async function buildDoctorJson(): Promise<DoctorJson> {
   const rows = await runAllToolChecks();
   // Strip the displayName field for JSON output -- bash JSON has bare names.
   const checks: ToolCheck[] = rows.map(({ displayName: _displayName, ...rest }) => rest);
   const disk = checkDisk();
+  const sentrux = await checkSentrux();
 
   let passed = 0;
   let failed = 0;
@@ -313,6 +337,7 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
   return {
     checks,
     disk,
+    sentrux,
     summary: { passed, failed, warnings, ok: failed === 0 },
   };
 }
@@ -523,6 +548,28 @@ async function runText(): Promise<number> {
     );
     tally.warn++;
   }
+  // sentrux check (v7.5.14, optional architectural-drift gate). Mirrors the
+  // bash-route line at autonomy/loki:cmd_doctor so the bun-parity matrix
+  // diff stays empty.
+  if (await commandExists("sentrux")) {
+    let sentruxVer = "unknown";
+    try {
+      const r = await run(["sentrux", "--version"], { timeoutMs: 2000 });
+      const tok = r.stdout.split(/\s+/).filter(Boolean).pop();
+      if (tok) sentruxVer = tok.replace(/^v/, "");
+    } catch {
+      /* keep "unknown" */
+    }
+    process.stdout.write(
+      `  ${badge("pass")}  sentrux ${sentruxVer} (architectural drift gate: loki sentrux help)\n`,
+    );
+    tally.pass++;
+  } else {
+    process.stdout.write(
+      `  ${badge("warn")}  sentrux - not installed (optional, brew install sentrux/tap/sentrux)\n`,
+    );
+    tally.warn++;
+  }
   process.stdout.write(`\n`);
 
   // System
@@ -593,7 +640,7 @@ async function runText(): Promise<number> {
   // explicitly here. Informational only -- does NOT contribute to the count.
   const py = await findPython3();
   if (py !== null) {
-    const verRes = await run([py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], { timeoutMs: 5000 });
+    const verRes = await run([py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"], { timeoutMs: 5000 });
     const ver = verRes.stdout.trim();
     if (ver.startsWith("3.12")) {
       process.stdout.write(`  ${badge("pass")}  Python 3.12 (chromadb / sentence-transformers): ${ver} at ${py}\n`);

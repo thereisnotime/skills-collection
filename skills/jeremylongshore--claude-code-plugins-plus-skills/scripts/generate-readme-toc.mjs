@@ -21,35 +21,37 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import prettier from 'prettier';
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), '..');
 const EXTENDED = join(ROOT, '.claude-plugin', 'marketplace.extended.json');
 const README = join(ROOT, 'README.md');
 
-const TOC_START = '<!-- AUTO-TOC:START — do not edit; run `node scripts/generate-readme-toc.mjs` -->';
+const TOC_START =
+  '<!-- AUTO-TOC:START — do not edit; run `node scripts/generate-readme-toc.mjs` -->';
 const TOC_END = '<!-- AUTO-TOC:END -->';
 
 // Display metadata for each category: emoji + human-friendly label.
 // Categories not listed fall back to auto-title and a default emoji.
 const CATEGORIES = {
-  'ai-ml':           { emoji: '🤖', label: 'AI & Machine Learning' },
-  'ai-agency':       { emoji: '🎭', label: 'AI Agents & Agency' },
+  'ai-ml': { emoji: '🤖', label: 'AI & Machine Learning' },
+  'ai-agency': { emoji: '🎭', label: 'AI Agents & Agency' },
   'api-development': { emoji: '🔌', label: 'API Development' },
-  'business-tools':  { emoji: '💼', label: 'Business Tools' },
-  'community':       { emoji: '👥', label: 'Community' },
-  'crypto':          { emoji: '₿',  label: 'Crypto & Web3' },
-  'database':        { emoji: '💾', label: 'Database' },
-  'design':          { emoji: '🎨', label: 'Design' },
-  'devops':          { emoji: '🔧', label: 'DevOps & Infrastructure' },
-  'examples':        { emoji: '📚', label: 'Examples & Templates' },
-  'mcp':             { emoji: '🧩', label: 'MCP Servers' },
-  'packages':        { emoji: '📦', label: 'Packages' },
-  'performance':     { emoji: '⚡', label: 'Performance' },
-  'productivity':    { emoji: '✅', label: 'Productivity' },
-  'saas-packs':      { emoji: '🎁', label: 'SaaS Skill Packs' },
-  'security':        { emoji: '🔐', label: 'Security' },
+  'business-tools': { emoji: '💼', label: 'Business Tools' },
+  community: { emoji: '👥', label: 'Community' },
+  crypto: { emoji: '₿', label: 'Crypto & Web3' },
+  database: { emoji: '💾', label: 'Database' },
+  design: { emoji: '🎨', label: 'Design' },
+  devops: { emoji: '🔧', label: 'DevOps & Infrastructure' },
+  examples: { emoji: '📚', label: 'Examples & Templates' },
+  mcp: { emoji: '🧩', label: 'MCP Servers' },
+  packages: { emoji: '📦', label: 'Packages' },
+  performance: { emoji: '⚡', label: 'Performance' },
+  productivity: { emoji: '✅', label: 'Productivity' },
+  'saas-packs': { emoji: '🎁', label: 'SaaS Skill Packs' },
+  security: { emoji: '🔐', label: 'Security' },
   'skill-enhancers': { emoji: '✨', label: 'Skill Enhancers' },
-  'testing':         { emoji: '🧪', label: 'Testing' },
+  testing: { emoji: '🧪', label: 'Testing' },
 };
 
 function metaFor(slug) {
@@ -77,11 +79,7 @@ function githubSlug(text) {
 
 function escapeTable(text) {
   if (!text) return '';
-  return text
-    .replace(/\|/g, '\\|')
-    .replace(/\r?\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function truncate(text, max = 120) {
@@ -112,7 +110,9 @@ function buildBlock(catalog) {
   lines.push('');
   lines.push('## Browse Plugins by Category');
   lines.push('');
-  lines.push(`Jump to any of the ${ordered.length} categories below. Plugin counts are catalog totals — auto-generated from \`marketplace.extended.json\`.`);
+  lines.push(
+    `Jump to any of the ${ordered.length} categories below. Plugin counts are catalog totals — auto-generated from \`marketplace.extended.json\`.`,
+  );
   lines.push('');
 
   // Quick navigation table
@@ -130,7 +130,7 @@ function buildBlock(catalog) {
   for (const slug of ordered) {
     const meta = metaFor(slug);
     const items = [...byCategory.get(slug)].sort((a, b) =>
-      (a.name || '').localeCompare(b.name || '')
+      (a.name || '').localeCompare(b.name || ''),
     );
     lines.push(`### ${meta.label}`);
     lines.push('');
@@ -158,7 +158,7 @@ function replaceBlock(readme, newBlock) {
 
   if (startIdx === -1 || endIdx === -1) {
     throw new Error(
-      `README.md is missing the TOC sentinels. Add:\n${TOC_START}\n${TOC_END}\nwhere the TOC should live.`
+      `README.md is missing the TOC sentinels. Add:\n${TOC_START}\n${TOC_END}\nwhere the TOC should live.`,
     );
   }
   if (endIdx < startIdx) {
@@ -170,20 +170,34 @@ function replaceBlock(readme, newBlock) {
   return before + newBlock + after;
 }
 
-function main() {
+// Pipe the entire updated README through Prettier so the generator owns both
+// the bounded block AND the surrounding-whitespace expectations Prettier has.
+// Without this, `prettier --check README.md` and this script's `--check` mode
+// fight over blank lines around the sentinels (issue #657).
+//
+// resolveConfig() loads the repo's Prettier settings (.prettierrc and friends)
+// — without it, prettier.format() runs with library defaults and produces
+// output that disagrees with what `prettier --check` from the CLI expects.
+async function formatReadme(content) {
+  const options = (await prettier.resolveConfig(README)) || {};
+  return prettier.format(content, { ...options, filepath: README });
+}
+
+async function main() {
   const args = process.argv.slice(2);
   const checkMode = args.includes('--check');
 
   const catalog = JSON.parse(readFileSync(EXTENDED, 'utf-8'));
   const block = buildBlock(catalog);
   const current = readFileSync(README, 'utf-8');
-  const updated = replaceBlock(current, block);
+  const spliced = replaceBlock(current, block);
+  const updated = await formatReadme(spliced);
 
   if (checkMode) {
     if (current !== updated) {
       console.error(
         'README.md TOC is out of sync with marketplace.extended.json.\n' +
-        'Run: node scripts/generate-readme-toc.mjs'
+          'Run: node scripts/generate-readme-toc.mjs',
       );
       process.exit(1);
     }
@@ -201,4 +215,7 @@ function main() {
   console.log(`README updated (${(newBytes / 1024).toFixed(1)} KB).`);
 }
 
-main();
+main().catch((err) => {
+  console.error(err.message || err);
+  process.exit(1);
+});

@@ -1,6 +1,6 @@
 
 <a href="https://github.com/VoltAgent/voltagent">
-     <img width="1500" " alt="claude-skills" src="https://github.com/user-attachments/assets/0db54cfc-f3dd-4683-abbb-e4c01d9dfb5d" />
+     <img width="1500" alt="claude-skills" src="https://github.com/user-attachments/assets/0db54cfc-f3dd-4683-abbb-e4c01d9dfb5d" />
 </a>
 
 
@@ -51,7 +51,7 @@ The most contributed Agent Skills repository, built and maintained together with
 
 ### Official Skills by
 
-| | | | |
+| | | | | 
 |---|---|---|---|
 | [Claude](#official-claude-skills) | [VoltAgent](#skills-by-voltagent) | [Angular](#skills-by-angular) | [Composio](#skills-by-composio-team) | [Supabase](#skills-by-supabase-team) |
 | [Google Gemini](#skills-by-google-gemini) | [Stripe](#skills-by-stripe-team) | [Courier](#skills-by-courier) | [CallStack](#skills-by-callstack) |
@@ -67,7 +67,8 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Apollo GraphQL](#skills-by-apollo-graphql) | [Auth0](#skills-by-auth0) | [Brave](#skills-by-brave) |
 | [Browserbase](#skills-by-browserbase) | [CodeRabbit](#skills-by-coderabbit) | [Coinbase](#skills-by-coinbase) | [Datadog Labs](#skills-by-datadog-labs) |
 | [Firebase](#skills-by-firebase) | [Flutter](#skills-by-flutter) | [Venice.ai](#skills-by-veniceai) | [Community](#community-skills) |
-| [Quality Standards](#skill-quality-standards) |  |  |  |
+| [Redis](#skills-by-redis) | [Quality Standards](#skill-quality-standards) |  |  |
+
 
 
 
@@ -1226,6 +1227,13 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 
 </details>
 
+<details open>
+<summary><h3 style="display:inline">Skills by Redis</h3></summary>
+
+- **[redis/redis-development](https://github.com/redis/agent-skills/tree/main/skills/redis-development)** - Redis development best practices — data structures, query engine, vector search, caching, and performance optimization.
+
+</details>
+
 ### Community Skills
 
 <details>
@@ -1246,6 +1254,8 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[Xquik-dev/tweetclaw](https://github.com/Xquik-dev/tweetclaw)** - 40+ X/Twitter actions: post, extract, monitor, compose
 - **[SHADOWPR0/beautiful_prose](https://github.com/SHADOWPR0/beautiful_prose)** - Hard-edged writing style contract for timeless, forceful English prose without AI tics
 - **[blader/humanizer](https://github.com/blader/humanizer)** - Remove signs of AI-generated writing from text, making it sound more natural and human
+- **[voidborne-d/humanize-chinese](https://github.com/voidborne-d/humanize-chinese)** - Detect and rewrite AI-generated Chinese text; rule-ensemble scoring, 7 style transforms, academic AIGC reduction
+- **[MohamedAbdallah-14/unslop](https://github.com/MohamedAbdallah-14/unslop)** - Removes named AI writing tells (tricolons, em-dash pileups, hedging stacks, sycophancy openers, stock vocab like "delve"/"crucial"). Split lint/rewrite modes for auditing your own text without auto-rewriting. Five intensity levels, MIT
 - **[Eronred/aso-skills](https://github.com/Eronred/aso-skills)** - 30+ App Store Optimization skills for keyword research, metadata optimization, competitor analysis, creative optimization, and mobile growth strategies via Appeeky API
 - **[degausai/wonda](https://github.com/degausai/wonda)** - AI content creation: images, video, music, audio, editing, publishing
 - **[gitroomhq/postiz-agent](https://github.com/gitroomhq/postiz-agent)** - Schedule social media posts across 28+ platforms programmatically
@@ -1365,6 +1375,7 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[Lum1104/understand-anything](https://github.com/Lum1104/Understand-Anything)** - Interactive codebase knowledge graphs via multi-agent LLM analysis
 - **[hqhq1025/skill-optimizer](https://github.com/hqhq1025/skill-optimizer)** - Diagnose and optimize Agent Skills (SKILL.md) with real session data and research-backed static analysis. Works with Claude Code, Codex, and any Agent Skills-compatible agent
 - **[LambdaTest/agent-skills](https://github.com/LambdaTest/agent-skills)** - TestMu AI (Formerly LambdaTest) Skills is a curated collection of Agent Skills that teach AI coding assistants how to write production-grade test automation.
+- **[foryourhealth111-pixel/Vibe-Skills](https://github.com/foryourhealth111-pixel/Vibe-Skills)** - A skills governed plug-and-play harness for staged, test-driven skill orchestration
 
 </details>
 

@@ -3782,6 +3782,93 @@ async def force_council_review():
     return {"success": True, "message": "Council review requested"}
 
 
+@app.get("/api/council/transcripts")
+async def get_council_transcripts(
+    limit: int = Query(default=20, ge=1, le=200),
+    since: Optional[str] = Query(default=None),
+    iter_min: Optional[int] = Query(default=None, ge=0),
+):
+    """List council transcript records, sorted descending by iteration number.
+
+    Query params:
+      limit    int, default=20, max=200
+      since    ISO8601 string (optional), filter to transcripts after this time
+      iter_min int (optional), filter to iteration >= N
+    """
+    # Validate query params before any early-return so invalid inputs always get 400.
+    since_dt = None
+    if since:
+        try:
+            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid 'since' timestamp format; expected ISO8601")
+
+    transcripts_dir = _get_loki_dir() / "council" / "transcripts"
+    if not transcripts_dir.exists():
+        return {"transcripts": [], "total": 0, "latest_id": None}
+
+    records = []
+    for f in sorted(transcripts_dir.glob("iter-*.json"), reverse=True):
+        try:
+            rec = json.loads(f.read_text())
+        except Exception:
+            logger.warning("Skipping corrupt council transcript file: %s", f.name)
+            continue
+        if not isinstance(rec, dict):
+            logger.warning("Skipping non-object council transcript file: %s", f.name)
+            continue
+        if not isinstance(rec.get("iteration_id"), str):
+            logger.warning("Skipping transcript missing iteration_id field: %s", f.name)
+            continue
+        if since_dt is not None:
+            ts_str = rec.get("timestamp", "")
+            try:
+                ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                continue
+            if ts <= since_dt:
+                continue
+        if iter_min is not None and rec.get("iteration", 0) < iter_min:
+            continue
+        records.append(rec)
+        if len(records) >= limit:
+            break
+
+    return {
+        "transcripts": records,
+        "total": len(records),
+        "latest_id": records[0].get("iteration_id") if records else None,
+    }
+
+
+@app.get("/api/council/transcripts/{iteration_id}")
+async def get_council_transcript(iteration_id: str):
+    """Fetch a single council transcript by iteration_id.
+
+    Returns the record body or 404 if not found.
+    Path traversal attempts (containing '/' or '..') are rejected with 404.
+    """
+    # Reject path traversal: iteration_id must be a plain filename component.
+    if "/" in iteration_id or "\\" in iteration_id or ".." in iteration_id:
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    transcript_file = _get_loki_dir() / "council" / "transcripts" / f"{iteration_id}.json"
+    if not transcript_file.exists():
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    try:
+        rec = json.loads(transcript_file.read_text())
+    except Exception:
+        raise HTTPException(
+            status_code=410,
+            detail=f"Transcript file for {iteration_id} is corrupt; admin should inspect or remove it",
+        )
+    if not isinstance(rec, dict):
+        raise HTTPException(
+            status_code=410,
+            detail=f"Transcript file for {iteration_id} is corrupt; admin should inspect or remove it",
+        )
+    return rec
+
+
 # =============================================================================
 # Context Window Tracking API (v5.40.0)
 # =============================================================================
@@ -5953,6 +6040,68 @@ async def get_findings(iteration: int):
             }
     raise HTTPException(status_code=404,
                         detail=f"No findings for iteration {iteration}")
+
+
+@app.get("/api/quality/architecture")
+async def get_quality_architecture():
+    """Return the sentrux architectural-drift series.
+
+    Globs `.loki/state/findings-sentrux-*.json` (written by the iteration
+    loop when LOKI_SENTRUX_GATE=1), sorts by iteration ascending, and
+    returns a series suitable for plotting drift over time.
+
+    Per-file JSON parse errors are logged and skipped; the endpoint stays
+    200 OK even when no files exist or every file is corrupt.
+    """
+    base = _get_loki_dir()
+    state_dir = base / "state"
+    series: list[dict[str, Any]] = []
+    if state_dir.exists():
+        try:
+            paths = list(state_dir.glob("findings-sentrux-*.json"))
+        except OSError as exc:
+            logger.warning("sentrux: failed to glob %s: %s", state_dir, exc)
+            paths = []
+        for path in paths:
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+                data = json.loads(text)
+            except (OSError, IOError) as exc:
+                logger.warning("sentrux: skipping unreadable %s: %s",
+                               path.name, exc)
+                continue
+            except json.JSONDecodeError as exc:
+                logger.warning("sentrux: skipping corrupt JSON %s: %s",
+                               path.name, exc)
+                continue
+            if not isinstance(data, dict):
+                logger.warning("sentrux: skipping non-object payload in %s",
+                               path.name)
+                continue
+            try:
+                iteration = int(data.get("iteration"))
+                before = int(data.get("before"))
+                after = int(data.get("after"))
+            except (TypeError, ValueError) as exc:
+                logger.warning("sentrux: skipping %s, bad ints: %s",
+                               path.name, exc)
+                continue
+            verdict = data.get("verdict")
+            if verdict not in ("DEGRADED", "OK", "UNKNOWN"):
+                verdict = "UNKNOWN"
+            timestamp = data.get("timestamp")
+            if not isinstance(timestamp, str):
+                timestamp = ""
+            series.append({
+                "iteration": iteration,
+                "before": before,
+                "after": after,
+                "verdict": verdict,
+                "timestamp": timestamp,
+            })
+    series.sort(key=lambda e: e["iteration"])
+    current = series[-1]["after"] if series else None
+    return {"series": series, "current": current, "samples": len(series)}
 
 
 @app.get("/api/learnings")
