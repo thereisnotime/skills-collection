@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.30.0] - 2026-05-04
+
+Two-day sprint following v4.29.0 — landed the same-session "ship workaround
+→ file tracking issue → ship the real fix" loop several times in public, plus
+the **guidewire-pack v2.0.0 rebuild** (24 skills → 10 production-engineer
+skills), a new marketplace plugin (`engineer-design-diagram`), enforcement
+of the lessons learned during v4.29.0 (pre-commit hook, sync-marketplace
+orchestrator, pre-push warning), and post-release Freshie + compliance work
+that surfaced + partially remediated 115 D+F skills.
+
+### Added
+
+- **`engineer-design-diagram` marketplace plugin** (#665) — Ports the global
+  skill at `~/.claude/skills/engineer-design-diagram/` (live since 2026-04-19)
+  into `plugins/devops/engineer-design-diagram/` so any Claude Code user can
+  install it. Generates production-grade architecture/sequence/delta/drift
+  diagrams as self-contained dark-themed HTML with inline SVG, grounded in
+  real repo topology via DCI. Four modes (`/design:generate`, `/design:diff`,
+  `/design:trace`, `/design:watch`). v0.2.0, A-grade (96/100). Closes
+  `claude-2rb6.2` and `claude-2rb6.10`.
+- **`guidewire-pack v2.0.0`** (#668-#678) — 11-PR coordinated rebuild of the
+  Guidewire InsuranceSuite skill pack. **24 skills → 10 production-engineer
+  skills**, each addressing real production failure modes. Highlights:
+  - Rebuilt to A-grade: `install-auth`, `sdk-patterns`, `local-dev-loop`,
+    `core-workflow-a` (PolicyCenter), `core-workflow-b` (ClaimCenter)
+  - New unified skills (merging multiple v1 skills):
+    `security-and-rbac` (basics + enterprise-rbac),
+    `observability-and-incident-response` (3-skill merge),
+    `ci-cd-pipeline` (4-skill merge: ci-integration + deploy-integration
+    - multi-env-setup + prod-checklist),
+      `migration-and-upgrade` (2-skill merge),
+      `webhooks-integrations` (rename + deepen of webhooks-events)
+  - Cuts (deferred or removed with rationale): `data-handling`,
+    `reference-architecture`, `performance-tuning`, `cost-tuning`
+  - Pack-level: `package.json` 1.0.x → 2.0.0, README rewritten to 10-skill
+    production-problem framing
+- **`contributing-clanker` v0.1.x community plugin** — New scaffold under
+  `plugins/community/`, three patch releases (v0.1.0, v0.1.1, v0.1.2) over
+  the two days for runtime correctness fixes synced to the marketplace.
+- **Repo-wide automation** (#667) — `pnpm run sync-marketplace` is now an
+  orchestrator that chains `sync-marketplace.cjs` + `generate-plugin-package-jsons.mjs`
+  - `generate-readme-toc.mjs`. New pre-commit hook auto-runs the chain when
+    `marketplace.extended.json` is staged and auto-stages derived files. New
+    pre-push hook warns when the local branch is behind `origin/main`. The
+    legacy single-step JSON-strip is preserved as `pnpm run sync-marketplace:json-only`.
+- **2026-05-03 case study** (`marketplace/src/content/blog-posts/`) —
+  Tier-3 case study post on the v4.29.0 release ceremony + the same-session
+  loop closure pattern.
+
+### Fixed
+
+- **README ↔ Prettier ↔ generator 3-authority conflict** (#658) — Closes
+  issue #657 in the same session it was opened. Both
+  `scripts/generate-readme-toc.mjs` and `scripts/render-spotlight.mjs` now
+  pipe their spliced output through `prettier.format()` (with
+  `prettier.resolveConfig()` for project settings) before writing/comparing.
+  Removes the README.md exclusion from `.prettierignore`. All three gates
+  (`prettier --check`, generator `--check` modes) pass simultaneously, in any
+  order. Workaround → real-fix loop closed in ~2 hours.
+- **D+F skill remediation, partial** (#661) — Schema 3.3.1's stricter rubric
+  surfaced 115 D+F skills (regression from the post-v4.24.0 "Zero D/F"
+  baseline). Added `tags` + `compatibility` frontmatter to **102 skills**
+  missing both fields (94 in `plugins/ai-agency/tonone/`, 8 across
+  saas-packs). Result: 115 → 89 D+F (-26 grade improvements). Remaining 89
+  are score 67-69 (1-3 points below C threshold) blocked by missing
+  `references/`, `examples/`, `scripts/` subdirectories — a SaaS pack
+  scaffolding template defect tracked in #660.
+- **Post-v4.29.0 quality sweep** (#656) — Cleared pre-existing ESLint errors
+  (`scripts/bulk-bump-versions.mjs:277` control-char regex,
+  `scripts/check-official-links.mjs:138` unnecessary-escape) that the new
+  root config from #629 surfaced for the first time. Plus a repo-wide
+  Prettier `--write` sweep (40 files, all cosmetic — `*em*` → `_em_`,
+  blank-line normalization). Plus `jeremy-adk-software-engineer` description
+  no longer claims "placeholder - to be implemented" (the skill ships real
+  content). Plus `repository`/`homepage`/`bugs` added to root `package.json`
+  for npm provenance metadata.
+
+### Changed
+
+- **Freshie discovery run 6** (#659) — First inventory refresh since
+  2026-04-06 (run 5). Captures the post-v4.29.0 ecosystem state on commit
+  `531631f9d`: 17 packs / 423 plugins / 3,000 skills / 7,800 files.
+  Compliance grade distribution: A 25.6% / B 42.9% / C 28.9% / D 2.5% / F
+  0.0%. Average score 84.1/100. SQLite DB grew 53 MB → 63 MB (over GitHub's
+  50 MB recommended limit; LFS plan tracked in #660). Surfaced three real
+  issues hidden by the staleness — D+F regression, three-different-skill-counts
+  inconsistency, and DB size — all with acceptance criteria documented in
+  #660.
+- **`CLAUDE.md`** updated:
+  - "Two Catalog System" section explains the new sync-marketplace as
+    orchestrator (the three chained steps + when to use the json-only variant)
+  - "Auto-Generated Data Files" table now lists `plugins/**/package.json`
+    and the README TOC block as chained from sync-marketplace
+  - New "Git Hooks" section documents pre-commit + pre-push behavior +
+    bypass instructions
+
+### Tracking
+
+- Issue #657 (closed by #658) — README.md generator/Prettier 3-authority conflict
+- Issue #660 (open) — Post-Freshie-run-6 follow-ups (D+F regression second
+  half, 250 orphan skills + 19 duplicate slugs catalog hygiene, Freshie LFS
+  plan, Freshie compliance-snapshot design quirk)
+
+### Stats
+
+- 22 commits, 314 files changed, +16,124 / −10,545 lines
+- 11-PR coordinated guidewire-pack v2.0.0 rebuild
+- 8 PRs total merged this cycle (5 chore/fix + 3 features) plus the 11
+  guidewire PRs = 19 PRs landed since v4.29.0
+
 ## [4.29.0] - 2026-05-02
 
 This release bundles a major validator overhaul (schema 3.3.1), a fleet-wide

@@ -393,6 +393,37 @@ The cost is multiplicative: a 10-stage pipeline with cross-model enabled produce
 
 **Credit.** Observer operationalizes Wang, S., & Zhang, H. (2026). "Pedagogical partnerships with generative AI in higher education: how dual cognitive pathways paradoxically enable transformative learning." *IJETHE* 23:11. DOI [10.1186/s41239-026-00585-x](https://doi.org/10.1186/s41239-026-00585-x).
 
+### 3.5 Audit Artifact Gate (v3.6.7 Step 6)
+
+**Trigger.** At every stage transition where a v3.6.7 downstream agent (`synthesis_agent`, `research_architect_agent` survey-designer mode, or `report_compiler_agent` abstract-only mode) just completed a deliverable.
+
+**Decision policy.** First check verdict status. If `AUDIT_FAILED` (Path B5 short-circuit per spec §5.6), BLOCK without running the eleven gating checks; surface `verdict.failure_reason`; user must dispatch a fresh wrapper run. Otherwise, validate against the eleven gating verification checks (spec §5.2), then apply ship/block per verdict status (spec §5.3 — rows evaluated top-to-bottom, first matching row wins):
+
+- `PASS` (`p1 == 0 AND p2 == 0 AND p3 == 0`) → proceed to next stage; append `[Audit: PASS at round N]` line to FULL checkpoint.
+- `MINOR` (`p1 == 0 AND p2 == 0 AND p3 <= 3`) → MANDATORY checkpoint with finding details; user choice required: `continue` (ship) / `iterate` (dispatch revision) / `pause` (stop).
+- `MATERIAL + acknowledgement` (latest entry's `verdict.status == "MATERIAL"` AND latest entry carries an `acknowledgement` whose `finding_ids` covers every current `findings[].id`) → proceed to next stage; emit FULL checkpoint with `[Audit: MATERIAL at round N, residue acknowledged by user at <acknowledged_at>]` line. This row has higher precedence than plain `MATERIAL`.
+- `MATERIAL` (`p1 > 0 OR p2 > 0 OR p3 > 3`, AND latest entry either has no `acknowledgement` OR its `acknowledgement.finding_ids` does not cover every current `findings[].id` — defense-in-depth: the partial-coverage branch is unreachable under §5.4 lint rules but fails closed on hand-edit or lint bypass) → BLOCK; surface findings; re-invoke producing agent with revision prompt; deployment runs the wrapper at `--round N+1 --previous-findings <prior verdict.yaml>` for the next round audit. **Only after `round == target_rounds` (spec §5.4 default 3) still MATERIAL** does the gate emit the ESCALATION block offering `ship_with_known_residue` / `another_round` (raises cap by 1) / `abort_stage` — these three choices are escalation-only, not the default MATERIAL response.
+
+**Procedure.** Path A → Path B fall-through. Full procedure (A1–A7, B1–B11, A1.5 supersession preflight, B1a tuple-match recovery, B8a/B8b/B8c late freshness barriers, F-067 / F-069 / F-070 / F-072 closures, the 24-row Failure State Inventory) is the implementation contract and lives in spec §5.6 — orchestrator follows that procedure exactly. The prompt's role is to declare the gate, name the decision policy, and reference §5.6.
+
+- **Path A** re-verifies an already-merged persisted entry (recovery on resume / re-transition). Failure phases — all fall through to Path B with reason carried — are: `P-PA-precond` (no matching persisted entry), `P-PA-schema` (schema validation), `P-PA-gate` (eleven-gate failure), `P-PA-verdict-schema` (verdict file schema), `P-PA-verdict-mirror` (verdict mirror drift, Pattern C3 evidence), `P-PA-stale-late` (late freshness recheck), `P-PA-supersede-preempt` (A1.5 found a higher-round proposal). All seven defined inline in spec §5.6 inventory; this prompt cites them by ID only.
+- **Path B** merges a fresh proposal file (first-time merge or supersession of a failed Path A entry). Terminal BLOCK phases — surface diagnostic and require re-audit / inspect / disk check — are: `P-PB-empty` (no proposal), `P-PB-supersede-missing` (higher-round proposal absent), `P-PB-ambig` (proposal selection ambiguity), `P-PB-proposal-schema` (Pattern C3 attack surface), `P-PB-audit-failed` (audit attempted but failed), `P-PB-gate` (eleven-gate failure), `P-PB-verdict-schema`, `P-PB-verdict-mirror` (Pattern C3 evidence), `P-PB-stale-late` (bundle mutated post-gate), `P-PB-snapshot` (proposal/sidecar mutated mid-flow, restart at B1), `P-PB-persisted-schema`, `P-PB-passport-write`. Recovery phases (continue silently) are: `P-PB-dup-early` (B1a idempotent recovery from prior crash), `P-PB-dup-other` (run_id collision under hand-edit), `P-PB-dup-late` (B8b idempotent re-check), `P-PB-consume-fail` (entry committed; proposal-move best-effort), `P-PB-crash` (recovery on next session via Path A or Path B + B1a). All seventeen defined inline in spec §5.6 inventory; this prompt cites them by ID only.
+
+**Hard rules.**
+
+- Audit gate cannot be skipped — there is no "skip audit" option in checkpoint command vocabulary.
+- Audit gate runs BEFORE collaboration_depth_agent observer dispatch and BEFORE integrity_verification_agent dispatch. It is the first transition-time check.
+- A `verdict_status: PASS` does NOT imply integrity check is skipped. Stage 2.5 / 4.5 integrity gates remain mandatory per existing §3 Hard boundaries rule 9.
+
+**Failure surfacing.** Any block message uses the standard FULL/MANDATORY checkpoint visual (━━━ separator). Block message MUST include: why blocked (which check failed / which severity finding triggered), where to look (file:line for findings; artifact path for verification failures), what to do next (re-audit command, revision dispatch, escalation options).
+
+**Cross-references.**
+
+- Spec: `docs/design/2026-04-30-ars-v3.6.7-step-6-orchestrator-hooks-spec.md` §5.6 (full procedure), §5.2 (eleven gating checks), §5.3 (verdict semantics), §5.4 (round upper bound + escalation).
+- Audit template: `shared/templates/codex_audit_multifile_template.md`
+- Schema: `shared/contracts/passport/audit_artifact_entry.schema.json`
+- Wrapper: `scripts/run_codex_audit.sh`
+
 ### 4. Transition Management
 
 **Before each transition, verify the output artifact conforms to its schema in `shared/handoff_schemas.md`.** If schema validation fails, request the producing agent to re-generate the artifact before proceeding.

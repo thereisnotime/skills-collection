@@ -691,6 +691,42 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "a1698b7",
+      "message": "docs(skills): add user-facing skill docs at docs/skills/ (#773)",
+      "date": "2026-05-05",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "7ff3472",
+      "message": "fix(ce-work-beta): update Codex sandbox flags to current CLI syntax (#770)",
+      "date": "2026-05-05",
+      "author": "David A. Lee"
+    },
+    {
+      "sha": "4cc1ee6",
+      "message": "fix(ce-worktree): resolve script path against skill dir, not user CWD (#772)",
+      "date": "2026-05-04",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "5427863",
+      "message": "fix(ce-doc-review): tighten finding resolution routing (#769)",
+      "date": "2026-05-04",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "6217031",
+      "message": "chore: release main (#767)",
+      "date": "2026-05-04",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "dde9256",
+      "message": "feat(riffrec-feedback-analysis): add Riffrec feedback skill with three-path routing (#747)",
+      "date": "2026-05-04",
+      "author": "Kieran Klaassen"
+    },
+    {
       "sha": "06a7cee",
       "message": "chore: release main (#753)",
       "date": "2026-05-04",
@@ -713,42 +749,6 @@
       "message": "fix(ce-polish-beta): support Bash 3.2 project detection (#755)",
       "date": "2026-05-03",
       "author": "hnshah"
-    },
-    {
-      "sha": "9539bf0",
-      "message": "fix(ce-compound, ce-sessions): remove bash parameter expansion from ! backtick  (#752)",
-      "date": "2026-05-02",
-      "author": "David Ger\u0151"
-    },
-    {
-      "sha": "74624f8",
-      "message": "refactor(ce-simplify-code): scope tests by ripple risk, not full suite (#749)",
-      "date": "2026-05-01",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "71d23d1",
-      "message": "test: enforce ce- prefix on skills and agents (#748)",
-      "date": "2026-05-01",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "607c52a",
-      "message": "refactor(code-review): move resolve-base.sh to scripts/ directory (#744)",
-      "date": "2026-05-01",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "d685f07",
-      "message": "chore: release main (#740)",
-      "date": "2026-05-01",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "520a9eb",
-      "message": "fix(code-review): grant Write to JSON-pipeline reviewer agents (#741)",
-      "date": "2026-05-01",
-      "author": "Trevin Chow"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -853,6 +853,48 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "e7e775a",
+      "message": "feat(v3.6.7 Step 6 Phase 6.7): downstream agent partial inversion sweep + INV-1/2/3 lint (10 codex rounds, 0 P1) (#66)",
+      "date": "2026-05-05",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "2a796b9",
+      "message": "feat(v3.6.7 Step 6 Phase 6.6): orchestrator \u00a73.5 Audit Artifact Gate (3 codex rounds, 0 P1) (#65)",
+      "date": "2026-05-05",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "db16143",
+      "message": "spec(v3.6.7 Step 6 Phase 6.6): reconcile prompt budget \u2014 Path 2 split (5 codex rounds, 0 P1) (#64)",
+      "date": "2026-05-05",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "9419db2",
+      "message": "docs(v3.6.7 Step 6 Phase 6.6): pre-implementation scoping note \u2014 spec contradiction surfaced (#63)",
+      "date": "2026-05-05",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "02b87ae",
+      "message": "fix(academic-pipeline/SKILL.md): align H1 + Version Info table to v3.6.8 (suite version) (#62)",
+      "date": "2026-05-05",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "74131d7",
+      "message": "spec(v3.6.8 roadmap slot): trust provenance & drift transparency design (release semver TBD) (#61)",
+      "date": "2026-05-05",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "89bcc18",
+      "message": "docs(v3.5.1 spec): mark as retrospective shipped, \u00a75.1 test 8 OBSOLETE (#60)",
+      "date": "2026-05-04",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "734dd23",
       "message": "feat(v3.6.6, suite v3.6.8): generator-evaluator contract implementation \u2014 code-only tracks (#59)",
       "date": "2026-05-03",
@@ -869,51 +911,15 @@
       "message": "chore(gitignore): ignore ROADMAP.md (private, lives in claude-memory-sync) (#57)",
       "date": "2026-05-02",
       "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "5945b15",
-      "message": "feat(v3.6.7 Step 6 Phase 6.3): audit artifact consistency lint script + 135-test pytest suite (#56)",
-      "date": "2026-05-02",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "092a0b9",
-      "message": "feat(v3.6.7 Step 6 Phase 6.1): codex audit wrapper + JSONL parser + byte-exact snapshot helper (#55)",
-      "date": "2026-05-02",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "f594d3e",
-      "message": "feat(v3.6.7 Step 6 Phase 6.5): Schema 9 audit_artifact[] amendment + reset-boundary cross-link (#54)",
-      "date": "2026-05-02",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "7bd0d7b",
-      "message": "fix(v3.6.7 Step 6 spec): \u00a73.3 add item.started event + \u00a75.2 wire L2-5 + cascade sweep (#53)",
-      "date": "2026-05-02",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "46c1400",
-      "message": "feat(v3.6.7 Step 6): Phase 6.2 + 6.4 \u2014 audit schemas + monotonic helper (#52)",
-      "date": "2026-05-01",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "e65ec68",
-      "message": "spec(v3.6.7 Step 6): \u00a76\u2013\u00a711 design (partial inversion / Step 8 fixtures / risks / impl plan) (#51)",
-      "date": "2026-05-01",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "b76e626",
-      "message": "spec(v3.6.7): Step 6 orchestrator audit gate (\u00a71\u2013\u00a75 design) (#50)",
-      "date": "2026-05-01",
-      "author": "Edward Cheng-I Wu"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
+    {
+      "sha": "37a148b",
+      "message": "chore: update security scan report [skip ci]",
+      "date": "2026-05-04",
+      "author": "github-actions[bot]"
+    },
     {
       "sha": "e143ef2",
       "message": "Merge pull request #141 from renato-umeton/feature/autoskill",
@@ -967,12 +973,6 @@
       "message": "fix: disclose data transmission to api.parallel.ai and openrouter.ai in research-lookup (#149)",
       "date": "2026-04-30",
       "author": "xiaolai"
-    },
-    {
-      "sha": "be68d76",
-      "message": "feat: enhance infographic generation with context image support",
-      "date": "2026-04-30",
-      "author": "vin-bio"
     }
   ],
   "K-Dense-AI--claude-scientific-writer": [
@@ -1825,6 +1825,12 @@
   ],
   "cloudflare--skills": [
     {
+      "sha": "60147cb",
+      "message": "ci: add Semgrep OSS scanning workflow (#46)",
+      "date": "2026-05-04",
+      "author": "Hrushikesh Deshpande"
+    },
+    {
       "sha": "7c449de",
       "message": "Add Flagship (feature flags) skill reference (#47)",
       "date": "2026-04-27",
@@ -1876,12 +1882,6 @@
       "sha": "5ec03da",
       "message": "fix: standardize AIChatAgent and useAgentChat import paths (#38)",
       "date": "2026-04-06",
-      "author": "Ade Oshineye"
-    },
-    {
-      "sha": "22a32f5",
-      "message": "Fix 18 factual errors: pricing, CPU limits, API names, sandbox docs, CLI syntax (#35)",
-      "date": "2026-04-01",
       "author": "Ade Oshineye"
     }
   ],
@@ -2915,6 +2915,12 @@
   ],
   "obra--superpowers": [
     {
+      "sha": "f2cbfbe",
+      "message": "Release v5.1.0 (#1468)",
+      "date": "2026-05-04",
+      "author": "Jesse Vincent"
+    },
+    {
       "sha": "e7a2d16",
       "message": "Require session transcript for new-harness PRs",
       "date": "2026-04-30",
@@ -2967,12 +2973,6 @@
       "message": "Merge pull request #1165 from obra/mirror-codex-plugin-tooling",
       "date": "2026-04-14",
       "author": "Jesse Vincent"
-    },
-    {
-      "sha": "bc25777",
-      "message": "sync-to-codex-plugin: anchor EXCLUDES patterns to source root",
-      "date": "2026-04-14",
-      "author": "Drew Ritter"
     }
   ],
   "obra--superpowers-skills": [
@@ -3163,6 +3163,12 @@
   ],
   "remotion-dev--skills": [
     {
+      "sha": "f34abef",
+      "message": "Update template",
+      "date": "2026-05-04",
+      "author": "JonnyBurger"
+    },
+    {
       "sha": "8587710",
       "message": "Update template",
       "date": "2026-05-03",
@@ -3214,12 +3220,6 @@
       "sha": "8969e87",
       "message": "Update template",
       "date": "2026-02-18",
-      "author": "Jonny Burger"
-    },
-    {
-      "sha": "f59d94b",
-      "message": "Update template",
-      "date": "2026-02-13",
       "author": "Jonny Burger"
     }
   ],
@@ -4093,6 +4093,18 @@
   ],
   "vercel-labs--next-skills": [
     {
+      "sha": "34d5a77",
+      "message": "docs(proxy): fix config export name in proxy.ts examples (#10)",
+      "date": "2026-05-04",
+      "author": "Saman Soltani"
+    },
+    {
+      "sha": "86fd48f",
+      "message": "fix: correct react skill install command (#19)",
+      "date": "2026-05-04",
+      "author": "Francesc Rosas"
+    },
+    {
       "sha": "038954e",
       "message": "mirgate unstable_cache to cc api (#5)",
       "date": "2026-02-16",
@@ -4137,18 +4149,6 @@
     {
       "sha": "2c88cf5",
       "message": "tweak readme",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "43cc6d7",
-      "message": "function apis",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "bee1153",
-      "message": "brief readme",
       "date": "2026-01-26",
       "author": "Jiachi Liu"
     }
@@ -4921,6 +4921,18 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "859172a",
+      "message": "Merge pull request #523 from eyalb181/add-metalbear-skills",
+      "date": "2026-05-04",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "f01d878",
+      "message": "Add skill: metalbear-co/skills",
+      "date": "2026-05-03",
+      "author": "Eyal Bukchin"
+    },
+    {
       "sha": "23d2395",
       "message": "Merge pull request #510 from voidborne-d/add-humanize-chinese",
       "date": "2026-05-03",
@@ -4967,18 +4979,6 @@
       "message": "Add skill: voidborne-d/humanize-chinese to Marketing community skills",
       "date": "2026-04-28",
       "author": "d \ud83d\udd39"
-    },
-    {
-      "sha": "212bf21",
-      "message": "Add skill: redis/redis-development",
-      "date": "2026-04-27",
-      "author": "booleanhunter"
-    },
-    {
-      "sha": "fd4f0e9",
-      "message": "Merge pull request #480 from antonbabenko/update-terraform-skill-desc",
-      "date": "2026-04-25",
-      "author": "Necati \u00d6zmen"
     }
   ],
   "BehiSecc--awesome-claude-skills": [
@@ -5045,6 +5045,42 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
+      "sha": "284df09",
+      "message": "Improve god-session error reporting and alerts",
+      "date": "2026-05-04",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "4e95fda",
+      "message": "Throttle task poll notifications to 24h",
+      "date": "2026-05-04",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "480052b",
+      "message": "Add Telegram commands for global and private chats",
+      "date": "2026-05-04",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "8b5d2da",
+      "message": "relay-bot: add task polling and handoff",
+      "date": "2026-05-04",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "7d7ba31",
+      "message": "Per-user god-instance: systemd template & sandbox",
+      "date": "2026-05-04",
+      "author": "levnikolaevich"
+    },
+    {
+      "sha": "35e5027",
+      "message": "ln-030: update VPS bootstrap docs & templates",
+      "date": "2026-05-04",
+      "author": "levnikolaevich"
+    },
+    {
       "sha": "484e6e1",
       "message": "Finalize ln-030 shared VPS bootstrap",
       "date": "2026-05-03",
@@ -5067,103 +5103,67 @@
       "message": "Port ln-030 relay bot to Node runtime",
       "date": "2026-05-02",
       "author": "levnikolaevich"
-    },
-    {
-      "sha": "9eb5880",
-      "message": "Refactor SKILL.md and add reference docs",
-      "date": "2026-05-01",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "f552190",
-      "message": "Add ln-030 VPS bootstrap and relay fixes",
-      "date": "2026-04-30",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "30e5895",
-      "message": "Relay bot: v6 text-only, DB schema & control lane",
-      "date": "2026-04-30",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "03f3c9c",
-      "message": "ln-030: make relay port & dispatch name configurable",
-      "date": "2026-04-30",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "555ef7f",
-      "message": "Add ln-030-vps-bootstrap skill and refs",
-      "date": "2026-04-30",
-      "author": "levnikolaevich"
-    },
-    {
-      "sha": "b56e470",
-      "message": "release: MCP packages minor versions",
-      "date": "2026-04-25",
-      "author": "levnikolaevich"
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
-      "sha": "13d35b8",
-      "message": "chore(workflow): auto-regen catalog-derived files + warn on stale-branch push (#667)",
+      "sha": "3a2d27d",
+      "message": "chore(release): prepare v4.30.0",
+      "date": "2026-05-04",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "ba8561d",
+      "message": "chore(guidewire): v2.0.0 pack-level cleanup \u2014 README + package.json + cuts (#678)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "b8c7056",
-      "message": "feat(devops/engineer-design-diagram): port global skill to marketplace plugin (claude-2rb6) (#665)",
+      "sha": "172d892",
+      "message": "feat(guidewire): rebuild webhooks-integrations (rename + deepen) (#676)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "7dedb93",
-      "message": "release(community/contributing-clanker): v0.1.2",
+      "sha": "c9447af",
+      "message": "feat(guidewire): build migration-and-upgrade (merge of 2 skills) (#677)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "9be4627",
-      "message": "release(community/contributing-clanker): v0.1.1",
+      "sha": "0320081",
+      "message": "feat(guidewire): rebuild core-workflow-b (ClaimCenter) to A-grade (#672)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "a5f74ac",
-      "message": "release(community/contributing-clanker): v0.1.0",
+      "sha": "b0bd515",
+      "message": "feat(guidewire): build observability-and-incident-response (merge x3) (#674)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "d602dbb",
-      "message": "feat(community): add contributing-clanker plugin scaffold (v0.1.0)",
+      "sha": "bad5a73",
+      "message": "feat(guidewire): build security-and-rbac (merge of basics+enterprise-rbac) (#673)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "c538828",
-      "message": "fix(#660): remediate 102 D+F skills missing tags + compatibility frontmatter (#661)",
+      "sha": "4c82837",
+      "message": "feat(guidewire): rebuild core-workflow-a (PolicyCenter) to A-grade (#671)",
       "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "18c44a8",
-      "message": "chore(freshie): discovery run 6 + compliance population (post-v4.29.0 snapshot) (#659)",
-      "date": "2026-05-03",
+      "sha": "5ef00cb",
+      "message": "feat(guidewire): rebuild local-dev-loop to A-grade fast Gosu iteration (#670)",
+      "date": "2026-05-04",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "531631f",
-      "message": "fix(#657): generators format README via Prettier \u2014 close 3-authority conflict (#658)",
-      "date": "2026-05-03",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "97e19a1",
-      "message": "chore(quality): post-v4.29.0 sweep \u2014 fix pre-existing eslint/prettier/TOC issues surfaced by new gates (#656)",
-      "date": "2026-05-03",
+      "sha": "0735004",
+      "message": "feat(guidewire): rebuild sdk-patterns to A-grade Cloud API client (#669)",
+      "date": "2026-05-04",
       "author": "intentsolutions.io"
     }
   ],
@@ -5479,6 +5479,18 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "cb8bb58",
+      "message": "add AGENT COLLECTIONS section with msitarzewski/agency-agents and VoltAgent/awesome-claude-code-subagents (10k+ stars)",
+      "date": "2026-05-04",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "2cc8d4b",
+      "message": "add slide on temperature=0 nondeterminism and Source: footers to slides 7, 9, 10, 15, 23, 46",
+      "date": "2026-05-04",
+      "author": "Shayan Rais"
+    },
+    {
       "sha": "776acb6",
       "message": "add video-2.png tile to Videos section linking to youtu.be/lPjhM6BBK0Q",
       "date": "2026-05-03",
@@ -5523,18 +5535,6 @@
     {
       "sha": "21b4412",
       "message": "update video.psd thumbnail source",
-      "date": "2026-05-02",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "814fcd0",
-      "message": "add Videos and Presentations sub-sections to How to Use",
-      "date": "2026-05-02",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "1e8a5e5",
-      "message": "add presentation-1.png thumbnail",
       "date": "2026-05-02",
       "author": "Shayan Rais"
     }

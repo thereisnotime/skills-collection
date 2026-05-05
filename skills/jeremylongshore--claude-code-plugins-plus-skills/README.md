@@ -1,6 +1,6 @@
 # Tons of Skills — Claude Code Plugins Marketplace
 
-[![Release](https://img.shields.io/badge/release-v4.29.0-green)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/releases/tag/v4.29.0)
+[![Release](https://img.shields.io/badge/release-v4.30.0-green)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/releases/tag/v4.30.0)
 [![CLI](https://img.shields.io/badge/CLI-ccpi-blueviolet?logo=npm)](https://www.npmjs.com/package/@intentsolutionsio/ccpi)
 [![Plugins](https://img.shields.io/badge/plugins-425-blue)](https://tonsofskills.com/explore)
 [![Skills](https://img.shields.io/badge/skills-2%2C810-green)](https://tonsofskills.com/skills)
