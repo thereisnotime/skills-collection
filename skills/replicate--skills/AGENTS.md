@@ -2,13 +2,15 @@
 
 ## Purpose
 
-This repo publishes Agent Skills for Replicate: focused guides for finding, comparing, running, and prompting AI models.
+This repo publishes Agent Skills for Replicate: focused guides for finding, comparing, running, building, publishing, and prompting AI models.
 
 ## Files that matter
 
 - `skills/find-models/SKILL.md` — search, collections, schemas, picking the right model.
 - `skills/compare-models/SKILL.md` — evaluating models by cost, speed, quality, and capabilities.
 - `skills/run-models/SKILL.md` — predictions, polling, webhooks, streaming, file I/O, concurrency, multi-model workflows.
+- `skills/build-models/SKILL.md` — packaging custom models with Cog: cog.yaml, predict.py, weights loading, cold-boot tricks.
+- `skills/publish-models/SKILL.md` — pushing models to Replicate with cog push and cog-safe-push, and CI/CD for releases.
 - `skills/prompt-images/SKILL.md` — prompting techniques for image generation and editing models.
 - `skills/prompt-videos/SKILL.md` — prompting techniques for video generation models.
 - `script/lint` — validates the skills.
@@ -28,6 +30,8 @@ This repo publishes Agent Skills for Replicate: focused guides for finding, comp
 script/lint skills/find-models
 script/lint skills/compare-models
 script/lint skills/run-models
+script/lint skills/build-models
+script/lint skills/publish-models
 script/lint skills/prompt-images
 script/lint skills/prompt-videos
 ```

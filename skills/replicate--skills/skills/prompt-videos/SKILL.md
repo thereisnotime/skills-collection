@@ -8,7 +8,13 @@ description: >
 
 # Prompting video models on Replicate
 
-Distilled from Replicate's blog posts on prompting video models (2025-2026). Techniques are model-agnostic and focus on transferable principles. For model selection, pricing, and feature comparison, see the [compare-models](../compare-models/SKILL.md) skill.
+Distilled from Replicate's blog posts on prompting video models (2025-2026). Techniques are model-agnostic and focus on transferable principles.
+
+## Choose a model with the API, not from memory
+
+This skill describes general prompting techniques. To choose a model, use the [find-models](../find-models/SKILL.md) skill and query the Replicate API. The video model landscape changes weekly. Don't assume specific models exist or are still state-of-the-art based on names you've seen before. Always search the API for current options, then read the schema before running anything.
+
+For pricing and feature comparison, see the [compare-models](../compare-models/SKILL.md) skill.
 
 
 ## Scene description
@@ -322,9 +328,9 @@ If the model supports subject reference images, use a clear photo of the charact
 10. **Forgetting that video models don't have internet access**: No video model has live information. They work from training data. Don't expect them to know about current events or real-time information.
 
 
-## Sources
+## Background reading
 
-All techniques in this skill are sourced from Replicate's blog:
+The techniques above are distilled from Replicate's blog posts on prompting video models. The posts are anchored to specific models that were current at the time, but the techniques generalize across modern video models. Use these for additional context, then use the [find-models](../find-models/SKILL.md) skill to pick a model that fits your task today.
 
 - [How to make remarkable videos with Seedance 2.0](https://replicate.com/blog/seedance-2) (Apr 2026)
 - [How to prompt Veo 3.1](https://replicate.com/blog/veo-3-1) (Oct 2025)

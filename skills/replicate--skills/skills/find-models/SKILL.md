@@ -3,6 +3,12 @@ name: find-models
 description: Find AI models on Replicate using search and curated collections.
 ---
 
+## Always search the API for current models
+
+The AI model landscape changes weekly. New models ship constantly and older ones are deprecated or surpassed. Don't rely on model names you've seen before, including names from past conversations or training data. A specific model you "know" may no longer be the best choice, may be slower than newer alternatives, or may not exist anymore.
+
+Always start by querying the Replicate API. Use search and collections to discover what's currently available, then read schemas to understand inputs and outputs before running anything.
+
 ## Docs
 
 - Reference: <https://replicate.com/docs/llms.txt>
@@ -42,6 +48,6 @@ description: Find AI models on Replicate using search and curated collections.
 
 ## Model identifiers
 
-- **Official models** use `owner/name` format (e.g. `black-forest-labs/flux-2-klein-9b`). Routes to the latest version automatically.
+- **Official models** use `owner/name` format (e.g. `owner/model-name`). Routes to the latest version automatically.
 - **Community models** require `owner/name:version_id`. You must pin a specific version. Community models can cold-boot and take time to start.
 - If you must use a community model, be aware that it can take a long time to boot. You can create always-on deployments, but you pay for model uptime.

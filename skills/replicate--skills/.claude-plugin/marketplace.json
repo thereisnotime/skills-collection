@@ -22,6 +22,16 @@
       "description": "Run AI models on Replicate via predictions, webhooks, and streaming."
     },
     {
+      "name": "build-models",
+      "source": "skills/build-models",
+      "description": "Package and build custom AI models with Cog for deployment on Replicate."
+    },
+    {
+      "name": "publish-models",
+      "source": "skills/publish-models",
+      "description": "Push and publish custom AI models to Replicate, and set up CI/CD for releasing new model versions safely."
+    },
+    {
       "name": "prompt-images",
       "source": "skills/prompt-images",
       "description": "Prompting techniques for AI image generation and editing models on Replicate."

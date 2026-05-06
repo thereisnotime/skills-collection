@@ -7,7 +7,13 @@ description: >
 
 # Prompting image models on Replicate
 
-Distilled from Replicate's blog posts on prompting image models (2024-2026). Techniques are model-agnostic and focus on transferable principles. For model selection, pricing, and feature comparison, see the [compare-models](../compare-models/SKILL.md) skill.
+Distilled from Replicate's blog posts on prompting image models (2024-2026). Techniques are model-agnostic and focus on transferable principles.
+
+## Choose a model with the API, not from memory
+
+This skill describes general prompting techniques. To choose a model, use the [find-models](../find-models/SKILL.md) skill and query the Replicate API. The image model landscape changes weekly. Don't assume specific models exist or are still state-of-the-art based on names you've seen before. Always search the API for current options, then read the schema before running anything.
+
+For pricing and feature comparison, see the [compare-models](../compare-models/SKILL.md) skill.
 
 
 ## Writing prompts
@@ -180,9 +186,9 @@ Some models can generate multiple related images in a single prompt.
 10. **Not iterating**: The best results come from iterative workflows. Make a small change, evaluate, refine, repeat. Don't try to get everything right in a single generation.
 
 
-## Sources
+## Background reading
 
-All techniques in this skill are sourced from Replicate's blog:
+The techniques above are distilled from Replicate's blog posts on prompting image models. The posts are anchored to specific models that were current at the time, but the techniques generalize across modern image models. Use these for additional context, then use the [find-models](../find-models/SKILL.md) skill to pick a model that fits your task today.
 
 - [How to prompt Seedream 5.0](https://replicate.com/blog/how-to-prompt-seedream-5) (Feb 2026)
 - [Recraft V4](https://replicate.com/blog/recraft-v4) (Feb 2026)
