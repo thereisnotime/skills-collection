@@ -2,6 +2,14 @@
 
 <!-- SCOPE: User-facing changes only. Max 5 bullets per entry. Focus: new capabilities, workflow changes, breaking changes. -->
 
+## 2026-05-06
+
+- **VPS Agent: hex-relay** — Telegram control-plane extracted from ln-030 references into standalone `agents/hex-relay/` package; Fastify+Zod typed routes, runProcess utility, `/health` build/runtime metadata, structured god-session error classification with deduped admin alerts
+- **Per-user god-sessions** — systemd template instances `*-god@<telegram_user_id>.service` with bubblewrap-based agent-sandbox, per-project tmux sockets, per-user runtime under `/var/lib/${PROJECT_NAME}/users/<id>`; restart-on-update across all active instances
+- **ln-030-vps-bootstrap skill (new)** — L3 standalone one-shot idempotent VPS bootstrap for Claude Code + Codex workloads; configurable `RELAY_HOOK_PORT`/`DISPATCH_COMMAND_NAME`, REPO_URL/REPO_REF git verification, VPS-local fleet registry under `/etc/agent-fleet`, register-telegram-commands automation for global + `all_private_chats` scope
+- **Inbound enrichment** — local voice→text via ffmpeg + whisper.cpp (env-gated `RELAY_VOICE_TRANSCRIPTION`), durable queued message model with retry/abandon, `relay-bot v6` text-only DB schema with control lane and 24h-throttled task-poll notifications; `/tasks` provider polling every 15 min with handoff UI
+- **MCP packages** — hex-line v1.27.1→v1.29.0 (Windows CRLF summary fix, generic-external-repo fallback scenarios, anchor-extraction de-flake), hex-graph v0.16.0→v0.19.0 (`audit_workspace` bounded preview with `limit`/`clone_member_limit`, gitignore-aware file discovery via `git ls-files`, full-rebuild `resetProjectGraph` on index_project), hex-ssh v1.6.1→v1.7.0 (per-tool timeout doc rows, regression guards)
+
 ## 2026-04-21
 
 - **hex-line v1.17→v1.27** — PROTOCOL.md Response grammar (action-line + section/entry/detail prefixes), prose-noise cleanup (-37% output bytes), boundary-echo auto-strip preserves structural `}`/`)`/`]`/`});` delimiters, post-edit lexical brace-balance advisory, `range_checksum` on `replace_between`, new `warnings` field on `edit_file`
@@ -85,7 +93,7 @@
 
 
 ## 2026-03-24
-- **skills-catalog rename** — `skills/` → `skills-catalog/` to fix plugin skill duplication (128×6 entries in autocomplete)
+- **plugin-first skills layout** — moved installable skills under `plugins/*/skills/` to fix plugin skill duplication (128×6 entries in autocomplete)
 - **ln-840-benchmark-compare** — new skill in optimization-suite: A/B benchmark (built-in vs hex-line), renamed from ln-015
 - **bulk_replace caps** — format param (compact/full), per-file diff cap (50L), payload cap (30K chars)
 
@@ -96,7 +104,7 @@
 - **ln-010 assess-dispatch-verify** — redesigned from invoke-all to smart dispatch: probes environment once, builds decision matrix, skips workers with nothing to do
 - **ln-150 removed** — presentation-creator skill deleted; all references cleaned from pipeline, marketplace, site, docs
 - **ln-162 Check 18** — new automated check verifies every SKILL.md has `**Type:**` line; prevents silent bypass of Check 9/17
-- **run_checks.sh hardened** — Check 5 scoped to skills-catalog/ paths only; Check 9/17 exclude Workers from coordinator-only requirements
+- **run_checks.sh hardened** — Check 5 scoped to plugin skill paths only; Check 9/17 exclude Workers from coordinator-only requirements
 - **ln-014 auditor → manager** — renamed to ln-014-agent-instructions-manager; creates missing CLAUDE.md and AGENTS.md
 
 ## 2026-03-22

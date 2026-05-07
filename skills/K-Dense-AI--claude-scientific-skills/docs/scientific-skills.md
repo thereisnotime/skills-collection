@@ -207,4 +207,5 @@
 - **What-If Oracle** - Run structured What-If scenario analysis with multi-branch possibility exploration. Use for speculative questions, scenario planning, risk analysis, contingency planning, strategic options evaluation, stress-testing ideas, and thinking through consequences before committing
 
 ### Web Search & Information Retrieval
+- **Exa Search** - Web search and URL content extraction via the Exa API. Use for high-quality web search tuned for scientific and technical content, scholarly filtering via `category="research paper"` plus academic domain allowlists, and batch URL extraction
 - **Parallel Web** - Search the web, extract URL content, and run deep research using the Parallel Chat API and Extract API. Use for web searches, research queries, and general information gathering with synthesized summaries and citations
