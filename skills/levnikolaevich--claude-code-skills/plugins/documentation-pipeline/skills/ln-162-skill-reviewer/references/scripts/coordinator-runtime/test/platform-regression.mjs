@@ -1,3 +1,5 @@
+// SOURCE-OF-TRUTH: shared/scripts/coordinator-runtime/test/platform-regression.mjs. Edit ONLY here; run `node tools/marketplace/shared.mjs sync`
+
 import { writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,15 +10,15 @@ import {
 } from "./cli-test-helpers.mjs";
 import { WORKER_SUMMARY_STATUSES } from "../lib/runtime-constants.mjs";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+const scriptsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-const envCli = join(repoRoot, "references/scripts/environment-setup-runtime/cli.mjs");
-const storyCli = join(repoRoot, "references/scripts/story-planning-runtime/cli.mjs");
-const taskCli = join(repoRoot, "references/scripts/task-planning-runtime/cli.mjs");
-const evaluationCli = join(repoRoot, "references/scripts/evaluation-runtime/cli.mjs");
-const executionCli = join(repoRoot, "references/scripts/story-execution-runtime/cli.mjs");
-const gateCli = join(repoRoot, "references/scripts/story-gate-runtime/cli.mjs");
-const optimizationCli = join(repoRoot, "references/scripts/optimization-runtime/cli.mjs");
+const envCli = join(scriptsRoot, "environment-setup-runtime/cli.mjs");
+const storyCli = join(scriptsRoot, "story-planning-runtime/cli.mjs");
+const taskCli = join(scriptsRoot, "task-planning-runtime/cli.mjs");
+const evaluationCli = join(scriptsRoot, "evaluation-runtime/cli.mjs");
+const executionCli = join(scriptsRoot, "story-execution-runtime/cli.mjs");
+const gateCli = join(scriptsRoot, "story-gate-runtime/cli.mjs");
+const optimizationCli = join(scriptsRoot, "optimization-runtime/cli.mjs");
 
 function assert(condition, message) {
     if (!condition) {
@@ -78,6 +80,23 @@ function testEnvironmentReplayFromHistory() {
         "PHASE_1_ASSESS",
         "--payload",
         JSON.stringify({ assess_summary: { status: WORKER_SUMMARY_STATUSES.COMPLETED } }),
+    ]);
+    run(["advance", "--identifier", "targets-both", "--to", "PHASE_1B_PROVIDER_SELECTION"]);
+    run([
+        "checkpoint",
+        "--identifier",
+        "targets-both",
+        "--phase",
+        "PHASE_1B_PROVIDER_SELECTION",
+        "--payload",
+        JSON.stringify({
+            provider_selection: {
+                chosen: "file",
+                available: ["linear", "github", "file"],
+                reason: "test",
+                selected_by: "user",
+            },
+        }),
     ]);
     run(["advance", "--identifier", "targets-both", "--to", "PHASE_2_DISPATCH_PLAN"]);
 

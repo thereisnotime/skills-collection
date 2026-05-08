@@ -1,18 +1,16 @@
-import { setTimeout as delay } from "node:timers/promises";
 import type { Logger } from "../lib/logger.js";
 import { TIMING } from "../config/paths.js";
 import type { MessagesRepo } from "../infrastructure/db/repositories/messages.repo.js";
 import type { OutboxService } from "../services/outbox.service.js";
 import type { LocalVoiceTranscriber } from "../infrastructure/process/localVoiceTranscriber.js";
 import type { InboundMessage } from "../domain/message.js";
+import { buildTgPrefix } from "../domain/tgPrefix.js";
+import { createWorkerLoop, type DrainableWorker } from "./workerLoop.js";
 
-export interface VoiceTranscriptionWorker {
-  start(): Promise<void>;
-  stop(): void;
-}
+export type VoiceTranscriptionWorker = DrainableWorker;
 
 const TRANSCRIPTION_FAILED_REPLY =
-  "Не смог распознать голосовое сообщение локально. Отправь команду текстом или попробуй короче.";
+  "Local voice transcription failed. Send a text command or a shorter voice message.";
 
 function shortError(error: unknown): string {
   return String(error).slice(0, 300);
@@ -53,16 +51,26 @@ export async function transcribeVoiceRow(
     reject(deps, row, "voice media_path missing");
     return;
   }
+  if (row.tgChatId === null || row.tgMsgId === null || row.fromUserId === null) {
+    reject(deps, row, "voice row missing tg identifiers");
+    return;
+  }
   try {
     const transcript = await deps.transcriber.transcribe(row.mediaPath);
+    const prefix = buildTgPrefix({
+      chatId: row.tgChatId,
+      msgId: row.tgMsgId,
+      userToken: String(row.fromUserId),
+    });
+    const queuedText = `${prefix} ${transcript.text}`;
     deps.messagesRepo.update(row.id, {
       status: "queued",
-      text: transcript.text,
+      text: queuedText,
       attempts: row.attempts + 1,
       nextAttemptAt: Math.floor(Date.now() / 1000),
       error: null,
     });
-    deps.log.info({ id: row.id, len: transcript.text.length }, "VOICE transcribed");
+    deps.log.info({ id: row.id, len: queuedText.length }, "VOICE transcribed");
   } catch (error) {
     reject(deps, row, error);
     deps.log.warn({ id: row.id, err: String(error) }, "VOICE transcription rejected");
@@ -72,31 +80,15 @@ export async function transcribeVoiceRow(
 export function createVoiceTranscriptionWorker(
   deps: VoiceTranscriptionDeps
 ): VoiceTranscriptionWorker {
-  let running = false;
-  let stopPromise: Promise<void> | null = null;
-
-  return {
-    async start() {
-      if (running) return;
-      running = true;
-      deps.log.info({ pollMs: TIMING.inboundPollMs }, "voice transcription worker started");
-      stopPromise = (async () => {
-        while (running) {
-          try {
-            const rows = deps.messagesRepo.selectTranscribing(2);
-            for (const row of rows) {
-              await transcribeVoiceRow(deps, row);
-            }
-          } catch (error) {
-            deps.log.error({ err: String(error) }, "voice transcription worker iteration failed");
-          }
-          await delay(TIMING.inboundPollMs);
-        }
-      })();
-      await stopPromise;
+  return createWorkerLoop({
+    log: deps.log,
+    name: "voice transcription worker",
+    intervalMs: TIMING.inboundPollMs,
+    async runOnce() {
+      const rows = deps.messagesRepo.selectTranscribing(2);
+      for (const row of rows) {
+        await transcribeVoiceRow(deps, row);
+      }
     },
-    stop() {
-      running = false;
-    },
-  };
+  });
 }

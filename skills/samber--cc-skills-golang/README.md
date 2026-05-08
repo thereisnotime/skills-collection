@@ -129,6 +129,42 @@ Update with `cd ~/.antigravity/skills/cc-skills-golang && git pull`.
 
 These skills are designed as **atomic, cross-referencing units**. A skill may reference conventions defined in another (e.g. error-handling rules that affect logging live in `golang-error-handling`, not `golang-observability`). Installing only a subset will give you a partial and potentially inconsistent view of the guidelines. For best results, install all general-purpose skills together.
 
+```
+                         ┌────────────────────────────────────────┐
+                         │             Golang Skills              │
+                         └──────────────────┬─────────────────────┘
+                                            │
+   ┌─────────────────┬──────────────────────┼──────────────────────┐
+   ▼                 ▼                      ▼                      ▼
+┌──────────────┐ ┌──────────────┐ ┌─────────────────┐ ┌──────────────────┐
+│ Code Quality │ │ Arch & Design│ │    QA & Perf    │ │  Project Start   │
+├──────────────┤ ├──────────────┤ ├─────────────────┤ ├──────────────────┤
+│ code-style   │ │ design-patt  │ │ testing         │ │ project-layout   │
+│ naming       │ │ concurrency  │ │ benchmark       │ │ popular-libs     │
+│ error-handl  │ │ context      │ │ performance     │ │ cli              │
+│ safety       │ │ dep-inject   │ │ troubleshoot    │ │ CI               │
+│ structs-iface│ │ data-structs │ │ observability   │ │ stay-updated     │
+│ documentation│ │ database     │ │                 │ │ dep-management   │
+│ lint         │ │ modernize    │ │                 │ │                  │
+│ security     │ │              │ │                 │ │                  │
+└──────────────┘ └──────────────┘ └─────────────────┘ └──────────────────┘
+
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                      Framework / Library Skills                         │
+    ├──────────────┬────────────────┬──────────────┬─────────────┬───────────┤
+    │   APIs       │      DI        │  Frameworks  │  samber/*   │  Testing  │
+    ├──────────────┼────────────────┼──────────────┼─────────────┼───────────┤
+    │ grpc         │ google-wire    │ spf13-cobra  │ samber-lo   │ stretchr- │
+    │ graphql      │ uber-dig       │ spf13-viper  │ samber-mo   │  testify  │
+    │ swagger      │ uber-fx        │              │ samber-ro   │           │
+    │              │                │              │ samber-do   │           │
+    │              │                │              │ samber-hot  │           │
+    │              │                │              │ samber-slog │           │
+    │              │                │              │ samber-oops │           │
+    └──────────────┴────────────────┴──────────────┴─────────────┴───────────┘
+
+```
+
 - ⭐️ Recommended
 - ✅ Published
 - 👷 Work in progress

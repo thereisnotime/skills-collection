@@ -33,6 +33,7 @@ const RawEnvSchema = z.object({
   SERVICE_PREFIX: UnitFragmentSchema,
   BOT_USER: LinuxUserSchema,
   RELAY_HOOK_PORT: z.coerce.number().int().min(1).max(65_535),
+  RELAY_HTTP_TOKEN: z.string().min(32, "RELAY_HTTP_TOKEN must be at least 32 characters"),
   RELAY_VERBOSITY: z.enum(["quiet", "normal", "verbose"]).default("normal"),
   RELAY_INBOUND_REACTIONS: z.string().optional(),
   RELAY_VOICE_TRANSCRIPTION: z.enum(["off", "local"]).default("off"),
@@ -48,6 +49,13 @@ const RawEnvSchema = z.object({
   GITHUB_APP_PRIVATE_KEY_PATH: AbsolutePosixPathSchema.optional(),
   GITLAB_HOST: OptionalHostnameSchema,
   GITLAB_API_TOKEN: OptionalNoWhitespaceSchema,
+  RELAY_IDLE_SHUTDOWN_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  RELAY_IDLE_SHUTDOWN_SEC: z.coerce.number().int().min(60).max(86_400).default(600),
+  RELAY_IDLE_TICK_SEC: z.coerce.number().int().min(15).max(3600).default(60),
+  RELAY_IDLE_BOOT_GRACE_SEC: z.coerce.number().int().min(0).max(3600).default(120),
 });
 
 export interface Env {
@@ -61,6 +69,7 @@ export interface Env {
   dbPath: string;
   hookHost: string;
   hookPort: number;
+  httpToken: string;
   verbosity: "quiet" | "normal" | "verbose";
   inboundReactions: string[];
   voiceTranscription: "off" | "local";
@@ -76,6 +85,10 @@ export interface Env {
   githubAppPrivateKeyPath: string | null;
   gitlabHost: string | null;
   gitlabApiToken: string | null;
+  idleShutdownEnabled: boolean;
+  idleShutdownSec: number;
+  idleTickSec: number;
+  idleBootGraceSec: number;
 }
 
 const DEFAULT_REACTIONS = "👀,👍,✅,🫡,🤝,✍,🆒,👌,🙏";
@@ -115,6 +128,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     dbPath: `/var/lib/${projectName}/relay.db`,
     hookHost: "127.0.0.1",
     hookPort: v.RELAY_HOOK_PORT,
+    httpToken: v.RELAY_HTTP_TOKEN,
     verbosity: v.RELAY_VERBOSITY,
     inboundReactions: parseReactions(v.RELAY_INBOUND_REACTIONS),
     voiceTranscription: v.RELAY_VOICE_TRANSCRIPTION,
@@ -141,5 +155,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     gitlabHost: v.GITLAB_HOST && v.GITLAB_HOST.trim().length > 0 ? v.GITLAB_HOST.trim() : null,
     gitlabApiToken:
       v.GITLAB_API_TOKEN && v.GITLAB_API_TOKEN.trim().length > 0 ? v.GITLAB_API_TOKEN.trim() : null,
+    idleShutdownEnabled: v.RELAY_IDLE_SHUTDOWN_ENABLED,
+    idleShutdownSec: v.RELAY_IDLE_SHUTDOWN_SEC,
+    idleTickSec: v.RELAY_IDLE_TICK_SEC,
+    idleBootGraceSec: v.RELAY_IDLE_BOOT_GRACE_SEC,
   };
 }

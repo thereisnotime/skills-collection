@@ -1,5 +1,8 @@
 # Next.js Agent Skills
 
+[![skills.sh](https://skills.sh/b/vercel-labs/next-skills)](https://skills.sh/vercel-labs/next-skills)
+
+
 Agent skills for common Next.js workflows.
 
 ## Essential Skills

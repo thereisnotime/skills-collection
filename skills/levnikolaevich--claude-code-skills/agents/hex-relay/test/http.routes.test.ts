@@ -9,6 +9,7 @@ import pino from "pino";
 import { z } from "zod/v4";
 import { configureZodFastify } from "../src/handlers/http/zodFastify.js";
 import { registerErrorHandler } from "../src/handlers/http/plugins/errorHandler.plugin.js";
+import { registerBearerAuth } from "../src/handlers/http/plugins/auth.plugin.js";
 import {
   registerHealthRoutes,
   type RuntimeStatusDeps,
@@ -17,6 +18,10 @@ import { registerDispatchRoutes } from "../src/handlers/http/dispatch.routes.js"
 import { registerMemoryRoutes } from "../src/handlers/http/memory.routes.js";
 import { registerTaskRoutes } from "../src/handlers/http/tasks.routes.js";
 import { registerHookRoutes } from "../src/handlers/http/hooks.routes.js";
+import {
+  createHookIngestionService,
+  type HookIngestionDeps,
+} from "../src/services/hookIngestion.service.js";
 import type { BuildInfo } from "../src/config/buildInfo.js";
 import type { Logger } from "../src/lib/logger.js";
 import { closeDb, createDb } from "../src/infrastructure/db/client.js";
@@ -28,6 +33,10 @@ function noop(): void {
   return;
 }
 
+function ok<T>(value: T) {
+  return { ok: true as const, value };
+}
+
 async function asyncNoop(): Promise<void> {
   return;
 }
@@ -37,6 +46,45 @@ function createApp() {
   configureZodFastify(app);
   registerErrorHandler(app, log);
   return app;
+}
+
+function registerHooks(app: ReturnType<typeof createApp>, overrides: Record<string, unknown> = {}) {
+  const hookIngestion = createHookIngestionService({
+    log,
+    messagesRepo: {
+      findByTg: () => null,
+      findById: () => null,
+      getChatId: () => null,
+      update: noop,
+      insertOutboundAudit: () => 1,
+    },
+    pendingRepo: {
+      get: () => null,
+      getAllForSession: () => [],
+      set: noop,
+      clear: noop,
+      listOthers: () => [],
+    },
+    outbox: {
+      enqueueReply: () => ok(1),
+      enqueueAck: () => ok(1),
+      enqueueStatus: () => ok(1),
+    },
+    sessionService: {
+      insertEvent: noop,
+      ensureOwner: noop,
+      recordStart: () => 1,
+    },
+    todoDiff: { diffAndPersist: () => [] },
+    memory: { recent: () => [], markUsed: noop },
+    dispatch: { recent: () => [] },
+    verbosity: { allows: () => false },
+    typing: { start: noop, stop: noop, stopAll: noop, activeCount: () => 0 },
+    primaryOperator: 1,
+    dbPath: "Z:/missing/relay.db",
+    ...overrides,
+  } as HookIngestionDeps);
+  registerHookRoutes(app, { hookIngestion });
 }
 
 function runtimeDeps(): RuntimeStatusDeps & BuildInfo {
@@ -83,6 +131,88 @@ test("health returns compatible fields plus explicit versions", async () => {
   await app.close();
 });
 
+test("live ready and metrics are public operational endpoints", async () => {
+  const app = createApp();
+  registerBearerAuth(app, {
+    token: "x".repeat(32),
+    protectedPrefixes: ["/hook", "/tasks", "/dispatch", "/memory"],
+  });
+  registerHealthRoutes(app, runtimeDeps());
+
+  const live = await app.inject({ method: "GET", url: "/live" });
+  assert.equal(live.statusCode, 200);
+  assert.deepEqual(live.json(), { ok: true });
+
+  const ready = await app.inject({ method: "GET", url: "/ready" });
+  assert.equal(ready.statusCode, 200);
+  assert.deepEqual(ready.json(), { ok: true });
+
+  const metrics = await app.inject({ method: "GET", url: "/metrics" });
+  assert.equal(metrics.statusCode, 200);
+  assert.match(metrics.body, /hex_relay_queue_depth\{queue="inbound"\} 3/);
+  assert.match(metrics.body, /hex_relay_queue_depth\{queue="outbox"\} 2/);
+  assert.match(metrics.body, /hex_relay_queue_depth\{queue="pending_replies"\} 5/);
+  await app.close();
+});
+
+test("ready returns 503 when dependencies fail", async () => {
+  const app = createApp();
+  registerHealthRoutes(app, {
+    ...runtimeDeps(),
+    outboxRepo: {
+      counts: () => {
+        throw new Error("db closed");
+      },
+    },
+  });
+
+  const response = await app.inject({ method: "GET", url: "/ready" });
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.json().error.code, "dependency_unavailable");
+  await app.close();
+});
+
+test("protected HTTP routes require bearer token", async () => {
+  const app = createApp();
+  registerBearerAuth(app, {
+    token: "super-secret-token-value-32-chars",
+    protectedPrefixes: ["/hook", "/tasks", "/dispatch", "/memory"],
+  });
+  registerDispatchRoutes(app, {
+    log,
+    dispatch: {
+      start: () => 1,
+      phase: noop,
+      end: noop,
+      recent: () => [],
+    },
+  });
+  registerHealthRoutes(app, runtimeDeps());
+
+  const missing = await app.inject({ method: "GET", url: "/dispatch/recent" });
+  assert.equal(missing.statusCode, 401);
+  assert.equal(missing.json().error.code, "unauthorized");
+
+  const wrong = await app.inject({
+    method: "GET",
+    url: "/dispatch/recent",
+    headers: { authorization: "Bearer wrong" },
+  });
+  assert.equal(wrong.statusCode, 401);
+
+  const health = await app.inject({ method: "GET", url: "/health" });
+  assert.equal(health.statusCode, 200);
+
+  const okResponse = await app.inject({
+    method: "GET",
+    url: "/dispatch/recent",
+    headers: { authorization: "Bearer super-secret-token-value-32-chars" },
+  });
+  assert.equal(okResponse.statusCode, 200);
+  assert.deepEqual(okResponse.json(), { runs: [] });
+  await app.close();
+});
+
 test("dispatch routes use Fastify schema validation", async () => {
   const app = createApp();
   let phaseRunId = 0;
@@ -117,7 +247,13 @@ test("dispatch routes use Fastify schema validation", async () => {
   });
   const bad = await app.inject({ method: "POST", url: "/dispatch/phase", payload: { phase: "x" } });
   assert.equal(bad.statusCode, 400);
-  assert.equal(bad.json().error, "validation");
+  assert.equal(bad.json().error.code, "request_validation_failed");
+  const badStatus = await app.inject({
+    method: "POST",
+    url: "/dispatch/phase",
+    payload: { run_id: 11, phase: "review", status: "surprised" },
+  });
+  assert.equal(badStatus.statusCode, 400);
   const ok = await app.inject({
     method: "POST",
     url: "/dispatch/phase",
@@ -127,6 +263,10 @@ test("dispatch routes use Fastify schema validation", async () => {
   assert.equal(phaseRunId, 11);
   const recent = await app.inject({ method: "GET", url: "/dispatch/recent?n=1" });
   assert.equal(recent.json().runs[0].id, 7);
+  const zero = await app.inject({ method: "GET", url: "/dispatch/recent?n=0" });
+  assert.equal(zero.statusCode, 400);
+  const tooMany = await app.inject({ method: "GET", url: "/dispatch/recent?n=101" });
+  assert.equal(tooMany.statusCode, 400);
   await app.close();
 });
 
@@ -155,9 +295,17 @@ test("memory and task routes validate and serialize stable contracts", async () 
   registerTaskRoutes(app, {
     log,
     tasks: {
-      listOpenTasks: async () => [],
-      pollAndNotifyPrimary: async () => ({ count: 3 }),
-      queueTaskForUser: async () => null,
+      fetchOpenTasks: async () => ok([]),
+      pollAndNotifyPrimary: async () => ok({ count: 3, notified: false }),
+      queueTaskForUser: async () => ({
+        ok: false,
+        error: {
+          code: "task_not_found",
+          kind: "not_found",
+          message: "task not found",
+          retryable: false,
+        },
+      }),
     },
   });
   const bad = await app.inject({ method: "POST", url: "/memory/add", payload: { category: "x" } });
@@ -170,6 +318,10 @@ test("memory and task routes validate and serialize stable contracts", async () 
   assert.deepEqual(added.json(), { memory_id: 9 });
   const recent = await app.inject({ method: "GET", url: "/memory/recent" });
   assert.equal(recent.json().memories[0].text, "keep hooks compatible");
+  const negativeRecent = await app.inject({ method: "GET", url: "/memory/recent?n=-1" });
+  assert.equal(negativeRecent.statusCode, 400);
+  const tooManyRecent = await app.inject({ method: "GET", url: "/memory/recent?n=101" });
+  assert.equal(tooManyRecent.statusCode, 400);
   const tasks = await app.inject({ method: "POST", url: "/tasks/poll" });
   assert.deepEqual(tasks.json(), { ok: true, count: 3 });
   await app.close();
@@ -190,107 +342,27 @@ test("response serialization errors return internal error", async () => {
 
   const response = await app.inject({ method: "GET", url: "/bad-response" });
   assert.equal(response.statusCode, 500);
-  assert.deepEqual(response.json(), { error: "internal" });
+  assert.deepEqual(response.json(), {
+    ok: false,
+    error: {
+      code: "response_serialization_failed",
+      message: "response serialization failed",
+      retryable: false,
+    },
+  });
   await app.close();
 });
 
-test("Claude hook malformed payload compatibility stays 200 empty object", async () => {
+test("Claude hook malformed payload returns typed validation error", async () => {
   const app = createApp();
-  registerHookRoutes(app, {
-    log,
-    messagesRepo: {},
-    pendingRepo: {},
-    sessionsRepo: {},
-    outbox: {},
-    sessionService: {},
-    todoDiff: {},
-    memory: {},
-    dispatch: {},
-    verbosity: {},
-    primaryOperator: 1,
-    dbPath: "Z:/missing/relay.db",
-  } as Parameters<typeof registerHookRoutes>[1]);
+  registerHooks(app);
   const response = await app.inject({
     method: "POST",
     url: "/hook/user-prompt-submit",
     payload: {},
   });
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.json(), {});
-  await app.close();
-});
-
-test("voice transcript prompt binds pending reply without Telegram prefix", async () => {
-  const app = createApp();
-  const updates: unknown[] = [];
-  const replies: unknown[] = [];
-  const pending = new Map<string, { inboundMsgId: number }>();
-  registerHookRoutes(app, {
-    log,
-    messagesRepo: {
-      findRecentDeliveredVoiceByText: (text: string) =>
-        text === "Привет, ты живой?"
-          ? {
-              id: 103,
-              tgChatId: 1_633_575,
-              tgMsgId: 362,
-              fromUserId: 300,
-            }
-          : null,
-      findById: (id: number) =>
-        id === 103
-          ? {
-              id: 103,
-              tgChatId: 1_633_575,
-              tgMsgId: 362,
-              fromUserId: 300,
-            }
-          : null,
-      update: (id: number, fields: unknown) => updates.push({ id, fields }),
-      getChatId: (id: number) => (id === 103 ? 1_633_575 : null),
-      insertOutboundAudit: () => 501,
-    },
-    pendingRepo: {
-      set: (sessionId: string, inboundMsgId: number) => pending.set(sessionId, { inboundMsgId }),
-      get: (sessionId: string) => pending.get(sessionId) ?? null,
-      clear: (sessionId: string) => pending.delete(sessionId),
-    },
-    sessionsRepo: {},
-    outbox: {
-      enqueueReply: (reply: unknown) => {
-        replies.push(reply);
-        return 77;
-      },
-    },
-    sessionService: {
-      insertEvent: noop,
-      ensureOwner: noop,
-    },
-    todoDiff: {},
-    memory: {},
-    dispatch: {},
-    verbosity: {},
-    primaryOperator: 1,
-    dbPath: "Z:/missing/relay.db",
-  } as Parameters<typeof registerHookRoutes>[1]);
-
-  const submitted = await app.inject({
-    method: "POST",
-    url: "/hook/user-prompt-submit",
-    payload: { session_id: "sid-voice", prompt: "Привет, ты живой?" },
-  });
-  assert.equal(submitted.statusCode, 200);
-  assert.deepEqual(updates[0], { id: 103, fields: { sessionId: "sid-voice" } });
-
-  const stopped = await app.inject({
-    method: "POST",
-    url: "/hook/stop",
-    payload: { session_id: "sid-voice", last_assistant_message: "Да, тут" },
-  });
-  assert.equal(stopped.statusCode, 200);
-  assert.equal((replies[0] as { chatId: number }).chatId, 1_633_575);
-  assert.equal((replies[0] as { repliedToId: number }).repliedToId, 362);
-  assert.equal((replies[0] as { auditMsgId: number }).auditMsgId, 501);
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error.code, "hook_payload_invalid");
   await app.close();
 });
 
@@ -311,4 +383,220 @@ test("pending reply updates to the latest prompt for steering bursts", async () 
   } finally {
     closeDb(db);
   }
+});
+
+test("stop hook fans out acks for orphan pending inbounds", async () => {
+  const app = createApp();
+  const replies: Record<string, unknown>[] = [];
+  const acks: Record<string, unknown>[] = [];
+  const inboundsById = new Map<
+    number,
+    { id: number; tgChatId: number; tgMsgId: number; fromUserId: number; agent: "claude" }
+  >([
+    [201, { id: 201, tgChatId: 999, tgMsgId: 1001, fromUserId: 5, agent: "claude" }],
+    [202, { id: 202, tgChatId: 999, tgMsgId: 1002, fromUserId: 5, agent: "claude" }],
+    [203, { id: 203, tgChatId: 999, tgMsgId: 1003, fromUserId: 5, agent: "claude" }],
+  ]);
+  const pending = [
+    {
+      sessionId: "sid-burst",
+      inboundMsgId: 201,
+      promptHash: "h1",
+      createdAt: 1000,
+      agent: "claude",
+    },
+    {
+      sessionId: "sid-burst",
+      inboundMsgId: 202,
+      promptHash: "h2",
+      createdAt: 1001,
+      agent: "claude",
+    },
+    {
+      sessionId: "sid-burst",
+      inboundMsgId: 203,
+      promptHash: "h3",
+      createdAt: 1002,
+      agent: "claude",
+    },
+  ];
+  let cleared = 0;
+  registerHooks(app, {
+    messagesRepo: {
+      findById: (id: number) => inboundsById.get(id) ?? null,
+      findByTg: () => null,
+      getChatId: (id: number) => inboundsById.get(id)?.tgChatId ?? null,
+      update: noop,
+      insertOutboundAudit: () => 777,
+    },
+    pendingRepo: {
+      get: () => null,
+      getAllForSession: (sid: string) => (sid === "sid-burst" ? pending : []),
+      set: noop,
+      clear: () => {
+        cleared += 1;
+      },
+      listOthers: () => [],
+    },
+    outbox: {
+      enqueueReply: (args: Record<string, unknown>) => {
+        replies.push(args);
+        return ok(91);
+      },
+      enqueueAck: (args: Record<string, unknown>) => {
+        acks.push(args);
+        return ok(92);
+      },
+      enqueueStatus: () => ok(1),
+    },
+  });
+
+  const stopped = await app.inject({
+    method: "POST",
+    url: "/hook/stop",
+    payload: { session_id: "sid-burst", last_assistant_message: "Готово, ответ один" },
+  });
+  assert.equal(stopped.statusCode, 200);
+  assert.equal(replies.length, 1);
+  assert.equal((replies[0] as { repliedToId: number }).repliedToId, 1003);
+  assert.equal((replies[0] as { auditMsgId: number }).auditMsgId, 777);
+  assert.equal(acks.length, 2);
+  assert.equal((acks[0] as { repliedToId: number }).repliedToId, 1001);
+  assert.equal((acks[1] as { repliedToId: number }).repliedToId, 1002);
+  assert.ok((acks[0] as { text: string }).text.includes("merged"));
+  assert.equal(cleared, 1);
+  await app.close();
+});
+
+test("post-tool-use Skill emits duration suffix in verbose_bash", async () => {
+  const app = createApp();
+  const statuses: Record<string, unknown>[] = [];
+  registerHooks(app, {
+    pendingRepo: { get: () => null },
+    outbox: {
+      enqueueStatus: (args: Record<string, unknown>) => {
+        statuses.push(args);
+        return ok(1);
+      },
+    },
+    verbosity: { allows: (layer: string) => layer === "verbose_bash" },
+  });
+
+  const subSecond = await app.inject({
+    method: "POST",
+    url: "/hook/post-tool-use",
+    payload: {
+      session_id: "sid-fast",
+      tool_name: "Skill",
+      tool_input: { skill: "ln-100-task-implementer" },
+      duration_ms: 423,
+    },
+  });
+  assert.equal(subSecond.statusCode, 200);
+  assert.equal(statuses.length, 1);
+  assert.match(String((statuses[0] as { text: string }).text), / done \(423 ms\)$/);
+
+  const multiSecond = await app.inject({
+    method: "POST",
+    url: "/hook/post-tool-use",
+    payload: {
+      session_id: "sid-slow",
+      tool_name: "Skill",
+      tool_input: { skill: "ln-200-implementer" },
+      duration_ms: 12_734,
+    },
+  });
+  assert.equal(multiSecond.statusCode, 200);
+  assert.equal(statuses.length, 2);
+  assert.match(String((statuses[1] as { text: string }).text), / done \(13s\)$/);
+
+  const fractional = await app.inject({
+    method: "POST",
+    url: "/hook/post-tool-use",
+    payload: {
+      session_id: "sid-mid",
+      tool_name: "Skill",
+      tool_input: { skill: "ln-300-validator" },
+      duration_ms: 2456,
+    },
+  });
+  assert.equal(fractional.statusCode, 200);
+  assert.equal(statuses.length, 3);
+  assert.match(String((statuses[2] as { text: string }).text), / done \(2\.5s\)$/);
+
+  const noDuration = await app.inject({
+    method: "POST",
+    url: "/hook/post-tool-use",
+    payload: {
+      session_id: "sid-nd",
+      tool_name: "Skill",
+      tool_input: { skill: "ln-400-merger" },
+    },
+  });
+  assert.equal(noDuration.statusCode, 200);
+  assert.equal(statuses.length, 4);
+  assert.match(String((statuses[3] as { text: string }).text), / done$/);
+
+  await app.close();
+});
+
+test("post-tool-use stays silent below verbose verbosity", async () => {
+  const app = createApp();
+  const statuses: Record<string, unknown>[] = [];
+  registerHooks(app, {
+    pendingRepo: { get: () => null },
+    outbox: {
+      enqueueStatus: (args: Record<string, unknown>) => {
+        statuses.push(args);
+        return ok(1);
+      },
+    },
+    verbosity: { allows: () => false },
+  });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/hook/post-tool-use",
+    payload: {
+      session_id: "sid-quiet",
+      tool_name: "Skill",
+      tool_input: { skill: "ln-100-task-implementer" },
+      duration_ms: 999,
+    },
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(statuses.length, 0);
+
+  await app.close();
+});
+
+test("post-tool-use ignores non-Skill tools even with verbose_bash and duration_ms", async () => {
+  const app = createApp();
+  const statuses: Record<string, unknown>[] = [];
+  registerHooks(app, {
+    pendingRepo: { get: () => null },
+    outbox: {
+      enqueueStatus: (args: Record<string, unknown>) => {
+        statuses.push(args);
+        return ok(1);
+      },
+    },
+    verbosity: { allows: () => true },
+  });
+
+  for (const tool_name of ["Bash", "TodoWrite", "Agent", "Read", "Edit"]) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/hook/post-tool-use",
+      payload: {
+        session_id: "sid-bash",
+        tool_name,
+        tool_input: {},
+        duration_ms: 12_345,
+      },
+    });
+    assert.equal(response.statusCode, 200);
+  }
+  assert.equal(statuses.length, 0, "only Skill emits a duration suffix; other tools stay silent");
+  await app.close();
 });

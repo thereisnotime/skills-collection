@@ -1,9 +1,12 @@
 import { z } from "zod/v4";
 
+const AgentEnum = z.enum(["claude", "codex"]).default("claude");
+
 export const UserPromptSubmitSchema = z
   .object({
     session_id: z.string().default(""),
     prompt: z.string().default(""),
+    agent: AgentEnum,
   })
   .passthrough();
 
@@ -11,6 +14,7 @@ export const StopSchema = z
   .object({
     session_id: z.string().default(""),
     last_assistant_message: z.string().default(""),
+    agent: AgentEnum,
   })
   .passthrough();
 
@@ -18,6 +22,7 @@ export const StopFailureSchema = z
   .object({
     session_id: z.string().default(""),
     error_type: z.string().default("unknown"),
+    agent: AgentEnum,
   })
   .passthrough();
 
@@ -28,6 +33,7 @@ export const SessionStartSchema = z
     model: z.string().nullable().optional(),
     cwd: z.string().nullable().optional(),
     transcript_path: z.string().nullable().optional(),
+    agent: AgentEnum,
   })
   .passthrough();
 
@@ -36,6 +42,7 @@ export const SubagentStopSchema = z
     session_id: z.string().default(""),
     agent_id: z.string().default(""),
     agent_type: z.string().default(""),
+    agent: AgentEnum,
   })
   .passthrough();
 
@@ -44,6 +51,8 @@ export const ToolUseSchema = z
     tool_name: z.string().default(""),
     tool_input: z.record(z.string(), z.unknown()).default({}),
     session_id: z.string().default(""),
+    agent: AgentEnum,
+    duration_ms: z.number().nonnegative().optional(),
   })
   .passthrough();
 
@@ -56,17 +65,34 @@ export const DispatchStartBodySchema = z.object({
   budget_week_pct: z.number().int().nullable().optional(),
 });
 
+export const DispatchPhaseStatusSchema = z.enum([
+  "running",
+  "waiting_approval",
+  "done",
+  "failed",
+  "skipped",
+]);
+
+export const DispatchRunStatusSchema = z.enum([
+  "started",
+  "running",
+  "waiting_approval",
+  "finished",
+  "failed",
+  "abandoned",
+]);
+
 export const DispatchPhaseBodySchema = z.object({
   run_id: z.coerce.number().int(),
   phase: z.string().min(1),
-  status: z.string().default("running"),
+  status: DispatchPhaseStatusSchema.default("running"),
   verdict: z.string().nullable().optional(),
   details: z.string().nullable().optional(),
 });
 
 export const DispatchEndBodySchema = z.object({
   run_id: z.coerce.number().int(),
-  status: z.string().default("finished"),
+  status: DispatchRunStatusSchema.default("finished"),
   pr_number: z.number().int().nullable().optional(),
   pr_url: z.string().nullable().optional(),
   branch: z.string().nullable().optional(),
@@ -87,11 +113,11 @@ export const MemoryForgetBodySchema = z.object({
 });
 
 export const DispatchRecentQuerySchema = z.object({
-  n: z.coerce.number().int().default(10),
+  n: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export const MemoryRecentQuerySchema = z.object({
-  n: z.coerce.number().int().default(20),
+  n: z.coerce.number().int().min(1).max(100).default(20),
   category: z.string().optional(),
 });
 
@@ -178,6 +204,7 @@ export const HealthResponseSchema = z.object({
   inbound_failed: z.number().int(),
   inbound_rejected: z.number().int(),
   pending_count: z.number().int(),
+  pending_fanout_acks_total: z.number().int(),
   outbox_queued: z.number().int(),
   outbox_abandoned: z.number().int(),
   outbox_unknown: z.number().int(),

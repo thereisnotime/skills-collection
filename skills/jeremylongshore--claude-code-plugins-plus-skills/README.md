@@ -70,31 +70,33 @@ ccpi update                     # Pull latest versions
 
 ### 📦 Live npm Downloads
 
-Across **340 published packages** in the
+Across **418 published packages** in the
 [claude-code-plugins](https://www.npmjs.com/~jeremylongshore) namespace. Updated daily by GitHub Actions.
 
-| Window        | Downloads |
-| ------------- | --------: |
-| Last 24 hours |       366 |
-| Last 7 days   |     3,937 |
-| Last 30 days  |    41,975 |
+| Window        | All packages | Established (>30d) |
+| ------------- | -----------: | -----------------: |
+| Last 24 hours |          128 |                 36 |
+| Last 7 days   |        2,757 |                206 |
+| Last 30 days  |       53,237 |                990 |
+
+<sub>"Established" excludes packages first published within the last 30 days, so a bulk-publish event doesn't dominate the headline.</sub>
 
 **Top 10 by last 30 days:**
 
-| #   | Package                                                                                                                    | Last 30d |
-| --- | -------------------------------------------------------------------------------------------------------------------------- | -------: |
-| 1   | [`@intentsolutionsio/ccpi`](https://www.npmjs.com/package/@intentsolutionsio/ccpi)                                         |      339 |
-| 2   | [`@intentsolutionsio/market-price-tracker`](https://www.npmjs.com/package/@intentsolutionsio/market-price-tracker)         |      202 |
-| 3   | [`@intentsolutionsio/excel-analyst-pro`](https://www.npmjs.com/package/@intentsolutionsio/excel-analyst-pro)               |      181 |
-| 4   | [`@intentsolutionsio/openbb-terminal`](https://www.npmjs.com/package/@intentsolutionsio/openbb-terminal)                   |      166 |
-| 5   | [`@intentsolutionsio/crypto-portfolio-tracker`](https://www.npmjs.com/package/@intentsolutionsio/crypto-portfolio-tracker) |      161 |
-| 6   | [`@intentsolutionsio/skill-creator`](https://www.npmjs.com/package/@intentsolutionsio/skill-creator)                       |      155 |
-| 7   | [`@intentsolutionsio/crypto-tax-calculator`](https://www.npmjs.com/package/@intentsolutionsio/crypto-tax-calculator)       |      154 |
-| 8   | [`@intentsolutionsio/blockchain-explorer-cli`](https://www.npmjs.com/package/@intentsolutionsio/blockchain-explorer-cli)   |      153 |
-| 9   | [`@intentsolutionsio/ml-model-trainer`](https://www.npmjs.com/package/@intentsolutionsio/ml-model-trainer)                 |      153 |
-| 10  | [`@intentsolutionsio/compliance-checker`](https://www.npmjs.com/package/@intentsolutionsio/compliance-checker)             |      152 |
+| #   | Package                                                                                                                            | Last 30d |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------- | -------: |
+| 1   | [`@intentsolutionsio/ccpi`](https://www.npmjs.com/package/@intentsolutionsio/ccpi)                                                 |      346 |
+| 2   | [`@intentsolutionsio/guidewire-pack`](https://www.npmjs.com/package/@intentsolutionsio/guidewire-pack)                             |      324 |
+| 3   | [`@intentsolutionsio/engineer-design-diagram`](https://www.npmjs.com/package/@intentsolutionsio/engineer-design-diagram)           |      242 |
+| 4   | [`@intentsolutionsio/market-price-tracker`](https://www.npmjs.com/package/@intentsolutionsio/market-price-tracker)                 |      224 |
+| 5   | [`@intentsolutionsio/excel-analyst-pro`](https://www.npmjs.com/package/@intentsolutionsio/excel-analyst-pro)                       |      189 |
+| 6   | [`@intentsolutionsio/openbb-terminal`](https://www.npmjs.com/package/@intentsolutionsio/openbb-terminal)                           |      182 |
+| 7   | [`@intentsolutionsio/options-flow-analyzer`](https://www.npmjs.com/package/@intentsolutionsio/options-flow-analyzer)               |      181 |
+| 8   | [`@intentsolutionsio/crypto-portfolio-tracker`](https://www.npmjs.com/package/@intentsolutionsio/crypto-portfolio-tracker)         |      175 |
+| 9   | [`@intentsolutionsio/nft-rarity-analyzer`](https://www.npmjs.com/package/@intentsolutionsio/nft-rarity-analyzer)                   |      174 |
+| 10  | [`@intentsolutionsio/arbitrage-opportunity-finder`](https://www.npmjs.com/package/@intentsolutionsio/arbitrage-opportunity-finder) |      167 |
 
-<sub>Last refreshed 2026-05-02T04:09:18.799Z.</sub>
+<sub>Last refreshed 2026-05-07T15:28:44.521Z.</sub>
 
 <!-- NPM-STATS:END -->
 
@@ -121,7 +123,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | 🧩  | [MCP Servers](#mcp-servers)                        |      10 |
 | 📦  | [Packages](#packages)                              |       5 |
 | ⚡  | [Performance](#performance)                        |      25 |
-| ✅  | [Productivity](#productivity)                      |      18 |
+| ✅  | [Productivity](#productivity)                      |      19 |
 | 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     106 |
 | 🔐  | [Security](#security)                              |      26 |
 | ✨  | [Skill Enhancers](#skill-enhancers)                |       8 |
@@ -488,7 +490,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 
 ### Productivity
 
-✅ **18 plugins** · category slug: `productivity`
+✅ **19 plugins** · category slug: `productivity`
 
 | Plugin                                     | Description                                                                                                                                 |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -503,6 +505,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `navigating-github`                        | First-time GitHub setup and interactive git learning. Walks users from zero to a working GitHub repo, then teaches git through 9 hands-on…  |
 | `neurodivergent-visual-org`                | Create ADHD-friendly visual organizational tools (Mermaid diagrams) optimized for neurodivergent thinking patterns with accessibility modes |
 | `overnight-dev`                            | Run Claude autonomously for 6-8 hours overnight using Git hooks that enforce TDD - wake up to fully tested features                         |
+| `plane`                                    | Plane is a team behavior observatory — synthesizes Plane API data into observations about how teams actually behave under pressure (cycle…  |
 | `pm-ai-partner`                            | 12 PM-specific agent skills, 6 workflow commands, 3 automation hooks for Product Managers                                                   |
 | `prettier-markdown-hook`                   | Automatically format markdown files with prettier when Claude stops responding, with configurable organization and path exclusions          |
 | `travel-assistant`                         | Intelligent travel assistant with real-time weather, currency conversion, timezone info, and AI-powered itinerary planning. Your complete…  |

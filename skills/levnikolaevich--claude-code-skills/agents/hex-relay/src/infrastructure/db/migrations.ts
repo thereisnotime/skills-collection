@@ -2,7 +2,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Logger } from "../../lib/logger.js";
 import { UUID_RE } from "../../config/paths.js";
-import type { Db } from "./client.js";
+import type { Db } from "./types.js";
 
 export interface MigrationDeps {
   log: Logger;
@@ -29,6 +29,9 @@ export function runMigrations(db: Db, deps: MigrationDeps): void {
   ensureExtraIndexes(db);
   recoverStuckInbound(db);
   migrateOutboxEventType(db, deps.log);
+  migratePendingReplyCompositeKey(db, deps.log);
+  migrateAgentColumns(db, deps.log);
+  ensureUserBuddyTable(db, deps.log);
   seedTaskPollState(db, deps.log);
   reconcileSessionsOwner(db, deps);
 }
@@ -88,6 +91,50 @@ function migrateOutboxEventType(db: Db, log: Logger): void {
     }
   } catch (error) {
     log.error({ err: error }, "migrate_outbox_event_type failed");
+  }
+}
+
+function migratePendingReplyCompositeKey(db: Db, log: Logger): void {
+  try {
+    const rows = db.prepare("PRAGMA table_info(pending_reply)").all() as {
+      name: string;
+      pk: number;
+    }[];
+    if (rows.length === 0) return;
+    const pkCols = rows
+      .filter((r) => r.pk > 0)
+      .sort((a, b) => a.pk - b.pk)
+      .map((r) => r.name);
+    const isComposite =
+      pkCols.length === 2 && pkCols.includes("session_id") && pkCols.includes("inbound_msg_id");
+    if (isComposite) return;
+    db.exec("BEGIN IMMEDIATE");
+    db.exec(
+      "CREATE TABLE pending_reply_new (" +
+        "session_id TEXT NOT NULL, " +
+        "inbound_msg_id INTEGER NOT NULL, " +
+        "prompt_hash TEXT NOT NULL, " +
+        "created_at INTEGER NOT NULL, " +
+        "PRIMARY KEY (session_id, inbound_msg_id))"
+    );
+    db.exec(
+      "INSERT OR IGNORE INTO pending_reply_new " +
+        "(session_id, inbound_msg_id, prompt_hash, created_at) " +
+        "SELECT session_id, inbound_msg_id, prompt_hash, created_at FROM pending_reply"
+    );
+    db.exec("DROP TABLE pending_reply");
+    db.exec("ALTER TABLE pending_reply_new RENAME TO pending_reply");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_pending_reply_session ON pending_reply(session_id)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_pending_reply_created ON pending_reply(created_at)");
+    db.exec("COMMIT");
+    log.info("migrate: pending_reply -> composite PK (session_id, inbound_msg_id)");
+  } catch (error) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      /* ignore */
+    }
+    log.error({ err: error }, "migrate_pending_reply_composite_key failed");
   }
 }
 
@@ -157,5 +204,32 @@ function reconcileSessionsOwner(db: Db, deps: MigrationDeps): void {
     }
   } catch (error) {
     deps.log.error({ err: error }, "sessions owner reconciliation UPDATE failed");
+  }
+}
+
+function migrateAgentColumns(db: Db, log: Logger): void {
+  const tables = ["messages", "pending_reply", "outbox", "sessions"];
+  for (const table of tables) {
+    try {
+      const cols = tableColumns(db, table);
+      if (cols.has("agent")) continue;
+      db.exec(`ALTER TABLE ${table} ADD COLUMN agent TEXT NOT NULL DEFAULT 'claude'`);
+      log.info({ table }, "migrate: added agent column");
+    } catch (error) {
+      log.error({ err: error, table }, "migrate_agent_columns failed");
+    }
+  }
+}
+
+function ensureUserBuddyTable(db: Db, log: Logger): void {
+  try {
+    db.exec(
+      "CREATE TABLE IF NOT EXISTS user_buddy (" +
+        "user_id INTEGER PRIMARY KEY, " +
+        "agent TEXT NOT NULL CHECK(agent IN ('claude','codex')), " +
+        "updated_at INTEGER NOT NULL)"
+    );
+  } catch (error) {
+    log.error({ err: error }, "ensure_user_buddy_table failed");
   }
 }

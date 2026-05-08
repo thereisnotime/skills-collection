@@ -52,6 +52,7 @@ Required:
 | `SERVICE_PREFIX`     | systemd/tmux/API namespace for one project.                             |
 | `BOT_USER`           | Linux user that owns the project agent workload.                        |
 | `RELAY_HOOK_PORT`    | Local Fastify listener port on `127.0.0.1`.                             |
+| `RELAY_HTTP_TOKEN`   | Bearer token for protected hook and local API routes; min 32 chars.     |
 
 Optional:
 
@@ -59,6 +60,10 @@ Optional:
 | ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `RELAY_VERBOSITY`                                                        | `quiet`, `normal`, or `verbose`; defaults to `normal`.               |
 | `RELAY_INBOUND_REACTIONS`                                                | Comma-separated Telegram reaction pool for inbound acknowledgements. |
+| `RELAY_IDLE_SHUTDOWN_ENABLED`                                            | Enables idle god-session shutdown; defaults to `true`.               |
+| `RELAY_IDLE_SHUTDOWN_SEC`                                                | Idle seconds before stopping a god-session; defaults to `600`.       |
+| `RELAY_IDLE_TICK_SEC`                                                    | Idle watchdog polling interval; defaults to `60`.                    |
+| `RELAY_IDLE_BOOT_GRACE_SEC`                                              | Grace window after relay boot before idle stops; defaults to `120`.  |
 | `RELAY_VOICE_TRANSCRIPTION`                                              | `off` or `local`; local uses `ffmpeg` plus `whisper.cpp`.            |
 | `FFMPEG_BIN`                                                             | `ffmpeg` executable path/name for voice normalization.               |
 | `WHISPER_CPP_BIN`                                                        | `whisper-cli` executable path for local voice transcription.         |
@@ -109,15 +114,20 @@ npm run dev
 
 Fastify listens on `127.0.0.1:${RELAY_HOOK_PORT}`.
 
+Protected routes require `Authorization: Bearer ${RELAY_HTTP_TOKEN}`. `/health`, `/live`, `/ready`, and `/metrics` remain public localhost operational probes.
+
 | Route family  | Purpose                                                                                   |
 | ------------- | ----------------------------------------------------------------------------------------- |
-| `/hooks/*`    | Claude Code hook ingestion for prompt, session, tool, compact, stop, and subagent events. |
+| `/hook/*`     | Claude Code hook ingestion for prompt, session, tool, compact, stop, and subagent events. |
 | `/tasks/*`    | Task polling and Telegram handoff for provider issues.                                    |
 | `/dispatch/*` | Dispatch run state and history.                                                           |
 | `/memory/*`   | Persistent operator memory API.                                                           |
-| `/health`     | Health snapshots for service and god-session visibility.                                  |
+| `/health`     | Backward-compatible health snapshot.                                                      |
+| `/live`       | Process liveness probe.                                                                   |
+| `/ready`      | Dependency readiness probe; returns 503 when DB/runtime checks fail.                      |
+| `/metrics`    | Prometheus text metrics for HTTP, workers, queues, Telegram sends, and DB timings.        |
 
-Stable internal API routes use Fastify/Zod route schemas. Claude hook routes intentionally keep compatibility parsing and return `200 {}` for ignored malformed hook payloads. See `src/handlers/http/` for exact schemas.
+Stable internal API routes use Fastify/Zod route schemas. Malformed hook payloads return typed validation errors. See `src/handlers/http/` for exact schemas.
 
 ## Database Lifecycle
 

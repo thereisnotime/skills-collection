@@ -125,6 +125,24 @@
   ],
   "samber--cc-skills-golang": [
     {
+      "sha": "6ccf725",
+      "message": "docs: add skill architecture diagram to README",
+      "date": "2026-05-07",
+      "author": "Samuel Berthe"
+    },
+    {
+      "sha": "2298675",
+      "message": "Add fuzz to naming conventions (#21)",
+      "date": "2026-05-07",
+      "author": "\u0410\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440 \u041c\u0435\u043b\u0435\u043d\u0442\u044c\u0435\u0432"
+    },
+    {
+      "sha": "15d71cd",
+      "message": "docs: add skill architecture diagram to README",
+      "date": "2026-05-07",
+      "author": "Samuel Berthe"
+    },
+    {
       "sha": "e9761db",
       "message": "chore: bump plugin version to 1.4.0",
       "date": "2026-05-01",
@@ -164,24 +182,6 @@
       "sha": "556f241",
       "message": "feat: add golang-swagger skill (swaggo/swag v2) (#31)",
       "date": "2026-05-01",
-      "author": "Samuel Berthe"
-    },
-    {
-      "sha": "2e80a54",
-      "message": "docs(uber-dig,uber-fx): add fx vs dig comparison section (#30)",
-      "date": "2026-04-30",
-      "author": "Samuel Berthe"
-    },
-    {
-      "sha": "bee9d04",
-      "message": "fix(lint): apply prettier formatting across skill files",
-      "date": "2026-04-28",
-      "author": "Samuel Berthe"
-    },
-    {
-      "sha": "6ae8ff8",
-      "message": "fix(lint): wrap bare URLs in uber-dig and uber-fx skills",
-      "date": "2026-04-28",
       "author": "Samuel Berthe"
     }
   ],
@@ -224,6 +224,12 @@
     }
   ],
   "ComposioHQ--awesome-claude-skills": [
+    {
+      "sha": "f2b5e29",
+      "message": "Update README.md",
+      "date": "2026-05-07",
+      "author": "Prathit"
+    },
     {
       "sha": "48ffe0c",
       "message": "Update README.md",
@@ -277,12 +283,6 @@
       "message": "Add full-page-screenshot skill (#742)",
       "date": "2026-04-30",
       "author": "Lewis"
-    },
-    {
-      "sha": "cd39fcf",
-      "message": "Add lean-ctx skill (#749)",
-      "date": "2026-04-30",
-      "author": "Yves Gugger"
     }
   ],
   "anthropics--skills": [
@@ -691,6 +691,30 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "0bb53df",
+      "message": "chore: release main (#789)",
+      "date": "2026-05-07",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "9ec351a",
+      "message": "refactor(ce-commit-push-pr): trim prescription and fold steps (#791)",
+      "date": "2026-05-07",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "7f5297a",
+      "message": "docs(ce-ideate): sync user-facing doc with topic-surface decomposition (#790)",
+      "date": "2026-05-07",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "168fad4",
+      "message": "fix(ce-ideate): bound scope and add topic-surface decomposition (#787)",
+      "date": "2026-05-07",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "d316971",
       "message": "feat(lfg): allow model invocation, add CI autofix loop after PR (#788)",
       "date": "2026-05-07",
@@ -725,30 +749,6 @@
       "message": "chore: release main (#771)",
       "date": "2026-05-05",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "60b66dd",
-      "message": "feat: convert hooks to .codex/hooks.json for Codex target (#742)",
-      "date": "2026-05-05",
-      "author": "kolly"
-    },
-    {
-      "sha": "3e03365",
-      "message": "feat(ce-work-beta): adaptive effort selection for Codex delegation batches (#759)",
-      "date": "2026-05-05",
-      "author": "David A. Lee"
-    },
-    {
-      "sha": "5139ff1",
-      "message": "fix(ce-work-beta): replace semicolon pre-resolution with single-command form (#758)",
-      "date": "2026-05-05",
-      "author": "David A. Lee"
-    },
-    {
-      "sha": "be2efd7",
-      "message": "fix(ce-plan): render Implementation Units as headings, not bulleted list items (#766)",
-      "date": "2026-05-05",
-      "author": "Pavlos Vinieratos"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -853,6 +853,30 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "fed3eba",
+      "message": "v3.7.1 Step 2: D2 audit Scope Report block + lint enforcement (#78)",
+      "date": "2026-05-08",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "5f107c7",
+      "message": "v3.7.1 Step 0+1: SHA byte-equivalence gate + D1 trust-chain frontmatter schema (#76)",
+      "date": "2026-05-07",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "6aaef85",
+      "message": "docs: add NOTICE.md (personal project statement) (#75)",
+      "date": "2026-05-07",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "126b3ff",
+      "message": "spec(v3.7.1): trust provenance & drift transparency design \u2014 8-round codex convergence (#74)",
+      "date": "2026-05-07",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "071344c",
       "message": "docs(readme): hero install hook + prerequisites + first-command guide (#72)",
       "date": "2026-05-06",
@@ -885,30 +909,6 @@
     {
       "sha": "a3b95fd",
       "message": "feat(v3.6.7 Step 6 Phase 6.8): pattern-eval fixtures + harness + manifest validator + wrapper E2E (11 codex rounds, 0 P1",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "e7e775a",
-      "message": "feat(v3.6.7 Step 6 Phase 6.7): downstream agent partial inversion sweep + INV-1/2/3 lint (10 codex rounds, 0 P1) (#66)",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "2a796b9",
-      "message": "feat(v3.6.7 Step 6 Phase 6.6): orchestrator \u00a73.5 Audit Artifact Gate (3 codex rounds, 0 P1) (#65)",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "db16143",
-      "message": "spec(v3.6.7 Step 6 Phase 6.6): reconcile prompt budget \u2014 Path 2 split (5 codex rounds, 0 P1) (#64)",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "9419db2",
-      "message": "docs(v3.6.7 Step 6 Phase 6.6): pre-implementation scoping note \u2014 spec contradiction surfaced (#63)",
       "date": "2026-05-05",
       "author": "Edward Cheng-I Wu"
     }
@@ -1957,6 +1957,12 @@
   ],
   "conorluddy--ios-simulator-skill": [
     {
+      "sha": "3acd071",
+      "message": "fix: remove invalid 'skills' field from plugin.json (#51)",
+      "date": "2026-05-07",
+      "author": "Conor"
+    },
+    {
       "sha": "cf583d1",
       "message": "fix: enforce Python 3.12+ in health check, bump to v1.4.2 (#47)",
       "date": "2026-05-03",
@@ -2007,12 +2013,6 @@
     {
       "sha": "cbfff2e",
       "message": "Fix SwiftData extraction: skip dotdirs, strip comments, deduplicate",
-      "date": "2026-04-12",
-      "author": "Conor Luddy"
-    },
-    {
-      "sha": "4e2bdd8",
-      "message": "Add Core Data / SwiftData model inspector (#33)",
       "date": "2026-04-12",
       "author": "Conor Luddy"
     }
@@ -3163,6 +3163,12 @@
   ],
   "remotion-dev--skills": [
     {
+      "sha": "277510e",
+      "message": "Update template",
+      "date": "2026-05-07",
+      "author": "Jonny Burger"
+    },
+    {
       "sha": "f34abef",
       "message": "Update template",
       "date": "2026-05-04",
@@ -3214,12 +3220,6 @@
       "sha": "e7c4180",
       "message": "Update template",
       "date": "2026-02-20",
-      "author": "Jonny Burger"
-    },
-    {
-      "sha": "8969e87",
-      "message": "Update template",
-      "date": "2026-02-18",
       "author": "Jonny Burger"
     }
   ],
@@ -3659,6 +3659,48 @@
   ],
   "stripe--ai": [
     {
+      "sha": "27b4b18",
+      "message": "sync skills",
+      "date": "2026-05-07",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
+      "sha": "c7c1d1e",
+      "message": "Update checkout step in sync-skills workflow (#411)",
+      "date": "2026-05-07",
+      "author": "matv-stripe"
+    },
+    {
+      "sha": "5352c8e",
+      "message": "Update git push command to push to main branch (#410)",
+      "date": "2026-05-07",
+      "author": "matv-stripe"
+    },
+    {
+      "sha": "e61dddd",
+      "message": "test making a new branch (#409)",
+      "date": "2026-05-07",
+      "author": "matv-stripe"
+    },
+    {
+      "sha": "1b36b0a",
+      "message": "fix conditionals on the sync skills github workflow (#407)",
+      "date": "2026-05-07",
+      "author": "matv-stripe"
+    },
+    {
+      "sha": "4b01d31",
+      "message": "Update sync-skills.yml (#408)",
+      "date": "2026-05-07",
+      "author": "matv-stripe"
+    },
+    {
+      "sha": "9cb8d24",
+      "message": "Enhance sync workflow with GitHub App token and auto-fix (#406)",
+      "date": "2026-05-07",
+      "author": "matv-stripe"
+    },
+    {
       "sha": "1462341",
       "message": "fix(ci): use PAT for sync-skills workflow so downstream workflows fire (#394)",
       "date": "2026-05-06",
@@ -3675,48 +3717,6 @@
       "message": "bump ai sdk version (#386)",
       "date": "2026-04-16",
       "author": "selander-stripe"
-    },
-    {
-      "sha": "149892a",
-      "message": "sync skills from docs.stripe.com/.well-known/skills (#359)",
-      "date": "2026-04-16",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "5811e64",
-      "message": "fix ai-sdk, avoid stack overflow when encoding file parts (#382)",
-      "date": "2026-04-15",
-      "author": "John Chapin"
-    },
-    {
-      "sha": "fd91269",
-      "message": "Update & pin rack dependency in ruby environment + solutions (#366)",
-      "date": "2026-04-10",
-      "author": "kho-stripe"
-    },
-    {
-      "sha": "980a31b",
-      "message": "fix(mcp): sync User-Agent version with package.json and add CLI validation tests (#343)",
-      "date": "2026-04-09",
-      "author": "aptsalt"
-    },
-    {
-      "sha": "9dc8c9b",
-      "message": "Bump hono from 4.12.7 to 4.12.12 in /tools/typescript (#361)",
-      "date": "2026-04-09",
-      "author": "dependabot[bot]"
-    },
-    {
-      "sha": "f6b3116",
-      "message": "Update dependabot.yml (#362)",
-      "date": "2026-04-09",
-      "author": "matv-stripe"
-    },
-    {
-      "sha": "c0a156c",
-      "message": "[automated] sync skills from docs.stripe.com (#353)",
-      "date": "2026-04-06",
-      "author": "github-actions[bot]"
     }
   ],
   "supabase--agent-skills": [
@@ -4093,6 +4093,12 @@
   ],
   "vercel-labs--next-skills": [
     {
+      "sha": "dc1de9c",
+      "message": "docs: add skill badge",
+      "date": "2026-05-07",
+      "author": "Jiachi Liu"
+    },
+    {
       "sha": "34d5a77",
       "message": "docs(proxy): fix config export name in proxy.ts examples (#10)",
       "date": "2026-05-04",
@@ -4143,12 +4149,6 @@
     {
       "sha": "40c552b",
       "message": "merge skills",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "2c88cf5",
-      "message": "tweak readme",
       "date": "2026-01-26",
       "author": "Jiachi Liu"
     }
@@ -5045,125 +5045,125 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
-      "sha": "675256e",
-      "message": "Add shared auth-state pattern and docs",
+      "sha": "9e67812",
+      "message": "fix(hex-relay): finish relay hardening cleanup",
       "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "3913e1f",
-      "message": "refactor: migrate skills marketplace to self-contained plugin bundles",
-      "date": "2026-05-06",
+      "sha": "6b86d1f",
+      "message": "Update hex-relay agent & workflow references",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "40b8197",
-      "message": "release: v2026.05.06",
-      "date": "2026-05-06",
+      "sha": "363b480",
+      "message": "Refactor workers & idle shutdown; add control lane",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "78b766c",
-      "message": "Add local voice transcription to hex-relay",
-      "date": "2026-05-05",
+      "sha": "f30526b",
+      "message": "HTTP service errors + Telegram v2 menu",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "ca127c3",
-      "message": "Add local voice transcription support",
-      "date": "2026-05-05",
+      "sha": "9266a54",
+      "message": "refactor(hex-relay): tighten service boundaries",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "e6300aa",
-      "message": "Introduce hex-relay agent and relocate relay-bot",
-      "date": "2026-05-05",
+      "sha": "2085ab0",
+      "message": "Add service ports, session transcript store, and tests",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "284df09",
-      "message": "Improve god-session error reporting and alerts",
-      "date": "2026-05-04",
+      "sha": "6b84539",
+      "message": "Enforce Host Skill Invocation bridge and fix paths",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "4e95fda",
-      "message": "Throttle task poll notifications to 24h",
-      "date": "2026-05-04",
+      "sha": "c54c92e",
+      "message": "Add pending-reply GC, tg prefix, Codex usage probe",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "480052b",
-      "message": "Add Telegram commands for global and private chats",
-      "date": "2026-05-04",
+      "sha": "5ab7c1d",
+      "message": "Add workflow skills references and runtime scripts",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     },
     {
-      "sha": "8b5d2da",
-      "message": "relay-bot: add task polling and handoff",
-      "date": "2026-05-04",
+      "sha": "30cd3a3",
+      "message": "Add idle-session watchdog and codex service",
+      "date": "2026-05-07",
       "author": "levnikolaevich"
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
-      "sha": "555d290",
-      "message": "fix(homepage): drop \"last 30d\" total from npm marquee (#688)",
-      "date": "2026-05-07",
+      "sha": "fd45fbf",
+      "message": "feat(forge): plane plugin \u2014 first end-to-end /skill-creator --forge dogfood (Phase 3) (#703)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "8c2786f",
-      "message": "fix(nav): drop the \u2318 icon box from the header (#686)",
-      "date": "2026-05-07",
+      "sha": "cf01f50",
+      "message": "feat(marketplace): per-plugin /verification page (JRig badge click target) (#702)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "67aa0ee",
-      "message": "feat(forms): rewire signup + nomination \u2192 Slack (forms-api on VPS) + partner-bar polish (#685)",
-      "date": "2026-05-07",
+      "sha": "0b040af",
+      "message": "feat(marketplace): add Start-Here curated starter pack section to homepage (Phase 4C) (#701)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "688821b",
-      "message": "fix(homepage): strip slop (pills, badges, shadows, 'flagship' labels) + agent37 removal + yellow contrast (#684)",
-      "date": "2026-05-07",
+      "sha": "84dd501",
+      "message": "feat(marketplace): wire forge_proofs \u2192 JRig-Verified badge data flow (#700)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "e42ce36",
-      "message": "feat(deploy): migrate tonsofskills.com off Firebase to Contabo VPS (#683)",
-      "date": "2026-05-07",
+      "sha": "27aa7d1",
+      "message": "feat(freshie): add JRig integration columns + forge_proofs table to compliance DB (#699)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "f319d66",
-      "message": "feat(marketplace): rebrand to Data-Dense Pro + lazy-load search/skills indexes (#682)",
-      "date": "2026-05-07",
+      "sha": "786c71d",
+      "message": "feat(validator): add Tier 2 static production gate (5 inline checks) (#698)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     },
     {
-      "sha": "708670b",
-      "message": "feat(blog): add four-production-deploy-gotchas case study to tonsofskills.com/blog",
-      "date": "2026-05-06",
-      "author": "Jeremy Longshore"
+      "sha": "369c95b",
+      "message": "feat(schema): IS-extension fields for forge provenance + marketplace display (Phase 5A) (#697)",
+      "date": "2026-05-08",
+      "author": "intentsolutions.io"
     },
     {
-      "sha": "0b4558c",
-      "message": "feat(blog): add 2026-05-04 case study to tonsofskills.com/blog",
-      "date": "2026-05-05",
-      "author": "Jeremy Longshore"
+      "sha": "cf3c41d",
+      "message": "fix(analytics): wire Umami custom events + add data-domains spam guard (#692)",
+      "date": "2026-05-08",
+      "author": "intentsolutions.io"
     },
     {
-      "sha": "3a2d27d",
-      "message": "chore(release): prepare v4.30.0",
-      "date": "2026-05-04",
-      "author": "Jeremy Longshore"
+      "sha": "abc9cb5",
+      "message": "feat(marketplace): add tagline + JRig-Verified + forge-generated badges to plugin pages (#696)",
+      "date": "2026-05-08",
+      "author": "intentsolutions.io"
     },
     {
-      "sha": "ba8561d",
-      "message": "chore(guidewire): v2.0.0 pack-level cleanup \u2014 README + package.json + cuts (#678)",
-      "date": "2026-05-04",
+      "sha": "f9ecfd2",
+      "message": "feat(validate): add JRig Tier 3A spec snapshots + gitignore exceptions (#695)",
+      "date": "2026-05-08",
       "author": "intentsolutions.io"
     }
   ],
@@ -5231,6 +5231,24 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "b03fda8",
+      "message": "restructure: move skill-creator, skill-reviewer, skills-search into daymade-skill suite",
+      "date": "2026-05-07",
+      "author": "daymade"
+    },
+    {
+      "sha": "89e6ddf",
+      "message": "chore: remove mistakenly committed cloud/lessons-learned.md",
+      "date": "2026-05-07",
+      "author": "daymade"
+    },
+    {
+      "sha": "93cfa49",
+      "message": "refactor(marketplace): move skill-creator under daymade-skills namespace",
+      "date": "2026-05-07",
+      "author": "daymade"
+    },
+    {
       "sha": "5a1b269",
       "message": "chore: remove ralph loop generated artifacts",
       "date": "2026-05-07",
@@ -5269,24 +5287,6 @@
     {
       "sha": "9ff3352",
       "message": "fix(pdf-creator): keep table rows intact across page breaks",
-      "date": "2026-04-26",
-      "author": "daymade"
-    },
-    {
-      "sha": "3cb9823",
-      "message": "fix(pdf-creator): add CJK font fallback for inline code (default theme)",
-      "date": "2026-04-26",
-      "author": "daymade"
-    },
-    {
-      "sha": "f3182f7",
-      "message": "fix(pdf-creator): typography size unity + integration test path",
-      "date": "2026-04-26",
-      "author": "daymade"
-    },
-    {
-      "sha": "ec7c313",
-      "message": "feat(pdf-creator): CJK typography auto-injection + theme refinements (v1.4.0)",
       "date": "2026-04-26",
       "author": "daymade"
     }
@@ -5417,6 +5417,18 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "0dd446f",
+      "message": "Add codex skill: CLI integration with default model fix",
+      "date": "2026-05-07",
+      "author": "glebis"
+    },
+    {
+      "sha": "c374e2c",
+      "message": "Rewrite retrospective skill: interactive 2-step flow with test suite",
+      "date": "2026-05-07",
+      "author": "glebis"
+    },
+    {
       "sha": "b37436f",
       "message": "add sorted skill \u2014 getSorted.de invoice and tax automation",
       "date": "2026-05-06",
@@ -5463,79 +5475,67 @@
       "message": "docs: add BUNDLES.md, update README with cognitive-toolkit link, gitignore concepts",
       "date": "2026-04-27",
       "author": "glebis"
-    },
-    {
-      "sha": "99b7d1b",
-      "message": "update: granola and wispr-analytics improvements",
-      "date": "2026-04-27",
-      "author": "glebis"
-    },
-    {
-      "sha": "f75cae0",
-      "message": "feat: add session-finder skill \u2014 semantic session search with embeddings",
-      "date": "2026-04-27",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "73da144",
-      "message": "insert 3 LLM intro slides at positions 11\u201313 in claude-code-best-practice deck",
+      "sha": "bcaa2cc",
+      "message": "Merge branch 'main' of https://github.com/shanraisshan/claude-code-best-practice",
       "date": "2026-05-07",
       "author": "Shayan Rais"
     },
     {
-      "sha": "a05c791",
-      "message": "add llm-advanced.svg \u2014 combined BPE tokenization + autoregressive diagram",
-      "date": "2026-05-07",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "faa8271",
-      "message": "add tokens.jpg \u2014 OpenAI tokenizer screenshot for tokenization slide",
-      "date": "2026-05-07",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "e537393",
-      "message": "add llm-basic.svg \u2014 animated autoregressive generation diagram",
-      "date": "2026-05-07",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "8931c73",
+      "sha": "4671f03",
       "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-06",
+      "date": "2026-05-07",
       "author": "Claude Routine"
     },
     {
-      "sha": "34f48b6",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-06",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "a56ea4a",
-      "message": "update README badge to Claude Code v2.1.128 (May 05, 2026 9:33 PM PKT)",
-      "date": "2026-05-05",
+      "sha": "924c72a",
+      "message": "insert slide 29 Uncle Bob counterpoint + rename slides 28/29 to name-attributed pair",
+      "date": "2026-05-07",
       "author": "Shayan Rais"
     },
     {
-      "sha": "b28a0aa",
-      "message": "add agent-collections changelog with first-run entry \u2014 captures star and count drift for msitarzewski/agency-agents (92k",
-      "date": "2026-05-05",
+      "sha": "3b848b7",
+      "message": "add vibe-coding-uncle-bob.png \u2014 image of Robert C. Martin's vibe coding critique",
+      "date": "2026-05-07",
       "author": "Shayan Rais"
     },
     {
-      "sha": "724c58b",
-      "message": "add /workflows:agent-collections slash command mirroring skill-collections workflow \u2014 researches AGENT COLLECTIONS repos",
-      "date": "2026-05-05",
+      "sha": "b3f884f",
+      "message": "Update index.html",
+      "date": "2026-05-07",
       "author": "Shayan Rais"
     },
     {
-      "sha": "2773d6e",
-      "message": "update README: bump badge to May 05 9:20 PM PKT, register /workflows:agent-collections at #3 in workflow registry, resiz",
-      "date": "2026-05-05",
+      "sha": "6718a97",
+      "message": "reformat slides 11, 14, 15, 16 \u2014 heading-with-separator pattern + emoji prefixes",
+      "date": "2026-05-07",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "00116d3",
+      "message": "reformat slides 12 and 13 to match slide 10 pattern; trim slide 12 heading",
+      "date": "2026-05-07",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "b667fc5",
+      "message": "restructure llm-animation-tokenids.svg for projector legibility",
+      "date": "2026-05-07",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "33cd221",
+      "message": "restructure llm-advanced.svg for projector legibility",
+      "date": "2026-05-07",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "40c3020",
+      "message": "reformat slide 10 to match slide 17 pattern (heading + separator + content)",
+      "date": "2026-05-07",
       "author": "Shayan Rais"
     }
   ],

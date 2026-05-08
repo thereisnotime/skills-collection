@@ -1,6 +1,14 @@
-import type { Db } from "../client.js";
-import type { InboundMessage, MessageKind, MessageStatus } from "../../../domain/message.js";
+import type { Db } from "../types.js";
+import {
+  type InboundMessage,
+  type MessageKind,
+  type MessageStatus,
+  type AgentKind,
+  DEFAULT_AGENT,
+} from "../../../domain/message.js";
 import { mapInboundRow } from "../rowMappers.js";
+import { observeDbOperation } from "../../../observability/metrics.js";
+import { buildUpdateSet } from "./updateSet.js";
 
 export interface MessageUpdate {
   status?: MessageStatus;
@@ -43,25 +51,32 @@ export type MessagesRepo = ReturnType<typeof createMessagesRepo>;
 export function createMessagesRepo(db: Db) {
   const insertInbound = db.prepare(
     "INSERT INTO messages " +
-      "(ts, direction, kind, status, text, tg_chat_id, tg_msg_id, from_user_id, next_attempt_at) " +
-      "VALUES (?, 'inbound', 'text', 'queued', ?, ?, ?, ?, ?)"
+      "(ts, direction, kind, status, text, tg_chat_id, tg_msg_id, from_user_id, next_attempt_at, agent) " +
+      "VALUES (?, 'inbound', 'text', 'queued', ?, ?, ?, ?, ?, ?)"
   );
   const insertTranscribingVoice = db.prepare(
     "INSERT INTO messages " +
-      "(ts, direction, kind, status, text, tg_chat_id, tg_msg_id, from_user_id, media_path, next_attempt_at) " +
-      "VALUES (?, 'inbound', 'voice', 'transcribing', '', ?, ?, ?, ?, ?)"
+      "(ts, direction, kind, status, text, tg_chat_id, tg_msg_id, from_user_id, media_path, next_attempt_at, agent) " +
+      "VALUES (?, 'inbound', 'voice', 'transcribing', '', ?, ?, ?, ?, ?, ?)"
   );
   const insertRejected = db.prepare(
-    "INSERT INTO messages (ts, direction, kind, status, text, tg_chat_id, tg_msg_id, error) " +
-      "VALUES (?, 'inbound', 'text', 'rejected', ?, ?, ?, ?)"
+    "INSERT INTO messages (ts, direction, kind, status, text, tg_chat_id, tg_msg_id, error, agent) " +
+      "VALUES (?, 'inbound', 'text', 'rejected', ?, ?, ?, ?, ?)"
   );
   const insertOutboundAudit = db.prepare(
-    "INSERT INTO messages (ts, direction, status, text, session_id, replied_to_id) " +
-      "VALUES (?, 'outbound', 'queued', ?, ?, ?)"
+    "INSERT INTO messages (ts, direction, status, text, session_id, replied_to_id, agent) " +
+      "VALUES (?, 'outbound', 'queued', ?, ?, ?, ?)"
   );
   const selectDue = db.prepare(
     "SELECT * FROM messages WHERE direction='inbound' " +
       "AND status='queued' AND next_attempt_at<=? ORDER BY id LIMIT ?"
+  );
+  const claimDueSelect = db.prepare(
+    "SELECT id FROM messages WHERE direction='inbound' " +
+      "AND status='queued' AND next_attempt_at<=? ORDER BY id LIMIT ?"
+  );
+  const claimDueUpdate = db.prepare(
+    "UPDATE messages SET status='delivering' WHERE id=? AND status='queued'"
   );
   const selectTranscribing = db.prepare(
     "SELECT * FROM messages WHERE direction='inbound' " +
@@ -69,11 +84,6 @@ export function createMessagesRepo(db: Db) {
   );
   const findByTg = db.prepare(
     "SELECT * FROM messages WHERE direction='inbound' " + "AND tg_chat_id=? AND tg_msg_id=? LIMIT 1"
-  );
-  const findRecentDeliveredVoiceByText = db.prepare(
-    "SELECT * FROM messages WHERE direction='inbound' AND kind='voice' " +
-      "AND status IN ('delivering','delivered') AND session_id IS NULL " +
-      "AND text=? AND COALESCE(delivered_at, next_attempt_at, ts)>=? ORDER BY id DESC LIMIT 1"
   );
   const findById = db.prepare("SELECT * FROM messages WHERE id=? LIMIT 1");
   const getChatIdById = db.prepare("SELECT tg_chat_id FROM messages WHERE id = ?");
@@ -87,58 +97,119 @@ export function createMessagesRepo(db: Db) {
   const countInboundRejected = db.prepare(
     "SELECT COUNT(*) AS c FROM messages WHERE direction='inbound' AND status='rejected'"
   );
+  const lastActivityForUserAgent = db.prepare(
+    "SELECT MAX(ts) AS ts FROM messages " +
+      "WHERE agent = ? AND (" +
+      "  (direction = 'inbound' AND from_user_id = ?) " +
+      "  OR (direction = 'outbound' AND replied_to_id IN " +
+      "    (SELECT id FROM messages WHERE direction = 'inbound' AND from_user_id = ?))" +
+      ")"
+  );
+  const hasActiveInboundForUserAgent = db.prepare(
+    "SELECT 1 FROM messages " +
+      "WHERE direction='inbound' AND from_user_id=? AND agent=? " +
+      "AND status IN ('queued','delivering','transcribing') LIMIT 1"
+  );
+
+  const claimDueTxn = db.transaction((ts: number, limit: number) => {
+    const selected = claimDueSelect.all(ts, limit) as { id: number }[];
+    const claimed: Record<string, unknown>[] = [];
+    for (const row of selected) {
+      const result = claimDueUpdate.run(row.id);
+      if (result.changes !== 1) continue;
+      const claimedRow = findById.get(row.id) as Record<string, unknown> | undefined;
+      if (claimedRow) claimed.push(claimedRow);
+    }
+    return claimed;
+  });
 
   return {
-    insertInbound(text: string, tgChatId: number, tgMsgId: number, fromUserId: number): number {
+    insertInbound(
+      text: string,
+      tgChatId: number,
+      tgMsgId: number,
+      fromUserId: number,
+      agent: AgentKind = DEFAULT_AGENT
+    ): number {
       const ts = nowTs();
-      const result = insertInbound.run(ts, text, tgChatId, tgMsgId, fromUserId, ts);
+      const result = insertInbound.run(ts, text, tgChatId, tgMsgId, fromUserId, ts, agent);
       return Number(result.lastInsertRowid);
     },
     insertTranscribingVoice(
       tgChatId: number,
       tgMsgId: number,
       fromUserId: number,
-      mediaPath: string
+      mediaPath: string,
+      agent: AgentKind = DEFAULT_AGENT
     ): number {
       const ts = nowTs();
-      const result = insertTranscribingVoice.run(ts, tgChatId, tgMsgId, fromUserId, mediaPath, ts);
+      const result = insertTranscribingVoice.run(
+        ts,
+        tgChatId,
+        tgMsgId,
+        fromUserId,
+        mediaPath,
+        ts,
+        agent
+      );
       return Number(result.lastInsertRowid);
     },
-    insertRejected(text: string, tgChatId: number, tgMsgId: number, error: string): number {
-      const result = insertRejected.run(nowTs(), text, tgChatId, tgMsgId, error);
+    insertRejected(
+      text: string,
+      tgChatId: number,
+      tgMsgId: number,
+      error: string,
+      agent: AgentKind = DEFAULT_AGENT
+    ): number {
+      const result = insertRejected.run(nowTs(), text, tgChatId, tgMsgId, error, agent);
       return Number(result.lastInsertRowid);
     },
     insertOutboundAudit(
       text: string,
       sessionId: string | null,
-      repliedToId: number | null
+      repliedToId: number | null,
+      agent: AgentKind = DEFAULT_AGENT
     ): number {
-      const result = insertOutboundAudit.run(nowTs(), text, sessionId, repliedToId);
+      const result = insertOutboundAudit.run(nowTs(), text, sessionId, repliedToId, agent);
       return Number(result.lastInsertRowid);
     },
     selectDue(limit = 5): InboundMessage[] {
       const rows = selectDue.all(nowTs(), limit) as Record<string, unknown>[];
       return rows.map(mapInboundRow);
     },
+    claimDue(limit = 5): InboundMessage[] {
+      const started = performance.now();
+      try {
+        const rows = claimDueTxn(nowTs(), limit);
+        return rows.map(mapInboundRow);
+      } finally {
+        observeDbOperation("messages.claimDue", performance.now() - started);
+      }
+    },
     selectTranscribing(limit = 2): InboundMessage[] {
-      const rows = selectTranscribing.all(limit) as Record<string, unknown>[];
-      return rows.map(mapInboundRow);
+      const started = performance.now();
+      try {
+        const rows = selectTranscribing.all(limit) as Record<string, unknown>[];
+        return rows.map(mapInboundRow);
+      } finally {
+        observeDbOperation("messages.selectTranscribing", performance.now() - started);
+      }
     },
     update(msgId: number, fields: MessageUpdate): void {
-      const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
-      if (entries.length === 0) return;
-      const cols = entries.map(([k]) => `${FIELD_MAP[k as keyof MessageUpdate]}=?`).join(", ");
-      const values = entries.map(([, v]) => v as unknown);
-      db.prepare(`UPDATE messages SET ${cols} WHERE id=?`).run(...(values as never[]), msgId);
+      const updateSet = buildUpdateSet<MessageUpdate>(fields, FIELD_MAP);
+      if (!updateSet) return;
+      const started = performance.now();
+      try {
+        db.prepare(`UPDATE messages SET ${updateSet.clause} WHERE id=?`).run(
+          ...updateSet.values,
+          msgId
+        );
+      } finally {
+        observeDbOperation("messages.update", performance.now() - started);
+      }
     },
     findByTg(chatId: number, msgId: number): InboundMessage | null {
       const row = findByTg.get(chatId, msgId) as Record<string, unknown> | undefined;
-      return row ? mapInboundRow(row) : null;
-    },
-    findRecentDeliveredVoiceByText(text: string, ttlSec = 300): InboundMessage | null {
-      const row = findRecentDeliveredVoiceByText.get(text, nowTs() - ttlSec) as
-        | Record<string, unknown>
-        | undefined;
       return row ? mapInboundRow(row) : null;
     },
     findById(id: number): InboundMessage | null {
@@ -159,6 +230,15 @@ export function createMessagesRepo(db: Db) {
         inboundFailed: f.c,
         inboundRejected: r.c,
       };
+    },
+    lastActivityForUserAgent(userId: number, agent: AgentKind): number | null {
+      const row = lastActivityForUserAgent.get(agent, userId, userId) as
+        | { ts: number | null }
+        | undefined;
+      return row?.ts ?? null;
+    },
+    hasActiveInboundForUserAgent(userId: number, agent: AgentKind): boolean {
+      return hasActiveInboundForUserAgent.get(userId, agent) !== undefined;
     },
   };
 }
