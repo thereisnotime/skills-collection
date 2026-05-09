@@ -42,8 +42,9 @@ Specialized worker auditing API contracts, method signatures at service boundari
 
 ### Phase 0: Load References
 
-**MANDATORY READ:** Load `references/two_layer_detection.md` for detection methodology. Load `references/detection_patterns.md` -- language-specific Grep patterns for all 5 rules.
-**MANDATORY READ:** Load `references/mcp_tool_preferences.md` and `references/mcp_integration_patterns.md`
+Load `references/detection_patterns.md` -- language-specific Grep patterns for all 5 rules.
+Detection policy: use two-layer detection (candidate scan, then context verification); load `references/two_layer_detection.md` only when the verification method is ambiguous.
+Tool policy: follow host AGENTS.md MCP preferences; load `references/mcp_tool_preferences.md` and `references/mcp_integration_patterns.md` only when host policy is absent or MCP behavior is unclear.
 
 Use `hex-graph` first when symbol or reference analysis materially improves contract findings. Use `hex-line` first for local code reads when available. If MCP is unavailable, unsupported, or not indexed, continue with built-in `Read/Grep/Glob/Bash` and state the fallback in the report.
 
@@ -127,7 +128,7 @@ score = max(0, 10 - penalty)
 
 ### Phase 4: Write Report
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md` and `references/templates/audit_worker_report_template.md`.
+**MANDATORY READ:** Load `references/templates/audit_worker_report_template.md`.
 
 Write JSON summary per `references/audit_summary_contract.md`. In managed mode the caller passes both `runId` and `summaryArtifactPath`; in standalone mode the worker generates its own run-scoped artifact path per shared contract.
 
@@ -153,7 +154,7 @@ Score: 6.75/10 (C:65 K:70 Q:55 I:80) | Issues: 4 (H:2 M:1 L:1)
 
 ## Critical Rules
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - **Architecture-level only:** Focus on service boundaries, not internal implementation
 - **Read before score:** Never score without reading actual service code
@@ -163,7 +164,7 @@ Score: 6.75/10 (C:65 K:70 Q:55 I:80) | Issues: 4 (H:2 M:1 L:1)
 
 ## Definition of Done
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - [ ] Service boundaries discovered (API, service, domain layers)
 - [ ] Method signatures extracted and analyzed
@@ -178,8 +179,7 @@ Score: 6.75/10 (C:65 K:70 Q:55 I:80) | Issues: 4 (H:2 M:1 L:1)
 ## Reference Files
 
 - Detection patterns: `references/detection_patterns.md`
-- Scoring rules: `../ln-640-pattern-evolution-auditor/references/scoring_rules.md`
-- Pattern library: `../ln-640-pattern-evolution-auditor/references/pattern_library.md`
+- Scoring rules: `references/audit_scoring.md`
 
 ---
 **Version:** 2.0.0

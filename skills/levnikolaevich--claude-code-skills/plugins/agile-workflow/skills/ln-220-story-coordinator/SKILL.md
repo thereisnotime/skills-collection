@@ -23,6 +23,8 @@ Load these before execution:
 - `references/storage_mode_detection.md`
 - `references/problem_solving.md`
 
+**MANDATORY READ:** Load `references/researchgraph_mcp_usage.md` when the Epic, source docs, or existing Stories cite H/G/run IDs or when a researchgraph layout can change Story decomposition.
+
 ## Purpose
 
 - assemble Epic planning context
@@ -83,6 +85,8 @@ Checkpoint payload:
 Do focused research only when it changes Story Technical Notes or implementation constraints.
 
 Do not let research expand Story scope.
+
+If a researchgraph layout exists, use `verify_index` first and then query only the relevant goals, hypotheses, evidence, or runs. Use graph results to ground Story scope, readiness, and Technical Notes; do not create new Story scope just because graph debt exists.
 
 Checkpoint payload:
 - `research_status`
@@ -255,9 +259,9 @@ node references/scripts/story-planning-runtime/cli.mjs record-plan-summary --epi
 
 ## Meta-Analysis
 
-**MANDATORY READ:** Load `references/meta_analysis_protocol.md`
+Optional reference: load `references/meta_analysis_protocol.md` only when the user asks for post-run meta-analysis or protocol-formatted run reflection.
 
-Skill type: `planning-coordinator`. Run after all phases complete. Output to chat using the protocol format.
+Skill type: `planning-coordinator`. When requested, run after all phases complete. Output to chat using the protocol format.
 
 ## Reference Files
 

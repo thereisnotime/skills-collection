@@ -1,10 +1,10 @@
 {
   "name": "@stripe/agent-toolkit",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "homepage": "https://github.com/stripe/ai",
   "scripts": {
     "build": "tsup",
-    "clean": "rm -rf langchain ai-sdk modelcontextprotocol openai cloudflare",
+    "clean": "rm -rf langchain ai-sdk modelcontextprotocol openai",
     "lint": "eslint \"./**/*.ts*\"",
     "prettier": "prettier './**/*.{js,ts,md,html,css}' --write",
     "prettier-check": "prettier './**/*.{js,ts,md,html,css}' --check",
@@ -31,11 +31,6 @@
       "types": "./modelcontextprotocol/index.d.ts",
       "require": "./modelcontextprotocol/index.js",
       "import": "./modelcontextprotocol/index.mjs"
-    },
-    "./cloudflare": {
-      "types": "./cloudflare/index.d.ts",
-      "require": "./cloudflare/index.js",
-      "import": "./cloudflare/index.mjs"
     }
   },
   "packageManager": "pnpm@9.11.0",
@@ -78,7 +73,6 @@
   },
   "peerDependencies": {
     "@langchain/core": "^0.3.6",
-    "agents": "^0.0.84",
     "ai": "^5.0.89",
     "openai": "^4.86.1"
   },
@@ -103,7 +97,6 @@
     "langchain/**/*",
     "modelcontextprotocol/**/*",
     "openai/**/*",
-    "cloudflare/**/*",
     "LICENSE",
     "README.md",
     "VERSION",

@@ -7,6 +7,179 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.31.0] - 2026-05-08
+
+Four-day sprint after v4.30.0 — single-session execution of the "Use the
+Printing Press to Learn" plan, which mapped Matt Van Horn's CLI Printing
+Press against the IS stack and shipped the four real gaps it surfaced:
+generation capability (`/skill-creator --forge`), NOI cultural gate,
+JRig behavioral evaluation integration end-to-end, and marketplace trust
+signals (JRig-Verified badge + forge-generated provenance pill). The
+forge workflow is no longer theoretical — `plugins/productivity/plane/`
+is a Grade A (97/100) plugin produced through all 8 forge gates with a
+full `.forge/` audit trail. JRig itself got real TypeScript code
+(`spec-sources` module + 22 tests, ships in `j-rig-skill-binary-eval`).
+
+### Added
+
+- **`/skill-creator --forge` mode** (local skill, v8.1.0) — 8-gate workflow
+  for generating plugins from API surfaces: NOI hard block (the API's
+  "secret identity" must be named in 6–10 words before any code is
+  written), ecosystem absorb (catalog 3–5 competing tools, gap analysis),
+  API surface research, domain archetype detection, compound command
+  design, generation, mandatory `/validate-skillmd --thorough`,
+  PR + catalog wiring. Produces a `.forge/` audit trail (research.md,
+  ecosystem.md, proofs.md) alongside the standard skill scaffold.
+- **`/skill-creator --reforge` mode** (local skill, v8.1.0) — Regenerate
+  an existing forge-generated plugin against the current API surface to
+  fight catalog rot. Preserves NOI from `references/noi.md`, re-runs
+  gates 3–7, auto-bumps version per detected change scope (patch for
+  endpoint adds, minor for new compound commands, major for breaking
+  surface changes).
+- **`plugins/productivity/plane/`** (#703) — First end-to-end forge
+  dogfood. NOI: "Plane is a team behavior observatory." Five compound
+  commands (`/plane-cycle-velocity`, `/plane-stale-tickets`,
+  `/plane-reviewer-gate-strength`, `/plane-priority-drift`,
+  `/plane-cross-project-load`) that JOIN across multiple Plane endpoints
+  to surface observations no single endpoint exposes. Validates Grade A
+  (97/100), Tier 2 GREEN, JRig 12/12 deterministic checks. 1,123 lines
+  across 8 files; full `.forge/` audit trail visible to anyone reviewing
+  how the plugin came to exist.
+- **Tier 2 static production gate in the validator** (#698) — Five
+  deterministic checks added to `scripts/validate-skills-schema.py` (273
+  lines Python). Run alongside the standard 100-point rubric: (1)
+  `allowed-tools` accuracy — declared tools must appear in the body;
+  (2) auth-documented — API surface mentions require an auth method
+  documented; (3) dead-code — literal-false branches detected; (4) tool
+  safety — unscoped Bash + Write/WebFetch requires Safety Justification
+  section; (5) orchestration bounds — skills shouldn't claim cross-skill
+  orchestration (with negation-marker guards to avoid false-positives on
+  documentation). 180 new errors surfaced across the 3,535-skill catalog
+  on first run; grade distribution unchanged at 68.9% A+B.
+- **JRig-Verified marketplace badge data flow** (#696, #699, #700) —
+  Three-PR trio that lights up the badge end-to-end: (1) plugin detail
+  page renders `plugin.jrig?.verified` as a green "JRig-Verified · N/7
+  layers" pill; (2) Freshie schema migration adds `jrig_passed`,
+  `jrig_tier_blocked`, `jrig_baseline_delta` columns to `skill_compliance`
+  + new `forge_proofs` table for per-plugin verification evidence;
+  (3) new build step `enrich-jrig-data.mjs` reads `forge_proofs` via
+  sqlite3 CLI, writes `marketplace/src/data/jrig-data.json` for the
+  detail-page overlay. Build pipeline now 7 steps (added `jrig:enrich`).
+- **Per-plugin `/plugins/<name>/verification` route** (#702) — 316-line
+  Astro page that the JRig-Verified badge clicks through to. Two
+  states: VERIFIED (shows passing-layer fraction, baseline delta, 7-layer
+  framework breakdown) or PENDING (explains the two paths plugins reach
+  JRig — forge generation or manual `j-rig eval`).
+- **NOI tagline + forge-generated provenance pills** (#696) — Optional
+  fields on plugin detail pages: italic NOI-framed subtitle under plugin
+  name; indigo "Forge-generated" pill when `plugin.json` carries
+  `"generated": true` or `"author_type": "forge"`. Anti-spam moat per
+  Phase 5A: marketplace surfaces forge provenance for reviewer + end-user
+  visibility.
+- **Curated "Start here" homepage section** (#701) — 5-plugin onboarding
+  pack between Hero and Jeremy's Stash. Eliminates "what should I
+  install?" friction with 343 plugins to choose from. Each card: NOI
+  tagline, "why this is in the pack" paragraph, copy-friendly install
+  command. Editorial picks; quarterly rotation; re-evaluation against
+  install velocity once Phase 5B telemetry lands.
+- **JRig spec snapshots in `000-docs/`** (#695) —
+  `anthropic-skills-spec-snapshot.md` + `agentskills-spec-snapshot.md`
+  capture the source-of-truth specs JRig and the IS validator validate
+  against. Versioned; refresh quarterly via PR cadence (live-fetch from
+  CI is a rate-limit + flakiness risk). Same files mirror in
+  `j-rig-skill-binary-eval/references/specs/`; future enhancement: sync
+  script that diffs the two locations and fails CI on divergence.
+- **JRig spec-sources TypeScript module** (j-rig PR #41, real TS code) —
+  192-line module + 22 passing tests (full repo suite still green at
+  173/173). Public API: `loadSpecAuthority()`, `classifyField(name)`,
+  `isValidEffort(value)`. Records snapshot IDs so eval reports can detect
+  spec drift in either direction. Quarterly refresh becomes a single PR
+  cadence with the test suite catching divergence between the snapshot
+  files and the embedded TypeScript constants.
+- **IS-extension fields documented in `plugin-schema.md`** (#697) — Two
+  provenance fields (`generated`: boolean, `author_type`:
+  "human" | "forge") set by `/skill-creator --forge`. Documented
+  alongside the 15 Anthropic spec fields. Stripped from `marketplace.json`
+  (CLI catalog) by `sync-marketplace.cjs`'s `DISALLOWED_KEYS` set so the
+  CLI never sees website-only metadata.
+- **Master skills spec 3.1.0 → 3.3.1** (#693) —
+  `000-docs/6767-b-SPEC-DR-STND-claude-skills-standard.md` brought into
+  alignment with the validator's actual schema 3.3.1 behavior: 8-field
+  enterprise required set (`name, description, allowed-tools, version,
+  author, license, compatibility, tags`) is the IS marketplace tier
+  requirement; missing any of these = ERROR (not warning). The 3.0.0–
+  3.2.0 demotion-to-polish direction was reverted in 3.3.0; the doc never
+  absorbed that revert until this PR. `allowed-tools` documented to
+  accept all three forms (CSV string, space-separated string, YAML list).
+- **Freshie discovery run 7 + compliance population under v7.0** (#694) —
+  Refreshed `freshie/inventory.sqlite` with current validator scores.
+  Anomalies dropped 44 → 7; duplicate file groups 41 → 0; cross-references
+  301 → 684. 2,429 of 3,535 skills (68.9%) production-ready (A+B grade)
+  at marketplace tier under schema 3.3.1.
+
+### Changed
+
+- **`scripts/sync-marketplace.cjs` `DISALLOWED_KEYS`** (#697) — Extended
+  to strip 4 new website-only display fields from `marketplace.json`:
+  `tagline`, `jrig`, `generated`, `author_type`. The website renders
+  these from `marketplace.extended.json`; the CLI catalog never sees them.
+- **`marketplace/scripts/build.mjs` step count** (#700) — 6 → 7 steps;
+  added `jrig:enrich` after `catalog:sync`, before `search:generate`. New
+  step reads `forge_proofs` from Freshie and writes `jrig-data.json` for
+  the plugin detail page overlay.
+- **`/validate-skillmd` v4.0.0 → v5.0.1** (local skill) — Four-tier
+  validation framework: Tier 0 (locate), Tier 1 (standard or marketplace
+  grading), Tier 2 (static production gate), Tier 3 (JRig opt-in via
+  `--thorough`). Reconciled with JRig's actual CLI surface (`j-rig` with
+  hyphen, `j-rig check`, `j-rig eval`) after initial documentation
+  documented imaginary flags.
+- **`/skill-creator` v7.0.0 → v8.1.0** (local skill) — Added `--forge`
+  and `--reforge` modes (see Added section). Default `--create` mode
+  unchanged for hand-authored skills.
+- **`CLAUDE.md`** (#704) — Refreshed after the plan landed: plugin count
+  425 → 427, schema 3.0.0 → 3.3.1, build pipeline 6 → 7 steps, new
+  "Forge-Generated Plugins" subsection documenting `.forge/` pattern,
+  new top-level "JRig — Behavioral Evaluation Integration" section
+  explaining the full data flow. +70 / -13 lines, 22-section structure
+  preserved.
+
+### Fixed
+
+- **JRig epic-index README accuracy** (j-rig PR #40) — The README said
+  "Currently Active: Epic 01" with epics 02–10 marked Pending; reality
+  was all 10 epics shipped 2026-03-29 at v0.14.0 with 6 CLI commands
+  wired. Stale README triggered a false "JRig isn't ready" red-team
+  finding in the downstream IS plan. Updated with merge dates per epic
+  and a CLI-surface section.
+- **Umami custom events + data-domains spam guard** (#692) — Wires
+  marketplace events through Umami analytics; adds the data-domains
+  guard to the analytics config so spam events don't pollute the
+  legitimate signal.
+- **Homepage npm-marquee total downloads relabel** (#691) — "30d" →
+  "total downloads" reflects what the badge actually shows.
+- **npm-stats fetch throttling** (#689) — Restores live total on the
+  marquee; throttles fetch to dodge registry rate limits.
+- **Homepage 30d total drop** (#688) — Dropped the "last 30d" segment
+  from the npm marquee.
+- **Header navigation cleanup** (#686) — Removed the ⌘ icon box from
+  the header per design review.
+
+### Security
+
+- No new vulnerabilities introduced. Validator's Tier 2 tool-safety
+  check now flags unscoped `Bash` + `Write`/`WebFetch` declarations
+  without a Safety Justification section as ERROR at marketplace tier
+  — surfaces the curl-pipe-shell exploit surface for review on every
+  validation run.
+
+### Plan reference
+
+This release is the materialization of the "Use the Printing Press to
+Learn" plan into shipped code. Full session breakdown in the email
+record `<2282a9fe-14e1-d228-ded3-fd85c18aa1f7@intentsolutions.io>` and
+in the AAR at `000-docs/032-RL-REPT-claude-code-plugins-release-v4.31.0.md`
+(generated alongside this release).
+
 ## [4.30.0] - 2026-05-04
 
 Two-day sprint following v4.29.0 — landed the same-session "ship workaround

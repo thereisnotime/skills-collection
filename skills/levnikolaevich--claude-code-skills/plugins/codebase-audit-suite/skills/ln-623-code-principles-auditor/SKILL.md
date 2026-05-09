@@ -22,7 +22,7 @@ Specialized worker auditing code principles (DRY, KISS, YAGNI) and design patter
 ## Inputs
 
 **MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
-**MANDATORY READ:** Load `references/mcp_tool_preferences.md` and `references/mcp_integration_patterns.md`
+Tool policy: follow host AGENTS.md MCP preferences; load `references/mcp_tool_preferences.md` and `references/mcp_integration_patterns.md` only when host policy is absent or MCP behavior is unclear.
 
 Receives `contextStore` with: `tech_stack`, `best_practices`, `principles`, `codebase_root`, `output_dir`.
 
@@ -32,7 +32,7 @@ Use `hex-graph` first when clone groups, implementations, or semantic relationsh
 
 ## Workflow
 
-**MANDATORY READ:** Load `references/two_layer_detection.md` for detection methodology.
+Detection policy: use two-layer detection (candidate scan, then context verification); load `references/two_layer_detection.md` only when the verification method is ambiguous.
 
 1) **Parse context** -- extract fields, determine `scan_path` (domain-aware if specified), extract `output_dir`
 2) **Load detection patterns**
@@ -61,9 +61,9 @@ Use `hex-graph` first when clone groups, implementations, or semantic relationsh
 8) **Write Report:** Build full markdown report in memory per `references/templates/audit_worker_report_template.md`, write to `{output_dir}/ln-623--{domain}.md` (or `623-principles.md` in global mode) in single Write call. **Include `<!-- FINDINGS-EXTENDED -->` JSON block** with pattern_signature fields for cross-domain DRY analysis
 9) **Return Summary:** Return minimal summary to coordinator (see Output Format)
 
-## Two-Layer Detection (MANDATORY)
+## Two-Layer Detection
 
-**MANDATORY READ:** Load `references/two_layer_detection.md`
+Detection policy: use two-layer detection (candidate scan, then context verification); load `references/two_layer_detection.md` only when the verification method is ambiguous.
 
 All findings require Layer 2 context analysis. Layer 1 finding without Layer 2 = NOT a valid finding. Before reporting, ask: "Is this violation intentional or justified by design?"
 
@@ -179,11 +179,11 @@ All findings require Layer 2 context analysis. Layer 1 finding without Layer 2 =
 
 ## Scoring Algorithm
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md` and `references/audit_scoring.md`.
+**MANDATORY READ:** Load `references/audit_scoring.md`.
 
 ## Output Format
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md` and `references/templates/audit_worker_report_template.md`.
+**MANDATORY READ:** Load `references/templates/audit_worker_report_template.md`.
 
 Write JSON summary per `references/audit_summary_contract.md`. In managed mode the caller passes both `runId` and `summaryArtifactPath`; in standalone mode the worker generates its own run-scoped artifact path per shared contract.
 
@@ -205,7 +205,7 @@ Score: X.X/10 | Issues: N (C:N H:N M:N L:N)
 
 ## Critical Rules
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - **Do not auto-fix:** Report only
 - **Domain-aware scanning:** If `domain_mode="domain-aware"`, scan ONLY `scan_path`
@@ -217,7 +217,7 @@ Score: X.X/10 | Issues: N (C:N H:N M:N L:N)
 
 ## Definition of Done
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - [ ] contextStore parsed (including domain_mode, current_domain, output_dir)
 - [ ] scan_path determined (domain path or codebase root)

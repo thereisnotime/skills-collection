@@ -43,14 +43,14 @@ L3 Worker that audits the physical directory structure of a project against fram
 
 ## Workflow
 
-**MANDATORY READ:** Load `references/two_layer_detection.md` for detection methodology.
-**MANDATORY READ:** Load `references/mcp_tool_preferences.md` and `references/mcp_integration_patterns.md`
+Detection policy: use two-layer detection (candidate scan, then context verification); load `references/two_layer_detection.md` only when the verification method is ambiguous.
+Tool policy: follow host AGENTS.md MCP preferences; load `references/mcp_tool_preferences.md` and `references/mcp_integration_patterns.md` only when host policy is absent or MCP behavior is unclear.
 
 Use `hex-graph` first when architecture summaries materially improve structure findings. Use `hex-line` first for local code, config, and manifest reads when available. If MCP is unavailable, unsupported, or not indexed, continue with built-in `Read/Grep/Glob/Bash` and state the fallback in the report.
 
 ### Phase 1: Detect Tech Stack
 
-**MANDATORY READ:** Load `../ln-700-project-bootstrap/references/stack_detection.md` -- use Detection Algorithm, Frontend Detection, Backend Detection, Structure Detection.
+**MANDATORY READ:** Load `references/stack_detection.md` -- use Detection Algorithm, Frontend Detection, Backend Detection, Structure Detection.
 
 ```
 scan_root = scan_path IF domain_mode == "domain-aware" ELSE codebase_root
@@ -77,7 +77,7 @@ ELSE:
 
 ### Phase 2: File Hygiene Audit
 
-**MANDATORY READ:** Load `references/structure_rules.md` -- use "File Hygiene Rules" section. Also reference: `../ln-724-artifact-cleaner/references/platform_artifacts.md` (Platform Detection Matrix, Generic Prototype Artifacts).
+**MANDATORY READ:** Load `references/structure_rules.md` -- use "File Hygiene Rules" section. Also load `references/platform_artifacts.md` for Platform Detection Matrix and Generic Prototype Artifacts.
 
 ```
 # Check 2.1: Build artifacts tracked in git
@@ -111,7 +111,7 @@ FOR EACH file IN Glob("{scan_root}/**/*.{zip,tar,gz,rar,exe,dll,so,dylib,jar,war
 
 ### Phase 3: Ignore File Quality
 
-**MANDATORY READ:** Load `references/structure_rules.md` -- use "Ignore File Rules" section. Also reference: `../ln-733-env-configurator/references/gitignore_secrets.template` (secrets baseline), `../ln-731-docker-generator/references/dockerignore.template` (dockerignore baseline).
+**MANDATORY READ:** Load `references/structure_rules.md` -- use the embedded ignore-file rules, secrets baseline, and dockerignore baseline.
 
 ```
 # Check 3.1: .gitignore exists
@@ -294,7 +294,7 @@ Score: X.X/10 | Issues: N (C:N H:N M:N L:N)
 
 ## Scoring
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md` and `references/audit_scoring.md`.
+**MANDATORY READ:** Load `references/audit_scoring.md`.
 
 Severity mapping:
 - **HIGH:** Build artifacts tracked, missing .gitignore, source in wrong location, multiple lock files, missing secrets in .gitignore. **Exception:** Build artifacts in Git LFS -> skip
@@ -303,7 +303,7 @@ Severity mapping:
 
 ## Critical Rules
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - **Auto-detect, never assume:** Always detect tech stack before applying framework rules
 - **No false positives on conventions:** Apply framework rules ONLY for detected stack
@@ -316,7 +316,7 @@ Severity mapping:
 
 ## Definition of Done
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - [ ] Tech stack detected (from `docs/project/tech_stack.md` or auto-detection)
 - [ ] File hygiene checked: build artifacts, temp files, platform remnants, lock files, binaries
@@ -332,10 +332,6 @@ Severity mapping:
 ## Reference Files
 
 - **Structure rules:** `references/structure_rules.md`
-- **Stack detection:** `../ln-700-project-bootstrap/references/stack_detection.md`
-- **Platform artifacts:** `../ln-724-artifact-cleaner/references/platform_artifacts.md`
-- **Gitignore secrets:** `../ln-733-env-configurator/references/gitignore_secrets.template`
-- **Dockerignore baseline:** `../ln-731-docker-generator/references/dockerignore.template`
 
 ---
 **Version:** 1.0.0

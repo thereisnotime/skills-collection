@@ -29,7 +29,7 @@ Receives `contextStore` with: `tech_stack`, `testFilesMetadata`, `codebase_root`
 
 ## Workflow
 
-**MANDATORY READ:** Load `references/two_layer_detection.md` for detection methodology.
+Detection policy: use two-layer detection (candidate scan, then context verification); load `references/two_layer_detection.md` only when the verification method is ambiguous.
 
 1) **Parse Context:** Extract tech stack, isolation checklist, anti-patterns catalog, test file list, output_dir from contextStore
 2) **Check Isolation (Layer 1):** Check isolation for 6 categories (APIs, DB, FS, Time, Random, Network)
@@ -289,7 +289,7 @@ Receives `contextStore` with: `tech_stack`, `testFilesMetadata`, `codebase_root`
 
 ### 7. Default Value Blindness (Tests with default config)
 
-**What:** Tests with default config values only. **MANDATORY READ:** Load `references/risk_based_testing_guide.md` -> Anti-Pattern 9.
+**What:** Tests with default config values only. Use the non-default config rule from `references/risk_based_testing_guide.md`; load `references/risk_based_testing_methodology.md` only when examples are needed.
 
 **Detection:**
 - Grep for common defaults in test setup: `:8080`, `:3000`, `30000`, `limit: 20`, `offset: 0`
@@ -302,7 +302,7 @@ Receives `contextStore` with: `tech_stack`, `testFilesMetadata`, `codebase_root`
 
 ## Scoring Algorithm
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md` and `references/audit_scoring.md`.
+**MANDATORY READ:** Load `references/audit_scoring.md`.
 
 **Severity mapping:**
 - Flaky tests, External API not mocked, The Liar, Default Value Blindness -> HIGH
@@ -311,7 +311,7 @@ Receives `contextStore` with: `tech_stack`, `testFilesMetadata`, `codebase_root`
 
 ## Output Format
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md` and `references/templates/audit_worker_report_template.md`.
+**MANDATORY READ:** Load `references/templates/audit_worker_report_template.md`.
 
 Write JSON summary per `references/audit_summary_contract.md`. In managed mode the caller passes both `runId` and `summaryArtifactPath`; in standalone mode the worker generates its own run-scoped artifact path per shared contract.
 
@@ -329,7 +329,7 @@ Score: X.X/10 | Issues: N (C:N H:N M:N L:N)
 
 ## Critical Rules
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - **Do not auto-fix:** Report only
 - **Effort realism:** S = <1h, M = 1-4h, L = >4h
@@ -341,7 +341,7 @@ Score: X.X/10 | Issues: N (C:N H:N M:N L:N)
 
 ## Definition of Done
 
-**MANDATORY READ:** Load `references/audit_worker_core_contract.md`.
+Apply the already-loaded `references/audit_worker_core_contract.md`.
 
 - [ ] contextStore parsed successfully (including output_dir)
 - [ ] All 3 audit groups completed:

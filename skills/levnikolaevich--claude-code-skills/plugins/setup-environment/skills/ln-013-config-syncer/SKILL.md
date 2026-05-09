@@ -162,25 +162,10 @@ Codex-only fields to preserve:
 
 **Codex hooks:**
 
-When the host has hex-relay deployed (`/usr/local/bin/hex-relay-codex-hook.sh` exists and is executable), the syncer idempotently inserts/updates a managed Codex hooks block in `~/.codex/config.toml`. The block lives between fenced markers:
-
-```text
-# BEGIN ln-013 managed codex hooks
-[features]
-codex_hooks = true
-
-[[hooks.UserPromptSubmit]]
-command = ["/usr/local/bin/hex-relay-codex-hook.sh", "UserPromptSubmit"]
-timeout_ms = 30000
-# ... Stop, SessionStart, PreToolUse, PostToolUse, PermissionRequest ...
-# END ln-013 managed codex hooks
-```
-
-Rules:
-- Only the content between `# BEGIN ln-013 managed codex hooks` and `# END ln-013 managed codex hooks` is rewritten. Unrelated `[hooks.*]` blocks the user added by hand are preserved untouched.
-- If the shim script is missing, the syncer reports `codex_hooks: skipped (shim missing)` instead of writing a stale block.
-- A `.bak` of `config.toml` is written before any edit (same policy as the MCP merge).
-- See `../ln-030-vps-bootstrap/references/codex_hooks_config.md` for the canonical block, discovery order, and verification recipe.
+- Do not project Claude hooks into Codex (the wire formats differ).
+- Do not install product-specific Codex hook shims from this marketplace. Runtime products that need Codex hooks own their own hook scripts, trust model, verification, and service lifecycle.
+- Do not write the legacy `[features] codex_hooks = true` alias. Current Codex uses the stable hooks feature and the canonical block is pure `[hooks.*]` TOML.
+- When removing stale hook blocks managed by older setup runs, write a `.bak` of each edited `config.toml` before any edit (same policy as the MCP merge).
 
 **Codex execution defaults:**
 
@@ -282,7 +267,7 @@ Marketplace and Config Alignment:
 - [ ] Codex native plugin manifests validated
 - [ ] MCP settings aligned without deleting target-only settings
 - [ ] Codex execution defaults aligned or explicitly reported as drift
-- [ ] Hooks handled only for supported targets (Claude hooks Claude-only; Codex hooks block managed only when `/usr/local/bin/hex-relay-codex-hook.sh` is present)
+- [ ] Hooks handled only for supported targets (Claude hooks Claude-only; product-specific Codex hooks are left to the owning runtime)
 - [ ] MCP provider check completed or explicitly skipped
 - [ ] Structured summary returned
 - [ ] Summary artifact written to the managed or standalone runtime path

@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.7.3](https://github.com/EveryInc/compound-engineering-plugin/compare/cli-v3.7.2...cli-v3.7.3) (2026-05-08)
+
+
+### Bug Fixes
+
+* **ce-resolve-pr-feedback:** paginate GraphQL connections ([#807](https://github.com/EveryInc/compound-engineering-plugin/issues/807)) ([07a6d52](https://github.com/EveryInc/compound-engineering-plugin/commit/07a6d52879ed715e179ff11daaee47e02bc6ecc9))
+
+## [3.7.2](https://github.com/EveryInc/compound-engineering-plugin/compare/cli-v3.7.1...cli-v3.7.2) (2026-05-08)
+
+
+### Bug Fixes
+
+* **ce-sessions:** unblock session-history on Claude Code ([#800](https://github.com/EveryInc/compound-engineering-plugin/issues/800)) ([81710ef](https://github.com/EveryInc/compound-engineering-plugin/commit/81710efad5666831715a630b04554a35946afb1d))
+
+## [3.7.1](https://github.com/EveryInc/compound-engineering-plugin/compare/cli-v3.7.0...cli-v3.7.1) (2026-05-08)
+
+
+### Miscellaneous Chores
+
+* **cli:** Synchronize compound-engineering versions
+
 ## [3.7.0](https://github.com/EveryInc/compound-engineering-plugin/compare/cli-v3.6.1...cli-v3.7.0) (2026-05-07)
 
 

@@ -48,7 +48,8 @@ This skill should be used directly when:
 
 **TECH_STACK** is used for smart document creation in Phase 2.
 
-**MANDATORY READ:** Load `references/docs_quality_contract.md`, `references/docs_quality_rules.json`, and `references/markdown_read_protocol.md`.
+**MANDATORY READ:** Load `references/docs_quality_contract.md`, and `references/markdown_read_protocol.md`.
+Optional rule catalog: load `references/docs_quality_rules.json` only when exact rule IDs, path matrices, or allowlisted placeholder exceptions are needed.
 
 ## Workflow
 
@@ -555,9 +556,9 @@ Return normalized status to ln-100:
 
 ## Meta-Analysis
 
-**MANDATORY READ:** Load `references/meta_analysis_protocol.md`
+Optional reference: load `references/meta_analysis_protocol.md` only when the user asks for post-run meta-analysis or protocol-formatted run reflection.
 
-Skill type: `documentation-creator`. Run after all phases complete. Output to chat using the `documentation-creator` format.
+Skill type: `documentation-creator`. When requested, run after all phases complete. Output to chat using the `documentation-creator` format.
 
 ---
 

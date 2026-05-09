@@ -9,6 +9,27 @@ All notable changes to the compound-engineering plugin will be documented in thi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.3](https://github.com/EveryInc/compound-engineering-plugin/compare/compound-engineering-v3.7.2...compound-engineering-v3.7.3) (2026-05-08)
+
+
+### Bug Fixes
+
+* **ce-resolve-pr-feedback:** paginate GraphQL connections ([#807](https://github.com/EveryInc/compound-engineering-plugin/issues/807)) ([07a6d52](https://github.com/EveryInc/compound-engineering-plugin/commit/07a6d52879ed715e179ff11daaee47e02bc6ecc9))
+
+## [3.7.2](https://github.com/EveryInc/compound-engineering-plugin/compare/compound-engineering-v3.7.1...compound-engineering-v3.7.2) (2026-05-08)
+
+
+### Bug Fixes
+
+* **ce-sessions:** unblock session-history on Claude Code ([#800](https://github.com/EveryInc/compound-engineering-plugin/issues/800)) ([81710ef](https://github.com/EveryInc/compound-engineering-plugin/commit/81710efad5666831715a630b04554a35946afb1d))
+
+## [3.7.1](https://github.com/EveryInc/compound-engineering-plugin/compare/compound-engineering-v3.7.0...compound-engineering-v3.7.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* **ce-debug:** right-size triage and tighten hypothesis discipline ([#796](https://github.com/EveryInc/compound-engineering-plugin/issues/796)) ([6fc57c5](https://github.com/EveryInc/compound-engineering-plugin/commit/6fc57c501f2e4a6978a91b41337026cf25086646))
+
 ## [3.7.0](https://github.com/EveryInc/compound-engineering-plugin/compare/compound-engineering-v3.6.1...compound-engineering-v3.7.0) (2026-05-07)
 
 

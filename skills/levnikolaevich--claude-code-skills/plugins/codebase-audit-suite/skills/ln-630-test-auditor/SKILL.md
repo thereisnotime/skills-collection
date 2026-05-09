@@ -15,6 +15,7 @@ license: MIT
 
 **MANDATORY READ:** Load `references/evaluation_coordinator_runtime_contract.md`, `references/evaluation_summary_contract.md`, `references/evaluation_research_contract.md`
 **MANDATORY READ:** Load `references/risk_based_testing_guide.md`, `references/research_tool_fallback.md`
+Conditional read: load `references/risk_based_testing_methodology.md` only when worker findings require full methodology examples or anti-pattern detail.
 
 ## Purpose
 
@@ -100,9 +101,9 @@ Skill(skill: "ln-637-test-structure-auditor", args: "{scope}")
 
 ## Meta-Analysis
 
-**MANDATORY READ:** Load `references/meta_analysis_protocol.md`
+Optional reference: load `references/meta_analysis_protocol.md` only when the user asks for post-run meta-analysis or protocol-formatted run reflection.
 
-After the coordinator run, analyze the session per protocol section 7 and include the protocol-formatted output with the final test audit result.
+When requested after the coordinator run, analyze the session per protocol section 7 and include the protocol-formatted output with the final test audit result.
 
 ## References
 

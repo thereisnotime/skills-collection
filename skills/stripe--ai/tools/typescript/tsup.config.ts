@@ -40,13 +40,4 @@ export default defineConfig([
     sourcemap: true,
     ...sharedConfig,
   },
-  {
-    entry: ['src/cloudflare/index.ts'],
-    outDir: 'cloudflare',
-    format: ['cjs', 'esm'],
-    dts: true,
-    sourcemap: true,
-    external: ['cloudflare:workers'],
-    ...sharedConfig,
-  },
 ]);

@@ -107,14 +107,14 @@ Skill(skill: "ln-647-env-config-auditor", args: "{scope}")
 
 ## Meta-Analysis
 
-**MANDATORY READ:** Load `references/meta_analysis_protocol.md`
+Optional reference: load `references/meta_analysis_protocol.md` only when the user asks for post-run meta-analysis or protocol-formatted run reflection.
 
-After the coordinator run, analyze the session per protocol section 7 and include the protocol-formatted output with the final pattern audit result.
+When requested after the coordinator run, analyze the session per protocol section 7 and include the protocol-formatted output with the final pattern audit result.
 
 ## References
 
 - Workers: `../ln-641-pattern-analyzer/SKILL.md`, `../ln-642-layer-boundary-auditor/SKILL.md`, `../ln-643-api-contract-auditor/SKILL.md`, `../ln-644-dependency-graph-auditor/SKILL.md`, `../ln-645-open-source-replacer/SKILL.md`, `../ln-646-project-structure-auditor/SKILL.md`, `../ln-647-env-config-auditor/SKILL.md`
-- Shared pattern refs: `references/layer_rules.md`, `references/pattern_library.md`, `references/scoring_rules.md`
+- Shared pattern refs: `references/layer_rules.md`; pattern and scoring manuals are local to `../ln-641-pattern-analyzer/references/`
 
 ---
 **Version:** 2.0.0

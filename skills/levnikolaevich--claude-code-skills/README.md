@@ -15,7 +15,7 @@
 > [!TIP]
 > **Two-Agent AI Review** — Claude and Codex can review each other’s work through host-aware external advisor routing.
 
-[Plugins](#plugins) · [Installation](#installation) · [Quick Start](#quick-start) · [Workflow](#workflow) · [VPS Agent](#vps-agent) · [MCP](#mcp-servers-optional) · [AI Review](#ai-review-models-optional) · [FAQ](#faq) · [Full Skill Tree](#whats-inside) · [Links](#links)
+[Plugins](#plugins) · [Installation](#installation) · [Quick Start](#quick-start) · [Workflow](#workflow) · [MCP](#mcp-servers-optional) · [AI Review](#ai-review-models-optional) · [FAQ](#faq) · [Full Skill Tree](#whats-inside) · [Links](#links)
 
 ---
 
@@ -119,37 +119,10 @@ Coordinators keep lifecycle status separate from Loop Health: `status` says wher
 
 ---
 
-## VPS Agent
-
-`ln-030-vps-bootstrap` is the VPS agent coordinator. It turns a Linux VPS into an always-on Claude Code + Codex operator environment by routing the work through four standalone runtime workers: shared host setup, project runtime setup, `hex-relay` lifecycle, and environment diagnostics.
-
-`hex-relay` is the Telegram and HTTP control plane deployed by `ln-030`. It runs as a standalone TypeScript product under [`agents/hex-relay/`](agents/hex-relay/), with SQLite-backed state, Telegram ingress, Claude hook ingestion, `/tasks` handoff, memory, dispatch audit, per-user sessions, and durable outbound replies.
-
-The important design point: one VPS can share a single agent user and shared Claude/Codex auth while keeping project and Telegram-user runtime state isolated. Each allowed Telegram user gets their own `${SERVICE_PREFIX}-god-<telegram_user_id>` tmux target, sandbox HOME under `${PROJECT_DIR}/.agent-home/users/<id>/`, session cache, resume state, and access-controlled `/sessions` view. The work-plane cannot read provider tokens, Telegram tokens, relay DB files, sibling project dirs, or host systemd; `hex-relay` owns that control-plane boundary.
-
-Operator-facing features:
-- `/tasks` lists provider issues using control-plane credentials and injects exactly one selected task into the clicking user's current session.
-- `/new_session` and `/sessions` manage per-user Claude sessions without mixing user histories.
-- `/users` supports pending/allowed/blocked access management from Telegram.
-- Claude final replies, progress status, dispatch audit, and persistent memory flow through SQLite-backed queues instead of ad hoc chat scraping.
-
-Use this path when you want one VPS to host autonomous project work that can be supervised from Telegram. The same entrypoint handles a fresh VPS, a second project on an existing VPS, `hex-relay` redeploys, diagnostics, and declarative fleet `plan/apply` from the VPS-local `/etc/agent-fleet/environments/*.yaml` registry.
-
-```bash
-ln-030-vps-bootstrap  # coordinator: host runtime + project runtime + optional hex-relay + diagnostics
-```
-
-Key docs:
-- [ln-030 SKILL.md](plugins/setup-environment/skills/ln-030-vps-bootstrap/SKILL.md) — coordinator workflow, worker invocation, fleet modes, and Definition of Done.
-- [Fleet registry contract](plugins/setup-environment/skills/ln-030-vps-bootstrap/references/fleet_registry.md) — declarative environment registry for VPS reuse and fleet `plan/apply`.
-- [hex-relay README](agents/hex-relay/README.md) — product architecture, environment, runtime behavior, API, database, and deployment.
-- [hex-relay Telegram runbook](agents/hex-relay/docs/telegram-operator-runbook.md) — BotFather hardening, menu commands, and multi-user onboarding.
-
----
 
 ## MCP Servers (Optional)
 
-Bundled MCP servers extend agent capabilities — hash-verified editing, code intelligence, and remote access. All skills work without MCP (fallback to built-in tools), but MCP servers improve accuracy and save tokens. MCP errors stay as `status: "ERROR"` and include `failure_class`, `next_action`, and recovery fields so skills can feed transport/tool/auth/rate-limit signals into Loop Health without inventing a second retry loop.
+Bundled MCP servers extend agent capabilities — hash-verified editing, code intelligence, remote access, and research graph navigation. All skills work without MCP (fallback to built-in tools), but MCP servers improve accuracy and save tokens. MCP errors stay as `status: "ERROR"` and include `failure_class`, `next_action`, and recovery fields so skills can feed transport/tool/auth/rate-limit signals into Loop Health without inventing a second retry loop.
 
 ### Bundled servers
 
@@ -158,8 +131,9 @@ Bundled MCP servers extend agent capabilities — hash-verified editing, code in
 | **[hex-line-mcp](mcp/hex-line-mcp/)** | Every line carries a content hash — edits prove the agent sees current content. Prevents stale-context corruption. Includes validation hooks. | 9 | [README](mcp/hex-line-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-line-mcp) |
 | **[hex-graph-mcp](mcp/hex-graph-mcp/)** | Indexes codebases into a deterministic SQLite graph with framework-aware overlays, capability-first quality tooling, optional SCIP interop, and architecture/reference analysis. | 14 | [README](mcp/hex-graph-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-graph-mcp) |
 | **[hex-ssh-mcp](mcp/hex-ssh-mcp/)** | Hash-verified remote file editing and SFTP transfer over SSH. Normalized output for minimal token usage. | 8 | [README](mcp/hex-ssh-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-ssh-mcp) |
+| **[hex-research-mcp](mcp/hex-research-mcp/)** | Indexes markdown hypotheses, goals, tasks, sources, and benchmark manifests into a local SQLite research graph. | 15 | [README](mcp/hex-research-mcp/README.md) · [npm](https://www.npmjs.com/package/@levnikolaevich/hex-research-mcp) |
 
-Deterministic scope rule: `hex-line` and `hex-graph` keep `path` as the project anchor. In normal use the agent fills it automatically from the active file or project root, so users usually do not need to type it manually. `hex-ssh` runs on Windows/macOS/Linux hosts; remote shell tools stay POSIX-oriented, while SFTP transfers support platform-aware remote paths.
+Deterministic scope rule: `hex-line`, `hex-graph`, and `hex-research` keep `path` as the project anchor. In normal use the agent fills it automatically from the active file or project root, so users usually do not need to type it manually. `hex-research` writes its local index under `.hex-skills/researchgraph/`. `hex-ssh` runs on Windows/macOS/Linux hosts; remote shell tools stay POSIX-oriented, while SFTP transfers support platform-aware remote paths.
 
 <!-- GENERATED:HEX_GRAPH_MCP_STATUS:START -->
 `hex-graph-mcp` quality snapshot: `106/106` tests passing, `1` curated corpus, `1` pinned external corpora, parser-first `green`.
@@ -176,16 +150,16 @@ Deterministic scope rule: `hex-line` and `hex-graph` keep `path` as the project 
 **CLI setup:**
 ```bash
 # hex-line — hash-verified file editing (bundled)
-npm i -g @levnikolaevich/hex-line-mcp
-claude mcp add -s user hex-line -- hex-line-mcp
+claude mcp add -s user hex-line -- npx -y @levnikolaevich/hex-line-mcp
 
 # hex-ssh — token-efficient SSH with hash verification (bundled)
-npm i -g @levnikolaevich/hex-ssh-mcp
-claude mcp add -s user hex-ssh -- hex-ssh-mcp
+claude mcp add -s user hex-ssh -- npx -y @levnikolaevich/hex-ssh-mcp
 
 # hex-graph — code knowledge graph (bundled)
-npm i -g @levnikolaevich/hex-graph-mcp
-claude mcp add -s user hex-graph -- hex-graph-mcp
+claude mcp add -s user hex-graph -- npx -y @levnikolaevich/hex-graph-mcp
+
+# hex-research — research hypothesis graph (bundled)
+claude mcp add -s user hex-research -- npx -y @levnikolaevich/hex-research-mcp
 
 # Context7 — library documentation (HTTP, optional API key)
 claude mcp add -s user --transport http --header "CONTEXT7_API_KEY: YOUR_KEY" context7 https://mcp.context7.com/mcp
@@ -436,7 +410,7 @@ The active host model performs orchestration and verification. For code and stor
 <details>
 <summary><b>What MCP servers are included?</b></summary>
 
-Three bundled MCP servers, all published on npm: `hex-line-mcp` (hash-verified file editing — every line carries a content hash, preventing stale-context corruption), `hex-graph-mcp` (code knowledge graph with symbol search, references, architecture analysis, and SCIP interop), and `hex-ssh-mcp` (hash-verified remote editing and SFTP over SSH). Skills work without MCP servers (fallback to built-in tools), but MCP improves edit accuracy and reduces token usage. See [MCP Servers](#mcp-servers-optional) for setup.
+Four bundled MCP servers are published on npm: `hex-line-mcp` (hash-verified file editing), `hex-graph-mcp` (code knowledge graph), `hex-ssh-mcp` (hash-verified remote editing and SFTP over SSH), and `hex-research-mcp` (markdown research graph indexing). Skills work without MCP servers (fallback to built-in tools), but MCP improves edit accuracy and reduces token usage. See [MCP Servers](#mcp-servers-optional) for setup.
 
 </details>
 
@@ -657,18 +631,12 @@ claude-code-skills/                      # MARKETPLACE
 |   |-- ln-013-config-syncer/          # Align marketplace plugins, MCP state, and Codex defaults
 |   |-- ln-014-agent-instructions-manager/ # Single owner of CLAUDE.md/AGENTS.md creation and audit
 |   |-- ln-015-hex-line-uninstaller/   # Standalone cleanup for Claude-side hex-line integration
-|-- ln-020-codegraph/                  # Code knowledge graph for dependency analysis & impact checking
-|-- ln-030-vps-bootstrap/              # L2: VPS agent coordinator and fleet plan/apply entrypoint
-|   |-- ln-031-vps-host-runtime/       # Shared VPS host runtime: users, packages, CLIs, MCP, plugins
-|   |-- ln-032-vps-project-runtime/    # Per-project VPS runtime, god-session, provider creds, dispatcher
-|   |-- ln-033-hex-relay-lifecycle/    # hex-relay deploy, redeploy, migration, health, Telegram users
-|   |-- ln-034-vps-environment-diagnostics/ # One environment health, drift, and bounded safe repair
+|-- ln-021-codegraph/                  # Code knowledge graph for dependency analysis & impact checking
+|-- ln-022-researchgraph/              # Research hypothesis/goal graph queries & audits
 |
 |  └──────────────────────────────────────────────┘
 |
 |
-|-- agents/
-|   |-- hex-relay/                       # Telegram/HTTP control plane deployed by ln-030
 |-- docs/
 |   |-- architecture/                  # Skill patterns & delegation runtime
 |   |-- best-practice/                 # Claude Code usage tips & component selection
@@ -707,7 +675,7 @@ Papers, docs, and methodologies studied and implemented in the skill architectur
 | [Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system) (Anthropic, 2025) | Production orchestration: 90.2% perf improvement with specialized agents | `ln-1000` pipeline orchestrator, parallel agent reviews (`ln-310`, `ln-510`) |
 | [Scheduler Agent Supervisor](https://learn.microsoft.com/azure/architecture/patterns/scheduler-agent-supervisor) (Microsoft) | Separation of scheduling, execution, and supervision | `ln-400`/`ln-402`/`ln-500` executor-reviewer-gate split |
 | [DIATAXIS](https://diataxis.fr) | 4-type docs: Tutorial / How-to / Reference / Explanation | Documentation levels in AGENTS.md/docs, progressive disclosure |
-| [Sinks, Not Pipes](https://ianbull.com/posts/software-architecture) (Ian Bull, 2026) | "The architecture is the prompt" — AI agents can't reason about side-effect chains >2 levels deep; sinks (self-contained) > pipes (cascading) | [`ai_ready_architecture.md`](shared/references/ai_ready_architecture.md) — cascade depth, architectural honesty, flat orchestration checks across relevant skills |
+| [Sinks, Not Pipes](https://ianbull.com/posts/software-architecture) (Ian Bull, 2026) | "The architecture is the prompt" — AI agents can't reason about side-effect chains >2 levels deep; sinks (self-contained) > pipes (cascading) | [`ai_ready_architecture.md`](plugins/codebase-audit-suite/shared/references/ai_ready_architecture.md) — cascade depth, architectural honesty, flat orchestration checks across relevant skills |
 | [Test Desiderata](https://testdesiderata.com/) (Kent Beck, 2019) | 12 properties of valuable tests — behavioral, predictive, specific, inspiring, deterministic... No numerical targets, only usefulness | [`risk_based_testing_guide.md`](shared/references/risk_based_testing_guide.md) — 6 Test Usefulness Criteria (Risk Priority ≥15, Confidence ROI, Behavioral, Predictive, Specific, Non-Duplicative) |
 | Vertical Slicing ([Humanizing Work](https://www.humanizingwork.com/the-humanizing-work-guide-to-splitting-user-stories/)) | "Never split by architectural layer" | Foundation-First task ordering |
 | [Claude Code Picks](https://amplifying.ai/research/claude-code-picks) (Amplifying AI, 2026) | Claude's tool preferences are learned maturity signals, not bias — Drizzle/Vitest/Zustand chosen for objective quality. Build-not-buy in 12/20 categories. "Correcting" valid preferences = recommending worse tools | Research-to-Action Gate in AGENTS.md — require concrete defect before turning research into skill changes |

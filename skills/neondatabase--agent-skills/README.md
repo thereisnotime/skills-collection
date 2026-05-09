@@ -22,6 +22,12 @@ It all starts with the `SKILL.md` file in the skill's directory. It's the entry 
 
 A comprehensive index of Neon Serverless Postgres documentation and best practices to set your agents up for success.
 
+### Neon Postgres Branches
+
+[skills/neon-postgres-branches](skills/neon-postgres-branches/SKILL.md)
+
+Choose and create the right Neon branch type for migration testing and isolated development workflows, including schema-only branches for sensitive data and reset-from-parent workflows to quickly realign child branches.
+
 ### Claimable Postgres
 
 [skills/claimable-postgres](skills/claimable-postgres/SKILL.md)

@@ -16,8 +16,10 @@ Coordinator for validating optimization plans before execution.
 ## Mandatory Read
 
 **MANDATORY READ:** Load `references/evaluation_coordinator_runtime_contract.md`, `references/evaluation_summary_contract.md`, `references/evaluation_research_contract.md`
-**MANDATORY READ:** Load `references/agent_review_workflow.md`, `references/agent_delegation_pattern.md`
+**MANDATORY READ:** Load `references/agent_delegation_pattern.md`
 **MANDATORY READ:** Load `references/optimization_review_focus.md`
+
+Agent review policy: run health check, record skipped reason when no advisor is available, verify every advisor claim before plan mutation or verdict, and treat transport/auth/tool failures as operator evidence rather than optimization findings. Load `references/agent_review_workflow.md` only when debugging lifecycle/liveness details outside the evaluation runtime.
 
 ## Purpose
 
@@ -185,9 +187,9 @@ Recommended payload:
 
 ## Meta-Analysis
 
-**MANDATORY READ:** Load `references/meta_analysis_protocol.md`
+Optional reference: load `references/meta_analysis_protocol.md` only when the user asks for post-run meta-analysis or protocol-formatted run reflection.
 
-After the coordinator run, analyze the session per protocol section 7 and include the protocol-formatted output with the final optimization-plan verdict.
+When requested after the coordinator run, analyze the session per protocol section 7 and include the protocol-formatted output with the final optimization-plan verdict.
 
 ## References
 
