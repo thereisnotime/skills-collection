@@ -853,6 +853,24 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "e1241b3",
+      "message": "docs(changelog): add gbrain harness borrow backlog candidates (#82)",
+      "date": "2026-05-10",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "1d0c862",
+      "message": "v3.7.1 Step 3b: cite-time provenance finalizer (pipeline mode) \u2014 5 codex rounds \u2192 0 finding (#81)",
+      "date": "2026-05-09",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "23fb6ac",
+      "message": "v3.7.1 Step 3a: agent two-layer citation emission (5 codex rounds \u2192 0 finding) (#80)",
+      "date": "2026-05-09",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "fed3eba",
       "message": "v3.7.1 Step 2: D2 audit Scope Report block + lint enforcement (#78)",
       "date": "2026-05-08",
@@ -891,24 +909,6 @@
     {
       "sha": "51b105d",
       "message": "feat(v3.7.0 Phase 2.2): SessionStart announce hook (2 inline rounds + fresh PR review \u2192 0 findings) (#70)",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "e841319",
-      "message": "feat(v3.7.0 Phase 2.1): plugin commands + hardened agent symlinks (3 codex rounds \u2192 0 findings) (#69)",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "6006c5b",
-      "message": "feat(v3.7.0 Phase 1 MVP): Claude Code plugin packaging \u2014 manifest + skills/ symlinks + dual-track install (3 codex round",
-      "date": "2026-05-05",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "a3b95fd",
-      "message": "feat(v3.6.7 Step 6 Phase 6.8): pattern-eval fixtures + harness + manifest validator + wrapper E2E (11 codex rounds, 0 P1",
       "date": "2026-05-05",
       "author": "Edward Cheng-I Wu"
     }
@@ -4859,64 +4859,64 @@
   ],
   "alirezarezvani--claude-skills": [
     {
-      "sha": "7d493fe",
-      "message": "Merge pull request #594 from alirezarezvani/dev",
-      "date": "2026-05-02",
+      "sha": "aec188f",
+      "message": "Merge pull request #606 from alirezarezvani/dev",
+      "date": "2026-05-10",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "9c749de",
+      "sha": "9dd6fd1",
+      "message": "feat(slo-architect): Phase 4 \u2014 SLO/SLI/error-budget discipline (#605)",
+      "date": "2026-05-10",
+      "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "399b866",
       "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-05-02",
+      "date": "2026-05-10",
       "author": "alirezarezvani"
     },
     {
-      "sha": "d442af8",
-      "message": "Merge pull request #595 from alirezarezvani/fix/ci-tests-and-sync-after-restructure",
-      "date": "2026-05-02",
+      "sha": "f90ef67",
+      "message": "Merge pull request #604 from alirezarezvani/claude/resolve-pr-527-ship-gate",
+      "date": "2026-05-10",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "d6d757b",
-      "message": "fix(ci): update test paths and sync script for new ./skills/ layout",
-      "date": "2026-05-02",
-      "author": "Reza Rezvani"
+      "sha": "d4e25e6",
+      "message": "feat(ship-gate): re-apply external contribution from PR #527 on post-restructure layout",
+      "date": "2026-05-10",
+      "author": "Claude"
     },
     {
-      "sha": "2a382cc",
-      "message": "Merge pull request #593 from alirezarezvani/fix/plugin-restructure-multi-skill-domains",
-      "date": "2026-05-02",
+      "sha": "d02d222",
+      "message": "Merge pull request #601 from alirezarezvani/claude/resolve-open-prs-MaBfS",
+      "date": "2026-05-10",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "1851c8f",
-      "message": "fix(plugins): restructure 9 multi-skill domain plugins into ./skills/ layout",
-      "date": "2026-05-02",
-      "author": "Reza Rezvani"
+      "sha": "02e7e25",
+      "message": "Merge remote-tracking branch 'origin/dev' into claude/resolve-open-prs-MaBfS",
+      "date": "2026-05-10",
+      "author": "Claude"
     },
     {
-      "sha": "d641436",
-      "message": "Merge pull request #592 from alirezarezvani/dev",
-      "date": "2026-05-02",
+      "sha": "4e5cf49",
+      "message": "Merge pull request #600 from alirezarezvani/dev",
+      "date": "2026-05-10",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "46aa396",
-      "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-05-02",
-      "author": "alirezarezvani"
-    },
-    {
-      "sha": "d5cde3b",
-      "message": "Merge pull request #591 from alirezarezvani/fix/plugin-json-skills-path-539",
-      "date": "2026-05-02",
+      "sha": "6e0a274",
+      "message": "Merge pull request #603 from alirezarezvani/claude/brainstorm-project-skills-d2rqJ",
+      "date": "2026-05-10",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "c480173",
-      "message": "fix(plugins): restructure 21 single-skill plugins into ./skills/<name>/ layout",
-      "date": "2026-05-02",
-      "author": "Reza Rezvani"
+      "sha": "23eefc2",
+      "message": "feat(skills): ship chaos-engineering (Phase 3 \u2014 resilience testing discipline)",
+      "date": "2026-05-09",
+      "author": "Claude"
     }
   ],
   "VoltAgent--awesome-agent-skills": [
@@ -5045,6 +5045,12 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
+      "sha": "4e85ab3",
+      "message": "refactor(codebase-audit-suite): rename 14 audit skills, add ln-638",
+      "date": "2026-05-09",
+      "author": "levnikolaevich"
+    },
+    {
       "sha": "c3bba7d",
       "message": "fix(mcp): shorten hex research registry description",
       "date": "2026-05-08",
@@ -5097,15 +5103,21 @@
       "message": "refactor(mcp): align hex research with common helpers",
       "date": "2026-05-08",
       "author": "levnikolaevich"
-    },
-    {
-      "sha": "c8be07a",
-      "message": "Add plugin-local shared sources",
-      "date": "2026-05-08",
-      "author": "levnikolaevich"
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
+    {
+      "sha": "490c1e8",
+      "message": "chore(ci): stabilize main \u2014 fix grid overflow, test rot, broken imports (#707)",
+      "date": "2026-05-10",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "30bccbf",
+      "message": "feat(marketplace): rebuild plugin card mobile-first with one component (#706)",
+      "date": "2026-05-10",
+      "author": "intentsolutions.io"
+    },
     {
       "sha": "22889a9",
       "message": "docs(release): add AAR for v4.31.0",
@@ -5151,18 +5163,6 @@
     {
       "sha": "84dd501",
       "message": "feat(marketplace): wire forge_proofs \u2192 JRig-Verified badge data flow (#700)",
-      "date": "2026-05-08",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "27aa7d1",
-      "message": "feat(freshie): add JRig integration columns + forge_proofs table to compliance DB (#699)",
-      "date": "2026-05-08",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "786c71d",
-      "message": "feat(validator): add Tier 2 static production gate (5 inline checks) (#698)",
       "date": "2026-05-08",
       "author": "intentsolutions.io"
     }
@@ -5231,6 +5231,54 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "8d07e4a",
+      "message": "chore: tunnel-doctor DNS layer, feishu-doc-scraper, cleanup",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "1549306",
+      "message": "feat(statusline-generator): rewrite SKILL.md + scripts for v1.1.0",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "3e999df",
+      "message": "docs: update README badges and skill counts for v1.52.0",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "35e2076",
+      "message": "feat(marketplace): create daymade-audio suite for speech pipeline",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "b51ce8c",
+      "message": "docs: sync all documentation with official source/skills pattern",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "41d979a",
+      "message": "refactor(marketplace): align plugin source/skills with official pattern",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "3f3aeed",
+      "message": "fix(marketplace): remove skills: [\"./\"] from 13 plugins (#64)",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
+      "sha": "99c76a7",
+      "message": "feat(pdf-creator): batch theme support + mobile theme + anti-pattern docs",
+      "date": "2026-05-09",
+      "author": "daymade"
+    },
+    {
       "sha": "b03fda8",
       "message": "restructure: move skill-creator, skill-reviewer, skills-search into daymade-skill suite",
       "date": "2026-05-07",
@@ -5240,54 +5288,6 @@
       "sha": "89e6ddf",
       "message": "chore: remove mistakenly committed cloud/lessons-learned.md",
       "date": "2026-05-07",
-      "author": "daymade"
-    },
-    {
-      "sha": "93cfa49",
-      "message": "refactor(marketplace): move skill-creator under daymade-skills namespace",
-      "date": "2026-05-07",
-      "author": "daymade"
-    },
-    {
-      "sha": "5a1b269",
-      "message": "chore: remove ralph loop generated artifacts",
-      "date": "2026-05-07",
-      "author": "daymade"
-    },
-    {
-      "sha": "b2003d6",
-      "message": "feat(statusline-generator): context window display with token counts + jq/py fallback (v1.1.0)",
-      "date": "2026-04-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "80e94fd",
-      "message": "docs(pdf-creator): troubleshoot \u2014 CJK in inline code (Preview) + col1 mid-break (pandoc colgroup)",
-      "date": "2026-04-27",
-      "author": "daymade"
-    },
-    {
-      "sha": "04e404f",
-      "message": "fix(pdf-creator): neutralize pandoc auto-emitted <col width> from dash counts",
-      "date": "2026-04-26",
-      "author": "daymade"
-    },
-    {
-      "sha": "6f29306",
-      "message": "fix(pdf-creator): prefer CID TrueType CJK fonts over OpenType in code chain",
-      "date": "2026-04-26",
-      "author": "daymade"
-    },
-    {
-      "sha": "11b096f",
-      "message": "fix(pdf-creator): force CJK chars in inline code to use CJK fonts (not Menlo)",
-      "date": "2026-04-26",
-      "author": "daymade"
-    },
-    {
-      "sha": "9ff3352",
-      "message": "fix(pdf-creator): keep table rows intact across page breaks",
-      "date": "2026-04-26",
       "author": "daymade"
     }
   ],
@@ -5417,6 +5417,42 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "ea8c80f",
+      "message": "feat: add wispr-fix skill \u2014 dictation correction queue",
+      "date": "2026-05-09",
+      "author": "glebis"
+    },
+    {
+      "sha": "7233eb1",
+      "message": "feat(wispr-analytics): auto-restart Wispr Flow after dictionary import",
+      "date": "2026-05-09",
+      "author": "glebis"
+    },
+    {
+      "sha": "fe1ac0f",
+      "message": "add rag-eval to README",
+      "date": "2026-05-09",
+      "author": "glebis"
+    },
+    {
+      "sha": "0fc46cf",
+      "message": "add rag-eval skill \u2014 structured RAG evaluation with cost-aware sweeps",
+      "date": "2026-05-09",
+      "author": "glebis"
+    },
+    {
+      "sha": "d1be7b8",
+      "message": "hook tg-responder into Telethon daemon for private message ingestion",
+      "date": "2026-05-07",
+      "author": "glebis"
+    },
+    {
+      "sha": "e21549e",
+      "message": "Add tg-responder skill \u2014 Telegram communications assistant",
+      "date": "2026-05-07",
+      "author": "glebis"
+    },
+    {
       "sha": "0dd446f",
       "message": "Add codex skill: CLI integration with default model fix",
       "date": "2026-05-07",
@@ -5439,103 +5475,67 @@
       "message": "Add session-anonymizer to README",
       "date": "2026-05-05",
       "author": "glebis"
-    },
-    {
-      "sha": "f4084d7",
-      "message": "Add session-anonymizer: three-layer PII anonymization for session transcripts",
-      "date": "2026-05-05",
-      "author": "glebis"
-    },
-    {
-      "sha": "1171b25",
-      "message": "fix: wispr dictionary vocab entries must use replacement=phrase",
-      "date": "2026-05-01",
-      "author": "glebis"
-    },
-    {
-      "sha": "b7843d7",
-      "message": "Revise author intro and update community link",
-      "date": "2026-05-01",
-      "author": "Gleb Kalinin"
-    },
-    {
-      "sha": "c58b25e",
-      "message": "Enhance README with author intro and formatting",
-      "date": "2026-04-30",
-      "author": "Gleb Kalinin"
-    },
-    {
-      "sha": "f19030e",
-      "message": "feat: add timebuzzer-led skill \u2014 MIDI LED control with effects and signals",
-      "date": "2026-04-27",
-      "author": "glebis"
-    },
-    {
-      "sha": "87e07db",
-      "message": "docs: add BUNDLES.md, update README with cognitive-toolkit link, gitignore concepts",
-      "date": "2026-04-27",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "48f2ceb",
-      "message": "chore(agent-collections): append 2026-05-08 changelog entry",
-      "date": "2026-05-08",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "2442a21",
-      "message": "chore(agent-collections): update VoltAgent agents 145\u2192144, refresh badge timestamp",
-      "date": "2026-05-08",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "bcaa2cc",
-      "message": "Merge branch 'main' of https://github.com/shanraisshan/claude-code-best-practice",
-      "date": "2026-05-07",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "4671f03",
+      "sha": "95809f8",
       "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-07",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "924c72a",
-      "message": "insert slide 29 Uncle Bob counterpoint + rename slides 28/29 to name-attributed pair",
-      "date": "2026-05-07",
+      "date": "2026-05-09",
       "author": "Shayan Rais"
     },
     {
-      "sha": "3b848b7",
-      "message": "add vibe-coding-uncle-bob.png \u2014 image of Robert C. Martin's vibe coding critique",
-      "date": "2026-05-07",
+      "sha": "d86d1b0",
+      "message": "chore(concepts): append 2026-05-09 7:58 PM same-day re-run entry",
+      "date": "2026-05-09",
       "author": "Shayan Rais"
     },
     {
-      "sha": "b3f884f",
-      "message": "Update index.html",
-      "date": "2026-05-07",
+      "sha": "db88ca0",
+      "message": "chore(readme): refresh Last Updated badge timestamp to 2026-05-09 7:58 PM PKT",
+      "date": "2026-05-09",
       "author": "Shayan Rais"
     },
     {
-      "sha": "6718a97",
-      "message": "reformat slides 11, 14, 15, 16 \u2014 heading-with-separator pattern + emoji prefixes",
-      "date": "2026-05-07",
+      "sha": "f4e9c1d",
+      "message": "chore(skill-collections): append 2026-05-09 changelog entry",
+      "date": "2026-05-09",
       "author": "Shayan Rais"
     },
     {
-      "sha": "00116d3",
-      "message": "reformat slides 12 and 13 to match slide 10 pattern; trim slide 12 heading",
-      "date": "2026-05-07",
+      "sha": "9951de5",
+      "message": "chore(development-workflows): append 2026-05-09 changelog entry",
+      "date": "2026-05-09",
       "author": "Shayan Rais"
     },
     {
-      "sha": "b667fc5",
-      "message": "restructure llm-animation-tokenids.svg for projector legibility",
-      "date": "2026-05-07",
+      "sha": "138156a",
+      "message": "chore(concepts): append 2026-05-09 v2.1.138 changelog entry",
+      "date": "2026-05-09",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "cf2035b",
+      "message": "chore(claude-subagents): append 2026-05-09 v2.1.138 no-drift changelog entry",
+      "date": "2026-05-09",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "7dbc6d9",
+      "message": "chore(claude-skills): append 2026-05-09 v2.1.138 no-drift changelog entry",
+      "date": "2026-05-09",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "278fde5",
+      "message": "chore(claude-commands): append 2026-05-09 v2.1.138 changelog entry",
+      "date": "2026-05-09",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "d57bffb",
+      "message": "chore(agent-collections): append 2026-05-09 changelog entry",
+      "date": "2026-05-09",
       "author": "Shayan Rais"
     }
   ],

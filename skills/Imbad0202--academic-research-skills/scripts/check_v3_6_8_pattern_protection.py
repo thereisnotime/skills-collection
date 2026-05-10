@@ -1,16 +1,28 @@
 #!/usr/bin/env python3
-"""ARS v3.7.1 byte-equivalence SHA gate for v3.6.7-tagged PATTERN PROTECTION blocks.
+"""ARS v3.7.1 byte-equivalence SHA gate + Step 3a Two-Layer Citation Emission invariants.
 
 Spec: docs/design/2026-04-30-ars-v3.6.8-trust-provenance-and-drift-transparency-spec.md
       § Step 0 — Lint manifest separation (round-1 codex F-004 amend)
+      § Step 3a — Two-Layer Citation Emission (uniform across all modes)
+
+Two layers of enforcement:
+
+1. v3.6.7 boundary SHA gate (Step 0): byte-equivalence on v3.6.7-tagged
+   PATTERN PROTECTION blocks listed in scripts/v3_6_7_inversion_manifest.json.
+2. v3.6.8 Step 3a invariants on the "Two-Layer Citation Emission (v3.7.1)"
+   prompt block in each agent listed in scripts/v3_6_8_inversion_manifest.json:
+   (i)   the block specifies the two-layer citation form using a literal
+         `<!--ref:` HTML-comment marker AND `<author-year>` visible-form prose
+   (ii)  the block does NOT mention "finalizer", "orchestrator", or "stage gate"
+         (strict partial-inversion: agent must not know about resolver layers)
+   (iii) the block does NOT instruct the agent to read frontmatter
 
 Boundary rule (per spec):
 - v3.7.1 work does NOT modify the v3.6.7-tagged PATTERN PROTECTION blocks in
   synthesis_agent.md / research_architect_agent.md / report_compiler_agent.md.
 - v3.7.1 MAY add new prompt sections (e.g. "Two-Layer Citation Emission")
   OUTSIDE those v3.6.7-tagged blocks; those v3.6.8-tagged invariants ride
-  this script's own manifest (scripts/v3_6_8_inversion_manifest.json), which
-  starts empty in PR-1 and is populated by Step 3a.
+  this script's own manifest (scripts/v3_6_8_inversion_manifest.json).
 
 Single source of truth (round-4 R4-002 + round-5 R5-001 + round-6 R6-002):
 - The v3.6.7 frozen manifest at scripts/v3_6_7_inversion_manifest.json is the
@@ -415,6 +427,405 @@ def _load_v3_6_8_manifest() -> tuple[dict | None, str | None]:
     return data, None
 
 
+# =============================================================================
+# Step 3a — Two-Layer Citation Emission invariants
+# =============================================================================
+#
+# Spec § Step 3a (line 439): the v3.7.1 lint enforces three invariants on the
+# Two-Layer Citation Emission prompt block in each manifest-listed agent:
+#   (i)   two-layer form regex on emitted citations in agent test fixtures
+#   (ii)  absence of "finalizer / orchestrator / stage gate" prose inside the
+#         Two-Layer Citation Emission prompt blocks
+#   (iii) absence of any frontmatter-read instruction in those blocks
+#
+# Block scope: starts at the H2 line `## Two-Layer Citation Emission (v3.7.1)`
+# and ends at the next H1/H2/H3 heading or EOF.
+
+TWO_LAYER_BLOCK_HEADING = "## Two-Layer Citation Emission (v3.7.1)"
+
+# Invariant (ii): forbidden terms.
+#
+# R2 P1-B closure: Python `\b` treats `_` as a word character. That means
+# `\bfinalizer\b` does NOT match `cite_provenance_finalizer_agent` (the agent
+# name introduced by Step 3c). Step 3a must reject those exact identifiers
+# because the spec explicitly forbids naming the downstream resolver layer.
+# Use identifier-aware boundaries `(?<![A-Za-z0-9])` / `(?![A-Za-z0-9])`
+# instead of `\b` so underscores DO act as a boundary; this catches both
+# bare `finalizer` and `cite_provenance_finalizer_agent` substring matches.
+_NON_IDENT_BEFORE = r"(?<![A-Za-z0-9])"
+_NON_IDENT_AFTER = r"(?![A-Za-z0-9])"
+# R3 P1-B closure: plural-aware stems. `finalizers`/`orchestrators`/
+# `resolvers`/`stage gates`/`terminal gates` previously slipped past
+# because the right identifier boundary rejected the plural `s`.
+_FORBIDDEN_RESOLVER_TERMS = (
+    re.compile(_NON_IDENT_BEFORE + r"finalizers?" + _NON_IDENT_AFTER, re.IGNORECASE),
+    re.compile(_NON_IDENT_BEFORE + r"orchestrators?" + _NON_IDENT_AFTER, re.IGNORECASE),
+    re.compile(_NON_IDENT_BEFORE + r"stage[\s\-_]?gates?" + _NON_IDENT_AFTER, re.IGNORECASE),
+    re.compile(_NON_IDENT_BEFORE + r"terminal[\s\-_]?gates?" + _NON_IDENT_AFTER, re.IGNORECASE),
+    # The block instructs the agent to NOT resolve markers; saying so is
+    # legitimate self-knowledge ("emit bare; do not resolve"). It is the
+    # MENTION of who DOES resolve that breaks partial-inversion. The token
+    # "resolver" referring to a downstream entity is forbidden, but the verb
+    # "resolve" used negatively ("never resolve") is allowed — handled by
+    # forbidding only the "resolver" noun (and its plural), not the verb.
+    re.compile(_NON_IDENT_BEFORE + r"resolvers?" + _NON_IDENT_AFTER, re.IGNORECASE),
+)
+
+# Invariant (iii): a frontmatter-read instruction is any imperative or
+# descriptive sentence that tells the agent to read / look up / dereference /
+# consult an entry's frontmatter. The agent must learn the slug ONLY from the
+# corpus context already in its prompt — never from frontmatter.
+#
+# R1 P1-3 closure: match `frontmatter` AND its common variants (`front matter`
+# two-word, `front-matter` hyphenated, and across line wraps in bullet text).
+# Whitespace between verb and target spans `\s` (newline + indent) not just
+# `[^.\n]`, so a wrapped bullet `read the entry\n  front matter` is caught.
+#
+# Negation: the block legitimately includes prohibitions like "Never read
+# frontmatter" — those must NOT trigger this check. R1 P1-2 closure: bare
+# same-sentence presence of any negation word is too permissive; an attacker
+# could write `Never guess, read the entry frontmatter` and slip past.
+# Negation must scope to the matched read-verb's neighborhood — i.e. the
+# negation must appear within ~80 chars BEFORE the verb (or anywhere in the
+# verb-and-target span). Implemented as a separate left-context match around
+# the verb position rather than a full-sentence wildcard.
+_FRONTMATTER_TARGET_RE = (
+    r"front[\s\-_]?matter"  # `frontmatter` / `front matter` / `front-matter` / `front_matter`
+)
+# R3 P1-C closure: identifier-aware boundary on the verb side. Python `\b`
+# treats `_` as a word char, so `read_frontmatter()` is one token and
+# `\bread\b` does not match. Use `(?<![A-Za-z0-9])` / `(?![A-Za-z0-9])` so
+# `_` IS a boundary; this catches `read_frontmatter()` style instructions.
+# The target side uses the same boundary for symmetry.
+_FRONTMATTER_READ_VERB_RE = re.compile(
+    _NON_IDENT_BEFORE + r"(?P<verb>"
+    r"read|reads?|reading|"
+    r"look\s*up|looks?\s*up|looking\s*up|"
+    r"dereference|dereferences?|dereferencing|"
+    r"consult|consults?|consulting|"
+    r"open|opens?|opening|"
+    r"parse|parses?|parsing|"
+    r"load|loads?|loading|"
+    r"access|accesses|accessing|"
+    r"query|queries|querying|"
+    r"fetch|fetches|fetching"
+    r")" + _NON_IDENT_AFTER + r"[\s\S]{0,80}?" + _NON_IDENT_BEFORE
+    + _FRONTMATTER_TARGET_RE + _NON_IDENT_AFTER,
+    re.IGNORECASE,
+)
+# Negation tokens that turn "read frontmatter" into a prohibition. Anchored
+# explicitly to direct preposition of the read verb (≤30 chars upstream)
+# rather than free-floating same-sentence presence — closes R1 P1-2.
+_FRONTMATTER_NEGATION_TOKENS_RE = re.compile(
+    r"\b(?:never|do\s+not|don'?t|must\s+not|mustn'?t|"
+    r"cannot|can'?t|may\s+not|shall\s+not|forbidden|"
+    r"NEVER|DO\s+NOT|MUST\s+NOT)\b",
+    re.IGNORECASE,
+)
+# The negation must apply to the read verb itself, not a different clause.
+# Window: 0..30 chars before the verb (covers "NEVER read", "must not read",
+# "do not look up", and "never read the entry's frontmatter"). Wider windows
+# leak across clauses ("Never guess; read frontmatter"); narrower windows
+# fail-stop on valid prose like "NEVER read the entry frontmatter" where
+# the verb is a few words after the negation.
+_FRONTMATTER_NEGATION_WINDOW = 30
+
+
+# R2 P1-A closure: `\n- ` (bullet boundary) is a clause boundary in
+# Markdown prose. Without this, `- NEVER omit markers\n- read the entry
+# frontmatter` lets `NEVER` (in the previous bullet) leak into the
+# next-bullet's negation window. Treat the bullet boundary as a hard
+# clause terminator alongside `.` / `;` / `!` / `?` and blank lines.
+_SENTENCE_TERMINATOR_RE = re.compile(
+    r"[.;!?]\s|[.;!?]$|\n\s*\n|\n[ \t]*[-*+][ \t]+|\n[ \t]*\d+\.[ \t]+"
+)
+
+
+def _negation_anchored_to_verb(block: str, verb_pos: int) -> bool:
+    """Return True iff a negation token appears in the ≤30-char window
+    immediately preceding `verb_pos` AND no sentence terminator separates
+    the negation from the verb.
+
+    R1 P1-2 closure: scope negation to the verb's left context within the
+    same clause. Unrelated negation words elsewhere in the same paragraph
+    (or in a preceding sentence the simple-window check would otherwise
+    catch) must not bless a positive read instruction.
+
+    Algorithm: take the ≤30-char left window; find the LAST sentence
+    terminator inside it; truncate the window to start AFTER that
+    terminator. Then run the negation-token regex against the truncated
+    window. This keeps `NEVER read frontmatter` (no terminator between
+    `NEVER` and `read`) but rejects `Never guess. Always read frontmatter`
+    (terminator `.` between `Never` and `read`).
+    """
+    window_start = max(0, verb_pos - _FRONTMATTER_NEGATION_WINDOW)
+    window = block[window_start:verb_pos]
+    # Find the rightmost sentence terminator in the window, truncate after it.
+    last_term = None
+    for m in _SENTENCE_TERMINATOR_RE.finditer(window):
+        last_term = m
+    if last_term is not None:
+        window = window[last_term.end():]
+    return _FRONTMATTER_NEGATION_TOKENS_RE.search(window) is not None
+
+
+_TWO_LAYER_TITLE_EXACT_RE = re.compile(
+    r"(?m)^[ \t]*(?P<level>#{1,6})[ \t]+Two-Layer Citation Emission \(v3\.7\.1\)[ \t]*$"
+)
+# R3 P1-A closure: heading-DRIFT detector. Any heading at any level whose
+# title STARTS with `Two-Layer Citation Emission (v3.7.1)` but has trailing
+# non-whitespace (e.g., `### Two-Layer Citation Emission (v3.7.1) — extended`)
+# is a drift duplicate. Pre-R3 only exact-title headings counted; a drift
+# heading slipped past AND its body sat outside the scanned block range
+# (since `_extract_two_layer_block` stops at the next H1/H2/H3), so
+# forbidden text under it was invisible to per-block invariants.
+_TWO_LAYER_TITLE_DRIFT_RE = re.compile(
+    r"(?m)^[ \t]*(?P<level>#{1,6})[ \t]+Two-Layer Citation Emission \(v3\.7\.1\)"
+    r"(?P<trailing>[^\n]*)$"
+)
+
+
+def _find_all_two_layer_block_positions(text: str) -> list[int]:
+    """Return positions of every heading whose title is or BEGINS WITH
+    `Two-Layer Citation Emission (v3.7.1)`.
+
+    R1 P2 + R2 P2 + R3 P1-A closure: counts H1–H6 exact AND drift
+    (trailing-text-bearing) titles as duplicates. The canonical form is
+    H2 (`## Two-Layer Citation Emission (v3.7.1)`); any other heading
+    that begins the same title but at a different level or with extra
+    trailing text is a contradiction-vector.
+
+    The canonical-block-presence check (`_extract_two_layer_block`) still
+    requires the FIRST canonical EXACT-title H2 — see that function's
+    docstring.
+    """
+    positions: list[int] = []
+    for m in _TWO_LAYER_TITLE_DRIFT_RE.finditer(text):
+        # Trailing text after the title must be stripped; a string of
+        # whitespace is fine, but anything else marks a drift heading.
+        trailing = m.group("trailing")
+        if trailing.strip() == "":
+            positions.append(m.start())
+        else:
+            # Drift heading: report the position too. `_check_block_count`
+            # relies on the count comparison; presence of drift implies >1.
+            positions.append(m.start())
+    return positions
+
+
+def _find_drift_titles(text: str) -> list[tuple[int, str]]:
+    """Return (position, full_heading_line) of headings that begin with the
+    canonical title but carry trailing non-whitespace text (e.g.
+    `## Two-Layer Citation Emission (v3.7.1) — extended`).
+
+    Used by the duplicate check to emit a more specific failure message
+    when a drift heading is detected (R3 P1-A closure).
+    """
+    drifts: list[tuple[int, str]] = []
+    for m in _TWO_LAYER_TITLE_DRIFT_RE.finditer(text):
+        trailing = m.group("trailing")
+        if trailing.strip() != "":
+            line = text[m.start(): m.end()]
+            drifts.append((m.start(), line))
+    return drifts
+
+
+def _find_canonical_h2_position(text: str) -> int | None:
+    """Return the position of the FIRST canonical EXACT-title H2
+    (`## Two-Layer Citation Emission (v3.7.1)`), or None if no exact-H2
+    match exists.
+
+    Used by `_extract_two_layer_block` so the per-block invariants run
+    against the canonical (H2 EXACT) instance even when same-title
+    duplicates of other heading levels or drift trailing text exist.
+    """
+    for m in _TWO_LAYER_TITLE_EXACT_RE.finditer(text):
+        if m.group("level") == "##":
+            return m.start()
+    return None
+
+
+def _extract_two_layer_block(text: str) -> tuple[str | None, int | None, int | None]:
+    """Return (block_text, start_offset, end_offset) for the FIRST canonical
+    H2 Two-Layer block in the file, or (None, None, None) if no canonical
+    H2 instance exists.
+
+    Block start: line containing the canonical H2 heading. Block end: next
+    H1/H2/H3 heading line, or EOF. The returned text INCLUDES the heading
+    line and ends just before the terminator.
+
+    Same-title duplicates at other heading levels (H3, H4, etc.) are
+    enumerated separately via `_find_all_two_layer_block_positions` and
+    flagged by the duplicate-count check.
+    """
+    line_start = _find_canonical_h2_position(text)
+    if line_start is None:
+        return None, None, None
+    next_h_re = re.compile(r"(?m)^[ \t]*#{1,3}[ \t]+")
+    # Find heading text length so search starts after it.
+    head_eol = text.find("\n", line_start + len(TWO_LAYER_BLOCK_HEADING))
+    search_start = (head_eol + 1) if head_eol >= 0 else len(text)
+    next_match = next_h_re.search(text, pos=search_start)
+    block_end = next_match.start() if next_match else len(text)
+    return text[line_start:block_end], line_start, block_end
+
+
+def _split_into_sentences(block: str) -> list[str]:
+    """Crude sentence splitter for invariant-(iii) negation-aware scanning.
+
+    Splits on `. ` / `.\n` / `;` / list-item line breaks. Does not handle
+    abbreviation edge cases — the block prose is short and authored, so the
+    splitter is good enough for grep-class enforcement.
+    """
+    # Replace bullet-list `\n- ` boundaries with sentence terminators so each
+    # bullet counts as its own sentence (each bullet is an independent
+    # obligation in the canonical block).
+    normalized = re.sub(r"\n[ \t]*[-*+][ \t]+", ". ", block)
+    # Split on sentence-end punctuation followed by whitespace, or on a hard
+    # line break that ends a paragraph.
+    parts = re.split(r"(?:[.;!?]\s+)|(?:\n\n)", normalized)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def check_step3a_invariants(verbose: bool = True) -> int:
+    """Enforce Step 3a's three invariants on each manifest-listed agent.
+
+    Returns 0 on PASS, 1 on FAIL.
+    """
+    data, err = _load_v3_6_8_manifest()
+    if err is not None:
+        print(err)
+        return 1
+    files: list[str] = data["files"]
+    if not files:
+        # PR-1 ships an empty list; Step 3a populates. Empty list is fine —
+        # invariants vacuously hold (no agents to check).
+        if verbose:
+            print(
+                "[v3.7.1 Step 3a invariants] manifest 'files' empty — Step 3a "
+                "has not populated yet (vacuous PASS)"
+            )
+        return 0
+
+    failures: list[str] = []
+    for rel in files:
+        agent_path = REPO_ROOT / rel
+        if not agent_path.exists():
+            failures.append(
+                f"  [{rel}] manifest references missing file"
+            )
+            continue
+        text = agent_path.read_text(encoding="utf-8")
+        # R1 P2 + R2 P2 + R3 P1-A closure: require exactly one canonical
+        # block per manifest file. Counts EXACT and DRIFT (trailing-text)
+        # titles at any heading level; drift titles get a dedicated
+        # diagnostic so contributors don't waste time looking for "what
+        # got duplicated".
+        positions = _find_all_two_layer_block_positions(text)
+        drifts = _find_drift_titles(text)
+        # R4 P3-A closure: emit BOTH drift diagnostics AND exact-duplicate
+        # count when both conditions hold, so contributors see every problem
+        # at once (was: drift suppressed exact-duplicate report).
+        for _, drift_line in drifts:
+            failures.append(
+                f"  [{rel}] FAIL: heading-drift detected: "
+                f"{drift_line.strip()!r}. Any heading whose title begins "
+                f"with 'Two-Layer Citation Emission (v3.7.1)' but carries "
+                f"trailing text is a duplicate-by-drift — its body sits "
+                f"outside the canonical block scan range and could carry "
+                f"contradictory instructions. Rename or remove."
+            )
+        # `positions` includes BOTH exact and drift entries (drift regex
+        # subsumes exact). Subtract drift count to get exact-title count.
+        exact_count = len(positions) - len(drifts)
+        if exact_count > 1:
+            failures.append(
+                f"  [{rel}] FAIL: {exact_count} exact-title "
+                f"'{TWO_LAYER_BLOCK_HEADING}' headings found; exactly one "
+                f"is required per Step 3a (duplicates risk contradictory "
+                f"instructions silently passing per-block invariants)"
+            )
+            # Continue to the per-block invariants on the first occurrence so
+            # the operator gets a complete failure list, not just the count.
+        block, _, _ = _extract_two_layer_block(text)
+        if block is None:
+            failures.append(
+                f"  [{rel}] Two-Layer Citation Emission block missing "
+                f"(expected H2 heading '{TWO_LAYER_BLOCK_HEADING}')"
+            )
+            continue
+
+        # Invariant (i): two-layer form. Block must contain BOTH the
+        # `<!--ref:` HTML-comment literal AND `author-year` visible-form
+        # token. We grep for the literal `<!--ref:` (anchors the hidden
+        # layer) and for `author-year` or `author, year` (anchors the
+        # visible layer). The combination is the two-layer contract.
+        has_ref_marker = "<!--ref:" in block
+        has_author_year = bool(
+            re.search(r"author[\s-]year|author,\s*year", block, re.IGNORECASE)
+        )
+        if not has_ref_marker:
+            failures.append(
+                f"  [{rel}] invariant (i) FAIL: two-layer form missing "
+                f"hidden-layer marker `<!--ref:slug-->`. The block must "
+                f"specify the HTML-comment literal `<!--ref:` so agents emit "
+                f"the hidden-layer marker."
+            )
+        if not has_author_year:
+            failures.append(
+                f"  [{rel}] invariant (i) FAIL: two-layer form missing "
+                f"visible-layer anchor (author-year / author, year). The "
+                f"block must name the visible-layer form."
+            )
+
+        # Invariant (ii): forbidden resolver-layer mentions.
+        for pattern in _FORBIDDEN_RESOLVER_TERMS:
+            m = pattern.search(block)
+            if m is not None:
+                failures.append(
+                    f"  [{rel}] invariant (ii) FAIL: block mentions "
+                    f"'{m.group(0)}' (strict partial-inversion: agent must "
+                    f"NOT name the resolver layer / finalizer / orchestrator "
+                    f"/ stage gate / terminal gate / resolver)"
+                )
+
+        # Invariant (iii): no frontmatter-read instruction.
+        # R1 P1-2 closure: scan the ENTIRE block (not pre-split sentences),
+        # then for each verb-target match, check negation in the ≤30-char
+        # window preceding the verb. This eliminates false-pass on sentences
+        # like "Never guess, read the entry frontmatter" where the negation
+        # word doesn't apply to the read verb.
+        for verb_match in _FRONTMATTER_READ_VERB_RE.finditer(block):
+            verb_pos = verb_match.start("verb")
+            if _negation_anchored_to_verb(block, verb_pos):
+                continue
+            # Diagnostic excerpt: 60 chars centered on the match.
+            excerpt_start = max(0, verb_pos - 30)
+            excerpt_end = min(len(block), verb_match.end() + 30)
+            excerpt = block[excerpt_start:excerpt_end].replace("\n", " ")
+            failures.append(
+                f"  [{rel}] invariant (iii) FAIL: block instructs agent to "
+                f"'{verb_match.group(0).strip()}' frontmatter without "
+                f"a directly anchored negation. Agent must learn slug ONLY "
+                f"from corpus context in its prompt; frontmatter access is "
+                f"forbidden in this block. Excerpt: {excerpt!r}"
+            )
+
+        if verbose and not any(rel in f for f in failures):
+            print(f"  [{rel}] Step 3a invariants PASS")
+
+    if failures:
+        print("[ARS-V3.7.1 LINT ERROR: Step 3a Two-Layer Citation Emission invariants]")
+        for line in failures:
+            print(line)
+        return 1
+    if verbose:
+        print(
+            f"[v3.7.1 Step 3a invariants] PASSED ({len(files)} manifest agent(s))"
+        )
+    return 0
+
+
 def check_byte_equivalence(verbose: bool = True) -> int:
     """Run the SHA byte-equivalence gate.
 
@@ -520,7 +931,10 @@ def check_byte_equivalence(verbose: bool = True) -> int:
 
 
 def main() -> int:
-    return check_byte_equivalence()
+    rc_sha = check_byte_equivalence()
+    rc_invariants = check_step3a_invariants()
+    # Both must pass; report combined exit code.
+    return 1 if (rc_sha or rc_invariants) else 0
 
 
 if __name__ == "__main__":
