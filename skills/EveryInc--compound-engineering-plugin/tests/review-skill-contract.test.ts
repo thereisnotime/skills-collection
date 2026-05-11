@@ -641,18 +641,10 @@ describe("ce-code-review contract", () => {
     // PR mode still has an inline error for unresolved base
     expect(content).toContain('echo "ERROR: Unable to resolve PR base branch')
 
-    // Branch and standalone modes delegate to resolve-base.sh and check its ERROR: output.
-    // The script itself emits ERROR: when the base is unresolved.
-    expect(content).toContain("scripts/resolve-base.sh")
-    const resolveScript = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-code-review/scripts/resolve-base.sh",
-    )
-    expect(resolveScript).toContain("ERROR:")
-
-    // Branch and standalone modes must stop on script error, not fall back
-    expect(content).toContain(
-      "If the script outputs an error, stop instead of falling back to `git diff HEAD`",
-    )
+    // Branch and standalone modes must stop when no base can be resolved, not fall back to
+    // `git diff HEAD`. The guard phrase appears once per mode (branch + standalone).
+    const stopGuardMatches = content.match(/Do not fall back to `git diff HEAD`/g)
+    expect(stopGuardMatches?.length).toBeGreaterThanOrEqual(2)
   })
 
   test("orchestration callers pass explicit mode flags", async () => {

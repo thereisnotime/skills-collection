@@ -116,7 +116,7 @@ Compound-engineering pipeline artifacts (`docs/brainstorms/*`, `docs/plans/*.md`
 
 You invoke `/ce-code-review` on a feature branch with a Rails auth change that includes a database migration.
 
-The skill detects you're on a feature branch (no PR yet), resolves the base via `scripts/resolve-base.sh`, and computes the diff. Stage 2 reads commit messages and writes a 2-3 line intent summary. Stage 2b auto-discovers the plan in `docs/plans/` from the branch name and reads its Requirements (R1-R8, U1-U6).
+The skill detects you're on a feature branch (no PR yet), resolves the base from `origin/HEAD` (or PR metadata when an open PR exists), and computes the diff. Stage 2 reads commit messages and writes a 2-3 line intent summary. Stage 2b auto-discovers the plan in `docs/plans/` from the branch name and reads its Requirements (R1-R8, U1-U6).
 
 Stage 3 selects reviewers: the 6 always-on, plus security (auth touched), reliability (background job for token cleanup), data migrations (migration file present), kieran-rails + dhh-rails (stack), schema-drift detector and deployment-verification agent (CE migration conditionals). Ten reviewers total, dispatched in parallel.
 
@@ -175,7 +175,7 @@ Concurrent use note: `mode:report-only` is the only mode safe to run alongside b
 
 | Argument | Effect |
 |----------|--------|
-| _(empty)_ | Reviews current branch (uses `scripts/resolve-base.sh` to detect base) |
+| _(empty)_ | Reviews current branch (detects base from `origin/HEAD` or PR metadata) |
 | `<PR number or URL>` | Reviews that PR (checks out, fetches metadata, reviews against PR base) |
 | `<branch name>` | Checks out and reviews against detected base |
 | `base:<sha-or-ref>` | Skips scope detection; reviews current checkout against that ref |
