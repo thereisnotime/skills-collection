@@ -1,3 +1,8 @@
+---
+name: configure-blob
+description: Create and configure an Azure Blob Storage account with security best practices.
+---
+
 # /configure-blob - Configure Azure Blob Storage
 
 Create and configure an Azure Blob Storage account with security best practices.

@@ -1,3 +1,8 @@
+---
+name: compare
+description: Compare current screenshots against baselines to detect visual regressions.
+---
+
 # /compare - Compare Visual Screenshots
 
 Compare current screenshots against baselines to detect visual regressions.

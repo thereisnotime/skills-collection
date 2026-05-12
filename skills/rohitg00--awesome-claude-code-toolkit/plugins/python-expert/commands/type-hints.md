@@ -1,3 +1,8 @@
+---
+name: type-hints
+description: Add comprehensive type hints to Python code for better IDE support and type safety.
+---
+
 Add comprehensive type hints to Python code for better IDE support and type safety.
 
 ## Steps

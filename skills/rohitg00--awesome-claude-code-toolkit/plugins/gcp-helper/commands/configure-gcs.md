@@ -1,3 +1,8 @@
+---
+name: configure-gcs
+description: Create and configure a GCS bucket with proper security settings.
+---
+
 # /configure-gcs - Configure Google Cloud Storage
 
 Create and configure a GCS bucket with proper security settings.

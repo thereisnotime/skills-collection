@@ -1,3 +1,8 @@
+---
+name: a11y-scan
+description: Scan web application components for accessibility violations against WCAG guidelines.
+---
+
 Scan web application components for accessibility violations against WCAG guidelines.
 
 ## Steps

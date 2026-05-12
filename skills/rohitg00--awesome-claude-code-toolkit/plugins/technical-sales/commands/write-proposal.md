@@ -1,3 +1,8 @@
+---
+name: write-proposal
+description: Write a technical proposal or proof-of-concept plan for a prospective customer.
+---
+
 Write a technical proposal or proof-of-concept plan for a prospective customer.
 
 ## Steps

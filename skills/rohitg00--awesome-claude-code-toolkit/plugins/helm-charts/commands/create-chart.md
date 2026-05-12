@@ -1,3 +1,8 @@
+---
+name: create-chart
+description: Generate a Helm chart for deploying an application to Kubernetes.
+---
+
 # /create-chart - Create Helm Chart
 
 Generate a Helm chart for deploying an application to Kubernetes.

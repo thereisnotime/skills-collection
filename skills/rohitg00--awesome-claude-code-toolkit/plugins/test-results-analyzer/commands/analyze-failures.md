@@ -1,3 +1,8 @@
+---
+name: analyze-failures
+description: Analyze test failures to identify root causes, patterns, and suggest targeted fixes.
+---
+
 Analyze test failures to identify root causes, patterns, and suggest targeted fixes.
 
 ## Steps

@@ -1,3 +1,8 @@
+---
+name: validate-spec
+description: Validate an existing OpenAPI specification for correctness and completeness.
+---
+
 Validate an existing OpenAPI specification for correctness and completeness.
 
 ## Steps

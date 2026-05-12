@@ -1,3 +1,8 @@
+---
+name: create-issue
+description: Create a well-structured GitHub issue with proper metadata.
+---
+
 # /create-issue - Create GitHub Issue
 
 Create a well-structured GitHub issue with proper metadata.

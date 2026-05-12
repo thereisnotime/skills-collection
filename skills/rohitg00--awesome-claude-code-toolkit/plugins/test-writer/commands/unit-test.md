@@ -1,3 +1,8 @@
+---
+name: unit-test
+description: Generate unit tests for a module, covering all public functions and edge cases.
+---
+
 Generate unit tests for a module, covering all public functions and edge cases.
 
 ## Steps

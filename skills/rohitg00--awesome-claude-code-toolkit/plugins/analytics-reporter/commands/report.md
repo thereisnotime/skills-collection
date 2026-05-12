@@ -1,3 +1,8 @@
+---
+name: report
+description: Generate a project analytics report covering code quality, velocity, and health metrics.
+---
+
 Generate a project analytics report covering code quality, velocity, and health metrics.
 
 ## Steps

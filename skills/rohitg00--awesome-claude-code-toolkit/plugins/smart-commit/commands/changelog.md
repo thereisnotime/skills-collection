@@ -1,3 +1,8 @@
+---
+name: changelog
+description: Parse the git history since the last release tag and generate a structured markdown changelog.
+---
+
 # /smart-commit:changelog
 
 Parse the git history since the last release tag and generate a structured markdown changelog.

@@ -1,3 +1,8 @@
+---
+name: dashboard
+description: Generate a monitoring dashboard configuration for project metrics visualization.
+---
+
 Generate a monitoring dashboard configuration for project metrics visualization.
 
 ## Steps

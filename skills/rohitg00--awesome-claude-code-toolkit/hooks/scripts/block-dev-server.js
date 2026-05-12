@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 const input = JSON.parse(process.argv[2] || "{}");
 const command = (input.command || "").toLowerCase();
 
@@ -24,7 +26,8 @@ if (!isDevServer) {
   process.exit(0);
 }
 
-const inTmux = !!process.env.TMUX;
+const tmuxVal = process.env.TMUX || "";
+const inTmux = tmuxVal !== "" && fs.existsSync(tmuxVal.split(",")[0]);
 const inScreen = !!process.env.STY;
 
 if (!inTmux && !inScreen) {

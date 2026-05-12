@@ -1,3 +1,8 @@
+---
+name: optimize-dockerfile
+description: Optimize an existing Dockerfile for smaller images, faster builds, and better security.
+---
+
 Optimize an existing Dockerfile for smaller images, faster builds, and better security.
 
 ## Steps

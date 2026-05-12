@@ -1,3 +1,8 @@
+---
+name: create-server
+description: Scaffold a new MCP (Model Context Protocol) server with tools, resources, and prompts.
+---
+
 Scaffold a new MCP (Model Context Protocol) server with tools, resources, and prompts.
 
 ## Steps

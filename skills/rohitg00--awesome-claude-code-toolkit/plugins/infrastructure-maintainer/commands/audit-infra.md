@@ -1,3 +1,8 @@
+---
+name: audit-infra
+description: Audit infrastructure for security issues, misconfigurations, and optimization opportunities.
+---
+
 Audit infrastructure for security issues, misconfigurations, and optimization opportunities.
 
 ## Steps

@@ -1,3 +1,8 @@
+---
+name: create-thread
+description: Create a Slack thread for ongoing discussion about a topic.
+---
+
 # /create-thread - Create Slack Thread
 
 Create a Slack thread for ongoing discussion about a topic.

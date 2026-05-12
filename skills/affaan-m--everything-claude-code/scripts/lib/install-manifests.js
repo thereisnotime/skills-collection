@@ -4,7 +4,7 @@ const path = require('path');
 const { getInstallTargetAdapter, planInstallTargetScaffold } = require('./install-targets/registry');
 
 const DEFAULT_REPO_ROOT = path.join(__dirname, '../..');
-const SUPPORTED_INSTALL_TARGETS = ['claude', 'cursor', 'antigravity', 'codex', 'gemini', 'opencode', 'codebuddy'];
+const SUPPORTED_INSTALL_TARGETS = ['claude', 'cursor', 'antigravity', 'codex', 'gemini', 'opencode', 'codebuddy', 'joycode', 'qwen'];
 const COMPONENT_FAMILY_PREFIXES = {
   baseline: 'baseline:',
   language: 'lang:',
@@ -40,8 +40,11 @@ const LEGACY_LANGUAGE_ALIAS_TO_CANONICAL = Object.freeze({
   c: 'c',
   cpp: 'cpp',
   csharp: 'csharp',
+  fsharp: 'fsharp',
   go: 'go',
   golang: 'go',
+  arkts: 'arkts',
+  harmonyos: 'arkts',
   java: 'java',
   javascript: 'typescript',
   kotlin: 'java',
@@ -56,7 +59,9 @@ const LEGACY_LANGUAGE_EXTRA_MODULE_IDS = Object.freeze({
   c: ['framework-language'],
   cpp: ['framework-language'],
   csharp: ['framework-language'],
+  fsharp: ['framework-language'],
   go: ['framework-language'],
+  arkts: ['framework-language'],
   java: ['framework-language'],
   perl: [],
   php: [],

@@ -1,3 +1,8 @@
+---
+name: amend
+description: Amend the most recent commit with additional changes or an updated message.
+---
+
 Amend the most recent commit with additional changes or an updated message.
 
 ## Steps

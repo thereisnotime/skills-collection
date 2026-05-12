@@ -1,3 +1,8 @@
+---
+name: security-check
+description: Perform a security assessment of the codebase to identify vulnerabilities and risks.
+---
+
 Perform a security assessment of the codebase to identify vulnerabilities and risks.
 
 ## Steps

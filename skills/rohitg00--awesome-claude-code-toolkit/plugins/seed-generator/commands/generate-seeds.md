@@ -1,3 +1,8 @@
+---
+name: generate-seeds
+description: Generate database seed scripts with realistic data for development.
+---
+
 # /generate-seeds - Generate Database Seeds
 
 Generate database seed scripts with realistic data for development.

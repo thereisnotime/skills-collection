@@ -1,3 +1,8 @@
+---
+name: check-licenses
+description: Check all dependency licenses for compliance with project requirements.
+---
+
 # /check-licenses - Check License Compliance
 
 Check all dependency licenses for compliance with project requirements.

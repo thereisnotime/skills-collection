@@ -1,3 +1,8 @@
+---
+name: setup-cloud-run
+description: Configure and deploy a Cloud Run service with best practices.
+---
+
 # /setup-cloud-run - Setup Google Cloud Run Service
 
 Configure and deploy a Cloud Run service with best practices.

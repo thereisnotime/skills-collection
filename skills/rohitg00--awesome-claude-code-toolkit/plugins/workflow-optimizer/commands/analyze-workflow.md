@@ -1,3 +1,8 @@
+---
+name: analyze-workflow
+description: Analyze the development workflow to identify bottlenecks, friction, and improvement opportunities.
+---
+
 Analyze the development workflow to identify bottlenecks, friction, and improvement opportunities.
 
 ## Steps

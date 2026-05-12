@@ -1,3 +1,8 @@
+---
+name: fix-aria
+description: Fix incorrect or missing ARIA attributes for accessibility compliance.
+---
+
 # /fix-aria - Fix ARIA Attributes
 
 Fix incorrect or missing ARIA attributes for accessibility compliance.

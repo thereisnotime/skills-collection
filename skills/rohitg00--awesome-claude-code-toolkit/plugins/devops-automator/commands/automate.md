@@ -1,3 +1,8 @@
+---
+name: automate
+description: Create DevOps automation scripts for CI/CD pipelines, deployments, and infrastructure tasks.
+---
+
 Create DevOps automation scripts for CI/CD pipelines, deployments, and infrastructure tasks.
 
 ## Steps

@@ -1,3 +1,8 @@
+---
+name: fix-pipeline
+description: Apply fixes to a broken CI/CD pipeline configuration.
+---
+
 # /fix-pipeline - Fix CI/CD Pipeline
 
 Apply fixes to a broken CI/CD pipeline configuration.

@@ -1,3 +1,8 @@
+---
+name: review-pr
+description: Perform a thorough code review of a pull request with actionable feedback.
+---
+
 Perform a thorough code review of a pull request with actionable feedback.
 
 ## Steps

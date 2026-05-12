@@ -1,3 +1,8 @@
+---
+name: index-docs
+description: Index documents into a vector store for retrieval-augmented generation.
+---
+
 # /index-docs - Index Documents for RAG
 
 Index documents into a vector store for retrieval-augmented generation.

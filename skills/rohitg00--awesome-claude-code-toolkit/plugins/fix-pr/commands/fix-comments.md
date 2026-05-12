@@ -1,3 +1,8 @@
+---
+name: fix-comments
+description: Address PR review comments by implementing requested changes automatically.
+---
+
 Address PR review comments by implementing requested changes automatically.
 
 ## Steps

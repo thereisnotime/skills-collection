@@ -1,3 +1,8 @@
+---
+name: analyze-bundle
+description: Analyze JavaScript bundle size and identify optimization opportunities.
+---
+
 # /analyze-bundle - Analyze Frontend Bundle
 
 Analyze JavaScript bundle size and identify optimization opportunities.

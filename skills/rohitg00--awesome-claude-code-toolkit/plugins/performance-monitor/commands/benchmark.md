@@ -1,3 +1,8 @@
+---
+name: benchmark
+description: Run benchmarks to measure and compare performance of code implementations.
+---
+
 Run benchmarks to measure and compare performance of code implementations.
 
 ## Steps

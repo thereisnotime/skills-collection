@@ -1,3 +1,8 @@
+---
+name: audit-deps
+description: Audit all project dependencies for vulnerabilities, licensing issues, and maintenance status.
+---
+
 Audit all project dependencies for vulnerabilities, licensing issues, and maintenance status.
 
 ## Steps

@@ -72,6 +72,12 @@ jobs:
         run: |
           git add -u
 
+          # Skip if nothing changed
+          if git diff --staged --quiet; then
+            echo "No changes to commit, skipping."
+            exit 0
+          fi
+
           # Allow commit to work
           git config user.name "stripe-ai-sync[bot]"
           git config user.email "282683001+stripe-ai-sync[bot]@users.noreply.github.com"

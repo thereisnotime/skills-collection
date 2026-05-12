@@ -1,3 +1,8 @@
+---
+name: add-tool
+description: Add a new tool to an existing MCP server with proper schema and handler.
+---
+
 Add a new tool to an existing MCP server with proper schema and handler.
 
 ## Steps

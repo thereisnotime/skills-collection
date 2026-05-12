@@ -1,3 +1,8 @@
+---
+name: release
+description: Create a full release with changelog, GitHub release, and package publishing.
+---
+
 Create a full release with changelog, GitHub release, and package publishing.
 
 ## Steps

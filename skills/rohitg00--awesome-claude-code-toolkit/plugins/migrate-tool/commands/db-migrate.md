@@ -1,3 +1,8 @@
+---
+name: db-migrate
+description: Generate a database migration file for schema changes.
+---
+
 Generate a database migration file for schema changes.
 
 ## Steps

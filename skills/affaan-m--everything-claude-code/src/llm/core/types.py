@@ -18,6 +18,8 @@ class ProviderType(str, Enum):
     CLAUDE = "claude"
     OPENAI = "openai"
     OLLAMA = "ollama"
+    ASTRAFLOW = "astraflow"
+    ASTRAFLOW_CN = "astraflow_cn"
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,24 @@ class ToolDefinition:
             "description": self.description,
             "parameters": self.parameters,
             "strict": self.strict,
+        }
+
+    def to_openai_tool(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+                "strict": self.strict,
+            },
+        }
+
+    def to_anthropic_tool(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": self.parameters,
         }
 
 

@@ -1,3 +1,8 @@
+---
+name: generate-readme
+description: Generate a comprehensive README.md from project analysis.
+---
+
 # /generate-readme - Generate README
 
 Generate a comprehensive README.md from project analysis.

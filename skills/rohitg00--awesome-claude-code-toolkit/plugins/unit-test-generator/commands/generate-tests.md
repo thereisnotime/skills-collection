@@ -1,3 +1,8 @@
+---
+name: generate-tests
+description: Generate comprehensive unit tests for a specified function, class, or module.
+---
+
 Generate comprehensive unit tests for a specified function, class, or module.
 
 ## Steps

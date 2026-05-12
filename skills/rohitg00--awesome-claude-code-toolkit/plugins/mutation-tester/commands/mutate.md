@@ -1,3 +1,8 @@
+---
+name: mutate
+description: Run mutation testing to evaluate test suite effectiveness.
+---
+
 # /mutate - Run Mutation Testing
 
 Run mutation testing to evaluate test suite effectiveness.

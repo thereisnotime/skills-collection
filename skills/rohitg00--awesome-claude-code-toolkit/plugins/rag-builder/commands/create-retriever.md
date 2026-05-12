@@ -1,3 +1,8 @@
+---
+name: create-retriever
+description: Build a retrieval component for RAG pipeline with optimized search.
+---
+
 # /create-retriever - Create RAG Retriever
 
 Build a retrieval component for RAG pipeline with optimized search.
