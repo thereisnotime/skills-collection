@@ -82,7 +82,7 @@ except ImportError:
 #                       doesn't affect /-menu visibility); added ${CLAUDE_EFFORT} to
 #                       YAML_VALUE_ALLOWED_VARS.
 # See 000-docs/SCHEMA_CHANGELOG.md.
-SCHEMA_VERSION = '3.3.1'
+SCHEMA_VERSION = '3.3.2'
 
 # Validation tiers
 TIER_STANDARD = 'standard'
@@ -270,7 +270,13 @@ AGENT_FIELDS = {
     'memory': {'type': 'string', 'source': 'anthropic', 'valid': ['user', 'project', 'local']},
     'background': {'type': 'boolean', 'source': 'anthropic'},
     'isolation': {'type': 'string', 'source': 'anthropic', 'valid': ['worktree']},
-    'permissionMode': {'type': 'string', 'source': 'anthropic', 'valid': ['default', 'acceptEdits', 'dontAsk', 'bypassPermissions', 'plan']},
+    'permissionMode': {'type': 'string', 'source': 'anthropic', 'valid': ['default', 'acceptEdits', 'auto', 'dontAsk', 'bypassPermissions', 'plan']},
+    # Spec fields confirmed against code.claude.com/docs/en/sub-agents (snapshot at
+    # ~/.claude/skills/agent-creator/references/anthropic-sub-agents-spec.md, captured
+    # 2026-05-08). Both `color` and `initialPrompt` are documented Anthropic optional
+    # fields; previously misclassified as DEPRECATED_AGENT_FIELDS / unknown.
+    'color': {'type': 'string', 'source': 'anthropic', 'valid': ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan']},
+    'initialPrompt': {'type': 'string', 'source': 'anthropic'},
 }
 
 # Fields NOT supported in plugin agents (silently ignored by runtime)
@@ -279,12 +285,15 @@ AGENT_PLUGIN_RESTRICTED = {'hooks', 'mcpServers', 'permissionMode'}
 # Fields that are NOT in Anthropic spec — ERROR if found
 INVALID_AGENT_FIELDS = {}  # Cleared — all non-standard fields demoted to deprecated for migration
 
-# Non-standard fields used across existing agents — WARN now, batch-fix, then promote to ERROR
+# Non-standard fields used across existing agents — WARN now, batch-fix, then promote to ERROR.
+# `color` was removed from this list 2026-05-08: it IS a documented Anthropic-spec field per
+# code.claude.com/docs/en/sub-agents (Display color for the subagent in the task list and
+# transcript. Accepts red/blue/green/yellow/purple/orange/pink/cyan). It now lives in
+# AGENT_FIELDS with the valid-color enum.
 DEPRECATED_AGENT_FIELDS = {
     'capabilities': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',
     'expertise_level': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',
     'activation_priority': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',
-    'color': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',
     'activation_triggers': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',
     'type': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',
     'category': 'Non-standard field. Not in Anthropic spec. Will be removed in future validation.',

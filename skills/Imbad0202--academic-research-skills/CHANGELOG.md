@@ -4,6 +4,61 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### v3.7.3 — claim faithfulness locator + contaminated-source advisory (2026-05-12, in progress)
+
+**External motivation:** Zhao, Wang, Stuart, De Vaan, Ginsparg, Yin "LLM hallucinations in the wild: Large-scale evidence from non-existent citations" (arXiv:2605.07723, 2026-05). Corpus-scale audit of 111M references across 2.5M papers across arXiv / bioRxiv / SSRN / PMC finds 146,932 hallucinated citations estimated for 2025 alone, with the inflection point at mid-2024, 85.3% of preprint hallucinations surviving into the published record, and Google Scholar increasingly indexing citation-only entries. The paper names the L3 (claim faithfulness) gap explicitly: *"real citations deployed to support claims the cited references do not actually make ... remains an open challenge for which reliable detection methods remain under active development."* v3.7.3 closes the locator-channel half of that gap (anchor infrastructure for future L3 audit) and surfaces two contamination signals (preprint post-LLM-inflection + Semantic Scholar unmatched) as advisory cite-time markers.
+
+**L3-1 — Three-Layer Citation Emission (claim faithfulness locator):**
+
+- `deep-research/agents/synthesis_agent.md`, `academic-paper/agents/draft_writer_agent.md`, `deep-research/agents/report_compiler_agent.md` gain `## Three-Layer Citation Emission (v3.7.3)` H2 section that extends v3.7.1 Two-Layer with a third hidden marker: `<!--anchor:<kind>:<value>-->` where `<kind>` ∈ `{quote, page, section, paragraph, none}`. Production-mandatory locator rule (R-L3-1-A) requires `<kind>` ≠ `none` for every visible citation; emitting `none` triggers finalizer MED-WARN-NO-LOCATOR (gate-refused). Quote anchors capped at 25 words by whitespace split (R-L3-1-B). Anchor values come from corpus context only — no frontmatter reads (R-L3-1-C, inherits v3.6.7 partial-inversion discipline).
+- `academic-pipeline/agents/pipeline_orchestrator_agent.md` gains a `## Cite-Time Provenance Finalizer — v3.7.3 extension` H2 section: 4-cell matrix becomes 5-cell along a new precedence-zero locator-presence axis. NO-LOCATOR resolution: `[UNVERIFIED CITATION — NO QUOTE OR PAGE LOCATOR]<!--ref:slug--><!--anchor:none:-->`.
+- `academic-paper/agents/formatter_agent.md` gains a `## Cite-Time Provenance Hard Gate (v3.7.1 + v3.7.3)` section formalizing the terminal hard-gate refusal across all three v3.7.x severity tiers (HIGH-WARN-NO-ORIGINAL, MED-WARN-NOT-CROSS-CHECKED, MED-WARN-NO-LOCATOR).
+
+**L3-2 — Contaminated-source advisory signals:**
+
+- `shared/contracts/passport/literature_corpus_entry.schema.json` adds optional `contamination_signals: { preprint_post_llm_inflection, semantic_scholar_unmatched }` object. Both sub-fields optional within the object; both default to absent (signals not computed). `additionalProperties: false` enforced on the sub-object. Backward compat: entries without the field stay valid.
+- `deep-research/agents/bibliography_agent.md` gains `## Contamination Signal Computation (v3.7.3)` section. Signal 1 (`preprint_post_llm_inflection`): `year >= 2024 AND venue ∈ {arXiv, bioRxiv, medRxiv, SSRN, Research Square, Preprints.org}`. Signal 2 (`semantic_scholar_unmatched`): existing Semantic Scholar API protocol returns no match by DOI or title; exempted when `obtained_via: manual`; omitted (not `false`) on API degradation.
+- Pipeline finalizer (in pipeline_orchestrator) annotates `ok` / `LOW-WARN` markers with `CONTAMINATED-PREPRINT` / `CONTAMINATED-UNMATCHED` / `CONTAMINATED-PREPRINT+UNMATCHED` suffix per `contamination_signals` state. Annotations are **advisory only** — they do NOT change the gate decision (v3.5 Collaboration Depth Observer precedent).
+
+**Lint + tests:**
+
+- New `scripts/check_v3_7_3_three_layer_citation.py` static lint: every `<!--ref:slug-->` must be followed by `<!--anchor:<kind>:<value>-->`; `quote` values ≤25 words; orphan anchors rejected.
+- New `scripts/test_check_v3_7_3_three_layer_citation.py`: 14 tests covering positive (5 kinds × passing cases, contamination-suffix marker, LOW-WARN-resolved marker, multi-citation) + negative (bare ref, orphan anchor, invalid kind, 26-word quote).
+- New 6 contamination_signals tests in `scripts/adapters/tests/test_literature_corpus_entry_schema.py`: absence / empty / both-false / both-true / unknown-subfield-rejected / non-boolean-rejected.
+- New `V373ExtensionLineBudgetTest` in `scripts/test_v3_6_7_phase_6_6.py`: 60-line budget for `## Cite-Time Provenance Finalizer — v3.7.3 extension` block; existing Phase 6.6 +60 v3.6.7 budget test updated to subtract both v3.7.1 Step 3b AND v3.7.3 extension lines.
+
+**Regression status (final, post round-10 convergence):** 967 tests pass, 3 skipped, 0 failed (42 new tests across rounds 1-10 fixes; pre-review baseline was 925). v3.6.7 + v3.6.8 + v3.7.1 + v3.7.2 lints all PASS unmodified. v3.6.7 PATTERN PROTECTION blocks remain byte-equivalent (SHA gate v2 unchanged). Material Passport literature_corpus_entry schema backward compatible (new contamination_signals field optional; cross-field rules only fire when explicitly set). New v3.7.3 lint wired into spec-consistency.yml CI workflow per F18.
+
+**Cross-model review closure (2026-05-12, 11 rounds total — 10 codex + 1 gemini cross-model):**
+
+| Round | Reviewer | Findings | Closures |
+|---|---|---|---|
+| 1 (initial) | Codex | 0 P1 / 2 P2 | F3 (untracked artifacts → closed at commit), F4 (NO-LOCATOR acknowledgment contradiction → removed `/ars-mark-read` promise from formatter+finalizer+spec Q5) |
+| 1 (initial) | Gemini 3.1-pro-preview | 2 P1 / 2 P2 / 1 P3 | F1 (hyphen-encode → 3 prompts + lint + 3 tests), F2 (whitespace/newline tolerance → finalizer clarification + 4 tests), F5 (year<2024 schema cross-field → allOf + 4 tests), F6 (venue list 6 → 10 added ChemRxiv / EarthArXiv / OSF Preprints / TechRxiv), F7 (fenced code block isolation → helper + 4 tests) |
+| 2 | Codex | 0 P1 / 2 P2 | F8 (lint regex widened to {0,2} suffix tokens → 3 tests), F9 (empty non-`none` anchor value rejection → 5 tests) |
+| 3 | Codex | 0 P1 / 2 P2 | F10 (premature HTML comment terminator sentinel scan → 3 tests), F11 (schema manual-entry exemption → 4 tests) |
+| 4 | Codex | 0 P1 / 1 P2 / 1 P3 | F12 (orphan_pattern lookbehind removed → 3 tests), F13 (schema venue list description sync 6 → 10) |
+| 5 | Codex | 0 P1 / 1 P2 | F14 (malformed ref broad-scan detector → 4 tests) |
+| 6 | Codex | 0 P1 / 1 P2 | F15 (prompt-vs-lint alignment on `--` rule → 2 tests; prompts loosened to match lint's narrower contract) |
+| 7 | Codex | 0 P1 / 3 P2 | F16 (finalizer status-suffix-tolerant for revision-loop reruns), F17 (standalone deep-research self-gate), F18 (CI workflow wires v3.7.3 lint into spec-consistency.yml) |
+| 8 | Codex | 0 P1 / 3 P2 | F19 (decode value before empty check → 3 tests), F20 (formatter raw `anchor:none` gate), F21 (F17 self-gate scoped to standalone mode only via prompt mode-detection) |
+| 9 | Codex | 0 P1 / 1 P2 | F22 (self-gate also rejects bare refs without anchor — parity with pipeline finalizer's precedence-zero "no anchor = anchor=none" rule) |
+| **10 (final)** | **Codex** | **0 findings** | **Convergence achieved.** |
+
+- **No cross-finding overlap across reviewers.** Codex and Gemini found complementary defect classes — Codex caught contract gaps + regex completeness + architectural integration; Gemini caught HTML comment parsing edge cases + cross-field schema rules + venue completeness. This is the canonical value split documented in `feedback_codex_workflow_consolidated.md`.
+- **Cascade pattern:** each round's closure introduced no new defects in its OWN scope, but interactions with other v3.7.3 surfaces surfaced new layers — F19 was an F9 layer (encoded-whitespace bypass after the F9 raw-value fix), F21 was a F17 regression (self-gate ran in pipeline mode and interfered with finalizer), F22 was an F17+F21 boundary (only catching explicit `none` markers missed bare-ref legacy form). The 10-round convergence trajectory is consistent with the v3.6.8 18-round implementation precedent and `feedback_complex_spec_review_inventory_pattern.md`.
+- **F23+ not yet observed.** Round 10 returned no findings on the 9th amended branch state, providing the convergence signal. Future codex challenge mode (adversarial scope) may surface architecturally deeper gaps; tracked separately as a v3.7.4+ concern.
+
+**Out of v3.7.3 scope (tracked as follow-up issues):**
+
+- v3.7.4 retrieval-side hardening: OpenAlex + Crossref triangulation as second contamination signal (Vector 2 currently single-source via Semantic Scholar only).
+- v3.8 L3 full audit: `claim_ref_alignment_audit_agent` running LLM-as-judge over (claim, ref full-text) pairs. v3.7.3 anchors are the input; v3.8 verifies anchor content faithfulness.
+- AI disclosure schema split (per-stage: drafting / editing / **reference suggestion** / data analysis) — Zhao et al. Fig. 1l correlates AI-writing-signature with hallucination rate.
+- Public README motivation update citing arXiv:2605.07723.
+- Migration tool for legacy `literature_corpus[]` entries lacking `contamination_signals`.
+
+Spec: `docs/design/2026-05-12-ars-v3.7.3-claim-faithfulness-and-contaminated-source-spec.md`.
+
 ### Backlog — gbrain harness borrow analysis (2026-05-10, post codex review)
 
 Source: 2026-05-10 analysis of `garrytan/gbrain` (14.2k★ agent harness for OpenClaw/Hermes), with codex cross-model review same day. Two candidates surfaced; they have different risk profiles and are tracked separately.

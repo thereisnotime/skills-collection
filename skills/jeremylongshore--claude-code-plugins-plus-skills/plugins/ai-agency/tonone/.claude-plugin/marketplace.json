@@ -9,13 +9,16 @@
     {
       "name": "tonone",
       "description": "Engineering + Product team \u2014 23 agents, 2 teams. All agents and skills in one install.",
-      "version": "0.6.1",
+      "version": "1.0.0",
       "source": "./",
       "author": {
         "name": "ai",
         "url": "https://tonone.ai"
       },
-      "tags": ["bundle", "full-team"]
+      "tags": [
+        "bundle",
+        "full-team"
+      ]
     },
     {
       "name": "engineering-team",
@@ -26,7 +29,11 @@
         "name": "ai",
         "url": "https://tonone.ai"
       },
-      "tags": ["bundle", "installer", "engineering-team"]
+      "tags": [
+        "bundle",
+        "installer",
+        "engineering-team"
+      ]
     },
     {
       "name": "product-team",
@@ -37,7 +44,11 @@
         "name": "ai",
         "url": "https://tonone.ai"
       },
-      "tags": ["bundle", "installer", "product-team"]
+      "tags": [
+        "bundle",
+        "installer",
+        "product-team"
+      ]
     },
     {
       "name": "full-team",
@@ -48,7 +59,26 @@
         "name": "ai",
         "url": "https://tonone.ai"
       },
-      "tags": ["bundle", "installer", "full-team"]
+      "tags": [
+        "bundle",
+        "installer",
+        "full-team"
+      ]
+    },
+    {
+      "name": "legal-team",
+      "description": "Install all 10 Legal Team agents at once \u2014 contracts, compliance, IP, governance, regulatory",
+      "version": "1.2.0",
+      "source": "./bundle/legal-team",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "bundle",
+        "installer",
+        "legal-team"
+      ]
     },
     {
       "name": "apex",
@@ -60,7 +90,10 @@
         "url": "https://tonone.ai"
       },
       "category": "lead",
-      "tags": ["lead", "orchestrator"]
+      "tags": [
+        "lead",
+        "orchestrator"
+      ]
     },
     {
       "name": "forge",
@@ -72,7 +105,11 @@
         "url": "https://tonone.ai"
       },
       "category": "infrastructure",
-      "tags": ["cloud", "networking", "iac"]
+      "tags": [
+        "cloud",
+        "networking",
+        "iac"
+      ]
     },
     {
       "name": "relay",
@@ -84,7 +121,11 @@
         "url": "https://tonone.ai"
       },
       "category": "devops",
-      "tags": ["cicd", "deployments", "gitops"]
+      "tags": [
+        "cicd",
+        "deployments",
+        "gitops"
+      ]
     },
     {
       "name": "spine",
@@ -96,7 +137,11 @@
         "url": "https://tonone.ai"
       },
       "category": "backend",
-      "tags": ["apis", "system-design", "performance"]
+      "tags": [
+        "apis",
+        "system-design",
+        "performance"
+      ]
     },
     {
       "name": "flux",
@@ -108,7 +153,11 @@
         "url": "https://tonone.ai"
       },
       "category": "data",
-      "tags": ["databases", "migrations", "pipelines"]
+      "tags": [
+        "databases",
+        "migrations",
+        "pipelines"
+      ]
     },
     {
       "name": "warden",
@@ -120,7 +169,11 @@
         "url": "https://tonone.ai"
       },
       "category": "security",
-      "tags": ["iam", "secrets", "compliance"]
+      "tags": [
+        "iam",
+        "secrets",
+        "compliance"
+      ]
     },
     {
       "name": "vigil",
@@ -132,7 +185,11 @@
         "url": "https://tonone.ai"
       },
       "category": "observability",
-      "tags": ["monitoring", "alerting", "sre"]
+      "tags": [
+        "monitoring",
+        "alerting",
+        "sre"
+      ]
     },
     {
       "name": "prism",
@@ -144,7 +201,11 @@
         "url": "https://tonone.ai"
       },
       "category": "frontend",
-      "tags": ["ui", "internal-tools", "dx"]
+      "tags": [
+        "ui",
+        "internal-tools",
+        "dx"
+      ]
     },
     {
       "name": "cortex",
@@ -156,7 +217,11 @@
         "url": "https://tonone.ai"
       },
       "category": "ml",
-      "tags": ["ml", "mlops", "llm"]
+      "tags": [
+        "ml",
+        "mlops",
+        "llm"
+      ]
     },
     {
       "name": "touch",
@@ -168,7 +233,11 @@
         "url": "https://tonone.ai"
       },
       "category": "mobile",
-      "tags": ["ios", "android", "cross-platform"]
+      "tags": [
+        "ios",
+        "android",
+        "cross-platform"
+      ]
     },
     {
       "name": "volt",
@@ -180,7 +249,11 @@
         "url": "https://tonone.ai"
       },
       "category": "embedded",
-      "tags": ["firmware", "iot", "edge"]
+      "tags": [
+        "firmware",
+        "iot",
+        "edge"
+      ]
     },
     {
       "name": "atlas",
@@ -192,7 +265,11 @@
         "url": "https://tonone.ai"
       },
       "category": "knowledge",
-      "tags": ["docs", "adrs", "diagrams"]
+      "tags": [
+        "docs",
+        "adrs",
+        "diagrams"
+      ]
     },
     {
       "name": "lens",
@@ -204,7 +281,11 @@
         "url": "https://tonone.ai"
       },
       "category": "analytics",
-      "tags": ["dashboards", "metrics", "reporting"]
+      "tags": [
+        "dashboards",
+        "metrics",
+        "reporting"
+      ]
     },
     {
       "name": "proof",
@@ -216,7 +297,12 @@
         "url": "https://tonone.ai"
       },
       "category": "testing",
-      "tags": ["testing", "qa", "e2e", "playwright"]
+      "tags": [
+        "testing",
+        "qa",
+        "e2e",
+        "playwright"
+      ]
     },
     {
       "name": "pave",
@@ -228,7 +314,12 @@
         "url": "https://tonone.ai"
       },
       "category": "platform",
-      "tags": ["platform", "dx", "golden-paths", "service-catalog"]
+      "tags": [
+        "platform",
+        "dx",
+        "golden-paths",
+        "service-catalog"
+      ]
     },
     {
       "name": "helm",
@@ -240,7 +331,13 @@
         "url": "https://tonone.ai"
       },
       "category": "product",
-      "tags": ["product", "strategy", "requirements", "cpo", "product-team"]
+      "tags": [
+        "product",
+        "strategy",
+        "requirements",
+        "cpo",
+        "product-team"
+      ]
     },
     {
       "name": "draft",
@@ -252,7 +349,13 @@
         "url": "https://tonone.ai"
       },
       "category": "product",
-      "tags": ["ux", "design", "user-flows", "wireframes", "product-team"]
+      "tags": [
+        "ux",
+        "design",
+        "user-flows",
+        "wireframes",
+        "product-team"
+      ]
     },
     {
       "name": "form",
@@ -368,6 +471,82 @@
       ]
     },
     {
+      "name": "deal",
+      "description": "Revenue & sales engineer \u2014 B2B pipeline, deal strategy, pricing, sales playbooks, and enterprise closing",
+      "version": "0.9.9",
+      "source": "./team/deal",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "product",
+      "tags": [
+        "revenue",
+        "sales",
+        "pipeline",
+        "pricing",
+        "enterprise",
+        "product-team"
+      ]
+    },
+    {
+      "name": "keep",
+      "description": "Customer success engineer \u2014 onboarding optimization, health scoring, expansion revenue, and churn prevention",
+      "version": "0.9.9",
+      "source": "./team/keep",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "product",
+      "tags": [
+        "customer-success",
+        "onboarding",
+        "retention",
+        "churn",
+        "expansion",
+        "product-team"
+      ]
+    },
+    {
+      "name": "ink",
+      "description": "Content marketing engineer \u2014 blog strategy, SEO, thought leadership, developer content, and content calendar",
+      "version": "0.9.9",
+      "source": "./team/ink",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "product",
+      "tags": [
+        "content",
+        "seo",
+        "blog",
+        "developer-content",
+        "thought-leadership",
+        "product-team"
+      ]
+    },
+    {
+      "name": "buzz",
+      "description": "PR & community engineer \u2014 press pitches, social media, open source community, DevRel, and launch moments",
+      "version": "0.9.9",
+      "source": "./team/buzz",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "product",
+      "tags": [
+        "pr",
+        "community",
+        "devrel",
+        "social",
+        "launch",
+        "product-team"
+      ]
+    },
+    {
       "name": "apex-plan",
       "description": "Plan and scope a project \u2014 discovery, challenge assumptions, present S/M/L options with token and cost estimates. Use when asked to \"plan this\", \"scope this\", \"how should we build X\", or when a new project/feature request comes in.",
       "version": "0.6.6",
@@ -378,7 +557,10 @@
       },
       "type": "skill",
       "category": "lead",
-      "tags": ["apex", "skill"]
+      "tags": [
+        "apex",
+        "skill"
+      ]
     },
     {
       "name": "apex-recon",
@@ -391,7 +573,10 @@
       },
       "type": "skill",
       "category": "lead",
-      "tags": ["apex", "skill"]
+      "tags": [
+        "apex",
+        "skill"
+      ]
     },
     {
       "name": "apex-review",
@@ -404,7 +589,10 @@
       },
       "type": "skill",
       "category": "lead",
-      "tags": ["apex", "skill"]
+      "tags": [
+        "apex",
+        "skill"
+      ]
     },
     {
       "name": "apex-status",
@@ -417,7 +605,10 @@
       },
       "type": "skill",
       "category": "lead",
-      "tags": ["apex", "skill"]
+      "tags": [
+        "apex",
+        "skill"
+      ]
     },
     {
       "name": "apex-takeover",
@@ -430,7 +621,10 @@
       },
       "type": "skill",
       "category": "lead",
-      "tags": ["apex", "skill"]
+      "tags": [
+        "apex",
+        "skill"
+      ]
     },
     {
       "name": "atlas-adr",
@@ -443,7 +637,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "atlas-changelog",
@@ -456,7 +653,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "atlas-map",
@@ -469,7 +669,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "atlas-onboard",
@@ -482,7 +685,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "atlas-present",
@@ -495,7 +701,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "atlas-recon",
@@ -508,7 +717,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "atlas-report",
@@ -521,7 +733,10 @@
       },
       "type": "skill",
       "category": "knowledge",
-      "tags": ["atlas", "skill"]
+      "tags": [
+        "atlas",
+        "skill"
+      ]
     },
     {
       "name": "cortex-eval",
@@ -534,7 +749,10 @@
       },
       "type": "skill",
       "category": "ml",
-      "tags": ["cortex", "skill"]
+      "tags": [
+        "cortex",
+        "skill"
+      ]
     },
     {
       "name": "cortex-integrate",
@@ -547,7 +765,10 @@
       },
       "type": "skill",
       "category": "ml",
-      "tags": ["cortex", "skill"]
+      "tags": [
+        "cortex",
+        "skill"
+      ]
     },
     {
       "name": "cortex-model",
@@ -560,7 +781,10 @@
       },
       "type": "skill",
       "category": "ml",
-      "tags": ["cortex", "skill"]
+      "tags": [
+        "cortex",
+        "skill"
+      ]
     },
     {
       "name": "cortex-prompt",
@@ -573,7 +797,10 @@
       },
       "type": "skill",
       "category": "ml",
-      "tags": ["cortex", "skill"]
+      "tags": [
+        "cortex",
+        "skill"
+      ]
     },
     {
       "name": "cortex-recon",
@@ -586,7 +813,10 @@
       },
       "type": "skill",
       "category": "ml",
-      "tags": ["cortex", "skill"]
+      "tags": [
+        "cortex",
+        "skill"
+      ]
     },
     {
       "name": "crest-compete",
@@ -599,7 +829,10 @@
       },
       "type": "skill",
       "category": "strategy",
-      "tags": ["crest", "skill"]
+      "tags": [
+        "crest",
+        "skill"
+      ]
     },
     {
       "name": "crest-narrative",
@@ -612,7 +845,10 @@
       },
       "type": "skill",
       "category": "strategy",
-      "tags": ["crest", "skill"]
+      "tags": [
+        "crest",
+        "skill"
+      ]
     },
     {
       "name": "crest-okr",
@@ -625,7 +861,10 @@
       },
       "type": "skill",
       "category": "strategy",
-      "tags": ["crest", "skill"]
+      "tags": [
+        "crest",
+        "skill"
+      ]
     },
     {
       "name": "crest-recon",
@@ -638,7 +877,10 @@
       },
       "type": "skill",
       "category": "strategy",
-      "tags": ["crest", "skill"]
+      "tags": [
+        "crest",
+        "skill"
+      ]
     },
     {
       "name": "crest-roadmap",
@@ -651,7 +893,10 @@
       },
       "type": "skill",
       "category": "strategy",
-      "tags": ["crest", "skill"]
+      "tags": [
+        "crest",
+        "skill"
+      ]
     },
     {
       "name": "draft-flow",
@@ -664,7 +909,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "draft-ia",
@@ -677,7 +925,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "draft-landing",
@@ -690,7 +941,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "draft-patterns",
@@ -703,7 +957,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "draft-recon",
@@ -716,7 +973,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "draft-review",
@@ -729,7 +989,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "draft-wireframe",
@@ -742,7 +1005,10 @@
       },
       "type": "skill",
       "category": "ux",
-      "tags": ["draft", "skill"]
+      "tags": [
+        "draft",
+        "skill"
+      ]
     },
     {
       "name": "echo-feedback",
@@ -755,7 +1021,10 @@
       },
       "type": "skill",
       "category": "research",
-      "tags": ["echo", "skill"]
+      "tags": [
+        "echo",
+        "skill"
+      ]
     },
     {
       "name": "echo-interview",
@@ -768,7 +1037,10 @@
       },
       "type": "skill",
       "category": "research",
-      "tags": ["echo", "skill"]
+      "tags": [
+        "echo",
+        "skill"
+      ]
     },
     {
       "name": "echo-jobs",
@@ -781,7 +1053,10 @@
       },
       "type": "skill",
       "category": "research",
-      "tags": ["echo", "skill"]
+      "tags": [
+        "echo",
+        "skill"
+      ]
     },
     {
       "name": "echo-recon",
@@ -794,7 +1069,10 @@
       },
       "type": "skill",
       "category": "research",
-      "tags": ["echo", "skill"]
+      "tags": [
+        "echo",
+        "skill"
+      ]
     },
     {
       "name": "echo-segment",
@@ -807,7 +1085,10 @@
       },
       "type": "skill",
       "category": "research",
-      "tags": ["echo", "skill"]
+      "tags": [
+        "echo",
+        "skill"
+      ]
     },
     {
       "name": "flux-health",
@@ -820,7 +1101,10 @@
       },
       "type": "skill",
       "category": "data",
-      "tags": ["flux", "skill"]
+      "tags": [
+        "flux",
+        "skill"
+      ]
     },
     {
       "name": "flux-migrate",
@@ -833,7 +1117,10 @@
       },
       "type": "skill",
       "category": "data",
-      "tags": ["flux", "skill"]
+      "tags": [
+        "flux",
+        "skill"
+      ]
     },
     {
       "name": "flux-pipeline",
@@ -846,7 +1133,10 @@
       },
       "type": "skill",
       "category": "data",
-      "tags": ["flux", "skill"]
+      "tags": [
+        "flux",
+        "skill"
+      ]
     },
     {
       "name": "flux-query",
@@ -859,7 +1149,10 @@
       },
       "type": "skill",
       "category": "data",
-      "tags": ["flux", "skill"]
+      "tags": [
+        "flux",
+        "skill"
+      ]
     },
     {
       "name": "flux-recon",
@@ -872,7 +1165,10 @@
       },
       "type": "skill",
       "category": "data",
-      "tags": ["flux", "skill"]
+      "tags": [
+        "flux",
+        "skill"
+      ]
     },
     {
       "name": "flux-schema",
@@ -885,7 +1181,10 @@
       },
       "type": "skill",
       "category": "data",
-      "tags": ["flux", "skill"]
+      "tags": [
+        "flux",
+        "skill"
+      ]
     },
     {
       "name": "forge-audit",
@@ -898,7 +1197,10 @@
       },
       "type": "skill",
       "category": "infrastructure",
-      "tags": ["forge", "skill"]
+      "tags": [
+        "forge",
+        "skill"
+      ]
     },
     {
       "name": "forge-cost",
@@ -911,7 +1213,10 @@
       },
       "type": "skill",
       "category": "infrastructure",
-      "tags": ["forge", "skill"]
+      "tags": [
+        "forge",
+        "skill"
+      ]
     },
     {
       "name": "forge-diagnose",
@@ -924,7 +1229,10 @@
       },
       "type": "skill",
       "category": "infrastructure",
-      "tags": ["forge", "skill"]
+      "tags": [
+        "forge",
+        "skill"
+      ]
     },
     {
       "name": "forge-infra",
@@ -937,7 +1245,10 @@
       },
       "type": "skill",
       "category": "infrastructure",
-      "tags": ["forge", "skill"]
+      "tags": [
+        "forge",
+        "skill"
+      ]
     },
     {
       "name": "forge-network",
@@ -950,7 +1261,10 @@
       },
       "type": "skill",
       "category": "infrastructure",
-      "tags": ["forge", "skill"]
+      "tags": [
+        "forge",
+        "skill"
+      ]
     },
     {
       "name": "forge-recon",
@@ -963,7 +1277,10 @@
       },
       "type": "skill",
       "category": "infrastructure",
-      "tags": ["forge", "skill"]
+      "tags": [
+        "forge",
+        "skill"
+      ]
     },
     {
       "name": "form-audit",
@@ -976,7 +1293,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-brand",
@@ -989,7 +1309,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-component",
@@ -1002,7 +1325,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-deck",
@@ -1015,7 +1341,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-email",
@@ -1028,7 +1357,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-exam",
@@ -1041,7 +1373,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-logo",
@@ -1054,7 +1389,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-mobile",
@@ -1067,7 +1405,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-palette",
@@ -1080,7 +1421,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-social",
@@ -1093,7 +1437,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-style",
@@ -1106,7 +1453,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-tokens",
@@ -1119,7 +1469,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "form-web",
@@ -1132,7 +1485,10 @@
       },
       "type": "skill",
       "category": "design",
-      "tags": ["form", "skill"]
+      "tags": [
+        "form",
+        "skill"
+      ]
     },
     {
       "name": "helm-arbiter",
@@ -1145,7 +1501,10 @@
       },
       "type": "skill",
       "category": "product",
-      "tags": ["helm", "skill"]
+      "tags": [
+        "helm",
+        "skill"
+      ]
     },
     {
       "name": "helm-brief",
@@ -1158,7 +1517,10 @@
       },
       "type": "skill",
       "category": "product",
-      "tags": ["helm", "skill"]
+      "tags": [
+        "helm",
+        "skill"
+      ]
     },
     {
       "name": "helm-handoff",
@@ -1171,7 +1533,10 @@
       },
       "type": "skill",
       "category": "product",
-      "tags": ["helm", "skill"]
+      "tags": [
+        "helm",
+        "skill"
+      ]
     },
     {
       "name": "helm-plan",
@@ -1184,7 +1549,10 @@
       },
       "type": "skill",
       "category": "product",
-      "tags": ["helm", "skill"]
+      "tags": [
+        "helm",
+        "skill"
+      ]
     },
     {
       "name": "helm-recon",
@@ -1197,7 +1565,10 @@
       },
       "type": "skill",
       "category": "product",
-      "tags": ["helm", "skill"]
+      "tags": [
+        "helm",
+        "skill"
+      ]
     },
     {
       "name": "lens-audit",
@@ -1210,7 +1581,10 @@
       },
       "type": "skill",
       "category": "analytics",
-      "tags": ["lens", "skill"]
+      "tags": [
+        "lens",
+        "skill"
+      ]
     },
     {
       "name": "lens-chart",
@@ -1223,7 +1597,10 @@
       },
       "type": "skill",
       "category": "analytics",
-      "tags": ["lens", "skill"]
+      "tags": [
+        "lens",
+        "skill"
+      ]
     },
     {
       "name": "lens-dashboard",
@@ -1236,7 +1613,10 @@
       },
       "type": "skill",
       "category": "analytics",
-      "tags": ["lens", "skill"]
+      "tags": [
+        "lens",
+        "skill"
+      ]
     },
     {
       "name": "lens-metrics",
@@ -1249,7 +1629,10 @@
       },
       "type": "skill",
       "category": "analytics",
-      "tags": ["lens", "skill"]
+      "tags": [
+        "lens",
+        "skill"
+      ]
     },
     {
       "name": "lens-recon",
@@ -1262,7 +1645,10 @@
       },
       "type": "skill",
       "category": "analytics",
-      "tags": ["lens", "skill"]
+      "tags": [
+        "lens",
+        "skill"
+      ]
     },
     {
       "name": "lens-report",
@@ -1275,7 +1661,10 @@
       },
       "type": "skill",
       "category": "analytics",
-      "tags": ["lens", "skill"]
+      "tags": [
+        "lens",
+        "skill"
+      ]
     },
     {
       "name": "lumen-abtest",
@@ -1288,7 +1677,10 @@
       },
       "type": "skill",
       "category": "product-analytics",
-      "tags": ["lumen", "skill"]
+      "tags": [
+        "lumen",
+        "skill"
+      ]
     },
     {
       "name": "lumen-funnel",
@@ -1301,7 +1693,10 @@
       },
       "type": "skill",
       "category": "product-analytics",
-      "tags": ["lumen", "skill"]
+      "tags": [
+        "lumen",
+        "skill"
+      ]
     },
     {
       "name": "lumen-instrument",
@@ -1314,7 +1709,10 @@
       },
       "type": "skill",
       "category": "product-analytics",
-      "tags": ["lumen", "skill"]
+      "tags": [
+        "lumen",
+        "skill"
+      ]
     },
     {
       "name": "lumen-metrics",
@@ -1327,7 +1725,10 @@
       },
       "type": "skill",
       "category": "product-analytics",
-      "tags": ["lumen", "skill"]
+      "tags": [
+        "lumen",
+        "skill"
+      ]
     },
     {
       "name": "lumen-recon",
@@ -1340,7 +1741,10 @@
       },
       "type": "skill",
       "category": "product-analytics",
-      "tags": ["lumen", "skill"]
+      "tags": [
+        "lumen",
+        "skill"
+      ]
     },
     {
       "name": "pave-audit",
@@ -1353,7 +1757,10 @@
       },
       "type": "skill",
       "category": "platform",
-      "tags": ["pave", "skill"]
+      "tags": [
+        "pave",
+        "skill"
+      ]
     },
     {
       "name": "pave-catalog",
@@ -1366,7 +1773,10 @@
       },
       "type": "skill",
       "category": "platform",
-      "tags": ["pave", "skill"]
+      "tags": [
+        "pave",
+        "skill"
+      ]
     },
     {
       "name": "pave-env",
@@ -1379,7 +1789,10 @@
       },
       "type": "skill",
       "category": "platform",
-      "tags": ["pave", "skill"]
+      "tags": [
+        "pave",
+        "skill"
+      ]
     },
     {
       "name": "pave-golden",
@@ -1392,7 +1805,10 @@
       },
       "type": "skill",
       "category": "platform",
-      "tags": ["pave", "skill"]
+      "tags": [
+        "pave",
+        "skill"
+      ]
     },
     {
       "name": "pave-recon",
@@ -1405,7 +1821,10 @@
       },
       "type": "skill",
       "category": "platform",
-      "tags": ["pave", "skill"]
+      "tags": [
+        "pave",
+        "skill"
+      ]
     },
     {
       "name": "pitch-copy",
@@ -1418,7 +1837,10 @@
       },
       "type": "skill",
       "category": "marketing",
-      "tags": ["pitch", "skill"]
+      "tags": [
+        "pitch",
+        "skill"
+      ]
     },
     {
       "name": "pitch-landing",
@@ -1431,7 +1853,10 @@
       },
       "type": "skill",
       "category": "marketing",
-      "tags": ["pitch", "skill"]
+      "tags": [
+        "pitch",
+        "skill"
+      ]
     },
     {
       "name": "pitch-launch",
@@ -1444,7 +1869,10 @@
       },
       "type": "skill",
       "category": "marketing",
-      "tags": ["pitch", "skill"]
+      "tags": [
+        "pitch",
+        "skill"
+      ]
     },
     {
       "name": "pitch-message",
@@ -1457,7 +1885,10 @@
       },
       "type": "skill",
       "category": "marketing",
-      "tags": ["pitch", "skill"]
+      "tags": [
+        "pitch",
+        "skill"
+      ]
     },
     {
       "name": "pitch-position",
@@ -1470,7 +1901,10 @@
       },
       "type": "skill",
       "category": "marketing",
-      "tags": ["pitch", "skill"]
+      "tags": [
+        "pitch",
+        "skill"
+      ]
     },
     {
       "name": "pitch-recon",
@@ -1483,7 +1917,10 @@
       },
       "type": "skill",
       "category": "marketing",
-      "tags": ["pitch", "skill"]
+      "tags": [
+        "pitch",
+        "skill"
+      ]
     },
     {
       "name": "prism-audit",
@@ -1496,7 +1933,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "prism-chart",
@@ -1509,7 +1949,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "prism-component",
@@ -1522,7 +1965,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "prism-dashboard",
@@ -1535,7 +1981,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "prism-recon",
@@ -1548,7 +1997,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "prism-stack",
@@ -1561,7 +2013,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "prism-ui",
@@ -1574,7 +2029,10 @@
       },
       "type": "skill",
       "category": "frontend",
-      "tags": ["prism", "skill"]
+      "tags": [
+        "prism",
+        "skill"
+      ]
     },
     {
       "name": "proof-api",
@@ -1587,7 +2045,10 @@
       },
       "type": "skill",
       "category": "testing",
-      "tags": ["proof", "skill"]
+      "tags": [
+        "proof",
+        "skill"
+      ]
     },
     {
       "name": "proof-audit",
@@ -1600,7 +2061,10 @@
       },
       "type": "skill",
       "category": "testing",
-      "tags": ["proof", "skill"]
+      "tags": [
+        "proof",
+        "skill"
+      ]
     },
     {
       "name": "proof-design",
@@ -1613,7 +2077,10 @@
       },
       "type": "skill",
       "category": "testing",
-      "tags": ["proof", "skill"]
+      "tags": [
+        "proof",
+        "skill"
+      ]
     },
     {
       "name": "proof-e2e",
@@ -1626,7 +2093,10 @@
       },
       "type": "skill",
       "category": "testing",
-      "tags": ["proof", "skill"]
+      "tags": [
+        "proof",
+        "skill"
+      ]
     },
     {
       "name": "proof-recon",
@@ -1639,7 +2109,10 @@
       },
       "type": "skill",
       "category": "testing",
-      "tags": ["proof", "skill"]
+      "tags": [
+        "proof",
+        "skill"
+      ]
     },
     {
       "name": "proof-strategy",
@@ -1652,7 +2125,10 @@
       },
       "type": "skill",
       "category": "testing",
-      "tags": ["proof", "skill"]
+      "tags": [
+        "proof",
+        "skill"
+      ]
     },
     {
       "name": "relay-audit",
@@ -1665,7 +2141,10 @@
       },
       "type": "skill",
       "category": "devops",
-      "tags": ["relay", "skill"]
+      "tags": [
+        "relay",
+        "skill"
+      ]
     },
     {
       "name": "relay-deploy",
@@ -1678,7 +2157,10 @@
       },
       "type": "skill",
       "category": "devops",
-      "tags": ["relay", "skill"]
+      "tags": [
+        "relay",
+        "skill"
+      ]
     },
     {
       "name": "relay-docker",
@@ -1691,7 +2173,10 @@
       },
       "type": "skill",
       "category": "devops",
-      "tags": ["relay", "skill"]
+      "tags": [
+        "relay",
+        "skill"
+      ]
     },
     {
       "name": "relay-pipeline",
@@ -1704,7 +2189,10 @@
       },
       "type": "skill",
       "category": "devops",
-      "tags": ["relay", "skill"]
+      "tags": [
+        "relay",
+        "skill"
+      ]
     },
     {
       "name": "relay-recon",
@@ -1717,7 +2205,10 @@
       },
       "type": "skill",
       "category": "devops",
-      "tags": ["relay", "skill"]
+      "tags": [
+        "relay",
+        "skill"
+      ]
     },
     {
       "name": "relay-ship",
@@ -1730,7 +2221,10 @@
       },
       "type": "skill",
       "category": "devops",
-      "tags": ["relay", "skill"]
+      "tags": [
+        "relay",
+        "skill"
+      ]
     },
     {
       "name": "spine-api",
@@ -1743,7 +2237,10 @@
       },
       "type": "skill",
       "category": "backend",
-      "tags": ["spine", "skill"]
+      "tags": [
+        "spine",
+        "skill"
+      ]
     },
     {
       "name": "spine-design",
@@ -1756,7 +2253,10 @@
       },
       "type": "skill",
       "category": "backend",
-      "tags": ["spine", "skill"]
+      "tags": [
+        "spine",
+        "skill"
+      ]
     },
     {
       "name": "spine-perf",
@@ -1769,7 +2269,10 @@
       },
       "type": "skill",
       "category": "backend",
-      "tags": ["spine", "skill"]
+      "tags": [
+        "spine",
+        "skill"
+      ]
     },
     {
       "name": "spine-recon",
@@ -1782,7 +2285,10 @@
       },
       "type": "skill",
       "category": "backend",
-      "tags": ["spine", "skill"]
+      "tags": [
+        "spine",
+        "skill"
+      ]
     },
     {
       "name": "spine-review",
@@ -1795,7 +2301,10 @@
       },
       "type": "skill",
       "category": "backend",
-      "tags": ["spine", "skill"]
+      "tags": [
+        "spine",
+        "skill"
+      ]
     },
     {
       "name": "spine-service",
@@ -1808,7 +2317,10 @@
       },
       "type": "skill",
       "category": "backend",
-      "tags": ["spine", "skill"]
+      "tags": [
+        "spine",
+        "skill"
+      ]
     },
     {
       "name": "surge-activation",
@@ -1821,7 +2333,10 @@
       },
       "type": "skill",
       "category": "growth",
-      "tags": ["surge", "skill"]
+      "tags": [
+        "surge",
+        "skill"
+      ]
     },
     {
       "name": "surge-experiment",
@@ -1834,7 +2349,10 @@
       },
       "type": "skill",
       "category": "growth",
-      "tags": ["surge", "skill"]
+      "tags": [
+        "surge",
+        "skill"
+      ]
     },
     {
       "name": "surge-landing",
@@ -1847,7 +2365,10 @@
       },
       "type": "skill",
       "category": "growth",
-      "tags": ["surge", "skill"]
+      "tags": [
+        "surge",
+        "skill"
+      ]
     },
     {
       "name": "surge-plg",
@@ -1860,7 +2381,10 @@
       },
       "type": "skill",
       "category": "growth",
-      "tags": ["surge", "skill"]
+      "tags": [
+        "surge",
+        "skill"
+      ]
     },
     {
       "name": "surge-recon",
@@ -1873,7 +2397,10 @@
       },
       "type": "skill",
       "category": "growth",
-      "tags": ["surge", "skill"]
+      "tags": [
+        "surge",
+        "skill"
+      ]
     },
     {
       "name": "surge-retention",
@@ -1886,7 +2413,10 @@
       },
       "type": "skill",
       "category": "growth",
-      "tags": ["surge", "skill"]
+      "tags": [
+        "surge",
+        "skill"
+      ]
     },
     {
       "name": "touch-app",
@@ -1899,7 +2429,10 @@
       },
       "type": "skill",
       "category": "mobile",
-      "tags": ["touch", "skill"]
+      "tags": [
+        "touch",
+        "skill"
+      ]
     },
     {
       "name": "touch-audit",
@@ -1912,7 +2445,10 @@
       },
       "type": "skill",
       "category": "mobile",
-      "tags": ["touch", "skill"]
+      "tags": [
+        "touch",
+        "skill"
+      ]
     },
     {
       "name": "touch-feature",
@@ -1925,7 +2461,10 @@
       },
       "type": "skill",
       "category": "mobile",
-      "tags": ["touch", "skill"]
+      "tags": [
+        "touch",
+        "skill"
+      ]
     },
     {
       "name": "touch-recon",
@@ -1938,7 +2477,10 @@
       },
       "type": "skill",
       "category": "mobile",
-      "tags": ["touch", "skill"]
+      "tags": [
+        "touch",
+        "skill"
+      ]
     },
     {
       "name": "touch-release",
@@ -1951,7 +2493,10 @@
       },
       "type": "skill",
       "category": "mobile",
-      "tags": ["touch", "skill"]
+      "tags": [
+        "touch",
+        "skill"
+      ]
     },
     {
       "name": "touch-ui",
@@ -1964,7 +2509,10 @@
       },
       "type": "skill",
       "category": "mobile",
-      "tags": ["touch", "skill"]
+      "tags": [
+        "touch",
+        "skill"
+      ]
     },
     {
       "name": "vigil-alert",
@@ -1977,7 +2525,10 @@
       },
       "type": "skill",
       "category": "observability",
-      "tags": ["vigil", "skill"]
+      "tags": [
+        "vigil",
+        "skill"
+      ]
     },
     {
       "name": "vigil-check",
@@ -1990,7 +2541,10 @@
       },
       "type": "skill",
       "category": "observability",
-      "tags": ["vigil", "skill"]
+      "tags": [
+        "vigil",
+        "skill"
+      ]
     },
     {
       "name": "vigil-incident",
@@ -2003,7 +2557,10 @@
       },
       "type": "skill",
       "category": "observability",
-      "tags": ["vigil", "skill"]
+      "tags": [
+        "vigil",
+        "skill"
+      ]
     },
     {
       "name": "vigil-instrument",
@@ -2016,7 +2573,10 @@
       },
       "type": "skill",
       "category": "observability",
-      "tags": ["vigil", "skill"]
+      "tags": [
+        "vigil",
+        "skill"
+      ]
     },
     {
       "name": "vigil-recon",
@@ -2029,7 +2589,10 @@
       },
       "type": "skill",
       "category": "observability",
-      "tags": ["vigil", "skill"]
+      "tags": [
+        "vigil",
+        "skill"
+      ]
     },
     {
       "name": "volt-driver",
@@ -2042,7 +2605,10 @@
       },
       "type": "skill",
       "category": "embedded",
-      "tags": ["volt", "skill"]
+      "tags": [
+        "volt",
+        "skill"
+      ]
     },
     {
       "name": "volt-firmware",
@@ -2055,7 +2621,10 @@
       },
       "type": "skill",
       "category": "embedded",
-      "tags": ["volt", "skill"]
+      "tags": [
+        "volt",
+        "skill"
+      ]
     },
     {
       "name": "volt-ota",
@@ -2068,7 +2637,10 @@
       },
       "type": "skill",
       "category": "embedded",
-      "tags": ["volt", "skill"]
+      "tags": [
+        "volt",
+        "skill"
+      ]
     },
     {
       "name": "volt-power",
@@ -2081,7 +2653,10 @@
       },
       "type": "skill",
       "category": "embedded",
-      "tags": ["volt", "skill"]
+      "tags": [
+        "volt",
+        "skill"
+      ]
     },
     {
       "name": "volt-recon",
@@ -2094,7 +2669,10 @@
       },
       "type": "skill",
       "category": "embedded",
-      "tags": ["volt", "skill"]
+      "tags": [
+        "volt",
+        "skill"
+      ]
     },
     {
       "name": "warden-audit",
@@ -2107,7 +2685,10 @@
       },
       "type": "skill",
       "category": "security",
-      "tags": ["warden", "skill"]
+      "tags": [
+        "warden",
+        "skill"
+      ]
     },
     {
       "name": "warden-harden",
@@ -2120,7 +2701,10 @@
       },
       "type": "skill",
       "category": "security",
-      "tags": ["warden", "skill"]
+      "tags": [
+        "warden",
+        "skill"
+      ]
     },
     {
       "name": "warden-iam",
@@ -2133,7 +2717,10 @@
       },
       "type": "skill",
       "category": "security",
-      "tags": ["warden", "skill"]
+      "tags": [
+        "warden",
+        "skill"
+      ]
     },
     {
       "name": "warden-recon",
@@ -2146,7 +2733,10 @@
       },
       "type": "skill",
       "category": "security",
-      "tags": ["warden", "skill"]
+      "tags": [
+        "warden",
+        "skill"
+      ]
     },
     {
       "name": "warden-threat",
@@ -2159,11 +2749,14 @@
       },
       "type": "skill",
       "category": "security",
-      "tags": ["warden", "skill"]
+      "tags": [
+        "warden",
+        "skill"
+      ]
     },
     {
       "name": "tonone-onboard",
-      "description": "First-run onboarding tour — guided walkthrough of tonone's 23 agents, key skills, and worktree sessions. Two paths: expert (~90 sec) and newcomer (~8 min). Use when asked \"how do I use tonone\", \"what can tonone do\", \"show me around\", or \"first steps\".",
+      "description": "First-run onboarding tour \u2014 guided walkthrough of tonone's 23 agents, key skills, and worktree sessions. Two paths: expert (~90 sec) and newcomer (~8 min). Use when asked \"how do I use tonone\", \"what can tonone do\", \"show me around\", or \"first steps\".",
       "version": "0.8.0",
       "source": "./skills/tonone-onboard",
       "author": {
@@ -2172,7 +2765,3510 @@
       },
       "type": "skill",
       "category": "onboarding",
-      "tags": ["tonone", "skill", "onboarding"]
+      "tags": [
+        "tonone",
+        "skill",
+        "onboarding"
+      ]
+    },
+    {
+      "name": "contribute",
+      "description": "Contribute a discovery back to the upstream tonone repo \u2014 new skill, improved agent prompt, better routing rule. Use when you hit a gap, found a better pattern, or built something reusable that others would benefit from.",
+      "version": "0.1.0",
+      "source": "./skills/contribute",
+      "author": {
+        "name": "tonone-ai",
+        "url": "https://tonone.ai"
+      },
+      "type": "skill",
+      "category": "community",
+      "tags": [
+        "tonone",
+        "skill",
+        "community"
+      ]
+    },
+    {
+      "name": "mint",
+      "description": "Finance engineer \u2014 P&L, runway, unit economics, fundraising, board reporting, and cap table management",
+      "version": "1.1.0",
+      "source": "./team/mint",
+      "author": {
+        "name": "tonone-ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "operations",
+      "tags": [
+        "finance",
+        "runway",
+        "budget",
+        "unit-economics",
+        "fundraising",
+        "operations-team"
+      ]
+    },
+    {
+      "name": "folk",
+      "description": "People engineer \u2014 org design, hiring pipelines, compensation frameworks, onboarding playbooks, performance management, and human-to-agent migration",
+      "version": "1.1.0",
+      "source": "./team/folk",
+      "author": {
+        "name": "tonone-ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "operations",
+      "tags": [
+        "people",
+        "hr",
+        "hiring",
+        "compensation",
+        "org-design",
+        "onboarding",
+        "operations-team"
+      ]
+    },
+    {
+      "name": "keel",
+      "description": "Operations engineer \u2014 process design, vendor management, legal ops, compliance (SOC2/GDPR), OKR execution, and cross-functional coordination",
+      "version": "1.1.0",
+      "source": "./team/keel",
+      "author": {
+        "name": "tonone-ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "operations",
+      "tags": [
+        "operations",
+        "process",
+        "vendor",
+        "legal",
+        "compliance",
+        "okr",
+        "operations-team"
+      ]
+    },
+    {
+      "name": "brace",
+      "description": "Support engineer \u2014 ticket workflow design, SLA architecture, knowledge base, escalation paths, and support operations at scale",
+      "version": "1.1.0",
+      "source": "./team/brace",
+      "author": {
+        "name": "tonone-ai",
+        "url": "https://tonone.ai"
+      },
+      "category": "operations",
+      "tags": [
+        "support",
+        "helpdesk",
+        "sla",
+        "knowledge-base",
+        "escalation",
+        "triage",
+        "operations-team"
+      ]
+    },
+    {
+      "name": "brief",
+      "description": "Contract & Policy Drafter \u2014 NDA, MSA, employment agreements, SLAs, vendor contracts",
+      "version": "1.2.0",
+      "source": "./team/brief",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "brief"
+      ]
+    },
+    {
+      "name": "clause",
+      "description": "Contract Clause Analyst \u2014 redlining, risk scoring, negotiation playbooks",
+      "version": "1.2.0",
+      "source": "./team/clause",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "clause"
+      ]
+    },
+    {
+      "name": "bind",
+      "description": "Compliance Framework Engineer \u2014 SOC2, GDPR, HIPAA, ISO 27001 gap analysis",
+      "version": "1.2.0",
+      "source": "./team/bind",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "bind"
+      ]
+    },
+    {
+      "name": "frame",
+      "description": "Corporate Governance Advisor \u2014 board resolutions, cap table, equity plan docs",
+      "version": "1.2.0",
+      "source": "./team/frame",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "frame"
+      ]
+    },
+    {
+      "name": "shield",
+      "description": "Regulatory Risk Advisor \u2014 GDPR, CCPA, FTC, financial regulation, export controls",
+      "version": "1.2.0",
+      "source": "./team/shield",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "shield"
+      ]
+    },
+    {
+      "name": "scope",
+      "description": "IP & Trademark Advisor \u2014 trademark clearance, patent landscape, OSS license compliance",
+      "version": "1.2.0",
+      "source": "./team/scope",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "scope"
+      ]
+    },
+    {
+      "name": "audit",
+      "description": "Legal Compliance Auditor \u2014 internal controls, legal risk register, audit trail",
+      "version": "1.2.0",
+      "source": "./team/audit",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "audit"
+      ]
+    },
+    {
+      "name": "cite",
+      "description": "Legal Researcher \u2014 case law synthesis, statute analysis, jurisdiction comparison",
+      "version": "1.2.0",
+      "source": "./team/cite",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "cite"
+      ]
+    },
+    {
+      "name": "lodge",
+      "description": "Regulatory Filing Advisor \u2014 DMCA, FTC disclosures, GDPR DPAs, government filings",
+      "version": "1.2.0",
+      "source": "./team/lodge",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "lodge"
+      ]
+    },
+    {
+      "name": "terms",
+      "description": "Privacy & ToS Drafter \u2014 GDPR-compliant privacy policies, ToS, cookie policies, DPAs",
+      "version": "1.2.0",
+      "source": "./team/terms",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "terms"
+      ]
+    },
+    {
+      "name": "brief-draft",
+      "description": "Draft a contract or policy document from a description",
+      "version": "1.2.0",
+      "source": "./team/brief/skills/brief-draft",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "brief",
+        "brief-draft"
+      ]
+    },
+    {
+      "name": "brief-review",
+      "description": "Review and redline a contract \u2014 risk and missing clauses",
+      "version": "1.2.0",
+      "source": "./team/brief/skills/brief-review",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "brief",
+        "brief-review"
+      ]
+    },
+    {
+      "name": "brief-recon",
+      "description": "Survey existing contracts and policy documents",
+      "version": "1.2.0",
+      "source": "./team/brief/skills/brief-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "brief",
+        "brief-recon"
+      ]
+    },
+    {
+      "name": "clause-analyze",
+      "description": "Deep clause-by-clause analysis with risk scores",
+      "version": "1.2.0",
+      "source": "./team/clause/skills/clause-analyze",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "clause",
+        "clause-analyze"
+      ]
+    },
+    {
+      "name": "clause-playbook",
+      "description": "Generate negotiation playbook for a contract type",
+      "version": "1.2.0",
+      "source": "./team/clause/skills/clause-playbook",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "clause",
+        "clause-playbook"
+      ]
+    },
+    {
+      "name": "clause-recon",
+      "description": "Scan existing contracts for risk patterns",
+      "version": "1.2.0",
+      "source": "./team/clause/skills/clause-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "clause",
+        "clause-recon"
+      ]
+    },
+    {
+      "name": "bind-gap",
+      "description": "Compliance gap analysis \u2014 SOC2, GDPR, HIPAA, ISO 27001",
+      "version": "1.2.0",
+      "source": "./team/bind/skills/bind-gap",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "bind",
+        "bind-gap"
+      ]
+    },
+    {
+      "name": "bind-policy",
+      "description": "Draft compliance policies required by a framework",
+      "version": "1.2.0",
+      "source": "./team/bind/skills/bind-policy",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "bind",
+        "bind-policy"
+      ]
+    },
+    {
+      "name": "bind-recon",
+      "description": "Survey existing compliance artifacts and certifications",
+      "version": "1.2.0",
+      "source": "./team/bind/skills/bind-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "bind",
+        "bind-recon"
+      ]
+    },
+    {
+      "name": "frame-board",
+      "description": "Draft board resolutions and corporate consent documents",
+      "version": "1.2.0",
+      "source": "./team/frame/skills/frame-board",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "frame",
+        "frame-board"
+      ]
+    },
+    {
+      "name": "frame-equity",
+      "description": "Draft equity plan documents and option grant agreements",
+      "version": "1.2.0",
+      "source": "./team/frame/skills/frame-equity",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "frame",
+        "frame-equity"
+      ]
+    },
+    {
+      "name": "frame-recon",
+      "description": "Survey corporate governance artifacts and flag gaps",
+      "version": "1.2.0",
+      "source": "./team/frame/skills/frame-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "frame",
+        "frame-recon"
+      ]
+    },
+    {
+      "name": "shield-assess",
+      "description": "Regulatory exposure assessment for a product or geography",
+      "version": "1.2.0",
+      "source": "./team/shield/skills/shield-assess",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "shield",
+        "shield-assess"
+      ]
+    },
+    {
+      "name": "shield-respond",
+      "description": "Draft regulatory response letters and regulator comms",
+      "version": "1.2.0",
+      "source": "./team/shield/skills/shield-respond",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "shield",
+        "shield-respond"
+      ]
+    },
+    {
+      "name": "shield-recon",
+      "description": "Map product data flows and identify regulatory triggers",
+      "version": "1.2.0",
+      "source": "./team/shield/skills/shield-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "shield",
+        "shield-recon"
+      ]
+    },
+    {
+      "name": "scope-trademark",
+      "description": "Trademark clearance research and filing preparation",
+      "version": "1.2.0",
+      "source": "./team/scope/skills/scope-trademark",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "scope",
+        "scope-trademark"
+      ]
+    },
+    {
+      "name": "scope-oss",
+      "description": "Open source license compliance audit \u2014 GPL, LGPL, AGPL risks",
+      "version": "1.2.0",
+      "source": "./team/scope/skills/scope-oss",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "scope",
+        "scope-oss"
+      ]
+    },
+    {
+      "name": "scope-recon",
+      "description": "Survey IP assets, license obligations, and assignment gaps",
+      "version": "1.2.0",
+      "source": "./team/scope/skills/scope-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "scope",
+        "scope-recon"
+      ]
+    },
+    {
+      "name": "audit-legal",
+      "description": "Full legal compliance audit and risk register",
+      "version": "1.2.0",
+      "source": "./team/audit/skills/audit-legal",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "audit",
+        "audit-legal"
+      ]
+    },
+    {
+      "name": "audit-controls",
+      "description": "Internal legal controls review \u2014 approval workflows, doc governance",
+      "version": "1.2.0",
+      "source": "./team/audit/skills/audit-controls",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "audit",
+        "audit-controls"
+      ]
+    },
+    {
+      "name": "audit-recon",
+      "description": "Assess legal artifact completeness and audit readiness",
+      "version": "1.2.0",
+      "source": "./team/audit/skills/audit-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "audit",
+        "audit-recon"
+      ]
+    },
+    {
+      "name": "cite-research",
+      "description": "Legal research \u2014 case law, statutes, regulatory guidance",
+      "version": "1.2.0",
+      "source": "./team/cite/skills/cite-research",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "cite",
+        "cite-research"
+      ]
+    },
+    {
+      "name": "cite-compare",
+      "description": "Jurisdiction comparison for a legal requirement or clause",
+      "version": "1.2.0",
+      "source": "./team/cite/skills/cite-compare",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "cite",
+        "cite-compare"
+      ]
+    },
+    {
+      "name": "cite-recon",
+      "description": "Identify open legal questions and research gaps",
+      "version": "1.2.0",
+      "source": "./team/cite/skills/cite-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "cite",
+        "cite-recon"
+      ]
+    },
+    {
+      "name": "lodge-filing",
+      "description": "Prepare regulatory filing, disclosure notice, or government submission",
+      "version": "1.2.0",
+      "source": "./team/lodge/skills/lodge-filing",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "lodge",
+        "lodge-filing"
+      ]
+    },
+    {
+      "name": "lodge-dmca",
+      "description": "Draft DMCA takedown notice or counter-notice",
+      "version": "1.2.0",
+      "source": "./team/lodge/skills/lodge-dmca",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "lodge",
+        "lodge-dmca"
+      ]
+    },
+    {
+      "name": "lodge-recon",
+      "description": "Identify required regulatory filings and their status",
+      "version": "1.2.0",
+      "source": "./team/lodge/skills/lodge-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "lodge",
+        "lodge-recon"
+      ]
+    },
+    {
+      "name": "terms-privacy",
+      "description": "Draft GDPR-compliant privacy policy for the product",
+      "version": "1.2.0",
+      "source": "./team/terms/skills/terms-privacy",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "terms",
+        "terms-privacy"
+      ]
+    },
+    {
+      "name": "terms-tos",
+      "description": "Draft Terms of Service for the product",
+      "version": "1.2.0",
+      "source": "./team/terms/skills/terms-tos",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "terms",
+        "terms-tos"
+      ]
+    },
+    {
+      "name": "terms-recon",
+      "description": "Check privacy policy and ToS for completeness and compliance",
+      "version": "1.2.0",
+      "source": "./team/terms/skills/terms-recon",
+      "author": {
+        "name": "ai",
+        "url": "https://tonone.ai"
+      },
+      "tags": [
+        "legal-team",
+        "terms",
+        "terms-recon"
+      ]
+    },
+    {
+      "name": "design-team",
+      "description": "Design Team bundle \u2014 10 agents: Hue, Grid, Glyph, Move, Wire, Mark, Cut, Axe, Tone, Copy",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/bundle/design-team",
+      "tags": [
+        "bundle",
+        "design-team",
+        "design"
+      ]
+    },
+    {
+      "name": "hue",
+      "description": "Color Systems Designer \u2014 Color palette design \u2014 semantic tokens, dark/light mode, WCAG contrast",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hue",
+      "tags": [
+        "agent",
+        "design-team",
+        "hue",
+        "design"
+      ]
+    },
+    {
+      "name": "hue-palette",
+      "description": "Design a color palette with semantic tokens for a brand or product",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hue/skills/hue-palette",
+      "tags": [
+        "skill",
+        "design-team",
+        "hue",
+        "design"
+      ]
+    },
+    {
+      "name": "hue-token",
+      "description": "Audit or refactor a design token system for color",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hue/skills/hue-token",
+      "tags": [
+        "skill",
+        "design-team",
+        "hue",
+        "design"
+      ]
+    },
+    {
+      "name": "hue-recon",
+      "description": "Audit existing color usage in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hue/skills/hue-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "hue",
+        "design"
+      ]
+    },
+    {
+      "name": "grid",
+      "description": "Layout Systems Designer \u2014 Layout system design \u2014 spacing scales, responsive grids, layout primitives",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/grid",
+      "tags": [
+        "agent",
+        "design-team",
+        "grid",
+        "design"
+      ]
+    },
+    {
+      "name": "grid-layout",
+      "description": "Design a layout system \u2014 spacing scale, grid columns, and layout primitives",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/grid/skills/grid-layout",
+      "tags": [
+        "skill",
+        "design-team",
+        "grid",
+        "design"
+      ]
+    },
+    {
+      "name": "grid-responsive",
+      "description": "Audit or redesign responsive behavior of a layout",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/grid/skills/grid-responsive",
+      "tags": [
+        "skill",
+        "design-team",
+        "grid",
+        "design"
+      ]
+    },
+    {
+      "name": "grid-recon",
+      "description": "Audit existing layout patterns in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/grid/skills/grid-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "grid",
+        "design"
+      ]
+    },
+    {
+      "name": "glyph",
+      "description": "Typography Designer \u2014 Typography system design \u2014 font pairing, type scale, hierarchy tokens",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/glyph",
+      "tags": [
+        "agent",
+        "design-team",
+        "glyph",
+        "design"
+      ]
+    },
+    {
+      "name": "glyph-pair",
+      "description": "Select and pair fonts for a product",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/glyph/skills/glyph-pair",
+      "tags": [
+        "skill",
+        "design-team",
+        "glyph",
+        "design"
+      ]
+    },
+    {
+      "name": "glyph-scale",
+      "description": "Design a type scale and hierarchy",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/glyph/skills/glyph-scale",
+      "tags": [
+        "skill",
+        "design-team",
+        "glyph",
+        "design"
+      ]
+    },
+    {
+      "name": "glyph-recon",
+      "description": "Audit existing typography in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/glyph/skills/glyph-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "glyph",
+        "design"
+      ]
+    },
+    {
+      "name": "move",
+      "description": "Motion Designer \u2014 Motion design \u2014 animation principles, transition systems, micro-interaction specs",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/move",
+      "tags": [
+        "agent",
+        "design-team",
+        "move",
+        "design"
+      ]
+    },
+    {
+      "name": "move-animate",
+      "description": "Design an animation spec for a component or interaction",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/move/skills/move-animate",
+      "tags": [
+        "skill",
+        "design-team",
+        "move",
+        "design"
+      ]
+    },
+    {
+      "name": "move-system",
+      "description": "Design a motion system for a product",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/move/skills/move-system",
+      "tags": [
+        "skill",
+        "design-team",
+        "move",
+        "design"
+      ]
+    },
+    {
+      "name": "move-recon",
+      "description": "Audit existing animations in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/move/skills/move-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "move",
+        "design"
+      ]
+    },
+    {
+      "name": "wire",
+      "description": "Prototyping Engineer \u2014 Prototyping and handoff \u2014 interactive flow docs, component specs, developer handoff",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/wire",
+      "tags": [
+        "agent",
+        "design-team",
+        "wire",
+        "design"
+      ]
+    },
+    {
+      "name": "wire-prototype",
+      "description": "Document a prototype or user flow",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/wire/skills/wire-prototype",
+      "tags": [
+        "skill",
+        "design-team",
+        "wire",
+        "design"
+      ]
+    },
+    {
+      "name": "wire-spec",
+      "description": "Write a developer handoff spec for a component or feature",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/wire/skills/wire-spec",
+      "tags": [
+        "skill",
+        "design-team",
+        "wire",
+        "design"
+      ]
+    },
+    {
+      "name": "wire-recon",
+      "description": "Audit existing design documentation",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/wire/skills/wire-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "wire",
+        "design"
+      ]
+    },
+    {
+      "name": "mark",
+      "description": "Brand Designer \u2014 Brand identity design \u2014 logo usage rules, brand guidelines, visual identity systems",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mark",
+      "tags": [
+        "agent",
+        "design-team",
+        "mark",
+        "design"
+      ]
+    },
+    {
+      "name": "mark-brand",
+      "description": "Write brand guidelines \u2014 logo usage, color, typography, voice",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mark/skills/mark-brand",
+      "tags": [
+        "skill",
+        "design-team",
+        "mark",
+        "design"
+      ]
+    },
+    {
+      "name": "mark-asset",
+      "description": "Design an asset library structure \u2014 naming, formats, delivery specs",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mark/skills/mark-asset",
+      "tags": [
+        "skill",
+        "design-team",
+        "mark",
+        "design"
+      ]
+    },
+    {
+      "name": "mark-recon",
+      "description": "Audit existing brand assets and usage",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mark/skills/mark-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "mark",
+        "design"
+      ]
+    },
+    {
+      "name": "cut",
+      "description": "Illustration & Icon Designer \u2014 Illustration and icon design \u2014 custom assets, icon systems, SVG optimization",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cut",
+      "tags": [
+        "agent",
+        "design-team",
+        "cut",
+        "design"
+      ]
+    },
+    {
+      "name": "cut-icon",
+      "description": "Design an icon system spec or audit existing icons",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cut/skills/cut-icon",
+      "tags": [
+        "skill",
+        "design-team",
+        "cut",
+        "design"
+      ]
+    },
+    {
+      "name": "cut-illustrate",
+      "description": "Spec or critique custom illustrations",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cut/skills/cut-illustrate",
+      "tags": [
+        "skill",
+        "design-team",
+        "cut",
+        "design"
+      ]
+    },
+    {
+      "name": "cut-recon",
+      "description": "Audit existing icons and illustrations in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cut/skills/cut-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "cut",
+        "design"
+      ]
+    },
+    {
+      "name": "axe",
+      "description": "Accessibility Engineer \u2014 Accessibility engineering \u2014 WCAG audits, keyboard nav, screen reader testing, ARIA",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/axe",
+      "tags": [
+        "agent",
+        "design-team",
+        "axe",
+        "design"
+      ]
+    },
+    {
+      "name": "axe-audit",
+      "description": "Run a WCAG accessibility audit",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/axe/skills/axe-audit",
+      "tags": [
+        "skill",
+        "design-team",
+        "axe",
+        "design"
+      ]
+    },
+    {
+      "name": "axe-fix",
+      "description": "Write accessibility fixes for specific WCAG failures",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/axe/skills/axe-fix",
+      "tags": [
+        "skill",
+        "design-team",
+        "axe",
+        "design"
+      ]
+    },
+    {
+      "name": "axe-recon",
+      "description": "Survey a codebase for accessibility debt",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/axe/skills/axe-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "axe",
+        "design"
+      ]
+    },
+    {
+      "name": "tone",
+      "description": "Design Token Engineer \u2014 Design token engineering \u2014 token architecture, theming systems, style-dictionary pipelines",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tone",
+      "tags": [
+        "agent",
+        "design-team",
+        "tone",
+        "design"
+      ]
+    },
+    {
+      "name": "tone-token",
+      "description": "Design or refactor a design token architecture",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tone/skills/tone-token",
+      "tags": [
+        "skill",
+        "design-team",
+        "tone",
+        "design"
+      ]
+    },
+    {
+      "name": "tone-theme",
+      "description": "Build or fix a theming system",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tone/skills/tone-theme",
+      "tags": [
+        "skill",
+        "design-team",
+        "tone",
+        "design"
+      ]
+    },
+    {
+      "name": "tone-recon",
+      "description": "Audit existing token usage in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tone/skills/tone-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "tone",
+        "design"
+      ]
+    },
+    {
+      "name": "copy",
+      "description": "Content Designer \u2014 UX writing and content design \u2014 microcopy, error messages, onboarding, UI content strategy",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/copy",
+      "tags": [
+        "agent",
+        "design-team",
+        "copy",
+        "design"
+      ]
+    },
+    {
+      "name": "copy-write",
+      "description": "Write UX copy for a feature, flow, or component",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/copy/skills/copy-write",
+      "tags": [
+        "skill",
+        "design-team",
+        "copy",
+        "design"
+      ]
+    },
+    {
+      "name": "copy-audit",
+      "description": "Audit UX copy in a product or codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/copy/skills/copy-audit",
+      "tags": [
+        "skill",
+        "design-team",
+        "copy",
+        "design"
+      ]
+    },
+    {
+      "name": "copy-recon",
+      "description": "Survey all user-facing strings in a codebase",
+      "version": "1.3.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/copy/skills/copy-recon",
+      "tags": [
+        "skill",
+        "design-team",
+        "copy",
+        "design"
+      ]
+    },
+    {
+      "name": "data-science-team",
+      "description": "Data Science Team bundle \u2014 10 agents: Cast, Feat, Fit, Score, Drift, Vect, Tune, Plot, Clean, Eval",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/bundle/data-science-team",
+      "tags": [
+        "bundle",
+        "data-science-team",
+        "ml"
+      ]
+    },
+    {
+      "name": "cast",
+      "description": "Forecasting Engineer \u2014 Time series forecasting \u2014 demand prediction, trend analysis, seasonal decomposition",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cast",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "cast",
+        "ml"
+      ]
+    },
+    {
+      "name": "cast-forecast",
+      "description": "Build a forecasting model for a time series",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cast/skills/cast-forecast",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "cast",
+        "ml"
+      ]
+    },
+    {
+      "name": "cast-validate",
+      "description": "Validate and benchmark a forecasting model",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cast/skills/cast-validate",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "cast",
+        "ml"
+      ]
+    },
+    {
+      "name": "cast-recon",
+      "description": "Survey existing forecasting code or models",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/cast/skills/cast-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "cast",
+        "ml"
+      ]
+    },
+    {
+      "name": "feat",
+      "description": "Feature Engineer \u2014 Feature engineering \u2014 transformations, encodings, feature stores, pipeline design",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/feat",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "feat",
+        "ml"
+      ]
+    },
+    {
+      "name": "feat-engineer",
+      "description": "Design a feature engineering pipeline for a ML problem",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/feat/skills/feat-engineer",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "feat",
+        "ml"
+      ]
+    },
+    {
+      "name": "feat-store",
+      "description": "Design or audit a feature store",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/feat/skills/feat-store",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "feat",
+        "ml"
+      ]
+    },
+    {
+      "name": "feat-recon",
+      "description": "Audit feature engineering code for leakage and quality issues",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/feat/skills/feat-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "feat",
+        "ml"
+      ]
+    },
+    {
+      "name": "fit",
+      "description": "Model Training Engineer \u2014 Model training \u2014 algorithm selection, hyperparameter tuning, training infrastructure",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/fit",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "fit",
+        "ml"
+      ]
+    },
+    {
+      "name": "fit-train",
+      "description": "Design a model training pipeline",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/fit/skills/fit-train",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "fit",
+        "ml"
+      ]
+    },
+    {
+      "name": "fit-tune",
+      "description": "Design a hyperparameter tuning strategy",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/fit/skills/fit-tune",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "fit",
+        "ml"
+      ]
+    },
+    {
+      "name": "fit-recon",
+      "description": "Audit existing model training code",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/fit/skills/fit-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "fit",
+        "ml"
+      ]
+    },
+    {
+      "name": "score",
+      "description": "Model Evaluation Engineer \u2014 Model evaluation \u2014 metrics design, statistical significance, model comparison",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/score",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "score",
+        "ml"
+      ]
+    },
+    {
+      "name": "score-eval",
+      "description": "Design an evaluation framework for a ML model",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/score/skills/score-eval",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "score",
+        "ml"
+      ]
+    },
+    {
+      "name": "score-compare",
+      "description": "Compare two or more models statistically",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/score/skills/score-compare",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "score",
+        "ml"
+      ]
+    },
+    {
+      "name": "score-recon",
+      "description": "Audit existing model evaluation code",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/score/skills/score-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "score",
+        "ml"
+      ]
+    },
+    {
+      "name": "drift",
+      "description": "ML Monitoring Engineer \u2014 ML monitoring \u2014 data drift, concept drift, model degradation, production ML health",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/drift",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "drift",
+        "ml"
+      ]
+    },
+    {
+      "name": "drift-monitor",
+      "description": "Design a drift monitoring system for a production ML model",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/drift/skills/drift-monitor",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "drift",
+        "ml"
+      ]
+    },
+    {
+      "name": "drift-alert",
+      "description": "Design drift alerts and escalation",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/drift/skills/drift-alert",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "drift",
+        "ml"
+      ]
+    },
+    {
+      "name": "drift-recon",
+      "description": "Audit existing ML monitoring",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/drift/skills/drift-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "drift",
+        "ml"
+      ]
+    },
+    {
+      "name": "vect",
+      "description": "Embeddings & Vector Search Engineer \u2014 Embeddings and vector search \u2014 semantic search, RAG pipelines, vector database design",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/vect",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "vect",
+        "ml"
+      ]
+    },
+    {
+      "name": "vect-embed",
+      "description": "Design an embedding pipeline",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/vect/skills/vect-embed",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "vect",
+        "ml"
+      ]
+    },
+    {
+      "name": "vect-search",
+      "description": "Design a vector search or RAG system",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/vect/skills/vect-search",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "vect",
+        "ml"
+      ]
+    },
+    {
+      "name": "vect-recon",
+      "description": "Audit existing vector search or RAG implementation",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/vect/skills/vect-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "vect",
+        "ml"
+      ]
+    },
+    {
+      "name": "tune",
+      "description": "LLM Fine-tuning Engineer \u2014 LLM fine-tuning \u2014 PEFT/LoRA, RLHF, instruction tuning, prompt optimization",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tune",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "tune",
+        "ml"
+      ]
+    },
+    {
+      "name": "tune-finetune",
+      "description": "Design a fine-tuning pipeline",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tune/skills/tune-finetune",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "tune",
+        "ml"
+      ]
+    },
+    {
+      "name": "tune-prompt",
+      "description": "Systematically optimize prompts for a task",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tune/skills/tune-prompt",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "tune",
+        "ml"
+      ]
+    },
+    {
+      "name": "tune-recon",
+      "description": "Audit existing fine-tuning or prompt engineering work",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/tune/skills/tune-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "tune",
+        "ml"
+      ]
+    },
+    {
+      "name": "plot",
+      "description": "Data Visualization Engineer \u2014 Data visualization \u2014 chart design, visualization libraries, exploratory analysis",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/plot",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "plot",
+        "ml"
+      ]
+    },
+    {
+      "name": "plot-chart",
+      "description": "Design or critique a data visualization",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/plot/skills/plot-chart",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "plot",
+        "ml"
+      ]
+    },
+    {
+      "name": "plot-eda",
+      "description": "Design an exploratory data analysis workflow",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/plot/skills/plot-eda",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "plot",
+        "ml"
+      ]
+    },
+    {
+      "name": "plot-recon",
+      "description": "Audit existing visualizations in a codebase or notebook",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/plot/skills/plot-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "plot",
+        "ml"
+      ]
+    },
+    {
+      "name": "clean",
+      "description": "Data Quality Engineer \u2014 Data quality \u2014 deduplication, validation, outlier detection, ETL pipeline design",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/clean",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "clean",
+        "ml"
+      ]
+    },
+    {
+      "name": "clean-validate",
+      "description": "Design a data validation pipeline",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/clean/skills/clean-validate",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "clean",
+        "ml"
+      ]
+    },
+    {
+      "name": "clean-transform",
+      "description": "Design a data cleaning and transformation pipeline",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/clean/skills/clean-transform",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "clean",
+        "ml"
+      ]
+    },
+    {
+      "name": "clean-recon",
+      "description": "Audit existing data cleaning code",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/clean/skills/clean-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "clean",
+        "ml"
+      ]
+    },
+    {
+      "name": "eval",
+      "description": "Experiment Design Engineer \u2014 Experiment design \u2014 A/B testing, statistical power, experiment tracking, causal inference",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/eval",
+      "tags": [
+        "agent",
+        "data-science-team",
+        "eval",
+        "ml"
+      ]
+    },
+    {
+      "name": "eval-design",
+      "description": "Design an A/B test",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/eval/skills/eval-design",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "eval",
+        "ml"
+      ]
+    },
+    {
+      "name": "eval-analyze",
+      "description": "Analyze A/B test results",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/eval/skills/eval-analyze",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "eval",
+        "ml"
+      ]
+    },
+    {
+      "name": "eval-recon",
+      "description": "Audit existing experimentation infrastructure",
+      "version": "1.4.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/eval/skills/eval-recon",
+      "tags": [
+        "skill",
+        "data-science-team",
+        "eval",
+        "ml"
+      ]
+    },
+    {
+      "name": "secops-team",
+      "description": "Security Operations Team bundle \u2014 10 agents: Red, Blue, Hunt, Patch, Chain, Sast, Siem, Resp, Zero, Phish",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/bundle/secops-team",
+      "tags": [
+        "bundle",
+        "secops-team",
+        "security"
+      ]
+    },
+    {
+      "name": "red",
+      "description": "Offensive Security Engineer \u2014 Red team operations \u2014 penetration testing, attack simulation, vulnerability exploitation",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/red",
+      "tags": [
+        "agent",
+        "secops-team",
+        "red",
+        "security"
+      ]
+    },
+    {
+      "name": "red-pentest",
+      "description": "Design a penetration testing plan \u2014 scope, methodology, and rules of engagement",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/red/skills/red-pentest",
+      "tags": [
+        "skill",
+        "secops-team",
+        "red",
+        "security"
+      ]
+    },
+    {
+      "name": "red-report",
+      "description": "Write a penetration test finding report with CVSS scores and remediation",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/red/skills/red-report",
+      "tags": [
+        "skill",
+        "secops-team",
+        "red",
+        "security"
+      ]
+    },
+    {
+      "name": "red-recon",
+      "description": "Design a reconnaissance plan \u2014 OSINT and attack surface mapping",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/red/skills/red-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "red",
+        "security"
+      ]
+    },
+    {
+      "name": "blue",
+      "description": "Defensive Security Engineer \u2014 Blue team operations \u2014 SOC design, detection engineering, hardening playbooks",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/blue",
+      "tags": [
+        "agent",
+        "secops-team",
+        "blue",
+        "security"
+      ]
+    },
+    {
+      "name": "blue-detect",
+      "description": "Design detection rules for a threat \u2014 SIEM queries and MITRE ATT&CK mapping",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/blue/skills/blue-detect",
+      "tags": [
+        "skill",
+        "secops-team",
+        "blue",
+        "security"
+      ]
+    },
+    {
+      "name": "blue-harden",
+      "description": "Write a hardening playbook \u2014 CIS benchmark mapping and implementation steps",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/blue/skills/blue-harden",
+      "tags": [
+        "skill",
+        "secops-team",
+        "blue",
+        "security"
+      ]
+    },
+    {
+      "name": "blue-recon",
+      "description": "Audit existing security controls and detection coverage",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/blue/skills/blue-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "blue",
+        "security"
+      ]
+    },
+    {
+      "name": "hunt",
+      "description": "Threat Hunter \u2014 Threat hunting \u2014 hypothesis-driven hunting, compromise assessment, IOC analysis",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hunt",
+      "tags": [
+        "agent",
+        "secops-team",
+        "hunt",
+        "security"
+      ]
+    },
+    {
+      "name": "hunt-assess",
+      "description": "Design a compromise assessment \u2014 hunting scope and evidence collection",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hunt/skills/hunt-assess",
+      "tags": [
+        "skill",
+        "secops-team",
+        "hunt",
+        "security"
+      ]
+    },
+    {
+      "name": "hunt-ioc",
+      "description": "Analyze indicators of compromise \u2014 enrichment and attribution",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hunt/skills/hunt-ioc",
+      "tags": [
+        "skill",
+        "secops-team",
+        "hunt",
+        "security"
+      ]
+    },
+    {
+      "name": "hunt-recon",
+      "description": "Design a threat hunting program \u2014 maturity assessment and playbook library",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/hunt/skills/hunt-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "hunt",
+        "security"
+      ]
+    },
+    {
+      "name": "patch",
+      "description": "Vulnerability Management Engineer \u2014 Vulnerability management \u2014 CVE triage, CVSS prioritization, patching cadence, SLA design",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/patch",
+      "tags": [
+        "agent",
+        "secops-team",
+        "patch",
+        "security"
+      ]
+    },
+    {
+      "name": "patch-triage",
+      "description": "Triage CVEs \u2014 CVSS + EPSS + KEV scoring and prioritization",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/patch/skills/patch-triage",
+      "tags": [
+        "skill",
+        "secops-team",
+        "patch",
+        "security"
+      ]
+    },
+    {
+      "name": "patch-plan",
+      "description": "Design a vulnerability management program \u2014 SLAs and asset tiers",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/patch/skills/patch-plan",
+      "tags": [
+        "skill",
+        "secops-team",
+        "patch",
+        "security"
+      ]
+    },
+    {
+      "name": "patch-recon",
+      "description": "Audit existing vulnerability management for SLA gaps",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/patch/skills/patch-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "patch",
+        "security"
+      ]
+    },
+    {
+      "name": "chain",
+      "description": "Supply Chain Security Engineer \u2014 Supply chain security \u2014 SBOM generation, dependency scanning, third-party risk, license compliance",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/chain",
+      "tags": [
+        "agent",
+        "secops-team",
+        "chain",
+        "security"
+      ]
+    },
+    {
+      "name": "chain-sbom",
+      "description": "Design an SBOM generation pipeline for CI/CD",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/chain/skills/chain-sbom",
+      "tags": [
+        "skill",
+        "secops-team",
+        "chain",
+        "security"
+      ]
+    },
+    {
+      "name": "chain-scan",
+      "description": "Design a dependency scanning program \u2014 CVE detection and license checks",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/chain/skills/chain-scan",
+      "tags": [
+        "skill",
+        "secops-team",
+        "chain",
+        "security"
+      ]
+    },
+    {
+      "name": "chain-recon",
+      "description": "Audit existing dependency security and supply chain gaps",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/chain/skills/chain-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "chain",
+        "security"
+      ]
+    },
+    {
+      "name": "sast",
+      "description": "Application Security Engineer \u2014 Application security \u2014 SAST/DAST scanning, code security review, secure SDLC design",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sast",
+      "tags": [
+        "agent",
+        "secops-team",
+        "sast",
+        "security"
+      ]
+    },
+    {
+      "name": "sast-scan",
+      "description": "Design a SAST/DAST scanning pipeline \u2014 tooling and CI integration",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sast/skills/sast-scan",
+      "tags": [
+        "skill",
+        "secops-team",
+        "sast",
+        "security"
+      ]
+    },
+    {
+      "name": "sast-fix",
+      "description": "Analyze and fix a SAST finding with secure code alternative",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sast/skills/sast-fix",
+      "tags": [
+        "skill",
+        "secops-team",
+        "sast",
+        "security"
+      ]
+    },
+    {
+      "name": "sast-recon",
+      "description": "Audit application security tooling for OWASP Top 10 coverage",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sast/skills/sast-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "sast",
+        "security"
+      ]
+    },
+    {
+      "name": "siem",
+      "description": "Detection & SIEM Engineer \u2014 SIEM engineering \u2014 log pipeline design, detection rule development, alert tuning",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/siem",
+      "tags": [
+        "agent",
+        "secops-team",
+        "siem",
+        "security"
+      ]
+    },
+    {
+      "name": "siem-rule",
+      "description": "Write SIEM detection rules in SIGMA format with MITRE mapping",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/siem/skills/siem-rule",
+      "tags": [
+        "skill",
+        "secops-team",
+        "siem",
+        "security"
+      ]
+    },
+    {
+      "name": "siem-alert",
+      "description": "Tune a SIEM alert to reduce false positives",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/siem/skills/siem-alert",
+      "tags": [
+        "skill",
+        "secops-team",
+        "siem",
+        "security"
+      ]
+    },
+    {
+      "name": "siem-recon",
+      "description": "Audit existing SIEM deployment \u2014 log coverage and rule quality",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/siem/skills/siem-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "siem",
+        "security"
+      ]
+    },
+    {
+      "name": "resp",
+      "description": "Incident Response Engineer \u2014 Incident response \u2014 playbook design, containment procedures, DFIR, post-incident review",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/resp",
+      "tags": [
+        "agent",
+        "secops-team",
+        "resp",
+        "security"
+      ]
+    },
+    {
+      "name": "resp-playbook",
+      "description": "Write an incident response playbook for a threat scenario",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/resp/skills/resp-playbook",
+      "tags": [
+        "skill",
+        "secops-team",
+        "resp",
+        "security"
+      ]
+    },
+    {
+      "name": "resp-contain",
+      "description": "Design containment procedures for an active incident",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/resp/skills/resp-contain",
+      "tags": [
+        "skill",
+        "secops-team",
+        "resp",
+        "security"
+      ]
+    },
+    {
+      "name": "resp-recon",
+      "description": "Audit existing incident response capability and playbook coverage",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/resp/skills/resp-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "resp",
+        "security"
+      ]
+    },
+    {
+      "name": "zero",
+      "description": "Zero Trust Architect \u2014 Zero trust architecture \u2014 network segmentation, identity-based access, microsegmentation design",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/zero",
+      "tags": [
+        "agent",
+        "secops-team",
+        "zero",
+        "security"
+      ]
+    },
+    {
+      "name": "zero-design",
+      "description": "Design a zero trust architecture \u2014 phased roadmap and segmentation",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/zero/skills/zero-design",
+      "tags": [
+        "skill",
+        "secops-team",
+        "zero",
+        "security"
+      ]
+    },
+    {
+      "name": "zero-audit",
+      "description": "Audit an environment against zero trust principles",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/zero/skills/zero-audit",
+      "tags": [
+        "skill",
+        "secops-team",
+        "zero",
+        "security"
+      ]
+    },
+    {
+      "name": "zero-recon",
+      "description": "Survey network and identity controls for zero trust readiness",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/zero/skills/zero-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "zero",
+        "security"
+      ]
+    },
+    {
+      "name": "phish",
+      "description": "Security Awareness Engineer \u2014 Security awareness \u2014 phishing simulation design, security training programs, social engineering assessment",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/phish",
+      "tags": [
+        "agent",
+        "secops-team",
+        "phish",
+        "security"
+      ]
+    },
+    {
+      "name": "phish-assess",
+      "description": "Design a phishing simulation program \u2014 scenarios and measurement",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/phish/skills/phish-assess",
+      "tags": [
+        "skill",
+        "secops-team",
+        "phish",
+        "security"
+      ]
+    },
+    {
+      "name": "phish-train",
+      "description": "Design a security awareness training curriculum",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/phish/skills/phish-train",
+      "tags": [
+        "skill",
+        "secops-team",
+        "phish",
+        "security"
+      ]
+    },
+    {
+      "name": "phish-recon",
+      "description": "Audit existing security awareness program \u2014 coverage and effectiveness",
+      "version": "1.5.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/phish/skills/phish-recon",
+      "tags": [
+        "skill",
+        "secops-team",
+        "phish",
+        "security"
+      ]
+    },
+    {
+      "name": "devx-team",
+      "description": "Developer Experience Team bundle \u2014 10 agents: Guide, Sample, Mock, Schema, Port, Change, Onboard, Bench, Compat, Gate",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/bundle/devx-team",
+      "tags": [
+        "bundle",
+        "devx-team",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "guide",
+      "description": "API Documentation Engineer \u2014 API and SDK documentation \u2014 reference docs, guides, and documentation architecture",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/guide",
+      "tags": [
+        "agent",
+        "devx-team",
+        "guide",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "guide-write",
+      "description": "Write API reference documentation for an endpoint or SDK method",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/guide/skills/guide-write",
+      "tags": [
+        "skill",
+        "devx-team",
+        "guide",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "guide-audit",
+      "description": "Audit existing API documentation for completeness and accuracy",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/guide/skills/guide-audit",
+      "tags": [
+        "skill",
+        "devx-team",
+        "guide",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "guide-recon",
+      "description": "Survey documentation coverage across an API or SDK",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/guide/skills/guide-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "guide",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "sample",
+      "description": "Code Sample Engineer \u2014 Code samples and tutorials \u2014 working examples, quickstarts, and language-specific guides",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sample",
+      "tags": [
+        "agent",
+        "devx-team",
+        "sample",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "sample-write",
+      "description": "Write a working code sample or tutorial for an API feature",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sample/skills/sample-write",
+      "tags": [
+        "skill",
+        "devx-team",
+        "sample",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "sample-review",
+      "description": "Review existing code samples for correctness and developer experience",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sample/skills/sample-review",
+      "tags": [
+        "skill",
+        "devx-team",
+        "sample",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "sample-recon",
+      "description": "Survey existing code samples \u2014 coverage, language parity, and freshness",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/sample/skills/sample-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "sample",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "mock",
+      "description": "API Mocking & Contract Engineer \u2014 API mocking \u2014 mock server design, contract testing, API simulation",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mock",
+      "tags": [
+        "agent",
+        "devx-team",
+        "mock",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "mock-design",
+      "description": "Design a mock server for an API",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mock/skills/mock-design",
+      "tags": [
+        "skill",
+        "devx-team",
+        "mock",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "mock-contract",
+      "description": "Design a consumer-driven contract testing setup",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mock/skills/mock-contract",
+      "tags": [
+        "skill",
+        "devx-team",
+        "mock",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "mock-recon",
+      "description": "Audit existing mocks for contract drift and missing error cases",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/mock/skills/mock-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "mock",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "schema",
+      "description": "API Schema Engineer \u2014 API schema design \u2014 OpenAPI, GraphQL, gRPC schema quality and design standards",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/schema",
+      "tags": [
+        "agent",
+        "devx-team",
+        "schema",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "schema-design",
+      "description": "Design an API schema \u2014 OpenAPI, GraphQL, or gRPC proto",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/schema/skills/schema-design",
+      "tags": [
+        "skill",
+        "devx-team",
+        "schema",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "schema-review",
+      "description": "Review an API schema for consistency and completeness",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/schema/skills/schema-review",
+      "tags": [
+        "skill",
+        "devx-team",
+        "schema",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "schema-recon",
+      "description": "Audit existing API schemas for inconsistencies and coverage gaps",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/schema/skills/schema-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "schema",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "port",
+      "description": "SDK Design Engineer \u2014 SDK design \u2014 multi-language SDK architecture, idiomatic patterns, cross-language consistency",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/port",
+      "tags": [
+        "agent",
+        "devx-team",
+        "port",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "port-design",
+      "description": "Design an SDK architecture for an API",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/port/skills/port-design",
+      "tags": [
+        "skill",
+        "devx-team",
+        "port",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "port-review",
+      "description": "Review an existing SDK for idiomatic quality and consistency",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/port/skills/port-review",
+      "tags": [
+        "skill",
+        "devx-team",
+        "port",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "port-recon",
+      "description": "Audit multi-language SDK coverage and consistency",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/port/skills/port-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "port",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "change",
+      "description": "Changelog & Release Communication Engineer \u2014 Changelog and release communication \u2014 breaking change docs, deprecation notices, migration guides",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/change",
+      "tags": [
+        "agent",
+        "devx-team",
+        "change",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "change-write",
+      "description": "Write a changelog entry or release notes for an API version",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/change/skills/change-write",
+      "tags": [
+        "skill",
+        "devx-team",
+        "change",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "change-policy",
+      "description": "Design an API versioning and deprecation policy",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/change/skills/change-policy",
+      "tags": [
+        "skill",
+        "devx-team",
+        "change",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "change-recon",
+      "description": "Audit existing changelog and deprecation practices",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/change/skills/change-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "change",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "onboard",
+      "description": "Developer Onboarding Engineer \u2014 Developer onboarding \u2014 quickstart design, time-to-first-call optimization, onboarding funnel audit",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/onboard",
+      "tags": [
+        "agent",
+        "devx-team",
+        "onboard",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "onboard-quickstart",
+      "description": "Write a developer quickstart \u2014 minimal steps to first successful API call",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/onboard/skills/onboard-quickstart",
+      "tags": [
+        "skill",
+        "devx-team",
+        "onboard",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "onboard-audit",
+      "description": "Audit the developer onboarding experience and measure TTFC",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/onboard/skills/onboard-audit",
+      "tags": [
+        "skill",
+        "devx-team",
+        "onboard",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "onboard-recon",
+      "description": "Survey existing onboarding docs and developer portal",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/onboard/skills/onboard-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "onboard",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "bench",
+      "description": "API Performance Engineer \u2014 API performance benchmarking \u2014 latency profiling, throughput testing, regression detection",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/bench",
+      "tags": [
+        "agent",
+        "devx-team",
+        "bench",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "bench-profile",
+      "description": "Design a performance benchmark for an API",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/bench/skills/bench-profile",
+      "tags": [
+        "skill",
+        "devx-team",
+        "bench",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "bench-compare",
+      "description": "Compare API performance across versions for regression detection",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/bench/skills/bench-compare",
+      "tags": [
+        "skill",
+        "devx-team",
+        "bench",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "bench-recon",
+      "description": "Audit existing performance testing for gaps and stale baselines",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/bench/skills/bench-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "bench",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "compat",
+      "description": "Backwards Compatibility Engineer \u2014 Backwards compatibility \u2014 breaking change detection, deprecation management, semver discipline",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/compat",
+      "tags": [
+        "agent",
+        "devx-team",
+        "compat",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "compat-audit",
+      "description": "Audit a proposed API change for breaking changes",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/compat/skills/compat-audit",
+      "tags": [
+        "skill",
+        "devx-team",
+        "compat",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "compat-policy",
+      "description": "Design an API compatibility and deprecation policy",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/compat/skills/compat-policy",
+      "tags": [
+        "skill",
+        "devx-team",
+        "compat",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "compat-recon",
+      "description": "Audit existing API for breaking change risks and missing controls",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/compat/skills/compat-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "compat",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "gate",
+      "description": "API Quality Gate Engineer \u2014 API quality gates \u2014 linting, style enforcement, breaking change CI, and API governance",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/gate",
+      "tags": [
+        "agent",
+        "devx-team",
+        "gate",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "gate-lint",
+      "description": "Design an API linting ruleset with style rules and severity levels",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/gate/skills/gate-lint",
+      "tags": [
+        "skill",
+        "devx-team",
+        "gate",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "gate-ci",
+      "description": "Integrate API quality gates into CI",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/gate/skills/gate-ci",
+      "tags": [
+        "skill",
+        "devx-team",
+        "gate",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "gate-recon",
+      "description": "Audit existing API quality controls and CI gates",
+      "version": "1.6.0",
+      "source": "https://github.com/tonone-ai/tonone/tree/main/team/gate/skills/gate-recon",
+      "tags": [
+        "skill",
+        "devx-team",
+        "gate",
+        "developer-experience"
+      ]
+    },
+    {
+      "name": "infra-specialist-team",
+      "description": "Infrastructure Specialist Team \u2014 10 agents: Kube, Terra, Finop, Serv, Edge, Cache, Queue, Mesh, Multi, Chaos",
+      "path": "bundle/infra-specialist-team",
+      "version": "1.7.0",
+      "tags": [
+        "bundle",
+        "infrastructure",
+        "cloud",
+        "team"
+      ]
+    },
+    {
+      "name": "kube",
+      "description": "Infrastructure Specialist Team \u2014 Kube: Kubernetes cluster design \u2014 RBAC, networking, operators, workload configuration",
+      "path": "team/kube",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "kube-design",
+      "description": "Kube skill: kube-design",
+      "path": "team/kube/skills/kube-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "kube"
+      ]
+    },
+    {
+      "name": "kube-rbac",
+      "description": "Kube skill: kube-rbac",
+      "path": "team/kube/skills/kube-rbac",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "kube"
+      ]
+    },
+    {
+      "name": "kube-recon",
+      "description": "Kube skill: kube-recon",
+      "path": "team/kube/skills/kube-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "kube"
+      ]
+    },
+    {
+      "name": "terra",
+      "description": "Infrastructure Specialist Team \u2014 Terra: Terraform and IaC \u2014 module design, state management, drift detection, and IaC best practices",
+      "path": "team/terra",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "terra-drift",
+      "description": "Terra skill: terra-drift",
+      "path": "team/terra/skills/terra-drift",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "terra"
+      ]
+    },
+    {
+      "name": "terra-module",
+      "description": "Terra skill: terra-module",
+      "path": "team/terra/skills/terra-module",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "terra"
+      ]
+    },
+    {
+      "name": "terra-recon",
+      "description": "Terra skill: terra-recon",
+      "path": "team/terra/skills/terra-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "terra"
+      ]
+    },
+    {
+      "name": "finop",
+      "description": "Infrastructure Specialist Team \u2014 Finop: Cloud cost optimization \u2014 FinOps practices, rightsizing, reservation strategy, cost attribution",
+      "path": "team/finop",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "finop-audit",
+      "description": "Finop skill: finop-audit",
+      "path": "team/finop/skills/finop-audit",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "finop"
+      ]
+    },
+    {
+      "name": "finop-recon",
+      "description": "Finop skill: finop-recon",
+      "path": "team/finop/skills/finop-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "finop"
+      ]
+    },
+    {
+      "name": "finop-reserve",
+      "description": "Finop skill: finop-reserve",
+      "path": "team/finop/skills/finop-reserve",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "finop"
+      ]
+    },
+    {
+      "name": "serv",
+      "description": "Infrastructure Specialist Team \u2014 Serv: Serverless architecture \u2014 Lambda/Cloud Functions/Cloud Run design, cold start optimization, event patterns",
+      "path": "team/serv",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "serv-cold",
+      "description": "Serv skill: serv-cold",
+      "path": "team/serv/skills/serv-cold",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "serv"
+      ]
+    },
+    {
+      "name": "serv-design",
+      "description": "Serv skill: serv-design",
+      "path": "team/serv/skills/serv-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "serv"
+      ]
+    },
+    {
+      "name": "serv-recon",
+      "description": "Serv skill: serv-recon",
+      "path": "team/serv/skills/serv-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "serv"
+      ]
+    },
+    {
+      "name": "edge",
+      "description": "Infrastructure Specialist Team \u2014 Edge: Edge computing and CDN \u2014 global distribution, cache strategy, edge functions, latency optimization",
+      "path": "team/edge",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "edge-cdn",
+      "description": "Edge skill: edge-cdn",
+      "path": "team/edge/skills/edge-cdn",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "edge"
+      ]
+    },
+    {
+      "name": "edge-recon",
+      "description": "Edge skill: edge-recon",
+      "path": "team/edge/skills/edge-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "edge"
+      ]
+    },
+    {
+      "name": "edge-route",
+      "description": "Edge skill: edge-route",
+      "path": "team/edge/skills/edge-route",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "edge"
+      ]
+    },
+    {
+      "name": "cache",
+      "description": "Infrastructure Specialist Team \u2014 Cache: Caching strategy \u2014 Redis/Memcached design, cache invalidation, eviction policies, application caching patterns",
+      "path": "team/cache",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "cache-design",
+      "description": "Cache skill: cache-design",
+      "path": "team/cache/skills/cache-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "cache"
+      ]
+    },
+    {
+      "name": "cache-evict",
+      "description": "Cache skill: cache-evict",
+      "path": "team/cache/skills/cache-evict",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "cache"
+      ]
+    },
+    {
+      "name": "cache-recon",
+      "description": "Cache skill: cache-recon",
+      "path": "team/cache/skills/cache-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "cache"
+      ]
+    },
+    {
+      "name": "queue",
+      "description": "Infrastructure Specialist Team \u2014 Queue: Message queuing and streaming \u2014 Kafka, SQS, RabbitMQ design, consumer group strategy, dead letter queues",
+      "path": "team/queue",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "queue-design",
+      "description": "Queue skill: queue-design",
+      "path": "team/queue/skills/queue-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "queue"
+      ]
+    },
+    {
+      "name": "queue-recon",
+      "description": "Queue skill: queue-recon",
+      "path": "team/queue/skills/queue-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "queue"
+      ]
+    },
+    {
+      "name": "queue-scale",
+      "description": "Queue skill: queue-scale",
+      "path": "team/queue/skills/queue-scale",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "queue"
+      ]
+    },
+    {
+      "name": "mesh",
+      "description": "Infrastructure Specialist Team \u2014 Mesh: Service mesh design \u2014 Istio/Linkerd/Envoy, mTLS, traffic management, observability integration",
+      "path": "team/mesh",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "mesh-design",
+      "description": "Mesh skill: mesh-design",
+      "path": "team/mesh/skills/mesh-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "mesh"
+      ]
+    },
+    {
+      "name": "mesh-observe",
+      "description": "Mesh skill: mesh-observe",
+      "path": "team/mesh/skills/mesh-observe",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "mesh"
+      ]
+    },
+    {
+      "name": "mesh-recon",
+      "description": "Mesh skill: mesh-recon",
+      "path": "team/mesh/skills/mesh-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "mesh"
+      ]
+    },
+    {
+      "name": "multi",
+      "description": "Infrastructure Specialist Team \u2014 Multi: Multi-cloud architecture \u2014 provider selection, portability strategy, lock-in avoidance, workload placement",
+      "path": "team/multi",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "multi-design",
+      "description": "Multi skill: multi-design",
+      "path": "team/multi/skills/multi-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "multi"
+      ]
+    },
+    {
+      "name": "multi-port",
+      "description": "Multi skill: multi-port",
+      "path": "team/multi/skills/multi-port",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "multi"
+      ]
+    },
+    {
+      "name": "multi-recon",
+      "description": "Multi skill: multi-recon",
+      "path": "team/multi/skills/multi-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "multi"
+      ]
+    },
+    {
+      "name": "chaos",
+      "description": "Infrastructure Specialist Team \u2014 Chaos: Chaos engineering \u2014 failure injection design, game days, resilience testing, blast radius control",
+      "path": "team/chaos",
+      "version": "1.7.0",
+      "tags": [
+        "agent",
+        "infrastructure",
+        "cloud"
+      ]
+    },
+    {
+      "name": "chaos-design",
+      "description": "Chaos skill: chaos-design",
+      "path": "team/chaos/skills/chaos-design",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "chaos"
+      ]
+    },
+    {
+      "name": "chaos-game",
+      "description": "Chaos skill: chaos-game",
+      "path": "team/chaos/skills/chaos-game",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "chaos"
+      ]
+    },
+    {
+      "name": "chaos-recon",
+      "description": "Chaos skill: chaos-recon",
+      "path": "team/chaos/skills/chaos-recon",
+      "version": "1.7.0",
+      "tags": [
+        "skill",
+        "infrastructure",
+        "chaos"
+      ]
+    },
+    {
+      "name": "ai-ops-team",
+      "description": "AI Operations Team \u2014 9 agents: Deploy, Eval, Trace, Guard, Budget, Token, Prompt, Embed, Rank",
+      "path": "bundle/ai-ops-team",
+      "version": "1.8.0",
+      "tags": [
+        "bundle",
+        "ai-ops",
+        "llm",
+        "team"
+      ]
+    },
+    {
+      "name": "deploy",
+      "description": "AI Operations Team \u2014 Deploy: Model serving, inference APIs, blue/green deploys, rollback, and canary releases for production ML.",
+      "path": "team/deploy",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "deploy-serve",
+      "description": "Design and configure model serving infrastructure \u2014 endpoint scaling, batching, GPU allocation.",
+      "path": "team/deploy/skills/deploy-serve",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "deploy"
+      ]
+    },
+    {
+      "name": "deploy-canary",
+      "description": "Plan and execute canary releases for model updates \u2014 traffic splitting, rollback triggers, success metrics.",
+      "path": "team/deploy/skills/deploy-canary",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "deploy"
+      ]
+    },
+    {
+      "name": "deploy-recon",
+      "description": "Audit current model deployment topology \u2014 serving config, latency profile, version inventory.",
+      "path": "team/deploy/skills/deploy-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "deploy"
+      ]
+    },
+    {
+      "name": "trace",
+      "description": "AI Operations Team \u2014 Trace: LLM tracing, span capture, prompt/completion logging, cost attribution, and AI system debugging.",
+      "path": "team/trace",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "trace-instrument",
+      "description": "Instrument LLM calls with tracing \u2014 span structure, token counts, latency, model metadata.",
+      "path": "team/trace/skills/trace-instrument",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "trace"
+      ]
+    },
+    {
+      "name": "trace-debug",
+      "description": "Debug AI system behavior using traces \u2014 prompt reconstruction, output comparison, failure attribution.",
+      "path": "team/trace/skills/trace-debug",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "trace"
+      ]
+    },
+    {
+      "name": "trace-recon",
+      "description": "Audit LLM observability coverage \u2014 trace gaps, logging completeness, cost attribution accuracy.",
+      "path": "team/trace/skills/trace-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "trace"
+      ]
+    },
+    {
+      "name": "guard",
+      "description": "AI Operations Team \u2014 Guard: Input/output safety filters, PII detection, content moderation, and AI policy enforcement at runtime.",
+      "path": "team/guard",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "guard-design",
+      "description": "Design guardrail layers \u2014 input classifiers, output validators, PII scrubbers, policy rule engines.",
+      "path": "team/guard/skills/guard-design",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "guard"
+      ]
+    },
+    {
+      "name": "guard-audit",
+      "description": "Audit guardrail coverage \u2014 bypass vectors, false positive rates, policy gap analysis, red-team scenarios.",
+      "path": "team/guard/skills/guard-audit",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "guard"
+      ]
+    },
+    {
+      "name": "guard-recon",
+      "description": "Map current AI safety controls \u2014 filter inventory, coverage gaps, latency impact, incident history.",
+      "path": "team/guard/skills/guard-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "guard"
+      ]
+    },
+    {
+      "name": "budget",
+      "description": "AI Operations Team \u2014 Budget: LLM spend tracking, model cost optimization, budget alerts, and token efficiency audits across AI workloads.",
+      "path": "team/budget",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "budget-audit",
+      "description": "Audit AI spend \u2014 per-model cost breakdown, top consumers, waste identification, optimization levers.",
+      "path": "team/budget/skills/budget-audit",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "budget"
+      ]
+    },
+    {
+      "name": "budget-optimize",
+      "description": "Design cost reduction strategies \u2014 model tiering, prompt compression, caching, batch inference.",
+      "path": "team/budget/skills/budget-optimize",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "budget"
+      ]
+    },
+    {
+      "name": "budget-recon",
+      "description": "Map AI cost topology \u2014 billing attribution, team-level spend, forecast vs actuals, alert gaps.",
+      "path": "team/budget/skills/budget-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "budget"
+      ]
+    },
+    {
+      "name": "token",
+      "description": "AI Operations Team \u2014 Token: Context window optimization, token counting, truncation strategies, and chunking patterns for LLM efficiency.",
+      "path": "team/token",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "token-budget",
+      "description": "Design token budgets \u2014 system/user/assistant allocation, overflow handling, context compression.",
+      "path": "team/token/skills/token-budget",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "token"
+      ]
+    },
+    {
+      "name": "token-chunk",
+      "description": "Design chunking strategies \u2014 semantic splitting, overlap tuning, retrieval-aware chunk sizing.",
+      "path": "team/token/skills/token-chunk",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "token"
+      ]
+    },
+    {
+      "name": "token-recon",
+      "description": "Audit token usage patterns \u2014 avg context size, waste, truncation frequency, budget adherence.",
+      "path": "team/token/skills/token-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "token"
+      ]
+    },
+    {
+      "name": "prompt",
+      "description": "AI Operations Team \u2014 Prompt: System prompt design, few-shot libraries, chain-of-thought patterns, and prompt versioning for production LLM applications.",
+      "path": "team/prompt",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "prompt-design",
+      "description": "Design production prompts \u2014 system prompt architecture, instruction clarity, few-shot selection.",
+      "path": "team/prompt/skills/prompt-design",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "prompt"
+      ]
+    },
+    {
+      "name": "prompt-version",
+      "description": "Build prompt versioning systems \u2014 storage, A/B testing, regression tracking, rollback.",
+      "path": "team/prompt/skills/prompt-version",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "prompt"
+      ]
+    },
+    {
+      "name": "prompt-recon",
+      "description": "Audit prompt library \u2014 duplication, quality, coverage gaps, version drift, eval alignment.",
+      "path": "team/prompt/skills/prompt-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "prompt"
+      ]
+    },
+    {
+      "name": "embed",
+      "description": "AI Operations Team \u2014 Embed: Embedding model selection, vector pipeline design, similarity search, and production index management.",
+      "path": "team/embed",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "embed-design",
+      "description": "Design embedding pipelines \u2014 model selection, batching, normalization, index refresh strategy.",
+      "path": "team/embed/skills/embed-design",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "embed"
+      ]
+    },
+    {
+      "name": "embed-search",
+      "description": "Optimize similarity search \u2014 ANN index tuning, hybrid search, reranking, query expansion.",
+      "path": "team/embed/skills/embed-search",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "embed"
+      ]
+    },
+    {
+      "name": "embed-recon",
+      "description": "Audit embedding infrastructure \u2014 model drift, index freshness, query latency, coverage gaps.",
+      "path": "team/embed/skills/embed-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "embed"
+      ]
+    },
+    {
+      "name": "rank",
+      "description": "AI Operations Team \u2014 Rank: Retrieval reranking, relevance scoring, learning-to-rank pipelines, and result quality evaluation for search and RAG.",
+      "path": "team/rank",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
+    },
+    {
+      "name": "rank-design",
+      "description": "Design ranking pipelines \u2014 reranker selection, score fusion, cross-encoder patterns, latency trade-offs.",
+      "path": "team/rank/skills/rank-design",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "rank"
+      ]
+    },
+    {
+      "name": "rank-eval",
+      "description": "Build ranking evaluation \u2014 NDCG/MRR measurement, human relevance labeling, offline eval harness.",
+      "path": "team/rank/skills/rank-eval",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "rank"
+      ]
+    },
+    {
+      "name": "rank-recon",
+      "description": "Audit ranking quality \u2014 metric trends, failure modes, dataset coverage, reranker performance.",
+      "path": "team/rank/skills/rank-recon",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "rank"
+      ]
+    },
+    {
+      "name": "eval-harness",
+      "description": "Design eval harnesses \u2014 task schemas, metrics, dataset versioning, eval-as-code patterns.",
+      "path": "team/evals/skills/eval-harness",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "eval"
+      ]
+    },
+    {
+      "name": "eval-regress",
+      "description": "Build automated regression suites \u2014 golden sets, threshold alerting, CI integration for model changes.",
+      "path": "team/evals/skills/eval-regress",
+      "version": "1.8.0",
+      "tags": [
+        "skill",
+        "ai-ops",
+        "eval"
+      ]
+    },
+    {
+      "name": "evals",
+      "description": "AI Operations Team \u2014 Evals: Eval harness design, benchmark suites, automated regression, human eval orchestration.",
+      "path": "team/evals",
+      "version": "1.8.0",
+      "tags": [
+        "agent",
+        "ai-ops",
+        "llm"
+      ]
     }
   ]
 }

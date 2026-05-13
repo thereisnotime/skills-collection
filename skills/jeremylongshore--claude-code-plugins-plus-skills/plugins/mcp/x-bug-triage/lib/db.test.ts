@@ -1,12 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { randomUUID } from "crypto";
-// TODO(x-bug-triage): db/migrate.ts has never been written; package.json
-// references `bun db/migrate.ts` but the file does not exist. All `describe`
-// blocks in this file are .skip until the migration module is implemented.
-// Re-enable with `sed -i 's/describe.skip(/describe(/' lib/db.test.ts` after
-// adding lib/db/migrate.ts.
-const migrate = (_db: Database): void => { /* stub — see TODO above */ };
+import { migrate } from "../db/migrate";
 import {
   insertTriageRun,
   getTriageRun,
@@ -140,7 +135,7 @@ function makeCluster(runId: string, overrides: Partial<BugCluster> = {}): BugClu
 
 // === Schema Bootstrap ===
 
-describe.skip("schema bootstrap", () => {
+describe("schema bootstrap", () => {
   test("creates all 8 tables + schema_version", () => {
     const testDb = createTestDb();
     const tables = testDb
@@ -171,7 +166,7 @@ describe.skip("schema bootstrap", () => {
 
 // === CRUD Tests ===
 
-describe.skip("triage_runs CRUD", () => {
+describe("triage_runs CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -195,7 +190,7 @@ describe.skip("triage_runs CRUD", () => {
   });
 });
 
-describe.skip("candidates CRUD", () => {
+describe("candidates CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -224,7 +219,7 @@ describe.skip("candidates CRUD", () => {
   });
 });
 
-describe.skip("clusters CRUD", () => {
+describe("clusters CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -262,7 +257,7 @@ describe.skip("clusters CRUD", () => {
   });
 });
 
-describe.skip("cluster_posts CRUD", () => {
+describe("cluster_posts CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -286,7 +281,7 @@ describe.skip("cluster_posts CRUD", () => {
   });
 });
 
-describe.skip("overrides CRUD", () => {
+describe("overrides CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -332,7 +327,7 @@ describe.skip("overrides CRUD", () => {
   });
 });
 
-describe.skip("suppression_rules CRUD", () => {
+describe("suppression_rules CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -352,7 +347,7 @@ describe.skip("suppression_rules CRUD", () => {
   });
 });
 
-describe.skip("issue_links CRUD", () => {
+describe("issue_links CRUD", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -379,7 +374,7 @@ describe.skip("issue_links CRUD", () => {
 
 // === Audit Log Tests ===
 
-describe.skip("audit_log", () => {
+describe("audit_log", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -422,7 +417,7 @@ describe.skip("audit_log", () => {
 
 // === Config Validation Tests ===
 
-describe.skip("config loading", () => {
+describe("config loading", () => {
   test("loads approved-accounts.json", () => {
     const config = loadApprovedAccounts();
     expect(Array.isArray(config.approved_intake_accounts)).toBe(true);

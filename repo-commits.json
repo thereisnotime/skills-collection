@@ -853,6 +853,30 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "153203d",
+      "message": "revert: remove personal boundary defenses from public repo (#101)",
+      "date": "2026-05-12",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "357db28",
+      "message": "docs: add Review Protocol section to .claude/CLAUDE.md + allowlist expansion (#100)",
+      "date": "2026-05-12",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "6c17c49",
+      "message": "security: de-identify private-project context + add public-repo boundary lint (#99)",
+      "date": "2026-05-12",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "4cc880f",
+      "message": "feat(v3.7.3): claim faithfulness locator + contaminated-source advisory (#98)",
+      "date": "2026-05-12",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "235e376",
       "message": "feat(schema12): add optional protocol_maturity field on prisma_trAIce reports (#95) (#96)",
       "date": "2026-05-12",
@@ -886,30 +910,6 @@
       "sha": "8988ca4",
       "message": "docs: link to ars-codex sibling distribution (now public)",
       "date": "2026-05-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "d623aae",
-      "message": "docs: align platform-ports policy with sibling-distribution shape (#87)",
-      "date": "2026-05-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "a76e1b3",
-      "message": "docs(contributing): add Platform ports section (community-maintained only) (#86)",
-      "date": "2026-05-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "58dad47",
-      "message": "spec(v3.7.2): trust-provenance hardening \u2014 12-round 0-P1-sustained convergence (#77 + #79)",
-      "date": "2026-05-10",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "e1241b3",
-      "message": "docs(changelog): add gbrain harness borrow backlog candidates (#82)",
-      "date": "2026-05-10",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -3659,6 +3659,12 @@
   ],
   "stripe--ai": [
     {
+      "sha": "ec93d4c",
+      "message": "sync skills",
+      "date": "2026-05-13",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
       "sha": "1efda25",
       "message": "[workflow] skip sync-skills for empty commits (#417)",
       "date": "2026-05-11",
@@ -3709,12 +3715,6 @@
     {
       "sha": "4b01d31",
       "message": "Update sync-skills.yml (#408)",
-      "date": "2026-05-07",
-      "author": "matv-stripe"
-    },
-    {
-      "sha": "9cb8d24",
-      "message": "Enhance sync workflow with GitHub App token and auto-fix (#406)",
       "date": "2026-05-07",
       "author": "matv-stripe"
     }
@@ -3783,6 +3783,36 @@
   ],
   "tinybirdco--tinybird-agent-skills": [
     {
+      "sha": "d60d838",
+      "message": "Merge pull request #17 from tinybirdco/feature/improve-cli-and-best-practices-skills",
+      "date": "2026-05-12",
+      "author": "Pablo Abella"
+    },
+    {
+      "sha": "7b71e5b",
+      "message": "Use underscored branch names consistently",
+      "date": "2026-05-12",
+      "author": "Pablo Abella"
+    },
+    {
+      "sha": "d8e7849",
+      "message": "Align skills with official Tinybird docs",
+      "date": "2026-05-12",
+      "author": "Pablo Abella"
+    },
+    {
+      "sha": "979c422",
+      "message": "Update CI/CD guide: add local build/test steps and preview environments",
+      "date": "2026-05-12",
+      "author": "Pablo Abella"
+    },
+    {
+      "sha": "258c94e",
+      "message": "Improve CLI and best practices skills with workflow, CI/CD, and architecture guidance",
+      "date": "2026-05-11",
+      "author": "Pablo Abella"
+    },
+    {
       "sha": "a33c7fb",
       "message": "Merge pull request #15 from tinybirdco/docs/add-python-sdk-to-readme",
       "date": "2026-03-23",
@@ -3811,36 +3841,6 @@
       "message": "Merge pull request #13 from tinybirdco/rmorehig/python-sdk-skills",
       "date": "2026-03-10",
       "author": "Rafa Moreno"
-    },
-    {
-      "sha": "21ab1ab",
-      "message": "feat: add Python SDK skill and extend TypeScript SDK skill",
-      "date": "2026-03-10",
-      "author": "Rafa Moreno"
-    },
-    {
-      "sha": "86d28b9",
-      "message": "Merge pull request #12 from tinybirdco/fix/tinybird-skill-malicious-url-flag",
-      "date": "2026-02-26",
-      "author": "gnzjgo"
-    },
-    {
-      "sha": "e43d967",
-      "message": "fix(tinybird): replace placeholder URL with safe example domain",
-      "date": "2026-02-26",
-      "author": "gnzjgo"
-    },
-    {
-      "sha": "aff3b00",
-      "message": "Merge pull request #11 from tinybirdco/default-copy-mode-is-append",
-      "date": "2026-02-24",
-      "author": "gnzjgo"
-    },
-    {
-      "sha": "0612fd9",
-      "message": "default copy_mode is append",
-      "date": "2026-02-24",
-      "author": "Enric Calabuig"
     }
   ],
   "trailofbits--skills": [
@@ -5107,6 +5107,42 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "114fb5d",
+      "message": "feat(sources): add aomi-labs/skills (PR #679) + refresh all external sources",
+      "date": "2026-05-12",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "7a35269",
+      "message": "docs(schema): bump to 3.3.2 and document PR #705 agent-field spec-compliance fix",
+      "date": "2026-05-12",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "2615b64",
+      "message": "feat(sources): add four ali5ter external plugins (#680)",
+      "date": "2026-05-12",
+      "author": "Alister Lewis-Bowen"
+    },
+    {
+      "sha": "5debf57",
+      "message": "fix(validator): align agent field validation with current Anthropic sub-agents spec (#705)",
+      "date": "2026-05-12",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "fb6c4cc",
+      "message": "feat(podium-pack): v2.0.0 \u2014 replace 18 templated skills with 10 production-engineer skills + shopify-pack drift fix",
+      "date": "2026-05-12",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "ed9bc70",
+      "message": "feat(blog): add two-false-positive-fixes-same-root-cause to tonsofskills.com/blog",
+      "date": "2026-05-12",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "a04d1a2",
       "message": "feat(hubspot-pack): v2.0.0 \u2014 replace 30 templated skills with 10 production-engineer skills",
       "date": "2026-05-11",
@@ -5129,45 +5165,57 @@
       "message": "feat(blog-posts): add spec-graduation-engagement-architecture-inversion (2026-05-09 Tier 3 case study)",
       "date": "2026-05-10",
       "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "490c1e8",
-      "message": "chore(ci): stabilize main \u2014 fix grid overflow, test rot, broken imports (#707)",
-      "date": "2026-05-10",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "30bccbf",
-      "message": "feat(marketplace): rebuild plugin card mobile-first with one component (#706)",
-      "date": "2026-05-10",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "22889a9",
-      "message": "docs(release): add AAR for v4.31.0",
-      "date": "2026-05-08",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "fd62f22",
-      "message": "chore(release): prepare v4.31.0",
-      "date": "2026-05-08",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "6f665bd",
-      "message": "feat(blog): add forge-dogfood-plane-plugin-grade-a-and-jrig-verified-loop to tonsofskills.com/blog",
-      "date": "2026-05-08",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "90e5652",
-      "message": "docs(CLAUDE.md): bring repo guide current with this session's shipped work (#704)",
-      "date": "2026-05-08",
-      "author": "intentsolutions.io"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
+    {
+      "sha": "ebdf1d5",
+      "message": "Merge PR #387: Add llm-prices MCP config",
+      "date": "2026-05-12",
+      "author": "Rohit Ghumare"
+    },
+    {
+      "sha": "dbccab6",
+      "message": "Align llm-prices counts with upstream README",
+      "date": "2026-05-12",
+      "author": "rohit's agent"
+    },
+    {
+      "sha": "4704ee7",
+      "message": "Merge PR #388: Add Claude Skins",
+      "date": "2026-05-12",
+      "author": "Rohit Ghumare"
+    },
+    {
+      "sha": "c258aaf",
+      "message": "Merge PR #389: Add html-anything to Community Skills",
+      "date": "2026-05-12",
+      "author": "Rohit Ghumare"
+    },
+    {
+      "sha": "33dae83",
+      "message": "Align html-anything description with upstream README",
+      "date": "2026-05-12",
+      "author": "rohit's agent"
+    },
+    {
+      "sha": "a0500cc",
+      "message": "Add html-anything to Community Skills",
+      "date": "2026-05-12",
+      "author": "Elon"
+    },
+    {
+      "sha": "e468a63",
+      "message": "Add Claude Skins \u2014 9 visual themes for Claude Code",
+      "date": "2026-05-11",
+      "author": "basicScandal"
+    },
+    {
+      "sha": "096bb20",
+      "message": "feat: add llm-prices to Ecosystem and MCP Configs",
+      "date": "2026-05-11",
+      "author": "benbencodes"
+    },
     {
       "sha": "0e95317",
       "message": "Merge PR #317: Add Superpower Builder to Community Skills",
@@ -5177,54 +5225,6 @@
     {
       "sha": "16a16b5",
       "message": "docs: place PR #317 entry at end of category",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "d17316b",
-      "message": "Merge PR #324: feat: add systemprompt-template to Ecosystem section",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "f4e27b9",
-      "message": "docs: place PR #324 entry at end of category",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "abf75f6",
-      "message": "Merge remote-tracking branch 'origin/main' into Ejb503/main",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "213c982",
-      "message": "Merge PR #331: Add Gear Foundation Skills pack (vara-skills)",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "a31d991",
-      "message": "docs: place PR #331 entry at end of category",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "6376b49",
-      "message": "Merge remote-tracking branch 'origin/main' into add-vara-skills",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "4989a38",
-      "message": "Merge PR #334: Add BlogBurst to Community Skills",
-      "date": "2026-05-11",
-      "author": "rohitg00"
-    },
-    {
-      "sha": "fe2fdc7",
-      "message": "docs: place PR #334 entry at end of category",
       "date": "2026-05-11",
       "author": "rohitg00"
     }
@@ -5355,64 +5355,64 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "969acd9",
-      "message": "docs: add harness adapter compliance matrix (#1784)",
-      "date": "2026-05-12",
+      "sha": "0e169fe",
+      "message": "fix: harden GateGuard destructive bash tokenizer",
+      "date": "2026-05-13",
+      "author": "SeungHyun"
+    },
+    {
+      "sha": "b2506f8",
+      "message": "docs: sync AgentShield evidence-pack roadmap (#1854)",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "60bd26f",
-      "message": "docs: refresh ECC 2.0 reference architecture (#1783)",
-      "date": "2026-05-12",
+      "sha": "f6e13ab",
+      "message": "docs: record post-hardening rc1 release evidence (#1852)",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "cb2a70c",
-      "message": "docs: fix motion skill examples",
-      "date": "2026-05-12",
+      "sha": "209abd4",
+      "message": "ci: disable checkout credential persistence in privileged workflows (#1851)",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "f219a90",
-      "message": "feat: add motion system skills",
-      "date": "2026-05-12",
+      "sha": "2486732",
+      "message": "harden: remove shell access from read-only analyzers (#1850)",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "22aabf7",
-      "message": "test: harden InsAIts wrapper fake Python shim",
-      "date": "2026-05-12",
+      "sha": "63f9bfc",
+      "message": "docs: gate ECC progress sync readiness",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "901e419",
-      "message": "test: stabilize MCP stderr probe timeout",
-      "date": "2026-05-12",
+      "sha": "cbecf56",
+      "message": "docs: add supply-chain incident response playbook",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "df6078e",
-      "message": "docs: mirror ECC 2.0 GA roadmap",
-      "date": "2026-05-12",
+      "sha": "da04a6e",
+      "message": "docs: refresh rc1 release readiness evidence",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "e17f2bc",
-      "message": "feat: salvage network architect agents",
-      "date": "2026-05-12",
+      "sha": "797f283",
+      "message": "ci: require npm audit signature checks",
+      "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "f8070dd",
-      "message": "feat: add PRD planning command flow",
-      "date": "2026-05-12",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "940135e",
-      "message": "feat: add ECC statusline observability hooks",
-      "date": "2026-05-12",
-      "author": "Affaan Mustafa"
+      "sha": "766f4ee",
+      "message": "feat: add GitHub Copilot prompt support",
+      "date": "2026-05-13",
+      "author": "Girish Kanjiyani"
     }
   ],
   "glebis--claude-skills": [
@@ -5479,63 +5479,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "4527f4d",
-      "message": "chore(readme): refresh Last Updated badge timestamp to 2026-05-11 10:36 AM PKT",
-      "date": "2026-05-11",
+      "sha": "e3f48af",
+      "message": "chore(skill-collections): append 2026-05-13 entry for alirezarezvani/claude-skills add",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "3a13cea",
-      "message": "chore(readme): refresh Last Updated badge timestamp to 2026-05-10 11:26 PM PKT",
-      "date": "2026-05-10",
+      "sha": "bb4cc61",
+      "message": "chore(skill-collections): add alirezarezvani/claude-skills (15k/246) and bump badge timestamp",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "8430d23",
-      "message": "chore(agent-collections): update README \u2014 badge to May 10 8:47 PM PKT; agent table \u2605 msitarzewski 95k\u219296k, VoltAgent 19k",
-      "date": "2026-05-10",
+      "sha": "c00fe77",
+      "message": "chore(workflow-concepts-agent): flag prose in Description column as drift",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "c42f38d",
-      "message": "chore(agent-collections): append 2026-05-10 8:47 PM PKT changelog \u2014 msitarzewski \u2605 95k\u219296k, VoltAgent \u2605 19k\u219220k",
-      "date": "2026-05-10",
+      "sha": "aa527f0",
+      "message": "chore(workflow-concepts): enforce badges-and-links-only Description column",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "95809f8",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-09",
+      "sha": "db038a1",
+      "message": "docs(readme): link Goal row to implementation doc and strip prose from Hot table",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "d86d1b0",
-      "message": "chore(concepts): append 2026-05-09 7:58 PM same-day re-run entry",
-      "date": "2026-05-09",
+      "sha": "b5b56f6",
+      "message": "docs(implementation): add /goal implementation doc with community tweet tips",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "db88ca0",
-      "message": "chore(readme): refresh Last Updated badge timestamp to 2026-05-09 7:58 PM PKT",
-      "date": "2026-05-09",
+      "sha": "18eb648",
+      "message": "docs(implementation): add Meta Alchemist /goal Codex tweet screenshot asset",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "f4e9c1d",
-      "message": "chore(skill-collections): append 2026-05-09 changelog entry",
-      "date": "2026-05-09",
+      "sha": "c887528",
+      "message": "docs(implementation): add Alex Finn /goal tweet screenshot asset",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "9951de5",
-      "message": "chore(development-workflows): append 2026-05-09 changelog entry",
-      "date": "2026-05-09",
+      "sha": "98b4097",
+      "message": "chore(cross-model-workflows): seed changelog for new section",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     },
     {
-      "sha": "138156a",
-      "message": "chore(concepts): append 2026-05-09 v2.1.138 changelog entry",
-      "date": "2026-05-09",
+      "sha": "45b9682",
+      "message": "docs(readme): add CROSS-MODEL WORKFLOWS section with 4 repos (10k+ stars)",
+      "date": "2026-05-12",
       "author": "Shayan Rais"
     }
   ],

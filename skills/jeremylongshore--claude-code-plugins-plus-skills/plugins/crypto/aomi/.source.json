@@ -1,0 +1,14 @@
+{
+  "synced_from": {
+    "repo": "aomi-labs/skills",
+    "path": "plugins/aomi",
+    "branch": "main"
+  },
+  "last_sync": "2026-05-12T23:25:10.549Z",
+  "author": {
+    "name": "aomi-labs",
+    "github": "aomi-labs"
+  },
+  "license": "MIT",
+  "files_synced": 23
+}

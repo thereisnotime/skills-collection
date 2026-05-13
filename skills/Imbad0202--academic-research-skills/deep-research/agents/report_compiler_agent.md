@@ -192,3 +192,66 @@ Strict obligations:
 - The agent's job ends at emission. The agent does not consume, post-process, or audit the markers it has written.
 - Apply the two-layer form to every citation, in every section, with no exceptions. A bare `Smith (2024)` without the trailing `<!--ref:slug-->` is a contract violation.
 - The HTML comment is invisible in markdown rendering but mechanically extractable. Do not omit it on the assumption that "the comment will be added later."
+
+## Three-Layer Citation Emission (v3.7.3)
+
+Extends Two-Layer with a structured claim-faithfulness anchor. External motivation: Zhao et al. arXiv:2605.07723 (2026-05) — corpus-scale audit finds the L3 "real citations deployed to support claims the cited references do not actually make" problem unaddressed by existing safeguards. Spec: `docs/design/2026-05-12-ars-v3.7.3-claim-faithfulness-and-contaminated-source-spec.md` §3.1.
+
+Every visible citation in the compiled report MUST be followed by BOTH a slug marker AND an anchor marker:
+
+```
+<visible> <!--ref:slug--><!--anchor:<kind>:<value>-->
+```
+
+Anchor kinds (closed enum):
+
+| kind | value | example |
+|---|---|---|
+| `quote` | URL-encoded verbatim text from the cited source, ≤25 words | `<!--anchor:quote:When%20publishers%20bypass%20moderation-->` |
+| `page` | page number or range from the cited source | `<!--anchor:page:12-14-->` |
+| `section` | section identifier from the cited source | `<!--anchor:section:3.2-->` |
+| `paragraph` | 1-based paragraph index within section | `<!--anchor:paragraph:3-->` |
+| `none` | explicit no-anchor declaration | `<!--anchor:none:-->` |
+
+Full example: `Smith (2024) <!--ref:smith2024--><!--anchor:page:14-->`.
+
+Three firm rules:
+
+- **R-L3-1-A (production-mandatory locator):** During compilation, every visible citation MUST carry an anchor with `<kind>` ≠ `none`. The finalizer treats `<!--anchor:none:-->` as MED-WARN-NO-LOCATOR (gate-refused). Emitting `none` does NOT bypass the gate — it triggers it. Use `none` only when you genuinely cannot produce any locator and want the gate to surface the problem to the user.
+- **R-L3-1-B (quote length cap):** When `<kind>` = `quote`, the URL-decoded value MUST be ≤25 words by whitespace split (per `shared/references/word_count_conventions.md`). Quotes exceeding 25 words MUST be replaced by `page` or `section` locator.
+- **R-L3-1-C (no anchor reading by emitting agents):** Generate the `<!--anchor:...-->` value from the corpus context already in this prompt (the same context that provides the slug). You MUST NOT read entry frontmatter to discover anchor candidates — that breaks the v3.6.7 partial-inversion discipline that keeps the compiler narrative-side and the finalizer audit-side separate. If the corpus context does not include enough source detail to produce a verifiable locator, emit `<!--anchor:none:-->` and let the gate surface it.
+
+URL-encoding for `quote:` values uses standard percent-encoding (`%20` for space, `%2C` for comma, `%3A` for colon, etc.) **AND additionally percent-encodes any consecutive run of two or more hyphen characters: `--` MUST be written as `%2D%2D`** (and `---` as `%2D%2D%2D`, etc.). Standard RFC 3986 encoding treats `-` as an unreserved character and does NOT encode it, but a quote containing `--` (e.g., from an em-dash, a divider, or a nested HTML comment opener) would leave a literal `--` in the anchor value that prematurely closes the HTML comment. A single hyphen between word characters (e.g., `AI-generated`, `well-known`) is safe and may remain raw. Always percent-encode space, comma, colon, AND any consecutive-hyphen run. Never rely on the absence of `-->` in the quoted text. v3.7.3 gemini review F1 + codex round-6 F15 closure (prompt-vs-lint alignment).
+
+The compiler's job still ends at emission. The compiler does NOT post-process or audit its own anchors. The cite_provenance_finalizer_agent reads `<!--anchor:...-->` markers downstream, applies the 5-cell matrix, and mutates them in place.
+
+## Standalone-Mode Self-Gate (v3.7.3 codex round-7 F17 + round-8 F21 closure)
+
+In `academic-pipeline` mode the pipeline_orchestrator runs the v3.7.3 finalizer extension + the formatter_agent hard-gate after the compiler emits its draft. In **standalone `deep-research` mode there is no downstream finalizer or formatter** — `report_compiler_agent` is the terminal step that the user receives directly. To prevent the NO-LOCATOR contract from being silently bypassed in standalone mode, the compiler applies a single self-gate check before emitting its final report.
+
+**Mode detection (round-8 F21 amendment).** The self-gate runs ONLY in standalone deep-research mode. Detect mode from the invocation prompt:
+
+- **Pipeline mode signal:** the prompt explicitly mentions `pipeline_orchestrator`, `academic-pipeline`, a stage number (Stage 1–6), or a downstream-handoff instruction (e.g. "the orchestrator will run the cite-provenance finalizer next"). In this case, SKIP the self-gate — emit the draft with `<!--anchor:none:-->` markers intact and let pipeline_orchestrator's 5-cell finalizer run its precedence-zero check downstream. Running the self-gate here would short-circuit the orchestrator's standard NO-LOCATOR path (rewriting `<!--anchor:none:-->` to `[UNVERIFIED CITATION — NO QUOTE OR PAGE LOCATOR]` + emitting the audit-trail counts), changing pipeline behavior the F17 closure had promised would stay unchanged.
+- **Standalone mode signal:** the invocation prompt does NOT reference any orchestrator / stage / downstream handoff. The compiler is being called directly to produce a deliverable. In this case, RUN the self-gate before emission.
+- **Default when ambiguous:** if you cannot determine the mode confidently, RUN the self-gate. The pipeline orchestrator's prompt is always explicit about pipeline context (per v3.6.7 Step 6 audit-artifact gate + this section); ambiguous invocation defaults to safer, gate-on behavior.
+
+**Self-gate rule (standalone mode only).** The gate is a two-part check on the compiled report — failing EITHER part refuses emission. v3.7.3 codex round-9 F22 closure (the round-7 single-part check missed bare-ref bypass).
+
+**Part 1 — explicit `none` anchors:** scan for any `<!--anchor:none:-->` marker. Each is a citation the compiler tagged as "no locator available".
+
+**Part 2 — bare refs (no adjacent anchor):** enumerate EVERY `<!--ref:slug-->` marker (in all 0/1/2-token suffix shapes per F8/F16) in the report. For each ref, check that the IMMEDIATELY FOLLOWING non-whitespace token is an `<!--anchor:<kind>:<value>-->` marker with `<kind>` ≠ `none` AND non-empty decoded value. Legacy v3.7.1 Two-Layer citations like `Smith (2024) <!--ref:smith2024-->` (no anchor at all) match this part — pipeline mode's 5-cell finalizer treats missing anchor as anchor=`none` per the precedence-zero rule, and standalone mode needs the same parity here.
+
+**If EITHER part fires**, refuse the emission with this message:
+
+```
+[v3.7.3 NO-LOCATOR SELF-GATE]
+- N citations carry explicit `<!--anchor:none:-->` (Part 1).
+- M citations have no adjacent anchor at all — bare ref markers per legacy Two-Layer form (Part 2).
+Per R-L3-1-A all (N+M) violations are gate-refused. Action required: either supply a verifiable non-`none` anchor (`quote` / `page` / `section` / `paragraph`) for each citation listed below, or remove the citation. Affected slugs: Part 1 = [list], Part 2 = [list].
+```
+
+This is the deep-research analogue of the academic-paper formatter_agent's `[UNVERIFIED CITATION — NO QUOTE OR PAGE LOCATOR]` refusal. It does NOT inspect frontmatter (v3.6.7 partial-inversion preserved); it only inspects markers the compiler emitted itself. The Part-2 enumeration uses the same ref shape regex as the v3.7.3 lint (`scripts/check_v3_7_3_three_layer_citation.py`) — that is, the strict 0/1/2-token suffix form so malformed refs are NOT auto-paired; pair only when the following non-whitespace token is a well-formed anchor.
+
+**Scope of the self-gate:** anchor-presence-and-kind only. The compiler does NOT validate quote content, page-number existence, or any other anchor-value semantics — those are downstream audit concerns (v3.8 L3 audit scope). The self-gate's purpose is to ensure the locator CHANNEL is populated in standalone mode where no other gate exists; verifying the channel CONTENT is faithful to the cited source is out of scope.
+
+This closes the standalone-mode bypass: codex round-7 F17 observed that standalone deep-research output had no NO-LOCATOR enforcement layer — the v3.7.3 hard-gate lived only in the pipeline + academic-paper paths. The round-8 F21 amendment restricts the self-gate to standalone mode so it does not interfere with the pipeline orchestrator's downstream finalizer behavior.

@@ -600,7 +600,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `palantir-pack`     | Claude Code skill pack for Palantir (24 skills)                                                                                             |
 | `perplexity-pack`   | Complete Perplexity integration skill pack with 30 skills covering AI search, real-time answers, citations, and research workflows.…        |
 | `persona-pack`      | Claude Code skill pack for Persona (18 skills)                                                                                              |
-| `podium-pack`       | Claude Code skill pack for Podium (18 skills)                                                                                               |
+| `podium-pack`       | Claude Code skill pack for Podium (10 production-engineer skills covering OAuth, webhook reliability, rate-limit survival, call…            |
 | `posthog-pack`      | Complete PostHog integration skill pack with 24 skills covering product analytics, feature flags, session replay, and experimentation.…     |
 | `procore-pack`      | Claude Code skill pack for Procore (24 skills)                                                                                              |
 | `quicknode-pack`    | Claude Code skill pack for QuickNode (18 skills)                                                                                            |
@@ -613,7 +613,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `salesloft-pack`    | Claude Code skill pack for Salesloft (18 skills)                                                                                            |
 | `sentry-pack`       | Complete Sentry integration skill pack with 30 skills covering error monitoring, performance tracking, session replay, and observability.…  |
 | `serpapi-pack`      | Claude Code skill pack for SerpApi (18 skills)                                                                                              |
-| `shopify-pack`      | Claude Code skill pack for Shopify (30 skills)                                                                                              |
+| `shopify-pack`      | Claude Code skill pack for Shopify (38 skills covering e-commerce development, storefront APIs, and app integration)                        |
 | `snowflake-pack`    | Claude Code skill pack for Snowflake (30 skills)                                                                                            |
 | `speak-pack`        | Complete Speak integration skill pack with 24 skills covering AI language learning, speech recognition, conversation practice, and…         |
 | `stackblitz-pack`   | Claude Code skill pack for StackBlitz (18 skills)                                                                                           |

@@ -1,10 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { randomUUID } from "crypto";
-// TODO(x-bug-triage): db/migrate.ts has never been written; the describe
-// blocks in this file are .skip until the migration module is implemented.
-// See lib/db.test.ts for the same TODO.
-const migrate = (_db: Database): void => { /* stub — see TODO above */ };
+import { migrate } from "../db/migrate";
 import { insertTriageRun, insertCandidate, insertCluster, insertClusterPost, insertOverride, insertSuppressionRule } from "./db";
 import {
   classificationToFamily,
@@ -112,7 +109,7 @@ function makeCluster(runId: string, overrides: Partial<BugCluster> = {}): BugClu
 
 // === Family Derivation ===
 
-describe.skip("classificationToFamily", () => {
+describe("classificationToFamily", () => {
   test("bug_report → product_defect", () => expect(classificationToFamily("bug_report")).toBe("product_defect"));
   test("sarcastic_bug_report → product_defect", () => expect(classificationToFamily("sarcastic_bug_report")).toBe("product_defect"));
   test("account_problem → product_defect", () => expect(classificationToFamily("account_problem")).toBe("product_defect"));
@@ -128,7 +125,7 @@ describe.skip("classificationToFamily", () => {
 
 // === Signature Generation ===
 
-describe.skip("signatures", () => {
+describe("signatures", () => {
   test("generates stable signature", () => {
     const run = makeRun();
     const c = makeCandidate(run.run_id);
@@ -162,7 +159,7 @@ describe.skip("signatures", () => {
 
 // === Family-First Guard ===
 
-describe.skip("family-first clustering", () => {
+describe("family-first clustering", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -192,7 +189,7 @@ describe.skip("family-first clustering", () => {
 
 // === Cluster Continuity ===
 
-describe.skip("cluster continuity", () => {
+describe("cluster continuity", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -227,7 +224,7 @@ describe.skip("cluster continuity", () => {
 
 // === Regression Reopening ===
 
-describe.skip("regression reopening", () => {
+describe("regression reopening", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 
@@ -255,7 +252,7 @@ describe.skip("regression reopening", () => {
 
 // === Suppression ===
 
-describe.skip("suppression", () => {
+describe("suppression", () => {
   test("keyword suppression matches", () => {
     const candidate = makeCandidate("run1", { raw_text_redacted: "This is known spam phrase" });
     expect(isSuppressed(candidate, [{ pattern_type: "keyword", pattern_value: "known spam" }])).toBe(true);
@@ -274,7 +271,7 @@ describe.skip("suppression", () => {
 
 // === Override Application ===
 
-describe.skip("overrides", () => {
+describe("overrides", () => {
   test("severity override changes cluster severity", () => {
     const cluster = makeCluster("run1", { severity: "low" });
     const overrides: ReviewOverride[] = [{
@@ -400,7 +397,7 @@ describe.skip("overrides", () => {
 
 // === Non-Clustering Classifications ===
 
-describe.skip("non-clustering classifications", () => {
+describe("non-clustering classifications", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 

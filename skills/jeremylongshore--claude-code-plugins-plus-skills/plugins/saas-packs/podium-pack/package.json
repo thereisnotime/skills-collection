@@ -1,7 +1,7 @@
 {
   "name": "@intentsolutionsio/podium-pack",
-  "version": "1.0.0",
-  "description": "Claude Code skill pack for Podium - 18 skills covering customer interaction, messaging, and review management",
+  "version": "2.0.0",
+  "description": "Claude Code skill pack for Podium - 10 production-engineer skills covering OAuth, webhook reliability, rate-limit survival, call transcripts, webchat, review automation, history export, RAG context, multi-location routing, contact dedup",
   "main": "README.md",
   "type": "module",
   "files": [

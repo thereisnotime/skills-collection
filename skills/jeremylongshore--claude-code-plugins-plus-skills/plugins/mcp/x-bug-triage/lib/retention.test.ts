@@ -1,10 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { randomUUID } from "crypto";
-// TODO(x-bug-triage): db/migrate.ts has never been written; the describe
-// blocks in this file are .skip until the migration module is implemented.
-// See lib/db.test.ts for the same TODO.
-const migrate = (_db: Database): void => { /* stub — see TODO above */ };
+import { migrate } from "../db/migrate";
 import { insertTriageRun, insertCandidate, insertCluster } from "./db";
 import { writeAuditEvent } from "./audit";
 import { enforceRetention } from "./retention";
@@ -47,7 +44,7 @@ function makeRun(): TriageRun {
   };
 }
 
-describe.skip("retention enforcement", () => {
+describe("retention enforcement", () => {
   beforeEach(() => { db = createTestDb(); });
   afterEach(() => { db.close(); });
 

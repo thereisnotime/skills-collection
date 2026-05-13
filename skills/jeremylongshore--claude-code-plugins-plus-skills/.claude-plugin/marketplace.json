@@ -7622,14 +7622,19 @@
     {
       "name": "podium-pack",
       "source": "./plugins/saas-packs/podium-pack",
-      "description": "Claude Code skill pack for Podium (18 skills)",
-      "version": "1.0.0",
+      "description": "Claude Code skill pack for Podium (10 production-engineer skills covering OAuth, webhook reliability, rate-limit survival, call transcripts, webchat, review automation, history export, RAG context, multi-location routing, contact dedup)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "podium",
         "saas",
         "sdk",
-        "integration"
+        "integration",
+        "oauth2",
+        "webhooks",
+        "rag",
+        "call-transcripts",
+        "multi-location"
       ],
       "author": {
         "name": "Jeremy Longshore",
@@ -7784,14 +7789,16 @@
     {
       "name": "shopify-pack",
       "source": "./plugins/saas-packs/shopify-pack",
-      "description": "Claude Code skill pack for Shopify (30 skills)",
-      "version": "1.0.0",
+      "description": "Claude Code skill pack for Shopify (38 skills covering e-commerce development, storefront APIs, and app integration)",
+      "version": "2.0.0",
       "category": "saas-packs",
       "keywords": [
         "shopify",
         "saas",
         "sdk",
-        "integration"
+        "integration",
+        "e-commerce",
+        "storefront-api"
       ],
       "author": {
         "name": "Jeremy Longshore",
