@@ -276,6 +276,25 @@ create_ats_resume(
 - Prioritize strong action verbs and metrics over keyword stuffing
 - **A 75% ATS score with authentic content beats 90% with obvious stuffing**
 
+### Core Competencies Must-Trace Rule (enforced by `evidence_audit.py`):
+**Every Core Competency item must be backed by evidence elsewhere in the resume.**
+
+For each item, ONE of the following must be true:
+1. The item (or one of its key phrases) appears in a Professional Experience bullet
+2. The item appears in the Summary
+3. The item is backed by Publications / Education / Certifications / Memberships / Projects (e.g., "Peer-Reviewed Publications" backed by the Publications section)
+4. The item carries an honest exposure qualifier: `(exposure)`, `(coursework)`, `(trainable)`, `(familiar)`, `(rapid trainability)`, `(in progress)`, `(learning)`
+
+If none of the above, REMOVE the item from Core Competencies. Listing a skill without evidence creates an interview liability — recruiters ask "tell me about a time you did X" and the candidate has no answer.
+
+**Validated tools whitelist:** When listing software / platforms (Veeva Vault, Argus, Medidata Rave, EDC, MedDRA, etc.), only include them if the candidate has hands-on experience documented in a bullet. If they only have indirect or "trainable" exposure, mark with `(trainable)` — e.g., `Veeva Vault (trainable)`.
+
+**Audit command (run before DOCX creation):**
+```bash
+python evidence_audit.py applications/{Company - JobTitle}/resume.md
+```
+Exit code 0 = passed. Exit code 1 = unsupported items present; fix or qualify before generating DOCX.
+
 ## Notes for Claude
 - Master resume: Read from `config.json` → `master_resume_path` (or glob for `*MASTER*RESUME*.md`, `*MASTER*RESUME*.docx`, `*MASTER*RESUME*.pdf`). For `.docx` files, use the `extract_text` MCP tool (Claude cannot read binary DOCX directly).
 - Output folder format: `applications/{Company} - {JobTitle}/`
@@ -309,24 +328,53 @@ The `Job_Application_Tracker.xlsx` is automatically updated whenever a resume is
 | Notes | Additional notes |
 | Interview Date | Scheduled interview date |
 | Follow Up Date | When to follow up |
-| Response | Company response |
+| Response | Date company responded (filled by `mark_response`) |
+| **Target Tier** | IC / Sr / Manager / AD / Director — used to spot pipeline-mix issues (too many AD/Director applications) |
+| **Fit Label** | MEETS / STRETCH / MISS — taken from `job_fit_scorer` recommendation |
+| **Hard Reqs Missed** | Count of knockout flags at apply time |
+| **Referral Source** | cold / alumni / recruiter / network / referral |
+| **Rejection Reason** | no_response / auto_reject / screen_reject / interview_reject / offer_declined / withdrawn |
+| **Days To Response** | Auto-computed (Response date − Application Date) |
+| **Interview Stages Reached** | 0=applied, 1=phone screen, 2=hiring mgr, 3=panel, 4=onsite, 5=offer |
+
+Strategic columns let the system *learn* which categories of role actually convert. Without these, the tracker is bookkeeping; with these, you can answer "what's my response rate on AD-tier vs Sr Specialist?"
 
 ### Tracker Utilities
 
 ```python
-from tracker_utils import add_application, update_application_status, rebuild_tracker_from_folders
+from tracker_utils import (
+    add_application, mark_response, pipeline_summary,
+    update_application_status, rebuild_tracker_from_folders,
+)
 
-# Add new application (called automatically by /resume and /tailor-resume)
+# Add a new application — strategic columns are optional but recommended
 add_application(
     company="Company Name",
     job_title="Job Title",
     resume_file="resume.docx",
     cover_letter_file="cover_letter.docx",
     ats_score=83.0,
-    hr_score=71.6
+    hr_score=71.6,
+    target_tier="Sr Specialist",     # IC / Sr / Manager / AD / Director
+    fit_label="MEETS",                # from job_fit_scorer
+    hard_reqs_missed=0,
+    referral_source="alumni",         # cold / alumni / recruiter / network / referral
 )
 
-# Update status manually
+# Record an outcome — auto-computes Days To Response
+mark_response(
+    company="Company Name",
+    job_title="Job Title",
+    response_date="2026-06-01",
+    rejection_reason="screen_reject",
+    interview_stages_reached=1,
+    status="Rejected after phone screen",
+)
+
+# See pipeline conversion by tier / fit / referral source
+pipeline_summary()
+
+# Manual status update (legacy)
 update_application_status("Company Name", "Job Title", "Interview Scheduled")
 
 # Rebuild tracker from applications folder

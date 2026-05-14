@@ -53,7 +53,7 @@ description: "70 engineering - powerful skills — advanced agent-native skill a
 
     Tier: POWERFUL
 
--   **[Chaos Engineering](chaos-engineering.md)** + 1 sub-skills
+-   **[Chaos Engineering](chaos-engineering.md)**
 
     ---
 
@@ -107,7 +107,7 @@ description: "70 engineering - powerful skills — advanced agent-native skill a
 
     Tier: POWERFUL
 
--   **[Feature Flags Architect](feature-flags-architect.md)** + 1 sub-skills
+-   **[Feature Flags Architect](feature-flags-architect.md)**
 
     ---
 
@@ -137,7 +137,7 @@ description: "70 engineering - powerful skills — advanced agent-native skill a
 
     Comprehensive interview loop planning and calibration support for role-based hiring systems.
 
--   **[Kubernetes Operator](kubernetes-operator.md)** + 1 sub-skills
+-   **[Kubernetes Operator](kubernetes-operator.md)**
 
     ---
 
@@ -227,7 +227,7 @@ description: "70 engineering - powerful skills — advanced agent-native skill a
 
     ---
 
--   **[SLO Architect](slo-architect.md)** + 1 sub-skills
+-   **[SLO Architect](slo-architect.md)**
 
     ---
 

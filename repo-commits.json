@@ -567,6 +567,24 @@
   ],
   "ClickHouse--agent-skills": [
     {
+      "sha": "98d99da",
+      "message": "Promote clickhouse-js-node-troubleshooting to top-level skill (#29)",
+      "date": "2026-05-13",
+      "author": "Copilot"
+    },
+    {
+      "sha": "5c14604",
+      "message": "docs(best-practices): mention lightweight UPDATE in avoid-update rule (#27)",
+      "date": "2026-05-13",
+      "author": "Alasdair Brown"
+    },
+    {
+      "sha": "beb8720",
+      "message": "use the exact team name instead of a super team (#30)",
+      "date": "2026-05-13",
+      "author": "Peter Leonov"
+    },
+    {
       "sha": "c7f9095",
       "message": "Add JS client Node.js troubleshooting skill (#25)",
       "date": "2026-05-05",
@@ -607,24 +625,6 @@
       "message": "clickhousectl cloud deploy: OAuth is now read-only, API key needed for mutations (#21)",
       "date": "2026-04-09",
       "author": "Alasdair Brown"
-    },
-    {
-      "sha": "8d8f816",
-      "message": "feat: add clickhousectl local-dev and cloud-deploy agent skills (#16)",
-      "date": "2026-04-08",
-      "author": "Alasdair Brown"
-    },
-    {
-      "sha": "63631d2",
-      "message": "Update README installation instructions via clickhousectl (#17)",
-      "date": "2026-04-08",
-      "author": "Alasdair Brown"
-    },
-    {
-      "sha": "63c48e8",
-      "message": "Add Claude Code plugin structure for marketplace distribution (#18)",
-      "date": "2026-04-01",
-      "author": "Bryan Thompson"
     }
   ],
   "Digidai--product-manager-skills": [
@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "6df3f96",
+      "message": "fix(ce-brainstorm): scoping synthesis and Q&A interaction cleanup (#829)",
+      "date": "2026-05-14",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "b07aac5",
       "message": "chore: release main (#817)",
       "date": "2026-05-11",
@@ -741,12 +747,6 @@
     {
       "sha": "62279b0",
       "message": "refactor(skills): extract conditional content to references (#804)",
-      "date": "2026-05-08",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "81710ef",
-      "message": "fix(ce-sessions): unblock session-history on Claude Code (#800)",
       "date": "2026-05-08",
       "author": "Trevin Chow"
     }
@@ -853,6 +853,12 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "299c4b6",
+      "message": "docs(#106): Phase 1+2 \u2014 scaffold + PRISMA-trAIce/ICMJE cells (32/64) (#107)",
+      "date": "2026-05-14",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "153203d",
       "message": "revert: remove personal boundary defenses from public repo (#101)",
       "date": "2026-05-12",
@@ -903,12 +909,6 @@
     {
       "sha": "21ca319",
       "message": "docs: generalize local maintainer paths",
-      "date": "2026-05-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "8988ca4",
-      "message": "docs: link to ars-codex sibling distribution (now public)",
       "date": "2026-05-11",
       "author": "Edward Cheng-I Wu"
     }
@@ -2019,6 +2019,42 @@
   ],
   "coreyhaines31--marketingskills": [
     {
+      "sha": "bd8eb1a",
+      "message": "Merge pull request #297 from coreyhaines31/development",
+      "date": "2026-05-14",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "bf173b7",
+      "message": "Merge pull request #299 from coreyhaines31/chore/establish-merge-ancestry",
+      "date": "2026-05-14",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "0e2ef13",
+      "message": "merge main into development to establish ancestry for v2.0 release",
+      "date": "2026-05-14",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "76f18f0",
+      "message": "chore: sync skills with marketplace.json and README (#298)",
+      "date": "2026-05-14",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "30f9b9a",
+      "message": "feat: v2.0 skill renames and CRO consolidation (#291)",
+      "date": "2026-05-14",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "f3990f7",
+      "message": "feat: expand directory-submissions with 185+ dofollow backlink directories (#276)",
+      "date": "2026-05-13",
+      "author": "Corey Haines"
+    },
+    {
       "sha": "906c2fb",
       "message": "chore: sync skills with marketplace.json and README",
       "date": "2026-05-06",
@@ -2039,42 +2075,6 @@
     {
       "sha": "1bcff9f",
       "message": "fix: remove re-introduced skills array from marketplace.json, bump plugin to v1.9.0",
-      "date": "2026-04-24",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "e0829df",
-      "message": "fix: remove flagged phishing URL from directory-submissions (#264)",
-      "date": "2026-04-24",
-      "author": "Pierson Marks"
-    },
-    {
-      "sha": "b70440f",
-      "message": "chore: sync skills with marketplace.json and README",
-      "date": "2026-04-24",
-      "author": "coreyhaines31"
-    },
-    {
-      "sha": "fd99bb8",
-      "message": "Merge branch 'development'",
-      "date": "2026-04-24",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "b831842",
-      "message": "release: v1.9.0 \u2014 image skill, video skill, plugin fix",
-      "date": "2026-04-24",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "07db354",
-      "message": "feat: add image skill for AI image generation and marketing visuals (#259)",
-      "date": "2026-04-24",
-      "author": "Corey Haines"
-    },
-    {
-      "sha": "6413670",
-      "message": "feat: add video skill for AI video production (#258)",
       "date": "2026-04-24",
       "author": "Corey Haines"
     }
@@ -2391,6 +2391,42 @@
   ],
   "jananthan30--Resume-Builder": [
     {
+      "sha": "8140819",
+      "message": "Sprint 5: strategic tracker columns + mark_response() + pipeline_summary()",
+      "date": "2026-05-13",
+      "author": "jananthan paramsothy"
+    },
+    {
+      "sha": "d9c5964",
+      "message": "Sprint 4: enforce required-tool and required-cert knockouts in Job Fit gate",
+      "date": "2026-05-13",
+      "author": "jananthan paramsothy"
+    },
+    {
+      "sha": "4a14e28",
+      "message": "Sprint 3: evidence audit, must-trace rule, and validated_tools whitelist",
+      "date": "2026-05-13",
+      "author": "jananthan paramsothy"
+    },
+    {
+      "sha": "fa8e88a",
+      "message": "Sprint 2.1: rewrite HR Skills extraction + matching to remove junk false positives",
+      "date": "2026-05-13",
+      "author": "jananthan paramsothy"
+    },
+    {
+      "sha": "a34014c",
+      "message": "Sprint 1: trust the scorer \u2014 boilerplate stripping, DOCX parity, .md/.docx parser normalization",
+      "date": "2026-05-13",
+      "author": "jananthan paramsothy"
+    },
+    {
+      "sha": "21a41fc",
+      "message": "Add Codex plugin support \u2014 marketplace, MCP scorer config, AGENTS.md, and Codex-compatible slash commands",
+      "date": "2026-05-13",
+      "author": "jananthan paramsothy"
+    },
+    {
       "sha": "5df7636",
       "message": "Scrub all PII from public repo \u2014 remove personal names, emails, phone, addresses",
       "date": "2026-03-26",
@@ -2411,42 +2447,6 @@
     {
       "sha": "7cea7c9",
       "message": "Fix LLM rewrite: forbid markdown output + strip asterisks post-process",
-      "date": "2026-03-02",
-      "author": "jananthan30"
-    },
-    {
-      "sha": "4ab7a0d",
-      "message": "Improve jd_fetcher: strip tracking params, add Adzuna selectors, better headers",
-      "date": "2026-03-02",
-      "author": "jananthan30"
-    },
-    {
-      "sha": "9d9e742",
-      "message": "Fix /jobs/fetch-jd: wrap import + fetch in try/except for better error messages",
-      "date": "2026-03-02",
-      "author": "jananthan30"
-    },
-    {
-      "sha": "9e69f95",
-      "message": "Add JD scraper: trafilatura + Claude Haiku via POST /jobs/fetch-jd",
-      "date": "2026-03-02",
-      "author": "jananthan30"
-    },
-    {
-      "sha": "9223ff1",
-      "message": "Fix: include description in job discovery response for JD prefill",
-      "date": "2026-03-02",
-      "author": "jananthan30"
-    },
-    {
-      "sha": "e531b91",
-      "message": "Add per-user resume storage: upload once, auto-fill everywhere",
-      "date": "2026-03-02",
-      "author": "jananthan30"
-    },
-    {
-      "sha": "4732873",
-      "message": "Fix: remove safety threshold from keyword role filter",
       "date": "2026-03-02",
       "author": "jananthan30"
     }
@@ -3721,6 +3721,12 @@
   ],
   "supabase--agent-skills": [
     {
+      "sha": "daaed4a",
+      "message": "chore(main): release 0.1.2 (#78)",
+      "date": "2026-05-13",
+      "author": "supabase-agent-skills-releaser[bot]"
+    },
+    {
       "sha": "3e77715",
       "message": "feat: build index.json for .well-known/agent-skills in release pipeline (#77)",
       "date": "2026-05-11",
@@ -3773,12 +3779,6 @@
       "message": "docs: replace mise references with pnpm commands (#67)",
       "date": "2026-04-15",
       "author": "Pedro Rodrigues"
-    },
-    {
-      "sha": "42ffdee",
-      "message": "fix: test in temp dir to prevent repo pollution (#65)",
-      "date": "2026-04-15",
-      "author": "Greg Richardson"
     }
   ],
   "tinybirdco--tinybird-agent-skills": [
@@ -4535,6 +4535,12 @@
   ],
   "yusufkaraaslan--Skill_Seekers": [
     {
+      "sha": "7e1b6d4",
+      "message": "fix(html): auto-detect HTML directories and honor --html-path override (#382)",
+      "date": "2026-05-13",
+      "author": "yusyus"
+    },
+    {
       "sha": "4cd5140",
       "message": "Merge branch 'development' into main",
       "date": "2026-05-03",
@@ -4587,15 +4593,21 @@
       "message": "fix: insert markdown image refs for extracted_images in PDF output (#369)",
       "date": "2026-05-02",
       "author": "Octopus"
-    },
-    {
-      "sha": "7409f25",
-      "message": "fix(unified): emit C3.x output for local sources (#363) (#372)",
-      "date": "2026-04-29",
-      "author": "yusyus"
     }
   ],
   "mukul975--Anthropic-Cybersecurity-Skills": [
+    {
+      "sha": "0f429d0",
+      "message": "Update README.md",
+      "date": "2026-05-13",
+      "author": "Mahipal"
+    },
+    {
+      "sha": "15b6371",
+      "message": "Update README.md",
+      "date": "2026-05-13",
+      "author": "Mahipal"
+    },
     {
       "sha": "77d5d9d",
       "message": "chore: auto-update index.json",
@@ -4642,18 +4654,6 @@
       "sha": "91a087a",
       "message": "Update star.yml",
       "date": "2026-04-15",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "7807579",
-      "message": "Create star.yml",
-      "date": "2026-04-15",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "9e8a8cd",
-      "message": "Add Hermes Agent badge to README",
-      "date": "2026-04-14",
       "author": "Mahipal"
     }
   ],
@@ -4859,63 +4859,63 @@
   ],
   "alirezarezvani--claude-skills": [
     {
-      "sha": "8d3c578",
-      "message": "Merge pull request #614 from alirezarezvani/dev",
-      "date": "2026-05-11",
+      "sha": "f776236",
+      "message": "Merge pull request #645 from alirezarezvani/dev",
+      "date": "2026-05-13",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "8a45377",
-      "message": "Merge pull request #613 from alirezarezvani/claude/address-open-issues-Zpeqd",
-      "date": "2026-05-11",
+      "sha": "db613f7",
+      "message": "Merge pull request #644 from alirezarezvani/feature/release-v2.6.0",
+      "date": "2026-05-13",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "5c6410e",
-      "message": "docs(threat-detection): add AV false-positive banner to hunt-playbooks",
-      "date": "2026-05-11",
+      "sha": "cc8ff7c",
+      "message": "docs(v2.6.0): add Pocock skills/agents to docs site + refresh stale counts",
+      "date": "2026-05-13",
       "author": "Claude"
     },
     {
-      "sha": "b698425",
-      "message": "fix(self-improving-agent): forbid reserved 'claude'/'anthropic' fragments in generated names",
-      "date": "2026-05-11",
+      "sha": "6b0e4d4",
+      "message": "release(v2.6.0): Matt Pocock productivity skills \u2014 write-a-skill + caveman + grill-me + handoff",
+      "date": "2026-05-13",
       "author": "Claude"
     },
     {
-      "sha": "1f910cd",
-      "message": "fix(marketing): remove dead reference links across CRO + SEO skills",
-      "date": "2026-05-11",
-      "author": "Claude"
-    },
-    {
-      "sha": "93ea5e2",
-      "message": "docs(.github): remove case-colliding lowercase PR template",
-      "date": "2026-05-11",
-      "author": "Claude"
-    },
-    {
-      "sha": "563b5ef",
-      "message": "Merge pull request #611 from alirezarezvani/dev",
-      "date": "2026-05-11",
+      "sha": "0926abd",
+      "message": "Merge pull request #643 from alirezarezvani/feature/pocock-productivity-batch",
+      "date": "2026-05-13",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "0a0ab40",
-      "message": "Merge pull request #610 from alirezarezvani/claude/release-v2.4.5",
-      "date": "2026-05-11",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "a417df7",
-      "message": "chore(release): v2.4.5 \u2014 close out unreleased work + count reconciliation",
-      "date": "2026-05-11",
+      "sha": "5ac2a8e",
+      "message": "fix(productivity): add H1 heading to caveman/grill-me/handoff SKILL.md",
+      "date": "2026-05-13",
       "author": "Claude"
     },
     {
-      "sha": "dd0c3bd",
-      "message": "Merge pull request #609 from alirezarezvani/claude/correct-counts-pass-2",
-      "date": "2026-05-11",
+      "sha": "6b2c2c3",
+      "message": "feat(productivity): derive caveman + grill-me + handoff from Matt Pocock (MIT)",
+      "date": "2026-05-13",
+      "author": "Claude"
+    },
+    {
+      "sha": "6e7951d",
+      "message": "Merge pull request #642 from alirezarezvani/feature/pocock-write-a-skill",
+      "date": "2026-05-13",
+      "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "a31dad3",
+      "message": "feat(write-a-skill): derive from Matt Pocock (MIT) + add validation wrapper",
+      "date": "2026-05-13",
+      "author": "Claude"
+    },
+    {
+      "sha": "a704bda",
+      "message": "Merge pull request #641 from alirezarezvani/feature/compliance-os-phase-3",
+      "date": "2026-05-13",
       "author": "Alireza Rezvani"
     }
   ],
@@ -5231,6 +5231,24 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "0442340",
+      "message": "feat(pdf-creator): bundle cjk-auto theme to survive skill upgrades (v1.6.0)",
+      "date": "2026-05-13",
+      "author": "daymade"
+    },
+    {
+      "sha": "36638df",
+      "message": "feat(feishu-doc-scraper): SSR fallback + per-doc image naming + known-failure records",
+      "date": "2026-05-13",
+      "author": "daymade"
+    },
+    {
+      "sha": "1561772",
+      "message": "feat(pdf-creator): lock in CJK table contract with regression tests (v1.5.0)",
+      "date": "2026-05-13",
+      "author": "daymade"
+    },
+    {
       "sha": "2e02802",
       "message": "feat(gangtise-copilot): default to minimal preset, alias workshop to minimal",
       "date": "2026-05-11",
@@ -5270,24 +5288,6 @@
       "sha": "41d979a",
       "message": "refactor(marketplace): align plugin source/skills with official pattern",
       "date": "2026-05-09",
-      "author": "daymade"
-    },
-    {
-      "sha": "3f3aeed",
-      "message": "fix(marketplace): remove skills: [\"./\"] from 13 plugins (#64)",
-      "date": "2026-05-09",
-      "author": "daymade"
-    },
-    {
-      "sha": "99c76a7",
-      "message": "feat(pdf-creator): batch theme support + mobile theme + anti-pattern docs",
-      "date": "2026-05-09",
-      "author": "daymade"
-    },
-    {
-      "sha": "b03fda8",
-      "message": "restructure: move skill-creator, skill-reviewer, skills-search into daymade-skill suite",
-      "date": "2026-05-07",
       "author": "daymade"
     }
   ],
@@ -5355,64 +5355,64 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "0e169fe",
-      "message": "fix: harden GateGuard destructive bash tokenizer",
-      "date": "2026-05-13",
-      "author": "SeungHyun"
+      "sha": "4423f10",
+      "message": "docs: sync ECC Tools hosted output scoring (#1891)",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
     },
     {
-      "sha": "b2506f8",
-      "message": "docs: sync AgentShield evidence-pack roadmap (#1854)",
+      "sha": "3b12fb2",
+      "message": "docs: sync ECC Tools hosted promotion readiness (#1890)",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
+    },
+    {
+      "sha": "4fb80d8",
+      "message": "Sync ECC Tools status-aware depth plan roadmap (#1887)",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
+    },
+    {
+      "sha": "a27831c",
+      "message": "Sync ECC Tools hosted status roadmap (#1886)",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
+    },
+    {
+      "sha": "b24d762",
+      "message": "Sync ECC Tools hosted result history roadmap (#1885)",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
+    },
+    {
+      "sha": "f94478e",
+      "message": "docs: sync roadmap after ECC-Tools hosted dispatch",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
+    },
+    {
+      "sha": "6cdac19",
+      "message": "docs: sync roadmap after ECC-Tools depth-plan check",
+      "date": "2026-05-14",
+      "author": "Affaan Mustafa"
+    },
+    {
+      "sha": "af3a206",
+      "message": "docs: sync roadmap after ECC-Tools team backlog job (#1880)",
       "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "f6e13ab",
-      "message": "docs: record post-hardening rc1 release evidence (#1852)",
+      "sha": "20f00c1",
+      "message": "docs: sync roadmap after ECC-Tools AI cost job (#1878)",
       "date": "2026-05-13",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "209abd4",
-      "message": "ci: disable checkout credential persistence in privileged workflows (#1851)",
+      "sha": "e7a6f13",
+      "message": "docs: sync roadmap after ECC-Tools reference-set job (#1877)",
       "date": "2026-05-13",
       "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "2486732",
-      "message": "harden: remove shell access from read-only analyzers (#1850)",
-      "date": "2026-05-13",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "63f9bfc",
-      "message": "docs: gate ECC progress sync readiness",
-      "date": "2026-05-13",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "cbecf56",
-      "message": "docs: add supply-chain incident response playbook",
-      "date": "2026-05-13",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "da04a6e",
-      "message": "docs: refresh rc1 release readiness evidence",
-      "date": "2026-05-13",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "797f283",
-      "message": "ci: require npm audit signature checks",
-      "date": "2026-05-13",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "766f4ee",
-      "message": "feat: add GitHub Copilot prompt support",
-      "date": "2026-05-13",
-      "author": "Girish Kanjiyani"
     }
   ],
   "glebis--claude-skills": [
@@ -5479,6 +5479,24 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "f8468e8",
+      "message": "chore(readme): bump badge to Claude Code v2.1.140 (May 13, 2026 9:40 PM PKT)",
+      "date": "2026-05-13",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "ad6598d",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-13",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "d97d8bd",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-13",
+      "author": "Shayan Rais"
+    },
+    {
       "sha": "e3f48af",
       "message": "chore(skill-collections): append 2026-05-13 entry for alirezarezvani/claude-skills add",
       "date": "2026-05-12",
@@ -5517,24 +5535,6 @@
     {
       "sha": "18eb648",
       "message": "docs(implementation): add Meta Alchemist /goal Codex tweet screenshot asset",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "c887528",
-      "message": "docs(implementation): add Alex Finn /goal tweet screenshot asset",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "98b4097",
-      "message": "chore(cross-model-workflows): seed changelog for new section",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "45b9682",
-      "message": "docs(readme): add CROSS-MODEL WORKFLOWS section with 4 repos (10k+ stars)",
       "date": "2026-05-12",
       "author": "Shayan Rais"
     }
