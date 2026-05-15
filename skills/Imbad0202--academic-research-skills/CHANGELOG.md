@@ -4,6 +4,164 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### #115 — Semantic Scholar client maturity: throttle + outage latch (2026-05-15)
+
+**Parent issue:** [#115](https://github.com/Imbad0202/academic-research-skills/issues/115) — follow-up to #105 PR codex round-5 [P2]×2 findings (R5-2 throttle + R5-3 outage latch). Both deferred during #105 ship per architectural-inflection discipline; this entry closes the SS-client maturity gap.
+
+**Modified files:**
+
+- `scripts/semantic_scholar_client.py` — two additions:
+  - **Throttle** (#115 R5-2): new ctor params `clock` + `min_interval_seconds`. Defaults: 1.0s unauthenticated (1 req/s per protocol), auto-drops to 0.1s when `S2_API_KEY` detected (authenticated 10 req/s tier). Pre-request pacing tracks `_last_request_at`; sleeps `max(0, min_interval - elapsed)` before each call. First request passes through.
+  - **Outage latch** (#115 R5-3): `_latched_unavailable` flag set on `URLError`. Subsequent `lookup()` calls short-circuit with `SemanticScholarUnavailable` without invoking urlopen. New `reset_outage_latch()` method lets long-running tools retry between passport batches. HTTP 5xx does NOT latch (server-side error ≠ transport outage).
+- `scripts/test_semantic_scholar_client.py` — 9 new tests (5 throttle: first-no-sleep / back-to-back / past-interval / authenticated-tier / override; 3 latch: URLError short-circuits / reset restores / 5xx does not latch; 1 efficiency: 429-retry refreshes throttle anchor).
+- `scripts/contamination_signals.py` — new `reset_client_outage_latch(client)` helper. Production clients implementing the outage-latch pattern expose `reset_outage_latch()`; mocks may not. Helper invokes when present, no-ops when absent — avoids AttributeError when callers swap clients. 2 new tests.
+- `scripts/migrate_literature_corpus_to_v3_7_3.py` — `migrate_directory` resets the SS client's outage latch between passports so a transient network blip on one passport doesn't permanently disable lookups for the rest of the directory. Within a single passport the latch still short-circuits to protect a dead service from N retry waves.
+
+**Production behavior change:**
+
+- `_build_default_ss_client()` API unchanged (`SemanticScholarClient()` no-arg). New throttle is automatic per protocol — no migration tool changes required.
+- For a 5000-entry unauthenticated migration: same ~1.5hr runtime (already constrained by 1 req/s); now achieves it via deterministic pacing rather than 429-retry exhaustion.
+- For an authenticated migration (`S2_API_KEY` set): drops to 0.1s/call = ~8min for 5000 entries.
+- Network outage during large corpus: previously retried every entry independently (up to 30s timeout per entry on the slow path); now the first URLError latches the client and subsequent entries short-circuit until the next batch boundary calls `reset_outage_latch()`. The `migrate_directory` helper does this reset automatically between passports.
+
+**Out of scope:** migration tool (`migrate_literature_corpus_to_v3_7_3.py`) — #105 partial-fill / provenance contract correct as shipped. Protocol doc — already correct; this issue is implementation alignment.
+
+**Regression:** 472 unittest (+8 #115 tests) + 201 pytest adapters + spec_consistency + preprint_venues all green.
+
+### #105 — v3.7.3 contamination_signals backfill migration tool (2026-05-15)
+
+**Parent issue:** [#105](https://github.com/Imbad0202/academic-research-skills/issues/105). Spec anchor: v3.7.3 §3.2 R-L3-2-B (the deferred batch operation; bibliography_agent computes signals at ingest, this tool delivers post-hoc backfill on legacy corpora). Design: `docs/design/2026-05-15-issue-105-contamination-signals-backfill-design.md`.
+
+**New files:**
+
+- `scripts/contamination_signals.py` — two pure-function resolvers + emission rules + `SemanticScholarClient` protocol. `compute_preprint_signal()` (Signal 1, deterministic year+venue check against 10-server closed list). `compute_ss_unmatched_signal()` (Signal 2, dependency-injected SS client, returns `None` on manual exemption + API degradation per spec).
+- `scripts/migrate_literature_corpus_to_v3_7_3.py` — CLI tool: `[--dry-run] [--verbose] <passport_or_dir>`. Uses `ruamel.yaml` round-trip to preserve comments + key order + quoting style. Reports `processed / patched / skipped_already_migrated / skipped_insufficient_data` counts. Idempotent.
+- `scripts/test_contamination_signals.py` — 25 unit tests covering Signal 1 (15 cases: 10 preprint venues × year boundary, non-preprint venue, missing year, missing venue), Signal 2 (6 cases: manual exemption / match / no-match / API degradation × 2 paths / unexpected exception), emission rules (4 cases).
+- `scripts/test_migrate_literature_corpus_to_v3_7_3.py` — 9 unittest cases covering dry-run, full migration per emission rules, idempotency, insufficient-data skip, empty-corpus passport, directory scan (non-recursive), comment preservation.
+- `docs/migration/v3.7.3-contamination-signals-backfill.md` — user-facing migration guide (when to run, dry-run workflow, idempotency, SS API rate-limit considerations, what's out of scope).
+
+**Modified files:**
+
+- `shared/contracts/passport/literature_corpus_entry.schema.json` — purely additive: new optional `contamination_signals_backfilled_at` field (ISO-8601 date-time string). Existing v3.7.3 ingest-time entries (which lack this field) remain valid; pre-v3.7.3 entries (which lack both this field and `contamination_signals`) remain valid.
+- `scripts/adapters/tests/test_literature_corpus_entry_schema.py` — 3 new tests for the additive field (valid present / absent / non-string rejected).
+- `requirements-dev.txt` — add `ruamel.yaml>=0.17`.
+
+**Open-question resolutions (user-chosen 2026-05-15):**
+
+- Q1 API rate-limit handling: backoff-only via existing SS protocol (429 → 2s × 3); no resumable checkpoint (YAGNI per minimal scope)
+- Q2 schema field naming: scalar `contamination_signals_backfilled_at` ISO-8601 timestamp; strictly additive upgrade path if v3.7.4 needs structured provenance
+- Q3 multi-passport batch mode: directory-scan only; no `--input-list` (YAGNI)
+- Q4 YAML library: `ruamel.yaml` round-trip to preserve user-owned passport formatting (memory `feedback_toml_duplicate_table_corruption` spirit)
+
+**Spec discipline (per v3.7.3 R-L3-2-B):**
+
+- Migration is offline + opt-in: user explicitly invokes; pipeline doesn't auto-trigger
+- Idempotency keyed on `contamination_signals` presence: first-migration timestamp preserved across re-runs
+- `obtained_via=manual` exemption preserved at migration time (semantic_scholar_unmatched field omitted, matches the v3.7.3 schema cross-field rule)
+- API degradation → field omitted (NOT set to False, per "absence ≠ negative confirmation" rule)
+
+**Files explicitly NOT touched:**
+
+- `deep-research/agents/bibliography_agent.md` — v3.7.3 ingest-time computation frozen
+- `academic-pipeline/agents/pipeline_orchestrator_agent.md` — finalizer behavior unchanged
+- Existing `scripts/adapters/*` — adapters produce ingest-time entries; migration is downstream
+
+**Regression status:** 1053 #108 baseline + 17 #111 baseline + 25 resolver + 9 migration + 3 schema = 1107 total. All green. No regression on the existing 4 `allOf` cross-field invariants (manual exemption + preprint year=2024 boundary verified by adapter pytest).
+
+### #104 — README motivation: add Zhao et al. corpus-scale evidence anchor (2026-05-15)
+
+**Parent issue:** [#104](https://github.com/Imbad0202/academic-research-skills/issues/104). Doc-only — no code changes.
+
+Adds a third evidence anchor to the `### Why human-in-the-loop, not full automation?` README section, between the ARS positioning paragraph and the PaperOrchestra paragraph. Closes the gap where v3.7.x trust-and-locator machinery appeared in the codebase without its corpus-scale motivation surfaced in the public-facing README.
+
+**Modified files:**
+
+- `README.md` — new Zhao et al. paragraph
+- `README.zh-TW.md` — translated equivalent
+
+**Three motivation anchors now read in sequence:**
+
+- Lu et al. (Nature 651:914-919) — case-study evidence of autonomous-pipeline failure modes
+- Zhao et al. (arXiv:2605.07723) — corpus-scale evidence of the citation-faithfulness problem (111M references / 2.5M papers / 146,932 conservative 2025 estimate / mid-2024 inflection / 85.3% bioRxiv-to-PMC persistence)
+- PaperOrchestra (Song et al., arXiv:2604.05018) — method-level technique source
+
+**Discipline (#104 acceptance criteria):**
+
+- Statistics verified directly against Zhao et al. abstract (111M / 2.5M / 146,932 / conservative qualifier) + v3.7.3 spec which carries the body-level numbers (85.3% bioRxiv→PMC specificity, mid-2024 inflection) through prior 10-round codex + gemini cross-model review.
+- No claims that v3.7.x "closes" L3 — only "adds locator infrastructure" / "advisory risk signals".
+- L3 attributed to ARS terminology, not the paper's.
+- "Motivated by" not "responds to".
+
+### #111 — slr_lineage emission on systematic-review → academic-paper full handoff (2026-05-15, unreleased)
+
+**Parent issue:** [#111](https://github.com/Imbad0202/academic-research-skills/issues/111), follow-up to #108 (PR #110, merged 70c8678) round-8 P2 #1. Design: `docs/design/2026-05-15-issue-111-slr-lineage-emission-design.md`.
+
+> Version label `v3.7.4` below is provisional and will be confirmed at the next release sweep per `feedback_version_bump_sweep_checklist.md`. If this work ships as part of v3.7.3 (the in-progress release at writing time), the version stamps in this entry and the prose files below are swept to the final label at release tag.
+
+Closes the pipeline-plumbing gap surfaced by #108: `disclosure --policy-anchor=prisma-trAIce` now dispatches automatically when the documented `deep-research systematic-review → academic-paper full → disclosure` path runs, without the user manually supplying `mode=systematic-review` at cold-start.
+
+**New files added:**
+
+- `scripts/slr_lineage.py` — two pure functions: (a) `resolve_from_stages(stages)` returns `True` iff any stage was produced by `deep-research` in systematic-review mode (bound to the deep-research producer specifically — a non-deep-research stage carrying mode='systematic-review' does NOT trigger SLR lineage); (b) `emit(stages, incoming_slr_lineage)` is the monotonic-OR wrapper the orchestrator calls at every handoff. The OR preserves any signal already persisted on the incoming passport (load-bearing for `resume_from_passport=<hash>` sessions whose `state_tracker.stages` is empty — codex round-1 [P2] closure).
+- `scripts/test_slr_lineage_emission.py` — 17 conformance tests: resolver semantics (7 cases: positive / non-SLR / mid-entry / empty / alias `slr` / non-deep-research / missing-mode), renderer integration (3 cases: pipeline-emitted dispatches without `mode_param` / non-SLR still blocks / pre-#111 cold-start fallback preserved), end-to-end pipeline handoff (2 cases), and monotonic-OR emit semantics (5 cases: resume preserves true / in-session false-to-true / no-evidence false / None incoming / default arg ergonomics).
+
+**Modified files:**
+
+- `shared/handoff_schemas.md` — Schema 9 Material Passport gains optional top-level `slr_lineage: boolean` row + dedicated "Run-level lineage signal (v3.7.4)" subsection documenting semantics, producer, consumer, backward compat, and G1 boundary note (passport-level vs corpus-entry-level distinction).
+- `academic-pipeline/agents/pipeline_orchestrator_agent.md` — §4 Transition Management gains a "Run-level lineage emission (v3.7.4+)" step computed at every handoff transition before dispatch. Passport carry-line updated to reference `slr_lineage` from v3.7.4+.
+
+**Files explicitly NOT touched (matches #111 §Scope out-of-scope):**
+
+- `scripts/policy_anchor_disclosure_referee.py` — #108 referee, contract unchanged
+- `academic-paper/references/policy_anchor_disclosure_protocol.md` — #108 protocol, unchanged
+- `academic-paper/references/policy_anchor_table.md` — #108 anchor table, unchanged
+- `academic-paper/references/disclosure_mode_protocol.md` — already references `slr_lineage` as pipeline-supplied
+- `shared/contracts/passport/literature_corpus_entry.schema.json` — G1 invariant frozen (corpus entry schema, not passport schema)
+
+**G1 boundary clarification:** Decision Doc §4.4 #11 G1 invariant scope is `literature_corpus_entry.schema.json` (corpus entry data schema). Schema 9 Material Passport top-level extensions follow the v3.6.3 (`reset_boundary[]`) / v3.6.4 (`literature_corpus[]`) / v3.6.7 (`audit_artifact[]`) precedent and are permitted per Decision Doc §4.4 #11's "non-renderer code changes for §4.4 concerns are permitted" provision.
+
+**Backward compat:** passports written by pre-v3.7.4 runs lack the `slr_lineage` field; renderer treats absence as `false` (cold-start path requiring explicit `mode_param='systematic-review'`). Identical to pre-v3.7.4 behavior.
+
+**Regression status:** 1053-baseline frozen (no #108 contract drift); +17 new tests cover this issue's acceptance criteria #1-#3 plus codex round-1 [P2] (monotonic-OR emit across resume).
+
+### #108 — AI disclosure policy-anchor renderer (2026-05-14, audit-trail-shipped)
+
+**Parent docs:** Decision Doc (`docs/design/2026-05-14-ai-disclosure-schema-decision.md`, PR #109, merged commit 20ed72d) + implementation spec (`docs/design/2026-05-14-ai-disclosure-impl-spec.md`).
+
+**Migration note (G1 + G6 invariants):** **no migration required**. Decision Doc §2.1 G1 invariant: no `ai_disclosure` field is added to `shared/contracts/passport/literature_corpus_entry.schema.json`. Decision Doc §3 G6: no deprecation horizon — legacy entries (which by §1 fact-check do not carry any AI-disclosure field today) stay byte-equivalent. The implementation extends the runtime renderer path, not the data schema.
+
+**New files added:**
+
+- `academic-paper/references/policy_anchor_table.md` — 4-anchor (PRISMA-trAIce / ICMJE / Nature / IEEE) × 16-field source-of-truth reference table carrying verbatim policy quotes lifted from discovery doc §4.3-4.6 (PR #107, commit 299c4b6) + per-anchor renderer rules.
+- `academic-paper/references/policy_anchor_disclosure_protocol.md` — LLM-prose runtime protocol for the new `--policy-anchor=<a>` track: 7-section flow covering inputs / G10 7-row precedence table / per-anchor render flows / auto-promotion forbiddance / venue-anchor conflict resolution / three-state completeness flag / 11-concern resolution map.
+- `shared/policy_data/nature_policy.md` — canonical Nature substantive policy source; both the policy-anchor track and the v3.2 venue track cross-reference this path for the G4 dedup invariant.
+- `scripts/check_policy_anchor_table.py` + `scripts/test_check_policy_anchor_table.py` — anchor table structural lint with 13 mutation tests + Nature dedup guard wired into the main lint command.
+- `scripts/check_policy_anchor_protocol.py` + `scripts/test_check_policy_anchor_protocol.py` — protocol doc lint with 12 mutation tests covering §4.3 8 invariants + §4.4 11 concerns + G10 7-row precedence table + auto-promotion forbiddance + anchor inventory closed-enum.
+- `scripts/policy_anchor_disclosure_referee.py` + `scripts/test_policy_anchor_disclosure.py` — executable specification (referee) of §3 G10 7-row decision table + 8 invariant predicates; 61 conformance tests covering every (input × expected output) combination + forbidden-path negative fixtures.
+
+**Modified files:**
+
+- `academic-paper/references/disclosure_mode_protocol.md` — `--policy-anchor=<a>` track added in parallel to v3.2 `--venue=<v>` track. Phase 1 dispatch becomes selector-aware (step 1a / step 1b venue / step 1c anchor). Venue-only flow unchanged; anchor flow delegates Phase 3+4 to `policy_anchor_disclosure_protocol.md`. Concern #7 venue+anchor conflict resolution enforced.
+- `academic-paper/references/venue_disclosure_policies.md` — Nature entry gains derivation note + dedup pointer to `shared/policy_data/nature_policy.md`. v3.2 venue rendering content unchanged (derived view, manual sync to canonical source until future refactor).
+- `.github/workflows/spec-consistency.yml` — 5 new CI steps wiring the new validators and conformance test suite into the existing spec-consistency job.
+
+**§4.4 11 open concerns resolved** (4 user-chosen, 7 inline; full table in impl spec §3):
+1. Track-selection lookup: explicit `slr_lineage` input from pipeline orchestrator (user-chosen).
+2. Tool identity collection: auto-detect from session metadata (mirror v3.2 Phase 4).
+3. Prompt scope: per-(tool × task) tuple per PRISMA M6.a.
+4. IEEE section locator: free-form list with recommended IMRaD exemplars.
+5. Nature image metadata: hybrid output channel (annotation block + suggested inline patches) (user-chosen).
+6. UNCERTAIN per-facet finalization: USED-full + per-facet annotation alongside still-UNCERTAIN (user-chosen).
+7. Venue+anchor conflict: reject conflicting selectors with explicit error.
+8. Three-state completeness flag: full computation logic encoded in §6 of protocol doc.
+9. Test set scope: 86 new tests covering 8 invariants + 10 concerns × {positive, negative}.
+10. `ai_used:true` substantive-content gate: force v3.2 categorization flow (user-chosen).
+11. G1 invariant scope: data layer untouched; non-renderer pipeline plumbing permitted.
+
+**Known follow-up (out of #108 scope):** the academic-pipeline orchestrator does not yet emit `slr_lineage` on the documented `systematic-review → academic-paper full` handoff. Authors targeting `--policy-anchor=prisma-trAIce` must supply `mode=systematic-review` manually until that plumbing lands in a separate PR (touches `academic-pipeline/` + `shared/handoff_schemas.md`, outside §4.1 items 1-5 NO-CHANGE boundary).
+
+**Regression status:** 967 baseline + 86 new tests = 1053 passing / 3 skipped / 0 failed. Public-repo boundary clean. Eight rounds of codex gpt-5.5 xhigh review (R1 4 P2 → R8 2 P2); shipped audit-trail-complete per user decision rather than pushing past Decision Doc 11-round high water mark. R8 P2 #1 captured as the known follow-up above.
+
 ### v3.7.3 — claim faithfulness locator + contaminated-source advisory (2026-05-12, in progress)
 
 **External motivation:** Zhao, Wang, Stuart, De Vaan, Ginsparg, Yin "LLM hallucinations in the wild: Large-scale evidence from non-existent citations" (arXiv:2605.07723, 2026-05). Corpus-scale audit of 111M references across 2.5M papers across arXiv / bioRxiv / SSRN / PMC finds 146,932 hallucinated citations estimated for 2025 alone, with the inflection point at mid-2024, 85.3% of preprint hallucinations surviving into the published record, and Google Scholar increasingly indexing citation-only entries. The paper names the L3 (claim faithfulness) gap explicitly: *"real citations deployed to support claims the cited references do not actually make ... remains an open challenge for which reliable detection methods remain under active development."* v3.7.3 closes the locator-channel half of that gap (anchor infrastructure for future L3 audit) and surfaces two contamination signals (preprint post-LLM-inflection + Semantic Scholar unmatched) as advisory cite-time markers.

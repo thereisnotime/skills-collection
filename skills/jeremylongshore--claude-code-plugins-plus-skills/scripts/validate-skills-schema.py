@@ -82,7 +82,7 @@ except ImportError:
 #                       doesn't affect /-menu visibility); added ${CLAUDE_EFFORT} to
 #                       YAML_VALUE_ALLOWED_VARS.
 # See 000-docs/SCHEMA_CHANGELOG.md.
-SCHEMA_VERSION = '3.3.2'
+SCHEMA_VERSION = '3.6.0'
 
 # Validation tiers
 TIER_STANDARD = 'standard'
@@ -249,6 +249,23 @@ SKILL_FIELDS = {
     'version': {'type': 'string', 'source': 'enterprise', 'tier': 'enterprise'},
     'author': {'type': 'string', 'source': 'enterprise', 'tier': 'enterprise'},
     'tags': {'type': 'array', 'source': 'enterprise', 'tier': 'enterprise'},
+    # === Visibility fields (IS extension, schema 3.5.0) ===
+    # Conditional visibility — let a skill self-declare its env / tool deps
+    # so consumers (the marketplace UI, the Claude Code skill loader) can
+    # hide it when prereqs are absent, and surface fallbacks when a primary
+    # tool isn't available. All optional, all default to empty list, no
+    # behavior change for existing skills.
+    'requires_env': {'type': 'array', 'source': 'enterprise', 'tier': 'standard'},
+    'requires_tools': {'type': 'array', 'source': 'enterprise', 'tier': 'standard'},
+    'fallback_for_env': {'type': 'array', 'source': 'enterprise', 'tier': 'standard'},
+    'fallback_for_tools': {'type': 'array', 'source': 'enterprise', 'tier': 'standard'},
+    # === Self-declared config surface (IS extension, schema 3.6.0) ===
+    # Skills self-describe the secrets and config keys they consume so the
+    # installer / helper can prompt the user on first run instead of letting
+    # them hit a runtime error. Each entry is an object — shape validated in
+    # the frontmatter checks. The companion config keys live nested under
+    # `metadata.intent-solutions.config` (no separate top-level field).
+    'required_environment_variables': {'type': 'array', 'source': 'enterprise', 'tier': 'standard'},
     # === Deprecated alias (kept for backward compat) ===
     # Was an IS-invented field with VALID_PLATFORMS allow-list. Not in any spec.
     # Validator emits deprecation warning + migration suggestion. Still parsed so
@@ -1843,6 +1860,139 @@ def validate_frontmatter(path: Path, fm: dict, tier: str = TIER_STANDARD) -> Tup
         hooks_val = fm['hooks']
         if not isinstance(hooks_val, dict):
             errors.append(f"[frontmatter] 'hooks' must be a mapping, got: {type(hooks_val).__name__}")
+
+    # ── Visibility fields (schema 3.5.0) ─────────────────────────────────
+    # Shape: each must be a list of strings (or absent). Authors may write
+    # block-list, inline-array `[a, b]`, or CSV form — discover-skills.mjs
+    # normalizes those. The validator accepts any of the three at parse-time
+    # and validates the *normalized* representation here.
+    VISIBILITY_FIELDS = ('requires_env', 'requires_tools',
+                         'fallback_for_env', 'fallback_for_tools')
+
+    def _normalize_visibility_list(val):
+        """Accept array / `[a,b]` string / CSV string. Return list[str]."""
+        if val is None:
+            return []
+        if isinstance(val, list):
+            return [str(x).strip().strip('"\'') for x in val if str(x).strip()]
+        if isinstance(val, str):
+            s = val.strip()
+            if s.startswith('[') and s.endswith(']'):
+                s = s[1:-1]
+            return [p.strip().strip('"\'') for p in s.split(',') if p.strip()]
+        return []
+
+    for field in VISIBILITY_FIELDS:
+        if field not in fm:
+            continue
+        val = fm[field]
+        if not isinstance(val, (list, str)):
+            errors.append(
+                f"[frontmatter] '{field}' must be a list of strings or a "
+                f"comma-separated string, got: {type(val).__name__}"
+            )
+
+    # Cross-field rule: same identifier MUST NOT appear in both `requires_*`
+    # and `fallback_for_*` for the same scope. A skill cannot simultaneously
+    # be "required when X is set" AND "the fallback when X is absent" — that's
+    # a contradiction. Validated per scope (env vs tools).
+    for scope in ('env', 'tools'):
+        req = set(_normalize_visibility_list(fm.get(f'requires_{scope}')))
+        fb = set(_normalize_visibility_list(fm.get(f'fallback_for_{scope}')))
+        overlap = req & fb
+        if overlap:
+            errors.append(
+                f"[frontmatter] contradictory visibility rule on "
+                f"requires_{scope} + fallback_for_{scope}: "
+                f"{sorted(overlap)} appears in both. A skill cannot "
+                f"simultaneously require and be the fallback for the same "
+                f"{scope[:-1] if scope.endswith('s') else scope} identifier."
+            )
+
+    # ── Self-declared config surface (schema 3.6.0) ──────────────────────
+    # required_environment_variables — list of objects describing each env
+    # var the skill consumes. Shape:
+    #   - name: ENV_VAR_NAME    (required, string, UPPER_SNAKE_CASE)
+    #     prompt: "..."          (required, string — shown to user on first run)
+    #     help: "..."            (optional, string — extra context)
+    #     required_for: "..."    (optional, string — what the var unlocks)
+    rev = fm.get('required_environment_variables')
+    rev_declared_names = set()
+    if rev is not None:
+        if not isinstance(rev, list):
+            errors.append(
+                f"[frontmatter] 'required_environment_variables' must be a "
+                f"list of objects, got: {type(rev).__name__}"
+            )
+        else:
+            for i, entry in enumerate(rev):
+                if not isinstance(entry, dict):
+                    errors.append(
+                        f"[frontmatter] required_environment_variables[{i}] "
+                        f"must be a mapping with at least 'name' + 'prompt', "
+                        f"got: {type(entry).__name__}"
+                    )
+                    continue
+                if not entry.get('name'):
+                    errors.append(
+                        f"[frontmatter] required_environment_variables[{i}] "
+                        f"missing required key 'name'"
+                    )
+                else:
+                    rev_declared_names.add(str(entry['name']).strip())
+                if not entry.get('prompt'):
+                    errors.append(
+                        f"[frontmatter] required_environment_variables[{i}] "
+                        f"(name={entry.get('name', '?')}) missing required "
+                        f"key 'prompt'"
+                    )
+
+    # Cross-field consistency with `requires_env` (schema 3.5.0). If a skill
+    # declares it needs an env var for visibility, it should also describe
+    # that var in `required_environment_variables` so the installer can
+    # prompt the user. WARN (not error) — the visibility field alone is
+    # still useful even without prompt metadata.
+    req_env = set(_normalize_visibility_list(fm.get('requires_env')))
+    missing_descriptions = req_env - rev_declared_names
+    if missing_descriptions and rev is not None:
+        warnings.append(
+            f"[frontmatter] requires_env declares "
+            f"{sorted(missing_descriptions)} but they have no matching entry "
+            f"in required_environment_variables. Add a prompt/help entry so "
+            f"the installer can guide the user on first run."
+        )
+
+    # metadata.intent-solutions.config — list of per-skill config keys.
+    # Shape: each entry is { key, description, default, prompt? }.
+    md = fm.get('metadata')
+    if isinstance(md, dict):
+        is_ns = md.get('intent-solutions') or md.get('intent_solutions')
+        if isinstance(is_ns, dict):
+            cfg = is_ns.get('config')
+            if cfg is not None:
+                if not isinstance(cfg, list):
+                    errors.append(
+                        f"[frontmatter] 'metadata.intent-solutions.config' "
+                        f"must be a list of objects, got: "
+                        f"{type(cfg).__name__}"
+                    )
+                else:
+                    for i, entry in enumerate(cfg):
+                        if not isinstance(entry, dict):
+                            errors.append(
+                                f"[frontmatter] metadata.intent-solutions."
+                                f"config[{i}] must be a mapping, got: "
+                                f"{type(entry).__name__}"
+                            )
+                            continue
+                        for required in ('key', 'description', 'default'):
+                            if required not in entry:
+                                errors.append(
+                                    f"[frontmatter] metadata.intent-"
+                                    f"solutions.config[{i}] "
+                                    f"(key={entry.get('key', '?')}) missing "
+                                    f"required key '{required}'"
+                                )
 
     # Invalid fields — ERROR. Currently empty (see INVALID_SKILL_FIELDS comment),
     # but kept as an extension point.

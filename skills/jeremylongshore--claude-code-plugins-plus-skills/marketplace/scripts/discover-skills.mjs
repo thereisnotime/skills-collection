@@ -17,7 +17,33 @@ const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, '..', '..');
 const PLUGINS_DIR = join(ROOT_DIR, 'plugins');
 const OUTPUT_FILE = join(ROOT_DIR, 'marketplace', 'src', 'data', 'skills-catalog.json');
+const INDEX_FILE = join(ROOT_DIR, 'marketplace', 'src', 'data', 'skills-index.json');
 const MARKETPLACE_CATALOG = join(ROOT_DIR, '.claude-plugin', 'marketplace.extended.json');
+
+// ── Progressive disclosure level ─────────────────────────────────────────
+// L0 (metadata): name + description + parent + version + slug; no body HTML.
+//   Emitted to skills-index.json — fast load for catalog browsing / trigger
+//   matching. Whole index is ~3-10 KB gzipped at our scale.
+// L1 (full): full catalog including body HTML. Emitted to skills-catalog.json.
+//   Default mode for backward compat with marketplace UI build.
+// L2 (file): runtime-only — single reference file read by client on demand.
+//   Not a build-time concern; CLI errors with guidance.
+const LEVELS = new Set(['metadata', 'full', 'file']);
+let LEVEL = 'full';
+for (const arg of process.argv.slice(2)) {
+  const m = arg.match(/^--level=(.+)$/);
+  if (m) LEVEL = m[1];
+}
+if (!LEVELS.has(LEVEL)) {
+  console.error(`❌ Unknown --level=${LEVEL}. Expected: metadata | full | file`);
+  process.exit(2);
+}
+if (LEVEL === 'file') {
+  console.error('❌ --level=file is a runtime concern (client-side reference-file read).');
+  console.error('   Build step emits L0 (skills-index.json) + L1 (skills-catalog.json).');
+  console.error('   For a single reference file, read it directly from the plugin path.');
+  process.exit(2);
+}
 
 /**
  * Parse YAML frontmatter from markdown content
@@ -44,9 +70,11 @@ function parseFrontmatter(content) {
 
     if (!trimmed) continue;
 
-    // Handle list items (allowed-tools)
+    // Handle list items — generalized in schema 3.5.0 from the allowed-tools-only
+    // special case so that visibility fields (requires_env, requires_tools,
+    // fallback_for_env, fallback_for_tools) and tags can use block-list form.
     if (trimmed.startsWith('-')) {
-      if (currentKey === 'allowed-tools') {
+      if (currentKey) {
         if (!Array.isArray(metadata[currentKey])) {
           metadata[currentKey] = [];
         }
@@ -200,9 +228,57 @@ function findSkillFiles(dir, skillFiles = []) {
 }
 
 /**
- * Process a single SKILL.md file
+ * Normalize a frontmatter list-of-strings field. Accepts three forms:
+ *   1. Real array (from block-list `- item` syntax) — returned as-is.
+ *   2. Inline-array string `[a, b, c]` — bracket-stripped + comma-split.
+ *   3. CSV string `a, b, c` — comma-split.
+ * Each item is trimmed; surrounding quotes are stripped. Empty entries dropped.
+ * Returns [] for missing/empty values.
  */
-function processSkillFile(filePath) {
+function normalizeListField(value) {
+  if (value === undefined || value === null || value === '') return [];
+  if (Array.isArray(value)) return value.map(v => String(v).trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  if (typeof value === 'string') {
+    let s = value.trim();
+    if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
+    return s.split(',').map(p => p.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * Project a full skill record down to its L0 metadata view.
+ * Fields chosen for trigger-match / catalog browse + client-side visibility
+ * filtering — no body, no HTML.
+ */
+function projectL0(skill) {
+  const v = skill.visibility || {};
+  return {
+    slug: skill.slug,
+    name: skill.name,
+    description: skill.description,
+    version: skill.version,
+    category: skill.parentPlugin.category,
+    parentPlugin: skill.parentPlugin.name,
+    // Visibility (schema 3.5.0). Empty arrays preserved so client code can
+    // pattern-match without null-checking; absent fields default to [].
+    requires_env: v.requires_env || [],
+    requires_tools: v.requires_tools || [],
+    fallback_for_env: v.fallback_for_env || [],
+    fallback_for_tools: v.fallback_for_tools || [],
+  };
+}
+
+/**
+ * Process a single SKILL.md file
+ *
+ * @param {string} filePath
+ * @param {{ metadataOnly?: boolean }} [opts]
+ *   metadataOnly skips the mdToHtml body conversion — significant speedup
+ *   on metadata-only builds.
+ */
+function processSkillFile(filePath, opts = {}) {
+  const metadataOnly = opts.metadataOnly === true;
   try {
     const content = readFileSync(filePath, 'utf-8');
     const frontmatter = parseFrontmatter(content);
@@ -212,8 +288,11 @@ function processSkillFile(filePath) {
       return null;
     }
 
-    // Extract markdown content (everything after frontmatter)
-    const contentMatch = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+    // Extract markdown content (everything after frontmatter).
+    // Skipped entirely in metadataOnly mode — mdToHtml is the slow step.
+    const contentMatch = metadataOnly
+      ? null
+      : content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
     const markdownContent = contentMatch ? contentMatch[1].trim() : '';
 
     // Find parent plugin directory (go up until we find .claude-plugin)
@@ -277,16 +356,26 @@ function processSkillFile(filePath) {
       compatibleWith = [];
     }
 
+    // Visibility fields (schema 3.5.0) — normalized to JS arrays from any of
+    // block-list / inline-array / CSV forms. All optional; default [].
+    const visibility = {
+      requires_env: normalizeListField(frontmatter.requires_env),
+      requires_tools: normalizeListField(frontmatter.requires_tools),
+      fallback_for_env: normalizeListField(frontmatter.fallback_for_env),
+      fallback_for_tools: normalizeListField(frontmatter.fallback_for_tools),
+    };
+
     return {
       slug,
       name: frontmatter.name || 'Unnamed Skill',
       description: frontmatter.description || '',
       allowedTools,
       compatibleWith,
+      visibility,
       version: frontmatter.version || '1.0.0',
       author: authorStr,
       license: frontmatter.license || 'MIT',
-      content: mdToHtml(markdownContent),
+      content: metadataOnly ? '' : mdToHtml(markdownContent),
       parentPlugin: {
         name: pluginMetadata.name,
         category: category,
@@ -306,9 +395,13 @@ function processSkillFile(filePath) {
  * Main execution
  */
 function main() {
+  const metadataOnly = LEVEL === 'metadata';
   console.log('🔍 Discovering skills across plugin marketplace...\n');
   console.log(`Plugins directory: ${PLUGINS_DIR}`);
-  console.log(`Output file: ${OUTPUT_FILE}\n`);
+  console.log(`Level:             ${LEVEL}${metadataOnly ? ' (L0 index only — no body HTML)' : ' (L0 index + L1 catalog)'}`);
+  console.log(`Index output:      ${INDEX_FILE}`);
+  if (!metadataOnly) console.log(`Catalog output:    ${OUTPUT_FILE}`);
+  console.log('');
 
   // Load marketplace catalog to get valid plugin names
   let marketplacePluginNames = new Set();
@@ -332,7 +425,7 @@ function main() {
   let failCount = 0;
 
   for (const filePath of skillFiles) {
-    const skill = processSkillFile(filePath);
+    const skill = processSkillFile(filePath, { metadataOnly });
     if (skill) {
       // Only include skills whose parent plugin is in the marketplace
       if (marketplacePluginNames.size === 0 || marketplacePluginNames.has(skill.parentPlugin.name)) {
@@ -389,32 +482,57 @@ function main() {
     console.log('');
   }
 
-  // Generate catalog
-  const catalog = {
-    skills,
+  const generatedAt = new Date().toISOString();
+  const categories = [...new Set(skills.map(s => s.parentPlugin.category))].sort();
+
+  // L0 index — always emitted. ~150 bytes per skill, ~3-10 KB gzipped at our
+  // scale. Schema v3.4.0 contract: clients load this first for trigger match
+  // / catalog browse, then fetch L1 (skills-catalog.json) only on demand.
+  const index = {
+    schemaVersion: '3.6.0',
+    level: 'metadata',
+    skills: skills.map(projectL0),
     count: skills.length,
-    generatedAt: new Date().toISOString(),
-    categories: [...new Set(skills.map(s => s.parentPlugin.category))].sort(),
-    allowedToolsUsed: [...new Set(skills.flatMap(s => s.allowedTools))].sort()
+    generatedAt,
+    categories,
   };
+  writeFileSync(INDEX_FILE, JSON.stringify(index, null, 2));
+  console.log(`✅ L0 index generated:   ${INDEX_FILE}  (${skills.length} skills)`);
 
-  // Write to file
-  writeFileSync(OUTPUT_FILE, JSON.stringify(catalog, null, 2));
+  // L1 catalog — only emitted at level=full. Heavy artifact with body HTML.
+  if (!metadataOnly) {
+    const catalog = {
+      schemaVersion: '3.6.0',
+      level: 'full',
+      skills,
+      count: skills.length,
+      generatedAt,
+      categories,
+      allowedToolsUsed: [...new Set(skills.flatMap(s => s.allowedTools))].sort()
+    };
+    writeFileSync(OUTPUT_FILE, JSON.stringify(catalog, null, 2));
+    console.log(`✅ L1 catalog generated: ${OUTPUT_FILE}  (${skills.length} skills with body HTML)`);
+  } else {
+    console.log(`ℹ️  L1 catalog skipped (level=metadata — re-run without --level to emit it).`);
+  }
 
-  console.log('📊 Skills Catalog Summary:');
-  console.log(`   Total skills: ${catalog.count}`);
-  console.log(`   Categories: ${catalog.categories.length}`);
-  console.log(`   Unique tools: ${catalog.allowedToolsUsed.length}`);
-  console.log(`\n✅ Catalog generated: ${OUTPUT_FILE}`);
+  console.log('');
+  console.log('📊 Skills Summary:');
+  console.log(`   Total skills: ${skills.length}`);
+  console.log(`   Categories: ${categories.length}`);
+  if (!metadataOnly) {
+    const allowedToolsUsed = [...new Set(skills.flatMap(s => s.allowedTools))];
+    console.log(`   Unique tools: ${allowedToolsUsed.length}`);
+  }
 
   // Show sample
   console.log('\n📝 First 3 skills:');
-  catalog.skills.slice(0, 3).forEach((skill, i) => {
+  skills.slice(0, 3).forEach((skill, i) => {
     console.log(`\n${i + 1}. ${skill.name}`);
     console.log(`   Slug: ${skill.slug}`);
     console.log(`   Category: ${skill.parentPlugin.category}`);
     console.log(`   Plugin: ${skill.parentPlugin.name}`);
-    console.log(`   Tools: ${skill.allowedTools.join(', ')}`);
+    if (!metadataOnly) console.log(`   Tools: ${skill.allowedTools.join(', ')}`);
   });
 
   process.exit(0);

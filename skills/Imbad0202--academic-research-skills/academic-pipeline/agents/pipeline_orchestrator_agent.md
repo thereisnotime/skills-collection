@@ -437,6 +437,21 @@ The cost is multiplicative: a 10-stage pipeline with cross-model enabled produce
 5. If validation passes -> proceed with transition
 ```
 
+**Run-level lineage emission (v3.7.4+):** the orchestrator computes the passport's `slr_lineage` boolean via a **monotonic OR** before any passport write — this includes both the Stage 1 → Stage 2 handoff transition AND the reset-boundary FULL-checkpoint passport write under `ARS_PASSPORT_RESET=1` (which halts before the next handoff and is therefore the *only* write opportunity for a systematic-review run that will resume in a fresh session). The computation:
+
+```
+slr_lineage_out = bool(incoming_passport.slr_lineage) or any(
+    stage.skill == "deep-research" and stage.mode in {"systematic-review", "slr"}
+    for stage in state_tracker.stages.values()
+)
+```
+
+The OR preserves any lineage signal already persisted on a resumed or mid-entry passport (e.g., a `resume_from_passport=<hash>` session whose `state_tracker.stages` is empty because it was reconstructed from the ledger). A monotonic flag never flips back to `false`: an SLR run resumed in a fresh session keeps `slr_lineage: true` even though the live `stages` dict no longer contains the deep-research stage. Subsequent handoffs (Stage 2 → 2.5 → 3 → 4 → 4.5 → 5) propagate the persisted value unchanged — recomputing yields the same result since no later stage adds deep-research lineage. Mid-entry runs that skip Stage 1 with no incoming passport flag get `false` (no SLR evidence available). This is run-level provenance — distinct from each artifact's `origin_mode` (which records the directly-producing skill's mode). The flag lets the `disclosure` mode renderer dispatch `--policy-anchor=prisma-trAIce` automatically per the §4.3 G2 invariant track gate (`policy_anchor_disclosure_protocol.md` §3.1), without the user manually supplying `mode=systematic-review` at cold-start.
+
+**Reset-boundary interaction (v3.6.3+):** the §"Passport Reset Boundary" emission sequence above invokes this same OR before writing the passport that the boundary entry references. Otherwise `ARS_PASSPORT_RESET=1` on a `systematic-review` run would freeze the passport without `slr_lineage`, and the consuming `resume_from_passport=<hash>` session would see an empty `state_tracker.stages` + a flag-less incoming passport → OR resolves `false` → PRISMA-trAIce dispatch blocks. Note: `slr_lineage` lives at passport top-level and is **not** part of the `reset_boundary[]` ledger entry schema (the ledger schema is closed; the boundary hash covers only ledger entries per `passport_as_reset_boundary.md` §"The reset boundary protocol" step 2). The field is therefore persisted but **not hash-integrity-checked** by the boundary hash — same trust model as `origin_skill` / `version_label` / `verification_status` / other Schema 9 top-level passport fields. The protection v3.7.4 needs is correctness-at-write (the OR), not integrity-after-write.
+
+Reference helper: `scripts/slr_lineage.py` `emit(stages, incoming_slr_lineage)`. Pre-v3.7.4 passports lack the field and the renderer treats absence as `false` (cold-start fallback identical to pre-v3.7.4 behavior). See `shared/handoff_schemas.md` §"Run-level lineage signal (v3.7.4)" for the field contract, and `docs/design/2026-05-15-issue-111-slr-lineage-emission-design.md` for the design.
+
 **Handoff material transfer rules:**
 
 | Transition | Transferred Materials | Schema Reference | Transfer Method |
@@ -450,7 +465,7 @@ The cost is multiplicative: a 10-stage pipeline with cross-model enabled produce
 | Stage 4/4' -> 4.5 | Revised/Re-Revised Draft | Schema 4 (revised) | Pass to integrity_verification_agent (final verification) |
 | Stage 4.5 -> 5 | Final Verified Draft + Final Integrity Report | Schema 4 + Schema 5 (Integrity Report) | Produce MD -> DOCX via Pandoc when available (otherwise instructions) -> ask about LaTeX -> confirm -> PDF |
 
-**All artifacts must carry a Material Passport (Schema 9)** with `origin_skill`, `origin_mode`, `origin_date`, `verification_status`, and `version_label`.
+**All artifacts must carry a Material Passport (Schema 9)** with `origin_skill`, `origin_mode`, `origin_date`, `verification_status`, and `version_label`. From v3.7.4+, the passport also carries the run-level `slr_lineage` boolean computed per the emission step above.
 
 **Style Profile carry-through**: If a Style Profile (Schema 10) was produced during `academic-paper` intake (Step 10), carry it through all stages in the Material Passport. The Style Profile is consumed by `draft_writer_agent` (Stage 2) and optionally by `report_compiler_agent` (Stage 1, if applicable). The Style Profile does not affect integrity verification or review stages.
 
