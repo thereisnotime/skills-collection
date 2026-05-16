@@ -21,6 +21,10 @@ credentials:
 - Follow-on reporting from StepSecurity, Socket, Aikido, and Wiz describes the
   same campaign expanding into packages associated with Mistral AI, UiPath,
   OpenSearch, Guardrails AI, Squawk, and other npm/PyPI packages.
+- Socket's 2026-05-14 `node-ipc` report describes a separate active npm
+  compromise affecting `node-ipc` versions `9.1.6`, `9.2.3`, and `12.0.1`,
+  with historical malicious `node-ipc` versions also blocked by ECC because
+  they carried destructive or unauthorized file-writing behavior.
 - The live IOC set includes persistence through Claude Code
   `.claude/settings.json`, VS Code `.vscode/tasks.json`, and OS-level
   `gh-token-monitor` LaunchAgent/systemd services. Some variants add a
@@ -29,6 +33,18 @@ credentials:
   files such as `.github/workflows/codeql_analysis.yml`, and Python runtime
   payloads such as `transformers.pyz` / `pgmonitor.py`. Remove those
   persistence hooks before rotating a stolen GitHub token.
+- The scanner also watches for late-reporting markers: `router_init.js`
+  SHA-256 prefix/suffix `ab4fcada...8601266c`, `tanstack_runner.js`
+  SHA-256 prefix/suffix `2ec78d55...6be27fc96`,
+  `opensearch_init.js`, `vite_setup.mjs`, campaign salt `svksjrhjkcejg`,
+  Session protocol strings, `claude@users.noreply.github.com` dead-drop
+  commits, `dependabout/` branch names, and `OhNoWhatsGoingOnWithGitHub`.
+- The `node-ipc` sweep watches for `node-ipc.cjs` payload hash
+  `96097e06...d9034144`, tarball hashes for the malicious `9.1.6`, `9.2.3`,
+  and `12.0.1` artifacts, `sh.azurestaticprovider.net`, `bt.node.js`,
+  `37.16.75.69`, DNS exfil labels `xh` / `xd` / `xf` where present in
+  artifacts, `__ntw`, `__ntRun`, `/nt-` temp archives, and archive entries such
+  as `uname.txt`, `envs.txt`, and `fixtures/_paths.txt`.
 - The attack chain combined `pull_request_target`, GitHub Actions cache
   poisoning across a fork/base trust boundary, and OIDC token extraction from a
   GitHub Actions runner.
@@ -41,6 +57,8 @@ Primary references:
 - <https://tanstack.com/blog/npm-supply-chain-compromise-postmortem>
 - <https://github.com/advisories/GHSA-g7cv-rxg3-hmpx>
 - <https://tanstack.com/blog/incident-followup>
+- <https://www.wiz.io/blog/mini-shai-hulud-strikes-again-tanstack-more-npm-packages-compromised>
+- <https://socket.dev/blog/node-ipc-package-compromised>
 - <https://docs.npmjs.com/trusted-publishers/>
 - <https://www.cisa.gov/news-events/alerts/2025/09/23/widespread-supply-chain-compromise-impacting-npm-ecosystem>
 
@@ -55,6 +73,7 @@ node scripts/ci/scan-supply-chain-iocs.js --home
 npm ci --ignore-scripts
 npm audit signatures
 npm audit --audit-level=high
+node scripts/ci/supply-chain-advisory-sources.js --json
 node scripts/ci/validate-workflow-security.js
 node tests/scripts/npm-publish-surface.test.js
 node tests/run-all.js
@@ -62,6 +81,29 @@ node tests/run-all.js
 
 If a search hit appears only in documentation examples, note it in the release
 evidence but do not rotate credentials for a docs-only reference.
+
+## Durable Watch Workflow
+
+ECC also runs `.github/workflows/supply-chain-watch.yml` every six hours and on
+manual dispatch. The workflow is read-only, disables checkout credential
+persistence, installs with `npm ci --ignore-scripts`, verifies npm registry
+signatures, runs the IOC scanner fixtures, runs
+`scripts/ci/supply-chain-advisory-sources.js --refresh --json`, emits
+`supply-chain-ioc-report.json` and `supply-chain-advisory-sources.json`, and
+re-validates GitHub Actions hardening rules.
+
+Treat a failed scheduled watch as a release blocker until an operator confirms
+whether the failure is a newly reported advisory, a stale scanner fixture, a
+registry-signature issue, or a workflow hardening regression. If the scanner
+needs new indicators, update `scripts/ci/scan-supply-chain-iocs.js`, add fixture
+coverage in `tests/ci/scan-supply-chain-iocs.test.js`, refresh this runbook, and
+attach the latest JSON artifact to the release evidence.
+
+The advisory-source artifact is the ITO-57 status payload. It records the
+trusted source registry, live URL refresh warnings, and a Linear-ready summary.
+Refresh source coverage through `npm run security:advisory-sources -- --json`
+before changing IOC coverage, and attach the artifact to the next Linear project
+status update after each significant merge batch.
 
 ## Immediate Response
 
@@ -93,8 +135,10 @@ If ECC or a maintainer machine installed a known-bad package version:
      keys, and local `.npmrc` tokens;
    - any MCP, plugin, or harness credentials available in environment variables
      or user-scope config.
-6. Purge GitHub Actions caches for affected repositories.
-7. Reinstall from a clean environment with `npm ci --ignore-scripts` first.
+6. Purge GitHub Actions dependency caches for affected repositories.
+7. Reinstall from a clean environment with lifecycle scripts disabled first:
+   `npm ci --ignore-scripts`, `pnpm install --ignore-scripts`,
+   `yarn install --mode=skip-build`, or `bun install --ignore-scripts`.
 8. Re-enable lifecycle scripts only after the dependency tree and package
    versions are pinned to known-clean releases.
 
@@ -103,7 +147,9 @@ If ECC or a maintainer machine installed a known-bad package version:
 ECC enforces these rules through `scripts/ci/validate-workflow-security.js`:
 
 - privileged workflows must not checkout untrusted PR refs;
-- workflows with write permissions must use `npm ci --ignore-scripts`;
+- all workflow dependency installs must disable lifecycle scripts;
+- workflows must not restore or save shared GitHub Actions dependency caches
+  during active supply-chain hardening;
 - workflows with `id-token: write` must not restore or save shared dependency
   caches;
 - workflows that run `npm audit` must also run `npm audit signatures`;

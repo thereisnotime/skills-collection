@@ -54,11 +54,6 @@ import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
 import type { AgentWebhookConfig } from '@mendable/firecrawl-js';
-import {
-  createClaudeCommand,
-  createCodexCommand,
-  createOpenCodeCommand,
-} from './commands/experimental';
 import { createCreateCommand } from './commands/create';
 
 // Initialize global configuration from environment variables
@@ -1676,9 +1671,9 @@ program.addCommand(createBrowserCommand(), { hidden: true });
 // visible by removing `{ hidden: true }`.
 program.addCommand(createCreateCommand(), { hidden: true });
 
-// Experimental: download, AI workflow commands
+// Experimental: download command
 const experimental = new Command('experimental')
-  .description('Experimental commands (download, AI workflows)')
+  .description('Experimental commands (download)')
   .alias('x')
   .addHelpText(
     'after',
@@ -1687,9 +1682,6 @@ Shorthand: "firecrawl x" is an alias for "firecrawl experimental".
 `
   );
 experimental.addCommand(createDownloadCommand());
-experimental.addCommand(createClaudeCommand());
-experimental.addCommand(createCodexCommand());
-experimental.addCommand(createOpenCodeCommand());
 program.addCommand(experimental);
 
 program
@@ -1807,8 +1799,10 @@ program
 
 program
   .command('setup')
-  .description('Set up individual firecrawl integrations (skills, mcp)')
-  .argument('<subcommand>', 'What to set up: "skills" or "mcp"')
+  .description(
+    'Set up individual firecrawl integrations (skills, workflows, mcp)'
+  )
+  .argument('<subcommand>', 'What to set up: "skills", "workflows", or "mcp"')
   .option('-g, --global', 'Install globally (user-level)')
   .option('-a, --agent <agent>', 'Install to a specific agent')
   .action(async (subcommand: SetupSubcommand, options) => {

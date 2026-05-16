@@ -15,7 +15,7 @@ describe('handleSetupCommand', () => {
     vi.restoreAllMocks();
   });
 
-  it('installs skills globally across all detected agents from both repos by default', async () => {
+  it('installs core and build skills globally across all detected agents by default', async () => {
     await handleSetupCommand('skills', {});
 
     expect(execSync).toHaveBeenCalledWith(
@@ -28,7 +28,7 @@ describe('handleSetupCommand', () => {
     );
   });
 
-  it('installs skills globally for a specific agent from both repos without using --all', async () => {
+  it('installs core and build skills globally for a specific agent without using --all', async () => {
     await handleSetupCommand('skills', { agent: 'cursor' });
 
     expect(execSync).toHaveBeenCalledWith(
@@ -37,6 +37,15 @@ describe('handleSetupCommand', () => {
     );
     expect(execSync).toHaveBeenCalledWith(
       'npx -y skills add firecrawl/skills --full-depth --global --agent cursor',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('installs workflow skills as a separate setup option', async () => {
+    await handleSetupCommand('workflows', {});
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/firecrawl-workflows --full-depth --global --all',
       expect.objectContaining({ stdio: 'inherit' })
     );
   });

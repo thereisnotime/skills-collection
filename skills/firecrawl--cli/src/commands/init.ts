@@ -9,9 +9,11 @@ import { isAuthenticated, browserLogin, interactiveLogin } from '../utils/auth';
 import { saveCredentials } from '../utils/credentials';
 import { updateConfig, getApiKey } from '../utils/config';
 import {
+  ALL_SKILL_REPOS,
   buildSkillsInstallArgs,
   cleanNpmEnv,
   SKILL_REPOS,
+  WORKFLOW_SKILL_REPOS,
 } from './skills-install';
 import { hasNpx, installSkillsNative } from './skills-native';
 
@@ -102,6 +104,7 @@ export const TEMPLATES: TemplateEntry[] = [
 const SKILL_REPO_LABELS: Record<string, string> = {
   'firecrawl/cli': 'core firecrawl skills',
   'firecrawl/skills': 'skills to build with firecrawl',
+  'firecrawl/firecrawl-workflows': 'firecrawl workflow skills',
 };
 
 function skillRepoLabel(repo: string): string {
@@ -317,7 +320,7 @@ async function stepIntegrations(options: InitOptions): Promise<number | null> {
   const { checkbox, confirm } = await import('@inquirer/prompts');
 
   const wantIntegrations = await confirm({
-    message: 'Set up integrations (skills, MCP, env)?',
+    message: 'Set up integrations (skills, workflows, MCP, env)?',
     default: true,
   });
 
@@ -327,8 +330,13 @@ async function stepIntegrations(options: InitOptions): Promise<number | null> {
     message: 'Which integrations?',
     choices: [
       {
-        name: 'Skills — install firecrawl skill for AI coding agents',
+        name: 'Skills — install core/build Firecrawl skills for AI coding agents',
         value: 'skills',
+        checked: true,
+      },
+      {
+        name: 'Workflows — install Firecrawl workflow skills',
+        value: 'workflows',
         checked: true,
       },
       {
@@ -359,6 +367,20 @@ async function stepIntegrations(options: InitOptions): Promise<number | null> {
           } catch {
             console.error(
               `  ${dim}Run "firecrawl setup skills" later to retry.${reset}`
+            );
+          }
+        }
+        break;
+      }
+      case 'workflows': {
+        console.log(`\n  Installing workflow skills...`);
+        for (const repo of WORKFLOW_SKILL_REPOS) {
+          try {
+            const count = await installSkillRepoQuiet(repo, options);
+            if (count != null) totalSkills = (totalSkills ?? 0) + count;
+          } catch {
+            console.error(
+              `  ${dim}Run "firecrawl setup workflows" later to retry.${reset}`
             );
           }
         }
@@ -751,13 +773,17 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
     console.log(
       `${stepLabel()} Installing firecrawl skills for AI coding agents...`
     );
-    for (const repo of SKILL_REPOS) {
+    for (const repo of ALL_SKILL_REPOS) {
       try {
         const count = await installSkillRepoQuiet(repo, options);
         if (count != null) skillCount = (skillCount ?? 0) + count;
       } catch {
+        const retryCommand =
+          repo === 'firecrawl/firecrawl-workflows'
+            ? 'firecrawl setup workflows'
+            : 'firecrawl setup skills';
         console.error(
-          `\n${dim}Failed to install skills from ${repo}. Retry with: firecrawl setup skills${reset}`
+          `\n${dim}Failed to install skills from ${repo}. Retry with: ${retryCommand}${reset}`
         );
         process.exit(1);
       }

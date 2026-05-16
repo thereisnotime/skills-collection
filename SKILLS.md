@@ -1,6 +1,6 @@
 # Skills Index
 
-A comprehensive index of all **11,192** named skills across **100** repositories.
+A comprehensive index of all **11,193** named skills across **100** repositories.
 
 [Back to README](README.md)
 
@@ -1783,13 +1783,13 @@ A comprehensive index of all **11,192** named skills across **100** repositories
 | [firecrawl-search](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-search/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 125 | bash |
 | [firecrawl-interact](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-interact/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 84 | bash |
 | [firecrawl-parse](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-parse/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 62 | bash |
-| [firecrawl](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-cli/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 170 | bash |
+| [firecrawl](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-cli/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 171 | bash |
 | [firecrawl-map](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-map/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 51 | bash |
 | [firecrawl-download](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-download/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 70 | bash |
 | [firecrawl-crawl](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-crawl/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 59 | bash |
 | [firecrawl-agent](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-agent/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 58 | bash |
 | [firecrawl-scrape](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-scrape/SKILL.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 69 | bash |
-| [firecrawl-cli-installation](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-cli/rules/install.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 83 | bash |
+| [firecrawl-cli-installation](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-cli/rules/install.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 84 | bash |
 | [firecrawl-security](https://github.com/firecrawl/cli/blob/main/skills/firecrawl-cli/rules/security.md) | \| | [cli](https://github.com/firecrawl/cli) | firecrawl |  |  | 27 | bash |
 | [terraform-stacks](https://github.com/hashicorp/agent-skills/blob/main/terraform/module-generation/skills/terraform-stacks/SKILL.md) | Comprehensive guide for working with HashiCorp Terraform Stacks. Use when creating, modifying, or va... | [agent-skills](https://github.com/hashicorp/agent-skills) | hashicorp |  |  | 481 | bash, hcl |
 | [refactor-module](https://github.com/hashicorp/agent-skills/blob/main/terraform/module-generation/skills/refactor-module/SKILL.md) | Transform monolithic Terraform configurations into reusable, maintainable modules following HashiCor... | [agent-skills](https://github.com/hashicorp/agent-skills) | hashicorp |  |  | 539 | bash, hcl, markdown |
@@ -10881,7 +10881,7 @@ A comprehensive index of all **11,192** named skills across **100** repositories
 | [healthcare-phi-compliance](https://github.com/affaan-m/everything-claude-code/blob/main/skills/healthcare-phi-compliance/SKILL.md) | Protected Health Information (PHI) and Personally Identifiable Information (PII) compliance patterns... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m | "1.0.0" |  | 146 | sql, typescript |
 | [ai-first-engineering](https://github.com/affaan-m/everything-claude-code/blob/main/skills/ai-first-engineering/SKILL.md) | Engineering operating model for teams where AI agents generate a large share of implementation outpu... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 52 |  |
 | [django-security](https://github.com/affaan-m/everything-claude-code/blob/main/skills/django-security/SKILL.md) | Django security best practices, authentication, authorization, CSRF protection, SQL injection preven... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 594 | django, python |
-| [windows-desktop-e2e](https://github.com/affaan-m/everything-claude-code/blob/main/skills/windows-desktop-e2e/SKILL.md) | E2E testing for Windows native desktop apps (WPF, WinForms, Win32/MFC, Qt) using pywinauto and Windo... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 789 | bash, cpp, csharp |
+| [windows-desktop-e2e](https://github.com/affaan-m/everything-claude-code/blob/main/skills/windows-desktop-e2e/SKILL.md) | E2E testing for Windows native desktop apps (WPF, WinForms, Win32/MFC, Qt) using pywinauto and Windo... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 888 | bash, cpp, csharp |
 | [lead-intelligence](https://github.com/affaan-m/everything-claude-code/blob/main/skills/lead-intelligence/SKILL.md) | AI-native lead intelligence and outreach pipeline. Replaces Apollo, Clay, and ZoomInfo with agent-po... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 322 | bash, python, text |
 | [canary-watch](https://github.com/affaan-m/everything-claude-code/blob/main/skills/canary-watch/SKILL.md) | Use this skill to monitor and verify a deployed URL after releases — checks HTTP endpoints, SSE stre... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 108 | markdown, yaml |
 | [prompt-optimizer](https://github.com/affaan-m/everything-claude-code/blob/main/skills/prompt-optimizer/SKILL.md) | >- | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 399 |  |
@@ -10902,6 +10902,7 @@ A comprehensive index of all **11,192** named skills across **100** repositories
 | [remotion-video-creation](https://github.com/affaan-m/everything-claude-code/blob/main/skills/remotion-video-creation/SKILL.md) | Best practices for Remotion - Video creation in React. 29 domain-specific rules covering 3D, animati... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 44 |  |
 | [content-engine](https://github.com/affaan-m/everything-claude-code/blob/main/skills/content-engine/SKILL.md) | Create platform-native content systems for X, LinkedIn, TikTok, YouTube, newsletters, and repurposed... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 132 |  |
 | [django-patterns](https://github.com/affaan-m/everything-claude-code/blob/main/skills/django-patterns/SKILL.md) | Django architecture patterns, REST API design with DRF, ORM best practices, caching, signals, middle... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 735 | django, python |
+| [recsys-pipeline-architect](https://github.com/affaan-m/everything-claude-code/blob/main/skills/recsys-pipeline-architect/SKILL.md) | Design composable recommendation, ranking, and feed pipelines using the six-stage Source→Hydrator→Fi... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 115 |  |
 | [database-migrations](https://github.com/affaan-m/everything-claude-code/blob/main/skills/database-migrations/SKILL.md) | Database migration best practices for schema changes, data migrations, rollbacks, and zero-downtime ... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 430 | bash, prisma, python |
 | [cost-tracking](https://github.com/affaan-m/everything-claude-code/blob/main/skills/cost-tracking/SKILL.md) | Track and report Claude Code token usage, spending, and budgets from a local cost-tracking database.... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 148 | bash |
 | [content-hash-cache-pattern](https://github.com/affaan-m/everything-claude-code/blob/main/skills/content-hash-cache-pattern/SKILL.md) | Cache expensive file processing results using SHA-256 content hashes — path-independent, auto-invali... | [everything-claude-code](https://github.com/affaan-m/everything-claude-code) | affaan-m |  |  | 162 | python |
@@ -11201,4 +11202,4 @@ A comprehensive index of all **11,192** named skills across **100** repositories
 
 ---
 
-*Auto-generated — 11,192 skills indexed*
+*Auto-generated — 11,193 skills indexed*

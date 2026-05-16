@@ -9,10 +9,11 @@ import {
   buildSkillsInstallArgs,
   cleanNpmEnv,
   SKILL_REPOS,
+  WORKFLOW_SKILL_REPOS,
 } from './skills-install';
 import { hasNpx, installSkillsNative } from './skills-native';
 
-export type SetupSubcommand = 'skills' | 'mcp';
+export type SetupSubcommand = 'skills' | 'workflows' | 'mcp';
 
 export interface SetupOptions {
   global?: boolean;
@@ -28,7 +29,10 @@ export async function handleSetupCommand(
 ): Promise<void> {
   switch (subcommand) {
     case 'skills':
-      await installSkills(options);
+      await installSkills(options, SKILL_REPOS);
+      break;
+    case 'workflows':
+      await installSkills(options, WORKFLOW_SKILL_REPOS);
       break;
     case 'mcp':
       await installMcp(options);
@@ -36,16 +40,24 @@ export async function handleSetupCommand(
     default:
       console.error(`Unknown setup subcommand: ${subcommand}`);
       console.log('\nAvailable subcommands:');
-      console.log('  skills    Install firecrawl skill into AI coding agents');
       console.log(
-        '  mcp       Install firecrawl MCP server into editors (Cursor, Claude Code, VS Code, etc.)'
+        '  skills     Install core/build Firecrawl skills into AI coding agents'
+      );
+      console.log(
+        '  workflows  Install Firecrawl workflow skills into AI coding agents'
+      );
+      console.log(
+        '  mcp        Install firecrawl MCP server into editors (Cursor, Claude Code, VS Code, etc.)'
       );
       process.exit(1);
   }
 }
 
-async function installSkills(options: SetupOptions): Promise<void> {
-  for (const repo of SKILL_REPOS) {
+async function installSkills(
+  options: SetupOptions,
+  repos: readonly string[]
+): Promise<void> {
+  for (const repo of repos) {
     if (hasNpx()) {
       const args = buildSkillsInstallArgs({
         repo,

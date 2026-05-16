@@ -18,27 +18,30 @@ npx -y firecrawl-cli@1.16.2 init -y --browser
 - `--browser` opens the browser for Firecrawl authentication automatically
 - skills install globally to every detected AI coding agent by default
 
-### Setup Skills and MCP
+### Setup Skills, Workflows, and MCP
 
-If you are using an AI coding agent like Claude Code, you can also install the skills manually with:
+If you are using an AI coding agent like Claude Code, you can also install the skills manually:
 
 ```bash
 firecrawl setup skills
+firecrawl setup workflows
 ```
 
-This installs skills globally across all detected coding editors by default. Use `--agent <agent>` to scope it to one editor.
+These install globally across all detected coding editors by default. Use `--agent <agent>` to scope either command to one editor.
 
 ### Agent skills
 
-The init command installs both sets of Firecrawl agent skills into AI coding agents (Cursor, Claude Code, Windsurf, etc.):
+The init command installs all Firecrawl agent skill segments into AI coding agents (Cursor, Claude Code, Windsurf, etc.):
 
 - **CLI skills** — teach agents how to use the Firecrawl CLI for live web work (search, scrape, interact, map, crawl, agent)
 - **Build skills** — teach agents how to integrate Firecrawl into application code (choose endpoints, wire SDKs, set up API keys)
+- **Workflow skills** — teach agents how to produce Firecrawl-powered deliverables such as research briefs, SEO audits, QA reports, lead lists, knowledge bases, and design-system extraction
 
 To reinstall skills manually:
 
 ```bash
 firecrawl setup skills
+firecrawl setup workflows
 ```
 
 To install the Firecrawl MCP server into your editors (Cursor, Claude Code, VS Code, etc.):
@@ -700,41 +703,16 @@ firecrawl x download https://docs.firecrawl.dev --screenshot --limit 20 -y
 firecrawl x download https://docs.firecrawl.dev --include-paths "/features,/sdks" -y
 ```
 
-### AI Workflows
+### Workflow Skills
 
-Launch pre-built AI workflows that combine Firecrawl with your coding agent. One command spins up an interactive session with the right system prompt, tools, and instructions.
+The old experimental AI workflow commands have moved to the NPX-installable
+[`firecrawl/firecrawl-workflows`](https://github.com/firecrawl/firecrawl-workflows)
+skills package. Workflow skills infer from the user's request first and only ask
+short clarifying questions when required inputs are missing. Install them with:
 
 ```bash
-# Claude Code (available now)
-firecrawl x claude competitor-analysis https://firecrawl.dev
-firecrawl x claude deep-research "RAG pipeline data ingestion tools"
-firecrawl x claude lead-research "Vercel"
-firecrawl x claude seo-audit https://example.com
-firecrawl x claude qa https://myapp.com
-firecrawl x claude demo https://resend.com
-firecrawl x claude shop "best mechanical keyboard for developers"
-
-# Natural language (no workflow name)
-firecrawl x claude "scrape the firecrawl docs and summarize"
-
-# Codex and OpenCode -- coming soon
-firecrawl x codex competitor-analysis https://crawlee.dev
-firecrawl x opencode deep-research "browser automation frameworks"
+firecrawl setup workflows
 ```
-
-Add `-y` to auto-approve tool permissions.
-
-See the full documentation: **[Experimental Workflows ->](src/commands/experimental/README.md)**
-
-#### Prerequisites
-
-Each backend requires its CLI to be installed separately:
-
-| Backend  | Install                                               |
-| -------- | ----------------------------------------------------- |
-| Claude   | `npm install -g @anthropic-ai/claude-code`            |
-| Codex    | `npm install -g @openai/codex`                        |
-| OpenCode | [opencode.ai/docs/cli](https://opencode.ai/docs/cli/) |
 
 ---
 

@@ -4,9 +4,22 @@
  * - firecrawl/cli: core CLI skills bundled with this repo
  * - firecrawl/skills: additional "build" skills for working with Firecrawl
  *
- * Both are installed during `firecrawl init` and `firecrawl setup skills`.
+ * Workflow skills live in a separate installable repo:
+ *
+ * - firecrawl/firecrawl-workflows: outcome-focused Firecrawl workflow skills
+ *
+ * `firecrawl init` installs both groups by default. `firecrawl setup skills`
+ * installs core/build skills, and `firecrawl setup workflows` installs workflow
+ * skills.
  */
 export const SKILL_REPOS = ['firecrawl/cli', 'firecrawl/skills'] as const;
+
+export const WORKFLOW_SKILL_REPOS = ['firecrawl/firecrawl-workflows'] as const;
+
+export const ALL_SKILL_REPOS = [
+  ...SKILL_REPOS,
+  ...WORKFLOW_SKILL_REPOS,
+] as const;
 
 export interface SkillsInstallCommandOptions {
   agent?: string;

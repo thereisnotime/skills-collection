@@ -125,6 +125,12 @@
   ],
   "samber--cc-skills-golang": [
     {
+      "sha": "61451c6",
+      "message": "ci: add dependabot automerge workflow (#36)",
+      "date": "2026-05-15",
+      "author": "samber (headless)"
+    },
+    {
       "sha": "6ccf725",
       "message": "docs: add skill architecture diagram to README",
       "date": "2026-05-07",
@@ -175,12 +181,6 @@
     {
       "sha": "969bd82",
       "message": "feat(golang-graphql): write full skill body with references and evals (#32)",
-      "date": "2026-05-01",
-      "author": "Samuel Berthe"
-    },
-    {
-      "sha": "556f241",
-      "message": "feat: add golang-swagger skill (swaggo/swag v2) (#31)",
       "date": "2026-05-01",
       "author": "Samuel Berthe"
     }
@@ -853,6 +853,12 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "ea18303",
+      "message": "docs(#103): v3.8 claim_ref_alignment_audit_agent decision + spec (design-only) (#117)",
+      "date": "2026-05-15",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "6f87d01",
       "message": "feat(#115): SS client maturity \u2014 throttle + outage latch (audit-trail-shipped) (#116)",
       "date": "2026-05-15",
@@ -903,12 +909,6 @@
     {
       "sha": "357db28",
       "message": "docs: add Review Protocol section to .claude/CLAUDE.md + allowlist expansion (#100)",
-      "date": "2026-05-12",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "6c17c49",
-      "message": "security: de-identify private-project context + add public-repo boundary lint (#99)",
       "date": "2026-05-12",
       "author": "Edward Cheng-I Wu"
     }
@@ -2267,6 +2267,12 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "32309be",
+      "message": "Add workflows to cli!",
+      "date": "2026-05-15",
+      "author": "Eric Ciarla"
+    },
+    {
       "sha": "f448fc2",
       "message": "Merge pull request #110 from firecrawl/nsc/search-feedback",
       "date": "2026-05-14",
@@ -2317,12 +2323,6 @@
     {
       "sha": "3cd5ead",
       "message": "update cli version references",
-      "date": "2026-05-05",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "c522f27",
-      "message": "Merge pull request #105 from firecrawl/update-gaps",
       "date": "2026-05-05",
       "author": "Developers Digest"
     }
@@ -3411,6 +3411,42 @@
   ],
   "sanity-io--agent-toolkit": [
     {
+      "sha": "236348e",
+      "message": "Merge pull request #45 from sanity-io/feat/codex-plugin",
+      "date": "2026-05-15",
+      "author": "Jon Eide Johnsen"
+    },
+    {
+      "sha": "ba301a7",
+      "message": "fix: remove em-dashes from longDescription",
+      "date": "2026-05-13",
+      "author": "Jonah Snider"
+    },
+    {
+      "sha": "cf44b29",
+      "message": "fix: fix brand color in Codex plugin",
+      "date": "2026-05-13",
+      "author": "Jonah Snider"
+    },
+    {
+      "sha": "3f86abf",
+      "message": "fix: change source to URL instead of local",
+      "date": "2026-05-13",
+      "author": "Jonah Snider"
+    },
+    {
+      "sha": "a7fa6f7",
+      "message": "fix: rename Codex marketplace to avoid name collision",
+      "date": "2026-05-13",
+      "author": "Jon Eide Johnsen"
+    },
+    {
+      "sha": "b375c62",
+      "message": "feat: add OpenAI Codex plugin",
+      "date": "2026-05-13",
+      "author": "Jon Eide Johnsen"
+    },
+    {
       "sha": "bc09fa9",
       "message": "Merge pull request #16 from sanity-io/feat/portable-text-skills",
       "date": "2026-04-12",
@@ -3433,42 +3469,6 @@
       "message": "tweak: copy",
       "date": "2026-04-09",
       "author": "Brian LeRoux"
-    },
-    {
-      "sha": "19dfb12",
-      "message": "feat: add Sanity Functions reference to sanity-best-practices",
-      "date": "2026-04-09",
-      "author": "Brian LeRoux"
-    },
-    {
-      "sha": "60a47b1",
-      "message": "fix: resolve merge conflicts with main",
-      "date": "2026-04-08",
-      "author": "Knut Melv\u00e6r"
-    },
-    {
-      "sha": "ad50ea4",
-      "message": "chore: standardize skills to use references/ per agent skills spec (#42)",
-      "date": "2026-04-07",
-      "author": "James Woods"
-    },
-    {
-      "sha": "0fab238",
-      "message": "docs: add contributing guide (#39)",
-      "date": "2026-04-07",
-      "author": "James Woods"
-    },
-    {
-      "sha": "cb0512e",
-      "message": "Merge pull request #40 from tobinsouth/add-plugin-manifest",
-      "date": "2026-04-01",
-      "author": "Jon Eide Johnsen"
-    },
-    {
-      "sha": "fd0978e",
-      "message": "Add .claude-plugin/plugin.json manifest for Claude marketplace",
-      "date": "2026-03-31",
-      "author": "tobin"
     }
   ],
   "sanjay3290--ai-skills": [
@@ -5107,6 +5107,42 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "01e89a9",
+      "message": "feat(sources): add hyperflow plugin (#722)",
+      "date": "2026-05-16",
+      "author": "Mohammed Abdelhady"
+    },
+    {
+      "sha": "a8b259c",
+      "message": "fix(pr-prescreen): empty-changeset + 64KB cap + silence Gemini auto-review (#724)",
+      "date": "2026-05-16",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "3afa9b0",
+      "message": "docs(contributing): pin Plugin & Skill Spec across all contributor surfaces (#725)",
+      "date": "2026-05-16",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "a2c54d5",
+      "message": "feat(ci)!: retire gemini-code-review.yml + audit log + runbook (closes epic) (#721)",
+      "date": "2026-05-16",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "a0e6daa",
+      "message": "feat(ci): groq llm screener for pr-prescreen + deterministic fallback (#723)",
+      "date": "2026-05-16",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "edafbf7",
+      "message": "feat(ci): pr-prescreen.yml + classify.py + Slack wiring (deterministic-only) (#719)",
+      "date": "2026-05-16",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "61c0707",
       "message": "chore(validator): bump SCHEMA_VERSION constant to 3.6.0 to match catalog + spec doc (#717)",
       "date": "2026-05-15",
@@ -5129,42 +5165,6 @@
       "message": "feat(schema): 3-tier progressive disclosure (3.4.0) \u2014 L0 metadata index (#714)",
       "date": "2026-05-14",
       "author": "intentsolutions.io"
-    },
-    {
-      "sha": "d4cef88",
-      "message": "content(blog): mirror 2026-05-13 startaitools post \u2014 transitive CVE dual-layer pattern",
-      "date": "2026-05-14",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "114fb5d",
-      "message": "feat(sources): add aomi-labs/skills (PR #679) + refresh all external sources",
-      "date": "2026-05-12",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "7a35269",
-      "message": "docs(schema): bump to 3.3.2 and document PR #705 agent-field spec-compliance fix",
-      "date": "2026-05-12",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "2615b64",
-      "message": "feat(sources): add four ali5ter external plugins (#680)",
-      "date": "2026-05-12",
-      "author": "Alister Lewis-Bowen"
-    },
-    {
-      "sha": "5debf57",
-      "message": "fix(validator): align agent field validation with current Anthropic sub-agents spec (#705)",
-      "date": "2026-05-12",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "fb6c4cc",
-      "message": "feat(podium-pack): v2.0.0 \u2014 replace 18 templated skills with 10 production-engineer skills + shopify-pack drift fix",
-      "date": "2026-05-12",
-      "author": "Jeremy Longshore"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5355,63 +5355,63 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "4774946",
-      "message": "docs(sponsors): tighten tier structure + grandfather existing sponsors + add Business/Team featured sections",
-      "date": "2026-05-15",
+      "sha": "eb59afb",
+      "message": "docs: refresh operator dashboard after fleet review items",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "c211791",
-      "message": "docs(readme): add Pro/Sponsor/GitHub App CTA block + update stats (140K to 182K)",
-      "date": "2026-05-15",
+      "sha": "fc2d23d",
+      "message": "docs: record AgentShield fleet review items",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "e8e9df5",
-      "message": "fix: harden supply-chain IOC scan (#1918)",
-      "date": "2026-05-15",
+      "sha": "efd0540",
+      "message": "docs: refresh operator dashboard after harness fleet routing",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "5349d99",
-      "message": "fix: harden dashboard canary and IOC coverage (#1917)",
-      "date": "2026-05-15",
+      "sha": "6976a2a",
+      "message": "docs: record ECC Tools harness fleet routing",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "381e6cd",
-      "message": "docs: align rules README install namespace (#1916)",
-      "date": "2026-05-15",
+      "sha": "7ac5060",
+      "message": "docs: refresh operator dashboard after hosted finding evidence",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "8af4b5d",
-      "message": "docs: align rules README install namespace",
-      "date": "2026-05-15",
+      "sha": "fb28e46",
+      "message": "docs: record ECC Tools hosted finding evidence",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "9af04f3",
-      "message": "fix: harden dashboard canary and IOC coverage",
-      "date": "2026-05-15",
+      "sha": "257aa67",
+      "message": "docs: refresh operator dashboard after ECC Tools fleet sync",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "4546a2c",
-      "message": "fix: salvage dashboard and canary-watch PRs (#1915)",
-      "date": "2026-05-15",
+      "sha": "a1cf97e",
+      "message": "docs: record ECC Tools fleet evidence consumption",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "8cfadfe",
-      "message": "fix(hooks): close grouped command bypasses in gateguard (#1912)",
-      "date": "2026-05-15",
-      "author": "SeungHyun"
+      "sha": "10b1222",
+      "message": "docs: refresh operator dashboard after fleet routing",
+      "date": "2026-05-16",
+      "author": "Affaan Mustafa"
     },
     {
-      "sha": "e299286",
-      "message": "docs: restore zh-CN autonomous-loops install warning (#1907)",
-      "date": "2026-05-15",
+      "sha": "cc83a85",
+      "message": "docs: record AgentShield fleet routing evidence",
+      "date": "2026-05-16",
       "author": "Affaan Mustafa"
     }
   ],
@@ -5479,6 +5479,24 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "3d09194",
+      "message": "Merge branch 'main' of https://github.com/shanraisshan/claude-code-best-practice",
+      "date": "2026-05-15",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "00e6db4",
+      "message": "update",
+      "date": "2026-05-15",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "55125d3",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-15",
+      "author": "Claude Routine"
+    },
+    {
       "sha": "2ac62b8",
       "message": "chore(agent-collections): scheduled refresh",
       "date": "2026-05-14",
@@ -5517,24 +5535,6 @@
     {
       "sha": "c00fe77",
       "message": "chore(workflow-concepts-agent): flag prose in Description column as drift",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "aa527f0",
-      "message": "chore(workflow-concepts): enforce badges-and-links-only Description column",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "db038a1",
-      "message": "docs(readme): link Goal row to implementation doc and strip prose from Hot table",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "b5b56f6",
-      "message": "docs(implementation): add /goal implementation doc with community tweet tips",
       "date": "2026-05-12",
       "author": "Shayan Rais"
     }
