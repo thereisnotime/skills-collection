@@ -243,6 +243,47 @@ function includesAll(text, needles) {
   return needles.every(needle => text.includes(needle));
 }
 
+function hasLegacySalvageTracking({ stalePrSalvage, legacyInventory, roadmap }) {
+  return stalePrSalvage.includes('Manual review tail')
+    || stalePrSalvage.includes('Remaining Manual-Review Backlog')
+    || stalePrSalvage.includes('Translator/manual review')
+    || legacyInventory.includes('Translator/manual review')
+    || roadmap.includes('ITO-55');
+}
+
+function hasAgentShieldEnterpriseTracking(roadmap) {
+  return roadmap.includes('AgentShield Enterprise Iteration')
+    && (
+      roadmap.includes('#78-#92')
+      || roadmap.includes('AgentShield PR #92')
+      || roadmap.includes('AgentShield #92')
+      || roadmap.includes('policy promote')
+      || roadmap.includes('checksum-verified policy promotion')
+      || roadmap.includes('#78-#91')
+      || roadmap.includes('AgentShield PR #91')
+      || roadmap.includes('AgentShield #91')
+      || roadmap.includes('checksum-backed policy export')
+      || roadmap.includes('#78-#90')
+    );
+}
+
+function agentShieldEnterpriseGap(roadmap) {
+  if (roadmap.includes('#78-#92')
+    || roadmap.includes('AgentShield PR #92')
+    || roadmap.includes('AgentShield #92')
+    || roadmap.includes('policy promote')
+    || roadmap.includes('checksum-verified policy promotion')) {
+    return 'workflow automation around protected rollout and richer runtime review UX pending after policy promotion shipped';
+  }
+
+  return roadmap.includes('#78-#91')
+    || roadmap.includes('AgentShield PR #91')
+    || roadmap.includes('AgentShield #91')
+    || roadmap.includes('checksum-backed policy export')
+    ? 'workflow automation plus policy promotion/review UX pending after policy export shipped'
+    : 'durable policy export and fleet-review workflow automation remain pending after reviewItems shipped';
+}
+
 function runCommand(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd,
@@ -286,6 +327,7 @@ function buildRequirements(rootDir, platformReport) {
   const progressSync = readText(rootDir, 'docs/architecture/progress-sync-contract.md');
   const observabilityReadiness = readText(rootDir, 'docs/architecture/observability-readiness.md');
   const stalePrSalvage = readText(rootDir, 'docs/stale-pr-salvage-ledger.md');
+  const legacyInventory = readText(rootDir, 'docs/legacy-artifact-inventory.md');
   const supplyChainRunbook = readText(rootDir, 'docs/security/supply-chain-incident-response.md');
   const supplyChainWorkflow = readText(rootDir, '.github/workflows/supply-chain-watch.yml');
   const packageJson = readPackage(rootDir);
@@ -392,11 +434,11 @@ function buildRequirements(rootDir, platformReport) {
       'agentshield-enterprise-iteration',
       'Advance AgentShield enterprise iteration',
       'AgentShield PR evidence plus enterprise roadmap',
-      roadmap.includes('AgentShield Enterprise Iteration') && roadmap.includes('#78-#90')
+      hasAgentShieldEnterpriseTracking(roadmap)
         ? 'in_progress'
         : 'not_complete',
       'AgentShield enterprise PR evidence is mirrored in the GA roadmap',
-      'durable policy export and fleet-review workflow automation remain pending after reviewItems shipped'
+      agentShieldEnterpriseGap(roadmap)
     ),
     buildRequirement(
       'ecc-tools-next-level',
@@ -412,7 +454,7 @@ function buildRequirements(rootDir, platformReport) {
       'legacy-salvage',
       'Audit, prune, or attach legacy work',
       'docs/stale-pr-salvage-ledger.md and legacy inventory',
-      stalePrSalvage.includes('Manual review tail') || roadmap.includes('ITO-55')
+      hasLegacySalvageTracking({ stalePrSalvage, legacyInventory, roadmap })
         ? 'in_progress'
         : 'not_complete',
       'legacy salvage ledger and ITO-55 tracking are present',

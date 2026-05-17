@@ -42,7 +42,6 @@ Works across **Claude Code**, **Codex**, **Cursor**, **OpenCode**, **Gemini**, *
 
 ECC v2.0.0-rc.1 adds the public Hermes operator story on top of that reusable layer: start with the [Hermes setup guide](docs/HERMES-SETUP.md), then review the [rc.1 release notes](docs/releases/2.0.0-rc.1/release-notes.md) and [cross-harness architecture](docs/architecture/cross-harness.md).
 
-
 ---
 
 <table>
@@ -477,6 +476,15 @@ export ECC_SESSION_START_MAX_CHARS=4000
 
 # Disable SessionStart additional context entirely for low-context/local-model setups
 export ECC_SESSION_START_CONTEXT=off
+
+# Keep context/scope/loop warnings but suppress API-rate cost estimates
+export ECC_CONTEXT_MONITOR_COST_WARNINGS=off
+```
+
+Windows PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable('ECC_CONTEXT_MONITOR_COST_WARNINGS', 'off', 'User')
 ```
 
 ---
@@ -1611,6 +1619,7 @@ Add to `~/.claude/settings.json`:
 | `model` | opus | **sonnet** | ~60% cost reduction; handles 80%+ of coding tasks |
 | `MAX_THINKING_TOKENS` | 31,999 | **10,000** | ~70% reduction in hidden thinking cost per request |
 | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | 95 | **50** | Compacts earlier — better quality in long sessions |
+| `ECC_CONTEXT_MONITOR_COST_WARNINGS` | on | **off for subscription users** | Suppresses agent-facing API-rate estimate warnings while keeping context/scope/loop warnings |
 
 Switch to Opus only when you need deep architectural reasoning:
 ```
@@ -1626,6 +1635,8 @@ Switch to Opus only when you need deep architectural reasoning:
 | `/clear` | Between unrelated tasks (free, instant reset) |
 | `/compact` | At logical task breakpoints (research done, milestone complete) |
 | `/cost` | Monitor token spending during session |
+
+If you use a Claude subscription and the context monitor's API-rate estimates are not useful, set `ECC_CONTEXT_MONITOR_COST_WARNINGS=off`. This only suppresses the agent-facing cost warnings; it does not disable context exhaustion, scope, or loop warnings.
 
 ### Strategic Compaction
 

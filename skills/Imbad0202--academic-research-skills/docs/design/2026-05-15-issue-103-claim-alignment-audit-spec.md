@@ -25,7 +25,7 @@ Numbered list aligned to the implementation surfaces in #103 issue body + decisi
 7. **`academic-pipeline/references/claim_audit_calibration_protocol.md`** — new file (modeled on `shared/contracts/reviewer/` calibration convention).
 8. **`scripts/check_claim_audit_consistency.py`** — new lint enforcing per-claim invariants (anchor presence, defect_stage presence, precedence rules, audit_status/defect_stage coherence).
 9. **CI wiring** — extend `.github/workflows/spec-consistency.yml` (or matching workflow) to call the new lint.
-10. **Tests** — `scripts/test_check_claim_audit_consistency.py` (lint coverage), schema validation tests against fixture passports, end-to-end synthetic-paper test (5 citations, 1 intentionally fabricated, audit catches).
+10. **Tests** — `scripts/test_claim_audit_schema.py` covers both schema validation and `check_claim_audit_consistency.py` lint coverage via subprocess pattern (T-S1..T-S8 invariants); plus per-stage unittest modules (`scripts/test_claim_audit_pipeline.py`, `scripts/test_uncited_assertion.py`, `scripts/test_claim_intent_manifest.py`, `scripts/test_claim_audit_finalizer.py`, `scripts/test_e2e_claim_audit.py` for the 5-citation end-to-end synthetic-paper test, `scripts/test_claim_audit_calibration.py`).
 11. **CHANGELOG entry** + ROADMAP §3.8 anchor + decision-log entry.
 
 ## 2. Out of scope
@@ -101,7 +101,6 @@ Per-claim audit result. One entry per audited citation in the passport `claim_au
     "ref_retrieval_method": { "enum": ["api", "manual_pdf", "failed", "not_attempted", "not_found", "audit_tool_failure"] },
     "upstream_owner_agent": {
       "enum": [
-        "bibliography_agent",
         "synthesis_agent",
         "draft_writer_agent",
         "report_compiler_agent",
@@ -407,7 +406,76 @@ Per uncited claim that violates a manifest negative constraint. One entry per em
 - CV-INV-1: `finding_id` uniqueness across `constraint_violations[]` in one passport.
 - CV-INV-2: `(scoped_manifest_id, violated_constraint_id)` MUST resolve in some `claim_intent_manifests[]` entry. For `MNC-*` ids, the matching manifest's `manifest_negative_constraints[]` must contain it. For `NC-C{n}-{m}` ids, the matching manifest's `claims[]` entry with `claim_id=C-{n}` must contain a `negative_constraints[].constraint_id` matching the NC-* id, AND `manifest_claim_id` MUST equal `C-{n}`.
 - CV-INV-3: When `violated_constraint_id` starts with `MNC-`, `manifest_claim_id = null`; when it starts with `NC-`, `manifest_claim_id` MUST equal the `C-{n}` extracted from the NC-* id.
-- CV-INV-4: An uncited sentence MAY appear in BOTH `uncited_assertions[]` AND `constraint_violations[]` simultaneously — these surface different aspects (advisory uncited token-rule + HIGH-WARN constraint violation by judge) and don't trip D-INV-4-style exclusivity. However, a SINGLE sentence MUST NOT appear in `constraint_violations[]` more than once per `violated_constraint_id` (lint dedup on (section_path, claim_text_hash, violated_constraint_id)).
+- CV-INV-4: An uncited sentence MAY appear in BOTH `uncited_assertions[]` AND `constraint_violations[]` simultaneously — these surface different aspects (advisory uncited token-rule + HIGH-WARN constraint violation by judge) and don't trip D-INV-4-style exclusivity. However, a SINGLE sentence MUST NOT appear in `constraint_violations[]` more than once per `(scoped_manifest_id, violated_constraint_id)` — i.e. the lint dedup key is `(scoped_manifest_id, section_path, claim_text_hash, violated_constraint_id)`. Per M-INV-4 each `manifest_id` is unique across the passport but constraint ids (`MNC-*` / `NC-*`) are only unique WITHIN a manifest, so two manifests in the same passport may legitimately carry colliding constraint ids — the same sentence text may then violate both, and the dedupe must respect manifest scope to preserve both findings (v3.8.1).
+
+### 3.6 `uncited_audit_failure.schema.json`
+
+Per uncited-sentence × manifest pair where the constraint judge raised a `JudgeInvocationError` during D6 stream (d) judging. One entry per (sentence, manifest) failure. Aggregated as `uncited_audit_failures[]` in the orchestrator passport-tracking, parallel to `claim_audit_results[]` / `uncited_assertions[]` / `claim_drifts[]` / `constraint_violations[]`.
+
+**The separate schema exists because the cited-path INV-14 `audit_tool_failure` row (a `claim_audit_result` entry carrying `ref_retrieval_method=audit_tool_failure`) cannot be reused on the uncited path — `claim_audit_result.ref_slug` is required, and the uncited path has no ref to bind.** Without a dedicated surface, a transient judge outage on a constraint check would either be silently swallowed (the pre-v3.8.2 bug — `NOT_VIOLATED` substituted, HIGH-WARN constraint check suppressed) or would force the entire audit pass to abort (dropping coverage). This entry-type mirrors INV-14 semantics on the uncited path: MED-WARN advisory at finalizer, retry-next-pass remediation, surfaces the infrastructure failure distinctly from a substantive non-violation. Routing through `uncited_assertions[]` would conflate D4-c token-rule advisory signal with audit-time infrastructure failure (different `rule_version`, different fault model, different annotation tier).
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Imbad0202/academic-research-skills/shared/contracts/passport/uncited_audit_failure.schema.json",
+  "title": "Material Passport Uncited Audit Failure Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "claim_text",
+    "section_path",
+    "scoped_manifest_id",
+    "fault_class",
+    "rationale",
+    "judge_model",
+    "judge_run_at",
+    "rule_version"
+  ],
+  "properties": {
+    "finding_id": { "type": "string", "pattern": "^UAF-[0-9]{3,}$" },
+    "claim_text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "section_path": { "type": "string", "minLength": 1, "description": "Hierarchical path from document root to the section containing the offending sentence (mirrors uncited_assertion.section_path)." },
+    "scoped_manifest_id": {
+      "type": "string",
+      "pattern": "^M-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z-[0-9a-f]{4}$",
+      "description": "Points to the claim_intent_manifest.manifest_id whose MNC/NC-C set was being judged when the failure occurred. Required — no MANIFEST-MISSING sentinel admitted; UAF emission requires an active manifest scope."
+    },
+    "manifest_claim_id": {
+      "type": ["string", "null"],
+      "pattern": "^C-[0-9]{3,}$",
+      "description": "When the sentence was bound to a manifest claim (sentence carries `manifest_claim_id` per §4 step 5 stream (d) NC-C judging path), points to that claim. Null when the judge call was against MNCs only (manifest-wide constraints, no claim binding). Mirrors constraint_violation.manifest_claim_id polarity."
+    },
+    "fault_class": {
+      "enum": [
+        "judge_timeout",
+        "judge_api_error",
+        "judge_parse_error",
+        "cache_corruption",
+        "retrieval_api_error",
+        "retrieval_timeout",
+        "retrieval_network_error"
+      ],
+      "description": "Same closed enum as INV-14 fault-class taxonomy on the cited path. Sourced from JudgeInvocationError.fault_class at the raise site."
+    },
+    "rationale": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "MUST begin with the fault_class tag followed by `: ` and a free-form detail. Mirrors INV-14 rationale format. Example: `judge_timeout: judge timed out after 30s`." },
+    "judge_model": { "type": "string", "minLength": 1 },
+    "judge_run_at": { "type": "string", "format": "date-time" },
+    "rule_version": { "const": "D4-c-v1-uaf-v1", "description": "UAF surface version. Distinguishes from `D4-c-v1` (uncited_assertion D4-c detector) and `D4-a-v1` (constraint_violation). The `-uaf-v1` suffix marks this as a separate surface, not a D4-c revision." },
+    "upstream_owner_agent": {
+      "enum": ["synthesis_agent", "draft_writer_agent", "report_compiler_agent", null]
+    }
+  }
+}
+```
+
+**Cross-field invariants** (lint-enforced in `check_claim_audit_consistency.py`):
+- UAF-INV-1: `finding_id` uniqueness across `uncited_audit_failures[]` in one passport.
+- UAF-INV-2: `scoped_manifest_id` MUST resolve in some `claim_intent_manifests[]` entry (cross-array reference integrity).
+- UAF-INV-3: When `manifest_claim_id ≠ null`, the `(scoped_manifest_id, manifest_claim_id)` pair MUST match some `claims[].claim_id` in the referenced manifest. When `manifest_claim_id = null`, the failure was against MNCs only (no claim binding required). Mirrors U-INV-4 / CV-INV-2 cross-array integrity pattern.
+- UAF-INV-4: Per-(sentence, manifest) dedup. The tuple `(scoped_manifest_id, section_path, claim_text_hash)` MUST be unique across the aggregate. A sentence judged once per manifest produces at most one UAF row per (sentence, manifest). Two manifests both failing on the same sentence emit two distinct rows (legitimate per-manifest scope, mirrors CV-INV-4 cross-manifest reasoning).
+- UAF-INV-5: `rationale` MUST begin with the row's own `fault_class` value followed by `":"` (and a `" "` plus free-form detail when a detail is available — the trailing space is omitted when `detail` is empty so the rationale stays `minLength: 1`-valid). Mirrors INV-14 rationale prefix requirement on the cited path; the prefix must match this row's `fault_class` field, not just any known tag. Example with detail: `"judge_timeout: judge timed out after 30s"`. Example without detail: `"judge_timeout:"` (a 14-character minimum form when the upstream `JudgeInvocationError.detail` is empty).
+- UAF-INV-6: **Cross-aggregate exclusivity.** A sentence MUST NOT appear in both `uncited_audit_failures[]` AND `constraint_violations[]` for the same `(scoped_manifest_id, section_path, claim_text_hash)` — VIOLATED and audit_tool_failure are mutually exclusive verdict states at per-(sentence, manifest) level (one is a positive verdict, the other is no verdict at all). Co-existence with `uncited_assertions[]` IS permitted (D4-c detector positives and audit-time judge failure are independent signals).
 
 ## 4. Agent prompt structure: `claim_ref_alignment_audit_agent.md`
 
@@ -456,7 +524,7 @@ Sections (in order):
    - Step 4 — Passage location using anchor_value (quote = exact match; page/section/paragraph = scoped retrieval).
    - Step 5 — Judge invocation with prompt template. Output one of SUPPORTED/UNSUPPORTED/AMBIGUOUS, with rationale.
    - Step 6 — Defect_stage classification. Citation-bound results emit `claim_audit_result` entries with `defect_stage` ∈ 6 substantive categories `{retrieval_existence, metadata, source_description, citation_anchor, synthesis_overclaim, negative_constraint_violation}` plus 2 non-substantive `{not_applicable, null}`. Four out-of-band finding categories use separate entry types: (a) uncited-sentence findings emit `uncited_assertion` entries (§3.3); (b) claim-intent drift findings emit `claim_drift` entries (§3.4); (c) **cited** constraint violations (sentence carries `<!--ref:slug-->` AND judge says VIOLATED) emit `claim_audit_result` entries with `defect_stage=negative_constraint_violation`; (d) **uncited** constraint violations (no `<!--ref:slug-->` AND judge says VIOLATED against an MNC/NC rule in scope) emit `constraint_violation` entries (§3.5). (c) and (d) are the cited/uncited split routed by §4 Step 5 stream (c)/(d). Precedence rules from issue body restated in §5 finalizer integration.
-5. **Manifest cross-reference (D6)** — three-set diff of `intended_claims` (manifest) vs `emitted_claims` (extracted from draft) vs `supported_claims` (post-judge SUPPORTED subset). The diff produces four streams: (a) `EMITTED_NOT_INTENDED` — emitted claims missing from manifest → `claim_drifts[]` entry with `drift_kind=EMITTED_NOT_INTENDED`, advisory LOW-WARN at finalizer. (b) `INTENDED_NOT_EMITTED` — manifest claims dropped from draft → `claim_drifts[]` entry with `drift_kind=INTENDED_NOT_EMITTED`, advisory LOW-WARN. (c) Manifest negative-constraint matches on **cited** claims (sentence has `<!--ref:slug-->`) — pass to judge via §4 negative-constraint prompt; VIOLATED outcomes emit `claim_audit_result` entries with `defect_stage=negative_constraint_violation` (judge IS invoked here, distinct from drift). (d) Manifest negative-constraint matches on **uncited** claims (sentence has no `<!--ref:slug-->` but matches MNC/NC scope) — also pass to judge via the same negative-constraint prompt; VIOLATED outcomes emit `constraint_violations[]` entries (§3.5), HIGH-WARN gate-refuse at finalizer. (c) and (d) BOTH escalate to HIGH-WARN — explicit author MUST NOT rules block regardless of citation presence — but they use distinct entry-types to preserve the schema integrity of `claim_audit_result` (which requires `ref_slug`). (a) and (b) are pure manifest-set-diff signals never seen by the judge.
+5. **Manifest cross-reference (D6)** — three-set diff of `intended_claims` (manifest) vs `emitted_claims` (extracted from draft) vs `supported_claims` (post-judge SUPPORTED subset). The diff produces four streams: (a) `EMITTED_NOT_INTENDED` — emitted claims missing from manifest → `claim_drifts[]` entry with `drift_kind=EMITTED_NOT_INTENDED`, advisory LOW-WARN at finalizer. (b) `INTENDED_NOT_EMITTED` — manifest claims dropped from draft → `claim_drifts[]` entry with `drift_kind=INTENDED_NOT_EMITTED`, advisory LOW-WARN. (c) Manifest negative-constraint matches on **cited** claims (sentence has `<!--ref:slug-->`) — pass to judge via §4 negative-constraint prompt; VIOLATED outcomes emit `claim_audit_result` entries with `defect_stage=negative_constraint_violation` (judge IS invoked here, distinct from drift). (d) Manifest negative-constraint matches on **uncited** claims (sentence has no `<!--ref:slug-->` but matches MNC/NC scope) — also pass to judge via the same negative-constraint prompt; VIOLATED outcomes emit `constraint_violations[]` entries (§3.5), HIGH-WARN gate-refuse at finalizer. **`JudgeInvocationError` on this path emits `uncited_audit_failures[]` entries (§3.6) carrying the fault_class tag — MED-WARN advisory at finalizer; the pre-v3.8.2 synthetic NOT_VIOLATED substitution silently suppressed HIGH-WARN constraint checks and is fixed in v3.8.2 / #118 by this routing.** (c) and (d) BOTH escalate to HIGH-WARN on VIOLATED — explicit author MUST NOT rules block regardless of citation presence — but they use distinct entry-types to preserve the schema integrity of `claim_audit_result` (which requires `ref_slug`); the corresponding outage path uses an INV-14 row on (c) and a `uncited_audit_failures[]` entry on (d) for the same symmetric reason. (a) and (b) are pure manifest-set-diff signals never seen by the judge.
 6. **Uncited-assertion detector (D4-c)** — 3-condition token rule. Pseudocode included.
 7. **Output emission** — one `claim_audit_result` entry per audited citation, plus aggregate counts emitted in pipeline-orchestrator Stage 6 reflection report.
 8. **Calibration mode** — opt-in flow per `claim_audit_calibration_protocol.md`. Gold-set ingestion → judge run → FNR/FPR computation → user-facing report.
@@ -464,6 +532,7 @@ Sections (in order):
    - **Retrieval access restriction (verified paywall — HTTP 403/402, license-restricted, no full-text endpoint, reference exists but body not accessible):** emit `claim_audit_result` with `judgment=RETRIEVAL_FAILED`, `audit_status=inconclusive`, `defect_stage=not_applicable`, `ref_retrieval_method=failed`. INV-10 / D2 — LOW-WARN advisory. **NOTE:** transient API errors (5xx, timeouts, network failures) do NOT belong here — they map to `audit_tool_failure` below.
    - **Audit infrastructure / transient outage (judge timeout, judge API 5xx, retrieval API 5xx, retrieval timeout / network error, retrieval API DNS failure, cache corruption, JSON parse failure):** emit `claim_audit_result` with `judgment=RETRIEVAL_FAILED`, `audit_status=inconclusive`, `defect_stage=not_applicable`, `ref_retrieval_method=audit_tool_failure`. Per INV-14 — MED-WARN advisory at finalizer (`[CLAIM-AUDIT-TOOL-FAILURE — <fault-class>]`), surfaces the infrastructure problem distinctly from a paywall, but does NOT gate-refuse — retry on next pipeline pass is the remediation. Rationale MUST begin with a fault-class tag in `{judge_timeout, judge_api_error, judge_parse_error, cache_corruption, retrieval_api_error, retrieval_timeout, retrieval_network_error}` followed by `: <detail>`. The discriminator between `failed` and `audit_tool_failure` is permanence — a paywall is a stable property of the citation, an API 5xx is a transient property of the infrastructure.
    - **Fabricated reference (retrieval API reports not_found):** per INV-12 — `ref_retrieval_method=not_found`, `defect_stage=retrieval_existence`, `audit_status=completed`. HIGH-WARN gate-refuse.
+   - **Uncited-path judge outage (v3.8.2 / #118):** when `_invoke_judge` raises `JudgeInvocationError` during D6 stream (d) constraint judging on an uncited sentence, emit an `uncited_audit_failure` entry (§3.6) carrying the fault_class tag. MED-WARN advisory at finalizer (`[CLAIM-AUDIT-TOOL-FAILURE-UNCITED — <fault-class>]`), gate passes — retry on next pipeline pass is the remediation. MUST NOT emit a synthetic `NOT_VIOLATED` verdict (silent suppression of HIGH-WARN constraint check is the bug fixed in v3.8.2). Mirrors INV-14 semantics on the cited path: judge outage is operational signal distinct from substantive non-violation, but the uncited path uses a dedicated aggregate because `claim_audit_result.ref_slug` is required.
 10. **Cross-references** — Zhao 2026 §1, RubricEM Borrows 1+2, v3.7.3 anchor input contract, v3.6.7 PATTERN PROTECTION convention.
 
 **Judge prompt template** (canonical form, embedded in agent prompt):
@@ -513,6 +582,7 @@ The audit agent receives:
 - `claim_audit_results[]` array (one per audited citation) — drives the 8-row matrix annotations
 - `constraint_violations[]` array (one per uncited-but-violates-MNC/NC sentence) — drives `[HIGH-WARN-CONSTRAINT-VIOLATION-UNCITED ({violated_constraint_id})]` annotation. **MUST be passed to formatter alongside `claim_audit_results[]`** — without this, uncited HIGH-WARN gate-refuse path silently disappears since no claim_audit_result row exists for uncited constraint violations (per §3.5 split). The formatter's REFUSE list per §1 deliverable 5 includes HIGH-WARN-CONSTRAINT-VIOLATION-UNCITED — this handoff is what makes that REFUSE check observable.
 - `uncited_assertions[]` array — drives `[UNCITED-ASSERTION]` LOW-WARN advisory annotation (formatter renders, does NOT refuse).
+- `uncited_audit_failures[]` array (v3.8.2 / #118 — one per uncited sentence × manifest where the constraint judge raised `JudgeInvocationError`) — drives `[CLAIM-AUDIT-TOOL-FAILURE-UNCITED — <fault-class>]` MED-WARN advisory annotation (formatter renders, does NOT refuse). Mirrors the cited-path INV-14 row but uses a dedicated aggregate per §3.6 because `claim_audit_result.ref_slug` is required.
 - `claim_drifts[]` array — drives `[LOW-WARN-CLAIM-DRIFT — kind=...]` LOW-WARN advisory annotation (formatter renders, does NOT refuse).
 - `audit_sampling_summaries[]` array — drives paper-level `[CLAIM-AUDIT-SAMPLED — k/N audited]` annotation when audited_count < total_citation_count (formatter renders in the AI Self-Reflection Report appendix; does NOT refuse).
 - Per-citation/per-sentence annotations injected adjacent to the existing v3.7.1 finalizer annotations (HIGH-WARN classes block; MED/LOW-WARN advisory passes).
@@ -530,7 +600,7 @@ Existing v3.7.3 5-cell matrix (anchor presence + 4-cell trust state) gains a new
 | AMBIGUOUS | source_description / citation_anchor / synthesis_overclaim / null | (any) | `[CLAIM-AUDIT-AMBIGUOUS]` | LOW-WARN advisory | pass |
 | UNSUPPORTED | source_description / metadata / citation_anchor / synthesis_overclaim | (any) | `[HIGH-WARN-CLAIM-NOT-SUPPORTED]` | HIGH-WARN | gate-refuse |
 | UNSUPPORTED | negative_constraint_violation | (any) | `[HIGH-WARN-NEGATIVE-CONSTRAINT-VIOLATION ({violated_constraint_id})]` | HIGH-WARN | gate-refuse (per D4-a — explicit author rules are HIGH-WARN; drift findings emit into `claim_drifts[]` at LOW-WARN advisory tier — see below) |
-| RETRIEVAL_FAILED | retrieval_existence | not_found | `[HIGH-WARN-FABRICATED-REFERENCE]` | HIGH-WARN | gate-refuse (escapes v3.7.4 Vector 3 surfaces here) |
+| RETRIEVAL_FAILED | retrieval_existence | not_found | `[HIGH-WARN-FABRICATED-REFERENCE]` | HIGH-WARN | gate-refuse (retrieval-side detection — the cited reference does not exist in the retrieval API; fabrication is a retrieval finding, not a bibliographic-metadata finding) |
 | RETRIEVAL_FAILED | not_applicable | **not_attempted** | `[HIGH-WARN-CLAIM-AUDIT-ANCHORLESS — v3.7.3 R-L3-1-A VIOLATION REACHED AUDIT]` | HIGH-WARN | gate-refuse (anchor=none should have been blocked by v3.7.3 finalizer; this row is a defense-in-depth surface against finalizer skip/stale paths) |
 | RETRIEVAL_FAILED | not_applicable | **failed** | `[CLAIM-AUDIT-UNVERIFIED — REFERENCE FULL-TEXT NOT RETRIEVABLE]` | LOW-WARN advisory | pass (paywall — D2) |
 | RETRIEVAL_FAILED | not_applicable | **audit_tool_failure** | `[CLAIM-AUDIT-TOOL-FAILURE — <fault-class>]` | MED-WARN advisory | pass (audit infrastructure failure after retrieval succeeded; surfaced distinctly from paywall per INV-14; retry next pipeline pass) |
@@ -540,6 +610,8 @@ Existing v3.7.3 5-cell matrix (anchor presence + 4-cell trust state) gains a new
 **`uncited_assertion` entries** (separate aggregate `uncited_assertions[]`) emit at LOW-WARN tier with annotation `[UNCITED-ASSERTION]` next to the offending sentence. Always advisory; gate-refuse reserved for citation-level defects. See §3.3 for entry schema.
 
 **`constraint_violation` entries** (separate aggregate `constraint_violations[]`) emit at HIGH-WARN tier with annotation `[HIGH-WARN-CONSTRAINT-VIOLATION-UNCITED ({violated_constraint_id})]` next to the offending sentence. Gate-refuse — explicit author MUST NOT rules block regardless of citation presence (parallels the gate-refuse behavior of cited constraint violations in the 8-row matrix; the entry-type split is purely a schema-integrity artifact, not a severity downgrade). The formatter hard gate MUST refuse output on this annotation alongside the four other HIGH-WARN classes (per §1 deliverable 5). See §3.5 for entry schema.
+
+**`uncited_audit_failure` entries** (separate aggregate `uncited_audit_failures[]`, v3.8.2 / #118) emit at **MED-WARN advisory** tier with annotation `[CLAIM-AUDIT-TOOL-FAILURE-UNCITED — <fault-class>]` next to the offending sentence. Always advisory; gate passes — retry on next pipeline pass is the remediation. Mirrors INV-14 semantics on the uncited path: a transient judge outage on a constraint check is operational signal distinct from a substantive non-violation. Pre-v3.8.2 behavior synthesised a `NOT_VIOLATED` verdict on `JudgeInvocationError` and silently suppressed HIGH-WARN constraint checks; v3.8.2 routes these failures through this aggregate so the operational signal surfaces without dropping audit coverage (option 4 — re-raise and abort — was rejected for that exact coverage reason). The formatter's REFUSE list is unchanged — UAF is advisory and does not enter REFUSE. See §3.6 for entry schema.
 
 **Why `claim_drifts[]` is separate from the 8-row matrix (per D4-a):** The decision doc rejected "manifest authority blocking" because normal drafting routinely refines claims away from manifest, and gate-refusing on drift would block valid revision passes. The §3.4 schema houses drift findings; they emit a `[LOW-WARN-CLAIM-DRIFT — kind={EMITTED_NOT_INTENDED|INTENDED_NOT_EMITTED}]` annotation next to the offending sentence (for EMITTED_NOT_INTENDED) or in the manifest-coverage appendix (for INTENDED_NOT_EMITTED). Always advisory; never gate-refusing. Source-level defects (source_description / metadata / citation_anchor / synthesis_overclaim) remain HIGH-WARN in the matrix because they indicate the prose is misrepresenting the cited source — the L3 faithfulness failure the audit exists to catch. Constraint violations remain HIGH-WARN because the author explicitly declared "MUST NOT".
 
@@ -558,10 +630,11 @@ Coverage:
 3. **Manifest invariants M-INV-1 through M-INV-4** — including M-INV-4 manifest_id uniqueness across passport (duplicate manifest_id rejected).
 4. **Uncited-assertion invariants U-INV-1 through U-INV-4** — including cross-array `(scoped_manifest_id, manifest_claim_id)` integrity (uncited entry's referenced (M-*, C-*) pair must match some active manifest's claim).
 4a. **Claim-drift invariants D-INV-1 through D-INV-4** — including cross-array integrity for `drift_kind=INTENDED_NOT_EMITTED` (the `(scoped_manifest_id, manifest_claim_id)` pair must match some `claim_intent_manifests[]` entry) and exclusivity rule D-INV-4 (a sentence cannot appear in both `uncited_assertions[]` and `claim_drifts[]`).
-4b. **Constraint-violation invariants CV-INV-1 through CV-INV-4** — including cross-array integrity (CV-INV-2: `(scoped_manifest_id, violated_constraint_id)` MUST resolve in some active manifest entry; CV-INV-3: `manifest_claim_id` polarity must match constraint id prefix MNC/NC) and per-(sentence, constraint) dedup (CV-INV-4).
+4b. **Constraint-violation invariants CV-INV-1 through CV-INV-4** — including cross-array integrity (CV-INV-2: `(scoped_manifest_id, violated_constraint_id)` MUST resolve in some active manifest entry; CV-INV-3: `manifest_claim_id` polarity must match constraint id prefix MNC/NC) and per-(manifest, sentence, constraint) dedup (CV-INV-4 — see §3.5 for the full dedup key shape `(scoped_manifest_id, section_path, claim_text_hash, violated_constraint_id)`).
 4c. **Audit-sampling invariants S-INV-1 through S-INV-4** — including audited_count/audited_indices coherence (S-INV-1), cap respect (S-INV-2), finalizer annotation requirement when sampled (S-INV-3), and audited_indices ascending uniqueness (S-INV-4). Validates `audit_sampling_summaries[]` aggregate.
+4d. **Uncited-audit-failure invariants UAF-INV-1 through UAF-INV-6** (v3.8.2 / #118) — schema validation against `uncited_audit_failure.schema.json`; finding_id uniqueness (UAF-INV-1); scoped_manifest_id cross-array integrity (UAF-INV-2); `(scoped_manifest_id, manifest_claim_id)` pair integrity (UAF-INV-3); per-(sentence, manifest) dedup with key `(scoped_manifest_id, section_path, claim_text_hash)` (UAF-INV-4); rationale fault_class prefix (UAF-INV-5); cross-aggregate exclusivity with `constraint_violations[]` (UAF-INV-6). Validates `uncited_audit_failures[]` aggregate.
 5. **Allowed-matrix coverage** — every `(judgment, audit_status, defect_stage)` triple outside §3.1 table rejected; representative disallowed combinations (≥ 5) tested explicitly.
-6. **Precedence rules** — negative_constraint_violation (HIGH-WARN claim_audit_result) > claim_drift (LOW-WARN claim_drifts[] entry) — per issue body rule 1; citation_anchor distinct from source_description (rule 2); uncited-sentence cases produce `uncited_assertions[]` entry, not a `claim_audit_result` row (rule 3 — uncited has no ref to evaluate). D-INV-4 also enforces: a sentence that's both uncited AND drifted emits only the `uncited_assertion` entry, no companion `claim_drift` entry.
+6. **Precedence rules** — negative_constraint_violation (HIGH-WARN claim_audit_result) > claim_drift (LOW-WARN claim_drifts[] entry) — per issue body rule 1; citation_anchor distinct from source_description (rule 2); uncited-sentence cases produce `uncited_assertions[]` entry, not a `claim_audit_result` row (rule 3 — uncited has no ref to evaluate). D-INV-4 also enforces: a sentence that's both uncited AND drifted emits only the `uncited_assertion` entry, no companion `claim_drift` entry. UAF-INV-6 (v3.8.2 / #118) enforces cross-aggregate exclusivity between `uncited_audit_failures[]` and `constraint_violations[]` — see §3.6 for the full rule.
 7. **Acceptance check** — for any passport with ≥ 1 completed `claim_audit_result` whose `judgment=UNSUPPORTED`, ALL such rows must emit a `defect_stage` ≠ null AND ≠ not_applicable (100% emission per #103 acceptance criterion). AMBIGUOUS-with-null is explicitly permitted per INV-3 (judge unable to classify a related-but-unclear support level is a valid outcome); the issue body's "100% non-SUPPORTED" intent is narrower than literal reading suggests — it targets the UNSUPPORTED rows because those are the gate-refusing path, not the advisory tier.
 8. **Coverage check** — sample passport with full 8-row finalizer matrix coverage (per §5); each annotation tier exercised at least once.
 

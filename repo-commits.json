@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "82b8af4",
+      "message": "fix(ce-coherence-reviewer): remove Bash from tool allowlist (#837)",
+      "date": "2026-05-16",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "6fa1277",
+      "message": "fix(ce-web-researcher): use any web tool, not just Claude built-ins (#836)",
+      "date": "2026-05-16",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "39cb9da",
       "message": "fix(ce-plan): inline synthesis gate output into SKILL.md (#822)",
       "date": "2026-05-15",
@@ -736,18 +748,6 @@
       "sha": "85548a5",
       "message": "chore: release main (#814)",
       "date": "2026-05-10",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "9b45a83",
-      "message": "feat(ce-compound): add mode:headless for non-interactive use (#813)",
-      "date": "2026-05-10",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "834ca4e",
-      "message": "chore: release main (#808)",
-      "date": "2026-05-08",
       "author": "github-actions[bot]"
     }
   ],
@@ -853,6 +853,30 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "1fe0113",
+      "message": "v3.8.2: uncited audit_tool_failure surface (#118)",
+      "date": "2026-05-17",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "6da09b3",
+      "message": "v3.8.1: claim_audit lint hardening (#119 + #120 4\u00d7P2) (#124)",
+      "date": "2026-05-17",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "d564d26",
+      "message": "docs: v3.8.0 release sweep \u2014 version bump + paired-milestone framing",
+      "date": "2026-05-16",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "add51a7",
+      "message": "v3.8 #103: claim \u2194 reference faithfulness audit agent",
+      "date": "2026-05-16",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "ea18303",
       "message": "docs(#103): v3.8 claim_ref_alignment_audit_agent decision + spec (design-only) (#117)",
       "date": "2026-05-15",
@@ -886,30 +910,6 @@
       "sha": "70c8678",
       "message": "feat(#108): AI disclosure policy-anchor renderer (audit-trail-shipped) (#110)",
       "date": "2026-05-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "20ed72d",
-      "message": "docs(#108): AI disclosure schema Decision Doc \u2014 defer policy to renderer (11-round audit) (#109)",
-      "date": "2026-05-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "299c4b6",
-      "message": "docs(#106): Phase 1+2 \u2014 scaffold + PRISMA-trAIce/ICMJE cells (32/64) (#107)",
-      "date": "2026-05-14",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "153203d",
-      "message": "revert: remove personal boundary defenses from public repo (#101)",
-      "date": "2026-05-12",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "357db28",
-      "message": "docs: add Review Protocol section to .claude/CLAUDE.md + allowlist expansion (#100)",
-      "date": "2026-05-12",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -1445,6 +1445,18 @@
   ],
   "antonbabenko--terraform-skill": [
     {
+      "sha": "25267b0",
+      "message": "chore(release): v1.9.0 [skip ci]",
+      "date": "2026-05-16",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "7ad926c",
+      "message": "feat: add terraform-ls code intelligence guidance",
+      "date": "2026-05-16",
+      "author": "Anton Babenko"
+    },
+    {
       "sha": "2057f15",
       "message": "chore(release): v1.8.0 [skip ci]",
       "date": "2026-04-22",
@@ -1491,18 +1503,6 @@
       "message": "chore(release): v1.5.0 [skip ci]",
       "date": "2026-01-19",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "9ba8215",
-      "message": "fix: revert conventional-changelog-action to v5 due to tag detection bug",
-      "date": "2026-01-19",
-      "author": "Anton Babenko"
-    },
-    {
-      "sha": "13d69d4",
-      "message": "chore: update GitHub Actions to v6 (checkout, changelog)",
-      "date": "2026-01-19",
-      "author": "Anton Babenko"
     }
   ],
   "avifenesh--agentsys": [
@@ -1895,6 +1895,24 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
+      "sha": "3b3d663",
+      "message": "feat: AI-tool fingerprint sections (placeholders, citation markup, UTM) (#11)",
+      "date": "2026-05-17",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "a64723d",
+      "message": "feat: position-pivot preface + Cursor rule port (#10)",
+      "date": "2026-05-17",
+      "author": "Conor Bronsdon"
+    },
+    {
+      "sha": "176b5a0",
+      "message": "v3.4.0: structural + crypto-shill detection patterns (#9)",
+      "date": "2026-05-17",
+      "author": "Conor Bronsdon"
+    },
+    {
       "sha": "cbf885e",
       "message": "docs: add Modular disclaimer to README",
       "date": "2026-04-18",
@@ -1934,24 +1952,6 @@
       "sha": "3e25abc",
       "message": "readme: add $avoid token section + web app link",
       "date": "2026-04-07",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "26e1b92",
-      "message": "Fix formatting in README.md for meme coin section",
-      "date": "2026-04-06",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "6a05231",
-      "message": "Update README to include link for meme coin",
-      "date": "2026-04-06",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "376e072",
-      "message": "Revise meme coin support message in README",
-      "date": "2026-04-06",
       "author": "Conor Bronsdon"
     }
   ],
@@ -4859,64 +4859,64 @@
   ],
   "alirezarezvani--claude-skills": [
     {
-      "sha": "0796e1d",
-      "message": "Merge pull request #650 from alirezarezvani/dev",
-      "date": "2026-05-14",
+      "sha": "0d477a0",
+      "message": "Merge pull request #677 from alirezarezvani/dev",
+      "date": "2026-05-17",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "d177345",
-      "message": "Merge pull request #649 from alirezarezvani/feature/release-v2.6.1",
-      "date": "2026-05-14",
+      "sha": "c71b51a",
+      "message": "Merge pull request #676 from alirezarezvani/claude/v2.7.1-fix-plugins-page",
+      "date": "2026-05-16",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "af55472",
-      "message": "release(v2.6.1): meta-skill maturity \u2014 validator + descriptions + audit tool",
-      "date": "2026-05-14",
+      "sha": "1872ed0",
+      "message": "fix(docs): plugins page \u2014 refresh stale counts to v2.7.0 reality",
+      "date": "2026-05-16",
       "author": "Claude"
     },
     {
-      "sha": "468a31e",
+      "sha": "4180446",
+      "message": "Merge pull request #674 from alirezarezvani/dev",
+      "date": "2026-05-16",
+      "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "9c17f74",
       "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-05-14",
+      "date": "2026-05-16",
       "author": "alirezarezvani"
     },
     {
-      "sha": "fa61169",
-      "message": "Merge pull request #648 from alirezarezvani/feature/v2.6.2-remaining-placeholders",
-      "date": "2026-05-14",
+      "sha": "6c2aec5",
+      "message": "Merge pull request #675 from alirezarezvani/claude/v2.7.0-docs-update",
+      "date": "2026-05-16",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "1b152ab",
-      "message": "fix(v2.6.2): fix remaining 11 placeholder descriptions",
-      "date": "2026-05-14",
+      "sha": "637210b",
+      "message": "docs(v2.7.0): MkDocs + GitHub Pages + cross-platform CLI sync update",
+      "date": "2026-05-16",
       "author": "Claude"
     },
     {
-      "sha": "2368111",
+      "sha": "aa433b8",
       "message": "chore: sync codex skills symlinks [automated]",
-      "date": "2026-05-14",
+      "date": "2026-05-16",
       "author": "alirezarezvani"
     },
     {
-      "sha": "d3ea6bf",
-      "message": "Merge pull request #647 from alirezarezvani/feature/use-when-trigger-fixes",
-      "date": "2026-05-14",
+      "sha": "f3b862c",
+      "message": "Merge pull request #673 from alirezarezvani/claude/v2.7.0-release-prep",
+      "date": "2026-05-16",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "d3c822a",
-      "message": "fix(v2.6.1): expand validator trigger patterns + fix 10 placeholder descriptions",
-      "date": "2026-05-14",
+      "sha": "6e45e57",
+      "message": "release(v2.7.0): version bumps + CHANGELOG + plugin.json schema doc",
+      "date": "2026-05-16",
       "author": "Claude"
-    },
-    {
-      "sha": "e37bc1a",
-      "message": "Merge pull request #646 from alirezarezvani/feature/skill-audit-tool",
-      "date": "2026-05-14",
-      "author": "Alireza Rezvani"
     }
   ],
   "VoltAgent--awesome-agent-skills": [
@@ -5107,6 +5107,54 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "9a5bcf6",
+      "message": "fix(discover-skills): skip per-skill plugin.json + document 3-surface funnel (refs #660 item 2) (#736)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "f72e23b",
+      "message": "chore(catalog): delete deprecated langchain-pack, resolves 18 dupe slugs (#735)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "1448361",
+      "message": "fix(freshie): composite UNIQUE on (path, run_id) preserves per-run snapshots (#734)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "e66260c",
+      "message": "fix(sync): pull missing .ts deps + restore .mcp.json for mirror (closes #645 issues 1-2) (#733)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "d4f2c7d",
+      "message": "feat(skill-enhancers): zero-tech-debt skill + CLAUDE.md sync to schema 3.6.0 (#718)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "ca84c64",
+      "message": "fix(ci): prescreen false-PASS + reject whole-file catalog reformat (#730)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "c8668c7",
+      "message": "refactor(aomi-transact): trim SKILL.md to 133 lines, add tags, split into references/ (#727)",
+      "date": "2026-05-17",
+      "author": "CeciliaZ030"
+    },
+    {
+      "sha": "0259b93",
+      "message": "fix(ci): drop pull_request trigger from codeql to kill false-positive noise (#729)",
+      "date": "2026-05-17",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "01e89a9",
       "message": "feat(sources): add hyperflow plugin (#722)",
       "date": "2026-05-16",
@@ -5116,54 +5164,6 @@
       "sha": "a8b259c",
       "message": "fix(pr-prescreen): empty-changeset + 64KB cap + silence Gemini auto-review (#724)",
       "date": "2026-05-16",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "3afa9b0",
-      "message": "docs(contributing): pin Plugin & Skill Spec across all contributor surfaces (#725)",
-      "date": "2026-05-16",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "a2c54d5",
-      "message": "feat(ci)!: retire gemini-code-review.yml + audit log + runbook (closes epic) (#721)",
-      "date": "2026-05-16",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "a0e6daa",
-      "message": "feat(ci): groq llm screener for pr-prescreen + deterministic fallback (#723)",
-      "date": "2026-05-16",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "edafbf7",
-      "message": "feat(ci): pr-prescreen.yml + classify.py + Slack wiring (deterministic-only) (#719)",
-      "date": "2026-05-16",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "61c0707",
-      "message": "chore(validator): bump SCHEMA_VERSION constant to 3.6.0 to match catalog + spec doc (#717)",
-      "date": "2026-05-15",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "572401a",
-      "message": "feat(schema): self-declared skill config surface (3.6.0) \u2014 env-vars + per-skill config blocks (#716)",
-      "date": "2026-05-14",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "9868137",
-      "message": "feat(schema): conditional skill visibility (3.5.0) \u2014 env/tool gating in frontmatter (#715)",
-      "date": "2026-05-14",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "22e6963",
-      "message": "feat(schema): 3-tier progressive disclosure (3.4.0) \u2014 L0 metadata index (#714)",
-      "date": "2026-05-14",
       "author": "intentsolutions.io"
     }
   ],
@@ -5355,63 +5355,63 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "eb59afb",
-      "message": "docs: refresh operator dashboard after fleet review items",
-      "date": "2026-05-16",
+      "sha": "99dd6ac",
+      "message": "docs: refresh May 17 release readiness evidence",
+      "date": "2026-05-17",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "fc2d23d",
-      "message": "docs: record AgentShield fleet review items",
-      "date": "2026-05-16",
+      "sha": "afe0ae8",
+      "message": "fix(ja-JP): remove broken autonomous loop anchors",
+      "date": "2026-05-17",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "efd0540",
-      "message": "docs: refresh operator dashboard after harness fleet routing",
-      "date": "2026-05-16",
+      "sha": "9495b10",
+      "message": "fix(ja-JP): repair localized docs links",
+      "date": "2026-05-17",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "6976a2a",
-      "message": "docs: record ECC Tools harness fleet routing",
-      "date": "2026-05-16",
+      "sha": "b98f007",
+      "message": "fix(ja-JP): repair localized security links",
+      "date": "2026-05-17",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "7ac5060",
-      "message": "docs: refresh operator dashboard after hosted finding evidence",
-      "date": "2026-05-16",
-      "author": "Affaan Mustafa"
+      "sha": "6b59276",
+      "message": "fix(ja-JP): translate frontmatter description to Japanese in 3 skills",
+      "date": "2026-05-17",
+      "author": "Claude"
     },
     {
-      "sha": "fb28e46",
-      "message": "docs: record ECC Tools hosted finding evidence",
-      "date": "2026-05-16",
-      "author": "Affaan Mustafa"
+      "sha": "fabb4d0",
+      "message": "fix(ja-JP): address review feedback and add 5 missing skills",
+      "date": "2026-05-17",
+      "author": "Claude"
     },
     {
-      "sha": "257aa67",
-      "message": "docs: refresh operator dashboard after ECC Tools fleet sync",
-      "date": "2026-05-16",
-      "author": "Affaan Mustafa"
+      "sha": "d66b5fa",
+      "message": "docs: fix zh-CN parity \u2014 add 44 missing files to ja-JP",
+      "date": "2026-05-17",
+      "author": "Claude"
     },
     {
-      "sha": "a1cf97e",
-      "message": "docs: record ECC Tools fleet evidence consumption",
-      "date": "2026-05-16",
-      "author": "Affaan Mustafa"
+      "sha": "5a5a47e",
+      "message": "docs: add missing Japanese translations to complete zh-CN parity (ja-JP)",
+      "date": "2026-05-17",
+      "author": "Claude"
     },
     {
-      "sha": "10b1222",
-      "message": "docs: refresh operator dashboard after fleet routing",
-      "date": "2026-05-16",
-      "author": "Affaan Mustafa"
+      "sha": "ec9ace9",
+      "message": "docs: add native Japanese translation of ECC documentation (ja-JP)",
+      "date": "2026-05-17",
+      "author": "Claude"
     },
     {
-      "sha": "cc83a85",
-      "message": "docs: record AgentShield fleet routing evidence",
-      "date": "2026-05-16",
+      "sha": "b66ae3f",
+      "message": "chore(deps): sync npm lock for node types bump",
+      "date": "2026-05-17",
       "author": "Affaan Mustafa"
     }
   ],
@@ -5479,6 +5479,24 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "ac0d87d",
+      "message": "updated codex hooks",
+      "date": "2026-05-16",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "a77e223",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-16",
+      "author": "Claude Routine"
+    },
+    {
+      "sha": "d214890",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-16",
+      "author": "Claude Routine"
+    },
+    {
       "sha": "3d09194",
       "message": "Merge branch 'main' of https://github.com/shanraisshan/claude-code-best-practice",
       "date": "2026-05-15",
@@ -5518,24 +5536,6 @@
       "sha": "d97d8bd",
       "message": "chore(agent-collections): scheduled refresh",
       "date": "2026-05-13",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "e3f48af",
-      "message": "chore(skill-collections): append 2026-05-13 entry for alirezarezvani/claude-skills add",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "bb4cc61",
-      "message": "chore(skill-collections): add alirezarezvani/claude-skills (15k/246) and bump badge timestamp",
-      "date": "2026-05-12",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "c00fe77",
-      "message": "chore(workflow-concepts-agent): flag prose in Description column as drift",
-      "date": "2026-05-12",
       "author": "Shayan Rais"
     }
   ],

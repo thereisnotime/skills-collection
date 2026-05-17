@@ -124,9 +124,9 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | 📦  | [Packages](#packages)                              |       5 |
 | ⚡  | [Performance](#performance)                        |      25 |
 | ✅  | [Productivity](#productivity)                      |      19 |
-| 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     106 |
+| 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     105 |
 | 🔐  | [Security](#security)                              |      26 |
-| ✨  | [Skill Enhancers](#skill-enhancers)                |       8 |
+| ✨  | [Skill Enhancers](#skill-enhancers)                |       9 |
 | 🧪  | [Testing](#testing)                                |      26 |
 
 ### AI & Machine Learning
@@ -518,7 +518,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 
 ### SaaS Skill Packs
 
-🎁 **106 plugins** · category slug: `saas-packs`
+🎁 **105 plugins** · category slug: `saas-packs`
 
 | Plugin              | Description                                                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -578,7 +578,6 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `juicebox-pack`     | Complete Juicebox integration skill pack with 24 skills covering people data, enrichment, contact search, and AI-powered discovery.…        |
 | `klaviyo-pack`      | Claude Code skill pack for Klaviyo (24 skills)                                                                                              |
 | `klingai-pack`      | Complete Kling AI integration skill pack with 30 skills covering AI video generation, text-to-video, image-to-video, and creative…          |
-| `langchain-pack`    | Legacy LangChain integration skill pack with 24 skills covering chains, agents, RAG pipelines, memory, and LLM application development.…    |
 | `langchain-py-pack` | LangChain 1.0 + LangGraph 1.0 skill pack for Python. Pain-first skills anchored to a 68-entry pain catalog covering content blocks,…        |
 | `langfuse-pack`     | Complete Langfuse integration skill pack with 24 skills covering LLM observability, tracing, prompt management, and evaluation. Flagship…   |
 | `lindy-pack`        | Complete Lindy integration skill pack with 24 skills covering AI assistants, task automation, workflows, and intelligent automation.…       |
@@ -668,7 +667,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 
 ### Skill Enhancers
 
-✨ **8 plugins** · category slug: `skill-enhancers`
+✨ **9 plugins** · category slug: `skill-enhancers`
 
 | Plugin                 | Description                                                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -680,6 +679,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `skill-creator`        | Create and validate production-grade agent skills with 100-point marketplace grading. Supports creation workflows, eval-driven…            |
 | `validate-plugin`      | Validate Claude Code plugin structure against official Anthropic spec and Intent Solutions enterprise standard with 100-point grading.     |
 | `web-to-github-issue`  | Enhances web_search Skill by automatically creating GitHub issues from research findings. Research topics, extract key insights, and…      |
+| `zero-tech-debt`       | Rebuild a feature as if the correct product architecture existed from day one. Removes compatibility cruft, dead abstractions, and…        |
 
 <sub>⬆ [Back to category index](#browse-plugins-by-category)</sub>
 
