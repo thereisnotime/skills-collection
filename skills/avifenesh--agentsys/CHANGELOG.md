@@ -9,6 +9,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.13.5] - 2026-05-18
+
+### Changed
+- Updated `axiom` marketplace pin to `v0.6.2`, which ships the `SessionStart` plugin hook (`hooks/hooks.json` + `hooks/session-start.mjs`), the read-only `axiom before-any --detect-only` mode, an OpenCode `session.created` plugin scaffold, and the `BeforeAnyError` library refactor.
+
+### Fixed
+- Synced agent / skill / test / rule counts across `README.md`, `AGENTS.md`, `docs/reference/AGENTS.md`, `.codex-plugin/plugin.json`, `site/content.json`, `site/ux-spec.md`, and `site/index.html`. File-based agent count corrected `39 → 40` (total `49 → 50`), test count refreshed `3,513 → 3,518`, agnix references refreshed `399 → 423` rules and `126 → 129` auto-fixable. Updated `STATIC_PLUGIN_AGENT_COUNTS` in `scripts/generate-docs.js`: `repo-intel 1 → 3`, `agnix 1 → 0`.
+- Updated the `/axiom` section in `README.md` to document the new SessionStart hook, `--detect-only` flag, Codex plugin-hooks opt-in (`[features].plugin_hooks = true`), and the OpenCode scaffold limitation pending [sst/opencode#5409](https://github.com/sst/opencode/issues/5409).
+
+### Tests
+- Updated `__tests__/marketplace-standalone-contract.test.js` to pin the `axiom` expected version, ref, and commit at `v0.6.2 / e3f3fab`.
+
+## [5.13.4] - 2026-05-18
+
+### Changed
+- Updated the `axiom` marketplace pin to `v0.6.1`, including the clean-machine init bootstrap fix and richer generated starter index keywords.
+
+### Tests
+- Added `axiom` to the standalone marketplace contract so its release tag, commit pin, command, docs, and Codex metadata stay covered.
+
+## [5.13.3] - 2026-05-17
+
+### Fixed
+- Updated the enhance skill analyzer to accept string-parsed `disable-model-invocation: true` metadata.
+
+### Changed
+- Updated `skill-curator` to `v1.0.1` and `system-prompt-curator` to `v2.0.1` so AgentSys consumes the hardened releases.
+
+## [5.13.2] - 2026-05-17
+
+### Changed
+- Updated the `banthis` marketplace pin to `v0.3.1`, which hardens CLI writes and fixes the init fallback install path.
+
+### Tests
+- Added marketplace contract coverage for the standalone curator and negative-memory plugins.
+
+## [5.13.1] - 2026-05-17
+
+### Changed
+- Updated the `banthis` marketplace pin to the GitHub-installable `v0.3.0` commit so documented fallback installation works without npm publication.
+
+## [5.13.0] - 2026-05-17
+
+### Added
+- Added the `axiom` plugin to the agentsys marketplace and static docs metadata. Axiom provides durable agent-native memory, project context loading, scoped querying, project scaffolding, and human-approved record proposals.
+- Added `banthis` as a published standalone plugin pinned to `v0.3.0`. It provides durable negative behavior memory through a tiny CLI, skill, and slash command.
+- Added `skill-curator` as a published standalone plugin pinned to `v1.0.0` for production-grade `SKILL.md` authoring and review.
+- Added `system-prompt-curator` as a published standalone plugin pinned to `v2.0.0` for autonomous coding-agent system prompt curation.
+
+### Changed
+- Updated marketplace, Codex metadata, docs, and website counts to 24 plugins, 49 agents, and 45 skills.
+
 ## [5.12.0] - 2026-04-26
 
 ### Propagated upstream releases

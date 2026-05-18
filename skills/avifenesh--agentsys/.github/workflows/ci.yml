@@ -3,6 +3,9 @@ name: CI
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 on:
   push:
     branches: [main]
@@ -17,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - run: npm ci
@@ -37,4 +40,4 @@ jobs:
   agnix:
     # SHA pin to agent-sh/.github main. Update by running:
     #   gh api repos/agent-sh/.github/commits/main --jq .sha
-    uses: agent-sh/.github/.github/workflows/ci-agnix.yml@08a935dedfecab8524861c2db72526007445ba52 # main
+    uses: agent-sh/.github/.github/workflows/ci-agnix.yml@2b48d4f12079b30046991f59f25853e34b18ed7c # main

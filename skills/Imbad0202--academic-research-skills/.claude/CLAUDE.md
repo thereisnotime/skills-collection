@@ -6,10 +6,10 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 
 | Skill | Purpose | Key Modes |
 |-------|---------|-----------|
-| `deep-research` v2.9.3 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
-| `academic-paper` v3.1.1 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
-| `academic-paper-reviewer` v1.9.0 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.8.2 | Full pipeline orchestrator | (coordinates all above) |
+| `deep-research` v2.9.4 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
+| `academic-paper` v3.1.2 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
+| `academic-paper-reviewer` v1.9.1 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
+| `academic-pipeline` v3.9.2 | Full pipeline orchestrator | (coordinates all above) |
 
 ## v3.7.3 Key Additions (in progress)
 
@@ -35,6 +35,34 @@ A suite of Claude Code skills for rigorous academic research, paper writing, pee
 **Regression status (final, post round-10 convergence):** 967 pass / 3 skipped / 0 failed (pre-review baseline 925; +42 tests across F1-F22 closures). v3.6.7 PATTERN PROTECTION + v3.7.1 / v3.7.2 lints unchanged. v3.7.3 lint wired into spec-consistency.yml CI workflow. 11-round review trajectory (Codex×10 + Gemini 3.1-pro-preview cross-model×1): F1-F22 closed across 10 codex rounds + 1 gemini round, no cross-reviewer overlap — canonical review-vs-challenge cascade per `feedback_codex_workflow_consolidated.md`. Round 10 codex returned **0 findings**, convergence signal achieved.
 
 Spec: `docs/design/2026-05-12-ars-v3.7.3-claim-faithfulness-and-contaminated-source-spec.md`.
+
+## v3.9.0 Key Additions
+
+**External motivation:** Zhao et al. arXiv:2605.07723 (2026-05) §3 — cross-index triangulation across multiple bibliographic indexes is a viable false-positive-reduction strategy for hallucinated-citation detection. v3.7.3 shipped single-index (Semantic Scholar) detection; v3.9.0 extends to three-index triangulation (S2 + OpenAlex + Crossref) as **advisory evidence only**. Terminal gate behavior unchanged from v3.7.3.
+
+**Schema additions (additive):**
+- `contamination_signals.openalex_unmatched` (optional bool) — per `deep-research/references/openalex_api_protocol.md`.
+- `contamination_signals.crossref_unmatched` (optional bool) — per `deep-research/references/crossref_api_protocol.md`.
+- Manual-entry not-rule extends from `required: [semantic_scholar_unmatched]` to `anyOf: [s2, openalex, crossref]` — manual entries cannot carry any lookup unmatched field. Preprint flag remains exempt (heuristic, not lookup).
+
+**Finalizer 4-tier advisory matrix (all advisory, gate unchanged):**
+- k=0: no suffix.
+- k=1 (k_max=1, present field = S2): `CONTAMINATED-UNMATCHED` (v3.7.3 legacy preserved).
+- k=1 (k_max=1, present field = OpenAlex or Crossref): `CONTAMINATED-COVERAGE-NOISE`.
+- k=1 (k_max=2-3): `CONTAMINATED-COVERAGE-NOISE`.
+- k=2: `CONTAMINATED-PARTIAL-UNMATCH`.
+- k=3: `CONTAMINATED-TRIANGULATION-UNMATCHED`.
+- Preprint composition: `CONTAMINATED-PREPRINT+<triangulation>` (PREPRINT first per canonical token order).
+
+**Formatter pass-through allowlist:** extends from 3 v3.7.3 suffixes to 9 (3 legacy + 6 v3.9.0). Refusal rules 1-10 unchanged. R-L3-2-E enforces this distinction (refusal list NOT extended, pass-through allowlist MUST extend in lockstep with finalizer).
+
+**Migration:** v3.7.3 corpora → run `scripts/migrate_literature_corpus_to_v3_9_0.py`. Pre-v3.7.3 corpora → run v3.7.3 migration first (daisy-chained per spec §3.7).
+
+**Out of v3.9.0 scope (v3.10 policy layer):** `venue_type` field, `venue_type_provenance` field, `triangulation_policy` field, strict modes, `HIGH-BLOCK` tier.
+
+**Lint:** `scripts/check_v3_9_0_triangulation.py` set-equality on formatter allowlist + refusal-list-unchanged guard.
+
+Spec: `docs/design/2026-05-17-ars-v3.9.0-cross-index-triangulation-measurement-spec.md`.
 
 ## v3.7.0 Key Additions
 
@@ -134,6 +162,28 @@ Spec: `docs/design/2026-05-12-ars-v3.7.3-claim-faithfulness-and-contaminated-sou
 - **Cross-model verification** (optional): Set `ARS_CROSS_MODEL` env var to enable GPT-5.4 Pro or Gemini 3.1 Pro for integrity sample checks and independent Devil's Advocate critique. Peer-review sixth-reviewer support remains planned. See `shared/cross_model_verification.md`.
 - **AI Self-Reflection Report**: Pipeline Stage 6 now includes AI behavioral self-assessment (concession rate, health alerts, sycophancy risk rating).
 
+## Routing Discipline (v3.9.2)
+
+**Routing precedence:** This section runs BEFORE Routing Rules 1-5. Once this section settles on a destination, Rules 1-5 apply within that destination's skill family.
+
+**Step 0 — Escape hatch check (before any classification):** If the user's first message begins with `[direct-mode]` (case-insensitive byte-0 token, optionally preceded by whitespace/newlines that are stripped on parse), record this fact, strip the prefix and surrounding whitespace from the message, and skip directly to **Step 1 explicit-intent handling** on the stripped content. The literal `[direct-mode]` is NOT passed through to the dispatched agent. If the stripped message itself has no clear skill named, Step 1 falls through to Step 3 clarification (the escape hatch bypasses cross-phase clarification (Step 2), not all routing).
+
+Otherwise, classify the user's input:
+
+1. **Explicit clear intent** — user invokes a specific skill via `/ars-*` slash command, or uses an unambiguous trigger keyword that maps to a single skill (e.g., "lit-review this", "review my paper", "draft an abstract"):
+   → Route directly; no clarification, no orchestrator detour.
+
+2. **Cross-phase materials detected** — user provides artifacts spanning ≥ 2 pipeline phases without naming a specific skill (e.g., pre-written abstract + pre-collected literature; full draft + reviewer comments + bibliography):
+   → **Clarify**. Do NOT auto-route to a single-phase agent. List candidate workflows as a-d options in markdown body (NOT via AskUserQuestion tool). See `shared/references/intent_clarification_protocol.md` for the message template.
+   → Reason: clarification is the safest action when materials don't unambiguously identify intent. (v3.10 active conductor (#134) will handle this via structured intake; v3.9.2 asks.)
+
+3. **Ambiguous intent, no materials** — user provides no artifacts and no clear request:
+   → Clarify per `shared/references/intent_clarification_protocol.md`.
+
+**Anti-pattern (caused #133):** Receiving ambiguous cross-phase materials and silently auto-routing to a single-phase agent based on which phase the materials "look closest to." This bypasses orchestrator-level reconciliation and lets the subagent inherit the full ambiguity without independent oversight.
+
+**Forward note (v3.10):** Active conductor (#134) will reframe this gate as structured intake with task envelope dispatch. v3.9.2 ships clarification-only as interim hot-fix.
+
 ## Routing Rules
 
 1. **academic-pipeline vs individual skills**: academic-pipeline = full pipeline orchestrator (research → write → integrity → review → revise → final integrity → finalize). If the user only needs a single function (just research, just write, just review), trigger the corresponding skill directly without the pipeline.
@@ -180,7 +230,7 @@ Materials: Complete paper text. field_analyst_agent auto-detects domain and conf
 Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
 
 ## Version Info
-- **Suite version**: 3.8.2 (per CHANGELOG.md)
-- **Last Updated**: 2026-05-17
+- **Suite version**: 3.9.2 (per CHANGELOG.md)
+- **Last Updated**: 2026-05-18
 - **Author**: Cheng-I Wu
 - **License**: CC-BY-NC 4.0

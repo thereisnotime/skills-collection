@@ -26,7 +26,8 @@
               "hooks",
               "platform",
               "orchestration",
-              "skills"
+              "skills",
+              "docs"
             ]
           },
           "description": {
@@ -55,7 +56,8 @@
                 "opencode",
                 "codebuddy",
                 "joycode",
-                "qwen"
+                "qwen",
+                "zed"
               ]
             }
           },

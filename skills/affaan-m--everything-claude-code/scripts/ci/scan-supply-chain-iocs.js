@@ -247,6 +247,18 @@ const CRITICAL_TEXT_INDICATORS = [
     'b56b31abc2870c2e',
     'd2e98d6be27fc96',
   ].join(''),
+  [
+    '7c12d8619f2db233',
+    'e3d965a930709335',
+    '5f149d5babc45891',
+    '2757a5e88fec0f54',
+  ].join(''),
+  [
+    '0c0e8730695e997b',
+    '3a53d77483f28573',
+    '392319ec023f8fd6',
+    'd7282121cf7cf192',
+  ].join(''),
   'svksjrhjkcejg',
   'filev2.getsession.org',
   'seed1.getsession.org',
@@ -254,12 +266,15 @@ const CRITICAL_TEXT_INDICATORS = [
   'seed3.getsession.org',
   'signalservice',
   'git-tanstack.com',
+  '169.254.169.254',
+  '169.254.170.2',
+  '127.0.0.1:8200',
   'litter.catbox.moe/h8nc9u.js',
   'litter.catbox.moe/7rrc6l.mjs',
   '83.142.209.194',
   'api.masscan.cloud',
   'claude@users.noreply.github.com',
-  'dependabout/',
+  'dependabot/github_actions/format/',
   'OhNoWhatsGoingOnWithGitHub',
   'voicproducoes',
   'A Mini Shai-Hulud has Appeared',
@@ -372,6 +387,14 @@ const PAYLOAD_FILENAMES = new Set([
   'shai-hulud-workflow.yml',
 ]);
 
+function normalizedPath(filePath) {
+  return filePath.split(path.sep).join('/');
+}
+
+function isGhTokenMonitorTokenPath(filePath) {
+  return /\/\.config\/gh-token-monitor\/token$/.test(normalizedPath(filePath));
+}
+
 const IGNORED_DIRS = new Set([
   '.git',
   '.next',
@@ -389,7 +412,7 @@ function normalizeForMatch(value) {
 }
 
 function isInSpecialConfigPath(filePath) {
-  const normalized = filePath.split(path.sep).join('/');
+  const normalized = normalizedPath(filePath);
   return /\/\.claude\//.test(normalized)
     || /\/\.vscode\//.test(normalized)
     || /\/\.kiro\/settings\//.test(normalized)
@@ -401,6 +424,7 @@ function isInSpecialConfigPath(filePath) {
 
 function shouldInspectFile(filePath) {
   const base = path.basename(filePath);
+  if (isGhTokenMonitorTokenPath(filePath)) return true;
   if (DEPENDENCY_FILENAMES.has(base)) return true;
   if (PERSISTENCE_FILENAMES.has(base) && isInSpecialConfigPath(filePath)) return true;
   if (PAYLOAD_FILENAMES.has(base) && filePath.includes(`${path.sep}node_modules${path.sep}`)) return true;
@@ -556,12 +580,51 @@ function addFinding(findings, severity, filePath, line, indicator, message) {
   findings.push({ severity, filePath, line, indicator, message });
 }
 
+function isClaudeSettingsFile(filePath) {
+  const normalized = normalizedPath(filePath);
+  return /\/\.claude\/settings(?:\.local)?\.json$/.test(normalized);
+}
+
+function claudePermissionDenyRanges(filePath, text) {
+  if (!isClaudeSettingsFile(filePath)) return [];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return [];
+  }
+
+  const denyEntries = parsed?.permissions?.deny;
+  if (!Array.isArray(denyEntries)) return [];
+
+  const ranges = [];
+  for (const entry of denyEntries) {
+    if (typeof entry !== 'string' || entry.length === 0) continue;
+
+    for (const needle of [...new Set([JSON.stringify(entry), entry])]) {
+      let index = text.indexOf(needle);
+      while (index !== -1) {
+        ranges.push([index, index + needle.length]);
+        index = text.indexOf(needle, index + needle.length);
+      }
+    }
+  }
+
+  return ranges;
+}
+
+function indexInRanges(index, ranges) {
+  return ranges.some(([start, end]) => index >= start && index < end);
+}
+
 function scanFile(filePath, rootDir, findings) {
   const base = path.basename(filePath);
   const relativePath = path.relative(rootDir, filePath) || filePath;
   const text = readText(filePath);
   const lowerText = normalizeForMatch(text);
   const hashFinding = MALICIOUS_FILE_HASHES[sha256File(filePath)];
+  const defensiveClaudeDenyRanges = claudePermissionDenyRanges(filePath, text);
 
   if (hashFinding) {
     addFinding(
@@ -585,17 +648,34 @@ function scanFile(filePath, rootDir, findings) {
     );
   }
 
+  if (isGhTokenMonitorTokenPath(filePath)) {
+    addFinding(
+      findings,
+      'critical',
+      relativePath,
+      1,
+      '~/.config/gh-token-monitor/token',
+      'Known Mini Shai-Hulud dead-man switch token store is present',
+    );
+  }
+
   for (const indicator of CRITICAL_TEXT_INDICATORS) {
-    const index = lowerText.indexOf(normalizeForMatch(indicator));
-    if (index !== -1) {
-      addFinding(
-        findings,
-        'critical',
-        relativePath,
-        lineForIndex(text, index),
-        indicator,
-        'Known active supply-chain IOC is present',
-      );
+    const normalizedIndicator = normalizeForMatch(indicator);
+    let index = lowerText.indexOf(normalizedIndicator);
+    while (index !== -1) {
+      if (!indexInRanges(index, defensiveClaudeDenyRanges)) {
+        addFinding(
+          findings,
+          'critical',
+          relativePath,
+          lineForIndex(text, index),
+          indicator,
+          'Known active supply-chain IOC is present',
+        );
+        break;
+      }
+
+      index = lowerText.indexOf(normalizedIndicator, index + normalizedIndicator.length);
     }
   }
 
@@ -636,6 +716,7 @@ function homeTargets(homeDir) {
     'Library/LaunchAgents/com.user.gh-token-monitor.plist',
     '.config/systemd/user/gh-token-monitor.service',
     '.config/systemd/user/pgsql-monitor.service',
+    '.config/gh-token-monitor/token',
     '.local/bin/gh-token-monitor.sh',
     '.local/bin/pgmonitor.py',
   ].map(relativePath => path.join(homeDir, relativePath));

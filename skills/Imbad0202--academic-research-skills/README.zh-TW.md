@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.8.2-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.8.2)
+[![Version](https://img.shields.io/badge/version-v3.9.2-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.9.2)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -299,6 +299,20 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.9.2（2026-05-18）— #133 phase boundary 熱修
+
+> #133 收尾（hot-fix 層）。長期架構修正以 v3.10 active conductor 在 #134 追蹤。新增：CLAUDE.md routing 釐清閘（跨 phase 素材 → 以 a-d 選項釐清，不靜默 dispatch）、22 個 single-phase agent 加 prompt 硬 fence（`## Phase Boundary (v3.9.2)`）、16 個 multi-phase / phase-orthogonal / cross-phase-meta agent 刻意不加 fence（誠實 framing：純 prose placebo 會造成假性 enforce 錯覺）、advisory verifier `scripts/check_pipeline_integrity.py` 事後偵測 #133 pattern。Behavioral smoke test 含 cross-model spot-check（Opus 4.7 100% / Sonnet + GPT-5.5 ≥75%）。
+
+### v3.9.1（2026-05-18）— #129 + #130 client hardening
+
+> v3.9.0 hot-fix。包 OpenAlex / Crossref response-read 失敗為 `*Unavailable`（#129）；`check_claim_audit_consistency` 對非字串 `manifest_id` 加 guard（#130）。無 spec 變動。
+
+### v3.9.0（2026-05-17）— #102 跨索引三角測量
+
+> #102 收尾。v3.7.3 已完成單索引（Semantic Scholar）污染偵測；v3.9.0 延伸至三索引三角測量（S2 + OpenAlex + Crossref），定位為**純 advisory**。`contamination_signals` 新增兩個 optional boolean（`openalex_unmatched`、`crossref_unmatched`）；manual-entry not-rule 對稱延伸。Finalizer 加入 4-tier advisory matrix（k=0/1/2/3，計算範圍為現有 `*_unmatched` 欄位），v3.7.3 的 legacy `CONTAMINATED-UNMATCHED`（k=1/k_max=1、S2-only case）保留。Formatter pass-through allowlist 從 3 條延伸至 9 條；refusal rules 1-10 依 R-L3-2-E 不變。Policy layer（strict modes、hard-block tier、`venue_type` / `triangulation_policy`）依 spec §2.3 延至 v3.10。k=3 marker 為 `CONTAMINATED-TRIANGULATION-UNMATCHED`（描述可觀測現象，不推斷成因）。新增 3 條 firm rules：R-L3-2-C（k 計算範圍為現有欄位）、R-L3-2-D（不得 API 推斷分類）、R-L3-2-E（refusal list 不擴充；pass-through allowlist 須與 finalizer 同步延伸）。
+
+**遷移：** v3.7.3 corpus — 跑 `python scripts/migrate_literature_corpus_to_v3_9_0.py PATH` 補齊兩個新欄位。pre-v3.7.3 corpus — **先**跑 `migrate_literature_corpus_to_v3_7_3.py`，再跑 v3.9.0 遷移工具（spec §3.7 daisy-chain；v3.9.0 工具只動已有 `contamination_signals.semantic_scholar_unmatched` 的 entries）。
 
 ### v3.8.2（2026-05-17）— #118 uncited audit_tool_failure 補面
 

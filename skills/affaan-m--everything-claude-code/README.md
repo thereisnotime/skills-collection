@@ -1,4 +1,4 @@
-**Language:** English | [Português (Brasil)](docs/pt-BR/README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md) | [한국어](docs/ko-KR/README.md) | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md)
+**Language:** English | [Português (Brasil)](docs/pt-BR/README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md) | [한국어](docs/ko-KR/README.md) | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md) | [ไทย](docs/th/README.md)
 
 # Everything Claude Code
 
@@ -28,7 +28,7 @@
 **Language / 语言 / 語言 / Dil / Язык / Ngôn ngữ**
 
 [**English**](README.md) | [Português (Brasil)](docs/pt-BR/README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md) | [한국어](docs/ko-KR/README.md)
- | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md)
+ | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md) | [ไทย](docs/th/README.md)
 
 </div>
 
@@ -38,7 +38,7 @@
 
 Not just configs. A complete system: skills, instincts, memory optimization, continuous learning, security scanning, and research-first development. Production-ready agents, skills, hooks, rules, MCP configurations, and legacy command shims evolved over 10+ months of intensive daily use building real products.
 
-Works across **Claude Code**, **Codex**, **Cursor**, **OpenCode**, **Gemini**, **GitHub Copilot**, and other AI agent harnesses.
+Works across **Claude Code**, **Codex**, **Cursor**, **OpenCode**, **Gemini**, **Zed**, **GitHub Copilot**, and other AI agent harnesses.
 
 ECC v2.0.0-rc.1 adds the public Hermes operator story on top of that reusable layer: start with the [Hermes setup guide](docs/HERMES-SETUP.md), then review the [rc.1 release notes](docs/releases/2.0.0-rc.1/release-notes.md) and [cross-harness architecture](docs/architecture/cross-harness.md).
 
@@ -123,7 +123,7 @@ This repo is the raw code only. The guides explain everything.
 ### v2.0.0-rc.1 — Surface Refresh, Operator Workflows, and ECC 2.0 Alpha (Apr 2026)
 
 - **Dashboard GUI** — New Tkinter-based desktop application (`ecc_dashboard.py` or `npm run dashboard`) with dark/light theme toggle, font customization, and project logo in header and taskbar.
-- **Public surface synced to the live repo** — metadata, catalog counts, plugin manifests, and install-facing docs now match the actual OSS surface: 60 agents, 230 skills, and 75 legacy command shims.
+- **Public surface synced to the live repo** — metadata, catalog counts, plugin manifests, and install-facing docs now match the actual OSS surface: 60 agents, 231 skills, and 75 legacy command shims.
 - **Operator and outbound workflow expansion** — `brand-voice`, `social-graph-ranker`, `connections-optimizer`, `customer-billing-ops`, `ecc-tools-cost-audit`, `google-workspace-ops`, `project-flow-ops`, and `workspace-surface-audit` round out the operator lane.
 - **Media and launch tooling** — `manim-video`, `remotion-video-creation`, and upgraded social publishing surfaces make technical explainers and launch content part of the same system.
 - **Framework and product surface growth** — `nestjs-patterns`, richer Codex/OpenCode install surfaces, and expanded cross-harness packaging keep the repo usable beyond Claude Code alone.
@@ -392,7 +392,7 @@ If you stacked methods, clean up in this order:
 /plugin list ecc@ecc
 ```
 
-**That's it!** You now have access to 60 agents, 230 skills, and 75 legacy command shims.
+**That's it!** You now have access to 60 agents, 231 skills, and 75 legacy command shims.
 
 ### Dashboard GUI
 
@@ -429,7 +429,7 @@ python3 ./ecc_dashboard.py
 
 ## Cross-Platform Support
 
-This plugin now fully supports **Windows, macOS, and Linux**, alongside tight integration across major IDEs (Cursor, OpenCode, Antigravity) and CLI harnesses. All hooks and scripts have been rewritten in Node.js for maximum compatibility.
+This plugin now fully supports **Windows, macOS, and Linux**, alongside tight integration across major IDEs (Cursor, Zed, OpenCode, Antigravity) and CLI harnesses. All hooks and scripts have been rewritten in Node.js for maximum compatibility.
 
 ### Package Manager Detection
 
@@ -1150,6 +1150,7 @@ Yes. ECC is cross-platform:
 - **Antigravity**: Tightly integrated setup for workflows, skills, and flattened rules in `.agent/`. See [Antigravity Guide](docs/ANTIGRAVITY-GUIDE.md).
 - **JoyCode / CodeBuddy**: Project-local selective install adapters for commands, agents, skills, and flattened rules. See [JoyCode Adapter Guide](docs/JOYCODE-GUIDE.md).
 - **Qwen CLI**: Home-directory selective install adapter for commands, agents, skills, rules, and Qwen config. See [Qwen CLI Adapter Guide](docs/QWEN-GUIDE.md).
+- **Zed**: Project-local selective install adapter for `.zed/settings.json`, flattened rules, commands, agents, and skills.
 - **Non-native harnesses**: Manual fallback path for Grok and similar interfaces. See [Manual Adaptation Guide](docs/MANUAL-ADAPTATION-GUIDE.md).
 - **Claude Code**: Native — this is the primary target.
 </details>
@@ -1384,6 +1385,22 @@ ECC ships three sample role configs:
 
 ---
 
+## Zed Support
+
+ECC provides Zed project support through a conservative `.zed` adapter for project-local settings, flattened rules, agents, commands, and skills.
+
+```bash
+./install.sh --profile minimal --target zed
+```
+
+```powershell
+.\install.ps1 --profile minimal --target zed
+```
+
+The adapter writes ECC-managed files under `.zed/` and keeps BYOK/OpenRouter credentials out of the repo. Configure Zed account or API keys through Zed's own settings UI or your local user settings.
+
+---
+
 ## OpenCode Support
 
 ECC provides **full OpenCode support** including plugins and hooks.
@@ -1406,7 +1423,7 @@ The configuration is automatically detected from `.opencode/opencode.json`.
 |---------|-------------|----------|--------|
 | Agents | PASS: 60 agents | PASS: 12 agents | **Claude Code leads** |
 | Commands | PASS: 75 commands | PASS: 35 commands | **Claude Code leads** |
-| Skills | PASS: 230 skills | PASS: 37 skills | **Claude Code leads** |
+| Skills | PASS: 231 skills | PASS: 37 skills | **Claude Code leads** |
 | Hooks | PASS: 8 event types | PASS: 11 events | **OpenCode has more!** |
 | Rules | PASS: 29 rules | PASS: 13 instructions | **Claude Code leads** |
 | MCP Servers | PASS: 14 servers | PASS: Full | **Full parity** |
@@ -1568,7 +1585,7 @@ ECC is the **first plugin to maximize every major AI coding tool**. Here's how e
 |---------|------------|------------|-----------|----------|----------------|
 | **Agents** | 60 | Shared (AGENTS.md) | Shared (AGENTS.md) | 12 | N/A |
 | **Commands** | 75 | Shared | Instruction-based | 35 | 6 prompts |
-| **Skills** | 230 | Shared | 10 (native format) | 37 | Via instructions |
+| **Skills** | 231 | Shared | 10 (native format) | 37 | Via instructions |
 | **Hook Events** | 8 types | 15 types | None yet | 11 types | None |
 | **Hook Scripts** | 20+ scripts | 16 scripts (DRY adapter) | N/A | Plugin hooks | N/A |
 | **Rules** | 34 (common + lang) | 34 (YAML frontmatter) | Instruction-based | 13 instructions | 1 always-on file |

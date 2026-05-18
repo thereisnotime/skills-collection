@@ -1,11 +1,11 @@
 {
   "meta": {
     "title": "agentsys",
-    "description": "A modular runtime and orchestration system for AI agents. 20 plugins, 49 agents, 41 skills - structured pipelines for Claude Code, OpenCode, Codex CLI, Cursor, and Kiro.",
+    "description": "A modular runtime and orchestration system for AI agents. 24 plugins, 50 agents, 45 skills - structured pipelines for Claude Code, OpenCode, Codex CLI, Cursor, and Kiro.",
     "url": "https://agent-sh.github.io/agentsys",
     "repo": "https://github.com/agent-sh/agentsys",
     "npm": "https://www.npmjs.com/package/agentsys",
-    "version": "5.12.0",
+    "version": "5.13.5",
     "author": "Avi Fenesh",
     "author_url": "https://github.com/avifenesh"
   },
@@ -23,17 +23,17 @@
   },
   "stats": [
     {
-      "value": "20",
+      "value": "24",
       "label": "Plugins",
       "suffix": ""
     },
     {
-      "value": "49",
+      "value": "50",
       "label": "Agents",
       "suffix": ""
     },
     {
-      "value": "41",
+      "value": "45",
       "label": "Skills",
       "suffix": ""
     },
@@ -43,7 +43,7 @@
       "suffix": ""
     },
     {
-      "value": "3,507",
+      "value": "3,518",
       "label": "Tests",
       "suffix": ""
     },
@@ -110,9 +110,23 @@
       "category": "workflow"
     },
     {
+      "name": "/axiom",
+      "tagline": "Durable memory for agents",
+      "description": "Load thin context, query project or global knowledge, create missing project scaffolds, and propose human-approved records in a private axiom-based knowledge repo.",
+      "example": "/axiom before-any --project flowfabric",
+      "category": "workflow"
+    },
+    {
+      "name": "/banthis",
+      "tagline": "Durable negative memory",
+      "description": "Capture repeated agent mistakes as managed banned-behavior rules in CLAUDE.md or AGENTS.md. Includes a tiny CLI, skill, slash command, and init meta-rule.",
+      "example": "/banthis \"stop ending with vague offers\"",
+      "category": "workflow"
+    },
+    {
       "name": "/agnix",
       "tagline": "Lint agent configs before they break",
-      "description": "399 validation rules (126 auto-fixable) for Skills, Memory, Hooks, MCP, and Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, Cline, Windsurf, Roo Code, and Amp. SARIF output for GitHub Code Scanning.",
+      "description": "423 validation rules (129 auto-fixable) for Skills, Memory, Hooks, MCP, and Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, Cline, Windsurf, Roo Code, and Amp. SARIF output for GitHub Code Scanning.",
       "example": "/agnix --fix",
       "category": "linting"
     },
@@ -213,6 +227,20 @@
       "description": "Reads Claude Code conversation transcripts, identifies recurring patterns, clusters them into weighted themes, and suggests skills, hooks, or agents to automate them. No per-turn overhead.",
       "example": "/skillers compact",
       "category": "learning"
+    },
+    {
+      "name": "/skill-curator",
+      "tagline": "Design reliable SKILL.md files",
+      "description": "Create and improve cross-tool skills with strong activation triggers, tight scope, router patterns, Skip unless gates, and agnix-ready structure.",
+      "example": "/skill-curator --improve skills/example/SKILL.md",
+      "category": "maintenance"
+    },
+    {
+      "name": "/system-prompt-curator",
+      "tagline": "Design autonomous agent prompts",
+      "description": "Create and improve system prompts with task-matched identity, phased workflows, explicit tools, evidence-based completion criteria, and error recovery examples.",
+      "example": "/system-prompt-curator \"GitHub issue resolver\"",
+      "category": "maintenance"
     },
     {
       "name": "/onboard",
@@ -373,8 +401,8 @@
     }
   ],
   "agents": {
-    "total": 49,
-    "file_based": 39,
+    "total": 50,
+    "file_based": 40,
     "role_based": 10,
     "by_model": [
       {
@@ -531,7 +559,7 @@
   ],
   "research": {
     "knowledge_base": "8,000 lines of curated documentation from Anthropic, OpenAI, Google, and Microsoft",
-    "testing": "3,507 tests passing",
+    "testing": "3,518 tests passing",
     "drift_detect_repos": "1,000+ repositories validated",
     "token_reduction": "77% fewer tokens for drift-detect vs multi-agent approaches"
   },

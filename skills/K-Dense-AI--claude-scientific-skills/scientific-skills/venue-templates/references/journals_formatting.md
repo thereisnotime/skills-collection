@@ -321,19 +321,41 @@ Comprehensive formatting requirements and submission guidelines for major scient
 
 **Formatting Requirements**:
 - **Length**: Varies widely by journal
-- **Format**: Single column (LaTeX or Word)
-- **Font**: 12pt
-- **Line spacing**: Double-spaced
-- **Citations**: Numbered or author-year (check journal guide)
+- **Format**: Single column (`preprint`) or two-column typeset (`twocolumn`); also `1p` / `3p` / `5p` layout options
+- **Font**: 10–12pt (set via `\documentclass[12pt]{elsarticle}`)
+- **Line spacing**: Double-spaced for submission (`\usepackage{setspace}\doublespacing`)
+- **Citations**: Numbered or author-year — Elsevier ships three matched bib styles (see below)
 - **References**: Style varies by journal (Harvard, Vancouver, numbered)
   - Check specific journal's "Guide for Authors"
-- **Figures**: TIFF, EPS; 300+ dpi
-- **Tables**: Editable format
-- **Document Class**: `elsarticle` LaTeX class
+- **Figures**: TIFF, EPS; 300+ dpi line art / halftone
+- **Tables**: Editable format (`booktabs` recommended)
+- **Document Class**: `elsarticle` LaTeX class (replaces deprecated `elsart`)
 
-**LaTeX Template**: `assets/journals/elsevier_article.tex`
+**LaTeX Templates** (pick by citation style required by the target journal):
 
-**Author Guidelines**: https://www.elsevier.com/authors (select specific journal)
+| Template file | natbib option | Matching `.bst` | Citation looks like |
+|---|---|---|---|
+| `assets/journals/elsarticle-template-num.tex` | `numbers` | `elsarticle-num.bst` | `[1]`, `[2,3]` |
+| `assets/journals/elsarticle-template-num-names.tex` | `numbers,sort&compress` | `elsarticle-num-names.bst` | `Jones et al. [21]` |
+| `assets/journals/elsarticle-template-harv.tex` | `authoryear` | `elsarticle-harv.bst` | `(Jones, 2023)` / `Jones (2023)` |
+
+All three `.bst` files are bundled alongside the templates in `assets/journals/`.
+
+**Common documentclass options**:
+- `preprint` (default, single column, double spaced — use for submission)
+- `review` (double spaced, large margins, for reviewing)
+- `1p` / `3p` / `5p` (1-, 3-, 5-column typeset layouts — mainly for final camera-ready)
+- `times` (Times-like font)
+- `twocolumn`, `final`, `authoryear`, `number`
+
+**Front-matter macros** (specific to elsarticle):
+- `\title{...}`  `\author[label]{...}`  `\affiliation[label]{...}`  `\ead{email}`  `\ead[url]{...}`
+- `\cortext[cor1]{Corresponding author}` paired with `\author[...]{... \corref{cor1}}`
+- `\begin{abstract}...\end{abstract}` and `\begin{keyword}...\end{keyword}` inside `\begin{frontmatter}...\end{frontmatter}`
+
+**Author Guidelines**: https://www.elsevier.com/authors (select specific journal — many sub-journals override defaults, especially word limits, abstract structure, and `highlights` / `graphical abstract` requirements)
+
+**Class documentation**: CTAN `elsarticle` package → `elsdoc.pdf` for the full reference.
 
 ---
 

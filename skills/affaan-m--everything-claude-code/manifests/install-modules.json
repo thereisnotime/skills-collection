@@ -14,7 +14,8 @@
         "antigravity",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [],
       "defaultInstall": true,
@@ -37,7 +38,8 @@
         "codex",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [],
       "defaultInstall": true,
@@ -58,7 +60,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [],
       "defaultInstall": true,
@@ -96,6 +99,7 @@
         ".gemini",
         ".opencode",
         ".qwen",
+        ".zed",
         "mcp-configs",
         "scripts/auto-update.js",
         "scripts/setup-package-manager.js"
@@ -109,7 +113,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [],
       "defaultInstall": true,
@@ -178,7 +183,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "rules-core",
@@ -210,7 +216,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -254,7 +261,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -292,7 +300,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "workflow-quality"
@@ -323,7 +332,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -356,7 +366,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -397,7 +408,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -422,7 +434,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "business-content"
@@ -450,7 +463,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -506,7 +520,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -549,7 +564,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -581,7 +597,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -605,7 +622,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "framework-language",
@@ -640,7 +658,8 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
@@ -665,13 +684,134 @@
         "opencode",
         "codebuddy",
         "joycode",
-        "qwen"
+        "qwen",
+        "zed"
       ],
       "dependencies": [
         "platform-configs"
       ],
       "defaultInstall": false,
       "cost": "medium",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-ja-jp",
+      "kind": "docs",
+      "description": "Japanese (ja-JP) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/ja-JP"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-zh-cn",
+      "kind": "docs",
+      "description": "Simplified Chinese (zh-CN) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/zh-CN"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-ko-kr",
+      "kind": "docs",
+      "description": "Korean (ko-KR) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/ko-KR"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-pt-br",
+      "kind": "docs",
+      "description": "Brazilian Portuguese (pt-BR) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/pt-BR"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-ru",
+      "kind": "docs",
+      "description": "Russian (ru) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/ru"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-tr",
+      "kind": "docs",
+      "description": "Turkish (tr) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/tr"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-vi-vn",
+      "kind": "docs",
+      "description": "Vietnamese (vi-VN) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/vi-VN"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
+      "stability": "stable"
+    },
+    {
+      "id": "docs-zh-tw",
+      "kind": "docs",
+      "description": "Traditional Chinese (zh-TW) translated reference docs for agents, commands, skills, and rules.",
+      "paths": [
+        "docs/zh-TW"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "dependencies": [],
+      "defaultInstall": false,
+      "cost": "heavy",
       "stability": "stable"
     }
   ]

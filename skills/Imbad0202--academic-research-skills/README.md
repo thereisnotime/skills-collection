@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.8.2-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.8.2)
+[![Version](https://img.shields.io/badge/version-v3.9.2-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.9.2)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -318,6 +318,20 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## Changelog
+
+### v3.9.2 (2026-05-18) — #133 phase boundary hot-fix
+
+> #133 closure (hot-fix layer). Long-term architectural fix tracked as v3.10 active conductor in #134. Adds: routing clarification gate in CLAUDE.md (cross-phase materials → clarify with a-d options, not silent dispatch), 22 single-phase agents get prompt hard fence (`## Phase Boundary (v3.9.2)`), 16 multi-phase / phase-orthogonal / cross-phase-meta agents intentionally NOT fenced (honest framing — prose placebo creates false-enforcement illusion), advisory verifier `scripts/check_pipeline_integrity.py` detects #133 pattern post-hoc. Behavioral smoke tests with cross-model spot-check (100% Opus 4.7, ≥75% Sonnet + GPT-5.5).
+
+### v3.9.1 (2026-05-18) — #129 + #130 client hardening
+
+> v3.9.0 hot-fix. Wraps OpenAlex / Crossref response-read failures as `*Unavailable` (#129); guards `check_claim_audit_consistency` against non-string `manifest_id` (#130). No spec change.
+
+### v3.9.0 (2026-05-17) — #102 cross-index triangulation measurement
+
+> #102 closure. v3.7.3 shipped single-index (Semantic Scholar) contamination detection; v3.9.0 extends to three-index triangulation (S2 + OpenAlex + Crossref) as **advisory evidence only**. Two new optional booleans (`openalex_unmatched`, `crossref_unmatched`) on `contamination_signals`; manual-entry not-rule extended symmetrically. Finalizer adds a 4-tier advisory matrix (k=0/1/2/3 over present `*_unmatched` fields) with v3.7.3 legacy `CONTAMINATED-UNMATCHED` preserved for the k=1/k_max=1 S2-only case. Formatter pass-through allowlist extends 3 → 9 suffixes; refusal rules 1-10 unchanged per R-L3-2-E. The policy layer (strict modes, hard-block tier, `venue_type` / `triangulation_policy`) is deferred to v3.10 per spec §2.3. k=3 marker is `CONTAMINATED-TRIANGULATION-UNMATCHED` (describes observable, not inferred cause). 3 new firm rules: R-L3-2-C (k computed over present fields), R-L3-2-D (no API-inferred classification), R-L3-2-E (refusal list unchanged; pass-through allowlist extends).
+
+**Migration:** v3.7.3 corpora — run `python scripts/migrate_literature_corpus_to_v3_9_0.py PATH` to backfill the two new fields. Pre-v3.7.3 corpora — run `migrate_literature_corpus_to_v3_7_3.py` FIRST, then v3.9.0 migration (daisy-chained per spec §3.7; the v3.9.0 tool only acts on entries that already carry `contamination_signals.semantic_scholar_unmatched`).
 
 ### v3.8.2 (2026-05-17) — #118 uncited audit_tool_failure surface
 
