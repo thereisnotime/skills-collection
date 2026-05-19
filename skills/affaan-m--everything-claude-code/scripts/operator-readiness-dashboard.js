@@ -335,13 +335,29 @@ function agentShieldEnterpriseGap(roadmap) {
 function agentShieldEnterpriseEvidence(roadmap) {
   if (roadmap.includes('hosted promotion judge audit traces')
     || roadmap.includes('operator-visible promotion output values')) {
-    return 'AgentShield policy promotion `reviewItems` landed in `87aec47`; package-manager hardening drift detection landed in `28d08c7`; workflow action runtime pins were refreshed in `659f569`; npm age-gate guidance was corrected in `ee585cd`; package-manager hardening Action outputs landed in `1124535`; policy-promotion Action outputs and runtime-smoke job-summary evidence landed in `1593925`; ECC-Tools consumes those outputs in `8658951`, surfaces operator-readable status/pack/count/digest telemetry in `16c537f`, and renders hosted promotion judge audit traces in `05d4e82`; all are mirrored in the GA roadmap';
+    return 'AgentShield policy promotion `reviewItems` landed in `87aec47`; package-manager hardening drift detection landed in `28d08c7`; workflow action runtime pins were refreshed in `659f569`; npm age-gate guidance was corrected in `ee585cd`; package-manager hardening Action outputs landed in `1124535`; policy-promotion Action outputs and runtime-smoke job-summary evidence landed in `1593925`; fleet review ticket payloads and current Mini Shai-Hulud IOC breadcrumbs landed in `840952a`; ECC-Tools consumes those outputs in `8658951`, surfaces operator-readable status/pack/count/digest telemetry in `16c537f`, and renders hosted promotion judge audit traces in `05d4e82`; all are mirrored in the GA roadmap';
   }
 
   return 'AgentShield enterprise PR evidence is mirrored in the GA roadmap';
 }
 
 function eccToolsNextLevelEvidence(roadmap) {
+  if (roadmap.includes('69ca535')
+    || roadmap.includes('team feedback controls')
+    || roadmap.includes('e56fc1a')) {
+    return 'billing announcement gate, hosted analysis lanes, AgentShield fleet-summary consumption, hosted finding evidence paths, harness-route policy linking, policy-promotion Action-output telemetry, operator-visible promotion output details, hosted promotion judge audit traces, billing announcement preflight, aggregate production billing KV readback, Wrangler OAuth readback, target-account billing readback, provenance-aware Marketplace billing-state gates, sanitized Marketplace plan/action provenance counts, hosted team-learning feedback controls, and ECC-Tools Dependabot alert remediation are mirrored in the GA roadmap';
+  }
+
+  if (roadmap.includes('d5f60db')
+    || roadmap.includes('Marketplace-source provenance counts')) {
+    return 'billing announcement gate, hosted analysis lanes, AgentShield fleet-summary consumption, hosted finding evidence paths, harness-route policy linking, policy-promotion Action-output telemetry, operator-visible promotion output details, hosted promotion judge audit traces, billing announcement preflight, aggregate production billing KV readback, Wrangler OAuth readback, target-account billing readback, provenance-aware Marketplace billing-state gates, and sanitized Marketplace plan/action provenance counts are mirrored in the GA roadmap';
+  }
+
+  if (roadmap.includes('target account billing readback')
+    || roadmap.includes('632e059')) {
+    return 'billing announcement gate, hosted analysis lanes, AgentShield fleet-summary consumption, hosted finding evidence paths, harness-route policy linking, policy-promotion Action-output telemetry, operator-visible promotion output details, hosted promotion judge audit traces, billing announcement preflight, aggregate production billing KV readback, Wrangler OAuth readback, target-account billing readback, and provenance-aware Marketplace billing-state gates are mirrored in the GA roadmap';
+  }
+
   if (roadmap.includes('Wrangler OAuth readback')
     || roadmap.includes('42653f9')) {
     return 'billing announcement gate, hosted analysis lanes, AgentShield fleet-summary consumption, hosted finding evidence paths, harness-route policy linking, policy-promotion Action-output telemetry, operator-visible promotion output details, hosted promotion judge audit traces, billing announcement preflight, aggregate production billing KV readback, Wrangler OAuth readback, and provenance-aware Marketplace billing-state gates are mirrored in the GA roadmap';
@@ -371,9 +387,29 @@ function eccToolsNextLevelEvidence(roadmap) {
 }
 
 function eccToolsNextLevelGap(roadmap) {
+  if (roadmap.includes('1Password CLI authorization timed out')
+    || roadmap.includes('Cloudflare API auth returned `Authentication error [code: 10000]`')) {
+    return 'authorize Cloudflare API or 1Password CLI access, configure the target Marketplace Pro account and INTERNAL_API_SECRET, create or replay Marketplace Pro webhook state, then rerun target readback and the live announcement gate';
+  }
+
+  if (roadmap.includes('Wrangler OAuth now works')
+    || roadmap.includes('6904e4fb-bec7-4787-90e2-759f077a628c')) {
+    return 'create or verify Marketplace-managed Pro target billing-state with webhook provenance, configure the target account and INTERNAL_API_SECRET, then rerun target readback and the live announcement gate';
+  }
+
+  if (roadmap.includes('d5f60db')
+    || roadmap.includes('Marketplace-source provenance counts')) {
+    return 'create or verify Marketplace-managed Pro target billing-state with webhook provenance, then run `billing:kv-readback -- --wrangler --wrangler-bin ./node_modules/.bin/wrangler --account <github-login> --require-ready`, followed by the live announcement gate';
+  }
+
+  if (roadmap.includes('target account billing readback')
+    || roadmap.includes('632e059')) {
+    return 'create or verify Marketplace-managed Pro target billing-state with webhook provenance, then run `billing:kv-readback -- --account <github-login> --require-ready` with working Cloudflare API auth or repaired Wrangler OAuth, followed by the live announcement gate';
+  }
+
   if (roadmap.includes('Wrangler OAuth readback')
     || roadmap.includes('42653f9')) {
-    return 'create or verify Marketplace-managed Pro billing-state with webhook provenance, then run `billing:kv-readback -- --wrangler --require-ready` and the live announcement gate';
+    return 'create or verify Marketplace-managed Pro billing-state with webhook provenance, then run `billing:kv-readback -- --require-ready` with working Cloudflare API auth or repaired Wrangler OAuth, followed by the live announcement gate';
   }
 
   if (roadmap.includes('Marketplace webhook provenance')
@@ -492,6 +528,17 @@ function buildRequirement(id, requirement, artifact, status, evidence, gap) {
   return { id, requirement, artifact, status, evidence, gap };
 }
 
+function extractLabeledCount(text, label) {
+  const pattern = new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*(\\d+)`, 'i');
+  const match = text.match(pattern);
+  if (!match) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function isCurrentOrComplete(status) {
   return status === 'current' || status === 'complete';
 }
@@ -500,7 +547,9 @@ function buildRequirements(rootDir, platformReport) {
   const roadmap = readText(rootDir, 'docs/ECC-2.0-GA-ROADMAP.md');
   const publicationReadiness = readText(rootDir, 'docs/releases/2.0.0-rc.1/publication-readiness.md');
   const namingMatrix = readText(rootDir, 'docs/releases/2.0.0-rc.1/naming-and-publication-matrix.md');
+  const releasePublicationChecklist = readText(rootDir, 'docs/releases/2.0.0-rc.1/release-name-plugin-publication-checklist-2026-05-18.md');
   const releaseUrlLedger = readText(rootDir, 'docs/releases/2.0.0-rc.1/release-url-ledger-2026-05-18.md');
+  const ownerQueueCleanup = readText(rootDir, 'docs/releases/2.0.0-rc.1/owner-queue-cleanup-2026-05-18.md');
   const previewManifest = readText(rootDir, 'docs/releases/2.0.0-rc.1/preview-pack-manifest.md');
   const previewPackSmoke = readText(rootDir, 'scripts/preview-pack-smoke.js');
   const progressSync = readText(rootDir, 'docs/architecture/progress-sync-contract.md');
@@ -530,9 +579,22 @@ function buildRequirements(rootDir, platformReport) {
     && fileExists(rootDir, 'skills/hermes-imports/SKILL.md');
 
   const githubLive = !platformReport.github.skipped && platformReport.github.totals.errors === 0;
-  const queuesCurrent = githubLive
-    && platformReport.github.totals.openPrs <= platformReport.thresholds.maxOpenPrs
+  const ownerWideOpenPrs = extractLabeledCount(ownerQueueCleanup, 'Owner-wide open PRs after cleanup');
+  const ownerWideOpenIssues = extractLabeledCount(ownerQueueCleanup, 'Owner-wide open issues after cleanup');
+  const trackedPrQueueCurrent = githubLive
+    && platformReport.github.totals.openPrs <= platformReport.thresholds.maxOpenPrs;
+  const trackedIssueQueueCurrent = githubLive
     && platformReport.github.totals.openIssues <= platformReport.thresholds.maxOpenIssues;
+  const ownerPrQueueCurrent = ownerWideOpenPrs === null
+    || ownerWideOpenPrs <= platformReport.thresholds.maxOpenPrs;
+  const ownerIssueQueueCurrent = ownerWideOpenIssues === null
+    || ownerWideOpenIssues <= platformReport.thresholds.maxOpenIssues;
+  const ownerPrEvidence = ownerWideOpenPrs === null
+    ? ''
+    : `; ${ownerWideOpenPrs} owner-wide open PRs after cleanup`;
+  const ownerIssueEvidence = ownerWideOpenIssues === null
+    ? ''
+    : `; ${ownerWideOpenIssues} owner-wide open issues after cleanup`;
   const discussionsCurrent = githubLive
     && platformReport.github.totals.discussionsNeedingMaintainerTouch === 0
     && platformReport.github.totals.discussionsMissingAcceptedAnswer === 0;
@@ -541,22 +603,30 @@ function buildRequirements(rootDir, platformReport) {
     buildRequirement(
       'public-pr-budget',
       'Keep public PRs below 20',
-      'scripts/platform-audit.js live GitHub sweep',
-      queuesCurrent ? 'current' : 'in_progress',
+      ownerWideOpenPrs === null
+        ? 'scripts/platform-audit.js live GitHub sweep'
+        : 'scripts/platform-audit.js live GitHub sweep plus owner-wide queue cleanup ledger',
+      trackedPrQueueCurrent && ownerPrQueueCurrent ? 'current' : 'in_progress',
       githubLive
-        ? `${platformReport.github.totals.openPrs} open PRs across ${platformReport.github.repos.length} tracked repos`
+        ? `${platformReport.github.totals.openPrs} open PRs across ${platformReport.github.repos.length} tracked repos${ownerPrEvidence}`
         : 'live GitHub queue readback was skipped or failed',
-      queuesCurrent ? 'repeat before release' : 'run live platform:audit and drain PR queue'
+      trackedPrQueueCurrent && ownerPrQueueCurrent
+        ? 'repeat platform:audit and owner-wide gh search before release'
+        : 'run live platform:audit and owner-wide gh search, then drain PR queue'
     ),
     buildRequirement(
       'public-issue-budget',
       'Keep public issues below 20',
-      'scripts/platform-audit.js live GitHub sweep',
-      queuesCurrent ? 'current' : 'in_progress',
+      ownerWideOpenIssues === null
+        ? 'scripts/platform-audit.js live GitHub sweep'
+        : 'scripts/platform-audit.js live GitHub sweep plus owner-wide queue cleanup ledger',
+      trackedIssueQueueCurrent && ownerIssueQueueCurrent ? 'current' : 'in_progress',
       githubLive
-        ? `${platformReport.github.totals.openIssues} open issues across ${platformReport.github.repos.length} tracked repos`
+        ? `${platformReport.github.totals.openIssues} open issues across ${platformReport.github.repos.length} tracked repos${ownerIssueEvidence}`
         : 'live GitHub queue readback was skipped or failed',
-      queuesCurrent ? 'repeat before release' : 'run live platform:audit and drain issue queue'
+      trackedIssueQueueCurrent && ownerIssueQueueCurrent
+        ? 'repeat platform:audit and owner-wide gh search before release'
+        : 'run live platform:audit and owner-wide gh search, then drain issue queue'
     ),
     buildRequirement(
       'repository-discussions',
@@ -612,12 +682,19 @@ function buildRequirements(rootDir, platformReport) {
     buildRequirement(
       'naming-and-plugin-publication',
       'Prepare name-change, Claude plugin, and Codex plugin paths',
-      'naming-and-publication-matrix plus publication-readiness',
+      'naming-and-publication-matrix plus release-name-plugin-publication checklist plus publication-readiness',
       includesAll(namingMatrix, ['Claude plugin', 'Codex plugin', 'npm package', 'Publication Paths'])
+        && includesAll(releasePublicationChecklist, [
+          'Everything Claude Code (ECC)',
+          'ecc-universal',
+          'claude plugin tag .claude-plugin --dry-run',
+          'codex plugin marketplace add',
+          'Do not rename the repo or package until rc.1 is published'
+        ])
         && includesAll(publicationReadiness, ['Claude plugin', 'Codex plugin'])
         ? 'in_progress'
         : 'not_complete',
-      'naming matrix and plugin readiness gates exist',
+      'naming matrix, release publication checklist, and plugin readiness gates exist',
       'real tag/push, marketplace submission, and final channel choice remain approval-gated'
     ),
     buildRequirement(
@@ -750,7 +827,7 @@ function buildReport(options) {
     next_work_order: [
       'Regenerate this dashboard from the final release commit before publication evidence is recorded.',
       'Repeat ITO-57 Linear/project status sync after the next significant merge batch or advisory-source refresh.',
-    'Create or verify Marketplace-managed Pro billing-state with webhook provenance, then run `billing:kv-readback -- --wrangler --require-ready` and the live announcement gate before publishing native-payments copy.',
+      'Create or verify Marketplace-managed Pro target billing-state with webhook provenance, configure the target account and INTERNAL_API_SECRET, then rerun target readback and the live announcement gate before publishing native-payments copy.',
       'Resume ITO-45, ITO-46, and ITO-56 only after the generated dashboard and final release gates are refreshed.',
     ],
   };

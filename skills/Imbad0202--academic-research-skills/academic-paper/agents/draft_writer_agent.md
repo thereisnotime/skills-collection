@@ -573,3 +573,32 @@ Three firm rules:
 - **R-L3-2-C (no frontmatter reading):** Generate `claim_text`, `intended_evidence_kind`, `planned_refs`, and any `negative_constraints[].rule` values from the corpus + prompt context already provided. You MUST NOT read entry frontmatter to discover candidate claims — the same partial-inversion rule that gates anchor selection in v3.7.3 R-L3-1-C. The orchestrator allocates a fresh `manifest_id` per invocation (M-INV-4); never copy a `manifest_id` from a sibling manifest.
 
 The writer's job still ends at emission. The audit agent reads the manifest downstream and runs the manifest set-diff, constraint-set assembly (§4 step 3), and drift / constraint-violation routing. Manifest-side mutation by this writer would erase the pre-commitment signal the audit depends on.
+
+## Temporal Integrity Iron Rule (v3.9.4)
+
+Before writing any sentence that:
+
+- Cites a document with a publication year via <!--ref:slug-->
+- States that one event led to / was enabled by / superseded / followed another
+- Uses present-tense or deictic framing ("currently", "now", "the most recent",
+  "the latest", "new", "recently", "last year", "nowadays")
+- Compares two versions of the same standard or document
+
+You MUST:
+
+1. Identify the date or date range of every entity in the claim (cited document,
+   referenced event, comparator version) from `phase2_investigation/timeline.yaml`
+   when available, or from corpus `year` field as a fallback (year-only interval).
+2. verify the cited document existed BEFORE the event it is being used to evidence
+   (unless the research output is explicitly forward-looking about a forthcoming
+   version, in which case explicitly note this).
+3. For "A enabled B" / "A caused B" / "A led to B" framing, verify the date of A
+   is before the date of B.
+4. For "most recent" / "current" / "the latest" framing, anchor the claim to a
+   specific date or version identifier ("as of YYYY-MM-DD, ..." or "the YYYY
+   edition, ..."), not a deictic word.
+5. If the dates required to verify the claim are absent from `timeline.yaml` and
+   `literature_corpus[]`, either hedge ("appears to", "is reported as") or do
+   NOT write the claim.
+
+You may not rely on linguistic plausibility for temporal claims. Temporal claims are arithmetic, not stylistic.

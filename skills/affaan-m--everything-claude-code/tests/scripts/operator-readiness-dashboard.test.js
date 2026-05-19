@@ -68,15 +68,30 @@ function seedRepo(rootDir, overrides = {}) {
       '2859678',
       'Wrangler OAuth readback',
       '42653f9',
+      'target account billing readback',
+      '632e059',
+      '69ca535',
+      'team feedback controls',
+      'e56fc1a',
+      '1Password CLI authorization timed out',
+      'Cloudflare API auth returned `Authentication error [code: 10000]`',
       'announcementGate',
       'ITO-55',
       'Linear live sync is current for the May 17 merge batch',
       'operator progress snapshot'
     ].join('\n'),
-    'docs/releases/2.0.0-rc.1/publication-readiness.md': 'Claude plugin Codex plugin',
+    'docs/releases/2.0.0-rc.1/publication-readiness.md': 'Claude plugin Codex plugin release-name-plugin-publication-checklist-2026-05-18.md',
     'docs/releases/2.0.0-rc.1/naming-and-publication-matrix.md': 'Claude plugin Codex plugin npm package Publication Paths',
+    'docs/releases/2.0.0-rc.1/release-name-plugin-publication-checklist-2026-05-18.md': [
+      'Everything Claude Code (ECC)',
+      'ecc-universal',
+      'claude plugin tag .claude-plugin --dry-run',
+      'codex plugin marketplace add',
+      'Do not rename the repo or package until rc.1 is published'
+    ].join('\n'),
     'docs/releases/2.0.0-rc.1/preview-pack-manifest.md': [
       'publication-readiness.md release-notes.md quickstart.md',
+      'release-name-plugin-publication-checklist-2026-05-18.md',
       '`scripts/preview-pack-smoke.js`',
       'npm run preview-pack:smoke'
     ].join('\n'),
@@ -92,6 +107,12 @@ function seedRepo(rootDir, overrides = {}) {
       'ITO-59',
       'PR queue',
       'Not complete'
+    ].join('\n'),
+    'docs/releases/2.0.0-rc.1/owner-queue-cleanup-2026-05-18.md': [
+      'Owner-wide open PRs after cleanup: 0.',
+      'Owner-wide open issues after cleanup: 0.',
+      'Stale dependency-bot PRs closed: 24.',
+      'Stale legacy payments/0EM roadmap issues closed: 72.'
     ].join('\n'),
     'docs/HERMES-SETUP.md': 'Hermes setup Public Release Candidate Scope',
     'skills/hermes-imports/SKILL.md': 'Hermes imports Sanitization Checklist Do not ship raw workspace exports Output Contract',
@@ -262,13 +283,22 @@ function runTests() {
       )));
       assert.ok(report.requirements.some(item => (
         item.id === 'ecc-tools-next-level'
-          && item.gap === 'create or verify Marketplace-managed Pro billing-state with webhook provenance, then run `billing:kv-readback -- --wrangler --require-ready` and the live announcement gate'
+          && item.gap === 'authorize Cloudflare API or 1Password CLI access, configure the target Marketplace Pro account and INTERNAL_API_SECRET, create or replay Marketplace Pro webhook state, then rerun target readback and the live announcement gate'
           && item.evidence.includes('operator-visible promotion output details')
           && item.evidence.includes('hosted promotion judge audit traces')
           && item.evidence.includes('billing announcement preflight')
           && item.evidence.includes('aggregate production billing KV readback')
           && item.evidence.includes('Wrangler OAuth readback')
+          && item.evidence.includes('target-account billing readback')
           && item.evidence.includes('provenance-aware Marketplace billing-state gates')
+          && item.evidence.includes('hosted team-learning feedback controls')
+          && item.evidence.includes('ECC-Tools Dependabot alert remediation')
+      )));
+      assert.ok(report.requirements.some(item => (
+        item.id === 'naming-and-plugin-publication'
+          && item.artifact.includes('release-name-plugin-publication checklist')
+          && item.evidence.includes('release publication checklist')
+          && item.gap === 'real tag/push, marketplace submission, and final channel choice remain approval-gated'
       )));
       assert.ok(report.requirements.some(item => (
         item.id === 'supply-chain-local-protection'

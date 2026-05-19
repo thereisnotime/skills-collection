@@ -243,6 +243,26 @@ jobs:
           pip install pytest
           pytest scripts/test_check_pipeline_integrity.py -v
 
+      - name: Run v3.9.4 temporal verification lint (#135)
+        # Verifies check_v3_9_4_temporal_verification.py against all bundled
+        # fixtures in tests/fixtures/v3.9.4-temporal/. Each fixture directory
+        # carries timeline.yaml, citation_provenance.yaml, and
+        # expected_temporal_audit_results.yaml (the verifier's expected output,
+        # used as the lint's --temporal-audit input). The guard protects against
+        # directories that don't have all three files (defensive, forward-compat).
+        # Spec: docs/design/2026-05-18-ars-v3.9.4-temporal-verification-spec.md
+        env:
+          PYTHONPATH: .
+        run: |
+          for fixture in tests/fixtures/v3.9.4-temporal/*/; do
+            if [ -f "$fixture/timeline.yaml" ] && [ -f "$fixture/citation_provenance.yaml" ] && [ -f "$fixture/expected_temporal_audit_results.yaml" ]; then
+              python3 scripts/check_v3_9_4_temporal_verification.py \
+                --timeline "$fixture/timeline.yaml" \
+                --citation-provenance "$fixture/citation_provenance.yaml" \
+                --temporal-audit "$fixture/expected_temporal_audit_results.yaml"
+            fi
+          done
+
       - name: Run v3.8 annotation-literal sync lint (#103)
         # Step 8 /simplify reuse P2-1: lint pins that every
         # ANNOTATION_HIGH_WARN_* literal in scripts/claim_audit_finalizer.py

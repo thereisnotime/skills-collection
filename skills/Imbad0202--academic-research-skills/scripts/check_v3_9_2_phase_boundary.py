@@ -6,8 +6,8 @@ Classification: docs/design/2026-05-18-ars-v3.9.2-agent-phase-classification.md
 
 Enforces three invariants:
 
-1. **Bucket A coverage** — all 22 single-phase agents MUST carry a
-   `## Phase Boundary (v3.9.2)` H2 block.
+1. **Bucket A coverage** — all 23 single-phase agents MUST carry a
+   `## Phase Boundary (v3.9.2)` or `## Phase Boundary (v3.9.4)` H2 block.
 
 2. **Bucket B/C/D exclusion** — all 16 multi-phase / phase-orthogonal /
    cross-phase-meta agents MUST NOT carry the block. Adding a fence to
@@ -17,10 +17,10 @@ Enforces three invariants:
 3. **Block content shape** — each Bucket A block must contain the four
    load-bearing keywords/phrases that make the boundary detectable in
    prompt processing:
-     - `Phase Boundary (v3.9.2)` (the H2 marker)
+     - `Phase Boundary (v3.9.2)` or `Phase Boundary (v3.9.4)` (the H2 marker)
      - `MUST NOT` (the prohibition section)
      - `MAY READ` (the explicit upstream-read permission)
-     - `Enforcement (v3.9.2)` (the trailing enforcement-paragraph marker)
+     - `Enforcement (v3.9.2)` or `Enforcement (v3.9.4)` (the trailing enforcement-paragraph marker)
 
    These are scoped to the Phase Boundary block itself (via H2 → next H2
    boundary), so the same keyword appearing elsewhere in the agent file
@@ -41,15 +41,16 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Bucket A — 22 single-phase agents that MUST have Phase Boundary block.
+# Bucket A — 23 single-phase agents that MUST have Phase Boundary block.
 # Source: docs/design/2026-05-18-ars-v3.9.2-agent-phase-classification.md
 BUCKET_A_AGENTS = [
-    # deep-research/agents/ (9)
+    # deep-research/agents/ (10)
     "deep-research/agents/research_question_agent.md",
     "deep-research/agents/research_architect_agent.md",
     "deep-research/agents/bibliography_agent.md",
     "deep-research/agents/source_verification_agent.md",
     "deep-research/agents/synthesis_agent.md",
+    "deep-research/agents/timeline_extraction_agent.md",  # v3.9.4 Phase 2 sibling
     "deep-research/agents/editor_in_chief_agent.md",
     "deep-research/agents/ethics_review_agent.md",
     "deep-research/agents/risk_of_bias_agent.md",
@@ -95,7 +96,10 @@ BUCKET_BCD_AGENTS = [
     "academic-paper-reviewer/agents/field_analyst_agent.md",  # Phase 0 configures panel
 ]
 
-BLOCK_MARKER = "## Phase Boundary (v3.9.2)"
+# v3.9.4: widened to accept either v3.9.2 or v3.9.4 phase boundary markers.
+# timeline_extraction_agent.md (added in v3.9.4) uses v3.9.4 in both markers.
+PHASE_BOUNDARY_RE = re.compile(r"## Phase Boundary \(v3\.9\.(?:2|4)\)")
+ENFORCEMENT_RE = re.compile(r"Enforcement \(v3\.9\.(?:2|4)\)")
 
 # H2 marker that ends the Phase Boundary block scope.
 # Used to scope keyword checks: keywords appearing elsewhere in the file
@@ -103,21 +107,22 @@ BLOCK_MARKER = "## Phase Boundary (v3.9.2)"
 H2_RE = re.compile(r"^## ", re.MULTILINE)
 
 # Required keywords/phrases inside each Bucket A block.
+# Note: Phase Boundary and Enforcement markers are version-widened (v3.9.2|v3.9.4);
+# MUST NOT and MAY READ are version-neutral.
 REQUIRED_PHRASES = [
-    "Phase Boundary (v3.9.2)",
     "MUST NOT",
     "MAY READ",
-    "Enforcement (v3.9.2)",
 ]
 
 
 def extract_block(text: str) -> str | None:
-    """Extract the Phase Boundary (v3.9.2) block from H2 start to next H2."""
-    start = text.find(BLOCK_MARKER)
-    if start == -1:
+    """Extract the Phase Boundary (v3.9.2|v3.9.4) block from H2 start to next H2."""
+    m = PHASE_BOUNDARY_RE.search(text)
+    if m is None:
         return None
+    start = m.start()
     # Find next H2 after the block marker
-    after_block_start = start + len(BLOCK_MARKER)
+    after_block_start = m.end()
     next_h2 = H2_RE.search(text, after_block_start)
     end = next_h2.start() if next_h2 else len(text)
     return text[start:end]
@@ -134,7 +139,7 @@ def check_bucket_a(path: Path) -> list[str]:
     block = extract_block(text)
     if block is None:
         errors.append(
-            f"{path.relative_to(REPO_ROOT)}: missing '## Phase Boundary (v3.9.2)' "
+            f"{path.relative_to(REPO_ROOT)}: missing '## Phase Boundary (v3.9.2|v3.9.4)' "
             f"block (Bucket A agents MUST carry this block per "
             f"docs/design/2026-05-18-ars-v3.9.2-agent-phase-classification.md)"
         )
@@ -147,6 +152,13 @@ def check_bucket_a(path: Path) -> list[str]:
                 f"required phrase: {phrase!r} (falsifiability discipline: phrase "
                 f"must appear inside the H2 block, not elsewhere in the file)"
             )
+    # Enforcement marker check (version-widened: v3.9.2 or v3.9.4)
+    if not ENFORCEMENT_RE.search(block):
+        errors.append(
+            f"{path.relative_to(REPO_ROOT)}: Phase Boundary block missing "
+            f"required phrase: 'Enforcement (v3.9.2|v3.9.4)' (falsifiability "
+            f"discipline: phrase must appear inside the H2 block)"
+        )
     return errors
 
 
@@ -159,13 +171,13 @@ def check_bucket_bcd(path: Path) -> list[str]:
         return errors
 
     text = path.read_text(encoding="utf-8")
-    if BLOCK_MARKER in text:
+    if PHASE_BOUNDARY_RE.search(text):
         errors.append(
             f"{path.relative_to(REPO_ROOT)}: unexpected '## Phase Boundary "
-            f"(v3.9.2)' block on Bucket B/C/D agent. These agents are multi-phase "
-            f"(B), phase-orthogonal (C), or cross-phase meta (D) by design — "
-            f"adding a single-phase fence would either falsely block legitimate "
-            f"cross-phase work or defeat orchestration. See "
+            f"(v3.9.2|v3.9.4)' block on Bucket B/C/D agent. These agents are "
+            f"multi-phase (B), phase-orthogonal (C), or cross-phase meta (D) by "
+            f"design — adding a single-phase fence would either falsely block "
+            f"legitimate cross-phase work or defeat orchestration. See "
             f"docs/design/2026-05-18-ars-v3.9.2-agent-phase-classification.md."
         )
     return errors
@@ -181,10 +193,10 @@ def main() -> int:
         errors.extend(check_bucket_bcd(REPO_ROOT / rel_path))
 
     # Coverage sanity
-    if len(BUCKET_A_AGENTS) != 22:
+    if len(BUCKET_A_AGENTS) != 23:
         errors.append(
             f"BUCKET_A_AGENTS has {len(BUCKET_A_AGENTS)} entries but "
-            f"classification doc requires 22"
+            f"classification doc requires 23 (v3.9.4 added timeline_extraction_agent)"
         )
     if len(BUCKET_BCD_AGENTS) != 16:
         errors.append(
@@ -198,7 +210,7 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         return 1
 
-    print(f"v3.9.2 Phase Boundary lint PASSED: "
+    print(f"v3.9.2/v3.9.4 Phase Boundary lint PASSED: "
           f"{len(BUCKET_A_AGENTS)} Bucket A agents have block, "
           f"{len(BUCKET_BCD_AGENTS)} Bucket B/C/D agents excluded.")
     return 0

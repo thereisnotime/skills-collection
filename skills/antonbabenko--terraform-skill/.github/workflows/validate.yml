@@ -5,11 +5,17 @@ on:
     paths:
       - 'skills/**'
       - '.claude-plugin/**'
+      - '.codex-plugin/**'
+      - '.github/workflows/**'
+      - '.github/release/**'
   push:
     branches: [master, main]
     paths:
       - 'skills/**'
       - '.claude-plugin/**'
+      - '.codex-plugin/**'
+      - '.github/workflows/**'
+      - '.github/release/**'
   workflow_dispatch:
 
 jobs:
@@ -87,6 +93,51 @@ jobs:
               sys.exit(1)
 
           print(f"✅ Frontmatter valid ({desc_len} chars)")
+          EOF
+
+      - name: Check Codex Manifest Version Sync
+        run: |
+          python3 << 'EOF'
+          import json
+          import os
+          import re
+          import sys
+          import yaml
+
+          SEMVER = re.compile(r'^\d+\.\d+\.\d+$')
+
+          manifest_path = '.codex-plugin/plugin.json'
+          if not os.path.exists(manifest_path):
+              print("ℹ️  No .codex-plugin/plugin.json; skipping sync check")
+              sys.exit(0)
+
+          with open('skills/terraform-skill/SKILL.md') as f:
+              fm = yaml.safe_load(f.read().split('---', 2)[1])
+          skill_version = (fm.get('metadata') or {}).get('version')
+
+          with open(manifest_path) as f:
+              manifest_version = json.load(f).get('version')
+
+          # Both must exist and be real semver, not merely equal: equality
+          # alone passes when both are missing/empty.
+          for label, value in (
+              ('SKILL.md metadata.version', skill_version),
+              (f'{manifest_path} version', manifest_version),
+          ):
+              if not (isinstance(value, str) and SEMVER.match(value)):
+                  print(
+                      f"❌ ERROR: {label} is not a valid semver: {value!r}. "
+                      f"CI owns these; do not hand-edit (see CLAUDE.md).")
+                  sys.exit(1)
+
+          if skill_version != manifest_version:
+              print(
+                  f"❌ ERROR: version mismatch - SKILL.md metadata.version="
+                  f"{skill_version!r} vs {manifest_path}={manifest_version!r}. "
+                  f"CI owns these; do not hand-edit (see CLAUDE.md).")
+              sys.exit(1)
+
+          print(f"✅ Codex manifest version in sync ({manifest_version})")
           EOF
 
       - name: Check File Size

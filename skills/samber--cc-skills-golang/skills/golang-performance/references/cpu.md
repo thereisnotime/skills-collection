@@ -179,7 +179,6 @@ Go 1.26+ includes an experimental `simd/archsimd` package (requires `GOEXPERIMEN
   v := archsimd.Int32x4{1, 2, 3, 4}
   // Operations map directly to hardware instructions
   ```
-
 - **Let the compiler do it** — write simple, idiomatic loops on `[]float64`/`[]int32` slices. Check auto-vectorization: `go build -gcflags="-d=ssa/prove/debug=2" ./...`
 - **`math/bits`** — operations like `OnesCount`, `LeadingZeros`, `RotateLeft` map directly to hardware instructions (POPCNT, CLZ, ROL)
 - **Hand-written assembly** — `.s` files with AVX2/NEON instructions for critical inner loops. Libraries like `klauspost/compress` and `minio/sha256-simd` use this approach

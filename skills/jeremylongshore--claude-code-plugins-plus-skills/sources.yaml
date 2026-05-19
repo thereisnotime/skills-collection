@@ -649,7 +649,16 @@ sources:
       # journal.ts, manifest.ts, policy.ts. Listing files explicitly drops
       # the imports and produces a non-functional mirror (see #645).
       - '*.ts'
+      # features/ holds upstream's gate-properties + runner test suites.
+      # Tests are pure-unit (bun:test against lib functions) — no Slack creds
+      # required. Synced so `bun test` finds them and CI passes (claude-7tig.1).
+      - 'features/**'
       - 'package.json'
+      # tsconfig.json drives `tsc --noEmit` (the typecheck script in upstream
+      # package.json). Without it, tsc dumps help text and exits 1 — making
+      # CI's Type checking step fail. Synced together with the source files
+      # it references (claude-7tig.1).
+      - 'tsconfig.json'
       - '.npmrc'
       - 'skills/**'
       - 'ACCESS.md'
@@ -659,8 +668,6 @@ sources:
       - 'node_modules/**'
       - '.git/**'
       - '*.log'
-      - '*.test.ts'
-      - '*.spec.ts'
 
   - name: x-bug-triage
     description: Closed-loop bug triage — X complaints → clusters → repo evidence → owner routing → Slack review → filed issues
@@ -682,6 +689,10 @@ sources:
       - 'hooks/**'
       - 'mcp/**'
       - 'lib/**'
+      # db/ holds migrate.ts + schema.sql + db/migrations/*.sql — source
+      # code imported by lib/*.test.ts (`from "../db/migrate"`). Stripping
+      # it breaks the vendored test suite (claude-7tig.1 follow-up).
+      - 'db/**'
       - 'config/**'
       - 'scripts/**'
       - 'integrations/**'
@@ -693,7 +704,6 @@ sources:
       - 'node_modules/**'
       - '.git/**'
       - '*.log'
-      - 'db/**'
       - 'data/**'
       - 'tests/**'
       - 'bun.lock'

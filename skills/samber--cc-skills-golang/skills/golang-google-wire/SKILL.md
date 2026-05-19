@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.0.0"
+  version: "1.0.1"
   openclaw:
     emoji: "🪡"
     homepage: https://github.com/samber/cc-skills-golang
@@ -35,7 +35,7 @@ Note: `google/wire` was archived in August 2025 (feature-complete; bug fixes sti
 This skill is not exhaustive. Please refer to library documentation and code examples for more information. Context7 can help as a discoverability platform.
 
 ```bash
-go install github.com/google/wire/cmd/wire@latest
+go get -tool github.com/google/wire/cmd/wire@latest
 go get github.com/google/wire
 ```
 
