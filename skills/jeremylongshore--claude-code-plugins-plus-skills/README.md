@@ -25,17 +25,17 @@ Or use Claude's built-in command:
 
 <!-- KILLER-SKILL:START — do not edit; run `node scripts/render-spotlight.mjs` -->
 
-> **Killer Skill of the Week** — [skyvern](https://github.com/Skyvern-AI/skyvern) by [Skyvern-AI](https://github.com/Skyvern-AI)
+> **Killer Skill of the Week** — [kobiton-automate](https://tonsofskills.com/plugins/kobiton-automate) by [Kobiton Inc.](https://github.com/kobiton)
 >
-> **AI agents that drive your browser. 21,000 stars of Selenium-killer.**
+> **Real mobile devices on demand — no emulators, no flaky CI**
 >
-> Skyvern automates browser-based workflows with vision-language models — point it at a page, describe the goal, and the agent navigates, fills forms, handles 2FA, and extracts data. Where Selenium and Playwright break the moment a page redesigns, Skyvern adapts because it sees the page like a human would. The CLI skill exposes Skyvern's task runner inside Claude Code: navigate, fill forms, extract data, handle logins, and stream back structured results. Pulled into the marketplace via daily external sync from Skyvern-AI/skyvern (AGPL-3.0). Sourced into the catalog by community contributor @mark1ian.
+> Kobiton's automate plugin gives Claude Code, Cursor, Codex, and Gemini CLI direct access to the Kobiton real-device cloud via remote MCP. 12 tools across three surfaces — Devices (list / reserve / status / terminate), Sessions (list / get / artifacts / terminate), and Apps (upload / confirm / list / get) — plus 3 specialist agents for device picking, Appium capability reconciliation, and session triage. One install, real iOS + Android hardware, no emulator drift.
 >
-> _"Automate browser-based workflows using LLMs and computer vision."_ — Skyvern-AI
+> _"Mobile testing that runs where the bugs actually live — on the device, not the simulator."_ — Kobiton Inc.
 >
-> Grade: A | Week of May 2, 2026 (W18) | [View on GitHub](https://github.com/Skyvern-AI/skyvern)
+> Grade: A | Week of May 20, 2026 (W21) | [Browse on Marketplace](https://tonsofskills.com/plugins/kobiton-automate)
 >
-> Previous picks: [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
+> Previous picks: [skyvern](https://github.com/Skyvern-AI/skyvern), [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
 
 <!-- KILLER-SKILL:END -->
 
@@ -127,7 +127,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     105 |
 | 🔐  | [Security](#security)                              |      26 |
 | ✨  | [Skill Enhancers](#skill-enhancers)                |       9 |
-| 🧪  | [Testing](#testing)                                |      26 |
+| 🧪  | [Testing](#testing)                                |      27 |
 
 ### AI & Machine Learning
 
@@ -685,36 +685,37 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 
 ### Testing
 
-🧪 **26 plugins** · category slug: `testing`
+🧪 **27 plugins** · category slug: `testing`
 
-| Plugin                         | Description                                                                                                                               |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `accessibility-test-scanner`   | A11y compliance testing with WCAG 2.1/2.2 validation, screen reader compatibility, and automated accessibility audits                     |
-| `api-fuzzer`                   | Fuzz testing for APIs with malformed inputs, edge cases, and security vulnerability detection                                             |
-| `api-test-automation`          | Automated API endpoint testing with request generation, validation, and comprehensive test coverage                                       |
-| `browser-compatibility-tester` | Cross-browser testing with BrowserStack, Selenium Grid, and Playwright - test across Chrome, Firefox, Safari, Edge                        |
-| `chaos-engineering-toolkit`    | Chaos testing for resilience with failure injection, latency simulation, and system resilience validation                                 |
-| `code-cleanup`                 | Comprehensive codebase cleanup across 11 quality dimensions — dead code, duplication, weak types, circular deps, defensive cruft, legacy… |
-| `contract-test-validator`      | API contract testing with Pact, OpenAPI validation, and consumer-driven contract verification                                             |
-| `database-test-manager`        | Database testing utilities with test data setup, transaction rollback, and schema validation                                              |
-| `e2e-test-framework`           | End-to-end test automation with Playwright, Cypress, and Selenium for browser-based testing                                               |
-| `integration-test-runner`      | Run and manage integration test suites with environment setup, database seeding, and cleanup                                              |
-| `load-balancer-tester`         | Test load balancing strategies with traffic distribution validation and failover testing                                                  |
-| `mobile-app-tester`            | Mobile app test automation with Appium, Detox, XCUITest - test iOS and Android apps                                                       |
-| `mutation-test-runner`         | Mutation testing to validate test quality by introducing code changes and verifying tests catch them                                      |
-| `performance-test-suite`       | Load testing and performance benchmarking with metrics analysis and bottleneck identification                                             |
-| `regression-test-tracker`      | Track and run regression tests to ensure new changes don't break existing functionality                                                   |
-| `security-test-scanner`        | Automated security vulnerability testing covering OWASP Top 10, SQL injection, XSS, CSRF, and authentication issues                       |
-| `smoke-test-runner`            | Quick smoke test suites to verify critical functionality after deployments                                                                |
-| `snapshot-test-manager`        | Manage and update snapshot tests with intelligent diff analysis and selective updates                                                     |
-| `test-coverage-analyzer`       | Analyze code coverage metrics, identify untested code, and generate comprehensive coverage reports                                        |
-| `test-data-generator`          | Generate realistic test data including users, products, orders, and custom schemas for comprehensive testing                              |
-| `test-doubles-generator`       | Generate mocks, stubs, spies, and fakes for unit testing with Jest, Sinon, and test frameworks                                            |
-| `test-environment-manager`     | Manage test environments with Docker Compose, Testcontainers, and environment isolation                                                   |
-| `test-orchestrator`            | Orchestrate complex test workflows with dependencies, parallel execution, and smart test selection                                        |
-| `test-report-generator`        | Generate comprehensive test reports with coverage, trends, and stakeholder-friendly formats                                               |
-| `unit-test-generator`          | Automatically generate comprehensive unit tests from source code with multiple testing framework support                                  |
-| `visual-regression-tester`     | Visual diff testing with Percy, Chromatic, BackstopJS - catch unintended UI changes                                                       |
+| Plugin                         | Description                                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `accessibility-test-scanner`   | A11y compliance testing with WCAG 2.1/2.2 validation, screen reader compatibility, and automated accessibility audits                      |
+| `api-fuzzer`                   | Fuzz testing for APIs with malformed inputs, edge cases, and security vulnerability detection                                              |
+| `api-test-automation`          | Automated API endpoint testing with request generation, validation, and comprehensive test coverage                                        |
+| `browser-compatibility-tester` | Cross-browser testing with BrowserStack, Selenium Grid, and Playwright - test across Chrome, Firefox, Safari, Edge                         |
+| `chaos-engineering-toolkit`    | Chaos testing for resilience with failure injection, latency simulation, and system resilience validation                                  |
+| `code-cleanup`                 | Comprehensive codebase cleanup across 11 quality dimensions — dead code, duplication, weak types, circular deps, defensive cruft, legacy…  |
+| `contract-test-validator`      | API contract testing with Pact, OpenAPI validation, and consumer-driven contract verification                                              |
+| `database-test-manager`        | Database testing utilities with test data setup, transaction rollback, and schema validation                                               |
+| `e2e-test-framework`           | End-to-end test automation with Playwright, Cypress, and Selenium for browser-based testing                                                |
+| `integration-test-runner`      | Run and manage integration test suites with environment setup, database seeding, and cleanup                                               |
+| `kobiton-automate`             | Real mobile devices on demand via Kobiton's remote MCP — no emulators, no flaky CI. 12 tools across Devices, Sessions, and Apps surfaces,… |
+| `load-balancer-tester`         | Test load balancing strategies with traffic distribution validation and failover testing                                                   |
+| `mobile-app-tester`            | Mobile app test automation with Appium, Detox, XCUITest - test iOS and Android apps                                                        |
+| `mutation-test-runner`         | Mutation testing to validate test quality by introducing code changes and verifying tests catch them                                       |
+| `performance-test-suite`       | Load testing and performance benchmarking with metrics analysis and bottleneck identification                                              |
+| `regression-test-tracker`      | Track and run regression tests to ensure new changes don't break existing functionality                                                    |
+| `security-test-scanner`        | Automated security vulnerability testing covering OWASP Top 10, SQL injection, XSS, CSRF, and authentication issues                        |
+| `smoke-test-runner`            | Quick smoke test suites to verify critical functionality after deployments                                                                 |
+| `snapshot-test-manager`        | Manage and update snapshot tests with intelligent diff analysis and selective updates                                                      |
+| `test-coverage-analyzer`       | Analyze code coverage metrics, identify untested code, and generate comprehensive coverage reports                                         |
+| `test-data-generator`          | Generate realistic test data including users, products, orders, and custom schemas for comprehensive testing                               |
+| `test-doubles-generator`       | Generate mocks, stubs, spies, and fakes for unit testing with Jest, Sinon, and test frameworks                                             |
+| `test-environment-manager`     | Manage test environments with Docker Compose, Testcontainers, and environment isolation                                                    |
+| `test-orchestrator`            | Orchestrate complex test workflows with dependencies, parallel execution, and smart test selection                                         |
+| `test-report-generator`        | Generate comprehensive test reports with coverage, trends, and stakeholder-friendly formats                                                |
+| `unit-test-generator`          | Automatically generate comprehensive unit tests from source code with multiple testing framework support                                   |
+| `visual-regression-tester`     | Visual diff testing with Percy, Chromatic, BackstopJS - catch unintended UI changes                                                        |
 
 <sub>⬆ [Back to category index](#browse-plugins-by-category)</sub>
 

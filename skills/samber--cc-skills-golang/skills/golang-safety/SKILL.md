@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.2.0"
+  version: "1.2.1"
   openclaw:
     emoji: "🛡️"
     homepage: https://github.com/samber/cc-skills-golang
@@ -66,10 +66,10 @@ func getHandler() http.Handler {
 
 ### Nil map, slice, and channel behavior
 
-| Type | Read from nil | Write to nil | Len/Cap of nil | Range over nil |
+| Type | Index into nil | Write to nil | Len/Cap of nil | Range over nil |
 | --- | --- | --- | --- | --- |
 | Map | Zero value | **panic** | 0 | 0 iterations |
-| Slice | **panic** (index) | **panic** (index) | 0 | 0 iterations |
+| Slice | **panic** | **panic** | 0 | 0 iterations |
 | Channel | Blocks forever | Blocks forever | 0 | Blocks forever |
 
 ```go

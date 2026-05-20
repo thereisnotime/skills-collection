@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.1.5"
+  version: "1.1.6"
   openclaw:
     emoji: "🔒"
     homepage: https://github.com/samber/cc-skills-golang
@@ -141,7 +141,7 @@ go test -fuzz=Fuzz
 ## Common Mistakes
 
 | Severity | Mistake | Fix |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | High | `math/rand` for tokens | Output is predictable — attacker can reproduce the sequence. Use `crypto/rand` |
 | Critical | SQL string concatenation | Attacker can modify query logic. Parameterized queries keep data and code separate |
 | Critical | `exec.Command("bash -c")` | Shell interprets metacharacters (`;`, ` | `, `` ` ``). Pass args separately to avoid shell parsing |

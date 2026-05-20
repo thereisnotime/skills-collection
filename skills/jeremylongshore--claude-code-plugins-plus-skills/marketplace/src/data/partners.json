@@ -1,20 +1,26 @@
 {
   "$schema": "./partners.schema.json",
-  "_doc": "Partners shown on the homepage hero partner bar. Source of truth — edited by hand. Order matters (left-to-right).",
+  "_doc": "Partners shown on the homepage hero partner bar. Source of truth — edited by hand. Order matters (left-to-right). `logoLight` is the variant designed for LIGHT theme backgrounds (dark/colored fill); `logoDark` is for DARK theme backgrounds (white/light fill). `accentColor` is the partner's official brand color, used as a hairline accent on the card.",
   "partners": [
     {
       "slug": "kobiton",
       "name": "Kobiton",
       "url": "https://kobiton.com",
       "wordmark": "Kobiton",
-      "tagline": "Mobile testing platform"
+      "tagline": "Accelerate delivery of better mobile experiences",
+      "logoLight": "/images/partners/kobiton-light.svg",
+      "logoDark": "/images/partners/kobiton-dark.svg",
+      "accentColor": "#0487D9"
     },
     {
       "slug": "nixtla",
       "name": "Nixtla",
       "url": "https://nixtla.io",
       "wordmark": "Nixtla",
-      "tagline": "Time-series forecasting"
+      "tagline": "Time series forecasting & anomaly detection",
+      "logoLight": "/images/partners/nixtla-light.svg",
+      "logoDark": "/images/partners/nixtla-dark.svg",
+      "accentColor": "#000000"
     }
   ]
 }

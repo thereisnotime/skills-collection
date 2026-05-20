@@ -2514,6 +2514,29 @@ async function runTests() {
   else failed++;
 
   if (
+    test('inline hook bootstraps avoid escaped double quotes for Git Bash', () => {
+      const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
+      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+
+      for (const [eventName, hookArray] of Object.entries(hooks.hooks)) {
+        for (const entry of hookArray) {
+          for (const hook of entry.hooks) {
+            const commandText = Array.isArray(hook.command) ? hook.command.join(' ') : hook.command;
+            if (typeof commandText === 'string' && commandText.startsWith('node -e ')) {
+              assert.ok(
+                !commandText.includes('\\"'),
+                `${eventName}/${entry.id || entry.matcher || 'hook'} should not ship escaped double quotes in node -e payload`,
+              );
+            }
+          }
+        }
+      }
+    })
+  )
+    passed++;
+  else failed++;
+
+  if (
     test('all hook commands use node or approved shell wrappers', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
       const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
@@ -3277,11 +3300,14 @@ async function runTests() {
 
         assert.strictEqual(result.code, 0, `observe.sh should exit successfully, stderr: ${result.stderr}`);
 
-        const projectsDir = path.join(homeDir, '.local', 'share', 'ecc-homunculus', 'projects');
-        const projectIds = fs.readdirSync(projectsDir);
-        assert.strictEqual(projectIds.length, 1, 'observe.sh should create one project-scoped observation directory');
+        const homunculusDir = path.join(homeDir, '.local', 'share', 'ecc-homunculus');
+        const projectsDir = path.join(homunculusDir, 'projects');
+        assert.ok(
+          !fs.existsSync(projectsDir) || fs.readdirSync(projectsDir).length === 0,
+          'observe.sh should not create a project-scoped directory for a non-git cwd'
+        );
 
-        const observationsPath = path.join(projectsDir, projectIds[0], 'observations.jsonl');
+        const observationsPath = path.join(homunculusDir, 'observations.jsonl');
         const observations = fs.readFileSync(observationsPath, 'utf8').trim().split('\n').filter(Boolean);
         assert.ok(observations.length > 0, 'observe.sh should append at least one observation');
 

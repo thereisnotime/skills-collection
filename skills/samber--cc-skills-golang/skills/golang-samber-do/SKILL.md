@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.2.0"
+  version: "1.2.1"
   openclaw:
     emoji: "💉"
     homepage: https://github.com/samber/cc-skills-golang
@@ -83,8 +83,8 @@ do.ProvideTransient(injector, func(i do.Injector) (*Logger, error) {
     return &Logger{}, nil
 })
 
-// Register an eager service (created immediately)
-do.Provide(injector, do.Eager(&Config{Port: 8080}))
+// Register an eager service (created immediately at startup)
+do.ProvideValue(injector, &Config{Port: 8080})
 ```
 
 ### 2. Invoke Services

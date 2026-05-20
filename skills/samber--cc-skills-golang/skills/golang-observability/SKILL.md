@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.2.0"
+  version: "1.2.1"
   openclaw:
     emoji: "📡"
     homepage: https://github.com/samber/cc-skills-golang
@@ -117,8 +117,12 @@ slog.InfoContext(ctx, "order created", "order_id", orderID)
 ```go
 // When recording a histogram observation, attach the trace_id as an exemplar
 // so you can jump from a P99 spike directly to the offending trace
-histogram.WithLabelValues("POST", "/orders").
-    Exemplar(prometheus.Labels{"trace_id": traceID}, duration)
+obs := histogram.WithLabelValues("POST", "/orders")
+if eo, ok := obs.(prometheus.ExemplarObserver); ok {
+    eo.ObserveWithExemplar(duration, prometheus.Labels{"trace_id": traceID})
+} else {
+    obs.Observe(duration)
+}
 ```
 
 ## Migrating Legacy Loggers

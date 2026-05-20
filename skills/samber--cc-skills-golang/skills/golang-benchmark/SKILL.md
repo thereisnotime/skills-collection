@@ -6,7 +6,7 @@ license: MIT
 compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
 metadata:
   author: samber
-  version: "1.2.1"
+  version: "1.2.3"
   openclaw:
     emoji: "📊"
     homepage: https://github.com/samber/cc-skills-golang
@@ -46,23 +46,25 @@ func BenchmarkParse(b *testing.B) {
 }
 ```
 
-Legacy `b.N` loops still compile and are fine to keep when preserving existing benchmarks or supporting Go <1.24. They are easier to get wrong: setup may need `b.ResetTimer()`, and results may need a sink if the compiler can eliminate the work. Go 1.26 fixed the earlier `b.Loop()` inlining limitation, so new Go 1.26+ benchmarks should usually use `b.Loop()`.
+Legacy `b.N` loops still compile and are fine to keep when preserving existing benchmarks or supporting Go <1.24. They are easier to get wrong: setup may need `b.ResetTimer()`, and results may need a sink if the compiler can eliminate the work. Go 1.26 fixed an earlier `b.Loop()` inlining limitation — benchmarks on 1.24–1.25 already benefit from `b.Loop()` but may miss inlining optimizations that 1.26 delivers.
 
 ### Memory tracking
 
 ```go
 func BenchmarkAlloc(b *testing.B) {
     b.ReportAllocs() // or run with -benchmem flag
+    var sink []byte
     for b.Loop() {
-        _ = make([]byte, 1024)
+        sink = make([]byte, 1024)
     }
+    _ = sink
 }
 ```
 
 `b.ReportMetric()` adds custom metrics (e.g., throughput):
 
 ```go
-b.ReportMetric(float64(totalBytes)/b.Elapsed().Seconds(), "bytes/s")
+b.ReportMetric(float64(totalBytes)/b.Elapsed().Seconds(), "bytes/s") // b.Elapsed() is only valid inside b.Loop()
 ```
 
 ### Sub-benchmarks and table-driven
