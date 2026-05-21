@@ -6,6 +6,7 @@
 [![Skills](https://img.shields.io/badge/skills-2%2C810-green)](https://tonsofskills.com/skills)
 [![GitHub Stars](https://img.shields.io/github/stars/jeremylongshore/claude-code-plugins-plus-skills?style=social)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills)
 [![Sponsor: Nixtla](https://img.shields.io/badge/Sponsor-nixtla.io-ff6b35)](https://nixtla.io)
+[![Sponsor: Kobiton](https://img.shields.io/badge/Sponsor-kobiton.com-0487D9)](https://kobiton.com)
 [![Buy me a monster](https://img.shields.io/badge/Buy%20me%20a-Monster-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jeremylongshore)
 
 425 plugins, 2,810 skills, 200 agents, 16 community contributors — validated and ready to install.
@@ -106,7 +107,7 @@ Across **418 published packages** in the
 
 ## Browse Plugins by Category
 
-Jump to any of the 18 categories below. Plugin counts are catalog totals — auto-generated from `marketplace.extended.json`.
+Jump to any of the 19 categories below. Plugin counts are catalog totals — auto-generated from `marketplace.extended.json`.
 
 |     | Category                                           | Plugins |
 | --- | -------------------------------------------------- | ------: |
@@ -124,10 +125,11 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | 📦  | [Packages](#packages)                              |       5 |
 | ⚡  | [Performance](#performance)                        |      25 |
 | ✅  | [Productivity](#productivity)                      |      19 |
-| 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     105 |
+| 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     106 |
 | 🔐  | [Security](#security)                              |      26 |
 | ✨  | [Skill Enhancers](#skill-enhancers)                |       9 |
 | 🧪  | [Testing](#testing)                                |      27 |
+| 📁  | [Analytics](#analytics)                            |       1 |
 
 ### AI & Machine Learning
 
@@ -518,7 +520,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 
 ### SaaS Skill Packs
 
-🎁 **105 plugins** · category slug: `saas-packs`
+🎁 **106 plugins** · category slug: `saas-packs`
 
 | Plugin              | Description                                                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -563,6 +565,7 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `flyio-pack`        | Claude Code skill pack for Fly.io (18 skills)                                                                                               |
 | `fondo-pack`        | Claude Code skill pack for Fondo (18 skills)                                                                                                |
 | `framer-pack`       | Claude Code skill pack for Framer (18 skills)                                                                                               |
+| `ga4-pack`          | Claude Code skill pack for Google Analytics 4 — 5 starter skills covering auth (OAuth + service account), Data API v1 queries (runReport,…  |
 | `gamma-pack`        | Complete Gamma integration skill pack with 24 skills covering AI presentations, document generation, templates, and visual content…         |
 | `glean-pack`        | Claude Code skill pack for Glean (24 skills)                                                                                                |
 | `grammarly-pack`    | Claude Code skill pack for Grammarly (24 skills)                                                                                            |
@@ -716,6 +719,16 @@ Jump to any of the 18 categories below. Plugin counts are catalog totals — aut
 | `test-report-generator`        | Generate comprehensive test reports with coverage, trends, and stakeholder-friendly formats                                                |
 | `unit-test-generator`          | Automatically generate comprehensive unit tests from source code with multiple testing framework support                                   |
 | `visual-regression-tester`     | Visual diff testing with Percy, Chromatic, BackstopJS - catch unintended UI changes                                                        |
+
+<sub>⬆ [Back to category index](#browse-plugins-by-category)</sub>
+
+### Analytics
+
+📁 **1 plugins** · category slug: `analytics`
+
+| Plugin          | Description                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `web-analytics` | Push-based web analytics intelligence team — self-hosted Umami via MCP (primary) + GA4 (fallback). 9 specialist agents fetch data, detect… |
 
 <sub>⬆ [Back to category index](#browse-plugins-by-category)</sub>
 

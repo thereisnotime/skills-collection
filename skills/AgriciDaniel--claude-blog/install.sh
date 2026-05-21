@@ -35,7 +35,7 @@ main() {
 
     # Check prerequisites
     if ! command -v python3 &>/dev/null; then
-        echo "WARNING: python3 not found. The analyze_blog.py script requires Python 3.12+."
+        echo "WARNING: python3 not found. The scripts require Python 3.11+."
         echo "         Install with: sudo apt install python3"
         echo ""
     fi
@@ -68,6 +68,15 @@ main() {
     for skill_dir in "${SCRIPT_DIR}/skills/"*/; do
         skill_name="$(basename "${skill_dir}")"
         [ "$skill_name" = "blog" ] && continue
+        # VULN-IAC-003 (v1.9.1): defense-in-depth name validation. The
+        # repo is single-owner and a clean clone cannot produce odd names,
+        # but a tampered repo with a symlink like `skills/../../etc` would
+        # hand us '..' here. Refuse anything outside the expected charset
+        # rather than mkdir + cp into the parent.
+        if ! printf '%s' "$skill_name" | grep -Eq '^[a-z0-9-]+$'; then
+            echo "  ! refusing skill with unexpected name: ${skill_name}" >&2
+            continue
+        fi
         mkdir -p "${SKILL_DIR}/${skill_name}"
         if [ -f "${skill_dir}SKILL.md" ]; then
             cp "${skill_dir}SKILL.md" "${SKILL_DIR}/${skill_name}/SKILL.md"
@@ -99,10 +108,29 @@ main() {
         fi
     done
 
-    # Copy scripts
+    # Copy scripts (v1.8.6: ALL root-level scripts, not just analyze_blog.py).
+    # Before v1.8.6 the installer only copied analyze_blog.py, leaving the
+    # v1.8.0+ helpers (cognitive_load, discourse_research, load_untrusted_root,
+    # lint_prose, sync_flow) absent on the user's machine. This broke the
+    # v1.8.3 "code-enforced" untrusted-data contract for every marketplace
+    # / curl-pipe install (closes 7TH-AUDIT-001).
     echo "→ Installing scripts..."
-    cp "${SCRIPT_DIR}/scripts/analyze_blog.py" "${SKILL_DIR}/blog/scripts/analyze_blog.py"
-    chmod +x "${SKILL_DIR}/blog/scripts/analyze_blog.py"
+    mkdir -p "${SKILL_DIR}/blog/scripts"
+    mkdir -p "${HOME}/.claude/scripts"
+    local script_name
+    for script_path in "${SCRIPT_DIR}/scripts/"*.py; do
+        [ -f "${script_path}" ] || continue
+        script_name="$(basename "${script_path}")"
+        # Copy to ~/.claude/scripts/ (canonical install location) AND to the
+        # blog-skill scripts dir (legacy callers of analyze_blog.py).
+        cp "${script_path}" "${HOME}/.claude/scripts/${script_name}"
+        chmod +x "${HOME}/.claude/scripts/${script_name}"
+        if [ "${script_name}" = "analyze_blog.py" ]; then
+            cp "${script_path}" "${SKILL_DIR}/blog/scripts/${script_name}"
+            chmod +x "${SKILL_DIR}/blog/scripts/${script_name}"
+        fi
+        echo "  + scripts/${script_name}"
+    done
 
     # Install Python dependencies (closes audit VULN-507/804: capture stderr
     # to a logfile instead of swallowing it. Operator can diagnose failures.)
@@ -127,10 +155,12 @@ main() {
     echo "  ╚══════════════════════════════════════╝"
     echo ""
     echo "  Installed:"
-    echo "    Main skill:   blog/ (orchestrator + 14 references + 12 templates)"
-    echo "    Sub-skills:   28 (27 commands + 1 internal blog-chart)"
+    echo "    Main skill:   blog/ (orchestrator + 20 references + 12 templates)"
+    echo "    Sub-skills:   30 (29 user-invokable + 1 internal blog-chart)"
     echo "    Agents:       5 specialists"
-    echo "    Scripts:      analyze_blog.py + per-skill scripts"
+    echo "    Scripts:      9 root-level (analyze_blog, blog_preflight, blog_render,"
+    echo "                  cognitive_load, discourse_research, generate_hero,"
+    echo "                  load_untrusted_root, lint_prose, sync_flow) + per-skill scripts"
     echo ""
     echo "  Commands available:"
     echo "    /blog write <topic>        Write a new blog post"

@@ -342,8 +342,8 @@ Target Keywords
 Competitor Content Gap
 | Keyword                    | Competitor A | Competitor B | You  |
 |---------------------------|-------------|-------------|------|
-| kubernetes alerting setup  | #3          | #7          | --   |
-| prometheus vs datadog      | #5          | #2          | --   |
+| kubernetes alerting setup  | #3          | #7          |:   |
+| prometheus vs datadog      | #5          | #2          |:   |
 | k8s monitoring best practices | #1       | #4          | #12  |
 ```
 

@@ -540,7 +540,7 @@ def test_user_invokable_skills_have_complete_frontmatter() -> None:
     ``argument-hint``, and ``license`` in frontmatter.
 
     This test was added after a meta-audit found 15 user-invokable skills
-    missing one or both of ``argument-hint`` / ``license`` -- a class issue
+    missing one or both of ``argument-hint`` / ``license``, a class issue
     that the chair's verifier (a single-skill check on blog-rewrite) had
     missed. Static-presence test using the project's stdlib-only frontmatter
     parser; no PyYAML dependency added.

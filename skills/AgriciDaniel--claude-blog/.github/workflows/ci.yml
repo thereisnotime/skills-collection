@@ -84,6 +84,20 @@ jobs:
           print('plugin.json is valid')
           "
 
+      - name: Run `claude plugin validate` if Claude CLI is available
+        # Best-effort: the official validator runs at marketplace submission
+        # time. We add the CLI check here so PRs catch any schema breaks the
+        # hand-rolled regex/JSON checks above miss. The step is non-fatal
+        # if the CLI is not installable on the runner (continue-on-error).
+        continue-on-error: true
+        run: |
+          if command -v claude >/dev/null 2>&1; then
+            claude plugin validate .
+          else
+            echo "claude CLI not available on runner; falling back to hand-rolled checks above"
+            echo "(install via the user's preferred path to make this step authoritative)"
+          fi
+
   lint-markdown:
     runs-on: ubuntu-latest
     steps:
@@ -109,3 +123,38 @@ jobs:
             exit 1
           fi
           echo "No stale path references found"
+
+  lint-prose-hygiene:
+    # Enforces CONTRIBUTING.md prose rules (no em-dashes / en-dashes /
+    # ASCII double-hyphen). Added v1.8.4 after the 5th-round hostile audit
+    # found 31 markdown em-dashes the v1.8.2/v1.8.3 cleanup scripts missed.
+    # The actual check is `scripts/lint_prose.py` (fence-aware + backtick-aware).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.0 (SHA-pinned)
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.0.0
+        with:
+          python-version: "3.12"
+      - name: Run prose-hygiene linter
+        run: python3 scripts/lint_prose.py
+
+  version-coherence:
+    # Asserts that pyproject.toml, plugin.json, CITATION.cff, AND the
+    # orchestrator skills/blog/SKILL.md frontmatter all report the same
+    # version. Added v1.8.4 after the 5th audit found SKILL.md:19 still
+    # said "1.8.0" while every other surface had moved to 1.8.3.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.0 (SHA-pinned)
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.0.0
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run version-coherence pytest (canonical source v1.8.6+)
+        # Replaces the prior heredoc duplicate. tests/test_version_coherence.py
+        # is now the single source of truth; local devs and CI run the same
+        # assertion logic. Closes 7TH-AUDIT-012.
+        run: python -m pytest tests/test_version_coherence.py -v

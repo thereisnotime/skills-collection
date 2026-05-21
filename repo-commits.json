@@ -125,6 +125,30 @@
   ],
   "samber--cc-skills-golang": [
     {
+      "sha": "fa03b41",
+      "message": "Update security-scan.yml",
+      "date": "2026-05-20",
+      "author": "Samuel Berthe"
+    },
+    {
+      "sha": "1171662",
+      "message": "feat(golang-documentation): add writing principles and doc anti-patterns (#50)",
+      "date": "2026-05-20",
+      "author": "Samuel Berthe"
+    },
+    {
+      "sha": "536439a",
+      "message": "fix(ci): add --dangerously-run-mcp-servers to snyk-agent-scan and bump setup-uv@v8 (#49)",
+      "date": "2026-05-20",
+      "author": "samber (headless)"
+    },
+    {
+      "sha": "4ac98d0",
+      "message": "fix(ci): resolve lint errors and disable broken workflows (#48)",
+      "date": "2026-05-20",
+      "author": "samber (headless)"
+    },
+    {
       "sha": "26e1d99",
       "message": "fix(skills): correctness fixes from REVIEW.md audit (28 files) (#47)",
       "date": "2026-05-19",
@@ -157,30 +181,6 @@
     {
       "sha": "eebcf61",
       "message": "tighten filesystem and crypto guidance (#39)",
-      "date": "2026-05-19",
-      "author": "Szymon R\u0105czka"
-    },
-    {
-      "sha": "1d4b107",
-      "message": "add Go 1.26 modernization notes (#41)",
-      "date": "2026-05-19",
-      "author": "Szymon R\u0105czka"
-    },
-    {
-      "sha": "7634dd9",
-      "message": "fix troubleshooting guidance accuracy (#42)",
-      "date": "2026-05-19",
-      "author": "Szymon R\u0105czka"
-    },
-    {
-      "sha": "3804525",
-      "message": "tighten lifecycle and error guidance (#45)",
-      "date": "2026-05-19",
-      "author": "Szymon R\u0105czka"
-    },
-    {
-      "sha": "b04d773",
-      "message": "Fix lint and GraphQL guidance (#43)",
       "date": "2026-05-19",
       "author": "Szymon R\u0105czka"
     }
@@ -443,63 +443,63 @@
   ],
   "AgriciDaniel--claude-blog": [
     {
-      "sha": "901e921",
-      "message": "fix(lint): prefix stale path with skills/ to satisfy CI guard",
-      "date": "2026-04-30",
+      "sha": "49842ea",
+      "message": "docs(readme): swap thumbnail back to YouTube auto-thumb (video now public)",
+      "date": "2026-05-21",
       "author": "Daniel"
     },
     {
-      "sha": "2b3abb3",
-      "message": "docs: bump README install pin v1.7.0 -> v1.7.1",
-      "date": "2026-04-30",
+      "sha": "d00636d",
+      "message": "fix(readme): swap broken YT thumbnail for website-hosted hero",
+      "date": "2026-05-21",
       "author": "Daniel"
     },
     {
-      "sha": "1d3b40a",
-      "message": "docs: add DEMO.md runbook + gitignore demo-output/",
-      "date": "2026-04-27",
+      "sha": "0fbaa91",
+      "message": "docs(readme): add YouTube walkthrough callout + bump test badge to 187",
+      "date": "2026-05-21",
       "author": "Daniel"
     },
     {
-      "sha": "7d525d3",
-      "message": "chore(release): bump v1.7.0 -> v1.7.1 to match CHANGELOG",
-      "date": "2026-04-27",
+      "sha": "c383f06",
+      "message": "release(v1.9.1): security hardening pass",
+      "date": "2026-05-18",
       "author": "Daniel"
     },
     {
-      "sha": "2ba6d65",
-      "message": "docs: CHANGELOG v1.7.1 entry + COMMANDS missing 14 + agents safety + paths",
-      "date": "2026-04-27",
+      "sha": "23e414f",
+      "message": "docs(security): publish install.sh + install.ps1 SHA-256 hashes (VULN-IAC-001)",
+      "date": "2026-05-18",
       "author": "Daniel"
     },
     {
-      "sha": "77a7d20",
-      "message": "test(skills): frontmatter completeness across 15 SKILL.md + new test guard",
-      "date": "2026-04-27",
+      "sha": "b122c47",
+      "message": "test(security): lock in traversal-refusal contract for load_untrusted_root CLI (AUTH-003)",
+      "date": "2026-05-18",
       "author": "Daniel"
     },
     {
-      "sha": "de8611d",
-      "message": "fix(install): PowerShell 5.1 compat + uninstall.sh agent glob + cred purge",
-      "date": "2026-04-27",
+      "sha": "ab0b1b2",
+      "message": "fix(security): validate skill_name pattern in install.sh (VULN-IAC-003)",
+      "date": "2026-05-18",
       "author": "Daniel"
     },
     {
-      "sha": "32831e7",
-      "message": "fix(skills): close 2 WARN findings from full-skill test (28-agent parallel)",
-      "date": "2026-04-27",
+      "sha": "532fcd3",
+      "message": "fix(security): mask API key in setup echo (VULN-S01)",
+      "date": "2026-05-18",
       "author": "Daniel"
     },
     {
-      "sha": "ce0690f",
-      "message": "docs(security): expand SECURITY.md with disclosure flow + dual-use notes",
-      "date": "2026-04-27",
+      "sha": "91c3003",
+      "message": "fix(security): decouple OAuth client_secret from token storage (AUTH-001)",
+      "date": "2026-05-18",
       "author": "Daniel"
     },
     {
-      "sha": "59f27be",
-      "message": "fix(security): code quality cleanup (LOW + INFO from audit)",
-      "date": "2026-04-27",
+      "sha": "1b56d42",
+      "message": "chore(deps): tighten upper bounds + setuptools floor (VULN-404/405/406/411)",
+      "date": "2026-05-18",
       "author": "Daniel"
     }
   ],
@@ -853,6 +853,42 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "51ebf9d",
+      "message": "feat(commands): implement /ars-mark-read + /ars-unmark-read plugin commands (#191)",
+      "date": "2026-05-21",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "265e8de",
+      "message": "Add Simplified Chinese README (#181)",
+      "date": "2026-05-21",
+      "author": "xpfo"
+    },
+    {
+      "sha": "3729ea7",
+      "message": "fix(lint): cap check_version_consistency semver regex at 4 segments (#180)",
+      "date": "2026-05-20",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "605083d",
+      "message": "fix(ci): use fromJSON for numeric threshold compare in post-squash-review (#177)",
+      "date": "2026-05-20",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "3b4c12a",
+      "message": "fix(ci): widen sprint-contract changelog grep to N-segment semver (#175) (#176)",
+      "date": "2026-05-20",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "9729d29",
+      "message": "fix(lint): close 4-segment semver + ja-JP needle coverage gaps (#169 #170) (#173)",
+      "date": "2026-05-20",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "7dd7c02",
       "message": "ci: harden test-count-monotonic to fail on pytest collection errors (#155) (#168)",
       "date": "2026-05-20",
@@ -873,42 +909,6 @@
     {
       "sha": "f889485",
       "message": "docs: credit @eltociear for Japanese README translation (#162)",
-      "date": "2026-05-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "7a99b7b",
-      "message": "docs: add Japanese README (#161)",
-      "date": "2026-05-19",
-      "author": "Ikko Eltociear Ashimine"
-    },
-    {
-      "sha": "7f97a73",
-      "message": "fix: make root pytest collection import scripts (#158)",
-      "date": "2026-05-19",
-      "author": "JinHyuk Sung"
-    },
-    {
-      "sha": "96b82e8",
-      "message": "fix(release-cooldown): accept [skip-cooldown] override in annotated tag message (#157)",
-      "date": "2026-05-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "4f9a8d0",
-      "message": "fix(v3.9.4.2): harden 4 CI discipline gates from PR #149 codex review (#153)",
-      "date": "2026-05-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "be49a42",
-      "message": "feat(ci): 7 discipline gates to mechanize release-cycle review chain (#149)",
-      "date": "2026-05-19",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "c04c184",
-      "message": "fix(v3.9.4.1): hotfix for 4 codex post-ship findings + docs align (#135) (#145)",
       "date": "2026-05-19",
       "author": "Edward Cheng-I Wu"
     }
@@ -1162,6 +1162,18 @@
     }
   ],
   "Paramchoudhary--ResumeSkills": [
+    {
+      "sha": "24c6edc",
+      "message": "Merge pull request #1 from bullet-ant/main",
+      "date": "2026-05-20",
+      "author": "Param Choudhary"
+    },
+    {
+      "sha": "39e8356",
+      "message": "Fix skill name frontmatter to use valid kebab-case format",
+      "date": "2026-03-16",
+      "author": "bullet-ant"
+    },
     {
       "sha": "921c9be",
       "message": "Update README with correct installation commands",
@@ -1895,6 +1907,12 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
+      "sha": "1c80fa4",
+      "message": "Update README.md",
+      "date": "2026-05-20",
+      "author": "Conor Bronsdon"
+    },
+    {
       "sha": "3b3d663",
       "message": "feat: AI-tool fingerprint sections (placeholders, citation markup, UTM) (#11)",
       "date": "2026-05-17",
@@ -1945,12 +1963,6 @@
     {
       "sha": "531b2d0",
       "message": "Fix formatting in README description",
-      "date": "2026-04-07",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "3e25abc",
-      "message": "readme: add $avoid token section + web app link",
       "date": "2026-04-07",
       "author": "Conor Bronsdon"
     }
@@ -3659,6 +3671,24 @@
   ],
   "stripe--ai": [
     {
+      "sha": "a347952",
+      "message": "sync skills",
+      "date": "2026-05-20",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
+      "sha": "9496150",
+      "message": "fix on glob syntax to ensure it points at files, more generic setup for preventing files from being deleted (#428)",
+      "date": "2026-05-20",
+      "author": "John O'Sullivan"
+    },
+    {
+      "sha": "119545e",
+      "message": "Improve skills-sync automation and block manual edits (#427)",
+      "date": "2026-05-20",
+      "author": "John O'Sullivan"
+    },
+    {
       "sha": "9b021e1",
       "message": "sync skills",
       "date": "2026-05-20",
@@ -3697,24 +3727,6 @@
     {
       "sha": "c7c1d1e",
       "message": "Update checkout step in sync-skills workflow (#411)",
-      "date": "2026-05-07",
-      "author": "matv-stripe"
-    },
-    {
-      "sha": "5352c8e",
-      "message": "Update git push command to push to main branch (#410)",
-      "date": "2026-05-07",
-      "author": "matv-stripe"
-    },
-    {
-      "sha": "e61dddd",
-      "message": "test making a new branch (#409)",
-      "date": "2026-05-07",
-      "author": "matv-stripe"
-    },
-    {
-      "sha": "1b36b0a",
-      "message": "fix conditionals on the sync skills github workflow (#407)",
       "date": "2026-05-07",
       "author": "matv-stripe"
     }
@@ -4031,6 +4043,24 @@
   ],
   "vercel-labs--agent-skills": [
     {
+      "sha": "c39c4eb",
+      "message": "Merge pull request #264 from vercel-labs/johnphamous/vercel-optimize-plan-detection",
+      "date": "2026-05-21",
+      "author": "John Phamous"
+    },
+    {
+      "sha": "cc0bb2a",
+      "message": "fix: read vercel plan from billing record",
+      "date": "2026-05-21",
+      "author": "John Pham"
+    },
+    {
+      "sha": "af1b7c0",
+      "message": "init skills.sh.json",
+      "date": "2026-05-20",
+      "author": "Andrew Qu"
+    },
+    {
       "sha": "7defe2d",
       "message": "Merge pull request #261 from vercel-labs/feat/vercel-optimize-skill",
       "date": "2026-05-19",
@@ -4070,24 +4100,6 @@
       "sha": "48eee79",
       "message": "feat: add framework preflight and cache policy guard",
       "date": "2026-05-18",
-      "author": "John Pham"
-    },
-    {
-      "sha": "0b7202e",
-      "message": "fix: tighten audit scope copy",
-      "date": "2026-05-16",
-      "author": "John Pham"
-    },
-    {
-      "sha": "46e6b7e",
-      "message": "fix: clarify audit scope messaging",
-      "date": "2026-05-16",
-      "author": "John Pham"
-    },
-    {
-      "sha": "04c78ba",
-      "message": "fix: tighten Observability Plus follow-up copy",
-      "date": "2026-05-16",
       "author": "John Pham"
     }
   ],
@@ -5107,6 +5119,30 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "b57e3fa",
+      "message": "feat(homepage): replace Level Up Upwork-only card with contact form (#756)",
+      "date": "2026-05-21",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "c852940",
+      "message": "feat(homepage): replace 'Start here' starter pack with 'Heat check' editorial picks (#755)",
+      "date": "2026-05-21",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "9de796a",
+      "message": "feat(catalog): ga4-pack \u2014 5-skill starter pack for Google Analytics 4 (#754)",
+      "date": "2026-05-21",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "1ad7c71",
+      "message": "feat(partners): kobiton readme badge + per-partner logoheight sizing (#753)",
+      "date": "2026-05-20",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "55f5079",
       "message": "feat(hero): two-column layout, exit partner bar from hero, scoped yellow fixes (#751)",
       "date": "2026-05-20",
@@ -5140,30 +5176,6 @@
       "sha": "d827ee3",
       "message": "feat(spotlight): kobiton/automate \u2014 Killer Skill of the Week (#747)",
       "date": "2026-05-20",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "71fe010",
-      "message": "feat(blog): add honest-perf-benchmarks-paid-api-compiler to tonsofskills.com/blog (#742)",
-      "date": "2026-05-19",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "9a1c5c6",
-      "message": "docs(notebooks): refresh tutorials to schema 3.6.0 + delete dupes (#740)",
-      "date": "2026-05-19",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "050b8fa",
-      "message": "docs(decision): isedc decision record for repo sequencing 2026-05-17 (#741)",
-      "date": "2026-05-19",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "5c5fd50",
-      "message": "fix(sync): stop stripping upstream tests from slack-channel mirror (claude-7tig.1) (#745)",
-      "date": "2026-05-19",
       "author": "intentsolutions.io"
     }
   ],
@@ -5417,6 +5429,24 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "94a6912",
+      "message": "fathom: fix HLS download for large recordings",
+      "date": "2026-05-20",
+      "author": "glebis"
+    },
+    {
+      "sha": "985d19b",
+      "message": "feat: add site-diagnosis pre-consultation questionnaire skill",
+      "date": "2026-05-20",
+      "author": "glebis"
+    },
+    {
+      "sha": "d0fa1c7",
+      "message": "feat: add ecosystem audit skill",
+      "date": "2026-05-20",
+      "author": "glebis"
+    },
+    {
       "sha": "29510e7",
       "message": "rewrite granola skill to use Personal API (local cache encrypted)",
       "date": "2026-05-19",
@@ -5457,86 +5487,68 @@
       "message": "feat(wispr-analytics): auto-restart Wispr Flow after dictionary import",
       "date": "2026-05-09",
       "author": "glebis"
-    },
-    {
-      "sha": "fe1ac0f",
-      "message": "add rag-eval to README",
-      "date": "2026-05-09",
-      "author": "glebis"
-    },
-    {
-      "sha": "0fc46cf",
-      "message": "add rag-eval skill \u2014 structured RAG evaluation with cost-aware sweeps",
-      "date": "2026-05-09",
-      "author": "glebis"
-    },
-    {
-      "sha": "d1be7b8",
-      "message": "hook tg-responder into Telethon daemon for private message ingestion",
-      "date": "2026-05-07",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "f28c2da",
-      "message": "chore(readme): bump badge to Claude Code v2.1.144 (May 19, 2026 11:58 PM PKT)",
-      "date": "2026-05-19",
+      "sha": "a28cd96",
+      "message": "docs(claude-settings): log v2.1.145 changelog entry (25 items)",
+      "date": "2026-05-20",
       "author": "Shayan Rais"
     },
     {
-      "sha": "9624c4a",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-19",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "1895de1",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-19",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "48798ca",
-      "message": "chore(readme): bump badge timestamp to May 18, 2026 11:05 PM PKT",
-      "date": "2026-05-18",
+      "sha": "14c0181",
+      "message": "docs(claude-settings): update to v2.1.145",
+      "date": "2026-05-20",
       "author": "Shayan Rais"
     },
     {
-      "sha": "eba3c4e",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-18",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "1386b0e",
-      "message": "chore(readme): bump badge to Claude Code v2.1.143 (May 17, 2026 11:55 PM PKT)",
-      "date": "2026-05-17",
+      "sha": "d3ab2fc",
+      "message": "docs(claude-commands): log v2.1.145 changelog entry",
+      "date": "2026-05-20",
       "author": "Shayan Rais"
     },
     {
-      "sha": "af38074",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-17",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "6f489f6",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-17",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "ac0d87d",
-      "message": "updated codex hooks",
-      "date": "2026-05-16",
+      "sha": "0fb7e0c",
+      "message": "docs(claude-commands): update to v2.1.145",
+      "date": "2026-05-20",
       "author": "Shayan Rais"
     },
     {
-      "sha": "a77e223",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-16",
-      "author": "Claude Routine"
+      "sha": "ad62b31",
+      "message": "docs(development-workflows): log 2026-05-21 update (17 items)",
+      "date": "2026-05-20",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "f3038d5",
+      "message": "chore(development-workflows): refresh stars + counts in workflows table",
+      "date": "2026-05-20",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "c47a1b1",
+      "message": "docs(concepts): add checklist rule #8 (Location column factual accuracy)",
+      "date": "2026-05-20",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "52cbb57",
+      "message": "docs(concepts): log 2026-05-21 run (v2.1.145) \u2014 Checkpointing location fix",
+      "date": "2026-05-20",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "cc2fb63",
+      "message": "fix(readme): Checkpointing location is file-edit tracking, not git-based; bump badge v2.1.145",
+      "date": "2026-05-20",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "7510419",
+      "message": "chore(changelog): log v2.1.145 skills run (3 new bundled skills)",
+      "date": "2026-05-20",
+      "author": "Shayan Rais"
     }
   ],
   "mrgoonie--claudekit-skills": [

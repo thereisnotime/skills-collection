@@ -1,0 +1,49 @@
+name: Guard synced skills
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - '!skills/README.md'
+      - 'providers/claude/plugin/skills/**'
+      - 'providers/cursor/plugin/skills/**'
+
+jobs:
+  block:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.GH_APP_STRIPE_AI_SYNC_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_STRIPE_AI_SYNC_PEM }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+
+      - name: Build review body
+        id: message
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            const isInternal = author.endsWith('-stripe');
+
+            const action = isInternal
+              ? 'To make lasting changes, apply them to the source. You can find instructions at [go/add-stripe-skill](http://go/add-stripe-skill).'
+              : 'These changes need to be applied internally. Tagging @stripe/developer-ai to take a look.';
+
+            const body = [
+              'This PR modifies files that are automatically synced from a centrally maintained copy at [docs.stripe.com/.well-known/skills](https://docs.stripe.com/.well-known/skills/index.json). Any changes made here will be overwritten by the next sync.',
+              '',
+              action,
+            ].join('\n');
+
+            core.setOutput('body', body);
+
+      - name: Request changes on PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review "$PR_URL" --request-changes --body "${{ steps.message.outputs.body }}"

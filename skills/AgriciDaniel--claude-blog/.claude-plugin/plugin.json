@@ -1,7 +1,7 @@
 {
   "name": "claude-blog",
-  "description": "AI-powered blog skill suite with 28 sub-skills and 5 agents. FLOW framework integration (Find/Optimize/Win, 30 evidence-led prompts), semantic topic-cluster planning + execution, multilingual publishing (translate/localize/locale-audit), Google API integration (PageSpeed, CrUX, GSC, GA4, YouTube, NLP, Keywords), YouTube video embedding, persona-driven writing, fact-checking, cannibalization detection, CMS taxonomy sync, NotebookLM research, Gemini TTS audio narration, 5-category scoring, and Gemini image generation. Optimized for Google rankings and AI citations (GEO/AEO).",
-  "version": "1.7.1",
+  "description": "AI-powered blog skill suite with 30 sub-skills and 5 agents. FLOW framework integration (Find/Optimize/Win, 30 evidence-led prompts), semantic topic-cluster planning + execution, multilingual publishing (translate/localize/locale-audit), Google API integration (PageSpeed, CrUX, GSC, GA4, YouTube, NLP, Keywords), YouTube video embedding, persona-driven writing, two-tier AI slop detection, 0-4 editorial heuristics rubric, cognitive-load assessment, durable BRAND.md + VOICE.md context, API-free last-30-days discourse research, 5-dimension research quality rubric, 6-LAW synthesis contract, fact-checking, cannibalization detection, CMS taxonomy sync, NotebookLM research, Gemini TTS audio narration, 5-category scoring, and Gemini image generation. Optimized for Google rankings and AI citations (GEO/AEO).",
+  "version": "1.9.1",
   "author": {
     "name": "AgriciDaniel",
     "url": "https://github.com/AgriciDaniel"
@@ -15,6 +15,9 @@
     "blog-writing", "markdown", "mdx", "wordpress",
     "google-api", "youtube", "pagespeed", "search-console",
     "flow-framework", "topic-clusters", "hub-and-spoke",
-    "multilingual", "translation", "localization", "hreflang", "i18n"
+    "multilingual", "translation", "localization", "hreflang", "i18n",
+    "discourse-research", "voice-of-customer", "social-listening",
+    "research-quality", "synthesis-contract", "ai-slop-detection",
+    "editorial-heuristics", "cognitive-load", "brand-context"
   ]
 }

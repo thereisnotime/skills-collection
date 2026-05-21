@@ -9,11 +9,6 @@ Audit & rewrite content to remove AI writing patterns. A practical skill for any
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
 [![Web App](https://img.shields.io/badge/Try_the_web_app-ff6b35?style=flat-square&logo=vercel&logoColor=white)](https://avoid-ai-writing-app.vercel.app)
 
-</div>
-<div align="center">
-The community made a meme coin to support the project🤯 CA: BsidWuYJnayqMXVsLGr34524vmZ1BrWFhPer3198pump
-</div>
-
 ---
 
 

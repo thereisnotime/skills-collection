@@ -1,4 +1,4 @@
-# claude-blog v1.7.1 -- Demo Runbook
+# claude-blog v1.7.1: Demo Runbook
 
 End-to-end demo flow that exercises every wired integration: YouTube
 embedding (blog-google), keyword research (DataForSEO MCP), AI image
@@ -29,7 +29,7 @@ echo "DATAFORSEO_USERNAME set:  ${DATAFORSEO_USERNAME:+yes}"  # should print yes
 ```
 
 For a persistent setup (across shell sessions), add the same `export`
-lines to `~/.bashrc` instead -- but be aware they will be visible to
+lines to `~/.bashrc` instead: but be aware they will be visible to
 every program you launch from that shell.
 
 ---

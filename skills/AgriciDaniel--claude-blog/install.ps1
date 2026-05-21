@@ -113,9 +113,22 @@ function Main {
         Write-Color Green "  + $($_.BaseName)"
     }
 
-    # Copy scripts
+    # Copy scripts (v1.8.6: ALL root-level scripts, not just analyze_blog.py).
+    # Closes 7TH-AUDIT-001: the v1.8.0+ helpers (cognitive_load,
+    # discourse_research, load_untrusted_root, lint_prose, sync_flow) were
+    # never shipped, breaking the v1.8.3 code-enforced contract for end users.
     Write-Color White "Installing scripts..."
-    Copy-Item (Join-Path (Join-Path $ScriptDir "scripts") "analyze_blog.py") (Join-Path (Join-Path (Join-Path $SkillDir "blog") "scripts") "analyze_blog.py") -Force
+    $ClaudeScriptsDir = Join-Path $env:USERPROFILE ".claude\scripts"
+    if (-not (Test-Path $ClaudeScriptsDir)) {
+        New-Item -ItemType Directory -Force -Path $ClaudeScriptsDir | Out-Null
+    }
+    Get-ChildItem -File (Join-Path (Join-Path $ScriptDir "scripts") "*.py") | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $ClaudeScriptsDir $_.Name) -Force
+        if ($_.Name -eq "analyze_blog.py") {
+            Copy-Item $_.FullName (Join-Path (Join-Path (Join-Path $SkillDir "blog") "scripts") $_.Name) -Force
+        }
+        Write-Color Green "  + scripts/$($_.Name)"
+    }
 
     # Install Python dependencies (closes audit VULN-507/804: capture stderr
     # to a logfile instead of swallowing it).
@@ -158,10 +171,12 @@ function Main {
 "@
 
     Write-Color White "Installed:"
-    Write-Color Green "  Main skill:   blog/ (orchestrator + 14 references + 12 templates)"
-    Write-Color Green "  Sub-skills:   28 (27 commands + 1 internal blog-chart)"
+    Write-Color Green "  Main skill:   blog/ (orchestrator + 20 references + 12 templates)"
+    Write-Color Green "  Sub-skills:   30 (29 user-invokable + 1 internal blog-chart)"
     Write-Color Green "  Agents:       5 specialists"
-    Write-Color Green "  Scripts:      analyze_blog.py + per-skill scripts"
+    Write-Color Green "  Scripts:      9 root-level (analyze_blog, blog_preflight, blog_render,"
+    Write-Color Green "                cognitive_load, discourse_research, generate_hero,"
+    Write-Color Green "                load_untrusted_root, lint_prose, sync_flow) + per-skill scripts"
     Write-Color White ""
     Write-Color White "Commands available:"
     Write-Color Cyan  "  /blog write <topic>        Write a new blog post"

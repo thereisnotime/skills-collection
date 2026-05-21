@@ -5,7 +5,7 @@
   "orgId": null,
   "projectIdSource": "file",
   "observabilityPlus": false,
-  "plan": { "plan": "uncertain", "reason": "no commitments found" },
+  "plan": { "plan": "hobby", "reason": "user.billing.plan=hobby" },
   "project": {
     "id": "prj_test_hobby",
     "framework": "nextjs",

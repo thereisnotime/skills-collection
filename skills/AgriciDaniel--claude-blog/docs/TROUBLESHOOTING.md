@@ -237,7 +237,7 @@ blog-writer, etc.), and instead tries to do everything inline.
 answer-first formatting or other rules.
 
 **Fix**: This typically means the agent did not load the relevant reference
-files. Run the command again -- the orchestrator should load references
+files. Run the command again: the orchestrator should load references
 before spawning the agent. If the issue persists:
 
 1. Verify reference files exist:

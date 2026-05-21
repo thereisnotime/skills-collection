@@ -37,23 +37,29 @@ track `main` for production usage.
 - Configuration files: `.mcp.example.json`, `.claude-plugin/plugin.json`,
   `.claude-plugin/marketplace.json`, `.github/workflows/*.yml`,
   `.github/dependabot.yml`.
-- The `scripts/sync_flow.py` upstream fetch + lockfile gate.
+- `scripts/sync_flow.py`: upstream fetch + lockfile gate.
+- `scripts/load_untrusted_root.py` (v1.8.3): code-enforced project-root
+  file fencing for the T12 threat boundary. CSPRNG nonce generation,
+  sanitization-pattern scan, mtime provenance, symlink-refusal via
+  `O_NOFOLLOW`. Behavioral tests in `tests/test_load_untrusted_root.py`.
+- `scripts/lint_prose.py` (v1.8.4): CI prose-hygiene linter (fence-aware,
+  backtick-aware).
 - Plugin metadata (`SKILL.md` files), with focus on prompt-injection
   surfaces in the LLM-instruction context.
 
 ## Out of Scope
 
 - Vulnerabilities in upstream dependencies (`patchright`, `google-genai`,
-  `weasyprint`, etc.) — please report those upstream first; we will
+  `weasyprint`, etc.) - please report those upstream first; we will
   monitor and pin once a fix is published. Dependabot tracks all four
   pip manifests + GitHub Actions.
-- Vulnerabilities in the `@ycse/nanobanana-mcp` npm package — report to
+- Vulnerabilities in the `@ycse/nanobanana-mcp` npm package - report to
   that package's maintainer at
   `https://www.npmjs.com/package/@ycse/nanobanana-mcp`. We pin the
   version in `.mcp.example.json` and `setup_image_mcp.py`; report
   pinning bumps as PR.
 - Vulnerabilities in Claude Code itself, the Claude Agent SDK, or the
-  Anthropic API — report to Anthropic per their security policy.
+  Anthropic API - report to Anthropic per their security policy.
 - The inherent LLM tool-use risk of letting fetched web content enter
   Claude's instruction context (see "Dual-use Technology Notes" below).
   This is acknowledged and documented; novel concrete tool-abuse paths
@@ -77,6 +83,38 @@ plugin straddles. Findings against any of these are in scope:
 | T9 | WebFetch/WebSearch results entering Claude instruction context | indirect prompt injection |
 | T10 | Package-manager runtime (`pip`, `npx -y`, `patchright install`) | binary substitution, runtime CVE |
 | T11 | `sync_flow.py` upstream FLOW corpus (instruction surface) | upstream tamper, indirect prompt injection |
+| T12 | Project-root files (`BRAND.md`, `VOICE.md`, `DISCOURSE.md`) auto-loaded into orchestrator system prompt (v1.8.0) | indirect prompt injection via poisoned project repo |
+
+### T12 detail (added in v1.8.0)
+
+When a user runs `/blog write`, `/blog rewrite`, `/blog brief`, `/blog strategy`, `/blog outline`, `/blog calendar`, `/blog analyze`, `/blog audit`, `/blog geo`, `/blog cluster`, or `/blog multilingual` in a project directory, the orchestrator (`skills/blog/SKILL.md`) auto-loads three optional project-root files when they exist:
+
+- `BRAND.md`: audience, positioning, taboo phrases, topic scope (produced by `/blog brand init`)
+- `VOICE.md`: tone, lexical rules, headline patterns (produced by `/blog brand init`)
+- `DISCOURSE.md`: cross-platform discourse brief for a topic (produced by `/blog discourse <topic>`)
+
+These files are USER-CONTROLLED or potentially THIRD-PARTY-CONTROLLED (if a user clones a poisoned content repo with malicious project-root files). They enter the orchestrator's system prompt as context for downstream agents.
+
+The same indirect prompt-injection risk that applies to WebFetch results (T9) applies here. Mitigation has two enforcement classes - be explicit about which is which:
+
+**Platform-enforced (cannot be bypassed by injection):**
+1. **Tool-boundary preservation**: the Claude Code platform refuses to grant a downstream agent any tool not listed in its frontmatter. Directives in BRAND.md / VOICE.md / DISCOURSE.md CANNOT unlock `WebFetch` for an agent that does not declare it. This is the load-bearing defense; it works regardless of what the orchestrator does.
+
+**Code-enforced via `scripts/load_untrusted_root.py` (v1.8.3) - when the orchestrator follows its instruction to invoke the helper:**
+
+2. **Per-load CSPRNG nonce in fence markers**: the helper calls `secrets.token_hex(16)` (a 128-bit CSPRNG draw) and embeds the result in `=== BEGIN UNTRUSTED PROJECT-ROOT CONTEXT (file.md) [nonce: <hex>] ===` / `=== END ... [nonce: <same hex>] ===` markers. An attacker who controls the file contents cannot pre-embed a counterfeit terminator because the nonce is unforgeable in this threat model.
+3. **Pre-injection sanitization scan**: the helper scans for instruction-shaped patterns (`ignore previous`, `from now on`, `exfiltrate`, `system:`, `<|im_start|>`, `act as`, `=== BEGIN/END UNTRUSTED`, etc.). If matched, prepends `[!] WARNING:` to the fenced block.
+4. **Provenance**: the helper emits the file's mtime in the fence preamble.
+
+`tests/test_load_untrusted_root.py` exercises the helper directly: nonce uniqueness across 50 draws + 3 CLI invocations, BEGIN/END nonce matching, symlink refusal, size cap, sanitization-pattern matching, counterfeit-fence detection.
+
+**Failure mode for the code-enforced layer**: if the orchestrator regression-skips `load_untrusted_root.py` and hand-writes a fence, the nonce defense degrades to instruction-only (the v1.8.2 state). The tool-boundary remains load-bearing in that scenario.
+
+**What this closes**: a poisoned BRAND.md from a shared repo could instruct an agent with `WebFetch` authority to exfiltrate research findings to an attacker URL. The tool-boundary blocks tool-grant escalation regardless. The helper's nonce + sanitize + provenance layers reduce the chance Claude is manipulated into using the tools it DOES have for malicious purposes.
+
+**Honest scope**: nonce, sanitize, and provenance are independent of each other only at the helper level (the helper performs all three in one invocation). If the orchestrator skips the helper, all three skip together. Treat tool-boundary as the load-bearing layer; the helper-enforced layers are defense-in-depth.
+
+Recommended user hygiene: add `BRAND.md`, `VOICE.md`, `DISCOURSE.md` to `.gitignore` in repos where the brand context or research is confidential.
 
 ## Dual-use Technology Notes
 
@@ -116,7 +154,7 @@ please report it.
 **Where**: only `agents/blog-researcher.md` declares the WebSearch and
 WebFetch tools. The other 4 agents (`blog-writer`, `blog-seo`,
 `blog-reviewer`, `blog-translator`) have only `Read, Write, Edit, Glob,
-Grep` — least-privilege.
+Grep` - least-privilege.
 
 **Inherent risk** (VULN-039 in audit, accepted): when an LLM agent
 fetches a URL, the response body enters the agent's context as text. If
@@ -138,7 +176,7 @@ tool-driven retrieval.
 **Residual risk**: Claude itself may still be steered by sufficiently
 clever indirect prompt injection. This is an active research problem.
 If you find a concrete tool-abuse path (e.g. researcher fetching a
-crafted page leads to credential exfiltration), that is in scope — please
+crafted page leads to credential exfiltration), that is in scope - please
 report.
 
 ### `sync_flow.py` upstream fetch (FLOW prompts)
@@ -192,7 +230,7 @@ Public audit notes for this project:
   (the auto-CRITICAL). chmod 600 added to all credential writes.
   Lock files generated for all 4 pip manifests. Behavioral test gates
   added.
-- 2026-03 v1.6.5 audit grade A+ (per project memory) — that earlier
+- 2026-03 v1.6.5 audit grade A+ (per project memory) - that earlier
   audit covered credential handling at the time; the 2026-04 audit
   found regressions and structural gaps the earlier one missed (notably
   the setup-script default and the missing `.mcp.json` gitignore).

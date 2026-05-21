@@ -30,10 +30,22 @@ All API keys and credentials are stored locally in your environment variables or
 
 All generated content (blog posts, images, audio files, analysis reports) is saved to your local filesystem only.
 
+## Project-root context files (v1.8.0)
+
+Three optional files can be created at the root of any project that uses this plugin. They are read by the orchestrator when present and skipped silently when absent. They are NEVER transmitted off your machine:
+
+| File | Created by | Purpose | Privacy note |
+|---|---|---|---|
+| `BRAND.md` | `/blog brand init` | Audience, positioning, editorial rules, taboo phrases, competitor differentiation | May contain confidential positioning. Add to `.gitignore` if your repo is public and the brand context is non-public. |
+| `VOICE.md` | `/blog brand init` | Tone fingerprint, lexical rules, headline patterns | Generally safe to commit; mirrors the persona JSON. |
+| `DISCOURSE.md` | `/blog discourse <topic>` | Cross-platform discourse research brief for a topic | Topic and brief are visible only locally. The script that produces this file (`scripts/discourse_research.py`) reads pre-gathered SERP results from a temp file you specify and emits the brief. No network calls in the script itself. |
+
+If any of these files contain confidential information (competitor positioning, internal product strategy, customer-discourse research on private topics), add them to `.gitignore` before committing.
+
 ## Contact
 
 For privacy questions, open an issue at: https://github.com/AgriciDaniel/claude-blog/issues
 
 ## Last Updated
 
-2026-03-28
+2026-05-17

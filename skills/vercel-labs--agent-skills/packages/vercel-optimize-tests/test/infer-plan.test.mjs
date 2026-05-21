@@ -1,9 +1,67 @@
-// Two-tier plan inference: commitment-category first, then usage>$0 → Pro
-// (closes the live gap where commitments=[] but the team has billed usage).
+// Plan inference source order: Vercel account billing.plan first, then
+// commitment-category fallback, then usage>$0 legacy fallback.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { filterUsageByProject, inferPlan } from '../../../skills/vercel-optimize/lib/vercel.mjs';
+import { extractBillingPlan, filterUsageByProject, inferPlan } from '../../../skills/vercel-optimize/lib/vercel.mjs';
+
+test('extractBillingPlan: reads team billing.plan from Vercel API response', () => {
+  assert.deepEqual(
+    extractBillingPlan({ billing: { plan: 'enterprise' } }),
+    { plan: 'enterprise', rawPlan: 'enterprise' },
+  );
+});
+
+test('extractBillingPlan: reads user billing.plan from /v2/user response wrapper', () => {
+  assert.deepEqual(
+    extractBillingPlan({ user: { billing: { plan: 'hobby' } } }),
+    { plan: 'hobby', rawPlan: 'hobby' },
+  );
+});
+
+test('extractBillingPlan: ignores unknown plan strings', () => {
+  assert.equal(extractBillingPlan({ billing: { plan: 'custom' } }), null);
+});
+
+test('inferPlan: account billing.plan=hobby is exact', () => {
+  const r = inferPlan({ commitments: [{ commitmentCategory: 'Spend' }] }, {
+    accountPlan: { plan: 'hobby', source: 'user.billing.plan' },
+    usageTotalCost: 100,
+  });
+  assert.equal(r.plan, 'hobby');
+  assert.match(r.reason, /user\.billing\.plan=hobby/);
+});
+
+test('inferPlan: account billing.plan=pro is exact', () => {
+  const r = inferPlan({ commitments: [] }, {
+    accountPlan: { plan: 'pro', source: 'team.billing.plan' },
+    usageTotalCost: 0,
+  });
+  assert.equal(r.plan, 'pro');
+  assert.match(r.reason, /team\.billing\.plan=pro/);
+});
+
+test('inferPlan: account billing.plan=enterprise is exact', () => {
+  const r = inferPlan({ commitments: [{ commitmentCategory: 'Spend' }] }, {
+    accountPlan: { plan: 'enterprise', source: 'team.billing.plan' },
+  });
+  assert.equal(r.plan, 'enterprise');
+  assert.match(r.reason, /team\.billing\.plan=enterprise/);
+});
+
+test('inferPlan: string account plan is accepted for callers with a direct plan value', () => {
+  const r = inferPlan({ commitments: [] }, { accountPlan: 'hobby' });
+  assert.equal(r.plan, 'hobby');
+  assert.match(r.reason, /billing\.plan=hobby/);
+});
+
+test('inferPlan: unknown account plan falls back to contract category', () => {
+  const r = inferPlan({ commitments: [{ commitmentCategory: 'Usage' }] }, {
+    accountPlan: { plan: 'unknown', reason: 'team.billing.plan unavailable' },
+  });
+  assert.equal(r.plan, 'enterprise');
+  assert.match(r.reason, /category=Usage/);
+});
 
 test('inferPlan: commitment category=Spend → Pro', () => {
   const r = inferPlan({ commitments: [{ category: 'Spend' }] });

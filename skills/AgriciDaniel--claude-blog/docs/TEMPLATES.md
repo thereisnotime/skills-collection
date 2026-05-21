@@ -30,13 +30,13 @@ consistent quality and optimization across all content.
 Templates are structural blueprints, not fill-in-the-blank forms. Each template
 defines:
 
-1. **Section structure** -- The H2/H3 skeleton for the content type
-2. **Answer-first prompts** -- Guidance for opening each section with data
-3. **Word count targets** -- Per-section and total word counts
-4. **Info gain markers** -- Where original data or unique perspective is needed
-5. **Visual element placement** -- Where charts and images should appear
-6. **FAQ zone** -- Where the FAQ section fits in the flow
-7. **Linking zones** -- Where internal and external links are most natural
+1. **Section structure**: The H2/H3 skeleton for the content type
+2. **Answer-first prompts**: Guidance for opening each section with data
+3. **Word count targets**: Per-section and total word counts
+4. **Info gain markers**: Where original data or unique perspective is needed
+5. **Visual element placement**: Where charts and images should appear
+6. **FAQ zone**: Where the FAQ section fits in the flow
+7. **Linking zones**: Where internal and external links are most natural
 
 ---
 
@@ -407,7 +407,7 @@ Schema: FAQPage schema critical for this type
 
 - Keep sections focused on one topic each
 - Place `VISUAL:` markers where data naturally supports a chart
-- Use `INFO-GAIN:` markers liberally -- these are the sections that
+- Use `INFO-GAIN:` markers liberally: these are the sections that
   differentiate your content from AI-generated consensus
 - Set realistic word counts that match the content type's natural depth
 - Ensure every template includes an FAQ zone and conclusion

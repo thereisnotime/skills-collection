@@ -106,6 +106,11 @@ jobs:
           PYTHONPATH: .
         run: python3 -m unittest scripts.test_check_version_consistency -v
 
+      - name: Run spec consistency unit tests
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_check_spec_consistency -v
+
       - name: Run check_sprint_contract unit tests
         env:
           PYTHONPATH: .
@@ -116,7 +121,10 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
-          ARS_VERSION=$(grep -m1 -oE '## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          # Widened from 3-segment to N-segment so 4+ segment hotfix entries
+          # (e.g. ## [3.9.4.2]) match without falling through to a predecessor.
+          # Same defect class as #169 (closed by PR #173).
+          ARS_VERSION=$(grep -m1 -oE '## \[[0-9]+(\.[0-9]+)+\]' CHANGELOG.md | grep -oE '[0-9]+(\.[0-9]+)+' || true)
           if [[ -z "$ARS_VERSION" ]]; then
             echo "ERROR: could not extract ARS version from CHANGELOG.md (need '## [X.Y.Z]' heading)" >&2
             exit 1
@@ -186,6 +194,18 @@ jobs:
         # `## Cite-Time Provenance Finalizer (v3.7.1)` subsection of
         # academic-pipeline/agents/pipeline_orchestrator_agent.md.
         run: python3 scripts/check_v3_6_8_cite_provenance_pipeline.py
+
+      - name: Validate v3.6.8 /ars-mark-read plugin commands (#190)
+        # Step 7 of v3.6.8: enforces the 2 commands (mark-read, unmark-read)
+        # exist, carry the literature_corpus[] validation reference, point at
+        # the human_read_log.yaml peer file (NOT entry frontmatter per §3.1
+        # firm rule 3), and declare model: sonnet routing.
+        run: python3 scripts/check_v3_6_8_mark_read_commands.py
+
+      - name: Run v3.6.8 /ars-mark-read CLI tests (#190)
+        env:
+          PYTHONPATH: .
+        run: python3 -m unittest scripts.test_ars_mark_read scripts.test_check_v3_6_8_mark_read_commands -v
 
       - name: v3.9.0 cross-index triangulation lint
         # §3.8 rules 5-6 (R3 P2 closure): verifies formatter pass-through

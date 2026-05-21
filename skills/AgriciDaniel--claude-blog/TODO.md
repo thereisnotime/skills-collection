@@ -21,7 +21,7 @@
 - [x] Plugin marketplace submission (marketplace.json, v1.6.2)
 - [x] Image generation via AI (blog-image sub-skill with Gemini, v1.4.0)
 - [x] Podcast/audio repurposing (blog-audio sub-skill with Gemini TTS, v1.6.0)
-- [x] Multi-language content support (i18n, hreflang generation) — `blog-multilingual` + `blog-translate` + `blog-localize` + `blog-locale-audit` (v1.7.0, by Chris Mueller)
+- [x] Multi-language content support (i18n, hreflang generation): `blog-multilingual` + `blog-translate` + `blog-localize` + `blog-locale-audit` (v1.7.0, by Chris Mueller)
 - [x] FLOW framework integration (`blog-flow` + `scripts/sync_flow.py`, v1.7.0)
 - [x] Semantic topic-cluster planning + execution (`blog-cluster`, v1.7.0, winner of Pro Hub Challenge by Lutfiya Miller)
 - [x] Mechanical security guardrails (`tests/test_security_guardrails.py`, v1.7.0)

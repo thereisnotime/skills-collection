@@ -9,7 +9,7 @@ import JeremysStash from '../components/JeremysStash.astro';
 import PartnerBar from '../components/PartnerBar.astro';
 import PluginCard from '../components/PluginCard.astro';
 import searchIndex from '../data/unified-search-index.json';
-import starterPack from '../data/starter-pack.json';
+import heatCheck from '../data/heat-check.json';
 
 // Dynamic stats from search index (updated at build time)
 const totalSkills = searchIndex.stats.totalSkills;
@@ -849,27 +849,27 @@ const fmtNum = (n: number) => n.toLocaleString('en-US');
         }
 
         /* ========================================
-           STARTER PACK SECTION (Phase 4C)
+           HEAT CHECK SECTION — editorial curated picks (was Phase 4C "starter pack")
            ======================================== */
-        .starter-pack-section {
+        .heat-check-section {
             padding: 4rem 2rem;
             background: var(--surface);
             border-top: 1px solid var(--border, var(--rule));
             border-bottom: 1px solid var(--border, var(--rule));
         }
 
-        .starter-pack-container {
+        .heat-check-container {
             max-width: 1200px;
             margin: 0 auto;
         }
 
-        .starter-pack-header {
+        .heat-check-header {
             text-align: left;
             margin-bottom: 2.5rem;
             max-width: 720px;
         }
 
-        .starter-pack-title {
+        .heat-check-title {
             color: var(--text, var(--ink));
             font-size: clamp(1.75rem, 3vw, 2.25rem);
             font-weight: 700;
@@ -877,44 +877,186 @@ const fmtNum = (n: number) => n.toLocaleString('en-US');
             letter-spacing: -0.02em;
         }
 
-        .starter-pack-subtitle {
+        .heat-check-subtitle {
             color: var(--text-2, var(--ink-2));
             font-size: 1.05rem;
             line-height: 1.55;
             margin: 0;
         }
 
-        .starter-pack-grid {
+        .heat-check-grid {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
             margin-bottom: 2rem;
         }
 
         @media (min-width: 768px) {
-            .starter-pack-grid {
+            .heat-check-grid {
                 grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
                 gap: 1.25rem;
             }
         }
 
-        .starter-pack-meta {
+        .heat-check-meta {
             color: var(--text-3, var(--ink-2));
             font-size: 0.85rem;
             margin: 0;
         }
 
-        .starter-pack-explore-link {
+        .heat-check-explore-link {
             color: var(--accent, var(--signal));
             text-decoration: none;
             font-weight: 600;
         }
 
-        .starter-pack-explore-link:hover {
+        .heat-check-explore-link:hover {
             text-decoration: underline;
         }
 
         @media (max-width: 768px) {
-            .starter-pack-section {
+            .heat-check-section {
+                padding: 3rem 1.5rem;
+            }
+        }
+
+        /* ========================================
+           LEVEL UP — contact form for Claude Code training
+           Replaces the old single-card Upwork section.
+           ======================================== */
+        .level-up-section {
+            padding: 4rem 2rem;
+            background: var(--surface);
+            border-top: 1px solid var(--border, var(--rule));
+            border-bottom: 1px solid var(--border, var(--rule));
+        }
+
+        .level-up-container {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .level-up-header {
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+
+        .level-up-title {
+            color: var(--text, var(--ink));
+            font-size: clamp(1.75rem, 3vw, 2.25rem);
+            font-weight: 700;
+            margin: 0 0 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .level-up-subtitle {
+            color: var(--text-2, var(--ink-2));
+            font-size: 1.05rem;
+            line-height: 1.55;
+            margin: 0;
+        }
+
+        .level-up-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .level-up-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .level-up-row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .level-up-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .level-up-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--ink-3, var(--text-3));
+        }
+
+        .level-up-field input,
+        .level-up-field textarea {
+            background: var(--panel, var(--surface-2));
+            border: 1.5px solid var(--rule, var(--border));
+            border-radius: 8px;
+            padding: 0.75rem 0.9rem;
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--ink, var(--text));
+            outline: none;
+            transition: border-color 0.15s ease;
+            width: 100%;
+        }
+
+        .level-up-field textarea {
+            resize: vertical;
+            min-height: 110px;
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        .level-up-field input:focus,
+        .level-up-field textarea:focus {
+            border-color: var(--signal-edge, var(--accent));
+        }
+
+        .level-up-submit-row {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .level-up-submit {
+            background: var(--signal, var(--accent));
+            color: var(--bg, #0a0a0c);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+        }
+
+        .level-up-submit:hover {
+            opacity: 0.88;
+        }
+
+        .level-up-submit:disabled {
+            cursor: default;
+            opacity: 0.6;
+        }
+
+        .level-up-or {
+            color: var(--ink-3, var(--text-3));
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        .level-up-or a {
+            color: var(--ink-link, var(--brand-blue));
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        @media (max-width: 768px) {
+            .level-up-section {
                 padding: 3rem 1.5rem;
             }
         }
@@ -1453,26 +1595,28 @@ const fmtNum = (n: number) => n.toLocaleString('en-US');
         </div>
     </section>
 
-    <!-- Start here — curated 5-plugin onboarding pack (Phase 4C) -->
-    <section class="starter-pack-section">
-        <div class="starter-pack-container">
-            <div class="starter-pack-header">
-                <h2 class="starter-pack-title">{starterPack.title}</h2>
-                <p class="starter-pack-subtitle">{starterPack.subtitle}</p>
+    <!-- Heat check — editorial pick of what's hot right now. Mixes
+         in-marketplace plugins (use install command) with external links
+         (use external_url, e.g. tools that live in their own repo). -->
+    <section class="heat-check-section">
+        <div class="heat-check-container">
+            <div class="heat-check-header">
+                <h2 class="heat-check-title">{heatCheck.title}</h2>
+                <p class="heat-check-subtitle">{heatCheck.subtitle}</p>
             </div>
-            <div class="starter-pack-grid">
-                {starterPack.plugins.map((plugin) => (
+            <div class="heat-check-grid">
+                {heatCheck.plugins.map((plugin) => (
                     <PluginCard
                         name={plugin.name}
                         description={plugin.why || plugin.tagline}
                         installCommand={plugin.install}
-                        href={`/plugins/${plugin.slug}`}
+                        href={plugin.external_url || `/plugins/${plugin.slug}`}
                     />
                 ))}
             </div>
-            <p class="starter-pack-meta">
-                Curated by {starterPack.meta.curated_by} · last updated {starterPack.meta.last_updated} ·
-                <a href="/explore" class="starter-pack-explore-link">explore all {totalPlugins} plugins →</a>
+            <p class="heat-check-meta">
+                Curated by {heatCheck.meta.curated_by} · last updated {heatCheck.meta.last_updated} ·
+                <a href="/explore" class="heat-check-explore-link">explore all {totalPlugins} plugins →</a>
             </p>
         </div>
     </section>
@@ -1694,27 +1838,45 @@ const fmtNum = (n: number) => n.toLocaleString('en-US');
     </section>
 
     <!-- Learn with Jeremy -->
-    <section class="products-section" id="training" style="padding: 3rem 2rem;">
-        <div style="text-align: center;">
-            <h2 class="section-title" style="margin-left: auto; margin-right: auto;">Level Up Your Claude Code Skills</h2>
-        </div>
-
-        <div class="products-grid" style="max-width: 600px;">
-            <div class="product-card service-card">
-                <h3>Claude Code Training</h3>
-                <div class="product-price">
-                    <span class="amount">Custom</span>
-                    <span class="label">per session</span>
-                </div>
-                <ul class="product-features">
-                    <li>Live screen-share with Jeremy</li>
-                    <li>Hands-on plugin dev training</li>
-                    <li>Custom workflow optimization</li>
-                    <li>Production deployment practices</li>
-                    <li>Ongoing support &amp; code reviews</li>
-                </ul>
-                <a href="https://www.upwork.com/services/product/lifestyle-to-learn-claude-code-cli-white-glove-training-to-build-with-ai-2016039265158461099?ref=project_share&tier=1" class="product-cta service-cta" target="_blank" rel="noopener noreferrer">Book Training Session</a>
+    <!-- Level Up — contact form for direct Claude Code training. Posts to
+         /api/forms/contact on the VPS forms-api (forwarded to the same Slack
+         destination as intentsolutions.io contact + partner forms). Upwork
+         link kept as secondary CTA below the form for self-serve booking. -->
+    <section class="level-up-section" id="training">
+        <div class="level-up-container">
+            <div class="level-up-header">
+                <h2 class="level-up-title">Level Up Your Claude Code Skills</h2>
+                <p class="level-up-subtitle">
+                    Live screen-share training with Jeremy. Plugin dev, workflow optimization, production deployment, ongoing code reviews. Tell me what you're working on — I'll get back within 24 hours.
+                </p>
             </div>
+
+            <form data-contact-form="level-up" class="level-up-form">
+                <div class="level-up-row">
+                    <label class="level-up-field">
+                        <span class="level-up-label">Name</span>
+                        <input type="text" name="name" required maxlength="120" autocomplete="name" />
+                    </label>
+                    <label class="level-up-field">
+                        <span class="level-up-label">Email</span>
+                        <input type="email" name="email" required maxlength="120" autocomplete="email" placeholder="you@company.com" />
+                    </label>
+                </div>
+                <label class="level-up-field">
+                    <span class="level-up-label">What are you working on?</span>
+                    <textarea name="message" required maxlength="2000" rows="4" placeholder="Stack, current pain points, what you'd want out of a session."></textarea>
+                </label>
+
+                <!-- honeypot — non-empty value silently 200s on the server -->
+                <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;" />
+
+                <div class="level-up-submit-row">
+                    <button type="submit" class="level-up-submit">Send</button>
+                    <p class="level-up-or">
+                        Or <a href="https://www.upwork.com/services/product/lifestyle-to-learn-claude-code-cli-white-glove-training-to-build-with-ai-2016039265158461099?ref=project_share&amp;tier=1" target="_blank" rel="noopener noreferrer">book directly on Upwork</a>.
+                    </p>
+                </div>
+            </form>
         </div>
     </section>
 
@@ -1785,47 +1947,6 @@ const fmtNum = (n: number) => n.toLocaleString('en-US');
                 <button type="submit">Subscribe</button>
             </form>
             <p class="signup-note">No spam, ever. Unsubscribe with one click.</p>
-        </div>
-    </section>
-
-    <!-- Products for Sale -->
-    <section class="products-section" id="products">
-        <div style="text-align: center;">
-            <h2 class="section-title" style="margin-left: auto; margin-right: auto;">Pre-Built AI Agents</h2>
-        </div>
-
-        <div class="products-grid" style="max-width: 800px;">
-            <div class="product-card">
-                <h3>AI Agent Wallet</h3>
-                <div class="product-price">
-                    <span class="amount">$10</span>
-                    <span class="label">one-time</span>
-                </div>
-                <ul class="product-features">
-                    <li>Docker + FastAPI source code</li>
-                    <li>Multi-chain EVM wallet support</li>
-                    <li>Spending limits &amp; kill switch</li>
-                    <li>Encrypted keys &amp; audit logs</li>
-                    <li>Production deployment guides</li>
-                </ul>
-                <a href="https://jeremylongshore.gumroad.com/l/ai-agent-wallet" class="product-cta" target="_blank" rel="noopener noreferrer">Get AI Agent Wallet</a>
-            </div>
-
-            <div class="product-card">
-                <h3>Crypto Portfolio Agent</h3>
-                <div class="product-price">
-                    <span class="amount">$10</span>
-                    <span class="label">one-time</span>
-                </div>
-                <ul class="product-features">
-                    <li>Multi-chain balance tracking</li>
-                    <li>DeFi monitoring (Aave/Compound/Uniswap)</li>
-                    <li>Alerts (Telegram/email/Slack/webhooks)</li>
-                    <li>Liquidation risk warnings</li>
-                    <li>Read-only (no private keys needed)</li>
-                </ul>
-                <a href="https://jeremylongshore.gumroad.com/l/crypto-portfolio-agent" class="product-cta" target="_blank" rel="noopener noreferrer">Get Portfolio Agent</a>
-            </div>
         </div>
     </section>
 

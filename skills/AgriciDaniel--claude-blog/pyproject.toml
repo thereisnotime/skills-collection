@@ -2,7 +2,9 @@
 # Required so `pip install -e ".[dev]"` works in CI. Without this, setuptools
 # falls back to legacy and refuses with "Multiple top-level packages discovered
 # in a flat-layout" because the repo root has assets/, skills/, agents/, etc.
-requires = ["setuptools>=68", "wheel"]
+# VULN-411 (v1.9.1): setuptools>=70.0.0 closes CVE-2024-6345 (RCE in
+# package_index, fixed in 70.0.0).
+requires = ["setuptools>=70.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -13,7 +15,7 @@ py-modules = []
 
 [project]
 name = "claude-blog"
-version = "1.7.1"
+version = "1.9.1"
 description = "AI-powered blog creation and optimization skill for Claude Code"
 readme = "README.md"
 license = {text = "MIT"}
@@ -21,6 +23,13 @@ requires-python = ">=3.11"
 authors = [
     {name = "AgriciDaniel"},
 ]
+
+[project.urls]
+homepage = "https://github.com/AgriciDaniel/claude-blog"
+repository = "https://github.com/AgriciDaniel/claude-blog"
+issues = "https://github.com/AgriciDaniel/claude-blog/issues"
+documentation = "https://github.com/AgriciDaniel/claude-blog/tree/main/docs"
+changelog = "https://github.com/AgriciDaniel/claude-blog/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 core = [
@@ -31,10 +40,13 @@ core = [
 ]
 advanced = [
     # Closes audit VULN-406. All entries previously unbounded.
+    # VULN-406 (v1.9.1): tighten sentence-transformers to one major
+    # (was >=2.5.0,<5.0.0 spanning 3 majors; model-download URL is an
+    # attacker-influenceable trust surface).
     "lxml>=5.0.0,<7.0.0",
     "jsonschema>=4.20.0,<5.0.0",
     "spacy>=3.7.0,<4.0.0",
-    "sentence-transformers>=2.5.0,<5.0.0",
+    "sentence-transformers>=4.0.0,<5.0.0",
     "scikit-learn>=1.4.0,<2.0.0",
     "language-tool-python>=2.7.1,<3.0.0",
 ]
@@ -51,6 +63,21 @@ ads = [
     # Closes audit VULN-404 phantom-import (was previously imported with no
     # manifest declaration).
     "google-ads>=22.0.0,<26.0.0",
+]
+presentation = [
+    # v1.9.0 Blog Delivery Contract: enables scripts/blog_preflight.py
+    # (Gate 3 visual verification via patchright), scripts/blog_render.py
+    # (PDF generation via patchright or weasyprint), and
+    # scripts/generate_hero.py (Gemini API hero generation + stock fetch).
+    # VULN-404 (v1.9.1): tighten weasyprint upper bound. weasyprint renders
+    # attacker-influenceable HTML to PDF; pin to a known-good window.
+    # VULN-405 (v1.9.1): tighten google-genai floor from 0.5.0 (alpha) to
+    # 1.0.0 (stable) to avoid pre-1.0 transport / auth churn.
+    "patchright>=1.40,<2.0",
+    "weasyprint>=60.2,<65",
+    "google-genai>=1.0.0,<2.0.0",
+    "requests>=2.32.4,<3.0.0",
+    "markdown>=3.5,<4.0",
 ]
 dev = [
     "pytest>=8.0,<9.0",

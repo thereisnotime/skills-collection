@@ -1,13 +1,15 @@
 # Command Reference
 
-Complete reference for all 27 `/blog` slash commands (28 sub-skills total;
+Complete reference for all 29 `/blog` slash commands (30 sub-skills total;
 `blog-chart` is internal-only, invoked from blog-write/blog-rewrite).
 Every command is invoked through the main orchestrator
 (`skills/blog/SKILL.md`), which routes to the appropriate sub-skill.
 
 > **For detailed command flows beyond the overview table below, see each
 > sub-skill's `SKILL.md` directly. Sections in this file are abbreviated
-> for the v1.7.0 commands that joined after this doc was originally written.**
+> for the v1.7.0 and v1.8.0 commands that joined after this doc was
+> originally written; the full overview table below is the canonical
+> command list.**
 
 ## Command Overview
 
@@ -17,8 +19,8 @@ Every command is invoked through the main orchestrator
 
 | Command | Sub-Skill | Description |
 |---------|-----------|-------------|
-| `write <topic>` | blog-write | Write a new blog post from scratch |
-| `rewrite <file>` | blog-rewrite | Optimize an existing blog post |
+| `write <topic>` | blog-write | Write a new blog post from scratch (v1.9.0: iterates through the 5-gate delivery contract until score 90+ and zero P0, max 3 iterations) |
+| `rewrite <file>` | blog-rewrite | Optimize an existing blog post (v1.9.0: same delivery contract; rewrites must score at least as high as the original) |
 | `analyze <file-or-url>` | blog-analyze | Audit blog quality with 0-100 score |
 | `brief <topic>` | blog-brief | Generate a detailed content brief |
 | `calendar [monthly\|quarterly]` | blog-calendar | Generate an editorial calendar |
@@ -34,7 +36,84 @@ Every command is invoked through the main orchestrator
 | `factcheck <file>` | blog-factcheck | Verify statistics against cited sources |
 | `persona [create\|list\|apply]` | blog-persona | Manage writing personas and voice profiles |
 | `taxonomy [sync\|audit\|suggest]` | blog-taxonomy | Tag/category CMS management |
+| `notebooklm <question>` | blog-notebooklm | Query NotebookLM for source-grounded research |
+| `audio [generate\|voices\|setup]` | blog-audio | Generate audio narration via Gemini TTS |
+| `google [command] [args]` | blog-google | Google API data: PSI, CrUX, GSC, GA4, NLP, YouTube, Keywords |
+| `cluster [plan\|execute] <seed>` | blog-cluster | Semantic topic-cluster planning + execution (v1.7.0) |
+| `multilingual <topic> --languages <codes>` | blog-multilingual | Write + translate + localize + hreflang (v1.7.0) |
+| `translate <file> --to <codes>` | blog-translate | SEO-optimized translation with format preservation (v1.7.0) |
+| `localize <file> --locale <code>` | blog-localize | Cultural deep-adaptation per locale (v1.7.0) |
+| `locale-audit <directory>` | blog-locale-audit | Multilingual content QA (v1.7.0) |
+| `flow [find\|optimize\|win\|prompts\|sync]` | blog-flow | FLOW framework prompts (v1.7.0) |
+| `brand [init\|show\|update]` | blog-brand | Generate BRAND.md + VOICE.md context auto-loaded by all sub-skills (v1.8.0) |
+| `discourse <topic>` | blog-discourse | API-free last-30-days discourse research; produces DISCOURSE.md (v1.8.0) |
 | `update <file>` | blog-rewrite | Freshness update (alias for rewrite) |
+
+---
+
+## /blog brand (v1.8.0)
+
+Generate `BRAND.md` and `VOICE.md` at the project root via a short interview.
+These files are auto-loaded as fenced untrusted context by every drafting,
+review, and audit sub-skill, giving the agent durable brand and voice
+guardrails without re-asking on every invocation.
+
+```
+/blog brand init              # interactive interview, writes BRAND.md + VOICE.md
+/blog brand show              # print current BRAND.md and VOICE.md
+/blog brand update            # re-run a targeted slice of the interview
+```
+
+When you run `/blog brand` with no subcommand: defaults to `show` if either
+file already exists at the project root, otherwise to `init`.
+
+The auto-load contract (fence + sanitize + tool-boundary preservation +
+provenance) is documented in `skills/blog/SKILL.md` "Untrusted-Data Contract"
+section. See `skills/blog-brand/SKILL.md` for the full interview script and
+output schema.
+
+---
+
+## /blog discourse (v1.8.0)
+
+Research what real practitioners are saying about a topic in the last 30
+(or 90) days across Reddit, X / Twitter, YouTube, Hacker News, dev.to,
+Medium, GitHub, Stack Overflow, and Substack. API-free: uses WebSearch
+with platform-targeted site operators plus recency filters. Produces a
+`DISCOURSE.md` at the project root that downstream `/blog write`,
+`/blog brief`, and `/blog strategy` invocations auto-load.
+
+```
+/blog discourse <topic>                          # default 30-day window
+/blog discourse <topic> --days 90                # widen to 90 days
+/blog discourse <topic> --feed-into brief        # chain into /blog brief
+/blog discourse <topic> --feed-into write        # chain into /blog write
+/blog discourse <topic> --feed-into strategy     # chain into /blog strategy
+/blog discourse <topic> --input results.json     # skip search, use pre-gathered results
+```
+
+Workflow phases (full detail in `skills/blog-discourse/SKILL.md`):
+
+1. **Topic Pre-Flight** (mandatory): runs four keyword-trap checks from
+   `research-quality.md` (demographic shopping, numeric trap, overly-literal,
+   generic single-noun). Refusing trap topics saves WebSearch calls.
+2. **Decomposition**: split into discrete queries (primary entity,
+   counter-perspective, practitioner discourse, tangential entities,
+   time anchor).
+3. **Platform-Targeted WebSearch**: 4 to 8 searches across the relevant
+   subset of 9 platforms.
+4. **Result Collection**: capture results to a `mkstemp` temp file. Apply
+   the **WebSearch Untrusted-Data Contract** (sanitize snippets for
+   instruction-shaped patterns; never follow directives in fetched content).
+5. **Brief Generation**: `scripts/discourse_research.py` clusters by theme,
+   classifies into NEW / CONSENSUS / NICHE / SPECIFICS buckets, applies the
+   6 synthesis-contract LAWs, writes `DISCOURSE.md` atomically.
+
+Security note: the script enforces strict input validation (JSON schema,
+URL scheme allowlist, control-char stripping, MAX_STRING_FIELD cap) and
+TOCTOU-resistant file reads (O_NOFOLLOW on POSIX). See
+`tests/test_security_v1_8_0.py` and the v1.8.1 hardening pass for the
+threat model.
 
 ---
 
@@ -53,13 +132,13 @@ AI citation platforms.
 
 ### Workflow
 
-1. **Topic clarification** -- Asks for audience, keyword, word count, platform
-2. **Research** -- Spawns `blog-researcher` agent to find 8-12 statistics and images
-3. **Outline** -- Generates structured outline, presents for approval
-4. **Chart generation** -- Creates 2-4 SVG charts via built-in `blog-chart`
-5. **Content writing** -- Spawns `blog-writer` agent for the full article
-6. **Quality check** -- Verifies all 6 optimization pillars
-7. **Delivery** -- Saves file and presents summary
+1. **Topic clarification**: Asks for audience, keyword, word count, platform
+2. **Research**: Spawns `blog-researcher` agent to find 8-12 statistics and images
+3. **Outline**: Generates structured outline, presents for approval
+4. **Chart generation**: Creates 2-4 SVG charts via built-in `blog-chart`
+5. **Content writing**: Spawns `blog-writer` agent for the full article
+6. **Quality check**: Verifies all 6 optimization pillars
+7. **Delivery**: Saves file and presents summary
 
 ### Output
 
@@ -75,9 +154,9 @@ A complete blog post in the detected format (Markdown, MDX, or HTML) with:
 
 ### Related Commands
 
-- `/blog brief` -- Generate a brief first, then feed it to `/blog write`
-- `/blog analyze` -- Score the finished post
-- `/blog seo-check` -- Validate SEO after writing
+- `/blog brief`: Generate a brief first, then feed it to `/blog write`
+- `/blog analyze`: Score the finished post
+- `/blog seo-check`: Validate SEO after writing
 
 ---
 
@@ -96,13 +175,13 @@ the author's voice and unique perspective.
 
 ### Workflow
 
-1. **Audit** -- Reads the file, scores it against the quality checklist
-2. **Plan** -- Presents section-by-section optimization plan for approval
-3. **Research** -- Finds replacement statistics for fabricated/unsourced data
-4. **Chart generation** -- Adds SVG charts if the post has fewer than 2
-5. **Rewrite** -- Applies answer-first formatting, fixes paragraphs, adds FAQ
-6. **Verification** -- Confirms all quality gates pass
-7. **Summary** -- Reports before/after scores and changes made
+1. **Audit**: Reads the file, scores it against the quality checklist
+2. **Plan**: Presents section-by-section optimization plan for approval
+3. **Research**: Finds replacement statistics for fabricated/unsourced data
+4. **Chart generation**: Adds SVG charts if the post has fewer than 2
+5. **Rewrite**: Applies answer-first formatting, fixes paragraphs, adds FAQ
+6. **Verification**: Confirms all quality gates pass
+7. **Summary**: Reports before/after scores and changes made
 
 ### Output
 
@@ -117,8 +196,8 @@ The rewritten file in its original format with:
 
 ### Related Commands
 
-- `/blog analyze` -- Audit before rewriting to see the starting score
-- `/blog update` -- Alias for freshness-focused rewrite
+- `/blog analyze`: Audit before rewriting to see the starting score
+- `/blog update`: Alias for freshness-focused rewrite
 
 ---
 
@@ -148,7 +227,7 @@ prioritized improvement recommendations.
 ```
 Blog Quality Report: [Title]
 
-Score: 78/100 -- Good
+Score: 78/100 - Good
 
 Score Breakdown
 | Category               | Score | Max |
@@ -182,8 +261,8 @@ python3 ~/.claude/skills/blog/scripts/analyze_blog.py post.md -o report.json
 
 ### Related Commands
 
-- `/blog rewrite` -- Apply the recommended fixes automatically
-- `/blog audit` -- Full-site assessment (broader than single-file analyze)
+- `/blog rewrite`: Apply the recommended fixes automatically
+- `/blog audit`: Full-site assessment (broader than single-file analyze)
 
 ---
 
@@ -202,11 +281,11 @@ statistics research, visual element planning, and a structured outline.
 
 ### Workflow
 
-1. **Topic intake** -- Gathers topic, audience, intent, business context
-2. **Keyword research** -- Primary keyword, 3-5 secondary, 3-5 questions
-3. **Competitive analysis** -- Analyzes top 3-5 ranking pages
-4. **Statistics research** -- Finds 8-12 stats with sources
-5. **Brief generation** -- Complete brief with outline and recommendations
+1. **Topic intake**: Gathers topic, audience, intent, business context
+2. **Keyword research**: Primary keyword, 3-5 secondary, 3-5 questions
+3. **Competitive analysis**: Analyzes top 3-5 ranking pages
+4. **Statistics research**: Finds 8-12 stats with sources
+5. **Brief generation**: Complete brief with outline and recommendations
 
 ### Output
 
@@ -226,9 +305,9 @@ A detailed brief document saved to `briefs/[slug]-brief.md` containing:
 
 ### Related Commands
 
-- `/blog write` -- Write the article using the generated brief
-- `/blog strategy` -- Higher-level planning before individual briefs
-- `/blog outline` -- Lighter-weight outline without full research
+- `/blog write`: Write the article using the generated brief
+- `/blog strategy`: Higher-level planning before individual briefs
+- `/blog outline`: Lighter-weight outline without full research
 
 ---
 
@@ -257,15 +336,15 @@ content velocity targets, quarterly goals, and distribution plan.
 
 ### Key Features
 
-- **Topic cluster design** -- 3-5 pillar + supporting content clusters
-- **Freshness scheduling** -- 30-day update cycles for high-priority posts
-- **Content mix** -- Balances new posts with freshness updates
-- **Seasonal hooks** -- Industry events, trending topics, report releases
+- **Topic cluster design**: 3-5 pillar + supporting content clusters
+- **Freshness scheduling**: 30-day update cycles for high-priority posts
+- **Content mix**: Balances new posts with freshness updates
+- **Seasonal hooks**: Industry events, trending topics, report releases
 
 ### Related Commands
 
-- `/blog strategy` -- Define pillars and positioning before calendar planning
-- `/blog brief` -- Create briefs for calendar items
+- `/blog strategy`: Define pillars and positioning before calendar planning
+- `/blog brief`: Create briefs for calendar items
 
 ---
 
@@ -284,14 +363,14 @@ competitive landscape analysis, and distribution planning.
 
 ### Workflow
 
-1. **Discovery** -- Business context, goals, current state, competitors
-2. **Competitive landscape** -- Analyzes competitor blogs and AI visibility
-3. **Audience mapping** -- 2-3 segments with pain points and search behavior
-4. **Content pillar design** -- 3-5 pillars with keyword themes
-5. **Differentiation** -- First-hand experience and original data plans
-6. **Distribution channels** -- YouTube, Reddit, reviews, publications
-7. **Measurement framework** -- Traditional SEO + AI citation metrics
-8. **Strategy document** -- Executive summary through 90-day roadmap
+1. **Discovery**: Business context, goals, current state, competitors
+2. **Competitive landscape**: Analyzes competitor blogs and AI visibility
+3. **Audience mapping**: 2-3 segments with pain points and search behavior
+4. **Content pillar design**: 3-5 pillars with keyword themes
+5. **Differentiation**: First-hand experience and original data plans
+6. **Distribution channels**: YouTube, Reddit, reviews, publications
+7. **Measurement framework**: Traditional SEO + AI citation metrics
+8. **Strategy document**: Executive summary through 90-day roadmap
 
 ### Output
 
@@ -307,8 +386,8 @@ A full strategy document with:
 
 ### Related Commands
 
-- `/blog calendar` -- Operationalize the strategy into a publishing schedule
-- `/blog brief` -- Create briefs for strategy-identified topics
+- `/blog calendar`: Operationalize the strategy into a publishing schedule
+- `/blog brief`: Create briefs for strategy-identified topics
 
 ---
 
@@ -336,8 +415,8 @@ A structured outline with:
 
 ### Related Commands
 
-- `/blog brief` -- Full brief with research (outline is a subset)
-- `/blog write` -- Write from the outline directly
+- `/blog brief`: Full brief with research (outline is a subset)
+- `/blog write`: Write from the outline directly
 
 ---
 
@@ -367,8 +446,8 @@ quality.
 
 ### Related Commands
 
-- `/blog analyze` -- Full quality audit (content + SEO + citations)
-- `/blog schema` -- Generate missing schema markup
+- `/blog analyze`: Full quality audit (content + SEO + citations)
+- `/blog schema`: Generate missing schema markup
 
 ---
 
@@ -407,8 +486,8 @@ not execute JavaScript.
 
 ### Related Commands
 
-- `/blog seo-check` -- Validates schema presence and correctness
-- `/blog analyze` -- Checks schema as part of the full quality audit
+- `/blog seo-check`: Validates schema presence and correctness
+- `/blog analyze`: Checks schema as part of the full quality audit
 
 ---
 
@@ -436,8 +515,8 @@ Repurpose a blog post into content for other platforms and formats.
 
 ### Related Commands
 
-- `/blog strategy` -- Identifies distribution channels for repurposing
-- `/blog write` -- Create the original post to repurpose
+- `/blog strategy`: Identifies distribution channels for repurposing
+- `/blog write`: Create the original post to repurpose
 
 ---
 
@@ -466,8 +545,8 @@ visibility on AI platforms (ChatGPT, Perplexity, Google AI Overviews).
 
 ### Related Commands
 
-- `/blog analyze` -- Full quality audit including GEO metrics
-- `/blog rewrite` -- Apply GEO optimizations automatically
+- `/blog analyze`: Full quality audit including GEO metrics
+- `/blog rewrite`: Apply GEO optimizations automatically
 
 ---
 
@@ -495,9 +574,9 @@ and produces a comprehensive report.
 
 ### Related Commands
 
-- `/blog analyze` -- Single-file audit (audit is the batch version)
-- `/blog calendar` -- Plan content based on audit findings
-- `/blog rewrite` -- Fix posts identified by the audit
+- `/blog analyze`: Single-file audit (audit is the batch version)
+- `/blog calendar`: Plan content based on audit findings
+- `/blog rewrite`: Fix posts identified by the audit
 
 ---
 
@@ -524,8 +603,8 @@ changes and focuses on updating data and signals.
 
 ### Related Commands
 
-- `/blog rewrite` -- Full rewrite (more aggressive than update)
-- `/blog audit` -- Find posts that need updating
+- `/blog rewrite`: Full rewrite (more aggressive than update)
+- `/blog audit`: Find posts that need updating
 
 ---
 
@@ -539,7 +618,7 @@ changes and focuses on updating data and signals.
 /blog image setup
 ```
 
-**Flow**: See `skills/blog-image/SKILL.md` -- Creative Director pattern with
+**Flow**: See `skills/blog-image/SKILL.md`: Creative Director pattern with
 the 6-component Reasoning Brief (Subject, Action, Context, Composition,
 Lighting, Style). The `setup` subcommand defaults to `--global` (writes
 user-private `~/.claude/settings.json`, mode 0600) per audit VULN-001 fix.
@@ -735,25 +814,39 @@ The main orchestrator (`skills/blog/SKILL.md`) parses user input and routes to
 the correct sub-skill:
 
 ```
-User Input                        Routes To
------------                       ---------
-/blog write <topic>           --> blog-write
-/blog rewrite <file>          --> blog-rewrite
-/blog analyze <file-or-url>   --> blog-analyze
-/blog audit <file-or-url>     --> blog-analyze
-/blog brief <topic>           --> blog-brief
-/blog calendar [period]       --> blog-calendar
-/blog plan [period]           --> blog-calendar
-/blog strategy <niche>        --> blog-strategy
-/blog ideation <niche>        --> blog-strategy
-/blog outline <topic>         --> blog-outline
-/blog seo-check <file>        --> blog-seo-check
-/blog schema <file>           --> blog-schema
-/blog repurpose <file>        --> blog-repurpose
-/blog geo <file>              --> blog-geo
-/blog audit [directory]       --> blog-audit
-/blog image [generate|edit]  --> blog-image
-/blog update <file>           --> blog-rewrite (freshness mode)
+User Input                                  Routes To
+-----------                                 ---------
+/blog write <topic>                     --> blog-write
+/blog rewrite <file>                    --> blog-rewrite
+/blog analyze <file-or-url>             --> blog-analyze
+/blog brief <topic>                     --> blog-brief
+/blog calendar [period]                 --> blog-calendar
+/blog plan [period]                     --> blog-calendar
+/blog strategy <niche>                  --> blog-strategy
+/blog ideation <niche>                  --> blog-strategy
+/blog outline <topic>                   --> blog-outline
+/blog seo-check <file>                  --> blog-seo-check
+/blog schema <file>                     --> blog-schema
+/blog repurpose <file>                  --> blog-repurpose
+/blog geo <file>                        --> blog-geo
+/blog audit [directory]                 --> blog-audit
+/blog image [generate|edit]             --> blog-image
+/blog update <file>                     --> blog-rewrite (freshness mode)
+/blog cannibalization [dir]             --> blog-cannibalization
+/blog factcheck <file>                  --> blog-factcheck
+/blog persona [create|list|use|show]    --> blog-persona
+/blog brand [init|show|update]          --> blog-brand               (v1.8.0)
+/blog discourse <topic>                 --> blog-discourse           (v1.8.0)
+/blog taxonomy [suggest|sync|audit]     --> blog-taxonomy
+/blog notebooklm <question>             --> blog-notebooklm
+/blog audio [generate|voices|setup]     --> blog-audio
+/blog google [command] [args]           --> blog-google
+/blog cluster [plan|execute] <seed>     --> blog-cluster
+/blog multilingual <topic> --languages  --> blog-multilingual
+/blog translate <file> --to             --> blog-translate
+/blog localize <file> --locale          --> blog-localize
+/blog locale-audit <directory>          --> blog-locale-audit
+/blog flow [find|optimize|win|prompts]  --> blog-flow
 ```
 
 If no sub-command is provided, the orchestrator asks which action the user

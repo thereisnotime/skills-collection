@@ -7,7 +7,7 @@
 Full documentation is available in the [`docs/`](docs/) directory:
 
 - [Installation Guide](docs/INSTALLATION.md): setup for Unix, macOS, and Windows
-- [Command Reference](docs/COMMANDS.md): all 12 commands with examples
+- [Command Reference](docs/COMMANDS.md): all 29 user-facing commands with examples
 - [Troubleshooting](docs/TROUBLESHOOTING.md): common issues and fixes
 - [Architecture](docs/ARCHITECTURE.md): how the skill is structured
 

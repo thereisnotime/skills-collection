@@ -8,7 +8,7 @@ ecosystem for blog content creation, optimization, and management.
 | Requirement | Version | Purpose |
 |-------------|---------|---------|
 | [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) | Latest | Runtime for all `/blog` commands |
-| Python | 3.11+ | Quality analysis script (`analyze_blog.py`) |
+| Python | 3.11+ | Quality scoring + 5-gate delivery contract runners (analyze_blog, blog_preflight, blog_render, generate_hero, lint_prose, ...) |
 | pip | Latest | Python dependency management |
 
 Claude Code must be installed and configured before installing `claude-blog`.
@@ -52,6 +52,27 @@ after the main install:
 
 ```bash
 pip install -r requirements.txt
+```
+
+#### Reproducible install via uv (v1.9.1+)
+
+For deterministic supply-chain hygiene, the repo ships `uv.lock` (142
+packages with SHA-256 hashes for every wheel). Reproduce the exact
+dev environment with:
+
+```bash
+pip install uv          # one-time
+uv sync --frozen        # installs from uv.lock with hash verification
+```
+
+This is the recommended path for CI, audit, and any context where
+"works on my machine" is not enough. The legacy `pip install -e ".[dev]"`
+flow still works; it just resolves transitives freshly each time.
+
+Regenerate `uv.lock` after editing `pyproject.toml` dependency bounds:
+
+```bash
+uv lock
 ```
 
 **Core dependencies:**
@@ -112,30 +133,42 @@ If you prefer not to run the installer, copy files to these paths manually.
 │   ├── blog-repurpose/SKILL.md
 │   ├── blog-geo/SKILL.md
 │   ├── blog-audit/SKILL.md
-│   ├── blog-chart/SKILL.md
-│   └── blog-image/
-│       ├── SKILL.md
-│       ├── references/
-│       │   ├── gemini-models.md
-│       │   ├── mcp-tools.md
-│       │   └── prompt-engineering-blog.md
-│       └── scripts/
-│           ├── setup_image_mcp.py
-│           └── validate_image_setup.py
+│   ├── blog-chart/SKILL.md            # internal-only
+│   ├── blog-image/SKILL.md            # v1.4.0
+│   ├── blog-cannibalization/SKILL.md
+│   ├── blog-factcheck/SKILL.md
+│   ├── blog-persona/SKILL.md
+│   ├── blog-taxonomy/SKILL.md
+│   ├── blog-notebooklm/SKILL.md       # v1.5.0
+│   ├── blog-audio/SKILL.md            # v1.6.0
+│   ├── blog-google/SKILL.md           # v1.6.5
+│   ├── blog-cluster/SKILL.md          # v1.7.0
+│   ├── blog-flow/SKILL.md             # v1.7.0
+│   ├── blog-multilingual/SKILL.md     # v1.7.0
+│   ├── blog-translate/SKILL.md        # v1.7.0
+│   ├── blog-localize/SKILL.md         # v1.7.0
+│   ├── blog-locale-audit/SKILL.md     # v1.7.0
+│   ├── blog-brand/SKILL.md            # v1.8.0
+│   └── blog-discourse/SKILL.md        # v1.8.0
 └── agents/
     ├── blog-researcher.md
     ├── blog-writer.md
     ├── blog-seo.md
-    └── blog-reviewer.md
+    ├── blog-reviewer.md
+    └── blog-translator.md             # v1.7.0
 ```
 
 ### Copy Commands (Unix)
 
 ```bash
-# Create directories
+# Create directories. Auto-discover sub-skills via shell glob so we never
+# fall behind on the directory list (v1.8.6: replaces the hand-rolled
+# 14-skill mkdir from v1.4.0).
 mkdir -p ~/.claude/skills/blog/{references,templates,scripts}
-mkdir -p ~/.claude/skills/blog-{write,rewrite,analyze,brief,calendar,strategy,outline,seo-check,schema,repurpose,geo,audit,chart,image}
-mkdir -p ~/.claude/skills/blog-image/{references,scripts}
+mkdir -p ~/.claude/scripts
+for d in skills/blog-*/; do
+    mkdir -p "${HOME}/.claude/skills/$(basename "$d")"
+done
 mkdir -p ~/.claude/agents
 
 # Main skill
@@ -206,13 +239,13 @@ After installation, verify everything is in place:
 # Main skill
 ls ~/.claude/skills/blog/SKILL.md
 
-# Sub-skills (should list 14)
+# Sub-skills (should list 29 directories: 28 user-facing slash commands + 1 internal blog-chart)
 ls ~/.claude/skills/blog-*/SKILL.md | wc -l
 
-# Agents (should list 4)
+# Agents (should list 5: blog-researcher, blog-writer, blog-seo, blog-reviewer, blog-translator)
 ls ~/.claude/agents/blog-*.md | wc -l
 
-# References (should list 5+)
+# References (should list 21 .md files)
 ls ~/.claude/skills/blog/references/*.md | wc -l
 
 # Python script
@@ -291,16 +324,22 @@ chmod +x uninstall.sh
 This removes:
 
 - `~/.claude/skills/blog/` (main skill, references, templates, scripts)
-- `~/.claude/skills/blog-*/` (all 27 sub-skills including blog-chart, blog-image, blog-flow, blog-cluster, and the multilingual suite)
-- `~/.claude/agents/blog-*.md` (all 5 agents)
-- `~/.claude/scripts/sync_flow.py` (FLOW reference sync script)
+- `~/.claude/skills/blog-*/` (all 29 sub-skills: write, rewrite, analyze, brief, calendar, strategy, outline, seo-check, schema, repurpose, geo, audit, chart [internal], image, cannibalization, factcheck, persona, taxonomy, notebooklm, audio, google, cluster, flow, multilingual, translate, localize, locale-audit, brand, discourse)
+- `~/.claude/scripts/` (9 root-level scripts: analyze_blog, blog_preflight, blog_render, cognitive_load, discourse_research, generate_hero, load_untrusted_root, lint_prose, sync_flow)
+- `~/.claude/agents/blog-*.md` (all 5 agents: blog-researcher, blog-writer, blog-seo, blog-reviewer, blog-translator)
 
 ### Manual Uninstall
 
 ```bash
+# Main skill + all sub-skills (auto-discovers blog-* via glob)
 rm -rf ~/.claude/skills/blog
-rm -rf ~/.claude/skills/blog-{write,rewrite,analyze,brief,calendar,strategy,outline,seo-check,schema,repurpose,geo,audit,chart,image}
-rm -f ~/.claude/agents/blog-{researcher,writer,seo,reviewer}.md
+rm -rf ~/.claude/skills/blog-*
+
+# All 5 agents
+rm -f ~/.claude/agents/blog-{researcher,writer,seo,reviewer,translator}.md
+
+# All 9 root-level scripts (only if no other plugin uses ~/.claude/scripts/)
+rm -f ~/.claude/scripts/{analyze_blog,blog_preflight,blog_render,cognitive_load,discourse_research,generate_hero,load_untrusted_root,lint_prose,sync_flow}.py
 ```
 
 ### Clean Up Python Dependencies (Optional)
