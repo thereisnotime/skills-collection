@@ -1,3 +1,4 @@
+ada-spark
 agnix
 axiom
 audit-project
@@ -10,6 +11,7 @@ drift-detect
 enhance
 gate-and-ship
 learn
+mojo
 next-task
 onboard
 perf

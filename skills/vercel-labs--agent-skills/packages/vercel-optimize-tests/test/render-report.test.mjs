@@ -135,8 +135,126 @@ test('renderReport: falls back to o11y-derived ranking when usage missing', () =
     },
   };
   const md = renderReport({ recommendations: [], gated: [], signals });
-  assert.match(md, /ranking by `function_duration_gbhr`/);
+  assert.match(md, /Ranking by `function_duration_gbhr`/);
   assert.match(md, /\| \/x \| 0\.5000 \|/);
+});
+
+test('renderReport: Observability Plus blocker does not invent billing or Speed Insights gaps', () => {
+  const signals = {
+    ...baseSignals,
+    observabilityPlus: true,
+    observabilityPlusUsable: false,
+    observabilityPlusBlocker: 'payment_required',
+    observabilityPlusBlockerDetail: 'Route-level metrics were recognized for this team, but these queries are not usable.',
+    usage: null,
+    usageError: 'NOT_COLLECTED_OBSERVABILITY_BLOCKED',
+    metrics: {
+      observabilityPlusCanary: {
+        ok: false,
+        code: 'OPLUS_REQUIRED',
+      },
+    },
+  };
+  const md = renderReport({ recommendations: [], gated: [], signals });
+
+  assert.match(md, /Per-route metrics unavailable/);
+  assert.match(md, /Observability Plus metrics were not usable for this scope/);
+  assert.match(md, /`vercel usage` was not collected because the audit paused before billing collection/);
+  assert.doesNotMatch(md, /Observability Plus enabled — per-route metrics included/);
+  assert.doesNotMatch(md, /analysis based on billing/);
+  assert.doesNotMatch(md, /free-tier|Costs feature disabled/);
+  assert.doesNotMatch(md, /Observability Plus blocker:/);
+  assert.doesNotMatch(md, /cost breakdown derived from observability/);
+  assert.doesNotMatch(md, /No Speed Insights measurements|Core Web Vitals analysis dormant/);
+  assert.doesNotMatch(md, /No ISR activity observed/);
+  assert.doesNotMatch(md, /No image transformations observed/);
+  assert.doesNotMatch(md, /No middleware invocations/);
+});
+
+test('renderReport: unsupported-framework preflight does not claim Observability Plus was checked', () => {
+  const signals = {
+    ...baseSignals,
+    observabilityPlus: null,
+    observabilityPlusUsable: null,
+    frameworkSupportBlocker: 'unsupported_framework',
+    usage: null,
+    usageError: 'NOT_COLLECTED_UNSUPPORTED_FRAMEWORK',
+    metrics: {},
+  };
+  const md = renderReport({ recommendations: [], gated: [], signals });
+
+  assert.match(md, /Not checked — audit paused at unsupported-framework preflight/);
+  assert.match(md, /`vercel usage` was not collected because the audit paused at the unsupported-framework preflight/);
+  assert.doesNotMatch(md, /Observability Plus enabled — per-route metrics included/);
+  assert.doesNotMatch(md, /Observability Plus not enabled/);
+});
+
+test('renderReport: limited audit after Observability blocker is not described as paused', () => {
+  const signals = {
+    ...baseSignals,
+    observabilityPlus: false,
+    observabilityPlusUsable: false,
+    observabilityPlusBlocker: 'no_oplus_probe',
+    usage: null,
+    usageError: 'USAGE_UNAVAILABLE',
+    metrics: {},
+  };
+  const md = renderReport({ recommendations: [], gated: [], signals });
+
+  assert.match(md, /Per-route metrics unavailable — limited analysis based on scanner findings/);
+  assert.match(md, /Observability Plus was not detected for this scope/);
+  assert.match(md, /`vercel usage` returned `USAGE_UNAVAILABLE`; no billing breakdown was available/);
+  assert.doesNotMatch(md, /audit paused before metric-backed route ranking/);
+  assert.doesNotMatch(md, /Observability Plus blocker:/);
+});
+
+test('renderReport: usage unavailable copy is reserved for an actual usage error', () => {
+  const signals = {
+    ...baseSignals,
+    usage: null,
+    usageError: 'USAGE_UNAVAILABLE',
+    metrics: {
+      ...baseSignals.metrics,
+      fnGbHrByRoute: { rows: [] },
+    },
+  };
+  const md = renderReport({ recommendations: [], gated: [], signals });
+
+  assert.match(md, /`vercel usage` returned `USAGE_UNAVAILABLE`; no billing breakdown was available/);
+  assert.doesNotMatch(md, /free-tier|Costs feature disabled/);
+});
+
+test('renderReport: Speed Insights gap only renders after the metric is collected', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    signals: {
+      ...baseSignals,
+      metrics: {
+        ...baseSignals.metrics,
+        cwvCount: { rows: [] },
+      },
+    },
+  });
+
+  assert.match(md, /No Speed Insights measurements/);
+});
+
+test('renderReport: failed Speed Insights query is not rendered as no measurements', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    signals: {
+      ...baseSignals,
+      metrics: {
+        ...baseSignals.metrics,
+        cwvCount: { ok: false, code: 'FORBIDDEN', rows: [] },
+      },
+    },
+  });
+
+  assert.match(md, /Speed Insights metrics were not usable \(`FORBIDDEN`\)/);
+  assert.doesNotMatch(md, /No Speed Insights measurements/);
 });
 
 test('renderReport: canonicalizes o11y-derived cost routes', () => {
@@ -218,6 +336,22 @@ test('renderReport: public gated reasons avoid raw budget internals', () => {
   assert.match(md, /left for a larger run \(max candidates: 6\)/);
   assert.doesNotMatch(md, /skippedByBudget/);
   assert.doesNotMatch(md, /=all/);
+});
+
+test('renderReport: public gated reasons avoid hard-gate internals', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [
+      {
+        kind: 'slow_route',
+        route: '/.well-known/workflow/v1/step',
+        gatedReason: 'hardGated: Vercel Workflow runtime endpoint; long-running step/flow requests are expected orchestration, not an app-route optimization target',
+      },
+    ],
+    signals: baseSignals,
+  });
+  assert.match(md, /Vercel Workflow runtime endpoint; long-running step\/flow requests are expected orchestration/);
+  assert.doesNotMatch(md, /hardGated/);
 });
 
 test('renderReport: partitions recs by impactTier into High / Medium / Low', () => {

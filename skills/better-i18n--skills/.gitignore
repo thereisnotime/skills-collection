@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+
+# Claude Code workspace — never commit hooks/settings (Shai-Hulud supply-chain vector)
+.claude/

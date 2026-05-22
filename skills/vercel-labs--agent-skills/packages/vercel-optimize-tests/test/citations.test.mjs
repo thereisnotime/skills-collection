@@ -12,7 +12,7 @@ import {
 
 test('loadLibrary returns version + entries', async () => {
   const lib = await loadLibrary();
-  assert.equal(lib.version, '1.1.0');
+  assert.equal(lib.version, '1.1.1');
   assert.ok(lib.urls.length >= 30, 'expected >=30 URL entries');
   assert.ok(lib.ruleSkillRefs.length >= 10, 'expected >=10 rule refs');
 });

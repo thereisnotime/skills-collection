@@ -248,6 +248,17 @@ test('citationSubset: includes wildcard-version URLs (e.g. Vercel platform docs)
   assert.ok(fluid, 'Fluid Compute doc applies to any version + slow_route');
 });
 
+test('citationSubset: scopes Workflow docs to relevant candidate kinds', async () => {
+  const routeErrors = await citationSubset('route_errors', 'next', '15.4.0');
+  assert.ok(routeErrors.urls.some((e) => e.url === 'https://workflow-sdk.dev/docs/foundations/starting-workflows'));
+
+  const image = await citationSubset('image_optimization', 'next', '15.4.0');
+  assert.equal(
+    image.urls.some((e) => e.url === 'https://workflow-sdk.dev/docs/foundations/starting-workflows'),
+    false,
+  );
+});
+
 const stubCitations = {
   urls: [
     { url: 'https://vercel.com/docs/fluid-compute', topic: 'Fluid Compute', appliesTo: ['slow_route'], applicableFrameworks: ['*'] },
@@ -389,6 +400,7 @@ test('buildBrief: per-kind interpretation hints render for known kinds', () => {
   });
   assert.match(md, /How to read the evidence for this candidate kind/);
   assert.ok(md.includes(KIND_INTERPRETATION_HINTS.slow_route[0]));
+  assert.match(md, /streaming, SSE, resumable chat/);
 });
 
 test('buildBrief: cache candidates include cache-policy guidance', () => {

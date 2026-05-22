@@ -9,7 +9,7 @@ Sanitized from Vercel CLI v53.4.0 output against a fixture project. Identifiers,
 - **Status filter**: field is `http_status` (not `status`). Both `http_status eq '500'` and `http_status ge 500` work.
 - **Group by**: dimensions are documented in error response `allowedValues[]`. Available for `vercel.request.count` include `route`, `http_status`, `cache_result`, `request_path`, etc.
 - **External API group-by**: `origin_hostname` (not `hostname`).
-- **Project API**: `vercel api /v9/projects/<id>` returns 404 unless scoped to the team that owns the project. Pass `?teamId=<orgId>` from `.vercel/repo.json`.
+- **Project API**: `vercel api /v9/projects/<id>` returns 404 unless scoped to the team that owns the project. Pass `?teamId=<orgId>` for team-owned projects from `.vercel/repo.json`; omit it for user-owned `usr_...` projects.
 - **Project schema**: `resourceConfig.fluid` is the Fluid Compute flag. Bot Protection state is `security.botIdEnabled` (top-level boolean) and `security.managedRules.bot_filter.active` (challenge action). Top-level `framework` is `"nextjs"` (NOT `"next"`).
 - **Contract**: shape is `{context, commitments, totalCommitments}`. On this team `commitments=[]`. Plan-from-commitments is unreliable — fall back to "uncertain".
 - **Usage**: returns `Error: Costs not found (404)` on teams without the Costs feature enabled. The skill must degrade gracefully.

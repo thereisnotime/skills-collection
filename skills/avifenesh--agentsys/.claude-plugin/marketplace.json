@@ -1,7 +1,7 @@
 {
   "name": "agentsys",
-  "description": "24 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, documentation sync, unified static analysis, durable memory, negative behavior memory, skill and system prompt curation, perf investigations, topic research, agent config linting, cross-tool AI consultation, structured AI debate, workflow pattern learning, codebase onboarding, contributor guidance, and Zig language support",
-  "version": "5.13.5",
+  "description": "26 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, documentation sync, unified static analysis, durable memory, negative behavior memory, skill and system prompt curation, perf investigations, topic research, agent config linting, cross-tool AI consultation, structured AI debate, workflow pattern learning, codebase onboarding, contributor guidance, Zig language support, Mojo language support, and Ada/SPARK language support",
+  "version": "5.14.0",
   "owner": {
     "name": "Avi Fenesh",
     "url": "https://github.com/avifenesh"
@@ -325,6 +325,32 @@
       "version": "0.1.0",
       "category": "development",
       "homepage": "https://github.com/agent-sh/zig-lsp"
+    },
+    {
+      "name": "mojo",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/agent-sh/mojo.git",
+        "ref": "v0.2.0",
+        "commit": "4d6f5fe71e03380f8532a0a8419903f4f548a587"
+      },
+      "description": "Teach agents to write idiomatic, correct, performant, current Mojo (v1.0.0b1) - syntax, ownership and CPU/memory optimization (copies, SIMD, vectorize/parallelize), GPU kernels (DeviceContext/LayoutTensor), and Mojo/Python interop; prevents stale pre-2025 syntax",
+      "version": "0.2.0",
+      "category": "development",
+      "homepage": "https://github.com/agent-sh/mojo"
+    },
+    {
+      "name": "ada-spark",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/agent-sh/ada-spark.git",
+        "ref": "v0.1.0",
+        "commit": "d84e4efbd22165d3739dc5002c8385737637890c"
+      },
+      "description": "Teach agents to write idiomatic, correct, current Ada and SPARK (Ada 2022) - contracts (aspects, Pre'Class), the Alire ecosystem, SPARK proof (AoRTE, assurance levels, ownership/borrow), embedded (Ravenscar/Jorvik), and GNAT/GNAT SAS tooling; blocks stale pre-2022 advice (GNAT Community, pragma contracts, CodePeer)",
+      "version": "0.1.0",
+      "category": "development",
+      "homepage": "https://github.com/agent-sh/ada-spark"
     }
   ]
 }

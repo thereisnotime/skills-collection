@@ -15,18 +15,18 @@ test('redactSensitiveText: removes auth tokens from CLI-visible text', () => {
     'Authorization: Bearer abcdefghijklmnopqrstuvwxyz.1234567890',
     '{"token":"secret-json-token-abcdef123456"}',
     'x-vercel-id: sfo1::w45r5-1778646511413-d7c8c3cb26cb',
-    'project prj_1234567890abcdef team team_1234567890abcdef',
+    'project prj_1234567890abcdef team team_1234567890abcdef user usr_1234567890abcdef',
   ].join('\n');
 
   const redacted = redactSensitiveText(raw);
 
   assert.doesNotMatch(redacted, /vercel_secret|abcdefghijklmnopqrstuvwxyz|secret-json-token/);
-  assert.doesNotMatch(redacted, /w45r5-1778646511413|prj_1234567890abcdef|team_1234567890abcdef/);
+  assert.doesNotMatch(redacted, /w45r5-1778646511413|prj_1234567890abcdef|team_1234567890abcdef|usr_1234567890abcdef/);
   assert.match(redacted, /VERCEL_TOKEN=\[REDACTED\]/);
   assert.match(redacted, /--token \[REDACTED\]/);
   assert.match(redacted, /Authorization: \[REDACTED\]/);
   assert.match(redacted, /x-vercel-id: \[REDACTED\]/);
-  assert.match(redacted, /project prj_\[REDACTED\] team team_\[REDACTED\]/);
+  assert.match(redacted, /project prj_\[REDACTED\] team team_\[REDACTED\] user usr_\[REDACTED\]/);
   assert.match(redacted, /"token":"\[REDACTED\]"/);
 });
 

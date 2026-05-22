@@ -143,6 +143,34 @@ test('supportTopicSubset: selects route-pattern topics only for matching routes'
   assert.ok(!normalTopics.some((t) => t.id === 'not-found-catchall-request-waste'));
 });
 
+test('supportTopicSubset: selects Workflow stream guardrails only for stream-shaped slow routes', async () => {
+  const streamTopics = await supportTopicSubset({
+    candidate: { kind: 'slow_route', route: '/api/projects/ai/chat/[id]/stream' },
+    signals: next15Signals,
+  });
+  assert.equal(streamTopics[0].id, 'workflow-resumable-stream-routes');
+
+  const normalTopics = await supportTopicSubset({
+    candidate: { kind: 'slow_route', route: '/api/projects' },
+    signals: next15Signals,
+  });
+  assert.ok(!normalTopics.some((t) => t.id === 'workflow-resumable-stream-routes'));
+});
+
+test('supportTopicSubset: keeps durable Workflow offload scoped to route errors', async () => {
+  const routeErrorTopics = await supportTopicSubset({
+    candidate: { kind: 'route_errors', route: '/api/import' },
+    signals: next15Signals,
+  });
+  assert.ok(routeErrorTopics.some((t) => t.id === 'route-error-durable-offload'));
+
+  const slowTopics = await supportTopicSubset({
+    candidate: { kind: 'slow_route', route: '/api/import' },
+    signals: next15Signals,
+  });
+  assert.ok(!slowTopics.some((t) => t.id === 'route-error-durable-offload'));
+});
+
 test('supportTopicSubset: selects high-impact framework topics for SvelteKit, Nuxt, and Astro', async () => {
   const svelteTopics = await supportTopicSubset({
     candidate: { kind: 'uncached_route', route: '/blog' },

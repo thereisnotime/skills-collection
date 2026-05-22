@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -18,6 +21,8 @@ import { gates } from '../../../skills/vercel-optimize/lib/gates/index.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FX = join(HERE, 'fixtures', 'real-cli-output', 'deep-dive');
+const SCRIPT = join(HERE, '../../../skills/vercel-optimize/scripts/deep-dive.mjs');
+const exec = promisify(execFile);
 
 test('deep-dive: specsForCandidate(slow_route) is deterministic', () => {
   const c = { kind: 'slow_route', route: '/dashboard/[sessionId]' };
@@ -219,4 +224,182 @@ test('deep-dive: slow_route fixture filter matches the spec generator output', a
   const specs = specsForCandidate({ kind: 'slow_route', route: '/dashboard/[sessionId]' });
   const perDep = specs.find((s) => s.id === 'perDeployment');
   assert.equal(perDep.filter, raw.query.filter);
+});
+
+test('deep-dive runner scopes metrics to the linked team slug', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'vo-deep-dive-scope-'));
+  const bin = join(scratch, 'bin');
+  try {
+    await mkdir(bin, { recursive: true });
+    await mkdir(join(scratch, '.vercel'), { recursive: true });
+    await writeFile(join(scratch, '.vercel', 'project.json'), JSON.stringify({
+      projectId: 'prj_scope',
+      orgId: 'team_scope',
+    }), 'utf-8');
+    await writeFile(join(scratch, 'merged.json'), JSON.stringify({
+      schemaVersion: '1.2',
+      projectId: 'prj_scope',
+      orgId: 'team_scope',
+      metrics: {},
+    }), 'utf-8');
+    await writeFile(join(scratch, 'gate.json'), JSON.stringify({
+      toLaunch: [{ kind: 'route_errors', scope: 'route', route: '/api/fail', priority: 10 }],
+      platform: [],
+    }), 'utf-8');
+
+    const fakeVercel = join(bin, 'vercel');
+    await writeFile(fakeVercel, `#!/usr/bin/env node
+const args = process.argv.slice(2);
+function json(value, code = 0) {
+  process.stdout.write(JSON.stringify(value, null, 2) + '\\n');
+  process.exit(code);
+}
+function requireScope(expected) {
+  const i = args.indexOf('--scope');
+  if (i === -1 || args[i + 1] !== expected || args.includes('team_scope')) {
+    process.stderr.write('missing expected scope ' + expected + ': ' + args.join(' ') + '\\n');
+    process.exit(67);
+  }
+}
+if (args[0] === 'whoami' && args[1] === '--format') {
+  json({
+    username: 'test-user',
+    team: { id: 'team_other', slug: 'other-team', name: 'Other Team' },
+  });
+}
+if (args[0] === 'api' && args[1] === '/v2/teams/team_scope') {
+  json({ id: 'team_scope', slug: 'team-scope', name: 'Team Scope' });
+}
+if (args[0] === 'metrics') {
+  requireScope('team-scope');
+  const metric = args[1];
+  const aggIndex = args.indexOf('-a');
+  const aggregation = aggIndex === -1 ? 'sum' : args[aggIndex + 1];
+  const field = metric.replace(/\\./g, '_') + '_' + aggregation;
+  json({
+    summary: [{
+      [field]: 5,
+      http_status: '500',
+      error_code: 'ERR_TEST',
+      deployment_id: 'dpl_test',
+    }],
+  });
+}
+process.stderr.write('unexpected vercel call: ' + args.join(' ') + '\\n');
+process.exit(66);
+`, 'utf-8');
+    await chmod(fakeVercel, 0o755);
+
+    const { stdout, stderr } = await exec('node', [
+      SCRIPT,
+      join(scratch, 'merged.json'),
+      join(scratch, 'gate.json'),
+      '--cwd',
+      scratch,
+    ], {
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+      maxBuffer: 8 * 1024 * 1024,
+    });
+
+    const out = JSON.parse(stdout);
+    assert.equal(out.queriesRun, 3);
+    assert.deepEqual(out.errors, []);
+    assert.equal(out.toLaunch[0].evidence.deepDive.errorStatusPattern[0].http_status, '500');
+    assert.doesNotMatch(stderr, /unexpected vercel call/);
+    assert.doesNotMatch(stderr, /missing expected scope/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('deep-dive runner stops when cwd scope differs from collected signals', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'vo-deep-dive-scope-mismatch-'));
+  try {
+    await mkdir(join(scratch, '.vercel'), { recursive: true });
+    await writeFile(join(scratch, '.vercel', 'project.json'), JSON.stringify({
+      projectId: 'prj_scope',
+      orgId: 'team_other',
+    }), 'utf-8');
+    await writeFile(join(scratch, 'merged.json'), JSON.stringify({
+      schemaVersion: '1.2',
+      projectId: 'prj_scope',
+      orgId: 'team_scope',
+      commandScope: { ok: true, cliScope: 'team-scope', source: 'team-api' },
+      metrics: {},
+    }), 'utf-8');
+    await writeFile(join(scratch, 'gate.json'), JSON.stringify({
+      toLaunch: [{ kind: 'route_errors', scope: 'route', route: '/api/fail', priority: 10 }],
+      platform: [],
+    }), 'utf-8');
+
+    let err;
+    try {
+      await exec('node', [
+        SCRIPT,
+        join(scratch, 'merged.json'),
+        join(scratch, 'gate.json'),
+        '--cwd',
+        scratch,
+      ], {
+        maxBuffer: 8 * 1024 * 1024,
+      });
+    } catch (e) {
+      err = e;
+    }
+
+    assert.ok(err, 'deep-dive should stop when cwd is linked to a different scope');
+    assert.equal(err.code, 2);
+    assert.equal(err.stdout, '');
+    assert.match(err.stderr, /different Vercel scope/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('deep-dive runner stops when commandScope account differs from cwd link', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'vo-deep-dive-command-scope-mismatch-'));
+  try {
+    await mkdir(join(scratch, '.vercel'), { recursive: true });
+    await writeFile(join(scratch, '.vercel', 'project.json'), JSON.stringify({
+      projectId: 'prj_scope',
+      orgId: 'team_other',
+    }), 'utf-8');
+    await writeFile(join(scratch, 'merged.json'), JSON.stringify({
+      schemaVersion: '1.2',
+      projectId: 'prj_scope',
+      commandScope: {
+        ok: true,
+        cliScope: 'team-scope',
+        source: 'team-api',
+        teamId: 'team_scope',
+      },
+      metrics: {},
+    }), 'utf-8');
+    await writeFile(join(scratch, 'gate.json'), JSON.stringify({
+      toLaunch: [{ kind: 'route_errors', scope: 'route', route: '/api/fail', priority: 10 }],
+      platform: [],
+    }), 'utf-8');
+
+    let err;
+    try {
+      await exec('node', [
+        SCRIPT,
+        join(scratch, 'merged.json'),
+        join(scratch, 'gate.json'),
+        '--cwd',
+        scratch,
+      ], {
+        maxBuffer: 8 * 1024 * 1024,
+      });
+    } catch (e) {
+      err = e;
+    }
+
+    assert.ok(err, 'deep-dive should stop when persisted commandScope targets another account');
+    assert.equal(err.code, 2);
+    assert.equal(err.stdout, '');
+    assert.match(err.stderr, /different Vercel scope than commandScope/);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
 });

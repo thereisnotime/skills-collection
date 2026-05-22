@@ -50,7 +50,7 @@ describe("compound-engineering agent ce- prefix", () => {
   const agentFiles = readdirSync(AGENTS_DIR, { withFileTypes: true })
     .filter((entry) =>
       entry.isFile() &&
-      entry.name.endsWith(".agent.md") &&
+      entry.name.endsWith(".md") &&
       !AGENT_EXEMPTIONS.has(entry.name),
     )
     .map((entry) => entry.name)

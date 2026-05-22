@@ -134,10 +134,10 @@ describe("frontmatter YAML validity", () => {
 
       if (
         pluginRoot === "plugins/compound-engineering" &&
-        /^agents\/[^/]+\.agent\.md$/.test(rel)
+        /^agents\/[^/]+\.md$/.test(rel)
       ) {
         test(`${pluginRoot}/${rel} agent name uses ce- prefix`, () => {
-          const fileName = path.basename(rel, ".agent.md")
+          const fileName = path.basename(rel, ".md")
           expect(
             fileName.startsWith("ce-"),
             `Agent "${fileName}" must use the ce- prefix.`,
@@ -153,7 +153,7 @@ describe("frontmatter YAML validity", () => {
         const NO_BASH_AGENTS = new Set([
           "ce-coherence-reviewer",
         ])
-        const agentName = path.basename(rel, ".agent.md")
+        const agentName = path.basename(rel, ".md")
         if (NO_BASH_AGENTS.has(agentName)) {
           test(`${pluginRoot}/${rel} pure document reviewer must not allow Bash`, () => {
             const parsed = load(yaml) as Record<string, unknown> | null
