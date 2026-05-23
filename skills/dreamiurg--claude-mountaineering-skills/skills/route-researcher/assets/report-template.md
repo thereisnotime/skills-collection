@@ -22,9 +22,14 @@
 
 ## Overview
 
-{Peak name} rises to **{elevation with units}** with {prominence with units} of prominence in the {state, range}. The peak is located at {latitude}, {longitude} ([Google Maps]({google_maps_coordinates_link}) | [USGS Topo]({usgs_topo_link})). The standard route is a **{route type}** rated **{difficulty}**.
+{Peak name} rises to **{elevation with units}** with {prominence with units} of prominence in the {state, range}. The peak is located at {latitude}, {longitude} ([Google Maps]({google_maps_coordinates_link}) | [CalTopo]({caltopo_link}) | [Gaia GPS]({gaia_gps_link}) | [PeakVisor]({peakvisor_link})). The standard route is a **{route type}** rated **{difficulty}**.
 
 {1-2 sentence synthesized description of the route character, typical approach, and what makes it notable or challenging. Example: "The route follows a classic alpine traverse combining glacier travel with moderate scrambling. Most parties complete the climb in a long day from the trailhead, navigating crevassed terrain on the approach glacier before tackling exposed rock near the summit."}
+
+**Counties traversed:** {Iterate counties[] from fetch_conditions output; render each as "{county_name}, {state_name}" and join multiple with "; "} *(trailhead → summit; OSM/FCC data)*
+
+{If counties data unavailable:}
+**Counties traversed:** Not available — check with local forest service for jurisdiction.
 
 **Sources:** [PeakBagger]({peakbagger_url}){, [AllTrails]({alltrails_url}) if found}{, [WTA]({wta_url}) if found}{, [SummitPost]({summitpost_url}) if found}{, [Mountaineers]({mountaineers_url}) if found}{, [Mountain Project]({mountain_project_url}) if found}
 
@@ -48,19 +53,70 @@
 
 #### Road Conditions
 
-{Current access notes, seasonal closures}
+**Gate / road status (as of {date researched}):** {State the ACTUAL current status determined by the road/gate research workflow (SKILL.md Step 3D). Name the specific highway/forest road, say **OPEN / CLOSED / SEASONAL GATE / UNKNOWN**, give the gate location/milepost and added on-foot mileage if closed, and cite the source as a link. Example: "The upper 2.7 mi of SR-542 to Artist Point is **closed (seasonal snow gate)** as of 2026-05-22 per [WSDOT]({wsdot_pass_link}) and a [June 8 WTA report]({wta_report_link}); park at the lower gate and add ~2.7 mi each way."}
+
+{If status could not be confirmed from any source:} Road/gate status **not confirmed** from automated sources — verify before driving via the links/phone below.
+
+**Sources checked / verify 24-48 hr before departure:**
+
+- [WSDOT pass report]({wsdot_pass_link}) — state-highway gate/restriction status (WA routes)
+- [{forest name} alerts]({usfs_alerts_link}) — USFS road closures & seasonal gates
+- [NPS road conditions]({nps_roads_link}) — if accessed via a national park
+- [CalTopo]({caltopo_trailhead_link}) (enable "Closures" layer) · [Google Maps]({google_maps_trailhead_link})
+- [Recreation.gov](https://www.recreation.gov/) — permits/reservations
+- {Ranger station phone — for direct confirmation when web sources are inconclusive}
+
+### Emergency Contacts
+
+> Dial **911** (or trigger a satellite-messenger / PLB SOS) in an emergency. Backcountry rescue is coordinated by the managing agency (NPS / USFS) and the county sheriff/SAR.
+
+{Build the table below. Link each **Resource name** to its official website if available, otherwise to a Google Maps **place** search by name + address — `https://www.google.com/maps/search/?api=1&query={URL-encoded name + address}` — NOT bare GPS coordinates. Always populate Phone and Address: if missing from OSM, do your best to find the entity's real phone/address (official site or Google Maps listing) rather than leaving blank; if still unknown, write "—". List up to 3 hospitals (prefer emergency=yes) plus the nearest ranger station.}
+
+| Resource | Distance | Phone | Address |
+|----------|----------|-------|---------|
+| [{hospital name}]({website_or_google_maps_place}) {(ER) if emergency=yes} | {distance_miles} mi | {phone or —} | {address or —} |
+| [{ranger station name}]({website_or_google_maps_place}) | {distance_miles} mi | {phone or —} | {address or —} |
+
+{If admin_district present:} *Managing district: {district_name}, {forest_name} ({region}).*
+
+*Hospital/ranger data is from OpenStreetMap and may be incomplete in remote/border areas. Phone and address are independently re-checked by the Report Reviewer; verify before travel.*
+
+{If nearest_hospital and ranger_station are both unavailable:} Emergency-services data not available from OSM for this area — look up the nearest hospital and managing ranger district/park dispatch directly before your trip.
+
+### Camping
+
+**Established campgrounds near trailhead** *(within ~12 mi (20 km), OSM data):*
+
+{If campgrounds available — link the campground name to its website or a Google Maps place search by name, and add Map links built from its lat/lon:}
+
+| Campground | Distance | Type | Operator | Map |
+|------------|----------|------|----------|-----|
+| [{name}]({website_or_google_maps_place}) | {distance_miles} mi | {camp_type or —} | {operator or —} | [Google Maps](https://www.google.com/maps/search/?api=1&query={lat},{lon}) · [Gaia](https://www.gaiagps.com/map/?loc=14/{lon}/{lat}) |
+
+{If no campgrounds found or error:} No established campgrounds in OSM near this trailhead. Check Recreation.gov or the local ranger district.
+
+**Location-linking rule (applies report-wide):** Every named place this report brings up — campground, backcountry/high camp, bivy site, trailhead, named feature — MUST be accompanied by map links: at minimum [Google Maps] and [Gaia GPS]. Build them from coordinates when known (`https://www.gaiagps.com/map/?loc=14/{lon}/{lat}` and `https://www.google.com/maps/search/?api=1&query={lat},{lon}`); when only a name is known (e.g. a high camp from a trip report), use a Google Maps place search by name and do your best to locate it. If a place genuinely can't be located, say so explicitly rather than omitting the attempt. Backcountry/high camps come from trip reports and route beta (see Trip Reports and Terrain Detail), not the campground database.
 
 ### Route Description
 
-{Route description synthesized from multiple sources}
+{Route description synthesized from multiple sources. Whenever a detail comes from a specific trip/climb report, hyperlink the attribution to that report's URL — e.g., "a [Sep 2025 party](report_url) found…" — never plain-text attribution. This applies throughout the report (Route, Crux, Hazards, Terrain Detail, Conditions): cite specific reports as links, not bare words.}
 
 The route covers approximately **{round trip distance}** with **{total gain}** of elevation gain.
 
 **Typical completion times:**
 
-- **{fast time range}** (~{fast mph} mph, {fast gain rate}+ ft/hr): Experienced hikers, trail runners, solo climbers
-- **{moderate time range}** (~{moderate mph} mph, {moderate gain rate} ft/hr): Average fitness, steady pace with brief breaks
-- **{leisurely time range}** (~{leisurely mph} mph, {leisurely gain rate} ft/hr): Relaxed pace, groups, taking time for photos
+- **{fast_hr} hrs** (~2+ mph, 1000+ ft/hr): Experienced hikers, trail runners, solo climbers
+- **{moderate_hr} hrs** (~1.5–2 mph, 700–900 ft/hr): Average fitness, steady pace with brief breaks
+- **{leisurely_hr} hrs** (~1–1.5 mph, 500–700 ft/hr): Relaxed pace, groups, taking time for photos
+
+{If glacier/roped terrain (time_estimates.roped_hr present):}
+
+**Glacier/roped pace:**
+- **Roped (~{roped_hr} hrs):** ~1 mi/hr glacier pace (slower of distance or gain-limited)
+- **Unroped (~{unroped_hr} hrs):** ~1,000 ft/hr gain-based estimate
+
+{If time_estimates key absent from fetch_conditions.py output (--distance-mi/--gain-ft not provided):}
+*Completion time estimates not available — pass `--distance-mi` and `--gain-ft` to fetch_conditions.py for calculated times.*
 
 {Continue with detailed route description}
 
@@ -87,19 +143,92 @@ AVOID bolding: common descriptors (wet, icy, loose), general skills (scrambling,
 
 ### Hazards
 
-{Synthesized from multiple sources:
+{Synthesized from trip reports and route beta. Safety-critical — be comprehensive. If a hazard type was not mentioned in any source, omit the sub-bullet rather than guessing; note absence in Information Gaps only if the route type makes it expected.}
 
-- Known hazards (crevasses, rockfall, exposure)
-- Seasonal considerations
-- Bailout options
-- If trip reports mention unusual or important gear (e.g., "approach shoes recommended for talus" or "bring extra pickets"), include brief mention here}
+**Rockfall:** {Location on route (e.g., "upper couloir above 7,000 ft"), trigger sources (other parties, freeze-thaw), mitigation — move through quickly, cross before sun hits the face, consider pre-dawn passage. If no reports mention rockfall: omit.}
+
+**Icefall / Serac:** {Location, stability assessment from trip reports, timing guidance — pre-dawn passage, avoid when warm, size and frequency of seracs. If not present or not a glacier route: omit.}
+
+**Cornice:** {Location (ridge crest, summit plateau), conditions (buildup direction, season), avoidance line. If not present: omit.}
+
+**Crevasses:** {Zone(s) on glacier, bridging condition from recent reports, roped travel requirement. Omit if non-glaciated route.}
+
+**Exposure / Fall hazard:** {Location, consequence of a fall, protection options.}
+
+**Seasonal considerations:** {Early season snow, late season ice, typical window, conditions-dependent gear changes.}
+
+**Bailout options:** {Escape routes and conditions under which to use them.}
+
+{If trip reports mention unusual or important gear (e.g., "approach shoes recommended for talus" or "bring extra pickets"), include brief mention here.}
+
+### Terrain Detail
+
+**Downclimbs:** {Steep or technical reversal sections requiring downclimbing; location, difficulty, whether rappel anchors exist. Extract from trip reports. If none mentioned: omit.}
+
+**River / stream crossings:** {Location, typical flow conditions by season, ford difficulty, footwear notes. Extract from trip reports. If none: omit.}
+
+**Water sources:** {Named or described water sources along route (lake, snowmelt, stream), per-day availability by season, treat/filter note. Extract from trip reports. If none found: state "Water source locations not confirmed in available trip reports — carry sufficient water or verify before departure."}
+
+**Named camps / bivy sites:** {High camp, bivy, or established camp names/locations from trip reports and route beta. Note if windward/exposed. These are NOT from the campground database above.}
+
+### Itinerary / Schedule
+
+{If itinerary key present in fetch_conditions.py output (--start-time + --distance-mi + --gain-ft provided):}
+
+| Milestone | Time |
+|-----------|------|
+| Trailhead depart | {start_time} |
+| Summit ETA | {summit_eta} |
+| Turnaround by | {turnaround_by} |
+| Return to trailhead | {return_eta} |
+| **Total car-to-car** | **{total_hr} hrs** |
+
+{If itinerary.after_dark is true:}
+> **⚠️ After-Dark Warning:** Projected return time ({return_eta}, 24-hr) is after {dusk_cutoff} (AM/PM). Carry a headlamp; consider an earlier start or a faster pace.
+
+{itinerary.note — display the note string from fetch_conditions.py}
+
+{If itinerary key absent from fetch_conditions.py output:}
+*Itinerary not calculated — pass `--start-time HH:MM`, `--distance-mi`, and `--gain-ft` to fetch_conditions.py.*
+
+### Navigation Bearings
+
+{If bearings key present in fetch_conditions.py output (2+ --waypoint args provided):}
+
+| Segment | Bearing | Distance | Cumulative |
+|---------|---------|----------|------------|
+| {from} → {to} | {bearing_deg}° | {distance_mi} mi | {cumulative_distance_mi} mi |
+
+{Repeat one row per segment from bearings.segments[]}
+
+**Total route distance:** {bearings.total_distance_mi} mi
+
+*Bearings are true-north spherical azimuths (0° = N, 90° = E, 180° = S, 270° = W). Apply local declination for compass use.*
+
+{If bearings key absent:}
+*Navigation bearings not calculated — pass 2 or more `--waypoint "lat,lon"` args to fetch_conditions.py.*
 
 ## Current Conditions
 
 ### Daylight
 
 {If available from API:}
-For **{date}**, sunrise is at **{time}** and sunset at **{time}**, providing **{hours}** of daylight. Civil twilight begins at **{civil_twilight_begin}**, useful for planning alpine starts.
+For **{date}**, sunrise is at **{sunrise}** and sunset at **{sunset}**, providing **{daylight_hours}** of daylight.
+
+| Phase | Time |
+|-------|------|
+| Astronomical dawn | {astronomical_dawn or "— (white night)"} |
+| Nautical dawn | {nautical_dawn or "— (white night)"} |
+| Civil twilight (dawn) | {civil_twilight} |
+| **Sunrise** | **{sunrise}** |
+| **Sunset** | **{sunset}** |
+| Civil dusk | {civil_dusk} |
+| Nautical dusk | {nautical_dusk or "— (white night)"} |
+| Astronomical dusk | {astronomical_dusk or "— (white night)"} |
+
+{When any twilight value is null:} *At this latitude and date, the sun does not reach the threshold for nautical/astronomical twilight — effectively a white night. Plan accordingly.*
+
+**Alpine start guidance:** Civil twilight ({civil_twilight}) is the earliest practical light for travel. Nautical twilight ({nautical_dawn}) allows rough navigation by natural light. For glacier travel requiring precise footing, target no earlier than civil twilight.
 
 {If not available:}
 Daylight calculations not available. Check sunrise/sunset times for your planned date at [Sunrise-Sunset.org](https://sunrise-sunset.org/us/{location}) or [TimeAndDate.com](https://www.timeanddate.com/sun/).
@@ -142,14 +271,16 @@ AVOID bolding: descriptive terms (dry, wet, cold), common conditions (partly clo
 
 {Omit this section entirely if freezing level stays >2000 ft above peak throughout forecast period - not relevant for summer conditions}
 
-| Day | Conditions | Temperature | Precipitation |
-|-----|-----------|-------------|---------------|
-| {DayOfWeek} {Mon} {Day} {21}, {2025} (Today) | {Icon} {Conditions} | High: {temp}°F | {Precip amount/chance} |
-| {DayOfWeek} {Mon} {Day} {22}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} |
-| {DayOfWeek} {Mon} {Day} {23}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} |
-| {DayOfWeek} {Mon} {Day} {24}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} |
-| {DayOfWeek} {Mon} {Day} {25}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} |
-| {DayOfWeek} {Mon} {Day} {26}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} |
+| Day | Conditions | Temperature | Precipitation | Snow Line |
+|-----|-----------|-------------|---------------|-----------|
+| {DayOfWeek} {Mon} {Day} {21}, {2025} (Today) | {Icon} {Conditions} | High: {temp}°F | {Precip amount/chance} | {snow_line_note} {⚠️ if near_summit} |
+| {DayOfWeek} {Mon} {Day} {22}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} | {snow_line_note} {⚠️ if near_summit} |
+| {DayOfWeek} {Mon} {Day} {23}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} | {snow_line_note} {⚠️ if near_summit} |
+| {DayOfWeek} {Mon} {Day} {24}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} | {snow_line_note} {⚠️ if near_summit} |
+| {DayOfWeek} {Mon} {Day} {25}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} | {snow_line_note} {⚠️ if near_summit} |
+| {DayOfWeek} {Mon} {Day} {26}, {2025} | {Icon} {Conditions} | High: {temp}°F, Low: {temp}°F | {Precip amount/chance} | {snow_line_note} {⚠️ if near_summit} |
+
+{snow_line_note: from `weather[].snow_line_note`; show ⚠️ when `near_summit=true` (freezing level within 2000 ft of summit); show "—" if freezing_level_ft is null}
 
 {Format notes:
 
@@ -189,10 +320,14 @@ Air quality is **good** (AQI <50) during the forecast period.
 
 **Check Current Forecasts:**
 
-- [Mountain-Forecast.com]({mountain_forecast_link}) - Summit-level forecast with multiple elevations
+*Most reliable sources (per IGC lecture recommendation): **NOAA** and **Meteoblue***
+
+- [NOAA Point Forecast]({noaa_link}) - Official NWS forecast and alerts *(most reliable)*
+- [Meteoblue]({meteoblue_link}) - High-resolution mountain weather *(most reliable)*
+- [Mountain-Forecast.com]({mountain_forecast_link}) - Multi-elevation forecast (summit / mid / base)
 - [Open-Meteo Weather]({open_meteo_weather_link}) - Detailed mountain weather data (source for this report)
 - [Open-Meteo Air Quality]({open_meteo_air_quality_link}) - Air quality forecast for this location
-- [NOAA Point Forecast]({noaa_link}) - Official NWS forecast and alerts
+- [Windy](https://www.windy.com/?{latitude},{longitude},10) - Visual wind/precip map
 
 {If winter season:}
 
@@ -230,7 +365,7 @@ IMPORTANT PRIORITY RULES:
 2. If PeakBagger reports are mostly <100 words, PRIORITIZE WTA/Mountaineers reports
 3. WTA trip reports are typically longer and more detailed than brief PeakBagger logs
 4. Mix sources by quality, not by platform - a detailed WTA report should appear before a brief PeakBagger report
-5. If you have WTA trip report URLs from Step 2I, you MUST include them here}
+5. If you have WTA trip report URLs from Step 3B, you MUST include them here}
 
 {If detailed PeakBagger reports exist (>100 words):}
 **PeakBagger:**
@@ -238,7 +373,7 @@ IMPORTANT PRIORITY RULES:
 - **{YYYY-MM-DD}** - [{Climber Name}]({ascent_url}) - 📝 {word_count} words{, 📍 GPX if available}
 - **{YYYY-MM-DD}** - [{Climber Name}]({ascent_url}) - 📝 {word_count} words{, 📍 GPX if available}
 
-{If WTA reports found in Step 2I - MANDATORY to include if extracted:}
+{If WTA reports found in Step 3B - MANDATORY to include if extracted:}
 **Washington Trails Association:**
 
 - **{YYYY-MM-DD}** - [{Report Title or Author}]({wta_trip_report_url})
@@ -247,7 +382,7 @@ IMPORTANT PRIORITY RULES:
 - **{YYYY-MM-DD}** - [{Report Title or Author}]({wta_trip_report_url})
 - **{YYYY-MM-DD}** - [{Report Title or Author}]({wta_trip_report_url})
 
-{If Mountaineers reports found in Step 2I:}
+{If Mountaineers reports found in Step 3B:}
 **Mountaineers.org:**
 
 - **{YYYY-MM-DD}** - [{Report Title}]({mountaineers_trip_report_url})
@@ -265,7 +400,7 @@ IMPORTANT PRIORITY RULES:
 
 ### Browse All Trip Reports
 
-{Always include PeakBagger. Include other platforms only if URLs were found during data gathering (Step 2D)}
+{Always include PeakBagger. Include other platforms only if URLs were found during data gathering (Step 3B)}
 
 - [PeakBagger Ascents](https://www.peakbagger.com/climber/PeakAscents.aspx?pid={peak_id}) - Individual climb logs with optional GPX tracks and reports
 {If WTA URL found:}
@@ -301,6 +436,13 @@ IMPORTANT PRIORITY RULES:
 
 - PeakBagger: {url}
 - {Other source names and URLs}
+
+## Post-Climb
+
+After your climb, consider filing a trip report to help future parties. A structured template is available at:
+`skills/route-researcher/assets/trip-report-template.md`
+
+It covers: conditions, cruxes, hazards encountered, water sources, camps, gear notes, timing, navigation notes, and photos.
 
 ---
 

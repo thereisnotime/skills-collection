@@ -1,6 +1,6 @@
 [project]
 name = "ios-simulator-skill"
-version = "1.4.2"
+version = "1.5.0"
 description = "Build, test, and automate iOS apps with accessibility-driven navigation"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,7 +24,7 @@ extend-exclude = '''
 line-length = 100
 target-version = "py312"
 # Only check skill code, not root-level dev scripts
-include = ["ios-simulator-skill/scripts/**/*.py"]
+include = ["ios-simulator-skill/skills/ios-simulator-skill/scripts/**/*.py"]
 
 [tool.ruff.lint]
 # Enable ALL recommended rules (strict mode)

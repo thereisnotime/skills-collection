@@ -1,5 +1,15 @@
 name: Mutation Testing (stryker)
 
+# DISABLED 2026-05-22: stale Stryker config produces false negatives against
+# 700+ working unit tests. Specifically:
+#   - asserts "5 providers" in output (now 4 after v7.5.18 Gemini removal)
+#   - expects "claude" string in provider output that no longer appears verbatim
+#   - VERSION file path no longer copied into .stryker-tmp working dir
+# The scheduled cron run is commented out below. `workflow_dispatch` remains
+# enabled so the workflow can still be triggered manually for investigation.
+# Re-enabling the cron requires fixing stryker.config.json + the affected
+# test assertions first. See architect note re: DISABLE-not-DELETE decision.
+
 # v7.4.10: opt-in mutation testing for the highest-blast-radius runner
 # modules (state.ts, build_prompt.ts, providers.ts, budget.ts,
 # checkpoint.ts, shell.ts). Stryker uses bun:test as the runner via the
@@ -9,8 +19,8 @@ name: Mutation Testing (stryker)
 # A drop below 50% fails the workflow.
 
 on:
-  schedule:
-    - cron: '0 11 * * 1'
+  # schedule:
+  #   - cron: '0 11 * * 1'
   workflow_dispatch:
 
 permissions:

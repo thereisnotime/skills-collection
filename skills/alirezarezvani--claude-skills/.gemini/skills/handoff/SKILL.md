@@ -1,1 +1,1 @@
-../../../engineering/handoff/skills/handoff/SKILL.md
+../../../productivity/handoff/skills/handoff/SKILL.md

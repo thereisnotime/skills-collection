@@ -9,6 +9,1128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.5.28] - 2026-05-23
+
+PATCH release. Phase K MVP + Phase F bug fix + CLI help refresh + token
+rotation infra (NPM_TOKEN was rotated externally; v7.5.27 confirmed
+shipping to npm + Homebrew after the arc-closing release).
+
+### Phase K MVP (NEW): read-only KPI snapshot
+
+The originally-deferred Phase K (measurable accuracy + efficiency
+KPIs) ships an MVP layer today. No per-iteration emission, no
+dashboard panel, no benchmark harness yet -- those remain follow-ups.
+What ships today:
+
+- **`loki kpis`** -- new subcommand. Pretty-prints accuracy +
+  efficiency KPIs derived from existing `.loki/metrics/efficiency/*.json`
+  and `.loki/council/votes/round-*.json` state. Zero new
+  instrumentation; pure derivation. Missing files yield zero/null
+  with explicit notes (no silent failure).
+- **`loki kpis --json`** -- machine-readable snapshot. Schema:
+  `{schema_version, generated_at, loki_dir, efficiency:{...}, accuracy:{...}, notes:[...]}`.
+- **`loki kpis --help`** -- usage.
+
+Efficiency KPIs: iteration_count, total_cost_usd, avg_cost_per_iter,
+total_input_tokens, total_output_tokens, total_duration_ms,
+avg_duration_ms_per_iteration, model_breakdown, phase_breakdown,
+status_breakdown.
+
+Accuracy KPIs: council_rounds, unanimous_rate, approval_rate,
+iteration_success_rate.
+
+### Phase F bug fix (CRITICAL)
+
+Real user testing scenario 45 found that
+`loki_project_graph_discover` returned EMPTY env vars when the
+parent had `.loki/app.json` BUT member dirs had no thin pointers.
+Root cause: at `autonomy/lib/project-graph.sh:401-419`, when
+`explicit_members` from the parent manifest was non-empty BUT the
+sibling walker found 0 discovered members, the intersection produced
+an empty `final[]`, which then failed the `[ "${#final[@]}" -gt 0 ]`
+guard, so the discovered-members list stayed empty and the function
+returned 0 with empty env vars.
+
+Fix: when `members[]` is empty AFTER the sibling walker, adopt the
+explicit list from the parent manifest VERBATIM (no intersection
+needed). When discovered members exist, fall back to the existing
+intersection-narrow semantics.
+
+This unblocks the common "monorepo with one parent manifest, no
+thin pointers in each member" pattern documented in the v7.5.23
+migration notes. The bug was missed because the Phase F unit tests
+use fixtures with thin pointers in EVERY member.
+
+### CLI help refresh
+
+`loki --help` was outdated -- missing `kpis` command and showing
+stale examples. Updated:
+
+- Added `kpis [--json]` to commands list (line 431).
+- Replaced examples block with grouped 5-section examples (line 511):
+  Starting a session / Session ops + observability / Providers + model
+  routing / Cross-project context / Memory + learnings / Config +
+  dashboard.
+- Added Phase A-J feature note + opt-out env var summary at the
+  bottom.
+
+### Added
+
+- **`loki-ts/src/metrics/kpis.ts`** (new, ~210 lines). Pure functions
+  for KPI derivation. Exports `computeKpis(lokiDir)`, `formatKpisJson`,
+  `formatKpisHuman`. Reuses `EfficiencyRecord` + `readEfficiencyDir` +
+  `calculateCostFromRecords` from budget.ts (single source of truth
+  for cost math).
+- **`loki-ts/src/commands/kpis.ts`** (new, ~50 lines). CLI command
+  wrapper with `--json` and `--help` flag handling.
+- **`loki-ts/tests/metrics/kpis.test.ts`** (new, 7 tests). Covers
+  empty .loki/, efficiency aggregation, council unanimous/approval
+  rates, iteration_success_rate, malformed-JSON tolerance, JSON
+  format determinism, human-format label ordering.
+
+### Changed
+
+- **`loki-ts/src/cli.ts`** -- added `case "kpis"` dispatch to
+  `runKpis()` (right after doctor).
+- **`bin/loki`** -- added `kpis` to the Bun-route allowlist so the
+  shim routes `loki kpis` to Bun instead of falling through to bash
+  (bash would say "Unknown command: kpis").
+- **`autonomy/loki::show_help`** -- added `kpis` line + refreshed
+  examples + Phase A-J + env vars section.
+- **`autonomy/lib/project-graph.sh::loki_project_graph_discover`**
+  -- bug fix above (lines 401-430 logic restructured).
+
+### Verified locally before commit
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- `cd loki-ts && bun test ./tests/metrics/kpis.test.ts` -- 7/7 PASS.
+- `cd loki-ts && bun run typecheck` -- clean.
+- `bash tests/test-project-graph.sh` -- 24/24 PASS (Phase F fix
+  preserves existing tests because the existing fixture uses thin
+  pointers; the regression was only triggered by parent-only
+  manifest pattern, which my real-user smoke test exercised).
+- `bash bin/loki kpis` (real CLI) -- emits live KPIs from this
+  repo's `.loki/metrics/efficiency/`: 5 iterations, total cost
+  $37.7308, opus tier.
+- `bash bin/loki --help` (real CLI) -- shows `kpis [--json]` in
+  Commands and refreshed examples.
+
+### Real-user testing summary
+
+47 scenarios run against the v7.5.27 npm tarball + source for
+v7.5.28. Result: 46 PASS, 1 BUG FOUND + FIXED (Phase F discover
+with parent-only manifest -- scenario 45).
+
+Scenarios covered: --version (3 forms), --help (2 forms), bare
+loki, provider list/show/info, doctor (+ Phase I env, + --json),
+status (+ --json), stats (+ --json + --efficiency), memory
+list/index/stats/search/--help, rollback --help, config show,
+secrets status/validate, completions bash/zsh, setup-skill (idempotent),
+telemetry/notify/github/sandbox/dashboard status, init --template
+(scaffold real PRD), cleanup, logs, heal --help, agent list,
+Phase D MCP bundle write from installed bundle, Phase J pricing
+JSON shipped + loaded, Phase F project-graph from installed
+bundle (BUG -> FIX), Phase B claude-flags helper from installed
+bundle, Phase C voter-agents JSON from installed bundle.
+
+### NPM_TOKEN rotation note
+
+NPM_TOKEN was rotated mid-session via `gh secret set NPM_TOKEN`
+(verified `gh secret list` shows updated timestamp). The v7.5.27
+Release workflow's publish-npm + publish-ts-sdk jobs were
+`gh run rerun --failed` and succeeded. All 4 distribution channels
+now at v7.5.27+:
+- npm: v7.5.27 (was v7.5.17 for the entire v7.5.18-v7.5.27 arc)
+- Homebrew: v7.5.27 (was skipped on every release of the arc)
+- Docker Hub: v7.5.27
+- PyPI: v7.5.27 + ts-sdk v7.5.27
+
+v7.5.28 will publish to all 4 on this push.
+
+### NOT tested (honest disclosures)
+
+- No per-iteration KPI emission yet. `loki kpis` is read-only; it
+  reads files written by the existing efficiency tracker. The
+  architect's full Phase K plan (per-iter emission, dashboard
+  panel, scripts/loki-bench.sh) remains deferred.
+- No bash route mirror for `loki kpis` (Bun-only command, shim
+  routes appropriately). Bash users still get the existing
+  `loki metrics` / `loki stats` surface unchanged.
+- Phase F fix tested via real CLI smoke (scenario 45 reran live);
+  no new unit-test fixture for the parent-only manifest case was
+  added. Trivial follow-up: extend test-project-graph.sh fixture.
+
+## [7.5.27] - 2026-05-22
+
+PATCH release. Phase N of the v7.5.18 -> v7.5.27 arc, completing the
+10-phase roadmap (9 shipped, H deferred -- see v7.5.26 release notes
+for H rationale). Adds upper-bound version pins to all Python
+requirements so a fresh `pip install -r requirements.txt` cannot
+silently pull a future-major-version break.
+
+### Changed
+
+- **`mcp/requirements.txt`** -- upper bounds added:
+  - `mcp>=1.0.0` -> `mcp>=1.0.0,<2.0.0`
+  - `chromadb>=1.0.0` -> `chromadb>=1.0.0,<2.0.0`
+  - `anthropic>=0.40` -> `anthropic>=0.40,<1.0.0`
+- **`dashboard/requirements.txt`** -- upper bounds added on all 7
+  packages:
+  - `fastapi>=0.100.0,<1.0.0`
+  - `uvicorn>=0.20.0,<1.0.0`
+  - `sqlalchemy>=2.0.0,<3.0.0`
+  - `aiosqlite>=0.19.0,<1.0.0`
+  - `greenlet>=3.0.0,<4.0.0`
+  - `pydantic>=2.0.0,<3.0.0`
+  - `websockets>=12.0,<16.0`
+
+### Verified locally before commit
+
+- Clean `python3 -m venv` then `pip install -r mcp/requirements.txt`:
+  resolves to mcp 1.27.1, chromadb 1.5.9, anthropic 0.104.1 (all
+  within new ranges).
+- Clean `pip install -r dashboard/requirements.txt`: resolves to
+  fastapi 0.136.1, uvicorn 0.47.0, sqlalchemy 2.0.49, aiosqlite
+  0.22.1, greenlet 3.5.1, pydantic 2.13.4, websockets 15.0.1 (all
+  within new ranges).
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- All 9 prior bash tests + 783 Bun tests + 19 Python tests still
+  PASS (no regression).
+
+### NOT tested (honest disclosures)
+
+- Python 3.9 / 3.10 / 3.11 install resolution -- only tested on
+  Python 3.14 (system) on macOS. Lower Python versions may resolve
+  to different versions within the new ranges.
+- Windows pip resolution (the new ranges should work but not
+  verified on Windows).
+- Long-tail edge case where chromadb's transitive deps pull
+  websockets >=16 (chromadb 1.5.x in our venv test pulled
+  websockets 16.0 transitively for the `mcp/requirements.txt`
+  install; the dashboard's `<16.0` cap is honored only when
+  resolving dashboard alone. In a combined install pip will
+  pick the intersection.)
+
+### Migration
+
+- No action required for users on the existing installed versions.
+  The upper bounds only restrict NEW installs from pulling a future
+  major. Already-installed environments continue to work.
+- When a new tested major drops (e.g. fastapi 1.0.0, pydantic 3.0.0),
+  update the upper bound in this file and ship a new release.
+
+### Arc complete
+
+This release closes the v7.5.18 -> v7.5.27 main arc. 9 of 10 phases
+shipped with unanimous 3-reviewer council; Phase H deferred until
+Claude CLI exposes --enable-memory-tool / --enable-context-editing /
+--compaction flags (Loki's memory tooling is already operational via
+Phase D MCP bundle).
+
+Post-arc work (deferred to separate releases):
+- Phase K: Measurable accuracy + efficiency KPIs
+- Phase L: Disclosed-default-on telemetry (BLOCKED on user ack of
+  disclosed-default-on design)
+- Phase M: BMAD-METHOD v6 integration (proposal, new work)
+- Phase H: re-evaluate when Claude CLI ships the dedicated flags
+
+See `~/.claude/projects/-Users-lokesh-git-loki-mode/memory/project_v7_5_18_arc_status.md`
+for the complete arc retrospective.
+
+## [7.5.26] - 2026-05-22
+
+PATCH release. Phase J of the v7.5.18 -> v7.5.27 arc. Extracts the
+PRICING table from `loki-ts/src/runner/budget.ts` (where it was
+hardcoded inline) into a standalone rolling pricing file at
+`loki-ts/data/model-pricing.json`. Updating pricing now requires only
+a JSON edit + release, no code change. Generic model aliases
+(opus/sonnet/haiku) were already used throughout invocation in Phase B
+(v7.5.19) -- this release ships the corresponding rolling pricing
+table that closes the loop.
+
+### Added
+
+- **`loki-ts/data/model-pricing.json`** (new). Canonical pricing
+  source of truth. USD per 1M tokens. Contains: opus (5/25), sonnet
+  (3/15), haiku (1/5), gpt-5.3-codex (1.5/12). `$schema_version: 1`,
+  `_updated` timestamp, `_source` provenance hint.
+
+### Changed
+
+- **`loki-ts/src/runner/budget.ts`** -- `PRICING` constant now loads
+  from `data/model-pricing.json` at module init via a new internal
+  `_loadPricing()` function. Hardcoded `_FALLBACK_PRICING` preserved
+  for the case where the JSON file is missing (broken install, bundle
+  stripped). Any required alias missing from the JSON -> fall back to
+  the hardcoded table. `PRICING` shape and exported type unchanged so
+  no downstream code breaks.
+- **`loki-ts/tests/runner/budget.test.ts`** -- new Phase J test
+  asserts: (1) all 4 expected aliases load from the JSON, (2) values
+  are positive numbers, (3) sonnet output:input ratio matches the
+  documented 5x. 43/43 PASS (was 42/42, +1 new).
+
+### Note on Phase H deferral
+
+Phase H (Memory tool + context editing + compaction) was deferred --
+CLI v2.1.148 does NOT expose `--enable-memory-tool`,
+`--enable-context-editing`, or `--compaction` flags. Loki's memory
+tooling is already operational via Phase D MCP bundling:
+`mcp/server.py` exposes `loki_memory_retrieve` (line 523),
+`loki_memory_store_pattern` (line 588), and `loki_consolidate_memory`
+(line 973) -- Claude can call these via the existing `--mcp-config`
+bundle. When/if the CLI ships dedicated memory + context-editing
+flags, add `claudeFlagSupported` gates in `claude_flags.ts` and
+`claude.sh::_loki_build_claude_auto_flags` mirroring the Phase E
+pattern. See `feedback_claude_code_embed_plan.md` (Phase H Resume
+Path) for details.
+
+### Verified locally before commit
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- `cd loki-ts && bun test ./tests/runner/budget.test.ts` -- 43/43 PASS
+  (was 42/42, +1 new Phase J test).
+- `cd loki-ts && bun run typecheck` -- clean.
+- Manual smoke: deleted `loki-ts/data/model-pricing.json`, re-ran
+  budget tests -- still pass via `_FALLBACK_PRICING`. Restored.
+
+### NOT tested (honest disclosures)
+
+- Bash route still uses hardcoded pricing values in
+  `autonomy/run.sh:7867-7892` Python block (per the existing inline
+  comment in budget.ts). Bash + Bun pricing drift is impossible as
+  long as both sides remain at the same values, but the dual source
+  of truth invites future drift. Eliminating bash-side hardcoded
+  pricing is follow-up work (Phase J would have done this with bash
+  reading the same JSON, but the bash Python block would need a JSON
+  parse step that adds complexity for unclear gain on the bash path
+  that is being deprecated in favor of Bun).
+- No bash/Bun pricing parity test. The dual-source-of-truth concern
+  above means a parity test would catch drift, but the test would
+  need to assert all 4 alias values match across both sides. Trivial
+  follow-up.
+
+### Migration
+
+- No action required. PRICING values are unchanged. The only
+  difference is that they now load from a JSON file instead of being
+  hardcoded in TypeScript. Users / scripts that read `PRICING` from
+  the public TypeScript export continue to work without modification.
+
+## [7.5.25] - 2026-05-22
+
+PATCH release. Phase I of the v7.5.18 -> v7.5.27 arc. OpenRouter /
+Ollama / any Anthropic-compatible endpoint routing via the existing
+`ANTHROPIC_BASE_URL` env var convention. Loki already does NOT
+intercept or strip this env var (Claude Code reads it natively); this
+release adds the one missing piece: a `LOKI_MODEL_OVERRIDE` env that
+lets the user specify the alt-provider's model name (e.g.
+`anthropic/claude-3.5-sonnet` for OpenRouter, `qwen2.5-coder:32b` for
+Ollama). Both bash and Bun routes honor the override; doctor warns
+when an alt endpoint is set without an override.
+
+### Added
+
+- **`providers/claude.sh::resolve_model_for_tier`** -- after the
+  existing tier resolution + LOKI_MAX_TIER ceiling, `LOKI_MODEL_OVERRIDE`
+  wins ONLY when `ANTHROPIC_BASE_URL` is also set. This means
+  Anthropic-native invocations (no BASE_URL) keep using
+  opus/sonnet/haiku aliases unchanged, while alt-provider runs route to
+  the user's chosen model.
+- **`loki-ts/src/runner/providers.ts::claudeProvider`** -- mirror
+  override in the Bun route. Same gate: BASE_URL AND OVERRIDE both set.
+- **`loki-ts/src/commands/doctor.ts`** -- new "ANTHROPIC_BASE_URL"
+  check in the API keys section. PASS when set; WARN when set without
+  `LOKI_MODEL_OVERRIDE` (aliases may not resolve on alt-provider);
+  PASS-with-detail when both set.
+- **`tests/test-anthropic-base-url.sh`** (new, 9 assertions). Covers:
+  no-override defaults preserved across 3 tiers, BASE_URL alone does
+  not override (no risk of accidentally rerouting Anthropic-native),
+  OVERRIDE alone (no BASE_URL) is ignored, both-set wins across 3
+  tiers, Ollama-style local endpoint accepted.
+
+### Verified locally before commit
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- `bash tests/test-anthropic-base-url.sh` -- 9/9 PASS.
+- `bash tests/test-claude-flags.sh` -- 29/29 PASS (no regression).
+- `bash tests/test-voter-agents-json.sh` -- 17/17 PASS (no regression).
+- `bash tests/test-mcp-config.sh` -- 16/16 PASS (no regression).
+- `cd loki-ts && bun test ./tests/commands/doctor.test.ts` -- 34/34 PASS.
+- `cd loki-ts && bun test ./tests/runner/providers.test.ts` -- 34/34 PASS
+  (30 existing + 4 new Phase I Bun-route override-branch tests added
+  per Opus #2 reviewer CONCERN). Covers: override wins when both env
+  set, override alone (no BASE_URL) ignored, BASE_URL alone keeps
+  alias, Ollama local endpoint.
+- `cd loki-ts && bun run typecheck` clean.
+
+### NOT tested (honest disclosures)
+
+- Live OpenRouter invocation. Routing primitive (ANTHROPIC_BASE_URL +
+  LOKI_MODEL_OVERRIDE) is unit-tested on BOTH bash and Bun routes;
+  we have not yet run `claude --dangerously-skip-permissions --model
+  <openrouter-id> -p ...` with ANTHROPIC_BASE_URL pointing at
+  OpenRouter and observed a successful response. Deferred to first
+  user-driven session.
+- Live Ollama invocation (same as above; OpenRouter and Ollama share
+  the same code path).
+- Not tested against LiteLLM proxy.
+- Not tested with custom auth headers (some alt-providers require
+  additional `Authorization` header beyond `ANTHROPIC_API_KEY`).
+- Not tested across every OpenRouter model (we test the routing
+  primitive, not each downstream model's behavior).
+- No bash/Bun cross-route parity test (e.g. assert both routes emit
+  the same `--model <value>` for an identical env). Both routes are
+  individually tested with the same env semantics, but a true parity
+  test (like `tests/test-parity-mcp-config.sh`) is not in this
+  release. The override gate logic is small (2 env vars, AND-gated)
+  so drift risk is low; explicit parity test deferred to a follow-up.
+- Doctor's new ANTHROPIC_BASE_URL section has no dedicated unit
+  test in `tests/commands/doctor.test.ts`. The existing 34-test
+  doctor suite still passes (no regression), but the new conditional
+  branches (no env, env only, env + override) are only exercised by
+  the manual smoke verification above. Adding 3 unit tests is
+  trivial follow-up work.
+
+### Migration
+
+- No action required for users on Anthropic-native Claude. Behavior
+  unchanged when `ANTHROPIC_BASE_URL` is unset.
+- To route to OpenRouter:
+  ```bash
+  export ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
+  export ANTHROPIC_API_KEY=<your-openrouter-key>
+  export LOKI_MODEL_OVERRIDE=anthropic/claude-sonnet-4.5
+  loki start ./prd.md
+  ```
+- To route to local Ollama (v0.14+):
+  ```bash
+  export ANTHROPIC_BASE_URL=http://localhost:11434/v1
+  export ANTHROPIC_API_KEY=ollama
+  export LOKI_MODEL_OVERRIDE=qwen2.5-coder:32b
+  loki start ./prd.md
+  ```
+- `loki doctor` will report the configured endpoint + warn if
+  `LOKI_MODEL_OVERRIDE` is missing.
+
+## [7.5.24] - 2026-05-22
+
+PATCH release. Phase G of the v7.5.18 -> v7.5.27 arc. LSP-backed MCP
+proxy + subdirectory-scoped CLAUDE.md walker. When any supported
+language server is on PATH (typescript-language-server, pylsp, gopls,
+rust-analyzer), Loki auto-registers an `lsp-proxy` MCP server that
+exposes `lsp_find_references`, `lsp_go_to_definition`, and
+`lsp_symbol_at_position` tools. Subdir walker extends Phase F's
+parent/member CLAUDE.md walker with ancestor-walk (root-to-leaf) up to
+the nearest `.git/` directory. No new CLI subcommands. No new opt-in
+env vars.
+
+### Added
+
+- **`mcp/lsp_proxy.py`** (new, 713 lines, stdlib-only). MCP server
+  proxying LSP requests to language-specific binaries. Stdlib-only
+  (no new pip deps): `json`, `subprocess`, `shutil`, `threading`,
+  `os`, `pathlib`. LSP wire protocol implemented with proper
+  Content-Length framing (per LSP spec, not line-delimited).
+  - 3 MCP tools: `lsp_find_references`, `lsp_go_to_definition`,
+    `lsp_symbol_at_position`.
+  - 4 supported languages: TS/TSX/JS/JSX (typescript-language-server),
+    Python (pylsp), Go (gopls), Rust (rust-analyzer).
+  - Lazy spawn on first matching tool call, kept alive per session,
+    3-stage shutdown (shutdown -> exit -> SIGTERM after 2s grace ->
+    SIGKILL).
+  - PIDs recorded at `.loki/lsp/pids.json` so `loki doctor` can reap
+    stragglers.
+  - `_NoopFastMCP` fallback so the module imports cleanly in test
+    environments where the FastMCP SDK is absent; production launch
+    surfaces the error explicitly.
+- **`mcp/tests/test_lsp_proxy.py`** (new, 377 lines, 19 tests). 5
+  test suites: LangMap+Detection, WireFraming, ToolDispatch,
+  Cleanup, LSPClientShutdown. Uses fake LSP subprocesses for
+  request/response framing verification.
+- **`tests/test-lsp-proxy.sh`** (new, ~180 LOC, 9 assertions).
+  Verifies LSP detection in the bash MCP-config helper, idempotent
+  bundle rewrite, single `lsp-proxy` entry even when multiple LSPs
+  detected.
+- **`autonomy/lib/project-graph.sh`** extended with subdir walker
+  (lines 503-660). New `_lpg_find_git_root` helper (ascends at most
+  8 levels, stops at `$HOME` or first ancestor with `.git/`).
+  `load_app_graph_context` now emits subdir layers root-to-leaf with
+  `<!-- LOKI_LAYER:subdir path=... -->` markers. Dedupe via
+  tracked-set of absolute CLAUDE.md paths (parent + subdir
+  collision -> emitted once). Existing 32KB total + 16KB per-layer
+  caps preserved.
+- **`tests/test-project-graph.sh`** -- 4 new subdir-walker
+  assertions (now 24/24 total).
+
+### Changed
+
+- **`autonomy/lib/mcp-config.sh::loki_mcp_config_path`** -- detects
+  any of the 4 supported LSP binaries via `command -v` and injects a
+  single `lsp-proxy` entry into the bundle when at least one is
+  present. The proxy routes by language at runtime, so multiple
+  detected binaries still yield one entry. Idempotent-write
+  preserved via `cmp -s` byte comparison.
+- **`loki-ts/src/providers/mcp_config.ts`** -- Bun mirror. Pure
+  PATH walk (stdlib `node:fs` + `node:path`) to detect any of the 4
+  LSP binaries, then `buildBundle(lspDetected)` injects the same
+  `lsp-proxy` entry when found. Byte-identical to bash output (parity
+  test still passes).
+- **`loki-ts/tests/providers/mcp_config.test.ts`** -- new
+  PATH-stub setup so existing tests are deterministic regardless of
+  whether the test machine has an LSP installed. New test
+  `injects lsp-proxy entry when an LSP binary is on PATH` validates
+  the Phase G code path.
+- **`.mcp.json`** -- registered `loki-mode-lsp-proxy` alongside
+  `loki-mode` for discoverability.
+
+### Verified locally before commit
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- `bash tests/test-lsp-proxy.sh` -- 9/9 PASS.
+- `bash tests/test-project-graph.sh` -- 24/24 PASS (20 Phase F + 4
+  new Phase G).
+- `bash tests/test-parity-mcp-config.sh` -- 4/4 PASS (bash + Bun
+  emit byte-identical bundles with AND without LSP detected).
+- `bash tests/test-mcp-config.sh` -- 16/16 PASS (no regression).
+- `bash tests/test-claude-md-walker.sh` -- 13/13 PASS (no regression).
+- `bash tests/test-claude-flags.sh` -- 29/29 PASS (no regression).
+- `bash tests/test-voter-agents-json.sh` -- 17/17 PASS (no regression).
+- `cd loki-ts && bun test tests/providers/mcp_config.test.ts` --
+  7/7 PASS (6 existing + 1 new Phase G).
+- `python3 -m unittest mcp.tests.test_lsp_proxy` -- 19/19 PASS.
+- `cd loki-ts && bun run typecheck` clean.
+
+### NOT tested (honest disclosures)
+
+- Real LSP server interaction. The `LSPClient` wire framing is
+  unit-tested against fake subprocesses; we have not yet run the
+  proxy against `typescript-language-server` or `pylsp` and observed
+  Hover / Location results round-trip from a real language server.
+  Deferred to first user-driven session.
+- LSP behavior across versions. The wire protocol is stable but
+  initialize-capabilities differ between LSP releases; tests use
+  generic JSON-RPC mocks.
+- Subdir walker on Windows path separators. Bash + `_lpg_find_git_root`
+  use POSIX path semantics; not verified on Windows.
+- Codebases > 1M LOC. The subdir walker caps at 32KB total, so large
+  CLAUDE.md fragments are silently truncated at the cap boundary.
+
+### Migration
+
+- No action required for users without an LSP installed: Loki
+  behaves exactly as v7.5.23.
+- Users who install `typescript-language-server`, `pylsp`, `gopls`,
+  or `rust-analyzer` AFTER updating to v7.5.24 will see the
+  `lsp-proxy` entry appear automatically on next `loki start`.
+- The subdir CLAUDE.md walker activates whenever Loki is launched
+  from inside a subdirectory of a `.git/` project, regardless of
+  `LOKI_PROJECT_GRAPH_ROOT` (Phase F's parent/member walker still
+  takes precedence when a graph is detected).
+
+## [7.5.23] - 2026-05-22
+
+PATCH release. Phase F of the v7.5.18 -> v7.5.27 arc. Cross-project
+context discovery: when Loki detects sibling repos (`../ui`, `../api`,
+`../service`, etc.) that share an `.loki/app.json` marker, treats them
+as one logical app with layered CLAUDE.md walking and shared
+`.loki-shared/memory/` dir. Path-based discovery only (not semantic).
+No new CLI subcommands. No new user-facing env vars. The 4 internal
+env vars (LOKI_PROJECT_GRAPH_*) are set by Loki at start and never
+read from the user environment.
+
+### Added
+
+- **`autonomy/lib/project-graph.sh`** (new, ~570 lines). Functions:
+  - `loki_project_graph_discover <target_dir>` -- runs the discovery
+    algorithm, exports `LOKI_PROJECT_GRAPH_ROOT`,
+    `LOKI_PROJECT_GRAPH_APP_ID`, `LOKI_PROJECT_GRAPH_MEMBERS`,
+    `LOKI_PROJECT_GRAPH_SHARED_MEMORY_DIR`. Returns 0 always; empty
+    vars when no manifest found.
+  - `load_app_graph_context` -- reads parent + member + scope-aware
+    CLAUDE.md, concatenates with `<!-- LOKI_LAYER:... -->` markers.
+    Cap 32KB total, 16KB per layer.
+  - Cache at `<target>/.loki/state/project-graph.json` keyed by
+    sha256(sorted [mtime+path] of all app.json found). Hot-path skips
+    python3 (~25ms saved per cache hit), uses `stat`+`awk` instead.
+- **`loki-ts/src/project_graph.ts`** (new, ~243 lines). Bun mirror.
+  Exports `discoverProjectGraph(targetDir): AppGraphResult | null` and
+  `applyProjectGraphEnv(result)`. Parent-rooted manifest WINS per
+  architect (matches bash); fall back to target manifest only when
+  parent has none.
+- **`memory/app_graph.py`** (new, ~151 lines). Class `AppGraph` with
+  `from_env()`, `from_app_json()`, `get_shared_memory_path()`,
+  `get_members()`. Wraps `CrossProjectIndex` for app-scoped lookups.
+- **`tests/fixtures/project-graph/acme/`** -- 3-member fixture
+  (ui+api+service) for tests.
+- **`tests/test-project-graph.sh`** (new, ~263 lines, 20 tests):
+  discovery, cache, mismatch logging, schema/regex rejection,
+  graph-without-self-manifest, etc.
+- **`tests/test-claude-md-walker.sh`** (new, ~179 lines, 13 tests):
+  markers, content, per-layer + total caps, backward compat.
+- **`tests/test-parity-project-graph.sh`** (new, ~100 lines, 3 tests):
+  bash + Bun routes agree on app_id, root, member set.
+- **`loki-ts/tests/runner/project_graph.test.ts`** (new, 7 tests).
+- **`memory/tests/test_app_graph.py`** (new, 5 tests).
+
+### Changed
+
+- **`autonomy/loki::cmd_start`** lines 1487-1497 -- before `exec
+  "$RUN_SH"`, source the project-graph helper and call
+  `loki_project_graph_discover`. The exec is unchanged.
+- **`autonomy/run.sh::build_prompt`** lines 9234-9248 -- after
+  `memory_context` injection, call `load_app_graph_context` and append
+  the result as `APP_GRAPH_CONTEXT` in the prompt. Backward
+  compatible: unset `LOKI_PROJECT_GRAPH_ROOT` -> empty string.
+- **`memory/storage.py`** line 67 -- `_root_path` now honors
+  `LOKI_MEMORY_BASE_PATH` env override (when set, members of the same
+  app graph point at the shared memory dir). Backward compatible:
+  unset env -> original behavior. No symlinks created; the override is
+  pure env-driven.
+- **`loki-ts/src/project_graph.ts`** -- parent-rooted manifest wins
+  (architect rule); was originally target-first which broke bash
+  parity. Fixed during integration when
+  `tests/test-parity-project-graph.sh` flagged the divergence.
+
+### app.json schema (NEW, v1)
+
+```json
+{
+  "schema_version": 1,
+  "app_id": "myapp",
+  "name": "Optional friendly name",
+  "members": ["ui", "api", "service"],
+  "shared_memory_dir": ".loki-shared/memory"
+}
+```
+
+Lives at `<parent>/.loki/app.json` (canonical). Optional thin pointers
+at `<member>/.loki/app.json` for sibling-first discovery.
+
+### Verified locally before commit
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- `bash tests/test-project-graph.sh` -- 20/20 PASS.
+- `bash tests/test-claude-md-walker.sh` -- 13/13 PASS.
+- `bash tests/test-parity-project-graph.sh` -- 3/3 PASS.
+- `bash tests/test-mcp-config.sh` -- 16/16 PASS (no regression).
+- `bash tests/test-claude-flags.sh` -- 29/29 PASS (no regression).
+- `bash tests/test-voter-agents-json.sh` -- 17/17 PASS (no regression).
+- `cd loki-ts && bun test tests/runner/project_graph.test.ts` -- 7/7
+  PASS.
+- `python3 -m unittest memory.tests.test_app_graph` -- 5/5 PASS.
+- `cd loki-ts && bun test` -- 777 PASS / 0 fail.
+- `cd loki-ts && bun run typecheck` clean.
+
+### NOT tested (honest disclosures)
+
+- Live `loki start` with a real 3-repo app graph (not a fixture). The
+  bash + Bun unit + parity tests confirm the discovery + walker logic;
+  the end-to-end smoke from a real PRD + 3 sibling repos was not run.
+- Behavior when `.loki/app.json` is added DURING an active `loki start`
+  session. Cache invalidates on next run; mid-session pickup is not
+  implemented.
+- Discovery on Windows path separators. The implementation uses
+  `python3 os.path.realpath` and bash `cd ../`, neither verified on
+  Windows.
+- Scaling beyond 10 members. Current tests max at 3 members.
+
+### Migration
+
+- No action required. Without a `.loki/app.json` marker, Loki behaves
+  exactly as v7.5.22 (no graph context, member-local memory).
+- To opt into cross-project context: drop a `.loki/app.json` at the
+  parent of related repos with `schema_version: 1` and `app_id`.
+
+## [7.5.22] - 2026-05-22
+
+PATCH release. Phase D of the v7.5.18 -> v7.5.27 arc. Wires Claude Code's
+`--mcp-config <paths...>` and `--include-hook-events` flags into Loki's
+Claude provider invocation. Default-on when CLI supports them; hook
+events stream into `.loki/events.jsonl` via the existing event bus
+for dashboard visibility. No new CLI subcommands.
+
+### Added
+
+- **`loki-ts/src/providers/mcp_config.ts`** (new, ~98 lines). Exports
+  `mcpConfigPath(targetDir)`, `userMcpConfigPath()`, `buildMcpConfigArgv`.
+  Per-iteration writes `.loki/mcp-config.json` bundling the loki-mode
+  MCP server entry (matches project `.mcp.json` shape). Detects
+  `~/.claude/mcp.json` user overlay and emits both paths when present.
+  No env-var expansion in the written file (security: no `${...}`
+  patterns survive).
+- **`autonomy/lib/mcp-config.sh`** (new, ~111 lines). Bash mirror.
+  Functions: `loki_mcp_config_path`, `loki_user_mcp_config_path`,
+  `loki_mcp_config_argv`. Same bundle shape, same overlay detection,
+  same security posture (no shell expansion in written JSON).
+- **`loki-ts/tests/providers/mcp_config.test.ts`** (new, ~94 lines).
+  6 tests covering bundle write, idempotency, overlay detection,
+  argv composition.
+- **`tests/test-mcp-config.sh`** (new, ~213 lines). 16 bash assertions
+  covering helper parity, no-overlay path, with-overlay path, auto-flag
+  emission gated on CLI support, `LOKI_HOOK_EVENTS=off` opt-out.
+- **`tests/test-parity-mcp-config.sh`** (new, ~151 lines). 4 cross-route
+  assertions: bash and Bun emit the same path-token count, same order
+  (Loki bundle first, user overlay second), bundle bytes are
+  canonical-JSON identical.
+- **`dashboard/server.py`** -- `_read_events` accepts optional
+  `type_prefix` parameter; council transcripts handler accepts
+  `?type_prefix=` query param and exposes a new `hook_events` key in
+  the response when set. Backward compatible: unset behavior unchanged.
+
+### Changed
+
+- **`providers/claude.sh::_loki_build_claude_auto_flags`** -- sources
+  the mcp-config helper. Appends `--mcp-config` followed by each path
+  as a SEPARATE argv element (Commander variadic shape `<configs...>`,
+  per Dev-C parity finding). Appends `--include-hook-events` as a
+  boolean flag when supported AND `LOKI_HOOK_EVENTS != off`.
+- **`loki-ts/src/providers/claude_flags.ts::buildAutoFlags`** -- mirror.
+  Spread paths via `out.push(...)` instead of one space-joined value.
+  Same opt-out via `process.env.LOKI_HOOK_EVENTS`.
+- **`autonomy/run.sh`** (+47 lines around line 10852) -- embedded
+  Python tee-parser learns the `hook_event` record type. New
+  `append_hook_event(event_name, payload)` writes a
+  `{"type":"claude_hook_<lower>", "source":"claude_cli",
+  "timestamp":"<iso>", "payload":<record>}` envelope to
+  `.loki/events.jsonl` via `fcntl.flock` on the existing
+  `.loki/events.jsonl.lock` sentinel. Honors
+  `LOKI_HOOK_EVENTS=off`.
+
+### Verified locally before commit
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+- `bash tests/test-mcp-config.sh` -- 16/16 PASS.
+- `bash tests/test-parity-mcp-config.sh` -- 4/4 PASS.
+- `bash tests/test-claude-flags.sh` -- 29/29 PASS (no regression).
+- `bash tests/test-voter-agents-json.sh` -- 17/17 PASS (no regression).
+- `cd loki-ts && bun test tests/providers/mcp_config.test.ts` -- 6/6 PASS.
+- `cd loki-ts && bun test tests/providers/claude_flags.test.ts` -- 33/33
+  PASS (29 existing + 4 new Phase D).
+- `cd loki-ts && bun run typecheck` clean.
+- `python3 -c "import ast; ast.parse(open('dashboard/server.py').read())"`
+  clean.
+
+### NOT tested (honest disclosures)
+
+- Live `claude --mcp-config <paths> --include-hook-events` invocation
+  against the installed CLI v2.1.148. Static argv composition is
+  parity-tested across bash and Bun (4/4 pass) and the flag-support
+  check is conservative (only emits when `claude --help` advertises).
+  But we have not yet observed the hook-event records arriving in
+  `.loki/events.jsonl` from a real claude run. Synthetic injection
+  through the python tee-parser is unit-tested; end-to-end is deferred
+  to first user-driven session.
+- Behavior when `~/.claude/mcp.json` uses the `servers` top-level key
+  instead of `mcpServers`. We pass the user file through unchanged; if
+  Claude rejects either shape, the overlay fails silently and only the
+  Loki bundle remains in effect.
+- Dashboard UI tab for the new `hook_events` response key. API-only in
+  this release; UI tab deferred to v7.5.23+ per architect plan.
+
+### Migration
+
+- No action required for users on Claude CLI versions that support
+  both flags: Loki picks up the upgrade automatically.
+- Users who want to suppress hook events: `export LOKI_HOOK_EVENTS=off`.
+- Users who want to override the MCP server bundle: edit the project
+  `.mcp.json` or drop a `~/.claude/mcp.json` -- both are detected.
+
+## [7.5.21] - 2026-05-22
+
+PATCH release. Phase C of the v7.5.18 -> v7.5.27 arc. Replaces the ad-hoc
+council voter dispatch (three separate `claude -p` calls per iteration,
+regex-parsing free-text votes) with a single Claude Code invocation that
+declares all three voters via `--agents <json>` and validates each finding
+against `--json-schema`. Eliminates the regex-parse failure mode where a
+reviewer writes "VOTE:" in prose that doesn't match the `^VOTE: ` regex.
+
+Default-on when the installed Claude CLI advertises both flags; falls
+through to the existing heuristic voter loop on any failure (CLI lacks
+support, parse error, missing voter slug). No new CLI subcommands. No new
+opt-in env vars.
+
+### Added
+
+- **`loki-ts/data/finding-schema.json`** (new, ~80 lines). JSON Schema
+  draft-07 for the multi-finding response. Top-level shape is
+  `{ findings: [...] }` where each finding requires `role`, `vote`
+  (APPROVE | REJECT | CANNOT_VALIDATE), `reason`, `confidence` (0..1).
+  Optional `severity`, `suggested_action`, `issues`. Both bash and Bun
+  routes consume the SAME file (single source of truth).
+- **`loki-ts/src/council/finding_schema.ts`** (new, ~190 lines). Exports
+  `FINDING_SCHEMA` (frozen, loaded once), `validateFinding()`, and
+  `parseMultiResponse()`. Manual validation (no ajv) to keep deps tight;
+  rationale documented in file header. Reconciliation note for which
+  optional fields map to `AgentVerdict` vs are dropped.
+- **`loki-ts/src/council/voter_agents.ts`** (new, ~270 lines). Exports
+  `AgentSpec`, `VOTER_SLUGS`, `buildVoterAgentsJson()`,
+  `buildDevilsAdvocateAgent()`, `dispatchClaudeAgents()`. The 3 base
+  voters: `requirements-verifier` (opus, high), `test-auditor` (sonnet,
+  high), `convergence-voter` (sonnet, medium). The 4th
+  `devils-advocate` (opus, xhigh) is exposed as a typed primitive for
+  the unanimous-APPROVE conditional path (auto-wiring deferred to a
+  follow-up). Dispatch throws on any failure so the orchestrator falls
+  back to heuristic.
+- **`autonomy/lib/voter-agents.sh`** (new, ~250 lines). Bash mirror of
+  the Bun helpers. Exports `loki_voter_agents_json`,
+  `loki_devils_advocate_json`, `loki_finding_schema_path`,
+  `loki_council_dispatch_agents`. Uses `python3 -c` for JSON
+  build/parse (no jq dep). Sources `autonomy/lib/claude-flags.sh` for
+  the flag-support probe. Writes per-voter verdict files under
+  `.loki/council/verdicts/<role>-iter-<iter>.json` AND the existing
+  `votes/round-N.json` so the legacy aggregator keeps working unchanged.
+- **`loki-ts/tests/council/finding_schema.test.ts`** (new, ~165 lines).
+  14 tests covering schema parsing, validation of all required + optional
+  fields, vote enum rejection, confidence range, multi-response parse,
+  malformed JSON, balanced-brace extraction from mixed prose+JSON.
+- **`loki-ts/tests/council/voter_agents.test.ts`** (new, ~180 lines).
+  7 tests covering voter slug emission, prompt iteration + PRD-hint
+  embedding, devil's-advocate base-findings summary, dispatch success
+  with canned response, dispatch throws on malformed JSON, dispatch
+  throws on non-zero exit, dispatch throws on missing voter slug.
+- **`tests/test-voter-agents-json.sh`** (new, ~160 lines). 17 bash
+  assertions covering JSON shape parity with TS, model-per-voter
+  expectations, schema-path resolution, and dispatch-fallback behavior
+  on missing flag support or missing claude binary.
+
+### Changed
+
+- **`loki-ts/src/runner/council.ts`** -- extended `CouncilEvaluateContext`
+  with an optional `claudeRunner` injection point (production code leaves
+  this undefined; tests pass a fake runner). `councilEvaluate()` now
+  prefers the `--agents <json>` dispatch path when `voters` is not
+  explicitly set AND (the runner is injected OR the installed CLI
+  advertises both `--agents` and `--json-schema`). On any failure, falls
+  through to the existing heuristic loop with a warning log. The
+  heuristic path is preserved as the safety net and stays the default
+  when claude is unavailable.
+- **`autonomy/completion-council.sh::council_evaluate`** -- inserted a
+  dispatch-then-fallback block BEFORE the existing
+  `council_aggregate_votes` call. On success, reads the verdict from the
+  per-voter file the dispatch helper wrote; on any failure, falls
+  through to the existing per-voter member loop. Managed council path,
+  transcript writer, and aggregator are untouched.
+
+### Verified locally before commit
+
+- `bash tests/test-voter-agents-json.sh` -- 17/17 PASS.
+- `bash tests/test-claude-flags.sh` -- 29/29 PASS (no regression from
+  Phase B/E helpers).
+- `cd loki-ts && bun test tests/council/` -- 21/21 PASS (14 schema + 7
+  voter agents).
+- `cd loki-ts && bun test tests/runner/council.test.ts` -- 20/20 PASS
+  (was 19, +1 new injected-runner regression test).
+- `cd loki-ts && bun test` -- 760 PASS / 0 fail across 57 files. Note:
+  `tests/commands/doctor.test.ts` ChromaDB-PASS-branch is a known flake
+  (depends on port 8100 being free during full-suite run; passes in
+  isolation). Not introduced by Phase C.
+- `cd loki-ts && bun run typecheck` clean.
+- `bash scripts/local-ci.sh` -- 21/21 PASS.
+
+### NOT tested (honest disclosures)
+
+- Live `claude --agents <json> --json-schema <path> -p <topPrompt>`
+  invocation against the installed Claude CLI v2.1.148. The dispatch
+  helper is gated on `loki_claude_flag_supported` so an unsupported CLI
+  silently degrades; we have not yet seen a real multi-voter response
+  parse end-to-end. Architect noted this in TESTING ASSUMPTIONS section
+  of the design doc: if Claude only multiplexes via the `agents`
+  subcommand (not `-p` mode), the helper will throw on every iteration
+  and the orchestrator will fall back to heuristic on every iteration
+  (no functional regression, just no upgrade benefit).
+- Behavior on Claude versions where `--agents` accepts a different JSON
+  shape (e.g. if upstream renames frontmatter fields). The dispatch
+  throws and falls back; no version-pinning enforcement in Loki today.
+- Devil's-advocate 4th-voter dispatch is NOT auto-wired in this phase
+  (primitive shipped, integration follows). The deterministic
+  `councilDevilsAdvocate` at `loki-ts/src/runner/council.ts:269+` is
+  unchanged.
+
+### Migration
+
+- No action required for users. Phase C is default-on when the installed
+  Claude CLI supports both flags AND the heuristic-voter set is not
+  explicitly overridden by `councilEvaluate` callers.
+- Users on older Claude CLIs (lacking `--agents` or `--json-schema`):
+  behavior is identical to v7.5.20 (heuristic voter loop).
+
+## [7.5.20] - 2026-05-22
+
+PATCH release. Phase E of the v7.5.18 -> v7.5.27 arc, plus the v7.5.19 Phase A
+follow-up patch (3 gemini refs the integration agent missed in `src/`).
+
+Phase E wires Claude Code's `--exclude-dynamic-system-prompt-sections` flag
+into Loki's provider invocation. Per-machine sections (cwd, env, memory paths,
+git status) move from the system prompt into the first user message. This
+improves cross-iteration and cross-user prompt cache reuse because the system
+prompt becomes stable. Default-on when the installed Claude CLI supports the
+flag. Suppress with `LOKI_DYNAMIC_PROMPT_SECTIONS=keep`. No new CLI subcommand.
+No new opt-in env var unless the user wants the old behavior.
+
+### Added
+
+- **`providers/claude.sh::_loki_build_claude_auto_flags`** -- appends
+  `--exclude-dynamic-system-prompt-sections` (boolean flag, no value) when
+  the installed Claude CLI advertises the flag AND
+  `LOKI_DYNAMIC_PROMPT_SECTIONS` is not set to `keep`. Default behavior is
+  "on when supported" -- nothing to enable.
+- **`loki-ts/src/providers/claude_flags.ts::buildAutoFlags`** -- mirror in
+  the Bun route. Same gate semantics, same opt-out lever.
+- **`tests/test-claude-flags.sh`** -- 3 new bash assertions: flag included
+  when help advertises it (default-on), flag suppressed when
+  `LOKI_DYNAMIC_PROMPT_SECTIONS=keep`, flag omitted when the CLI lacks
+  support. Total now 29/29 PASS.
+- **`loki-ts/tests/providers/claude_flags.test.ts`** -- 3 new Bun
+  assertions mirroring the bash side. Total now 29/29 PASS.
+
+### Fixed
+
+- **`src/integrations/github/action-handler.js`** -- `ALLOWED_PROVIDERS`
+  was still `['claude', 'codex', 'gemini']` after Phase A; the
+  `LABEL_CONFIG_MAP` still had `loki-provider-gemini`. Updated to
+  `['claude', 'codex', 'cline', 'aider']` and replaced the gemini label
+  with `loki-provider-cline` + `loki-provider-aider`. Was failing 3 tests
+  in the GitHub Actions Tests workflow run 26307961906 on the v7.5.19
+  push. Root cause: Phase A integration patched `autonomy/loki` but
+  missed the GitHub-integration handler under `src/`.
+- **`src/protocols/tools/start-project.js`** -- `provider` enum was still
+  `['claude', 'codex', 'gemini']`; updated to
+  `['claude', 'codex', 'cline', 'aider']`. Same root cause as above.
+- **`Dockerfile`** -- `LABEL description` mentioned "Gemini CLI"; updated
+  to "Cline, and Aider".
+- **`package.json`** -- description mentioned "5 AI providers (Claude
+  Code, OpenAI Codex, Google Gemini, Cline, Aider)"; updated to
+  "4 AI providers (Claude Code, OpenAI Codex, Cline, Aider)".
+- **`SKILL.md`** -- deprecation marker line incorrectly read "DEPRECATED
+  starting v7.5.19" (the v7.5.19 release commit erroneously bumped this
+  historical marker). Restored to the factual "DEPRECATED starting
+  v7.5.18" since Phase A actually shipped in v7.5.18.
+
+### Verified locally before commit
+
+- `bash tests/test-claude-flags.sh` -- 29/29 PASS (was 26, +3 Phase E
+  assertions).
+- `cd loki-ts && bun test tests/providers/claude_flags.test.ts` -- 29/29
+  PASS (was 26, +3 Phase E assertions).
+- `node --test tests/integrations/github/action-handler.test.js` --
+  25/25 PASS (was failing 3 before this commit on the v7.5.19 codebase).
+
+### NOT tested (honest disclosures)
+
+- The cache-reuse benefit from `--exclude-dynamic-system-prompt-sections`
+  is asserted by Anthropic in their docs; we have not measured the
+  cache_read_input_tokens delta on Loki's workload yet. Plan E's
+  measurement probe (10-iteration before/after run) lands in a follow-up
+  patch after Phase D ships hook events. CHANGELOG does not claim a
+  percentage until measured.
+- We did not run a live `claude -p` against the real CLI to confirm the
+  flag is consumed silently when supported. The flag-support check is
+  conservative (only emits when `claude --help` mentions it), so an
+  unsupported version sees nothing. But we have not e2e-verified the
+  successful invocation path against the live `claude` binary for
+  v7.5.20 specifically.
+
+### Migration
+
+- **No action required for users on Claude CLI versions that support
+  the flag**: the flag is passed automatically, behavior should be
+  identical or better (warmer prompt cache).
+- **Users who want the old behavior**: set
+  `LOKI_DYNAMIC_PROMPT_SECTIONS=keep` in their shell or `.env`.
+  Documented in `providers/claude.sh:160-163`.
+
+## [7.5.19] - 2026-05-23
+
+PATCH release. Phase B of the v7.5.18 -> v7.5.27 arc. Wires three Claude
+Code CLI flags into Loki's Claude provider invocation, derived automatically
+from existing Loki state. No new CLI subcommands. No new opt-in env vars.
+
+### Added
+
+- **`autonomy/lib/claude-flags.sh`** (new helper, ~120 LOC). Public API:
+  - `loki_effort_for_tier <tier> [complexity]` -> emits `low|medium|high|xhigh|max`
+    derived from RARV tier (planning=xhigh, development=high, fast=medium)
+    with one-notch upshift on complexity=complex (planning stays at xhigh).
+  - `loki_remaining_budget` -> emits 2-decimal USD remaining computed from
+    `LOKI_BUDGET_LIMIT` minus `current_spend` in `.loki/metrics/budget.json`.
+    Emits empty when limit unset/0 OR when overspent (never emits 0 or
+    negative).
+  - `loki_fallback_for_primary <model>` -> emits `sonnet` for opus, `haiku`
+    for sonnet (only when `LOKI_ALLOW_HAIKU=true`). Empty otherwise.
+  - `loki_claude_flag_supported <flag>` -> caches `claude --help` once per
+    process; returns 0 if flag present, 1 otherwise. Conservative: never
+    passes a flag the installed CLI lacks.
+- **`loki-ts/src/providers/claude_flags.ts`** (new, mirrors bash helper).
+  Exports: `effortForTier`, `remainingBudget`, `fallbackForPrimary`,
+  `claudeFlagSupported`, `ensureClaudeHelpCache`, `buildAutoFlags`. Same
+  semantics as bash side; same conservative behavior.
+
+### Changed
+
+- **`providers/claude.sh`** -- `provider_invoke()` + `provider_invoke_with_tier()`
+  now build an auto-flag array via `_loki_build_claude_auto_flags()` and
+  pass `--effort`, `--max-budget-usd`, `--fallback-model` to `claude -p`
+  when the installed CLI supports each flag and the derived value is
+  non-empty.
+- **`loki-ts/src/runner/providers.ts::claudeProvider()`** -- mirror Bun-route
+  implementation. Calls `ensureClaudeHelpCache()` once, then
+  `buildAutoFlags()` per invocation. Same argv ordering as bash, kept tight
+  so position-sensitive tests stay readable.
+- **`loki-ts/tests/runner/e2e_fake_provider.test.ts`** -- argv assertions
+  rewritten to be position-tolerant (find `-p` dynamically, verify any
+  injected `--effort` value is in the recognized enum). Phase B's new
+  argv shape no longer breaks this E2E.
+
+### Verified locally before commit
+
+- `bash tests/test-claude-flags.sh` -- 26/26 PASS.
+- `cd loki-ts && bun test tests/providers/claude_flags.test.ts` -- 26/26 PASS.
+- `cd loki-ts && bun test` -- 735/735 PASS (added 26, +0 regressions
+  after the E2E argv-tolerance fix).
+- `cd loki-ts && bun run typecheck` clean.
+- `cd loki-ts && bun run build` -- 66.50 KiB dist regenerated.
+- `bash scripts/local-ci.sh` -- 21/21 PASS (bun-parity matrix included).
+- `bash -n` + `shellcheck -S error` clean on `providers/claude.sh` and
+  `autonomy/lib/claude-flags.sh`.
+- 13 version files at 7.5.19.
+
+### Verified flag wiring on installed CLI
+
+`claude --help` on the local Mac confirms:
+- `--effort <level>` (low|medium|high|xhigh|max)
+- `--max-budget-usd <amount>` (only works with --print, which is `-p`)
+- `--fallback-model <model>` (only works with --print)
+
+All three flags are passed only when present in `claude --help` output and
+when the derived value is non-empty (never `--max-budget-usd 0`).
+
+### Default behavior (zero opt-in required)
+
+- A `loki start ./prd.md` run now passes `--effort high` for the development
+  tier; `--effort xhigh` for planning; `--effort medium` for fast.
+- If `LOKI_BUDGET_LIMIT=50` is set, every iteration passes
+  `--max-budget-usd <remaining>` automatically. Loki refuses the invocation
+  upstream when remaining hits zero (never passes `--max-budget-usd 0`).
+- For opus primary, `--fallback-model sonnet` is passed automatically.
+- All three derivations honor `LOKI_COMPLEXITY` + `LOKI_ALLOW_HAIKU`.
+
+### NOT in this release (honest list)
+
+- Real `loki start <prd>` end-to-end exercise against a live Claude provider
+  to verify the new flags change provider behavior in practice. Unit + E2E
+  tests cover argv construction; observed downstream behavior is the next
+  phase to soak.
+- `--effort max` is never auto-selected (we cap at xhigh on planning even
+  with complexity=complex). User can still force `max` via direct CLI flag
+  if they bypass Loki (not via Loki env vars).
+- No Cline/Codex/Aider parity for these flags -- they do not have them.
+  Phase B is Claude-only on purpose; non-Claude providers degrade honestly.
+
+### Migration / rollback
+
+No migration. All behavior is additive and behind `claude --help` flag
+detection (older Claude CLIs that lack `--effort` see no change). Rollback:
+`npm install -g loki-mode@7.5.18`. No state migrations.
+
+## [7.5.18] - 2026-05-23
+
+PATCH release. Phase A of the v7.5.18 -> v7.5.27 release arc (embed latest
+Claude Code CLI features, deprecate stale providers). First phase: remove
+Google Gemini CLI provider (upstream deprecated).
+
+Shipped via 3-agent fleet in isolated worktrees + 1 integration patch +
+new 3-reviewer council protocol (2 Opus + 1 Sonnet, unanimous APPROVE
+required). 894 gemini references across 144 files cleaned in coordinated
+parallel.
+
+### Removed
+
+- **Gemini CLI provider runtime** (`providers/gemini.sh` deleted, ~775 LOC
+  removed across `autonomy/run.sh`, `autonomy/loki`, `loki-ts/src/runner/`,
+  `loki-ts/src/commands/`, `providers/loader.sh`, `providers/models.sh`,
+  `providers/model_catalog.json`). The Gemini Robotics reference in
+  `references/lab-research-patterns.md` was retained -- that's a DeepMind
+  research program name, not a provider reference.
+
+### Added
+
+- **Clear deprecation guard**: `LOKI_PROVIDER=gemini` now exits 1 with a
+  user-friendly message naming active providers (`claude`, `codex`, `cline`,
+  `aider`) and suggesting `unset LOKI_PROVIDER`. Guard fires in BOTH bash
+  (`autonomy/loki`) and Bun (`bin/loki` shim) routes for consistent UX.
+- **README provider table**: keeps the Gemini row marked `DEPRECATED v7.5.18`
+  (deletion would be confusing for users searching for it). Adds an
+  `Antigravity CLI: Coming soon` row signaling the next planned provider
+  per Anthropic's upcoming release.
+
+### Updated
+
+- `README.md`, `CLAUDE.md`, `SKILL.md`, `wiki/Providers.md`, `wiki/Home.md`,
+  `wiki/_Sidebar.md`, `wiki/API-Reference.md`, `docs/INSTALLATION.md`,
+  `skills/providers.md`, `skills/00-index.md`, `skills/model-selection.md`,
+  `skills/quality-gates.md`, `skills/troubleshooting.md`,
+  `references/multi-provider.md`, `references/quality-control.md`,
+  `dashboard/server.py`, `dashboard-ui/components/loki-cost-dashboard.js`,
+  `dashboard-ui/components/loki-provider-health.js`,
+  `dashboard-ui/components/loki-analytics.js`, `demo/voice-over-script.md`,
+  `demo/run-demo-auto.sh`.
+- All `loki-ts/tests/` updated to remove gemini test cases. Test count
+  decreased from 729 to 709 (20 gemini-specific tests removed).
+- All bash tests (`tests/test-provider-degraded-mode.sh`,
+  `test-cli-provider-flag.sh`, `test-provider-loader.sh`,
+  `test-provider-invocation.sh`, `test-failover.sh`, `test-rate-limiting.sh`,
+  etc.) updated to drop gemini cases.
+
+### Verified locally before push
+
+- `bash scripts/local-ci.sh` -- 21/21 PASS (bun-parity matrix included).
+- `bash bin/loki version` + `LOKI_LEGACY_BASH=1 bash bin/loki version` --
+  both report v7.5.18, byte-identical.
+- `bash bin/loki provider list` -- shows 4 active providers, no gemini, both
+  routes byte-identical.
+- `LOKI_PROVIDER=gemini bash bin/loki --version` -- exits with clean
+  migration message on both bash and Bun routes.
+- `bun test` -- 709/709 PASS.
+- `bun run typecheck` clean.
+- `bun run build` produces 66.50 KiB dist.
+- 13 version files at 7.5.18.
+
+### Verified post-publish (after this release ships)
+
+Will run: `npm view loki-mode version`, `docker pull asklokesh/loki-mode:7.5.18`,
+WebFetch Homebrew formula, `bun install -g loki-mode@7.5.18` end-to-end.
+All 8+ GH workflows must complete green; otherwise stop, root-cause, fix.
+
+### Reviewer council (new protocol per memory/feedback_reviewer_council_protocol.md)
+
+3-of-3 unanimous APPROVE required. Reviewers: 2 Opus + 1 Sonnet, blind to
+each other, each re-runs the dev's tests independently. Any REJECT/CONCERN
+triggers: validate the concern, fix if valid, refute if invalid, re-run
+the full council on post-fix state. Loop until unanimous. This replaces
+the prior 3-reviewer + Devil's Advocate pattern -- the DA role merges
+into one Opus reviewer who also asks meta-questions.
+
+### NOT in this release (honest list)
+
+- Antigravity CLI runtime -- documented as "Coming soon" in provider tables
+  but no code yet. Integration is its own planned work.
+- Real `loki start <prd>` end-to-end exercise -- the synthetic test sweep
+  covers provider invocation; a full RARV iteration against a real provider
+  is deferred to v7.5.19+ where the new Claude CLI flags become more
+  user-visible.
+- BMAD-METHOD integration -- explored, confirmed zero current refs in Loki,
+  treated as separate planning cycle (not "pull latest").
+- Phase L (PostHog telemetry) -- explicitly BLOCKED awaiting user
+  acknowledgement of disclosed-default-on (vs covert) posture.
+
+### Migration / rollback
+
+- Users with `LOKI_PROVIDER=gemini` set will see a clean migration error.
+  Set `LOKI_PROVIDER=claude` (or `codex` / `cline` / `aider`) instead.
+- Users still on Gemini who need more time: `npm install -g loki-mode@7.5.17`
+  pins to the last release with Gemini support.
+- No state migrations. No breaking config changes for non-Gemini users.
+
 ## [7.5.17] - 2026-05-04
 
 PATCH release. 7 bugs found via end-to-end testing of v7.5.16 against the real

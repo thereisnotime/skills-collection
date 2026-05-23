@@ -2,7 +2,7 @@
 
 # iOS Simulator Skill for Claude Code
 
-Production-ready skill for building, testing, and automating iOS apps. 22 scripts optimized for both human developers and AI agents.
+Production-ready skill for building, testing, and automating iOS apps. 27 scripts optimized for both human developers and AI agents.
 
 ## Xcode Build + Simulator Automation
 
@@ -80,7 +80,7 @@ The accessibility tree gives structured data (element types, labels, frames, tap
 
 ### Screenshot Token Optimization
 
-When screenshots are needed (visual verification, bug reports, diffs), the skill automatically resizes and compresses them to minimize token cost. Default output across all 22 scripts is 3-5 lines — 96% reduction vs raw tool output.
+When screenshots are needed (visual verification, bug reports, diffs), the skill automatically resizes and compresses them to minimize token cost. Default output across all 27 scripts is 3-5 lines — 96% reduction vs raw tool output.
 
 | Task | Raw Tools | This Skill | Savings |
 |------|-----------|-----------|---------|
@@ -88,7 +88,7 @@ When screenshots are needed (visual verification, bug reports, diffs), the skill
 | Find & tap button | 100+ lines | 1 line | 99% |
 | Login flow | 400+ lines | 15 lines | 96% |
 
-### All 22 Scripts
+### All 27 Scripts
 
 Every script supports `--help` and `--json`. See **SKILL.md** for the complete reference.
 
@@ -98,6 +98,13 @@ Every script supports `--help` and `--json`. See **SKILL.md** for the complete r
 |--------|-------------|-----------|
 | `build_and_test.py` | Build Xcode projects, run tests, parse xcresult bundles | `--project`, `--scheme`, `--test`, `--get-errors`, `--get-warnings` |
 | `log_monitor.py` | Real-time log monitoring with severity filtering | `--app`, `--severity`, `--follow`, `--duration` |
+
+#### Device State
+
+| Script | What it does | Key flags |
+|--------|-------------|-----------|
+| `appearance.py` | Switch dark mode, dynamic type, locale, region | `--theme`, `--text-size`, `--locale`, `--region`, `--reset` |
+| `location.py` | Simulate GPS coordinates and run built-in scenarios | `--lat`, `--lng`, `--city`, `--gpx`, `--list-scenarios`, `--clear` |
 
 #### Navigation & Interaction
 
@@ -119,6 +126,9 @@ Every script supports `--help` and `--json`. See **SKILL.md** for the complete r
 | `app_state_capture.py` | Debugging snapshots (screenshot, hierarchy, logs) | `--app-bundle-id`, `--output`, `--log-lines` |
 | `sim_health_check.sh` | Verify environment (Xcode, simctl, IDB, Python) | — |
 | `model_inspector.py` | Inspect Core Data / SwiftData models from project files | `--project-path`, `--raw`, `--show-versions` |
+| `container.py` | Inspect app sandbox: list, cat, UserDefaults, Core Data, export | `--ls`, `--cat`, `--userdefaults`, `--core-data-path`, `--export` |
+| `hang_watcher.py` | Stream and record `os_log` hang events from a live simulator | `--watch`, `--bundle-id`, `--since`, `--predicate` |
+| `localization_audit.py` | Audit `.xcstrings` catalogs for missing keys, unused keys, placeholder mismatches | `--catalog`, `--source`, `--strict` |
 
 #### Permissions & Environment
 
@@ -138,6 +148,112 @@ Every script supports `--help` and `--json`. See **SKILL.md** for the complete r
 | `simctl_create.py` | Create simulators by device type and OS version | `--device`, `--runtime`, `--list-devices` |
 | `simctl_delete.py` | Delete simulators with safety confirmation | `--name`, `--yes`, `--all`, `--old` |
 | `simctl_erase.py` | Factory reset without deletion | `--name`, `--verify`, `--all`, `--booted` |
+
+## Configuration
+
+Every operational limit — timeouts, output caps, polling intervals, cache size, post-action delays — is tunable via an `IOS_SIM_*` environment variable. Defaults are tuned for **local development on Apple Silicon**. Raise them on slow CI runners, large monorepos, or accessibility audits over complex screens. Lower them when you need faster failure or tighter token budgets.
+
+There's a universal tradeoff to keep in mind:
+
+- **Higher caps / longer timeouts** → fewer false failures, more complete diagnostics, **more tokens** consumed by AI agents and slower failures when something is genuinely broken.
+- **Lower caps / shorter timeouts** → faster feedback, tighter token usage, **risk** of silently dropped errors or premature timeouts on legitimately slow operations.
+
+### Boot & lifecycle timeouts
+
+How long to wait on `xcrun simctl` operations.
+
+| Variable | Default | Tradeoff |
+|---|---|---|
+| `IOS_SIM_BOOT_TIMEOUT` | `300` (s) | Wait for simulator readiness after `boot`. Lower → faster failure on broken sims. Higher → survives cold-start on slow CI runners (GitHub-hosted macOS can need 4–6 min). |
+| `IOS_SIM_BOOT_SUBPROCESS_TIMEOUT` | `60` (s) | Timeout for the `simctl boot` call itself (before readiness polling starts). Rarely needs changing; bump only if you see `Boot command timed out` on resource-starved CI. |
+| `IOS_SIM_ERASE_TIMEOUT` | `90` (s) | Wait for factory-reset verification. Larger simulators (lots of installed apps + data) can need more than the old 30s. |
+| `IOS_SIM_POLL_INTERVAL` | `0.5` (s) | How often to re-check boot/erase state. Lower → more responsive (more CPU). Higher → quieter on slow CI but adds latency to “ready” detection. |
+| `IOS_SIM_STATE_SUBPROCESS_TIMEOUT` | `15` (s) | Per-subprocess timeout in `app_state_capture.py`. Bump for apps with very large accessibility trees. |
+
+### Build & test output caps
+
+`build_and_test.py` returns counts by default and full details via xcresult ID; these caps govern what's surfaced in human/JSON output **before** progressive disclosure kicks in.
+
+| Variable | Default | Tradeoff |
+|---|---|---|
+| `IOS_SIM_BUILD_SUMMARY_CAP` | `15` | Errors / failed tests in the default text summary. Lower → terser default output. Higher → less need to chase xcresult IDs for context. |
+| `IOS_SIM_BUILD_VERBOSE_CAP` | `100` | Errors / warnings in `--verbose` mode. Mostly relevant for monorepos or first builds with many fixable warnings. |
+| `IOS_SIM_BUILD_JSON_CAP` | `50` | Max errors / failed tests in `--json` output. Raise for CI dashboards that need exhaustive lists. |
+| `IOS_SIM_BUILD_LOG_PREVIEW` | `4000` (chars) | Chars of build log included in default output. Higher → more context for failures, more tokens. |
+| `IOS_SIM_BUILD_TIMEOUT` | `1800` (s) | Hard cap on a single `xcodebuild build` invocation. Default of 30 min covers most clean builds of large apps; raise for very large monorepos, lower to fail fast in CI when builds are expected to take seconds. Without this, a hung `xcodebuild` would block forever. |
+| `IOS_SIM_TEST_TIMEOUT` | `2700` (s) | Hard cap on `xcodebuild test`. Tests can take significantly longer than builds (45 min default) because of simulator boot + animation delays. |
+| `IOS_SIM_INTROSPECT_TIMEOUT` | `60` (s) | Timeout for `xcodebuild -list` and `xcrun simctl list` introspection calls. These should normally complete in &lt;1s; 60s catches Xcode-toolchain hangs without disrupting cold-start. |
+
+### Log monitor output
+
+`log_monitor.py` aggregates `os_log` output; these caps shape both the text summary and the structured JSON.
+
+| Variable | Default | Tradeoff |
+|---|---|---|
+| `IOS_SIM_LOG_TEXT_SUMMARY` | `15` | Errors / warnings shown in the text summary. The default surfaces enough for most debugging without flooding terminal output. |
+| `IOS_SIM_LOG_LINE_MAX` | `300` (chars) | Per-line truncation. Crash messages with full Swift symbol mangling can exceed 200 chars; raise if you see “…” cutting off the actionable bit. |
+| `IOS_SIM_LOG_TAIL` | `200` (lines) | Recent log lines shown in verbose mode and JSON `sample_logs`. Also used by xcode log excerpt. Lower for tighter context, higher for richer post-mortems. |
+| `IOS_SIM_LOG_JSON_CAP` | `100` | Max errors / warnings in JSON output. Raise if you're piping into a dashboard that needs the full picture. |
+| `IOS_SIM_HANG_PREDICATE` | _(default)_ | Override the `os_log` predicate used by `hang_watcher.py`. The default catches RunningBoard watchdog kills, explicit "Hang detected" messages, and main-thread hang annotations. Narrow it (e.g. `subsystem == "com.apple.runningboard"`) for major-hangs-only; broaden for noisier subsystems. |
+
+### UI navigation & screen mapping
+
+These shape what AI agents see when exploring a screen. They're the biggest direct lever on token consumption per navigation step.
+
+| Variable | Default | Tradeoff |
+|---|---|---|
+| `IOS_SIM_MAX_ELEMENTS` | `25` | Tappable elements listed by `navigator.py`. Default is enough for most screens; raise to `100+` for dense Settings-style screens or audit workflows. **High token impact** at high values. |
+| `IOS_SIM_SCREEN_BUTTONS_PREVIEW` | `15` | Button names in `screen_mapper.py` summary. |
+| `IOS_SIM_SCREEN_SECTION_ITEMS` | `10` | Items per section in `screen_mapper.py` summary. |
+| `IOS_SIM_APPS_PREVIEW` | `30` | Installed apps listed by `app_launcher.py` before truncation. |
+| `IOS_SIM_TAP_SETTLE_MS` | `500` (ms) | Delay after a tap before reading new state. Lower → faster navigation on snappy apps. Higher → safer on apps with heavy animations or async loading; raises end-to-end test runtime linearly. |
+| `IOS_SIM_RELAUNCH_DELAY_MS` | `1000` (ms) | Delay between terminate and re-launch in `app_launcher.py --restart`. Raise if you see relaunches catching the previous process still tearing down. |
+
+### Accessibility audit
+
+| Variable | Default | Tradeoff |
+|---|---|---|
+| `IOS_SIM_A11Y_TOP_ISSUES` | `10` | Top issues surfaced per audit. Default of 3 in older versions was almost always too aggressive for real-world apps. Raise for first-pass audits, lower for regression checks. |
+| `IOS_SIM_A11Y_LABEL_MAX` | `80` (chars) | Max chars of `AXLabel` retained in audit output. Custom localized labels often exceed 30 chars; 80 catches almost all. |
+
+### Progressive disclosure cache
+
+`ProgressiveCache` stores large outputs (build results, log dumps) keyed by short IDs so the default output stays minimal.
+
+| Variable | Default | Tradeoff |
+|---|---|---|
+| `IOS_SIM_CACHE_TTL_HOURS` | `1` | How long cache entries remain valid. Lower → fresher data on next retrieve, more re-runs. Higher → faster reruns in long CI pipelines, risk of stale results if simulator state changed. |
+| `IOS_SIM_CACHE_MAX_ENTRIES` | `500` | Hard cap; oldest entries (by mtime) are evicted on every `save()`. Prevents unbounded growth of `~/.ios-simulator-skill/cache/` in long-running environments. Raise only if you frequently need to retrieve entries older than ~500 saves. |
+
+### Examples
+
+```bash
+# Slow GitHub Actions macOS runner — give boot up to 10 minutes
+IOS_SIM_BOOT_TIMEOUT=600 python scripts/simctl_boot.py --wait-ready
+
+# Monorepo with hundreds of warnings — see them all in verbose mode
+IOS_SIM_BUILD_VERBOSE_CAP=500 python scripts/build_and_test.py --verbose
+
+# Complex Settings-style screen — return more tappable elements
+IOS_SIM_MAX_ELEMENTS=100 python scripts/navigator.py --list-tappable
+
+# Snappy app — cut tap-settle delay in half for faster E2E runs
+IOS_SIM_TAP_SETTLE_MS=250 python scripts/navigator.py --find-text "Login" --tap
+
+# Long CI pipeline — keep cache entries valid for the whole job
+IOS_SIM_CACHE_TTL_HOURS=8 python scripts/build_and_test.py --project MyApp.xcodeproj
+```
+
+You can also export the vars once for the whole session:
+
+```bash
+export IOS_SIM_BOOT_TIMEOUT=600
+export IOS_SIM_LOG_TAIL=500
+export IOS_SIM_MAX_ELEMENTS=50
+# … all subsequent scripts honor them
+```
+
+Parse errors fall back to the documented default with a warning on stderr — no scripts will crash on a malformed env var.
 
 ## Evaluation
 

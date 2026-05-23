@@ -109,11 +109,107 @@ provider_version() {
     claude --version 2>/dev/null | head -1
 }
 
-# Invocation function
+# Source the v7.5.19 Phase B claude-flags helper (idempotent).
+# shellcheck source=../autonomy/lib/claude-flags.sh
+_loki_claude_flags_helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/autonomy/lib/claude-flags.sh"
+if [ -f "$_loki_claude_flags_helper" ]; then
+    # shellcheck disable=SC1090
+    . "$_loki_claude_flags_helper"
+fi
+
+# Source the v7.5.22 Phase D mcp-config helper (idempotent).
+# shellcheck source=../autonomy/lib/mcp-config.sh
+_loki_mcp_config_helper="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/autonomy/lib/mcp-config.sh"
+if [ -f "$_loki_mcp_config_helper" ]; then
+    # shellcheck disable=SC1090
+    . "$_loki_mcp_config_helper"
+fi
+
+# Build the auto-derived flag array. Caller passes tier + complexity + primary model.
+# Values that the helper returns empty are dropped (no flag emitted).
+# Honors loki_claude_flag_supported() so we never pass a flag the installed CLI lacks.
+_loki_build_claude_auto_flags() {
+    local tier="${1:-development}"
+    local complexity="${2:-${LOKI_COMPLEXITY:-standard}}"
+    local primary="${3:-}"
+    _LOKI_CLAUDE_AUTO_FLAGS=()
+
+    # --effort: default-on derived from tier + complexity.
+    if type loki_effort_for_tier >/dev/null 2>&1 && loki_claude_flag_supported "--effort"; then
+        local effort
+        effort=$(loki_effort_for_tier "$tier" "$complexity")
+        if [ -n "$effort" ]; then
+            _LOKI_CLAUDE_AUTO_FLAGS+=("--effort" "$effort")
+        fi
+    fi
+
+    # --max-budget-usd: derived from LOKI_BUDGET_LIMIT minus spend.
+    if type loki_remaining_budget >/dev/null 2>&1 && loki_claude_flag_supported "--max-budget-usd"; then
+        local rem
+        rem=$(loki_remaining_budget)
+        if [ -n "$rem" ]; then
+            _LOKI_CLAUDE_AUTO_FLAGS+=("--max-budget-usd" "$rem")
+        fi
+    fi
+
+    # --fallback-model: derived from primary model alias.
+    if [ -n "$primary" ] && type loki_fallback_for_primary >/dev/null 2>&1 && loki_claude_flag_supported "--fallback-model"; then
+        local fb
+        fb=$(loki_fallback_for_primary "$primary")
+        if [ -n "$fb" ]; then
+            _LOKI_CLAUDE_AUTO_FLAGS+=("--fallback-model" "$fb")
+        fi
+    fi
+
+    # --exclude-dynamic-system-prompt-sections (Phase E, v7.5.20).
+    # Move per-machine sections (cwd, env, memory paths, git status) from the
+    # system prompt into the first user message. Improves cross-user prompt-cache
+    # reuse. Boolean flag: pass it OR do not, no value. Default ON when supported.
+    # Suppress with LOKI_DYNAMIC_PROMPT_SECTIONS=keep (for users who want the
+    # old behavior; the only opt-out lever for this flag).
+    if [ "${LOKI_DYNAMIC_PROMPT_SECTIONS:-auto}" != "keep" ] \
+       && loki_claude_flag_supported "--exclude-dynamic-system-prompt-sections"; then
+        _LOKI_CLAUDE_AUTO_FLAGS+=("--exclude-dynamic-system-prompt-sections")
+    fi
+
+    # --mcp-config (Phase D, v7.5.22). Variadic flag (Commander `<configs...>`):
+    # Claude expects SEPARATE argv elements per path, not one space-joined
+    # value. Per Dev-C parity concern -- spread each path as its own argv
+    # element so bash matches Bun's shape exactly. Loki bundle first, optional
+    # user overlay (~/.claude/mcp.json) second. Skip entirely if the bundle
+    # cannot be written so we never pass malformed paths.
+    if type loki_mcp_config_argv >/dev/null 2>&1 \
+       && loki_claude_flag_supported "--mcp-config"; then
+        local _mcp_argv
+        if _mcp_argv=$(loki_mcp_config_argv) && [ -n "$_mcp_argv" ]; then
+            _LOKI_CLAUDE_AUTO_FLAGS+=("--mcp-config")
+            # Split space-separated path list into individual argv elements.
+            # Both paths come from Loki-controlled writers (loki_mcp_config_path)
+            # or HOME expansion -- whitespace in paths is not supported here.
+            local _mcp_path
+            for _mcp_path in $_mcp_argv; do
+                _LOKI_CLAUDE_AUTO_FLAGS+=("$_mcp_path")
+            done
+        fi
+    fi
+
+    # --include-hook-events (Phase D, v7.5.22). Boolean flag; only valid
+    # when --output-format=stream-json (which the claude branch in
+    # autonomy/run.sh always uses). Default-on; opt out with
+    # LOKI_HOOK_EVENTS=off.
+    if [ "${LOKI_HOOK_EVENTS:-on}" != "off" ] \
+       && loki_claude_flag_supported "--include-hook-events"; then
+        _LOKI_CLAUDE_AUTO_FLAGS+=("--include-hook-events")
+    fi
+}
+
+# Invocation function (basic, no tier).
+# Auto-flags use development tier defaults.
 provider_invoke() {
     local prompt="$1"
     shift
-    claude --dangerously-skip-permissions -p "$prompt" "$@"
+    _loki_build_claude_auto_flags "development" "${LOKI_COMPLEXITY:-standard}" ""
+    claude --dangerously-skip-permissions "${_LOKI_CLAUDE_AUTO_FLAGS[@]}" -p "$prompt" "$@"
 }
 
 # Model tier to Task tool model parameter value
@@ -185,15 +281,30 @@ resolve_model_for_tier() {
         esac
     fi
 
+    # Phase I (v7.5.25): when ANTHROPIC_BASE_URL is set, the user is routing
+    # Claude Code to an alt-provider (OpenRouter, Ollama, LiteLLM, self-hosted).
+    # The alt-provider may not recognize the opus/sonnet/haiku aliases that
+    # only Anthropic resolves. Let the user override the resolved model name
+    # via LOKI_MODEL_OVERRIDE; it wins over all tier mapping. Bash and Bun
+    # routes honor the same env var.
+    if [ -n "${ANTHROPIC_BASE_URL:-}" ] && [ -n "${LOKI_MODEL_OVERRIDE:-}" ]; then
+        model="$LOKI_MODEL_OVERRIDE"
+    fi
+
     echo "$model"
 }
 
-# Tier-aware invocation (values are already aliases like opus/sonnet/haiku)
+# Tier-aware invocation (values are already aliases like opus/sonnet/haiku).
+# v7.5.19 Phase B: auto-derive --effort, --max-budget-usd, --fallback-model from existing Loki state.
+# v7.5.25 Phase I: ANTHROPIC_BASE_URL is passed through unchanged (Claude Code
+# reads it natively; we never strip or rewrite it). LOKI_MODEL_OVERRIDE wins
+# over tier-resolved model when an alt-provider endpoint is configured.
 provider_invoke_with_tier() {
     local tier="$1"
     local prompt="$2"
     shift 2
     local model
     model=$(resolve_model_for_tier "$tier")
-    claude --dangerously-skip-permissions --model "$model" -p "$prompt" "$@"
+    _loki_build_claude_auto_flags "$tier" "${LOKI_COMPLEXITY:-standard}" "$model"
+    claude --dangerously-skip-permissions --model "$model" "${_LOKI_CLAUDE_AUTO_FLAGS[@]}" -p "$prompt" "$@"
 }

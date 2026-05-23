@@ -22,6 +22,14 @@ test('collection docs keep JSON stdout separate from status logs', async () => {
   assert.match(skill, /Do not combine streams/);
 });
 
+test('collection docs include an exact scope-confirmation prompt', async () => {
+  const skill = await readFile(join(ROOT, 'SKILL.md'), 'utf-8');
+  assert.match(skill, /Use this prompt for `PROJECT_SCOPE_UNRESOLVED`, `SCOPE_UNRESOLVED`, or `PROJECT_SCOPE_MISMATCH`/);
+  assert.match(skill, /I can't safely identify the Vercel project and account for this audit yet\./);
+  assert.match(skill, /Please confirm the Vercel project name or ID and the team slug\/name/);
+  assert.match(skill, /before checking metrics/);
+});
+
 test('Observability Plus scanner-only instructions preserve separate stderr logs', async () => {
   const reference = await readFile(join(ROOT, 'references', 'observability-plus.md'), 'utf-8');
   assert.match(

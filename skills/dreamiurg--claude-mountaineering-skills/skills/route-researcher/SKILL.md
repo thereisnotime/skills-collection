@@ -53,7 +53,7 @@ Research Progress:
 2. **Search PeakBagger** using peakbagger-cli:
 
    ```bash
-   uvx --from git+https://github.com/dreamiurg/peakbagger-cli.git@v1.7.0 peakbagger peak search "{peak_name}" --format json
+   uvx --from "git+https://github.com/dreamiurg/peakbagger-cli.git@v1.10.0" peakbagger peak search "{peak_name}" --format json
    ```
 
    - Parse JSON output to extract peak matches
@@ -100,7 +100,7 @@ This phase must complete before Phase 3, as coordinates are required for weather
 Retrieve detailed peak information using the peak ID from Phase 1:
 
 ```bash
-uvx --from git+https://github.com/dreamiurg/peakbagger-cli.git@v1.7.0 peakbagger peak show {peak_id} --format json
+uvx --from "git+https://github.com/dreamiurg/peakbagger-cli.git@v1.10.0" peakbagger peak show {peak_id} --format json
 ```
 
 This returns structured JSON with:
@@ -139,16 +139,30 @@ uv run python fetch_conditions.py \
   --coordinates "{latitude},{longitude}" \
   --elevation {elevation_m} \
   --peak-name "{peak_name}" \
-  --peak-id {peak_id}
+  --peak-id {peak_id} \
+  --trailhead "{trailhead_lat},{trailhead_lon}" \
+  --distance-mi {round_trip_distance_mi} \
+  --gain-ft {total_gain_ft} \
+  --start-time "{HH:MM}" \
+  --waypoint "{lat1},{lon1}" --waypoint "{lat2},{lon2}"
 ```
+
+Optional args: `--trailhead` enables multi-county path sampling (trailhead→summit); hospital/ranger lookups always run from the summit regardless; `--distance-mi`/`--gain-ft` enable `time_estimates`; `--start-time` (with distance + gain) enables `itinerary`; `--waypoint` (2+) enables `bearings`.
 
 This returns JSON with:
 
-- **weather**: 7-day forecast with temperatures, precipitation, freezing levels
+- **weather**: 7-day forecast with temperatures, precipitation, freezing levels; each day includes `snow_line_note` (human-readable framing of freezing level as snow line) and `near_summit` (bool: true when freezing level within 2000 ft of summit)
 - **air_quality**: AQI ratings and any concerns
-- **daylight**: Sunrise, sunset, civil twilight
+- **daylight**: Full twilight table — `astronomical_dawn`, `nautical_dawn`, `civil_twilight` (dawn), `sunrise`, `sunset`, `civil_dusk`, `nautical_dusk`, `astronomical_dusk`; values are `null` at high latitudes when sun doesn't reach threshold (white nights); `daylight_hours`, `timezone`
+- **time_estimates**: Roped/unroped + 3-tier pacing (`roped_hr`, `unroped_hr`, `fast_hr`, `moderate_hr`, `leisurely_hr`) — only present when `--distance-mi` and `--gain-ft` CLI args are provided
+- **itinerary**: Trip schedule with safety signals (`start_time`, `summit_eta`, `turnaround_by`, `return_eta`, `total_hr`, `after_dark` bool, `dusk_cutoff`, `note`) — only present when `--start-time`, `--distance-mi`, AND `--gain-ft` are all provided; `after_dark: true` is a safety warning that must be prominently surfaced; `total_hr` is the full round-trip duration in hours
+- **bearings**: Navigation bearings between waypoints (`segments[]` with `bearing_deg`, `distance_mi`, `cumulative_distance_mi`; `total_distance_mi`) — only present when 2 or more `--waypoint "lat,lon"` args are provided
 - **avalanche**: NWAC region and URL for manual check
 - **peakbagger**: Ascent statistics and recent ascents (if peak_id provided)
+- **counties**: Counties traversed trailhead→summit (`counties[]` with `county_name`, `county_fips`, `state_name`, `state_code`); `sampled` bool and `sample_points` int indicate whether path sampling ran (requires `--trailhead`); without `--trailhead` only the summit county is returned
+- **nearest_hospital**: Nearest hospitals/ERs (`hospitals[]` with `name`, `lat`, `lon`, `distance_miles`, `emergency`, and `phone`/`website`/`address` when OSM has them); sorted emergency-first then by distance; max 3
+- **ranger_station**: Nearest ranger stations (`stations[]` with `name`, `lat`, `lon`, `distance_miles`, and `phone`/`website`/`address` when present) + optional `admin_district` (`district_name`, `forest_name`, `region`) when the summit coordinates intersect a USFS ranger district
+- **campgrounds**: Established campgrounds within ~12 mi (20 km) (`campgrounds[]` with `name`, `lat`, `lon`, `distance_miles`, `camp_type`, `backcountry`, `operator`, and `website` when present); backcountry/high camps are NOT included — extract those from trip reports
 - **gaps**: Any API failures noted for report
 
 **Run this in parallel with Step 3B** — include both the Bash command for fetch_conditions.py and all 3 Task calls in the same response turn to maximize parallelism.
@@ -173,29 +187,43 @@ Research from these sources: PeakBagger, SummitPost
 2. Extract route descriptions from peak page
 3. List recent ascents with trip reports:
    ```bash
-   uvx --from git+https://github.com/dreamiurg/peakbagger-cli.git@v1.7.0 peakbagger peak ascents {peak_id} --format json --with-tr --limit 20
+   uvx --from "git+https://github.com/dreamiurg/peakbagger-cli.git@v1.10.0" peakbagger peak ascents {peak_id} --format json --with-tr --limit 20
    ```
 
 4. Identify trip reports with content (word_count > 0)
 5. Fetch content for up to 5 recent trip reports using:
 
    ```bash
-   uvx --from git+https://github.com/dreamiurg/peakbagger-cli.git@v1.7.0 peakbagger ascent show {ascent_id} --format json
+   uvx --from "git+https://github.com/dreamiurg/peakbagger-cli.git@v1.10.0" peakbagger ascent show {ascent_id} --format json
    ```
 
 ## SummitPost Research
 
 1. Search: "{peak_name} site:summitpost.org"
 2. Use WebFetch to extract: route name, difficulty, approach, description, hazards
-3. If WebFetch fails, use:
+3. If WebFetch fails, use the fetching ladder:
 
    ```bash
+   # Fast path (httpx with browser-like headers, no browser)
    uv run python {repo_root}/skills/route-researcher/tools/cloudscrape.py "{url}"
+
+   # If the above returns {"error": ...} or content is blocked/JS-rendered:
+   uv run python {repo_root}/skills/route-researcher/tools/cloudscrape.py --render "{url}"
    ```
 
 ## Trip Report Extraction
 
-For each report fetched, extract: date, author, route conditions, gear mentioned, hazards.
+For each report fetched, extract:
+- date, author, route conditions, gear mentioned
+- **Hazards (extract explicitly and separately):**
+  - Rockfall zones: location on route, conditions, timing guidance mentioned
+  - Icefall/serac hazard: location, stability, pre-dawn/timing advice
+  - Cornice hazard: location, buildup direction, avoidance notes
+- **Terrain detail (extract if mentioned):**
+  - Downclimb sections: location, difficulty, rappel anchors if any
+  - River/stream crossings: location, flow conditions, ford difficulty
+  - Water sources: named locations, seasonal availability
+  - Named camps or bivy sites: name/location, exposure notes
 
 ## Output Format (return EXACTLY this JSON)
 
@@ -206,7 +234,9 @@ For each report fetched, extract: date, author, route conditions, gear mentioned
     {"source": "...", "name": "...", "difficulty": "...", "description": "...", "hazards": [...]}
   ],
   "trip_reports": [
-    {"source": "...", "date": "...", "author": "...", "url": "...", "summary": "...", "conditions": "...", "has_gpx": false}
+    {"source": "...", "date": "...", "author": "...", "url": "...", "summary": "...", "conditions": "...", "has_gpx": false,
+     "rockfall": "...", "icefall": "...", "cornices": "...",
+     "downclimbs": "...", "crossings": "...", "water_sources": "...", "camps": "..."}
   ],
   "gaps": ["what couldn't be fetched and why"]
 }
@@ -214,7 +244,7 @@ For each report fetched, extract: date, author, route conditions, gear mentioned
 )
 ```
 
-**Agent 2: WTA + Mountaineers**
+**Agent 2: WTA + Mountaineers + Regional Sources**
 
 ```
 Task(
@@ -223,15 +253,19 @@ Task(
   prompt="""You are a route researcher gathering mountaineering data for {peak_name}.
 
 ## Your Assignment
-Research from these sources: WTA, Mountaineers.org
+Research from these sources: WTA, Mountaineers.org, northwesthikers.net, hikeoftheweek.com, Oregon Hikers Field Guide (oregonhikers.org), Cascade Climbers (cascadeclimbers.com), Mountain Project
 
 ## WTA Research
 1. Search: "{peak_name} site:wta.org"
 2. Find the hike page and extract: trail name, difficulty, distance, elevation gain, hazards
 3. Get trip reports from AJAX endpoint: {wta_url}/@@related_tripreport_listing
-4. Fetch content for up to 5 recent trip reports using:
+4. Fetch content for up to 5 recent trip reports using the fetching ladder:
    ```bash
+   # Fast path first
    uv run python {repo_root}/skills/route-researcher/tools/cloudscrape.py "{trip_report_url}"
+
+   # If output contains {"error": ...} or content is blocked/JS-rendered:
+   uv run python {repo_root}/skills/route-researcher/tools/cloudscrape.py --render "{trip_report_url}"
    ```
 
 ## Mountaineers Research
@@ -239,20 +273,71 @@ Research from these sources: WTA, Mountaineers.org
 1. Search: "{peak_name} site:mountaineers.org route"
 2. Extract route beta, technical requirements, hazards
 
+## NWHikers Research (northwesthikers.net / nwhikers.net)
+
+1. Search: "{peak_name} site:nwhikers.net OR site:northwesthikers.net"
+2. Use WebFetch to extract first-person trip reports, GPS track notes, conditions
+3. If WebFetch fails, use `cloudscrape.py "{url}"` (fast path usually sufficient)
+
+## Hike of the Week (hikeoftheweek.com — REQUIRES --render)
+
+1. Search: "{peak_name} site:hikeoftheweek.com"
+2. **MUST use `--render` flag** — site is Cloudflare-protected and blocks WebFetch:
+
+   ```bash
+   uv run python {repo_root}/skills/route-researcher/tools/cloudscrape.py --render "{url}"
+   ```
+
+3. Extract: logistics, route narrative, access notes, trailhead directions
+
+## Oregon Hikers Field Guide (oregonhikers.org — Oregon objectives only)
+
+1. Search: "{peak_name} site:oregonhikers.org"
+2. Use WebFetch — site is static MediaWiki HTML, WebFetch-friendly
+3. Extract: route description, access, permits, conditions notes
+
+## Cascade Climbers (cascadeclimbers.com)
+
+1. Search: "{peak_name} site:cascadeclimbers.com"
+2. Use WebFetch; if blocked use `cloudscrape.py "{url}"`
+3. Extract: technical route beta, gear lists, trip reports, conditions
+
+## Mountain Project (for technical/rock sections)
+
+1. Search: "{peak_name} site:mountainproject.com"
+2. Use WebFetch to extract: route name, grade, gear, description, rock quality
+3. If WebFetch fails, use `cloudscrape.py "{url}"`
+
 ## Fallback
 
-If WebFetch fails for any page, use cloudscrape.py as shown above.
+If WebFetch fails for any page, use the fetching ladder: `cloudscrape.py "{url}"` (fast) → `cloudscrape.py --render "{url}"` for JS-rendered or Cloudflare-protected pages.
+
+## Trip Report Extraction
+
+For each report fetched, extract:
+- date, author, route conditions, gear mentioned
+- **Hazards (extract explicitly and separately):**
+  - Rockfall zones: location on route, conditions, timing guidance mentioned
+  - Icefall/serac hazard: location, stability, pre-dawn/timing advice
+  - Cornice hazard: location, buildup direction, avoidance notes
+- **Terrain detail (extract if mentioned):**
+  - Downclimb sections: location, difficulty, rappel anchors if any
+  - River/stream crossings: location, flow conditions, ford difficulty
+  - Water sources: named locations, seasonal availability
+  - Named camps or bivy sites: name/location, exposure notes
 
 ## Output Format (return EXACTLY this JSON)
 
 ```json
 {
-  "sources": ["WTA", "Mountaineers"],
+  "sources": ["WTA", "Mountaineers", "NWHikers", "HikeOfTheWeek", "OregonHikers", "CascadeClimbers", "MountainProject"],
   "route_info": [
     {"source": "...", "name": "...", "difficulty": "...", "description": "...", "hazards": [...]}
   ],
   "trip_reports": [
-    {"source": "...", "date": "...", "author": "...", "url": "...", "summary": "...", "conditions": "...", "has_gpx": false}
+    {"source": "...", "date": "...", "author": "...", "url": "...", "summary": "...", "conditions": "...", "has_gpx": false,
+     "rockfall": "...", "icefall": "...", "cornices": "...",
+     "downclimbs": "...", "crossings": "...", "water_sources": "...", "camps": "..."}
   ],
   "gaps": ["what couldn't be fetched and why"]
 }
@@ -279,13 +364,19 @@ Research from AllTrails
    uv run python {repo_root}/skills/route-researcher/tools/cloudscrape.py "{url}"
    ```
 
+4. From route description and any visible reviews/comments, extract if present:
+   - Rockfall zones, icefall/serac hazard, cornice hazard
+   - Downclimb sections, river/stream crossings, water sources, named camps
+
 ## Output Format (return EXACTLY this JSON)
 
 ```json
 {
   "sources": ["AllTrails"],
   "route_info": [
-    {"source": "...", "name": "...", "difficulty": "...", "distance_miles": N, "elevation_gain_ft": N, "description": "...", "hazards": [...]}
+    {"source": "...", "name": "...", "difficulty": "...", "distance_miles": N, "elevation_gain_ft": N, "description": "...", "hazards": [...],
+     "rockfall": "...", "icefall": "...", "cornices": "...",
+     "downclimbs": "...", "crossings": "...", "water_sources": "...", "camps": "..."}
   ],
   "trip_reports": [],
   "gaps": ["what couldn't be fetched and why"]
@@ -317,18 +408,28 @@ After Python script and all agents return, aggregate into unified data structure
 - Note failed sources in the gaps array
 - Minimum viable: conditions data + at least one route source
 
-#### Step 3D: Access and Permits (Inline)
+#### Step 3D: Access, Permits, and Road/Gate Status (Inline)
 
-Run WebSearch for access information:
+Determine permits AND the **current road/gate status** to the trailhead — do not just tell the user to go check. Actively research and report the actual status with a source and date.
+
+**Permits:**
 
 ```
-WebSearch queries:
-1. "{peak_name} trailhead access"
-2. "{peak_name} permit requirements"
-3. "{peak_name} forest service road conditions"
+WebSearch: "{peak_name} trailhead access" ; "{peak_name} permit requirements"
 ```
 
-Extract trailhead names, required permits, access notes. Add to route_data.
+**Road / gate status workflow** (identify the access highway + forest road + managing agency first, then check sources in order; capture each source URL for the report):
+
+1. **State DOT pass report** (WA → WSDOT): fetch the relevant pass page, e.g. `https://wsdot.com/travel/real-time/mountainpasses/mt.-baker` (SR-542) or `.../north-cascades` (SR-20). Read `RoadCondition` / `TravelAdvisoryActive` / restrictions. Other states: `WebSearch "{state} DOT mountain pass report {highway}"`.
+2. **USFS forest alerts/conditions**: fetch `https://www.fs.usda.gov/{region}/{forest-shortname}/alerts` (e.g. `r06/mbs/alerts`) and `/conditions`; search the page for the road number / trailhead name → closure milepost, reason, seasonal gate. Also `WebSearch "{forest name} {road or trailhead} road open {year}"` for seasonal-opening press releases.
+3. **NPS road conditions** (if in/through a national park): fetch `https://www.nps.gov/{park-code}/planyourvisit/road-conditions.htm` (e.g. `noca`, `mora`, `olym`) → per-road OPEN/CLOSED + milepost.
+4. **WTA ground truth** (PNW): `WebSearch "site:wta.org {trail} gate road open closed {year}"` or fetch the hike page; scan the 3-5 most recent trip reports for "gate"/"road open/closed"/"drove to" (use `cloudscrape.py --render` if WTA 403s).
+5. **InciWeb fire closures** (Jul-Oct): `WebSearch "inciweb {area} closure {trailhead} {year}"`; if an active incident is near the trailhead, read its closure page.
+
+**Synthesize** into a dated status statement for the report's Road Conditions section:
+> "Gate/road status (as of {date}): {road} is {OPEN/CLOSED/SEASONAL GATE/UNKNOWN} per [source](url). {If closed: gate at {milepost}, adds ~{N} mi each way.}"
+
+If no source confirms it, say so explicitly and include the managing ranger station phone as the fallback. Add trailhead names, permits, the status statement, and all source URLs to route_data.
 
 ### Phase 4: Route Analysis
 
@@ -360,15 +461,26 @@ Based on route descriptions, elevation, and gear mentions, classify as:
 3. **Note conflicts** when trip reports disagree with published info
 4. **Highlight consensus** ("Multiple reports mention...")
 5. **Include specifics** (elevations, locations, quotes)
+6. **Link every specific-report attribution to its source.** Whenever a detail is drawn from a *particular* trip/climb report (a date, a quote, "one party found…", "a recent report noted…"), the attribution MUST be a Markdown hyperlink to that report's URL — never plain text. Carry each trip report's `url` (and date/author) through synthesis so it can be linked; use the date/author as the link text. For consensus phrasing ("multiple reports mention…"), link 2-3 of the contributing reports inline. Only general/published beta with no specific source stays unlinked.
 
 **Example (Route Description):**
-> "The standard route follows the East Ridge (Class 3). Multiple trip reports mention a well-cairned use trail branching right at 4,800 ft—this is the correct turn. The use trail climbs through talus (described as 'tedious' and 'ankle-rolling'). In early season, this section may be snow-covered, requiring microspikes."
+> "The standard route follows the East Ridge (Class 3). A [Sep 2025 party](https://www.peakbagger.com/climber/ascent.aspx?aid=12345) found a well-cairned use trail branching right at 4,800 ft—the correct turn—through talus they called 'tedious' and 'ankle-rolling'. An [Oct 2025 report](https://www.wta.org/go-hiking/trip-reports/trip_report.123) noted the section was snow-covered, requiring microspikes."
 
 **Apply this pattern to:**
 
 - **Route:** Use baseline structure, add landmarks/navigation from trip reports, include actual times
 - **Crux:** Describe location/difficulty, add trip report assessments, note conditions-dependent variations
-- **Hazards:** Extract ALL hazards from trip reports (rockfall, exposure, route-finding, seasonal), organize by type, include specific locations and mitigation strategies. Be comprehensive—safety-critical.
+- **Hazards:** Extract ALL hazards from trip reports. Organize by type with explicit, SEPARATE sub-sections — do NOT bury rockfall or icefall under generic "exposure":
+  - **Rockfall:** tag location, trigger (other parties / freeze-thaw / sun hitting the face), timing mitigation (pre-dawn passage, move quickly through zone)
+  - **Icefall/Serac:** tag location, stability assessment, timing mitigation (avoid afternoon, pre-dawn passage)
+  - **Cornice:** tag location, avoidance line, conditions (buildup direction, season)
+  - Other hazards (crevasses, exposure, route-finding, seasonal) as separate bullets
+  - Be comprehensive — safety-critical; include specific locations and mitigation strategies
+- **Terrain detail:** Surface the following in the report when found in trip reports/beta:
+  - Downclimbs: location, difficulty, whether rappel anchors exist
+  - River/stream crossings: location, seasonal flow, ford difficulty
+  - Water sources: named locations and per-day availability by season
+  - Named camps/bivy sites: name, location, exposure; note these come from trip reports, not the campground database
 
 **Extract Key Information:**
 
@@ -380,22 +492,31 @@ From all synthesized data, identify:
 - **Notable Gear:** Any unusual or important gear mentioned in trip reports or beta (to be included in relevant sections, not as standalone section)
 - **Trailhead:** Name and approximate location
 - **Distance/Gain:** Round-trip distance and elevation gain (compare published vs actual trip report data)
-- **Time Estimates:** Calculate three-tier pacing based on distance and gain:
-  - **Fast pace:** Calculate based on 2+ mph and 1000+ ft/hr gain rate
-  - **Moderate pace:** Calculate based on 1.5-2 mph and 700-900 ft/hr gain rate
-  - **Leisurely pace:** Calculate based on 1-1.5 mph and 500-700 ft/hr gain rate
-  - Use the **slower** of distance-based or gain-based calculations for each tier
-  - Example: For 4 miles round-trip, 2700 ft gain:
-    - Fast: max(4mi/2mph, 2700ft/1000ft/hr) = max(2hr, 2.7hr) = ~3 hours
-    - Moderate: max(4mi/1.5mph, 2700ft/800ft/hr) = max(2.7hr, 3.4hr) = ~3-4 hours
-    - Leisurely: max(4mi/1mph, 2700ft/600ft/hr) = max(4hr, 4.5hr) = ~4-5 hours
+- **Time Estimates:** Use `conditions.time_estimates` (keys: `fast_hr`, `moderate_hr`, `leisurely_hr`, `roped_hr`, `unroped_hr`) from fetch_conditions.py output — present only when it was called with `--distance-mi` and `--gain-ft`. If `time_estimates` is absent from the conditions data, note it in Information Gaps. **To populate it:** re-invoke fetch_conditions.py with `--distance-mi {distance}` and `--gain-ft {gain}` once route distance/gain are known from Step 3B research. At the same time, add `--start-time HH:MM` to get `itinerary` and `--waypoint` args to get `bearings` — these optional outputs only activate when the args are supplied.
 - **Freezing Level Analysis:** Compare peak elevation with forecasted freezing levels:
   - **Include Freezing Level Alert if:** Any day in forecast has freezing level within 2000 ft of peak elevation
   - **Omit if:** Freezing level stays >2000 ft above peak throughout forecast (typical summer conditions)
   - Example: 5,469 ft peak with 5,000-8,000 ft freezing levels → Include alert (marginal conditions)
   - Example: 4,000 ft peak with 10,000+ ft freezing levels → Omit alert (well above summit)
 
-#### Step 4C: Identify Information Gaps
+#### Step 4C: Surface Geodata in Report
+
+Include these geodata fields when available. **Every place named in the report must be a link** — see the link patterns below.
+
+**Place / map link patterns** (build from a place's `lat`/`lon` and `name`):
+
+- Google Maps **place** (named entity): `https://www.google.com/maps/search/?api=1&query={URL-encoded name + address}` — use this (not bare coordinates) for hospitals, ranger stations, campgrounds, and any named place, so the link resolves to the actual entity. When only coordinates are meaningful, `query={lat},{lon}`.
+- Gaia GPS: `https://www.gaiagps.com/map/?loc=14/{lon}/{lat}` (zoom/lon/lat).
+- CalTopo: `https://caltopo.com/map.html#ll={lat},{lon}&z=14&b=mbt`.
+
+Surfacing rules:
+
+- **Counties:** list `county_name + state_name` from `conditions.counties.counties[]` in the Overview. Empty/`error` → Information Gaps.
+- **Emergency contacts:** build the table from `conditions.nearest_hospital.hospitals[]` and `conditions.ranger_station` (stations + admin_district). **Link each name** to its `website` if present, else a Google Maps place search by `name + address`. **Always include phone AND address columns** — each entry now carries `phone`/`website`/`address`/`lat`/`lon` when OSM has them; if `phone` or `address` is missing, make a best effort to find the entity's real phone/address (its official site or Google Maps listing) before writing "—". Missing/`error` → note in Information Gaps.
+- **Campgrounds:** build the Camping table from `conditions.campgrounds.campgrounds[]`; link the name (website or Google Maps place) and add Google Maps + Gaia map links from each entry's `lat`/`lon`.
+- **Any named location report-wide** (campsite, bivy, high camp, named feature, trailhead): accompany with at least Google Maps + Gaia links, per the patterns above. For trip-report-named camps without coordinates, use a Google Maps place search by name and do your best to locate it; if it cannot be located, say so explicitly. Backcountry/high camps come from trip reports, not the campground DB.
+
+#### Step 4D: Identify Information Gaps
 
 Explicitly document what data was **not found or unreliable:**
 
@@ -425,11 +546,18 @@ Organize all gathered and analyzed data into structured JSON:
   },
   "conditions": {
     // From fetch_conditions.py output
-    "weather": {...},
+    "weather": {"forecast": [{"date": "...", "snow_line_note": "...", "near_summit": bool, "freezing_level_ft": N, ...}], ...},
     "air_quality": {...},
-    "daylight": {...},
+    "daylight": {"astronomical_dawn": "...", "nautical_dawn": "...", "civil_twilight": "...", "sunrise": "...", "sunset": "...", "civil_dusk": "...", "nautical_dusk": "...", "astronomical_dusk": "...", "daylight_hours": N},
     "avalanche": {...},
-    "peakbagger": {...}
+    "peakbagger": {...},
+    "counties": {"counties": [{"county_name": "...", "county_fips": "...", "state_name": "...", "state_code": "..."}], "sampled": bool, "sample_points": N},  // sampled + sample_points only present when --trailhead was given
+    "nearest_hospital": {"hospitals": [{"name": "...", "lat": N, "lon": N, "distance_miles": N, "emergency": "yes|null", "phone": "...", "website": "...", "address": "..." /* phone/website/address optional */}]},
+    "ranger_station": {"stations": [{"name": "...", "lat": N, "lon": N, "distance_miles": N, "phone": "...", "website": "...", "address": "..." /* optional */}], "admin_district": {"district_name": "...", "forest_name": "...", "region": "..."}},
+    "campgrounds": {"campgrounds": [{"name": "...", "lat": N, "lon": N, "distance_miles": N, "camp_type": "...", "operator": "...", "website": "..." /* optional */}], "note": "..."},
+    "time_estimates": {"roped_hr": N, "unroped_hr": N, "fast_hr": N, "moderate_hr": N, "leisurely_hr": N, "note": "..."},
+    "itinerary": {"start_time": "HH:MM", "summit_eta": "HH:MM", "turnaround_by": "HH:MM", "return_eta": "HH:MM", "total_hr": N, "after_dark": false, "dusk_cutoff": "9:15 PM" /* 12-hr AM/PM format, unlike other time fields */, "note": "..."},
+    "bearings": {"segments": [{"from": 0, "to": 1, "bearing_deg": N, "distance_mi": N, "cumulative_distance_mi": N}], "total_distance_mi": N}
   },
   "route_data": {
     // Merged from all Researcher agents
@@ -442,7 +570,6 @@ Organize all gathered and analyzed data into structured JSON:
     "difficulty": "{rating}",
     "crux": "{description}",
     "hazards": [...],
-    "time_estimates": {...},
     "access": {...}
   },
   "gaps": [...]
@@ -480,6 +607,7 @@ Task(
    - Use `-` for bullets (not `*` or `+`)
    - Use `**text**` for bold emphasis
    - Break paragraphs >4 sentences
+   - **Link specific-report attributions.** Any statement attributed to a particular trip/climb report (a date, a quote, "one party…", "a recent report…") MUST be a Markdown link `[date/author](report_url)` to that report's source URL — never plain-text attribution. Pull the URL from the matching `trip_reports[].url` in the data package. Leave only generic/published beta (no specific source) unlinked.
 
 4. **Save the report:**
    Use the Write tool to save to the user's current working directory: {date}-{peak-name-slug}.md
@@ -553,6 +681,12 @@ Task(
    - Critical hazards properly emphasized
    - Users directed to verify information from primary sources
 
+   **Emergency contacts & location links (verify INDEPENDENTLY):**
+   - Each emergency contact (hospital, ranger station) has a working name link (website or a Google Maps place link to the actual entity — NOT bare coordinates), a phone, and an address. Independently confirm the phone/address look right for that named entity (e.g. via its official site / Google Maps); fix or flag mismatches and fill blanks you can confirm.
+   - Road/gate status is a dated statement with a cited source, not a "go check it yourself" punt.
+   - Every named place in the report (campsite, bivy, high camp, trailhead, named feature) carries map links (Google Maps + Gaia GPS). Flag any named location missing links.
+   - Specific trip-report attributions are hyperlinks to their source, not plain text.
+
 3. **Fix issues:**
    - **Critical** (safety errors, factual errors, missing disclaimers): MUST fix using Edit tool
    - **Important** (completeness, consistency): SHOULD fix
@@ -596,6 +730,8 @@ Report to user:
    - Review the report
    - Verify critical information from primary sources
    - Check current conditions before attempting route
+   - **Itinerary and navigation**: If the user wants a start-time schedule and/or compass bearings, re-run `fetch_conditions.py` with `--start-time HH:MM` (adds `itinerary` key) and/or `--waypoint lat,lon` flags (2+ waypoints add `bearings` key). Surface `after_dark: true` as a prominent safety warning.
+   - **Post-climb trip report**: After the climb, offer the trip-report template at `skills/route-researcher/assets/trip-report-template.md` as a starting point for filing a trip report.
 
 **Example completion message:**
 
@@ -633,10 +769,10 @@ Throughout execution, follow these error handling guidelines:
 
 ### WebFetch/WebSearch Issues
 
-- **Universal fallback pattern:** Always try WebFetch first, then cloudscrape.py if it fails
-- **Automatic retry:** If WebFetch fails or returns incomplete data, immediately retry with cloudscrape.py
-- **Graceful degradation:** Missing one source shouldn't stop entire research
-- **Document gaps:** Note which sources were unavailable (both WebFetch AND cloudscrape.py failed)
+- **Fetching ladder:** WebFetch first → `cloudscrape.py "{url}"` (fast httpx, no browser) → `cloudscrape.py --render "{url}"` (Patchright stealth browser, for JS-rendered or Cloudflare-protected pages)
+- **When to use `--render`:** hikeoftheweek.com and any site where the default path returns `{"error": ...}` on stdout or where content is blocked/JS-rendered
+- **Graceful degradation:** Missing one source shouldn't stop entire research; cloudscrape.py exits 0 on failure
+- **Document gaps:** Note which sources were unavailable (WebFetch AND both cloudscrape.py paths failed)
 - **Prioritize safety:** If critical safety info (avalanche, hazards) unavailable, emphasize in gaps section
 
 ## Execution Timeouts
@@ -660,66 +796,14 @@ Every generated report must:
 
 ## Implementation Notes
 
-### Architecture (as of 2026-01-29)
+See `skills/route-researcher/docs/architecture.md` for detailed execution flow, component overview, data contracts, and design decisions.
 
-The route-researcher skill uses a hybrid architecture combining Python scripts and LLM agents:
-
-**Components:**
-
-- **Python script** (`tools/fetch_conditions.py`) - Deterministic API calls for weather, air quality, daylight, avalanche, and PeakBagger data
-- **Researcher agents** (3 total) - Web research for route info and trip reports from PeakBagger+SummitPost, WTA+Mountaineers, and AllTrails
-- **Report Writer agent** - Generates markdown reports from aggregated data
-- **Report Reviewer agent** - Validates report quality before presentation
-
-**Benefits:**
-
-- **Reduced token usage** - Python handles deterministic API calls with zero LLM tokens
-- **Parallel execution** - Phase 3 runs Python script + 3 researcher agents simultaneously
-- **Inline prompts** - Agent instructions embedded in SKILL.md for reliability
-- **Clear contracts** - JSON schemas define agent inputs and outputs
-
-See `skills/route-researcher/docs/architecture.md` for detailed execution flow and data contracts.
-
-### Current Status (as of 2026-01-30)
-
-**Implemented:**
-
-- **peakbagger-cli** integration for peak search, info, and ascent data
-- Python tools directory structure
-- Report generation in user's current working directory
-- **cloudscrape.py** - Universal fallback for WebFetch failures, works with ANY website including:
-  - Cloudflare-protected sites (SummitPost, PeakBagger, Mountaineers.org)
-  - AllTrails (when WebFetch fails)
-  - WTA (when WebFetch fails)
-  - Any other site that blocks or limits WebFetch access
-- **Two-tier fetching strategy:** WebFetch first, cloudscrape.py as automatic fallback
-- **Open-Meteo Weather API** for mountain weather forecasts (temperature, precipitation, freezing level, wind)
-- **Open-Meteo Air Quality API** for AQI forecasting (US AQI scale with conditional alerts)
-- Adaptive ascent data retrieval based on peak popularity
-- **astral Python library** for daylight calculations (sunrise, sunset, civil twilight, day length)
-- **High-quality trip report identification** across PeakBagger and WTA sources
-- **WTA AJAX endpoint** for trip report extraction (`{wta_url}/@@related_tripreport_listing`)
-- **Avalanche region detection** (inline in `fetch_conditions.py`) - NWAC region and URL by coordinates
-
-**Pending Implementation:**
-
-- **Browser automation** for Mountaineers.org and AllTrails trip report extraction (requires Playwright/Chrome)
-  - Current: Both sites load content via JavaScript, cloudscrape.py cannot extract
-  - Future: Add browser automation as 3rd-tier fallback
-
-**When Python scripts are not yet implemented:**
-
-- Note in "Information Gaps" section
-- Provide manual check links
-- Continue with available data
-- Don't block report generation
-
-### peakbagger-cli Command Reference (v1.7.0)
+### peakbagger-cli Command Reference (v1.10.0, git source)
 
 All commands use `--format json` for structured output. Run via:
 
 ```bash
-uvx --from git+https://github.com/dreamiurg/peakbagger-cli.git@v1.7.0 peakbagger <command> --format json
+uvx --from "git+https://github.com/dreamiurg/peakbagger-cli.git@v1.10.0" peakbagger <command> --format json
 ```
 
 **Available Commands:**
@@ -748,27 +832,44 @@ Common variations to try if initial search fails:
 - **Remove title:** "Baker" instead of "Mt Baker"
 - **Combine variations:** Try reversed order with title expansion (e.g., "Mountain Pratt" → "Pratt Mount" + "Pratt Mountain")
 
-### Google Maps and USGS Links
+### Navigation Map Links
 
 #### Summit Coordinates Links
 
-**Google Maps (for summit coordinates):**
+Build these centered on the summit (decimal degrees) for the report Overview line.
+
+**Google Maps:**
 
 ```
 https://www.google.com/maps/search/?api=1&query={latitude},{longitude}
 ```
 
-Example: `https://www.google.com/maps/search/?api=1&query=48.7768,-121.8144`
-
-**USGS TopoView (for summit coordinates):**
+**CalTopo** (MapBuilder Topo base, zoom 14):
 
 ```
-https://ngmdb.usgs.gov/topoview/viewer/#17/{latitude}/{longitude}
+https://caltopo.com/map.html#ll={latitude},{longitude}&z=14&b=mbt
 ```
 
-Example: `https://ngmdb.usgs.gov/topoview/viewer/#17/48.7768/-121.8144`
+**Gaia GPS** (order is zoom/longitude/latitude):
 
-**Note:** Use decimal degree format for coordinates. TopoView uses zoom level in URL (15-17 works well for peaks).
+```
+https://www.gaiagps.com/map/?loc=14/{longitude}/{latitude}
+```
+
+**PeakVisor hiking map** (zoom/latitude/longitude; slashes URL-encoded as `%2F` in the query):
+
+```
+https://peakvisor.com/hiking-map?custom=14%2F{latitude}%2F{longitude}#14/{latitude}/{longitude}
+```
+
+Example (Mt Baker, 48.7768, -121.8144):
+
+- Google Maps: `https://www.google.com/maps/search/?api=1&query=48.7768,-121.8144`
+- CalTopo: `https://caltopo.com/map.html#ll=48.7768,-121.8144&z=14&b=mbt`
+- Gaia GPS: `https://www.gaiagps.com/map/?loc=14/-121.8144/48.7768`
+- PeakVisor: `https://peakvisor.com/hiking-map?custom=14%2F48.7768%2F-121.8144#14/48.7768/-121.8144`
+
+**Note:** Use decimal degrees. Gaia GPS expects zoom/longitude/latitude order; CalTopo and PeakVisor use latitude then longitude.
 
 #### Trailhead Google Maps Links
 
@@ -792,4 +893,4 @@ Example: `https://www.google.com/maps/search/?api=1&query=Cascade+Pass+Trailhead
 
 ---
 
-**Skill Version:** 4.0.2 | **Last Updated:** 2026-01-30
+**Skill Version:** 5.1.0 | **Last Updated:** 2026-05-22

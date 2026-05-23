@@ -5,9 +5,9 @@ name: Phase 6 Readiness (weekly)
 # open issue with the `phase6-not-ready` label), opens a tracking issue.
 
 on:
-  schedule:
-    # Mondays at 08:00 UTC
-    - cron: '0 8 * * 1'
+  # schedule:
+  #   # Mondays at 08:00 UTC -- disabled 2026-05-22: issues disabled on repo, workflow_dispatch only
+  #   - cron: '0 8 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -92,6 +92,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Guard: skip issue creation when GitHub Issues are disabled on the repo.
+          # Artifact upload above is unaffected; this step exits 0 so the workflow stays green.
+          issues_enabled=$(gh repo view "$GITHUB_REPOSITORY" --json hasIssuesEnabled --jq .hasIssuesEnabled 2>/dev/null || echo "false")
+          if [ "$issues_enabled" != "true" ]; then
+            echo "INFO: GitHub Issues disabled for $GITHUB_REPOSITORY -- skipping issue creation (artifact still uploaded)"
+            exit 0
+          fi
           existing=$(gh issue list --label phase6-not-ready --state open --json number --jq '.[0].number' || echo "")
           if [ -n "$existing" ]; then
             echo "Existing tracking issue #$existing -- not opening a duplicate"

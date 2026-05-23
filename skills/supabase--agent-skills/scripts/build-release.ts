@@ -15,6 +15,16 @@ const DIST_DIR = join(ROOT, "dist")
 
 const SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
 
+const { GITHUB_SERVER_URL, GITHUB_REPOSITORY, RELEASE_TAG } = process.env
+if (!GITHUB_SERVER_URL || !GITHUB_REPOSITORY || !RELEASE_TAG) {
+  console.error("Missing required env: GITHUB_SERVER_URL, GITHUB_REPOSITORY, RELEASE_TAG")
+  process.exit(1)
+}
+
+function skillUrl(name: string): string {
+  return `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${name}.tar.gz`
+}
+
 function listFiles(dir: string, prefix = ""): string[] {
   const entries: string[] = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -73,7 +83,7 @@ for (const name of skillNames) {
 
   const digest = sha256File(artifactPath)
 
-  skills.push({ name, type: "archive", description: data.description, url: `${name}.tar.gz`, digest })
+  skills.push({ name, type: "archive", description: data.description, url: skillUrl(name), digest })
   console.log(`  ${name}: ${digest}`)
 }
 

@@ -6,13 +6,13 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="7.5.17"
+LABEL version="7.5.28"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="7.5.17"
-LABEL description="Loki Mode by Autonomi - Multi-agent autonomous startup system for Claude Code, Codex CLI, and Gemini CLI"
+LABEL org.opencontainers.image.version="7.5.28"
+LABEL description="Loki Mode by Autonomi - Multi-agent autonomous startup system for Claude Code, Codex CLI, Cline, and Aider"
 LABEL url="https://www.autonomi.dev/"
 
 # Prevent interactive prompts during install
@@ -104,11 +104,15 @@ COPY --chown=loki:loki templates/ ./templates/
 COPY --chown=loki:loki integrations/ ./integrations/
 COPY --chown=loki:loki completions/ ./completions/
 
-# Bun runtime artifacts: shim + pre-built TypeScript bundle.
+# Bun runtime artifacts: shim + pre-built TypeScript bundle + rolling data.
 # loki-ts/dist/loki.js is built by `bun run build` (see loki-ts/scripts/build.ts)
 # and committed to the repo; ~37 KiB minified.
+# loki-ts/data/ holds rolling tables (e.g. model-pricing.json) that budget.ts
+# reads at runtime -- shipping the dir keeps the JSON-as-source-of-truth
+# contract intact across Docker installs.
 COPY --chown=loki:loki bin/ ./bin/
 COPY --chown=loki:loki loki-ts/dist/ ./loki-ts/dist/
+COPY --chown=loki:loki loki-ts/data/ ./loki-ts/data/
 
 # Install dashboard Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \

@@ -88,6 +88,16 @@ if [ -z "${LOKI_TELEMETRY_DISABLED:-}" ] && [ "${DO_NOT_TRACK:-}" != "1" ] && [ 
     fi
 fi
 
+# v7.5.18: Guard against deprecated LOKI_PROVIDER=gemini before routing.
+# Fires for all commands (Bun-routed and bash-routed) so users get a clear
+# error regardless of which subcommand they invoke.
+if [ "${LOKI_PROVIDER:-}" = "gemini" ]; then
+    echo "Error: Provider 'gemini' is deprecated as of v7.5.18 and has been removed." >&2
+    echo "Active providers: claude, codex, cline, aider" >&2
+    echo "Unset LOKI_PROVIDER or use: LOKI_PROVIDER=claude" >&2
+    exit 1
+fi
+
 # Force-fall-through to bash when the rollback flag is set.
 if [ "${LOKI_LEGACY_BASH:-0}" = "1" ] || [ "${LOKI_LEGACY_BASH:-}" = "true" ]; then
     exec "$BASH_CLI" "$@"
@@ -103,9 +113,10 @@ fi
 # Two-token routes (provider show/list, memory list/index) match on the first
 # token only; the Bun dispatcher handles subcommand routing internally.
 case "${1:-}" in
-    version|--version|-v|status|stats|doctor|provider|memory|rollback|internal)
+    version|--version|-v|status|stats|doctor|provider|memory|rollback|internal|kpis)
         # v7.5.2: rollback added (wires loki-ts/src/commands/rollback.ts).
         # v7.5.3: internal added for autonomy/run.sh phase1-hooks calls.
+        # v7.5.28: kpis added (Phase K MVP: read-only KPI snapshot).
         exec bun "$BUN_CLI" "$@"
         ;;
     *)

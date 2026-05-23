@@ -1,7 +1,7 @@
 {
   "name": "loki-mode",
-  "version": "7.5.17",
-  "description": "Loki Mode by Autonomi. Multi-agent autonomous SDLC framework. Spec to deployed app: PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. 5 AI providers (Claude Code, OpenAI Codex, Google Gemini, Cline, Aider). 11 quality gates.",
+  "version": "7.5.28",
+  "description": "Loki Mode by Autonomi. Multi-agent autonomous SDLC framework. Spec to deployed app: PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. 4 AI providers (Claude Code, OpenAI Codex, Cline, Aider). 11 quality gates.",
   "keywords": [
     "agent",
     "agent-orchestration",
@@ -73,6 +73,7 @@
     "bin/",
     "bin/loki",
     "loki-ts/dist/",
+    "loki-ts/data/",
     "loki-ts/package.json",
     "api/",
     "events/",
@@ -124,7 +125,7 @@
     "@opentelemetry/exporter-trace-otlp-http": "^0.57.0"
   },
   "overrides": {
-    "protobufjs": ">=7.5.6"
+    "protobufjs": ">=8.4.2"
   },
   "devDependencies": {
     "@types/node": "^25.2.0",

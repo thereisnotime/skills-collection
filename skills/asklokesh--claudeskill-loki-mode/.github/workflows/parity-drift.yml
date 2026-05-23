@@ -126,6 +126,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Guard: skip issue creation when GitHub Issues are disabled on the repo.
+          # Artifact upload above is unaffected; this step exits 0 so the workflow stays green.
+          issues_enabled=$(gh repo view "$GITHUB_REPOSITORY" --json hasIssuesEnabled --jq .hasIssuesEnabled 2>/dev/null || echo "false")
+          if [ "$issues_enabled" != "true" ]; then
+            echo "INFO: GitHub Issues disabled for $GITHUB_REPOSITORY -- skipping issue creation (artifact still uploaded)"
+            exit 0
+          fi
           TITLE="Bun parity drift detected ($(date -u +%Y-%m-%d))"
           BODY_FILE=/tmp/parity/issue-body.md
           {
