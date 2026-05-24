@@ -755,6 +755,25 @@ app.add_middleware(
 from .api_v2 import router as api_v2_router
 app.include_router(api_v2_router)
 
+# Phase Merge-4: Mount Purple Lab FastAPI app under /lab/ so it appears as a
+# sidebar entry in Dashboard. Same `app` is also wrapped by `standalone_app`
+# in web-app/server.py for `loki web` (port 57375). One source of truth, no
+# duplicated UIs. Import is best-effort: if web-app is missing (e.g. partial
+# install) the dashboard still starts; /lab/* returns 404 with a clear hint.
+_PURPLE_LAB_MOUNTED = False
+try:
+    import sys as _sys
+    from pathlib import Path as _Path
+    _webapp_dir = _Path(__file__).resolve().parent.parent / "web-app"
+    if str(_webapp_dir) not in _sys.path:
+        _sys.path.insert(0, str(_webapp_dir))
+    import server as _purple_lab_server  # type: ignore[import-not-found]
+    app.mount("/lab", _purple_lab_server.app)
+    _PURPLE_LAB_MOUNTED = True
+    logger.info("Purple Lab mounted at /lab/ (Phase Merge-4)")
+except Exception as _e:  # noqa: BLE001
+    logger.warning("Purple Lab NOT mounted (Phase Merge-4): %s -- /lab/ will 404", _e)
+
 
 # Health endpoint
 @app.get("/health")
@@ -2670,6 +2689,167 @@ async def get_memory_timeline():
 
 
 # ---------------------------------------------------------------------------
+# Memory File Browser (v7.6.0) - generic drill-down into .loki/memory/
+# ---------------------------------------------------------------------------
+# Exposes raw episodic/learnings/ledgers/handoffs files plus root-level
+# notes (decisions.md, mistakes.md, patterns.md, investigation-*.md, etc.)
+# so the dashboard can let users click through what the agent has stored.
+#
+# Safety: type is a whitelisted enum; path is validated by resolving against
+# the memory directory and rejecting anything outside it (also rejects
+# absolute paths and ".." segments before resolution).
+
+_MEMORY_FILE_TYPES = {
+    "episodic": "episodic",
+    "learnings": "learnings",
+    "ledgers": "ledgers",
+    "handoffs": "handoffs",
+    "semantic": "semantic",
+    "skills": "skills",
+    "root": "",  # files directly under .loki/memory/
+}
+
+_MEMORY_FILE_MAX_BYTES = 2 * 1024 * 1024  # 2 MiB cap per file read
+
+
+def _safe_memory_path(rel_path: str) -> _Path:
+    """Resolve rel_path under .loki/memory/ and reject traversal attempts.
+
+    Raises HTTPException(400) on bad input, HTTPException(403) on traversal.
+    """
+    if not rel_path or not isinstance(rel_path, str):
+        raise HTTPException(status_code=400, detail="path required")
+    # Reject NULs and absolute paths up front
+    if "\x00" in rel_path or rel_path.startswith("/") or rel_path.startswith("\\"):
+        raise HTTPException(status_code=400, detail="invalid path")
+    # Reject explicit traversal segments before touching the filesystem
+    parts = rel_path.replace("\\", "/").split("/")
+    if any(p == ".." for p in parts):
+        raise HTTPException(status_code=403, detail="path traversal blocked")
+    memory_dir = _get_loki_dir() / "memory"
+    try:
+        real_memory = os.path.realpath(str(memory_dir))
+    except Exception:
+        raise HTTPException(status_code=500, detail="memory dir unavailable")
+    candidate = memory_dir / rel_path
+    try:
+        resolved = os.path.realpath(str(candidate))
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid path")
+    # Must live strictly under real_memory (not be it, not escape via symlink)
+    if not (resolved == real_memory or resolved.startswith(real_memory + os.sep)):
+        raise HTTPException(status_code=403, detail="path outside memory dir")
+    return _Path(resolved)
+
+
+@app.get("/api/memory/files", dependencies=[Depends(auth.require_scope("read"))])
+async def list_memory_files(
+    type: str = Query(default="root", description="One of: episodic, learnings, ledgers, handoffs, semantic, skills, root"),
+    limit: int = Query(default=500, ge=1, le=2000),
+):
+    """List files under a memory subdirectory.
+
+    Returns: {type, dir, files: [{path, name, size, modified, kind}]}
+    `path` is relative to .loki/memory/ and safe to pass back to /api/memory/file.
+    """
+    if type not in _MEMORY_FILE_TYPES:
+        raise HTTPException(status_code=400, detail=f"unknown type; expected one of {sorted(_MEMORY_FILE_TYPES)}")
+    sub = _MEMORY_FILE_TYPES[type]
+    memory_dir = _get_loki_dir() / "memory"
+    target_dir = memory_dir / sub if sub else memory_dir
+    if not target_dir.exists():
+        return {"type": type, "dir": str(target_dir), "files": []}
+
+    real_memory = os.path.realpath(str(memory_dir))
+    entries: list[dict[str, Any]] = []
+
+    if type == "root":
+        # Only files directly under .loki/memory/ (don't descend into subdirs)
+        iterator = (p for p in target_dir.iterdir() if p.is_file())
+    elif type == "episodic":
+        # Episodic is organized by date subdirectory; walk one level.
+        def _ep_iter():
+            for child in target_dir.iterdir():
+                if child.is_file():
+                    yield child
+                elif child.is_dir():
+                    for f in child.iterdir():
+                        if f.is_file():
+                            yield f
+        iterator = _ep_iter()
+    else:
+        # Flat directory listing (learnings, ledgers, handoffs, semantic, skills)
+        iterator = (p for p in target_dir.rglob("*") if p.is_file())
+
+    for f in iterator:
+        try:
+            resolved = os.path.realpath(str(f))
+            if not resolved.startswith(real_memory + os.sep):
+                continue  # skip symlinks escaping the memory dir
+            rel = os.path.relpath(resolved, real_memory)
+            st = f.stat()
+            entries.append({
+                "path": rel,
+                "name": f.name,
+                "size": st.st_size,
+                "modified": st.st_mtime,
+                "kind": f.suffix.lstrip(".").lower() or "txt",
+            })
+        except Exception:
+            continue
+        if len(entries) >= limit:
+            break
+
+    # Newest first
+    entries.sort(key=lambda e: e["modified"], reverse=True)
+    return {"type": type, "dir": str(target_dir), "files": entries}
+
+
+@app.get("/api/memory/file", dependencies=[Depends(auth.require_scope("read"))])
+async def get_memory_file(
+    path: str = Query(..., min_length=1, max_length=512, description="Path relative to .loki/memory/"),
+):
+    """Read a single file under .loki/memory/ with strict path-traversal guards.
+
+    Returns: {path, name, size, modified, kind, content, truncated}
+    JSON files are returned with content as a string; the caller can JSON.parse.
+    """
+    target = _safe_memory_path(path)
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="file not found")
+    if not target.is_file():
+        raise HTTPException(status_code=400, detail="not a file")
+    try:
+        st = target.stat()
+    except Exception:
+        raise HTTPException(status_code=500, detail="stat failed")
+    truncated = False
+    try:
+        if st.st_size > _MEMORY_FILE_MAX_BYTES:
+            with open(target, "rb") as fh:
+                raw = fh.read(_MEMORY_FILE_MAX_BYTES)
+            truncated = True
+        else:
+            with open(target, "rb") as fh:
+                raw = fh.read()
+        # Decode as UTF-8 with replacement so we never 500 on a stray byte.
+        content = raw.decode("utf-8", errors="replace")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"read failed: {e}")
+    return {
+        "path": path,
+        "name": target.name,
+        "size": st.st_size,
+        "modified": st.st_mtime,
+        "kind": target.suffix.lstrip(".").lower() or "txt",
+        "content": content,
+        "truncated": truncated,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Memory Search & Stats (v6.15.0) - SQLite FTS5 powered
 # ---------------------------------------------------------------------------
 
@@ -2843,9 +3023,20 @@ async def get_learning_metrics(
 
     total_count = len(events) + len(all_signals)
 
-    # Calculate average confidence across both sources
-    total_conf = sum(e.get("data", {}).get("confidence", 0) for e in events)
-    total_conf += sum(s.get("confidence", 0) for s in all_signals)
+    # Calculate average confidence across both sources. Coerce values to float
+    # because some legacy events/signals stored confidence as a string, which
+    # made sum() raise TypeError: unsupported operand type(s) for +: 'int' and 'str'.
+    # B-7 fix (v7.6.1): silently skip non-numeric confidence values.
+    def _as_num(v: object) -> float:
+        if isinstance(v, (int, float)):
+            return float(v)
+        try:
+            return float(v) if v is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    total_conf = sum(_as_num(e.get("data", {}).get("confidence", 0)) for e in events)
+    total_conf += sum(_as_num(s.get("confidence", 0)) for s in all_signals)
 
     # Load aggregation data from file if available
     aggregation = {
@@ -5016,6 +5207,46 @@ async def get_checklist():
         return {"status": "error", "categories": [], "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
 
 
+@app.get("/api/usage")
+async def get_usage_doc():
+    """v7.7.1 F-1 follow-up: return the auto-generated USAGE.md from the
+    project root so Dashboard + Lab can surface "how to run / test the app".
+
+    Returns {exists: bool, content: str|None, path: str, size: int, mtime: float}.
+    Path-traversal hardened: resolves to PROJECT_ROOT/USAGE.md verbatim, no
+    user-controlled path component. Reads up to 256 KiB; truncates with a
+    `truncated: true` flag if larger.
+    """
+    loki_dir = _get_loki_dir()
+    project_root = loki_dir.parent
+    usage_path = project_root / "USAGE.md"
+    out = {
+        "exists": False,
+        "content": None,
+        "path": str(usage_path),
+        "size": 0,
+        "mtime": 0.0,
+        "truncated": False,
+    }
+    if not usage_path.is_file():
+        return out
+    try:
+        st = usage_path.stat()
+        out["exists"] = True
+        out["size"] = st.st_size
+        out["mtime"] = st.st_mtime
+        MAX_BYTES = 256 * 1024  # 256 KiB cap
+        if st.st_size > MAX_BYTES:
+            out["truncated"] = True
+            with usage_path.open("r", encoding="utf-8", errors="replace") as f:
+                out["content"] = f.read(MAX_BYTES) + "\n\n... [truncated]"
+        else:
+            out["content"] = usage_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        out["error"] = str(e)
+    return out
+
+
 @app.get("/api/checklist/summary")
 async def get_checklist_summary():
     """Get checklist verification summary."""
@@ -6208,7 +6439,21 @@ async def get_escalation(filename: str):
 # ---------------------------------------------------------------------------
 @app.get("/{full_path:path}", include_in_schema=False)
 async def serve_spa_catchall(full_path: str):
-    """Serve static files or fall back to index.html for SPA routing."""
+    """Serve static files or fall back to index.html for SPA routing.
+
+    v7.6.1 B-10 fix: requests under /api/, /lab/api/, or /ws/ that fall through
+    here are missing routes, not SPA navigation. Returning index.html (text/html)
+    silently masks 404s and breaks JSON clients (the dashboard UI's loki-memory-browser
+    pinged /api/learning/metrics expecting JSON and got an HTML SPA on prior
+    failures). Return a JSON 404 instead so clients fail loud.
+    """
+    # API paths that fell through are real 404s, not SPA routes.
+    api_like = full_path.startswith("api/") or full_path.startswith("lab/api/") or full_path.startswith("ws/")
+    if api_like:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Not Found", "path": f"/{full_path}"},
+        )
     if STATIC_DIR:
         static_root = os.path.realpath(STATIC_DIR)
         # Try to serve the exact file first (e.g. /vite.svg, /manifest.json)

@@ -1,38 +1,38 @@
 #!/usr/bin/env python3
 """
-iOS Simulator Hang Watcher
+iOS Simulator Hang Watcher — featuring HangBuster session mode.
 
-Live os_log hang stream from iOS simulators. Parses hang events from Apple's
-RunningBoard subsystem and UIKit/SwiftUI thread-stall reports into structured
-records with timestamp, PID, process, and duration estimate.
+Two surfaces live in this file:
 
-Predicate covers:
-- Major hangs: com.apple.runningboard subsystem (process kills / watchdog)
-- Micro-hangs: SwiftUI / UIKit "Hang detected" messages
-- Tunable via env var: IOS_SIM_HANG_PREDICATE
+1. **HangWatcher** (legacy, --watch / --since) — passive os_log hang stream.
+   Backward-compatible with PR #75.
+2. **HangBuster** (new, --start / --stop / --get-details / --list-sessions /
+   --clear-sessions / --diff) — agent-native session recorder. Detaches a
+   worker, normalises and thresholds events on the fly, clusters at stop time,
+   emits a token-tight summary with progressive drill paths.
 
-Usage Examples:
-    # Watch for hangs for 60 seconds (default mode)
-    python scripts/hang_watcher.py --watch --duration 60
+The shared filter pipeline lives in ``common/hang_pipeline.py``; session
+storage in ``common/hang_sessions.py``.
 
-    # Watch a specific app
-    python scripts/hang_watcher.py --watch --bundle-id com.example.app
+Environment variables (all read by ``common.env_config.env_int``):
 
-    # Show hangs from the last 5 minutes as JSON
-    python scripts/hang_watcher.py --since 5m --json
-
-    # Override predicate
-    IOS_SIM_HANG_PREDICATE='subsystem == "com.apple.runningboard"' \\
-        python scripts/hang_watcher.py --watch --duration 30
+- ``IOS_SIM_HANG_PREDICATE``         Override the default log predicate
+- ``IOS_SIM_HANG_MIN_MS``            Min event duration kept (default 250)
+- ``IOS_SIM_HANG_SESSION_TTL_HOURS`` Session prune age (default 24)
+- ``IOS_SIM_HANG_DEFAULT_TOP_N``     Default top-N for ``--stop`` L1 (default 3)
+- ``IOS_SIM_HANG_BUDGET_TOKENS``     Optional default for ``--budget-tokens``
 """
 
 import argparse
+import contextlib
 import json
 import os
 import re
+import select
 import signal
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -43,6 +43,29 @@ if _script_dir not in sys.path:
 
 from common.cache_utils import ProgressiveCache  # noqa: E402
 from common.device_utils import resolve_device_identifier  # noqa: E402
+from common.env_config import env_int  # noqa: E402
+from common.hang_pipeline import (  # noqa: E402
+    build_normalised_event,
+    compress_to_budget,
+    diff_sessions,
+    event_to_jsonl,
+    format_cluster_detail,
+    format_diff,
+    format_l0,
+    format_l1,
+    format_l2,
+    summary_to_json,
+)
+from common.hang_pipeline import (  # noqa: E402
+    extract_duration_ms as _pipeline_extract_duration_ms,
+)
+from common.hang_pipeline import (  # noqa: E402
+    is_hang_message as _pipeline_is_hang_message,
+)
+from common.hang_pipeline import (  # noqa: E402
+    parse_log_line as _pipeline_parse_log_line,
+)
+from common.hang_sessions import SessionStore  # noqa: E402
 
 # === CONSTANTS ===
 
@@ -54,26 +77,12 @@ DEFAULT_HANG_PREDICATE = (
     'OR ((eventMessage CONTAINS[c] "main thread") AND (eventMessage CONTAINS[c] "hang"))'
 )
 
-# Patterns for parsing duration estimates from hang messages.
-# Matches: "2.5s", "250ms", "1.2 seconds", "800 milliseconds"
-_DURATION_PATTERNS = [
-    re.compile(r"(\d+(?:\.\d+)?)\s*s(?:econds?)?(?!\w)", re.IGNORECASE),
-    re.compile(r"(\d+(?:\.\d+)?)\s*ms(?:illiseconds?)?(?!\w)", re.IGNORECASE),
-]
-
-# os_log stream output columns:
-# 2024-01-15 10:23:45.123456-0800 0x1234 Default   0x0 1234 0 ProcessName: Message
-_LOG_LINE_PATTERN = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+(?:[+-]\d{4})?)"  # timestamp
-    r"\s+0x[\da-f]+"  # thread
-    r"\s+\S+"  # type
-    r"\s+0x[\da-f]+"  # activity
-    r"\s+(\d+)"  # PID
-    r"\s+\d+"  # TTL
-    r"\s+([^:]+):"  # process name
-    r"\s*(.*)",  # message
-    re.IGNORECASE,
-)
+# How many times the worker re-spawns ``log stream`` after an EOF / subprocess
+# death before giving up and marking the session crashed. Override via env var
+# IOS_SIM_HANG_MAX_RESTARTS.
+DEFAULT_MAX_STREAM_RESTARTS = 3
+# Backoff between restart attempts. Short — log stream usually recovers fast.
+RESTART_BACKOFF_SECONDS = 2.0
 
 
 def _compute_start_timestamp(duration_str: str) -> str:
@@ -142,7 +151,7 @@ class HangWatcher:
             True if stream ran without fatal errors.
         """
         resolved_udid = self._resolve_udid()
-        effective_predicate = self._resolve_predicate(predicate, bundle_id)
+        effective_predicate = _resolve_predicate(predicate)
         cmd = self._build_stream_cmd(resolved_udid, effective_predicate)
 
         if verbose or not json_mode:
@@ -151,7 +160,7 @@ class HangWatcher:
                 file=sys.stderr,
             )
             if bundle_id:
-                print(f"Filter: {bundle_id}", file=sys.stderr)
+                print(f"Post-parse filter: {bundle_id}", file=sys.stderr)
             print(f"Predicate: {effective_predicate}", file=sys.stderr)
 
         self._register_signal_handler()
@@ -238,7 +247,7 @@ class HangWatcher:
             True if command ran without fatal errors.
         """
         resolved_udid = self._resolve_udid()
-        effective_predicate = self._resolve_predicate(predicate, bundle_id)
+        effective_predicate = _resolve_predicate(predicate)
         start_timestamp = self._compute_start_timestamp(since_duration)
         cmd = self._build_show_cmd(resolved_udid, effective_predicate, start_timestamp)
 
@@ -320,26 +329,6 @@ class HangWatcher:
             print(f"Error: {error}", file=sys.stderr)
             sys.exit(1)
 
-    def _resolve_predicate(self, override: str | None, bundle_id: str | None) -> str:
-        """Return the active log predicate.
-
-        Priority: CLI --predicate > IOS_SIM_HANG_PREDICATE env var > DEFAULT.
-        Bundle ID is always ANDed in as a predicate clause when provided, regardless
-        of whether a custom predicate source is in use.
-        """
-        base = override or os.getenv("IOS_SIM_HANG_PREDICATE") or DEFAULT_HANG_PREDICATE
-
-        if bundle_id:
-            # Use /.app/ path segment for precise matching — avoids substring collisions
-            # (e.g. "Maps" matching "MapsExtension"). Falls back to process name.
-            app_name = bundle_id.rsplit(".", maxsplit=1)[-1]
-            bundle_clause = (
-                f'(processImagePath CONTAINS "/{app_name}.app/" OR process == "{app_name}")'
-            )
-            base = f"({base}) AND {bundle_clause}"
-
-        return base
-
     def _build_stream_cmd(self, udid: str, predicate: str) -> list[str]:
         """Build xcrun simctl spawn log stream command."""
         return [
@@ -369,66 +358,29 @@ class HangWatcher:
         ]
 
     def _parse_line(self, line: str) -> dict | None:
-        """Parse a single os_log line into a hang event dict.
+        """Parse a log line into a hang event dict. Delegates to ``hang_pipeline``.
 
-        Returns None if the line doesn't match expected format or isn't hang-related.
+        The legacy event dict carried ``duration_estimate_ms``; we map the
+        pipeline's ``duration_ms`` field back onto that name for backward compat.
         """
-        if not line.strip():
+        event = _pipeline_parse_log_line(line)
+        if event is None:
             return None
-
-        match = _LOG_LINE_PATTERN.match(line)
-        if not match:
-            return None
-
-        timestamp_str, pid_str, process_name, message = match.groups()
-        message = message.strip()
-
-        # Only surface lines that look like hang events
-        if not self._is_hang_message(message):
-            return None
-
-        event: dict = {
-            "timestamp": timestamp_str.strip(),
-            "pid": int(pid_str),
-            "process": process_name.strip(),
-            "message": message,
-        }
-
-        duration_ms = self._extract_duration_ms(message)
-        if duration_ms is not None:
-            event["duration_estimate_ms"] = duration_ms
-
+        if "duration_ms" in event:
+            event["duration_estimate_ms"] = event.pop("duration_ms")
         return event
 
     def _is_hang_message(self, message: str) -> bool:
-        """Return True if the message content describes a hang event."""
-        lower = message.lower()
-        return (
-            "hang" in lower
-            or "stall" in lower
-            or "unresponsive" in lower
-            or "watchdog" in lower
-            or "jetsam" in lower
-        )
+        """Delegate to ``hang_pipeline.is_hang_message``."""
+        return _pipeline_is_hang_message(message)
 
     def _extract_duration_ms(self, message: str) -> float | None:
-        """Parse hang duration from message text, returning milliseconds."""
-        # Try seconds pattern first (e.g., "2.5s", "1.2 seconds")
-        match = _DURATION_PATTERNS[0].search(message)
-        if match:
-            return float(match.group(1)) * 1000
-
-        # Try milliseconds pattern (e.g., "250ms")
-        match = _DURATION_PATTERNS[1].search(message)
-        if match:
-            return float(match.group(1))
-
-        return None
+        """Delegate to ``hang_pipeline.extract_duration_ms``."""
+        return _pipeline_extract_duration_ms(message)
 
     def _matches_bundle(self, event: dict, bundle_id: str) -> bool:
-        """Check if event process name matches the bundle ID."""
-        app_name = bundle_id.rsplit(".", maxsplit=1)[-1].lower()
-        return app_name in event.get("process", "").lower()
+        """Delegate to module-level ``matches_bundle`` (kept for legacy callers)."""
+        return matches_bundle(event, bundle_id)
 
     def _format_event(self, event: dict) -> str:
         """Format a hang event for human-readable terminal output."""
@@ -457,69 +409,858 @@ class HangWatcher:
         signal.signal(signal.SIGINT, handle_sigint)
 
 
+# === HANGBUSTER (session mode) ===
+
+
+def _resolve_predicate(predicate: str | None) -> str:
+    """Resolution chain: CLI override → env var → default.
+
+    Bundle filtering is *not* applied here — see ``matches_bundle()``. The
+    default hang predicate matches events from RunningBoard, SpringBoard, and
+    the watchdog, none of which run inside the target app's process. ANDing a
+    ``process == <app>`` clause silently drops the bulk of useful hang signal.
+    """
+    return predicate or os.getenv("IOS_SIM_HANG_PREDICATE") or DEFAULT_HANG_PREDICATE
+
+
+def matches_bundle(event: dict, bundle_id: str) -> bool:
+    """Check if a parsed log event's process name matches the bundle ID.
+
+    Applied post-parse so hang events from system processes (RunningBoard,
+    SpringBoard) still flow through the pipeline; ``--bundle-id`` narrows the
+    final output rather than the os_log predicate.
+    """
+    app_name = bundle_id.rsplit(".", maxsplit=1)[-1].lower()
+    return app_name in event.get("process", "").lower()
+
+
+class HangBuster:
+    """Session-mode façade.
+
+    Methods route to ``SessionStore`` + filter pipeline. The worker subprocess
+    re-enters this class via ``run_worker()``.
+    """
+
+    def __init__(self, store: SessionStore | None = None):
+        self.store = store or SessionStore()
+
+    # === PUBLIC API ===
+
+    def start(self, args: dict, udid: str | None) -> str:
+        """Create session, detach worker, return session_id once worker registers."""
+        self.store.prune_expired()
+        aggregate_cap_mb = env_int("IOS_SIM_HANG_TOTAL_CAP_MB", 100)
+        if aggregate_cap_mb > 0:
+            self.store.prune_to_aggregate_cap(aggregate_cap_mb * 1024 * 1024)
+        resolved_udid = self._resolve_udid(udid)
+        meta = self.store.create({**args, "udid": resolved_udid})
+        cmd = [
+            sys.executable,
+            __file__,
+            "--worker-session-id",
+            meta.session_id,
+        ]
+        # The detached worker survives parent exit. ``start_new_session=True``
+        # calls setsid() so the process group is independent of the controlling TTY.
+        subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
+        )
+        try:
+            self.store.wait_for_worker(meta.session_id, timeout_seconds=3.0)
+        except TimeoutError:
+            self.store.mark_crashed(meta.session_id)
+            raise RuntimeError(f"Worker did not register within 3s for {meta.session_id}") from None
+        return meta.session_id
+
+    def stop(
+        self,
+        session_id: str,
+        budget_tokens: int | None = None,
+        top_n: int | None = None,
+        terse: bool = False,
+        json_mode: bool = False,
+    ) -> str:
+        """Signal worker, drain, build summary, return formatted output."""
+        delivered = self.store.signal_worker(session_id, signal.SIGTERM)
+        if delivered:
+            # Give the worker up to 2s to flush + exit cleanly.
+            self._wait_for_worker_exit(session_id, timeout_seconds=2.0)
+        meta = self.store.load_meta(session_id)
+        line_counters = meta.extras.get("line_counters", {})
+
+        if meta.args.get("raw_capture"):
+            # Raw-capture sessions skip the clustering pipeline entirely.
+            return self._stop_raw_session(session_id, meta, line_counters, json_mode)
+
+        summary = self.store.build_summary(
+            session_id,
+            matched_lines=line_counters.get("matched", 0),
+            total_lines=line_counters.get("total", 0),
+            dropped_below_threshold=line_counters.get("dropped", 0),
+        )
+        # Apply default top_n at summary-write time — keeps ranked clusters bounded.
+        effective_top_n = top_n or env_int("IOS_SIM_HANG_DEFAULT_TOP_N", 3)
+        summary.clusters = summary.clusters[:effective_top_n]
+        self.store.stop(session_id, summary)
+        if json_mode:
+            return json.dumps(summary_to_json(summary), indent=2)
+        if terse:
+            return format_l0(summary)
+        budget = budget_tokens or env_int("IOS_SIM_HANG_BUDGET_TOKENS", 0) or None
+        return compress_to_budget(summary, max_tokens=budget, default_top_n=effective_top_n)
+
+    def _stop_raw_session(self, session_id: str, meta, line_counters: dict, json_mode: bool) -> str:
+        """Finalise a raw-capture session: gzip raw.ndjson, write status, report.
+
+        No summary.json is written for raw sessions — clustering is not applied.
+        ``--get-details`` redirects to the raw file.
+        """
+        import gzip
+        import shutil
+
+        raw_path = self.store.raw_path(session_id)
+        gz_path = self.store.raw_path(session_id, gzipped=True)
+        raw_bytes = raw_path.stat().st_size if raw_path.exists() else 0
+        no_gzip = bool(meta.args.get("no_gzip"))
+        final_path = raw_path
+        if not no_gzip and raw_path.exists() and raw_bytes > 0:
+            with open(raw_path, "rb") as src, gzip.open(gz_path, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            raw_path.unlink()
+            final_path = gz_path
+            meta.extras["raw_gzipped"] = True
+            meta.extras["raw_bytes_compressed"] = gz_path.stat().st_size
+
+        meta.extras["raw_bytes"] = raw_bytes
+        # Mark stopped without going through build_summary (no summary.json for raw).
+        meta.status = "stopped"
+        from datetime import datetime as _dt
+
+        now = _dt.now()
+        meta.stopped_at = now.isoformat()
+        meta.stopped_at_ms = int(now.timestamp() * 1000)
+        self.store._write_meta(meta)
+        truncated = bool(meta.extras.get("truncated"))
+        if json_mode:
+            return json.dumps(
+                {
+                    "session_id": session_id,
+                    "mode": "raw",
+                    "raw_path": str(final_path),
+                    "raw_bytes": raw_bytes,
+                    "raw_bytes_compressed": meta.extras.get("raw_bytes_compressed"),
+                    "truncated": truncated,
+                    "total_lines": line_counters.get("total", 0),
+                    "stream_restarts": line_counters.get("stream_restarts", 0),
+                },
+                indent=2,
+            )
+        size_mb = raw_bytes / (1024 * 1024)
+        gz_mb = (meta.extras.get("raw_bytes_compressed") or 0) / (1024 * 1024)
+        trunc_str = " [TRUNCATED at size cap]" if truncated else ""
+        gz_str = f" → {gz_mb:.2f} MB gzipped" if gz_path.exists() else ""
+        explore_cmd = "zcat" if gz_path.exists() else "cat"
+        return (
+            f"Session {session_id}: raw mode, {line_counters.get('total', 0)} lines, "
+            f"{size_mb:.2f} MB{gz_str}{trunc_str}\n"
+            f"Explore: {explore_cmd} {final_path} | jq ..."
+        )
+
+    def get_details(
+        self,
+        session_id: str,
+        cluster: int | None = None,
+        raw: bool = False,
+        resample: bool = False,
+        json_mode: bool = False,
+    ) -> str:
+        """Drill into a stored session. ``cluster`` is 1-indexed for human use."""
+        try:
+            meta = self.store.load_meta(session_id)
+        except FileNotFoundError:
+            return f"Unknown session: {session_id}"
+        if meta.args.get("raw_capture"):
+            # Raw sessions have no clusters — point at the file.
+            gz_path = self.store.raw_path(session_id, gzipped=True)
+            ndjson_path = self.store.raw_path(session_id)
+            target = gz_path if gz_path.exists() else ndjson_path
+            cmd = "zcat" if gz_path.exists() else "cat"
+            return f"Raw session — explore with: {cmd} {target} | jq ..."
+        summary = self.store.load_summary(session_id)
+        if summary is None:
+            return f"No summary for {session_id}. Run --stop first."
+        if raw:
+            return self._dump_raw_events(session_id)
+        if cluster is not None:
+            index = cluster - 1
+            if index < 0 or index >= len(summary.clusters):
+                return f"Cluster {cluster} out of range (1..{len(summary.clusters)})"
+            target = summary.clusters[index]
+            events = [
+                e for e in self.store.read_events(session_id) if e.fingerprint == target.fingerprint
+            ]
+            if resample:
+                target.auto_sample = _attempt_auto_sample(events[0].pid if events else 0)
+            if json_mode:
+                from common.hang_pipeline import cluster_to_json
+
+                return json.dumps(cluster_to_json(target), indent=2)
+            return format_cluster_detail(target, events)
+        if json_mode:
+            return json.dumps(summary_to_json(summary), indent=2)
+        return format_l2(summary)
+
+    def list_sessions(self, json_mode: bool = False) -> str:
+        metas = self.store.list_sessions()
+        if json_mode:
+            return json.dumps([m.to_json() for m in metas], indent=2)
+        if not metas:
+            return "No sessions stored."
+        lines = [f"Sessions: {len(metas)}"]
+        for meta in metas[:20]:
+            stopped = meta.stopped_at or "-"
+            counters = meta.extras.get("line_counters", {})
+            restarts = counters.get("stream_restarts", 0)
+            duration_s = (
+                (meta.stopped_at_ms - meta.started_at_ms) / 1000.0 if meta.stopped_at_ms else None
+            )
+            duration_str = f"  capture={duration_s:.1f}s" if duration_s is not None else ""
+            restart_str = f"  restarts={restarts}" if restarts else ""
+            raw_str = ""
+            if meta.args.get("raw_capture"):
+                size = meta.extras.get("raw_bytes_compressed") or meta.extras.get("raw_bytes") or 0
+                trunc = "T" if meta.extras.get("truncated") else "-"
+                raw_str = f"  raw={size / 1024 / 1024:.2f}MB(trunc:{trunc})"
+            lines.append(
+                f"  {meta.session_id}  {meta.status:8s}  started={meta.started_at}  "
+                f"stopped={stopped}{duration_str}{restart_str}{raw_str}"
+            )
+        if len(metas) > 20:
+            lines.append(f"  ... {len(metas) - 20} more")
+        return "\n".join(lines)
+
+    def clear_sessions(self, older_than: str | None = None, json_mode: bool = False) -> str:
+        deleted = self.store.clear(older_than=older_than)
+        if json_mode:
+            return json.dumps({"deleted": deleted, "older_than": older_than})
+        suffix = f" older than {older_than}" if older_than else ""
+        return f"Cleared {deleted} session(s){suffix}."
+
+    def diff(self, session_a: str, session_b: str, json_mode: bool = False) -> str:
+        summary_a = self.store.load_summary(session_a)
+        summary_b = self.store.load_summary(session_b)
+        if summary_a is None or summary_b is None:
+            missing = [s for s, x in [(session_a, summary_a), (session_b, summary_b)] if x is None]
+            return f"Missing summary.json for: {', '.join(missing)}"
+        result = diff_sessions(summary_a, summary_b)
+        if json_mode:
+            return json.dumps(result, indent=2)
+        return format_diff(result)
+
+    # === WORKER ===
+
+    def run_worker(self, session_id: str) -> int:
+        """Long-running worker entrypoint. Returns exit code.
+
+        Layout: claim meta → resolve predicate → open events.jsonl line-buffered
+        → for each restart attempt, spawn ``xcrun simctl spawn ... log stream``
+        and read lines until EOF or subprocess death. SIGTERM flushes and exits
+        cleanly. EOF / subprocess death triggers a bounded restart loop
+        (``IOS_SIM_HANG_MAX_RESTARTS``); on exhaustion the session is marked
+        ``crashed`` rather than left in stale ``running`` state.
+
+        In ``--raw-capture`` mode the worker spawns ``log stream --style ndjson``
+        and dumps raw lines to ``raw.ndjson`` instead of parsing into the
+        clustering pipeline. Same restart/crash semantics; additional size-cap
+        bail when the raw file exceeds ``max_size_mb``.
+        """
+        meta = self.store.claim_worker(session_id, pid=os.getpid())
+        args = meta.args
+        min_hang_ms = int(args.get("min_hang_ms", env_int("IOS_SIM_HANG_MIN_MS", 250)))
+        bundle_id = args.get("bundle_id")
+        predicate_override = args.get("predicate")
+        auto_sample = bool(args.get("auto_sample", False))
+        udid = args["udid"]
+        predicate = _resolve_predicate(predicate_override)
+        max_restarts = env_int("IOS_SIM_HANG_MAX_RESTARTS", DEFAULT_MAX_STREAM_RESTARTS)
+        raw_capture = bool(args.get("raw_capture", False))
+        max_size_bytes = int(args.get("max_size_mb", 10)) * 1024 * 1024 if raw_capture else 0
+
+        events_path = self.store.events_path(session_id)
+        counters = {"total": 0, "matched": 0, "dropped": 0, "stream_restarts": 0}
+        sampled_fingerprints: set[str] = set()
+        stop_flag = {"value": False}
+        cap_state = {"hit": False}  # set by raw reader when size cap exceeded
+
+        def _on_sigterm(_signum, _frame):
+            stop_flag["value"] = True
+
+        signal.signal(signal.SIGTERM, _on_sigterm)
+        signal.signal(signal.SIGINT, _on_sigterm)
+
+        cmd = ["xcrun", "simctl", "spawn", udid, "log", "stream", "--predicate", predicate]
+        if raw_capture:
+            cmd.extend(["--style", "ndjson"])
+
+        def _spawn_log_stream() -> subprocess.Popen:
+            return subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+            )
+
+        proc: subprocess.Popen | None = None
+        crashed = False
+        try:
+            with contextlib.ExitStack() as stack:
+                out_handle = stack.enter_context(open(events_path, "a", buffering=1))
+                raw_handle = (
+                    stack.enter_context(open(self.store.raw_path(session_id), "a", buffering=1))
+                    if raw_capture
+                    else None
+                )
+                for attempt in range(max_restarts + 1):
+                    if stop_flag["value"]:
+                        break
+                    if attempt > 0:
+                        counters["stream_restarts"] = attempt
+                        out_handle.write(
+                            json.dumps(
+                                {
+                                    "event": "stream_restart",
+                                    "attempt": attempt,
+                                    "at_ms": int(time.time() * 1000),
+                                }
+                            )
+                            + "\n"
+                        )
+                        out_handle.flush()
+                        time.sleep(RESTART_BACKOFF_SECONDS)
+                        if stop_flag["value"]:
+                            break
+                    try:
+                        proc = _spawn_log_stream()
+                    except FileNotFoundError:
+                        crashed = True
+                        break
+
+                    if raw_capture:
+                        exit_code = self._read_stream_into_raw(
+                            proc=proc,
+                            raw_handle=raw_handle,
+                            stop_flag=stop_flag,
+                            counters=counters,
+                            max_size_bytes=max_size_bytes,
+                            session_id=session_id,
+                            cap_state=cap_state,
+                        )
+                    else:
+                        exit_code = self._read_stream_into_events(
+                            proc=proc,
+                            out_handle=out_handle,
+                            stop_flag=stop_flag,
+                            counters=counters,
+                            bundle_id=bundle_id,
+                            min_hang_ms=min_hang_ms,
+                            auto_sample=auto_sample,
+                            sampled_fingerprints=sampled_fingerprints,
+                            session_id=session_id,
+                            session_start_ms=meta.started_at_ms,
+                        )
+
+                    if cap_state["hit"]:
+                        # Size-cap is a clean stop, not a crash. Record marker.
+                        out_handle.write(
+                            json.dumps(
+                                {
+                                    "event": "size_cap_hit",
+                                    "bytes": self.store.raw_path(session_id).stat().st_size,
+                                    "at_ms": int(time.time() * 1000),
+                                }
+                            )
+                            + "\n"
+                        )
+                        out_handle.flush()
+                        self._mark_truncated(session_id)
+                        break
+
+                    if stop_flag["value"]:
+                        # Clean SIGTERM. Don't restart, don't mark crashed.
+                        out_handle.write(
+                            json.dumps({"event": "stream_ended", "at_ms": int(time.time() * 1000)})
+                            + "\n"
+                        )
+                        out_handle.flush()
+                        break
+
+                    # Subprocess died without a stop request. Record it.
+                    out_handle.write(
+                        json.dumps(
+                            {
+                                "event": "stream_died",
+                                "exit_code": exit_code,
+                                "attempt": attempt,
+                                "at_ms": int(time.time() * 1000),
+                            }
+                        )
+                        + "\n"
+                    )
+                    out_handle.flush()
+                else:
+                    # for/else: ran every restart without a clean break — exhausted.
+                    crashed = True
+
+                with contextlib.suppress(OSError):
+                    os.fsync(out_handle.fileno())
+        finally:
+            # raw_handle / out_handle are closed by ExitStack on with-block exit.
+            if proc is not None and proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+
+            if crashed and not stop_flag["value"]:
+                self.store.mark_crashed(session_id)
+            # SessionStore.persist_worker_counters preserves terminal status
+            # (stopped from parent's stop(), or crashed above) and avoids
+            # clobbering it back to running.
+            self.store.persist_worker_counters(session_id, counters)
+
+        return 2 if crashed else 0
+
+    def _read_stream_into_raw(
+        self,
+        *,
+        proc: subprocess.Popen,
+        raw_handle,
+        stop_flag: dict,
+        counters: dict,
+        max_size_bytes: int,
+        session_id: str,
+        cap_state: dict,
+    ) -> int | None:
+        """Raw NDJSON capture: dump lines verbatim to raw.ndjson, no parsing.
+
+        Sets ``cap_state['hit'] = True`` and returns when the file exceeds
+        ``max_size_bytes``. The caller treats that as a clean stop (no
+        restart, no crash) and writes a ``size_cap_hit`` marker.
+        """
+        raw_path = self.store.raw_path(session_id)
+        bytes_written = raw_path.stat().st_size if raw_path.exists() else 0
+        last_fsync = time.time()
+        while not stop_flag["value"]:
+            if proc.stdout is None:
+                return proc.poll()
+            ready, _, _ = select.select([proc.stdout], [], [], 0.25)
+            if not ready:
+                if time.time() - last_fsync > 1.0:
+                    raw_handle.flush()
+                    with contextlib.suppress(OSError):
+                        os.fsync(raw_handle.fileno())
+                    last_fsync = time.time()
+                exit_code = proc.poll()
+                if exit_code is not None:
+                    return exit_code
+                continue
+            line = proc.stdout.readline()
+            if not line:
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    proc.wait(timeout=0.5)
+                return proc.poll()
+            counters["total"] += 1
+            # Drop non-JSON banners like `log stream`'s "Filtering the log data..." and
+            # any pwuid warnings. Raw consumers expect strict NDJSON.
+            stripped = line.lstrip()
+            if not stripped.startswith("{"):
+                continue
+            raw_handle.write(line if line.endswith("\n") else line + "\n")
+            bytes_written += len(line) + (0 if line.endswith("\n") else 1)
+            if max_size_bytes > 0 and bytes_written >= max_size_bytes:
+                cap_state["hit"] = True
+                raw_handle.flush()
+                with contextlib.suppress(OSError):
+                    os.fsync(raw_handle.fileno())
+                return proc.poll()
+        return proc.poll()
+
+    def _mark_truncated(self, session_id: str) -> None:
+        """Best-effort: set extras.truncated=True. Called when size cap hit."""
+        try:
+            meta = self.store.load_meta(session_id)
+        except FileNotFoundError:
+            return
+        meta.extras["truncated"] = True
+        # Write meta directly via the public store path; intentional: SessionStore
+        # exposes no extras setter and we want one round-trip not two.
+        self.store._write_meta(meta)
+
+    def _read_stream_into_events(
+        self,
+        *,
+        proc: subprocess.Popen,
+        out_handle,
+        stop_flag: dict,
+        counters: dict,
+        bundle_id: str | None,
+        min_hang_ms: int,
+        auto_sample: bool,
+        sampled_fingerprints: set[str],
+        session_id: str,
+        session_start_ms: int,
+    ) -> int | None:
+        """Read lines until EOF / subprocess death / stop request.
+
+        Returns the subprocess exit code (None if still alive when stop_flag
+        was set, otherwise the recorded poll() value at exit time). Does not
+        emit ``stream_died`` / ``stream_ended`` events itself — the caller
+        decides which marker to write based on stop_flag.
+        """
+        last_fsync = time.time()
+        while not stop_flag["value"]:
+            if proc.stdout is None:
+                return proc.poll()
+            ready, _, _ = select.select([proc.stdout], [], [], 0.25)
+            if not ready:
+                if time.time() - last_fsync > 1.0:
+                    out_handle.flush()
+                    with contextlib.suppress(OSError):
+                        os.fsync(out_handle.fileno())
+                    last_fsync = time.time()
+                # If the subprocess silently died, poll() returns its code now.
+                # Otherwise keep waiting — quiet log streams are normal.
+                exit_code = proc.poll()
+                if exit_code is not None:
+                    return exit_code
+                continue
+            line = proc.stdout.readline()
+            if not line:
+                # EOF — subprocess closed stdout. Wait briefly for poll() to
+                # settle so we report a meaningful exit code.
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    proc.wait(timeout=0.5)
+                return proc.poll()
+            counters["total"] += 1
+            raw_event = _pipeline_parse_log_line(line.rstrip())
+            if raw_event is None:
+                continue
+            if bundle_id and not matches_bundle(raw_event, bundle_id):
+                continue
+            counters["matched"] += 1
+            duration = raw_event.get("duration_ms")
+            if duration is None or duration < min_hang_ms:
+                counters["dropped"] += 1
+                continue
+            normalised = build_normalised_event(
+                raw_event,
+                session_start_ms=session_start_ms,
+                current_ms=int(time.time() * 1000),
+            )
+            if normalised is None:
+                continue
+            if auto_sample and normalised.fingerprint not in sampled_fingerprints:
+                sampled_fingerprints.add(normalised.fingerprint)
+                self._stash_auto_sample(
+                    session_id, normalised, _attempt_auto_sample(normalised.pid)
+                )
+            out_handle.write(event_to_jsonl(normalised) + "\n")
+        return proc.poll()
+
+    # === PRIVATE ===
+
+    def _wait_for_worker_exit(self, session_id: str, timeout_seconds: float) -> None:
+        meta = self.store.load_meta(session_id)
+        if not meta.pid:
+            return
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            try:
+                os.kill(meta.pid, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.05)
+
+    def _dump_raw_events(self, session_id: str) -> str:
+        path = self.store.events_path(session_id)
+        if not path.exists():
+            return ""
+        with open(path) as handle:
+            return handle.read()
+
+    def _resolve_udid(self, udid: str | None) -> str:
+        identifier = udid or "booted"
+        try:
+            return resolve_device_identifier(identifier)
+        except RuntimeError as error:
+            raise RuntimeError(str(error)) from error
+
+    def _stash_auto_sample(self, session_id: str, normalised, sample: dict) -> None:
+        """Record an auto-sample side-channel for later cluster annotation.
+
+        Delegates to SessionStore's append-only JSONL writer — concurrent stashes
+        from a busy worker no longer race against each other.
+        """
+        self.store.stash_auto_sample(session_id, normalised.fingerprint, sample)
+
+
+def _attempt_auto_sample(pid: int) -> dict:
+    """Soft-import main_thread_sampler and capture a 2s stack sample.
+
+    Issue #62 is a soft dependency — graceful degrade with placeholder record
+    when the module isn't present.
+    """
+    try:
+        from main_thread_sampler import sample_pid  # type: ignore[import-not-found]
+    except ImportError:
+        print(
+            "warning: --auto-sample requested but main_thread_sampler unavailable",
+            file=sys.stderr,
+        )
+        return {"stack": None, "reason": "main_thread_sampler not available"}
+    if not pid:
+        return {"stack": None, "reason": "no pid available"}
+    try:
+        return {"stack": sample_pid(pid, duration_seconds=2), "reason": "ok"}
+    except Exception as error:
+        return {"stack": None, "reason": f"sample failed: {error}"}
+
+
 # === CLI ===
 
 
-def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Watch for iOS simulator hang events via os_log",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python scripts/hang_watcher.py --watch --duration 60
-  python scripts/hang_watcher.py --watch --bundle-id com.example.app
-  python scripts/hang_watcher.py --since 5m --json
-  python scripts/hang_watcher.py --watch --duration 30 --predicate '(subsystem == "com.apple.runningboard")'
+def _add_legacy_args(parser: argparse.ArgumentParser) -> argparse._MutuallyExclusiveGroup:
+    """Add the v1 --watch / --since flags plus the new HangBuster subcommands.
 
-Environment variables:
-  IOS_SIM_HANG_PREDICATE   Override the default log predicate (useful for narrowing/broadening scope)
-        """,
-    )
-
-    # Mode — mutually exclusive
+    All modes share the same parser so users can keep using v1 invocations
+    unchanged. Subcommands are mutually exclusive (mode_group).
+    """
     mode_group = parser.add_mutually_exclusive_group(required=True)
     mode_group.add_argument(
-        "--watch",
-        action="store_true",
-        help="Live stream mode (runs until --duration or Ctrl-C)",
+        "--watch", action="store_true", help="Legacy live stream (until --duration / Ctrl-C)"
     )
     mode_group.add_argument(
         "--since",
         metavar="DURATION",
-        help="Show historical hangs from the past N time units (e.g. 5m, 1h, 30s)",
+        help="Legacy historical query (e.g. 5m, 1h, 30s)",
     )
+    mode_group.add_argument(
+        "--start",
+        action="store_true",
+        help="Start a HangBuster session (detached worker, returns session ID)",
+    )
+    mode_group.add_argument(
+        "--stop", metavar="SESSION_ID", help="Stop a session and emit the summary"
+    )
+    mode_group.add_argument(
+        "--get-details",
+        metavar="SESSION_ID",
+        help="Drill into a stored session (combine with --cluster N or --raw)",
+    )
+    mode_group.add_argument(
+        "--list-sessions", action="store_true", help="List stored HangBuster sessions"
+    )
+    mode_group.add_argument("--clear-sessions", action="store_true", help="Delete stored sessions")
+    mode_group.add_argument(
+        "--diff", nargs=2, metavar=("SESSION_A", "SESSION_B"), help="Compare two sessions"
+    )
+    # Internal worker entry — hidden from --help. Detached child re-enters this script with it.
+    mode_group.add_argument("--worker-session-id", metavar="ID", help=argparse.SUPPRESS)
+    return mode_group
 
-    # Filters
-    parser.add_argument("--bundle-id", help="Filter events to a specific app bundle ID")
-    parser.add_argument(
-        "--predicate",
-        help="Override the default os_log predicate (also settable via IOS_SIM_HANG_PREDICATE)",
+
+def main():
+    """Main entry point — supports v1 + HangBuster modes from one parser."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Watch for iOS simulator hang events via os_log. "
+            "Use --watch/--since for the v1 stream, or --start/--stop for HangBuster session mode."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # HangBuster session mode (agent-friendly):
+  SID=$(python scripts/hang_watcher.py --start --min-hang-ms 200)
+  # ... interact with the simulator ...
+  python scripts/hang_watcher.py --stop $SID
+  python scripts/hang_watcher.py --get-details $SID --cluster 1
+  python scripts/hang_watcher.py --list-sessions
+  python scripts/hang_watcher.py --diff $SID_A $SID_B
+  python scripts/hang_watcher.py --clear-sessions --older-than 24h
+
+  # Legacy:
+  python scripts/hang_watcher.py --watch --duration 60
+  python scripts/hang_watcher.py --since 5m --json
+
+Environment variables:
+  IOS_SIM_HANG_PREDICATE         Override the default log predicate
+  IOS_SIM_HANG_MIN_MS            Min event duration kept (default 250)
+  IOS_SIM_HANG_SESSION_TTL_HOURS Session prune age (default 24)
+  IOS_SIM_HANG_DEFAULT_TOP_N     Default top-N for --stop (default 3)
+  IOS_SIM_HANG_BUDGET_TOKENS     Default token budget for --stop
+        """,
     )
+    _add_legacy_args(parser)
+
+    # Filters / target
+    parser.add_argument(
+        "--bundle-id",
+        help=(
+            "Post-parse filter: drop events whose process name does not contain the "
+            "app suffix from this bundle ID. Hang capture itself stays simulator-global "
+            "(RunningBoard/SpringBoard events are kept)."
+        ),
+    )
+    parser.add_argument("--predicate", help="Override the default os_log predicate")
     parser.add_argument("--udid", help="Device UDID (uses booted simulator if omitted)")
 
-    # Watch options
+    # Legacy-only
     parser.add_argument(
-        "--duration",
-        type=int,
-        metavar="SECONDS",
-        help="Stop watching after N seconds (--watch mode only)",
+        "--duration", type=int, metavar="SECONDS", help="Stop after N seconds (--watch only)"
     )
 
-    # Output options
-    parser.add_argument("--json", action="store_true", help="Emit JSON lines per hang event")
-    parser.add_argument("--verbose", action="store_true", help="Include raw log lines")
+    # HangBuster knobs
+    parser.add_argument(
+        "--min-hang-ms",
+        type=int,
+        help="Drop events below this duration (default 250 / env IOS_SIM_HANG_MIN_MS)",
+    )
+    parser.add_argument(
+        "--auto-sample",
+        action="store_true",
+        help="On hang, capture a main-thread stack via main_thread_sampler (#62)",
+    )
+    parser.add_argument("--top", type=int, dest="top_n", help="Top-N clusters to retain in summary")
+    parser.add_argument(
+        "--all", action="store_true", dest="all_clusters", help="Keep all clusters (no top-N cap)"
+    )
+    parser.add_argument(
+        "--budget-tokens", type=int, help="Max tokens for --stop output (picks L0/L1/L2)"
+    )
+    parser.add_argument(
+        "--cluster", type=int, help="Cluster index (1-based) for --get-details drill"
+    )
+    parser.add_argument(
+        "--resample", action="store_true", help="With --get-details: force a fresh auto-sample"
+    )
+    parser.add_argument("--raw", action="store_true", help="With --get-details: dump events.jsonl")
+    parser.add_argument(
+        "--older-than", help="With --clear-sessions: delete sessions older than e.g. 24h"
+    )
+    parser.add_argument("--terse", action="store_true", help="--stop: force L0 one-line output")
+
+    # Raw capture (HangBuster)
+    parser.add_argument(
+        "--raw-capture",
+        action="store_true",
+        help=(
+            "With --start: capture raw os_log NDJSON to raw.ndjson instead of bucketed events. "
+            "Explore afterwards with: zcat <session>/raw.ndjson.gz | jq ..."
+        ),
+    )
+    parser.add_argument(
+        "--max-size-mb",
+        type=int,
+        default=10,
+        help="Raw-capture per-session size cap in MB (default 10). Worker stops at cap.",
+    )
+    parser.add_argument(
+        "--no-gzip",
+        action="store_true",
+        help="Skip gzip of raw.ndjson on --stop (raw-capture mode only).",
+    )
+
+    # Output
+    parser.add_argument("--json", action="store_true", help="Emit JSON output")
+    parser.add_argument("--verbose", action="store_true", help="Include raw lines (legacy modes)")
 
     args = parser.parse_args()
 
+    # === HangBuster worker entry ===
+    if args.worker_session_id:
+        buster = HangBuster()
+        sys.exit(buster.run_worker(args.worker_session_id))
+
+    # === HangBuster session subcommands ===
+    if args.start:
+        buster = HangBuster()
+        start_args = {
+            "min_hang_ms": (
+                args.min_hang_ms
+                if args.min_hang_ms is not None
+                else env_int("IOS_SIM_HANG_MIN_MS", 250)
+            ),
+            "bundle_id": args.bundle_id,
+            "predicate": args.predicate,
+            "auto_sample": args.auto_sample,
+            "raw_capture": args.raw_capture,
+            "max_size_mb": args.max_size_mb,
+            "no_gzip": args.no_gzip,
+        }
+        try:
+            session_id = buster.start(start_args, udid=args.udid)
+        except RuntimeError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            sys.exit(1)
+        print(session_id)
+        sys.exit(0)
+
+    if args.stop:
+        buster = HangBuster()
+        top_n = None if args.all_clusters else args.top_n
+        out = buster.stop(
+            args.stop,
+            budget_tokens=args.budget_tokens,
+            top_n=top_n,
+            terse=args.terse,
+            json_mode=args.json,
+        )
+        print(out)
+        sys.exit(0)
+
+    if args.get_details:
+        buster = HangBuster()
+        out = buster.get_details(
+            args.get_details,
+            cluster=args.cluster,
+            raw=args.raw,
+            resample=args.resample,
+            json_mode=args.json,
+        )
+        print(out)
+        sys.exit(0)
+
+    if args.list_sessions:
+        buster = HangBuster()
+        print(buster.list_sessions(json_mode=args.json))
+        sys.exit(0)
+
+    if args.clear_sessions:
+        buster = HangBuster()
+        print(buster.clear_sessions(older_than=args.older_than, json_mode=args.json))
+        sys.exit(0)
+
+    if args.diff:
+        buster = HangBuster()
+        print(buster.diff(args.diff[0], args.diff[1], json_mode=args.json))
+        sys.exit(0)
+
+    # === Legacy modes ===
     if args.since:
         try:
-            _compute_start_timestamp(args.since)  # validate before constructing watcher
-        except ValueError as e:
-            parser.error(str(e))
+            _compute_start_timestamp(args.since)
+        except ValueError as error:
+            parser.error(str(error))
 
     watcher = HangWatcher(udid=args.udid)
-
     if args.watch:
         success = watcher.watch(
             duration_seconds=args.duration,
@@ -536,19 +1277,13 @@ Environment variables:
             verbose=args.verbose,
             json_mode=args.json,
         )
-
     if not success:
         sys.exit(1)
-
-    # Post-run summary (--since mode only — not in live --watch or --json)
     if not args.json and not args.watch:
         print(f"\n{watcher.get_summary()}")
-
-    # Save to cache if events were captured
     if watcher.hang_events:
         cache_id = watcher.save_to_cache()
         print(f"Archive saved: {cache_id}", file=sys.stderr)
-
     sys.exit(0)
 
 

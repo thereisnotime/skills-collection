@@ -4,6 +4,7 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  base: '/lab/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -12,16 +13,16 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      '/lab/api': {
         target: 'http://localhost:57375',
         changeOrigin: true,
       },
-      '/proxy': {
+      '/lab/proxy': {
         target: 'http://localhost:57375',
         changeOrigin: true,
         ws: true,
       },
-      '/ws': {
+      '/lab/ws': {
         target: 'ws://localhost:57375',
         ws: true,
       },

@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Search, Grid3x3, List } from 'lucide-react';
 import { MagicGeneratorPanel } from '../components/MagicGeneratorPanel';
 import { MagicComponentCard } from '../components/MagicComponentCard';
+import { MOUNT_BASE } from '../api/client';
+
+const MAGIC_API = `${MOUNT_BASE}/api/magic`;
 
 export type MagicTarget = 'react' | 'webcomponent' | 'both';
 
@@ -40,7 +43,7 @@ export default function MagicPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/magic/components');
+      const res = await fetch(`${MAGIC_API}/components`);
       if (res.ok) {
         const data = await res.json();
         setComponents(Array.isArray(data?.components) ? data.components : []);
@@ -62,7 +65,7 @@ export default function MagicPage() {
   const handleGenerate = useCallback(
     async (spec: MagicGenerateSpec): Promise<boolean> => {
       try {
-        const res = await fetch('/api/magic/generate', {
+        const res = await fetch(`${MAGIC_API}/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(spec),
@@ -84,7 +87,7 @@ export default function MagicPage() {
     async (name: string): Promise<boolean> => {
       try {
         const res = await fetch(
-          `/api/magic/components/${encodeURIComponent(name)}/debate`,
+          `${MAGIC_API}/components/${encodeURIComponent(name)}/debate`,
           { method: 'POST' },
         );
         if (res.ok) {
@@ -104,7 +107,7 @@ export default function MagicPage() {
     async (name: string): Promise<boolean> => {
       try {
         const res = await fetch(
-          `/api/magic/components/${encodeURIComponent(name)}`,
+          `${MAGIC_API}/components/${encodeURIComponent(name)}`,
           { method: 'DELETE' },
         );
         if (res.ok) {

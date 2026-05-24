@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ProjectHealth } from '../components/ProjectHealth';
-import { api } from '../api/client';
+import { api, MOUNT_BASE } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import type { SessionHistoryItem } from '../api/client';
@@ -283,7 +283,7 @@ function ProjectCard({
               Open project
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); window.open(`/project/${session.id}`, '_blank'); }}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); window.open(`${MOUNT_BASE}/project/${session.id}`, '_blank'); }}
               className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-[#36342E] hover:bg-[#F8F4F0] transition-colors text-left"
             >
               <ExternalLink size={14} className="text-[#6B6960]" />

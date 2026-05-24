@@ -125,6 +125,12 @@
   ],
   "samber--cc-skills-golang": [
     {
+      "sha": "8c7e016",
+      "message": "fix: resolve snyk-agent-scan alerts (W011, W012, W021) (#54)",
+      "date": "2026-05-23",
+      "author": "samber (headless)"
+    },
+    {
       "sha": "114c263",
       "message": "fix: resolve lint errors (prettier + markdownlint) (#53)",
       "date": "2026-05-22",
@@ -177,12 +183,6 @@
       "message": "bump patch versions for skills changed in recent PRs",
       "date": "2026-05-19",
       "author": "Samuel Berthe"
-    },
-    {
-      "sha": "9b78280",
-      "message": "use module-pinned tool commands (#38)",
-      "date": "2026-05-19",
-      "author": "Szymon R\u0105czka"
     }
   ],
   "realkimbarrett--advertising-skills": [
@@ -853,6 +853,36 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "50044b6",
+      "message": "Add optional arxiv_id to literature_corpus schema and extend validation coverage (#237)",
+      "date": "2026-05-24",
+      "author": "Madhav Jha"
+    },
+    {
+      "sha": "ae209bc",
+      "message": "docs: fix ACL AI policy URL (#239)",
+      "date": "2026-05-24",
+      "author": "Lixin2026"
+    },
+    {
+      "sha": "8ca9d25",
+      "message": "docs: sync academic-paper examples inventory in SKILL.md (7 files) (#238)",
+      "date": "2026-05-23",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "6760898",
+      "message": "docs: add clinical citation verification checklist (#236)",
+      "date": "2026-05-23",
+      "author": "Lixin2026"
+    },
+    {
+      "sha": "f5eea58",
+      "message": "docs: fix EMNLP disclosure policy URL (#235)",
+      "date": "2026-05-23",
+      "author": "Lixin2026"
+    },
+    {
       "sha": "3187bf8",
       "message": "docs(spec): v3.10 amendment \u2014 close fabrication bypass + 5 internal/cross-spec drift fixes (#233)",
       "date": "2026-05-23",
@@ -880,36 +910,6 @@
       "sha": "0c4c419",
       "message": "fix(docs): broken AIS Senior Scholars URL (404) + SKILL.md H1 + ARCHITECTURE.md version drift (#228)",
       "date": "2026-05-23",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "2236bed",
-      "message": "fix(#195): /ars-mark-read crashed on real YAML passports (json.load \u2192 yaml.safe_load) (#196)",
-      "date": "2026-05-21",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "6655bf2",
-      "message": "feat(commands): add /ars-reviewer + sync announce-ars-loaded.sh (#193)",
-      "date": "2026-05-21",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "51ebf9d",
-      "message": "feat(commands): implement /ars-mark-read + /ars-unmark-read plugin commands (#191)",
-      "date": "2026-05-21",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "265e8de",
-      "message": "Add Simplified Chinese README (#181)",
-      "date": "2026-05-21",
-      "author": "xpfo"
-    },
-    {
-      "sha": "3729ea7",
-      "message": "fix(lint): cap check_version_consistency semver regex at 4 segments (#180)",
-      "date": "2026-05-20",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -1457,6 +1457,18 @@
   ],
   "antonbabenko--terraform-skill": [
     {
+      "sha": "c5d26f1",
+      "message": "chore(release): v1.15.0 [skip ci]",
+      "date": "2026-05-23",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "cc78c5a",
+      "message": "feat: Provisioners as Last Resort (closes row 16) (#31)",
+      "date": "2026-05-23",
+      "author": "Willian Barbosa"
+    },
+    {
       "sha": "c27f3ec",
       "message": "chore(release): v1.14.0 [skip ci]",
       "date": "2026-05-18",
@@ -1501,18 +1513,6 @@
     {
       "sha": "908d562",
       "message": "feat(code-intelligence): cross-reference code-intelligence plugin + host setup (#27)",
-      "date": "2026-05-17",
-      "author": "Anton Babenko"
-    },
-    {
-      "sha": "059d86e",
-      "message": "chore(release): v1.10.0 [skip ci]",
-      "date": "2026-05-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "77db3a3",
-      "message": "fix: restore release version source (dedicated version.json)",
       "date": "2026-05-17",
       "author": "Anton Babenko"
     }
@@ -1969,64 +1969,64 @@
   ],
   "conorluddy--ios-simulator-skill": [
     {
-      "sha": "64fa06b",
-      "message": "chore: SKILL.md + README sweep for v2.0 wave 1 (#76)",
-      "date": "2026-05-22",
+      "sha": "e8f55dc",
+      "message": "Merge pull request #90 from conorluddy/feat/hangbuster-review-followups",
+      "date": "2026-05-23",
       "author": "Conor"
     },
     {
-      "sha": "45cf7e8",
-      "message": "feat: hang_watcher.py \u2014 os_log hang stream (#75)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "86cf938",
+      "message": "docs: HangBuster \u2014 raw-capture quick start, auto-restart + cleanup env vars (#83 #84 #85)",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "7f66f9d",
-      "message": "feat: container.py \u2014 app sandbox + UserDefaults + Core Data (#74)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "3c71ca9",
+      "message": "feat: --raw-capture NDJSON mode + size cap + gzip + aggregate prune (closes #85)",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "bf464bf",
-      "message": "feat: localization_audit.py \u2014 string catalog gaps (#73)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "073dc67",
+      "message": "fix+feat: HangBuster worker EOF detect + bounded auto-restart + capture duration (closes #84)",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "5cb07a5",
-      "message": "feat: location.py \u2014 GPS + GPX route playback (#72)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "f4bcf88",
+      "message": "fix: --bundle-id no longer narrows hang predicate (closes #83)",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "8c5140e",
-      "message": "feat: appearance.py \u2014 dark mode / dynamic type / locale (#71)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "63d8ef2",
+      "message": "chore: doc sweep \u2014 bump script count to 29, add Device State + Simulator Discovery sections",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "e7829ba",
-      "message": "feat: configurable limits and bumped defaults (v1.5) (#53)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "00afc43",
+      "message": "test: harden HangBuster coverage \u2014 crashed-worker, fixture, verdicts",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "fc59c88",
-      "message": "chore: update dev tooling and fix stale lint path globs (#52)",
-      "date": "2026-05-22",
-      "author": "Conor"
+      "sha": "c8368b1",
+      "message": "feat: hash compute_fingerprint with sha256, bump FINGERPRINT_VERSION to 2",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "3acd071",
-      "message": "fix: remove invalid 'skills' field from plugin.json (#51)",
-      "date": "2026-05-07",
-      "author": "Conor"
+      "sha": "1f98d4c",
+      "message": "fix: handle zero-duration clusters in diff_sessions()",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     },
     {
-      "sha": "cf583d1",
-      "message": "fix: enforce Python 3.12+ in health check, bump to v1.4.2 (#47)",
-      "date": "2026-05-03",
-      "author": "Conor"
+      "sha": "03e092d",
+      "message": "fix: append-only JSONL for auto_samples to remove read-modify-write race",
+      "date": "2026-05-23",
+      "author": "Conor Luddy"
     }
   ],
   "coreyhaines31--marketingskills": [
@@ -4485,63 +4485,63 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "44c253e",
-      "message": "release: v7.5.28 - Phase K MVP + Phase F parent-only manifest bugfix + CLI help refresh",
-      "date": "2026-05-23",
+      "sha": "2e3ce37",
+      "message": "release: v7.7.9 - LSP Java coverage (v7.7.0 acceptance #4 complete)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "cda30d4",
-      "message": "release: v7.5.27 - Phase N dependency pin refresh + ARC CLOSE",
-      "date": "2026-05-23",
+      "sha": "58c68c8",
+      "message": "release: v7.7.8 - LSP grounding instruction in system prompt (v7.7.0 acceptance #5)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "9669130",
-      "message": "fix(dist): include loki-ts/data/ in npm + Docker so PRICING JSON ships (v7.5.26 patch)",
-      "date": "2026-05-23",
+      "sha": "aaee9a3",
+      "message": "release: v7.7.7 - 3 bugs in B-3 memory chain surfaced by real-user E2E test",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "c32554a",
-      "message": "release: v7.5.26 - Phase J rolling pricing JSON extracted from budget.ts",
-      "date": "2026-05-23",
+      "sha": "cccae9e",
+      "message": "release: v7.7.6 - local-ci bun-parity retry-on-flake (stops 2x time per release)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "b1e0af3",
-      "message": "test(providers): add 4 Bun unit tests for Phase I override branch (v7.5.25 patch)",
-      "date": "2026-05-22",
+      "sha": "8f9b2b7",
+      "message": "release: v7.7.5 URGENT - two critical real-user bugs (mv race flood + dashboard killed mid-session)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "7a80abb",
-      "message": "release: v7.5.25 - Phase I OpenRouter / Ollama via ANTHROPIC_BASE_URL",
-      "date": "2026-05-22",
+      "sha": "8b6bfc9",
+      "message": "release: v7.7.4 - standing SDLC fleet pattern (docs-only, makes the workflow binding)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "0192235",
-      "message": "test(parity): add WITH-LSP bundle parity case per Sonnet reviewer (v7.5.24 patch)",
-      "date": "2026-05-22",
+      "sha": "cb3b563",
+      "message": "release: v7.7.3 - F-3 intelligent USAGE.md regeneration (model decides from project state)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "b1608d4",
-      "message": "release: v7.5.24 - Phase G LSP-proxy MCP + subdir CLAUDE.md walker",
-      "date": "2026-05-22",
+      "sha": "566a9a5",
+      "message": "release: v7.7.2 - B-5 provider precedence docs + provider_source in status JSON",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "f246047",
-      "message": "fix(project-graph): drop unused vars per Tests workflow SC2034 (v7.5.23 patch)",
-      "date": "2026-05-22",
+      "sha": "5b9ac83",
+      "message": "release: v7.7.1 - USAGE.md surfaced in Dashboard Insights (F-1 follow-up)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     },
     {
-      "sha": "17423c8",
-      "message": "release: v7.5.23 - Phase F cross-project context discovery",
-      "date": "2026-05-22",
+      "sha": "add08f7",
+      "message": "release: v7.7.0 MINOR - intelligent LSP grounding (4 new agent tools, auto-spawned, zero config)",
+      "date": "2026-05-24",
       "author": "asklokesh"
     }
   ],
@@ -4871,64 +4871,64 @@
   ],
   "alirezarezvani--claude-skills": [
     {
-      "sha": "bd3d060",
-      "message": "Merge pull request #732 from alirezarezvani/dev",
-      "date": "2026-05-23",
+      "sha": "de6f5a4",
+      "message": "Merge pull request #738 from alirezarezvani/dev",
+      "date": "2026-05-24",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "a1c3226",
-      "message": "Merge pull request #731 from alirezarezvani/claude/handoff-v2.8.2-version-fix",
-      "date": "2026-05-23",
+      "sha": "852e7da",
+      "message": "chore: sync codex skills symlinks [automated]",
+      "date": "2026-05-24",
+      "author": "alirezarezvani"
+    },
+    {
+      "sha": "aab5cd5",
+      "message": "Merge pull request #737 from alirezarezvani/claude/andreessen-productivity-plugin-PlOzn",
+      "date": "2026-05-24",
       "author": "Alireza Rezvani"
     },
     {
-      "sha": "bdc0437",
-      "message": "fix(version): productivity/handoff is v2.8.2, not v2.8.1 (collision fix)",
-      "date": "2026-05-23",
+      "sha": "d692bf8",
+      "message": "Merge remote-tracking branch 'origin/dev' into claude/andreessen-productivity-plugin-PlOzn",
+      "date": "2026-05-24",
       "author": "Claude"
     },
     {
-      "sha": "0970924",
-      "message": "Merge pull request #721 from alirezarezvani/claude/cleanup-718-followups",
-      "date": "2026-05-23",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "163993d",
-      "message": "Merge pull request #729 from alirezarezvani/claude/handoff-v1.1-session-end-and-self-check",
-      "date": "2026-05-23",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "588424c",
-      "message": "Merge pull request #730 from alirezarezvani/claude/pr-723-review-zZdrT",
-      "date": "2026-05-23",
-      "author": "Alireza Rezvani"
-    },
-    {
-      "sha": "73645c8",
-      "message": "docs: bump productivity/handoff to v2.8.1 across all version references",
-      "date": "2026-05-23",
+      "sha": "2c09797",
+      "message": "docs(andreessen): run update-docs sync pipeline + mkdocs nav for v2.8.3",
+      "date": "2026-05-24",
       "author": "Claude"
     },
     {
-      "sha": "f5f6ee4",
-      "message": "feat(code-reviewer): deliver C# / .NET implementation behind PR #723 docs",
-      "date": "2026-05-23",
+      "sha": "198c0af",
+      "message": "feat(andreessen): add asset templates + worked examples (quality 56.2 -> 65.7)",
+      "date": "2026-05-24",
       "author": "Claude"
     },
     {
-      "sha": "a767b51",
-      "message": "docs(productivity/handoff): sync CLAUDE.md, mkdocs nav, generated pages",
-      "date": "2026-05-23",
+      "sha": "d26c471",
+      "message": "chore(andreessen): plugin-audit follow-ups \u2014 gemini sync + inner README",
+      "date": "2026-05-24",
       "author": "Claude"
     },
     {
-      "sha": "f3265c8",
-      "message": "Merge pull request #728 from alirezarezvani/claude/handoff-v1.1-session-end-and-self-check",
-      "date": "2026-05-23",
+      "sha": "c386664",
+      "message": "chore: sync codex skills symlinks [automated]",
+      "date": "2026-05-24",
+      "author": "alirezarezvani"
+    },
+    {
+      "sha": "8c5dec3",
+      "message": "Merge pull request #736 from alirezarezvani/claude/andreessen-productivity-plugin-PlOzn",
+      "date": "2026-05-24",
       "author": "Alireza Rezvani"
+    },
+    {
+      "sha": "f4c1033",
+      "message": "feat(productivity): add andreessen market-first decision & productivity skill",
+      "date": "2026-05-24",
+      "author": "Claude"
     }
   ],
   "VoltAgent--awesome-agent-skills": [
@@ -5119,6 +5119,48 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "23fe3bf",
+      "message": "feat: add agency-os plugin (AI agency + Notion board) (#709)",
+      "date": "2026-05-24",
+      "author": "Artyom Rabzonov"
+    },
+    {
+      "sha": "2417e9d",
+      "message": "chore(release): prepare v4.32.0",
+      "date": "2026-05-24",
+      "author": "Jeremy Longshore"
+    },
+    {
+      "sha": "3e3a6bc",
+      "message": "feat(blog): v1-release-gate-conditional-go + chore(beads): doctor hygiene (#746)",
+      "date": "2026-05-24",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "a715e93",
+      "message": "chore(ci): markdownlint cleanup + flip to blocking (PR I) (#772)",
+      "date": "2026-05-24",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "3962a5d",
+      "message": "chore(ci): codeblock-syntax cleanup + flip to blocking (PR H) (#771)",
+      "date": "2026-05-24",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "c2ae302",
+      "message": "chore(ci): widened-test-loop cleanup + flip to blocking (PR G) (#770)",
+      "date": "2026-05-23",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "c81cea4",
+      "message": "feat(blog): add server-ops-mcp-safety-before-tools to tonsofskills.com/blog",
+      "date": "2026-05-23",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "69c73e9",
       "message": "chore(ci): shellcheck cleanup + flip to blocking (PR E) (#768)",
       "date": "2026-05-23",
@@ -5134,48 +5176,6 @@
       "sha": "cb17f65",
       "message": "chore(ci): markdownlint cleanup + report-only gate (PR C) (#767)",
       "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "551ea46",
-      "message": "chore(repo): clean up the visible mess at the root (PR D) (#766)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "e51da37",
-      "message": "chore(ci): ruff check + format as blocking gates (PR B) (#765)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "e1c3d1e",
-      "message": "chore(ci): add eslint + prettier as blocking gates (PR A of cleanup plan) (#764)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "1d8dd20",
-      "message": "chore(ci): disable human-triggered auto-merge; keep dependabot bumps (#763)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "eebc8d3",
-      "message": "docs(aar): commit 9 historical AA-AACR files from Dec 2025 (#762)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "197ebf7",
-      "message": "docs(aar): allow AA-AACR session reviews in 000-docs/ + file 2026-05-20\u219221 session (#760)",
-      "date": "2026-05-22",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "1ddf91a",
-      "message": "docs(council): file ISEDC #710 spec-mint decision record + fix .gitignore (#759)",
-      "date": "2026-05-22",
       "author": "intentsolutions.io"
     }
   ],
@@ -5491,6 +5491,18 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "294b704",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-23",
+      "author": "Claude Routine"
+    },
+    {
+      "sha": "d114921",
+      "message": "Update README.md",
+      "date": "2026-05-23",
+      "author": "Shayan Rais"
+    },
+    {
       "sha": "1d236d3",
       "message": "chore(agent-collections): scheduled refresh",
       "date": "2026-05-22",
@@ -5535,18 +5547,6 @@
     {
       "sha": "0fb7e0c",
       "message": "docs(claude-commands): update to v2.1.145",
-      "date": "2026-05-20",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "ad62b31",
-      "message": "docs(development-workflows): log 2026-05-21 update (17 items)",
-      "date": "2026-05-20",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "f3038d5",
-      "message": "chore(development-workflows): refresh stars + counts in workflows table",
       "date": "2026-05-20",
       "author": "Shayan Rais"
     }

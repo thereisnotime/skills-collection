@@ -1,10 +1,19 @@
-// Derive API base from current page origin so remote deployments work
-const API_BASE = import.meta.env.VITE_API_BASE
-  || `${window.location.origin}/api`;
+// Vite injects the configured base path here (e.g. '/lab/' for merged Dashboard).
+// Falls back to '/' for tests / dev-without-base.
+const BASE = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
 
-// Derive WebSocket URL from current page origin (ws:// or wss://)
+// Derive API base from current page origin so remote deployments work.
+// Honors VITE_API_BASE if set, else uses Vite's BASE_URL + '/api'.
+const API_BASE = import.meta.env.VITE_API_BASE
+  || `${window.location.origin}${BASE}/api`;
+
+// Derive WebSocket URL from current page origin (ws:// or wss://).
+// Honors VITE_WS_URL if set, else uses Vite's BASE_URL + '/ws'.
 export const WS_URL = import.meta.env.VITE_WS_URL
-  || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+  || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${BASE}/ws`;
+
+// Exported for components that need the mount prefix (e.g. terminal websockets).
+export const MOUNT_BASE = BASE;
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {

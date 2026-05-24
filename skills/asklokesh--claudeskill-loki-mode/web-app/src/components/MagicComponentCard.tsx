@@ -11,6 +11,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { MagicComponent, MagicTarget } from '../pages/MagicPage';
+import { MOUNT_BASE } from '../api/client';
 
 interface MagicComponentCardProps {
   component: MagicComponent;
@@ -127,12 +128,12 @@ export function MagicComponentCard({
   }, [onDeprecate, deprecateLoading, component.name]);
 
   const handleViewSpec = useCallback(() => {
-    const url = `/api/magic/components/${encodeURIComponent(component.name)}/spec`;
+    const url = `${MOUNT_BASE}/api/magic/components/${encodeURIComponent(component.name)}/spec`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }, [component.name]);
 
   const handleViewCode = useCallback(() => {
-    const url = `/api/magic/components/${encodeURIComponent(component.name)}/code`;
+    const url = `${MOUNT_BASE}/api/magic/components/${encodeURIComponent(component.name)}/code`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }, [component.name]);
 

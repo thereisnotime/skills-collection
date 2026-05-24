@@ -1869,6 +1869,23 @@ except (json.JSONDecodeError, OSError): pass
 
 # Kill orphaned processes from crashed sessions
 cmd_cleanup() {
+    # v7.6.2 B-13 fix: --help must print help, not run cleanup as a side effect.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- cleanup orphaned processes${NC}"
+            echo ""
+            echo "Usage: loki cleanup [options]"
+            echo ""
+            echo "Scans \$LOKI_DIR/pids/ for stale PID registrations from prior runs"
+            echo "and kills processes whose PID file points at a dead process."
+            echo ""
+            echo "Options:"
+            echo "  --help, -h   Show this help and exit"
+            echo ""
+            echo "Side effects: kills processes registered under .loki/pids/."
+            return 0
+            ;;
+    esac
     local pids_dir="$LOKI_DIR/pids"
     local killed=0
     local stale=0
@@ -1949,6 +1966,23 @@ cmd_cleanup() {
 
 # Pause after current session
 cmd_pause() {
+    # v7.6.2 B-13 fix: --help must print help, not act on session state.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- pause active session${NC}"
+            echo ""
+            echo "Usage: loki pause [options]"
+            echo ""
+            echo "Marks the active session as paused. The runner detects this on"
+            echo "the next iteration boundary and halts cleanly until 'loki resume'."
+            echo ""
+            echo "Options:"
+            echo "  --help, -h   Show this help and exit"
+            echo ""
+            echo "See also: loki resume, loki stop"
+            return 0
+            ;;
+    esac
     if [ ! -d "$LOKI_DIR" ]; then
         echo -e "${YELLOW}No .loki directory found.${NC}"
         echo "No active session to pause."
@@ -1990,6 +2024,23 @@ cmd_pause() {
 
 # Resume paused execution
 cmd_resume() {
+    # v7.6.2 B-13 fix: --help must print help, not act on session state.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- resume paused session${NC}"
+            echo ""
+            echo "Usage: loki resume [options]"
+            echo ""
+            echo "Clears the paused flag and lets the autonomous runner continue"
+            echo "from where 'loki pause' stopped it."
+            echo ""
+            echo "Options:"
+            echo "  --help, -h   Show this help and exit"
+            echo ""
+            echo "See also: loki pause, loki start"
+            return 0
+            ;;
+    esac
     if [ ! -d "$LOKI_DIR" ]; then
         echo -e "${YELLOW}No .loki directory found.${NC}"
         echo "No session to resume. Start a session with: loki start"
@@ -2234,7 +2285,8 @@ if not os.path.isdir(loki_dir):
     result['status'] = 'inactive'
     result['phase'] = None
     result['iteration'] = 0
-    result['provider'] = env_provider
+    result['provider'] = env_provider if os.environ.get('LOKI_PROVIDER', '') else 'claude'
+    result['provider_source'] = 'env' if os.environ.get('LOKI_PROVIDER', '') else 'default'
     result['dashboard_url'] = None
     result['pid'] = None
     result['elapsed_time'] = 0
@@ -2292,13 +2344,27 @@ else:
         result['phase'] = None
         result['iteration'] = 0
 
-# Provider
+# Provider + provider_source (v7.7.2 B-5 clarity: surface WHY this
+# value won the resolution race: 'saved' vs 'env' vs 'default').
 provider_file = os.path.join(loki_dir, 'state', 'provider')
 if os.path.isfile(provider_file):
-    with open(provider_file) as f:
-        result['provider'] = f.read().strip()
+    try:
+        with open(provider_file) as f:
+            saved = f.read().strip()
+    except OSError:
+        saved = ''
 else:
+    saved = ''
+env_set = os.environ.get('LOKI_PROVIDER', '') != ''
+if saved:
+    result['provider'] = saved
+    result['provider_source'] = 'saved'
+elif env_set:
     result['provider'] = env_provider
+    result['provider_source'] = 'env'
+else:
+    result['provider'] = 'claude'
+    result['provider_source'] = 'default'
 
 # PID
 pid_file = os.path.join(loki_dir, 'loki.pid')
@@ -2428,6 +2494,25 @@ print(json.dumps(result, indent=2))
 
 # Session statistics
 cmd_stats() {
+    # v7.6.2 B-13 fix: --help must print help, not render the stats panel.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- session statistics${NC}"
+            echo ""
+            echo "Usage: loki stats [options]"
+            echo ""
+            echo "Prints session-level statistics: tasks completed, iterations,"
+            echo "tokens used, cost, council votes, gate verdicts."
+            echo ""
+            echo "Options:"
+            echo "  --json          JSON output (machine-readable)"
+            echo "  --efficiency    Include cost/token efficiency breakdown"
+            echo "  --help, -h      Show this help and exit"
+            echo ""
+            echo "See also: loki kpis, loki status"
+            return 0
+            ;;
+    esac
     local show_json=false
     local show_efficiency=false
 
@@ -2746,6 +2831,15 @@ cmd_provider() {
             echo "  list     List available providers"
             echo "  info     Show provider details"
             echo "  models   Show resolved model configuration for all providers"
+            echo ""
+            echo "Precedence (v7.7.2 -- highest wins):"
+            echo "  1. loki start --provider NAME         CLI flag (per-invocation)"
+            echo "  2. .loki/state/provider               saved value (per-project)"
+            echo "  3. LOKI_PROVIDER env var              shell session default"
+            echo "  4. claude                             built-in default"
+            echo ""
+            echo "  Note: 'loki status' reflects the SAVED provider, not the env var."
+            echo "  Run 'loki provider set <name>' to make a project-level choice persist."
             echo ""
             echo "Examples:"
             echo "  loki provider show"
@@ -3689,6 +3783,12 @@ cmd_web_help() {
     echo "  loki web                  Start Purple Lab and open in browser"
     echo "  loki web --no-open        Start without opening browser"
     echo "  loki web stop             Stop the Purple Lab server"
+    echo ""
+    echo "Note (since v7.5.30):"
+    echo "  Purple Lab is also embedded in the Dashboard as a Lab sidebar entry."
+    echo "  Run 'loki dashboard start' and click 'Lab' to use the same UI"
+    echo "  without spawning a second port. 'loki web' standalone remains"
+    echo "  supported (Rule 0); both modes serve the same React bundle."
 }
 
 cmd_web_start() {
@@ -3783,7 +3883,7 @@ cmd_web_start() {
         existing_pid=$(cat "$PURPLE_LAB_PID_FILE" 2>/dev/null)
         if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
             echo -e "${GREEN}Purple Lab already running (PID: $existing_pid)${NC}"
-            local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}"
+            local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/"
             echo -e "Open: ${CYAN}$url${NC}"
             if [ "$open_browser" = true ]; then
                 if command -v open &> /dev/null; then
@@ -3842,7 +3942,7 @@ cmd_web_start() {
     local retries=0
     local server_ready=false
     while [ $retries -lt 15 ]; do
-        if curl -s "http://${PURPLE_LAB_DEFAULT_HOST}:${port}/api/session/status" > /dev/null 2>&1; then
+        if curl -s "http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/api/session/status" > /dev/null 2>&1; then
             server_ready=true
             break
         fi
@@ -3857,7 +3957,7 @@ cmd_web_start() {
         exit 1
     fi
 
-    local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}"
+    local url="http://${PURPLE_LAB_DEFAULT_HOST}:${port}/lab/"
 
     if [ "$server_ready" = true ]; then
         echo -e "${GREEN}Purple Lab running at: $url${NC} (PID: $pid)"
@@ -4077,6 +4177,23 @@ cmd_web_status() {
 
 # Import GitHub issues
 cmd_import() {
+    # v7.6.2 B-13 fix: --help must print help, not start an import.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- import GitHub issues into the queue${NC}"
+            echo ""
+            echo "Usage: loki import [options]"
+            echo ""
+            echo "Imports issues from the current repo's GitHub project into"
+            echo ".loki/queue/ so loki start picks them up as tasks."
+            echo ""
+            echo "Options:"
+            echo "  --help, -h   Show this help and exit"
+            echo ""
+            echo "Side effects: makes GitHub API calls, writes to .loki/queue/."
+            return 0
+            ;;
+    esac
     if [ ! -d "$LOKI_DIR" ]; then
         mkdir -p "$LOKI_DIR/queue"
     fi
@@ -6283,6 +6400,23 @@ cmd_config_path() {
 
 # Set up skill symlinks for all providers
 cmd_setup_skill() {
+    # v7.6.2 B-13 fix: --help must print help, not install skills.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- install Loki skill into provider CLIs${NC}"
+            echo ""
+            echo "Usage: loki setup-skill [options]"
+            echo ""
+            echo "Installs the Loki Mode skill into each detected provider CLI's"
+            echo "skills directory: ~/.claude/skills/, ~/.codex/skills/, etc."
+            echo ""
+            echo "Options:"
+            echo "  --help, -h   Show this help and exit"
+            echo ""
+            echo "Side effects: writes symlinks/files under ~/.<provider>/skills/loki-mode/."
+            return 0
+            ;;
+    esac
     echo -e "${BOLD}Loki Mode Skill Setup${NC}"
     echo ""
 
@@ -6795,6 +6929,23 @@ cmd_doctor() {
         echo -e "  ${YELLOW}WARN${NC}  ChromaDB - not running (docker start loki-chroma)"
         warn_count=$((warn_count + 1))
     fi
+    # LSP servers check (v7.7.0): auto-detected by mcp.lsp_proxy; reported
+    # here so users know which languages get agent-side symbol grounding.
+    local _lsp_found=0 _lsp_bin
+    local _lsp_list=""
+    for _lsp_bin in pyright-langserver pylsp typescript-language-server gopls rust-analyzer jdtls; do
+        if command -v "$_lsp_bin" >/dev/null 2>&1; then
+            _lsp_found=$((_lsp_found + 1))
+            _lsp_list="${_lsp_list:+$_lsp_list, }${_lsp_bin}"
+        fi
+    done
+    if [ "$_lsp_found" -gt 0 ]; then
+        echo -e "  ${GREEN}PASS${NC}  LSP servers detected ($_lsp_found): $_lsp_list"
+        pass_count=$((pass_count + 1))
+    else
+        echo -e "  ${YELLOW}WARN${NC}  LSP servers - none on PATH (install for symbol grounding: npm i -g pyright typescript-language-server; brew install gopls)"
+        warn_count=$((warn_count + 1))
+    fi
     # MiroFish check (optional service)
     local _mf_url="${LOKI_MIROFISH_URL:-http://localhost:5001}"
     if docker inspect loki-mirofish &>/dev/null 2>&1 || [[ -n "${LOKI_MIROFISH_URL:-}" ]]; then
@@ -6909,7 +7060,9 @@ cmd_doctor() {
 
 # JSON output for loki doctor --json
 cmd_doctor_json() {
-    python3 -c "
+    local _loki_version
+    _loki_version=$(get_version)
+    LOKI_VERSION="$_loki_version" python3 -c "
 import json, os, subprocess, sys, shutil
 
 def get_version(cmd, args=None):
@@ -7002,6 +7155,7 @@ elif disk_status == 'fail': fail_count += 1
 elif disk_status == 'warn': warn_count += 1
 
 result = {
+    'loki_mode_version': os.environ.get('LOKI_VERSION', 'unknown'),
     'checks': checks,
     'disk': {
         'available_gb': disk_gb,
@@ -7222,6 +7376,18 @@ SENTRUX_RULES_EOF
 
 # Show version
 cmd_version() {
+    # v7.6.2 B-13 fix: --help prints help; bare invocation prints version.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- print version${NC}"
+            echo ""
+            echo "Usage: loki version"
+            echo ""
+            echo "Prints 'Loki Mode vX.Y.Z' from the VERSION file shipped with"
+            echo "the package. Equivalent to 'loki --version' and 'loki -v'."
+            return 0
+            ;;
+    esac
     echo "Loki Mode v$(get_version)"
 }
 
@@ -8122,6 +8288,33 @@ cmd_demo() {
 
 # Quick mode - lightweight single-task execution
 cmd_quick() {
+    # v7.6.3 B-11 fix: --help previously fell through to provider invocation
+    # (task_desc="--help") which hung the CLI for 10+ seconds. Explicit guard.
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- quick lightweight execution${NC}"
+            echo ""
+            echo "Usage: loki quick \"description of what to do\""
+            echo ""
+            echo "Runs Loki with a lightweight execution profile: 3 iterations max,"
+            echo "no quality council, no completion gate. Best for tiny tasks."
+            echo ""
+            echo "Examples:"
+            echo "  loki quick \"add dark mode to this React app\""
+            echo "  loki quick \"fix the login bug in auth.js\""
+            echo "  loki quick \"add input validation to the signup form\""
+            echo "  loki quick \"write unit tests for the API endpoints\""
+            echo ""
+            echo "Options:"
+            echo "  --help, -h    Show this help and exit"
+            echo ""
+            echo "Environment:"
+            echo "  LOKI_MAX_ITERATIONS    Override the default 3-iteration cap"
+            echo ""
+            echo "See also: loki start (full RARV cycle), loki run (alias for start)"
+            return 0
+            ;;
+    esac
     if [ $# -eq 0 ]; then
         echo -e "${RED}Error: No task description provided${NC}"
         echo ""
@@ -12126,10 +12319,10 @@ main() {
             cmd_cleanup "$@"
             ;;
         pause)
-            cmd_pause
+            cmd_pause "$@"
             ;;
         resume)
-            cmd_resume
+            cmd_resume "$@"
             ;;
         status)
             cmd_status "$@"
@@ -12147,6 +12340,27 @@ main() {
             cmd_logs "$@"
             ;;
         serve)
+            # v7.6.2 B-12 fix: 'serve --help' previously routed to 'cmd_api start --help'
+            # which started the dashboard as a side effect instead of printing help.
+            case "${1:-}" in
+                --help|-h|help)
+                    echo -e "${BOLD}Loki Mode -- start dashboard API server${NC}"
+                    echo ""
+                    echo "Usage: loki serve [options]"
+                    echo ""
+                    echo "Alias for 'loki api start'. Starts the dashboard HTTP API"
+                    echo "server (FastAPI, port 57374 by default)."
+                    echo ""
+                    echo "Options:"
+                    echo "  --host HOST    Bind host (default: 127.0.0.1)"
+                    echo "  --port PORT    Bind port (default: 57374)"
+                    echo "  --help, -h     Show this help and exit"
+                    echo ""
+                    echo "Side effects: starts a long-running HTTP server bound to a TCP port."
+                    echo "Stop with: loki dashboard stop"
+                    return 0
+                    ;;
+            esac
             cmd_api start "$@"
             ;;
         api)
@@ -12159,7 +12373,7 @@ main() {
             cmd_notify "$@"
             ;;
         import)
-            cmd_import
+            cmd_import "$@"
             ;;
         github)
             cmd_github "$@"
@@ -12304,7 +12518,7 @@ main() {
             cmd_code "$@"
             ;;
         version|--version|-v)
-            cmd_version
+            cmd_version "$@"
             ;;
 	completions)
             cmd_completions "$@"
@@ -13993,7 +14207,7 @@ if total_removed > 0:
         index)
             # Show or rebuild the memory index layer
             if [ "${2:-}" = "rebuild" ]; then
-                python3 -c "
+                PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "
 try:
     from memory.layers import IndexLayer
     layer = IndexLayer('.loki/memory')
@@ -14017,7 +14231,7 @@ except Exception as e:
         consolidate)
             # Run consolidation pipeline
             local hours="${2:-24}"
-            LOKI_HOURS="$hours" python3 -c "
+            LOKI_HOURS="$hours" PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "
 import os
 try:
     from memory.consolidation import ConsolidationPipeline
@@ -14039,9 +14253,68 @@ except Exception as e:
             ;;
 
         economics)
-            # Show token economics
-            if [ -f ".loki/memory/token_economics.json" ]; then
-                cat .loki/memory/token_economics.json | python3 -m json.tool 2>/dev/null || echo "Error parsing token economics JSON"
+            # v7.6.6 B-3d fix: previously only read .loki/memory/token_economics.json
+            # which is rarely written by current sessions, so users saw
+            # "No token economics data" while `loki kpis` correctly read
+            # .loki/metrics/efficiency/iter-*.json. Unify: prefer the
+            # canonical kpis source; fall back to the legacy file for
+            # backward compat with pre-v7.6.6 sessions.
+            # v7.7.7 fix: also check iteration-*.json (the canonical filename)
+            # in addition to iter-*.json. Use a portable glob check (no compgen)
+            # so the function works in any POSIX shell, not just bash.
+            local _eff_dir=".loki/metrics/efficiency"
+            local _legacy_file=".loki/memory/token_economics.json"
+            local _have_iters=0
+            if [ -d "$_eff_dir" ]; then
+                if ls "$_eff_dir"/iteration-*.json >/dev/null 2>&1 || ls "$_eff_dir"/iter-*.json >/dev/null 2>&1; then
+                    _have_iters=1
+                fi
+            fi
+            if [ "$_have_iters" -eq 1 ]; then
+                PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PYEOF' 2>/dev/null
+import json, glob, os, sys
+# v7.7.7 fix: canonical filename is `iteration-N.json`, NOT `iter-N.json`.
+# We glob both for compat with any older runs.
+files = sorted(set(glob.glob('.loki/metrics/efficiency/iteration-*.json') + glob.glob('.loki/metrics/efficiency/iter-*.json')))
+totals = {
+    'source': '.loki/metrics/efficiency/iteration-*.json',
+    'iterations': len(files),
+    'total_input_tokens': 0,
+    'total_output_tokens': 0,
+    'total_tokens': 0,
+    'total_cost_usd': 0.0,
+    'total_duration_ms': 0,
+    'by_model': {},
+    'by_phase': {},
+}
+def _num(x, cast=float, default=0):
+    try:
+        return cast(x) if x is not None else default
+    except (TypeError, ValueError):
+        return default
+for f in files:
+    try:
+        d = json.load(open(f))
+    except Exception:
+        continue
+    ti = int(_num(d.get('input_tokens'), int))
+    to = int(_num(d.get('output_tokens'), int))
+    co = float(_num(d.get('cost_usd'), float))
+    du = int(_num(d.get('duration_ms'), int))
+    totals['total_input_tokens'] += ti
+    totals['total_output_tokens'] += to
+    totals['total_tokens'] += ti + to
+    totals['total_cost_usd'] += co
+    totals['total_duration_ms'] += du
+    m = d.get('model') or 'unknown'
+    totals['by_model'][m] = totals['by_model'].get(m, 0) + 1
+    p = d.get('phase') or 'unknown'
+    totals['by_phase'][p] = totals['by_phase'].get(p, 0) + 1
+print(json.dumps(totals, indent=2))
+PYEOF
+            elif [ -f "$_legacy_file" ]; then
+                # Backward compat: pre-v7.6.6 sessions wrote here.
+                cat "$_legacy_file" | python3 -m json.tool 2>/dev/null || echo "Error parsing token economics JSON"
             else
                 echo "No token economics data. Run a session first."
             fi
@@ -14054,7 +14327,7 @@ except Exception as e:
                 echo "Usage: loki memory retrieve <query>"
                 exit 1
             fi
-            LOKI_QUERY="$query" python3 -c "
+            LOKI_QUERY="$query" PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "
 import os
 try:
     from memory.retrieval import MemoryRetrieval
@@ -14085,7 +14358,7 @@ except Exception as e:
                 echo "Usage: loki memory episode <id>"
                 exit 1
             fi
-            LOKI_ID="$id" python3 -c "
+            LOKI_ID="$id" PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "
 import os
 try:
     from memory.engine import MemoryEngine
@@ -14109,7 +14382,7 @@ except Exception as e:
             local id="${2:-}"
             if [ -z "$id" ]; then
                 # List all patterns
-                python3 -c "
+                PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "
 try:
     from memory.engine import MemoryEngine
     engine = MemoryEngine(base_path='.loki/memory')
@@ -14127,7 +14400,7 @@ except Exception as e:
     print(f'Error: {e}')
 " 2>/dev/null
             else
-                LOKI_ID="$id" python3 -c "
+                LOKI_ID="$id" PYTHONPATH="${SKILL_DIR}${PYTHONPATH:+:$PYTHONPATH}" python3 -c "
 import os
 try:
     from memory.engine import MemoryEngine

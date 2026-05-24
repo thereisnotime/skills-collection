@@ -23,6 +23,23 @@ Loki Mode supports four active AI providers with different capability levels, pl
 
 ---
 
+## Provider precedence (v7.7.2)
+
+When multiple sources specify a provider, Loki picks the first match in this order (highest wins):
+
+| Priority | Source | Scope | Example |
+|---|---|---|---|
+| 1 | `loki start --provider NAME` | Per-invocation CLI flag | `loki start --provider codex ./prd.md` |
+| 2 | `.loki/state/provider` | Per-project saved value | `loki provider set claude` writes this file |
+| 3 | `LOKI_PROVIDER` env var | Shell session default | `export LOKI_PROVIDER=cline` |
+| 4 | `claude` | Built-in default | (no config) |
+
+**Important:** `loki status` reflects the **SAVED** value, not the env var. If you set `LOKI_PROVIDER=cline` in your shell but ran `loki provider set claude` earlier in this project, `loki status` will show `claude`. To make a per-project choice persist, use `loki provider set NAME`.
+
+`loki status --json` includes a `provider_source` field with values `"saved"`, `"env"`, or `"default"` so scripts can verify why a value was chosen.
+
+---
+
 ## Claude Code (Default)
 
 Full-featured provider with complete Loki Mode capabilities.

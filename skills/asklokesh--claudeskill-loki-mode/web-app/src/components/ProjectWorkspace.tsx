@@ -18,7 +18,7 @@ import {
   Search as SearchIcon, BarChart3, History, DollarSign,
   MessageSquare,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, MOUNT_BASE } from '../api/client';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { IconButton } from './ui/IconButton';
 import { Button } from './ui/Button';
@@ -1026,10 +1026,10 @@ export function ProjectWorkspace({ session, onClose }: ProjectWorkspaceProps) {
   // Determine preview URL: point iframe directly to dev server (avoids proxy path issues with asset URLs)
   const devServerProxyUrl = devServer?.running && devServer?.port
     ? (devServer.framework === 'expo'
-        ? `/api/sessions/${encodeURIComponent(sessionData.id)}/expo-qr`
+        ? `${MOUNT_BASE}/api/sessions/${encodeURIComponent(sessionData.id)}/expo-qr`
         : (devServer.portless_url || `http://localhost:${devServer.port}/`))
     : null;
-  const defaultPreviewUrl = previewInfo?.preview_url || `/api/sessions/${encodeURIComponent(sessionData.id)}/preview/index.html`;
+  const defaultPreviewUrl = previewInfo?.preview_url || `${MOUNT_BASE}/api/sessions/${encodeURIComponent(sessionData.id)}/preview/index.html`;
   const effectivePreviewUrl = devServerProxyUrl || defaultPreviewUrl;
 
   // Preview history state

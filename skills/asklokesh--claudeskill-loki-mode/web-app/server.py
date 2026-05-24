@@ -7720,26 +7720,14 @@ async def get_audit_log() -> JSONResponse:
 
 # ---------------------------------------------------------------------------
 # Static file serving (built React app)
+# IMPORTANT: serve_spa was previously defined here at line 7725, BEFORE the
+# /api/magic, /api/deploy, /api/sessions/.../github/actions, and
+# /api/sessions/.../docs route registrations. FastAPI registers routes in
+# definition order, so the catch-all '/{full_path:path}' silently swallowed
+# those 22 endpoints (they returned index.html instead of JSON). Moved to
+# the very end of the file just before standalone_app in v7.6.0 so all
+# specific API routes register first.
 # ---------------------------------------------------------------------------
-
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str) -> FileResponse:
-    """Serve the React SPA and static assets from dist/."""
-    index = DIST_DIR / "index.html"
-    if not index.exists():
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Web app not built. Run: cd web-app && npm run build"},
-        )
-    # Serve static files (JS, CSS, images) from dist/
-    requested = DIST_DIR / full_path
-    if full_path and requested.is_file() and str(requested.resolve()).startswith(str(DIST_DIR.resolve())):
-        # Set correct content type
-        import mimetypes
-        content_type = mimetypes.guess_type(str(requested))[0] or "application/octet-stream"
-        return FileResponse(str(requested), media_type=content_type)
-    # SPA fallback: return index.html for all non-file routes
-    return FileResponse(str(index))
 
 
 # ---------------------------------------------------------------------------
@@ -7871,8 +7859,10 @@ def main() -> None:
     import uvicorn
     host = os.environ.get("PURPLE_LAB_HOST", HOST)
     port = int(os.environ.get("PURPLE_LAB_PORT", str(PORT)))
-    print(f"Purple Lab starting on http://{host}:{port}")
-    uvicorn.run(app, host=host, port=port, log_level="info", timeout_keep_alive=30)
+    print(f"Purple Lab starting on http://{host}:{port}/lab/")
+    # Use standalone_app (defined below) so the rebased /lab/ bundle routes
+    # correctly through the same FastAPI handlers used in dashboard's mount.
+    uvicorn.run(standalone_app, host=host, port=port, log_level="info", timeout_keep_alive=30)
 
 
 _TOKENS_DIR = SCRIPT_DIR.parent / ".loki" / "tokens"
@@ -8636,6 +8626,72 @@ async def docs_get_file(session_id: str, filename: str) -> Response:
         return JSONResponse(status_code=500, content={"error": "Cannot read doc file"})
 
     return Response(content=content, media_type="text/markdown")
+
+
+# ---------------------------------------------------------------------------
+# SPA catch-all (MUST be last @app route -- see comment at the old serve_spa
+# location higher in this file). Any path that isn't matched by a specific
+# @app.get/post/... above falls through here and serves the React bundle.
+# v7.6.0 bug fix: previously this was at line 7725 and silently swallowed
+# 22 downstream API routes (/api/magic/*, /api/deploy/*, /api/sessions/.../
+# github/actions/*, /api/sessions/.../docs/*) which returned text/html
+# instead of JSON. Real-user test (Playwright on /lab/magic) surfaced it.
+# ---------------------------------------------------------------------------
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str) -> FileResponse:
+    """Serve the React SPA and static assets from dist/.
+
+    The Vite build is configured with base: '/lab/' (Phase Merge-3), so the
+    bundled HTML references assets at '/lab/assets/...'. Under the canonical
+    standalone_app (and dashboard's Merge-4 mount), Starlette's Mount strips
+    '/lab' from the scope path before dispatch, so this handler usually sees
+    'assets/...' directly and the strip below is a no-op. The strip is
+    retained as defense-in-depth for direct-`app` invocations (e.g. tests or
+    operators running `uvicorn server:app` instead of `server:standalone_app`).
+    """
+    index = DIST_DIR / "index.html"
+    if not index.exists():
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Web app not built. Run: cd web-app && npm run build"},
+        )
+    # Resolve to the dist directory, tolerating the /lab/ base in standalone mode.
+    relative = full_path[4:] if full_path.startswith("lab/") else full_path
+    requested = DIST_DIR / relative
+    if relative and requested.is_file() and str(requested.resolve()).startswith(str(DIST_DIR.resolve())):
+        import mimetypes
+        content_type = mimetypes.guess_type(str(requested))[0] or "application/octet-stream"
+        return FileResponse(str(requested), media_type=content_type)
+    # SPA fallback: return index.html for all non-file routes
+    return FileResponse(str(index))
+
+
+# ---------------------------------------------------------------------------
+# Standalone wrapper (Phase Merge-3): mounts the FastAPI `app` under '/lab/'
+# so the rebased Vite bundle (with base: '/lab/') routes correctly through
+# the existing API and WS handlers when run via `loki web`. The same `app`
+# is imported and mounted at '/lab/' by `dashboard/server.py` in Merge-4 --
+# this wrapper exists ONLY for the standalone path so both modes share one
+# rebased bundle and one canonical handler set.
+# ---------------------------------------------------------------------------
+
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+from starlette.responses import RedirectResponse as _RedirectResponse
+
+
+async def _root_to_lab(request):  # noqa: ANN001
+    """Redirect legacy '/' visits to '/lab/' so React Router basename matches."""
+    return _RedirectResponse(url="/lab/", status_code=307)
+
+
+standalone_app = Starlette(
+    routes=[
+        Route("/", _root_to_lab),
+        Mount("/lab", app=app),
+    ],
+)
 
 
 if __name__ == "__main__":

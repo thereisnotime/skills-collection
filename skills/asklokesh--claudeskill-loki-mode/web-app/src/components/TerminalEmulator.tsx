@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
+import { MOUNT_BASE } from '../api/client';
 
 interface TerminalEmulatorProps {
   sessionId: string;
@@ -46,7 +47,7 @@ export function TerminalEmulator({ sessionId, isActive }: TerminalEmulatorProps)
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/terminal/${sessionId}`;
+    const wsUrl = `${protocol}//${window.location.host}${MOUNT_BASE}/ws/terminal/${sessionId}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

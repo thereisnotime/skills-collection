@@ -3575,10 +3575,17 @@ except: print('{\"total\":0,\"unacknowledged\":0}')
 " 2>/dev/null || echo '{"total":0,"unacknowledged":0}')
     fi
 
-    # Write comprehensive JSON state (atomic via temp file + mv)
+    # Write comprehensive JSON state (atomic via temp file + mv).
+    # v7.7.5 fix: previously used `${output_file}.tmp` (no PID suffix). When two
+    # background processes both called write_dashboard_state concurrently, they
+    # raced on the same .tmp filename -- one would clobber the other's content,
+    # the loser's `mv` would fail with "No such file or directory" because the
+    # winner already moved the shared .tmp away. This flooded the agent output
+    # with `mv: rename .loki/dashboard-state.json.tmp ...` errors and made
+    # Loki sessions appear broken. Now each process gets a unique tmp suffix.
     local project_name=$(basename "$(pwd)")
     local project_path=$(pwd)
-    local _tmp_state="${output_file}.tmp"
+    local _tmp_state="${output_file}.tmp.$$.$RANDOM"
 
     # BUG #49 fix: Escape project path/name for JSON to handle special chars
     # (spaces, quotes, backslashes in directory names)
@@ -3643,7 +3650,12 @@ except: print('null')
   "notifications": $notification_summary
 }
 EOF
-    mv "$_tmp_state" "$output_file"
+    # v7.7.5 fix: silence mv stderr so any residual race (different process
+    # already swapped a newer file in) doesn't flood the agent output. The
+    # PID-suffixed tmp eliminates the race; the 2>/dev/null is belt-and-
+    # suspenders. `|| rm -f "$_tmp_state" 2>/dev/null` cleans up the tmp
+    # on the rare failure rather than leaking it.
+    mv "$_tmp_state" "$output_file" 2>/dev/null || rm -f "$_tmp_state" 2>/dev/null
 }
 
 #===============================================================================
@@ -5634,13 +5646,29 @@ enforce_static_analysis() {
                             if [ "$_ts_project_mode" -eq 1 ]; then
                                 continue
                             fi
+                            # v7.6.2 B-18 fix: previously skipped TS/TSX files when
+                            # tsc wasn't on PATH, leaving them silently unchecked.
+                            # Now fall back to `npx --yes -p typescript@latest tsc`
+                            # (uses the cached npm install), then to `bun tsc`
+                            # (Bun has built-in TypeScript), before giving up.
                             if command -v tsc &>/dev/null; then
                                 tsc --noEmit --allowJs --jsx preserve --target esnext "$f" 2>&1 || {
                                     findings=$((findings + 1))
                                     details="${details}TS syntax error: $f. "
                                 }
+                            elif command -v bun &>/dev/null; then
+                                # Bun has built-in TypeScript via `bun --check`.
+                                bun --check "$f" 2>&1 || {
+                                    findings=$((findings + 1))
+                                    details="${details}TS syntax error (bun --check): $f. "
+                                }
+                            elif command -v npx &>/dev/null; then
+                                npx --yes -p typescript@latest tsc --noEmit --allowJs --jsx preserve --target esnext "$f" 2>&1 || {
+                                    findings=$((findings + 1))
+                                    details="${details}TS syntax error (npx tsc): $f. "
+                                }
                             else
-                                log_info "Static analysis: skipping $f (tsc not on PATH; node --check cannot parse .ts/.tsx)"
+                                log_info "Static analysis: skipping $f (no tsc, bun, or npx available)"
                             fi
                             ;;
                         *)
@@ -8698,6 +8726,66 @@ except Exception as e:
 PYEOF
 }
 
+# v7.7.3 F-3 fix: intelligent USAGE.md regeneration. Called at session end
+# (after completion-promise fulfilled). Reads the FINAL project state
+# (file tree + package manifests + recent commits) and asks Claude
+# (haiku tier) to emit a USAGE.md tailored to the actual stack.
+#
+# Best-effort: any failure (no provider, network, parse) returns silently
+# without disrupting completion. Costs ~$0.01-0.05 per session (one
+# haiku call). Set LOKI_INTELLIGENT_USAGE=0 to skip entirely.
+_intelligent_usage_regen() {
+    local target_dir="${TARGET_DIR:-.}"
+    local usage_path="$target_dir/USAGE.md"
+    # Find a working `claude` binary; if absent, bail silently.
+    if ! command -v claude >/dev/null 2>&1; then
+        return 0
+    fi
+    # Snapshot project state. Keep it small (< ~4 KiB) so the prompt
+    # stays cache-stable across sessions.
+    local _tree _manifests _commits _state_prompt
+    _tree=$(cd "$target_dir" && find . -maxdepth 3 -type f \
+        -not -path './node_modules/*' -not -path './.loki/*' \
+        -not -path './.git/*' -not -path './venv/*' -not -path './.venv/*' \
+        -not -path './dist/*' -not -path './build/*' 2>/dev/null | head -30)
+    # Capture package manifests inline so the model sees real scripts.
+    _manifests=""
+    for f in package.json requirements.txt pyproject.toml Cargo.toml go.mod composer.json Gemfile; do
+        if [ -f "$target_dir/$f" ]; then
+            _manifests="${_manifests}=== $f ===\n$(head -50 "$target_dir/$f" 2>/dev/null)\n\n"
+        fi
+    done
+    _commits=$(cd "$target_dir" && git log --oneline -10 2>/dev/null || true)
+
+    log_info "Regenerating USAGE.md from final project state (intelligent mode)..."
+    local _ic_prompt="You are writing a USAGE.md for the project below. Detect the stack from the manifest files; emit a concise (under 100 lines) Markdown doc with sections: ## Prerequisites, ## Install, ## Start, ## Verify (2-3 copy-paste curl/browser/CLI commands with expected output), ## Stop. Use the ACTUAL command names from package.json scripts or pyproject entry points -- never generic placeholders. Output ONLY the Markdown body (no code-fence wrapper, no preamble).
+
+=== Project tree (max 30 files, 3 levels deep) ===
+${_tree}
+
+=== Manifest files ===
+${_manifests}
+
+=== Last 10 commits ===
+${_commits}"
+
+    # Use haiku for cheap, fast generation. --dangerously-skip-permissions
+    # because this is a one-shot non-interactive call.
+    local _ic_out
+    _ic_out=$(printf '%s' "$_ic_prompt" \
+        | timeout 60 claude --dangerously-skip-permissions --model haiku -p - 2>/dev/null \
+        | head -200)
+    # Sanity check: response must look like Markdown (starts with # or ##).
+    if [ -z "$_ic_out" ] || ! printf '%s' "$_ic_out" | head -1 | grep -qE '^#'; then
+        log_info "Intelligent USAGE regen returned non-Markdown or empty; keeping existing USAGE.md."
+        return 0
+    fi
+    printf '%s\n' "$_ic_out" > "$usage_path"
+    log_info "USAGE.md regenerated intelligently from final project state -> $usage_path"
+    return 0
+}
+
+
 # Magic Modules COMPOUND: record successful component patterns (v6.77.0)
 # Called at end of each iteration to capture generated/updated components
 # as semantic memory patterns via magic.core.memory_bridge.
@@ -8733,13 +8821,97 @@ auto_capture_episode() {
         return
     fi
 
-    # Collect git context: files modified in this iteration
+    # v7.6.4 B-3a fix: previously `git diff --name-only HEAD` only captured
+    # UNSTAGED changes -- always empty after loki's per-iteration auto-commit
+    # rolled the new files into HEAD. Now diff against the iteration-start
+    # SHA captured at the top of the retry loop. Falls back to HEAD~1 if the
+    # start SHA env is unset (older direct callers).
+    # v7.7.7 fix: previously only captured files when target_dir was a git
+    # repo. Real-user test on /tmp/loki-validate (no git init) produced
+    # `files_modified: []` because git rev-parse failed silently and the
+    # fallback also required git. Now: detect git-vs-non-git up front, and
+    # for non-git dirs use a `find` snapshot diff against the timestamp
+    # captured when loki created .loki/ (initialized_at). Skips standard
+    # noise dirs (.loki, node_modules, .git, venv, .venv, dist, build).
     local files_modified=""
-    files_modified=$(cd "$target_dir" && git diff --name-only HEAD 2>/dev/null | head -20 | tr '\n' '|' || true)
+    local _diff_base="${_LOKI_ITER_START_SHA:-}"
+    local _is_git=0
+    if (cd "$target_dir" && git rev-parse --is-inside-work-tree >/dev/null 2>&1); then
+        _is_git=1
+    fi
+    if [ "$_is_git" -eq 1 ]; then
+        if [ -z "$_diff_base" ]; then
+            _diff_base=$(cd "$target_dir" && git rev-parse HEAD~1 2>/dev/null || echo "")
+        fi
+        if [ -n "$_diff_base" ]; then
+            files_modified=$(cd "$target_dir" && git diff --name-only "$_diff_base" HEAD 2>/dev/null | head -50 | tr '\n' '|' || true)
+            # Also include unstaged changes (in case auto-commit didn't run)
+            local _unstaged
+            _unstaged=$(cd "$target_dir" && git diff --name-only HEAD 2>/dev/null | head -20 | tr '\n' '|' || true)
+            if [ -n "$_unstaged" ]; then
+                files_modified="${files_modified}${_unstaged}"
+            fi
+        else
+            # Git repo but no prior commit (e.g. fresh init) -- list untracked.
+            files_modified=$(cd "$target_dir" && git ls-files --others --exclude-standard 2>/dev/null | head -50 | tr '\n' '|' || true)
+        fi
+    else
+        # NOT a git repo: snapshot diff via find. Use .loki/ mtime as the
+        # iteration-start reference (loki creates .loki/ on session start).
+        # `-newer` on directory mtime gives a rough but useful set of files
+        # modified DURING this session. Skip noise dirs.
+        local _ref_file="${target_dir}/.loki/state/orchestrator.json"
+        if [ ! -f "$_ref_file" ]; then
+            _ref_file="${target_dir}/.loki"
+        fi
+        if [ -e "$_ref_file" ]; then
+            files_modified=$(cd "$target_dir" && find . -type f -newer "$_ref_file" \
+                -not -path './.loki/*' \
+                -not -path './node_modules/*' \
+                -not -path './.git/*' \
+                -not -path './venv/*' \
+                -not -path './.venv/*' \
+                -not -path './dist/*' \
+                -not -path './build/*' \
+                2>/dev/null | head -50 | sed 's|^\./||' | tr '\n' '|' || true)
+        fi
+        # Belt-and-suspenders: if find returned nothing, fall back to a
+        # plain listing of non-noise files (every visible file, capped at 50).
+        if [ -z "$files_modified" ]; then
+            files_modified=$(cd "$target_dir" && find . -maxdepth 3 -type f \
+                -not -path './.loki/*' \
+                -not -path './node_modules/*' \
+                -not -path './.git/*' \
+                2>/dev/null | head -50 | sed 's|^\./||' | tr '\n' '|' || true)
+        fi
+    fi
 
     # Collect last git commit if any
     local git_commit=""
     git_commit=$(cd "$target_dir" && git rev-parse --short HEAD 2>/dev/null || true)
+
+    # v7.6.4 B-3a fix + v7.7.7 filename fix: the actual filename is
+    # `iteration-N.json` (not `iter-N.json` as v7.6.4 erroneously assumed).
+    # Real-user test on /tmp/loki-validate showed `iteration-1.json` in
+    # .loki/metrics/efficiency/. We now check both the canonical name and
+    # the legacy `iter-N.json` for backward compat with any older runs.
+    local _iter_metrics_file=""
+    for _candidate in \
+        "$target_dir/.loki/metrics/efficiency/iteration-${iteration}.json" \
+        "$target_dir/.loki/metrics/efficiency/iter-${iteration}.json" \
+    ; do
+        if [ -f "$_candidate" ]; then
+            _iter_metrics_file="$_candidate"
+            break
+        fi
+    done
+    local _iter_tokens_in=0 _iter_tokens_out=0 _iter_cost=0
+    if [ -n "$_iter_metrics_file" ]; then
+        _iter_tokens_in=$(python3 -c "import json; d=json.load(open('$_iter_metrics_file')); print(int(d.get('input_tokens', 0) or 0))" 2>/dev/null || echo 0)
+        _iter_tokens_out=$(python3 -c "import json; d=json.load(open('$_iter_metrics_file')); print(int(d.get('output_tokens', 0) or 0))" 2>/dev/null || echo 0)
+        _iter_cost=$(python3 -c "import json; d=json.load(open('$_iter_metrics_file')); print(float(d.get('cost_usd', 0) or 0))" 2>/dev/null || echo 0)
+    fi
+    local _iter_tokens_total=$((_iter_tokens_in + _iter_tokens_out))
 
     # Determine outcome
     local outcome="success"
@@ -8758,6 +8930,8 @@ auto_capture_episode() {
     _LOKI_DURATION="$duration" _LOKI_OUTCOME="$outcome" \
     _LOKI_FILES_MODIFIED="$files_modified" _LOKI_GIT_COMMIT="$git_commit" \
     _LOKI_EPISODE_PATH_FILE="$episode_path_file" \
+    _LOKI_TOKENS_IN="$_iter_tokens_in" _LOKI_TOKENS_OUT="$_iter_tokens_out" \
+    _LOKI_TOKENS_TOTAL="$_iter_tokens_total" _LOKI_COST_USD="$_iter_cost" \
     python3 << 'PYEOF' 2>/dev/null || true
 import sys
 import os
@@ -8794,6 +8968,32 @@ try:
     trace.duration_seconds = int(duration) if duration.isdigit() else 0
     trace.git_commit = git_commit if git_commit else None
     trace.files_modified = [f for f in files_modified.split('|') if f] if files_modified else []
+
+    # v7.6.4 B-3a + B-3b fix: hydrate tokens + cost from the iteration's
+    # efficiency metrics file (same source `loki kpis` reads). Backward
+    # compat: zero stays zero on missing metrics.
+    try:
+        trace.tokens_used = int(os.environ.get('_LOKI_TOKENS_TOTAL', '0') or 0)
+    except (TypeError, ValueError):
+        trace.tokens_used = 0
+    # Try to set the input/output/cost fields if the schema accepts them.
+    for attr, env_key, caster in (
+        ('input_tokens', '_LOKI_TOKENS_IN', int),
+        ('output_tokens', '_LOKI_TOKENS_OUT', int),
+        ('cost_usd', '_LOKI_COST_USD', float),
+    ):
+        try:
+            value = caster(os.environ.get(env_key, '0') or 0)
+            setattr(trace, attr, value)
+        except (AttributeError, TypeError, ValueError):
+            pass
+    # files_modified -> artifacts_produced shadow (so .artifacts_produced
+    # reflects what was created if the schema has that field separately).
+    try:
+        if not getattr(trace, 'artifacts_produced', None):
+            trace.artifacts_produced = list(trace.files_modified)
+    except AttributeError:
+        pass
 
     engine.store_episode(trace)
 
@@ -9189,6 +9389,21 @@ build_prompt() {
     # Context Memory Instructions (integrated with new memory system)
     local memory_instruction="MEMORY SYSTEM: Relevant context from past sessions is provided below (if any). Your actions will be automatically recorded for future reference. For complex handoffs: create .loki/memory/handoffs/{timestamp}.md. For important decisions: they will be captured in the timeline. Check .loki/CONTINUITY.md for session-level working memory."
 
+    # USAGE.md instruction (v7.6.0) -- always-on end-user handoff doc.
+    # REGARDLESS of whether the PRD mentions it, the agent MUST write USAGE.md
+    # at the project root before signaling completion. This becomes the
+    # canonical "how do I run and verify this" artifact surfaced to the user
+    # and to the dashboard/Purple Lab UI.
+    local usage_doc_instruction="USAGE_DOC_REQUIRED: Before invoking loki_complete_task (or touching .loki/signals/COMPLETION_REQUESTED), write USAGE.md at the project root. Detect the stack from package.json/requirements.txt/Cargo.toml/go.mod/etc. and include these sections: (1) Prerequisites (runtimes, ports, env vars), (2) Install (exact command, e.g. 'npm install' or 'pip install -r requirements.txt'), (3) Start (exact command, e.g. 'npm start' or 'python server.py'), (4) Verify -- 2 to 3 copy-paste commands the user can run to confirm it works (curl examples for APIs with expected output, browser URL for web UIs, command invocation for CLIs), (5) Stop (Ctrl+C or 'lsof -ti:PORT | xargs kill -9' for backgrounded servers). Keep it under 100 lines, plain Markdown, no emojis. If USAGE.md already exists and is accurate, leave it; otherwise create or update it."
+
+    # v7.7.8: LSP grounding instruction. The lsp-proxy MCP server (auto-mounted
+    # when a language server is on PATH) exposes four tools that ground the
+    # agent in real workspace symbols instead of hallucinated names. Before
+    # writing any reference to a symbol the agent has not already read with
+    # the Read tool, prefer mcp__loki-mode-lsp-proxy__lsp_check_exists. This
+    # is the single most leveraged grounding primitive per OpenCode research.
+    local lsp_grounding_instruction="LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship."
+
     # Load existing context if resuming
     local context_injection=""
     if [ $retry -gt 0 ]; then
@@ -9518,15 +9733,15 @@ except Exception:
         else
             if [ $retry -eq 0 ]; then
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode with PRD at $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             else
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             fi
         fi
@@ -9567,6 +9782,8 @@ except Exception:
         else
             printf 'You are a coding assistant. Analyze this codebase and suggest improvements. Write working code and commit changes.\n'
         fi
+        printf '%s\n' "$usage_doc_instruction"
+        printf '%s\n' "$lsp_grounding_instruction"
         printf '</loki_system>\n'
         printf '[CACHE_BREAKPOINT]\n'
 
@@ -9597,6 +9814,8 @@ except Exception:
     printf '%s\n' "$sdlc_instruction"
     printf '%s\n' "$autonomous_suffix"
     printf '%s\n' "$memory_instruction"
+    printf '%s\n' "$usage_doc_instruction"
+    printf '%s\n' "$lsp_grounding_instruction"
     # For codebase-analysis mode (no PRD), analysis_instruction is part of the
     # static prefix so it remains cache-stable.
     if [ -z "$prd" ]; then
@@ -10686,6 +10905,12 @@ except Exception as exc:
 
         save_state $retry "running" 0
 
+        # v7.6.4 B-3a fix: capture iteration-start git SHA so auto_capture_episode
+        # can diff against this baseline (not just HEAD, which is empty after
+        # loki's per-iteration auto-commit makes the new files HEAD).
+        _LOKI_ITER_START_SHA=$(cd "${TARGET_DIR:-.}" && git rev-parse HEAD 2>/dev/null || echo "")
+        export _LOKI_ITER_START_SHA
+
         # Run AI provider with live output
         local start_time=$(date +%s)
         local log_file=".loki/logs/autonomy-$(date +%Y%m%d).log"
@@ -11430,7 +11655,22 @@ if __name__ == "__main__":
             #       promise text appears in the iteration output.
             # The check_completion_promise() helper encapsulates both.
             # BUG-RUN-001: Use per-iteration output, not stale daily log.
-            if check_completion_promise "$iter_output"; then
+            #
+            # v7.6.2 B-17 fix: completion was firing even when code review
+            # BLOCKED the iteration with Critical/High findings. That's a false
+            # success signal -- review-blocked iterations cannot be considered
+            # complete. Check the gate_failures accumulator for code_review and
+            # refuse completion until the review passes.
+            local _gate_block_for_completion=""
+            case "${gate_failures:-}" in
+                *code_review,*|*code_review_ESCALATED*) _gate_block_for_completion="code_review" ;;
+            esac
+            if [ -n "$_gate_block_for_completion" ] && check_completion_promise "$iter_output"; then
+                log_warn "Completion claim rejected: code review is BLOCKED for this iteration (Critical/High findings). Fix review issues before completion."
+                log_warn "  Review details under .loki/quality/reviews/ ; gate_failures=${gate_failures}"
+                _gate_block_for_completion=""
+                # Fall through; the gate-failed loop continues normally
+            elif check_completion_promise "$iter_output"; then
                 echo ""
                 if [ -n "$COMPLETION_PROMISE" ]; then
                     log_header "COMPLETION PROMISE FULFILLED: $COMPLETION_PROMISE"
@@ -11438,6 +11678,16 @@ if __name__ == "__main__":
                     log_header "TASK COMPLETION CLAIMED (via loki_complete_task)"
                 fi
                 log_info "Explicit completion signal detected."
+                # v7.7.3 F-3 fix: intelligent USAGE.md regeneration. The static
+                # USAGE_DOC_INSTRUCTION in build_prompt gets the agent to write
+                # SOMETHING; this hook re-runs a cheap model call with the FINAL
+                # project state to refine that output (or write it if missing).
+                # Default-on per the "no user flag" mandate; set
+                # LOKI_INTELLIGENT_USAGE=0 to disable. Best-effort: failures
+                # never block completion.
+                if [ "${LOKI_INTELLIGENT_USAGE:-1}" != "0" ]; then
+                    _intelligent_usage_regen 2>/dev/null || true
+                fi
                 # Run memory consolidation on successful completion
                 log_info "Running memory consolidation..."
                 run_memory_consolidation
@@ -11542,13 +11792,74 @@ LOKI_PROVIDER_ACTIVE=0
 # v7.5.12: Kill provider pipeline children with SIGTERM, then SIGKILL escalation.
 # Uses pkill -P $$ to target direct children only (the pipeline subshells).
 # Returns 0 if anything was killed, 1 if no children present.
+#
+# v7.6.2 B-15 fix: previously `pkill -P $$` was indiscriminate -- it caught
+# the dashboard server (started via nohup but still parented to this shell
+# until the OS reparents it). The dashboard PID 29716 was killed mid-session
+# after "Aggregating verdicts", breaking the browser UI. Now we explicitly
+# exclude any PID registered in .loki/pids/ (dashboard, app-runner, etc.).
 kill_provider_child() {
     local killed=0
-    # First pass: SIGTERM to direct children of this shell. Pipeline subshells
-    # for `claude -p | tee | python` are direct children of $$.
-    if pkill -TERM -P $$ 2>/dev/null; then
-        killed=1
+    local protected_pids=""
+    # v7.7.5 follow-up: previously this only read `*.pid` files, but the
+    # canonical registry (`register_pid` in run.sh:873) writes `*.json` files
+    # named `<PID>.json`. The dashboard PID was registered as JSON and thus
+    # not protected; provider kill cascade caught it. Now reads BOTH:
+    # *.pid files (legacy + .loki/dashboard/dashboard.pid) AND *.json files
+    # (the canonical pid registry, where the JSON filename IS the PID).
+    local pid_root="${TARGET_DIR:-.}/.loki/pids"
+    if [ -d "$pid_root" ]; then
+        local pid_file pid
+        # Legacy / external `.pid` files: content is the PID
+        for pid_file in "$pid_root"/*.pid; do
+            [ -f "$pid_file" ] || continue
+            pid=$(cat "$pid_file" 2>/dev/null | head -1 | tr -d '[:space:]')
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                protected_pids="${protected_pids} ${pid}"
+            fi
+        done
+        # Canonical `register_pid` registry: filename `<PID>.json` IS the PID.
+        for pid_file in "$pid_root"/*.json; do
+            [ -f "$pid_file" ] || continue
+            pid=$(basename "$pid_file" .json)
+            # Verify numeric + alive before adding (basename may be non-numeric
+            # if some other consumer wrote a non-PID JSON file here).
+            case "$pid" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            if kill -0 "$pid" 2>/dev/null; then
+                protected_pids="${protected_pids} ${pid}"
+            fi
+        done
     fi
+    # Also protect the dashboard PID file at .loki/dashboard/dashboard.pid (older path).
+    local dash_pid_file="${TARGET_DIR:-.}/.loki/dashboard/dashboard.pid"
+    if [ -f "$dash_pid_file" ]; then
+        local dpid
+        dpid=$(cat "$dash_pid_file" 2>/dev/null | head -1 | tr -d '[:space:]')
+        if [ -n "$dpid" ] && kill -0 "$dpid" 2>/dev/null; then
+            protected_pids="${protected_pids} ${dpid}"
+        fi
+    fi
+
+    # Helper: returns 0 if $1 is in protected_pids list.
+    _is_protected() {
+        local target="$1"
+        local p
+        for p in $protected_pids; do
+            [ "$p" = "$target" ] && return 0
+        done
+        return 1
+    }
+
+    # First pass: SIGTERM each direct child individually so we can skip protected PIDs.
+    local child_pid
+    for child_pid in $(pgrep -P $$ 2>/dev/null); do
+        if _is_protected "$child_pid"; then
+            continue
+        fi
+        kill -TERM "$child_pid" 2>/dev/null && killed=1
+    done
     # Also kill provider leaf processes by name in case they were reparented.
     local proc
     for proc in claude codex aider cline; do
@@ -11558,18 +11869,27 @@ kill_provider_child() {
     # Brief wait for graceful exit (max ~2s).
     local i=0
     while [ $i -lt 20 ]; do
-        if ! pgrep -P $$ >/dev/null 2>&1; then
+        local survivors=""
+        for child_pid in $(pgrep -P $$ 2>/dev/null); do
+            if ! _is_protected "$child_pid"; then
+                survivors="${survivors} ${child_pid}"
+            fi
+        done
+        if [ -z "$survivors" ]; then
             break
         fi
         sleep 0.1
         i=$((i + 1))
     done
 
-    # Escalate to SIGKILL for any survivors.
-    if pgrep -P $$ >/dev/null 2>&1; then
-        pkill -KILL -P $$ 2>/dev/null || true
+    # Escalate to SIGKILL for unprotected survivors only.
+    for child_pid in $(pgrep -P $$ 2>/dev/null); do
+        if _is_protected "$child_pid"; then
+            continue
+        fi
+        kill -KILL "$child_pid" 2>/dev/null
         killed=1
-    fi
+    done
 
     LOKI_PROVIDER_ACTIVE=0
     if [ $killed -eq 1 ]; then

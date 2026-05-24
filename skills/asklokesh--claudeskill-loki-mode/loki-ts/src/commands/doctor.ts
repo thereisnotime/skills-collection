@@ -16,6 +16,7 @@ import { resolve } from "node:path";
 import { commandExists, run } from "../util/shell.ts";
 import { findPython3, runInline } from "../util/python.ts";
 import { BOLD, CYAN, DIM, GREEN, NC, RED, YELLOW } from "../util/colors.ts";
+import { getVersion } from "../version.ts";
 
 // ---------- Types (mirror cmd_doctor_json shape) ------------------------------
 
@@ -49,6 +50,10 @@ export type SentruxCheck = {
 };
 
 export type DoctorJson = {
+  // v7.6.1 B-9 fix: surface the active loki version so tools parsing this
+  // JSON know which release produced the report. Mirrors the bash side
+  // (autonomy/loki:cmd_doctor_json) which now sets LOKI_VERSION env.
+  loki_mode_version: string;
   checks: ToolCheck[];
   disk: DiskCheck;
   sentrux: SentruxCheck;
@@ -333,6 +338,7 @@ export async function buildDoctorJson(): Promise<DoctorJson> {
   else warnings++;
 
   return {
+    loki_mode_version: getVersion(),
     checks,
     disk,
     sentrux,
@@ -532,6 +538,36 @@ async function runText(): Promise<number> {
       `  ${badge("warn")}  ChromaDB - not running (docker start loki-chroma)\n`,
     );
     tally.warn++;
+  }
+  // v7.7.0: LSP servers check (mirrors autonomy/loki cmd_doctor). The
+  // mcp.lsp_proxy auto-detects these binaries; reporting here gives users
+  // visibility into which languages get agent-side symbol grounding.
+  {
+    const lspBins = [
+      "pyright-langserver",
+      "pylsp",
+      "typescript-language-server",
+      "gopls",
+      "rust-analyzer",
+      "jdtls",
+    ];
+    const found: string[] = [];
+    for (const bin of lspBins) {
+      if (await commandExists(bin)) {
+        found.push(bin);
+      }
+    }
+    if (found.length > 0) {
+      process.stdout.write(
+        `  ${badge("pass")}  LSP servers detected (${found.length}): ${found.join(", ")}\n`,
+      );
+      tally.pass++;
+    } else {
+      process.stdout.write(
+        `  ${badge("warn")}  LSP servers - none on PATH (install for symbol grounding: npm i -g pyright typescript-language-server; brew install gopls)\n`,
+      );
+      tally.warn++;
+    }
   }
   // MiroFish: only check if env var is set (we can't run docker inspect cheaply
   // without spawning docker; bash also gates on env var or docker inspect).

@@ -6,12 +6,12 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="7.5.28"
+LABEL version="7.7.9"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="7.5.28"
+LABEL org.opencontainers.image.version="7.7.9"
 LABEL description="Loki Mode by Autonomi - Multi-agent autonomous startup system for Claude Code, Codex CLI, Cline, and Aider"
 LABEL url="https://www.autonomi.dev/"
 
@@ -98,6 +98,12 @@ COPY --chown=loki:loki memory/ ./memory/
 COPY --chown=loki:loki events/ ./events/
 COPY --chown=loki:loki dashboard/ ./dashboard/
 COPY --chown=loki:loki mcp/ ./mcp/
+# Purple Lab (web-app/): React UI + FastAPI backend. Pre-built dist/ ships in
+# the image so `loki web` works out of the box; Phase Merge-4 mounts the same
+# app under /lab/ in the dashboard. Backend Python deps installed below.
+COPY --chown=loki:loki web-app/server.py web-app/auth.py web-app/models.py web-app/crypto.py web-app/requirements.txt ./web-app/
+COPY --chown=loki:loki web-app/migrations/ ./web-app/migrations/
+COPY --chown=loki:loki web-app/dist/ ./web-app/dist/
 COPY --chown=loki:loki learning/ ./learning/
 COPY --chown=loki:loki magic/ ./magic/
 COPY --chown=loki:loki templates/ ./templates/
@@ -116,7 +122,8 @@ COPY --chown=loki:loki loki-ts/data/ ./loki-ts/data/
 
 # Install dashboard Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
-    -r dashboard/requirements.txt
+    -r dashboard/requirements.txt \
+    -r web-app/requirements.txt
 
 # Make scripts executable
 RUN chmod +x autonomy/run.sh autonomy/loki autonomy/app-runner.sh autonomy/prd-checklist.sh autonomy/playwright-verify.sh autonomy/completion-council.sh bin/loki

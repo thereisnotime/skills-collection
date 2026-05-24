@@ -41,7 +41,8 @@ if not os.path.isdir(loki_dir):
     result['status'] = 'inactive'
     result['phase'] = None
     result['iteration'] = 0
-    result['provider'] = env_provider
+    result['provider'] = env_provider if os.environ.get('LOKI_PROVIDER', '') else 'claude'
+    result['provider_source'] = 'env' if os.environ.get('LOKI_PROVIDER', '') else 'default'
     result['dashboard_url'] = None
     result['pid'] = None
     result['elapsed_time'] = 0
@@ -99,13 +100,26 @@ else:
         result['phase'] = None
         result['iteration'] = 0
 
-# Provider
+# Provider + provider_source (v7.7.2 B-5 clarity, parity with bash)
 provider_file = os.path.join(loki_dir, 'state', 'provider')
 if os.path.isfile(provider_file):
-    with open(provider_file) as f:
-        result['provider'] = f.read().strip()
+    try:
+        with open(provider_file) as f:
+            saved = f.read().strip()
+    except OSError:
+        saved = ''
 else:
+    saved = ''
+env_set = os.environ.get('LOKI_PROVIDER', '') != ''
+if saved:
+    result['provider'] = saved
+    result['provider_source'] = 'saved'
+elif env_set:
     result['provider'] = env_provider
+    result['provider_source'] = 'env'
+else:
+    result['provider'] = 'claude'
+    result['provider_source'] = 'default'
 
 # PID
 pid_file = os.path.join(loki_dir, 'loki.pid')

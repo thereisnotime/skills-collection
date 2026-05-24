@@ -1,3 +1,12 @@
+# [1.15.0](https://github.com/antonbabenko/terraform-skill/compare/v1.14.0...v1.15.0) (2026-05-23)
+
+
+### Features
+
+* Provisioners as Last Resort (closes row 16) ([#31](https://github.com/antonbabenko/terraform-skill/issues/31)) ([cc78c5a](https://github.com/antonbabenko/terraform-skill/commit/cc78c5a4347dec85ac405082b38e139fccb67b0e))
+
+
+
 # [1.14.0](https://github.com/antonbabenko/terraform-skill/compare/v1.0.0...v1.14.0) (2026-05-18)
 
 
