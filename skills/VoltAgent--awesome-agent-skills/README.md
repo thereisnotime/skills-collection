@@ -20,7 +20,7 @@
 <div align="center">
 
 [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
-![Skills Count](https://img.shields.io/badge/Skills-1100+-blue?style=flat-square)
+![Skills Count](https://img.shields.io/badge/Skills-1424+-blue?style=flat-square)
 ![Last Update](https://img.shields.io/github/last-commit/VoltAgent/awesome-agent-skills?label=Last%20update&style=flat-square)
 <a href="https://github.com/VoltAgent/voltagent">
   <img alt="VoltAgent" src="https://cdn.voltagent.dev/website/logo/logo-2-svg.svg" height="20" />
@@ -67,7 +67,7 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Apollo GraphQL](#skills-by-apollo-graphql) | [Auth0](#skills-by-auth0) | [Brave](#skills-by-brave) |
 | [Browserbase](#skills-by-browserbase) | [CodeRabbit](#skills-by-coderabbit) | [Coinbase](#skills-by-coinbase) | [Datadog Labs](#skills-by-datadog-labs) |
 | [Firebase](#skills-by-firebase) | [Flutter](#skills-by-flutter) | [Venice.ai](#skills-by-veniceai) | [Community](#community-skills) |
-| [Redis](#skills-by-redis) | [Quality Standards](#skill-quality-standards) |  |  |
+| [Redis](#skills-by-redis) | [NVIDIA](#skills-by-nvidia) | [Google Cloud](#skills-by-google-cloud) | [Quality Standards](#skill-quality-standards) |
 
 
 
@@ -1234,6 +1234,247 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 
 </details>
 
+<details>
+<summary><h3 style="display:inline">Skills by NVIDIA</h3></summary>
+
+Official skills published by NVIDIA across AI/ML infrastructure projects — Megatron, NeMo, TensorRT-LLM, CUDA-Q, cuOpt, DALI, DeepStream, and more. 155 skills across 17 products.
+
+### CUDA-Q
+
+- **[NVIDIA/CUDA-Q/cudaq-guide](https://github.com/NVIDIA/skills/tree/main/skills/CUDA-Q/cudaq-guide)** - CUDA-Q onboarding guide for installation, test programs, GPU simulation, QPU hardware, and quantum applications.
+
+### DALI
+
+- **[NVIDIA/DALI/dali-dynamic-mode](https://github.com/NVIDIA/skills/tree/main/skills/DALI/dali-dynamic-mode)** - Use when writing DALI data loading or preprocessing code with `nvidia.dali.experimental.dynamic` (ndd), or when converting DALI pipeline-mode code to dynamic mode, or when the user...
+
+### Megatron-Bridge
+
+- **[NVIDIA/Megatron-Bridge/adding-model-support](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/adding-model-support)** - Guide for adding support for new LLM or VLM models in Megatron-Bridge.
+- **[NVIDIA/Megatron-Bridge/build-and-dependency](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/build-and-dependency)** - Dev environment setup for Megatron Bridge — container-based development, uv package management, lockfile regeneration, adding dependencies, Slurm container usage, and common build...
+- **[NVIDIA/Megatron-Bridge/bump-dependency](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/bump-dependency)** - Bump a pinned dependency (TransformerEngine, Megatron-LM, NRX, etc.), regenerate the lockfile, open a PR, and drive it to green by attaching a watchdog to the "CICD NeMo" workflow...
+- **[NVIDIA/Megatron-Bridge/cicd](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/cicd)** - CI/CD reference for Megatron Bridge — pipeline structure, commit and PR workflow, CI failure investigation, and common failure patterns.
+- **[NVIDIA/Megatron-Bridge/linting-and-formatting](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/linting-and-formatting)** - Code style and quality rules for Megatron Bridge — ruff configuration, naming conventions, type hints, mypy rules, docstrings, copyright headers, logging, and the code review check...
+- **[NVIDIA/Megatron-Bridge/mlm-bridge-training](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/mlm-bridge-training)** - Run Megatron-LM (MLM) and Megatron Bridge training with mock or real data.
+- **[NVIDIA/Megatron-Bridge/multi-node-slurm](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/multi-node-slurm)** - Convert single-node scripts to multi-node Slurm sbatch jobs and debug common multi-node failures.
+- **[NVIDIA/Megatron-Bridge/nemo-rl-e2e-testing](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/nemo-rl-e2e-testing)** - External NeMo-RL end-to-end validation workflow for Megatron-Bridge model/provider changes, including downstream compatibility checks, external RL lifecycle behavior, Megatron poli...
+- **[NVIDIA/Megatron-Bridge/parity-testing](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/parity-testing)** - Structured framework for verifying numerical parity of HF<->MCore weight conversions.
+- **[NVIDIA/Megatron-Bridge/perf-activation-recompute](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-activation-recompute)** - Validate and use selective and full activation recompute in Megatron Bridge to reduce GPU memory usage at the cost of extra compute.
+- **[NVIDIA/Megatron-Bridge/perf-cpu-offloading](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-cpu-offloading)** - Validate and use CPU offloading in Megatron Bridge, including layer-level activation offloading and fractional optimizer state offloading with HybridDeviceOptimizer.
+- **[NVIDIA/Megatron-Bridge/perf-cuda-graphs](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-cuda-graphs)** - Validate and use CUDA graph capture in Megatron Bridge, including local full-iteration graphs and Transformer Engine scoped graphs for attention, MLP, and MoE modules.
+- **[NVIDIA/Megatron-Bridge/perf-expert-parallel-overlap](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-expert-parallel-overlap)** - Validate and use MoE expert-parallel communication overlap in Megatron-Bridge, including overlap_moe_expert_parallel_comm, delay_wgrad_compute, and flex dispatcher backends such as...
+- **[NVIDIA/Megatron-Bridge/perf-hierarchical-context-parallel](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-hierarchical-context-parallel)** - Operational guide for enabling hierarchical context parallelism in Megatron-Bridge, including config knobs, code anchors, pitfalls, and verification.
+- **[NVIDIA/Megatron-Bridge/perf-megatron-fsdp](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-megatron-fsdp)** - Operational guide for enabling Megatron FSDP in Megatron-Bridge, including config knobs, code anchors, pitfalls, and verification.
+- **[NVIDIA/Megatron-Bridge/perf-memory-tuning](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-memory-tuning)** - Techniques for reducing peak GPU memory in Megatron Bridge — expandable segments, parallelism resizing, activation recompute, CPU offloading constraints, and common OOM fixes.
+- **[NVIDIA/Megatron-Bridge/perf-moe-comm-overlap](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-moe-comm-overlap)** - MoE expert-parallel communication overlap in Megatron Bridge.
+- **[NVIDIA/Megatron-Bridge/perf-moe-dispatcher-selection](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-moe-dispatcher-selection)** - Choose the right MoE token dispatcher (`alltoall`, DeepEP, or HybridEP) for the hardware, EP degree, and optimization stage.
+- **[NVIDIA/Megatron-Bridge/perf-moe-hardware-configs](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-moe-hardware-configs)** - Representative MoE training playbooks by hardware platform and model family.
+- **[NVIDIA/Megatron-Bridge/perf-moe-long-context](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-moe-long-context)** - Long-context MoE training guidance for Megatron Bridge.
+- **[NVIDIA/Megatron-Bridge/perf-moe-optimization-workflow](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-moe-optimization-workflow)** - Systematic workflow for MoE training optimization in Megatron Bridge, based on the Megatron-Core MoE paper.
+- **[NVIDIA/Megatron-Bridge/perf-moe-vlm-training](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-moe-vlm-training)** - Practical guidance for training MoE VLMs in Megatron Bridge.
+- **[NVIDIA/Megatron-Bridge/perf-parallelism-strategies](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-parallelism-strategies)** - Operational guide for choosing and combining parallelism strategies in Megatron Bridge, including sizing rules, hardware topology mapping, and combined parallelism configuration.
+- **[NVIDIA/Megatron-Bridge/perf-sequence-packing](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-sequence-packing)** - Validate and use packed sequences and long-context training in Megatron-Bridge, distinguishing offline packed SFT for LLMs from in-batch packing for VLMs, and applying the right CP...
+- **[NVIDIA/Megatron-Bridge/perf-tp-dp-comm-overlap](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/perf-tp-dp-comm-overlap)** - Operational guide for enabling TP, DP, and PP communication overlap in Megatron-Bridge, including config knobs, code anchors, pitfalls, and verification.
+- **[NVIDIA/Megatron-Bridge/recipe-recommender](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/recipe-recommender)** - Recommend and customize Megatron Bridge recipes for a user's model, GPU count, and training goal.
+- **[NVIDIA/Megatron-Bridge/resiliency](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/resiliency)** - Resiliency features in Megatron Bridge including fault tolerance, straggler detection, in-process restart, preemption, and re-run state machine.
+- **[NVIDIA/Megatron-Bridge/testing](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/testing)** - Testing reference for Megatron Bridge — unit and functional test layout, tier semantics (L0/L1/L2/flaky), script conventions, running tests locally, adding/moving/disabling tests,...
+- **[NVIDIA/Megatron-Bridge/verl-e2e-testing](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Bridge/verl-e2e-testing)** - External verl end-to-end validation workflow for Megatron-Bridge model/provider changes.
+
+### Megatron-Core
+
+- **[NVIDIA/Megatron-Core/build-and-dependency](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/build-and-dependency)** - Container-based dev environment setup and dependency management for Megatron-LM.
+- **[NVIDIA/Megatron-Core/bump-base-image](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/bump-base-image)** - Bump the NVIDIA PyTorch base image (`nvcr.io/nvidia/pytorch:<YY.MM>-py3`) used by Megatron-LM CI.
+- **[NVIDIA/Megatron-Core/cicd](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/cicd)** - CI/CD reference for Megatron-LM.
+- **[NVIDIA/Megatron-Core/create-issue](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/create-issue)** - Investigate a failing GitHub Actions run or job and create a GitHub issue for the failure.
+- **[NVIDIA/Megatron-Core/linting-and-formatting](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/linting-and-formatting)** - Linting and formatting for Megatron-LM.
+- **[NVIDIA/Megatron-Core/nightly-sync](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/nightly-sync)** - Domain knowledge for the nightly main-to-dev sync workflow.
+- **[NVIDIA/Megatron-Core/onboard-gb200-1node-tests](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/onboard-gb200-1node-tests)** - Onboard 1-node GitHub MR functional tests for GB200 from existing mr-scoped 2-node tests.
+- **[NVIDIA/Megatron-Core/respond-to-issue](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/respond-to-issue)** - Research and draft a response to a GitHub issue or question from an external contributor.
+- **[NVIDIA/Megatron-Core/run-on-slurm](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/run-on-slurm)** - How to launch distributed Megatron-LM training jobs on a SLURM cluster.
+- **[NVIDIA/Megatron-Core/split-pr](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/split-pr)** - Split a PR into multiple PRs to reduce the number of required CODEOWNERS reviewer groups.
+- **[NVIDIA/Megatron-Core/testing](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/testing)** - Test system for Megatron-LM.
+- **[NVIDIA/Megatron-Core/update-golden-values](https://github.com/NVIDIA/skills/tree/main/skills/Megatron-Core/update-golden-values)** - Refresh golden values from a GitHub Actions workflow run (failing-only or all jobs), score the change with average normalized relative differences, and produce a PR-ready summary.
+
+### Model-Optimizer
+
+- **[NVIDIA/Model-Optimizer/accessing-mlflow](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/accessing-mlflow)** - Query and browse evaluation results stored in MLflow.
+- **[NVIDIA/Model-Optimizer/debug](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/debug)** - Run commands inside a remote Docker container via the file-based command relay (tools/debugger).
+- **[NVIDIA/Model-Optimizer/deployment](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/deployment)** - Serve a quantized or unquantized LLM checkpoint as an OpenAI-compatible API endpoint using vLLM, SGLang, or TRT-LLM.
+- **[NVIDIA/Model-Optimizer/evaluation](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/evaluation)** - Evaluates accuracy of quantized or unquantized LLMs using NeMo Evaluator Launcher (NEL).
+- **[NVIDIA/Model-Optimizer/launching-evals](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/launching-evals)** - Run, monitor, analyze, and debug LLM evaluations via nemo-evaluator-launcher.
+- **[NVIDIA/Model-Optimizer/monitor](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/monitor)** - Monitor submitted jobs (PTQ, evaluation, deployment) on SLURM clusters.
+- **[NVIDIA/Model-Optimizer/ptq](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/ptq)** - This skill should be used when the user asks to "quantize a model", "run PTQ", "post-training quantization", "NVFP4 quantization", "FP8 quantization", "INT8 quantization", "INT4 AW...
+- **[NVIDIA/Model-Optimizer/release-cherry-pick](https://github.com/NVIDIA/skills/tree/main/skills/Model-Optimizer/release-cherry-pick)** - Cherry-pick merged PRs labeled for a release branch into that branch, then open a PR and apply the cherry-pick-done label.
+
+### NeMo-Evaluator
+
+- **[NVIDIA/NeMo-Evaluator/byob](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Evaluator/byob)** - Create custom LLM evaluation benchmarks using the BYOB decorator framework.
+
+### NeMo-Evaluator-Launcher
+
+- **[NVIDIA/NeMo-Evaluator-Launcher/accessing-mlflow](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Evaluator-Launcher/accessing-mlflow)** - Query and browse evaluation results stored in MLflow.
+- **[NVIDIA/NeMo-Evaluator-Launcher/launching-evals](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Evaluator-Launcher/launching-evals)** - Run, monitor, analyze, and debug LLM evaluations via nemo-evaluator-launcher.
+- **[NVIDIA/NeMo-Evaluator-Launcher/nel-assistant](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Evaluator-Launcher/nel-assistant)** - Interactive config wizard for NeMo Evaluator Launcher (NEL).
+
+### NeMo-Gym
+
+- **[NVIDIA/NeMo-Gym/add-benchmark](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Gym/add-benchmark)** - > Guide for adding a new benchmark or training environment to NeMo-Gym.
+- **[NVIDIA/NeMo-Gym/nemo-gym-debugging](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Gym/nemo-gym-debugging)** - >- Use when debugging a Nemo Gym run or reward profiling job.
+- **[NVIDIA/NeMo-Gym/nemo-gym-docs](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Gym/nemo-gym-docs)** - > Maintain the NeMo Gym Fern docs site — add, update, move, or remove pages under fern/.
+- **[NVIDIA/NeMo-Gym/nemo-gym-pivot-datasets](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Gym/nemo-gym-pivot-datasets)** - >- Use when creating, validating, or documenting Nemo Gym pivot datasets from rollout, trajectory, chat-completion, Responses API, or tool-call artifacts.
+- **[NVIDIA/NeMo-Gym/nemo-gym-reward-profiling](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-Gym/nemo-gym-reward-profiling)** - >- Use to help users get started with Nemo Gym reward profiling.
+
+### NeMo-RL
+
+- **[NVIDIA/NeMo-RL/auto-research](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/auto-research)** - Autonomous NeMo-RL research agent workflow for directed hypothesis testing and open-ended discovery.
+- **[NVIDIA/NeMo-RL/brev-etiquette](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/brev-etiquette)** - Brev instance operating guidance for NeMo-RL agents working in /home/ubuntu/RL with limited workspace disk, a larger /ephemeral volume, and optional /home/ubuntu/RL/.env secrets.
+- **[NVIDIA/NeMo-RL/build-and-dependency](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/build-and-dependency)** - Build and dependency management for NeMo-RL.
+- **[NVIDIA/NeMo-RL/cicd](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/cicd)** - CI/CD reference for NeMo-RL.
+- **[NVIDIA/NeMo-RL/config-conventions](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/config-conventions)** - Configuration conventions for NeMo-RL.
+- **[NVIDIA/NeMo-RL/contributing](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/contributing)** - Contribution conventions for NeMo-RL.
+- **[NVIDIA/NeMo-RL/copyright](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/copyright)** - NVIDIA copyright header requirements for NeMo-RL.
+- **[NVIDIA/NeMo-RL/docs](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/docs)** - Documentation conventions for NeMo-RL.
+- **[NVIDIA/NeMo-RL/error-handling](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/error-handling)** - Error handling guidelines for NeMo-RL.
+- **[NVIDIA/NeMo-RL/launch-nemo-rl](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/launch-nemo-rl)** - Playbook for launching, monitoring, stopping, and debugging NeMo-RL recipes on a Kubernetes cluster via the nrl-k8s CLI.
+- **[NVIDIA/NeMo-RL/linting-and-formatting](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/linting-and-formatting)** - Code style guidelines for NeMo-RL (Python and shell).
+- **[NVIDIA/NeMo-RL/review-pr](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/review-pr)** - Interactive code review for NVIDIA-NeMo/RL pull requests.
+- **[NVIDIA/NeMo-RL/session-memory](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/session-memory)** - Manage durable working-session memory for coding agents.
+- **[NVIDIA/NeMo-RL/testing](https://github.com/NVIDIA/skills/tree/main/skills/NeMo-RL/testing)** - Testing conventions for NeMo-RL.
+
+### NemoClaw
+
+- **[NVIDIA/NemoClaw/nemoclaw-contributor-create-pr](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-contributor-create-pr)** - Create GitHub pull requests that follow the NemoClaw PR template.
+- **[NVIDIA/NemoClaw/nemoclaw-contributor-update-docs](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-contributor-update-docs)** - Scan recent git commits for changes that affect user-facing behavior, then draft or update the corresponding documentation pages and refresh generated user skills for release prep.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-cross-issue-sweep](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-cross-issue-sweep)** - Scans other open issues to find ones a given PR may also fix or accidentally break.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-cut-release-tag](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-cut-release-tag)** - Cut a new semver release — bump all version strings via bump-version.ts, open a release PR, and after merge tag main and push.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-day](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-day)** - Runs the daytime maintainer loop for NemoClaw, prioritizing items labeled with the current version target.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-evening](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-evening)** - Runs the end-of-day maintainer handoff for NemoClaw.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-find-review-pr](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-find-review-pr)** - Finds open GitHub PRs with security and priority-high labels, links each to its issue, detects duplicates (multiple PRs fixing the same issue), and presents a table of review candi...
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-morning](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-morning)** - Runs the morning maintainer standup for NemoClaw.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-normalize-title-tags](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-normalize-title-tags)** - Normalizes GitHub issue and PR titles by removing any bracketed [NemoClaw] tag case-insensitively, even when the tag appears later in the title.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-pr-comparator](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-pr-comparator)** - Compares competing PRs that target the same issue and recommends which one to merge.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-security-code-review](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-security-code-review)** - Performs a comprehensive security review of code changes in a GitHub PR or issue.
+- **[NVIDIA/NemoClaw/nemoclaw-maintainer-triage](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-maintainer-triage)** - AI-assisted label triage for NVIDIA/NemoClaw issues and PRs.
+- **[NVIDIA/NemoClaw/nemoclaw-skills-guide](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-skills-guide)** - Start here.
+- **[NVIDIA/NemoClaw/nemoclaw-user-agent-skills](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-agent-skills)** - Describes the agent skills shipped with NemoClaw and how to access them by cloning the repository.
+- **[NVIDIA/NemoClaw/nemoclaw-user-configure-inference](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-configure-inference)** - Connects NemoClaw to a local inference server.
+- **[NVIDIA/NemoClaw/nemoclaw-user-configure-security](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-configure-security)** - Presents a risk framework for every configurable security control in NemoClaw.
+- **[NVIDIA/NemoClaw/nemoclaw-user-deploy-remote](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-deploy-remote)** - Explains how to run NemoClaw on a remote GPU instance, including the deprecated Brev compatibility path and the preferred installer plus onboard flow.
+- **[NVIDIA/NemoClaw/nemoclaw-user-get-started](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-get-started)** - Installs NemoClaw, launches a sandbox, and runs the first agent prompt.
+- **[NVIDIA/NemoClaw/nemoclaw-user-manage-policy](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-manage-policy)** - Adds, removes, or modifies allowed endpoints in the sandbox policy.
+- **[NVIDIA/NemoClaw/nemoclaw-user-manage-sandboxes](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-manage-sandboxes)** - Explains operational tasks after the quickstart: listing sandboxes, status and health checks, logs, diagnostics, port forwards, multiple sandboxes, credential reset, rebuilds, netw...
+- **[NVIDIA/NemoClaw/nemoclaw-user-monitor-sandbox](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-monitor-sandbox)** - Inspects sandbox health, traces agent behavior, and diagnoses problems.
+- **[NVIDIA/NemoClaw/nemoclaw-user-overview](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-overview)** - Explains how OpenClaw, OpenShell, and NemoClaw form the ecosystem, NemoClaw's position in the stack, what NemoClaw adds beyond the community sandbox, and when to prefer NemoClaw ve...
+- **[NVIDIA/NemoClaw/nemoclaw-user-reference](https://github.com/NVIDIA/skills/tree/main/skills/NemoClaw/nemoclaw-user-reference)** - Describes the NemoClaw plugin and blueprint architecture and how they orchestrate the OpenClaw sandbox.
+
+### TensorRT-LLM
+
+- **[NVIDIA/TensorRT-LLM/ad-accuracy-debug](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/ad-accuracy-debug)** - > Debug AutoDeploy accuracy regressions vs a reference score (PyTorch backend or published baseline).
+- **[NVIDIA/TensorRT-LLM/ad-add-fusion-transformation](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/ad-add-fusion-transformation)** - > Claude Code skill (trtllm-agent-toolkit): implement or extend TensorRT-LLM AutoDeploy fusion transforms under transform/library/ in a TensorRT-LLM checkout.
+- **[NVIDIA/TensorRT-LLM/ad-conf-check](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/ad-conf-check)** - > Check whether AutoDeploy YAML configs were actually applied by analyzing server logs and optionally graph dumps (AD_DUMP_GRAPHS_DIR).
+- **[NVIDIA/TensorRT-LLM/ad-graph-dump](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/ad-graph-dump)** - > Enable and interpret TensorRT-LLM AutoDeploy FX graph text dumps via AD_DUMP_GRAPHS_DIR.
+- **[NVIDIA/TensorRT-LLM/ad-layer-visualizer](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/ad-layer-visualizer)** - > Visualize a specific transformer decoder layer from an AutoDeploy FX graph text dump as a hierarchical DOT/PNG diagram.
+- **[NVIDIA/TensorRT-LLM/ad-model-onboard](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/ad-model-onboard)** - > Translates a HuggingFace model into a prefill-only AutoDeploy custom model using reference custom ops, validates with hierarchical equivalence tests.
+- **[NVIDIA/TensorRT-LLM/exec-local-compile](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/exec-local-compile)** - Compile TensorRT-LLM on a compute node inside a Docker container.
+- **[NVIDIA/TensorRT-LLM/exec-slurm-compile](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/exec-slurm-compile)** - Compile TensorRT-LLM on a SLURM cluster.
+- **[NVIDIA/TensorRT-LLM/kernel-cute-writing](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/kernel-cute-writing)** - > Write and implement GPU kernels using NVIDIA CuTe DSL (CUTLASS 4.x Python API) — NOT for Triton, CUDA C++, or conceptual explanations.
+- **[NVIDIA/TensorRT-LLM/kernel-tileir-optimization](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/kernel-tileir-optimization)** - > Optimize existing Triton kernels for NVIDIA TileIR backend on Blackwell GPUs (sm_100+).
+- **[NVIDIA/TensorRT-LLM/kernel-triton-writing](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/kernel-triton-writing)** - > ONLY for OpenAI Triton (@triton.jit) kernel development.
+- **[NVIDIA/TensorRT-LLM/perf-analysis](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-analysis)** - > Performance analysis coordination workflow.
+- **[NVIDIA/TensorRT-LLM/perf-host-analysis](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-host-analysis)** - > Analyze host/CPU overhead in TensorRT-LLM inference from nsys traces.
+- **[NVIDIA/TensorRT-LLM/perf-host-optimization](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-host-optimization)** - Profiles and optimizes TensorRT-LLM host/CPU overhead using line_profiler (with nsys support planned).
+- **[NVIDIA/TensorRT-LLM/perf-nsight-compute-analysis](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-nsight-compute-analysis)** - > Analyze ncu (NVIDIA Nsight Compute) profiling output: SOL% bottleneck classification, roofline analysis, occupancy diagnosis, memory hierarchy analysis, warp stall analysis, metr...
+- **[NVIDIA/TensorRT-LLM/perf-nsight-systems](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-nsight-systems)** - >- Nsight Systems (nsys) CLI for system-level timeline profiling.
+- **[NVIDIA/TensorRT-LLM/perf-optimization](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-optimization)** - > Performance optimization coordination playbook.
+- **[NVIDIA/TensorRT-LLM/perf-torch-cuda-graphs](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-torch-cuda-graphs)** - >- Apply CUDA Graphs to PyTorch workloads — API selection (torch.compile, PyTorch make_graphed_callables, TE make_graphed_callables, MCore CudaGraphManager, FullCudaGraphWrapper, m...
+- **[NVIDIA/TensorRT-LLM/perf-torch-sync-free](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-torch-sync-free)** - >- Identify and eliminate host-device synchronizations in PyTorch code.
+- **[NVIDIA/TensorRT-LLM/perf-workload-profiling](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/perf-workload-profiling)** - > Code instrumentation for timing workloads.
+- **[NVIDIA/TensorRT-LLM/trtllm-code-contribution](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/trtllm-code-contribution)** - > Best practices for contributing code to TensorRT-LLM.
+- **[NVIDIA/TensorRT-LLM/trtllm-codebase-exploration](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/trtllm-codebase-exploration)** - > Systematic approach to exploring the TensorRT-LLM codebase before implementing new features or optimizations.
+- **[NVIDIA/TensorRT-LLM/trtllm-flashinfer-upgrade](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/trtllm-flashinfer-upgrade)** - >- Upgrade flashinfer-python version in TensorRT-LLM.
+- **[NVIDIA/TensorRT-LLM/trtllm-moe-develop](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/trtllm-moe-develop)** - >- Review, design, and refactor TensorRT-LLM PyTorch MoE code for architecture fit, clean code, maintainability, and testability.
+- **[NVIDIA/TensorRT-LLM/trtllm-serve-config-guide](https://github.com/NVIDIA/skills/tree/main/skills/TensorRT-LLM/trtllm-serve-config-guide)** - Generate a source-backed starting `trtllm-serve --config` YAML for basic aggregate single-node PyTorch serving, aligned with checked-in TensorRT-LLM configs and deployment docs.
+
+### TileGym
+
+- **[NVIDIA/TileGym/adding-cutile-kernel](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/adding-cutile-kernel)** - Add a new cuTile GPU kernel operator to TileGym.
+- **[NVIDIA/TileGym/converting-cutile-to-julia](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/converting-cutile-to-julia)** - Converts cuTile Python GPU kernels (@ct.kernel) to cuTile.jl Julia equivalents.
+- **[NVIDIA/TileGym/converting-cutile-to-triton](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/converting-cutile-to-triton)** - Converts cuTile GPU kernels (@ct.kernel) to Triton (@triton.jit).
+- **[NVIDIA/TileGym/cutile-autotuning](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/cutile-autotuning)** - Use when adding, modifying, optimizing, or debugging CuTile autotuning code.
+- **[NVIDIA/TileGym/cutile-python](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/cutile-python)** - Expert cuTile programming assistant.
+- **[NVIDIA/TileGym/improve-cutile-kernel-perf](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/improve-cutile-kernel-perf)** - Iteratively optimize cuTile kernel performance through systematic profiling, bottleneck analysis, IR comparison, and targeted tuning.
+- **[NVIDIA/TileGym/monkey-patch-kernels-to-transformers](https://github.com/NVIDIA/skills/tree/main/skills/TileGym/monkey-patch-kernels-to-transformers)** - Integrate TileGym kernels into Hugging Face `transformers` models by replacing the library's submodule(s) and certain class(es)' implementations, and patching certain class(es)' in...
+
+### cuopt
+
+- **[NVIDIA/cuopt/cuopt-developer](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-developer)** - Modify, build, test, debug, and contribute to NVIDIA cuOpt (C++/CUDA, Python, server, CI).
+- **[NVIDIA/cuopt/cuopt-install](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-install)** - Install cuOpt for Python, C, or as a server (pip, conda, Docker) — system requirements, install commands, and verification.
+- **[NVIDIA/cuopt/cuopt-numerical-optimization-api-c](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-numerical-optimization-api-c)** - LP, MILP, and QP (beta) with cuOpt — C API only.
+- **[NVIDIA/cuopt/cuopt-numerical-optimization-api-cli](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-numerical-optimization-api-cli)** - LP, MILP, and QP (beta) with cuOpt — CLI only (MPS files, cuopt_cli).
+- **[NVIDIA/cuopt/cuopt-numerical-optimization-api-python](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-numerical-optimization-api-python)** - Solve Linear Programming (LP), Mixed-Integer Linear Programming (MILP), and Quadratic Programming (QP, beta) with the Python API.
+- **[NVIDIA/cuopt/cuopt-routing-api-python](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-routing-api-python)** - Vehicle routing (VRP, TSP, PDP) with cuOpt — Python API only.
+- **[NVIDIA/cuopt/cuopt-server-api-python](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-server-api-python)** - cuOpt REST server — start server, endpoints, Python/curl client examples.
+- **[NVIDIA/cuopt/cuopt-server-common](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-server-common)** - cuOpt REST server — what it does and how requests flow.
+- **[NVIDIA/cuopt/cuopt-user-rules](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/cuopt-user-rules)** - Base rules for end users calling NVIDIA cuOpt (routing/LP/MILP/QP/install/server).
+- **[NVIDIA/cuopt/numerical-optimization-formulation](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/numerical-optimization-formulation)** - Numerical optimization (LP, MILP, QP) — concepts, problem-text parsing, and formulation patterns.
+- **[NVIDIA/cuopt/routing-formulation](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/routing-formulation)** - Vehicle routing (VRP, TSP, PDP) — problem types and data requirements.
+- **[NVIDIA/cuopt/skill-evolution](https://github.com/NVIDIA/skills/tree/main/skills/cuopt/skill-evolution)** - After solving a non-trivial problem, detect generalizable learnings and propose skill updates so future interactions benefit automatically.
+
+### deepstream
+
+- **[NVIDIA/deepstream/deepstream-dev](https://github.com/NVIDIA/skills/tree/main/skills/deepstream/deepstream-dev)** - NVIDIA DeepStream SDK 9.0 development with Python pyservicemaker API.
+- **[NVIDIA/deepstream/deepstream-import-vision-model](https://github.com/NVIDIA/skills/tree/main/skills/deepstream/deepstream-import-vision-model)** - > Use this skill to bring any vision model from HuggingFace or NVIDIA NGC into an NVIDIA DeepStream pipeline with end-to-end automation: ONNX download, SafeTensors export, TRT engi...
+
+### nemotron-voice-agent
+
+- **[NVIDIA/nemotron-voice-agent/nemotron-voice-agent-deploy](https://github.com/NVIDIA/skills/tree/main/skills/nemotron-voice-agent/nemotron-voice-agent-deploy)** - Deploy Nemotron Voice Agent on Workstation (x86), Jetson Thor, or Cloud NIMs.
+
+### rag
+
+- **[NVIDIA/rag/rag-blueprint](https://github.com/NVIDIA/skills/tree/main/skills/rag/rag-blueprint)** - "NVIDIA RAG Blueprint — deploy, configure, troubleshoot, and manage.
+
+### video-search-and-summarization
+
+- **[NVIDIA/video-search-and-summarization/alerts](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/alerts)** - Manage and monitor VSS alerts after the alerts profile is deployed.
+- **[NVIDIA/video-search-and-summarization/deploy](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/deploy)** - Deploy, debug, or tear down any VSS profile using a compose-centric workflow — config (dry-run) with env overrides, review resolved compose, then compose up.
+- **[NVIDIA/video-search-and-summarization/report](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/report)** - Produce video analysis reports by discovering the deployed VSS agent, querying POST /generate for a timestamped captioned summary of the clip, then formatting the agent reply as th...
+- **[NVIDIA/video-search-and-summarization/rt-vlm](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/rt-vlm)** - > Use this skill when working with the RTVI VLM or RT-VLM microservice API on VSS 3.1.
+- **[NVIDIA/video-search-and-summarization/video-analytics](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/video-analytics)** - Query video analytics data and metrics from Elastic search via the VA-MCP server (port 9901).
+- **[NVIDIA/video-search-and-summarization/video-search](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/video-search)** - Search video archives using natural language — find events, objects, actions, and people across recorded video using fusion search (Cosmos Embed1 semantic search + CV attribute sea...
+- **[NVIDIA/video-search-and-summarization/video-summarization](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/video-summarization)** - Summarize a video by calling the VLM NIM or the Long Video Summarization (LVS) microservice directly.
+- **[NVIDIA/video-search-and-summarization/video-understanding](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/video-understanding)** - Call the vss agent to run video understanding on video to answer a text question.
+- **[NVIDIA/video-search-and-summarization/vios](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/vios)** - Query VIOS REST APIs: sensor list, recording timelines, video clip extraction, snapshot capture, add/delete sensors and streams
+- **[NVIDIA/video-search-and-summarization/vss-frag](https://github.com/NVIDIA/skills/tree/main/skills/video-search-and-summarization/vss-frag)** - Generate video summary reports using the VSS video_search_frag extension with Long Video Summarization (LVS), Enterprise RAG knowledge retrieval, and human-in-the-loop parameter co...
+
+</details>
+
+
+<details>
+<summary><h3 style="display:inline">Skills by Google Cloud</h3></summary>
+
+Official Google Cloud skills covering Firebase, BigQuery, Cloud Run, GKE, AlloyDB, Cloud SQL, Gemini Enterprise Agent Platform, networking observability, and the Well-Architected Framework. 19 skills.
+
+- **[google/cloud/agent-platform-skill-registry](https://github.com/google/skills/tree/main/skills/cloud/agent-platform-skill-registry)** - Interact with the Gemini Enterprise Agent Platform Skill Registry to create and search for available skills.
+- **[google/cloud/alloydb-basics](https://github.com/google/skills/tree/main/skills/cloud/alloydb-basics)** - Manages clusters, instances, and backups for AlloyDB for PostgreSQL, and integrates with AlloyDB model context protocol (MCP) tools for automated database operations.
+- **[google/cloud/bigquery-basics](https://github.com/google/skills/tree/main/skills/cloud/bigquery-basics)** - Manages datasets, tables, and jobs in BigQuery, and integrates with BigQuery ML and Gemini for advanced data analytics and AI-driven insights.
+- **[google/cloud/cloud-run-basics](https://github.com/google/skills/tree/main/skills/cloud/cloud-run-basics)** - Manages Cloud Run services, jobs, and worker pools.
+- **[google/cloud/cloud-sql-basics](https://github.com/google/skills/tree/main/skills/cloud/cloud-sql-basics)** - This file generates or explains Cloud SQL resources.
+- **[google/cloud/firebase-basics](https://github.com/google/skills/tree/main/skills/cloud/firebase-basics)** - Use this skill whenever you are working on a project that uses Firebase products or services, especially for mobile or web apps.
+- **[google/cloud/gemini-agents-api](https://github.com/google/skills/tree/main/skills/cloud/gemini-agents-api)** - Manages custom Agent resources on Gemini Enterprise Agent Platform.
+- **[google/cloud/gemini-api](https://github.com/google/skills/tree/main/skills/cloud/gemini-api)** - Guides the usage of the Gemini API on Agent Platform with the Google Gen AI SDK.
+- **[google/cloud/gemini-interactions-api](https://github.com/google/skills/tree/main/skills/cloud/gemini-interactions-api)** - Guides the usage of Gemini Interactions API on Gemini Enterprise Agent Platform.
+- **[google/cloud/gke-basics](https://github.com/google/skills/tree/main/skills/cloud/gke-basics)** - Plan, create, and configure production-ready Google Kubernetes Engine (GKE) clusters using the golden path Autopilot configuration.
+- **[google/cloud/google-cloud-networking-observability](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-networking-observability)** - Investigates Google Cloud networking issues by analyzing logs, metrics, and diagnostics.
+- **[google/cloud/google-cloud-recipe-auth](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-recipe-auth)** - Provides expert guidance on authenticating and authorizing to Google Cloud services and APIs, covering human users, service identities, Application Default Credentials (ADC), and b...
+- **[google/cloud/google-cloud-recipe-onboarding](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-recipe-onboarding)** - Guidance for a developer's first steps on Google Cloud, covering account creation, billing setup, project management, and deploying a first resource.
+- **[google/cloud/google-cloud-waf-cost-optimization](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-waf-cost-optimization)** - Generates cost optimization guidance for Google Cloud workloads based on the Google Cloud Well-Architected Framework (WAF).
+- **[google/cloud/google-cloud-waf-operational-excellence](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-waf-operational-excellence)** - Generates operations-focused guidance for Google Cloud workloads based on the design principles and recommendations in the Operational Excellence pillar of the Google Cloud Well-Ar...
+- **[google/cloud/google-cloud-waf-performance-optimization](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-waf-performance-optimization)** - Generates performance-focused guidance for Google Cloud workloads based on the design principles and recommendations in the Performance Optimization pillar of the Google Cloud Well...
+- **[google/cloud/google-cloud-waf-reliability](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-waf-reliability)** - Generates reliability-focused guidance for Google Cloud workloads based on the design principles and recommendations in the Google Cloud Well-Architected Framework.
+- **[google/cloud/google-cloud-waf-security](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-waf-security)** - Generates security-focused guidance for Google Cloud workloads based on the design principles and recommendations in the Google Cloud Well-Architected Framework (WAF).
+- **[google/cloud/google-cloud-waf-sustainability](https://github.com/google/skills/tree/main/skills/cloud/google-cloud-waf-sustainability)** - Generates sustainability-focused guidance for Google Cloud workloads based on the design principles and recommendations in the Google Cloud Well-Architected Framework (WAF).
+
+</details>
+
 ### Community Skills
 
 <details>
@@ -1260,6 +1501,7 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[Eronred/aso-skills](https://github.com/Eronred/aso-skills)** - 30+ App Store Optimization skills for keyword research, metadata optimization, competitor analysis, creative optimization, and mobile growth strategies via Appeeky API
 - **[degausai/wonda](https://github.com/degausai/wonda)** - AI content creation: images, video, music, audio, editing, publishing
 - **[gitroomhq/postiz-agent](https://github.com/gitroomhq/postiz-agent)** - Schedule social media posts across 28+ platforms programmatically
+- **[indranilbanerjee/digital-marketing-pro](https://github.com/indranilbanerjee/digital-marketing-pro)** - 150-skill engagement methodology — 12-Part Strategy Flow, 25 specialist agents, EU AI Act Article 50 ready (C2PA signing), 6-platform AEO/GEO incl. Google AI Mode
 
 </details>
 
@@ -1298,6 +1540,7 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[Digidai/product-manager-skills](https://github.com/Digidai/product-manager-skills)** - Senior PM agent with 30+ frameworks and SaaS metrics
 - **[deusyu/translate-book](https://github.com/deusyu/translate-book)** - Translate books (PDF/DOCX/EPUB) via parallel sub-agents with resume
 - **[mvanhorn/last30days-skill](https://github.com/mvanhorn/last30days-skill)** - Research any topic across Reddit, X, YouTube, HN, Polymarket, and the web, ranked by upvotes, likes, and real money instead of editors
+- **[santifer/career-ops](https://github.com/santifer/career-ops)** - 14-skill collection for AI-powered job search: JD evaluation with A-F scoring, ATS-optimized PDF generation, portal scanners (Greenhouse/Ashby/Lever), interview prep with STAR+R, batch processing, and a Go dashboard TUI
 
 </details>
 
@@ -1378,6 +1621,7 @@ Official MongoDB Agent Skills for agentic workflows — connection management, s
 - **[LambdaTest/agent-skills](https://github.com/LambdaTest/agent-skills)** - TestMu AI (Formerly LambdaTest) Skills is a curated collection of Agent Skills that teach AI coding assistants how to write production-grade test automation.
 - **[foryourhealth111-pixel/Vibe-Skills](https://github.com/foryourhealth111-pixel/Vibe-Skills)** - A skills governed plug-and-play harness for staged, test-driven skill orchestration
 - **[metalbear-co/skills](https://github.com/metalbear-co/skills)** - Skills that let agents code and test against your Kubernetes cluster using mirrord
+- **[dembrandt/dembrandt-skills](https://github.com/dembrandt/dembrandt-skills)** - UX and design system skills: hierarchy, typography, accessibility, interactions
 
 </details>
 

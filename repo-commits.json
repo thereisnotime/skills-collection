@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "673dcfa",
+      "message": "fix(simplify-code): guard against over-simplification and behavior drift (#859)",
+      "date": "2026-05-25",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "26a8025",
       "message": "fix(commit): auto-create feature branch on default branch (#856)",
       "date": "2026-05-23",
@@ -743,12 +749,6 @@
       "message": "chore: release main (#834)",
       "date": "2026-05-18",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "fd88fd8",
-      "message": "fix(ce-commit-push-pr): rewrite pr-description around a core principle (#841)",
-      "date": "2026-05-17",
-      "author": "Trevin Chow"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -853,6 +853,12 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "cb2f4e0",
+      "message": "docs: add clinical epistemic status example (#240)",
+      "date": "2026-05-24",
+      "author": "Lixin2026"
+    },
+    {
       "sha": "50044b6",
       "message": "Add optional arxiv_id to literature_corpus schema and extend validation coverage (#237)",
       "date": "2026-05-24",
@@ -905,12 +911,6 @@
       "message": "feat(ars): replace prose-based command dispatch with deterministic bash execution (#225)",
       "date": "2026-05-23",
       "author": "madtriceps"
-    },
-    {
-      "sha": "0c4c419",
-      "message": "fix(docs): broken AIS Senior Scholars URL (404) + SKILL.md H1 + ARCHITECTURE.md version drift (#228)",
-      "date": "2026-05-23",
-      "author": "Edward Cheng-I Wu"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
@@ -1457,6 +1457,42 @@
   ],
   "antonbabenko--terraform-skill": [
     {
+      "sha": "183c6c8",
+      "message": "ci: notify agent-plugins on release (instant external-plugin re-pin) (#38)",
+      "date": "2026-05-24",
+      "author": "Anton Babenko"
+    },
+    {
+      "sha": "f5bdf46",
+      "message": "chore(release): v1.16.0",
+      "date": "2026-05-24",
+      "author": "Anton Babenko"
+    },
+    {
+      "sha": "6e1a6d8",
+      "message": "ci: fix release/next checkout so Automated Release can push it (#36)",
+      "date": "2026-05-24",
+      "author": "Anton Babenko"
+    },
+    {
+      "sha": "75619bc",
+      "message": "feat: treat AWS/Azure/GCP equally with cross-cloud equivalence map and progressive cloud routing (#33)",
+      "date": "2026-05-24",
+      "author": "Anton Babenko"
+    },
+    {
+      "sha": "fa68d99",
+      "message": "ci: fix release job (git pull tracking) so Automated Release doesn't fail (#35)",
+      "date": "2026-05-24",
+      "author": "Anton Babenko"
+    },
+    {
+      "sha": "8719f07",
+      "message": "ci: PR-based release flow (required-check compatible) (#34)",
+      "date": "2026-05-24",
+      "author": "Anton Babenko"
+    },
+    {
       "sha": "c5d26f1",
       "message": "chore(release): v1.15.0 [skip ci]",
       "date": "2026-05-23",
@@ -1478,42 +1514,6 @@
       "sha": "6ca340d",
       "message": "fix(ci): sync versions in release pre-commit hook so tags are not stale (#29)",
       "date": "2026-05-18",
-      "author": "Anton Babenko"
-    },
-    {
-      "sha": "9c188f5",
-      "message": "chore(release): v1.13.0 [skip ci]",
-      "date": "2026-05-18",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "cfbafe4",
-      "message": "feat(codex): add plugin manifest (#23)",
-      "date": "2026-05-18",
-      "author": "Kirill Morozov"
-    },
-    {
-      "sha": "63d698b",
-      "message": "chore(release): v1.12.0 [skip ci]",
-      "date": "2026-05-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "fbc57c2",
-      "message": "docs: Claude Code terraform-ls install path",
-      "date": "2026-05-17",
-      "author": "Anton Babenko"
-    },
-    {
-      "sha": "4dfcb8a",
-      "message": "chore(release): v1.11.0 [skip ci]",
-      "date": "2026-05-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "908d562",
-      "message": "feat(code-intelligence): cross-reference code-intelligence plugin + host setup (#27)",
-      "date": "2026-05-17",
       "author": "Anton Babenko"
     }
   ],
@@ -1969,6 +1969,18 @@
   ],
   "conorluddy--ios-simulator-skill": [
     {
+      "sha": "3cac6bb",
+      "message": "Merge pull request #91 from conorluddy/feat/hangbuster-auto-sample-simctl",
+      "date": "2026-05-24",
+      "author": "Conor"
+    },
+    {
+      "sha": "0f108dc",
+      "message": "feat: implement --auto-sample via xcrun simctl spawn sample",
+      "date": "2026-05-24",
+      "author": "Conor Luddy"
+    },
+    {
       "sha": "e8f55dc",
       "message": "Merge pull request #90 from conorluddy/feat/hangbuster-review-followups",
       "date": "2026-05-23",
@@ -2013,18 +2025,6 @@
     {
       "sha": "c8368b1",
       "message": "feat: hash compute_fingerprint with sha256, bump FINGERPRINT_VERSION to 2",
-      "date": "2026-05-23",
-      "author": "Conor Luddy"
-    },
-    {
-      "sha": "1f98d4c",
-      "message": "fix: handle zero-duration clusters in diff_sessions()",
-      "date": "2026-05-23",
-      "author": "Conor Luddy"
-    },
-    {
-      "sha": "03e092d",
-      "message": "fix: append-only JSONL for auto_samples to remove read-modify-write race",
       "date": "2026-05-23",
       "author": "Conor Luddy"
     }
@@ -4485,6 +4485,18 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "d40d5ef",
+      "message": "release: v7.7.11 - UT2-12 markdown + UT2-13 cli + bun-parity root-cause fix + Forge docs",
+      "date": "2026-05-24",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "4d6db5c",
+      "message": "release: v7.7.10 - F-3 USAGE.md port hallucination fix + secret scrubber",
+      "date": "2026-05-24",
+      "author": "asklokesh"
+    },
+    {
       "sha": "2e3ce37",
       "message": "release: v7.7.9 - LSP Java coverage (v7.7.0 acceptance #4 complete)",
       "date": "2026-05-24",
@@ -4529,18 +4541,6 @@
     {
       "sha": "566a9a5",
       "message": "release: v7.7.2 - B-5 provider precedence docs + provider_source in status JSON",
-      "date": "2026-05-24",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "5b9ac83",
-      "message": "release: v7.7.1 - USAGE.md surfaced in Dashboard Insights (F-1 follow-up)",
-      "date": "2026-05-24",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "add08f7",
-      "message": "release: v7.7.0 MINOR - intelligent LSP grounding (4 new agent tools, auto-spawned, zero config)",
       "date": "2026-05-24",
       "author": "asklokesh"
     }
@@ -4933,6 +4933,54 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "31a6c75",
+      "message": "Merge pull request #602 from indranilbanerjee/add-digital-marketing-pro",
+      "date": "2026-05-24",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "ab67e6a",
+      "message": "Merge pull request #599 from santifer/add-career-ops",
+      "date": "2026-05-24",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "5716e5d",
+      "message": "Merge pull request #593 from dembrandt/add-dembrandt-skills",
+      "date": "2026-05-24",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "0f2cc50",
+      "message": "Merge pull request #603 from VoltAgent/add-new-skills-2",
+      "date": "2026-05-24",
+      "author": "Necati \u00d6zmen"
+    },
+    {
+      "sha": "190a9b1",
+      "message": "update skills count",
+      "date": "2026-05-24",
+      "author": "necatiozmen"
+    },
+    {
+      "sha": "ce52628",
+      "message": "Add skill: indranilbanerjee/digital-marketing-pro",
+      "date": "2026-05-24",
+      "author": "indranilbanerjee"
+    },
+    {
+      "sha": "1545e28",
+      "message": "Add skill: santifer/career-ops",
+      "date": "2026-05-21",
+      "author": "Santiago"
+    },
+    {
+      "sha": "e017b1e",
+      "message": "Add skill: dembrandt/dembrandt-skills",
+      "date": "2026-05-19",
+      "author": "Esa Lahikainen"
+    },
+    {
       "sha": "95fa85d",
       "message": "Merge pull request #549 from kriptoburak/codex/refresh-xquik-skill-description",
       "date": "2026-05-10",
@@ -4943,54 +4991,6 @@
       "message": "Merge pull request #545 from honeydew-ai/add-honeydew",
       "date": "2026-05-10",
       "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "5270c77",
-      "message": "docs: improve TweetClaw skill description",
-      "date": "2026-05-09",
-      "author": "kriptoburak"
-    },
-    {
-      "sha": "4219814",
-      "message": "Improve Xquik skill description",
-      "date": "2026-05-08",
-      "author": "kriptoburak"
-    },
-    {
-      "sha": "41252ba",
-      "message": "Add honeydew-ai-coding-agents-plugins under Specialized Domains",
-      "date": "2026-05-08",
-      "author": "Hive"
-    },
-    {
-      "sha": "31aecab",
-      "message": "Merge pull request #542 from kriptoburak/codex/add-xquik-agent-skill",
-      "date": "2026-05-08",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "365f8aa",
-      "message": "Add Skills by Honeydew Team",
-      "date": "2026-05-08",
-      "author": "Baruch Oxman"
-    },
-    {
-      "sha": "d33eb15",
-      "message": "Add Xquik agent skill",
-      "date": "2026-05-08",
-      "author": "kriptoburak"
-    },
-    {
-      "sha": "859172a",
-      "message": "Merge pull request #523 from eyalb181/add-metalbear-skills",
-      "date": "2026-05-04",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "f01d878",
-      "message": "Add skill: metalbear-co/skills",
-      "date": "2026-05-03",
-      "author": "Eyal Bukchin"
     }
   ],
   "BehiSecc--awesome-claude-skills": [
@@ -5119,6 +5119,24 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "c2cae82",
+      "message": "feat(ci): Unicode hygiene gate for marketplace skill files (Trapdoor / Trojan Source defense) (#777)",
+      "date": "2026-05-25",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "b45503d",
+      "message": "docs(aar): file 2026-05-22 to 2026-05-24 session \u2014 CI hardening campaign (#775)",
+      "date": "2026-05-24",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "8e1e780",
+      "message": "feat(blog): add self-expiring-report-only-ci-gates to tonsofskills.com/blog",
+      "date": "2026-05-24",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "23fe3bf",
       "message": "feat: add agency-os plugin (AI agency + Notion board) (#709)",
       "date": "2026-05-24",
@@ -5159,24 +5177,6 @@
       "message": "feat(blog): add server-ops-mcp-safety-before-tools to tonsofskills.com/blog",
       "date": "2026-05-23",
       "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "69c73e9",
-      "message": "chore(ci): shellcheck cleanup + flip to blocking (PR E) (#768)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "542f822",
-      "message": "chore(ci): ts-coverage flip to blocking + codeblock TS cleanup (PR F) (#769)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "cb17f65",
-      "message": "chore(ci): markdownlint cleanup + report-only gate (PR C) (#767)",
-      "date": "2026-05-23",
-      "author": "intentsolutions.io"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5243,6 +5243,18 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "90c188b",
+      "message": "chore(marketplace): unify all 4 suites to suite-only mode (BREAKING)",
+      "date": "2026-05-24",
+      "author": "daymade"
+    },
+    {
+      "sha": "1710447",
+      "message": "fix(dictionary): order corrections by length DESC to prevent short-rule residue",
+      "date": "2026-05-23",
+      "author": "daymade"
+    },
+    {
       "sha": "bbf87f3",
       "message": "fix(pdf-creator): auto-select Chrome backend for CJK content",
       "date": "2026-05-18",
@@ -5287,18 +5299,6 @@
     {
       "sha": "1549306",
       "message": "feat(statusline-generator): rewrite SKILL.md + scripts for v1.1.0",
-      "date": "2026-05-09",
-      "author": "daymade"
-    },
-    {
-      "sha": "3e999df",
-      "message": "docs: update README badges and skill counts for v1.52.0",
-      "date": "2026-05-09",
-      "author": "daymade"
-    },
-    {
-      "sha": "35e2076",
-      "message": "feat(marketplace): create daymade-audio suite for speech pipeline",
       "date": "2026-05-09",
       "author": "daymade"
     }
@@ -5491,6 +5491,18 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
+      "sha": "d30fb7e",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-24",
+      "author": "Claude Routine"
+    },
+    {
+      "sha": "7c49b2f",
+      "message": "chore(agent-collections): append 2026-05-24 changelog entry",
+      "date": "2026-05-24",
+      "author": "Claude Routine"
+    },
+    {
       "sha": "294b704",
       "message": "chore(agent-collections): scheduled refresh",
       "date": "2026-05-23",
@@ -5535,18 +5547,6 @@
     {
       "sha": "14c0181",
       "message": "docs(claude-settings): update to v2.1.145",
-      "date": "2026-05-20",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "d3ab2fc",
-      "message": "docs(claude-commands): log v2.1.145 changelog entry",
-      "date": "2026-05-20",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "0fb7e0c",
-      "message": "docs(claude-commands): update to v2.1.145",
       "date": "2026-05-20",
       "author": "Shayan Rais"
     }
