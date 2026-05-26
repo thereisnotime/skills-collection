@@ -1,9 +1,9 @@
 # Tons of Skills — Claude Code Plugins Marketplace
 
-[![Release](https://img.shields.io/badge/release-v4.30.0-green)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/releases/tag/v4.30.0)
+[![Release](https://img.shields.io/badge/release-v4.33.0-green)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/releases/tag/v4.33.0)
 [![CLI](https://img.shields.io/badge/CLI-ccpi-blueviolet?logo=npm)](https://www.npmjs.com/package/@intentsolutionsio/ccpi)
-[![Plugins](https://img.shields.io/badge/plugins-425-blue)](https://tonsofskills.com/explore)
-[![Skills](https://img.shields.io/badge/skills-2%2C810-green)](https://tonsofskills.com/skills)
+[![Plugins](https://img.shields.io/badge/plugins-431-blue)](https://tonsofskills.com/explore)
+[![Skills](https://img.shields.io/badge/skills-2%2C754-green)](https://tonsofskills.com/skills)
 [![GitHub Stars](https://img.shields.io/github/stars/jeremylongshore/claude-code-plugins-plus-skills?style=social)](https://github.com/jeremylongshore/claude-code-plugins-plus-skills)
 [![Sponsor: Nixtla](https://img.shields.io/badge/Sponsor-nixtla.io-ff6b35)](https://nixtla.io)
 [![Sponsor: Kobiton](https://img.shields.io/badge/Sponsor-kobiton.com-0487D9)](https://kobiton.com)
@@ -1005,4 +1005,4 @@ MIT License — See [LICENSE](LICENSE) for details.
 
 ---
 
-**Version**: 4.20.0 | **Last Updated**: March 2026 | **Skills**: 2,810 | **Plugins**: 425
+**Version**: 4.33.0 | **Last Updated**: 2026-05-25 | **Skills**: 2,754 | **Plugins**: 431

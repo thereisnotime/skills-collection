@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.33.0] - 2026-05-25
+
+Cowork pipeline correctness pass — the `/cowork/` page is now a
+deterministic function of the catalog from disk through deploy, with
+a CI gate that fails the build if anyone regresses the contract. Plus
+the agency-os plugin lands, a new Unicode hygiene CI gate hardens
+contributor PRs against [Trojan Source](https://trojansource.codes/)
+attacks (CVE-2021-42574), and the `/cowork/` page itself gets the
+prereq banner + setup-guide rewrite that users have been missing.
+
+### Added
+
+- **agency-os plugin** (productivity) — AI agency + Notion board
+  orchestrator. Adds the first `productivity/agency-os/` entry to the
+  catalog ([#709](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/pull/709)).
+- **Unicode hygiene CI gate** (`scripts/validate-unicode-hygiene.py` +
+  `.github/workflows/validate-unicode-hygiene.yml`) — blocking gate
+  that rejects bidi-override + tag-character abuse in `SKILL.md`,
+  `plugin.json`, agent, and command files. Defends against
+  [Trojan Source](https://trojansource.codes/) (CVE-2021-42574) and
+  the [trapdoor / tag-character class](https://www.unicode.org/reports/tr39/#bidirectional_controls)
+  of homoglyph attacks. `--strict` mode also blocks zero-width and
+  format characters outside the BOM position. Full regression suite
+  at `tests/test_validate_unicode_hygiene.py`
+  ([#777](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/pull/777)).
+- **Idempotent cowork build pipeline + drift gate** — three changes
+  that make the cowork download backend self-healing
+  ([#780](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/pull/780)):
+  - `scripts/build-cowork-zips.mjs` now wipes
+    `marketplace/public/downloads/{plugins,bundles}` before each run.
+    Output state is exactly what `marketplace.extended.json` declares
+    — no more, no less. Removes accumulated orphans in local dev
+    (six found this session: `general-legal-assistant`, `langchain-pack`,
+    `windsurf` + `automation`, `code-quality`, `finance` bundles).
+  - `scripts/validate-cowork-manifest.mjs` (new) — drift gate. Seven
+    checks for catalog ↔ manifest ↔ disk alignment, including the
+    orphan-zip direction that the existing `validate-cowork-downloads.mjs`
+    doesn't cover. Wired into `marketplace/scripts/build.mjs`
+    (`cowork:validate` after `cowork:zips`) AND
+    `.github/workflows/validate-plugins.yml` as the named
+    `Validate Cowork Manifest Drift` step.
+  - `CLAUDE.md` § "Auto-cowork contract" — documents the author
+    flow (catalog edit + `pnpm run sync-marketplace` is the entire
+    authoring step), pipeline determinism, deploy propagation via
+    `rsync --delete`, and the deliberate decision NOT to wire
+    `cowork:zips` into `sync-marketplace` (cadence mismatch).
+
+### Fixed
+
+- **`/cowork/` page content gap** — adds an amber prereq banner above
+  the hero surfacing install prerequisites, rewrites the setup guide
+  for clearer step ordering, and adds an official-resources block
+  linking to upstream Anthropic Cowork docs so users aren't routed
+  only through this marketplace
+  ([#781](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/pull/781)).
+- **`.gitleaks.toml` allowlist drift** — extends the existing
+  `marketplace/src/data/*.json` allowlist scope to
+  `marketplace/public/data/*.json` (the runtime mirror produced by
+  `marketplace/scripts/build.mjs`). Both copies bundle SKILL.md body
+  HTML (which is allowlisted directly); the bundled mirror must
+  follow suit or every catalog regen turns CI red on benign
+  documentation examples (e.g., Supabase local-dev demo JWTs with
+  `iss: supabase-demo`)
+  ([#781](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/pull/781) co-fix).
+
+### Changed
+
+- **CHANGELOG, CLAUDE.md, AAR docs, blog posts** — repo-side records
+  of the 2026-05-22 → 2026-05-24 CI hardening campaign filed as
+  `000-docs/270-AT-AACR-2026-05-22-to-24-ci-hardening-9pr-arc.md`
+  ([#775](https://github.com/jeremylongshore/claude-code-plugins-plus-skills/pull/775)).
+  Two tonsofskills.com blog posts published documenting the
+  self-expiring report-only CI gate pattern and the Unicode hygiene
+  gate as same-day trapdoor defense.
+
 ## [4.32.0] - 2026-05-24
 
 Single-session CI hardening campaign — 9 sequential PRs took main from

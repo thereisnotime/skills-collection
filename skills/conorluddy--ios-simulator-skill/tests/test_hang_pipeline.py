@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from common.hang_pipeline import (
     FINGERPRINT_VERSION,
     Cluster,
@@ -40,7 +39,6 @@ from common.hang_pipeline import (
     summary_from_json,
     summary_to_json,
 )
-
 
 # === parse ===
 
@@ -224,7 +222,9 @@ def test_build_normalised_event_returns_none_without_duration():
 # === cluster ===
 
 
-def _event(fp_symbol: str, duration: float, delta: int = 1000, process: str = "MyApp") -> NormalisedEvent:
+def _event(
+    fp_symbol: str, duration: float, delta: int = 1000, process: str = "MyApp"
+) -> NormalisedEvent:
     return NormalisedEvent(
         delta_ms=delta,
         process=process,
@@ -380,6 +380,100 @@ def test_format_cluster_detail():
     assert "severity=" in out
 
 
+def test_format_cluster_detail_renders_multi_kind_auto_samples():
+    """Both sample + spindump records under one cluster should render with their
+    own kind label and headline so the agent can disambiguate stacks."""
+    summary = _build_summary()
+    cluster = summary.clusters[0]
+    cluster.auto_samples = [
+        {"kind": "simctl-sample", "stack": "main thread\n  frame_a\n  frame_b", "reason": None},
+        {"kind": "spindump", "stack": "Process Foo\n  spin_frame_a", "reason": None},
+    ]
+    out = format_cluster_detail(cluster, [])
+    assert "simctl-sample stack" in out
+    assert "spindump stack" in out
+    assert "frame_a" in out
+    assert "spin_frame_a" in out
+
+
+def test_format_cluster_detail_legacy_auto_sample_still_renders():
+    """Backward-compat: old summaries with single auto_sample dict still display."""
+    summary = _build_summary()
+    cluster = summary.clusters[0]
+    cluster.auto_sample = {"kind": "simctl-sample", "stack": "legacy line\n  inner", "reason": None}
+    out = format_cluster_detail(cluster, [])
+    assert "legacy line" in out
+
+
+def test_format_cluster_detail_reports_failure_reason():
+    summary = _build_summary()
+    cluster = summary.clusters[0]
+    cluster.auto_samples = [{"kind": "spindump", "stack": None, "reason": "timeout"}]
+    out = format_cluster_detail(cluster, [])
+    assert "spindump: unavailable (timeout)" in out
+
+
+def test_extract_stack_addresses_finds_bracketed_hex():
+    from common.hang_pipeline import extract_stack_addresses
+
+    stack = (
+        "    2 _start  (in libdyld.dylib) + 1234  [0x180abcdef0]\n"
+        "    + 2 main + 56 (MyApp + 1234) [0x10004abcd]\n"
+        "    + 2 main + 56 (MyApp + 1234) [0x10004abcd]\n"  # duplicate
+        "no address here\n"
+    )
+    addrs = extract_stack_addresses(stack)
+    assert addrs == ["0x180abcdef0", "0x10004abcd"]
+
+
+def test_symbolicate_stack_rewrites_resolved_addresses():
+    from common.hang_pipeline import symbolicate_stack
+
+    stack = "  frame_a [0xAAA]\n  frame_b [0xBBB]\n"
+    resolved_map = {"0xAAA": "Foo.bar (Foo.swift:42)", "0xBBB": "0xBBB"}
+    out = symbolicate_stack(stack, lambda _addrs: resolved_map)
+    assert "[0xAAA → Foo.bar (Foo.swift:42)]" in out
+    # 0xBBB resolver echoed the address — should be left alone (no arrow).
+    assert "[0xBBB]" in out
+    assert "→" in out.split("0xBBB")[0] or "[0xBBB →" not in out
+
+
+def test_symbolicate_stack_no_op_when_resolver_empty():
+    from common.hang_pipeline import symbolicate_stack
+
+    stack = "  frame_a [0xAAA]\n"
+    out = symbolicate_stack(stack, lambda _addrs: {})
+    assert out == stack
+
+
+def test_symbolicate_stack_no_op_when_no_addresses():
+    from common.hang_pipeline import symbolicate_stack
+
+    stack = "plain text\nno addresses\n"
+    called = {"n": 0}
+
+    def _resolver(addrs):
+        called["n"] += 1
+        return {}
+
+    out = symbolicate_stack(stack, _resolver)
+    assert out == stack
+    assert called["n"] == 0
+
+
+def test_summary_builder_attaches_auto_samples_by_fingerprint():
+    """auto_samples_by_fp from disk must land on matching clusters during build()."""
+    events = [_event("[c0]", 500.0, delta=100), _event("[c0]", 600.0, delta=200)]
+    builder = SummaryBuilder(session_id="s1", started_at="2026-05-25T00:00:00", duration_ms=1000)
+    fp = events[0].fingerprint
+    samples_by_fp = {
+        fp: [{"kind": "simctl-sample", "stack": "frames", "reason": None}],
+        "fp:does-not-match": [{"kind": "spindump", "stack": "x", "reason": None}],
+    }
+    summary = builder.build(events, auto_samples_by_fp=samples_by_fp)
+    assert summary.clusters[0].auto_samples == samples_by_fp[fp]
+
+
 # === token budget ===
 
 
@@ -412,9 +506,9 @@ def test_compress_to_budget_uses_l2_at_high_budget():
 
 def test_diff_detects_new_critical():
     a = _build_summary(event_count=5)
-    b_events = [
-        _event(f"[c{i % 3}]", 400 + i * 10, delta=i * 1000) for i in range(5)
-    ] + [_event("[new-critical]", 1500, delta=20_000)]
+    b_events = [_event(f"[c{i % 3}]", 400 + i * 10, delta=i * 1000) for i in range(5)] + [
+        _event("[new-critical]", 1500, delta=20_000)
+    ]
     b = SummaryBuilder(
         session_id="hang-b",
         started_at="2026-05-22T14:31:00",

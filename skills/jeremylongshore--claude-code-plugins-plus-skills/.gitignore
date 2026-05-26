@@ -96,6 +96,12 @@ coverage/
 # IMPORTANT: scrub tokens/webhooks before commit. If a session involved a leaked
 # secret in chat, redact it in the AAR (use `<REDACTED>` placeholder + flag for rotation).
 !000-docs/*-AA-AACR-*.md
+# Release Reports — /release Phase 8 AAR per Doc Filing Standard v4.3.
+# Filed once per release ceremony; references the GitHub Release + tag (already
+# public) so no secrets risk. Documents pre-release state, what was applied,
+# metrics, quality gates, beads <-> GH <-> Plane mirror, rollback procedure,
+# and lessons-learned.
+!000-docs/*-RL-REPT-*.md
 website/
 
 # Internal planning and research documents (do not commit to public repo)
