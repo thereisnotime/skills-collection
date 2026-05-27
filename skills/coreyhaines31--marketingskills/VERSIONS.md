@@ -29,12 +29,13 @@ Current versions of all skills. Agents can compare against local versions to che
 | marketing-ideas | 2.0.0 | 2026-05-05 |
 | marketing-psychology | 2.0.0 | 2026-05-05 |
 | onboarding | 2.0.0 | 2026-05-05 |
-| ads | 2.0.0 | 2026-05-05 |
+| ads | 2.0.1 | 2026-05-26 |
 | paywalls | 2.0.0 | 2026-05-05 |
 | popups | 2.0.0 | 2026-05-05 |
 | pricing | 2.0.0 | 2026-05-05 |
 | product-marketing | 2.0.0 | 2026-05-05 |
 | programmatic-seo | 2.0.0 | 2026-05-05 |
+| prospecting | 1.0.0 | 2026-05-26 |
 | referrals | 2.0.0 | 2026-05-05 |
 | revops | 2.0.0 | 2026-05-05 |
 | sales-enablement | 2.0.0 | 2026-05-05 |
@@ -47,6 +48,17 @@ Current versions of all skills. Agents can compare against local versions to che
 | video | 2.0.1 | 2026-05-18 |
 
 ## Recent Changes
+
+### 2.2.0 (2026-05-26)
+
+- Added `prospecting` skill for building qualified prospect lists across SaaS, B2B, and local SMB motions. Includes shared 5-phase framework (ICP → discovery → qualify → score → output) plus branch-specific references (saas-prospecting, b2b-prospecting, local-prospecting), data-sources guide covering Apollo / Clay / ZoomInfo / Clearbit / Hunter / Snov / Truelist / RB2B / Sales Nav / BuiltWith / Crunchbase / GitHub, and compliance reference (CAN-SPAM, GDPR, CASL, platform ToS).
+- Added `tools/clis/github-prospects.js` CLI for pulling GitHub stargazers, forkers, and watchers as a developer-intent signal — with pagination, enrichment, filter-based early termination, and CSV output.
+- Added new tool integration docs: `truelist` (email deliverability validation, OpenAPI-aligned), `github` (REST API for prospecting), `firecrawl` (single-target page scraping), `browserbase` (real Chromium for JS-heavy pages or interaction).
+- **ads** (2.0.0 → 2.0.1): added Google RSA Output Spec section enforcing 15 headlines × 30 chars, 4 descriptions × 90 chars, ad group structure labels, ≥8 negative keywords, ≥4 sitelinks/callouts, output ordering to avoid truncation, and a self-check before responding. Includes optional Brazilian medical (CFM) compliance rules when product context indicates that vertical.
+- Added `sequenzy` tool integration (email marketing platform with MCP support).
+- Fixed plugin.json version drift (was stuck at 1.9.0 across three releases) — `sync-skills.js` now auto-syncs `plugin.json` version to `marketplace.json` on every change. Closes #323.
+- Added skill install artifacts (`.agents/`, `.claude/`, `skills-lock.json`) to `.gitignore`.
+- Total skills: 42.
 
 ### 2.1.0 (2026-05-21)
 - Added `sms` skill for SMS/MMS marketing — welcome flows, abandoned cart, post-purchase, win-back, promotional sends, and transactional/auth. Includes compliance reference (TCPA, A2P 10DLC, GDPR, CASL), sequence templates with character counts, and platform comparison (Klaviyo, Postscript, Attentive, Twilio, Brevo, SimpleTexting, Customer.io).

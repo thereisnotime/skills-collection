@@ -92,6 +92,18 @@ test("libraryForStack: 'use cache' surfaces for Next 15", async () => {
   assert.ok(useCache, "'use cache' must appear for Next 15+");
 });
 
+test('libraryForStack: unstable_cache is available for Next 15 but not Next 16', async () => {
+  const next15 = await libraryForStack('next', '15.4.10');
+  assert.ok(next15.urls.find(u =>
+    u.url === 'https://nextjs.org/docs/app/api-reference/functions/unstable_cache'
+  ), 'unstable_cache citation should remain available for Next 15');
+
+  const next16 = await libraryForStack('next', '16.2.2');
+  assert.equal(next16.urls.find(u =>
+    u.url === 'https://nextjs.org/docs/app/api-reference/functions/unstable_cache'
+  ), undefined, 'unstable_cache citation should not be offered for Next 16');
+});
+
 test('sanitizeCitations strips unknown URL', async () => {
   const rec = { citations: [
     'https://vercel.com/docs/caching/cdn-cache',

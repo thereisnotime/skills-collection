@@ -260,6 +260,85 @@ test('extractClaims + verifyClaim: geolocation Vary proof must be an actual Vary
   assert.match(failed.reason, /X-Vercel-IP-Country/);
 });
 
+test('extractClaims + verifyClaim: high-cardinality latitude/longitude Vary headers are unsafe', async () => {
+  const repoRoot = await mkdtemp(join(tmpdir(), 'vo-geo-cardinality-'));
+  await mkdir(join(repoRoot, 'app/api/geocode'), { recursive: true });
+  await writeFile(
+    join(repoRoot, 'app/api/geocode/route.ts'),
+    "export function GET(req) { return Response.json({ lat: req.headers.get('x-vercel-ip-latitude') }); }\n"
+  );
+
+  const rec = {
+    candidateRef: 'uncached_route:/api/geocode',
+    what: 'Cache geocode suggestions with s-maxage.',
+    fix: "Return `Cache-Control: public, s-maxage=300` and `Vary: X-Vercel-IP-Latitude, X-Vercel-IP-Longitude`.",
+    affectedFiles: ['app/api/geocode/route.ts'],
+  };
+  const claims = extractClaims(rec, { repoRoot, framework: 'next', version: '15.4.10' });
+  const cardinality = claims.find((c) => c.type === 'cache_vary_cardinality_safe');
+  assert.ok(cardinality);
+  const failed = await verifyClaim(cardinality);
+  assert.equal(failed.disposition, 'failed');
+  assert.match(failed.reason, /high-cardinality/);
+
+  const coarse = await verifyClaim({
+    ...cardinality,
+    rec: {
+      ...rec,
+      fix: "Return `Cache-Control: public, s-maxage=300` and `Vary: X-Vercel-IP-City` after confirming city-level results are acceptable.",
+    },
+  });
+  assert.equal(coarse.disposition, 'verified');
+});
+
+test('extractClaims + verifyClaim: Vercel geo Vary uses documented coarse header names', async () => {
+  const repoRoot = await mkdtemp(join(tmpdir(), 'vo-geo-country-region-'));
+  await mkdir(join(repoRoot, 'app/api/region'), { recursive: true });
+  await writeFile(
+    join(repoRoot, 'app/api/region/route.ts'),
+    "export function GET(req) { return Response.json({ region: req.headers.get('x-vercel-ip-country-region') }); }\n"
+  );
+
+  const rec = {
+    candidateRef: 'uncached_route:/api/region',
+    what: 'Cache region-specific data with s-maxage.',
+    fix: "Return `Cache-Control: public, s-maxage=300` and `Vary: X-Vercel-IP-Region`.",
+    affectedFiles: ['app/api/region/route.ts'],
+  };
+  const claim = extractClaims(rec, { repoRoot, framework: 'next', version: '15.4.10' })
+    .find((c) => c.type === 'cache_vary_matches_dynamic_inputs');
+  assert.ok(claim);
+
+  const failed = await verifyClaim(claim);
+  assert.equal(failed.disposition, 'failed');
+  assert.match(failed.reason, /X-Vercel-IP-Country-Region/);
+
+  const documented = await verifyClaim({
+    ...claim,
+    rec: {
+      ...rec,
+      fix: "Return `Cache-Control: public, s-maxage=300` and `Vary: X-Vercel-IP-Country-Region`.",
+    },
+  });
+  assert.equal(documented.disposition, 'verified');
+});
+
+test('extractClaims + verifyClaim: postal-code Vary headers are unsafe', async () => {
+  const rec = {
+    candidateRef: 'uncached_route:/api/local',
+    what: 'Cache postal-code-specific offers.',
+    fix: "Return `Cache-Control: public, s-maxage=300` and `Vary: X-Vercel-IP-Postal-Code`.",
+    affectedFiles: ['app/api/local/route.ts'],
+  };
+  const cardinality = extractClaims(rec, { framework: 'next', version: '15.4.10' })
+    .find((c) => c.type === 'cache_vary_cardinality_safe');
+  assert.ok(cardinality);
+
+  const failed = await verifyClaim(cardinality);
+  assert.equal(failed.disposition, 'failed');
+  assert.match(failed.reason, /Postal-Code/);
+});
+
 test('extractClaims + verifyClaim: cache header values cannot contain empty directives', async () => {
   const rec = {
     candidateRef: 'cache_header_gap:/api/docs-og',
@@ -537,6 +616,38 @@ test('extractClaims + verifyClaim: Cache Components rejects overbroad Route Hand
   const failed = await verifyClaim(claim);
   assert.equal(failed.disposition, 'failed');
   assert.match(failed.reason, /Route Segment Config still has Route Handler options/);
+});
+
+test('extractClaims + verifyClaim: route-level revalidate is blocked by dynamic parent layout', async () => {
+  const repoRoot = await mkdtemp(join(tmpdir(), 'vo-revalidate-dynamic-parent-'));
+  await mkdir(join(repoRoot, 'apps/site/app/(landing)/prices'), { recursive: true });
+  await writeFile(
+    join(repoRoot, 'apps/site/app/(landing)/layout.tsx'),
+    "import { withAuth } from '@/lib/auth';\nexport default async function Layout({ children }) { await withAuth(); return children; }\n"
+  );
+  await writeFile(
+    join(repoRoot, 'apps/site/app/(landing)/prices/page.tsx'),
+    "export default function Prices() { return <main>Prices</main>; }\n"
+  );
+
+  const rec = {
+    candidateRef: 'uncached_route:/prices',
+    what: 'Add route-level revalidate to /prices.',
+    fix: 'Add `export const revalidate = 60` to `app/(landing)/prices/page.tsx`.',
+    affectedFiles: ['app/(landing)/prices/page.tsx'],
+  };
+  const claim = extractClaims(rec, {
+    repoRoot,
+    projectRootDirectory: 'apps/site',
+    framework: 'next',
+    version: '15.4.10',
+  }).find((c) => c.type === 'next_route_revalidate_static_prereq');
+  assert.ok(claim);
+
+  const failed = await verifyClaim(claim);
+  assert.equal(failed.disposition, 'failed');
+  assert.match(failed.reason, /withAuth/);
+  assert.match(failed.reason, /next build/);
 });
 
 test('extractClaims + verifyClaim: cacheTag invalidation claims need matching revalidateTag/updateTag evidence', async () => {

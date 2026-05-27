@@ -33,6 +33,7 @@ test('renderReport: surfaces Fluid Compute enabled from project.defaultResourceC
   assert.match(md, /In-function concurrency is enabled/);
   assert.match(md, /## Configuration notes/);
   assert.match(md, /memory tier: Standard/);
+  assert.match(md, /CPU-bound, or latency-sensitive route evidence/);
   assert.match(md, /fra1, iad1/);
 });
 

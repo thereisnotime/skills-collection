@@ -879,7 +879,7 @@
       "category": "development"
     },
     {
-      "name": "handoff",
+      "name": "handoff-engineering",
       "source": "./engineering/handoff",
       "description": "Conversation-handoff document generator. Compacts the current session into a markdown handoff for a fresh agent — references existing artifacts (PRDs, plans, ADRs, issues, commits) by path/URL instead of duplicating them. Derived from Matt Pocock's MIT-licensed handoff with: (1) 3 stdlib Python tools (template generator tailored to 5 next-session emphases, artifact deduplicator across 5 categories of duplication, skill recommender matching content to 14 skills in this repo), (2) 4 references citing 7-8 sources (handoff structure, deduplication discipline, next-session skill matching, companion tooling), (3) cs-handoff-author persona agent + /cs:handoff slash command. Matt's no-duplication discipline + mktemp convention preserved verbatim per MIT.",
       "version": "2.6.0",
@@ -971,7 +971,7 @@
       "category": "productivity"
     },
     {
-      "name": "handoff",
+      "name": "handoff-productivity",
       "source": "./productivity/handoff",
       "description": "Compact the current conversation into a handoff document for another agent to pick up. Configurable save location, redaction enforcement, SessionStart auto-load + SessionEnd reminder, self-check fidelity script, --refresh flag, mtime-guarded cleanup. Inspired by Matt Pocock's handoff (MIT).",
       "version": "2.8.2",

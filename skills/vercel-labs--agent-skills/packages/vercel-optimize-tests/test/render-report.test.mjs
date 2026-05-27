@@ -35,7 +35,7 @@ const baseSignals = {
   },
 };
 
-async function renderCli(recsRaw, extraArgs = [], gateRaw = { toLaunch: [], platform: [], gated: [] }) {
+async function renderCli(recsRaw, extraArgs = [], gateRaw = { toLaunch: [], platform: [], gated: [] }, signalsRaw = baseSignals) {
   const root = await mkdtemp(join(tmpdir(), 'vo-render-report-'));
   try {
     const recsPath = join(root, 'recs.json');
@@ -44,7 +44,7 @@ async function renderCli(recsRaw, extraArgs = [], gateRaw = { toLaunch: [], plat
     await Promise.all([
       writeFile(recsPath, JSON.stringify(recsRaw), 'utf-8'),
       writeFile(gatePath, JSON.stringify(gateRaw), 'utf-8'),
-      writeFile(signalsPath, JSON.stringify(baseSignals), 'utf-8'),
+      writeFile(signalsPath, JSON.stringify(signalsRaw), 'utf-8'),
     ]);
     return await exec('node', [RENDER_SCRIPT, recsPath, gatePath, signalsPath, '--project', 'x', '--no-timestamp', ...extraArgs]);
   } finally {
@@ -731,6 +731,81 @@ test('renderReport: keeps Usage column when at least one row has a real unit', (
   assert.ok(md.includes('| Service | Usage | Billed cost |'));
 });
 
+test('renderReport: omits zero-cost usage service rows', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    signals: {
+      ...baseSignals,
+      usage: {
+        ...baseSignals.usage,
+        services: [
+          { name: 'Function Duration', usage: '1.20M GB-hr', billedCost: 142.50 },
+          { name: 'Edge Requests', billedCost: 0 },
+          { name: 'Image Optimization Cache Reads', billedCost: 0 },
+        ],
+        totals: { billedCost: 142.50 },
+      },
+    },
+    opts: { projectName: 'x' },
+  });
+  assert.ok(md.includes('| Function Duration | 1.20M GB-hr | $142.50 |'));
+  assert.ok(md.includes('_2 zero-cost service rows were omitted._'));
+  assert.ok(!md.includes('Edge Requests'));
+  assert.ok(!md.includes('Image Optimization Cache Reads'));
+});
+
+test('renderReport: replaces all-zero usage payload with concise note', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    signals: {
+      ...baseSignals,
+      usageScope: 'team',
+      usage: {
+        ...baseSignals.usage,
+        services: [
+          { name: 'Fast Origin Transfer', billedCost: 0 },
+          { name: 'Function Invocations', billedCost: 0 },
+          { name: 'Image Optimization Transformation', billedCost: 0 },
+        ],
+        totals: { billedCost: 0 },
+      },
+    },
+    opts: { projectName: 'x' },
+  });
+  assert.ok(md.includes('every reported service cost was $0.00 for this window'));
+  assert.ok(md.includes('team-wide billing payload'));
+  assert.ok(!md.includes('| Service | Billed cost |'));
+  assert.ok(!md.includes('Fast Origin Transfer'));
+});
+
+test('renderReport: shows effective cost when included credits zero out billed cost', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    signals: {
+      ...baseSignals,
+      usageScope: 'project',
+      usage: {
+        ...baseSignals.usage,
+        services: [
+          { name: 'Fast Origin Transfer', pricingUnit: 'USD', effectiveCost: 0.00056132736, billedCost: 2.0000000000194732e-10 },
+          { name: 'Function Duration', pricingUnit: 'USD', effectiveCost: 0.08251739315, billedCost: 1.4999999853326784e-10 },
+          { name: 'Edge Requests', pricingUnit: 'USD', effectiveCost: 0, billedCost: 0 },
+        ],
+        totals: { billedCost: 4.4999999854348125e-10, effectiveCost: 0.08307872051 },
+      },
+    },
+    opts: { projectName: 'x' },
+  });
+  assert.ok(md.includes('Net billed cost is $0.00 after included credits or allotments'));
+  assert.ok(md.includes('| Service | Effective cost |'));
+  assert.ok(md.includes('| Function Duration | $0.08 |'));
+  assert.ok(md.includes('**Total effective cost: $0.08**'));
+  assert.ok(!md.includes('| Service | Billed cost |'));
+});
+
 test('renderReport: cost-header labels team-wide vs project scope', () => {
   const team = renderReport({ recommendations: [], gated: [], signals: { ...baseSignals, usageScope: 'team' }, opts: { projectName: 'x' } });
   assert.ok(team.includes('## Cost breakdown (team-wide — `vercel usage` has no per-project filter)'));
@@ -967,6 +1042,43 @@ test('renderReport: observation evidence expands raw metric shorthand', () => {
   assert.doesNotMatch(md, /(?:^|[,\s])p95=/);
 });
 
+test('renderReport: observation evidence expands dotted metric shorthand', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    observations: [{
+      candidateRef: 'slow_route:/docs',
+      summary: 'cpu.p95=120ms vs latency.p95=900ms and ttfb.p95=880ms',
+      evidence: 'deepDive.cpu.p95=120ms; deepDive.latency.p95=900ms',
+      suggestedAction: 'Inspect runtime traces before recommending a code change.',
+      kind: 'other',
+    }],
+    signals: baseSignals,
+  });
+  assert.match(md, /95th percentile CPU time: 120ms/);
+  assert.match(md, /95th percentile latency: 900ms/);
+  assert.match(md, /95th percentile TTFB: 880ms/);
+  assert.doesNotMatch(md, /\b(?:cpu|latency|ttfb)\.p95=/);
+});
+
+test('renderReport: direct renderer holds back unsafe observations', () => {
+  const md = renderReport({
+    recommendations: [],
+    gated: [],
+    observations: [{
+      candidateRef: 'platform_bot_protection:<account>',
+      summary: 'Bot traffic dominates bandwidth.',
+      evidence: 'browser_impersonation traffic is high.',
+      suggestedAction: 'Enable WAF managed bot rules.',
+      kind: 'config_gap',
+    }],
+    signals: baseSignals,
+  });
+  assert.ok(!md.includes('Enable WAF managed bot rules'));
+  assert.match(md, /## Needs more evidence/);
+  assert.match(md, /staged safe-rollout plan/);
+});
+
 test('renderReport: throws when observation summary is missing', () => {
   assert.throws(
     () => renderReport({
@@ -1104,6 +1216,143 @@ test('render-report CLI: holds back unsupported framework-causal observations', 
   assert.ok(!stdout.includes('known Next.js Cache Components edge case'), 'unsupported observation should not ship');
   assert.ok(!stdout.includes('Move notFound() outside the cached scope'), 'unsupported action should not ship');
   assert.match(stdout, /framework-specific cause claim that verification could not support/);
+});
+
+test('render-report CLI: holds back implementation-grade observation actions', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'platform_bot_protection:<account>',
+      summary: 'Bot traffic accounts for 92% of edge bandwidth.',
+      evidence: 'browser_impersonation dominates Fast Data Transfer.',
+      suggestedAction: 'Enable WAF managed bot rules to challenge or deny browser_impersonation traffic.',
+      kind: 'config_gap',
+    }],
+  });
+  assert.ok(!stdout.includes('Enable WAF managed bot rules'), 'implementation-grade observation action should not ship');
+  assert.match(stdout, /verified platform recommendation/);
+});
+
+test('render-report CLI: counts held-back observations in coverage', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1, abstentions: 0 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'slow_route:/api/ribbon',
+      summary: 'The route waits on shared origin data.',
+      evidence: 'latency.p95=900ms',
+      suggestedAction: 'wrap the shared fetch helper before returning the route response.',
+      kind: 'upstream_dependency',
+    }],
+  }, [], {
+    toLaunch: [{ kind: 'slow_route', route: '/api/ribbon' }],
+    platform: [],
+    gated: [],
+  });
+  assert.match(stdout, /0 recommendations ready\s+·\s+1 need more evidence/);
+  assert.match(stdout, /## Needs more evidence/);
+  assert.ok(!stdout.includes('wrap the shared fetch helper'), 'lower-case implementation action should not ship as an observation');
+});
+
+test('render-report CLI: holds back alternate implementation verbs in observations', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'slow_route:/api/search',
+      summary: 'The route has independent upstream calls.',
+      evidence: 'cpu.p95=100ms vs latency.p95=1200ms',
+      suggestedAction: 'use Promise.all and raise the TTL for the shared search lookup.',
+      kind: 'upstream_dependency',
+    }],
+  });
+  assert.ok(!stdout.includes('use Promise.all'), 'alternate implementation action should not ship as an observation');
+  assert.match(stdout, /ready-to-apply recommendation evidence bar/);
+});
+
+test('render-report CLI: holds back root-cause claims even when action asks to inspect logs', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'route_errors:/api/checkout',
+      summary: '500 error rate is caused by an upstream checkout gateway response.',
+      evidence: 'http_status=500 count=92; route.ts:57 parses the upstream response.',
+      suggestedAction: 'Inspect logs before recommending a code change.',
+      kind: 'error_storm',
+    }],
+  });
+  assert.ok(!stdout.includes('caused by an upstream checkout gateway response'));
+  assert.match(stdout, /runtime root-cause claim/);
+});
+
+test('render-report CLI: holds back stale Next cache APIs in observations', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'slow_route:/api/ribbon',
+      summary: 'The route fetches shared Sanity data on every request.',
+      evidence: 'next@16 app route with repeated shared fetches.',
+      suggestedAction: 'Wrap the fetch in unstable_cache with a 60s TTL.',
+      kind: 'upstream_dependency',
+    }],
+  }, [], { toLaunch: [], platform: [], gated: [] }, {
+    ...baseSignals,
+    stack: { ...baseSignals.stack, frameworkVersion: '16.2.6', cacheComponents: true },
+  });
+  assert.ok(!stdout.includes('unstable_cache'), 'Next 16 stale cache API should not ship in observations');
+  assert.match(stdout, /framework-version evidence/);
+});
+
+test('render-report CLI: does not hold back unstable_cache observations for Next 15', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'slow_route:/api/ribbon',
+      summary: 'The route uses unstable_cache on a shared lookup.',
+      evidence: 'Next 15 route with runtime-cache evidence.',
+      suggestedAction: 'Inspect cache key cardinality and freshness before recommending a code change.',
+      kind: 'upstream_dependency',
+    }],
+  }, [], { toLaunch: [], platform: [], gated: [] }, {
+    ...baseSignals,
+    stack: { ...baseSignals.stack, frameworkVersion: '15.4.10' },
+  });
+  assert.match(stdout, /The route uses unstable_cache/);
+  assert.doesNotMatch(stdout, /cache API that does not match/);
+});
+
+test('render-report CLI: holds back WAF bot-category custom-rule claims', async () => {
+  const { stdout } = await renderCli({
+    schemaVersion: '1.0',
+    summary: { totalRecs: 0, observations: 1 },
+    recsGraded: [],
+    abstentions: [],
+    observations: [{
+      candidateRef: 'platform_bot_protection:<account>',
+      summary: 'browser_impersonation traffic dominates bandwidth.',
+      evidence: 'bot_category=browser_impersonation accounts for most Fast Data Transfer.',
+      suggestedAction: 'Add a WAF custom rule targeting bot_category=browser_impersonation with a Challenge action.',
+      kind: 'config_gap',
+    }],
+  });
+  assert.ok(!stdout.includes('bot_category=browser_impersonation'), 'unsupported WAF condition should not ship');
+  assert.match(stdout, /WAF-rule condition/);
 });
 
 test('render-report CLI: suppresses same-route same-family observations covered by a ready rec', async () => {

@@ -330,7 +330,8 @@ test('bot-protection-certainty: softens unsupported rule-state claims and adds r
   assert.match(rec.why, /likely contributor/);
   assert.match(rec.why, /false-positive risk monitored/);
   assert.doesNotMatch(rec.why, /without false-positive risk/);
-  assert.match(rec.fix, /Log -> Challenge -> Deny/);
+  assert.match(rec.fix, /starts in Log mode/);
+  assert.match(rec.fix, /appropriate Challenge or Deny action/);
   assert.ok(r.tags.includes('bot-protection-certainty:why'));
   assert.ok(r.tags.includes('bot-protection-certainty:staged-rollout'));
   assert.equal(r.needsReview, true);
