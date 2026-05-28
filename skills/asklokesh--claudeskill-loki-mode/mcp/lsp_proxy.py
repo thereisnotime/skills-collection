@@ -43,6 +43,7 @@ import importlib.util
 import json
 import logging
 import os
+import queue
 import shutil
 import signal
 import site
@@ -249,13 +250,54 @@ class LSPClient:
         self._opened_uris: set = set()
         self._lock = threading.Lock()
         self._initialized = False
+        # v7.7.14 LSP regression fix (was broken since v7.7.0):
+        # publishDiagnostics notifications were dropped by request()'s
+        # busy-read loop. Now a dedicated reader thread (spawned at end
+        # of start()) owns proc.stdout, routes responses to per-request
+        # Queues, and routes `textDocument/publishDiagnostics` into
+        # `pending_diagnostics`. See docs/plans/UT2-6-LSP-DIAGNOSTIC-
+        # BROADCAST.md section 3 for the prior root-cause analysis.
+        self.pending_diagnostics: Dict[str, List[Dict[str, Any]]] = {}
+        self._response_queues: Dict[int, "queue.Queue[Dict[str, Any]]"] = {}
+        self._response_lock = threading.Lock()
+        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_stop = threading.Event()
 
     def start(self) -> None:
         """Spawn the subprocess and perform the LSP `initialize` +
         `initialized` handshake. Idempotent: re-calling start() on an
-        already-initialized client is a no-op."""
+        already-initialized client is a no-op. If the subprocess died,
+        re-spawn cleanly: stop and join the previous reader thread first
+        to avoid leaking threads against a dead pipe.
+        """
         if self._initialized and self.proc and self.proc.poll() is None:
             return
+        # v7.7.14 (Opus 2 council fix): re-spawn after crash must not leak
+        # the previous reader thread. Signal stop + join with timeout, then
+        # reset routing state so the new reader starts clean.
+        if self._reader_thread and self._reader_thread.is_alive():
+            self._reader_stop.set()
+            # Close stale stdout to unblock the reader's _read_lsp() if any
+            try:
+                if self.proc and self.proc.stdout:
+                    self.proc.stdout.close()
+            except OSError:
+                pass
+            self._reader_thread.join(timeout=1.0)
+            self._reader_thread = None
+        # Drain any pending response waiters from the previous incarnation;
+        # they would otherwise hang for the full request() timeout.
+        with self._response_lock:
+            for waiter in self._response_queues.values():
+                try:
+                    waiter.put_nowait({'error': {'message': 'LSP restarted; request abandoned'}})
+                except queue.Full:
+                    pass
+            self._response_queues.clear()
+        with self._lock:
+            self.pending_diagnostics.clear()
+        self._opened_uris.clear()
+        self._initialized = False
         cmd = [self.binary_path] + self.extra_args
         self.proc = subprocess.Popen(
             cmd,
@@ -299,7 +341,88 @@ class LSPClient:
             'params': {},
         })
         self._initialized = True
+        # v7.7.14 fix: spawn the notification-reader thread AFTER the
+        # synchronous initialize handshake completes. From this point on,
+        # all reads from proc.stdout go through `_reader_loop`; request()
+        # parks on a per-request Queue keyed by request id.
+        self._reader_stop.clear()
+        self._reader_thread = threading.Thread(
+            target=self._reader_loop,
+            name=f"lsp-reader-{self.language}",
+            daemon=True,
+        )
+        self._reader_thread.start()
         _record_pid_to_disk(self.language, self.proc.pid)
+
+    def _reader_loop(self) -> None:
+        """v7.7.14 fix: dedicated reader thread that owns proc.stdout.
+        Routes JSON-RPC responses to per-request Queues keyed by id;
+        routes `textDocument/publishDiagnostics` notifications into
+        `self.pending_diagnostics`. Exits cleanly on EOF or stop signal.
+
+        v7.7.14 council fix (Opus 2): on exit, drain pending request
+        waiters with an error sentinel so they fail fast instead of
+        hanging for the full request() timeout. Log the exit reason so
+        a silently-dead reader does not silently break the whole proxy.
+        """
+        exit_reason = "stop signal"
+        try:
+            while not self._reader_stop.is_set():
+                try:
+                    if not self.proc or not self.proc.stdout:
+                        exit_reason = "proc/stdout missing"
+                        break
+                    msg = _read_lsp(self.proc.stdout)
+                except Exception as exc:
+                    exit_reason = f"read exception: {type(exc).__name__}: {exc}"
+                    break
+                if msg is None:
+                    exit_reason = "EOF (subprocess closed stdout)"
+                    break
+                msg_id = msg.get('id')
+                method = msg.get('method')
+                if msg_id is not None and method is None:
+                    # Response to a prior request: hand off to waiter
+                    with self._response_lock:
+                        waiter = self._response_queues.get(msg_id)
+                    if waiter is not None:
+                        try:
+                            waiter.put_nowait(msg)
+                        except queue.Full:
+                            pass
+                elif method == 'textDocument/publishDiagnostics':
+                    params = msg.get('params') or {}
+                    uri = params.get('uri')
+                    diags = params.get('diagnostics') or []
+                    if uri:
+                        with self._lock:
+                            self.pending_diagnostics[uri] = diags
+                # Other notifications (window/logMessage, $/progress, etc.)
+                # silently ignored. Server-to-client requests are not handled
+                # (we declared no capabilities, so servers should not send any).
+        finally:
+            # Drain any outstanding request waiters with an error sentinel.
+            # Without this, request() callers hang the full timeout (5s+) on
+            # reader death; downstream tools surface as silent slow paths.
+            with self._response_lock:
+                waiters = list(self._response_queues.items())
+                self._response_queues.clear()
+            for rid, waiter in waiters:
+                try:
+                    waiter.put_nowait({'error': {
+                        'message': f'LSP reader thread exited: {exit_reason}',
+                        'request_id': rid,
+                    }})
+                except queue.Full:
+                    pass
+            try:
+                logger.warning(
+                    "LSP reader thread for language=%s exited: %s "
+                    "(drained %d pending waiters)",
+                    self.language, exit_reason, len(waiters),
+                )
+            except Exception:
+                pass
 
     def _next_request_id(self) -> int:
         rid = self._next_id
@@ -335,29 +458,41 @@ class LSPClient:
         self._opened_uris.add(uri)
 
     def request(self, method: str, params: Dict[str, Any], timeout: float = 5.0) -> Dict[str, Any]:
-        """Send a JSON-RPC request and block until its response (or
-        timeout / EOF) arrives. Returns the decoded LSP response dict
-        (which has 'result' on success and 'error' on failure)."""
+        """Send a JSON-RPC request and block until its response arrives.
+
+        v7.7.14: parks on a per-request Queue instead of reading stdout
+        directly (which would race the reader thread). The reader thread
+        spawned in start() routes responses to this Queue by request id.
+        """
         rid = self._next_request_id()
-        _write_lsp(self.proc.stdin, {
-            'jsonrpc': '2.0',
-            'id': rid,
-            'method': method,
-            'params': params,
-        })
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            msg = _read_lsp(self.proc.stdout)
-            if msg is None:
-                return {'error': {'message': 'LSP EOF before response'}}
-            if msg.get('id') == rid:
-                return msg
-            # Ignore notifications and unrelated request responses.
-        return {'error': {'message': f'LSP timeout after {timeout}s'}}
+        wait_q: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=1)
+        with self._response_lock:
+            self._response_queues[rid] = wait_q
+        try:
+            try:
+                _write_lsp(self.proc.stdin, {
+                    'jsonrpc': '2.0',
+                    'id': rid,
+                    'method': method,
+                    'params': params,
+                })
+            except (BrokenPipeError, OSError) as exc:
+                return {'error': {'message': f'LSP I/O failure on write: {exc}'}}
+            try:
+                return wait_q.get(timeout=timeout)
+            except queue.Empty:
+                return {'error': {'message': f'LSP timeout after {timeout}s'}}
+        finally:
+            with self._response_lock:
+                self._response_queues.pop(rid, None)
 
     def shutdown(self) -> None:
         """Send `shutdown` + `exit`, then SIGTERM after a 2s grace and
         SIGKILL after another 1s if still alive."""
+        # v7.7.14: signal the reader thread to stop. It will also exit on
+        # its own once proc.stdout closes (EOF), but the flag is belt-and-
+        # suspenders for the kill path below.
+        self._reader_stop.set()
         if not self.proc or self.proc.poll() is not None:
             return
         try:
@@ -859,21 +994,20 @@ async def lsp_get_diagnostics(file: str) -> str:
         client.did_open(abs_file)
     except (BrokenPipeError, OSError) as exc:
         return json.dumps({'error': f'LSP I/O failure on didOpen: {exc}', 'language': language})
-    # The LSPClient implementation buffers received notifications; if the
-    # client doesn't expose a buffer, we fall back to a synthetic empty list.
-    # This is intentional: callers see no false errors when the buffer is
-    # absent; integration test asserts the elapsed-ms budget either way.
+    # v7.7.14: reader thread populates client.pending_diagnostics on
+    # textDocument/publishDiagnostics notifications. Poll for up to ~1s
+    # (matches docstring "waits up to 1 second"). Pyright cold-pass on
+    # a small file lands diagnostics in 100-400ms; gopls/rust-analyzer
+    # vary. If the buffer never fills, return empty (no false errors).
     diagnostics: List[Dict[str, Any]] = []
-    if hasattr(client, 'pending_diagnostics'):
-        target_uri = _path_to_uri(abs_file)
-        # Drain whatever has arrived so far (up to ~250ms wait if empty).
-        for _ in range(5):
-            with getattr(client, '_lock', threading.Lock()):
-                buf = getattr(client, 'pending_diagnostics', {})
-                if isinstance(buf, dict) and target_uri in buf:
-                    diagnostics = list(buf.get(target_uri) or [])
-                    break
-            time.sleep(0.05)
+    target_uri = _path_to_uri(abs_file)
+    for _ in range(20):
+        with client._lock:
+            buf = client.pending_diagnostics
+            if target_uri in buf:
+                diagnostics = list(buf.get(target_uri) or [])
+                break
+        time.sleep(0.05)
     err_count = sum(1 for d in diagnostics if d.get('severity') == 1)
     warn_count = sum(1 for d in diagnostics if d.get('severity') == 2)
     return json.dumps({

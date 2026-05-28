@@ -167,33 +167,33 @@
   > **Remediation:** Pin all dependencies to specific versions in a Pipfile.lock or requirements.txt with hashes. At minimum, specify exact versions: httpx==0.27.0, pyyaml==6.0.1, sentence-transformers==3.0.0. Consider using pipenv lock and committing the Pipfile.lock.
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/autoskill/scripts/backends.py
-  > File: `scientific-skills/autoskill/scripts/backends.py`
+  > Script accesses environment variables and makes network calls in skills/autoskill/scripts/backends.py
+  > File: `skills/autoskill/scripts/backends.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/autoskill/scripts/backends.py
-  > File: `scientific-skills/autoskill/scripts/backends.py`
+  > Script iterates through environment variables in skills/autoskill/scripts/backends.py
+  > File: `skills/autoskill/scripts/backends.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/autoskill/scripts/doctor.py
-  > File: `scientific-skills/autoskill/scripts/doctor.py`
+  > Script accesses environment variables and makes network calls in skills/autoskill/scripts/doctor.py
+  > File: `skills/autoskill/scripts/doctor.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/autoskill/scripts/doctor.py
-  > File: `scientific-skills/autoskill/scripts/doctor.py`
+  > Script iterates through environment variables in skills/autoskill/scripts/doctor.py
+  > File: `skills/autoskill/scripts/doctor.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/autoskill/scripts/run.py
-  > File: `scientific-skills/autoskill/scripts/run.py`
+  > Script accesses environment variables and makes network calls in skills/autoskill/scripts/run.py
+  > File: `skills/autoskill/scripts/run.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/autoskill/scripts/run.py
-  > File: `scientific-skills/autoskill/scripts/run.py`
+  > Script iterates through environment variables in skills/autoskill/scripts/run.py
+  > File: `skills/autoskill/scripts/run.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟠 HIGH** `LLM_DATA_EXFILTRATION` — Screen Content Harvesting and Transmission to External LLM Backends
@@ -207,7 +207,7 @@
   > **Remediation:** 1. Validate the foundry endpoint URL against an allowlist or require it to match a known pattern (e.g., corporate domain). 2. Never log or include API keys in error messages or reports. 3. Document clearly that FOUNDRY_API_KEY will be sent as a Bearer token to the configured endpoint URL.
 
 - **🟡 MEDIUM** `LLM_COMMAND_INJECTION` — LLM-Generated SKILL.md Content Written Directly to Filesystem Without Sanitization
-  > In scripts/run.py, the skill_body returned by the LLM backend is written directly to the filesystem as a SKILL.md file without any content validation or sanitization. Since the LLM response can be influenced by indirect prompt injection (via screen content), an attacker could cause the skill to write a malicious SKILL.md file into the proposed skills directory. When the user later promotes this skill, it could contain prompt injection instructions, malicious bash commands, or other harmful content. The promote.py script performs no content validation before moving files into the scientific-skills directory.
+  > In scripts/run.py, the skill_body returned by the LLM backend is written directly to the filesystem as a SKILL.md file without any content validation or sanitization. Since the LLM response can be influenced by indirect prompt injection (via screen content), an attacker could cause the skill to write a malicious SKILL.md file into the proposed skills directory. When the user later promotes this skill, it could contain prompt injection instructions, malicious bash commands, or other harmful content. The promote.py script performs no content validation before moving files into the skills directory.
   > File: `scripts/run.py:88`
   > **Remediation:** 1. Validate generated SKILL.md content against a schema before writing — check that frontmatter is valid YAML, that the name field matches the expected skill name, and that the body contains no suspicious instruction patterns. 2. Add a content safety check that scans generated skill bodies for prompt injection patterns before saving. 3. In promote.py, add a validation step that checks the SKILL.md being promoted for malicious content. 4. Display a diff of the generated skill to the user before writing.
 
@@ -357,38 +357,38 @@
   > **Remediation:** Pin all dependencies to specific versions (e.g., 'pip install requests==2.31.0'). Use a requirements.txt with pinned versions and hash verification.
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/citation-management/scripts/extract_metadata.py
-  > File: `scientific-skills/citation-management/scripts/extract_metadata.py`
+  > Script accesses environment variables and makes network calls in skills/citation-management/scripts/extract_metadata.py
+  > File: `skills/citation-management/scripts/extract_metadata.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/citation-management/scripts/extract_metadata.py
-  > File: `scientific-skills/citation-management/scripts/extract_metadata.py`
+  > Script iterates through environment variables in skills/citation-management/scripts/extract_metadata.py
+  > File: `skills/citation-management/scripts/extract_metadata.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/citation-management/scripts/generate_schematic.py
-  > File: `scientific-skills/citation-management/scripts/generate_schematic.py`
-  > **Remediation:** Remove environment variable collection unless explicitly required and documented
-
-- **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/citation-management/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/citation-management/scripts/generate_schematic_ai.py`
-  > **Remediation:** Remove environment variable harvesting or network transmission
-
-- **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/citation-management/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/citation-management/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/citation-management/scripts/generate_schematic.py
+  > File: `skills/citation-management/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/citation-management/scripts/search_pubmed.py
-  > File: `scientific-skills/citation-management/scripts/search_pubmed.py`
+  > Script accesses environment variables and makes network calls in skills/citation-management/scripts/generate_schematic_ai.py
+  > File: `skills/citation-management/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/citation-management/scripts/search_pubmed.py
-  > File: `scientific-skills/citation-management/scripts/search_pubmed.py`
+  > Script iterates through environment variables in skills/citation-management/scripts/generate_schematic_ai.py
+  > File: `skills/citation-management/scripts/generate_schematic_ai.py`
+  > **Remediation:** Remove environment variable collection unless explicitly required and documented
+
+- **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
+  > Script accesses environment variables and makes network calls in skills/citation-management/scripts/search_pubmed.py
+  > File: `skills/citation-management/scripts/search_pubmed.py`
+  > **Remediation:** Remove environment variable harvesting or network transmission
+
+- **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
+  > Script iterates through environment variables in skills/citation-management/scripts/search_pubmed.py
+  > File: `skills/citation-management/scripts/search_pubmed.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — Environment Variable Access with External Network Calls
@@ -422,18 +422,18 @@
   > **Remediation:** Change mandatory external skill invocations to optional recommendations. Users should explicitly consent to external API calls and credential usage. Remove the 'MANDATORY' and 'not optional' language, replacing it with a suggestion that users may optionally generate figures using the scientific-schematics skill.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/clinical-decision-support/scripts/generate_schematic.py
-  > File: `scientific-skills/clinical-decision-support/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/clinical-decision-support/scripts/generate_schematic.py
+  > File: `skills/clinical-decision-support/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/clinical-decision-support/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/clinical-decision-support/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/clinical-decision-support/scripts/generate_schematic_ai.py
+  > File: `skills/clinical-decision-support/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/clinical-decision-support/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/clinical-decision-support/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/clinical-decision-support/scripts/generate_schematic_ai.py
+  > File: `skills/clinical-decision-support/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — Full Environment Copy Passed to Subprocess — Potential Exposure of Other Secrets
@@ -487,18 +487,18 @@
   > **Remediation:** 1. Update the description to disclose that external AI services are used. 2. Explicitly state that data is transmitted to OpenRouter/Google APIs. 3. Warn users about HIPAA implications of sending clinical data to external services.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/clinical-reports/scripts/generate_schematic.py
-  > File: `scientific-skills/clinical-reports/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/clinical-reports/scripts/generate_schematic.py
+  > File: `skills/clinical-reports/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/clinical-reports/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/clinical-reports/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/clinical-reports/scripts/generate_schematic_ai.py
+  > File: `skills/clinical-reports/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/clinical-reports/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/clinical-reports/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/clinical-reports/scripts/generate_schematic_ai.py
+  > File: `skills/clinical-reports/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟠 HIGH** `LLM_DATA_EXFILTRATION` — Cross-File Exfiltration Chain: User Prompt Data Sent to External AI Service
@@ -567,18 +567,18 @@
   > **Remediation:** Review data flow across files: scripts/generate_schematic_ai.py, scripts/generate_schematic.py
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/hypothesis-generation/scripts/generate_schematic.py
-  > File: `scientific-skills/hypothesis-generation/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/hypothesis-generation/scripts/generate_schematic.py
+  > File: `skills/hypothesis-generation/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/hypothesis-generation/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/hypothesis-generation/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/hypothesis-generation/scripts/generate_schematic_ai.py
+  > File: `skills/hypothesis-generation/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/hypothesis-generation/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/hypothesis-generation/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/hypothesis-generation/scripts/generate_schematic_ai.py
+  > File: `skills/hypothesis-generation/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_DATA_EXFILTRATION` — Environment Variable Harvesting via os.environ.copy()
@@ -617,18 +617,18 @@
   > **Remediation:** Review data flow across files: scripts/generate_infographic_ai.py, scripts/generate_infographic.py
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/infographics/scripts/generate_infographic.py
-  > File: `scientific-skills/infographics/scripts/generate_infographic.py`
+  > Script iterates through environment variables in skills/infographics/scripts/generate_infographic.py
+  > File: `skills/infographics/scripts/generate_infographic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/infographics/scripts/generate_infographic_ai.py
-  > File: `scientific-skills/infographics/scripts/generate_infographic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/infographics/scripts/generate_infographic_ai.py
+  > File: `skills/infographics/scripts/generate_infographic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/infographics/scripts/generate_infographic_ai.py
-  > File: `scientific-skills/infographics/scripts/generate_infographic_ai.py`
+  > Script iterates through environment variables in skills/infographics/scripts/generate_infographic_ai.py
+  > File: `skills/infographics/scripts/generate_infographic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_DATA_EXFILTRATION` — API Key Potentially Exposed in Process Listing via Subprocess
@@ -677,18 +677,18 @@
   > **Remediation:** Add license and compatibility fields to the YAML frontmatter. For example: license: MIT and compatibility: Claude Code, API
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/latex-posters/scripts/generate_schematic.py
-  > File: `scientific-skills/latex-posters/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/latex-posters/scripts/generate_schematic.py
+  > File: `skills/latex-posters/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/latex-posters/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/latex-posters/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/latex-posters/scripts/generate_schematic_ai.py
+  > File: `skills/latex-posters/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/latex-posters/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/latex-posters/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/latex-posters/scripts/generate_schematic_ai.py
+  > File: `skills/latex-posters/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — API Key Accepted via Command-Line Argument
@@ -742,18 +742,18 @@
   > **Remediation:** Pin the requests package to a specific version (e.g., requests==2.31.0). For the parallel-cli installation, provide a checksum verification step or use a package manager with lockfile support. Document the expected versions of all dependencies.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/literature-review/scripts/generate_schematic.py
-  > File: `scientific-skills/literature-review/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/literature-review/scripts/generate_schematic.py
+  > File: `skills/literature-review/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/literature-review/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/literature-review/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/literature-review/scripts/generate_schematic_ai.py
+  > File: `skills/literature-review/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/literature-review/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/literature-review/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/literature-review/scripts/generate_schematic_ai.py
+  > File: `skills/literature-review/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — Cross-File Environment Variable Exfiltration Chain
@@ -802,23 +802,23 @@
   > **Remediation:** Add warnings about the risks of enabling third-party plugins. Recommend users only install plugins from trusted, verified sources. Do not enable plugins by default. Document that plugins execute arbitrary code during document conversion.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/markitdown/scripts/convert_with_ai.py
-  > File: `scientific-skills/markitdown/scripts/convert_with_ai.py`
+  > Script iterates through environment variables in skills/markitdown/scripts/convert_with_ai.py
+  > File: `skills/markitdown/scripts/convert_with_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/markitdown/scripts/generate_schematic.py
-  > File: `scientific-skills/markitdown/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/markitdown/scripts/generate_schematic.py
+  > File: `skills/markitdown/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/markitdown/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/markitdown/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/markitdown/scripts/generate_schematic_ai.py
+  > File: `skills/markitdown/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/markitdown/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/markitdown/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/markitdown/scripts/generate_schematic_ai.py
+  > File: `skills/markitdown/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_DATA_EXFILTRATION` — API Key Passed via Command-Line Argument
@@ -849,8 +849,8 @@
   > **Remediation:** Update example documentation to use a current, supported Nextflow version. Add a note recommending users verify the minimum Nextflow version required by the specific nf-core/pacsomatic release they are targeting.
 
 - **🔴 CRITICAL** `BEHAVIOR_EVAL_SUBPROCESS` — eval/exec combined with subprocess detected
-  > Dangerous combination of code execution and system commands in scientific-skills/pacsomatic/scripts/run_pacsomatic.py
-  > File: `scientific-skills/pacsomatic/scripts/run_pacsomatic.py`
+  > Dangerous combination of code execution and system commands in skills/pacsomatic/scripts/run_pacsomatic.py
+  > File: `skills/pacsomatic/scripts/run_pacsomatic.py`
   > **Remediation:** Remove eval/exec or use safer alternatives
 
 - **🟡 MEDIUM** `LLM_COMMAND_INJECTION` — shell=True Subprocess Execution with User-Controlled Input
@@ -884,18 +884,18 @@
   > **Remediation:** Update the skill description to explicitly disclose the AI image generation capability and external API usage. Consider separating the schematic generation into a distinct skill. Do not instruct the agent to generate schematics 'by default' without user request.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/peer-review/scripts/generate_schematic.py
-  > File: `scientific-skills/peer-review/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/peer-review/scripts/generate_schematic.py
+  > File: `skills/peer-review/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/peer-review/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/peer-review/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/peer-review/scripts/generate_schematic_ai.py
+  > File: `skills/peer-review/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/peer-review/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/peer-review/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/peer-review/scripts/generate_schematic_ai.py
+  > File: `skills/peer-review/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟠 HIGH** `LLM_DATA_EXFILTRATION` — Cross-File Exfiltration Chain: User Prompt and Generated Content Sent to External Server
@@ -939,18 +939,18 @@
   > **Remediation:** Include all referenced files in the skill package, or remove references to non-existent files from the instructions. Audit all file references in SKILL.md to ensure they resolve correctly.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/pptx-posters/scripts/generate_schematic.py
-  > File: `scientific-skills/pptx-posters/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/pptx-posters/scripts/generate_schematic.py
+  > File: `skills/pptx-posters/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/pptx-posters/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/pptx-posters/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/pptx-posters/scripts/generate_schematic_ai.py
+  > File: `skills/pptx-posters/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/pptx-posters/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/pptx-posters/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/pptx-posters/scripts/generate_schematic_ai.py
+  > File: `skills/pptx-posters/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — API Key Passed via Command-Line Argument (Process Listing Exposure)
@@ -994,18 +994,18 @@
   > **Remediation:** Add a compatibility field to the YAML frontmatter specifying which agent environments this skill supports (e.g., 'Works in Claude.ai, Claude Code, API').
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-grants/scripts/generate_schematic.py
-  > File: `scientific-skills/research-grants/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/research-grants/scripts/generate_schematic.py
+  > File: `skills/research-grants/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/research-grants/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/research-grants/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/research-grants/scripts/generate_schematic_ai.py
+  > File: `skills/research-grants/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-grants/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/research-grants/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/research-grants/scripts/generate_schematic_ai.py
+  > File: `skills/research-grants/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — API Key Passed via Command-Line Argument (Potential Exposure in Process Listings)
@@ -1064,48 +1064,48 @@
   > **Remediation:** Pin the openai package to a specific version (e.g., openai==1.x.x) in a requirements.txt or pyproject.toml file. Include all dependencies with exact version pins and ideally hash verification (pip install --require-hashes).
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-lookup/examples.py
-  > File: `scientific-skills/research-lookup/examples.py`
+  > Script iterates through environment variables in skills/research-lookup/examples.py
+  > File: `skills/research-lookup/examples.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-lookup/lookup.py
-  > File: `scientific-skills/research-lookup/lookup.py`
-  > **Remediation:** Remove environment variable collection unless explicitly required and documented
-
-- **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/research-lookup/research_lookup.py
-  > File: `scientific-skills/research-lookup/research_lookup.py`
-  > **Remediation:** Remove environment variable harvesting or network transmission
-
-- **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-lookup/research_lookup.py
-  > File: `scientific-skills/research-lookup/research_lookup.py`
-  > **Remediation:** Remove environment variable collection unless explicitly required and documented
-
-- **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-lookup/scripts/generate_schematic.py
-  > File: `scientific-skills/research-lookup/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/research-lookup/lookup.py
+  > File: `skills/research-lookup/lookup.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/research-lookup/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/research-lookup/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/research-lookup/research_lookup.py
+  > File: `skills/research-lookup/research_lookup.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-lookup/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/research-lookup/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/research-lookup/research_lookup.py
+  > File: `skills/research-lookup/research_lookup.py`
+  > **Remediation:** Remove environment variable collection unless explicitly required and documented
+
+- **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
+  > Script iterates through environment variables in skills/research-lookup/scripts/generate_schematic.py
+  > File: `skills/research-lookup/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/research-lookup/scripts/research_lookup.py
-  > File: `scientific-skills/research-lookup/scripts/research_lookup.py`
+  > Script accesses environment variables and makes network calls in skills/research-lookup/scripts/generate_schematic_ai.py
+  > File: `skills/research-lookup/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/research-lookup/scripts/research_lookup.py
-  > File: `scientific-skills/research-lookup/scripts/research_lookup.py`
+  > Script iterates through environment variables in skills/research-lookup/scripts/generate_schematic_ai.py
+  > File: `skills/research-lookup/scripts/generate_schematic_ai.py`
+  > **Remediation:** Remove environment variable collection unless explicitly required and documented
+
+- **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
+  > Script accesses environment variables and makes network calls in skills/research-lookup/scripts/research_lookup.py
+  > File: `skills/research-lookup/scripts/research_lookup.py`
+  > **Remediation:** Remove environment variable harvesting or network transmission
+
+- **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
+  > Script iterates through environment variables in skills/research-lookup/scripts/research_lookup.py
+  > File: `skills/research-lookup/scripts/research_lookup.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_DATA_EXFILTRATION` — API Keys Read from Environment Variables and Transmitted in HTTP Headers
@@ -1134,18 +1134,18 @@
   > **Remediation:** Add an explicit 'allowed-tools' declaration to the SKILL.md YAML frontmatter listing the tools actually needed (e.g., Python, Bash) to make the skill's capability scope transparent to users and the agent runtime.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scholar-evaluation/scripts/generate_schematic.py
-  > File: `scientific-skills/scholar-evaluation/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/scholar-evaluation/scripts/generate_schematic.py
+  > File: `skills/scholar-evaluation/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/scholar-evaluation/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scholar-evaluation/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/scholar-evaluation/scripts/generate_schematic_ai.py
+  > File: `skills/scholar-evaluation/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scholar-evaluation/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scholar-evaluation/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/scholar-evaluation/scripts/generate_schematic_ai.py
+  > File: `skills/scholar-evaluation/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — Environment Variable Access Combined with External Network Calls
@@ -1184,18 +1184,18 @@
   > **Remediation:** 1. Remove the directive to generate schematics 'by default' without user request. 2. Make schematic generation explicitly opt-in, requiring user confirmation. 3. Do not embed cross-skill activation triggers that cause automatic invocation of additional capabilities.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-critical-thinking/scripts/generate_schematic.py
-  > File: `scientific-skills/scientific-critical-thinking/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/scientific-critical-thinking/scripts/generate_schematic.py
+  > File: `skills/scientific-critical-thinking/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/scientific-critical-thinking/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-critical-thinking/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/scientific-critical-thinking/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-critical-thinking/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-critical-thinking/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-critical-thinking/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/scientific-critical-thinking/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-critical-thinking/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_COMMAND_INJECTION` — Subprocess Execution with User-Controlled Arguments
@@ -1234,18 +1234,18 @@
   > **Remediation:** Review data flow across files: scripts/generate_schematic_ai.py, scripts/generate_schematic.py
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-schematics/scripts/generate_schematic.py
-  > File: `scientific-skills/scientific-schematics/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/scientific-schematics/scripts/generate_schematic.py
+  > File: `skills/scientific-schematics/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/scientific-schematics/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-schematics/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/scientific-schematics/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-schematics/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-schematics/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-schematics/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/scientific-schematics/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-schematics/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_SUPPLY_CHAIN_ATTACK` — Unpinned External Dependency (requests library)
@@ -1304,38 +1304,38 @@
   > **Remediation:** Accurately describe that the primary slide generation mechanism uses an external AI image generation service (OpenRouter/Nano Banana Pro). Reduce keyword stuffing in the description to only accurately describe core capabilities.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-slides/scripts/generate_schematic.py
-  > File: `scientific-skills/scientific-slides/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/scientific-slides/scripts/generate_schematic.py
+  > File: `skills/scientific-slides/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/scientific-slides/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-slides/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/scientific-slides/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-slides/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-slides/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-slides/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/scientific-slides/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-slides/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-slides/scripts/generate_slide_image.py
-  > File: `scientific-skills/scientific-slides/scripts/generate_slide_image.py`
+  > Script iterates through environment variables in skills/scientific-slides/scripts/generate_slide_image.py
+  > File: `skills/scientific-slides/scripts/generate_slide_image.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/scientific-slides/scripts/generate_slide_image_ai.py
-  > File: `scientific-skills/scientific-slides/scripts/generate_slide_image_ai.py`
+  > Script accesses environment variables and makes network calls in skills/scientific-slides/scripts/generate_slide_image_ai.py
+  > File: `skills/scientific-slides/scripts/generate_slide_image_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-slides/scripts/generate_slide_image_ai.py
-  > File: `scientific-skills/scientific-slides/scripts/generate_slide_image_ai.py`
+  > Script iterates through environment variables in skills/scientific-slides/scripts/generate_slide_image_ai.py
+  > File: `skills/scientific-slides/scripts/generate_slide_image_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_EVAL_SUBPROCESS` — eval/exec combined with subprocess detected
-  > Dangerous combination of code execution and system commands in scientific-skills/scientific-slides/scripts/validate_presentation.py
-  > File: `scientific-skills/scientific-slides/scripts/validate_presentation.py`
+  > Dangerous combination of code execution and system commands in skills/scientific-slides/scripts/validate_presentation.py
+  > File: `skills/scientific-slides/scripts/validate_presentation.py`
   > **Remediation:** Remove eval/exec or use safer alternatives
 
 - **🟡 MEDIUM** `LLM_DATA_EXFILTRATION` — Sensitive Review Logs Written to Disk Containing Full Prompts and API Responses
@@ -1374,18 +1374,18 @@
   > **Remediation:** Make figure generation optional and require explicit user confirmation before making external API calls. Remove mandatory minimums that force excessive API usage. Clearly disclose that figure generation involves external API calls and associated costs.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-writing/scripts/generate_schematic.py
-  > File: `scientific-skills/scientific-writing/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/scientific-writing/scripts/generate_schematic.py
+  > File: `skills/scientific-writing/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/scientific-writing/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-writing/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/scientific-writing/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-writing/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/scientific-writing/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/scientific-writing/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/scientific-writing/scripts/generate_schematic_ai.py
+  > File: `skills/scientific-writing/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟠 HIGH** `LLM_DATA_EXFILTRATION` — API Key Exfiltration via Environment Variable Harvesting and External Network Calls
@@ -1449,18 +1449,18 @@
   > **Remediation:** 1. Disclose that 'Nano Banana Pro/2' refers to specific Google Gemini models accessed via OpenRouter. 2. Clarify that HIPAA compliance is partial and does not cover external AI service transmissions. 3. Update the manifest description to accurately reflect external service dependencies.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/treatment-plans/scripts/generate_schematic.py
-  > File: `scientific-skills/treatment-plans/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/treatment-plans/scripts/generate_schematic.py
+  > File: `skills/treatment-plans/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/treatment-plans/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/treatment-plans/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/treatment-plans/scripts/generate_schematic_ai.py
+  > File: `skills/treatment-plans/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/treatment-plans/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/treatment-plans/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/treatment-plans/scripts/generate_schematic_ai.py
+  > File: `skills/treatment-plans/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟠 HIGH** `LLM_DATA_EXFILTRATION` — External API Calls with Potential Data Exfiltration via OpenRouter
@@ -1534,18 +1534,18 @@
   > **Remediation:** Remove the directive to generate schematics 'by default' without explicit user request. Capability claims in the description should accurately reflect what is bundled vs. what requires external services. Cross-skill promotion should be advisory rather than directive.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/venue-templates/scripts/generate_schematic.py
-  > File: `scientific-skills/venue-templates/scripts/generate_schematic.py`
+  > Script iterates through environment variables in skills/venue-templates/scripts/generate_schematic.py
+  > File: `skills/venue-templates/scripts/generate_schematic.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔴 CRITICAL** `BEHAVIOR_ENV_VAR_EXFILTRATION` — Environment variable access with network calls detected
-  > Script accesses environment variables and makes network calls in scientific-skills/venue-templates/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/venue-templates/scripts/generate_schematic_ai.py`
+  > Script accesses environment variables and makes network calls in skills/venue-templates/scripts/generate_schematic_ai.py
+  > File: `skills/venue-templates/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable harvesting or network transmission
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/venue-templates/scripts/generate_schematic_ai.py
-  > File: `scientific-skills/venue-templates/scripts/generate_schematic_ai.py`
+  > Script iterates through environment variables in skills/venue-templates/scripts/generate_schematic_ai.py
+  > File: `skills/venue-templates/scripts/generate_schematic_ai.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `LLM_COMMAND_INJECTION` — Unvalidated User Input Passed to Subprocess Command Arguments
@@ -2225,13 +2225,13 @@
   > **Remediation:** Add a warning that fetched content should be treated as untrusted data and not as instructions. Consider instructing the agent to sanitize or clearly delimit fetched content before presenting it to avoid prompt injection from external sources.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/exa-search/scripts/exa_extract.py
-  > File: `scientific-skills/exa-search/scripts/exa_extract.py`
+  > Script iterates through environment variables in skills/exa-search/scripts/exa_extract.py
+  > File: `skills/exa-search/scripts/exa_extract.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/exa-search/scripts/exa_search.py
-  > File: `scientific-skills/exa-search/scripts/exa_search.py`
+  > Script iterates through environment variables in skills/exa-search/scripts/exa_search.py
+  > File: `skills/exa-search/scripts/exa_search.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_SUPPLY_CHAIN_ATTACK` — Unpinned Dependency Version Range
@@ -2687,8 +2687,8 @@
   > **Remediation:** Pin dependencies to specific known-good versions (e.g., 'pymatgen==2024.6.10', 'mp-api==0.41.2'). Consider providing a requirements.txt or pyproject.toml with pinned versions. This reduces supply chain risk.
 
 - **🟡 MEDIUM** `BEHAVIOR_ENV_VAR_HARVESTING` — Environment variable harvesting detected
-  > Script iterates through environment variables in scientific-skills/pymatgen/scripts/phase_diagram_generator.py
-  > File: `scientific-skills/pymatgen/scripts/phase_diagram_generator.py`
+  > Script iterates through environment variables in skills/pymatgen/scripts/phase_diagram_generator.py
+  > File: `skills/pymatgen/scripts/phase_diagram_generator.py`
   > **Remediation:** Remove environment variable collection unless explicitly required and documented
 
 - **🔵 LOW** `LLM_DATA_EXFILTRATION` — API Key Accessed from Environment Variable and Passed to External Service

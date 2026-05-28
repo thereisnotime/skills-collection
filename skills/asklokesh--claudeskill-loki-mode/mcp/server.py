@@ -970,6 +970,94 @@ async def loki_metrics_efficiency() -> str:
 
 
 @mcp.tool()
+async def loki_memory_capture_session_summary(
+    goal: str,
+    outcome: str = "success",
+    files_modified: Optional[List[str]] = None,
+    files_read: Optional[List[str]] = None,
+    tool_calls_summary: Optional[str] = None,
+    duration_seconds: int = 0,
+) -> str:
+    """v7.7.18 capture wedge: store an episode for the current agent session.
+
+    Call this voluntarily at iteration close (or session end) to write a
+    structured Episode into the project's .loki/memory/ store. Solves
+    the diagnosis root cause where memory only captured during `loki
+    start` sessions, missing all interactive Claude Code / Cursor /
+    Cline / Aider work.
+
+    Args:
+        goal: Short description of what the session tried to accomplish
+            (will be truncated to 500 chars, scrubbed for secrets).
+        outcome: One of "success" | "failure" | "partial". Default "success".
+        files_modified: List of file paths that were created or edited.
+        files_read: List of file paths that were read for context.
+        tool_calls_summary: Optional free-text summary of major actions
+            taken (truncated to 1000 chars, scrubbed).
+        duration_seconds: Approximate session duration. Default 0.
+
+    Returns:
+        JSON: {"episode_path": "<path>"} on success, or
+        {"error": "...", "disabled": true} if LOKI_MEMORY_CAPTURE_DISABLED
+        env var blocks capture, or {"error": "..."} on failure.
+    """
+    _emit_tool_event_async(
+        'loki_memory_capture_session_summary', 'start',
+        parameters={'goal_len': len(goal or ''), 'outcome': outcome,
+                    'files_modified_count': len(files_modified or []),
+                    'files_read_count': len(files_read or [])}
+    )
+    try:
+        from memory.ingest import ingest_from_summary, _capture_disabled
+
+        if _capture_disabled():
+            _emit_tool_event_async(
+                'loki_memory_capture_session_summary', 'complete',
+                result_status='skipped', error='disabled via env'
+            )
+            return json.dumps({
+                "error": "memory capture disabled via LOKI_MEMORY_CAPTURE_DISABLED",
+                "disabled": True,
+            })
+
+        base_path = safe_path_join('.loki', 'memory')
+        path = ingest_from_summary(
+            base_path,
+            goal=goal,
+            outcome=outcome,
+            files_modified=files_modified,
+            files_read=files_read,
+            tool_calls_summary=tool_calls_summary,
+            duration_seconds=duration_seconds,
+        )
+        if path is None:
+            _emit_tool_event_async(
+                'loki_memory_capture_session_summary', 'complete',
+                result_status='error', error='ingest_from_summary returned None'
+            )
+            return json.dumps({"error": "ingest failed (check .loki/memory/.errors.log)"})
+        _emit_tool_event_async(
+            'loki_memory_capture_session_summary', 'complete',
+            result_status='success', episode_path=path
+        )
+        return json.dumps({"episode_path": path})
+    except PathTraversalError as e:
+        logger.error(f"Path traversal attempt blocked: {e}")
+        _emit_tool_event_async(
+            'loki_memory_capture_session_summary', 'complete',
+            result_status='error', error='Access denied'
+        )
+        return json.dumps({"error": "Access denied"})
+    except Exception as e:
+        logger.error(f"loki_memory_capture_session_summary failed: {e}")
+        _emit_tool_event_async(
+            'loki_memory_capture_session_summary', 'complete',
+            result_status='error', error=str(e)
+        )
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
 async def loki_consolidate_memory(since_hours: int = 24) -> str:
     """
     Run memory consolidation to extract patterns from recent episodes.

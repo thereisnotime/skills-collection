@@ -377,6 +377,30 @@ try:
         }
         output['memories'].append(memory_item)
 
+    # v7.7.20: wake the previously-dead cross-project + knowledge-graph
+    # code. When local episodic retrieval is sparse (< 5 hits), augment
+    # with patterns mined from OTHER projects' .loki/memory/ stores. This
+    # is the cross-project learning the diagnosis flagged as dead code
+    # (zero call sites). Best-effort: any failure is swallowed and the
+    # local results stand alone. Opt out with LOKI_SKIP_CROSS_PROJECT=true.
+    output['cross_project'] = []
+    if os.environ.get('LOKI_SKIP_CROSS_PROJECT', '').lower() not in ('true', '1', 'yes'):
+        try:
+            from memory.knowledge_graph import OrganizationKnowledgeGraph
+            kg = OrganizationKnowledgeGraph()
+            query_text = context.get('goal', '') or 'general'
+            patterns = kg.query_patterns(query_text, max_results=3)
+            for p in patterns:
+                output['cross_project'].append({
+                    'source': 'knowledge-graph',
+                    'pattern': str(p.get('description', p.get('pattern', p)))[:200]
+                              if isinstance(p, dict) else str(p)[:200],
+                    'score': round(float(p.get('score', 0.0)), 3) if isinstance(p, dict) else 0.0,
+                })
+        except Exception:
+            pass  # cross-project augmentation is best-effort
+    output['cross_project_count'] = len(output['cross_project'])
+
     print(json.dumps(output, indent=2))
 except ImportError:
     print('{"error": "Memory module not available", "memory_count": 0, "memories": []}')
@@ -1373,8 +1397,20 @@ cmd_start() {
         # No PRD file specified -- warn and confirm before starting
         # Auto-confirm in CI environments or when LOKI_AUTO_CONFIRM is set
         # LOKI_AUTO_CONFIRM takes precedence when explicitly set;
-        # fall back to CI env var only when LOKI_AUTO_CONFIRM is unset
+        # fall back to CI env var only when LOKI_AUTO_CONFIRM is unset.
+        # v7.7.13 fix (user-reported Docker bug): also auto-confirm when stdin
+        # is not a TTY. Without this, `docker run --rm asklokesh/loki-mode
+        # start` showed the prompt then exited because the user didn't pass
+        # `-it` to docker, so stdin was closed and `read` returned EOF with
+        # an empty string; the script kept going but the user only saw the
+        # prompt before the next bug fired. Now non-TTY callers get a clean
+        # auto-confirm path identical to CI.
         local _auto_confirm="${LOKI_AUTO_CONFIRM:-${CI:-false}}"
+        if [[ "$_auto_confirm" != "true" ]] && [ ! -t 0 ]; then
+            _auto_confirm="true"
+            echo -e "${YELLOW}Warning: No PRD file specified, stdin not a TTY (e.g. docker run without -it). Auto-confirming.${NC}"
+            echo -e "${YELLOW}Tip: pass docker run -it ... or set LOKI_AUTO_CONFIRM=true to suppress this warning.${NC}"
+        fi
         if [[ "$_auto_confirm" == "true" ]]; then
             echo -e "${YELLOW}Warning: No PRD file specified. Auto-confirming (CI mode).${NC}"
         else
@@ -1448,7 +1484,8 @@ cmd_start() {
         # Load memory context before sandbox start (errors don't block startup)
         load_memory_context "$prd_file" || true
         emit_event session cli start "provider=$effective_provider" "sandbox=true" "prd_path=${prd_file:-}"
-        exec "$SANDBOX_SH" start "${args[@]}"
+        # v7.7.13 fix: safe empty-array expansion (see line 1551 comment).
+        exec "$SANDBOX_SH" start ${args[@]+"${args[@]}"}
     fi
 
     # Load memory context before starting (errors don't block startup)
@@ -1548,7 +1585,11 @@ cmd_start() {
         loki_project_graph_discover "$_pg_target" || true
     fi
 
-    exec "$RUN_SH" "${args[@]}"
+    # v7.7.13 fix (user-reported bug): `"${args[@]}"` triggers "unbound
+    # variable" under bash 3.2 (macOS default) + `set -u` when args is empty.
+    # User report: `loki start` with no PRD on /Users/lokesh/git/anonima
+    # crashed at this line. Safe expansion guards against empty arrays.
+    exec "$RUN_SH" ${args[@]+"${args[@]}"}
 }
 
 # Check if session is running
@@ -7238,6 +7279,43 @@ sentrux = {
     'required': 'optional'
 }
 
+# v7.7.17: memory subsystem health surface. Reports the latest entries
+# from .loki/memory/.errors.log (rotated by memory/error_log.py) so
+# developers see regressions in the previously-silent-fail call sites
+# at run.sh:8724, 9087, 9136. Sibling of checks/disk/sentrux; not
+# counted in the summary tally to keep backwards-compatible numbers.
+# Inline file read (rather than importing memory.error_log) so this
+# block works regardless of the doctor's invocation cwd / sys.path.
+# v7.7.17 council fix (Opus 2): tail-only read (last 64 KB) so a
+# pathological oversize log cannot OOM the doctor command. Bash + Bun
+# emit the SAME relative path string for parity.
+memory_base = os.path.join(os.environ.get('LOKI_DIR', '.loki'), 'memory')
+_memory_log_path = os.path.join(memory_base, '.errors.log')
+_TAIL_BYTES = 64 * 1024
+memory_recent_errors = []
+if os.path.isfile(_memory_log_path):
+    try:
+        with open(_memory_log_path, 'rb') as _f:
+            _f.seek(0, 2)
+            _size = _f.tell()
+            _offset = max(0, _size - _TAIL_BYTES)
+            _f.seek(_offset)
+            _chunk = _f.read()
+        _text = _chunk.decode('utf-8', errors='replace')
+        _lines = _text.split('\n')
+        if _offset > 0 and _lines:
+            _lines = _lines[1:]  # drop possibly-partial first line
+        _lines = [ln.strip() for ln in _lines if ln.strip()]
+        memory_recent_errors = _lines[-5:]
+    except OSError:
+        memory_recent_errors = []
+memory = {
+    'errors_log_path': _memory_log_path if os.path.isfile(_memory_log_path) else None,
+    'recent_errors': memory_recent_errors,
+    'recent_error_count': len(memory_recent_errors),
+    'status': 'pass' if not memory_recent_errors else 'warn',
+}
+
 pass_count = sum(1 for c in checks if c['status'] == 'pass')
 fail_count = sum(1 for c in checks if c['status'] == 'fail')
 warn_count = sum(1 for c in checks if c['status'] == 'warn')
@@ -7254,6 +7332,7 @@ result = {
         'status': disk_status
     },
     'sentrux': sentrux,
+    'memory': memory,
     'summary': {
         'passed': pass_count,
         'failed': fail_count,
@@ -11294,7 +11373,8 @@ cmd_trigger() {
             [[ -n "$secret" ]] && args+=("--secret" "$secret")
             [[ -n "$dry_run_flag" ]] && args+=("--dry-run")
             mkdir -p .loki/triggers
-            nohup python3 "$trigger_server_script" "${args[@]}" \
+            # v7.7.13 fix: safe empty-array expansion (bash 3.2 + set -u).
+            nohup python3 "$trigger_server_script" ${args[@]+"${args[@]}"} \
                 > .loki/triggers/server.log 2>&1 &
             local server_pid=$!
             echo "$server_pid" > "$pid_file"
@@ -14972,10 +15052,331 @@ except Exception as e:
             echo "  loki memory vectors"
             echo "  loki memory vectors rebuild"
             echo ""
+            echo "  loki memory ingest --from-claude-transcript <path>  # v7.7.18"
+            echo "  loki memory ingest --from-stdin                     # v7.7.18"
+            echo "  loki memory replay <episode-id> [--json]            # v7.7.22"
+            echo "  loki memory crossproject --for 'build api'          # v7.7.20"
+            echo "  loki memory graph --export graph.json               # v7.7.20"
+            echo "  loki memory graph rebuild                           # v7.7.20"
+            echo "  loki memory enable-hook                             # v7.7.20"
+            echo "  loki memory disable-hook                            # v7.7.20"
+            echo ""
             echo "  loki memory namespace detect"
             echo "  loki memory namespace list"
             echo "  loki memory namespace create my-project"
             echo "  loki memory namespace stats"
+            ;;
+
+        ingest)
+            # v7.7.18 capture wedge: ingest a Claude Code session transcript
+            # into the project's .loki/memory/ store. Solves the diagnosis
+            # root cause where memory only captured during `loki start`.
+            #
+            # Usage:
+            #   loki memory ingest --from-claude-transcript <path>
+            #   loki memory ingest --from-stdin   (reads a JSON summary doc)
+            shift  # drop "ingest"
+            local _ingest_mode=""
+            local _ingest_path=""
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --from-claude-transcript)
+                        _ingest_mode="transcript"
+                        _ingest_path="${2:-}"
+                        if [ $# -ge 2 ]; then shift 2; else shift; fi
+                        ;;
+                    --from-stdin)
+                        _ingest_mode="stdin"
+                        shift
+                        ;;
+                    -h|--help)
+                        echo "Usage: loki memory ingest --from-claude-transcript <path>"
+                        echo "       loki memory ingest --from-stdin   (JSON doc on stdin)"
+                        echo ""
+                        echo "Honors LOKI_MEMORY_CAPTURE_DISABLED=true (escape hatch)."
+                        return 0
+                        ;;
+                    *) shift ;;
+                esac
+            done
+            if [ -z "$_ingest_mode" ]; then
+                echo -e "${RED}Usage: loki memory ingest --from-claude-transcript <path> | --from-stdin${NC}"
+                exit 1
+            fi
+            local _project_root_for_ingest="${SKILL_DIR:-$(pwd)}"
+            local _target_memory_dir
+            _target_memory_dir="$(pwd)/.loki/memory"
+            mkdir -p "$_target_memory_dir" 2>/dev/null || true
+            if [ "$_ingest_mode" = "transcript" ]; then
+                if [ -z "$_ingest_path" ] || [ ! -f "$_ingest_path" ]; then
+                    echo -e "${RED}Transcript not found: $_ingest_path${NC}"
+                    exit 1
+                fi
+                PYTHONPATH="$_project_root_for_ingest" \
+                    python3 -c "
+import sys, json
+from memory.ingest import ingest_from_claude_transcript
+path = ingest_from_claude_transcript(sys.argv[1], sys.argv[2])
+print(json.dumps({'episode_path': path}))
+" "$_ingest_path" "$_target_memory_dir"
+            else
+                PYTHONPATH="$_project_root_for_ingest" \
+                    python3 -c "
+import sys, json
+from memory.ingest import ingest_from_summary
+doc = json.loads(sys.stdin.read())
+path = ingest_from_summary(
+    sys.argv[1],
+    goal=doc.get('goal',''),
+    outcome=doc.get('outcome','success'),
+    files_modified=doc.get('files_modified',[]),
+    files_read=doc.get('files_read',[]),
+    tool_calls_summary=doc.get('tool_calls_summary',''),
+    duration_seconds=int(doc.get('duration_seconds',0) or 0),
+)
+print(json.dumps({'episode_path': path}))
+" "$_target_memory_dir"
+            fi
+            ;;
+
+        replay)
+            # v7.7.22 wow feature: READ-ONLY deterministic session replay.
+            # Renders a past episode's action timeline + current state of
+            # touched files. Does NOT re-execute (LLM tool_uses are
+            # non-deterministic + re-running edits could clobber work;
+            # --apply deferred to a future release).
+            # Usage: loki memory replay <episode-id> [--json]
+            shift  # drop "replay"
+            local _replay_id=""
+            local _replay_json="false"
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --json) _replay_json="true"; shift ;;
+                    -h|--help) echo "Usage: loki memory replay <episode-id> [--json]"; return 0 ;;
+                    *) [ -z "$_replay_id" ] && _replay_id="$1"; shift ;;
+                esac
+            done
+            if [ -z "$_replay_id" ]; then
+                echo -e "${RED}Usage: loki memory replay <episode-id> [--json]${NC}"
+                exit 1
+            fi
+            local _replay_mem
+            _replay_mem="$(pwd)/.loki/memory"
+            PYTHONPATH="${SKILL_DIR:-$(pwd)}" _LOKI_REPLAY_JSON="$_replay_json" python3 -c "
+import sys, os, json
+from memory.replay import replay_episode, render_markdown
+report = replay_episode(sys.argv[1], sys.argv[2])
+if os.environ.get('_LOKI_REPLAY_JSON') == 'true':
+    print(json.dumps(report, indent=2, default=str))
+else:
+    print(render_markdown(report))
+sys.exit(0 if report.get('found') else 1)
+" "$_replay_id" "$_replay_mem"
+            ;;
+
+        crossproject)
+            # v7.7.20: surface cross-project knowledge-graph patterns
+            # (wakes the previously-dead memory/knowledge_graph.py).
+            # Usage: loki memory crossproject [--for <goal text>]
+            shift  # drop "crossproject"
+            local _cp_query="general"
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --for) _cp_query="${2:-general}"; if [ $# -ge 2 ]; then shift 2; else shift; fi ;;
+                    -h|--help) echo "Usage: loki memory crossproject [--for <goal>]"; return 0 ;;
+                    *) shift ;;
+                esac
+            done
+            PYTHONPATH="${SKILL_DIR:-$(pwd)}" python3 -c "
+import sys, json
+try:
+    from memory.knowledge_graph import OrganizationKnowledgeGraph
+    kg = OrganizationKnowledgeGraph()
+    patterns = kg.query_patterns(sys.argv[1], max_results=10)
+    if not patterns:
+        print('No cross-project patterns found. Run sessions in multiple projects to build the graph.')
+    else:
+        for i, p in enumerate(patterns, 1):
+            desc = p.get('description', p.get('pattern', p)) if isinstance(p, dict) else p
+            print(f'{i}. {str(desc)[:160]}')
+except ImportError:
+    print('knowledge_graph module not available')
+except Exception as e:
+    print(f'Error: {e}')
+" "$_cp_query"
+            ;;
+
+        graph)
+            # v7.7.20: export OR rebuild the cross-project knowledge graph.
+            # Usage: loki memory graph [--export <path>]
+            #        loki memory graph rebuild   # populate from semantic patterns
+            shift  # drop "graph"
+            # v7.7.20 council fix (Opus 1): the read side (query_patterns)
+            # was woken but the WRITE side had no caller, so the graph
+            # stayed empty forever. `graph rebuild` mines .loki/memory/
+            # semantic/*.json across discovered projects and persists them
+            # to the org knowledge graph -- the population path that makes
+            # crossproject + load_memory_context augmentation non-inert.
+            if [ "${1:-}" = "rebuild" ]; then
+                shift
+                PYTHONPATH="${SKILL_DIR:-$(pwd)}" python3 -c "
+import sys, os
+try:
+    from memory.knowledge_graph import OrganizationKnowledgeGraph
+    from memory.cross_project import CrossProjectIndex
+    cpi = CrossProjectIndex()
+    cpi.discover_projects()
+    project_dirs = cpi.get_project_dirs()
+    kg = OrganizationKnowledgeGraph()
+    # v7.7.20 council fix (Opus 1): save_patterns appends, so a naive
+    # rebuild would accumulate duplicates across runs. Dedup the UNION of
+    # existing + freshly-extracted, then truncate-rewrite so rebuild is
+    # idempotent.
+    existing = kg.load_patterns(limit=100000)
+    fresh = kg.extract_patterns(project_dirs)
+    merged = kg.deduplicate_patterns(list(existing) + list(fresh))
+    # Truncate then write the deduped union (save_patterns appends).
+    try:
+        if os.path.exists(kg.patterns_file):
+            open(kg.patterns_file, 'w').close()
+    except OSError:
+        pass
+    if merged:
+        kg.save_patterns(merged)
+        print(f'Rebuilt knowledge graph: {len(merged)} unique patterns from {len(project_dirs)} project(s)')
+    else:
+        print(f'No semantic patterns found across {len(project_dirs)} project(s). Run sessions + consolidation first.')
+except ImportError as e:
+    print(f'knowledge_graph/cross_project module not available: {e}')
+except Exception as e:
+    print(f'Error: {e}')
+"
+                return 0
+            fi
+            local _graph_export=""
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --export) _graph_export="${2:-}"; if [ $# -ge 2 ]; then shift 2; else shift; fi ;;
+                    -h|--help) echo "Usage: loki memory graph [--export <path>] | loki memory graph rebuild"; return 0 ;;
+                    *) shift ;;
+                esac
+            done
+            PYTHONPATH="${SKILL_DIR:-$(pwd)}" _LOKI_GRAPH_EXPORT="$_graph_export" python3 -c "
+import sys, os, json
+export_path = os.environ.get('_LOKI_GRAPH_EXPORT', '')
+try:
+    from memory.knowledge_graph import OrganizationKnowledgeGraph
+    kg = OrganizationKnowledgeGraph()
+    patterns = kg.load_patterns(limit=100)
+    summary = {'pattern_count': len(patterns), 'patterns': patterns[:100]}
+    if export_path:
+        with open(export_path, 'w') as f:
+            json.dump(summary, f, indent=2, default=str)
+        print(f'Exported {len(patterns)} patterns to {export_path}')
+    else:
+        print(json.dumps(summary, indent=2, default=str)[:4000])
+except ImportError:
+    print('knowledge_graph module not available')
+except Exception as e:
+    print(f'Error: {e}')
+"
+            ;;
+
+        enable-hook)
+            # v7.7.20: idempotently install a Claude Code SessionEnd hook
+            # using the VERIFIED schema {matcher, hooks:[{type,command}]}.
+            # Per WebSearch (v7.7.18 council): SessionEnd fires on /clear,
+            # payload is JSON on stdin with transcript_path. The shipped
+            # script claude/hooks/loki-session-end.sh handles both stdin
+            # JSON and env-var fallback, so we point the hook at it.
+            # No-op under LOKI_MEMORY_HOOK_DISABLED=true.
+            shift
+            if [ "${LOKI_MEMORY_HOOK_DISABLED:-}" = "true" ]; then
+                echo -e "${YELLOW}Hook install skipped (LOKI_MEMORY_HOOK_DISABLED=true)${NC}"
+                return 0
+            fi
+            local _settings="$HOME/.claude/settings.json"
+            local _hook_script="${SKILL_DIR:-$(pwd)}/claude/hooks/loki-session-end.sh"
+            mkdir -p "$(dirname "$_settings")" 2>/dev/null || true
+            [ ! -f "$_settings" ] && echo '{}' > "$_settings"
+            _LOKI_HOOK_SCRIPT="$_hook_script" _LOKI_SETTINGS="$_settings" python3 -c "
+import json, os, sys, tempfile
+settings_path = os.environ['_LOKI_SETTINGS']
+hook_script = os.environ['_LOKI_HOOK_SCRIPT']
+hook_cmd = f'bash {hook_script}'
+try:
+    with open(settings_path) as f:
+        data = json.load(f)
+except Exception:
+    data = {}
+hooks = data.setdefault('hooks', {})
+session_end = hooks.setdefault('SessionEnd', [])
+# Verified Claude Code schema: list of {matcher, hooks:[{type,command}]}.
+# Idempotency: detect an existing entry whose nested command references
+# our hook script.
+for entry in session_end:
+    if isinstance(entry, dict):
+        for h in entry.get('hooks', []):
+            if isinstance(h, dict) and 'loki-session-end.sh' in str(h.get('command', '')):
+                print('already-installed')
+                sys.exit(0)
+session_end.append({
+    'matcher': 'clear',
+    'hooks': [{'type': 'command', 'command': hook_cmd}],
+})
+tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(settings_path), prefix='.loki-settings-')
+with os.fdopen(tmp_fd, 'w') as f:
+    json.dump(data, f, indent=2)
+os.replace(tmp_path, settings_path)
+print('installed')
+"
+            local _r=$?
+            if [ $_r -eq 0 ]; then
+                echo -e "${GREEN}SessionEnd hook ready.${NC} Fires on /clear; pipes transcript to loki memory ingest."
+                echo -e "${CYAN}Note: SessionEnd only fires on /clear, not normal exits (Claude Code limitation).${NC}"
+                echo -e "${CYAN}Remove with: loki memory disable-hook${NC}"
+            fi
+            ;;
+
+        disable-hook)
+            # v7.7.20: reverse counterpart. Removes any SessionEnd entry
+            # whose nested command references loki-session-end.sh.
+            shift
+            local _settings="$HOME/.claude/settings.json"
+            if [ ! -f "$_settings" ]; then
+                echo -e "${YELLOW}No ~/.claude/settings.json to clean${NC}"
+                return 0
+            fi
+            _LOKI_SETTINGS="$_settings" python3 -c "
+import json, os, sys, tempfile
+settings_path = os.environ['_LOKI_SETTINGS']
+try:
+    with open(settings_path) as f:
+        data = json.load(f)
+except Exception:
+    print('settings-not-readable')
+    sys.exit(0)
+hooks = data.get('hooks', {})
+session_end = hooks.get('SessionEnd', [])
+def refs_loki(entry):
+    if not isinstance(entry, dict):
+        return False
+    for h in entry.get('hooks', []):
+        if isinstance(h, dict) and 'loki-session-end.sh' in str(h.get('command', '')):
+            return True
+    return False
+filtered = [e for e in session_end if not refs_loki(e)]
+if len(filtered) == len(session_end):
+    print('not-installed')
+    sys.exit(0)
+hooks['SessionEnd'] = filtered
+data['hooks'] = hooks
+tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(settings_path), prefix='.loki-settings-')
+with os.fdopen(tmp_fd, 'w') as f:
+    json.dump(data, f, indent=2)
+os.replace(tmp_path, settings_path)
+print('removed')
+"
             ;;
 
         *)

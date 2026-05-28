@@ -39,7 +39,8 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 
 - **Zero Configuration** - Works out of the box with sensible defaults
 - **Spec to Production** - Provide a spec (PRD markdown, GitHub issue, YAML brief), Loki handles the rest
-- **Multi-Provider Support** - Use Claude, Cline, Codex, or Aider
+- **Multi-Provider Support** - Use Claude, Cline, Codex, or Aider (Gemini deprecated v7.5.18)
+- **LSP Grounding** - First-class agent tools for symbol verification via `mcp/lsp_proxy.py` (v7.7.0+; pyright, typescript-language-server, gopls, rust-analyzer, jdtls; lsp_get_diagnostics regression fully fixed v7.7.14)
 - **Cross-Project Learning** - AI improves from every session
 - **Dark Dashboard** - Vercel/Linear-inspired dark theme with sidebar navigation (replaces the deprecated VS Code extension as of v7.2.0)
 
@@ -50,7 +51,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 - **Docker Sandbox** - Isolated secure execution environment
 - **Project Registry** - Multi-project orchestration
 - **Staged Autonomy** - Approval gates for sensitive operations
-- **10-Gate Quality System** - Static analysis, 3-reviewer parallel review, anti-sycophancy, severity blocking, coverage gates, mutation detection, and Gate 10 backward-compatibility (healing mode)
+- **11-Gate Quality System** - Static analysis, 3-reviewer parallel review, anti-sycophancy, severity blocking, coverage gates, mutation detection, Gate 10 backward-compatibility (healing mode, v6.67.0), Gate 11 documentation coverage (v7.5.0)
 - **Completion Council** - 3-member voting system with anti-sycophancy checks
 - **Security Hardening** - Path traversal, XSS, injection, and memory leak protections
 - **TLS/HTTPS Dashboard** - Encrypted API and dashboard connections
@@ -58,7 +59,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 - **RBAC Roles** - Admin, operator, viewer, auditor role model
 - **Prometheus Metrics** - OpenMetrics /metrics endpoint for monitoring
 - **Branch Protection** - Agent sessions auto-create feature branches with PRs
-- **Log Integrity** - SHA-256 chain-hashed tamper-evident audit entries
+- **Log Integrity** - SHA-256 chain-hashed tamper-evident audit entries (cross-file chain verification fixed v7.7.15: new `verify_all_logs()` walks rotated daily logs in mtime order; previously verify_log_integrity false-negatived on any file beyond the first-ever)
 - **Context Window Tracking** - Real-time gauge, timeline, and per-agent breakdown of context usage
 - **Notification Triggers** - Configurable alerts for context thresholds, task failures, budget limits
 
@@ -98,7 +99,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 
 ## Version History
 
-Current Version: **7.7.11** ([CHANGELOG](https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md))
+Current Version: **7.7.22** ([CHANGELOG](https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md))
 
 See [[Changelog]] for detailed release notes.
 

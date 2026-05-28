@@ -9,6 +9,682 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.7.22] - 2026-05-28
+
+PATCH release. **`loki memory replay` -- the wow feature.** Wow feature
+1 from the memory excellence bar: no competitor (Cursor, Claude Code,
+Cline, Aider, Codex, Devin, Windsurf) offers session replay. Sixth
+release in the v7.7.17-v7.7.24 memory arc.
+
+### Added
+
+- **`memory/replay.py` (NEW ~210 LOC)**: `replay_episode(episode_id,
+  memory_base)` loads a past episode and renders a READ-ONLY report:
+  the recorded action_log as a timeline + the CURRENT state of every
+  touched file (missing / unchanged-since / changed-since /
+  exists-not-in-git, via `git log --since=<episode_ts>`). Plus
+  `render_markdown()` for human output.
+- **`loki memory replay <episode-id> [--json]`** CLI: renders the
+  replay as Markdown (default) or JSON (`--json`). Exits 1 when the
+  episode is not found (script-friendly).
+- `loki memory help` lists the new subcommand.
+- `tests/test-memory-replay.sh` (4/4 PASS): timeline + file-state +
+  markdown render; missing-episode graceful found=false; CLI
+  capture-then-replay round-trip; **read-only invariant** (hashes a
+  touched file before/after replay, asserts unchanged).
+
+### Design decision (deliberate scope)
+
+- Replay is **READ-ONLY**. It does NOT re-execute the recorded
+  tool_use sequence. LLM tool_uses are non-deterministic and re-running
+  Edit/Write against the current repo could clobber uncommitted work.
+  The `--apply` re-execution mode is deferred to a future release with
+  proper sandboxing + confirmation. Documented in the report's `mode`
+  field and the CLI.
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet (verdicts: see commit). Read-only
+  invariant test, git-argv-list (no shell injection; file path after
+  `--` pathspec separator), 10s git timeout, graceful missing-episode +
+  malformed-episode handling (top-level try/except).
+- Local-CI: 23/23 PASS.
+
+### NOT tested
+
+- Replay of an episode with a very large action_log (rendering is
+  unbounded; episodes are capped at 100 action_log entries by the
+  v7.7.18 ingester so this is bounded in practice).
+- `git log --since` behavior with a clock-skewed episode timestamp
+  (best-effort; returns "exists-no-timestamp" on parse failure).
+
+## [7.7.21] - 2026-05-28
+
+PATCH release. Token economics UI (excellence bar 5). Fifth release in
+the v7.7.17-v7.7.24 memory arc. Surfaces per-retrieval cost + cache hit
+rate + top-accessed patterns in the dashboard + a normalized API.
+
+### Fixed
+
+- `/api/memory/economics` endpoint shape defect: the pre-v7.7.21
+  fallback returned camelCase keys (`discoveryTokens`) that did NOT
+  match the snake_case file (`metrics.discovery_tokens`). Now reads the
+  file correctly, computes cache `hit_rate = cache_hits/(cache_hits+
+  cache_misses)`, surfaces top-10 most-accessed episodes/semantic
+  patterns (ranked by access_count then importance), returns normalized
+  snake_case + backward-compat camelCase aliases + `raw` passthrough.
+
+### Added
+
+- Dashboard "Token Economics" tile in the Memory panel: hit rate %,
+  total tokens, savings %, top-5 retrieved patterns. Auto-refreshes
+  every 30s.
+- `tests/test-memory-economics-endpoint.sh` (9/9 PASS).
+
+### Security / robustness (council fixes)
+
+- **Auth (Opus 2)**: `/api/memory/economics` now carries
+  `Depends(auth.require_scope("read"))` matching sibling memory
+  endpoints (was unauthenticated -- a regression-adjacent gap).
+- **Symlink traversal (Opus 2)**: top-patterns scan replaced recursive
+  glob with `os.walk(followlinks=False)` + realpath containment check
+  (every candidate must resolve under `.loki/memory/`). Prevents a
+  symlink under `episodic/` from exfiltrating outside JSON or
+  amplifying a DoS via a symlink to a huge tree. Mirrors the sibling
+  `get_skill` endpoint's containment. Test 9 plants a symlink to an
+  outside high-access "LEAKED" episode and asserts it does NOT surface.
+- **Scan bound (Opus 1)**: hard `MAX_SCAN=300` files-scanned cap per
+  subdir applied DURING the walk (not just on surfaced results), so a
+  large store + the 30s auto-refresh cannot make the request
+  unboundedly slow.
+- **XSS (Opus 1)**: dashboard tile builds the top-patterns list via DOM
+  `textContent` (createElement + removeChild) instead of `innerHTML`
+  single-char escape. Agent/PRD-derived summaries can no longer inject
+  markup.
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet unanimous APPROVE after 1 fix cycle.
+  Sonnet APPROVE first-pass. Opus 1 CONCERN (XSS + perf) -> fixed.
+  Opus 2 CONCERN (auth + symlink) -> fixed. Re-review APPROVE.
+- Local-CI: 23/23 PASS.
+
+### NOT tested
+
+- Live dashboard tile render in a browser (grep-verified in built
+  index.html; Playwright not executed).
+- setInterval teardown on SPA re-render (pre-existing pattern shared
+  with loadUsage; minor leak, non-blocking).
+- Real token_economics.json from a multi-iteration session (logic
+  tested against seeded fixtures).
+
+## [7.7.20] - 2026-05-28
+
+PATCH release. Wakes previously-dead memory code + ships the SessionEnd
+hook installer with the VERIFIED Claude Code schema (deferred from
+v7.7.18). Fourth release in the v7.7.17 through v7.7.24 memory arc.
+
+### Added
+
+- **Cross-project knowledge graph woken** (diagnosis flagged
+  `memory/knowledge_graph.py` + `cross_project.py` as ZERO-call-site
+  dead code):
+  - `autonomy/loki::load_memory_context` now augments local episodic
+    retrieval with `OrganizationKnowledgeGraph.query_patterns(goal)`
+    results under `output['cross_project']`. Best-effort, isolated in
+    its own try/except so a failure never breaks the main retrieval.
+    Opt out with `LOKI_SKIP_CROSS_PROJECT=true`.
+  - `loki memory crossproject [--for <goal>]`: lists cross-project
+    patterns matching a goal.
+  - `loki memory graph [--export <path>]`: dumps/exports the org
+    knowledge graph (read-only).
+  - `loki memory graph rebuild`: the WRITE-side population path
+    (council fix Opus 1). Mines `.loki/memory/semantic/*.json` across
+    all discovered projects, dedups the union with existing patterns,
+    truncate-rewrites the org graph. Idempotent (repeated runs do not
+    accumulate duplicates -- council fix Opus 1). Without this the read
+    side was an inert wake reading an always-empty graph.
+- **`loki memory enable-hook` / `disable-hook`** (deferred from
+  v7.7.18): installs a Claude Code SessionEnd hook using the VERIFIED
+  schema `{matcher: "clear", hooks: [{type: "command", command}]}`
+  (WebSearch-confirmed). Points at the shipped
+  `claude/hooks/loki-session-end.sh`. Idempotent (detects existing
+  entry by command containing `loki-session-end.sh`); atomic tmp+rename;
+  preserves all other settings.json keys. No-op under
+  `LOKI_MEMORY_HOOK_DISABLED=true`. disable-hook removes by the same
+  detection, idempotent on absent.
+- `loki memory help` updated with the new subcommands.
+- `tests/test-memory-wake-dead-code.sh` (9/9 PASS): crossproject CLI,
+  graph dump, graph --export, graph rebuild write-path, rebuild
+  idempotency, enable-hook verified-schema install + idempotent +
+  settings preservation, disable-hook reverse, LOKI_MEMORY_HOOK_DISABLED
+  honored, load_memory_context augmentation wiring.
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet unanimous APPROVE after 1 fix cycle.
+  Opus 2 APPROVE (verified query_patterns/load_patterns signatures
+  match -- the wake is real, not a swallowed no-op). Sonnet CONCERN on
+  shellcheck SC2016 + stale help text -> both fixed. Opus 1 CONCERN on
+  inert wake (write side had no caller) -> `graph rebuild` population
+  path added + idempotency dedup fix -> re-review APPROVE.
+- Local-CI: 23/23 PASS.
+
+### Known boundaries (non-blocking, follow-up candidates)
+
+- `graph rebuild` is manual / not auto-triggered post-consolidation.
+  The full automatic chain (episode -> consolidate -> semantic pattern
+  -> auto-rebuild -> graph) needs a hook or scheduler; deferred.
+- enable-hook bakes an absolute path to loki-session-end.sh into
+  settings.json. On npm/bun reinstall to a new versioned path the
+  stored path goes stale and the hook silently fails; re-running
+  enable-hook detects the OLD entry as already-installed and does NOT
+  self-heal. Documented; follow-up to re-point stale entries.
+- SessionEnd fires only on /clear (Claude Code limitation), not normal
+  exits.
+
+### NOT tested
+
+- Real Claude Code SessionEnd firing the installed hook end-to-end.
+- Cross-project augmentation surfacing real patterns in a live
+  multi-project session (requires accumulated episodes + consolidation
+  + rebuild; the wiring + population path are verified, the emergent
+  behavior is not).
+
+## [7.7.19] - 2026-05-28
+
+PATCH release. Hotfix for a v7.7.18 capture wedge regression discovered
+on real-user smoke from the npm package: the default Bun route did not
+propagate stdin to the bash fall-through, so
+`echo '{}' | loki memory ingest --from-stdin` silently failed unless
+`LOKI_LEGACY_BASH=1` was set. Without this fix the capture wedge
+primary CLI path was broken for 99% of users.
+
+NOTE: this release is the hotfix-only ship. The "wake dead code" arc
+originally planned for v7.7.19 (per ~/git/loki-plan/MEMORY-IMPROVEMENT-
+PLAN-v7.7.17.md) slides to v7.7.20.
+
+### Fixed
+
+- `loki-ts/src/commands/memory.ts::runMemory` default-case fall-through:
+  was using `run()` from `loki-ts/src/util/shell.ts` which spawns the
+  bash subprocess without inheriting stdin. The shipped npm package
+  always takes the Bun route by default, so piped JSON to
+  `loki memory ingest --from-stdin` was lost. Now uses `Bun.spawn`
+  directly with `stdin: "inherit"`, `stdout: "inherit"`, `stderr:
+  "inherit"` so the bash subprocess sees the full pipe.
+- Timeout cap (1h) preserved via direct `setTimeout` + `proc.kill("SIGKILL")`.
+
+### Verified
+
+- `tests/test-memory-capture-wedge.sh` 9/9 PASS including new Test 9
+  (Bun route stdin propagation regression). The test pipes JSON via
+  `BUN_FROM_SOURCE=1` so it exercises the actual default-route code
+  path that was broken in v7.7.18.
+- Real-user smoke: `bun install -g loki-mode@7.7.18` confirmed the
+  bug pre-fix (json.loads on empty input); fix verified locally; will
+  re-smoke post-v7.7.19 publish.
+
+### NOT tested
+
+- All OTHER bash fall-through commands in loki-ts/src/commands/memory.ts
+  default case use the same fixed path. Other commands (provider,
+  stats, etc.) that may have similar stdin issues NOT audited in this
+  release; will sweep in a follow-up if needed.
+
+## [7.7.18] - 2026-05-28
+
+PATCH release. **Memory capture wedge -- the foundation unlock** for the
+v7.7.17 through v7.7.23 memory improvement arc. Diagnosis at
+~/git/loki-plan/MEMORY-DIAGNOSIS-2026-05-27.md root cause: `auto_capture_
+episode` only fires inside `run_autonomous()` reached via `loki start
+<prd>`. The 167 release sessions in 2026 happened in regular Claude
+Code, never producing episodes. This release adds two voluntary
+capture paths so EVERY developer session can populate `.loki/memory/`.
+
+### Added
+
+- **`memory/ingest.py` (NEW, ~440 LOC)**: two ingest entry points:
+  - `ingest_from_claude_transcript(transcript_path, memory_base)` -> reads
+    a Claude Code session transcript JSONL, extracts tool_use traces,
+    produces an EpisodeTrace with populated action_log + files_read +
+    files_modified. 50 MB file size cap + 50,000 entry cap so a
+    runaway transcript cannot OOM the ingester (council fix Opus 2).
+  - `ingest_from_summary(memory_base, goal, outcome, ...)` -> builds
+    an episode from explicit fields (used by the MCP capture tool).
+  - Secret scrubber + path-aware scrubber on every persisted string
+    (mirrors v7.7.10 + v7.7.17; redacts `.aws/`, `.ssh/`, `.env*`,
+    `id_rsa`, `credentials.json`, etc. with `[REDACTED:sensitive-*]`
+    markers preserving directory context).
+  - Honors `LOKI_MEMORY_CAPTURE_DISABLED=true` escape hatch.
+- **MCP tool `loki_memory_capture_session_summary`** in `mcp/server.py`:
+  agents call voluntarily at iteration close with goal + outcome +
+  files_modified + files_read + tool_calls_summary. Returns
+  `{"episode_path": "<path>"}` JSON.
+- **CLI `loki memory ingest`** in `autonomy/loki`:
+  - `loki memory ingest --from-claude-transcript <path>` reads a JSONL
+    transcript and produces an Episode.
+  - `loki memory ingest --from-stdin` accepts a JSON summary doc on
+    stdin for shell-pipe integration.
+- **Sample hook script `claude/hooks/loki-session-end.sh`** (MANUAL
+  install): supports BOTH stdin JSON payload (`transcript_path` key,
+  Claude Code's documented format) AND `$CLAUDE_TRANSCRIPT_PATH` env
+  var fallback. Install instructions document the correct Claude Code
+  schema `{matcher, hooks:[{type:"command", command}]}` for users who
+  want zero-touch capture.
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet unanimous APPROVE after 1 fix cycle.
+  Opus 1 CONCERN on hook command quoting + Sonnet APPROVE first pass
+  + Opus 2 CONCERN on hook schema unverified + path-aware scrubber gap
+  + transcript size cap missing -> all fixed -> Opus 1/2 re-review
+  APPROVE.
+- WebSearch empirically validated Opus 2's claim: Claude Code
+  SessionEnd schema is `{matcher, hooks:[{type:"command",command:...}]}`,
+  fires only on `/clear` (not normal exits), payload is JSON on stdin
+  (not env var). The originally-planned `loki memory enable-hook`
+  installer was REMOVED from v7.7.18 to avoid silently shipping a
+  broken hook config. Deferred to v7.7.19 with proper schema.
+- Test `tests/test-memory-capture-wedge.sh` 8/8 PASS:
+  - ingest_from_summary writes episode with populated fields
+  - ingest_from_claude_transcript extracts goal + files + action_log
+  - LOKI_MEMORY_CAPTURE_DISABLED escape hatch blocks ingest
+  - secret scrubber redacts sk- tokens + credential keywords
+  - `loki memory ingest --from-stdin` CLI round-trip
+  - path-aware scrub redacts .aws/.ssh/.env + keeps safe paths
+  - transcript >50MB skipped with .errors.log entry
+  - sample hook script supports both stdin JSON + env var formats
+- Local-CI: 23/23 PASS first attempt.
+
+### Deferred to v7.7.19
+
+- `loki memory enable-hook` / `disable-hook` installer: deferred until
+  the Claude Code SessionEnd schema is verified empirically against a
+  real install. Users wanting zero-touch capture can manually install
+  per the instructions in `claude/hooks/loki-session-end.sh`. The MCP
+  tool + ingest CLI are the verified primary value for v7.7.18.
+
+### NOT tested
+
+- The sample hook script firing inside a real Claude Code SessionEnd
+  event (the script is syntactically clean + locally tested in
+  isolation; end-to-end with Claude Code's hook runner pending v7.7.19).
+- Privacy scrub coverage beyond v7.7.10 + new path-aware redaction.
+- Concurrency: two MCP capture calls firing simultaneously from
+  different agents (storage layer uses atomic per-episode writes with
+  unique IDs so collision is unlikely but not stress-tested).
+
+## [7.7.17] - 2026-05-28
+
+PATCH release. Memory subsystem observability. First release in the
+v7.7.17 through v7.7.23 memory improvement arc (plan at
+`~/git/loki-plan/MEMORY-IMPROVEMENT-PLAN-v7.7.17.md`). Foundation for
+v7.7.18 capture wedge. Diagnosis at `~/git/loki-plan/MEMORY-DIAGNOSIS-
+2026-05-27.md` flagged "silent-fail everywhere" as the top issue
+masking any future memory regression. v7.7.17 surfaces those failures.
+
+### Fixed
+
+- `autonomy/run.sh::store_episode_trace` (line 8724),
+  `auto_capture_episode` (line 9087), `run_memory_consolidation`
+  (line 9136): replaced the silent-fail `except Exception: pass`
+  pattern with explicit structured logging to
+  `.loki/memory/.errors.log` via the new `memory.error_log` module.
+  Log itself never raises (outer try/except guards even against
+  module import failure of the logger).
+- `loki doctor --json`: new `memory` field exposes
+  `errors_log_path` + `recent_errors` (last 5) + `recent_error_count`
+  + `status` (pass/warn). Bash + Bun routes emit byte-identical field
+  values (council fix Opus 2: previously bash was relative path, Bun
+  was absolute; locked in by test 9 parity assertion).
+
+### Added
+
+- `memory/error_log.py` (~155 LOC): structured error log helper.
+  Tab-separated single-line records: `timestamp \\t function \\t
+  error_class \\t message \\t traceback_snippet`. Rotates at 10 MB
+  (current -> `.log.1`, shift `.log.1` -> `.log.2` -> `.log.3`, drop
+  oldest). Tail-only read (last 64 KB) so an oversize log cannot OOM
+  the doctor command (council fix Opus 2). Secret scrubber (council
+  fix Opus 2): credential keywords (api_key/secret/password/token/
+  private_key/credential/bearer) replaced with `[REDACTED]`; literal
+  high-entropy token shapes (sk-, ghp_/ghs_, xox*, AIza, AKIA)
+  redacted inline. Mirrors v7.7.10 USAGE.md regen scrubber.
+- `tests/test-memory-error-log.sh` (9/9 PASS):
+  - log_memory_error writes + read_recent_errors reads 2 records
+  - log_memory_error never raises on unwriteable path
+  - read_recent_errors returns [] when no log present
+  - rotation fires at 10 MB threshold
+  - bash doctor --json surfaces memory.recent_errors with seeded record
+  - bun doctor --json same (bash/bun parity)
+  - scrubber redacts sk- tokens + credential keywords before write
+  - tail-only read finds last records in 5 MB+ file (no OOM)
+  - bash + Bun emit identical errors_log_path string
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet unanimous APPROVE after 1 fix cycle.
+  Opus 1 APPROVE first-pass. Opus 2 CONCERN on (a) doctor OOM risk,
+  (b) path parity break, (c) missing secret scrubber -> all fixed
+  with reproducer tests -> re-review APPROVE. Sonnet APPROVE first-pass.
+- Local-CI: 23/23 PASS first attempt.
+- Test 5/6 exercise the SHIPPED bash + Bun doctor surfaces against a
+  seeded `.errors.log`.
+
+### Deferred (not in v7.7.17 scope)
+
+- action_log + files_read field population on EpisodeTrace: original
+  v7.7.17 plan included this, but empirical check showed
+  `.loki/metrics/efficiency/iteration-N.json` only contains aggregate
+  metrics (no tool_use traces) and `.loki/events.jsonl` has no
+  file_read or tool_use entry types. Field population requires the
+  agent itself to emit tool_use traces. Deferred to v7.7.18 where
+  the new MCP capture tool can receive action_log directly from the
+  agent.
+
+### NOT tested
+
+- 10+ MB rotation cycle in a real long-running session (synthetic
+  rotation test passes, but a real session producing 10 MB of errors
+  would itself be a separate failure).
+- Cross-process concurrency on `_rotate_if_needed` (rotation race
+  documented in code comment; falls back to truncate on collision).
+- Privacy scrub coverage beyond the v7.7.10 regex set (no JWT
+  detection, no GCP service-account key, no Azure storage key, no
+  Slack webhook URL specifically -- only the v7.7.10 patterns).
+
+## [7.7.16] - 2026-05-27
+
+PATCH release. CI workflow fix: v7.7.15's `tests/test-audit-chain-cross-file.sh`
+failed the GitHub Actions "Shell tests" job on shellcheck SC2164
+(`cd /Users/lokesh/git/loki-mode` without `|| exit`). The hardcoded
+absolute path also meant Test 1 (production audit dir verification)
+would have failed even if shellcheck passed, since CI runners do not
+have `~/.loki/dashboard/audit/`.
+
+### Fixed
+
+- `tests/test-audit-chain-cross-file.sh`: portable `cd` via
+  `$(dirname "${BASH_SOURCE[0]}")/..` with `|| exit 1` (resolves
+  shellcheck SC2164). Python interpreter resolved via
+  `command -v python3.12 || command -v python3` instead of hardcoded
+  `/opt/homebrew/bin/python3.12`.
+- Test 1 (production audit dir): now gracefully SKIPs when
+  `~/.loki/dashboard/audit/` is absent or empty (CI runners, fresh
+  installs) instead of failing. Result tally now reports
+  `passed=N failed=N skipped=N` so CI can distinguish "real check
+  passed" vs "no data available."
+
+### Verified
+
+- `shellcheck tests/test-audit-chain-cross-file.sh` clean (zero
+  warnings, zero errors).
+- Test still 5/5 PASS on this dev machine (real audit dir present).
+- On CI runners, expected outcome: Test 1 SKIP + Tests 2-5 PASS.
+
+### NOT tested
+
+- Actual GitHub Actions Shell tests run on the v7.7.16 commit (will
+  verify post-push).
+
+## [7.7.15] - 2026-05-27
+
+PATCH release. **Critical audit chain verification fix.** The wiki and
+README claim "SHA-256 chain-hashed tamper-evident audit entries." The
+write side correctly chained across rotated daily log files via
+`_recover_last_hash`. The verify side always started from genesis
+`"0"*64`, so any audit log beyond the first-ever silently failed
+verification (false negative). Empirically reproduced on real
+`~/.loki/dashboard/audit/audit-2026-05-04.jsonl` (595 entries; the
+verifier returned `valid=False` while the chain was actually intact).
+
+### Fixed
+
+- **`dashboard/audit.py::verify_log_integrity`**: now accepts an
+  optional `start_hash` parameter (defaults to genesis for backward
+  compat); returns a new `last_hash` field for chain threading;
+  fixed a pre-existing None-return bug on empty files.
+- **New `dashboard/audit.py::verify_all_logs()`**: walks
+  `AUDIT_DIR/audit-*.jsonl` in mtime order (NOT lexicographic --
+  rotated files have name shape `audit-DATE.HHMMSS.jsonl` which sorts
+  BEFORE `audit-DATE.jsonl` because `.1 < .j` in ASCII; the prior
+  global glob would have broken chain ordering for any user who hit
+  size-based rotation). Threads chain hash across files. Skips
+  pre-integrity-era files (integrity hashing was enabled mid-history;
+  pre-integrity logs have no `_integrity_hash` field). Returns
+  aggregate dict with `valid`, `files_checked`, `files_skipped`,
+  `entries_checked`, `first_tampered_file`, `first_tampered_line`,
+  `genesis_file`.
+- **`dashboard/api_v2.py::verify_audit_integrity` endpoint**: was
+  also calling `verify_log_integrity` per-file without threading
+  `start_hash`, so the `/audit/verify` HTTP endpoint gave callers a
+  false sense of security. Now delegates aggregate verdict to
+  `verify_all_logs()`; per-file breakdown still returned for operator
+  visibility but uses mtime sort + threaded `start_hash`.
+- **Pre-integrity skip**: `_file_has_integrity()` helper peeks line 1
+  for `_integrity_hash`; files without it are silently skipped from
+  the chain. Reported in response as `files_skipped` count for
+  transparency.
+
+### Added
+
+- `tests/test-audit-chain-cross-file.sh` (5/5 PASS):
+  - `verify_all_logs` on real production audit dir reports
+    `valid=True, files_checked=23, files_skipped=2,
+    entries_checked=8872, genesis=audit-2026-02-14.jsonl`
+  - Synthetic 2-file chain validates across rotation
+  - Tampering on line 2 detected at correct file + line
+  - Single-file `verify_log_integrity` backward-compat (no
+    `start_hash`) still works on the genesis-anchored first file
+  - Rotated file with `audit-DATE.HHMMSS.jsonl` name sorts in mtime
+    order (locks in the council-flagged regression)
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet unanimous APPROVE after 1 fix cycle.
+  Opus 1 APPROVE first-pass with non-blocking notes. Opus 2 CONCERN
+  on (a) dead code at function tail, (b) rotated file lexicographic
+  sort -> both fixed, re-review APPROVE. Sonnet CONCERN on (a) same
+  dead code, (b) api_v2.py endpoint not using new function -> both
+  fixed, re-review APPROVE.
+- Local-CI 23/23 PASS first attempt after fixes.
+
+### NOT tested
+
+- Concurrent writers during `verify_all_logs` walk (no file locking;
+  best-effort snapshot; `verify_all_logs` may false-negative on a
+  partial last line if log_event fires mid-read). Document as
+  "verify when quiescent" assumption.
+- Mid-stream pre-integrity boundary (file whose line 1 has no hash
+  but later lines do, e.g. from operator toggling
+  `LOKI_AUDIT_NO_INTEGRITY`). `_file_has_integrity` only peeks line 1
+  so such a file would be wrongly skipped entirely. Realistic only
+  with manual env-var flipping.
+- Real npm-installed package end-to-end smoke (will run post-publish).
+
+## [7.7.14] - 2026-05-27
+
+PATCH release. **Critical LSP regression fix** that has been silently
+broken since v7.7.0. `lsp_get_diagnostics` returned an empty array
+unconditionally because `LSPClient` had no notification reader thread
+and `request()`'s busy-read loop dropped every `publishDiagnostics`
+notification. Surfaced by codebase audit (see `/Users/lokesh/git/loki-
+plan/AUTONOMI-100M-STRATEGY.md` section 1.1 and `docs/plans/UT2-6-LSP-
+DIAGNOSTIC-BROADCAST.md` section 3).
+
+### Fixed
+
+- **`mcp/lsp_proxy.py::LSPClient`**: spawned a dedicated notification
+  reader thread (daemon) at the end of `start()` that owns
+  `proc.stdout` and routes JSON-RPC responses to per-request `Queue`
+  instances keyed by request id. `request()` now writes to stdin and
+  parks on its Queue with timeout, instead of reading stdout directly
+  (which dropped notifications). `textDocument/publishDiagnostics`
+  notifications populate `self.pending_diagnostics: Dict[uri, list]`.
+- **Reader thread lifecycle**: re-spawn after subprocess crash now
+  cleanly stops + joins the old reader, closes stale stdout to unblock
+  the read, drains any pending request waiters with an error sentinel,
+  and clears `pending_diagnostics` + `_opened_uris` + `_initialized`.
+  No thread leak.
+- **Silent reader death drain**: on any reader exit path (stop signal,
+  EOF, exception), the `finally` block drains all outstanding request
+  waiters with `{'error': {'message': 'LSP reader thread exited: ...',
+  'request_id': rid}}` so callers fail fast (was: hang full 5s timeout)
+  and logs a warning with exit reason + drained count.
+- **`lsp_get_diagnostics` consumer**: poll budget bumped from 250ms
+  (5×50ms) to 1s (20×50ms) matching the docstring claim. Removed
+  defensive `hasattr` fallback now that `pending_diagnostics` is
+  guaranteed on the class.
+
+### Added
+
+- `tests/test-lsp-diagnostics-regression.sh`: 5/5 PASS including
+  structural check, end-to-end fake-LSP publishDiagnostics flow via
+  reader thread, request routing via per-id Queue, reader-death drain
+  test (kills subprocess mid-request, asserts error returned <1.5s
+  instead of hanging full 5s+), re-spawn thread-leak test (asserts
+  old reader replaced by new on subprocess crash).
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet unanimous APPROVE. Opus 2 initial CONCERN
+  on (a) re-spawn thread leak and (b) silent reader death → both
+  remediated with reproducer tests → re-review APPROVE.
+- Test 5/5 PASS locally; AST clean; bash -n clean.
+
+### NOT tested
+
+- Live pyright/typescript-language-server/gopls/rust-analyzer/jdtls
+  end-to-end with real diagnostics (LSP binaries not all on local
+  PATH; synthetic fake-LSP subprocess in test proves the wire protocol
+  routing works correctly).
+- Pyright cold-start (3-6s per upstream docs) vs the 1s poll budget in
+  `lsp_get_diagnostics`. First call on cold pyright may return empty;
+  re-calling after warm should return diagnostics. Not a regression
+  (v7.7.0-v7.7.13 returned empty unconditionally regardless of warmth).
+
+### Strategy context
+
+Strategy doc at `/Users/lokesh/git/loki-plan/AUTONOMI-100M-STRATEGY.md`
+identifies this as the credibility-tax fix that must ship before any
+sales demo. Repo location is intentionally outside the repo to avoid
+public commit; the fix itself is shipped here as a normal PATCH.
+
+## [7.7.13] - 2026-05-27
+
+PATCH release. Two user-reported P0 bugs on real-user smoke from npm
+and Docker.
+
+### Fixed
+
+- **`loki start` (no PRD) crashes with `args[@]: unbound variable`**
+  on bash 3.2 (macOS default). User repro on `~/git/anonima`:
+  ```
+  $ loki start
+  Generate PRD from codebase and start? [Y/n] Y
+  Starting Loki Mode...
+  .../autonomy/loki: line 1551: args[@]: unbound variable
+  ```
+  Root cause: under bash 3.2 + `set -u`, `"${args[@]}"` on an empty
+  array throws "unbound variable". The "no PRD" code path never
+  populated `args`, so the exec at line 1551 (and the sandbox exec at
+  line 1451, and the trigger server nohup at line 11302) fired the
+  bug. Fixed by switching to the safe expansion pattern
+  `${args[@]+"${args[@]}"}` which only expands when the array is
+  defined-with-elements. Sites without potential-empty risk
+  (run_args initialized non-empty, etc.) left unchanged.
+
+- **`docker run --rm asklokesh/loki-mode start` exits without taking
+  input.** User repro:
+  ```
+  $ docker run --rm asklokesh/loki-mode start
+  Generate PRD from codebase and start? [Y/n] %
+  ```
+  Root cause: user did not pass `-it` so stdin is closed. The `read
+  -r confirm` returned EOF with empty string; the cmd_start fell
+  through to the same args[@] bug above. Now the cmd_start prompt
+  detects `[ ! -t 0 ]` (non-TTY stdin) and auto-confirms with a
+  clear warning that suggests `docker run -it` or
+  `LOKI_AUTO_CONFIRM=true`.
+
+### Added
+
+- `tests/test-empty-args-no-prd.sh` (6/6 PASS): asserts the safe
+  expansion pattern works on bash 3.2 semantics; asserts the old
+  pattern correctly fails (proving the bug exists); greps for any
+  remaining unsafe exec/nohup/eval array expansions in autonomy/loki;
+  verifies the non-TTY auto-confirm branch + `-t 0` check are
+  present; bash -n syntax validation.
+
+### Verified
+
+- End-to-end reproducer in /tmp/loki-bug-repro: both the user's TTY
+  scenario AND Docker scenario (`< /dev/null` to simulate closed
+  stdin) now get past the previously-crashing point and show the
+  Loki ASCII banner instead of the args[@] error.
+- 6/6 unit assertions on bash 3.2.
+- Real-user repro path manually executed: `loki start` from a fresh
+  directory with no PRD on bash 3.2 + `< /dev/null` (docker emul) =
+  no crash, clear warning, auto-confirmed.
+
+### NOT tested
+
+- Live Docker pull + run of v7.7.13 image (Docker daemon not
+  running on the local machine; relies on Release workflow
+  publish-docker job to push the image, and on the user re-running
+  `docker run --rm asklokesh/loki-mode:7.7.13 start` from their own
+  Docker setup to confirm).
+- `loki start <bad-prd-path>` and other error paths that may have
+  similar empty-array exec paths (only the user-reported sites
+  were audited).
+
+## [7.7.12] - 2026-05-24
+
+PATCH release. UT2-13 bash-vs-bun route parity fix surfaced by real-user
+validation of v7.7.11 from npm. Without this fix, --provider flag
+write semantics worked but `loki status --json` silently downgraded
+provider_source to "default" for all npm-installed users (because the
+default route is Bun, not bash).
+
+### Fixed
+
+- `loki-ts/src/commands/status.ts` embedded Python now reads
+  `.loki/state/cli-provider` BEFORE the saved/env/default cascade,
+  matching `autonomy/loki::cmd_status_json::_read_cli_provider` byte for
+  byte. Includes provider name validation against {claude, codex, cline,
+  aider} canonical set + PID liveness check via os.kill(pid, 0). Legacy
+  2-field marker format still parses for backward compat.
+- Real-user validation: `bun install -g loki-mode@7.7.11` + manual
+  cli-provider marker check showed bash=cli but bun=default. v7.7.12
+  restores parity: both routes report provider_source=cli identically.
+
+### Added
+
+- `tests/test-status-cli-provider-parity.sh` (9/9 PASS): asserts bash
+  and bun routes report identical provider + provider_source for valid
+  cli-provider marker, invalid provider name (xyz), and dead PID
+  (999999) cases. Runs in local-ci; prevents future bash/bun drift.
+
+### Verified
+
+- Real-user CLI smoke from npm registry: loki --version, loki doctor
+  --json (11 checks valid), loki status --json (parses, fields present),
+  loki provider list (4 providers: claude/codex/cline/aider; Gemini
+  correctly absent per v7.5.18 removal).
+- Both bash route (LOKI_LEGACY_BASH=1) and bun route
+  (BUN_FROM_SOURCE=1) report identical provider_source=cli after
+  v7.7.12 parity fix.
+
+### NOT tested
+
+- Docker image (Docker daemon not running on local machine; relies on
+  Release workflow publish-docker job which the post-release watcher
+  will verify).
+- Real `loki start --provider codex` end-to-end session (would write
+  the cli-provider marker via cmd_start dispatch + run a session; not
+  exercised since the unit + parity tests cover the reader cascade).
+
 ## [7.7.11] - 2026-05-24
 
 PATCH release. Bundle of UT2-12 (USAGE markdown render with XSS guard),

@@ -7,7 +7,7 @@ Audit & rewrite content to remove AI writing patterns. A practical skill for any
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/avoid-ai-writing?style=social)](https://github.com/conorbronsdon/avoid-ai-writing/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![X](https://img.shields.io/badge/X-@ConorBronsdon-black?style=flat-square&logo=x)](https://x.com/ConorBronsdon)
-[![Web App](https://img.shields.io/badge/Try_the_web_app-ff6b35?style=flat-square&logo=vercel&logoColor=white)](https://avoid-ai-writing-app.vercel.app)
+</div>
 
 ---
 
@@ -37,7 +37,7 @@ A one-shot "make this sound human" prompt catches the obvious stuff. This skill 
 - **109-entry word replacement table across 3 tiers + 10 Tier 3 phrases** — not vibes-based. Every flagged word has a specific, plainer alternative. "Leverage" → "use." "Commence" → "start." Tier 1 words always flag, Tier 2 words flag when they cluster, Tier 3 words flag only at high density. Tier 3 *phrases* (multi-word boilerplate like "the integration of," "decentralized compute") flag on per-phrase repetition or when 3+ distinct phrases stack in one piece — the LLM-self-varies-boilerplate shape.
 - **42 pattern categories** — see the full list below, each with before/after examples. Includes structural detection (hashtag stuffing, bare-NP bullet lists, hedge-stacked predictions), rhythm/uniformity checks, and a rewrite-vs-patch threshold.
 - **Detect mode** — flag patterns without rewriting. See which flags are real problems vs. judgment calls. Useful when patterns might be intentional or you're auditing content you don't want altered.
-- **Works with Claude Code and OpenClaw** — single `SKILL.md` with compatible frontmatter for both platforms.
+- **Works across platforms** — one `SKILL.md` runs in Claude Code, Cowork (as a plugin), OpenClaw, and Cursor (as a ported rule). See the install paths below.
 
 ## Installation & Usage
 
@@ -72,6 +72,22 @@ Read and follow the instructions in ~/.claude/skills/avoid-ai-writing/SKILL.md
 ```
 
 Then use `/clean-ai-writing <your text>` in Claude Code.
+
+### Claude Cowork — install as a plugin
+
+[Cowork](https://www.anthropic.com/cowork) loads skills only from **installed plugins** — it doesn't scan `~/.claude/skills/`, so a bare clone (the Claude Code steps above) won't be discovered there. This repo doubles as a single-plugin [marketplace](https://code.claude.com/docs/en/plugin-marketplaces), so install it as a plugin instead:
+
+```bash
+/plugin marketplace add conorbronsdon/avoid-ai-writing
+/plugin install avoid-ai-writing@conorbronsdon-skills
+/reload-plugins   # or restart the session, to activate the skill
+```
+
+In the Cowork desktop app, do the same from **Customize → Plugins → Add marketplace from GitHub** (`conorbronsdon/avoid-ai-writing`), then install **avoid-ai-writing**. The skill auto-triggers from phrases like "remove AI-isms." New releases arrive when the plugin's version is bumped — run `/plugin marketplace update` to pull them.
+
+The same plugin install works in Claude Code if you'd rather have a versioned, updatable plugin than the file clone above.
+
+> Prefer not to install a plugin? Copy `SKILL.md` into a folder connected to your Cowork session and tell the agent to follow `./SKILL.md` — works as a one-off, no auto-trigger.
 
 ### OpenClaw
 
@@ -123,6 +139,8 @@ In **detect mode**, the skill returns two sections:
 Trigger detect mode with: "detect," "flag only," "audit only," "just flag," "scan," or similar.
 
 ## 42 Patterns Detected
+
+> These 42 are the human-facing prose rules. The [detector engine](./detector/) implements **43 `type` categories** — a different count, because it splits the vocabulary tiers and adds stylometric/fingerprint signals (punctuation distribution, function-word entropy, bypass-trick detection) that work as math over a document rather than as a rule you'd look up. The two are mapped in [`detector/CATEGORIES.md`](./detector/CATEGORIES.md); don't "fix" one count to match the other.
 
 ### Content Patterns
 
@@ -228,19 +246,25 @@ Added in v3.4 to catch LLM output that sidesteps the vocabulary tables by substi
 
 That's 35+ AI tells.
 
-## $avoid token + web app
+## Run the detector
 
-The community created a Solana token around this project. You can burn $avoid tokens to run the audit skill through a web app:
+The skill ships a deterministic, zero-dependency detection engine in
+[`detector/`](./detector/) — the same 43-category engine the rules above
+describe, as runnable code. It works in Node (`>=18`) and the browser with no
+build step.
 
-**[avoid-ai-writing-app.vercel.app](https://avoid-ai-writing-app.vercel.app)** — paste text, burn 1,000 $avoid, get a full audit + rewrite. Every token burned is permanently removed from circulation.
+```bash
+npm test          # run the detector's fixtures (no deps to install)
+```
 
-| | |
-|---|---|
-| Web App | [avoid-ai-writing-app.vercel.app](https://avoid-ai-writing-app.vercel.app) |
-| DexScreener | [dexscreener.com/solana/4b5m...](https://dexscreener.com/solana/4b5mprekzapcwybrsbbaiewtk4amck62rpcznjcxz69m) |
-| Telegram | [t.me/avoidaiwriting](https://t.me/avoidaiwriting) |
-| X Community | [x.com/i/communities/2036440377356591415](https://x.com/i/communities/2036440377356591415) |
-| CA | `BsidWuYJnayqMXVsLGr34524vmZ1BrWFhPer3198pump` |
+```js
+const AIDetector = require("./detector/patterns.js");
+const { score, label, issues } = AIDetector.analyzeText("Your text here…");
+```
+
+See [`detector/README.md`](./detector/README.md) for the full `analyzeText` API
+and [`detector/CATEGORIES.md`](./detector/CATEGORIES.md) for the rule ↔ category
+map that keeps `SKILL.md` and the engine in sync.
 
 ## Credits
 
@@ -250,6 +274,8 @@ Pattern research informed by:
 - [blader/humanizer](https://github.com/blader/humanizer) Claude Code skill
 - [brandonwise/humanizer](https://github.com/brandonwise/humanizer) — tiered vocabulary system, statistical analysis research (burstiness, sentence length variation, trigram repetition), and rewrite philosophy
 - [OpenClaw](https://github.com/openclaw/openclaw) humanizer skill ecosystem — community patterns and vocabulary research
+
+A community built a Solana token (`$avoid`) and a [token-burn web app](https://avoid-ai-writing-app.vercel.app) around this project in 2026; both are now in maintenance mode.
 
 Authored by [Conor Bronsdon](https://github.com/conorbronsdon) · [LinkedIn](https://www.linkedin.com/in/conorbronsdon/) · [Chain of Thought podcast](https://chainofthought.show)
 

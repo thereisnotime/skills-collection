@@ -71,13 +71,33 @@ The most contributed Agent Skills repository, built and maintained together with
 
 
 
+## Ecosystem Tools
 
+Tools, platforms, and services for building 
 
+ - If you're building AI agents in TypeScript, VoltAgent gives you tool use, memory, and multi-agent coordination out of the box.
 
-## Sponsors ❤️
+    <a href="https://github.com/VoltAgent/voltagent">
+    <img height="80" alt="voltagent-banner" src="https://github.com/user-attachments/assets/7196f50b-ca98-494c-8aa0-11e111c49f96" />
+    </a>
+<br/>
 
-[Become a Sponsor](https://github.com/sponsors/VoltAgent/sponsorships?tier_id=605663) to feature your logo here and on [officialskills.sh](https://officialskills.sh/) website — 300k+ monthly views.
+<div align="center">
 
+<table>
+<tr>
+<td align="center" width="100%">
+<h4>👉 You can feature your product here and reach the agentic developer ecosystem.</h4>
+     
+<sub>Your product can also appear across the <a href="https://officialskills.sh">officialskills.sh</a> platform</sub>
+     
+<a href="https://sponsors.voltagent.dev/#awesome-agent-skills"><img src="https://img.shields.io/badge/📩_Become_a_Sponsor-Contact_Us-blue?style=for-the-badge&logoColor=white" alt="Become a Sponsor" /></a>
+
+</td>
+</tr>
+</table>
+
+</div>
 
 <details open>
 <summary><h3 style="display:inline">Official Claude Skills</h3></summary>

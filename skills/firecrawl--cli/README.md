@@ -553,6 +553,13 @@ firecrawl monitor create --name "Product pages" \
   --schedule "every 30 minutes" \
   --scrape-urls https://example.com/pricing,https://example.com/docs,https://example.com/changelog
 
+firecrawl monitor create --name "Docs webhook" \
+  --goal "Notify me when docs content changes" \
+  --schedule "every 30 minutes" \
+  --page https://example.com/docs \
+  --webhook-url https://example.com/webhook \
+  --webhook-events monitor.page,monitor.check.completed
+
 firecrawl monitor list --limit 20
 firecrawl monitor run <monitorId>
 firecrawl monitor checks <monitorId>
