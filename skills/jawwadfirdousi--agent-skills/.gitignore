@@ -1,4 +1,10 @@
-skills/.gitignore
-elastic-search-logs/
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+node_modules/
 .cursor/
+.codex/
+.claude/settings.local.json

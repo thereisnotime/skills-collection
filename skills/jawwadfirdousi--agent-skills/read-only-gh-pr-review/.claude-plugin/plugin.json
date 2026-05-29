@@ -1,0 +1,17 @@
+{
+  "name": "read-only-gh-pr-review",
+  "description": "Review GitHub pull requests with strict read-only CLI constraints.",
+  "version": "0.1.1",
+  "author": {
+    "name": "jawwadfirdousi"
+  },
+  "homepage": "https://github.com/jawwadfirdousi/agent-skills",
+  "repository": "https://github.com/jawwadfirdousi/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "pull-request",
+    "review",
+    "read-only"
+  ]
+}

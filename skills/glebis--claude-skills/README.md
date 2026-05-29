@@ -8,6 +8,41 @@ A collection of skills for [Claude Code](https://claude.com/claude-code) that ex
 
 ## 📦 Available Skills
 
+### [qmd Search](./qmd-search/) ⭐ NEW
+
+Semantic search over a local Obsidian vault / markdown knowledge base using the on-device [qmd](https://github.com/tobi/qmd) engine — matches **meaning**, not just keywords, and works **across languages** (a Russian query finds the relevant English note). Fully local; nothing leaves the machine.
+
+**Features:**
+- 🔎 Five modes: BM25 keyword (`search`), vector semantic (`vsearch`), hybrid expansion+rerank (`query`), literal native-script (`grep`), and fused (`find` = hybrid + grep in one call)
+- 🌍 Cross-lingual retrieval (EN↔RU) plus a bilingual / proper-name rule: try native-script spellings + a literal pass before concluding "not in the vault"
+- 🧹 Agent-friendly wrapper: clean `score  path` output (JSON-parsed, comma-safe), optional `--snippet` and `--min-score`, suppresses qmd's stderr spinner
+- 🛡️ Best-effort guard against searching during an active `qmd embed`; tolerates qmd's post-output teardown abort while surfacing genuine failures
+- 📊 Quality evals via `qmd bench` (`evals/` fixture + baseline) — measure precision/recall/MRR per backend, catch regressions
+- 🔌 Optional MCP integration (`qmd mcp` → `query/get/multi_get/status` as native tools)
+- ✅ Bundled smoke-test suite (18 cases) + Codex-reviewed
+
+**Quick Start:**
+```bash
+# Install qmd (needs Node ≥22 or Bun; macOS: brew install sqlite)
+bun install -g @tobilu/qmd
+
+# Index a vault once
+qmd collection add ~/Brains/brain --name brain
+qmd embed   # re-run until `qmd status` shows 0 pending
+
+# Search
+./scripts/qmd-search.sh "how do I stop overengineering"     # hybrid (default)
+./scripts/qmd-search.sh -m search sensorium                 # exact keyword
+./scripts/qmd-search.sh -m grep -n 20 "Зигги"               # literal / native-script / absence check
+./scripts/qmd-search.sh -m find "Зигги собака"              # fused: semantic + literal
+./scripts/qmd-search.sh --snippet "agent orchestration"     # rows + matching snippets
+./scripts/run-evals.sh                                      # quality benchmark vs baseline
+```
+
+**Use when:** You want to search your notes/vault by concept or question ("find notes about X", "what do my notes say about Y"), need cross-lingual retrieval, or want a local alternative to Obsidian's literal search.
+
+---
+
 ### [Cognitive Toolkit (CBT/DBT)](https://github.com/glebis/claude-cognitive-toolkit) ⭐ NEW
 
 Evidence-based CBT and DBT intervention skills — guided thought records, opposite action, DEAR MAN roleplay, crisis skills with HRV biofeedback. Configurable therapeutic pushback. Works standalone or via Telegram. **[Standalone repo →](https://github.com/glebis/claude-cognitive-toolkit)**
@@ -1713,6 +1748,35 @@ cp -r rag-eval ~/.claude/skills/
 ```
 
 **Depends on:** DSPy, OpenRouter or OpenAI API key
+
+---
+
+### [Disk Cleanup](./skills/disk-cleanup/)
+
+Scan and clean macOS system caches to reclaim disk space. Surveys all major cache locations, presents a size-sorted inventory, and executes cleanup safely.
+
+**Features:**
+- 📊 Comprehensive survey: ~/Library/Caches, ~/.cache, Docker, npm/pip/uv/pnpm, Homebrew, browser caches, app updater caches, Claude Desktop, Xcode, Playwright, logs, ML model caches
+- 🎯 4 preset levels: safe (app caches, logs), safe+docker, full (includes ML models), pick-individually
+- 🗑️ Safe deletion via `trash` (never `rm`) — recoverable from Trash
+- 📋 Size-sorted inventory table with per-preset totals
+- 🔍 Discovery sweep catches unlisted caches >100 MB
+- ⚙️ Parameters: preset, skip list, dry-run mode, auto-empty-trash
+- 📈 Before/after disk usage report
+
+**Quick Start:**
+```bash
+# Copy to skills directory (or symlink)
+ln -s ~/ai_projects/claude-skills/skills/disk-cleanup ~/.claude/skills/disk-cleanup
+
+# Then just say:
+# "clean up my mac"
+# "what's eating my disk space?"
+# "free up space, safe only"
+# "disk cleanup dry-run"
+```
+
+**Use when:** Running low on disk space, clearing caches, investigating storage consumption, or getting "disk almost full" warnings on macOS.
 
 ---
 

@@ -9,6 +9,421 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.7.30] - 2026-05-28
+
+PATCH release. Fixes `loki stop` killing every folder's session machine-wide,
+adds per-project Stop controls to the multi-project dashboard switcher, and
+makes a deliberate Ctrl+C exit tear down its own dashboard and registry entry
+without touching other folders.
+
+Note: the v7.7.29 changelog flagged a "RARV provider-exit-code finding" for
+this release. That audit finding was investigated and EMPIRICALLY DISPROVEN
+under `set -o pipefail` (the provider's real exit propagates via pipefail in
+every failure case; no masking occurs). No RARV change ships. v7.7.30 instead
+addresses the verified multi-folder `loki stop` issue users reported.
+
+### Fixed
+
+- **`loki stop` stopped EVERY folder's session, not just the current one.**
+  With no session-id, `cmd_stop` ran an unconditional machine-global
+  `pkill -f "loki-run-"` that matched every folder's runner temp script
+  (the script name carries no folder identity). Running `loki stop` in one
+  repo silently killed unrelated Loki sessions in other repos. `loki stop`
+  is now FOLDER-SCOPED: it stops only the current folder's runner, monitors,
+  and app-runner (via the folder-scoped pid files that already exist), and
+  marks that project stopped in the dashboard registry. Reproduced and
+  verified: stopping folder A leaves folder B's session alive.
+
+### Added
+
+- **`loki stop --all`** preserves the legacy machine-wide behavior for users
+  who want to tear down every Loki runner at once. It works even from a
+  folder with no live session (the "clean everything" case).
+- **Per-project Stop button in the dashboard switcher.** Each running project
+  in the multi-project switcher gets a Stop control that calls a new
+  `POST /api/running-projects/stop` endpoint. The endpoint resolves the
+  target project through the registry, writes its STOP file, runs the same
+  graceful SIGTERM -> 5s -> SIGKILL dance as `/api/control/stop` against that
+  project's recorded pid, and marks it stopped. Stopping one project never
+  affects another. Rows are built with textContent only (no innerHTML).
+- **Shared-dashboard preservation.** A folder-scoped stop (or a Ctrl+C exit)
+  now keeps the shared standalone dashboard (`~/.loki/dashboard`) up while any
+  other registered project is still running, and only stops it when no
+  project remains. `loki stop --all` always stops it.
+
+### Changed
+
+- **Graceful Ctrl+C / deliberate-exit teardown.** A STOP-file exit or a
+  double-Ctrl+C now also tears down this project's dashboard contribution and
+  marks its registry entry stopped, using the shared-dashboard preservation
+  rule above. The perpetual single-Ctrl+C (kill current provider invocation,
+  keep looping) and supervised pause behaviors are unchanged. No teardown
+  path uses a blanket pkill, so a Ctrl+C in one folder never stops another.
+
+### Distribution
+
+All channels (npm, Docker, Homebrew) ship the same fix: the change lives in
+`autonomy/loki`, `autonomy/run.sh`, `dashboard/server.py`,
+`dashboard/registry.py`, and the rebuilt `dashboard/static/index.html`. The
+Bun route inherits folder-scoping for free because `loki stop` falls through
+to the bash CLI (a parity test asserts it is never intercepted).
+
+## [7.7.29] - 2026-05-28
+
+PATCH release. Dashboard <-> CLI <-> Docker integration fixes plus a
+multi-project dashboard switcher (run loki in several folders and see /
+switch between them in one dashboard). The RARV provider-exit-code finding
+from the same audit is deferred to v7.7.30 (highest blast radius, isolated
+review).
+
+### Fixed (dashboard integration)
+
+- **`loki dashboard stop|status|open` failed from a different directory
+  than `start`.** The standalone dashboard PID/control dir was relative
+  (`${LOKI_DIR}/dashboard`), so stopping from any other cwd reported "not
+  running" and orphaned the server. It now lives at a fixed
+  `~/.loki/dashboard` (the in-build dashboard run.sh starts stays
+  project-local). Verified: start in dir A, stop from dir B, port freed.
+- **Docker dashboard was unreachable from the host.** The server defaulted
+  to binding `127.0.0.1` inside the container, so `-p 57374:57374` forwarded
+  to nothing. The default bind host is now `0.0.0.0` in a container
+  (detected via /.dockerenv or LOKI_SANDBOX_MODE), `127.0.0.1` on the host.
+- **`loki serve` / `loki api` ignored `--host`/`--port`** and lacked a
+  port-in-use guard. `cmd_api` now parses those flags, refuses a busy port,
+  shares the standalone PID dir, computes the TLS scheme, persists
+  host/port/scheme side-files, and prints correct URLs.
+- **TLS dashboards printed a false "health did not respond" warning.** The
+  readiness probe hardcoded `http://.../api/status`, which fails under TLS
+  and 401s under `LOKI_ENTERPRISE_AUTH`. It now probes the unauthenticated
+  `/health` over the actual scheme with `-k` for self-signed certs.
+- **`loki start --api` swallowed dashboard startup failures.** It is now a
+  contained subshell that surfaces the outcome and cannot abort the build.
+- **`loki status` (human + --json) and `loki cleanup`** now check BOTH the
+  project-local and the `~/.loki/dashboard` PID locations and honor the
+  saved scheme/host/port, so they never miss or misreport a running
+  dashboard. The Bun route (`loki-ts/src/commands/status.ts`, both the JSON
+  and text renderers) mirrors the same dual-path + side-file logic, keeping
+  the bash and Bun runtimes at parity (verified: both report the identical
+  dashboard_url for a standalone dashboard).
+
+### Added (multi-project switcher)
+
+- **`loki start` auto-registers the running project** (path, pid, port,
+  status) in the machine-global registry (`~/.loki/dashboard/projects.json`)
+  so the dashboard can see projects running in different folders. Fully
+  non-blocking and failure-swallowed; opt out with
+  `LOKI_SKIP_PROJECT_REGISTRY=1`.
+- **`GET /api/running-projects`**: lists registered projects with a live
+  `running` flag derived from pid liveness (robust on hard kills) and an
+  `is_active` flag (realpath-compared so macOS `/tmp` -> `/private/tmp`
+  symlinks match). Deliberately not under `/api/projects/*` to avoid the
+  `{project_id}` int route shadowing it.
+- **Dashboard header project switcher**: a dropdown listing running projects;
+  selecting one POSTs `/api/focus` and reloads so every panel re-resolves
+  against that project's `.loki`. Each project keeps running independently
+  (per-process per-directory); switching only changes what the dashboard
+  shows.
+
+### Tests
+
+- `tests/test-dashboard-multiproject.sh` (NEW, 16/16 PASS): static checks
+  for every fix, bash/python syntax, bash/Bun status-parity for the dual
+  pid location, and a functional test of `/api/running-projects` live
+  status + `/api/focus` switching (with a genuinely-alive pid and the
+  realpath edge case).
+
+## [7.7.28] - 2026-05-28
+
+PATCH release. Five verified functional bugs fixed, found by a parallel
+multi-subsystem source audit (memory + completion-council + healing). Each
+fix has a regression test with a functional repro. (Dashboard/CLI/Docker
+and RARV-loop findings from the same audit are deferred to v7.7.29 because
+they have a wider blast radius and need their own careful review.)
+
+### Fixed
+
+- **Memory: every orchestrator episode write silently failed.**
+  `autonomy/run.sh` `store_episode_trace` called
+  `MemoryEngine(f'{dir}/.loki/memory')`, but `__init__(self, storage=None,
+  base_path=...)` takes `storage` first, so the path became `self.storage`
+  and `engine.initialize()` crashed on `str.ensure_directory`, dropping
+  every episode into the except handler. Now passes `base_path=`.
+- **Memory: the importance shadow-write never fired.**
+  `auto_capture_episode` reconstructed the episode path as
+  `episodic/<id>.json`, but storage writes
+  `episodic/<YYYY-MM-DD>/task-<id>.json`. The non-existent path failed the
+  `[ -f ]` guard every time. Now reconstructs the real date/task path.
+- **Memory: consolidated anti-patterns were never retrievable.**
+  `consolidation` saves anti-patterns as `SemanticPattern` objects with
+  `category="anti-pattern"` into `semantic/patterns.json`, but anti-pattern
+  retrieval only read the separate `semantic/anti-patterns.json` (different
+  schema). Retrieval now also bridges anti-patterns out of
+  `patterns.json`, mapping incorrect_approach/description/correct_approach
+  onto the what_fails/why/prevention scoring shape. The optional
+  embedding/vector anti-pattern index is bridged the same way for parity.
+- **Completion council never stopped on suites that mention "error".**
+  Test-failure detection used `grep -ciE "(FAIL|ERROR|failed|error:)"`,
+  which counted benign lines ("0 errors", a `test_error_handling` case,
+  "no errors found") as failures, forcing CONTINUE forever. Replaced with
+  a regex that matches real failure signals (`N failed/errors`, `FAILED`,
+  `AssertionError`, `Traceback`) and ignores the zero-count forms.
+- **Healing: failure modes were silently dropped on a fresh file.**
+  `migration-hooks.sh` appended via `data.get('modes', [])`, which mutates
+  a throwaway list when the key is missing, so the record was lost. Now
+  uses `data.setdefault('modes', [])`.
+
+### Tests
+
+- `tests/test-memory-audit-fixes.sh` (NEW, 4/4): B#1/B#2/B#3.
+- `tests/test-council-healing-audit-fixes.sh` (NEW, 4/4): the council
+  grep refinement and the healing setdefault, each with a functional repro.
+
+## [7.7.27] - 2026-05-28
+
+PATCH release. A welcome opener (the "magic opener") shown on first run and
+via `loki welcome`, styled in the dashboard design language.
+
+### Added
+
+- **`assets/welcome/welcome.html`** (NEW): a self-contained welcome page
+  using the loki dashboard design tokens (accent #553DE9, DM Serif Display
+  / Inter / JetBrains Mono, glass cards, light + dark). It introduces the
+  product, subtly highlights the RARV-C closure loop, the cross-project
+  memory compounding moat, and the research backing (Anthropic, DeepMind,
+  OpenAI, NVIDIA), and links to autonomi.dev/docs.
+- **Opt-in profile form**: role, company size, and tools. On explicit
+  click it sends an anonymous `welcome_profile` event to the EXISTING
+  PostHog endpoint (us.i.posthog.com, the same public ingest key the
+  install telemetry already uses). The page makes ZERO network calls on
+  load; the submit is the only call. The payload carries only
+  {role, company_size, tools, source, loki_version, distinct_id} and
+  never any prompt, PRD, code, or path content.
+- **`loki welcome`** command: opens the page in a browser, or prints a
+  clean terminal welcome when headless / Docker / CI / no browser.
+- **First-run auto-open (once)**: on the first `loki start`, the welcome
+  opens a single time, gated by a `~/.loki/.welcomed` marker; never
+  repeats, and never auto-opens a browser in CI or non-interactive shells.
+- postinstall now points new users to `loki welcome`.
+
+### Privacy
+
+- Honors `LOKI_TELEMETRY_DISABLED=true` and `DO_NOT_TRACK=1` everywhere:
+  the page is loaded with `?telemetry=off` (form disabled, no capture) and
+  the terminal welcome shows an "analytics off" notice. Disclosed, never
+  covert. We never collect prompts, PRDs, or code.
+
+### Packaging
+
+- `assets/` now ships to npm (added to package.json `files`) and to both
+  Docker images (`COPY assets/` in Dockerfile + Dockerfile.sandbox).
+
+### Tests
+
+- `tests/test-welcome-opener.sh` (NEW, 14/14 PASS): single-network-call
+  guarantee (the only fetch is inside the submit handler, never on load),
+  no-PII payload (asserts the properties object, not the safety comment),
+  opt-out paths, terminal fallback, first-run wiring that verifies the hook
+  is actually CALLED from cmd_start (not just defined), and packaging.
+  Light + dark screenshots verified against the dashboard design tokens
+  (bg #FAFAF7, accent #553DE9).
+
+## [7.7.26] - 2026-05-28
+
+PATCH release. UX: "more running in the background, less input required."
+Plus the docs reframe completion.
+
+### Added
+
+- **Live Tool Activity panel in the dashboard.** The council-transcripts
+  component now also fetches Claude hook events
+  (`/api/council/transcripts?type_prefix=claude_hook_`, returned under
+  `hook_events`) and renders them in a "Live Tool Activity" section, so
+  users can watch background tool calls (PreToolUse / PostToolUse / Stop)
+  as a run proceeds without running any extra command. The server already
+  supported the `type_prefix` filter since v7.5.22; this wires the UI to
+  it (the component previously never passed the parameter, so the
+  capability was unreachable from the dashboard). The hook fetch is
+  independent of the transcript fetch, so a hook failure never blanks the
+  transcripts. `tests/test-dashboard-hook-events.sh` (NEW, 3/3 PASS).
+
+### Changed
+
+- **Positioning reframe completed (closes the v7.7.24 docs work).**
+  Removed the remaining "multi-agent autonomous startup system" phrasing
+  from user-facing surfaces: the Docker image `description` label, the
+  bash runner ASCII banner and dashboard HTML subtitle
+  (`autonomy/run.sh`), `docs/INSTALLATION.md` skill description, the demo
+  README / run script / voice-over, and the auto-claude comparison doc.
+  All now lead with "autonomous spec-to-product system (RARV-C closure
+  loop)" and frame providers as provider-agnostic. The multi-reviewer
+  council remains a listed feature, not the headline.
+
+## [7.7.25] - 2026-05-28
+
+PATCH release. Distribution + dashboard fixes found by exercising the
+shipped artifacts exactly as a real user does (npm install, Docker run,
+a full-stack PRD build, clicking through every dashboard panel).
+
+### Fixed
+
+- **`tools/` was not shipping to npm or Docker.** The two benchmark
+  tools added in v7.7.23-v7.7.24 (`bench_memory_retrieval.py`,
+  `bench_cross_project_lift.py`) lived in a top-level `tools/` directory
+  that was absent from `package.json` "files" and from both Dockerfiles'
+  COPY lists, so npm and Docker users got the code fixes but could not
+  run the benches. Added `tools/` to `package.json` "files",
+  `Dockerfile`, and `Dockerfile.sandbox`. (The repo and the source-route
+  CLI were unaffected; only the packaged distributions.)
+- **`POST /api/memory/consolidate` was a stub** that always returned
+  zeros. It now runs the real `ConsolidationPipeline.consolidate`
+  (episodic-to-semantic) and returns true counts
+  (patternsCreated/Merged, episodesProcessed, durationSeconds).
+- **`POST /api/memory/retrieve` was a stub** that always returned
+  `{"results": []}`. It now runs the real
+  `MemoryRetrieval.retrieve_task_aware` against the project's memory
+  store, keyed on a `goal` (with optional `phase`, `task_type`,
+  `top_k`, `token_budget`). Empty goal returns a clean empty result.
+
+### Changed
+
+- npm `package.json` description now leads with autonomous
+  spec-to-product + RARV-C and frames providers as provider-agnostic,
+  matching the v7.7.24 docs positioning.
+
+### Verified (real-user E2E)
+
+- npm `loki-mode@7.7.24` installed from the registry: version, doctor
+  (11/11 checks), status, memory, provider list, and the v7.7.20-24
+  memory subcommands all return real data.
+- Docker `asklokesh/loki-mode:7.7.24` (both Bun and `LOKI_LEGACY_BASH=1`
+  routes): version/doctor/status correct; in-container dashboard serves
+  the real UI and live `/api/*` endpoints.
+- A full-stack PRD ("TaskFlow") built end-to-end via `loki start
+  ./PRD.md`: produced a FastAPI backend + vanilla-JS frontend + tests;
+  the 11 generated tests pass and all 5 PRD acceptance criteria
+  (create/list/patch/422-validation/served-frontend) pass on the live
+  API. Completion council confirmed "all PRD requirements implemented
+  and tests passing".
+- Dashboard: every rendered panel verified against a live endpoint
+  returning real data, including `/api/v2/runs/{id}/timeline` (real, in
+  `dashboard/api_v2.py`).
+
+### Tests
+
+- `tests/test-dashboard-memory-endpoints.sh` (NEW, 4/4 PASS): the two
+  endpoints run the real engine, empty-goal returns clean, and `tools/`
+  is present in both the npm tarball and both Dockerfiles.
+
+## [7.7.24] - 2026-05-28
+
+PATCH release. Cross-project knowledge "lift" proof + the retrieval fix
+that makes cross-project transfer actually work on natural-language
+goals. Eighth release in the v7.7.17-v7.7.24 memory arc; this one is the
+moat proof.
+
+### Fixed
+
+- **`memory/knowledge_graph.py` query_patterns** now scores by TOKEN
+  OVERLAP, not whole-string substring. The prior code only matched when
+  the entire query string was a literal substring of a pattern field, so
+  a natural-language goal like "make the charge endpoint safe to retry"
+  retrieved nothing from a pattern named "idempotency-key-on-charge".
+  Token overlap (with per-field weights preserved and an exact-substring
+  bonus kept for backward compatibility) lets real goals retrieve real
+  patterns. This silently fixes the two live callers that pass
+  multi-word context: `memory/rag_injector.py` and the in-loop pattern
+  injection at `autonomy/run.sh` -- both previously read an effectively
+  inert cross-project graph on any multi-word query.
+
+### Added
+
+- **`tools/bench_cross_project_lift.py` (NEW)**: the memory moat proof.
+  Seeds two sibling source projects (payments-api, auth-service) and one
+  target project, builds the org knowledge graph in two conditions
+  (target-alone vs target+siblings), and reports retrieval-coverage
+  LIFT over the target's task goals. Measured on the bundled fixture:
+  0/6 goals covered by the target alone -> 3/6 covered once sibling
+  patterns are in the graph (+50 pts, all 3 net-new from siblings).
+  Exits non-zero if lift <= 0 (CI-gateable regression guard).
+- **`tests/test-cross-project-lift.sh` (NEW)**: 4/4 PASS. Covers the
+  query token-overlap fix (NL goal retrieves + exact match preserved),
+  positive lift exit code, lift JSON invariants, and the honesty
+  disclaimer presence.
+
+### Honest scope (no fabrication)
+
+- "Lift" here is a RETRIEVAL-COVERAGE metric using a keyword-overlap
+  relevance proxy. It is NOT a task-success metric: it does not claim
+  fewer iterations, lower cost, or higher correctness on downstream
+  work. Measuring task-success lift needs an end-to-end LLM benchmark,
+  which this offline harness deliberately does not attempt.
+- 3 of the 6 fixture goals still MISS (e.g. "store monetary amounts" vs
+  a pattern phrased "decimal money never float"). These are honest
+  vocabulary-mismatch misses that show the ceiling of keyword retrieval;
+  closing them is what the optional embedding layer is for. The bench
+  does not reword goals to inflate the number.
+
+## [7.7.23] - 2026-05-28
+
+PATCH release. Speed bench (excellence bar 7) + privacy opt-out (bar 6)
++ secret-scrub-in-memory. Seventh release in the v7.7.17-v7.7.24 memory
+arc.
+
+### Added
+
+- **`tools/bench_memory_retrieval.py` (NEW, bar 7)**: seeds N synthetic
+  episodes, runs M COLD retrievals (fresh MemoryRetrieval+MemoryStorage
+  per iteration, no warm cache), reports p50/p95/p99, exits 1 if
+  p95 > threshold (default 500ms per bar 7). `--episodes/--runs/
+  --threshold-ms/--json`. Self-cleans its temp dir.
+  **HONEST measured status (council Opus 1 fix -- no fabrication):**
+  p95 ~26ms at 200 episodes, ~72ms at 1k (bar 7 MET), but ~1,648ms at
+  10k episodes (bar 7 NOT MET -- 3.3x over). The bar-7 GOAL names 10k;
+  the file-per-episode cold read does not yet scale there. The tool's
+  docstring + --help state this plainly and the tool reports the real
+  verdict at whatever --episodes you run (default 1000, an honest PASS).
+  Closing the 10k gap needs an index/cache layer -- tracked as a future
+  optimization, NOT claimed as done.
+- **Privacy opt-out (bar 6)**: `.loki/config.json`
+  `{"memory": {"disabled": true}}` now disables BOTH capture (ingest)
+  AND retrieval (load_memory_context). `memory/ingest.py
+  ::_capture_disabled(memory_base)` reads the sibling config; both
+  ingest entry points + the MCP capture tool pass memory_base.
+  `autonomy/loki::load_memory_context` gained a config.json gate after
+  the existing LOKI_SKIP_MEMORY gate. Covers the v7.7.20 cross-project
+  augmentation path (gate is before retrieval).
+- **`tests/test-memory-speed-privacy.sh` (5/5 PASS)**: bench percentile
+  report + JSON; bench exit-code gate (0 under / 1 over threshold);
+  config.json opt-out blocks ingest; load_memory_context opt-out wiring;
+  captured episode scrubs keyword secrets + sk-/ghp_ tokens + sensitive
+  paths.
+
+### Verified
+
+- Council: 2 Opus + 1 Sonnet (see commit for verdicts + any fix cycle).
+- Local-CI: 23/23 PASS.
+
+### Known limitation (stated honestly, not fabricated)
+
+- Bar 7 (p95 < 500ms) is MET at <= ~2k episodes but NOT at the 10k
+  scale the bar names: measured p95 ~1,648ms at 10k. File-based
+  per-episode cold read is the bottleneck. An index/cache layer is the
+  fix; it is a future optimization and explicitly NOT claimed shipped.
+
+### NOT tested
+
+- Bench at 10k in CI (slow + would fail the 500ms gate honestly; run
+  `python3 tools/bench_memory_retrieval.py --episodes 10000` manually).
+- Live retrieval-side opt-out in a real `loki start` session (logic +
+  the bash gate are tested; full session not exercised).
+
+### Privacy fail-closed (council Opus 2 fix)
+
+- `_capture_disabled` + the bash load_memory_context gate FAIL CLOSED
+  on a malformed config.json (suppress capture/retrieval) rather than
+  fail open. A JSON typo on a sensitive project can no longer silently
+  re-enable capture. No-config case still fails open (default behavior).
+
 ## [7.7.22] - 2026-05-28
 
 PATCH release. **`loki memory replay` -- the wow feature.** Wow feature

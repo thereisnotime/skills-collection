@@ -167,30 +167,54 @@ class OrganizationKnowledgeGraph:
             self._graph = json.load(f)
         return self._graph
 
-    def query_patterns(self, query, max_results=10):
-        """Simple keyword search across stored patterns.
+    _STOPWORDS = {
+        'the', 'a', 'an', 'to', 'for', 'of', 'and', 'or', 'with', 'without',
+        'is', 'are', 'be', 'up', 'on', 'in', 'by', 'not', 'make', 'choose',
+        'store', 'how', 'do', 'i', 'we', 'my', 'our', 'this', 'that',
+    }
 
-        Searches across 'name', 'pattern', 'description', and 'category'
-        fields for compatibility with both simple dicts and SemanticPattern
-        schema.
+    @classmethod
+    def _tokenize(cls, text):
+        """Lowercase, split on non-alphanumerics, drop stopwords + 1-2 char tokens."""
+        import re
+        toks = re.split(r'[^a-z0-9]+', str(text or '').lower())
+        return {t for t in toks if len(t) > 2 and t not in cls._STOPWORDS}
+
+    def query_patterns(self, query, max_results=10):
+        """Keyword search across stored patterns.
+
+        Scores by token overlap between the query and each pattern's
+        name/pattern/description/category fields. Token overlap (not
+        whole-string substring) lets natural-language goals like "make
+        the charge endpoint safe to retry" match a pattern named
+        "idempotency-key-on-charge". A full-string substring hit still
+        gets a bonus, preserving prior behavior for exact queries.
+
+        Searches 'name', 'pattern', 'description', and 'category' for
+        compatibility with both simple dicts and the SemanticPattern schema.
         """
         patterns = self.load_patterns(limit=1000)
         query_lower = query.lower()
+        query_tokens = self._tokenize(query)
         scored = []
+        # Per-field weight applied to each overlapping token.
+        fields = (('name', 3), ('pattern', 3), ('category', 2), ('description', 1))
         for p in patterns:
             score = 0
-            name = p.get('name', '').lower()
-            pattern_text = p.get('pattern', '').lower()
-            desc = p.get('description', '').lower()
-            category = p.get('category', '').lower()
-            if query_lower in name:
-                score += 3
-            if query_lower in pattern_text:
-                score += 3
-            if query_lower in desc:
-                score += 1
-            if query_lower in category:
-                score += 2
+            for field, weight in fields:
+                value = p.get(field, '')
+                if not value:
+                    continue
+                # Coerce non-string field values (a hand-edited or
+                # future-schema JSONL row could store a list/int) so we
+                # never crash on .lower() in the live retrieval path.
+                value_lower = str(value).lower()
+                # Whole-query substring bonus (preserves exact-match behavior).
+                if query_lower and query_lower in value_lower:
+                    score += weight
+                # Token-overlap scoring (enables NL-goal retrieval).
+                overlap = query_tokens & self._tokenize(value)
+                score += weight * len(overlap)
             if score > 0:
                 scored.append((score, p))
         scored.sort(key=lambda x: -x[0])

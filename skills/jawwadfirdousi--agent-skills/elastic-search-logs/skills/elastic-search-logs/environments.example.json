@@ -1,0 +1,22 @@
+{
+  "environments": [
+    {
+      "name": "dev",
+      "description": "Development cluster",
+      "url": "https://es-dev.example.com:9243",
+      "index_pattern": "app-logs-*"
+    },
+    {
+      "name": "rc",
+      "description": "Release candidate / staging cluster",
+      "url": "https://es-rc.example.com:9243",
+      "index_pattern": "app-logs-*"
+    },
+    {
+      "name": "prod",
+      "description": "Production cluster",
+      "url": "https://es-prod.example.com:9243",
+      "index_pattern": "app-logs-*"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: "code-reviewer"
-description: Code review automation for TypeScript, JavaScript, Python, Go, Swift, Kotlin, C#, .NET, and Java. Analyzes PRs for complexity and risk, checks code quality for SOLID violations and code smells, generates review reports. Use when reviewing pull requests, analyzing code quality, identifying issues, generating review checklists.
+description: Code review automation for TypeScript, JavaScript, Python, Go, Swift, Kotlin, C#, .NET, Java, C, C++, Rust, Ruby, PHP, and Dart/Flutter. Analyzes PRs for complexity and risk, checks code quality for SOLID violations and code smells, generates review reports. Use when reviewing pull requests, analyzing code quality, identifying issues, generating review checklists.
 ---
 
 # Code Reviewer
@@ -24,6 +24,12 @@ code-reviewer/
     kotlin.md                     ← Kotlin-specific rules + idioms
     csharp.md                     ← C# / .NET-specific rules + idioms
     java.md                       ← Java-specific rules + idioms
+    c.md                          ← C -specific rules + idioms
+    cpp.md                        ← C++ -specific rules + idioms
+    rust.md                       ← Rust -specific rules + idioms
+    ruby.md                       ← Ruby -specific rules + idioms
+    php.md                        ← PHP-specific rules + idioms
+    dart.md                       ← Dart / Flutter-specific rules + idioms
 ```
 
 ### Loading order for every review
@@ -32,7 +38,7 @@ code-reviewer/
 2. `rules/universal.md` — always, for every language
 3. The matching `languages/*.md` — one file based on the extension table below
 
-That's always exactly **2 additional files**, regardless of scope.
+That is always exactly **2 additional files**, regardless of scope.
 
 | Extension(s) | Load |
 |---|---|
@@ -43,6 +49,12 @@ That's always exactly **2 additional files**, regardless of scope.
 | `.kt`, `.kts` | `languages/kotlin.md` |
 | `.cs`, `.csx`, `.razor`, `.cshtml` | `languages/csharp.md` |
 | `.java` | `languages/java.md` |
+| `.c`, `.h` | `languages/c.md` |
+| `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` | `languages/cpp.md` |
+| `.rs` | `languages/rust.md` |
+| `.rb`, `.rake`, `.gemspec`, `.ru` | `languages/ruby.md` |
+| `.php`, `.phtml` | `languages/php.md` |
+| `.dart` | `languages/dart.md` |
 
 ---
 
@@ -70,6 +82,8 @@ python scripts/pr_analyzer.py /path/to/repo --json
 - Lint / analyzer suppression annotations
 - TODO/FIXME comments
 
+**Language-specific detections** are defined in each `languages/*.md` file.
+
 **Output includes:**
 - Complexity score (1-10)
 - Risk categorization (critical, high, medium, low)
@@ -86,7 +100,8 @@ Analyzes source code for structural issues, code smells, and SOLID violations.
 # Analyze a directory
 python scripts/code_quality_checker.py /path/to/code
 
-# Analyze specific language (valid values: python, typescript, javascript, go, swift, kotlin, csharp, java)
+# Analyze specific language
+# Valid values: python, typescript, javascript, go, swift, kotlin, csharp, java, c, cpp, rust, ruby, php, dart
 python scripts/code_quality_checker.py . --language java
 
 # JSON output
@@ -151,7 +166,7 @@ score the new language:
 
 3. Add the extensions to `LANGUAGE_EXTENSIONS` in `scripts/code_quality_checker.py` (this also adds the `--language` choice).
 4. Add `function` / `class` / `method` regex entries for the language in the same file; otherwise it falls back to the Python patterns.
-5. Optionally add a `check_<name>_specific_smells(...)` detector (see the C# and Java ones) and call it from `analyze_file`.
+5. Optionally add a `check_<name>_specific_smells(...)` detector (see the C#, Java, and C ones) and call it from `analyze_file`.
 6. Add `assets/sample_<name>_smells.<ext>` + `_clean` fixtures and commit the expected `--json` output under `expected_outputs/` as a regression guard.
 
 ---
@@ -159,7 +174,7 @@ score the new language:
 ## Regression Fixtures
 
 Labelled fixtures live in `assets/` with their committed `--json` output in
-`expected_outputs/` (C# and Java). Drift from the committed JSON signals a
+`expected_outputs/` (C#, Java, and C). Drift from the committed JSON signals a
 behaviour change in the analyzer:
 
 ```bash

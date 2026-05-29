@@ -1,0 +1,3 @@
+interface:
+  display_name: "German Elster Tax Filing"
+  short_description: "Complete intake, tax estimate, and exact ELSTER field mapping for german personal tax returns from 2024 onward"

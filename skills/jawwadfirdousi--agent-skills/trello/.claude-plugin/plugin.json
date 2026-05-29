@@ -1,0 +1,17 @@
+{
+  "name": "trello",
+  "description": "Manage Trello boards, lists, and cards via the Trello REST API.",
+  "version": "0.1.1",
+  "author": {
+    "name": "jawwadfirdousi"
+  },
+  "homepage": "https://github.com/jawwadfirdousi/agent-skills",
+  "repository": "https://github.com/jawwadfirdousi/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "trello",
+    "boards",
+    "cards",
+    "productivity"
+  ]
+}

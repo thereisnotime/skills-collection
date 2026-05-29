@@ -1,0 +1,17 @@
+{
+  "name": "german-elster-tax-filing",
+  "description": "Gather all required details to prepare a German ELSTER personal income tax return.",
+  "version": "0.1.1",
+  "author": {
+    "name": "jawwadfirdousi"
+  },
+  "homepage": "https://github.com/jawwadfirdousi/agent-skills",
+  "repository": "https://github.com/jawwadfirdousi/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "tax",
+    "elster",
+    "germany",
+    "filing"
+  ]
+}

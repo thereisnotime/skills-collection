@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Kong A1 (#256): Schema 11 R&R Traceability Matrix gains `commitment_extracted` / `fulfillment_status` / `unfulfilled_rationale` optional fields. `revision_coach_agent` Step 3.5 extracts commitments; `re_review_mode_protocol` step 5 verifies + surfaces `COMMITMENT_GAP` advisory. Worked example at `academic-paper/examples/commitment_ledger_example.md`. Calibration seed at `evals/calibration/commitment_ledger_seed.yaml` (10 cases). Advisory only — author retains final responsibility. Closes Kong et al. 2026 §7.4.3 commitment-fulfillment gap.
+
 **Bug fixes (no version bump — corrects a broken-on-arrival behavior from #190):**
 
 - **#195 — `/ars-mark-read` crashed on real YAML passports.** `scripts/ars_mark_read.py:_load_corpus_keys` used `json.load()` to read the Material Passport, but every adapter (folder_scan / zotero / obsidian) and every other ARS tool produces / consumes `passport.yaml`. The existing 11-test fixture in `scripts/test_ars_mark_read.py` wrote JSON-formatted passports, so the suite was green while real-world `/ars-mark-read smith2024 --passport-path ./passport.yaml` exited with `json.JSONDecodeError` before reaching citation-key validation. Two new TDD tests pin the adapter-format expectation (YAML happy path + YAML invalid-key hard error); `_write_passport` helper switched to `yaml.safe_dump`. Companion P2 also closed: existing-but-unwritable read-log file now surfaces the canonical `[ARS-MARK-READ ERROR: ...]` fail-fast rather than a bare `PermissionError` traceback, via an extra `os.access(log_path, os.W_OK)` check after the parent-W_OK gate. 14 ars_mark_read tests pass (was 11), full suite 1623 / 3 skipped. Surfaced by post-squash codex review of PR #191 (issue #192).

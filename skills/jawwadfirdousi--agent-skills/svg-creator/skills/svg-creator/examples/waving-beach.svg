@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" role="img" aria-labelledby="waving-beach-title">
+  <title id="waving-beach-title">Waving beach scene</title>
+  <desc id="waving-beach-desc">Sun, sea with a gently undulating wave, and a sandy shoreline.</desc>
+  <rect width="120" height="80" fill="#bae6fd"/>
+  <circle cx="98" cy="18" r="10" fill="#fbbf24"/>
+  <path fill="#3b82f6" d="M0 50 Q 15 46 30 50 Q 45 54 60 50 Q 75 46 90 50 Q 105 54 120 50 L 120 65 L 0 65 Z">
+    <animate attributeName="d" dur="3.5s" repeatCount="indefinite"
+             values="M0 50 Q 15 46 30 50 Q 45 54 60 50 Q 75 46 90 50 Q 105 54 120 50 L 120 65 L 0 65 Z;
+                     M0 50 Q 15 54 30 50 Q 45 46 60 50 Q 75 54 90 50 Q 105 46 120 50 L 120 65 L 0 65 Z;
+                     M0 50 Q 15 46 30 50 Q 45 54 60 50 Q 75 46 90 50 Q 105 54 120 50 L 120 65 L 0 65 Z"/>
+  </path>
+  <path d="M0 65 Q 60 62 120 65 L 120 80 L 0 80 Z" fill="#fde68a"/>
+  <path d="M0 65 Q 60 62 120 65" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

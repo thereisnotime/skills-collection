@@ -1,0 +1,17 @@
+{
+  "name": "prompt-template-wizard",
+  "description": "Collect and validate all required fields for a complete implementation prompt template.",
+  "version": "0.1.1",
+  "author": {
+    "name": "jawwadfirdousi"
+  },
+  "homepage": "https://github.com/jawwadfirdousi/agent-skills",
+  "repository": "https://github.com/jawwadfirdousi/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "prompt",
+    "template",
+    "workflow",
+    "spec"
+  ]
+}

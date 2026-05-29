@@ -299,6 +299,30 @@ load_memory_context() {
         return 0
     fi
 
+    # v7.7.23 privacy opt-out (excellence bar 6): honor a per-project
+    # .loki/config.json {"memory": {"disabled": true}} flag. Lets a user
+    # disable ALL memory capture/retrieval for a sensitive project without
+    # setting an env var on every invocation.
+    if [ -f "$LOKI_DIR/config.json" ]; then
+        # v7.7.23 council fix (Opus 2): FAIL-CLOSED. A config.json that
+        # exists but cannot be parsed prints 'true' (suppress memory) so
+        # a JSON typo on a sensitive project does not silently re-enable
+        # retrieval. Only the no-config case (outer -f guard false)
+        # proceeds with memory on.
+        local _mem_disabled
+        _mem_disabled=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$LOKI_DIR/config.json'))
+    print('true' if d.get('memory', {}).get('disabled') is True else 'false')
+except Exception:
+    print('true')  # malformed config -> fail closed (suppress memory)
+" 2>/dev/null || echo "true")
+        if [ "$_mem_disabled" = "true" ]; then
+            return 0
+        fi
+    fi
+
     # Check if python3 is available (required for memory system)
     if ! command -v python3 &> /dev/null; then
         echo -e "${YELLOW}Warning: python3 not found - memory context loading disabled${NC}" >&2
@@ -676,6 +700,10 @@ detect_arg_type() {
 
 # Start Loki Mode
 cmd_start() {
+    # First-run welcome (once): open the branded welcome page on the very
+    # first start. Writes ~/.loki/.welcomed and never repeats; non-blocking,
+    # and never auto-opens a browser in CI or non-interactive shells.
+    cmd_welcome_maybe_firstrun 2>/dev/null || true
     local args=()
     local prd_file=""
     local provider=""
@@ -1565,12 +1593,19 @@ cmd_start() {
         exit 1
     fi
 
-    # --api flag: start the dashboard API server in background before the build
+    # --api flag: start the dashboard API server before the build.
+    # cmd_dashboard_start already daemonizes the server (nohup ... &) and runs
+    # its own readiness probe, so run it in a contained SUBSHELL (not a
+    # double-background) and surface the outcome. The old
+    # `cmd_dashboard_start 2>/dev/null &` swallowed all output AND double-
+    # backgrounded the already-daemonized server, so a port-in-use or startup
+    # failure was invisible and the user got no dashboard and no error. The
+    # subshell also contains cmd_dashboard_start's internal `exit 1` so a
+    # dashboard failure can never abort the build.
     if [ "${LOKI_START_API:-false}" = "true" ]; then
         local dash_port="${LOKI_DASHBOARD_PORT:-57374}"
         echo -e "${GREEN}Starting dashboard API on port $dash_port...${NC}"
-        cmd_dashboard_start 2>/dev/null &
-        sleep 2
+        ( cmd_dashboard_start ) || echo -e "${YELLOW}Dashboard API did not start (see message above); continuing the build without it.${NC}"
     fi
 
     # Phase F (v7.5.23): cross-project context discovery. Walks ONE parent
@@ -1746,21 +1781,32 @@ _stop_session_by_id() {
 # With session_id: stops only that specific session
 cmd_stop() {
     local target_session=""
+    local stop_all=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --help|-h)
-                echo -e "${BOLD}loki stop${NC} - Stop running sessions (v6.4.0)"
+                echo -e "${BOLD}loki stop${NC} - Stop running sessions (v7.7.30)"
                 echo ""
-                echo "Usage: loki stop [session-id]"
+                echo "Usage: loki stop [session-id] [--all]"
                 echo ""
-                echo "  loki stop          Stop all running sessions"
-                echo "  loki stop 52       Stop only session #52"
-                echo "  loki stop 54       Stop only session #54"
+                echo "  loki stop          Stop ONLY the current folder's session."
+                echo "                     Other folders keep running. Marks this"
+                echo "                     project stopped in the dashboard registry."
+                echo "  loki stop 52       Stop only session #52 in this folder."
+                echo "  loki stop --all    Stop EVERY loki runner on this machine"
+                echo "                     (legacy machine-wide behavior)."
                 echo ""
-                echo "Use 'loki status' to see all running sessions."
+                echo "The shared dashboard stays up if other projects are still"
+                echo "running; it is stopped only when no project remains (or --all)."
+                echo ""
+                echo "Use 'loki status' to see this folder's sessions."
                 exit 0
+                ;;
+            --all)
+                stop_all=true
+                shift
                 ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}"
@@ -1841,11 +1887,6 @@ cmd_stop() {
             fi
         done
 
-        # Also kill any orphaned loki-run temp scripts (SIGTERM then SIGKILL)
-        pkill -f "loki-run-" 2>/dev/null || true
-        sleep 0.5
-        pkill -9 -f "loki-run-" 2>/dev/null || true
-
         # Mark session.json as stopped (skill-invoked sessions)
         # BUG-ST-008: Atomic session.json update via temp file + mv (matches run.sh)
         if [ -f "$LOKI_DIR/session.json" ]; then
@@ -1865,20 +1906,80 @@ except (json.JSONDecodeError, OSError): pass
 " 2>/dev/null || true
         fi
 
+        # v7.7.30: mark THIS project stopped in the shared dashboard registry
+        # so the multi-project switcher reflects it. Best-effort, never fatal.
+        # Honors LOKI_SKIP_PROJECT_REGISTRY (matches run.sh registration).
+        if [ -z "${LOKI_SKIP_PROJECT_REGISTRY:-}" ] && command -v python3 >/dev/null 2>&1; then
+            LOKI_REG_TARGET="$(pwd)" LOKI_REG_SKILL="${SKILL_DIR:-$PROJECT_DIR}" \
+            python3 - <<'PYSTOP' >/dev/null 2>&1 || true
+import os, sys
+sys.path.insert(0, os.environ.get("LOKI_REG_SKILL", "."))
+try:
+    from dashboard import registry
+    registry.mark_project_stopped(os.path.abspath(os.environ["LOKI_REG_TARGET"]))
+except Exception:
+    pass
+PYSTOP
+        fi
+
         # Clean up control files
         rm -f "$LOKI_DIR/STOP" "$LOKI_DIR/PAUSE" "$LOKI_DIR/PAUSED.md" 2>/dev/null
 
-        # Kill dashboard if running
-        if [ -f "$LOKI_DIR/dashboard/dashboard.pid" ]; then
-            local dash_pid
-            dash_pid=$(cat "$LOKI_DIR/dashboard/dashboard.pid" 2>/dev/null)
-            if [ -n "$dash_pid" ] && kill -0 "$dash_pid" 2>/dev/null; then
-                kill "$dash_pid" 2>/dev/null || true
-                sleep 0.5
-                kill -9 "$dash_pid" 2>/dev/null || true
-            fi
-            rm -f "$LOKI_DIR/dashboard/dashboard.pid"
+        # Kill dashboard if running.
+        # v7.7.30: the project-local dashboard (.loki/dashboard) belongs solely
+        # to this folder and is ALWAYS killed. The shared standalone dashboard
+        # (~/.loki/dashboard) is killed ONLY when no OTHER registered project is
+        # still running, so we never tear down a dashboard other folders need.
+        # For --all, the shared dashboard is always killed (tear everything down).
+        local _kill_shared_dash=false
+        if [ "$stop_all" = true ]; then
+            _kill_shared_dash=true
+        elif command -v python3 >/dev/null 2>&1; then
+            # Query the registry (after mark_project_stopped excluded this
+            # project) for any OTHER project whose pid is still alive.
+            local _dash_decision
+            _dash_decision=$(LOKI_REG_SKILL="${SKILL_DIR:-$PROJECT_DIR}" \
+                python3 - <<'PYDASH' 2>/dev/null || true
+import os, sys
+sys.path.insert(0, os.environ.get("LOKI_REG_SKILL", "."))
+try:
+    from dashboard import registry
+    alive = 0
+    for p in registry.list_projects(include_inactive=True):
+        pid = p.get("pid")
+        if isinstance(pid, int) and pid > 0:
+            try:
+                os.kill(pid, 0)
+                alive += 1
+            except OSError:
+                pass
+    print("CLEAR" if alive == 0 else "KEEP")
+except Exception:
+    print("CLEAR")
+PYDASH
+            )
+            [ "$_dash_decision" = "CLEAR" ] && _kill_shared_dash=true
+        else
+            # python3 unavailable: fall back to legacy behavior (kill shared)
+            # to avoid leaking the shared dashboard on minimal systems.
+            _kill_shared_dash=true
         fi
+
+        local _dash_pidf
+        local _dash_targets=("$LOKI_DIR/dashboard/dashboard.pid")
+        [ "$_kill_shared_dash" = true ] && _dash_targets+=("${HOME}/.loki/dashboard/dashboard.pid")
+        for _dash_pidf in "${_dash_targets[@]}"; do
+            if [ -f "$_dash_pidf" ]; then
+                local dash_pid
+                dash_pid=$(cat "$_dash_pidf" 2>/dev/null)
+                if [ -n "$dash_pid" ] && kill -0 "$dash_pid" 2>/dev/null; then
+                    kill "$dash_pid" 2>/dev/null || true
+                    sleep 0.5
+                    kill -9 "$dash_pid" 2>/dev/null || true
+                fi
+                rm -f "$_dash_pidf"
+            fi
+        done
 
         # Kill any remaining registered processes (2s graceful window matches run.sh)
         if [ -d "$LOKI_DIR/pids" ]; then
@@ -1925,6 +2026,16 @@ except (json.JSONDecodeError, OSError): pass
         else
             echo "Start a session with: loki start"
         fi
+    fi
+
+    # v7.7.30: --all preserves the legacy machine-wide kill. It runs even when
+    # the current folder has no live session (the "clean everything" use case),
+    # reaping every folder's orphaned loki-run-* temp script (SIGTERM, SIGKILL).
+    if [ "$stop_all" = true ]; then
+        pkill -f "loki-run-" 2>/dev/null || true
+        sleep 0.5
+        pkill -9 -f "loki-run-" 2>/dev/null || true
+        echo -e "${RED}--all: signalled all loki-run-* processes on this machine.${NC}"
     fi
 }
 
@@ -2508,15 +2619,33 @@ if os.path.isfile(session_file):
 else:
     result['elapsed_time'] = 0
 
-# Dashboard URL
-dashboard_pid_file = os.path.join(loki_dir, 'dashboard', 'dashboard.pid')
+# Dashboard URL. Check both the project-local in-build dashboard and the
+# standalone dashboard (~/.loki/dashboard) and honor saved scheme/host/port
+# side-files, so --json reports the right URL regardless of which started it.
+_dash_candidates = [
+    os.path.join(loki_dir, 'dashboard', 'dashboard.pid'),
+    os.path.expanduser(os.path.join('~', '.loki', 'dashboard', 'dashboard.pid')),
+]
+dashboard_pid_file = next((p for p in _dash_candidates if os.path.isfile(p)), _dash_candidates[0])
 dashboard_url = None
 if os.path.isfile(dashboard_pid_file):
     try:
         with open(dashboard_pid_file) as f:
             dpid = int(f.read().strip())
         os.kill(dpid, 0)
-        dashboard_url = 'http://127.0.0.1:' + dashboard_port + '/'
+        _dd = os.path.dirname(dashboard_pid_file)
+        def _side(name, default):
+            p = os.path.join(_dd, name)
+            try:
+                return open(p).read().strip() if os.path.isfile(p) else default
+            except OSError:
+                return default
+        _scheme = _side('scheme', 'http')
+        _host = _side('host', '127.0.0.1')
+        _port = _side('port', str(dashboard_port))
+        if _host == '0.0.0.0':
+            _host = '127.0.0.1'
+        dashboard_url = _scheme + '://' + _host + ':' + _port + '/'
     except (ProcessLookupError, PermissionError, ValueError, Exception):
         pass
 result['dashboard_url'] = dashboard_url
@@ -3268,11 +3397,24 @@ cmd_provider_models() {
     done
 }
 
-# Dashboard server management - project-local, unified with run.sh
-DASHBOARD_PID_DIR="${LOKI_DIR}/dashboard"
+# Standalone dashboard server management (`loki dashboard`).
+# State lives at a FIXED, machine-global ~/.loki/dashboard so that
+# stop|status|open find the running server from ANY working directory.
+# (The relative ${LOKI_DIR}/dashboard path made these commands silently
+# fail from a different cwd than `start`, orphaning the server.) The
+# separate in-build dashboard started by run.sh during `loki start` stays
+# project-local and is unaffected by this constant.
+DASHBOARD_PID_DIR="${HOME}/.loki/dashboard"
 DASHBOARD_PID_FILE="${DASHBOARD_PID_DIR}/dashboard.pid"
 DASHBOARD_DEFAULT_PORT=57374
-DASHBOARD_DEFAULT_HOST="127.0.0.1"
+# Default bind host: 0.0.0.0 inside a container (so a -p port map reaches
+# the server; 127.0.0.1 would be unreachable from the host), else loopback
+# for host safety. Detect Docker via /.dockerenv or LOKI_SANDBOX_MODE.
+if [ -f /.dockerenv ] || [ "${LOKI_SANDBOX_MODE:-}" = "true" ] || [ -n "${LOKI_IN_CONTAINER:-}" ]; then
+    DASHBOARD_DEFAULT_HOST="0.0.0.0"
+else
+    DASHBOARD_DEFAULT_HOST="127.0.0.1"
+fi
 
 cmd_dashboard() {
     local subcommand="${1:-}"
@@ -3518,12 +3660,19 @@ cmd_dashboard_start() {
     echo "$host" > "${DASHBOARD_PID_DIR}/host"
     echo "$url_scheme" > "${DASHBOARD_PID_DIR}/scheme"
 
-    # Wait for dashboard HTTP endpoint to become ready (up to 10 seconds)
+    # Wait for the dashboard to become ready (up to 10 seconds). Probe the
+    # UNAUTHENTICATED /health endpoint over the ACTUAL scheme: /api/status
+    # 401s under LOKI_ENTERPRISE_AUTH, and the scheme is https when TLS is on,
+    # so the old hardcoded http://.../api/status probe always failed against a
+    # healthy TLS or auth-enabled server. Use a loopback-reachable host when
+    # bound to 0.0.0.0, and -k to tolerate self-signed certs.
+    local health_host="$host"; [ "$health_host" = "0.0.0.0" ] && health_host="127.0.0.1"
+    local health_curl_opts="-sf"; [ "$url_scheme" = "https" ] && health_curl_opts="-sfk"
     local health_retries=20
     local health_interval=0.5
     local health_ok=false
     while [[ $health_retries -gt 0 ]]; do
-        if curl -sf "http://${host}:${port}/api/status" >/dev/null 2>&1; then
+        if curl $health_curl_opts "${url_scheme}://${health_host}:${port}/health" >/dev/null 2>&1; then
             health_ok=true
             break
         fi
@@ -3810,6 +3959,94 @@ cmd_dashboard_open() {
         echo ""
         echo "Could not detect browser opener."
         echo "Please open in browser: $url"
+    fi
+}
+
+# Welcome opener (the "magic opener"). Shows a branded welcome page in the
+# browser, or a terminal welcome when no browser is available (headless,
+# Docker, CI). Honors telemetry opt-out (LOKI_TELEMETRY_DISABLED / DO_NOT_TRACK):
+# when opted out, the page is loaded with ?telemetry=off so its form is
+# disabled and no analytics are ever sent.
+WELCOME_MARKER="${HOME}/.loki/.welcomed"
+
+_loki_telemetry_off() {
+    [ "${LOKI_TELEMETRY_DISABLED:-}" = "true" ] && return 0
+    [ "${DO_NOT_TRACK:-}" = "1" ] && return 0
+    return 1
+}
+
+cmd_welcome_terminal() {
+    local ver="${1:-}"
+    echo ""
+    echo -e "  ${BOLD}Loki Mode${NC} ${DIM}by Autonomi${NC}${ver:+  ${DIM}v${ver}${NC}}"
+    echo ""
+    echo -e "  ${BOLD}Describe it. Walk away. Get working, tested software.${NC}"
+    echo ""
+    echo -e "  Loki takes a spec (PRD, GitHub issue, or one-line brief) to a deployed"
+    echo -e "  product via the RARV-C closure loop, until the work is actually done."
+    echo ""
+    echo -e "  ${CYAN}Closure loop + council${NC}   Every change is verified by a unanimous council."
+    echo -e "  ${CYAN}Cross-project memory${NC}     Lessons compound, so agents stop repeating mistakes."
+    echo -e "  ${CYAN}Provider-agnostic${NC}        Claude, Codex, Cline, or Aider. Your keys, your infra."
+    echo ""
+    echo -e "  Quick start:  ${BOLD}loki start ./prd.md${NC}"
+    echo -e "  Docs:         ${BOLD}https://www.autonomi.dev/docs${NC}"
+    echo ""
+    if _loki_telemetry_off; then
+        echo -e "  ${DIM}Analytics are off for this session. Nothing is sent.${NC}"
+    else
+        echo -e "  ${DIM}Anonymous usage analytics help us improve the product. We never${NC}"
+        echo -e "  ${DIM}collect prompts, PRDs, or code. Opt out: LOKI_TELEMETRY_DISABLED=true${NC}"
+    fi
+    echo ""
+}
+
+cmd_welcome() {
+    local ver=""
+    [ -f "${SKILL_DIR}/VERSION" ] && ver="$(cat "${SKILL_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]')"
+
+    local welcome_file="${SKILL_DIR}/assets/welcome/welcome.html"
+
+    # Build the file URL with params: version, opt-out, and the existing
+    # anonymous telemetry distinct-id (so browser + install share one id).
+    local q="v=${ver}"
+    if _loki_telemetry_off; then
+        q="${q}&telemetry=off"
+    else
+        local idfile="${HOME}/.loki-telemetry-id"
+        [ -f "$idfile" ] && q="${q}&did=$(cat "$idfile" 2>/dev/null | tr -d '[:space:]')"
+    fi
+
+    # Headless / Docker / CI / no-browser: print the terminal welcome only.
+    local has_browser=""
+    if command -v open >/dev/null 2>&1; then has_browser="open"
+    elif command -v xdg-open >/dev/null 2>&1; then has_browser="xdg-open"
+    elif command -v start >/dev/null 2>&1; then has_browser="start"
+    fi
+
+    if [ -z "$has_browser" ] || [ ! -f "$welcome_file" ] || [ -n "${CI:-}" ] || [ ! -t 1 ]; then
+        cmd_welcome_terminal "$ver"
+        [ -f "$welcome_file" ] && echo -e "  ${DIM}Full welcome page: ${welcome_file}${NC}" && echo ""
+        return 0
+    fi
+
+    echo -e "${GREEN}Opening the Loki Mode welcome page in your browser...${NC}"
+    "$has_browser" "file://${welcome_file}?${q}" >/dev/null 2>&1 || cmd_welcome_terminal "$ver"
+}
+
+# First-run hook: open the welcome once, then never again. Browser only when
+# interactive + not CI + not opted out; otherwise nothing (no noisy auto-print
+# during a real run). Marker lives at ~/.loki/.welcomed.
+cmd_welcome_maybe_firstrun() {
+    [ -f "$WELCOME_MARKER" ] && return 0
+    mkdir -p "$(dirname "$WELCOME_MARKER")" 2>/dev/null || true
+    : > "$WELCOME_MARKER" 2>/dev/null || true
+    # Only auto-open on an interactive, non-CI terminal. cmd_welcome itself
+    # re-checks for a browser and falls back to the terminal welcome, so we
+    # gate purely on interactivity + CI here (grouped to avoid &&/|| precedence
+    # ambiguity). Backgrounded so it never delays the start.
+    if [ -t 1 ] && [ -z "${CI:-}" ]; then
+        (cmd_welcome >/dev/null 2>&1 &) || true
     fi
 }
 
@@ -7686,11 +7923,37 @@ cmd_logs() {
     fi
 }
 
-# API server management (delegates to unified FastAPI dashboard server)
+# API server management (delegates to unified FastAPI dashboard server).
+# Shares the SAME machine-global PID/control dir as `loki dashboard`
+# ($DASHBOARD_PID_DIR = ~/.loki/dashboard) so the two commands never fight
+# over the port and so stop/status/open are consistent across both. Parses
+# --host/--port, guards a busy port, computes the TLS scheme, and persists
+# host/port/scheme side-files like cmd_dashboard_start does.
 cmd_api() {
     local subcommand="${1:-help}"
-    local port="${LOKI_DASHBOARD_PORT:-57374}"
-    local pid_file="$LOKI_DIR/dashboard/dashboard.pid"
+    shift || true
+    local port="${LOKI_DASHBOARD_PORT:-$DASHBOARD_DEFAULT_PORT}"
+    local host="${LOKI_DASHBOARD_HOST:-$DASHBOARD_DEFAULT_HOST}"
+    local pid_file="$DASHBOARD_PID_FILE"
+
+    # Parse --host/--port (the old code ignored them, so `loki serve --port X`
+    # silently bound 57374 and `--host 0.0.0.0` was dropped).
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --port) port="${2:-$port}"; shift 2 ;;
+            --port=*) port="${1#*=}"; shift ;;
+            --host) host="${2:-$host}"; shift 2 ;;
+            --host=*) host="${1#*=}"; shift ;;
+            *) shift ;;
+        esac
+    done
+
+    local scheme="http"
+    if [ -n "${LOKI_TLS_CERT:-}" ] && [ -n "${LOKI_TLS_KEY:-}" ]; then
+        scheme="https"
+    fi
+    # Loopback-reachable host for printed URLs when bound to 0.0.0.0.
+    local url_host="$host"; [ "$url_host" = "0.0.0.0" ] && url_host="127.0.0.1"
 
     case "$subcommand" in
         start)
@@ -7702,12 +7965,20 @@ cmd_api() {
 
             # Check if already running
             if [ -f "$pid_file" ]; then
-                local existing_pid=$(cat "$pid_file")
-                if kill -0 "$existing_pid" 2>/dev/null; then
+                local existing_pid=$(cat "$pid_file" 2>/dev/null)
+                if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
                     echo -e "${YELLOW}Dashboard server already running (PID: $existing_pid)${NC}"
-                    echo "URL: http://localhost:$port"
+                    echo "URL: ${scheme}://${url_host}:$port"
                     exit 0
                 fi
+                rm -f "$pid_file"
+            fi
+
+            # Refuse a busy port instead of writing a bogus PID.
+            if command -v lsof &> /dev/null && lsof -i ":$port" &> /dev/null; then
+                echo -e "${RED}Error: Port $port is already in use${NC}"
+                echo "Stop the other server or set LOKI_DASHBOARD_PORT / --port to a free port."
+                exit 1
             fi
 
             # Ensure dashboard Python dependencies
@@ -7717,20 +7988,24 @@ cmd_api() {
             fi
             local api_python="$DASHBOARD_PYTHON"
 
-            # Start server
-            mkdir -p "$LOKI_DIR/logs" "$LOKI_DIR/dashboard"
-            local host="${LOKI_DASHBOARD_HOST:-127.0.0.1}"
+            # Start server. Persist host/port/scheme so status/open are accurate.
+            mkdir -p "$LOKI_DIR/logs" "$DASHBOARD_PID_DIR"
             local uvicorn_args=("--host" "$host" "--port" "$port")
-            if [ -n "${LOKI_TLS_CERT:-}" ] && [ -n "${LOKI_TLS_KEY:-}" ]; then
+            if [ "$scheme" = "https" ]; then
                 uvicorn_args+=("--ssl-certfile" "${LOKI_TLS_CERT}" "--ssl-keyfile" "${LOKI_TLS_KEY}")
             fi
-            LOKI_DIR="$LOKI_DIR" PYTHONPATH="$SKILL_DIR" nohup "$api_python" -m uvicorn dashboard.server:app "${uvicorn_args[@]}" > "$LOKI_DIR/logs/api.log" 2>&1 &
+            LOKI_DIR="$LOKI_DIR" LOKI_SKILL_DIR="$SKILL_DIR" PYTHONPATH="$SKILL_DIR" \
+                LOKI_DASHBOARD_HOST="$host" LOKI_DASHBOARD_PORT="$port" \
+                nohup "$api_python" -m uvicorn dashboard.server:app "${uvicorn_args[@]}" > "$LOKI_DIR/logs/api.log" 2>&1 &
             local new_pid=$!
             echo "$new_pid" > "$pid_file"
+            echo "$port" > "${DASHBOARD_PID_DIR}/port"
+            echo "$host" > "${DASHBOARD_PID_DIR}/host"
+            echo "$scheme" > "${DASHBOARD_PID_DIR}/scheme"
 
             echo -e "${GREEN}Dashboard server started${NC}"
             echo "  PID:  $new_pid"
-            echo "  URL:  http://localhost:$port"
+            echo "  URL:  ${scheme}://${url_host}:$port"
             echo "  Logs: $LOKI_DIR/logs/api.log"
             ;;
 
@@ -7754,15 +8029,22 @@ cmd_api() {
             if [ -f "$pid_file" ]; then
                 local pid=$(cat "$pid_file")
                 if kill -0 "$pid" 2>/dev/null; then
+                    # Prefer persisted side-files for the real bind.
+                    local s_scheme="$scheme" s_host="$url_host" s_port="$port"
+                    [ -f "${DASHBOARD_PID_DIR}/scheme" ] && s_scheme="$(cat "${DASHBOARD_PID_DIR}/scheme" 2>/dev/null)"
+                    [ -f "${DASHBOARD_PID_DIR}/host" ] && s_host="$(cat "${DASHBOARD_PID_DIR}/host" 2>/dev/null)"
+                    [ -f "${DASHBOARD_PID_DIR}/port" ] && s_port="$(cat "${DASHBOARD_PID_DIR}/port" 2>/dev/null)"
+                    [ "$s_host" = "0.0.0.0" ] && s_host="127.0.0.1"
                     echo -e "${GREEN}Dashboard server running${NC}"
                     echo "  PID:  $pid"
-                    echo "  URL:  http://localhost:$port"
+                    echo "  URL:  ${s_scheme}://${s_host}:${s_port}"
 
-                    # Try to fetch status
+                    # Try to fetch status (best-effort; may 401 under auth)
                     if command -v curl &> /dev/null; then
                         echo ""
                         echo -e "${CYAN}Status:${NC}"
-                        curl -s "http://localhost:$port/api/status" 2>/dev/null | jq . 2>/dev/null || true
+                        local _k=""; [ "$s_scheme" = "https" ] && _k="-k"
+                        curl -s $_k "${s_scheme}://${s_host}:${s_port}/api/status" 2>/dev/null | jq . 2>/dev/null || true
                     fi
                 else
                     echo -e "${YELLOW}Dashboard server not running (stale PID file)${NC}"
@@ -12480,6 +12762,9 @@ main() {
             ;;
         demo)
             cmd_demo "$@"
+            ;;
+        welcome)
+            cmd_welcome "$@"
             ;;
         init)
             cmd_init "$@"

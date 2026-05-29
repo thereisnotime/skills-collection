@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="star-title star-desc">
+  <title id="star-title">Animated golden star</title>
+  <desc id="star-desc">A five-point golden star that shimmers softly with twinkling sparkle accents</desc>
+
+  <defs>
+    <radialGradient id="star-fill" cx="35%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#FFF6C2"/>
+      <stop offset="40%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </radialGradient>
+    <radialGradient id="glow-fill" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FCD34D" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#FCD34D" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#FCD34D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="32" cy="32" r="28" fill="url(#glow-fill)">
+    <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <g transform="translate(32 32)">
+    <g>
+      <animateTransform attributeName="transform" type="scale"
+                        values="1;1.05;1"
+                        dur="3s"
+                        repeatCount="indefinite"
+                        calcMode="spline"
+                        keyTimes="0;0.5;1"
+                        keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <path d="M 0,-22 L 5.29,-7.28 L 20.92,-6.8 L 8.56,2.78 L 12.93,17.8 L 0,9 L -12.93,17.8 L -8.56,2.78 L -20.92,-6.8 L -5.29,-7.28 Z"
+            fill="url(#star-fill)"
+            stroke="#92400E"
+            stroke-width="0.5"
+            stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <g transform="translate(54 12)">
+    <path d="M 0,-3 L 0.7,-0.7 L 3,0 L 0.7,0.7 L 0,3 L -0.7,0.7 L -3,0 L -0.7,-0.7 Z" fill="#FFF8C8">
+      <animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite" begin="0s"/>
+      <animateTransform attributeName="transform" type="scale"
+                        values="0.3;1;0.3"
+                        dur="2.4s"
+                        repeatCount="indefinite"
+                        begin="0s"/>
+    </path>
+  </g>
+
+  <g transform="translate(10 51)">
+    <path d="M 0,-2.5 L 0.6,-0.6 L 2.5,0 L 0.6,0.6 L 0,2.5 L -0.6,0.6 L -2.5,0 L -0.6,-0.6 Z" fill="#FFF8C8">
+      <animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite" begin="0.8s"/>
+      <animateTransform attributeName="transform" type="scale"
+                        values="0.3;1;0.3"
+                        dur="2.4s"
+                        repeatCount="indefinite"
+                        begin="0.8s"/>
+    </path>
+  </g>
+
+  <g transform="translate(13 13)">
+    <path d="M 0,-2 L 0.5,-0.5 L 2,0 L 0.5,0.5 L 0,2 L -0.5,0.5 L -2,0 L -0.5,-0.5 Z" fill="#FFF8C8">
+      <animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite" begin="1.6s"/>
+      <animateTransform attributeName="transform" type="scale"
+                        values="0.3;1;0.3"
+                        dur="2.4s"
+                        repeatCount="indefinite"
+                        begin="1.6s"/>
+    </path>
+  </g>
+</svg>

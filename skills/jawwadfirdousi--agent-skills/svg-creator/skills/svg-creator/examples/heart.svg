@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-labelledby="heart-title heart-desc">
+  <title id="heart-title">Animated heart icon</title>
+  <desc id="heart-desc">A warm red heart gently pulsing in place.</desc>
+  <defs>
+    <linearGradient id="heart-fill" x1="6" y1="5" x2="18" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FB7185"/>
+      <stop offset="1" stop-color="#E11D48"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(12 12)">
+    <g>
+      <animateTransform
+        attributeName="transform"
+        type="scale"
+        values="1;1.14;0.99;1.08;1"
+        keyTimes="0;.18;.34;.5;1"
+        dur="1.15s"
+        calcMode="spline"
+        keySplines=".4 0 .2 1;.4 0 .2 1;.4 0 .2 1;.4 0 .2 1"
+        repeatCount="indefinite"/>
+      <path transform="translate(-12 -12)" fill="url(#heart-fill)" d="M12 20.4C11.6 20 5.1 14.4 4 10.3C3.2 7 5.3 4.3 8.3 4.3C10 4.3 11.2 5.2 12 6.4C12.8 5.2 14 4.3 15.7 4.3C18.7 4.3 20.8 7 20 10.3C18.9 14.4 12.4 20 12 20.4Z"/>
+    </g>
+  </g>
+</svg>

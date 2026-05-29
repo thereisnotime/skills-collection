@@ -6,13 +6,13 @@
 FROM ubuntu:24.04
 
 LABEL maintainer="Lokesh Mure"
-LABEL version="7.7.22"
+LABEL version="7.7.30"
 # v7.4.5 fix (BUG-3): override the OCI-standard image.version label that
 # BuildKit auto-injects from the FROM ubuntu:24.04 base. Registries and
 # scanners read this; without the override they reported the Ubuntu version
 # (24.04) instead of the Loki Mode version.
-LABEL org.opencontainers.image.version="7.7.22"
-LABEL description="Loki Mode by Autonomi - Multi-agent autonomous startup system for Claude Code, Codex CLI, Cline, and Aider"
+LABEL org.opencontainers.image.version="7.7.30"
+LABEL description="Loki Mode by Autonomi - Autonomous spec-to-product system (RARV-C closure loop). Provider-agnostic: Claude Code, Codex CLI, Cline, Aider"
 LABEL url="https://www.autonomi.dev/"
 
 # Prevent interactive prompts during install
@@ -95,6 +95,8 @@ COPY --chown=loki:loki docs/ ./docs/
 COPY --chown=loki:loki providers/ ./providers/
 COPY --chown=loki:loki agents/ ./agents/
 COPY --chown=loki:loki memory/ ./memory/
+COPY --chown=loki:loki assets/ ./assets/
+COPY --chown=loki:loki tools/ ./tools/
 COPY --chown=loki:loki events/ ./events/
 COPY --chown=loki:loki dashboard/ ./dashboard/
 COPY --chown=loki:loki mcp/ ./mcp/

@@ -1,0 +1,109 @@
+{
+  "name": "agent-skills",
+  "owner": {
+    "name": "jawwadfirdousi"
+  },
+  "metadata": {
+    "description": "Portable agent skills in awesome-agent-skills plugin format.",
+    "version": "0.1.1"
+  },
+  "plugins": [
+    {
+      "name": "elastic-search-logs",
+      "source": "./elastic-search-logs",
+      "description": "Query and analyze logs in Elasticsearch.",
+      "category": "data",
+      "tags": [
+        "elasticsearch",
+        "logs",
+        "query",
+        "analysis"
+      ]
+    },
+    {
+      "name": "german-elster-tax-filing",
+      "source": "./german-elster-tax-filing",
+      "description": "Gather all required details to prepare a German ELSTER personal income tax return.",
+      "category": "finance",
+      "tags": [
+        "tax",
+        "elster",
+        "germany",
+        "filing"
+      ]
+    },
+    {
+      "name": "prompt-template-wizard",
+      "source": "./prompt-template-wizard",
+      "description": "Collect and validate all required fields for a complete implementation prompt template.",
+      "category": "workflow",
+      "tags": [
+        "prompt",
+        "template",
+        "workflow",
+        "spec"
+      ]
+    },
+    {
+      "name": "read-only-gh-pr-review",
+      "source": "./read-only-gh-pr-review",
+      "description": "Review GitHub pull requests with strict read-only CLI constraints.",
+      "category": "code-review",
+      "tags": [
+        "github",
+        "pull-request",
+        "review",
+        "read-only"
+      ]
+    },
+    {
+      "name": "read-only-postgres",
+      "source": "./read-only-postgres",
+      "description": "Execute read-only SQL queries against PostgreSQL databases.",
+      "category": "data",
+      "tags": [
+        "postgresql",
+        "sql",
+        "read-only",
+        "database"
+      ]
+    },
+    {
+      "name": "supabase",
+      "source": "./supabase",
+      "description": "Run Supabase Management API SQL and operational database tasks.",
+      "category": "data",
+      "tags": [
+        "supabase",
+        "sql",
+        "database",
+        "management-api"
+      ]
+    },
+    {
+      "name": "svg-creator",
+      "source": "./svg-creator",
+      "description": "Create, edit, validate, and package high-quality SVGs: icons, logos, illustrations, diagrams, charts, patterns, and inline SVG code.",
+      "category": "design",
+      "tags": [
+        "svg",
+        "icons",
+        "illustrations",
+        "graphics",
+        "design"
+      ]
+    },
+    {
+      "name": "trello",
+      "source": "./trello",
+      "description": "Manage Trello boards, lists, and cards via the Trello REST API.",
+      "category": "productivity",
+      "tags": [
+        "trello",
+        "boards",
+        "cards",
+        "productivity"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+environments.json
+
+__pycache__/
+*.py[cod]

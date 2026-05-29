@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#553DE9">
+  <title>Welcome to Loki Mode</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --loki-bg-primary: #FAFAF7;
+      --loki-bg-secondary: #F2F0EB;
+      --loki-bg-card: rgba(255, 255, 255, 0.72);
+      --loki-text-primary: #1A1614;
+      --loki-text-secondary: #4A4640;
+      --loki-text-muted: #8A857C;
+      --loki-accent: #553DE9;
+      --loki-accent-hover: #4432c4;
+      --loki-accent-glow: rgba(85, 61, 233, 0.15);
+      --loki-border: rgba(0, 0, 0, 0.08);
+      --loki-success: #1AAF95;
+      --loki-glass-bg: rgba(255, 255, 255, 0.55);
+      --loki-glass-border: rgba(255, 255, 255, 0.35);
+      --loki-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+      --loki-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --loki-bg-primary: #0F0B1A;
+        --loki-bg-secondary: #150F24;
+        --loki-bg-card: rgba(30, 21, 51, 0.72);
+        --loki-text-primary: #F0ECF8;
+        --loki-text-secondary: #B8B0C8;
+        --loki-text-muted: #8A82A0;
+        --loki-border: rgba(255, 255, 255, 0.10);
+        --loki-glass-bg: rgba(30, 21, 51, 0.55);
+        --loki-glass-border: rgba(255, 255, 255, 0.10);
+        --loki-glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--loki-bg-primary);
+      color: var(--loki-text-primary);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      background-image: radial-gradient(circle at 15% 10%, var(--loki-accent-glow), transparent 40%);
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 56px 24px 72px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--loki-accent), #7B63FF);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-family: 'DM Serif Display', serif; font-size: 20px;
+    }
+    .brand-name { font-family: 'DM Serif Display', serif; font-size: 1.25rem; }
+    .brand-by { color: var(--loki-text-muted); font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    h1 { font-family: 'DM Serif Display', Georgia, serif; font-size: 2.6rem; font-weight: 400; line-height: 1.1; margin-bottom: 14px; letter-spacing: -0.01em; }
+    .lede { font-size: 1.12rem; color: var(--loki-text-secondary); max-width: 600px; margin-bottom: 8px; }
+    .ver { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--loki-text-muted); margin-bottom: 36px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 40px; }
+    .card {
+      background: var(--loki-glass-bg);
+      border: 1px solid var(--loki-glass-border);
+      box-shadow: var(--loki-glass-shadow);
+      border-radius: 12px; padding: 18px 18px 20px;
+      backdrop-filter: blur(8px);
+    }
+    .card h3 { font-family: 'DM Serif Display', serif; font-size: 1.05rem; font-weight: 400; margin-bottom: 6px; }
+    .card p { font-size: 0.88rem; color: var(--loki-text-secondary); }
+    .card .tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--loki-accent); margin-bottom: 10px; }
+    .form-card {
+      background: var(--loki-bg-card);
+      border: 1px solid var(--loki-border);
+      border-radius: 14px; padding: 26px; margin-bottom: 18px;
+      box-shadow: var(--loki-glass-shadow);
+    }
+    .form-card h2 { font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 1.4rem; margin-bottom: 6px; }
+    .form-sub { color: var(--loki-text-muted); font-size: 0.9rem; margin-bottom: 22px; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 0.82rem; font-weight: 500; margin-bottom: 7px; color: var(--loki-text-secondary); }
+    select {
+      width: 100%; padding: 10px 12px; font-family: inherit; font-size: 0.92rem;
+      color: var(--loki-text-primary); background: var(--loki-bg-primary);
+      border: 1px solid var(--loki-border); border-radius: 8px; appearance: none;
+      cursor: pointer; transition: border-color var(--loki-transition);
+    }
+    select:focus { outline: none; border-color: var(--loki-accent); box-shadow: 0 0 0 3px var(--loki-accent-glow); }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      font-size: 0.84rem; padding: 7px 13px; border-radius: 999px;
+      border: 1px solid var(--loki-border); background: var(--loki-bg-primary);
+      color: var(--loki-text-secondary); cursor: pointer; user-select: none;
+      transition: all var(--loki-transition);
+    }
+    .chip[aria-pressed="true"] {
+      background: var(--loki-accent); color: #fff; border-color: var(--loki-accent);
+    }
+    .btn {
+      width: 100%; padding: 13px; font-family: inherit; font-size: 0.95rem; font-weight: 600;
+      color: #fff; background: var(--loki-accent); border: none; border-radius: 9px;
+      cursor: pointer; transition: background var(--loki-transition); margin-top: 6px;
+    }
+    .btn:hover { background: var(--loki-accent-hover); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .consent { font-size: 0.76rem; color: var(--loki-text-muted); margin-top: 14px; line-height: 1.5; }
+    .consent code { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: var(--loki-bg-secondary); padding: 1px 5px; border-radius: 4px; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .cta {
+      display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+      font-size: 0.9rem; font-weight: 500; padding: 10px 16px; border-radius: 8px;
+      border: 1px solid var(--loki-border); color: var(--loki-text-primary);
+      background: var(--loki-bg-card); transition: all var(--loki-transition);
+    }
+    .cta:hover { border-color: var(--loki-accent); color: var(--loki-accent); }
+    .cta.primary { background: var(--loki-accent); color: #fff; border-color: var(--loki-accent); }
+    .cta.primary:hover { background: var(--loki-accent-hover); color: #fff; }
+    .quickstart {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+      background: var(--loki-bg-secondary); border: 1px solid var(--loki-border);
+      border-radius: 8px; padding: 9px 13px; color: var(--loki-text-primary);
+    }
+    .research { margin-top: 34px; font-size: 0.76rem; color: var(--loki-text-muted); }
+    .research .rchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .rchip { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; padding: 3px 8px; border: 1px solid var(--loki-border); border-radius: 6px; }
+    .thanks { display: none; text-align: center; padding: 18px 0; }
+    .thanks.show { display: block; }
+    .thanks .check { width: 44px; height: 44px; border-radius: 50%; background: var(--loki-success); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 12px; }
+    .disabled-note { display: none; font-size: 0.85rem; color: var(--loki-text-muted); background: var(--loki-bg-secondary); border: 1px solid var(--loki-border); border-radius: 8px; padding: 12px 14px; }
+    .disabled-note.show { display: block; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--loki-text-muted); }
+    footer a { color: var(--loki-accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="brand-mark">L</div>
+      <div>
+        <div class="brand-name">Loki Mode</div>
+        <div class="brand-by">Powered by Autonomi</div>
+      </div>
+    </div>
+
+    <h1>Describe it. Walk away.<br>Get working, tested software.</h1>
+    <p class="lede">Loki takes a spec (a PRD, a GitHub issue, or a one-line brief) all the way to a deployed product, running its Reason-Act-Reflect-Verify-Close loop until the work is actually done, not just attempted.</p>
+    <div class="ver" id="ver">loki-mode</div>
+
+    <div class="cards">
+      <div class="card">
+        <span class="tag">Verified, not just generated</span>
+        <h3>Closure loop + council</h3>
+        <p>Every change passes a RARV-C cycle and a unanimous multi-reviewer council before it counts as done. A quality bar you can audit.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Compounds over time</span>
+        <h3>Cross-project memory</h3>
+        <p>Lessons learned on one project surface on the next, so your agents stop repeating the same mistakes across your whole codebase.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Yours to run</span>
+        <h3>Provider-agnostic and private</h3>
+        <p>Runs on Claude, Codex, Cline, or Aider. Your keys, your infrastructure, no vendor lock-in.</p>
+      </div>
+    </div>
+
+    <div class="form-card" id="formCard">
+      <h2>Tell us who you are</h2>
+      <p class="form-sub">Optional, takes 10 seconds, and helps us build the right thing.</p>
+
+      <div class="field">
+        <label for="role">Your role</label>
+        <select id="role">
+          <option value="">Select...</option>
+          <option>Founder / CEO</option>
+          <option>Engineering leader</option>
+          <option>Software engineer</option>
+          <option>Product manager</option>
+          <option>Designer</option>
+          <option>Student / learner</option>
+          <option>Researcher</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="company">Company size</label>
+        <select id="company">
+          <option value="">Select...</option>
+          <option>Just me</option>
+          <option>2-10</option>
+          <option>11-50</option>
+          <option>51-200</option>
+          <option>201-1000</option>
+          <option>1000+</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Tools you use today</label>
+        <div class="chips" id="tools">
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">Claude Code</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">Cursor</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">OpenAI Codex</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">GitHub Copilot</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">Cline</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">Aider</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">Replit</span>
+          <span class="chip" role="button" tabindex="0" aria-pressed="false">Other</span>
+        </div>
+      </div>
+
+      <button class="btn" id="submitBtn">Send and get started</button>
+      <p class="consent">
+        Sends <strong>anonymous</strong> usage analytics (your role, company size, and tools)
+        to help us improve the product. We <strong>never</strong> collect your prompts, PRDs, or
+        code. Opt out anytime with <code>LOKI_TELEMETRY_DISABLED=true</code> or <code>DO_NOT_TRACK=1</code>.
+      </p>
+    </div>
+
+    <div class="disabled-note" id="disabledNote">
+      Analytics are turned off for this session (LOKI_TELEMETRY_DISABLED / DO_NOT_TRACK).
+      Nothing will be sent. Welcome aboard regardless.
+    </div>
+
+    <div class="thanks" id="thanks">
+      <div class="check">&#10003;</div>
+      <h2 style="font-family:'DM Serif Display',serif;font-weight:400;">Thanks, you're all set.</h2>
+      <p style="color:var(--loki-text-secondary);margin-top:6px;">Point Loki at a spec and let it run.</p>
+    </div>
+
+    <div class="cta-row">
+      <a class="cta primary" href="https://www.autonomi.dev/docs" target="_blank" rel="noopener">Read the docs</a>
+      <span class="quickstart">loki start ./prd.md</span>
+    </div>
+
+    <div class="research">
+      Built on published research from Anthropic, Google DeepMind, OpenAI, and NVIDIA.
+      <div class="rchips">
+        <span class="rchip">Constitutional AI</span>
+        <span class="rchip">Scalable Oversight via Debate</span>
+        <span class="rchip">Agents SDK guardrails</span>
+        <span class="rchip">ToolOrchestra efficiency</span>
+      </div>
+    </div>
+
+    <footer>
+      Loki Mode by <a href="https://www.autonomi.dev/" target="_blank" rel="noopener">Autonomi</a>.
+      Questions? <a href="https://www.autonomi.dev/docs" target="_blank" rel="noopener">autonomi.dev/docs</a>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      var POSTHOG_HOST = "https://us.i.posthog.com";
+      var POSTHOG_KEY = "phc_ya0vGBru41AJWtGNfZZ8H9W4yjoZy4KON0nnayS7s87";
+
+      // Read params the CLI may pass: ?telemetry=off, ?v=<version>, ?key=<override>, ?did=<distinct_id>
+      var params = new URLSearchParams(window.location.search);
+      var telemetryOff = params.get("telemetry") === "off";
+      var version = params.get("v") || "loki-mode";
+      if (params.get("key")) { POSTHOG_KEY = params.get("key"); }
+      var verEl = document.getElementById("ver");
+      if (verEl) { verEl.textContent = version; }
+
+      // distinct_id: prefer the id the CLI injects (the existing anonymous
+      // ~/.loki-telemetry-id), else a browser-local random id. Never an email
+      // or real name (the form has no such field).
+      function distinctId() {
+        var injected = params.get("did");
+        if (injected) { return injected; }
+        try {
+          var k = "loki_welcome_did";
+          var v = localStorage.getItem(k);
+          if (!v) {
+            v = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+              : "web-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+            localStorage.setItem(k, v);
+          }
+          return v;
+        } catch (e) {
+          return "web-anon";
+        }
+      }
+
+      var formCard = document.getElementById("formCard");
+      var disabledNote = document.getElementById("disabledNote");
+      var thanks = document.getElementById("thanks");
+      var submitBtn = document.getElementById("submitBtn");
+
+      // Opt-out: hide the form and return before any handler binds, so a
+      // capture can never fire. No network call happens on load either.
+      if (telemetryOff) {
+        if (formCard) { formCard.style.display = "none"; }
+        if (disabledNote) { disabledNote.classList.add("show"); }
+        return;
+      }
+
+      // Tool chips toggle (local UI state only).
+      var toolEls = Array.prototype.slice.call(document.querySelectorAll("#tools .chip"));
+      function toggleChip(el) {
+        var on = el.getAttribute("aria-pressed") === "true";
+        el.setAttribute("aria-pressed", on ? "false" : "true");
+      }
+      toolEls.forEach(function (el) {
+        el.addEventListener("click", function () { toggleChip(el); });
+        el.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleChip(el); }
+        });
+      });
+
+      // The ONLY network call in the page happens here, on explicit click.
+      submitBtn.addEventListener("click", function () {
+        var role = document.getElementById("role").value || "unspecified";
+        var company = document.getElementById("company").value || "unspecified";
+        var tools = toolEls
+          .filter(function (el) { return el.getAttribute("aria-pressed") === "true"; })
+          .map(function (el) { return el.textContent.trim(); });
+
+        var payload = {
+          api_key: POSTHOG_KEY,
+          event: "welcome_profile",
+          distinct_id: distinctId(),
+          properties: {
+            role: role,
+            company_size: company,
+            tools: tools,
+            source: "welcome_opener",
+            loki_version: version
+            // Deliberately NO prompt, PRD, code, file path, cwd, hostname,
+            // project name, email, or real name. Anonymous fields only.
+          }
+        };
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending...";
+
+        fetch(POSTHOG_HOST + "/capture/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }).catch(function () { /* fire-and-forget; never block the user */ })
+          .finally(function () {
+            if (formCard) { formCard.style.display = "none"; }
+            if (thanks) { thanks.classList.add("show"); }
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

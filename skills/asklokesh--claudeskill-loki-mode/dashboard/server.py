@@ -2140,6 +2140,187 @@ async def clear_focus():
     return {"project_dir": None, "loki_dir": str(_get_loki_dir())}
 
 
+@app.get("/api/running-projects")
+async def list_running_projects():
+    """List registered projects enriched with live status for the dashboard
+    project switcher (v7.7.29 multi-project support).
+
+    NOTE: deliberately NOT under /api/projects/* because /api/projects/{id}
+    (int path param) would shadow a /api/projects/running literal and 422.
+
+    Returns every registered project (from ~/.loki/dashboard/projects.json,
+    populated by `loki start`), each annotated with:
+      - running: whether the recorded orchestrator pid is still alive
+      - is_active: whether it is the currently focused project
+    Live-vs-stale is derived from pid liveness, which is robust even when a
+    session is hard-killed (no exit hook fires). Never raises: registry
+    problems degrade to an empty list.
+    """
+    out = []
+    try:
+        projects = registry.list_projects(include_inactive=True)
+    except Exception:
+        projects = []
+    active = _active_project_dir
+    for p in projects:
+        path = p.get("path", "")
+        pid = p.get("pid")
+        running = False
+        if isinstance(pid, int) and pid > 0:
+            try:
+                os.kill(pid, 0)
+                running = True  # signal 0 delivered -> pid alive
+            except PermissionError:
+                running = True  # pid exists but owned by another user
+            except (ProcessLookupError, OSError):
+                running = False  # ESRCH -> dead
+        # A project is also "live" if its .loki/session.json says running.
+        if not running and path:
+            try:
+                sess = _Path(path) / ".loki" / "session.json"
+                if sess.is_file():
+                    import json as _json
+                    s = _json.loads(sess.read_text())
+                    running = s.get("status") == "running"
+            except Exception:
+                pass
+        # Compare via realpath: /api/focus resolves symlinks (e.g. macOS
+        # /tmp -> /private/tmp) while the registry stores abspath, so a plain
+        # abspath compare would never match a focused symlinked project.
+        is_active = False
+        if active and path:
+            try:
+                is_active = os.path.realpath(active) == os.path.realpath(path)
+            except OSError:
+                is_active = os.path.abspath(active) == os.path.abspath(path)
+        out.append({
+            "id": p.get("id"),
+            "name": p.get("name") or (os.path.basename(path) if path else "project"),
+            "path": path,
+            "port": p.get("port"),
+            "status": p.get("status"),
+            "running": running,
+            "is_active": is_active,
+        })
+    return {"projects": out, "active_project_dir": active}
+
+
+class RunningProjectStopRequest(BaseModel):
+    """Schema for stopping a specific registered project from the switcher.
+
+    Exactly one of id or project_dir must be provided. id is preferred;
+    project_dir is accepted for symmetry with /api/focus. The provided value
+    is resolved through the dashboard registry, so an arbitrary filesystem
+    path is never used directly as a write target.
+    """
+    id: Optional[str] = None
+    project_dir: Optional[str] = None
+
+
+@app.post("/api/running-projects/stop", dependencies=[Depends(auth.require_scope("control"))])
+async def stop_running_project(request: Request, body: RunningProjectStopRequest):
+    """Stop a specific registered project (v7.7.30 per-project switcher stop).
+
+    Resolves the project via the dashboard registry (by id or path), writes a
+    STOP file into that project's .loki for a clean runner teardown, then runs
+    the graceful SIGTERM -> poll-5s -> SIGKILL dance against the recorded
+    orchestrator pid (not the dashboard's own _get_loki_dir). Marks the
+    project's session.json and registry entry stopped so the switcher reflects
+    it immediately.
+
+    Security: the STOP file is only ever written to the path already stored in
+    the registry for the resolved id, never to a caller-supplied path.
+    """
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    identifier = (body.id or body.project_dir or "").strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="id or project_dir is required")
+
+    project = registry.get_project(identifier)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+
+    project_id = project.get("id")
+    audit.log_event(
+        action="stop",
+        resource_type="session",
+        details={"source": "api", "project_id": project_id},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    # Validate the registry-stored path is a real dir containing .loki before
+    # writing into it. Mirrors the /api/focus guard. If invalid we still mark
+    # the project stopped but skip the STOP-file write.
+    path = project.get("path", "")
+    loki_dir = None
+    if path:
+        p = _Path(path)
+        if p.is_dir() and (p / ".loki").is_dir():
+            loki_dir = p / ".loki"
+
+    pid = project.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        # Already not running: nothing to signal, just reconcile the registry.
+        registry.mark_project_stopped(project_id)
+        return {
+            "success": True,
+            "project_id": project_id,
+            "stopped": False,
+            "already_stopped": True,
+        }
+
+    # Write the STOP file so the runner's own cleanup STOP-branch fires for a
+    # clean teardown. Only into the registry-resolved .loki dir.
+    if loki_dir is not None:
+        try:
+            (loki_dir / "STOP").write_text(datetime.now(timezone.utc).isoformat())
+        except OSError:
+            pass
+
+    # Graceful dance against the recorded orchestrator pid.
+    stopped = False
+    try:
+        os.kill(pid, 15)  # SIGTERM
+        for _ in range(10):
+            await asyncio.sleep(0.5)
+            try:
+                os.kill(pid, 0)  # Check if still alive
+            except OSError:
+                stopped = True
+                break
+        if not stopped:
+            try:
+                os.kill(pid, 9)  # SIGKILL
+                stopped = True
+            except (OSError, ProcessLookupError):
+                stopped = True
+    except (ValueError, OSError, ProcessLookupError):
+        # pid already dead or unsignalable -- treat as stopped.
+        stopped = True
+
+    # Mark session.json stopped in that project's .loki.
+    if loki_dir is not None:
+        session_file = loki_dir / "session.json"
+        if session_file.exists():
+            try:
+                sd = json.loads(session_file.read_text())
+                sd["status"] = "stopped"
+                atomic_write_json(session_file, sd, use_lock=True)
+            except Exception:
+                pass
+
+    registry.mark_project_stopped(project_id)
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "stopped": stopped,
+        "already_stopped": False,
+    }
+
+
 # =============================================================================
 # Enterprise Features (Optional - enabled via environment variables)
 # =============================================================================
@@ -2751,14 +2932,61 @@ async def get_token_economics():
 
 @app.post("/api/memory/consolidate", dependencies=[Depends(auth.require_scope("control"))])
 async def consolidate_memory(hours: int = 24):
-    """Trigger memory consolidation (stub - returns current state)."""
-    return {"status": "ok", "message": f"Consolidation for last {hours}h", "consolidated": 0, "patternsCreated": 0, "patternsMerged": 0, "episodesProcessed": 0}
+    """Run the real episodic-to-semantic consolidation pipeline."""
+    memory_dir = _get_loki_dir() / "memory"
+    try:
+        import sys as _sys
+        project_root = str(_Path(__file__).resolve().parent.parent)
+        if project_root not in _sys.path:
+            _sys.path.insert(0, project_root)
+        from memory.storage import MemoryStorage
+        from memory.consolidation import ConsolidationPipeline
+        storage = MemoryStorage(str(memory_dir))
+        pipeline = ConsolidationPipeline(storage=storage, base_path=str(memory_dir))
+        result = pipeline.consolidate(since_hours=hours)
+        d = result.to_dict()
+        return {
+            "status": "ok",
+            "message": f"Consolidated episodes from the last {hours}h",
+            "consolidated": d.get("patterns_created", 0) + d.get("patterns_merged", 0),
+            "patternsCreated": d.get("patterns_created", 0),
+            "patternsMerged": d.get("patterns_merged", 0),
+            "antiPatternsCreated": d.get("anti_patterns_created", 0),
+            "episodesProcessed": d.get("episodes_processed", 0),
+            "durationSeconds": round(d.get("duration_seconds", 0.0), 3),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Consolidation unavailable: {e}")
 
 
 @app.post("/api/memory/retrieve", dependencies=[Depends(auth.require_scope("control"))])
 async def retrieve_memory(query: dict = None):
-    """Search memories by query."""
-    return {"results": [], "query": query}
+    """Task-aware retrieval against the real memory engine.
+
+    Body: {"goal": str, "phase"?: str, "task_type"?: str, "top_k"?: int}.
+    """
+    query = query or {}
+    goal = (query.get("goal") or query.get("q") or "").strip()
+    if not goal:
+        return {"results": [], "query": query, "message": "provide a 'goal' to retrieve against"}
+    top_k = int(query.get("top_k", 5))
+    top_k = max(1, min(top_k, 50))
+    memory_dir = _get_loki_dir() / "memory"
+    try:
+        import sys as _sys
+        project_root = str(_Path(__file__).resolve().parent.parent)
+        if project_root not in _sys.path:
+            _sys.path.insert(0, project_root)
+        from memory.storage import MemoryStorage
+        from memory.retrieval import MemoryRetrieval
+        retriever = MemoryRetrieval(MemoryStorage(str(memory_dir)))
+        context = {"goal": goal, "phase": query.get("phase", "development")}
+        if query.get("task_type"):
+            context["task_type"] = query["task_type"]
+        results = retriever.retrieve_task_aware(context, top_k=top_k, token_budget=query.get("token_budget"))
+        return {"results": results, "query": {"goal": goal, "top_k": top_k}, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Retrieval unavailable: {e}")
 
 
 @app.get("/api/memory/index")

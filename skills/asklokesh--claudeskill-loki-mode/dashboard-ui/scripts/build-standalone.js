@@ -369,6 +369,69 @@ function generateStandaloneHTML(bundleCode) {
       box-shadow: 0 0 0 3px var(--loki-accent-glow);
     }
 
+    /* v7.7.29 multi-project switcher */
+    .project-switcher {
+      margin-left: 14px;
+      padding: 5px 10px;
+      background: var(--loki-bg-primary);
+      border: 1px solid var(--loki-border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--loki-text-primary);
+      cursor: pointer;
+      max-width: 280px;
+    }
+    .project-switcher:focus {
+      outline: none;
+      border-color: var(--loki-accent);
+      box-shadow: 0 0 0 3px var(--loki-accent-glow);
+    }
+    /* v7.7.30 per-project stop list */
+    .project-stop-list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-left: 10px;
+    }
+    .project-stop-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 6px 3px 10px;
+      background: var(--loki-bg-primary);
+      border: 1px solid var(--loki-border);
+      border-radius: 14px;
+      font-size: 11px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--loki-text-primary);
+    }
+    .project-stop-row .project-stop-name {
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .project-stop-row button {
+      padding: 2px 8px;
+      background: transparent;
+      border: 1px solid var(--loki-border);
+      border-radius: 10px;
+      font-size: 11px;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--loki-text-secondary);
+      cursor: pointer;
+    }
+    .project-stop-row button:hover:not(:disabled) {
+      border-color: #d64545;
+      color: #d64545;
+    }
+    .project-stop-row button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
     /* Main Content */
     .main-content {
       padding: 28px 32px;
@@ -616,6 +679,16 @@ function generateStandaloneHTML(bundleCode) {
         </button>
         <span class="logo-brand">Loki Mode</span>
         <span class="logo-subtitle">powered by Autonomi</span>
+        <!-- v7.7.29 multi-project switcher: lists projects running loki in
+             different folders and switches which one the dashboard shows. -->
+        <select class="project-switcher" id="project-switcher" title="Switch project" aria-label="Switch project">
+          <option value="">All projects (current dir)</option>
+        </select>
+        <!-- v7.7.30 per-project stop: a compact list of running projects, each
+             with a Stop button that gracefully halts that project's runner
+             without affecting any other folder. Built at runtime; empty when
+             no project is running. -->
+        <div class="project-stop-list" id="project-stop-list" aria-label="Running projects"></div>
       </div>
 
       <nav class="nav-links">
@@ -1166,6 +1239,85 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize the dashboard with auto-detect
   var initResult = LokiDashboard.init({ autoDetectContext: true });
   console.log('Loki Dashboard initialized:', initResult);
+
+  // v7.7.29 multi-project switcher: populate from /api/running-projects and
+  // switch the focused project via /api/focus. Fully best-effort; if the
+  // endpoint is unavailable the dropdown simply stays at "All projects".
+  (function initProjectSwitcher() {
+    var sel = document.getElementById('project-switcher');
+    if (!sel) return;
+    var stopList = document.getElementById('project-stop-list');
+    // v7.7.30: build a per-row Stop control for each running project using
+    // createElement + textContent only (never innerHTML for project-supplied
+    // strings), so a project name can never inject markup.
+    function buildStopList(projects) {
+      if (!stopList) return;
+      while (stopList.firstChild) stopList.removeChild(stopList.firstChild);
+      projects.forEach(function(p){
+        if (p.running !== true) return;
+        var row = document.createElement('div');
+        row.className = 'project-stop-row';
+        var name = document.createElement('span');
+        name.className = 'project-stop-name';
+        name.textContent = p.name || p.path || 'project';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Stop';
+        if (p.id) btn.setAttribute('data-id', p.id);
+        btn.addEventListener('click', function(){
+          if (!p.id) return;
+          btn.disabled = true;
+          btn.textContent = 'Stopping...';
+          fetch('/api/running-projects/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: p.id })
+          })
+            .then(function(){ refresh(); })
+            .catch(function(){ btn.disabled = false; btn.textContent = 'Stop'; });
+        });
+        row.appendChild(name);
+        row.appendChild(btn);
+        stopList.appendChild(row);
+      });
+    }
+    function refresh() {
+      fetch('/api/running-projects')
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(data){
+          if (!data || !Array.isArray(data.projects)) return;
+          var current = sel.value;
+          // Rebuild options: keep the "All projects" default first.
+          sel.innerHTML = '';
+          var optAll = document.createElement('option');
+          optAll.value = ''; optAll.textContent = 'All projects (current dir)';
+          sel.appendChild(optAll);
+          data.projects.forEach(function(p){
+            var o = document.createElement('option');
+            o.value = p.path || '';
+            var dot = p.running ? '* ' : '';   // running marker (ASCII)
+            o.textContent = dot + (p.name || p.path || 'project');
+            if (p.is_active) o.selected = true;
+            sel.appendChild(o);
+          });
+          if (!data.active_project_dir && current === '') sel.value = '';
+          buildStopList(data.projects);
+        })
+        .catch(function(){ /* offline / no endpoint: leave as-is */ });
+    }
+    sel.addEventListener('change', function(){
+      var dir = sel.value;
+      var req = dir
+        ? fetch('/api/focus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_dir: dir }) })
+        : fetch('/api/focus', { method: 'DELETE' });
+      req.then(function(){
+        // Reload so every panel re-fetches against the newly focused project.
+        window.location.reload();
+      }).catch(function(){ /* ignore */ });
+    });
+    refresh();
+    setInterval(refresh, 15000);
+  })();
 
   // Theme toggle functionality
   var themeToggle = document.getElementById('theme-toggle');

@@ -1,0 +1,68 @@
+name: Bump plugin versions
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: "github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump versions
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: |
+          set -euo pipefail
+
+          bump_patch() {
+            local file="$1" key="$2"
+            local current new tmp
+            current=$(jq -r "$key" "$file")
+            IFS=. read -r major minor patch <<<"$current"
+            new="${major}.${minor}.$((patch + 1))"
+            tmp=$(mktemp)
+            jq "$key = \"$new\"" "$file" > "$tmp" && mv "$tmp" "$file"
+            echo "$file: $current -> $new"
+          }
+
+          # Diff range for this push. Falls back to last commit on first push.
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            changed=$(git diff --name-only HEAD~1 HEAD || git ls-files)
+          else
+            changed=$(git diff --name-only "$BEFORE" "$AFTER")
+          fi
+
+          # Bump each plugin only if its directory changed in this push.
+          while IFS= read -r plugin_json; do
+            [ -z "$plugin_json" ] && continue
+            plugin_dir="${plugin_json#./}"
+            plugin_dir="${plugin_dir%/.claude-plugin/plugin.json}"
+            if printf '%s\n' "$changed" | grep -q "^${plugin_dir}/"; then
+              bump_patch "$plugin_json" ".version"
+            fi
+          done < <(find . -path ./.git -prune -o -path ./.claude-plugin -prune -o -name plugin.json -path '*/.claude-plugin/*' -print)
+
+          # Always bump the marketplace metadata version.
+          bump_patch ".claude-plugin/marketplace.json" ".metadata.version"
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "No version changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: bump plugin versions [skip ci]"
+          git push

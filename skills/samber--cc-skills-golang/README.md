@@ -4,7 +4,8 @@ AI agent skills are reusable instruction sets that extend your coding assistant 
 
 For generic skills, please visit [cc-skills](https://github.com/samber/cc-skills).
 
-> [!IMPORTANT] Bootstrapped with Claude Code by distilling my Go project commits. **Edited, tested, reviewed and reworked by a human**.
+> [!IMPORTANT]
+> Bootstrapped with Claude Code by distilling my Go project commits. **Edited, tested, reviewed and reworked by a human**.
 >
 > **No AI slop here.** AI-made skills are useless.
 
@@ -188,7 +189,7 @@ These skills are designed as **atomic, cross-referencing units**. A skill may re
 | ⭐️ | ✅ `golang-design-patterns` | ⚡ ⚙️ | -37% | 66 | 2,610 | 9,316 |
 | ⭐️ | ✅ `golang-documentation` | ⚡ ⚙️ | -53% | 73 | 2,678 | 10,549 |
 | ⭐️ | ✅ `golang-error-handling` | ⚡ ⚙️ | -26% | 139 | 1,520 | 4,394 |
-| ⭐️ | 👷 `golang-how-to` |  | — | 0 | 0 | 0 |
+| ⭐️ | ✅ `golang-how-to` | ⚡ | — | 165 | 2,191 | 10,255 |
 | ⭐️ | ✅ `golang-modernize` | ⚡ | -61% | 68 | 2,476 | 7,599 |
 | ⭐️ | ✅ `golang-naming` | ⚡ ⚙️ | -23% | 158 | 2,865 | 7,233 |
 | ⭐️ | ✅ `golang-safety` | ⚡ | -58% | 78 | 2,457 | 5,227 |
@@ -420,7 +421,7 @@ Reactive streams with samber/ro. 150+ type-safe operators, cold/hot observables,
 
 #### `golang-samber-slog`
 
-Structured logging pipeline with samber/slog-**** packages. Multi-handler routing (slog-multi), sampling, formatting, HTTP middleware, and 20+ backend sinks.
+Structured logging pipeline with samber/slog-\*\*\*\* packages. Multi-handler routing (slog-multi), sampling, formatting, HTTP middleware, and 20+ backend sinks.
 
 ### Testing
 

@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.7.22
+**Version:** v7.7.30
 
 ---
 
@@ -32,7 +32,7 @@ setting any flag to `0`.
 
 ### Earlier highlights still in scope
 - Bash-to-Bun runtime migration in progress (see `UPGRADING.md`)
-- 4-provider support: Claude (full), Codex, Cline, Aider
+- Provider-agnostic runtime: Claude (full), Codex, Cline, Aider (no vendor lock-in)
 - Memory system (episodic / semantic / procedural)
 - ChromaDB semantic code search via MCP
 
@@ -447,7 +447,7 @@ cat ~/.claude/skills/loki-mode/SKILL.md | head -10
 ```yaml
 ---
 name: loki-mode
-description: Multi-Agent Autonomous Startup System
+description: Autonomous Spec-to-Product System (RARV-C closure loop)
 ...
 ---
 ```

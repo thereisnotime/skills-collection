@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="scan-title scan-desc">
+  <title id="scan-title">Animated document scanner</title>
+  <desc id="scan-desc">A minimal document with a folded corner being scanned by a red horizontal line moving up and down across the page in a smooth seamless loop</desc>
+
+  <defs>
+    <clipPath id="doc-clip">
+      <path d="M 14,10 L 42,10 L 50,18 L 50,54 L 14,54 Z"/>
+    </clipPath>
+    <linearGradient id="scan-glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EF4444" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#EF4444" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#EF4444" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M 42,10 L 50,18 L 42,18 Z" fill="none"/>
+  <path d="M 14,10 L 42,10 L 50,18 L 50,54 L 14,54 Z" fill="none" stroke="#1F2937" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M 42,10 L 42,18 L 50,18" fill="none" stroke="#1F2937" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <rect x="19" y="22" width="14" height="2" rx="1" fill="#1F2937"/>
+  <rect x="19" y="29" width="26" height="1.4" rx="0.7" fill="#9CA3AF"/>
+  <rect x="19" y="34" width="25" height="1.4" rx="0.7" fill="#9CA3AF"/>
+  <rect x="19" y="39" width="22" height="1.4" rx="0.7" fill="#9CA3AF"/>
+  <rect x="19" y="44" width="18" height="1.4" rx="0.7" fill="#9CA3AF"/>
+
+  <g clip-path="url(#doc-clip)">
+    <g>
+      <animateTransform attributeName="transform" type="translate"
+                        values="0 12; 0 52; 0 12"
+                        dur="4.5s"
+                        repeatCount="indefinite"
+                        calcMode="spline"
+                        keyTimes="0;0.5;1"
+                        keySplines="0.42 0 0.58 1; 0.42 0 0.58 1"/>
+      <rect x="13" y="-5" width="38" height="10" fill="url(#scan-glow)"/>
+      <rect x="13" y="-0.4" width="38" height="0.8" fill="#EF4444"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "supabase",
+  "description": "Run Supabase Management API SQL and operational database tasks.",
+  "version": "0.1.1",
+  "author": {
+    "name": "jawwadfirdousi"
+  },
+  "homepage": "https://github.com/jawwadfirdousi/agent-skills",
+  "repository": "https://github.com/jawwadfirdousi/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "supabase",
+    "sql",
+    "database",
+    "management-api"
+  ]
+}

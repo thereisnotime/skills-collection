@@ -2,7 +2,7 @@
 
 # avoid-ai-writing
 
-Audit & rewrite content to remove AI writing patterns. A practical skill for any AI agent. Supports detection-only mode.
+Audit & rewrite content to remove AI writing patterns. A practical skill for any AI agent. Supports detect-only and edit-in-place modes, plus voice profiles.
 
 [![GitHub stars](https://img.shields.io/github/stars/conorbronsdon/avoid-ai-writing?style=social)](https://github.com/conorbronsdon/avoid-ai-writing/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
@@ -14,9 +14,12 @@ Audit & rewrite content to remove AI writing patterns. A practical skill for any
 
 A portable writing skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenClaw](https://github.com/openclaw/openclaw), [Hermes](https://github.com/NousResearch/hermes-agent), and any other [agentskills.io](https://agentskills.io)-compatible agent. Audits and rewrites content to remove AI writing patterns ("AI-isms").
 
-**Two modes:**
+**Three modes:**
 - **Rewrite** (default) — flags AI patterns and rewrites the text to fix them. A built-in second pass catches patterns that survived the first edit.
 - **Detect** — flags AI patterns without rewriting. Shows which flags are real problems vs. judgment calls. Useful when patterns might be intentional, when auditing content you don't want altered, or when you just want a quick scan.
+- **Edit** — edits a file in place (via the Edit tool) with minimal, targeted changes, preserving passages that are already human. Returns an edits-made + verification report, not the full file.
+
+An optional **voice profile** (casual / professional / technical / warm / blunt) sets how the prose should sound, independent of the audience context profile.
 
 ## Quick demo
 
@@ -35,7 +38,7 @@ A one-shot "make this sound human" prompt catches the obvious stuff. This skill 
 - **Structured audit** — returns identified issues with quoted text, the rewrite, a change summary, and a second-pass audit in four discrete sections. You see exactly what changed and why.
 - **Two-pass detection** — the second pass re-reads the rewrite and catches patterns that survive the first edit: recycled transitions, lingering inflation, copula swaps that snuck through.
 - **109-entry word replacement table across 3 tiers + 10 Tier 3 phrases** — not vibes-based. Every flagged word has a specific, plainer alternative. "Leverage" → "use." "Commence" → "start." Tier 1 words always flag, Tier 2 words flag when they cluster, Tier 3 words flag only at high density. Tier 3 *phrases* (multi-word boilerplate like "the integration of," "decentralized compute") flag on per-phrase repetition or when 3+ distinct phrases stack in one piece — the LLM-self-varies-boilerplate shape.
-- **42 pattern categories** — see the full list below, each with before/after examples. Includes structural detection (hashtag stuffing, bare-NP bullet lists, hedge-stacked predictions), rhythm/uniformity checks, and a rewrite-vs-patch threshold.
+- **46 pattern categories** — representative examples below, each with before/after. Includes structural detection (hashtag stuffing, bare-NP bullet lists, hedge-stacked predictions), AI-tool fingerprints (placeholders, citation markup, UTM params), rhythm/uniformity checks, and writer-side tests. The full catalog lives in [`SKILL.md`](./SKILL.md); this count is enforced against it in CI.
 - **Detect mode** — flag patterns without rewriting. See which flags are real problems vs. judgment calls. Useful when patterns might be intentional or you're auditing content you don't want altered.
 - **Works across platforms** — one `SKILL.md` runs in Claude Code, Cowork (as a plugin), OpenClaw, and Cursor (as a ported rule). See the install paths below.
 
@@ -115,6 +118,38 @@ curl -o .cursor/rules/avoid-ai-writing.mdc \
 
 See [`cursor-rules/README.md`](./cursor-rules/README.md) for activation globs and trigger phrases. Functionally identical to the Claude Code skill — same tier vocabulary, same context profiles, same modes.
 
+### Hermes
+
+Drop the skill into Hermes's skills directory — it then appears automatically as `/avoid-ai-writing`, no registration needed:
+
+```bash
+mkdir -p ~/.hermes/skills/writing/avoid-ai-writing
+curl -o ~/.hermes/skills/writing/avoid-ai-writing/SKILL.md \
+  https://raw.githubusercontent.com/conorbronsdon/avoid-ai-writing/main/SKILL.md
+```
+
+### OpenAI Codex
+
+Codex reads [Agent Skills](https://developers.openai.com/codex/skills) in the same `SKILL.md` format. Put it in `.agents/skills/` at the repo root, or `~/.agents/skills/` to use it across all your projects:
+
+```bash
+mkdir -p .agents/skills/avoid-ai-writing
+curl -o .agents/skills/avoid-ai-writing/SKILL.md \
+  https://raw.githubusercontent.com/conorbronsdon/avoid-ai-writing/main/SKILL.md
+```
+
+### Other agents
+
+The same `SKILL.md` (or the Cursor `.mdc` port) drops into most tools' rules/skills location:
+
+| Tool | Where to put it |
+|------|-----------------|
+| **Windsurf** | `.windsurf/rules/avoid-ai-writing.md` |
+| **Cline** | `.clinerules/avoid-ai-writing.md` |
+| **GitHub Copilot** (VS Code) | paste into `.github/copilot-instructions.md` |
+| **Claude.ai Projects** | paste `SKILL.md` into the project's custom instructions |
+| **ChatGPT Custom GPTs** | paste `SKILL.md` into the GPT's Instructions field |
+
 ### Triggering the skill
 
 Once installed, ask your assistant to clean up AI writing:
@@ -138,9 +173,9 @@ In **detect mode**, the skill returns two sections:
 
 Trigger detect mode with: "detect," "flag only," "audit only," "just flag," "scan," or similar.
 
-## 42 Patterns Detected
+## Pattern reference
 
-> These 42 are the human-facing prose rules. The [detector engine](./detector/) implements **43 `type` categories** — a different count, because it splits the vocabulary tiers and adds stylometric/fingerprint signals (punctuation distribution, function-word entropy, bypass-trick detection) that work as math over a document rather than as a rule you'd look up. The two are mapped in [`detector/CATEGORIES.md`](./detector/CATEGORIES.md); don't "fix" one count to match the other.
+> Representative examples from the catalog — not the exhaustive list (that's [`SKILL.md`](./SKILL.md)). The skill's human-facing prose catalog and the [detector engine](./detector/) use **different counts on purpose**: the engine implements 43 `type` categories because it splits the vocabulary tiers and adds stylometric/fingerprint signals (punctuation distribution, function-word entropy, bypass-trick detection) that work as math over a document rather than as a rule you'd look up. The two are mapped in [`detector/CATEGORIES.md`](./detector/CATEGORIES.md); don't "fix" one count to match the other.
 
 ### Content Patterns
 
@@ -216,6 +251,20 @@ Added in v3.4 to catch LLM output that sidesteps the vocabulary tables by substi
 | 41 | **Hashtag stuffing** | 15-tag trailing block: `#AI #Crypto #Web3 #Innovation #FutureTech…` | 2-3 specific tags max, or none. Empirical threshold: 6+ tags is near-universal in LLM social output, rare in thoughtful human posts |
 | 42 | **Bullet lists of bare noun phrases** | `* Stable mining efficiency / Reliable pool connectivity / Optimized RandomX performance / Low failed share rates / Effective hardware utilization / Consistent thermal stability` | Convert to prose, or rewrite each item as a full claim with a verb and a number. Carve-out: genuine list content (changelogs, parameter docs, ingredient lists) where bare NPs are correct |
 
+### AI-tool fingerprints & later additions (v3.5–3.7)
+
+| # | Pattern | Before | After |
+|---|---------|--------|-------|
+| 43 | **Unfilled placeholders** | `[Your Name]`, `[INSERT SOURCE]`, `2025-XX-XX` | Fill in with real content or delete — shipped placeholders are a near-definitive tell |
+| 44 | **Chatbot citation markup** | `citeturn0search0`, `oai_citation`, `contentReference[oaicite:0]` | Strip the markup token entirely |
+| 45 | **AI-tool URL parameters** | `utm_source=chatgpt.com`, `utm_source=copilot.com` | Strip the tracking parameter; keep the URL if the link matters |
+| 46 | **Speculative gap-filling** | "maintains a low profile," "likely began his career" | Cut the guess, or replace with a sourced fact |
+| 47 | **Hyphenated-pair overuse** | "a high-quality, well-architected, future-proof solution" | Cut to the modifier that matters; no hyphen in predicate ("the report is high quality") |
+| 48 | **Infomercial engagement hooks** | "The catch?", "The kicker?", "Here's the thing." | Delete the hook, state the thing |
+| 49 | **Vocabulary diversity (low TTR)** | Narrow, repetitive word range across 200+ words | Broaden the *what* — name specific things, cite specific cases |
+
+Two writer-side **tests** round out the catalog (judgment checks, not auto-detected): **paragraph-reshuffle immunity** (can you swap two body paragraphs without breaking the piece?) and the **treadmill effect** ("what's actually new in this paragraph?").
+
 ## Full Example
 
 **Before (AI-generated):**
@@ -253,6 +302,8 @@ The skill ships a deterministic, zero-dependency detection engine in
 describe, as runnable code. It works in Node (`>=18`) and the browser with no
 build step.
 
+It's also the single source of the numeric score: the skill itself (and `detect` mode) report *which* patterns are present and how severe (P0/P1/P2), and the engine is what turns those into one computed 0–100 `score`. There's deliberately no second, prose-estimated score in `SKILL.md` — one scorer, not two.
+
 ```bash
 npm test          # run the detector's fixtures (no deps to install)
 ```
@@ -275,9 +326,16 @@ Pattern research informed by:
 - [brandonwise/humanizer](https://github.com/brandonwise/humanizer) — tiered vocabulary system, statistical analysis research (burstiness, sentence length variation, trigram repetition), and rewrite philosophy
 - [OpenClaw](https://github.com/openclaw/openclaw) humanizer skill ecosystem — community patterns and vocabulary research
 
-A community built a Solana token (`$avoid`) and a [token-burn web app](https://avoid-ai-writing-app.vercel.app) around this project in 2026; both are now in maintenance mode.
-
 Authored by [Conor Bronsdon](https://github.com/conorbronsdon) · [LinkedIn](https://www.linkedin.com/in/conorbronsdon/) · [Chain of Thought podcast](https://chainofthought.show)
+
+## Community / Multilingual
+
+Things the community has built around this skill:
+
+- **[avoid-ai-writing-multilingual](https://github.com/jurigis/avoid-ai-writing-multilingual)** by [Jürgen Kraus](https://github.com/jurigis) — German (`SKILL-DE.md`) and Romanian (`SKILL-RO.md`) adaptations, grounded in native-language research rather than translated from English. French and Spanish planned.
+- **[$avoid token + burn web app](https://avoid-ai-writing-app.vercel.app)** — a community-built Solana token (`$avoid`) and token-burn web app around this project (2026), now in maintenance mode.
+
+Built something on top of this skill? Open an issue — happy to link it here.
 
 ---
 

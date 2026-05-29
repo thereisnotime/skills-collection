@@ -173,7 +173,10 @@ console.log('  loki start --provider codex      Start with OpenAI Codex');
 console.log('  loki start --provider gemini     Start with Google Gemini');
 console.log('  loki status                      Check status');
 console.log('  loki doctor                      Verify installation');
+console.log('  loki welcome                     Quick tour, docs, and setup');
 console.log('  loki --help                      Show all commands');
+console.log('');
+console.log('New here? Run `loki welcome` for a 30-second tour.');
 console.log('');
 
 // Anonymous install telemetry (fire-and-forget, silent)

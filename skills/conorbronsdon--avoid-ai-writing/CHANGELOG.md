@@ -4,6 +4,56 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.7.2] — 2026-05-28
+
+### Changed
+- **Curly quotation marks** — recalibrated per review of #15. Reframed from a "strong" tell to a **weak, corroborating** signal meaningful mainly in plain-text contexts (code comments, commit messages, plaintext drafts), since Word/Google Docs/macOS/iOS auto-curl quotes by default. Curly apostrophes (U+2019) are no longer flagged on their own (they appear in every contraction). Fixes the German low-9 example. Keeps it consistent with the deterministic detector's co-occurrence logic (#16).
+
+---
+
+## [3.7.1] — 2026-05-28
+
+### Changed
+- **Curly quotation marks** — refined the 3.7.0 "mixed straight/curly punctuation" rule into a single Formatting rule: flag the unexplained presence of Unicode curly quotes (U+201C / U+201D / U+2018 / U+2019) in otherwise plain-ASCII text as a copy-paste-from-chat fingerprint, with carve-outs for deliberate publication typography and locale-correct punctuation (French guillemets, German low-9 quotes).
+- Version bump to 3.7.1.
+
+### Credit
+- Contributed by [@augustasas](https://github.com/augustasas) (#15).
+
+---
+## [3.7.0] — 2026-05-28
+
+### Added
+- **Hyphenated-pair overuse** — stacked compound modifiers ("a high-quality, well-architected, future-proof solution") and the attributive/predicate error (hyphenate "a high-quality report" but not "the report is high quality").
+- **Speculative gap-filling** — hedged speculation dressed as background ("maintains a low profile," "is believed to have," "likely began his career") that hides a knowledge gap rather than admitting it. Distinct from cutoff disclaimers.
+
+### Changed
+- **Formatting** — added **mixed straight/curly punctuation** (quote/apostrophe style mixed in one document — a paste-from-chat-UI tell).
+- **Confidence calibration phrases** — extended with **persuasive-authority tropes** ("the real question is," "at its core," "fundamentally," "make no mistake").
+- Version bump to 3.7.0.
+
+### Credit
+- Patterns adapted from `blader/humanizer` (P21, P26, P27) and Wikipedia's "Signs of AI writing," identified in the competitive research tracked in #22.
+
+---
+
+## [3.6.0] — 2026-05-28
+
+### Added
+- **Voice profiles** — an optional persona axis, independent of the audience context profiles. Five profiles (`casual`, `professional`, `technical`, `warm`, `blunt`), each a set of concrete targets (sentence length, contraction policy, hedging tolerance, jargon level, rhythm) drawn from writing-craft sources (Strunk, Provost, Ogilvy, Handley). Plus optional calibration to a user-supplied writing sample. Includes a composition rule: voice sets the target, context sets enforcement strictness, conflicts resolve toward the stricter.
+- **Edit mode** — a third mode alongside `rewrite` and `detect`. Edits a named file in place via the Edit tool with minimal, targeted changes, preserving already-human passages, then re-reads to verify. Returns an edits-made + verification report, not the full file.
+- **Iterate to convergence** — rewrite mode can repeat the audit→rewrite cycle until no patterns remain or N passes (capped at 2). Generalizes the existing built-in second pass.
+- **Invocation surface** — documented optional flags (`--mode`, `--voice`, `--context`, `--file`, `--iterate N`) alongside the existing natural-language triggers.
+
+### Changed
+- Frontmatter `description` updated to advertise the new modes and voice profiles.
+- Version bump to 3.6.0.
+
+### Notes
+- Designed from a competitive feature audit (Aboudjem/humanizer-skill, brandonwise/humanizer, blader/humanizer) plus detection-science and writing-craft research. The `--score` feature and four additional catalog patterns from that research are tracked separately (#21, #22).
+
+---
+
 ## [3.5.0] — 2026-05-27
 
 ### Added

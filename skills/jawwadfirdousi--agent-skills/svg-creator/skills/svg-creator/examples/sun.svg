@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pulse-sun-title">
+  <title id="pulse-sun-title">Pulsing rotating sun</title>
+  <g>
+    <circle cx="12" cy="12" r="4" fill="#fbbf24" stroke="#f59e0b">
+      <animate attributeName="r" values="4;4.6;4" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M12 2 L 12 4"/>
+    <path d="M12 20 L 12 22"/>
+    <path d="M4.93 4.93 L 6.34 6.34"/>
+    <path d="M17.66 17.66 L 19.07 19.07"/>
+    <path d="M2 12 L 4 12"/>
+    <path d="M20 12 L 22 12"/>
+    <path d="M4.93 19.07 L 6.34 17.66"/>
+    <path d="M17.66 6.34 L 19.07 4.93"/>
+    <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="8s" repeatCount="indefinite"/>
+  </g>
+</svg>

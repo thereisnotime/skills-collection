@@ -5,6 +5,67 @@ All notable changes to the Claude Skills Library will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — code-reviewer: C-specific smell detector + fixtures
+
+### Added — language-specific smell pack for C (this PR)
+
+Closes Phase 2 / Tier 1 of the post-#769 audit: brings C onto the same footing as C# and Java for deterministic detection. Until now, `code_quality_checker.py` only had `check_<name>_specific_smells` for C# and Java; C / C++ / Rust / Ruby / PHP / Dart all fell through to generic checks.
+
+- **`check_c_specific_smells()`** in `scripts/code_quality_checker.py` (~110 lines). Detects:
+  - **Banned functions** — `gets`, `strcpy`, `strcat`, `sprintf`, `vsprintf` (all no-bounds; CWE-242 and CWE-120 family).
+  - **Format-string vulnerability** — `printf(var)` / `syslog(var)` with a bare identifier as the format argument (CWE-134). Skips literal-string first args.
+  - **Unbounded `scanf`** — `%s` specifier without a width (CWE-120). Suppressed when a width is present (`%31s`, etc.).
+  - **`malloc`/`calloc`/`realloc` without NULL check** — result variable not checked within 5 lines (CWE-690 NULL pointer dereference). Recognises `if (p == NULL)`, `if (NULL == p)`, `if (!p)`, `if (p != NULL)`.
+  - **`free()` without zeroing** — pointer not set to `NULL` on the next real line (CWE-416 use-after-free guardrail). Low severity since some style guides skip it.
+  - **`system()` with non-literal argument** — command-injection surface (CWE-78). Suppressed when the argument is a string literal or `NULL`.
+- Wired into `analyze_file()` after the C# and Java dispatchers.
+- **`assets/sample_c_smells.c`** + **`assets/sample_c_clean.c`** — labelled fixtures; every smell is annotated inline with the CWE it maps to. Smells fixture has 10 C-specific detector hits (some rules fire more than once); clean fixture has 0 hits and scores 100/A.
+- **`expected_outputs/sample_c_smells_quality.json`** + **`expected_outputs/sample_c_clean_quality.json`** — regression-detection harness following the C# / Java pattern.
+- Documentation refreshed: `README.md` adds C to the "Language-specific smell packs" line and the bundled-fixtures table; `SKILL.md` and `docs/skills/engineering-team/code-reviewer.md` update the "Adding a New Language" guide and "Regression Fixtures" section to reference C# + Java + C.
+
+Verification: all 6 fixtures (C# / Java / C × smells / clean) match their committed `expected_outputs/*.json` byte-for-byte. C smells fixture scores 4/100 (F); C clean fixture scores 100/100 (A).
+
+**Not yet (separate PRs):** `check_<name>_specific_smells` for C++, Rust, Python, Kotlin, PHP, Ruby, Dart, Go, Swift, TypeScript, JavaScript (audit-ranked sequence). C++ and Rust are next — security delta is highest there (smart-pointer ownership, `unsafe` block discipline).
+
+---
+
+## [Unreleased] — code-reviewer: 6 new languages + analyzer wiring + doc sync
+
+### Added — language coverage 7 → 13 (PR #769)
+
+Six new language-rule files in `engineering-team/skills/code-reviewer/languages/`. Each follows the established 8-section contract (PR Analyzer Signals / Code Quality Checks / Security / Async / Resource Management / Exception Handling / Performance / Idioms). Contributor: @mitnick2012.
+
+- **`c.md`** — memory safety, banned functions (`gets`, `strcpy`, `sprintf` without bounds), pointer ownership, buffer-bounds discipline, undefined-behavior patterns.
+- **`cpp.md`** — smart-pointer ownership transfer, RAII discipline, `reinterpret_cast` audit, missing virtual destructors, C++17/20 idioms.
+- **`rust.md`** — `unsafe` block justification, `.unwrap()` in production paths, Tokio runtime pitfalls, `thiserror` vs `anyhow` separation, clippy compliance.
+- **`ruby.md`** — Rails-aware: N+1 with `includes`, `strong_parameters`, `YAML.safe_load` vs `YAML.load`, `Marshal.load`, Ruby 3.x idioms.
+- **`php.md`** — SQL injection, `unserialize`, `eval`, file inclusion, CSRF, XSS, PHP 8.x idioms (`match`, enums, `readonly`).
+- **`dart.md`** — Dart + Flutter unified: widget `dispose()` lifecycle, `BuildContext` across async gaps, `const` widget optimization, state-management patterns.
+
+`SKILL.md` dispatch table and `--language` valid-values comment updated accordingly. No existing language files were modified.
+
+### Fixed — deterministic analyzer wiring (PR #772)
+
+Post-merge audit of PR #769 surfaced a gap: `SKILL.md`'s dispatch table and the `--language` help text both advertised coverage for the 6 new languages, but `scripts/code_quality_checker.py` was never updated — files in those languages were silently skipped by the deterministic analyzer.
+
+Three structures in `code_quality_checker.py` extended (+94 / -1, stdlib-only):
+
+- **`LANGUAGE_EXTENSIONS`** — 6 new dict entries matching `SKILL.md` exactly. `c` declared before `cpp` so plain `.h` resolves to C per the dispatch-table contract.
+- **`find_functions` patterns** — language-aware function regexes. C/C++ require a trailing `{` (filters prototypes and call sites) plus negative-lookahead on control-flow keywords. Rust uses the unambiguous `fn` keyword. Ruby handles `def`, `def self.x`, predicate (`?`) / bang (`!`) suffixes, parenthesised-or-bare params. PHP requires the `function` keyword. Dart matches typed-return-then-name with optional `async` / `async*` / `sync*` markers.
+- **`find_classes` patterns + nested `method_patterns`** — type-def regexes: `struct` / `typedef struct` for C; `class` / `struct` for C++; `struct` / `enum` / `trait` / `union` for Rust; `class` / `module` for Ruby; `class` / `interface` / `trait` / `enum` for PHP; `class` / `mixin` / `enum` / `extension` with all 5 Dart 3 class modifiers (`abstract` / `sealed` / `final` / `base` / `interface`).
+
+Verification: `python3 scripts/code_quality_checker.py --help` now lists all 14 languages as `--language` choices. Smoke-tested with a minimal sample per new language; each correctly detects functions and classes. All 4 bundled regression fixtures (`csharp`/`java` × `smells`/`clean`) still match their committed `expected_outputs/*.json` byte-for-byte.
+
+**Not yet:** language-specific `check_<name>_specific_smells` detectors for the 6 new languages (only C# and Java have these today). Audit ranked C / C++ / Rust as the next-highest-leverage additions.
+
+### Changed — documentation sync (this PR)
+
+- **`engineering-team/skills/code-reviewer/README.md`** — language list (line 3) and the "Review rules" guide-per-language reference (line 90) updated 7 → 13 languages.
+- **`docs/skills/engineering-team/code-reviewer.md`** — MkDocs page synced: frontmatter description, file-tree, dispatch table (6 new rows), and `--language` valid-values comment.
+- **Cross-platform sync indexes** — `.gemini/skills-index.json` and `.vibe/skills/claude-skills/skills-index.json` regenerated via `scripts/sync-gemini-skills.py` / `scripts/sync-vibe-skills.py`; `.hermes/skills/claude-skills/skills-index.json` hand-patched (full regen would have bundled 33 unrelated new-skill entries — left for a separate mirror-refresh PR). `.codex/skills-index.json` was already current. All 3 updated mirrors now show the canonical 13-language description from `SKILL.md` frontmatter.
+
+---
+
 ## [Unreleased] — Mistral Vibe cross-platform installation (closes #705)
 
 ### Added

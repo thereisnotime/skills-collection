@@ -1,0 +1,17 @@
+{
+  "name": "elastic-search-logs",
+  "description": "Query and analyze logs in Elasticsearch.",
+  "version": "0.1.1",
+  "author": {
+    "name": "jawwadfirdousi"
+  },
+  "homepage": "https://github.com/jawwadfirdousi/agent-skills",
+  "repository": "https://github.com/jawwadfirdousi/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "elasticsearch",
+    "logs",
+    "query",
+    "analysis"
+  ]
+}

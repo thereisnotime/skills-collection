@@ -1,0 +1,16 @@
+{
+  "environments": [
+    {
+      "name": "dev",
+      "description": "Development project",
+      "url": "https://your-dev-ref.supabase.co",
+      "access_token": "sbp_dev_management_api_token"
+    },
+    {
+      "name": "prod",
+      "description": "Production project",
+      "url": "https://your-prod-ref.supabase.co",
+      "access_token": "sbp_prod_management_api_token"
+    }
+  ]
+}
