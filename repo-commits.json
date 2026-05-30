@@ -1519,6 +1519,24 @@
   ],
   "avifenesh--agentsys": [
     {
+      "sha": "5fe2f51",
+      "message": "chore: release v6.0.0 (#374)",
+      "date": "2026-05-29",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "052b8c0",
+      "message": "chore: sync core lib and CLAUDE.md from agent-core (#373)",
+      "date": "2026-05-29",
+      "author": "Avi Fenesh"
+    },
+    {
+      "sha": "e3468cd",
+      "message": "test(repo-intel): drop aiRatio test - query removed from analyzer (#372)",
+      "date": "2026-05-29",
+      "author": "Avi Fenesh"
+    },
+    {
       "sha": "abfdf8a",
       "message": "Remove axiom and web-ctl plugins from marketplace (#365)",
       "date": "2026-05-29",
@@ -1558,24 +1576,6 @@
       "sha": "b3ee2a5",
       "message": "chore(release): v5.13.5 - axiom v0.6.2 pin + numeric sync",
       "date": "2026-05-18",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "6b8bc3e",
-      "message": "ci: repin reusable node 24 workflow",
-      "date": "2026-05-17",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "4ee2de9",
-      "message": "ci: run github actions on node 24",
-      "date": "2026-05-17",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "77d5ad8",
-      "message": "chore: release v5.13.4",
-      "date": "2026-05-17",
       "author": "Avi Fenesh"
     }
   ],
@@ -1907,6 +1907,12 @@
   ],
   "conorbronsdon--avoid-ai-writing": [
     {
+      "sha": "5900248",
+      "message": "Add Self-labeling significance rule (v3.8.0)",
+      "date": "2026-05-29",
+      "author": "Conor Bronsdon"
+    },
+    {
       "sha": "c892a8e",
       "message": "docs: reconcile pattern count to 46 + add CI count-guard (#28)",
       "date": "2026-05-28",
@@ -1957,12 +1963,6 @@
     {
       "sha": "ee686b7",
       "message": "v3.6.0: voice profiles + edit mode + iterate-to-convergence (#23)",
-      "date": "2026-05-28",
-      "author": "Conor Bronsdon"
-    },
-    {
-      "sha": "bdc5009",
-      "message": "docs: move $avoid token mention into Community section",
       "date": "2026-05-28",
       "author": "Conor Bronsdon"
     }
@@ -2031,64 +2031,64 @@
   ],
   "coreyhaines31--marketingskills": [
     {
-      "sha": "692b761",
-      "message": "Merge pull request #328 from coreyhaines31/development",
-      "date": "2026-05-26",
+      "sha": "7f4af1e",
+      "message": "Merge pull request #343 from coreyhaines31/development",
+      "date": "2026-05-29",
       "author": "Corey Haines"
     },
     {
-      "sha": "b69b236",
-      "message": "Merge pull request #327 from coreyhaines31/chore/sync-main-pre-v2.2.0",
-      "date": "2026-05-26",
+      "sha": "3c6b892",
+      "message": "Merge pull request #342 from coreyhaines31/chore/expand-v2.3.0-release-notes-with-budget-growth-team",
+      "date": "2026-05-29",
       "author": "Corey Haines"
     },
     {
-      "sha": "a10be10",
-      "message": "merge main into development (vendor PRs that landed on main) before v2.2.0 release",
-      "date": "2026-05-26",
+      "sha": "8dd104c",
+      "message": "chore: expand v2.3.0 release notes with budget/growth/team frameworks",
+      "date": "2026-05-29",
       "author": "Corey Haines"
     },
     {
-      "sha": "f86637e",
-      "message": "feat: add prospecting skill + truelist integration (#308)",
-      "date": "2026-05-26",
+      "sha": "88414ce",
+      "message": "Merge pull request #341 from coreyhaines31/feature/marketing-plan-budget-growth-team",
+      "date": "2026-05-29",
       "author": "Corey Haines"
     },
     {
-      "sha": "13fa456",
-      "message": "fix(ads): add Google RSA output spec with hard limits and ordering (#318)",
-      "date": "2026-05-26",
-      "author": "erionjuniordeandrade-a11y"
-    },
-    {
-      "sha": "aa3cef7",
-      "message": "docs: add Sequenzy integration (#312)",
-      "date": "2026-05-26",
-      "author": "Nicolay"
-    },
-    {
-      "sha": "3fb8bb6",
-      "message": "chore: ignore skill install artifacts (#317)",
-      "date": "2026-05-26",
-      "author": "sebsalasenroute"
-    },
-    {
-      "sha": "e40125a",
-      "message": "fix: keep plugin.json version in sync with marketplace.json (closes #323) (#326)",
-      "date": "2026-05-26",
+      "sha": "27f06a2",
+      "message": "feat(marketing-plan): add budget, growth-patterns, and team-and-agency-model reference docs",
+      "date": "2026-05-29",
       "author": "Corey Haines"
     },
     {
-      "sha": "0f39e12",
-      "message": "Merge pull request #320 from coreyhaines31/development",
-      "date": "2026-05-21",
+      "sha": "4286bbd",
+      "message": "Merge pull request #338 from coreyhaines31/development",
+      "date": "2026-05-29",
       "author": "Corey Haines"
     },
     {
-      "sha": "d364337",
-      "message": "feat: add sms skill + 5 SMS platform integration docs (#307)",
-      "date": "2026-05-21",
+      "sha": "ed63ccd",
+      "message": "Merge pull request #337 from coreyhaines31/fix/versions-md-strip-internal-skill-ref",
+      "date": "2026-05-29",
       "author": "Corey Haines"
+    },
+    {
+      "sha": "3f4b4ff",
+      "message": "fix(versions): drop CF audit-marketing reference from v2.3.0 release notes",
+      "date": "2026-05-29",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "d9987d2",
+      "message": "Merge pull request #336 from coreyhaines31/chore/sync-development-readme-post-v2.3.0",
+      "date": "2026-05-29",
+      "author": "Corey Haines"
+    },
+    {
+      "sha": "0b83502",
+      "message": "chore: sync skills with marketplace.json, plugin.json, and README",
+      "date": "2026-05-29",
+      "author": "coreyhaines31"
     }
   ],
   "dreamiurg--claude-mountaineering-skills": [
@@ -2279,6 +2279,12 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "69c74ee",
+      "message": "Refactor package dependencies to replace '@mendable/firecrawl-js' wit\u2026 (#118)",
+      "date": "2026-05-29",
+      "author": "Erik Engervall"
+    },
+    {
       "sha": "3aeaccd",
       "message": "Merge pull request #121 from firecrawl/update-monitor-skill",
       "date": "2026-05-28",
@@ -2329,12 +2335,6 @@
     {
       "sha": "2b1be2e",
       "message": "bump cli version",
-      "date": "2026-05-27",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "1f9db18",
-      "message": "Merge pull request #117 from firecrawl/jonathan/monitoring-2",
       "date": "2026-05-27",
       "author": "Developers Digest"
     }
@@ -2927,6 +2927,12 @@
   ],
   "obra--superpowers": [
     {
+      "sha": "6fd4507",
+      "message": "Require contributors to disclose authoring environment and target dev",
+      "date": "2026-05-29",
+      "author": "Jesse Vincent"
+    },
+    {
       "sha": "f2cbfbe",
       "message": "Release v5.1.0 (#1468)",
       "date": "2026-05-04",
@@ -2979,12 +2985,6 @@
       "message": "sync-to-codex-plugin: seed interface.defaultPrompt (#1180)",
       "date": "2026-04-15",
       "author": "Drew Ritter"
-    },
-    {
-      "sha": "f9b088f",
-      "message": "Merge pull request #1165 from obra/mirror-codex-plugin-tooling",
-      "date": "2026-04-14",
-      "author": "Jesse Vincent"
     }
   ],
   "obra--superpowers-skills": [
@@ -4485,125 +4485,125 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "0cf4f4d",
-      "message": "release: v7.7.30 - folder-scoped loki stop + per-project dashboard stop",
+      "sha": "4ecedd9",
+      "message": "release: v7.8.3 - detach telemetry subshell FDs (fix macOS broken-pipe)",
+      "date": "2026-05-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "3d995bd",
+      "message": "release: v7.8.2 - Bun-route usage analytics (cli_command emit)",
+      "date": "2026-05-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "65ece3a",
+      "message": "docs: add --regen-prd to the loki start options table (v7.8.1 follow-up)",
       "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "449db2e",
-      "message": "release: v7.7.29 - dashboard integration fixes + multi-project switcher",
-      "date": "2026-05-28",
+      "sha": "7931f69",
+      "message": "release: v7.8.1 - staleness-aware generated-PRD reuse for no-PRD runs",
+      "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "1b7ec9c",
-      "message": "release: v7.7.28 - memory + council + healing audit fixes (5 verified bugs)",
-      "date": "2026-05-28",
+      "sha": "8370adf",
+      "message": "release: v7.8.0 - adopt Claude Code --setting-sources + --include-partial-messages",
+      "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "b1e130d",
-      "message": "release: v7.7.27 - welcome opener (magic opener) with opt-in profile + PostHog",
-      "date": "2026-05-28",
+      "sha": "87f347d",
+      "message": "release: v7.7.34 - Stop kills the agent process group, not just the orchestrator",
+      "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "f273751",
-      "message": "release: v7.7.26 - dashboard Live Tool Activity panel + complete positioning reframe",
-      "date": "2026-05-28",
+      "sha": "05b24bd",
+      "message": "release: v7.7.33 - dashboard Stop actually stops the session",
+      "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "aa1f603",
-      "message": "release: v7.7.25 - dashboard memory endpoints + tools packaging fix",
-      "date": "2026-05-28",
+      "sha": "3ee1aa7",
+      "message": "release: v7.7.32 - populate dashboard task-detail modal",
+      "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "800bcfb",
-      "message": "docs: lead positioning with autonomous spec-to-product + RARV-C, demote multi-provider to provider-agnostic reference",
-      "date": "2026-05-28",
+      "sha": "19be16c",
+      "message": "release: v7.7.31 - prompt Stop button + autonomous agent no longer refuses work",
+      "date": "2026-05-29",
       "author": "asklokesh"
     },
     {
-      "sha": "07a86c7",
-      "message": "release: v7.7.24 - cross-project knowledge lift proof + retrieval fix",
-      "date": "2026-05-28",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "e83a038",
-      "message": "release: v7.7.23 - memory speed bench + privacy opt-out + secret scrub",
-      "date": "2026-05-28",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "5b8a6f3",
-      "message": "release: v7.7.22 - loki memory replay (the wow feature)",
-      "date": "2026-05-28",
+      "sha": "0cf4f4d",
+      "message": "release: v7.7.30 - folder-scoped loki stop + per-project dashboard stop",
+      "date": "2026-05-29",
       "author": "asklokesh"
     }
   ],
   "yusufkaraaslan--Skill_Seekers": [
     {
-      "sha": "f4b20fe",
-      "message": "feat(scan): AI-driven project knowledge base (#327) (#387)",
-      "date": "2026-05-25",
+      "sha": "c96b0f1",
+      "message": "fix: exclude mcp_only tests from serial phase to avoid overlap",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "ff0f832",
-      "message": "fix(html): skip HTML auto-detect when source root has a code manifest",
-      "date": "2026-05-17",
+      "sha": "19076a0",
+      "message": "fix: exclude network tests from MCP phase with marker filter",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "7e1b6d4",
-      "message": "fix(html): auto-detect HTML directories and honor --html-path override (#382)",
-      "date": "2026-05-13",
+      "sha": "8e7b957",
+      "message": "fix: exclude network tests from MCP phase, ignore bootstrap in CI, check all phases",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "4cd5140",
-      "message": "Merge branch 'development' into main",
-      "date": "2026-05-03",
+      "sha": "a6e146c",
+      "message": "fix: resolve ruff lint errors and CI import crashes",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "920ac57",
-      "message": "Sync development \u2192 main (docker-compose v2 CI fix) (#379)",
-      "date": "2026-05-03",
+      "sha": "5fafd59",
+      "message": "ci: update workflows for new test markers and deleted files",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "45b206c",
-      "message": "ci(docker): use Compose v2 plugin (`docker compose`) in PR test job (#378)",
-      "date": "2026-05-03",
+      "sha": "5e786c1",
+      "message": "fix: restore merge-reverted pytestmark order in test_server_fastmcp_http.py",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "cd23098",
-      "message": "Release v3.6.0 (#377)",
-      "date": "2026-05-03",
+      "sha": "172966f",
+      "message": "fix: restore merge-reverted marker and docstring changes",
+      "date": "2026-05-29",
       "author": "yusyus"
     },
     {
-      "sha": "1363f01",
-      "message": "release: v3.6.0 \u2014 IBM Bob target, GitHub issue filtering, codebase analysis fixes",
-      "date": "2026-05-03",
+      "sha": "91799e0",
+      "message": "Merge branch 'development' of https://github.com/yusufkaraaslan/Skill_Seekers.git",
+      "date": "2026-05-29",
       "author": "yusyus"
     },
     {
-      "sha": "8bec44e",
-      "message": "fix(unified): generate codebase_analysis index, fix broken SKILL.md links (#362) (#376)",
-      "date": "2026-05-02",
+      "sha": "8a781d4",
+      "message": "test: comprehensive test suite improvements across 5 phases",
+      "date": "2026-05-29",
       "author": "yusyus"
     },
     {
-      "sha": "9ae7d43",
-      "message": "fix(unified): drop guides truthy placeholder so fallback can fire (#364) (#375)",
-      "date": "2026-05-02",
+      "sha": "4d47d7c",
+      "message": "feat(converters): fail fast on missing optional dependency in get_converter (#392)",
+      "date": "2026-05-29",
       "author": "yusyus"
     }
   ],
@@ -4827,6 +4827,12 @@
   ],
   "transilienceai--communitytools": [
     {
+      "sha": "0f06ed3",
+      "message": "Add attack-path & attacks-validation projects",
+      "date": "2026-05-29",
+      "author": "robisl"
+    },
+    {
       "sha": "bf1d9cb",
       "message": "Restructure skills content and add references",
       "date": "2026-05-11",
@@ -4878,12 +4884,6 @@
       "sha": "e363a78",
       "message": "update on the latest benchmarks",
       "date": "2026-04-27",
-      "author": "Alessio Mauro"
-    },
-    {
-      "sha": "6fb784e",
-      "message": "Merge branch 'main' into new-benchmarks",
-      "date": "2026-04-23",
       "author": "Alessio Mauro"
     }
   ],
@@ -5075,6 +5075,12 @@
   ],
   "levnikolaevich--claude-code-skills": [
     {
+      "sha": "49e4ca6",
+      "message": "release: @levnikolaevich/hex-line-mcp v1.31.0 + @levnikolaevich/hex-graph-mcp v0.20.2",
+      "date": "2026-05-29",
+      "author": "levnikolaevich"
+    },
+    {
       "sha": "2205dbb",
       "message": "release: @levnikolaevich/hex-ssh-mcp v1.9.2",
       "date": "2026-05-19",
@@ -5127,15 +5133,51 @@
       "message": "Fix repository reference consistency",
       "date": "2026-05-08",
       "author": "levnikolaevich"
-    },
-    {
-      "sha": "9991357",
-      "message": "feat(skills): add researchgraph utility skill",
-      "date": "2026-05-08",
-      "author": "levnikolaevich"
     }
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
+    {
+      "sha": "f662412",
+      "message": "fix(deps): clear all 80 pnpm advisories to zero (#809)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "326de20",
+      "message": "test(fixtures): SAK wave 1 \u2014 80 SKILL.md frontmatter regression fixtures (#801)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "f00e19b",
+      "message": "feat(sak): 6767-h section-heading parser + prose-anchor validity checker (#800)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "9dc1fe7",
+      "message": "fix(docs): final sweep, strip remaining broken links to zero (#808)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "1259c79",
+      "message": "fix(docs): mass-strip broken markdown links (1,863 \u2192 203 remaining) (#807)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "4d4897a",
+      "message": "feat(ci): add broken-link checkers (lychee + live issue-body audit) (#806)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "5aa01cd",
+      "message": "chore(gitignore): publish databricks-pack 000-docs research catalog (#805)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
     {
       "sha": "8a9cd04",
       "message": "chore(gitignore): exclude internal-only AT-DECR records from re-include allowlist (#804)",
@@ -5153,48 +5195,6 @@
       "message": "feat(sources): add 4 Ejentum harness plugins (#761)",
       "date": "2026-05-29",
       "author": "ejentum.com"
-    },
-    {
-      "sha": "4801da6",
-      "message": "feat(validator): wire --json for single-file --marketplace mode (#799)",
-      "date": "2026-05-29",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "16dfbca",
-      "message": "chore(ci): add repo-specific codecov.yml (#798)",
-      "date": "2026-05-29",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "196527a",
-      "message": "chore(stats): daily npm download refresh (#786)",
-      "date": "2026-05-28",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "7b9eb8f",
-      "message": "docs(claude-md): add disallowed-tools (schema 3.7.0+) to frontmatter spec (#788)",
-      "date": "2026-05-28",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "85b097b",
-      "message": "feat(blog): add vite-dev-server-in-production-the-871-byte-tell to tonsofskills.com/blog",
-      "date": "2026-05-28",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "0982240",
-      "message": "feat(blog): add plugin-scripts-lint-gap-shellcheck-ruff to tonsofskills.com/blog",
-      "date": "2026-05-28",
-      "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "a9b8ebd",
-      "message": "fix(ci): drop path filter from validate-plugins.yml (#784)",
-      "date": "2026-05-27",
-      "author": "intentsolutions.io"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5261,6 +5261,24 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "c083605",
+      "message": "fix(pdf-creator): write self-check previews to temp dir, not next to the PDF",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "5550dd3",
+      "message": "docs(skill-creator): AI semantic read-through as the primary sanitization method (#73)",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "b30125d",
+      "message": "docs(transcript-fixer): clarify native correction protocol + fix DB column guidance (#72)",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
       "sha": "90c188b",
       "message": "chore(marketplace): unify all 4 suites to suite-only mode (BREAKING)",
       "date": "2026-05-24",
@@ -5300,24 +5318,6 @@
       "sha": "1561772",
       "message": "feat(pdf-creator): lock in CJK table contract with regression tests (v1.5.0)",
       "date": "2026-05-13",
-      "author": "daymade"
-    },
-    {
-      "sha": "2e02802",
-      "message": "feat(gangtise-copilot): default to minimal preset, alias workshop to minimal",
-      "date": "2026-05-11",
-      "author": "daymade"
-    },
-    {
-      "sha": "8d07e4a",
-      "message": "chore: tunnel-doctor DNS layer, feishu-doc-scraper, cleanup",
-      "date": "2026-05-09",
-      "author": "daymade"
-    },
-    {
-      "sha": "1549306",
-      "message": "feat(statusline-generator): rewrite SKILL.md + scripts for v1.1.0",
-      "date": "2026-05-09",
       "author": "daymade"
     }
   ],
@@ -5447,6 +5447,24 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "2aec6f3",
+      "message": "gpt-image-2: add line-art preset",
+      "date": "2026-05-29",
+      "author": "glebis"
+    },
+    {
+      "sha": "9537db9",
+      "message": "agency skills: add agency-meetup-publish + agency-socials to repo",
+      "date": "2026-05-29",
+      "author": "glebis"
+    },
+    {
+      "sha": "757e342",
+      "message": "Merge pull request #20 from glebis/claude/agency-docs-workflow-OtkZ7",
+      "date": "2026-05-29",
+      "author": "Gleb Kalinin"
+    },
+    {
       "sha": "0e5969b",
       "message": "qmd-search: fix SKILL.md mode count/synopsis after adding grep+find",
       "date": "2026-05-29",
@@ -5487,27 +5505,27 @@
       "message": "Add disk-cleanup skill \u2014 macOS cache survey and cleanup",
       "date": "2026-05-28",
       "author": "glebis"
-    },
-    {
-      "sha": "e16acb1",
-      "message": "Use AskUserQuestion for weekly-digest setup flow",
-      "date": "2026-05-27",
-      "author": "glebis"
-    },
-    {
-      "sha": "5917fd9",
-      "message": "Fix 3 issues from third Codex audit of weekly-digest",
-      "date": "2026-05-27",
-      "author": "glebis"
-    },
-    {
-      "sha": "f4afcc5",
-      "message": "Fix 9 issues from second Codex audit of weekly-digest",
-      "date": "2026-05-27",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
+    {
+      "sha": "d337bae",
+      "message": "Update README.md",
+      "date": "2026-05-29",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "851127f",
+      "message": "chore(agent-collections): append 2026-05-29 changelog entry",
+      "date": "2026-05-29",
+      "author": "Claude Routine"
+    },
+    {
+      "sha": "612ea5e",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-29",
+      "author": "Claude Routine"
+    },
     {
       "sha": "9b83a17",
       "message": "Update README.md",
@@ -5549,24 +5567,6 @@
       "message": "chore(agent-collections): append May 26 changelog entry",
       "date": "2026-05-26",
       "author": "Claude Routine"
-    },
-    {
-      "sha": "410da75",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-25",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "59745c3",
-      "message": "chore(skill-collections-changelog): append skill collections refresh entry",
-      "date": "2026-05-25",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "4f40db5",
-      "message": "chore(dev-workflows-changelog): append development workflows refresh entry",
-      "date": "2026-05-25",
-      "author": "Shayan Rais"
     }
   ],
   "mrgoonie--claudekit-skills": [

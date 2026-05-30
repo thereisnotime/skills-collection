@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+pytestmark = pytest.mark.mcp_only
+
 # WORKAROUND for shadowing issue: Temporarily change to /tmp to import external mcp
 # This avoids any local mcp/ directory being in the import path
 _original_dir = os.getcwd()
@@ -330,6 +332,7 @@ class TestScrapingTools:
 
         assert isinstance(result, str)
 
+    @pytest.mark.network
     async def test_scrape_github_basic(self):
         """Test basic GitHub scraping."""
         with patch("subprocess.run") as mock_run:
@@ -341,6 +344,7 @@ class TestScrapingTools:
 
             assert isinstance(result, str)
 
+    @pytest.mark.network
     async def test_scrape_github_with_token(self):
         """Test GitHub scraping with authentication token."""
         result = await server_fastmcp.scrape_github(
@@ -349,6 +353,7 @@ class TestScrapingTools:
 
         assert isinstance(result, str)
 
+    @pytest.mark.network
     async def test_scrape_github_options(self):
         """Test GitHub scraping with various options."""
         result = await server_fastmcp.scrape_github(

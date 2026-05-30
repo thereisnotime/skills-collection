@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 ---
 
+## [3.8.0] — 2026-05-29
+
+### Added
+- **Self-labeling significance** — back-pointing labels that flag which item in a list is supposed to matter ("That last move is the contrarian one," "This is the interesting part," "That third bullet is the real story") instead of writing the list so the right item carries the weight on its own. Distinct from confidence calibration (which front-loads the cue) and emotional flatline (which prefaces a single claim) — this one back-points after the fact. Catalog goes from 46 to 47 detection categories. LLM-judgment rule (no detector `type`); documented in `detector/CATEGORIES.md` §C.
+
+---
+
 ## [3.7.2] — 2026-05-28
 
 ### Changed

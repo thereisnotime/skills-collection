@@ -403,13 +403,13 @@ After successful installation:
 
 **Documentation:**
 
-- Full Documentation: https://docs.claude-code-plugins.com/security-pro-pack
-- Video Tutorials: https://youtube.com/@claudecodeplugins
+- Full Documentation:
+- Video Tutorials:
 
 **Community:**
 
 - Discord: https://discord.gg/claude-code-plugins
-- Slack: https://claude-code-plugins.slack.com
+- Slack:
 
 ---
 

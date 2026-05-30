@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
 import time
 from collections import defaultdict
 from dataclasses import asdict
@@ -1496,15 +1497,30 @@ async def list_tasks(
                 for i, task in enumerate(task_groups.get(group_key, [])):
                     task_id = task.get("id", f"{group_key}-{i}")
                     payload = task.get("payload", {})
-                    all_tasks.append({
+                    # v7.7.32: read enrichment fields from the TOP LEVEL of the
+                    # task object (where run.sh writes them), falling back to
+                    # payload only for legacy entries. Previously description was
+                    # read solely from payload.description, so iteration tasks
+                    # (which carry a top-level description + acceptance_criteria)
+                    # rendered an empty modal. Pass through the same enrichment
+                    # fields the queue-file path emits so the detail modal is
+                    # populated regardless of which source wins.
+                    task_entry = {
                         "id": task_id,
                         "title": task.get("title", payload.get("action", task.get("type", "Task"))),
-                        "description": payload.get("description", ""),
+                        "description": task.get("description", payload.get("description", "")),
                         "status": mapped_status,
-                        "priority": payload.get("priority", "medium"),
+                        "priority": task.get("priority", payload.get("priority", "medium")),
                         "type": task.get("type", "task"),
                         "position": i,
-                    })
+                    }
+                    for _f in ("acceptance_criteria", "notes", "logs", "user_story",
+                               "project", "source", "specification", "provider",
+                               "startedAt", "full_content"):
+                        _v = task.get(_f)
+                        if _v not in (None, "", [], {}):
+                            task_entry[_f] = _v
+                    all_tasks.append(task_entry)
         except (json.JSONDecodeError, KeyError):
             pass
 
@@ -2166,7 +2182,8 @@ async def list_running_projects():
         path = p.get("path", "")
         pid = p.get("pid")
         running = False
-        if isinstance(pid, int) and pid > 0:
+        has_pid = isinstance(pid, int) and pid > 0
+        if has_pid:
             try:
                 os.kill(pid, 0)
                 running = True  # signal 0 delivered -> pid alive
@@ -2174,8 +2191,14 @@ async def list_running_projects():
                 running = True  # pid exists but owned by another user
             except (ProcessLookupError, OSError):
                 running = False  # ESRCH -> dead
-        # A project is also "live" if its .loki/session.json says running.
-        if not running and path:
+        # session.json is only a FALLBACK for legacy sessions with no recorded
+        # pid. v7.7.31: when a pid IS recorded but dead, that pid is
+        # authoritative -- the orchestrator is gone, so do NOT let a stale
+        # session.json (status still "running" after a hard kill / crash) flip
+        # this back to running. Otherwise the switcher shows a dead session as
+        # running and the Stop button targets a dead pid. Only consult
+        # session.json when no pid was ever recorded.
+        if not running and not has_pid and path:
             try:
                 sess = _Path(path) / ".loki" / "session.json"
                 if sess.is_file():
@@ -2299,6 +2322,24 @@ async def stop_running_project(request: Request, body: RunningProjectStopRequest
     except (ValueError, OSError, ProcessLookupError):
         # pid already dead or unsignalable -- treat as stopped.
         stopped = True
+
+    # v7.7.33: the registry pid can be stale (a crashed/restarted session leaves
+    # an orphaned loki-run-*.sh under a new pid). Reap any orchestrator whose CWD
+    # is this project's dir so a stale pid cannot yield a false "stopped". Scoped
+    # by cwd to this project only.
+    if loki_dir is not None:
+        proj_dir = loki_dir.parent
+        # v7.7.34: group-kill first (atomic; reaps the orphan-prone agent child),
+        # then the cwd+sentinel reaper as backstop.
+        _pgid2 = _read_pgid(loki_dir)
+        if _pgid2 is not None:
+            await asyncio.to_thread(_killpg_project, _pgid2, _collect_protected_pids(loki_dir))
+        found_any, all_gone = await asyncio.to_thread(
+            _reap_orchestrators_until_clear, proj_dir, str(proj_dir))
+        if found_any:
+            stopped = all_gone
+        elif not all_gone:
+            stopped = False
 
     # Mark session.json stopped in that project's .loki.
     if loki_dir is not None:
@@ -2557,6 +2598,351 @@ def _get_loki_dir() -> _Path:
 
     # Default: relative .loki/ (will be created when session starts)
     return _Path(".loki")
+
+
+def _find_orchestrator_pids_for_dir(project_dir: _Path) -> list[int]:
+    """Find live Loki orchestrator PIDs whose working directory IS project_dir.
+
+    v7.7.33: the dashboard Stop button used to signal only loki.pid. When that
+    pid file was stale (e.g. a crashed/restarted session left an orphaned
+    `bash /tmp/loki-run-XXXXXX.sh` reparented to init under a NEW pid), Stop
+    killed nothing live yet reported "stopped". The orchestrator temp-script
+    name carries no project identity, so we map orchestrator -> project by the
+    process CWD, which is reliably the project directory.
+
+    Strictly scoped: returns ONLY pids whose cwd resolves to project_dir, so a
+    stop on one project never reaps another folder's runner. Best-effort: on any
+    enumeration failure returns an empty list (callers still signal loki.pid).
+    """
+    pids: list[int] = []
+    try:
+        target = os.path.realpath(str(project_dir))
+    except OSError:
+        return pids
+
+    # Enumerate candidate orchestrator processes (the loki-run-*.sh temp script).
+    # Anchor the pattern to the real temp-dir path prefix (mktemp writes the
+    # runner to $TMPDIR or /tmp), so an unrelated process that merely mentions a
+    # "loki-run-*.sh" string in its argv is far less likely to match. The cwd
+    # equality check below is the authoritative scope guard regardless.
+    # pgrep enumeration can transiently miss a live process (kernel proc-list
+    # timing under load), which would let a still-running orphan slip past the
+    # post-kill survivor check and yield a false "stopped". Union a few quick
+    # passes to make the enumeration resilient. The cwd filter below still
+    # guarantees scope correctness for whatever is enumerated.
+    import time as _time
+    # Two candidate patterns, BOTH cwd-filtered below (cwd is the authoritative
+    # scope guard):
+    #   1. /loki-run-*.sh  -- the orchestrator temp script.
+    #   2. [LOKI-AUTONOMY-AGENT]  -- the sentinel Loki injects as the first line
+    #      of the agent's --append-system-prompt (v7.7.34). This matches the
+    #      claude/codex/aider AGENT process, which has no "loki-run" in its argv
+    #      and (critically) survives as an orphan (PPID 1) when the orchestrator
+    #      is killed -- the cause of "dashboard says stopped but it keeps
+    #      running". An interactive provider session never carries this sentinel,
+    #      so it is never matched.
+    _patterns = [r"/loki-run-[^/ ]*\.sh", r"\[LOKI-AUTONOMY-AGENT\]"]
+    candidate_set: set[int] = set()
+    enumerated = False
+    for _attempt in range(3):
+        for _pat in _patterns:
+            try:
+                out = subprocess.run(
+                    ["pgrep", "-f", _pat],
+                    capture_output=True, text=True, timeout=5,
+                )
+                enumerated = True
+                for line in out.stdout.split():
+                    try:
+                        candidate_set.add(int(line))
+                    except ValueError:
+                        pass
+            except (OSError, subprocess.SubprocessError):
+                pass
+        if _attempt < 2:
+            _time.sleep(0.15)
+    if not enumerated:
+        return pids
+    candidates = list(candidate_set)
+
+    for pid in candidates:
+        if _pid_is_gone(pid):
+            continue  # skip zombies / already-reaped
+        cwd = _pid_cwd(pid)
+        if cwd and os.path.realpath(cwd) == target:
+            pids.append(pid)
+    return pids
+
+
+def _pid_cwd(pid: int) -> Optional[str]:
+    """Return a process's current working directory, or None.
+
+    Linux: read /proc/<pid>/cwd. macOS/BSD: fall back to `lsof -a -p <pid> -d cwd`.
+    Best-effort and exception-safe; never raises.
+    """
+    # Linux fast path
+    proc_cwd = f"/proc/{pid}/cwd"
+    try:
+        if os.path.isdir(f"/proc/{pid}"):
+            return os.readlink(proc_cwd)
+    except OSError:
+        pass
+    # macOS / BSD: lsof
+    try:
+        out = subprocess.run(
+            ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in out.stdout.splitlines():
+            if line.startswith("n"):
+                return line[1:]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def _read_pgid(loki_dir: _Path) -> Optional[int]:
+    """Read the orchestrator process-group id recorded at .loki/loki.pgid (or the
+    per-session variant). Returns a valid pgid (>1) or None. Never raises."""
+    for name in ("loki.pgid", "run.pgid"):
+        f = loki_dir / name
+        try:
+            if f.exists():
+                v = int(f.read_text().strip())
+                if v > 1:
+                    return v
+        except (ValueError, OSError):
+            pass
+    # per-session pgid files
+    try:
+        sess_dir = loki_dir / "sessions"
+        if sess_dir.is_dir():
+            for sd in sess_dir.iterdir():
+                pf = sd / "loki.pgid"
+                if pf.exists():
+                    v = int(pf.read_text().strip())
+                    if v > 1:
+                        return v
+    except (ValueError, OSError):
+        pass
+    return None
+
+
+def _collect_protected_pids(loki_dir: _Path) -> set:
+    """Pids that must NOT be killed by a group stop: the dashboard, app-runner,
+    and anything registered under .loki/pids/ (filename is the pid). Plus this
+    server process. Best-effort; never raises."""
+    protected = {os.getpid()}
+    try:
+        protected.add(os.getppid())
+    except OSError:
+        pass
+    try:
+        pids_dir = loki_dir / "pids"
+        if pids_dir.is_dir():
+            for f in pids_dir.glob("*.json"):
+                try:
+                    protected.add(int(f.stem))
+                except ValueError:
+                    pass
+    except OSError:
+        pass
+    # the standalone dashboard pid file
+    for cand in (loki_dir / "dashboard" / "dashboard.pid",
+                 _Path.home() / ".loki" / "dashboard" / "dashboard.pid"):
+        try:
+            if cand.exists():
+                protected.add(int(cand.read_text().strip()))
+        except (ValueError, OSError):
+            pass
+    return protected
+
+
+def _killpg_project(pgid: Optional[int], protected_pids: Optional[set] = None) -> bool:
+    """Atomically stop a project's whole process tree by signaling its process
+    GROUP: SIGTERM, wait up to 5s, then SIGKILL. This is the v7.7.34 fix for the
+    orphaned-agent bug -- killing only the orchestrator pid let the agent child
+    reparent to init and keep running; a group kill reaps the orchestrator, the
+    agent, and every monitor at once with no orphan window.
+
+    Guards (CRITICAL): refuse to signal an absent/0/1 pgid or this server's OWN
+    process group (never commit suicide). If any protected pid (e.g. the shared
+    dashboard registered in .loki/pids) shares the target pgid, fall back to
+    per-pid kills of the group members EXCLUDING the protected pids, so the
+    dashboard is never taken down. Best-effort; never raises. Returns True if a
+    group signal (or scoped fallback) was issued."""
+    import signal as _signal
+    import time as _time
+    if not isinstance(pgid, int) or pgid <= 1:
+        return False
+    try:
+        if pgid == os.getpgrp():
+            return False  # never kill our own group
+    except OSError:
+        pass
+    protected = protected_pids or set()
+
+    def _group_members(g: int) -> list:
+        try:
+            out = subprocess.run(["ps", "-axo", "pid=,pgid="],
+                                 capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            return []
+        members = []
+        for line in out.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    pid_i, pgid_i = int(parts[0]), int(parts[1])
+                except ValueError:
+                    continue
+                if pgid_i == g:
+                    members.append(pid_i)
+        return members
+
+    members = _group_members(pgid)
+    conflict = any(p in protected for p in members)
+
+    if conflict:
+        # A protected pid (dashboard/app-runner) shares this group. Do NOT blast
+        # the whole group; signal only the non-protected members per-pid.
+        targets = [p for p in members if p not in protected and p != os.getpid()]
+        for sig in (_signal.SIGTERM,):
+            for p in targets:
+                try:
+                    os.kill(p, sig)
+                except OSError:
+                    pass
+        _time.sleep(2.0)
+        for p in targets:
+            try:
+                os.kill(p, _signal.SIGKILL)
+            except OSError:
+                pass
+        return True
+
+    # Clean case: signal the whole group.
+    try:
+        os.killpg(pgid, _signal.SIGTERM)
+    except (OSError, ProcessLookupError):
+        return True  # group already gone
+    for _ in range(10):
+        _time.sleep(0.5)
+        if not _group_members(pgid):
+            return True
+    try:
+        os.killpg(pgid, _signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        pass
+    return True
+
+
+def _reap_orchestrators_until_clear(project_dir: _Path, expected_cwd: str,
+                                    rounds: int = 6) -> tuple[bool, bool]:
+    """Find and terminate orchestrators for project_dir, looping until the
+    project is clear across a confirming re-scan. Returns (found_any, all_gone).
+
+    Robust against transient pgrep enumeration misses: a single find-then-scan
+    could miss a live orphan and falsely report it gone. We repeat find+kill and
+    require TWO consecutive empty scans before declaring all_gone, so a one-off
+    enumeration miss cannot yield a false "stopped". Runs in a worker thread (the
+    caller wraps it in asyncio.to_thread) so the blocking kills do not stall the
+    event loop. Strictly cwd-scoped via _find_orchestrator_pids_for_dir.
+    """
+    import time as _time
+    found_any = False
+    consecutive_empty = 0
+    for _round in range(rounds):
+        found = _find_orchestrator_pids_for_dir(project_dir)
+        if found:
+            found_any = True
+            consecutive_empty = 0
+            for opid in found:
+                _terminate_pid(opid, expected_cwd=expected_cwd)
+        else:
+            consecutive_empty += 1
+            if consecutive_empty >= 2:
+                return (found_any, True)  # clear, confirmed twice
+            _time.sleep(0.2)  # brief pause before the confirming re-scan
+    # Exhausted rounds: report gone only if the final scan is empty.
+    return (found_any, not _find_orchestrator_pids_for_dir(project_dir))
+
+
+def _pid_is_gone(pid: int) -> bool:
+    """True if pid no longer exists OR is a zombie/defunct (effectively dead,
+    just not yet reaped by its parent). os.kill(pid,0) succeeds on a zombie, so
+    we additionally consult `ps` for the process state. Never raises."""
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return True  # no such process
+    # alive per signal-0; check for zombie state (Z / defunct). Note: os.kill
+    # above proved the pid exists, so EMPTY ps output is a transient race, NOT a
+    # reap -- do not treat it as gone (that would falsely report a live
+    # orchestrator stopped). Only an explicit Z/zombie state counts as gone.
+    try:
+        out = subprocess.run(["ps", "-o", "state=", "-p", str(pid)],
+                             capture_output=True, text=True, timeout=5)
+        st = out.stdout.strip()
+        if st.startswith("Z"):
+            return True  # zombie / defunct -- effectively dead
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return False
+
+
+def _terminate_pid(pid: int, timeout_s: float = 5.0,
+                   expected_cwd: Optional[str] = None) -> bool:
+    """SIGTERM a pid, wait up to timeout_s, then SIGKILL. Return True if it is
+    gone afterward. Reaps direct children first (pkill -P) so the provider/app
+    child does not outlive the orchestrator. A zombie counts as gone.
+    Best-effort, never raises.
+
+    If expected_cwd is given, re-verify the pid's cwd still matches it right
+    before signaling (TOCTOU guard against pid reuse between enumeration and
+    kill). If it no longer matches, do nothing and report the pid gone."""
+    import time as _time
+    if expected_cwd is not None:
+        cwd = _pid_cwd(pid)
+        # Only skip the kill when the cwd POSITIVELY differs (true pid reuse).
+        # A failed/transient cwd lookup (cwd is None) must NOT cancel the kill:
+        # the pid came from a cwd-matched enumeration moments ago, and treating a
+        # transient lookup miss as "recycled" would skip killing a live
+        # orchestrator and falsely report it stopped.
+        if cwd:
+            try:
+                if os.path.realpath(cwd) != os.path.realpath(expected_cwd):
+                    return True  # pid recycled to a different cwd -- do not kill
+            except OSError:
+                pass  # fall through and kill the originally-matched pid
+    try:
+        # reap children first so a wedged child cannot keep the tree alive
+        subprocess.run(["pkill", "-TERM", "-P", str(pid)],
+                       capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        os.kill(pid, 15)
+    except (ProcessLookupError, OSError):
+        return True  # already gone
+    deadline = timeout_s
+    while deadline > 0:
+        _time.sleep(0.5)
+        deadline -= 0.5
+        if _pid_is_gone(pid):
+            return True
+    # still alive -> SIGKILL the tree
+    try:
+        subprocess.run(["pkill", "-9", "-P", str(pid)],
+                       capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        os.kill(pid, 9)
+    except (ProcessLookupError, OSError):
+        return True
+    _time.sleep(0.3)
+    return _pid_is_gone(pid)
 
 
 _SAFE_ID_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
@@ -3891,6 +4277,36 @@ async def stop_session(request: Request):
                     process_stopped = True
         except (ValueError, OSError, ProcessLookupError):
             process_stopped = True
+
+    # v7.7.33: loki.pid alone is not authoritative. If it was stale (a crashed
+    # or restarted session can leave an orphaned `loki-run-*.sh` under a new pid
+    # reparented to init), the kill above is a no-op yet reports "stopped" while
+    # the real orchestrator keeps running. Reap any orchestrator process whose
+    # CWD is THIS project's directory. Strictly scoped by cwd, so a stop on one
+    # project never touches another folder's runner.
+    # v7.7.34: group-kill is the PRIMARY, atomic teardown. Signal the
+    # orchestrator's whole process group so the agent child (which reparents to
+    # init when only the orchestrator pid is killed) dies WITH it. Protected pids
+    # (dashboard/app-runner) are spared. The cwd+sentinel reaper below is the
+    # backstop for already-orphaned agents from pre-v7.7.34 sessions.
+    _loki_dir_for_pg = _get_loki_dir()
+    _pgid = _read_pgid(_loki_dir_for_pg)
+    _protected = _collect_protected_pids(_loki_dir_for_pg)
+    if _pgid is not None:
+        await asyncio.to_thread(_killpg_project, _pgid, _protected)
+    project_dir = _get_loki_dir().parent
+    _proj = str(project_dir)
+    found_any, all_gone = await asyncio.to_thread(
+        _reap_orchestrators_until_clear, project_dir, _proj)
+    # The orchestrator-survivor scan is authoritative over loki.pid. If any
+    # orchestrator for this project was ever found, report stopped only when none
+    # survive. If we found one (stale-pid case), the real outcome wins over the
+    # loki.pid false positive. If the scan kept finding survivors, report not
+    # stopped even if loki.pid claimed success.
+    if found_any:
+        process_stopped = all_gone
+    elif not all_gone:
+        process_stopped = False
 
     # Mark session.json as stopped
     session_file = _get_loki_dir() / "session.json"

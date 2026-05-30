@@ -153,9 +153,9 @@ echo "Bundle saved to debug-bundle.json"
 
 ## Resources
 
-- [Lindy Support](https://support.lindy.ai)
+- Lindy Support
 - [Status Page](https://status.lindy.ai)
-- [API Reference](https://docs.lindy.ai/api)
+- API Reference
 
 ## Next Steps
 

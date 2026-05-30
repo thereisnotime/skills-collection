@@ -24,7 +24,7 @@ curl -s -H "Authorization: Bearer $TWINMIND_API_KEY" \
   https://api.twinmind.com/v1/health | jq
 
 # Check status page API
-curl -s https://status.twinmind.com/api/v2/status.json | jq '.status'
+curl -s api/v2/status.json | jq '.status'
 ```
 
 ### Check Our Service Health
@@ -106,7 +106,7 @@ Level 1: On-Call Engineer (0-15 min)
 
 - **Email:** support@twinmind.com
 - **Enterprise:** enterprise-support@twinmind.com
-- **Status:** https://status.twinmind.com
+- **Status:**
 
 ## Incident Report Template
 

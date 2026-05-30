@@ -496,6 +496,8 @@ End-to-end pipeline for publishing Claude Code lab meetings. Single `/agency-doc
 - 📊 Lesson HTML copied to public/ and linked in meeting page
 - ✅ Local build verification + Vercel deployment check
 - 🔢 Auto-detect or specify meeting number
+- 📚 Rebuilds site-wide aggregations after each meeting — meetings index/database, glossary, and global link library (`scripts/rebuild_aggregations.py`)
+- 🛠️ Fan-out maintenance workflows for repo-wide MDX/embed audits and backfill/repair of past meetings (`references/workflows.md`)
 
 **Quick Start:**
 ```bash
@@ -508,6 +510,20 @@ python3 scripts/update_meeting_doc.py \
 ```
 
 **Use when:** Publishing Claude Code lab sessions — automates the entire flow from Fathom recording to live documentation site.
+
+---
+
+### [Agency Meetup Publish](./agency-meetup-publish/)
+End-to-end pipeline for publishing AGENCY Community meetup recordings to YouTube. Downloads the Zoom recording, adds intro/outro, generates a thumbnail, builds a timecoded description, uploads to YouTube, sets the thumbnail, and adds the video to the AGENCY Community playlist.
+
+**Use when:** Publishing an AGENCY Community meetup — "upload the meetup", "publish the recording", "process the Zoom recording for YouTube".
+
+---
+
+### [Agency Socials](./agency-socials/)
+Generate social media covers and visual assets for AGENCY Community events, meetups, and YouTube recordings using the established design system (colors, typography, layout).
+
+**Use when:** Creating event covers, YouTube thumbnails, or social posts for the AGENCY Community.
 
 ---
 

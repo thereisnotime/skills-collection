@@ -159,6 +159,32 @@ run_check "tests/test-sentrux-gate.sh (unit, fake binary)" "bash tests/test-sent
 # cross-folder kill bug and asserts it is fixed (stop A leaves B alive).
 run_check "tests/test-stop-scoping.sh (stop scoping + per-project stop)" "bash tests/test-stop-scoping.sh 2>&1 | tail -3"
 
+# v7.7.31: STOP-aware countdown + dead-pid authoritative + autonomy override
+# (--append-system-prompt) parity. Verifies the dashboard Stop button responds
+# promptly and the autonomous agent does not refuse work due to global CLAUDE.md.
+run_check "tests/test-autonomy-and-stop.sh (stop responsiveness + agent autonomy)" "bash tests/test-autonomy-and-stop.sh 2>&1 | tail -3"
+
+# v7.7.32: /api/tasks must pass through task enrichment (description,
+# acceptance_criteria, logs, provider) so the dashboard task-detail modal is
+# populated, not just the title.
+run_check "tests/test-task-modal-fields.sh (task modal field passthrough)" "bash tests/test-task-modal-fields.sh 2>&1 | tail -3"
+
+# v7.7.33: dashboard Stop must be authoritative - reap orchestrators by cwd so a
+# stale loki.pid cannot yield a false "stopped" while the process keeps running.
+run_check "tests/test-dashboard-stop-authoritative.sh (cwd-scoped authoritative stop)" "bash tests/test-dashboard-stop-authoritative.sh 2>&1 | tail -3"
+
+# v7.7.34: Stop must kill the AGENT, not just the orchestrator. The agent shares
+# the orchestrator process group; a group-kill (kill -- -PGID) reaps the
+# orphan-prone agent child atomically. Sentinel sweep is the backstop.
+run_check "tests/test-stop-process-group.sh (group-kill agent teardown)" "bash tests/test-stop-process-group.sh 2>&1 | tail -3"
+
+# v7.8.0: additive Claude Code flag adoptions (--setting-sources,
+# --include-partial-messages) gated + with stream-json parser de-dup.
+run_check "tests/test-claude-adoptions.sh (setting-sources + partial-messages)" "bash tests/test-claude-adoptions.sh 2>&1 | tail -3"
+
+# v7.8.1: staleness-aware generated-PRD reuse (codebase signature + decision).
+run_check "tests/test-prd-reuse.sh (codebase signature + PRD reuse decision)" "bash tests/test-prd-reuse.sh 2>&1 | tail -3"
+
 # ---------------------------------------------------------------------------
 # 9. bun-parity local equivalent (mirrors bun-parity.yml matrix)
 # ---------------------------------------------------------------------------

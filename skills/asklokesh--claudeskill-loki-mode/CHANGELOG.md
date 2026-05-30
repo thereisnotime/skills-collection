@@ -9,6 +9,259 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.8.3] - 2026-05-30
+
+### Fixed
+- bin/loki: the backgrounded telemetry subshells (the v7.8.2 `cli_command`
+  emit and the first-run `installed` emit) now fully detach their file
+  descriptors (`</dev/null >/dev/null 2>&1 &`). Previously the backgrounded
+  child inherited and held the shim's stdout open, which changed pipe-teardown
+  timing and produced a macOS-only broken-pipe in callers that capture the
+  shim's output via a pipe (surfaced as a `loki completions zsh` failure in the
+  CI shim-route test harness on macOS; Linux teardown timing masked it). No
+  user-facing behavior change; telemetry still fires identically and the
+  existing opt-out still suppresses it. Verified with 20 consecutive
+  shim-route test runs on macOS (0 failures).
+
+## [7.8.2] - 2026-05-29
+
+### Added
+- Bun-route usage analytics: the `bin/loki` shim now emits the `cli_command`
+  product-analytics event for Bun-routed commands (version, status, stats,
+  doctor, provider, memory, rollback, internal, kpis). These commands bypass
+  the bash `main()` that fires `cli_command`, so Bun-routed invocations were
+  previously invisible to usage analytics. The emit reuses the existing
+  PostHog client (`autonomy/telemetry.sh`), is fire-and-forget and backgrounded
+  (no added latency), honors the existing opt-out (`LOKI_TELEMETRY_DISABLED=true`
+  / `DO_NOT_TRACK=1`), and sends only the subcommand name (never args, flags,
+  or paths). No double-counting: the bash route still emits its own copy from
+  `main()`, and the two routes are mutually exclusive per invocation.
+
+### Notes
+- No behavior change to any command, no new flags, no new env vars. The
+  existing opt-out continues to suppress all telemetry including this new emit.
+- NOT tested in this release: real end-to-end PostHog ingestion (verified only
+  via a local curl-intercept that the event fires when enabled and is
+  suppressed when opted out); channel detection (docker/homebrew/npm) on a
+  fresh install of each distribution channel.
+
+## [7.8.1] - 2026-05-29
+
+PATCH release. Makes `loki start` with no PRD smarter: it reuses the previously
+generated PRD instead of regenerating it every run, and the first-run analysis
+is sharper.
+
+### Changed
+
+- **Staleness-aware generated-PRD reuse.** On a no-PRD run, Loki now computes a
+  cheap, clone-stable codebase signature (git HEAD + a dirty-flag, or a
+  path+size file hash off-git; `.loki/` and `.git/` churn excluded) stored at
+  `.loki/state/prd-signature.json`, and decides:
+  - first run (no generated PRD) -> generate a fresh PRD;
+  - signature unchanged -> REUSE the existing `.loki/generated-prd.md` as-is
+    (no regeneration);
+  - codebase changed -> UPDATE the PRD incrementally (reconcile, do not
+    regenerate from scratch);
+  - no recorded signature (older generated PRD) -> update (safe default).
+  Previously every no-PRD run blindly reused the generated PRD with no staleness
+  check, and the first run always regenerated. The decision is made once per run
+  so the cached prompt prefix stays stable across iterations. The user-PRD path
+  is unchanged (no signature is written for user-supplied PRDs).
+- **Sharper first-run codebase analysis.** The CODEBASE_ANALYSIS_MODE
+  instruction is now a focused three-pass prompt (orient on high-signal
+  manifests, locate entrypoints/API/tests, then write a fixed-section PRD)
+  instead of a blind full scan. More efficient and more accurate, and the fixed
+  section template makes later incremental updates tractable.
+
+### Added
+
+- **`loki start --regen-prd`** (alias `--regenerate-prd` / `--regen`, or
+  `LOKI_PRD_REGEN=1`) forces a fresh PRD, overriding reuse.
+
+## [7.8.0] - 2026-05-29
+
+MINOR release. Two additive Claude Code feature adoptions. Both are gated on
+the installed CLI supporting the flag and fall back to the exact current
+behavior, so nothing changes for users on an older Claude Code.
+
+A prior audit of Claude Code 2.1.157 vs Loki's usage confirmed NOTHING is
+broken or missing-critical: all flags Loki passes are active with unchanged
+semantics and the stream-json output schema (which Loki's parser consumes) is
+intact. These two adoptions are pure improvements.
+
+### Added
+
+- **`--setting-sources user,project,local`** on the Claude provider invocation
+  (when supported). Pins which settings sources Claude Code loads so Loki's
+  invocation does not drift if the implicit default changes upstream.
+  Behavior-neutral (these are the standard sources). Opt out with
+  `LOKI_SETTING_SOURCES=off`.
+- **`--include-partial-messages`** so the agent's output streams to the
+  dashboard and terminal in real time (incremental deltas) instead of appearing
+  only at message boundaries. The stream-json parser gained an additive
+  `stream_event` branch that renders `content_block_delta` text live and
+  de-dupes against the final assistant message (no double-print). When partial
+  messages are off or unsupported, no `stream_event` lines arrive and the parser
+  behaves exactly as before. Opt out with `LOKI_PARTIAL_MESSAGES=off`.
+
+### Deferred
+
+- Session continuity (`--session-id` / `--resume`) was investigated and
+  deliberately NOT adopted: the token savings it would offer are already
+  captured by Loki's existing prompt-cache strategy (a resumed call gets a
+  near-full cache hit on the static prefix anyway), while session resume would
+  add unbounded transcript growth and a cache-miss trap. Verified by repro; may
+  revisit with real-run A/B data.
+
+## [7.7.34] - 2026-05-29
+
+PATCH release. Stop now actually stops the autonomous AGENT, not just the
+orchestrator. This is the real fix for the recurring "dashboard says STOPPED
+but the terminal keeps running and editing files" report.
+
+### Fixed
+
+- **The autonomous agent kept running after Stop.** `loki start` runs an
+  orchestrator (`/tmp/loki-run-*.sh`) that spawns the provider agent
+  (`claude`/`codex`/`aider`) as a child. Stop signaled only the orchestrator
+  pid; when the orchestrator died (especially on SIGKILL, which skips its
+  cleanup trap) the agent CHILD reparented to init (PPID 1) and kept iterating.
+  v7.7.33's cwd reaper only matched `loki-run-*.sh`, never the agent, so the
+  agent survived. Root-caused on a live session (agent PID alive, PPID=1,
+  cwd=project, still editing).
+- **Fix: process-group teardown.** A NON-interactive runner (script, CI, or
+  background `loki start`) is now launched as a session / process-group leader
+  (via `setsid`, or perl/python `setsid` on macOS which has no `setsid` binary),
+  so the orchestrator, the agent, and all monitors share ONE dedicated process
+  group whose pgid is recorded at `.loki/loki.pgid`. All three stop paths
+  (`loki stop`, `POST /api/control/stop`, `POST /api/running-projects/stop`)
+  signal the whole group (`kill -- -PGID` / `os.killpg`): SIGTERM, wait, then
+  SIGKILL, so the agent dies atomically with the orchestrator, no orphan window,
+  even if it ignores SIGTERM. Verified end-to-end: a SIGTERM-ignoring agent
+  child sharing the group is reaped by Stop.
+- **Interactive `loki start` keeps Ctrl+C.** Creating a new session detaches the
+  controlling terminal, which would break the terminal Ctrl+C pause/exit UX. So
+  an INTERACTIVE foreground `loki start` is NOT group-launched (it keeps its
+  tty); for that case stop relies on the agent sweep below rather than a group
+  kill (a group kill on a shared shell group could kill the user's shell). Use
+  `LOKI_FORCE_NEW_SESSION=1` to force group mode, `LOKI_NO_NEW_SESSION=1` to
+  disable it.
+- **Backstop for already-orphaned agents.** The dashboard reaper now also
+  matches the agent by a stable `[LOKI-AUTONOMY-AGENT]` sentinel (the first
+  line of the agent's appended system prompt) combined with the cwd scope, so
+  agents orphaned by a pre-v7.7.34 session are cleaned up too. An interactive
+  provider session never carries the sentinel, so it is never touched.
+
+### Safety / scope
+
+- Strict per-project isolation preserved: the pgid is per-project and the
+  sentinel sweep is cwd-scoped, so stopping one project never touches another
+  folder's run or the user's interactive sessions.
+- Suicide + collateral guards: a group kill refuses an empty/0/1/own-group
+  pgid, and if a protected pid (the dashboard or app-runner registered under
+  `.loki/pids`) shares the target group, it falls back to per-pid kills that
+  spare the protected pids rather than blasting the whole group.
+
+## [7.7.33] - 2026-05-29
+
+PATCH release. Makes the dashboard Stop button actually stop the session.
+
+### Fixed
+
+- **Dashboard Stop reported "stopped" while the orchestrator kept running.**
+  `/api/control/stop` (and the per-project `/api/running-projects/stop`) only
+  sent SIGTERM to the pid in `loki.pid`. When that pid was stale (a crashed or
+  restarted session can leave an orphaned `loki-run-*.sh` reparented to init
+  under a NEW pid), the kill was a no-op, yet the endpoint hit its
+  "process already gone" path and reported success, so the dashboard showed
+  STOPPED while the terminal kept iterating. Both stop endpoints now also reap
+  the actual orchestrator process(es) whose working directory IS the target
+  project's directory (the orchestrator temp-script name carries no project
+  identity, but its CWD reliably does), and report stopped only after verifying
+  no orchestrator for that project survives. A zombie/defunct process counts as
+  gone. Reproduced and verified against a live session with a stale `loki.pid`.
+- The orchestrator sweep is strictly scoped by CWD to the targeted project, so
+  stopping one project never reaps another folder's runner (same discipline as
+  the v7.7.30 folder-scoped `loki stop`). Linux reads `/proc/<pid>/cwd`;
+  macOS/BSD falls back to `lsof`.
+
+## [7.7.32] - 2026-05-29
+
+PATCH release. Fixes the dashboard task-detail modal showing only the title
+(no description, acceptance criteria, or logs).
+
+### Fixed
+
+- **The task-detail modal rendered only the title and a type tag.** When the
+  dashboard served tasks from `dashboard-state.json` (the source for a live
+  `loki start` session), `/api/tasks` read the task description from
+  `payload.description` and dropped every enrichment field. But `run.sh` writes
+  `description`, `acceptance_criteria`, `notes`, `logs`, `provider`, and
+  `startedAt` at the TOP LEVEL of the task object, so the description came back
+  empty and the modal had nothing to show. The richer queue-file path was also
+  skipped because the stripped entry claimed the task id first. `/api/tasks`
+  now reads enrichment from the top level (with a `payload.*` fallback for
+  legacy entries) and passes through `acceptance_criteria`, `notes`, `logs`,
+  `provider`, `startedAt`, and friends. The modal already renders these
+  sections; it was being starved of data. Verified against a live session: the
+  iteration task's modal now shows its description, 4 acceptance criteria, and
+  logs.
+
+## [7.7.31] - 2026-05-29
+
+PATCH release. Makes the dashboard Stop button (and `loki stop`) take effect
+within ~1s instead of up to 60s, stops a dead session from showing as
+"running" in the switcher, and fixes the autonomous agent refusing to do work
+because it read the user's global CLAUDE.md.
+
+### Fixed
+
+- **Dashboard Stop button (and `loki stop`) did not stop execution
+  promptly.** The inter-iteration countdown slept in 10s chunks (60s for long
+  waits) and never checked the STOP file, and bash deferred the Stop endpoint's
+  SIGTERM until the current sleep chunk finished. So a Stop issued during the
+  wait did nothing for up to 60s, and the app the runner had started kept
+  logging the whole time. The countdown now ticks every 1s and checks the
+  STOP/PAUSE signal on every tick, so Stop and SIGTERM take effect within ~1s.
+  Reproduced and verified.
+- **A dead session showed as "running" in the multi-project switcher.**
+  `/api/running-projects` fell back to `session.json` status when a recorded
+  pid was dead, so a hard-killed or crashed session whose `session.json` still
+  said "running" stayed green and the Stop button targeted a dead pid. A
+  recorded-but-dead pid is now authoritative; the `session.json` fallback only
+  applies to legacy sessions that never recorded a pid.
+- **The autonomous agent refused to work and exited in ~30s.** When `loki
+  start` spawned the Claude provider, the agent read the user's global
+  `~/.claude/CLAUDE.md` (rules like "always ask for clarification", "never
+  commit without permission"), judged it to conflict with Loki's "never ask,
+  never stop" prompt (which was only a user-message instruction, lower
+  precedence), called AskUserQuestion, and exited having done nothing. Loki now
+  passes `--append-system-prompt` with an authorization + precedence override
+  so the loki_system instructions win for the authorized autonomous session.
+  An appended system prompt outranks CLAUDE.md memory (verified empirically:
+  with a conflicting CLAUDE.md, the agent refused without the flag and proceeded
+  with it). Default-on; opt out with `LOKI_AUTONOMY_OVERRIDE=off`. Loki never
+  edits the user's CLAUDE.md. Applied on both the bash and Bun routes (override
+  text kept byte-identical between `providers/claude.sh` and
+  `loki-ts/src/providers/claude_flags.ts`). The override is deliberately
+  narrow: it does not relax any safety rule, it keeps git checkpoints local
+  only (never push/force-push) and staged by explicit path (never `git add
+  -A`), and it leaves destructive or irreversible actions (deleting data,
+  dropping databases, publishing, rotating secrets, touching production) out of
+  scope. Note: with the override on, `loki start` will make local atomic git
+  checkpoints in the target repo as it works (this is Loki's existing RALPH
+  checkpoint behavior, now unblocked); it never pushes. Council voter agents do
+  NOT receive the override, so reviewers keep their ability to raise CONCERN or
+  REJECT.
+
+### Docs
+
+- README install section now lists prerequisites (provider CLI, Python 3.10+,
+  Git, curl; recommended Bun, Node/npm, jq, Docker) before the install
+  commands. Refreshed the Runtime Architecture section to reflect that the Bun
+  migration is on `main` (not a feature branch) and the current routed-command
+  set, and fixed stale Docker image tags in the install table.
+
 ## [7.7.30] - 2026-05-28
 
 PATCH release. Fixes `loki stop` killing every folder's session machine-wide,

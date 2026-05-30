@@ -56,7 +56,7 @@ console.log(agents.length > 0 ? 'Connected!' : 'No agents yet');
 | Error | Cause | Solution |
 |-------|-------|----------|
 | Invalid API Key | Incorrect or expired key | Verify key in Lindy dashboard |
-| Rate Limited | Exceeded quota | Check quota at https://app.lindy.ai |
+| Rate Limited | Exceeded quota | Check quota at  |
 | Network Error | Firewall blocking | Ensure outbound HTTPS allowed |
 | Module Not Found | Installation failed | Run `npm install` or `pip install` again |
 
@@ -91,8 +91,8 @@ print(f"Connected as: {me.email}")
 ## Resources
 
 - [Lindy Documentation](https://docs.lindy.ai)
-- [Lindy Dashboard](https://app.lindy.ai)
-- [Lindy API Reference](https://docs.lindy.ai/api)
+- Lindy Dashboard
+- Lindy API Reference
 
 ## Next Steps
 

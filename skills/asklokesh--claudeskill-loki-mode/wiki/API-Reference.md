@@ -66,7 +66,7 @@ Get detailed session status. Reads from `.loki/` flat files (dashboard-state.jso
 ```json
 {
   "status": "running",
-  "version": "7.7.30",
+  "version": "7.8.3",
   "uptime_seconds": 1234.5,
   "active_sessions": 1,
   "running_agents": 3,
@@ -142,13 +142,23 @@ Resume a paused session by removing PAUSE/STOP files.
 ```
 
 #### `POST /api/control/stop`
-Stop the session by creating a STOP file and sending SIGTERM to the Loki process.
+Stop the session by creating a STOP file and sending SIGTERM to the Loki
+process. As of v7.7.33 this is authoritative: in addition to signaling
+`loki.pid`, it reaps any orchestrator process whose working directory is the
+focused project's directory (so a stale `loki.pid` cannot yield a false
+"stopped"), scoped to that project only. `process_stopped` is true only after
+no orchestrator for the project survives. As of v7.7.34 it ALSO signals the
+orchestrator's whole process GROUP (`kill -- -PGID`, recorded at
+`.loki/loki.pgid`), so the autonomous agent child is killed atomically with the
+orchestrator instead of being orphaned and continuing to run. Protected pids
+(the dashboard, app-runner) are spared.
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Stop signal sent"
+  "message": "Session stopped",
+  "process_stopped": true
 }
 ```
 
@@ -248,6 +258,11 @@ List tasks from session state files (dashboard-state.json and queue/ directory).
   }
 ]
 ```
+
+When present on the task, enrichment fields are also included (used by the
+dashboard task-detail modal): `acceptance_criteria`, `notes`, `logs`,
+`provider`, `startedAt`, `user_story`, `source`, `specification`,
+`full_content` (v7.7.32).
 
 ---
 

@@ -264,7 +264,7 @@ market_cap = tesla.info["marketCap"]
 
 **Access:**
 
-- Website: [fred.stlouisfed.org](https://fred.stlouisfed.org)
+- Website: fred.stlouisfed.org
 - API: FREE (no rate limits)
 - Excel: FRED Excel Add-in (FREE)
 
@@ -327,7 +327,7 @@ financials = response.json()
 
 **Cost:** $0 (uses free providers)
 
-**See:** [openbb-terminal plugin](../../finance/openbb-terminal/) for full guide
+**See:** openbb-terminal plugin for full guide
 
 ### Cost Comparison: Building a DCF Model
 
@@ -461,9 +461,9 @@ Claude: [Builds complete DCF model]
 
 - **SEC EDGAR:** [sec.gov/edgar](https://www.sec.gov/edgar) (FREE)
 - **Yahoo Finance:** [finance.yahoo.com](https://finance.yahoo.com) (FREE)
-- **FRED:** [fred.stlouisfed.org](https://fred.stlouisfed.org) (FREE API key)
+- **FRED:** fred.stlouisfed.org (FREE API key)
 - **Alpha Vantage:** [alphavantage.co](https://www.alphavantage.co) (FREE API key)
-- **OpenBB:** Install [openbb-terminal plugin](../../finance/openbb-terminal/) for unified access
+- **OpenBB:** Install openbb-terminal plugin for unified access
 
 **Bottom Line:** This plugin is free. Your model inputs can be free too. Save $25K-74K/year.
 
