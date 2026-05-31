@@ -853,6 +853,36 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "1e21592",
+      "message": "feat(#263): Phase 1b eval harness (run_evals + ranking-lift gate) (#283)",
+      "date": "2026-05-31",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "f36034f",
+      "message": "docs(#266): clarify residual_action vs unfulfilled_rationale coherence (#282)",
+      "date": "2026-05-31",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "76e7cdf",
+      "message": "docs(#269): widen required_evidence_type enum 7->9 (prose_edit + other) (#281)",
+      "date": "2026-05-30",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "01854e4",
+      "message": "docs(#246,#247): discipline-relative grading + ethics gate scoping (#280)",
+      "date": "2026-05-30",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "71593a7",
+      "message": "feat(#259): discipline-relative domain evidence profiles (Kong \u00a77.4.6) (#278)",
+      "date": "2026-05-30",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "f0bfc59",
       "message": "fix(evals): address #257/#258 review follow-ups (#277)",
       "date": "2026-05-29",
@@ -879,36 +909,6 @@
     {
       "sha": "a1c38b1",
       "message": "fix(#256-A1): codex R4 P2 \u2014 propagate acknowledgment_only verify-site to producer + template",
-      "date": "2026-05-28",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "8796b88",
-      "message": "fix(#256-A1): R3 dual-track \u2014 5 fixes (4 P2 codex + 1 P2 Gemini)",
-      "date": "2026-05-28",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "85c4f75",
-      "message": "fix(#256-A1): codex R2 P2 \u2014 worked example unfulfilled_rationale list shape",
-      "date": "2026-05-28",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "d3910fe",
-      "message": "fix(#256-A1): dual-track review R1 \u2014 6 fixes (2 P1 + 3 P2 + 1 nit)",
-      "date": "2026-05-28",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "f8beea7",
-      "message": "docs(#256-A1): CHANGELOG Unreleased entry for commitment ledger",
-      "date": "2026-05-28",
-      "author": "Imbad0202"
-    },
-    {
-      "sha": "3f79ae8",
-      "message": "feat(#256-A1): commitment ledger calibration seed (10 cases)",
       "date": "2026-05-28",
       "author": "Imbad0202"
     }
@@ -1457,6 +1457,24 @@
   ],
   "antonbabenko--terraform-skill": [
     {
+      "sha": "20eac3c",
+      "message": "ci: open release PR by open-state lookup, not branch name (#41)",
+      "date": "2026-05-30",
+      "author": "Anton Babenko"
+    },
+    {
+      "sha": "c1448ed",
+      "message": "chore(release): v1.17.0",
+      "date": "2026-05-30",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "349024d",
+      "message": "feat: ship terraform-skill as a Kiro Power",
+      "date": "2026-05-30",
+      "author": "Anton Babenko"
+    },
+    {
       "sha": "183c6c8",
       "message": "ci: notify agent-plugins on release (instant external-plugin re-pin) (#38)",
       "date": "2026-05-24",
@@ -1497,27 +1515,15 @@
       "message": "chore(release): v1.15.0 [skip ci]",
       "date": "2026-05-23",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "cc78c5a",
-      "message": "feat: Provisioners as Last Resort (closes row 16) (#31)",
-      "date": "2026-05-23",
-      "author": "Willian Barbosa"
-    },
-    {
-      "sha": "c27f3ec",
-      "message": "chore(release): v1.14.0 [skip ci]",
-      "date": "2026-05-18",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "6ca340d",
-      "message": "fix(ci): sync versions in release pre-commit hook so tags are not stale (#29)",
-      "date": "2026-05-18",
-      "author": "Anton Babenko"
     }
   ],
   "avifenesh--agentsys": [
+    {
+      "sha": "542eb81",
+      "message": "chore: sync core lib and CLAUDE.md from agent-core (#375)",
+      "date": "2026-05-30",
+      "author": "Avi Fenesh"
+    },
     {
       "sha": "5fe2f51",
       "message": "chore: release v6.0.0 (#374)",
@@ -1570,12 +1576,6 @@
       "sha": "ad1a44b",
       "message": "Fix package-lock version drift (5.13.4 -> 5.13.5) (#359)",
       "date": "2026-05-21",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "b3ee2a5",
-      "message": "chore(release): v5.13.5 - axiom v0.6.2 pin + numeric sync",
-      "date": "2026-05-18",
       "author": "Avi Fenesh"
     }
   ],
@@ -2279,6 +2279,18 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "f0a04c8",
+      "message": "Merge pull request #123 from firecrawl/update-gh-actions",
+      "date": "2026-05-30",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "270a40c",
+      "message": "sync all plugin skills",
+      "date": "2026-05-30",
+      "author": "Developers Digest"
+    },
+    {
       "sha": "69c74ee",
       "message": "Refactor package dependencies to replace '@mendable/firecrawl-js' wit\u2026 (#118)",
       "date": "2026-05-29",
@@ -2325,18 +2337,6 @@
       "message": "Nick: monitor skill",
       "date": "2026-05-28",
       "author": "Nicolas"
-    },
-    {
-      "sha": "9e47e14",
-      "message": "Merge pull request #119 from firecrawl/bump-versions",
-      "date": "2026-05-27",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "2b1be2e",
-      "message": "bump cli version",
-      "date": "2026-05-27",
-      "author": "Developers Digest"
     }
   ],
   "hashicorp--agent-skills": [
@@ -4547,67 +4547,85 @@
   ],
   "yusufkaraaslan--Skill_Seekers": [
     {
-      "sha": "c96b0f1",
-      "message": "fix: exclude mcp_only tests from serial phase to avoid overlap",
+      "sha": "c1bb468",
+      "message": "chore: bump development to 3.8.0.dev0",
       "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "19076a0",
-      "message": "fix: exclude network tests from MCP phase with marker filter",
+      "sha": "c71befe",
+      "message": "Merge branch 'development' into main \u2014 release v3.7.0",
       "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "8e7b957",
-      "message": "fix: exclude network tests from MCP phase, ignore bootstrap in CI, check all phases",
+      "sha": "a242d95",
+      "message": "release: prepare v3.7.0",
       "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "a6e146c",
-      "message": "fix: resolve ruff lint errors and CI import crashes",
+      "sha": "ff7d3af",
+      "message": "docs(zh-CN,dist,mcp): fix stale commands, paths, versions",
       "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "5fafd59",
-      "message": "ci: update workflows for new test markers and deleted files",
+      "sha": "0619a24",
+      "message": "docs(english): fix stale commands, paths, and broken links across all docs",
       "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "5e786c1",
-      "message": "fix: restore merge-reverted pytestmark order in test_server_fastmcp_http.py",
+      "sha": "79d6f75",
+      "message": "docs(core): fix stale versions, counts, and links in core docs",
       "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "172966f",
-      "message": "fix: restore merge-reverted marker and docstring changes",
-      "date": "2026-05-29",
+      "sha": "1678318",
+      "message": "docs(readme): sync all READMEs \u2014 badges, counts, and platform numbers",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "91799e0",
-      "message": "Merge branch 'development' of https://github.com/yusufkaraaslan/Skill_Seekers.git",
-      "date": "2026-05-29",
+      "sha": "f12dedb",
+      "message": "docs(fixes): fix remaining stale CLI commands, paths, and spellings",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "8a781d4",
-      "message": "test: comprehensive test suite improvements across 5 phases",
-      "date": "2026-05-29",
+      "sha": "3b23cff",
+      "message": "chore(submodule): update api/configs_repo submodule",
+      "date": "2026-05-30",
       "author": "yusyus"
     },
     {
-      "sha": "4d47d7c",
-      "message": "feat(converters): fail fast on missing optional dependency in get_converter (#392)",
-      "date": "2026-05-29",
+      "sha": "78f9811",
+      "message": "docs(other): update scripts, skills, MCP README; add QWEN.md and audit report",
+      "date": "2026-05-30",
       "author": "yusyus"
     }
   ],
   "mukul975--Anthropic-Cybersecurity-Skills": [
+    {
+      "sha": "9a588e6",
+      "message": "chore: auto-update index.json",
+      "date": "2026-05-30",
+      "author": "mukul975"
+    },
+    {
+      "sha": "868465b",
+      "message": "Merge pull request #58 from Bortlesboat/fix/objection-skill-description",
+      "date": "2026-05-30",
+      "author": "Mahipal"
+    },
+    {
+      "sha": "2338e03",
+      "message": "Fix Objection skill description frontmatter",
+      "date": "2026-05-25",
+      "author": "Andrew Barnes"
+    },
     {
       "sha": "0f429d0",
       "message": "Update README.md",
@@ -4648,24 +4666,6 @@
       "sha": "888bbe4",
       "message": "Delete star.yml",
       "date": "2026-04-18",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "c60cb4a",
-      "message": "Update star.yml",
-      "date": "2026-04-15",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "d5f3fa3",
-      "message": "Update star.yml",
-      "date": "2026-04-15",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "91a087a",
-      "message": "Update star.yml",
-      "date": "2026-04-15",
       "author": "Mahipal"
     }
   ],
@@ -4726,6 +4726,18 @@
     }
   ],
   "Masriyan--Claude-Code-CyberSecurity-Skill": [
+    {
+      "sha": "e292a1e",
+      "message": "Update README with new images and badges",
+      "date": "2026-05-30",
+      "author": "Riyan Pratama"
+    },
+    {
+      "sha": "9718611",
+      "message": "Add files via upload",
+      "date": "2026-05-30",
+      "author": "Riyan Pratama"
+    },
     {
       "sha": "fd16db5",
       "message": "Add files via upload",
@@ -5137,6 +5149,24 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "f49ea36",
+      "message": "feat(penetration-tester): cluster 3 \u2014 static-analysis skills #10-15 (#813)",
+      "date": "2026-05-31",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "3f5d293",
+      "message": "feat(penetration-tester): cluster 2 close-out \u2014 skills #8 + #9 (#812)",
+      "date": "2026-05-31",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "4255637",
+      "message": "feat(penetration-tester): skill #7 \u2014 detecting-debug-endpoints (#810)",
+      "date": "2026-05-30",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "f662412",
       "message": "fix(deps): clear all 80 pnpm advisories to zero (#809)",
       "date": "2026-05-30",
@@ -5177,24 +5207,6 @@
       "message": "chore(gitignore): publish databricks-pack 000-docs research catalog (#805)",
       "date": "2026-05-30",
       "author": "intentsolutions.io"
-    },
-    {
-      "sha": "8a9cd04",
-      "message": "chore(gitignore): exclude internal-only AT-DECR records from re-include allowlist (#804)",
-      "date": "2026-05-29",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "0c3a6ad",
-      "message": "chore(lint): fix two pre-existing markdownlint failures blocking every PR (#802)",
-      "date": "2026-05-29",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "05447c0",
-      "message": "feat(sources): add 4 Ejentum harness plugins (#761)",
-      "date": "2026-05-29",
-      "author": "ejentum.com"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5261,63 +5273,63 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "caa81e1",
+      "message": "refactor(bigdata-skill): rest_ext docstring stops duplicating the endpoint table",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "49391eb",
+      "message": "fix(bigdata-skill): sync rest_ext module-docstring table \u2014 ratings/target L3->L4",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "0407852",
+      "message": "fix(bigdata-skill): connected_entities \u2014 drop bogus entity_categories, add date_range",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "f1eab7a",
+      "message": "fix(bigdata-skill): fix BatchSearch.upload_input Content-Type 403 (live-tested)",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "83d76d3",
+      "message": "fix(bigdata-skill): analyst_ratings + price_target L3 -> L4 (live-tested)",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "2eb7c4a",
+      "message": "fix(bigdata-skill): correct two stale statements in SKILL.md prose",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "3b3783b",
+      "message": "feat(bigdata-skill): 12 structured endpoints + BatchSearch, fix screener P0",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "e68ad75",
+      "message": "feat(benchmark-due-diligence): new skill for adversarial benchmark teardown",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
+      "sha": "32c5e49",
+      "message": "docs(network-skills): cross-link the 4 network-diagnosis skills into hub-and-spoke",
+      "date": "2026-05-30",
+      "author": "daymade"
+    },
+    {
       "sha": "c083605",
       "message": "fix(pdf-creator): write self-check previews to temp dir, not next to the PDF",
       "date": "2026-05-30",
-      "author": "daymade"
-    },
-    {
-      "sha": "5550dd3",
-      "message": "docs(skill-creator): AI semantic read-through as the primary sanitization method (#73)",
-      "date": "2026-05-30",
-      "author": "daymade"
-    },
-    {
-      "sha": "b30125d",
-      "message": "docs(transcript-fixer): clarify native correction protocol + fix DB column guidance (#72)",
-      "date": "2026-05-30",
-      "author": "daymade"
-    },
-    {
-      "sha": "90c188b",
-      "message": "chore(marketplace): unify all 4 suites to suite-only mode (BREAKING)",
-      "date": "2026-05-24",
-      "author": "daymade"
-    },
-    {
-      "sha": "1710447",
-      "message": "fix(dictionary): order corrections by length DESC to prevent short-rule residue",
-      "date": "2026-05-23",
-      "author": "daymade"
-    },
-    {
-      "sha": "bbf87f3",
-      "message": "fix(pdf-creator): auto-select Chrome backend for CJK content",
-      "date": "2026-05-18",
-      "author": "daymade"
-    },
-    {
-      "sha": "d3425cd",
-      "message": "chore(skills): batch update \u2014 claude-md-progressive-disclosurer v1.3.1 + 3 sibling skills + gitleaks FP fix",
-      "date": "2026-05-17",
-      "author": "daymade"
-    },
-    {
-      "sha": "0442340",
-      "message": "feat(pdf-creator): bundle cjk-auto theme to survive skill upgrades (v1.6.0)",
-      "date": "2026-05-13",
-      "author": "daymade"
-    },
-    {
-      "sha": "36638df",
-      "message": "feat(feishu-doc-scraper): SSR fallback + per-doc image naming + known-failure records",
-      "date": "2026-05-13",
-      "author": "daymade"
-    },
-    {
-      "sha": "1561772",
-      "message": "feat(pdf-creator): lock in CJK table contract with regression tests (v1.5.0)",
-      "date": "2026-05-13",
       "author": "daymade"
     }
   ],
@@ -5447,6 +5459,36 @@
   ],
   "glebis--claude-skills": [
     {
+      "sha": "b3da27f",
+      "message": "Add meeting-prep skill: Cal.com \u2192 research \u2192 Obsidian prep notes",
+      "date": "2026-05-30",
+      "author": "glebis"
+    },
+    {
+      "sha": "754da10",
+      "message": "Merge pull request #21 from glebis/add-coaching-session-summarizer",
+      "date": "2026-05-30",
+      "author": "Gleb Kalinin"
+    },
+    {
+      "sha": "d521dbb",
+      "message": "Add coaching-session-summarizer (agent-driven, no API)",
+      "date": "2026-05-30",
+      "author": "glebis"
+    },
+    {
+      "sha": "dfa30ee",
+      "message": "synthetic-session-generator: courtroom-sketch portrait style",
+      "date": "2026-05-30",
+      "author": "glebis"
+    },
+    {
+      "sha": "0ccf058",
+      "message": "Add synthetic-session-generator skill",
+      "date": "2026-05-30",
+      "author": "glebis"
+    },
+    {
       "sha": "2aec6f3",
       "message": "gpt-image-2: add line-art preset",
       "date": "2026-05-29",
@@ -5475,39 +5517,21 @@
       "message": "qmd-search: evals, richer output, find mode, MCP integration",
       "date": "2026-05-29",
       "author": "glebis"
-    },
-    {
-      "sha": "11a2573",
-      "message": "qmd-search: add literal grep mode for bilingual / proper-noun search",
-      "date": "2026-05-29",
-      "author": "glebis"
-    },
-    {
-      "sha": "ba4a60d",
-      "message": "feat: add publish-skill to skills repo with update triggers and auto-sync",
-      "date": "2026-05-29",
-      "author": "glebis"
-    },
-    {
-      "sha": "9532fb4",
-      "message": "feat(skill-studio): add session analysis with subagent/workflow extraction",
-      "date": "2026-05-29",
-      "author": "glebis"
-    },
-    {
-      "sha": "de53eb7",
-      "message": "Add qmd-search skill: local semantic search over Obsidian vault",
-      "date": "2026-05-28",
-      "author": "glebis"
-    },
-    {
-      "sha": "a67f567",
-      "message": "Add disk-cleanup skill \u2014 macOS cache survey and cleanup",
-      "date": "2026-05-28",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
+    {
+      "sha": "569f0fe",
+      "message": "Update README.md",
+      "date": "2026-05-30",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "67bbeb9",
+      "message": "chore(agent-collections): scheduled refresh",
+      "date": "2026-05-30",
+      "author": "Claude Routine"
+    },
     {
       "sha": "d337bae",
       "message": "Update README.md",
@@ -5555,18 +5579,6 @@
       "message": "Update README.md",
       "date": "2026-05-27",
       "author": "Shayan Rais"
-    },
-    {
-      "sha": "e54306e",
-      "message": "chore(agent-collections): update Last Updated badge to May 26 2026 8:46 PM PKT",
-      "date": "2026-05-26",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "659e539",
-      "message": "chore(agent-collections): append May 26 changelog entry",
-      "date": "2026-05-26",
-      "author": "Claude Routine"
     }
   ],
   "mrgoonie--claudekit-skills": [
