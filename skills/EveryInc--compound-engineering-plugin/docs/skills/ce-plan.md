@@ -94,6 +94,8 @@ Phase 1 always runs local research in parallel — repo-research-analyst (techno
 
 The guardrails-not-choreography frame transfers cleanly across domains. Real (non-hypothetical) uses include annual hot-water-tank maintenance, study plans, trip planning, research workflows, and event planning. The non-software path skips the software-specific confidence check, but U-IDs, dependency ordering, scope boundaries, test/verification scenarios, and the right-sized template all carry over unchanged.
 
+Universal planning also distinguishes two **dispositions**. *Plan-seeking* tasks (trip, study curriculum, event) produce a saved plan — the artifact is the deliverable. *Answer-seeking* tasks are investigative or analytical questions ("how often does X happen — is it a big deal?", "how does our approach compare to Y?") where the *answer* is the deliverable and no one wants a plan file. For those, `ce-plan` doesn't bail and doesn't write a document: it states a brief, right-sized plan-of-attack in chat — working scaffold that both steers the agent and shows the human the approach — then executes it (research and synthesis, never code) and delivers the answer. The plan is spoken in the language of the question, not the language of the skill; internal machinery stays hidden while caveats that affect trust in the answer are always surfaced. Only genuinely trivial single-fact lookups skip planning entirely and get answered outright.
+
 ---
 
 ## Quick Example

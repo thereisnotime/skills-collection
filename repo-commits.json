@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "422ffc7",
+      "message": "chore: release main (#887)",
+      "date": "2026-05-31",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "ece9fa1",
+      "message": "fix(ce-plan): add answer-seeking disposition to universal planning (#886)",
+      "date": "2026-05-31",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "85987d4",
       "message": "chore: release main (#874)",
       "date": "2026-05-28",
@@ -736,18 +748,6 @@
       "sha": "5c88212",
       "message": "fix(ce-brainstorm,ce-plan): restore default-on requirements grouping (#868)",
       "date": "2026-05-27",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "e2c9cd2",
-      "message": "chore: release main (#852)",
-      "date": "2026-05-26",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "11e12e5",
-      "message": "feat(ce-plan,ce-brainstorm): contract-driven sections + optional HTML output (#826)",
-      "date": "2026-05-26",
       "author": "Trevin Chow"
     }
   ],
@@ -853,6 +853,48 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "4c38571",
+      "message": "fix(release): align plugin manifests to v3.10.0 + guard them in the version lint (#297)",
+      "date": "2026-06-01",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "8a7482e",
+      "message": "release: v3.10.0 \u2014 converge CHANGELOG + align release docs across the suite (#296)",
+      "date": "2026-06-01",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "1388fc0",
+      "message": "feat(#134): Slice 1 scoped-write guard MVP (PreToolUse hook + manifest + lint) (#294)",
+      "date": "2026-06-01",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "91fcd59",
+      "message": "docs(#134): rescope Active Conductor to scoped-write guard MVP (design spec) (#293)",
+      "date": "2026-05-31",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "68c8594",
+      "message": "feat(#268): Schema 11 Commitment Ledger nested-object refactor (#290)",
+      "date": "2026-05-31",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "eb9e7be",
+      "message": "feat(#127): v3.10 triangulation policy layer (PR-B) (#288)",
+      "date": "2026-05-31",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "8261cfe",
+      "message": "refactor(#127): disambiguate R-L3-2/R-CIM rule IDs + canonical firm-rules sync lint (#285)",
+      "date": "2026-05-31",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "1e21592",
       "message": "feat(#263): Phase 1b eval harness (run_evals + ranking-lift gate) (#283)",
       "date": "2026-05-31",
@@ -869,48 +911,6 @@
       "message": "docs(#269): widen required_evidence_type enum 7->9 (prose_edit + other) (#281)",
       "date": "2026-05-30",
       "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "01854e4",
-      "message": "docs(#246,#247): discipline-relative grading + ethics gate scoping (#280)",
-      "date": "2026-05-30",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "71593a7",
-      "message": "feat(#259): discipline-relative domain evidence profiles (Kong \u00a77.4.6) (#278)",
-      "date": "2026-05-30",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "f0bfc59",
-      "message": "fix(evals): address #257/#258 review follow-ups (#277)",
-      "date": "2026-05-29",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "9f60d11",
-      "message": "feat: add idea-diversity advisories (#270)",
-      "date": "2026-05-29",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "48378bb",
-      "message": "feat: add version-family citation reconciliation (#267)",
-      "date": "2026-05-29",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "d5207f2",
-      "message": "Merge Kong A1 (Schema 11 Commitment Ledger) \u2014 #256",
-      "date": "2026-05-28",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "a1c38b1",
-      "message": "fix(#256-A1): codex R4 P2 \u2014 propagate acknowledgment_only verify-site to producer + template",
-      "date": "2026-05-28",
-      "author": "Imbad0202"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
@@ -4547,6 +4547,18 @@
   ],
   "yusufkaraaslan--Skill_Seekers": [
     {
+      "sha": "137a40a",
+      "message": "docs: document custom/OpenAI-compatible LLM providers + fix stale versions",
+      "date": "2026-05-31",
+      "author": "yusyus"
+    },
+    {
+      "sha": "b66cda5",
+      "message": "fix: correct typos and improve documentation (#394)",
+      "date": "2026-05-31",
+      "author": "Arvuno"
+    },
+    {
       "sha": "c1bb468",
       "message": "chore: bump development to 3.8.0.dev0",
       "date": "2026-05-30",
@@ -4591,18 +4603,6 @@
     {
       "sha": "f12dedb",
       "message": "docs(fixes): fix remaining stale CLI commands, paths, and spellings",
-      "date": "2026-05-30",
-      "author": "yusyus"
-    },
-    {
-      "sha": "3b23cff",
-      "message": "chore(submodule): update api/configs_repo submodule",
-      "date": "2026-05-30",
-      "author": "yusyus"
-    },
-    {
-      "sha": "78f9811",
-      "message": "docs(other): update scripts, skills, MCP README; add QWEN.md and audit report",
       "date": "2026-05-30",
       "author": "yusyus"
     }
@@ -5149,6 +5149,24 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "b7a2ead",
+      "message": "fix(links): kill 201 of 203 lychee broken-link errors (#817)",
+      "date": "2026-06-01",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "0f4cd31",
+      "message": "chore(external-plugins): re-enable weekly sync cron, fix orphan, document Path B (#816)",
+      "date": "2026-06-01",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "155694f",
+      "message": "feat(marketplace): vibecheck PR1 - kill gradients, glass, uniform rounding (#815)",
+      "date": "2026-05-31",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "f49ea36",
       "message": "feat(penetration-tester): cluster 3 \u2014 static-analysis skills #10-15 (#813)",
       "date": "2026-05-31",
@@ -5187,24 +5205,6 @@
     {
       "sha": "9dc1fe7",
       "message": "fix(docs): final sweep, strip remaining broken links to zero (#808)",
-      "date": "2026-05-30",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "1259c79",
-      "message": "fix(docs): mass-strip broken markdown links (1,863 \u2192 203 remaining) (#807)",
-      "date": "2026-05-30",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "4d4897a",
-      "message": "feat(ci): add broken-link checkers (lychee + live issue-body audit) (#806)",
-      "date": "2026-05-30",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "5aa01cd",
-      "message": "chore(gitignore): publish databricks-pack 000-docs research catalog (#805)",
       "date": "2026-05-30",
       "author": "intentsolutions.io"
     }
@@ -5273,6 +5273,18 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "c09bac3",
+      "message": "Merge pull request #75 from daymade/add-auto-repo-setup",
+      "date": "2026-05-31",
+      "author": "daymade"
+    },
+    {
+      "sha": "78dc22b",
+      "message": "Release v1.60.0: Add auto-repo-setup skill",
+      "date": "2026-05-31",
+      "author": "daymade"
+    },
+    {
       "sha": "caa81e1",
       "message": "refactor(bigdata-skill): rest_ext docstring stops duplicating the endpoint table",
       "date": "2026-05-30",
@@ -5317,18 +5329,6 @@
     {
       "sha": "e68ad75",
       "message": "feat(benchmark-due-diligence): new skill for adversarial benchmark teardown",
-      "date": "2026-05-30",
-      "author": "daymade"
-    },
-    {
-      "sha": "32c5e49",
-      "message": "docs(network-skills): cross-link the 4 network-diagnosis skills into hub-and-spoke",
-      "date": "2026-05-30",
-      "author": "daymade"
-    },
-    {
-      "sha": "c083605",
-      "message": "fix(pdf-creator): write self-check previews to temp dir, not next to the PDF",
       "date": "2026-05-30",
       "author": "daymade"
     }
@@ -5521,64 +5521,64 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "569f0fe",
-      "message": "Update README.md",
-      "date": "2026-05-30",
-      "author": "Shayan Rais"
+      "sha": "9329519",
+      "message": "docs(subagents): update Last Updated badge to Jun 01, 2026 11:38 AM PKT and version to v2.1.159",
+      "date": "2026-06-01",
+      "author": "Claude"
     },
     {
-      "sha": "67bbeb9",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-30",
+      "sha": "b4de05f",
+      "message": "changelog(subagents): append 2026-06-01 11:38 AM PKT entry for v2.1.159 \u2014 no drift detected",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "a37d973",
+      "message": "docs(commands): bump Last Updated badge to Jun 01 11:08 AM PKT and version to v2.1.159",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "f0b2918",
+      "message": "changelog: append v2.1.159 no-drift run entry for commands report",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "95a7233",
+      "message": "chore(skills): bump Last Updated badge to v2.1.159 [Jun 01, 2026 10:11 AM PKT]",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "40553e6",
+      "message": "chore(skills-changelog): append no-drift entry for v2.1.159 [2026-06-01]",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "982882f",
+      "message": "chore(readme): bump version badge v2.1.158 \u2192 v2.1.159",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "b4d5ffc",
+      "message": "chore(concepts-changelog): log v2.1.159 run (no drift, badge bump only)",
+      "date": "2026-06-01",
+      "author": "Claude"
+    },
+    {
+      "sha": "a338ff6",
+      "message": "chore(changelog): append development workflows entry \u2014 Jun 1 2026 9:26 AM PKT",
+      "date": "2026-06-01",
       "author": "Claude Routine"
     },
     {
-      "sha": "d337bae",
-      "message": "Update README.md",
-      "date": "2026-05-29",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "851127f",
-      "message": "chore(agent-collections): append 2026-05-29 changelog entry",
-      "date": "2026-05-29",
+      "sha": "950f88e",
+      "message": "chore(workflows): refresh development workflows table \u2014 Jun 1 2026 9:26 AM PKT",
+      "date": "2026-06-01",
       "author": "Claude Routine"
-    },
-    {
-      "sha": "612ea5e",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-29",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "9b83a17",
-      "message": "Update README.md",
-      "date": "2026-05-28",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "19ab8f1",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-28",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "c0d133c",
-      "message": "chore(agent-collections): scheduled refresh",
-      "date": "2026-05-27",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "39aec7c",
-      "message": "chore(agent-collections): append 2026-05-27 changelog entry",
-      "date": "2026-05-27",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "887d06c",
-      "message": "Update README.md",
-      "date": "2026-05-27",
-      "author": "Shayan Rais"
     }
   ],
   "mrgoonie--claudekit-skills": [
