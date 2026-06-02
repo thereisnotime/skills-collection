@@ -47,6 +47,7 @@ import { handleSetupCommand } from './commands/setup';
 import type { SetupSubcommand } from './commands/setup';
 import { handleEnvPullCommand } from './commands/env';
 import { handleStatusCommand } from './commands/status';
+import { handleDoctorCommand } from './commands/doctor';
 import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
 import { isJobId } from './utils/job';
@@ -371,6 +372,11 @@ function createScrapeCommand(): Command {
       'Load existing profile data without saving changes (default: saves changes)'
     )
     .option('--lockdown', 'Enable lockdown mode for the scrape', false)
+    .option(
+      '--redact-pii',
+      'Redact personally identifiable information from returned content',
+      false
+    )
     .option('--schema <json>', 'JSON schema for structured extraction')
     .option('--schema-file <path>', 'Path to JSON schema file')
     .option('--actions <json>', 'JSON actions array to run during scrape')
@@ -1841,6 +1847,54 @@ program
   )
   .action(async (options) => {
     await handleCreditUsageCommand(options);
+  });
+
+program
+  .command('doctor')
+  .description(
+    'Run environment diagnostics, or diagnose a specific run by job ID'
+  )
+  .argument('[job-id]', 'Job ID to diagnose via /v2/support/ask')
+  .option('--run <id>', 'Job ID to diagnose (alternative to positional arg)')
+  .option(
+    '--query <text>',
+    'Custom support query (default: "why did this run fail?")'
+  )
+  .option(
+    '-k, --api-key <key>',
+    'Firecrawl API key (overrides global --api-key)'
+  )
+  .option('--api-url <url>', 'API URL (overrides global --api-url)')
+  .option('--json', 'Output as JSON', false)
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ firecrawl doctor                  # environment health check
+  $ firecrawl doctor <job-id>         # diagnose a failed run
+  $ firecrawl doctor --run <job-id>   # same, via flag
+  $ firecrawl doctor --json           # machine-readable output
+
+Exits 1 if any check fails.
+`
+  )
+  .action(async (positionalJobId: string | undefined, options) => {
+    const globalOptions = program.opts();
+    let jobId = options.run || positionalJobId;
+    if (jobId && !isJobId(jobId)) {
+      console.error(
+        `Error: "${jobId}" is not a valid job ID. Run \`firecrawl doctor\` (no argument) for an environment health check.`
+      );
+      process.exit(1);
+    }
+
+    await handleDoctorCommand({
+      jobId,
+      query: options.query,
+      apiKey: options.apiKey ?? globalOptions.apiKey,
+      apiUrl: options.apiUrl ?? globalOptions.apiUrl,
+      json: options.json,
+    });
   });
 
 program

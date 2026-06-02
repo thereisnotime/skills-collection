@@ -1,8 +1,8 @@
 # `ce-resolve-pr-feedback`
 
-> Evaluate, fix, and reply to PR review feedback in parallel — including nitpicks. Agent time is cheap; tech debt is expensive.
+> Evaluate, fix, and reply to PR review feedback in parallel. Fix what's real; don't churn on what isn't.
 
-`ce-resolve-pr-feedback` is the **incoming-feedback resolution** skill. After your PR gets review comments, this skill fetches all unresolved threads, classifies them as new vs already-handled, dispatches parallel agents to fix what's valid (or reply with reasoning), commits and pushes, then posts replies and resolves threads via GitHub's GraphQL API. It addresses everything legitimate — including style nitpicks — because once you're already in the code, fixing it is cheaper than punting it.
+`ce-resolve-pr-feedback` is the **incoming-feedback resolution** skill. After your PR gets review comments, this skill fetches all unresolved threads, classifies them as new vs already-handled, dispatches parallel agents to validate each finding and fix what's genuinely correct (or reply with reasoning), commits and pushes, then posts replies and resolves threads via GitHub's GraphQL API. It judges every item on its merits — regardless of source (human or bot) or form (inline thread, formal review body, or top-level comment) — and defaults to fixing, diverting only when reading the code trips a concrete signal (the finding's wrong, the fix would harm, it buys nothing, or the risk can't be bounded).
 
 The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /ce-plan → /ce-work`. `ce-resolve-pr-feedback` is the **post-PR feedback loop** — invoked after reviewers leave comments, complementary to `/ce-code-review` (which reviews *before* the PR is open) and `/ce-debug` (which investigates broken behavior, not review feedback).
 
@@ -12,7 +12,7 @@ The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /c
 
 | Question | Answer |
 |----------|--------|
-| What does it do? | Fetches unresolved review threads + PR comments, dispatches parallel agents to fix valid feedback, commits/pushes, replies and resolves threads |
+| What does it do? | Fetches unresolved review threads + PR comments, dispatches parallel agents to validate each finding and fix what's genuinely correct, commits/pushes, replies and resolves threads |
 | When to use it | After a PR receives review feedback you want to address |
 | What it produces | Commits with fixes, replies on each thread, resolved threads via GraphQL, summary of what was done per verdict |
 | Modes | Full (all unresolved threads), Targeted (single thread URL) |
@@ -23,13 +23,13 @@ The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /c
 
 Resolving PR feedback at scale fails in predictable ways:
 
-- **Nitpicks get punted** — "I'll address this later" turns into tech debt; the reviewer's time is wasted
+- **Over-fixing bot noise** — auto-review bots over-flag, flag immaterial things, and are sometimes wrong; a "fix everything" reflex churns the code and the PR with low-value changes
+- **Findings taken on authority, not merit** — fixing because a reviewer (or bot) said so, without confirming the issue actually exists in the code
 - **Already-replied items re-surface every run** — top-level PR comments and review bodies have no resolve mechanism, so they keep appearing until manually checked
 - **Bot wrapper noise** — review-bot boilerplate ("Here are some automated review suggestions...") inflates the work count
 - **Sequential fixes are slow** — addressing 12 threads one at a time is 12× the wall-clock time
 - **Parallel fixes collide** — two agents writing the same file silently lose one of the changes
 - **No combined validation** — each agent runs targeted tests on its own change; cross-agent regressions slip through
-- **Recurring patterns** — the same kind of feedback shows up across multiple review rounds because the underlying issue was never holistically addressed
 - **Outdated comment line numbers** — feedback on lines that have since drifted is hard to relocate
 
 ## The Solution
@@ -39,7 +39,7 @@ Resolving PR feedback at scale fails in predictable ways:
 - **Fetch all unresolved feedback** (review threads + PR comments + review bodies) via GraphQL
 - **Triage new vs already-handled** — a substantive reply that defers action counts as handled; only new items are processed
 - **Drop bot wrapper noise silently** — non-actionable boilerplate is filtered, not announced
-- **Cross-invocation cluster analysis** — when the same theme spans multiple review rounds, broader investigation replaces another surgical fix
+- **Fix by default; validate as a tripwire** — each finding is judged on its merits regardless of source or form; the agent fixes unless reading the code trips a concrete signal (the finding's wrong, the fix would harm, it buys nothing, or the risk can't be bounded)
 - **Parallel agent dispatch with file-collision avoidance** — agents that touch overlapping files serialize automatically
 - **Combined validation** — one full validation run after all agents complete, catches cross-agent regressions
 - **Reply with quoted context** — every reply quotes the relevant feedback for continuity, then states what was done
@@ -49,43 +49,51 @@ Resolving PR feedback at scale fails in predictable ways:
 
 ## What Makes It Novel
 
-### 1. Fix everything valid — including nitpicks
+### 1. Default to fixing — divert only on a tripwire
 
-The default policy is to address everything legitimate. **Agent time is cheap; tech debt is expensive.** Nitpicks compound; punting them costs more than fixing them. The narrow exception: when implementing the suggested fix would actively make the code worse (violates a CLAUDE.md/AGENTS.md rule, adds dead defensive code, suppresses errors that should propagate, premature abstraction, restates code in comments), the agent uses the `declined` verdict and cites the specific harm.
+Most review feedback — across P0–P2, nitpicks included — is correct and worth fixing, so the default is to fix it. Crucially, validation isn't a separate analysis pass: the agent has to read the code to make the fix anyway, and the checks are *tripwires it notices during that read*, not a gate every item must argue its way through. When nothing trips, it fixes and moves on — no per-item deliberation. The deep work (reading callers, assessing blast radius, writing a decision for the user) is spent only on the minority of items that trip a wire.
 
-### 2. Six verdicts — each with a different action
+An item diverts from a fix only on a concrete signal:
+
+- **the finding doesn't hold** (reading the code disproves it) → `not-addressing` with evidence
+- **the fix would make the code worse** → `declined` citing the harm
+- **the change buys nothing real** (cosmetic or immaterial — small *real* improvements still get fixed; the skip bar is "no benefit," not "minor") → `replied`
+- **the change is risky and the blast radius can't be bounded** (a one-line edit can hit a hot path or thinly-tested code; the reviewer, especially a bot, usually couldn't see it) → de-risk with a test and fix if possible, else `needs-human`
+- **it's a question, not a change** → `replied`, or `needs-human` for a product/business call
+
+The guardrail against over-thinking is explicit: "I'm uneasy" is not a tripwire; "I read the callers and this breaks X" is. This matters most for auto-review bots, which over-flag — but the rule is source-agnostic: a bot or a human asserting something is not evidence it's correct.
+
+### 2. Judge on merit, not source or form
+
+Every item is evaluated the same way regardless of **who** raised it (human reviewer or review bot) or **what form** it arrived in (inline review thread, formal review body, or top-level PR comment). Correctness doesn't depend on the source or the surface. Structural form changes only the *response mechanics* (inline threads resolve via GraphQL; review bodies and top-level comments get a top-level reply) — never whether a finding is right.
+
+### 3. Six verdicts — each with a different action
 
 | Verdict | Meaning | Action |
 |---------|---------|--------|
 | `fixed` | Code change made as requested | Commit + reply + resolve |
 | `fixed-differently` | Code change made, with a better approach than suggested | Commit + reply explaining the divergence + resolve |
-| `replied` | No code change needed; question answered or design explained | Reply + resolve |
+| `replied` | No code change needed; question answered, design explained, or change not warranted | Reply + resolve |
 | `not-addressing` | Feedback is factually wrong about the code | Reply with evidence + resolve |
 | `declined` | Implementing the suggested fix would actively make code worse | Reply citing harm + resolve |
 | `needs-human` | Cannot determine the right action | Reply with structured `decision_context` + leave open |
 
 `needs-human` is high-signal and rare — it includes structured analysis of what the reviewer said, what the agent investigated, why a decision is needed, and concrete options with tradeoffs.
 
-### 3. Triage — new vs already-handled
+### 4. Triage — new vs already-handled
 
 For each piece of feedback, the skill classifies before processing:
 
 - **Review threads** — read the thread; a substantive reply that defers action ("need to align on this", "going to think through this") is **pending**, don't reprocess. Only original-comment-only threads are **new**.
 - **PR comments + review bodies** — no resolve mechanism, so they reappear every run. Two filters: actionability (skip review wrappers, approvals, status badges, CI summaries with no asks), then already-replied (existing reply that quotes and addresses the feedback). Anything passing both is **new**.
 
-Bot wrappers from CodeRabbit, Codex, Gemini Code Assist, Copilot are dropped silently — recognized by boilerplate content, never announced or counted.
-
-### 4. Cross-invocation cluster analysis
-
-When the same theme spans multiple review rounds (e.g., 3 rounds of error-handling feedback in the auth module), the skill detects the pattern and dispatches a single agent with a `<cluster-brief>` that includes both the new threads and the previously-resolved threads in the same area. The agent reads the broader area before fixing — recognizing that recurring feedback signals a deeper issue than another surgical fix would solve.
-
-The gate has two stages: **signal** (prior resolved threads exist) and **spatial-overlap** (new threads share files or directory subtrees with prior ones). Both must pass. Single-round clustering across new-only threads is deliberately not performed — too thin evidence, too high false-positive rate.
+Bot wrappers from CodeRabbit, Codex, Gemini Code Assist, Copilot are dropped silently — recognized by boilerplate content, never announced or counted. This is a *content* check (is there anything actionable here?), not a source check, so it holds regardless of which bot's format changes.
 
 ### 5. Parallel dispatch with file-collision avoidance
 
-For 1-4 dispatch units (clusters + individual items), all run in parallel. For 5+, batches of 4. **Before dispatching, the skill checks file overlaps across all units** — overlapping units serialize so two agents never write the same file in parallel.
+For 1-4 items, all run in parallel. For 5+, batches of 4. **Before dispatching, the skill checks file overlaps across items** — overlapping items serialize so two agents never write the same file in parallel.
 
-Sequential fallback: platforms without parallel dispatch run agents sequentially, with cluster units dispatched first (higher leverage), then individual items.
+Sequential fallback: platforms without parallel dispatch run agents sequentially.
 
 ### 6. Combined validation after all agents complete
 
@@ -113,7 +121,7 @@ Threads on outdated lines often have `line: null` and require fallback to `origi
 
 ### 9. Two-pass loop with escalation
 
-If new threads remain after the verify step, the skill repeats from triage for the remaining threads (re-fetched feedback picks up resolved-this-run threads as resolved, which feeds the cross-invocation gate). After two fix-verify cycles, the skill stops looping and surfaces the recurring pattern as `needs-human`: "Multiple rounds of feedback on [theme] suggest a deeper issue."
+If new threads remain after the verify step, the skill repeats from triage for the remaining threads. After two fix-verify cycles, the skill stops looping and surfaces the recurring pattern as `needs-human`: "Multiple rounds of feedback on [theme] suggest a deeper issue."
 
 ### 10. Two modes — Full and Targeted
 
@@ -128,17 +136,21 @@ Targeted mode is for "address just this one comment" cases — common when the u
 
 ## Quick Example
 
-A reviewer leaves 8 comments on your PR. You invoke `/ce-resolve-pr-feedback`.
+A reviewer (and a review bot) leave 8 comments on your PR. You invoke `/ce-resolve-pr-feedback`.
 
-The skill detects the PR from the current branch, fetches via GraphQL: 6 unresolved review threads, 2 review bodies (one is a CodeRabbit wrapper), 0 PR comments. Triage: the CodeRabbit wrapper is a bot wrapper — dropped silently. One review thread has a substantive reply from yesterday deferring action — pending, skip. That leaves 5 review threads + 1 review body as **new**.
+The skill detects the PR from the current branch, fetches via GraphQL: 6 unresolved review threads, 2 review bodies (one is a CodeRabbit wrapper), 0 PR comments. Triage: the CodeRabbit wrapper is non-actionable boilerplate — dropped silently. One review thread has a substantive reply from yesterday deferring action — pending, skip. That leaves 5 review threads + 1 review body as **new**.
 
-Cross-invocation gate: signal stage passes (prior resolved threads exist from 2 rounds ago), spatial-overlap stage passes (3 of the new threads touch files in `app/services/notifications/` where prior resolved threads also lived). Cluster analysis identifies one cluster: error-handling theme spanning the auth-token error path. The other 2 threads dispatch as individuals.
+Step 4 dispatches 6 `ce-pr-comment-resolver` agents in batches of 4. File-collision check: two threads touch `app/services/dispatcher.rb` → those two serialize; the rest run in parallel. Each agent reads the actual code and judges its finding on the merits:
 
-Step 5 dispatches: 1 cluster agent (handles 3 threads with broader investigation) + 2 individual agents + 1 review-body agent. File-collision check: the cluster touches `app/services/notifications/dispatcher.rb` and one individual also touches that file → those two serialize. Other 2 dispatch in parallel.
+- 2 findings are clearly correct → `fixed`
+- 1 suggests an approach that works, but a cleaner one exists → `fixed-differently`
+- 1 is a bot finding flagging a "possible null deref" the type system already rules out → confirmed against the code, doesn't hold → `not-addressing` with evidence (no churn)
+- 1 asks "is this intentional?" → answerable from the code → `replied`
+- the review body asks a design question → `replied`
 
-All 4 agents return: 1 cluster `fixed` (3 threads), 1 individual `fixed`, 1 individual `fixed-differently` (a better approach than suggested), 1 review-body `replied` (answered a question). Combined validation runs once; tests pass. Commit + push.
+Combined validation runs once against the 3 changed files; tests pass. Commit + push.
 
-Step 8 posts replies: each thread reply quotes the original feedback and states what was done. Threads resolved via GraphQL. Review-body answered with a top-level PR comment quoting the original. Step 9 verify: fetched again — empty. Done. Summary surfaces.
+Step 7 posts replies: each quotes the original feedback and states what was done. All 5 review threads resolve via GraphQL; the review body gets a top-level PR comment (no resolve mechanism in the API). Step 8 verify: fetched again — empty. Done. Summary surfaces.
 
 ---
 
@@ -147,9 +159,9 @@ Step 8 posts replies: each thread reply quotes the original feedback and states 
 Reach for `ce-resolve-pr-feedback` when:
 
 - Your PR received review feedback you want to address
+- An auto-review bot left a pile of findings and you want them validated against the code, not blindly applied
 - You want to handle a specific comment in isolation (Targeted mode with the comment URL)
 - A previous run left `needs-human` items and you've decided how to proceed
-- The same kind of feedback keeps recurring across rounds — the cluster analysis catches the pattern
 
 Skip `ce-resolve-pr-feedback` when:
 
@@ -172,7 +184,7 @@ It complements:
 - **`/ce-code-review`** — reviews *before* the PR is open; this skill handles incoming feedback *after*
 - **`/ce-debug`** — for broken behavior; this skill is for review-comment resolution
 
-After resolution lands on the PR, the standard merge / re-review cycle applies. If the next review round produces more feedback, this skill can run again — the cross-invocation gate uses the prior round's resolutions as evidence.
+After resolution lands on the PR, the standard merge / re-review cycle applies. If the next review round produces more feedback, this skill can run again on the new round.
 
 ---
 
@@ -202,17 +214,17 @@ Scripts in `scripts/`: `get-pr-comments` (GraphQL fetch), `get-thread-for-commen
 
 ## FAQ
 
-**Why fix nitpicks? Aren't they low-priority?**
-Because agent time is cheap and tech debt is expensive. Once you're already in the code addressing the bigger feedback, fixing the nit costs nothing. Punting it means it accumulates, and the reviewer's time was wasted. The narrow exception is when implementing the suggested fix would actively make the code worse — that's `declined` with a cited harm.
+**Do you still fix nitpicks?**
+Yes — by default. Most feedback, nitpicks included, is correct and worth fixing, so the agent fixes unless reading the code trips a concrete signal: the finding doesn't hold, the fix would make the code worse, or the change buys nothing real. A correct nit that improves the code (even slightly) gets fixed; a purely cosmetic one with no benefit gets a brief reply instead of churn. The skip bar is "no benefit," not "minor."
+
+**Does it treat bot feedback differently from human feedback?**
+No — and that's deliberate. Validation is judged on merit, not authority: reading the actual code to confirm a finding is the same work whether a bot or a human raised it, and an authority heuristic ("bot → probably noise") risks dismissing a real bot-caught bug. The merit tripwires (does the finding hold? does the fix actually help?) naturally filter bot noise — mostly speculative or immaterial — without ever needing to classify the source. The same applies to *form* — inline thread vs. formal review body vs. top-level comment changes only how the reply is posted and resolved, never whether the finding is correct.
 
 **Why drop bot wrappers silently?**
-Because announcing them adds noise without value. CodeRabbit boilerplate ("Here are some automated review suggestions...") wraps real findings; the wrapper itself isn't actionable. Counting or listing dropped wrappers in the summary clutters the report. The script-level filter handles only CI/status bots; the content-aware drop catches the rest.
-
-**What's a cluster?**
-A group of threads sharing a concern category (error-handling, validation, type-safety, etc.) AND spatial proximity (same file or directory subtree) AND containing at least one previously-resolved thread (cross-round evidence). Single-round groupings are dispatched as individuals — the evidence is too thin.
+Because announcing them adds noise without value. CodeRabbit boilerplate ("Here are some automated review suggestions...") wraps real findings; the wrapper itself isn't actionable. Counting or listing dropped wrappers in the summary clutters the report. The script-level filter handles only CI/status bots; the content-aware drop (an actionability check, not a source check) catches the rest.
 
 **What if two parallel agents conflict?**
-The file-collision check before dispatch catches most cases — overlapping units serialize. For rare cases where a fix expands beyond its referenced file (rename updates callers elsewhere), the combined validation in step 6 catches test breakage and the verify step in step 9 catches unresolved threads. If either surfaces inconsistency, the skill re-runs the affected agents sequentially.
+The file-collision check before dispatch catches most cases — overlapping items serialize. For rare cases where a fix expands beyond its referenced file (rename updates callers elsewhere), the combined validation in step 5 catches test breakage and the verify step in step 8 catches unresolved threads. If either surfaces inconsistency, the skill re-runs the affected agents sequentially.
 
 **What does `needs-human` mean?**
 The agent investigated the feedback and the code, but cannot determine the right action confidently — usually because the choice depends on user intent the agent can't infer. The thread stays open with an acknowledgment reply, and the summary surfaces a structured `decision_context`: quoted feedback, investigation findings, options with tradeoffs, the agent's lean if any.
