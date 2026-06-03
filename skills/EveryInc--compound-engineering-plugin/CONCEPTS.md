@@ -1,0 +1,64 @@
+# Concepts
+
+Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then accretes as ce-compound and ce-compound-refresh process learnings; direct edits are fine. Glossary only, not a spec or catch-all.
+
+## The plugin and its parts
+
+### Plugin
+A distributable bundle of Skills, Agents, Commands, and Hooks (optionally MCP servers) described by a single manifest and installed into a coding-agent platform as one unit — the artifact the Converter translates for non-Claude Targets and the Marketplace distributes.
+
+### Skill
+A slash-invoked capability defined in its own directory, and the primary entry point a user reaches for. A Skill orchestrates: it can progressively pull in its own reference files as needed and dispatch Agents to do scoped work. Distinct from an Agent in that a Skill is user-invoked and coordinates, whereas an Agent is dispatched by a Skill.
+
+### Agent
+A specialized, single-purpose worker a Skill dispatches to run in its own isolated context and return a result, rather than to converse with the user. Also called a subagent. Agents are not invoked directly by users; a Skill decides when and how many to run.
+
+## Conversion
+
+### Target
+A destination coding-agent platform other than Claude Code (OpenCode, Codex, Gemini, and others) that a Plugin is converted into and installed onto, each with its own file layout and capability mapping. Also called a target provider.
+
+A Plugin is installed to a Target at one of two scopes: global (user-wide) or per-workspace.
+
+### Converter
+The step that transforms a parsed Plugin into one Target's in-memory form, mapping tools, permissions, hooks, and model names explicitly rather than by convention.
+
+### Writer
+The step that emits a Target's converted Bundle onto disk, in that Target's expected paths and merge semantics. Paired with a Converter, one per Target.
+
+### Bundle
+The in-memory converted form of a Plugin for a single Target — the handoff a Converter produces and a Writer consumes.
+
+### Marketplace
+The catalog metadata listing installable plugins and their versions for distribution, kept consistent with each Plugin's manifest by release validation.
+
+## Compound engineering
+
+### Compound engineering
+The methodology this project embodies: structure engineering work so each unit makes the next one easier, capturing reusable knowledge as you go so the toolset gets smarter with every use.
+
+### Pipeline
+The chained progression of Skills that carries a piece of work from strategy and ideation through brainstorm, plan, execution, and review, and closes by capturing what was learned. Each stage hands a durable artifact to the next, and research is gathered at the stage that needs it rather than re-gathered downstream.
+
+### Learning
+A documented solution to a past problem — a bug fix, a convention, or a workflow pattern — stored as the unit of compounded knowledge so future work can find and reuse it. Also called a solution doc. Carries structured metadata (category, tags, problem type) for retrieval; its creation date lives in the entry, not the filename.
+
+### Pattern doc
+Guidance generalized from several Learnings into a broader rule. Higher-leverage than any single incident-level Learning, and higher-risk when stale, because future work treats it as broadly applicable.
+
+## Review and workflow vocabulary
+
+### Reviewer persona
+A single-lens reviewer Agent that evaluates work from one specific perspective — security, correctness, scope, design, and so on. Review Skills dispatch a panel of personas and merge their findings.
+
+### Confidence anchor
+A discrete, self-scored confidence value on a fixed small scale, each level tied to a behavioral criterion the model can honestly apply, used to gate and rank review findings instead of a continuous score that invites false precision. Each review Skill sets its own actionable threshold; corroboration across personas promotes a finding by one level.
+
+### Autofix class
+The classification of a review finding by how safely its proposed fix can be applied: applied silently, applied only after user confirmation, left for a human to resolve, or recorded as advisory with no action.
+
+### Headless mode
+An explicit opt-in mode that runs a Skill unattended, with no user prompts — it produces a written report as its deliverable and conservatively defers genuinely ambiguous decisions rather than guessing.
+
+### Beta skill
+A parallel copy of a stable Skill, suffixed `-beta`, used to trial a new version alongside the stable one without disrupting users. Invoked manually (model auto-invocation is disabled); promoting it to stable is an orchestration change, not just a rename — every caller must move in the same change so none silently inherits stale defaults.

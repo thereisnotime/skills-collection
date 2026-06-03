@@ -18,7 +18,7 @@ related:
 
 ## Problem
 
-Core workflow skills like `ce:plan` are deeply chained (`ce:brainstorm` → `ce:plan` → `ce:work`) and orchestrated by `lfg` and `slfg`. Rewriting these skills risks breaking the entire workflow for all users simultaneously. There was no mechanism to let users trial new skill versions alongside stable ones.
+Core workflow skills like `ce-plan` are deeply chained (`ce-brainstorm` → `ce-plan` → `ce-work`) and orchestrated by `lfg` and `slfg`. Rewriting these skills risks breaking the entire workflow for all users simultaneously. There was no mechanism to let users trial new skill versions alongside stable ones.
 
 Alternatives considered and rejected:
 - **Beta gate in SKILL.md** with config-driven routing (`beta: true` in `compound-engineering.local.md`): relies on prompt-level conditional routing which risks instruction blending, requires setup integration, and adds complexity to the skill files themselves.
@@ -40,29 +40,29 @@ skills/
 ### Naming and frontmatter conventions
 
 - **Directory**: `<skill-name>-beta/`
-- **Frontmatter name**: `<skill:name>-beta` (e.g., `ce:plan-beta`)
+- **Frontmatter name**: `<skill-name>-beta` (e.g., `ce-plan-beta`)
 - **Description**: Write the intended stable description, then prefix with `[BETA]`. This ensures promotion is a simple prefix removal rather than a rewrite.
 - **`disable-model-invocation: true`**: Prevents the model from auto-triggering the beta skill. Users invoke it manually with the slash command. Remove this field when promoting to stable.
 - **Plan files**: Use `-beta-plan.md` suffix (e.g., `2026-03-17-001-feat-auth-flow-beta-plan.md`) to avoid clobbering stable plan files
 
 ### Internal references
 
-Beta skills must reference other beta skills by their beta names. For example, if both `ce:plan` and `ce:review` have beta versions:
-- `ce:plan-beta` references `ce:review-beta` (not `ce:review`)
-- `ce:review-beta` references `ce:plan-beta` (not `ce:plan`)
+Beta skills must reference other beta skills by their beta names. For example, if both `ce-plan` and `ce-code-review` have beta versions:
+- `ce-plan-beta` references `ce-code-review-beta` (not `ce-code-review`)
+- `ce-code-review-beta` references `ce-plan-beta` (not `ce-plan`)
 
 ### What doesn't change
 
 - Stable skills are completely untouched
 - `lfg`/`slfg` orchestration continues to use stable skills — no modification needed
-- `ce:brainstorm` still hands off to stable `ce:plan` — no modification needed
-- `ce:work` consumes plan files from either version (reads the file, doesn't care which skill wrote it)
+- `ce-brainstorm` still hands off to stable `ce-plan` — no modification needed
+- `ce-work` consumes plan files from either version (reads the file, doesn't care which skill wrote it)
 
 ### Tradeoffs
 
-**Simplicity over seamless integration.** Beta skills exist as standalone, manually-invoked skills. They won't be auto-triggered by `ce:brainstorm` handoffs or `lfg`/`slfg` orchestration without further surgery to those skills, which isn't worth the complexity for a trial period.
+**Simplicity over seamless integration.** Beta skills exist as standalone, manually-invoked skills. They won't be auto-triggered by `ce-brainstorm` handoffs or `lfg`/`slfg` orchestration without further surgery to those skills, which isn't worth the complexity for a trial period.
 
-**Intended usage pattern:** A user can run `/ce:plan` for the stable output, then run `/ce:plan-beta` on the same input to compare the two plan documents side by side. The `-beta-plan.md` suffix ensures both outputs coexist in `docs/plans/` without collision.
+**Intended usage pattern:** A user can run `/ce-plan` for the stable output, then run `/ce-plan-beta` on the same input to compare the two plan documents side by side. The `-beta-plan.md` suffix ensures both outputs coexist in `docs/plans/` without collision.
 
 ## Promotion path
 
@@ -76,7 +76,7 @@ When the beta version is validated:
 6. Delete the beta skill directory
 7. Update README.md: remove from Beta Skills section, verify counts
 8. Verify `lfg`/`slfg` work with the promoted skill
-9. Verify `ce:work` consumes plans from the promoted skill
+9. Verify `ce-work` consumes plans from the promoted skill
 
 If the beta skill changed its invocation contract, promotion must also update all orchestration callers in the same PR instead of relying on the stable default behavior. See [beta-promotion-orchestration-contract.md](./beta-promotion-orchestration-contract.md) for the concrete review-skill example.
 

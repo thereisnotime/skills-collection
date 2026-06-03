@@ -46,7 +46,7 @@ The gap: ce:brainstorm and ce:plan both now produce visual aids when content war
 
 ### Institutional Learnings
 
-- The git-commit-push-pr skill is structured as a state machine with explicit transition checks. Changes must be strictly additive to the PR body composition phase -- do not alter or reorder git state checks (see `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`)
+- The git-commit-push-pr skill is structured as a state machine with explicit transition checks. Changes must be strictly additive to the PR body composition phase -- do not alter or reorder git state checks (see `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`)
 - GitHub renders mermaid code blocks natively in PR descriptions (supported since 2022)
 - No existing learnings about mermaid gotchas or diagram generation failures in docs/solutions/
 - Prose-is-authoritative is an established invariant across brainstorm and document-review skills
@@ -127,5 +127,5 @@ The gap: ce:brainstorm and ce:plan both now produce visual aids when content war
 
 - Related PRs: #437 (brainstorm visual aids), #440 (plan visual aids)
 - Related plans: `docs/plans/2026-03-29-001-feat-brainstorm-visual-aids-plan.md`, `docs/plans/2026-03-29-002-feat-plan-visual-aids-plan.md`
-- Institutional learning: `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+- Institutional learning: `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
 - GitHub mermaid support: confirmed natively in PR descriptions since 2022

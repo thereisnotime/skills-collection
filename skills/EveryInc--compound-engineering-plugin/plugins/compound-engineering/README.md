@@ -57,6 +57,7 @@ The primary entry points for engineering work, invoked as slash commands. Detail
 | Skill | Description |
 |-------|-------------|
 | [`/ce-demo-reel`](../../docs/skills/ce-demo-reel.md) | Capture a visual demo reel (GIF demos, terminal recordings, screenshots) for PRs with project-type-aware tier selection |
+| [`/ce-promote`](../../docs/skills/ce-promote.md) | Draft user-facing announcement copy for a shipped feature (X post, changelog blurb, LinkedIn, email); voice-matched via the Spiral CLI when installed, a lite layer of editorial & social expertise without it |
 | [`/ce-report-bug`](../../docs/skills/ce-report-bug.md) | Report a bug in the compound-engineering plugin |
 | [`/ce-resolve-pr-feedback`](../../docs/skills/ce-resolve-pr-feedback.md) | Resolve PR review feedback in parallel |
 | [`/ce-test-browser`](../../docs/skills/ce-test-browser.md) | Run browser tests on PR-affected pages |

@@ -132,7 +132,7 @@ The result should be committed as data, and tests should fail when the current o
 **Requirements:** R1, R2, R3, R4, R9
 
 **Files:**
-- Create: `docs/solutions/integrations/native-plugin-install-strategy-2026-04-19.md`
+- Create: `docs/solutions/integrations/native-plugin-install-strategy.md`
 - Modify: `README.md`
 - Modify as needed: `docs/specs/codex.md`, `docs/specs/copilot.md`, `docs/specs/gemini.md`, `docs/specs/opencode.md`
 

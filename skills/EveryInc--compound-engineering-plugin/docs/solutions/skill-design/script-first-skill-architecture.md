@@ -13,11 +13,11 @@ component: "plugins/compound-engineering/skills"
 
 # Script-First Skill Architecture
 
-When a skill processes large datasets (session transcripts, log files, configuration inventories), having the model do the processing is a token-expensive anti-pattern. Moving data processing into a bundled Node.js script and having the model present the results cuts token usage by 60-75%.
+When a skill processes large datasets (session transcripts, log files, configuration inventories), having the model do the processing is a token-expensive anti-pattern. Moving data processing into a bundled script and having the model present the results cuts token usage by 60-75%. (For which language to write that script in, see [prefer-python-over-bash-for-pipeline-scripts](../best-practices/prefer-python-over-bash-for-pipeline-scripts.md); this doc is about *whether* to offload, not *which language*.)
 
 ## Origin
 
-Learned while building the `claude-permissions-optimizer` skill, which analyzes Claude Code session transcripts to find safe Bash commands to auto-allow. Initial iterations had the model reading JSONL session files, classifying commands against a 370-line reference doc, and normalizing patterns -- averaging 85-115k tokens per run. After moving all processing into the extraction script, runs dropped to ~40k tokens with equivalent output quality.
+Learned while building the `claude-permissions-optimizer` skill (since retired from the plugin in favor of `/less-permission-prompts`), which analyzed Claude Code session transcripts to find safe Bash commands to auto-allow. Initial iterations had the model reading JSONL session files, classifying commands against a 370-line reference doc, and normalizing patterns -- averaging 85-115k tokens per run. After moving all processing into the extraction script, runs dropped to ~40k tokens with equivalent output quality. The same pattern is live today in `ce-sessions`, whose bundled `extract-metadata.py` / `extract-skeleton.py` scripts do session discovery and classification while the model only presents.
 
 ## The Anti-Pattern: Model-as-Processor
 
@@ -34,7 +34,7 @@ The default instinct when building a skill that touches data is to have the mode
 skills/<skill-name>/
   SKILL.md              # Instructions: run script, present output
   scripts/
-    process.mjs         # Does ALL data processing, outputs JSON
+    process.py          # Does ALL data processing, outputs JSON
 ```
 
 1. **Script does all mechanical work.** Reading files, parsing structured formats, applying classification rules (regex, keyword lists), normalizing results, computing counts. Outputs pre-classified JSON to stdout.

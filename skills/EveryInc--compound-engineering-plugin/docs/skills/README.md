@@ -110,6 +110,7 @@ Invoked when a specific need arises — not part of any chain.
 | Skill | Description |
 |-------|-------------|
 | [`/ce-demo-reel`](./ce-demo-reel.md) | Capture visual evidence (GIF, terminal recording, screenshots) for PR descriptions — strict separation from test output |
+| [`/ce-promote`](./ce-promote.md) | Draft user-facing announcement copy for a shipped feature (X, changelog, LinkedIn, email) — voice-matched via the optional Spiral CLI, a lite layer of editorial & social expertise without it, drafts only |
 | [`/ce-resolve-pr-feedback`](./ce-resolve-pr-feedback.md) | Evaluate, fix, and reply to PR review feedback in parallel — including nitpicks |
 | [`/ce-test-browser`](./ce-test-browser.md) | End-to-end browser tests on PR / branch-affected pages using `agent-browser` exclusively |
 | [`/ce-test-xcode`](./ce-test-xcode.md) | Build and test iOS apps on simulator using XcodeBuildMCP — screenshots, logs, human verification |

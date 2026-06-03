@@ -79,10 +79,10 @@ Long plans and requirements docs routinely cross the threshold where Markdown re
 
 ### Institutional Learnings
 
-- `docs/solutions/skill-design/post-menu-routing-belongs-inline-2026-04-28.md` — Per-mode routing for always-fire options belongs inline in SKILL.md, not deferred to a reference. Applies here: the `output:` resolution + write-branch dispatch is load-bearing every invocation and must live inline; the HTML composition guidance (conditional, late-sequence) can live in a backtick-loaded reference.
+- `docs/solutions/skill-design/post-menu-routing-belongs-inline.md` — Per-mode routing for always-fire options belongs inline in SKILL.md, not deferred to a reference. Applies here: the `output:` resolution + write-branch dispatch is load-bearing every invocation and must live inline; the HTML composition guidance (conditional, late-sequence) can live in a backtick-loaded reference.
 - `docs/solutions/skill-design/script-first-skill-architecture.md` — DOES NOT apply here. The "do not apply when the skill's core value is the model's judgment" exception holds. The whole point of this feature is per-artifact agent judgment about content shape and affordance fit; deterministic HTML rendering would defeat the purpose. Documented as a rejected alternative below.
-- `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents-2026-03-29.md` — Use content-pattern triggers, not size/depth gates. Prose-is-authoritative invariant (Markdown is the source of truth; HTML is a projection).
-- `docs/solutions/integrations/colon-namespaced-names-break-windows-paths-2026-03-26.md` — If any filename component is derived from user content (e.g., titles containing colons), route through `sanitizePathName()` in `src/utils/files.ts`. Our HTML filenames mirror existing markdown filenames so no new sanitization surface, but worth noting.
+- `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents.md` — Use content-pattern triggers, not size/depth gates. Prose-is-authoritative invariant (Markdown is the source of truth; HTML is a projection).
+- `docs/solutions/integrations/colon-namespaced-names-break-windows-paths.md` — If any filename component is derived from user content (e.g., titles containing colons), route through `sanitizePathName()` in `src/utils/files.ts`. Our HTML filenames mirror existing markdown filenames so no new sanitization surface, but worth noting.
 - `plugins/compound-engineering/AGENTS.md` "Reading Config Files from Skills" — Use `git rev-parse --show-toplevel`; `__NO_CONFIG__` sentinel; worktree config is per-worktree (no fall-through to main checkout). DESIGN.md follows the same rule.
 - `plugins/compound-engineering/AGENTS.md` "Reference File Inclusion" — Default is backtick path; `@`-inline only for files under ~150 lines that are always needed. The HTML-output reference will likely exceed 150 lines (CSS + content-shape questions + invariants), so backtick path is correct.
 - `plugins/compound-engineering/AGENTS.md` "Runtime vs Authoring Context" — Both skills must duplicate their HTML reference; the plugin's `AGENTS.md` is invisible at runtime.
@@ -420,7 +420,7 @@ Long plans and requirements docs routinely cross the threshold where Markdown re
 - `plugins/compound-engineering/skills/ce-work-beta/SKILL.md` (canonical config pre-resolution pattern)
 - `plugins/compound-engineering/skills/ce-setup/references/config-template.yaml` (config-template style)
 - `plugins/compound-engineering/AGENTS.md` (cross-skill duplication rule, reading config files, reference inclusion rules)
-- `docs/solutions/skill-design/post-menu-routing-belongs-inline-2026-04-28.md`
+- `docs/solutions/skill-design/post-menu-routing-belongs-inline.md`
 - `docs/solutions/skill-design/script-first-skill-architecture.md` (documented as not-applicable here)
-- `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents-2026-03-29.md`
+- `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents.md`
 - Thariq Shihipar, "Using Claude Code: The Unreasonable Effectiveness of HTML" (motivating essay)

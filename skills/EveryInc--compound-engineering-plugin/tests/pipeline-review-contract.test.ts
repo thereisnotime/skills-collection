@@ -17,21 +17,24 @@ describe("ce-work review contract", () => {
     expect(content).not.toContain("Consider Code Review")
     expect(content).not.toContain("Code Review** (Optional)")
 
-    // Phase 3 has a Claude-Code-only Simplify step at position 2 (gated on >=30 LOC)
-    // and a mandatory code review at position 3
+    // Phase 3 has a conditional Simplify step at position 2 (ce-simplify-code, gated on >=30 LOC)
+    // and code review at position 3 (Tier 1 when available; Tier 2 on criteria only)
     expect(shipping).toContain("2. **Simplify**")
-    expect(shipping).toContain("Claude Code only")
+    expect(shipping).toContain("ce-simplify-code")
     expect(shipping).toContain("3. **Code Review**")
 
-    // Two-tier rubric in reference file: Tier 1 is harness-native (default),
-    // Tier 2 is ce-code-review (risk-based escalation)
-    expect(shipping).toContain("**Tier 1 -- harness-native code review (default).**")
-    expect(shipping).toContain("**Tier 2 -- `ce-code-review` (escalation).**")
+    // Two-tier rubric in reference file: Tier 1 when harness has built-in review,
+    // Tier 2 is ce-code-review (risk-based escalation only — not when Tier 1 missing)
+    expect(shipping).toContain("**Tier 1 -- harness-native review")
+    expect(shipping).toContain("**Tier 2 -- `ce-code-review` (escalation only).**")
+    expect(shipping).toContain("not** because Tier 1 is missing")
     expect(shipping).toContain("ce-code-review")
-    expect(shipping).toContain("mode:autofix")
+    expect(shipping).toContain("review-findings-followup.md")
+    expect(shipping).toMatch(/review is not fix|2a\. Review|2b\. Apply/i)
+    expect(shipping).toContain("mode:agent")
 
     // Quality checklist includes review
-    expect(shipping).toContain("Code review completed (Tier 1 harness-native or Tier 2 `ce-code-review`)")
+    expect(shipping).toContain("Code review: Tier 1 completed, or Tier 2 when escalated")
   })
 
   test("delegates commit and PR to dedicated skills", async () => {
@@ -62,6 +65,21 @@ describe("ce-work review contract", () => {
     // Negative assertions stay on SKILL.md
     expect(beta).not.toContain("Consider Code Review")
     expect(beta).not.toContain("gh pr create")
+  })
+
+  test("ce-work-beta mirrors residual work gate sentinel with ce-work", async () => {
+    const workShipping = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-work/references/shipping-workflow.md",
+    )
+    const betaShipping = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-work-beta/references/shipping-workflow.md",
+    )
+
+    expect(workShipping).toContain("Actionable findings: none.")
+    expect(betaShipping).toContain("Actionable findings: none.")
+    expect(betaShipping).not.toContain("Residual actionable work: none.")
+    expect(betaShipping).toContain("not yet fixed")
+    expect(betaShipping).not.toContain("skill did not auto-fix")
   })
 
   test("includes per-task testing deliberation in execution loop", async () => {

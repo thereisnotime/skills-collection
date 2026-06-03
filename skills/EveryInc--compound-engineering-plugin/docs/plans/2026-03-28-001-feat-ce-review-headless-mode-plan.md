@@ -46,7 +46,7 @@ ce:review has three modes (interactive, autofix, report-only), but none is desig
 
 - `docs/solutions/skill-design/beta-promotion-orchestration-contract.md` — contract tests must be extended atomically with new mode flags
 - `docs/solutions/skill-design/compound-refresh-skill-improvements.md` — explicit opt-in only for autonomous modes (no auto-detection from tool availability); conservative treatment of borderline cases
-- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md` — walk all mode x state combinations when adding a new mode branch
+- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md` — walk all mode x state combinations when adding a new mode branch
 - `docs/solutions/agent-friendly-cli-principles.md` — structured parseable output with stable field contracts for programmatic callers
 
 ## Key Technical Decisions
@@ -327,4 +327,4 @@ Then output "Review complete" as the terminal signal.
 - **Origin document:** [docs/brainstorms/2026-03-28-ce-review-headless-mode-requirements.md](docs/brainstorms/2026-03-28-ce-review-headless-mode-requirements.md)
 - Related code: `plugins/compound-engineering/skills/ce-review/SKILL.md`, `plugins/compound-engineering/skills/document-review/SKILL.md`
 - Related PRs: #425 (document-review headless mode)
-- Learnings: `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`, `docs/solutions/skill-design/compound-refresh-skill-improvements.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+- Learnings: `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`, `docs/solutions/skill-design/compound-refresh-skill-improvements.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`

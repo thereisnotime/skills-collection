@@ -80,14 +80,14 @@ From the feature description (10 deliverables):
 
 ### Institutional Learnings
 
-- **`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`** — Branch/PR-switching skills must be modeled as explicit state machines and re-probe at each transition. Polish re-reads `git branch --show-current`, server PID, and PR number after every checkout or kill. Never carries earlier values forward in prose.
+- **`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`** — Branch/PR-switching skills must be modeled as explicit state machines and re-probe at each transition. Polish re-reads `git branch --show-current`, server PID, and PR number after every checkout or kill. Never carries earlier values forward in prose.
 - **`docs/solutions/skill-design/compound-refresh-skill-improvements.md`** — Question-before-evidence is an anti-pattern. Polish generates the test checklist *before* asking the human what to test; the human edits the generated list rather than authoring it from scratch. All confirmations include concrete command/port/PID so the human can judge without a follow-up.
-- **`docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`** — Orchestrator hands paths to sub-agents; sub-agents do their own reads. Polish passes the diff file list, the review artifact path, and the PR number — never inlined diff content.
-- **`docs/solutions/best-practices/codex-delegation-best-practices-2026-04-01.md`** — ~5-7 unit crossover for parallel dispatch; "never split units that share files." Polish goes sequential below 5 items, parallel above, with the same-file collision guard.
+- **`docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`** — Orchestrator hands paths to sub-agents; sub-agents do their own reads. Polish passes the diff file list, the review artifact path, and the PR number — never inlined diff content.
+- **`docs/solutions/best-practices/codex-delegation-best-practices.md`** — ~5-7 unit crossover for parallel dispatch; "never split units that share files." Polish goes sequential below 5 items, parallel above, with the same-file collision guard.
 - **`docs/solutions/skill-design/script-first-skill-architecture.md`** — Deterministic classification (project-type, file-to-surface mapping, oversize detection) belongs in bundled scripts, not the model. 60-75% token reduction.
 - **`docs/solutions/workflow/todo-status-lifecycle.md`** — Status fields only have value when a downstream consumer branches on them. Polish's `status: {manageable | oversized}` per-item field is load-bearing — the dispatcher branches on it (`manageable` → fix, `oversized` → stacked-PR seed).
-- **`docs/solutions/developer-experience/branch-based-plugin-install-and-testing-2026-03-26.md`** — Shared checkout can't serve two branches. If the user is already on a worktree for the target PR, attach; do not silently re-checkout the primary.
-- **`docs/solutions/skill-design/beta-skills-framework.md`** + `.../ce-work-beta-promotion-checklist-2026-03-31.md` — New workflow skills ship first as `-beta` with `disable-model-invocation: true`. Promotion later requires updating every caller in the same PR.
+- **`docs/solutions/developer-experience/branch-based-plugin-install-and-testing.md`** — Shared checkout can't serve two branches. If the user is already on a worktree for the target PR, attach; do not silently re-checkout the primary.
+- **`docs/solutions/skill-design/beta-skills-framework.md`** + `.../ce-work-beta-promotion-checklist.md` — New workflow skills ship first as `-beta` with `disable-model-invocation: true`. Promotion later requires updating every caller in the same PR.
 
 ### External References
 
@@ -294,7 +294,7 @@ Polish complete
 
   **Patterns to follow:**
   - Branch/PR acquisition block: `plugins/compound-engineering/skills/ce-review/SKILL.md:184-267`
-  - State-machine discipline: `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+  - State-machine discipline: `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
 
   **Test scenarios:**
   - Happy path: clean worktree, PR number provided, PR not in any worktree → `gh pr checkout` executes, branch matches `headRefName`.
@@ -485,7 +485,7 @@ Polish complete
   - Parallel dispatch: `plugins/compound-engineering/skills/resolve-pr-feedback/SKILL.md:135-164`
   - Sub-agent template: `plugins/compound-engineering/skills/ce-review/references/subagent-template.md`
   - Fully qualified agent names: `plugins/compound-engineering/AGENTS.md`
-  - Pass paths not content: `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+  - Pass paths not content: `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`
   - Load-bearing status fields: `docs/solutions/workflow/todo-status-lifecycle.md`
 
   **Test scenarios:**
@@ -599,7 +599,7 @@ The table is the full surface area: there are no other untrusted inputs into pol
 - No `CHANGELOG.md` entry in this PR; release-please composes it from the conventional commit (`feat(ce-polish): add /ce:polish-beta skill for human-in-the-loop refinement`).
 - Feature branch name: `feat/ce-polish-command`.
 - After the beta PR merges, monitor usage feedback for ~2 weeks of active use before opening a promotion PR. Promotion criteria: no P0/P1 issues in beta usage, `unknown` fall-back rate <20% of runs, stacked-PR-seed path exercised at least once.
-- Beta-to-stable promotion PR checklist lives in `docs/solutions/skill-design/ce-work-beta-promotion-checklist-2026-03-31.md` — apply it by analogy.
+- Beta-to-stable promotion PR checklist lives in `docs/solutions/skill-design/ce-work-beta-promotion-checklist.md` — apply it by analogy.
 
 ## Sources & References
 
@@ -623,17 +623,17 @@ The table is the full surface area: there are no other untrusted inputs into pol
   - `plugins/compound-engineering/agents/review/ce-maintainability-reviewer.agent.md`
   - `plugins/compound-engineering/agents/review/ce-julik-frontend-races-reviewer.agent.md`
 - Institutional learnings:
-  - `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+  - `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
   - `docs/solutions/skill-design/compound-refresh-skill-improvements.md`
-  - `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md`
-  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
-  - `docs/solutions/best-practices/codex-delegation-best-practices-2026-04-01.md`
-  - `docs/solutions/developer-experience/branch-based-plugin-install-and-testing-2026-03-26.md`
-  - `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents-2026-03-29.md`
+  - `docs/solutions/skill-design/research-agent-pipeline-separation.md`
+  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`
+  - `docs/solutions/best-practices/codex-delegation-best-practices.md`
+  - `docs/solutions/developer-experience/branch-based-plugin-install-and-testing.md`
+  - `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents.md`
   - `docs/solutions/workflow/todo-status-lifecycle.md`
   - `docs/solutions/skill-design/script-first-skill-architecture.md`
   - `docs/solutions/skill-design/beta-skills-framework.md`
-  - `docs/solutions/skill-design/ce-work-beta-promotion-checklist-2026-03-31.md`
+  - `docs/solutions/skill-design/ce-work-beta-promotion-checklist.md`
 - Project AGENTS.md rules applied throughout:
   - `AGENTS.md` (repo root) — branching, commit conventions, release versioning, file reference rules
   - `plugins/compound-engineering/AGENTS.md` — skill compliance checklist, cross-platform rules, reference file inclusion, tool selection

@@ -50,6 +50,7 @@ plugins/          Plugin workspaces (compound-engineering, coding-tutor)
 .claude-plugin/   Claude marketplace catalog metadata
 tests/            Converter, writer, and CLI tests + fixtures
 docs/             Requirements, plans, solutions, and target specs
+CONCEPTS.md       Shared domain vocabulary (glossary of project-specific terms)
 ```
 
 ## Repo Surfaces

@@ -9,6 +9,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.9.1] - 2026-05-30
+
+### Fixed
+- Proof-of-run council section was blank on real runs. The generator read the
+  per-verdict field as `verdict`/`decision` and expected flat
+  `council/votes/*.json` files, but completion-council.sh actually writes the
+  outcome as `result` (APPROVED/REJECTED) in `verdicts[]` plus aggregate
+  `approve_votes`/`reject_votes` in `council/state.json`, with per-iteration
+  detail under `council/votes/iteration-N/`. The proof's council verdict and
+  reviewer rows therefore came out empty, blanking the central trust signal on
+  every real proof page. The generator now reads `result`, derives the
+  approve/reject ratio and threshold from the aggregate, and synthesizes a
+  council-tally row when no flat per-reviewer files exist. Caught by R1
+  real-user UAT. Added regression tests for the real APPROVED and REJECTED
+  council shapes (tests/test_proof_generator.py).
+
+## [7.9.0] - 2026-05-30
+
+### Added
+- Shareable proof-of-run (R1 of the competitive arc). Every run now emits a
+  self-contained, shareable proof artifact under `.loki/proofs/<run_id>/`
+  (`proof.json` + `index.html`) summarizing what the run built and how cheaply +
+  reliably: itemized cost USD + token breakdown, files-changed diffstat,
+  per-reviewer council verdicts (with evidence, not a bare badge), quality gates,
+  wall-clock time, provider/model, and an integrity hash. The page leads with the
+  itemized bill and ranks every claim by stranger-verifiability (clickable
+  deployed URL, linked diff), states limitations honestly, and carries a
+  "Run this yourself" CTA. Default-on at run completion, fire-and-forget (never
+  blocks or alters the run), opt-out via `LOKI_PROOF=0`.
+- `loki proof` command (list | show | open | share) on both the bash and Bun
+  routes, plus shell completions. `loki proof share <id>` publishes the proof as
+  a GitHub gist, but ONLY after showing a redaction preview and an explicit
+  confirm (publishing is opt-in, never automatic); `--yes` skips the prompt for
+  automation, `--hosted` is reserved for a future hosted endpoint.
+- Redaction layer (`autonomy/lib/proof_redact.py`): a single chokepoint that runs
+  once before serialization and refuses to emit if it did not run. Scrubs API
+  keys (Anthropic/OpenAI/Google/GitHub/AWS/Slack), Bearer tokens, JWTs, PEM
+  private-key blocks, quoted-and-bare secret assignments (password, passphrase,
+  token, api_key, client_secret, etc.), DB/URI connection-string credentials, and
+  absolute user paths, in both `proof.json` and the rendered HTML.
+- Dashboard proof routes (`/api/proofs`, `/api/proofs/{id}`,
+  `/api/proofs/{id}/html`) with a path-traversal guard, plus a `proofs.html`
+  index page.
+
+### Notes
+- Both runtimes invoke the same Python generator, so artifacts are identical
+  across the bash and Bun routes.
+- The integrity hash proves the artifact was not altered after emission; it does
+  not assert authorship (signed/authenticated proofs are a future enhancement).
+- `deployment.deployed_url` is local-only today; a public hosted URL is reserved
+  for a later release.
+- NOT tested in this release: real end-to-end gist publication against the live
+  GitHub API (the share path is verified with a mocked `gh`); the proof page
+  rendered in every browser engine (verified self-contained + rendered in a
+  headless browser).
+
 ## [7.8.3] - 2026-05-30
 
 ### Fixed

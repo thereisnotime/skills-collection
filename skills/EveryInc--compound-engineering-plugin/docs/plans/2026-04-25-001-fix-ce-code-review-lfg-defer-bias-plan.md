@@ -74,7 +74,7 @@ The current `references/bulk-preview.md`, walk-through `LFG the rest`, and Stage
 
 - `docs/plans/2026-04-21-002-refactor-ce-code-review-precision-and-validation-plan.md` — added Stage 5b as a per-finding validation gate before externalization. R3 of that plan scoped Stage 5b to externalizing modes only; this plan further narrows by removing it from the LFG path specifically. Stage 5b's intent (validate before externalizing to a tracker) still holds for option C.
 - `docs/plans/2026-04-17-002-feat-ce-review-interactive-judgment-plan.md` — introduced the Interactive mode routing question, walk-through, and bulk-preview design.
-- `docs/solutions/skill-design/confidence-anchored-scoring-2026-04-21.md` — anchored 0/25/50/75/100 rubric; this plan does not change the rubric.
+- `docs/solutions/skill-design/confidence-anchored-scoring.md` — anchored 0/25/50/75/100 rubric; this plan does not change the rubric.
 
 ### External References
 

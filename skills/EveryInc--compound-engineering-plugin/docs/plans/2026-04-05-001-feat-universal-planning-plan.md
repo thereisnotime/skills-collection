@@ -54,8 +54,8 @@ Users reach for `/ce:plan` for any multi-step planning — trip itineraries, stu
 
 - `docs/solutions/skill-design/beta-skills-framework.md` — Config-driven routing within a single SKILL.md was rejected due to instruction blending risk. Our approach (early detection stub that branches to a reference file) is the recommended pattern: "clear, early context-detection phase that sets the mode before instructions diverge."
 - `docs/solutions/skill-design/compound-refresh-skill-improvements.md` — Auto-detection of context to switch modes is unreliable; explicit arguments are safer. Mitigated by R3 error policy (default to software, ask when uncertain). Known tradeoff worth monitoring.
-- `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md` — Don't skip research entirely for non-software tasks; substitute rather than remove. Core path defers research to Phase 2 extension.
-- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md` — Use explicit state checks for conditional behavior, not prose-described hedging. Detection uses structured signal lists, not vague instructions.
+- `docs/solutions/skill-design/research-agent-pipeline-separation.md` — Don't skip research entirely for non-software tasks; substitute rather than remove. Core path defers research to Phase 2 extension.
+- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md` — Use explicit state checks for conditional behavior, not prose-described hedging. Detection uses structured signal lists, not vague instructions.
 
 ## Key Technical Decisions
 
@@ -138,7 +138,7 @@ Users reach for `/ce:plan` for any multi-step planning — trip itineraries, stu
 
 **Patterns to follow:**
 - Existing reference file loading pattern: "read `references/deepening-workflow.md` for..." (ce:plan SKILL.md line 681)
-- State-machine detection pattern from `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+- State-machine detection pattern from `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
 
 **Test scenarios:**
 - Happy path: "plan a 3 day Disney trip" → detects non-software, loads reference file
@@ -287,4 +287,4 @@ Users reach for `/ce:plan` for any multi-step planning — trip itineraries, stu
 - **Origin document:** `docs/brainstorms/2026-04-05-universal-planning-requirements.md`
 - Related code: `plugins/compound-engineering/skills/ce-plan/SKILL.md`, `plugins/compound-engineering/skills/ce-brainstorm/SKILL.md`, `plugins/compound-engineering/skills/lfg/SKILL.md`, `plugins/compound-engineering/skills/slfg/SKILL.md`
 - Related issue: [#517](https://github.com/EveryInc/compound-engineering-plugin/issues/517)
-- Related learnings: `docs/solutions/skill-design/beta-skills-framework.md`, `docs/solutions/skill-design/compound-refresh-skill-improvements.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+- Related learnings: `docs/solutions/skill-design/beta-skills-framework.md`, `docs/solutions/skill-design/compound-refresh-skill-improvements.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`

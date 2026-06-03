@@ -111,9 +111,9 @@ Numbered requirements that this plan must satisfy. Carries forward applicable v1
 ### Institutional Learnings
 
 - Classification pipeline invariants (general): classify on the same scope as action; re-evaluate after any broadening step; enumerate negative signals (not just positive). Apply to V1's mode classifier.
-- `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md` — research agents must be classified by information type and dispatched only from the matching pipeline stage. Apply: `web-researcher` serves grounding (Phase 1), not generation (Phase 2).
-- `docs/solutions/best-practices/codex-delegation-best-practices-2026-04-01.md` — token-economics method for evaluating "always-on" defaults. Implication: V12 cost transparency exists because always-on web-research has real overhead worth disclosing.
-- `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md` — instruction phrasing dramatically affects tool-call count (14 vs 2 for the same task). Implication: `web-researcher` prompt should be benchmarked with stream-json before considering it stable.
+- `docs/solutions/skill-design/research-agent-pipeline-separation.md` — research agents must be classified by information type and dispatched only from the matching pipeline stage. Apply: `web-researcher` serves grounding (Phase 1), not generation (Phase 2).
+- `docs/solutions/best-practices/codex-delegation-best-practices.md` — token-economics method for evaluating "always-on" defaults. Implication: V12 cost transparency exists because always-on web-research has real overhead worth disclosing.
+- `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md` — instruction phrasing dramatically affects tool-call count (14 vs 2 for the same task). Implication: `web-researcher` prompt should be benchmarked with stream-json before considering it stable.
 - `docs/solutions/skill-design/compound-refresh-skill-improvements.md` — explicit opt-in beats auto-detection. Apply to V11's Proof failure ladder: don't infer "terminal-only is fine" from environment; ask explicitly.
 - `docs/solutions/skill-design/script-first-skill-architecture.md` — push deterministic work to scripts when judgment isn't load-bearing. Not directly applicable to this plan but worth keeping in mind for any future `web-researcher` triage logic.
 
@@ -340,7 +340,7 @@ These were resolved in conversation but reviewers raised non-trivial counterargu
 **Patterns to follow:**
 - Current Phase 1 in `plugins/compound-engineering/skills/ce-ideate/SKILL.md` (codebase scan dispatch around line 96-130) — preserve repo-mode dispatch text closely; only restructure mode-conditional layer
 - AGENTS.md "Sub-Agent Permission Mode" — omit `mode` parameter on dispatch
-- `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md` — Phase 1 owns grounding-information dispatch; do not duplicate at other stages
+- `docs/solutions/skill-design/research-agent-pipeline-separation.md` — Phase 1 owns grounding-information dispatch; do not duplicate at other stages
 
 **Test scenarios:**
 - Happy path: repo mode invocation dispatches Haiku scan + learnings-researcher + web-researcher in parallel
@@ -593,9 +593,9 @@ These were resolved in conversation but reviewers raised non-trivial counterargu
   - `plugins/compound-engineering/skills/proof/SKILL.md` (Proof handoff contract)
   - `plugins/compound-engineering/agents/research/ce-learnings-researcher.agent.md`, `slack-researcher.md`, `issue-intelligence-analyst.md` (agent file conventions)
 - **Related learnings:**
-  - `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md`
-  - `docs/solutions/best-practices/codex-delegation-best-practices-2026-04-01.md`
-  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+  - `docs/solutions/skill-design/research-agent-pipeline-separation.md`
+  - `docs/solutions/best-practices/codex-delegation-best-practices.md`
+  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`
   - `docs/solutions/skill-design/compound-refresh-skill-improvements.md`
 - **External research:**
   - [How we built our multi-agent research system — Anthropic](https://www.anthropic.com/engineering/multi-agent-research-system)

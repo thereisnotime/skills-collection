@@ -4,17 +4,32 @@
   "packages": {
     ".": {
       "release-type": "simple",
+      "skip-changelog": true,
       "extra-files": [
         {
           "type": "json",
           "path": "package.json",
           "jsonpath": "$.version"
-        },
+        }
+      ]
+    },
+    "skills/supabase": {
+      "release-type": "simple",
+      "skip-github-release": true,
+      "changelog-path": "skills/supabase/CHANGELOG.md",
+      "extra-files": [
         {
           "type": "generic",
           "path": "skills/supabase/SKILL.md",
           "expressions": ["version: \"([0-9]+\\.[0-9]+\\.[0-9]+)\""]
-        },
+        }
+      ]
+    },
+    "skills/supabase-postgres-best-practices": {
+      "release-type": "simple",
+      "skip-github-release": true,
+      "changelog-path": "skills/supabase-postgres-best-practices/CHANGELOG.md",
+      "extra-files": [
         {
           "type": "generic",
           "path": "skills/supabase-postgres-best-practices/SKILL.md",

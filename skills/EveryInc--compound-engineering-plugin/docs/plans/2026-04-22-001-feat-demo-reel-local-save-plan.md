@@ -51,7 +51,7 @@ When ce-demo-reel captures evidence, local artifacts are deleted after uploading
 ### Institutional Learnings
 
 - **Script-first architecture** (`docs/solutions/skill-design/script-first-skill-architecture.md`): File manipulation (mkdir, copy, path generation) belongs in the Python script, not inline in SKILL.md
-- **Prefer Python over bash** (`docs/solutions/best-practices/prefer-python-over-bash-for-pipeline-scripts-2026-04-09.md`): The `save-local` subcommand should be Python, consistent with the existing script
+- **Prefer Python over bash** (`docs/solutions/best-practices/prefer-python-over-bash-for-pipeline-scripts.md`): The `save-local` subcommand should be Python, consistent with the existing script
 
 ---
 
@@ -207,4 +207,4 @@ When ce-demo-reel captures evidence, local artifacts are deleted after uploading
 
 - **Origin document:** [docs/brainstorms/2026-04-22-demo-reel-local-save-requirements.md](docs/brainstorms/2026-04-22-demo-reel-local-save-requirements.md)
 - Related code: `plugins/compound-engineering/skills/ce-demo-reel/`
-- Learnings: `docs/solutions/skill-design/script-first-skill-architecture.md`, `docs/solutions/best-practices/prefer-python-over-bash-for-pipeline-scripts-2026-04-09.md`
+- Learnings: `docs/solutions/skill-design/script-first-skill-architecture.md`, `docs/solutions/best-practices/prefer-python-over-bash-for-pipeline-scripts.md`

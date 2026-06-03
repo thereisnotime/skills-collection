@@ -75,11 +75,11 @@ Independent validation as a Stage 5b *gate* (drop rejected findings, keep approv
 - `plugins/compound-engineering/agents/ce-*-reviewer.agent.md` — sweep for hardcoded float references
 - `tests/review-skill-contract.test.ts` — anchor enum assertions, validation-stage assertions, skip-condition assertions
 - `tests/fixtures/` — any seeded review fixtures with embedded confidence values
-- `docs/solutions/skill-design/confidence-anchored-scoring-2026-04-21.md` — extend with ce-code-review section
+- `docs/solutions/skill-design/confidence-anchored-scoring.md` — extend with ce-code-review section
 
 ### Institutional Learnings
 
-- `docs/solutions/skill-design/confidence-anchored-scoring-2026-04-21.md` — the canonical writeup of the anchored-rubric pattern. Establishes the ce-doc-review threshold of `>= 50` and explicitly anticipates ce-code-review's threshold of `>= 75` due to opposite economics (linter backstop, PR-comment cost, ground-truth verifiability of code claims).
+- `docs/solutions/skill-design/confidence-anchored-scoring.md` — the canonical writeup of the anchored-rubric pattern. Establishes the ce-doc-review threshold of `>= 50` and explicitly anticipates ce-code-review's threshold of `>= 75` due to opposite economics (linter backstop, PR-comment cost, ground-truth verifiability of code claims).
 - `docs/plans/2026-04-21-001-refactor-ce-doc-review-anchored-confidence-scoring-plan.md` — the ce-doc-review plan, particularly its "Deferred to Separate Tasks" entry naming this exact follow-up. Sequencing rationale ("do ce-doc-review first, observe, then plan ce-code-review") was honored.
 
 ### External References
@@ -453,7 +453,7 @@ Stage 6 -> synthesize and present
 **Dependencies:** Units 1-8 (document what was actually built).
 
 **Files:**
-- Modify: `docs/solutions/skill-design/confidence-anchored-scoring-2026-04-21.md` (add ce-code-review section)
+- Modify: `docs/solutions/skill-design/confidence-anchored-scoring.md` (add ce-code-review section)
 - Optionally split if the file becomes too long: create `docs/solutions/skill-design/code-review-precision-and-validation-2026-04-2X.md` (use today's date)
 
 **Approach:**
@@ -506,7 +506,7 @@ Stage 6 -> synthesize and present
 
 - **Origin conversation:** Two-model comparative analysis of ce-code-review vs Anthropic's official `code-review` plugin (this conversation, 2026-04-21). No formal `docs/brainstorms/` document — the conversation itself is the requirements input.
 - **Prior plan (sister skill, established pattern):** `docs/plans/2026-04-21-001-refactor-ce-doc-review-anchored-confidence-scoring-plan.md` — explicit "Deferred to Separate Tasks" entry naming this work.
-- **Institutional learning:** `docs/solutions/skill-design/confidence-anchored-scoring-2026-04-21.md` — canonical writeup of the anchored-rubric pattern.
+- **Institutional learning:** `docs/solutions/skill-design/confidence-anchored-scoring.md` — canonical writeup of the anchored-rubric pattern.
 - **Reference commit:** `6caf3303 refactor(ce-doc-review): anchor-based confidence scoring (#622)` — the migration diff for the sister skill.
 - **External canonical reference:** `https://github.com/anthropics/claude-code/blob/main/plugins/code-review/commands/code-review.md` — Anthropic's command prompt is the authoritative source for skip-conditions, validation-stage design, and lint-ignore semantics. The README at `https://github.com/anthropics/claude-code/blob/main/plugins/code-review/README.md` is product description only — the command prompt is the real behavior.
-- **Files modified by this plan:** `plugins/compound-engineering/skills/ce-code-review/SKILL.md`, `plugins/compound-engineering/skills/ce-code-review/references/findings-schema.json`, `plugins/compound-engineering/skills/ce-code-review/references/subagent-template.md`, `plugins/compound-engineering/skills/ce-code-review/references/persona-catalog.md`, `plugins/compound-engineering/skills/ce-code-review/references/review-output-template.md`, `plugins/compound-engineering/skills/ce-code-review/references/walkthrough.md`, `plugins/compound-engineering/skills/ce-code-review/references/bulk-preview.md`, `plugins/compound-engineering/skills/ce-code-review/references/validator-template.md` (new), all `plugins/compound-engineering/agents/ce-*-reviewer.agent.md` files (including the recently-added `ce-swift-ios-reviewer.agent.md`), `tests/review-skill-contract.test.ts`, `tests/fixtures/` (as needed), `docs/solutions/skill-design/confidence-anchored-scoring-2026-04-21.md`.
+- **Files modified by this plan:** `plugins/compound-engineering/skills/ce-code-review/SKILL.md`, `plugins/compound-engineering/skills/ce-code-review/references/findings-schema.json`, `plugins/compound-engineering/skills/ce-code-review/references/subagent-template.md`, `plugins/compound-engineering/skills/ce-code-review/references/persona-catalog.md`, `plugins/compound-engineering/skills/ce-code-review/references/review-output-template.md`, `plugins/compound-engineering/skills/ce-code-review/references/walkthrough.md`, `plugins/compound-engineering/skills/ce-code-review/references/bulk-preview.md`, `plugins/compound-engineering/skills/ce-code-review/references/validator-template.md` (new), all `plugins/compound-engineering/agents/ce-*-reviewer.agent.md` files (including the recently-added `ce-swift-ios-reviewer.agent.md`), `tests/review-skill-contract.test.ts`, `tests/fixtures/` (as needed), `docs/solutions/skill-design/confidence-anchored-scoring.md`.

@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  release-please:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Generate GitHub App token (this repo)
@@ -70,3 +70,4 @@ jobs:
           gh workflow run sync-agent-skills.yml \
             --repo supabase-community/supabase-plugin \
             --field release_tag=${{ steps.release.outputs.tag_name }}
+

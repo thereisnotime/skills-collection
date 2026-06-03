@@ -11,18 +11,16 @@ describe("ce-code-review contract", () => {
   test("documents explicit modes and orchestration boundaries", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
-    expect(content).toContain("## Mode Detection")
-    expect(content).toContain("mode:autofix")
+    expect(content).toContain("## Argument Parsing")
+    expect(content).toContain("mode:autofix` is no longer supported")
     expect(content).toContain("mode:report-only")
+    expect(content).toContain("mode:agent")
     expect(content).toContain("mode:headless")
     expect(content).toContain("/tmp/compound-engineering/ce-code-review/<run-id>/")
-    expect(content).toContain("Do not write run artifacts.")
-    expect(content).toContain(
-      "Do not start a mutating review round concurrently with browser testing on the same checkout.",
-    )
-    expect(content).toContain("mode:report-only cannot switch the shared checkout to review a PR target")
-    expect(content).toContain("mode:report-only cannot switch the shared checkout to review another branch")
-    expect(content).toContain("Resolve the base ref from the PR's actual base repository, not by assuming `origin`")
+    expect(content).toMatch(/Never push, open PRs, or file tickets/i)
+    expect(content).toContain("run artifact")
+    expect(content).toMatch(/check out the PR branch/i)
+    expect(content).toMatch(/Never run `gh pr checkout`/i)
     expect(content).not.toContain("Which severities should I fix?")
   })
 
@@ -36,109 +34,65 @@ describe("ce-code-review contract", () => {
     expect(content).toContain("unaddressed requirements or implementation units")
   })
 
-  test("documents headless mode contract for programmatic callers", async () => {
+  test("documents agent mode contract for programmatic callers", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
-    // Headless mode has its own rules section
-    expect(content).toContain("### Headless mode rules")
+    // mode:agent is report-only (skips Stage 5c apply); same reviewer pipeline as default
+    expect(content).toContain("## Operating principles")
+    expect(content).toMatch(/`mode:agent` is \*\*report-only\*\*/i)
+    expect(content).toMatch(/does not change reviewer selection, merge logic, or scope rules/i)
 
-    // No interactive prompts (cross-platform)
-    expect(content).toContain(
-      "Never use the platform question tool",
-    )
+    // No blocking prompts (cross-platform)
+    expect(content).toContain("Never use `AskUserQuestion`")
 
-    // Structured output format
-    expect(content).toContain("### Headless output format")
-    expect(content).toContain("Code review complete (headless mode).")
-    expect(content).toContain('"Review complete" as the terminal signal')
+    // JSON output format
+    expect(content).toContain("### JSON output format")
+    expect(content).toContain('"status": "complete"')
+    expect(content).toContain("review.json")
 
-    // Applies safe_auto fixes but NOT safe for concurrent use
-    expect(content).toContain(
-      "Not safe for concurrent use on a shared checkout.",
-    )
+    // mode:agent never mutates; default mode applies safe fixes (this test owns the mutate-contract assertions)
+    expect(content).toMatch(/never mutates the tree/i)
+    expect(content).toMatch(/default \(interactive\).{0,4}mode the review applies/i)
 
-    // Writes artifacts but no externalized work, no commit/push/PR
-    expect(content).toContain("Do not file tickets or externalize work.")
-    expect(content).toContain(
-      "Never commit, push, or create a PR",
-    )
+    // Never checkout — explicit mutations only
+    expect(content).toMatch(/Never run `gh pr checkout`/i)
+    expect(content).toMatch(/Do \*\*not\*\* check out/i)
 
-    // Single-pass fixing, no bounded re-review rounds
-    expect(content).toContain("No bounded re-review rounds")
+    // Conflicting arguments
+    expect(content).toContain("**Conflicting arguments:**")
 
-    // Checkout guard — headless shares report-only's guard
-    expect(content).toMatch(/mode:headless.*must run in an isolated checkout\/worktree or stop/)
+    // Structured failure JSON
+    expect(content).toContain('{"status":"failed","reason":"..."}')
 
-    // Conflicting mode flags
-    expect(content).toContain("**Conflicting mode flags:**")
-
-    // Structured error for missing scope
-    expect(content).toContain("Review failed (headless mode). Reason: no diff scope detected.")
-
-    // Degraded signal when all reviewers fail
-    expect(content).toContain("Code review degraded (headless mode).")
+    // Deprecated alias preserved
+    expect(content).toContain("**Deprecated alias**")
   })
 
-  test("documents policy-driven routing and residual handoff", async () => {
+  test("documents policy-driven routing and actionable handoff", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
-    // Routing taxonomy and fixer queue semantics
+    // Action Routing: autofix_class is signal only; mode:agent never mutates, default applies
     expect(content).toContain("## Action Routing")
-    expect(content).toContain("Only `safe_auto -> review-fixer` enters the in-skill fixer queue automatically.")
+    expect(content).toMatch(/this skill does not mutate the checkout/i)
+    expect(content).toContain("references/action-class-rubric.md")
 
-    // Interactive mode four-option routing structure: each distinguishing word must appear
-    // as a routing-option label so truncation-safe menus stay intact.
-    // Assert presence rather than exact copy — wording can be improved without breaking the test.
-    expect(content).toMatch(/\(A\)\s*`Review each finding one by one/)
-    expect(content).toMatch(/\(B\)\s*Auto-resolve with best judgment/)
-    expect(content).toMatch(/\(C\)\s*`File a \[TRACKER\] ticket/)
-    expect(content).toMatch(/\(D\)\s*`Report only/)
+    // No post-review triage — report is the complete handoff
+    expect(content).toContain("Do not run post-review triage")
+    expect(content).not.toContain("references/walkthrough.md")
+    expect(content).not.toContain("references/bulk-preview.md")
+    expect(content).not.toContain("references/tracker-defer.md")
+    expect(content).not.toMatch(/Review each finding one by one/)
+    expect(content).not.toMatch(/File a \[TRACKER\] ticket per finding/)
 
-    // The new routing question dispatches to focused reference files, not inline prose.
-    // bulk-preview.md is now invoked by option C only (the best-judgment path no longer uses it).
-    expect(content).toContain("references/walkthrough.md")
-    expect(content).toContain("references/bulk-preview.md")
-    expect(content).toContain("references/tracker-defer.md")
-    // Option C still references bulk-preview; option B does not.
-    expect(content).toMatch(/\(C\)\s*`File a \[TRACKER\][^\n]*?references\/bulk-preview\.md/s)
-
-    // Stem is third-person (AGENTS.md:127 — no first-person "I" / "me" in the new routing question).
-    // The Interactive branch of After Review Step 2 must not reintroduce the removed bucket-policy wording.
     expect(content).not.toContain("What should I do with the remaining findings?")
     expect(content).not.toContain("What should I do?")
 
-    // Zero-remaining case: routing question is skipped with a completion summary.
-    expect(content).toMatch(/skip the routing question entirely/i)
+    expect(content).toContain("Actionable Findings")
+    expect(content).toContain("Actionable findings: none.")
 
-    // Stage 5 tie-breaking rule — the walk-through's recommendation is deterministic.
-    expect(content).toMatch(/Skip\s*>\s*Defer\s*>\s*Apply/)
-
-    // Autofix-mode residual handoff is the run artifact (file-based todo system removed).
-    expect(content).toContain(
-      "In autofix mode, the run artifact is the handoff.",
-    )
     expect(content).not.toContain("ce-todo-create")
     expect(content).not.toContain("create durable todo files")
-
-    // Tracker fallback chain still exists for defer actions.
-    const trackerDefer = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-code-review/references/tracker-defer.md",
-    )
-    expect(trackerDefer).toContain("Named tracker")
-    expect(trackerDefer).toContain("GitHub Issues via `gh`")
-    expect(trackerDefer).not.toContain(".context/compound-engineering/todos/")
     expect(content).not.toMatch(/harness task primitive|task-tracking primitive/)
-
-    // Harness task-tracking primitive is no longer a fallback tier — it was removed
-    // because in-session tasks do not meet the durable-filing intent of a Defer action.
-    expect(trackerDefer).not.toMatch(/Harness task primitive \(last resort\)/)
-    expect(trackerDefer).not.toMatch(/Once-per-session harness-fallback confirmation/)
-    expect(trackerDefer).not.toMatch(/no-sink/)
-
-    // Non-interactive execution mode exists for autonomous callers (e.g., lfg).
-    expect(trackerDefer).toContain("## Execution Modes")
-    expect(trackerDefer).toContain("Non-interactive mode")
-    expect(trackerDefer).toMatch(/no_sink/)
 
     // Subagent template carries the why_it_matters framing guidance that replaces the
     // rejected synthesis-time rewrite pass. Assert presence of the observable-behavior
@@ -149,33 +103,7 @@ describe("ce-code-review contract", () => {
     expect(subagentTemplate).toMatch(/observable behavior/i)
     expect(subagentTemplate).toMatch(/required/i)
 
-    // walkthrough.md carries the four per-finding option labels (Apply / Defer / Skip /
-    // Auto-resolve with best judgment on the rest). Assert presence of each distinguishing
-    // word so renaming an option breaks the test. Exact label wording may be refined for
-    // clarity — these assertions check the structural contract, not the prose.
-    const walkthrough = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-code-review/references/walkthrough.md",
-    )
-    expect(walkthrough).toContain("Apply the proposed fix")
-    expect(walkthrough).toContain("Defer — file a [TRACKER] ticket")
-    expect(walkthrough).toContain("Skip — don't apply, don't track")
-    expect(walkthrough).toMatch(/Auto-resolve with best judgment on the rest/)
-
-    // bulk-preview.md contract: exactly Proceed / Cancel, no third option.
-    const bulkPreview = await readRepoFile(
-      "plugins/compound-engineering/skills/ce-code-review/references/bulk-preview.md",
-    )
-    expect(bulkPreview).toContain("Proceed")
-    expect(bulkPreview).toContain("Cancel")
-
-    // Step 5 final-next-steps flow is gated on fixes-applied count, not routing option.
-    expect(content).toContain("fixes_applied_count")
-    expect(content).toMatch(/Step 5 runs only when `fixes_applied_count > 0`/i)
-
-    // Final-next-steps wording preserved.
-    expect(content).toContain("**On the resolved review base/default branch:**")
-    expect(content).toContain("git push --set-upstream origin HEAD")
-    expect(content).not.toContain("**On main/master:**")
+    expect(content).toContain("Do not offer push/PR/create-branch next steps from this skill.")
   })
 
   test("keeps findings schema and downstream docs aligned", async () => {
@@ -206,13 +134,11 @@ describe("ce-code-review contract", () => {
       expect.arrayContaining(["autofix_class", "owner", "requires_verification"]),
     )
     expect(schema.properties.findings.items.properties.autofix_class.enum).toEqual([
-      "safe_auto",
       "gated_auto",
       "manual",
       "advisory",
     ])
     expect(schema.properties.findings.items.properties.owner.enum).toEqual([
-      "review-fixer",
       "downstream-resolver",
       "human",
       "release",
@@ -265,32 +191,27 @@ describe("ce-code-review contract", () => {
     expect(template).toMatch(/personas never produce/i)
   })
 
-  test("autofix_class decision guide includes safe_auto operational test and boundary cases", async () => {
+  test("subagent template points to action-class rubric without safe_auto", async () => {
     const template = await readRepoFile(
       "plugins/compound-engineering/skills/ce-code-review/references/subagent-template.md",
     )
 
-    // Symmetry-of-error framing: classifying a mechanical fix as gated_auto has cost
-    expect(template).toMatch(/wrong-side cost is symmetric/i)
-    expect(template).toMatch(/Bias toward `safe_auto`/i)
+    expect(template).toContain("references/action-class-rubric.md")
+    expect(template).not.toContain("safe_auto")
+    expect(template).not.toContain("review-fixer")
+    expect(template).toMatch(/gated_auto.*manual.*advisory/s)
+  })
 
-    // Operational test for safe_auto: one-sentence + no-contract-change exclusion list
-    expect(template).toMatch(/one sentence with no .depends on. clauses/i)
-    expect(template).toMatch(/function signature.*public-API.*error contract.*security posture.*permission model/i)
+  test("action-class rubric defines caller routing without safe_auto", async () => {
+    const rubric = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/action-class-rubric.md",
+    )
 
-    // The four boundary cases that often feel risky but are still safe_auto
-    expect(template).toMatch(/Boundary cases that often feel risky but are still `safe_auto`/i)
-    expect(template).toMatch(/nil guard that turns a crash into a nil-return is `safe_auto`/i)
-    expect(template).toMatch(/off-by-one fix is `safe_auto`/i)
-    expect(template).toMatch(/Dead-code removal is `safe_auto`/i)
-    expect(template).toMatch(/Helper extraction is `safe_auto`/i)
-
-    // Cross-file extraction discriminator (the F4b case from the calibration eval)
-    expect(template).toMatch(/naming or placement requires a design conversation/i)
-
-    // Anti-default guards on both sides
-    expect(template).toMatch(/Do not default to `advisory`/i)
-    expect(template).toMatch(/Do not default to `gated_auto` when the fix is mechanical/i)
+    expect(rubric).toContain("gated_auto")
+    expect(rubric).toContain("manual")
+    expect(rubric).toContain("advisory")
+    expect(rubric).toMatch(/Do \*\*not\*\* emit `safe_auto`/)
+    expect(rubric).toMatch(/Do not use `review-fixer`/i)
   })
 
   test("Stage 4 spawning restates model-override imperative at point of action", async () => {
@@ -354,19 +275,9 @@ describe("ce-code-review contract", () => {
     // Stage 5b exists between Stage 5 and Stage 6
     expect(content).toContain("### Stage 5b: Validation pass")
 
-    // Mode-conditional dispatch — runs on autofix/headless/option C; explicitly does NOT
-    // run on the best-judgment path (option B and walk-through's auto-resolve-the-rest).
-    expect(content).toContain("`headless`")
-    expect(content).toContain("`autofix`")
-    expect(content).toContain("walk-through routing (option A)")
-    expect(content).toContain("best-judgment routing (option B)")
-    expect(content).toContain("File-tickets routing (option C)")
-    expect(content).toMatch(/Report-only routing.*nothing is being externalized/i)
-
-    // Best-judgment path explicitly skips Stage 5b — the fixer's apply/fail outcome is the validation.
-    expect(content).toMatch(/best-judgment routing \(option B\) \| No --/)
-    expect(content).toMatch(/best-judgment-the-rest handoff \| No --/)
-    expect(content).toMatch(/best-judgment path skips Stage 5b deliberately/i)
+    // Stage 5b runs whenever at least one finding survives; same in default and agent
+    expect(content).toContain("Same rule for default and `mode:agent`")
+    expect(content).toMatch(/do \*\*not\*\* skip the stage/i)
 
     // Per-finding bounded dispatch (not batched)
     expect(content).toMatch(/per.finding bounded dispatch/i)
@@ -374,18 +285,11 @@ describe("ce-code-review contract", () => {
     expect(content).toMatch(/same bounded scheduler from Stage 4/i)
     expect(content).toMatch(/active-subagent limit/i)
 
-    // Budget cap of 15
+    // Budget cap of 15 — validate highest-severity first; P0/P1 are never dropped for budget
     expect(content).toMatch(/exceeds 15 findings/i)
-    expect(content).toMatch(/highest-severity 15.*Drop the remainder/i)
-
-    // Option C invokes validation before externalizing (option B no longer does).
-    expect(content).toMatch(/\(C\)\s*`File a \[TRACKER\].*first run Stage 5b validation/)
-    expect(content).not.toMatch(/\(B\).*first run Stage 5b validation/)
-
-    // Option B dispatches the fixer immediately — no Stage 5b, no bulk-preview.
-    expect(content).toMatch(/\(B\)\s*`Auto-resolve with best judgment.*dispatch the fixer subagent.*immediately/i)
-    expect(content).toMatch(/No Stage 5b validator pre-pass/i)
-    expect(content).toMatch(/No bulk-preview approval gate/i)
+    expect(content).toMatch(/highest-severity 15/i)
+    expect(content).toMatch(/Never drop a P0 or P1 from validation/i)
+    expect(content).toMatch(/raise the cap to (cover|include) all of them/i)
 
     // Validator template exists and is read-only
     expect(validatorTemplate).toContain("independent validator")
@@ -395,38 +299,60 @@ describe("ce-code-review contract", () => {
     expect(validatorTemplate).toMatch(/handled elsewhere/i)
   })
 
-  test("best-judgment path post-run failure-handling question fires only when failed bucket non-empty", async () => {
+  test("Stage 5c applies safe fixes in default mode, report-only in mode:agent, no deny-list", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
+    const template = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/review-output-template.md",
+    )
 
-    // Post-run question fires when the fixer's `failed` bucket is non-empty.
-    expect(content).toMatch(/N findings could not be auto-resolved/)
-    expect(content).toContain("File tickets for these")
-    expect(content).toContain("Walk through these one at a time")
-    expect(content).toContain("Ignore — leave them in the report")
+    // New act stage, default-mode only; mode:agent stays report-only
+    expect(content).toContain("### Stage 5c: Act on findings")
+    expect(content).toMatch(/Skip entirely in `mode:agent`/i)
+    expect(content).toMatch(/`mode:agent` does not apply fixes/i)
 
-    // Sink-availability rule mirrors tracker-defer.md: omit file-tickets when no sink.
-    expect(content).toMatch(/Omit this option when.*any_sink_available\s*=\s*false/i)
+    // Bias to act, push back if wrong, no deny-list
+    expect(content).toMatch(/bias to act/i)
+    expect(content).toMatch(/Push back.*do not apply.*reviewer is wrong/i)
+    expect(content).toMatch(/There is no deny-list/i)
+
+    // Scope invariant + verify-then-keep + commit-on-clean-tree, never push
+    expect(content).toMatch(/Apply only when the working tree \*?is\*? what was reviewed/i)
+    expect(content).toMatch(/revert that fix and report it/i)
+    expect(content).toMatch(/Commit when the pre-review tree was clean/i)
+    expect(content).toMatch(/Never push, open a PR, or file tickets/i)
+
+    // Applied reporting (skill + template)
+    expect(content).toMatch(/Applied \(default mode only\)/i)
+    expect(template).toContain("### Applied")
+
+    // No apply mode revived
+    expect(content).toMatch(/there is no apply \*?mode\*?/i)
   })
 
-  test("fixer subagent contract supports heterogeneous best-judgment queue", async () => {
+  test("findings use terse cell + keyed detail line, mirror the template, stay consistent across severities", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
+    const template = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/review-output-template.md",
+    )
 
-    // Step 3 documents both queue shapes: homogeneous (autofix/headless/walk-through Apply)
-    // and heterogeneous (best-judgment path with gated_auto + manual + advisory).
-    expect(content).toMatch(/Heterogeneous queue/i)
-    expect(content).toMatch(/`gated_auto`,\s*`manual`,\s*and\s*`advisory`/i)
+    // Render-time load of the canonical skeleton (not just "see the template")
+    expect(content).toContain("load `references/review-output-template.md` and mirror")
+    expect(template).toContain("canonical skeleton")
 
-    // Fixer routes items by class with explicit reason taxonomy for the failed bucket.
-    expect(content).toMatch(/no fix proposed by reviewer/i)
-    expect(content).toMatch(/evidence no longer matches code/i)
-    expect(content).toMatch(/fix did not apply cleanly/i)
+    // Terse cell + keyed detail line is the sanctioned home for depth
+    expect(content).toMatch(/keyed detail line/i)
+    expect(template).toMatch(/Detail line \(per finding/i)
+    expect(template).toMatch(/\*\*#N\*\*/)
 
-    // Best-judgment path is single-pass; bounded re-review applies to autofix and walk-through Apply.
-    expect(content).toMatch(/Best-judgment path is single-pass/i)
-    expect(content).toMatch(/max_rounds:\s*2/)
+    // Terse-cell discipline carries a concrete named test (not just "terse")
+    expect(content).toMatch(/one short clause/i)
+    expect(template).toMatch(/one short clause/i)
 
-    // Fixer return shape includes the {applied, failed, advisory} partition.
-    expect(content).toMatch(/\{applied,\s*failed,\s*advisory\}/)
+    // Consistency across severities is enforced (the failure seen in the wild: P1 blocks vs P2/P3 tables)
+    expect(content).toMatch(/Inconsistent treatment across severities/i)
+
+    // Multi-file applied fix is one row with one number (no duplicate #)
+    expect(template).toMatch(/one row with one `#`/i)
   })
 
   test("PR-mode skip-condition pre-check stops without dispatching reviewers", async () => {
@@ -453,8 +379,29 @@ describe("ce-code-review contract", () => {
     // Skip cleanly without dispatching reviewers
     expect(content).toMatch(/stop without dispatching reviewers/)
 
-    // Standalone branch and base: modes unaffected
-    expect(content).toMatch(/Standalone branch mode and `base:` mode are unaffected/)
+    // Standalone, base:, and branch-remote paths unaffected by PR skip rules
+    expect(content).toMatch(/Standalone.*`base:`.*branch-remote/)
+  })
+
+  test("remote scope modes forbid workspace inspection on wrong tree", async () => {
+    const skill = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
+    const diffScope = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/diff-scope.md",
+    )
+    const validator = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-code-review/references/validator-template.md",
+    )
+
+    expect(skill).toContain("<pr-scope-mode>branch-remote</pr-scope-mode>")
+    expect(skill).toContain("<branch-head-ref>")
+    expect(skill).toMatch(/local-aligned.*local tree diff/i)
+    expect(skill).not.toMatch(/append.*`DIFF:`.*unpushed/i)
+    expect(skill).toMatch(/Do \*\*not\*\* call `gh pr diff` or append remote hunks/)
+
+    expect(diffScope).toContain("branch-remote")
+    expect(diffScope).toContain("pr-remote")
+
+    expect(validator).toContain("branch-remote")
   })
 
   test("mode-aware demotion routes weak general-quality findings to soft buckets", async () => {
@@ -472,16 +419,13 @@ describe("ce-code-review contract", () => {
     // autofix_class is advisory
     expect(content).toMatch(/`autofix_class` is `advisory`/)
 
-    // Interactive/report-only: route to testing_gaps or residual_risks
-    expect(content).toMatch(/`testing`,?\s*append.*`testing_gaps`/)
-    expect(content).toMatch(/`maintainability`,?\s*append.*`residual_risks`/)
+    // Route demoted findings to soft buckets
+    expect(content).toMatch(/`testing_gaps`/)
+    expect(content).toMatch(/`residual_risks`/)
 
-    // Demotion entry uses title-only (compact return omits why_it_matters; report-only has no artifact)
+    // Demotion entry uses title-only (compact return omits why_it_matters)
     expect(content).toMatch(/append `<file:line> -- <title>` to/)
-    expect(content).toMatch(/title only.*compact return omits/i)
-
-    // Headless/autofix: suppress entirely
-    expect(content).toMatch(/Headless and autofix modes.*Suppress/)
+    expect(content).toMatch(/compact return omits/i)
 
     // Coverage section reports demotion count
     expect(content).toMatch(/mode-aware demotion/)
@@ -618,7 +562,7 @@ describe("ce-code-review contract", () => {
     expect(skill).not.toContain("ce-data-migrations-reviewer")
   })
 
-  test("fails closed when merge-base is unresolved instead of falling back to git diff HEAD", async () => {
+  test("PR mode uses gh pr diff without checkout; branch/standalone fail closed on missing base", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
 
     // No scope path should fall back to `git diff HEAD` or `git diff --cached` — those only
@@ -627,18 +571,40 @@ describe("ce-code-review contract", () => {
     expect(content).not.toContain("git diff -U10 HEAD")
     expect(content).not.toContain("git diff --cached")
 
-    // PR mode still has an inline error for unresolved base
-    expect(content).toContain('echo "ERROR: Unable to resolve PR base branch')
+    // PR mode uses remote diff API, not checkout
+    expect(content).toContain("gh pr diff")
+    expect(content).toMatch(/Do not fall back to checkout/i)
 
-    // Branch and standalone modes must stop when no base can be resolved, not fall back to
-    // `git diff HEAD`. The guard phrase appears once per mode (branch + standalone).
+    // Branch and standalone modes must stop when no base can be resolved
     const stopGuardMatches = content.match(/Do not fall back to `git diff HEAD`/g)
-    expect(stopGuardMatches?.length).toBeGreaterThanOrEqual(2)
+    expect(stopGuardMatches?.length).toBeGreaterThanOrEqual(1)
   })
 
-  test("orchestration callers pass explicit mode flags", async () => {
+  test("orchestration callers invoke review-only code review", async () => {
     const lfg = await readRepoFile("plugins/compound-engineering/skills/lfg/SKILL.md")
-    expect(lfg).toMatch(/ce-code-review[^\n]*mode:autofix/)
+    expect(lfg).toMatch(/ce-code-review[^\n]*mode:agent/)
+    expect(lfg).toContain("references/review-followup.md")
+    expect(lfg).not.toMatch(/mode:autofix/)
+  })
+
+  test("ce-work documents review-findings followup after Tier 2", async () => {
+    const followup = await readRepoFile(
+      "plugins/compound-engineering/skills/ce-work/references/review-findings-followup.md",
+    )
+    const skill = await readRepoFile("plugins/compound-engineering/skills/ce-work/SKILL.md")
+    expect(followup).toContain("review-only")
+    expect(followup).toContain("suggested_fix")
+    // The apply followup consumes the review the caller already ran; re-invocation is a
+    // cold-caller fallback only (it must not start a second review in the ce-work Tier 2 path).
+    expect(followup).toMatch(/consume the completed review/i)
+    expect(followup).toMatch(/invoke[^\n]*review[^\n]*cold caller/i)
+    expect(followup).toMatch(/does not investigate findings/i)
+    expect(followup).toMatch(/Group by `file`/i)
+    expect(followup).toMatch(/batch/i)
+    expect(followup).toContain("mode:agent")
+    expect(skill).toMatch(/ce-code-review.*review-only|review-only.*ce-code-review/i)
+    expect(skill).toContain("review-findings-followup.md")
+    expect(skill).toMatch(/batch.*file|batch applicable findings by file/i)
   })
 
   test("ce-work shipping-workflow enforces a residual-work gate after Tier 2 review", async () => {
@@ -682,17 +648,16 @@ describe("ce-code-review contract", () => {
     )
 
     // Autonomous residual handoff step exists between code review and test-browser.
-    expect(lfg).toContain("Persist review autofixes")
-    expect(lfg).toContain("fix(review): apply autofix feedback")
-    expect(lfg).toContain("Do not proceed to step 5, run browser tests, or output DONE while review autofix edits remain only in the working tree.")
-    expect(lfg).toContain("there were no review autofixes to persist")
+    expect(lfg).toContain("Apply and persist review fixes")
+    const followup = await readRepoFile("plugins/compound-engineering/skills/lfg/references/review-followup.md")
+    expect(followup).toContain("fix(review): apply review findings")
+    expect(lfg).toContain("references/review-followup.md")
     expect(lfg).toContain("Autonomous residual handoff")
     expect(lfg).toMatch(/Do not prompt the user/)
 
     // tracker-defer is invoked in non-interactive mode.
     expect(lfg).toContain("references/tracker-defer.md")
     expect(lfg).not.toContain("plugins/compound-engineering/skills/ce-code-review/references/tracker-defer.md")
-    expect(lfg).toMatch(/non-interactive mode/)
 
     // Structured return buckets drive PR description content.
     expect(lfg).toMatch(/filed/)
@@ -719,14 +684,12 @@ describe("ce-code-review contract", () => {
     expect(lfg).toMatch(/Never block DONE on tracker filing failures/i)
   })
 
-  test("ce-code-review autofix emits a residual-work summary in-chat, not only in the artifact", async () => {
+  test("ce-code-review emits actionable findings summary for callers", async () => {
     const content = await readRepoFile("plugins/compound-engineering/skills/ce-code-review/SKILL.md")
-    expect(content).toMatch(/Emit a compact Residual Actionable Work summary/)
-    expect(content).toContain("with its stable `#`, severity, file:line, title, and autofix_class")
-    expect(content).toContain("Structure the summary as two separate contiguous sections")
-    expect(content).toContain("applied `safe_auto` fixes first, then residual non-auto findings")
-    expect(content).toContain("reuse each finding's stable `#` from Stage 5 -- never renumber")
-    expect(content).toContain("Residual actionable work: none.")
+    expect(content).toContain("### Emit actionable findings summary")
+    expect(content).toContain("Actionable Findings")
+    expect(content).toContain("with stable `#`, severity, file:line, title, `autofix_class`")
+    expect(content).toContain("Actionable findings: none.")
   })
 
   test("ce-code-review uses stable sequential finding numbers across grouped output", async () => {
@@ -740,21 +703,35 @@ describe("ce-code-review contract", () => {
     expect(stage5).toMatch(/Sort and number/)
     expect(stage5).toMatch(/Do not restart numbering inside each severity table or autofix\/routing bucket/)
     expect(stage5).toMatch(/reuse the same stable `#`/)
-    expect(stage5).toMatch(/ce-resolve-pr-feedback/)
+    expect(stage5).toMatch(/downstream workflows/)
 
     const stage6 = content.split("### Headless output format")[0].split("### Stage 6: Synthesize and present")[1]
     expect(stage6).toContain("Finding numbers come from the stable assignment in Stage 5")
     expect(stage6).toContain("never re-derive them per severity table")
     expect(template).toContain("Stable sequential finding numbers")
-    expect(template).toContain("reuse those same numbers when findings are repeated in Residual Actionable Work")
+    expect(template).toContain("reuse those same numbers when findings are repeated in Actionable Findings")
 
+    // Per-severity tables are 5-column (# | File | Issue | Reviewer | Confidence);
+    // Route lives in the Actionable Findings table + JSON, not the scannable tables.
     const primaryFindingIds = Array.from(
-      fixture.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| .* \| \d+ \| `.*` \|$/gm),
+      fixture.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| .* \| \d+ \|$/gm),
       ([, id]) => Number(id),
     )
     expect(primaryFindingIds).toEqual([1, 2, 3])
 
-    const residualSection = fixture.split("### Residual Actionable Work")[1]
+    // Applied findings keep their stable # and appear only in the Applied section (default mode), not severity tables
+    const appliedSection = fixture.split("### Applied")[1].split("\n### ")[0]
+    const appliedIds = Array.from(
+      appliedSection.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| .* \|$/gm),
+      ([, id]) => Number(id),
+    )
+    expect(appliedIds).toEqual([4])
+    expect(appliedIds.every((id) => !primaryFindingIds.includes(id))).toBe(true)
+
+    // Keyed detail lines under a table are supplements, not findings — they reuse a # and never add one
+    expect(fixture).toMatch(/^- \*\*#1\*\*/m)
+
+    const residualSection = fixture.split("### Actionable Findings")[1]
     const residualIds = Array.from(
       residualSection.matchAll(/^\| (\d+) \| `[^`]+` \| .* \| `.*` \| .* \|$/gm),
       ([, id]) => Number(id),

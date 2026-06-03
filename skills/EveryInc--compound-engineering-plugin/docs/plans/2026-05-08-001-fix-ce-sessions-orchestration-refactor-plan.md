@@ -60,12 +60,12 @@ Move all session-history orchestration logic out of the `ce-session-historian` s
 
 ### Institutional Learnings
 
-- `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md` — directly applicable. Establishes orchestrator-does-discovery / subagent-does-reading split, file-mediated handoff via paths, and the empirical finding that per-item walk vs. bulk-find-then-filter affects tool call counts. The synthesis subagent should still be invocable in some standalone form (see Open Questions).
+- `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md` — directly applicable. Establishes orchestrator-does-discovery / subagent-does-reading split, file-mediated handoff via paths, and the empirical finding that per-item walk vs. bulk-find-then-filter affects tool call counts. The synthesis subagent should still be invocable in some standalone form (see Open Questions).
 - `docs/solutions/skill-design/script-first-skill-architecture.md` — reinforces the move: classification rules stay in scripts as single source of truth; do not duplicate them into the synthesis agent's prose. Script produces, model presents.
 - `docs/solutions/skill-design/compound-refresh-skill-improvements.md` Solution #5 — subagents use native file-search/read tools (e.g., Read in Claude Code), not shell `cat`. The synthesis-only historian must use Read for the scratch-dir files.
-- `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md` — foreground vs. background dispatch placement is deliberate. The current `/ce-compound` Phase 1 historian dispatch is foreground because session files live outside CWD. After this refactor, that rationale shifts (the orchestrator skill handles the access in main context); document the new placement explicitly.
-- `docs/solutions/skill-design/post-menu-routing-belongs-inline-2026-04-28.md` — load-bearing logic must live where it will reliably execute, not where it will silently fail to load. Reinforces moving orchestration from the agent (subagent context where Skill is unreachable) to the skill (main context).
-- `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings-2026-04-17.md` — synthesis subagents must cite actual evidence, not vibe-summarize. Carries over to the new agent's output schema.
+- `docs/solutions/skill-design/research-agent-pipeline-separation.md` — foreground vs. background dispatch placement is deliberate. The current `/ce-compound` Phase 1 historian dispatch is foreground because session files live outside CWD. After this refactor, that rationale shifts (the orchestrator skill handles the access in main context); document the new placement explicitly.
+- `docs/solutions/skill-design/post-menu-routing-belongs-inline.md` — load-bearing logic must live where it will reliably execute, not where it will silently fail to load. Reinforces moving orchestration from the agent (subagent context where Skill is unreachable) to the skill (main context).
+- `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings.md` — synthesis subagents must cite actual evidence, not vibe-summarize. Carries over to the new agent's output schema.
 
 ### External References
 
@@ -288,7 +288,7 @@ The bug is structurally gone because no subagent ever invokes the Skill tool. Ev
 - **Keep:** Step 6's synthesis methodology (Investigation journey, User corrections, Decisions and rationale, Error patterns, Evolution across sessions, Cross-tool blind spots, Staleness caveat).
 - **Keep:** the output format (caller-supplied schema honored; default header line otherwise).
 - **Add:** input-contract section documenting the dispatch prompt shape — `{problem_topic, scratch_dir, [{path, platform, branch?, ts, ...}], output_schema}`. Agent reads each `path` using the native file-read tool; never reads source session files directly.
-- **Add:** standalone fallback per `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md` — when dispatch prompt arrives without paths, return "no relevant prior sessions" rather than attempting any Skill or Bash discovery (defensive against future direct-dispatch).
+- **Add:** standalone fallback per `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md` — when dispatch prompt arrives without paths, return "no relevant prior sessions" rather than attempting any Skill or Bash discovery (defensive against future direct-dispatch).
 
 **Execution note:** Use `/skill-creator` for behavioral testing per AGENTS.md. The plugin agent definition caches at session start, so iterative testing requires either skill-creator's content-injection workflow or a fresh session.
 
@@ -328,7 +328,7 @@ The bug is structurally gone because no subagent ever invokes the Skill tool. Ev
   Do **not** write a literal `Skill(ce-sessions, ...)` tool-call expression in the SKILL.md body — that propagates Claude-Code-specific syntax to non-Claude targets when the skill ships verbatim through the converters (R4 regression).
 - **Specify dispatch ordering explicitly to preserve wall-clock parallelism**: the current Phase 1 design dispatches three background research subagents (`Context Analyzer`, `Solution Extractor`, `Related Docs Finder`) and a foreground historian *concurrently* — explicitly designed so the foreground call "runs while the background agents work, adding no wall-clock time" (current SKILL.md line 105). The new ordering: **launch the three background research subagents first; then issue the skill-invocation primitive call to `ce-sessions`.** The skill call is synchronous from `ce-compound`'s main-context turn (it blocks until ce-sessions returns), but the already-dispatched background subagents continue running in parallel underneath — so the wall-clock benefit is preserved even though the concurrency primitive shifted from "foreground subagent" to "synchronous skill call." Document this rationale inline in the rewritten Phase 1 prose so future refactors don't re-invert it.
 - **Carry the dispatch payload forward**: pre-resolved branch (already pre-resolved at lines 25-27), problem topic (one sentence per existing dispatch shape), explicit time window (default 7 days), and the existing single-line filter rule. ce-sessions parses these out of the skill argument string.
-- **Preserve Phase 1 contract** per `pass-paths-not-content-to-subagents-2026-03-26.md` and ce-pipeline-end-to-end-learnings:
+- **Preserve Phase 1 contract** per `pass-paths-not-content-to-subagents.md` and ce-pipeline-end-to-end-learnings:
   - Conditional invocation (skip when user declined session history; skipped entirely in lightweight mode) — preserved.
   - Text-only return — preserved.
   - Fold-into-doc behavior in Phase 2 (sections 222-227 of current SKILL.md) — unchanged.
@@ -476,12 +476,12 @@ The bug is structurally gone because no subagent ever invokes the Skill tool. Ev
 - **Origin issue**: [EveryInc/compound-engineering-plugin#794](https://github.com/EveryInc/compound-engineering-plugin/issues/794) — `ce-session-historian` deadlocks under Claude Code: subagent cannot invoke `Skill(ce-session-inventory)`.
 - **Upstream tracker**: [anthropics/claude-code#38719](https://github.com/anthropics/claude-code/issues/38719) — Allow subagents to invoke skills for parallel workflow execution (closed; architectural limit current).
 - **Institutional learnings**:
-  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`
   - `docs/solutions/skill-design/script-first-skill-architecture.md`
   - `docs/solutions/skill-design/compound-refresh-skill-improvements.md`
-  - `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md`
-  - `docs/solutions/skill-design/post-menu-routing-belongs-inline-2026-04-28.md`
-  - `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings-2026-04-17.md`
+  - `docs/solutions/skill-design/research-agent-pipeline-separation.md`
+  - `docs/solutions/skill-design/post-menu-routing-belongs-inline.md`
+  - `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings.md`
 - **Repo conventions**:
   - `plugins/compound-engineering/AGENTS.md` — Plugin Maintenance, Skill Compliance Checklist, Permission gate on extracted scripts (clarifies `!` pre-resolution scope).
   - Repo-root `AGENTS.md` — Plugin Maintenance, Adding a New Plugin, Script Path References in Skills, Plugin Maintenance "removing a skill" cleanup-registry checklist.

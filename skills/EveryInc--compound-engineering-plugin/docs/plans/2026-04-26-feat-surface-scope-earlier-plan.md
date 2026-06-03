@@ -94,11 +94,11 @@ Both ce-brainstorm and ce-plan synthesize user input + agent inference into an i
 
 ### Institutional Learnings
 
-- `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings-2026-04-17.md` §2 — each pipeline stage catches a different class of issue. Synthesis catches scope errors *before* the artifact is written; doc-review catches contradictions *after*. Make this explicit in SKILL.md to prevent future "deduplication."
+- `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings.md` §2 — each pipeline stage catches a different class of issue. Synthesis catches scope errors *before* the artifact is written; doc-review catches contradictions *after*. Make this explicit in SKILL.md to prevent future "deduplication."
 - `docs/solutions/skill-design/compound-refresh-skill-improvements.md` — explicit headless detection beats auto-detection; "no blind user questions"; platform-agnostic interactive prompt phrasing.
-- `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md` — WHAT (brainstorm) vs HOW (plan) separation justifies R2's two-variant timing.
-- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md` — "whack-a-mole regressions" risk when adding new phases without explicit state-machine review. High-severity for our work; addressed via explicit guards in U1, U2, U3.
-- `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md` — phrasing matters more than meta-rules; standalone-fallback pattern (R2 brainstorm-sourced graceful handling of pre-R1 brainstorms).
+- `docs/solutions/skill-design/research-agent-pipeline-separation.md` — WHAT (brainstorm) vs HOW (plan) separation justifies R2's two-variant timing.
+- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md` — "whack-a-mole regressions" risk when adding new phases without explicit state-machine review. High-severity for our work; addressed via explicit guards in U1, U2, U3.
+- `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md` — phrasing matters more than meta-rules; standalone-fallback pattern (R2 brainstorm-sourced graceful handling of pre-R1 brainstorms).
 
 ---
 
@@ -195,7 +195,7 @@ Both variants: open prose feedback, soft-cut on circularity (not iteration count
   - Self-redirect: if user says "this is too small, just /ce-work it" or similar, agent stops ce-brainstorm, suggests alternative skill, offers to load in-session
   - Modify `references/requirements-capture.md` to expect a synthesis section as the first section of the rendered doc
 
-  **Execution note:** State-machine review per `git-workflow-skills-need-explicit-state-machines-2026-03-27.md`. Walk through 8 cells (4 tiers × {interactive, headless}) before considering U1 complete.
+  **Execution note:** State-machine review per `git-workflow-skills-need-explicit-state-machines.md`. Walk through 8 cells (4 tiers × {interactive, headless}) before considering U1 complete.
 
   **Technical design:** *(Synthesis prompt template, directional — actual phrasing to be authored during implementation.)*
 
@@ -381,7 +381,7 @@ Both variants: open prose feedback, soft-cut on circularity (not iteration count
 - **Interaction graph:** R1 introduces pipeline-mode handling in ce-brainstorm for the first time. `lfg/SKILL.md` runs with `disable-model-invocation: true` and currently calls ce-plan directly — if any pipeline ever calls ce-brainstorm, R1's pipeline-mode handling becomes load-bearing. Today no such pipeline exists; R1 is forward-compatible scaffolding.
 - **API surface parity:** `requirements-capture.md` template is modified to accommodate the synthesis section as the first section. ce-plan Phase 0.3 (origin-doc carry-forward) must handle the new structure gracefully — verified pre-Phase-A by U3.
 - **Error propagation:** If `synthesis-summary.md` is missing or malformed, the wiring in SKILL.md must fail loudly rather than silently writing without synthesis.
-- **State lifecycle risks:** R1/R2 add three new state-machine edges (Phase 2.5 in ce-brainstorm; Phase 0.7 and Phase 5.1.5 in ce-plan). Each has explicit guards (skip on resume/deepen, skip on route-out, skip on universal-planning). State-machine review per `git-workflow-skills-need-explicit-state-machines-2026-03-27.md` is mandatory before each phase merges.
+- **State lifecycle risks:** R1/R2 add three new state-machine edges (Phase 2.5 in ce-brainstorm; Phase 0.7 and Phase 5.1.5 in ce-plan). Each has explicit guards (skip on resume/deepen, skip on route-out, skip on universal-planning). State-machine review per `git-workflow-skills-need-explicit-state-machines.md` is mandatory before each phase merges.
 - **Unchanged invariants:** ce-work's plan-consumption logic; auto-deepening (Phase 5.3); `mode:headless` argument-parsing in ce-doc-review/ce-code-review; tier classification; frontmatter schema.
 
 ---
@@ -390,7 +390,7 @@ Both variants: open prose feedback, soft-cut on circularity (not iteration count
 
 | Risk | Mitigation |
 |------|------------|
-| State-machine regressions when adding Phase 2.5 / 0.7 / 5.1.5 — "whack-a-mole" pattern from `git-workflow-skills-need-explicit-state-machines-2026-03-27.md` | Walk all firing/non-firing cells per unit (8 for U1, 10 for U2, 6 for U3) before merging. Make guards explicit in SKILL.md, not implicit. |
+| State-machine regressions when adding Phase 2.5 / 0.7 / 5.1.5 — "whack-a-mole" pattern from `git-workflow-skills-need-explicit-state-machines.md` | Walk all firing/non-firing cells per unit (8 for U1, 10 for U2, 6 for U3) before merging. Make guards explicit in SKILL.md, not implicit. |
 | Synthesis summary becomes its own bloat | Tier-aware shape: Lightweight is one paragraph; Standard/Deep adds lists. Soft-cut on circularity (not iteration count). Always-embed but content is small. |
 | Headless synthesis is wrong and propagates through pipelines without correction | **Mitigated, not eliminated:** R1/R2 omit the "Inferred" list in headless mode so un-validated agent inferences don't propagate as authoritative. Stated and Out kept (input the user gave; scope deliberately excluded). The residual failure mode propagates uncorrected through pipelines until a human PR reviewer reads the resulting code. Conscious accepted risk; documented in SKILL.md so future maintainers don't expect a safety net that doesn't exist. |
 | Cross-skill duplication of synthesis-summary content drifts over time | Skill-isolation rule documented; `visual-communication.md` precedent shows duplication can stay coherent with reviewer attention. Future drift between ce-brainstorm and ce-plan content is a real signal that one skill's needs diverged, not a bug. |
@@ -475,8 +475,8 @@ Land atomically after Phase A is validated.
   - `AGENTS.md` (root) — commit conventions, skill-isolation rule
   - `plugins/compound-engineering/AGENTS.md` — references inclusion conventions, AskUserQuestion design rules
 - **Institutional learnings:**
-  - `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings-2026-04-17.md`
+  - `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings.md`
   - `docs/solutions/skill-design/compound-refresh-skill-improvements.md`
-  - `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md`
-  - `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
-  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+  - `docs/solutions/skill-design/research-agent-pipeline-separation.md`
+  - `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
+  - `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`

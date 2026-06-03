@@ -62,8 +62,8 @@ Users running ce:work from Claude Code (or other non-Codex agents) want to deleg
 
 ### Institutional Learnings
 
-- **Git workflow skills need explicit state machines** (`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`): Re-read state at each git transition; use `git status` not `git diff HEAD` for cleanliness; model non-zero exits as state transitions
-- **Pass paths, not content, to sub-agents** (`docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`): Orchestrator discovers paths; sub-agent reads content; instruction phrasing affects tool call count
+- **Git workflow skills need explicit state machines** (`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`): Re-read state at each git transition; use `git status` not `git diff HEAD` for cleanliness; model non-zero exits as state transitions
+- **Pass paths, not content, to sub-agents** (`docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`): Orchestrator discovers paths; sub-agent reads content; instruction phrasing affects tool call count
 - **Beta promotion must update callers atomically** (`docs/solutions/skill-design/beta-promotion-orchestration-contract.md`): When adding new invocation semantics, update all callers in the same PR
 - **Compound-refresh mode detection** (`docs/solutions/skill-design/compound-refresh-skill-improvements.md`): Mode must be explicit opt-in via arguments, not auto-detected from environment
 
@@ -461,6 +461,6 @@ graph TB
 - Related PR: #363 (ce-work-beta original delegation — superseded)
 - Codex prompting: `~/.claude/plugins/marketplaces/openai-codex/plugins/codex/skills/gpt-5-4-prompting/`
 - Printing-press pattern: `~/.claude/plugins/marketplaces/cli-printing-press/skills/printing-press/SKILL.md`
-- Git state machine learning: `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+- Git state machine learning: `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
 - Beta promotion learning: `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`
-- Pass paths learning: `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+- Pass paths learning: `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`

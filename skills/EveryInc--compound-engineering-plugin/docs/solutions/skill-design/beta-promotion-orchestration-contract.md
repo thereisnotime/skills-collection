@@ -1,5 +1,5 @@
 ---
-title: “Beta-to-stable promotions must update orchestration callers atomically”
+title: "Beta-to-stable promotions must update orchestration callers atomically"
 category: skill-design
 date: 2026-03-23
 module: plugins/compound-engineering/skills
@@ -10,7 +10,7 @@ tags:
   - rollout-safety
   - orchestration
 severity: medium
-description: “When promoting a beta skill to stable, update all orchestration callers in the same PR so they pass correct mode flags instead of inheriting defaults.”
+description: "When promoting a beta skill to stable, update all orchestration callers in the same PR so they pass correct mode flags instead of inheriting defaults."
 related:
   - docs/solutions/skill-design/beta-skills-framework.md
 ---
@@ -28,13 +28,12 @@ Treat promotion as an orchestration contract change, not a file rename.
 3. Hardcode the intended mode at each callsite instead of relying on the default
 4. Add or update contract tests so the orchestration assumptions are executable
 
-## Applied: ce:review-beta -> ce:review (2026-03-24)
+## Applied: ce-review-beta -> ce-code-review (2026-03-24)
 
-This pattern was applied when promoting `ce:review-beta` to stable. The caller contract:
+This pattern was applied when promoting the review beta (`ce-review-beta`, tracked as the legacy artifact `ce:review-beta`/`ce-review-beta` in the cleanup registry) into the stable `ce-code-review` skill. The caller contract:
 
-- `lfg` -> `/ce:review mode:autofix`
-- `slfg` parallel phase -> `/ce:review mode:report-only`
-- Contract test in `tests/review-skill-contract.test.ts` enforces these mode flags
+- `lfg` -> `/ce-code-review mode:autofix` (enforced by `tests/review-skill-contract.test.ts`)
+- `slfg` parallel phase -> `/ce-code-review mode:report-only` (intended; not currently covered by a contract test)
 
 ## Prevention
 

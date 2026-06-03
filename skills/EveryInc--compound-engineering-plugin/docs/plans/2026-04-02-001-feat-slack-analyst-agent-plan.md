@@ -53,8 +53,8 @@ Coding agents have no visibility into organizational knowledge that lives in Sla
 
 - **Atomic orchestration changes**: All three skill modifications should land in the same PR (from `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`)
 - **Runtime over config**: Prefer runtime MCP availability detection over configuration flags (from beta skills framework)
-- **Pass summaries not content**: Agent should return compact digests, not raw Slack message dumps (from `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`)
-- **Actionable degradation messages**: Include how to enable the capability, not just that it's unavailable (from `docs/solutions/skill-design/discoverability-check-for-documented-solutions-2026-03-30.md`)
+- **Pass summaries not content**: Agent should return compact digests, not raw Slack message dumps (from `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`)
+- **Actionable degradation messages**: Include how to enable the capability, not just that it's unavailable (from `docs/solutions/skill-design/discoverability-check-for-documented-solutions.md`)
 
 ## Key Technical Decisions
 
@@ -286,4 +286,4 @@ Coding agents have no visibility into organizational knowledge that lives in Sla
 - Related agent: `plugins/compound-engineering/agents/research/ce-issue-intelligence-analyst.agent.md`
 - Related skills: `plugins/compound-engineering/skills/ce-ideate/SKILL.md`, `plugins/compound-engineering/skills/ce-plan/SKILL.md`, `plugins/compound-engineering/skills/ce-brainstorm/SKILL.md`
 - Slack MCP docs: `https://docs.slack.dev/ai/slack-mcp-server/`
-- Institutional learnings: `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`, `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+- Institutional learnings: `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`, `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`

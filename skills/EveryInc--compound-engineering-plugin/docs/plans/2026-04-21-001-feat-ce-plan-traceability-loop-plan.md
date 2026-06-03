@@ -115,11 +115,11 @@ This is the **conditionality design rule** the PR also introduces.
 
 ### Institutional Learnings
 
-- `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md` — confirms the brainstorm/plan/work pipeline is intentionally separated by information type, with the plan as the **sole handoff artifact** to ce-work. This grounds the conditionality design rule: ce-work must read everything it needs from the plan file alone, so U-IDs must live in the plan, not require reading back into the brainstorm.
+- `docs/solutions/skill-design/research-agent-pipeline-separation.md` — confirms the brainstorm/plan/work pipeline is intentionally separated by information type, with the plan as the **sole handoff artifact** to ce-work. This grounds the conditionality design rule: ce-work must read everything it needs from the plan file alone, so U-IDs must live in the plan, not require reading back into the brainstorm.
 - `docs/solutions/skill-design/beta-skills-framework.md` and `docs/solutions/skill-design/beta-promotion-orchestration-contract.md` — confirm that ce-work and ce-work-beta must stay in sync atomically when the contract changes. The U-ID recognition guidance applies equally to both surfaces; sync decision must be stated explicitly per repo convention.
-- `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents-2026-03-29.md` — establishes that conditional document sections must trigger on observable content patterns, not size/depth/tier proxies. Validates the "trigger on origin doc presence" model for Origin Trace sub-blocks rather than "trigger on plan tier."
-- `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings-2026-04-17.md` — flags that doc-review reliably catches "unit adds a thing the plan's own scope boundary forbade." The Scope Boundaries three-way split is exactly the kind of architectural template change doc-review should catch contradictions in. Also reinforces: never conflate two semantic meanings in one identifier — keep U-ID and R-ID semantics crisp.
-- `docs/solutions/skill-design/ce-doc-review-calibration-patterns-2026-04-19.md` — "Coverage/rendering count invariants need a single source of truth." Applies to U-ID generation: the Implementation Unit heading is the authoritative location; ce-work's blocker/verification recognition reads, never coins.
+- `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents.md` — establishes that conditional document sections must trigger on observable content patterns, not size/depth/tier proxies. Validates the "trigger on origin doc presence" model for Origin Trace sub-blocks rather than "trigger on plan tier."
+- `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings.md` — flags that doc-review reliably catches "unit adds a thing the plan's own scope boundary forbade." The Scope Boundaries three-way split is exactly the kind of architectural template change doc-review should catch contradictions in. Also reinforces: never conflate two semantic meanings in one identifier — keep U-ID and R-ID semantics crisp.
+- `docs/solutions/skill-design/ce-doc-review-calibration-patterns.md` — "Coverage/rendering count invariants need a single source of truth." Applies to U-ID generation: the Implementation Unit heading is the authoritative location; ce-work's blocker/verification recognition reads, never coins.
 
 ### External References
 
@@ -133,7 +133,7 @@ This is the **conditionality design rule** the PR also introduces.
 - **U-IDs are plan-local, not session-global.** Each plan numbers its own units starting at U1. No cross-plan uniqueness is required because no downstream consumer references units across plans. Plan-local scope keeps the namespace simple and avoids coordination problems.
 - **U-ID stability rule lives in two places: Phase 3.5 (where units are defined) AND template comments (Phase 4.2).** Deepening (Phase 5.3) is the most likely accidental-renumber vector — an agent reorganizing units may "tidy up" the numbering. Stating the rule in two places — once where new units are minted, once visible in the template the agent is editing — defends against the accident at both entry points.
 - **Origin Trace is a sub-block under existing Requirements Trace, not a new top-level section.** A new top-level `## Origin` section is cleaner in theory but adds a header that disappears in no-origin mode and creates ceremony for the common case. Sub-blocks keep the section count flat and let the section degrade naturally.
-- **Scope Boundaries three-way split triggers on observable origin content** (presence of `Outside this product's identity` subsection in origin), not on a "Deep-product origin" tier flag. This avoids requiring the plan to know the origin's tier classification — it just inspects what the origin doc actually contains. Aligned with `conditional-visual-aids-in-generated-documents-2026-03-29.md`.
+- **Scope Boundaries three-way split triggers on observable origin content** (presence of `Outside this product's identity` subsection in origin), not on a "Deep-product origin" tier flag. This avoids requiring the plan to know the origin's tier classification — it just inspects what the origin doc actually contains. Aligned with `conditional-visual-aids-in-generated-documents.md`.
 - **Renamed "Deferred to Separate Tasks" → "Deferred to Follow-Up Work."** Three reasons: "task" overlaps with `TaskCreate`/`TaskList` tooling; the section's contents are PRs/issues/repos (not "tasks"); and "Out of Scope for This Plan" (an alternative considered) reads as true non-goals and clashes with the carried-forward "Outside this product's identity" subsection. "Follow-Up Work" precisely says *intentionally not in this plan but still part of the effort*.
 - **AE-link uses "should when applicable," not "may."** "May" is too weak — agents skip optional rules under pressure. "Should when directly enforces" gates the rule on a real condition (the test must directly enforce the AE) while still mandating compliance when the condition holds.
 - **U-ID recognition in ce-work and ce-work-beta is identical.** No experimental delegate-mode divergence applies here. The R-ID/A/F/AE guidance in PR #629 already shipped to both atomically. Sync decision: propagate to both — shared traceability contract.
@@ -379,10 +379,10 @@ This is the **conditionality design rule** the PR also introduces.
   - `plugins/compound-engineering/skills/ce-brainstorm/references/requirements-capture.md` (PR #629's pattern source)
   - `plugins/compound-engineering/skills/ce-brainstorm/SKILL.md` (PR #629's Deep-product detection)
 - Related institutional learnings:
-  - `docs/solutions/skill-design/research-agent-pipeline-separation-2026-04-05.md`
+  - `docs/solutions/skill-design/research-agent-pipeline-separation.md`
   - `docs/solutions/skill-design/beta-skills-framework.md`
   - `docs/solutions/skill-design/beta-promotion-orchestration-contract.md`
-  - `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents-2026-03-29.md`
-  - `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings-2026-04-17.md`
-  - `docs/solutions/skill-design/ce-doc-review-calibration-patterns-2026-04-19.md`
+  - `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents.md`
+  - `docs/solutions/best-practices/ce-pipeline-end-to-end-learnings.md`
+  - `docs/solutions/skill-design/ce-doc-review-calibration-patterns.md`
 - Plugin conventions: `plugins/compound-engineering/AGENTS.md` (Stable/Beta Sync, Skill Compliance Checklist)

@@ -57,12 +57,12 @@ CE has knowledge-compounding and quality gates but no skill for systematic exper
 
 ### Institutional Learnings
 
-- **State machine design is mandatory** for multi-phase workflows — re-read state after every transition, never carry stale values (`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`)
+- **State machine design is mandatory** for multi-phase workflows — re-read state after every transition, never carry stale values (`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`)
 - **Script-first for measurement harnesses** — 60-75% token savings by moving mechanical work (parsing, classification, aggregation) into bundled scripts (`docs/solutions/skill-design/script-first-skill-architecture.md`)
 - **Confidence rubric pattern** — use 0.0-1.0 scale with explicit suppression threshold (0.60 proven in production), define false-positive categories (`ce:review subagent-template.md`)
-- **Pass paths not content to sub-agents** — orchestrator discovers paths, workers read what they need (`docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`)
+- **Pass paths not content to sub-agents** — orchestrator discovers paths, workers read what they need (`docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`)
 - **State transitions must be load-bearing** — if experiment states exist (proposed/running/measured/evaluated), at least one consumer must branch on them (`docs/solutions/workflow/todo-status-lifecycle.md`)
-- **Branch name sanitization** — `/` to `~` is injective for filesystem paths (`docs/solutions/developer-experience/branch-based-plugin-install-and-testing-2026-03-26.md`)
+- **Branch name sanitization** — `/` to `~` is injective for filesystem paths (`docs/solutions/developer-experience/branch-based-plugin-install-and-testing.md`)
 
 ## Key Technical Decisions
 
@@ -661,4 +661,4 @@ CE has knowledge-compounding and quality gates but no skill for systematic exper
 - Related code: `plugins/compound-engineering/skills/ce-work-beta/SKILL.md` (Codex delegation), `plugins/compound-engineering/skills/ce-review/SKILL.md` (parallel dispatch)
 - Related PRs: #364 (Codex security posture), #365 (Codex exec pitfalls)
 - External: Karpathy autoresearch (github.com/karpathy/autoresearch), AIDE/WecoAI (github.com/WecoAI/aideml)
-- Learnings: `docs/solutions/skill-design/script-first-skill-architecture.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`, `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`, `docs/solutions/workflow/todo-status-lifecycle.md`
+- Learnings: `docs/solutions/skill-design/script-first-skill-architecture.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`, `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`, `docs/solutions/workflow/todo-status-lifecycle.md`

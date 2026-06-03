@@ -117,9 +117,9 @@ The result: the `gated_auto` / `manual` routing tiers exist in the schema but ar
 - `docs/solutions/skill-design/compound-refresh-skill-improvements.md` — Phrase interactive-question-tool references as platform-agnostic ("`AskUserQuestion` in Claude Code, `request_user_input` in Codex") with explicit "stop to wait for the answer" language. Gate new interactive surfaces on explicit `mode:interactive` (the existing default), never on "no question tool = headless" auto-detection.
 - `docs/solutions/skill-design/beta-promotion-orchestration-contract.md` — Mode contracts are load-bearing. `tests/review-skill-contract.test.ts` asserts the ce:review mode surface; any behavior change must ship the contract test update in the same PR.
 - `docs/solutions/workflow/todo-status-lifecycle.md` — Apply outcomes in Interactive mode must continue routing through the existing `ready` todo pipeline (preserving the `downstream-resolver` contract). Defer routes to the new tracker path. Skip produces no downstream artifact. Do not invent a new `pending`-producing path.
-- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md` — Stateful per-item walkthroughs need explicit transitions. The walk-through's "no more findings" and "LFG the rest" are distinct terminal transitions; encode each explicitly rather than collapsing.
-- `docs/solutions/best-practices/codex-delegation-best-practices-2026-04-01.md` — Skill body size is a multiplicative cost driver. Move Interactive-mode detail to `references/` because it runs on a minority of invocations.
-- `docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md` — If Defer invokes a sub-agent for ticket composition, pass paths (to merged findings artifact) rather than content. Also: "per-item walk" phrasing can cause 7x tool-call amplification in Claude Code vs. "bulk find, then filter" phrasing — the walk-through spec iterates over merged findings in memory, not by re-scanning per finding.
+- `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md` — Stateful per-item walkthroughs need explicit transitions. The walk-through's "no more findings" and "LFG the rest" are distinct terminal transitions; encode each explicitly rather than collapsing.
+- `docs/solutions/best-practices/codex-delegation-best-practices.md` — Skill body size is a multiplicative cost driver. Move Interactive-mode detail to `references/` because it runs on a minority of invocations.
+- `docs/solutions/skill-design/pass-paths-not-content-to-subagents.md` — If Defer invokes a sub-agent for ticket composition, pass paths (to merged findings artifact) rather than content. Also: "per-item walk" phrasing can cause 7x tool-call amplification in Claude Code vs. "bulk find, then filter" phrasing — the walk-through spec iterates over merged findings in memory, not by re-scanning per finding.
 
 ### External References
 
@@ -397,7 +397,7 @@ B) Cancel
 **Patterns to follow:**
 - Compact tabular rhythm from `plugins/compound-engineering/skills/ce-review/references/review-output-template.md`
 - Third-person labels and front-loaded distinguishing words per `plugins/compound-engineering/AGENTS.md:122-134`
-- Conditional visual aid guidance from `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents-2026-03-29.md`
+- Conditional visual aid guidance from `docs/solutions/best-practices/conditional-visual-aids-in-generated-documents.md`
 
 **Test scenarios:**
 - *Happy path (LFG, top-level):* 8 findings mixed across actions -> preview shows grouped buckets with correct counts; Proceed advances to dispatch; Cancel returns to routing
@@ -442,7 +442,7 @@ B) Cancel
 - `plugins/compound-engineering/skills/report-bug-ce/SKILL.md:104-122` — only existing `gh issue create` usage; pattern for optional labels and fallback body
 - `plugins/compound-engineering/skills/ce-debug/SKILL.md:40-42` — consuming tracker URLs (Linear / Jira) via MCP tools or URL fetching; the principle-based "try, fall back, ask" style transposed to write-path
 - `plugins/compound-engineering/AGENTS.md:117-119` — cross-platform question phrasing for the failure-path follow-up and the harness-fallback confirmation
-- `docs/solutions/integrations/cross-platform-model-field-normalization-2026-03-29.md` — per-tracker behavior matrix as a model for stating Linear / GitHub Issues / harness primitive / no-tracker behavior explicitly
+- `docs/solutions/integrations/cross-platform-model-field-normalization.md` — per-tracker behavior matrix as a model for stating Linear / GitHub Issues / harness primitive / no-tracker behavior explicitly
 
 **Test scenarios:**
 - *Happy path, named tracker:* `CLAUDE.md` mentions "file bugs in Linear" -> routing label reads "File a Linear ticket per finding"; Defer dispatch creates a Linear ticket
@@ -634,5 +634,5 @@ B) Cancel
 - Findings schema: `plugins/compound-engineering/skills/ce-review/references/findings-schema.json` (no changes)
 - Contract test: `tests/review-skill-contract.test.ts`
 - Project standards: `plugins/compound-engineering/AGENTS.md` (§Interactive Question Tool Design, §Cross-Platform User Interaction, §Rationale Discipline)
-- Institutional learnings: `docs/solutions/skill-design/compound-refresh-skill-improvements.md`, `beta-promotion-orchestration-contract.md`, `workflow/todo-status-lifecycle.md`, `skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`, `best-practices/codex-delegation-best-practices-2026-04-01.md`, `skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`
+- Institutional learnings: `docs/solutions/skill-design/compound-refresh-skill-improvements.md`, `beta-promotion-orchestration-contract.md`, `workflow/todo-status-lifecycle.md`, `skill-design/git-workflow-skills-need-explicit-state-machines.md`, `best-practices/codex-delegation-best-practices.md`, `skill-design/pass-paths-not-content-to-subagents.md`
 - Related prior work: `plugins/compound-engineering/skills/todo-triage/SKILL.md` (per-item walk-through precedent), `plugins/compound-engineering/skills/ce-ideate/references/post-ideation-workflow.md` (four-option menu precedent), `plugins/compound-engineering/skills/ce-plan/references/deepening-workflow.md` (per-agent loop precedent)

@@ -138,7 +138,7 @@ If these downstream effects do not materialize after Phase A ships, the diagnosi
 
 ### Deferred to Planning
 
-- [Affects R1, R2][Technical] Exact wording of the synthesis-summary prompt template. Per learning #9 (`pass-paths-not-content-to-subagents-2026-03-26.md`), phrasing matters more than meta-rules. Author during implementation; iterate if early manual validation shows drift.
+- [Affects R1, R2][Technical] Exact wording of the synthesis-summary prompt template. Per learning #9 (`pass-paths-not-content-to-subagents.md`), phrasing matters more than meta-rules. Author during implementation; iterate if early manual validation shows drift.
 - [Affects R1, R2][Technical] Whether `synthesis-summary.md` content lives as one file per skill (with both solo and brainstorm-sourced variants in the ce-plan version) or split. Default: one file per skill, two clearly-labeled sections in ce-plan's version.
 - [Affects R2][Technical] Whether the solo-mode prompt uses a blocking question tool or chat-output-with-natural-interrupt. Tradeoff: blocking is more reliable but adds friction; natural interrupt is lower friction but easier to skip past. Decide during planning.
 

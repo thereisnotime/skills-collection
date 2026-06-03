@@ -47,8 +47,8 @@ The skill's cluster analysis has two gates: volume (3+ items) and verify-loop re
 ### Institutional Learnings
 
 - **Script-first architecture** (`docs/solutions/skill-design/script-first-skill-architecture.md`): Classification and filtering logic must live in the script, not in SKILL.md instructions. The script should output pre-computed analysis so the model receives structured decisions, not raw data to classify. 60-75% token savings.
-- **Explicit state machines** (`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`): Model the cross-invocation gate as a decision table with explicit outcomes, not prose conditionals.
-- **Pass paths, not content** (`docs/solutions/skill-design/pass-paths-not-content-to-subagents-2026-03-26.md`): The `<prior-resolutions>` element should contain metadata (thread IDs, categories, file paths, timestamps), not full comment bodies. The resolver reads full content on demand.
+- **Explicit state machines** (`docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`): Model the cross-invocation gate as a decision table with explicit outcomes, not prose conditionals.
+- **Pass paths, not content** (`docs/solutions/skill-design/pass-paths-not-content-to-subagents.md`): The `<prior-resolutions>` element should contain metadata (thread IDs, categories, file paths, timestamps), not full comment bodies. The resolver reads full content on demand.
 - **Status-gated resolution** (`docs/solutions/workflow/todo-status-lifecycle.md`): Previously-resolved threads must be enforced at the dispatch boundary — they participate in clustering but are never individually dispatched.
 
 ## Key Technical Decisions
@@ -314,4 +314,4 @@ Update `cluster_assessment` return to include which mode was applied and, for "c
 - Related skill: `plugins/compound-engineering/skills/resolve-pr-feedback/SKILL.md`
 - Related agent: `plugins/compound-engineering/agents/workflow/ce-pr-comment-resolver.agent.md`
 - Related script: `plugins/compound-engineering/skills/resolve-pr-feedback/scripts/get-pr-comments`
-- Learnings: `docs/solutions/skill-design/script-first-skill-architecture.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines-2026-03-27.md`
+- Learnings: `docs/solutions/skill-design/script-first-skill-architecture.md`, `docs/solutions/skill-design/git-workflow-skills-need-explicit-state-machines.md`
