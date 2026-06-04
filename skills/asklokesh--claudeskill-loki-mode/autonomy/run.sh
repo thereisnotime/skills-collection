@@ -4121,6 +4121,69 @@ generate_proof_of_run() {
     return 0
 }
 
+# print_ttfv_next_steps: R7 zero-config first-run "what next / go deeper"
+# message. The wording MUST match what actually ran, so it branches on the mode:
+#   - brief: a one-line brief ran on the lightweight profile (council off,
+#            simple tier, capped iterations). Proof contains diffs, cost, time
+#            (council verdicts are absent because the council was disabled).
+#   - repo:  a no-arg in-repo run analyzed the codebase and ran at full depth
+#            (council on). Proof contains diffs, cost, time, and council
+#            verdicts.
+# This function only prints; the caller owns the TTY gate. Never fails the run.
+# Usage: print_ttfv_next_steps <mode> <result>
+print_ttfv_next_steps() {
+    local mode="${1:-}"
+    local result="${2:-0}"
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local proofs_dir="$loki_dir/proofs"
+
+    echo ""
+    echo "============================================================"
+    if [ "$result" = "0" ]; then
+        echo "  First pass complete. Here is what you have:"
+    else
+        echo "  First pass ended early. Here is what was produced:"
+    fi
+    echo "============================================================"
+    echo ""
+    echo "  What I did:"
+    if [ "$mode" = "brief" ]; then
+        echo "    - Worked from your one-line brief on a fast, lightweight first"
+        echo "      pass (council off, simple tier, capped iterations)."
+        echo "    - Generated a proof-of-run (diffs, cost, time)."
+    else
+        echo "    - Analyzed your codebase and generated a PRD, then ran a full"
+        echo "      first pass (council on, full RARV-C depth)."
+        echo "    - Generated a proof-of-run (diffs, cost, time, council verdicts)."
+    fi
+    echo ""
+    echo "  See the visible artifact (proof-of-run):"
+    if [ -d "$proofs_dir" ]; then
+        local latest
+        latest=$(ls -1t "$proofs_dir" 2>/dev/null | head -1)
+        if [ -n "$latest" ]; then
+            echo "    loki proof open $latest"
+            echo "    (or open $proofs_dir/$latest/index.html)"
+        else
+            echo "    loki proof list"
+        fi
+    else
+        echo "    loki proof list"
+    fi
+    echo ""
+    if [ "$mode" = "brief" ]; then
+        echo "  Go deeper (full RARV-C depth, council-gated):"
+        echo "    loki start                 # continue / harden this project"
+        echo "    loki start ./prd.md        # build from a full PRD"
+    else
+        echo "  Next steps:"
+        echo "    loki start ./prd.md        # build from a full PRD"
+        echo "    loki start \"<one line>\"    # fast first pass from a brief"
+    fi
+    echo ""
+    return 0
+}
+
 track_iteration_complete() {
     local iteration="$1"
     local exit_code="${2:-0}"
@@ -7380,10 +7443,18 @@ create_checkpoint() {
 
     mkdir -p "$checkpoint_dir"
 
-    # Only checkpoint if there are uncommitted changes
-    if git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
-        log_info "No uncommitted changes to checkpoint"
-        return 0
+    # Only checkpoint if there are uncommitted changes.
+    # R6: _LOKI_CP_FORCE=1 bypasses this guard. Used by rollback to guarantee a
+    # pre-rollback snapshot of .loki/ state even when the git tree is clean (the
+    # .loki/ state files about to be overwritten are not git-tracked, so the
+    # clean-tree guard would otherwise skip the safety snapshot). Mirrors the
+    # Bun `forceCreate` seam in checkpoint.ts.
+    if [ "${_LOKI_CP_FORCE:-0}" != "1" ]; then
+        if git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
+            log_info "No uncommitted changes to checkpoint"
+            _LAST_CHECKPOINT_ID=""
+            return 0
+        fi
     fi
 
     # Capture git state
@@ -7402,13 +7473,32 @@ create_checkpoint() {
 
     # Copy critical state files (lightweight -- not full .loki/)
     # BUG-ST-009: Include autonomy-state.json in checkpoint backup
-    for f in state/orchestrator.json autonomy-state.json queue/pending.json queue/completed.json queue/in-progress.json queue/current-task.json; do
+    # R6: Include CONTINUITY.md so a rollback also restores iteration/conversation
+    # handoff context, not just machine state. Mirrors Bun COPIED_FILES.
+    for f in state/orchestrator.json autonomy-state.json queue/pending.json queue/completed.json queue/in-progress.json queue/current-task.json CONTINUITY.md; do
         if [ -f ".loki/$f" ]; then
             local target_dir="$cp_dir/$(dirname "$f")"
             mkdir -p "$target_dir"
             cp ".loki/$f" "$cp_dir/$f" 2>/dev/null || true
         fi
     done
+
+    # R6: capture a real working-tree snapshot so code can be truly undone later.
+    # Loki does not commit per iteration, so git_sha (HEAD) cannot reconstruct
+    # this iteration's working tree. `git stash create` builds a commit object
+    # capturing tracked changes WITHOUT disturbing the tree; we then anchor it
+    # under refs/loki/cp/<id> so `git gc` cannot prune the dangling commit. The
+    # snapshot sha goes in a sidecar (worktree-snapshot.txt), NOT metadata.json,
+    # to preserve byte-for-byte parity with the Bun port.
+    # Honest limit: captures tracked changes only (not untracked/ignored files).
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local snap_sha
+        snap_sha=$(git stash create "loki checkpoint ${checkpoint_id}" 2>/dev/null || echo "")
+        if [ -n "$snap_sha" ]; then
+            git update-ref "refs/loki/cp/${checkpoint_id}" "$snap_sha" 2>/dev/null \
+                && printf '%s\n' "$snap_sha" > "$cp_dir/worktree-snapshot.txt" 2>/dev/null || true
+        fi
+    fi
 
     # Write checkpoint metadata (use python3 json.dumps for safe serialization)
     local phase_val
@@ -7468,6 +7558,10 @@ print(json.dumps({'id':m['id'],'ts':m['timestamp'],'iter':m['iteration'],'task':
     fi
 
     log_info "Checkpoint created: ${checkpoint_id} (git: ${git_sha:0:8})"
+    # R6: expose the id via a global so callers (rollback, run loop) can reference
+    # it without parsing stdout (log_info writes to stdout, so command-substitution
+    # capture would include log lines).
+    _LAST_CHECKPOINT_ID="$checkpoint_id"
 }
 
 rollback_to_checkpoint() {
@@ -7495,11 +7589,18 @@ rollback_to_checkpoint() {
 
     log_warn "Rolling back to checkpoint: ${checkpoint_id}"
 
-    # Create a pre-rollback checkpoint first
-    create_checkpoint "pre-rollback snapshot" "rollback"
+    # R6 re-undoability invariant: force a pre-rollback snapshot of CURRENT state
+    # before overwriting, even if the git tree is clean (the .loki/ state we are
+    # about to clobber is not git-tracked). _LOKI_CP_FORCE bypasses the clean-tree
+    # guard. Capture the snapshot id so we can tell the user how to undo the undo.
+    _LOKI_CP_FORCE=1 create_checkpoint "pre-rollback snapshot (before restoring ${checkpoint_id})" "rollback"
+    local pre_rollback_id="${_LAST_CHECKPOINT_ID:-}"
+    if [ -n "$pre_rollback_id" ]; then
+        log_info "Saved prior state as ${pre_rollback_id} (undo this rollback with: loki rollback to ${pre_rollback_id})"
+    fi
 
-    # Restore state files
-    for f in state/orchestrator.json queue/pending.json queue/completed.json queue/in-progress.json queue/current-task.json; do
+    # Restore state files (R6: CONTINUITY.md restores iteration/conversation context)
+    for f in state/orchestrator.json queue/pending.json queue/completed.json queue/in-progress.json queue/current-task.json CONTINUITY.md; do
         if [ -f "${cp_dir}/${f}" ]; then
             local target_dir=".loki/$(dirname "$f")"
             mkdir -p "$target_dir"
@@ -7536,9 +7637,17 @@ print(json.dumps({'event':'rollback','checkpoint':os.environ['_RB_CPID'],'git_sh
 
     log_info "State files restored from checkpoint: ${checkpoint_id}"
 
-    if [ -n "$git_sha" ] && [ "$git_sha" != "no-git" ]; then
-        log_info "Git SHA at checkpoint: ${git_sha}"
-        log_info "To rollback code: git reset --hard ${git_sha}"
+    # R6: the prior hint `git reset --hard ${git_sha}` was MISLEADING. git_sha is
+    # HEAD (the last commit), and Loki does not commit per iteration, so a hard
+    # reset would discard the iteration's work rather than reconstruct it. The
+    # correct, durable recovery is the anchored working-tree snapshot, if present.
+    if [ -f "${cp_dir}/worktree-snapshot.txt" ]; then
+        log_info "To also restore the working tree to this checkpoint:"
+        log_info "  git stash apply refs/loki/cp/${checkpoint_id}"
+    elif [ -n "$git_sha" ] && [ "$git_sha" != "no-git" ]; then
+        log_info "Git SHA at checkpoint (last commit): ${git_sha}"
+        log_info "Note: no working-tree snapshot was captured for this checkpoint;"
+        log_info "code changes since the last commit are not restorable from here."
     fi
 }
 
@@ -8414,6 +8523,28 @@ BUDGETUPD_EOF
   "exceeded": false
 }
 BUDGETUPD_EOF
+    fi
+
+    # Anti-surprise-cost warn (R3): when spend crosses 80% of the cap but is
+    # still under 100%, log a warning and emit an event. Does NOT pause: the
+    # warn is the transparency the user wants BEFORE the hard cap stops them.
+    # Read-time classification only; budget.json schema is unchanged.
+    local warn
+    warn=$(python3 -c "
+import sys
+try:
+    cost = float(sys.argv[1]); limit = float(sys.argv[2])
+    print(1 if (limit > 0 and 0.80 * limit <= cost < limit) else 0)
+except (ValueError, IndexError):
+    print(0)
+" "$current_cost" "$BUDGET_LIMIT" 2>/dev/null || echo "0")
+    if [[ "$warn" == "1" ]]; then
+        log_warn "BUDGET WARNING: \$${current_cost} is at or above 80% of cap \$${BUDGET_LIMIT}. Run continues; hard-stop at 100%."
+        emit_event_json "budget_warning" \
+            "limit=${BUDGET_LIMIT}" \
+            "current=${current_cost}" \
+            "threshold_percent=80" \
+            "iteration=${ITERATION_COUNT:-0}"
     fi
 
     return 1
@@ -11916,6 +12047,10 @@ if __name__ == "__main__":
 
         # Checkpoint after each iteration (v5.57.0)
         create_checkpoint "iteration-${ITERATION_COUNT} complete" "iteration-${ITERATION_COUNT}"
+        # R6: prominent "you can safely undo this" signal so users run boldly.
+        if [ -n "${_LAST_CHECKPOINT_ID:-}" ]; then
+            log_info "Safety net: checkpoint ${_LAST_CHECKPOINT_ID} saved. Undo this iteration with: loki rollback to ${_LAST_CHECKPOINT_ID}"
+        fi
 
         # Quality gates (v6.10.0 - escalation ladder)
         log_step "Post-iteration: running quality gates..."
@@ -13311,6 +13446,15 @@ main() {
     # LOKI_PROOF=0. Fire-and-forget on both success and failure runs.
     if [ "${LOKI_PROOF:-1}" != "0" ]; then
         generate_proof_of_run "$result" || true
+    fi
+
+    # R7 (zero-config first run): "what next / go deeper" framing. Only when the
+    # CLI flagged this as a TTFV first run and stdout is a TTY, so it stays
+    # silent in CI / pipes and never fires for normal PRD runs. The wording
+    # branches on the mode (brief = lightweight first pass; repo = full-depth
+    # codebase analysis) so the message always matches what actually ran.
+    if [ -n "${LOKI_TTFV:-}" ] && [ -t 1 ]; then
+        print_ttfv_next_steps "${LOKI_TTFV}" "$result" || true
     fi
 
     # Create PR from agent branch if branch protection was enabled

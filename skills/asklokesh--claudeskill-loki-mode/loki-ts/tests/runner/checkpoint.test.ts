@@ -4,7 +4,7 @@
 // "no uncommitted changes" guard so tests do not depend on git state.
 
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -12,6 +12,7 @@ import {
   listCheckpoints,
   readCheckpoint,
   rollbackToCheckpoint,
+  executeRollbackWithSnapshot,
   readIndex,
   rebuildIndex,
   CheckpointNotFoundError,
@@ -152,6 +153,149 @@ describe("createCheckpoint", () => {
     expect(existsSync(join(r.dir, "state", "orchestrator.json"))).toBe(true);
     expect(existsSync(join(r.dir, "queue", "pending.json"))).toBe(true);
     expect(existsSync(join(r.dir, "autonomy-state.json"))).toBe(true);
+  });
+
+  // R6: CONTINUITY.md (iteration / conversation handoff context) is captured.
+  it("captures CONTINUITY.md when present (R6 context undo)", async () => {
+    seedOrchestrator(tmpBase, "DEV");
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "# handoff\niteration 7\n");
+
+    const r = await createCheckpoint({
+      taskDescription: "continuity-test",
+      iteration: 7,
+      lokiDirOverride: tmpBase,
+      forceCreate: true,
+      epochOverride: 2100,
+    });
+    expect(r.created).toBe(true);
+    if (!r.created) throw new Error("unreachable");
+    expect(existsSync(join(r.dir, "CONTINUITY.md"))).toBe(true);
+    expect(readFileSync(join(r.dir, "CONTINUITY.md"), "utf-8")).toContain("iteration 7");
+  });
+});
+
+describe("R6: CONTINUITY round-trip + re-undoable restore", () => {
+  it("rollback restores CONTINUITY.md to its checkpointed content", async () => {
+    seedOrchestrator(tmpBase, "DEV");
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "ORIGINAL CONTEXT\n");
+
+    const r = await createCheckpoint({
+      taskDescription: "rb-continuity",
+      iteration: 1,
+      lokiDirOverride: tmpBase,
+      forceCreate: true,
+      epochOverride: 3000,
+    });
+    expect(r.created).toBe(true);
+    if (!r.created) throw new Error("unreachable");
+
+    // Mutate current context (simulate an iteration that went wrong).
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "MUTATED / BAD CONTEXT\n");
+
+    const plan = rollbackToCheckpoint(r.id, tmpBase);
+    // CONTINUITY.md must be in the restore plan.
+    expect(plan.restore.some((e) => e.from.endsWith("CONTINUITY.md"))).toBe(true);
+    const result = await executeRollbackWithSnapshot(plan, tmpBase);
+    expect(result.errors).toEqual([]);
+    // Restore actually reverted the file.
+    expect(readFileSync(join(tmpBase, "CONTINUITY.md"), "utf-8")).toBe("ORIGINAL CONTEXT\n");
+  });
+
+  it("ABORTS (throws) and preserves current state when the pre-rollback snapshot fails and force is not set", async () => {
+    seedOrchestrator(tmpBase, "DEV");
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "ORIGINAL CONTEXT\n");
+
+    const r = await createCheckpoint({
+      taskDescription: "rb-abort",
+      iteration: 1,
+      lokiDirOverride: tmpBase,
+      forceCreate: true,
+      epochOverride: 3200,
+    });
+    expect(r.created).toBe(true);
+    if (!r.created) throw new Error("unreachable");
+
+    // Mutate current context (simulate a bad iteration the user wants to undo).
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "MUTATED / BAD CONTEXT\n");
+    const plan = rollbackToCheckpoint(r.id, tmpBase);
+
+    // Force the pre-rollback snapshot to fail: make the checkpoints root
+    // read-only so createCheckpoint cannot mkdir the new snapshot dir.
+    // CONTINUITY.md lives at the project root (writable), so if the destructive
+    // executeRollback were to (incorrectly) run, it WOULD revert CONTINUITY.md.
+    const cpRoot = join(tmpBase, "state", "checkpoints");
+    chmodSync(cpRoot, 0o500);
+    try {
+      await expect(executeRollbackWithSnapshot(plan, tmpBase)).rejects.toThrow(
+        /pre-rollback snapshot failed/,
+      );
+    } finally {
+      chmodSync(cpRoot, 0o700);
+    }
+
+    // State preserved: the destructive restore did NOT run, so the mutated
+    // file is untouched (NOT reverted to the checkpointed content).
+    expect(readFileSync(join(tmpBase, "CONTINUITY.md"), "utf-8")).toBe(
+      "MUTATED / BAD CONTEXT\n",
+    );
+  });
+
+  it("with force=true proceeds (warns) and still restores even if the pre-rollback snapshot fails", async () => {
+    seedOrchestrator(tmpBase, "DEV");
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "ORIGINAL CONTEXT\n");
+
+    const r = await createCheckpoint({
+      taskDescription: "rb-force",
+      iteration: 1,
+      lokiDirOverride: tmpBase,
+      forceCreate: true,
+      epochOverride: 3300,
+    });
+    expect(r.created).toBe(true);
+    if (!r.created) throw new Error("unreachable");
+
+    writeFileSync(join(tmpBase, "CONTINUITY.md"), "MUTATED / BAD CONTEXT\n");
+    const plan = rollbackToCheckpoint(r.id, tmpBase);
+
+    const cpRoot = join(tmpBase, "state", "checkpoints");
+    chmodSync(cpRoot, 0o500);
+    try {
+      const result = await executeRollbackWithSnapshot(plan, tmpBase, true);
+      // No safety snapshot was captured, but the restore still ran.
+      expect(result.preRollbackSnapshotId).toBeNull();
+      expect(result.errors).toEqual([]);
+    } finally {
+      chmodSync(cpRoot, 0o700);
+    }
+
+    // Restore actually reverted the file despite the failed snapshot.
+    expect(readFileSync(join(tmpBase, "CONTINUITY.md"), "utf-8")).toBe(
+      "ORIGINAL CONTEXT\n",
+    );
+  });
+
+  it("executeRollbackWithSnapshot creates a forced pre-rollback snapshot", async () => {
+    seedOrchestrator(tmpBase, "DEV");
+    const r = await createCheckpoint({
+      taskDescription: "rb-snap",
+      iteration: 1,
+      lokiDirOverride: tmpBase,
+      forceCreate: true,
+      epochOverride: 3100,
+    });
+    expect(r.created).toBe(true);
+    if (!r.created) throw new Error("unreachable");
+
+    const beforeIds = listCheckpoints(tmpBase).map((c) => c.id);
+    const plan = rollbackToCheckpoint(r.id, tmpBase);
+    const result = await executeRollbackWithSnapshot(plan, tmpBase);
+    // A new pre-rollback snapshot id was produced and exists on disk.
+    const snapId = result.preRollbackSnapshotId;
+    expect(snapId).toBeTruthy();
+    if (snapId === null) throw new Error("unreachable: snapshot id was null");
+    const afterIds = listCheckpoints(tmpBase).map((c) => c.id);
+    expect(afterIds.length).toBeGreaterThan(beforeIds.length);
+    expect(afterIds).toContain(snapId);
   });
 });
 

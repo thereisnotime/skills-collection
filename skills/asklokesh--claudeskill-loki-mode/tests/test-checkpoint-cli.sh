@@ -348,6 +348,96 @@ else
     log_fail "unknown subcommand should exit non-zero" "exit=$unknown_exit"
 fi
 
+# ===========================================
+# R6: top-level `loki rollback` command tests
+# ===========================================
+
+# -------------------------------------------
+# Test 17: loki rollback help
+# -------------------------------------------
+log_test "loki rollback help shows usage"
+output=$("$LOKI" rollback help 2>&1) || true
+if echo "$output" | grep -q "loki rollback" && echo "$output" | grep -q "latest"; then
+    log_pass "rollback help renders"
+else
+    log_fail "rollback help missing content" "got: $(echo "$output" | head -3)"
+fi
+
+# -------------------------------------------
+# Test 18: loki rollback list delegates to checkpoint list
+# -------------------------------------------
+log_test "loki rollback list shows checkpoints"
+output=$("$LOKI" rollback list 2>&1) || true
+if echo "$output" | grep -qi "Checkpoints"; then
+    log_pass "rollback list works"
+else
+    log_fail "rollback list did not render" "got: $(echo "$output" | head -3)"
+fi
+
+# -------------------------------------------
+# Test 19: rollback round-trip -- create state, checkpoint, mutate, rollback,
+# assert reverted (uses the run.sh checkpoint format with a state/ subdir).
+# -------------------------------------------
+log_test "loki rollback to <id> reverts state"
+# Build a run.sh-style checkpoint (cp-<iter>-<epoch>) containing state/ + CONTINUITY.md
+RB_CP="cp-5-1700000005"
+RB_DIR=".loki/state/checkpoints/$RB_CP"
+mkdir -p "$RB_DIR/state"
+echo '{"currentPhase":"GOOD"}' > "$RB_DIR/state/orchestrator.json"
+echo 'GOOD CONTEXT' > "$RB_DIR/CONTINUITY.md"
+cat > "$RB_DIR/metadata.json" << 'EOF'
+{"id":"cp-5-1700000005","timestamp":"2026-06-03T00:00:00Z","git_sha":"abc123","message":"good"}
+EOF
+echo '{"id":"cp-5-1700000005","timestamp":"2026-06-03T00:00:00Z","git_sha":"abc123","message":"good"}' >> .loki/state/checkpoints/index.jsonl
+# Establish a current ("bad") state.
+mkdir -p .loki/state
+echo '{"currentPhase":"BAD"}' > .loki/state/orchestrator.json
+echo 'BAD CONTEXT' > .loki/CONTINUITY.md
+
+output=$("$LOKI" rollback to "$RB_CP" 2>&1) || true
+reverted_phase=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase'))" 2>/dev/null)
+reverted_ctx=$(cat .loki/CONTINUITY.md 2>/dev/null)
+if [ "$reverted_phase" = "GOOD" ] && [ "$reverted_ctx" = "GOOD CONTEXT" ]; then
+    log_pass "rollback reverted state + context to checkpoint"
+else
+    log_fail "rollback did not revert" "phase=$reverted_phase ctx=$reverted_ctx out=$(echo "$output" | tail -3)"
+fi
+
+# -------------------------------------------
+# Test 20: rollback created a pre-rollback snapshot (re-undoability) AND did not
+# destroy the checkpoint store (data-loss regression guard).
+# -------------------------------------------
+log_test "rollback creates pre-rollback snapshot and preserves store"
+pre_count=$(find .loki/state/checkpoints -maxdepth 1 -type d -name "rb-pre-*" 2>/dev/null | wc -l | tr -d ' ')
+store_intact=$([ -d ".loki/state/checkpoints/$RB_CP" ] && echo yes || echo no)
+if [ "$pre_count" -ge 1 ] && [ "$store_intact" = "yes" ]; then
+    log_pass "pre-rollback snapshot exists and checkpoint store survived"
+else
+    log_fail "missing snapshot or store destroyed" "pre=$pre_count intact=$store_intact"
+fi
+
+# -------------------------------------------
+# Test 21: rollback to missing id fails cleanly
+# -------------------------------------------
+log_test "rollback to nonexistent id errors"
+output=$("$LOKI" rollback to cp-9-9999999999 2>&1) && rb_exit=0 || rb_exit=$?
+if [ "$rb_exit" -ne 0 ] && echo "$output" | grep -qi "not found"; then
+    log_pass "rollback to missing id returns error"
+else
+    log_fail "rollback missing id should fail" "exit=$rb_exit out=$(echo "$output" | head -3)"
+fi
+
+# -------------------------------------------
+# Test 22: rollback unknown subcommand exits non-zero
+# -------------------------------------------
+log_test "rollback unknown subcommand exits non-zero"
+output=$("$LOKI" rollback frobnicate 2>&1) && rbu_exit=0 || rbu_exit=$?
+if [ "$rbu_exit" -ne 0 ] && echo "$output" | grep -qi "Unknown rollback command"; then
+    log_pass "rollback unknown subcommand errors"
+else
+    log_fail "rollback unknown subcommand should fail" "exit=$rbu_exit"
+fi
+
 # -------------------------------------------
 # Summary
 # -------------------------------------------

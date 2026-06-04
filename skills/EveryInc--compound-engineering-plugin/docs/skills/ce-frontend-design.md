@@ -185,7 +185,7 @@ Skip `ce-frontend-design` when:
 `ce-frontend-design` is mostly invoked directly when frontend work begins, but interlocks with:
 
 - **`/ce-work` Phase 2** — when implementing a frontend feature, this skill provides the design pass
-- **`/ce-polish-beta`** — for late-stage UX refinement after the feature is functional; complementary, not a substitute
+- **`/ce-polish`** — for late-stage UX refinement after the feature is functional; complementary, not a substitute
 - **`ce-design-iterator` agent** — for multi-round iterative refinement beyond a single visual-verification pass
 - **`ce-design-implementation-reviewer` agent** — for verifying UI against a Figma design
 
@@ -243,6 +243,6 @@ Follow what exists; apply skill defaults only for areas where no convention was 
 ## See Also
 
 - [`/ce-work`](./ce-work.md) — invokes this skill during frontend implementation
-- [`/ce-polish-beta`](./ce-polish-beta.md) — late-stage UX refinement after the feature is functional
+- [`/ce-polish`](./ce-polish.md) — late-stage UX refinement after the feature is functional
 - [`/ce-test-browser`](./ce-test-browser.md) — verifies the implementation works after the design pass
 - [`/ce-demo-reel`](./ce-demo-reel.md) — captures visual evidence for PR descriptions

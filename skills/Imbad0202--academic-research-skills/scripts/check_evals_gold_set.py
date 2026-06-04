@@ -21,8 +21,17 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+from citation_verification_summary import (  # noqa: E402
+    reduce_lookup_verified as _reduce_lookup_verified,
+)
+
 LABEL_ENUM = {"true", "false", "unresolvable"}
-KIND_ENUM = {"valid_doi", "valid_arxiv", "manual_exempt", "fabricated"}
+QUERIED_BY_ENUM = {"id", "title", None}
+KIND_ENUM = {"valid_doi", "valid_arxiv", "manual_exempt", "fabricated",
+             "fabricated_title_only", "valid_unindexed"}
 RESOLVER_NAMES = ("crossref", "openalex", "semantic_scholar", "arxiv")
 STATUS_ENUM = {"matched", "unmatched", "unreachable", "skipped"}
 
@@ -170,16 +179,26 @@ def validate(root: Path) -> list[str]:
             if arxiv_id:
                 errors.append(f"I6: {stem}.json kind={kind!r} but arxiv_id={arxiv_id!r} present (must be null)")
 
-    # I7: fabrication_intent <-> kind == "fabricated"
+    # I7: fabrication_intent <-> kind is a fabrication kind. Both `fabricated`
+    # (ID-keyed → false) and `fabricated_title_only` (no identifier → unresolvable,
+    # the C-V6(a) by-design FN fixture) are fabrications and MUST carry the marker.
+    fabrication_kinds = {"fabricated", "fabricated_title_only"}
     for stem, tup in tuples_by_id.items():
         kind = tup.get("kind")
         marker = tup.get("fabrication_intent")
-        if kind == "fabricated" and marker is not True:
-            errors.append(f"I7: {stem}.json kind=fabricated but fabrication_intent={marker!r} (must be true)")
-        if kind != "fabricated" and marker is True:
+        if kind in fabrication_kinds and marker is not True:
+            errors.append(f"I7: {stem}.json kind={kind!r} but fabrication_intent={marker!r} (must be true)")
+        if kind not in fabrication_kinds and marker is True:
             errors.append(f"I7: {stem}.json kind={kind!r} but fabrication_intent=true (must be false)")
 
     # I9: resolver_outcomes has all four resolver keys with valid status enum
+    # + valid queried_by enum (v3.11 #182 Delta 4 / C-V6(a)).
+    # I9b: every gold label must be REPRODUCIBLE by the shipped reducer (the
+    # single source of truth, C-V6(a) narrowed-false). Rather than hand-rolling
+    # the false condition here (which would drift from the reducer if C-V6(a) is
+    # ever amended), recompute each label via reduce_lookup_verified and assert
+    # it matches — pinning the gold to the reducer, not a parallel copy of its
+    # logic. Both share a single pass over expected.items().
     for tid, outcome in expected.items():
         ros = outcome.get("resolver_outcomes", {})
         for resolver in RESOLVER_NAMES:
@@ -193,6 +212,22 @@ def validate(root: Path) -> list[str]:
                     f"I9: {tid} resolver_outcomes.{resolver}.status={status!r} "
                     f"not in {sorted(STATUS_ENUM)}"
                 )
+            queried_by = entry.get("queried_by")
+            if queried_by not in QUERIED_BY_ENUM:
+                errors.append(
+                    f"I9: {tid} resolver_outcomes.{resolver}.queried_by={queried_by!r} "
+                    f"not in {{'id', 'title', null}}"
+                )
+
+        recomputed = _reduce_lookup_verified(ros)
+        declared = outcome.get("lookup_verified")
+        if recomputed != declared:
+            errors.append(
+                f"I9b: {tid} lookup_verified={declared!r} but the shipped reducer "
+                f"computes {recomputed!r} from its resolver_outcomes "
+                f"(gold label must match the single-source-of-truth reducer; "
+                f"C-V6(a) narrowed-false: false needs an ID-keyed unmatched)"
+            )
 
     # I10: per-tuple corpus_entry validates against literature_corpus_entry.schema.json
     for stem, tup in tuples_by_id.items():

@@ -99,9 +99,13 @@ run_check "bash -n autonomy/completion-council.sh" "bash -n autonomy/completion-
 # 2. shellcheck on workflow + script bash blocks (best-effort)
 # ---------------------------------------------------------------------------
 if command -v shellcheck >/dev/null 2>&1; then
-  # Only error-level findings fail CI. Warnings + infos surface in
-  # editor lint but don't block the push gate.
-  run_check "shellcheck scripts/ (errors)" 'shellcheck -x -S error scripts/*.sh'
+  # CI PARITY: the GitHub "Tests" workflow runs tests/run-all-tests.sh, which
+  # runs tests/run-shellcheck.sh -- and that linter fails on WARNINGS too, not
+  # just errors. Running only `-S error` here let a warning-level SC2166 in this
+  # very file pass local-ci and then go red in CI (the exact "local passes / CI
+  # is the discovery channel" gap CLAUDE.md forbids). So we run the SAME linter
+  # CI runs, as the authoritative gate, plus keep the fast error-level subset.
+  run_check "shellcheck (CI parity: tests/run-shellcheck.sh)" 'bash tests/run-shellcheck.sh'
   run_check "shellcheck loki-ts fixtures (errors)" 'find loki-ts/tests/fixtures/build_prompt -name env.sh -print0 | xargs -0 shellcheck -S error'
 else
   skip_check "shellcheck" "shellcheck not installed (brew install shellcheck)"
@@ -138,6 +142,17 @@ if [ -n "$PROOF_PY" ]; then
   run_check "tests/test_proof_generator.py (R1 generator schema/hash)" "$PROOF_PY -m pytest -q tests/test_proof_generator.py 2>&1 | tail -5"
   # Self-contained page: no external resource refs; all Tier1-4 fields render.
   run_check "tests/test_proof_html.py (R1 self-contained page)" "$PROOF_PY -m pytest -q tests/test_proof_html.py 2>&1 | tail -5"
+  # R2 benchmark harness gates (mocked adapters, no paid API calls).
+  # Task-spec hash determinism + held-out anti-contamination + offline loader.
+  run_check "tests/test_bench_taskspec.py (R2 task-spec + hash)" "$PROOF_PY -m pytest -q tests/test_bench_taskspec.py 2>&1 | tail -5"
+  # Runner + grader: success set ONLY by held-out acceptance, N-trial aggregate.
+  run_check "tests/test_bench_runner.py (R2 runner + grader)" "$PROOF_PY -m pytest -q tests/test_bench_runner.py 2>&1 | tail -5"
+  # Adapters never report success/quality; manual adapter requires provenance.
+  run_check "tests/test_bench_adapters.py (R2 adapters boundary)" "$PROOF_PY -m pytest -q tests/test_bench_adapters.py 2>&1 | tail -5"
+  # Report is data-driven: a Loki-loses fixture renders the competitor as winner.
+  run_check "tests/test_bench_report.py (R2 report non-rigged)" "$PROOF_PY -m pytest -q tests/test_bench_report.py 2>&1 | tail -5"
+  # bench CLI list/verify on the bash route.
+  run_check "tests/test_bench_cli.py (R2 bench CLI)" "$PROOF_PY -m pytest -q tests/test_bench_cli.py 2>&1 | tail -5"
 else
   skip_check "proof-of-run python gates" "no python3 on PATH"
 fi
@@ -340,6 +355,42 @@ run_check "npm pack tarball contents" 'npm pack --dry-run 2>&1 | grep -E "loki-t
 # ---------------------------------------------------------------------------
 run_check "web-app dist baked with /lab/ base" 'test -f web-app/dist/index.html && grep -q "/lab/assets/" web-app/dist/index.html'
 run_check "no hardcoded /api/ or /ws literals in web-app/src/" '! grep -rnE "['"'"'\"]/(api|ws|proxy)/" web-app/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "\.test\." | grep -q .'
+
+# ---------------------------------------------------------------------------
+# 10c. Dashboard SPA inline JavaScript must PARSE (no SyntaxError)
+# ---------------------------------------------------------------------------
+# A prior build regression (build-standalone.js corrupting backslash escapes)
+# shipped a dashboard/static/index.html whose inline <script> blocks threw a
+# SyntaxError in the browser. The file still served HTTP 200 and contained the
+# expected markers, so every existing presence/compose check passed while the
+# SPA was dead. This gate extracts each INLINE <script> block (skips src=,
+# importmap/json data islands) and parses it via Node's vm. FAIL on any
+# SyntaxError. Proven to FAIL on the old broken build and PASS on the fixed one.
+if command -v node >/dev/null 2>&1; then
+  run_check "dashboard SPA inline scripts parse (node)" "node scripts/check-inline-scripts.js dashboard/static/index.html"
+else
+  skip_check "dashboard SPA inline scripts parse" "node not installed"
+fi
+
+# ---------------------------------------------------------------------------
+# 10d. Dashboard fresh-repo integrated UX harness (v7.18.0)
+# ---------------------------------------------------------------------------
+# The v7.17.x verification ran the dashboard SEEDED + in isolation and shipped a
+# cold-repo 404 flood, an early-abort timeout, and iframe theme clashes. This
+# harness boots the server against a FRESH repo (no .loki) and drives the real
+# browser: asserts no cold-load console 404s/AbortErrors and that the trust
+# iframe matches the SPA theme in light AND after the Dark toggle. Requires
+# python3.12 (fastapi) + the dashboard-ui playwright + chromium; skips cleanly
+# when absent so the gate never blocks an environment that lacks them.
+_DASH_PY=""
+command -v python3.12 >/dev/null 2>&1 && _DASH_PY=python3.12
+if [ -n "$_DASH_PY" ] && command -v node >/dev/null 2>&1 \
+   && [ -d dashboard-ui/node_modules/playwright ] \
+   && { [ -d "$HOME/Library/Caches/ms-playwright" ] || [ -d "$HOME/.cache/ms-playwright" ]; }; then
+  run_check "dashboard fresh-repo integrated UX harness" 'bash scripts/run-dashboard-fresh-repo-harness.sh'
+else
+  skip_check "dashboard fresh-repo integrated UX harness" "needs python3.12 + dashboard-ui playwright + chromium"
+fi
 
 # ---------------------------------------------------------------------------
 # 11. SBOM workflow equivalent (mirrors sbom.yml)

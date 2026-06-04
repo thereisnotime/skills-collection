@@ -30,6 +30,8 @@ Phase 2 ported (Bun-native, fast):
                          (subcmds: list | show <id> | to <id> | latest)
   proof <subcmd>         Inspect/share proof-of-run artifacts
                          (subcmds: list | show <id> | open <id> | share <id>)
+  wiki <subcmd>          Auto-generated, cited codebase wiki + Q&A
+                         (subcmds: generate | show [section] | ask "<question>")
 
 All other commands fall through to the bash CLI (autonomy/loki).
 Set LOKI_LEGACY_BASH=1 to force the bash CLI for every command.
@@ -103,6 +105,17 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       return runKpis(rest);
     }
 
+    case "trust": {
+      // R4: visible trust trajectory. Read-only derivation from proof-of-run
+      // history (.loki/proofs/) showing whether the agent is earning autonomy
+      // on THIS repo over time (council pass-rate up, interventions down...).
+      // Complements `kpis` (single-run snapshot); does not duplicate it. The
+      // bin/loki shim allowlist includes "trust" so this is the live Bun route;
+      // bash cmd_trust is the no-bun / LOKI_LEGACY_BASH fallback.
+      const { runTrust } = await import("./commands/trust.ts");
+      return runTrust(rest);
+    }
+
     case "rollback": {
       // v7.5.2: wire the checkpoint rollback API (was dead code per H4).
       const { runRollback } = await import("./commands/rollback.ts");
@@ -120,6 +133,17 @@ async function dispatch(argv: readonly string[]): Promise<number> {
       // (see loki-ts/tests/commands/proof.test.ts).
       const { runProof } = await import("./commands/proof.ts");
       return runProof(rest);
+    }
+
+    case "wiki": {
+      // R5: auto-generated, cited per-project codebase wiki + Q&A (Loki's
+      // DeepWiki). Bun implements `show` natively (reads .loki/wiki/*.md);
+      // `generate` and `ask` delegate to the bash CLI -> Python core, which
+      // owns the codebase index, provider call, and citation grounding. The
+      // bin/loki shim allowlist includes "wiki", so this is the live route
+      // when bun is installed (see loki-ts/tests/commands/wiki.test.ts).
+      const { runWiki } = await import("./commands/wiki.ts");
+      return runWiki(rest);
     }
 
     case "internal": {
@@ -185,6 +209,9 @@ async function dispatch(argv: readonly string[]): Promise<number> {
     default:
       // Unknown to Bun -- shim falls through to bash. If invoked directly
       // via `bun src/cli.ts <unknown>`, print help and exit 2.
+      // NOTE (R2): `loki bench` is intentionally NOT a Bun command. It falls
+      // through here to the bash route (cmd_bench -> benchmarks/bench/run.sh).
+      // Bun parity is free via this fall-through; do not add a Bun bench command.
       process.stderr.write(`Unknown command: ${cmd}\n`);
       process.stderr.write(HELP);
       return 2;

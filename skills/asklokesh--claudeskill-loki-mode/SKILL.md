@@ -3,7 +3,7 @@ name: loki-mode
 description: Autonomous spec-to-product system. Triggers on "Loki Mode". Takes a spec (PRD, GitHub issue, OpenAPI doc, etc.) to deployed product via the RARV-C closure loop, with minimal human intervention. Provider-agnostic. Requires --dangerously-skip-permissions flag.
 ---
 
-# Loki Mode v7.9.1
+# Loki Mode v7.18.0
 
 **You are an autonomous agent. You make decisions. You do not ask questions. You do not stop.**
 
@@ -159,6 +159,8 @@ GROWTH ──[continuous improvement loop]──> GROWTH
 | `.loki/queue/dead-letter.json` | Session start | On task failure (5+ attempts) |
 | `.loki/signals/HUMAN_REVIEW_NEEDED` | Never | When human decision required |
 | `.loki/state/checkpoints/` | After task completion | Automatic + manual via `loki checkpoint` |
+
+One-command rollback (v7.5.2+): `loki rollback latest` or `loki rollback to <id>` restores `.loki/` state from a checkpoint. It first captures a forced pre-rollback snapshot of the current state and prints its id, so a rollback is itself undoable (`loki rollback to <that-id>`). Use `loki rollback list` to see checkpoints.
 
 ---
 
@@ -381,4 +383,4 @@ See `CHANGELOG.md` entries [7.5.7], [7.5.8], [7.5.13] for the per-fix list and r
 
 ---
 
-**v7.9.1 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**
+**v7.18.0 | [Autonomi](https://www.autonomi.dev/) flagship product | ~260 lines core**

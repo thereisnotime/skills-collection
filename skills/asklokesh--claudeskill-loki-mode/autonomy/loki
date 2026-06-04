@@ -543,6 +543,8 @@ show_help() {
     echo "  optimize         Optimize prompts based on session history"
     echo "  enterprise       Enterprise feature management (tokens, OIDC)"
     echo "  metrics [opts]   Session productivity report (--json, --last N, --save, --share)"
+    echo "  cost [opts]      Transparent cost view: per-run/project spend + budget (--json, --last N)"
+    echo "  trust [--json]   Visible trust trajectory: council/gate pass-rate + interventions over runs [R4]"
     echo "  dogfood          Show self-development statistics"
     echo "  secrets [cmd]    API key status and validation (status|validate)"
     echo "  reset [target]   Reset session state (all|retries|failed)"
@@ -567,6 +569,7 @@ show_help() {
     echo "  report [opts]    Session report generator (--format text|markdown|html, --output)"
     echo "  share [opts]     Share session report as GitHub Gist (--private, --format)"
     echo "  proof [cmd]      Inspect/share proof-of-run artifacts (list|show|open|share)"
+    echo "  bench [cmd]      Head-to-head benchmark harness (run|vs|list|verify|report)"
     echo "  version          Show version"
     echo "  help             Show this help"
     echo ""
@@ -610,6 +613,7 @@ show_help() {
     echo "  loki quick \"add dark mode\"  # Single-task mode (3 iters max)"
     echo "  loki demo                     # 60-second interactive demo"
     echo "  loki init -t saas-starter     # Scaffold from template"
+    echo "  loki template install <src>   # Install a community PRD template"
     echo ""
     echo "  # Session ops + observability"
     echo "  loki status [--json]          # Current status"
@@ -618,6 +622,7 @@ show_help() {
     echo "  loki doctor [--json]          # System prereq + skill symlinks"
     echo "  loki logs                     # Tail recent log output"
     echo "  loki export json|markdown|csv|timeline   # Export session"
+    echo "  loki assets export team.tgz   # Export shareable team assets (redacted)"
     echo "  loki cleanup                  # Kill orphaned processes"
     echo ""
     echo "  # Providers + model routing"
@@ -737,6 +742,17 @@ detect_arg_type() {
         return 0
     fi
 
+    # R7 (zero-config first run): a one-line brief. An arg that contains
+    # whitespace and matched none of the file/issue/path patterns above is a
+    # natural-language brief (e.g. "build a todo app"), NOT a PRD path. This is
+    # additive: a single-token arg with no whitespace still falls through to
+    # "unknown" (PRD-path back-compat) below. The `--brief` flag is the
+    # deterministic escape hatch for the rare single-word brief.
+    if [[ "$arg" == *[[:space:]]* ]]; then
+        echo "brief"
+        return 0
+    fi
+
     # Fallback: unknown. Caller treats as PRD for backward compat.
     echo "unknown"
 }
@@ -750,6 +766,7 @@ cmd_start() {
     local args=()
     local prd_file=""
     local provider=""
+    local brief_text=""           # R7: explicit one-line brief (--brief "...")
     local bmad_project_path=""
     local openspec_change_path=""
     local mirofish_url=""
@@ -782,6 +799,8 @@ cmd_start() {
                 echo "  PRD mode    - path ending in .md/.json/.txt/.yaml -> build from PRD"
                 echo "  ISSUE mode  - GitHub/GitLab/Jira/Azure DevOps URL, owner/repo#N,"
                 echo "                PROJ-123, #123, or bare number -> generate PRD from issue"
+                echo "  BRIEF mode  - a quoted one-line description (with spaces) -> fast"
+                echo "                zero-config first run; visible artifact + proof quickly"
                 echo "  no input    - analyze current directory, auto-generate PRD"
                 echo ""
                 echo "Arguments:"
@@ -791,6 +810,7 @@ cmd_start() {
                 echo "Explicit mode flags (override auto-detection):"
                 echo "  --prd FILE            Force PRD mode with FILE"
                 echo "  --issue URL|NUM       Force issue mode with URL or number"
+                echo "  --brief \"TEXT\"        Force zero-config brief mode (fast first run)"
                 echo ""
                 echo "Options:"
                 echo "  --provider NAME       AI provider: claude (default), codex, cline, aider"
@@ -814,6 +834,7 @@ cmd_start() {
                 echo "  --mirofish-bg         Run MiroFish pipeline in background"
                 echo "  --no-mirofish         Disable MiroFish even if env var is set"
                 echo "  --no-plan             Skip auto-shown PRD analysis at startup"
+                echo "  --brief \"TEXT\"        Zero-config fast first run from a one-line brief"
                 echo "  --yes, -y             Skip confirmation prompts (auto-confirm)"
                 echo ""
                 echo "Issue-mode options (only used when input is an ISSUE-REF):"
@@ -834,6 +855,8 @@ cmd_start() {
                 echo ""
                 echo "Examples:"
                 echo "  loki start                              # Interactive, analyze current dir"
+                echo "  loki start \"build a todo app\"           # BRIEF mode (zero-config fast run)"
+                echo "  loki start --brief \"snake\"              # BRIEF mode (single-word escape hatch)"
                 echo "  loki start ./prd.md                     # PRD mode"
                 echo "  loki start https://github.com/o/r/issues/42  # ISSUE mode (GitHub)"
                 echo "  loki start 123                          # ISSUE mode (current repo GitHub issue)"
@@ -1063,6 +1086,22 @@ cmd_start() {
                 no_plan=true
                 shift
                 ;;
+            --brief)
+                # R7: explicit one-line brief (escape hatch for single-word
+                # briefs that detect_arg_type would otherwise treat as a PRD
+                # path). Forces the zero-config first-run brief sub-path.
+                if [[ -n "${2:-}" ]] && [[ "${2:-}" != --* ]]; then
+                    brief_text="$2"
+                    shift 2
+                else
+                    echo -e "${RED}--brief requires a one-line description (e.g., --brief \"build a todo app\")${NC}"
+                    exit 1
+                fi
+                ;;
+            --brief=*)
+                brief_text="${1#*=}"
+                shift
+                ;;
             --budget)
                 if [[ -n "${2:-}" ]]; then
                     if ! echo "$2" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
@@ -1181,13 +1220,29 @@ cmd_start() {
         esac
     done
 
+    # Clear any stale raw-brief marker from a PRIOR run before we decide the
+    # mode of THIS run. Only the brief branch (below) re-writes it. Without this,
+    # a brief run leaves .loki/state/brief.txt behind and a later non-brief run
+    # (PRD or codebase-analysis) would have its proof mislabel source="brief"
+    # with the old one-liner, since proof-generator reads brief.txt first.
+    rm -f "$LOKI_DIR/state/brief.txt" 2>/dev/null || true
+
     # v6.84.0: Unified dispatch based on explicit flags or auto-detection
-    # Precedence: --issue > --prd > positional auto-detect > LOKI_PRD_FILE env
+    # Precedence: --brief > --issue > --prd > positional auto-detect >
+    #             LOKI_PRD_FILE env
     local detected_type=""
-    if [ -n "$explicit_mode" ]; then
+    if [ -n "$brief_text" ]; then
+        # R7: explicit --brief always forces the zero-config brief sub-path.
+        detected_type="brief"
+    elif [ -n "$explicit_mode" ]; then
         detected_type="$explicit_mode"
     elif [ -n "$positional_arg" ]; then
         detected_type=$(detect_arg_type "$positional_arg")
+        # R7: a positional one-line brief (whitespace, not a file/issue) maps to
+        # the brief sub-path; capture the text from the positional arg.
+        if [ "$detected_type" = "brief" ]; then
+            brief_text="$positional_arg"
+        fi
     elif [ -n "${LOKI_PRD_FILE:-}" ]; then
         detected_type="prd"
         prd_file="$LOKI_PRD_FILE"
@@ -1225,6 +1280,60 @@ cmd_start() {
         export LOKI_UNIFIED_START=1
         cmd_run "${run_args[@]}"
         return $?
+    fi
+
+    # R7 (zero-config first run): BRIEF mode. The user gave a one-line brief
+    # (`loki start "build a todo app"` or `loki start --brief "..."`). Synthesize
+    # a forward-looking PRD, switch to the lightweight TTFV profile (honest fast:
+    # capped iterations, council off, simple tier, heavy phases off), and mark
+    # LOKI_TTFV=1 so run.sh prints the "what next / go deeper" framing at the
+    # end. Then fall through to the normal flow, which appends prd_file to args
+    # and execs run.sh. This is additive -- nothing here changes the PRD/issue
+    # paths above.
+    if [ "$detected_type" = "brief" ]; then
+        local version
+        version=$(get_version)
+        local _ttfv_max_iter="${LOKI_MAX_ITERATIONS:-3}"
+        mkdir -p "$LOKI_DIR" 2>/dev/null || true
+        local brief_prd="$LOKI_DIR/brief-prd-$$.md"
+        synthesize_brief_prd "$brief_prd" "$brief_text"
+        prd_file="$brief_prd"
+
+        # Persist the raw one-liner so the proof-of-run can show the actual brief
+        # the user typed ("Built and verified from: <brief>") instead of falling
+        # back to "codebase-analysis / No brief recorded". The synthesized PRD is
+        # kept distinct (brief-prd-$$.md); the raw brief is the stronger, more
+        # honest shareable artifact. proof-generator.py::_collect_spec reads this
+        # as a fallback when no PRD_PATH / generated-prd.md is present.
+        mkdir -p "$LOKI_DIR/state" 2>/dev/null || true
+        printf '%s' "$brief_text" > "$LOKI_DIR/state/brief.txt" 2>/dev/null || true
+
+        # Apply the shared lightweight profile and flag the TTFV first-run path.
+        # The signal value ("brief") drives the end-of-run wording in run.sh so
+        # the message matches what actually ran (lightweight, council off).
+        set_ttfv_lightweight_profile "$_ttfv_max_iter"
+        export LOKI_TTFV=brief
+        # Skip the heavy auto-plan analysis -- the brief path is the fast path,
+        # and we already printed the upfront framing below.
+        no_plan=true
+
+        echo -e "${BOLD}Loki Mode v$version - Zero-config first run${NC}"
+        echo ""
+        echo -e "${CYAN}Brief:${NC} $brief_text"
+        echo -e "${DIM}Fast first pass: $_ttfv_max_iter iterations max, council off, simple tier.${NC}"
+        echo -e "${DIM}You will get a runnable artifact and a proof-of-run quickly.${NC}"
+        echo -e "${DIM}Go deeper later with: loki start (full RARV-C depth).${NC}"
+        echo -e "${GREEN}Brief PRD written${NC} to $brief_prd"
+        echo ""
+    fi
+
+    # R7: existing-repo no-arg path also gets the TTFV "what next" framing at the
+    # end of the run. Execution here is UNCHANGED (full-depth no-PRD codebase
+    # analysis + generated-PRD-reuse); we only add accurate end-of-run framing.
+    # The signal value ("repo") drives the full-depth wording in run.sh so the
+    # message does not falsely claim a lightweight pass.
+    if [ "$detected_type" = "empty" ] && [ -z "${LOKI_TTFV:-}" ]; then
+        export LOKI_TTFV=repo
     fi
 
     # PRD mode: positional arg is the PRD file (if not already set via --prd)
@@ -6207,6 +6316,187 @@ cmd_export() {
     esac
 }
 
+# R8: Shareable team assets. Bundles a team's invested, reusable assets
+# (cross-project + project memory/learnings, the agent registry, PRD
+# templates, council config, optionally the R5 wiki) into a portable,
+# REDACTED tarball, and re-imports them into another project or fresh clone.
+#
+# Scope vs cmd_export: cmd_export emits a per-run SESSION SNAPSHOT
+# (json/md/csv/timeline) and is NOT portable or redacted. cmd_assets emits a
+# portable, redacted TEAM-ASSET tarball -- different scope, different artifact.
+# Redaction REUSES the single proof_redact chokepoint via the
+# autonomy/lib/assets_bundle.py helper. No second redactor or parallel exporter.
+cmd_assets() {
+    local subcommand="${1:-help}"
+    shift 2>/dev/null || true
+
+    local helper="$_LOKI_SCRIPT_DIR/lib/assets_bundle.py"
+    if [ ! -f "$helper" ]; then
+        echo -e "${RED}Error: assets helper not found at $helper${NC}" >&2
+        return 1
+    fi
+    if ! command -v python3 &>/dev/null; then
+        echo -e "${RED}Error: python3 is required for 'loki assets'${NC}" >&2
+        return 1
+    fi
+
+    # Project dir holds .loki/ (memory, council, wiki). Default to cwd.
+    local project_dir
+    project_dir="$(pwd)"
+
+    # repo_root holds agents/types.json + templates/. The export and import
+    # roots are DELIBERATELY ASYMMETRIC (not a bug):
+    #   - EXPORT reads from the loki install ($SKILL_DIR), where a team's
+    #     edited registry / templates actually live and are read at runtime
+    #     (autonomy/loki:9781, 8840 read templates from $SKILL_DIR; cmd_agent
+    #     reads agents/types.json from the install first).
+    #   - IMPORT writes to the current working directory (the root of the
+    #     target clone the user is setting up), NEVER back into the install.
+    #     Writing into $SKILL_DIR would clobber the live install's shipped
+    #     registry / templates with redacted copies.
+    # Honest limitation: agents/templates restore relative to cwd, so run
+    # `loki assets import` from the root of the target clone. A global-install
+    # user must copy the restored agents/ + templates/ into their install for
+    # loki to read them at runtime (memory/learnings/council/wiki are unaffected
+    # -- those restore to $HOME/.loki and <project>/.loki and take effect
+    # immediately).
+    local export_repo_root="${SKILL_DIR:-$(cd "$_LOKI_SCRIPT_DIR/.." && pwd)}"
+    local import_repo_root="$project_dir"
+
+    case "$subcommand" in
+        --help|-h|help|"")
+            echo -e "${BOLD}loki assets${NC} - Export/import shareable team assets (R8)"
+            echo ""
+            echo "Bundles a team's reusable assets into a portable, redacted"
+            echo "tarball so setup compounds into shared, importable value."
+            echo ""
+            echo "Usage:"
+            echo "  loki assets export <bundle.tgz> [--wiki] [--categories a,b,c]"
+            echo "  loki assets import <bundle.tgz> [--no-merge] [--into-install]"
+            echo "  loki assets inspect <bundle.tgz>"
+            echo ""
+            echo "Assets bundled (default):"
+            echo "  learnings   ~/.loki/learnings/*.jsonl (cross-project)"
+            echo "  memory      <project>/.loki/memory/** (episodic/semantic/skills)"
+            echo "  agents      agents/types.json (agent registry)"
+            echo "  templates   templates/*.md (PRD templates)"
+            echo "  council     <project>/.loki/council/*.json (council config/state)"
+            echo "  wiki        <project>/.loki/wiki/** (opt-in via --wiki)"
+            echo ""
+            echo "All bundled content is redacted via the proof_redact chokepoint:"
+            echo "secrets, keys, tokens, and absolute home/repo paths are stripped"
+            echo "before the bundle is written. Originals on disk are never changed."
+            echo ""
+            echo "Restore locations on import:"
+            echo "  learnings -> \$HOME/.loki/learnings   (effective immediately)"
+            echo "  memory    -> <cwd>/.loki/memory       (effective immediately)"
+            echo "  council   -> <cwd>/.loki/council      (effective immediately)"
+            echo "  wiki      -> <cwd>/.loki/wiki         (effective immediately)"
+            echo "  agents    -> <cwd>/agents/types.json"
+            echo "  templates -> <cwd>/templates/*.md"
+            echo "Run import from the ROOT of the target clone. Note: agents and"
+            echo "templates are read by loki from its install dir at runtime. On a"
+            echo "global install, pass --into-install so agents/templates restore"
+            echo "into the install dir and are read at runtime (default is cwd,"
+            echo "which suits a repo-clone where loki runs from the clone root)."
+            echo ""
+            echo "Examples:"
+            echo "  loki assets export team-assets.tgz"
+            echo "  loki assets export team-assets.tgz --wiki"
+            echo "  loki assets import team-assets.tgz       # merge learnings, overwrite rest"
+            echo "  loki assets import team-assets.tgz --no-merge"
+            echo "  loki assets inspect team-assets.tgz      # show manifest only"
+            return 0
+            ;;
+        export)
+            local out_path="${1:-}"
+            if [ -z "$out_path" ]; then
+                echo -e "${RED}Usage: loki assets export <bundle.tgz> [--wiki] [--categories a,b,c]${NC}" >&2
+                return 1
+            fi
+            shift 2>/dev/null || true
+            if ! _export_check_overwrite "$out_path"; then
+                return 1
+            fi
+            echo "Bundling team assets (redacting secrets and paths)..."
+            if LOKI_ASSETS_HOME="$HOME" LOKI_ASSETS_REPO="$export_repo_root" \
+               LOKI_ASSETS_PROJECT="$project_dir" \
+               python3 "$helper" export "$out_path" "$@"; then
+                echo -e "${GREEN}Bundle written: $out_path${NC}"
+            else
+                echo -e "${RED}Export failed${NC}" >&2
+                return 1
+            fi
+            ;;
+        import)
+            local bundle_path="${1:-}"
+            if [ -z "$bundle_path" ]; then
+                echo -e "${RED}Usage: loki assets import <bundle.tgz> [--no-merge] [--into-install]${NC}" >&2
+                return 1
+            fi
+            shift 2>/dev/null || true
+            if [ ! -f "$bundle_path" ]; then
+                echo -e "${RED}Error: bundle not found: $bundle_path${NC}" >&2
+                return 1
+            fi
+            # --into-install: restore agents/templates into the loki install
+            # ($SKILL_DIR) so a global-install user has them read at runtime,
+            # instead of into cwd. Strip the flag before passing the rest to
+            # the helper (the helper does not understand it). The install dir
+            # is the same source export reads from, so this is the symmetric
+            # round-trip for a global install. Off by default (cwd is safe).
+            local _import_args=()
+            local arg
+            for arg in "$@"; do
+                if [ "$arg" = "--into-install" ]; then
+                    import_repo_root="$export_repo_root"
+                else
+                    _import_args+=("$arg")
+                fi
+            done
+            if [ "$import_repo_root" = "$export_repo_root" ]; then
+                echo "Importing team assets (agents/templates -> install dir: $import_repo_root)..."
+            else
+                echo "Importing team assets into this project/clone (cwd)..."
+            fi
+            # Bash 3.2 (macOS) errors on "${arr[@]}" when the array is empty
+            # and set -u is active; guard with the count.
+            if [ "${#_import_args[@]}" -gt 0 ]; then
+                LOKI_ASSETS_HOME="$HOME" LOKI_ASSETS_REPO="$import_repo_root" \
+                LOKI_ASSETS_PROJECT="$project_dir" \
+                python3 "$helper" import "$bundle_path" "${_import_args[@]}"
+            else
+                LOKI_ASSETS_HOME="$HOME" LOKI_ASSETS_REPO="$import_repo_root" \
+                LOKI_ASSETS_PROJECT="$project_dir" \
+                python3 "$helper" import "$bundle_path"
+            fi
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}Import complete${NC}"
+            else
+                echo -e "${RED}Import failed${NC}" >&2
+                return 1
+            fi
+            ;;
+        inspect)
+            local bundle_path="${1:-}"
+            if [ -z "$bundle_path" ]; then
+                echo -e "${RED}Usage: loki assets inspect <bundle.tgz>${NC}" >&2
+                return 1
+            fi
+            if [ ! -f "$bundle_path" ]; then
+                echo -e "${RED}Error: bundle not found: $bundle_path${NC}" >&2
+                return 1
+            fi
+            python3 "$helper" inspect "$bundle_path"
+            ;;
+        *)
+            echo -e "${RED}Unknown subcommand: $subcommand${NC}" >&2
+            echo "Run 'loki assets --help' for usage."
+            return 1
+            ;;
+    esac
+}
+
 # Guard: check if output file exists and warn before overwriting
 _export_check_overwrite() {
     local output="$1"
@@ -8845,6 +9135,65 @@ cmd_demo() {
     return $start_exit
 }
 
+# R7 (zero-config first run): set the lightweight TTFV execution profile.
+# Shared by `cmd_quick` and the `loki start "<brief>"` brief sub-path so the
+# fast first pass means the same thing in both: capped iterations, completion
+# council off, simple complexity tier, heavy phases off. This is HONEST fast --
+# it genuinely shortens the path to first visible value; it does not fake
+# progress. Depth is opt-in via a plain `loki start` re-run.
+# Usage: set_ttfv_lightweight_profile [max_iter]
+set_ttfv_lightweight_profile() {
+    local max_iter="${1:-${LOKI_MAX_ITERATIONS:-3}}"
+    export LOKI_MAX_ITERATIONS="$max_iter"
+    export LOKI_COMPLEXITY=simple
+    export LOKI_COUNCIL_ENABLED=false
+    export LOKI_PHASE_CODE_REVIEW=false
+    export LOKI_PHASE_PERFORMANCE=false
+    export LOKI_PHASE_ACCESSIBILITY=false
+    export LOKI_PHASE_REGRESSION=false
+    export LOKI_PHASE_UAT=false
+    export LOKI_PHASE_WEB_RESEARCH=false
+}
+
+# R7: synthesize a forward-looking PRD from a one-line brief. Writes to a
+# unique path (caller-provided) and echoes nothing -- the file is the output.
+# Kept DISTINCT from .loki/generated-prd.md (codebase-analysis artifact) so it
+# never pollutes the v7.8.1 generated-PRD-reuse signature logic. The brief text
+# is the project intent; the rest is a minimal scaffold the agent fills in.
+# Usage: synthesize_brief_prd <output_file> <brief_text>
+synthesize_brief_prd() {
+    local out_file="$1"
+    local brief_text="$2"
+    local out_dir
+    out_dir="$(dirname "$out_file")"
+    mkdir -p "$out_dir" 2>/dev/null || true
+    cat > "$out_file" << BRIEFEOF
+# Project Brief
+
+## Overview
+$brief_text
+
+## Requirements
+- Build the smallest working version of the above that a user can see and run.
+- Prefer a runnable artifact (a page, a CLI, an API endpoint) over scaffolding.
+- Follow conventional structure for the chosen stack; keep dependencies minimal.
+- Write a short README describing how to run it.
+
+## Success Criteria
+- A user can run the result and observe the core behavior described above.
+- No errors on a clean start; the happy path works end to end.
+
+## Constraints
+- This is a fast first pass (zero-config first run). Keep scope tight.
+- Do not over-engineer; depth and hardening come on a later full run.
+- No emojis, no em dashes in code, comments, or docs.
+
+---
+
+**Mode:** Brief (zero-config first run, lightweight first pass)
+BRIEFEOF
+}
+
 # Quick mode - lightweight single-task execution
 cmd_quick() {
     # v7.6.3 B-11 fix: --help previously fell through to provider invocation
@@ -8932,16 +9281,9 @@ QPRDEOF
     echo -e "${GREEN}Quick PRD generated${NC} at $quick_prd"
     echo ""
 
-    # Set lightweight execution environment
-    export LOKI_MAX_ITERATIONS="$max_iter"
-    export LOKI_COMPLEXITY=simple
-    export LOKI_COUNCIL_ENABLED=false
-    export LOKI_PHASE_CODE_REVIEW=false
-    export LOKI_PHASE_PERFORMANCE=false
-    export LOKI_PHASE_ACCESSIBILITY=false
-    export LOKI_PHASE_REGRESSION=false
-    export LOKI_PHASE_UAT=false
-    export LOKI_PHASE_WEB_RESEARCH=false
+    # Set lightweight execution environment (shared TTFV profile -- see
+    # set_ttfv_lightweight_profile; same profile the R7 brief sub-path uses).
+    set_ttfv_lightweight_profile "$max_iter"
 
     # Record start for efficiency tracking
     record_session_start
@@ -9490,6 +9832,22 @@ cmd_init() {
         echo -e "Selected: ${CYAN}$template_name${NC} ($(_get_template_label "$template_name"))"
     fi
 
+    # R10: a hub-installed template (.loki/templates/<name>.md) is also valid.
+    # Resolve it via agents/hub_install.py (validates the name as a safe id).
+    local _installed_tpl=""
+    local _hub_py_init="$SKILL_DIR/agents/hub_install.py"
+    [ -f "$_hub_py_init" ] || _hub_py_init="agents/hub_install.py"
+    if [[ -f "$_hub_py_init" ]]; then
+        _installed_tpl=$(TPL_NAME="$template_name" HUB_PY="$_hub_py_init" python3 -c "
+import os
+import importlib.util as ilu
+sp = ilu.spec_from_file_location('loki_hub_install', os.environ.get('HUB_PY'))
+m = ilu.module_from_spec(sp); sp.loader.exec_module(m)
+p = m.installed_template_path(os.environ['TPL_NAME'])
+print(p or '')
+" 2>/dev/null)
+    fi
+
     # Validate template_name against known list before filesystem lookup
     local _tpl_valid=false
     for _tpl_check in "${TEMPLATE_NAMES[@]}"; do
@@ -9498,6 +9856,9 @@ cmd_init() {
             break
         fi
     done
+    if [[ -n "$_installed_tpl" ]]; then
+        _tpl_valid=true
+    fi
     if ! $_tpl_valid; then
         echo -e "${RED}Unknown template: $template_name${NC}"
         echo ""
@@ -9506,18 +9867,23 @@ cmd_init() {
             echo "  $tname"
         done
         echo ""
-        echo "Run 'loki init --list' for details."
+        echo "Run 'loki init --list' for built-in details, 'loki template list' for installed."
         exit 1
     fi
 
     # Resolve template file
     local template_file=""
-    for dir in "$SKILL_DIR/templates" "$SKILL_DIR/examples"; do
-        if [[ -f "$dir/${template_name}.md" ]]; then
-            template_file="$dir/${template_name}.md"
-            break
-        fi
-    done
+    if [[ -n "$_installed_tpl" && -f "$_installed_tpl" ]]; then
+        template_file="$_installed_tpl"
+    fi
+    if [[ -z "$template_file" ]]; then
+        for dir in "$SKILL_DIR/templates" "$SKILL_DIR/examples"; do
+            if [[ -f "$dir/${template_name}.md" ]]; then
+                template_file="$dir/${template_name}.md"
+                break
+            fi
+        done
+    fi
 
     if [[ -z "$template_file" ]]; then
         echo -e "${RED}Unknown template: $template_name${NC}"
@@ -12951,6 +13317,9 @@ main() {
         export)
             cmd_export "$@"
             ;;
+        assets)
+            cmd_assets "$@"
+            ;;
         config)
             cmd_config "$@"
             ;;
@@ -12968,6 +13337,9 @@ main() {
             ;;
         checkpoint|cp)
             cmd_checkpoint "$@"
+            ;;
+        rollback)
+            cmd_rollback "$@"
             ;;
         council)
             cmd_council "$@"
@@ -13027,11 +13399,20 @@ main() {
         agent)
             cmd_agent "$@"
             ;;
+        template)
+            cmd_template "$@"
+            ;;
         state)
             cmd_state "$@"
             ;;
         metrics)
             cmd_metrics "$@"
+            ;;
+        cost)
+            cmd_cost "$@"
+            ;;
+        trust)
+            cmd_trust "$@"
             ;;
         syslog)
             cmd_syslog "$@"
@@ -13060,6 +13441,9 @@ main() {
         docs)
             cmd_docs "$@"
             ;;
+        wiki)
+            cmd_wiki "$@"
+            ;;
         magic)
             cmd_magic "$@"
             ;;
@@ -13077,6 +13461,9 @@ main() {
             ;;
         proof)
             cmd_proof "$@"
+            ;;
+        bench)
+            cmd_bench "$@"
             ;;
         context|ctx)
             cmd_context "$@"
@@ -16287,12 +16674,19 @@ SHOW_EOF
             local restored=0
             for item in "$cp_dir"/*; do
                 [ -e "$item" ] || continue
-                local name=$(basename "$item")
+                local name
+                name=$(basename "$item")
                 [ "$name" = "metadata.json" ] && continue
+                # R6: do not restore the worktree-snapshot sidecar as state.
+                [ "$name" = "worktree-snapshot.txt" ] && continue
 
                 if [ -d "$item" ]; then
-                    rm -rf ".loki/$name"
-                    cp -r "$item" ".loki/$name" 2>/dev/null && restored=$((restored + 1))
+                    # R6 data-loss fix: NEVER `rm -rf ".loki/$name"` -- the
+                    # checkpoint store lives under .loki/state/checkpoints/, so
+                    # blowing away .loki/state/ would destroy every checkpoint
+                    # (including this one). Merge-copy directory contents instead.
+                    mkdir -p ".loki/$name"
+                    cp -r "$item"/. ".loki/$name"/ 2>/dev/null && restored=$((restored + 1))
                 else
                     cp "$item" ".loki/$name" 2>/dev/null && restored=$((restored + 1))
                 fi
@@ -16300,17 +16694,28 @@ SHOW_EOF
 
             echo -e "  Restored: ${GREEN}$restored${NC} state items from $cp_id"
 
-            # Show git info for manual code rollback
-            local cp_sha=$(_CP_METADATA="$metadata" python3 -c "import json, os; d=json.load(open(os.environ['_CP_METADATA'])); print(d.get('git_sha','unknown'))" 2>/dev/null)
-            if [ -n "$cp_sha" ] && [ "$cp_sha" != "unknown" ] && [ "$cp_sha" != "not-a-git-repo" ]; then
+            # Show how to also restore code. R6: prefer the anchored working-tree
+            # snapshot over `git reset --hard <git_sha>`. git_sha is HEAD (the last
+            # commit), and Loki does not commit per iteration, so a hard reset
+            # discards the iteration's work instead of reconstructing it -- the old
+            # hint was misleading.
+            if git rev-parse --verify "refs/loki/cp/${cp_id}" >/dev/null 2>&1; then
                 echo ""
-                echo -e "  ${YELLOW}Note:${NC} Session state has been restored, but code is unchanged."
-                echo "  To also roll back code to the checkpoint's git state:"
+                echo -e "  ${YELLOW}Note:${NC} Session state restored. Code is unchanged."
+                echo "  To also restore the working tree to this checkpoint's snapshot:"
                 echo ""
-                echo -e "    ${DIM}git reset --hard ${cp_sha:0:8}${NC}"
+                echo -e "    ${DIM}git stash apply refs/loki/cp/${cp_id}${NC}"
                 echo ""
-                echo -e "  ${RED}Warning:${NC} git reset --hard will discard uncommitted changes."
-                echo "  Consider 'git stash' first to preserve current work."
+                echo -e "  ${DIM}(restores tracked files; newly-added files are not removed)${NC}"
+            else
+                local cp_sha
+                cp_sha=$(_CP_METADATA="$metadata" python3 -c "import json, os; d=json.load(open(os.environ['_CP_METADATA'])); print(d.get('git_sha','unknown'))" 2>/dev/null)
+                if [ -n "$cp_sha" ] && [ "$cp_sha" != "unknown" ] && [ "$cp_sha" != "not-a-git-repo" ]; then
+                    echo ""
+                    echo -e "  ${YELLOW}Note:${NC} Session state restored, but no working-tree snapshot"
+                    echo "  was captured for this checkpoint, so code changes since the last"
+                    echo -e "  commit (${cp_sha:0:8}) are not restorable from here."
+                fi
             fi
             ;;
 
@@ -16341,6 +16746,157 @@ SHOW_EOF
         *)
             echo -e "${RED}Unknown checkpoint command: $subcommand${NC}"
             echo "Run 'loki checkpoint help' for usage."
+            return 1
+            ;;
+    esac
+}
+
+# R6: one-command rollback. Top-level, obvious entry point that mirrors the Bun
+# `loki rollback` subcommands (list/show/to/latest) so both routes are at parity.
+# Restore is destructive on .loki/ state, so it ALWAYS captures a forced
+# pre-rollback snapshot first (re-undoability invariant) and then glob-restores
+# whatever the checkpoint dir contains (works across all three checkpoint writers).
+cmd_rollback() {
+    local subcommand="${1:-help}"
+    shift 2>/dev/null || true
+
+    local checkpoints_dir=".loki/state/checkpoints"
+    local index_file="$checkpoints_dir/index.jsonl"
+
+    # Resolve the most recent checkpoint id from on-disk cp-*/chk-* dirs, sorted
+    # by mtime (newest last). Mirrors the Bun "latest = last entry" semantics but
+    # is robust to the three differing id formats.
+    _rollback_latest_id() {
+        [ -d "$checkpoints_dir" ] || return 1
+        ls -1dt "$checkpoints_dir"/*/ 2>/dev/null | head -1 | sed 's#/$##' | xargs -I{} basename {} 2>/dev/null
+    }
+
+    # Force a pre-rollback snapshot of current state, then glob-restore the target.
+    # Delegates the actual restore to `cmd_checkpoint rollback`, which already
+    # glob-restores and is shared with the manual path (no duplication).
+    _rollback_restore() {
+        local target_id="$1"
+        local want_code="$2"
+
+        # Validate id (defense in depth; cmd_checkpoint validates again).
+        if [[ ! "$target_id" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo -e "${RED}Error: Invalid checkpoint ID${NC}"
+            return 1
+        fi
+        if [ ! -d "$checkpoints_dir/$target_id" ]; then
+            echo -e "${RED}Error: Checkpoint not found: $target_id${NC}"
+            echo "Run 'loki rollback list' to see available checkpoints."
+            return 1
+        fi
+
+        # Re-undoability: snapshot current state before overwriting it.
+        local pre_id
+        pre_id="rb-pre-$(date -u '+%Y%m%d-%H%M%S')"
+        local pre_dir="$checkpoints_dir/$pre_id"
+        mkdir -p "$pre_dir"
+        local saved=0
+        for item in .loki/session.json .loki/dashboard-state.json .loki/CONTINUITY.md .loki/autonomy-state.json .loki/state .loki/queue; do
+            if [ -e "$item" ]; then
+                cp -r "$item" "$pre_dir/" 2>/dev/null && saved=$((saved + 1))
+            fi
+        done
+        _RB_PID="$pre_id" _RB_TS="$(date -u '+%Y-%m-%dT%H:%M:%SZ')" _RB_DIR="$pre_dir" \
+        _RB_INDEX="$index_file" _RB_CHKDIR="$checkpoints_dir" python3 << 'RB_PRE_EOF' 2>/dev/null || true
+import json, os
+meta = {"id": os.environ["_RB_PID"], "timestamp": os.environ["_RB_TS"],
+        "message": "pre-rollback snapshot", "created_by": "loki rollback"}
+d = os.environ["_RB_DIR"]
+os.makedirs(d, exist_ok=True)
+with open(os.path.join(d, "metadata.json"), "w") as f:
+    json.dump(meta, f, indent=2)
+os.makedirs(os.environ["_RB_CHKDIR"], exist_ok=True)
+with open(os.environ["_RB_INDEX"], "a") as f:
+    f.write(json.dumps({"id": meta["id"], "timestamp": meta["timestamp"], "message": meta["message"]}) + "\n")
+RB_PRE_EOF
+        echo -e "  ${DIM}Saved prior state as ${pre_id} (undo this rollback with: loki rollback to ${pre_id})${NC}"
+
+        # Perform the actual state restore via the shared glob-restore path.
+        cmd_checkpoint rollback "$target_id"
+
+        # Optional code restore from the anchored working-tree snapshot.
+        if [ "$want_code" = "1" ]; then
+            if git rev-parse --verify "refs/loki/cp/${target_id}" >/dev/null 2>&1; then
+                echo ""
+                echo -e "  ${YELLOW}Restoring working tree from snapshot refs/loki/cp/${target_id}...${NC}"
+                if git stash apply "refs/loki/cp/${target_id}" 2>/dev/null; then
+                    echo -e "  ${GREEN}Working tree restored.${NC} (tracked files only; newly-added files were not removed)"
+                else
+                    echo -e "  ${RED}Could not apply snapshot cleanly.${NC} Resolve conflicts, or run: git stash apply refs/loki/cp/${target_id}"
+                fi
+            else
+                echo ""
+                echo -e "  ${YELLOW}No working-tree snapshot anchored for ${target_id}; code not restored.${NC}"
+            fi
+        fi
+    }
+
+    case "$subcommand" in
+        list|ls)
+            cmd_checkpoint list
+            ;;
+        show)
+            cmd_checkpoint show "$@"
+            ;;
+        to)
+            local target="${1:-}"
+            local want_code=0
+            shift 2>/dev/null || true
+            for a in "$@"; do [ "$a" = "--code" ] && want_code=1; done
+            if [ -z "$target" ]; then
+                echo -e "${RED}Error: Specify a checkpoint ID${NC}"
+                echo "Usage: loki rollback to <id> [--code]"
+                echo "Run 'loki rollback list' to see available checkpoints."
+                return 1
+            fi
+            echo -e "${BOLD}Rolling back to checkpoint: $target${NC}"
+            echo ""
+            _rollback_restore "$target" "$want_code"
+            ;;
+        latest)
+            local want_code=0
+            for a in "$@"; do [ "$a" = "--code" ] && want_code=1; done
+            local latest_id
+            latest_id=$(_rollback_latest_id)
+            if [ -z "$latest_id" ]; then
+                echo -e "${RED}No checkpoints found to roll back to.${NC}"
+                return 1
+            fi
+            echo -e "${BOLD}Rolling back to latest checkpoint: $latest_id${NC}"
+            echo ""
+            _rollback_restore "$latest_id" "$want_code"
+            ;;
+        help|--help|-h)
+            echo -e "${BOLD}loki rollback${NC} - One-command rollback to a checkpoint"
+            echo ""
+            echo "Restore .loki/ state and iteration/conversation context to a"
+            echo "previous checkpoint. Every rollback first saves your current state"
+            echo "as a pre-rollback snapshot, so you can always undo the undo."
+            echo ""
+            echo "Usage: loki rollback <command> [args]"
+            echo ""
+            echo "Commands:"
+            echo "  list              List recent checkpoints"
+            echo "  show <id>         Show checkpoint details"
+            echo "  to <id> [--code]  Restore to checkpoint <id>"
+            echo "  latest [--code]   Restore to the most recent checkpoint"
+            echo ""
+            echo "  --code            Also restore the working tree from the anchored"
+            echo "                    git snapshot (tracked files only; overwrites them)."
+            echo ""
+            echo "Examples:"
+            echo "  loki rollback list"
+            echo "  loki rollback latest"
+            echo "  loki rollback to cp-3-1717000000"
+            echo "  loki rollback to cp-3-1717000000 --code"
+            ;;
+        *)
+            echo -e "${RED}Unknown rollback command: $subcommand${NC}"
+            echo "Run 'loki rollback help' for usage."
             return 1
             ;;
     esac
@@ -17829,6 +18385,352 @@ cmd_syslog() {
     esac
 }
 
+# Visible trust trajectory (R4): is the agent earning autonomy on THIS repo?
+# Shows council pass-rate, gate pass-rate, iterations-to-completion, and human
+# interventions trending up/down/flat across the per-run proof-of-run history
+# in .loki/proofs/. Bash fallback for the Bun route (loki-ts/src/commands/
+# trust.ts); both derive from the same proof.json files. Shells out to the
+# shared derivation module (autonomy/lib/trust_trajectory.py) so the CLI, the
+# dashboard endpoint, and the tests all agree. Honest: with <2 runs it prints
+# "not enough history yet", never a fabricated trend.
+cmd_trust() {
+    local pass_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                echo -e "${BOLD}loki trust${NC} - Visible trust trajectory (R4)"
+                echo ""
+                echo "Usage: loki trust [options]"
+                echo ""
+                echo "Shows whether the agent is earning autonomy on THIS repo over"
+                echo "time: council pass-rate, gate pass-rate, iterations-to-completion,"
+                echo "and human interventions, each trending up/down/flat. Derived"
+                echo "read-only from proof-of-run history in .loki/proofs/."
+                echo ""
+                echo "Options:"
+                echo "  --json               Machine-readable JSON output"
+                echo "  --help, -h           Show this help"
+                echo ""
+                echo "With fewer than 2 recorded runs this prints 'not enough history"
+                echo "yet' rather than a fabricated trend. Complements 'loki kpis'"
+                echo "(single-run snapshot)."
+                exit 0
+                ;;
+            --json) pass_args+=("--json"); shift ;;
+            *) echo -e "${RED}Unknown option: $1${NC}"; echo "Run 'loki trust --help' for usage."; exit 1 ;;
+        esac
+    done
+
+    if ! command -v python3 &>/dev/null; then
+        echo -e "${RED}python3 is required for the trust trajectory view${NC}"
+        exit 1
+    fi
+
+    local trust_mod="$_LOKI_SCRIPT_DIR/lib/trust_trajectory.py"
+    if [ ! -f "$trust_mod" ]; then
+        echo -e "${RED}trust_trajectory.py not found at $trust_mod${NC}"
+        exit 1
+    fi
+
+    local loki_dir="${LOKI_DIR:-.loki}"
+    # Safe empty-array expansion (bash 3.2 + set -u): ${arr[@]+"${arr[@]}"}
+    # expands to nothing when pass_args is empty instead of an unbound error.
+    python3 "$trust_mod" --loki-dir "$loki_dir" ${pass_args[@]+"${pass_args[@]}"}
+}
+
+# Transparent cost view (R3): per-run + per-project spend, model routing, and
+# budget status with the 80% warn line. Reuses efficiency_cost.collect_efficiency
+# for the current-run aggregate (single source of truth) and reads .loki/proofs/
+# for persistent per-run history. Honest: prints "not recorded" when cost was
+# never collected, never a fabricated $0.00.
+cmd_cost() {
+    local show_json=false
+    local last_n=0
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                echo -e "${BOLD}loki cost${NC} - Transparent cost and budget view"
+                echo ""
+                echo "Usage: loki cost [options]"
+                echo ""
+                echo "Shows the current run's spend (from .loki/metrics/efficiency/),"
+                echo "per-run history (from .loki/proofs/), model routing by spend, and"
+                echo "budget status. Budgets warn at 80% and hard-stop at 100%."
+                echo ""
+                echo "Options:"
+                echo "  --json               Machine-readable JSON output"
+                echo "  --last N             Show only the last N runs in history (default: all)"
+                echo "  --help, -h           Show this help"
+                echo ""
+                echo "Examples:"
+                echo "  loki cost                      # Cost summary + budget status"
+                echo "  loki cost --json               # Machine-readable output"
+                echo "  loki cost --last 10            # Last 10 runs of history"
+                echo ""
+                echo "Budget cap: set LOKI_BUDGET_LIMIT (USD). Warns at 80%, stops at 100%."
+                exit 0
+                ;;
+            --json) show_json=true; shift ;;
+            --last) last_n="${2:-0}"; shift 2 ;;
+            --last=*) last_n="${1#*=}"; shift ;;
+            *) echo -e "${RED}Unknown option: $1${NC}"; echo "Run 'loki cost --help' for usage."; exit 1 ;;
+        esac
+    done
+
+    local loki_dir="${LOKI_DIR:-.loki}"
+
+    if ! command -v python3 &>/dev/null; then
+        echo -e "${RED}python3 is required for the cost view${NC}"
+        exit 1
+    fi
+
+    LOKI_DIR="$loki_dir" \
+    LOKI_SKILL_DIR="$SKILL_DIR" \
+    COST_JSON="$show_json" \
+    COST_LAST_N="$last_n" \
+    COST_BUDGET_LIMIT="${LOKI_BUDGET_LIMIT:-}" \
+    python3 << 'COST_SCRIPT'
+import json
+import os
+import sys
+
+loki_dir = os.environ.get("LOKI_DIR", ".loki")
+skill_dir = os.environ.get("LOKI_SKILL_DIR", "")
+show_json = os.environ.get("COST_JSON", "false") == "true"
+try:
+    last_n = int(os.environ.get("COST_LAST_N", "0") or "0")
+except ValueError:
+    last_n = 0
+budget_limit_env = os.environ.get("COST_BUDGET_LIMIT", "").strip()
+
+# ANSI (suppressed under --json / non-tty)
+use_color = (not show_json) and sys.stdout.isatty()
+BOLD = "\033[1m" if use_color else ""
+DIM = "\033[2m" if use_color else ""
+CYAN = "\033[36m" if use_color else ""
+GREEN = "\033[32m" if use_color else ""
+YELLOW = "\033[33m" if use_color else ""
+RED = "\033[31m" if use_color else ""
+NC = "\033[0m" if use_color else ""
+
+# Reuse the shared cost lib (single source of truth). Never duplicate the
+# cost-summing logic; collect_efficiency returns usd=None when nothing was
+# recorded, which we surface honestly.
+collect_efficiency = None
+if skill_dir:
+    lib_dir = os.path.join(skill_dir, "autonomy", "lib")
+    if lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
+    try:
+        from efficiency_cost import collect_efficiency as _ce
+        collect_efficiency = _ce
+    except Exception:
+        collect_efficiency = None
+
+def _fmt_usd(v):
+    if v is None:
+        return "not recorded"
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return "not recorded"
+    s = ("%.4f" % n).rstrip("0").rstrip(".")
+    if "." not in s:
+        s += ".00"
+    elif len(s.split(".")[1]) == 1:
+        s += "0"
+    return "$" + s
+
+# --- current run aggregate (reuse collect_efficiency, single source) -----
+# We do NOT re-implement the cost sum here: efficiency_cost.collect_efficiency
+# is the single source of truth (shared with the proof generator and the R2
+# benchmark adapters). On a broken install where the lib is missing, we degrade
+# honestly rather than ship a divergent 5th copy of the cost math.
+current_cost = None
+current_model = ""
+lib_available = collect_efficiency is not None
+if lib_available:
+    try:
+        cost_dict, current_model = collect_efficiency(loki_dir)
+        current_cost = cost_dict.get("usd")
+    except Exception:
+        current_cost = None
+
+# --- per-run history from .loki/proofs/ ----------------------------------
+runs = []
+project_total = 0.0
+proofs_dir = os.path.join(loki_dir, "proofs")
+if os.path.isdir(proofs_dir):
+    for name in sorted(os.listdir(proofs_dir)):
+        run_dir = os.path.join(proofs_dir, name)
+        proof_json = os.path.join(run_dir, "proof.json")
+        if not os.path.isfile(proof_json):
+            continue
+        try:
+            d = json.load(open(proof_json))
+        except Exception:
+            continue
+        if not isinstance(d, dict):
+            continue
+        run_cost = (d.get("cost") or {}).get("usd")
+        run_cost_num = None
+        if run_cost is not None:
+            try:
+                run_cost_num = float(run_cost)
+                project_total += run_cost_num
+            except (TypeError, ValueError):
+                run_cost_num = None
+        runs.append({
+            "run_id": d.get("run_id", name),
+            "generated_at": d.get("generated_at"),
+            "model": (d.get("provider") or {}).get("model"),
+            "cost_usd": run_cost_num,
+            "files_changed": (d.get("files_changed") or {}).get("count"),
+            "final_verdict": (d.get("council") or {}).get("final_verdict"),
+        })
+runs.sort(key=lambda x: (x.get("generated_at") or ""), reverse=True)
+if last_n > 0:
+    runs = runs[:last_n]
+
+# --- budget status (read-time; warn at 80%, exceeded at 100%) ------------
+budget_limit = None
+budget_file = os.path.join(loki_dir, "metrics", "budget.json")
+if os.path.isfile(budget_file):
+    try:
+        bd = json.load(open(budget_file))
+        budget_limit = bd.get("limit") or bd.get("budget_limit")
+    except Exception:
+        budget_limit = None
+if budget_limit is None and budget_limit_env:
+    try:
+        budget_limit = float(budget_limit_env)
+    except ValueError:
+        budget_limit = None
+if budget_limit is not None:
+    try:
+        budget_limit = float(budget_limit)
+    except (TypeError, ValueError):
+        budget_limit = None
+
+budget_used = current_cost if isinstance(current_cost, (int, float)) else 0.0
+status = "none"
+percent_used = None
+remaining = None
+if budget_limit is not None and budget_limit > 0:
+    percent_used = round(budget_used / budget_limit * 100, 2)
+    remaining = max(0.0, budget_limit - budget_used)
+    if budget_used >= budget_limit:
+        status = "exceeded"
+    elif budget_used >= 0.80 * budget_limit:
+        status = "warn"
+    else:
+        status = "ok"
+
+# --- model routing by spend (from run history) ---------------------------
+by_model = {}
+for r in runs:
+    c = r.get("cost_usd")
+    if c is None:
+        continue
+    m = r.get("model") or "unknown"
+    by_model[m] = by_model.get(m, 0.0) + c
+
+if show_json:
+    out = {
+        "current_run": {
+            "cost_usd": current_cost,
+            "model": current_model or None,
+            "cost_recorded": current_cost is not None,
+            "cost_lib_available": lib_available,
+        },
+        "runs": runs,
+        "runs_count": len(runs),
+        "project_total_usd": round(project_total, 6) if runs else 0.0,
+        "by_model": {k: round(v, 6) for k, v in by_model.items()},
+        "budget": {
+            "limit": budget_limit,
+            "used": round(budget_used, 6),
+            "remaining": round(remaining, 6) if remaining is not None else None,
+            "percent_used": percent_used,
+            "status": status,
+            "warn_threshold_percent": 80,
+            "exceeded": status == "exceeded",
+        },
+    }
+    print(json.dumps(out, indent=2))
+    sys.exit(0)
+
+# --- human-readable ------------------------------------------------------
+ds = chr(36)
+print()
+print(BOLD + "Loki Cost" + NC)
+print(DIM + "=" * 50 + NC)
+
+print()
+print(CYAN + "Current run" + NC)
+if not lib_available:
+    print(DIM + "  Cost library unavailable (efficiency_cost.py not found)." + NC)
+    print(DIM + "  Current-run spend cannot be computed on this install." + NC)
+elif current_cost is None:
+    print("  Cost not recorded for this run.")
+else:
+    mtxt = (" (" + current_model + ")") if current_model else ""
+    print("  Spend: " + BOLD + _fmt_usd(current_cost) + NC + mtxt)
+
+print()
+print(CYAN + "Project history" + NC)
+print("  Runs recorded: " + str(len(runs)))
+print("  Total spend:   " + BOLD + (_fmt_usd(project_total) if runs else "$0.00") + NC)
+
+if by_model:
+    print()
+    print(CYAN + "Model routing (by spend)" + NC)
+    total_m = sum(by_model.values()) or 1.0
+    for m in sorted(by_model, key=lambda k: by_model[k], reverse=True):
+        v = by_model[m]
+        pct = v / total_m * 100
+        bar_len = int(pct / 5)
+        bar = "#" * bar_len + "." * (20 - bar_len)
+        print("  {:<16} {}{:>9} ({:4.1f}%) [{}]".format(m[:16], "", _fmt_usd(v), pct, bar))
+
+print()
+print(CYAN + "Budget" + NC)
+if budget_limit is None:
+    print("  No cap set. Set LOKI_BUDGET_LIMIT (USD) to cap spend.")
+    print(DIM + "  When set, Loki warns at 80% and hard-stops at 100%." + NC)
+else:
+    col = GREEN
+    if status == "warn":
+        col = YELLOW
+    elif status == "exceeded":
+        col = RED
+    print("  Cap:       " + _fmt_usd(budget_limit))
+    print("  Used:      " + _fmt_usd(budget_used) + " (" + col + str(percent_used) + "%" + NC + ")")
+    print("  Remaining: " + _fmt_usd(remaining))
+    print("  Status:    " + col + BOLD + status.upper() + NC)
+    if status == "warn":
+        print(YELLOW + "  Warning: at or above 80% of cap. Run continues; hard-stop at 100%." + NC)
+    elif status == "exceeded":
+        print(RED + "  Cap reached. The run is paused to prevent a surprise bill." + NC)
+
+if runs:
+    print()
+    print(CYAN + "Recent runs" + NC)
+    print(DIM + "  {:<28} {:<10} {:>9}  {}".format("Run", "Model", "Cost", "Verdict") + NC)
+    for r in runs[:max(last_n, 10) if last_n else 10]:
+        rid = str(r.get("run_id") or "")[:28]
+        mdl = str(r.get("model") or "")[:10]
+        cst = _fmt_usd(r.get("cost_usd"))
+        vrd = str(r.get("final_verdict") or "")
+        print("  {:<28} {:<10} {:>9}  {}".format(rid, mdl, cst, vrd))
+
+print()
+print(DIM + "Dashboard cost panel: /cost   |   JSON: loki cost --json" + NC)
+print()
+COST_SCRIPT
+}
+
 # Fetch and display Prometheus metrics from dashboard
 cmd_metrics() {
     local show_json=false
@@ -18889,6 +19791,104 @@ cmd_completions() {
     esac
 }
 
+cmd_template() {
+    local subcommand="${1:-list}"
+    shift 2>/dev/null || true
+
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local hub_py="${script_dir}/../agents/hub_install.py"
+    [ -f "$hub_py" ] || hub_py="agents/hub_install.py"
+
+    case "$subcommand" in
+        install)
+            local source="${1:-}"
+            if [ -z "$source" ]; then
+                echo -e "${RED}Usage: loki template install <source>${NC}"
+                echo "  source: local path, git repo URL, or raw manifest URL"
+                return 1
+            fi
+            if [ ! -f "$hub_py" ]; then
+                echo -e "${RED}Error: agents/hub_install.py not found${NC}"
+                return 1
+            fi
+            local result
+            if result=$(python3 "$hub_py" install-template "$source" 2>&1); then
+                TPL_RESULT="$result" python3 - << 'PYEOF'
+import json, os
+r = json.loads(os.environ["TPL_RESULT"])
+print(f"Installed template: {r['name']}  ({r.get('label','')})")
+desc = r.get("description") or ""
+if desc:
+    print(f"  {desc}")
+print(f"  body:   {r.get('path','')}")
+print(f"  source: {r.get('source','')}")
+ig = r.get("_ignored_executable_fields") or []
+if ig:
+    print(f"  NOTE: ignored executable-looking fields (never run): {', '.join(ig)}")
+print(f"Use with: loki init --template {r['name']}")
+PYEOF
+            else
+                echo -e "${RED}Install failed:${NC} $result"
+                return 1
+            fi
+            ;;
+
+        list|installed)
+            echo -e "${BOLD}Hub-installed Templates${NC}"
+            echo ""
+            if [ ! -f "$hub_py" ]; then
+                echo "  (none)"
+            else
+                local _tpls_json
+                _tpls_json="$(python3 "$hub_py" list-templates 2>/dev/null)"
+                HUB_ITEMS="$_tpls_json" python3 - << 'PYEOF'
+import json, os
+try:
+    items = json.loads(os.environ.get("HUB_ITEMS", "") or "[]")
+except Exception:
+    items = []
+if not items:
+    print("  (none)")
+else:
+    for t in items:
+        print(f"  {t.get('name',''):24s} {t.get('label','')}")
+    print(f"\n  Total: {len(items)} installed template(s)")
+PYEOF
+            fi
+            ;;
+
+        --help|-h|help)
+            echo -e "${BOLD}loki template${NC} - PRD template marketplace (R10)"
+            echo ""
+            echo "Usage: loki template <command> [args]"
+            echo ""
+            echo "Commands:"
+            echo "  install <source>   Install a community template (local/git/url manifest)"
+            echo "  list               List templates installed from a hub source"
+            echo "  help               Show this help"
+            echo ""
+            echo "Examples:"
+            echo "  loki template install ./my-template/manifest.json"
+            echo "  loki template install https://github.com/owner/loki-template-rust.git"
+            echo "  loki template list"
+            echo ""
+            echo "Installed templates are usable via 'loki init --template <name>'."
+            echo "Built-in templates ship in templates/ (see 'loki init --list')."
+            echo ""
+            echo "Note: install is install-from-source (git/local/url). A hosted"
+            echo "central hub registry is future work. Manifests are validated as"
+            echo "DATA only; no code from a manifest is ever executed."
+            echo ""
+            ;;
+        *)
+            echo -e "${RED}Unknown template command: $subcommand${NC}"
+            echo "Run 'loki template help' for usage."
+            return 1
+            ;;
+    esac
+}
+
 # Agent type dispatch (v6.7.0)
 cmd_agent() {
     local subcommand="${1:-list}"
@@ -18918,6 +19918,20 @@ import json, sys, os
 
 with open(os.environ["TYPES_FILE"]) as f:
     agents = json.load(f)
+
+# R10: union built-in agents with hub-installed agents (.loki/agents/installed.json).
+try:
+    import importlib.util as _ilu
+    _hub_path = os.path.join(os.path.dirname(os.path.abspath(os.environ["TYPES_FILE"])), "hub_install.py")
+    _spec = _ilu.spec_from_file_location("loki_hub_install", _hub_path)
+    _hub = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_hub)
+    _seen = {a.get("type") for a in agents}
+    for _inst in _hub.installed_agent_list():
+        if _inst.get("type") not in _seen:
+            agents.append(_inst)
+except Exception:
+    pass
 
 filter_swarm = os.environ.get("FILTER_SWARM", "")
 if filter_swarm and filter_swarm.startswith("--swarm"):
@@ -18961,6 +19975,20 @@ import json, sys, os
 with open(os.environ["TYPES_FILE"]) as f:
     agents = json.load(f)
 
+# R10: include hub-installed agents in the lookup.
+try:
+    import importlib.util as _ilu
+    _hub_path = os.path.join(os.path.dirname(os.path.abspath(os.environ["TYPES_FILE"])), "hub_install.py")
+    _spec = _ilu.spec_from_file_location("loki_hub_install", _hub_path)
+    _hub = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_hub)
+    _seen = {a.get("type") for a in agents}
+    for _inst in _hub.installed_agent_list():
+        if _inst.get("type") not in _seen:
+            agents.append(_inst)
+except Exception:
+    pass
+
 target = os.environ["AGENT_TYPE"]
 found = None
 for a in agents:
@@ -18998,6 +20026,17 @@ PYEOF
 import json, os
 with open(os.environ['TYPES_FILE']) as f:
     agents = json.load(f)
+try:
+    import importlib.util as _ilu
+    _hp = os.path.join(os.path.dirname(os.path.abspath(os.environ['TYPES_FILE'])), 'hub_install.py')
+    _sp = _ilu.spec_from_file_location('loki_hub_install', _hp)
+    _hub = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_hub)
+    _seen = {a.get('type') for a in agents}
+    for _i in _hub.installed_agent_list():
+        if _i.get('type') not in _seen:
+            agents.append(_i)
+except Exception:
+    pass
 for a in agents:
     if a['type'] == os.environ['AGENT_TYPE']:
         print(a['persona'])
@@ -19069,6 +20108,17 @@ USER TASK: ${prompt}"
 import json, os
 with open(os.environ['TYPES_FILE']) as f:
     agents = json.load(f)
+try:
+    import importlib.util as _ilu
+    _hp = os.path.join(os.path.dirname(os.path.abspath(os.environ['TYPES_FILE'])), 'hub_install.py')
+    _sp = _ilu.spec_from_file_location('loki_hub_install', _hp)
+    _hub = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_hub)
+    _seen = {a.get('type') for a in agents}
+    for _i in _hub.installed_agent_list():
+        if _i.get('type') not in _seen:
+            agents.append(_i)
+except Exception:
+    pass
 for a in agents:
     if a['type'] == os.environ['AGENT_TYPE']:
         print(a['persona'])
@@ -19112,6 +20162,17 @@ for a in agents:
 import json, os
 with open(os.environ['TYPES_FILE']) as f:
     agents = json.load(f)
+try:
+    import importlib.util as _ilu
+    _hp = os.path.join(os.path.dirname(os.path.abspath(os.environ['TYPES_FILE'])), 'hub_install.py')
+    _sp = _ilu.spec_from_file_location('loki_hub_install', _hp)
+    _hub = _ilu.module_from_spec(_sp); _sp.loader.exec_module(_hub)
+    _seen = {a.get('type') for a in agents}
+    for _i in _hub.installed_agent_list():
+        if _i.get('type') not in _seen:
+            agents.append(_i)
+except Exception:
+    pass
 for a in agents:
     if a['type'] == os.environ['AGENT_TYPE']:
         print(a['persona'])
@@ -19149,17 +20210,81 @@ $diff"
             esac
             ;;
 
+        install)
+            # R10: install a community agent from a source (local path /
+            # git repo / raw URL containing a manifest). DATA-ONLY install --
+            # never executes code from the manifest. See agents/hub_install.py.
+            local source="${1:-}"
+            if [ -z "$source" ]; then
+                echo -e "${RED}Usage: loki agent install <source>${NC}"
+                echo "  source: local path, git repo URL, or raw manifest URL"
+                return 1
+            fi
+            local hub_py="${script_dir}/../agents/hub_install.py"
+            [ -f "$hub_py" ] || hub_py="agents/hub_install.py"
+            if [ ! -f "$hub_py" ]; then
+                echo -e "${RED}Error: agents/hub_install.py not found${NC}"
+                return 1
+            fi
+            local result
+            if result=$(python3 "$hub_py" install-agent "$source" 2>&1); then
+                AGENT_RESULT="$result" python3 - << 'PYEOF'
+import json, os
+r = json.loads(os.environ["AGENT_RESULT"])
+print(f"Installed agent: {r['type']}  ({r.get('name','')})")
+print(f"  swarm:   {r.get('swarm','')}")
+print(f"  source:  {r.get('source','')}")
+ig = r.get("_ignored_executable_fields") or []
+if ig:
+    print(f"  NOTE: ignored executable-looking fields (never run): {', '.join(ig)}")
+print("Stored in .loki/agents/installed.json -- visible to 'loki agent list/info/run'.")
+PYEOF
+            else
+                echo -e "${RED}Install failed:${NC} $result"
+                return 1
+            fi
+            ;;
+
+        installed)
+            # R10: list agents installed from a hub source.
+            local hub_py="${script_dir}/../agents/hub_install.py"
+            [ -f "$hub_py" ] || hub_py="agents/hub_install.py"
+            echo -e "${BOLD}Hub-installed Agents${NC}"
+            echo ""
+            if [ ! -f "$hub_py" ]; then
+                echo "  (none)"
+            else
+                local _agents_json
+                _agents_json="$(python3 "$hub_py" list-agents 2>/dev/null)"
+                HUB_ITEMS="$_agents_json" python3 - << 'PYEOF'
+import json, os
+try:
+    items = json.loads(os.environ.get("HUB_ITEMS", "") or "[]")
+except Exception:
+    items = []
+if not items:
+    print("  (none)")
+else:
+    for a in items:
+        print(f"  {a.get('type',''):24s} {a.get('name','')}  [{a.get('swarm','')}]")
+    print(f"\n  Total: {len(items)} installed agent(s)")
+PYEOF
+            fi
+            ;;
+
         --help|-h|help)
             echo -e "${BOLD}loki agent${NC} - Agent type dispatch (v6.7.0)"
             echo ""
             echo "Usage: loki agent <command> [args]"
             echo ""
             echo "Commands:"
-            echo "  list [--swarm NAME]        List all agent types (optionally filter by swarm)"
+            echo "  list [--swarm NAME]        List all agent types (built-in + installed)"
             echo "  info <type>                Show agent type details"
             echo "  run <type> \"<prompt>\"       Single-shot: run prompt with agent persona"
             echo "  start <type> <prd|prompt>  Full autonomous loop with agent persona"
             echo "  review [type]              Code review with agent persona (default: ops-security)"
+            echo "  install <source>           Install a community agent (local/git/url manifest)"
+            echo "  installed                  List agents installed from a hub source"
             echo "  help                       Show this help"
             echo ""
             echo "Examples:"
@@ -19169,6 +20294,12 @@ $diff"
             echo "  loki agent run eng-frontend \"Create a responsive navbar\""
             echo "  loki agent start eng-backend ./api-prd.md"
             echo "  loki agent review ops-security"
+            echo "  loki agent install ./my-agent/manifest.json"
+            echo "  loki agent install https://github.com/owner/loki-agent-rust.git"
+            echo ""
+            echo "Note: 'install' is install-from-source (git/local/url). A hosted"
+            echo "central hub registry is future work. Manifests are validated as"
+            echo "DATA only; no code from a manifest is ever executed."
             echo ""
             ;;
         *)
@@ -22192,6 +23323,124 @@ run_debate(
     log_info "Debate complete"
 }
 
+# =============================================================================
+# loki wiki -- auto-generated, cited per-project codebase wiki + Q&A (R5).
+#
+# Loki's answer to Devin DeepWiki: a persistent, queryable wiki built from the
+# codebase, where every section cites the real source files it came from, plus
+# a grounded `ask` that returns cited answers (file:line). Heavy work lives in
+# the Python core (autonomy/lib/wiki-generator.py, wiki-ask.py, wiki_index.py);
+# this is a thin dispatcher, mirroring how cmd_proof delegates to the proof
+# generator. Generation is incremental (skips when the codebase is unchanged).
+# =============================================================================
+cmd_wiki() {
+    local subcmd="${1:-}"
+    shift 2>/dev/null || true
+
+    local lib_dir="${_LOKI_SCRIPT_DIR}/lib"
+
+    case "$subcmd" in
+        generate) _wiki_generate "$lib_dir" "$@" ;;
+        show)     _wiki_show "$@" ;;
+        ask)      _wiki_ask "$lib_dir" "$@" ;;
+        --help|-h|help|"")
+            echo -e "${BOLD}loki wiki${NC} - Auto-generated, cited codebase wiki + Q&A"
+            echo ""
+            echo "Usage: loki wiki <command> [options]"
+            echo ""
+            echo "Commands:"
+            echo "  generate [path] [--force]   Build/refresh the cited wiki in .loki/wiki/"
+            echo "  show [section]              Print the wiki (or one section: architecture|modules|data-flow)"
+            echo "  ask \"<question>\"           Cited answer grounded in the codebase (file:line)"
+            echo ""
+            echo "Each wiki section cites the real source files it was built from."
+            echo "Generation is incremental: it skips when the codebase is unchanged."
+            echo ""
+            echo "Examples:"
+            echo "  loki wiki generate                     # build wiki for current project"
+            echo "  loki wiki show architecture            # show one section"
+            echo "  loki wiki ask \"how does the cli dispatch commands\""
+            return 0
+            ;;
+        *)
+            log_error "Unknown wiki command: $subcmd"
+            echo "Run 'loki wiki --help' for usage."
+            return 1
+            ;;
+    esac
+}
+
+_wiki_generate() {
+    local lib_dir="$1"; shift
+    if ! command -v python3 >/dev/null 2>&1; then
+        log_error "python3 is required for 'loki wiki generate'"
+        return 1
+    fi
+    python3 "$lib_dir/wiki-generator.py" "$@"
+}
+
+_wiki_show() {
+    local section=""
+    local target="."
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                echo "Usage: loki wiki show [section]"
+                echo "Sections: architecture, modules, data-flow"
+                return 0
+                ;;
+            -*) log_error "Unknown option: $1"; return 1 ;;
+            *) section="$1"; shift ;;
+        esac
+    done
+    local wiki_dir="$target/.loki/wiki"
+    if [ ! -d "$wiki_dir" ]; then
+        log_error "No wiki found. Run 'loki wiki generate' first."
+        return 1
+    fi
+    if [ -n "$section" ]; then
+        local f="$wiki_dir/${section}.md"
+        if [ ! -f "$f" ]; then
+            log_error "No such section: $section (try: architecture, modules, data-flow)"
+            return 1
+        fi
+        cat "$f"
+    else
+        if [ -f "$wiki_dir/index.md" ]; then
+            cat "$wiki_dir/index.md"
+        else
+            log_error "Wiki index not found. Run 'loki wiki generate'."
+            return 1
+        fi
+    fi
+}
+
+_wiki_ask() {
+    local lib_dir="$1"; shift
+    local question=""
+    local extra=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                echo "Usage: loki wiki ask \"<question>\" [--json] [--k N]"
+                return 0
+                ;;
+            --json|--quiet) extra+=("$1"); shift ;;
+            --k) extra+=("--k" "${2:-6}"); shift 2 ;;
+            *) if [ -z "$question" ]; then question="$1"; else question="$question $1"; fi; shift ;;
+        esac
+    done
+    if [ -z "$question" ]; then
+        log_error "Provide a question: loki wiki ask \"how does X work\""
+        return 1
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        log_error "python3 is required for 'loki wiki ask'"
+        return 1
+    fi
+    python3 "$lib_dir/wiki-ask.py" --question "$question" "${extra[@]}"
+}
+
 cmd_magic() {
     local subcmd="${1:-help}"
     shift 2>/dev/null || true
@@ -24522,23 +25771,251 @@ _loki_gist_upload() {
     local desc="$2"
     local visibility="$3"
 
-    local gist_url
-    gist_url=$(gh gist create "$file" --desc "$desc" $visibility 2>&1)
-    local gist_exit=$?
+    # gh prints progress ("- Creating gist...", "Created public gist...") on
+    # STDERR and the final gist URL on STDOUT. Capture them separately so the
+    # URL we expose and print is clean: folding stderr into stdout pollutes the
+    # "Shared:" line and the ready-to-post hook with multi-line gh chatter.
+    local gist_out gist_err gist_exit
+    local errfile
+    # Fall back to /dev/null if mktemp fails (disk full / unwritable /tmp) so the
+    # redirect target is always a real path -- never an empty string (2>"" is a
+    # bash error). We lose the captured stderr text in that rare case, not the
+    # clean URL parse.
+    errfile=$(mktemp "/tmp/loki-gist-err-XXXXXX" 2>/dev/null) || errfile=/dev/null
+    gist_out=$(gh gist create "$file" --desc "$desc" $visibility 2>"$errfile")
+    gist_exit=$?
+    gist_err=$(cat "$errfile" 2>/dev/null)
+    [ "$errfile" != "/dev/null" ] && rm -f "$errfile"
 
     # Cleanup temp file
     rm -f "$file"
 
     if [ $gist_exit -ne 0 ]; then
         echo -e "${RED}Failed to create gist${NC}"
-        echo "$gist_url"
+        [ -n "$gist_err" ] && echo "$gist_err"
+        [ -n "$gist_out" ] && echo "$gist_out"
         exit 1
     fi
+
+    # The URL is the gist permalink on stdout. Extract just the URL line in
+    # case any non-URL text slips into stdout on some gh versions.
+    local gist_url
+    gist_url=$(printf '%s\n' "$gist_out" | grep -Eo 'https://gist\.github\.com/[^[:space:]]+' | head -1)
+    [ -z "$gist_url" ] && gist_url="$gist_out"
 
     # Expose the URL to callers (e.g. cmd_proof prints a ready-to-post hook
     # after this returns). The shared "Shared:" line stays unchanged.
     LOKI_LAST_GIST_URL="$gist_url"
     echo -e "${GREEN}Shared: ${gist_url}${NC}"
+}
+
+# loki_tier_gate - R9 open-core tier/license seam.
+#
+# OSS-FIRST CONTRACT: this is a no-op ALLOW for OSS users. LOKI_TIER defaults
+# to "oss" and every existing free feature stays fully free. This function is
+# the single place where a future hosted/enterprise build would gate a
+# hosted-only capability. It is NEVER called from any existing free command
+# path; its only caller is the opt-in --hosted publish seam below. For OSS
+# (the default), it always returns 0 (allow).
+#
+# Args: $1 = capability name (informational; e.g. "hosted_publish").
+# Returns: 0 = allowed, 1 = gated (non-OSS tier without entitlement).
+# Env:  LOKI_TIER (default "oss"), LOKI_LICENSE_KEY (optional, non-OSS only).
+loki_tier_gate() {
+    local capability="${1:-}"
+    local tier="${LOKI_TIER:-oss}"
+
+    # OSS tier: everything is allowed, always. No license, no network, no gate.
+    if [ "$tier" = "oss" ]; then
+        return 0
+    fi
+
+    # Non-OSS tiers (hosted/enterprise) are a SEAM only. The hosted backend
+    # and license-verification service do not exist yet, so we cannot validate
+    # an entitlement. Be honest: do not pretend to grant a paid capability.
+    # A real hosted build replaces this branch with a verified license check.
+    if [ -z "${LOKI_LICENSE_KEY:-}" ]; then
+        echo -e "${YELLOW}LOKI_TIER='${tier}' requested but no LOKI_LICENSE_KEY set.${NC}" >&2
+        echo "Hosted/enterprise license verification is not available yet." >&2
+        echo "OSS users: leave LOKI_TIER unset (or 'oss') -- everything stays free." >&2
+        return 1
+    fi
+
+    # A license key is present but there is no verification backend yet. We do
+    # NOT fabricate a successful verification. The capability stays ungated for
+    # OSS-equivalent use; the seam is documented in docs/OPEN-CORE-BOUNDARY.md.
+    echo -e "${YELLOW}LOKI_LICENSE_KEY set but the verification backend is not available yet (R9 seam).${NC}" >&2
+    return 0
+}
+
+# _loki_hosted_publish_proof - R9 hosted proof-publish client stub.
+#
+# Posts an ALREADY-REDACTED proof page to a self-hosted/SaaS endpoint given by
+# LOKI_HOSTED_ENDPOINT. There is NO official Loki hosted backend yet; this is a
+# clean client seam an operator can point at their own endpoint. We never
+# fabricate a hosted URL: on success we print the URL the endpoint returned (or
+# the endpoint itself); on any failure we print an honest error and exit non-0.
+#
+# Args: $1 = proof id, $2 = redacted index.html path, $3 = proof.json path.
+# Returns: 0 on success, non-zero on missing endpoint / transport / non-2xx.
+_loki_hosted_publish_proof() {
+    local id="$1"
+    local html="$2"
+    local pj="$3"
+
+    # Tier seam (no-op allow for OSS). Hosted publish is opt-in regardless.
+    loki_tier_gate "hosted_publish" || true
+
+    local endpoint="${LOKI_HOSTED_ENDPOINT:-}"
+    if [ -z "$endpoint" ]; then
+        echo -e "${YELLOW}Hosted publishing backend not available.${NC}" >&2
+        echo "There is no official Loki hosted service yet (R9 ships the seam, not a live backend)." >&2
+        echo "To publish to your own hosted endpoint, set LOKI_HOSTED_ENDPOINT to its URL." >&2
+        echo "Or publish to a GitHub Gist instead: loki proof share ${id}" >&2
+        return 1
+    fi
+
+    if ! command -v curl &>/dev/null; then
+        echo -e "${RED}curl not found${NC}" >&2
+        echo "Hosted publishing requires curl. Install curl or use: loki proof share ${id}" >&2
+        return 1
+    fi
+
+    # CREDIBILITY: we upload the file the generator already redacted (the same
+    # bytes 'loki proof share' would put on a gist). We do not build a fresh
+    # body that could bypass redaction. If proof.json reports redaction was not
+    # applied, refuse -- never publish an unredacted artifact.
+    if [ -f "$pj" ]; then
+        local redaction_ok
+        redaction_ok=$(LOKI_PROOF_JSON="$pj" python3 - <<'PYEOF' 2>/dev/null || echo "unknown"
+import json, os
+try:
+    d = json.load(open(os.environ["LOKI_PROOF_JSON"]))
+except Exception:
+    print("unknown")
+else:
+    print("yes" if (d.get("redaction") or {}).get("applied") else "no")
+PYEOF
+)
+        if [ "$redaction_ok" = "no" ]; then
+            echo -e "${RED}Refusing to publish: proof redaction was not applied.${NC}" >&2
+            echo "Regenerate the proof (LOKI_PROOF=1) so the redactor runs, then retry." >&2
+            return 1
+        fi
+    fi
+
+    echo -e "${BOLD}Publishing proof '${id}' to hosted endpoint${NC}"
+    echo "  endpoint: ${endpoint}"
+    echo "  payload:  ${html} (already redacted by the generator)"
+    echo ""
+
+    # POST the redacted HTML. Auth header is sent only if a license key exists;
+    # OSS users with their own endpoint need no key.
+    local tmp_body tmp_code
+    tmp_body=$(mktemp "/tmp/loki-hosted-XXXXXX.out")
+    local -a curl_args=(-sS -o "$tmp_body" -w '%{http_code}' -X POST
+        -H "Content-Type: text/html"
+        -H "X-Loki-Proof-Id: ${id}"
+        --data-binary "@${html}")
+    if [ -n "${LOKI_LICENSE_KEY:-}" ]; then
+        curl_args+=(-H "Authorization: Bearer ${LOKI_LICENSE_KEY}")
+    fi
+    tmp_code=$(curl "${curl_args[@]}" "$endpoint" 2>/dev/null)
+    local curl_exit=$?
+
+    if [ "$curl_exit" -ne 0 ]; then
+        echo -e "${RED}Failed to reach hosted endpoint (curl exit ${curl_exit}).${NC}" >&2
+        echo "Check LOKI_HOSTED_ENDPOINT or publish to a gist: loki proof share ${id}" >&2
+        rm -f "$tmp_body"
+        return 1
+    fi
+
+    # Accept any 2xx. The published URL comes from the endpoint response if it
+    # returns one (we look for a "url" field), else we report the endpoint. We
+    # NEVER print a fabricated URL.
+    case "$tmp_code" in
+        2*)
+            local published_url
+            published_url=$(LOKI_HOSTED_BODY="$tmp_body" LOKI_HOSTED_EP="$endpoint" python3 - <<'PYEOF' 2>/dev/null || true
+import json, os
+body_path = os.environ["LOKI_HOSTED_BODY"]
+try:
+    txt = open(body_path).read().strip()
+except Exception:
+    txt = ""
+url = ""
+try:
+    d = json.loads(txt)
+    if isinstance(d, dict):
+        url = d.get("url") or d.get("public_url") or ""
+except Exception:
+    url = ""
+print(url)
+PYEOF
+)
+            rm -f "$tmp_body"
+            if [ -n "$published_url" ]; then
+                echo -e "${GREEN}Published: ${published_url}${NC}"
+            else
+                echo -e "${GREEN}Published to ${endpoint} (HTTP ${tmp_code}).${NC}"
+                echo "The endpoint did not return a 'url' field; check your endpoint's response."
+            fi
+            return 0
+            ;;
+        *)
+            echo -e "${RED}Hosted endpoint returned HTTP ${tmp_code}.${NC}" >&2
+            if [ -s "$tmp_body" ]; then
+                echo "Response:" >&2
+                head -c 500 "$tmp_body" >&2
+                echo "" >&2
+            fi
+            echo "Nothing was published. Or publish to a gist: loki proof share ${id}" >&2
+            rm -f "$tmp_body"
+            return 1
+            ;;
+    esac
+}
+
+# loki bench - head-to-head benchmark harness (R2).
+# Subcommands: run <task> | vs <task> | list | verify <result.json>.
+# Thin pass-through to benchmarks/bench/run.sh (shared python core runner.py).
+# CREDIBILITY: Loki NEVER grades its own success. Success is decided by a
+# held-out acceptance command run by the grader OUTSIDE the agent (exit code).
+# No council / RARV-C / LLM-judge participates in scoring. See
+# benchmarks/SCHEMA-adapter.md and benchmarks/SCHEMA-result.md.
+cmd_bench() {
+    local bench_sh="$SKILL_DIR/benchmarks/bench/run.sh"
+    if [ ! -f "$bench_sh" ]; then
+        log_error "benchmark harness not found: $bench_sh"
+        return 1
+    fi
+    local sub="${1:-}"
+    case "$sub" in
+        ""|--help|-h|help)
+            echo -e "${BOLD}loki bench${NC} - head-to-head benchmark harness (R2)"
+            echo ""
+            echo "Usage: loki bench <subcommand> [args] [options]"
+            echo ""
+            echo "Subcommands:"
+            echo "  run <task>      Run Loki only on a task-spec"
+            echo "  vs <task>       Run all configured tools on a task-spec (head-to-head)"
+            echo "  list            List available task-specs"
+            echo "  verify <file>   Recompute task_hash + check tool versions for a result.json"
+            echo "  report <files>  Build results.json + RESULTS.md from per-tool result-rows"
+            echo ""
+            echo "Options:"
+            echo "  --trials N      Number of trials per tool (default 3)"
+            echo "  --model NAME    Override the model"
+            echo "  --emit-proof    Emit an R1 proof-of-run for the Loki trial(s)"
+            echo "  --out-dir DIR   (report) output dir for results.json + RESULTS.md"
+            echo ""
+            echo "Loki NEVER grades its own success: a held-out acceptance command run"
+            echo "by the grader OUTSIDE the agent decides success by exit code."
+            [ "$sub" = "" ] && return 1
+            return 0
+            ;;
+    esac
+    bash "$bench_sh" "$@"
 }
 
 # loki proof - inspect and share proof-of-run artifacts (.loki/proofs/<id>/).
@@ -24566,7 +26043,7 @@ cmd_proof() {
             echo "Options for 'share':"
             echo "  --yes                Skip the redaction-preview confirmation prompt"
             echo "  --private            Create a secret gist (default: public)"
-            echo "  --hosted             Reserved for hosted publishing (coming in R9)"
+            echo "  --hosted             Publish to LOKI_HOSTED_ENDPOINT (open-core seam; no official backend yet)"
             echo ""
             echo "Proofs are generated automatically at run completion (LOKI_PROOF=0 to opt out)."
             [ "$sub" = "" ] && exit 1
@@ -24665,15 +26142,13 @@ PYEOF
             local id=""
             local skip_confirm=0
             local visibility="--public"
+            local hosted=0
             while [[ $# -gt 0 ]]; do
                 case "$1" in
                     --yes|-y) skip_confirm=1; shift ;;
                     --private) visibility=""; shift ;;
                     --public) visibility="--public"; shift ;;
-                    --hosted)
-                        echo -e "${RED}Hosted publishing is not available yet (coming in R9).${NC}"
-                        exit 1
-                        ;;
+                    --hosted) hosted=1; shift ;;
                     -*) echo -e "${RED}Unknown option: $1${NC}"; exit 1 ;;
                     *) id="$1"; shift ;;
                 esac
@@ -24687,6 +26162,17 @@ PYEOF
                 echo -e "${RED}Proof page not found: ${id}/index.html${NC}"
                 echo "Use 'loki proof list' to see available proofs."
                 exit 1
+            fi
+            # R9 open-core hosted-publish seam. Only taken when the user
+            # explicitly passes --hosted. The default gist path below stays
+            # byte-for-byte unchanged for OSS users (zero hosted backend
+            # required). We never silent-fall-back to gist here: the user asked
+            # for hosted, so we POST to a configured LOKI_HOSTED_ENDPOINT or
+            # print an honest "no endpoint configured" message and exit non-zero.
+            # We never fabricate a hosted URL.
+            if [ "$hosted" -eq 1 ]; then
+                _loki_hosted_publish_proof "$id" "$html" "${proofs_dir}/${id}/proof.json"
+                exit $?
             fi
             if ! command -v gh &>/dev/null; then
                 echo -e "${RED}gh CLI not found${NC}"

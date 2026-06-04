@@ -6,7 +6,7 @@
 // loki-ts/src/commands/rollback.ts to provide list/show/to/latest.
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -184,4 +184,36 @@ describe("v7.5.2 loki rollback CLI", () => {
     stop();
     expect(code).toBe(2);
   });
+
+  // R6: re-undoability invariant. A `rollback to` must first capture a forced
+  // pre-rollback snapshot of CURRENT state, so the rollback is itself undoable.
+  it("`rollback to <id>` creates a pre-rollback snapshot (re-undoable)", async () => {
+    seedCheckpoint("cp-6-1700000006", 6);
+    // Seed a CURRENT state distinct from the checkpoint, so the snapshot has
+    // something meaningful to preserve.
+    mkdirSync(join(scratch, "state"), { recursive: true });
+    writeFileSync(
+      join(scratch, "state", "orchestrator.json"),
+      JSON.stringify({ currentPhase: "LIVE_BEFORE_ROLLBACK" }),
+    );
+
+    const before = listCheckpointIds();
+    const stop = captureOutput();
+    const code = await runRollback(["to", "cp-6-1700000006"]);
+    const out = stop();
+    expect(code).toBe(0);
+    const after = listCheckpointIds();
+    // A brand-new checkpoint id must have appeared (the pre-rollback snapshot).
+    const added = after.filter((id) => !before.includes(id) && id !== "cp-6-1700000006");
+    expect(added.length).toBeGreaterThanOrEqual(1);
+    // The CLI tells the user how to undo the undo.
+    expect(out.stdout).toContain("undo this rollback");
+  });
 });
+
+// Helper: list checkpoint dir ids currently on disk for the scratch loki dir.
+function listCheckpointIds(): string[] {
+  const root = join(scratch, "state", "checkpoints");
+  if (!existsSync(root)) return [];
+  return readdirSync(root).filter((n) => n.startsWith("cp-") || n.startsWith("rb-"));
+}

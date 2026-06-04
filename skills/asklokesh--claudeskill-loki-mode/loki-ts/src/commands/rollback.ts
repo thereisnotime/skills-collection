@@ -16,7 +16,7 @@ import {
   listCheckpoints,
   readCheckpoint,
   rollbackToCheckpoint,
-  executeRollback,
+  executeRollbackWithSnapshot,
 } from "../runner/checkpoint.ts";
 import { BOLD, CYAN, GREEN, NC, RED, YELLOW } from "../util/colors.ts";
 
@@ -25,16 +25,22 @@ const HELP = `Usage: loki rollback <subcommand>
 Subcommands:
   list                   List checkpoints (newest first)
   show <id>              Print metadata for one checkpoint
-  to <id>                Restore .loki/ state files to that checkpoint
+  to <id>                Restore .loki/ state + context to that checkpoint
   latest                 Restore to the most recent checkpoint
 
-Restored files (matches autonomy/run.sh:7028 byte-for-byte):
+Restored automatically (safe, non-code):
   .loki/state/orchestrator.json
   .loki/queue/{pending,completed,in-progress,current-task}.json
+  .loki/CONTINUITY.md            (iteration / conversation handoff context)
 
-Note: only state files are restored. Source code, git history, and the
-session's autonomy-state.json are unchanged. Re-run \`loki start\` to
-resume from the restored state.
+Re-undoable: every rollback first captures a forced pre-rollback snapshot of
+your current state, so you can always undo the undo (the snapshot id is printed).
+
+Source code is NOT touched by this command. To also restore the working tree
+to the checkpoint's snapshot (if one was anchored at checkpoint time):
+  git stash apply refs/loki/cp/<id>
+
+Re-run \`loki start\` to resume from the restored state.
 `;
 
 export async function runRollback(argv: readonly string[]): Promise<number> {
@@ -86,7 +92,7 @@ export async function runRollback(argv: readonly string[]): Promise<number> {
         process.stderr.write(`${RED}Missing checkpoint id.${NC} Use \`loki rollback list\`.\n`);
         return 2;
       }
-      return executePlan(id);
+      return await executePlan(id, rest.includes("--force"));
     }
 
     case "latest": {
@@ -98,7 +104,7 @@ export async function runRollback(argv: readonly string[]): Promise<number> {
         return 1;
       }
       process.stdout.write(`Rolling back to latest checkpoint: ${CYAN}${latest.id}${NC}\n`);
-      return executePlan(latest.id);
+      return await executePlan(latest.id, rest.includes("--force"));
     }
 
     default:
@@ -108,7 +114,7 @@ export async function runRollback(argv: readonly string[]): Promise<number> {
   }
 }
 
-function executePlan(id: string): number {
+async function executePlan(id: string, force = false): Promise<number> {
   let plan;
   try {
     plan = rollbackToCheckpoint(id);
@@ -122,7 +128,16 @@ function executePlan(id: string): number {
     );
     return 0;
   }
-  const result = executeRollback(plan);
+  // R6: force a pre-rollback snapshot first, so this restore is itself undoable.
+  // If that snapshot fails, executeRollbackWithSnapshot aborts (no destructive
+  // restore without a safety net) unless --force is passed.
+  let result;
+  try {
+    result = await executeRollbackWithSnapshot(plan, undefined, force);
+  } catch (err) {
+    process.stderr.write(`${RED}Rollback aborted:${NC} ${(err as Error).message}\n`);
+    return 1;
+  }
   if (result.errors.length > 0) {
     for (const e of result.errors) {
       process.stderr.write(`${RED}restore error:${NC} ${e}\n`);
@@ -135,6 +150,11 @@ function executePlan(id: string): number {
   process.stdout.write(
     `${GREEN}Rolled back ${result.restored}/${plan.restore.length} state files from ${id}.${NC}\n`,
   );
+  if (result.preRollbackSnapshotId) {
+    process.stdout.write(
+      `Saved your prior state as ${CYAN}${result.preRollbackSnapshotId}${NC}; undo this rollback with \`loki rollback to ${result.preRollbackSnapshotId}\`.\n`,
+    );
+  }
   process.stdout.write(`Run \`loki start\` to resume from the restored state.\n`);
   return 0;
 }

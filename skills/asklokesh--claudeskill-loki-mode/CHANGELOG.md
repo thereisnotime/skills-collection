@@ -9,6 +9,374 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.18.0] - 2026-06-03
+
+### Fixed
+- Dashboard standalone pages (Trust Trajectory, Cost, Proofs) now match the
+  dashboard's cream/serif design language instead of a clashing dark theme.
+  They were hardcoded dark and looked like a different product when embedded in
+  the SPA. The trust panel (shown in an iframe) also follows the SPA's manual
+  Dark toggle now: the SPA passes the active theme to the iframe and re-points
+  it on toggle, so light/dark stays consistent across the whole dashboard.
+- Wiki "Ask" no longer fails with "Request timeout". The dashboard's API client
+  had a fixed 10s timeout, but the cited Q&A shells out to the model and can
+  take minutes. The ask call now allows 200s (longer than the server's own
+  cap), so the server decides when to give up, not the client.
+- Five more long-running dashboard actions got matching client timeouts so they
+  no longer abort early: quality scan (300s), memory consolidate (120s),
+  learning aggregate (60s), memory retrieve (30s), and registry sync (45s).
+- Fresh-repo console noise eliminated. On a brand-new project with no `.loki`
+  data, opening the Wiki panel flooded the browser console with 404s and
+  AbortErrors. Wiki section views now show a clean "no wiki generated yet"
+  message instead of fetching missing data, the server returns a soft empty
+  state instead of a 404, and a notification action no longer leaks an
+  unhandled rejection. A section tab clicked while the wiki list is still
+  loading now resolves correctly once the list arrives (no stuck spinner).
+
+### Internal
+- New fresh-repo integrated UI harness (`tests/e2e/dashboard-fresh-repo.mjs` +
+  `scripts/run-dashboard-fresh-repo-harness.sh`, wired into `local-ci`). It
+  boots the dashboard against a fresh repo (no `.loki`) and drives a real
+  browser to assert no cold-load console 404s/AbortErrors and that the trust
+  iframe matches the SPA theme in both light and after the Dark toggle. This
+  closes the verification gap that let the above bugs ship: prior checks ran
+  against seeded data in isolation and never exercised the real first-run path.
+- Removed stray test artifacts accidentally committed in v6.50.0
+  (`.loki-test-tmp/`) and added it to `.gitignore`.
+
+## [7.17.1] - 2026-06-03
+
+### Fixed
+- Proof-of-run (R1) now records the raw one-line brief from
+  `loki start "<brief>"`. Previously the inline brief was dropped and the proof
+  page showed "No brief recorded" with source "codebase-analysis", even though
+  the user gave a clear one-liner. The brief is written to `.loki/state/brief.txt`
+  at brief-mode dispatch and surfaced verbatim in the proof (source "brief"),
+  which is a stronger, more honest shareable artifact than the synthesized PRD.
+  The marker is cleared at the start of every run so a later PRD or
+  codebase-analysis run can never inherit a stale brief label. The brief still
+  flows through the R1 redaction chokepoint before any published artifact, so a
+  secret typed into a brief is redacted in the shared proof and gist.
+- `loki proof share` gist URL no longer includes gh progress chatter: the
+  uploader captured `gh gist create` stdout and stderr together, folding the
+  multi-line progress text into the gist URL, the "Shared:" line, the
+  ready-to-post hook, and `LOKI_LAST_GIST_URL`. stdout (the permalink) and
+  stderr (progress) are now captured separately and the clean URL is extracted.
+- `loki wiki generate [path]` accepts the documented positional path argument.
+  The help text and design doc advertised it but argparse only defined `--root`,
+  so a positional path errored with "unrecognized arguments". The positional now
+  takes precedence over `--root`; `--root` and bare-cwd invocations are
+  unchanged.
+- Benchmark Claude Code adapter default model changed from the stale
+  `claude-sonnet-4` alias (HTTP 404 on current CLI) to the rolling `sonnet`
+  alias. The adapter already parametrizes the model; this only fixes the default.
+
+### Internal
+- local-ci hardening so the v7.16.1-class bug (a built dashboard SPA whose inline
+  JavaScript threw a SyntaxError while still serving HTTP 200 and passing every
+  presence check) cannot ship again: a new node-gated gate parses every inline
+  `<script>` block in `dashboard/static/index.html` (compile-only, never
+  executed; ES-module blocks are skipped to avoid false positives) and fails the
+  build on any syntax error. `tests/run-shellcheck.sh` now prunes
+  `.claude/worktrees/` so transient agent worktrees do not pollute the lint set.
+- This release is the close-out of a post-arc verification sweep: every shipped
+  arc feature (proof-of-run, benchmark harness, cost dashboard, zero-config first
+  run, auto-wiki + cited Q&A, 1-click rollback, open-core hooks, trust
+  trajectory, team assets, marketplace) was re-tested the way a user uses it
+  (fresh installs across npm/Docker/Homebrew, three-browser dashboard matrix,
+  interactive Playwright click-through, a real free-backend end-to-end run, real
+  gist/git-install/adapter checks, large-repo wiki). The four fixes above are the
+  only product defects found; everything else verified clean.
+
+## [7.17.0] - 2026-05-30
+
+### Added
+- Shareable team assets (R8 of the competitive arc): `loki assets export <bundle>`
+  / `import <bundle>` / `inspect` - bundle a team's reusable assets (learnings,
+  project memory, custom agents, PRD templates, council config, optionally the
+  wiki) into a portable .tgz and restore them in another project or clone, so
+  individual setup compounds into shared org value. Every bundled asset is run
+  through the R1 redaction chokepoint before writing, so secrets, keys, tokens,
+  and absolute home/repo paths are stripped (it is safe to share; note free-text
+  PII like author names is not stripped). `--into-install` opts agents/templates
+  into the global install location.
+- Agent + template marketplace (R10): `loki agent install <source>` /
+  `loki template install <source>` install community agents and PRD templates
+  from a git repo, local path, or URL, validated and usable via `loki agent
+  list/run` and `loki init --template`. Source-based today (a hosted central hub
+  is future work, stated honestly).
+
+### Security
+- R8 import is path-contained: a malicious bundle whose member resolves (via an
+  absolute or `..` sub-path, or a symlink) outside the restore root is SKIPPED,
+  validated by realpath BEFORE any filesystem write (council round 1 found an
+  arbitrary-file-write/RCE escape here; fixed + regression-tested).
+- R10 install is data-only: manifests are validated structurally and NEVER
+  eval/exec/imported; executable-looking fields (postinstall/scripts/hooks) are
+  stripped and reported, path traversal and built-in shadowing are rejected, and
+  git/url sources are fetched without shell injection.
+
+### Notes
+- Council: both 3-of-3 unanimous (R8 round 2 after the path-containment fix; R10
+  round 1). No duplication (R8 reuses proof_redact + export machinery; R10 reuses
+  the agents/templates registry). bash + Bun parity via the bash route.
+
+## [7.16.1] - 2026-05-30
+
+### Fixed
+- Dashboard SPA root threw "Uncaught SyntaxError: Invalid or unexpected token"
+  and failed to render its inline scripts. The standalone build
+  (dashboard-ui/scripts/build-standalone.js) emits the SPA from a backtick
+  template literal, which silently consumed single-backslash escapes in the
+  hand-written inline JS: `\n` became a real newline (breaking string literals
+  across lines) and regex escapes (`\*`, `\[`, `\s`, `\d`, `\/`) were stripped
+  (corrupting the markdown renderer's patterns, e.g. `/\*\*..\*\*/` emitted as
+  `/**..**/`). Escaped these to `\\n` / `\\*` etc. so they survive into the
+  output. This was a PRE-EXISTING bug (present before v7.8.3), found by a
+  real-user Playwright sweep of the dashboard. All inline scripts now parse with
+  zero errors; the dashboard root and the cost / trust / proofs panels render
+  clean (0 console/page errors), verified in a headless browser.
+
+## [7.16.0] - 2026-05-30
+
+### Added
+- Visible trust trajectory (R4 of the competitive arc): a per-project view of
+  whether the agent is earning autonomy over time, derived from real run history
+  (council pass-rate, quality-gate pass-rate, iterations-to-completion, and a
+  human-interventions axis). The story no competitor tells: you see Loki getting
+  more (or less) trustworthy on YOUR repo.
+- `loki trust` (`--json`): the across-runs trajectory with a per-axis direction
+  (improving / regressing / stable, polarity-aware so "fewer iterations" reads
+  as improving) and a one-line verdict. Distinct from `loki kpis` (single-run
+  snapshot), which gains a see-also pointer.
+- `/api/trust/trajectory` endpoint + a `/trust` dashboard panel with sparklines,
+  plus a `trust_update` WebSocket push (mirrors the R3 cost pattern) so the panel
+  updates live.
+
+### Notes
+- Honest data: derived only from `.loki/proofs/<run_id>/proof.json`; with fewer
+  than two runs it says "not enough history yet" rather than inventing a trend,
+  it shows a DECLINING trajectory when the data declines (not a feel-good
+  always-up chart), and the human-interventions axis is explicitly marked
+  unavailable until a per-run intervention counter exists (no fabricated number).
+- Council: 3-of-3 unanimous (round 1). bash and Bun share one derivation (the
+  bash command and dashboard call the same Python module; the Bun command mirrors
+  it byte-for-byte). No duplication of kpis.
+- NOT yet wired: the human-interventions axis (lights up automatically once a
+  per-run intervention count lands in proof.json).
+
+## [7.15.0] - 2026-05-30
+
+### Added
+- Open-core hooks (R9 of the competitive arc): the seams for hosted + enterprise
+  + paid plans WITHOUT gating any existing free feature or faking a service.
+  Loki stays fully functional open-source with zero hosted backend.
+- `loki proof share --hosted <id>`: publishes the already-redacted proof artifact
+  to an operator-supplied `LOKI_HOSTED_ENDPOINT` (both bash and Bun routes). With
+  no endpoint set, it prints an honest "no official hosted backend yet; set
+  LOKI_HOSTED_ENDPOINT or use a gist" message and exits non-zero. It never
+  fabricates a URL and only reports the URL the operator endpoint returns.
+- Tier seam (`LOKI_TIER`, default `oss`; `LOKI_LICENSE_KEY` optional): a no-op
+  ALLOW for OSS, wired ONLY into the opt-in `--hosted` seam, never into any free
+  command. License verification is a documented stub (no backend yet).
+- docs/OPEN-CORE-BOUNDARY.md: the explicit free-forever vs hosted/paid boundary,
+  with a binding commitment never to move an existing free feature behind a
+  paywall.
+
+### Security
+- The `--hosted` publish guard fails CLOSED: it refuses unless the proof's
+  redaction was confirmed applied (`redaction.applied == true`), on both routes.
+  This prevents publishing an old/degraded proof whose HTML might carry secrets
+  to the operator endpoint (council round 1 found the Bun route fail-OPENED on
+  absent redaction metadata; fixed + regression-tested on both routes).
+
+### Notes
+- Council: 3-of-3 unanimous (round 2, after the fail-closed redaction fix).
+- NOT shipped: a live Loki hosted backend / SaaS / license server (R9 ships the
+  seams only); the proof.json public_url is printed, not written back.
+
+## [7.14.0] - 2026-05-30
+
+### Added
+- 1-click rollback + checkpoint UX (R6 of the competitive arc): deterministic,
+  obvious rollback so autonomous runs can be undone in one action. Enhances the
+  existing checkpoint/rollback in place (no parallel system).
+- `loki rollback latest` and `loki rollback to <id>` (plus `loki rollback list`):
+  one-command restore of `.loki/` state, with a per-iteration "you can undo this"
+  signal and an automatic pre-rollback snapshot so a rollback is itself
+  undoable ("undo your undo"); the snapshot id is printed for the user.
+- Dashboard rollback control: 1-click restore with a confirm, surfacing the
+  pre-rollback snapshot id in a notice so dashboard users can undo the undo too.
+
+### Fixed
+- Rollback safety invariant: if the automatic pre-rollback snapshot fails,
+  rollback now ABORTS by default (preserving current state) instead of silently
+  proceeding to a destructive restore; pass `--force` to roll back without a
+  safety snapshot. Proven by tests that assert state is preserved on snapshot
+  failure.
+
+### Notes
+- The `.loki/` state restore is atomic (tmp + rename). Working-tree code restore
+  is opt-in (`--code` / the surfaced `git stash apply refs/loki/cp/<id>`): a
+  divergent apply aborts or shows conflict markers (exit 1), never a silent
+  half-apply, so uncommitted work is protected.
+- Council: 3-of-3 unanimous (round 2, after fixing the snapshot-failure safety
+  invariant and surfacing the undo handle in the dashboard).
+- NOT tested in this release: rollback across a force-pushed/rewritten git
+  history; restoring newly-added (untracked) files (tracked-files scope is
+  documented in the CLI output).
+
+## [7.13.0] - 2026-05-30
+
+### Added
+- Auto-wiki + cited codebase Q&A (R5 of the competitive arc): Loki's answer to
+  a per-repo knowledge base. `loki wiki generate | show | ask` builds a
+  persistent per-project wiki (architecture overview, key modules, data flow)
+  from the codebase under `.loki/wiki/`, and `loki wiki ask "<question>"`
+  returns an answer grounded in the actual code with file:line citations.
+- Citation integrity is structural, not best-effort: the model is shown numbered
+  code chunks and cites by index only; each citation is mapped back to the real
+  chunk's file:line and validated against disk before it is surfaced. A
+  fabricated or non-resolving citation cannot survive (it is dropped). Generate
+  citations are derived from the code scanner (real def/class line numbers).
+- Dashboard wiki browser panel (Overview / Architecture / Key Modules / Data
+  Flow / Ask tabs) and wiki API routes, so the wiki is a browsable, shareable
+  team artifact. The `.loki/wiki/` directory (wiki.json + per-section markdown)
+  is portable and readable without the dashboard.
+- Incremental regeneration: the wiki is keyed by a codebase signature (git HEAD
+  + per-file content hash); `loki wiki generate` skips when the codebase is
+  unchanged, with `--force` to override.
+
+### Notes
+- No duplication: token-overlap retrieval reuses the scoring pattern from
+  memory/knowledge_graph.py; the wiki index is intentionally dependency-free and
+  CI-safe (distinct from the optional ChromaDB code index). bash and Bun routes
+  delegate to one shared Python core (generate/ask) for parity.
+- Council: 3-of-3 unanimous (round 2, after a one-line TypeScript test-typing
+  fix). LLM calls are stubbed in tests (zero paid API calls in CI).
+- NOT tested in this release: wiki quality on a very large (>1M LOC) codebase;
+  semantic questions whose terms do not appear literally in the code (token-
+  overlap retrieval, with ChromaDB noted as a future optional backend).
+
+## [7.12.0] - 2026-05-30
+
+### Added
+- Zero-config killer first run (R7 of the competitive arc): `loki start "<one
+  line brief>"` now works and produces a fast, visible artifact, lowering
+  time-to-first-value so a new user gets a good first experience instead of a
+  blank or heavy one. Built additively, reusing the existing start/quick/proof
+  flow (no parallel second start path).
+
+### Fixed
+- `loki start "build a todo app"` previously errored "PRD file not found": a
+  whitespace one-line brief was misrouted as a PRD file path. `detect_arg_type`
+  now returns a brief type for whitespace args that match no file/issue/path
+  pattern; single-token args, `.md`/`.yaml` PRDs, issue refs, and empty input
+  all behave exactly as before (back-compat preserved).
+
+### Notes
+- The brief path applies a genuinely lighter profile (capped iterations, council
+  off, simple tier, heavy phases off) for a fast first pass, then emits an R1
+  proof-of-run as the visible artifact and prints honest "what next / go deeper"
+  guidance (full-depth `loki start` or `loki start ./prd.md`). The end-of-run
+  message is branched so the council-off brief path does not claim council
+  verdicts. The brief PRD is kept distinct from `.loki/generated-prd.md` so it
+  does not pollute the v7.8.1 generated-PRD-reuse signature.
+- Council: 3-of-3 unanimous (first round). No duplication; existing PRD/issue/
+  no-arg flows unchanged.
+
+## [7.11.0] - 2026-05-30
+
+### Added
+- Cost + observability dashboard (R3 of the competitive arc): transparent,
+  anti-surprise cost visibility, counter-positioned against the market's #1
+  churn driver (surprise AI bills). All built by ENHANCING the existing cost
+  surfaces in place, not duplicating them.
+- `loki cost` CLI (`--json`, `--last N`): current-run spend, per-model routing,
+  per-run history, and budget status, reading the shared
+  `autonomy/lib/efficiency_cost.py` (single source of truth; "not recorded"
+  rather than a fabricated $0.00 when no cost data exists).
+- New `/api/cost/timeline` endpoint: intra-run per-iteration cumulative spend +
+  per-run history with project totals + read-time budget status, additive to the
+  existing `/api/cost`.
+- A self-contained `/cost` dashboard panel: budget gauge with an 80% warn line,
+  model-routing-by-spend, per-run table, inline cumulative chart.
+- Pre-cap budget WARNING at 80% (previously only a hard stop at 100%), added to
+  the existing `check_budget_limit` (bash) and `checkBudgetLimit` (Bun) without
+  changing the hard-cap behavior, so an autonomous run flags a budget approach
+  before it stops.
+- Proactive budget alerting: the budget status now broadcasts over the existing
+  dashboard WebSocket loop and shows a persistent banner (amber at 80%, red at
+  100%) on every dashboard page, with a poll fallback for late-joining clients,
+  so a user not watching the terminal still sees the warning before the cap.
+
+### Notes
+- Council: 3-of-3 unanimous (round 2, after adding the proactive in-dashboard
+  budget banner; round 1 flagged the warning was passive-pull-only).
+- No duplication: every cost surface reuses the existing efficiency accounting;
+  thresholds (80% / 100%) are consistent across the bash runner, Bun runner,
+  dashboard, and CLI.
+- NOT tested in this release: the budget banner rendered in every browser engine
+  (verified self-contained + reproducible build + endpoint/broadcast tests).
+
+## [7.10.1] - 2026-05-30
+
+### Fixed
+- benchmarks/bench/run.sh had a malformed shellcheck directive
+  (`# shellcheck disable=SC2086 -- comment` on one line), which shellcheck
+  itself cannot parse (SC1072/SC1073 error). The CI Shell-tests job runs
+  shellcheck via tests/run-all-tests.sh and went red on v7.10.0 because of it
+  (local-ci ran bash -n on the file but not the shellcheck linter, so it slipped
+  through). Moved the explanation to its own comment line above a bare
+  `# shellcheck disable=SC2086`. The file is now clean at both -S error and
+  -S warning. No behavior change.
+
+## [7.10.0] - 2026-05-30
+
+### Added
+- Head-to-head benchmark harness (R2 of the competitive arc): `loki bench`
+  (run | vs | list | verify | report). A reproducible harness that runs a task
+  on Loki and competitors and produces a results table, built so a third party
+  can reproduce or refute the numbers. Core design principle (from research on
+  why vendor benchmarks get dismissed): the harness is the product, not the
+  number, and Loki NEVER grades itself.
+- Held-out grading: success is decided ONLY by a grader that runs the task's
+  held-out acceptance test (exit code) AFTER the agent finishes, outside the
+  agent. Adapters are structurally forbidden from reporting success/quality
+  (validated + rejected). No council/RARV-C/LLM-judge participates in scoring.
+  The held-out test is applied as an overlay so an agent that overwrites the
+  in-workdir test still fails.
+- Frozen public tasks: a SWE-bench Verified subset loader (offline, no network
+  in tests) materializes pinned public instances into the task-spec format with
+  the acceptance test held out of the agent prompt (anti-contamination). Pinned
+  instance IDs are honestly labeled unverified-as-Verified-split pending offline
+  confirmation; they must be confirmed before any published run.
+- Competitor adapters: real Aider and Claude Code adapters (CLI, headless) plus
+  an honest manual adapter for tools with no automatable local CLI (Devin,
+  Cursor) that records externally-supplied numbers with mandatory provenance,
+  stamped unverified and EXCLUDED from the winner. Competitor numbers are never
+  fabricated.
+- Data-driven report (`benchmarks/bench/report.py`): winner is whoever has the
+  highest grader success-rate (a Loki-loses input renders the competitor as
+  winner, regression-tested); null cost renders "not recorded" not "$0.00"; a
+  mandatory methodology + disclaimers section (reproduce-it-yourself, provenance,
+  read-only grader, variance, two-column cost, contamination disclosure,
+  published failures). Sample outputs carry a prominent mock-data banner.
+- Shared cost module `autonomy/lib/efficiency_cost.py` extracted from the R1
+  proof generator so benchmark cost and proof cost are computed identically.
+
+### Notes
+- bash + Bun parity: `loki bench` runs through the bash route on both runtimes
+  (the Bun shim falls through); no separate Bun command.
+- Scope of this release: R2 ships the reproducible HARNESS plus a small pinned
+  PUBLIC subset. It does NOT ship a full paid cross-tool leaderboard: CI is
+  fully mocked (zero paid API calls) and the full paid head-to-head across tools
+  is deferred until a budget is authorized.
+- NOT tested in this release: real paid runs of any competitor adapter (CI mocks
+  all adapters); SWE-bench Verified split membership of the pinned IDs (labeled
+  unverified); real end-to-end SWE-bench evaluation wiring (grader stub until a
+  real acceptance command is supplied).
+
 ## [7.9.1] - 2026-05-30
 
 ### Fixed

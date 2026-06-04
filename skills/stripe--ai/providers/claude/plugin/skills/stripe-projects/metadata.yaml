@@ -1,0 +1,10 @@
+# See http://go/metadata-yaml for information on supported keys and values
+---
+ownership:
+  project: fabric
+  additional_reviewers:
+    - project: docs
+      auto_assign: false
+
+affected_services:
+  - service: service-docs-proxy-srv

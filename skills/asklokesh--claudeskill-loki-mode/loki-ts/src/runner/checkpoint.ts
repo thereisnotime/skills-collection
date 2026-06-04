@@ -151,6 +151,9 @@ function readPhase(base: string): string {
 }
 
 // Files copied into the checkpoint directory (autonomy/run.sh:6931).
+// R6: CONTINUITY.md added so a rollback can also restore the iteration /
+// conversation handoff context, not just machine state. Additive -- metadata.json
+// keys are unchanged, so byte-for-byte parity (checkpoint.test.ts:62-91) holds.
 const COPIED_FILES: readonly string[] = [
   "state/orchestrator.json",
   "autonomy-state.json",
@@ -158,6 +161,7 @@ const COPIED_FILES: readonly string[] = [
   "queue/completed.json",
   "queue/in-progress.json",
   "queue/current-task.json",
+  "CONTINUITY.md",
 ] as const;
 
 function copyStateFiles(base: string, cpDir: string): void {
@@ -621,12 +625,17 @@ export type RollbackPlan = {
 
 // Files restored on rollback (autonomy/run.sh:7028 -- note: omits
 // autonomy-state.json, matching bash exactly).
+// R6: CONTINUITY.md restored too, so an undo also reverts the iteration /
+// conversation handoff context. Only present in checkpoints created after R6;
+// older checkpoints simply skip it (rollbackToCheckpoint only plans files that
+// exist in the checkpoint dir).
 const RESTORE_FILES: readonly string[] = [
   "state/orchestrator.json",
   "queue/pending.json",
   "queue/completed.json",
   "queue/in-progress.json",
   "queue/current-task.json",
+  "CONTINUITY.md",
 ] as const;
 
 export function rollbackToCheckpoint(
@@ -668,6 +677,59 @@ export function executeRollback(plan: RollbackPlan): { restored: number; errors:
     }
   }
   return { restored, errors };
+}
+
+// R6 re-undoability invariant: every user-facing rollback must first capture a
+// forced pre-rollback snapshot of the CURRENT state, so the rollback is itself
+// trivially undoable. The bash `rollback_to_checkpoint` does this via
+// create_checkpoint("pre-rollback snapshot", "rollback"); the Bun CLI previously
+// did NOT (executePlan called executeRollback directly). This wrapper closes that
+// gap. forceCreate is used because the working tree may be clean (no uncommitted
+// changes) yet the .loki/ state we are about to overwrite still needs preserving.
+//
+// Returns the snapshot result alongside the restore result so callers can report
+// the id of the pre-rollback snapshot (the "undo your undo" handle).
+export type RollbackWithSnapshotResult = {
+  preRollbackSnapshotId: string | null;
+  restored: number;
+  errors: string[];
+};
+
+export async function executeRollbackWithSnapshot(
+  plan: RollbackPlan,
+  lokiDirOverride?: string,
+  force = false,
+): Promise<RollbackWithSnapshotResult> {
+  let preRollbackSnapshotId: string | null = null;
+  try {
+    const snap = await createCheckpoint({
+      taskDescription: `pre-rollback snapshot (before restoring ${plan.id})`,
+      taskId: "rollback",
+      forceCreate: true,
+      lokiDirOverride,
+    });
+    if (snap.created) preRollbackSnapshotId = snap.id;
+  } catch (err) {
+    // A failed pre-rollback snapshot must NOT silently proceed to a destructive
+    // restore -- that would violate the re-undoability invariant ("undo your
+    // undo"). Abort by default so the user's current state is never clobbered
+    // without a safety net. A caller can pass force=true to knowingly proceed
+    // without a snapshot.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!force) {
+      throw new Error(
+        "pre-rollback snapshot failed (" + msg + "); aborting rollback to " +
+          "preserve current state. Re-run with force to roll back anyway " +
+          "without a safety snapshot.",
+      );
+    }
+    console.warn(
+      "[checkpoint] pre-rollback snapshot failed; proceeding due to force:",
+      msg,
+    );
+  }
+  const result = executeRollback(plan);
+  return { preRollbackSnapshotId, restored: result.restored, errors: result.errors };
 }
 
 // Test/debug helper: read the index.jsonl and parse each line.

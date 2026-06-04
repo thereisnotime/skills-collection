@@ -459,6 +459,8 @@ async def _push_loki_state_loop() -> None:
     """
     last_mtime: float = 0.0
     _last_skill_hash: str = ""  # Track skill-session state changes
+    _last_budget_status: str = ""  # Track budget-status transitions (R3)
+    _last_trust_signature: str = ""  # Track trust-trajectory changes (R4)
     while True:
         try:
             if not manager.active_connections:
@@ -468,6 +470,50 @@ async def _push_loki_state_loop() -> None:
             loki_dir = _get_loki_dir()
             state_file = loki_dir / "dashboard-state.json"
             _session_file = loki_dir / "session.json"
+
+            # R3 anti-surprise-cost: proactively push a budget_status message
+            # when spend crosses a threshold (ok -> warn -> exceeded), so a user
+            # who is not watching the terminal sees the 80% warning in any open
+            # dashboard page BEFORE the hard stop at 100%. Reuses the existing
+            # WebSocket broadcast path (manager.broadcast); no second channel.
+            # Sent on transition (independent of the dashboard-state.json mtime
+            # gate) because budget can cross 80% while that file is unchanged.
+            try:
+                _budget = _compute_budget_snapshot(loki_dir)
+                _bstatus = _budget.get("status", "none")
+                if _bstatus in ("warn", "exceeded") and _bstatus != _last_budget_status:
+                    await manager.broadcast({
+                        "type": "budget_status",
+                        "data": _budget,
+                    })
+                # Track every status so a return to ok/none re-arms the warn push.
+                _last_budget_status = _bstatus
+            except (OSError, ValueError, KeyError):
+                pass
+
+            # R4 visible trust trajectory: proactively push a trust_update when
+            # the trajectory's improving/regressing tally changes (e.g. a new
+            # run just landed a council pass), so an open dashboard reflects the
+            # earned-autonomy trend without a manual refresh. Mirrors the R3
+            # budget_status transition push; reuses manager.broadcast (no second
+            # channel). Signature gates the push so we only broadcast on change.
+            try:
+                _tmod = _load_trust_module()
+                if _tmod is not None:
+                    _traj = _tmod.compute_trajectory(str(loki_dir))
+                    _sig = "%d:%d:%d" % (
+                        _traj.get("runs_count", 0),
+                        _traj.get("improving_count", 0),
+                        _traj.get("regressing_count", 0),
+                    )
+                    if _sig != _last_trust_signature:
+                        await manager.broadcast({
+                            "type": "trust_update",
+                            "data": _traj,
+                        })
+                    _last_trust_signature = _sig
+            except (OSError, ValueError, KeyError):
+                pass
 
             _broadcast_sent = False
 
@@ -4551,6 +4597,289 @@ async def get_budget():
     }
 
 
+# Budget warn threshold: surface a "warn" status before the hard cap so users
+# are not surprised by a bill. Matches the runtime warn in run.sh
+# check_budget_limit() and budget.ts (warn at 80%, hard-stop at 100%).
+_BUDGET_WARN_FRACTION = 0.80
+
+
+def _budget_status(used: float, limit: Optional[float]) -> str:
+    """Classify budget usage. Read-time only; no state mutation.
+
+    Returns one of: "none" (no limit set), "ok" (<80%), "warn" (>=80% and
+    <100%), "exceeded" (>=100%). The warn band is the anti-surprise wedge:
+    the user sees it BEFORE the hard cap pauses the run.
+    """
+    if limit is None or limit <= 0:
+        return "none"
+    if used >= limit:
+        return "exceeded"
+    if used >= _BUDGET_WARN_FRACTION * limit:
+        return "warn"
+    return "ok"
+
+
+def _compute_budget_snapshot(loki_dir: _Path) -> dict:
+    """Read-time budget snapshot shared by /api/cost/timeline and the WS push.
+
+    Single source of truth so the proactive WebSocket broadcast and the pull
+    endpoint never disagree. "used" is the current run's spend (sum of the live
+    .loki/metrics/efficiency/iteration-*.json records, mirroring
+    check_budget_limit in run.sh). The cap comes from budget.json, falling back
+    to the LOKI_BUDGET_LIMIT env var. No state is mutated.
+    """
+    efficiency_dir = loki_dir / "metrics" / "efficiency"
+    budget_file = loki_dir / "metrics" / "budget.json"
+
+    current_total = 0.0
+    if efficiency_dir.exists():
+        for eff_file in sorted(efficiency_dir.glob("iteration-*.json")):
+            data = _safe_json_read(eff_file, default=None)
+            if not isinstance(data, dict):
+                continue
+            inp = data.get("input_tokens", 0) or 0
+            out = data.get("output_tokens", 0) or 0
+            model = str(data.get("model", "sonnet")).lower()
+            cost = data.get("cost_usd")
+            if cost is None:
+                cost = _calculate_model_cost(model, inp, out)
+            else:
+                try:
+                    cost = float(cost)
+                except (TypeError, ValueError):
+                    cost = 0.0
+            current_total += cost
+
+    budget_limit = None
+    if budget_file.exists():
+        bdata = _safe_json_read(budget_file, default=None)
+        if isinstance(bdata, dict):
+            budget_limit = bdata.get("limit") or bdata.get("budget_limit")
+    if budget_limit is None:
+        env_limit = os.environ.get("LOKI_BUDGET_LIMIT", "")
+        if env_limit:
+            try:
+                budget_limit = float(env_limit)
+            except ValueError:
+                budget_limit = None
+    if budget_limit is not None:
+        try:
+            budget_limit = float(budget_limit)
+        except (TypeError, ValueError):
+            budget_limit = None
+
+    used = round(current_total, 6)
+    if budget_limit is not None and budget_limit > 0:
+        remaining = max(0.0, budget_limit - used)
+        percent_used = round((used / budget_limit) * 100, 2)
+    else:
+        remaining = None
+        percent_used = None
+    status = _budget_status(used, budget_limit)
+
+    return {
+        "limit": budget_limit,
+        "used": used,
+        "remaining": round(remaining, 6) if remaining is not None else None,
+        "percent_used": percent_used,
+        "status": status,
+        "warn_threshold_percent": int(_BUDGET_WARN_FRACTION * 100),
+        "exceeded": status == "exceeded",
+    }
+
+
+@app.get("/api/cost/timeline")
+async def get_cost_timeline():
+    """Cost over time: intra-run per-iteration series + per-run history.
+
+    Two honest series, distinct sources (see docs/R3-COST-OBSERVABILITY-DESIGN.md):
+      - current_run: from .loki/metrics/efficiency/iteration-*.json. This dir is
+        wiped at the start of every run (run.sh), so it only ever holds the
+        CURRENT run's iterations. Used for the intra-run cumulative line.
+      - runs: from .loki/proofs/<run_id>/proof.json (persistent, one per run).
+        This is the real per-run/per-project "cost over time" history.
+
+    Budget status is computed at read time (no budget.json schema change) and
+    classifies into ok/warn/exceeded so the UI can warn at 80% before the cap.
+    Cost is never fabricated: when nothing was recorded, cost_recorded is False
+    and totals are honestly null rather than a misleading $0.00.
+    """
+    loki_dir = _get_loki_dir()
+    efficiency_dir = loki_dir / "metrics" / "efficiency"
+
+    # --- current run: per-iteration series from efficiency/ -----------------
+    iterations: list = []
+    current_total = 0.0
+    cost_recorded = False
+    if efficiency_dir.exists():
+        records = []
+        for eff_file in sorted(efficiency_dir.glob("iteration-*.json")):
+            data = _safe_json_read(eff_file, default=None)
+            if not isinstance(data, dict):
+                continue
+            records.append(data)
+        # Sort by numeric iteration when present, else by filename order.
+        def _iter_key(d):
+            try:
+                return int(d.get("iteration", 0))
+            except (TypeError, ValueError):
+                return 0
+        records.sort(key=_iter_key)
+        cumulative = 0.0
+        for data in records:
+            cost_recorded = True
+            inp = data.get("input_tokens", 0) or 0
+            out = data.get("output_tokens", 0) or 0
+            model = str(data.get("model", "sonnet")).lower()
+            cost = data.get("cost_usd")
+            if cost is None:
+                cost = _calculate_model_cost(model, inp, out)
+            else:
+                try:
+                    cost = float(cost)
+                except (TypeError, ValueError):
+                    cost = 0.0
+            cumulative += cost
+            iterations.append({
+                "iteration": data.get("iteration"),
+                "timestamp": data.get("timestamp"),
+                "model": model,
+                "phase": data.get("phase", "unknown"),
+                "provider": data.get("provider"),
+                "input_tokens": inp,
+                "output_tokens": out,
+                "cost_usd": round(cost, 6),
+                "cumulative_usd": round(cumulative, 6),
+            })
+        current_total = cumulative
+
+    # --- per-run history: from .loki/proofs/*/proof.json --------------------
+    runs: list = []
+    project_total = 0.0
+    proofs_dir = _proofs_dir()
+    try:
+        entries = sorted(proofs_dir.iterdir())
+    except (OSError, FileNotFoundError):
+        entries = []
+    for entry in entries:
+        if not entry.is_dir():
+            continue
+        data = _safe_json_read(entry / "proof.json", default=None)
+        if not isinstance(data, dict):
+            continue
+        run_cost = (data.get("cost") or {}).get("usd")
+        run_cost_num = None
+        if run_cost is not None:
+            try:
+                run_cost_num = float(run_cost)
+                project_total += run_cost_num
+            except (TypeError, ValueError):
+                run_cost_num = None
+        runs.append({
+            "run_id": data.get("run_id", entry.name),
+            "generated_at": data.get("generated_at"),
+            "model": (data.get("provider") or {}).get("model"),
+            "cost_usd": round(run_cost_num, 6) if run_cost_num is not None else None,
+            "files_changed": (data.get("files_changed") or {}).get("count"),
+            "final_verdict": (data.get("council") or {}).get("final_verdict"),
+        })
+    runs.sort(key=lambda x: (x.get("generated_at") or ""), reverse=True)
+
+    # --- budget block (read-time status; no mutation) -----------------------
+    # Shared snapshot so the pull endpoint and the proactive WS push agree.
+    # Budget "used" is the current run's spend (mirrors check_budget_limit,
+    # which sums the live efficiency dir against the cap). The per-project
+    # history total is reported separately as project_total_usd.
+    budget = _compute_budget_snapshot(loki_dir)
+
+    return {
+        "current_run": {
+            "iterations": iterations,
+            "total_usd": round(current_total, 6) if cost_recorded else None,
+            "cost_recorded": cost_recorded,
+        },
+        "runs": runs,
+        "runs_count": len(runs),
+        "project_total_usd": round(project_total, 6) if runs else 0.0,
+        "budget": budget,
+    }
+
+
+# =============================================================================
+# Trust trajectory API (R4): is the agent earning autonomy on THIS repo?
+# =============================================================================
+
+_TRUST_MODULE = None  # cached import of autonomy/lib/trust_trajectory.py
+
+
+def _load_trust_module():
+    """Import the shared trust-trajectory derivation (single source of truth).
+
+    The derivation lives in autonomy/lib/trust_trajectory.py so the dashboard
+    endpoint, the bash `cmd_trust`, and the test suite all agree. Loaded via
+    importlib because autonomy/lib is not an importable package. Cached after
+    first load. Returns None if the module cannot be found (degraded mode).
+    """
+    global _TRUST_MODULE
+    if _TRUST_MODULE is not None:
+        return _TRUST_MODULE
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    mod_path = os.path.join(repo_root, "autonomy", "lib", "trust_trajectory.py")
+    if not os.path.isfile(mod_path):
+        return None
+    try:
+        import importlib.util as _ilu
+        spec = _ilu.spec_from_file_location("trust_trajectory", mod_path)
+        if spec is None or spec.loader is None:
+            return None
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _TRUST_MODULE = mod
+        return mod
+    except Exception:
+        return None
+
+
+@app.get("/api/trust/trajectory")
+async def get_trust_trajectory():
+    """Per-project trust trajectory derived from proof-of-run history.
+
+    Mirrors /api/cost/timeline: reads the persistent per-run records under
+    .loki/proofs/<run_id>/proof.json (the same source R3 cost history uses) and
+    derives whether the agent is earning autonomy on THIS repo over time:
+    council pass-rate, gate pass-rate, iterations-to-completion, and (when
+    recorded) human interventions, each with an up/down/flat direction and an
+    `improving` flag that already accounts for per-axis polarity.
+
+    Honest-data rule: with fewer than 2 recorded runs the response is
+    insufficient=True and NO direction is fabricated. Every number derives from
+    real proof.json values; a missing axis is reported available=False, never a
+    misleading zero. No PII leaves the derivation (only run_id, timestamps, and
+    derived numeric axes).
+    """
+    loki_dir = _get_loki_dir()
+    mod = _load_trust_module()
+    if mod is None:
+        return {
+            "schema_version": 1,
+            "available": False,
+            "error": "trust_trajectory module not found",
+            "runs_count": 0,
+            "insufficient": True,
+            "axes": {},
+            "series": [],
+            "notes": ["trust derivation module unavailable in this install"],
+        }
+    traj = mod.compute_trajectory(str(loki_dir))
+    # Best-effort cache write so other surfaces share one source of truth.
+    try:
+        mod.write_trajectory_cache(str(loki_dir), traj)
+    except Exception:
+        pass
+    traj["available"] = True
+    return traj
+
+
 # =============================================================================
 # Pricing API
 # =============================================================================
@@ -5165,6 +5494,100 @@ async def create_checkpoint(body: CheckpointCreate = None):
         shutil.rmtree(str(oldest), ignore_errors=True)
 
     return metadata
+
+
+@app.post(
+    "/api/checkpoints/{checkpoint_id}/rollback",
+    dependencies=[Depends(auth.require_scope("control"))],
+)
+async def rollback_checkpoint(checkpoint_id: str):
+    """Restore .loki/ state from a checkpoint (R6: un-deads the dashboard
+    rollback button, which already POSTed here).
+
+    Safety:
+    - require_scope("control"): destructive, so it needs the control scope.
+    - _sanitize_checkpoint_id: blocks path traversal.
+    - Re-undoability invariant: a forced pre-rollback snapshot of current state
+      is captured BEFORE overwriting, so the human can undo the undo. The
+      pre_rollback_snapshot id is returned in the response so the caller can
+      surface it to the user.
+    - Glob-restore: copies back whatever files the checkpoint dir contains, so it
+      works regardless of which writer (run.sh / loki / dashboard) created it.
+    """
+    import shutil
+
+    checkpoint_id = _sanitize_checkpoint_id(checkpoint_id)
+    loki_dir = _get_loki_dir()
+    checkpoints_dir = loki_dir / "state" / "checkpoints"
+    cp_dir = checkpoints_dir / checkpoint_id
+
+    if not cp_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+    # 1. Forced pre-rollback snapshot of current state (re-undoability).
+    now = datetime.now(timezone.utc)
+    pre_id = now.strftime("rb-pre-%Y%m%d-%H%M%S")
+    pre_dir = checkpoints_dir / pre_id
+    pre_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("session.json", "dashboard-state.json", "CONTINUITY.md", "autonomy-state.json"):
+        src = loki_dir / name
+        if src.exists() and src.is_file():
+            try:
+                shutil.copy2(str(src), str(pre_dir / name))
+            except Exception:
+                pass
+    for dname in ("state", "queue"):
+        src = loki_dir / dname
+        if src.exists() and src.is_dir():
+            try:
+                shutil.copytree(str(src), str(pre_dir / dname), dirs_exist_ok=True)
+            except Exception:
+                pass
+    pre_meta = {
+        "id": pre_id,
+        "created_at": now.isoformat(),
+        "message": f"pre-rollback snapshot (before restoring {checkpoint_id})",
+        "created_by": "dashboard rollback",
+    }
+    try:
+        (pre_dir / "metadata.json").write_text(json.dumps(pre_meta, indent=2))
+        with open(str(checkpoints_dir / "index.jsonl"), "a") as f:
+            f.write(json.dumps(pre_meta) + "\n")
+    except Exception:
+        pass
+
+    # 2. Glob-restore the checkpoint contents back into .loki/.
+    # IMPORTANT: never rmtree a destination dir wholesale -- the checkpoint store
+    # itself lives under .loki/state/checkpoints/, so deleting .loki/state/ would
+    # destroy every checkpoint (including the one being restored AND the
+    # pre-rollback snapshot we just made). Merge directories with dirs_exist_ok
+    # so the checkpoints store survives.
+    restored = 0
+    errors = []
+    for item in cp_dir.iterdir():
+        if item.name in ("metadata.json", "worktree-snapshot.txt"):
+            continue
+        dest = loki_dir / item.name
+        try:
+            if item.is_dir():
+                shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+            else:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(str(item), str(dest))
+            restored += 1
+        except Exception as e:  # noqa: BLE001 -- report, do not abort other files
+            errors.append(f"{item.name}: {e}")
+
+    return {
+        "id": checkpoint_id,
+        "restored": restored,
+        "pre_rollback_snapshot": pre_id,
+        "errors": errors,
+        "message": (
+            f"Restored {restored} item(s) from {checkpoint_id}. "
+            f"Prior state saved as {pre_id} (undo this rollback by restoring it)."
+        ),
+    }
 
 
 # =============================================================================
@@ -6428,6 +6851,31 @@ async def serve_favicon():
     return Response(status_code=404)
 
 
+# Serve the self-contained cost + observability panel (R3). Zero-build
+# standalone page that fetches /api/cost/timeline. Mirrors the proofs.html
+# pattern: works without the SPA build.
+@app.get("/cost", include_in_schema=False)
+async def serve_cost_panel():
+    """Serve the standalone cost + observability HTML panel."""
+    if STATIC_DIR:
+        cost_path = os.path.join(STATIC_DIR, "cost.html")
+        if os.path.isfile(cost_path):
+            return FileResponse(cost_path, media_type="text/html")
+    return Response(status_code=404)
+
+
+# R4: standalone trust-trajectory page that fetches /api/trust/trajectory.
+# Mirrors the cost.html / /cost pattern: works without the SPA build.
+@app.get("/trust", include_in_schema=False)
+async def serve_trust_panel():
+    """Serve the standalone trust-trajectory HTML panel."""
+    if STATIC_DIR:
+        trust_path = os.path.join(STATIC_DIR, "trust.html")
+        if os.path.isfile(trust_path):
+            return FileResponse(trust_path, media_type="text/html")
+    return Response(status_code=404)
+
+
 # Serve index.html or standalone HTML for root
 @app.get("/", include_in_schema=False)
 async def serve_index():
@@ -7263,6 +7711,121 @@ async def get_proof_html(run_id: str):
         raise HTTPException(status_code=404,
                             detail=f"proof page not found: {run_id}")
     return FileResponse(str(index_html), media_type="text/html")
+
+
+# ---------------------------------------------------------------------------
+# R5: Auto-wiki + cited codebase Q&A (Loki's DeepWiki).
+#
+# Surfaces the per-project wiki generated by autonomy/lib/wiki-generator.py
+# (stored under <project>/.loki/wiki/) and the grounded `ask` flow
+# (autonomy/lib/wiki-ask.py). Citations are file:line and always point at real
+# code -- the generator/ask scripts validate every citation against the
+# filesystem before emitting it, so the dashboard never shows a fabricated one.
+#
+# The section param is traversal-safe, mirroring _safe_proof_run_dir: only the
+# known section ids are accepted, so no arbitrary path can be read.
+# ---------------------------------------------------------------------------
+_WIKI_SECTIONS = {"architecture", "modules", "data-flow"}
+
+
+def _wiki_dir() -> _Path:
+    return _get_loki_dir() / "wiki"
+
+
+def _project_root() -> _Path:
+    """Resolve the active project root (.loki's parent)."""
+    return _get_loki_dir().parent
+
+
+@app.get("/api/wiki", dependencies=[Depends(auth.require_scope("read"))])
+async def get_wiki():
+    """Return the wiki manifest + section list for the active project."""
+    wiki_dir = _wiki_dir()
+    wiki_json = wiki_dir / "wiki.json"
+    if not wiki_json.is_file():
+        return {"generated": False, "sections": [],
+                "message": "No wiki generated. Run 'loki wiki generate'."}
+    data = _safe_json_read(wiki_json, default=None)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="wiki.json unreadable")
+    manifest = _safe_json_read(wiki_dir / "wiki-manifest.json", default={}) or {}
+    sections = [
+        {"id": s.get("id"), "title": s.get("title"),
+         "citation_count": len(s.get("citations") or [])}
+        for s in data.get("sections", [])
+        if isinstance(s, dict)
+    ]
+    return {
+        "generated": True,
+        "project": data.get("project"),
+        "generated_at": data.get("generated_at"),
+        "file_count": data.get("file_count"),
+        "signature": manifest.get("signature"),
+        "sections": sections,
+    }
+
+
+@app.get("/api/wiki/{section}", dependencies=[Depends(auth.require_scope("read"))])
+async def get_wiki_section(section: str):
+    """Return one wiki section (body + validated file:line citations)."""
+    if section not in _WIKI_SECTIONS:
+        raise HTTPException(status_code=400, detail=f"unknown section: {section}")
+    wiki_json = _wiki_dir() / "wiki.json"
+    if not wiki_json.is_file():
+        # Soft empty state for dashboard consumers on a fresh repo. A hard 404
+        # here floods the browser console (the panel and the SPA both poll this)
+        # even though "no wiki yet" is an expected, benign state. Mirrors the
+        # generated:false contract of GET /api/wiki.
+        return JSONResponse(content={
+            "generated": False, "id": section, "title": "",
+            "body": "", "citations": [],
+        })
+    data = _safe_json_read(wiki_json, default=None)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="wiki.json unreadable")
+    for s in data.get("sections", []):
+        if isinstance(s, dict) and s.get("id") == section:
+            return JSONResponse(content=s)
+    raise HTTPException(status_code=404, detail=f"section not found: {section}")
+
+
+class WikiAskRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+    k: int = Field(default=6, ge=1, le=20)
+
+
+@app.post("/api/wiki/ask", dependencies=[Depends(auth.require_scope("read"))])
+async def post_wiki_ask(req: WikiAskRequest):
+    """Grounded, cited codebase Q&A.
+
+    Shells out to autonomy/lib/wiki-ask.py (the single source of truth for the
+    grounding + citation-validation contract) and returns its JSON. Every
+    citation in the response resolves to a real file:line.
+    """
+    project_root = _project_root()
+    repo_root = _Path(__file__).resolve().parent.parent
+    ask_script = repo_root / "autonomy" / "lib" / "wiki-ask.py"
+    if not ask_script.is_file():
+        raise HTTPException(status_code=503, detail="wiki-ask backend missing")
+    try:
+        proc = subprocess.run(
+            ["python3", str(ask_script), "--root", str(project_root),
+             "--question", req.question, "--k", str(req.k), "--json"],
+            capture_output=True, text=True, timeout=180,
+            cwd=str(project_root),
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(status_code=503, detail=f"wiki ask failed: {e}")
+    if proc.returncode == 3:
+        return {"question": req.question, "answer": "",
+                "citations": [], "note": "no relevant code found"}
+    if proc.returncode != 0:
+        raise HTTPException(status_code=500,
+                            detail=(proc.stderr or "wiki ask error").strip())
+    try:
+        return JSONResponse(content=json.loads(proc.stdout))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="wiki ask returned bad JSON")
 
 
 # ---------------------------------------------------------------------------

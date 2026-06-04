@@ -42,7 +42,7 @@ Emit a one-line failure reason. In `mode:agent`, return JSON: `{"status":"failed
 
 Same pipeline for default and `mode:agent`:
 
-- **Apply and commit locally; never push.** Never push, open PRs, or file tickets — in any mode (push is the outward-facing step the user owns). In **default (interactive)** mode the review applies safe, verified fixes (Stage 5c); when the working tree was clean before the review it also commits them as an isolated `fix(review):` commit, and on a dirty tree it applies but leaves them for the user's commit. In **`mode:agent`** it never mutates the tree — it reports and the caller applies and commits.
+- **Apply locally; never push.** Never push, open PRs, or file tickets in any mode — push is the outward step the user owns. In **default (interactive)** mode the review applies safe, verified fixes and commits them when the pre-review tree was clean (Stage 5c owns the full rule). In **`mode:agent`** it never mutates the tree — it reports and the caller applies.
 - **No blocking prompts.** Never use `AskUserQuestion`, `request_user_input`, `ask_user`, or other blocking question tools. Infer intent, plan, and scope from explicit tokens, git state, PR metadata, and conversation. Note uncertainty in Coverage or the verdict — do not stop to ask.
 - **Explicit mutations only.** Never run `gh pr checkout`, `git checkout`, `git switch`, or similar branch-switch commands. Passing a PR number, URL, or branch name selects **review scope**, not permission to mutate the working tree. To review local uncommitted work on a feature branch, check out that branch yourself (or stay on it) and pass `base:` or no target.
 - **Smart defaults.** Untracked files: review tracked changes only and list excluded paths in Coverage. Plan: use `plan:` when passed; otherwise discover conservatively from PR body or branch keywords. Weak advisory P2/P3 from testing/maintainability alone: demote to `testing_gaps` / `residual_risks` per Stage 5.
@@ -54,9 +54,7 @@ Same pipeline for default and `mode:agent`:
 | **Default** | Markdown report (pipe-delimited finding tables) + Actionable Findings summary |
 | **`mode:agent`** | One JSON object (see ### JSON output format below) + the same `/tmp/.../ce-code-review/<run-id>/` artifacts |
 
-`mode:agent` is **report-only**: it skips the Stage 5c apply (the caller applies) and serializes findings as JSON instead of markdown. It does not change reviewer selection, merge logic, or scope rules.
-
-The `mode:agent` JSON is the **deterministic, machine-readable contract** for programmatic and cross-harness callers (Codex, Gemini, etc.) — route automation through it, not through the markdown. The default markdown is the **human-readable view**; it will render differently across terminals and harnesses, so keep it ASCII-safe (pipe tables, `->` not middot `·`, no box-drawing) so it degrades gracefully where rendering differs.
+`mode:agent` is **report-only**: it skips the Stage 5c apply (the caller applies) and serializes findings as JSON instead of markdown. It does not change reviewer selection, merge logic, or scope rules — the JSON is the deterministic contract for programmatic and cross-harness callers (Codex, Gemini, etc.). The default markdown is the human view; keep it ASCII-safe (pipe tables, `->` not middot `·`, no box-drawing) so it degrades gracefully across terminals.
 
 ## Quick Review Short-Circuit
 
@@ -70,7 +68,7 @@ Sequence:
 2. **Exemption:** If no built-in review exists, continue into the full multi-agent review.
 3. **`mode:agent` bypasses this short-circuit** — always run the full multi-agent review and return JSON.
 
-**Deprecated:** `mode:autofix` is no longer supported — there is no apply *mode*. Default (interactive) runs apply safe fixes automatically (Stage 5c); `mode:agent` reports and the caller applies (e.g. `ce-work` `review-findings-followup.md`). If `mode:autofix` is passed, ignore the token and proceed with the normal flow.
+**Deprecated:** `mode:autofix` is no longer supported — there is no apply *mode*. If passed, ignore the token and proceed with the normal flow (default applies safe fixes via Stage 5c; `mode:agent` reports and the caller applies).
 
 ## Severity Scale
 
@@ -85,7 +83,7 @@ All reviewers use P0-P3:
 
 ## Action Routing
 
-Severity answers **urgency**. `autofix_class` and `owner` are **signal** describing intrinsic follow-up shape for callers — **not apply permission or an apply gate.** In `mode:agent` this skill does not mutate the checkout — the caller applies; in default (interactive) mode the review applies safe fixes itself (Stage 5c). The apply decision is judgment (Stage 5c), not a function of `autofix_class`. See `references/action-class-rubric.md` for persona guidance.
+Severity answers **urgency**. `autofix_class` and `owner` are **signal** describing follow-up shape for callers — **not apply permission or an apply gate.** The apply decision is judgment (Stage 5c), not a function of `autofix_class`: default mode applies; in `mode:agent` this skill does not mutate the checkout — the caller applies. See `references/action-class-rubric.md` for persona guidance.
 
 | `autofix_class` | Default owner | Meaning |
 |-----------------|---------------|---------|
@@ -102,45 +100,23 @@ Routing rules:
 
 ## Reviewers
 
-14 reviewer personas in layered conditionals, plus CE-specific agents. See the persona catalog included below for the full catalog.
+14 reviewer personas in layered conditionals, plus CE agents. Quick roster with one-line triggers below; the persona catalog included at the bottom has the full per-persona selection criteria and spawn gates.
 
-**Always-on (every review):**
+**Always-on (every review):** `ce-correctness-reviewer`, `ce-testing-reviewer`, `ce-maintainability-reviewer`, `ce-project-standards-reviewer`, plus CE agents `ce-agent-native-reviewer` and `ce-learnings-researcher`.
 
-| Agent | Focus |
-|-------|-------|
-| `ce-correctness-reviewer` | Logic errors, edge cases, state bugs, error propagation |
-| `ce-testing-reviewer` | Coverage gaps, weak assertions, brittle tests |
-| `ce-maintainability-reviewer` | Structural quality, complexity deletion, 1k-line regressions, coupling, type-boundary leaks, dead code, abstraction debt |
-| `ce-project-standards-reviewer` | CLAUDE.md and AGENTS.md compliance -- frontmatter, references, naming, portability |
-| `ce-agent-native-reviewer` | Verify new features are agent-accessible |
-| `ce-learnings-researcher` | Search docs/solutions/ for past issues related to this PR |
+**Cross-cutting conditional (per diff):**
 
-**Cross-cutting conditional (selected per diff):**
+- `ce-security-reviewer` — auth, public endpoints, user input, permissions
+- `ce-performance-reviewer` — DB queries, data transforms, caching, async
+- `ce-api-contract-reviewer` — routes, serializers, type signatures, versioning
+- `ce-data-migration-reviewer` — migration files / schema dumps / backfills (see spawn gate in Stage 3)
+- `ce-reliability-reviewer` — error handling, retries, timeouts, background jobs
+- `ce-adversarial-reviewer` — >=50 changed code lines, or auth / payments / data mutations / external APIs
+- `ce-previous-comments-reviewer` — PR with existing review comments (PR-only, comment-gated)
 
-| Agent | Select when diff touches... |
-|-------|---------------------------|
-| `ce-security-reviewer` | Auth, public endpoints, user input, permissions |
-| `ce-performance-reviewer` | DB queries, data transforms, caching, async |
-| `ce-api-contract-reviewer` | Routes, serializers, type signatures, versioning |
-| `ce-data-migration-reviewer` | Migration files, schema dumps (`db/schema.rb`, `structure.sql`), backfills, data-transform scripts — **not** model/query-only changes without migration artifacts |
-| `ce-reliability-reviewer` | Error handling, retries, timeouts, background jobs |
-| `ce-adversarial-reviewer` | Diff >=50 changed non-test/non-generated/non-lockfile lines, or auth, payments, data mutations, external APIs |
-| `ce-previous-comments-reviewer` | Reviewing a PR that has existing review comments or threads |
+**Stack-specific conditional (per diff):** `ce-julik-frontend-races-reviewer` (Stimulus/Turbo, DOM events, async UI) and `ce-swift-ios-reviewer` (Swift/SwiftUI/UIKit, entitlements, Core Data, `.pbxproj`).
 
-**Stack-specific conditional (selected per diff):**
-
-| Agent | Select when diff touches... |
-|-------|---------------------------|
-| `ce-julik-frontend-races-reviewer` | Stimulus/Turbo controllers, DOM events, timers, animations, or async UI flows |
-| `ce-swift-ios-reviewer` | Swift files, SwiftUI views, UIKit controllers, entitlements, privacy manifests, Core Data models, SPM manifests, storyboards/XIBs, or semantic build-setting/target/signing changes in .pbxproj |
-
-**CE conditional (migration-specific):**
-
-| Agent | Select when diff includes migration files |
-|-------|------------------------------------------|
-| `ce-deployment-verification-agent` | Produces deployment checklist with SQL verification queries and rollback procedures |
-
-Schema drift detection is folded into `ce-data-migration-reviewer` (Step 0) and surfaces as P1 findings — not a separate agent or report section.
+**CE conditional (migration-specific):** `ce-deployment-verification-agent` — deployment checklist + rollback when the migration gate applies and the change is risky.
 
 ## Review Scope
 
@@ -177,7 +153,7 @@ Then produce the same output as the other paths:
 echo "BASE:$BASE" && echo "FILES:" && git diff --name-only $BASE && echo "DIFF:" && git diff -U10 $BASE && echo "UNTRACKED:" && git ls-files --others --exclude-standard
 ```
 
-This path works with any ref — a SHA, `origin/main`, a branch name. Callers reviewing the current checkout should pass explicit `base:` when auto-detection is unnecessary. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base." This avoids scope/intent mismatches where the diff base comes from one source but the code and metadata come from another.
+This path works with any ref — a SHA, `origin/main`, a branch name. Callers reviewing the current checkout should pass explicit `base:` when auto-detection is unnecessary. **Do not combine `base:` with a PR number or branch target.** If both are present, stop with an error: "Cannot use `base:` with a PR number or branch target — `base:` implies the current checkout is already the correct branch. Pass `base:` alone, or pass the target alone and let scope detection resolve the base."
 
 **If a PR number or GitHub URL is provided as an argument:**
 
@@ -207,7 +183,7 @@ Set `BASE:` to `pr:<number-or-url>` (logical marker — not a git SHA). Set `UNT
 **PR scope mode.** Classify as **`local-aligned`** only when **all** of these hold; otherwise use **`pr-remote`**. A matching branch name alone is not enough — a fork PR or a stale local branch can share a name with the PR head while pointing at unrelated code, and trusting the name would diff and inspect the wrong tree.
 
 1. `git rev-parse --abbrev-ref HEAD` equals `headRefName`.
-2. The PR is **not** cross-repository (`isCrossRepository` is false). A fork PR whose branch name coincides with the local branch is **not** the local tree.
+2. The PR is **not** cross-repository (`isCrossRepository` is false).
 3. The PR head commit is contained in the local checkout: `git merge-base --is-ancestor <headRefOid> HEAD` exits 0. This confirms the working tree actually carries the PR head (allowing unpushed local fixes layered on top) rather than an unrelated same-named branch.
 
 - **`local-aligned`** — all three checks pass. Local Read/Grep/git blame against workspace files are valid for PR changed paths.
@@ -318,7 +294,7 @@ Read the diff and file list from Stage 1. The 4 always-on personas and 2 CE alwa
 
 Skip it for standalone branch reviews with no associated PR, and skip it for PRs with no prior feedback yet -- there is nothing for the persona to verify, and a spawned subagent that returns empty findings still costs the full subagent startup overhead (persona spec, diff, schema, plus its own gh calls).
 
-Stack-specific personas are additive when runtime behavior warrants them. A Hotwire UI change may warrant `julik-frontend-races`; a TypeScript API diff may warrant `api-contract` and `reliability`. Structural and maintainability concerns are handled by the always-on `maintainability` persona — do not spawn extra reviewers for convention or philosophy passes.
+Stack-specific personas are additive when runtime behavior warrants them. A Hotwire UI change may warrant `julik-frontend-races`; a TypeScript API diff may warrant `api-contract` and `reliability`.
 
 **`data-migration` spawn gate.** Select `ce-data-migration-reviewer` only when the diff includes at least one migration or schema artifact: `db/migrate/*`, `db/schema.rb`, `db/structure.sql`, Alembic/Flyway/Liquibase migration paths, or explicit backfill/data-transform scripts (rake tasks, one-off data migration classes). **Do not spawn** for model-only changes, query-only refactors, serializers/controllers that reference columns without a migration or schema dump in the diff, or migration tests alone.
 
@@ -357,9 +333,9 @@ Pass the resulting path list to the `project-standards` persona inside a `<stand
 
 Three reviewers inherit the session model with no override: `ce-correctness-reviewer`, `ce-security-reviewer`, and `ce-adversarial-reviewer`. These perform the highest-stakes analysis — logic bugs, security vulnerabilities, adversarial failure scenarios — and should run at whatever capability level the user has configured. If the user is on Opus, these get Opus.
 
-All other persona sub-agents and CE agents use the platform's mid-tier model to reduce cost and latency. See the Spawning subsection below for the exact dispatch-time override — the imperative lives there so it lands at the point of action when spawning many agents in parallel.
+All other persona sub-agents and CE agents use the platform's mid-tier model to reduce cost and latency. See the Spawning subsection below for the exact dispatch-time override.
 
-The orchestrator (this skill) also inherits the session model; it handles intent discovery, reviewer selection, finding merge/dedup, and synthesis -- tasks that benefit from the same reasoning capability the user configured.
+The orchestrator (this skill) also inherits the session model; it handles intent discovery, reviewer selection, finding merge/dedup, and synthesis.
 
 #### Run ID
 
@@ -371,6 +347,8 @@ mkdir -p "/tmp/compound-engineering/ce-code-review/$RUN_ID"
 ```
 
 Pass `{run_id}` to every persona sub-agent so they can write their full analysis to `/tmp/compound-engineering/ce-code-review/{run_id}/{reviewer_name}.json`.
+
+**Large shared context — pass paths, not contents.** The diff and file list go to every reviewer and validator. When inlining them into each subagent prompt would be wasteful (many files / a big diff), write them once into the run dir (e.g. `full.diff`, `files.txt`) and pass those **paths** in the diff / changed-files slots instead of inline content — the subagent and validator templates instruct the child to Read a staged path. Inline a small diff directly.
 
 #### Spawning
 
@@ -419,7 +397,7 @@ Each persona sub-agent writes full JSON (all schema fields) to `/tmp/compound-en
 }
 ```
 
-Detail-tier fields (`why_it_matters`, `evidence`) are in the artifact file only. `suggested_fix` is optional in both tiers -- included in compact returns when present so callers can apply fixes after review. If the file write fails, the compact return still provides everything the merge needs.
+The artifact file **must** carry the detail-tier fields (`why_it_matters`, `evidence`); the compact *return* omits them, but writing the compact shape to the artifact (a common reviewer slip) silently strips the detail Coverage and the keyed detail lines depend on. However review context is delivered — inlined, or staged to disk for a large diff — each reviewer still receives the full subagent-template output contract; staging context never licenses a thinner one. `suggested_fix` is optional in both tiers -- included in compact returns when present so callers can apply fixes after review. If the file write fails, the compact return still provides everything the merge needs.
 
 **CE always-on agents** (ce-agent-native-reviewer, ce-learnings-researcher) are dispatched as standard Agent calls through the same bounded parallel scheduler as the persona agents. Give them the same review context bundle the personas receive: entry mode, any PR metadata gathered in Stage 1, intent summary, review base branch name when known, `BASE:` marker, file list, diff, and `UNTRACKED:` scope notes. Do not invoke them with a generic "review this" prompt. Their output is unstructured and synthesized separately in Stage 6.
 
@@ -443,9 +421,9 @@ Convert multiple reviewer compact JSON returns into one deduplicated, confidence
      - pre_existing, requires_verification: boolean
    - Do not validate against the full schema here -- the full schema (including why_it_matters and evidence) applies to the artifact files on disk, not the compact returns.
 2. **Deduplicate.** Compute fingerprint: `normalize(file) + line_bucket(line, +/-3) + normalize(title)`. When fingerprints match, merge: keep highest severity, keep highest anchor, note which reviewers flagged it. Dedup runs over the full validated set (including anchor 50) so cross-reviewer promotion in step 3 can lift matching anchor-50 findings into the actionable tier.
-3. **Cross-reviewer agreement.** When 2+ independent reviewers flag the same issue (same fingerprint), promote the merged finding by one anchor step: `50 -> 75`, `75 -> 100`, `100 -> 100`. Cross-reviewer corroboration is a stronger signal than any single reviewer's anchor; the promotion routes a previously-soft finding into the actionable tier or strengthens its already-actionable position. Note the agreement in the Reviewer column of the output (e.g., "security, correctness").
+3. **Cross-reviewer agreement.** When 2+ independent reviewers flag the same issue (same fingerprint), promote the merged finding by one anchor step: `50 -> 75`, `75 -> 100`, `100 -> 100`. Note the agreement in the Reviewer column of the output (e.g., "security, correctness").
 4. **Separate pre-existing.** Pull out findings with `pre_existing: true` into a separate list.
-5. **Resolve disagreements.** When reviewers flag the same code region but disagree on severity, autofix_class, or owner, annotate the Reviewer column with the disagreement (e.g., "security (P0), correctness (P1) -- kept P0"). This transparency helps the user understand why a finding was routed the way it was.
+5. **Resolve disagreements.** When reviewers flag the same code region but disagree on severity, autofix_class, or owner, annotate the Reviewer column with the disagreement (e.g., "security (P0), correctness (P1) -- kept P0").
 6. **Normalize routing.** For each merged finding, set the final `autofix_class`, `owner`, and `requires_verification`. If reviewers disagree, keep the more conservative route. Remap any legacy `safe_auto` or `review-fixer` to `gated_auto` / `downstream-resolver`.
 6b. **Mode-aware demotion of weak general-quality findings.** Some persona output is real signal but does not warrant primary-findings attention. Reroute it to the existing soft buckets so the primary findings table stays focused on actionable issues.
 
@@ -456,8 +434,6 @@ A finding qualifies for demotion when **all** of these hold:
 
 When a finding qualifies:
    - Move demoted findings out of the primary set. If the contributing reviewer is `testing`, append `<file:line> -- <title>` to `testing_gaps`. If `maintainability`, append to `residual_risks`. Use title-only lines (compact return omits `why_it_matters`). Record the demotion count for Coverage.
-
-Demotion is intentionally narrow. The conservative scope (testing/maintainability + P2/P3 + advisory) is the starting point; do not expand the rule by guessing which other personas overproduce noise. If real review runs show another persona consistently emitting weak signal, expand with evidence.
 
 7. **Confidence gate.** After dedup, promotion, and demotion have shaped the primary set, suppress remaining findings below anchor 75. Exception: P0 findings at anchor 50+ survive the gate -- critical-but-uncertain issues must not be silently dropped. Record the suppressed count by anchor (so Coverage can report "N findings suppressed at anchor 50, M at anchor 25"). The gate runs late deliberately: anchor-50 findings need a chance to be promoted by step 3 (cross-reviewer corroboration) or rerouted by step 6b (mode-aware demotion to soft buckets) before any drop decision.
 8. **Partition the work.** Build two sets:
@@ -471,12 +447,12 @@ Demotion is intentionally narrow. The conservative scope (testing/maintainabilit
 
 Independent verification gate. Spawn one validator sub-agent per surviving finding using `references/validator-template.md`. Findings the validator rejects are dropped; confirmed findings flow through unchanged.
 
-**When this stage runs:** After Stage 5 whenever at least one finding survives. Skip only when zero findings survive. When more than 15 survive, do **not** skip the stage — validate the highest-severity 15 per step 2 and record the over-budget remainder in Coverage. **P0 and P1 findings are always validated** (never dropped for budget); if P0/P1 alone exceed 15, raise the cap to cover all of them rather than ship an unvalidated critical or high finding. Same rule for default and `mode:agent`.
+**When this stage runs:** After Stage 5 whenever at least one finding survives — skip only when zero survive. When more than 15 survive, do **not** skip the stage; validate per the budget cap in step 2. The default method is the per-finding validator wave (steps below); a surviving **P2/P3 finding at anchor 100** may instead be validated by direct first-party verification (see below). Same rule for default and `mode:agent`.
 
 **Steps:**
 
 1. **Select findings to validate.** All survivors of Stage 5.
-2. **Apply dispatch budget cap.** If the selected set exceeds 15 findings, validate the highest-severity 15 (P0 first, then P1, then P2, then P3, breaking ties by anchor descending), dropping only from the P2/P3 tail. **Never drop a P0 or P1 from validation** — if P0/P1 findings alone exceed 15, raise the cap to include all of them. Record the over-budget count (the dropped P2/P3 tail) for the Coverage section. Dropping the low-severity tail is intentional; the long tail of P2/P3 does not change the user's triage, but an unvalidated critical or high finding does.
+2. **Apply dispatch budget cap.** If the selected set exceeds 15 findings, validate the highest-severity 15 (P0 first, then P1, then P2, then P3, breaking ties by anchor descending), dropping only from the P2/P3 tail. **Never drop a P0 or P1 from validation** — if P0/P1 findings alone exceed 15, raise the cap to include all of them. Record the over-budget count (the dropped P2/P3 tail) for the Coverage section.
 3. **Spawn validators with bounded parallelism.** One sub-agent per finding, dispatched independently using the validator template and the same bounded scheduler from Stage 4. Each validator receives:
    - The finding's title, severity, file, line, suggested_fix, original reviewer name, and confidence anchor
    - `why_it_matters` when available — loaded from the per-agent artifact file at `/tmp/compound-engineering/ce-code-review/{run_id}/{reviewer_name}.json`; omit when the file is absent or the artifact write failed. The validator proceeds without it, using the diff and cited code directly.
@@ -490,9 +466,13 @@ Independent verification gate. Spawn one validator sub-agent per surviving findi
 5. **Use mid-tier model for validators.** Same model class (sonnet) the persona reviewers use. Validators are read-only — same constraints as persona reviewers. They may use non-mutating inspection commands (Read, Grep, Glob, git blame, gh).
 6. **Record metrics for Coverage.** Total dispatched, validated true count, validated false count (with reasons), infra failures (and any P0/P1 kept-on-failure as degraded), and over-budget drops.
 
-**Orchestrator direct verification (complement, not a skip).** When a finding's severity hinges on a fact the orchestrator can check cheaply and authoritatively — a pinned dependency's source, a wiring/config fact in this repo, a build tag — verify it directly in addition to (not instead of) the validator subagent; a first-party source read is stronger than a subagent re-read. Use single-purpose native tools (Read/Grep/Glob, one git command at a time), never chained or error-suppressed shell. Fold confirmed facts into synthesis and note them in Coverage. This never replaces the validator wave for P0/P1 — those still get an independent validator per the cap rule above.
+**Orchestrator direct verification.** When a finding hinges on a fact the orchestrator can check cheaply and authoritatively — a pinned dependency's source, a wiring/config fact in this repo, a build tag — verify it directly with single-purpose native tools (Read/Grep/Glob, one git command at a time), never chained or error-suppressed shell. Fold confirmed facts into synthesis. Whether it can *replace* the independent validator turns on a single distinction: the orchestrator is **not** an independent second opinion (it synthesized these findings), so direct verification catches a wrong **fact** but not the orchestrator's own **bias**. Independence adds nothing to a mechanically-checkable fact and everything to a judgment call:
 
-**Why per-finding bounded dispatch (not batched):** Independence is the point. A single batched validator looking at all findings together pattern-matches across them and recreates the persona-bias problem. Per-finding dispatch preserves fresh context while the scheduler respects harness limits. Per-file batching is a plausible future optimization for reviews with many findings clustered in few files; not implemented today.
+- **P0/P1, any anchor:** the per-finding validator wave is **required**; direct verification only *complements* it, never replaces it.
+- **P2/P3 at anchor 100** (verifiable from code alone — compile/type error, definitive logic bug, quotable standards violation, no interpretation): direct verification **may stand in for** the wave; note the method in Coverage.
+- **P2/P3 at anchor 75** (judgment call — "will affect users," not airtight): the independent wave is **required** — this is exactly where a fresh second opinion filters false positives, and the orchestrator cannot supply that for its own findings.
+
+**Why per-finding bounded dispatch (not batched):** Independence is the point. A single batched validator looking at all findings together pattern-matches across them and recreates the persona-bias problem. Per-finding dispatch preserves fresh context while the scheduler respects harness limits.
 
 ### Stage 5c: Act on findings (default mode only)
 
@@ -504,7 +484,7 @@ Independent verification gate. Spawn one validator sub-agent per surviving findi
 - **Push back** — do not apply — when the reviewer is wrong; keep the finding and state the disagreement with reasoning.
 - **Skip with judgment** taste calls and conflicting suggestions, but surface what was skipped and why. Never silently drop.
 
-Severity, confidence, and cross-reviewer agreement tell you what to do first and what to flag loudly — they do not gate the decision. There is no deny-list: a code-review fix is an edit to a tracked tree, reversible by construction, so downside is controlled after the fact (revert + visible diff + the commit checkpoint), not by a precondition.
+Severity, confidence, and cross-reviewer agreement tell you what to do first and what to flag loudly — they do not gate the decision. There is no deny-list: downside is controlled after the fact (revert + visible diff + the commit checkpoint), not by a precondition.
 
 **Scope invariant.** Apply only when the working tree *is* what was reviewed — `local-aligned` or standalone. In `pr-remote` / `branch-remote` the working tree is not the reviewed head; do not apply — report instead.
 
@@ -512,11 +492,9 @@ Severity, confidence, and cross-reviewer agreement tell you what to do first and
 
 **Commit when the pre-review tree was clean.** Before applying, note whether the working tree already had uncommitted changes (`git status --porcelain`). The permanence gate is the **push**, not the commit — a local commit is private and reversible (`git reset --soft HEAD~1`).
 
-- **Clean before the review:** after applying and verifying, commit the fixes as one isolated `fix(review): <summary>` commit. The only changes are the review's own, so the commit is purely the fixes — labeled and reversible — and it returns the tree to a known state instead of leaving a dangling uncommitted obligation the user has to track.
-- **Dirty before the review:** apply but do **not** commit. The fixes are interleaved with the user's in-flight work, so a fix-only commit can't be cleanly isolated; they ride along with the commit the user was already going to make. The Applied section lists what changed.
+- **Clean before the review:** after applying and verifying, commit the fixes as one isolated, review-labeled fix commit — `fix(review): <summary>`, or the repo's nearest convention if `review` isn't an allowed scope. Labeled and reversible, returning the tree to a known state.
+- **Dirty before the review:** apply but do **not** commit — the fixes interleave with the user's in-flight work and ride along with the commit they were already going to make. The Applied section lists what changed.
 - **Never push, open a PR, or file tickets** — that's the outward-facing step the user owns.
-
-(In `mode:agent` Stage 5c is skipped: the review applies and commits nothing; the caller applies and commits.)
 
 **Surface green-but-unverifiable edits.** When an applied fix touches auth/authz, a public or cross-service contract/schema, or concurrency/ordering, a passing test does not prove safety — flag it prominently in the Applied section so the diff reviewer's attention goes there.
 
@@ -536,16 +514,16 @@ Assemble the final report. **Default:** pipe-delimited markdown tables for findi
 
 Per-severity tables are **5 columns** — `Route` is not shown here (it appears only in the Actionable Findings table and the JSON). Keep the `Issue` cell to **one short clause** (roughly 12 words or fewer, no second sentence, no because/so/which explanation) — it is the scannable index, not the explanation. The moment a cell wants a comma-plus-clause or a reason, move that depth into the **keyed detail line** (`- **#N** — …`) instead of packing it in — usually for P0/P1; P2/P3 are typically terse-only.
 
-**Never produce these shapes (instant fail — if you catch one mid-draft, re-render before delivering):**
-- A finding's index rendered as `Field:`-prefixed blocks (`Sev:` / `File:` / `Issue:` / `Route:` lines) — depth goes in the keyed detail line, never a field block
-- Per-finding separators made of horizontal rules or box-drawing characters (`────`, `———`)
-- The severity index as a plain bulleted/numbered list **instead of** a table (the keyed `- **#N** —` detail line under a table is a supplement, not a replacement — that is expected)
+**Never produce these shapes (instant fail — applies to *every* tabular section, the Applied table included, not just the severity findings; if you catch one mid-draft, re-render before delivering):**
+- Any row — a finding **or** an Applied entry — rendered as `Field:`-prefixed blocks (`#:` / `Sev:` / `File:` / `Issue:` / `Fix:` / `Route:` lines) — depth goes in the keyed detail line, never a field block
+- Per-row separators made of horizontal rules or box-drawing characters (`────`, `———`)
+- A table replaced by a plain bulleted/numbered list (the keyed `- **#N** —` detail line under a table is a supplement, not a replacement — that is expected)
 - Unicode separators or arrows in cells (middot `·`); use ASCII `->`
-- **Inconsistent treatment across severities** (e.g. P1 as blocks while P2/P3 are tables) — every severity uses the same table + optional detail-line shape
+- **Inconsistent treatment across severities or sections** (e.g. P1 as blocks while P2/P3 are tables, or the Applied table as field-blocks while findings are tables) — every table uses the same pipe-delimited shape
 
 1. **Header.** Scope, intent, mode, reviewer team with per-conditional justifications.
-2. **Applied (default mode only).** When Stage 5c applied fixes, list them first — before the findings tables — in an Applied section (see review output template): `# | File | Fix | Reviewer`, then a one-line validation outcome (e.g. "pin tests 4 -> 6; suite 94 pass, lint clean") and commit status (committed as `fix(review): …` on a clean tree, or left uncommitted for the user on a dirty one). Flag green-but-unverifiable edits (auth/contract/concurrency) prominently. Omit this section in `mode:agent` and when nothing was applied. Applied findings appear here, not in the severity tables.
-3. **Findings.** Pipe-delimited tables grouped by severity (`### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`), terse `Issue` cell (one short clause — depth goes in the detail line), 5 columns (`#`, file, issue, reviewer(s), confidence) — route is **not** shown here (it's in Actionable Findings and the JSON). Under each table, add a keyed detail line (`- **#N** — …`) for findings whose one-liner is not self-sufficient (usually P0/P1). Omit empty severity levels. Use the **same** shape for every severity — never render one severity as field-blocks and another as a table. Finding numbers come from the stable assignment in Stage 5 -- never re-derive them per severity table.
+2. **Applied (default mode only).** When Stage 5c applied fixes, list them first — before the findings tables — in an Applied section (see review output template) as a pipe table `| # | File | Fix | Reviewer |` — **never** `Field:`-blocks or `────` separators, same rules as the findings tables — then a one-line validation outcome (e.g. "pin tests 4 -> 6; suite 94 pass, lint clean") and commit status (committed on a clean tree as `fix(review): …` or the repo's nearest convention, or left uncommitted for the user on a dirty one). Flag green-but-unverifiable edits (auth/contract/concurrency) prominently. Omit this section in `mode:agent` and when nothing was applied. Applied findings appear here, not in the severity tables.
+3. **Findings.** Pipe-delimited tables grouped by severity (`### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`), using the shape above — the **same** shape for every severity. Omit empty severity levels. Finding numbers come from the stable assignment in Stage 5 -- never re-derive them per severity table.
 4. **Requirements Completeness.** Include only when a plan was found in Stage 2b. For each requirement (R1, R2, etc.) and implementation unit in the plan, report whether corresponding work appears in the diff. Use a simple checklist: met / not addressed / partially addressed. Routing depends on `plan_source`:
    - **`explicit`** (caller-provided or PR body): Flag unaddressed requirements or implementation units as P1 findings with `autofix_class: manual`, `owner: downstream-resolver`. These enter the actionable queue.
    - **`inferred`** (auto-discovered): Flag unaddressed requirements or implementation units as P3 findings with `autofix_class: advisory`, `owner: human`. These stay in the report only — no autonomous follow-up. An inferred plan match is a hint, not a contract.
@@ -560,7 +538,7 @@ Per-severity tables are **5 columns** — `Route` is not shown here (it appears 
 
 Do not include time estimates.
 
-**Format verification (default only — last gate before delivering).** Scan the assembled report for the failure signatures above: if any severity's finding index appears as `Field:`-prefixed lines, as a plain bulleted/numbered list replacing the table, separated by `────`/box-drawing/middot `·` characters, or if severities are rendered inconsistently (one as blocks, another as tables), STOP and re-render every severity as the same pipe-delimited table (`| # | File | Issue | ... |`) before delivering. The keyed `- **#N** —` detail line under a table is expected — do not flag it. Skip this check only when `mode:agent` is active — JSON is the deliverable.
+**Format verification (default only — last gate before delivering).** Before delivering, scan **every table — the Applied table and each severity findings table** — for the forbidden shapes: `Field:`-prefixed blocks (`#:` / `File:` / `Fix:` / `Issue:`), box-drawing or horizontal-rule separators (`────`), middot `·`, or a list replacing a table. **The Applied table is the most common offender — check it explicitly.** If any table hit one of these, STOP and re-render it as the same pipe-delimited shape before delivering. (The keyed `- **#N** —` detail line under a table is expected — not a failure.) Skip only when `mode:agent` is active.
 
 ### JSON output format (`mode:agent` only)
 
@@ -618,13 +596,11 @@ Before delivering the review, verify:
 
 ## Language-Aware Conditionals
 
-This skill uses stack-specific reviewer agents when the diff touches runtime behavior those stacks specialize in (async UI races, iOS/Swift lifecycle). Structural quality — complexity deletion, 1k-line regressions, spaghetti growth, type-boundary leaks — lives in the always-on `ce-maintainability-reviewer`. Do not spawn extra reviewers for language conventions, philosophy, or "strict bar" passes; that signal is folded into maintainability.
-
-Do not spawn stack reviewers mechanically from file extensions alone. The trigger is meaningful changed behavior in that stack's runtime domain.
+Stack-specific reviewers fire only when the diff touches runtime behavior they specialize in (async UI races, iOS/Swift lifecycle) — never mechanically from file extensions alone; the trigger is meaningful changed behavior in that stack's runtime domain. Structural quality (complexity deletion, 1k-line regressions, type-boundary leaks) lives in the always-on `ce-maintainability-reviewer`; do not spawn extra reviewers for language conventions, philosophy, or "strict bar" passes.
 
 ## After Review
 
-After Stage 6, stop. Never push, open PRs, or file tickets from this skill. In default (interactive) mode, Stage 5c has applied the safe fixes (Applied section) — committed as an isolated `fix(review):` commit when the tree was clean, or left for the user's commit when it wasn't. In `mode:agent` the review mutates nothing — the caller (for example `ce-work`) and the user apply fixes, file tickets, or accept residual risk using the report and artifact.
+After Stage 6, stop. Never push, open PRs, or file tickets from this skill. In default (interactive) mode, Stage 5c has already applied and (on a clean pre-review tree) committed the safe fixes; in `mode:agent` the review mutates nothing — the caller (for example `ce-work`) and the user apply fixes, file tickets, or accept residual risk using the report and artifact.
 
 ### Emit actionable findings summary (default mode only)
 
@@ -655,6 +631,7 @@ Always write run artifacts under `/tmp/compound-engineering/ce-code-review/<run-
 - actionable findings list
 - advisory outputs
 - per-agent `{reviewer_name}.json` from Stage 4
+- `report.md` — the rendered markdown report exactly as presented to the user (default mode only), so format and numbering stay auditable after the run
 
 `metadata.json` minimum fields:
 
@@ -678,6 +655,8 @@ If the platform doesn't support parallel sub-agents, run reviewers sequentially.
 
 ## Included References
 
+The files below are inlined at load time. The review output template is **not** inlined — Stage 6 loads it on demand (`references/review-output-template.md`).
+
 ### Persona Catalog
 
 @./references/persona-catalog.md
@@ -697,7 +676,3 @@ If the platform doesn't support parallel sub-agents, run reviewers sequentially.
 ### Findings Schema
 
 @./references/findings-schema.json
-
-### Review Output Template
-
-@./references/review-output-template.md

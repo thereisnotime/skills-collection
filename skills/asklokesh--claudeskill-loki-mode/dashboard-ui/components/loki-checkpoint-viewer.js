@@ -35,6 +35,7 @@ export class LokiCheckpointViewer extends LokiElement {
     this._creating = false;
     this._rollingBack = false;
     this._rollbackTarget = null;
+    this._notice = null;
   }
 
   connectedCallback() {
@@ -149,12 +150,19 @@ export class LokiCheckpointViewer extends LokiElement {
   async _rollbackCheckpoint(checkpointId) {
     if (this._rollingBack) return;
     this._rollingBack = true;
+    this._notice = null;
     this.render();
     try {
-      await this._api._post(`/api/checkpoints/${checkpointId}/rollback`);
+      const resp = await this._api._post(`/api/checkpoints/${checkpointId}/rollback`);
       this._rollbackTarget = null;
+      // R6 re-undoability: the API captures a forced pre-rollback snapshot of the
+      // current state and returns its id. Surface it so the user can undo the undo.
+      const undoId = resp && resp.pre_rollback_snapshot;
+      this._notice = undoId
+        ? `Rolled back to ${checkpointId}. Undo this with checkpoint ${undoId}`
+        : `Rolled back to ${checkpointId}.`;
       this.dispatchEvent(new CustomEvent('checkpoint-action', {
-        detail: { action: 'rollback', checkpointId },
+        detail: { action: 'rollback', checkpointId, preRollbackSnapshot: undoId || null },
         bubbles: true,
       }));
       this._lastDataHash = null;
@@ -171,6 +179,7 @@ export class LokiCheckpointViewer extends LokiElement {
   _toggleCreateForm() {
     this._showCreateForm = !this._showCreateForm;
     this._rollbackTarget = null;
+    this._notice = null;
     this.render();
   }
 
@@ -181,6 +190,7 @@ export class LokiCheckpointViewer extends LokiElement {
 
   _cancelRollback() {
     this._rollbackTarget = null;
+    this._notice = null;
     this.render();
   }
 
@@ -227,6 +237,7 @@ export class LokiCheckpointViewer extends LokiElement {
           ${this._checkpoints.map(cp => this._renderCheckpointCard(cp)).join('')}
         </div>
 
+        ${this._notice ? `<div class="notice-banner">${this._escapeHTML(this._notice)}</div>` : ''}
         ${this._error ? `<div class="error-banner">${this._escapeHTML(this._error)}</div>` : ''}
       </div>
     `;
@@ -588,6 +599,16 @@ export class LokiCheckpointViewer extends LokiElement {
         border: 1px solid var(--loki-red-muted);
         border-radius: 4px;
         color: var(--loki-red);
+        font-size: 12px;
+      }
+
+      .notice-banner {
+        margin-top: 12px;
+        padding: 10px 14px;
+        background: var(--loki-green-muted, rgba(34, 197, 94, 0.12));
+        border: 1px solid var(--loki-green-muted, rgba(34, 197, 94, 0.3));
+        border-radius: 4px;
+        color: var(--loki-green, #22c55e);
         font-size: 12px;
       }
     `;

@@ -94,6 +94,7 @@ Invoked when a specific need arises — not part of any chain.
 | Skill | Description |
 |-------|-------------|
 | [`/ce-frontend-design`](./ce-frontend-design.md) | Build web interfaces with genuine design quality — context detection, visual-thesis pre-build, opinionated defaults, visual verification |
+| [`/ce-polish`](./ce-polish.md) | Conversational UX polish — start dev server, open browser, iterate together; auto-detects 8 frameworks (manual invocation only) |
 
 ---
 
@@ -118,14 +119,6 @@ Invoked when a specific need arises — not part of any chain.
 | [`/ce-update`](./ce-update.md) | Check the installed compound-engineering plugin version against `main` and recommend the update command (Claude Code only) |
 | [`/ce-release-notes`](./ce-release-notes.md) | Look up what shipped in recent compound-engineering plugin releases — summary or specific question with version citation |
 | [`/ce-report-bug`](./ce-report-bug.md) | Report a bug in the compound-engineering plugin — structured intake, automatic env gathering, GitHub issue creation |
-
----
-
-## Beta / Experimental
-
-| Skill | Description |
-|-------|-------------|
-| [`/ce-polish-beta`](./ce-polish-beta.md) | Conversational UX polish — start dev server, open browser, iterate together; auto-detects 8 frameworks |
 
 ---
 

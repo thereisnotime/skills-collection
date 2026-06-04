@@ -85,6 +85,8 @@ export const STALE_SKILL_DIRS = [
   "ce-document-review",
   "ce-plan-beta",
   "ce-review-beta",
+  // ce-polish-beta -> ce-polish (promoted to stable)
+  "ce-polish-beta",
 
   // Removed skills (no replacement)
   "ce-andrew-kane-gem-writer",
