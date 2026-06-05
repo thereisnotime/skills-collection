@@ -1,6 +1,6 @@
 # Claude Code 向け Academic Research Skills
 
-[![Version](https://img.shields.io/badge/version-v3.10.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.10.0)
+[![Version](https://img.shields.io/badge/version-v3.11.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.11.0)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -240,7 +240,7 @@ You: "status"
 
 **0-100 品質ルーブリック** を持つ 7 エージェントの多視点レビュー。モード: full、re-review、quick、methodology-focus、guided、calibration。**決定マッピング:** ≥80 Accept、65-79 Minor Revision、50-64 Major Revision、<50 Reject。初回レビューチーム vs. 限定的な再レビューチームの境界: ARCHITECTURE.md §3 Stage 3 / Stage 3' を参照。
 
-### Academic Pipeline（v3.10.0）
+### Academic Pipeline（v3.11.0）
 
 整合性検証、二段階レビュー、ソクラテス式コーチング、コラボレーション評価を持つ 10 ステージのオーケストレーター。パイプライン保証: 各ステージにユーザー確認チェックポイントが必要。整合性検証（Stage 2.5 + 4.5）はスキップできない。R&R Traceability Matrix（Schema 11）は著者の改訂主張を独立に検証する。v3.4 は Stage 2.5 / 4.5 に Compliance Agent（PRISMA-trAIce + RAISE）を追加した。v3.5 はすべての FULL/SLIM チェックポイントとパイプライン完了時に **Collaboration Depth Observer**（`collaboration_depth_agent`、advisory のみ — 決してブロックしない）を追加する。MANDATORY 整合性ゲート（2.5 / 4.5）は、コンプライアンスチェックが希薄化されないよう observer を明示的にスキップする。Wang & Zhang（2026）, IJETHE 23:11 に基づく。エージェント、成果物、ゲートを含むステージごとのマトリクス: ARCHITECTURE.md §3 を参照。
 
@@ -320,6 +320,12 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## Changelog
+
+### v3.11.0 (2026-06-04) — 決定論的引用検証ゲート（#182）
+
+> **[machine-translated]** この項目は機械翻訳であり、ネイティブ contributor によるレビュー待ちです。正本は英語版 CHANGELOG です。
+
+> LLM ピアレビューとは独立に動作する**決定論的な引用存在性検証ゲート**を追加。各引用は最大 4 つの書誌インデックス（Semantic Scholar、OpenAlex、Crossref、および新規の **arXiv resolver**、`scripts/arxiv_client.py`、API キー不要）と照合され、引用ごとの `lookup_verified` 状態（`{true, false, unresolvable}`）が統一サマリに書き込まれる。捏造された、解決できない DOI/arXiv ID を持つ引用は、レビュー agent が気づくことを期待するのではなく、lookup によって検出・マークされる（ユーザーが strict を選択したときのみ終止に昇格）。このゲートは **v3.10 の `terminal_policies` opt-in モデルを継承**する。検出は常に実行されるが、`lookup_verified == false` の行が終止的になるのはユーザーが `terminal_policies.citation_existence == strict` を選択したときのみで、デフォルトの挙動は advisory（`/ars-mark-read` で承認可能）である。`false` の定義は意図的に **ID-keyed unmatched に限定**（正確な DOI/arXiv で照会して解決できないことが証明された場合）されており、正当だが未索引の人文系 / 非英語 / 地域ジャーナルの引用は `unresolvable` に分類され、決してブロックされない（ドキュメントに明記された「精度優先・再現率劣後」のトレードオフ）。本バージョンには永続的な SQLite 検証 cache（`~/.cache/ars/verification.db`、90 日 TTL）と `/ars-cache-invalidate` コマンド、独立した `verification_gate` API と `verify_passport.py` CLI、および v3.9.0 の汚染トライアンギュレーション行列を 4 インデックス（k=0..4、すべて advisory）へ拡張したものも含まれる。`academic-pipeline` は suite に追従して v3.11.0、他の 3 つの skill バージョンは変更なし。仕様: `docs/design/2026-05-21-v3.10-182-promote-citation-gate-spec.md`（§0 amendment + C-V6）。
 
 ### v3.10.0 (2026-06-01) — トライアンギュレーション・ポリシー層、Kong サーベイ採用、評価ハーネス、スコープ書き込みガード
 

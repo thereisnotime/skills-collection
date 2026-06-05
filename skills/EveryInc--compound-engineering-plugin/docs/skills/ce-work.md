@@ -13,7 +13,7 @@ This is the fourth and final step in the compound-engineering ideation chain:
                                         this?"
 ```
 
-`ce-work` is software-focused — it commits, runs tests, opens PRs, and integrates with code review skills. For non-software plans (study plans, hot-water-tank maintenance, trip planning) the chain effectively ends at `ce-plan` and a human executes those themselves.
+`ce-work` is primarily software-focused — it commits, runs tests, opens PRs, and integrates with code review skills. It also has a lightweight **non-code carve-out**: a plan marked `execution: knowledge-work` (produced by `ce-plan`'s approach-altitude flow) routes to a knowledge-work path that reads sources, synthesizes, and produces a deliverable, skipping the code lifecycle. Other non-software work without that marker still effectively ends at `ce-plan`, and a human executes it.
 
 ---
 
@@ -114,7 +114,7 @@ Skip `ce-work` when:
 - Product behavior isn't decided yet → `/ce-brainstorm`
 - Implementation guardrails aren't established for non-trivial work → `/ce-plan`
 - The bug has a known root cause and an obvious fix → `/ce-debug`
-- The task is non-software — execution there is a human activity
+- The task is non-software and is not a marked `execution: knowledge-work` plan — plain non-software work is a human activity (a marked knowledge-work plan does route to the carve-out)
 
 ---
 
@@ -189,7 +189,7 @@ Resuming after context compaction, picking up someone else's branch, or returnin
 When a deeper code review tier surfaces things the autofix didn't resolve, `ce-work` won't silently ship them. It asks: apply now / file tickets / accept (with durable sink) / stop. "Accept" requires a real durable record — findings can't live only in the session.
 
 **Does `ce-work` support non-software plans?**
-Not directly. The chain effectively ends at `ce-plan` for non-software work — `ce-work` commits, runs tests, and opens PRs, none of which apply to maintenance routines or trip plans.
+For a plan marked `execution: knowledge-work` (produced by `ce-plan`'s approach-altitude flow), yes — a lightweight carve-out reads the sources, synthesizes, and produces the deliverable, skipping the commit/test/PR lifecycle. Other non-software work without that marker still ends at `ce-plan`, and a human executes it.
 
 ---
 

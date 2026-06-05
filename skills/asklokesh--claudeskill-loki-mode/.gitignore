@@ -42,10 +42,6 @@ vscode-extension/.loki/
 !loki-ts/tests/fixtures/**/.loki/
 !loki-ts/tests/fixtures/**/.loki/**
 
-# Release tracking artifacts (per-release audit records, intentionally tracked)
-!.loki/tracking/
-!.loki/tracking/**
-
 # Claude Code harness scheduled-tasks lock (transient, per-session)
 .claude/scheduled_tasks.lock
 

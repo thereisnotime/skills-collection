@@ -379,7 +379,7 @@ When a sub-skill stage fails or produces unacceptable output:
 4. Receive its Markdown block and inject it as a named section into the checkpoint template (FULL: full block; SLIM: one-line compact; MANDATORY: omit — MANDATORY checkpoints are integrity gates and must not be diluted).
 5. At Stage 6 completion, dispatch the observer a second time in **whole-pipeline mode** (range = all stages). Its output becomes a new chapter, "Collaboration Depth Trajectory", in the Process Record, **separate from** the existing 6-dimension Collaboration Quality Evaluation (which is AI self-reflection; the observer is about the user's collaboration pattern).
 
-**Cross-model cost and behaviour.** When `ARS_CROSS_MODEL` is set, re-dispatch `collaboration_depth_agent` on the secondary model. If any dimension score diverges by > 2 points between primary and secondary, append a `cross_model_divergence` block to the checkpoint section. **Never silently average cross-model scores.**
+**Cross-model cost and behaviour.** When `ARS_CROSS_MODEL` is set, do not re-dispatch automatically. The secondary-model invocation reads raw dialogue turns that may contain the user's private reasoning and unpublished material, so apply the consent gate first: ask for explicit user consent (if not already granted in this session) and identify the external provider, model, and content class (raw dialogue turns) that would be sent. The environment variable alone is not consent to upload that material. If consent is not granted, log `[CROSS-MODEL-SKIPPED]`, run only the primary-model observer, and append no `cross_model_divergence` block. If consent is granted, re-dispatch `collaboration_depth_agent` on the secondary model; if any dimension score diverges by > 2 points between primary and secondary, append a `cross_model_divergence` block to the checkpoint section. **Never silently average cross-model scores.** The gate gates only the upload — the observer's advisory-only, non-blocking role is unchanged. See `shared/cross_model_verification.md` for the consent boundary.
 
 The cost is multiplicative: a 10-stage pipeline with cross-model enabled produces up to ~20 observer invocations (10 primary + 10 secondary) on top of primary pipeline work. Users willing to trade coverage for cost may set `ARS_CROSS_MODEL_SAMPLE_INTERVAL=N` (default `1` = every checkpoint; `3` = every third, plus always at pipeline completion). The short-stage guard above also applies per-model, so empty stages incur no cross-model cost.
 
@@ -761,9 +761,9 @@ Spec: `docs/design/2026-05-17-ars-v3.9.0-cross-index-triangulation-measurement-s
 
 v3.9.0 extends the v3.7.3 contamination annotation channel with three new lookup-derived suffix shapes. The base 5-cell matrix is unchanged. The annotation rule expands as follows:
 
-**Trigger:** annotation fires when (base resolution ∈ {`ok`, `LOW-WARN`}) AND (`preprint_post_llm_inflection` is true OR any of `semantic_scholar_unmatched` / `openalex_unmatched` / `crossref_unmatched` is true). Entries with `contamination_signals` present but all fields false (computed-clean) produce no suffix — v3.7.3 behavior preserved.
+**Trigger:** annotation fires when (base resolution ∈ {`ok`, `LOW-WARN`}) AND (`preprint_post_llm_inflection` is true OR any of `semantic_scholar_unmatched` / `openalex_unmatched` / `crossref_unmatched` / `arxiv_unmatched` is true). Entries with `contamination_signals` present but all fields false (computed-clean) produce no suffix — v3.7.3 behavior preserved.
 
-**Compute k (triangulation count):** k = count of `*_unmatched` fields with value `true`, over fields that are present. Absent fields are excluded (per spec R-L3-2-C: absent ≠ false). k_max = count of `*_unmatched` fields that are present (0-3).
+**Compute k (triangulation count):** k = count of `*_unmatched` fields with value `true`, over fields that are present. Absent fields are excluded (per spec R-L3-2-C: absent ≠ false). k_max = count of `*_unmatched` fields that are present (0-4 — the v3.10/v3.11 Delta-1 `arxiv_unmatched` field is the fourth index; `arxiv_unmatched` is absent on citations with no arXiv ID, so k_max stays ≤ 3 for those, per the v3.9.0 absent≠false rule).
 
 **Suffix shape table:**
 
@@ -773,24 +773,36 @@ v3.9.0 extends the v3.7.3 contamination annotation channel with three new lookup
 | `ok` / `LOW-WARN` | true | 0 | any | — | `CONTAMINATED-PREPRINT` |
 | `ok` / `LOW-WARN` | false / absent | 1 | 1 | `semantic_scholar_unmatched` | `CONTAMINATED-UNMATCHED` (v3.7.3 legacy) |
 | `ok` / `LOW-WARN` | true | 1 | 1 | `semantic_scholar_unmatched` | `CONTAMINATED-PREPRINT+UNMATCHED` (v3.7.3 legacy) |
+| `ok` / `LOW-WARN` | false / absent | 1 | 1 | `arxiv_unmatched` | `CONTAMINATED-ARXIV-UNMATCHED` (v3.10/v3.11 Delta-1) |
+| `ok` / `LOW-WARN` | true | 1 | 1 | `arxiv_unmatched` | `CONTAMINATED-PREPRINT+ARXIV-UNMATCHED` (v3.10/v3.11 Delta-1) |
 | `ok` / `LOW-WARN` | false / absent | 1 | 1 | `openalex_unmatched` or `crossref_unmatched` | `CONTAMINATED-COVERAGE-NOISE` |
 | `ok` / `LOW-WARN` | true | 1 | 1 | `openalex_unmatched` or `crossref_unmatched` | `CONTAMINATED-PREPRINT+COVERAGE-NOISE` |
-| `ok` / `LOW-WARN` | false / absent | 1 | 2-3 | — | `CONTAMINATED-COVERAGE-NOISE` |
-| `ok` / `LOW-WARN` | true | 1 | 2-3 | — | `CONTAMINATED-PREPRINT+COVERAGE-NOISE` |
-| `ok` / `LOW-WARN` | false / absent | 2 | 2-3 | — | `CONTAMINATED-PARTIAL-UNMATCH` |
-| `ok` / `LOW-WARN` | true | 2 | 2-3 | — | `CONTAMINATED-PREPRINT+PARTIAL-UNMATCH` |
+| `ok` / `LOW-WARN` | false / absent | 1 | 2-4 | — | `CONTAMINATED-COVERAGE-NOISE` |
+| `ok` / `LOW-WARN` | true | 1 | 2-4 | — | `CONTAMINATED-PREPRINT+COVERAGE-NOISE` |
+| `ok` / `LOW-WARN` | false / absent | 2 | 2-4 | — | `CONTAMINATED-PARTIAL-UNMATCH` |
+| `ok` / `LOW-WARN` | true | 2 | 2-4 | — | `CONTAMINATED-PREPRINT+PARTIAL-UNMATCH` |
 | `ok` / `LOW-WARN` | false / absent | 3 | 3 | — | `CONTAMINATED-TRIANGULATION-UNMATCHED` |
 | `ok` / `LOW-WARN` | true | 3 | 3 | — | `CONTAMINATED-PREPRINT+TRIANGULATION-UNMATCHED` |
+| `ok` / `LOW-WARN` | false / absent | 3 | 4 | — | `CONTAMINATED-PARTIAL-UNMATCH` |
+| `ok` / `LOW-WARN` | true | 3 | 4 | — | `CONTAMINATED-PREPRINT+PARTIAL-UNMATCH` |
+| `ok` / `LOW-WARN` | false / absent | 4 | 4 | — | `CONTAMINATED-QUADRANGULATION-UNMATCHED` |
+| `ok` / `LOW-WARN` | true | 4 | 4 | — | `CONTAMINATED-PREPRINT+QUADRANGULATION-UNMATCHED` |
 
-**Composition order:** `PREPRINT` token first, triangulation token second, joined by `+`. The canonical token order list is `[PREPRINT, UNMATCHED | COVERAGE-NOISE | PARTIAL-UNMATCH | TRIANGULATION-UNMATCHED]`.
+**v3.10/v3.11 Delta-1 extension (arXiv fourth index):** `arxiv_unmatched` is the fourth lookup field, present only on citations carrying an arXiv ID (absent ≠ false). Two new single-named tiers join the v3.9.0 tiers:
+- **`CONTAMINATED-ARXIV-UNMATCHED` (k=1, k_max=1, present field = `arxiv_unmatched`)** — the arxiv-only carve-out, mirroring the `semantic_scholar_unmatched` legacy carve-out exactly: it fires ONLY when arxiv is the SOLE present-and-unmatched index. An arxiv-only k=1 with k_max ≥ 2 (arxiv unmatched, other present indexes matched) stays `CONTAMINATED-COVERAGE-NOISE` like every other k=1 k_max ≥ 2 case — "single-index" means k_max=1, not merely k=1 (consistent with the v3.9.0 s2 carve-out being k_max=1-only).
+- **`CONTAMINATED-QUADRANGULATION-UNMATCHED` (k=4, k_max=4)** — all four indexes unmatched, the four-index analogue of `CONTAMINATED-TRIANGULATION-UNMATCHED` (which stays k=3 k_max=3, all-three-unmatched). A k=3 k_max=4 (three of four unmatched) is `CONTAMINATED-PARTIAL-UNMATCH`, NOT triangulation — the strong all-N name is reserved for k = k_max = N (the v3.9.0 "observation not inferred cause" rule extended to N=4).
 
-**Gate semantics:** All v3.9.0 suffixes are advisory. The terminal gate refusal list is NOT extended. `formatter_agent.md` pass-through allowlist MUST extend from 3 v3.7.3 suffixes to 9 (3 legacy + 6 v3.9.0) per R-L3-2-E. `/ars-mark-read` behavior is unchanged.
+**Composition order:** `PREPRINT` token first, triangulation token second, joined by `+`. The canonical token order list is `[PREPRINT, UNMATCHED | ARXIV-UNMATCHED | COVERAGE-NOISE | PARTIAL-UNMATCH | TRIANGULATION-UNMATCHED | QUADRANGULATION-UNMATCHED]`.
+
+**Gate semantics:** All v3.9.0 AND Delta-1 suffixes are advisory. The terminal gate refusal list is NOT extended. `formatter_agent.md` pass-through allowlist MUST extend from 3 v3.7.3 suffixes to 9 (v3.9.0) to 13 (Delta-1: + the 4 arXiv tokens) per R-L3-2-E. `/ars-mark-read` behavior is unchanged.
 
 Example markers:
 - `<!--ref:smith2024 LOW-WARN CONTAMINATED-COVERAGE-NOISE-->` — single-index unmatched, k_max ≥ 2.
-- `<!--ref:smith2024 ok CONTAMINATED-PARTIAL-UNMATCH-->` — two-of-three unmatched.
+- `<!--ref:smith2024 ok CONTAMINATED-PARTIAL-UNMATCH-->` — two-of-three (or three-of-four) unmatched.
 - `<!--ref:smith2024 LOW-WARN CONTAMINATED-TRIANGULATION-UNMATCHED-->` — all three indexes unmatched.
-- `<!--ref:smith2024 LOW-WARN CONTAMINATED-PREPRINT+TRIANGULATION-UNMATCHED-->` — preprint heuristic + k=3.
+- `<!--ref:smith2024 LOW-WARN CONTAMINATED-ARXIV-UNMATCHED-->` — arxiv-only (k_max=1) unmatched.
+- `<!--ref:smith2024 LOW-WARN CONTAMINATED-QUADRANGULATION-UNMATCHED-->` — all four indexes unmatched.
+- `<!--ref:smith2024 LOW-WARN CONTAMINATED-PREPRINT+QUADRANGULATION-UNMATCHED-->` — preprint heuristic + k=4.
 
 ## Cite-Time Provenance Finalizer — v3.10 extension (terminal policy layer)
 

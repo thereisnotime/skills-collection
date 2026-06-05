@@ -25,6 +25,7 @@ const fetchManifest = () => {
 };
 
 const PRESERVE_FILES = new Set(["README.md", ".gitkeep"]);
+const OMIT_FILES = new Set(["metadata.yaml"]);
 
 const cleanDirectory = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -55,7 +56,8 @@ const run = async () => {
   for (const skill of skills) {
     console.log(`Syncing skill: ${skill.name}`);
 
-    for (const file of skill.files) {
+    const skillFiles = skill.files.filter(fileName => !OMIT_FILES.has(fileName));
+    for (const file of skillFiles) {
       const url = `${BASE_URL}/${skill.name}/${file}`;
       let content;
       try {

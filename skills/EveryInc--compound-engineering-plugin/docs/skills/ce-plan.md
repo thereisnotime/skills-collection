@@ -96,6 +96,10 @@ The guardrails-not-choreography frame transfers cleanly across domains. Real (no
 
 Universal planning also distinguishes two **dispositions**. *Plan-seeking* tasks (trip, study curriculum, event) produce a saved plan — the artifact is the deliverable. *Answer-seeking* tasks are investigative or analytical questions ("how often does X happen — is it a big deal?", "how does our approach compare to Y?") where the *answer* is the deliverable and no one wants a plan file. For those, `ce-plan` doesn't bail and doesn't write a document: it states a brief, right-sized plan-of-attack in chat — working scaffold that both steers the agent and shows the human the approach — then executes it (research and synthesis, never code) and delivers the answer. The plan is spoken in the language of the question, not the language of the skill; internal machinery stays hidden while caveats that affect trust in the answer are always surfaced. Only genuinely trivial single-fact lookups skip planning entirely and get answered outright.
 
+### 8. Approach altitude — a plan for the plan when a deliverable is hard
+
+For a hard problem, `ce-plan` can answer one level up: produce a grounded **approach-plan** (a plan for *how the deliverable will be made*) and hold at a checkpoint before committing — a way to get structure and certainty instead of zero-shotting a fragile result. It's entered explicitly ("plan for a plan", "don't write it yet — plan how you'd approach it") and, rarely, offered proactively — only when the method is genuinely unsettled *and* getting it wrong is costly, so it never becomes a nag. After light recon of the provided inputs (skim, not deep-read), it lays out the approach in chat, file-optional and deepenable. At the checkpoint you run it now or save it for later. The boundary it draws is **code vs. knowledge-work**, not plan vs. execute: code still flows to `ce-work`'s normal path, while a non-code deliverable is marked `execution: knowledge-work` and runs through `ce-work`'s lightweight carve-out (or any agent — the plan stays portable). `ce-plan` itself never executes; it produces the approach-plan and hands off.
+
 ---
 
 ## Quick Example
