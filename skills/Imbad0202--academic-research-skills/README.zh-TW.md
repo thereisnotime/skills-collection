@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.11.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.11.0)
+[![Version](https://img.shields.io/badge/version-v3.11.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.11.1)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
 
@@ -240,7 +240,7 @@ ARS Stage 2 寫作      →  用驗證過的實驗結果撰寫論文
 
 7 個 Agent 的多視角審查，搭配 **0-100 品質量表**。模式：full、re-review、quick、methodology-focus、guided、calibration。**決策對照：** ≥80 接受、65-79 小修、50-64 大修、<50 退稿。第一輪審查團隊 vs. 精簡再審團隊的分界：見 ARCHITECTURE.md §3 Stage 3 / Stage 3'。
 
-### Academic Pipeline (v3.11.0)
+### Academic Pipeline (v3.11.1)
 
 10 階段調度器，含誠信驗證、兩階段審查、蘇格拉底指導、協作品質評估。Pipeline 保證：每個階段都需使用者確認 checkpoint；誠信驗證（Stage 2.5 + 4.5）不可跳過；R&R 追溯矩陣（Schema 11）獨立驗證作者修訂宣稱。v3.4 新增 Compliance Agent（PRISMA-trAIce + RAISE）於 Stage 2.5 / 4.5。v3.5 新增 **協作深度觀察員**（`collaboration_depth_agent`，僅諮詢性質、永不阻擋流程）於每一次 FULL/SLIM checkpoint 與 pipeline 完成時。MANDATORY 誠信閘門（2.5 / 4.5）明確跳過觀察員，避免稀釋合規檢查。理論基礎：Wang & Zhang (2026), IJETHE 23:11。逐階段矩陣（agent、產出物、閘門）：見 ARCHITECTURE.md §3。
 
@@ -303,6 +303,10 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新紀錄
+
+### v3.11.1（2026-06-06）— 出貨後正確性、強化與來源修正彙整
+
+> 一個 patch release，彙整 v3.11.0 出貨後浮現的修正，每項都已各自審查並 merge：把跨模型同意 gate 擴展到 integrity-verification + collaboration-depth 路徑（#322）、每筆 entry 的 OpenAlex + Crossref backfill 平行化（#138），以及橫跨引用存在性 gate、v3.10 政策層、eval harness、領域證據 profile、#310 安全邊界邊角案例的七項正確性/強化修正（#323 / #327 / #328 / #329 / #331 / #332 / #333）—— 其中兩項是 P1（#327 no-handoff 路徑上的領域 profile 啟動、#328 eval harness 的 per-class 門檻 gate）。無新功能、無破壞性 schema 變更。逐 issue 細節見 `CHANGELOG.md`。
 
 ### v3.11.0（2026-06-04）— 確定性引用查驗 gate（#182）
 

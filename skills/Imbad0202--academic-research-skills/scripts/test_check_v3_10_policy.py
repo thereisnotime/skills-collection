@@ -68,6 +68,45 @@ def test_marker_terminal_without_advisory_suffix_parses():
     assert marker_triggers_refusal(marker) is True
 
 
+def test_marker_citation_existence_terminal_parses_and_refuses():
+    """A `policy=citation_existence` terminal token (C-V6(c), the real line-869
+    example) is in-grammar: it parses cleanly with no residual/unknown token and
+    triggers refusal. Pins that the canonical grammar enumeration covers
+    citation_existence (#333) — citation_existence is `mode=strict` only (no
+    strict_articles_only), and unlike contamination it carries NO advisory suffix
+    in the slot (the `false` "why" lives in reason= + the aggregate)."""
+    marker = ("<!--ref:bogus2024 ok TERMINAL-BLOCK severity=HIGH-BLOCK "
+              "policy=citation_existence reason=lookup_verified_false mode=strict "
+              "policy_hash=citation_existence.strict-->")
+    pm = parse_ref_marker(marker)
+    assert pm is not None
+    assert pm.base_status == "ok"
+    assert pm.advisory_suffix is None  # citation_existence occupies no advisory slot
+    assert pm.terminal is True
+    assert pm.is_high_block is True
+    assert pm.policy == "citation_existence"
+    assert pm.reason == "lookup_verified_false"
+    assert pm.mode == "strict"
+    assert pm.policy_hash == "citation_existence.strict"
+    assert pm.unknown_tokens == []  # nothing falls outside the grammar
+    assert marker_triggers_refusal(marker) is True
+
+
+def test_marker_dual_policy_co_emit_parses_and_refuses():
+    """C-V6(g): a ref violating BOTH contamination_triangulation=strict (k=3) AND
+    citation_existence=strict carries two TERMINAL-BLOCK tokens. The generic
+    refusal must still fire (the formatter refuses on any unresolved HIGH-BLOCK,
+    no per-policy enumeration). Pins that the multi-policy grammar at line 887 is
+    consistent with the canonical shape (#333)."""
+    marker = ("<!--ref:both2024 LOW-WARN CONTAMINATED-TRIANGULATION-UNMATCHED "
+              "TERMINAL-BLOCK severity=HIGH-BLOCK policy=contamination_triangulation "
+              "reason=k3_all_indexes_unmatched mode=strict "
+              "TERMINAL-BLOCK severity=HIGH-BLOCK policy=citation_existence "
+              "reason=lookup_verified_false mode=strict "
+              "policy_hash=citation_existence.strict+contamination_triangulation.strict-->")
+    assert marker_triggers_refusal(marker) is True
+
+
 def test_marker_non_terminal_advisory_parses_no_refuse():
     """A non-terminal advisory marker under a NON-advisory passport: advisory suffix
     + a non-advisory policy_hash slug, NO terminal token → does not refuse. (Under an
@@ -151,6 +190,103 @@ def test_terminal_marker_without_high_block_is_malformed():
     assert pm.terminal is True
     assert pm.severity is None
     assert pm.is_well_formed is False
+
+
+def test_terminal_marker_missing_metadata_fields_is_malformed():
+    """#329: a TERMINAL-BLOCK severity=HIGH-BLOCK marker MUST carry the four
+    mandatory terminal-grammar fields (policy / reason / mode / policy_hash) — the
+    freshness + remediation metadata the formatter gate depends on. A marker with
+    severity=HIGH-BLOCK but any of them missing is malformed, even though the
+    base-status, terminal flag, and severity are all valid in isolation. Without
+    this, a stripped terminal marker passes the grammar's reference checker and a
+    downstream finalizer-output validator loses the metadata it needs."""
+    # All four absent.
+    bare = parse_ref_marker("<!--ref:x ok TERMINAL-BLOCK severity=HIGH-BLOCK-->")
+    assert bare.terminal is True and bare.is_high_block is True
+    assert bare.is_well_formed is False
+
+    # A complete terminal marker is well-formed (positive control).
+    full = parse_ref_marker(
+        "<!--ref:x ok TERMINAL-BLOCK severity=HIGH-BLOCK "
+        "policy=citation_existence reason=lookup_verified_false mode=strict "
+        "policy_hash=citation_existence.strict-->"
+    )
+    assert full.is_well_formed is True
+
+    # Each single missing field individually breaks well-formedness (mutation).
+    parts = {
+        "policy": "policy=citation_existence",
+        "reason": "reason=lookup_verified_false",
+        "mode": "mode=strict",
+        "policy_hash": "policy_hash=citation_existence.strict",
+    }
+    for omit in parts:
+        tokens = " ".join(v for k, v in parts.items() if k != omit)
+        marker = f"<!--ref:x ok TERMINAL-BLOCK severity=HIGH-BLOCK {tokens}-->"
+        pm = parse_ref_marker(marker)
+        assert pm.is_well_formed is False, f"missing {omit} should be malformed: {marker}"
+
+    # A blank token (`policy=`) parses to "" not None — present-but-empty must be
+    # malformed too, same as missing (codex P2: the formatter gate needs the value).
+    blank = parse_ref_marker(
+        "<!--ref:x ok TERMINAL-BLOCK severity=HIGH-BLOCK "
+        "policy= reason= mode= policy_hash=-->"
+    )
+    assert blank.terminal is True and blank.is_high_block is True
+    assert blank.is_well_formed is False
+    for omit in parts:
+        # one field blank, the rest valid → still malformed
+        toks = " ".join((f"{k}=" if k == omit else v) for k, v in parts.items())
+        pm = parse_ref_marker(f"<!--ref:x ok TERMINAL-BLOCK severity=HIGH-BLOCK {toks}-->")
+        assert pm.is_well_formed is False, f"blank {omit} should be malformed"
+
+
+def test_multi_terminal_block_per_block_validation(self_unused=None):
+    """#329 (codex R2/R3): a multi-TERMINAL-BLOCK co-emission (C-V6(g)) is
+    validated PER BLOCK — each TERMINAL-BLOCK must independently carry
+    severity=HIGH-BLOCK + policy/reason/mode, plus the marker-level policy_hash.
+    A complete later block must NOT mask an earlier block's stripped metadata."""
+    # First block missing mode=, second block complete — the flat field would
+    # fill mode from the second block, but per-block validation catches the gap.
+    masked = parse_ref_marker(
+        "<!--ref:both ok TERMINAL-BLOCK severity=HIGH-BLOCK "
+        "policy=contamination_triangulation reason=k3_all_indexes_unmatched "
+        "TERMINAL-BLOCK severity=HIGH-BLOCK policy=citation_existence "
+        "reason=lookup_verified_false mode=strict policy_hash=x-->"
+    )
+    assert masked.terminal_block_count == 2
+    assert masked.is_well_formed is False  # first block has no mode=
+
+    # A fully-complete dual-block co-emission (the C-V6(g) canonical marker) is
+    # well-formed — every block carries its four fields and the marker carries the
+    # shared policy_hash. (R3: do not reject valid dual-policy markers.)
+    full_dual = parse_ref_marker(
+        "<!--ref:both LOW-WARN CONTAMINATED-TRIANGULATION-UNMATCHED "
+        "TERMINAL-BLOCK severity=HIGH-BLOCK policy=contamination_triangulation "
+        "reason=k3_all_indexes_unmatched mode=strict "
+        "TERMINAL-BLOCK severity=HIGH-BLOCK policy=citation_existence "
+        "reason=lookup_verified_false mode=strict "
+        "policy_hash=citation_existence.strict+contamination_triangulation.strict-->"
+    )
+    assert full_dual.terminal_block_count == 2
+    assert full_dual.is_well_formed is True
+    assert marker_triggers_refusal(
+        "<!--ref:both LOW-WARN CONTAMINATED-TRIANGULATION-UNMATCHED "
+        "TERMINAL-BLOCK severity=HIGH-BLOCK policy=contamination_triangulation "
+        "reason=k3_all_indexes_unmatched mode=strict "
+        "TERMINAL-BLOCK severity=HIGH-BLOCK policy=citation_existence "
+        "reason=lookup_verified_false mode=strict "
+        "policy_hash=citation_existence.strict+contamination_triangulation.strict-->"
+    ) is True
+
+    # A dual-block marker missing the marker-level policy_hash is malformed.
+    no_hash = parse_ref_marker(
+        "<!--ref:both ok TERMINAL-BLOCK severity=HIGH-BLOCK "
+        "policy=contamination_triangulation reason=k3_all_indexes_unmatched mode=strict "
+        "TERMINAL-BLOCK severity=HIGH-BLOCK policy=citation_existence "
+        "reason=lookup_verified_false mode=strict-->"
+    )
+    assert no_hash.is_well_formed is False
 
 
 def test_well_formed_markers_pass():
@@ -274,6 +410,56 @@ def test_mutation_dropping_pair_branch_fails(entry_schema):
     ]
     fails = check_entry_schema(entry_schema)
     assert any("trusted_source required" in f for f in fails)
+
+
+def test_mutation_formatter_missing_citation_existence_advisory_fails():
+    """C-V6(b) #333: if the formatter drops the mandatory provenance_summary
+    'Citation Existence Advisories' section header, the lint must fail — otherwise
+    an advisory lookup_verified==false (a provably-bogus DOI) has no visibility
+    carrier (the marker stays byte-equivalent v3.9.x, so it can't be the carrier)."""
+    formatter = DEFAULT_FORMATTER.read_text()
+    # Rename the section header so _extract_section can't find it.
+    mutated = formatter.replace("## Citation Existence Advisory", "## Removed Section")
+    fails = check_formatter_prompt(mutated)
+    assert any("Citation Existence Advisor" in f or "C-V6(b)" in f for f in fails)
+
+
+def test_mutation_formatter_advisory_not_in_provenance_summary_fails():
+    """C-V6(b) #333: the carrier (provenance_summary) must be named INSIDE the
+    Citation Existence Advisory section, not merely somewhere in the prompt. Detach
+    it ONLY within that subsection — the pre-existing contamination/version-family
+    provenance_summary mentions must NOT mask the gap (the codex P2: a whole-prompt
+    scan false-passes here)."""
+    formatter = DEFAULT_FORMATTER.read_text()
+    # Rewrite provenance_summary -> some_other_file only inside the CE section.
+    header = "## Citation Existence Advisory"
+    start = formatter.index(header)
+    end = formatter.index("\n## ", start + len(header))
+    section = formatter[start:end].replace("provenance_summary", "some_other_file")
+    mutated = formatter[:start] + section + formatter[end:]
+    # Sanity: the rest of the prompt still mentions provenance_summary (so a
+    # whole-prompt scan WOULD false-pass — this test pins the scoped check).
+    assert "provenance_summary" in (formatter[:start] + formatter[end:])
+    fails = check_formatter_prompt(mutated)
+    assert any("provenance_summary" in f for f in fails)
+
+
+def test_mutation_formatter_advisory_label_renamed_fails():
+    """C-V6(b) #333 (codex P2 r2): renaming the exact deliverable-visible label
+    'Citation Existence Advisories' inside the section — while keeping the section
+    header and provenance_summary — must still fail, because that label is what a
+    consumer greps for in provenance_summary.md."""
+    formatter = DEFAULT_FORMATTER.read_text()
+    header = "## Citation Existence Advisory"
+    start = formatter.index(header)
+    end = formatter.index("\n## ", start + len(header))
+    # Rename only the in-body plural label, leave the H2 header + provenance_summary.
+    section = formatter[start:end].replace(
+        "`Citation Existence Advisories` section", "`Some Other` section"
+    ).replace("Citation Existence Advisories", "Some Other Advisories")
+    mutated = formatter[:start] + section + formatter[end:]
+    fails = check_formatter_prompt(mutated)
+    assert any("Citation Existence Advisories" in f for f in fails)
 
 
 def test_mutation_temporal_strict_accepted_fails(tp_schema):

@@ -101,7 +101,8 @@ class ParsedMarker:
     """Structured parse of a single <!--ref:...--> marker."""
 
     def __init__(self, *, slug, base_status, advisory_suffix, terminal,
-                 severity, policy, reason, mode, policy_hash, unknown_tokens=None):
+                 severity, policy, reason, mode, policy_hash, unknown_tokens=None,
+                 terminal_blocks=None):
         self.slug = slug
         self.base_status = base_status
         self.advisory_suffix = advisory_suffix
@@ -112,6 +113,15 @@ class ParsedMarker:
         self.mode = mode
         self.policy_hash = policy_hash
         self.unknown_tokens = unknown_tokens or []
+        # Per-block terminal metadata (C-V6(g) multi-policy co-emission): one dict
+        # {severity,policy,reason,mode} per TERMINAL-BLOCK sentinel. is_well_formed
+        # validates each block independently rather than the flattened fields,
+        # which "last value wins" and cannot prove per-block completeness (#329).
+        self.terminal_blocks = terminal_blocks or []
+
+    @property
+    def terminal_block_count(self) -> int:
+        return len(self.terminal_blocks)
 
     @property
     def is_legacy(self) -> bool:
@@ -127,14 +137,28 @@ class ParsedMarker:
         """A grammatical marker: has a base-status ∈ {ok, LOW-WARN} and no
         unrecognized residual tokens. A marker lacking a base-status (e.g.
         `<!--ref:smith2024 policy_hash=...-->`) is malformed — the v3.7.3 5-cell
-        base resolution always produces one. A terminal marker must additionally
-        carry severity=HIGH-BLOCK."""
+        base resolution always produces one.
+
+        A terminal marker (#329) must carry, for EACH TERMINAL-BLOCK independently,
+        severity=HIGH-BLOCK + non-empty policy / reason / mode (validated per block
+        so a complete later block in a C-V6(g) co-emission cannot mask an earlier
+        block's stripped metadata), plus the marker-level shared policy_hash. Empty
+        tokens (`policy=`) count as missing — the formatter gate needs the value."""
         if self.base_status not in _BASE_STATUS:
             return False
         if self.unknown_tokens:
             return False
-        if self.terminal and self.severity != "HIGH-BLOCK":
-            return False
+        if self.terminal:
+            # Each TERMINAL-BLOCK must be individually complete (C-V6(g)).
+            for block in self.terminal_blocks:
+                if block.get("severity") != "HIGH-BLOCK":
+                    return False
+                if not all((block.get("policy"), block.get("reason"), block.get("mode"))):
+                    return False
+            # policy_hash is marker-level (one shared slug encoding all keys),
+            # required on any finalized terminal marker.
+            if not self.policy_hash:
+                return False
         return True
 
 
@@ -172,19 +196,37 @@ def _parse_inner(inner: str) -> ParsedMarker | None:
     terminal = False
     severity = policy = reason = mode = policy_hash = None
     unknown_tokens: list[str] = []
+    # Per-block terminal metadata (C-V6(g)): each TERMINAL-BLOCK sentinel opens a
+    # new block; its severity/policy/reason/mode tokens belong to THAT block.
+    # policy_hash is marker-level (one shared slug encoding all keys), not
+    # per-block — it is kept in the flat field only. The flat severity/policy/
+    # reason/mode keep the legacy "last value wins" semantics for backward compat;
+    # is_well_formed reads terminal_blocks for per-block completeness (#329).
+    terminal_blocks: list[dict[str, str | None]] = []
 
     # key=value tokens + the TERMINAL-BLOCK sentinel. Anything else is residual.
     for tok in rest:
         if tok == "TERMINAL-BLOCK":
             terminal = True
+            terminal_blocks.append(
+                {"severity": None, "policy": None, "reason": None, "mode": None}
+            )
         elif tok.startswith("severity="):
             severity = tok.split("=", 1)[1]
+            if terminal_blocks:
+                terminal_blocks[-1]["severity"] = severity
         elif tok.startswith("policy="):
             policy = tok.split("=", 1)[1]
+            if terminal_blocks:
+                terminal_blocks[-1]["policy"] = policy
         elif tok.startswith("reason="):
             reason = tok.split("=", 1)[1]
+            if terminal_blocks:
+                terminal_blocks[-1]["reason"] = reason
         elif tok.startswith("mode="):
             mode = tok.split("=", 1)[1]
+            if terminal_blocks:
+                terminal_blocks[-1]["mode"] = mode
         elif tok.startswith("policy_hash="):
             policy_hash = tok.split("=", 1)[1]
         else:
@@ -194,6 +236,7 @@ def _parse_inner(inner: str) -> ParsedMarker | None:
         slug=slug, base_status=base_status, advisory_suffix=advisory_suffix,
         terminal=terminal, severity=severity, policy=policy, reason=reason,
         mode=mode, policy_hash=policy_hash, unknown_tokens=unknown_tokens,
+        terminal_blocks=terminal_blocks,
     )
 
 
@@ -489,6 +532,38 @@ def check_formatter_prompt(formatter_text: str) -> list[str]:
         fail.append("rule 6: formatter two-gate (Gate 1 freshness + Gate 2 refusal) not documented")
     if "STALE-POLICY-EVALUATION" not in section:
         fail.append("rule 6: formatter freshness guard must emit [STALE-POLICY-EVALUATION]")
+
+    # C-V6(b) #333: a default-advisory `lookup_verified == false` carries NO marker
+    # suffix (marker stays byte-equivalent v3.9.x), so its visibility MUST be carried
+    # by the formatter's mandatory provenance_summary `Citation Existence Advisories`
+    # section — otherwise an advisory false (a provably-bogus DOI) is buried in an
+    # aggregate the user must open separately. Assert the formatter documents it, and
+    # that the carrier (provenance_summary) is named INSIDE that subsection — scanning
+    # the whole prompt would false-pass on the pre-existing contamination/version-family
+    # provenance_summary mentions (codex P2).
+    ce_section = _extract_section(formatter_text, "## Citation Existence Advisory")
+    if not ce_section:
+        fail.append(
+            "C-V6(b): formatter must document a mandatory provenance_summary "
+            "'Citation Existence Advisories' section that lists every advisory "
+            "lookup_verified==false row (the advisory's visibility carrier, #333)"
+        )
+    else:
+        # The section must name BOTH the carrier file (provenance_summary) AND the
+        # exact deliverable-visible section label (`Citation Existence Advisories`),
+        # both INSIDE the subsection — renaming either silently drops the only
+        # visibility path for an advisory false (codex P2).
+        if "provenance_summary" not in ce_section:
+            fail.append(
+                "C-V6(b): the Citation Existence Advisory section must name "
+                "provenance_summary.md as its visibility carrier (#333)"
+            )
+        if "Citation Existence Advisories" not in ce_section:
+            fail.append(
+                "C-V6(b): the section must reference the exact provenance_summary "
+                "label 'Citation Existence Advisories' (the deliverable-visible "
+                "section name a consumer greps for, #333)"
+            )
 
     return fail
 

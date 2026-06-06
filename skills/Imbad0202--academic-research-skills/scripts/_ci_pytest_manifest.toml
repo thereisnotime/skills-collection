@@ -115,6 +115,10 @@ id = "v3.10-184-check-ranking-lift"
 path = "scripts/test_check_ranking_lift.py"
 
 [[pytest]]
+id = "v3.10-184-eval-threshold-gate"
+path = "scripts/test__eval_threshold_gate.py"
+
+[[pytest]]
 id = "v3.10-184-evals-citation-extraction"
 path = "scripts/test_evals_citation_extraction.py"
 
@@ -159,3 +163,11 @@ path = "scripts/test_verification_cache.py"
 [[pytest]]
 id = "v3.10-182-verify-passport-cli"
 path = "scripts/test_verify_passport_cli.py"
+
+[[pytest]]
+id = "346-349-cross-model-grounding-guards"
+path = "scripts/test_cross_model_verification_guards.py"
+
+[[pytest]]
+id = "346-349-cross-model-sync-lint"
+path = "scripts/test_check_cross_model_verification_sync.py"
