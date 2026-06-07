@@ -35,6 +35,83 @@ INV14_FAULT_CLASS_TAGS: tuple[str, ...] = (
 # Sampling strategy literal (S-INV schema constant).
 SAMPLING_STRATEGY = "stratified_buckets_v1"
 
+# Sub-claim breakdown sub_verdict enum (claim_audit_result.schema.json #213).
+# The "non-SUPPORTED" set is the valid OPPOSING verdicts only — a missing or
+# out-of-enum sub_verdict must NOT count as non-SUPPORTED, or a degenerate
+# breakdown `[SUPPORTED, <missing>]` would masquerade as true-partial.
+SUBCLAIM_VERDICTS: frozenset[str] = frozenset({"SUPPORTED", "UNSUPPORTED", "AMBIGUOUS"})
+SUBCLAIM_NON_SUPPORTED: frozenset[str] = frozenset({"UNSUPPORTED", "AMBIGUOUS"})
+
+
+def is_true_partial_breakdown(breakdown: object) -> bool:
+    """True iff `breakdown` is a well-formed true-partial decomposition (#213).
+
+    Single source of truth for the INV-19 true-partial test, shared by the lint
+    (`check_claim_audit_consistency.py`), the runtime
+    (`claim_audit_pipeline.py` PARTIAL normalization + judge-output validation),
+    and the calibration subset metric (`claim_audit_calibration.py`). A list of
+    >=2 dict items whose sub_verdicts include >=1 SUPPORTED AND >=1 valid
+    non-SUPPORTED ({UNSUPPORTED, AMBIGUOUS}). A missing / out-of-enum sub_verdict
+    is NOT counted as non-SUPPORTED.
+
+    NOTE: this is the *content-shape* gate only. The lint additionally pins the
+    enclosing row's judgment/defect_stage (INV-19) and the calibration subset
+    metric additionally matches the breakdown against each fixture's expected
+    sub-claims — neither of those belongs here.
+    """
+    if not isinstance(breakdown, list) or len(breakdown) < 2:
+        return False
+    verdicts = [item.get("sub_verdict") for item in breakdown if isinstance(item, dict)]
+    has_supported = any(v == "SUPPORTED" for v in verdicts)
+    has_non_supported = any(v in SUBCLAIM_NON_SUPPORTED for v in verdicts)
+    return has_supported and has_non_supported
+
+
+def _is_schema_shaped_item(item: object) -> bool:
+    """True iff a breakdown item satisfies the schema item shape (#213).
+
+    Each item MUST be a dict with a non-empty-string `sub_claim_text` and a
+    `sub_verdict` in the closed enum. The runtime needs this BEFORE it copies an
+    item onto an emitted row — `is_true_partial_breakdown` only checks the verdict
+    *mix*, so a degenerate item like `{"sub_verdict": "UNSUPPORTED"}` (no text)
+    passes the mix gate but would emit `sub_claim_text: None`, a schema-invalid
+    completed row (ship-gate round-2 finding).
+
+    Validates the fields the runtime COPIES onto the row against the
+    claim_audit_result.schema.json item shape: non-empty string sub_claim_text
+    (<=1000), sub_verdict in the enum, and evidence_pointer — if present — a
+    string (<=1000) or null. Extra keys are not rejected here because the runtime
+    copy keeps only these three; but the copied fields' TYPES must be valid or a
+    wrong-typed evidence_pointer (e.g. a number) would reach a completed row and
+    violate the schema (ship-gate round-3 finding).
+    """
+    if not isinstance(item, dict):
+        return False
+    text = item.get("sub_claim_text")
+    if not isinstance(text, str) or not text.strip() or len(text) > 1000:
+        return False
+    if item.get("sub_verdict") not in SUBCLAIM_VERDICTS:
+        return False
+    if "evidence_pointer" in item:
+        ep = item["evidence_pointer"]
+        if ep is not None and (not isinstance(ep, str) or len(ep) > 1000):
+            return False
+    return True
+
+
+def is_emittable_partial_breakdown(breakdown: object) -> bool:
+    """True iff `breakdown` is true-partial AND every item is schema-shaped (#213).
+
+    The runtime validation gate before a PARTIAL is normalized onto a *completed*
+    row: it must be a genuine partial (`is_true_partial_breakdown`) AND every item
+    must carry a non-empty sub_claim_text + valid sub_verdict, so the copied row
+    satisfies the item schema. A breakdown that is true-partial by mix but has a
+    malformed item is a judge parse failure, NOT a completed row.
+    """
+    if not is_true_partial_breakdown(breakdown):
+        return False
+    return all(_is_schema_shaped_item(item) for item in breakdown)
+
 # rule_version literals for v3.8.0 release. Future revisions bump the literal
 # and require re-lint per spec §3.3 / §3.4 / §3.5.
 UNCITED_RULE_VERSION = "D4-c-v1"

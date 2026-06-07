@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """check_claim_audit_consistency.py — ARS v3.8 claim-faithfulness audit lint.
 
-Enforces the 38 cross-field invariants spanning the six aggregates that
+Enforces the 39 cross-field invariants spanning the six aggregates that
 claim_ref_alignment_audit_agent populates:
 
-    claim_audit_results[]           — INV-1..INV-18      (§3.1)
+    claim_audit_results[]           — INV-1..INV-19      (§3.1)
     claim_intent_manifests[]        — M-INV-1..M-INV-4   (§3.2)
     uncited_assertions[]            — U-INV-1..U-INV-4   (§3.3)
     claim_drifts[]                  — D-INV-1..D-INV-4   (§3.4)
@@ -57,6 +57,7 @@ from _claim_audit_constants import (  # noqa: E402
     RE_NC_CONSTRAINT,
     RE_NC_INNER_HYPHEN,
     SENTINEL_MANIFEST_ID,
+    SUBCLAIM_NON_SUPPORTED,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -153,7 +154,7 @@ def _validator(name: str) -> Draft202012Validator:
 
 
 # ---------------------------------------------------------------------------
-# claim_audit_result invariants (INV-1..INV-18).
+# claim_audit_result invariants (INV-1..INV-19).
 # Each helper returns a list of Findings; the caller aggregates across rows.
 # ---------------------------------------------------------------------------
 
@@ -494,6 +495,59 @@ def _check_inv_18(e: dict[str, Any]) -> list[Finding]:
             )
         ]
     return []
+
+
+def _check_inv_19(e: dict[str, Any]) -> list[Finding]:
+    """sub_claim_breakdown present -> normalized-PARTIAL shape pinned (#213).
+
+    Presence of the breakdown is the machine-readable partial-support signal.
+    When present it must pin the full B1 normalization: judgment=UNSUPPORTED,
+    defect_stage=source_description, and the breakdown is *true-partial* —
+    >=2 items with >=1 SUPPORTED AND >=1 non-SUPPORTED sub_verdict. The
+    SUPPORTED-AND-non-SUPPORTED pair is what distinguishes a genuine partial
+    from an all-supported or all-unsupported decomposition; "non-SUPPORTED
+    alone" would wrongly admit an all-UNSUPPORTED breakdown.
+
+    The "what counts as non-SUPPORTED" decision is the shared
+    `_claim_audit_constants.SUBCLAIM_NON_SUPPORTED` constant (the literal most
+    likely to drift) — `is_true_partial_breakdown` in that module is the bool
+    form used by the runtime + calibration. This lint deliberately re-expresses
+    the same mix test inline (rather than calling the bool helper) because it
+    must emit two DISTINCT findings — "needs >=1 SUPPORTED" and "needs >=1
+    non-SUPPORTED" — which a single bool cannot carry. The shared constant keeps
+    the verdict set in sync; the granular split is lint-specific.
+    """
+    if "sub_claim_breakdown" not in e:
+        return []
+    bd = e["sub_claim_breakdown"]
+    findings: list[Finding] = []
+    if e.get("judgment") != "UNSUPPORTED":
+        findings.append(
+            Finding("INV-19", f"sub_claim_breakdown present but judgment={e.get('judgment')!r}; must be UNSUPPORTED")
+        )
+    if e.get("defect_stage") != "source_description":
+        findings.append(
+            Finding(
+                "INV-19",
+                f"sub_claim_breakdown present but defect_stage={e.get('defect_stage')!r}; must be source_description",
+            )
+        )
+    if not isinstance(bd, list) or len(bd) < 2:
+        findings.append(Finding("INV-19", "sub_claim_breakdown must have >=2 items (not a true partial)"))
+        return findings
+    verdicts = [item.get("sub_verdict") for item in _iter_dicts(bd)]
+    # "non-SUPPORTED" counts only the *valid* opposing verdicts (the shared
+    # SUBCLAIM_NON_SUPPORTED set). A missing or out-of-enum sub_verdict must NOT
+    # be read as non-SUPPORTED — that would let `[SUPPORTED, <missing>]`
+    # masquerade as true-partial (round-2 review #1). The granular split here is
+    # equivalent to `is_true_partial_breakdown(bd)` but yields distinct findings.
+    if not any(v == "SUPPORTED" for v in verdicts):
+        findings.append(Finding("INV-19", "sub_claim_breakdown is not true-partial: needs >=1 SUPPORTED sub_verdict"))
+    if not any(v in SUBCLAIM_NON_SUPPORTED for v in verdicts):
+        findings.append(
+            Finding("INV-19", "sub_claim_breakdown is not true-partial: needs >=1 non-SUPPORTED sub_verdict")
+        )
+    return findings
 
 
 # INV-17 surfaces on malformed NC constraint ids encountered in manifests
@@ -1230,7 +1284,7 @@ def _validate_against_schema(
 
 
 def validate_passport(body: Any) -> list[Finding]:
-    """Run all 38 invariants + schema-shape against a passport body. Returns findings."""
+    """Run all 39 invariants + schema-shape against a passport body. Returns findings."""
     # Step 13 R7 codex P3: a syntactically valid JSON top level can still
     # be `[]`, `null`, or a scalar. `.get()` on those raises AttributeError;
     # surface a clean schema finding instead so the CLI can return findings
@@ -1314,6 +1368,7 @@ def validate_passport(body: Any) -> list[Finding]:
         findings.extend(_check_inv_15(e, manifest_index))
         findings.extend(_check_inv_16(e))
         findings.extend(_check_inv_18(e))
+        findings.extend(_check_inv_19(e))
         findings.extend(_check_matrix(e))
 
     findings.extend(_check_uncited_invariants(uncited, manifest_index))

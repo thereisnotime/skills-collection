@@ -23,7 +23,7 @@ loki doctor
 ## Quick Start Examples
 
 ```bash
-# Run a 60-second interactive demo to see Loki Mode in action
+# Build a sample todo app end to end to see Loki Mode in action (real run)
 loki demo
 
 # Quick single-task mode (lightweight, 3 iterations max)
@@ -155,7 +155,7 @@ loki quick "refactor the database connection pool to use async/await"
 
 ### `loki demo`
 
-Run an interactive demo (~60 seconds) to see Loki Mode in action without affecting your codebase.
+Build a sample todo app end to end in a temporary directory to see Loki Mode in action. This is a real autonomous run (it drives the provider and builds actual code), not a simulation. It works in a temp dir, so it does not touch your current project.
 
 ```bash
 loki demo

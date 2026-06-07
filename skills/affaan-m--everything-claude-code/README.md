@@ -1,4 +1,4 @@
-**Language:** English | [Português (Brasil)](docs/pt-BR/README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md) | [한국어](docs/ko-KR/README.md) | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md) | [ไทย](docs/th/README.md) | [Deutsch](docs/de-DE/README.md)
+**Language:** English | [Português (Brasil)](docs/pt-BR/README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md) | [한국어](docs/ko-KR/README.md) | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md) | [ไทย](docs/th/README.md) | [Deutsch](docs/de-DE/README.md) | [Español](docs/es/README.md)
 
 # ECC
 
@@ -25,10 +25,10 @@
 
 <div align="center">
 
-**Language / 语言 / 語言 / Dil / Язык / Ngôn ngữ**
+**Language / 语言 / 語言 / Dil / Язык / Ngôn ngữ / Idioma**
 
 [**English**](README.md) | [Português (Brasil)](docs/pt-BR/README.md) | [简体中文](README.zh-CN.md) | [繁體中文](docs/zh-TW/README.md) | [日本語](docs/ja-JP/README.md) | [한국어](docs/ko-KR/README.md)
- | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md) | [ไทย](docs/th/README.md) | [Deutsch](docs/de-DE/README.md)
+ | [Türkçe](docs/tr/README.md) | [Русский](docs/ru/README.md) | [Tiếng Việt](docs/vi-VN/README.md) | [ไทย](docs/th/README.md) | [Deutsch](docs/de-DE/README.md) | [Español](docs/es/README.md)
 
 </div>
 
@@ -479,15 +479,39 @@ export ECC_SESSION_START_MAX_CHARS=4000
 # Disable SessionStart additional context entirely for low-context/local-model setups
 export ECC_SESSION_START_CONTEXT=off
 
+# Session-tmp retention window in days (default: 30).
+# Set to 0, off, false, disabled, never, or none to keep all sessions (disable pruning).
+export ECC_SESSION_RETENTION_DAYS=14
+
 # Keep context/scope/loop warnings but suppress API-rate cost estimates
 export ECC_CONTEXT_MONITOR_COST_WARNINGS=off
 ```
+
 
 Windows PowerShell:
 
 ```powershell
 [Environment]::SetEnvironmentVariable('ECC_CONTEXT_MONITOR_COST_WARNINGS', 'off', 'User')
+[Environment]::SetEnvironmentVariable('ECC_SESSION_RETENTION_DAYS', '14', 'User')
 ```
+
+### Agent data home (multi-harness isolation)
+
+Memory persistence hooks (session summaries, learned skills, session aliases, metrics) store data under a single agent data root. By default that root is `~/.claude`. When you use ECC in both Claude Code and Cursor on the same machine, set a separate root for Cursor so the two environments do not overwrite each other's session files:
+
+```bash
+# Cursor-only boundary (Claude Code keeps the default ~/.claude)
+export ECC_AGENT_DATA_HOME="$HOME/.cursor/ecc"
+```
+
+Paths resolved under that root include:
+
+- `$ECC_AGENT_DATA_HOME/session-data/` — session summaries
+- `$ECC_AGENT_DATA_HOME/skills/learned/` — learned skills from evaluate-session
+- `$ECC_AGENT_DATA_HOME/session-aliases.json` — session aliases
+- `$ECC_AGENT_DATA_HOME/metrics/` — cost and activity metrics
+
+See [affaan-m/ECC#2065](https://github.com/affaan-m/ECC/issues/2065).
 
 ---
 
@@ -603,6 +627,7 @@ ECC/
 |   |-- perl-testing/              # Perl TDD with Test2::V0, prove, Devel::Cover (NEW)
 |   |-- autonomous-loops/           # Autonomous loop patterns: sequential pipelines, PR loops, DAG orchestration (NEW)
 |   |-- plankton-code-quality/      # Write-time code quality enforcement with Plankton hooks (NEW)
+|   |-- codehealth-mcp/             # Optional CodeScene Code Health MCP skill (opt-in; not enabled by default) (NEW)
 |
 |-- commands/         # Maintained slash-entry compatibility; prefer skills/
 |   |-- plan.md             # /plan - Implementation planning
@@ -898,13 +923,15 @@ cp -r rules/arkts ~/.claude/rules/ecc/
 
 # Copy skills first (primary workflow surface)
 # Recommended (new users): core/general skills only
-mkdir -p ~/.claude/skills/ecc
-cp -r .agents/skills/* ~/.claude/skills/ecc/
-cp -r skills/search-first ~/.claude/skills/ecc/
+mkdir -p ~/.claude/skills
+cp -r .agents/skills/* ~/.claude/skills/
+cp -r skills/search-first ~/.claude/skills/
+# Claude Code loads skills only from direct children of ~/.claude/skills.
+# Do not nest manual installs under ~/.claude/skills/ecc/.
 
 # Optional: add niche/framework-specific skills only when needed
 # for s in django-patterns django-tdd laravel-patterns springboot-patterns quarkus-patterns; do
-# cp -r skills/$s ~/.claude/skills/ecc/
+# cp -r skills/$s ~/.claude/skills/
 # done
 
 # Optional: keep maintained slash-command compatibility during migration
@@ -1253,6 +1280,25 @@ ECC does not install root `AGENTS.md` into `.cursor/`. Cursor treats nested `AGE
 
 Cursor-native loading behavior can vary by Cursor build. ECC installs agents as `.cursor/agents/ecc-*.md`; if your Cursor build does not expose project agents, those files still work as explicit reference definitions instead of hidden global prompt context.
 
+### Memory and data isolation (Cursor + Claude Code)
+
+ECC memory hooks reuse the same `scripts/hooks/*.js` as Claude Code. For Cursor, ECC tries to keep memory **out of `~/.claude` automatically**:
+
+1. **Cursor `sessionStart` hook** (installed to `.cursor/hooks.json` on `--target cursor`) injects `ECC_AGENT_DATA_HOME` for the whole composer session.
+2. **Hook runtime default** — when `CURSOR_VERSION` or `CURSOR_PROJECT_DIR` is present, hooks default to `~/.cursor/ecc` if the env var is unset.
+3. **Project config** — `.cursor/ecc-agent-data.json` documents and overrides the path (`agentDataHome`).
+4. **Always-on rule** — `.cursor/rules/ecc-agent-data-home.mdc` reminds the agent where memory lives.
+
+You can still override explicitly:
+
+```bash
+export ECC_AGENT_DATA_HOME="$HOME/.cursor/ecc"
+```
+
+To **share** memory with Claude Code on purpose, set `ECC_AGENT_DATA_HOME=~/.claude` in the shell or in `.cursor/ecc-agent-data.json`.
+
+Continuous learning v2 instincts remain separate under `CLV2_HOMUNCULUS_DIR` (default `~/.local/share/ecc-homunculus`).
+
 ### Hook Architecture (DRY Adapter Pattern)
 
 Cursor has **more hook events than Claude Code** (20 vs 8). The `.cursor/hooks/adapter.js` module transforms Cursor's stdin JSON to Claude Code's format, allowing existing `scripts/hooks/*.js` to be reused without duplication.
@@ -1341,6 +1387,7 @@ Canonical Anthropic skills such as `claude-api`, `frontend-design`, and `skill-c
 | brand-voice | Source-derived writing style profiles from real content |
 | bun-runtime | Bun as runtime, package manager, bundler, and test runner |
 | coding-standards | Universal coding standards |
+| codehealth-mcp | Optional — Code Health MCP (opt-in server + token); structural review and commit/PR gates |
 | content-engine | Platform-native social content and repurposing |
 | crosspost | Multi-platform content distribution across X, LinkedIn, Threads |
 | deep-research | Multi-source research with synthesis and source attribution |

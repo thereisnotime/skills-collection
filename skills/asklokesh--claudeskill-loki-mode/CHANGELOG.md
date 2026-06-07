@@ -9,6 +9,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.18.3] - 2026-06-06
+
+### Changed
+- First-run experience: `loki` with no arguments now leads with a "New here?"
+  getting-started block (loki doctor, loki quick, loki demo, loki start) so a
+  new user has an obvious next step instead of a wall of 30+ commands. Reduces
+  time-to-first-value. Help text only, no behavior change.
+
+### Fixed
+- Honest `loki demo` description. The command help and the no-arg command list
+  previously called demo a "~60s simulated session," but `loki demo` runs a
+  real end-to-end build of a sample todo app. All three descriptions now say
+  "Build a sample todo app end to end (real run)" so the copy matches behavior.
+- The crash-report channel (`loki crash submit` prefilled GitHub issue URL, and
+  the references in docs/PRIVACY.md) now resolves: GitHub issues were
+  re-enabled on the repository, so the v7.18.2 crash-report promise works.
+
+## [7.18.2] - 2026-06-06
+
+### Added
+- Crash reporting Phase 0 (local-only, zero network egress). On an uncaught
+  exception, unhandled rejection, nonzero iteration exit, provider-spawn
+  exhaustion, rate-limit failover exhaustion, or repeated quality-gate failure,
+  Loki Mode writes a scrubbed diagnostic to
+  `.loki/crash/<fingerprint>-<ts>.json`. Nothing is sent anywhere in this phase.
+- `autonomy/lib/crash_redact.py`: the single scrubbing chokepoint. Whitelist-only
+  emit (deny-by-default): only os, arch, loki_version, node_version, bun_version,
+  error_class, stack_signature (symbol names only, no paths or line numbers),
+  rarv_phase, exit_code, friction_kind, project_id_hash, fingerprint,
+  rules_version, redactions_count, captured_at. Free-text fields (prompts,
+  diffs, file paths, source) are dropped, not redacted. Layers the existing
+  `proof_redact` rules plus crash-specific deny rules (emails, IPs, repo names),
+  and sanitizes error_class / rarv_phase / exit_code so no secret can ride in a
+  whitelisted field. Fail-closed: if python3 is unavailable, no file is written.
+- `loki crash`: list, `loki crash show <id>`, `loki crash submit <id>` to
+  inspect and manually file local reports. `submit` prints a prefilled GitHub
+  issue URL and the exact scrubbed payload; it sends nothing automatically.
+  Ported to both routes (bash `cmd_crash`, Bun `loki-ts/src/commands/crash.ts`)
+  with byte-identical output. Path-traversal guarded (ids with `/`, `\`, `..`,
+  or leading separators are rejected).
+- First-run disclosure: a one-time notice on first `loki start` describing what
+  is collected and how to opt out. Stored as a sentinel in `~/.loki/config`,
+  never re-shown.
+- `docs/PRIVACY.md`: honest disclosure of what is and is not collected.
+
+### Changed
+- Unified telemetry opt-out. `LOKI_TELEMETRY=off`, `loki telemetry off`,
+  `DO_NOT_TRACK=1`, and `LOKI_TELEMETRY_DISABLED=true` now ALL disable both the
+  new crash capture AND the existing PostHog usage telemetry
+  (`session_start` / `session_end` / install events). Previously the PostHog
+  client honored only `LOKI_TELEMETRY_DISABLED` / `DO_NOT_TRACK` and had no
+  first-run disclosure. One switch now gates every collection path on both
+  routes and in `bin/postinstall.js` and `dashboard/telemetry.py`.
+
+### NOT tested in this release (honest disclosure)
+- Network egress: none exists in Phase 0. The backend ingest, server-side
+  second scrub, dedup, and private-issue creation are future phases (1-2).
+- The autonomous reproduce / fix / PR loop is a future phase (3).
+- Cross-machine real-world fingerprint collision rates beyond the synthetic
+  two-machine fixtures.
+- The edge case where the opt-out is set via env var before the very first
+  `loki start`: the one-time disclosure still prints once in that case.
+
+## [7.18.1] - 2026-06-04
+
+### Fixed
+- `loki doctor` now emits byte-identical output on the bash route and the Bun
+  route when `ANTHROPIC_BASE_URL` is set. Phase I (v7.5.25) added the
+  alt-provider routing detection block (OpenRouter, Ollama, LiteLLM,
+  self-hosted) to the Bun doctor only; the bash route lagged and printed two
+  fewer lines (`PASS ANTHROPIC_BASE_URL: <endpoint>` and the
+  `WARN LOKI_MODEL_OVERRIDE not set` advisory). The bash doctor
+  (`autonomy/loki` `cmd_doctor`) now carries the same detection block, so the
+  bun-parity matrix in `scripts/local-ci.sh` stays green when
+  `ANTHROPIC_BASE_URL` is present in the environment. The divergence only
+  surfaced locally (CI has no `ANTHROPIC_BASE_URL`), but it was a real
+  cross-route parity bug. Added doctor-output regression tests to
+  `tests/test-anthropic-base-url.sh`.
+
 ## [7.18.0] - 2026-06-03
 
 ### Fixed

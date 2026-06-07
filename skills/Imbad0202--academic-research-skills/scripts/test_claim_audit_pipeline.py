@@ -22,6 +22,8 @@ import unittest
 from pathlib import Path
 from typing import Any, Callable
 
+from tests.test_helpers import build_schema_validator, load_json_schema
+
 try:
     from scripts.claim_audit_pipeline import run_audit_pipeline  # noqa: F401
     _MODULE_IMPORT_ERR: Exception | None = None
@@ -30,6 +32,16 @@ except Exception as exc:  # pragma: no cover — import-time error pathway is ex
 
     def run_audit_pipeline(*args: Any, **kwargs: Any) -> Any:
         raise _MODULE_IMPORT_ERR  # type: ignore[misc]
+
+
+# claim_audit_result schema validator — an emitted row MUST satisfy the
+# passport entry schema (incl. rationale maxLength=2000). Some failure paths
+# build the rationale from untrusted judge output, so a row that is supposed to
+# be a clean inconclusive fallback can still overflow the schema (#355 P2#3).
+_CAR_SCHEMA = load_json_schema(
+    Path(__file__).resolve().parent.parent / "shared/contracts/passport/claim_audit_result.schema.json"
+)
+_CAR_VALIDATOR = build_schema_validator(_CAR_SCHEMA)
 
 
 MANIFEST_ID = "M-2026-05-15T10:00:00Z-a1b2"
@@ -136,6 +148,35 @@ def _judge_violated(*, violated_constraint_id: str) -> Callable[..., dict[str, A
             "violated_constraint_id": violated_constraint_id,
             "rationale": "Constraint forbids unqualified causal language.",
         }
+
+    return fn
+
+
+def _judge_partial(
+    *, breakdown: list[dict[str, Any]] | None = None
+) -> Callable[..., dict[str, Any]]:
+    """#213: a judge that returns a well-formed PARTIAL with a true-partial breakdown."""
+    def fn(**kwargs: Any) -> dict[str, Any]:
+        return {
+            "judgment": "PARTIAL",
+            "rationale": "Reference supports the first sub-claim but not the second.",
+            "sub_claim_breakdown": breakdown
+            if breakdown is not None
+            else [
+                {"sub_claim_text": "preprints are 67%", "sub_verdict": "SUPPORTED", "evidence_pointer": "p.12"},
+                {"sub_claim_text": "trend held across venues", "sub_verdict": "UNSUPPORTED", "evidence_pointer": None},
+            ],
+        }
+
+    return fn
+
+
+def _judge_partial_malformed(
+    *, breakdown: Any
+) -> Callable[..., dict[str, Any]]:
+    """#213: a judge that returns PARTIAL with a malformed (not true-partial) breakdown."""
+    def fn(**kwargs: Any) -> dict[str, Any]:
+        return {"judgment": "PARTIAL", "rationale": "partial but malformed", "sub_claim_breakdown": breakdown}
 
     return fn
 
@@ -1723,6 +1764,213 @@ class TP23UncitedJudgeOutageEmitsUAF(_PipelineTestBase):
             uaf[0]["manifest_claim_id"],
             "claim has no NC entries → judge call was MNC-only → manifest_claim_id must be null per spec §3.6",
         )
+
+
+class TP24PartialDecomposition(_PipelineTestBase):
+    """#213: end-to-end PARTIAL handling through the REAL runtime (_judge_result_entry).
+
+    This is the layer all prior #213 tests skipped — schema/lint tests built rows
+    by hand, calibration used a stub judge. These tests drive run_audit_pipeline
+    so the prompt-verdict PARTIAL actually flows: judge -> _validate_judge_dict ->
+    _judge_result_entry -> emitted claim_audit_result row, then cross-checked
+    against both the schema and the INV-19 lint.
+    """
+
+    def _validate_passport(self, out: dict[str, Any]) -> list[Any]:
+        from scripts.check_claim_audit_consistency import validate_passport
+
+        body = {
+            "claim_intent_manifests": [_manifest()],
+            "claim_audit_results": out["claim_audit_results"],
+            "uncited_assertions": out.get("uncited_assertions", []),
+            "claim_drifts": out.get("claim_drifts", []),
+            "constraint_violations": out.get("constraint_violations", []),
+            "audit_sampling_summaries": out.get("audit_sampling_summaries", []),
+            "uncited_audit_failures": out.get("uncited_audit_failures", []),
+        }
+        return validate_passport(body)
+
+    def test_partial_normalizes_to_unsupported_source_description(self) -> None:
+        out = self.run_pipeline(citations=[_citation()], judge_fn=_judge_partial())
+        results = out["claim_audit_results"]
+        self.assertEqual(len(results), 1)
+        e = results[0]
+        self.assertEqual(e["judgment"], "UNSUPPORTED", "PARTIAL must normalize to UNSUPPORTED (B1)")
+        self.assertEqual(e["audit_status"], "completed")
+        self.assertEqual(e["defect_stage"], "source_description")
+
+    def test_partial_copies_breakdown_onto_row(self) -> None:
+        out = self.run_pipeline(citations=[_citation()], judge_fn=_judge_partial())
+        e = out["claim_audit_results"][0]
+        self.assertIn("sub_claim_breakdown", e, "breakdown is the machine-readable partial signal")
+        bd = e["sub_claim_breakdown"]
+        self.assertEqual(len(bd), 2)
+        self.assertEqual(bd[0]["sub_verdict"], "SUPPORTED")
+        self.assertEqual(bd[1]["sub_verdict"], "UNSUPPORTED")
+
+    def test_partial_row_passes_schema_and_inv19(self) -> None:
+        # The emitted row must satisfy BOTH the schema and the INV-19 lint —
+        # this is the end-to-end binding the prior layer-isolated tests missed.
+        out = self.run_pipeline(citations=[_citation()], judge_fn=_judge_partial())
+        findings = self._validate_passport(out)
+        self.assertEqual(
+            findings, [], f"emitted PARTIAL row must be lint-clean (incl. INV-19); got {findings!r}"
+        )
+
+    def test_supported_row_has_no_breakdown(self) -> None:
+        # Non-PARTIAL rows must NOT carry sub_claim_breakdown (presence is the signal).
+        out = self.run_pipeline(citations=[_citation()], judge_fn=_judge_supported())
+        self.assertNotIn("sub_claim_breakdown", out["claim_audit_results"][0])
+
+    def test_malformed_partial_routes_to_judge_parse_error_not_bare_unsupported(self) -> None:
+        # A malformed PARTIAL (here: all-SUPPORTED, not true-partial) must NOT
+        # silently become a bare UNSUPPORTED. It routes to the judge_parse_error
+        # inconclusive triple (the only contract-valid path) — ship-gate review finding.
+        bad = [
+            {"sub_claim_text": "a", "sub_verdict": "SUPPORTED"},
+            {"sub_claim_text": "b", "sub_verdict": "SUPPORTED"},
+        ]
+        out = self.run_pipeline(
+            citations=[_citation()], judge_fn=_judge_partial_malformed(breakdown=bad)
+        )
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "RETRIEVAL_FAILED", "malformed PARTIAL must NOT become bare UNSUPPORTED")
+        self.assertEqual(e["audit_status"], "inconclusive")
+        self.assertEqual(e["defect_stage"], "not_applicable")
+        self.assertEqual(e["ref_retrieval_method"], "audit_tool_failure")
+        self.assertTrue(
+            e["rationale"].startswith("judge_parse_error"),
+            f"rationale must lead with judge_parse_error tag; got {e['rationale']!r}",
+        )
+        self.assertNotIn("sub_claim_breakdown", e, "no breakdown on a malformed-PARTIAL inconclusive row")
+
+    def test_malformed_partial_item_missing_sub_claim_text_routes_inconclusive(self) -> None:
+        # Ship-gate round-2: an item that passes the verdict-MIX gate but lacks a
+        # sub_claim_text would, if copied onto a completed row, emit
+        # sub_claim_text=None (schema-invalid). It MUST take the judge_parse_error
+        # path instead. This is the item-shape half of is_emittable_partial_breakdown.
+        bad = [
+            {"sub_claim_text": "first", "sub_verdict": "SUPPORTED"},
+            {"sub_verdict": "UNSUPPORTED"},  # missing sub_claim_text
+        ]
+        out = self.run_pipeline(
+            citations=[_citation()], judge_fn=_judge_partial_malformed(breakdown=bad)
+        )
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "RETRIEVAL_FAILED")
+        self.assertEqual(e["audit_status"], "inconclusive")
+        self.assertTrue(e["rationale"].startswith("judge_parse_error"))
+        self.assertEqual(self._validate_passport(out), [], "fallback row must be lint-clean")
+
+    def test_malformed_partial_item_empty_sub_claim_text_routes_inconclusive(self) -> None:
+        bad = [
+            {"sub_claim_text": "first", "sub_verdict": "SUPPORTED"},
+            {"sub_claim_text": "   ", "sub_verdict": "UNSUPPORTED"},  # blank
+        ]
+        out = self.run_pipeline(
+            citations=[_citation()], judge_fn=_judge_partial_malformed(breakdown=bad)
+        )
+        self.assertEqual(out["claim_audit_results"][0]["judgment"], "RETRIEVAL_FAILED")
+
+    def test_malformed_partial_item_wrong_evidence_pointer_type_routes_inconclusive(self) -> None:
+        # Ship-gate round-3: the runtime COPIES evidence_pointer onto the row, so a
+        # wrong-typed one (a number) would emit a schema-invalid completed row. It
+        # MUST route to judge_parse_error instead (the evidence_pointer-type half of
+        # is_emittable_partial_breakdown).
+        bad = [
+            {"sub_claim_text": "a", "sub_verdict": "SUPPORTED", "evidence_pointer": 123},
+            {"sub_claim_text": "b", "sub_verdict": "UNSUPPORTED"},
+        ]
+        out = self.run_pipeline(
+            citations=[_citation()], judge_fn=_judge_partial_malformed(breakdown=bad)
+        )
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "RETRIEVAL_FAILED")
+        self.assertEqual(e["audit_status"], "inconclusive")
+        self.assertTrue(e["rationale"].startswith("judge_parse_error"))
+        self.assertEqual(self._validate_passport(out), [], "fallback row must be lint-clean")
+
+    def test_partial_with_null_evidence_pointer_emits_valid_row(self) -> None:
+        # A genuine PARTIAL with str + null evidence_pointers is emittable + lint-clean.
+        good = [
+            {"sub_claim_text": "a", "sub_verdict": "SUPPORTED", "evidence_pointer": "p.4"},
+            {"sub_claim_text": "b", "sub_verdict": "UNSUPPORTED", "evidence_pointer": None},
+        ]
+        out = self.run_pipeline(citations=[_citation()], judge_fn=_judge_partial(breakdown=good))
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "UNSUPPORTED")
+        self.assertEqual(e["sub_claim_breakdown"][1]["evidence_pointer"], None)
+        self.assertEqual(self._validate_passport(out), [])
+
+    def test_malformed_partial_single_item_also_routes_inconclusive(self) -> None:
+        out = self.run_pipeline(
+            citations=[_citation()],
+            judge_fn=_judge_partial_malformed(breakdown=[{"sub_claim_text": "a", "sub_verdict": "SUPPORTED"}]),
+        )
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "RETRIEVAL_FAILED")
+        self.assertEqual(e["audit_status"], "inconclusive")
+
+    def test_malformed_partial_row_passes_lint(self) -> None:
+        # The fallback inconclusive row must itself be lint-clean.
+        out = self.run_pipeline(
+            citations=[_citation()],
+            judge_fn=_judge_partial_malformed(
+                breakdown=[{"sub_claim_text": "a", "sub_verdict": "SUPPORTED"}]
+            ),
+        )
+        self.assertEqual(self._validate_passport(out), [])
+
+    def test_malformed_partial_with_oversized_text_emits_schema_valid_row(self) -> None:
+        # #355 P2#3: the malformed-PARTIAL fallback embeds the offending
+        # breakdown's repr in the rationale. A >1000-char sub_claim_text is
+        # itself a malformed trigger (is_emittable rejects len>1000), so its repr
+        # alone overflows the rationale maxLength=2000 and the "clean inconclusive"
+        # fallback row becomes schema-INVALID. The row MUST satisfy the schema.
+        # 1700-char text overflows the rationale (measured: 2017 chars > 2000).
+        # A judge is an LLM with no pre-emission length guarantee, so an
+        # over-long claim or an over-decomposed breakdown is a real malformed
+        # input — not a synthetic edge.
+        bad = [
+            {"sub_claim_text": "x" * 1700, "sub_verdict": "SUPPORTED"},
+            {"sub_claim_text": "second", "sub_verdict": "UNSUPPORTED"},
+        ]
+        out = self.run_pipeline(
+            citations=[_citation()], judge_fn=_judge_partial_malformed(breakdown=bad)
+        )
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "RETRIEVAL_FAILED")
+        self.assertEqual(e["audit_status"], "inconclusive")
+        self.assertTrue(e["rationale"].startswith("judge_parse_error"))
+        self.assertLessEqual(
+            len(e["rationale"]), 2000,
+            f"fallback rationale must fit schema maxLength=2000; got {len(e['rationale'])}",
+        )
+        errors = sorted(_CAR_VALIDATOR.iter_errors(e), key=str)
+        self.assertEqual(
+            errors, [], f"malformed-PARTIAL fallback row must satisfy claim_audit_result schema; got {errors}"
+        )
+        self.assertEqual(self._validate_passport(out), [], "fallback row must also be lint-clean")
+
+    def test_malformed_partial_short_breakdown_fallback_is_schema_valid(self) -> None:
+        # Regression guard: the existing short-breakdown malformed paths
+        # (single-item, all-SUPPORTED) must STILL emit schema-valid rows after
+        # the #355 P2#3 truncation fix — i.e. the bound must not drop the
+        # fault-class tag or mangle short messages that never needed truncating.
+        for bad in (
+            [{"sub_claim_text": "a", "sub_verdict": "SUPPORTED"}],  # single-item
+            [
+                {"sub_claim_text": "a", "sub_verdict": "SUPPORTED"},
+                {"sub_claim_text": "b", "sub_verdict": "SUPPORTED"},
+            ],  # all-supported, not true-partial
+        ):
+            with self.subTest(bad=bad):
+                out = self.run_pipeline(
+                    citations=[_citation()], judge_fn=_judge_partial_malformed(breakdown=bad)
+                )
+                e = out["claim_audit_results"][0]
+                self.assertTrue(e["rationale"].startswith("judge_parse_error"))
+                self.assertEqual(sorted(_CAR_VALIDATOR.iter_errors(e), key=str), [])
 
 
 if __name__ == "__main__":
