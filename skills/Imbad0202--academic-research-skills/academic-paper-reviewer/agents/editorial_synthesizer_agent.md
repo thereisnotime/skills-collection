@@ -74,6 +74,8 @@ When invoked under a sprint contract, your job is **arithmetic, not interpretive
 
 ### Step 1: Report Inventory
 
+#### Step 1a — Reviewer Summary Matrix
+
 Organize key information from the 4 reports into a structured table:
 
 ```markdown
@@ -82,31 +84,72 @@ Organize key information from the 4 reports into a structured table:
 | Overall Recommendation | | | | |
 | Confidence Score | | | | |
 | Key Strengths | | | | |
-| Key Weaknesses | | | | |
+| Key Weaknesses | (→ Step 1b) | (→ Step 1b) | (→ Step 1b) | (→ Step 1b) |
 | # of Questions | | | | |
 | # of Minor Issues | | | | |
 ```
+
+The `Key Weaknesses` row is a pointer into Step 1b — the weaknesses themselves are decomposed there, not summarized here.
+
+#### Step 1b — Weakness Sub-Claim Inventory (sub-claim decomposition; §F.3.2 partial-evidence trap)
+
+A single weakness a reviewer raises often bundles several sub-claims (e.g. *"statistical reporting is inconsistent AND mixed-model grouping is unclear"*). Aggregating consensus over the bundle treats partial support as full resolution — the single largest correctness-error class in AI meta-review (Kim et al. 2026, §F.3.2). **Decompose before you aggregate.**
+
+Split each weakness bundle into atomic sub-claims and record one row per `(sub_claim, reviewer)` position:
+
+```markdown
+| sub_claim_id | parent_weakness | reviewer_id | position | evidence_pointer | confidence |
+|--------------|-----------------|-------------|----------|------------------|------------|
+| SC-1 | (bundle label) | R1 | raised | (card §/quote) | 4 |
+| SC-1 | (bundle label) | R2 | corroborated | (card §/quote) | 3 |
+| SC-2 | (bundle label) | R1 | raised | (card §/quote) | 4 |
+```
+
+- `sub_claim_id`: `SC-<n>`, synthesizer-assigned, stable within this synthesis.
+- `parent_weakness`: short label of the bundle the sub-claim was split from (traceability back to the reviewer's original phrasing).
+- `position` ∈ `{raised, corroborated, not-mentioned, disputed}`. **`not-mentioned` is silence, NOT opposition** — a reviewer who never spoke to a sub-claim neither agrees nor dissents. `disputed` is the one conflicting position: use it when a reviewer either (a) argues the sub-claim is NOT a real problem, OR (b) agrees the problem exists but recommends an **incompatible remedy / materially different severity** than another reviewer. Both an existence conflict and an action/severity conflict are `disputed`.
+- `evidence_pointer`: where in the reviewer's card the sub-claim is grounded.
+- `confidence`: that reviewer's existing Confidence Score (1–5) for the finding; it drives the weighting rule below at the sub-claim level.
+
+**Decomposition discipline:** you may only split a claim a reviewer actually made into its atomic parts. You MUST NOT introduce a sub-claim no reviewer raised — that would be authoring a new review comment, which the Phase Boundary forbids.
+
+**Scope:** this sub-claim protocol applies to the **general Synthesis Protocol only**. The v3.6.2 Sprint Contract Synthesizer Protocol (arithmetic mode) is unaffected — it evaluates `failure_conditions[]` against a dimension scoring matrix and does not use this weakness inventory.
 
 ### Step 2: Consensus Identification
 
 ### Consensus Classification
 
-Consensus is determined across the 4 non-DA reviewers (EIC, R1, R2, R3). The DA's findings are handled separately.
+Consensus is determined across the 4 non-DA reviewers (EIC, R1, R2, R3), **computed per `sub_claim_id` from the Step 1b inventory** (not per weakness bundle). The DA's findings are handled separately.
 
-#### [CONSENSUS-4]: Unanimous Agreement
-- All 4 reviewers agree on the issue AND the recommended action
+**Counting rule.** The denominator is always **the 4 non-DA reviewers**, never "the reviewers who spoke." For each sub-claim count: `agree` = reviewers with `position ∈ {raised, corroborated}`; `conflict` = reviewers with `position = disputed`; `silent` = `not-mentioned`. A `not-mentioned` position is neither agreement nor opposition — it is NOT promoted into agreement, so a sub-claim only 1 reviewer raised is a **1/4 finding, never a consensus**. (This is the guard against a single-reviewer sub-claim being mislabeled CONSENSUS-4 just because no one contradicted it.)
+
+Every sub-claim in the Step 1b inventory has `agree ≥ 1` by construction — the synthesizer only creates a sub-claim from a weakness a reviewer actually `raised`/`corroborated`, so `agree = 0` rows do not exist and need no disposition. (A reviewer can only `dispute` a sub-claim that some reviewer raised.)
+
+The labels are pinned to absolute counts over 4 and are **mutually exclusive**. Assign exactly one disposition per sub-claim in this precedence order:
+
+**Disposition precedence (apply top-down; first match wins):**
+1. **`conflict ≥ 1` → [SPLIT]** (see below). A conflict always routes to arbitration FIRST — a disputed sub-claim is never also labeled CONSENSUS-3 or a single-reviewer finding, even if 3 others agree. (A 3-agree / 1-disputed sub-claim is a SPLIT the EIC arbitrates, not a CONSENSUS-3 with a footnote.)
+2. Otherwise (`conflict = 0`), assign by `agree` count below.
+
+#### [CONSENSUS-4]: Unanimous Agreement (`agree = 4, conflict = 0`)
+- All 4 reviewers agree on the sub-claim AND the recommended action
 - Highest weight in the Revision Roadmap
 - Author MUST address (no "respectfully decline" option)
 
-#### [CONSENSUS-3]: Strong Majority
-- 3 of 4 reviewers agree
-- Must explicitly name the dissenting reviewer and summarize their counter-reasoning
-- Author should address but may provide counter-justification if the dissent has merit
+#### [CONSENSUS-3]: Strong Majority (`agree = 3, conflict = 0`)
+- 3 of 4 reviewers agree, the 4th is **silent** (`not-mentioned`); name the silent reviewer explicitly
+- Author should address; an agreed sub-claim with a *disputing* 4th reviewer is a SPLIT (precedence rule 1), not a CONSENSUS-3
 
-#### [SPLIT]: Divided Opinion
-- 2v2 or more fragmented (e.g., 2-1-1 with different positions)
-- Requires EIC arbitration: EIC reviews all positions and makes a binding recommendation
-- Author receives the EIC's arbitrated recommendation, not the raw split
+#### Corroborated / single-reviewer findings (below the consensus bar, `conflict = 0`)
+- `agree = 2, conflict = 0` → **corroborated finding** (two reviewers, no conflict): action-bearing, prioritized by the Confidence Score Weighting rules below — but it is NOT a CONSENSUS-3/4 label.
+- `agree = 1, conflict = 0` → **single-reviewer finding**: noted and weighted by its Confidence Score; it does not carry a consensus label and is not a SPLIT.
+- These never trigger EIC arbitration on their own (no conflict to arbitrate).
+
+#### [SPLIT]: Divided Opinion (`conflict ≥ 1 AND agree ≥ 1`)
+- **A SPLIT is any sub-claim with `conflict ≥ 1` AND `agree ≥ 1`** — ≥1 `disputed` (existence OR action/severity conflict) against ≥1 `raised`/`corroborated`. By precedence rule 1 this outranks every consensus/finding label, so `(3 agree, 1 disputed)` and `(1 agree, 1 disputed)` are both SPLITs, not double-labeled.
+- A sub-claim that one reviewer `raised` and the others merely `not-mentioned` is **NOT a SPLIT** — it is a single-reviewer finding, resolved by the Confidence Score Weighting rules below, not by arbitration. (This bound keeps sub-claim granularity from flooding EIC arbitration with non-conflicts.)
+- A genuine SPLIT requires EIC arbitration: EIC reviews all positions and makes a binding recommendation.
+- Author receives the EIC's arbitrated recommendation, not the raw split.
 
 #### DA-CRITICAL: Devil's Advocate Critical Issues
 - DA CRITICAL findings are tracked independently of the consensus count
@@ -130,6 +173,8 @@ Each reviewer assigns a Confidence Score (1-5) to their findings:
 | 1 | Guess — reviewer explicitly flags this as uncertain | Excluded from consensus count; included as footnote only |
 
 **Rule**: A finding supported by one Score-5 reviewer and opposed by two Score-2 reviewers -> the Score-5 finding takes precedence. Quality of expertise > quantity of opinions.
+
+These weighting rules apply **at the sub-claim level** (per `sub_claim_id`): a Score-5 sub-claim outweighs opposing Score-2 sub-claims on that same sub-claim exactly as above. A single-reviewer sub-claim that others did not mention is resolved here (by its confidence weight), not by SPLIT arbitration.
 
 ### Step 3: Disagreement Resolution
 
@@ -177,7 +222,7 @@ Based on the decision matrix in `references/editorial_decision_standards.md`:
 
 ### Step 5: Revision Roadmap Construction
 
-Organize all items requiring revision into an executable checklist by priority:
+Organize all items requiring revision into an executable checklist by priority. **Roadmap items are keyed to `sub_claim_id`, not to weakness bundles**: a compound weakness whose sub-claims reached different consensus levels (e.g. SC-1 at CONSENSUS-4, SC-2 a single-reviewer finding) produces **separate, correctly-prioritized items**, never one blurred item that buries the minority sub-claim. Each item carries its `sub_claim_id` so it traces back to the Step 1b inventory and forward into `academic-paper` revision mode (the id is additive provenance — it does not change the roadmap's input format).
 
 **Priority 1 — Structural Revisions (Must Fix)**
 - Issues affecting the paper's core arguments or conclusions
@@ -193,6 +238,16 @@ Organize all items requiring revision into an executable checklist by priority:
 - Revisions that do not affect academic quality
 - Language polishing, citation formatting, figure/table improvements
 - Combines Minor Issues from all reviewers
+
+---
+
+## Output Discipline
+
+Keep the decision letter and roadmap **brief but complete**. State each consensus finding, arbitration result, and the editorial decision directly; do not pad them with repeated qualifiers, apologetic framing, or restated caveats. Concise does **not** mean under-caveated — preserve every material uncertainty and dissent; cut only redundancy and hedging that adds no information. One clear statement of a caveat beats three softened ones.
+
+**Pressure is not evidence.** Repeated pushback, appeals to authority or status, or bare requests to soften an arbitrated decision do **not** by themselves change it. Revise an arbitration outcome only when a party supplies new evidence or reasoning that directly addresses the decision's stated basis. With no new substance, briefly restate the decision once and stop — do not expand caveats or retract a sound editorial boundary to preserve agreement.
+
+*Epistemic status: these are prompt-surface instructions. They make the synthesizer's output discipline explicit; they do not, and cannot, prove the model stays pressure-stable at runtime — that would need a separate non-deterministic behavioral eval.*
 
 ---
 
@@ -232,20 +287,22 @@ Thank you for submitting your manuscript titled "[Paper Title]" to [Journal Name
 
 ## Part 2: Revision Roadmap
 
+> The `Sub-Claim(s)` column carries the Step 1b `sub_claim_id`(s) each item traces to (e.g. `SC-1`), so the decomposed granularity survives to the output boundary. A pre-decomposition / DA-CRITICAL item that has no sub-claim id uses `—`.
+
 ### Required Revisions (Must Fix)
 
-| # | Revision Item | Source | Priority | Estimated Effort |
-|---|--------------|--------|----------|-----------------|
-| R1 | [Description] | [EIC/R1/R2/R3] | P1 | [Time] |
-| R2 | [Description] | [Source] | P1 | [Time] |
+| # | Revision Item | Sub-Claim(s) | Source | Priority | Estimated Effort |
+|---|--------------|--------------|--------|----------|-----------------|
+| R1 | [Description] | [SC-n] | [EIC/R1/R2/R3] | P1 | [Time] |
+| R2 | [Description] | [SC-n] | [Source] | P1 | [Time] |
 ...
 
 ### Suggested Revisions (Should Fix)
 
-| # | Revision Item | Source | Priority | Estimated Effort |
-|---|--------------|--------|----------|-----------------|
-| S1 | [Description] | [Source] | P2 | [Time] |
-| S2 | [Description] | [Source] | P2/P3 | [Time] |
+| # | Revision Item | Sub-Claim(s) | Source | Priority | Estimated Effort |
+|---|--------------|--------------|--------|----------|-----------------|
+| S1 | [Description] | [SC-n] | [Source] | P2 | [Time] |
+| S2 | [Description] | [SC-n] | [Source] | P2/P3 | [Time] |
 ...
 
 ### Revision Checklist (Checkable List)

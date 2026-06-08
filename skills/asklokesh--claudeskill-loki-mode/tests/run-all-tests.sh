@@ -107,6 +107,29 @@ if command -v python3 >/dev/null 2>&1; then
         "$SCRIPT_DIR/crash/run_crash_redact_tests.sh"
 fi
 
+# Verified completion / evidence hard gate (v7.19.1) -- council_evidence_gate
+# truth table. Skips gracefully when git/python3 are unavailable or the gate
+# is not yet defined.
+run_test "Evidence Gate (verified completion)" "$SCRIPT_DIR/test-evidence-gate.sh"
+
+# State baseline lifecycle: a fresh run after a terminal status (success,
+# failure, or crash) must reset ITERATION_COUNT so the evidence-gate baseline
+# recaptures to the new run's HEAD; resume states (paused/interrupted) must
+# preserve it. Regression guard for the W3 stale-baseline REJECT (v7.19.1).
+run_test "State Baseline Lifecycle (run 2+ freshness)" "$SCRIPT_DIR/test-state-baseline-lifecycle.sh"
+
+# Completion-route evidence gate: the verified-completion gate must guard the
+# DEFAULT completion-promise route (loki_complete_task / promise text), not only
+# the interval-gated council path. Regression guard for the W3 council REJECT:
+# a fabricated completion (empty diff or red tests) must be rejected there too.
+run_test "Completion-route Evidence Gate (default path)" "$SCRIPT_DIR/test-completion-route-evidence-gate.sh"
+
+# Uncertainty-gated escalation: when >=2 of 3 reused proxies (no-change,
+# diff-hash oscillation, council split) co-occur for N rounds, the decision
+# function escalates once per stuck-episode (debounced); a single noisy proxy
+# must NOT escalate. Regression guard for the v7.19.2 escalation ladder.
+run_test "Uncertainty Escalation (2-of-3 proxies)" "$SCRIPT_DIR/test-uncertainty-escalation.sh"
+
 # Linting
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 

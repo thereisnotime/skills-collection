@@ -6569,17 +6569,46 @@ _DEFAULT_QUALITY_GATES = [
 
 @app.get("/api/council/gate")
 async def get_council_gate():
-    """Get council hard gate status."""
-    gate_file = _get_loki_dir() / "council" / "gate-block.json"
-    if not gate_file.exists():
-        return {"blocked": False, "gates": _DEFAULT_QUALITY_GATES}
-    try:
-        data = json.loads(gate_file.read_text())
-        if "gates" not in data:
-            data["gates"] = _DEFAULT_QUALITY_GATES
-        return data
-    except (json.JSONDecodeError, IOError):
-        return {"blocked": False, "gates": _DEFAULT_QUALITY_GATES, "error": "Failed to read gate file"}
+    """Get council hard gate status.
+
+    Surfaces TWO independent hard gates, both written to .loki/council/:
+      - gate-block.json:     the legacy quality hard gate
+      - evidence-block.json: the verified-completion evidence gate (v7.19.1),
+                             which blocks STOP unless there is real evidence
+                             (nonzero diff vs run-start SHA AND green tests).
+    Either being present means completion is blocked. The response keeps the
+    legacy top-level shape (blocked/gates) for backward compatibility and adds
+    an `evidence` key so the UI can show WHY a verified-completion block fired.
+    """
+    council_dir = _get_loki_dir() / "council"
+    gate_file = council_dir / "gate-block.json"
+    evidence_file = council_dir / "evidence-block.json"
+
+    # Legacy quality gate (backward-compatible top level).
+    if gate_file.exists():
+        try:
+            data = json.loads(gate_file.read_text())
+            if "gates" not in data:
+                data["gates"] = _DEFAULT_QUALITY_GATES
+        except (json.JSONDecodeError, IOError):
+            data = {"blocked": False, "gates": _DEFAULT_QUALITY_GATES, "error": "Failed to read gate file"}
+    else:
+        data = {"blocked": False, "gates": _DEFAULT_QUALITY_GATES}
+
+    # Verified-completion evidence gate (additive).
+    if evidence_file.exists():
+        try:
+            evidence = json.loads(evidence_file.read_text())
+        except (json.JSONDecodeError, IOError):
+            evidence = {"blocked": True, "error": "Failed to read evidence-block file"}
+        data["evidence"] = evidence
+        # If either gate blocks, the overall status is blocked.
+        if evidence.get("blocked"):
+            data["blocked"] = True
+    else:
+        data["evidence"] = {"blocked": False}
+
+    return data
 
 
 # =============================================================================

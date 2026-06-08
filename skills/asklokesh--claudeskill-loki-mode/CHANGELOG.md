@@ -9,6 +9,167 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.19.4] - 2026-06-07
+
+### Fixed
+- `loki crash list` now lists crash reports, matching the bare `loki crash`
+  command. Previously only the bare form listed and `loki crash list` errored
+  with "Unknown crash subcommand", which a user mirroring `loki proof list` or
+  `loki memory list` would hit. Fixed on both routes (bash and Bun) with the
+  help text updated to show `(none) | list`. Found during real-user CLI QA of
+  the v7.19.x arc.
+- CI reliability: the `withFileLock` concurrency unit test no longer times out
+  on slow CI runners. The advisory file-lock backoff cap was tightened from
+  200ms to 50ms (a real throughput improvement under contention for the
+  parallel gate-failure call sites), the test polls faster, and it carries an
+  explicit generous per-test timeout. The static-analysis parallelism test now
+  gates its strict speedup assertion on CPU count, so it does not false-fail on
+  a single-core CI cell while still verifying parallelism on multi-core
+  machines. No product behavior change beyond the faster lock backoff.
+
+## [7.19.3] - 2026-06-07
+
+### Added
+- Shareable proof-of-run: the proof HTML (`loki proof`) now renders a branded
+  in-page card (what was built, verified, cost, duration, with Loki/Autonomi
+  branding) and opt-in share buttons (X/Twitter, LinkedIn, Copy link). The
+  local proof file stays ZERO-EGRESS by default (the v7.18.2 posture): no
+  og:image, no external assets, no literal social URLs in the static HTML, and
+  no network call on load. Share intent URLs are assembled in JavaScript at
+  click time, so a button is inert until the user clicks it. The card and the
+  social hook render only from the already-redacted proof data, and an
+  operator-provided publish URL (`LOKI_PROOF_PUBLIC_URL`) is threaded through
+  the same redaction before it can appear anywhere. Opt out of the buttons with
+  `LOKI_PROOF_SHARE_BUTTONS=0`.
+
+### NOT tested in this release (honest disclosure)
+- A rich social-media preview (og:image) requires publishing to an
+  HTML-serving host that returns a public URL (the `LOKI_HOSTED_ENDPOINT`
+  seam). `loki proof share` to a GitHub Gist does NOT yield a rich preview: the
+  gist page serves GitHub's own preview tags and the raw file is served as
+  text/plain, which social scrapers do not parse. There is no official Loki
+  hosted backend yet; the seam is honest about this.
+- LinkedIn's share URL ignores prefilled text (it only scrapes the
+  destination's preview tags), so a LinkedIn preview depends entirely on the
+  hosted og:image being present. The X intent URL carries the prefilled hook.
+- Sharing is fully manual and opt-in; there is no automatic posting and no
+  hosted discovery gallery in this release.
+- Verification is the proof generator against per-case fixtures (41 assertions,
+  including the zero-egress self-containment guard and the
+  LOKI_PROOF_SHARE_BUTTONS opt-out being genuinely consumed), not a live
+  end-to-end published share.
+
+## [7.19.2] - 2026-06-07
+
+### Added
+- Uncertainty-gated escalation (default-on, opt out with
+  `LOKI_UNCERTAINTY_ESCALATION=0`). When Loki looks stuck, it now proactively
+  escalates to the human (writes a structured handoff, fires an intervention
+  notification, drops a `.loki/signals/UNCERTAINTY_ESCALATION` marker, and
+  touches `.loki/PAUSE`) instead of silently burning iterations until
+  max-iterations. The trigger reuses three signals already in the loop, with no
+  new metacognition: P1 the circuit-breaker no-change counter, P2 diff-hash
+  oscillation (a recurrence A -> B -> A, NOT a trivial A -> A repeat, which is
+  P1's territory), and P3 a persistent council split (trailing rounds rejected
+  with at least one approver). Escalation fires only when at least two of the
+  three co-occur for N consecutive rounds (`LOKI_UNCERTAINTY_ROUNDS`, default 2),
+  so a single noisy proxy cannot escalate alone, and it debounces to once per
+  stuck-episode (re-arms when the co-occurrence clears) so it never spams. When
+  it fires it prints a loud terminal line naming the opt-out.
+
+### NOT tested in this release (honest disclosure)
+- Default autonomy mode is "perpetual", where `.loki/PAUSE` auto-clears, so by
+  DEFAULT this feature is NOTIFY-ONLY: it surfaces the stuck state and saves a
+  handoff but does not halt the run. It halts only in checkpoint/supervised
+  modes. This is disclosed at the escalation site and in the docs.
+- The three proxies are heuristics, not true metacognition: they can false-fire
+  (escalate when Loki is actually fine) and miss (stay quiet when it is stuck).
+  The 2-of-3 + N-round gate reduces but does not eliminate false fires.
+- P3 (council split) is stale between council votes (verdicts only append when
+  the council actually votes), so the split signal can lag.
+- No live multi-iteration autonomous run was used; verification is the decision
+  function against per-case throwaway fixtures (42 assertions, including a
+  pure-stagnation guard proving P2 does not fire without genuine oscillation)
+  plus an end-to-end decision-then-action behavioral check.
+- This is a bash-route feature (the completion council is bash-only).
+
+## [7.19.1] - 2026-06-07
+
+### Added
+- Verified-completion evidence gate (default-on, opt out with
+  `LOKI_EVIDENCE_GATE=0`). Loki no longer accepts a "done" claim without real
+  evidence: the completion council blocks completion unless there is a nonzero
+  git diff vs the run-start SHA (something was actually shipped) AND tests are
+  green. This kills fabricated completion. The gate runs on BOTH completion
+  paths: the interval-gated council path AND the default completion-promise
+  route (an agent invoking `loki_complete_task` or emitting the promise text),
+  so a self-asserted "done" with an empty diff or red tests cannot slip through.
+  Diff evidence is the union of committed, staged, unstaged, and untracked work
+  (`--exclude-standard`, so gitignored build artifacts do not count), with
+  Loki's own `.loki/` runtime state excluded so it is never mistaken for shipped
+  work. Inconclusive cases (no git repo, no baseline, no test-results file,
+  `runner=none`) pass through and never false-block a legitimate first run. When
+  the gate blocks, it prints the reason and the `LOKI_EVIDENCE_GATE=0` opt-out
+  to the terminal AND surfaces it in the dashboard (`/api/council/gate` now
+  reports an `evidence` block; the Quality Gates panel shows a banner).
+- Bounded by design: a persistent block keeps iterating only up to
+  `MAX_ITERATIONS`, then stops cleanly. It can never hang.
+
+### Fixed
+- Stale-baseline bug on run 2+: a fresh `loki start` after a terminal run
+  (success, failure, or crash) now resets the iteration baseline so the
+  evidence gate diffs against the new run's HEAD, not the prior run's start SHA
+  (which would have made the gate toothless). Genuine resume states (paused,
+  interrupted, budget_exceeded, stopped) are deliberately preserved.
+- Removed two SC2034 dead variables in the gate (the linter was red); the block
+  decision is unchanged.
+
+### NOT tested in this release (honest disclosure)
+- The gate proves "something changed and tests pass", NOT PRD-semantic
+  correctness. A diff that compiles and is green but does not satisfy the spec
+  still passes the gate; the council vote is the semantic check, not this gate.
+- `tests_red` fires whenever a test runner ran and reported failure, including a
+  project that was ALREADY red before this run. That is the expected
+  false-block vector; the one-step `LOKI_EVIDENCE_GATE=0` opt-out at the block
+  site is the escape hatch.
+- No live end-to-end autonomous run was used to validate the gate; verification
+  is via the gate function against per-case throwaway git repos (33 assertions),
+  the two-run lifecycle test (16 assertions), and the completion-route test
+  (4 cases), all wired into the test suite.
+- The Bun route is unchanged for this gate (the completion council is
+  bash-only); this is a bash-route feature.
+
+## [7.19.0] - 2026-06-07
+
+### Added
+- Failure-memory loop (default-on, opt out with `LOKI_FAILURE_MEMORY=0`). Loki
+  now learns from its own failures within a run so it stops repeating the same
+  mistake. When an iteration fails, the scrubbed crash record (or, when
+  telemetry is off, a synthesized record from non-sensitive fields only) is
+  mapped to an `ErrorEntry` on that iteration's episode. The next iteration's
+  prompt then carries a "PAST FAILURES TO AVOID:" block built from the most
+  recent failure lessons (sorted by true wall-clock timestamp, capped at 3), so
+  the agent sees what it just got wrong. Local, zero new setup, zero network.
+  Builds on the v7.18.2 crash capture; reuses the existing memory schemas,
+  storage, and retrieval. No new scrubbing: every injected value comes from the
+  already-whitelisted crash record or non-sensitive fallback fields, so
+  docs/PRIVACY.md is preserved.
+
+### NOT tested in this release (honest disclosure)
+- No live multi-iteration autonomous run validating that the injected lesson
+  measurably changes the next iteration's behavior; verification is via the
+  module-level loop (crash -> ErrorEntry -> recency read -> injected block) and
+  integration tests, not an end-to-end build.
+- Lesson usefulness is heuristic. `ErrorEntry.resolution` is not auto-derived,
+  so a lesson states what failed, not a proven fix.
+- The cross-run `retrieve_anti_patterns` secondary rarely matches on local
+  setups (documented); the within-run loop is closed by the recency read, not
+  that secondary.
+- Crash-file-to-episode matching uses the most recent crash file; not tested
+  under many rapid same-iteration crashes.
+- The Bun route build_prompt is an intentional stub; this is a bash-route
+  feature with prompt parity preserved (no Bun change).
+
 ## [7.18.3] - 2026-06-06
 
 ### Changed

@@ -172,6 +172,35 @@ export LOKI_COUNCIL_STAGNATION_LIMIT=3
 
 ---
 
+## Proof of Run
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOKI_PROOF` | `1` | Set to `0` to skip proof generation entirely |
+| `LOKI_PROOF_SHARE_BUTTONS` | `1` | Set to `0` to omit share buttons from the generated proof page |
+| `LOKI_PROOF_PUBLIC_URL` | (unset) | When set, embeds this URL as the share/copy target in the generated proof page. Only useful when you know the page will be served from that URL (for example, after uploading to a static HTML host). Has no effect on the zero-egress local proof. |
+| `LOKI_HOSTED_ENDPOINT` | (unset) | Operator-supplied HTTP endpoint for `loki proof share --hosted`. No official Loki hosted backend exists; operators point this at their own HTML-serving host. Gist publishing (`loki proof share <id>` without `--hosted`) does not use this variable. |
+
+**Notes:**
+
+- Proof pages are zero-egress by default: no network calls on generate or open.
+- Share buttons are inert markup until clicked; nothing leaves your machine automatically.
+- Publishing to a GitHub Gist does NOT produce a rich social preview. The gist page serves GitHub's own og tags; the raw gist URL is text/plain, not scraped by social crawlers.
+- A rich og:image preview requires an HTML-serving host (via `LOKI_HOSTED_ENDPOINT`). There is no official Loki hosted backend at this time.
+
+**Example - Disable share buttons:**
+```bash
+export LOKI_PROOF_SHARE_BUTTONS=0
+```
+
+**Example - Set the public URL at generate time (for a known static host):**
+```bash
+export LOKI_PROOF_PUBLIC_URL=https://my-site.example.com/proofs/run-001
+loki start ./prd.md
+```
+
+---
+
 ## Model Selection & Routing
 
 | Variable | Default | Description |

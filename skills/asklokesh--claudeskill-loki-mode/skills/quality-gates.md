@@ -110,6 +110,36 @@ LOKI_HANDOFF_MD=1          # write a structured handoff doc to
 Optional: `LOKI_AUTO_LEARNINGS_EPISODE=1` also writes the learning into
 the Python episodic memory layer via `memory.engine.save_episode`.
 
+## Verified-completion evidence gate (v7.19.1, default-on)
+
+The completion council will not accept a "done" claim without evidence. Before
+completion is honored (on BOTH the council path AND the default
+completion-promise route), `council_evidence_gate` requires:
+
+- a nonzero git diff vs the run-start SHA (something was actually shipped), AND
+- green tests (`.loki/quality/test-results.json` shows the runner passed).
+
+The diff is the union of committed, staged, unstaged, and untracked changes
+(`--exclude-standard`, so gitignored artifacts do not count), with `.loki/`
+runtime state excluded. Inconclusive cases (no git repo, no baseline, no
+test-results file, `runner=none`) pass through and never false-block a
+legitimate first run.
+
+```bash
+LOKI_EVIDENCE_GATE=0       # opt out: completion is honored without the
+                           # evidence check (byte-identical to pre-v7.19.1).
+                           # Default is on (1).
+```
+
+When the gate blocks, it prints the reason and this opt-out to the terminal,
+writes `.loki/council/evidence-block.json`, and surfaces in the dashboard
+(`/api/council/gate` -> `evidence`; the Quality Gates panel shows a banner). A
+persistent block keeps iterating only up to `MAX_ITERATIONS`, then stops
+cleanly; it cannot hang. Honest limit: this proves something-changed-and-tests-
+pass, not PRD-semantic correctness (the council vote is the semantic check).
+The common false-block is a project that was ALREADY red before the run; the
+one-step opt-out is the escape hatch.
+
 **Override-judge knobs (v7.5.4+):**
 
 ```bash
@@ -169,6 +199,91 @@ read-modify-write, so override-council quotas and per-finding counters
 remain consistent across processes. The lock file lives at
 `.loki/state/gate-counter-<iter>.json.lock` and is released even on
 crash via the primitive's `finally` cleanup.
+
+---
+
+## Uncertainty-gated escalation (v7.19.2, default-on)
+
+When Loki is likely stuck or thrashing, it escalates proactively to the human
+via the existing PAUSE + notification + handoff machinery, rather than silently
+burning iterations until max-iterations. No new metacognition: the system
+reuses three proxy signals that already exist and escalates only when at least
+two of the three co-occur for N consecutive rounds.
+
+### Trigger condition
+
+Three proxy signals are evaluated each iteration:
+
+- **Proxy 1 (no-change counter):** `consecutive_no_change` in council state.json
+  reaches `LOKI_UNCERTAINTY_NOCHANGE_MIN` (default: `COUNCIL_STAGNATION_LIMIT - 1`,
+  i.e. one below the circuit-breaker limit so escalation fires before the
+  breaker ends the run).
+- **Proxy 2 (diff-hash oscillation):** the current iteration's combined diff
+  hash matches a hash seen 2+ rounds back in a bounded ring buffer (A -> B -> A
+  pattern). Detects oscillation/revert cycling; does not fire on the trivial
+  immediate-repeat case which proxy 1 already covers.
+- **Proxy 3 (persistent council split):** the last `LOKI_UNCERTAINTY_SPLIT_ROUNDS`
+  consecutive council verdicts are all REJECTED-with-at-least-one-approver
+  (split verdict). Stale between council votes; fresh exactly when proxy 1 is
+  hot, because proxy 1 hot forces a circuit-breaker vote that refreshes verdicts.
+
+Escalation fires when `hot_count >= 2` (at least two proxies hot simultaneously)
+for `LOKI_UNCERTAINTY_ROUNDS` consecutive rounds AND the episode has not already
+been escalated (one escalation per stuck-episode, with re-arm when co-occurrence
+clears).
+
+### Action
+
+When the trigger condition is met, the run.sh action block:
+
+1. Prints a loud terminal line with the opt-out env var.
+2. Calls `write_structured_handoff "uncertainty_escalation"` (saves
+   `.loki/memory/handoffs/<ts>.json` and `.md`).
+3. Calls `notify_intervention_needed` with a structured reason string.
+4. Writes a `.loki/signals/UNCERTAINTY_ESCALATION` marker file.
+5. Touches `.loki/PAUSE`.
+
+### Knobs
+
+```bash
+LOKI_UNCERTAINTY_ESCALATION=0    # Disable entirely. Byte-identical when off:
+                                 # zero reads, zero writes, no state file.
+                                 # Default: 1 (enabled). Toggle value is 0/1,
+                                 # not false/true.
+LOKI_UNCERTAINTY_ROUNDS=2        # Consecutive co-occurrence rounds required.
+                                 # Recommended range 2-3. Default: 2.
+LOKI_UNCERTAINTY_NOCHANGE_MIN=N  # Proxy 1 threshold. Unset = auto-computed as
+                                 # COUNCIL_STAGNATION_LIMIT - 1 (floored at 1).
+LOKI_UNCERTAINTY_SPLIT_ROUNDS=2  # Proxy 3 trailing split-round run length.
+                                 # Default: 2.
+```
+
+Configurable via `config.yaml` under `completion.uncertainty.*` (see
+`autonomy/config.example.yaml`).
+
+### Honest limits
+
+- **Perpetual-mode = notify-only by default.** `AUTONOMY_MODE` defaults to
+  `perpetual`. In perpetual mode the existing consumer (`check_human_intervention`)
+  auto-clears PAUSE and continues. Escalation therefore degrades to a notification
+  plus a handoff document; it does NOT halt the run. The terminal prints an explicit
+  warning at the escalation site: "Perpetual mode: PAUSE will be auto-cleared; this
+  is notify-only and will NOT halt the run."
+- **Proxy 2 is count-blind by origin.** It approximates oscillation with
+  diff-hash recurrence-at-distance; it cannot distinguish a genuine revert from
+  a coincidental identical tree state, and misses oscillation where the hash
+  differs every round.
+- **Proxy 3 is stale between council votes.** Verdicts are only appended when the
+  council actually votes (every `COUNCIL_CHECK_INTERVAL` or circuit-forced). In
+  practice p3 is always fresh in the regime that matters (proxy 1 hot forces a
+  vote), but it may lag by up to `COUNCIL_CHECK_INTERVAL` iterations otherwise.
+- **These are heuristics, not true metacognition.** The system does not know it
+  is stuck; it infers stuckness from three correlated symptoms. A legitimately
+  hard refactor that produces no net diff for several rounds while the council
+  remains split can false-fire. Requiring >=2 co-occurring for N rounds reduces
+  but does not eliminate false fires. The cost of a false fire is bounded: one
+  notification + one handoff + one PAUSE (auto-cleared in perpetual), opt-out
+  at the site.
 
 ---
 

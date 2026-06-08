@@ -80,6 +80,32 @@ completion:
   # Ignore ALL completion signals (runs forever)
   perpetual_mode: false
 
+  # Uncertainty-gated escalation (v7.19.2, default-on).
+  # When >=2 of 3 stuck-proxies (no-change counter, diff-hash oscillation,
+  # persistent council split) co-occur for `uncertainty.rounds` consecutive
+  # rounds, Loki escalates proactively via PAUSE + notification + handoff
+  # instead of silently burning iterations.
+  # IMPORTANT: when autonomy_mode is "perpetual" (the default), PAUSE is
+  # auto-cleared by the consumer so escalation degrades to notify-only; it
+  # does NOT halt the run. These are heuristics, not true metacognition.
+  #
+  # uncertainty:
+  #   # Master toggle. Set to 0 to disable (byte-identical when off).
+  #   escalation: 1
+  #
+  #   # Consecutive rounds where >=2 of 3 proxies must co-occur before
+  #   # escalating. Recommended range 2-3. Higher = less noise, later warning.
+  #   rounds: 2
+  #
+  #   # Proxy 1 threshold: consecutive_no_change must reach this value to mark
+  #   # the no-change proxy hot. Default is COUNCIL_STAGNATION_LIMIT - 1
+  #   # (one below the circuit-breaker limit). Leave unset to use the default.
+  #   # nochange_min: 4
+  #
+  #   # Proxy 3 threshold: trailing council verdicts that must be
+  #   # REJECTED-with-at-least-one-approver (split) to mark the split proxy hot.
+  #   split_rounds: 2
+
 #===============================================================================
 # Model & Routing Settings
 #===============================================================================

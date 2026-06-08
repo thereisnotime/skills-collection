@@ -335,5 +335,73 @@ class FallbackRendererTests(unittest.TestCase):
         self.assertIn("not recorded", html)
 
 
+class ShareButtonsTests(unittest.TestCase):
+    """The v7.19.3 opt-in share buttons + LOKI_PROOF_SHARE_BUTTONS flag.
+
+    The generator substitutes body[data-share-buttons] from the flag; the
+    template JS (renderHero) omits the share row when it is "0". This guards
+    the documented LOKI_PROOF_SHARE_BUTTONS=0 opt-out actually being wired
+    (a regression where the token was substituted but not consumed would make
+    the opt-out a silent no-op).
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="loki-proof-share-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _gen(self, share_flag=None):
+        loki_dir = os.path.join(self.tmp, "p", ".loki")
+        out_dir = os.path.join(self.tmp, "out-%s" % (share_flag or "default"))
+        os.makedirs(os.path.join(loki_dir, "metrics", "efficiency"))
+        os.makedirs(os.path.join(loki_dir, "council", "votes"))
+        with open(os.path.join(loki_dir, "metrics", "efficiency",
+                               "iteration-1.json"), "w") as f:
+            json.dump({"cost_usd": 0.42, "input_tokens": 10,
+                       "output_tokens": 5, "model": "claude-x"}, f)
+        with open(os.path.join(loki_dir, "council", "state.json"), "w") as f:
+            json.dump({"enabled": True, "verdicts": [{"verdict": "APPROVE"}]}, f)
+        with open(os.path.join(loki_dir, "generated-prd.md"), "w") as f:
+            f.write("A brief.")
+        cmd = [sys.executable, _GENERATOR, "--loki-dir", loki_dir,
+               "--out-dir", out_dir, "--run-id", "share-001", "--quiet"]
+        env = dict(os.environ)
+        env.pop("PRD_PATH", None)
+        if share_flag is not None:
+            env["LOKI_PROOF_SHARE_BUTTONS"] = share_flag
+        r = subprocess.run(cmd, capture_output=True, text=True, env=env,
+                           timeout=60)
+        self.assertEqual(r.returncode, 0, "generator failed: %s" % r.stderr)
+        return open(os.path.join(out_dir, "index.html"), "r").read()
+
+    def test_default_on_substitutes_one(self):
+        html = self._gen()
+        self.assertIn('data-share-buttons="1"', html,
+                      "default should enable share buttons (flag token = 1)")
+        # The token must be fully substituted (no dangling placeholder).
+        self.assertNotIn("__PROOF_SHARE_BUTTONS__", html)
+        # The share-row machinery is present (copy-link button + click handler).
+        self.assertIn('data-share="copy"', html)
+        self.assertIn("wireShare", html)
+
+    def test_opt_out_substitutes_zero(self):
+        html = self._gen(share_flag="0")
+        self.assertIn('data-share-buttons="0"', html,
+                      "LOKI_PROOF_SHARE_BUTTONS=0 must set the body flag to 0")
+        # The flag is genuinely CONSUMED: renderHero reads data-share-buttons and
+        # returns before emitting the share row when it is "0".
+        self.assertIn('getAttribute("data-share-buttons")', html,
+                      "template must consume the flag (wired opt-out, not a no-op)")
+
+    def test_opt_out_still_self_contained(self):
+        # Disabling share buttons must not introduce any external resource.
+        html = self._gen(share_flag="0")
+        scrubbed = _strip_allowed_href(html)
+        remaining = re.findall(r"https?://[^\s\"'<>)]+", scrubbed)
+        self.assertEqual(remaining, [],
+                         "opt-out page leaked external URL(s): %r" % remaining)
+
+
 if __name__ == "__main__":
     unittest.main()

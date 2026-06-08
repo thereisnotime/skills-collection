@@ -214,6 +214,49 @@ def list_platforms() -> list[str]:
     return list(ADAPTORS.keys())
 
 
+def get_enhancement_platforms() -> list[str]:
+    """
+    List platforms whose adaptor supports AI-powered SKILL.md enhancement.
+
+    Derived from each adaptor's ``supports_enhancement()`` so the set can never
+    drift from the actual capability (unlike a hand-maintained list).
+
+    Returns:
+        Platform identifiers in registry order (e.g. ['claude', 'gemini',
+        'openai', 'minimax', 'kimi', 'deepseek', ...])
+    """
+    platforms = []
+    for name, adaptor_class in ADAPTORS.items():
+        try:
+            if adaptor_class().supports_enhancement():
+                platforms.append(name)
+        except Exception:
+            # A broken/optional adaptor must not break target discovery.
+            continue
+    return platforms
+
+
+def get_upload_platforms() -> list[str]:
+    """
+    List platforms whose adaptor performs a real upload/push.
+
+    Derived from each adaptor's ``supports_upload()`` so the upload command's
+    ``--target`` choices can never drift from the adaptors that actually upload
+    (unlike a hand-maintained list).
+
+    Returns:
+        Platform identifiers in registry order.
+    """
+    platforms = []
+    for name, adaptor_class in ADAPTORS.items():
+        try:
+            if adaptor_class().supports_upload():
+                platforms.append(name)
+        except Exception:
+            continue
+    return platforms
+
+
 def is_platform_available(platform: str) -> bool:
     """
     Check if a platform adaptor is available.
@@ -239,6 +282,8 @@ __all__ = [
     "SkillMetadata",
     "get_adaptor",
     "list_platforms",
+    "get_enhancement_platforms",
+    "get_upload_platforms",
     "is_platform_available",
     "ADAPTORS",
 ]

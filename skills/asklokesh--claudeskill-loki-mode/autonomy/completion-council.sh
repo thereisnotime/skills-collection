@@ -28,6 +28,10 @@
 #   LOKI_COUNCIL_CONVERGENCE_WINDOW - Iterations to track for convergence (default: 3)
 #   LOKI_COUNCIL_STAGNATION_LIMIT - Max iterations with no git changes (default: 5)
 #   LOKI_COUNCIL_DONE_SIGNAL_LIMIT - Max total done signals before force stop (default: 10)
+#   LOKI_UNCERTAINTY_ESCALATION   - Proactive stuck-escalation decision (default: 1; set 0 to disable, byte-identical)
+#   LOKI_UNCERTAINTY_ROUNDS       - Consecutive co-occurrence rounds before escalate (default: 2)
+#   LOKI_UNCERTAINTY_NOCHANGE_MIN - Proxy 1 threshold on consecutive_no_change (default: COUNCIL_STAGNATION_LIMIT - 1)
+#   LOKI_UNCERTAINTY_SPLIT_ROUNDS - Proxy 3 trailing split-round run length (default: 2)
 #
 # Usage:
 #   source autonomy/completion-council.sh
@@ -221,6 +225,7 @@ council_track_iteration() {
     _COUNCIL_TOTAL_DONE_SIGNALS="$COUNCIL_TOTAL_DONE_SIGNALS" \
     _COUNCIL_ITERATION="${ITERATION_COUNT:-0}" \
     _COUNCIL_FILES_CHANGED="$files_changed" \
+    _COUNCIL_DIFF_HASH="$combined_hash" \
     python3 -c "
 import json, os
 state_file = os.environ['_COUNCIL_STATE_FILE']
@@ -234,6 +239,7 @@ state['done_signals'] = int(os.environ['_COUNCIL_DONE_SIGNALS'])
 state['total_done_signals'] = int(os.environ['_COUNCIL_TOTAL_DONE_SIGNALS'])
 state['last_track_iteration'] = int(os.environ['_COUNCIL_ITERATION'])
 state['files_changed'] = int(os.environ['_COUNCIL_FILES_CHANGED'])
+state['last_diff_hash'] = os.environ['_COUNCIL_DIFF_HASH']
 with open(state_file, 'w') as f:
     json.dump(state, f, indent=2)
 " || log_warn "Failed to update council tracking state"
@@ -261,6 +267,282 @@ council_circuit_breaker_triggered() {
     fi
 
     return 1
+}
+
+#===============================================================================
+# Uncertainty-Gated Escalation - pure stuck-detection DECISION function
+#
+# Returns 0 = escalate now, 1 = do not escalate. Reads ONLY persisted state
+# (the council state.json for the three proxies, plus its own uncertainty.json
+# for the ring buffer + co-occurrence streak + debounce flag). Mutates only its
+# own uncertainty.json (atomic temp+mv). Fires NO notifications and touches NO
+# PAUSE file: the run.sh action site interprets the return code and performs the
+# side effects. This keeps the function sourceable and testable in isolation.
+#
+# Three proxies (all read from state, no live shell vars, no git calls):
+#   P1 (no-change)   : state.json consecutive_no_change >= NOCHANGE_MIN
+#                      (default COUNCIL_STAGNATION_LIMIT - 1, i.e. approaching
+#                      the circuit-breaker limit).
+#   P2 (oscillation) : current state.json last_diff_hash recurs at distance >= 2
+#                      in the ring buffer (A -> B -> A). Immediate repeat (A -> A)
+#                      is P1's territory and is excluded.
+#   P3 (council split): the trailing SPLIT_ROUNDS entries of state.json verdicts
+#                      are all result == "REJECTED" with approve >= 1.
+# Escalate iff >= 2 proxies are hot AND that has held for ROUNDS consecutive
+# rounds AND we have not already escalated this episode (debounce). Re-arm when
+# co-occurrence drops below 2 in any later round.
+#===============================================================================
+
+# Resolve the uncertainty.json path co-located with the council state root so a
+# sourced test (which sets COUNCIL_STATE_DIR to a throwaway dir) reads and writes
+# in that same throwaway dir, never the developer's real cwd. In production
+# COUNCIL_STATE_DIR is "${TARGET_DIR}/.loki/council", so its parent is the right
+# ".loki" and this lands at ".loki/state/uncertainty.json".
+_uncertainty_state_path() {
+    local base_dir="${COUNCIL_STATE_DIR:-${TARGET_DIR:-.}/.loki/council}"
+    local loki_root
+    loki_root="$(dirname "$base_dir")"
+    echo "$loki_root/state/uncertainty.json"
+}
+
+# Read uncertainty.json (or emit a default object if missing/corrupt) to stdout.
+_uncertainty_read_state() {
+    local file="$1"
+    _UNC_FILE="$file" python3 -c "
+import json, os
+f = os.environ['_UNC_FILE']
+default = {
+    'schema_version': '1.0.0',
+    'consecutive_co_occur': 0,
+    'escalated_episode': False,
+    'escalated_at_iteration': 0,
+    'diff_hash_ring': [],
+    'last_round_iteration': -1,
+    'last_proxies': {'p1': False, 'p2': False, 'p3': False},
+}
+try:
+    with open(f) as fh:
+        state = json.load(fh)
+    if not isinstance(state, dict):
+        state = {}
+except (json.JSONDecodeError, FileNotFoundError, OSError):
+    state = {}
+for k, v in default.items():
+    state.setdefault(k, v)
+print(json.dumps(state))
+" 2>/dev/null || echo '{}'
+}
+
+# Write a JSON string (read from _UNC_PAYLOAD) to uncertainty.json atomically
+# (temp + mv), mirroring evidence-block.json.
+_uncertainty_write_state() {
+    local file="$1"
+    local payload="$2"
+    local dir tmp
+    dir="$(dirname "$file")"
+    mkdir -p "$dir" 2>/dev/null || true
+    tmp="${file}.tmp.$$"
+    if _UNC_PAYLOAD="$payload" _UNC_TMP="$tmp" python3 -c "
+import json, os
+payload = os.environ['_UNC_PAYLOAD']
+tmp = os.environ['_UNC_TMP']
+state = json.loads(payload)
+with open(tmp, 'w') as fh:
+    json.dump(state, fh, indent=2)
+" 2>/dev/null; then
+        mv "$tmp" "$file" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; return 1; }
+        return 0
+    fi
+    rm -f "$tmp" 2>/dev/null || true
+    return 1
+}
+
+uncertainty_should_escalate() {
+    # Knob first: opt-out is byte-identical to prior behavior. No read, no write,
+    # no state-file creation when disabled.
+    [ "${LOKI_UNCERTAINTY_ESCALATION:-1}" = "0" ] && return 1
+
+    # Tunable knobs (read inline; defaults documented in the env-var block).
+    local rounds_needed="${LOKI_UNCERTAINTY_ROUNDS:-2}"
+    local split_rounds="${LOKI_UNCERTAINTY_SPLIT_ROUNDS:-2}"
+    local nochange_min="${LOKI_UNCERTAINTY_NOCHANGE_MIN:-}"
+    if [ -z "$nochange_min" ]; then
+        nochange_min=$(( ${COUNCIL_STAGNATION_LIMIT:-5} - 1 ))
+        [ "$nochange_min" -lt 1 ] && nochange_min=1
+    fi
+    # Bounded constants.
+    local ring_size=6
+
+    # Resolve state file locations (council state root co-located).
+    local council_dir="${COUNCIL_STATE_DIR:-${TARGET_DIR:-.}/.loki/council}"
+    local state_json="$council_dir/state.json"
+    local unc_file
+    unc_file="$(_uncertainty_state_path)"
+    local iteration="${ITERATION_COUNT:-0}"
+
+    # Load prior uncertainty state.
+    local prior
+    prior="$(_uncertainty_read_state "$unc_file")"
+
+    # Compute the new state and decision entirely in python from persisted inputs.
+    # Echoes one line: "<rc> <new_json>" where rc is 0 (escalate) or 1 (no).
+    local result
+    result=$(_UNC_PRIOR="$prior" \
+             _UNC_STATE_JSON="$state_json" \
+             _UNC_ITERATION="$iteration" \
+             _UNC_ROUNDS="$rounds_needed" \
+             _UNC_SPLIT_ROUNDS="$split_rounds" \
+             _UNC_NOCHANGE_MIN="$nochange_min" \
+             _UNC_RING_SIZE="$ring_size" \
+             python3 -c "
+import json, os
+
+prior = json.loads(os.environ['_UNC_PRIOR'])
+iteration = int(os.environ['_UNC_ITERATION'])
+rounds_needed = int(os.environ['_UNC_ROUNDS'])
+split_rounds = int(os.environ['_UNC_SPLIT_ROUNDS'])
+nochange_min = int(os.environ['_UNC_NOCHANGE_MIN'])
+ring_size = int(os.environ['_UNC_RING_SIZE'])
+
+# Load council state.json (proxies). Missing/corrupt -> proxies cold.
+try:
+    with open(os.environ['_UNC_STATE_JSON']) as fh:
+        cstate = json.load(fh)
+    if not isinstance(cstate, dict):
+        cstate = {}
+except (json.JSONDecodeError, FileNotFoundError, OSError):
+    cstate = {}
+
+ring = prior.get('diff_hash_ring', [])
+if not isinstance(ring, list):
+    ring = []
+last_round = prior.get('last_round_iteration', -1)
+try:
+    last_round = int(last_round)
+except (TypeError, ValueError):
+    last_round = -1
+
+# Idempotency: a repeated call at the same iteration must not double-mutate.
+# Recompute proxies and re-emit the prior decision without pushing the ring or
+# advancing the streak again.
+same_round = (iteration == last_round)
+
+# --- Proxy 1: no-change approaching circuit breaker ---
+try:
+    no_change = int(cstate.get('consecutive_no_change', 0))
+except (TypeError, ValueError):
+    no_change = 0
+p1 = no_change >= nochange_min
+
+# --- Proxy 2: diff-hash recurrence at distance >= 2 (genuine oscillation) ---
+cur_hash = cstate.get('last_diff_hash', '')
+p2 = False
+if cur_hash:
+    # Genuine oscillation (A -> B -> A) requires TWO things:
+    #   1. cur_hash recurs in the ring excluding the most-recent entry
+    #      (distance >= 2; distance 1 immediate-repeat is P1's territory), AND
+    #   2. the most-recent ring entry (the previous round's hash) is DIFFERENT
+    #      from cur_hash, i.e. there is an intervening distinct hash.
+    # Without (2), pure stagnation (A, A, A, ...) fills the ring with the same
+    # hash and would falsely fire P2 from the SAME root condition as P1, letting
+    # a single condition (no-change) light two proxies and escalate alone. That
+    # contradicts the 2-of-3 independent-proxy safety guarantee. Requiring an
+    # intervening distinct hash keeps A,B,A hot and A,A,A cold.
+    prev_hash = ring[-1] if ring else ''
+    if prev_hash != cur_hash:
+        for h in ring[:-1]:
+            if h == cur_hash:
+                p2 = True
+                break
+
+# --- Proxy 3: persistent council split (trailing REJECTED with approve>=1) ---
+verdicts = cstate.get('verdicts', [])
+if not isinstance(verdicts, list):
+    verdicts = []
+split_run = 0
+for v in reversed(verdicts):
+    if not isinstance(v, dict):
+        break
+    try:
+        approve = int(v.get('approve', 0))
+    except (TypeError, ValueError):
+        approve = 0
+    if v.get('result') == 'REJECTED' and approve >= 1:
+        split_run += 1
+    else:
+        break
+p3 = split_run >= split_rounds
+
+hot_count = (1 if p1 else 0) + (1 if p2 else 0) + (1 if p3 else 0)
+co_occur = hot_count >= 2
+
+streak = prior.get('consecutive_co_occur', 0)
+try:
+    streak = int(streak)
+except (TypeError, ValueError):
+    streak = 0
+escalated_episode = bool(prior.get('escalated_episode', False))
+escalated_at = prior.get('escalated_at_iteration', 0)
+try:
+    escalated_at = int(escalated_at)
+except (TypeError, ValueError):
+    escalated_at = 0
+
+new_state = dict(prior)
+new_state['schema_version'] = prior.get('schema_version', '1.0.0')
+new_state['last_proxies'] = {'p1': p1, 'p2': p2, 'p3': p3}
+
+if same_round:
+    # No mutation of ring/streak; report no-escalate on the repeat call so we
+    # never fire twice for one round. Proxy snapshot is refreshed (harmless).
+    new_state['diff_hash_ring'] = ring
+    new_state['consecutive_co_occur'] = streak
+    new_state['escalated_episode'] = escalated_episode
+    new_state['escalated_at_iteration'] = escalated_at
+    new_state['last_round_iteration'] = last_round
+    rc = 1
+else:
+    # Advance the ring with this round's hash (bounded).
+    if cur_hash:
+        ring = ring + [cur_hash]
+        if len(ring) > ring_size:
+            ring = ring[-ring_size:]
+
+    if co_occur:
+        streak += 1
+    else:
+        # Re-arm on clear: a resolved episode may legitimately re-escalate later.
+        streak = 0
+        escalated_episode = False
+
+    rc = 1
+    if co_occur and streak >= rounds_needed and not escalated_episode:
+        rc = 0
+        escalated_episode = True
+        escalated_at = iteration
+
+    new_state['diff_hash_ring'] = ring
+    new_state['consecutive_co_occur'] = streak
+    new_state['escalated_episode'] = escalated_episode
+    new_state['escalated_at_iteration'] = escalated_at
+    new_state['last_round_iteration'] = iteration
+
+print(str(rc) + ' ' + json.dumps(new_state))
+" 2>/dev/null) || return 1
+
+    [ -z "$result" ] && return 1
+
+    local rc new_json
+    rc="${result%% *}"
+    new_json="${result#* }"
+
+    # Persist the new state atomically (failure to persist must not escalate).
+    _uncertainty_write_state "$unc_file" "$new_json" || return 1
+
+    case "$rc" in
+        0) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 #===============================================================================
@@ -894,6 +1176,200 @@ GATE_EOF
 }
 
 #===============================================================================
+# Council Evidence Hard Gate (v7.19.1) - "verified completion"
+#===============================================================================
+# Block the completion-approval path unless there is real on-disk evidence that
+# the run actually shipped: a nonzero git diff vs the run-start SHA AND a green
+# test signal (where a test suite exists). Cloned from council_checklist_gate:
+# return 0 = pass (OK to complete), return 1 = block (treated as CONTINUE).
+# Blocks ONLY on positive fabrication evidence (empty diff, or a runner that
+# actually ran and was red); every inconclusive case passes through so a
+# legitimate completion is never falsely stopped. Default-on; opt out with
+# LOKI_EVIDENCE_GATE=0 (byte-identical to prior behavior, no read/write).
+council_evidence_gate() {
+    # Knob first: opt-out is exact-as-today, before any file read or write.
+    [ "${LOKI_EVIDENCE_GATE:-1}" = "0" ] && return 0
+
+    # The gate may run even when the completion council is disabled
+    # (LOKI_COUNCIL_ENABLED=false leaves COUNCIL_STATE_DIR unset by council_init),
+    # because it now also guards the default completion-promise route. Default
+    # the block-report dir to .loki/council so we never write to filesystem root.
+    if [ -z "${COUNCIL_STATE_DIR:-}" ]; then
+        COUNCIL_STATE_DIR="${TARGET_DIR:-.}/.loki/council"
+    fi
+
+    # --- Evidence check (a): nonzero diff vs run-start SHA (committed UNION working tree) ---
+    local base_sha=""
+    if [ -n "${_LOKI_RUN_START_SHA:-}" ]; then
+        base_sha="$_LOKI_RUN_START_SHA"
+    elif [ -f ".loki/state/start-sha" ]; then
+        base_sha="$(cat .loki/state/start-sha 2>/dev/null || echo "")"
+    fi
+
+    # diff_fails stays "false" in every inconclusive branch below (no git repo,
+    # no baseline). The block decision (block iff diff_fails OR test_fails) thus
+    # treats inconclusive as pass-through by construction; no separate flag is
+    # read, so none is tracked (avoids SC2034 dead-assignment).
+    local diff_fails="false"
+    local diff_files=0
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        # No git repo => cannot prove fabrication => inconclusive => pass-through.
+        :
+    elif [ -z "$base_sha" ]; then
+        # No baseline captured (non-git/zero-commit run, or never set) =>
+        # inconclusive => pass-through. Never false-block a legit first run.
+        :
+    else
+        # Count the UNION of three change sources (auto-commit is not guaranteed,
+        # so committed-only would false-block a dirty-but-real working tree):
+        #   committed since baseline, unstaged, staged.
+        local committed_files unstaged_files staged_files untracked_files
+        if committed_files=$(git diff --name-only "$base_sha" HEAD 2>/dev/null); then
+            :
+        else
+            # Base present but unreachable (e.g. shallow clone): fall back to
+            # working-tree diff vs HEAD (mirrors proof-generator.py fallback).
+            committed_files=$(git diff --name-only HEAD 2>/dev/null || echo "")
+        fi
+        unstaged_files=$(git diff --name-only HEAD 2>/dev/null || echo "")
+        staged_files=$(git diff --cached --name-only 2>/dev/null || echo "")
+        # Untracked new files: a greenfield first run creates files that are not
+        # yet committed, staged, or seen by diff HEAD. Without this fourth source
+        # the union would be empty and the gate would false-block legitimate new
+        # work. --exclude-standard respects .gitignore so build artifacts and
+        # node_modules do not count as evidence.
+        untracked_files=$(git ls-files --others --exclude-standard 2>/dev/null || echo "")
+        # Exclude Loki's own runtime state from the union: .loki/ holds the
+        # gate's inputs (e.g. .loki/quality/test-results.json is always present
+        # at gate time) and other runtime files that are not gitignored, so
+        # counting them would make the gate toothless (the union would never be
+        # empty). Loki's own state is not project work / completion evidence.
+        local union_files
+        union_files=$(printf '%s\n%s\n%s\n%s\n' "$committed_files" "$unstaged_files" "$staged_files" "$untracked_files" | grep -v '^$' | grep -vE '^\.loki/' | sort -u)
+        if [ -n "$union_files" ]; then
+            diff_files=$(printf '%s\n' "$union_files" | wc -l | tr -d ' ')
+        else
+            diff_files=0
+        fi
+        if [ "$diff_files" -eq 0 ]; then
+            diff_fails="true"
+        fi
+    fi
+
+    # --- Evidence check (b): tests green ---
+    local tr_file=".loki/quality/test-results.json"
+    # Like diff_fails, test_fails stays "false" on INCONCLUSIVE / missing-file
+    # branches, so inconclusive is pass-through by construction and no separate
+    # flag is read (avoids SC2034 dead-assignment).
+    local test_fails="false"
+    local test_runner="none"
+    local test_pass="true"
+    if [ -f "$tr_file" ]; then
+        local test_status
+        test_status=$(_TR_FILE="$tr_file" python3 -c "
+import json, os, sys
+tr_file = os.environ['_TR_FILE']
+try:
+    with open(tr_file) as f:
+        d = json.load(f)
+except (json.JSONDecodeError, IOError, KeyError, ValueError):
+    print('INCONCLUSIVE:none:true')
+    sys.exit(0)
+runner = d.get('runner', 'none')
+passed = d.get('pass', True)
+if runner == 'none':
+    print('PASS:none:true')
+elif passed is False:
+    print('FAIL:%s:false' % runner)
+else:
+    print('PASS:%s:true' % runner)
+" 2>/dev/null || echo "INCONCLUSIVE:none:true")
+        local _verdict="${test_status%%:*}"
+        local _rest="${test_status#*:}"
+        test_runner="${_rest%%:*}"
+        test_pass="${_rest#*:}"
+        if [ "$_verdict" = "FAIL" ]; then
+            test_fails="true"
+        fi
+        # INCONCLUSIVE => test_fails stays "false" => pass-through.
+    fi
+    # Missing test-results.json (the else of the -f check) likewise leaves
+    # test_fails="false" => inconclusive => pass-through (no file = no gate).
+
+    # --- Block decision: block iff DIFF FAILS or TEST FAILS ---
+    if [ "$diff_fails" != "true" ] && [ "$test_fails" != "true" ]; then
+        # Gate passes: remove any stale block report.
+        if [ -f "$COUNCIL_STATE_DIR/evidence-block.json" ]; then
+            rm -f "$COUNCIL_STATE_DIR/evidence-block.json"
+        fi
+        return 0
+    fi
+
+    # Determine reason and build human-readable failure list.
+    local reason="no_evidence_of_completion"
+    if [ "$diff_fails" = "true" ] && [ "$test_fails" = "true" ]; then
+        reason="empty_diff_and_tests_red"
+    elif [ "$diff_fails" = "true" ]; then
+        reason="empty_diff"
+    elif [ "$test_fails" = "true" ]; then
+        reason="tests_red"
+    fi
+
+    local failures=""
+    if [ "$diff_fails" = "true" ]; then
+        failures="empty git diff vs run-start SHA (nothing shipped)"
+        log_warn "[Council] Evidence gate BLOCKED: empty git diff vs run-start SHA"
+    fi
+    if [ "$test_fails" = "true" ]; then
+        if [ -n "$failures" ]; then
+            failures="${failures}|test runner '${test_runner}' ran and was red"
+        else
+            failures="test runner '${test_runner}' ran and was red"
+        fi
+        log_warn "[Council] Evidence gate BLOCKED: test runner '${test_runner}' was red"
+    fi
+
+    # Rail 3 (one-step self-rescue): the terminal user (no dashboard open) must
+    # be told, right at the block site, how to opt out of the gate. A false
+    # block (e.g. a pre-existing red test the run cannot fix) is otherwise a
+    # dead-end until max-iterations. This single line keeps the gate safe to
+    # ship default-on.
+    log_warn "[Council] Run will keep iterating until there is real evidence of completion. To opt out: set LOKI_EVIDENCE_GATE=0"
+
+    # Write block report (atomic temp+mv, mirroring gate-block.json).
+    mkdir -p "$COUNCIL_STATE_DIR" 2>/dev/null || true
+    local ev_file="$COUNCIL_STATE_DIR/evidence-block.json"
+    local ev_tmp="${ev_file}.tmp"
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local failures_json diff_ok tests_ok base_for_json
+    failures_json=$(_FAILURES="$failures" python3 -c "
+import json, os
+items = [s for s in os.environ['_FAILURES'].split('|') if s]
+print(json.dumps(items[:5]))
+" 2>/dev/null || echo '[]')
+    if [ "$diff_fails" = "true" ]; then diff_ok="false"; else diff_ok="true"; fi
+    if [ "$test_fails" = "true" ]; then tests_ok="false"; else tests_ok="true"; fi
+    base_for_json="${base_sha:-}"
+    cat > "$ev_tmp" << EVIDENCE_EOF
+{
+    "status": "blocked",
+    "blocked": true,
+    "blocked_at": "$timestamp",
+    "iteration": ${ITERATION_COUNT:-0},
+    "reason": "$reason",
+    "checks": {
+        "diff": {"ok": $diff_ok, "base_sha": "$base_for_json", "files_changed": $diff_files, "sources": "committed|unstaged|staged|untracked union"},
+        "tests": {"ok": $tests_ok, "runner": "$test_runner", "pass": $test_pass}
+    },
+    "failures": $failures_json
+}
+EVIDENCE_EOF
+    mv "$ev_tmp" "$ev_file"
+    return 1
+}
+
+#===============================================================================
 # Council Member Review - Individual member evaluation
 #===============================================================================
 
@@ -1522,6 +1998,13 @@ council_evaluate() {
     if ! council_checklist_gate; then
         log_info "[Council] Completion blocked by checklist hard gate"
         return 1  # CONTINUE - can't complete with critical failures
+    fi
+
+    # Phase 2.5 (v7.19.1): evidence hard gate - block completion unless there is
+    # real evidence that files changed AND tests are green.
+    if ! council_evidence_gate; then
+        log_info "[Council] Completion blocked by evidence hard gate"
+        return 1  # CONTINUE - cannot complete without real evidence
     fi
 
     # Compute threshold using the same ceiling(2/3) formula as council_vote and council_aggregate_votes

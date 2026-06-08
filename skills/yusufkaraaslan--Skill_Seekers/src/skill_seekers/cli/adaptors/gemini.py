@@ -279,6 +279,10 @@ See the references directory for complete documentation with examples and best p
         """
         return "GOOGLE_API_KEY"
 
+    def supports_upload(self) -> bool:
+        """Gemini supports uploading skills via the Gemini API."""
+        return True
+
     def supports_enhancement(self) -> bool:
         """
         Gemini supports AI enhancement via Gemini 2.5 Flash.
@@ -340,7 +344,7 @@ See the references directory for complete documentation with examples and best p
         try:
             genai.configure(api_key=api_key)
 
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            model = genai.GenerativeModel(self.config.get("custom_model") or "gemini-2.5-flash")
 
             response = model.generate_content(prompt)
 

@@ -1118,6 +1118,104 @@ Checks: Node.js, Python 3, jq, git, curl, Claude CLI, Codex CLI, bash 4.0+
 
 ---
 
+## Proof of Run
+
+Every `loki start` run writes a self-contained, redacted proof artifact under
+`.loki/proofs/<run_id>/` when it finishes (`proof.json` and `index.html`).
+The HTML page is zero-egress by default: no external assets, no network calls
+on generate or open. A branded summary card and opt-in share buttons
+(X/Twitter, LinkedIn, Copy link) are included in the page starting in
+v7.19.3. The buttons are inert until you click them; nothing leaves your
+machine on its own.
+
+Opt out of proof generation entirely with `LOKI_PROOF=0`.
+
+### `loki proof`
+
+```bash
+loki proof <subcommand> [args]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|-----------|-------------|
+| `list` | List all proof artifacts in `.loki/proofs/` |
+| `show <id>` | Pretty-print `.loki/proofs/<id>/proof.json` |
+| `open <id>` | Open `.loki/proofs/<id>/index.html` in a browser |
+| `share <id>` | Publish the proof page as a GitHub Gist (opt-in) |
+
+**Options for `share`:**
+
+| Option | Description |
+|--------|-------------|
+| `--yes` | Skip the redaction-preview confirmation prompt |
+| `--private` | Create a secret gist (default: public) |
+| `--hosted` | Publish to `LOKI_HOSTED_ENDPOINT` (no official backend yet; operators supply their own) |
+
+**Examples:**
+
+```bash
+# List all proofs
+loki proof list
+
+# Inspect the JSON data for a specific run
+loki proof show <run_id>
+
+# Open the proof page locally in your browser
+loki proof open <run_id>
+
+# Publish to a GitHub Gist (shows a redaction preview first)
+loki proof share <run_id>
+
+# Publish as a secret gist without the confirmation prompt
+loki proof share --private --yes <run_id>
+```
+
+### Sharing a proof (v7.19.3)
+
+The proof HTML page contains a branded summary card built from the redacted
+run data (files changed, cost, council verdict, wall-clock time) and a row
+of share buttons. Buttons are rendered from the redacted JSON embedded in the
+page; no external URL appears in the static HTML until a button is clicked.
+
+**What the share buttons do:**
+
+- **X/Twitter:** opens `twitter.com/intent/tweet` with a pre-filled one-line
+  hook (derived from redacted run data) and the public URL if one is set.
+- **LinkedIn:** opens the LinkedIn share dialog with the public URL.
+  LinkedIn ignores prefilled text and scrapes the destination page instead.
+- **Copy link:** copies the public URL to your clipboard.
+
+When no public URL is configured (the default local case), the buttons
+degrade: X copies the hook text only; LinkedIn and Copy link are hidden.
+No broken `url=` parameter is ever emitted.
+
+**Rich social preview (og:image):** a rich card preview in X/LinkedIn
+requires an HTML-serving public URL. Publishing to a GitHub Gist
+(`loki proof share <id>`) does NOT produce a rich proof preview: the gist
+page shows GitHub's own profile og tags, and the raw gist URL serves
+`text/plain`. A rich preview is only possible when the proof page is served
+from a real HTML host that returns a public URL (via `LOKI_HOSTED_ENDPOINT`
+or any static host the operator configures). There is no official Loki hosted
+backend at this time.
+
+**Zero-egress guarantee:** generating and opening a proof locally makes zero
+network calls. The branded card renders from embedded JSON. Share buttons are
+inert markup until you click one. Setting `LOKI_PROOF_SHARE_BUTTONS=0`
+removes the buttons entirely.
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOKI_PROOF` | `1` | Set to `0` to skip proof generation entirely |
+| `LOKI_PROOF_SHARE_BUTTONS` | `1` | Set to `0` to omit share buttons from the proof page |
+| `LOKI_PROOF_PUBLIC_URL` | (unset) | When set, embeds this URL as the share/copy target in the generated proof page. Use only when you know the page will be served from that URL (for example, after uploading to a static host). |
+| `LOKI_HOSTED_ENDPOINT` | (unset) | Operator-supplied HTTP endpoint for `loki proof share --hosted`. No official Loki backend exists; set this to your own HTML-serving host. |
+
+---
+
 ## Utility Commands
 
 ### `loki version`

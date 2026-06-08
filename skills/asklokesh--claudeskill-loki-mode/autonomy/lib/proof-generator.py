@@ -382,6 +382,13 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
 
     deployed_url = os.environ.get("LOKI_DEPLOYED_URL") or None
 
+    # public_url is the publish-time injection slot: None at generate time so
+    # the default proof.json bytes + integrity hash are byte-identical to today.
+    # Optional LOKI_PROOF_PUBLIC_URL threads a value in HERE, inside the dict
+    # built before the redaction chokepoint (generate() at the redact_tree call),
+    # so the URL is redacted like every other field and folded into the hash.
+    public_url = os.environ.get("LOKI_PROOF_PUBLIC_URL") or None
+
     # Assemble WITHOUT redaction / verification fields (advisor ordering).
     proof = {
         "schema_version": SCHEMA_VERSION,
@@ -398,7 +405,7 @@ def _build_proof(args, loki_dir, target_dir, repo_root):
         "council": council,
         "quality_gates": quality_gates,
         "cost": cost,
-        "deployment": {"deployed_url": deployed_url, "public_url": None},
+        "deployment": {"deployed_url": deployed_url, "public_url": public_url},
     }
     return proof, run_id
 
@@ -571,6 +578,18 @@ def _render_html(proof, repo_root):
         # (cost-free variant when uncollected) for the viral punch.
         hook = _build_social_hook(proof)
         tpl = tpl.replace("__PROOF_OG_DESCRIPTION__", _attr_esc(hook))
+        # Expose the share-buttons toggle into the page as an HTML-only token so
+        # the template JS can honor it. LOKI_PROOF_SHARE_BUTTONS defaults ON
+        # ("1"); set "0" to opt out. This is a PURE text substitution on the
+        # rendered template and is deliberately NOT placed in the proof dict, so
+        # proof.json bytes + the integrity hash stay byte-identical to today.
+        # The template carries <body data-share-buttons="__PROOF_SHARE_BUTTONS__">
+        # and renderHero reads that attribute, omitting the share row when it is
+        # "0". This substitution is LOAD-BEARING (not a no-op): do not remove it.
+        # Zero new network calls either way (the buttons are inert client-side
+        # markup; intent URLs are assembled only on click).
+        share_buttons = "0" if os.environ.get("LOKI_PROOF_SHARE_BUTTONS") == "0" else "1"
+        tpl = tpl.replace("__PROOF_SHARE_BUTTONS__", _attr_esc(share_buttons))
         # Template renders client-side from an inlined JSON blob. Per the
         # template GENERATOR CONTRACT, escape "<" so a value containing
         # "</script>" or "<!--" cannot break out of the script block.

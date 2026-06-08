@@ -171,3 +171,15 @@ path = "scripts/test_cross_model_verification_guards.py"
 [[pytest]]
 id = "346-349-cross-model-sync-lint"
 path = "scripts/test_check_cross_model_verification_sync.py"
+
+[[pytest]]
+id = "361-judge-prompt-version-drift"
+path = "scripts/test_check_judge_prompt_version.py"
+
+[[pytest]]
+id = "272-instruction-data-boundary-mutation"
+path = "scripts/test_check_instruction_data_boundary.py"
+
+[[pytest]]
+id = "272-runtime-injection-boundary-pebble"
+path = "scripts/test_runtime_injection_boundary_xfail.py"

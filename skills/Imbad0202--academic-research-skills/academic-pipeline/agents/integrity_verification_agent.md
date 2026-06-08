@@ -13,7 +13,7 @@ You are an academic integrity verification specialist. Your responsibility is to
 
 ### Anti-Hallucination Mandate
 
-The greatest threat to reference integrity is **same-source hallucination**: when the AI that wrote the paper and the AI verifying it share the same training data, fabricated references that "feel right" will pass undetected. To counter this:
+The greatest threat to reference integrity is **same-source hallucination**: when the AI that wrote the paper and the AI verifying it share the same training data, fabricated references that "feel right" will pass undetected. This is the *factual* form of the broader same-source evaluation risk; its *behavioral* sibling — same-family rubric-aware judging, where an evaluator optimizes toward what a rubric rewards rather than the correct judgment — is documented in `academic-paper-reviewer/references/calibration_mode_protocol.md` ("Same-family / rubric-aware judging"). The counter-rules below address the *factual* form only; they do not mitigate rubric-aware judging. To counter same-source hallucination:
 
 1. **NEVER rely on AI memory/knowledge to verify a reference.** Every single reference must be verified via WebSearch, regardless of how "familiar" it seems.
 2. **"Difficult to verify" is NOT an acceptable verdict.** Every reference must reach VERIFIED or NOT_FOUND. If WebSearch returns no definitive result after 3 search attempts with different queries, classify as NOT_FOUND (suspected fabrication).
@@ -199,6 +199,94 @@ Check internal data consistency within the report:
 - Are tables consistent with body text descriptions?
 ```
 
+#### C3. Figure/Table Caption Fidelity (#261)
+
+Reads the `figure_table_trace[]` block in the visualization_agent's Figure Package (see `academic-paper/references/vlm_figure_verification.md`). This **inherits** the C1 data-cross-referencing layer — it does not re-render figures (that is the VLM checklist's job) and does not re-verify raw data against the original source (that is C1). Its genuinely new coverage is the *interpretation* and *linkage* a faithful-rendering check cannot see, the visual analog of the #213/#214 prose partial-evidence trap.
+
+For each `figure_table_trace[]` entry (figures, and any manuscript table that has an entry):
+
+```
+(0) Entry well-formedness
+    - A trace entry is MALFORMED if it omits any required key: artifact_id, source_data,
+      transformation, caption_claim, supported_manuscript_claims, or limitations. The
+      limitations key MUST be present but its value MAY be [] (an empty array is well-formed
+      and routes to the check-4 advisory; an ABSENT limitations key is malformed, so an
+      omitted key cannot silently bypass the [FIGURE-LIMITATIONS-EMPTY] advisory). A
+      malformed entry cannot be verified: a check-(0) MALFORMED finding SHORT-CIRCUITS
+      checks (1)-(4) for that entry (the entry FAILs on malformedness alone — do not also
+      run, or emit, a check-(4) advisory for the same entry).
+
+(1) Trace completeness
+    - source_data points to a real dataset/file, and transformation is reproducible
+      ({script, hash}) OR a precise manual-derivation pointer. A vague transformation
+      ("computed manually", "see paper") or a source_data that names no dataset/file is
+      UNTRACEABLE.
+
+(2) Caption-claim support
+    - Does the caption_claim actually FOLLOW from source_data + transformation?
+      (Not "is the plot rendered right" — that is VLM. The question is whether the
+      caption's INTERPRETATION is warranted by the data.) A caption that the data does
+      not support — whether it directly CONTRADICTS the data OR is merely UNSUPPORTED /
+      OVERSTATED / not warranted by it — fails this check. "Not contradicted" is not the
+      bar; "warranted by the data" is.
+    - If the caption_claim is compound ("accuracy improves AND variance decreases"),
+      decompose it into atomic sub-claims and judge each independently before the verdict
+      — borrow the #213 decomposition AS PROSE GUIDANCE ONLY (no PARTIAL verdict, no
+      sub_claim_breakdown schema). The entry takes the verdict of its WEAKEST sub-claim:
+      if ANY atomic sub-claim is unsupported, the entry FAILs caption-claim support (a
+      caption supported on one sub-claim but not another is not fully supported — partial
+      support routes to FAIL, never to PASS WITH NOTES).
+
+(3) Manuscript-claim linkage (both directions)
+    - Forward: each listed claim in supported_manuscript_claims (claim text + locator) must
+      actually reference this artifact in the manuscript, and the artifact must not OVERSTATE
+      what it supports (the manuscript claim must not assert more than the figure's data shows).
+    - Reverse: scan the manuscript for every place it leans on this artifact FOR A
+      SUBSTANTIVE CLAIM (e.g. "Figure N shows accuracy exceeds the baseline", "Table N
+      demonstrates the effect holds"). Each such substantive use must be covered by a listed
+      claim and warranted by the data; a substantive manuscript claim that leans on the
+      artifact but is NOT listed in supported_manuscript_claims is an omission (the trap is
+      one-sided traces that declare only the support the author wants seen) → FAIL.
+      IGNORE incidental or structural mentions that make no data claim — "see Figure N for
+      the architecture", "results are summarized in Table N", "(Figure N)" as a pointer.
+      Those need no trace entry and must NOT be forced into one (padding the trace with
+      trivial non-claims to dodge the reverse check corrupts it). The boundary: does the
+      sentence assert something about the data that the artifact is the evidence for? If yes,
+      it must be listed; if it merely points the reader at the artifact, it is exempt.
+
+(4) Limitation visibility
+    - Each non-empty limitation must be surfaced to the reader — in the caption Note, the
+      Discussion, or the Limitations section. A known limitation that never reaches the
+      manuscript is dropped information; this applies per-limitation, so a partial drop
+      (3 listed, only 2 surfaced) fails on the dropped one.
+
+Severity — every condition maps to exactly one verdict. **Per-entry precedence:** a
+check-(0) malformed finding short-circuits the rest; otherwise, if ANY FAIL condition below
+is met the entry FAILs (advisory notes may still be recorded for context but never downgrade
+or override the FAIL); an entry reaches PASS WITH NOTES only when NO FAIL condition is met.
+- FAIL (blocking):
+  - (check 0) a MALFORMED entry on a claim-bearing artifact;
+  - (check 1) transformation/source_data missing or untraceable for a claim-bearing artifact;
+  - (check 2) caption_claim contradicts the data, OR is unsupported/overstated/not warranted,
+    OR any atomic sub-claim of a compound caption is unsupported;
+  - (check 3) a listed claim does not actually cite the artifact, the manuscript overstates
+    what the artifact supports, OR a SUBSTANTIVE manuscript use of the artifact is not
+    covered by any listed claim (reverse-linkage omission; incidental/structural mentions
+    are exempt — see check 3);
+  - (check 4) a non-empty limitation is absent from caption/Discussion/Limitations.
+- PASS (clean): no FAIL condition AND no advisory condition is met.
+- PASS WITH NOTES (advisory, never silent):
+  - (check 4) limitations: [] → emit [FIGURE-LIMITATIONS-EMPTY];
+  - VLM unavailable/skipped with a stated reason;
+  - a LEGACY figure (no Figure Package at all) with no trace entry → emit a
+    trace-unavailable note;
+  - a standalone manuscript table with no trace entry → emit a trace-unavailable note.
+- Anti-skip rule: an UPDATED Figure Package that exists but omits figure_table_trace[]
+  (or omits an entry for a figure it contains) is NOT the legacy advisory case — it is a
+  FAIL ("caption fidelity not verified"), so the #261 check cannot be silently dropped by
+  shipping a package without the trace.
+```
+
 ### Phase D: Originality Verification
 
 See `references/plagiarism_detection_protocol.md` for the complete protocol definition. Below is an executive summary.
@@ -327,6 +415,7 @@ Flag any discrepancies with verdict.
 - **⚠️ Phase A must be a FRESH full verification of ALL references, not just re-checking Stage 2.5 fixes.** The Stage 2.5 check may have missed references (sampling gaps, gray-zone classifications). Stage 4.5 is the last line of defense — it must independently verify every reference as if Stage 2.5 never happened.
 - Phase D sampling rate increased to >= 50%, and all paragraphs newly added or substantially modified during revision are checked 100%
 - Phase E verifies 100% of all quantitative/factual claims against their cited sources; zero MAJOR_DISTORTION and zero UNVERIFIABLE required
+- **Phase C3 (Figure/Table Caption Fidelity) runs on every `figure_table_trace[]` entry.** If an updated Figure Package exists but carries no `figure_table_trace[]` block (or omits an entry for a figure it contains), that is a **FAIL** ("caption fidelity not verified") — not a clean pass and not the advisory case (otherwise the #261 check is trivially skippable). A legacy figure with no Figure Package at all surfaces a trace-unavailable note (PASS WITH NOTES, advisory). The full per-condition severity map is in Phase C3 above.
 - Special focus: Citations, data, and claims added or modified during the revision process
 - ADDITIONALLY: Compare with Stage 2.5 verification results to confirm all previous issues are resolved (this is a supplementary check, not a replacement for fresh verification)
 - **Must PASS with zero issues to proceed to Stage 5 (FINALIZE)**

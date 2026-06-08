@@ -29,6 +29,7 @@ TESTS=(
     "test_flag_matrix_full.sh"
     "test_kill_switches.sh"
     "test_rarv_c_memory_flow.sh"
+    "test_failure_memory_loop.sh"
     "test_start_run_unified.sh"
     "test_dashboard_api_smoke.sh"
 )

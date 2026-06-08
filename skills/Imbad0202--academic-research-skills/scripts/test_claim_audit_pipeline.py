@@ -21,6 +21,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from typing import Any, Callable
+from unittest import mock
 
 from tests.test_helpers import build_schema_validator, load_json_schema
 
@@ -42,6 +43,15 @@ _CAR_SCHEMA = load_json_schema(
     Path(__file__).resolve().parent.parent / "shared/contracts/passport/claim_audit_result.schema.json"
 )
 _CAR_VALIDATOR = build_schema_validator(_CAR_SCHEMA)
+
+# constraint_violation schema validator — a VIOLATED uncited claim rides in its
+# own aggregate (rationale maxLength=2000 too). Its rationale is also copied
+# straight from untrusted judge output on the success path (#360), so the same
+# overflow can land a schema-invalid constraint_violation row.
+_CV_SCHEMA = load_json_schema(
+    Path(__file__).resolve().parent.parent / "shared/contracts/passport/constraint_violation.schema.json"
+)
+_CV_VALIDATOR = build_schema_validator(_CV_SCHEMA)
 
 
 MANIFEST_ID = "M-2026-05-15T10:00:00Z-a1b2"
@@ -211,6 +221,22 @@ class _PipelineTestBase(unittest.TestCase):
         defaults.update(kwargs)
         return run_audit_pipeline(**defaults)
 
+    def _validate_passport(
+        self, out: dict[str, Any], manifests: list[dict[str, Any]] | None = None
+    ) -> list[Any]:
+        from scripts.check_claim_audit_consistency import validate_passport
+
+        body = {
+            "claim_intent_manifests": manifests if manifests is not None else [_manifest()],
+            "claim_audit_results": out["claim_audit_results"],
+            "uncited_assertions": out.get("uncited_assertions", []),
+            "claim_drifts": out.get("claim_drifts", []),
+            "constraint_violations": out.get("constraint_violations", []),
+            "audit_sampling_summaries": out.get("audit_sampling_summaries", []),
+            "uncited_audit_failures": out.get("uncited_audit_failures", []),
+        }
+        return validate_passport(body)
+
 
 # ---------------------------------------------------------------------------
 # T-P1 — Step 1 anchor=none short-circuit.
@@ -327,6 +353,160 @@ class TP2P3CacheBehavior(_PipelineTestBase):
             len(invocations),
             2,
             "manual PDF excerpt with different hash MUST force a fresh judge invocation",
+        )
+
+
+# ---------------------------------------------------------------------------
+# #361 — prompt-version partitions the judge cache keyspace.
+# ---------------------------------------------------------------------------
+
+
+class TP361PromptVersionCacheKey(_PipelineTestBase):
+    """#361: the judge cache key must include a prompt-version component so a
+    judge-prompt revision (e.g. #213 Step-0 decomposition) invalidates stale
+    entries automatically — a verdict cached under prompt A must NOT be served
+    once the active prompt is B. Same-version entries still dedup (no
+    regression). When no concrete prompt version can be resolved (caller
+    declares it unknown), the cache fails CLOSED — stale entries are never
+    served across an unknown-version boundary.
+    """
+
+    @staticmethod
+    def _counting_judge(invocations: list[Any]) -> Callable[..., dict[str, Any]]:
+        def judge_fn(**kwargs: Any) -> dict[str, Any]:
+            invocations.append(kwargs)
+            return {"judgment": "SUPPORTED", "rationale": "judge ran"}
+
+        return judge_fn
+
+    def test_prompt_version_change_misses_cache(self) -> None:
+        cache: dict[str, Any] = {}
+        invocations: list[Any] = []
+        judge_fn = self._counting_judge(invocations)
+
+        # Populate under prompt version A.
+        self.run_pipeline(
+            citations=[_citation()],
+            judge_fn=judge_fn,
+            cache=cache,
+            config=_config(judge_prompt_version="promptA"),
+        )
+        self.assertEqual(len(invocations), 1, "first run must invoke judge")
+
+        # Same (claim, ref, anchor, excerpt, constraints, model) but a NEW
+        # prompt version MUST miss and re-invoke the judge.
+        self.run_pipeline(
+            citations=[_citation()],
+            judge_fn=judge_fn,
+            cache=cache,
+            config=_config(judge_prompt_version="promptB"),
+        )
+        self.assertEqual(
+            len(invocations), 2,
+            "a prompt-version change MUST invalidate the stale entry and re-invoke the judge",
+        )
+
+    def test_same_prompt_version_still_hits(self) -> None:
+        # Regression guard: identical prompt version keeps the existing dedup.
+        cache: dict[str, Any] = {}
+        invocations: list[Any] = []
+        judge_fn = self._counting_judge(invocations)
+
+        for _ in range(2):
+            self.run_pipeline(
+                citations=[_citation()],
+                judge_fn=judge_fn,
+                cache=cache,
+                config=_config(judge_prompt_version="promptA"),
+            )
+        self.assertEqual(
+            len(invocations), 1,
+            "two runs under the same prompt version must hit the cache (no dedup regression)",
+        )
+
+    def test_unknown_prompt_version_fails_closed(self) -> None:
+        # Caller declares the prompt version unknown (None). Across two distinct
+        # runs (different audit_run_id) the cache must NOT serve the stale entry
+        # — the unknown version binds a run-local component, so each run misses.
+        cache: dict[str, Any] = {}
+        invocations: list[Any] = []
+        judge_fn = self._counting_judge(invocations)
+
+        for run_id in ("2026-05-15T10:10:00Z-run1", "2026-05-15T10:20:00Z-run2"):
+            self.run_pipeline(
+                citations=[_citation()],
+                judge_fn=judge_fn,
+                cache=cache,
+                config=_config(judge_prompt_version=None),
+                audit_run_id=run_id,
+            )
+        self.assertEqual(
+            len(invocations), 2,
+            "an unknown prompt version must fail closed — no cross-run cache hit",
+        )
+
+    def test_unknown_prompt_version_dedups_within_a_run(self) -> None:
+        # Fail-closed must not break WITHIN-run dedup: two identical citations in
+        # the SAME run (same audit_run_id) share the run-local component, so the
+        # second is a hit — the judge runs once.
+        cache: dict[str, Any] = {}
+        invocations: list[Any] = []
+        judge_fn = self._counting_judge(invocations)
+
+        self.run_pipeline(
+            citations=[_citation(), _citation()],
+            judge_fn=judge_fn,
+            cache=cache,
+            config=_config(judge_prompt_version=None),
+        )
+        self.assertEqual(
+            len(invocations), 1,
+            "two identical citations in one run must still dedup under the run-local key",
+        )
+
+    def test_default_prompt_version_hits_across_runs(self) -> None:
+        # When the caller does NOT declare a version at all, the repo constant
+        # JUDGE_PROMPT_VERSION supplies a real version → normal dedup holds.
+        cache: dict[str, Any] = {}
+        invocations: list[Any] = []
+        judge_fn = self._counting_judge(invocations)
+
+        for _ in range(2):
+            self.run_pipeline(citations=[_citation()], judge_fn=judge_fn, cache=cache)
+        self.assertEqual(
+            len(invocations), 1,
+            "absent an explicit version, the repo constant is a real version and dedup holds",
+        )
+
+    def test_default_tracks_prompt_hash_not_version_label(self) -> None:
+        # codex P2: with NO explicit judge_prompt_version, the default cache-key
+        # prompt component must be the prompt FINGERPRINT (JUDGE_PROMPT_SHA256),
+        # not the decoupled human-readable JUDGE_PROMPT_VERSION label. A prompt
+        # edit that re-pins the SHA256 (lint enforces this) must AUTOMATICALLY
+        # invalidate stale entries — even if the author forgot to bump the
+        # version label. Patch the hash to two distinct 64-char values across two
+        # runs sharing one cache; the judge must be invoked TWICE (cache miss).
+        cache: dict[str, Any] = {}
+        invocations: list[Any] = []
+        judge_fn = self._counting_judge(invocations)
+        hash_a = "a" * 64
+        hash_b = "b" * 64
+
+        with mock.patch(
+            "scripts.claim_audit_pipeline.JUDGE_PROMPT_SHA256", hash_a
+        ):
+            self.run_pipeline(citations=[_citation()], judge_fn=judge_fn, cache=cache)
+        self.assertEqual(len(invocations), 1, "first run must invoke judge")
+
+        with mock.patch(
+            "scripts.claim_audit_pipeline.JUDGE_PROMPT_SHA256", hash_b
+        ):
+            self.run_pipeline(citations=[_citation()], judge_fn=judge_fn, cache=cache)
+        self.assertEqual(
+            len(invocations), 2,
+            "a re-pinned prompt hash MUST invalidate the stale entry and re-invoke "
+            "the judge — the default cache-key prompt component is the hash, not the "
+            "decoupled version label",
         )
 
 
@@ -1776,19 +1956,6 @@ class TP24PartialDecomposition(_PipelineTestBase):
     against both the schema and the INV-19 lint.
     """
 
-    def _validate_passport(self, out: dict[str, Any]) -> list[Any]:
-        from scripts.check_claim_audit_consistency import validate_passport
-
-        body = {
-            "claim_intent_manifests": [_manifest()],
-            "claim_audit_results": out["claim_audit_results"],
-            "uncited_assertions": out.get("uncited_assertions", []),
-            "claim_drifts": out.get("claim_drifts", []),
-            "constraint_violations": out.get("constraint_violations", []),
-            "audit_sampling_summaries": out.get("audit_sampling_summaries", []),
-            "uncited_audit_failures": out.get("uncited_audit_failures", []),
-        }
-        return validate_passport(body)
 
     def test_partial_normalizes_to_unsupported_source_description(self) -> None:
         out = self.run_pipeline(citations=[_citation()], judge_fn=_judge_partial())
@@ -1971,6 +2138,155 @@ class TP24PartialDecomposition(_PipelineTestBase):
                 e = out["claim_audit_results"][0]
                 self.assertTrue(e["rationale"].startswith("judge_parse_error"))
                 self.assertEqual(sorted(_CAR_VALIDATOR.iter_errors(e), key=str), [])
+
+
+class TP360JudgeRationaleBoundOnSuccessPath(_PipelineTestBase):
+    """#360: a judge-returned `rationale` is copied onto SUCCESS-path rows with
+    no length bound. A judge is an LLM with no pre-emission length guarantee, so
+    an over-long rationale yields a schema-INVALID row on the *clean* success
+    path — the same defect class as the #359 fallback fix, but on completed /
+    constraint_violation rows rather than the inconclusive fallback. Both
+    success-path rationale assignments MUST clamp to the schema maxLength=2000.
+    """
+
+    # 2500 > 2000 schema maxLength, so an unbounded copy overflows the row.
+    _OVERLONG = "Cited page supports the claim. " + ("y" * 2500)
+
+    def test_completed_row_clamps_overlong_judge_rationale(self) -> None:
+        # SUPPORTED verdict → _judge_result_entry completed row (pipeline line 558).
+        def judge_fn(**kwargs: Any) -> dict[str, Any]:
+            return {"judgment": "SUPPORTED", "rationale": self._OVERLONG}
+
+        out = self.run_pipeline(citations=[_citation()], judge_fn=judge_fn)
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["judgment"], "SUPPORTED")
+        self.assertEqual(e["audit_status"], "completed")
+        # Diagnostic head preserved (so the bound truncates the tail, not the head).
+        self.assertTrue(
+            e["rationale"].startswith("Cited page supports the claim."),
+            f"clamp must preserve the diagnostic head; got {e['rationale'][:60]!r}",
+        )
+        self.assertLessEqual(
+            len(e["rationale"]), 2000,
+            f"completed-row rationale must fit schema maxLength=2000; got {len(e['rationale'])}",
+        )
+        errors = sorted(_CAR_VALIDATOR.iter_errors(e), key=str)
+        self.assertEqual(
+            errors, [], f"completed row with over-long judge rationale must satisfy schema; got {errors}"
+        )
+        self.assertEqual(self._validate_passport(out), [], "completed row must also be lint-clean")
+
+    def test_completed_row_keeps_short_rationale_verbatim(self) -> None:
+        # Regression guard: a short rationale that never needed truncating must
+        # pass through unchanged (the bound must not mangle the common case).
+        def judge_fn(**kwargs: Any) -> dict[str, Any]:
+            return {"judgment": "SUPPORTED", "rationale": "Cited page contains the figure verbatim."}
+
+        out = self.run_pipeline(citations=[_citation()], judge_fn=judge_fn)
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["rationale"], "Cited page contains the figure verbatim.")
+        self.assertEqual(sorted(_CAR_VALIDATOR.iter_errors(e), key=str), [])
+
+    def test_constraint_violation_row_clamps_overlong_judge_rationale(self) -> None:
+        # VIOLATED uncited claim → _constraint_violation_entry (pipeline line 644).
+        manifest = _manifest(
+            claims=[
+                {
+                    "claim_id": "C-001",
+                    "claim_text": "Manifest claim about the cohort.",
+                    "intended_evidence_kind": "empirical",
+                    "planned_refs": [],
+                }
+            ],
+            mncs=[{"constraint_id": "MNC-1", "rule": "MUST NOT generalize beyond cohort"}],
+        )
+        sentence = {
+            "sentence_text": "All practitioners benefit.",
+            "section_path": "Discussion",
+        }
+
+        def judge_fn(**kwargs: Any) -> dict[str, Any]:
+            return {
+                "judgment": "VIOLATED",
+                "violated_constraint_id": "MNC-1",
+                "rationale": self._OVERLONG,
+            }
+
+        out = self.run_pipeline(
+            citations=[],
+            manifests=[manifest],
+            uncited_sentences=[],
+            all_uncited_sentences=[sentence],
+            judge_fn=judge_fn,
+        )
+        cv = out["constraint_violations"]
+        self.assertEqual(len(cv), 1, f"exactly one CV row; got {cv!r}")
+        e = cv[0]
+        self.assertTrue(
+            e["rationale"].startswith("Cited page supports the claim."),
+            f"clamp must preserve the diagnostic head; got {e['rationale'][:60]!r}",
+        )
+        self.assertLessEqual(
+            len(e["rationale"]), 2000,
+            f"constraint_violation rationale must fit schema maxLength=2000; got {len(e['rationale'])}",
+        )
+        errors = sorted(_CV_VALIDATOR.iter_errors(e), key=str)
+        self.assertEqual(
+            errors, [], f"constraint_violation row with over-long judge rationale must satisfy schema; got {errors}"
+        )
+        self.assertEqual(self._validate_passport(out, [manifest]), [], "constraint_violation row must also be lint-clean")
+
+
+class TP360NonStringJudgeRationale(_PipelineTestBase):
+    """#360 follow-up: `_validate_judge_dict` accepts a present-but-null
+    `rationale` (it only checks key presence, not value type). The success-path
+    clamp must NOT call len() on a non-string value — a JSON-null rationale from
+    the judge/cache must degrade to the default placeholder, not abort the audit
+    run with TypeError.
+    """
+
+    def test_completed_row_null_rationale_falls_back_to_placeholder(self) -> None:
+        def judge_fn(**kwargs: Any) -> dict[str, Any]:
+            return {"judgment": "SUPPORTED", "rationale": None}
+
+        out = self.run_pipeline(citations=[_citation()], judge_fn=judge_fn)
+        e = out["claim_audit_results"][0]
+        self.assertEqual(e["rationale"], "(no rationale provided)")
+        self.assertEqual(sorted(_CAR_VALIDATOR.iter_errors(e), key=str), [])
+        self.assertEqual(self._validate_passport(out), [])
+
+    def test_constraint_violation_null_rationale_falls_back_to_default(self) -> None:
+        manifest = _manifest(
+            claims=[
+                {
+                    "claim_id": "C-001",
+                    "claim_text": "Manifest claim about the cohort.",
+                    "intended_evidence_kind": "empirical",
+                    "planned_refs": [],
+                }
+            ],
+            mncs=[{"constraint_id": "MNC-1", "rule": "MUST NOT generalize beyond cohort"}],
+        )
+        sentence = {"sentence_text": "All practitioners benefit.", "section_path": "Discussion"}
+
+        def judge_fn(**kwargs: Any) -> dict[str, Any]:
+            return {"judgment": "VIOLATED", "violated_constraint_id": "MNC-1", "rationale": None}
+
+        out = self.run_pipeline(
+            citations=[],
+            manifests=[manifest],
+            uncited_sentences=[],
+            all_uncited_sentences=[sentence],
+            judge_fn=judge_fn,
+        )
+        cv = out["constraint_violations"]
+        self.assertEqual(len(cv), 1, f"exactly one CV row; got {cv!r}")
+        e = cv[0]
+        # Non-empty (schema minLength=1) and schema-valid — the null degraded
+        # to the default, not to None (which would be schema-invalid).
+        self.assertTrue(e["rationale"], "null rationale must degrade to a non-empty default")
+        self.assertEqual(sorted(_CV_VALIDATOR.iter_errors(e), key=str), [])
+        self.assertEqual(self._validate_passport(out, [manifest]), [])
 
 
 if __name__ == "__main__":

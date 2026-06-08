@@ -87,6 +87,15 @@ jobs:
           PYTHONPATH: scripts
         run: python3 scripts/check_data_access_level.py
 
+      - name: Check instruction-vs-data boundary (#272 guidance layer)
+        # Drift guard for the retrieved-content instruction/data principle:
+        # authoritative canonical block in ground_truth_isolation_pattern.md +
+        # verbatim-inlined copies in the two hot-spot retrieval agents + backpoints.
+        # The mutation test (272-instruction-data-boundary-mutation) runs via the
+        # pytest manifest above. Commit-time documentation check only — not a
+        # runtime gate (see docs/design/2026-06-07-272-...-design.md § 3/§ 5).
+        run: python3 scripts/check_instruction_data_boundary.py
+
       - name: Check task_type declarations
         env:
           PYTHONPATH: scripts
@@ -243,6 +252,18 @@ jobs:
         env:
           PYTHONPATH: .
         run: python scripts/check_firm_rules_sync.py
+
+      - name: Judge-prompt-version drift guard (#361)
+        # Recomputes the SHA-256 of the canonical judge-prompt section (between
+        # the JUDGE-PROMPT-CANONICAL markers in claim_ref_alignment_audit_agent.md)
+        # and fails if it drifts from JUDGE_PROMPT_SHA256 in _claim_audit_constants.py.
+        # Forces a prompt edit to re-pin the hash + bump JUDGE_PROMPT_VERSION, so a
+        # judge-prompt change cannot silently leave stale judge-cache entries valid.
+        # The pytest companion `test_check_judge_prompt_version.py` runs via the
+        # unified manifest.
+        env:
+          PYTHONPATH: .
+        run: python scripts/check_judge_prompt_version.py
 
       - name: v3.10 policy-layer lint (#127 PR-B)
         # Verifies the v3.10 terminal-policy-layer contract: venue_type /

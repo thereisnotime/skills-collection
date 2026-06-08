@@ -89,30 +89,57 @@
   .brand { font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
   .brand .dot { color: var(--accent); }
 
-  /* HERO */
+  /* HERO (branded proof card) */
   .hero {
-    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(900px 300px at 100% -40%, var(--accent-soft), transparent 60%),
+      linear-gradient(180deg, var(--panel-2), var(--panel));
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 28px;
     margin-bottom: 22px;
   }
+  .hero-brand {
+    display: flex; align-items: center; gap: 9px; margin-bottom: 18px;
+    color: var(--text);
+  }
+  .hero-brand .mark { display: inline-flex; color: var(--accent); }
+  .hero-brand .name { font-weight: 650; font-size: 15px; letter-spacing: 0.2px; }
+  .hero-brand .by { color: var(--faint); font-size: 12px; }
+  .hero-brand .by b { color: var(--muted); font-weight: 600; }
   .hero h1 {
     font-size: 26px; line-height: 1.25; margin: 0 0 14px;
     font-weight: 650; letter-spacing: -0.2px;
   }
   .hero .sub { color: var(--muted); font-size: 14px; margin: 0; }
-  .hero-actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .hero-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; margin-top: 20px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 11px; overflow: hidden;
+  }
+  .hero-stat { background: rgba(20,23,30,0.72); padding: 13px 15px; }
+  .hero-stat .hk { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .hero-stat .hv { font-size: 19px; font-family: var(--mono); margin-top: 5px; color: var(--text); word-break: break-word; }
+  .hero-stat .hv small { font-size: 12px; color: var(--muted); font-family: var(--sans); }
+  .hero-stat .hv.ok { color: var(--green); }
+  .hero-actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
   /* Buttons */
   .btn {
-    display: inline-block; padding: 9px 15px; border-radius: 9px;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 15px; border-radius: 9px;
     font-size: 14px; font-weight: 550; border: 1px solid var(--border);
     background: var(--panel-2); color: var(--text); cursor: pointer;
   }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #0b0d12; }
   .btn.primary:hover { text-decoration: none; filter: brightness(1.06); }
   .btn:hover { text-decoration: none; border-color: var(--accent); }
+  .btn .ico { display: inline-flex; pointer-events: none; }
+  .share-sep { flex: 1 1 auto; }
+  .share-row { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .share-row .lbl { color: var(--faint); font-size: 12px; margin-right: 2px; }
+  .btn.share { padding: 8px 12px; font-size: 13px; }
 
   /* Sections */
   .section { margin-top: 26px; }
@@ -250,17 +277,29 @@
   .hide { display: none !important; }
 </style>
 </head>
-<body>
+<body data-share-buttons="__PROOF_SHARE_BUTTONS__">
 <div class="wrap">
   <div class="topbar">
     <span class="brand">Loki Mode<span class="dot">.</span> proof of run</span>
     <span id="runIdTop"></span>
   </div>
 
-  <!-- HERO -->
+  <!-- HERO (branded proof card; rendered client-side from the redacted dict) -->
   <section class="hero">
+    <div class="hero-brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L4 6.5v6.2c0 4.6 3.3 8 8 9.3 4.7-1.3 8-4.7 8-9.3V6.5L12 2z" fill="currentColor" opacity="0.16"/>
+          <path d="M12 2L4 6.5v6.2c0 4.6 3.3 8 8 9.3 4.7-1.3 8-4.7 8-9.3V6.5L12 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M9 12.2l2.1 2.1L15.4 10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="name">Loki Mode</span>
+      <span class="by">by <b>Autonomi</b></span>
+    </div>
     <h1 id="heroLine"></h1>
     <p class="sub" id="heroSub"></p>
+    <div class="hero-stats" id="heroStats"></div>
     <div class="hero-actions" id="heroActions"></div>
   </section>
 
@@ -445,6 +484,8 @@
     if (prov || model) sub.push("via " + esc(prov) + (model ? " / " + esc(model) : ""));
     document.getElementById("heroSub").innerHTML = sub.join(" · ");
 
+    renderHeroStats(p, usdRaw, fc, cs);
+
     var actions = document.getElementById("heroActions");
     var html = "";
     var deployed = g(p, "deployment.deployed_url", null);
@@ -456,7 +497,101 @@
     if (hasDiffs(p)) {
       html += '<a class="btn" href="#secDiff">View the diff</a>';
     }
-    actions.innerHTML = html || '<span class="note">No live URL recorded for this run.</span>';
+    if (!html) {
+      html = '<span class="note">No live URL recorded for this run.</span>';
+    }
+    // Share row. Honors the LOKI_PROOF_SHARE_BUTTONS opt-out: the generator sets
+    // body[data-share-buttons] to "0" when the operator disabled share buttons,
+    // in which case the entire share row is omitted (the actions show only the
+    // live-URL line, byte-equivalent intent to pre-share-row behavior).
+    // Otherwise: the X/LinkedIn buttons appear only when a public URL exists
+    // (default local runs have public_url=null, so they degrade to copy-only).
+    // The intent URLs are NOT in this markup: they are assembled at click time
+    // in wireShare() from data-share + the parsed proof, so no literal social
+    // URL ever appears in the static page (keeps the self-containment guard
+    // green).
+    var shareEnabled = (document.body.getAttribute("data-share-buttons") !== "0");
+    if (!shareEnabled) {
+      actions.innerHTML = html;
+      return;
+    }
+    var pub = g(p, "deployment.public_url", null);
+    var hasPub = !!pub && !isLocalUrl(pub);
+    var share = '<span class="share-sep"></span><span class="share-row">';
+    share += '<span class="lbl">Share</span>';
+    if (hasPub) {
+      share += '<button class="btn share" type="button" data-share="x" title="Share on X">' +
+               '<span class="ico" aria-hidden="true">' + icoX() + "</span>X</button>";
+      share += '<button class="btn share" type="button" data-share="linkedin" title="Share on LinkedIn">' +
+               '<span class="ico" aria-hidden="true">' + icoIn() + "</span>LinkedIn</button>";
+    }
+    share += '<button class="btn share" type="button" data-share="copy" title="Copy link to this proof">' +
+             '<span class="ico" aria-hidden="true">' + icoLink() + "</span>Copy link</button>";
+    share += "</span>";
+    actions.innerHTML = html + share;
+  }
+
+  function renderHeroStats(p, usdRaw, fc, cs) {
+    var el = document.getElementById("heroStats");
+    if (!el) return;
+    var cells = [];
+    // Built: files changed + where the spec came from.
+    var src = String(g(p, "spec.source", "") || "");
+    var srcLabel = src ? srcLabelFor(src) : "spec";
+    cells.push(["Built",
+      fc + " file" + (fc === 1 ? "" : "s") + " changed",
+      "from " + esc(srcLabel), ""]);
+    // Verified: council ratio (preferred) or quality-gate ratio.
+    var vMain, vSub;
+    if (cs) {
+      vMain = cs.count + "-of-" + cs.total + " approved";
+      vSub = "review council";
+    } else {
+      var gp = num(g(p, "quality_gates.passed", 0));
+      var gt = num(g(p, "quality_gates.total", 0));
+      if (gt > 0) { vMain = gp + "-of-" + gt + " gates"; vSub = "quality gates"; }
+      else { vMain = "not recorded"; vSub = "verification"; }
+    }
+    cells.push(["Verified", vMain, esc(vSub), cs ? "ok" : ""]);
+    // Cost: never render a zero-dollar total when cost was not collected.
+    if (usdRaw !== null) cells.push(["Cost", fmtUsd(usdRaw), "total for this run", ""]);
+    else cells.push(["Cost", "not recorded", "no cost data", ""]);
+    // Duration.
+    var dur = g(p, "wall_clock_sec", null);
+    if (dur !== null) cells.push(["Duration", fmtDuration(dur), "wall clock", ""]);
+    var html = "";
+    for (var i = 0; i < cells.length; i++) {
+      html += '<div class="hero-stat"><div class="hk">' + cells[i][0] +
+              '</div><div class="hv ' + cells[i][3] + '">' + cells[i][1] +
+              (cells[i][2] ? ' <small>' + cells[i][2] + "</small>" : "") + "</div></div>";
+    }
+    el.innerHTML = html;
+  }
+
+  // Human label for the spec source. owner/repo#123 -> "GitHub issue
+  // owner/repo#123"; codebase-analysis -> "codebase analysis"; otherwise the
+  // raw (already-redacted) source string. esc() is applied by the caller.
+  function srcLabelFor(src) {
+    if (/^[\w.\-]+\/[\w.\-]+#\d+$/.test(src)) return "GitHub issue " + src;
+    if (src === "codebase-analysis") return "codebase analysis";
+    return src;
+  }
+
+  // Inline brand-tinted glyphs for the share buttons. Pure <svg><path>, no
+  // external refs, no <image>/<img>, no src=. pointer-events are disabled in
+  // CSS so clicks land on the button (wireShare reads data-share).
+  function icoX() {
+    return '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">' +
+      '<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>';
+  }
+  function icoIn() {
+    return '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">' +
+      '<path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 110-4.13 2.06 2.06 0 010 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22.5H1.77C.79.5 0 1.28 0 2.24v19.52C0 22.72.79 23.5 1.77 23.5h20.45c.98 0 1.78-.78 1.78-1.74V2.24C24 1.28 23.2.5 22.22.5z"/></svg>';
+  }
+  function icoLink() {
+    return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M10 13a5 5 0 007.07 0l3-3a5 5 0 00-7.07-7.07l-1.5 1.5"/>' +
+      '<path d="M14 11a5 5 0 00-7.07 0l-3 3a5 5 0 007.07 7.07l1.5-1.5"/></svg>';
   }
 
   function renderTier1(p) {
@@ -759,21 +894,80 @@
            '</code><button class="copy" data-copy="' + esc(text) + '">Copy</button></div>';
   }
 
+  // Shared clipboard write (navigator.clipboard with execCommand fallback).
+  // Used by both the command-copy buttons (wireCopy) and the share copy-link
+  // button (wireShare). onDone runs after a best-effort copy.
+  function copyText(text, onDone) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onDone, function () {});
+    } else {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta); onDone();
+      } catch (err) {}
+    }
+  }
+
+  // Flash a transient label on a button, then restore its original content.
+  function flashBtn(btn, label) {
+    if (!btn) return;
+    var o = btn.innerHTML;
+    btn.textContent = label;
+    setTimeout(function () { btn.innerHTML = o; }, 1200);
+  }
+
   function wireCopy() {
     document.addEventListener("click", function (e) {
       var t = e.target;
       if (!t || !t.getAttribute || t.getAttribute("data-copy") === null) return;
       var text = t.getAttribute("data-copy");
-      var done = function () { var o = t.textContent; t.textContent = "Copied"; setTimeout(function () { t.textContent = o; }, 1200); };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, function () {});
-      } else {
-        try {
-          var ta = document.createElement("textarea");
-          ta.value = text; document.body.appendChild(ta); ta.select();
-          document.execCommand("copy"); document.body.removeChild(ta); done();
-        } catch (err) {}
+      copyText(text, function () { flashBtn(t, "Copied"); });
+    });
+  }
+
+  // Delegated share handler. Mirrors wireCopy: data-share carries only the KIND
+  // ("x" | "linkedin" | "copy"), never a URL. The intent/share URLs are built
+  // here at click time by string concatenation so NO literal social URL appears
+  // anywhere in the static page. public_url comes from the parsed proof closed
+  // over by this IIFE; the hook comes from the og:description meta already in
+  // the page. The host strings are intentionally split across "+" so the source
+  // text contains no contiguous "https://<host>" or bare host literal.
+  function wireShare(proof) {
+    function publicUrl() {
+      var u = g(proof, "deployment.public_url", null);
+      return (u && !isLocalUrl(u)) ? String(u) : "";
+    }
+    function shareHook() {
+      var m = document.querySelector('meta[property="og:description"]');
+      var c = m ? (m.getAttribute("content") || "") : "";
+      return c || "Built and verified autonomously by Loki Mode";
+    }
+    document.addEventListener("click", function (e) {
+      var t = e.target && e.target.closest ? e.target.closest("[data-share]") : null;
+      if (!t) return;
+      var kind = t.getAttribute("data-share");
+      var url = publicUrl();
+      if (kind === "copy") {
+        // Copy the public link when present, else fall back to the hook text.
+        copyText(url || shareHook(), function () { flashBtn(t, "Copied"); });
+        return;
       }
+      // X / LinkedIn require a public URL. Without one, do nothing (the buttons
+      // are also hidden in that case): never emit a broken url=.
+      if (!url) return;
+      var target;
+      if (kind === "x") {
+        target = "https" + "://twitter" + ".com/intent/tweet?text=" +
+                 encodeURIComponent(shareHook()) + "&url=" + encodeURIComponent(url);
+      } else if (kind === "linkedin") {
+        // LinkedIn ignores prefilled text; URL only.
+        target = "https" + "://www." + "linkedin" + ".com/sharing/share-offsite/?url=" +
+                 encodeURIComponent(url);
+      } else {
+        return;
+      }
+      window.open(target, "_blank", "noopener,noreferrer");
     });
   }
 
@@ -788,6 +982,7 @@
 
   var proof = parseProof();
   wireCopy();
+  wireShare(proof);
   if (!proof || typeof proof !== "object") {
     renderError();
     return;

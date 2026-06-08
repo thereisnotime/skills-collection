@@ -321,6 +321,10 @@ Always prioritize accuracy by consulting the attached documentation files before
         """
         return "OPENAI_API_KEY"
 
+    def supports_upload(self) -> bool:
+        """OpenAI supports uploading assistants via the OpenAI API."""
+        return True
+
     def supports_enhancement(self) -> bool:
         """
         OpenAI supports AI enhancement via GPT-4o.
@@ -383,7 +387,7 @@ Always prioritize accuracy by consulting the attached documentation files before
             client = OpenAI(api_key=api_key)
 
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model=self.config.get("custom_model") or "gpt-4o",
                 messages=[
                     {
                         "role": "system",

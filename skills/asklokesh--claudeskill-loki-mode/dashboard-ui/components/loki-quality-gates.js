@@ -71,6 +71,7 @@ export class LokiQualityGates extends LokiElement {
     this._error = null;
     this._api = null;
     this._gates = [];
+    this._evidence = { blocked: false };
     this._pollInterval = null;
     this._lastDataHash = null;
   }
@@ -137,10 +138,15 @@ export class LokiQualityGates extends LokiElement {
       this._loading = true;
       const data = await this._api._get('/api/council/gate');
       const gates = data?.gates || data || [];
-      const dataHash = JSON.stringify(gates);
+      // Verified-completion evidence gate (v7.19.1): surfaced alongside the
+      // quality gates so a blocked completion shows WHY (empty diff / red
+      // tests) instead of the run silently refusing to stop.
+      const evidence = data?.evidence || { blocked: false };
+      const dataHash = JSON.stringify({ gates, evidence });
       if (dataHash === this._lastDataHash) return;
       this._lastDataHash = dataHash;
       this._gates = Array.isArray(gates) ? gates : [];
+      this._evidence = evidence;
       this._error = null;
     } catch (err) {
       if (!this._error) {
@@ -172,6 +178,44 @@ export class LokiQualityGates extends LokiElement {
         padding: 16px;
         font-family: var(--loki-font-family, 'Inter', -apple-system, sans-serif);
         color: var(--loki-text-primary, #201515);
+      }
+
+      .evidence-banner {
+        border: 1px solid var(--loki-red, #ef4444);
+        background: var(--loki-red-bg, rgba(239, 68, 68, 0.08));
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+      }
+
+      .evidence-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--loki-red, #ef4444);
+        margin-bottom: 4px;
+      }
+
+      .evidence-reason {
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+
+      .evidence-failures {
+        margin: 6px 0;
+        padding-left: 18px;
+        font-size: 12px;
+      }
+
+      .evidence-hint {
+        font-size: 11px;
+        opacity: 0.75;
+      }
+
+      .evidence-hint code {
+        font-family: var(--loki-font-mono, monospace);
+        background: var(--loki-code-bg, rgba(0, 0, 0, 0.06));
+        padding: 1px 4px;
+        border-radius: 3px;
       }
 
       .header {
@@ -328,6 +372,34 @@ export class LokiQualityGates extends LokiElement {
       content = `<div class="gates-grid">${cards}</div>`;
     }
 
+    // Verified-completion evidence gate banner. Shown only when blocking, so
+    // the user sees exactly why a "done" was rejected (no diff / red tests).
+    let evidenceHtml = '';
+    const ev = this._evidence || {};
+    if (ev.blocked) {
+      const reasonLabels = {
+        empty_diff: 'No changes were shipped (empty diff vs run start).',
+        tests_red: 'Tests ran and were red.',
+        empty_diff_and_tests_red: 'No changes shipped and tests were red.',
+        no_evidence_of_completion: 'No evidence of completion.',
+      };
+      const reasonText = ev.error
+        ? this._escapeHtml(ev.error)
+        : (reasonLabels[ev.reason] || this._escapeHtml(ev.reason || 'Completion blocked.'));
+      const failures = Array.isArray(ev.failures) ? ev.failures : [];
+      const failuresHtml = failures.length
+        ? `<ul class="evidence-failures">${failures.map(f => `<li>${this._escapeHtml(f)}</li>`).join('')}</ul>`
+        : '';
+      evidenceHtml = `
+        <div class="evidence-banner">
+          <div class="evidence-title">Verified completion blocked</div>
+          <div class="evidence-reason">${reasonText}</div>
+          ${failuresHtml}
+          <div class="evidence-hint">The run will keep iterating until there is real evidence of completion. Set <code>LOKI_EVIDENCE_GATE=0</code> to opt out.</div>
+        </div>
+      `;
+    }
+
     const summaryHtml = summary.total > 0 ? `
       <div class="summary">
         <span class="summary-item">
@@ -352,6 +424,7 @@ export class LokiQualityGates extends LokiElement {
           <h2 class="title">Quality Gates</h2>
           ${summaryHtml}
         </div>
+        ${evidenceHtml}
         ${content}
         ${this._error ? `<div class="error-banner">${this._escapeHtml(this._error)}</div>` : ''}
       </div>

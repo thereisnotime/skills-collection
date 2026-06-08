@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _claim_audit_constants import (  # noqa: E402
     DRIFT_RULE_VERSION,
     INV6_RATIONALE_PREFIX,
+    JUDGE_PROMPT_SHA256,
     RE_NC_CONSTRAINT,
     SAMPLING_STRATEGY,
     SENTINEL_MANIFEST_ID,
@@ -75,22 +76,58 @@ _RATIONALE_TRUNC_MARK = "…[truncated]"
 _WIDEST_FAULT_PREFIX = "retrieval_network_error: "
 
 
-def _bounded_failure_detail(message: str) -> str:
-    """Clamp a failure detail so the emitted rationale fits the schema maxLength.
+def _clamp_to_rationale_budget(text: str, *, reserved: int) -> str:
+    """Clamp `text` so that `reserved + len(result)` fits the rationale maxLength.
 
-    The row builder forms the rationale as ``f"{fault_class}: {detail}"``. A
-    malformed payload's repr embedded in `message` (a >1000-char sub_claim_text,
-    an over-decomposed breakdown, a giant non-string judgment/method) can push
-    the detail past the rationale maxLength, making the fallback row
-    schema-invalid (#355 P2#3). Truncate to a budget that leaves room for the
-    widest fault-class prefix and a truncation marker, preserving the diagnostic
-    head (which says WHICH malformed shape) at the front.
+    Single length-budgeting choke point for every untrusted string that lands in
+    a row's `rationale` (#355 P2#3 / #360). `reserved` is the number of chars the
+    caller will prepend before this text reaches the rationale field:
+
+    - Failure paths emit ``f"{fault_class}: {detail}"`` → reserved = widest
+      fault-class prefix width, so the worst-case composed rationale still fits.
+    - Success paths copy a judge's own `rationale` verbatim onto the row → no
+      prefix → reserved = 0.
+
+    Truncation preserves the diagnostic head (which says WHAT the string is) and
+    marks the dropped tail, so a short string that already fits passes through
+    byte-for-byte.
     """
-    budget = _RATIONALE_MAX_LEN - len(_WIDEST_FAULT_PREFIX)
-    if len(message) <= budget:
-        return message
+    budget = _RATIONALE_MAX_LEN - reserved
+    if len(text) <= budget:
+        return text
     keep = budget - len(_RATIONALE_TRUNC_MARK)
-    return message[:keep] + _RATIONALE_TRUNC_MARK
+    return text[:keep] + _RATIONALE_TRUNC_MARK
+
+
+def _bounded_failure_detail(message: str) -> str:
+    """Clamp a failure detail so ``f"{fault_class}: {detail}"`` fits the maxLength.
+
+    A malformed payload's repr embedded in `message` (a >1000-char
+    sub_claim_text, an over-decomposed breakdown, a giant non-string
+    judgment/method) can push the detail past the rationale maxLength, making the
+    fallback row schema-invalid (#355 P2#3). Budgets against the widest
+    fault-class prefix so the composed rationale fits for every fault class.
+    """
+    return _clamp_to_rationale_budget(message, reserved=len(_WIDEST_FAULT_PREFIX))
+
+
+def _bounded_judge_rationale(rationale: Any) -> str:
+    """Clamp a judge-supplied `rationale` copied verbatim onto a SUCCESS-path row.
+
+    The judge is an LLM with no pre-emission length guarantee; an over-long
+    `rationale` makes a *clean* completed / constraint_violation row
+    schema-invalid (#360 — the success-path parallel to the #359 fallback fix).
+    No fault-class prefix is prepended on the success path, so reserved = 0.
+
+    `_validate_judge_dict` only checks that the `rationale` key is present, not
+    that its value is a string — a JSON-null (or otherwise non-string) rationale
+    passes that gate. Return "" for a non-string value so each caller's existing
+    fallback (`... or "(no rationale provided)"` / the constraint default) takes
+    over, rather than calling len() on it and aborting the audit run.
+    """
+    if not isinstance(rationale, str):
+        return ""
+    return _clamp_to_rationale_budget(rationale, reserved=0)
 
 
 def _active_constraints_for_claim(
@@ -129,6 +166,7 @@ def _cache_key(
     retrieved_excerpt: str | None,
     active_constraints: list[dict[str, Any]],
     judge_model: str,
+    prompt_version: str,
 ) -> str:
     payload = {
         "claim_text_hash": _hash_text(claim_text),
@@ -140,6 +178,11 @@ def _cache_key(
             _stable_json([{"constraint_id": c["constraint_id"], "rule": c["rule"]} for c in active_constraints])
         ),
         "judge_model": judge_model,
+        # #361: a judge-prompt revision partitions the keyspace — a verdict
+        # cached under one prompt is never served against new prompt logic.
+        # judge_model and prompt_version stay separate components (independent
+        # axes of judge behavior).
+        "prompt_version": prompt_version,
     }
     return hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()
 
@@ -512,7 +555,9 @@ def _judge_result_entry(
 ) -> dict[str, Any]:
     """§4 Steps 5-6: route judge verdict to the right (judgment, defect_stage) row."""
     verdict = judge_result["judgment"]
-    rationale = judge_result.get("rationale", "")
+    # #360: a judge is an LLM with no length guarantee; clamp its rationale to
+    # the schema maxLength before it lands on the completed row (success path).
+    rationale = _bounded_judge_rationale(judge_result.get("rationale", ""))
 
     if verdict == "SUPPORTED":
         judgment, defect_stage, violated_id = "SUPPORTED", None, None
@@ -641,7 +686,10 @@ def _constraint_violation_entry(
         "scoped_manifest_id": scoped_manifest_id,
         "manifest_claim_id": manifest_claim_id,
         "judge_verdict": "VIOLATED",
-        "rationale": judge_result.get("rationale", "Constraint violated by uncited claim."),
+        # #360: clamp the judge-supplied rationale (success path) to maxLength;
+        # `or` default catches a missing/null/empty rationale (schema minLength=1).
+        "rationale": _bounded_judge_rationale(judge_result.get("rationale"))
+        or "Constraint violated by uncited claim.",
         "judge_model": judge_model,
         "judge_run_at": now_iso,
         "rule_version": DRIFT_RULE_VERSION,
@@ -990,6 +1038,19 @@ def run_audit_pipeline(
             "(spec §4 step 3 + S-INV-2 / T-P11 cap=0 rejected)"
         )
     judge_model = config.get("judge_model", "gpt-5.5-xhigh")
+    # #361: prompt_version is a judge-cache-key component. Absent key → default
+    # to JUDGE_PROMPT_SHA256, the prompt's own fingerprint and the SINGLE SOURCE
+    # OF TRUTH for cache invalidation: check_judge_prompt_version.py keeps this
+    # hash in lockstep with the judge-prompt text, so any prompt edit changes the
+    # hash and AUTOMATICALLY invalidates stale entries (the human-readable
+    # JUDGE_PROMPT_VERSION label is decoupled and must NOT gate the cache).
+    # Present-but-None → the caller declares the prompt version UNKNOWN; fail
+    # CLOSED by binding a run-local component (audit_run_id is per-run unique) so
+    # a stale entry is never served across an unknown-version boundary — cross-run
+    # hits are disabled, but within-run dedup for repeated citations still holds.
+    prompt_version = config.get("judge_prompt_version", JUDGE_PROMPT_SHA256)
+    if prompt_version is None:
+        prompt_version = f"__unknown__:{audit_run_id}"
 
     # Build the three lookup indexes once per run. Used by per-citation
     # constraint resolution + manifest-level absorption + drift detection.
@@ -1142,6 +1203,7 @@ def run_audit_pipeline(
             retrieved_excerpt=excerpt,
             active_constraints=active_constraints,
             judge_model=judge_model,
+            prompt_version=prompt_version,
         )
         # In-scope constraint ids for this call. Both fresh judge invocations
         # AND cache hits validate VIOLATED ids against this set so a
