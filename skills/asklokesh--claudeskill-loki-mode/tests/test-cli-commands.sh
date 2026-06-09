@@ -43,12 +43,23 @@ test_cmd() {
     fi
 
     if [ -n "$pattern" ]; then
-        if ! echo "$output" | grep -qi "$pattern"; then
-            log_fail "$desc" "output missing pattern: $pattern"
-            echo "  Actual output (first 5 lines):"
-            echo "$output" | head -5 | sed 's/^/    /'
-            return 0
-        fi
+        # Case-insensitive substring check done in-shell (no pipe). Piping into
+        # `grep -q` races: grep exits on first match and closes the pipe, so the
+        # upstream `echo` is killed by SIGPIPE ("write error: Broken pipe"), and
+        # on a loaded CI runner that broken-pipe exit can be misread as no-match.
+        # A bash glob match has no subprocess and no pipe, so it is race-free.
+        local hay_lc pat_lc
+        hay_lc=$(printf '%s' "$output" | tr '[:upper:]' '[:lower:]')
+        pat_lc=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
+        case "$hay_lc" in
+            *"$pat_lc"*) ;;
+            *)
+                log_fail "$desc" "output missing pattern: $pattern"
+                echo "  Actual output (first 5 lines):"
+                printf '%s\n' "$output" | head -5 | sed 's/^/    /'
+                return 0
+                ;;
+        esac
     fi
 
     log_pass "$desc"

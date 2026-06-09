@@ -107,6 +107,8 @@
 - Inter-stream communication via signals
 - Auto-merge completed features
 - Orchestrator state management
+- Supervisor / judge pattern (CONTINUE / COMPLETE / ESCALATE / PIVOT)
+- Dynamic resource-aware session concurrency (LOKI_DYNAMIC_CONCURRENCY)
 
 ### github-integration.md
 **When:** Working with GitHub issues, creating PRs, syncing status

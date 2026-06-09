@@ -579,7 +579,7 @@ show_help() {
     echo "  ci [opts]        CI/CD quality gate integration (--pr, --report, --github-comment)"
     echo "  test [opts]      AI-powered test generation (--file, --dir, --changed, --dry-run)"
     echo "  context [cmd]    Context window management (show|files|tools|add|clear)"
-    echo "  code [cmd]       Codebase intelligence (overview|symbols|deps|hotspots|diff)"
+    echo "  code [cmd]       Codebase intelligence (overview|symbols|deps|hotspots|diff|search)"
     echo "  report [opts]    Session report generator (--format text|markdown|html, --output)"
     echo "  share [opts]     Share session report as GitHub Gist (--private, --format)"
     echo "  proof [cmd]      Inspect/share proof-of-run artifacts (list|show|open|share)"
@@ -19712,6 +19712,7 @@ cmd_code() {
             echo "Subcommands:"
             echo "  overview    Generate workspace overview (file types, LOC, structure)"
             echo "  symbols     Search for symbols (functions, classes, variables)"
+            echo "  search      Hybrid grep + semantic codebase search"
             echo "  deps        Show dependency graph for a file or module"
             echo "  hotspots    Find code hotspots (most-changed files, complexity)"
             echo "  diff        Show colored diff of recent changes"
@@ -19720,6 +19721,9 @@ cmd_code() {
             echo "  loki code overview                  # Full codebase overview"
             echo "  loki code overview --silent          # Compact output"
             echo "  loki code symbols 'class.*Service'   # Find service classes"
+            echo "  loki code search 'rate limit backoff'   # Hybrid grep + semantic search"
+            echo "  loki code search 'council vote' --grep-only   # Lexical only"
+            echo "  loki code search 'memory retrieval' --semantic-only --top 15"
             echo "  loki code deps src/main.py           # Show dependencies"
             echo "  loki code hotspots --top 10          # Top 10 changed files"
             echo "  loki code diff                       # Colored diff of uncommitted changes"
@@ -19732,6 +19736,9 @@ cmd_code() {
             ;;
         symbols)
             _code_symbols "$@"
+            ;;
+        search)
+            _code_search "$@"
             ;;
         deps)
             _code_deps "$@"
@@ -19748,6 +19755,76 @@ cmd_code() {
             return 1
             ;;
     esac
+}
+
+# Hybrid codebase search: grep + semantic (ChromaDB) fused with RRF.
+# Delegates to tools/hybrid_search.py (needs python3.12 for chromadb). The
+# Python side handles the rg / grep / python-scan fallback and the grep-only
+# degradation when ChromaDB is unreachable, so this stays thin.
+_code_search() {
+    local query=""
+    local -a pyargs=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --grep-only) pyargs+=("--grep-only"); shift ;;
+            --semantic-only) pyargs+=("--semantic-only"); shift ;;
+            --budget) pyargs+=("--budget" "${2:-3000}"); shift 2 ;;
+            --top) pyargs+=("--top" "${2:-10}"); shift 2 ;;
+            --json) pyargs+=("--json"); shift ;;
+            -h|--help)
+                echo -e "${BOLD}loki code search${NC} - Hybrid grep + semantic codebase search"
+                echo ""
+                echo "Usage: loki code search \"<query>\" [flags]"
+                echo ""
+                echo "Flags:"
+                echo "  --grep-only        Lexical search only (skip semantic)"
+                echo "  --semantic-only    Semantic search only (skip grep)"
+                echo "  --budget N         Token budget for merged results (default 3000)"
+                echo "  --top N            Max results (default 10)"
+                echo "  --json             Output JSON"
+                echo ""
+                echo "Falls back to grep-only when ChromaDB is unreachable."
+                return 0
+                ;;
+            *)
+                if [[ -z "$query" ]]; then
+                    query="$1"
+                else
+                    query="$query $1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$query" ]]; then
+        echo -e "${RED}Usage: loki code search \"<query>\" [--grep-only|--semantic-only] [--budget N] [--top N]${NC}"
+        return 1
+    fi
+
+    local script_dir hybrid py
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    hybrid="$script_dir/tools/hybrid_search.py"
+    if [[ ! -f "$hybrid" ]]; then
+        echo -e "${RED}hybrid_search.py not found at $hybrid${NC}"
+        return 1
+    fi
+
+    # chromadb requires python3.12 on this stack; fall back to python3 for the
+    # grep-only path if 3.12 is absent.
+    if [[ -x /opt/homebrew/bin/python3.12 ]]; then
+        py=/opt/homebrew/bin/python3.12
+    else
+        py="$(command -v python3 || true)"
+    fi
+    if [[ -z "$py" ]]; then
+        echo -e "${RED}python3 not found${NC}"
+        return 1
+    fi
+
+    # Safe array expansion: "${pyargs[@]}" triggers "unbound variable" under
+    # bash 3.2 (macOS default) + set -u when the array is empty (no flags).
+    "$py" "$hybrid" "$query" ${pyargs[@]+"${pyargs[@]}"}
 }
 
 _code_overview() {

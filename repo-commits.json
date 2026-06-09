@@ -753,6 +753,30 @@
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
     {
+      "sha": "ae26985",
+      "message": "Remove Claude plugin setup and focus on skills.sh only.",
+      "date": "2026-06-08",
+      "author": "Eyad Kelleh"
+    },
+    {
+      "sha": "bfebefd",
+      "message": "Document skills.sh installation and usage in README.",
+      "date": "2026-06-08",
+      "author": "Eyad Kelleh"
+    },
+    {
+      "sha": "80a246d",
+      "message": "Reorganize skills for skills.sh compatibility.",
+      "date": "2026-06-08",
+      "author": "Eyad Kelleh"
+    },
+    {
+      "sha": "2a4e0a9",
+      "message": "Update README.md",
+      "date": "2026-06-08",
+      "author": "Eyad Kelleh"
+    },
+    {
       "sha": "86d2316",
       "message": "Merge pull request #2 from kriptoburak/add-xquik",
       "date": "2026-03-21",
@@ -853,6 +877,42 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "a0bcc69",
+      "message": "feat(#216): Surface-Form Parity self-check (\u00a7F.3.6 reviewer-type asymmetry) (#380)",
+      "date": "2026-06-09",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "9524237",
+      "message": "feat(#215): field-norm severity calibration across reviewer surfaces (#379)",
+      "date": "2026-06-09",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "f96a7c1",
+      "message": "feat(#377): version-consistency lint for SKILL.md last_updated (#378)",
+      "date": "2026-06-09",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "b5a3370",
+      "message": "release: v3.12.0 \u2014 Kong auto-research feature track + partial-evidence decomposition (#376)",
+      "date": "2026-06-08",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "7c128a4",
+      "message": "docs(#255): close Kong META \u2014 negative scope + Tier D design lessons (#375)",
+      "date": "2026-06-08",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "d066340",
+      "message": "#260: Experiment Provenance Intake + claim\u2192experiment alignment (schema-first) (#374)",
+      "date": "2026-06-08",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "aa54bc9",
       "message": "feat(#262): cross-paper contradiction inventory \u2014 structured enumeration in synthesis layer (#373)",
       "date": "2026-06-08",
@@ -875,45 +935,15 @@
       "message": "feat(#273): same-family/rubric-aware calibration epistemic note (#370)",
       "date": "2026-06-08",
       "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "36ee7df",
-      "message": "feat(#274): concise output discipline + pressure-stable boundary reinforcement (#369)",
-      "date": "2026-06-08",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "5ed3e8f",
-      "message": "feat(#214): sub-claim inventory before consensus in editorial synthesizer (#368)",
-      "date": "2026-06-08",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "1be5cbb",
-      "message": "feat: state retrieved-content instruction/data boundary as a standing principle (#367)",
-      "date": "2026-06-07",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "d79eea7",
-      "message": "fix(eval): remove fabricated tuple mislabeled as genuine unindexed paper (#250) (#366)",
-      "date": "2026-06-07",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "daf539b",
-      "message": "chore: gitignore local tooling scratch directory (#365)",
-      "date": "2026-06-07",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "a38757d",
-      "message": "fix(disclosure): reground ACL/EMNLP rows to ACL Admin Wiki canonical (#242) (#364)",
-      "date": "2026-06-07",
-      "author": "Edward Cheng-I Wu"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
+    {
+      "sha": "9881fe4",
+      "message": "chore: update security scan report [skip ci]",
+      "date": "2026-06-08",
+      "author": "github-actions[bot]"
+    },
     {
       "sha": "4457f17",
       "message": "chore: update security scan report [skip ci]",
@@ -965,12 +995,6 @@
     {
       "sha": "f401d0e",
       "message": "Update Modal skill",
-      "date": "2026-05-28",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "01c6a9e",
-      "message": "Add bulk-rnaseq workflow skill",
       "date": "2026-05-28",
       "author": "Timothy Kassis"
     }
@@ -2217,6 +2241,12 @@
   ],
   "expo--skills": [
     {
+      "sha": "c388602",
+      "message": "bump expo plugin version to 1.1.0 so installed clients pull skill updates (#78)",
+      "date": "2026-06-08",
+      "author": "David Mokos"
+    },
+    {
       "sha": "145a923",
       "message": "Add shared agent and plugin metadata (#72)",
       "date": "2026-06-04",
@@ -2269,15 +2299,21 @@
       "message": "[router] Add expo-router SDK 56 migration skill (#56)",
       "date": "2026-05-05",
       "author": "Jakub Grzywacz"
-    },
-    {
-      "sha": "93751da",
-      "message": "[eas-update-insights] improve formatting (#48)",
-      "date": "2026-04-23",
-      "author": "Kadi Kraman"
     }
   ],
   "firecrawl--cli": [
+    {
+      "sha": "db25ace",
+      "message": "fix(cli): handle wrapper argv parsing (#129)",
+      "date": "2026-06-08",
+      "author": "Abimael Martell"
+    },
+    {
+      "sha": "375adea",
+      "message": "fix(deps): stabilize pnpm global install (#128)",
+      "date": "2026-06-08",
+      "author": "Abimael Martell"
+    },
     {
       "sha": "48a913d",
       "message": "feat: Add doctor command (#112)",
@@ -2323,18 +2359,6 @@
     {
       "sha": "9007a71",
       "message": "Merge pull request #120 from firecrawl/update-monitor-skill",
-      "date": "2026-05-28",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "b458160",
-      "message": "Update package.json",
-      "date": "2026-05-28",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "a1ce0df",
-      "message": "update monitor skill schedule examples",
       "date": "2026-05-28",
       "author": "Developers Digest"
     }
@@ -2865,6 +2889,18 @@
   ],
   "netlify--context-and-tools": [
     {
+      "sha": "22025ef",
+      "message": "Merge pull request #47 from netlify/fix-axis-scenario-criteria",
+      "date": "2026-06-08",
+      "author": "Sean C Davis"
+    },
+    {
+      "sha": "195dc5f",
+      "message": "fix: update AXIS scenario criteria",
+      "date": "2026-06-08",
+      "author": "Sean C Davis"
+    },
+    {
       "sha": "5f777ba",
       "message": "Merge pull request #43 from netlify/sr/fix-cur",
       "date": "2026-06-04",
@@ -2909,18 +2945,6 @@
     {
       "sha": "a484b84",
       "message": "Merge pull request #40 from netlify/sr/axis",
-      "date": "2026-06-04",
-      "author": "Sean Roberts"
-    },
-    {
-      "sha": "66fa28a",
-      "message": "chore: Rebuild Codex skills from source [skip ci]",
-      "date": "2026-06-04",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "61958ba",
-      "message": "feat: add initial set of AXIS scenarios for skills",
       "date": "2026-06-04",
       "author": "Sean Roberts"
     }
@@ -4491,6 +4515,36 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "d9554a0",
+      "message": "release: v7.23.1 - de-flake delegate-notify test (CI git default-branch assumption)",
+      "date": "2026-06-09",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "a3e708c",
+      "message": "release: v7.23.0 - hybrid codebase search + incremental index freshness + dynamic concurrency",
+      "date": "2026-06-09",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "33aa996",
+      "message": "release: v7.22.0 - delegate then notify on done (local async daemon finish)",
+      "date": "2026-06-09",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "77afd2a",
+      "message": "release: v7.21.0 - AGENTS.md support + fix bash-vs-Bun ANALYSIS parity drift",
+      "date": "2026-06-09",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "273df67",
+      "message": "release: v7.20.0 - positioning refresh (trust-layer / spec-driven wedge) + MCP advertise + benchmark honesty",
+      "date": "2026-06-08",
+      "author": "asklokesh"
+    },
+    {
       "sha": "c2726b3",
       "message": "release: v7.19.4 - loki crash list alias + CI reliability (flaky file-lock + core-gated parallelism test)",
       "date": "2026-06-07",
@@ -4518,36 +4572,6 @@
       "sha": "bcf8a4a",
       "message": "release: v7.19.1 - verified-completion evidence gate (default-on, both completion paths)",
       "date": "2026-06-07",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "759d07a",
-      "message": "release: v7.19.0 - failure-memory loop (learn from failures across iterations)",
-      "date": "2026-06-07",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "829f444",
-      "message": "release: v7.18.3 - first-run getting-started + honest demo copy",
-      "date": "2026-06-07",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "217b4ee",
-      "message": "release: v7.18.2 - crash reporting Phase 0 (local-only) + unified telemetry opt-out",
-      "date": "2026-06-06",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "43722d1",
-      "message": "release: v7.18.1 - bash loki doctor ANTHROPIC_BASE_URL parity (#162)",
-      "date": "2026-06-06",
-      "author": "Lokesh Mure"
-    },
-    {
-      "sha": "3a5c73d",
-      "message": "chore: remove unused .loki/ artifacts and stop tracking .loki entirely",
-      "date": "2026-06-04",
       "author": "asklokesh"
     }
   ],
@@ -5161,6 +5185,12 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "4e7c0e3",
+      "message": "docs(databricks-pack): register 014-016 in 000-docs index (#854)",
+      "date": "2026-06-09",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "83ac5c7",
       "message": "chore: remove Nixtla from public listings + align geepers catalog name with npm (#853)",
       "date": "2026-06-08",
@@ -5211,12 +5241,6 @@
     {
       "sha": "4f69f49",
       "message": "docs(readme): Anthropic deep-link map + wiki section + FAQ + troubleshooting (#846)",
-      "date": "2026-06-08",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "915c456",
-      "message": "feat(databricks-pack): source-cite the cost-leak one-pager demo + ship live (#851)",
       "date": "2026-06-08",
       "author": "intentsolutions.io"
     }
@@ -5409,6 +5433,12 @@
   ],
   "affaan-m--everything-claude-code": [
     {
+      "sha": "edebcc8",
+      "message": "feat(discord): release -> #announcements auto-post + pin + GitHub Discussions (#2201)",
+      "date": "2026-06-09",
+      "author": "Affaan Mustafa"
+    },
+    {
       "sha": "90dfd95",
       "message": "feat: add orch-* orchestrator skill family (#2153)",
       "date": "2026-06-07",
@@ -5461,15 +5491,27 @@
       "message": "feat: Cursor-independent ECC memory via ECC_AGENT_DATA_HOME (#2066)",
       "date": "2026-06-07",
       "author": "Tom Cruise Missile"
-    },
-    {
-      "sha": "81c9150",
-      "message": "fix(docs): sync marketplace add URL across translated READMEs (#2050) (#2068)",
-      "date": "2026-06-07",
-      "author": "Infinity_Block"
     }
   ],
   "glebis--claude-skills": [
+    {
+      "sha": "25887f6",
+      "message": "feat(rigorous-experiments): explorer all-tests toggle",
+      "date": "2026-06-08",
+      "author": "glebis"
+    },
+    {
+      "sha": "3f124c1",
+      "message": "fix(rigorous-experiments): data-validation rule for degenerate units + non-varying covariates",
+      "date": "2026-06-08",
+      "author": "glebis"
+    },
+    {
+      "sha": "8dd0916",
+      "message": "feat(rigorous-experiments): add investigate-leads mode + workflow hardening",
+      "date": "2026-06-08",
+      "author": "glebis"
+    },
     {
       "sha": "2f87c2e",
       "message": "feat(rigorous-experiments): explorer v3 \u2014 sans-serif UI, resizable sidebar, stars, full-field rendering, report links",
@@ -5511,85 +5553,67 @@
       "message": "confide: bare-domain URL recognizer + NER scaffolding filter",
       "date": "2026-06-03",
       "author": "glebis"
-    },
-    {
-      "sha": "6a85fbf",
-      "message": "confide: add deterministic AGE recognizer + kinship precision guard",
-      "date": "2026-06-03",
-      "author": "glebis"
-    },
-    {
-      "sha": "9ace0ef",
-      "message": "confide plugin v2: add rehydrate/view/audit/vault/annotate + reversible map + hardening",
-      "date": "2026-06-03",
-      "author": "glebis"
-    },
-    {
-      "sha": "7f34db8",
-      "message": "Add confide plugin: confide:setup / confide:anon / confide:red (local-first de-id)",
-      "date": "2026-06-03",
-      "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "3d13e08",
-      "message": "chore(badge): update Last Updated badge to Jun 08, 2026 11:34 AM PKT",
-      "date": "2026-06-08",
+      "sha": "063e359",
+      "message": "chore(docs): bump Last Updated badge to Jun 09, 2026 and version to v2.1.169",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "360144d",
-      "message": "chore(changelog): add 2026-06-08 subagents drift check entry (v2.1.168, no drift)",
-      "date": "2026-06-08",
+      "sha": "4fa5a0b",
+      "message": "chore(changelog): add 2026-06-09 subagents drift check entry (v2.1.169, no drift)",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "645d7ac",
-      "message": "best-practice/claude-commands: bump Last Updated badge to Jun 08, 2026",
-      "date": "2026-06-08",
+      "sha": "614cf96",
+      "message": "append v2.1.169 run entry: /cd command added (HIGH)",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "93f7e81",
-      "message": "changelog: append 2026-06-08 no-drift run entry for claude-commands",
-      "date": "2026-06-08",
+      "sha": "7784bf5",
+      "message": "add /cd command to Session tag (v2.1.169); count 83 \u2192 84",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "7bfca28",
-      "message": "docs(claude-skills): update Last Updated badge to Jun 08, 2026",
-      "date": "2026-06-08",
+      "sha": "9084e84",
+      "message": "docs(claude-skills): bump Last Updated badge to Jun 09, 2026 and version to v2.1.169",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "064f0cd",
-      "message": "changelog(claude-skills): add 2026-06-08 no-drift entry for v2.1.168",
-      "date": "2026-06-08",
+      "sha": "9e94373",
+      "message": "changelog(claude-skills): no drift detected for v2.1.169 run on 2026-06-09",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "d02507d",
-      "message": "readme: bump Last Updated badge to 9:36 AM PKT",
-      "date": "2026-06-08",
+      "sha": "a20339f",
+      "message": "readme: bump Last Updated badge to v2.1.169 (Jun 09, 2026)",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "0e6bf7f",
-      "message": "changelog: daily CONCEPTS drift-check Jun 8 2026 09:36 AM PKT",
-      "date": "2026-06-08",
+      "sha": "bb7632a",
+      "message": "changelog: append v2.1.169 daily drift-check entry (2026-06-09)",
+      "date": "2026-06-09",
       "author": "Claude"
     },
     {
-      "sha": "6d031ea",
-      "message": "changelog: development workflows update Jun 8 2026 09:17 AM PKT",
-      "date": "2026-06-08",
+      "sha": "e8b7203",
+      "message": "append Jun 09 2026 development-workflows changelog entry",
+      "date": "2026-06-09",
       "author": "Claude Routine"
     },
     {
-      "sha": "1939685",
-      "message": "update development workflows table: star updates Jun 8 2026",
-      "date": "2026-06-08",
+      "sha": "4ff536d",
+      "message": "update DEVELOPMENT WORKFLOWS star counts (Jun 09 2026)",
+      "date": "2026-06-09",
       "author": "Claude Routine"
     }
   ],

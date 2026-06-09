@@ -147,6 +147,71 @@ See `skills/documentation.md` for documentation generation using Repowise.
 
 ---
 
+## Built-in Hybrid Codebase Search (loki_code_search)
+
+Loki Mode ships its own codebase search that does not require any third-party MCP
+server. It is exposed both as MCP tools (`loki_code_search`,
+`loki_code_search_stats`) and as a CLI subcommand (`loki code search`). It combines
+lexical and semantic retrieval over the indexed codebase:
+
+- Lexical: ripgrep / grep (with a python scan fallback)
+- Semantic: ChromaDB over the `loki-codebase` collection
+- Fusion: reciprocal rank fusion (RRF) merges the two ranked lists
+- Truncation: results are deduped by file:line and trimmed to a token budget
+  (greedy, highest fused score first)
+
+When ChromaDB or its docker container is unreachable, search degrades to grep-only
+so it still returns results instead of erroring. The implementation lives in
+`tools/hybrid_search.py`.
+
+### Index freshness and staleness reporting
+
+The semantic index is backed by a manifest at
+`.loki/state/code-index-manifest.json`. The MCP tools (`loki_code_search` and
+`loki_code_search_stats`) compare the manifest against the files on disk and report
+two fields in their JSON output:
+
+- `stale`: boolean, true when one or more indexed files have changed since the last
+  index
+- `stale_files`: count of changed files
+
+Staleness is computed from the manifest alone (no ChromaDB call), and a missing
+manifest degrades to not-stale so a fresh repo is unaffected.
+
+Default behavior is warn-if-stale: the tools report staleness but do not re-index.
+Set `LOKI_CODE_INDEX_AUTOREINDEX=1` to opt into an automatic incremental re-index
+before querying (off by default because embeddings cost compute). The incremental
+re-index is driven by `tools/index-codebase.py --changed`, which re-chunks only
+files whose mtime or sha1 differ from the manifest, upserts the new chunks, deletes
+orphaned chunk IDs for changed files, and drops chunks for files removed from disk.
+
+### CLI usage: `loki code search`
+
+```bash
+loki code search "rate limit backoff"            # hybrid grep + semantic
+loki code search "council vote" --grep-only      # lexical only
+loki code search "memory retrieval" --semantic-only --top 15
+loki code search "build prompt" --budget 4000    # widen the token budget
+loki code search "save state" --json             # machine-readable output
+```
+
+Flags (see `loki code search --help`):
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--grep-only` | off | lexical search only (skip semantic) |
+| `--semantic-only` | off | semantic search only (skip grep) |
+| `--budget N` | 3000 | token budget for the merged result set |
+| `--top N` | 10 | maximum number of results |
+| `--json` | off | emit JSON instead of formatted output |
+
+`loki code search` is one of the `loki code` codebase-intelligence subcommands
+(alongside `overview`, `symbols`, `deps`, `hotspots`, and `diff`). It falls back to
+grep-only when ChromaDB is unreachable, and requires python3.12 for the semantic
+path because that is what the chromadb client needs on this stack.
+
+---
+
 ## MCP Configuration Location
 
 Claude Code reads MCP configuration from:

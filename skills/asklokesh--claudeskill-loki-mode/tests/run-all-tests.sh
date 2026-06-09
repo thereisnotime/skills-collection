@@ -130,6 +130,37 @@ run_test "Completion-route Evidence Gate (default path)" "$SCRIPT_DIR/test-compl
 # must NOT escalate. Regression guard for the v7.19.2 escalation ladder.
 run_test "Uncertainty Escalation (2-of-3 proxies)" "$SCRIPT_DIR/test-uncertainty-escalation.sh"
 
+# AGENTS.md support (agents.md standard: AGENTS.md preferred, CLAUDE.md
+# fallback, nearest-file-wins, never merged). The layered doc walker resolves
+# per-dir conventions via _lpg_memory_file; the build_prompt instruction line is
+# parity-locked byte-identical across the bash and Bun routes.
+run_test "AGENTS.md Doc Walker (precedence + fallback)" "$SCRIPT_DIR/test-agents-md-walker.sh"
+run_test "AGENTS.md build_prompt Instruction (all blocks)" "$SCRIPT_DIR/test-agents-md-build-prompt.sh"
+run_test "AGENTS.md Instruction Parity (bash vs Bun)" "$SCRIPT_DIR/test-parity-agents-md.sh"
+
+# Delegate-then-notify (Release 2): build_completion_summary writes the durable
+# .loki/COMPLETION.txt + .loki/state/completion.json for every terminal state
+# and suppresses the desktop ping when LOKI_NOTIFICATIONS=0 while still writing
+# the files (state, not a notification).
+run_test "Completion Summary (delegate-then-notify files)" "$SCRIPT_DIR/test-completion-summary.sh"
+
+# Dynamic resource-aware session concurrency (Release 3, slice 3): effective_session_cap
+# default-off byte-identical, scales the session cap down under CPU/memory pressure,
+# best-effort on missing/garbage resources.json, clamped to [1, ceiling].
+run_test "Dynamic Session Concurrency (effective_session_cap)" "$SCRIPT_DIR/test-dynamic-concurrency.sh"
+
+# Delegate-then-notify (Release 2): notify on ALL terminal states
+# (complete / max_iterations / stopped / failed) with branch + diff in the body;
+# on_run_complete is default-OFF and defers to the existing GITHUB_PR path; the
+# --bg daemon machinery + new UX message lines are preserved.
+run_test "Delegate Notify (all terminal states)" "$SCRIPT_DIR/test-delegate-notify.sh"
+
+# Hybrid retrieval (Release 3): incremental-freshness manifest diff + staleness
+# detection (slice 1) and reciprocal-rank-fusion determinism + dedup by
+# file:line + budget-never-exceeded + grep-only fallback (slice 2). Pure-logic
+# tests run without a live ChromaDB; live-index parts skip cleanly when absent.
+run_test "Hybrid Codebase Search (manifest + RRF + budget + fallback)" "$SCRIPT_DIR/test-hybrid-search.sh"
+
 # Linting
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"
 

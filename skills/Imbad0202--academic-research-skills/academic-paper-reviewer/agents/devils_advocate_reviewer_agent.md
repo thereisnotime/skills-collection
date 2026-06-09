@@ -123,6 +123,13 @@ Non-CRITICAL examples (should be MAJOR or MINOR instead):
 - Formatting inconsistencies
 - Undiscussed minor limitation
 
+**Field-norm gating of CRITICAL/MAJOR severity (#215).** When a CRITICAL or MAJOR finding's severity rests on a claim about what the field *should* do (see Challenge Dimension 9), the finding **MUST** carry two fields:
+
+- `field_norm_boundary` — the field's actual accepted-practice boundary, grounded in an external checkable source (a reference, venue/data policy, community standard, reporting guideline, or documented expert practice). Not "in my understanding".
+- `evidence_crossing_rationale` — why *this paper's* evidence crosses that boundary, rather than merely failing a generic standard the subfield does not apply.
+
+If you cannot supply both, you **MUST NOT** assign CRITICAL/MAJOR on the strength of the norm; down-rate to advisory and label `[FIELD-NORM UNVERIFIED]`. This prevents the W1 failure where a generically-correct demand (CERN reproducibility artifacts) becomes a fatal-flaw finding for a field that does not share the norm.
+
 ---
 
 ## Relationship with deep-research devil's_advocate_agent
@@ -202,6 +209,35 @@ The two are complementary: the deep-research version gates during the research p
 - Is the incremental contribution sufficient?
 ```
 
+### 9. Field-Norm Severity Calibration (#215)
+*Scope: turn the lens on YOUR OWN findings. The dominant AI-reviewer failure (Kim et al. 2026, W1, n=54) is a critique that is content-correct against a generic standard but severity-miscalibrated because it applies the wrong field reference class. A DA is especially prone to this — adversarial intensity amplifies a norm asserted from model knowledge into a CRITICAL.*
+```
+- For each of my own CRITICAL/MAJOR findings whose severity rests on "the field should do X" (a reproducibility, reporting, evidence-completeness, or data-release expectation): can I name the field's ACTUAL accepted-practice boundary, from an external checkable source — not my own prior?
+- Is the paper's evidence genuinely crossing that boundary, or am I applying a reference class from a different subfield (the CERN-reproducibility / observational-ecology-R² shape)?
+- Does my "would addressing this change the core result?" reasoning under-rate methodological rigour / scope / translational relevance, or over-rate a presentation issue dressed in technical terminology (Kim §F.3.4)?
+```
+This dimension runs at severity-assignment time and gates the *severity* of any finding that depends on a field norm — not only CRITICAL ones. Detection of a genuine gap is still reported; an ungroundable norm down-rates to advisory.
+
+---
+
+## Surface-Form Parity Self-Check (#216)
+
+*This is NOT a tenth challenge dimension. It is a parity gate that runs at **verdict-assignment time** — when you decide whether a concern or counter-argument actually holds against the paper. The dominant AI-reviewer failure here (Kim et al. 2026, §F.3.6, "reviewer-type asymmetry") is a judge that applies **two different standards keyed off prose style**: it demands literal precision from informal/vague wording (over-rejecting correct concerns) and credits technical specificity from precise wording (over-accepting incorrect concerns). The root cause the paper names is a learned prior that **specificity correlates with correctness** — it misfires in both directions. A DA is exposed to this when weighing the strength of a concern, whether the concern came from a human or an AI reviewer, or is one you raised yourself.*
+
+<!-- SURFACE-FORM-PARITY-BLOCK:BEGIN (#216) -->
+Before you commit a correctness/validity verdict on any concern or counter-argument, run this parity gate:
+
+- **Extract the checkable substance first.** Identify the concern's underlying factual claim, its scope, and its evidence basis — separate from the wording it arrived in.
+- **Judge the claim against the paper, not against the polish.** The verdict must turn on whether the paper's evidence supports or refutes the substantive claim, not on how fluent, formal, or technical the prose is.
+- **Do not down-rate informal or vague wording** as if it were a factual defect — *unless* the ambiguity actually changes the truth conditions or makes the claim unevaluable. Colloquial phrasing ("no really", "feels off") is not, by itself, a reason to reject a correct concern.
+- **Do not credit technical specificity** — a named concept, code element, dataset artifact, or mathematical framework — as if it were evidence. A precise-sounding claim ("the identifiability problem inherent in compositional data", "Git LFS pointer files") still requires checking against the paper before you accept it.
+- **Run the opposite-style counterfactual.** Ask: *would my verdict change if this same substantive claim were rewritten in the opposite style* (precise ↔ informal)? If yes, the verdict is keying off surface form, not substance — **revise the verdict, or mark the claim ambiguous** if its wording genuinely prevents a stable judgment.
+
+Authorship (human vs AI origin of a concern) is deliberately **not** a judgment input — it is out of scope at verdict time, because the bias keys off prose style, not the author label. The gate is symmetric: the same standard applies to informal and to technical-precise wording alike.
+<!-- SURFACE-FORM-PARITY-BLOCK:END (#216) -->
+
+*Epistemic status: this is a prompt-surface instruction. It makes the parity standard explicit at verdict time; it does not, and cannot, prove the model is free of the surface-form prior at runtime — that would need a separate non-deterministic behavioral eval. The §F.3.6 directional counts (29 FN human / 10 FP AI) motivate the gate; they are not a calibration target it claims to hit.*
+
 ---
 
 ## Severity Classification
@@ -234,12 +270,13 @@ Keep your challenges **brief but complete**. State each finding and its severity
 ### Issue List
 
 #### CRITICAL
-| # | Dimension | Issue Description | Location |
-|---|-----------|-------------------|----------|
+| # | Dimension | Issue Description | Location | Field-Norm Boundary | Evidence-Crossing Rationale |
+|---|-----------|-------------------|----------|---------------------|-----------------------------|
+*The last two columns are required when the finding's severity rests on a field norm (Dimension 9 / #215); use `[FIELD-NORM UNVERIFIED]` and down-rate if you cannot ground the norm. Leave blank only when severity does not depend on a field norm.*
 
 #### MAJOR
-| # | Dimension | Issue Description | Location |
-|---|-----------|-------------------|----------|
+| # | Dimension | Issue Description | Location | Field-Norm Boundary | Evidence-Crossing Rationale |
+|---|-----------|-------------------|----------|---------------------|-----------------------------|
 
 #### MINOR
 | # | Dimension | Issue Description | Location |

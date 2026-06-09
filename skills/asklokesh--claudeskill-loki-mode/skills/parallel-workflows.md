@@ -128,6 +128,102 @@ orchestrator_workflow:
 
 ---
 
+## Supervisor / Judge Pattern
+
+A supervisor (or judge) is a decision step the orchestrator runs at milestones to
+decide whether the parallel run should keep going, wrap up, ask a human, or change
+course. It is a pattern, not a separate daemon: the orchestrator already makes this
+call at completion checkpoints. The judge verbs below are adopted from Cursor's
+multi-agent learnings (see `references/cursor-learnings.md`).
+
+### When the supervisor runs
+
+- After a major milestone (a stream merges, a phase completes)
+- When workers report completion
+- When progress stalls (diminishing returns across iterations)
+- Under resource pressure, before deciding to spawn more sessions
+
+### Inputs and outputs
+
+```yaml
+supervisor:
+  inputs:
+    - Current state            # .loki/state/ for each worktree/stream
+    - Original goal            # the PRD / spec / brief
+    - Recent progress          # checklist deltas, merged streams, test results
+    - Resource consumption     # .loki/state/resources.json (CPU, memory, status)
+  outputs:
+    - CONTINUE   # more work needed; keep streams running
+    - COMPLETE   # goal achieved; move to cleanup
+    - ESCALATE   # human intervention needed; raise a PAUSE / handoff
+    - PIVOT      # current approach is not converging; change strategy
+```
+
+The closest implemented analog is the completion council (`council_should_stop()`
+in `autonomy/completion-council.sh`), which decides COMPLETE vs CONTINUE from
+evidence rather than a single self-report. The supervisor pattern extends that
+mental model to the parallel case: it also reads `.loki/state/resources.json` so a
+machine under load steers toward CONTINUE-with-fewer-sessions (or ESCALATE) instead
+of oversubscribing the host.
+
+### Resource state as input
+
+The orchestrator persists a best-effort snapshot to
+`.loki/state/resources.json` (CPU usage percent, memory usage percent, and an
+`overall_status`). The dynamic-concurrency logic below reads the same file, so the
+supervisor's "can I spawn more?" decision and the spawn cap stay consistent.
+
+---
+
+## Dynamic Resource-Aware Session Concurrency
+
+By default Loki Mode caps parallel Claude sessions at a fixed
+`LOKI_MAX_PARALLEL_SESSIONS` (default 3). Opt-in dynamic concurrency lets that cap
+scale DOWN under load instead of oversubscribing the machine. It only ever reduces
+the cap; it never raises it above the configured ceiling.
+
+`effective_session_cap()` (`autonomy/run.sh`) is the single source of truth:
+
+- Default off (`LOKI_DYNAMIC_CONCURRENCY` unset or not `1`): returns exactly
+  `LOKI_MAX_PARALLEL_SESSIONS` with no file reads and no subprocesses, so the spawn
+  decision is byte-identical to the pre-feature behavior.
+- Enabled: starts from `LOKI_MAX_PARALLEL_SESSIONS_CEILING` and reads
+  `.loki/state/resources.json`. At/above the CPU or memory threshold (default 85
+  percent), or when `overall_status` is not `ok`, it halves the cap. At/above the
+  critical threshold (default 95 percent) it forces the cap to 1. The result is
+  always clamped to `[1, ceiling]`. A missing, empty, or unparseable resources file
+  is treated as no-pressure and leaves the cap at the ceiling.
+
+### Env knobs (all read in `autonomy/run.sh`)
+
+```bash
+LOKI_DYNAMIC_CONCURRENCY=1            # opt in; default 0 (off = today's behavior)
+LOKI_MAX_PARALLEL_SESSIONS_CEILING=N # upper bound when dynamic is on;
+                                     #   default = LOKI_MAX_PARALLEL_SESSIONS (3)
+LOKI_CONCURRENCY_CPU_THRESHOLD=85    # CPU percent at/above which the cap halves
+LOKI_CONCURRENCY_MEM_THRESHOLD=85    # memory percent at/above which the cap halves
+LOKI_CONCURRENCY_CRITICAL_THRESHOLD=95  # CPU or memory percent at/above which
+                                        #   the cap is forced to 1
+```
+
+### Honest ceiling: dozens, not thousands
+
+Raising `LOKI_MAX_PARALLEL_SESSIONS_CEILING` is safe because the system
+auto-throttles under pressure, but the realistic target is dozens of adaptive
+concurrent sessions, not hundreds or thousands. Two hard limits cap the useful
+ceiling on a single host:
+
+- The 3-reviewer council is a serialization point: every non-trivial change funnels
+  through blind review before merge, so review throughput, not spawn count, sets the
+  end-to-end pace.
+- Local resources (CPU, memory, API rate limits, disk for worktrees) bound how many
+  Claude sessions a single developer machine can usefully run at once.
+
+So treat dynamic concurrency as a way to set a higher ceiling safely and let the
+host throttle down, not as a path to a thousand subagents.
+
+---
+
 ## Claude Session Per Worktree
 
 Each worktree runs an independent Claude session:

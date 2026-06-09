@@ -22,6 +22,7 @@ import logging
 import threading
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 # Add parent directory to path for imports
@@ -1517,6 +1518,67 @@ CHROMA_HOST = os.environ.get("LOKI_CHROMA_HOST", "localhost")
 CHROMA_PORT = int(os.environ.get("LOKI_CHROMA_PORT", "8100"))
 CHROMA_COLLECTION = os.environ.get("LOKI_CHROMA_COLLECTION", "loki-codebase")
 
+# Code-index freshness manifest (written by tools/index-codebase.py). Resolved
+# relative to the repo root the same way the indexer resolves it, so the two
+# agree on a single location. mcp/server.py -> parent.parent == repo root.
+_CODE_INDEX_REPO_ROOT = Path(__file__).resolve().parent.parent
+CODE_INDEX_MANIFEST_PATH = _CODE_INDEX_REPO_ROOT / ".loki" / "state" / "code-index-manifest.json"
+
+
+def _code_index_staleness() -> dict:
+    """Compare the code-index manifest mtimes against current files on disk.
+
+    Self-contained (no import of tools/index-codebase.py, which loads chromadb
+    at module top under a possibly-different Python). Mirrors the mtime
+    staleness pattern in memory/retrieval.py. A missing manifest degrades to
+    not-stale so the happy path on a fresh repo is unaffected.
+
+    Returns {"stale": bool, "stale_files": int}.
+    """
+    try:
+        data = json.loads(CODE_INDEX_MANIFEST_PATH.read_text())
+        files = data.get("files", {})
+        if not isinstance(files, dict) or not files:
+            return {"stale": False, "stale_files": 0}
+    except Exception:
+        return {"stale": False, "stale_files": 0}
+
+    stale = 0
+    for rel, entry in files.items():
+        abs_path = _CODE_INDEX_REPO_ROOT / rel
+        try:
+            if not abs_path.exists():
+                stale += 1
+            elif os.path.getmtime(abs_path) != entry.get("mtime"):
+                stale += 1
+        except OSError:
+            stale += 1
+    return {"stale": stale > 0, "stale_files": stale}
+
+
+def _maybe_autoreindex_code() -> None:
+    """Opt-in incremental re-index when the manifest is stale.
+
+    Gated behind LOKI_CODE_INDEX_AUTOREINDEX=1 because embeddings cost compute.
+    Default behavior is warn-if-stale (the tools just report the staleness
+    fields). Best-effort: never raises into the caller.
+    """
+    if os.environ.get("LOKI_CODE_INDEX_AUTOREINDEX", "0") != "1":
+        return
+    if not _code_index_staleness().get("stale"):
+        return
+    try:
+        import subprocess
+        indexer = _CODE_INDEX_REPO_ROOT / "tools" / "index-codebase.py"
+        py = "/opt/homebrew/bin/python3.12"
+        if not Path(py).exists():
+            py = sys.executable
+        subprocess.run([py, str(indexer), "--changed"],
+                       cwd=str(_CODE_INDEX_REPO_ROOT),
+                       capture_output=True, timeout=300)
+    except Exception as e:
+        logger.warning(f"Auto-reindex (LOKI_CODE_INDEX_AUTOREINDEX) failed: {e}")
+
 
 def _get_chroma_collection():
     """Get or create ChromaDB collection (lazy connection).
@@ -1581,6 +1643,10 @@ async def loki_code_search(
                                        'language': language, 'file_filter': file_filter,
                                        'type_filter': type_filter})
 
+    # Warn-if-stale (default) or opt-in auto-reindex before querying.
+    _maybe_autoreindex_code()
+    _staleness = _code_index_staleness()
+
     collection = _get_chroma_collection()
     if collection is None:
         return json.dumps({
@@ -1637,7 +1703,13 @@ async def loki_code_search(
 
         _emit_tool_event_async('loki_code_search', 'complete',
                                result_status='success', result_count=len(output))
-        return json.dumps({"query": query, "results": output, "total": len(output)})
+        return json.dumps({
+            "query": query,
+            "results": output,
+            "total": len(output),
+            "stale": _staleness["stale"],
+            "stale_files": _staleness["stale_files"],
+        })
 
     except Exception as e:
         logger.error(f"Code search failed: {e}")
@@ -1659,6 +1731,8 @@ async def loki_code_search_stats() -> str:
     Shows total chunks, files indexed, breakdown by language and type.
     Useful for verifying the index is up to date.
     """
+    _staleness = _code_index_staleness()
+
     collection = _get_chroma_collection()
     if collection is None:
         return json.dumps({"error": "ChromaDB not available"})
@@ -1674,6 +1748,8 @@ async def loki_code_search_stats() -> str:
                 "by_language": {},
                 "by_type": {},
                 "reindex_command": "python3.12 tools/index-codebase.py --reset",
+                "stale": _staleness["stale"],
+                "stale_files": _staleness["stale_files"],
             })
 
         results = collection.get(limit=count, include=["metadatas"])
@@ -1694,6 +1770,8 @@ async def loki_code_search_stats() -> str:
             "by_language": langs,
             "by_type": types,
             "reindex_command": "python3.12 tools/index-codebase.py --reset",
+            "stale": _staleness["stale"],
+            "stale_files": _staleness["stale_files"],
         })
     except Exception as e:
         logger.error(f"Code search stats failed: {e}")

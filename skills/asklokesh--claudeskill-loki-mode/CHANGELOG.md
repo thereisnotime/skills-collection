@@ -9,6 +9,130 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.23.1] - 2026-06-09
+
+### Fixed
+- CI reliability: tests/test-delegate-notify.sh no longer false-fails on a CI
+  runner whose git default branch is "master". The test git-inits a temp repo
+  and asserted the notification body contained "main", but `git init` uses the
+  host default branch (main on newer git, master on older runners), so the
+  assertion failed on the runner even though the product correctly reported the
+  real branch. The test now forces a deterministic branch (git branch -m main)
+  after the first commit. Product behavior is unchanged; this only de-flakes the
+  test. This is what kept the v7.23.0 Tests workflow red on the Shell tests job.
+
+## [7.23.0] - 2026-06-09
+
+### Added
+- Hybrid codebase search: `loki code search "<query>"`. Combines ripgrep keyword
+  matching with ChromaDB semantic search via reciprocal-rank fusion (deduped by
+  file:line), with token-budget-aware output. Flags: --grep-only, --semantic-only,
+  --budget N, --top N, --json. When ChromaDB is unavailable it degrades to a
+  grep-only result instead of failing, so search always returns something.
+- Incremental code-index freshness. `tools/index-codebase.py --changed`
+  re-indexes only files that changed (mtime or content hash) and deletes orphan
+  chunks left by renamed or removed functions, fixing stale hits after refactors.
+  A manifest at `.loki/state/code-index-manifest.json` tracks per-file state. The
+  MCP code-search tools now report `stale` / `stale_files`; opt-in
+  `LOKI_CODE_INDEX_AUTOREINDEX=1` reindexes on demand (default is warn-if-stale).
+- Dynamic resource-aware session concurrency. Opt-in `LOKI_DYNAMIC_CONCURRENCY=1`
+  makes the parallel-session cap adapt to machine load: it reads
+  `.loki/state/resources.json` and scales the cap down under high CPU or memory,
+  always clamped to [1, ceiling], never above the configured maximum. Knobs:
+  `LOKI_MAX_PARALLEL_SESSIONS_CEILING`, `LOKI_CONCURRENCY_CPU_THRESHOLD` (85),
+  `LOKI_CONCURRENCY_MEM_THRESHOLD` (85), `LOKI_CONCURRENCY_CRITICAL_THRESHOLD`
+  (95). Default off: behavior is identical to before unless explicitly enabled. A
+  supervisor/judge pattern (CONTINUE / COMPLETE / ESCALATE / PIVOT) is documented
+  in skills/parallel-workflows.md with an honest scaling ceiling (dozens of
+  adaptive concurrent sessions on a local machine, not thousands).
+
+### Fixed
+- CI reliability: the CLI command test (tests/test-cli-commands.sh) no longer
+  false-fails on a loaded runner. The pattern check piped output into `grep -q`,
+  which exits on first match and kills the upstream `echo` with SIGPIPE ("write
+  error: Broken pipe"); on a slow CI cell that broken-pipe exit was misread as a
+  no-match. It now uses a race-free in-shell case-insensitive match. This is what
+  turned the v7.22.0 Tests workflow red on one matrix cell (the product artifacts
+  were correct; only the test harness raced).
+
+## [7.22.0] - 2026-06-09
+
+### Added
+- Delegate then notify on done. When a background run (`loki start --bg`)
+  finishes, Loki now writes a durable completion summary and fires a local
+  desktop notification, so you can delegate a run, walk away, and be told when
+  it is ready. This closes the "async agent" gap for Loki's local-only model
+  without any hosted backend or CI.
+  - Every terminal state notifies and records a summary: success, max-iterations,
+    stopped, failed, and genuinely-blocking pauses (the perpetual-mode auto-clear
+    pause is correctly NOT treated as terminal, so a mid-run pause never writes a
+    false "done" record).
+  - The summary is written to `.loki/COMPLETION.txt` (human-readable) and
+    `.loki/state/completion.json` (machine-readable): outcome, branch, files
+    changed, the exact `git diff` review command, and task counts. The files are
+    always written even when notifications are disabled (they are state, not a
+    ping), which is the reliable signal for a detached run with no terminal.
+  - Notifications are local OS calls only (macOS osascript, Linux notify-send),
+    gated by the existing `LOKI_NOTIFICATIONS` (default on). Zero network egress.
+  - Opt-in `LOKI_DELEGATE_BRANCH=1` isolates a run's work on a dedicated
+    `loki/delegate-<timestamp>` branch. Opt-in `LOKI_DELEGATE_PR=1` opens a local
+    pull request on completion (a `gh` call from your own machine, never CI, no
+    auto-merge), only when you are in a GitHub repo with `gh` authenticated.
+    Both default off; the network calls are bounded with a 30s timeout.
+
+## [7.21.0] - 2026-06-08
+
+### Added
+- AGENTS.md support. Loki now points the agent at `AGENTS.md` in the repository
+  root for build, test, and style conventions, falling back to `CLAUDE.md` when
+  AGENTS.md is absent (nearest-file-wins, never merged). AGENTS.md is the
+  emerging cross-tool agent-config standard (read by Claude Code, Codex, Cursor,
+  Aider, and others), so repos that adopt it now drive Loki without a
+  Loki-specific config. The instruction line is byte-identical across the bash
+  and Bun routes; the layered project-graph walker (`autonomy/lib/project-graph.sh`)
+  prefers AGENTS.md over CLAUDE.md at each directory layer. Three new tests cover
+  the walker precedence, prompt emission, and cross-route byte-parity.
+
+### Fixed
+- Dual-route parity: the Bun route's no-PRD `CODEBASE_ANALYSIS_MODE` instruction
+  was still the pre-v7.8.1 short prompt while the bash route had the v7.8.1
+  three-pass version. The byte-exact fixture corpus masked this because both the
+  Bun constant and the gold fixtures held the same stale string. The Bun
+  `ANALYSIS_INSTRUCTION` is now byte-identical to the bash route, and the no-PRD
+  fixtures were regenerated from the canonical bash output. No fixtures are
+  suppressed (`KNOWN_FAILING_FIXTURES` stays empty); parity is genuinely green.
+
+## [7.20.0] - 2026-06-08
+
+### Changed
+- Positioning refresh across README, SKILL.md, wiki, and the installation guide.
+  Loki is now described as a spec-driven autonomous builder with a built-in
+  trust layer (verified completion), surfacing the RARV-C loop, 11 quality
+  gates, completion council, and the verified-completion evidence gate that were
+  previously buried as internal mechanics. The wording matches the gate's actual
+  behavior: an empty git diff against the run-start commit always blocks "done",
+  and a red test run blocks completion when a test runner ran. No product
+  behavior change.
+- MCP server advertising corrected. The README and wiki previously claimed "15
+  tools"; the server actually exposes 34 tools (26 in `mcp/server.py`, 7 magic
+  tools, 1 managed-memory tool), plus 3 resources and 2 prompts. Numbers
+  verified by counting registrations, not estimated.
+
+### Fixed
+- Benchmark table honesty. The SWE-bench row claimed "299/300 patches", which
+  read as a near-perfect resolution rate, but only patches were generated and
+  the official SWE-bench evaluator was never run (no pass-rate result exists).
+  It now reads "Not yet measured" with the exact reproduction command. The
+  HumanEval row keeps 162/164 (98.78%) and now cites its results file
+  (`benchmarks/results/humaneval-loki-results.json`) for provenance.
+
+### Notes
+- AGENTS.md support (reading AGENTS.md with a CLAUDE.md fallback) was scoped for
+  this release but deferred to a dedicated code release. Implementing it surfaced
+  a separate, pre-existing dual-route parity drift in the no-PRD codebase-analysis
+  prompt that must be reconciled first, rather than suppressed. Tracking it
+  separately keeps this release a clean, parity-neutral positioning change.
+
 ## [7.19.4] - 2026-06-07
 
 ### Fixed

@@ -781,6 +781,21 @@ MAX_PARALLEL_SESSIONS=${LOKI_MAX_PARALLEL_SESSIONS:-3}
 PARALLEL_TESTING=${LOKI_PARALLEL_TESTING:-true}
 PARALLEL_DOCS=${LOKI_PARALLEL_DOCS:-true}
 
+# Dynamic resource-aware session concurrency (Release 3, slice 3).
+# DEFAULT OFF: when LOKI_DYNAMIC_CONCURRENCY is unset, effective_session_cap()
+# returns exactly MAX_PARALLEL_SESSIONS, so behavior is identical to before.
+# Opt in with LOKI_DYNAMIC_CONCURRENCY=1 to scale the session cap down when
+# system CPU or memory is under pressure (read from .loki/state/resources.json).
+DYNAMIC_CONCURRENCY=${LOKI_DYNAMIC_CONCURRENCY:-0}
+# Optional higher ceiling on capable machines. Only takes effect with dynamic
+# concurrency enabled; still resource-gated. Defaults to MAX_PARALLEL_SESSIONS.
+MAX_PARALLEL_SESSIONS_CEILING=${LOKI_MAX_PARALLEL_SESSIONS_CEILING:-$MAX_PARALLEL_SESSIONS}
+# Usage thresholds (percent). At/above CPU or MEM threshold the cap is halved.
+CONCURRENCY_CPU_THRESHOLD=${LOKI_CONCURRENCY_CPU_THRESHOLD:-85}
+CONCURRENCY_MEM_THRESHOLD=${LOKI_CONCURRENCY_MEM_THRESHOLD:-85}
+# Critical threshold (percent). At/above this the cap is forced to 1.
+CONCURRENCY_CRITICAL_THRESHOLD=${LOKI_CONCURRENCY_CRITICAL_THRESHOLD:-95}
+
 # Gate Escalation Ladder (v6.10.0)
 GATE_CLEAR_LIMIT=${LOKI_GATE_CLEAR_LIMIT:-3}
 GATE_ESCALATE_LIMIT=${LOKI_GATE_ESCALATE_LIMIT:-5}
@@ -2355,12 +2370,280 @@ notify_all_complete() {
 
 notify_intervention_needed() {
     local reason="$1"
+    # Delegate-then-notify: this helper ONLY fires the (gated) desktop ping. It
+    # deliberately does NOT write the durable COMPLETION.txt / completion.json
+    # record. Reason: notify_intervention_needed is also called from NON-terminal
+    # sites (the perpetual-mode PAUSE auto-clear branch, uncertainty escalation)
+    # where the run keeps going. Writing a "Needs input" durable file there would
+    # falsely tell a detached user the run is done / blocked when it is not. The
+    # durable intervention write now lives only at the genuinely blocking pause
+    # sites (immediately before handle_pause), so the durable state matches the
+    # actual run state.
     send_notification "Intervention Needed" "$reason" "critical"
 }
 
 notify_rate_limit() {
     local wait_time="$1"
     send_notification "Rate Limited" "Waiting ${wait_time}s before retry" "normal"
+}
+
+#===============================================================================
+# Delegate-then-notify: completion summary (Release 2, "delegate then notify")
+#
+# build_completion_summary <outcome> writes two durable files that survive a
+# detached (--bg) run where the terminal is gone and a bell would be useless:
+#   .loki/COMPLETION.txt        human plain text (no emojis, no dashes)
+#   .loki/state/completion.json machine-readable record of the same facts
+# It also exports two strings for send_notification to consume:
+#   _LOKI_SUMMARY_TITLE  short notification subtitle
+#   _LOKI_SUMMARY_BODY   short notification body (outcome + branch + file count)
+#
+# All git reads are best-effort and non-fatal. The diff window is the run-start
+# SHA captured once at runner init (_LOKI_RUN_START_SHA); we REUSE it and never
+# recapture, so the reported diff matches the evidence gate's window exactly.
+#
+# This function NEVER sends a notification and NEVER gates on
+# NOTIFICATIONS_ENABLED: the files are state, not a notification, and must be
+# written even when desktop notifications are disabled. emit_completion_summary
+# below is the wrapper that writes the files AND (gated) fires the desktop ping.
+#===============================================================================
+build_completion_summary() {
+    local outcome="${1:-complete}"
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    mkdir -p "$loki_dir/state" 2>/dev/null || true
+
+    # Human-readable outcome label and notification title.
+    local outcome_label notify_title
+    case "$outcome" in
+        complete)       outcome_label="Completed";        notify_title="Run complete" ;;
+        max_iterations) outcome_label="Max iterations";   notify_title="Run stopped (max iterations)" ;;
+        stopped)        outcome_label="Stopped";          notify_title="Run stopped" ;;
+        failed)         outcome_label="Failed";           notify_title="Run failed" ;;
+        intervention)   outcome_label="Needs input";      notify_title="Input needed" ;;
+        *)              outcome_label="$outcome";          notify_title="Run finished" ;;
+    esac
+
+    # Branch + diff stats vs the run-start SHA (best-effort; non-git or empty
+    # baseline yields empty values, which we render as "unknown"/"0").
+    local start_sha="${_LOKI_RUN_START_SHA:-}"
+    local branch="" head_sha="" diff_stat="" files_changed=0 insertions=0 deletions=0 review_cmd=""
+    branch="$( (cd "${TARGET_DIR:-.}" && git rev-parse --abbrev-ref HEAD) 2>/dev/null || true )"
+    [ -z "$branch" ] && branch="unknown"
+    head_sha="$( (cd "${TARGET_DIR:-.}" && git rev-parse HEAD) 2>/dev/null || true )"
+
+    if [ -n "$start_sha" ]; then
+        diff_stat="$( (cd "${TARGET_DIR:-.}" && git diff --stat "${start_sha}..HEAD") 2>/dev/null || true )"
+        # Parse the git diff --shortstat tail for counts (locale-stable enough
+        # for our display; failures leave the zeros in place).
+        local shortstat
+        shortstat="$( (cd "${TARGET_DIR:-.}" && git diff --shortstat "${start_sha}..HEAD") 2>/dev/null || true )"
+        if [ -n "$shortstat" ]; then
+            files_changed="$(printf '%s\n' "$shortstat" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' | head -1)"
+            insertions="$(printf '%s\n' "$shortstat" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' | head -1)"
+            deletions="$(printf '%s\n' "$shortstat" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' | head -1)"
+        fi
+        review_cmd="git diff ${start_sha}..HEAD"
+    else
+        review_cmd="git diff HEAD"
+    fi
+    [ -z "$files_changed" ] && files_changed=0
+    [ -z "$insertions" ] && insertions=0
+    [ -z "$deletions" ] && deletions=0
+
+    # Task counts: reuse the SAME queue reads as update_status_file.
+    local pending=0 in_progress=0 completed=0 failed=0
+    [ -f "$loki_dir/queue/pending.json" ] && pending=$(python3 -c "import json; print(len(json.load(open('$loki_dir/queue/pending.json'))))" 2>/dev/null || echo "0")
+    [ -f "$loki_dir/queue/in-progress.json" ] && in_progress=$(python3 -c "import json; print(len(json.load(open('$loki_dir/queue/in-progress.json'))))" 2>/dev/null || echo "0")
+    [ -f "$loki_dir/queue/completed.json" ] && completed=$(python3 -c "import json; print(len(json.load(open('$loki_dir/queue/completed.json'))))" 2>/dev/null || echo "0")
+    [ -f "$loki_dir/queue/failed.json" ] && failed=$(python3 -c "import json; print(len(json.load(open('$loki_dir/queue/failed.json'))))" 2>/dev/null || echo "0")
+
+    # Optional delegate-mode extras populated by Slice 3 (branch isolation / PR).
+    local delegate_branch="${_LOKI_DELEGATE_BRANCH_NAME:-}"
+    local pr_url="${_LOKI_DELEGATE_PR_URL:-}"
+
+    local ts
+    ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
+
+    # ---- Durable human-readable file: .loki/COMPLETION.txt --------------------
+    {
+        echo "Loki Mode run summary"
+        echo "====================="
+        echo ""
+        echo "Outcome:   $outcome_label"
+        echo "Branch:    $branch"
+        echo "Files changed: $files_changed (+$insertions / -$deletions)"
+        echo "Finished:  $ts"
+        echo ""
+        if [ -n "$delegate_branch" ]; then
+            echo "Delegate branch: $delegate_branch"
+        fi
+        if [ -n "$pr_url" ]; then
+            echo "Pull request: $pr_url"
+        elif [ "$outcome" = "complete" ]; then
+            echo "Pull request: not opened (set LOKI_DELEGATE_PR=1 to open one)"
+        fi
+        echo ""
+        echo "Tasks: pending=$pending in_progress=$in_progress completed=$completed failed=$failed"
+        echo ""
+        echo "Review the work:"
+        echo "  $review_cmd"
+        echo ""
+        if [ -n "$diff_stat" ]; then
+            echo "Diff stat:"
+            echo "$diff_stat"
+        else
+            echo "Diff stat: (no changes detected vs run start, or git unavailable)"
+        fi
+    } > "$loki_dir/COMPLETION.txt" 2>/dev/null || true
+
+    # ---- Durable machine-readable file: .loki/state/completion.json -----------
+    _LOKI_CS_OUTCOME="$outcome" \
+    _LOKI_CS_BRANCH="$branch" \
+    _LOKI_CS_START_SHA="$start_sha" \
+    _LOKI_CS_HEAD_SHA="$head_sha" \
+    _LOKI_CS_FILES="$files_changed" \
+    _LOKI_CS_INS="$insertions" \
+    _LOKI_CS_DEL="$deletions" \
+    _LOKI_CS_REVIEW="$review_cmd" \
+    _LOKI_CS_DELEGATE_BRANCH="$delegate_branch" \
+    _LOKI_CS_PR_URL="$pr_url" \
+    _LOKI_CS_TS="$ts" \
+    _LOKI_CS_OUT_FILE="$loki_dir/state/completion.json" \
+    python3 -c "
+import json, os, tempfile
+out = os.environ['_LOKI_CS_OUT_FILE']
+def i(v):
+    try: return int(v)
+    except (TypeError, ValueError): return 0
+rec = {
+    'outcome': os.environ.get('_LOKI_CS_OUTCOME', ''),
+    'branch': os.environ.get('_LOKI_CS_BRANCH', ''),
+    'start_sha': os.environ.get('_LOKI_CS_START_SHA', ''),
+    'head_sha': os.environ.get('_LOKI_CS_HEAD_SHA', ''),
+    'files_changed': i(os.environ.get('_LOKI_CS_FILES')),
+    'insertions': i(os.environ.get('_LOKI_CS_INS')),
+    'deletions': i(os.environ.get('_LOKI_CS_DEL')),
+    'review_cmd': os.environ.get('_LOKI_CS_REVIEW', ''),
+    'delegate_branch': os.environ.get('_LOKI_CS_DELEGATE_BRANCH', ''),
+    'pr_url': os.environ.get('_LOKI_CS_PR_URL', ''),
+    'timestamp': os.environ.get('_LOKI_CS_TS', ''),
+}
+d = os.path.dirname(out)
+fd, tmp = tempfile.mkstemp(dir=d, suffix='.json')
+with os.fdopen(fd, 'w') as f:
+    json.dump(rec, f, indent=2)
+os.replace(tmp, out)
+" 2>/dev/null || true
+
+    # ---- Short strings for the desktop notification --------------------------
+    # Desktop body stays terse; full detail lives in COMPLETION.txt.
+    _LOKI_SUMMARY_TITLE="$notify_title"
+    _LOKI_SUMMARY_BODY="${outcome_label} on ${branch}: ${files_changed} files changed"
+    if [ -n "$pr_url" ]; then
+        _LOKI_SUMMARY_BODY="${_LOKI_SUMMARY_BODY}. PR: ${pr_url}"
+    fi
+    export _LOKI_SUMMARY_TITLE _LOKI_SUMMARY_BODY
+    return 0
+}
+
+#===============================================================================
+# emit_completion_summary <outcome> [urgency]
+#
+# The single entry point every terminal state calls. It ALWAYS writes the
+# durable summary files (state, not a notification) and then fires ONE desktop
+# notification gated by the existing LOKI_NOTIFICATIONS flag (send_notification
+# already short-circuits when disabled, so the gate is implicit but explicit
+# here for clarity). Centralizing this keeps the success-only PR side effect
+# (Slice 3) in one place and prevents duplicate notifications.
+#===============================================================================
+emit_completion_summary() {
+    local outcome="${1:-complete}"
+    local urgency="${2:-normal}"
+    build_completion_summary "$outcome"
+    send_notification "${_LOKI_SUMMARY_TITLE:-Run finished}" "${_LOKI_SUMMARY_BODY:-}" "$urgency"
+    return 0
+}
+
+#===============================================================================
+# on_run_complete  (Slice 3: opt-in local git output on success)
+#
+# Called from every SUCCESS exit BEFORE emit_completion_summary so the PR url it
+# discovers is folded into the summary. Default behavior is a no-op: it only
+# acts when LOKI_DELEGATE_PR=1.
+#
+# LOKI_DELEGATE_PR=1 opens a LOCAL pull request from the user's machine, only if:
+#   - this is a GitHub repo (gh + a github.com remote), AND
+#   - `gh auth status` succeeds, AND
+#   - the current branch is not main/master (never PR a default branch to itself)
+# It mirrors the proven pattern at autonomy/loki:5524-5527: push the branch,
+# then `gh pr create --head <branch>`. NO auto-merge. Every call is best-effort
+# (`|| true`); failures never block completion. This is a single sanctioned
+# local network call, never CI.
+#
+# Reconciliation with the existing GITHUB_PR path (run.sh create_github_pr,
+# invoked after run_autonomous returns when LOKI_GITHUB_PR=true): if GITHUB_PR
+# is already true we DEFER to that path and do nothing here, so a user who set
+# both knobs never gets a double PR.
+#===============================================================================
+on_run_complete() {
+    # Default OFF.
+    if [ "${LOKI_DELEGATE_PR:-0}" != "1" ]; then
+        return 0
+    fi
+    # Defer to the existing dedicated PR path to avoid a double PR.
+    if [ "${GITHUB_PR:-false}" = "true" ]; then
+        return 0
+    fi
+    # Network-call timeout guard: a stalled network / auth prompt would
+    # otherwise hang the completion path indefinitely in --bg. Run each network
+    # call through `timeout 30` when available; fall back to the bare call if
+    # timeout is not installed (a local wrapper keeps this set -u safe on bash
+    # 3.2, where an empty array expansion would error). Keeps every existing
+    # `|| true` non-fatal behavior.
+    _loki_net() {
+        if command -v timeout >/dev/null 2>&1; then
+            timeout 30 "$@"
+        else
+            "$@"
+        fi
+    }
+    # Require gh + auth.
+    if ! command -v gh >/dev/null 2>&1; then
+        return 0
+    fi
+    if ! (cd "${TARGET_DIR:-.}" && _loki_net gh auth status) >/dev/null 2>&1; then
+        return 0
+    fi
+    # Require a GitHub remote (skip silently on non-GitHub repos).
+    local remote_url
+    remote_url="$( (cd "${TARGET_DIR:-.}" && git config --get remote.origin.url) 2>/dev/null || true )"
+    case "$remote_url" in
+        *github.com*) : ;;
+        *) return 0 ;;
+    esac
+    # Resolve current branch; never PR a default branch to itself.
+    local branch
+    branch="$( (cd "${TARGET_DIR:-.}" && git rev-parse --abbrev-ref HEAD) 2>/dev/null || true )"
+    case "$branch" in
+        ""|main|master|HEAD) return 0 ;;
+    esac
+    log_info "LOKI_DELEGATE_PR=1: opening a local pull request for branch '$branch'..."
+    # Push, then create. Non-interactive (no tty in --bg). Best-effort, each
+    # network call bounded by the timeout guard above.
+    (cd "${TARGET_DIR:-.}" && _loki_net git push -u origin "$branch") >/dev/null 2>&1 || true
+    local pr_title
+    pr_title="Loki Mode: ${branch}"
+    local pr_url=""
+    pr_url="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr create --title "$pr_title" --body "Opened by Loki Mode (delegate mode). Review locally before merge." --head "$branch") 2>/dev/null || true )"
+    if [ -n "$pr_url" ]; then
+        # Export so build_completion_summary folds the url into the summary.
+        _LOKI_DELEGATE_PR_URL="$pr_url"
+        export _LOKI_DELEGATE_PR_URL
+        log_info "Pull request opened: $pr_url"
+    else
+        log_warn "LOKI_DELEGATE_PR=1: gh pr create did not return a URL (a PR may already exist for this branch)."
+    fi
+    return 0
 }
 
 #===============================================================================
@@ -2491,6 +2774,72 @@ remove_worktree() {
     log_info "Removed worktree: $stream_name"
 }
 
+# Compute the effective parallel-session cap for the current scheduling pass.
+# Default-off contract: when LOKI_DYNAMIC_CONCURRENCY is not "1" this echoes
+# exactly MAX_PARALLEL_SESSIONS with zero file reads and zero subprocesses, so
+# the spawn decision is byte-identical to the pre-feature behavior.
+# When enabled, it starts from the configured ceiling and scales DOWN based on
+# .loki/state/resources.json. All reads are best-effort: a missing, empty, or
+# unparseable file (or non-numeric values) leaves the cap at the ceiling. The
+# result is always clamped to the range [1, ceiling] and never exceeds it.
+effective_session_cap() {
+    # Fast default-off path: identical to today, no I/O, no subprocesses.
+    if [ "${DYNAMIC_CONCURRENCY:-0}" != "1" ]; then
+        echo "$MAX_PARALLEL_SESSIONS"
+        return 0
+    fi
+
+    # Ceiling is the upper bound when dynamic scaling is on.
+    local ceiling="${MAX_PARALLEL_SESSIONS_CEILING:-$MAX_PARALLEL_SESSIONS}"
+    # Guard against a non-numeric or sub-1 ceiling override.
+    case "$ceiling" in
+        ''|*[!0-9]*) ceiling="$MAX_PARALLEL_SESSIONS" ;;
+    esac
+    [ "$ceiling" -lt 1 ] 2>/dev/null && ceiling=1
+
+    local cap="$ceiling"
+    local resources_file=".loki/state/resources.json"
+
+    # No resource data -> best-effort, leave at ceiling.
+    if [ ! -f "$resources_file" ]; then
+        echo "$cap"
+        return 0
+    fi
+
+    # Read usage and status best-effort. Defaults keep the cap at the ceiling
+    # if the file is empty, malformed, or missing keys.
+    local cpu_usage mem_usage status
+    cpu_usage=$(python3 -c "import json; print(json.load(open('$resources_file')).get('cpu', {}).get('usage_percent', 0))" 2>/dev/null || echo "0")
+    mem_usage=$(python3 -c "import json; print(json.load(open('$resources_file')).get('memory', {}).get('usage_percent', 0))" 2>/dev/null || echo "0")
+    status=$(python3 -c "import json; print(json.load(open('$resources_file')).get('overall_status', 'ok'))" 2>/dev/null || echo "ok")
+
+    # usage_percent can be a float (e.g. 85.3). Reduce to an integer part for
+    # comparison and fall back to 0 if anything is non-numeric.
+    cpu_usage="${cpu_usage%%.*}"
+    mem_usage="${mem_usage%%.*}"
+    case "$cpu_usage" in ''|*[!0-9]*) cpu_usage=0 ;; esac
+    case "$mem_usage" in ''|*[!0-9]*) mem_usage=0 ;; esac
+
+    local crit="${CONCURRENCY_CRITICAL_THRESHOLD:-95}"
+    local cpu_thr="${CONCURRENCY_CPU_THRESHOLD:-85}"
+    local mem_thr="${CONCURRENCY_MEM_THRESHOLD:-85}"
+
+    if [ "$cpu_usage" -ge "$crit" ] || [ "$mem_usage" -ge "$crit" ]; then
+        # Critical pressure: drop to a single session.
+        cap=1
+    elif [ "$cpu_usage" -ge "$cpu_thr" ] || [ "$mem_usage" -ge "$mem_thr" ] || [ "$status" != "ok" ]; then
+        # Elevated pressure or a non-ok overall status: halve (integer floor).
+        cap=$(( ceiling / 2 ))
+    fi
+
+    # Clamp to [1, ceiling]. Never runaway, never zero.
+    [ "$cap" -lt 1 ] && cap=1
+    [ "$cap" -gt "$ceiling" ] && cap="$ceiling"
+
+    echo "$cap"
+    return 0
+}
+
 # Spawn a Claude session in a worktree
 spawn_worktree_session() {
     local stream_name="$1"
@@ -2510,9 +2859,11 @@ spawn_worktree_session() {
         fi
     done
 
-    if [ "$active_count" -ge "$MAX_PARALLEL_SESSIONS" ]; then
+    local session_cap
+    session_cap=$(effective_session_cap)
+    if [ "$active_count" -ge "$session_cap" ]; then
         # BUG-PAR-014: Max-sessions rejection queues spawn for retry
-        log_warn "Max parallel sessions reached ($MAX_PARALLEL_SESSIONS). Queuing $stream_name for retry."
+        log_warn "Max parallel sessions reached ($session_cap). Queuing $stream_name for retry."
         mkdir -p "${TARGET_DIR:-.}/.loki/signals"
         echo "{\"stream\":\"$stream_name\",\"task\":\"$(echo "$task_prompt" | head -c 200)\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
             > "${TARGET_DIR:-.}/.loki/signals/SPAWN_QUEUED_${stream_name}"
@@ -2944,7 +3295,9 @@ run_parallel_orchestrator() {
                 ((active_count++))
             fi
         done
-        if [ "$active_count" -lt "$MAX_PARALLEL_SESSIONS" ]; then
+        local _session_cap
+        _session_cap=$(effective_session_cap)
+        if [ "$active_count" -lt "$_session_cap" ]; then
             for queued_signal in "${TARGET_DIR:-.}"/.loki/signals/SPAWN_QUEUED_*; do
                 [ -f "$queued_signal" ] || continue
                 local queued_stream
@@ -10068,6 +10421,14 @@ build_prompt() {
     # is the single most leveraged grounding primitive per OpenCode research.
     local lsp_grounding_instruction="LSP_GROUNDING: When the loki-mode-lsp-proxy MCP server is available, prefer LSP tools for symbol verification BEFORE writing code that references those symbols. Workflow: (1) Need to call \`foo.bar()\` you have not already read? -> mcp__loki-mode-lsp-proxy__lsp_check_exists with symbol='bar' (sub-200ms when cached). If exists:false, do NOT write the call -- use mcp__loki-mode-lsp-proxy__lsp_workspace_symbols with the concept name to find the real symbol, or use Read to see the actual API. (2) Just edited a file? -> mcp__loki-mode-lsp-proxy__lsp_get_diagnostics on that file to see new errors before the next iteration. (3) Need to jump to a definition by name (no file:line known)? -> mcp__loki-mode-lsp-proxy__lsp_find_definition_by_name. Skip these tools silently when the server is not available -- check the tool list, do not retry on errors. Goal: eliminate hallucinated API calls before they ship."
 
+    # AGENTS.md instruction (agents.md standard: plain Markdown at repo root,
+    # nearest-file-wins, read natively by Claude Code/Codex/etc.). Loki prefers
+    # AGENTS.md and falls back to CLAUDE.md only when AGENTS.md is absent; the
+    # two are never merged. This string MUST stay byte-identical to
+    # AGENTS_MD_INSTRUCTION in loki-ts/src/runner/build_prompt.ts (parity-locked,
+    # same precedent as AUTONOMY_OVERRIDE_TEXT in providers/claude_flags.ts).
+    local agents_md_instruction="Project conventions: read AGENTS.md in the repository root for build, test, and style conventions. If AGENTS.md is absent, read CLAUDE.md instead. The nearest such file to the code you are editing takes precedence."
+
     # Load existing context if resuming
     local context_injection=""
     if [ $retry -gt 0 ]; then
@@ -10397,15 +10758,15 @@ except Exception:
         else
             if [ $retry -eq 0 ]; then
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode with PRD at $prd. $update_instruction $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode with PRD at $prd. $update_instruction $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             else
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             fi
         fi
@@ -10448,6 +10809,7 @@ except Exception:
         fi
         printf '%s\n' "$usage_doc_instruction"
         printf '%s\n' "$lsp_grounding_instruction"
+        printf '%s\n' "$agents_md_instruction"
         printf '</loki_system>\n'
         printf '[CACHE_BREAKPOINT]\n'
 
@@ -10480,6 +10842,7 @@ except Exception:
     printf '%s\n' "$memory_instruction"
     printf '%s\n' "$usage_doc_instruction"
     printf '%s\n' "$lsp_grounding_instruction"
+    printf '%s\n' "$agents_md_instruction"
     # For codebase-analysis mode (no PRD), analysis_instruction is part of the
     # static prefix so it remains cache-stable.
     if [ -z "$prd" ]; then
@@ -11463,6 +11826,28 @@ run_autonomous() {
     # file, which the gate treats as inconclusive (pass-through).
     local _start_sha_file=".loki/state/start-sha"
     mkdir -p ".loki/state"
+
+    # Delegate-then-notify (Slice 3): LOKI_DELEGATE_BRANCH=1 (default OFF)
+    # isolates this run's work on a fresh branch loki/delegate-<timestamp> so the
+    # user's working branch stays clean. Created IN-PROCESS (plain git, no
+    # detached child) only on a genuine fresh run (ITERATION_COUNT==0) so a
+    # resume does not spawn a new branch each time. Best-effort: a non-git repo,
+    # dirty tree that blocks checkout, or any git failure leaves the run on the
+    # current branch (default behavior preserved). Done BEFORE the start-sha
+    # capture so the diff window baselines to the new branch HEAD.
+    if [ "${LOKI_DELEGATE_BRANCH:-0}" = "1" ] && [ "${ITERATION_COUNT:-0}" -eq 0 ]; then
+        if (cd "${TARGET_DIR:-.}" && git rev-parse --git-dir) >/dev/null 2>&1; then
+            local _delegate_branch="loki/delegate-$(date +%Y%m%d-%H%M%S)"
+            if (cd "${TARGET_DIR:-.}" && git checkout -b "$_delegate_branch") >/dev/null 2>&1; then
+                _LOKI_DELEGATE_BRANCH_NAME="$_delegate_branch"
+                export _LOKI_DELEGATE_BRANCH_NAME
+                log_info "LOKI_DELEGATE_BRANCH=1: isolated work on new branch '$_delegate_branch'"
+            else
+                log_warn "LOKI_DELEGATE_BRANCH=1: could not create branch (dirty tree or git error); continuing on current branch."
+            fi
+        fi
+    fi
+
     if [ "${ITERATION_COUNT:-0}" -eq 0 ] || [ ! -s "$_start_sha_file" ]; then
         (cd "${TARGET_DIR:-.}" && git rev-parse HEAD 2>/dev/null) > "$_start_sha_file" 2>/dev/null || true
     fi
@@ -11546,6 +11931,13 @@ except Exception as exc:
     # Check max iterations before starting
     if check_max_iterations; then
         log_error "Max iterations already reached. Reset with: rm .loki/autonomy-state.json"
+        # Delegate-then-notify: terminal state. Mirror the in-loop max-iterations
+        # site so a detached (--bg) run still writes COMPLETION.txt + fires the
+        # ping on this pre-loop exit. _LOKI_RUN_START_SHA is already exported
+        # above (runner init), so the diff window is correct. This return is
+        # mutually exclusive with the in-loop site (it returns before the loop),
+        # so there is no double-emit.
+        emit_completion_summary max_iterations
         return 1
     fi
 
@@ -11573,6 +11965,9 @@ except Exception as exc:
         # Check max iterations
         if check_max_iterations; then
             save_state $retry "max_iterations_reached" 0
+            # Delegate-then-notify: terminal state, write summary + ping so a
+            # detached run tells the user it stopped at the iteration cap.
+            emit_completion_summary max_iterations
             return 0
         fi
 
@@ -12469,7 +12864,11 @@ if __name__ == "__main__":
                 log_info "Council voted to stop (convergence detected + requirements verified)"
                 log_info "Running memory consolidation..."
                 run_memory_consolidation
-                notify_all_complete
+                # Delegate-then-notify: optional local PR on success, then the
+                # durable summary + desktop ping. on_run_complete is idempotent
+                # and only opens a PR when LOKI_DELEGATE_PR=1 (default OFF).
+                on_run_complete
+                emit_completion_summary complete
                 save_state $retry "council_approved" 0
                 rm -f "$iter_output" 2>/dev/null
                 return 0
@@ -12532,7 +12931,10 @@ if __name__ == "__main__":
                 # Run memory consolidation on successful completion
                 log_info "Running memory consolidation..."
                 run_memory_consolidation
-                notify_all_complete
+                # Delegate-then-notify: optional local PR on success, then the
+                # durable summary + desktop ping (see on_run_complete).
+                on_run_complete
+                emit_completion_summary complete
                 save_state $retry "completion_promise_fulfilled" 0
                 rm -f "$iter_output" 2>/dev/null
                 return 0
@@ -12626,6 +13028,9 @@ if __name__ == "__main__":
 
     log_error "Max retries ($MAX_RETRIES) exceeded"
     save_state $retry "failed" 1
+    # Delegate-then-notify: terminal failure. critical urgency so the desktop
+    # ping is louder; the summary file records where the partial work landed.
+    emit_completion_summary failed critical
     return 1
 }
 
@@ -12768,11 +13173,19 @@ check_human_intervention() {
                 log_warn "PAUSE file created by budget limit - NOT auto-clearing in perpetual mode"
                 log_warn "Budget limit reached. Remove .loki/signals/BUDGET_EXCEEDED and .loki/PAUSE to continue."
                 notify_intervention_needed "Budget limit reached - execution paused" 2>/dev/null || true
+                # Genuinely blocking pause: write the durable intervention record
+                # now (state-only; the ping above already fired). This is the
+                # correct site for the durable file because the run actually halts
+                # here until the operator clears the budget signal.
+                build_completion_summary intervention 2>/dev/null || true
                 local pause_result
                 handle_pause
                 pause_result=$?
                 rm -f "$loki_dir/PAUSE"
                 if [ "$pause_result" -eq 1 ]; then
+                    # STOP requested DURING the pause: relabel the durable record
+                    # as stopped (state-only; the user typed STOP and is aware).
+                    build_completion_summary stopped 2>/dev/null || true
                     return 2
                 fi
                 return 1
@@ -12786,12 +13199,17 @@ check_human_intervention() {
         fi
         log_warn "PAUSE file detected - pausing execution"
         notify_intervention_needed "Execution paused via PAUSE file"
+        # Genuinely blocking pause: write the durable intervention record now
+        # (state-only; the ping above already fired).
+        build_completion_summary intervention 2>/dev/null || true
         local pause_result
         handle_pause
         pause_result=$?
         rm -f "$loki_dir/PAUSE"
         if [ "$pause_result" -eq 1 ]; then
-            # STOP was requested during pause
+            # STOP was requested during pause: relabel the durable record as
+            # stopped (state-only; the user typed STOP and is aware).
+            build_completion_summary stopped 2>/dev/null || true
             return 2
         fi
         return 1
@@ -12804,11 +13222,16 @@ check_human_intervention() {
             rm -f "$loki_dir/PAUSE_AT_CHECKPOINT"
             notify_intervention_needed "Execution paused at checkpoint"
             touch "$loki_dir/PAUSE"
+            # Genuinely blocking pause: write the durable intervention record now
+            # (state-only; the ping above already fired).
+            build_completion_summary intervention 2>/dev/null || true
             local pause_result
             handle_pause
             pause_result=$?
             rm -f "$loki_dir/PAUSE"
             if [ "$pause_result" -eq 1 ]; then
+                # STOP requested during pause: relabel as stopped (state-only).
+                build_completion_summary stopped 2>/dev/null || true
                 return 2
             fi
             return 1
@@ -12876,7 +13299,11 @@ check_human_intervention() {
             fi
             log_info "Running memory consolidation..."
             run_memory_consolidation
-            notify_all_complete
+            # Delegate-then-notify: force-review approval is a real completion
+            # (returns 2, which the run loop maps to a clean return 0). Treat it
+            # like the other success exits: optional local PR + summary + ping.
+            on_run_complete
+            emit_completion_summary complete
             save_state ${RETRY_COUNT:-0} "council_force_approved" 0
             return 2  # Stop
         fi
@@ -12887,6 +13314,12 @@ check_human_intervention() {
     if [ -f "$loki_dir/STOP" ]; then
         log_warn "STOP file detected - stopping execution"
         rm -f "$loki_dir/STOP"
+        # Delegate-then-notify: an explicit STOP file is a deliberate stop, but
+        # a detached (--bg) user still benefits from a summary of partial work.
+        # NOTE: the SIGTERM/`loki stop` group-kill path (cleanup handler near the
+        # end of this file) is intentionally NOT notified: that user is at a
+        # terminal issuing the stop and is already aware.
+        emit_completion_summary stopped
         return 2
     fi
 
@@ -13353,6 +13786,9 @@ main() {
         echo -e "  ${DIM}Stop:${NC}       touch .loki/STOP  ${DIM}or${NC}  kill $bg_pid"
         echo -e "  ${DIM}Logs:${NC}       tail -f $log_file"
         echo -e "  ${DIM}Status:${NC}     cat .loki/STATUS.txt"
+        echo ""
+        echo -e "${GREEN}You will be notified when done (or if input is needed).${NC}"
+        echo -e "  ${DIM}Summary on completion:${NC} cat .loki/COMPLETION.txt"
         echo ""
 
         exit 0

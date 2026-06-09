@@ -10,14 +10,27 @@ Usage:
     python tools/index-codebase.py                    # Index everything
     python tools/index-codebase.py --collection loki  # Custom collection name
     python tools/index-codebase.py --reset             # Clear and re-index
+    python tools/index-codebase.py --changed           # Incremental: only changed files
     python tools/index-codebase.py --stats             # Show index stats
 
 Requires:
     - ChromaDB running on localhost:8100 (docker)
     - pip install chromadb
+
+Incremental freshness (--changed):
+    Maintains a manifest at .loki/state/code-index-manifest.json that records,
+    per indexed file, its mtime, sha1, and the chunk IDs it produced. The
+    --changed mode re-chunks only files whose mtime OR sha1 differ from the
+    manifest, upserts the new chunks, deletes chunk IDs that disappeared for a
+    changed file (the orphan-chunk fix), and drops all chunks for files removed
+    from disk. The --reset and default full-index paths are unchanged in their
+    indexing behavior; they additionally write the manifest at the end so a
+    later --changed run has an accurate baseline.
 """
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import sys
@@ -29,6 +42,11 @@ import chromadb
 
 # Project root
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+
+# Manifest path (per-file freshness tracking for incremental indexing).
+# Resolved relative to PROJECT_ROOT so the indexer and the MCP staleness
+# check agree on a single location.
+MANIFEST_PATH = PROJECT_ROOT / ".loki" / "state" / "code-index-manifest.json"
 
 # ChromaDB connection
 CHROMA_HOST = os.environ.get("LOKI_CHROMA_HOST", "localhost")
@@ -333,6 +351,267 @@ def collect_files() -> list[tuple[Path, str]]:
     return files
 
 
+# -----------------------------------------------------------------------------
+# Manifest / incremental freshness (pure logic, no ChromaDB)
+# -----------------------------------------------------------------------------
+
+
+def file_sha1(filepath: Path) -> str:
+    """Return the hex sha1 of a file's bytes."""
+    h = hashlib.sha1()
+    h.update(filepath.read_bytes())
+    return h.hexdigest()
+
+
+def chunk_file(filepath: Path, file_type: str) -> list[dict]:
+    """Dispatch to the right chunker for a file type."""
+    if file_type == "shell":
+        return chunk_shell_file(filepath)
+    if file_type == "python":
+        return chunk_python_file(filepath)
+    if file_type == "markdown":
+        return chunk_markdown_file(filepath)
+    return []
+
+
+def load_manifest(manifest_path: Path = MANIFEST_PATH) -> dict:
+    """Load the freshness manifest, or return an empty one.
+
+    Schema:
+        {
+          "version": 1,
+          "collection": "<name>",
+          "files": {
+            "<rel_path>": {"mtime": <float>, "sha1": "<hex>", "chunk_ids": [...]}
+          }
+        }
+    """
+    try:
+        data = json.loads(manifest_path.read_text())
+        if isinstance(data, dict) and isinstance(data.get("files"), dict):
+            return data
+    except Exception:
+        pass
+    return {"version": 1, "collection": None, "files": {}}
+
+
+def save_manifest(manifest: dict, manifest_path: Path = MANIFEST_PATH) -> None:
+    """Persist the freshness manifest atomically."""
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = manifest_path.with_suffix(manifest_path.suffix + ".tmp")
+    tmp.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+    tmp.replace(manifest_path)
+
+
+def build_manifest_entry(filepath: Path, chunk_ids: list[str]) -> dict:
+    """Build one manifest entry for a freshly chunked file."""
+    return {
+        "mtime": os.path.getmtime(filepath),
+        "sha1": file_sha1(filepath),
+        "chunk_ids": list(chunk_ids),
+    }
+
+
+def compute_manifest_diff(old_manifest: dict,
+                          current_files: list[tuple[str, dict]],
+                          present_rel_paths: set) -> dict:
+    """Pure diff: decide what changed without touching ChromaDB or disk.
+
+    Args:
+        old_manifest: the previously saved manifest dict.
+        current_files: list of (rel_path, entry) for files re-chunked THIS run,
+            where entry is {"mtime", "sha1", "chunk_ids"}. Callers should only
+            include files they actually re-chunked (i.e. changed/new files).
+        present_rel_paths: the set of rel_paths that currently exist on disk and
+            are in scope for indexing (collect_files results). Used to detect
+            files removed from disk.
+
+    Returns a dict:
+        {
+          "upsert_ids": [...],          # chunk IDs to (re)upsert this run
+          "delete_ids": [...],          # orphan chunk IDs to remove
+          "changed_files": [rel_path],  # files re-chunked this run
+          "removed_files": [rel_path],  # files dropped from disk / scope
+        }
+    """
+    old_files = old_manifest.get("files", {})
+    current_map = {rel: entry for rel, entry in current_files}
+
+    upsert_ids: list[str] = []
+    delete_ids: list[str] = []
+    changed_files: list[str] = []
+
+    # Changed / new files: upsert their new chunk IDs, delete IDs that vanished.
+    for rel, entry in current_files:
+        changed_files.append(rel)
+        new_ids = list(entry.get("chunk_ids", []))
+        upsert_ids.extend(new_ids)
+        old_ids = set(old_files.get(rel, {}).get("chunk_ids", []))
+        gone = old_ids - set(new_ids)
+        delete_ids.extend(sorted(gone))
+
+    # Files removed from disk (tracked before, not present now): delete all chunks.
+    removed_files: list[str] = []
+    for rel, old_entry in old_files.items():
+        if rel in current_map:
+            continue
+        if rel in present_rel_paths:
+            continue
+        removed_files.append(rel)
+        delete_ids.extend(sorted(old_entry.get("chunk_ids", [])))
+
+    # Stable, deduped ordering for deterministic behavior / testing.
+    return {
+        "upsert_ids": upsert_ids,
+        "delete_ids": sorted(set(delete_ids)),
+        "changed_files": changed_files,
+        "removed_files": removed_files,
+    }
+
+
+def file_is_changed(filepath: Path, rel: str, old_manifest: dict) -> bool:
+    """Return True if a file differs from its manifest entry (mtime OR sha1).
+
+    A file with no manifest entry is treated as new (changed). The mtime check
+    is the cheap first pass; sha1 is the authoritative fallback so a touch with
+    no content change still re-verifies but a real edit is always caught.
+    """
+    entry = old_manifest.get("files", {}).get(rel)
+    if not entry:
+        return True
+    try:
+        if os.path.getmtime(filepath) != entry.get("mtime"):
+            return True
+    except OSError:
+        return True
+    return file_sha1(filepath) != entry.get("sha1")
+
+
+def check_staleness(manifest_path: Path = MANIFEST_PATH) -> dict:
+    """Compare manifest mtimes against current files on disk.
+
+    Mirrors the mtime-staleness pattern in memory/retrieval.py. Returns a dict
+    {"stale": bool, "stale_files": int, "manifest_present": bool} computed from
+    the manifest alone (no ChromaDB, no chunking) so it is safe to call from the
+    MCP server under any Python. A missing manifest degrades to not-stale.
+
+    Note: a brand-new file that was never indexed will not appear in the
+    manifest, so it is not counted here. This check detects edits and deletions
+    of already-indexed files, which is what drives orphan/staleness signals.
+    """
+    manifest = load_manifest(manifest_path)
+    files = manifest.get("files", {})
+    if not files:
+        return {"stale": False, "stale_files": 0, "manifest_present": False}
+
+    stale = 0
+    for rel, entry in files.items():
+        abs_path = PROJECT_ROOT / rel
+        if not abs_path.exists():
+            stale += 1  # deleted from disk -> orphan chunks remain
+            continue
+        try:
+            if os.path.getmtime(abs_path) != entry.get("mtime"):
+                stale += 1
+        except OSError:
+            stale += 1
+    return {"stale": stale > 0, "stale_files": stale, "manifest_present": True}
+
+
+def index_changed(collection):
+    """Incremental index: re-chunk only changed files, fix orphan chunks.
+
+    Returns (changed_count, removed_count, upserted_chunks, deleted_chunks).
+    """
+    old_manifest = load_manifest(MANIFEST_PATH)
+    files = collect_files()
+    present_rel_paths = {
+        str(fp.relative_to(PROJECT_ROOT)) for fp, _ in files
+    }
+
+    # Re-chunk only files whose mtime or sha1 differs from the manifest.
+    current_entries: list[tuple[str, dict]] = []
+    chunks_by_rel: dict = {}
+    for filepath, file_type in files:
+        rel = str(filepath.relative_to(PROJECT_ROOT))
+        if not file_is_changed(filepath, rel, old_manifest):
+            continue
+        try:
+            chunks = chunk_file(filepath, file_type)
+        except Exception as e:
+            print(f"  ERROR chunking {filepath}: {e}", file=sys.stderr)
+            continue
+        chunk_ids = [c["id"] for c in chunks]
+        current_entries.append((rel, build_manifest_entry(filepath, chunk_ids)))
+        chunks_by_rel[rel] = chunks
+
+    diff = compute_manifest_diff(old_manifest, current_entries, present_rel_paths)
+
+    # Apply deletes first (orphans + removed files), then upserts.
+    if diff["delete_ids"]:
+        try:
+            collection.delete(ids=diff["delete_ids"])
+        except Exception as e:
+            print(f"  ERROR deleting orphan chunks: {e}", file=sys.stderr)
+
+    upserted = 0
+    for rel in diff["changed_files"]:
+        chunks = chunks_by_rel.get(rel, [])
+        if not chunks:
+            continue
+        try:
+            collection.upsert(
+                ids=[c["id"] for c in chunks],
+                documents=[c["content"] for c in chunks],
+                metadatas=[c["metadata"] for c in chunks],
+            )
+            upserted += len(chunks)
+            print(f"  upsert {rel}: {len(chunks)} chunks")
+        except Exception as e:
+            print(f"  ERROR upserting {rel}: {e}", file=sys.stderr)
+
+    # Update the manifest: keep unchanged entries, refresh changed ones, drop
+    # removed files.
+    new_files = dict(old_manifest.get("files", {}))
+    for rel in diff["removed_files"]:
+        new_files.pop(rel, None)
+    for rel, entry in current_entries:
+        new_files[rel] = entry
+    new_manifest = {
+        "version": 1,
+        "collection": collection.name,
+        "files": new_files,
+    }
+    save_manifest(new_manifest, MANIFEST_PATH)
+
+    return (len(diff["changed_files"]), len(diff["removed_files"]),
+            upserted, len(diff["delete_ids"]))
+
+
+def write_manifest_for_full_index(collection):
+    """Rebuild the manifest from a full pass over all in-scope files.
+
+    Called at the end of --reset and default full-index so a later --changed run
+    has an accurate baseline. This is additive persistence only: it does not
+    change what was indexed, it records the chunk IDs that were produced.
+    """
+    files = collect_files()
+    new_files: dict = {}
+    for filepath, file_type in files:
+        try:
+            chunks = chunk_file(filepath, file_type)
+        except Exception:
+            continue
+        rel = str(filepath.relative_to(PROJECT_ROOT))
+        new_files[rel] = build_manifest_entry(filepath, [c["id"] for c in chunks])
+    save_manifest({
+        "version": 1,
+        "collection": collection.name,
+        "files": new_files,
+    }, MANIFEST_PATH)
+    return len(new_files)
+
+
 def index_all(collection, reset: bool = False):
     """Index the entire codebase."""
     files = collect_files()
@@ -429,6 +708,8 @@ def main():
     parser = argparse.ArgumentParser(description="Index loki-mode codebase into ChromaDB")
     parser.add_argument("--collection", default=COLLECTION_NAME, help="Collection name")
     parser.add_argument("--reset", action="store_true", help="Clear and re-index")
+    parser.add_argument("--changed", action="store_true",
+                        help="Incremental: re-index only changed files (uses manifest)")
     parser.add_argument("--stats", action="store_true", help="Show index stats")
     parser.add_argument("--search", type=str, help="Run a test search query")
     parser.add_argument("--host", default=CHROMA_HOST, help="ChromaDB host")
@@ -457,11 +738,26 @@ def main():
         test_search(collection, args.search)
         return
 
+    if args.changed:
+        start = time.time()
+        changed, removed, upserted, deleted = index_changed(collection)
+        elapsed = time.time() - start
+        print(f"\nIncremental done: {changed} changed file(s), "
+              f"{removed} removed file(s), {upserted} chunks upserted, "
+              f"{deleted} orphan chunks deleted in {elapsed:.1f}s")
+        show_stats(collection)
+        return
+
     start = time.time()
     file_count, total_chunks = index_all(collection)
     elapsed = time.time() - start
 
+    # Additive persistence: record the manifest so a later --changed run has an
+    # accurate baseline. Does not change what was indexed above.
+    manifest_files = write_manifest_for_full_index(collection)
     print(f"\nDone: {total_chunks} chunks from {file_count} files in {elapsed:.1f}s")
+    print(f"Manifest: {manifest_files} files tracked at "
+          f"{MANIFEST_PATH.relative_to(PROJECT_ROOT)}")
     show_stats(collection)
 
     # Run a few test searches

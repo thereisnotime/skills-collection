@@ -110,6 +110,24 @@ LOKI_HANDOFF_MD=1          # write a structured handoff doc to
 Optional: `LOKI_AUTO_LEARNINGS_EPISODE=1` also writes the learning into
 the Python episodic memory layer via `memory.engine.save_episode`.
 
+## Other opt-in environment flags (Release 3)
+
+Two more default-off flags added for hybrid search and parallel concurrency.
+Both are no-ops when unset (behavior identical to before).
+
+```bash
+LOKI_DYNAMIC_CONCURRENCY=1       # scale the parallel-session cap DOWN under
+                                 # CPU/memory pressure (default off). Full
+                                 # knobs and defaults: skills/parallel-workflows.md
+                                 # (Dynamic Resource-Aware Session Concurrency)
+
+LOKI_CODE_INDEX_AUTOREINDEX=1    # auto incremental re-index of the semantic
+                                 # code index before a search when stale
+                                 # (default off = warn-if-stale). Details:
+                                 # references/mcp-integration.md (Built-in
+                                 # Hybrid Codebase Search)
+```
+
 ## Verified-completion evidence gate (v7.19.1, default-on)
 
 The completion council will not accept a "done" claim without evidence. Before
