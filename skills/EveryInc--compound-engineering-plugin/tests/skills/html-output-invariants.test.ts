@@ -39,26 +39,15 @@ describe("html-rendering.md reference content invariants", () => {
     ).toBe(true)
   })
 
-  test("explicitly forbids <meta name='status'/created/origin> tags duplicating visible header", () => {
+  test("explicitly forbids <meta name='created'/origin> tags duplicating visible header", () => {
     // 2026-05-17 supply-chain plan dogfood failure: agent emitted both
-    // visible <dl>-shaped header metadata AND `<meta name="status">` /
-    // `<meta name="created">` / `<meta name="origin">` in <head>. Two
-    // sources of truth drift. The reference must name this specific form
-    // so the rule generalizes beyond the script-frontmatter shape.
+    // visible <dl>-shaped header metadata AND `<meta name="created">` /
+    // `<meta name="origin">` in <head>. Two sources of truth drift. The
+    // reference must name this specific form so the rule generalizes
+    // beyond the script-frontmatter shape.
     expect(
-      /<meta name="status"|<meta name="created"|<meta name="origin"|`<meta name=/i.test(REFERENCE),
+      /<meta name="created"|<meta name="origin"|`<meta name=/i.test(REFERENCE),
       "Reference must name <meta name='...'> as a forbidden hidden-metadata form.",
-    ).toBe(true)
-  })
-
-  test("editable status renders as <span class='status'>{value}</span>", () => {
-    // 2026-05-17 supply-chain plan dogfood failure: status rendered as
-    // <dd>active</dd> inside the header <dl>. Downstream ce-work shipping
-    // flip relies on the <span class="status"> selector. The reference must
-    // make the selector shape load-bearing, not "convention".
-    expect(
-      /Editable status renders as `<span class="status">|status renders as `<span class="status"|`<span class="status">\{value\}|class="status">.*ce-work/i.test(REFERENCE),
-      "Reference must require status to render as <span class='status'>{value}</span> as the selector contract.",
     ).toBe(true)
   })
 
@@ -66,13 +55,6 @@ describe("html-rendering.md reference content invariants", () => {
     expect(
       /Stable IDs as anchor IDs AND visible text|`id="r1"`.*visible text|visible text.*`id="r1"`/i.test(REFERENCE),
       "Reference must require stable IDs to appear as BOTH the element's id attribute AND visible text inside the element.",
-    ).toBe(true)
-  })
-
-  test("editable status convention is visible text, not hidden attribute", () => {
-    expect(
-      /editable status|status flip|`active → completed`/i.test(REFERENCE),
-      "Reference must describe how status is editable by downstream tooling.",
     ).toBe(true)
   })
 
@@ -169,14 +151,35 @@ describe("html-rendering.md reference content invariants", () => {
     ).toBe(true)
   })
 
-  test("DESIGN.md unfetchable-named-font fallback", () => {
-    // When DESIGN.md names a font without a CDN source the agent can
-    // inline, the agent must emit a system-font stack in the same family
-    // rather than linking out (single-file invariant) or ignoring the
-    // hint entirely.
+  test("DESIGN.md fonts: load only open webfonts, never attempt a proprietary brand face", () => {
+    // 2026-06-09 pressure test across 6 real brand DESIGN.md files: 4 of the
+    // signature faces (Airbnb Cereal, Coinbase Display/Sans, BMW Type,
+    // Waldenburg) are proprietary and cannot load in a single-file doc. The
+    // agent must NOT attempt them — only open webfonts load — and must fall
+    // back to a family-matched system stack, honoring declared roles.
     expect(
-      /Named font without a fetchable source|named font.*hint|system-font stack/i.test(REFERENCE),
-      "Reference must handle DESIGN.md fonts without a fetchable source by treating the name as a hint and emitting a system-font stack.",
+      /load only open webfonts|never attempt a proprietary|do not\s+attempt to load it/i.test(REFERENCE),
+      "Reference must instruct: load only open webfonts, never attempt a proprietary brand face.",
+    ).toBe(true)
+    expect(
+      /family-matched system stack|fallback chain/i.test(REFERENCE) &&
+        /never promote a display/i.test(REFERENCE),
+      "Reference must specify the family-matched fallback and the no-display-as-body rule.",
+    ).toBe(true)
+  })
+
+  test("DESIGN.md take-literal vs own-the-scale vs skip-decoration model", () => {
+    // The governing split surfaced by the 2026-06-09 pressure test: take
+    // scale-independent identity (color, weight, OpenType, radius character)
+    // literally; own scale-dependent layout (type size, spacing) yourself —
+    // DESIGN.md sizes are marketing-scaled; skip decoration with no content.
+    expect(
+      /scale-independent identity|own the scale-dependent|own it yourself/i.test(REFERENCE),
+      "Reference must state the take-scale-independent / own-scale-dependent split.",
+    ).toBe(true)
+    expect(
+      /skip decoration|gradient orbs|atmospheric brand voltage|no content to attach/i.test(REFERENCE),
+      "Reference must instruct skipping decorative/atmospheric brand voltage with no content to attach in a doc.",
     ).toBe(true)
   })
 
@@ -260,6 +263,21 @@ describe("html-rendering.md reference content invariants", () => {
     ).toBe(true)
   })
 
+  test("chips/pills uniform, no one-edge accent (2026-06-08 left-accent-pill defect)", () => {
+    // A real ideation doc rendered the ID chip with a purple LEFT-EDGE accent
+    // while the metric chips were uniform soft-tint pills — it read as broken
+    // and asymmetric. The reference must forbid the one-sided accent and
+    // require chips in a row to be a uniform set.
+    expect(
+      /Chips and pills|uniform shape, no one-sided accent|no one-edge colored accent/i.test(REFERENCE),
+      "Reference must carry a chips/pills rule forbidding one-sided accents.",
+    ).toBe(true)
+    expect(
+      /colored stripe on one edge|reads as broken/i.test(REFERENCE),
+      "Reference must forbid a colored stripe on one edge (it reads as broken/asymmetric).",
+    ).toBe(true)
+  })
+
   test("no JS framework runtimes (but inline scripts permitted)", () => {
     expect(/No JS framework runtimes|no.*JS framework/i.test(REFERENCE)).toBe(true)
     expect(
@@ -270,12 +288,13 @@ describe("html-rendering.md reference content invariants", () => {
 
   test("layout-legibility halo rule with judgment-call framing", () => {
     // 2026-05-12 cloak dogfood failure: arrows running through text labels.
-    // The halo rule defends against this. Halo width is principle-level
-    // (judgment call), not a hardcoded px value, per the principle that
-    // specific values drift.
+    // 2026-06-08 layers-diagram dogfood failure: shape EDGES (parallelogram
+    // borders) running through labels. The rule is generalized to any stroke
+    // — arrow or shape edge. Halo width stays principle-level (judgment call),
+    // not a hardcoded px value, per the principle that specific values drift.
     expect(
-      /No arrow path passes through a text label|arrow.*crosses a text label|arrow.*through.*label/i.test(REFERENCE),
-      "Reference must forbid arrow paths from passing through text labels.",
+      /passes through a text\s+label|crosses a text label/i.test(REFERENCE),
+      "Reference must forbid strokes (arrows or shape edges) from passing through text labels.",
     ).toBe(true)
     expect(
       /paint-order: stroke fill|halo.*label|stroke.*matching the diagram background/i.test(REFERENCE),
@@ -284,6 +303,20 @@ describe("html-rendering.md reference content invariants", () => {
     expect(
       /halo width is a judgment call|narrow enough not to bleed.*wide enough to mask|halo.*judgment/i.test(REFERENCE),
       "Reference must frame halo width as a judgment call, not a fixed number.",
+    ).toBe(true)
+  })
+
+  test("legibility covers shape edges and skewed-shape label inset (2026-06-08 layers bug)", () => {
+    // The layers-panel diagram drew parallelogram borders through the
+    // "shapes"/"background" labels and let "background" overflow the skewed
+    // left edge. Two rules now defend against it.
+    expect(
+      /shape edge|edge\/border|border of a box/i.test(REFERENCE),
+      "Legibility rule must generalize stroke-through-label to shape edges/borders, not just arrows.",
+    ).toBe(true)
+    expect(
+      /skewed or rotated shapes|true interior|spills past the slanted edge|stacked-layers idiom/i.test(REFERENCE),
+      "Legibility section must require labels inside skewed/rotated shapes to sit in the shape's true interior (covers the stacked-layers idiom).",
     ).toBe(true)
   })
 
@@ -351,9 +384,7 @@ describe("html-rendering.md reference content invariants", () => {
     // No hidden JSON frontmatter copy check
     expect(/No hidden machine-readable|`<script type="application\/json">`/i.test(auditRegion)).toBe(true)
     // No <meta> tag duplication check (2026-05-17 supply-chain plan failure)
-    expect(/<meta name="status"|<meta name="created"|<meta name="origin"/i.test(auditRegion)).toBe(true)
-    // Status renders as <span class="status"> check
-    expect(/`<span class="status">|class="status">.*flip/i.test(auditRegion)).toBe(true)
+    expect(/<meta name="created"|<meta name="origin"/i.test(auditRegion)).toBe(true)
     // Section heading vocabulary check
     expect(/[Ss]ection heading vocabulary/i.test(auditRegion)).toBe(true)
     // Source / composition signal check (the visible-footer rule)

@@ -66,7 +66,7 @@ Get detailed session status. Reads from `.loki/` flat files (dashboard-state.jso
 ```json
 {
   "status": "running",
-  "version": "7.23.1",
+  "version": "7.27.0",
   "uptime_seconds": 1234.5,
   "active_sessions": 1,
   "running_agents": 3,
@@ -1207,6 +1207,13 @@ The following endpoints exist in `dashboard/server.py` but were not previously d
 - `GET /api/council/gate` -- council gate status.
 
 ### App Runner
+
+The app runner supports both single-service apps (plain run command) and
+multi-service Docker Compose stacks (v7.26.0). For compose stacks the runner
+identifies the primary web service (by `loki.primary=true` label, `web`/`app`
+service name, or common web port) and reports its URL and Docker healthcheck
+status. A non-healthy web service is reported as crashed regardless of whether
+other services (database, cache) are still running.
 
 - `GET /api/app-runner/status` -- runtime status of the user app.
 - `GET /api/app-runner/logs` -- streamed logs.

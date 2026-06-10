@@ -1226,6 +1226,94 @@ emit_event_json() {
     log_debug "Event: $event_type - $json_data"
 }
 
+# Trust-layer metrics event writer (benchmark program section 3). Appends one
+# durable record per trust event to .loki/metrics/trust-events.jsonl via the
+# Python writer (single source of truth for the JSONL schema). This is ADDITIVE
+# and purely a side effect: it writes nothing to stdout, ignores all errors, and
+# never alters control flow or any caller's return value. The single-state
+# control files (evidence-block.json, gate-failure-count.json) are untouched;
+# this log exists because those files are erased on the successful-run path,
+# losing exactly the self-correction events the trust metrics publish.
+# Resolve a stable, UNIQUE-PER-RUN id for the trust event log. The cross-run
+# denominators (block rate, gate distribution) require ids that are distinct per
+# run. A persisted per-run file is the source of truth, NOT LOKI_SESSION_ID:
+#  - On `loki start ./prd.md`, LOKI_SESSION_ID is unset entirely.
+#  - On `loki run <issue>`, LOKI_SESSION_ID is the issue NUMBER, which is stable
+#    across re-runs by design (so `loki stop <n>` works); using it would merge
+#    every re-run of the same issue into one bucket and skew the rates.
+# So a fresh run always MINTS a new unique id into .loki/state/trust-run-id, and
+# every later event in that run reads it back. LOKI_SESSION_ID is only a
+# last-resort fallback when no minted file exists (e.g. an event fired before
+# any run_start, which the aggregator then treats as un-instrumented anyway).
+# Events never join to proof.json (Metrics 1-3 are events-only, Metric 4 is
+# proofs-only), so intra-log uniqueness is the only requirement.
+# Usage: _loki_trust_run_id [--new]
+_loki_trust_run_id() {
+    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}/.loki}"
+    local id_file="$loki_dir/state/trust-run-id"
+    if [ "${1:-}" = "--new" ]; then
+        # Fresh run: mint a new unique id (epoch + pid + short random) and
+        # persist it as the source of truth for this run's events.
+        local new_id
+        new_id="run-$(date -u +%Y%m%d%H%M%S)-$$-${RANDOM:-0}"
+        mkdir -p "$loki_dir/state" 2>/dev/null || true
+        printf '%s' "$new_id" > "$id_file" 2>/dev/null || true
+        printf '%s' "$new_id"
+        return 0
+    fi
+    # Read path: the minted per-run file wins over LOKI_SESSION_ID so a resume
+    # in a separate process (no exported LOKI_TRUST_RUN_ID) still resolves to
+    # the same run, and a stable issue-number session id never collapses re-runs.
+    if [ -s "$id_file" ]; then
+        cat "$id_file" 2>/dev/null || true
+        return 0
+    fi
+    if [ -n "${LOKI_SESSION_ID:-}" ]; then
+        printf '%s' "$LOKI_SESSION_ID"
+        return 0
+    fi
+    # No persisted id and no session id: empty -> writer records "unknown".
+    printf '%s' ""
+}
+
+# Usage: record_trust_event_bash <event_type> [key=value ...]
+# Pass LOKI_TRUST_RUN_ID in the environment to override the resolved id (the
+# run_start site sets it to the freshly minted id so the first event matches).
+record_trust_event_bash() {
+    local event_type="$1"
+    shift || true
+    local tm_mod="$SCRIPT_DIR/lib/trust_metrics.py"
+    [ -f "$tm_mod" ] || return 0
+    command -v python3 >/dev/null 2>&1 || return 0
+    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}/.loki}"
+    local run_id="${LOKI_TRUST_RUN_ID:-$(_loki_trust_run_id)}"
+    # Pass kv pairs as argv so Python parses (no shell JSON building). All
+    # values stay strings except where the reader coerces (iteration -> int).
+    _TM_LOKI_DIR="$loki_dir" \
+    _TM_MOD_PATH="$tm_mod" \
+    _TM_EVENT_TYPE="$event_type" \
+    _TM_RUN_ID="$run_id" \
+    _TM_ITERATION="${ITERATION_COUNT:-0}" \
+    python3 - "$@" <<'TRUST_EVENT_PY' >/dev/null 2>&1 || true
+import os, sys, importlib.util
+spec = importlib.util.spec_from_file_location("trust_metrics", os.environ["_TM_MOD_PATH"])
+tm = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tm)
+fields = {}
+for arg in sys.argv[1:]:
+    if "=" in arg:
+        k, v = arg.split("=", 1)
+        fields[k] = v
+tm.record_trust_event(
+    os.environ["_TM_LOKI_DIR"],
+    os.environ["_TM_EVENT_TYPE"],
+    run_id=os.environ.get("_TM_RUN_ID", "") or None,
+    iteration=os.environ.get("_TM_ITERATION", "0"),
+    **fields,
+)
+TRUST_EVENT_PY
+}
+
 # v7.0.2: Bash helper to emit a managed-agents event to the dashboard's
 # managed event log (.loki/managed/events.ndjson). Mirrors the Python
 # emit_managed_event helper so bash callers can land events in the same
@@ -2423,6 +2511,20 @@ build_completion_summary() {
         *)              outcome_label="$outcome";          notify_title="Run finished" ;;
     esac
 
+    # Live app URL (best-effort): if the app runner has a running app, surface
+    # where the user can try it. Reads .loki/app-runner/state.json written by
+    # app-runner.sh. Empty when no app is running.
+    local live_app_url=""
+    local _app_state_file="$loki_dir/app-runner/state.json"
+    if [ -f "$_app_state_file" ]; then
+        live_app_url="$(python3 -c "import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+    print(d.get('url','') if d.get('status')=='running' else '')
+except Exception:
+    print('')" "$_app_state_file" 2>/dev/null)"
+    fi
+
     # Branch + diff stats vs the run-start SHA (best-effort; non-git or empty
     # baseline yields empty values, which we render as "unknown"/"0").
     local start_sha="${_LOKI_RUN_START_SHA:-}"
@@ -2483,6 +2585,15 @@ build_completion_summary() {
             echo "Pull request: not opened (set LOKI_DELEGATE_PR=1 to open one)"
         fi
         echo ""
+        if [ -n "$live_app_url" ]; then
+            # Compute the dashboard scheme the same way start_dashboard does
+            # (url_scheme is local to that function, not visible here).
+            local _dash_scheme="http"
+            [ -n "${LOKI_TLS_CERT:-}" ] && [ -n "${LOKI_TLS_KEY:-}" ] && _dash_scheme="https"
+            echo "Your app is live at: $live_app_url  (served locally on this machine)"
+            echo "  Dashboard: ${_dash_scheme}://127.0.0.1:${DASHBOARD_PORT:-57374}/  (App Runner -> Live App)"
+            echo ""
+        fi
         echo "Tasks: pending=$pending in_progress=$in_progress completed=$completed failed=$failed"
         echo ""
         echo "Review the work:"
@@ -2893,7 +3004,7 @@ spawn_worktree_session() {
                     >> "$log_file" 2>&1 || _wt_exit=$?
                 ;;
             codex)
-                codex exec --full-auto \
+                codex exec --full-auto --skip-git-repo-check \
                     "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                     >> "$log_file" 2>&1 || _wt_exit=$?
                 ;;
@@ -3094,7 +3205,7 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
                 resolution=$(claude --dangerously-skip-permissions -p "$conflict_prompt" --output-format text 2>/dev/null)
                 ;;
             codex)
-                resolution=$(codex exec --full-auto "$conflict_prompt" 2>/dev/null)
+                resolution=$(codex exec --full-auto --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
                 ;;
             cline)
                 resolution=$(invoke_cline_capture "$conflict_prompt" 2>/dev/null)
@@ -6528,6 +6639,13 @@ print(counts[gate_name])
         loki_crash_friction "gate_failure" "gate=${gate_name} consecutive=${count}" >/dev/null 2>&1 || true
     fi
 
+    # Trust-metrics: append a durable per-failure record so the gate-failure
+    # distribution survives clear_gate_failure (which resets the running
+    # counter). CRITICAL: this function's stdout IS its return value, so the
+    # write is fully stdout-suppressed and best-effort; it cannot change the
+    # echoed count or any gate behavior.
+    record_trust_event_bash "gate_failure" "gate=${gate_name}" "consecutive=${count}" >/dev/null 2>&1 || true
+
     echo "$count"
 }
 
@@ -7477,7 +7595,7 @@ BUILD_PROMPT
                         --output-format text > "$review_output" 2>/dev/null
                     ;;
                 codex)
-                    codex exec --full-auto "$prompt_text" \
+                    codex exec --full-auto --skip-git-repo-check "$prompt_text" \
                         > "$review_output" 2>/dev/null
                     ;;
                 cline)
@@ -7692,7 +7810,7 @@ ADVERSARIAL_EOF
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                codex exec --full-auto "$adversarial_prompt" \
+                codex exec --full-auto --skip-git-repo-check "$adversarial_prompt" \
                     > "$result_file" 2>/dev/null || true
             fi
             ;;
@@ -8216,9 +8334,22 @@ start_dashboard() {
         log_info "Dashboard started (PID: $DASHBOARD_PID)"
         log_info "Dashboard: ${CYAN}${url_scheme}://127.0.0.1:$DASHBOARD_PORT/${NC}"
 
-        # Open in browser (macOS)
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            open "${url_scheme}://127.0.0.1:$DASHBOARD_PORT/" 2>/dev/null || true
+        # Auto-open the dashboard in the browser, but ONLY for an interactive
+        # foreground session. Gated on: a TTY on stdout ([ -t 1 ]), not
+        # background/detached mode, and not explicitly opted out via
+        # LOKI_NO_AUTO_OPEN=1. This keeps CI, --detach, SSH-no-TTY, and piped
+        # runs from spawning a browser. Cross-platform: open / xdg-open / start.
+        if [ -t 1 ] && [ "${BACKGROUND_MODE:-false}" != "true" ] && [ "${LOKI_NO_AUTO_OPEN:-0}" != "1" ]; then
+            local _dash_url="${url_scheme}://127.0.0.1:$DASHBOARD_PORT/"
+            if command -v open >/dev/null 2>&1; then
+                open "$_dash_url" 2>/dev/null || true
+            elif command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "$_dash_url" 2>/dev/null || true
+            elif command -v cmd.exe >/dev/null 2>&1; then
+                # Windows (Git Bash/WSL): `start` is a cmd builtin, not on PATH,
+                # so invoke it via cmd.exe. The empty "" is start's title arg.
+                cmd.exe /c start "" "$_dash_url" 2>/dev/null || true
+            fi
         fi
         return 0
     else
@@ -10429,6 +10560,14 @@ build_prompt() {
     # same precedent as AUTONOMY_OVERRIDE_TEXT in providers/claude_flags.ts).
     local agents_md_instruction="Project conventions: read AGENTS.md in the repository root for build, test, and style conventions. If AGENTS.md is absent, read CLAUDE.md instead. The nearest such file to the code you are editing takes precedence."
 
+    # Compose-first instruction (v7.26.0): unconditional string with conditional
+    # phrasing (YOU decide whether the app warrants compose, not a static grep).
+    # When an app needs more than one running service (web + database and/or
+    # cache), a docker-compose.yml is the run contract Loki's app runner uses to
+    # bring the whole stack up locally. This string MUST stay byte-identical to
+    # COMPOSE_INSTRUCTION in loki-ts/src/runner/build_prompt.ts (parity-locked).
+    local compose_instruction="RUN_CONTRACT: Decide whether this app needs more than one running service. If it needs a database (PostgreSQL/MySQL/MongoDB) and/or a cache (Redis) and/or separate backend and frontend services, generate a 12-factor docker-compose.yml at the project root so the whole stack runs with one command. Requirements when you generate it: (1) name the primary web/app service so it is obvious (service key 'web' or 'app', or add the label 'loki.primary=true' on it) and publish its HTTP port (host:container, e.g. '3000:3000'); (2) give every service a healthcheck (the web service must have an HTTP healthcheck so 'up' means actually serving, not just started); (3) wire dependencies with depends_on and config via environment variables; (4) write a .env.example listing every required variable with safe placeholder values; (5) keep secrets out of the compose file and out of git. If the app is a single service with no datastore, do NOT add compose; a plain run command is correct. If a working docker-compose.yml already exists and matches the app, leave it; otherwise create or update it. Verify the stack comes up (docker compose up) before claiming completion."
+
     # Load existing context if resuming
     local context_injection=""
     if [ $retry -gt 0 ]; then
@@ -10758,15 +10897,15 @@ except Exception:
         else
             if [ $retry -eq 0 ]; then
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode with PRD at $prd. $update_instruction $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode with PRD at $prd. $update_instruction $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             else
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             fi
         fi
@@ -10808,6 +10947,7 @@ except Exception:
             printf 'You are a coding assistant. Analyze this codebase and suggest improvements. Write working code and commit changes.\n'
         fi
         printf '%s\n' "$usage_doc_instruction"
+        printf '%s\n' "$compose_instruction"
         printf '%s\n' "$lsp_grounding_instruction"
         printf '%s\n' "$agents_md_instruction"
         printf '</loki_system>\n'
@@ -10841,6 +10981,7 @@ except Exception:
     printf '%s\n' "$autonomous_suffix"
     printf '%s\n' "$memory_instruction"
     printf '%s\n' "$usage_doc_instruction"
+    printf '%s\n' "$compose_instruction"
     printf '%s\n' "$lsp_grounding_instruction"
     printf '%s\n' "$agents_md_instruction"
     # For codebase-analysis mode (no PRD), analysis_instruction is part of the
@@ -11854,6 +11995,19 @@ run_autonomous() {
     _LOKI_RUN_START_SHA="$(cat "$_start_sha_file" 2>/dev/null || echo "")"
     export _LOKI_RUN_START_SHA
 
+    # Trust-metrics instrumentation marker: record one run_start event per
+    # fresh run so the trust-metrics denominator counts ONLY instrumented runs.
+    # This is what lets the aggregator distinguish "0 blocks measured" from
+    # "this run predates instrumentation" (the central honesty rule). Additive,
+    # best-effort, stdout-silent; never affects control flow. Mint a fresh
+    # per-run id here and export it so every later event in this run shares it
+    # (LOKI_SESSION_ID is absent on the `loki start` path).
+    if [ "${ITERATION_COUNT:-0}" -eq 0 ]; then
+        LOKI_TRUST_RUN_ID="$(_loki_trust_run_id --new)"
+        export LOKI_TRUST_RUN_ID
+        record_trust_event_bash "run_start" "start_sha=${_LOKI_RUN_START_SHA:-}" 2>/dev/null || true
+    fi
+
     # Notify dashboard of active project directory (for AI Chat cross-directory usage)
     if command -v curl &>/dev/null; then
         local project_cwd
@@ -12140,6 +12294,59 @@ except Exception as exc:
            && type loki_claude_flag_supported >/dev/null 2>&1 \
            && loki_claude_flag_supported "--include-partial-messages"; then
             _loki_claude_argv+=("--include-partial-messages")
+        fi
+        # ---- Bash<->Bun invocation-flag convergence ledger (v7.25.0) ----------
+        # The fixture corpus covers build_prompt/stats output, NOT this claude
+        # argv, so drift here is invisible to parity tests. Keep this ledger
+        # current. Live route today is BASH (bin/loki routes `start` -> bash).
+        # The claude provider in loki-ts/src/runner/providers.ts is implemented
+        # but is NOT reached for `start` (start is not ported to the Bun router;
+        # the shim falls through to bash), so its flag set has zero live impact
+        # today.
+        # Bash argv (canonical, live): --dangerously-skip-permissions --model M
+        #   [--append-system-prompt] [--setting-sources] [--include-partial-messages]
+        #   [--effort] [--max-budget-usd] [--fallback-model] -p PROMPT
+        #   --output-format stream-json --verbose
+        # Bun buildAutoFlags also emits: --exclude-dynamic-system-prompt-sections
+        #   (cost-only), --mcp-config (bash gets MCP via --setting-sources +
+        #   .mcp.json discovery; a how-difference, likely behavior-equivalent),
+        #   --include-hook-events (bash handles hook events in its embedded
+        #   stream parser; likely moot). These three are Bun-only and MUST be
+        #   reconciled to a deliberately chosen canonical set BEFORE `start`
+        #   flips to the Bun runner. They have zero live impact today.
+        # v7.25.0: long-run resilience + cost flags, appended individually here
+        # (NOT via _loki_build_claude_auto_flags, which would double the three
+        # flags above). Each is gated on CLI support + an opt-out env var, same
+        # pattern as above. These improve unattended/long-run execution:
+        #   --effort           adaptive reasoning depth per RARV tier
+        #   --max-budget-usd   per-call hard backstop (complements the
+        #                      cumulative check_budget_limit PAUSE gate)
+        #   --fallback-model   resilience to model overload/unavailability
+        # The trust/verification gates stay deterministic; these only tune how
+        # the provider is invoked, never whether work is judged complete.
+        if [ "${LOKI_AUTO_EFFORT:-on}" != "off" ] \
+           && type loki_effort_for_tier >/dev/null 2>&1 \
+           && type loki_claude_flag_supported >/dev/null 2>&1 \
+           && loki_claude_flag_supported "--effort"; then
+            local _loki_effort
+            _loki_effort="$(loki_effort_for_tier "$CURRENT_TIER" "${DETECTED_COMPLEXITY:-${LOKI_COMPLEXITY:-standard}}")"
+            [ -n "$_loki_effort" ] && _loki_claude_argv+=("--effort" "$_loki_effort")
+        fi
+        if [ "${LOKI_AUTO_BUDGET:-on}" != "off" ] \
+           && type loki_remaining_budget >/dev/null 2>&1 \
+           && type loki_claude_flag_supported >/dev/null 2>&1 \
+           && loki_claude_flag_supported "--max-budget-usd"; then
+            local _loki_rem_budget
+            _loki_rem_budget="$(loki_remaining_budget)"
+            [ -n "$_loki_rem_budget" ] && _loki_claude_argv+=("--max-budget-usd" "$_loki_rem_budget")
+        fi
+        if [ "${LOKI_AUTO_FALLBACK:-on}" != "off" ] \
+           && type loki_fallback_for_primary >/dev/null 2>&1 \
+           && type loki_claude_flag_supported >/dev/null 2>&1 \
+           && loki_claude_flag_supported "--fallback-model"; then
+            local _loki_fallback
+            _loki_fallback="$(loki_fallback_for_primary "$tier_param")"
+            [ -n "$_loki_fallback" ] && _loki_claude_argv+=("--fallback-model" "$_loki_fallback")
         fi
         case "${PROVIDER_NAME:-claude}" in
             claude)
@@ -12487,7 +12694,7 @@ if __name__ == "__main__":
                 # Uses dynamic tier from RARV phase (tier_param already set above)
                 { LOKI_CODEX_REASONING_EFFORT="$tier_param" \
                 CODEX_MODEL_REASONING_EFFORT="$tier_param" \
-                codex exec --full-auto \
+                codex exec --full-auto --skip-git-repo-check \
                     "$prompt" 2>&1 | tee -a "$log_file" "$agent_log" "$iter_output"; \
                 } && exit_code=0 || exit_code=$?
                 ;;

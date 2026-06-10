@@ -73,6 +73,8 @@ Options:
 
 Start autonomous execution from a spec. Works with or without one -- if no spec is provided, Loki analyzes the existing codebase and generates one. A spec is typically a PRD markdown file, but can also be sourced from a GitHub issue (`loki issue`).
 
+**v7.25.0 behaviors:** For interactive foreground sessions, `loki start` automatically opens the dashboard in the default browser after the run starts (cross-platform: macOS `open`, Linux `xdg-open`/`wslview`, Windows `start`). Automatically skipped in CI (`CI=true`), with `--detach`/`--background`, over SSH without a TTY, or with piped stdin. Set `LOKI_NO_AUTO_OPEN=1` to opt out. The run completion summary (`.loki/COMPLETION.txt`) now includes "Your app is live at <url>" plus the dashboard URL when the built app is running. The autonomous loop passes `--effort`, `--max-budget-usd`, and `--fallback-model` to Claude Code on every iteration for resilience; each is individually opt-out via `LOKI_AUTO_EFFORT=off`, `LOKI_AUTO_BUDGET=off`, `LOKI_AUTO_FALLBACK=off`.
+
 ```bash
 loki start [SPEC_FILE] [OPTIONS]
 ```
@@ -213,6 +215,23 @@ loki stop --all    # stop EVERY loki runner on this machine (legacy behavior)
 Use `loki stop --all` for the old machine-wide behavior (also reaps orphaned
 runners from crashed sessions). `loki cleanup` also reaps orphans when no
 session is running in the current folder.
+
+---
+
+### `loki preview` / `loki open`
+
+Open the running app that Loki built and started locally in your browser.
+Prints the app URL to stdout and launches it in the default browser. Works
+whether or not the dashboard is open. Added in v7.24.0.
+
+```bash
+loki preview       # print app URL and open in browser
+loki open          # alias for loki preview
+```
+
+For interactive foreground runs, `loki start` (v7.25.0+) automatically opens
+the dashboard in the browser on startup. Use `loki preview` any time you want
+to re-open the running app URL explicitly.
 
 ---
 
@@ -965,6 +984,156 @@ loki enterprise audit summary
 # View recent audit entries
 loki enterprise audit tail
 ```
+
+---
+
+## Verification Commands
+
+### `loki verify`
+
+Deterministic PR verification (Autonomi Verify MVP). Verifies the current
+working tree (HEAD) against a base ref by computing the PR-style delta,
+`merge-base(base, HEAD)..HEAD`, then running deterministic quality gates on
+that change set. Emits a single verdict plus a machine-readable evidence
+document. Designed as a CI gate: the exit code maps to the verdict.
+
+This MVP is DETERMINISTIC-ONLY. There is no LLM code review in this slice; the
+single-reviewer LLM stage and the blind multi-reviewer council are sequenced
+for a later phase. The evidence document records `llm_review.status = "skipped"`
+honestly.
+
+```bash
+loki verify [<base-ref>] [options]
+```
+
+**Arguments:**
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `<base-ref>` | `origin/main`, then `main` | Base branch/ref to diff against. Tries `origin/<ref>` before local `<ref>`. |
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--base <ref>` | -- | Explicit form of the positional base-ref. |
+| `--out <dir>` | `.loki/verify` | Output directory for `evidence.json` and `report.md`. |
+| `--block-on <list>` | `critical,high` | Comma list of severities that BLOCK the verdict. |
+| `--no-llm` | -- | Accepted for forward-compatibility; LLM is already off in this MVP. |
+| `-h, --help` | -- | Show help. |
+
+**Deterministic gates (reproducible by construction):**
+
+| Gate | What it runs |
+|------|--------------|
+| `build` | runs when a build command is detectable (npm/go/cargo) |
+| `tests` | vitest / jest / mocha / pytest / go test / cargo test |
+| `static_analysis` | syntax check of changed files (node / tsc / py_compile / bash -n) |
+| `secret_scan` | gitleaks if installed, else a high-confidence regex fallback over the diff |
+| `dependency_audit` | npm audit / pip-audit when a lockfile exists |
+
+**Verdict model:**
+
+| Verdict | Meaning |
+|---------|---------|
+| VERIFIED | zero findings, diff non-empty, all gates conclusive |
+| CONCERNS | below-threshold findings, OR inconclusive evidence (never upgraded to VERIFIED) |
+| BLOCKED | one or more findings at/above the block threshold (default Critical/High) |
+
+A gate that is not applicable (for example, no lockfile so no dependency audit)
+is recorded as `skipped` and does not affect the verdict. A gate that is
+applicable but cannot run (for example, a Python project where `pytest` is not
+on PATH) is recorded as `inconclusive` and forces at-least-CONCERNS.
+
+**Exit codes (this implementation):**
+
+| Code | Verdict |
+|------|---------|
+| 0 | VERIFIED |
+| 1 | CONCERNS |
+| 2 | BLOCKED |
+| 3 | verifier error (could not complete; never silently passes) |
+
+Note: the internal verification spec lists `1=BLOCKED, 2=CONCERNS`. This
+implementation follows the build-task ordering (`1=CONCERNS, 2=BLOCKED`); the
+divergence is documented here and in `loki verify --help` so it can be
+reconciled before the GitHub App phase consumes these codes.
+
+**Output:**
+
+| File | Contents |
+|------|----------|
+| `<out>/evidence.json` | consolidated machine-readable evidence (schema 1.0): gates run, results, diff stats, timestamps, tool version |
+| `<out>/report.md` | human-readable verdict and findings table |
+
+**Examples:**
+
+```bash
+# Verify the current branch against main, default output dir
+loki verify main
+
+# Verify against origin/develop, custom output dir
+loki verify --base develop --out .autonomi-verify
+
+# Stricter: also block on Medium findings
+loki verify main --block-on critical,high,medium
+
+# Use as a CI gate (fails the job on BLOCKED)
+loki verify "$GITHUB_BASE_REF" || exit $?
+```
+
+**Reference GitHub Actions integration:**
+
+```yaml
+name: verify
+on: pull_request
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so merge-base resolves
+      - run: npm install -g loki-mode
+      - run: loki verify "origin/${{ github.base_ref }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-evidence
+          path: .loki/verify/
+```
+
+**Notes and limitations (MVP):**
+
+- The diff is the COMMITTED delta `merge-base(base, HEAD)..HEAD` (PR semantics).
+  Uncommitted working-tree changes are not verified; commit them first.
+- An empty diff yields CONCERNS (nothing to verify), never VERIFIED.
+- No LLM review in this slice (deterministic gates only).
+
+### `loki trust-metrics`
+
+Aggregate the trust-layer metrics of the CURRENT project from its `.loki/`
+artifacts and the durable `.loki/metrics/trust-events.jsonl` event log.
+
+```bash
+loki trust-metrics            # human-readable table + writes JSON
+```
+
+**Metrics reported** (definitions match the published benchmark program):
+
+| Metric | Meaning |
+|--------|---------|
+| Evidence-gate block rate | How often a completion claim was refused (empty diff or red tests) per instrumented run |
+| Gate failure distribution | Per-gate failure counts with median and p90 across runs |
+| Council rejection / split rate | Completion-council votes: rejections, and splits among rejections |
+| Cost per verified task | Spend divided by the verified-completion denominator |
+
+**Output:** `.loki/metrics/trust-metrics.json` plus a terminal table.
+
+**Honesty rule:** denominators count only instrumented runs. A project with no
+instrumentation reports `available: false` ("not instrumented"); it never
+fabricates a zero as if it were a measurement. Single project only
+(`--all-projects` is rejected).
 
 ---
 

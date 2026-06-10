@@ -85,7 +85,7 @@ Loki Mode is built on peer-reviewed research:
 **Verdict: Loki Mode wins** - Academically grounded.
 
 ### 2. Specialized Agent Types
-Loki Mode has 41 predefined agent types across 6 swarms:
+Loki Mode has 41 specialized agent roles across 8 domains - prompt-defined specifications the orchestrator adopts per phase, with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers:
 - Engineering (8): frontend, backend, database, mobile, API, QA, perf, infra
 - Operations (8): DevOps, SRE, security, monitoring, incident, release, cost, compliance
 - Business (8): marketing, sales, finance, legal, support, HR, investor, partnerships
@@ -142,13 +142,16 @@ Loki Mode has 14 quality gates:
 
 ### 6. Published Benchmarks
 Loki Mode:
-- HumanEval: 98.78% Pass@1 (162/164)
-- SWE-bench: 99.67% patch generation (299/300)
-- Documented methodology with reproducible results
+- HumanEval: 98.78% Pass@1 (162/164, reproducible harness)
+- SWE-bench: not measured. A patch-generation harness exists (299/300 diffs
+  produced), but the official evaluator was never run, so there is no resolve
+  rate. Patch generation is not a success metric and is not comparable to
+  other tools' resolution scores.
 
 **Auto-Claude:** No published benchmarks.
 
-**Verdict: Loki Mode wins** - Verified performance claims.
+**Verdict: Loki Mode wins on HumanEval transparency** - one real, reproducible
+number versus none. No SWE-bench performance claim is made.
 
 ### 7. Licensing
 - Loki Mode: MIT (free, no restrictions)
@@ -248,7 +251,7 @@ Loki Mode now incorporates proven patterns from Cursor's large-scale agent deplo
 **Loki Mode is better if you want:**
 - Research-backed architecture
 - Full spec-to-product lifecycle (not just coding)
-- 41 specialized agents
+- 41 specialized agent roles
 - Anti-sycophancy measures
 - MIT license
 - No subscription requirement

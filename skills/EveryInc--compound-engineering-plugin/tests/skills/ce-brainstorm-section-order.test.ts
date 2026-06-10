@@ -80,16 +80,14 @@ describe("ce-brainstorm metadata field contract", () => {
     }
   })
 
-  test("brainstorm-sections.md states that the status flip mechanic does not apply", () => {
-    // The shared HTML rendering reference describes `<span class="status">`
-    // as a load-bearing hook for ce-work's active → completed flip. That
-    // mechanic is plan-side; brainstorm has no status lifecycle. The
-    // contract must say so explicitly so an agent reading
-    // brainstorm-sections.md + html-rendering.md together doesn't invent
-    // a status field for brainstorm artifacts.
+  test("brainstorm-sections.md states brainstorms carry no status field", () => {
+    // No CE artifact carries a mutable status field — the active → completed
+    // lifecycle was removed (ce-work no longer mutates plans; completion is
+    // derived from git). The contract must say so explicitly so an agent
+    // composing a brainstorm doesn't invent a status field.
     expect(
-      /no `?status`? field|status flip does not apply|no.*active.*completed|plan-side mechanic/i.test(BODY),
-      "brainstorm-sections.md must explicitly state that the `status` field / `active → completed` flip mechanic does not apply to brainstorms.",
+      /no `?status`? field|no.*active.*completed/i.test(BODY),
+      "brainstorm-sections.md must explicitly state that brainstorms carry no `status` field / `active → completed` lifecycle.",
     ).toBe(true)
   })
 })

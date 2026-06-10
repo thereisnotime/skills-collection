@@ -9,6 +9,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.27.0] - 2026-06-09
+
+### Added
+- `loki verify [base-ref]`: standalone deterministic verification of any branch or PR diff.
+  Runs build, tests, and static analysis scoped to changed files; diff-scoped secret scan;
+  dependency audit. Exit codes: 0 VERIFIED / 1 CONCERNS / 2 BLOCKED for CI gating.
+  Machine-readable evidence written to `.loki/verify/evidence.json` and `report.md`.
+  Inconclusive evidence is never reported VERIFIED. Empty diffs yield CONCERNS. Bare
+  root-level test files are detected so discoverable tests are never silently skipped.
+  No LLM review in this MVP (stated in help text). Tests: 11/11.
+- `loki trust-metrics`: aggregates evidence-gate block rate, per-gate failure distribution
+  (median and p90), council rejection/split rate, and cost-per-verified-task from a new
+  durable append-only `.loki/metrics/trust-events.jsonl`. Honesty rule: un-instrumented
+  projects report `available: false`, never fabricated zeros. Tests: 12/12;
+  evidence-gate regression suite: 33/33.
+- Provider honesty labels. Claude Code is labeled Tier 1 E2E-verified primary. Codex,
+  Cline, and Aider are labeled Experimental. Codex harness fixed: `--skip-git-repo-check`
+  added at all invocation sites (previously hard-failed on fresh non-git directories).
+  Documented CLI flags corrected (`cline -y`).
+- Live App Preview iframe reloads when the app's healthcheck flips to serving. Previously
+  an iframe loaded during the app boot window stayed blank for the entire session.
+
+### Changed
+- Presentation deck rebranded to Autonomi (Autonomi's Loki Mode; roles/domains framing;
+  provider tiering; Autonomi Cloud coming-soon notice); GIF regenerated.
+- Runtime section updated: the v8-Bun-only promise openly superseded by the
+  stable-engine decision (bash engine frozen as stable core; new surfaces are
+  TypeScript-first wrappers).
+
+## [7.26.0] - 2026-06-09
+
+### Added
+- Compose-first fullstack support. When a spec requires more than one service
+  (web + database + cache, etc.) the agent is now instructed via RUN_CONTRACT
+  to generate a 12-factor `docker-compose.yml` with a clearly-named primary web
+  service, healthchecks on every service, `depends_on` wiring, env-var config,
+  and a `.env.example`. Single-service apps continue to use a plain run command
+  with no forced Docker involvement.
+- Web-service URL routing in the Live App Preview. The app runner now identifies
+  the primary web service of a compose stack (by `loki.primary=true` label,
+  `web`/`app` service name, or common web ports) and surfaces that service's URL
+  in the Live App iframe. Previously the runner could accidentally surface a
+  database port as the app URL.
+- Service-aware health tracking. The Live App status now reflects the web
+  service's Docker healthcheck (`healthy`/`unhealthy`) rather than whether any
+  container in the stack is running. A dead or non-serving web service shows as
+  crashed even when the database remains up. The watchdog monitors compose stacks
+  by web-service health instead of a PID check (which was incorrect for
+  detached compose stacks).
+
+### Notes
+- All execution is local-first: the stack runs on the user's own machine via
+  Docker Compose with no hosted service and no vendor lock-in.
+- Single-service specs are unaffected. The compose path activates only when the
+  spec analysis concludes that multiple services are needed.
+
+## [7.25.0] - 2026-06-09
+
+### Added
+- Auto-open dashboard on `loki start`. For interactive foreground sessions Loki
+  now opens the dashboard in the default browser automatically after the run
+  starts. The behavior is cross-platform (macOS `open`, Linux
+  `xdg-open`/`wslview`, Windows `start`) and is automatically skipped when
+  running in CI (`CI=true`), with `--detach` / `--background`, over SSH without
+  a TTY, or with piped stdin. Set `LOKI_NO_AUTO_OPEN=1` to opt out entirely.
+- Live-app banner in the run completion summary. `.loki/COMPLETION.txt` now
+  includes a "Your app is live at <url>" line (the locally-running app URL) plus
+  the dashboard URL when the built app is still running at the time the run
+  closes. Users see exactly where to try what Loki just built without hunting
+  through logs.
+- Native Claude Code resilience flags on every autonomous iteration. The RARV
+  loop now passes `--effort` (adaptive reasoning matched to the current RARV
+  phase: `low` for Haiku-tier utility steps, `medium` for standard iterations,
+  `high` for planning and critical-path phases), `--max-budget-usd` (a per-call
+  cost backstop to prevent runaway spending on a single iteration), and
+  `--fallback-model` (automatic model failover when the primary model is
+  overloaded or unavailable) on each provider invocation. Each flag is gated on
+  CLI support detection and an individual opt-out env var
+  (`LOKI_AUTO_EFFORT=off`, `LOKI_AUTO_BUDGET=off`, `LOKI_AUTO_FALLBACK=off`).
+  Loki's deterministic trust and verification gates (RARV-C closure, 11 quality
+  gates, completion council, verified-completion evidence gate) are unchanged.
+
+### Notes
+- The auto-open behavior adds no network calls and no vendor dependency. It is
+  a local `open`/`xdg-open`/`start` invocation only.
+- The `--effort` mapping follows the existing RARV tier definitions: tier 1
+  (Opus/planning) maps to `high`, tier 2 (Sonnet/development) maps to `medium`,
+  tier 3 (Haiku/parallelization) maps to `low`. Tiers are unchanged.
+
+## [7.24.0] - 2026-06-09
+
+### Added
+- Live App Preview panel in the dashboard. While a `loki start` run is in
+  progress the dashboard now embeds the locally-running app (served by the
+  existing app-runner) in an iframe so users can interact with it immediately,
+  without leaving the dashboard. The panel includes a status badge (running /
+  stopped / error), a toolbar with Refresh, Open-in-browser, and Restart
+  buttons, and a crash error banner with a redacted technical-details disclosure
+  widget.
+- `loki preview` command (alias `loki open`). Prints the running app URL to
+  stdout and opens it in the default browser. Works whether or not the dashboard
+  is open.
+- `GET /api/app-runner/errors` endpoint. Returns a redacted error summary for
+  the current session. Raw stack traces and absolute paths are stripped before
+  the response leaves the server, so only developer-relevant context is
+  surfaced.
+- Log redaction for `GET /api/app-runner/logs`. The logs endpoint now applies
+  the same redaction filter as the new errors endpoint, closing a pre-existing
+  raw-log information-leak.
+
+### Notes
+- The Live App Preview is entirely local-first: the iframe points at
+  `localhost`, not any hosted service. This closes the "spin up UI to try it"
+  gap that cloud builders such as Replit/Lovable/Bolt have, while preserving
+  Loki Mode's local-first and no-vendor-lock architecture.
+
 ## [7.23.1] - 2026-06-09
 
 ### Fixed

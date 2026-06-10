@@ -205,14 +205,13 @@ describe("ce-plan output:html mode", () => {
     // (plan-sections.md) + format-rendering refs. markdown-rendering.md now
     // says "Per-skill frontmatter fields are defined in each skill's section
     // contract" — so plan-sections.md MUST actually list them or downstream
-    // tooling that keys on these field names (Phase 0.1 resume fast path on
-    // `status: active`, ce-work's active→completed flip, deepening's
+    // tooling that keys on these field names (deepening's
     // `deepened: YYYY-MM-DD`, HITL Proof's `origin:` traceback) breaks
     // silently when agents compose plans from the new refs.
     const body = readFileSync(PLAN_SECTIONS_PATH, "utf8")
 
     // Required field names that downstream consumers depend on.
-    for (const field of ["title", "type", "status", "date"]) {
+    for (const field of ["title", "type", "date"]) {
       expect(
         new RegExp(`\\b${field}\\b`).test(body),
         `plan-sections.md must name the required '${field}' metadata field — downstream tooling keys on it.`,
@@ -228,12 +227,13 @@ describe("ce-plan output:html mode", () => {
       ).toBe(true)
     }
 
-    // The contract must explicitly state that status flips active → completed
-    // so the field's mutability isn't lost when an agent reads the contract
-    // without the markdown-rendering reference.
+    // Plans carry NO status field — the active → completed lifecycle was
+    // removed (ce-work no longer mutates the plan; completion is derived from
+    // git). The contract must say so explicitly so an agent reading it does
+    // not reintroduce a status field.
     expect(
-      /active.*completed|completed.*active/i.test(body),
-      "plan-sections.md must state the status field's active → completed transition so the mutability semantics survive on their own.",
+      /no .{0,3}status.{0,3} field|carry .{0,6}no .{0,12}status/i.test(body),
+      "plan-sections.md must state plans carry NO status field.",
     ).toBe(true)
   })
 

@@ -1809,11 +1809,25 @@ program
 program
   .command('setup')
   .description(
-    'Set up individual firecrawl integrations (skills, workflows, mcp)'
+    'Set up individual firecrawl integrations (skills, workflows, mcp, defaults)'
   )
-  .argument('<subcommand>', 'What to set up: "skills", "workflows", or "mcp"')
+  .argument(
+    '<subcommand>',
+    'What to set up: "skills", "workflows", "mcp", or "defaults"'
+  )
   .option('-g, --global', 'Install globally (user-level)')
-  .option('-a, --agent <agent>', 'Install to a specific agent')
+  .option(
+    '-a, --agent <agent>',
+    'Limit to a specific agent (for "defaults": "claude" or "codex")'
+  )
+  .option(
+    '-y, --yes',
+    'For "defaults": skip the interactive harness picker and apply to all'
+  )
+  .option(
+    '--undo',
+    'Undo setup defaults by re-enabling native web tools where supported'
+  )
   .action(async (subcommand: SetupSubcommand, options) => {
     await handleSetupCommand(subcommand, options);
   });

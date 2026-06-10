@@ -18,7 +18,7 @@
 
 ---
 
-> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), assembles an agent team from 41 specialized types across 8 swarms, and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 11 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
+> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), assembles an agent team from 41 specialized agent roles across 8 domains - prompt-defined specifications the orchestrator adopts per phase, with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 11 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
 
 ---
 
@@ -26,11 +26,15 @@
 
 - **Spec-driven, autonomous, with a built-in trust layer** -- Hand Loki a spec, walk away, come back to working code with tests. The full RARV-C closure loop (Reason - Act - Reflect - Verify - Close) runs until the work is actually done, not just attempted. The verified-completion evidence gate (`skills/quality-gates.md`) refuses any "done" claim on an empty git diff against the run-start commit, and blocks completion when tests run red, so "complete" means proven, not promised.
 - **Production quality built in** -- 11 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks
+- **Standalone verification: `loki verify`** -- Run Loki's deterministic gates (build, tests, static analysis, secret scan, dependency audit) against any branch or PR diff, including code written by other agents or humans. CI-ready exit codes (0 VERIFIED, 1 CONCERNS, 2 BLOCKED), machine-readable evidence at `.loki/verify/evidence.json`. Inconclusive evidence is never reported as VERIFIED (v7.27.0).
+- **Live App Preview** -- The dashboard embeds the locally-running app in an iframe so you can interact with it immediately during a build. Use `loki preview` (alias `loki open`) to print the URL and open it in your browser. Local-first: no hosted service, no vendor lock (v7.24.0).
+- **Compose-first fullstack** -- When a spec needs more than one service (web + database + cache) Loki generates a 12-factor `docker-compose.yml` with healthchecks, `depends_on` wiring, env-var config, and a `.env.example`. The Live App Preview surfaces the web service URL (not a database port), and health reflects the web service's Docker healthcheck so a crashed app shows as crashed even when the database stays up. Single-service apps stay on a plain run command. All local-first, no hosted service (v7.26.0).
+- **Intelligent `loki start`** -- For interactive foreground runs the dashboard auto-opens in the browser (cross-platform; skipped in CI, SSH-without-TTY, and piped runs; opt out with `LOKI_NO_AUTO_OPEN=1`). The completion summary shows "Your app is live at <url>" so you know exactly where to try what Loki just built. The autonomous loop passes Claude Code's `--effort`, `--max-budget-usd`, and `--fallback-model` on every iteration (each gated on CLI support and individual opt-out env vars) for better long-run unattended execution (v7.25.0).
 - **Cross-project memory** -- Episodic/semantic/procedural memory with vector search; knowledge learned on one project surfaces on the next (v5.15.0+, see `memory/engine.py`)
 - **Self-hosted and private** -- Your keys, your infrastructure, no data leaves your network
 - **Legacy system healing** -- `loki heal` archaeology/stabilize/isolate/modernize/validate phases (v6.67.0, see `skills/healing.md`)
 - **MCP server** -- 34 tools (including ChromaDB code search) plus 3 resources and 2 prompts (`mcp/server.py`, with managed-memory and magic tools registered from `mcp/managed_tools.py` and `mcp/magic_tools.py`)
-- **Full-stack output** -- Source code, tests, Docker configs, CI/CD pipelines, audit logs
+- **Full-stack output** -- Source code, tests, Docker Compose stacks (multi-service with healthchecks), CI/CD pipelines, audit logs
 - **Provider-agnostic** -- runs on Claude, Codex, Cline, or Aider with automatic failover (`loki-ts/src/runner/providers.ts`); no vendor lock-in. Gemini CLI deprecated v7.5.18; Antigravity CLI coming soon.
 - **Open source** -- Free for personal, internal, and academic use.
 
@@ -44,7 +48,7 @@ Loki drives a coding agent CLI and orchestrates real builds, so it needs a few t
 
 Required:
 
-- An agent provider CLI (at least one): [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`, Tier 1, recommended), or OpenAI Codex CLI (`codex`), Cline, or Aider.
+- An agent provider CLI: [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`, Tier 1, recommended and E2E-verified - the provider Loki Mode is built for). Codex, Cline, and Aider are supported as experimental providers (wiring in place; not yet E2E-verified by us).
 - Python 3.10+ (`python3`) for the dashboard, memory system, and orchestration helpers.
 - Git 2.x (`git`) for checkpoints and worktrees.
 - `curl` for installation and network calls.
@@ -84,7 +88,7 @@ loki quick "build a landing page with a signup form"
 
 | Method | Command | Notes |
 |--------|---------|-------|
-| **Bun (recommended)** | `bun install -g loki-mode` | Fastest. v8 will be Bun-only. |
+| **Bun (recommended)** | `bun install -g loki-mode` | Fastest startup for CLI commands. |
 | **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` | Auto-installs Bun as a dep |
 | **Docker** | `docker pull asklokesh/loki-mode:7.7.31 && docker run --rm asklokesh/loki-mode:7.7.31 start prd.md` | Bun pre-installed in image |
 | **npm (compat)** | `npm install -g loki-mode` | Works without Bun (bash fallback). Migrate any time with `loki self-update --to bun`. |
@@ -105,7 +109,7 @@ See the [Installation Guide](docs/INSTALLATION.md) for the long form.
 
 ## Runtime Architecture
 
-Loki Mode is in a phased migration from a Bash-based runtime to a TypeScript/Bun runtime. The migration has merged to `main` and ships incrementally with each release.
+Loki Mode runs a dual runtime by deliberate design: the battle-tested Bash engine is the stable core (the autonomous loop, quality gates, and completion council stay on it; it receives bug fixes and hardening), and new product surfaces are built TypeScript/Bun-first as modules that wrap the engine rather than reimplement it. An earlier plan to make v8 Bun-only has been superseded by this stable-engine approach: rewriting the verified trust layer would risk the exact guarantees this product exists to provide, for no capability gain. Bash support is not going away.
 
 **What ships today:**
 
@@ -224,8 +228,8 @@ Every iteration: **Reason** (read state) - **Act** (execute, commit) - **Reflect
 </td>
 <td width="33%" valign="top">
 
-### 41 Agent Types
-8 swarms: engineering, operations, business, data, product, growth, review, orchestration. Auto-composed by PRD complexity.
+### 41 Agent Roles
+8 domains: engineering, operations, business, data, product, growth, review, orchestration. These are prompt-defined role specifications the orchestrator adopts per phase, auto-composed by PRD complexity; parallelism comes from the blind review council, the adversarial reviewer, and optional git-worktree streams on Claude Code, sequential on other providers.
 
 [Agent Types](references/agent-types.md)
 
@@ -251,7 +255,7 @@ Blind review, anti-sycophancy, severity blocking, mock/mutation detection, backw
 <td width="33%" valign="top">
 
 ### Dashboard
-Real-time monitoring, agent status, task queue, WebSocket streaming. Auto-starts at `localhost:57374`.
+Real-time monitoring, agent status, task queue, WebSocket streaming, and Live App Preview (embedded iframe of the running app with Refresh/Open/Restart toolbar). Auto-starts at `localhost:57374`.
 
 [Dashboard Guide](docs/dashboard-guide.md)
 
@@ -328,14 +332,14 @@ Loki's autonomy and quality loop are the product; the underlying coding CLI is s
 
 | Provider | Status | Autonomous Flag | Parallel Agents | Install |
 |----------|--------|:-:|:-:|---------|
-| **Claude Code** | Active (Tier 1) | `--dangerously-skip-permissions` | Yes (10+) | `npm i -g @anthropic-ai/claude-code` |
-| **Codex CLI** | Active (Tier 3) | `--full-auto` | Sequential | `npm i -g @openai/codex` |
-| **Cline CLI** | Active (Tier 2) | `--auto-approve` | Sequential | `npm i -g @anthropic-ai/cline` |
-| **Aider** | Active (Tier 3) | `--yes-always` | Sequential | `pip install aider-chat` |
+| **Claude Code** | Active (Tier 1, E2E-verified) | `--dangerously-skip-permissions` | Yes (10+) | `npm i -g @anthropic-ai/claude-code` |
+| **Codex CLI** | Experimental (Tier 3) | `--full-auto --skip-git-repo-check` | Sequential | `npm i -g @openai/codex` |
+| **Cline CLI** | Experimental (Tier 2) | `-y` | Sequential | `npm i -g @anthropic-ai/cline` |
+| **Aider** | Experimental (Tier 3) | `--yes-always` | Sequential | `pip install aider-chat` |
 | **Google Gemini CLI** | DEPRECATED v7.5.18 | -- | -- | Upstream deprecated; runtime removed. `LOKI_PROVIDER=gemini` exits with migration message. |
 | **Anthropic Antigravity CLI** | Coming soon | -- | -- | Integration planned. |
 
-Claude gets full features (subagents, parallelization, MCP, Task tool). Other active providers run sequentially. Auto-failover switches providers when rate-limited. See [Provider Guide](skills/providers.md).
+Status legend: "E2E-verified" means we run real spec-to-code builds on it ourselves. Claude Code is the primary, fully supported provider and the one Loki Mode is built for; it gets full features (subagents, parallelization, MCP, Task tool). "Experimental" means the wiring is in place but we have not produced an end-to-end verified build ourselves; treat as community-tested. Experimental providers run sequentially. Auto-failover switches providers when rate-limited. See [Provider Guide](skills/providers.md).
 
 ---
 
@@ -346,12 +350,13 @@ Claude gets full features (subagents, parallelization, MCP, Task tool). Other ac
 
 | Command | Description |
 |---------|-------------|
-| `loki start [PRD]` | Start with optional PRD file (also accepts an issue ref; replaces deprecated `loki run`) |
+| `loki start [PRD]` | Start with optional PRD file (also accepts an issue ref; replaces deprecated `loki run`). Auto-opens the dashboard in the browser for interactive runs and passes native `--effort`/`--max-budget-usd`/`--fallback-model` for resilience (v7.25.0) |
 | `loki stop` | Stop execution |
 | `loki heal <path>` | Legacy system healing (archaeology, stabilize, isolate, modernize, validate -- v6.67.0) |
 | `loki pause` / `resume` | Pause/resume after current session |
 | `loki status` | Show current status |
 | `loki dashboard` | Open web dashboard |
+| `loki preview` / `loki open` | Print running app URL and open in browser (Live App Preview, v7.24.0) |
 | `loki web` | Launch Purple Lab web UI |
 | `loki doctor` | Check environment and dependencies |
 | `loki plan [PRD]` | Pre-execution analysis: complexity, cost, iterations |
@@ -421,7 +426,7 @@ See [benchmarks/](benchmarks/) for methodology.
 
 ![Loki Mode Presentation](docs/loki-mode-presentation.gif)
 
-*9 slides: Problem, Solution, 41 Agents, RARV Cycle, Benchmarks, Multi-Provider, Full Lifecycle*
+*11 slides: Problem, Solution, 41 Agents, RARV Cycle, 9 Quality Gates (HumanEval 98.78%), Multi-Provider, Enterprise Hardening (Live App Preview), Full Lifecycle*
 
 **[Download PPTX](docs/loki-mode-presentation.pptx)**
 
