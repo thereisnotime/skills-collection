@@ -12,19 +12,21 @@ fi
 # Get repository root
 REPO_ROOT=$(git rev-parse --show-toplevel)
 GITIGNORE="$REPO_ROOT/.gitignore"
-SCRATCHPAD_PATTERN=".specs/scratchpad/"
+GITIGNORE_PATTERNS=(".specs/scratchpad/*.md" ".specs/analysis/*.md" ".specs/reports/*.md")
 
 # Create .gitignore if it doesn't exist
 if [ ! -f "$GITIGNORE" ]; then
     touch "$GITIGNORE"
 fi
 
-# Check if .specs/scratchpad/ is in .gitignore
-if ! grep -qF "$SCRATCHPAD_PATTERN" "$GITIGNORE"; then
-    # Ensure the file ends with a newline before appending
-    [ -s "$GITIGNORE" ] && [ -z "$(tail -c 1 "$GITIGNORE")" ] || echo "" >> "$GITIGNORE"
-    echo "$SCRATCHPAD_PATTERN" >> "$GITIGNORE"
-fi
+# Add each pattern to .gitignore if not already present
+for pattern in "${GITIGNORE_PATTERNS[@]}"; do
+    if ! grep -qF "$pattern" "$GITIGNORE"; then
+        # Ensure the file ends with a newline before appending
+        [ -s "$GITIGNORE" ] && [ -z "$(tail -c 1 "$GITIGNORE")" ] || echo "" >> "$GITIGNORE"
+        echo "$pattern" >> "$GITIGNORE"
+    fi
+done
 
 # Create task directories with .gitkeep
 mkdir -p "$REPO_ROOT/.specs/tasks/draft"
@@ -37,12 +39,14 @@ touch "$REPO_ROOT/.specs/tasks/todo/.gitkeep"
 touch "$REPO_ROOT/.specs/tasks/in-progress/.gitkeep"
 touch "$REPO_ROOT/.specs/tasks/done/.gitkeep"
 
-# Create scratchpad directory (no .gitkeep - folder is gitignored)
+# Create directories (folders tracked via .gitkeep, *.md contents gitignored)
 mkdir -p "$REPO_ROOT/.specs/scratchpad"
-
-# Create analysis directory
 mkdir -p "$REPO_ROOT/.specs/analysis"
+mkdir -p "$REPO_ROOT/.specs/reports"
+
+touch "$REPO_ROOT/.specs/scratchpad/.gitkeep"
 touch "$REPO_ROOT/.specs/analysis/.gitkeep"
+touch "$REPO_ROOT/.specs/reports/.gitkeep"
 
 # Create skills directory
 mkdir -p "$REPO_ROOT/.claude/skills"
@@ -56,6 +60,7 @@ echo "  .specs/tasks/in-progress/"
 echo "  .specs/tasks/done/"
 echo "  .specs/scratchpad/"
 echo "  .specs/analysis/"
+echo "  .specs/reports/"
 echo "  .claude/skills/"
 echo ""
-echo "Added to .gitignore: $SCRATCHPAD_PATTERN"
+echo "Added to .gitignore: ${GITIGNORE_PATTERNS[*]}"

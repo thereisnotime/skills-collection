@@ -52,7 +52,8 @@ Complete reference for all Loki Mode environment variables.
 | `LOKI_FORCE_NEW_SESSION` | (unset) | Set to `1` to force a new session even for an interactive `loki start` (v7.7.34). Note: this detaches the controlling terminal, so Ctrl+C in the terminal will no longer reach the run; use `loki stop` or the dashboard Stop button instead. Mainly for testing the group-kill path. |
 | `LOKI_SETTING_SOURCES` | `on` | When `on` (default), Loki passes `--setting-sources user,project,local` to the Claude provider (when supported) to pin which settings sources load, so the invocation does not drift with Claude Code's implicit default (v7.8.0). Behavior-neutral. Set to `off` to use Claude Code's default. |
 | `LOKI_PARTIAL_MESSAGES` | `on` | When `on` (default), Loki passes `--include-partial-messages` so the agent output streams to the dashboard/terminal in real time (v7.8.0). The stream-json parser de-dupes the final message so text is not printed twice. Set to `off` to receive output only at message boundaries. |
-| `LOKI_PRD_REGEN` | (unset) | Set to `1` to force a no-PRD `loki start` to regenerate the PRD from scratch, overriding the v7.8.1 staleness-aware reuse (which reuses `.loki/generated-prd.md` when the codebase is unchanged and updates it incrementally when changed). Equivalent to `loki start --regen-prd`. |
+| `LOKI_PRD_REGEN` | (unset) | Set to `1` to force a no-PRD `loki start` to regenerate the PRD from scratch, overriding the v7.8.1 staleness-aware reuse (which reuses `.loki/generated-prd.md` when the codebase is unchanged and updates it incrementally when changed). Equivalent to `loki start --fresh-prd` (aliases: `--regen-prd`, `--regenerate-prd`, `--regen`). |
+| `LOKI_PRD_SIG_CONTENT_BUDGET` | `52428800` | Byte budget for content-hashing the codebase signature in NON-GIT projects (v7.32.3). Under the budget (default 50MB), file content is hashed so even a same-size edit is detected before reusing a generated PRD. Over the budget, Loki falls back to a fast path+size listing, where a same-size content edit is NOT detected and an unchanged-looking PRD may be reused; use git (recommended) or `--fresh-prd` if that matters for your tree. Git projects are unaffected (git status detects all edits). |
 | `LOKI_AUDIT_LOG` | `true` | Enable audit logging |
 | `LOKI_AUDIT_DISABLED` | `false` | Disable audit logging |
 | `LOKI_MAX_PARALLEL_AGENTS` | `10` | Max concurrent agents |
@@ -139,6 +140,7 @@ export LOKI_PHASE_E2E_TESTS=false
 | `LOKI_COMPLETION_PROMISE` | - | Explicit stop condition text |
 | `LOKI_MAX_ITERATIONS` | `1000` | Maximum loop iterations |
 | `LOKI_PERPETUAL_MODE` | `false` | Ignore ALL completion signals |
+| `LOKI_HELDOUT_GATE` | `1` | Held-out spec evals (v7.28.0). When checklist items have been reserved as held-out, the completion council blocks completion if a held-out item is failing. Set to `0` to opt out (the gate never blocks). The gate is inert anyway when no held-out items were reserved (checklists with fewer than 4 items reserve nothing). See [[Quality Gates]]. |
 
 **Example - Custom completion promise:**
 ```bash

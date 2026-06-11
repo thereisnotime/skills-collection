@@ -1,6 +1,6 @@
 {
   "name": "tdd",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Introduces commands for test-driven development, common anti-patterns and skills for testing using subagents.",
   "author": {
     "name": "Vlad Goncharov",

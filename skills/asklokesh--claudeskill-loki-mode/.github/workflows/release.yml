@@ -173,13 +173,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
-            release/loki-mode-${{ steps.version.outputs.version }}.zip \
-            release/loki-mode-${{ steps.version.outputs.version }}.skill \
-            release/loki-mode-api-${{ steps.version.outputs.version }}.zip \
-            release/loki-mode-claude-code-${{ steps.version.outputs.version }}.zip \
-            release/loki-mode-claude-code-${{ steps.version.outputs.version }}.tar.gz \
-            --title "Loki Mode v${{ steps.version.outputs.version }}" \
+          VERSION="${{ steps.version.outputs.version }}"
+          # v7.32.1: build the brew source asset HERE and attach it at release
+          # creation. Releases in this repo are immutable, so a later job
+          # cannot upload assets (v7.32.0 update-homebrew failed with HTTP 422
+          # trying). update-homebrew downloads the published asset and hashes
+          # those exact bytes for the formula.
+          REF="v${VERSION}"
+          git rev-parse -q --verify "refs/tags/${REF}" >/dev/null || REF="HEAD"
+          git archive --format=tar.gz --prefix="loki-mode-${VERSION}/" \
+            -o "release/loki-mode-${VERSION}.tar.gz" "${REF}"
+          if ! file "release/loki-mode-${VERSION}.tar.gz" | grep -q 'gzip compressed'; then
+            echo "ERROR: built brew asset is not a valid gzip tarball"
+            exit 1
+          fi
+          gh release create "v${VERSION}" \
+            release/loki-mode-${VERSION}.zip \
+            release/loki-mode-${VERSION}.skill \
+            release/loki-mode-api-${VERSION}.zip \
+            release/loki-mode-${VERSION}.tar.gz \
+            release/loki-mode-claude-code-${VERSION}.zip \
+            release/loki-mode-claude-code-${VERSION}.tar.gz \
+            --title "Loki Mode v${VERSION}" \
             --notes-file changelog_body.txt
 
       - name: Skip message
@@ -454,20 +469,36 @@ jobs:
     needs: [release, publish-npm, publish-docker]
     if: needs.release.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_republish == 'true')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # gh release download of the published brew asset
     steps:
-      - name: Compute SHA256
+      # v7.32.0: brew installs come from a GitHub Release ASSET instead of
+      # the auto-generated tag tarball. Release-asset downloads are counted by
+      # GitHub (the tag tarball is not), making brew the last install channel
+      # with visible adoption numbers.
+      # v7.32.1: the asset is attached at release CREATION (releases here are
+      # immutable; post-publish uploads fail HTTP 422). This job downloads the
+      # published asset and hashes the exact bytes brew users will get.
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.release.outputs.version }}
+
+      - name: Download and hash the published brew source asset
         id: sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          URL="https://github.com/asklokesh/loki-mode/archive/refs/tags/v${{ needs.release.outputs.version }}.tar.gz"
-          curl -sL "$URL" -o /tmp/release.tar.gz
-          # Verify the downloaded file is a valid tarball (not a 404 error page)
-          if ! file /tmp/release.tar.gz | grep -q 'gzip compressed'; then
-            echo "ERROR: Downloaded file is not a valid gzip tarball"
-            echo "Contents: $(head -c 200 /tmp/release.tar.gz)"
+          VERSION="${{ needs.release.outputs.version }}"
+          ASSET="loki-mode-${VERSION}.tar.gz"
+          gh release download "v${VERSION}" --pattern "${ASSET}" --dir /tmp --clobber
+          # Sanity: a real gzip tarball, not an error artifact
+          if ! file "/tmp/${ASSET}" | grep -q 'gzip compressed'; then
+            echo "ERROR: downloaded asset is not a valid gzip tarball"
             exit 1
           fi
-          SHA=$(sha256sum /tmp/release.tar.gz | cut -d' ' -f1)
-          rm -f /tmp/release.tar.gz
+          SHA=$(sha256sum "/tmp/${ASSET}" | cut -d' ' -f1)
+          rm -f "/tmp/${ASSET}"
           echo "sha256=${SHA}" >> $GITHUB_OUTPUT
 
       - name: Update Homebrew formula via API
@@ -480,11 +511,11 @@ jobs:
           # Create formula content
           FORMULA=$(cat << 'FORMULA_EOF'
           class LokiMode < Formula
-            desc "Multi-agent autonomous startup system for Claude Code, Codex CLI, and Gemini CLI"
+            desc "Autonomous coding agent platform CLI for Claude Code, Codex CLI, Cline, and Aider"
             homepage "https://github.com/asklokesh/loki-mode"
-            url "https://github.com/asklokesh/loki-mode/archive/refs/tags/vVERSION_PLACEHOLDER.tar.gz"
+            url "https://github.com/asklokesh/loki-mode/releases/download/vVERSION_PLACEHOLDER/loki-mode-VERSION_PLACEHOLDER.tar.gz"
             sha256 "SHA256_PLACEHOLDER"
-            license "MIT"
+            license "BUSL-1.1"
 
             depends_on "node"
             depends_on "oven-sh/bun/bun"

@@ -467,39 +467,41 @@ def _emit_context_relevance_signal(
     thread.start()
 
 
-# BUG #3 FIX: The local mcp/ package shadows the pip-installed mcp SDK.
-# Load FastMCP directly from site-packages using importlib.util to bypass
-# Python's package name resolution entirely (avoids infinite recursion).
-import importlib.util
-import site
+# ============================================================
+# Loading the pip MCP SDK's FastMCP under a NAMESPACE COLLISION
+# ============================================================
+#
+# Root cause (task 562): this repo ships a local package named `mcp/`
+# (this very file is mcp/server.py). That local package SHADOWS the
+# pip-installed MCP SDK, which is also named `mcp`. The two cannot both
+# own the top-level `mcp` name in one interpreter.
+#
+# The FastMCP loader that resolves this collision used to live inline here.
+# Task 566 extracted it VERBATIM into mcp/_sdk_loader.py so the LSP proxy
+# (mcp/lsp_proxy.py) can load FastMCP through the SAME battle-tested path
+# instead of its old importlib.util shim, which silently degraded to a
+# no-op under the MCP SDK 1.x package-directory layout. The shared module
+# carries the full root-cause writeup; behavior here is unchanged (the
+# three helpers are re-exported below under their original names so any
+# existing `mcp.server._mcp_sdk_present` / `_load_real_fastmcp` reference
+# keeps resolving).
+from mcp._sdk_loader import (  # noqa: E402
+    _real_mcp_search_dirs,
+    _mcp_sdk_present,
+    _load_real_fastmcp,
+)
 
-_fastmcp_found = False
-_search_paths = []
-try:
-    _search_paths.extend(site.getsitepackages())
-except AttributeError:
-    pass
-try:
-    _search_paths.append(site.getusersitepackages())
-except AttributeError:
-    pass
 
-for _site_dir in _search_paths:
-    _fastmcp_path = os.path.join(_site_dir, "mcp", "server", "fastmcp.py")
-    if os.path.isfile(_fastmcp_path):
-        _spec = importlib.util.spec_from_file_location(
-            "mcp_pip_sdk.server.fastmcp", _fastmcp_path,
-            submodule_search_locations=[]
-        )
-        if _spec and _spec.loader:
-            _fastmcp_mod = importlib.util.module_from_spec(_spec)
-            _spec.loader.exec_module(_fastmcp_mod)
-            FastMCP = _fastmcp_mod.FastMCP
-            _fastmcp_found = True
-            break
+FastMCP = _load_real_fastmcp()
 
-if not _fastmcp_found:
-    logger.error("MCP SDK (pip package 'mcp') not found in site-packages. Install with: pip install mcp")
+if FastMCP is None:
+    logger.error(
+        "MCP SDK (pip package 'mcp') not found or not importable. "
+        "Install it, then re-run. The simplest path is: 'loki mcp', which "
+        "creates a managed virtualenv at .loki/mcp-venv and installs "
+        "mcp/requirements.txt for you. To install manually: "
+        "pip install -r mcp/requirements.txt (or: pip install mcp)."
+    )
     sys.exit(1)
 
 # Read version from VERSION file instead of hardcoding
@@ -509,12 +511,52 @@ try:
 except Exception:
     _version = "unknown"
 
-# Initialize FastMCP server
-mcp = FastMCP(
-    "loki-mode",
-    version=_version,
-    description="Loki Mode autonomous agent orchestration"
-)
+# Initialize FastMCP server.
+#
+# Task 562: pass only kwargs the installed SDK actually accepts. MCP SDK 1.x
+# FastMCP.__init__ has no `version=`/`description=` parameters (it uses
+# `instructions=`), so passing them raises TypeError and the server never
+# starts. We introspect the signature and forward only supported optional
+# kwargs, keeping forward/backward compatibility across SDK versions.
+def _build_fastmcp():
+    import inspect
+    _kwargs = {}
+    try:
+        _params = inspect.signature(FastMCP.__init__).parameters
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        _params = {}
+    _desc = "Loki Mode autonomous agent orchestration"
+    if "instructions" in _params:
+        _kwargs["instructions"] = _desc
+    elif "description" in _params:
+        _kwargs["description"] = _desc
+    if "version" in _params:
+        _kwargs["version"] = _version
+    return FastMCP("loki-mode", **_kwargs)
+
+
+mcp = _build_fastmcp()
+
+# Propagate the loki-mode VERSION into serverInfo.version.
+#
+# FastMCP 1.x exposes no `version=` kwarg (see _build_fastmcp above), so the
+# kwarg branch there never fires on the installed SDK. FastMCP DOES forward to
+# an underlying lowlevel `Server` (mcp._mcp_server), whose `version` attribute
+# is what `create_initialization_options()` reads into serverInfo at the
+# initialize handshake -- falling back to importlib.metadata.version("mcp")
+# (the SDK's OWN pip version, e.g. 1.27.x) when it is None. That fallback is
+# why the listing surfaced the SDK version instead of ours. Setting this
+# attribute is the only mechanism the installed SDK exposes to override
+# serverInfo.version; `version=` is a documented public parameter on the
+# lowlevel Server.__init__, so this is the supported field, not an internal
+# hack. Guarded so a future SDK that already set a version (e.g. via the
+# _build_fastmcp kwarg branch) is left untouched.
+try:
+    _inner = getattr(mcp, "_mcp_server", None)
+    if _inner is not None and getattr(_inner, "version", None) in (None, ""):
+        _inner.version = _version
+except Exception:  # pragma: no cover - defensive: never block server startup
+    pass
 
 # ============================================================
 # TOOLS - Functions Claude can call
@@ -2462,7 +2504,22 @@ def main():
                        help='Transport mechanism (default: stdio)')
     parser.add_argument('--port', type=int, default=8421,
                        help='Port for HTTP transport (default: 8421)')
+    parser.add_argument('--check-sdk', action='store_true',
+                       help=('Probe only: exit 0 if the MCP SDK loaded and the '
+                             'server object built, non-zero otherwise. Used by '
+                             '`loki mcp` to verify a venv before launching. '
+                             'Does not start a server.'))
     args = parser.parse_args()
+
+    # --check-sdk: if we reached here, the module-level loader already imported
+    # FastMCP and built `mcp` (otherwise the module would have sys.exit(1)'d at
+    # import). So reaching main() with a live `mcp` object means the SDK is
+    # genuinely importable. Report success and exit without starting a server.
+    if args.check_sdk:
+        if mcp is not None:
+            print("MCP SDK OK", file=sys.stderr)
+            sys.exit(0)
+        sys.exit(1)
 
     # Register cleanup to prevent file handle leaks on shutdown/restart
     atexit.register(cleanup_mcp_singletons)

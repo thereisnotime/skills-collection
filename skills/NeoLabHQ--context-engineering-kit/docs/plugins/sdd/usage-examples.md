@@ -225,8 +225,13 @@ The `--refine` flag uses git diff to detect which sections were modified and onl
 
 # After brainstorm produces a design document:
 /add-task "Implement real-time stock updates using WebSocket connections"
+# produces @.specs/tasks/draft/implement-realtime-stock-updates.feature.md
+
+/clear
 /plan-task @.specs/tasks/draft/implement-realtime-stock-updates.feature.md
-/implement-task
+
+/clear
+/implement-task @.specs/tasks/draft/implement-realtime-stock-updates.feature.md
 ```
 
 ---
@@ -283,10 +288,12 @@ The `--refine` flag uses git diff to detect which sections were modified and onl
 
 # 2. Review specification, make edits if needed
 # 3. Re-plan if you made edits
+/clear
 /plan-task @.specs/tasks/todo/add-notification-preferences.feature.md --refine
 
 # 4. Implement
-/implement-task
+/clear
+/implement-task @.specs/tasks/todo/add-notification-preferences.feature.md
 
 # 5. Commit and create PR
 /commit
@@ -306,7 +313,13 @@ The `--refine` flag uses git diff to detect which sections were modified and onl
 # - Create a reusable skill document
 
 /add-task "Add real-time collaboration with WebSocket support"
+# produces @.specs/tasks/draft/add-realtime-collaboration.feature.md
+
+/clear
 /plan-task @.specs/tasks/draft/add-realtime-collaboration.feature.md
+
+/clear
+/implement-task @.specs/tasks/draft/add-realtime-collaboration.feature.md
 ```
 
 ---

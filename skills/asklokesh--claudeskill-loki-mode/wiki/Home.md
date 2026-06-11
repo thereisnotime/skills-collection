@@ -15,7 +15,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 - **Executes complete SDLC phases** - From requirements to deployment
 - **Manages multiple AI agents** - Parallel execution with up to 10+ concurrent agents
 - **Provider-agnostic** - runs on Claude Code (Tier 1), Cline (Tier 2), Codex / Aider (Tier 3 degraded); no vendor lock-in. Gemini CLI deprecated v7.5.18; Antigravity CLI coming soon.
-- **MCP server** - 34 tools plus 3 resources and 2 prompts for integration with MCP-aware clients
+- **MCP server** - 34 tools (33 always available; `loki_memory_redact` is gated on `LOKI_MANAGED_AGENTS`/`LOKI_MANAGED_MEMORY`) plus 3 resources and 2 prompts for integration with MCP-aware clients. Launch with `loki mcp`.
 - **Learns across projects** - Cross-project memory improves over time
 - **Provides enterprise controls** - Authentication, audit logging, sandboxing
 
@@ -54,7 +54,8 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 - **Docker Sandbox** - Isolated secure execution environment
 - **Project Registry** - Multi-project orchestration
 - **Staged Autonomy** - Approval gates for sensitive operations
-- **11-Gate Quality System** - Static analysis, 3-reviewer parallel review, anti-sycophancy, severity blocking, coverage gates, mutation detection, Gate 10 backward-compatibility (healing mode, v6.67.0), Gate 11 documentation coverage (v7.5.0)
+- **11-Gate Quality System** ([[Quality Gates]]) - Static analysis, 3-reviewer parallel review, anti-sycophancy, severity blocking, coverage gates, mutation detection, Gate 10 backward-compatibility (healing mode, v6.67.0), Gate 11 documentation coverage (v7.5.0), verified-completion evidence gate with inconclusive disclosure (v7.28.0), and held-out spec evals for anti-reward-hacking (v7.28.0)
+- **Guided First Build** - `loki quickstart`: four questions to a running build, with the real cost estimate shown before any spend, and a consent-gated Claude Code install offer when no provider is found (v7.29.0)
 - **Completion Council** - 3-member voting system with anti-sycophancy checks
 - **Security Hardening** - Path traversal, XSS, injection, and memory leak protections
 - **TLS/HTTPS Dashboard** - Encrypted API and dashboard connections
@@ -102,7 +103,7 @@ Loki Mode is an enterprise-grade autonomous AI development orchestrator that:
 
 ## Version History
 
-Current Version: **7.27.0** ([CHANGELOG](https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md))
+Current Version: **7.32.3** ([CHANGELOG](https://github.com/asklokesh/loki-mode/blob/main/CHANGELOG.md))
 
 See [[Changelog]] for detailed release notes.
 

@@ -94,7 +94,7 @@ loki start [SPEC_FILE] [OPTIONS]
 | `--yes, -y` | Skip confirmation prompt |
 | `--budget AMOUNT` | Cost budget limit in USD |
 | `--skip-memory` | Skip memory context loading at startup |
-| `--regen-prd` | Force a fresh generated PRD on a no-spec run, overriding staleness-aware reuse. Aliases: `--regenerate-prd`, `--regen`, or `LOKI_PRD_REGEN=1` (v7.17.0) |
+| `--fresh-prd` | Force a fresh generated PRD on a no-spec run, overriding staleness-aware reuse (v7.8.1; `--fresh-prd` name added v7.32.2). This is the name shown in the runtime reuse disclosure. Aliases: `--regen-prd`, `--regenerate-prd`, `--regen`, or `LOKI_PRD_REGEN=1` |
 
 **Examples:**
 
@@ -159,8 +159,92 @@ loki quick "refactor the database connection pool to use async/await"
 
 Build a sample todo app end to end in a temporary directory to see Loki Mode in action. This is a real autonomous run (it drives the provider and builds actual code), not a simulation. It works in a temp dir, so it does not touch your current project.
 
+Since v7.29.0 the demo prints the real cost/time/iteration estimate before
+spending anything and asks for confirmation on interactive terminals
+(`[Y/n]`, Enter confirms). `--yes` skips the prompt but still shows the
+estimate; non-interactive runs without `--yes` refuse with exit 2 rather
+than spending unattended. Declining prints "Cancelled. Nothing was spent."
+
 ```bash
 loki demo
+loki demo --yes       # skip the confirm, still shows the estimate
+loki demo --dry-run   # estimate only, never spends
+```
+
+---
+
+### `loki mcp` (v7.30.0)
+
+Launch the Loki Mode MCP server (34 tools) over stdio from any project
+directory. Checks python3 and the MCP SDK; when dependencies are missing it
+offers a consent-gated bootstrap into the project-local `.loki/mcp-venv`
+(interactive terminals only: non-TTY and CI runs never install, printing the
+manual command and exiting 2; opt out with `LOKI_NO_INSTALL_OFFER=1`;
+relocate the venv with `LOKI_MCP_VENV`). The server resolves the project's
+`.loki` from your current directory.
+
+MCP clients (Claude Desktop and similar) spawn the server non-interactively
+over piped stdio, so the same non-TTY gate that protects CI also stops a
+first-run bootstrap there: a cold launch on a machine without the SDK exits 2.
+Set `LOKI_MCP_AUTO_BOOTSTRAP=1` in your MCP client config to authorize the
+one-time venv bootstrap in that non-interactive context. Writing the flag into
+the config IS the consent: it is explicit, per-client, and reversible. When it
+runs, all bootstrap progress goes to stderr only so stdout stays a clean
+JSON-RPC channel; the server execs once the SDK is importable. On a terminal the
+flag also skips the consent prompt (consent already given).
+`LOKI_NO_INSTALL_OFFER=1` always wins (explicit no beats explicit yes) and a
+one-line precedence note is logged.
+
+```bash
+loki mcp           # launch (offers dependency bootstrap if needed)
+loki mcp --help
+```
+
+| Environment variable | Effect |
+|----------------------|--------|
+| `LOKI_MCP_VENV=/abs/path` | Use a custom venv location instead of `.loki/mcp-venv`. |
+| `LOKI_NO_INSTALL_OFFER=1` | Never install; print the manual command and exit 2. Wins over `LOKI_MCP_AUTO_BOOTSTRAP`. |
+| `LOKI_MCP_AUTO_BOOTSTRAP=1` | Written consent for a non-interactive (MCP client) bootstrap. Progress on stderr only; skips the TTY prompt. Accepts `1`/`true`/`yes`/`on` (case-insensitive). |
+
+Example MCP client config entry that authorizes the bootstrap:
+
+```json
+{
+  "mcpServers": {
+    "loki-mode": {
+      "command": "npx",
+      "args": ["loki-mode", "mcp"],
+      "env": { "LOKI_MCP_AUTO_BOOTSTRAP": "1" }
+    }
+  }
+}
+```
+
+---
+
+### `loki quickstart` (v7.29.0)
+
+A guided first build: four quick questions, then the build starts. Pressing
+Enter at every step builds the sample Todo app.
+
+1. Setup check: detects an AI provider CLI; if none is installed, offers to
+   install Claude Code (consent-gated, interactive terminals only; the only
+   install command it ever runs is `npm install -g @anthropic-ai/claude-code`,
+   printed before execution; auth via `claude auth login`).
+2. What to build: one line, or a path to an existing PRD file.
+3. Template pick: the closest 3 of the bundled templates, matched by a
+   deterministic offline keyword scorer (no LLM, no network).
+4. Plan review: the real estimator's tier/cost/time/iterations, labeled as
+   an estimate, then a final `[Y/n]` confirm before any spend.
+
+The PRD lands at `./prd.md`; existing files are never silently overwritten
+(declining the overwrite walks to `prd-quickstart.md`, `prd-quickstart-2.md`,
+and so on). Non-interactive/CI invocations exit 2 with an automation hint
+and produce zero side effects.
+
+```bash
+loki quickstart
+loki quickstart --yes   # auto-confirm the final build prompt only
 ```
 
 ---
@@ -602,6 +686,7 @@ loki memory [SUBCOMMAND] [OPTIONS]
 | `export [FILE]` | Export learnings to JSON |
 | `clear {patterns\|mistakes\|successes\|all}` | Clear learnings |
 | `dedupe` | Remove duplicate entries |
+| `compound [SUBCOMMAND]` | Knowledge compounding (see [`loki memory compound`](#loki-memory-compound)) |
 
 **Examples:**
 
@@ -635,12 +720,15 @@ loki memory clear mistakes
 
 ---
 
-### `loki compound`
+### `loki memory compound`
 
 Knowledge compounding -- structured solutions extracted from session learnings (v5.30.0).
+Grouped under the `memory` noun in the Phase B CLI consolidation; the top-level
+`loki compound` still works as a deprecated alias (see [Deprecated Command
+Aliases](#deprecated-command-aliases)).
 
 ```bash
-loki compound [SUBCOMMAND]
+loki memory compound [SUBCOMMAND]
 ```
 
 **Subcommands:**
@@ -657,25 +745,73 @@ loki compound [SUBCOMMAND]
 
 ```bash
 # List all solution categories
-loki compound list
+loki memory compound list
 
 # Show security solutions
-loki compound show security
+loki memory compound show security
 
 # Show performance solutions
-loki compound show performance
+loki memory compound show performance
 
 # Search for Docker-related solutions
-loki compound search "docker"
+loki memory compound search "docker"
 
 # Manually trigger compounding
-loki compound run
+loki memory compound run
 
 # View statistics
-loki compound stats
+loki memory compound stats
+
+# Deprecated alias (still works, prints a stderr pointer)
+loki compound list
 ```
 
 **Categories:** security, performance, architecture, testing, debugging, deployment, general
+
+---
+
+## Knowledge Commands (grouped surface)
+
+The CLI consolidation (Phase B) groups the repo-intelligence commands under a
+single `loki analyze` noun. Each subcommand forwards 1:1 to the original
+top-level command; the old names still work as deprecated aliases (see
+[Deprecated Command Aliases](#deprecated-command-aliases)).
+
+```bash
+loki analyze explain [path]   # explain a codebase architecture in prose (was: loki explain)
+loki analyze onboard [path]   # analyze a repo and generate CLAUDE.md      (was: loki onboard)
+loki analyze code [query]     # codebase intelligence queries             (was: loki code)
+loki analyze context [cmd]    # context-window management                 (was: loki context)
+
+loki analyze --help           # lists all subcommands
+loki analyze <subcommand> --help
+```
+
+`loki analyze` is a thin dispatcher: no handler logic moved during the
+consolidation, so each subcommand behaves exactly like its former top-level
+command. The short alias `ctx` maps to `loki analyze context`.
+
+---
+
+## Modernization Commands (grouped surface)
+
+The CLI consolidation (Phase B) groups the legacy-modernization commands under a
+single `loki modernize` noun. Each subcommand forwards 1:1 to the original
+top-level command; the old names still work as deprecated aliases (see
+[Deprecated Command Aliases](#deprecated-command-aliases)).
+
+```bash
+loki modernize heal <path>     # legacy system healing in phases   (was: loki heal)
+loki modernize migrate <path>  # codebase migration in phases       (was: loki migrate)
+
+loki modernize --help          # lists all subcommands
+loki modernize <subcommand> --help
+```
+
+`loki modernize heal` runs the Amazon AGI Lab-inspired healing phases
+(`archaeology`, `stabilize`, `isolate`, `modernize`, `validate`); `loki modernize
+migrate` runs the phased codebase-migration workflow. Both are thin forwarders:
+no handler logic moved during the consolidation.
 
 ---
 
@@ -1031,6 +1167,7 @@ loki verify [<base-ref>] [options]
 | `static_analysis` | syntax check of changed files (node / tsc / py_compile / bash -n) |
 | `secret_scan` | gitleaks if installed, else a high-confidence regex fallback over the diff |
 | `dependency_audit` | npm audit / pip-audit when a lockfile exists |
+| `spec_drift` | runs when a spec lock exists (`.loki/spec/spec.lock`); a drifted spec yields a Medium `SPEC_DRIFT` finding (CONCERNS). See `loki spec`. Graceful no-op (skipped) when there is no lock. |
 
 **Verdict model:**
 
@@ -1110,6 +1247,130 @@ jobs:
 - An empty diff yields CONCERNS (nothing to verify), never VERIFIED.
 - No LLM review in this slice (deterministic gates only).
 
+### `loki spec`
+
+The living spec: the spec is the contract; Loki keeps it true. Binds a spec
+(PRD) to content hashes so drift between the spec and the code is detectable
+cheaply and deterministically, with no LLM pass required to ask "has the spec
+gone stale". The lock and the drift report are auditable trust artifacts that
+feed `loki verify`.
+
+```bash
+loki spec <lock|status|sync> [<spec-path>] [options]
+```
+
+**Subcommands:**
+
+| Subcommand | Description |
+|------------|-------------|
+| `lock` | Build `.loki/spec/spec.lock`: a deterministic map of spec requirements (checklist items and headings) to content hashes, plus repo HEAD at lock time. |
+| `status` | Cheap drift detection: compare current spec hashes vs the lock, report ADDED / REMOVED / CHANGED requirements and whether code changed since the locked HEAD. Emits `.loki/spec/drift-report.json` and a human table. Exit 0 in sync, 1 on drift. |
+| `sync` | Refresh the lock after a human review (explicit action). This MVP never auto-rewrites the spec itself. |
+
+**Spec resolution** (when `<spec-path>` is omitted, first match wins):
+`.loki/generated-prd.md` -> `prd.md` -> `PRD.md` -> `docs/prd.md`.
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--out <dir>` | `.loki/spec` | Output directory for the lock and report. |
+| `--json` | -- | (status only) Emit the full drift report JSON to stdout. |
+| `-h, --help` | -- | Show help. |
+
+**Requirement model:** a "requirement" is a markdown checklist item
+(`- [ ]` / `- [x]`) or a section heading. Each gets a stable id from its
+normalized text and a content hash over the requirement line plus the body
+beneath it up to the next same-or-shallower requirement, so a CHANGED verdict
+fires when the prose under a heading is edited, not only when the heading text
+moves.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| 0 | in sync (status) / lock written (lock, sync) |
+| 1 | drift detected (status) |
+| 2 | usage error (spec or lock not found) |
+| 3 | internal error |
+
+**Verify integration:** when `.loki/spec/spec.lock` exists, `loki verify` runs
+the drift check and adds a Medium-severity `SPEC_DRIFT` finding on drift, which
+maps to a CONCERNS verdict. No lock = graceful no-op (the `spec_drift` gate is
+recorded as `skipped`).
+
+**Examples:**
+
+```bash
+# Lock the current spec to its code
+loki spec lock prd.md
+
+# Has the spec drifted? (CI-gate: exit 1 on drift)
+loki spec status
+
+# Machine-readable drift report
+loki spec status --json
+
+# After reviewing and updating the spec, re-lock it
+loki spec sync prd.md
+```
+
+### `loki grill`
+
+Interrogate a spec with the hardest questions before you build it. Invokes the
+provider once with a Devil's-Advocate prompt to produce the 10-15 hardest
+questions exposing ambiguities, missing acceptance criteria, unstated
+assumptions, and security/scale blind spots. Writes a structured markdown
+report to `.loki/grill/report.md`. A grilled spec is a better Reason input to
+the RARV-C loop.
+
+This requires a provider CLI and fails cleanly (exit 3) when none is available:
+it never fabricates questions and never silently succeeds.
+
+```bash
+loki grill [<spec-path>] [options]
+```
+
+**Spec resolution** (when `<spec-path>` is omitted, first match wins):
+`prd.md` -> `.loki/generated-prd.md` -> `PRD.md` -> `docs/prd.md`.
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--apply` | -- | Append the "Grill findings" section to the spec file itself. |
+| `--out <dir>` | `.loki/grill` | Output directory for the report. |
+| `-h, --help` | -- | Show help. |
+
+**Environment:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOKI_PROVIDER` | `claude` | Provider to use (`claude` or `codex`). |
+| `LOKI_GRILL_MODEL` | `sonnet` | Claude model for the interrogation. |
+| `LOKI_GRILL_TIMEOUT` | `180` | Per-invocation timeout in seconds. |
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| 0 | report written |
+| 2 | usage error (spec not found) |
+| 3 | provider unavailable or interrogation failed (never silent) |
+
+**Examples:**
+
+```bash
+# Grill the default spec, write .loki/grill/report.md
+loki grill
+
+# Grill a specific spec
+loki grill docs/prd.md
+
+# Grill and append the findings to the spec for the record
+loki grill --apply prd.md
+```
+
 ### `loki trust-metrics`
 
 Aggregate the trust-layer metrics of the CURRENT project from its `.loki/`
@@ -1134,6 +1395,104 @@ loki trust-metrics            # human-readable table + writes JSON
 instrumentation reports `available: false` ("not instrumented"); it never
 fabricates a zero as if it were a measurement. Single project only
 (`--all-projects` is rejected).
+
+`loki trust detail` is the grouped form of `loki trust-metrics` (same output).
+The `detail` token is accepted in any position, so `loki trust detail --json`
+and `loki trust --json detail` behave identically on both the Bun and bash
+routes.
+
+---
+
+## Reporting Commands (grouped surface, v7.31)
+
+The CLI consolidation (Phase A) groups the read-only reporting commands under a
+single `loki report` noun. Each subcommand forwards 1:1 to the original
+top-level command; the old names still work (see [Deprecated Command
+Aliases](#deprecated-command-aliases)).
+
+```bash
+loki report session          # session statistics      (was: loki stats)
+loki report metrics          # efficiency/reward metrics (was: loki metrics)
+loki report cost             # token cost breakdown     (was: loki cost)
+loki report export json      # export session data      (was: loki export)
+loki report share            # share session assets     (was: loki share)
+loki report dogfood          # self-development stats   (was: loki dogfood)
+
+loki report --help           # lists all subcommands
+loki report <subcommand> --help
+```
+
+`loki report export` accepts the positional formats `json`, `markdown`, `csv`,
+and `timeline`. For the machine-readable formats (`json`, `csv`, `timeline`),
+the deprecation pointer is suppressed so a combined `2>&1` capture stays a clean
+machine stream.
+
+`loki report dogfood` reads `scripts/dogfood-stats.sh`, a development-only
+helper that is NOT shipped in the published npm package. On a packaged install
+it degrades honestly: human output explains it is unavailable (to stderr),
+`--json` returns `{"available": false, ...}` on stdout, and the exit code is 0.
+
+---
+
+## report kpis (Bun route only)
+
+`loki report kpis` reports single-run accuracy and efficiency KPIs. (`loki kpis`
+is the deprecated alias; both reach the same handler.) It is implemented in the
+Bun runtime and is NOT ported to bash: it reuses the canonical cost arithmetic
+in the Bun runner (the pricing map plus `calculateCostFromRecords`, the cost
+single-source-of-truth), so a bash re-implementation would duplicate that
+arithmetic and risk drift. Under `LOKI_LEGACY_BASH=1` (or on a machine without
+Bun installed), both `loki report kpis` and `loki kpis` print an honest
+requirement message (and `{"available": false, ...}` for `--json`) and exit 1
+rather than the generic "Unknown command".
+
+```bash
+loki report kpis     # Bun route: accuracy + efficiency KPI snapshot (canonical)
+loki report kpis --json
+loki kpis            # deprecated alias of `report kpis` (prints a stderr pointer)
+```
+
+---
+
+## Deprecated Command Aliases
+
+Several older top-level command names were grouped under the `report`, `trust`,
+`analyze`, `modernize`, and `memory` nouns during the CLI consolidation. The old
+names remain as deprecated aliases: each forwards 1:1 to its canonical command
+and prints exactly one pointer line to STDERR. The pointer is suppressed under `--json`, `-q`, `--quiet`, and for the
+positional machine-output formats (`json`, `csv`, `timeline`), so machine
+consumers and combined-`2>&1` captures stay clean. Run `loki help aliases` for
+the live table.
+
+| Deprecated form | Canonical form |
+|---|---|
+| `loki stats` | `loki report session` |
+| `loki metrics` | `loki report metrics` |
+| `loki cost` | `loki report cost` |
+| `loki export` | `loki report export` |
+| `loki share` | `loki report share` |
+| `loki dogfood` | `loki report dogfood` |
+| `loki kpis` | `loki report kpis` |
+| `loki trust-metrics` | `loki trust detail` |
+| `loki run` | `loki start <issue-ref>` |
+| `loki open` | `loki preview` |
+| `loki serve` | `loki api start` |
+| `loki cp` | `loki checkpoint` |
+| `loki wt` | `loki worktree` |
+| `loki otel` | `loki telemetry` |
+| `loki rc` | `loki remote` |
+| `loki compound` | `loki memory compound` |
+| `loki explain` | `loki analyze explain` |
+| `loki onboard` | `loki analyze onboard` |
+| `loki code` | `loki analyze code` |
+| `loki context` | `loki analyze context` |
+| `loki ctx` | `loki analyze context` |
+| `loki heal` | `loki modernize heal` |
+| `loki migrate` | `loki modernize migrate` |
+
+No-side-effect contract: an alias never creates `.loki/` in a clean directory.
+Adoption telemetry (`cli_command_deprecated`) is emitted only when `.loki/`
+already exists, so a deprecated alias run in a fresh directory leaves no trace.
 
 ---
 
@@ -1401,7 +1760,14 @@ loki -v
 loki help
 loki --help
 loki -h
+
+# List every deprecated command alias and its canonical replacement (v7.31)
+loki help aliases
 ```
+
+When stdout is piped or redirected, `loki help` and `loki help aliases` emit
+plain text with no ANSI color sequences (matching the bare `loki` welcome), so
+captured output stays clean.
 
 ### `loki completions`
 
@@ -1420,10 +1786,15 @@ source <(loki completions zsh)
 
 ### `loki dogfood`
 
-Show self-development statistics (how Loki Mode was used to build itself).
+Show self-development statistics (how Loki Mode was used to build itself). Now
+also available as `loki report dogfood` (see [Reporting Commands](#reporting-commands-grouped-surface-v731)).
+The underlying `scripts/dogfood-stats.sh` is a development-only helper not
+shipped in the published package; on a packaged install the command degrades
+honestly rather than erroring.
 
 ```bash
 loki dogfood
+loki report dogfood
 ```
 
 ---

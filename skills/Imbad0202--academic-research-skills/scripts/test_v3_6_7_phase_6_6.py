@@ -111,6 +111,15 @@ LINE_BUDGET_V3_9_0_EXTENSION = 50
 # round prose; ~6 lines headroom retained for review adjustments).
 LINE_BUDGET_V3_10_EXTENSION = 90
 
+# #394 slice 4 ships the `## Submission-Package Terminal Gate` H2 block — a
+# package-level Stage 5 post-formatter gate, deliberately compact because the
+# evaluation mechanics live in scripts/verify_submission_package.py and the
+# spec; the block carries the two boundary paragraphs + the six-step
+# procedure whose load-bearing literals check_394_submission_policy.py
+# invariant 2 pins. Measured at landing: 19 lines. Budget 25 (~6 lines
+# headroom, the v3.10 convention).
+LINE_BUDGET_394_GATE = 25
+
 # All 24 failure phase IDs from spec §5.6 inventory (7 P-PA-* + 17 P-PB-*).
 # These must each appear at least once in the orchestrator prompt as
 # cross-references to spec §5.6 (NOT inline procedural definitions —
@@ -408,6 +417,36 @@ def _measure_v3_10_extension_block_lines(text: str) -> int:
     return len(text[m.start():end].splitlines())
 
 
+def _measure_394_gate_block_lines(text: str) -> int:
+    """Return the number of lines in the #394 slice-4 submission-package
+    gate subsection (`## Submission-Package Terminal Gate ...` H2 block).
+
+    Slice 4 adds the Stage 5 post-formatter package-level gate: policy
+    resolution, the CLI dispatch, token-not-exit-code gating, the bounded
+    fix loop, the freshness guard, and the recompute-each-pass rule. Like
+    the v3.7.x / v3.9.0 / v3.10 blocks, it has its own scope and MUST be
+    subtracted from the v3.6.7 Phase 6.6 +60 budget. Spec:
+      docs/design/2026-06-10-394-submission-package-verifier-spec.md §5.
+
+    Returns 0 if the H2 heading is absent. The block uses one H3
+    internally, so the block-end anchor matches the next H1/H2 only —
+    NOT H3.
+    """
+    import re as _re
+    anchor = _re.compile(
+        r"(?m)^[ \t]*##[ \t]+Submission-Package Terminal Gate[^\n]*$"
+    )
+    m = anchor.search(text)
+    if m is None:
+        return 0
+    next_h = _re.compile(r"(?m)^[ \t]*#{1,2}[ \t]+")
+    head_eol = text.find("\n", m.end())
+    search_start = (head_eol + 1) if head_eol >= 0 else len(text)
+    nm = next_h.search(text, search_start)
+    end = nm.start() if nm else len(text)
+    return len(text[m.start():end].splitlines())
+
+
 class Phase66LineBudgetTest(unittest.TestCase):
     """Test 4 — Prompt size within v3.6.7 Phase 6.6 +60 line budget,
     measured EXCLUDING any v3.7.1+ subsections.
@@ -434,13 +473,15 @@ class Phase66LineBudgetTest(unittest.TestCase):
         v3_8_lines = _measure_v3_8_audit_gate_block_lines(text)
         v3_9_0_lines = _measure_v3_9_0_extension_block_lines(text)
         v3_10_lines = _measure_v3_10_extension_block_lines(text)
+        gate_394_lines = _measure_394_gate_block_lines(text)
         # v3.6.7-only line count: total minus v3.7.1 Step 3b, v3.7.3
         # finalizer extension, v3.8 §3.6 audit-gate, v3.9.0 triangulation
-        # extension, AND v3.10 terminal-policy extension subsections
-        # (each has its own dedicated budget test).
+        # extension, v3.10 terminal-policy extension, AND the #394 slice-4
+        # submission-package gate subsections (each has its own dedicated
+        # budget test).
         v367_line_count = (
             total_lines - step_3b_lines - v3_7_3_lines - v3_8_lines
-            - v3_9_0_lines - v3_10_lines
+            - v3_9_0_lines - v3_10_lines - gate_394_lines
         )
         ceiling = BASELINE_LINE_COUNT + LINE_BUDGET_OVER_BASELINE
         self.assertLessEqual(
@@ -643,6 +684,39 @@ class V310ExtensionLineBudgetTest(unittest.TestCase):
             f"{LINE_BUDGET_V3_10_EXTENSION}-line budget (currently "
             f"{block_lines} lines). Tighten the subsection or raise "
             f"`LINE_BUDGET_V3_10_EXTENSION` with rationale.",
+        )
+
+
+class Gate394LineBudgetTest(unittest.TestCase):
+    """Test 10 — #394 slice-4 submission-package gate block within
+    `LINE_BUDGET_394_GATE` line budget.
+
+    Dedicated budget test for the `## Submission-Package Terminal Gate`
+    subsection. Measures ONLY this block's lines, decoupled from the
+    v3.6.7 Phase 6.6 budget AND the other extension-subsection budgets.
+    Spec: docs/design/2026-06-10-394-submission-package-verifier-spec.md §5.
+
+    If a future #394 cascade legitimately requires more lines, raise
+    `LINE_BUDGET_394_GATE` explicitly and document the rationale.
+    """
+
+    def test_394_gate_block_within_budget(self) -> None:
+        text = _read_prompt()
+        block_lines = _measure_394_gate_block_lines(text)
+        self.assertGreater(
+            block_lines,
+            0,
+            "#394 submission-package gate subsection missing from "
+            "pipeline_orchestrator_agent.md (expected H2 heading "
+            "'## Submission-Package Terminal Gate ...').",
+        )
+        self.assertLessEqual(
+            block_lines,
+            LINE_BUDGET_394_GATE,
+            f"#394 submission-package gate block exceeds "
+            f"{LINE_BUDGET_394_GATE}-line budget (currently "
+            f"{block_lines} lines). Tighten the subsection or raise "
+            f"`LINE_BUDGET_394_GATE` with rationale.",
         )
 
 

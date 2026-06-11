@@ -63,6 +63,9 @@ Optional initial concept to explore. Can be vague: "something to help with user 
 
 # Process improvement
 /brainstorm Automated deployment pipeline for our microservices
+
+# Existing file draft
+/brainstorm @.specs/tasks/draft/task-name.feature.md
 ```
 
 ## Best practices

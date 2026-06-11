@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.27.0
+**Version:** v7.32.3
 
 ---
 
@@ -127,6 +127,15 @@ package, while `loki-mode-sdk` is the thin client.
 ---
 
 ## Quick Start
+
+New here? `loki quickstart` (v7.29.0) walks you through your first build in
+four questions (setup check, one-line idea, template pick, plan review with
+a real cost estimate before anything is spent). Pressing Enter at every step
+builds the sample Todo app.
+
+```bash
+loki quickstart
+```
 
 Drop a spec -- any artifact that describes what you want built -- and Loki
 Mode takes it from spec to deployed app. Specs can be a markdown PRD, a

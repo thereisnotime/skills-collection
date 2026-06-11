@@ -145,6 +145,15 @@ neonctl checkout dev-add-search  # per feature; also pulls the branch's env
 
 Because `link` and `checkout` pull env by default, the branch's `DATABASE_URL` lands in your local `.env` automatically — build against it, then `checkout` the next branch and repeat. As the agent, drive this loop yourself: run `checkout` between tasks to get a fresh, isolated database per feature with no shared state to corrupt.
 
+### Updating `.neon` without interactive prompts
+
+Plain `neonctl link` / `neonctl checkout` prompt interactively, which an agent can't answer. Use one of these non-interactive paths instead:
+
+- **`neonctl link --agent`** — a JSON state machine for agents. Each call returns a single JSON object with a `status` (`needs_org` → `needs_project` → `needs_project_details` → `linked`, or `error`), the available `options`, and the exact `next_command_template` to run next. Drive it step by step until `status: "linked"`. (Errors also come back as JSON with exit code 1, so you can always parse the result.)
+- **`neonctl set-context --project-id <id> --org-id <id> --branch-id <id>`** — when you already know the IDs, write all three into `.neon` in one shot. This is a **destructive write**: it replaces the file's contents entirely with exactly these fields, so it's the most direct way to point `.neon` at a specific org / project / branch.
+
+Both avoid prompts entirely; reach for `set-context` when you have the IDs and `link --agent` when you need to discover them.
+
 ### Opting out of local env vars
 
 If env vars are injected at runtime instead of written to disk — or you simply don't want secrets in the working tree — pass `--no-env-pull` to `link` / `checkout` and supply the env another way:

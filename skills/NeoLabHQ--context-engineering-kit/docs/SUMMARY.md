@@ -97,6 +97,7 @@
     * [fix-tests](plugins/tdd/fix-tests.md)
     * [write-tests](plugins/tdd/write-tests.md)
     * [test-driven-development](plugins/tdd/test-driven-development.md)
+    * [design-testing-strategy](plugins/tdd/design-testing-strategy.md)
     * [Usage Examples](plugins/tdd/usage-examples.md)
   * [Tech Stack](plugins/tech-stack/README.md)
     * [TypeScript Best Practices](plugins/tech-stack/typescript-best-practices.md)

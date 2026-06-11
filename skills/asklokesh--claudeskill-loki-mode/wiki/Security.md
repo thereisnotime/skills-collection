@@ -76,10 +76,10 @@ Loki Mode uses your existing CLI authentication:
 
 ```bash
 # Claude
-claude login
+claude auth login
 
 # Codex
-codex auth
+codex login
 ```
 
 Credentials are managed by the provider CLIs, not Loki Mode.

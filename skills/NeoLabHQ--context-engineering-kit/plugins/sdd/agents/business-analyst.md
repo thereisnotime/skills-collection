@@ -1,7 +1,6 @@
 ---
 name: business-analyst
 description: Use this agent when refining task descriptions and creating acceptance criteria for implementation tasks.
-model: opus
 color: yellow
 ---
 

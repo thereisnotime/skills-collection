@@ -1809,9 +1809,31 @@ get_provider_tier_param() {
     case "${PROVIDER_NAME:-claude}" in
         claude)
             case "$tier" in
-                planning) echo "${PROVIDER_MODEL_PLANNING:-opus}" ;;
+                planning)
+                    # Evidence-based routing (scoped): the official model-config
+                    # docs explicitly name "architecture decisions" and
+                    # "root-cause investigations" as where Fable 5's extra
+                    # investigation and self-verification pay off. So the
+                    # planning/architecture tier may opt in to Fable via
+                    # LOKI_FABLE_ARCHITECT=1. Default OFF because Fable is 2x
+                    # Opus per token; reserve it for the REASON/architecture
+                    # iterations the user explicitly wants. An explicit
+                    # PROVIDER_MODEL_PLANNING still wins (operator override).
+                    if [ -n "${PROVIDER_MODEL_PLANNING:-}" ]; then
+                        echo "${PROVIDER_MODEL_PLANNING}"
+                    elif [ "${LOKI_FABLE_ARCHITECT:-0}" = "1" ]; then
+                        echo "fable"
+                    else
+                        echo "opus"
+                    fi
+                    ;;
                 development) echo "${PROVIDER_MODEL_DEVELOPMENT:-opus}" ;;
                 fast) echo "${PROVIDER_MODEL_FAST:-sonnet}" ;;
+                # Honor the fable lever here too: without this arm an
+                # unsourced-claude.sh environment (this static fallback) would
+                # silently downgrade a fable-pinned tier to sonnet via the `*`
+                # default. Matches resolve_model_for_tier's explicit fable) arm.
+                fable) echo "fable" ;;
                 *) echo "sonnet" ;;
             esac
             ;;
@@ -2566,6 +2588,26 @@ except Exception:
     local ts
     ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"
 
+    # v7.28.0: evidence-gate inconclusive line. When the evidence gate could not
+    # establish a diff baseline (no git repo, or no run-start SHA), it records a
+    # durable .loki/state/evidence-inconclusive.json instead of silently passing.
+    # Surface one honest line so the user knows completion was not independently
+    # verified. The record is removed by the gate on any conclusive run.
+    local evidence_inconclusive_line=""
+    local _inc_file="$loki_dir/state/evidence-inconclusive.json"
+    if [ -f "$_inc_file" ]; then
+        local _inc_reason
+        _inc_reason="$(python3 -c "import json,sys
+try:
+    d=json.load(open(sys.argv[1]))
+    print(d.get('reason','') if d.get('inconclusive') else '')
+except Exception:
+    print('')" "$_inc_file" 2>/dev/null)"
+        if [ -n "$_inc_reason" ]; then
+            evidence_inconclusive_line="Evidence gate: inconclusive (${_inc_reason}) - completion not independently verified"
+        fi
+    fi
+
     # ---- Durable human-readable file: .loki/COMPLETION.txt --------------------
     {
         echo "Loki Mode run summary"
@@ -2596,6 +2638,10 @@ except Exception:
         fi
         echo "Tasks: pending=$pending in_progress=$in_progress completed=$completed failed=$failed"
         echo ""
+        if [ -n "$evidence_inconclusive_line" ]; then
+            echo "$evidence_inconclusive_line"
+            echo ""
+        fi
         echo "Review the work:"
         echo "  $review_cmd"
         echo ""
@@ -3779,6 +3825,8 @@ _write_pricing_json() {
   "updated": "${updated}",
   "source": "static",
   "models": {
+    "fable":           {"input": 10.00, "output": 50.00, "label": "Fable 5 (top, 2x Opus)", "provider": "claude"},
+    "claude-fable-5":  {"input": 10.00, "output": 50.00, "label": "Fable 5 (top, 2x Opus)", "provider": "claude"},
     "opus":            {"input": 5.00,  "output": 25.00, "label": "Opus (latest)",   "provider": "claude"},
     "sonnet":          {"input": 3.00,  "output": 15.00, "label": "Sonnet (latest)", "provider": "claude"},
     "haiku":           {"input": 1.00,  "output": 5.00,  "label": "Haiku (latest)",  "provider": "claude"},
@@ -4495,7 +4543,14 @@ _loki_hash_stdin() {
 # Compute a cheap, clone-stable signature of the codebase so we can tell whether
 # it changed since the generated PRD was last written. Git repos: HEAD sha +
 # dirty flag (.loki/.git churn filtered out). Non-git: a hash of sorted
-# path+size pairs (size, not mtime, so it is clone-stable). Echoes the signature.
+# path+size pairs PLUS file content (v7.32.3, #569: path+size alone was blind to
+# a same-size content edit, so a stale PRD could be silently reused with a
+# false "codebase unchanged" disclosure). Content hashing is clone-stable
+# (mtime is not, which is why mtime was never used). Trees larger than
+# LOKI_PRD_SIG_CONTENT_BUDGET bytes (default 50MB) skip the content pass and
+# emit a "files-shallow:" signature so startup stays fast; the safe failure
+# mode there is unchanged-from-before (size-blind), never a false "changed".
+# Echoes the signature.
 compute_codebase_signature() {
     local dir="${1:-.}"
     ( cd "$dir" 2>/dev/null || exit 0
@@ -4510,7 +4565,7 @@ compute_codebase_signature() {
           fi
           echo "git:${head}:${dirty}"
       else
-          local listing count
+          local listing count total_sz budget
           listing=$(find . \
               -type d \( -name .loki -o -name .git -o -name node_modules -o -name dist \
                          -o -name build -o -name .next -o -name target -o -name vendor \
@@ -4521,16 +4576,54 @@ compute_codebase_signature() {
                     sz=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo 0)
                     printf '%s\t%s\n' "$f" "$sz"
                 done | LC_ALL=C sort)
-          count=$(printf '%s\n' "$listing" | grep -c . || echo 0)
-          echo "files:$(printf '%s' "$listing" | _loki_hash_stdin):${count}"
+          # grep -c prints 0 itself on no match (exit 1); '|| true' avoids the
+          # old '|| echo 0' double-zero that embedded a newline on empty trees
+          count=$(printf '%s\n' "$listing" | grep -c . || true)
+          total_sz=$(printf '%s\n' "$listing" | awk -F'\t' '{s+=$2} END {printf "%d", s}')
+          budget="${LOKI_PRD_SIG_CONTENT_BUDGET:-52428800}"
+          if [ "${total_sz:-0}" -le "$budget" ] 2>/dev/null; then
+              # Content pass: stream all file contents through one hash in the
+              # same sorted order as the listing. Detects same-size edits.
+              # xargs -0 batches the reads into a handful of cat invocations,
+              # so cost scales with BYTES (which the budget above bounds), not
+              # file count: a fork-per-file loop here measured ~38s of added
+              # startup on a 30k-small-file tree. Renames and content swaps
+              # are still caught by the listing hash (paths+sizes) below.
+              local content_hash
+              content_hash=$(printf '%s\n' "$listing" | cut -f1 | tr '\n' '\0' \
+                  | xargs -0 cat 2>/dev/null | _loki_hash_stdin)
+              echo "files:$(printf '%s' "$listing" | _loki_hash_stdin):${count}:${content_hash}"
+          else
+              echo "files-shallow:$(printf '%s' "$listing" | _loki_hash_stdin):${count}"
+          fi
       fi
     )
 }
 
+# Content hash of the generated PRD file itself (NOT the codebase). Used to
+# detect that a user hand-edited the generated PRD: when the file no longer
+# matches the prd_sha Loki recorded after it last wrote the file, the PRD is
+# user-owned and must be used as-is, never silently overwritten. Echoes "" when
+# no generated PRD file is present.
+_loki_prd_file_hash() {
+    local loki_dir="${1:-.}/.loki"
+    local f=""
+    if [ -f "$loki_dir/generated-prd.md" ]; then
+        f="$loki_dir/generated-prd.md"
+    elif [ -f "$loki_dir/generated-prd.json" ]; then
+        f="$loki_dir/generated-prd.json"
+    fi
+    [ -n "$f" ] || { echo ""; return 0; }
+    _loki_hash_stdin < "$f"
+}
+
 # Decide what to do with a previously generated PRD on a no-PRD run.
-# Echoes one of: reuse | update | generate. Never fails the run.
-#   - LOKI_PRD_REGEN=1 (or --regen-prd, which sets it) -> generate (force fresh).
+# Echoes one of: reuse | update | generate | user_owned. Never fails the run.
+# Precedence: force-regen > user_owned (hand-edited) > reuse/update > generate.
+#   - LOKI_PRD_REGEN=1 (or --regen-prd/--fresh-prd, which set it) -> generate.
 #   - no generated PRD present -> generate (first run).
+#   - generated PRD present but its content hash differs from the recorded
+#     prd_sha -> user_owned (the user hand-edited it; use as-is, do not rewrite).
 #   - generated PRD present, no recorded signature -> update (have a PRD but no
 #     provenance: reconcile incrementally rather than trust-blindly or discard).
 #   - signature matches current codebase -> reuse (unchanged).
@@ -4547,7 +4640,7 @@ decide_generated_prd_action() {
     if [ ! -f "$sig_file" ]; then
         echo "update"; return 0
     fi
-    local stored current
+    local stored stored_prd_sha current cur_prd_sha
     stored=$(LOKI_SIG_FILE="$sig_file" python3 -c "
 import json, os
 try:
@@ -4555,11 +4648,46 @@ try:
 except Exception:
     print('')
 " 2>/dev/null)
+    stored_prd_sha=$(LOKI_SIG_FILE="$sig_file" python3 -c "
+import json, os
+try:
+    print(json.load(open(os.environ['LOKI_SIG_FILE'])).get('prd_sha',''))
+except Exception:
+    print('')
+" 2>/dev/null)
     [ -z "$stored" ] && { echo "update"; return 0; }
+    # Hand-edit detection (precedence above reuse/update): if we recorded a
+    # prd_sha and the file no longer matches it, the user edited it themselves.
+    # Treat as user-owned: use as-is, never regenerate over their changes.
+    if [ -n "$stored_prd_sha" ]; then
+        cur_prd_sha=$(_loki_prd_file_hash "${TARGET_DIR:-.}")
+        if [ -n "$cur_prd_sha" ] && [ "$cur_prd_sha" != "$stored_prd_sha" ]; then
+            echo "user_owned"; return 0
+        fi
+    fi
     current=$(compute_codebase_signature "${TARGET_DIR:-.}")
     if [ "$stored" = "$current" ]; then
         echo "reuse"
     else
+        # v7.32.3 format transition (#569): a stored pre-content-hash signature
+        # ("files:<listing>:<count>", 3 fields) compared against the new 4-field
+        # format would falsely claim "codebase changed" on the first post-upgrade
+        # run. When the new signature extends the stored one (same listing
+        # fields), the tree is unchanged at the old format's trust level: reuse,
+        # honestly. The next persist upgrades the stored format. A same-size edit
+        # made BEFORE the upgrade stays invisible for this one run, exactly as it
+        # was on the old version (no regression, no false disclosure).
+        case "$stored" in
+            files:*:*)
+                # Require the legitimate old 3-field format (files:HASH:COUNT,
+                # exactly 2 colons), not a truncated/corrupted 2-field value
+                # (council hardening: corruption must fall to update, as before).
+                if [ "$(printf '%s' "$stored" | tr -dc ':' | wc -c | tr -d ' ')" = "2" ] \
+                   && [ "${current#"${stored}":}" != "$current" ]; then
+                    echo "reuse"; return 0
+                fi
+                ;;
+        esac
         echo "update"
     fi
 }
@@ -4570,6 +4698,12 @@ except Exception:
 persist_prd_signature_if_present() {
     local exit_code="${1:-0}"
     [ "$exit_code" = "0" ] || return 0
+    # Hand-edited (user-owned) PRD: do NOT rewrite the signature. Re-hashing the
+    # user's edited file would re-baseline its content as the new prd_sha, so the
+    # next run would fall through to plain reuse with the wrong (non-user-owned)
+    # disclosure. Preserve the prior Loki-authored prd_sha/generated_at so every
+    # subsequent run keeps detecting user_owned until --fresh-prd forces a regen.
+    [ "${GENERATED_PRD_ACTION:-}" = "user_owned" ] && return 0
     # only for no-PRD runs whose generated PRD exists
     case "${prd_path:-}" in
         ""|*.loki/generated-prd.md|*.loki/generated-prd.json) ;;
@@ -4582,17 +4716,47 @@ persist_prd_signature_if_present() {
     [ -n "$sig" ] || return 0
     mkdir -p "$loki_dir/state" 2>/dev/null || return 0
     local mode="files"; case "$sig" in git:*) mode="git" ;; esac
+    # Record the content hash of the PRD file Loki just wrote so a later
+    # hand-edit by the user is detectable (decide_generated_prd_action). This
+    # runs AFTER the agent's own PRD writes, so Loki's updates are not mistaken
+    # for user edits.
+    local prd_sha; prd_sha=$(_loki_prd_file_hash "${TARGET_DIR:-.}")
     local tmp="$loki_dir/state/.prd-signature.json.tmp.$$"
+    # Preserve generated_at when the codebase signature is unchanged so the
+    # reuse disclosure ("generated on <date>") stays honest across reuse runs;
+    # only stamp a new date when the PRD content actually changed (sig differs).
     LOKI_SIG="$sig" LOKI_SIG_MODE="$mode" LOKI_SIG_VER="$(get_version 2>/dev/null || echo unknown)" \
+    LOKI_PRD_SHA="$prd_sha" LOKI_SIG_FILE="$loki_dir/state/prd-signature.json" \
     python3 -c "
 import json, os, datetime
+sig = os.environ['LOKI_SIG']
+prev = {}
+try:
+    prev = json.load(open(os.environ['LOKI_SIG_FILE']))
+except Exception:
+    prev = {}
+prev_at = prev.get('generated_at') if isinstance(prev, dict) else None
+prev_sig = prev.get('signature') if isinstance(prev, dict) else None
+# Unchanged, OR the v7.32.3 files-signature format upgrade (#569): the new
+# 4-field signature extends an old 3-field one whose listing fields match.
+# Preserve the date in both cases; the PRD content did not change.
+_legacy_upgrade = (
+    isinstance(prev_sig, str) and prev_sig.startswith('files:')
+    and prev_sig.count(':') == 2
+    and sig.startswith(prev_sig + ':')
+)
+if prev_at and (prev_sig == sig or _legacy_upgrade):
+    generated_at = prev_at
+else:
+    generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
 rec = {
-  'signature': os.environ['LOKI_SIG'],
-  'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
+  'signature': sig,
+  'generated_at': generated_at,
   'prd_path': '.loki/generated-prd.md',
+  'prd_sha': os.environ.get('LOKI_PRD_SHA',''),
   'mode': os.environ['LOKI_SIG_MODE'],
   'loki_version': os.environ['LOKI_SIG_VER'],
-}
+  }
 print(json.dumps(rec))
 " > "$tmp" 2>/dev/null && mv -f "$tmp" "$loki_dir/state/prd-signature.json" 2>/dev/null || rm -f "$tmp" 2>/dev/null
 }
@@ -4690,6 +4854,57 @@ print_ttfv_next_steps() {
     return 0
 }
 
+# _read_iteration_cost <iteration>
+# Emit "input output cost cache_read cache_creation" for the given iteration,
+# preferring the authoritative result-cost file written by the embedded stream
+# parser (Claude'\''s own total_cost_usd + usage, slug/symlink-independent) over
+# the context-tracker-derived estimate in tracking.json. Falls back to
+# tracking.json when no result-cost file exists, and to all zeros otherwise.
+# Best-effort: any parse failure yields "0 0 0 0 0" and never aborts.
+_read_iteration_cost() {
+    local iteration="$1"
+    local result_cost_file=".loki/metrics/result-cost-${iteration}.json"
+    if [ -f "$result_cost_file" ]; then
+        python3 -c "
+import json
+try:
+    d = json.load(open('$result_cost_file'))
+    print(
+        d.get('input_tokens', 0) or 0,
+        d.get('output_tokens', 0) or 0,
+        d.get('total_cost_usd', 0) or 0,
+        d.get('cache_read_tokens', 0) or 0,
+        d.get('cache_creation_tokens', 0) or 0,
+    )
+except Exception:
+    print(0, 0, 0, 0, 0)
+" 2>/dev/null || echo "0 0 0 0 0"
+    elif [ -f ".loki/context/tracking.json" ]; then
+        python3 -c "
+import json
+try:
+    t = json.load(open('.loki/context/tracking.json'))
+    iters = t.get('per_iteration', [])
+    match = [i for i in iters if i.get('iteration') == $iteration]
+    if match:
+        m = match[-1]
+        print(
+            m.get('input_tokens', 0),
+            m.get('output_tokens', 0),
+            m.get('cost_usd', 0),
+            m.get('cache_read_tokens', 0),
+            m.get('cache_creation_tokens', 0),
+        )
+    else:
+        print(0, 0, 0, 0, 0)
+except Exception:
+    print(0, 0, 0, 0, 0)
+" 2>/dev/null || echo "0 0 0 0 0"
+    else
+        echo "0 0 0 0 0"
+    fi
+}
+
 track_iteration_complete() {
     local iteration="$1"
     local exit_code="${2:-0}"
@@ -4772,32 +4987,14 @@ track_iteration_complete() {
     local phase="${LAST_KNOWN_PHASE:-}"
     [ -z "$phase" ] && phase=$(python3 -c "import json; print(json.load(open('.loki/state/orchestrator.json')).get('currentPhase', 'unknown'))" 2>/dev/null || echo "unknown")
 
-    # Read token data from context tracker output (v5.42.0)
+    # Read token data, preferring Claude'\''s authoritative result-cost file over
+    # the context-tracker estimate (v7.28.0 cost-capture fix). See
+    # _read_iteration_cost for precedence rationale.
     # v6.82.0: also capture cache_read_tokens / cache_creation_tokens for
     # prompt-cache hit-rate analysis (S1.1 prompt restructure).
     local iter_input=0 iter_output=0 iter_cost=0
     local iter_cache_read=0 iter_cache_creation=0
-    if [ -f ".loki/context/tracking.json" ]; then
-        read iter_input iter_output iter_cost iter_cache_read iter_cache_creation < <(python3 -c "
-import json
-try:
-    t = json.load(open('.loki/context/tracking.json'))
-    iters = t.get('per_iteration', [])
-    match = [i for i in iters if i.get('iteration') == $iteration]
-    if match:
-        m = match[-1]
-        print(
-            m.get('input_tokens', 0),
-            m.get('output_tokens', 0),
-            m.get('cost_usd', 0),
-            m.get('cache_read_tokens', 0),
-            m.get('cache_creation_tokens', 0),
-        )
-    else:
-        print(0, 0, 0, 0, 0)
-except: print(0, 0, 0, 0, 0)
-" 2>/dev/null || echo "0 0 0 0 0")
-    fi
+    read -r iter_input iter_output iter_cost iter_cache_read iter_cache_creation < <(_read_iteration_cost "$iteration")
 
     cat > ".loki/metrics/efficiency/iteration-${iteration}.json" << EFF_EOF
 {
@@ -7591,6 +7788,21 @@ BUILD_PROMPT
             prompt_text=$(cat "$review_prompt_file")
             case "${PROVIDER_NAME:-claude}" in
                 claude)
+                    # SECURITY-REVIEW MODEL GUARD (evidence-based routing, item 4b):
+                    # Reviewers deliberately do NOT pass --model, so they run on
+                    # the account default model and are NEVER routed to Fable by a
+                    # mid-flight model override or LOKI_FABLE_ARCHITECT (those only
+                    # rewrite the iteration's tier_param, not this dispatch). This
+                    # must stay true. The official model-config docs CONTRADICT
+                    # routing security review to Fable: Fable's safety classifiers
+                    # refuse cybersecurity content, and in non-interactive (-p)
+                    # mode a flagged request ends the turn with stop_reason
+                    # "refusal" instead of a transparent Opus re-run. A refused
+                    # security reviewer would return no VERDICT and break the
+                    # unanimous-council gate. Defensive-cyber capability lives in
+                    # Mythos 5 (Project Glasswing), not Fable. If a future change
+                    # adds --model here, the security-sentinel reviewer must be
+                    # pinned to opus, never fable.
                     claude --dangerously-skip-permissions -p "$prompt_text" \
                         --output-format text > "$review_output" 2>/dev/null
                     ;;
@@ -9001,6 +9213,8 @@ check_budget_limit() {
 import json, glob
 total = 0.0
 pricing = {
+    'fable': {'input': 10.00, 'output': 50.00},
+    'claude-fable-5': {'input': 10.00, 'output': 50.00},
     'opus': {'input': 5.00, 'output': 25.00},
     'sonnet': {'input': 3.00, 'output': 15.00},
     'haiku': {'input': 1.00, 'output': 5.00},
@@ -11916,13 +12130,35 @@ run_autonomous() {
             export GENERATED_PRD_ACTION
             local _gen_prd=".loki/generated-prd.md"
             [ -f ".loki/generated-prd.md" ] || _gen_prd=".loki/generated-prd.json"
+            # Date the generated PRD was last written (for an honest disclosure).
+            local _prd_date=""
+            if [ -f ".loki/state/prd-signature.json" ]; then
+                _prd_date=$(LOKI_SIG_FILE=".loki/state/prd-signature.json" python3 -c "
+import json, os
+try:
+    d = json.load(open(os.environ['LOKI_SIG_FILE'])).get('generated_at','')
+    print((d or '')[:10])
+except Exception:
+    print('')
+" 2>/dev/null)
+            fi
             case "$GENERATED_PRD_ACTION" in
                 reuse)
-                    log_info "No user PRD found. Reusing generated PRD (codebase unchanged): $_gen_prd"
+                    if [ -n "$_prd_date" ]; then
+                        log_info "Reusing the PRD last generated or updated on $_prd_date; pass --fresh-prd to regenerate ($_gen_prd)"
+                    else
+                        log_info "Reusing the generated PRD (codebase unchanged); pass --fresh-prd to regenerate ($_gen_prd)"
+                    fi
+                    prd_path="$_gen_prd"
+                    ;;
+                user_owned)
+                    # The user hand-edited the generated PRD. Use it as-is (never
+                    # overwrite their edits); distinct disclosure from a clean reuse.
+                    log_info "Using your hand-edited PRD as-is ($_gen_prd); pass --fresh-prd to regenerate from the codebase"
                     prd_path="$_gen_prd"
                     ;;
                 update)
-                    log_info "No user PRD found. Codebase changed since the generated PRD; will update it incrementally: $_gen_prd"
+                    log_info "No user PRD found. Codebase changed since the generated PRD; will update it incrementally ($_gen_prd); pass --fresh-prd to regenerate from scratch"
                     prd_path="$_gen_prd"
                     ;;
                 *)
@@ -11994,6 +12230,23 @@ run_autonomous() {
     fi
     _LOKI_RUN_START_SHA="$(cat "$_start_sha_file" 2>/dev/null || echo "")"
     export _LOKI_RUN_START_SHA
+
+    # Session-scope the mid-flight model override (model-honesty fix). The
+    # override file (.loki/state/model-override) is a LIVE-RUN control: the
+    # dashboard UI and docs state it "applies to the current run". A leftover
+    # file from a previous run must NOT silently pin every future `loki start`
+    # to that model (and to its cost). So clear it once at the start of a FRESH
+    # run (ITERATION_COUNT==0). A genuine resume (ITERATION_COUNT>0) and any
+    # mid-flight switch made at iteration>0 are preserved, because the clear is
+    # guarded on the fresh-run condition only.
+    if [ "${ITERATION_COUNT:-0}" -eq 0 ] && [ -f ".loki/state/model-override" ]; then
+        local _stale_override
+        _stale_override="$(cat .loki/state/model-override 2>/dev/null | tr -d '[:space:]')"
+        rm -f ".loki/state/model-override" 2>/dev/null || true
+        if [ -n "$_stale_override" ]; then
+            log_info "Cleared leftover model override ('$_stale_override') at session start; the override applies to the current run only."
+        fi
+    fi
 
     # Trust-metrics instrumentation marker: record one run_start event per
     # fresh run so the trust-metrics denominator counts ONLY instrumented runs.
@@ -12213,13 +12466,59 @@ except Exception as exc:
             # helpers (which expect tier names) resolve correctly. Unknown
             # model strings are passed through as-is; provider loaders fall
             # back to a sane default.
-            case "${LOKI_SESSION_MODEL:-sonnet}" in
+            #
+            # Normalize case + surrounding whitespace BEFORE the match so
+            # 'OPUS' and ' opus ' resolve identically to 'opus'. We do NOT use
+            # loki_normalize_model_alias here: that helper is the narrow
+            # OVERRIDE-file allowlist (haiku|sonnet|opus|fable) and would strip
+            # the documented tier-name pins (planning|development|fast) to
+            # empty, collapsing them onto the default tier. The session pin
+            # legitimately accepts tier names (skills/model-selection.md), and
+            # the estimator + dashboard mirror this exact tier route, so the
+            # canonical session-pin rule is trim+lowercase WITHOUT the alias
+            # allowlist. Interior whitespace is preserved (so 'fab le' stays a
+            # junk value that falls through the '*' default arm), matching the
+            # estimator/dashboard ports.
+            local _session_pin="${LOKI_SESSION_MODEL:-sonnet}"
+            _session_pin="${_session_pin#"${_session_pin%%[![:space:]]*}"}"
+            _session_pin="${_session_pin%"${_session_pin##*[![:space:]]}"}"
+            _session_pin="$(printf '%s' "$_session_pin" | tr '[:upper:]' '[:lower:]')"
+            case "$_session_pin" in
                 opus)   CURRENT_TIER="planning" ;;
                 sonnet) CURRENT_TIER="development" ;;
                 haiku)  CURRENT_TIER="fast" ;;
-                planning|development|fast) CURRENT_TIER="${LOKI_SESSION_MODEL}" ;;
-                *)      CURRENT_TIER="${LOKI_SESSION_MODEL}" ;;
+                fable)  CURRENT_TIER="fable" ;;
+                planning|development|fast) CURRENT_TIER="$_session_pin" ;;
+                *)      CURRENT_TIER="$_session_pin" ;;
             esac
+        fi
+        # Architect opt-in (LOKI_FABLE_ARCHITECT=1): route ONLY the first
+        # iteration (the architecture/REASON pass) to Fable, then fall back to
+        # the session tier for all later iterations. This is the honest
+        # implementation of "fable for architecture only": run.sh is the only
+        # scope that has ITERATION_COUNT, so the decision lives here (not in the
+        # stateless provider resolver). An EXPLICIT planning-model override still
+        # wins, and the LOKI_MAX_TIER ceiling clamps fable down via the resolver.
+        # Default OFF (Fable is 2x Opus). Without this scoping, a session pinned
+        # to opus would route EVERY iteration to fable.
+        #
+        # NOTE on the index: ITERATION_COUNT is incremented at the TOP of the
+        # loop (see "((ITERATION_COUNT++))" above), so the FIRST in-loop pass
+        # has ITERATION_COUNT==1, not 0. The guard matches 1 so the architecture
+        # iteration actually fires (a -eq 0 guard here would be a silent no-op,
+        # the exact bug this fix removes). The estimator models this same first
+        # iteration as its 0-indexed range() i==0, so quote and run agree.
+        #
+        # PRECEDENCE: a mid-flight model override (.loki/state/model-override,
+        # applied later in this iteration body) WINS over this architect pin.
+        # Deliberate: a live user action in the dashboard outranks an env
+        # opt-in set at launch. The override is still clamped by LOKI_MAX_TIER.
+        if [ "${ITERATION_COUNT:-0}" -eq 1 ] \
+           && [ "${LOKI_FABLE_ARCHITECT:-0}" = "1" ] \
+           && [ -z "${LOKI_CLAUDE_MODEL_PLANNING:-}" ] \
+           && [ -z "${LOKI_MODEL_PLANNING:-}" ]; then
+            CURRENT_TIER="fable"
+            log_info "LOKI_FABLE_ARCHITECT=1: routing the first (architecture) iteration to fable; later iterations use the session tier"
         fi
         # Export LOKI_CURRENT_TIER so provider helper functions
         # can resolve the correct model.
@@ -12228,6 +12527,66 @@ except Exception as exc:
         export LOKI_CURRENT_TIER
         local rarv_phase=$(get_rarv_phase_name "$ITERATION_COUNT")
         local tier_param=$(get_provider_tier_param "$CURRENT_TIER")
+        # Mid-flight model override: the dashboard (POST /api/session/model) or a
+        # CLI user may rewrite .loki/state/model-override between iterations to
+        # change the model a live run uses. Read it here, after tier_param is
+        # resolved and before the claude argv is built (--model "$tier_param" is
+        # assembled below), so the override flows through effort/budget/fallback
+        # with no other change. Each iteration spawns a fresh `claude -p`, so the
+        # switch takes effect at THIS iteration boundary and never mid-invocation
+        # (claude -p fixes the model per call). Clearing/emptying the file reverts
+        # to the tier mapping. The file is fed straight into --model, so only an
+        # allowlisted alias is honored; invalid content is ignored with one warn.
+        # The override applies ONLY to the claude provider; other providers map
+        # tier_param to effort/model strings and have no fable equivalent.
+        if [ "${PROVIDER_NAME:-claude}" = "claude" ] && [ -s ".loki/state/model-override" ]; then
+            local _loki_override_file _loki_override_alias
+            _loki_override_file="$(cat .loki/state/model-override 2>/dev/null)"
+            # Canonical normalization shared with the dashboard + estimator
+            # (trim + lowercase + exact allowlist). "fab le" and other non-exact
+            # values normalize to empty and are rejected, so all three readers
+            # agree on what the file means. Falls back to a local case only if
+            # the provider helper is somehow not in scope.
+            if type loki_normalize_model_alias >/dev/null 2>&1; then
+                _loki_override_alias="$(loki_normalize_model_alias "$_loki_override_file")"
+            else
+                # Fallback only if the provider helper is not sourced. Mirror the
+                # canonical rule EXACTLY: trim ends + lowercase + exact allowlist,
+                # so interior whitespace ("fab le") is REJECTED here too (do NOT
+                # use `tr -d [:space:]`, which would collapse it into a false
+                # accept and re-introduce the normalization divergence).
+                _loki_override_alias=""
+                local _loki_ov_trim="$_loki_override_file"
+                _loki_ov_trim="${_loki_ov_trim#"${_loki_ov_trim%%[![:space:]]*}"}"
+                _loki_ov_trim="${_loki_ov_trim%"${_loki_ov_trim##*[![:space:]]}"}"
+                _loki_ov_trim="$(printf '%s' "$_loki_ov_trim" | tr '[:upper:]' '[:lower:]')"
+                case "$_loki_ov_trim" in
+                    haiku|sonnet|opus|fable) _loki_override_alias="$_loki_ov_trim" ;;
+                esac
+            fi
+            if [ -n "$_loki_override_alias" ]; then
+                # Apply the SAME LOKI_MAX_TIER ceiling the tier resolver uses, so
+                # a mid-flight override cannot silently bypass the operator's cost
+                # cap. Clamp via the shared helper when available.
+                local _loki_override_effective="$_loki_override_alias"
+                if type loki_apply_max_tier_clamp >/dev/null 2>&1; then
+                    _loki_override_effective="$(loki_apply_max_tier_clamp "$_loki_override_alias" "$_loki_override_alias")"
+                fi
+                if [ "$_loki_override_effective" != "$_loki_override_alias" ]; then
+                    tier_param="$_loki_override_effective"
+                    log_warn "model override '$_loki_override_alias' exceeds LOKI_MAX_TIER=${LOKI_MAX_TIER}; clamped to $tier_param (applies this iteration)"
+                    echo "=== Model override: $_loki_override_alias clamped to $tier_param by LOKI_MAX_TIER=${LOKI_MAX_TIER} (applies this iteration $ITERATION_COUNT) ===" | tee -a "$log_file" "$agent_log"
+                else
+                    tier_param="$_loki_override_effective"
+                    log_info "model override: $tier_param (applies this iteration)"
+                    echo "=== Model override: $tier_param (applies this iteration $ITERATION_COUNT) ===" | tee -a "$log_file" "$agent_log"
+                fi
+            elif [ -z "$(printf '%s' "$_loki_override_file" | tr -d '[:space:]')" ]; then
+                : # empty file means no override; fall back to tier mapping
+            else
+                log_warn "Ignoring invalid model override '$_loki_override_file' (allowed: haiku, sonnet, opus, fable); using tier $tier_param"
+            fi
+        fi
         echo "=== RARV Phase: $rarv_phase, Tier: $CURRENT_TIER ($tier_param) ===" | tee -a "$log_file" "$agent_log"
         log_info "RARV Phase: $rarv_phase -> Tier: $CURRENT_TIER ($tier_param)"
 
@@ -12352,8 +12711,15 @@ except Exception as exc:
             claude)
                 # Claude: Full features with stream-json output and agent tracking
                 # Uses dynamic tier for model selection based on RARV phase
-                # Pass tier to Python via environment for dashboard display
-                { LOKI_CURRENT_MODEL="$tier_param" \
+                # Pass tier + iteration to the embedded stream parser via the
+                # environment. A bare `VAR=val cmd | parser` prefix applies ONLY
+                # to `cmd` (claude) and does NOT cross the pipe to the parser
+                # subprocess, so these must be exported into the shell env first.
+                # LOKI_ITERATION lets the parser stamp the authoritative
+                # result-cost file under the correct iteration index.
+                export LOKI_CURRENT_MODEL="$tier_param"
+                export LOKI_ITERATION="$ITERATION_COUNT"
+                { \
                 claude "${_loki_claude_argv[@]}" -p "$prompt" \
             --output-format stream-json --verbose 2>&1 | \
             tee -a "$log_file" "$agent_log" "$iter_output" | \
@@ -12666,6 +13032,34 @@ def process_stream():
                     active_agents[orchestrator_id]["tasks_completed"].append(f"{tool_count} tools used")
 
                 save_agents()
+
+                # Authoritative cost capture (path/slug/symlink-independent).
+                # Claude'"'"'s result message carries its own total_cost_usd plus a
+                # full usage object. The context-tracker session-file path is
+                # brittle (slug derivation must guess Claude'"'"'s naming), so this
+                # stamps the authoritative number to a per-iteration file that
+                # the efficiency writer prefers. Best-effort: a malformed or
+                # missing field must never break the iteration loop.
+                try:
+                    _iter = os.environ.get("LOKI_ITERATION", "0")
+                    _u = data.get("usage", {}) or {}
+                    _rec = {
+                        "total_cost_usd": data.get("total_cost_usd"),
+                        "input_tokens": _u.get("input_tokens", 0),
+                        "output_tokens": _u.get("output_tokens", 0),
+                        "cache_read_tokens": _u.get("cache_read_input_tokens", 0),
+                        "cache_creation_tokens": _u.get("cache_creation_input_tokens", 0),
+                    }
+                    if _rec["total_cost_usd"] is not None:
+                        os.makedirs(".loki/metrics", exist_ok=True)
+                        _p = ".loki/metrics/result-cost-" + str(_iter) + ".json"
+                        _tmp = _p + ".tmp"
+                        with open(_tmp, "w") as _f:
+                            json.dump(_rec, _f)
+                        os.replace(_tmp, _p)
+                except Exception:
+                    pass
+
                 print(f"\n{GREEN}[Session complete]{NC}", flush=True)
                 is_error = data.get("is_error", False)
                 sys.exit(1 if is_error else 0)
@@ -13098,7 +13492,36 @@ if __name__ == "__main__":
             case "${gate_failures:-}" in
                 *code_review,*|*code_review_ESCALATED*) _gate_block_for_completion="code_review" ;;
             esac
-            if [ -n "$_gate_block_for_completion" ] && check_completion_promise "$iter_output"; then
+            # DROP-FIX (v7.28): check_completion_promise -> check_task_completion_signal
+            # CONSUMES the completion signal (rm -f) on the FIRST successful call.
+            # The completion-promise chain below calls it up to five times in one
+            # iteration (reverify guard, code-review arm, evidence arm, held-out
+            # arm, success arm), so the first call consumed the claim and every
+            # later arm saw nothing -- the success arm never fired and the run
+            # iterated to max_iterations even though the agent had claimed done.
+            # Fix: evaluate the claim EXACTLY ONCE here, capture it in
+            # _completion_claimed, and have every arm test that variable. The
+            # single call discards stdout (matching the prior call sites, which
+            # also discarded it), so the task_completion_claim event still emits
+            # exactly once. Consumption semantics are preserved: the claim is
+            # consumed when evaluated; if a gate rejects it, the agent must
+            # re-claim next iteration (see internal/DEMO-CLAIM-DROP-BUG.md).
+            local _completion_claimed=0
+            if check_completion_promise "$iter_output"; then
+                _completion_claimed=1
+            fi
+            # MEDIUM-3: this completion-promise route evaluates the council hard
+            # gates (evidence + held-out) without the council_evaluate freshness
+            # step, so the held-out gate could read stale verification statuses
+            # (and a stale reservation). Re-verify the checklist ONCE here, but
+            # only when a completion claim is actually present (mirror the
+            # check_completion_promise condition used by the gate chain below) so
+            # verification does not run every iteration. Type-guarded and
+            # best-effort: failure must never block the completion path.
+            if [ "$_completion_claimed" = 1 ] && type council_reverify_checklist &>/dev/null; then
+                council_reverify_checklist 2>/dev/null || true
+            fi
+            if [ -n "$_gate_block_for_completion" ] && [ "$_completion_claimed" = 1 ]; then
                 log_warn "Completion claim rejected: code review is BLOCKED for this iteration (Critical/High findings). Fix review issues before completion."
                 log_warn "  Review details under .loki/quality/reviews/ ; gate_failures=${gate_failures}"
                 _gate_block_for_completion=""
@@ -13113,11 +13536,24 @@ if __name__ == "__main__":
             # LOKI_EVIDENCE_GATE=0 (council_evidence_gate returns 0 immediately
             # when disabled, so this branch never fires). Gate output (reason +
             # opt-out hint) is printed by council_evidence_gate itself.
-            elif check_completion_promise "$iter_output" && type council_evidence_gate &>/dev/null && ! council_evidence_gate; then
+            elif [ "$_completion_claimed" = 1 ] && type council_evidence_gate &>/dev/null && ! council_evidence_gate; then
                 log_warn "Completion claim rejected: evidence gate found no proof of completion (empty diff vs run-start SHA, or red tests)."
                 log_warn "  Details under .loki/council/evidence-block.json ; opt out with LOKI_EVIDENCE_GATE=0"
                 # Fall through; keep iterating until there is real evidence.
-            elif check_completion_promise "$iter_output"; then
+            # v7.28.0: the held-out spec-eval gate must also guard the DEFAULT
+            # completion-promise route, not only the interval-gated council path
+            # (council_evaluate). Otherwise an agent can self-assert "done" and
+            # exit as completion_promise_fulfilled while a held-out acceptance
+            # check is failing, bypassing the anti-reward-hacking gate entirely.
+            # Mirrors the evidence-gate block above. Opt-out: the gate's own
+            # LOKI_HELDOUT_GATE=0 (council_heldout_gate returns 0 immediately
+            # when disabled or when no held-out items are reserved, so this
+            # branch never fires). Gate output is printed by council_heldout_gate.
+            elif [ "$_completion_claimed" = 1 ] && type council_heldout_gate &>/dev/null && ! council_heldout_gate; then
+                log_warn "Completion claim rejected: held-out spec-eval gate found failing held-out acceptance check(s)."
+                log_warn "  Details under .loki/council/heldout-block.json ; opt out with LOKI_HELDOUT_GATE=0"
+                # Fall through; keep iterating until the held-out checks pass.
+            elif [ "$_completion_claimed" = 1 ]; then
                 echo ""
                 if [ -n "$COMPLETION_PROMISE" ]; then
                     log_header "COMPLETION PROMISE FULFILLED: $COMPLETION_PROMISE"
@@ -13491,10 +13927,19 @@ check_human_intervention() {
     if [ -f "$loki_dir/signals/COUNCIL_REVIEW_REQUESTED" ]; then
         log_info "Council force-review requested from dashboard"
         rm -f "$loki_dir/signals/COUNCIL_REVIEW_REQUESTED"
+        # MEDIUM-3: this route evaluates the council hard gates directly without
+        # the council_evaluate freshness step, so re-verify the checklist ONCE
+        # before the gate chain to restore that invariant (refreshes held-out
+        # statuses and repairs a stale reservation). Type-guarded, best-effort.
+        if type council_reverify_checklist &>/dev/null; then
+            council_reverify_checklist 2>/dev/null || true
+        fi
         if type council_checklist_gate &>/dev/null && ! council_checklist_gate; then
             log_info "Council force-review: blocked by checklist hard gate"
         elif type council_evidence_gate &>/dev/null && ! council_evidence_gate; then
             log_info "Council force-review: blocked by evidence hard gate"
+        elif type council_heldout_gate &>/dev/null && ! council_heldout_gate; then
+            log_info "Council force-review: blocked by held-out spec-eval hard gate"
         elif type council_vote &>/dev/null && council_vote; then
             log_header "COMPLETION COUNCIL: FORCE REVIEW - PROJECT COMPLETE"
             # BUG #17 fix: Write COMPLETED marker, generate council report, and

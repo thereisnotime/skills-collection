@@ -9,6 +9,425 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.32.3] - 2026-06-10
+
+### Fixed
+- Non-git codebase signature was blind to same-size content edits (path+size
+  pairs only), so a stale generated PRD could be silently reused with a false
+  "codebase unchanged" disclosure. The files: signature now also streams file
+  content through the hash (clone-stable, batched via xargs so cost scales
+  with bytes, measured ~0.2s per 10k files). Trees over
+  `LOKI_PRD_SIG_CONTENT_BUDGET` bytes (default 50MB, documented in
+  wiki/Environment-Variables.md) fall back to the previous fast listing
+  (`files-shallow:`), where the limitation is documented honestly.
+- The one-time signature-format upgrade is invisible and honest: a stored
+  old-format signature whose listing fields match decides reuse (no false
+  "Codebase changed" disclosure, no spurious update cycle) and the persisted
+  date is preserved. Corrupted or truncated stored signatures still fall to
+  update, as before.
+- Empty-tree signature no longer embeds a double-zero count.
+- Git projects are unaffected (git status already detects all edits).
+
+## [7.32.2] - 2026-06-10
+
+### Fixed
+- Generated-PRD reuse honesty (closes the four honest-behavior gaps in the
+  v7.8.1 staleness-aware reuse): the reuse disclosure now names the date and
+  the `--fresh-prd` lever; a hand-edited generated PRD is detected
+  (`user_owned`) and used as-is with its own disclosure, never overwritten or
+  re-baselined; the incremental-update path also discloses `--fresh-prd`;
+  reuse runs make zero re-analysis provider calls (proven end-to-end by a
+  stub suite: byte-identical PRD on run 2).
+- `--fresh-prd` (the flag named in the runtime disclosure) is now documented
+  in `loki start --help`, wiki/CLI-Reference.md, and
+  wiki/Environment-Variables.md alongside its aliases (`--regen-prd`,
+  `--regenerate-prd`, `--regen`, `LOKI_PRD_REGEN=1`).
+- The interactive pre-run prompt now also mentions the hand-edited
+  (use-as-is) outcome, matching actual behavior.
+
+## [7.32.1] - 2026-06-10
+
+### Fixed
+- Release pipeline: the brew source asset is now built and attached at
+  release CREATION. Releases in this repo are immutable, so the v7.32.0
+  update-homebrew job failed with HTTP 422 trying to upload the asset after
+  publish, leaving brew on the previous version. update-homebrew now
+  downloads the published asset and hashes the exact bytes brew users will
+  download (stronger integrity than hashing a locally rebuilt archive).
+  npm, Docker, and the SDK channels published v7.32.0 normally; brew skips
+  straight to v7.32.1.
+
+## [7.32.0] - 2026-06-10
+
+### Added
+- CLI consolidation Phase B: `loki report kpis` is the canonical KPI command
+  (old `loki kpis` kept as a working alias); `loki memory compound`,
+  `loki analyze` (explain/onboard/code/context), and `loki modernize`
+  (heal/migrate) nouns group their legacy commands under the alias contract:
+  byte-identical stdout, exit parity, exactly one stderr deprecation pointer,
+  suppressed under `--json`/`-q`/`--quiet` and positional machine formats
+  (json/csv/timeline), zero side effects in clean directories.
+- Homebrew now installs from a counted GitHub Release asset: the
+  update-homebrew release job builds a `git archive` tarball, uploads it to
+  the GitHub Release, and points the formula at it (sha256 of the same
+  bytes), so brew installs appear in release download counts.
+- `tests/test_dashboard_port_arg.py`: coverage for the v7.31 `--port`/`--host`
+  argparse on direct `python -m dashboard.server` launches.
+
+### Fixed
+- Cost-honesty (task 568): on the stock session path the estimator and the
+  dashboard now quote the model the runner actually dispatches (a `sonnet`
+  session pin routes through the development tier to Opus; the quote said
+  Sonnet and underquoted ~1.7x). `loki plan` output now names the model AND
+  the lever that selected it. Demo cost quote corrected to the Opus truth.
+- Tier-name session pins (`planning`/`development`/`fast`), documented in
+  skills/model-selection.md, now resolve byte-faithfully across all three
+  readers (run.sh dispatch, `loki plan` estimator, dashboard). run.sh folds
+  miscased/padded pins (trim + lowercase). Session-pin parity matrix grown
+  to 224 cells; dashboard endpoint tests 37/37.
+- `loki report export json kpis` was hijacked by a flag-anywhere kpis scan;
+  kpis routing now keys on the first non-flag token in all three layers
+  (bash dispatch, bin/loki shim, Bun CLI) with byte-parity against main.
+- `loki mcp` probe now resolves the server exactly like the launch exec
+  (file-exec of mcp/server.py with PYTHONPATH from the user cwd), so probe
+  and launch can no longer disagree under a decoy SDK; the runpy
+  RuntimeWarning on launch is gone and MCP serverInfo reports the real
+  loki-mode version.
+- A backtick command substitution inside the `loki plan` estimator comment
+  block executed a stray `claude --model` on every plan invocation,
+  polluting stderr (plan suite 19/25). Fixed; `loki plan --json` now emits
+  zero stderr bytes (25/25).
+- Homebrew formula license corrected from MIT to BUSL-1.1 (honesty fix) and
+  description updated.
+
+### Changed
+- `loki compound` help title reads the canonical `loki memory compound`
+  (the alias keeps working with a pointer).
+- scripts/local-ci.sh MCP handshake check launches the server in the shipped
+  launcher form (file-exec + PYTHONPATH from a non-repo cwd) instead of
+  `-m mcp.server` from the repo root.
+
+## [7.31.0] - 2026-06-10
+
+### Added
+- Mid-flight model switching: change the model a live run uses from the
+  dashboard (GET/POST /api/session/model + a model select in session
+  controls). The switch applies at the next iteration boundary (each
+  iteration spawns a fresh provider invocation) and to the current run only:
+  a leftover override is cleared at fresh-run start. Server and runner share
+  one normalization rule; invalid values are ignored with a warning.
+- Claude Fable as a premium tier at its published $10/$50 per MTok (exactly
+  2x Opus 4.8), in the model catalog, all pricing tables, and the Bun
+  mirrors. LOKI_SESSION_MODEL=fable genuinely runs fable;
+  LOKI_FABLE_ARCHITECT=1 routes only the first (architecture) iteration to
+  fable and the estimate discloses it. Routing scope is evidence-based per
+  Anthropic's model documentation; security review deliberately stays on
+  Opus (fable refuses cyber content, and a refusal would break the council).
+- The cost-honesty contract, enforced and tested: for every model lever
+  this release ships (session pin to fable, mid-flight override, architect
+  pass) and every LOKI_MAX_TIER path, the loki plan quote, the dashboard's
+  reported effective model, and the actual dispatched model agree, with the
+  clamp logging one honest line. (A pre-existing stock-path estimator label
+  gap on the default session pin is disclosed in the dashboard SCOPE NOTE
+  and tracked as a follow-up.) All three
+  clamp readers resolve through one canonical provider-config rule, locked
+  by a 224-cell parity matrix test against the real provider script,
+  including miscased and padded cap spellings.
+- CLI consolidation Phase A: loki help is ~20 grouped workflow entries
+  (Build, Session, Verify/trust, Observe, Report, Knowledge, Modernize,
+  Config) with a collapsed alias footer and loki help aliases. Fourteen
+  merged commands forward as aliases: byte-identical stdout and exit codes,
+  one deprecation pointer on stderr only, suppressed for --json/-q/--quiet
+  and positional machine formats, no side effects in clean directories.
+  New report and trust noun dispatchers (trust-metrics -> trust detail).
+- LOKI_MCP_AUTO_BOOTSTRAP=1: written-consent cold launch for MCP clients
+  (the env var in a client config is consent); bootstrap progress goes to
+  stderr only so stdout stays pure JSON-RPC; LOKI_NO_INSTALL_OFFER=1 always
+  wins. Docker images now install mcp/requirements.txt so clean-room
+  introspection finds the SDK.
+- mcp/lsp_proxy.py loads the real MCP SDK via a shared loader and serves
+  its 7 LSP tools (it previously degraded to a silent no-op under modern
+  SDK layouts); degradation is now loud.
+
+### Fixed
+- 15 findings from a 4-dimension adversarial hunt (30 agents, per-finding
+  adversarial verification) plus 3 council rounds, all pre-release. The
+  notable ones: documented fable levers that quoted a model the runner
+  never dispatched; a mid-flight override that bypassed LOKI_MAX_TIER; an
+  override file that silently pinned all future runs; clamp resolution that
+  disagreed across quote/dashboard/runner on stock installs (including
+  miscased cap values reachable from settings.json); loki mcp --yes
+  documented but unparsed and leaked into server argv; a run-alias
+  telemetry side effect violating the no-side-effect alias contract; ANSI
+  codes in piped help output.
+
+### Tests
+- model-override 53/53 (incl. the 224-cell clamp parity matrix and
+  cross-route agreement transcripts), session-model endpoint 20/20,
+  alias-forwarding 112/112 on both routes, mcp-launch 15/15, cli 26/26 on
+  both routes, plan 25/25, lsp-proxy loader pytest, full pytest 1015+
+  passed. All wired into scripts/local-ci.sh.
+
+## [7.30.0] - 2026-06-10
+
+### Added
+- `loki mcp`: launch the Loki Mode MCP server reliably from any project
+  directory. Fixes three independent launch blockers a fresh npm consumer
+  hit: the repo's local `mcp/` package shadowed the pip MCP SDK (namespace
+  collision; the loader now imports the real SDK subtree and restores the
+  local package), SDK detection only recognized the legacy file layout, and
+  FastMCP 1.x rejected legacy constructor kwargs. The launcher checks
+  python3 and SDK importability, offers a consent-gated dependency
+  bootstrap into the project-local `.loki/mcp-venv` (non-TTY/CI never
+  install: honest manual command and exit 2; `LOKI_NO_INSTALL_OFFER=1`
+  opt-out), and execs the server over stdio with the install root on
+  PYTHONPATH while preserving the user's cwd for `.loki` resolution.
+  Verified by a real MCP initialize/tools-list handshake from a non-repo
+  directory: 34 tools. Known narrow residual (documented in code): a user
+  cwd containing its own Python package literally named `mcp` still shadows
+  under `python -m`.
+- Bare `loki` landing now also points at `loki web` (the visual builder)
+  alongside the run monitor.
+
+### Fixed
+- CRITICAL (caught by the adversarial pre-release hunt, never shipped): the
+  first `loki mcp` implementation launched the pip SDK's stub server with
+  ZERO Loki tools whenever run outside the install root, because the SDK
+  probe cd-ed into the install root while the launch did not. The
+  PYTHONPATH-based fix above closes it, with a decoy-SDK regression test
+  that fails on the old behavior.
+- `loki web stop` no longer kills unrelated live loki runs: the machine-wide
+  orchestrator pkill was removed (Purple Lab's own children are still
+  reaped via its scoped child-pids ledger), with a foreign-survival
+  regression test.
+- Piped/redirected output of the bare-loki landing and `loki demo` no longer
+  contains ANSI color codes (TTY-gated in addition to NO_COLOR).
+- MCP tool count corrected to 34 across README, wiki, and walkthrough docs
+  (verified by live handshake; one tool registered but gated on the managed
+  memory/agents env vars), replacing stale "15 tools" claims.
+- The bundled demo PRD gained an acceptance line requiring a basic automated
+  check, still classifying SIMPLE (score 0, ~$1.86 estimate).
+- docker-compose.yml's first-line comment is version-free (was stale since
+  v6.73.1).
+
+### Tests
+- New: tests/cli/test-mcp-launch.sh (8 cases incl. the non-repo-cwd
+  decoy-SDK P0 regression), tests/test-web-stop-scoping.sh (5).
+  tests/test-cli-commands.sh: 26/26 on both routes. tests/test-plan-command.sh:
+  25/25. A real MCP stdio handshake check is wired into scripts/local-ci.sh.
+
+## [7.29.0] - 2026-06-10
+
+### Added (the quickstart trio, from UX-QUICKSTART-DESIGN)
+- `loki quickstart`: a guided 4-step first build (setup check, one-line idea,
+  template pick, plan review). Every step defaults so Enter-Enter-Enter-Enter
+  builds the sample Todo app. Template matching is a deterministic offline
+  keyword scorer over the bundled templates (top 3 shown, no LLM, no
+  network). The plan step quotes the real estimator's figures before any
+  spend; declining costs nothing. Lands the PRD at ./prd.md with no-clobber
+  guards (existing files are never silently overwritten; the fallback walks
+  numbered suffixes). Non-TTY/CI invocations exit 2 with an automation hint,
+  never hang.
+- Inline provider install offer: when no AI provider CLI is found, doctor
+  (and the pre-flight gate on start/demo/quick/quickstart) offers to install
+  Claude Code. Strictly consent-gated: the only command ever executed is
+  npm install -g @anthropic-ai/claude-code, printed before running, only on
+  an interactive TTY; non-TTY/CI/--json paths never prompt. Auth handoff
+  uses claude auth login, and "Provider ready" is claimed only after
+  claude auth status confirms loggedIn=true; anything unconfirmed gets an
+  honest check-it-yourself message. Opt out with LOKI_NO_INSTALL_OFFER=1.
+  Note: --yes / LOKI_ASSUME_YES now also consents to this install on an
+  interactive terminal (non-TTY and CI still never install).
+- `loki demo` cost confirm: the estimate (cost, time, iterations, labeled as
+  an estimate) always prints before spending; interactive runs confirm
+  [Y/n]; --yes skips the prompt but never the estimate; non-TTY/CI without
+  --yes refuse with exit 2. Declining prints "Cancelled. Nothing was spent."
+- LOKI_COMPLEXITY is honored by `loki plan` (the same env var the runner
+  honors), with an honest "forced via LOKI_COMPLEXITY" note in formatted
+  output; invalid values are ignored. This makes the demo quote the figures
+  for the tier the demo actually runs.
+
+### Fixed
+- `loki stop --all` exercised by the test suite no longer kills unrelated
+  live loki runs on the same machine: the stop-scoping suite now scopes the
+  machine-wide kill to its own uniquely marked test runners via a test-only
+  pattern knob (user-facing --all semantics are unchanged), and local-ci
+  permanently proves harmlessness by spawning a foreign-mimic sentinel
+  before the stop suites and asserting it survives by PID.
+- Stale "claude login" instructions corrected to "claude auth login" across
+  the wiki (the old command starts an interactive AI session on current
+  Claude Code versions instead of authenticating).
+
+### Tests
+- New: tests/cli/test-quickstart.sh (11 cases incl. interview-abuse and
+  no-clobber), tests/cli/test-provider-offer.sh (15 cases incl. argv proof
+  that only the documented npm command runs). Extended:
+  tests/test-plan-command.sh 16 to 25, tests/test-cli-commands.sh 23 to 25
+  on both routes. All wired into scripts/local-ci.sh.
+
+## [7.28.2] - 2026-06-10
+
+### Changed (first-run UX, from the 2026-06 user-shoes friction audit)
+- Bare `loki` now prints an 11-line newcomer landing (what Loki Mode is, the
+  three commands that matter, a provider-prerequisite pointer to `loki doctor`
+  placed before any paid action, and a cost-preview tip) instead of the
+  168-line full command table. `loki help` and `loki --help` are unchanged.
+- `loki doctor` timing label corrected from "(instant)" to "(a few seconds)"
+  (measured 3.2-4.4s across routes).
+- `loki dashboard start` and `loki web` each print one line distinguishing the
+  two browser UIs (run monitor on 57374 vs project web UI on 57375).
+- The bundled demo PRD (templates/simple-todo-app.md) now classifies SIMPLE
+  (score 0, ~4 iterations, ~$1.86 estimate) instead of COMPLEX (~$9.30),
+  matching what `loki demo` actually runs.
+- README "Get Started in 30 Seconds" leads with the 3-line happy path;
+  prerequisites collapse below it with an honest provider-CLI note.
+- 16 missing-required-argument usage errors standardized to exit 2 (was a mix
+  of 1): provider set, issue parse, issue view, run, issue, config set,
+  config get, quick, plan, notify, heal, migrate, and the enterprise token
+  subcommands. Help-flag exits are unchanged. Caller analysis confirmed no
+  internal consumer branches on the old code; exit 2 is the POSIX
+  usage-error convention.
+- Fixed a dead anchor: docs/alternative-installations.md pointed at a
+  nonexistent README #installation heading.
+
+### Tests
+- tests/test-cli-commands.sh: 23/23 on both routes. tests/test-plan-command.sh:
+  16/16. scripts/local-ci.sh: full run green.
+
+## [7.28.1] - 2026-06-10
+
+### Fixed
+- HOTFIX: `loki grill` now works on stock macOS (no GNU coreutils). The
+  provider invocation hard-depended on the `timeout` command, which stock
+  macOS does not ship; the command-not-found was swallowed by stderr
+  suppression and surfaced as a misleading "provider returned no output".
+  grill now uses the same fallback chain as the runner (`timeout`, then
+  `gtimeout`, then bare execution). Caught by the new grill success-path CI
+  test on macos-latest runners: the v7.28.0 Tests workflow ran red on macOS
+  and the Release workflow was cancelled mid-publish (npm/tag/GitHub Release
+  for 7.28.0 had already gone out; 7.28.1 supersedes it on all channels).
+  Verified by repro under a stock-macOS PATH (no timeout/gtimeout): exit 0,
+  full report header.
+
+### Tests
+- tests/test-cli-commands.sh: 23/23 on both routes. scripts/local-ci.sh:
+  48 passed, 0 skipped, 0 failed.
+
+## [7.28.0] - 2026-06-10
+
+### Added
+- Held-out spec evals (anti-reward-hacking for the checklist, default-on when
+  reserved). Before the first verification, `checklist_select_heldout`
+  (`autonomy/prd-checklist.sh`) deterministically reserves a slice of checklist
+  items as held-out: `count = clamp(round(0.25 * N), 1, 5)` for checklists with
+  `N >= 4` items (smaller checklists reserve nothing). Selection is reproducible,
+  not random: items are ranked by `sha256(id)` and the first `count` are taken,
+  then written once to `.loki/checklist/held-out.json` (idempotent). Held-out
+  item IDs are excluded from everything the build loop sees (checklist summary,
+  visible counts, per-iteration checklist gate), so the build agent cannot tune
+  to those specific acceptance checks. The completion council evaluates them only
+  at the ship gate via `council_heldout_gate` (`autonomy/completion-council.sh`),
+  wired into `council_evaluate` and into both non-council completion routes in
+  `autonomy/run.sh` (the completion-promise route and the force-review route). A
+  held-out item whose status is `failing` (and not waived) blocks completion like
+  any other critical failure. Each evaluation records a `heldout_eval` trust
+  event. Opt out with `LOKI_HELDOUT_GATE=0`. Honest limit: this guards the PROMPT
+  FEED, not the filesystem. The reservation lives on disk at
+  `.loki/checklist/held-out.json`; an agent with read access to the working tree
+  can open that file and learn which items were held out. The guarantee is that
+  held-out items are kept out of the build loop's own prompt context, not that
+  they are sandboxed.
+- Evidence-gate inconclusive disclosure. When the verified-completion evidence
+  gate cannot establish a diff baseline (reason `no_git_repo` or
+  `no_run_start_sha`) it still passes through (it never blocks a non-git project),
+  but completion is no longer independently verified. Instead of passing silently,
+  the gate writes `.loki/state/evidence-inconclusive.json` (recording the reason,
+  iteration, and timestamp), emits an `evidence_inconclusive` trust event, and
+  `.loki/COMPLETION.txt` carries one honest line:
+  `Evidence gate: inconclusive (<reason>) - completion not independently
+  verified`. The record is removed automatically on a later run that resolves a
+  conclusive baseline. This is a diff-baseline-only disclosure: red tests still
+  block completion independently, regardless of the inconclusive state.
+- `loki spec` (living-spec family: `lock` / `status` / `sync`). Binds spec
+  requirements to content hashes in `.loki/spec/spec.lock` at lock time, then
+  detects drift deterministically with no LLM cost. `loki spec lock` builds or
+  refreshes the lock; `loki spec status` recomputes hashes and reports drift,
+  emitting `.loki/spec/drift-report.json`; `loki spec sync` refreshes the lock
+  after human review. Exit codes are CI-gate usable: 0 in-sync (status) or lock
+  written (lock/sync), 1 drift detected (status), 2 usage or spec-not-found. When
+  a spec lock exists, `loki verify` folds a single Medium `SPEC_DRIFT` finding
+  (CONCERNS) into its evidence; graceful no-op when no lock is present.
+- `loki grill` (Devil's-Advocate spec interrogation, pre-build). Invokes the
+  provider once with a Devil's-Advocate prompt to surface the hardest questions
+  exposing spec ambiguities, missing acceptance criteria, unstated assumptions,
+  and security/scale blind spots; writes `.loki/grill/report.md`. Honest about
+  its provider dependency: requires the provider CLI and fails cleanly with no
+  fabricated questions when it is absent. Exit codes: 0 success, 2 usage or
+  spec-not-found, 3 provider unavailable or interrogation failed (never silent).
+- Claude Code slash-command packaging. Three command wrappers live in the
+  repository under `.claude/commands/` (repo-local Claude Code config, not part
+  of the npm tarball): `loki-verify.md`, `loki-spec-status.md`, and
+  `loki-grill.md`, exposing `loki verify`, `loki spec status`, and `loki grill`
+  as in-editor slash commands. The underlying CLI commands themselves ship in
+  the package.
+- `mcpName` in `package.json` (`io.github.asklokesh/loki-mode`) for the official
+  MCP registry.
+
+### Changed
+- Test hardening. The spec and verify suites now isolate from the host's global
+  and system git config (a hostile `commit.gpgsign` or identity setting can no
+  longer break the suite), and a route-level wiring regression test asserts that
+  `council_heldout_gate` is invoked from both completion routes in `run.sh` and
+  from the council evaluate path, failing loudly if any wiring is silently
+  removed.
+
+### Fixed
+- CRITICAL: completion claims are no longer dropped by the gate chain. The
+  completion signal is consumed on first read, and the completion-promise
+  chain checked it up to five times per iteration (reverify guard, code-review
+  block, evidence gate, held-out gate, success), so with passing gates the
+  success arm found nothing and runs iterated to max-iterations despite a
+  valid claim (a real build dropped 9+ valid claims and burned 12 extra paid
+  iterations). The claim is now evaluated exactly once per iteration into a
+  single variable that all arms test; gate-rejected claims still require a
+  fresh re-claim next iteration. A static wiring test prevents the multi-call
+  pattern from returning.
+- Cost capture and the USD budget breaker work on every project path. The
+  context tracker derived Claude's session-dir slug with a slash-only replace
+  while Claude Code sanitizes every non-alphanumeric character, so any project
+  path containing underscores or dots silently recorded cost_usd=0 and left
+  the LOKI_BUDGET_LIMIT breaker inert (a real $14.55 run recorded $0). The
+  stream parser now captures Claude's own total_cost_usd per iteration into
+  .loki/metrics/result-cost-<iter>.json and the efficiency writer prefers
+  those authoritative values; the slug rule now mirrors Claude's sanitization
+  with the old rule kept as a stale-session fallback.
+- Held-out reservations survive checklist regeneration honestly. A regenerated
+  PRD/checklist orphans the reserved ids; previously the gate recorded PASS
+  with zero matches and the build prompt stopped excluding anything (silent
+  loss of the whole guarantee in both directions). Stale reservations now
+  deterministically re-select (logged + heldout_stale trust event), partial
+  mismatches keep survivors with the drop logged, a zero-match gate records
+  STALE (never PASS), duplicate checklist ids skip reservation entirely, and
+  the checklist summary never collapses to empty for a non-empty checklist.
+- Both non-council completion routes re-verify the checklist once before
+  evaluating the council hard gates, so the evidence and held-out gates no
+  longer read stale verification statuses on the promise path.
+- A locked spec whose file was deleted now surfaces a Medium SPEC_DRIFT
+  finding instead of passing silently, and never falls back to comparing
+  against a different spec candidate.
+- `loki spec lock` on a repo with no commits records an honest `no-commits`
+  sentinel instead of the literal string "HEAD"; `loki grill` validates the
+  provider before logging that the interrogation is starting; a stale
+  held-out block file is removed on the NONE and STALE verdicts.
+
+### Tests
+- tests/test-heldout-evals.sh: 32/32. tests/test-spec.sh: 34/34.
+  tests/test-verify.sh: 11/11. tests/test-evidence-gate.sh: 48/48.
+  tests/test-completion-claim.sh: 10/10. tests/test-cost-capture.sh: 6/6.
+  tests/test-cli-commands.sh: 23/23 on both routes (Bun and
+  LOKI_LEGACY_BASH=1), including the new grill success-path regression test.
+  All suites wired into scripts/local-ci.sh (48 checks, full run green).
+
 ## [7.27.0] - 2026-06-09
 
 ### Added

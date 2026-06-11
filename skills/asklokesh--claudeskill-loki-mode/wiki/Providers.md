@@ -53,7 +53,7 @@ Full-featured provider with complete Loki Mode capabilities.
 npm install -g @anthropic-ai/claude-code
 
 # Authenticate
-claude login
+claude auth login
 ```
 
 ### Models
@@ -105,7 +105,7 @@ Degraded mode with sequential execution only.
 npm install -g @openai/codex-cli
 
 # Authenticate
-codex auth
+codex login
 ```
 
 ### Model
@@ -392,8 +392,8 @@ npm install -g @openai/codex-cli
 
 ```bash
 # Re-authenticate
-claude login
-codex auth
+claude auth login
+codex login
 ```
 
 ### Wrong Provider Used

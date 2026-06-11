@@ -68,7 +68,7 @@ loki start ./prd.md
 1. **Install Claude CLI:**
    ```bash
    npm install -g @anthropic-ai/claude-code
-   claude login
+   claude auth login
    ```
 
 2. **Check provider:**
@@ -297,7 +297,7 @@ Error: Provider 'codex' not installed
 ```bash
 # Install the missing CLI
 npm install -g @openai/codex-cli
-codex auth
+codex login
 ```
 
 ---

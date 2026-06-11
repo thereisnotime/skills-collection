@@ -122,6 +122,11 @@ jobs:
       - name: Check citation-verification intake wiring (#392)
         run: python3 scripts/check_392_citation_verification_intake.py
 
+      - name: Check agents/ mirror sync (#413)
+        # The pytest companion `test_check_agents_mirror_sync.py` runs via the
+        # unified manifest.
+        run: python3 scripts/check_agents_mirror_sync.py
+
       - name: Check version consistency (CLAUDE.md / SKILL.md / CHANGELOG)
         env:
           PYTHONPATH: scripts
@@ -299,6 +304,21 @@ jobs:
         env:
           PYTHONPATH: .
         run: python scripts/check_v3_10_policy.py
+
+      - name: "#394 slice-4 submission-policy lint"
+        # Verifies the submission-package terminality contract: the
+        # terminal_policies submission_package enum {advisory, strict} with no
+        # JSON-Schema default, the orchestrator Submission-Package Terminal
+        # Gate section's load-bearing literals (fix-loop bound, VERIFICATION-
+        # INCOMPLETE, --check-freshness, sole-reader + gate-on-tokens
+        # sentences), the formatter Submission Package Advisories section,
+        # the AST single-homed guard (the verifier never READS
+        # terminal_policies — docstring mentions stay free, gate-1 P2), and
+        # the report schema's closed policy_slug enum. The pytest companion
+        # `test_check_394_submission_policy.py` runs via the unified manifest.
+        env:
+          PYTHONPATH: .
+        run: python scripts/check_394_submission_policy.py
 
       - name: Run v3.9.2 Phase Boundary coverage lint (#133)
         # Enforces 22 Bucket A agents have ## Phase Boundary (v3.9.2)

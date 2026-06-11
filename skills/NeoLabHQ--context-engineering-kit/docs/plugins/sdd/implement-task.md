@@ -124,7 +124,7 @@ For simple operations (directory creation, file deletion):
 For critical artifacts requiring high confidence:
 
 1. Launch the `sdd:developer` agent to implement the step
-2. Launch 2 `sdd:developer` evaluation agents **in parallel** with the step's rubric
+2. Launch 2 `sdd:code-reviewer` agents **in parallel** with the step's rubric
 3. Calculate the median score; pass if median ≥ threshold
 4. On failure: iterate through fix→verify cycles until they pass or the maximum number of iterations is reached
 
@@ -133,7 +133,7 @@ For critical artifacts requiring high confidence:
 For steps creating multiple similar items:
 
 1. Launch `sdd:developer` agents **in parallel** (one per item)
-2. Launch evaluation agents **in parallel** (one per item)
+2. Launch `sdd:code-reviewer` agents **in parallel** (one per item)
 3. All items must pass; failing items are re-implemented
 4. Iterate until all pass or the maximum number of iterations is reached
 
@@ -170,7 +170,7 @@ Staging at the end allows you to make manual edits on top and use `--refine`, so
 Resumes implementation from the last completed step:
 
 1. Parses task file for `[DONE]` markers
-2. Launches judge to verify the last incomplete step's artifacts
+2. Launches `sdd:code-reviewer` to verify the last incomplete step's artifacts
 3. If PASS: marks done, resumes from next step
 4. If it fails: re-implement the step and iterate
 
@@ -181,7 +181,7 @@ Detects changes to **project files** (not the task file) and re-verifies from th
 1. Compares local (unstaged) changes against staged changes by default. To compare against the last commit instead, specify it explicitly (e.g., `/implement --refine compare with last commit`).
 2. Maps changed files to implementation steps using "Expected Output" and artifact paths
 3. Determines the earliest affected step
-4. Launches a judge for each affected step — if it passes, the user's fix is accepted; if it fails, the implementation agent aligns the rest of the code with the user's changes
+4. Launches `sdd:code-reviewer` for each affected step — if it passes, the user's fix is accepted; if it fails, the implementation agent aligns the rest of the code with the user's changes
 5. All subsequent steps are also re-verified
 
 ## Human-in-the-Loop (`--human-in-the-loop`)

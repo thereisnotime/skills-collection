@@ -348,9 +348,11 @@ claude "implement order processing with Clean Architecture"
 /add-task
 
 # Plan specification
+/clear
 /plan-task
 
 # Implementation (DDD skill active)
+/clear
 /implement-task
 
 ```

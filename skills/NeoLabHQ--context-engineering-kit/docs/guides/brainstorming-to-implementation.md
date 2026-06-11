@@ -107,32 +107,35 @@ The LLM will cover:
 - Testing approach
 ```
 
-After each section, confirm it matches your expectations or request changes. Once complete, the design is saved to `docs/plans/YYYY-MM-DD-<topic>-design.md`.
+After each section, confirm it matches your expectations or request changes. Once complete use `/add-task` skill to create task file for target approach
 
 ### 4. Create task and plan specification
 
-Use the `/add-task` command to create a task file from the refined design, then `/plan-task` to generate a detailed specification with architecture, implementation steps, and verification criteria.
+Use the `/add-task` command to create a task file from the refined design.
 
 ```bash
-/add-task "Implement faceted search with Elasticsearch, filters, and autocomplete"
+/add-task
+# task file saved to .specs/tasks/draft/task-name.feature.md
 ```
 
 After LLM completes, review the task file in `.specs/tasks/draft/`. You can adjust the task file to incorporate additional details from the brainstorming session.
 
-Then run planning to generate the full specification:
+Then run `/clear` and `/plan-task <task-file-path>` to generate a detailed specification with architecture, implementation steps, and verification criteria:
 
 ```bash
-/plan-task
+/clear
+/plan-task @.specs/tasks/draft/task-name.feature.md
 ```
 
 After LLM completes, review the refined specification in `.specs/tasks/todo/`. The plan includes architecture design, implementation steps with parallelization, and verification rubrics. You can adjust and run `/plan-task --refine` to iterate.
 
 ### 5. Implement features
 
-Use the `/implement-task` command to execute the implementation. This produces working code with tests and verification.
+Use the `/clear` and then `/implement-task <task-file-path>` command to execute the implementation. This produces working code with tests and verification.
 
 ```bash
-/implement-task
+/clear
+/implement-task @.specs/tasks/draft/task-name.feature.md
 ```
 
 During implementation, the LLM executes each step with quality gates, writes tests, and verifies the solution works as expected. More info in [Spec-Driven Development](./spec-driven-development.md) workflow.
@@ -142,6 +145,7 @@ During implementation, the LLM executes each step with quality gates, writes tes
 Complete the workflow with code review and pull request creation.
 
 ```bash
+/clear
 /review-local-changes
 /commit
 /create-pr

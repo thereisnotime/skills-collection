@@ -238,6 +238,166 @@ else
     log_fail "cost comparison" "simple=\$$simple_cost complex=\$$complex_cost"
 fi
 
+# ===========================================
+# v7.29.0 slice A: LOKI_COMPLEXITY honoring (keystone) + demo cost confirm
+# ===========================================
+
+TEMPLATES_DIR="$SCRIPT_DIR/../templates"
+TODO_PRD="$TEMPLATES_DIR/simple-todo-app.md"
+
+# Portable timeout: prefer GNU timeout / gtimeout; fall back to no-op wrapper
+# (the tested code paths are designed never to hang, so the fallback is safe;
+# the timeout is an extra guard, not the assertion itself).
+TIMEOUT_BIN=""
+if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT_BIN="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT_BIN="gtimeout"
+fi
+run_guarded() {
+    # run_guarded <seconds> <cmd...>
+    local secs="$1"; shift
+    if [ -n "$TIMEOUT_BIN" ]; then
+        "$TIMEOUT_BIN" "$secs" "$@"
+    else
+        "$@"
+    fi
+}
+
+# -------------------------------------------
+# Test 17: LOKI_COMPLEXITY=simple forces tier in JSON on a complex PRD
+# -------------------------------------------
+((TOTAL++))
+forced_json=$(LOKI_COMPLEXITY=simple "$LOKI" plan "$COMPLEX_PRD" --json 2>/dev/null)
+forced_tier=$(echo "$forced_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['tier'])" 2>/dev/null)
+forced_reason=$(echo "$forced_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['reasons'][0])" 2>/dev/null)
+if [ "$forced_tier" = "simple" ] && echo "$forced_reason" | grep -q "forced via LOKI_COMPLEXITY=simple"; then
+    log_pass "LOKI_COMPLEXITY=simple forces tier=simple in JSON with honest reason"
+else
+    log_fail "LOKI_COMPLEXITY=simple force (json)" "tier=$forced_tier reason=$forced_reason"
+fi
+
+# -------------------------------------------
+# Test 18: Forcing simple lowers cost vs the unforced complex run (same PRD)
+# -------------------------------------------
+((TOTAL++))
+unforced_cost=$("$LOKI" plan "$COMPLEX_PRD" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['cost']['total_usd'])" 2>/dev/null)
+forced_cost=$(echo "$forced_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['cost']['total_usd'])" 2>/dev/null)
+cost_drop=$(python3 -c "print('OK' if float('$forced_cost') < float('$unforced_cost') else 'BAD')" 2>/dev/null)
+if [ "$cost_drop" = "OK" ]; then
+    log_pass "forced simple lowers cost (\$$forced_cost) vs unforced complex (\$$unforced_cost)"
+else
+    log_fail "forced simple cost drop" "forced=\$$forced_cost unforced=\$$unforced_cost"
+fi
+
+# -------------------------------------------
+# Test 19: LOKI_COMPLEXITY=simple forces tier in formatted (non-JSON) output
+# -------------------------------------------
+((TOTAL++))
+forced_fmt=$(LOKI_COMPLEXITY=simple "$LOKI" plan "$COMPLEX_PRD" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
+if echo "$forced_fmt" | grep -q "Tier: SIMPLE (forced via LOKI_COMPLEXITY=simple)"; then
+    log_pass "LOKI_COMPLEXITY=simple shows forced note in formatted output"
+else
+    log_fail "forced note (formatted)" "missing 'Tier: SIMPLE (forced via ...)'"
+fi
+
+# -------------------------------------------
+# Test 20: LOKI_COMPLEXITY=standard aliases to moderate tier
+# -------------------------------------------
+((TOTAL++))
+std_tier=$(LOKI_COMPLEXITY=standard "$LOKI" plan "$SIMPLE_PRD" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['tier'])" 2>/dev/null)
+if [ "$std_tier" = "moderate" ]; then
+    log_pass "LOKI_COMPLEXITY=standard aliases to moderate tier"
+else
+    log_fail "standard->moderate alias" "tier=$std_tier"
+fi
+
+# -------------------------------------------
+# Test 21: Invalid LOKI_COMPLEXITY value is ignored (content tier used)
+# -------------------------------------------
+((TOTAL++))
+content_tier=$("$LOKI" plan "$COMPLEX_PRD" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['tier'])" 2>/dev/null)
+bogus_tier=$(LOKI_COMPLEXITY=bogus "$LOKI" plan "$COMPLEX_PRD" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['tier'])" 2>/dev/null)
+auto_tier=$(LOKI_COMPLEXITY=auto "$LOKI" plan "$COMPLEX_PRD" --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['tier'])" 2>/dev/null)
+if [ "$bogus_tier" = "$content_tier" ] && [ "$auto_tier" = "$content_tier" ]; then
+    log_pass "invalid/auto LOKI_COMPLEXITY ignored (content tier=$content_tier preserved)"
+else
+    log_fail "invalid value ignored" "content=$content_tier bogus=$bogus_tier auto=$auto_tier"
+fi
+
+# -------------------------------------------
+# Test 22: Regression -- unforced plan on the demo PRD quotes the stock session
+# path (simple tier, 4 iters, $3.10). Task 568: the default session pin (sonnet)
+# resolves through the development tier to PROVIDER_MODEL_DEVELOPMENT=opus, the
+# model the runner actually dispatches. Pre-568 this quoted $1.86 (Sonnet) while
+# the run dispatched opus (~1.7x understatement); $3.10 (Opus x4) is the truth.
+# (Cost rounds to 3.1 in JSON; the formatted demo block renders ~$3.10.)
+# -------------------------------------------
+((TOTAL++))
+if [ -f "$TODO_PRD" ]; then
+    todo_json=$("$LOKI" plan "$TODO_PRD" --json 2>/dev/null)
+    todo_tier=$(echo "$todo_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['complexity']['tier'])" 2>/dev/null)
+    todo_cost=$(echo "$todo_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['cost']['total_usd'])" 2>/dev/null)
+    todo_model=$(echo "$todo_json" | python3 -c "import json,sys; ibm=json.load(sys.stdin)['cost']['iterations_by_model']; m=[k for k,v in ibm.items() if v]; print(m[0] if len(m)==1 else 'MULTI')" 2>/dev/null)
+    todo_iters=$(echo "$todo_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['iterations']['estimated'])" 2>/dev/null)
+    if [ "$todo_tier" = "simple" ] && [ "$todo_cost" = "3.1" ] && [ "$todo_model" = "Opus" ] && [ "$todo_iters" = "4" ]; then
+        log_pass "demo PRD unforced plan quotes stock session path (simple, Opus x4, \$3.10, 4 iters)"
+    else
+        log_fail "demo PRD regression" "tier=$todo_tier cost=\$$todo_cost model=$todo_model iters=$todo_iters"
+    fi
+else
+    log_fail "demo PRD regression" "templates/simple-todo-app.md not found"
+fi
+
+# -------------------------------------------
+# Test 23: loki demo --help keeps its key lines and does not leak --yes.
+# (Asserts the three named properties, not full byte-identity.)
+# -------------------------------------------
+((TOTAL++))
+demo_help=$("$LOKI" demo --help 2>&1)
+if echo "$demo_help" | grep -q "Build a real project from a bundled template" \
+    && echo "$demo_help" | grep -q -- "--dry-run     Show what would happen without running" \
+    && ! echo "$demo_help" | grep -q -- "--yes"; then
+    log_pass "loki demo --help keeps key lines, no --yes leaked"
+else
+    log_fail "demo --help key lines" "help text drifted or --yes leaked"
+fi
+
+# -------------------------------------------
+# Test 24: loki demo --dry-run renders the SIMPLE-tier estimate block, exits 0,
+# and spends nothing (no runner entry)
+# -------------------------------------------
+((TOTAL++))
+DEMO_TMP_24=$(mktemp -d 2>/dev/null || echo "/tmp/loki-plan-demo24-$$")
+dry_exit=0
+dry_out=$(TMPDIR="$DEMO_TMP_24" run_guarded 30 "$LOKI" demo --dry-run 2>&1 | sed 's/\x1b\[[0-9;]*m//g') || dry_exit=$?
+if [ "$dry_exit" -eq 0 ] \
+    && echo "$dry_out" | grep -q "Estimate (SIMPLE tier, the path this demo actually runs):" \
+    && echo "$dry_out" | grep -q 'Cost:        ~\$3.10' \
+    && echo "$dry_out" | grep -q "\[dry-run\] Would run:"; then
+    log_pass "loki demo --dry-run renders SIMPLE estimate block and exits 0"
+else
+    log_fail "demo --dry-run estimate" "exit=$dry_exit"
+fi
+rm -rf "$DEMO_TMP_24"
+
+# -------------------------------------------
+# Test 25: loki demo non-TTY without --yes prints the estimate, refuses with an
+# honest message, exits 2, and does NOT hang (piped stdin, guarded by timeout).
+# -------------------------------------------
+((TOTAL++))
+DEMO_TMP_25=$(mktemp -d 2>/dev/null || echo "/tmp/loki-plan-demo25-$$")
+nt_exit=0
+nt_out=$(TMPDIR="$DEMO_TMP_25" run_guarded 15 "$LOKI" demo </dev/null 2>&1 | sed 's/\x1b\[[0-9;]*m//g') || nt_exit=$?
+if [ "$nt_exit" -eq 2 ] \
+    && echo "$nt_out" | grep -q "Estimate (SIMPLE tier, the path this demo actually runs):" \
+    && echo "$nt_out" | grep -q "demo needs confirmation; re-run with --yes to proceed non-interactively"; then
+    log_pass "loki demo non-TTY without --yes refuses (exit 2), prints estimate, no hang"
+else
+    log_fail "demo non-TTY refuse" "exit=$nt_exit (124=timeout/hang)"
+fi
+rm -rf "$DEMO_TMP_25"
+
 # -------------------------------------------
 # Summary
 # -------------------------------------------

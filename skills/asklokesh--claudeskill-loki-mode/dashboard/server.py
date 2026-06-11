@@ -2159,6 +2159,21 @@ class FocusRequest(BaseModel):
     project_dir: str
 
 
+# Mid-flight model switching: the allowlist of aliases a live run may switch to.
+# MUST stay identical to the read-side allowlist in run.sh (the override file is
+# fed straight into `claude --model`). Fable is the top-tier advisory model at
+# 2x Opus cost; the UI shows that. `None`/empty clears the override.
+_SESSION_MODEL_ALLOWLIST = ("haiku", "sonnet", "opus", "fable")
+
+
+class SessionModelRequest(BaseModel):
+    """Schema for setting (or clearing) the live run's model override."""
+    # Disable Pydantic's protected "model_" namespace so a field literally named
+    # "model" does not emit a warning.
+    model_config = ConfigDict(protected_namespaces=())
+    model: str | None = None
+
+
 @app.post("/api/focus", dependencies=[Depends(auth.require_scope("control"))])
 async def set_focus(request: FocusRequest):
     """Set the active project directory for .loki/ resolution.
@@ -2200,6 +2215,287 @@ async def clear_focus():
     global _active_project_dir
     _active_project_dir = None
     return {"project_dir": None, "loki_dir": str(_get_loki_dir())}
+
+
+def _model_override_path() -> _Path:
+    """Project-scoped path to the mid-flight model override file."""
+    return _get_loki_dir() / "state" / "model-override"
+
+
+def _normalize_session_model(raw: str | None) -> str:
+    """Canonical model-alias normalization shared with run.sh + the estimator.
+
+    Trim, lowercase, and accept ONLY an exact allowlisted alias. A value with
+    interior whitespace (e.g. "fab le") normalizes to "" and is rejected, so the
+    dashboard, the runner, and the estimator agree on what a value means.
+    """
+    val = (raw or "").strip().lower()
+    return val if val in _SESSION_MODEL_ALLOWLIST else ""
+
+
+# Session-pin allowlist is BROADER than the override-file allowlist above.
+# run.sh's session-pin case (run.sh:12331) accepts the four model aliases AND
+# the three raw tier names (planning|development|fast) -- documented at
+# skills/model-selection.md:8. The OVERRIDE file / POST path keeps the narrow
+# _SESSION_MODEL_ALLOWLIST because that value is fed straight to `claude
+# --model`, where tier names are not valid. The session pin is a tier route, so
+# tier names ARE valid pins.
+_SESSION_PIN_ALLOWLIST = _SESSION_MODEL_ALLOWLIST + ("planning", "development", "fast")
+
+
+def _normalize_session_pin(raw: str | None) -> str:
+    """Normalize a LOKI_SESSION_MODEL pin value (aliases + raw tier names).
+
+    Mirrors run.sh's session-pin case: trim + lowercase, accept the four model
+    aliases and the three tier names. Interior whitespace is preserved (so
+    "fab le" stays junk and falls through to the default tier, exactly like the
+    runner's "*" arm). Use this for the session-pin (no-override) derivation;
+    use _normalize_session_model for the override-file / POST path.
+    """
+    val = (raw or "").strip().lower()
+    return val if val in _SESSION_PIN_ALLOWLIST else ""
+
+
+# Provider-config model resolution mirror.
+#
+# SYNC: This is a byte-faithful python port of the claude provider's tier->model
+# resolution in providers/claude.sh (CLAUDE_DEFAULT_FAST / CLAUDE_DEFAULT_DEVELOPMENT
+# and the PROVIDER_MODEL_FAST / PROVIDER_MODEL_DEVELOPMENT resolution chains,
+# claude.sh:55-67) plus loki_apply_max_tier_clamp (claude.sh:318). The same port
+# also lives in the `loki plan` estimator (autonomy/loki, _provider_model_fast /
+# _provider_model_development / _loki_clamp_alias). All three readers MUST agree;
+# the agreement is locked by the parity test in tests/test-model-override.sh
+# ("resolver parity matrix") and the cross-route tests in test-plan-command.sh.
+# If you change resolution here, change it in claude.sh AND autonomy/loki, and
+# re-run those tests. The `or` chains mirror bash `:-` empty-string-fallthrough;
+# allow_haiku uses an exact "true" match to mirror bash `[ "$x" = "true" ]`.
+def _allow_haiku() -> bool:
+    return (os.environ.get("LOKI_ALLOW_HAIKU", "false") or "false") == "true"
+
+
+def _provider_model_fast() -> str:
+    # claude.sh:67 -> LOKI_CLAUDE_MODEL_FAST > LOKI_MODEL_FAST > haiku-aware default.
+    return (
+        os.environ.get("LOKI_CLAUDE_MODEL_FAST")
+        or os.environ.get("LOKI_MODEL_FAST")
+        or ("haiku" if _allow_haiku() else "sonnet")
+    )
+
+
+def _provider_model_development() -> str:
+    # claude.sh:66 -> LOKI_CLAUDE_MODEL_DEVELOPMENT > LOKI_MODEL_DEVELOPMENT > default.
+    return (
+        os.environ.get("LOKI_CLAUDE_MODEL_DEVELOPMENT")
+        or os.environ.get("LOKI_MODEL_DEVELOPMENT")
+        or ("sonnet" if _allow_haiku() else "opus")
+    )
+
+
+def _provider_model_planning() -> str:
+    # claude.sh:65 -> LOKI_CLAUDE_MODEL_PLANNING > LOKI_MODEL_PLANNING > opus.
+    # CLAUDE_DEFAULT_PLANNING is always opus (LOKI_ALLOW_HAIKU lowers only the
+    # development and fast defaults, not planning).
+    return (
+        os.environ.get("LOKI_CLAUDE_MODEL_PLANNING")
+        or os.environ.get("LOKI_MODEL_PLANNING")
+        or "opus"
+    )
+
+
+def _clamp_to_max_tier(alias: str) -> str:
+    """Apply the operator LOKI_MAX_TIER ceiling to a model alias.
+
+    Mirrors providers/claude.sh loki_apply_max_tier_clamp EXACTLY (resolving the
+    clamp result through the SAME provider config the runner uses): a haiku cap
+    pins everything to PROVIDER_MODEL_FAST (sonnet by default, haiku when
+    LOKI_ALLOW_HAIKU=true), and a sonnet cap resolves fable down to
+    PROVIDER_MODEL_DEVELOPMENT (opus by default, sonnet when LOKI_ALLOW_HAIKU=true).
+    The LOKI_CLAUDE_MODEL_FAST/DEVELOPMENT and LOKI_MODEL_FAST/DEVELOPMENT env
+    overrides are honored too. So the dashboard's reported `effective` model agrees
+    byte-for-byte with the model the run will dispatch when a cost ceiling is set.
+
+    This is invoked with alias as both model and tier (the override-path
+    convention), matching the run.sh mid-flight override clamp.
+    """
+    max_tier = (os.environ.get("LOKI_MAX_TIER") or "").strip().lower()
+    if not max_tier:
+        return alias
+    if max_tier == "haiku":
+        return _provider_model_fast()
+    if max_tier == "sonnet":
+        # The runner's sonnet arm downgrades iff tier/model is planning or fable;
+        # called with alias as both, that reduces to "downgrade iff alias==fable".
+        return _provider_model_development() if alias == "fable" else alias
+    if max_tier == "opus":
+        return "opus" if alias == "fable" else alias
+    return alias
+
+
+def _resolve_session_pin(alias: str) -> str:
+    """Resolve a session-pin alias the way the runner's NO-OVERRIDE path does.
+
+    The runner does NOT feed a session pin straight to --model. It maps the alias
+    to an abstract TIER (run.sh:12331 -- opus->planning, sonnet->development,
+    haiku->fast, fable->fable) and resolves that tier through
+    resolve_model_for_tier (claude.sh:353), then applies
+    loki_apply_max_tier_clamp(model, REAL_tier). This DIFFERS from
+    _clamp_to_max_tier (the override-path clamp): a 'sonnet' SESSION pin
+    dispatches OPUS (development tier -> PROVIDER_MODEL_DEVELOPMENT=opus on stock
+    config), whereas a 'sonnet' OVERRIDE file dispatches sonnet (fed straight to
+    --model). Use this for the no-override `default`/`effective` derivation so the
+    dashboard reports the model the run actually dispatches on the default path.
+
+    SYNC: byte-faithful with run.sh's session-pin case + claude.sh
+    resolve_model_for_tier + loki_apply_max_tier_clamp, and with the estimator's
+    _resolve_session_pin in autonomy/loki. Locked by the session-pin parity matrix
+    in tests/test-model-override.sh.
+    """
+    pin_tier = {
+        "opus": "planning",
+        "sonnet": "development",
+        "haiku": "fast",
+        "fable": "fable",
+        # Raw tier-name pins (run.sh:12336 passthrough arm) map to their own
+        # tier, NOT through the alias table. pin=fast -> fast tier ->
+        # PROVIDER_MODEL_FAST, matching the runner's dispatch instead of
+        # collapsing onto development.
+        "planning": "planning",
+        "development": "development",
+        "fast": "fast",
+    }.get((alias or "").strip().lower(), "development")
+    if pin_tier == "planning":
+        model = _provider_model_planning()
+    elif pin_tier == "fast":
+        model = _provider_model_fast()
+    elif pin_tier == "fable":
+        model = "fable"
+    else:  # development (and the unknown-alias '*' fallthrough)
+        model = _provider_model_development()
+    max_tier = (os.environ.get("LOKI_MAX_TIER") or "").strip().lower()
+    if not max_tier:
+        return model
+    if max_tier == "haiku":
+        return _provider_model_fast()
+    if max_tier == "sonnet":
+        # claude.sh sonnet-cap downgrades planning/fable tiers (or a fable model)
+        # to PROVIDER_MODEL_DEVELOPMENT; development/fast pass through.
+        if pin_tier in ("planning", "fable") or model == "fable":
+            return _provider_model_development()
+        return model
+    if max_tier == "opus":
+        return "opus" if model == "fable" else model
+    return model
+
+
+@app.get("/api/session/model", dependencies=[Depends(auth.require_scope("read"))])
+async def get_session_model():
+    """Report the live run's model override and the effective default.
+
+    `override` is the alias currently written to .loki/state/model-override
+    (None when no override is active). `default` is the session pin alias the run
+    falls back to when there is no override (LOKI_SESSION_MODEL or "sonnet").
+    `effective` is the model the next iteration will actually DISPATCH, resolved
+    on the SAME route the runner uses for the active case, so the dashboard never
+    reports a model that differs from what the run runs:
+
+      - OVERRIDE active: the runner feeds the alias straight to --model via
+        loki_apply_max_tier_clamp(alias, alias). `effective` = _clamp_to_max_tier
+        (the override-path clamp). A "sonnet" override dispatches sonnet.
+      - NO override (session pin): the runner maps the pin through a tier
+        (opus->planning, sonnet->development, haiku->fast) and resolves the tier
+        through PROVIDER_MODEL_* (then the cost-ceiling clamp). `effective` =
+        _resolve_session_pin. A "sonnet" pin dispatches OPUS (development tier ->
+        PROVIDER_MODEL_DEVELOPMENT=opus on stock config).
+
+    Both routes resolve through the SAME provider config the runner uses
+    (LOKI_ALLOW_HAIKU plus the LOKI_CLAUDE_MODEL_PLANNING/FAST/DEVELOPMENT and
+    LOKI_MODEL_* overrides) and the SAME LOKI_MAX_TIER ceiling, mirroring
+    providers/claude.sh byte-for-byte. The agreement (estimator == dashboard ==
+    runner) on BOTH routes -- including the no-override stock path -- is locked by
+    the cross-route cases and the session-pin parity matrix in
+    tests/test-model-override.sh. (Before task 568 the no-override path applied the
+    override-path clamp to the pin, so a stock "sonnet" pin reported "sonnet" while
+    the run dispatched opus; that gap is now closed.)
+
+    KNOWN LIMITATION (cross-process env divergence): the resolution reads
+    LOKI_MAX_TIER, LOKI_ALLOW_HAIKU, LOKI_SESSION_MODEL and the model-override env
+    vars from the DASHBOARD process's environment, which is usually a different
+    process than the live run. So if the run was launched with a different
+    environment than the dashboard, the no-override `default`/`effective` may not
+    reflect the run's real pinned tier or ceiling (e.g. a run launched with
+    LOKI_SESSION_MODEL=opus while the dashboard's env has no pin still reads the
+    default here). The override case reads the run's own state file, so its alias
+    is always accurate and the resolution is exact whenever the dashboard shares
+    the run's environment.
+    """
+    override = None
+    try:
+        p = _model_override_path()
+        if p.is_file():
+            override = _normalize_session_model(p.read_text()) or None
+    except OSError:
+        override = None
+    # Session pin accepts tier names too (run.sh:12336), so use the broader
+    # session-pin normalizer here (NOT the narrow override allowlist).
+    default = _normalize_session_pin(os.environ.get("LOKI_SESSION_MODEL")) or "sonnet"
+    # Resolve on the route the runner will actually take: override-path clamp when
+    # an override file is present, session-pin tier route otherwise. This closes
+    # the task-568 stock-path gap (a "sonnet" pin dispatches opus).
+    if override is not None:
+        effective = _clamp_to_max_tier(override)
+    else:
+        effective = _resolve_session_pin(default)
+    return {
+        "override": override,
+        "default": default,
+        "effective": effective,
+        "allowed": list(_SESSION_MODEL_ALLOWLIST),
+    }
+
+
+@app.post("/api/session/model", dependencies=[Depends(auth.require_scope("control"))])
+async def set_session_model(request: SessionModelRequest):
+    """Set (or clear) the model a live Loki run uses, applied from the NEXT
+    iteration boundary.
+
+    The run reads .loki/state/model-override at the top of each iteration, so a
+    switch takes effect when the current iteration finishes and the next
+    `claude -p` is spawned (the model is fixed per invocation). The override
+    applies to the CURRENT run only: the runner clears a leftover override at the
+    start of a fresh run, so a switch does not persist into future runs. Body
+    {"model": null} or {"model": ""} clears the override and reverts to the tier
+    mapping. The value is allowlist-validated server-side because the file is fed
+    straight into `claude --model`; arbitrary strings are rejected.
+
+    The `effective` field reports the model the next iteration will actually use
+    after the LOKI_MAX_TIER cost ceiling is applied (e.g. a fable override under
+    a sonnet ceiling reports the clamped model), so the response never claims a
+    model the run would clamp down. `clamped` is True when the ceiling reduced
+    the requested model.
+    """
+    requested_raw = (request.model or "").strip().lower()
+    override_path = _model_override_path()
+    if requested_raw == "":
+        # Clear the override; revert to tier mapping.
+        try:
+            if override_path.exists():
+                override_path.unlink()
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not clear override: {exc}")
+        return {"model": None, "effective": "next_iteration", "clamped": False}
+    model = _normalize_session_model(requested_raw)
+    if not model:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model '{request.model}'. Allowed: {', '.join(_SESSION_MODEL_ALLOWLIST)}",
+        )
+    try:
+        override_path.parent.mkdir(parents=True, exist_ok=True)
+        override_path.write_text(model + "\n")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not write override: {exc}")
+    effective = _clamp_to_max_tier(model)
+    return {"model": model, "effective": effective, "clamped": effective != model}
 
 
 @app.get("/api/running-projects")
@@ -4389,6 +4685,9 @@ async def stop_session(request: Request):
 # At runtime, overridden by .loki/pricing.json if available
 _DEFAULT_PRICING = {
     # Claude (Anthropic)
+    # Fable 5 is the top-tier advisory model at exactly 2x Opus per token.
+    "fable":  {"input": 10.00, "output": 50.00},
+    "claude-fable-5": {"input": 10.00, "output": 50.00},
     "opus":   {"input": 5.00, "output": 25.00},
     "sonnet": {"input": 3.00, "output": 15.00},
     "haiku":  {"input": 1.00, "output": 5.00},
@@ -7997,4 +8296,30 @@ def run_server(host: str = None, port: int = None) -> None:
 
 
 if __name__ == "__main__":
-    run_server()
+    # Honor an explicit --port/--host on a direct module launch
+    # (python -m dashboard.server --port N). The supported `loki dashboard start`
+    # path sets LOKI_DASHBOARD_PORT in the environment and passes NO argv flags,
+    # so it is unaffected. Previously --port was silently accepted and discarded,
+    # binding the default 57374 and risking a collision with another project's
+    # dashboard; now an unknown flag fails loudly via argparse (exit 2).
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m dashboard.server",
+        description="Loki Mode dashboard server. The supported launcher is "
+        "'loki dashboard start' (which uses LOKI_DASHBOARD_PORT / "
+        "LOKI_DASHBOARD_HOST); these flags are for direct module launches.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Port to bind (default: $LOKI_DASHBOARD_PORT or 57374).",
+    )
+    parser.add_argument(
+        "--host",
+        default=None,
+        help="Host to bind (default: $LOKI_DASHBOARD_HOST or 127.0.0.1).",
+    )
+    _args = parser.parse_args()
+    run_server(host=_args.host, port=_args.port)
