@@ -250,9 +250,29 @@ export async function dispatchClaudeAgents(
     JSON.stringify(agentsJson),
     "--json-schema",
     schemaPath,
-    "-p",
-    topPrompt,
   ];
+  // EMBED 3 (v7.33.0): --disallowedTools on the council voter argv. A reviewer
+  // / voter agent should not casually mutate the working tree (a parallel agent
+  // once ran `git reset --hard` and wiped uncommitted work).
+  // Deny Edit/Write/NotebookEdit
+  // + git MUTATION forms incl. the git -C / --git-dir / -c evasions; read-only
+  // git (diff/log/show/status) stays allowed so the voter can still inspect the
+  // tree. A guardrail (raises the cost of the common destructive command), not a
+  // sandbox -- echo>/sed -i/etc. remain. Default-ON; opt out with
+  // LOKI_REVIEW_TOOL_GUARD=0. Gated on CLI support. NOTE: --bare (Embed 2) is
+  // deliberately NOT applied to this voter path: it relies on auto-discovered
+  // context (CLAUDE.md/hooks) that --bare drops, which could change voter
+  // judgment. Mirrors loki_review_guard_denylist in autonomy/lib/claude-flags.sh.
+  if (
+    process.env["LOKI_REVIEW_TOOL_GUARD"] !== "0" &&
+    claudeFlagSupported("--disallowedTools")
+  ) {
+    argv.push(
+      "--disallowedTools",
+      "Edit,Write,NotebookEdit,Bash(git commit:*),Bash(git reset:*),Bash(git push:*),Bash(git checkout:*),Bash(git clean:*),Bash(git rm:*),Bash(git stash:*),Bash(git -C:*),Bash(git --git-dir:*),Bash(git -c:*)",
+    );
+  }
+  argv.push("-p", topPrompt);
 
   const result = await runner(argv);
   if (result.exitCode !== 0) {

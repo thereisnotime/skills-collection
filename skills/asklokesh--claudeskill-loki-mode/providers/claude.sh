@@ -190,6 +190,20 @@ _loki_build_claude_auto_flags() {
             for _mcp_path in $_mcp_argv; do
                 _LOKI_CLAUDE_AUTO_FLAGS+=("$_mcp_path")
             done
+            # EMBED 1 (v7.33.0): --strict-mcp-config. ONLY emitted alongside an
+            # actual --mcp-config bundle (never bare). Per `claude --help` it
+            # makes the agent load servers ONLY from --mcp-config, ignoring ALL
+            # other MCP sources (auto-discovered project .mcp.json AND any
+            # settings-injected configs). Note the bundle already includes the
+            # user's ~/.claude/mcp.json overlay explicitly, so the common
+            # user-MCP case is preserved; what is dropped is any MCP config not
+            # in the explicit bundle, making the run reproducible.
+            # Default-ON; opt out with LOKI_STRICT_MCP=0. Gated on CLI support so
+            # an older claude degrades gracefully.
+            if [ "${LOKI_STRICT_MCP:-1}" != "0" ] \
+               && loki_claude_flag_supported "--strict-mcp-config"; then
+                _LOKI_CLAUDE_AUTO_FLAGS+=("--strict-mcp-config")
+            fi
         fi
     fi
 
@@ -232,6 +246,17 @@ _loki_build_claude_auto_flags() {
     if [ "${LOKI_PARTIAL_MESSAGES:-on}" != "off" ] \
        && loki_claude_flag_supported "--include-partial-messages"; then
         _LOKI_CLAUDE_AUTO_FLAGS+=("--include-partial-messages")
+    fi
+
+    # --no-session-persistence (v7.34.0): boolean flag that disables Claude's
+    # own session persistence (it would otherwise write transcript JSONL under
+    # ~/.claude/projects). OPT-IN only via LOKI_NO_SESSION_PERSIST=1; DEFAULT OFF
+    # so this is zero behavior change (the flag is never emitted unless the user
+    # asks for it). Useful for ephemeral/CI runs that do not want on-disk
+    # transcripts. Gated on CLI support so an older claude degrades gracefully.
+    if [ "${LOKI_NO_SESSION_PERSIST:-0}" = "1" ] \
+       && loki_claude_flag_supported "--no-session-persistence"; then
+        _LOKI_CLAUDE_AUTO_FLAGS+=("--no-session-persistence")
     fi
 }
 

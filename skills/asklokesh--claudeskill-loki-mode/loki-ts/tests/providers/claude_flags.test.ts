@@ -18,6 +18,9 @@ import {
   fallbackForPrimary,
   claudeFlagSupported,
   buildAutoFlags,
+  claudeSessionUuid,
+  claudeIterationSessionUuid,
+  sessionStampArgv,
   _resetClaudeHelpCacheForTest,
 } from "../../src/providers/claude_flags.ts";
 
@@ -256,6 +259,70 @@ describe("claude_flags.buildAutoFlags composition", () => {
     }
   });
 
+  // EMBED 1 (v7.33.0): --strict-mcp-config -- only alongside --mcp-config.
+  it("adds --strict-mcp-config when --mcp-config is emitted and CLI supports it (default on)", () => {
+    _resetClaudeHelpCacheForTest(
+      "  --mcp-config <configs...>  Load MCP servers\n  --strict-mcp-config  Only use MCP servers from --mcp-config",
+    );
+    const savedHookEnv = process.env["LOKI_HOOK_EVENTS"];
+    const savedStrict = process.env["LOKI_STRICT_MCP"];
+    process.env["LOKI_HOOK_EVENTS"] = "off";
+    delete process.env["LOKI_STRICT_MCP"];
+    try {
+      const out = buildAutoFlags({ tier: "development", primary: "opus", targetDir: td });
+      expect(out.includes("--mcp-config")).toBe(true);
+      expect(out.includes("--strict-mcp-config")).toBe(true);
+      // strict must come AFTER the mcp-config path (never bare / standalone).
+      expect(out.indexOf("--strict-mcp-config")).toBeGreaterThan(out.indexOf("--mcp-config"));
+    } finally {
+      if (savedHookEnv === undefined) delete process.env["LOKI_HOOK_EVENTS"];
+      else process.env["LOKI_HOOK_EVENTS"] = savedHookEnv;
+      if (savedStrict === undefined) delete process.env["LOKI_STRICT_MCP"];
+      else process.env["LOKI_STRICT_MCP"] = savedStrict;
+    }
+  });
+
+  it("omits --strict-mcp-config when the CLI lacks it (mcp-config supported, graceful degrade)", () => {
+    // Help advertises --mcp-config but NOT --strict-mcp-config. Note the help
+    // text deliberately avoids the literal substring "--strict-mcp-config".
+    _resetClaudeHelpCacheForTest("  --mcp-config <configs...>  Load MCP servers from JSON files");
+    const savedHookEnv = process.env["LOKI_HOOK_EVENTS"];
+    const savedStrict = process.env["LOKI_STRICT_MCP"];
+    process.env["LOKI_HOOK_EVENTS"] = "off";
+    delete process.env["LOKI_STRICT_MCP"];
+    try {
+      const out = buildAutoFlags({ tier: "development", primary: "opus", targetDir: td });
+      // mcp-config IS emitted (advertised), strict is NOT (not advertised).
+      expect(out.includes("--mcp-config")).toBe(true);
+      expect(out.includes("--strict-mcp-config")).toBe(false);
+    } finally {
+      if (savedHookEnv === undefined) delete process.env["LOKI_HOOK_EVENTS"];
+      else process.env["LOKI_HOOK_EVENTS"] = savedHookEnv;
+      if (savedStrict === undefined) delete process.env["LOKI_STRICT_MCP"];
+      else process.env["LOKI_STRICT_MCP"] = savedStrict;
+    }
+  });
+
+  it("suppresses --strict-mcp-config when LOKI_STRICT_MCP=0 (opt-out), mcp-config still emitted", () => {
+    _resetClaudeHelpCacheForTest(
+      "  --mcp-config <configs...>  Load MCP servers\n  --strict-mcp-config  Only use MCP servers from --mcp-config",
+    );
+    const savedHookEnv = process.env["LOKI_HOOK_EVENTS"];
+    const savedStrict = process.env["LOKI_STRICT_MCP"];
+    process.env["LOKI_HOOK_EVENTS"] = "off";
+    process.env["LOKI_STRICT_MCP"] = "0";
+    try {
+      const out = buildAutoFlags({ tier: "development", primary: "opus", targetDir: td });
+      expect(out.includes("--mcp-config")).toBe(true);
+      expect(out.includes("--strict-mcp-config")).toBe(false);
+    } finally {
+      if (savedHookEnv === undefined) delete process.env["LOKI_HOOK_EVENTS"];
+      else process.env["LOKI_HOOK_EVENTS"] = savedHookEnv;
+      if (savedStrict === undefined) delete process.env["LOKI_STRICT_MCP"];
+      else process.env["LOKI_STRICT_MCP"] = savedStrict;
+    }
+  });
+
   it("skips --include-hook-events when LOKI_HOOK_EVENTS=off (even if supported)", () => {
     _resetClaudeHelpCacheForTest("  --include-hook-events  Include all hook lifecycle events");
     const savedHookEnv = process.env["LOKI_HOOK_EVENTS"];
@@ -279,6 +346,133 @@ describe("claude_flags.buildAutoFlags composition", () => {
     } finally {
       if (savedHookEnv === undefined) delete process.env["LOKI_HOOK_EVENTS"];
       else process.env["LOKI_HOOK_EVENTS"] = savedHookEnv;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v7.34.0 Phase 1: Claude session-id stamping (correlation-only).
+// ---------------------------------------------------------------------------
+describe("claude_flags.session-uuid (v7.34.0 Phase 1)", () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  it("claudeSessionUuid is a valid uuid and deterministic for the same run id", () => {
+    const a = claudeSessionUuid("run-20260611-123-456");
+    const b = claudeSessionUuid("run-20260611-123-456");
+    expect(a).not.toBeNull();
+    expect(UUID_RE.test(a as string)).toBe(true);
+    expect(a).toBe(b);
+  });
+
+  it("matches the python/bash uuid.uuid5 derivation byte-for-byte (parity anchor)", () => {
+    // These literals are the exact values python3 uuid.uuid5 and the bash helper
+    // produce for the same namespace + name (verified during implementation).
+    expect(claudeSessionUuid("run-20260611-123-456")).toBe("1c92381f-8899-58e5-b77f-d8f822f158fb");
+    expect(claudeIterationSessionUuid("run-20260611-123-456", 0)).toBe("62a7de2d-bbd6-5ea7-8723-563f3b17f269");
+    expect(claudeIterationSessionUuid("run-20260611-123-456", 1)).toBe("99b6d123-e400-559f-a502-6a8b7b1f923e");
+  });
+
+  it("per-iteration uuids are distinct (no pinned-run continuity leak)", () => {
+    const i0 = claudeIterationSessionUuid("run-x", 0);
+    const i1 = claudeIterationSessionUuid("run-x", 1);
+    const stable = claudeSessionUuid("run-x");
+    expect(i0).not.toBe(i1);
+    expect(i0).not.toBe(stable);
+  });
+
+  it("returns null for an empty/absent run id", () => {
+    const saved = process.env["LOKI_TRUST_RUN_ID"];
+    delete process.env["LOKI_TRUST_RUN_ID"];
+    try {
+      expect(claudeSessionUuid("")).toBeNull();
+      expect(claudeIterationSessionUuid("", 0)).toBeNull();
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_TRUST_RUN_ID"];
+      else process.env["LOKI_TRUST_RUN_ID"] = saved;
+    }
+  });
+
+  it("sessionStampArgv default OFF -> [] (byte-identical to v7.33)", () => {
+    _resetClaudeHelpCacheForTest("  --session-id <uuid>  use id");
+    const saved = process.env["LOKI_SESSION_STAMP"];
+    delete process.env["LOKI_SESSION_STAMP"];
+    try {
+      expect(sessionStampArgv("run-x", 0)).toEqual([]);
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_SESSION_STAMP"];
+      else process.env["LOKI_SESSION_STAMP"] = saved;
+    }
+  });
+
+  it("sessionStampArgv with =1 emits --session-id + a distinct per-iteration uuid", () => {
+    _resetClaudeHelpCacheForTest("  --session-id <uuid>  use id");
+    const saved = process.env["LOKI_SESSION_STAMP"];
+    process.env["LOKI_SESSION_STAMP"] = "1";
+    try {
+      const a = sessionStampArgv("run-x", 0);
+      const b = sessionStampArgv("run-x", 1);
+      expect(a[0]).toBe("--session-id");
+      expect(UUID_RE.test(a[1] as string)).toBe(true);
+      expect(a[1]).not.toBe(b[1]); // distinct per iteration
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_SESSION_STAMP"];
+      else process.env["LOKI_SESSION_STAMP"] = saved;
+    }
+  });
+
+  it("sessionStampArgv with =1 but unsupported CLI -> [] (graceful degrade)", () => {
+    _resetClaudeHelpCacheForTest("  --effort <level>  effort"); // no --session-id
+    const saved = process.env["LOKI_SESSION_STAMP"];
+    process.env["LOKI_SESSION_STAMP"] = "1";
+    try {
+      expect(sessionStampArgv("run-x", 0)).toEqual([]);
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_SESSION_STAMP"];
+      else process.env["LOKI_SESSION_STAMP"] = saved;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v7.34.0 FIX D: --no-session-persistence (opt-in, default OFF).
+// ---------------------------------------------------------------------------
+describe("claude_flags.buildAutoFlags --no-session-persistence (v7.34.0 FIX D)", () => {
+  it("absent by default (LOKI_NO_SESSION_PERSIST unset) -- zero behavior change", () => {
+    _resetClaudeHelpCacheForTest("  --no-session-persistence  Disable session persistence");
+    const saved = process.env["LOKI_NO_SESSION_PERSIST"];
+    delete process.env["LOKI_NO_SESSION_PERSIST"];
+    try {
+      const out = buildAutoFlags({ tier: "development", primary: "opus" });
+      expect(out.includes("--no-session-persistence")).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_NO_SESSION_PERSIST"];
+      else process.env["LOKI_NO_SESSION_PERSIST"] = saved;
+    }
+  });
+
+  it("emitted when LOKI_NO_SESSION_PERSIST=1 and supported", () => {
+    _resetClaudeHelpCacheForTest("  --no-session-persistence  Disable session persistence");
+    const saved = process.env["LOKI_NO_SESSION_PERSIST"];
+    process.env["LOKI_NO_SESSION_PERSIST"] = "1";
+    try {
+      const out = buildAutoFlags({ tier: "development", primary: "opus" });
+      expect(out.includes("--no-session-persistence")).toBe(true);
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_NO_SESSION_PERSIST"];
+      else process.env["LOKI_NO_SESSION_PERSIST"] = saved;
+    }
+  });
+
+  it("not emitted when =1 but CLI lacks the flag (graceful degrade)", () => {
+    _resetClaudeHelpCacheForTest("  --effort <level>  effort"); // no --no-session-persistence
+    const saved = process.env["LOKI_NO_SESSION_PERSIST"];
+    process.env["LOKI_NO_SESSION_PERSIST"] = "1";
+    try {
+      const out = buildAutoFlags({ tier: "development", primary: "opus" });
+      expect(out.includes("--no-session-persistence")).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env["LOKI_NO_SESSION_PERSIST"];
+      else process.env["LOKI_NO_SESSION_PERSIST"] = saved;
     }
   });
 });

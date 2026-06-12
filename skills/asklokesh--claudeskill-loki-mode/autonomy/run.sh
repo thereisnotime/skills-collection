@@ -3248,7 +3248,18 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
 
         case "${PROVIDER_NAME:-claude}" in
             claude)
-                resolution=$(claude --dangerously-skip-permissions -p "$conflict_prompt" --output-format text 2>/dev/null)
+                # EMBED 2 (v7.33.0): --bare on this cheap NON-MAIN subcall.
+                # Reasoning: $conflict_prompt is fully self-contained -- it
+                # carries the complete instruction set AND the entire conflicted
+                # file content inline, and the agent's output is captured to a
+                # variable (the shell, not the agent, writes the resolved file).
+                # It needs no hooks, LSP, CLAUDE.md auto-discovery, or MCP, so
+                # --bare is safe and cheaper. Gated + opt-out LOKI_BARE_SUBCALLS=0.
+                local _cr_argv=("--dangerously-skip-permissions")
+                if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
+                    _cr_argv+=("--bare")
+                fi
+                resolution=$(claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text 2>/dev/null)
                 ;;
             codex)
                 resolution=$(codex exec --full-auto --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
@@ -7803,7 +7814,31 @@ BUILD_PROMPT
                     # Mythos 5 (Project Glasswing), not Fable. If a future change
                     # adds --model here, the security-sentinel reviewer must be
                     # pinned to opus, never fable.
-                    claude --dangerously-skip-permissions -p "$prompt_text" \
+                    # EMBED 2 + 3 (v7.33.0). This is a 3-reviewer council
+                    # subcall. $prompt_text is fully self-contained (built above
+                    # into $review_prompt_file with the diff, changed files,
+                    # checks, and strict VERDICT/FINDINGS output format), output
+                    # is captured to $review_output, and it deliberately does NOT
+                    # pass --model or go through buildAutoFlags. So:
+                    #   EMBED 2 (--bare): the prompt needs no hooks/LSP/CLAUDE.md/
+                    #     MCP discovery, so --bare is safe and cheaper. Opt out
+                    #     LOKI_BARE_SUBCALLS=0.
+                    #   EMBED 3 (--disallowedTools): raise the cost of a reviewer
+                    #     casually mutating the tree (a parallel agent once ran
+                    #     `git reset --hard` and wiped uncommitted work). Deny
+                    #     Edit/Write/NotebookEdit + git mutation forms (incl. the
+                    #     git -C / --git-dir evasions); read-only git stays allowed.
+                    #     Guardrail, not a sandbox -- echo>/sed -i/etc. remain; the
+                    #     real net is commit-before-agent-wave. Opt out
+                    #     LOKI_REVIEW_TOOL_GUARD=0. See loki_review_guard_denylist.
+                    local _rv_argv=("--dangerously-skip-permissions")
+                    if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
+                        _rv_argv+=("--bare")
+                    fi
+                    if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
+                        _rv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
+                    fi
+                    claude "${_rv_argv[@]}" -p "$prompt_text" \
                         --output-format text > "$review_output" 2>/dev/null
                     ;;
                 codex)
@@ -8016,7 +8051,25 @@ ADVERSARIAL_EOF
     case "${PROVIDER_NAME:-claude}" in
         claude)
             if command -v claude &>/dev/null; then
-                claude --dangerously-skip-permissions -p "$adversarial_prompt" \
+                # EMBED 2 + 3 (v7.33.0). Adversarial probe subcall.
+                # $adversarial_prompt is fully self-contained (instructions +
+                # changed files + diff inlined via the heredoc above) and output
+                # is captured to $result_file. So:
+                #   EMBED 2 (--bare): no hooks/LSP/CLAUDE.md/MCP needed; cheaper.
+                #     Opt out LOKI_BARE_SUBCALLS=0.
+                #   EMBED 3 (--disallowedTools): keep an adversarial agent from
+                #     casually mutating the tree. Deny Edit/Write/NotebookEdit +
+                #     git mutation forms (incl. git -C / --git-dir evasions);
+                #     read-only git stays allowed. Guardrail, not a sandbox.
+                #     Opt out LOKI_REVIEW_TOOL_GUARD=0.
+                local _adv_argv=("--dangerously-skip-permissions")
+                if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
+                    _adv_argv+=("--bare")
+                fi
+                if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
+                    _adv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
+                fi
+                claude "${_adv_argv[@]}" -p "$adversarial_prompt" \
                     --output-format text > "$result_file" 2>/dev/null || true
             fi
             ;;
@@ -10041,9 +10094,21 @@ ${_commits}"
 
     # Use haiku for cheap, fast generation. --dangerously-skip-permissions
     # because this is a one-shot non-interactive call.
+    # EMBED 2 (v7.33.0): --bare on this cheap NON-MAIN haiku subcall. The
+    # USAGE.md-regen prompt ($_ic_prompt, piped via -p -) is fully self-contained
+    # (project tree + manifests + entrypoint contents + commits inlined) and the
+    # output is captured, not written by the agent. No hooks/LSP/CLAUDE.md/MCP
+    # needed, so --bare is safe and cheaper. Opt out LOKI_BARE_SUBCALLS=0.
+    # Always at least --dangerously-skip-permissions, so the array is never
+    # empty (empty "${arr[@]}" under set -u errors on bash 3.2, stock macOS).
+    local _ic_argv=("--dangerously-skip-permissions")
+    if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
+        _ic_argv+=("--bare")
+    fi
+    _ic_argv+=("--model" "haiku")
     local _ic_out
     _ic_out=$(printf '%s' "$_ic_prompt" \
-        | timeout 60 claude --dangerously-skip-permissions --model haiku -p - 2>/dev/null \
+        | timeout 60 claude "${_ic_argv[@]}" -p - 2>/dev/null \
         | head -200)
     # Sanity check: response must look like Markdown (starts with # or ##).
     if [ -z "$_ic_out" ] || ! printf '%s' "$_ic_out" | head -1 | grep -qE '^#'; then
@@ -12259,6 +12324,26 @@ except Exception:
         LOKI_TRUST_RUN_ID="$(_loki_trust_run_id --new)"
         export LOKI_TRUST_RUN_ID
         record_trust_event_bash "run_start" "start_sha=${_LOKI_RUN_START_SHA:-}" 2>/dev/null || true
+
+        # v7.34.0 Phase 1 (correlation-only): write a deterministic claude
+        # session UUID derived from the trust-run-id to .loki/state/claude-session.json.
+        # mode is "stamp" (Phase 1); Phase 2 continuity is a separate, opt-in arc.
+        # Best-effort: the helper is in scope via providers/claude.sh sourcing
+        # claude-flags.sh; if absent (e.g. non-claude provider, no python3) we
+        # skip silently and never fail the run. The dashboard reads this file to
+        # surface it for correlating the run with its Claude session JSONL.
+        if type _loki_claude_session_uuid >/dev/null 2>&1; then
+            local _loki_session_uuid
+            _loki_session_uuid="$(_loki_claude_session_uuid "$LOKI_TRUST_RUN_ID")"
+            if [ -n "$_loki_session_uuid" ]; then
+                local _loki_session_created
+                _loki_session_created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                mkdir -p ".loki/state" 2>/dev/null || true
+                printf '{"run_id":"%s","claude_session_uuid":"%s","mode":"stamp","created_at":"%s"}\n' \
+                    "$LOKI_TRUST_RUN_ID" "$_loki_session_uuid" "$_loki_session_created" \
+                    > ".loki/state/claude-session.json" 2>/dev/null || true
+            fi
+        fi
     fi
 
     # Notify dashboard of active project directory (for AI Chat cross-directory usage)
@@ -12654,6 +12739,20 @@ except Exception as exc:
            && loki_claude_flag_supported "--include-partial-messages"; then
             _loki_claude_argv+=("--include-partial-messages")
         fi
+        # v7.34.0 Phase 1 (correlation-only): per-iteration --session-id. OPT-IN
+        # via LOKI_SESSION_STAMP=1 (CONSERVATIVE DEFAULT is OFF so the default
+        # argv stays byte-identical to v7.33 -- the UX-monotonicity requirement).
+        # The id is a DISTINCT, deterministic UUIDv5 of "<run-id>:<iteration>",
+        # never one pinned id across the run: a reused id would make claude RESUME
+        # and accumulate transcript (Phase 2 continuity, out of scope). This keeps
+        # each iteration a fresh stateless session while making its ~/.claude
+        # JSONL name predictable for dashboard correlation. Gated on CLI support.
+        if type loki_session_stamp_enabled >/dev/null 2>&1 \
+           && loki_session_stamp_enabled; then
+            local _loki_iter_session_uuid
+            _loki_iter_session_uuid="$(_loki_claude_iteration_session_uuid "${LOKI_TRUST_RUN_ID:-}" "$ITERATION_COUNT")"
+            [ -n "$_loki_iter_session_uuid" ] && _loki_claude_argv+=("--session-id" "$_loki_iter_session_uuid")
+        fi
         # ---- Bash<->Bun invocation-flag convergence ledger (v7.25.0) ----------
         # The fixture corpus covers build_prompt/stats output, NOT this claude
         # argv, so drift here is invisible to parity tests. Keep this ledger
@@ -12664,8 +12763,13 @@ except Exception as exc:
         # today.
         # Bash argv (canonical, live): --dangerously-skip-permissions --model M
         #   [--append-system-prompt] [--setting-sources] [--include-partial-messages]
+        #   [--session-id UUID (only when LOKI_SESSION_STAMP=1, v7.34.0)]
         #   [--effort] [--max-budget-usd] [--fallback-model] -p PROMPT
         #   --output-format stream-json --verbose
+        # v7.34.0: --session-id is emitted ONLY on this MAIN loop, only under
+        #   LOKI_SESSION_STAMP=1, as a per-iteration distinct UUIDv5; the DEFAULT
+        #   argv (knob unset) is byte-identical to v7.33. Bun mirror lives in
+        #   loki-ts/src/runner/providers.ts (sessionStampArgv).
         # Bun buildAutoFlags also emits: --exclude-dynamic-system-prompt-sections
         #   (cost-only), --mcp-config (bash gets MCP via --setting-sources +
         #   .mcp.json discovery; a how-difference, likely behavior-equivalent),

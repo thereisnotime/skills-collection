@@ -35,6 +35,11 @@ import json
 import sys
 from pathlib import Path
 
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _skill_lint import check_section_literals
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TP_SCHEMA = REPO_ROOT / "shared/contracts/passport/terminal_policies.schema.json"
 REPORT_SCHEMA = (
@@ -49,27 +54,6 @@ VERIFIER = REPO_ROOT / "scripts/verify_submission_package.py"
 
 ORCH_HEADING = "## Submission-Package Terminal Gate"
 FMT_HEADING = "## Submission Package Advisories"
-
-
-def _section(text: str, heading: str) -> str | None:
-    """Return the BODY of the H2 starting with `heading` (heading line
-    excluded) up to the next H2, or None when the heading is absent.
-    Line-walk like check_v3_10_policy's _extract_section — the lint this
-    one runs alongside — so the section boundary is explicit: a line is a
-    boundary iff it starts a new H2 (`## `); internal H3s are part of the
-    body."""
-    lines = text.splitlines()
-    body: list[str] = []
-    in_section = False
-    for line in lines:
-        if line.startswith(heading):
-            in_section = True
-            continue
-        if in_section and line.startswith("## "):
-            break
-        if in_section:
-            body.append(line)
-    return "\n".join(body) if in_section else None
 
 
 def check_tp_schema(schema: dict) -> list[str]:
@@ -91,26 +75,9 @@ def check_tp_schema(schema: dict) -> list[str]:
     return fails
 
 
-def _check_section_literals(invariant: int, text: str, heading: str,
-                            label: str,
-                            literals: dict[str, str]) -> list[str]:
-    """Shared body of invariants 2 and 3: the named H2 section must exist
-    and must carry every load-bearing literal."""
-    section = _section(text, heading)
-    if section is None:
-        return [f"invariant {invariant}: {label} section "
-                f"'{heading}' missing"]
-    return [
-        f"invariant {invariant}: {label} section lost the "
-        f"{name} literal ({literal!r})"
-        for name, literal in literals.items()
-        if literal not in section
-    ]
-
-
 def check_orchestrator(text: str) -> list[str]:
     """Invariant 2."""
-    return _check_section_literals(2, text, ORCH_HEADING,
+    return check_section_literals(2, text, ORCH_HEADING,
                                    "orchestrator gate", {
         "fix-loop bound": "bounded: 2 fix rounds",
         "fail-closed verdict": "VERIFICATION-INCOMPLETE",
@@ -125,7 +92,7 @@ def check_orchestrator(text: str) -> list[str]:
 
 def check_formatter(text: str) -> list[str]:
     """Invariant 3."""
-    return _check_section_literals(3, text, FMT_HEADING,
+    return check_section_literals(3, text, FMT_HEADING,
                                    "formatter advisories", {
         "emptiness contract": "mandatory and non-empty iff",
         "stamp-only boundary": "Invariant 13",

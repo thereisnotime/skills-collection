@@ -9,6 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.34.1] - 2026-06-11
+
+### Fixed
+- `loki api start --help` (and `-h`) now short-circuit to the help text
+  instead of being swallowed by the `--host`/`--port` parse loop and starting
+  the dashboard server. `loki api --help` already worked; this covers the
+  flag-after-subcommand case.
+- README GitHub-stars badge: added `cacheSeconds=86400` so shields.io serves a
+  cached count instead of leaking its rate-limit error ("UNABLE TO SELECT NEXT
+  GITHUB TOKEN FROM POOL") into the badge when its shared GitHub token pool is
+  exhausted.
+
+## [7.34.0] - 2026-06-11
+
+### Added
+- Claude session-id stamping (Phase 1, correlation-only): every run writes a
+  deterministic per-run UUID (UUIDv5 of the trust-run-id) to
+  `.loki/state/claude-session.json` and surfaces it as `claude_session_id` on
+  the dashboard `/api/status`, so a run can be correlated with its Claude
+  session. Opt-in `LOKI_SESSION_STAMP=1` additionally passes a distinct
+  per-iteration `--session-id` to the main-loop Claude call (never to subcalls;
+  never a pinned id across the run, so context is not accumulated). Default OFF
+  keeps the Claude argv byte-identical to v7.33.0. Bash and Bun routes derive
+  the same UUID byte-for-byte. Gated on CLI support.
+- `LOKI_NO_SESSION_PERSIST=1` (opt-in, default OFF): passes
+  `--no-session-persistence` so a run leaves no Claude session state on disk
+  (useful for ephemeral/CI runs). Gated on CLI support.
+- Both new env knobs documented in wiki/Environment-Variables.md;
+  `claude_session_id` documented in wiki/API-Reference.md.
+
+### Fixed
+- CLI honesty: `loki config` help no longer advertises a nonexistent
+  `config provider` subcommand; cold `loki status` tips now point at the
+  canonical `loki analyze context show` / `loki analyze code overview`
+  (instead of deprecated aliases that emitted a deprecation note); README.md
+  and docs/INSTALLATION.md use the canonical command names
+  (`loki modernize heal`, `loki analyze onboard`, `loki preview`,
+  `loki api start`) with "was:" annotations.
+
+## [7.33.0] - 2026-06-11
+
+### Added
+- Embedded three Claude Code 2.1.170 CLI flags, all default-on with env
+  opt-outs and gated on CLI support (older `claude` degrades to no-op):
+  - `--strict-mcp-config` (`LOKI_STRICT_MCP=0` to disable): added wherever
+    Loki already passes an explicit `--mcp-config` bundle, so a run loads MCP
+    servers only from that curated bundle (which includes your
+    `~/.claude/mcp.json` overlay) and ignores all other MCP sources, keeping
+    runs reproducible.
+  - `--bare` (`LOKI_BARE_SUBCALLS=0` to disable): added to cheap,
+    self-contained internal subcalls (USAGE generation, conflict resolution,
+    bash-route reviewer/adversarial/council votes, the grill) for a faster,
+    cheaper, cache-friendlier call. Never applied to the main RARV loop.
+    Auth-gated: `--bare` reads Anthropic auth strictly from
+    `ANTHROPIC_API_KEY`/`apiKeyHelper`, so Loki only enables it when one is
+    present; subscription/OAuth logins run full-auth unchanged.
+  - `--disallowedTools` (`LOKI_REVIEW_TOOL_GUARD=0` to disable): added to
+    reviewer/adversarial/council subcalls denying Edit/Write/NotebookEdit and
+    the git mutation forms (commit/reset/push/checkout/clean/rm/stash,
+    including the `git -C`/`--git-dir`/`-c` flag-prefixed forms), so a review
+    agent does not casually mutate the working tree. Read-only git stays
+    allowed. A guardrail, not a sandbox.
+- The three new env knobs are documented in `wiki/Environment-Variables.md`.
+
 ## [7.32.3] - 2026-06-10
 
 ### Fixed

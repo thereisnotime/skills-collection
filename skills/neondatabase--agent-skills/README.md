@@ -16,6 +16,12 @@ It all starts with the `SKILL.md` file in the skill's directory. It's the entry 
 
 ## Available Skills
 
+### Neon
+
+[skills/neon](skills/neon/SKILL.md)
+
+An overview of the Neon platform for apps and agents — Postgres, Auth, Data API, Object Storage, Compute Functions, and the AI Gateway — and how to get started.
+
 ### Neon Postgres
 
 [skills/neon-postgres](skills/neon-postgres/SKILL.md)
@@ -48,7 +54,7 @@ npx skills add neondatabase/agent-skills
 
 ### Claude Code Plugin
 
-You can also install the skills as a Claude Code plugin, which bundles both the neon-postgres agent skill and the [Neon MCP Server](https://mcp.neon.tech) for natural language database management:
+You can also install the skills as a Claude Code plugin, which bundles the Neon agent skills (`neon`, `neon-postgres`, `neon-postgres-branches`) and the [Neon MCP Server](https://mcp.neon.tech) for natural language database management:
 
 ```
 /plugin marketplace add neondatabase/agent-skills
@@ -61,7 +67,7 @@ The top-level `skills/` directory remains the source of truth. Plugin folders sy
 
 ### Cursor Plugin
 
-This repository also includes Cursor plugin packaging with the same scope as the Claude plugin (neon-postgres agent skill and Neon MCP Server)
+This repository also includes Cursor plugin packaging with the same scope as the Claude plugin (the Neon agent skills and the Neon MCP Server).
 
 Run this command in chat:
 

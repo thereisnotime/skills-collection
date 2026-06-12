@@ -440,6 +440,7 @@ async function runAutonomousCore(
         tier: ctx.currentTier,
         cwd: ctx.cwd,
         iterationOutputPath: iterOutputPath,
+        mainLoop: true,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -1,7 +1,7 @@
 {
   "name": "neon",
   "version": "1.0.0",
-  "description": "Manage your Neon projects and databases with the neon-postgres agent skill and the Neon MCP Server",
+  "description": "Manage your Neon projects, databases, and branches with the Neon agent skills and the Neon MCP Server",
   "author": {
     "name": "Neon",
     "url": "https://neon.com"

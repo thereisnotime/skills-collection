@@ -12,7 +12,7 @@
     {
       "name": "neon-postgres",
       "source": "./plugins/neon-postgres",
-      "description": "Manage your Neon projects and databases with the neon-postgres agent skill and the Neon MCP Server",
+      "description": "Manage your Neon projects, databases, and branches with the Neon agent skills and the Neon MCP Server",
       "version": "1.0.0",
       "category": "database",
       "tags": ["postgres", "serverless", "database", "mcp", "neon"]

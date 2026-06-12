@@ -303,7 +303,7 @@ grep -E '^description:' skills/*/SKILL.md
 
 ### Adding a New Plugin to This Repo
 
-When adding a new plugin alongside `compound-engineering` and `coding-tutor`, the repo ships to three marketplace formats (Claude, Cursor, Codex). All three must stay in parity or `bun run release:validate` will fail on next run. Checklist:
+When adding a new plugin alongside `compound-engineering`, the repo ships to three marketplace formats (Claude, Cursor, Codex). All three must stay in parity or `bun run release:validate` will fail on next run. Checklist:
 
 - [ ] `.claude-plugin/marketplace.json` — add the plugin to `plugins[]`
 - [ ] `.cursor-plugin/marketplace.json` — add the plugin to `plugins[]`

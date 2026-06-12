@@ -127,6 +127,11 @@ jobs:
         # unified manifest.
         run: python3 scripts/check_agents_mirror_sync.py
 
+      - name: Check revision-patch discipline (#390 Slice B)
+        # The pytest companion `test_check_390_revision_patch_discipline.py`
+        # runs via the unified manifest.
+        run: python3 scripts/check_390_revision_patch_discipline.py
+
       - name: Check version consistency (CLAUDE.md / SKILL.md / CHANGELOG)
         env:
           PYTHONPATH: scripts

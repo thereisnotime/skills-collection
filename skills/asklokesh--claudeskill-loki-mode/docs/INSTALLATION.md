@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.32.3
+**Version:** v7.34.1
 
 ---
 
@@ -534,7 +534,7 @@ Loki Mode uses two network ports for different services:
 LOKI_DASHBOARD_PORT=57374 loki dashboard start
 
 # API port (default: 57374)
-loki serve --port 57374
+loki api start --port 57374   # was: loki serve
 ```
 
 ### CORS Configuration

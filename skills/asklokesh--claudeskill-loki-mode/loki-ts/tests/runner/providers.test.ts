@@ -15,6 +15,7 @@ import {
   aiderProvider,
 } from "../../src/runner/providers.ts";
 import type { ProviderInvocation } from "../../src/runner/types.ts";
+import { _resetClaudeHelpCacheForTest } from "../../src/providers/claude_flags.ts";
 import {
   chmodSync,
   mkdtempSync,
@@ -387,6 +388,31 @@ describe("claudeProvider invocation", () => {
     expect(argv).toContain("qwen2.5-coder:32b");
     delete process.env["ANTHROPIC_BASE_URL"];
     delete process.env["LOKI_MODEL_OVERRIDE"];
+  });
+
+  // v7.34.0 (council R1): the session stamp must attach ONLY to the main RARV
+  // loop (call.mainLoop), never to a subcall like the override-council judge,
+  // mirroring the bash route confining --session-id to _loki_claude_argv.
+  it("session stamp: --session-id only on mainLoop call, never a subcall", async () => {
+    // Inject help text so --session-id registers as supported.
+    _resetClaudeHelpCacheForTest("  --session-id <uuid>  use id");
+    process.env["LOKI_SESSION_STAMP"] = "1";
+    process.env["LOKI_TRUST_RUN_ID"] = "run-20260611-1-1";
+    try {
+      const mainLog = writeStub();
+      await claudeProvider().invoke(makeCall({ mainLoop: true }));
+      const mainArgv = readArgv(mainLog);
+      expect(mainArgv).toContain("--session-id");
+
+      const subLog = writeStub();
+      await claudeProvider().invoke(makeCall({})); // no mainLoop -> defaults false
+      const subArgv = readArgv(subLog);
+      expect(subArgv).not.toContain("--session-id");
+    } finally {
+      delete process.env["LOKI_SESSION_STAMP"];
+      delete process.env["LOKI_TRUST_RUN_ID"];
+      _resetClaudeHelpCacheForTest(null);
+    }
   });
 });
 

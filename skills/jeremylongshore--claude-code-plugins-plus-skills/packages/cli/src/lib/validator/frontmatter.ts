@@ -6,8 +6,8 @@
 
 /** @deprecated Use scripts/validate-skills-schema.py (universal validator v5.0) instead. This file is kept for ccpi backward compatibility only. */
 
-import { promises as fs } from 'fs';
-import * as path from 'path';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 import * as yaml from 'yaml';
 
 const VALID_CATEGORIES = [
@@ -76,7 +76,7 @@ function extractFrontmatter(content: string): {
 
 /**
  * Validate frontmatter for command files
- * Matches nixtla/004-scripts/validate_command_agent_frontmatter.py
+ * Matches the Intent Solutions frontmatter validation standard
  */
 function validateCommandFrontmatter(
   frontmatter: Record<string, unknown>,
@@ -146,7 +146,7 @@ function validateCommandFrontmatter(
 
 /**
  * Validate frontmatter for agent files
- * Matches nixtla/004-scripts/validate_command_agent_frontmatter.py
+ * Matches the Intent Solutions frontmatter validation standard
  */
 function validateAgentFrontmatter(
   frontmatter: Record<string, unknown>,
@@ -165,7 +165,7 @@ function validateAgentFrontmatter(
     }
   }
 
-  // 20-200 chars per nixtla standard
+  // 20-200 chars per Intent Solutions standard
   if (!('description' in frontmatter)) {
     errors.push('Missing required field: description');
   } else if (typeof frontmatter.description !== 'string') {

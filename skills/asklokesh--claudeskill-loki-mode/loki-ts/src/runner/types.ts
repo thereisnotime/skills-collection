@@ -89,6 +89,11 @@ export type ProviderInvocation = {
   // When set, provider implementations should tee into this file in addition
   // to writing the captured stream.
   iterationOutputPath: string;
+  // v7.34.0: true ONLY for the main RARV-loop call. The session stamp
+  // (--session-id, opt-in via LOKI_SESSION_STAMP) attaches only here, never on
+  // subcalls (e.g. the override-council judge), mirroring the bash route which
+  // confines --session-id to the main-loop argv. Defaults to false (no stamp).
+  mainLoop?: boolean;
 };
 
 export interface ProviderInvoker {
