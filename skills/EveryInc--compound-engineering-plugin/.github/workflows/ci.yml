@@ -49,5 +49,28 @@ jobs:
       - name: Validate release metadata
         run: bun run release:validate
 
+      # Canonical schema check: runs `claude plugin validate` against the
+      # marketplace catalog and each plugin directory (blocking, non-strict).
+      # The CLI must be installed via npm, not bun: `bun x` cannot run this
+      # package (bun blocks its required postinstall and cannot resolve its
+      # `claude` bin name), and `bun run` rewrites `npx` in package.json
+      # scripts to the broken `bun x`, so the script invokes a `claude`
+      # already on PATH instead.
+      #
+      # The validator version is pinned deliberately for reproducible CI: a
+      # floating @latest would track new upstream validation rules
+      # automatically but could break CI without any repo change. Bump the
+      # pin intentionally to adopt new `claude plugin validate` rules (and
+      # revisit --strict below when doing so).
+      #
+      # --strict (warnings-as-errors) should be enabled once this known
+      # warning is fixed:
+      #   plugins/compound-engineering -- 1 warning:
+      #     "root: CLAUDE.md at the plugin root is not loaded as project context. To ship context with your plugin, use a skill (skills/<name>/SKILL.md) instead."
+      - name: Validate plugin schema (claude plugin validate)
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.1.175
+          bun run plugin:validate
+
       - name: Run tests
         run: bun test

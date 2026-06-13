@@ -10,15 +10,6 @@ metadata:
   short-description: Find (and optionally purchase from) vendors or partners
 allowed-tools:
   - Bash(stripe directory *)
-  - Bash(stripe projects *)
-  - Bash(which *)
-  - Bash(curl *)
-  - Bash(link-cli *)
-  - Bash(tempo *)
-  - Bash(privy-agent-wallets *)
-  - Bash(mppx *)
-  - Bash(npm *)
-  - Bash(npx *)
 
 ---
 

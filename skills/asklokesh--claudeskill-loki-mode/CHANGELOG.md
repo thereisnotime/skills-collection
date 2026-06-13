@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.35.0] - 2026-06-12
+
+### Added
+- Dashboard: running-project chips in the sidebar are now clickable. Clicking
+  a chip name focuses that project (the same path as the project dropdown),
+  so switching apps is one click. The Stop button keeps its own handler;
+  clicking the name never triggers Stop. The active project's chip is
+  emphasized and is a no-op (already focused). Project names remain
+  textContent-only (no HTML injection).
+
+### Fixed
+- Dashboard: switching projects (or refreshing) no longer resets the view to
+  Overview. The active nav section is now URL-encoded as `#section=<id>` and
+  restored on load (hash -> localStorage -> overview), so a project switch
+  (which reloads the page) and a browser refresh both land on the SAME tab.
+  Added a `hashchange` listener for back/forward + shared links; stale or
+  invalid hashes fall back safely and can never blank the page.
+
 ## [7.34.1] - 2026-06-11
 
 ### Fixed
@@ -9906,7 +9924,7 @@ multi-persona debate (MoMoA) into a native Loki subsystem.
 - Commercial use that competes with Loki Mode requires a separate license from Autonomi, Inc.
 - Each version automatically converts to Apache License 2.0 four years after release (Change Date: March 19, 2030)
 - Updated license references across all distribution channels: package.json, vscode-extension, Python SDK (pyproject.toml), TypeScript SDK, README badge and section
-- Added LICENSE-CHANGE-NOTICE.md explaining what changed and what is/isn't affected
+- Added docs/LICENSE-CHANGE-NOTICE.md explaining what changed and what is/isn't affected
 
 ## [6.36.5] - 2026-03-19
 

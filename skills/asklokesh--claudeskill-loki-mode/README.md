@@ -4,11 +4,12 @@
 
 ### The spec-driven autonomous builder with verified completion.
 
+_The free, source-available autonomous coding agent by [Autonomi](https://www.autonomi.dev/). Same Loki CLI, SDK, and MCP for everyone; the commercial editions for teams and enterprises are sold under the **Autonomi** brand (Autonomi Cloud, Autonomi Enterprise)._
+
 **Hand it a spec. It does not accept "done" on an empty diff or failing tests.**
 
 [![npm version](https://img.shields.io/npm/v/loki-mode?style=for-the-badge&logo=npm&logoColor=white&color=553DE9)](https://www.npmjs.com/package/loki-mode)
 [![npm downloads](https://img.shields.io/npm/dt/loki-mode?style=for-the-badge&logo=npm&logoColor=white&color=1FC5A8&label=downloads)](https://www.npmjs.com/package/loki-mode)
-[![GitHub stars](https://img.shields.io/github/stars/asklokesh/loki-mode?style=for-the-badge&logo=github&color=553DE9&cacheSeconds=86400)](https://github.com/asklokesh/loki-mode/stargazers)
 [![Docker Pulls](https://img.shields.io/docker/pulls/asklokesh/loki-mode?style=for-the-badge&logo=docker&logoColor=white&color=2F71E3)](https://hub.docker.com/r/asklokesh/loki-mode)
 [![License](https://img.shields.io/badge/License-BUSL--1.1-36342E?style=for-the-badge)](LICENSE)
 
@@ -289,7 +290,7 @@ TLS, OIDC/SSO, RBAC, OTEL tracing, policy engine, audit trails. Activated via en
 
 ## Purple Lab
 
-The hosted development platform. A Replit-like web UI for visual PRD-to-code workflow with AI chat for iterative development.
+The hosted development platform. A Replit-like web UI for visual PRD-to-code workflow, with the Loki agent for iterative development. The same software is free and source-available as the local Loki Mode dashboard; offered managed to teams and enterprises under the **Autonomi** brand (Autonomi Cloud).
 
 ```bash
 loki web                           # launches at http://localhost:57375

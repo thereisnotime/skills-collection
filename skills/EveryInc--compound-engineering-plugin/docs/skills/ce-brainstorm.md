@@ -48,8 +48,10 @@ A typical "let's brainstorm" with an AI also has shape problems: it asks five qu
 - **One question per turn**, even when sub-questions feel related
 - **Right-sized ceremony** — Lightweight / Standard / Deep / Deep-product tiers
 - **Named gap lenses** force rigor on premises before generating approaches
+- **A background grounding scout** gathers verbatim repo evidence on a cheap model while you answer the opening questions
 - **2-3 concrete approaches** with tradeoffs, then a stated recommendation
 - **Synthesis Summary** as the last opportunity to correct scope before the doc lands
+- **Fresh-context claim verification** checks the doc's repo claims before it lands
 - **Right-sized requirements document** with stable identifiers (R/A/F/AE) that flow into planning
 
 ---
@@ -96,11 +98,15 @@ Building a software feature? Standard flow. Naming a product? Choosing a vacatio
 
 Requirements describe **what** behavior is expected from the user's perspective. They do not describe libraries, schemas, endpoints, file layouts, or code structure — unless the brainstorm is itself about a technical or architectural decision. This keeps planning's job clean: invent the **how**, not the **what**.
 
+### 9. Grounding and verification ride inside your think-time
+
+On Standard and Deep brainstorms, a cheap extraction-tier scout is dispatched in the background while you answer the first question. It writes a grounding dossier — verbatim quotes with `file:line` pointers — to scratch storage and hands back a short gist, so the dialogue stays lean while the evidence stays available on demand. Before the requirements doc is written, a fresh-context verifier (a mid-tier model that never saw the dialogue) checks the doc's repo claims — absence claims, file references — against the codebase, running while you review the synthesis confirmation. Refuted claims are corrected before the doc lands; unverifiable ones become explicit assumptions. The dossier path is handed to `ce-plan` so planning starts from verified quotes instead of re-scanning. On platforms without per-agent model selection, both run on the inherited model with the same read budgets; with no subagent support at all, the skill falls back to inline scanning and verification.
+
 ---
 
 ## Quick Example
 
-You start with a vague feature idea — "I want to add a way for users to pause notifications." `ce-brainstorm` scans the repo, finds related artifacts, and classifies the work as Standard scope.
+You start with a vague feature idea — "I want to add a way for users to pause notifications." `ce-brainstorm` reads the project's constraint files, classifies the work as Standard scope, and sends a cheap background scout to gather repo evidence while you answer the first question.
 
 The pressure test detects a specificity gap (who are these "users"?) and an attachment gap ("pause" is already a specific solution shape). It probes both as prose, one at a time. You name the actual pain — your support team gets pinged at 3 AM for non-urgent stuff — and describe the smallest version that would solve it.
 

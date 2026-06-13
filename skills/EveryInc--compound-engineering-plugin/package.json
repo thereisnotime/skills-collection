@@ -18,6 +18,7 @@
     "list": "bun run src/index.ts list",
     "cli:install": "bun run src/index.ts install",
     "test": "bun test",
+    "plugin:validate": "claude plugin validate .claude-plugin/marketplace.json && claude plugin validate plugins/compound-engineering",
     "release:preview": "bun run scripts/release/preview.ts",
     "release:sync-metadata": "bun run scripts/release/sync-metadata.ts --write",
     "release:validate": "bun run scripts/release/validate.ts"

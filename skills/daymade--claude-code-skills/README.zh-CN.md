@@ -6,15 +6,15 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Skills](https://img.shields.io/badge/skills-61-blue.svg)](https://github.com/daymade/claude-code-skills)
-[![Version](https://img.shields.io/badge/version-1.62.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Skills](https://img.shields.io/badge/skills-63-blue.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-1.64.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
 
 </div>
 
-专业的 Claude Code 技能市场，提供 61 个生产就绪的技能，用于增强开发工作流。
+专业的 Claude Code 技能市场，提供 63 个生产就绪的技能，用于增强开发工作流。
 
 ## 📑 目录
 
@@ -2536,6 +2536,73 @@ claude plugin install auto-repo-setup@daymade-skills
 ```
 
 **要求**：Python 3.8+、`uv` 包管理器。技能本身无需外部 API key。
+
+---
+
+### 64. **bilibili-source** - 免登录 B站视频数据 + 弹幕抓取
+
+一次 `view/detail` 调用、免登录地拉取任意 B站视频的可引用数据——标题、UP 粉丝数、发布时间、标签、分区、各分P 的 cid、实时互动数据（播放/点赞/投币/收藏/转发/评论/弹幕），以及完整弹幕全文。设计目标：让互动数字"取数便宜、无法伪造"，而不是手敲进文档里慢慢烂掉。
+
+**使用场景：**
+- 把 B站视频吸收进知识库，或做"它为什么火"的案例拆解
+- 核实创作者宣称的播放/点赞/收藏数，或要把任何 B站指标写进文档时
+- 想要弹幕全文（观众的定性反应），而不只是一个评论数
+- 粘贴 BVID、`av` 号、`b23.tv` 短链或完整 URL——全部自动识别
+
+**主要功能：**
+- 一个 `bili-fetch.sh` 返回全量元数据 + 实时互动 + UP 粉丝 + 标签 + 每个分P 的 cid；互动数带 `fetched_at` 时间戳（因为实时漂移）
+- `bili-danmaku.sh` 拉取并解压弹幕全文；`bili-subs.sh` 处理需登录的字幕轨（动浏览器 cookie 前会先问你）
+- `bili-selftest.sh` 健康自检对着真实 API 验每个端点，API 一漂移就报一行清晰 FAIL，而非静默给错数据
+- NO-FABRICATION 纪律：拿不到的数字标"未核实"，绝不估算
+- 自动剥离本地代理（B站是国内服务）、带 UA+Referer（防 HTTP 412）、失败退避重试
+- API 参考含 `space/wbi/*` 扩展所需的 WBI 签名算法
+
+**示例用法：**
+```bash
+# 安装技能
+claude plugin install bilibili-source@daymade-skills
+
+# 然后自然地让 Claude 做
+"把这个 B站 视频的真实播放/点赞/收藏数拉出来，我要引用"
+"这个 B站 视频弹幕里大家在说什么？"
+"帮我抓这个 bilibili 视频的字幕逐字稿做总结"
+```
+
+**要求**：`curl`、`jq`、`python3`（弹幕解压）。`yt-dlp` 仅用于需登录的字幕路径。stats/元数据/弹幕均无需登录。
+
+---
+
+### 65. **claude-usage-analyst** - 解释 Claude Code Token 用量与额度消耗
+
+> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（套件专用——通过 `daymade-claude-code:claude-usage-analyst` 调用）
+
+把本地 `ccusage` 数据变成有证据、说人话的用量解释，讲清你的 Claude Code / Claude Desktop 的 token、成本、额度都花在哪了——把"观测到的数字"和"解读"分开，而不是靠猜。
+
+**使用场景：**
+- 想知道 Claude 额度或 5 小时块为什么被用光
+- 怀疑某个模型（`fable` / `opus` / `sonnet`）对你的工作负载是不是格外贵
+- 需要今天或某段历史窗口的 token/成本明细，含 cache 读写压力
+- 要给非技术读者解释用量，不堆没解释的术语
+
+**主要功能：**
+- 内置 `analyze_claude_usage.py` 按任意日期窗口和时区汇总 token、成本、输入/输出、cache 创建/读取
+- 模型对比模式（`--model-a` / `--model-b`）同时权衡 token 量和估算成本——一个模型可能单 token 便宜但总体更贵
+- 额度耗尽问题给出 5 小时块表格
+- 证据纪律：每条数值主张都以 `ccusage` 输出为准；cache 读取压力即使你没敲那些 token 也计入
+- 明确范围：`ccusage claude` 测的是本地 Claude Code 日志，不是完整的 Claude.ai 聊天账单
+
+**示例用法：**
+```bash
+# 安装套件
+claude plugin install daymade-claude-code@daymade-skills
+
+# 然后自然地让 Claude 做
+"我今天的 Claude 额度为什么用光了？"
+"做我这些活，opus 是不是比 sonnet 贵？"
+"把我这个月的 Claude Code token 用量拆解一下"
+```
+
+**要求**：`ccusage`（用 `npm i -g ccusage` 或 `npx ccusage@latest`）、`python3`。
 
 ---
 
