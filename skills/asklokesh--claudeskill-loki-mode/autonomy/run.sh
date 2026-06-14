@@ -4557,10 +4557,21 @@ _loki_hash_stdin() {
 # path+size pairs PLUS file content (v7.32.3, #569: path+size alone was blind to
 # a same-size content edit, so a stale PRD could be silently reused with a
 # false "codebase unchanged" disclosure). Content hashing is clone-stable
-# (mtime is not, which is why mtime was never used). Trees larger than
-# LOKI_PRD_SIG_CONTENT_BUDGET bytes (default 50MB) skip the content pass and
-# emit a "files-shallow:" signature so startup stays fast; the safe failure
-# mode there is unchanged-from-before (size-blind), never a false "changed".
+# (mtime is not, which is why mtime was never used). Three content tiers:
+#   1. full content hash ("files:") when the tree is both at-or-under
+#      LOKI_PRD_SIG_CONTENT_BUDGET bytes (default 50MB) AND at-or-under
+#      LOKI_PRD_SIG_CONTENT_MAXFILES files (default 20000). Detects any edit.
+#   2. sampled content hash ("files-sampled:", #171) when the tree exceeds
+#      either bound: hashes the head + tail (first 4096 + last 4096 bytes) of
+#      every file. Catches same-size edits at the start or end of a file
+#      without a full read of a huge tree. Residual honest gap: a same-size
+#      edit in the MIDDLE of a large file (>8192 bytes) that touches neither
+#      4KB window is still invisible. Far narrower than the old size-blind
+#      fallback, which missed ALL same-size edits.
+#   3. (historical) "files-shallow:" was the old content-blind fallback. It is
+#      no longer emitted, but is still ACCEPTED when read from a stored pre-#171
+#      signature so the first post-upgrade run reuses instead of falsely
+#      claiming "codebase changed" (one-run format-transition, see consumer).
 # Echoes the signature.
 compute_codebase_signature() {
     local dir="${1:-.}"
@@ -4576,7 +4587,7 @@ compute_codebase_signature() {
           fi
           echo "git:${head}:${dirty}"
       else
-          local listing count total_sz budget
+          local listing count total_sz budget maxfiles
           listing=$(find . \
               -type d \( -name .loki -o -name .git -o -name node_modules -o -name dist \
                          -o -name build -o -name .next -o -name target -o -name vendor \
@@ -4592,20 +4603,35 @@ compute_codebase_signature() {
           count=$(printf '%s\n' "$listing" | grep -c . || true)
           total_sz=$(printf '%s\n' "$listing" | awk -F'\t' '{s+=$2} END {printf "%d", s}')
           budget="${LOKI_PRD_SIG_CONTENT_BUDGET:-52428800}"
-          if [ "${total_sz:-0}" -le "$budget" ] 2>/dev/null; then
-              # Content pass: stream all file contents through one hash in the
-              # same sorted order as the listing. Detects same-size edits.
-              # xargs -0 batches the reads into a handful of cat invocations,
-              # so cost scales with BYTES (which the budget above bounds), not
-              # file count: a fork-per-file loop here measured ~38s of added
-              # startup on a 30k-small-file tree. Renames and content swaps
-              # are still caught by the listing hash (paths+sizes) below.
+          maxfiles="${LOKI_PRD_SIG_CONTENT_MAXFILES:-20000}"
+          if [ "${total_sz:-0}" -le "$budget" ] 2>/dev/null \
+             && [ "${count:-0}" -le "$maxfiles" ] 2>/dev/null; then
+              # Tier 1 -- full content pass: stream all file contents through one
+              # hash in the same sorted order as the listing. Detects any edit,
+              # including same-size ones. xargs -0 batches the reads into a
+              # handful of cat invocations, so cost scales with BYTES (which the
+              # budget above bounds), not file count: a fork-per-file loop here
+              # measured ~38s of added startup on a 30k-small-file tree. Renames
+              # and content swaps are still caught by the listing hash below.
               local content_hash
               content_hash=$(printf '%s\n' "$listing" | cut -f1 | tr '\n' '\0' \
                   | xargs -0 cat 2>/dev/null | _loki_hash_stdin)
               echo "files:$(printf '%s' "$listing" | _loki_hash_stdin):${count}:${content_hash}"
           else
-              echo "files-shallow:$(printf '%s' "$listing" | _loki_hash_stdin):${count}"
+              # Tier 2 -- sampled content pass (#171): the tree is over the byte
+              # budget OR over the file-count cap, so a full read would be slow.
+              # Hash the head + tail (first 4096 + last 4096 bytes) of every file
+              # instead. This catches same-size edits at the start or end of a
+              # file (which the old size-blind "files-shallow:" missed entirely),
+              # at a fixed <=8KB-per-file cost. -n 64 batches files per sh fork
+              # to avoid a fork-per-file storm on large trees. Same sorted order
+              # as the listing keeps the hash deterministic. Residual honest gap:
+              # a same-size edit in the middle of a >8KB file is still invisible.
+              local sample_hash
+              sample_hash=$(printf '%s\n' "$listing" | cut -f1 | tr '\n' '\0' \
+                  | xargs -0 -n 64 sh -c 'for f in "$@"; do head -c 4096 -- "$f" 2>/dev/null; tail -c 4096 -- "$f" 2>/dev/null; done' _ 2>/dev/null \
+                  | _loki_hash_stdin)
+              echo "files-sampled:$(printf '%s' "$listing" | _loki_hash_stdin):${count}:${sample_hash}"
           fi
       fi
     )
@@ -4698,6 +4724,30 @@ except Exception:
                     echo "reuse"; return 0
                 fi
                 ;;
+            files-shallow:*:*)
+                # #171 format transition: a stored pre-#171 size-blind signature
+                # ("files-shallow:<listing>:<count>", 3 fields) compared against
+                # the new sampled signature ("files-sampled:<listing>:<count>:
+                # <samplehash>") would falsely claim "codebase changed" on the
+                # first post-upgrade run. When the listing-hash and count match
+                # (i.e. the stored value with its prefix swapped to files-sampled:
+                # is a prefix of the current sampled signature), the tree is
+                # unchanged at the OLD format's trust level (paths+sizes): reuse,
+                # honestly. The next persist upgrades the stored format to the
+                # sampled tier. A same-size edit made BEFORE the upgrade stays
+                # invisible for this one run, exactly as on the old version (no
+                # regression, no false disclosure).
+                if [ "$(printf '%s' "$stored" | tr -dc ':' | wc -c | tr -d ' ')" = "2" ]; then
+                    local stored_sampled="files-sampled:${stored#files-shallow:}"
+                    case "$current" in
+                        files-sampled:*)
+                            if [ "${current#"${stored_sampled}":}" != "$current" ]; then
+                                echo "reuse"; return 0
+                            fi
+                            ;;
+                    esac
+                fi
+                ;;
         esac
         echo "update"
     fi
@@ -4756,7 +4806,16 @@ _legacy_upgrade = (
     and prev_sig.count(':') == 2
     and sig.startswith(prev_sig + ':')
 )
-if prev_at and (prev_sig == sig or _legacy_upgrade):
+# #171 format upgrade: a stored pre-#171 size-blind 'files-shallow:<listing>:
+# <count>' (3 fields) reused into the new sampled 'files-sampled:<listing>:
+# <count>:<samplehash>' whose listing fields match. Same trust level (the
+# decide returned reuse), so the PRD content did not change: preserve the date.
+_sampled_upgrade = (
+    isinstance(prev_sig, str) and prev_sig.startswith('files-shallow:')
+    and prev_sig.count(':') == 2
+    and sig.startswith('files-sampled:' + prev_sig[len('files-shallow:'):] + ':')
+)
+if prev_at and (prev_sig == sig or _legacy_upgrade or _sampled_upgrade):
     generated_at = prev_at
 else:
     generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
@@ -7838,6 +7897,16 @@ BUILD_PROMPT
                     if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
                         _rv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
                     fi
+                    #   EMBED 3b (--allowedTools, #167): positive least-privilege
+                    #     allowlist. DEFAULT OFF (opt-in LOKI_REVIEW_ALLOWLIST=1).
+                    #     Emitted ALONGSIDE the denylist: verified live (claude
+                    #     2.1.177) that deny precedence holds even under
+                    #     --dangerously-skip-permissions, so the denylist still
+                    #     hard-blocks mutations while this narrows the surface to
+                    #     read/inspect tools. See loki_review_allowlist.
+                    if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
+                        _rv_argv+=("--allowedTools" "$(loki_review_allowlist)")
+                    fi
                     claude "${_rv_argv[@]}" -p "$prompt_text" \
                         --output-format text > "$review_output" 2>/dev/null
                     ;;
@@ -8068,6 +8137,14 @@ ADVERSARIAL_EOF
                 fi
                 if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
                     _adv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
+                fi
+                #   EMBED 3b (--allowedTools, #167): positive least-privilege
+                #     allowlist. DEFAULT OFF (opt-in LOKI_REVIEW_ALLOWLIST=1).
+                #     Emitted ALONGSIDE the denylist (deny precedence verified
+                #     live, holds under --dangerously-skip-permissions). See
+                #     loki_review_allowlist.
+                if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
+                    _adv_argv+=("--allowedTools" "$(loki_review_allowlist)")
                 fi
                 claude "${_adv_argv[@]}" -p "$adversarial_prompt" \
                     --output-format text > "$result_file" 2>/dev/null || true
@@ -12313,6 +12390,25 @@ except Exception:
         fi
     fi
 
+    # Session-continuity Phase 2 (GitHub #165): snapshot whether THIS run is a
+    # RESTARTED run BEFORE the main loop mutates ITERATION_COUNT. load_state
+    # (called above) restored ITERATION_COUNT from .loki/autonomy-state.json's
+    # iterationCount, resetting to 0 after a terminal prior run. So at this point
+    # ITERATION_COUNT>0 means "the prior run was interrupted (non-terminal) and
+    # is being restarted"; ==0 means fresh. The main loop increments
+    # ITERATION_COUNT at the top of each pass, so the resume decision MUST key on
+    # this run-start snapshot, never the live counter. _LOKI_RESUME_CONSUMED is
+    # the once-only latch so the recovery resume fires on exactly the FIRST
+    # main-loop call of a restarted run, then the run reverts to normal stateless
+    # iterations (no resume chain -- transcript growth cannot accumulate).
+    if [ "${ITERATION_COUNT:-0}" -gt 0 ]; then
+        _LOKI_RESTARTED_RUN=1
+    else
+        _LOKI_RESTARTED_RUN=0
+    fi
+    _LOKI_RESUME_CONSUMED=0
+    export _LOKI_RESTARTED_RUN _LOKI_RESUME_CONSUMED
+
     # Trust-metrics instrumentation marker: record one run_start event per
     # fresh run so the trust-metrics denominator counts ONLY instrumented runs.
     # This is what lets the aggregator distinguish "0 blocks measured" from
@@ -12338,9 +12434,22 @@ except Exception:
             if [ -n "$_loki_session_uuid" ]; then
                 local _loki_session_created
                 _loki_session_created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                # mode reflects the active session-continuity layer for this run,
+                # surfaced on the dashboard: "resume" when Phase 2 recovery resume
+                # is enabled (GitHub #165), else "stamp" (Phase 1 correlation-only,
+                # v7.34). DEFAULT (no knobs) stays "stamp" so existing behavior +
+                # dashboard output are unchanged. The uuid is the SAME stable
+                # per-run uuid either way -- it is the resume anchor a later
+                # restart reads back. The "stamp" vs "resume" label only records
+                # intent; the actual argv decision is gated again at call time.
+                local _loki_session_mode="stamp"
+                if type loki_resume_session_enabled >/dev/null 2>&1 \
+                   && loki_resume_session_enabled; then
+                    _loki_session_mode="resume"
+                fi
                 mkdir -p ".loki/state" 2>/dev/null || true
-                printf '{"run_id":"%s","claude_session_uuid":"%s","mode":"stamp","created_at":"%s"}\n' \
-                    "$LOKI_TRUST_RUN_ID" "$_loki_session_uuid" "$_loki_session_created" \
+                printf '{"run_id":"%s","claude_session_uuid":"%s","mode":"%s","created_at":"%s"}\n' \
+                    "$LOKI_TRUST_RUN_ID" "$_loki_session_uuid" "$_loki_session_mode" "$_loki_session_created" \
                     > ".loki/state/claude-session.json" 2>/dev/null || true
             fi
         fi
@@ -12739,6 +12848,34 @@ except Exception as exc:
            && loki_claude_flag_supported "--include-partial-messages"; then
             _loki_claude_argv+=("--include-partial-messages")
         fi
+        # Session-continuity Phase 2 (GitHub #165): on the FIRST main-loop call of
+        # a RESTARTED run (snapshot _LOKI_RESTARTED_RUN==1, latch
+        # _LOKI_RESUME_CONSUMED==0) with LOKI_RESUME_SESSION=1, emit
+        # `--resume <stored-uuid>` INSTEAD of the per-iteration --session-id stamp
+        # (the two are mutually exclusive on one invocation). This reattaches the
+        # prior Claude context once, then the latch flips so every later iteration
+        # reverts to normal stateless behavior. Optional --fork-session
+        # (LOKI_SESSION_FORK=1) writes the resumed turn to a new id, leaving the
+        # parent transcript untouched. DEFAULT OFF: with no knobs neither --resume
+        # nor --session-id is emitted (argv byte-identical to v7.34).
+        local _loki_did_resume=0
+        if [ "${_LOKI_RESTARTED_RUN:-0}" = "1" ] && [ "${_LOKI_RESUME_CONSUMED:-0}" = "0" ] \
+           && type loki_resume_session_enabled >/dev/null 2>&1 \
+           && loki_resume_session_enabled; then
+            local _loki_resume_uuid
+            _loki_resume_uuid="$(_loki_resume_target_uuid)"
+            if [ -n "$_loki_resume_uuid" ]; then
+                _loki_claude_argv+=("--resume" "$_loki_resume_uuid")
+                if type loki_session_fork_enabled >/dev/null 2>&1 \
+                   && loki_session_fork_enabled; then
+                    _loki_claude_argv+=("--fork-session")
+                fi
+                _loki_did_resume=1
+                _LOKI_RESUME_CONSUMED=1
+                export _LOKI_RESUME_CONSUMED
+                log_info "LOKI_RESUME_SESSION=1: resuming Claude session $_loki_resume_uuid (recovery resume, first call of restarted run)"
+            fi
+        fi
         # v7.34.0 Phase 1 (correlation-only): per-iteration --session-id. OPT-IN
         # via LOKI_SESSION_STAMP=1 (CONSERVATIVE DEFAULT is OFF so the default
         # argv stays byte-identical to v7.33 -- the UX-monotonicity requirement).
@@ -12747,7 +12884,10 @@ except Exception as exc:
         # and accumulate transcript (Phase 2 continuity, out of scope). This keeps
         # each iteration a fresh stateless session while making its ~/.claude
         # JSONL name predictable for dashboard correlation. Gated on CLI support.
-        if type loki_session_stamp_enabled >/dev/null 2>&1 \
+        # MUTUAL EXCLUSION: skip the stamp on the call that emitted --resume above
+        # (claude rejects --session-id + --resume together).
+        if [ "$_loki_did_resume" = "0" ] \
+           && type loki_session_stamp_enabled >/dev/null 2>&1 \
            && loki_session_stamp_enabled; then
             local _loki_iter_session_uuid
             _loki_iter_session_uuid="$(_loki_claude_iteration_session_uuid "${LOKI_TRUST_RUN_ID:-}" "$ITERATION_COUNT")"

@@ -668,6 +668,7 @@ show_help() {
     echo "Verify / trust:"
     echo "  verify [base]    Deterministic PR verification (CI-gate exit codes)"
     echo "  review [opts]    Standalone code review with quality gates"
+    echo "  ultracode \"task\" Run a task as a native Claude Code Dynamic Workflow (opt-in, Claude-only)"
     echo "  trust [cmd]      Visible trust trajectory; 'trust detail' for metrics"
     echo ""
     echo "Observe:"
@@ -13898,6 +13899,7 @@ if show_json:
             'recommended': recommended_provider,
             'reason': provider_reason,
         },
+        'moat': {'verified_completion': True, 'cost_honest': True},
     }
     if show_verbose:
         result['iteration_details'] = iteration_plan
@@ -14034,6 +14036,12 @@ if show_verbose:
 
 print(f'\n{DIM}This is an estimate. Actual usage depends on PRD complexity,')
 print(f'code review cycles, and test failures.{NC}')
+
+print(f'\n{CYAN}Why this estimate is trustworthy{NC}')
+print(f'{DIM}Verified completion. The completion council refuses to call work done')
+print(f'without evidence - a real diff and green tests, or it blocks.{NC}')
+print(f'{DIM}Cost honesty. The model quoted here is the model the run dispatches')
+print(f'and the dashboard reports. Quote, dashboard, and dispatch agree.{NC}')
 print()
 " "$prd_path" "$show_json" "$show_verbose"
 }
@@ -14347,6 +14355,9 @@ main() {
         review)
             cmd_review "$@"
             ;;
+        ultracode)
+            cmd_ultracode "$@"
+            ;;
         optimize)
             cmd_optimize "$@"
             ;;
@@ -14520,6 +14531,293 @@ main() {
             ;;
     esac
 }
+# v7.36.0 (issue #168): optional cloud multi-agent review tier (`loki review
+# --ultra`). Wraps the upstream `claude ultrareview` subcommand. ALWAYS opt-in,
+# cost-disclosed, default OFF, and advisory only (it does NOT block any gate).
+#
+# Consent model (modeled on cmd_demo's cost-confirm, autonomy/loki ~9488-9540):
+#   - The disclosure ALWAYS prints (paid cloud op + may take up to 30 min).
+#   - There is NO price API: we disclose the cost-CLASS, never a dollar figure.
+#   - Interactive TTY without --yes: prompt, default NO.
+#   - Non-TTY/CI without --yes (and no LOKI_ULTRAREVIEW=1): REFUSE with exit 2
+#     and ZERO ultrareview calls (the no-silent-bill guard). Never hang on read.
+#   - --yes or LOKI_ULTRAREVIEW=1 proceeds without prompting (this command only).
+# Args: <format> <assume_yes> <timeout_minutes> <target>
+_review_ultra() {
+    local fmt="${1:-text}"
+    local assume_yes="${2:-false}"
+    local timeout_min="${3:-}"
+    local target="${4:-}"
+
+    # Make the ultrareview gate predicates available even though autonomy/loki
+    # does not source claude-flags.sh globally (same on-demand pattern as
+    # autonomy/lib/voter-agents.sh). Degrade honestly if the lib is missing.
+    if ! declare -F loki_ultrareview_supported >/dev/null 2>&1; then
+        local _ur_lib=""
+        if [ -f "${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh" ]; then
+            _ur_lib="${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh"
+        elif [ -f "$(dirname "$0")/lib/claude-flags.sh" ]; then
+            _ur_lib="$(dirname "$0")/lib/claude-flags.sh"
+        fi
+        if [ -n "$_ur_lib" ]; then
+            # shellcheck source=autonomy/lib/claude-flags.sh
+            . "$_ur_lib" 2>/dev/null || true
+        fi
+    fi
+
+    # 1. claude CLI present at all?
+    if ! command -v claude >/dev/null 2>&1; then
+        echo -e "${RED}Error: 'claude' CLI not found on PATH.${NC}" >&2
+        echo "loki review --ultra requires the Claude Code CLI (2.1.x) for cloud review." >&2
+        return 1
+    fi
+
+    # 2. Capability gate: does this claude support the ultrareview subcommand?
+    #    If absent, honest message + clean exit, never a half-feature.
+    if ! declare -F loki_ultrareview_supported >/dev/null 2>&1 \
+       || ! loki_ultrareview_supported; then
+        echo -e "${RED}Error: your 'claude' CLI does not support 'ultrareview'.${NC}" >&2
+        echo "Cloud multi-agent review needs Claude Code 2.1.x or newer; please upgrade." >&2
+        return 1
+    fi
+
+    # 3. Cost disclosure -- ALWAYS printed, even with --yes, so spend is never
+    #    hidden. NO dollar figure (there is no price API); cost-CLASS only.
+    echo -e "${BOLD}loki review --ultra${NC} - cloud multi-agent code review (optional, paid)" >&2
+    echo "" >&2
+    echo -e "${YELLOW}ultrareview is a PAID cloud operation billed by Anthropic, separate${NC}" >&2
+    echo -e "${YELLOW}from local model spend. It may take up to 30 minutes.${NC}" >&2
+    echo "Findings are advisory only and do not block Loki's completion gate." >&2
+    echo "" >&2
+
+    # 4. Consent. LOKI_ULTRAREVIEW=1 is the non-interactive opt-in equivalent of
+    #    --yes for THIS command only (never a council auto-trigger).
+    local proceed=false
+    if [ "$assume_yes" = true ]; then
+        proceed=true
+    elif declare -F loki_ultrareview_enabled >/dev/null 2>&1 && loki_ultrareview_enabled; then
+        proceed=true
+    else
+        # Interactive only when stdin is a real TTY and CI is not forcing
+        # non-interactive (matches the project's first-run gate semantics).
+        local ultra_interactive=true
+        if [ ! -t 0 ] || [ -n "${CI:-}" ]; then
+            ultra_interactive=false
+        fi
+        if [ "$ultra_interactive" = true ]; then
+            local ans=""
+            echo -n "Run cloud ultrareview now? [y/N] " >&2
+            read -r ans </dev/tty 2>/dev/null || ans=""
+            if [[ "$ans" =~ ^[Yy] ]]; then
+                proceed=true
+            else
+                echo "Cancelled. Nothing was spent." >&2
+                return 0
+            fi
+        else
+            # Non-TTY/CI without --yes: never hang; refuse with exit 2 and make
+            # ZERO ultrareview calls (the no-silent-bill guard).
+            echo "ultrareview needs confirmation; re-run with --yes (or set LOKI_ULTRAREVIEW=1) to proceed non-interactively" >&2
+            return 2
+        fi
+    fi
+
+    [ "$proceed" = true ] || { echo "Cancelled. Nothing was spent." >&2; return 0; }
+
+    # 5. Invoke `claude ultrareview [--json] [--timeout N] [target]` exactly once.
+    local ur_argv=("ultrareview")
+    if [ "$fmt" = "json" ]; then
+        ur_argv+=("--json")
+    fi
+    if [ -n "$timeout_min" ]; then
+        ur_argv+=("--timeout" "$timeout_min")
+    fi
+    if [ -n "$target" ]; then
+        ur_argv+=("$target")
+    fi
+
+    echo -e "${DIM}Running: claude ${ur_argv[*]}${NC}" >&2
+    echo "" >&2
+    claude "${ur_argv[@]}"
+    return $?
+}
+
+# v7.38.0: optional native Claude Code Dynamic Workflow passthrough
+# (`loki ultracode "<task>"`). Structurally identical to _review_ultra (issue
+# #168): opt-in, capability-gated, cost-class disclosed, Claude-provider-only,
+# clean exit on any unsupported path. PURE passthrough -- Loki adds NO
+# orchestration of its own; it prepends the `ultracode` keyword to the prompt and
+# routes through `claude -p`, which fires the workflow runtime.
+#
+# Consent model (mirrors _review_ultra):
+#   - The cost-CLASS disclosure ALWAYS prints. There is NO price API, so we never
+#     quote a dollar figure (that would be a lie).
+#   - Interactive TTY without --yes: prompt, default NO.
+#   - Non-TTY/CI without --yes (and no LOKI_USE_CLAUDE_WORKFLOWS=1): REFUSE with
+#     exit 2 and ZERO workflow invocation (the no-silent-bill guard).
+#   - --yes or LOKI_USE_CLAUDE_WORKFLOWS=1 proceeds without prompting.
+# Args: <assume_yes> <task...>
+_run_ultracode() {
+    local assume_yes="${1:-false}"
+    shift || true
+    local task="$*"
+
+    if [ -z "$task" ]; then
+        echo -e "${RED}Error: loki ultracode requires a task description.${NC}" >&2
+        echo "Usage: loki ultracode \"<task>\" [--yes]" >&2
+        return 1
+    fi
+
+    # Make the workflow gate predicates available even though autonomy/loki does
+    # not source claude-flags.sh globally (same on-demand pattern as
+    # _review_ultra). Degrade honestly if the lib is missing.
+    if ! declare -F loki_workflows_supported >/dev/null 2>&1; then
+        local _wf_lib=""
+        if [ -f "${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh" ]; then
+            _wf_lib="${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh"
+        elif [ -f "$(dirname "$0")/lib/claude-flags.sh" ]; then
+            _wf_lib="$(dirname "$0")/lib/claude-flags.sh"
+        fi
+        if [ -n "$_wf_lib" ]; then
+            # shellcheck source=autonomy/lib/claude-flags.sh
+            . "$_wf_lib" 2>/dev/null || true
+        fi
+    fi
+
+    # 1. Provider gate: workflows are Claude-only. On Codex/Cline/Aider, print the
+    #    honest message and exit CLEANLY (0) with ZERO invocation. Never break the
+    #    other providers.
+    local _provider="${LOKI_PROVIDER:-claude}"
+    if [ "$_provider" != "claude" ]; then
+        echo -e "${YELLOW}loki ultracode: Claude provider only.${NC}" >&2
+        echo "Workflows need the Claude provider and claude CLI >= 2.1.154." >&2
+        echo "Active provider is '${_provider}'; nothing was run." >&2
+        return 0
+    fi
+
+    # 2. claude CLI present at all?
+    if ! command -v claude >/dev/null 2>&1; then
+        echo -e "${RED}Error: 'claude' CLI not found on PATH.${NC}" >&2
+        echo "Workflows need the Claude provider and claude CLI >= 2.1.154." >&2
+        return 1
+    fi
+
+    # 3. Capability gate: provider==claude AND CLI present AND version >= 2.1.154
+    #    AND workflows not disabled. Honest message + clean exit if unsupported.
+    if ! declare -F loki_workflows_supported >/dev/null 2>&1 \
+       || ! loki_workflows_supported; then
+        echo -e "${YELLOW}loki ultracode: workflows unavailable on this setup.${NC}" >&2
+        echo "Workflows need the Claude provider and claude CLI >= 2.1.154" >&2
+        echo "(and must not be disabled via CLAUDE_CODE_DISABLE_WORKFLOWS or the" >&2
+        echo "disableWorkflows setting). Nothing was run." >&2
+        return 0
+    fi
+
+    # 4. Cost-CLASS disclosure -- ALWAYS printed, even with --yes, so spend is
+    #    never hidden. NO dollar figure (there is no price API); cost-CLASS only.
+    echo -e "${BOLD}loki ultracode${NC} - native Claude Code Dynamic Workflow (optional)" >&2
+    echo "" >&2
+    echo -e "${YELLOW}Workflows spawn many agents and cost meaningfully more than a normal${NC}" >&2
+    echo -e "${YELLOW}run; this is a Claude Code feature billed as normal usage.${NC}" >&2
+    echo "" >&2
+
+    # 5. Consent. LOKI_USE_CLAUDE_WORKFLOWS=1 is the non-interactive opt-in
+    #    equivalent of --yes for THIS command.
+    local proceed=false
+    if [ "$assume_yes" = true ]; then
+        proceed=true
+    elif declare -F loki_workflows_enabled >/dev/null 2>&1 && loki_workflows_enabled; then
+        proceed=true
+    else
+        local uc_interactive=true
+        if [ ! -t 0 ] || [ -n "${CI:-}" ]; then
+            uc_interactive=false
+        fi
+        if [ "$uc_interactive" = true ]; then
+            local ans=""
+            echo -n "Run the workflow now? [y/N] " >&2
+            read -r ans </dev/tty 2>/dev/null || ans=""
+            if [[ "$ans" =~ ^[Yy] ]]; then
+                proceed=true
+            else
+                echo "Cancelled. Nothing was spent." >&2
+                return 0
+            fi
+        else
+            # Non-TTY/CI without --yes: never hang; refuse with exit 2 and make
+            # ZERO workflow calls (the no-silent-bill guard).
+            echo "workflows need confirmation; re-run with --yes (or set LOKI_USE_CLAUDE_WORKFLOWS=1) to proceed non-interactively" >&2
+            return 2
+        fi
+    fi
+
+    [ "$proceed" = true ] || { echo "Cancelled. Nothing was spent." >&2; return 0; }
+
+    # 6. Invoke the Claude provider once with the prompt PREFIXED by "ultracode: "
+    #    so the workflow runtime fires. ALWAYS opus per project policy (planning-
+    #    grade fan-out). The keyword prefix is the only supported, stable trigger;
+    #    Loki never authors a workflow script itself.
+    local uc_prompt="ultracode: ${task}"
+    local uc_argv=("-p" "$uc_prompt" "--model" "opus")
+
+    echo -e "${DIM}Running: claude -p \"ultracode: ...\" --model opus${NC}" >&2
+    echo "" >&2
+    claude "${uc_argv[@]}"
+    return $?
+}
+
+# v7.38.0: `loki ultracode "<task>"` command. Thin opt-in surface that routes a
+# task through a native Claude Code Dynamic Workflow. See _run_ultracode.
+cmd_ultracode() {
+    local uc_assume_yes=false
+    local uc_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                echo -e "${BOLD}loki ultracode${NC} - run a task as a native Claude Code Dynamic Workflow"
+                echo ""
+                echo "Usage: loki ultracode \"<task>\" [--yes]"
+                echo ""
+                echo "Prepends the 'ultracode' keyword to your task and routes it through"
+                echo "the Claude provider, firing Claude Code's Dynamic Workflow runtime"
+                echo "(many background subagents fanning out on a read/research/audit task)."
+                echo ""
+                echo "This is a PASSTHROUGH: Loki adds no orchestration of its own. It is"
+                echo "OPT-IN, default OFF, and Claude-provider-only. The council, the 11"
+                echo "quality gates, the evidence gate, and the RARV loop are untouched."
+                echo ""
+                echo "Requirements:"
+                echo "  - Active provider is Claude (Tier 1)"
+                echo "  - claude CLI >= 2.1.154"
+                echo "  - Workflows not disabled (CLAUDE_CODE_DISABLE_WORKFLOWS / disableWorkflows)"
+                echo "On any unmet requirement: an honest message prints and nothing runs."
+                echo ""
+                echo "Cost: workflows spawn many agents and cost meaningfully more than a"
+                echo "normal run; this is a Claude Code feature billed as normal usage."
+                echo "There is no price API, so no dollar figure is shown."
+                echo ""
+                echo "Options:"
+                echo "  --yes, -y    Skip the confirmation prompt (consent to the cost)"
+                echo "  --help, -h   Show this help"
+                echo ""
+                echo "Environment:"
+                echo "  LOKI_USE_CLAUDE_WORKFLOWS=1   Non-interactive opt-in (like --yes)"
+                echo "  CLAUDE_CODE_DISABLE_WORKFLOWS=1  Disable workflows entirely"
+                echo ""
+                echo "Examples:"
+                echo "  loki ultracode \"audit this repo for dead code\""
+                echo "  loki ultracode \"research the top 5 auth libraries for Node\" --yes"
+                return 0
+                ;;
+            --yes|-y) uc_assume_yes=true; shift ;;
+            --) shift; while [[ $# -gt 0 ]]; do uc_args+=("$1"); shift; done ;;
+            *) uc_args+=("$1"); shift ;;
+        esac
+    done
+    _run_ultracode "$uc_assume_yes" "${uc_args[@]}"
+    return $?
+}
+
 # Standalone code review - diff-based quality gates (v6.20.0)
 cmd_review() {
     local review_staged=false
@@ -14528,6 +14826,9 @@ cmd_review() {
     local review_target=""
     local review_format="text"
     local review_severity="all"
+    local review_ultra=false
+    local review_assume_yes=false
+    local review_timeout=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -14548,6 +14849,15 @@ cmd_review() {
                 echo "Options:"
                 echo "  --format json        Output as JSON (for CI integration)"
                 echo "  --severity <level>   Filter: critical, high, medium, low, info (shows level+above)"
+                echo "  --ultra              Run an OPTIONAL cloud multi-agent review via"
+                echo "                       'claude ultrareview' (PAID cloud op, opt-in,"
+                echo "                       default OFF, advisory only). Requires"
+                echo "                       confirmation; --yes or LOKI_ULTRAREVIEW=1 to"
+                echo "                       skip the prompt. Optional [file-or-dir] is"
+                echo "                       passed as the ultrareview target (branch / PR"
+                echo "                       number / base branch)."
+                echo "  --yes, -y            Skip the --ultra confirmation prompt"
+                echo "  --timeout <minutes>  --ultra: max minutes to wait (default 30)"
                 echo "  --help, -h           Show this help"
                 echo ""
                 echo "Exit codes:"
@@ -14563,7 +14873,21 @@ cmd_review() {
                 echo "  loki review --since HEAD~5       # Changes in last 5 commits"
                 echo "  loki review --format json        # JSON output for CI"
                 echo "  loki review --severity high      # Only HIGH+ findings"
+                echo "  loki review --ultra              # Cloud multi-agent review (paid, opt-in)"
+                echo "  loki review --ultra 42           # Cloud review of GitHub PR #42"
+                echo "  loki review --ultra --yes        # Skip confirmation (e.g. in a script)"
                 return 0
+                ;;
+            --ultra) review_ultra=true; shift ;;
+            --yes|-y) review_assume_yes=true; shift ;;
+            --timeout)
+                shift
+                review_timeout="${1:-}"
+                if [ -z "$review_timeout" ]; then
+                    echo -e "${RED}Error: --timeout requires a value in minutes${NC}"
+                    return 1
+                fi
+                shift
                 ;;
             --staged) review_staged=true; shift ;;
             --pr)
@@ -14599,6 +14923,16 @@ cmd_review() {
             *) review_target="$1"; shift ;;
         esac
     done
+
+    # v7.36.0 (issue #168): optional cloud multi-agent review tier. This is an
+    # explicit, on-demand, opt-in, cost-disclosed path that wraps the existing
+    # `claude ultrareview` subcommand. It short-circuits the local-only review
+    # below: --ultra is a different operation (paid cloud), not a flag that
+    # augments the local static analysis.
+    if [ "$review_ultra" = true ]; then
+        _review_ultra "$review_format" "$review_assume_yes" "$review_timeout" "$review_target"
+        return $?
+    fi
 
     # Severity level ordering (higher number = more severe)
     _review_sev_level() {

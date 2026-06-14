@@ -9,6 +9,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.38.0] - 2026-06-14
+
+### Added
+- Claude Code Dynamic Workflows adoption, opt-in and Claude-provider-only
+  (issue: workflows-embed). Two surfaces, both additive; the council, the 11
+  quality gates, the evidence gate, and the RARV loop are untouched (they stay
+  hand-rolled, deterministic, and provider-agnostic by design).
+  - `loki ultracode "<task>"`: a passthrough that prepends the `ultracode`
+    keyword so a native Claude Code Dynamic Workflow (background multi-agent
+    fan-out) runs for the task. Loki adds no orchestration of its own. Opt-in
+    (explicit command), capability-gated (Claude provider AND claude CLI
+    >= 2.1.154 AND workflows not disabled), with a cost-class disclosure printed
+    every time (workflows spawn many agents and cost meaningfully more; no dollar
+    figure is shown because there is no price API). Non-interactive without
+    `--yes` refuses with exit 2 and zero invocation. On Codex/Cline/Aider or an
+    older/disabled CLI it prints an honest message and exits cleanly.
+  - `LOKI_USE_CLAUDE_WORKFLOWS=1` (default OFF): when set on the Claude provider,
+    the first-run READ-ONLY codebase-analysis pass (the no-PRD reverse-engineer
+    step) is dispatched as a workflow fan-out. Default behavior is byte-identical
+    when the flag is off or the provider is not Claude (deterministic fallback to
+    the existing three-pass analysis). Read-only; never gates "done".
+
+## [7.37.1] - 2026-06-14
+
+### Fixed
+- CI: `tests/test-cli-session-v734.sh` tripped the shellcheck gate (SC2164: a
+  `cd` without an `|| exit` guard at line 516), failing the Tests workflow on
+  v7.37.0. Added the guard. Test-only change; no runtime behavior change. Root
+  cause: shellcheck was not installed locally when v7.37.0 was cut, so the
+  warning was not caught pre-push.
+
+## [7.37.0] - 2026-06-13
+
+### Added
+- Session-Continuity Phase 2, recovery resume (issue #165), opt-in via
+  `LOKI_RESUME_SESSION=1`, default OFF. When a previously interrupted run
+  (paused, rate-limited, or budget-cutoff) is restarted, the FIRST main-loop
+  claude call emits `--resume <stored-session-uuid>` to reattach the prior
+  Claude session context, then the run reverts to normal stateless
+  per-iteration behavior (no resume chain, so transcript context cannot
+  accumulate). `LOKI_SESSION_FORK=1` optionally adds `--fork-session` on the
+  resumed call. Gated on CLI support; degrades to a fresh call on an older
+  claude or a missing/malformed stored session file. Default argv is
+  byte-identical to v7.36; the resumed call never co-emits `--session-id` and
+  `--resume` together.
+  - NAMING: `LOKI_RESUME_SESSION` governs the underlying CLAUDE session-resume
+    layer. It is UNRELATED to the existing `loki heal`/`loki migrate --resume`
+    CHECKPOINT flag, which resumes a Loki run from its own saved checkpoint.
+    This is a narrow recovery feature, not whole-loop session continuity (a
+    `--resume` chain over every iteration was deliberately rejected because it
+    would compete with Loki's curated injected memory and grow context
+    unboundedly).
+  - The Bun runner honors a `resumeFirstCall` invocation field for parity, but
+    the production autonomous loop runs the bash route (autonomy/run.sh), which
+    is the fully-wired path; the Bun path is staged for when its main loop
+    becomes the live route.
+
+## [7.36.0] - 2026-06-13
+
+### Added
+- `loki review --ultra` (issue #168): an explicit, opt-in, on-demand cloud
+  multi-agent code review that wraps the upstream `claude ultrareview`
+  subcommand. Paid cloud operation, billed by Anthropic, separate from local
+  model spend. Strictly opt-in: the disclosure prints every time, an interactive
+  TTY prompts with default NO, and a non-interactive shell without `--yes` (or
+  `LOKI_ULTRAREVIEW=1`) refuses with exit 2 and makes zero cloud calls. Findings
+  are advisory and do not block the completion gate. Capability-gated: if the
+  installed claude lacks `ultrareview` it prints an honest upgrade note and
+  exits. No dollar amount is shown (no price API exists); the disclosure states
+  the cost class only.
+- `loki plan` now states the trust moat (issue #166): a short, honest block
+  ("Why this estimate is trustworthy") naming verified completion (the
+  completion council blocks "done" without a real diff and green tests) and cost
+  honesty (the quoted model is the model the run dispatches and the dashboard
+  reports). Mirrored as a structured `moat` field in `loki plan --json`.
+- `--allowedTools` positive allowlist for reviewer/adversarial/council subcalls
+  (issue #167), opt-in via `LOKI_REVIEW_ALLOWLIST=1`, default OFF and
+  byte-identical default argv on both routes. Complements the v7.33.0
+  `--disallowedTools` denylist with a least-privilege read/inspect allowlist
+  (Read, Grep, Glob, read-only git and shell). Deny-precedence verified against
+  the live CLI and the Claude Code permissions docs, so allowlist and denylist
+  ship together. Gated on CLI support.
+
+### Fixed
+- Non-git codebase signature hardening (issue #171): trees over the content
+  budget (or file-count cap `LOKI_PRD_SIG_CONTENT_MAXFILES`, default 20000) now
+  use a sampled head+tail content hash (`files-sampled:`) instead of the old
+  content-blind `files-shallow:` listing, so most same-size edits on large
+  non-git trees are detected and a stale generated PRD is no longer silently
+  reused. Batched (xargs -0 -n 64) to avoid per-file fork cost. A stored
+  pre-upgrade `files-shallow:` signature with a matching listing + count still
+  decides reuse on the first post-upgrade run. Git projects unaffected. Residual
+  honest gap (a same-size edit confined to the middle of a file larger than 8KB)
+  documented in the signature docblock.
+- Nightly parity-drift workflow (issue #173) now normalizes environment-only
+  lines (disk space GB, the runtime-route block, the LOKI_LEGACY_BASH warning,
+  dashboard pid, summary counts) before diffing the bash and Bun `doctor` output,
+  matching the normalization already in scripts/local-ci.sh. This stops
+  env-only false positives while still surfacing real route-logic divergence.
+
 ## [7.35.0] - 2026-06-12
 
 ### Added

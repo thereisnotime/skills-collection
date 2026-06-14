@@ -877,6 +877,12 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "7752a3d",
+      "message": "Harden title-fallback to exact-title-or-bust across resolvers (#432)",
+      "date": "2026-06-13",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "1bd0f04",
       "message": "test: pin #250 title-fuzzy false-positive as strict-xfail (resolver-client layer) (#430)",
       "date": "2026-06-13",
@@ -929,15 +935,15 @@
       "message": "fix: agent-count claim lint + announce-hook routing drift (#416)",
       "date": "2026-06-11",
       "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "2e967ed",
-      "message": "docs+feat: #394 follow-ups \u2014 Family D adjudicated Option 2; A5 zh-TW list curated (#410)",
-      "date": "2026-06-11",
-      "author": "Edward Cheng-I Wu"
     }
   ],
   "K-Dense-AI--claude-scientific-skills": [
+    {
+      "sha": "2b4cce7",
+      "message": "Update transformers skill metadata and dependencies; remove uv.lock file",
+      "date": "2026-06-13",
+      "author": "Timothy Kassis"
+    },
     {
       "sha": "9c12fcc",
       "message": "Add arbor skill",
@@ -989,12 +995,6 @@
     {
       "sha": "fe3f715",
       "message": "Enhance skills metadata with OpenClaw environment variables",
-      "date": "2026-06-11",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "1b8fae3",
-      "message": "Support OpenClaw",
       "date": "2026-06-11",
       "author": "Timothy Kassis"
     }
@@ -2827,6 +2827,48 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "6d454c6",
+      "message": "neon-functions: vendor a Hono WebSocket adapter (no deprecated @hono/node-ws)",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "c2945a9",
+      "message": "skills: add neon.ts infrastructure-as-code sections",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "4a1afef",
+      "message": "neon-functions: add WebSocket servers section (fetch + upgrade, fan-out, reconnect)",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "413da62",
+      "message": "neon-postgres: use drizzle({ client, schema }) object form in connection snippets",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "e0b5296",
+      "message": "neon: add Gotchas section with Neon Auth \"invalid domain\" guidance",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "5f0a699",
+      "message": "Add recommended connection patterns to neon-postgres and neon-functions skills",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "7c3839a",
+      "message": "Merge pull request #34 from neondatabase/docs/neon-branch-env",
+      "date": "2026-06-13",
+      "author": "Andre Landgraf"
+    },
+    {
       "sha": "03fbe57",
       "message": "neon, neon-functions: soften Neon Auth phrasing (often -> e.g.)",
       "date": "2026-06-13",
@@ -2839,51 +2881,9 @@
       "author": "Andre Landgraf"
     },
     {
-      "sha": "4d2d22a",
-      "message": "neon-functions: correct Sentry env-tag guidance (NEON_BRANCH is the injected branch id, present on every branch)",
+      "sha": "cb84446",
+      "message": "neon-functions: document NEON_BRANCH (branch name) injected on every branch",
       "date": "2026-06-13",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "cf73224",
-      "message": "neon-functions: add Mastra Studio observability reference",
-      "date": "2026-06-13",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "292f55f",
-      "message": "neon-functions skill: add integrations reference covering Sentry setup",
-      "date": "2026-06-13",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "240e2e1",
-      "message": "neon-functions skill: correct isolate-reuse model and document Postgres connection pooling",
-      "date": "2026-06-12",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "2a2aa7d",
-      "message": "neon-functions skill: document direct client\u2192function agent pattern",
-      "date": "2026-06-12",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "58ec922",
-      "message": "Merge pull request #30 from neondatabase/feat/neon-preview-platform-skills",
-      "date": "2026-06-12",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "37a595a",
-      "message": "neon-ai-gateway skill: NEON_AI_GATEWAY_BASE_URL is the bare host",
-      "date": "2026-06-12",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "8b2afa9",
-      "message": "neon-ai-gateway skill: drop nonexistent ai_gateway/models API endpoint",
-      "date": "2026-06-12",
       "author": "Andre Landgraf"
     }
   ],
@@ -3695,6 +3695,12 @@
   ],
   "stripe--ai": [
     {
+      "sha": "7e7f72e",
+      "message": "sync skills",
+      "date": "2026-06-14",
+      "author": "stripe-ai-sync[bot]"
+    },
+    {
       "sha": "ea0ad23",
       "message": "sync skills",
       "date": "2026-06-13",
@@ -3747,12 +3753,6 @@
       "message": "sync skills",
       "date": "2026-05-20",
       "author": "stripe-ai-sync[bot]"
-    },
-    {
-      "sha": "9496150",
-      "message": "fix on glob syntax to ensure it points at files, more generic setup for preventing files from being deleted (#428)",
-      "date": "2026-05-20",
-      "author": "John O'Sullivan"
     }
   ],
   "supabase--agent-skills": [
@@ -4515,6 +4515,30 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "e5e9b29",
+      "message": "release: v7.38.0 - Claude Code Workflows adoption (loki ultracode + opt-in analysis)",
+      "date": "2026-06-14",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "5ca2ff5",
+      "message": "release: v7.37.1 - fix CI shellcheck failure (SC2164 in session test)",
+      "date": "2026-06-14",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "c11b202",
+      "message": "release: v7.37.0 - session-continuity Phase 2 (recovery resume, #165)",
+      "date": "2026-06-14",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "46e0187",
+      "message": "release: v7.36.0 - loki review --ultra, plan moat, review allowlist, signature hardening",
+      "date": "2026-06-13",
+      "author": "asklokesh"
+    },
+    {
       "sha": "1780a84",
       "message": "fix(action): remove deprecated Gemini provider from GitHub Action (deprecated v7.5.18)",
       "date": "2026-06-12",
@@ -4548,30 +4572,6 @@
       "sha": "ca9b52a",
       "message": "docs(branding): Loki Mode (free/OSS) vs Autonomi (commercial) brand guide",
       "date": "2026-06-12",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "aa02948",
-      "message": "release: v7.35.0 - clickable project chips + view-preserving app switch",
-      "date": "2026-06-12",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "95f6dcf",
-      "message": "release: v7.34.1 - loki api start --help short-circuits to help (#574)",
-      "date": "2026-06-11",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "8e99ee4",
-      "message": "fix(cli): loki api start --help short-circuits to help instead of starting the server (#574)",
-      "date": "2026-06-11",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "1c95eea",
-      "message": "release: v7.34.0 - Claude session-id stamping (Phase 1, correlation-only) + 4 CLI-honesty fixes (council 3/3 APPROVE, lo",
-      "date": "2026-06-11",
       "author": "asklokesh"
     }
   ],
@@ -5185,6 +5185,18 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "00c0702",
+      "message": "docs: capture new kernel-shadow/vendor-hash CI-CD posture + do-not-flip soak discipline (#870)",
+      "date": "2026-06-13",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "28e6c15",
+      "message": "feat(blog): add cap-drop-all-broke-the-gate-socket to tonsofskills.com/blog",
+      "date": "2026-06-13",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "14bf5a3",
       "message": "feat(ci): kernel-vendor V\u2264C\u2264K version-coupling gate (advisory) [k8wo] (#868)",
       "date": "2026-06-13",
@@ -5231,18 +5243,6 @@
       "message": "feat(blog): mirror 'Green CI Proves Nothing' to tonsofskills.com/blog",
       "date": "2026-06-12",
       "author": "Jeremy Longshore"
-    },
-    {
-      "sha": "62d5638",
-      "message": "fix(validator): real allowed-tools validation + missing-name diagnostic + stale docstrings (#860)",
-      "date": "2026-06-12",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "cdc6b3d",
-      "message": "fix(ci): resolve all 75 actionlint/shellcheck findings across 15 workflows (#861)",
-      "date": "2026-06-12",
-      "author": "intentsolutions.io"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5309,6 +5309,36 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "142249a",
+      "message": "fix: stop gitignoring .security-scan-passed in transcript-fixer + financial-data-collector",
+      "date": "2026-06-13",
+      "author": "daymade"
+    },
+    {
+      "sha": "a2e07fb",
+      "message": "chore: doc-governance + health-check follow-ups (version-badge CI, description slim, repomix leak, scan markers)",
+      "date": "2026-06-13",
+      "author": "daymade"
+    },
+    {
+      "sha": "1f620f5",
+      "message": "docs: sync README version badge 1.64.0 -> 1.65.0 (drift recurrence) + root-cause in CLAUDE.md",
+      "date": "2026-06-13",
+      "author": "daymade"
+    },
+    {
+      "sha": "d694d65",
+      "message": "feat(marketplace-health-check): add 6-dimension repo health-check skill (v1.0.0)",
+      "date": "2026-06-13",
+      "author": "daymade"
+    },
+    {
+      "sha": "729f18b",
+      "message": "fix: sanitize pre-existing PII + correct broken install commands (#67)",
+      "date": "2026-06-13",
+      "author": "daymade"
+    },
+    {
       "sha": "7a5ca06",
       "message": "chore: release v1.64.0 \u2014 archive [Unreleased] to [1.64.0]",
       "date": "2026-06-13",
@@ -5336,36 +5366,6 @@
       "sha": "019c553",
       "message": "chore: register claude-usage-analyst + skill-creator/debugging v1.2.0 updates (#87)",
       "date": "2026-06-13",
-      "author": "daymade"
-    },
-    {
-      "sha": "ccb466c",
-      "message": "feat(bilibili-source): add login-free Bilibili video data-fetch skill (#86)",
-      "date": "2026-06-13",
-      "author": "daymade"
-    },
-    {
-      "sha": "0f104ea",
-      "message": "feat(llm-wiki-setup): add skill directory (interview/templates/scripts/examples) (#81)",
-      "date": "2026-06-06",
-      "author": "daymade"
-    },
-    {
-      "sha": "bceef54",
-      "message": "Merge origin/main: align tunnel-doctor v1.6.0 + debugging-network-issues v1.1.0 onto the v1.62 / 61-skill base",
-      "date": "2026-06-06",
-      "author": "daymade"
-    },
-    {
-      "sha": "49833c3",
-      "message": "Update tunnel-doctor v1.6.0 + debugging-network-issues v1.1.0: TUN measurement contamination + reverse-path trap",
-      "date": "2026-06-06",
-      "author": "daymade"
-    },
-    {
-      "sha": "53db35d",
-      "message": "docs: wire check_doc_skill_lists.py into release SOP + sync CHANGELOG",
-      "date": "2026-06-06",
       "author": "daymade"
     }
   ],
@@ -5495,125 +5495,125 @@
   ],
   "glebis--claude-skills": [
     {
-      "sha": "25887f6",
-      "message": "feat(rigorous-experiments): explorer all-tests toggle",
-      "date": "2026-06-08",
+      "sha": "8c8c4bc",
+      "message": "Merge pull request #28 from glebis/feat/diskcleanup-audit-fixes",
+      "date": "2026-06-13",
+      "author": "Gleb Kalinin"
+    },
+    {
+      "sha": "dede670",
+      "message": "fix(disk cleanup): glob/prune bugs, genericize config, add setup mode + tests",
+      "date": "2026-06-13",
       "author": "glebis"
     },
     {
-      "sha": "3f124c1",
-      "message": "fix(rigorous-experiments): data-validation rule for degenerate units + non-varying covariates",
-      "date": "2026-06-08",
+      "sha": "50ed870",
+      "message": "Merge pull request #27 from glebis/feat/diskcleanup-script-companions",
+      "date": "2026-06-13",
+      "author": "Gleb Kalinin"
+    },
+    {
+      "sha": "f7f2248",
+      "message": "feat(disk cleanup): add script companions the SKILL.md references",
+      "date": "2026-06-13",
       "author": "glebis"
     },
     {
-      "sha": "8dd0916",
-      "message": "feat(rigorous-experiments): add investigate-leads mode + workflow hardening",
-      "date": "2026-06-08",
+      "sha": "ccd3494",
+      "message": "Merge pull request #26 from glebis/feat/diskcleanup-xcode-docker",
+      "date": "2026-06-13",
+      "author": "Gleb Kalinin"
+    },
+    {
+      "sha": "c7f4b13",
+      "message": "feat(disk cleanup): Xcode/simulator cache guidance + Docker per-name selection",
+      "date": "2026-06-13",
       "author": "glebis"
     },
     {
-      "sha": "2f87c2e",
-      "message": "feat(rigorous-experiments): explorer v3 \u2014 sans-serif UI, resizable sidebar, stars, full-field rendering, report links",
-      "date": "2026-06-07",
+      "sha": "7b098d8",
+      "message": "Merge pull request #25 from glebis/chore/cognitive-toolkit-drop-skill-file",
+      "date": "2026-06-13",
+      "author": "Gleb Kalinin"
+    },
+    {
+      "sha": "57a0b37",
+      "message": "chore(cognitive-toolkit): drop non-standard skill_file key",
+      "date": "2026-06-13",
       "author": "glebis"
     },
     {
-      "sha": "4473e56",
-      "message": "fix(rigorous-experiments): explorer shows experiment titles and never leaves tests unexplained",
-      "date": "2026-06-06",
-      "author": "glebis"
+      "sha": "a12796a",
+      "message": "Merge pull request #24 from glebis/feat/cmux-whitepaper-audit-skills",
+      "date": "2026-06-13",
+      "author": "Gleb Kalinin"
     },
     {
-      "sha": "a9cdd33",
-      "message": "feat: add rigorous-experiments skill (n-of-1 statistical experiments: design/conduct/validate/cross-validate/audit modes",
-      "date": "2026-06-06",
-      "author": "glebis"
-    },
-    {
-      "sha": "212bf88",
-      "message": "feat(tufte-report): explicit table row-hover CSS (active-row highlight)",
-      "date": "2026-06-05",
-      "author": "glebis"
-    },
-    {
-      "sha": "9d330e3",
-      "message": "confide: fix PHONE/DATE collision \u2014 numeric dates were mislabeled PHONE",
-      "date": "2026-06-03",
-      "author": "glebis"
-    },
-    {
-      "sha": "a8ea4b4",
-      "message": "confide: add Presidio as an optional ensemble layer (off by default)",
-      "date": "2026-06-03",
-      "author": "glebis"
-    },
-    {
-      "sha": "a9f4071",
-      "message": "confide: bare-domain URL recognizer + NER scaffolding filter",
-      "date": "2026-06-03",
+      "sha": "9ba10a5",
+      "message": "feat(whitepaper-audit): add white-paper auditing skill",
+      "date": "2026-06-13",
       "author": "glebis"
     }
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "10e16bc",
-      "message": "docs(subagents): update Last Updated badge to Jun 13 2026 and v2.1.176",
-      "date": "2026-06-13",
+      "sha": "eed6793",
+      "message": "chore(badge): update Last Updated badge to Jun 14, 2026 11:35 AM PKT (v2.1.176)",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "519560b",
-      "message": "changelog(subagents): add 2026-06-13 run \u2014 no drift detected (v2.1.176)",
-      "date": "2026-06-13",
+      "sha": "9c26b56",
+      "message": "chore(changelog): add 2026-06-14 subagents drift check entry (v2.1.176, no drift)",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "6679a5f",
-      "message": "chore(commands): bump Last Updated badge to Jun 13, 2026 and Claude Code v2.1.176",
-      "date": "2026-06-13",
+      "sha": "26af3b9",
+      "message": "changelog(commands): append 2026-06-14 no-drift entry \u2014 v2.1.176 in sync",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "f735fb4",
-      "message": "changelog(commands): append 2026-06-13 commands drift entry \u2014 no drift v2.1.176",
-      "date": "2026-06-13",
+      "sha": "f1f12d2",
+      "message": "chore(commands): bump Last Updated badge to Jun 14, 2026 11:06 AM PKT",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "533c43e",
-      "message": "chore(badge): bump skills report badge to v2.1.176, Jun 13 2026",
-      "date": "2026-06-13",
+      "sha": "940ec9e",
+      "message": "chore(skills): update Last Updated badge to Jun 14, 2026",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "a7b7955",
-      "message": "chore(changelog): add 2026-06-13 skills drift entry \u2014 no drift v2.1.176",
-      "date": "2026-06-13",
+      "sha": "ff3075e",
+      "message": "chore(skills-changelog): add 2026-06-14 no-drift entry for v2.1.176",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "f3264a7",
-      "message": "chore(readme): bump Last Updated badge to v2.1.176 (Jun 13 2026 9:40 AM PKT)",
-      "date": "2026-06-13",
+      "sha": "bc494ca",
+      "message": "chore(readme): bump Last Updated badge timestamp to Jun 14, 2026 9:41 AM PKT",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "a9b3fda",
-      "message": "chore(changelog): append CONCEPTS drift-check entry for v2.1.176 (Jun 13 2026)",
-      "date": "2026-06-13",
+      "sha": "eb0cae8",
+      "message": "chore(changelog): record daily CONCEPTS drift-check for v2.1.176 (2026-06-14)",
+      "date": "2026-06-14",
       "author": "Claude"
     },
     {
-      "sha": "4e6421e",
-      "message": "chore(changelog): append development workflows entry for Jun 13 2026",
-      "date": "2026-06-13",
+      "sha": "556e1a7",
+      "message": "chore(changelog): append development workflows entry \u2014 Jun 14, 2026",
+      "date": "2026-06-14",
       "author": "Claude Routine"
     },
     {
-      "sha": "6a388da",
-      "message": "chore(workflows): update development workflows table Jun 13 2026",
-      "date": "2026-06-13",
+      "sha": "65124c4",
+      "message": "chore(workflows): update development workflows table \u2014 Jun 14, 2026",
+      "date": "2026-06-14",
       "author": "Claude Routine"
     }
   ],

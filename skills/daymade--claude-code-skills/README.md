@@ -6,15 +6,15 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Skills](https://img.shields.io/badge/skills-63-blue.svg)](https://github.com/daymade/claude-code-skills)
-[![Version](https://img.shields.io/badge/version-1.64.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Skills](https://img.shields.io/badge/skills-64-blue.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-1.65.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
 
 </div>
 
-Professional Claude Code skills marketplace featuring 63 production-ready skills for enhanced development workflows.
+Professional Claude Code skills marketplace featuring 64 production-ready skills for enhanced development workflows.
 
 ## 📑 Table of Contents
 
@@ -85,7 +85,7 @@ Then:
 ```bash
 claude plugin marketplace add https://github.com/daymade/claude-code-skills
 # Marketplace name: daymade-skills (from marketplace.json)
-claude plugin install skill-creator@daymade-skills
+claude plugin install daymade-skill@daymade-skills
 ```
 
 ### What You Can Do
@@ -159,7 +159,8 @@ In Claude Code, use `/plugin ...` slash commands. In your terminal, use `claude 
 
 **Essential Skill** (recommended first install):
 ```bash
-claude plugin install skill-creator@daymade-skills
+# skill-creator ships inside the daymade-skill suite
+claude plugin install daymade-skill@daymade-skills
 ```
 
 **Documentation Suite** (shared namespace for document workflows):
@@ -240,7 +241,7 @@ claude plugin install qa-expert@daymade-skills
 claude plugin install prompt-optimizer@daymade-skills
 
 # CCPM skill registry search and management
-claude plugin install skills-search@daymade-skills
+claude plugin install daymade-skill@daymade-skills
 
 # Promptfoo LLM evaluation framework
 claude plugin install promptfoo-evaluation@daymade-skills
@@ -252,7 +253,7 @@ claude plugin install iOS-APP-developer@daymade-skills
 claude plugin install twitter-reader@daymade-skills
 
 # Skill quality review and improvement
-claude plugin install skill-reviewer@daymade-skills
+claude plugin install daymade-skill@daymade-skills
 
 # GitHub contribution strategy
 claude plugin install github-contributor@daymade-skills
@@ -1300,7 +1301,7 @@ Review and improve Claude Code skills against official best practices with three
 **Example usage:**
 ```bash
 # Install the skill
-claude plugin install skill-reviewer@daymade-skills
+claude plugin install daymade-skill@daymade-skills
 
 # Self-review your skill
 "Validate my skill at ~/my-skills/my-awesome-skill"
@@ -2561,6 +2562,41 @@ claude plugin install daymade-claude-code@daymade-skills
 ```
 
 **Requirements**: `ccusage` (via `npm i -g ccusage` or `npx ccusage@latest`), `python3`.
+
+---
+
+### 66. **marketplace-health-check** - Full 6-Dimension Repo Health Check
+
+```bash
+claude plugin install marketplace-health-check@daymade-skills
+```
+
+Run a comprehensive, evidence-based health check of this skills marketplace repo with a parallel fan-out Dynamic Workflow — six inspectors cover code/script safety, documentation/SSOT consistency, security/PII leaks, open-PR triage, open-issue triage, and marketplace-manifest integrity at once — then the serious findings are Counter-Reviewed before they reach the report.
+
+**When to use:**
+- Before a release, or any time you want a full "is this whole repo OK across the board" sweep
+- Checking whether docs/versions are consistent, PRs/issues are triaged, or PII has leaked into a public skill
+- 全面体检 / 检查仓库状态 / 审计一下仓库
+
+**Key features:**
+- Six parallel inspectors (one per dimension) via a Dynamic Workflow — fast and focused (~15-20 min)
+- Counter-Review: every high/critical finding is verified by hand before it reaches the report (agent findings are hypotheses, not conclusions) — catches false alarms AND wrong fixes
+- Priority-ranked report: must-fix / backlog / optional / key insights, each item tagged real vs false-alarm
+- Bundles the proven workflow script + a methodology reference (anti-target PII rule, working-copy-vs-history, scan-marker necessary-not-sufficient, the broken-install-command bug class)
+- Inline orchestrator — drives the Workflow tool, so it never runs forked
+
+**Example usage:**
+```bash
+# Install
+claude plugin install marketplace-health-check@daymade-skills
+
+# Then ask Claude naturally
+"do a full health check of this repo before I cut a release"
+"audit the marketplace — code, docs, PII, PRs, issues, everything"
+"全面体检一下这个仓库"
+```
+
+**Requirements**: `gh` CLI (authenticated), `git`, `jq`, `python3`; opt-in to the Workflow tool (asking to run the health check is the opt-in).
 
 ---
 

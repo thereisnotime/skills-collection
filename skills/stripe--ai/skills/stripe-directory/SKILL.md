@@ -23,7 +23,7 @@ Most requests are **discovery** — find and compare services. That is the core 
 
 1. **Clarify only what’s missing**: buyer/vertical, job-to-be-done, must-have capability, geography (only if it matters).
 
-1. **Search iteratively**: `stripe directory search "<query>" --format json`
+2. **Search iteratively**: `stripe directory search "<query>" --format json`
 
    - Short noun phrases, one angle per query; run 1-3, then broaden/narrow on results.
    - Angles to cover: vertical → workflow → pain point → adjacent. Two examples:
@@ -33,20 +33,20 @@ Most requests are **discovery** — find and compare services. That is the core 
    - If the user wants to *use/buy* a service, also pass `--mpp-supported` in at least one search to find results you can pay for programmatically.
    - Sparse niche? Raise `--limit` and try the next `--page` before concluding it’s empty.
 
-1. **Dedupe & score** using `display_name`, `description`, `url`, `username` as evidence.
+3. **Dedupe & score** using `display_name`, `description`, `url`, `username` as evidence.
 
    - Prefer results whose description/site clearly match the target workflow.
    - Prefer more trust signals over fewer: Projects provider, Link enabled, Marketplace app, Stripe Verified. For buy/use intent, also prefer MPP-supported results.
    - Thin description but strong brand/domain match → keep in a weaker bucket, don’t discard.
 
-1. **Return a shortlist, not a dump** — 5-10 strong matches, grouped:
+4. **Return a shortlist, not a dump** — 5-10 strong matches, grouped:
 
    - **direct** / **adjacent** / **needs manual review**
    - Each entry: name · why it matched · URL (· which query surfaced it, when useful).
    - Projects providers: offer the follow-up. The JSON gives the exact commands under each result’s `projects.catalog_command` / `projects.install_command` (`stripe projects catalog <provider>`, `stripe projects add <provider>`).
    - MPP-supported results: note they’re purchasable and include `mpp.slug` / `mpp.url`.
 
-1. **Be honest about weak results** — if sparse or generic, say so and adjust: broaden, narrow, or try synonyms rather than padding with noise.
+5. **Be honest about weak results** — if sparse or generic, say so and adjust: broaden, narrow, or try synonyms rather than padding with noise.
 
 Always report the exact queries (and filters) you ran so the user can keep iterating.
 
@@ -68,7 +68,7 @@ Once the user picks, silently run `which <tool> 2>/dev/null` to check if it’s 
 Short version:
 
 1. Resolve the real callable endpoint from the result’s `mpp.slug` / `mpp.url`. `mpp.url` is often the mpp.dev landing form (`https://mpp.dev/services#<slug>`) — resolve the raw endpoint on [mpp.dev](https://mpp.dev) if so. Read the HTTP 402 challenge to confirm the amount: `curl -s -D - -o /dev/null <endpoint_url>` (look for `WWW-Authenticate`).
-1. Use the payer the user selected.
+2. Use the payer the user selected.
    - **`link-cli`** (Stripe-native Shared Payment Token, has a test mode, no crypto wallet, US Link accounts only; `npm i -g @stripe/link-cli`): `auth login` → `mpp decode --challenge "<value>"` (get `network_id`) → `spend-request create --credential-type shared_payment_token --network-id <id> --amount <cents ≤50000> --context "<100+ chars>" --request-approval` (blocks for approval) → `mpp pay <endpoint_url> --spend-request-id <approved_id>`.
    - **Tempo**: `tempo wallet login` / `services` / `request`.
    - **Privy**: `@privy-io/agent-wallet-cli`.

@@ -21,6 +21,13 @@ import {
   claudeSessionUuid,
   claudeIterationSessionUuid,
   sessionStampArgv,
+  reviewAllowlistEnabled,
+  reviewAllowlistArgv,
+  REVIEW_ALLOWLIST_TOKEN,
+  resumeSessionEnabled,
+  sessionForkEnabled,
+  resumeTargetUuid,
+  sessionResumeArgv,
   _resetClaudeHelpCacheForTest,
 } from "../../src/providers/claude_flags.ts";
 
@@ -474,5 +481,173 @@ describe("claude_flags.buildAutoFlags --no-session-persistence (v7.34.0 FIX D)",
       if (saved === undefined) delete process.env["LOKI_NO_SESSION_PERSIST"];
       else process.env["LOKI_NO_SESSION_PERSIST"] = saved;
     }
+  });
+});
+
+// EMBED 3b (v7.35.0, #167): --allowedTools positive review allowlist helpers.
+describe("claude_flags review allowlist (EMBED 3b, #167)", () => {
+  const HELP_WITH = "  --allowedTools, --allowed-tools <tools...>  allow\n  --disallowedTools <tools...>  deny";
+  const HELP_WITHOUT = "  --disallowedTools <tools...>  deny"; // no --allowedTools
+
+  let savedFlag: string | undefined;
+  beforeEach(() => {
+    savedFlag = process.env["LOKI_REVIEW_ALLOWLIST"];
+  });
+  afterEach(() => {
+    if (savedFlag === undefined) delete process.env["LOKI_REVIEW_ALLOWLIST"];
+    else process.env["LOKI_REVIEW_ALLOWLIST"] = savedFlag;
+    _resetClaudeHelpCacheForTest(null);
+  });
+
+  it("DEFAULT OFF: reviewAllowlistEnabled() false and argv empty when env unset", () => {
+    delete process.env["LOKI_REVIEW_ALLOWLIST"];
+    _resetClaudeHelpCacheForTest(HELP_WITH);
+    expect(reviewAllowlistEnabled()).toBe(false);
+    expect(reviewAllowlistArgv()).toEqual([]);
+  });
+
+  it("ON: emits --allowedTools with the token when =1 and CLI supports the flag", () => {
+    process.env["LOKI_REVIEW_ALLOWLIST"] = "1";
+    _resetClaudeHelpCacheForTest(HELP_WITH);
+    expect(reviewAllowlistEnabled()).toBe(true);
+    const argv = reviewAllowlistArgv();
+    expect(argv.length).toBe(2);
+    expect(argv[0]).toBe("--allowedTools");
+    expect(argv[1]).toBe(REVIEW_ALLOWLIST_TOKEN);
+  });
+
+  it("graceful degrade: =1 but CLI lacks --allowedTools -> disabled, argv empty", () => {
+    process.env["LOKI_REVIEW_ALLOWLIST"] = "1";
+    _resetClaudeHelpCacheForTest(HELP_WITHOUT);
+    expect(reviewAllowlistEnabled()).toBe(false);
+    expect(reviewAllowlistArgv()).toEqual([]);
+  });
+
+  it("token grants only read/inspect tools (Read/Grep/Glob + read-only git), never mutators", () => {
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Read");
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Grep");
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Glob");
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Bash(git diff:*)");
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Bash(git log:*)");
+    expect(REVIEW_ALLOWLIST_TOKEN).toContain("Bash(git status:*)");
+    // No mutation tools or git mutation forms in an ALLOW grant.
+    expect(REVIEW_ALLOWLIST_TOKEN).not.toContain("Edit");
+    expect(REVIEW_ALLOWLIST_TOKEN).not.toContain("Write");
+    expect(REVIEW_ALLOWLIST_TOKEN).not.toContain("NotebookEdit");
+    expect(REVIEW_ALLOWLIST_TOKEN).not.toContain("git push");
+    expect(REVIEW_ALLOWLIST_TOKEN).not.toContain("git reset");
+    expect(REVIEW_ALLOWLIST_TOKEN).not.toContain("git commit");
+  });
+
+  it("returns exactly [--allowedTools, <token>] so the token is one argv element (never swallows the -p prompt)", () => {
+    process.env["LOKI_REVIEW_ALLOWLIST"] = "1";
+    _resetClaudeHelpCacheForTest(HELP_WITH);
+    const argv = reviewAllowlistArgv();
+    // Exactly one flag + one token element. The token legitimately contains
+    // spaces inside Bash(git diff:*) specifiers; what matters is that it is a
+    // SINGLE array element (argv.length === 2), so when spread into the claude
+    // argv the following -p prompt is never consumed as extra tool names.
+    expect(argv.length).toBe(2);
+    expect(argv[0]).toBe("--allowedTools");
+    expect(argv[1]).toBe(REVIEW_ALLOWLIST_TOKEN);
+  });
+});
+
+// Session-continuity Phase 2 (GitHub #165) -- LOKI_RESUME_SESSION recovery resume.
+describe("claude_flags Phase 2 resume (#165)", () => {
+  const RESUME = "LOKI_RESUME_SESSION";
+  const FORK = "LOKI_SESSION_FORK";
+  let savedResume: string | undefined;
+  let savedFork: string | undefined;
+  let savedLokiDir: string | undefined;
+  let dir: string;
+
+  beforeEach(() => {
+    savedResume = process.env[RESUME];
+    savedFork = process.env[FORK];
+    savedLokiDir = process.env["LOKI_DIR"];
+    delete process.env[RESUME];
+    delete process.env[FORK];
+    dir = mkdtempSync(join(tmpdir(), "loki-p2-flags-"));
+    mkdirSync(join(dir, ".loki", "state"), { recursive: true });
+    process.env["LOKI_DIR"] = join(dir, ".loki");
+    _resetClaudeHelpCacheForTest(
+      "  --session-id <uuid>\n  --resume <id>\n  --fork-session\n",
+    );
+  });
+  afterEach(() => {
+    if (savedResume === undefined) delete process.env[RESUME];
+    else process.env[RESUME] = savedResume;
+    if (savedFork === undefined) delete process.env[FORK];
+    else process.env[FORK] = savedFork;
+    if (savedLokiDir === undefined) delete process.env["LOKI_DIR"];
+    else process.env["LOKI_DIR"] = savedLokiDir;
+    rmSync(dir, { recursive: true, force: true });
+    _resetClaudeHelpCacheForTest(null);
+  });
+
+  const seed = (uuid: string, mode = "resume") =>
+    writeFileSync(
+      join(dir, ".loki", "state", "claude-session.json"),
+      JSON.stringify({ run_id: "r", claude_session_uuid: uuid, mode }),
+    );
+
+  it("resumeSessionEnabled default OFF; ON only with =1 + CLI support", () => {
+    expect(resumeSessionEnabled()).toBe(false);
+    process.env[RESUME] = "1";
+    expect(resumeSessionEnabled()).toBe(true);
+  });
+
+  it("resumeSessionEnabled degrades when --resume absent from help", () => {
+    _resetClaudeHelpCacheForTest("  --session-id <uuid>\n");
+    process.env[RESUME] = "1";
+    expect(resumeSessionEnabled()).toBe(false);
+  });
+
+  it("resumeTargetUuid reads a valid stored uuid, rejects malformed", () => {
+    const u = claudeSessionUuid("run-x") as string;
+    seed(u);
+    expect(resumeTargetUuid(dir)).toBe(u);
+    seed("not-a-uuid");
+    expect(resumeTargetUuid(dir)).toBeNull();
+  });
+
+  it("resumeTargetUuid returns null when the file is absent", () => {
+    expect(resumeTargetUuid(dir)).toBeNull();
+  });
+
+  it("sessionResumeArgv default OFF -> [] (byte-identical to v7.34)", () => {
+    const u = claudeSessionUuid("run-x") as string;
+    seed(u);
+    expect(sessionResumeArgv(dir)).toEqual([]);
+  });
+
+  it("sessionResumeArgv with =1 emits --resume <stored uuid>", () => {
+    const u = claudeSessionUuid("run-x") as string;
+    seed(u);
+    process.env[RESUME] = "1";
+    expect(sessionResumeArgv(dir)).toEqual(["--resume", u]);
+  });
+
+  it("sessionResumeArgv with FORK=1 appends --fork-session", () => {
+    const u = claudeSessionUuid("run-x") as string;
+    seed(u);
+    process.env[RESUME] = "1";
+    process.env[FORK] = "1";
+    expect(sessionResumeArgv(dir)).toEqual(["--resume", u, "--fork-session"]);
+  });
+
+  it("FORK without RESUME is a no-op (fork only honored with resume)", () => {
+    const u = claudeSessionUuid("run-x") as string;
+    seed(u);
+    process.env[FORK] = "1";
+    expect(sessionForkEnabled()).toBe(false);
+    expect(sessionResumeArgv(dir)).toEqual([]);
+  });
+
+  it("sessionResumeArgv with =1 but malformed stored uuid -> [] (safe degrade)", () => {
+    seed("not-a-uuid");
+    process.env[RESUME] = "1";
+    expect(sessionResumeArgv(dir)).toEqual([]);
   });
 });
