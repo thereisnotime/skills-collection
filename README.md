@@ -6,6 +6,10 @@
 
 A curated collection of Claude Code skills repos, automatically synced daily.
 
+## Interesting Projects
+
+- [Awesome AI Skills](https://awesome-ai-skills.yourtech.stream/) — an expanded, interactive view of this data.
+
 ## Stats
 
 | Metric | Value |
