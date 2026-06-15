@@ -2,7 +2,7 @@
 
 The flagship product of [Autonomi](https://www.autonomi.dev/). Loki Mode is a spec-driven autonomous builder with a built-in trust layer that takes any spec to a deployed product and verifies completion with evidence (quality gates plus a completion council), not just a "done" claim. Complete installation instructions for all platforms and use cases.
 
-**Version:** v7.38.0
+**Version:** v7.44.0
 
 ---
 
@@ -30,6 +30,20 @@ setting any flag to `0`.
   in `loki status --json`).
 - See `skills/quality-gates.md` for full schema and reachability notes.
 
+### Output-token compressor (caveman, default-on, Claude-only)
+Loki integrates [caveman](https://github.com/JuliusBrussee/caveman), an optional
+Claude Code skill that compresses the model's OUTPUT tokens only (keeping all
+technical substance). It activates on free-form generation (the main RARV dev
+loop) and is HARD-SUPPRESSED on every trust-gate subcall (council votes, code
+review verdict, evidence-related parses) so determinism is never affected.
+- Claude-provider-only; runs are byte-identical on Codex / Cline / Aider.
+- Default on; opt out with `LOKI_CAVEMAN=0`.
+- Level: `LOKI_CAVEMAN_LEVEL` (default `full`; also `lite`, `ultra`, `wenyan*`).
+- Pinned + vendor-less: `LOKI_CAVEMAN_VERSION` (default `1.9.0`); Loki bootstraps
+  the pinned version on demand (opt out `LOKI_CAVEMAN_AUTO_BOOTSTRAP=0`).
+- Savings are output-token-only and bounded; Loki never quotes a dollar figure.
+- See `skills/quality-gates.md` (Output-token compressor) for details.
+
 ### Earlier highlights still in scope
 - Bash-to-Bun runtime migration in progress (see `UPGRADING.md`)
 - Provider-agnostic runtime: Claude (full), Codex, Cline, Aider (no vendor lock-in)
@@ -40,7 +54,8 @@ setting any flag to `0`.
 
 ## Table of Contents
 
-- [npm (Recommended)](#npm-recommended)
+- [Bun (Recommended)](#bun-recommended)
+- [npm](#npm)
 - [Homebrew](#homebrew)
 - [Quick Start](#quick-start)
 - [Verify Installation](#verify-installation)
@@ -48,6 +63,7 @@ setting any flag to `0`.
 - [VS Code Extension (Deprecated)](#vs-code-extension-deprecated)
 - [Sandbox Mode](#sandbox-mode)
 - [Multi-Provider Support](#multi-provider-support)
+- [Environment Variables](#environment-variables)
 - [Claude Code (CLI)](#claude-code-cli)
 - [Claude.ai (Web)](#claudeai-web)
 - [Anthropic API Console](#anthropic-api-console)
@@ -57,17 +73,39 @@ setting any flag to `0`.
 
 ---
 
-## npm (Recommended)
+## Bun (Recommended)
+
+```bash
+bun install -g loki-mode
+```
+
+Installs the `loki` CLI. Bun is the recommended path: the `loki` shim runs the
+faster TypeScript runtime when `bun` is on `PATH`, and the stable bash engine
+(the autonomous loop, quality gates, and completion council) runs underneath on
+every route, so you lose nothing by choosing Bun. Run `loki setup-skill` once
+after install to create the per-provider skill symlinks (Claude Code, Codex CLI).
+
+**Prerequisites:** Bun 1.3+ (`curl -fsSL https://bun.sh/install | bash`, or
+`brew install oven-sh/bun/bun`). No separate Node install is required.
+
+**Update:** `bun update -g loki-mode`
+
+**Uninstall:** `bun remove -g loki-mode`
+
+---
+
+## npm
 
 ```bash
 npm install -g loki-mode
 ```
 
-Installs the `loki` CLI. As of v7.4.12 there is no postinstall step; run
-`loki setup-skill` once after install to create the per-provider skill
-symlinks (Claude Code, Codex CLI). The `loki` shim auto-routes
-read-only commands to the Bun runtime when `bun` is on `PATH` and falls
-back to the bash CLI otherwise.
+A fully supported alternative when you prefer npm or do not have Bun. As of
+v7.4.12 there is no postinstall step; run `loki setup-skill` once after install
+to create the per-provider skill symlinks (Claude Code, Codex CLI). The `loki`
+shim auto-routes read-only commands to the Bun runtime when `bun` is on `PATH`
+and falls back to the bash CLI otherwise (the core autonomous engine is the
+same on both routes).
 
 **Prerequisites:** Node.js 18+. Bun 1.3+ optional but recommended for the
 faster routed commands and forward-compat with v8.0.0.
@@ -117,7 +155,7 @@ and orchestrator components ship via npm, Docker, and Homebrew only.
 pip install loki-mode-sdk
 
 # Install the full CLI (recommended)
-npm install -g loki-mode  # or: brew tap asklokesh/tap && brew install loki-mode
+bun install -g loki-mode  # or: npm install -g loki-mode, or: brew tap asklokesh/tap && brew install loki-mode
 ```
 
 The naming asymmetry (`loki-mode` on npm vs `loki-mode-sdk` on PyPI) is
@@ -327,6 +365,74 @@ When using `codex`, `cline`, or `aider` providers, Loki Mode operates in **degra
 - Quality gates and RARV cycle remain fully functional
 
 **Recommendation:** For the best experience and full feature support, use the default `claude` provider.
+
+---
+
+## Environment Variables
+
+Loki Mode is designed to run with zero configuration: the trust-layer and
+quality features below are default-on and decide intelligently by inspecting
+the work. The environment variables here are opt-out escape hatches for power
+users, not required setup. Set the documented value to disable a feature; leave
+the variable unset to keep the intelligent default.
+
+### Trust-gate and completion knobs (default-on)
+
+These are read by the orchestrator (`autonomy/run.sh`) on every run.
+
+- `LOKI_REVIEW_INCONCLUSIVE_BLOCK` (default `1`) -- when a code-review cycle
+  returns zero usable verdicts (every reviewer produced empty output), the
+  review is treated as INCONCLUSIVE and the gate BLOCKS, because an all-empty
+  review proves nothing. A bounded one-shot retry runs first
+  (`LOKI_REVIEW_RETRY`, default `1`). Set `LOKI_REVIEW_INCONCLUSIVE_BLOCK=0` to
+  record the inconclusive result without blocking.
+
+- `LOKI_COMPLETION_TEST_CAPTURE` (default `1`) -- before the verified-completion
+  evidence gate runs, Loki captures a fresh `test-results.json` so the gate
+  scores on real PASS/FAIL test results instead of a stale or missing file. It
+  reuses this iteration's results if already fresh, and never crashes the
+  completion path on red tests (the gate is the decider). Set
+  `LOKI_COMPLETION_TEST_CAPTURE=0` to opt out.
+
+- `LOKI_AUTO_DOCS` (default `true`) -- auto-generates the `.loki/docs/` suite
+  before the documentation gate evaluates, so the gate scores on real generated
+  docs instead of nagging you to run `loki docs generate` by hand. Bounded:
+  runs at most once per run when docs are missing, and again only when existing
+  docs are substantially stale; best-effort, never fails the iteration loop.
+  Set `LOKI_AUTO_DOCS=false` to opt out.
+
+### Output-token compressor (caveman, Claude-only)
+
+Loki integrates [caveman](https://github.com/JuliusBrussee/caveman), an optional
+Claude Code skill that compresses the model's OUTPUT tokens only (keeping all
+technical substance). It activates on free-form generation (the main RARV dev
+loop) and is HARD-SUPPRESSED on every trust-gate subcall (council votes, code
+review verdicts, evidence-related parses) so determinism is never affected. It
+is Claude-provider-only; runs are byte-identical on Codex / Cline / Aider. These
+variables are read in `autonomy/lib/claude-flags.sh`.
+
+- `LOKI_CAVEMAN` (default on) -- set `LOKI_CAVEMAN=0` to disable the compressor.
+  Suppression on trust-gate subcalls is unconditional and applies even when
+  caveman is globally installed but `LOKI_CAVEMAN=0`, so trust gates are never
+  exposed to compression.
+
+- `LOKI_CAVEMAN_LEVEL` (default `full`) -- the compression level for free-form
+  activation. When you do NOT set this, the level is inferred per-invocation
+  from the run's RARV tier (planning -> `lite`, development/fast -> `full`); the
+  auto path never selects `ultra`. Setting `LOKI_CAVEMAN_LEVEL` explicitly
+  overrides the inference entirely (the opt-out escape hatch).
+
+- `LOKI_CAVEMAN_VERSION` (default `1.9.0`) -- the pinned caveman version used by
+  the one-time bootstrap. Bump only to upgrade the compressor.
+
+### RARV-C closure knobs (default-on)
+
+The Phase 1 / RARV-C closure loop (findings injection, override council,
+learnings writer, handoff doc) is default-on and documented in detail at the
+top of this guide under [Phase 1 RARV-C closure](#phase-1-rarv-c-closure-shipped-v750-default-on-as-of-v753):
+`LOKI_INJECT_FINDINGS`, `LOKI_OVERRIDE_COUNCIL`, `LOKI_AUTO_LEARNINGS`, and
+`LOKI_HANDOFF_MD` (each opt out with `=0`). For the full schema and
+reachability notes, see `skills/quality-gates.md`.
 
 ---
 

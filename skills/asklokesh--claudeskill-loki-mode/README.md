@@ -13,7 +13,7 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 [![Docker Pulls](https://img.shields.io/docker/pulls/asklokesh/loki-mode?style=for-the-badge&logo=docker&logoColor=white&color=2F71E3)](https://hub.docker.com/r/asklokesh/loki-mode)
 [![License](https://img.shields.io/badge/License-BUSL--1.1-36342E?style=for-the-badge)](LICENSE)
 
-[Website](https://www.autonomi.dev/) | [Documentation](wiki/Home.md) | [Installation](docs/INSTALLATION.md) | [Changelog](CHANGELOG.md) | [Purple Lab Web UI](#purple-lab)
+[Website](https://www.autonomi.dev/) | [Documentation](wiki/Home.md) | [Installation](docs/INSTALLATION.md) | [Changelog](CHANGELOG.md) | [Purple Lab -- deprecated v7.44.0](#purple-lab)
 
 </div>
 
@@ -29,7 +29,7 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 - **Production quality built in** -- 11 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks
 - **Standalone verification: `loki verify`** -- Run Loki's deterministic gates (build, tests, static analysis, secret scan, dependency audit) against any branch or PR diff, including code written by other agents or humans. CI-ready exit codes (0 VERIFIED, 1 CONCERNS, 2 BLOCKED), machine-readable evidence at `.loki/verify/evidence.json`. Inconclusive evidence is never reported as VERIFIED (v7.27.0).
 - **Living spec and pre-build interrogation** -- `loki spec` locks a spec and detects drift deterministically (`spec.lock`, `drift-report.json`, and a `SPEC_DRIFT` finding in `loki verify` with CI exit codes), so you can tell when the build diverges from what was agreed. `loki grill` runs a Devil's-Advocate interrogation of the spec before you build, surfacing gaps and contradictions early (v7.28.0).
-- **Mid-flight model switching + Claude Fable tier** -- switch the model a live run uses from the dashboard (applies at the next iteration, current run only), with Claude Fable available as a premium tier at its published $10/$50 per MTok (2x Opus). For every model lever (session pin to Fable, mid-flight override, architect pass) and every `LOKI_MAX_TIER` path, the `loki plan` quote, the dashboard's reported model, and the actual dispatched model agree, with the ceiling enforced (v7.31.0).
+- **Mid-flight model switching** -- switch the model a live run uses from the dashboard (applies at the next iteration, current run only). A Fable tier lever exists in the CLI, dashboard, and override paths, but Claude Fable 5 is not yet available at the API, so selecting Fable currently collapses to Opus at every dispatch chokepoint and the `loki plan` quote reflects Opus accordingly. For every model lever (session pin, mid-flight override, architect pass) and every `LOKI_MAX_TIER` path, the `loki plan` quote, the dashboard's reported model, and the actual dispatched model agree, with the ceiling enforced (v7.31.0; Fable-to-Opus collapse v7.39.1).
 - **A calmer CLI** -- the help surface is ~20 grouped workflow entries instead of a 70-command wall; merged commands live on as aliases that forward byte-identically with a one-line stderr pointer, so no script breaks (v7.31.0).
 - **Guided first build: `loki quickstart`** -- four quick questions (setup check, one-line idea, template pick, plan review) and your build starts; pressing Enter through every step builds the sample Todo app. The plan step quotes the real cost/time estimate before anything is spent, and `loki demo` now confirms its estimate the same way. If no AI provider CLI is installed, Loki offers to install Claude Code (consent-gated, interactive terminals only) (v7.29.0).
 - **Live App Preview** -- The dashboard embeds the locally-running app in an iframe so you can interact with it immediately during a build. Use `loki preview` (alias `loki open`) to print the URL and open it in your browser. Local-first: no hosted service, no vendor lock (v7.24.0).
@@ -105,7 +105,7 @@ loki quick "build a landing page with a signup form"
 |--------|---------|-------|
 | **Bun (recommended)** | `bun install -g loki-mode` | Fastest startup for CLI commands. |
 | **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` | Auto-installs Bun as a dep |
-| **Docker** | `docker pull asklokesh/loki-mode:7.31.0 && docker run --rm asklokesh/loki-mode:7.31.0 start prd.md` | Bun pre-installed in image |
+| **Docker** | `docker pull asklokesh/loki-mode:7.40.0 && docker run --rm asklokesh/loki-mode:7.40.0 start prd.md` | Bun pre-installed in image |
 | **npm (compat)** | `npm install -g loki-mode` | Works without Bun (bash fallback). Migrate any time with `loki self-update --to bun`. |
 
 **Upgrading:**
@@ -165,7 +165,7 @@ The next major release sunsets the Bash runtime entirely. There is no firm calen
 | Method | Command |
 |--------|---------|
 | **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` |
-| **Docker** | `docker pull asklokesh/loki-mode:7.31.0` |
+| **Docker** | `docker pull asklokesh/loki-mode:7.40.0` |
 | **Inside Claude Code** | `claude --dangerously-skip-permissions` then type "Loki Mode" |
 | **Git clone** | `git clone https://github.com/asklokesh/loki-mode.git` |
 
@@ -290,36 +290,9 @@ TLS, OIDC/SSO, RBAC, OTEL tracing, policy engine, audit trails. Activated via en
 
 ## Purple Lab
 
-The hosted development platform. A Replit-like web UI for visual PRD-to-code workflow, with the Loki agent for iterative development. The same software is free and source-available as the local Loki Mode dashboard; offered managed to teams and enterprises under the **Autonomi** brand (Autonomi Cloud).
+**[DEPRECATED in v7.44.0]** Purple Lab (`loki web`, port 57375) is deprecated. The local build monitor and project dashboard are now the dashboard (auto-launched by `loki start`, http://localhost:57374). For the hosted/commercial platform, see [Autonomi Cloud](https://www.autonomi.dev/).
 
-```bash
-loki web                           # launches at http://localhost:57375
-```
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**Platform Pages**
-- Home -- One-line prompt to start building instantly
-- Projects -- Browse, search, filter past builds
-- Templates -- 20+ starter PRDs by category
-- Showcase -- Gallery of example projects to build
-- Compare -- Feature comparison vs competitors
-
-</td>
-<td width="50%" valign="top">
-
-**IDE Workspace**
-- Monaco editor with tabs, Cmd+P quick open
-- AI chat panel for iterative development
-- Activity panel: build log, agents, quality gates
-- Live preview with URL bar navigation
-- Right-click context menu: Review, Test, Explain
-
-</td>
-</tr>
-</table>
+The historical feature set (platform pages, Monaco IDE workspace, AI chat panel) lives on in the dashboard and in Autonomi Cloud. `loki web` still invokes the old binary for backward compatibility but will be removed in a future major version.
 
 ---
 
@@ -372,7 +345,7 @@ Status legend: "E2E-verified" means we run real spec-to-code builds on it oursel
 | `loki status` | Show current status |
 | `loki dashboard` | Open web dashboard |
 | `loki preview` | Print running app URL and open in browser (Live App Preview, v7.24.0; was: `loki open`) |
-| `loki web` | Launch Purple Lab web UI |
+| `loki web` | Launch Purple Lab web UI [DEPRECATED in v7.44.0 -- use `loki start` which auto-opens the dashboard at http://localhost:57374; for the hosted platform see Autonomi Cloud] |
 | `loki doctor` | Check environment and dependencies |
 | `loki plan [PRD]` | Pre-execution analysis: complexity, cost, iterations |
 | `loki review [--staged\|--diff]` | AI-powered code review with severity filtering |
@@ -390,6 +363,23 @@ Status legend: "E2E-verified" means we run real spec-to-code builds on it oursel
 Run `loki --help` for all options. Full reference: [CLI Reference](wiki/CLI-Reference.md) | Config: [config.example.yaml](autonomy/config.example.yaml)
 
 ---
+
+<details>
+<summary><strong>Configuration env vars (intelligent defaults, opt-out knobs)</strong></summary>
+
+Loki Mode's accuracy and autonomy behaviors are default-on. Each is an opt-out escape hatch, not a setting you have to discover. The most relevant knobs from the v7.41.x accuracy/autonomy hardening:
+
+| Env var | Default | Effect |
+|---------|---------|--------|
+| `LOKI_REVIEW_INCONCLUSIVE_BLOCK` | `1` | Blocks completion when a code-review round returns zero usable verdicts (an all-empty review proves nothing). Set `0` to record the inconclusive result without blocking. |
+| `LOKI_COMPLETION_TEST_CAPTURE` | `1` | Captures fresh test results before the verified-completion evidence gate evaluates. Set `0` to skip the pre-gate capture. |
+| `LOKI_AUTO_DOCS` | `true` | Generates the `.loki/docs/` suite before the documentation gate scores it (bounded: once per run when docs are missing, and again only when >10 commits stale). Set `false` to opt out. |
+| `LOKI_CAVEMAN` | `1` (on) | Output-token compressor for free-form generation only (never trust-gate subcalls). Set `0` to opt out. |
+| `LOKI_CAVEMAN_LEVEL` | inferred | Compression level for the compressor. Auto-inferred per invocation from the run's RARV tier; set explicitly (`lite` / `full` / `ultra`) to override the inference. |
+
+This is a subset. See the [wiki](wiki/Home.md) for the full env-var reference and the RARV-C closure knobs (`LOKI_INJECT_FINDINGS`, `LOKI_OVERRIDE_COUNCIL`, `LOKI_AUTO_LEARNINGS`, `LOKI_HANDOFF_MD`).
+
+</details>
 
 <details>
 <summary><strong>BMAD Method Integration</strong></summary>

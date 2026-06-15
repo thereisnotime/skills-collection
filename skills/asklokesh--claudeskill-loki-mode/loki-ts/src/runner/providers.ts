@@ -28,6 +28,8 @@ import {
   ensureClaudeHelpCache,
   sessionStampArgv,
   sessionResumeArgv,
+  cavemanActivateEnv,
+  cavemanSuppressEnv,
 } from "../providers/claude_flags.ts";
 import type {
   ProviderInvocation,
@@ -78,13 +80,17 @@ function resolveCli(envVar: string, defaultCli: string): string {
   return override && override.length > 0 ? override : defaultCli;
 }
 
-// Permissive truthy check matching the bash convention used across the
-// shell side (claude.sh and friends accept "1", "true", "yes", "on" in any
-// case). The Bun port previously only accepted the literal string "true",
-// which silently dropped LOKI_ALLOW_HAIKU=1 -- a real foot-gun for anyone
-// switching between routes. Keep the helper narrow: a single exported
-// predicate so we can broaden coverage to other env reads in a follow-up
-// without re-deriving the matching rules.
+// Permissive truthy check accepting "1", "true", "yes", "on" in any case.
+// Kept for env reads whose bash counterpart is permissive.
+//
+// NOTE (v7.41.4 parity): do NOT use this for LOKI_ALLOW_HAIKU. The bash side
+// gates haiku on an EXACT "true" string -- claude.sh:294 (provider_get_tier_param),
+// claude.sh:104 of autonomy/lib/claude-flags.sh (loki_fallback_for_primary), and
+// the Bun fallbackForPrimary (claude_flags.ts:101) all require `=== "true"`. So
+// claudeTierToModel reads LOKI_ALLOW_HAIKU with `=== "true"` directly (below), not
+// via truthy(). Using truthy() here would honor LOKI_ALLOW_HAIKU=1 (haiku) while
+// bash and fallbackForPrimary do not (sonnet) -- a route-to-route drift AND a
+// self-inconsistency within the Bun route.
 //
 // Exported for unit tests; not part of the public provider API.
 export function truthy(value: string | undefined): boolean {
@@ -104,7 +110,16 @@ export function truthy(value: string | undefined): boolean {
 // (provider_get_tier_param) including the LOKI_ALLOW_HAIKU branch that
 // upgrades fast/development tiers when haiku is opt-in only.
 function claudeTierToModel(tier: SessionTier): string {
-  const allowHaiku = truthy(process.env["LOKI_ALLOW_HAIKU"]);
+  // fable unavailable, collapse to opus. Claude Fable 5 is not available at the
+  // Claude API ("use Opus 4.8"). This guard precedes the allowHaiku branch
+  // because the allowHaiku default arm returns sonnet, which would silently
+  // downgrade a fable pin. Mirrors claude.sh resolve_model_for_tier and run.sh
+  // (v7.39.1).
+  if (tier === "fable") return "opus";
+  // EXACT "true" to mirror bash (claude.sh:294, claude-flags.sh:104) and the
+  // Bun fallbackForPrimary (claude_flags.ts:101). LOKI_ALLOW_HAIKU=1 must NOT
+  // enable haiku on either route (v7.41.4 parity fix).
+  const allowHaiku = process.env["LOKI_ALLOW_HAIKU"] === "true";
   if (allowHaiku) {
     switch (tier) {
       case "planning":
@@ -130,10 +145,17 @@ function claudeTierToModel(tier: SessionTier): string {
   }
 }
 
-// Apply LOKI_MAX_TIER ceiling. Mirrors claude.sh:170-186
-// (resolve_model_for_tier maxTier branch).
+// Apply LOKI_MAX_TIER ceiling. Mirrors loki_apply_max_tier_clamp at
+// claude.sh:343-372 (resolve_model_for_tier maxTier branch).
+//
+// Parity (v7.41.4): bash normalizes the ceiling with trim + lowercase
+// (claude.sh:352, `tr | sed`) BEFORE the case match, so a user-typed cap like
+// "Haiku" or " haiku " (settings.json maxTier exports verbatim) is honored.
+// The Bun port previously switched on the RAW env value, so "Haiku" missed the
+// "haiku" arm, fell through, and dispatched opus -- blowing past the ceiling the
+// quote + dashboard claimed enforced. Normalize once, treat empty as no ceiling.
 function applyMaxTierCeiling(tier: SessionTier, model: string): string {
-  const maxTier = process.env["LOKI_MAX_TIER"];
+  const maxTier = (process.env["LOKI_MAX_TIER"] ?? "").trim().toLowerCase();
   if (!maxTier) return model;
   switch (maxTier) {
     case "haiku":
@@ -141,8 +163,14 @@ function applyMaxTierCeiling(tier: SessionTier, model: string): string {
       // so LOKI_ALLOW_HAIKU is honored (claude.sh:172-175).
       return claudeTierToModel("fast");
     case "sonnet":
-      // Cap planning down to development tier (claude.sh:176-181).
-      if (tier === "planning") return claudeTierToModel("development");
+      // Cap planning AND fable down to development tier. Mirrors claude.sh:358-362
+      // which caps when tier is planning or fable (model is already fable->opus
+      // collapsed upstream by claudeTierToModel, so the model==="fable" arm there
+      // is moot here, but a "fable" session tier still reaches this function via
+      // the SessionTier string fallback and must be capped).
+      if (tier === "planning" || tier === "fable") {
+        return claudeTierToModel("development");
+      }
       return model;
     case "opus":
     default:
@@ -249,7 +277,25 @@ export function claudeProvider(): ProviderInvoker {
         call.prompt,
       ];
 
-      const r = await shellRun(argv, { cwd: call.cwd });
+      // caveman output-token compression. Mirrors the run.sh main-loop wiring.
+      // The MAIN RARV loop (call.mainLoop) is FREE-FORM generation -> ACTIVATE
+      // at the configured level (when warranted). Every OTHER claudeProvider
+      // call is a parsed-output subcall (council judge, etc.) -> HARD-SUPPRESS
+      // with "off". An EMPTY value is NOT inert (caveman treats it as unset and
+      // falls back to the user default), so we set the var ONLY when we have a
+      // concrete level, and unconditionally set "off" on the suppress path.
+      let cavemanEnv: Record<string, string> | undefined;
+      if (call.mainLoop) {
+        // #593: pass the RARV tier so the level is inferred from the work (the
+        // same signal the bash route reads from LOKI_CURRENT_TIER). Keeps both
+        // routes inferring identically; an explicit LOKI_CAVEMAN_LEVEL overrides.
+        const lvl = cavemanActivateEnv(call.tier);
+        if (lvl) cavemanEnv = { CAVEMAN_DEFAULT_MODE: lvl };
+      } else {
+        cavemanEnv = { CAVEMAN_DEFAULT_MODE: cavemanSuppressEnv() };
+      }
+
+      const r = await shellRun(argv, { cwd: call.cwd, env: cavemanEnv });
       await writeCaptured(call.iterationOutputPath, r.stdout, r.stderr);
 
       return {

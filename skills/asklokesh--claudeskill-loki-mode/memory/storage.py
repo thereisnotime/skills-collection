@@ -617,6 +617,12 @@ class MemoryStorage:
                     "patterns": []
                 }
 
+            # Defensive: a pre-existing patterns.json that is valid JSON but
+            # lacks the "patterns" key (partial/external write, alternate
+            # schema, or a {"version": ...}-only file) would otherwise raise
+            # KeyError below and silently lose the save. Ensure the list exists.
+            patterns_file.setdefault("patterns", [])
+
             # Upsert: update existing pattern or append new
             existing_idx = None
             for i, p in enumerate(patterns_file["patterns"]):

@@ -53,7 +53,7 @@ from . import auth
 from . import audit
 from . import app_secrets as secrets_mod
 from . import telemetry as _telemetry
-from .control import atomic_write_json
+from .control import atomic_write_json, find_skill_dir, is_process_running
 from .activity_logger import get_activity_logger
 
 try:
@@ -2406,7 +2406,12 @@ def _resolve_session_pin(alias: str) -> str:
     elif pin_tier == "fast":
         model = _provider_model_fast()
     elif pin_tier == "fable":
-        model = "fable"
+        # fable unavailable, collapse to opus. Claude Fable 5 is not available at
+        # the Claude API ("use Opus 4.8"); the runner dispatches opus for a fable
+        # pin (claude.sh resolve_model_for_tier, run.sh dispatch backstop), and
+        # the estimator quotes opus. The dashboard effective model agrees so the
+        # session-pin parity matrix stays green (v7.39.1).
+        model = "opus"
     else:  # development (and the unknown-alias '*' fallthrough)
         model = _provider_model_development()
     max_tier = (os.environ.get("LOKI_MAX_TIER") or "").strip().lower()
@@ -2483,6 +2488,13 @@ async def get_session_model():
         effective = _clamp_to_max_tier(override)
     else:
         effective = _resolve_session_pin(default)
+    # fable unavailable, collapse to opus (final dispatch backstop, mirrors run.sh
+    # and the estimator). The override-path clamp leaves an uncapped fable override
+    # as "fable", but the runner dispatches opus for it; the session-pin route is
+    # already collapsed inside _resolve_session_pin. Apply the same collapse here so
+    # the reported effective model agrees with dispatch on BOTH routes (v7.39.1).
+    if effective == "fable":
+        effective = "opus"
     return {
         "override": override,
         "default": default,
@@ -2533,7 +2545,16 @@ async def set_session_model(request: SessionModelRequest):
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Could not write override: {exc}")
     effective = _clamp_to_max_tier(model)
-    return {"model": model, "effective": effective, "clamped": effective != model}
+    # `clamped` reflects ONLY the LOKI_MAX_TIER cost ceiling, computed before the
+    # fable->opus collapse below (the collapse is model unavailability, not a cost
+    # clamp, so it must not flip `clamped`).
+    clamped = effective != model
+    # fable unavailable, collapse to opus (final dispatch backstop, mirrors run.sh
+    # and the estimator). An uncapped fable override clamps to "fable" above but the
+    # runner dispatches opus for it, so report opus as the effective model (v7.39.1).
+    if effective == "fable":
+        effective = "opus"
+    return {"model": model, "effective": effective, "clamped": clamped}
 
 
 @app.get("/api/running-projects")
@@ -2606,6 +2627,231 @@ async def list_running_projects():
             "is_active": is_active,
         })
     return {"projects": out, "active_project_dir": active}
+
+
+class StartBuildRequest(BaseModel):
+    """Schema for starting a build from a spec via the dashboard.
+
+    Absorbs the browser PRD-input capability: the caller supplies a spec as
+    inline text (prd_text -- a one-line brief or a full PRD) OR as a path to an
+    existing spec file (prd_path). Exactly one is required. provider is
+    optional and validated against the supported provider list.
+    """
+    # prd_text is capped at 1 MiB: a real PRD is well under this, and the cap
+    # bounds disk-fill / oversized-spawn from browser input (pydantic returns
+    # 422 on overflow before any file write or subprocess spawn).
+    prd_text: Optional[str] = Field(default=None, max_length=1_048_576)
+    prd_path: Optional[str] = None
+    provider: str = "claude"
+    parallel: bool = False
+
+    def validate_provider(self) -> None:
+        """Validate provider is from the supported list.
+
+        Mirrors dashboard/control.py StartRequest.validate_provider so the
+        dashboard and the standalone control app accept the same set.
+        """
+        allowed = ["claude", "codex", "gemini", "cline", "aider"]
+        if self.provider not in allowed:
+            raise ValueError(
+                f"Invalid provider: {self.provider}. "
+                f"Must be one of: {', '.join(allowed)}"
+            )
+
+
+def _validate_prd_path(raw_path: str, project_dir: _Path) -> _Path:
+    """Path-guard a caller-supplied PRD path.
+
+    Ports the proven traversal-safety logic from
+    dashboard/control.py:StartRequest.validate_prd_path, but anchors the
+    allowed roots to the resolved target project directory (the active
+    dashboard project) plus the user's home, rather than the dashboard
+    process CWD. Returns the resolved, verified path. Raises ValueError on
+    any unsafe / nonexistent / non-file path.
+    """
+    # Reject literal traversal sequences before any resolution.
+    if ".." in raw_path:
+        raise ValueError("PRD path contains path traversal sequence (..)")
+
+    prd_path = _Path(raw_path).expanduser().resolve()
+
+    if not prd_path.exists():
+        raise ValueError(f"PRD file does not exist: {raw_path}")
+    if not prd_path.is_file():
+        raise ValueError(f"PRD path is not a file: {raw_path}")
+
+    # Must resolve within the target project dir or the user's home. This is
+    # the post-resolution containment check: even a symlink that escaped the
+    # no-".." check is caught here because relative_to is computed on the
+    # fully-resolved real path.
+    roots = [project_dir.resolve(), _Path.home().resolve()]
+    for root in roots:
+        try:
+            prd_path.relative_to(root)
+            return prd_path
+        except ValueError:
+            continue
+    raise ValueError(f"PRD path is outside allowed directories: {raw_path}")
+
+
+def _write_spec_text(prd_text: str, project_dir: _Path) -> _Path:
+    """Persist an inline spec to .loki/specs/ and return its path.
+
+    The browser one-line-brief / PRD-textarea flow lands here. The file is
+    written inside the target project's .loki/specs so it is contained and
+    auditable; run.sh is then started against that file path.
+    """
+    specs_dir = project_dir / ".loki" / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    spec_file = specs_dir / f"dashboard-spec-{stamp}.md"
+    spec_file.write_text(prd_text, encoding="utf-8")
+    return spec_file
+
+
+def _project_run_active(loki_dir: _Path) -> Optional[int]:
+    """Single-flight check: return the live orchestrator PID if a run is active
+    in this project, else None.
+
+    Honest: checks loki.pid (process alive) first, then session.json
+    status=running with a 6h staleness window (mirrors control.get_status), so
+    a crashed run that left a stale session.json does not block a fresh start.
+    """
+    pid_file = loki_dir / "loki.pid"
+    pid_str = _safe_read_text(pid_file).strip()
+    if pid_str.isdigit():
+        pid = int(pid_str)
+        if is_process_running(pid):
+            return pid
+
+    session_file = loki_dir / "session.json"
+    if session_file.exists():
+        try:
+            sd = json.loads(session_file.read_text())
+            if sd.get("status") == "running":
+                started_at = sd.get("startedAt", "")
+                if started_at:
+                    try:
+                        st = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                        age_h = (datetime.now(timezone.utc) - st).total_seconds() / 3600
+                        if age_h <= 6:
+                            return -1  # running per session.json, no usable pid
+                    except (ValueError, TypeError):
+                        return -1
+                else:
+                    return -1
+        except (json.JSONDecodeError, OSError, KeyError):
+            pass
+    return None
+
+
+@app.post("/api/control/start", dependencies=[Depends(auth.require_scope("control"))])
+async def start_build(request: Request, body: StartBuildRequest):
+    """Start a Loki Mode build from a spec, kicked off from the browser.
+
+    Absorbs the one unique browser capability: PRD-input to kick off a build.
+    Accepts a spec as inline text (prd_text) OR as a path (prd_path), validates
+    and path-guards it, writes inline text into .loki/specs/, then spawns
+    `run.sh` against the resolved spec via subprocess (same mechanism the
+    standalone control app uses).
+
+    Single-flight: refuses with 409 if a run is already active in the target
+    project.
+    """
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    # Validate provider.
+    try:
+        body.validate_provider()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Exactly one spec source.
+    has_text = bool(body.prd_text and body.prd_text.strip())
+    has_path = bool(body.prd_path and body.prd_path.strip())
+    if has_text == has_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide exactly one of prd_text or prd_path",
+        )
+
+    # Resolve the target project directory from the active dashboard project.
+    loki_dir = _get_loki_dir()
+    project_dir = loki_dir.parent if loki_dir.name == ".loki" else _Path.cwd()
+    project_dir = project_dir.resolve()
+
+    # Single-flight: refuse if a run is already active in this project.
+    active_pid = _project_run_active(loki_dir)
+    if active_pid is not None:
+        detail = "A build is already running in this project"
+        if active_pid > 0:
+            detail += f" (PID {active_pid})"
+        raise HTTPException(status_code=409, detail=detail)
+
+    # Resolve the spec to a concrete, path-guarded file.
+    try:
+        if has_path:
+            spec_file = _validate_prd_path(body.prd_path.strip(), project_dir)
+        else:
+            spec_file = _write_spec_text(body.prd_text, project_dir)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not write spec: {e}")
+
+    # Locate run.sh (same resolver the standalone control app uses).
+    skill_dir = find_skill_dir()
+    run_sh = skill_dir / "autonomy" / "run.sh"
+    if not run_sh.exists():
+        raise HTTPException(status_code=500, detail=f"run.sh not found at {run_sh}")
+
+    # Build args: mirror control.py:start_session (provider, optional parallel,
+    # background, then the spec path).
+    args = [str(run_sh), "--provider", body.provider]
+    if body.parallel:
+        args.append("--parallel")
+    args.append("--bg")
+    args.append(str(spec_file))
+
+    try:
+        process = subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            cwd=str(project_dir),
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start build: {e}")
+
+    # Persist provider for status tracking (same as control.py).
+    try:
+        state_dir = loki_dir / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / "provider").write_text(body.provider)
+    except OSError:
+        pass
+
+    audit.log_event(
+        action="start",
+        resource_type="session",
+        details={
+            "source": "dashboard",
+            "provider": body.provider,
+            "spec": str(spec_file),
+            "pid": process.pid,
+        },
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return {
+        "success": True,
+        "message": f"Build started with provider {body.provider}",
+        "pid": process.pid,
+        "spec": str(spec_file),
+        "provider": body.provider,
+    }
 
 
 class RunningProjectStopRequest(BaseModel):
@@ -5766,12 +6012,20 @@ async def create_checkpoint(body: CheckpointCreate = None):
     checkpoint_dir = checkpoints_dir / checkpoint_id
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    # Capture git SHA
+    # Capture git SHA. Pass cwd= the active project root so the recorded
+    # git_sha belongs to the project being checkpointed, not whatever directory
+    # the dashboard process happens to run from (correctness bug for
+    # multi-project dashboards). Offload to a thread so the blocking git call
+    # does not stall the single-worker uvicorn event loop.
     git_sha = ""
+    git_cwd = str(loki_dir.parent) if loki_dir.name == ".loki" else None
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+        result = await asyncio.to_thread(
+            lambda: subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True, text=True, timeout=5,
+                cwd=git_cwd,
+            )
         )
         if result.returncode == 0:
             git_sha = result.stdout.strip()
@@ -5791,11 +6045,15 @@ async def create_checkpoint(body: CheckpointCreate = None):
             except Exception:
                 pass
 
-    # Copy queue directory if present
+    # Copy queue directory if present. Offload to a thread: a large queue tree
+    # would otherwise block the single-worker uvicorn event loop.
     queue_src = loki_dir / "queue"
     if queue_src.exists():
         try:
-            shutil.copytree(str(queue_src), str(checkpoint_dir / "queue"), dirs_exist_ok=True)
+            await asyncio.to_thread(
+                shutil.copytree,
+                str(queue_src), str(checkpoint_dir / "queue"), dirs_exist_ok=True,
+            )
         except Exception:
             pass
 
@@ -5877,7 +6135,11 @@ async def rollback_checkpoint(checkpoint_id: str):
         src = loki_dir / dname
         if src.exists() and src.is_dir():
             try:
-                shutil.copytree(str(src), str(pre_dir / dname), dirs_exist_ok=True)
+                # Offload the (potentially large) directory copy off the event loop.
+                await asyncio.to_thread(
+                    shutil.copytree,
+                    str(src), str(pre_dir / dname), dirs_exist_ok=True,
+                )
             except Exception:
                 pass
     pre_meta = {
@@ -5907,7 +6169,11 @@ async def rollback_checkpoint(checkpoint_id: str):
         dest = loki_dir / item.name
         try:
             if item.is_dir():
-                shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+                # Offload the (potentially large) directory copy off the event loop.
+                await asyncio.to_thread(
+                    shutil.copytree,
+                    str(item), str(dest), dirs_exist_ok=True,
+                )
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(str(item), str(dest))
@@ -6225,10 +6491,14 @@ async def get_github_status(token: Optional[dict] = Depends(auth.get_current_tok
     # Detect repo from git
     try:
         import subprocess
-        url = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(loki_dir.parent) if loki_dir.name == ".loki" else None
+        # Offload the blocking git call so it does not stall the single-worker
+        # uvicorn event loop.
+        url = await asyncio.to_thread(
+            lambda: subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                capture_output=True, text=True, timeout=5,
+                cwd=str(loki_dir.parent) if loki_dir.name == ".loki" else None,
+            )
         )
         if url.returncode == 0:
             repo = url.stdout.strip()
@@ -6952,17 +7222,212 @@ async def get_council_gate():
 # App Runner Endpoints (v5.45.0)
 # =============================================================================
 
+# Health checkpoints are written once per autonomous iteration (the app-runner
+# watchdog fires from the run.sh iteration loop, not a fixed timer), so a single
+# long healthy iteration can legitimately leave last_health.checked_at minutes
+# old. The staleness threshold below is therefore deliberately generous and is
+# used ONLY when we cannot verify liveness from a real OS pid (e.g. docker
+# compose, whose main_pid is a short-lived `up -d` subshell). When a real pid is
+# present, pid liveness -- not the timestamp -- is the authoritative signal, so a
+# live run is never reported as dead just because a health beat was missed.
+_APP_RUNNER_STALE_HEALTH_SECONDS = 600
+
+
+def _pid_is_alive(pid):
+    """Return True if pid refers to a live process, False if it is gone.
+
+    Uses signal 0 (no signal sent, just an existence/permission probe). Guards
+    against the pid<=0 footgun: kill(0, 0) targets the caller's own process
+    group and would falsely report "alive". A PermissionError means the process
+    exists but is owned by another user (still alive). Any other error is
+    treated as indeterminate (None) so the caller can fall back safely.
+    """
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return None
+    if pid <= 0:
+        return None
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return None
+
+
+# Margin (seconds) added to the recorded reference time before a live pid is
+# judged to be a recycled (different) process. Must comfortably exceed clock
+# skew plus the launch-to-first-state-write gap so a genuine app is never
+# downgraded. A PID recycled after a crash typically belongs to a process that
+# started minutes or hours later, so a generous margin still catches recycles
+# while strongly biasing against the far worse false-positive of killing a live
+# app's status. See _reconcile_app_runner_liveness.
+_APP_RUNNER_PID_RECYCLE_MARGIN_SECONDS = 120
+
+
+def _pid_start_time(pid):
+    """Best-effort wall-clock start time of pid, as epoch seconds, or None.
+
+    Reads `ps -o lstart= -p <pid>`, which is available on both macOS and Linux
+    and prints the process start time in local time (e.g. "Sun Jun 14 18:39:15
+    2026"). The string is locale-dependent (%a/%b), so any parse failure, empty
+    output, or missing process returns None and the caller degrades gracefully
+    to its prior behavior. The returned epoch is timezone-correct because the
+    naive local timestamp is interpreted in the system's local zone before
+    conversion (ps reports local time; never mix it with a UTC value directly).
+    """
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return None
+    if pid <= 0:
+        return None
+    try:
+        out = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)],
+                             capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    raw = (out.stdout or "").strip()
+    if not raw:
+        return None
+    try:
+        # lstart is local time without a zone; parse naive then attach the
+        # local zone so .timestamp() yields a correct epoch regardless of TZ.
+        naive = datetime.strptime(raw, "%a %b %d %H:%M:%S %Y")
+        local = naive.replace(tzinfo=datetime.now().astimezone().tzinfo)
+        return local.timestamp()
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+def _state_reference_epoch(state):
+    """Epoch seconds for state.json's recorded reference time, or None.
+
+    Uses `started_at` (rewritten by the app-runner on every state write; it is
+    the last-state-write time, not pure launch time). For a genuine process the
+    real start time is always <= this value, so it is a safe upper bound to
+    compare a live pid's start time against. The value is UTC (Z-suffixed).
+    """
+    if not isinstance(state, dict):
+        return None
+    started_at = state.get("started_at")
+    if not started_at:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts.timestamp()
+
+
+def _pid_is_recycled(state):
+    """True if the recorded main_pid is alive but is a DIFFERENT process now.
+
+    After the recorded app dies, the OS can recycle its numeric pid for an
+    unrelated process; os.kill(pid, 0) then reports the stale pid "alive"
+    forever and a dead run is never reconciled. We detect this by comparing the
+    live pid's real start time against the recorded reference time: a genuine
+    process started at or before the reference, so a live pid whose start time
+    is comfortably AFTER the reference cannot be the original.
+
+    Returns True only with positive evidence of recycling. Any missing data
+    (no recorded reference, start time unavailable) returns False so the caller
+    keeps its prior behavior -- best-effort, biased against false positives.
+    """
+    reference = _state_reference_epoch(state)
+    if reference is None:
+        return False
+    pid_start = _pid_start_time(state.get("main_pid"))
+    if pid_start is None:
+        return False
+    return pid_start > reference + _APP_RUNNER_PID_RECYCLE_MARGIN_SECONDS
+
+
+def _health_checked_age_seconds(state):
+    """Seconds since last_health.checked_at, or None if unparseable/absent."""
+    health = state.get("last_health")
+    if not isinstance(health, dict):
+        return None
+    checked_at = health.get("checked_at")
+    if not checked_at:
+        return None
+    try:
+        ts = datetime.fromisoformat(str(checked_at).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).total_seconds()
+
+
+def _reconcile_app_runner_liveness(state):
+    """Correct a frozen state.json so a dead run is not reported as running.
+
+    state.json is written by the app-runner and is not updated once the app or
+    the orchestrator dies, so a crashed run leaves status frozen at "running".
+    Here we cross-check the recorded main_pid against the real OS before
+    returning, and only ever downgrade -- never upgrade -- the status:
+      - recorded running/starting + pid genuinely gone   -> "stopped"
+      - recorded running/starting + pid "alive" but its real start time is
+        after the recorded reference (the OS recycled a dead run's pid for an
+        unrelated process)                                -> "stopped"
+      - recorded running/starting + pid not verifiable    +
+        last_health.checked_at older than the threshold   -> "stale"
+    Any failure falls back to the raw recorded status (fail open to the writer's
+    own claim rather than fabricating a state). Returns the (possibly modified)
+    state dict.
+    """
+    if not isinstance(state, dict):
+        return state
+    status = state.get("status")
+    if status not in ("running", "starting"):
+        return state
+    try:
+        alive = _pid_is_alive(state.get("main_pid"))
+        if alive is False:
+            state["status"] = "stopped"
+            state["liveness"] = "pid_gone"
+            return state
+        if alive is True:
+            # The numeric pid exists, but os.kill(pid, 0) cannot tell whether it
+            # is still the SAME process. After a dead run the OS can recycle the
+            # pid; detect that via the process start time so a recycled pid is
+            # treated as gone rather than reported "running" forever.
+            if _pid_is_recycled(state):
+                state["status"] = "stopped"
+                state["liveness"] = "pid_recycled"
+            return state
+        if alive is None:
+            # Cannot verify via pid (e.g. compose subshell pid). Fall back to
+            # the health-beat freshness with a generous threshold.
+            age = _health_checked_age_seconds(state)
+            if age is not None and age > _APP_RUNNER_STALE_HEALTH_SECONDS:
+                state["status"] = "stale"
+                state["liveness"] = "health_stale"
+    except Exception:
+        # Never let a liveness probe break the status endpoint.
+        return state
+    return state
+
+
 @app.get("/api/app-runner/status")
 async def get_app_runner_status():
-    """Get app runner current status."""
+    """Get app runner current status (with dead-run liveness reconciliation)."""
     loki_dir = _get_loki_dir()
     state_file = loki_dir / "app-runner" / "state.json"
     if not state_file.exists():
         return {"status": "not_initialized"}
     try:
-        return json.loads(state_file.read_text())
+        state = json.loads(state_file.read_text())
     except (json.JSONDecodeError, OSError):
         return {"status": "error"}
+    return _reconcile_app_runner_liveness(state)
 
 
 def _get_log_redactor():
@@ -8251,11 +8716,19 @@ async def post_wiki_ask(req: WikiAskRequest):
     if not ask_script.is_file():
         raise HTTPException(status_code=503, detail="wiki-ask backend missing")
     try:
-        proc = subprocess.run(
-            ["python3", str(ask_script), "--root", str(project_root),
-             "--question", req.question, "--k", str(req.k), "--json"],
-            capture_output=True, text=True, timeout=180,
-            cwd=str(project_root),
+        # Offload the blocking subprocess to a thread so the single-worker
+        # uvicorn event loop stays responsive (liveness, status, WS heartbeat)
+        # while wiki-ask runs (up to 180s). A direct subprocess.run here would
+        # freeze the whole server; this read-scoped endpoint is reachable by any
+        # reader. Mirrors the await asyncio.to_thread(...) pattern used by the
+        # stop endpoints.
+        proc = await asyncio.to_thread(
+            lambda: subprocess.run(
+                ["python3", str(ask_script), "--root", str(project_root),
+                 "--question", req.question, "--k", str(req.k), "--json"],
+                capture_output=True, text=True, timeout=180,
+                cwd=str(project_root),
+            )
         )
     except (OSError, subprocess.SubprocessError) as e:
         raise HTTPException(status_code=503, detail=f"wiki ask failed: {e}")

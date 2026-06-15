@@ -51,12 +51,10 @@ Apply a **15-minute trailing buffer** to the window's upper bound. Many analytic
 
 ### Phase 0: Route by Config State
 
-**Config (pre-resolved):**
-!`(top=$(git rev-parse --show-toplevel 2>/dev/null); [ -n "$top" ] && cat "$top/.compound-engineering/config.local.yaml" 2>/dev/null) || echo '__NO_CONFIG__'`
+**Read config.** The repo root is pre-resolved at skill load:
+!`git rev-parse --show-toplevel 2>/dev/null || true`
 
-If the block above contains YAML key-value pairs, extract values for the `pulse_*` keys listed under "Config keys" below.
-If it shows `__NO_CONFIG__`, the file does not exist — treat this as a first run.
-If it shows an unresolved command string, read `.compound-engineering/config.local.yaml` from the repo root using the native file-read tool (e.g., Read in Claude Code, read_file in Codex). If the file does not exist, treat as first run.
+If the line above is an absolute path, use it as `<repo-root>`. If it is empty or still shows a backtick command string (a non-Claude harness that did not run the pre-resolution), resolve `<repo-root>` at runtime by running `git rev-parse --show-toplevel` with the shell tool. Then read `<repo-root>/.compound-engineering/config.local.yaml` with the native file-read tool (e.g., Read in Claude Code, read_file in Codex). If the root cannot be resolved or the file does not exist, treat this as a first run. Otherwise extract values for the `pulse_*` keys listed under "Config keys" below.
 
 **Config keys:**
 - `pulse_product_name` -- string, used in report titles. Required for routing: if unset, skill is unconfigured.

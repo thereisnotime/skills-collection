@@ -1003,7 +1003,7 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_warning() { log_warn "$@"; }  # Alias for backwards compatibility
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 log_step() { echo -e "${CYAN}[STEP]${NC} $*"; }
-log_debug() { [[ "${LOKI_DEBUG:-}" == "true" ]] && echo -e "${CYAN}[DEBUG]${NC} $*" || true; }
+log_debug() { [[ "${LOKI_DEBUG:-}" == "true" ]] && echo -e "${CYAN}[DEBUG]${NC} $*" >&2 || true; }
 
 #===============================================================================
 # Process Registry (PID Supervisor)
@@ -1822,18 +1822,23 @@ get_provider_tier_param() {
                     if [ -n "${PROVIDER_MODEL_PLANNING:-}" ]; then
                         echo "${PROVIDER_MODEL_PLANNING}"
                     elif [ "${LOKI_FABLE_ARCHITECT:-0}" = "1" ]; then
-                        echo "fable"
+                        # fable unavailable, collapse to opus. Claude Fable 5 is
+                        # not available at the Claude API ("use Opus 4.8"); the
+                        # architect opt-in now runs opus. Matches claude.sh
+                        # resolve_model_for_tier and the estimator/dashboard.
+                        echo "opus"
                     else
                         echo "opus"
                     fi
                     ;;
                 development) echo "${PROVIDER_MODEL_DEVELOPMENT:-opus}" ;;
                 fast) echo "${PROVIDER_MODEL_FAST:-sonnet}" ;;
-                # Honor the fable lever here too: without this arm an
+                # fable unavailable, collapse to opus. Without this arm an
                 # unsourced-claude.sh environment (this static fallback) would
                 # silently downgrade a fable-pinned tier to sonnet via the `*`
-                # default. Matches resolve_model_for_tier's explicit fable) arm.
-                fable) echo "fable" ;;
+                # default. Matches resolve_model_for_tier's explicit fable) arm,
+                # which now resolves to opus (Fable 5 unavailable at the API).
+                fable) echo "opus" ;;
                 *) echo "sonnet" ;;
             esac
             ;;
@@ -2555,20 +2560,24 @@ except Exception:
     [ -z "$branch" ] && branch="unknown"
     head_sha="$( (cd "${TARGET_DIR:-.}" && git rev-parse HEAD) 2>/dev/null || true )"
 
+    # Finding #596 (HIGH): exclude .loki/ and .git/ from the summary diff/stat and
+    # from the "Review the work" command we print, so the user is never told to
+    # review a .loki-bloated diff and the displayed counts match the gated diff.
+    local _summary_pathspec=(-- . ':(exclude).loki/' ':(exclude).git/' ':(exclude)**/.loki/**')
     if [ -n "$start_sha" ]; then
-        diff_stat="$( (cd "${TARGET_DIR:-.}" && git diff --stat "${start_sha}..HEAD") 2>/dev/null || true )"
+        diff_stat="$( (cd "${TARGET_DIR:-.}" && git diff --stat "${start_sha}..HEAD" "${_summary_pathspec[@]}") 2>/dev/null || true )"
         # Parse the git diff --shortstat tail for counts (locale-stable enough
         # for our display; failures leave the zeros in place).
         local shortstat
-        shortstat="$( (cd "${TARGET_DIR:-.}" && git diff --shortstat "${start_sha}..HEAD") 2>/dev/null || true )"
+        shortstat="$( (cd "${TARGET_DIR:-.}" && git diff --shortstat "${start_sha}..HEAD" "${_summary_pathspec[@]}") 2>/dev/null || true )"
         if [ -n "$shortstat" ]; then
             files_changed="$(printf '%s\n' "$shortstat" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' | head -1)"
             insertions="$(printf '%s\n' "$shortstat" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' | head -1)"
             deletions="$(printf '%s\n' "$shortstat" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' | head -1)"
         fi
-        review_cmd="git diff ${start_sha}..HEAD"
+        review_cmd="git diff ${start_sha}..HEAD -- . ':(exclude).loki/'"
     else
-        review_cmd="git diff HEAD"
+        review_cmd="git diff HEAD -- . ':(exclude).loki/'"
     fi
     [ -z "$files_changed" ] && files_changed=0
     [ -z "$insertions" ] && insertions=0
@@ -3045,9 +3054,24 @@ spawn_worktree_session() {
         # Provider-specific invocation for parallel sessions
         case "${PROVIDER_NAME:-claude}" in
             claude)
-                claude --dangerously-skip-permissions \
-                    -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
-                    >> "$log_file" 2>&1 || _wt_exit=$?
+                # caveman ACTIVATION (free-form): a parallel worktree dev stream
+                # is free-form generation; its output goes to a log, not a parsed
+                # sentinel. Activate compression at the configured level when
+                # warranted (empty -> bare invocation, byte-identical to before).
+                # Type-guarded; inlined per-invocation (not exported).
+                local _loki_wt_cm=""
+                if type loki_caveman_activate_env >/dev/null 2>&1; then
+                    _loki_wt_cm="$(loki_caveman_activate_env)"
+                fi
+                if [ -n "$_loki_wt_cm" ]; then
+                    CAVEMAN_DEFAULT_MODE="$_loki_wt_cm" claude --dangerously-skip-permissions \
+                        -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
+                        >> "$log_file" 2>&1 || _wt_exit=$?
+                else
+                    claude --dangerously-skip-permissions \
+                        -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
+                        >> "$log_file" 2>&1 || _wt_exit=$?
+                fi
                 ;;
             codex)
                 codex exec --full-auto --skip-git-repo-check \
@@ -3259,7 +3283,11 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
                 if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
                     _cr_argv+=("--bare")
                 fi
-                resolution=$(claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text 2>/dev/null)
+                # caveman HARD-SUPPRESS (parsed output): the output is captured as
+                # the EXACT resolved file content (the shell writes it verbatim).
+                # Compressing prose into the merged source would corrupt the file,
+                # so disable caveman unconditionally here. No-op when absent.
+                resolution=$(CAVEMAN_DEFAULT_MODE=off claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text 2>/dev/null)
                 ;;
             codex)
                 resolution=$(codex exec --full-auto --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
@@ -7013,6 +7041,48 @@ enforce_test_coverage() {
             local output
             output=$(cd "${TARGET_DIR:-.}" && timeout "$gate_timeout" npx mocha 2>&1) || test_passed=false
             details="mocha: $(echo "$output" | tail -3 | tr '\n' ' ')"
+        else
+            # v7.41.x (test-coverage fail-open fix): a real "scripts.test" was
+            # previously missed entirely. A greenfield project whose package.json
+            # has {"scripts":{"test":"node --test"}} (or any non-placeholder test
+            # script) actually runs a working suite via `npm test`, yet the gate
+            # reported runner:none + pass:true -- so a project whose tests FAIL
+            # green-lit identically. Detect a real test script (excluding the npm
+            # placeholder "no test specified") with a JSON parser, not grep (grep
+            # would false-positive on devDeps / unrelated keys), then run the
+            # configured command. This MUST sit before the monorepo/python/go/rust
+            # checks, all of which gate on test_runner=="none".
+            local _pkg_test_script
+            _pkg_test_script=$(_LOKI_PKG="${TARGET_DIR:-.}/package.json" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_LOKI_PKG']) as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+t = (d.get('scripts') or {}).get('test') or ''
+# npm's default placeholder; treat as 'no test'.
+if 'no test specified' in t.lower():
+    sys.exit(0)
+sys.stdout.write(t.strip())
+" 2>/dev/null || echo "")
+            if [ -n "$_pkg_test_script" ]; then
+                # LOKI_TEST_COMMAND lets an operator override the invocation; the
+                # default is the project's own `npm test`.
+                local _test_cmd="${LOKI_TEST_COMMAND:-npm test}"
+                # Label the runner by what the script invokes so evidence is
+                # honest (node --test, vitest, jest, etc. all surface here).
+                case "$_pkg_test_script" in
+                    *"node --test"*|*"node:test"*) test_runner="node-test" ;;
+                    *vitest*) test_runner="vitest" ;;
+                    *jest*)   test_runner="jest" ;;
+                    *mocha*)  test_runner="mocha" ;;
+                    *)        test_runner="npm-test" ;;
+                esac
+                local output
+                output=$(cd "${TARGET_DIR:-.}" && timeout "$gate_timeout" sh -c "$_test_cmd" 2>&1) || test_passed=false
+                details="$test_runner ($_test_cmd): $(echo "$output" | tail -5 | tr '\n' ' ')"
+            fi
         fi
     fi
 
@@ -7137,11 +7207,29 @@ enforce_test_coverage() {
     fi
 
     if [ "$test_runner" = "none" ]; then
-        log_info "Test coverage: no test runner detected, skipping"
+        log_info "Test coverage: no test runner detected, recording inconclusive (not pass)"
+        # v7.41.x fail-open fix: previously this wrote pass:true, so a project
+        # whose tests truly do not run was indistinguishable from one whose tests
+        # passed. Record pass:"inconclusive" instead. The completion-council
+        # evidence gate already treats runner=="none" as pass-through regardless
+        # of the pass value (completion-council.sh: runner=='none' short-circuits
+        # BEFORE the `passed is False` block), so genuinely-no-tests stays
+        # non-blocking (no infinite hang), while the JSON record is now honest:
+        # "no tests" never reads as "tests passed". A DETECTED runner that fails
+        # still writes pass:false below and BLOCKS.
+        #
+        # unit-tests.pass is only read for the status-line display (run.sh ~2183,
+        # PASS vs PENDING); keeping the touch preserves the historical
+        # non-blocking behavior for legitimate no-test projects.
         touch "$quality_dir/unit-tests.pass"
         cat > "$quality_dir/test-results.json" << TREOF
-{"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"none","pass":true,"summary":"No test runner detected"}
+{"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"none","pass":"inconclusive","summary":"No test runner detected"}
 TREOF
+        # Finding #598: stamp the per-iteration freshness marker so a later
+        # completion-route capture (ensure_completion_test_evidence) reuses this
+        # run instead of re-running the suite. Single source of truth for "tests
+        # ran this iteration", set on every return path that writes results.
+        printf '%s\n' "${ITERATION_COUNT:-0}" > "$quality_dir/.test-results.iter" 2>/dev/null || true
         return 0
     fi
 
@@ -7151,6 +7239,8 @@ TREOF
     cat > "$quality_dir/test-results.json" << TREOF
 {"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","runner":"$test_runner","pass":$test_passed,"min_coverage":$min_coverage,"summary":"$details"}
 TREOF
+    # Finding #598: stamp the per-iteration freshness marker (see above).
+    printf '%s\n' "${ITERATION_COUNT:-0}" > "$quality_dir/.test-results.iter" 2>/dev/null || true
 
     if [ "$test_passed" = "true" ]; then
         touch "$quality_dir/unit-tests.pass"
@@ -7163,6 +7253,82 @@ TREOF
         log_warn "Test coverage gate: $test_runner FAILED"
         return 1
     fi
+}
+
+# ============================================================================
+# Finding #598 (HIGH): ensure REAL test evidence exists before the
+# verified-completion evidence gate runs on a completion claim.
+#
+# The evidence gate (council_evidence_gate) blocks completion iff the diff is
+# empty OR tests are red. The test axis reads .loki/quality/test-results.json.
+# When that file is ABSENT or inconclusive (runner==none / unparsable), the gate
+# treats the test axis as pass-through, so completion could be claimed on a
+# nonzero diff alone with NO test evidence -- half-blind. This happens whenever
+# enforce_test_coverage did not run this iteration, e.g. LOKI_HARD_GATES=false or
+# PHASE_UNIT_TESTS=false (the gate at the quality-gate ladder is skipped) while
+# the completion-promise route still fires the evidence gate.
+#
+# Rather than letting absent evidence pass (Option 1, which would live in the
+# off-limits completion-council.sh), we GENERATE real evidence here (Option 2,
+# preferred + autonomous): run the project's own test command via the existing
+# detect-and-run enforce_test_coverage, which persists a fresh test-results.json.
+# The gate then reads true PASS/FAIL. If no test runner truly exists, the file
+# records runner:none and the test axis legitimately stays pass-through.
+#
+# Behavior:
+#   - Default ON. Opt out with LOKI_COMPLETION_TEST_CAPTURE=0.
+#   - Cheap: skips when a fresh test-results.json already exists for THIS
+#     iteration (freshness marker .loki/quality/.test-results.iter), so we never
+#     re-run the suite the quality-gate ladder already ran.
+#   - Best-effort: enforce_test_coverage returns nonzero on red tests; that is
+#     EXPECTED and must not crash the completion path. The gate is the decider,
+#     so we always swallow the rc with `|| true` and let the gate read the file.
+#   - CWD invariant: enforce_test_coverage writes ${TARGET_DIR}/.loki/...; the
+#     gate reads .loki/... relative to CWD. Both are invoked from the same loop
+#     body where CWD == TARGET_DIR (or TARGET_DIR=="."), matching the existing
+#     gate call sites.
+# ============================================================================
+ensure_completion_test_evidence() {
+    [ "${LOKI_COMPLETION_TEST_CAPTURE:-1}" = "0" ] && return 0
+    type enforce_test_coverage &>/dev/null || return 0
+
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local quality_dir="$loki_dir/quality"
+    local tr_file="$quality_dir/test-results.json"
+    local iter_marker="$quality_dir/.test-results.iter"
+    local this_iter="${ITERATION_COUNT:-0}"
+
+    # Freshness guard: if results already exist for this iteration, reuse them.
+    if [ -f "$tr_file" ] && [ -f "$iter_marker" ]; then
+        local marked
+        marked="$(cat "$iter_marker" 2>/dev/null || echo "")"
+        if [ "$marked" = "$this_iter" ]; then
+            log_info "Completion test evidence: reusing this iteration's test-results.json"
+            return 0
+        fi
+    fi
+
+    log_info "Completion test evidence: capturing fresh test results before evidence gate (opt out: LOKI_COMPLETION_TEST_CAPTURE=0)"
+    # Record the test-results.json mtime BEFORE capture so we only mark this
+    # iteration "fresh" if enforce_test_coverage actually (re)wrote the file.
+    # Guards LOW-2 (bug-hunt): if capture is interrupted before writing while a
+    # prior-iteration file exists, the marker must NOT advance and let stale
+    # evidence read as fresh. Window is narrow but the check is cheap.
+    local _results_file="$quality_dir/test-results.json"
+    local _mtime_before=""
+    [ -f "$_results_file" ] && _mtime_before=$(stat -f %m "$_results_file" 2>/dev/null || stat -c %Y "$_results_file" 2>/dev/null || echo "")
+    # The gate decides on the persisted file; a red suite (nonzero rc) is expected
+    # and must not abort the completion path here.
+    enforce_test_coverage || true
+    mkdir -p "$quality_dir" 2>/dev/null || true
+    local _mtime_after=""
+    [ -f "$_results_file" ] && _mtime_after=$(stat -f %m "$_results_file" 2>/dev/null || stat -c %Y "$_results_file" 2>/dev/null || echo "")
+    # Only advance the freshness marker when the results file was actually
+    # produced/updated by THIS capture (mtime advanced or file newly created).
+    if [ -n "$_mtime_after" ] && [ "$_mtime_after" != "$_mtime_before" ]; then
+        printf '%s\n' "$this_iter" > "$iter_marker" 2>/dev/null || true
+    fi
+    return 0
 }
 
 # ============================================================================
@@ -7228,7 +7394,11 @@ run_doc_quality_gate() {
         fi
     else
         score=$((score - 10))
-        issues+=("No generated documentation found (run 'loki docs generate')")
+        if [ "${LOKI_AUTO_DOCS:-true}" = "true" ]; then
+            issues+=("No generated documentation found (auto-generation did not complete)")
+        else
+            issues+=("No generated documentation found (auto-docs disabled; run 'loki docs generate')")
+        fi
     fi
 
     # Check 3: Package documentation (for npm/pip packages)
@@ -7251,6 +7421,52 @@ run_doc_quality_gate() {
 
     # Gate passes if score >= 70
     [ "$score" -ge 70 ]
+}
+
+# ============================================================================
+# Auto-Documentation Generation (intelligent default)
+# Generates the .loki/docs/ suite before the documentation gate evaluates so
+# the gate scores on real generated docs instead of nagging the user to run
+# 'loki docs generate' by hand. Default-on; opt out with LOKI_AUTO_DOCS=false.
+#
+# Bounded: runs at most once per run when docs are missing, and again only
+# when the existing docs are >10 commits stale (the same threshold the gate
+# and staleness check use). 'loki docs generate' writes its manifest
+# unconditionally (template fallback when no provider), so the missing-docs
+# trigger fires exactly once. Best-effort: never fails the iteration loop.
+# ============================================================================
+
+auto_generate_docs_if_needed() {
+    [ "${LOKI_AUTO_DOCS:-true}" = "true" ] || return 0
+
+    local project_dir="${TARGET_DIR:-.}"
+    local manifest="$project_dir/.loki/docs/docs-manifest.json"
+    local needs_gen=false
+
+    if [ ! -f "$manifest" ]; then
+        needs_gen=true
+    else
+        # Regenerate only when the existing docs are substantially stale.
+        local doc_sha
+        doc_sha=$(python3 -c "import json; print(json.load(open('$manifest')).get('git_sha', ''))" 2>/dev/null)
+        if [ -n "$doc_sha" ]; then
+            local behind
+            behind=$(git -C "$project_dir" rev-list --count "$doc_sha..HEAD" 2>/dev/null || echo "0")
+            [ "$behind" -gt 10 ] && needs_gen=true
+        fi
+    fi
+
+    [ "$needs_gen" = "true" ] || return 0
+
+    local loki_bin="$SCRIPT_DIR/loki"
+    [ -x "$loki_bin" ] || return 0
+
+    log_info "Auto-documentation: generating .loki/docs/ before documentation gate..."
+    # Synchronous so docs exist before the gate scores. Provider-agnostic:
+    # 'loki docs generate' picks the run's provider and falls back to
+    # template-based docs when no provider CLI is available.
+    "$loki_bin" docs generate "$project_dir" >/dev/null 2>&1 || \
+        log_warn "Auto-documentation: generation did not complete (gate will score on what exists)"
 }
 
 # ============================================================================
@@ -7559,16 +7775,28 @@ run_code_review() {
     review_id="review-$(date -u +%Y%m%dT%H%M%SZ)-${ITERATION_COUNT:-0}"
     mkdir -p "$review_dir/$review_id"
 
-    # Get diff from last commit (staged changes)
+    # Get diff from last commit (staged changes).
+    #
+    # Finding #596 (HIGH): exclude .loki/ and .git/ from the review diff via git
+    # pathspec. When .loki/ is git-tracked the diff bloats (observed 2.18MB of
+    # runtime state), the reviewer prompt overflows, the model returns EMPTY, and
+    # every reviewer records NO_OUTPUT -> the gate passes with ZERO real review.
+    # The evidence gate already excludes .loki/ (see the grep -vE near the
+    # porcelain read); mirror that here so the code-review gate is never defeated
+    # by Loki's own state. Behavior is identical when .loki/ is untracked (the
+    # common case) because git ignores the exclude pathspec for paths it does not
+    # track. ':(exclude).git/' is harmless (git never diffs .git/) and is kept
+    # only for parity with the evidence-gate exclusion list.
+    local _review_pathspec=(-- . ':(exclude).loki/' ':(exclude).git/' ':(exclude)**/.loki/**')
     local diff_content
-    diff_content=$(git -C "${TARGET_DIR:-.}" diff HEAD~1 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --cached 2>/dev/null || echo "")
+    diff_content=$(git -C "${TARGET_DIR:-.}" diff HEAD~1 "${_review_pathspec[@]}" 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --cached "${_review_pathspec[@]}" 2>/dev/null || echo "")
     if [ -z "$diff_content" ]; then
         log_info "Code review: No diff to review, skipping"
         return 0
     fi
 
     local changed_files
-    changed_files=$(git -C "${TARGET_DIR:-.}" diff --name-only HEAD~1 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --name-only --cached 2>/dev/null || echo "")
+    changed_files=$(git -C "${TARGET_DIR:-.}" diff --name-only HEAD~1 "${_review_pathspec[@]}" 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --name-only --cached "${_review_pathspec[@]}" 2>/dev/null || echo "")
 
     log_header "CODE REVIEW: $review_id"
 
@@ -7907,6 +8135,15 @@ BUILD_PROMPT
                     if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
                         _rv_argv+=("--allowedTools" "$(loki_review_allowlist)")
                     fi
+                    # caveman HARD-SUPPRESS (parsed output): this is a trust-gate
+                    # subcall whose output is parsed for "^VERDICT:" + findings. A
+                    # globally-active caveman would compress/reword that line and
+                    # silently flip the verdict, so we UNCONDITIONALLY disable
+                    # caveman here with CAVEMAN_DEFAULT_MODE=off (the activate hook
+                    # then deletes its flag and emits nothing). Set inline, not via
+                    # the helper, so the carve-out holds even when the helper is
+                    # out of scope. No-op when caveman is absent.
+                    CAVEMAN_DEFAULT_MODE=off \
                     claude "${_rv_argv[@]}" -p "$prompt_text" \
                         --output-format text > "$review_output" 2>/dev/null
                     ;;
@@ -7947,6 +8184,14 @@ BUILD_PROMPT
     local pass_count=0
     local fail_count=0
     local verdicts_summary=""
+    # Finding #596 FIX A2 (HIGH): count REAL verdicts (a reviewer file that
+    # exists, is non-empty, AND carries a recognized VERDICT: PASS|FAIL line).
+    # A review where every reviewer produced no usable verdict (all NO_OUTPUT,
+    # e.g. the model returned EMPTY because a .loki-bloated prompt overflowed)
+    # must NOT silently pass with pass_count=0/fail_count=0/has_blocking=false.
+    # Such a review proves nothing, so we treat it as INCONCLUSIVE -> blocking.
+    local real_verdict_count=0
+    local no_output_count=0
 
     for i in $(seq 0 $((reviewer_count - 1))); do
         local reviewer_name
@@ -7956,6 +8201,7 @@ BUILD_PROMPT
         if [ ! -f "$review_output" ] || [ ! -s "$review_output" ]; then
             log_warn "Reviewer $reviewer_name produced no output"
             verdicts_summary="${verdicts_summary}${reviewer_name}:NO_OUTPUT "
+            ((no_output_count++))
             continue
         fi
 
@@ -7963,6 +8209,22 @@ BUILD_PROMPT
         local verdict
         verdict=$(grep -i "^VERDICT:" "$review_output" | head -1 | sed 's/^VERDICT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
 
+        # FIX A2: a "real verdict" is the PRESENCE of a non-empty VERDICT: line,
+        # not a specific token. A non-empty file with NO VERDICT line (garbage or
+        # a truncated reply) previously counted as PASS and could approve the gate
+        # on a meaningless file; now it is a non-verdict (not real, not a pass).
+        # We deliberately keep the original non-FAIL=pass semantics for any file
+        # that DOES carry a verdict line (PASS, APPROVE, "PASS with concerns",
+        # etc. all count as pass) so verbose-but-real verdicts are never
+        # false-blocked. The only added block relative to shipped behavior is the
+        # zero-real-verdicts (all-empty) case.
+        if [ -z "$verdict" ]; then
+            log_warn "Reviewer $reviewer_name produced no VERDICT line (empty or unparseable reply)"
+            verdicts_summary="${verdicts_summary}${reviewer_name}:NO_VERDICT "
+            ((no_output_count++))
+            continue
+        fi
+        ((real_verdict_count++))
         if [ "$verdict" = "FAIL" ]; then
             ((fail_count++))
             # Check for Critical/High severity findings
@@ -7979,6 +8241,23 @@ BUILD_PROMPT
         verdicts_summary="${verdicts_summary}${reviewer_name}:${verdict:-UNKNOWN} "
     done
 
+    # Finding #596 FIX A2: zero real verdicts when reviewers were expected =>
+    # INCONCLUSIVE => blocking. Optional bounded retry first (LOKI_REVIEW_RETRY=1,
+    # default on) so a transient empty-output blip does not hard-block; the retry
+    # re-runs the whole review with the (now .loki-excluded) diff. Opt out of the
+    # block entirely with LOKI_REVIEW_INCONCLUSIVE_BLOCK=0 (records, never blocks).
+    local review_inconclusive=false
+    if [ "$reviewer_count" -gt 0 ] && [ "$real_verdict_count" -eq 0 ]; then
+        review_inconclusive=true
+        log_error "CODE REVIEW INCONCLUSIVE: 0 of $reviewer_count reviewers returned a usable verdict (no_output=$no_output_count)"
+        log_error "  An all-empty review proves nothing; refusing to pass the gate on zero real verdicts."
+        if [ "${LOKI_REVIEW_RETRY:-1}" = "1" ] && [ "${_LOKI_REVIEW_RETRYING:-0}" != "1" ]; then
+            log_warn "  Retrying code review once (LOKI_REVIEW_RETRY=1)..."
+            _LOKI_REVIEW_RETRYING=1 run_code_review
+            return $?
+        fi
+    fi
+
     # Save aggregate results via python3 + env vars (no shell interpolation in JSON)
     export LOKI_REVIEW_AGG_FILE="$review_dir/$review_id/aggregate.json"
     export LOKI_REVIEW_AGG_ID="$review_id"
@@ -7987,6 +8266,8 @@ BUILD_PROMPT
     export LOKI_REVIEW_AGG_FAIL="$fail_count"
     export LOKI_REVIEW_AGG_BLOCKING="$has_blocking"
     export LOKI_REVIEW_AGG_VERDICTS="$verdicts_summary"
+    export LOKI_REVIEW_AGG_REAL="$real_verdict_count"
+    export LOKI_REVIEW_AGG_INCONCLUSIVE="$review_inconclusive"
     python3 << 'AGG_SCRIPT'
 import json, os
 result = {
@@ -7995,6 +8276,8 @@ result = {
     "pass_count": int(os.environ["LOKI_REVIEW_AGG_PASS"]),
     "fail_count": int(os.environ["LOKI_REVIEW_AGG_FAIL"]),
     "has_blocking": os.environ["LOKI_REVIEW_AGG_BLOCKING"] == "true",
+    "real_verdict_count": int(os.environ["LOKI_REVIEW_AGG_REAL"]),
+    "inconclusive": os.environ["LOKI_REVIEW_AGG_INCONCLUSIVE"] == "true",
     "verdicts": os.environ["LOKI_REVIEW_AGG_VERDICTS"].strip()
 }
 with open(os.environ["LOKI_REVIEW_AGG_FILE"], "w") as f:
@@ -8002,12 +8285,15 @@ with open(os.environ["LOKI_REVIEW_AGG_FILE"], "w") as f:
 AGG_SCRIPT
     unset LOKI_REVIEW_AGG_FILE LOKI_REVIEW_AGG_ID LOKI_REVIEW_AGG_ITER
     unset LOKI_REVIEW_AGG_PASS LOKI_REVIEW_AGG_FAIL LOKI_REVIEW_AGG_BLOCKING LOKI_REVIEW_AGG_VERDICTS
+    unset LOKI_REVIEW_AGG_REAL LOKI_REVIEW_AGG_INCONCLUSIVE
 
     emit_event_json "code_review_complete" \
         "review_id=$review_id" \
         "pass_count=$pass_count" \
         "fail_count=$fail_count" \
         "has_blocking=$has_blocking" \
+        "real_verdict_count=$real_verdict_count" \
+        "inconclusive=$review_inconclusive" \
         "iteration=$ITERATION_COUNT"
 
     # Anti-sycophancy check: unanimous PASS is suspicious
@@ -8023,6 +8309,20 @@ AGG_SCRIPT
     if [ "$has_blocking" = "true" ]; then
         log_error "CODE REVIEW BLOCKED: Critical/High findings detected"
         log_error "Review details: $review_dir/$review_id/"
+        return 1
+    fi
+
+    # Finding #596 FIX A2: an inconclusive review (zero real verdicts, retry
+    # already exhausted or disabled) blocks unless explicitly opted out. This is
+    # the 'verified before done' promise: a review that produced no usable verdict
+    # cannot stand in for a real review.
+    if [ "$review_inconclusive" = "true" ]; then
+        if [ "${LOKI_REVIEW_INCONCLUSIVE_BLOCK:-1}" = "0" ]; then
+            log_warn "Code review inconclusive (0/$reviewer_count real verdicts) but LOKI_REVIEW_INCONCLUSIVE_BLOCK=0 - not blocking"
+            return 0
+        fi
+        log_error "CODE REVIEW BLOCKED: inconclusive (0/$reviewer_count reviewers returned a usable verdict)"
+        log_error "  Review details: $review_dir/$review_id/ ; opt out with LOKI_REVIEW_INCONCLUSIVE_BLOCK=0"
         return 1
     fi
 
@@ -8146,6 +8446,11 @@ ADVERSARIAL_EOF
                 if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
                     _adv_argv+=("--allowedTools" "$(loki_review_allowlist)")
                 fi
+                # caveman HARD-SUPPRESS (parsed output): the adversarial probe's
+                # output is parsed for findings/severity. Disable caveman
+                # unconditionally (CAVEMAN_DEFAULT_MODE=off) so compression cannot
+                # drop or reword a finding. No-op when caveman is absent.
+                CAVEMAN_DEFAULT_MODE=off \
                 claude "${_adv_argv[@]}" -p "$adversarial_prompt" \
                     --output-format text > "$result_file" 2>/dev/null || true
             fi
@@ -10183,9 +10488,14 @@ ${_commits}"
         _ic_argv+=("--bare")
     fi
     _ic_argv+=("--model" "haiku")
+    # caveman HARD-SUPPRESS (parsed output): the regen output is validated to be
+    # Markdown (grep '^#') and written verbatim to USAGE.md. Compressed prose
+    # would fail that check or produce caveman-style USAGE text, so disable
+    # caveman unconditionally. Inlined on `claude` only (does not cross the pipe
+    # to head). No-op when caveman is absent.
     local _ic_out
     _ic_out=$(printf '%s' "$_ic_prompt" \
-        | timeout 60 claude "${_ic_argv[@]}" -p - 2>/dev/null \
+        | timeout 60 env CAVEMAN_DEFAULT_MODE=off claude "${_ic_argv[@]}" -p - 2>/dev/null \
         | head -200)
     # Sanity check: response must look like Markdown (starts with # or ##).
     if [ -z "$_ic_out" ] || ! printf '%s' "$_ic_out" | head -1 | grep -qE '^#'; then
@@ -10881,6 +11191,20 @@ build_prompt() {
     # and more accurate (high-signal files first, fixed PRD section template so
     # the result is diff-friendly for later incremental updates).
     local analysis_instruction="CODEBASE_ANALYSIS_MODE: No PRD provided. Reverse-engineer a precise PRD from the existing code in three passes, cheaply and without blind full scans. PASS 1 (orient): list the top two directory levels; read ONLY high-signal manifests that exist (package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, pom.xml, build.gradle, composer.json) to identify language, framework, and scripts; read README and any docs index. PASS 2 (locate): from the manifests and conventional layout, identify the entrypoints, the public API or CLI surface, the test directory and runner, and the config or env contract; read those first; skip generated, vendored, and lockfile content; prefer LSP workspace symbols when the lsp-proxy server is available. PASS 3 (write): write .loki/generated-prd.md with these sections: Overview, Detected Stack, Entrypoints and Components, Existing Behavior and Requirements (reverse-engineered, observable), Test and Build Setup, Gaps and TODOs, Out of Scope. Keep it under 200 lines, plain Markdown, no emojis, no em dashes. Do not invent features not evidenced by the code. THEN execute SDLC phases against that PRD."
+
+    # v7.40.0 (#584): when the autonomous complexity-gated decision in
+    # run_autonomous chose the Claude Code Dynamic Workflow path
+    # (USE_WORKFLOW_ANALYSIS=1), prefix the read-only analysis instruction with
+    # "ultracode: " so the three-pass reverse-engineer-a-PRD flow runs as a
+    # workflow fan-out. The decision (and its one-time stderr disclosure) is made
+    # ONCE in run_autonomous, not here -- this subshell only reads the resolved
+    # global so the prefix is deterministic per iteration. When the global is 0 /
+    # unset (simple/standard + var unset, or non-Claude, or degraded, or escape
+    # hatch =0), the instruction stays byte-identical to before. Parity-locked
+    # with analysisInstruction() in loki-ts/src/runner/build_prompt.ts.
+    if [ "${USE_WORKFLOW_ANALYSIS:-0}" = "1" ]; then
+        analysis_instruction="ultracode: ${analysis_instruction}"
+    fi
 
     # v7.8.1: incremental-update instruction for when a generated PRD already
     # exists and the codebase changed (GENERATED_PRD_ACTION=update). Reconcile,
@@ -12542,6 +12866,62 @@ except Exception as exc:
         return 1
     fi
 
+    # v7.40.0 (#584): autonomous complexity-gated decision for the no-PRD
+    # codebase-analysis dispatch. detect_complexity() is defined (~1611) but was
+    # never called on the bash route, so DETECTED_COMPLEXITY stayed "" and the
+    # gate was inert here. Call it ONCE per run, before the first build_prompt,
+    # so DETECTED_COMPLEXITY is populated for the gate AND for the existing
+    # complexity consumers (effort-for-tier, telemetry, phase selection) that
+    # previously always fell back to "standard" on bash. detect_complexity()
+    # sets the DETECTED_COMPLEXITY global directly (no echo); call once and let
+    # the cached value carry through every iteration so the static prompt prefix
+    # is stable across the run.
+    if [ -z "${DETECTED_COMPLEXITY:-}" ]; then
+        detect_complexity "$prd_path"
+    fi
+
+    # Decide the workflow-analysis dispatch ONCE here (parent shell), not inside
+    # build_prompt (which runs in a $(...) subshell where a write would not
+    # propagate). The decision is parity-locked with the Bun route
+    # (useClaudeWorkflowsForAnalysis in loki-ts/src/runner/build_prompt.ts) and
+    # evaluated in the SAME order:
+    #   provider != claude          -> three-pass (USE_WORKFLOW_ANALYSIS=0)
+    #   PROVIDER_DEGRADED=true       -> three-pass
+    #   LOKI_USE_CLAUDE_WORKFLOWS=0  -> three-pass (escape hatch)
+    #   LOKI_USE_CLAUDE_WORKFLOWS=1  -> workflow   (force on)
+    #   var UNSET                    -> workflow IFF DETECTED_COMPLEXITY == complex
+    # When the workflow path is chosen AUTONOMOUSLY (var unset + complex), emit a
+    # one-time cost disclosure to stderr (NOT stdout, which is the prompt). The
+    # decision is read by build_prompt to prefix the analysis instruction with
+    # "ultracode: ". This ONLY affects the read-only no-PRD analysis instruction,
+    # so the entire decision is gated on the no-PRD case ([ -z "$prd_path" ]).
+    # When a PRD exists, build_prompt never emits the analysis instruction, so
+    # USE_WORKFLOW_ANALYSIS stays 0 and no disclosure fires (the "no PRD found"
+    # message would be false otherwise). detect_complexity above stays
+    # unconditional because its other consumers run in PRD mode too.
+    USE_WORKFLOW_ANALYSIS=0
+    local _wf_autonomous=0
+    if [ -z "$prd_path" ] && [ "${LOKI_PROVIDER:-claude}" = "claude" ] && [ "${PROVIDER_DEGRADED:-false}" != "true" ]; then
+        if [ "${LOKI_USE_CLAUDE_WORKFLOWS:-}" = "0" ]; then
+            USE_WORKFLOW_ANALYSIS=0
+        elif [ "${LOKI_USE_CLAUDE_WORKFLOWS:-}" = "1" ]; then
+            USE_WORKFLOW_ANALYSIS=1
+        elif [ -z "${LOKI_USE_CLAUDE_WORKFLOWS:-}" ] && [ "${DETECTED_COMPLEXITY:-}" = "complex" ]; then
+            USE_WORKFLOW_ANALYSIS=1
+            _wf_autonomous=1
+        fi
+    fi
+    # One-time autonomous-decision disclosure to stderr. Only fires when this run
+    # took the workflow path on its own (not when forced via =1, not when off).
+    # No fabricated dollar figure (no price API): name the cost CLASS and the
+    # opt-out. Guard so it prints once per run.
+    if [ "$_wf_autonomous" = "1" ] && [ -z "${_LOKI_WORKFLOW_DISCLOSED:-}" ]; then
+        echo "Loki: no PRD found and this repo looks complex (complexity=complex), so the codebase-analysis pass is dispatching a Claude Code Dynamic Workflow (parallel fan-out). Workflows are more thorough but cost meaningfully more than the default three-pass analysis. Set LOKI_USE_CLAUDE_WORKFLOWS=0 to keep the cheaper three-pass pass." >&2
+        _LOKI_WORKFLOW_DISCLOSED=1
+        export _LOKI_WORKFLOW_DISCLOSED
+    fi
+    export USE_WORKFLOW_ANALYSIS
+
     while [ $retry -lt $MAX_RETRIES ]; do
         # Check for human intervention BEFORE incrementing iteration count
         # BUG-ST-010: Moved pause/stop checks before ITERATION_COUNT increment
@@ -12781,6 +13161,17 @@ except Exception as exc:
                 log_warn "Ignoring invalid model override '$_loki_override_file' (allowed: haiku, sonnet, opus, fable); using tier $tier_param"
             fi
         fi
+        # fable unavailable, collapse to opus (final dispatch backstop). Claude
+        # Fable 5 is not available at the Claude API ("use Opus 4.8"). Any path
+        # that left tier_param="fable" (static fallback, override file, architect
+        # opt-in) is collapsed to opus here, after all tier_param mutations and
+        # before the claude argv is built (--model "$tier_param"). Keeps dispatch,
+        # the cost quote, and the dashboard effective-model in agreement. Only for
+        # the claude provider: codex/cline/aider map tier_param to their own
+        # effort/model strings and have no fable equivalent (v7.39.1).
+        if [ "${PROVIDER_NAME:-claude}" = "claude" ] && [ "$tier_param" = "fable" ]; then
+            tier_param="opus"
+        fi
         echo "=== RARV Phase: $rarv_phase, Tier: $CURRENT_TIER ($tier_param) ===" | tee -a "$log_file" "$agent_log"
         log_info "RARV Phase: $rarv_phase -> Tier: $CURRENT_TIER ($tier_param)"
 
@@ -12963,9 +13354,40 @@ except Exception as exc:
                 # result-cost file under the correct iteration index.
                 export LOKI_CURRENT_MODEL="$tier_param"
                 export LOKI_ITERATION="$ITERATION_COUNT"
+                # caveman ACTIVATION (free-form): the main RARV dev loop is
+                # free-form generation, so we ask caveman to compress its OUTPUT
+                # tokens at the configured level. Inlined as a per-invocation env
+                # prefix (NOT exported) so it applies ONLY to `claude` (and the
+                # SessionStart hook it spawns inherits it) and never bleeds into
+                # later parsed subcalls. Empty when caveman is unsupported /
+                # disabled / the legacy completion-prose match is active, in which
+                # case the invocation is byte-identical to before. Type-guarded so
+                # an older runtime without the helper degrades cleanly.
+                local _loki_cm_level=""
+                if type loki_caveman_activate_env >/dev/null 2>&1; then
+                    _loki_cm_level="$(loki_caveman_activate_env)"
+                fi
+                # Best-effort one-time bootstrap when activation is warranted but
+                # caveman is not yet installed (idempotent, non-blocking, clean
+                # degrade). The level stays usable next run even if this run is
+                # uncompressed.
+                if [ -n "$_loki_cm_level" ] && type loki_caveman_bootstrap >/dev/null 2>&1; then
+                    loki_caveman_bootstrap || true
+                fi
+                # NOTE: an EMPTY CAVEMAN_DEFAULT_MODE is NOT inert -- caveman's
+                # getDefaultMode() treats empty as unset and falls back to the
+                # user's global default (often "full"). So when activation is not
+                # warranted we must NOT set the var at all (the bare branch),
+                # keeping the invocation byte-identical to pre-caveman behavior.
                 { \
+                if [ -n "$_loki_cm_level" ]; then
+                CAVEMAN_DEFAULT_MODE="$_loki_cm_level" \
                 claude "${_loki_claude_argv[@]}" -p "$prompt" \
-            --output-format stream-json --verbose 2>&1 | \
+            --output-format stream-json --verbose 2>&1
+                else
+                claude "${_loki_claude_argv[@]}" -p "$prompt" \
+            --output-format stream-json --verbose 2>&1
+                fi | \
             tee -a "$log_file" "$agent_log" "$iter_output" | \
             python3 -u -c '
 import sys
@@ -13603,6 +14025,12 @@ if __name__ == "__main__":
                     fi
                 fi
             fi
+            # Auto-generate docs (default-on) BEFORE the staleness check and the
+            # gate, so neither nags the user to run 'loki docs generate' by hand.
+            # Opt out with LOKI_AUTO_DOCS=false.
+            if [ "$ITERATION_COUNT" -gt 0 ]; then
+                auto_generate_docs_if_needed
+            fi
             # Documentation staleness check (v6.75.0)
             if [ "$ITERATION_COUNT" -gt 0 ]; then
                 run_doc_staleness_check
@@ -13703,6 +14131,15 @@ if __name__ == "__main__":
             # Completion Council check (v5.25.0) - multi-agent voting on completion
             # Runs before completion promise check since council is more comprehensive
             log_step "Post-iteration: checking completion council..."
+            # Finding #598 (HIGH): council_should_stop calls council_evidence_gate
+            # internally; ensure fresh test evidence exists first so its test axis
+            # is not half-blind when the quality-gate ladder did not run this
+            # iteration (e.g. LOKI_HARD_GATES=false). Idempotent: the freshness
+            # guard reuses results the ladder already wrote in the common case, so
+            # tests are never run twice per iteration. Best-effort, never blocks.
+            if type ensure_completion_test_evidence &>/dev/null; then
+                ensure_completion_test_evidence || true
+            fi
             if type council_should_stop &>/dev/null && council_should_stop; then
                 echo ""
                 log_header "COMPLETION COUNCIL: PROJECT COMPLETE"
@@ -13734,7 +14171,7 @@ if __name__ == "__main__":
             # refuse completion until the review passes.
             local _gate_block_for_completion=""
             case "${gate_failures:-}" in
-                *code_review,*|*code_review_ESCALATED*) _gate_block_for_completion="code_review" ;;
+                *code_review,*|*code_review_ESCALATED*|*code_review_PAUSED*) _gate_block_for_completion="code_review" ;;
             esac
             # DROP-FIX (v7.28): check_completion_promise -> check_task_completion_signal
             # CONSUMES the completion signal (rm -f) on the FIRST successful call.
@@ -13765,11 +14202,36 @@ if __name__ == "__main__":
             if [ "$_completion_claimed" = 1 ] && type council_reverify_checklist &>/dev/null; then
                 council_reverify_checklist 2>/dev/null || true
             fi
+            # Finding #598 (HIGH): generate real test evidence before the evidence
+            # gate fires, so the gate's test axis is never half-blind on absent
+            # test-results.json. Only on an actual completion claim (mirrors the
+            # reverify guard above) so the suite does not run every iteration.
+            # Type-guarded + best-effort: never blocks the completion path itself;
+            # the evidence gate below is the decider that reads the file.
+            if [ "$_completion_claimed" = 1 ] && type ensure_completion_test_evidence &>/dev/null; then
+                ensure_completion_test_evidence || true
+            fi
             if [ -n "$_gate_block_for_completion" ] && [ "$_completion_claimed" = 1 ]; then
                 log_warn "Completion claim rejected: code review is BLOCKED for this iteration (Critical/High findings). Fix review issues before completion."
                 log_warn "  Review details under .loki/quality/reviews/ ; gate_failures=${gate_failures}"
                 _gate_block_for_completion=""
                 # Fall through; the gate-failed loop continues normally
+            # HIGH (trust-gate): the checklist hard gate must also guard the
+            # DEFAULT completion-promise / loki_complete_task route, not only the
+            # interval-gated council path (council_evaluate) and the dashboard
+            # force-review path -- both of which already call this gate. Without
+            # it, an agent that leaves a `priority: critical` checklist item
+            # `failing` and claims done on a non-council-interval iteration would
+            # ship, bypassing the checklist gate entirely. council_reverify_checklist
+            # ran above (when a claim is present) so statuses are fresh here.
+            # Mirrors the evidence/held-out gate arms below. No-op safe:
+            # council_checklist_gate returns 0 (pass) when there is no checklist
+            # results file or when no critical items are failing, so this branch
+            # never fires on those projects. Gate output is written by the gate.
+            elif [ "$_completion_claimed" = 1 ] && type council_checklist_gate &>/dev/null && ! council_checklist_gate; then
+                log_warn "Completion claim rejected: critical checklist item(s) failing (hard gate)."
+                log_warn "  Details under .loki/council/gate-block.json"
+                # Fall through; keep iterating until critical checklist items pass.
             # v7.19.1: the verified-completion evidence gate must also guard the
             # DEFAULT completion route (a completion claim via loki_complete_task
             # / the completion-promise text), not only the interval-gated council
@@ -14044,6 +14506,89 @@ kill_provider_child() {
     return 1
 }
 
+# Authoritative self-reap of THIS run's process group on a normal completion.
+#
+# Why this exists: a normal completion (council stop / max-iterations /
+# completion promise) returns from run_autonomous() into main()'s cleanup
+# block, which reaps the app-runner but NOT the orchestrator's own process
+# group. The provider agent (claude/codex/...) and any subagents it spawned
+# share the orchestrator's group; if one detached or was reparented to init,
+# it survived the `exit` and kept consuming CPU (observed: ~27 min orphan).
+# The external `loki stop` path (autonomy/loki) already reaps the whole group
+# via the recorded pgid; this brings the SAME authoritative reap to the
+# completion path so a clean finish leaves no orphans.
+#
+# Foreign-run safety (CRITICAL): this is pgid-scoped to the group THIS run
+# recorded at .loki/loki.pgid -- it NEVER uses a name-based `pkill claude`
+# sweep. A concurrent foreign loki run is its own session leader with a
+# DIFFERENT pgid and a different .loki, so it can never be a member of our
+# group and is structurally unreachable. The pgid file only exists when this
+# runner setsid'd into its own session (LOKI_OWN_SESSION=1, recorded at
+# ~run.sh:15034); in interactive foreground we share the user's shell group,
+# leave the pgid absent, and skip this reap entirely -- so Ctrl+C semantics
+# and the user's shell are untouched.
+reap_own_process_group() {
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    # Resolve the pgid file the same way main() recorded it (global or per-session).
+    local _reap_pgid_file="$loki_dir/loki.pid"
+    if [ -n "${LOKI_SESSION_ID:-}" ]; then
+        _reap_pgid_file="$loki_dir/sessions/${LOKI_SESSION_ID}/loki.pid"
+    fi
+    _reap_pgid_file="${_reap_pgid_file%.pid}.pgid"
+    [ -f "$_reap_pgid_file" ] || return 0   # interactive / no own session: skip
+
+    local _pgid
+    _pgid=$(cat "$_reap_pgid_file" 2>/dev/null | tr -d ' ')
+    case "$_pgid" in ''|*[!0-9]*) return 0 ;; esac
+    [ "$_pgid" -gt 1 ] 2>/dev/null || return 0    # never touch pgid 0/1
+
+    # Safety: the recorded pgid MUST be our own group. If it isn't (stale file
+    # from a prior run, copied tree), refuse -- killing a group we do not own
+    # could hit unrelated processes.
+    local _my_pgid
+    _my_pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
+    [ -n "$_my_pgid" ] && [ "$_pgid" = "$_my_pgid" ] || return 0
+
+    # Collect protected pids (dashboard, app-runner, registered children) so the
+    # reap never takes down the shared dashboard if it happens to share our
+    # group. Mirrors the `loki stop` / dashboard reaper protection set.
+    local _protected=" $$ "
+    local _pf _p
+    if [ -d "$loki_dir/pids" ]; then
+        for _pf in "$loki_dir/pids"/*.json; do
+            [ -f "$_pf" ] || continue
+            _p=$(basename "$_pf" .json)
+            case "$_p" in ''|*[!0-9]*) continue ;; esac
+            _protected="${_protected}${_p} "
+        done
+        for _pf in "$loki_dir/pids"/*.pid; do
+            [ -f "$_pf" ] || continue
+            _p=$(cat "$_pf" 2>/dev/null | head -1 | tr -d '[:space:]')
+            [ -n "$_p" ] && _protected="${_protected}${_p} "
+        done
+    fi
+    for _pf in "$loki_dir/dashboard/dashboard.pid" "${HOME}/.loki/dashboard/dashboard.pid"; do
+        [ -f "$_pf" ] && _protected="${_protected}$(cat "$_pf" 2>/dev/null | tr -d ' ') "
+    done
+
+    # Per-pid TERM then KILL of group members, EXCLUDING $$ (so main() survives
+    # to finish its remaining cleanup and exit normally) and protected pids. We
+    # do per-pid (not a blanket `kill -- -PGID`) precisely so $$ and the
+    # dashboard are spared -- a group-wide signal cannot exclude members.
+    local _gp _did=0
+    for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_pgid" '$2==g{print $1}'); do
+        case "$_protected" in *" $_gp "*) continue ;; esac
+        kill -TERM "$_gp" 2>/dev/null && _did=1
+    done
+    [ "$_did" = "1" ] || return 0
+    sleep 1
+    for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_pgid" '$2==g{print $1}'); do
+        case "$_protected" in *" $_gp "*) continue ;; esac
+        kill -KILL "$_gp" 2>/dev/null || true
+    done
+    return 0
+}
+
 # Check for human intervention signals
 check_human_intervention() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
@@ -14177,6 +14722,11 @@ check_human_intervention() {
         # statuses and repairs a stale reservation). Type-guarded, best-effort.
         if type council_reverify_checklist &>/dev/null; then
             council_reverify_checklist 2>/dev/null || true
+        fi
+        # Finding #598 (HIGH): generate real test evidence before the force-review
+        # evidence gate, so the test axis is not half-blind on absent results.
+        if type ensure_completion_test_evidence &>/dev/null; then
+            ensure_completion_test_evidence || true
         fi
         if type council_checklist_gate &>/dev/null && ! council_checklist_gate; then
             log_info "Council force-review: blocked by checklist hard gate"
@@ -15050,13 +15600,22 @@ main() {
         app_runner_cleanup
     fi
     stop_status_monitor
+    # v7.41.x: authoritatively reap THIS run's process group on a normal
+    # completion (council stop / max-iterations / completion promise), the same
+    # group reap the STOP signal does. Without this, a provider agent that
+    # detached or reparented survived the exit and ran as an orphan (~27 min in
+    # the reported brownfield run). pgid-scoped to .loki/loki.pgid + excludes
+    # $$/dashboard, so it cannot touch a foreign loki run. No-ops in interactive
+    # foreground (no own session => no pgid file), preserving Ctrl+C semantics.
+    reap_own_process_group 2>/dev/null || true
     local loki_dir="${TARGET_DIR:-.}/.loki"
-    rm -f "$loki_dir/loki.pid" 2>/dev/null
+    rm -f "$loki_dir/loki.pid" "$loki_dir/loki.pgid" 2>/dev/null
     # UT2-13: Clear cli-provider marker on normal session end.
     rm -f "$loki_dir/state/cli-provider" 2>/dev/null || true
     # Clean up per-session PID file if running with session ID
     if [ -n "${LOKI_SESSION_ID:-}" ]; then
-        rm -f "$loki_dir/sessions/${LOKI_SESSION_ID}/loki.pid" 2>/dev/null
+        rm -f "$loki_dir/sessions/${LOKI_SESSION_ID}/loki.pid" \
+              "$loki_dir/sessions/${LOKI_SESSION_ID}/loki.pgid" 2>/dev/null
     fi
     # Mark session.json as stopped
     if [ -f "$loki_dir/session.json" ]; then

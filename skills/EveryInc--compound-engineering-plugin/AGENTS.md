@@ -166,7 +166,32 @@ If two skills need the same supporting file, duplicate it into each skill's dire
 
 This plugin is authored once and converted for multiple agent platforms (Claude Code, Codex, Gemini CLI, etc.). Do not use platform-specific environment variables or string substitutions (e.g., `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_SKILL_DIR}`, `${CLAUDE_SESSION_ID}`, `CODEX_SANDBOX`, `CODEX_SESSION_ID`) in skill content without a graceful fallback that works when the variable is unavailable or unresolved.
 
-**Preferred approach — relative paths:** Reference co-located scripts and files using relative paths from the skill directory (e.g., `bash scripts/my-script.sh ARG`). All major platforms resolve these relative to the skill's directory. No variable prefix needed.
+Whether a relative path resolves against the skill directory depends on *who* resolves it, so the two cases below must be handled differently. Do not assume a bare `scripts/…` path works in both.
+
+**Read-time file references — resolve against the skill directory:** When skill *content* points the agent at a co-located file to read (e.g., "read `references/schema.yaml`"), use a relative path from the skill root. The skill loader resolves these against the skill's own directory on all major platforms — no variable prefix needed. This is the rule in *File References in Skills* above.
+
+**Runtime script invocations via the Bash tool — resolve against the project CWD:** When skill content tells the agent to *execute* a bundled script through the Bash tool, a bare relative path does **not** work on Claude Code. The Bash tool's working directory is the user's project, not the skill directory, so `bash scripts/my-script.sh` resolves to `<project>/scripts/…`, finds nothing, and the step is silently skipped. This is a recurring bug class — see #764 (`ce-worktree`), #811 (`ce-code-review`), and #898 (`ce-compound`). Wrap the invocation in a file-existence guard on `${CLAUDE_SKILL_DIR}` so it runs on Claude Code and degrades **visibly** elsewhere:
+
+```
+if [ -n "${CLAUDE_SKILL_DIR}" ] && [ -f "${CLAUDE_SKILL_DIR}/scripts/my-script.sh" ]; then
+  bash "${CLAUDE_SKILL_DIR}/scripts/my-script.sh" ARG
+else
+  echo "<this step's bundled script is unavailable on this platform; do X instead>"
+fi
+```
+
+(The `[ -n "${CLAUDE_SKILL_DIR}" ]` guard keeps an unset variable from probing a root-level `/scripts/…` path.)
+
+`${CLAUDE_SKILL_DIR}` is substituted into SKILL.md content by Claude Code, covering both marketplace-cached installs and `claude --plugin-dir` local dev; it resolves to the skill's own directory, so the `then` branch runs there. Note `${CLAUDE_SKILL_DIR}` is a SKILL.md *content* substitution, not an environment variable available inside the executed process — a script that needs its own directory should derive it from `BASH_SOURCE` rather than reading `$CLAUDE_SKILL_DIR` (see `ce-update/scripts/`). `ce-compound`'s `validate-frontmatter.py` invocation is the canonical example of this guard pattern.
+
+**Why the guard, and why not the old `${CLAUDE_SKILL_DIR:-.}` shell default (issue #943).** On other targets (Codex, Gemini CLI, etc.) `${CLAUDE_SKILL_DIR}` is unset. The earlier `:-.` form degraded to a project-CWD-relative `./scripts/…` — *syntactically* valid, but resolving to a path that does not exist: the bundled script lives in that runtime's own skill store (e.g. `~/.codex/skills/<plugin>/<skill>/scripts/…`), so the call silently missed. The existence guard makes that case explicit — the `then` branch never fires, and the `else` branch tells the agent what to do instead of running a broken path or claiming success. Two facts make this a real product gap, not a converter bug:
+
+- The converter does not rewrite these paths (`src/utils/codex-content.ts` has no `CLAUDE_SKILL_DIR` case), and in the default `--to codex` mode skills are not emitted by the converter at all.
+- **This plugin also ships as a *native* Codex plugin** (installed via Codex's `/plugins` TUI marketplace). That path never runs the converter — Codex loads the raw `SKILL.md` verbatim. The `ce_platforms` frontmatter is honored only by the converter's `filterSkillsByPlatform`, so it does **not** keep a Claude-only skill out of a native Codex install. The only protection both install paths respect is the SKILL.md content itself.
+
+So: do not gate a skill's *core* behavior on a runtime bundled-script call when portability matters. The existence guard above suits an **optional** guard script (e.g. `ce-compound`'s `validate-frontmatter.py`), where the `else` branch runs an equivalent inline check so the protection still fires off-Claude instead of silently skipping. For a skill whose *entire* behavior is a bundled script, a guard does not make it work off-Claude — prefer logic the agent can perform inline, or content the agent reads (read-time references resolve against the skill dir on all targets).
+
+**Permission caveat (Claude Code).** Claude Code's permission checker evaluates every subcommand of a compound command, and a bare `[ -f … ]` test is not pre-approved — so wrapping a pinned `bash "…sh"` call in an `if … then … fi` guard defeats a narrow `Bash(bash *…sh)` allow-rule and prompts on every run. If a bundled-script call must stay auto-approved via such a pin, keep it a single pinned command rather than guarding it inline.
 
 **When a platform variable is unavoidable:** Use the pre-resolution pattern (`!` backtick syntax) and include explicit fallback instructions in the skill content, so the agent knows what to do if the value is empty, literal, or an error:
 

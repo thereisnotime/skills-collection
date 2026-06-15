@@ -151,8 +151,19 @@ print('{:.3f}'.format(detect_sycophancy(votes)))
     fi
 
     # Step 6: Calibration tracking
+    # Compute threshold using ceiling(2/3) formula, consistent with
+    # completion-council.sh (council_should_stop, council_aggregate_votes,
+    # council_evaluate). An explicit operator override via LOKI_COUNCIL_THRESHOLD
+    # is honored; otherwise scale with council_size instead of a flat default of 2.
+    local effective_threshold
+    if [ -n "${LOKI_COUNCIL_THRESHOLD:-}" ]; then
+        effective_threshold="$LOKI_COUNCIL_THRESHOLD"
+    else
+        effective_threshold=$(( (council_size * 2 + 2) / 3 ))
+    fi
+
     local final_decision
-    if [ "$approve_count" -ge "${COUNCIL_THRESHOLD:-2}" ]; then
+    if [ "$approve_count" -ge "$effective_threshold" ]; then
         final_decision="approve"
     else
         final_decision="reject"
@@ -194,7 +205,7 @@ SUMMARY_EOF
         "iteration=$iteration" \
         "approve=$approve_count" \
         "reject=$reject_count" \
-        "threshold=${COUNCIL_THRESHOLD:-2}" \
+        "threshold=$effective_threshold" \
         "sycophancy_score=$sycophancy_score" \
         "result=$(echo "$final_decision" | tr '[:lower:]' '[:upper:]')" 2>/dev/null || true
 
@@ -276,7 +287,16 @@ Respond ONLY with a valid JSON object. No markdown fencing."
                 if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
                     _c2_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
                 fi
-                result=$(echo "$full_prompt" | claude "${_c2_argv[@]}" -p 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
+                # caveman HARD-SUPPRESS (parsed output, v7.41.0): this reviewer
+                # verdict is captured and parsed for the JSON "verdict" field. A
+                # globally-active caveman would compress/reword that JSON and
+                # silently flip the verdict to the REJECT fallback. The tree-wide
+                # default-off export in claude-flags.sh already covers this (the
+                # whole subprocess tree inherits CAVEMAN_DEFAULT_MODE=off); the
+                # inline prefix here is belt-and-suspenders so the carve-out is
+                # self-documenting and robust to sourcing order. No-op when caveman
+                # is absent.
+                result=$(echo "$full_prompt" | CAVEMAN_DEFAULT_MODE=off claude "${_c2_argv[@]}" -p 2>/dev/null || echo '{"verdict":"REJECT","reasoning":"review execution failed","issues":[]}')
             else
                 result='{"verdict":"REJECT","reasoning":"reviewer CLI unavailable","issues":[]}'
             fi

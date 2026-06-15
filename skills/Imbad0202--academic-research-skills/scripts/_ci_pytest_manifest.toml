@@ -221,6 +221,10 @@ id = "394-submission-policy-lint"
 path = "scripts/test_check_394_submission_policy.py"
 
 [[pytest]]
+id = "439-format-profile-lint"
+path = "scripts/test_check_439_format_profile.py"
+
+[[pytest]]
 id = "413-agents-mirror-sync"
 path = "scripts/test_check_agents_mirror_sync.py"
 

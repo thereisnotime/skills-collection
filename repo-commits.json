@@ -691,6 +691,36 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "5e6ecca",
+      "message": "fix(ce-compound): guard validate-frontmatter.py on non-Claude platforms (#947)",
+      "date": "2026-06-15",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "0757e85",
+      "message": "fix(config-read): read config via native tool, not $() pre-resolution (#942)",
+      "date": "2026-06-14",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "32a5834",
+      "message": "docs(skill-authoring): correct relative-path resolution guidance for bundled scripts (#938)",
+      "date": "2026-06-14",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "ba133a2",
+      "message": "docs(skill-authoring): drop inaccurate Codex/Gemini claim from skill prose (#940)",
+      "date": "2026-06-14",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "6d73857",
+      "message": "fix(ce-compound): resolve validate-frontmatter.py against skill dir, not project root (#935)",
+      "date": "2026-06-14",
+      "author": "pds"
+    },
+    {
       "sha": "8092abe",
       "message": "feat(ce-code-review): add thematic triage grouping (#845)",
       "date": "2026-06-12",
@@ -719,36 +749,6 @@
       "message": "chore(coding-tutor): remove deprecated plugin (#929)",
       "date": "2026-06-12",
       "author": "Trevin Chow"
-    },
-    {
-      "sha": "622fbfa",
-      "message": "feat(ce-ideate): improve for Fable model (#924)",
-      "date": "2026-06-11",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "4719dc5",
-      "message": "chore: release main (#917)",
-      "date": "2026-06-09",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e74e298",
-      "message": "feat: HTML-first ideation docs and a status-free plan model (#921)",
-      "date": "2026-06-09",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "b625049",
-      "message": "fix(ce-release-notes): placeholder links (#915)",
-      "date": "2026-06-07",
-      "author": "williamclay8"
-    },
-    {
-      "sha": "966e32f",
-      "message": "chore: release main (#909)",
-      "date": "2026-06-06",
-      "author": "github-actions[bot]"
     }
   ],
   "Eyadkelleh--awesome-claude-skills-security": [
@@ -877,6 +877,36 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "e8ad78f",
+      "message": "Add Zenodo DOI (#434) (#443)",
+      "date": "2026-06-15",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "23087e2",
+      "message": "docs: align version references to v3.12.1 (#442)",
+      "date": "2026-06-15",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "1360b72",
+      "message": "Add CITATION.cff for \"Cite this repository\" support (#440)",
+      "date": "2026-06-15",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "502e0e2",
+      "message": "#439: user-declared format_profile (schema + intake + formatter) (#441)",
+      "date": "2026-06-15",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "209c221",
+      "message": "Integrate PR #433 as modes: three-way-scan + rebuttal-audit (#437)",
+      "date": "2026-06-15",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "7752a3d",
       "message": "Harden title-fallback to exact-title-or-bust across resolvers (#432)",
       "date": "2026-06-13",
@@ -904,36 +934,6 @@
       "sha": "893e45a",
       "message": "feat: diff/patch revision mode Slice B \u2014 revision-mode adoption (#89 Item 7) (#426)",
       "date": "2026-06-12",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "b39297b",
-      "message": "Add teaching-side companion link (Teaching Skills) (#427)",
-      "date": "2026-06-11",
-      "author": "\u4fde\u4f73\u5174"
-    },
-    {
-      "sha": "175f79b",
-      "message": "feat: diff/patch revision mode Slice A \u2014 deterministic toolchain (#89 Item 7) (#423)",
-      "date": "2026-06-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "e0f0c7b",
-      "message": "fix: materialize agents/ symlinks as real copies + mirror-sync lint (#413) (#421)",
-      "date": "2026-06-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "c7f42d4",
-      "message": "feat: submission-package verifier Slice 4 \u2014 terminality (#394) (#418)",
-      "date": "2026-06-11",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "a38137f",
-      "message": "fix: agent-count claim lint + announce-hook routing drift (#416)",
-      "date": "2026-06-11",
       "author": "Edward Cheng-I Wu"
     }
   ],
@@ -1063,6 +1063,30 @@
   ],
   "NeoLabHQ--context-engineering-kit": [
     {
+      "sha": "e455f9d",
+      "message": "Merge pull request #89 from NeoLabHQ/docs/update-docs-readme",
+      "date": "2026-06-14",
+      "author": "Vladislav Goncharov"
+    },
+    {
+      "sha": "d30ce12",
+      "message": "Merge pull request #88 from NeoLabHQ/fix/vg/agent-git-limits",
+      "date": "2026-06-14",
+      "author": "Vladislav Goncharov"
+    },
+    {
+      "sha": "e1167b8",
+      "message": "bump: v3.1.1",
+      "date": "2026-06-14",
+      "author": "leovs09"
+    },
+    {
+      "sha": "90a2285",
+      "message": "fix: add git command constraints to all agents",
+      "date": "2026-06-14",
+      "author": "leovs09"
+    },
+    {
       "sha": "8f29eab",
       "message": "Merge pull request #87 from NeoLabHQ/docs/update-docs-readme",
       "date": "2026-06-13",
@@ -1096,30 +1120,6 @@
       "sha": "2378ed0",
       "message": "docs: update readme",
       "date": "2026-06-12",
-      "author": "leovs09"
-    },
-    {
-      "sha": "6030287",
-      "message": "Merge pull request #86 from NeoLabHQ/docs/add-test-coverage-skill-docs",
-      "date": "2026-06-11",
-      "author": "Vladislav Goncharov"
-    },
-    {
-      "sha": "f023569",
-      "message": "docs: add description of test coverage skill",
-      "date": "2026-06-11",
-      "author": "leovs09"
-    },
-    {
-      "sha": "d4973c4",
-      "message": "Merge pull request #85 from NeoLabHQ/docs/vg/migrate-to-gitbook-domain",
-      "date": "2026-06-11",
-      "author": "Vladislav Goncharov"
-    },
-    {
-      "sha": "772c17b",
-      "message": "docs: update links to gitbook domain",
-      "date": "2026-06-11",
       "author": "leovs09"
     }
   ],
@@ -1481,6 +1481,18 @@
   ],
   "antonbabenko--terraform-skill": [
     {
+      "sha": "fdd9dc5",
+      "message": "docs(readme): update antigravity installation instructions (#47)",
+      "date": "2026-06-14",
+      "author": "Ivan Kornienko"
+    },
+    {
+      "sha": "953c756",
+      "message": "ci: run Validate Skill Files on every PR (no path filter) (#48)",
+      "date": "2026-06-14",
+      "author": "Anton Babenko"
+    },
+    {
       "sha": "b59d2be",
       "message": "chore(release): v1.17.1",
       "date": "2026-06-03",
@@ -1525,18 +1537,6 @@
     {
       "sha": "183c6c8",
       "message": "ci: notify agent-plugins on release (instant external-plugin re-pin) (#38)",
-      "date": "2026-05-24",
-      "author": "Anton Babenko"
-    },
-    {
-      "sha": "f5bdf46",
-      "message": "chore(release): v1.16.0",
-      "date": "2026-05-24",
-      "author": "Anton Babenko"
-    },
-    {
-      "sha": "6e1a6d8",
-      "message": "ci: fix release/next checkout so Automated Release can push it (#36)",
       "date": "2026-05-24",
       "author": "Anton Babenko"
     }
@@ -1861,6 +1861,18 @@
   ],
   "cloudflare--skills": [
     {
+      "sha": "e16d698",
+      "message": "Merge pull request #65 from grstnhbr/abe/cf1-zpa-migration-feedback",
+      "date": "2026-06-14",
+      "author": "Brendan Irvine-Broque"
+    },
+    {
+      "sha": "e638d8c",
+      "message": "docs: expand cloudflare-one skills with field feedback and missing coverage",
+      "date": "2026-06-14",
+      "author": "aj"
+    },
+    {
       "sha": "12520fd",
       "message": "Merge pull request #59 from akshitsinha/asinha/flagship-abn-testing-docs",
       "date": "2026-06-11",
@@ -1907,18 +1919,6 @@
       "message": "Add Turnstile Spin skill (#58)",
       "date": "2026-06-04",
       "author": "Jules"
-    },
-    {
-      "sha": "3f87f2c",
-      "message": "docs(flagship): add A/B/n multi-variant testing pattern with cumulative rollout example",
-      "date": "2026-06-04",
-      "author": "Akshit Sinha"
-    },
-    {
-      "sha": "60147cb",
-      "message": "ci: add Semgrep OSS scanning workflow (#46)",
-      "date": "2026-05-04",
-      "author": "Hrushikesh Deshpande"
     }
   ],
   "coffeefuelbump--csv-data-summarizer-claude-skill": [
@@ -1993,6 +1993,12 @@
   ],
   "conorluddy--ios-simulator-skill": [
     {
+      "sha": "d285110",
+      "message": "feat(app_launcher): support launch arguments and environment variables (#97)",
+      "date": "2026-06-14",
+      "author": "Conor"
+    },
+    {
       "sha": "ee346ec",
       "message": "fix: parse Xcode 16 Swift Testing result counts (was always 0/0) (#95)",
       "date": "2026-06-01",
@@ -2043,12 +2049,6 @@
     {
       "sha": "86cf938",
       "message": "docs: HangBuster \u2014 raw-capture quick start, auto-restart + cleanup env vars (#83 #84 #85)",
-      "date": "2026-05-23",
-      "author": "Conor Luddy"
-    },
-    {
-      "sha": "3c71ca9",
-      "message": "feat: --raw-capture NDJSON mode + size cap + gzip + aggregate prune (closes #85)",
       "date": "2026-05-23",
       "author": "Conor Luddy"
     }
@@ -2827,6 +2827,24 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "e09dafd",
+      "message": "skills: refine neon.ts coverage from the introducing-neon.ts post",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "63025ac",
+      "message": "neon-functions: add SSE reference, document heartbeats, rename integrations \u2192 sentry",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "7e47248",
+      "message": "Merge pull request #35 from neondatabase/docs/parseenv-key-filter",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
       "sha": "6d454c6",
       "message": "neon-functions: vendor a Hono WebSocket adapter (no deprecated @hono/node-ws)",
       "date": "2026-06-14",
@@ -2841,6 +2859,12 @@
     {
       "sha": "4a1afef",
       "message": "neon-functions: add WebSocket servers section (fetch + upgrade, fan-out, reconnect)",
+      "date": "2026-06-14",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "c7d8c71",
+      "message": "neon: document parseEnv key filter for requiring a subset of env vars",
       "date": "2026-06-14",
       "author": "Andre Landgraf"
     },
@@ -2860,30 +2884,6 @@
       "sha": "5f0a699",
       "message": "Add recommended connection patterns to neon-postgres and neon-functions skills",
       "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "7c3839a",
-      "message": "Merge pull request #34 from neondatabase/docs/neon-branch-env",
-      "date": "2026-06-13",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "03fbe57",
-      "message": "neon, neon-functions: soften Neon Auth phrasing (often -> e.g.)",
-      "date": "2026-06-13",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "d00ee8b",
-      "message": "neon, neon-functions: document where Neon fits in app architecture",
-      "date": "2026-06-13",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "cb84446",
-      "message": "neon-functions: document NEON_BRANCH (branch name) injected on every branch",
-      "date": "2026-06-13",
       "author": "Andre Landgraf"
     }
   ],
@@ -4515,63 +4515,63 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "e5e9b29",
-      "message": "release: v7.38.0 - Claude Code Workflows adoption (loki ultracode + opt-in analysis)",
+      "sha": "bbfdcc8",
+      "message": "release: v7.44.0 - web-surface consolidation + local-ci parallelization",
+      "date": "2026-06-15",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "efd2da1",
+      "message": "release: v7.43.0 - bug-hunt + greenfield-E2E hardening (12 fixes, council 3/3)",
+      "date": "2026-06-15",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "5effaf8",
+      "message": "release: v7.42.0 - 10-team parallel hardening + docs completeness",
       "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "5ca2ff5",
-      "message": "release: v7.37.1 - fix CI shellcheck failure (SC2164 in session test)",
+      "sha": "093baaa",
+      "message": "release: v7.41.5 - defensive hardening (bug-hunt LOW findings)",
       "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "c11b202",
-      "message": "release: v7.37.0 - session-continuity Phase 2 (recovery resume, #165)",
+      "sha": "ac6bb44",
+      "message": "release: v7.41.4 - Bun-route parity hardening (pre-Phase-6 sunset)",
       "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "46e0187",
-      "message": "release: v7.36.0 - loki review --ultra, plan moat, review allowlist, signature hardening",
-      "date": "2026-06-13",
+      "sha": "c2dd03c",
+      "message": "release: v7.41.3 - trust-gate + runtime hardening from 10-agent bug-hunt",
+      "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "1780a84",
-      "message": "fix(action): remove deprecated Gemini provider from GitHub Action (deprecated v7.5.18)",
-      "date": "2026-06-12",
+      "sha": "ed98ab5",
+      "message": "release: v7.41.2 - green the Tests CI gate + plan --json regression guard",
+      "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "56a7e5d",
-      "message": "fix(license): canonical BUSL-1.1 for GitHub detection; custom terms in COMMERCIAL-TERMS.md",
-      "date": "2026-06-12",
+      "sha": "6fdb4e6",
+      "message": "release: v7.41.1 - E2E moat fixes (verification-theater) + plan --json regression",
+      "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "0b0a349",
-      "message": "fix(license): make GitHub detect BUSL-1.1 (drop leading SPDX line, move change-notice out of LICENSE* glob)",
-      "date": "2026-06-12",
+      "sha": "ad5e354",
+      "message": "release: v7.41.0 - caveman output-token compressor (default-suppress moat carve-out) + doctor test speed",
+      "date": "2026-06-14",
       "author": "asklokesh"
     },
     {
-      "sha": "19c759d",
-      "message": "docs(readme): remove GitHub stars badge (third-party badge services intermittently 403/rate-limit)",
-      "date": "2026-06-12",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "e85150f",
-      "message": "docs(branding): record Autonomi Verify as the VaaS product name",
-      "date": "2026-06-12",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "ca9b52a",
-      "message": "docs(branding): Loki Mode (free/OSS) vs Autonomi (commercial) brand guide",
-      "date": "2026-06-12",
+      "sha": "b2a6be1",
+      "message": "release: v7.40.0 - autonomous workflow-analysis complexity gate (#584) + parity-drift fix (#173)",
+      "date": "2026-06-14",
       "author": "asklokesh"
     }
   ],
@@ -5185,6 +5185,12 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "57b5254",
+      "message": "feat(blog): add the-api-is-the-real-boundary to tonsofskills.com/blog",
+      "date": "2026-06-14",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "00c0702",
       "message": "docs: capture new kernel-shadow/vendor-hash CI-CD posture + do-not-flip soak discipline (#870)",
       "date": "2026-06-13",
@@ -5237,12 +5243,6 @@
       "message": "feat(validator): kernel-cutover cleanup \u2014 stubs, diverged validators, kernel shadow, derived blocklist, MCP validator (#",
       "date": "2026-06-12",
       "author": "intentsolutions.io"
-    },
-    {
-      "sha": "c413f00",
-      "message": "feat(blog): mirror 'Green CI Proves Nothing' to tonsofskills.com/blog",
-      "date": "2026-06-12",
-      "author": "Jeremy Longshore"
     }
   ],
   "rohitg00--awesome-claude-code-toolkit": [
@@ -5309,6 +5309,12 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "dde45c2",
+      "message": "feat(claude-md-progressive-disclosurer): fake-pointer guard + line-count-is-not-KPI reframe (v1.3.0)",
+      "date": "2026-06-14",
+      "author": "daymade"
+    },
+    {
       "sha": "142249a",
       "message": "fix: stop gitignoring .security-scan-passed in transcript-fixer + financial-data-collector",
       "date": "2026-06-13",
@@ -5361,12 +5367,6 @@
       "message": "Improve macos-cleaner: progressive disclosure and consistent safety guidance (#84)",
       "date": "2026-06-13",
       "author": "Evgenii Gorianin"
-    },
-    {
-      "sha": "019c553",
-      "message": "chore: register claude-usage-analyst + skill-creator/debugging v1.2.0 updates (#87)",
-      "date": "2026-06-13",
-      "author": "daymade"
     }
   ],
   "lgbarn--devops-skills": [
@@ -5557,63 +5557,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "eed6793",
-      "message": "chore(badge): update Last Updated badge to Jun 14, 2026 11:35 AM PKT (v2.1.176)",
-      "date": "2026-06-14",
+      "sha": "cc2a037",
+      "message": "chore(badge): update subagents Last Updated to Jun 15, 2026 (v2.1.176)",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "9c26b56",
-      "message": "chore(changelog): add 2026-06-14 subagents drift check entry (v2.1.176, no drift)",
-      "date": "2026-06-14",
+      "sha": "78e8ddd",
+      "message": "chore(changelog): append 2026-06-15 subagents drift check \u2014 no drift (v2.1.176)",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "26af3b9",
-      "message": "changelog(commands): append 2026-06-14 no-drift entry \u2014 v2.1.176 in sync",
-      "date": "2026-06-14",
+      "sha": "fa59399",
+      "message": "chore(changelog): add Jun 15 no-drift entry for commands report (v2.1.176)",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "f1f12d2",
-      "message": "chore(commands): bump Last Updated badge to Jun 14, 2026 11:06 AM PKT",
-      "date": "2026-06-14",
+      "sha": "d44a660",
+      "message": "chore(commands): bump Last Updated badge to Jun 15, 2026 11:09 AM PKT",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "940ec9e",
-      "message": "chore(skills): update Last Updated badge to Jun 14, 2026",
-      "date": "2026-06-14",
+      "sha": "fc77eac",
+      "message": "chore(skills): update Last Updated badge to Jun 15, 2026 10:08 AM PKT",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "ff3075e",
-      "message": "chore(skills-changelog): add 2026-06-14 no-drift entry for v2.1.176",
-      "date": "2026-06-14",
+      "sha": "39fd928",
+      "message": "chore(skills-changelog): add 2026-06-15 no-drift entry for v2.1.176",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "bc494ca",
-      "message": "chore(readme): bump Last Updated badge timestamp to Jun 14, 2026 9:41 AM PKT",
-      "date": "2026-06-14",
+      "sha": "f8b93b3",
+      "message": "chore(readme): bump Last Updated badge timestamp to 9:39 AM PKT",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "eb0cae8",
-      "message": "chore(changelog): record daily CONCEPTS drift-check for v2.1.176 (2026-06-14)",
-      "date": "2026-06-14",
+      "sha": "82cbe44",
+      "message": "chore(changelog): append concepts drift-check entry for Jun 15 \u2014 v2.1.176, no drift",
+      "date": "2026-06-15",
       "author": "Claude"
     },
     {
-      "sha": "556e1a7",
-      "message": "chore(changelog): append development workflows entry \u2014 Jun 14, 2026",
-      "date": "2026-06-14",
+      "sha": "5b7717d",
+      "message": "chore(changelog): append Jun 15 development-workflows run entry",
+      "date": "2026-06-15",
       "author": "Claude Routine"
     },
     {
-      "sha": "65124c4",
-      "message": "chore(workflows): update development workflows table \u2014 Jun 14, 2026",
-      "date": "2026-06-14",
+      "sha": "caaaf1c",
+      "message": "chore(readme): refresh DEVELOPMENT WORKFLOWS table \u2014 Jun 15 run",
+      "date": "2026-06-15",
       "author": "Claude Routine"
     }
   ],
@@ -5743,6 +5743,12 @@
   ],
   "jqueryscript--awesome-claude-code": [
     {
+      "sha": "b125ef8",
+      "message": "Update README.md",
+      "date": "2026-06-14",
+      "author": "jQueryScript"
+    },
+    {
       "sha": "c30a36c",
       "message": "Update README.md",
       "date": "2026-06-10",
@@ -5794,12 +5800,6 @@
       "sha": "024f129",
       "message": "Update README.md",
       "date": "2026-04-22",
-      "author": "jQueryScript"
-    },
-    {
-      "sha": "f8be0fe",
-      "message": "Update README.md",
-      "date": "2026-04-20",
       "author": "jQueryScript"
     }
   ]

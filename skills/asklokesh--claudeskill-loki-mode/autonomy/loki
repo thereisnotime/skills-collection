@@ -77,6 +77,35 @@ if [ -f "$_LOKI_SCRIPT_DIR/provider-offer.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/provider-offer.sh"
 fi
 
+# caveman ACTIVATION level for FREE-FORM (narration) claude subcalls in this CLI
+# (migration phase exec, migration docs-gen, heal execution). Prints the level to
+# pass as CAVEMAN_DEFAULT_MODE when activation is warranted, else nothing. autonomy/
+# loki does NOT source claude-flags.sh globally, so this lazily sources it on demand
+# (same pattern as the ultrareview/workflows gates and autonomy/lib/voter-agents.sh).
+# The gate (provider==claude, claude on PATH, opt-in, no legacy-completion-match,
+# no-raise of a user's lower global level) lives entirely in loki_caveman_activate_env;
+# this is just the lazy-source wrapper. Degrades to empty (bare invocation, byte-
+# identical to pre-caveman) when the lib is missing or the helper is unavailable.
+# NEVER use this for captured-output / parsed subcalls -- those HARD-SUPPRESS with
+# CAVEMAN_DEFAULT_MODE=off (see _docs_invoke_provider and run.sh:3286).
+_loki_caveman_narration_level() {
+    if ! declare -F loki_caveman_activate_env >/dev/null 2>&1; then
+        local _cm_lib=""
+        if [ -f "${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh" ]; then
+            _cm_lib="${_LOKI_SCRIPT_DIR}/lib/claude-flags.sh"
+        elif [ -f "$(dirname "$0")/lib/claude-flags.sh" ]; then
+            _cm_lib="$(dirname "$0")/lib/claude-flags.sh"
+        fi
+        if [ -n "$_cm_lib" ]; then
+            # shellcheck source=autonomy/lib/claude-flags.sh
+            . "$_cm_lib" 2>/dev/null || true
+        fi
+    fi
+    if declare -F loki_caveman_activate_env >/dev/null 2>&1; then
+        loki_caveman_activate_env
+    fi
+}
+
 # Quickstart guided interview (v7.29.0): provides cmd_quickstart and its
 # deterministic offline template matcher. Functions-only file (no top-level
 # command), sourced here so the dispatch case can call cmd_quickstart. Composes
@@ -649,13 +678,18 @@ show_help() {
     # do NOT appear here; they live in the collapsed footer below and in
     # `loki help aliases`. The full long-tail surface is still dispatchable and
     # documented per-command via `loki <command> --help`.
+    #
+    # v7.39.0: trimmed three lower-traffic canonical entries off the front page
+    # to hold the lean target after `ultracode` (v7.38.0) joined Verify/trust:
+    # grill (pre-build spec interrogation, advanced), spec (living-spec drift,
+    # advanced), and cleanup (orphaned-process recovery, rare). They remain
+    # fully canonical (NOT aliases), dispatchable, and listed in the "More
+    # commands" footer below + documented via `loki <command> --help`.
     echo "Commands:"
     echo ""
     echo "Build:"
     echo "  start [SPEC]     Start a build (PRD file, GitHub issue, or no arg)"
     echo "  plan <PRD-file>  Dry-run analysis: complexity, cost, execution plan"
-    echo "  grill [SPEC]     Devil's-advocate spec interrogation before you build"
-    echo "  spec [cmd]       Living spec: lock|status|sync (drift detection)"
     echo "  quickstart [idea]  Guided first build: setup, idea, template, plan, go"
     echo ""
     echo "Session:"
@@ -663,7 +697,6 @@ show_help() {
     echo "  stop             Stop execution immediately"
     echo "  pause            Pause after current session"
     echo "  resume           Resume paused execution"
-    echo "  cleanup          Kill orphaned processes from crashed sessions"
     echo ""
     echo "Verify / trust:"
     echo "  verify [base]    Deterministic PR verification (CI-gate exit codes)"
@@ -692,10 +725,10 @@ show_help() {
     echo "  version          Show version"
     echo "  help             Show this help ('loki help aliases' for old names)"
     echo ""
-    echo "More commands (init, watch, demo, web, api, logs, github,"
-    echo "import, council, proof, audit, agent, template, magic, docs, wiki, ci,"
-    echo "test, bench, secrets, telemetry, crash, worktree, failover, monitor,"
-    echo "remote, ...) are dispatchable and documented via"
+    echo "More commands (grill, spec, cleanup, init, watch, demo, web, api,"
+    echo "logs, github, import, council, proof, audit, agent, template, magic,"
+    echo "docs, wiki, ci, test, bench, secrets, telemetry, crash, worktree,"
+    echo "failover, monitor, remote, ...) are dispatchable and documented via"
     echo "'loki <command> --help'."
     echo ""
     echo "Aliases (deprecated): older command names still work; they print a"
@@ -858,7 +891,6 @@ show_landing() {
     echo "Get started:"
     echo -e "  ${CYAN}loki start ./prd.md${NC}   Build from a spec (PRD file, GitHub issue, or no arg)"
     echo -e "  ${CYAN}loki demo${NC}             Build a sample todo app end to end (real run)"
-    echo -e "  ${CYAN}loki web${NC}              Open the visual builder to input a spec and watch agents build"
     echo -e "  ${CYAN}loki dashboard start${NC}  Start the live run monitor (then: loki dashboard open)"
     echo ""
     echo -e "Need help? ${CYAN}loki help${NC} lists every command."
@@ -1024,6 +1056,7 @@ cmd_start() {
                 echo "Options:"
                 echo "  --provider NAME       AI provider: claude (default), codex, cline, aider"
                 echo "  --parallel            Enable parallel mode with git worktrees"
+                echo "  --allow-haiku         Enable Haiku model for the fast tier (default: disabled)"
                 echo "  --bg, --background    Run in background mode"
                 echo "  --simple              Force simple complexity tier (3 phases)"
                 echo "  --complex             Force complex complexity tier (8 phases)"
@@ -1145,6 +1178,17 @@ cmd_start() {
                 ;;
             --parallel)
                 args+=("--parallel")
+                shift
+                ;;
+            --allow-haiku)
+                # Enable Haiku for the fast tier. Mirrors the LOKI_ALLOW_HAIKU=true
+                # env var (consumed by providers/claude.sh and run.sh). Documented in
+                # loki --help and run.sh; previously only the env var worked here, so
+                # `loki start ./prd.md --allow-haiku` aborted with "Unknown option".
+                # Export reaches the runner; also forward as an arg so the run.sh
+                # parser (run.sh:15015) sees it on every route.
+                export LOKI_ALLOW_HAIKU=true
+                args+=("--allow-haiku")
                 shift
                 ;;
             --regen-prd|--regenerate-prd|--regen|--fresh-prd)
@@ -3925,9 +3969,9 @@ cmd_dashboard_help() {
     echo "Usage: loki dashboard <command> [options]"
     echo ""
     echo "Note: 'loki dashboard' is the operations/observability UI (port ${DASHBOARD_DEFAULT_PORT})."
-    echo "      It is NOT the same as 'loki web' (Purple Lab, port ${PURPLE_LAB_DEFAULT_PORT}, where you input PRDs)."
-    echo "      Use 'loki dashboard' to monitor agents, tasks, costs, council, escalations."
-    echo "      Use 'loki web' to submit a PRD and watch agents build."
+    echo "      It is NOT the same as 'loki web' (Purple Lab, port ${PURPLE_LAB_DEFAULT_PORT}, deprecated v7.44.0)."
+    echo "      Use 'loki dashboard' to monitor agents, tasks, costs, council, escalations,"
+    echo "      and to submit a PRD via the embedded 'Lab' tab (replaces the deprecated 'loki web')."
     echo ""
     echo "Commands:"
     echo "  start    Start the dashboard server"
@@ -4160,9 +4204,11 @@ cmd_dashboard_start() {
         echo "  URL:  $url"
         echo "  Logs: $log_file"
         echo ""
-        # v7.28.x UX #5: distinguish the two browser UIs up front so a newcomer
-        # who wants to submit a spec does not land on the ops monitor by mistake.
-        echo -e "${DIM}Looking for the project web UI to submit a spec? loki web (:${PURPLE_LAB_DEFAULT_PORT:-57375})${NC}"
+        # v7.28.x UX #5: point a newcomer who wants to submit a spec at the right
+        # surface. v7.44.0: the standalone Purple Lab (loki web) is deprecated and
+        # consolidated here, so steer to the embedded Lab tab instead of spawning
+        # a second port.
+        echo -e "${DIM}Want to submit a spec in the browser? Open the 'Lab' tab in this dashboard.${NC}"
         echo ""
         echo -e "Open in browser: ${CYAN}loki dashboard open${NC}"
         echo -e "Check status:    ${CYAN}loki dashboard status${NC}"
@@ -4533,6 +4579,32 @@ PURPLE_LAB_PID_FILE="${PURPLE_LAB_STATE_DIR}/purple-lab.pid"
 cmd_web() {
     local subcommand="${1:-start}"
 
+    # Deprecation (v7.44.0): Purple Lab (loki web, port 57375) is deprecated and
+    # consolidated into the dashboard. The hosted/commercial role moved to the
+    # separate Autonomi Cloud repo. This is a VALUE-PRESERVING deprecation: the
+    # command STILL WORKS (it launches after the banner) so no one is stranded.
+    # The banner + telemetry mirror the run->start deprecation contract: print
+    # to stderr, suppress under machine-output flags (--json/-q/--quiet/json...),
+    # and only emit telemetry when .loki already exists (events/emit.sh creates
+    # "$LOKI_DIR/events/pending" as a side effect that would flip downstream
+    # guards in a clean directory). The --help/-h/help path shows the deprecation
+    # in its own help text instead, so we skip the banner there.
+    case "$subcommand" in
+        --help|-h|help) ;;
+        *)
+            if ! _deprecated_alias_should_suppress "$@"; then
+                echo "loki web (Purple Lab) is deprecated as of v7.44.0. For local build + monitoring, use the dashboard (auto-launches at 'loki start', http://localhost:${DASHBOARD_DEFAULT_PORT}; or 'loki dashboard'). For the hosted platform, see Autonomi Cloud." >&2
+                if [ -d "${LOKI_DIR:-.loki}" ]; then
+                    emit_event cli_command_deprecated cli web \
+                        "from=web" \
+                        "to=dashboard" \
+                        "version=7.44.0" \
+                        "argv=${*:-}"
+                fi
+            fi
+            ;;
+    esac
+
     case "$subcommand" in
         start)
             shift || true
@@ -4572,13 +4644,19 @@ cmd_web() {
 }
 
 cmd_web_help() {
-    echo -e "${BOLD}Purple Lab -- Loki Mode Web UI${NC}"
+    echo -e "${BOLD}Purple Lab -- Loki Mode Web UI (deprecated -- use the dashboard)${NC}"
     echo ""
     echo "Usage: loki web [command] [options]"
     echo ""
+    echo "DEPRECATED as of v7.44.0: Purple Lab is consolidated into the dashboard."
+    echo "  For local build + monitoring, use the dashboard (auto-launches at"
+    echo "  'loki start', http://localhost:${DASHBOARD_DEFAULT_PORT}; or 'loki dashboard')."
+    echo "  For the hosted platform, see Autonomi Cloud."
+    echo "  'loki web' still works for now (it launches after a deprecation notice),"
+    echo "  but it will be removed in a future release. Migrate to the dashboard."
+    echo ""
     echo "Note: 'loki web' is Purple Lab (the PRD-input/build-watch UI, port ${PURPLE_LAB_DEFAULT_PORT})."
     echo "      It is NOT the same as 'loki dashboard' (operations UI, port ${DASHBOARD_DEFAULT_PORT})."
-    echo "      Use 'loki web' to submit a PRD and watch agents build it."
     echo "      Use 'loki dashboard' to monitor running agents, tasks, costs, council, escalations."
     echo ""
     echo "Commands:"
@@ -6675,14 +6753,23 @@ cmd_assets() {
     shift 2>/dev/null || true
 
     local helper="$_LOKI_SCRIPT_DIR/lib/assets_bundle.py"
-    if [ ! -f "$helper" ]; then
-        echo -e "${RED}Error: assets helper not found at $helper${NC}" >&2
-        return 1
-    fi
-    if ! command -v python3 &>/dev/null; then
-        echo -e "${RED}Error: python3 is required for 'loki assets'${NC}" >&2
-        return 1
-    fi
+    # The help path needs neither the python3 helper nor python3 itself, so
+    # guard these preconditions to skip help/empty subcommands. Otherwise
+    # `loki assets --help` would error on a missing helper/python3 instead of
+    # printing help (same class as #574 / the cmd_monitor fix).
+    case "$subcommand" in
+        --help|-h|help|"") ;;
+        *)
+            if [ ! -f "$helper" ]; then
+                echo -e "${RED}Error: assets helper not found at $helper${NC}" >&2
+                return 1
+            fi
+            if ! command -v python3 &>/dev/null; then
+                echo -e "${RED}Error: python3 is required for 'loki assets'${NC}" >&2
+                return 1
+            fi
+            ;;
+    esac
 
     # Project dir holds .loki/ (memory, council, wiki). Default to cwd.
     local project_dir
@@ -9845,16 +9932,11 @@ QPRDEOF
 
 # Docker Compose monitoring with auto-fix (v6.67.0)
 cmd_monitor() {
-    # Verify Docker is available
-    if ! command -v docker &>/dev/null; then
-        echo -e "${RED}Docker is not installed. Install from https://docker.com${NC}"
-        return 1
-    fi
-    if ! docker info &>/dev/null 2>&1; then
-        echo -e "${RED}Docker daemon is not running. Start Docker Desktop or the Docker service.${NC}"
-        return 1
-    fi
-
+    # A --help/-h in any position (e.g. `loki monitor --help`) short-circuits
+    # to the help text BEFORE the Docker preconditions, so `monitor --help`
+    # works even when Docker is down (same class as #574). The arg parser's
+    # existing --help arm below prints the help; we just defer the Docker
+    # checks until after parsing so help is reachable.
     local project_dir="."
     local watch_only=false
     local poll_interval="${LOKI_MONITOR_INTERVAL:-10}"
@@ -9911,6 +9993,17 @@ cmd_monitor() {
                 ;;
         esac
     done
+
+    # Verify Docker is available (deferred past arg parsing so --help works
+    # without a running daemon).
+    if ! command -v docker &>/dev/null; then
+        echo -e "${RED}Docker is not installed. Install from https://docker.com${NC}"
+        return 1
+    fi
+    if ! docker info &>/dev/null 2>&1; then
+        echo -e "${RED}Docker daemon is not running. Start Docker Desktop or the Docker service.${NC}"
+        return 1
+    fi
 
     # Resolve to absolute path
     if [[ ! "$project_dir" = /* ]]; then
@@ -11495,9 +11588,19 @@ Tasks:
         local phase_exit=0
         if [ -n "$phase_prompt" ]; then
             local provider_name="${LOKI_PROVIDER:-claude}"
+            # caveman ACTIVATION (free-form narration): the phase exec writes its
+            # deliverables via tools; stdout is piped to python and only DISPLAYED,
+            # never captured/parsed for a verdict. So compress the narration tokens
+            # at the configured level when warranted (mirrors run.sh:13167 main loop).
+            # An EMPTY CAVEMAN_DEFAULT_MODE is NOT inert (caveman falls back to the
+            # user global default), so when activation is not warranted we must NOT
+            # set the var at all (bare branch), keeping the call byte-identical to
+            # pre-caveman. No-op when caveman is absent.
+            local _loki_mig_cm=""
+            _loki_mig_cm="$(_loki_caveman_narration_level)"
             case "$provider_name" in
                 claude)
-                    { (cd "$codebase_path" && claude --dangerously-skip-permissions -p "$phase_prompt" --output-format stream-json --verbose 2>&1) | \
+                    { (cd "$codebase_path" && if [ -n "$_loki_mig_cm" ]; then CAVEMAN_DEFAULT_MODE="$_loki_mig_cm" claude --dangerously-skip-permissions -p "$phase_prompt" --output-format stream-json --verbose 2>&1; else claude --dangerously-skip-permissions -p "$phase_prompt" --output-format stream-json --verbose 2>&1; fi) | \
                         while IFS= read -r line; do
                             # Extract text from stream-json
                             if echo "$line" | python3 -c "
@@ -11663,9 +11766,15 @@ IMPORTANT RULES:
 
         local doc_exit=0
         local provider_name="${LOKI_PROVIDER:-claude}"
+        # caveman ACTIVATION (free-form narration): docs-gen writes the docs via
+        # tools; stdout is piped to python and only DISPLAYED, never captured/parsed.
+        # Compress narration at the configured level when warranted; empty -> bare
+        # branch, byte-identical to pre-caveman (empty mode is NOT inert). No-op absent.
+        local _loki_doc_cm=""
+        _loki_doc_cm="$(_loki_caveman_narration_level)"
         case "$provider_name" in
             claude)
-                { (cd "$codebase_path" && claude --dangerously-skip-permissions -p "$doc_prompt" --output-format stream-json --verbose 2>&1) | \
+                { (cd "$codebase_path" && if [ -n "$_loki_doc_cm" ]; then CAVEMAN_DEFAULT_MODE="$_loki_doc_cm" claude --dangerously-skip-permissions -p "$doc_prompt" --output-format stream-json --verbose 2>&1; else claude --dangerously-skip-permissions -p "$doc_prompt" --output-format stream-json --verbose 2>&1; fi) | \
                     while IFS= read -r line; do
                         if echo "$line" | python3 -c "
 import sys, json
@@ -12286,10 +12395,17 @@ Begin healing now. Follow the RARV cycle for each action."
 
     # Execute with the appropriate provider
     local heal_exit=0
+    # caveman ACTIVATION (free-form narration): heal execution writes its artifacts
+    # (.loki/healing/*, characterization tests) via tools; stdout is piped to python
+    # and only DISPLAYED, never captured/parsed for a verdict. Compress narration at
+    # the configured level when warranted; empty -> bare branch, byte-identical to
+    # pre-caveman (empty mode is NOT inert). No-op when caveman is absent.
+    local _loki_heal_cm=""
+    _loki_heal_cm="$(_loki_caveman_narration_level)"
     case "$provider" in
         claude)
             local run_args=(--dangerously-skip-permissions -p "$heal_prompt" --output-format stream-json --verbose)
-            (cd "$codebase_path" && claude "${run_args[@]}" 2>&1) | \
+            (cd "$codebase_path" && if [ -n "$_loki_heal_cm" ]; then CAVEMAN_DEFAULT_MODE="$_loki_heal_cm" claude "${run_args[@]}" 2>&1; else claude "${run_args[@]}" 2>&1; fi) | \
                 while IFS= read -r line; do
                     if echo "$line" | python3 -c "
 import sys, json
@@ -13107,13 +13223,18 @@ FEOF
                 ;;
             --disable)
                 if [ -f "$failover_file" ]; then
-                    python3 -c "
-import json
-with open('$failover_file') as f: d = json.load(f)
+                    if _FAILOVER_FILE="$failover_file" python3 -c "
+import json, os
+failover_file = os.environ['_FAILOVER_FILE']
+with open(failover_file) as f: d = json.load(f)
 d['enabled'] = False
-with open('$failover_file', 'w') as f: json.dump(d, f, indent=2)
-" 2>/dev/null
-                    echo -e "${YELLOW}Failover disabled${NC}"
+with open(failover_file, 'w') as f: json.dump(d, f, indent=2)
+"; then
+                        echo -e "${YELLOW}Failover disabled${NC}"
+                    else
+                        echo -e "${RED}Error: failed to disable failover${NC}"
+                        return 1
+                    fi
                 else
                     echo "Failover not initialized."
                 fi
@@ -13141,13 +13262,19 @@ with open('$failover_file', 'w') as f: json.dump(d, f, indent=2)
                     return 1
                 fi
 
-                python3 -c "
-import json
-with open('$failover_file') as f: d = json.load(f)
-d['chain'] = '$new_chain'.split(',')
-with open('$failover_file', 'w') as f: json.dump(d, f, indent=2)
-" 2>/dev/null
-                echo "Failover chain updated: $new_chain"
+                if _FAILOVER_FILE="$failover_file" _NEW_CHAIN="$new_chain" python3 -c "
+import json, os
+failover_file = os.environ['_FAILOVER_FILE']
+new_chain = os.environ['_NEW_CHAIN']
+with open(failover_file) as f: d = json.load(f)
+d['chain'] = new_chain.split(',')
+with open(failover_file, 'w') as f: json.dump(d, f, indent=2)
+"; then
+                    echo "Failover chain updated: $new_chain"
+                else
+                    echo -e "${RED}Error: failed to update failover chain${NC}"
+                    return 1
+                fi
                 shift
                 ;;
             --test)
@@ -13429,7 +13556,12 @@ def _resolve_session_pin(alias):
     elif _pin_tier == 'fast':
         _m = _provider_model_fast()
     elif _pin_tier == 'fable':
-        _m = 'fable'
+        # fable unavailable, collapse to opus. Claude Fable 5 is not available at
+        # the Claude API (advises use Opus 4.8); the runner dispatches opus for a
+        # fable pin (claude.sh resolve_model_for_tier, run.sh dispatch backstop).
+        # Quote opus pricing (\$5/\$25) so the estimator agrees with dispatch and
+        # the dashboard (v7.39.1).
+        _m = 'opus'
     else:  # development (and the '*' fallthrough)
         _m = _provider_model_development()
     # Apply the shared LOKI_MAX_TIER clamp with the REAL tier and resolved model
@@ -13462,6 +13594,16 @@ if _is_override:
     _dispatched_model = _loki_clamp_alias(session_model_env)
 else:
     _dispatched_model = _resolve_session_pin(session_model_env)
+
+# fable unavailable, collapse to opus (final dispatch backstop, mirrors run.sh).
+# The override-path clamp (_loki_clamp_alias) leaves an uncapped fable override as
+# 'fable', but the runner's dispatch backstop collapses tier_param=='fable' to
+# opus before --model. Apply the same collapse here so the OVERRIDE route quotes
+# opus too, agreeing with dispatch and the dashboard. The session-pin route is
+# already collapsed inside _resolve_session_pin; this also covers a fable override
+# file (v7.39.1).
+if _dispatched_model == 'fable':
+    _dispatched_model = 'opus'
 
 # Keep session_model_env (the alias) for token-volume tier mapping and provenance,
 # but record when the cost ceiling actually changed the dispatched model so the
@@ -13700,8 +13842,11 @@ tokens_per_tier = {
 # row from a stale \$0.25/\$1.25 (Haiku 3.5) to the published Claude Haiku 4.5
 # price of \$1/\$5 (anthropic.com/news/claude-haiku-4-5), so all four rows now
 # match the three canonical model-keyed tables (run.sh pricing.json, run.sh
-# check_budget_limit, dashboard _DEFAULT_PRICING) and a fable-forced quote
-# honestly shows MORE than Opus, not less.
+# check_budget_limit, dashboard _DEFAULT_PRICING). The Fable row (\$10/\$50) is
+# kept as the reference price, but since v7.39.1 fable is unavailable at the API
+# and a fable pin RESOLVES to Opus everywhere -- so a fable-pinned run both
+# dispatches AND quotes Opus (\$5/\$25), matching the runner. The Fable price row
+# is only reachable as an explicit advisory reference, not via a session pin.
 pricing = {
     'Fable':  {'input': 10.00, 'output': 50.00},
     'Opus':   {'input': 5.00, 'output': 25.00},
@@ -13753,12 +13898,16 @@ for i in range(estimated_iterations):
     # IS the dispatched model. In session-pinned mode (the default) the runner
     # resolves the pin through provider config (_dispatched_model): a sonnet pin
     # dispatches opus, so we price Opus, not the tier's static 'Sonnet' label.
-    # The fable-architect iteration 0 genuinely dispatches fable (already cap-
-    # cleared above when it would clamp), so it keeps the advisor tier's Fable.
+    # The fable-architect iteration 0 collapses to opus at dispatch (Fable 5 is
+    # unavailable at the claude API), so it is priced as Opus, not Fable (v7.39.1).
     if legacy_tier_switching:
         model = info['model']
     elif _fable_architect and i == 0:
-        model = info['model']  # advisor tier -> Fable
+        # Architect opt-in iter-0: fable unavailable, the runner dispatches opus
+        # for the architecture pass (LOKI_FABLE_ARCHITECT collapses to opus in
+        # run.sh / claude.sh). Token VOLUME stays the advisor/planning tier
+        # (50k/8k), but the priced model is Opus, not Fable (v7.39.1).
+        model = 'Opus'
     else:
         model = _priced_model_for(_dispatched_model)
     inp = info['input']
@@ -13965,7 +14114,10 @@ else:
     else:
         print(f'  {DIM}(pinned via {_session_model_source}={session_model_env}; set LOKI_LEGACY_TIER_SWITCHING=true to rotate){NC}')
     if _fable_architect:
-        print(f'  {DIM}(+ 1 architecture iteration on Fable via LOKI_FABLE_ARCHITECT=1){NC}')
+        # fable unavailable: the architect opt-in now runs the architecture pass
+        # on opus (Claude Fable 5 is not available at the Claude API). Disclose
+        # Opus so the quote matches dispatch (v7.39.1).
+        print(f'  {DIM}(+ 1 architecture iteration on Opus via LOKI_FABLE_ARCHITECT=1){NC}')
     if fable_n > 0:
         print(f'  {YELLOW}Fable 5 is the top-tier advisory model priced at 2x Opus ({chr(36)}10/{chr(36)}50 per MTok).{NC}')
 
@@ -18505,16 +18657,16 @@ else:
                 exit 1
             fi
 
-            python3 -c "
+            _REGISTRY_FILE="$registry_file" _PROJ_PATH="$path" _PROJ_NAME="$name" _PROJ_ALIAS="$alias" python3 -c "
 import json
 import os
 import hashlib
 from datetime import datetime, timezone
 
-registry_file = '$registry_file'
-path = '$path'
-name = '$name' or os.path.basename(path)
-alias = '$alias' or None
+registry_file = os.environ['_REGISTRY_FILE']
+path = os.environ['_PROJ_PATH']
+name = os.environ['_PROJ_NAME'] or os.path.basename(path)
+alias = os.environ['_PROJ_ALIAS'] or None
 
 # Generate project ID
 project_id = hashlib.md5(path.encode()).hexdigest()[:12]
@@ -18555,7 +18707,7 @@ with open(registry_file, 'w') as f:
 print(f'  Path: {path}')
 if alias:
     print(f'  Alias: {alias}')
-" 2>/dev/null
+"
             ;;
 
         remove|rm)
@@ -18566,12 +18718,12 @@ if alias:
                 exit 1
             fi
 
-            python3 -c "
+            _REGISTRY_FILE="$registry_file" _IDENTIFIER="$identifier" python3 -c "
 import json
 import os
 
-registry_file = '$registry_file'
-identifier = '$identifier'
+registry_file = os.environ['_REGISTRY_FILE']
+identifier = os.environ['_IDENTIFIER']
 
 with open(registry_file, 'r') as f:
     data = json.load(f)
@@ -18594,7 +18746,7 @@ if found_id:
 else:
     print(f'Not found: {identifier}')
     exit(1)
-" 2>/dev/null
+"
             ;;
 
         discover)
@@ -18746,12 +18898,12 @@ print(f'Added: {added}, Missing: {missing}, Total: {len(projects)}')
         health)
             local identifier="${2:-$(pwd)}"
 
-            python3 -c "
+            _REGISTRY_FILE="$registry_file" _IDENTIFIER="$identifier" python3 -c "
 import json
 import os
 
-registry_file = '$registry_file'
-identifier = '$identifier'
+registry_file = os.environ['_REGISTRY_FILE']
+identifier = os.environ['_IDENTIFIER']
 
 # If it's a path, resolve it
 if os.path.isdir(identifier):
@@ -18790,7 +18942,7 @@ print('Health Checks:')
 for check, passed in checks.items():
     icon = '[OK]' if passed else '[FAIL]'
     print(f'  {icon} {check}')
-" 2>/dev/null
+"
             ;;
 
         --help|-h|help)
@@ -18944,17 +19096,17 @@ cmd_enterprise() {
                         esac
                     done
 
-                    python3 -c "
+                    _TOKEN_FILE="$token_file" _TOKEN_NAME="$name" _TOKEN_SCOPES="$scopes" _TOKEN_EXPIRES="$expires" python3 -c "
 import json
 import secrets
 import hashlib
 from datetime import datetime, timezone, timedelta
 import os
 
-token_file = '$token_file'
-name = '$name'
-scopes_str = '$scopes'
-expires_str = '$expires'
+token_file = os.environ['_TOKEN_FILE']
+name = os.environ['_TOKEN_NAME']
+scopes_str = os.environ['_TOKEN_SCOPES']
+expires_str = os.environ['_TOKEN_EXPIRES']
 
 # Parse scopes
 scopes = scopes_str.split(',') if scopes_str else ['*']
@@ -19009,7 +19161,7 @@ if expires_at:
 print('')
 print('Token (save this - shown only once):')
 print(f'  {raw_token}')
-" 2>/dev/null
+"
                     ;;
 
                 list|ls)
@@ -19078,12 +19230,12 @@ else:
                         exit 2
                     fi
 
-                    python3 -c "
-import json
+                    _TOKEN_FILE="$token_file" _IDENTIFIER="$identifier" python3 -c "
+import json, os
 from datetime import datetime, timezone
 
-token_file = '$token_file'
-identifier = '$identifier'
+token_file = os.environ['_TOKEN_FILE']
+identifier = os.environ['_IDENTIFIER']
 
 with open(token_file, 'r') as f:
     data = json.load(f)
@@ -19106,7 +19258,7 @@ if found_id:
 else:
     print(f'Token not found: {identifier}')
     exit(1)
-" 2>/dev/null
+"
                     ;;
 
                 delete)
@@ -19117,11 +19269,11 @@ else:
                         exit 2
                     fi
 
-                    python3 -c "
-import json
+                    _TOKEN_FILE="$token_file" _IDENTIFIER="$identifier" python3 -c "
+import json, os
 
-token_file = '$token_file'
-identifier = '$identifier'
+token_file = os.environ['_TOKEN_FILE']
+identifier = os.environ['_IDENTIFIER']
 
 with open(token_file, 'r') as f:
     data = json.load(f)
@@ -19145,7 +19297,7 @@ if found_id:
 else:
     print(f'Token not found: {identifier}')
     exit(1)
-" 2>/dev/null
+"
                     ;;
 
                 *)
@@ -23665,7 +23817,16 @@ _docs_invoke_provider() {
 
     case "$provider" in
         claude)
-            result=$($t_prefix claude -p "$prompt" 2>/dev/null) || exit_code=$?
+            # caveman HARD-SUPPRESS (captured deliverable): the claude stdout IS
+            # the generated doc -- it is captured here and written verbatim to a
+            # markdown file by both callers (loki:23869, loki:24239). A globally
+            # active caveman would compress this stdout, corrupting the generated
+            # CLAUDE.md / DECISIONS.md / README into caveman-speak. So disable
+            # caveman unconditionally on this site (mirrors run.sh:3286, the
+            # structurally identical captured `claude -p` resolution subcall).
+            # env-prefix form because of the optional $t_prefix timeout wrapper.
+            # No-op when caveman is absent.
+            result=$($t_prefix env CAVEMAN_DEFAULT_MODE=off claude -p "$prompt" 2>/dev/null) || exit_code=$?
             ;;
         codex)
             result=$($t_prefix codex exec --full-auto "$prompt" 2>/dev/null) || exit_code=$?

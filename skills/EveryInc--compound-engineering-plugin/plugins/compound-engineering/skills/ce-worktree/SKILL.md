@@ -15,7 +15,7 @@ Create a worktree under `.worktrees/<branch>` with branch-specific setup that `g
 
 ## Creating a worktree
 
-Invoke the bundled script via the runtime Bash tool. On Claude Code, `${CLAUDE_SKILL_DIR}` resolves to the skill's own directory across both marketplace-cached installs and `claude --plugin-dir` local development; the runtime Bash tool's CWD is the user's project, not the skill directory, so a bare `bash scripts/worktree-manager.sh` fails. On other targets (Codex, Gemini, Pi, etc.) `${CLAUDE_SKILL_DIR}` is unset and the `:-.` fallback yields the bare relative path those harnesses expect.
+Invoke the bundled script via the runtime Bash tool. On Claude Code, `${CLAUDE_SKILL_DIR}` resolves to the skill's own directory across both marketplace-cached installs and `claude --plugin-dir` local development; the runtime Bash tool's CWD is the user's project, not the skill directory, so a bare `bash scripts/worktree-manager.sh` fails. The `:-.` fallback keeps the command syntactically valid where `${CLAUDE_SKILL_DIR}` is unset.
 
 ```bash
 bash "${CLAUDE_SKILL_DIR:-.}/scripts/worktree-manager.sh" create <branch-name> [from-branch]

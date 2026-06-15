@@ -67,15 +67,17 @@ Determine `OUTPUT_FORMAT` for the ideation artifact this run might persist. Outp
 
 Unlike `ce-plan` and `ce-brainstorm` (which default to `md`), ce-ideate defaults to **`html`** — ideation artifacts are read mainly by humans weighing candidate directions, and a rich self-contained HTML file (with illustrative diagrams for the top candidates) makes the ideas easier to approach.
 
-**Read config (pre-resolved at skill load):**
-!`cat "$(git rev-parse --show-toplevel 2>/dev/null)/.compound-engineering/config.local.yaml" 2>/dev/null || echo '__NO_CONFIG__'`
+**Read config.** The repo root is pre-resolved at skill load:
+!`git rev-parse --show-toplevel 2>/dev/null || true`
+
+If the line above is an absolute path, use it as `<repo-root>`. If it is empty or still shows a backtick command string (a non-Claude harness that did not run the pre-resolution), resolve `<repo-root>` at runtime by running `git rev-parse --show-toplevel` with the shell tool. Then read `<repo-root>/.compound-engineering/config.local.yaml` with the native file-read tool. If the root cannot be resolved (not a git repo) or the file does not exist, fall through to the defaults below.
 
 Resolution steps:
 
 1. **CLI arg.** Scan `$ARGUMENTS` for a token starting with the literal prefix `output:`. If found, strip it from arguments before treating the remainder as the focus hint, and match its value case-insensitively against `md` and `html`.
    - `output:` alone (no value) → no-op, fall through to step 2.
    - `output:<unknown>` (e.g., `output:pdf`) → drop the token, fall through to step 2, and remember to emit a one-line note above the post-ideation menu after final resolution: `Ignored unknown output: value '<value>' — using <resolved_format> instead.` where `<resolved_format>` is the value `OUTPUT_FORMAT` actually resolved to after steps 2-4. Do not hardcode a format in the note — that misleads users when config or the default differs from what you assume.
-2. **Config.** If step 1 did not resolve and the pre-resolved YAML above has an **active (non-commented)** `ideate_output:` key whose value matches `md` or `html` (case-insensitive), use it. Missing, invalid, or commented values fall through silently. Critical: lines starting with `#` are YAML comments and must be ignored — the shipped config template includes a commented example like `# ideate_output: md` to document the option, and matching that as an active setting would silently override the default on every run without the user having opted in.
+2. **Config.** If step 1 did not resolve and the config file read above has an **active (non-commented)** `ideate_output:` key whose value matches `md` or `html` (case-insensitive), use it. Missing, invalid, or commented values fall through silently. Critical: lines starting with `#` are YAML comments and must be ignored — the shipped config template includes a commented example like `# ideate_output: md` to document the option, and matching that as an active setting would silently override the default on every run without the user having opted in.
 3. **Default.** Otherwise `OUTPUT_FORMAT=html`.
 4. **Pipeline override.** When invoked from any pipeline or `disable-model-invocation` context, force `OUTPUT_FORMAT=md` regardless of steps 1-3 — automated downstream consumers parse markdown reliably and HTML in pipeline runs is unnecessary friction.
 

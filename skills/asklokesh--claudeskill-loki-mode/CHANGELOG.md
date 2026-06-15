@@ -9,6 +9,469 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.44.0] - 2026-06-15
+
+Web-surface consolidation + local-ci parallelization. One local web surface (the
+dashboard), Purple Lab deprecated with a value-preserving migration path, and the
+dashboard gains browser PRD-input so nobody loses the ability to start a build
+from a browser.
+
+### Changed
+- Purple Lab (`loki web`, web-app/, port 57375) is DEPRECATED as of this release.
+  Rationale: it was a second web surface (its own FastAPI server, auth, crypto,
+  DB migrations) whose monitoring half duplicated the dashboard, whose advertised
+  multi-user/account layer was unbacked UI, and whose hosted-platform role now
+  lives in the separate Autonomi Cloud product. Consolidating to one local
+  surface simplifies the UX and sharpens the open-core line (free CLI + local
+  dashboard; paid hosted = Autonomi Cloud).
+- `loki web` still works (value-preserving): it prints a deprecation banner
+  pointing to the dashboard (auto-launches at `loki start`, http://localhost:57374,
+  or `loki dashboard`) and to Autonomi Cloud for the hosted platform, emits a
+  cli_command_deprecated telemetry event, then still launches Purple Lab so no
+  existing user is stranded (mirrors the `loki run` -> `loki start` deprecation).
+
+### Added
+- Dashboard can now START a build from the browser, absorbing Purple Lab's one
+  unique value. New `POST /api/control/start` (scope: control) accepts a PRD as
+  text or path (path-traversal guarded, post-resolution containment check),
+  single-flight (409 if a run is already active), and spawns the run via run.sh.
+  The SPA gains a spec textarea + a wired Start button (startSession in the API
+  client). The dashboard is now the single local surface: monitor AND launch.
+- local-ci parallelization re-land (#588): provably-independent read-only checks
+  (bash -n, shellcheck, JSON/YAML/emoji/git-add structural, static-asset checks)
+  run in concurrent background lanes; everything that spawns a process, hits the
+  network (bun test), runs pytest, or shares mutable state (model-override,
+  plan-command, the stop block) stays on a serial spine. A prior parallelization
+  attempt was reverted for making the gate non-deterministic; this re-land was
+  proven deterministic across 5 consecutive full runs (62 checks, 0 failures,
+  identical each run). `--serial` / LOCAL_CI_SERIAL=1 is the bisect lever.
+
+### Docs
+- README (Purple Lab section + nav link + commands table) and the Autonomi
+  website (Docs product pages) repoint Purple Lab current-product framing to the
+  dashboard (local) and Autonomi Cloud (hosted); historical changelog/launch
+  artifacts left intact (deprecate with a pointer, never silently delete).
+
+## [7.43.0] - 2026-06-14
+
+Bug-hunt + greenfield-E2E hardening wave. A real first-time-user greenfield
+fullstack E2E run (the first since v7.41.1) exposed three verified-completion
+trust holes; a parallel adversarial bug-fleet found data-loss and concurrency
+defects across the memory, event, MCP, app-runner, and provider subsystems. All
+fixes are additive and reversible; the build_prompt bash<->Bun parity lock is
+unchanged (60/60 golden fixtures byte-identical).
+
+### Fixed
+- Memory vector index no longer destroys itself on save: VectorIndex.save() used
+  a tempfile suffix of ".npz.tmp", but numpy's savez appends ".npz", so the real
+  data was written to tmp+".npz" and a 0-byte file was atomically moved into
+  place. Every persisted index was being wiped on write. Suffix is now ".npz" so
+  the atomic replace moves the actual data (memory/vector_index.py).
+- Event bus subscribe() no longer drops events at or behind a subscriber's wall
+  clock: the previous since=last_check window silently skipped events whose
+  timestamp tied or trailed the poll time under clock skew. The time window is
+  removed; deduplication is now purely id-based via _processed_ids
+  (events/bus.py).
+- MCP resource handlers (continuity, memory index, pending tasks) return a
+  structured error envelope on any corrupt/unreadable state file instead of only
+  catching PathTraversalError (an unhandled JSONDecodeError previously bubbled
+  out); the memory-index handler parses and re-serializes so malformed JSON is
+  reported, not forwarded (mcp/server.py).
+- App-runner stop now reaps the full process tree on the default macOS path: when
+  setsid is unavailable, deep worker processes were orphaned because only the
+  direct child was signalled. Stop now snapshots descendants (BFS) once, then
+  TERM -> grace -> KILL. The crash-counter (_APP_RUNNER_CRASH_COUNT) also resets
+  to 0 on a healthy watchdog tick, so transient restarts no longer accumulate
+  toward a false permanent-failure state (autonomy/app-runner.sh).
+- Codex provider now pins the resolved model: provider_invoke and
+  provider_invoke_with_tier pass an explicit --model, so codex no longer silently
+  falls back to the installed CLI default (mispricing the run and ignoring
+  _codex_validate_model) (providers/codex.sh).
+- Dashboard XSS hardening: the council dashboard had no HTML escaping at all;
+  agent name/type/task and the memory-browser item name are now escaped before
+  insertion into the DOM (dashboard-ui/components/loki-council-dashboard.js,
+  loki-memory-browser.js; dashboard/static/index.html rebuilt).
+- Bun runner loop-termination correctness: council_approved,
+  council_force_approved, completion_promise_fulfilled, and running are now in
+  TERMINAL_STATUSES (mirroring run.sh), and the max-iteration guard uses >=
+  (was >) with the default raised to 1000 and read from MAX_ITERATIONS
+  (loki-ts/src/runner/state.ts, autonomous.ts).
+- Verified-completion evidence gate no longer reads a clean committed tree as
+  empty-diff fabrication when the run-start base SHA is unreachable (history
+  rewrite / reset --hard): the unreachable-base fallback marks the diff axis
+  inconclusive (pass-through) instead of blocking (autonomy/completion-council.sh).
+
+### Fixed (greenfield-E2E trust holes)
+- Test-coverage gate is no longer fail-open on no-runner projects: when no test
+  runner is detected it now records pass:"inconclusive" instead of pass:true, so
+  "tests never ran" is no longer indistinguishable from "tests passed" in
+  test-results.json. The completion-council evidence gate already short-circuits
+  runner=="none" to pass-through (before the passed-is-False check), so genuine
+  no-test projects stay non-blocking while a detected runner that fails still
+  writes pass:false and blocks (autonomy/run.sh).
+- The critical-checklist hard gate now also guards the DEFAULT completion-promise
+  / loki_complete_task route, not only the council-interval and dashboard
+  force-review paths. An agent that left a priority:critical checklist item
+  failing and claimed done on a non-council iteration previously bypassed the
+  checklist gate entirely (autonomy/run.sh).
+- New --allow-haiku flag on loki start: exports LOKI_ALLOW_HAIKU=true so a
+  first-time evaluator can run the cheaper local-testing tier explicitly. Opt-in
+  only; the default development tier remains opus (autonomy/loki).
+
+### Tests
+- New regression coverage: tests/memory/test_vector_index_save_load.py,
+  tests/mcp/test_resource_corrupt_state.py, tests/test_event_bus_subscribe_skew.py,
+  tests/test-app-runner-tree-stop.sh, tests/test-cli-allow-haiku-flag.sh,
+  tests/test-completion-route-checklist-gate.sh, tests/test-coverage-gate-fail-open.sh.
+  Evidence-gate unreachable-base case added to tests/test-evidence-gate.sh; codex
+  --model assertions added to tests/test-provider-invocation.sh.
+
+## [7.42.0] - 2026-06-14
+
+Ten-team parallel hardening + documentation completeness wave (worktree-isolated,
+file-sharded, merged after independent review). Closes the remaining deferred
+bug-hunt findings and documents the v7.41.x default-on knobs across all surfaces.
+
+### Fixed
+- MCP LSP proxy no longer stalls the event loop: every tool handler offloads its
+  blocking LSP I/O via anyio.to_thread, with per-request-id and stdin-write
+  locking added since the handlers are now truly concurrent. lsp_get_diagnostics
+  also sends textDocument/didChange when a file changed on disk, so it returns
+  fresh diagnostics instead of the first-open snapshot.
+- Dashboard app-runner liveness now detects PID reuse: a recycled PID whose
+  process start time is later than the recorded launch is treated as stopped,
+  instead of reporting a dead run as "running" forever.
+- Healing hooks (currently unwired) made correct-when-wired:
+  hook_post_healing_modify reverts only the healing edit via a pre-edit snapshot
+  (no longer git-checkout-nukes unrelated uncommitted changes, and reports
+  honestly for untracked files); hook_pre_healing_modify uses path-aware matching
+  instead of substring containment.
+- Completion council contrarian transcript fields (contrarian_triggered /
+  contrarian_flipped) are recorded correctly from a pre-decrement snapshot
+  (audit-trail only; the live vote was already correct).
+- Admin commands (loki failover, projects, enterprise token) pass user values to
+  their python helpers via environment variables instead of raw string
+  interpolation, so a value containing a quote no longer silently no-ops while
+  the file goes unwritten.
+- Bun route captures LOKI_CAVEMAN_USER_MODE from the inherited
+  CAVEMAN_DEFAULT_MODE at startup, so the caveman no-raise / opt-out guard is
+  live on the Bun route (was dead; dormant until the Phase 6 sunset).
+
+### Added
+- Documented the v7.41.x default-on opt-out knobs
+  (LOKI_REVIEW_INCONCLUSIVE_BLOCK, LOKI_COMPLETION_TEST_CAPTURE, LOKI_AUTO_DOCS,
+  and the caveman compressor knobs) across wiki (Environment-Variables,
+  Quality-Gates), README, and docs/INSTALLATION, with each default verified
+  against source. Synced references/ and skills/ docs with the v7.41.x
+  verification-integrity behavior. Fixed a stale README claim that Claude Fable
+  was an available premium API tier (it collapses to Opus everywhere).
+
+## [7.41.5] - 2026-06-14
+
+Defensive hardening from the bug-hunt fleet's lower-severity findings. Each fix
+has a regression test proven non-vacuous.
+
+### Fixed
+- Memory index no longer double-counts on episode re-save. _update_index_with_episode
+  de-duplicated episode_ids but incremented episode_count/total_cost_usd/total_tokens
+  unconditionally, so a resumed/checkpointed run (same trace id) inflated the
+  dashboard Memory panel and `loki memory index`. The aggregates now increment
+  only when the episode id is genuinely new to the topic.
+- Memory pattern reads tolerate a corrupt non-dict entry. The pattern loops in
+  engine.py (cleanup, get_pattern, find_patterns, index rebuild) now skip a
+  non-dict element instead of raising AttributeError and aborting the whole read,
+  preserving the per-file _load_json resilience.
+- save_pattern no longer loses a save when patterns.json is valid JSON but lacks
+  the "patterns" key (partial/external write). It now ensures the list exists
+  before the upsert (was a bare subscript that raised KeyError silently).
+- Completion council heuristic fallback now requires affirmative positive
+  evidence to vote COMPLETE (default flipped from COMPLETE to CONTINUE), so an
+  empty .loki/ with no test evidence no longer clears the threshold on
+  "absence of failure". Legitimate finished projects (passing or no-test) still
+  vote COMPLETE; the change is defense-in-depth behind the existing evidence
+  gates. Reuses the same test-results.json signal as council_evidence_gate.
+- log_debug writes to stderr, so LOKI_DEBUG=true no longer pollutes the
+  detect_rate_limit command-substitution capture (which silently skipped the
+  rate-limit reset wait and retried too early into a live limit).
+
+## [7.41.4] - 2026-06-14
+
+Bun-route parity hardening. The autonomous live route is bash today, so these
+are dormant in production, but the Bun route must agree with bash byte-for-byte
+before the Phase 6 bash sunset wires it in, and the cross-route parity matrix is
+an enforced gate. All fixes mirror the bash source of truth exactly.
+
+### Fixed
+- Bun `applyMaxTierCeiling` normalizes `LOKI_MAX_TIER` (lowercase + trim, empty
+  means no ceiling) before comparing, matching claude.sh:352. A user-typed
+  `LOKI_MAX_TIER="Sonnet"` / `" haiku "` is now honored instead of silently
+  blown past. The sonnet ceiling now also caps a `fable` session tier down to
+  development (claude.sh:358-362), not only `planning`.
+- Bun `claudeTierToModel` reads `LOKI_ALLOW_HAIKU` with exact `=== "true"`,
+  matching bash (claude.sh:294, claude-flags.sh:104) and Bun's own
+  `fallbackForPrimary`. `LOKI_ALLOW_HAIKU=1` no longer dispatches haiku on one
+  path while bash and the rest of the Bun route resolve sonnet.
+- Bun caveman `cavemanActivateEnv` branches on whether `LOKI_CAVEMAN_LEVEL` is
+  SET (not merely truthy), so an exported-empty `LOKI_CAVEMAN_LEVEL=""` resolves
+  to the `full` override like bash (claude-flags.sh:543/709) instead of inferring
+  `lite`. The wenyan-* compression ranks now mirror bash exactly so a user's
+  global `CAVEMAN_DEFAULT_MODE=wenyan-lite` is honored (no-raise), not raised to
+  full.
+
+### Notes
+- `applyCodexMaxTier` is intentionally left raw (no normalization): codex.sh
+  also compares `LOKI_MAX_TIER` raw, so normalizing only the Bun codex side
+  would create drift. Locked with a guard test.
+- `getProviderTierParam` (rarv.ts) is unchanged: it mirrors bash's legacy
+  fallback table, which applies no max-tier clamp; the clamp lives in
+  `applyMaxTierCeiling` on the dispatch path.
+
+## [7.41.3] - 2026-06-14
+
+Accuracy + autonomy hardening from a 10-agent adversarial bug-hunt across the
+trust-gate, app-runner, dashboard, healing, and memory surfaces. Every fix has a
+concrete trigger and a regression test; latent / dormant-Bun-route / dead-code
+findings were deferred (tracked in internal/v7413-bughunt-findings.md).
+
+### Fixed
+- Completion gate now blocks on the most-severe code-review state. The guard
+  matched `code_review` (BLOCKED) and `code_review_ESCALATED` but not
+  `code_review_PAUSED`, so an iteration that hit the PAUSE limit AND claimed
+  completion could return "fulfilled", bypassing the human-intervention PAUSE.
+- Council vote parsing no longer drops or misreads verdicts: (a) the verdict
+  capture no longer `tail`-truncates, so a reviewer that lists many issues can no
+  longer push its own `VOTE:` line out of the window and be silently counted as
+  REJECT; (b) the matcher is word-bounded and markdown-tolerant, so `VOTE:
+  APPROVED` / `VOTE: APPROVE_WITH_CONCERNS` no longer count as a clean APPROVE and
+  `**VOTE:** APPROVE` now parses; ambiguous verdicts resolve conservatively.
+- council-v2 now uses the ceiling(2/3) quorum like every other council path
+  (was a flat threshold of 2, which approved at 2/5 when COUNCIL_SIZE=5); an
+  explicit LOKI_COUNCIL_THRESHOLD is still honored.
+- App-runner port reconcile liveness-verifies a reconciled port before
+  committing it, so a metrics-server port (e.g. 9464) or a DB-connection port
+  (5432) logged after the serving URL can no longer become the dashboard preview
+  URL, and a correct recorded port is no longer clobbered when the fast-path
+  health check flakes. Adds serving-keyword filtering and a Spring Boot
+  `port(s): N` parser.
+- Dashboard no longer freezes the event loop: `/api/wiki/ask` (up to 180s) and
+  `/api/checkpoints` (git + copytree) now run via `asyncio.to_thread`, so one
+  request can no longer stall liveness/status/WebSocket for every other client.
+  The checkpoint git-sha is now read with the correct project cwd.
+- `loki monitor --help` (and `loki assets --help`) now print help and exit 0
+  even when Docker / python3 is unavailable, instead of erroring on a
+  precondition before reaching the help arm.
+- Healing test gate fails CLOSED: when a healing run has no detectable test
+  command and LOKI_TEST_COMMAND is unset, the phase gate now BLOCKS with an
+  actionable message instead of treating "no tests" as "tests passed" (the
+  behavioral-preservation safety net was silently absent). Non-healing callers
+  are unchanged.
+- Memory consolidation preserves a merged pattern's importance, access_count,
+  and last_accessed (previously reset to schema defaults on every merge, so a
+  hot, high-importance pattern was repeatedly demoted to the floor, corrupting
+  decay and retrieval ranking).
+
+## [7.41.2] - 2026-06-14
+
+CI integrity patch. The v7.41.1 release shipped to npm but its Tests workflow
+went red on two test-only defects (the runtime code was unaffected). This patch
+makes the suite green again and adds a permanent guard for the class of
+regression that v7.41.1 introduced.
+
+### Fixed
+- Shell tests: `tests/test-completion-summary.sh` now accepts the v7.41.1
+  pathspec-filtered `review_cmd` (`git diff <sha>..HEAD -- . ':(exclude).loki/'`);
+  the glob previously required the command to end at `..HEAD`.
+- ShellCheck: `_loki_caveman_infer_level` in `autonomy/lib/claude-flags.sh` is
+  annotated `# shellcheck disable=SC2120` (its `$1` is intentionally optional with
+  a global fallback). Older shellcheck on CI flagged SC2120 as a warning and
+  failed the lint gate; newer shellcheck does not.
+
+### Added
+- `tests/test-plan-json-smoke.sh`: a fast direct regression guard asserting
+  `loki plan --json` exits 0, emits valid JSON with a populated
+  `cost.iterations_by_model`, and never prints "unbound variable" (the v7.41.1
+  heredoc `$5`-unbound regression). Wired into `tests/run-all-tests.sh`.
+
+## [7.41.1] - 2026-06-14
+
+Accuracy + autonomy hardening. A real first-time-user E2E (published CLI, haiku,
+greenfield + brownfield fullstack builds) confirmed both flows produce working,
+tested apps, but surfaced verification-machinery gaps that are now closed. Every
+fix makes Loki more accurate and more autonomous; all are intelligent defaults
+with opt-out env knobs, never a required user decision.
+
+### Fixed
+- Code-review gate no longer runs blind on .loki/ churn. The reviewer-prompt diff
+  (run_code_review) now excludes .loki/ and .git/ via git pathspec, mirroring the
+  evidence gate. Previously, when .loki/ was git-tracked, the diff could balloon
+  (observed 2.18 MB), the reviewer model returned empty, all reviewers recorded
+  NO_OUTPUT, and the gate passed with zero real review. Additionally, a review
+  that yields zero real verdicts (all NO_OUTPUT / unparseable) is now treated as
+  INCONCLUSIVE and BLOCKS (bounded one-shot retry first; opt out with
+  LOKI_REVIEW_INCONCLUSIVE_BLOCK=0). APPROVE / PASS-with-concerns still pass.
+- Verified-completion gate no longer half-blind on missing test evidence. Loki
+  now runs the project's own tests and persists .loki/quality/test-results.json
+  before the completion evidence gate reads it, so absent test evidence can no
+  longer silently pass the test axis. Default-on, opt out with
+  LOKI_COMPLETION_TEST_CAPTURE=0; reuses the quality-ladder run (no double test
+  execution per iteration).
+- App-runner port accuracy. The app child now receives PORT (and HTTP_PORT /
+  SERVER_PORT / APP_PORT) so it honors Loki's chosen port, AND Loki reconciles
+  the actual bound port from the app's listen line in app.log, updating
+  state.json / detection.json / the dashboard preview URL to the real port.
+  Previously a guessed port could leave the dashboard Live Preview pointing at a
+  dead URL while the app served elsewhere.
+- Orchestrator no longer orphans on completion. A normal finish (council stop /
+  max-iterations / completion promise) now authoritatively reaps this run's own
+  process group (pgid-scoped to .loki/loki.pgid), matching the external `loki
+  stop` path, so the orchestrator and its agent terminate cleanly instead of
+  lingering. Foreign loki runs (different pgid / .loki) are structurally
+  unreachable and untouched.
+- Dashboard Live App Preview honesty. A running-but-unreachable app now shows an
+  amber "Starting / not responding yet" state instead of a false green "Running"
+  badge over a dead iframe; an iframe load failure surfaces an honest
+  "could not show the app here" with Open-in-browser + Retry; and a run whose
+  process is gone is reconciled to stopped/stale by /api/app-runner/status
+  instead of frozen at "running".
+- Documentation quality gate now auto-generates docs in the autonomous loop
+  (LOKI_AUTO_DOCS=true default) instead of scoring the run down and telling the
+  user to run a separate command.
+- Cost-estimator comment corrected to reflect that a fable pin resolves to and
+  quotes Opus (v7.39.1 behavior), and a narrow test-evidence freshness-marker
+  ordering window was closed.
+
+### Changed
+- Caveman compression level is now inferred from the RARV tier instead of a fixed
+  default: planning (architecture / design, highest nuance) -> lite; development /
+  fast -> full; auto-inference never selects ultra. Conservative for accuracy
+  (protects design nuance). LOKI_CAVEMAN_LEVEL still overrides as an opt-out, and
+  the no-raise guard (never raise a user's lower global level) is preserved.
+  Parity across the bash and Bun routes; also fixed a Bun-route case where a
+  user's global "off" did not opt out of activation.
+- Caveman moat coverage extended to the loki CLI surface: a new tree-wide audit
+  (tests/test-caveman-loki-coverage.sh) asserts no captured-output subcall in
+  autonomy/loki is left uncompressed-unsafe; free-form narration sites activate,
+  the captured docs deliverable hard-suppresses (so generated docs are never
+  compressed into terse output).
+
+## [7.41.0] - 2026-06-14
+
+### Added
+- Optional output-token compressor integration (caveman). caveman
+  (https://github.com/JuliusBrussee/caveman, MIT, vendor-less pin) is a Claude
+  Code skill + SessionStart hook that instructs the model to compress its OUTPUT
+  tokens only (prose style), keeping all technical substance. Loki ACTIVATES it
+  on free-form generation (the main RARV development loop and parallel dev
+  streams) to cut output-token cost, and HARD-SUPPRESSES it on every
+  parsed-output trust-gate subcall so determinism is never affected: the
+  completion-council votes (VOTE:), the code-review verdict (^VERDICT:), the
+  adversarial probe, the merge-conflict resolver, and the USAGE.md regen all run
+  with compression OFF (CAVEMAN_DEFAULT_MODE=off). The carve-out is DEFAULT-SUPPRESS
+  by construction: a single `export CAVEMAN_DEFAULT_MODE=off` in
+  `autonomy/lib/claude-flags.sh` (the one module every Loki process tree sources)
+  makes EVERY claude subcall inherit suppression, so any parsed trust-gate call --
+  existing or future, in any tree (run.sh, completion-council, council-v2,
+  voter-agents, grill) -- is suppressed unless a site explicitly opts into
+  compression. Activation (the compression level) is then set per-invocation ONLY
+  at the known free-form generation sites (main RARV loop, parallel dev stream).
+  This fails safe: a missed activation site only loses token savings, never
+  corrupts a verdict. A tree-wide audit test asserts no parsed claude subcall is
+  left unsuppressed.
+  - Claude-provider-only. On Codex / Cline / Aider, caveman is unavailable and
+    the run is byte-identical to before (clean degrade, honest stderr).
+  - Default-on, opt out with `LOKI_CAVEMAN=0`. Level via `LOKI_CAVEMAN_LEVEL`
+    (default `full`; also `lite`, `ultra`, `wenyan*`). Version pin via
+    `LOKI_CAVEMAN_VERSION` (default `1.9.0`); vendor-less -- Loki ships no copy of
+    caveman and bootstraps the pinned version on demand (idempotent, cached
+    marker under `.loki/`, opt out with `LOKI_CAVEMAN_AUTO_BOOTSTRAP=0`).
+  - NEVER applied to trust gates. When the legacy completion-prose match is in
+    use (`LOKI_LEGACY_COMPLETION_MATCH=true`), main-loop activation is disabled so
+    compression can never mangle the prose completion-promise grep. The default
+    completion path (the `loki_complete_task` MCP tool / completion signal file)
+    is immune to compression and keeps caveman on.
+  - Savings are real but bounded (output tokens only, not input/thinking). There
+    is no price API, so Loki discloses the savings CLASS, never a dollar figure.
+  - Parity-locked across both routes (autonomy/lib/claude-flags.sh predicates and
+    loki-ts/src/providers/claude_flags.ts mirror), with a determinism / moat
+    carve-out proof in tests/test-caveman-flags.sh and
+    loki-ts/tests/providers/caveman_flags.test.ts.
+
+## [7.40.0] - 2026-06-14
+
+### Added
+- Autonomous, complexity-gated decision for the no-PRD codebase-analysis pass.
+  When no PRD is provided, Loki reverse-engineers a PRD from the existing code.
+  On the Claude provider, when the repo is detected as complex (file_count > 50,
+  microservices, external deps, or a complex inferred spec), Loki now dispatches
+  that read-only analysis pass as a Claude Code Dynamic Workflow (parallel
+  fan-out, the `ultracode` trigger) for more thorough first-run analysis, and
+  otherwise keeps the cheaper three-pass analysis. The decision is made once per
+  run (not always-on) and is parity-locked across both routes
+  (autonomy/run.sh and loki-ts/src/runner/build_prompt.ts), evaluated in the same
+  order: non-Claude provider or degraded provider -> three-pass;
+  `LOKI_USE_CLAUDE_WORKFLOWS=0` -> three-pass (escape hatch);
+  `LOKI_USE_CLAUDE_WORKFLOWS=1` -> workflow (force on); variable unset ->
+  workflow only when complexity == complex. Simple and standard repos keep the
+  byte-identical default behavior. When the workflow path is taken autonomously,
+  a one-time stderr disclosure names the higher cost class (no fabricated dollar
+  figure; there is no price API) and the `LOKI_USE_CLAUDE_WORKFLOWS=0` opt-out.
+
+### Fixed
+- `detect_complexity()` was defined but never called on the bash route, so
+  `DETECTED_COMPLEXITY` stayed empty and every complexity consumer
+  (effort-for-tier, telemetry, phase selection, and the new analysis gate)
+  silently fell back to "standard". It now runs once per run before the first
+  prompt build, so the complexity signal is live on bash, matching the Bun route.
+- parity-drift CI check: removed an over-normalization that blanked summary
+  counts, which was hiding real count drift between the bash and Bun routes.
+  The legitimate disk-space and route-specific Runtime normalizations are kept,
+  so genuine drift is caught while the prior false positive stays closed.
+
+### Docs
+- Installation guide now leads with Bun as the recommended install
+  (`bun install -g loki-mode`) with npm as a fully supported alternative,
+  matching the README and clarifying that the core autonomous engine runs the
+  same on both routes (you lose no capability by choosing Bun).
+
+## [7.39.1] - 2026-06-14
+
+### Fixed
+- Fable model (claude-fable-5) is not available at the Claude API ("Claude
+  Fable 5 is not available, use Opus 4.8"). A session pin, mid-flight override,
+  or architect opt-in to fable now resolves to opus consistently across all
+  three readers: the dispatched model (providers/claude.sh resolve_model_for_tier,
+  autonomy/run.sh static fallback and the final pre-argv backstop,
+  loki-ts claudeTierToModel and rarv.ts getProviderTierParam), the `loki plan`
+  cost quote, and the dashboard effective-model. A fable pin now both runs AND
+  quotes opus ($5/$25), not fable ($10/$50), so the quote matches the dispatch
+  (cost honesty). The fable tier label, session-pin parsing (fable stays a valid
+  input alias), and pricing-table rows are preserved; only the resolved model
+  changes. The 224-cell session-pin parity matrix stays green (dispatch == quote
+  == dashboard for every fable cell).
+
+## [7.39.0] - 2026-06-14
+
+### Added
+- Claude Code plugin and marketplace packaging. Loki now ships a plugin manifest
+  (plugins/loki-mode/.claude-plugin/plugin.json) and a marketplace manifest
+  (.claude-plugin/marketplace.json) so users can install via the Claude Code
+  plugin marketplace: `/plugin marketplace add asklokesh/loki-mode` then
+  `/plugin install loki-mode@loki-mode`. The plugin bundles the loki slash
+  commands, wires the MCP server via `loki mcp --transport stdio` (PATH-resolved,
+  install-location-independent, requires the loki CLI on PATH), and includes an
+  opt-in Bash safety guard hook gated on LOKI_GUARD=1 (default OFF). License is
+  BUSL-1.1 (source-available), declared as "SEE LICENSE IN LICENSE".
+
+### Changed
+- Review tool allowlist (LOKI_REVIEW_ALLOWLIST) is now default-ON. Council
+  reviewers run with a least-privilege read/inspect tool surface by default.
+  Opt out with LOKI_REVIEW_ALLOWLIST=0. The mutation-blocking denylist is
+  unchanged and still takes precedence; the allowlist can only narrow the
+  reviewer surface, never grant a mutating tool.
+- Front-page `loki --help` trimmed: grill, spec, and cleanup moved to the
+  collapsed "More commands" footer to keep the front page lean. All three remain
+  fully dispatchable and documented via `loki <command> --help`.
+
 ## [7.38.0] - 2026-06-14
 
 ### Added

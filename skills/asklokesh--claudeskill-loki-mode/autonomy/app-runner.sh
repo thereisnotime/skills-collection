@@ -136,6 +136,266 @@ HEALTH_EOF
     mv "$tmp_file" "$_APP_RUNNER_DIR/health.json"
 }
 
+# Re-derive a detection.json field (type/command) so we can rewrite it after a
+# port reconcile without threading those values through globals. Echoes the raw
+# string value (empty on miss). Mirrors the grep-based read style used by
+# app_runner_status.
+_read_detection_field() {
+    local field="$1"
+    [ -f "$_APP_RUNNER_DIR/detection.json" ] || return 0
+    grep -o "\"${field}\": *\"[^\"]*\"" "$_APP_RUNNER_DIR/detection.json" 2>/dev/null \
+        | head -1 | sed 's/.*"\([^"]*\)"$/\1/'
+}
+
+# Rewrite detection.json with the reconciled port, preserving type/command.
+_rewrite_detection_port() {
+    local d_type d_command
+    d_type=$(_read_detection_field "type")
+    d_command=$(_read_detection_field "command")
+    [ -n "$d_type" ] || return 0
+    _write_detection "$d_type" "$d_command"
+}
+
+# Collect the transitive descendant tree of a PID (children, grandchildren, ...).
+#
+# Echoes one PID per line, deepest-LAST is NOT guaranteed; order is breadth-first
+# from the root. The root PID itself is NOT included. Used by the non-setsid stop
+# fallback (BUG 1): the app is started as `( ... ) &` WITHOUT setsid, so on stock
+# macOS the whole tree (subshell -> bash -lc -> npm -> sh -> node -> workers)
+# inherits the ORCHESTRATOR's process group. A `kill -- -PGID` would therefore
+# signal run.sh and the Claude agent driving it (self-termination), so we MUST
+# walk parent->child links from OUR pid only. This guarantees we never signal a
+# process outside our own subtree: every returned pid has our root as an ancestor.
+#
+# Snapshot semantics: the caller MUST collect the full tree BEFORE sending any
+# signal. If we TERM top-down while walking, grandchildren reparent to init and
+# `pgrep -P <dead-parent>` returns nothing, re-creating the orphaned-worker bug
+# this fix exists to close.
+_app_runner_collect_descendants() {
+    local root="$1"
+    # Guard against empty / init / kernel pids: walking from 0/1 would sweep
+    # unrelated processes. A valid app pid is always > 1.
+    case "$root" in
+        ''|0|1) return 0 ;;
+    esac
+    if ! [[ "$root" =~ ^[0-9]+$ ]]; then
+        return 0
+    fi
+
+    local -a frontier=("$root")
+    local -a found=()
+    local pid child
+    local -a kids
+    # Bound iterations defensively against a pathological/looping tree.
+    local guard=0
+    while [ "${#frontier[@]}" -gt 0 ] && [ "$guard" -lt 10000 ]; do
+        guard=$(( guard + 1 ))
+        pid="${frontier[0]}"
+        frontier=("${frontier[@]:1}")
+        # Direct children of pid.
+        kids=()
+        while IFS= read -r child; do
+            [ -n "$child" ] && kids+=("$child")
+        done < <(pgrep -P "$pid" 2>/dev/null)
+        local k
+        for k in "${kids[@]:-}"; do
+            [ -n "$k" ] || continue
+            found+=("$k")
+            frontier+=("$k")
+        done
+    done
+
+    local f
+    for f in "${found[@]:-}"; do
+        [ -n "$f" ] && printf '%s\n' "$f"
+    done
+}
+
+# Signal an EXPLICIT, pre-captured set of PIDs with a given signal.
+#
+# Usage: _app_runner_signal_pids <SIGNAL> <pid> [pid ...]
+#
+# Why an explicit list and not "(re-)walk from root": a worker that traps
+# SIGTERM (a Node server doing graceful shutdown is the textbook case) survives
+# the TERM phase while its intermediate ancestors (npm, sh) die. Once the
+# ancestors die, the surviving worker reparents to init, so re-deriving the tree
+# from the now-dead root via `pgrep -P` would return NOTHING -- the KILL phase
+# would be skipped and the orphaned, port-holding worker would live on. That is
+# exactly the orphaned-worker bug (BUG 1) resurfacing at the force-kill phase.
+# The fix: the caller snapshots root + all descendants ONCE before any signal,
+# and every phase (TERM, aliveness, KILL) operates over that frozen list.
+#
+# Safety: the caller builds the list from _app_runner_collect_descendants, which
+# only ever follows parent->child links from OUR pid, so the list can never
+# contain a process outside our own subtree. We signal pids individually (never
+# a process group) because in the non-setsid path the app inherits the
+# orchestrator's process group; a group signal would kill run.sh and the agent.
+# Pids are signaled in REVERSE capture order so descendants (captured after the
+# root) are signaled before the root.
+_app_runner_signal_pids() {
+    local sig="$1"; shift
+    local -a pids=("$@")
+    local i p
+    for (( i=${#pids[@]}-1; i>=0; i-- )); do
+        p="${pids[$i]}"
+        case "$p" in
+            ''|0|1) continue ;;
+        esac
+        kill "-${sig}" "$p" 2>/dev/null || true
+    done
+}
+
+# True (0) if ANY pid in the EXPLICIT pre-captured list is still alive.
+# Used by the non-setsid stop grace-wait so a deep worker that outlived the main
+# subshell does not let us fall through to "stopped" prematurely. Operates over
+# the frozen snapshot for the same reason _app_runner_signal_pids does.
+_app_runner_any_alive() {
+    local p
+    for p in "$@"; do
+        case "$p" in
+            ''|0|1) continue ;;
+        esac
+        if kill -0 "$p" 2>/dev/null; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Fix #2 (finding #597): reconcile the recorded port with the port the app
+# ACTUALLY bound, using the listen line in app.log as the source of truth. This
+# corrects the dashboard Live Preview even when the app ignores PORT and picks
+# its own port. Bounded poll: returns as soon as a listen line is found, and
+# never runs for docker (compose URLs come from published-port mapping) or when
+# no port was recorded. Default window LOKI_APP_PORT_RECONCILE_SECS (default 12)
+# at 0.5s intervals. On no match within the window the recorded port is kept (no
+# regression). Stdout: nothing; mutates _APP_RUNNER_PORT / _APP_RUNNER_URL and
+# rewrites state.json + detection.json only when the real port differs.
+_app_runner_reconcile_port() {
+    [ "$_APP_RUNNER_IS_DOCKER" != true ] || return 0
+    [ -n "$_APP_RUNNER_PORT" ] && [ "$_APP_RUNNER_PORT" -gt 0 ] 2>/dev/null || return 0
+    local log_file="$_APP_RUNNER_DIR/app.log"
+
+    # Fast path: if the recorded port already serves HTTP, the app honored our
+    # chosen port (fix #1 worked) or otherwise bound it -- nothing to reconcile,
+    # and we avoid the poll latency entirely. Covers quiet-but-serving apps that
+    # never log a recognizable listen line.
+    if command -v curl >/dev/null 2>&1 && \
+       curl -sf -o /dev/null -m 2 "http://localhost:${_APP_RUNNER_PORT}/" 2>/dev/null; then
+        return 0
+    fi
+
+    local max_secs="${LOKI_APP_PORT_RECONCILE_SECS:-12}"
+    [[ "$max_secs" =~ ^[0-9]+$ ]] || max_secs=12
+    local max_iter=$(( max_secs * 2 ))
+    [ "$max_iter" -gt 0 ] || max_iter=1
+
+    local real_port="" iter=0
+    while [ "$iter" -lt "$max_iter" ]; do
+        if [ -f "$log_file" ]; then
+            real_port=$(_parse_listen_port "$log_file")
+            [ -n "$real_port" ] && break
+        fi
+        # Stop early if the process already died (failed start): nothing to wait for.
+        if [ -n "$_APP_RUNNER_PID" ] && ! kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
+            break
+        fi
+        sleep 0.5
+        iter=$(( iter + 1 ))
+    done
+
+    [ -n "$real_port" ] || return 0
+    if [ "$real_port" != "$_APP_RUNNER_PORT" ]; then
+        # Liveness guard: only overwrite the recorded port when the reconciled
+        # port ACTUALLY serves HTTP. A log line can name a non-serving port (a
+        # metrics endpoint like ":9464" or a DB connection like ":5432") emitted
+        # after the real serving URL; committing that would clobber a correct
+        # recorded port and point the preview at a dead port. We deliberately do
+        # NOT use curl -f: any HTTP response (including 404/401/500) proves a
+        # server is bound and serving on that port (Spring Boot whitelabel 404,
+        # REST-only roots, and auth-gated "/" all return non-2xx but ARE live).
+        # A dead/unbound port produces a connection error, which curl reports as
+        # a non-zero exit even without -f. If curl is unavailable we cannot
+        # verify, so fall back to the prior behavior and commit the parsed port
+        # (no regression on curl-less hosts).
+        if command -v curl >/dev/null 2>&1; then
+            if ! curl -s -o /dev/null -m 2 "http://localhost:${real_port}/" 2>/dev/null; then
+                log_info "App Runner: skipped reconcile to port $real_port (no HTTP response); keeping recorded port $_APP_RUNNER_PORT"
+                return 0
+            fi
+        fi
+        log_info "App Runner: reconciled port $_APP_RUNNER_PORT -> $real_port (from app.log listen line)"
+        _APP_RUNNER_PORT="$real_port"
+        _APP_RUNNER_URL="http://localhost:${real_port}"
+        _rewrite_detection_port
+    fi
+    return 0
+}
+
+# Parse the actual bound port from an app log file. Scans known listen-line
+# shapes in priority order and returns the LAST (most recent) plausible port,
+# tolerating ANSI color codes that dev servers emit. Validates 1-65535. Echoes
+# the port or nothing.
+#
+# Tiers 1 and 2 are restricted to lines that ALSO carry a serving keyword
+# (listen|running|ready|started|serving|server|local) so that non-serving noise
+# such as a DB connection string ("Connecting to database on port 5432") or an
+# outbound URL does not win. Note: a metrics endpoint line like
+# "Prometheus metrics server listening on http://0.0.0.0:9464" DOES carry
+# serving keywords ("server"/"listening") and so can still be returned here; the
+# reconcile caller liveness-verifies the parsed port before committing it, which
+# is the layer that rejects a non-serving metrics/DB port.
+_SERVING_KEYWORDS='listen|running|ready|started|serving|server|local'
+_parse_listen_port() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    # Strip ANSI SGR sequences (\e[...m) so color-wrapped URLs still match.
+    local clean
+    clean=$(sed -E $'s/\x1b\\[[0-9;]*m//g' "$file" 2>/dev/null) || clean=$(cat "$file" 2>/dev/null)
+    [ -n "$clean" ] || return 0
+
+    # Restrict candidate lines to those carrying a serving keyword. This drops
+    # DB-connection and outbound-URL noise before any port extraction.
+    local serving
+    serving=$(printf '%s\n' "$clean" | grep -iE "$_SERVING_KEYWORDS")
+
+    local candidate=""
+    # 1) Explicit URL with a port: http://host:PORT  (most reliable).
+    candidate=$(printf '%s\n' "$serving" \
+        | grep -oiE 'https?://[a-z0-9.\-]+:[0-9]{1,5}' \
+        | grep -oE ':[0-9]{1,5}' | tr -d ':' | tail -1)
+    # 2a) Spring Boot form: "Tomcat started on port(s): 8081". The literal
+    #     "(s):" breaks the generic port[ =:]+ scan below, so match it first.
+    if [ -z "$candidate" ]; then
+        candidate=$(printf '%s\n' "$serving" \
+            | grep -ioE 'port\(s\):[ ]*[0-9]{1,5}' \
+            | grep -oE '[0-9]{1,5}' | tail -1)
+    fi
+    # 2b) A number anchored to the literal word "port": "port 8080", "port=3000",
+    #    "port: 5000". This runs BEFORE the bare host:port scan so a clock-style
+    #    timestamp on the same line (e.g. "12:30:45 ... port 8080") cannot win.
+    if [ -z "$candidate" ]; then
+        candidate=$(printf '%s\n' "$serving" \
+            | grep -ioE 'port[ =:]+[0-9]{1,5}' \
+            | grep -oE '[0-9]{1,5}' | tail -1)
+    fi
+    # 3) Keyword listen lines with a real host token before the colon:
+    #    "localhost:5173", "0.0.0.0:8080", "127.0.0.1:3000". Requiring a letter
+    #    or a dot immediately left of the colon excludes "HH:MM" timestamps,
+    #    which have a digit there.
+    if [ -z "$candidate" ]; then
+        candidate=$(printf '%s\n' "$serving" \
+            | grep -oiE '[a-z.][a-z0-9.\-]*:[0-9]{1,5}' \
+            | grep -oE ':[0-9]{1,5}' | tr -d ':' | tail -1)
+    fi
+
+    [ -n "$candidate" ] || return 0
+    # Validate range 1-65535.
+    if [ "$candidate" -ge 1 ] 2>/dev/null && [ "$candidate" -le 65535 ] 2>/dev/null; then
+        printf '%s\n' "$candidate"
+    fi
+}
+
 # Rotate app.log if it exceeds max lines
 _rotate_app_log() {
     local log_file="$_APP_RUNNER_DIR/app.log"
@@ -606,6 +866,21 @@ app_runner_start() {
     log_step "App Runner: starting application ($_APP_RUNNER_METHOD on port $_APP_RUNNER_PORT)..."
     _rotate_app_log
 
+    # Fix #1 (finding #597): pass Loki's chosen port to the app via the env so the
+    # app honors it instead of binding its own default (e.g. a Node app reading
+    # `process.env.PORT || 4000` would otherwise bind 4000 while Loki recorded the
+    # guessed 3000, leaving the dashboard Live Preview pointed at a dead port).
+    # We export PORT plus the common ecosystem aliases. An app that ignores these
+    # vars is unaffected; an ignored env var is harmless by definition. We do NOT
+    # set HOST/BIND -- changing the bind address can break apps. For docker (which
+    # gets its port via published-port mapping, not the child env) this is a no-op
+    # at the binary boundary, so we only export for the direct-exec path.
+    local _port_env_prefix=""
+    if [ "$_APP_RUNNER_IS_DOCKER" != true ] && \
+       [ -n "$_APP_RUNNER_PORT" ] && [ "$_APP_RUNNER_PORT" -gt 0 ] 2>/dev/null; then
+        _port_env_prefix="export PORT=$_APP_RUNNER_PORT HTTP_PORT=$_APP_RUNNER_PORT SERVER_PORT=$_APP_RUNNER_PORT APP_PORT=$_APP_RUNNER_PORT; "
+    fi
+
     # Start the process in a new process group
     if command -v setsid >/dev/null 2>&1; then
         _APP_RUNNER_HAS_SETSID=true
@@ -615,7 +890,7 @@ app_runner_start() {
         # Note: $_APP_RUNNER_METHOD has passed _validate_app_command (whitelist).
         # The `--` after `bash -lc` prevents flag injection if the assembled
         # script string ever begins with a `-`.
-        (cd "$dir" && setsid bash -lc -- 'echo $$ > "'"$_pgid_file"'"; exec '"$_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
+        (cd "$dir" && setsid bash -lc -- "$_port_env_prefix"'echo $$ > "'"$_pgid_file"'"; exec '"$_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
         local _subshell_pid=$!
         # Wait briefly for the pgid file to appear, then read the real PGID
         local _pgid_wait=0
@@ -633,7 +908,7 @@ app_runner_start() {
         _APP_RUNNER_HAS_SETSID=false
         # Note: $_APP_RUNNER_METHOD has passed _validate_app_command (whitelist).
         # The `--` after `bash -lc` prevents flag injection.
-        (cd "$dir" && bash -lc -- "$_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
+        (cd "$dir" && bash -lc -- "${_port_env_prefix}exec $_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
         _APP_RUNNER_PID=$!
     fi
     # Register with central PID registry if available
@@ -675,8 +950,13 @@ app_runner_start() {
             return 1
         fi
     elif kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
+        # Reconcile recorded port with the port the app actually bound (finding
+        # #597), so state.json / detection.json / the preview URL point at the
+        # live port even when the app ignored PORT. Mutates globals before the
+        # state write below. Bounded; no-op when the app honored the chosen port.
+        _app_runner_reconcile_port
         _write_app_state "running"
-        log_info "App Runner: application started (PID: $_APP_RUNNER_PID)"
+        log_info "App Runner: application started (PID: $_APP_RUNNER_PID) on port $_APP_RUNNER_PORT"
         return 0
     else
         log_error "App Runner: application failed to start"
@@ -713,32 +993,82 @@ app_runner_stop() {
         fi
     fi
 
-    # Send SIGTERM to process and children
-    if [ "$_APP_RUNNER_HAS_SETSID" = true ]; then
-        kill -TERM "-$_APP_RUNNER_PID" 2>/dev/null || kill -TERM "$_APP_RUNNER_PID" 2>/dev/null || true
-    else
-        pkill -TERM -P "$_APP_RUNNER_PID" 2>/dev/null || true
-        kill -TERM "$_APP_RUNNER_PID" 2>/dev/null || true
+    # BUG 1 fix: on the non-setsid fallback (the DEFAULT path on stock macOS,
+    # which has no setsid) capture the FULL process subtree -- root + every
+    # transitive descendant -- ONCE, BEFORE sending any signal. The old
+    # `pkill -TERM -P <pid>` reached only ONE level of children, so deep workers
+    # (npm -> sh -> node -> workers) holding the listening socket survived as
+    # orphans and kept the port bound, blocking the next start.
+    #
+    # Capturing once is load-bearing: a worker that traps SIGTERM survives the
+    # TERM phase while its intermediate ancestors die, then reparents to init.
+    # Re-deriving the tree from the now-dead root would return nothing and skip
+    # the KILL phase, leaving the port-holder alive. Every phase below (TERM,
+    # grace-wait, KILL) operates over this one frozen snapshot instead.
+    local -a _stop_snapshot=()
+    if [ "$_APP_RUNNER_HAS_SETSID" != true ]; then
+        _stop_snapshot=("$_APP_RUNNER_PID")
+        local _snap_d
+        while IFS= read -r _snap_d; do
+            [ -n "$_snap_d" ] && _stop_snapshot+=("$_snap_d")
+        done < <(_app_runner_collect_descendants "$_APP_RUNNER_PID")
     fi
 
-    # Wait up to 5 seconds for graceful shutdown
+    # Send SIGTERM to process and children
+    if [ "$_APP_RUNNER_HAS_SETSID" = true ]; then
+        # setsid path: the app is its own process group leader, so a group
+        # signal reaches the whole tree safely. Unchanged.
+        kill -TERM "-$_APP_RUNNER_PID" 2>/dev/null || kill -TERM "$_APP_RUNNER_PID" 2>/dev/null || true
+    else
+        # Group-kill is NOT used here: in this path the app inherits the
+        # orchestrator's process group, so a group signal would kill run.sh and
+        # the agent driving it. Signal the frozen snapshot, descendants first.
+        _app_runner_signal_pids TERM "${_stop_snapshot[@]}"
+    fi
+
+    # Wait up to 5 seconds for graceful shutdown. Key the wait on the WHOLE
+    # snapshot being alive (not just the main pid): a deep worker can outlive the
+    # main subshell, and treating the main pid's exit as "done" is exactly what
+    # let workers leak before. setsid path keeps the simpler main-pid check.
     local waited=0
     while [ "$waited" -lt 5 ]; do
-        if ! kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
-            break
+        if [ "$_APP_RUNNER_HAS_SETSID" = true ]; then
+            kill -0 "$_APP_RUNNER_PID" 2>/dev/null || break
+        else
+            _app_runner_any_alive "${_stop_snapshot[@]}" || break
         fi
         sleep 1
         waited=$(( waited + 1 ))
     done
 
     # Force kill if still running
-    if kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
+    local _still_alive=false
+    if [ "$_APP_RUNNER_HAS_SETSID" = true ]; then
+        kill -0 "$_APP_RUNNER_PID" 2>/dev/null && _still_alive=true
+    else
+        _app_runner_any_alive "${_stop_snapshot[@]}" && _still_alive=true
+    fi
+    if [ "$_still_alive" = true ]; then
         log_warn "App Runner: process did not stop gracefully, sending SIGKILL"
         if [ "$_APP_RUNNER_HAS_SETSID" = true ]; then
             kill -KILL "-$_APP_RUNNER_PID" 2>/dev/null || kill -KILL "$_APP_RUNNER_PID" 2>/dev/null || true
         else
-            pkill -KILL -P "$_APP_RUNNER_PID" 2>/dev/null || true
-            kill -KILL "$_APP_RUNNER_PID" 2>/dev/null || true
+            # BUG 1 fix (KILL phase): SIGKILL the SAME frozen snapshot (root +
+            # all descendants captured pre-signal), so a TERM-trapping worker
+            # that reparented to init is still force-killed. SIGKILL cannot be
+            # trapped, so this is the terminal guarantee that no port-holder
+            # survives. The snapshot does the real work. The fresh walk below only
+            # adds anything while the root is still alive (a worker spawned during
+            # shutdown); once the root is dead it is empty and the snapshot covers.
+            _app_runner_signal_pids KILL "${_stop_snapshot[@]}"
+            local -a _kill_fresh=()
+            local _kf
+            while IFS= read -r _kf; do
+                [ -n "$_kf" ] && _kill_fresh+=("$_kf")
+            done < <(_app_runner_collect_descendants "$_APP_RUNNER_PID")
+            if [ "${#_kill_fresh[@]}" -gt 0 ]; then
+                _app_runner_signal_pids KILL "${_kill_fresh[@]}"
+            fi
         fi
     fi
 
@@ -920,6 +1250,11 @@ app_runner_watchdog() {
     # it restarts the stack under the same crash-count circuit breaker.
     if [ "$_APP_RUNNER_IS_DOCKER" = true ] && echo "$_APP_RUNNER_METHOD" | grep -q "docker compose"; then
         if app_runner_health_check; then
+            # BUG 3 fix: the breaker is meant to fire on 5 CONSECUTIVE failures.
+            # A confirmed-healthy observation clears any accumulated count so a
+            # long-lived stack that recovered from a few transient blips is not
+            # tripped permanently on cumulative (non-consecutive) crashes.
+            _APP_RUNNER_CRASH_COUNT=0
             return 0
         fi
         _APP_RUNNER_CRASH_COUNT=$(( _APP_RUNNER_CRASH_COUNT + 1 ))
@@ -951,6 +1286,11 @@ app_runner_watchdog() {
 
     # Process alive, nothing to do
     if kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
+        # BUG 3 fix: a confirmed-alive observation clears the accumulated crash
+        # count so the breaker fires only on 5 CONSECUTIVE deaths, not on 5
+        # cumulative crashes that were each successfully recovered over a long
+        # session (which would trip the breaker on a HEALTHY app).
+        _APP_RUNNER_CRASH_COUNT=0
         return 0
     fi
 

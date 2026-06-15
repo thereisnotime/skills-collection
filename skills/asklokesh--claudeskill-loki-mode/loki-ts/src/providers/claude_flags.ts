@@ -333,18 +333,21 @@ export function sessionStampArgv(runId?: string, iteration?: number): string[] {
 // every mutation form; the allowlist additionally narrows the surface). They are
 // NOT mutually exclusive.
 //
-// DEFAULT OFF (opt-in LOKI_REVIEW_ALLOWLIST=1) so the default argv stays
-// byte-identical to v7.34. Gated on CLI support (graceful degrade). The token
-// MUST stay byte-identical to loki_review_allowlist() in claude-flags.sh.
+// DEFAULT ON (safety-additive least-privilege; opt OUT with LOKI_REVIEW_ALLOWLIST=0).
+// Deny precedence (verified live) means the denylist still hard-blocks every
+// mutation form while this allowlist only narrows the reviewer surface to
+// read/inspect tools -- pure safety win, no surprise spend, no egress. Gated on
+// CLI support (graceful degrade). The token MUST stay byte-identical to
+// loki_review_allowlist() in claude-flags.sh.
 // ---------------------------------------------------------------------------
 export const REVIEW_ALLOWLIST_TOKEN =
   "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git blame:*),Bash(cat:*),Bash(ls:*),Bash(grep:*),Bash(rg:*),Bash(find:*),Bash(head:*),Bash(tail:*),Bash(wc:*)";
 
 // Emit the --allowedTools least-privilege grant on reviewer/voter subcalls?
-// DEFAULT OFF; opt in with LOKI_REVIEW_ALLOWLIST=1; gated on CLI support.
+// DEFAULT ON; opt OUT with LOKI_REVIEW_ALLOWLIST=0; gated on CLI support.
 // Mirrors loki_review_allowlist_enabled in autonomy/lib/claude-flags.sh.
 export function reviewAllowlistEnabled(): boolean {
-  if (process.env["LOKI_REVIEW_ALLOWLIST"] !== "1") return false;
+  if (process.env["LOKI_REVIEW_ALLOWLIST"] === "0") return false;
   return claudeFlagSupported("--allowedTools");
 }
 
@@ -441,6 +444,187 @@ export function sessionResumeArgv(targetDir?: string): string[] {
 // ---------------------------------------------------------------------------
 export function workflowsEnabled(): boolean {
   return process.env["LOKI_USE_CLAUDE_WORKFLOWS"] === "1";
+}
+
+// ---------------------------------------------------------------------------
+// v7.x caveman output-token compressor -- Bun-route parity predicates.
+//
+// Mirror of the loki_caveman_* block in autonomy/lib/claude-flags.sh. caveman
+// is a Claude Code SKILL + SessionStart hook that compresses OUTPUT tokens only
+// (env CAVEMAN_DEFAULT_MODE: lite|full|ultra|wenyan*; "off" suppresses). The
+// activate hook reads CAVEMAN_DEFAULT_MODE > repo config > user config > "full".
+//
+// MOAT RISK + DESIGN (kept byte-identical in intent to the bash route):
+//   - ACTIVATE compression on FREE-FORM generation only (main RARV dev loop +
+//     read-only analysis): the runner sets CAVEMAN_DEFAULT_MODE=<level> on the
+//     claude spawn env for those calls.
+//   - HARD-SUPPRESS on EVERY parsed-output subcall (council vote, ^VERDICT:
+//     review, completion, evidence gate): the runner sets CAVEMAN_DEFAULT_MODE=
+//     "off". Suppression is UNCONDITIONAL/UNGATED (caveman must be off on a
+//     trust gate even when a user has it globally on but LOKI_CAVEMAN=0).
+//
+// Disclosure: output-token-only savings, bounded, no price API -> savings CLASS
+// only, never a dollar figure (same posture as workflows/ultrareview).
+// ---------------------------------------------------------------------------
+
+// Version pin (vendor-less). Mirrors LOKI_CAVEMAN_VERSION default in bash.
+export const CAVEMAN_PINNED_VERSION =
+  process.env["LOKI_CAVEMAN_VERSION"] || "1.9.0";
+
+// Default compression level for free-form activation. Mirrors LOKI_CAVEMAN_LEVEL.
+export function cavemanLevel(): string {
+  return process.env["LOKI_CAVEMAN_LEVEL"] || "full";
+}
+
+// #593 intelligent compression-level inference. Mirror of
+// _loki_caveman_infer_level in autonomy/lib/claude-flags.sh. Infer the caveman
+// level from the run's existing RARV-tier signal (planning|development|fast) so
+// the level is DECIDED by inspecting the work, not asked of the user.
+//
+// INFERENCE RULE (deterministic, conservative-for-accuracy):
+//   planning    (Reason -- architecture / design / nuanced reasoning) -> lite
+//   development (Act / Reflect -- implementation, the prior default)   -> full
+//   fast        (Verify -- testing / validation, more routine)         -> full
+//   unknown / empty tier                                               -> full
+// The auto ceiling is "full": inference NEVER selects ultra; ultra is reachable
+// only via an explicit LOKI_CAVEMAN_LEVEL override. "lite" on planning protects
+// the highest-nuance output; unknown tiers fall back to the SAFER "full".
+export function cavemanInferLevel(tier?: string): string {
+  const t = tier ?? process.env["LOKI_CURRENT_TIER"] ?? "";
+  return t === "planning" ? "lite" : "full";
+}
+
+// Capability gate: provider is Claude AND the opt-out knob is not set. (The bash
+// route additionally checks `claude` on PATH + installed/bootstrappable; on the
+// Bun route the CLI presence is established by the runner before this is reached,
+// so this predicate is the env-policy surface, matching the workflowsEnabled
+// convention of a pure env check with the provider gate enforced at the call.)
+export function cavemanSupported(): boolean {
+  if ((process.env["LOKI_PROVIDER"] || "claude") !== "claude") return false;
+  if (process.env["LOKI_CAVEMAN"] === "0") return false;
+  return true;
+}
+
+// Activation knob: default ON (LOKI_CAVEMAN unset or != "0"). Disabled when the
+// legacy completion-prose match is active (compressing the main loop would break
+// the run.sh:9641 grep), mirroring loki_caveman_enabled's cross-coupling guard.
+export function cavemanEnabled(): boolean {
+  if (process.env["LOKI_CAVEMAN"] === "0") return false;
+  if (process.env["LOKI_LEGACY_COMPLETION_MATCH"] === "true") return false;
+  return true;
+}
+
+// Compression-level rank (higher = more aggressive). Used by the no-raise guard
+// so Loki never RAISES a user's lower global caveman level. Mirrors the bash
+// _loki_caveman_level_rank (claude-flags.sh:613-621) BYTE-FOR-BYTE: the wenyan-*
+// variants rank with their plain counterparts, and unknown / empty modes rank -1
+// ("no opinion", so they never win the no-raise comparison via the >= 0 guard).
+function cavemanLevelRank(level: string): number {
+  switch (level) {
+    case "off":
+      return 0;
+    case "lite":
+    case "wenyan-lite":
+      return 1;
+    case "full":
+    case "wenyan":
+    case "wenyan-full":
+      return 2;
+    case "ultra":
+    case "wenyan-ultra":
+      return 3;
+    default:
+      // Unknown / empty: rank -1 so the no-raise guard ignores it (matches the
+      // bash sentinel + its `-ge 0` checks at claude-flags.sh:725).
+      return -1;
+  }
+}
+
+// The activation env VALUE for a free-form subcall: the configured level, or
+// null when activation is not warranted. The runner sets CAVEMAN_DEFAULT_MODE to
+// this on the claude spawn env ONLY when non-null (an EMPTY value is NOT inert --
+// caveman treats empty as unset and falls back to the user default, so the
+// runner must omit the var entirely when this returns null).
+//
+// No-raise guard (parity with bash loki_caveman_activate_env): if the user set a
+// global caveman level LOWER than Loki's configured level, activate at the user's
+// lower level rather than raising it. The bash orchestrator captures the user's
+// pre-existing mode into LOKI_CAVEMAN_USER_MODE before exporting the default-off,
+// and the Bun runner inherits it. A user "off" means opt-out: no activation.
+//
+// #593 intelligent inference (parity with bash loki_caveman_activate_env): when
+// the user did NOT set LOKI_CAVEMAN_LEVEL explicitly, the level is INFERRED from
+// the run's RARV tier (cavemanInferLevel); when the user DID set it, that value
+// overrides the inference (opt-out escape hatch). The no-raise guard then runs
+// unchanged on whichever base was chosen. The runner passes call.tier here so
+// both routes infer from the identical tier vocabulary.
+export function cavemanActivateEnv(tier?: string): string | null {
+  if (!cavemanSupported()) return null;
+  if (!cavemanEnabled()) return null;
+  // Explicit user value overrides inference; else infer from the RARV tier.
+  // Branch on SET-ness, not truthiness: the bash route captures
+  // LOKI_CAVEMAN_LEVEL_USERSET="${LOKI_CAVEMAN_LEVEL+set}" (claude-flags.sh:543-544),
+  // which is "set" even for an exported-empty LOKI_CAVEMAN_LEVEL="" -> bash uses
+  // the override branch (level="${LOKI_CAVEMAN_LEVEL:-full}" -> "full"). A
+  // truthiness check would treat "" as falsy and infer instead, diverging from
+  // bash. cavemanLevel() already falls back to "full" for empty, matching :-full.
+  const userSet = process.env["LOKI_CAVEMAN_LEVEL"] !== undefined;
+  const lokiLevel = userSet ? cavemanLevel() : cavemanInferLevel(tier);
+  const userMode = process.env["LOKI_CAVEMAN_USER_MODE"];
+  // A user global "off" means opt-out: no activation (parity with the bash
+  // loki_caveman_activate_env, which returns empty here -- previously the TS
+  // route fell through and compressed anyway, ignoring the user's opt-out).
+  if (userMode === "off") return null;
+  if (userMode) {
+    // Never raise: defer to the user only when their mode is a recognized level
+    // that ranks LOWER than Loki's. Both ranks must be >= 0 (recognized) so an
+    // unknown user mode (rank -1) is ignored -- byte-for-byte the bash guard at
+    // claude-flags.sh:725 (`user_rank -ge 0 && level_rank -ge 0 && user_rank -lt level_rank`).
+    const userRank = cavemanLevelRank(userMode);
+    const levelRank = cavemanLevelRank(lokiLevel);
+    if (userRank >= 0 && levelRank >= 0 && userRank < levelRank) {
+      return userMode;
+    }
+  }
+  return lokiLevel;
+}
+
+// One-time capture of the user's pre-existing global caveman mode into
+// LOKI_CAVEMAN_USER_MODE, so the no-raise / opt-out guard in cavemanActivateEnv
+// has something to read on the Bun route.
+//
+// PARITY: mirrors autonomy/lib/claude-flags.sh:574-577 BYTE-FOR-BYTE in intent.
+// The bash route, at source time, runs:
+//     if [ -z "${LOKI_CAVEMAN_USER_MODE+x}" ]; then
+//         LOKI_CAVEMAN_USER_MODE="${CAVEMAN_DEFAULT_MODE:-}"
+//     fi
+//     export LOKI_CAVEMAN_USER_MODE
+// and then exports CAVEMAN_DEFAULT_MODE=off tree-wide. On the Bun route we do NOT
+// clobber CAVEMAN_DEFAULT_MODE globally (the runner sets it per-spawn in
+// providers.ts), so only the capture half is mirrored here.
+//
+// Two semantics matter and both mirror bash exactly:
+//   - Guard on UNSET, not falsy (`${var+x}` is empty only when genuinely unset):
+//     an inherited empty LOKI_CAVEMAN_USER_MODE="" (user had no global mode) must
+//     NOT be recaptured. So branch on `=== undefined`, never on truthiness.
+//   - Capture to "" when CAVEMAN_DEFAULT_MODE is absent (`${CAVEMAN_DEFAULT_MODE:-}`),
+//     so the var is genuinely set afterward and the guard never re-fires.
+//
+// UNCONDITIONAL (no supported/enabled gate): bash captures at source time before
+// any caveman predicate runs, so this must too. Idempotent and process-wide:
+// safe to call once at runner startup; a second call is a no-op (already set).
+export function cavemanCaptureUserMode(): void {
+  if (process.env["LOKI_CAVEMAN_USER_MODE"] === undefined) {
+    process.env["LOKI_CAVEMAN_USER_MODE"] = process.env["CAVEMAN_DEFAULT_MODE"] ?? "";
+  }
+}
+
+// The suppression env VALUE for a parsed-output subcall: ALWAYS "off",
+// UNCONDITIONALLY (not gated on supported/enabled). The runner sets
+// CAVEMAN_DEFAULT_MODE="off" on every trust-gate claude spawn. Harmless no-op
+// when caveman is absent; essential when it is globally present.
+export function cavemanSuppressEnv(): string {
+  return "off";
 }
 
 // Test-only reset. Not exported in production typings.

@@ -242,6 +242,8 @@ class MemoryEngine:
         patterns_data = self.storage.read_json("semantic/patterns.json") or {}
         referenced_ids: set = set()
         for pattern in patterns_data.get("patterns", []):
+            if not isinstance(pattern, dict):
+                continue
             referenced_ids.update(pattern.get("source_episodes", []))
 
         # Scan episodic directories
@@ -366,11 +368,15 @@ class MemoryEngine:
                 })
                 index["total_memories"] = index.get("total_memories", 0) + 1
             else:
+                # Only count a given episode once. On resume/checkpoint the same
+                # trace id can be re-saved; without this guard episode_count,
+                # total_cost_usd, and total_tokens would inflate on every re-save
+                # even though episode_ids is already de-duplicated.
                 if episode_id and episode_id not in found.get("episode_ids", []):
                     found.setdefault("episode_ids", []).append(episode_id)
-                found["episode_count"] = found.get("episode_count", 0) + 1
-                found["total_cost_usd"] = float(found.get("total_cost_usd", 0) or 0) + cost
-                found["total_tokens"] = int(found.get("total_tokens", 0) or 0) + tokens
+                    found["episode_count"] = found.get("episode_count", 0) + 1
+                    found["total_cost_usd"] = float(found.get("total_cost_usd", 0) or 0) + cost
+                    found["total_tokens"] = int(found.get("total_tokens", 0) or 0) + tokens
                 merged = set(found.get("files_touched", []) or []) | set(files[:20])
                 found["files_touched"] = sorted(merged)[:50]
                 found["last_accessed"] = now
@@ -489,6 +495,8 @@ class MemoryEngine:
         """
         patterns_data = self.storage.read_json("semantic/patterns.json") or {}
         for pattern in patterns_data.get("patterns", []):
+            if not isinstance(pattern, dict):
+                continue
             if pattern.get("id") == pattern_id:
                 return self._dict_to_pattern(pattern)
         return None
@@ -512,6 +520,8 @@ class MemoryEngine:
         results: List[SemanticPattern] = []
 
         for pattern in patterns_data.get("patterns", []):
+            if not isinstance(pattern, dict):
+                continue
             # Filter by confidence
             if pattern.get("confidence", 0) < min_confidence:
                 continue
@@ -837,6 +847,8 @@ class MemoryEngine:
         # Index semantic patterns
         patterns_data = self.storage.read_json("semantic/patterns.json") or {}
         for pattern in patterns_data.get("patterns", []):
+            if not isinstance(pattern, dict):
+                continue
             total_memories += 1
             category = pattern.get("category", "general")
 

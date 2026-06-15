@@ -549,6 +549,31 @@ print(str(rc) + ' ' + json.dumps(new_state))
 # Council Voting - 3 independent reviewers check completion
 #===============================================================================
 
+# _council_parse_vote: extract a canonical council verdict from a reviewer's
+# raw output. Returns exactly one of APPROVE | REJECT | CANNOT_VALIDATE | ""
+# (empty when no canonical VOTE line is present).
+#
+# Hardening (v7.41.3):
+#   - Word-bounded verdict: "VOTE: APPROVED" / "VOTE: APPROVE_WITH_CONCERNS"
+#     do NOT match APPROVE (non-canonical tokens are unparseable -> empty ->
+#     caller treats as REJECT). A trailing class [^A-Za-z0-9_] (or end of line)
+#     enforces the boundary; "\b" is a GNU-grep extension that BSD grep on this
+#     machine ignores, so it is deliberately avoided for dual-route parity.
+#   - Markdown / quote tolerance both BEFORE the keyword and AFTER the colon, so
+#     "**VOTE:** APPROVE", "> VOTE: APPROVE", and "VOTE:APPROVE" all match.
+#   - Conservative tie-break: only a clean canonical APPROVE yields APPROVE;
+#     anything ambiguous yields the empty string, which every caller maps to the
+#     conservative outcome (REJECT / re-iterate).
+_council_parse_vote() {
+    local raw="$1"
+    # markdown/whitespace/quote class allowed around the keyword and colon
+    local _pat='[*_> [:space:]]*VOTE[*_ [:space:]]*:[*_> [:space:]]*(APPROVE|REJECT|CANNOT_VALIDATE)([^A-Za-z0-9_]|$)'
+    printf '%s' "$raw" \
+        | grep -oE "$_pat" \
+        | grep -oE "APPROVE|REJECT|CANNOT_VALIDATE" \
+        | head -1
+}
+
 council_vote() {
     local prd_path="${COUNCIL_PRD_PATH:-}"
     local loki_dir="${TARGET_DIR:-.}/.loki"
@@ -596,7 +621,7 @@ council_vote() {
         verdict=$(council_member_review "$member" "$role" "$evidence_file" "$vote_dir")
 
         local vote_result
-        vote_result=$(echo "$verdict" | grep -oE "VOTE:\s*(APPROVE|REJECT|CANNOT_VALIDATE)" | grep -oE "APPROVE|REJECT|CANNOT_VALIDATE" | head -1)
+        vote_result=$(_council_parse_vote "$verdict")
 
         # v6.0.0: Handle CANNOT_VALIDATE - validator lacks enough context to decide
         if [ "$vote_result" = "CANNOT_VALIDATE" ]; then
@@ -685,21 +710,38 @@ print('true' if ratio > budget else 'false')
         ((member++))
     done
 
-    # Anti-sycophancy check: if unanimous APPROVE, run devil's advocate
+    # Anti-sycophancy check: if unanimous APPROVE, run devil's advocate.
+    #
+    # Audit-trail snapshots (these do NOT affect the live vote): capture whether
+    # the council was unanimous BEFORE the decrement below, and whether the DA
+    # actually fired and flipped the verdict. The transcript fields
+    # _ct_triggered/_ct_flipped used to be re-derived from approve_count AFTER
+    # this block decremented it, so on rounds where the DA fired AND flipped they
+    # were mis-recorded as false/false, corrupting the trust-metrics audit trail.
+    local _da_was_unanimous="false"
+    local _da_flipped="false"
     if [ $approve_count -eq $COUNCIL_SIZE ] && [ $COUNCIL_SIZE -ge 2 ]; then
+        _da_was_unanimous="true"
         log_warn "Unanimous approval detected - running anti-sycophancy check..."
         local contrarian_verdict
         contrarian_verdict=$(council_devils_advocate "$evidence_file" "$vote_dir")
         local contrarian_vote
-        contrarian_vote=$(echo "$contrarian_verdict" | grep -oE "VOTE:\s*(APPROVE|REJECT|CANNOT_VALIDATE)" | grep -oE "APPROVE|REJECT|CANNOT_VALIDATE" | head -1)
+        contrarian_vote=$(_council_parse_vote "$contrarian_verdict")
 
-        if [ "$contrarian_vote" = "REJECT" ] || [ "$contrarian_vote" = "CANNOT_VALIDATE" ]; then
-            log_warn "Anti-sycophancy: Devil's advocate REJECTED unanimous approval"
+        # Conservative tie-break (v7.41.3): ONLY a clean canonical APPROVE
+        # confirms the unanimous approval. Any other outcome -- REJECT,
+        # CANNOT_VALIDATE, or an unparseable/hedged verdict (empty) -- overrides
+        # to one more verification iteration. Previously the else-branch treated
+        # an empty/hedged contrarian verdict as "confirmed approval", letting a
+        # hedged "VOTE: APPROVED" ship; this flip closes that on the veto path.
+        if [ "$contrarian_vote" = "APPROVE" ]; then
+            log_info "Anti-sycophancy: Devil's advocate confirmed approval"
+        else
+            log_warn "Anti-sycophancy: Devil's advocate did not confirm unanimous approval (verdict: ${contrarian_vote:-unparseable})"
             log_warn "Overriding to require one more iteration for verification"
             approve_count=$((approve_count - 1))
             reject_count=$((reject_count + 1))
-        else
-            log_info "Anti-sycophancy: Devil's advocate confirmed approval"
+            _da_flipped="true"
         fi
     fi
 
@@ -764,20 +806,18 @@ with open(state_file, 'w') as f:
             >/dev/null 2>&1 || true
     fi
 
-    # Write transcript for this council round (Path A: council_vote path)
+    # Write transcript for this council round (Path A: council_vote path).
+    #
+    # Drive contrarian_triggered/_flipped off the snapshots captured in the
+    # anti-sycophancy block ABOVE, not off the now-mutated approve_count. The DA
+    # fires exactly when the council was unanimous (_da_was_unanimous), and it
+    # flips exactly when it did not confirm the approval (_da_flipped). Re-deriving
+    # from approve_count was wrong because the flip path already decremented it,
+    # so triggered/flipped were both recorded as false on flip rounds.
     local _ct_outcome
     _ct_outcome=$([ $approve_count -ge $effective_threshold ] && echo "APPROVED" || echo "REJECTED")
-    local _ct_triggered="false"
-    local _ct_flipped="false"
-    if [ $approve_count -eq $COUNCIL_SIZE ] && [ $COUNCIL_SIZE -ge 2 ]; then
-        _ct_triggered="true"
-    fi
-    # contrarian_flipped: DA voted REJECT/CANNOT_VALIDATE causing approve_count drop
-    # Detect by checking if approve dropped from unanimous (COUNCIL_SIZE) to less
-    # We infer flip if triggered AND final approve < COUNCIL_SIZE
-    if [ "$_ct_triggered" = "true" ] && [ $approve_count -lt $COUNCIL_SIZE ]; then
-        _ct_flipped="true"
-    fi
+    local _ct_triggered="$_da_was_unanimous"
+    local _ct_flipped="$_da_flipped"
     council_write_transcript "${ITERATION_COUNT:-0}" "$_ct_outcome" "$_ct_triggered" "$_ct_flipped" "$effective_threshold"
 
     if [ $approve_count -ge $effective_threshold ]; then
@@ -860,7 +900,10 @@ if not voters:
     if mdir.exists():
         for mf in sorted(mdir.glob('member-*.txt')):
             content = mf.read_text(errors='replace').strip()
-            vote_match = re.search(r'VOTE\s*:\s*(APPROVE|REJECT|CANNOT_VALIDATE)', content)
+            # v7.41.3: word-bounded + markdown-tolerant. VOTE:APPROVED and
+            # VOTE:APPROVE_WITH_CONCERNS must NOT match APPROVE; bold/quoted
+            # VOTE: APPROVE must match. Unmatched -> default REJECT (conservative).
+            vote_match = re.search(r'[*_> ]*VOTE[*_ ]*:[*_> ]*(APPROVE|REJECT|CANNOT_VALIDATE)(?![A-Za-z0-9_])', content)
             reason_match = re.search(r'REASON\s*:\s*(.+?)(?:\n|\$)', content)
             issues = []
             for im in re.finditer(r'ISSUES\s*:\s*(CRITICAL|HIGH|MEDIUM|LOW)\s*:\s*(.+?)(?:\n|\$)', content):
@@ -1476,8 +1519,17 @@ council_evidence_gate() {
         if committed_files=$(git diff --name-only "$base_sha" HEAD 2>/dev/null); then
             :
         else
-            # Base present but unreachable (e.g. shallow clone): fall back to
-            # working-tree diff vs HEAD (mirrors proof-generator.py fallback).
+            # Base present but UNREACHABLE (e.g. shallow clone, history rewrite,
+            # or `git reset --hard` -- a documented live hazard). The diff vs the
+            # run-start SHA cannot be computed, so we can no longer prove that the
+            # committed-union diff is empty. Treat this as INCONCLUSIVE, not as
+            # positive empty-diff fabrication evidence: an agent that committed
+            # all its work leaves a clean working tree, and `git diff HEAD` would
+            # read empty -> a false BLOCK. We still fall back to the working-tree
+            # diff vs HEAD to capture any uncommitted work, but the empty-diff
+            # block is suppressed below via the diff_inconclusive guard.
+            diff_inconclusive="true"
+            diff_inconclusive_reason="base_unreachable"
             committed_files=$(git diff --name-only HEAD 2>/dev/null || echo "")
         fi
         unstaged_files=$(git diff --name-only HEAD 2>/dev/null || echo "")
@@ -1500,7 +1552,11 @@ council_evidence_gate() {
         else
             diff_files=0
         fi
-        if [ "$diff_files" -eq 0 ]; then
+        # Only treat an empty union as positive fabrication evidence when the
+        # baseline was CONCLUSIVE. If the base SHA was unreachable (history
+        # rewrite / reset --hard), a clean committed tree yields an empty
+        # working-tree diff that must NOT read as empty-diff fabrication.
+        if [ "$diff_files" -eq 0 ] && [ "$diff_inconclusive" != "true" ]; then
             diff_fails="true"
         fi
     fi
@@ -1775,27 +1831,41 @@ ISSUES: CRITICAL:description (optional, one per line per issue)"
                 if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
                     _cm_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
                 fi
-                verdict=$(echo "$prompt" | claude "${_cm_argv[@]}" -p 2>/dev/null | tail -20)
+                # caveman HARD-SUPPRESS (parsed output): this council vote is
+                # parsed for "VOTE: APPROVE|REJECT|CANNOT_VALIDATE". A globally-
+                # active caveman would compress/reword that line and silently flip
+                # the vote to the default REJECT, corrupting completion detection.
+                # Disable caveman UNCONDITIONALLY with CAVEMAN_DEFAULT_MODE=off.
+                # Set inline (not via a helper) so the carve-out holds even when
+                # this file is sourced standalone and the helpers are out of scope.
+                # Inlined on `claude` only (does not cross the pipe). No-op absent.
+                # v7.41.3 BUG A: do NOT tail-truncate before parsing. A thorough
+                # reviewer that lists >~18 ISSUES lines after VOTE would push its
+                # own VOTE: line out of a tail-20 window, making the parser find
+                # no VOTE and default a real APPROVE to REJECT. Capture the full
+                # output; the downstream parse already greps VOTE/REASON/ISSUES.
+                # CAVEMAN_DEFAULT_MODE=off suppression is preserved (see above).
+                verdict=$(echo "$prompt" | env CAVEMAN_DEFAULT_MODE=off claude "${_cm_argv[@]}" -p 2>/dev/null)
             fi
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                verdict=$(codex exec --full-auto "$prompt" 2>/dev/null | tail -20)
+                verdict=$(codex exec --full-auto "$prompt" 2>/dev/null)
             fi
             ;;
         gemini)
             if command -v gemini &>/dev/null; then
-                verdict=$(echo "$prompt" | gemini 2>/dev/null | tail -20)
+                verdict=$(echo "$prompt" | gemini 2>/dev/null)
             fi
             ;;
         cline)
             if command -v cline &>/dev/null; then
-                verdict=$(cline -y "$prompt" 2>/dev/null | tail -20)
+                verdict=$(cline -y "$prompt" 2>/dev/null)
             fi
             ;;
         aider)
             if command -v aider &>/dev/null; then
-                verdict=$(aider --message "$prompt" --yes-always --no-auto-commits --no-git 2>/dev/null | tail -20)
+                verdict=$(aider --message "$prompt" --yes-always --no-auto-commits --no-git 2>/dev/null)
             fi
             ;;
     esac
@@ -1870,27 +1940,33 @@ REASON: your reasoning"
                 if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
                     _co_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
                 fi
-                verdict=$(echo "$prompt" | claude "${_co_argv[@]}" -p 2>/dev/null | tail -20)
+                # caveman HARD-SUPPRESS (parsed output): the devil's-advocate
+                # (contrarian) vote is parsed for "VOTE:". Disable caveman
+                # unconditionally so compression cannot flip the contrarian vote.
+                # Inlined on `claude` only (does not cross the pipe). No-op absent.
+                # v7.41.3 BUG A: full capture, no tail-truncation (see member
+                # subcall note). CAVEMAN_DEFAULT_MODE=off suppression preserved.
+                verdict=$(echo "$prompt" | env CAVEMAN_DEFAULT_MODE=off claude "${_co_argv[@]}" -p 2>/dev/null)
             fi
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                verdict=$(codex exec --full-auto "$prompt" 2>/dev/null | tail -20)
+                verdict=$(codex exec --full-auto "$prompt" 2>/dev/null)
             fi
             ;;
         gemini)
             if command -v gemini &>/dev/null; then
-                verdict=$(echo "$prompt" | gemini 2>/dev/null | tail -20)
+                verdict=$(echo "$prompt" | gemini 2>/dev/null)
             fi
             ;;
         cline)
             if command -v cline &>/dev/null; then
-                verdict=$(cline -y "$prompt" 2>/dev/null | tail -20)
+                verdict=$(cline -y "$prompt" 2>/dev/null)
             fi
             ;;
         aider)
             if command -v aider &>/dev/null; then
-                verdict=$(aider --message "$prompt" --yes-always --no-auto-commits --no-git 2>/dev/null | tail -20)
+                verdict=$(aider --message "$prompt" --yes-always --no-auto-commits --no-git 2>/dev/null)
             fi
             ;;
     esac
@@ -1991,7 +2067,23 @@ council_evaluate_member() {
     local role="$1"
     local criteria="${2:-general completion check}"
     local loki_dir="${TARGET_DIR:-.}/.loki"
-    local vote="COMPLETE"
+    # Trust-gate inversion (v7.41.5): the default is CONTINUE, not COMPLETE.
+    # The old default ("absence of a detected failure == COMPLETE") let a
+    # greenfield run with an empty .loki/ (no test logs, no queue, few TODOs)
+    # cause requirements_verifier + devils_advocate to vote COMPLETE while only
+    # test_auditor went CONTINUE -> 2-of-3 cleared the size-3 threshold and the
+    # heuristic council approved a project with ZERO positive evidence. We now
+    # require AFFIRMATIVE positive evidence before any member votes COMPLETE,
+    # mirroring the LLM prompt's "do not approve incomplete work" stance.
+    #
+    # Mechanics:
+    #   - vote starts at CONTINUE.
+    #   - The existing failure detectors set blocked=true (a hard "not done"
+    #     signal) and accumulate reasons.
+    #   - At the end, vote flips to COMPLETE only if blocked==false AND the
+    #     member's positive signal holds. No positive signal => CONTINUE.
+    local vote="CONTINUE"
+    local blocked="false"
     local reasons=""
 
     # Check 1: Do tests pass? Look for test results in .loki/
@@ -2013,7 +2105,7 @@ council_evaluate_member() {
         fi
     done
     if [ "$test_failures" -gt 0 ]; then
-        vote="CONTINUE"
+        blocked="true"
         reasons="${reasons}test failures found ($test_failures); "
     fi
 
@@ -2022,12 +2114,16 @@ council_evaluate_member() {
     local current_diff_hash
     current_diff_hash=$(git diff --stat HEAD 2>/dev/null | (md5sum 2>/dev/null || md5 -r 2>/dev/null) | cut -d' ' -f1 || echo "unknown")
     if [ "$COUNCIL_CONSECUTIVE_NO_CHANGE" -gt 0 ] && [ "$ITERATION_COUNT" -gt "$COUNCIL_MIN_ITERATIONS" ]; then
-        # Code has stopped changing -- stagnation, not necessarily done
-        # (BUG-QG-011: previously inverted -- forced CONTINUE when code was changing,
-        # which penalized active progress. Now: stagnation with no passing checks = CONTINUE)
-        if [ "$vote" = "COMPLETE" ]; then
-            : # Other checks passed despite stagnation -- allow COMPLETE
-        else
+        # Code has stopped changing -- stagnation, not necessarily done.
+        # (BUG-QG-011 history: previously inverted -- forced CONTINUE when code
+        # was changing, which penalized active progress.)
+        # Under the v7.41.5 affirmative-evidence default this is INFORMATIONAL
+        # only: stagnation by itself is neither a failure (do not set blocked)
+        # nor positive evidence (does not flip vote to COMPLETE). Whether the
+        # member completes is decided entirely by blocked + the positive-signal
+        # check below. Surface the stagnation note only when a real failure was
+        # also detected, so the reason string stays honest.
+        if [ "$blocked" = "true" ]; then
             reasons="${reasons}code stagnated with failing checks; "
         fi
     fi
@@ -2046,49 +2142,126 @@ council_evaluate_member() {
         done
     fi
     if [ "$error_count" -gt 0 ]; then
-        vote="CONTINUE"
+        blocked="true"
         reasons="${reasons}uncaught errors in logs ($error_count); "
     fi
 
-    # Role-specific checks
+    # --- Affirmative positive evidence (v7.41.5) ----------------------------
+    # Base positive signal, shared by all members: a structured test-results.json
+    # exists and is NOT red. This is the SAME file + parse the evidence hard gate
+    # uses (council_evidence_gate, see this file ~line 1543-1568), so the member
+    # vote and the gate agree on what "tests are not red" means instead of a
+    # fragile log grep. The completion route guarantees this file is written
+    # before the council votes via ensure_completion_test_evidence()
+    # (autonomy/run.sh): a project with a real runner records its true PASS/FAIL,
+    # and a project with no runner records {"runner":"none","pass":true}. A
+    # greenfield run with an empty .loki/ has NO such file -> no positive base ->
+    # the member stays CONTINUE.
+    #
+    # Parse verdict mirrors council_evidence_gate: runner=="none" => PASS,
+    # pass is False => FAIL, else PASS. Unparseable/missing => not present.
+    local tr_file="$loki_dir/quality/test-results.json"
+    local test_evidence="absent"   # absent | pass | fail
+    local test_runner_seen="none"
+    if [ -f "$tr_file" ]; then
+        local _tr_status
+        _tr_status=$(_TR_FILE="$tr_file" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_TR_FILE']) as f:
+        d = json.load(f)
+except (json.JSONDecodeError, IOError, KeyError, ValueError):
+    print('absent:none')
+    sys.exit(0)
+runner = d.get('runner', 'none')
+passed = d.get('pass', True)
+if runner == 'none':
+    print('pass:none')
+elif passed is False:
+    print('fail:%s' % runner)
+else:
+    print('pass:%s' % runner)
+" 2>/dev/null || echo "absent:none")
+        test_evidence="${_tr_status%%:*}"
+        test_runner_seen="${_tr_status#*:}"
+    fi
+    if [ "$test_evidence" = "fail" ]; then
+        # A red structured result is a hard failure for every member, on top of
+        # any log-derived failures already counted above.
+        blocked="true"
+        reasons="${reasons}structured test results red (runner '$test_runner_seen'); "
+    fi
+
+    # Per-member positive signal, evaluated on top of the shared base.
+    local positive="false"
     case "$role" in
         requirements_verifier)
-            # Check if pending tasks remain
+            # Positive: tests not red AND no pending tasks. A present queue file
+            # with pending>0 is a hard "not done"; an ABSENT queue file is not
+            # itself disqualifying (a legit run need not have one), it just means
+            # this member relies on the base test evidence.
+            local pending=0
             if [ -f "$loki_dir/queue/pending.json" ]; then
-                local pending
                 pending=$(_QUEUE_FILE="$loki_dir/queue/pending.json" python3 -c "import json, os; print(len(json.load(open(os.environ['_QUEUE_FILE']))))" 2>/dev/null || echo "0")
                 if [ "$pending" -gt 0 ]; then
-                    vote="CONTINUE"
+                    blocked="true"
                     reasons="${reasons}$pending tasks still pending; "
                 fi
             fi
+            if [ "$test_evidence" = "pass" ] && [ "$pending" -eq 0 ]; then
+                positive="true"
+            fi
             ;;
         test_auditor)
-            # Check if any test log exists at all
-            local has_tests=false
-            for f in "$loki_dir"/logs/test-*.log "$loki_dir"/logs/*test*.log; do
-                [ -f "$f" ] && has_tests=true && break
-            done
-            if [ "$has_tests" = "false" ]; then
-                vote="CONTINUE"
-                reasons="${reasons}no test results found; "
+            # Positive requires a REAL passing test signal, not merely the
+            # absence of a failing one: a structured result with runner != none
+            # AND pass == true. {"runner":"none"} (no suite ran) is NOT positive
+            # test evidence for this member, and a missing file is not either, so
+            # a no-tests / greenfield project leaves test_auditor at CONTINUE.
+            if [ "$test_evidence" = "absent" ]; then
+                reasons="${reasons}no structured test results found; "
+            elif [ "$test_runner_seen" = "none" ]; then
+                reasons="${reasons}no real test suite ran (runner none); "
+            elif [ "$test_evidence" = "pass" ]; then
+                positive="true"
             fi
             ;;
         devils_advocate)
-            # Check for TODO/FIXME markers
+            # Positive: tests not red AND a low TODO/FIXME density. A high marker
+            # count is a hard "not done"; a missing/absent test base means no
+            # positive evidence even when TODOs are low.
             local todo_count
             todo_count=$(grep -rl "TODO\|FIXME\|HACK\|XXX" . --include="*.ts" --include="*.js" --include="*.py" --include="*.sh" 2>/dev/null | wc -l | tr -d ' ')
             if [ "$todo_count" -gt 5 ]; then
-                vote="CONTINUE"
+                blocked="true"
                 reasons="${reasons}$todo_count files with TODO/FIXME markers; "
+            fi
+            if [ "$test_evidence" = "pass" ] && [ "$todo_count" -le 5 ]; then
+                positive="true"
+            fi
+            ;;
+        *)
+            # Unknown role: fall back to the shared base signal only.
+            if [ "$test_evidence" = "pass" ]; then
+                positive="true"
             fi
             ;;
     esac
 
+    # Final decision: COMPLETE only when nothing blocks AND positive evidence
+    # is present. Otherwise CONTINUE (the affirmative-evidence default).
+    if [ "$blocked" = "false" ] && [ "$positive" = "true" ]; then
+        vote="COMPLETE"
+    fi
+
     # Clean up trailing separator
     reasons="${reasons%; }"
     if [ -z "$reasons" ]; then
-        reasons="all checks passed for $role ($criteria)"
+        if [ "$vote" = "COMPLETE" ]; then
+            reasons="positive evidence present, no failures for $role ($criteria)"
+        else
+            reasons="no positive completion evidence for $role ($criteria)"
+        fi
     fi
 
     echo "$vote $reasons"

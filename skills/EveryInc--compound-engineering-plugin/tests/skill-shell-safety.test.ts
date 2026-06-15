@@ -59,8 +59,12 @@ function findPreResolutionCommands(body: string): { lineNumber: number; command:
   // Scan the entire body so multi-line `!` blocks are also caught. `[^`]*`
   // matches across newlines (line terminators are not special inside JS
   // character classes), so wrapped commands surface here too.
+  // The `(?<!`)` lookbehind skips a `!` that is itself inside an inline-code
+  // span (e.g. prose like "doesn't process `!` pre-resolution — ...; omit"),
+  // which is documentation, not a real `!`-directive — a genuine pre-resolution
+  // `!` is preceded by line-start or whitespace, never by a backtick.
   const found: { lineNumber: number; command: string }[] = []
-  const regex = /!`([^`]*)`/g
+  const regex = /(?<!`)!`([^`]*)`/g
   let match: RegExpExecArray | null
   while ((match = regex.exec(body)) !== null) {
     const lineNumber = body.slice(0, match.index).split(/\r?\n/).length
@@ -144,6 +148,28 @@ function findCommandSubstitutionContents(cmd: string): string[] {
  */
 function hasNestedQuotedStringInCommandSubst(cmd: string): boolean {
   return findCommandSubstitutionContents(cmd).some(s => s.includes('"'))
+}
+
+/**
+ * Returns true when the command contains a `;` command separator outside of
+ * quotes. Claude Code's skill-load safety checker cannot parse `;` as a syntax
+ * node and aborts with "Unhandled node type: ;" before the skill body runs —
+ * even when the `;` sits inside a subshell, e.g. `(top=$(...); cat "$top/f")`
+ * (issue #758; reintroduced and rejected in PR #934). Use `&&`/`||` chaining,
+ * or extract the logic to a script invoked from the skill body. A `;` inside a
+ * quoted string is a literal, not a separator, and is not flagged.
+ */
+function hasSemicolonSeparator(cmd: string): boolean {
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i]
+    if (!inDoubleQuote && c === "'") { inSingleQuote = !inSingleQuote; continue }
+    if (!inSingleQuote && c === '"') { inDoubleQuote = !inDoubleQuote; continue }
+    if (inSingleQuote || inDoubleQuote) continue
+    if (c === ';') return true
+  }
+  return false
 }
 
 /**
@@ -291,6 +317,28 @@ describe("hasNestedQuotedStringInCommandSubst", () => {
   })
 })
 
+describe("hasSemicolonSeparator", () => {
+  test("flags a `;` inside a subshell (the PR #934 / issue #758 regression)", () => {
+    expect(hasSemicolonSeparator('(top=$(git rev-parse --show-toplevel 2>/dev/null); cat "$top/f") || echo \'__NO_CONFIG__\'')).toBe(true)
+  })
+
+  test("flags a top-level `;` separator", () => {
+    expect(hasSemicolonSeparator("git rev-parse --show-toplevel 2>/dev/null; echo done")).toBe(true)
+  })
+
+  test("does not flag a command with no semicolon", () => {
+    expect(hasSemicolonSeparator("git rev-parse --show-toplevel 2>/dev/null || true")).toBe(false)
+  })
+
+  test("does not flag a `;` inside a single-quoted string", () => {
+    expect(hasSemicolonSeparator("echo 'a; b'")).toBe(false)
+  })
+
+  test("does not flag a `;` inside a double-quoted string", () => {
+    expect(hasSemicolonSeparator('echo "a; b"')).toBe(false)
+  })
+})
+
 describe("hasUnguardedErrorSuppression", () => {
   test("flags single-statement `2>/dev/null` with no fallback", () => {
     expect(hasUnguardedErrorSuppression("git rev-parse --abbrev-ref HEAD 2>/dev/null")).toBe(true)
@@ -404,6 +452,19 @@ describe("skill `!` pre-resolution commands avoid Claude Code denylist", () => {
       expect(
         offenders,
         `Claude Code rejects \`case ... esac\` in \`!\` pre-resolution commands. Use \`if\`/\`then\`/\`else\` or \`&&\`/\`||\` chaining, or \`git rev-parse --path-format=absolute --git-common-dir\` for worktree-stable repo names.\nOffending commands:\n${formatted}`,
+      ).toEqual([])
+    })
+
+    test(`${rel} pre-resolution commands contain no \`;\` command separator (issue #758)`, () => {
+      const offenders = preResolutionCommands.filter(({ command }) =>
+        hasSemicolonSeparator(command),
+      )
+      const formatted = offenders
+        .map(({ lineNumber, command }) => `  line ${lineNumber}: ${command}`)
+        .join("\n")
+      expect(
+        offenders,
+        `Claude Code's skill-load checker cannot parse \`;\` and aborts with "Unhandled node type: ;" — even inside a subshell. Use \`&&\`/\`||\` chaining, or extract the logic to a script invoked from the skill body.\nOffending commands:\n${formatted}`,
       ).toEqual([])
     })
 

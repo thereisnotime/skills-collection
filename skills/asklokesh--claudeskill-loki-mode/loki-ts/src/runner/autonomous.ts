@@ -28,6 +28,7 @@ import {
 } from "./types.ts";
 import { run as shellRun } from "../util/shell.ts";
 import { maybeGenerateProof } from "./proof.ts";
+import { cavemanCaptureUserMode } from "../providers/claude_flags.ts";
 
 // ---------------------------------------------------------------------------
 // Graceful dynamic imports.
@@ -243,6 +244,17 @@ async function runAutonomousCore(
   log(`[runner] max_retries=${ctx.maxRetries} max_iterations=${ctx.maxIterations}`);
 
   ensureLokiDirs(ctx);
+
+  // Capture the user's pre-existing global caveman mode ONCE at startup, before
+  // any caveman activate/suppress path runs (providers.ts:292-295). Mirrors the
+  // source-time capture in autonomy/lib/claude-flags.sh:574-577: the bash route
+  // snapshots CAVEMAN_DEFAULT_MODE into LOKI_CAVEMAN_USER_MODE before clobbering
+  // the default tree-wide, so the no-raise / opt-out guard in cavemanActivateEnv
+  // has the user's level to read. On the Bun route nothing else populated this
+  // var, so without this call the guard was dead and a globally-lite/off user
+  // would be silently raised to Loki's level (or have their opt-out ignored).
+  cavemanCaptureUserMode();
+
   // v7.4.9: refuse to start if a bash runner (or another Bun runner) is
   // already holding the session lock. Mirrors autonomy/run.sh:3013-3060.
   acquireSessionSingleton(ctx);
@@ -373,8 +385,14 @@ async function runAutonomousCore(
 
     ctx.iterationCount += 1;
 
-    if (ctx.iterationCount > ctx.maxIterations) {
-      log(`[runner] max iterations reached (${ctx.iterationCount - 1}/${ctx.maxIterations})`);
+    // Mirror bash check_max_iterations (run.sh:9895-9901): `-ge` (>=), evaluated
+    // AFTER the post-increment at run.sh:12889. The Bun increment above (post)
+    // plus `>=` here matches bash's increment-then-`-ge` boundary exactly.
+    // Previously this used strict `>`, so Bun ran exactly ONE extra iteration
+    // past the cap relative to bash. With `>=` the message reports the count as
+    // observed (no `-1`), since the trigger now fires at iterationCount == max.
+    if (ctx.iterationCount >= ctx.maxIterations) {
+      log(`[runner] max iterations reached (${ctx.iterationCount}/${ctx.maxIterations})`);
       await persistState(stateMod, ctx, "max_iterations_reached", 0);
       return 0;
     }
@@ -598,6 +616,16 @@ function readFileSyncSafeForRunner(path: string): string {
   }
 }
 
+// Parse a non-empty integer env var, falling back to a default. Mirrors the
+// module-private envInt in build_prompt.ts:73-78 (which is not exported, and the
+// file is out of scope for this change, so we inline an identical copy here).
+function envIntLocal(key: string, dflt: number): number {
+  const v = process.env[key];
+  if (v === undefined || v === "") return dflt;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n : dflt;
+}
+
 function makeContext(opts: RunnerOpts): RunnerContext {
   const cwd = opts.cwd ?? process.cwd();
   const lokiDir = process.env["LOKI_DIR"] ?? resolve(cwd, ".loki");
@@ -615,7 +643,14 @@ function makeContext(opts: RunnerOpts): RunnerContext {
     prdPath: opts.prdPath,
     provider: opts.provider ?? "claude",
     maxRetries: opts.maxRetries ?? 5,
-    maxIterations: opts.maxIterations ?? 100,
+    // Default 1000 to match bash MAX_ITERATIONS (run.sh:619,
+    // `MAX_ITERATIONS=${LOKI_MAX_ITERATIONS:-1000}`) and build_prompt.ts:1160
+    // (`envInt(env, "MAX_ITERATIONS", 1000)`). Was 100 -- an internal
+    // inconsistency where the loop capped at 100 while the prompt advertised
+    // 1000. We read the MAX_ITERATIONS env key to match build_prompt.ts; note
+    // bash itself reads LOKI_MAX_ITERATIONS for the env override, but the Bun
+    // route standardizes on the MAX_ITERATIONS key build_prompt already uses.
+    maxIterations: opts.maxIterations ?? envIntLocal("MAX_ITERATIONS", 1000),
     baseWaitSeconds: opts.baseWaitSeconds ?? 30,
     maxWaitSeconds: opts.maxWaitSeconds ?? 3600,
     autonomyMode: opts.autonomyMode ?? "checkpoint",

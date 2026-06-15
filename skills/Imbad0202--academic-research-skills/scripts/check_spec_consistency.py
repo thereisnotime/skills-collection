@@ -61,10 +61,10 @@ def check_relative_markdown_links(rel_path: str) -> None:
 def check_mode_registry() -> None:
     rel_path = "MODE_REGISTRY.md"
     text = read(rel_path)
-    expect_contains(rel_path, "Last updated: v3.12.0 (2026-06-08)")
+    expect_contains(rel_path, "Last updated: v3.12.1 (2026-06-15)")
     for heading in (
-        "## deep-research (7 modes)",
-        "## academic-paper (10 modes)",
+        "## deep-research (8 modes)",
+        "## academic-paper (11 modes)",
         "## academic-paper-reviewer (6 modes)",
     ):
         if heading not in text:
@@ -75,7 +75,7 @@ def check_claude_md() -> None:
     rel_path = ".claude/CLAUDE.md"
     expect_contains(rel_path, "integrity check (Stage 2.5)")
     expect_contains(rel_path, "final integrity check (Stage 4.5)")
-    expect_contains(rel_path, "**Suite version**: 3.12.0")
+    expect_contains(rel_path, "**Suite version**: 3.12.1")
     for forbidden in (
         "6th independent reviewer",
         "Peer review gains 6th independent reviewer",
@@ -278,8 +278,8 @@ def check_readme_sections() -> None:
     rel_path = "README.md"
     text = read(rel_path)
 
-    expect_contains(rel_path, "version-v3.12.0-blue")
-    expect_contains(rel_path, "releases/tag/v3.12.0")
+    expect_contains(rel_path, "version-v3.12.1-blue")
+    expect_contains(rel_path, "releases/tag/v3.12.1")
     expect_contains(rel_path, "### v3.12.0 (2026-06-08)")
     expect_contains(rel_path, "### v3.11.1 (2026-06-06)")
     expect_contains(rel_path, "### v3.11.0 (2026-06-04)")
@@ -306,19 +306,19 @@ def check_readme_sections() -> None:
     expect_contains(rel_path, "### v3.3.3 (2026-04-15)")
     expect_contains(rel_path, "### v3.3.2 (2026-04-15)")
     for heading in (
-        "#### Deep Research (7 modes)",
-        "#### Academic Paper (10 modes)",
+        "#### Deep Research (8 modes)",
+        "#### Academic Paper (11 modes)",
         "#### Academic Paper Reviewer (6 modes)",
-        "### Deep Research (v2.9.4)",
+        "### Deep Research (v2.10.0)",
         "### Academic Paper (v3.2.0)",
         "### Academic Paper Reviewer (v1.10.0)",
-        "### Academic Pipeline (v3.12.0)",
+        "### Academic Pipeline (v3.12.1)",
     ):
         if heading not in text:
             fail(f"{rel_path}: missing heading {heading!r}")
 
     paper_usage = extract_section(
-        text, "#### Academic Paper (10 modes)", "#### Academic Paper Reviewer (6 modes)"
+        text, "#### Academic Paper (11 modes)", "#### Academic Paper Reviewer (6 modes)"
     )
     for expected in ("outline-only mode", "abstract-only mode", "disclosure mode"):
         if expected not in paper_usage:
@@ -328,7 +328,7 @@ def check_readme_sections() -> None:
             fail(f"{rel_path}: Academic Paper usage section still contains {forbidden!r}")
 
     deep_usage = extract_section(
-        text, "#### Deep Research (7 modes)", "#### Academic Paper (10 modes)"
+        text, "#### Deep Research (8 modes)", "#### Academic Paper (11 modes)"
     )
     if "review mode" not in deep_usage:
         fail(f"{rel_path}: Deep Research usage section missing 'review mode'")
@@ -361,8 +361,8 @@ def check_readme_ja_sections() -> None:
     rel_path = "README.ja-JP.md"
     text = read(rel_path)
 
-    expect_contains(rel_path, "version-v3.12.0-blue")
-    expect_contains(rel_path, "releases/tag/v3.12.0")
+    expect_contains(rel_path, "version-v3.12.1-blue")
+    expect_contains(rel_path, "releases/tag/v3.12.1")
     expect_contains(rel_path, "### v3.12.0 (2026-06-08)")
     expect_contains(rel_path, "### v3.11.1 (2026-06-06)")
     expect_contains(rel_path, "### v3.11.0 (2026-06-04)")
@@ -389,14 +389,14 @@ def check_readme_ja_sections() -> None:
     expect_contains(rel_path, "### v3.3.3 (2026-04-15)")
     expect_contains(rel_path, "### v3.3.2 (2026-04-15)")
     for heading in (
-        "#### Deep Research（7 モード）",
-        "#### Academic Paper（10 モード）",
+        "#### Deep Research（8 モード）",
+        "#### Academic Paper（11 モード）",
         "#### Academic Paper Reviewer（6 モード）",
         "#### Academic Pipeline（オーケストレーター）",
-        "### Deep Research（v2.9.4）",
+        "### Deep Research（v2.10.0）",
         "### Academic Paper（v3.2.0）",
         "### Academic Paper Reviewer（v1.10.0）",
-        "### Academic Pipeline（v3.12.0）",
+        "### Academic Pipeline（v3.12.1）",
     ):
         if heading not in text:
             fail(f"{rel_path}: missing heading {heading!r}")
@@ -420,35 +420,35 @@ ZH_README_CONFIGS = (
     {
         "rel_path": "README.zh-TW.md",
         "headings": (
-            "#### Deep Research（深度研究，7 種模式）",
-            "#### Academic Paper（學術論文撰寫，10 種模式）",
+            "#### Deep Research（深度研究，8 種模式）",
+            "#### Academic Paper（學術論文撰寫，11 種模式）",
             "#### Academic Paper Reviewer（論文審查，6 種模式）",
-            "### Deep Research (v2.9.4)",
+            "### Deep Research (v2.10.0)",
             "### Academic Paper (v3.2.0)",
             "### Academic Paper Reviewer (v1.10.0)",
-            "### Academic Pipeline (v3.12.0)",
+            "### Academic Pipeline (v3.12.1)",
         ),
-        "paper_start": "#### Academic Paper（學術論文撰寫，10 種模式）",
+        "paper_start": "#### Academic Paper（學術論文撰寫，11 種模式）",
         "reviewer_start": "#### Academic Paper Reviewer（論文審查，6 種模式）",
         "pipeline_start": "#### Academic Pipeline（全流程調度器）",
-        "deep_start": "#### Deep Research（深度研究，7 種模式）",
+        "deep_start": "#### Deep Research（深度研究，8 種模式）",
         "docx_line": "DOCX（Pandoc 可用時）",
     },
     {
         "rel_path": "README.zh-CN.md",
         "headings": (
-            "#### Deep Research（深度研究，7 种模式）",
-            "#### Academic Paper（学术论文撰写，10 种模式）",
+            "#### Deep Research（深度研究，8 种模式）",
+            "#### Academic Paper（学术论文撰写，11 种模式）",
             "#### Academic Paper Reviewer（论文审查，6 种模式）",
-            "### Deep Research (v2.9.4)",
+            "### Deep Research (v2.10.0)",
             "### Academic Paper (v3.2.0)",
             "### Academic Paper Reviewer (v1.10.0)",
-            "### Academic Pipeline (v3.12.0)",
+            "### Academic Pipeline (v3.12.1)",
         ),
-        "paper_start": "#### Academic Paper（学术论文撰写，10 种模式）",
+        "paper_start": "#### Academic Paper（学术论文撰写，11 种模式）",
         "reviewer_start": "#### Academic Paper Reviewer（论文审查，6 种模式）",
         "pipeline_start": "#### Academic Pipeline（全流程调度器）",
-        "deep_start": "#### Deep Research（深度研究，7 种模式）",
+        "deep_start": "#### Deep Research（深度研究，8 种模式）",
         "docx_line": "DOCX（Pandoc 可用时）",
     },
 )
@@ -459,8 +459,8 @@ def check_readme_zh_sections() -> None:
         rel_path = config["rel_path"]
         text = read(rel_path)
 
-        expect_contains(rel_path, "version-v3.12.0-blue")
-        expect_contains(rel_path, "releases/tag/v3.12.0")
+        expect_contains(rel_path, "version-v3.12.1-blue")
+        expect_contains(rel_path, "releases/tag/v3.12.1")
         expect_contains(rel_path, "### v3.12.0（2026-06-08）")
         expect_contains(rel_path, "### v3.11.1（2026-06-06）")
         expect_contains(rel_path, "### v3.11.0（2026-06-04）")
@@ -599,6 +599,34 @@ def check_reference_docs() -> None:
     )
 
 
+def check_rebuttal_audit_guard() -> None:
+    """The rebuttal-audit mode section must declare its integrity boundary.
+
+    A standalone rebuttal-audit invocation runs outside the pipeline, so it must
+    NOT emit Schema 11 / Material Passport / ready_to_submit. This guard is the
+    load-bearing reason rebuttal-audit is safe to ship as a mode rather than a
+    pipeline stage; if the suppression language is ever dropped, the mode would
+    silently re-introduce the false-certification risk it was designed to avoid.
+    """
+    text = read("academic-paper/SKILL.md")
+    m = re.search(r"##\s*Rebuttal-Audit Mode.*?(?=\n##\s|\Z)", text, re.DOTALL)
+    section = m.group(0) if m else ""
+    if not section:
+        fail("academic-paper/SKILL.md: missing '## Rebuttal-Audit Mode' section")
+        return
+    for kw in ["Schema 11", "Material Passport", "ready_to_submit"]:
+        if kw not in section:
+            fail(
+                f"academic-paper/SKILL.md Rebuttal-Audit Mode section must declare "
+                f"{kw!r} suppression (integrity boundary)"
+            )
+    if "MUST NOT" not in section:
+        fail(
+            "academic-paper/SKILL.md Rebuttal-Audit Mode section lacks an explicit "
+            "'MUST NOT' suppression statement"
+        )
+
+
 def main() -> int:
     check_mode_registry()
     check_claude_md()
@@ -612,6 +640,7 @@ def main() -> int:
     check_setup_docs()
     check_docx_contract()
     check_reference_docs()
+    check_rebuttal_audit_guard()
 
     if ERRORS:
         print("Spec consistency check failed:")
