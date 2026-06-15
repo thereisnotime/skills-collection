@@ -16,6 +16,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
+import generate_dib_charts
+
 SKILLS_DIR = Path(__file__).parent / "skills"
 README_PATH = Path(__file__).parent / "README.md"
 STATS_PATH = Path(__file__).parent / "stats.json"
@@ -570,6 +572,7 @@ def generate_readme(repos, metadata, sync_duration="n/a", api_duration="n/a", an
     generate_top_bottom_bar_chart(repo_stars)
     generate_skills_bar_chart(repo_skills)
     generate_contributors_bar_chart(repo_contributors)
+    generate_dib_charts.generate_all(analysis_path=ANALYSIS_PATH)
 
     table = "\n".join(rows)
 
@@ -683,6 +686,22 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 ### Top & Bottom Repos by Stars
 
 ![Top & Bottom Repos](charts/top-bottom-stars.png)
+
+### Average Lines vs. Words per Skill
+
+![Lines vs Words per Skill](charts/dib-verbosity.png)
+
+### Distribution of Average Skill Length
+
+![Skill Length Distribution](charts/dib-skill-length.png)
+
+### Most Common Languages in Skill Code Blocks
+
+![Languages in Code Blocks](charts/dib-languages.png)
+
+### Repo Popularity vs. Age
+
+![Stars vs Age](charts/dib-stars-age.png)
 
 ## Repos
 

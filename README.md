@@ -66,6 +66,22 @@ A curated collection of Claude Code skills repos, automatically synced daily.
 
 ![Top & Bottom Repos](charts/top-bottom-stars.png)
 
+### Average Lines vs. Words per Skill
+
+![Lines vs Words per Skill](charts/dib-verbosity.png)
+
+### Distribution of Average Skill Length
+
+![Skill Length Distribution](charts/dib-skill-length.png)
+
+### Most Common Languages in Skill Code Blocks
+
+![Languages in Code Blocks](charts/dib-languages.png)
+
+### Repo Popularity vs. Age
+
+![Stars vs Age](charts/dib-stars-age.png)
+
 ## Repos
 
 | Repo | Description | Skills | Stars | Contributors | Size | Last Commit | Last Commit Date | Message |

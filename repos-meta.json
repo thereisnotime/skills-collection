@@ -1,0 +1,502 @@
+{
+ "slavingia--skills": {
+  "created_at": "2026-03-23T19:16:00Z",
+  "pushed_at": "2026-04-14T00:53:57Z",
+  "stars": 9122
+ },
+ "zarazhangrui--codebase-to-course": {
+  "created_at": "2026-03-22T21:25:01Z",
+  "pushed_at": "2026-03-30T18:26:09Z",
+  "stars": 4660
+ },
+ "samber--cc-skills-golang": {
+  "created_at": "2026-03-21T23:10:11Z",
+  "pushed_at": "2026-06-09T13:53:57Z",
+  "stars": 2147
+ },
+ "realkimbarrett--advertising-skills": {
+  "created_at": "2026-03-26T07:58:48Z",
+  "pushed_at": "2026-03-26T08:44:06Z",
+  "stars": 664
+ },
+ "ComposioHQ--awesome-claude-skills": {
+  "created_at": "2025-10-17T07:15:01Z",
+  "pushed_at": "2026-05-22T03:17:49Z",
+  "stars": 64703
+ },
+ "anthropics--skills": {
+  "created_at": "2025-09-22T15:53:31Z",
+  "pushed_at": "2026-06-09T20:35:19Z",
+  "stars": 151069
+ },
+ "1NickPappas--move-code-quality-skill": {
+  "created_at": "2025-10-21T20:32:05Z",
+  "pushed_at": "2025-10-21T21:19:41Z",
+  "stars": 21
+ },
+ "ARPeeketi--claude-resume-kit": {
+  "created_at": "2026-03-09T06:29:05Z",
+  "pushed_at": "2026-03-10T02:05:36Z",
+  "stars": 142
+ },
+ "AgriciDaniel--claude-blog": {
+  "created_at": "2026-02-17T22:40:44Z",
+  "pushed_at": "2026-06-05T04:23:28Z",
+  "stars": 1070
+ },
+ "AgriciDaniel--claude-email": {
+  "created_at": "2026-02-16T20:44:34Z",
+  "pushed_at": "2026-05-23T08:03:13Z",
+  "stars": 75
+ },
+ "ClickHouse--agent-skills": {
+  "created_at": "2026-01-15T16:36:20Z",
+  "pushed_at": "2026-06-08T04:08:33Z",
+  "stars": 464
+ },
+ "Digidai--product-manager-skills": {
+  "created_at": "2026-03-03T09:19:21Z",
+  "pushed_at": "2026-04-12T03:05:07Z",
+  "stars": 105
+ },
+ "EveryInc--compound-engineering-plugin": {
+  "created_at": "2025-10-09T19:43:46Z",
+  "pushed_at": "2026-06-15T19:15:20Z",
+  "stars": 21428
+ },
+ "Eyadkelleh--awesome-claude-skills-security": {
+  "created_at": "2025-12-08T08:21:05Z",
+  "pushed_at": "2026-06-08T08:31:04Z",
+  "stars": 295
+ },
+ "HeshamFS--materials-simulation-skills": {
+  "created_at": "2025-12-24T16:05:13Z",
+  "pushed_at": "2026-06-07T16:05:58Z",
+  "stars": 41
+ },
+ "Imbad0202--academic-research-skills": {
+  "created_at": "2026-02-26T06:31:01Z",
+  "pushed_at": "2026-06-15T19:44:30Z",
+  "stars": 31711
+ },
+ "K-Dense-AI--claude-scientific-skills": {
+  "created_at": "2025-10-19T20:54:15Z",
+  "pushed_at": "2026-06-15T12:29:01Z",
+  "stars": 28281
+ },
+ "K-Dense-AI--claude-scientific-writer": {
+  "created_at": "2025-10-27T06:52:45Z",
+  "pushed_at": "2026-06-15T19:50:10Z",
+  "stars": 1945
+ },
+ "NeoLabHQ--context-engineering-kit": {
+  "created_at": "2025-11-13T23:23:04Z",
+  "pushed_at": "2026-06-14T13:36:10Z",
+  "stars": 1106
+ },
+ "Orchestra-Research--AI-research-SKILLs": {
+  "created_at": "2025-11-03T06:13:06Z",
+  "pushed_at": "2026-04-28T05:09:27Z",
+  "stars": 9730
+ },
+ "Paramchoudhary--ResumeSkills": {
+  "created_at": "2026-01-30T10:29:46Z",
+  "pushed_at": "2026-05-20T16:52:36Z",
+  "stars": 777
+ },
+ "Valian--linear-cli-skill": {
+  "created_at": "2025-10-24T08:50:38Z",
+  "pushed_at": "2025-10-26T22:05:20Z",
+  "stars": 14
+ },
+ "ahmedasmar--devops-claude-skills": {
+  "created_at": "2025-10-26T07:50:05Z",
+  "pushed_at": "2026-04-11T16:18:43Z",
+  "stars": 173
+ },
+ "airowe--claude-a11y-skill": {
+  "created_at": "2026-01-24T18:28:57Z",
+  "pushed_at": "2026-01-24T18:28:59Z",
+  "stars": 12
+ },
+ "akin-ozer--cc-devops-skills": {
+  "created_at": "2025-12-05T11:52:50Z",
+  "pushed_at": "2026-06-05T14:07:20Z",
+  "stars": 233
+ },
+ "alonw0--web-asset-generator": {
+  "created_at": "2025-10-21T07:38:30Z",
+  "pushed_at": "2026-01-28T09:11:01Z",
+  "stars": 410
+ },
+ "antonbabenko--terraform-skill": {
+  "created_at": "2026-01-15T18:26:37Z",
+  "pushed_at": "2026-06-14T18:57:48Z",
+  "stars": 2020
+ },
+ "avifenesh--agentsys": {
+  "created_at": "2026-01-15T09:33:05Z",
+  "pushed_at": "2026-05-30T10:12:24Z",
+  "stars": 871
+ },
+ "better-auth--skills": {
+  "created_at": "2025-10-20T22:43:31Z",
+  "pushed_at": "2026-03-02T09:11:17Z",
+  "stars": 198
+ },
+ "better-i18n--skills": {
+  "created_at": "2026-01-31T12:26:00Z",
+  "pushed_at": "2026-05-21T08:35:03Z",
+  "stars": 6
+ },
+ "brunoasm--my_claude_skills": {
+  "created_at": "2025-10-17T19:46:06Z",
+  "pushed_at": "2026-06-08T20:21:51Z",
+  "stars": 10
+ },
+ "callstackincubator--agent-skills": {
+  "created_at": "2026-01-14T16:45:39Z",
+  "pushed_at": "2026-06-02T20:59:32Z",
+  "stars": 1433
+ },
+ "chrisvoncsefalvay--claude-d3js-skill": {
+  "created_at": "2025-10-17T14:53:45Z",
+  "pushed_at": "2025-10-18T02:29:55Z",
+  "stars": 192
+ },
+ "cloudflare--skills": {
+  "created_at": "2025-12-10T16:45:17Z",
+  "pushed_at": "2026-06-15T14:05:22Z",
+  "stars": 1791
+ },
+ "coffeefuelbump--csv-data-summarizer-claude-skill": {
+  "created_at": "2025-10-16T19:28:59Z",
+  "pushed_at": "2025-10-16T20:20:06Z",
+  "stars": 408
+ },
+ "conorbronsdon--avoid-ai-writing": {
+  "created_at": "2026-03-06T07:47:40Z",
+  "pushed_at": "2026-06-12T08:24:16Z",
+  "stars": 1846
+ },
+ "conorluddy--ios-simulator-skill": {
+  "created_at": "2025-10-17T12:43:15Z",
+  "pushed_at": "2026-06-14T21:23:51Z",
+  "stars": 1081
+ },
+ "coreyhaines31--marketingskills": {
+  "created_at": "2026-01-15T19:45:23Z",
+  "pushed_at": "2026-06-15T17:24:59Z",
+  "stars": 33432
+ },
+ "dreamiurg--claude-mountaineering-skills": {
+  "created_at": "2025-10-20T16:18:12Z",
+  "pushed_at": "2026-06-08T20:55:31Z",
+  "stars": 31
+ },
+ "emaynard--claude-family-history-research-skill": {
+  "created_at": "2025-10-17T15:39:07Z",
+  "pushed_at": "2025-12-07T16:10:20Z",
+  "stars": 81
+ },
+ "expo--skills": {
+  "created_at": "2025-11-30T03:57:18Z",
+  "pushed_at": "2026-06-15T19:49:04Z",
+  "stars": 2074
+ },
+ "firecrawl--cli": {
+  "created_at": "2026-01-07T22:19:37Z",
+  "pushed_at": "2026-06-15T19:46:10Z",
+  "stars": 464
+ },
+ "hashicorp--agent-skills": {
+  "created_at": "2025-11-08T02:07:20Z",
+  "pushed_at": "2026-05-28T15:48:31Z",
+  "stars": 665
+ },
+ "jananthan30--Resume-Builder": {
+  "created_at": "2026-03-01T18:51:43Z",
+  "pushed_at": "2026-05-13T19:43:55Z",
+  "stars": 49
+ },
+ "javiera-vasquez--claude-code-job-tailor": {
+  "created_at": "2025-09-02T13:45:41Z",
+  "pushed_at": "2025-10-28T16:18:13Z",
+  "stars": 158
+ },
+ "jawwadfirdousi--agent-skills": {
+  "created_at": "2026-02-02T21:03:37Z",
+  "pushed_at": "2026-05-28T22:31:50Z",
+  "stars": 11
+ },
+ "jthack--ffuf_claude_skill": {
+  "created_at": "2025-10-16T19:33:05Z",
+  "pushed_at": "2025-10-16T19:39:14Z",
+  "stars": 186
+ },
+ "lackeyjb--playwright-skill": {
+  "created_at": "2025-10-19T21:33:51Z",
+  "pushed_at": "2025-12-19T16:23:38Z",
+  "stars": 2768
+ },
+ "livelabs-ventures--nano-skills": {
+  "created_at": "2025-11-28T15:42:27Z",
+  "pushed_at": "2025-11-28T18:03:04Z",
+  "stars": 8
+ },
+ "mhattingpete--claude-skills-marketplace": {
+  "created_at": "2025-10-17T12:02:19Z",
+  "pushed_at": "2026-03-06T10:14:25Z",
+  "stars": 607
+ },
+ "michalparkola--tapestry-skills-for-claude-code": {
+  "created_at": "2025-10-17T01:12:07Z",
+  "pushed_at": "2026-03-11T22:36:51Z",
+  "stars": 436
+ },
+ "neondatabase--agent-skills": {
+  "created_at": "2026-01-20T21:17:10Z",
+  "pushed_at": "2026-06-14T17:31:29Z",
+  "stars": 70
+ },
+ "netlify--context-and-tools": {
+  "created_at": "2025-11-26T21:04:08Z",
+  "pushed_at": "2026-06-11T20:00:03Z",
+  "stars": 18
+ },
+ "obra--superpowers": {
+  "created_at": "2025-10-09T19:45:18Z",
+  "pushed_at": "2026-06-15T19:18:22Z",
+  "stars": 228687
+ },
+ "obra--superpowers-skills": {
+  "created_at": "2025-10-11T17:06:05Z",
+  "pushed_at": "2025-10-14T20:52:50Z",
+  "stars": 695
+ },
+ "omkamal--pypict-claude-skill": {
+  "created_at": "2025-10-19T18:50:59Z",
+  "pushed_at": "2026-03-22T20:31:42Z",
+  "stars": 84
+ },
+ "proficientlyjobs--proficiently-claude-skills": {
+  "created_at": "2026-02-11T19:44:47Z",
+  "pushed_at": "2026-03-12T15:59:42Z",
+  "stars": 236
+ },
+ "remotion-dev--skills": {
+  "created_at": "2026-01-19T09:58:43Z",
+  "pushed_at": "2026-05-07T10:40:03Z",
+  "stars": 3660
+ },
+ "replicate--skills": {
+  "created_at": "2026-02-16T04:57:43Z",
+  "pushed_at": "2026-06-04T17:06:37Z",
+  "stars": 47
+ },
+ "robertguss--claude-skills": {
+  "created_at": "2025-12-29T16:39:35Z",
+  "pushed_at": "2026-03-22T19:14:06Z",
+  "stars": 99
+ },
+ "ryanbbrown--revealjs-skill": {
+  "created_at": "2025-11-30T20:31:01Z",
+  "pushed_at": "2026-05-02T03:51:37Z",
+  "stars": 341
+ },
+ "sanity-io--agent-toolkit": {
+  "created_at": "2025-03-11T13:10:12Z",
+  "pushed_at": "2026-06-10T23:12:09Z",
+  "stars": 151
+ },
+ "sanjay3290--ai-skills": {
+  "created_at": "2025-12-22T18:51:46Z",
+  "pushed_at": "2026-05-07T15:54:46Z",
+  "stars": 323
+ },
+ "smerchek--claude-epub-skill": {
+  "created_at": "2025-10-17T13:25:01Z",
+  "pushed_at": "2025-10-18T00:40:32Z",
+  "stars": 128
+ },
+ "squirrelscan--skills": {
+  "created_at": "2026-01-07T13:48:27Z",
+  "pushed_at": "2026-02-09T14:23:31Z",
+  "stars": 80
+ },
+ "stripe--ai": {
+  "created_at": "2024-11-11T17:13:41Z",
+  "pushed_at": "2026-06-14T01:19:14Z",
+  "stars": 1606
+ },
+ "supabase--agent-skills": {
+  "created_at": "2026-01-16T07:28:01Z",
+  "pushed_at": "2026-06-09T11:00:50Z",
+  "stars": 2251
+ },
+ "tinybirdco--tinybird-agent-skills": {
+  "created_at": "2026-01-15T21:29:58Z",
+  "pushed_at": "2026-05-12T13:21:55Z",
+  "stars": 20
+ },
+ "trailofbits--skills": {
+  "created_at": "2026-01-14T18:23:21Z",
+  "pushed_at": "2026-06-15T16:05:05Z",
+  "stars": 5712
+ },
+ "typefully--agent-skills": {
+  "created_at": "2026-01-26T15:28:42Z",
+  "pushed_at": "2026-05-26T09:59:27Z",
+  "stars": 51
+ },
+ "varunr89--resume-tailoring-skill": {
+  "created_at": "2025-11-01T00:06:23Z",
+  "pushed_at": "2026-03-01T01:33:47Z",
+  "stars": 513
+ },
+ "vercel-labs--agent-skills": {
+  "created_at": "2025-12-08T19:10:06Z",
+  "pushed_at": "2026-06-10T21:21:47Z",
+  "stars": 27946
+ },
+ "vercel-labs--next-skills": {
+  "created_at": "2026-01-23T12:45:18Z",
+  "pushed_at": "2026-05-07T18:32:08Z",
+  "stars": 933
+ },
+ "wrsmith108--linear-claude-skill": {
+  "created_at": "2025-12-14T23:42:51Z",
+  "pushed_at": "2026-04-19T20:47:43Z",
+  "stars": 110
+ },
+ "wrsmith108--varlock-claude-skill": {
+  "created_at": "2025-12-22T19:44:04Z",
+  "pushed_at": "2026-03-04T01:12:04Z",
+  "stars": 25
+ },
+ "zarazhangrui--frontend-slides": {
+  "created_at": "2026-01-28T00:42:34Z",
+  "pushed_at": "2026-06-13T05:05:17Z",
+  "stars": 21779
+ },
+ "zxkane--aws-skills": {
+  "created_at": "2025-10-21T03:56:34Z",
+  "pushed_at": "2026-06-15T14:37:32Z",
+  "stars": 309
+ },
+ "travisvn--awesome-claude-skills": {
+  "created_at": "2025-10-16T20:42:39Z",
+  "pushed_at": "2026-04-28T19:30:24Z",
+  "stars": 13484
+ },
+ "obra--superpowers-lab": {
+  "created_at": "2025-10-23T17:55:40Z",
+  "pushed_at": "2026-06-01T21:42:58Z",
+  "stars": 370
+ },
+ "asklokesh--claudeskill-loki-mode": {
+  "created_at": "2025-12-26T16:26:14Z",
+  "pushed_at": "2026-06-15T19:11:13Z",
+  "stars": 980
+ },
+ "yusufkaraaslan--Skill_Seekers": {
+  "created_at": "2025-10-17T14:43:48Z",
+  "pushed_at": "2026-06-11T21:20:13Z",
+  "stars": 14093
+ },
+ "mukul975--Anthropic-Cybersecurity-Skills": {
+  "created_at": "2026-02-25T09:47:50Z",
+  "pushed_at": "2026-06-01T10:15:48Z",
+  "stars": 15809
+ },
+ "eth0izzle--security-skills": {
+  "created_at": "2026-02-16T21:32:23Z",
+  "pushed_at": "2026-04-27T23:47:13Z",
+  "stars": 46
+ },
+ "Masriyan--Claude-Code-CyberSecurity-Skill": {
+  "created_at": "2026-02-27T17:59:14Z",
+  "pushed_at": "2026-06-15T12:31:51Z",
+  "stars": 75
+ },
+ "pitimon--claude-cybersecurity-skill": {
+  "created_at": "2026-02-18T23:53:43Z",
+  "pushed_at": "2026-05-11T21:57:18Z",
+  "stars": 3
+ },
+ "transilienceai--communitytools": {
+  "created_at": "2025-11-21T23:34:26Z",
+  "pushed_at": "2026-06-12T14:54:10Z",
+  "stars": 352
+ },
+ "alirezarezvani--claude-skills": {
+  "created_at": "2025-10-19T04:04:05Z",
+  "pushed_at": "2026-06-12T05:59:36Z",
+  "stars": 18170
+ },
+ "VoltAgent--awesome-agent-skills": {
+  "created_at": "2025-10-28T08:55:32Z",
+  "pushed_at": "2026-06-15T18:40:39Z",
+  "stars": 25426
+ },
+ "BehiSecc--awesome-claude-skills": {
+  "created_at": "2025-10-17T15:05:35Z",
+  "pushed_at": "2026-06-03T13:14:35Z",
+  "stars": 9522
+ },
+ "levnikolaevich--claude-code-skills": {
+  "created_at": "2025-10-24T15:36:01Z",
+  "pushed_at": "2026-06-10T16:29:34Z",
+  "stars": 492
+ },
+ "jeremylongshore--claude-code-plugins-plus-skills": {
+  "created_at": "2025-10-10T01:01:00Z",
+  "pushed_at": "2026-06-15T07:59:30Z",
+  "stars": 2384
+ },
+ "rohitg00--awesome-claude-code-toolkit": {
+  "created_at": "2026-02-04T21:09:33Z",
+  "pushed_at": "2026-05-12T07:18:34Z",
+  "stars": 2065
+ },
+ "daymade--claude-code-skills": {
+  "created_at": "2025-10-22T11:17:31Z",
+  "pushed_at": "2026-06-14T10:01:47Z",
+  "stars": 1182
+ },
+ "lgbarn--devops-skills": {
+  "created_at": "2026-01-23T18:56:44Z",
+  "pushed_at": "2026-01-23T19:52:23Z",
+  "stars": 12
+ },
+ "affaan-m--everything-claude-code": {
+  "created_at": "2026-01-18T00:51:51Z",
+  "pushed_at": "2026-06-15T18:27:17Z",
+  "stars": 216065
+ },
+ "glebis--claude-skills": {
+  "created_at": "2025-10-25T14:58:50Z",
+  "pushed_at": "2026-06-13T12:29:39Z",
+  "stars": 266
+ },
+ "shanraisshan--claude-code-best-practice": {
+  "created_at": "2025-10-31T14:15:28Z",
+  "pushed_at": "2026-06-15T18:28:49Z",
+  "stars": 57807
+ },
+ "mrgoonie--claudekit-skills": {
+  "created_at": "2025-10-23T04:43:54Z",
+  "pushed_at": "2026-04-03T06:19:25Z",
+  "stars": 2131
+ },
+ "hesreallyhim--awesome-claude-code": {
+  "created_at": "2025-04-19T20:55:59Z",
+  "pushed_at": "2026-04-27T14:40:18Z",
+  "stars": 46548
+ },
+ "jqueryscript--awesome-claude-code": {
+  "created_at": "2025-07-13T14:47:06Z",
+  "pushed_at": "2026-06-15T11:34:17Z",
+  "stars": 424
+ }
+}
