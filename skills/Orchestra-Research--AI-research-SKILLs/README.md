@@ -100,7 +100,7 @@ This installs all 98 skills, loads the **autoresearch** orchestration layer, and
 <details>
 <summary><b>What the installer does</b></summary>
 
-- **Auto-detects** your installed coding agents (Claude Code, Hermes Agent, OpenCode, Cursor, Gemini CLI, etc.)
+- **Auto-detects** your installed coding agents (Claude Code, Hermes Agent, OpenCode, Qoder, Cursor, Gemini CLI, etc.)
 - **Installs** skills to `~/.orchestra/skills/` with symlinks to each agent (falls back to copy on Windows)
 - **Offers** everything, quickstart bundle, by category, or individual skills
 - **Updates** installed skills with latest versions
@@ -314,7 +314,7 @@ Install skill categories directly using the **Claude Code CLI**:
 
 ## Demos
 
-All 87 skills in this repo are automatically synced to [Orchestra Research](https://www.orchestra-research.com/research-skills), where you can add them to your projects with one click and use them with AI research agents.
+All 98 skills in this repo are automatically synced to [Orchestra Research](https://www.orchestra-research.com/research-skills), where you can add them to your projects with one click and use them with AI research agents.
 
 **See skills in action → [demos/](demos/README.md)**
 
@@ -369,7 +369,7 @@ skill-name/
 
 ## Roadmap
 
-We're building towards 80 comprehensive skills across the full AI research lifecycle. See our [detailed roadmap](docs/ROADMAP.md) for the complete development plan.
+The library spans 98 comprehensive skills across the full AI research lifecycle. See our [detailed roadmap](docs/ROADMAP.md) for the complete development plan.
 
 [View Full Roadmap →](docs/ROADMAP.md)
 
@@ -506,6 +506,17 @@ We welcome contributions from the AI research community! See [CONTRIBUTING.md](C
 ## Recent Updates
 
 <details open>
+<summary><b>June 2026 - v1.7.1 🧹 Inventory Consistency, Drift Guard & Security Hardening</b></summary>
+
+- 📊 **Repo-wide inventory reconciled to 98 skills / 23 categories** — corrected stale counts that had drifted apart across files: CLAUDE.md (said 90), CONTRIBUTING.md (said 86/22), the README sync line (said 87), WELCOME.md and the npm package README (said 86/22). Also fixed wrong per-category listings (TorchTitan, SwanLab, A-Evolve, ML Training Recipes, Cosmos Policy/OpenPI/OpenVLA-OFT, the paper-writing skills)
+- 🛡️ **New CI drift guard** — `scripts/check-inventory.sh` + `check-inventory.yml` fail CI whenever the documented skill/category counts diverge from the actual `SKILL.md` count on disk, so the inventory can't silently drift again
+- 📦 **Marketplace sync hardening** — `sync-skills.yml` now prunes build artifacts (`node_modules`/`__pycache__`/`*.pyc`/`.ipynb_checkpoints`) before zipping and fails loudly above 190 files instead of hitting the marketplace's 200-file rejection
+- 🔒 **Security** — pinned CLI dependencies (`chalk`/`inquirer`/`ora`) to exact, patched versions with a regenerated lockfile (`inquirer@9.3.8` clears the `tmp` path-traversal advisory; `npm audit` now reports 0 vulnerabilities)
+- 🧹 Full open PR/issue triage pass against scope + contribution standards
+
+</details>
+
+<details>
 <summary><b>April 2026 - v1.6.0 🧬 Agent-Native Research Artifact (ARA) — 23rd Category, 98 Skills</b></summary>
 
 - 🧬 **NEW CATEGORY**: `22-agent-native-research-artifact/` (the 23rd category) — three skills that turn research outputs into a falsifiable, agent-traversable artifact:
@@ -532,7 +543,7 @@ We welcome contributions from the AI research community! See [CONTRIBUTING.md](C
 - 📄 **Two demo papers produced by autoresearch**: [Norm Heterogeneity → LoRA Brittleness](demos/autoresearch-norm-heterogeneity/) and [RL Algorithm Brain Scan](demos/autoresearch-rl-brain-scan/)
 - 🚀 WELCOME.md for cold-start agent bootstrap — one URL to go from zero to autonomous research
 - 📦 npm v1.4.x with Windows symlink fallback, all 22 categories installable
-- 🤖 **Supported agents**: Claude Code, Hermes Agent, OpenCode, OpenClaw, Cursor, Codex, Gemini CLI, Qwen Code
+- 🤖 **Supported agents**: Claude Code, Hermes Agent, OpenCode, OpenClaw, Qoder, Cursor, Codex, Gemini CLI, Qwen Code
 - 📊 **87 total skills** across **22 categories** — complete research lifecycle coverage
 
 </details>

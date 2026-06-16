@@ -589,10 +589,6 @@ const PLATFORM_VAR_ACKNOWLEDGED = new Map<string, string>([
     "plugins/compound-engineering/skills/ce-update/SKILL.md#CLAUDE_SKILL_DIR",
     "SKILL.md routes unset/unresolved CLAUDE_SKILL_DIR (scripts failing) to its __CE_UPDATE_NOT_MARKETPLACE__ handling.",
   ],
-  [
-    "plugins/compound-engineering/skills/ce-worktree/SKILL.md#CLAUDE_SKILL_DIR",
-    "Known laggard: ce-worktree still invokes its bundled script via the legacy ${CLAUDE_SKILL_DIR:-.} form (the #943 regression pattern that silently misses off-Claude). Acknowledged here pending its re-architecture to a script-free isolation guardrail in #946 (PR #948), which removes the bundled script entirely.",
-  ],
 ])
 
 /** Rule 4 scanner for one markdown file: every non-graceful occurrence. */
@@ -1012,14 +1008,14 @@ describe("extractLocalReferenceCandidates", () => {
     // The documented cross-platform style: the variable prefix means
     // "skill-root-relative" (AGENTS.md "Platform-Specific Variables in
     // Skills"), so the unwrapped remainder must resolve at the skill root —
-    // demonstrated against the real ce-worktree bundled script.
+    // demonstrated against a real bundled script (ce-update's).
     const sample =
-      '```bash\nbash "${CLAUDE_SKILL_DIR:-.}/scripts/worktree-manager.sh" create feat/login\n```'
+      '```bash\nbash "${CLAUDE_SKILL_DIR:-.}/scripts/upstream-version.sh"\n```'
     expect(extractLocalReferenceCandidates(sample).map((c) => c.value)).toEqual([
-      "scripts/worktree-manager.sh",
+      "scripts/upstream-version.sh",
     ])
-    const skillRoot = path.join(PLUGINS_ROOT, "compound-engineering", "skills", "ce-worktree")
-    const resolved = resolveInsideSkill(skillRoot, skillRoot, "scripts/worktree-manager.sh")
+    const skillRoot = path.join(PLUGINS_ROOT, "compound-engineering", "skills", "ce-update")
+    const resolved = resolveInsideSkill(skillRoot, skillRoot, "scripts/upstream-version.sh")
     expect(resolved).not.toBeNull()
     expect(statSync(resolved!).isFile()).toBe(true)
   })

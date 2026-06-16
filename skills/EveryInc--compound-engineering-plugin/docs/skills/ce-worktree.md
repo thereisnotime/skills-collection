@@ -1,8 +1,10 @@
 # `ce-worktree`
 
-> Create a git worktree under `.worktrees/<branch>` with branch-specific setup that `git worktree add` alone doesn't handle — `.env` copying, dev-tool trust with branch-aware safety, gitignore management.
+> Ensure work happens in an isolated git worktree without disturbing the current checkout — by detecting existing isolation, deferring to the harness's native worktree tool, and only falling back to plain git.
 
-`ce-worktree` is the **isolated-checkout** skill. Plain `git worktree add` creates the worktree but skips the per-checkout setup most projects need: `.env` files don't follow, `mise`/`direnv` configs aren't trusted (so hooks block on prompts), and `.worktrees/` doesn't get gitignored. This skill handles those for you, with safety rules that prevent untrusted PR-review branches from auto-trusting `.envrc` content the user hasn't seen.
+`ce-worktree` is the **isolation guardrail** skill. Its value is judgment, not mechanics: most coding harnesses now create a worktree by default at session start, so the common case is that you are *already* isolated. The skill encodes the discipline to recognize that, defer to the harness's own worktree tooling, and only create a worktree with plain git as a last resort — so you never nest worktrees or create state the harness can't manage.
+
+It is pure prose + inline git, with **no bundled script**, so it works verbatim on every target (Claude Code, Codex, Gemini, OpenCode, Pi, Kiro).
 
 ---
 
@@ -10,95 +12,61 @@
 
 | Question | Answer |
 |----------|--------|
-| What does it do? | Creates `.worktrees/<branch>`, copies `.env*` from main repo, trusts `mise`/`direnv` configs with safety rules, adds `.worktrees` to `.gitignore` |
-| When to use it | Reviewing a PR while keeping the main checkout free; running multiple features in parallel; keeping the default branch clean |
-| What it produces | A worktree at `.worktrees/<branch-name>` ready to `cd` into |
-| Skip when | Single-task work that fits on a branch in the main checkout |
+| What does it do? | Ensures isolation exists. Detects an existing worktree first, prefers the harness's native worktree tool, falls back to `git worktree add` under `.worktrees/<branch>` |
+| When to use it | Starting work that should stay isolated; when `ce-work` or `ce-code-review` offers a worktree option |
+| What it produces | Either "you're already isolated, work in place" or a new isolated worktree |
+| Skip when | Single-task work that fits on a branch in the current checkout |
 
 ---
 
 ## The Problem
 
-Plain `git worktree add` leaves you with a working tree that's *technically* checked out but practically broken:
+Asking an agent to "make a worktree" is increasingly the *wrong* default, because the agent is usually already in one:
 
-- **`.env*` files don't follow** — the new worktree has no `.env`, so dev servers fail or fall back to fragile defaults
-- **`mise`/`direnv` configs aren't trusted** — every `cd` into the worktree blocks on a trust prompt, slowing down agent flows
-- **Dangerous `.envrc` auto-trust on review branches** — naïvely running `direnv allow` on a PR-review worktree trusts whatever the contributor put in `.envrc`, which can source files direnv doesn't validate
-- **`.worktrees/` not in `.gitignore`** — every `git status` from the main checkout shows the worktree directory as untracked
-- **Main checkout disturbed** — `git worktree add origin/<branch>` may end up changing the main checkout's state in ways the user doesn't expect
-- **Cryptic auto-generated branch names** like `worktree-jolly-beaming-raven` from some tools obscure what the worktree is actually for
+- **Worktree-from-worktree** — creating a worktree from inside a linked worktree resolves the new one against the *main* clone, landing it in a different directory tree the user isn't working in.
+- **Phantom state** — a behind-the-back `git worktree add` is invisible to the harness (Orca, Cursor, etc.) that owns worktree lifecycle: it can't list, navigate to, or clean it up.
+- **Committed worktree contents** — if `.worktrees/` isn't gitignored, the worktree pollutes `git status` and risks being committed.
+- **Cryptic branch names** — auto-generated names like `worktree-jolly-beaming-raven` obscure what the worktree is for.
 
 ## The Solution
 
-`ce-worktree` runs worktree creation as a structured pass:
+`ce-worktree` runs isolation as an ordered decision, not a creation script:
 
-- Creates the worktree at `.worktrees/<branch>` (consistent location, never random)
-- Copies `.env`, `.env.local`, `.env.test`, etc. (skips `.env.example`)
-- Trusts `mise`/`direnv` configs with branch-aware safety rules — never auto-trusts modified configs, never `direnv allow` on PR-review branches
-- Adds `.worktrees` to `.gitignore` if not already there
-- Fetches the `from-branch` instead of checking it out — main repo stays undisturbed
-- Provides clear naming guidance to upstream callers (`feat/crowd-sniff`, `fix/email-validation`, never random)
+1. **Detect existing isolation** (compare `--git-dir` against `--git-common-dir`, with a submodule guard). Already isolated → report and work in place.
+2. **Prefer the harness's native worktree tool** (e.g. an `EnterWorktree` tool, a `/worktree` command, a `--worktree` flag) so the worktree stays managed.
+3. **Inline git fallback** only when neither applies: create `.worktrees/<branch>`, ensuring `.worktrees` is gitignored first, with a meaningful branch name.
 
 ---
 
 ## What Makes It Novel
 
-### 1. Branch-aware dev-tool trust
+### 1. Detection before creation
 
-Trust for `mise`/`direnv` is split by base branch:
+The single most important behavior: before creating anything, determine whether the current directory is already a linked worktree. `git rev-parse --git-dir` and `--git-common-dir` differ inside both linked worktrees and submodules, so a `git rev-parse --show-superproject-working-tree` submodule guard disambiguates. When already isolated, the skill works in place rather than nesting.
 
-| Base branch | Behavior |
-|-------------|----------|
-| **Trusted base** (`main`, `develop`, `dev`, `trunk`, `staging`, `release/*`) | Configs compared against that branch; unchanged configs auto-trusted; `direnv allow` permitted |
-| **Other branches** (feature, PR review) | Configs compared against the default branch; `direnv allow` skipped regardless because `.envrc` can source files direnv doesn't validate |
+### 2. Native-tool deference
 
-The split exists because review branches often contain code from external contributors. Auto-trusting their `.envrc` is the same shape of mistake as auto-running their setup script — you wouldn't, so the skill doesn't.
+If the harness provides a worktree primitive, the skill uses it instead of shelling out to git. This avoids creating phantom worktrees the harness can't see or clean up — the "don't fight the harness" rule.
 
-**Modified configs are never auto-trusted.** When a config differs from the base, the skill prints the manual trust command and waits for the user to review the diff first.
+### 3. Portable by construction
 
-### 2. `.env*` propagation with `.env.example` skip
+There is no bundled script and no `${CLAUDE_SKILL_DIR}` dependence — only inline git the agent runs from the project directory. That is why the skill resolves identically on every target, and why it carries no `ce_platforms` gate.
 
-Most projects need `.env`, `.env.local`, `.env.test`, etc. in the worktree to run anything. The skill copies all `.env*` files from the main repo, **except `.env.example`** (which is the committed template, not the user's local secrets). After creation, the worktree can run dev servers, tests, or scripts that depend on env state without manual setup.
+### 4. Gitignore safety before creation
 
-### 3. Doesn't disturb the main checkout
+When the git fallback runs, the skill verifies `.worktrees` is gitignored (`git check-ignore`) before creating the worktree, so its contents are never committed.
 
-`git worktree add` with a remote ref behaves differently depending on whether the local branch exists. Plain usage can accidentally check out something in the main repo or fail with a confusing error. This skill **fetches** the `from-branch` rather than checking it out — the new worktree is created from the remote ref, but the main checkout stays exactly where it was.
+### 5. Naming guidance for upstream callers
 
-### 4. Consistent location: `.worktrees/<branch>`
-
-Worktrees go to `.worktrees/<branch>` — no exceptions. Predictable for `cd` shortcuts, predictable for cleanup, predictable for tooling that scans for worktrees. Branch names with slashes (`feat/login`) become directory paths (`.worktrees/feat/login`), which all major filesystems support.
-
-### 5. Auto-`.gitignore` for `.worktrees`
-
-If `.worktrees` isn't already in `.gitignore`, the skill adds it. Without this, every `git status` from the main checkout shows the worktree directory as a noisy untracked entry. With it, the directory is invisible to git operations from the main checkout.
-
-### 6. Naming guidance for upstream callers
-
-When `/ce-work` or `/ce-code-review` invoke this skill, they pass a meaningful branch name derived from the work description (`feat/crowd-sniff`, `fix/email-validation`). The skill explicitly discourages auto-generated cryptic names — they obscure what the worktree is for and make cleanup harder later.
-
-### 7. No wrapper for read/list/remove — just use `git`
-
-Other worktree operations (list, remove, switch) don't get a wrapper. The skill explicitly tells you to use `git worktree list`, `git worktree remove .worktrees/<branch>`, `cd .worktrees/<branch>`, `cd "$(git rev-parse --show-toplevel)"` directly. Wrapping bare git commands adds no value and creates a maintenance burden — the skill is focused on the parts where setup matters.
+When `ce-work` or `ce-code-review` invoke the skill, they pass a meaningful branch name derived from the work (`feat/crowd-sniff`, `fix/email-validation`) — never an opaque auto-generated name.
 
 ---
 
 ## Quick Example
 
-You're starting work on a notification-mute feature and want it isolated from your main checkout (which has another feature in progress). You invoke `/ce-worktree feat/notification-mute`.
+You're in an Orca-managed worktree (the harness created it at session start) and ask `ce-work` to isolate the work. The skill runs Step 0: `--git-dir` and `--git-common-dir` differ, and the submodule guard returns empty → **you are already isolated**. It reports the worktree path and current branch and proceeds in place — no second worktree, no phantom state.
 
-The skill runs `bash scripts/worktree-manager.sh create feat/notification-mute`. Defaults: `from-branch` is `origin/main`. Creates `.worktrees/feat/notification-mute` from the fetched `origin/main`. Copies your `.env`, `.env.local`, `.env.test`. Detects you have a `.mise.toml` matching `main`'s; auto-trusts since the base branch is `main` and the config is unchanged. `.worktrees` is already in your `.gitignore`, so no edit there.
-
-Output:
-
-```text
-Worktree created: .worktrees/feat/notification-mute
-Copied .env files: .env, .env.local, .env.test
-Trusted .mise.toml (matches main, auto-trust permitted)
-
-Switch with: cd .worktrees/feat/notification-mute
-```
-
-You `cd .worktrees/feat/notification-mute`, run `bin/dev`, and start working — no env setup, no trust prompts, no disturbance to your other feature in the main checkout.
+In a plain terminal checkout with no native worktree tool, the same invocation falls through to Step 2: it confirms `.worktrees` is gitignored, fetches the base branch, runs `git worktree add -b feat/login .worktrees/feat/login origin/main`, and `cd`s in.
 
 ---
 
@@ -106,92 +74,55 @@ You `cd .worktrees/feat/notification-mute`, run `bin/dev`, and start working —
 
 Reach for `ce-worktree` when:
 
-- You're reviewing a PR and want to keep the main checkout free for ongoing work
-- You're running multiple features in parallel and don't want to context-switch via `git checkout`
-- You want to keep the default branch free of in-progress state
+- You're starting work that should stay isolated from the current checkout
 - A skill (`ce-work`, `ce-code-review`) offered worktree as an option
 
-Skip `ce-worktree` when:
+Skip it when:
 
-- The work is single-task and fits on a branch in the main checkout — worktree overhead exceeds yield
-- You're already inside a worktree — nested worktrees aren't a thing the skill is designed for
-- The repo doesn't have `.env` files or dev-tool configs — plain `git worktree add` is sufficient
+- The work is single-task and fits on a branch in the current checkout
+- You are already isolated and have no need for a *second*, parallel workspace (the skill detects this for you)
 
 ---
 
 ## Use as Part of the Workflow
 
-`ce-worktree` is invoked from chain skills as their parallel-isolation option:
+`ce-worktree` is invoked from chain skills as their isolation step:
 
-- **`/ce-work` Phase 1.2** — when starting work, the user can choose worktree (recommended for parallel features) over branching in the main checkout
-- **`/ce-code-review`** — for reviewing PRs concurrently with browser tests on a separate checkout
-- **`/ce-debug`** — when investigating a bug on a branch other than the current one without disturbing in-progress work
+- **`/ce-work`** — when starting work, the user can choose worktree isolation over branching in the current checkout
+- **`/ce-code-review`** — for reviewing PRs concurrently without disturbing in-progress work
 
 Upstream callers pass meaningful branch names; the skill expects `feat/...`, `fix/...`, `refactor/...` shapes — not auto-generated random names.
 
 ---
 
-## Use Standalone
+## Other worktree operations
 
-Direct invocation:
-
-- `/ce-worktree feat/notification-mute` — create from default branch
-- `/ce-worktree fix/email-validation develop` — create from a different base
-
-Other worktree operations (list, remove, switch) use `git` directly:
+List, remove, and switch use `git` directly — the skill provides no wrapper:
 
 ```bash
 git worktree list                          # list worktrees
 git worktree remove .worktrees/<branch>    # remove a worktree
 cd .worktrees/<branch>                     # switch to a worktree
-cd "$(git rev-parse --show-toplevel)"      # return to main checkout
+cd "$(git rev-parse --show-toplevel)"      # return to the current checkout root
 ```
-
-To copy `.env*` into an existing worktree created without them, run from the main repo (not from inside the worktree, because branch names with slashes confuse the relative path):
-
-```bash
-cp .env* .worktrees/<branch>/
-```
-
----
-
-## Reference
-
-| Argument | Effect |
-|----------|--------|
-| `<branch-name>` | Create worktree from default branch |
-| `<branch-name> <from-branch>` | Create worktree from specified base |
-
-Defaults:
-- `from-branch` defaults to origin's default branch (or `main` if that can't be resolved)
-- The new branch is created at `origin/<from-branch>` (or the local ref if remote is unavailable)
 
 ---
 
 ## FAQ
 
-**Why a separate worktree skill instead of just `git worktree add`?**
-Because the per-checkout setup matters — `.env` copying, `mise`/`direnv` trust, `.gitignore` management. Plain `git worktree add` leaves you with a tree that doesn't run.
+**Why a skill instead of just `git worktree add`?**
+The value isn't the `git worktree add` command — the agent knows that. It's the *judgment*: detect that you're probably already isolated, defer to the harness's worktree tooling, and don't nest or create phantom state. That discipline is shared by `ce-work` and `ce-code-review`, so it lives in one named skill rather than being duplicated and drifting.
 
-**Why is `direnv allow` skipped on review branches?**
-Because `.envrc` can source other files that direnv doesn't validate. Auto-trusting an external contributor's `.envrc` is the same shape of mistake as auto-running their setup script. The skill skips `direnv allow` on review branches and prints the manual command — you review the diff, then trust if appropriate.
-
-**What if the worktree was created without `.env*` files?**
-Run `cp .env* .worktrees/<branch>/` from the main repo (not from inside the worktree, since branch names often contain slashes that confuse relative paths from inside).
+**I'm already in a worktree — will it make another?**
+No. Step 0 detects existing isolation and works in place. A worktree-from-worktree is exactly the failure mode the skill prevents.
 
 **How do I clean up a worktree?**
-`cd "$(git rev-parse --show-toplevel)"` to leave the worktree, then `git worktree remove .worktrees/<branch>`. If the branch was deleted upstream, `/ce-clean-gone-branches` handles worktree-and-branch cleanup together.
-
-**Why `.worktrees/<branch>` and not somewhere else?**
-Predictability. Tooling that scans for worktrees, tab-completion, branch-to-path lookup all benefit from one canonical location. The directory is gitignored so it doesn't pollute git status.
-
-**Does it work for branches that don't exist on the remote yet?**
-Yes — the new branch is created locally at the resolved base ref. The skill fetches `origin/<from-branch>` to be current, but doesn't require the new branch name to already exist on the remote.
+`cd "$(git rev-parse --show-toplevel)"` to leave it, then `git worktree remove .worktrees/<branch>`. `/ce-clean-gone-branches` handles worktree-and-branch cleanup together when the remote tracking branch is gone.
 
 ---
 
 ## See Also
 
-- [`/ce-work`](./ce-work.md) — calls this skill at Phase 1.2 when the user picks worktree mode for parallel features
-- [`/ce-code-review`](./ce-code-review.md) — recommends worktree for review concurrent with browser tests
+- [`/ce-work`](./ce-work.md) — offers this skill as its isolation option
+- [`/ce-code-review`](./ce-code-review.md) — offers worktree isolation for concurrent review
 - [`/ce-clean-gone-branches`](./ce-clean-gone-branches.md) — cleans up worktrees and branches together when the remote tracking branch is gone

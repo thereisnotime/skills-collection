@@ -50,7 +50,7 @@ The primary entry points for engineering work, invoked as slash commands. Detail
 | [`ce-clean-gone-branches`](../../docs/skills/ce-clean-gone-branches.md) | Clean up local branches whose remote tracking branch is gone |
 | [`ce-commit`](../../docs/skills/ce-commit.md) | Create a git commit with a value-communicating message |
 | [`ce-commit-push-pr`](../../docs/skills/ce-commit-push-pr.md) | Commit, push, and open a PR with an adaptive description; also update an existing PR description, or generate a description on its own without committing |
-| [`ce-worktree`](../../docs/skills/ce-worktree.md) | Manage Git worktrees for parallel development |
+| [`ce-worktree`](../../docs/skills/ce-worktree.md) | Ensure work happens in an isolated git worktree — detect existing isolation, prefer native worktree tooling, else create one |
 
 ### Workflow Utilities
 

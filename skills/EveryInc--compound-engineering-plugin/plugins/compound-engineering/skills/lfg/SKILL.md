@@ -10,25 +10,33 @@ When invoking any skill referenced below, resolve its name against the available
 
 1. Invoke the `ce-plan` skill with `$ARGUMENTS`.
 
-   GATE: STOP. If ce-plan reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `ce-plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, invoke `ce-plan` again with `$ARGUMENTS`. Do NOT proceed to step 2 until a written plan exists. **Record the plan file path** — it will be passed to ce-code-review in step 3.
+   GATE: STOP. If ce-plan reported the task is non-software and cannot be processed in pipeline mode, stop the pipeline and inform the user that LFG requires software tasks. Otherwise, verify that the `ce-plan` workflow produced a plan file in `docs/plans/`. If no plan file was created, invoke `ce-plan` again with `$ARGUMENTS`. Do NOT proceed to step 2 until a written plan exists. **Record the plan file path** — it will be passed to ce-code-review in step 4.
 
 2. Invoke the `ce-work` skill.
 
    GATE: STOP. Verify that implementation work was performed - files were created or modified beyond the plan. Do NOT proceed to step 3 if no code changes were made.
 
-3. Invoke the `ce-code-review` skill with `mode:agent plan:<plan-path-from-step-1>`.
+3. Invoke the `ce-simplify-code` skill on the branch diff.
+
+   This runs before review so the code-review in step 4 covers the simplified code. **Skip** this step when the change is docs-only (only markdown/docs paths changed) or trivial (roughly under 10 changed lines). Otherwise let `ce-simplify-code` resolve the branch-diff scope itself; it preserves behavior and runs the test suite.
+
+   Do not commit in this step. `ce-simplify-code` leaves its changes in the working tree; step 4's review scopes the working tree (uncommitted changes included), and step 8's `ce-commit-push-pr` commits whatever remains. Committing here would sweep any still-uncommitted `ce-work` edits into a misleading `refactor` commit and could stall on a tree that never goes clean.
+
+4. Invoke the `ce-code-review` skill with `mode:agent plan:<plan-path-from-step-1>`.
 
    Pass the plan file path from step 1 so ce-code-review can verify requirements completeness. Read the **Actionable Findings** summary the skill emits.
 
-4. **Apply and persist review fixes** (REQUIRED after step 3, before residual handoff)
+   `mode:agent` is report-only **by design** — it surfaces findings but never edits the tree; LFG applies the eligible ones in step 5. When narrating progress to the user, frame this as "review found X → applied X in step 5," not as "code review did not auto-fix." A report-only review followed by an LFG-applied fix is the intended contract, not a gap.
 
-   Load `references/review-followup.md` and execute step 4 there (mechanical apply + commit/push when changes exist). Do not proceed to step 5, run browser tests, or output DONE while eligible review fixes remain only in the working tree uncommitted.
+5. **Apply and persist review fixes** (REQUIRED after step 4, before residual handoff)
 
-5. **Autonomous residual handoff** (only when step 3 reported one or more actionable `downstream-resolver` findings not applied in step 4; skip when it reported `Actionable findings: none.`)
+   Load `references/review-followup.md` and execute its apply step (mechanical apply + commit/push when changes exist). Do not proceed to the residual handoff, run browser tests, or output DONE while eligible review fixes remain only in the working tree uncommitted.
+
+6. **Autonomous residual handoff** (only when step 4 reported one or more actionable `downstream-resolver` findings not applied in step 5; skip when it reported `Actionable findings: none.`)
 
    Do not prompt the user. This step embraces the autopilot contract: residuals must become durable before DONE, but the agent never stops to ask.
 
-   1. Load `references/tracker-defer.md` in **non-interactive mode**. Pass the residual actionable findings from step 3/4 (or the run artifact when the summary was truncated).
+   1. Load `references/tracker-defer.md` in **non-interactive mode**. Pass the residual actionable findings from step 4/5 (or the run artifact when the summary was truncated).
    2. Collect the structured return: `{ filed: [...], failed: [...], no_sink: [...] }`.
    3. Compose a `## Residual Review Findings` markdown section from the structured return:
       - For each item in `filed`: a bullet with severity, file:line, title, and a link to the tracker ticket URL.
@@ -50,15 +58,15 @@ When invoking any skill referenced below, resolve its name against the available
 
    Never block DONE on tracker filing failures once residuals have been durably recorded. A `no_sink` outcome is success only when the findings are present in the PR body or in the pushed fallback file.
 
-6. Invoke the `ce-test-browser` skill with `mode:pipeline`.
+7. Invoke the `ce-test-browser` skill with `mode:pipeline`.
 
-7. Invoke the `ce-commit-push-pr` skill.
+8. Invoke the `ce-commit-push-pr` skill.
 
-   This commits any remaining changes, pushes the branch, and opens a pull request. If step 5 already opened a PR (check with `gh pr view --json number,url,state 2>/dev/null`), skip PR creation but still commit and push any uncommitted changes.
+   This commits any remaining changes, pushes the branch, and opens a pull request. If step 6 already opened a PR (check with `gh pr view --json number,url,state 2>/dev/null`), skip PR creation but still commit and push any uncommitted changes.
 
-8. **CI watch and autofix loop** (only when an open PR exists for the current branch)
+9. **CI watch and autofix loop** (only when an open PR exists for the current branch)
 
-   Detect the PR; if none exists or `gh` is unavailable, skip this step entirely and proceed to step 9.
+   Detect the PR; if none exists or `gh` is unavailable, skip this step entirely and proceed to step 10.
 
    ```bash
    gh pr view --json number,url,state
@@ -72,7 +80,7 @@ When invoking any skill referenced below, resolve its name against the available
       gh pr checks --watch
       ```
 
-      If the command exits 0, all checks passed. Break out of the loop and proceed to step 9.
+      If the command exits 0, all checks passed. Break out of the loop and proceed to step 10.
 
       If it exits non-zero, one or more checks failed. Continue to (2).
 
@@ -105,8 +113,8 @@ When invoking any skill referenced below, resolve its name against the available
      gh pr edit PR_NUMBER --body-file BODY_FILE
      ```
 
-   - Do NOT continue looping. The autopilot contract is "make residuals durable, then exit." Proceed to step 9.
+   - Do NOT continue looping. The autopilot contract is "make residuals durable, then exit." Proceed to step 10.
 
-9. Output `<promise>DONE</promise>` when complete
+10. Output `<promise>DONE</promise>` when complete
 
 Start with step 1 now. Remember: plan FIRST, then work. Never skip the plan.

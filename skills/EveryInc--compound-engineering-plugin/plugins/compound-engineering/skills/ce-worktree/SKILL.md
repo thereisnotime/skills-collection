@@ -1,80 +1,77 @@
 ---
 name: ce-worktree
-description: Create an isolated git worktree for parallel feature work or PR review. Use when starting work that should not disturb the current checkout, or when `ce-work` or `ce-code-review` offers a worktree option.
-allowed-tools: Bash(bash *worktree-manager.sh)
+description: Ensure work happens in an isolated git worktree without disturbing the current checkout. Use when starting work that should stay isolated, or when `ce-work` or `ce-code-review` offers a worktree option. Detects existing isolation first, prefers the harness's native worktree tool, and falls back to plain git.
 ---
 
-# Worktree Creation
+# Worktree Isolation
 
-Create a worktree under `.worktrees/<branch>` with branch-specific setup that `git worktree add` alone does not handle:
+Ensure the current work happens in an isolated workspace, without disturbing the user's main checkout. Most coding harnesses now create a worktree by default at session start, so the common case is that **isolation already exists** — detect that first and do not create a redundant one.
 
-- Copies `.env`, `.env.local`, `.env.test`, etc. from the main repo (skips `.env.example`)
-- Trusts `mise`/`direnv` configs, with branch-aware safety rules so review branches do not auto-grant trust to untrusted `.envrc` content
-- Adds `.worktrees` to `.gitignore` if not already ignored
-- Does not modify the main repo checkout — `from-branch` is fetched, not checked out
+Order of operations: **detect existing isolation -> prefer a native worktree tool -> fall back to plain git.** Never create a worktree the harness cannot see.
 
-## Creating a worktree
+## Step 0: Detect existing isolation
 
-Invoke the bundled script via the runtime Bash tool. On Claude Code, `${CLAUDE_SKILL_DIR}` resolves to the skill's own directory across both marketplace-cached installs and `claude --plugin-dir` local development; the runtime Bash tool's CWD is the user's project, not the skill directory, so a bare `bash scripts/worktree-manager.sh` fails. The `:-.` fallback keeps the command syntactically valid where `${CLAUDE_SKILL_DIR}` is unset.
+Before creating anything, check whether the current directory is already a linked worktree. Compare the **resolved absolute** git dir against the **resolved absolute** common git dir — resolve each to an absolute path first and compare those, not the raw `git rev-parse` output. Git mixes absolute and relative forms depending on the current directory (from a subdirectory of a normal checkout, `--git-dir` comes back absolute while `--git-common-dir` may be relative), so a raw string compare yields a false "already isolated":
 
 ```bash
-bash "${CLAUDE_SKILL_DIR:-.}/scripts/worktree-manager.sh" create <branch-name> [from-branch]
+git rev-parse --absolute-git-dir                     # absolute git dir for this worktree
+(cd "$(git rev-parse --git-common-dir)" && pwd -P)   # absolute shared (common) git dir
 ```
 
-Defaults:
-- `from-branch` defaults to origin's default branch (or `main` if that cannot be resolved)
-- The new branch is created at `origin/<from-branch>` (or the local ref if the remote is unavailable)
+If the two absolute paths are **equal**, this is a normal checkout — continue to Step 1.
 
-Examples:
+If they **differ**, you are in a linked worktree *or* a submodule. Distinguish them:
+
 ```bash
-bash "${CLAUDE_SKILL_DIR:-.}/scripts/worktree-manager.sh" create feat/login
-bash "${CLAUDE_SKILL_DIR:-.}/scripts/worktree-manager.sh" create fix/email-validation develop
+git rev-parse --show-superproject-working-tree
 ```
 
-After creation, switch to the worktree with `cd .worktrees/<branch-name>`.
+- **Non-empty** output -> you are in a submodule; treat it as a normal checkout and continue to Step 1.
+- **Empty** output -> you are **already in an isolated worktree**. Report the worktree path (`git rev-parse --show-toplevel`) and current branch, and **work in place**. Do not create another worktree — a worktree-from-worktree lands in the wrong tree and is invisible to the harness that made the current one.
+
+## Step 1: Prefer the harness's native worktree tool
+
+If the harness provides a native worktree primitive — for example an `EnterWorktree` / `WorktreeCreate` tool, a `/worktree` command, or a `--worktree` flag — use it and stop. Native tools place, track, and clean up the worktree so the harness can manage it. A behind-the-back `git worktree add` creates phantom state the harness cannot see, navigate to, or clean up.
+
+## Step 2: Git fallback
+
+Only when there is no native tool **and** Step 0 found no existing isolation.
+
+1. **Run from the repo root.** The `.worktrees/` and `.gitignore` paths below are repo-root-relative, but the skill runs from the user's current directory, which may be a subdirectory — so move to the root first: `cd "$(git rev-parse --show-toplevel)"`. Without this, `.worktrees/<branch>` and the `.gitignore` edit would land in the subdirectory (e.g. `src/.worktrees/...`, `src/.gitignore`) instead of at the repo root.
+2. Choose a meaningful branch name from the work description (e.g. `feat/login`, `fix/email-validation`) — avoid opaque auto-generated names. Pick a base branch (default: origin's default branch, else `main`).
+3. **Ensure `.worktrees/` is gitignored before creating anything**, so worktree contents are never committed: check `git check-ignore -q .worktrees/` — **with the trailing slash**, so an existing directory-only `.worktrees/` rule is honored even before the directory exists (`git check-ignore .worktrees` without the slash would miss it and dirty a correctly-configured repo). If it is not ignored, add a `.worktrees/` line to `.gitignore`.
+4. Best-effort refresh the base branch without disturbing the current checkout: `git fetch origin <from-branch>`. This is **non-fatal** — if it errors (no `origin` remote, a differently-named remote, or a local-only branch), do not abort; continue to the next step and use the local ref.
+5. Create the worktree from the remote base when available, else the local ref: `git worktree add -b <branch-name> .worktrees/<branch-name> origin/<from-branch>`. If `origin/<from-branch>` does not exist, use the local `<from-branch>` ref instead.
+6. Switch into it: `cd .worktrees/<branch-name>`.
+
+If `git worktree add` fails with a sandbox or permission error, the requested isolation could not be created. This needs a **blocking** user decision before touching the current checkout — do not silently continue there (the user chose isolation specifically to avoid it, especially when `ce-work` / `ce-code-review` routed here for the worktree option). Report the failure and ask via the platform's blocking question tool: `AskUserQuestion` in Claude Code (call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded), `request_user_input` in Codex, `ask_user` in Gemini, `ask_user` in Pi (via the `pi-ask-user` extension) — offering options such as "work in the current checkout" vs "stop and resolve the permission issue". If no blocking tool exists in the harness or the call errors, present the numbered options in chat and wait for the reply; never skip the confirmation. Only work in the current checkout on explicit confirmation, and do not retry alternative paths automatically.
 
 ## Other worktree operations
 
-Use `git` directly — no wrapper is needed and none is provided:
+Use `git` directly — no wrapper is needed:
 
 ```bash
 git worktree list                          # list worktrees
 git worktree remove .worktrees/<branch>    # remove a worktree
 cd .worktrees/<branch>                     # switch to a worktree
-cd "$(git rev-parse --show-toplevel)"      # return to main checkout
+cd "$(git rev-parse --show-toplevel)"      # return to the current checkout root
 ```
-
-To copy `.env*` files into an existing worktree created without them, run this from the main repo (not from inside the worktree, since branch names often contain slashes like `feat/login`):
-```bash
-cp .env* .worktrees/<branch>/
-```
-
-## Dev tool trust behavior
-
-When mise or direnv configs are present, the script attempts to trust them so hooks and scripts do not block on interactive prompts. Trust is baseline-checked against a reference branch:
-
-- **Trusted base branches** (`main`, `develop`, `dev`, `trunk`, `staging`, `release/*`): the new worktree's configs are compared against that branch; unchanged configs are auto-trusted. `direnv allow` is permitted.
-- **Other branches** (feature branches, PR review branches): configs are compared against the default branch; `direnv allow` is skipped regardless, because `.envrc` can source files that direnv does not validate.
-
-Modified configs are never auto-trusted. The script prints the manual trust command to run after review.
 
 ## When to create a worktree
 
-Create a worktree when:
-- Reviewing a PR while keeping the main checkout free for other work
-- Running multiple features in parallel without branch-switching overhead
-- Keeping the default branch free of in-progress state
+Create one (Step 1/2) only when you are **not** already isolated and you need a separate workspace:
 
-Do not create a worktree for single-task work that can happen on a branch in the main checkout.
+- Reviewing a PR while keeping the current checkout free for other work
+- Running multiple features in parallel without branch-switching overhead
+
+Do not create a worktree for single-task work that can happen on a branch in the current checkout — and never when Step 0 shows you are already in one.
 
 ## Integration
 
-`ce-work` and `ce-code-review` offer this skill as an option. When the user selects "worktree" in those flows, invoke `bash "${CLAUDE_SKILL_DIR:-.}/scripts/worktree-manager.sh" create <branch>` with a meaningful branch name derived from the work description (e.g., `feat/crowd-sniff`, `fix/email-validation`). Avoid auto-generated names like `worktree-jolly-beaming-raven` that obscure the work.
+`ce-work` and `ce-code-review` offer this skill as an option. When the user selects "worktree" in those flows, run Step 0 first: if the work is already isolated, proceed in place; otherwise create one (native tool preferred) with a meaningful branch name derived from the work description.
 
 ## Troubleshooting
 
-**"Worktree already exists"**: the path is already in use. Either switch to it (`cd .worktrees/<branch>`) or remove it (`git worktree remove .worktrees/<branch>`) before recreating.
+**"Worktree already exists"**: the path is in use. Switch to it (`cd .worktrees/<branch>`) or remove it (`git worktree remove .worktrees/<branch>`) before recreating.
 
 **"Cannot remove worktree: it is the current worktree"**: `cd` out of the worktree first, then `git worktree remove`.
-
-**Dev tool trust was skipped**: the script prints the manual command. Review the config diff (`git diff <base-ref> -- .envrc`), then run the printed command from the worktree directory.

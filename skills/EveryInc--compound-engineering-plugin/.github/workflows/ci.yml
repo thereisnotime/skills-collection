@@ -37,6 +37,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        # Full history so release:validate can read the base-branch (origin/main)
+        # release-please manifest when checking release-as pins for staleness.
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

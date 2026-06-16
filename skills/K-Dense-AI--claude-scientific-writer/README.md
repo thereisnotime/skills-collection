@@ -7,7 +7,7 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-K--Dense_Inc.-0A66C2?logo=linkedin)](https://www.linkedin.com/company/k-dense-inc)
 [![YouTube](https://img.shields.io/badge/YouTube-K--Dense_Inc.-FF0000?logo=youtube)](https://www.youtube.com/@K-Dense-Inc)
 
-> 🚀 **Looking for more advanced capabilities?** For end-to-end scientiic writing, deep scientfic search, advanced image generation and enterprise solutions, visit **[www.k-dense.ai](https://www.k-dense.ai)**
+> 🚀 **Looking for more advanced capabilities?** For end-to-end scientiic writing, deep scientific search, advanced image generation and enterprise solutions, visit **[www.k-dense.ai](https://www.k-dense.ai)**
 
 > **Stay up to date:** Follow K-Dense on [X](https://x.com/k_dense_ai), [LinkedIn](https://www.linkedin.com/company/k-dense-inc), and [YouTube](https://www.youtube.com/@K-Dense-Inc) for new features, release announcements, walkthroughs, research workflow demos, and examples you can use with Scientific Writer.
 
@@ -50,7 +50,7 @@ export ANTHROPIC_API_KEY='your_key'
 ### Usage Options
 
 #### Use as Plugin (Recommended)
-After installing the plugin and running `/scientific-writer:init`, simply ask Claude:
+After installing the plugin and running `/claude-scientific-writer:scientific-writer-init`, simply ask Claude:
 ```bash
 > Create a Nature paper on CRISPR gene editing. Present experimental_data.csv 
   (efficiency across 5 cell lines), include Western_blot.png and flow_cytometry.png 
@@ -125,7 +125,7 @@ asyncio.run(main())
 
 4. **Initialize in your project**:
    ```bash
-   /scientific-writer:init
+   /claude-scientific-writer:scientific-writer-init
    ```
    This creates a `CLAUDE.md` file with comprehensive scientific writing instructions and makes all 19+ skills available.
 
@@ -452,7 +452,7 @@ For developers working on the plugin or testing locally:
 
 6. **Test the plugin**:
    - Open any project directory
-   - Run `/scientific-writer:init`
+   - Run `/claude-scientific-writer:scientific-writer-init`
    - Verify CLAUDE.md is created
    - Test skills: "What skills are available?"
    - Try creating a document: "Create a short scientific abstract on quantum computing"
@@ -465,7 +465,7 @@ claude-scientific-writer/
 ├── .claude-plugin/
 │   └── plugin.json          # Plugin metadata
 ├── commands/
-│   └── scientific-writer-init.md  # /scientific-writer:init command
+│   └── scientific-writer-init.md  # /claude-scientific-writer:scientific-writer-init command
 ├── skills/                  # All 20 skills
 │   ├── citation-management/
 │   ├── clinical-decision-support/
@@ -529,6 +529,38 @@ Want to see what Scientific Writer can create? Check out real examples in the [`
 - [📦 Releasing Guide](docs/RELEASING.md) - Versioning and publishing
 - [📋 Release Notes](CHANGELOG.md) - Version history and updates
 - [🤖 System Instructions](CLAUDE.md) - Agent instructions (advanced)
+
+## Use with Gemini CLI and Other Agents
+
+The skills in this repository follow the [Claude Code SKILL.md format](https://docs.anthropic.com/en/docs/claude-code/skills). Each skill is a self-contained prompt file that tells an AI agent how to perform a specific task.
+
+### Manual approach
+
+To use any skill with another agent (Gemini CLI, Aider, Continue, etc.):
+
+1. Open the relevant `skills/<skill-name>/SKILL.md` file.
+2. Copy the content below the YAML frontmatter (everything after the closing `---`).
+3. Paste it into your agent's system prompt, custom instructions file, or equivalent configuration.
+
+For example, to use the `scientific-writing` skill in Gemini CLI:
+
+```bash
+# Copy skill content to Gemini CLI system prompt file
+tail -n +6 skills/scientific-writing/SKILL.md > ~/.gemini/system_prompt.md
+gemini "Write a Nature paper on CRISPR off-target effects"
+```
+
+### Claude Code-specific features
+
+The following SKILL.md frontmatter fields are Claude Code-specific and can be safely ignored by other agents:
+
+| Field | Claude Code behaviour | Other agents |
+|-------|-----------------------|--------------|
+| `allowed-tools` | Restricts which tools the agent may call | Ignore or map to your agent's tool-permission system |
+| `hooks` | Runs shell commands before/after skill execution | Ignore or implement equivalent pre/post hooks manually |
+| `version` | Used by Claude Code marketplace | Informational only |
+
+All skill *content* (instructions, workflows, code examples) is agent-agnostic and works with any sufficiently capable LLM.
 
 ## Versioning and Publishing (short)
 Use `uv` and the helper scripts:

@@ -67,6 +67,7 @@
     ".claude-plugin": {
       "release-type": "simple",
       "package-name": "marketplace",
+      "release-as": "1.0.3",
       "extra-files": [
         {
           "type": "json",
@@ -78,6 +79,7 @@
     ".cursor-plugin": {
       "release-type": "simple",
       "package-name": "cursor-marketplace",
+      "release-as": "1.0.2",
       "extra-files": [
         {
           "type": "json",

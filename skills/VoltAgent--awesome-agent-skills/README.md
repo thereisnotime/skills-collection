@@ -45,7 +45,13 @@ Compatible with Claude Code, Codex, Antigravity, Gemini CLI, Cursor, GitHub Copi
 
 The most contributed Agent Skills repository, built and maintained together with the community.
 
+<br/>
 
+<a href="https://launchkit.getdesign.md/">
+<img src="https://cdn.voltagent.dev/awesome-repo/launchkit-banner-1.png" alt="launchkit"  /><br/>
+</a>
+
+<br/>
 
 ## Table of Contents
 
@@ -97,6 +103,8 @@ Tools, platforms, and services for building
 
 </div>
 
+
+
 <details open>
 <summary><h3 style="display:inline">Official Claude Skills</h3></summary>
 
@@ -126,6 +134,8 @@ Official skills by VoltAgent for building AI agents with the VoltAgent TypeScrip
 - **[voltagent/voltagent-best-practices](https://officialskills.sh/voltagent/skills/voltagent-best-practices)** - Architecture and usage patterns for agents, workflows, memory, and servers
 - **[voltagent/voltagent-core-reference](https://officialskills.sh/voltagent/skills/voltagent-core-reference)** - Reference for the VoltAgent class options and lifecycle methods
 - **[voltagent/voltagent-docs-bundle](https://officialskills.sh/voltagent/skills/voltagent-docs-bundle)** - Lookup embedded docs from @voltagent/core for version-matched documentation
+
+
 
 ### Skills by Angular
 - **[angular/angular-developer](https://github.com/angular/skills)** - Generate Angular code and architectural guidance for components, services, reactivity
