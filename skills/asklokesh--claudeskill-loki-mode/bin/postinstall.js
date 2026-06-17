@@ -179,23 +179,35 @@ console.log('');
 console.log('New here? Run `loki welcome` for a 30-second tour.');
 console.log('');
 
-// Anonymous install telemetry (fire-and-forget, silent)
-// Unified opt-out: these checks mirror loki_collection_enabled in
-// autonomy/crash.sh so one switch gates BOTH PostHog usage telemetry and
-// crash reporting.
-function _lokiCollectionDisabled() {
-  if ((process.env.LOKI_TELEMETRY || '').toLowerCase() === 'off') return true;
-  if (process.env.LOKI_TELEMETRY_DISABLED === 'true') return true;
-  if (process.env.DO_NOT_TRACK === '1') return true;
+// Anonymous install telemetry (fire-and-forget, silent).
+// Collection is OPT-IN and OFF by default: a default `npm install` (including
+// air-gapped, GDPR, and FedRAMP environments) sends NOTHING. This precedence
+// mirrors loki_collection_enabled in autonomy/crash.sh, _is_enabled in
+// dashboard/telemetry.py, and _loki_telemetry_enabled in autonomy/telemetry.sh.
+//   1. Any opt-out flag present  -> false (hard kill, always wins)
+//   2. Else any opt-in flag present -> true
+//   3. Else (default)            -> false (no egress)
+function _lokiCollectionEnabled() {
+  const telem = (process.env.LOKI_TELEMETRY || '').toLowerCase();
+  // 1. Opt-out always wins.
+  if (telem === 'off') return false;
+  if (process.env.LOKI_TELEMETRY_DISABLED === 'true') return false;
+  if (process.env.DO_NOT_TRACK === '1') return false;
+  let configEnabled = false;
   try {
     const cfg = path.join(homeDir, '.loki', 'config');
     const lines = fs.readFileSync(cfg, 'utf8').split('\n');
-    if (lines.some((l) => l.startsWith('TELEMETRY_DISABLED=true'))) return true;
+    if (lines.some((l) => l.startsWith('TELEMETRY_DISABLED=true'))) return false;
+    if (lines.some((l) => l.startsWith('TELEMETRY_ENABLED=true'))) configEnabled = true;
   } catch {}
+  // 2. Opt-in required.
+  if (telem === 'on') return true;
+  if (configEnabled) return true;
+  // 3. Default: OFF.
   return false;
 }
 try {
-  if (!_lokiCollectionDisabled()) {
+  if (_lokiCollectionEnabled()) {
     const https = require('https');
     const crypto = require('crypto');
     const idFile = path.join(homeDir, '.loki-telemetry-id');

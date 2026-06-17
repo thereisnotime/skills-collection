@@ -9,6 +9,444 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.57.0] - 2026-06-17
+
+### App Runner shows running apps + URLs, intelligent tasks, default-on advisory gates
+
+- **App Runner now detects externally-launched apps (compose stacks) and shows
+  the service URL** (`dashboard/server.py`, `dashboard/static/index.html` via
+  `dashboard-ui/`): previously the panel showed "Not Started / No app yet" even
+  when a full docker-compose stack was running (e.g. web on :3000 + api on :8000),
+  because the app-runner only recorded state for apps IT launched. The dashboard
+  now discovers a running compose stack for the active project (bounded, fail-open
+  docker probes; ~2.5s cache; offloaded off the event loop), identifies the
+  primary web service, and surfaces a clickable URL + a live-preview iframe with
+  honest status (running/starting). Never fabricates a URL for a non-running
+  container. `autonomy/app-runner.sh` also persists url/primary_service/runtime
+  port for its own compose launches so both paths look consistent.
+- **App Runner UI polish**: one panel instead of three redundant headings, fixed
+  the right-edge content clipping, friendlier empty states, clearer "Agents
+  running / Tasks queued" labels, sidebar name tooltips.
+- **Intelligent task enrichment** (`autonomy/run.sh`, `autonomy/lib/prd-enrich.sh`):
+  PRD-derived tasks no longer show placeholder junk (description == title,
+  "...so that the product delivers its core value" boilerplate). A deterministic
+  fix routes the real spec section body into the description, and an LLM
+  post-pass synthesizes a real description, acceptance criteria, and user story
+  grounded in the spec. Degrades gracefully to the deterministic output when the
+  provider is unavailable; never blocks queue population, never fabricates.
+- **Default-on advisory verification gates**: LSP diagnostics, semantic
+  test-authenticity, and invariant/property gates now run by DEFAULT (advisory
+  surfacing into the next iteration's prompt), extending the mock/mutation
+  precedent, on both routes. Blocking is opt-in via `*_BLOCK` flags. A clean run
+  never newly blocks (deny-filtered); coverage measurement stays opt-in.
+- **Honesty fixes**: removed the CodeQL claim from the static-analysis gate docs
+  (we run ESLint/Pylint/type-checkers, not CodeQL); corrected the Codex CLI flag
+  in README (`--sandbox workspace-write`, the deprecated `--full-auto` replacement).
+
+Gates: local-ci 83/83, bash/Bun parity 6/6, 97 Bun gate tests + full pytest
+green, 3-reviewer council unanimous APPROVE (after rounds that correctly caught a
+built-vs-source divergence and stale docs, both fixed).
+
+## [7.56.0] - 2026-06-17
+
+### Reachable audit helpers + invariant-findings prompt surfacing
+
+- **Audit/compliance CLI commands** (`autonomy/loki`): the manifest tamper-evidence
+  helpers (v7.55 linkManifest/verifyManifestLink) and the compliance snapshot
+  scheduler (v7.54 maybeGenerateSnapshot) shipped as tested-but-not-invoked.
+  They are now reachable on demand: `loki audit link-manifest [dir]` hashes the
+  run manifest into the audit chain, `loki audit verify-manifest [dir]` checks it
+  (detects tamper), and `loki compliance snapshot [dir] [--force]` generates a
+  compliance snapshot (respecting the default-disabled interval unless --force).
+  All are explicit on-demand commands (never gate or slow a run); honest no-op
+  when the manifest is absent.
+- **Invariant-findings surfaced into the prompt** (`loki-ts/src/runner/build_prompt.ts`):
+  the invariant gate wrote `.loki/quality/invariant-findings.txt` but nothing read
+  it into the next-iteration prompt (the actionable per-finding text was not
+  surfaced). build_prompt.ts now reads and injects it, mirroring the semantic-
+  findings consumer. Closes the writer-with-no-reader on the prompt side.
+
+Gates: local-ci 83/83, bun tests + parity green, 2-reviewer council APPROVE (both
+verified the CLI commands work empirically and the prompt injection reaches the
+rendered prompt).
+
+## [7.55.0] - 2026-06-16
+
+### Verification depth: invariant gate + anti-sycophancy parity + manifest tamper-evidence
+
+- **Invariant/property gate wired on both routes**: `tests/detect-invariant-violations.sh`
+  (property/metamorphic checks: idempotency, round-trip, no-secrets-in-output)
+  existed but was never invoked (inert). It is now an opt-in gate via
+  `LOKI_GATE_INVARIANTS` (default off), wired on the bash route
+  (`autonomy/run.sh` enforce_invariant_integrity) and the Bun route
+  (`loki-ts/src/runner/quality_gates.ts` runInvariants) with byte-identical
+  semantics: CRITICAL/HIGH (detector exit 1 under --strict) blocks; clean,
+  timeout, absent, or any other result never fires (deny-filtered); default-off
+  means the detector is not invoked.
+- **Bun devil's-advocate auto-wired (anti-sycophancy parity)**: the Bun council
+  had a built-but-uncalled devil's-advocate voter, so a Bun-route completion
+  council lacked the anti-sycophancy re-review the bash council performs. It now
+  fires automatically on a unanimous APPROVE (mirroring the bash trigger), as a
+  blind review (not shown the base voters' verdicts), and folds in conservatively
+  (only a clean APPROVE upholds; REJECT/CANNOT_VALIDATE flips to CONTINUE). If the
+  LLM dispatch fails it falls back to the deterministic file-scan check, so it
+  never hangs and never silently drops scrutiny.
+- **Run-manifest tamper-evidence (additive)** (`src/audit`): `linkManifest` /
+  `verifyManifestLink` hash the run manifest (`loki-run.json`) and record it into
+  the unified audit chain so the build bill-of-materials becomes tamper-evident
+  and verifiable against the evidence chain. Honest no-op when the manifest is
+  absent; verification fails if the manifest is tampered after recording. Ships
+  as a tested API; not yet auto-invoked (documented).
+
+Gates: local-ci 83/83, bash/Bun parity 6/6 (LOKI_GATE_INVARIANTS now a genuine
+shared toggle, no allow-list exception), 595 Bun tests + 75 audit tests + full
+pytest green, 3-reviewer council unanimous APPROVE.
+
+## [7.54.0] - 2026-06-16
+
+### Tech-debt elimination + provider honesty + regression hardening
+
+- **Dead-stub removal (P4-3)** (`loki-ts/src/runner/autonomous.ts`): the Bun
+  runner carried logStub/noopCouncil/stubProvider fallbacks for modules that all
+  exist and conform. These were unreachable dead code that silently degraded to
+  wrong results if ever hit. Replaced with a fail-fast `requireModule()` (a
+  missing load-bearing module now errors loudly at resolution time instead of
+  producing a wrong build), while genuine runtime-error fallbacks are preserved.
+- **Antigravity de-listed (P4-5)**: "Antigravity CLI" was advertised across docs
+  as an upcoming Loki provider but had zero implementation, and was misattributed
+  to Anthropic (it is Google's product). Removed from all provider tables/lists
+  (README, SKILL, CLAUDE, wiki, docs/INSTALLATION). Honest competitor references
+  in docs/COMPARISON.md are retained.
+- **Bun semantic-findings consumer wired** (`loki-ts/src/runner/build_prompt.ts`):
+  the Bun semantic-test gate persisted `.loki/quality/semantic-findings.txt` but
+  nothing on the Bun route read it (a writer-with-no-reader). build_prompt.ts now
+  reads and injects those severity-tagged findings into the next-iteration prompt,
+  independent of gate-failures.txt, byte-parity with the bash route. Absent/empty
+  injects nothing.
+- **Policy-context quoting fix** (`autonomy/run.sh` check_policy): `${2:-{}}`
+  brace-eating expansion turned a non-empty JSON context into invalid JSON
+  (`{"a":1}}`), so the policy engine received garbage and returned DENY every
+  iteration when a `.loki/policies.json`/`.yaml` existed (and made the P3-3
+  approval-wait unreachable on the live path). Fixed to a split default yielding
+  valid `{}`; non-empty contexts now pass through unchanged. Users with no policy
+  file are unaffected.
+- **Compliance snapshot scheduler (P3-11, optional)** (`src/audit/compliance-scheduler.js`):
+  a default-disabled helper that periodically persists a compliance snapshot from
+  the real audit chain (honest empty-state, never a fabricated verdict). Ships as
+  a tested helper; not yet auto-invoked (documented).
+- **Regression hardening**: added guards for the v7.51-v7.54 features, notably
+  `tests/test-no-deprecated-codex-flag.sh` (fails if any live `codex exec
+  --full-auto` is reintroduced), plus coverage-artifact, evidence-gate-consumer,
+  approval-phase-gate, and semantic-gate-bash-route regression tests.
+
+Gates: local-ci 83/83, full pytest + bun test (1009 Bun tests) + bash/Bun parity
+green, 3-reviewer council unanimous APPROVE (after a round that correctly caught a
+self-contradicting code comment, now fixed).
+
+## [7.53.0] - 2026-06-16
+
+### Verification depth + enterprise compliance surface (P1-2, P1-3, P3-6, P3-11)
+
+- **Held-out checklist for small specs (P1-2)** (`autonomy/prd-checklist.sh`):
+  small checklists (2 <= N < 4) previously reserved ZERO held-out items, leaving
+  the entire checklist gameable. They now reserve exactly 1 held-out item via the
+  same deterministic sha256 ranking used for larger sets. N=1 stays a no-op
+  (cannot hold out from a single-item checklist); N>=4 is unchanged. Idempotent.
+- **Semantic test-authenticity gate wired on both routes (P1-3)**: the semantic
+  detector (`tests/detect-semantic-test-problems.sh`, which catches fake tests
+  that regex detectors miss) is now an opt-in quality gate via
+  `LOKI_GATE_SEMANTIC_TESTS` (default off). Wired on the bash route
+  (`autonomy/run.sh`) and mirrored on the Bun route
+  (`loki-ts/src/runner/quality_gates.ts`) with byte-identical blocking semantics:
+  blocks only on CRITICAL/HIGH findings; clean/absent/timeout/malformed never
+  fires (deny-filtered); default-off means the detector is not invoked (zero
+  cost, cannot deadlock the loop). Documented as the opt-in 9th gate in
+  `skills/quality-gates.md`.
+- **Sandbox default kept opt-in, honestly documented (P3-6)**: sandbox mode is
+  Docker-backed and hard-errors without Docker, so defaulting it on would break
+  non-Docker users. It stays opt-in (`LOKI_SANDBOX_MODE=true`); the
+  `loki start` CLI help now accurately states "default: off; requires Docker"
+  instead of an ambiguous description.
+- **Continuous compliance surface (P3-11)**: new `GET /api/compliance` dashboard
+  endpoint returns the live SOC2/ISO27001/GDPR compliance report generated from
+  the real audit chain (via `src/audit/index.js getReport` + a CLI shim),
+  including the real `verifyChain()` tamper-evidence verdict. Auth/tenant-scoped
+  (`require_scope("audit")`); returns an honest empty report (never a fabricated
+  "compliant" verdict) when no audit data exists, and degrades to
+  `available:false` if the audit engine is unavailable.
+
+Gates: local-ci 78/78, full pytest + bun test (78/78) + bash/Bun parity (11
+shared toggles, 0 fail) green, held-out evals 34/34, 3-reviewer council
+unanimous APPROVE.
+
+## [7.52.0] - 2026-06-16
+
+### Codex CLI compatibility: --full-auto deprecation swept repo-wide + budget quoting hardening
+
+- **Codex `--full-auto` -> `--sandbox workspace-write` (repo-wide)**: Codex CLI
+  v0.125+ deprecated `--full-auto` (removed from `codex exec --help`, emits a
+  deprecation warning; will hard-error in a future release). Every live
+  `codex exec --full-auto` invocation across the codebase is now
+  `codex exec --sandbox workspace-write` (the documented replacement;
+  `codex exec` is non-interactive by default so the loop stays autonomous).
+  `--skip-git-repo-check` is preserved where it already applied. Swept across
+  both routes and all helpers: `autonomy/run.sh`, `autonomy/loki`,
+  `providers/codex.sh`, `loki-ts/src/runner/providers.ts`,
+  `autonomy/completion-council.sh`, `autonomy/grill.sh`, `magic/core/debate.py`,
+  `magic/core/generator.py`, `autonomy/lib/wiki_llm.py`, plus all user-facing
+  docs. The tier path and Bun route (which previously used the broader
+  `danger-full-access`) now converge on `workspace-write`, matching what
+  `--full-auto` always expanded to. Verified empirically against codex 0.132.0
+  (new flag: no deprecation warning, runs at approval: never; old flag: warns).
+- **Budget-file quoting footgun fixed** (`autonomy/lib/claude-flags.sh`): the
+  remaining-budget computation interpolated a file path into a `python3 -c`
+  program, so a path containing a quote raised a SyntaxError. The path and
+  numeric values now pass via `os.environ` (single-quoted program), matching the
+  established `run.sh` convention. Behavior-preserving; closes the injection
+  footgun.
+
+Gates: local-ci 78/78, full pytest + bun test + bash/Bun parity green,
+3-reviewer council unanimous APPROVE (2 Opus adversarial + 1 Sonnet) after a
+first round that correctly rejected on a test-assertion regression (now fixed).
+
+## [7.51.0] - 2026-06-16
+
+### Tech-debt closure: four inert/half-wired features made real (both routes)
+
+This release removes scaffolding that read like a feature but did nothing,
+honoring the no-tech-debt mandate. Each activation is advisory-first and
+deny-filters clean results, so an activated gate can never false-fire and
+deadlock the autonomous loop. Defaults are unchanged for existing users.
+
+- **Coverage artifact honesty** (`autonomy/run.sh`): at the default (measurement
+  off) the coverage block was skipped entirely, so no `coverage.json` was ever
+  written -- a missing-artifact gap in the reproducibility manifest. The gate now
+  writes `coverage.json` with `measured:false` even when measurement is off, with
+  zero added runtime (no instrumented re-run) and no blocking. Measurement stays
+  opt-in (`LOKI_COVERAGE_GATE=1`); default-on would double every test run.
+- **LSP-diagnostics gate made real on both routes**: the gate read
+  `.loki/quality/lsp-diagnostics.json` but nothing wrote it (inert). A
+  route-neutral writer (`mcp/lsp_proxy.py --write-diagnostics`) is now invoked
+  identically from the Bun gate (`loki-ts/src/runner/quality_gates.ts`) and the
+  bash gate (`autonomy/run.sh`), with byte-identical blocking semantics: single
+  knob `LOKI_GATE_LSP_DIAGNOSTICS` (default off); `count_errors > 0` blocks only
+  when enabled; absent/malformed/clean never fires; no language server present ->
+  writes nothing (never fabricates a clean verdict). `LOKI_GATE_LSP_WRITER=0`
+  lets a caller supply a pre-built artifact. The bash/Bun parity test now
+  validates these as genuinely shared toggles (prior bun-only carve-out removed).
+- **Evidence-gate-details consumer** (`autonomy/run.sh`, closes P1-1): the
+  completion council wrote `.loki/council/evidence-gate-details.json` but run.sh
+  had no consumer. run.sh now surfaces the details advisory (WARN on block, INFO
+  otherwise) without introducing a new block; the wrapper preserves the gate's
+  exact return code, so completion detection is unchanged. Absent/malformed file
+  degrades silently.
+- **Approval phase-gate enforcement** (`autonomy/run.sh`): a policy
+  "approval required" result (exit 2) previously logged and proceeded. It now
+  honors an approval wait on `.loki/signals/POLICY_APPROVED|POLICY_REJECTED`
+  (same mechanism as staged autonomy) when `LOKI_STAGED_AUTONOMY=true` or
+  `LOKI_POLICY_APPROVAL_ENFORCE=1`. With neither knob set, behavior is unchanged
+  (advisory log + proceed).
+
+Gates: local-ci 78/78, full pytest + bun test + bash/Bun parity matrix green,
+3-reviewer council unanimous APPROVE (2 Opus adversarial + 1 Sonnet).
+
+## [7.50.0] - 2026-06-16
+
+### Spec-robustness, enterprise depth, and verification breadth (10-stream batch)
+
+All default-on or zero-config-intelligent; opt-out knobs only. Each stream built
+in an isolated worktree, council-reviewed.
+
+- **Acceptance oracle triangulation (P2-3).** The checklist now cross-checks the
+  spec against actual codebase reality (e.g. spec says Postgres, repo wired to
+  Mongo) and surfaces the conflict as evidence to the council instead of silently
+  letting the spec win. Opt out: `LOKI_CHECKLIST_ORACLE=0`.
+- **Spec-structure validation (P2-5).** A malformed, unparseable, or
+  missing-referenced-file spec is now flagged early with an actionable message in
+  `.loki/prd-observations.md`.
+- **Spec-drift is now blocking (P2-6).** When a spec is locked (`loki spec lock`),
+  real drift emits High and blocks `loki verify` instead of a soft concern.
+- **Contradiction detection (P2-4).** Spec contradictions (internal, and spec vs
+  the repo's declared dependencies) are tagged as a distinct class that cannot be
+  assumed away and must be resolved (never auto-acknowledged).
+- **Spec-independent invariant detector (P1-4).** New detector flags secrets in
+  source and PII in logs regardless of what the spec says. Available now.
+- **Stronger secret scanning (P3-4).** `loki verify` secret scan hardened with a
+  documented high-confidence pattern set (AWS, private keys, GitHub/Slack/cloud
+  tokens) that blocks, with low false positives (placeholders and env refs
+  ignored). Also fixed a latent bug where PEM private-key blocks were never caught.
+- **Static-analysis language coverage (P1-6).** Auto-detected C/C++ (cppcheck),
+  Kotlin (ktlint/detekt), and Java (checkstyle) static analysis, with honest
+  pass-through when the tool is absent. No new flags.
+- **Approval workflows (P3-3).** The policy-engine approval gate is now a tested,
+  usable pause-and-await gate; zero-config runs have no gate (engages only when a
+  policy file declares one).
+- **Org-level cost governance (P3-8).** Org/tenant spend rollup + ceiling on top
+  of per-run budgets, auto-detecting org context; per-run behavior unchanged when
+  no org ceiling is configured.
+- **Unified audit trail (P3-9).** A cross-link + unified-verify capability for the
+  dashboard (Python) and agent (JS) audit chains now exists and is tested: it can
+  link the two chains and verify them together. Tamper-evidence here is SHA-chain
+  integrity (detects truncation or in-place edits of a chain), not HMAC signing.
+  The capability is not yet wired into a runtime auto-call path, and the
+  append-only witness is off by default; wiring it into the live verify flow is a
+  follow-up.
+- **SIEM on-ramps (P3-10).** CEF and Splunk HEC export for security/audit events
+  plus Datadog/Honeycomb OTEL templates; no egress unless an endpoint is set.
+- **Bun parity-gap commands (P4-6).** `loki status` now renders the budget/context
+  gauges identically on the Bun route; parity test extended.
+
+## [7.49.0] - 2026-06-16
+
+### Verification depth + enterprise isolation + parity guard
+
+- **Evidence-gate loopholes tightened (P1-1).** A project with no test runner no
+  longer counts as affirmative "done" evidence; it is recorded inconclusive and
+  routed to the completion council's explicit vote instead of a silent pass.
+  Every evidence-gate decision is now persisted to
+  `.loki/council/evidence-gate-details.json` for audit. Opt out:
+  `LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1`.
+- **Tenant isolation enforced (P3-7).** API-level cross-tenant access is now
+  blocked: project, run, and task endpoints are scoped to the caller's tenant
+  (derived from the trusted token, never a client header); a global admin may
+  still cross tenants. Closes a real cross-tenant read/write/delete gap.
+- **LSP diagnostics verification gate (P1-5).** A new opt-in
+  `LOKI_GATE_LSP_DIAGNOSTICS` gate on the Bun route blocks on language-server
+  errors in changed files (pass-through when no LSP server is available; a
+  diagnostics writer is a tracked follow-up).
+- **Automated bash/Bun parity test (P4-2).** A new local-ci check asserts the
+  load-bearing runtime invariants stay identical across routes (autonomy-override
+  text, phase keys, effort-per-tier, model fallback, gate toggle set), so route
+  drift fails the gate instead of shipping silently.
+
+Each stream built in an isolated worktree, council-reviewed, local-ci green.
+
+## [7.48.0] - 2026-06-16
+
+### Fix: shellcheck SC2120 on spec-interrogation.sh (v7.47.0 workflow red)
+
+- The v7.47.0 spec-interrogation module tripped SC2120 (optional-arg warning) on
+  the GH shellcheck runner (a stricter shellcheck version than the local one).
+  Added a targeted `# shellcheck disable=SC2120` with rationale (the `[path]`
+  argument is optional by design). Tests workflow is green again.
+
+### Enterprise: telemetry is now opt-in (P3-2)
+
+- Telemetry and diagnostics no longer egress by default. Nothing is collected or
+  sent unless explicitly enabled (`LOKI_TELEMETRY=on` or `loki telemetry on`).
+  A default install, including air-gapped / GDPR / FedRAMP environments, sends us
+  nothing. All prior opt-out flags still work and always win. Documented the exact
+  (PII-free) data inventory in docs/PRIVACY.md.
+
+### Verification depth: semantic test-authenticity detector (P1-3)
+
+- New `tests/detect-semantic-test-problems.sh` catches fake tests that the
+  existing mock/mutation detectors miss: assertions that echo a literal through a
+  variable, assertions on a mock's own return value, and net-deleted assertions
+  across commits. Conservative by design (never flags a genuine computed
+  assertion like `expect(add(2,2)).toBe(4)`). Available now; wiring it as a
+  blocking gate is a tracked follow-up.
+
+### Verification depth: real coverage measurement + run manifest (P0-1 Fix A, P3-5)
+
+- The test gate can now actually MEASURE coverage per language (vitest, jest,
+  pytest-cov, go, cargo-llvm-cov) and records it honestly in
+  `.loki/quality/coverage.json`. Measurement is opt-in (it re-runs the suite
+  instrumented, so it is off by default to keep autonomous iterations fast): set
+  `LOKI_COVERAGE_GATE=1` to measure-and-record (warn if below `LOKI_MIN_COVERAGE`,
+  default 80), or `LOKI_ENFORCE_COVERAGE=1` to also block a below-threshold-and-
+  measurable result. When no coverage tool is present the gate passes through and
+  records "not measured" (never fabricates a number).
+- Every run now emits `.loki/loki-run.json`, a bill-of-materials (spec path+hash,
+  model tier used, provider, loki + tool versions, evidence hashes, git SHAs,
+  outcome) so a run is auditable and reproducible. Best-effort, never aborts a run.
+
+Each stream built in an isolated worktree, council-reviewed, local-ci green.
+
+## [7.47.0] - 2026-06-16
+
+### Security: OIDC RBAC bypass fixed (P3-1)
+
+- **Every SSO/OIDC user previously became admin.** `validate_oidc_token` hardcoded
+  `"scopes": ["*"]` for all OIDC-authenticated users, defeating the entire RBAC
+  system. Now OIDC role/group claims are mapped to the existing roles
+  (admin/operator/viewer/auditor) with the scope hierarchy. When no recognized
+  role claim is present, the user defaults to least-privilege `viewer`, never
+  admin. Recognized claim sources: a configurable `LOKI_OIDC_ROLES_CLAIM`
+  (supports dotted paths), `roles`, `groups`, Keycloak `realm_access.roles`, and
+  Cognito `cognito:groups`. Default role configurable via `LOKI_OIDC_DEFAULT_ROLE`
+  (defaults to viewer). API-token auth is unchanged.
+
+### Spec-robustness: interrogation gate + assumption ledger (P2-1, P2-2)
+
+- **Loki now interrogates the spec before building and records its assumptions.**
+  A Devil's-Advocate spec interrogation (built on `loki grill`) now runs by
+  default in the DISCOVERY phase before the first iteration, classifying findings
+  as ambiguous / contradictory / underspecified / missing. Opt out with
+  `LOKI_SPEC_GRILL=0`.
+- **Assumptions are a first-class, tracked artifact.** Spec gaps Loki fills become
+  recorded entries under `.loki/assumptions/` (the gap, the assumption, why,
+  severity, what it affects). A new `council_assumption_ledger_gate` surfaces them
+  in the proof-of-done so "done" means "done, plus here are the places your spec
+  was ambiguous and what I assumed." Set `LOKI_ASSUMPTIONS_REQUIRE_CONFIRM=1` to
+  make high-severity unconfirmed assumptions block completion (human-in-the-loop);
+  default mode records and surfaces without blocking autonomous runs. Opt out with
+  `LOKI_ASSUMPTION_GATE=0`. Degrades cleanly when no provider CLI is present (no
+  fabricated questions).
+
+### Honesty: license claims corrected (source-available, not open source)
+
+- Loki is BUSL-1.1 source-available, not "open source". Corrected false
+  "open source"/"OSS"/"MIT" claims about Loki across the product UI
+  (web-app), the marketing site, and docs to "source-available (BUSL-1.1)". True
+  statements about other tools being open-source are unchanged. The repo-wide
+  honesty regression guard now also covers web-app and website surfaces.
+
+Reviewed by a unanimous completion council. Each stream was built in an isolated
+worktree and verified independently (OIDC 17/17, spec-robustness 22/22, P0 gates
+non-regressing, local-ci green).
+
+## [7.46.0] - 2026-06-16
+
+### Verification-credibility sweep (the trust layer is now honest and real)
+
+This release makes Loki's verification layer match its claims. An internal audit
+found gates that were advertised but hollow, unwired, or described inaccurately.
+The fix: make every gate real or stop claiming it. The deterministic gate set is
+now an honest 8.
+
+- **Mock-integrity and test-mutation detectors are now wired as blocking gates.**
+  `tests/detect-mock-problems.sh` and `tests/detect-test-mutations.sh` existed but
+  were never invoked by the build loop. They now run every iteration: HIGH-severity
+  findings block; Medium/Low are advisory and injected into the next iteration.
+  Opt out with `LOKI_GATE_MOCK=0` / `LOKI_GATE_MUTATION=0`. Both detectors honor
+  `LOKI_SCAN_DIR` so they scan the target project, not the Loki install.
+- **Anti-sycophancy now acts, not just logs.** On a unanimous code-review PASS, a
+  Devil's-Advocate reviewer is dispatched; a Critical/High finding blocks
+  completion. Previously this path only wrote an audit note. Opt out with
+  `LOKI_GATE_DEVILS_ADVOCATE=0`.
+- **Test-coverage gate honesty.** The gate ran tests for pass/fail but never
+  measured a coverage percentage, while docs claimed ">80% coverage". Docs and
+  log labels now state pass/fail accurately; the `min_coverage` JSON field is
+  retained as a target. Real coverage measurement is a planned follow-up.
+- **Phantom gates removed.** "Input Guardrails" and "Output Guardrails" were
+  listed among the gates but had no implementation. Removed. The canonical count
+  is now 8: static analysis, test suite (pass/fail), blind 3-reviewer code review
+  with severity blocking, anti-sycophancy Devil's Advocate, mock integrity, test
+  mutation, documentation coverage, and Magic Modules debate. Backward-compat is a
+  conditional healing-mode auditor, not one of the 8.
+- **Severity-blocking documented accurately.** Code-review blocks on Critical/High
+  only; Medium/Low are advisory. Docs and the dashboard-served gate list now match
+  the code (previously several surfaces said Medium blocks).
+- **Bun-route parity** for the new gates and the Devil's-Advocate toggle in
+  `loki-ts/src/runner/quality_gates.ts`.
+- **Regression guards** added (`tests/test-p0-verification-sweep.sh`,
+  `tests/test-p0-gate-behavior.sh`, wired into local-ci) so gate-count and
+  severity-blocking claims cannot silently drift again.
+
+Reviewed by a 3-of-3 unanimous completion council. No runtime behavior changes
+beyond the gates now actually blocking on the conditions documented.
+
 ## [7.45.1] - 2026-06-15
 
 ### Fixed

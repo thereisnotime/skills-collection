@@ -352,6 +352,13 @@ run_check "tests/test-cli-commands.sh (LOKI_LEGACY_BASH=1)" "LOKI_LEGACY_BASH=1 
 run_check "tests/cli/test-alias-forwarding.sh (Bun route)" "LOKI_ROUTE=bun bash tests/cli/test-alias-forwarding.sh 2>&1 | tail -3"
 run_check "tests/cli/test-alias-forwarding.sh (bash route)" "LOKI_ROUTE=bash bash tests/cli/test-alias-forwarding.sh 2>&1 | tail -3"
 
+# P4-2: AUTOMATED bash<->Bun runtime parity. Extracts the load-bearing
+# invariants from BOTH routes (autonomy-override text, PHASE_KEYS, effort-per-tier,
+# model-fallback, LOKI_GATE_* toggle set) and asserts equality, failing with a
+# diff on drift. Replaces the prior manual-review-only parity check that was a
+# recurring drift source. Skips cleanly if bun is absent.
+run_check "tests/test-bash-bun-parity.sh (runtime bash<->Bun parity)" "bash tests/test-bash-bun-parity.sh 2>&1 | tail -8"
+
 # v7.5.15: sentrux gate unit tests (fake on-PATH binary; safe on every host).
 # Mirrors the test.yml shell-tests job; fast, no network, no real sentrux dep.
 run_check "tests/test-sentrux-gate.sh (unit, fake binary)" "bash tests/test-sentrux-gate.sh 2>&1 | tail -3"
@@ -595,7 +602,31 @@ run_check "tests/test-spec.sh (living spec lock/status/sync + drift finding)" "b
 # disclosure lifecycle) and the deterministic `loki verify` pipeline. Wired in
 # v7.28.0 after a council reviewer caught both suites missing from local-ci.
 run_check "tests/test-evidence-gate.sh (evidence gate + inconclusive lifecycle)" "bash tests/test-evidence-gate.sh 2>&1 | tail -3"
+run_check "tests/test-evidence-gate-no-tests.sh (P1-1 no-tests not affirmative)" "bash tests/test-evidence-gate-no-tests.sh 2>&1 | tail -3"
 run_check "tests/test-verify.sh (loki verify deterministic gates)" "bash tests/test-verify.sh 2>&1 | tail -3"
+run_check "tests/dashboard/test_tenant_isolation.py (P3-7 tenant boundary enforcement)" "python3 -m unittest tests.dashboard.test_tenant_isolation 2>&1 | tail -3"
+
+# P0 verification-credibility sweep (docs/P0-SWEEP-PLAN.md): the static
+# acceptance gate (gates WIRED) + the behavioral gate (mock/mutation detectors
+# actually BLOCK, LOKI_SCAN_DIR redirects the scan to the target fixture).
+run_check "tests/test-p0-verification-sweep.sh (P0 sweep acceptance: gates wired)" "bash tests/test-p0-verification-sweep.sh 2>&1 | tail -3"
+run_check "tests/test-p0-gate-behavior.sh (P0 mock/mutation gates actually block)" "bash tests/test-p0-gate-behavior.sh 2>&1 | tail -3"
+run_check "tests/test-spec-interrogation.sh (P2 spec interrogation + assumption ledger gate)" "bash tests/test-spec-interrogation.sh 2>&1 | tail -3"
+run_check "tests/dashboard/test_oidc_rbac_mapping.py (OIDC RBAC: no-claim defaults to viewer, not admin)" "python3 tests/dashboard/test_oidc_rbac_mapping.py 2>&1 | tail -3"
+run_check "tests/test-semantic-test-detector.sh (P1-3 semantic test-authenticity detector)" "bash tests/test-semantic-test-detector.sh 2>&1 | tail -3"
+run_check "tests/test-coverage-measurement.sh (P0-1 FixA real coverage + P3-5 run manifest)" "bash tests/test-coverage-measurement.sh 2>&1 | tail -3"
+run_check "tests/test-coverage-artifact-default-off.sh (v7.51 coverage.json written measured:false at default-off)" "bash tests/test-coverage-artifact-default-off.sh 2>&1 | tail -3"
+run_check "tests/test-evidence-gate-details-consumer.sh (v7.51 P1-1 run.sh surfaces evidence-gate-details WARN/INFO/silent)" "bash tests/test-evidence-gate-details-consumer.sh 2>&1 | tail -3"
+run_check "tests/test-approval-phase-gate.sh (v7.51 P3-3 check_policy approval wait: advisory default + enforce arms)" "bash tests/test-approval-phase-gate.sh 2>&1 | tail -3"
+run_check "tests/test-semantic-gate-bash-route.sh (v7.53 P1-3 bash route default-off guard + blocking semantics)" "bash tests/test-semantic-gate-bash-route.sh 2>&1 | tail -3"
+run_check "tests/test-no-deprecated-codex-flag.sh (v7.52 guard: no live codex --full-auto reintroduced)" "bash tests/test-no-deprecated-codex-flag.sh 2>&1 | tail -3"
+run_check "tests/test-oracle-triangulation.sh (P2-3 spec-vs-reality oracle)" "bash tests/test-oracle-triangulation.sh 2>&1 | tail -3"
+run_check "tests/test-spec-structure-validation.sh (P2-5 spec-structure validation)" "bash tests/test-spec-structure-validation.sh 2>&1 | tail -3"
+run_check "tests/test-spec-drift-severity.sh (P2-6 spec-drift blocking)" "bash tests/test-spec-drift-severity.sh 2>&1 | tail -3"
+run_check "tests/test-contradiction-detection.sh (P2-4 contradiction detection)" "bash tests/test-contradiction-detection.sh 2>&1 | tail -3"
+run_check "tests/test-invariant-detector.sh (P1-4 spec-independent invariants)" "bash tests/test-invariant-detector.sh 2>&1 | tail -3"
+run_check "tests/test-secret-scan.sh (P3-4 secret scan blocks)" "bash tests/test-secret-scan.sh 2>&1 | tail -3"
+run_check "tests/test-static-analysis-languages.sh (P1-6 static analysis language coverage)" "bash tests/test-static-analysis-languages.sh 2>&1 | tail -3"
 
 # v7.28.0: cost-capture root cause. Authoritative result-line cost capture
 # (result-cost-<iter>.json), efficiency writer precedence, budget breaker trip,

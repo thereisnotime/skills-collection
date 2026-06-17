@@ -212,7 +212,7 @@ const ANALYSIS_INSTRUCTION =
 // prompt is prefixed with "ultracode: " so the three-pass reverse-engineer-a-PRD
 // flow runs as a workflow fan-out. When the three-pass path is chosen, the
 // instruction stays UNCHANGED (byte-identical default). This NEVER touches the
-// council, the 11 gates, the evidence gate, or the RARV loop -- only this one
+// council, the 8 gates, the evidence gate, or the RARV loop -- only this one
 // read-only analysis instruction. Parity-locked with the bash route in
 // autonomy/run.sh (run_autonomous decides once, build_prompt prefixes).
 //
@@ -629,37 +629,111 @@ function loadQueueTasks(cwd: string): string {
 // ---------------------------------------------------------------------------
 
 async function buildGateFailureContext(cwd: string): Promise<string> {
+  let ctx = "";
+
+  // Gate-failure injection (run.sh:9007-9023 / 12296-12331). Guarded on
+  // gate-failures.txt presence: when absent, this whole block is skipped and
+  // ctx stays "" (byte-identical to the prior early-return behavior).
   const gfPath = resolve(cwd, ".loki/quality/gate-failures.txt");
   const failuresRaw = readFileSafe(gfPath);
-  if (failuresRaw === null) return "";
-  // bash `cat <file>` includes trailing newline; we strip it for printf '%s\n'.
-  const failures = failuresRaw.replace(/\n$/, "");
-  let ctx = `QUALITY GATE FAILURES FROM PREVIOUS ITERATION: [${failures}]. `;
+  if (failuresRaw !== null) {
+    // bash `cat <file>` includes trailing newline; we strip it for printf '%s\n'.
+    const failures = failuresRaw.replace(/\n$/, "");
+    ctx = `QUALITY GATE FAILURES FROM PREVIOUS ITERATION: [${failures}]. `;
 
-  const saPath = resolve(cwd, ".loki/quality/static-analysis.json");
-  if (existsSync(saPath)) {
-    const summary = await readSummaryField(saPath);
-    if (summary.length > 0) ctx += `Static analysis: ${summary}. `;
-  }
-  const trPath = resolve(cwd, ".loki/quality/test-results.json");
-  if (existsSync(trPath)) {
-    const summary = await readSummaryField(trPath);
-    if (summary.length > 0) ctx += `Tests: ${summary}. `;
-  }
-
-  // Phase 1 (v7.5.0) -- LOKI_INJECT_FINDINGS=1 appends structured per-finding
-  // records (severity, file:line, reviewer) parsed from the previous
-  // iteration's per-reviewer *.txt files. Default off so existing prompts
-  // are byte-identical when the flag is not set.
-  if (process.env["LOKI_INJECT_FINDINGS"] !== "0") {
-    const findingsBlock = await buildStructuredFindingsBlock(cwd);
-    if (findingsBlock.length > 0) {
-      ctx += `\n\n${findingsBlock}\n`;
+    const saPath = resolve(cwd, ".loki/quality/static-analysis.json");
+    if (existsSync(saPath)) {
+      const summary = await readSummaryField(saPath);
+      if (summary.length > 0) ctx += `Static analysis: ${summary}. `;
     }
+    const trPath = resolve(cwd, ".loki/quality/test-results.json");
+    if (existsSync(trPath)) {
+      const summary = await readSummaryField(trPath);
+      if (summary.length > 0) ctx += `Tests: ${summary}. `;
+    }
+
+    // Phase 1 (v7.5.0) -- LOKI_INJECT_FINDINGS=1 appends structured per-finding
+    // records (severity, file:line, reviewer) parsed from the previous
+    // iteration's per-reviewer *.txt files. Default off so existing prompts
+    // are byte-identical when the flag is not set.
+    if (process.env["LOKI_INJECT_FINDINGS"] !== "0") {
+      const findingsBlock = await buildStructuredFindingsBlock(cwd);
+      if (findingsBlock.length > 0) {
+        ctx += `\n\n${findingsBlock}\n`;
+      }
+    }
+
+    ctx += `FIX THESE ISSUES BEFORE PROCEEDING WITH NEW WORK.`;
   }
 
-  ctx += `FIX THESE ISSUES BEFORE PROCEEDING WITH NEW WORK.`;
+  // P1-3 semantic test-authenticity findings (run.sh:12338-12351). Surfaced
+  // INDEPENDENTLY of gate-failures.txt: the completion-promise arm writes
+  // semantic-findings.txt without appending any gate token, so nesting this
+  // under the gate-failures guard would silently drop exactly that case. The
+  // Bun route's runSemanticTests (quality_gates.ts) writes this file; this is
+  // the consumer that reaches parity with bash. Absent/empty -> nothing added.
+  ctx += buildSemanticFindingsBlock(cwd);
+
+  // P1-4 invariant-violation findings. Surfaced INDEPENDENTLY of
+  // gate-failures.txt, mirroring the semantic block above. The bash route's
+  // enforce_invariant_integrity (run.sh:8422) WRITES
+  // .loki/quality/invariant-findings.txt -- the blocking write CRITICAL/HIGH
+  // (run.sh:8451) and the advisory write MED/LOW (run.sh:8464) -- but neither
+  // route had a prompt-reader: run.sh only logs the path (run.sh:15565), and the
+  // Bun runInvariants (quality_gates.ts:810) deliberately does NOT persist the
+  // file today, calling out a build_prompt.ts reader as the prerequisite
+  // follow-up (quality_gates.ts:786-794). This is that reader: it surfaces the
+  // per-finding text written by the bash gate into the next-iteration prompt.
+  // It also primes the Bun route -- once quality_gates.ts persists the file (its
+  // named follow-up), this consumer surfaces it with no further change.
+  // Absent/empty -> nothing added.
+  ctx += buildInvariantFindingsBlock(cwd);
+
   return ctx;
+}
+
+// P1-3 helper: surface the specific semantic test-authenticity findings
+// (which fake test, which line) that quality_gates.ts wrote to
+// .loki/quality/semantic-findings.txt. Byte-for-byte mirror of
+// run.sh:12338-12351 -- grep severity-tagged lines, head -20, prepend the
+// exact bash prefix (including its leading space). Returns "" when the file
+// is absent or has no severity-tagged lines (e.g. only the header line).
+function buildSemanticFindingsBlock(cwd: string): string {
+  const path = resolve(cwd, ".loki/quality/semantic-findings.txt");
+  const raw = readFileSafe(path);
+  if (raw === null) return "";
+  const lines = raw
+    .split("\n")
+    .filter((l) => /\[(CRITICAL|HIGH|MEDIUM|LOW)\]/.test(l))
+    .slice(0, 20);
+  if (lines.length === 0) return "";
+  // Prefix copied verbatim from run.sh:12348, including the leading space.
+  return ` SEMANTIC TEST-AUTHENTICITY FINDINGS (fix the fake tests; an assertion must verify a value that flows through the code under test, not echo a literal back): ${lines.join("\n")}`;
+}
+
+// P1-4 helper: surface the specific invariant-violation findings (which
+// invariant, which file/property) that enforce_invariant_integrity
+// (run.sh:8422) wrote to .loki/quality/invariant-findings.txt. Structural
+// mirror of buildSemanticFindingsBlock: read the file, keep only severity-tagged
+// lines, head -20 cap, prepend an actionable header (with a leading space,
+// matching the semantic block so concatenation reads cleanly). The two bash
+// writer headers ("# Invariant findings (...)" / "# Invariant advisory findings
+// (...)") carry no severity token, so the filter drops them for both the
+// blocking and advisory writes. Unlike semantic, no prompt-builder on either
+// route had a reader (run.sh only logs the path; quality_gates.ts does not
+// persist the file -- quality_gates.ts:786-794), so the header below is newly
+// authored actionable text, not a verbatim bash prefix.
+// Returns "" when the file is absent or has no severity-tagged lines.
+function buildInvariantFindingsBlock(cwd: string): string {
+  const path = resolve(cwd, ".loki/quality/invariant-findings.txt");
+  const raw = readFileSafe(path);
+  if (raw === null) return "";
+  const lines = raw
+    .split("\n")
+    .filter((l) => /\[(CRITICAL|HIGH|MEDIUM|LOW)\]/.test(l))
+    .slice(0, 20);
+  if (lines.length === 0) return "";
+  return ` INVARIANT VIOLATION FINDINGS (fix the violated invariants; a property/metamorphic invariant that the code under test must always uphold is currently broken): ${lines.join("\n")}`;
 }
 
 // Phase 1 helper: read structured findings from the most recent review dir

@@ -409,7 +409,7 @@ These are bolt.new weaknesses that Loki Mode already solves or can emphasize:
 
 #### R5: Advertise Production Readiness as Key Differentiator
 - **bolt.new's gap**: 70% done code, no tests, no review, $5-20K remediation
-- **Loki Mode's advantage**: RARV cycle, 10 quality gates, 3-reviewer system, automated testing
+- **Loki Mode's advantage**: RARV cycle, 8 quality gates, 3-reviewer system, automated testing
 - **Action**: Create comparison content showing: "bolt.new gives you a prototype. Loki Mode gives you a product."
 - **Messaging**: "From PRD to production, not PRD to prototype"
 
@@ -529,7 +529,7 @@ The "vibe coding" market -- AI tools that generate code from natural language --
 | Lovable | Lovable | $100M ARR in 8 months | Design-quality prototypes |
 | Vercel | v0 | Part of Vercel ($3.5B+) | UI component generator |
 | Replit | Replit | $1.16B valuation | Browser IDE + AI |
-| Autonomi | Loki Mode | Open source, early stage | PRD-to-production system |
+| Autonomi | Loki Mode | Source-available (BUSL-1.1), early stage | PRD-to-production system |
 
 ### 11.4 Strategic Implication for Loki Mode
 

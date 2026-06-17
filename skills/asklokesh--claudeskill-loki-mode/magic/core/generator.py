@@ -180,7 +180,7 @@ class ComponentGenerator:
         if provider == "claude":
             cmd = base_cmd + [binary, "-p", prompt]
         elif provider == "codex":
-            cmd = base_cmd + [binary, "exec", "--full-auto", prompt]
+            cmd = base_cmd + [binary, "exec", "--sandbox", "workspace-write", prompt]
         elif provider == "gemini":
             cmd = base_cmd + [binary, "--approval-mode=yolo", prompt]
         elif provider == "cline":

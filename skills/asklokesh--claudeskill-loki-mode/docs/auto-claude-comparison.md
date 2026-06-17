@@ -120,21 +120,24 @@ Loki Mode implements CONSENSAGENT (ACL 2025):
 **Verdict: Loki Mode wins** - Research-backed quality assurance.
 
 ### 5. Quality Gates
-Loki Mode has 14 quality gates:
+Loki Mode runs 8 deterministic quality gates plus full SDLC phase coverage.
+
+The 8 deterministic quality gates: static analysis (CodeQL, ESLint), test suite (pass/fail), blind 3-reviewer review with severity blocking, anti-sycophancy Devil's Advocate, mock-integrity, test-mutation, documentation coverage, and Magic Modules debate. (Backward-compatibility is a conditional healing-mode auditor, not a numbered gate.)
+
+Beyond the gates, the SDLC pipeline covers these phases:
 1. Static analysis (CodeQL, ESLint)
-2. Unit tests (>80% coverage)
+2. Unit tests (test suite passes; coverage % not measured this release)
 3. API/Integration tests
 4. E2E tests (Playwright)
 5. Security scanning (OWASP)
-6. SAML/OIDC/SSO integration
-7. Parallel code review (3 reviewers)
-8. Performance/load testing
-9. Accessibility (WCAG)
-10. Regression testing
-11. UAT simulation
-12. Anti-sycophancy check
-13. Scale-aware review intensity
-14. Continuous monitoring
+6. Parallel code review (3 reviewers)
+7. Performance/load testing
+8. Accessibility (WCAG)
+9. Regression testing
+10. UAT simulation
+11. Anti-sycophancy check
+12. Scale-aware review intensity
+13. Continuous monitoring
 
 **Auto-Claude:** Single QA validation loop (up to 50 iterations).
 
@@ -236,7 +239,7 @@ Loki Mode now incorporates proven patterns from Cursor's large-scale agent deplo
 3. **Anti-Sycophancy** - Blind review prevents false positives
 4. **Full SDLC** - Business, marketing, growth automation
 5. **Published Benchmarks** - Verify claims with reproducible tests
-6. **MIT License** - More adoption-friendly
+6. **Source-available (BUSL-1.1)** - Inspect and self-host the full code
 
 ---
 
@@ -253,7 +256,7 @@ Loki Mode now incorporates proven patterns from Cursor's large-scale agent deplo
 - Full spec-to-product lifecycle (not just coding)
 - 41 specialized agent roles
 - Anti-sycophancy measures
-- MIT license
+- Source-available (BUSL-1.1) license
 - No subscription requirement
 - Verified benchmarks
 

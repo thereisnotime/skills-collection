@@ -110,3 +110,4 @@
 * [Resources](resources/README.md)
   * [Research Papers](resources/papers.md)
   * [Related Projects](resources/related-projects.md)
+* [GitHub](https://github.com/NeoLabHQ/context-engineering-kit)

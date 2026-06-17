@@ -18,6 +18,7 @@
 var { AuditLog } = require('./log');
 var compliance = require('./compliance');
 var { ResidencyController } = require('./residency');
+var crosslink = require('./crosslink');
 
 var _log = null;
 var _residency = null;
@@ -83,6 +84,84 @@ function exportReport(type, opts) {
 }
 
 /**
+ * Generate a compliance report as a plain object, with the agent-chain
+ * tamper-evidence verdict folded in.
+ *
+ * This is the object form intended for surfaces (e.g. the dashboard
+ * /api/compliance endpoint) that need the report as data rather than a
+ * pre-serialized string. It always reflects the REAL audit chain:
+ *
+ *   - The report body is generated from the live audit entries
+ *     (`_log.readEntries()`), never fabricated.
+ *   - `chainIntegrity` is populated from `verifyChain()` so the report
+ *     carries the true tamper-evidence state of the underlying chain.
+ *     For the SOC2 report this fills the `chainIntegrity: null` slot the
+ *     generator leaves for the caller; for the other report types it is
+ *     attached under the same key for a uniform surface contract.
+ *
+ * When the chain has no entries the report is still returned honestly
+ * with `totalAuditEntries: 0` (an empty-but-valid report), never a
+ * fabricated "compliant" verdict.
+ *
+ * @param {string} type - 'soc2', 'iso27001', or 'gdpr'
+ * @param {object} [opts] - Report options (projectName, period, etc.)
+ * @returns {object} The compliance report object with chainIntegrity set.
+ */
+function getReport(type, opts) {
+  if (!_initialized) init();
+  var report = generateReport(type, opts);
+  // Fold the real tamper-evidence verdict into the report. Do not let a
+  // verification error fabricate a pass: capture it honestly instead.
+  try {
+    report.chainIntegrity = _log.verifyChain();
+  } catch (e) {
+    report.chainIntegrity = {
+      valid: false,
+      entries: report.totalAuditEntries || 0,
+      brokenAt: null,
+      error: 'chain verification failed: ' + String((e && e.message) || e),
+    };
+  }
+  return report;
+}
+
+/**
+ * CLI shim so a non-Node surface (e.g. the Python dashboard) can fetch a
+ * compliance report for a given project directory as JSON on stdout.
+ *
+ * This mirrors the inverse of dashboard/audit.py's `_unified_cli()`
+ * (which lets the Node-side unified verifier read the Python chain).
+ *
+ * Invoked as:
+ *   node src/audit/index.js report <type> <projectDir>
+ *
+ * <type> is one of soc2 | iso27001 | gdpr. <projectDir> is the project
+ * root whose .loki/audit/audit.jsonl chain is read. Prints a single JSON
+ * object to stdout. Returns exit 0 on success, 2 on usage error.
+ *
+ * The report is generated from the REAL chain; an absent/empty chain
+ * yields an honest empty report (totalAuditEntries: 0), not a fake pass.
+ */
+function _cli(argv) {
+  var args = argv || [];
+  var VALID_TYPES = { soc2: true, iso27001: true, gdpr: true };
+  if (args.length < 2 || args[0] !== 'report' || !VALID_TYPES[args[1]]) {
+    process.stdout.write(JSON.stringify({
+      error: 'usage: index.js report {soc2|iso27001|gdpr} <projectDir>',
+    }) + '\n');
+    return 2;
+  }
+  var type = args[1];
+  var projectDir = args[2] || process.cwd();
+  destroy();
+  init(projectDir);
+  var report = getReport(type);
+  destroy();
+  process.stdout.write(JSON.stringify(report) + '\n');
+  return 0;
+}
+
+/**
  * Check if a provider is allowed by data residency policy.
  */
 function checkProvider(provider, region) {
@@ -122,6 +201,55 @@ function flush() {
 }
 
 /**
+ * Cross-link the dashboard (Python) audit chain into the agent (JS)
+ * audit chain, producing a single verifiable tamper-evident trail.
+ * See src/audit/crosslink.js.
+ */
+function crossLink(opts) {
+  if (!_initialized) init();
+  return crosslink.crossLink(Object.assign({ projectDir: _projectDir }, opts || {}));
+}
+
+/**
+ * Verify the unified (agent + dashboard) audit trail as one logical
+ * chain: both sub-chains valid AND every cross-link anchor reconciled.
+ */
+function verifyUnified(opts) {
+  if (!_initialized) init();
+  return crosslink.verifyUnified(Object.assign({ projectDir: _projectDir }, opts || {}));
+}
+
+/**
+ * Append-only / external-witness option: write the current unified root
+ * to an append-only witness file (and optionally an external command).
+ */
+function writeWitness(opts) {
+  if (!_initialized) init();
+  return crosslink.writeWitness(Object.assign({ projectDir: _projectDir }, opts || {}));
+}
+
+/**
+ * Link the run manifest (loki-run.json bill-of-materials) into the agent
+ * audit chain so it becomes tamper-evident and verifiable against the
+ * evidence chain. No-op (honest) when the manifest is absent.
+ * See src/audit/crosslink.js (linkManifest).
+ */
+function linkManifest(opts) {
+  if (!_initialized) init();
+  return crosslink.linkManifest(Object.assign({ projectDir: _projectDir }, opts || {}));
+}
+
+/**
+ * Verify the run-manifest link: agent chain integrity AND the on-disk
+ * manifest still matching the hash pinned by the most recent
+ * manifest-link anchor. See src/audit/crosslink.js (verifyManifestLink).
+ */
+function verifyManifestLink(opts) {
+  if (!_initialized) init();
+  return crosslink.verifyManifestLink(Object.assign({ projectDir: _projectDir }, opts || {}));
+}
+
+/**
  * Destroy audit trail (for testing).
  */
 function destroy() {
@@ -138,10 +266,21 @@ module.exports = {
   verifyChain: verifyChain,
   generateReport: generateReport,
   exportReport: exportReport,
+  getReport: getReport,
   checkProvider: checkProvider,
   isAirGapped: isAirGapped,
   readEntries: readEntries,
   getSummary: getSummary,
   flush: flush,
   destroy: destroy,
+  crossLink: crossLink,
+  verifyUnified: verifyUnified,
+  writeWitness: writeWitness,
+  linkManifest: linkManifest,
+  verifyManifestLink: verifyManifestLink,
 };
+
+// CLI entry point: `node src/audit/index.js report <type> <projectDir>`.
+if (require.main === module) {
+  process.exit(_cli(process.argv.slice(2)));
+}

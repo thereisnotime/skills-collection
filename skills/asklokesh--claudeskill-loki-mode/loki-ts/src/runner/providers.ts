@@ -321,7 +321,7 @@ export function claudeProvider(): ProviderInvoker {
 // Maps to provider_invoke_with_tier() at codex.sh:181-189:
 //   LOKI_CODEX_REASONING_EFFORT=$effort \
 //   CODEX_MODEL_REASONING_EFFORT=$effort \
-//   codex exec --full-auto "<prompt>"
+//   codex exec --sandbox workspace-write --skip-git-repo-check "<prompt>"
 //
 // Codex uses a single model with varying reasoning effort (xhigh/high/low)
 // rather than tier->model mapping. Both env vars are set for forward and
@@ -361,18 +361,19 @@ function applyCodexMaxTier(effort: string): string {
   }
 }
 
-// v7.4.18: switched the argv shape to align with codex CLI v0.125.0
-// (latest as of 2026-04-26). Changes vs the v7.4.6 baseline:
+// Aligned with codex CLI 0.132.0 (verified: --full-auto is deprecated and
+// removed from `codex exec --help`). argv shape:
 //
-//   --full-auto                        (was)
-//   --ask-for-approval never           (now -- explicit)
-//   --sandbox danger-full-access       (now -- explicit)
+//   --full-auto                        (was, now deprecated upstream)
+//   --sandbox workspace-write          (now -- documented replacement)
+//   --skip-git-repo-check              (matches the bash route)
 //
-// `--full-auto` still works in v0.125 as a low-friction preset that
-// expands to those two flags; we use the explicit form so the contract
-// is forward-compatible if the preset is renamed/removed and so users
-// reading the argv (e.g. in `loki status`) see exactly what is being
-// granted to codex.
+// `codex exec` is the non-interactive subcommand: it runs at approval "never"
+// with no --ask-for-approval flag, so --sandbox workspace-write alone keeps the
+// loop autonomous (verified against codex 0.132.0: no approval prompt). This
+// mirrors the bash route (run.sh:14720 + codex.sh provider_invoke_with_tier)
+// exactly. workspace-write is also the safer default (scoped disk writes) over
+// the prior danger-full-access.
 //
 // New optional features added (opt-in via env):
 //   LOKI_CODEX_WEB_SEARCH=true  -> append --search (codex live web search)
@@ -393,13 +394,14 @@ export function codexProvider(): ProviderInvoker {
       const baseEffort = codexTierToEffort(call.tier);
       const effort = applyCodexMaxTier(baseEffort);
 
-      // v7.4.18: explicit approval + sandbox flags (forward-compat over
-      // --full-auto preset).
+      // codex 0.132.0: --sandbox workspace-write (documented replacement for the
+      // deprecated --full-auto). exec is non-interactive (approval "never"), so
+      // no --ask-for-approval flag is needed. Mirrors the bash route shape.
       const argv: string[] = [
         cli,
         "exec",
-        "--ask-for-approval", "never",
-        "--sandbox", "danger-full-access",
+        "--sandbox", "workspace-write",
+        "--skip-git-repo-check",
       ];
 
       // Optional: web search (codex v0.125 --search).

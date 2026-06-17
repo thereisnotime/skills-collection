@@ -227,7 +227,7 @@ grill_invoke_provider() {
                 return $GRILL_EXIT_ERROR
             fi
             local out
-            out="$(printf '%s' "$prompt" | _grill_with_timeout "${LOKI_GRILL_TIMEOUT:-180}" codex exec --full-auto - 2>/dev/null)"
+            out="$(printf '%s' "$prompt" | _grill_with_timeout "${LOKI_GRILL_TIMEOUT:-180}" codex exec --sandbox workspace-write - 2>/dev/null)"
             if [ -z "$out" ]; then
                 _grill_err "provider returned no output"
                 return $GRILL_EXIT_ERROR

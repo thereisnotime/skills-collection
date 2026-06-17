@@ -31,7 +31,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { atomicWriteText, withFileLockSync } from "../util/atomic.ts";
-import { lokiDir } from "../util/paths.ts";
+import { REPO_ROOT, lokiDir } from "../util/paths.ts";
 import { run } from "../util/shell.ts";
 import type { RunnerContext } from "./types.ts";
 
@@ -69,9 +69,14 @@ export type GateOutcome = {
 export type GateName =
   | "static_analysis"
   | "test_coverage"
+  | "mock_integrity"
+  | "mutation_integrity"
+  | "semantic_tests"
+  | "invariants"
   | "code_review"
   | "doc_coverage"
-  | "magic_debate";
+  | "magic_debate"
+  | "lsp_diagnostics";
 
 export type GateResult = {
   passed: boolean;
@@ -432,6 +437,536 @@ export async function runTestCoverage(ctx?: RunnerContext): Promise<GateResult> 
   return { passed: false, detail: `test_coverage: npm test exit ${r.exitCode} -- ${tail}` };
 }
 
+// --- Mock + mutation integrity gates -------------------------------------
+//
+// Bash sources of truth (Slice A, run.sh):
+//   enforce_mock_integrity()      -> tests/detect-mock-problems.sh
+//   enforce_mutation_integrity()  -> tests/detect-test-mutations.sh
+//
+// Approach: artifact-reading, NOT direct script invocation. The detector
+// scripts derive their scan root as `$(cd "$SCRIPT_DIR/.." && pwd)` (the loki
+// install dir) and ignore cwd, so invoking them from this TS runner would
+// scan the loki install instead of the target project. Instead we read the
+// findings files the bash gate writes into the target's .loki/quality/ dir,
+// mirroring the established artifact-reading pattern in runTestCoverage
+// (readTestResultsArtifact, ~373).
+//
+// CROSS-SLICE CONTRACT (coordinate with Slice A / integrator before ship):
+//   - Mock findings file:     <lokiDir>/quality/mock-findings.txt
+//   - Mutation findings file: <lokiDir>/quality/mutation-findings.txt
+//   These are the raw stdout of the respective detector scripts. The detector
+//   scripts emit ANSI-colored severity tokens (e.g. "\033[0;31m[HIGH]\033[0m"),
+//   so we match on the `[HIGH]` / `[CRITICAL]` substring tokens, which survive
+//   the surrounding color codes (a naive anchored regex would not).
+//
+// Block policy (mirrors the bash exit-code semantics in section 4 of the P0
+// plan and the detector scripts):
+//   - Mock:     CRITICAL or HIGH -> block (detect-mock-problems.sh exits 1 on
+//               either). MED/LOW -> pass (routed to findings injection).
+//   - Mutation: HIGH only -> block (we do NOT use --strict, which over-blocks
+//               MED/LOW; the wrapper gates on the presence of a [HIGH] token).
+//
+// HONESTY: when the findings file is ABSENT the gate returns passed=true with a
+// "gate did not run" detail. Absence is NOT phrased as "clean" -- we never
+// manufacture a verdict from a missing artifact.
+
+function readFindingsArtifact(base: string, name: string): string | null {
+  const p = join(base, "quality", name);
+  if (!existsSync(p)) return null;
+  try {
+    return readFileSync(p, "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+// Count occurrences of a severity token, tolerant of surrounding ANSI codes.
+// Matches "[HIGH]" / "[CRITICAL]" anywhere in the line.
+function hasSeverityToken(body: string, token: "HIGH" | "CRITICAL"): boolean {
+  return new RegExp(`\\[${token}\\]`, "i").test(body);
+}
+
+// --- semantic-findings.txt persistence (parity with bash, run.sh:8362-8383) ---
+//
+// The bash route writes <lokiDir>/quality/semantic-findings.txt by piping the
+// detector's `2>&1` output through `grep -E '\[(...)\]'`. These helpers mirror
+// that on the Bun route so the on-disk artifact is byte-shape compatible (a
+// header line followed by the matching severity lines, trailing newline). The
+// file path is the same one runMockIntegrity / runMutationIntegrity read.
+
+function semanticFindingsPath(base: string): string {
+  return join(base, "quality", "semantic-findings.txt");
+}
+
+// Invariant findings file path (parity with bash enforce_invariant_integrity,
+// run.sh:8444). build_prompt.ts buildInvariantFindingsBlock reads this exact
+// path, so the surfacing-default-on invariant arm writes it here.
+function invariantFindingsPath(base: string): string {
+  return join(base, "quality", "invariant-findings.txt");
+}
+
+// Return the lines of `output` that match `re` (severity tokens), preserving
+// order and dropping ANSI-only / blank noise. Mirrors `echo "$output" | grep -E`.
+function grepSeverities(output: string, re: RegExp): string[] {
+  return output
+    .split(/\r?\n/)
+    .filter((line) => re.test(line));
+}
+
+// Write a findings file: a header line then the matched severity lines, with a
+// trailing newline (mirrors the bash `{ echo ...; echo "$lines"; } > file`).
+// mkdir -p the quality dir first (bash run.sh:8338 does `mkdir -p`).
+function persistFindings(path: string, header: string, lines: string[]): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const body = `${header}\n${lines.join("\n")}\n`;
+  writeFileSync(path, body);
+}
+
+// Remove a stale findings file (mirrors the bash `rm -f "$findings_file"`
+// deny-filter branches). No-op when absent.
+function clearFindings(path: string): void {
+  if (existsSync(path)) {
+    try {
+      rmSync(path);
+    } catch {
+      // best-effort; a leftover file is harmless (advisory only).
+    }
+  }
+}
+
+// Mirror of bash enforce_mock_integrity -> tests/detect-mock-problems.sh.
+// Reads <lokiDir>/quality/mock-findings.txt. Blocks on CRITICAL or HIGH.
+// Honors LOKI_STUB_GATE_MOCK_INTEGRITY for tests.
+export async function runMockIntegrity(ctx?: RunnerContext): Promise<GateResult> {
+  const stubKey = "LOKI_STUB_GATE_MOCK_INTEGRITY";
+  const stubVal = process.env[stubKey];
+  if (stubVal === "fail" || stubVal === "pass") return stubResult("mock_integrity");
+
+  const base = ctx?.lokiDir ?? lokiDir();
+  const body = readFindingsArtifact(base, "mock-findings.txt");
+  if (body === null) {
+    return {
+      passed: true,
+      detail: "mock_integrity: no mock-findings.txt artifact -- gate did not run",
+    };
+  }
+  const critical = hasSeverityToken(body, "CRITICAL");
+  const high = hasSeverityToken(body, "HIGH");
+  if (critical || high) {
+    return {
+      passed: false,
+      detail: `mock_integrity: blocking findings present (critical=${critical} high=${high})`,
+    };
+  }
+  return { passed: true, detail: "mock_integrity: no critical/high findings" };
+}
+
+// Mirror of bash enforce_mutation_integrity -> tests/detect-test-mutations.sh.
+// Reads <lokiDir>/quality/mutation-findings.txt. Blocks ONLY on [HIGH] (we do
+// not use --strict, which over-blocks MED/LOW). Honors
+// LOKI_STUB_GATE_MUTATION_INTEGRITY for tests.
+export async function runMutationIntegrity(ctx?: RunnerContext): Promise<GateResult> {
+  const stubKey = "LOKI_STUB_GATE_MUTATION_INTEGRITY";
+  const stubVal = process.env[stubKey];
+  if (stubVal === "fail" || stubVal === "pass") return stubResult("mutation_integrity");
+
+  const base = ctx?.lokiDir ?? lokiDir();
+  const body = readFindingsArtifact(base, "mutation-findings.txt");
+  if (body === null) {
+    return {
+      passed: true,
+      detail: "mutation_integrity: no mutation-findings.txt artifact -- gate did not run",
+    };
+  }
+  if (hasSeverityToken(body, "HIGH")) {
+    return {
+      passed: false,
+      detail: "mutation_integrity: [HIGH] finding present -- possible test fitting",
+    };
+  }
+  return { passed: true, detail: "mutation_integrity: no high findings" };
+}
+
+// --- Semantic test-authenticity gate (P1-3 Bun mirror) -------------------
+//
+// Bash source of truth: enforce_semantic_integrity (autonomy/run.sh:8335) +
+// the completion-promise gate arm (autonomy/run.sh:15460), driven by the
+// detector tests/detect-semantic-test-problems.sh.
+//
+// PRECEDENT -- why this gate SPAWNS the detector (NOT the artifact-reading
+// pattern that runMockIntegrity / runMutationIntegrity use): the mock and
+// mutation detectors derive their scan root from `$SCRIPT_DIR/..` (the loki
+// install dir) and IGNORE cwd, so a TS spawn pointed at a user project would
+// scan loki's own tree -- which is why those two mirrors read the bash-written
+// findings artifact instead. The semantic detector is different: it honors the
+// LOKI_SCAN_DIR env var (tests/detect-semantic-test-problems.sh:103) to choose
+// its scan root, exactly the way the bash gate drives it (cd TARGET_DIR +
+// LOKI_SCAN_DIR=TARGET_DIR + --block-high). Nothing in loki-ts/src writes
+// semantic-findings.txt, so an artifact reader would be permanently INERT on a
+// pure-Bun run (always "absent -> pass"). The real precedent here is the other
+// SPAWN gates -- runStaticAnalysis and runLSPDiagnosticsWriter -- which run a
+// subprocess pointed at ctx.cwd. This gate follows that pattern.
+//
+// EXIT-CODE CONTRACT (mirrors the bash rc handling byte-for-byte):
+//   rc 2            -> CRITICAL/HIGH present  -> BLOCK (passed: false)
+//   rc 0            -> clean                  -> PASS
+//   rc 124          -> detector timed out     -> PASS (deny-filter, never block on a hang)
+//   detector absent -> nothing to run         -> PASS
+//   spawn error     -> inconclusive           -> PASS
+//   any other rc    -> inconclusive/malformed -> PASS
+// Only an exact exit code of 2 blocks. The autonomous loop can NEVER deadlock
+// on a clean (or unmeasurable) run.
+//
+// LOKI_SCAN_DIR is LOAD-BEARING: the detector comment is explicit that cwd
+// alone does not redirect the scan, so we must pass it via the env option (the
+// `run` helper merges opts.env over process.env). We do NOT shell out to the
+// `timeout(1)` binary -- it is absent on darwin's default PATH -- and instead
+// rely on run()'s own timeoutMs. Whatever code a kill yields still falls into
+// the "any other rc -> PASS" branch, so the deny-filter holds regardless.
+//
+// DEFAULT-ON SURFACING + OPT-IN BLOCKING (mirrors bash run.sh:15290 advisory
+// arm + run.sh:15644 opt-in completion-blocking elif):
+//   LOKI_GATE_SEMANTIC_TESTS       default TRUE  -> run + SURFACE (advisory,
+//                                                   passed:true, writes findings)
+//   LOKI_GATE_SEMANTIC_TESTS_BLOCK default FALSE -> a CRITICAL/HIGH (rc 2)
+//                                                   finding flips to passed:false
+// The readToggles flag() helper gates invocation on either flag (surfacing OR
+// block) so an operator who disables surfacing but enables block still gets the
+// block -- mirroring the bash blocking elif which is independent of the
+// advisory arm. Both flags accept "true" or "1". There is no second in-body
+// skip. Honors LOKI_STUB_GATE_SEMANTIC_TESTS for orchestration tests.
+//
+// Test injection: LOKI_SEMANTIC_DETECTOR overrides the detector path so tests
+// can point the gate at a fixture detector that returns a deterministic exit
+// code (the same style runStaticAnalysis tests use a hermetic scratch repo).
+//
+// FINDINGS PERSISTENCE (parity with bash enforce_semantic_integrity,
+// run.sh:8362-8383): the bash route captures the detector's FULL output and
+// writes per-finding text to <lokiDir>/quality/semantic-findings.txt -- the
+// CRITICAL/HIGH/MED/LOW lines on a block (rc 2), the MED/LOW advisory lines on
+// a clean-but-advisory pass (rc 0), and REMOVES the file when there is nothing
+// to report (deny-filter: clean with no advisory, timeout, detector absent).
+// The bash build_prompt then surfaces that file into the next iteration's
+// prompt (run.sh:12343, independent of gate-failures.txt). This mirror persists
+// the SAME file at the SAME path with the SAME byte-shape (header line + the
+// grepped severity lines) so the actionable near-miss feedback is captured on
+// the Bun route too.
+//
+// CONSUMER STATUS (honest, no fake consumer): the Bun prompt-builder
+// (build_prompt.ts buildSemanticFindingsBlock, called from
+// buildGateFailureContext) READS this file and injects the severity-tagged
+// lines into the next-iteration prompt, independent of gate-failures.txt --
+// byte-parity with the bash route (run.sh:12349-12353). The semantic
+// completion-promise arm writes no gate token, which is why the consumer
+// surfaces this file independently of gate-failures.txt rather than nesting it.
+// Writer (here) and reader (build_prompt.ts) are both wired: NOT dead output,
+// NOT a writer-with-no-reader.
+export async function runSemanticTests(ctx?: RunnerContext): Promise<GateResult> {
+  const stubKey = "LOKI_STUB_GATE_SEMANTIC_TESTS";
+  const stubVal = process.env[stubKey];
+  if (stubVal === "fail" || stubVal === "pass") return stubResult("semantic_tests");
+
+  const cwd = ctx?.cwd ?? process.cwd();
+  // Findings file lives under the SAME path the bash route uses:
+  // <lokiDir>/quality/semantic-findings.txt. base mirrors the other findings
+  // gates (runMockIntegrity / runMutationIntegrity), reading ctx.lokiDir.
+  const base = ctx?.lokiDir ?? lokiDir();
+  const detector =
+    process.env["LOKI_SEMANTIC_DETECTOR"] ??
+    join(REPO_ROOT, "tests", "detect-semantic-test-problems.sh");
+
+  // Detector absent -> nothing to run. Mirror the bash `if [ ! -f ... ]`
+  // skip; never fabricate a verdict from a missing script. Bash also clears any
+  // stale findings file here (run.sh:8345); mirror that deny-filter.
+  if (!existsSync(detector)) {
+    clearFindings(semanticFindingsPath(base));
+    return {
+      passed: true,
+      detail: "semantic_tests: detector not found -- gate did not run",
+    };
+  }
+
+  // Gate timeout, applied via run()'s timeoutMs rather than the timeout(1)
+  // binary (absent on darwin's default PATH). Fixed at the bash default (300s).
+  // The bash route reads its gate-timeout value knob here, but that env name is
+  // a documented bash-ONLY knob in the parity contract
+  // (tests/test-bash-bun-parity.sh GATE_ALLOWED_BASH_ONLY), so we deliberately
+  // do NOT reference it on the Bun route -- referencing the literal (even in a
+  // comment) would re-introduce a parity asymmetry, since the parity grep scans
+  // source text. Blocking semantics are unaffected: a timeout maps to PASS
+  // (deny-filter) on BOTH routes, so the operator knob only shifts WHEN an
+  // inconclusive pass happens on a hung detector, never the rc-2 BLOCK decision,
+  // which stays byte-identical.
+  const TIMEOUT_MS = 300_000;
+
+  let exitCode: number;
+  let output: string;
+  try {
+    const r = await run(["bash", detector, "--block-high"], {
+      cwd,
+      // LOKI_SCAN_DIR is load-bearing: the detector reads it to pick its scan
+      // root; cwd alone does not redirect find/git inside the script.
+      env: { LOKI_SCAN_DIR: cwd },
+      timeoutMs: TIMEOUT_MS,
+    });
+    exitCode = r.exitCode;
+    // Bash captures the detector with `2>&1` (run.sh:8351-8352); mirror that by
+    // concatenating stdout + stderr before grepping severity lines.
+    output = `${r.stdout}${r.stderr}`;
+  } catch {
+    // Spawn failure -- inconclusive, never block (deny-filter). Clear any stale
+    // findings file so a prior run's text is not mistaken for this run's.
+    clearFindings(semanticFindingsPath(base));
+    return {
+      passed: true,
+      detail: "semantic_tests: detector spawn failed -- inconclusive, not blocking",
+    };
+  }
+
+  // SURFACING vs BLOCKING (parity with bash, run.sh:15290 advisory arm +
+  // run.sh:15644 opt-in completion-blocking elif). LOKI_GATE_SEMANTIC_TESTS
+  // (default true) runs the gate and SURFACES findings to the next prompt via
+  // semantic-findings.txt; it does NOT make passed:false on its own (the
+  // orchestrator pushes a passed:true gate to passed[] + clears the failure
+  // counter, so the only surfacing channel is the findings file build_prompt
+  // reads). The opt-in LOKI_GATE_SEMANTIC_TESTS_BLOCK (default false) is what
+  // flips a CRITICAL/HIGH (rc 2) finding into passed:false so it actually
+  // blocks completion. Read it with the same truthiness convention as the
+  // readToggles flag() helper ("true" or "1").
+  const blockEnv = process.env["LOKI_GATE_SEMANTIC_TESTS_BLOCK"];
+  const blockOnHigh = blockEnv === "true" || blockEnv === "1";
+
+  // ONLY an exact exit code of 2 is a CRITICAL/HIGH finding. Persist ALL
+  // severity lines regardless of the block flag (mirrors run.sh:8362-8367:
+  // the blocking-header variant is written every iteration so the surfacing
+  // channel always carries the near-miss feedback). passed:false only when
+  // the opt-in _BLOCK flag is set; otherwise surfacing (passed:true).
+  if (exitCode === 2) {
+    persistFindings(
+      semanticFindingsPath(base),
+      "# Semantic test-authenticity findings (CRITICAL/HIGH block this completion)",
+      grepSeverities(output, /\[(CRITICAL|HIGH|MEDIUM|LOW)\]/),
+    );
+    if (blockOnHigh) {
+      return {
+        passed: false,
+        detail: "semantic_tests: CRITICAL/HIGH fake-test problems detected -- BLOCK (LOKI_GATE_SEMANTIC_TESTS_BLOCK)",
+      };
+    }
+    return {
+      passed: true,
+      detail: "semantic_tests: CRITICAL/HIGH fake-test problems detected -- advisory (surfaced; set LOKI_GATE_SEMANTIC_TESTS_BLOCK=true to block)",
+    };
+  }
+  // rc 124 (timeout) is named for clarity; every other code collapses to PASS.
+  // Bash clears the findings file on timeout (run.sh:8358); mirror that.
+  if (exitCode === 124) {
+    clearFindings(semanticFindingsPath(base));
+    return {
+      passed: true,
+      detail: "semantic_tests: detector timed out -- inconclusive, not blocking",
+    };
+  }
+  // rc 0 (clean) and any other non-2/non-124 code -> PASS (deny-filter). Route
+  // any MED/LOW advisory findings to the findings file (mirrors run.sh:8374-8383:
+  // the advisory-header variant), else clear it. This is the near-miss feedback
+  // the council flagged as missing on the Bun route.
+  const medLow = grepSeverities(output, /\[(MEDIUM|LOW)\]/);
+  if (medLow.length > 0) {
+    persistFindings(
+      semanticFindingsPath(base),
+      "# Semantic test advisory findings (MED/LOW, non-blocking)",
+      medLow,
+    );
+  } else {
+    clearFindings(semanticFindingsPath(base));
+  }
+  return { passed: true, detail: `semantic_tests: no blocking findings (rc ${exitCode})` };
+}
+
+// --- Invariant (spec-independent property) gate (P1-4 Bun mirror) ---------
+//
+// Bash source of truth (to be wired by the run.sh owner in the same wave):
+// enforce_invariant_integrity -> tests/detect-invariant-violations.sh, modeled
+// on enforce_semantic_integrity (autonomy/run.sh:8335). The detector asserts a
+// small set of invariants that hold regardless of the spec (no committed
+// secrets, no PII in logs), so it catches the "spec was silent and the model
+// guessed wrong" failure mode.
+//
+// PRECEDENT -- this gate SPAWNS the detector (NOT the artifact-reading pattern
+// runMockIntegrity / runMutationIntegrity use), for the SAME reason
+// runSemanticTests does: the detector honors LOKI_SCAN_DIR
+// (tests/detect-invariant-violations.sh:123) to choose its scan root, so a TS
+// spawn pointed at the target project scans the right tree. Nothing in
+// loki-ts/src writes an invariant-findings artifact, so an artifact reader
+// would be permanently INERT on a pure-Bun run. runSemanticTests is the exact
+// precedent cloned here.
+//
+// EXIT-CODE CONTRACT -- this DIFFERS from runSemanticTests. The invariant
+// detector is invoked with --strict (NOT --block-high) and exits 1 on
+// CRITICAL/HIGH, 0 otherwise (tests/detect-invariant-violations.sh:347-353).
+// So we block ONLY on an exact exit code of 1:
+//   rc 1            -> CRITICAL/HIGH present  -> BLOCK (passed: false)
+//   rc 0            -> clean                  -> PASS
+//   rc 124          -> detector timed out     -> PASS (deny-filter, never block on a hang)
+//   detector absent -> nothing to run         -> PASS
+//   spawn error     -> inconclusive           -> PASS
+//   any other rc    -> inconclusive/malformed -> PASS
+// Only an exact exit code of 1 blocks. The autonomous loop can NEVER deadlock
+// on a clean (or unmeasurable) run. rc 1 is less defensive than the semantic
+// gate's rc 2 (it collides with a generic bash exit 1), but mirroring the
+// detector's real --strict contract is the correct behavior; we do not
+// redesign the detector from here.
+//
+// FINDINGS PERSISTENCE -- mirrored (parity with bash enforce_invariant_integrity,
+// run.sh:8467-8488). build_prompt.ts now has a reader
+// (buildInvariantFindingsBlock, build_prompt.ts:727) that injects the
+// severity-tagged lines from .loki/quality/invariant-findings.txt into the next
+// iteration's prompt. Because the default-on surfacing arm returns passed:true
+// (the orchestrator then pushes the gate to passed[] and clears its failure
+// counter, so it never reaches gate-failures.txt), the findings file is the ONLY
+// surfacing channel -- so we MUST write it on a HIGH (rc 1) finding even when
+// the gate does not block. We mirror the bash byte-shape exactly: a blocking
+// header on rc 1 (all severities) and an advisory header on rc 0 + MED/LOW.
+//
+// LOKI_SCAN_DIR is LOAD-BEARING: the detector comment is explicit that cwd
+// alone does not redirect the scan (tests/detect-invariant-violations.sh:119-123).
+// We pass it via the env option (run merges opts.env over process.env). We do
+// NOT shell out to timeout(1) (absent on darwin's default PATH) and rely on
+// run()'s timeoutMs; a kill's exit code falls into the "any other rc -> PASS"
+// branch, so the deny-filter holds.
+//
+// DEFAULT-ON SURFACING + OPT-IN BLOCKING (mirrors bash run.sh:15313 advisory
+// arm + run.sh:15661 opt-in completion-blocking elif):
+//   LOKI_GATE_INVARIANTS       default TRUE  -> run + SURFACE (advisory,
+//                                               passed:true, writes findings)
+//   LOKI_GATE_INVARIANTS_BLOCK default FALSE -> a CRITICAL/HIGH (rc 1) finding
+//                                               flips to passed:false
+// readToggles' flag() helper gates invocation on either flag (surfacing OR
+// block) so an operator who disables surfacing but enables block still gets the
+// block -- mirroring the bash blocking elif which is independent of the advisory
+// arm. Both flags accept "true" or "1". There is no second in-body skip.
+// Honors LOKI_STUB_GATE_INVARIANTS for orchestration tests.
+//
+// Test injection: LOKI_INVARIANT_DETECTOR overrides the detector path so tests
+// can point the gate at a fixture detector returning a deterministic exit code
+// (same style runSemanticTests uses LOKI_SEMANTIC_DETECTOR).
+export async function runInvariants(ctx?: RunnerContext): Promise<GateResult> {
+  const stubKey = "LOKI_STUB_GATE_INVARIANTS";
+  const stubVal = process.env[stubKey];
+  if (stubVal === "fail" || stubVal === "pass") return stubResult("invariants");
+
+  const cwd = ctx?.cwd ?? process.cwd();
+  // Findings file lives at the SAME path the bash route uses
+  // (run.sh:8444) and build_prompt.ts buildInvariantFindingsBlock reads.
+  const base = ctx?.lokiDir ?? lokiDir();
+  const detector =
+    process.env["LOKI_INVARIANT_DETECTOR"] ??
+    join(REPO_ROOT, "tests", "detect-invariant-violations.sh");
+
+  // Detector absent -> nothing to run. Mirror the bash `if [ ! -f ... ]` skip;
+  // never fabricate a verdict from a missing script. Bash clears any stale
+  // findings file here (run.sh:8450); mirror that deny-filter.
+  if (!existsSync(detector)) {
+    clearFindings(invariantFindingsPath(base));
+    return {
+      passed: true,
+      detail: "invariants: detector not found -- gate did not run",
+    };
+  }
+
+  // Gate timeout via run()'s timeoutMs (not the timeout(1) binary, absent on
+  // darwin's default PATH). Fixed at the bash default (300s). We deliberately do
+  // NOT reference the bash-route gate-timeout knob here -- it is a documented
+  // bash-only value knob in the parity contract (GATE_ALLOWED_BASH_ONLY) and even
+  // a textual mention of that token would re-introduce an asymmetry. A timeout
+  // maps to PASS on both routes, so the knob only shifts WHEN an inconclusive
+  // pass happens, never the rc-1 BLOCK decision.
+  const TIMEOUT_MS = 300_000;
+
+  let exitCode: number;
+  let output: string;
+  try {
+    const r = await run(["bash", detector, "--strict"], {
+      cwd,
+      // LOKI_SCAN_DIR is load-bearing: the detector reads it to pick its scan
+      // root; cwd alone does not redirect find inside the script.
+      env: { LOKI_SCAN_DIR: cwd },
+      timeoutMs: TIMEOUT_MS,
+    });
+    exitCode = r.exitCode;
+    // Bash captures the detector with `2>&1` (run.sh:8456-8457); mirror that by
+    // concatenating stdout + stderr before grepping severity lines.
+    output = `${r.stdout}${r.stderr}`;
+  } catch {
+    // Spawn failure -- inconclusive, never block (deny-filter). Clear any stale
+    // findings file so a prior run's text is not mistaken for this run's.
+    clearFindings(invariantFindingsPath(base));
+    return {
+      passed: true,
+      detail: "invariants: detector spawn failed -- inconclusive, not blocking",
+    };
+  }
+
+  // SURFACING vs BLOCKING (parity with bash, run.sh:15313 advisory arm +
+  // run.sh:15661 opt-in completion-blocking elif). LOKI_GATE_INVARIANTS
+  // (default true) runs the gate and SURFACES findings to the next prompt via
+  // invariant-findings.txt; it does NOT make passed:false on its own (a
+  // passed:true gate is pushed to passed[] + has its failure counter cleared,
+  // so the findings file is the only surfacing channel build_prompt reads). The
+  // opt-in LOKI_GATE_INVARIANTS_BLOCK (default false) flips a CRITICAL/HIGH
+  // (rc 1) finding into passed:false. Read it with the same truthiness
+  // convention as the readToggles flag() helper ("true" or "1").
+  const blockEnv = process.env["LOKI_GATE_INVARIANTS_BLOCK"];
+  const blockOnHigh = blockEnv === "true" || blockEnv === "1";
+
+  // ONLY an exact exit code of 1 is a CRITICAL/HIGH violation (under --strict).
+  // Persist ALL severity lines regardless of the block flag (mirrors
+  // run.sh:8469-8472: the blocking-header variant is written every iteration so
+  // the surfacing channel always carries the feedback). passed:false only when
+  // the opt-in _BLOCK flag is set; otherwise surfacing (passed:true). Every
+  // other code (0 clean, 124 timeout, any other) is deny-filtered to PASS so the
+  // loop can never deadlock on an unmeasurable run.
+  if (exitCode === 1) {
+    persistFindings(
+      invariantFindingsPath(base),
+      "# Invariant findings (CRITICAL/HIGH block this completion)",
+      grepSeverities(output, /\[(CRITICAL|HIGH|MEDIUM|LOW)\]/),
+    );
+    if (blockOnHigh) {
+      return {
+        passed: false,
+        detail: "invariants: CRITICAL/HIGH invariant violation detected -- BLOCK (LOKI_GATE_INVARIANTS_BLOCK)",
+      };
+    }
+    return {
+      passed: true,
+      detail: "invariants: CRITICAL/HIGH invariant violation detected -- advisory (surfaced; set LOKI_GATE_INVARIANTS_BLOCK=true to block)",
+    };
+  }
+  if (exitCode === 124) {
+    clearFindings(invariantFindingsPath(base));
+    return {
+      passed: true,
+      detail: "invariants: detector timed out -- inconclusive, not blocking",
+    };
+  }
+  // rc 0 (clean) and any other non-1/non-124 code -> PASS (deny-filter). Route
+  // any MED/LOW advisory findings to the findings file (mirrors run.sh:8478-8488:
+  // the advisory-header variant), else clear it.
+  const medLow = grepSeverities(output, /\[(MEDIUM|LOW)\]/);
+  if (medLow.length > 0) {
+    persistFindings(
+      invariantFindingsPath(base),
+      "# Invariant advisory findings (MED/LOW, non-blocking)",
+      medLow,
+    );
+  } else {
+    clearFindings(invariantFindingsPath(base));
+  }
+  return { passed: true, detail: `invariants: no blocking violations (rc ${exitCode})` };
+}
+
 // --- Code review: 3-reviewer parallel council ----------------------------
 //
 // Bash source: autonomy/run.sh:6234-6646 (run_code_review, ~413 LOC).
@@ -647,6 +1182,41 @@ FINDINGS:
 // own ReviewerFn to drive specific verdicts.
 export const stubReviewer: ReviewerFn = async () => "VERDICT: PASS\nFINDINGS:\n- (stub)";
 
+// P0-4 Devil's-Advocate prompt. Built ONLY on a unanimous PASS to stress-test
+// sycophantic agreement. Unlike a specialist reviewer (which looks for issues
+// in its lane), the DA is told the change was unanimously approved and is
+// instructed to actively argue it is WRONG. Same STRICT output contract as
+// buildReviewerPrompt so parseVerdict handles the result unchanged.
+export function buildDevilsAdvocatePrompt(reviewer: Reviewer, diff: string, files: string): string {
+  return `You are the ${reviewer.name}. ${reviewer.focus}.
+
+This change was just UNANIMOUSLY APPROVED by every reviewer on the council. That
+unanimity is itself a risk signal: it may indicate sycophantic agreement rather
+than a genuinely defect-free change. Your job is to DISAGREE on the merits. Find
+the strongest reason this change is wrong.
+
+Look for: ${reviewer.checks}.
+
+Files changed:
+${files.trim()}
+
+Diff:
+${diff.trim()}
+
+Output format (STRICT - follow exactly):
+VERDICT: PASS or FAIL
+FINDINGS:
+- [severity] description (file:line)
+Severity levels: Critical, High, Medium, Low
+
+Only output VERDICT: FAIL with a [Critical] or [High] finding if you can name a
+concrete, real defect. Do NOT manufacture issues. If after genuine adversarial
+scrutiny the change is sound, output:
+VERDICT: PASS
+FINDINGS:
+- None`;
+}
+
 // Parse a reviewer output blob into a structured verdict. Mirrors the bash
 // `grep -i "^VERDICT:"` + `grep -qiE "\[(Critical|High)\]"` checks at
 // autonomy/run.sh:6577-6594.
@@ -801,12 +1371,61 @@ export async function runCodeReview(
     }
   }
 
-  // Anti-sycophancy note (autonomy/run.sh:6629-6635).
+  // Anti-sycophancy / Devil's Advocate (P0-4 parity with bash run.sh:8316+).
+  //
+  // Pre-P0-4 this block ONLY wrote anti-sycophancy.txt and was otherwise inert:
+  // a unanimous PASS sailed through with no adversarial re-check. P0-4 makes the
+  // gate ACT. On a unanimous PASS we now dispatch ONE Devil's-Advocate reviewer
+  // whose sole job is to argue the change is WRONG. If the DA returns a
+  // Critical/High finding we flip the result to blocking so the iteration does
+  // not pass on potentially-sycophantic unanimous approval.
+  //
+  // Gated behind LOKI_GATE_DEVILS_ADVOCATE (default on); set to "false" or "0"
+  // to disable. Uses the same truthiness convention as the other LOKI_GATE_*
+  // toggles (readToggles' flag helper) so the Bun route matches the bash gate
+  // guard at autonomy/run.sh:8473 ([ "${LOKI_GATE_DEVILS_ADVOCATE:-true}" =
+  // "true" ]): default-on, disabled by =false (not only =0).
+  //
+  // NOTE: the reviewer dispatcher is still the stub (stubReviewer returns
+  // "VERDICT: PASS") pending the providers.ts integration. Until that lands the
+  // DA dispatch is structurally correct but inert in production (the stub never
+  // returns a blocking verdict). Tests inject a ReviewerFn via opts.reviewer to
+  // exercise the blocking path. TODO(providers.ts): once real provider dispatch
+  // lands, the DA call below automatically becomes a live adversarial review.
   if (passCount === selection.reviewers.length && failCount === 0) {
     writeFileSync(
       join(reviewDir, "anti-sycophancy.txt"),
       `UNANIMOUS_PASS: All reviewers approved - potential sycophancy risk\n`,
     );
+
+    const daEnv = process.env["LOKI_GATE_DEVILS_ADVOCATE"];
+    const daEnabled = daEnv === undefined || daEnv === "" ? true : daEnv === "true" || daEnv === "1";
+    if (daEnabled) {
+      const daReviewer: Reviewer = {
+        name: "devils-advocate",
+        focus: "Adversarial re-review of a UNANIMOUSLY-approved change",
+        checks: "hidden critical/high defects the council missed: silent failure modes, untested error paths, security regressions, broken invariants, sycophantic agreement on a flawed change",
+      };
+      const daPrompt = buildDevilsAdvocatePrompt(daReviewer, diff, files);
+      writeFileSync(join(reviewDir, `${daReviewer.name}-prompt.txt`), daPrompt);
+      let daOutput: string;
+      try {
+        daOutput = await reviewer({ reviewer: daReviewer, diff, files, prompt: daPrompt });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Fail-safe: a thrown DA reviewer becomes a Critical so a broken
+        // adversarial pass cannot silently approve.
+        daOutput = `VERDICT: FAIL\nFINDINGS:\n- [Critical] devil's advocate threw: ${msg}`;
+      }
+      writeFileSync(join(reviewDir, `${daReviewer.name}.txt`), daOutput);
+      const daVerdict = parseVerdict(daReviewer.name, daOutput);
+      if (daVerdict.blocking) {
+        return {
+          passed: false,
+          detail: `code_review: ${passCount}/${selection.reviewers.length} pass but devil's advocate raised blocking severity (${reviewId})`,
+        };
+      }
+    }
   }
 
   if (hasBlocking) {
@@ -1305,6 +1924,221 @@ export async function runMagicDebateGate(ctx?: RunnerContext): Promise<GateResul
   return { passed: true, detail: `magic_debate: ${specs.length} spec(s) clean` };
 }
 
+// --- LSP diagnostics gate (P1-5) ------------------------------------------
+//
+// Status: ACTIVE -- writer + reader both wired (Bun route). The writer is the
+// route-neutral Python program mcp/lsp_proxy.py --write-diagnostics, invoked by
+// runLSPDiagnosticsWriter below before the gate reads the artifact.
+//
+// Context: an LSP proxy MCP server exists at mcp/lsp_proxy.py (tools
+// lsp_get_diagnostics etc.). LSP was previously only a build-time PROMPT NUDGE
+// (build_prompt.ts:352 LSP_GROUNDING) -- it asks the agent to consult LSP
+// tools, but nothing in the verification pipeline read diagnostics back, and
+// the gate that was meant to close that loop was INERT (it read an artifact no
+// code produced). This gate now closes the loop: the writer produces real
+// diagnostics for the changed files and the gate BLOCKS the iteration when LSP
+// reports compiler/type ERRORS.
+//
+// APPROACH -- why artifact-reading (NOT direct python invocation):
+//   mcp/lsp_proxy.py is an MCP STDIO server, not a one-shot CLI. Reading
+//   diagnostics requires the full LSP lifecycle (spawn the per-language
+//   server, JSON-RPC `initialize` handshake up to 10s, `didOpen`, then poll
+//   `textDocument/publishDiagnostics`). runStaticAnalysis's subprocess
+//   pattern does NOT transfer -- it spawns trivial stateless one-shots
+//   (`node --check`, `bash -n`), not a stateful server. The established
+//   pattern in this module for out-of-band tooling is artifact-reading:
+//   runTestCoverage (readTestResultsArtifact, ~373), runMockIntegrity and
+//   runMutationIntegrity (readFindingsArtifact, ~470). This gate mirrors
+//   that pattern.
+//
+// CONTRACT (implemented by mcp/lsp_proxy.py write_diagnostics_artifact):
+//   Artifact path:  <lokiDir>/quality/lsp-diagnostics.json
+//   Minimal deterministic shape (only the fields this gate reads -- the writer
+//   strips the proxy's non-deterministic elapsed_ms / range / source):
+//     {
+//       "count_errors":   <int>,   // sum of diagnostics with severity == 1
+//       "count_warnings": <int>,   // sum of diagnostics with severity == 2
+//       "diagnostics": [ { "file": "...", "severity": 1|2|3|4, "message": "..." } ]
+//     }
+//   LSP severity: 1=Error, 2=Warning, 3=Information, 4=Hint (LSP spec).
+//   The WRITER owns the git-diff scoping (which changed files to query, using
+//   the same HEAD~1 -> --cached -> ls-files chain as runStaticAnalysis) and
+//   the LSP lifecycle. This gate does NOT enumerate the diff itself: it only
+//   reads the aggregated artifact the writer produces. This keeps the gate
+//   cheap and deterministic and avoids duplicating the diff-enumeration that
+//   runStaticAnalysis already does.
+//
+// BLOCK POLICY -- ADVISORY ONLY (parity with bash run.sh:15214). The bash route
+// has NO blocking arm for LSP: its error case only calls track_gate_failure,
+// never PAUSE / never the completion-promise reject. There is therefore NO
+// _BLOCK flag for LSP (none ever existed on the bash route). Mirror that:
+//   count_errors > 0      -> passed:true, surfaced as an advisory detail.
+//   warnings only / clean -> passed:true.
+// An LSP error never makes passed:false on the Bun route.
+//
+// SURFACING ASYMMETRY (honest, flagged to the integrator -- NOT closed here):
+// On bash the advisory arm appends the `lsp_diagnostics` token to gate_failures
+// (run.sh:15254), which build_prompt injects into the NEXT prompt WITHOUT
+// blocking, because bash's gate_failures string is informational injection
+// decoupled from the actual block decision. The Bun route's binary GateResult
+// model couples the two: a token in gate-failures.txt IS a block (persistFailureList
+// writes only failed[]; blocked = failed.length > 0). So to keep LSP non-blocking
+// we MUST return passed:true, which routes through passed[] + clearGateFailure --
+// the lsp_diagnostics token never reaches gate-failures.txt. Unlike semantic /
+// invariant (which surface via a dedicated findings file with a build_prompt
+// reader -- buildSemanticFindingsBlock / buildInvariantFindingsBlock), there is
+// NO build_prompt reader for lsp-diagnostics.json today (verified: zero hits in
+// build_prompt.ts). So on the Bun route the LSP advisory error is recorded to
+// the artifact + the gate detail/log, but is NOT yet injected into the next
+// prompt. The block decision is byte-identical (LSP never blocks on either
+// route); only the prompt-surfacing of the advisory differs. Full surfacing
+// parity needs a build_prompt.ts lsp-diagnostics reader (out of this file's
+// ownership -- integrator follow-up).
+//
+// HONESTY (never fabricate a verdict from absence):
+//   - Gate is DEFAULT-ON (surfacing-first), mirroring bash
+//     `${LOKI_GATE_LSP_DIAGNOSTICS:-true}`. The writer no-ops honestly when no
+//     language server is installed (artifact absent -> "gate did not run"),
+//     so default-on cannot surprise a user on a repo without a language server.
+//     Opt out with LOKI_GATE_LSP_DIAGNOSTICS=false. The toggle alone gates the
+//     gate (see readToggles); there is no second in-body self-skip.
+//   - When the artifact is ABSENT (no writer yet, or LSP not available) the
+//     gate returns passed=true with "lsp not available -- gate did not run".
+//     Absence is NEVER phrased as "clean". It never blocks.
+//   - Honors LOKI_STUB_GATE_LSP_DIAGNOSTICS for orchestration tests.
+type LSPDiagnostic = {
+  severity?: number;
+  message?: string;
+};
+
+type LSPDiagnosticsArtifact = {
+  count_errors?: number;
+  count_warnings?: number;
+  diagnostics?: LSPDiagnostic[];
+};
+
+function readLSPDiagnosticsArtifact(base: string): LSPDiagnosticsArtifact | null {
+  const p = join(base, "quality", "lsp-diagnostics.json");
+  if (!existsSync(p)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(p, "utf-8")) as unknown;
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return parsed as LSPDiagnosticsArtifact;
+  } catch {
+    return null;
+  }
+}
+
+// P1-5 writer invocation. The diagnostics artifact is produced by the Python
+// writer in mcp/lsp_proxy.py (`python3 -m mcp.lsp_proxy --write-diagnostics`),
+// the SAME program the bash route invokes, so both routes get byte-identical
+// output (single source of aggregation, no TS/bash re-implementation). The
+// writer enumerates the changed files, queries the per-language LSP servers,
+// and writes <lokiDir>/quality/lsp-diagnostics.json -- or writes NOTHING when
+// no server is available (the gate's absence path then fires honestly).
+//
+// Best-effort: a writer failure (python missing, MCP deps absent, timeout) is
+// logged and we fall through to reading whatever artifact exists. We never
+// fabricate a verdict from a writer error.
+async function runLSPDiagnosticsWriter(ctx: RunnerContext): Promise<void> {
+  try {
+    // cwd=REPO_ROOT so `-m mcp.lsp_proxy` imports (the mcp package lives in the
+    // install dir). --root=ctx.cwd points the diff enumeration at the TARGET
+    // project the loop is building (mirroring runStaticAnalysis's ctx.cwd
+    // root), NOT the install dir -- otherwise the gate would enumerate loki's
+    // own diff and be inert on every user project.
+    const r = await run(
+      ["python3", "-m", "mcp.lsp_proxy", "--write-diagnostics", "--root", ctx.cwd],
+      {
+        cwd: REPO_ROOT,
+        timeoutMs: 120_000,
+      },
+    );
+    if (r.exitCode !== 0) {
+      const tail = (r.stderr || r.stdout || `exit ${r.exitCode}`)
+        .trim()
+        .split(/\r?\n/)
+        .slice(-2)
+        .join(" | ");
+      ctx.log(`lsp_diagnostics writer exit ${r.exitCode} (non-fatal): ${tail}`);
+    }
+  } catch (err) {
+    ctx.log(`lsp_diagnostics writer failed (non-fatal): ${(err as Error).message}`);
+  }
+}
+
+export async function runLSPDiagnostics(ctx?: RunnerContext): Promise<GateResult> {
+  const stubKey = "LOKI_STUB_GATE_LSP_DIAGNOSTICS";
+  const stubVal = process.env[stubKey];
+  if (stubVal === "fail" || stubVal === "pass") return stubResult("lsp_diagnostics");
+
+  const base = ctx?.lokiDir ?? lokiDir();
+
+  // Produce the artifact before reading it. Skipped when:
+  //   - no ctx (unit-level callers that pre-stage the artifact themselves),
+  //   - LOKI_GATE_LSP_WRITER=0 (operator escape hatch; lets a caller supply a
+  //     pre-built artifact, e.g. from the bash route's writer, without this
+  //     gate re-running it).
+  // The writer points its output at ctx.lokiDir via LOKI_DIR so a test or a
+  // non-default .loki location is honored.
+  if (ctx !== undefined && process.env["LOKI_GATE_LSP_WRITER"] !== "0") {
+    const prevLokiDir = process.env["LOKI_DIR"];
+    process.env["LOKI_DIR"] = base;
+    try {
+      await runLSPDiagnosticsWriter(ctx);
+    } finally {
+      if (prevLokiDir === undefined) delete process.env["LOKI_DIR"];
+      else process.env["LOKI_DIR"] = prevLokiDir;
+    }
+  }
+
+  const artifact = readLSPDiagnosticsArtifact(base);
+
+  // HONEST pass-through: no artifact means the writer measured nothing real
+  // (no LSP server on PATH, or no changed file maps to a detected server) and
+  // intentionally wrote nothing. Never fabricate a "clean" verdict from absence.
+  if (artifact === null) {
+    // The writer removes any stale artifact and writes none when it cannot
+    // measure. Name the artifact -- phrasing it as "lsp not available" alone
+    // would be inaccurate on a machine that DOES have a language server but
+    // where no changed file matched. Mirrors the sibling findings-gates' detail.
+    return {
+      passed: true,
+      detail: "lsp_diagnostics: no lsp-diagnostics.json artifact (lsp not available) -- gate did not run",
+    };
+  }
+
+  // Prefer the proxy's pre-counted fields; fall back to counting the
+  // diagnostics array by severity (1=Error, 2=Warning) when counts are absent.
+  const diags = Array.isArray(artifact.diagnostics) ? artifact.diagnostics : [];
+  const errorCount = typeof artifact.count_errors === "number"
+    ? artifact.count_errors
+    : diags.filter((d) => d.severity === 1).length;
+  const warnCount = typeof artifact.count_warnings === "number"
+    ? artifact.count_warnings
+    : diags.filter((d) => d.severity === 2).length;
+
+  // ADVISORY ONLY: an LSP error is recorded (artifact + detail/log) but NEVER
+  // blocks -- the bash route has no LSP blocking arm (run.sh:15214). So
+  // errorCount > 0 returns passed:true with an advisory detail. See the
+  // SURFACING ASYMMETRY note in this gate's header comment: the Bun route does
+  // not yet inject this advisory into the next prompt (no build_prompt reader
+  // for lsp-diagnostics.json); the block decision is byte-identical to bash.
+  if (errorCount > 0) {
+    return {
+      passed: true,
+      detail: `lsp_diagnostics: ${errorCount} error(s), ${warnCount} warning(s) -- LSP reports compiler/type errors (advisory)`,
+    };
+  }
+  if (warnCount > 0) {
+    return {
+      passed: true,
+      detail: `lsp_diagnostics: 0 errors, ${warnCount} warning(s) (advisory)`,
+    };
+  }
+  return { passed: true, detail: "lsp_diagnostics: 0 errors, 0 warnings" };
+}
+
 // --- Orchestrator ---------------------------------------------------------
 
 // Per-iteration toggles read from env. These mirror the bash gate-block guards
@@ -1314,9 +2148,14 @@ type GateToggles = {
   hardGates: boolean;
   staticAnalysis: boolean;
   testCoverage: boolean;
+  mockIntegrity: boolean;
+  mutationIntegrity: boolean;
+  semanticTests: boolean;
+  invariants: boolean;
   codeReview: boolean;
   docCoverage: boolean;
   magicDebate: boolean;
+  lspDiagnostics: boolean;
 };
 
 function readToggles(): GateToggles {
@@ -1329,9 +2168,38 @@ function readToggles(): GateToggles {
     hardGates: flag("LOKI_HARD_GATES", true),
     staticAnalysis: flag("PHASE_STATIC_ANALYSIS", true),
     testCoverage: flag("PHASE_UNIT_TESTS", true),
+    mockIntegrity: flag("LOKI_GATE_MOCK", true),
+    mutationIntegrity: flag("LOKI_GATE_MUTATION", true),
+    // P1-3 (v7.57.0): DEFAULT-ON surfacing (mirrors bash
+    // `${LOKI_GATE_SEMANTIC_TESTS:-true}`). Catches the harder class of fake
+    // tests the regex detectors (mock+mutation) miss. The gate runs whenever
+    // EITHER the surfacing flag (LOKI_GATE_SEMANTIC_TESTS, default true) OR the
+    // opt-in blocking flag (LOKI_GATE_SEMANTIC_TESTS_BLOCK, default false) is
+    // set -- mirroring the bash blocking elif which fires independently of the
+    // advisory arm. Surfacing arm records findings + passed:true; the _BLOCK
+    // arm (inside runSemanticTests) flips a CRITICAL/HIGH (rc 2) to passed:false.
+    semanticTests:
+      flag("LOKI_GATE_SEMANTIC_TESTS", true) ||
+      flag("LOKI_GATE_SEMANTIC_TESTS_BLOCK", false),
+    // P1-4 (v7.57.0): DEFAULT-ON surfacing (mirrors bash
+    // `${LOKI_GATE_INVARIANTS:-true}`). Same dual-flag enablement as semantic:
+    // runs when LOKI_GATE_INVARIANTS (default true) OR LOKI_GATE_INVARIANTS_BLOCK
+    // (default false) is set. Surfacing arm records findings + passed:true; the
+    // _BLOCK arm (inside runInvariants) flips a CRITICAL/HIGH (rc 1, --strict)
+    // to passed:false. Every non-rc-1 detector outcome deny-filters to PASS so
+    // the loop can never deadlock on an unmeasurable run.
+    invariants:
+      flag("LOKI_GATE_INVARIANTS", true) ||
+      flag("LOKI_GATE_INVARIANTS_BLOCK", false),
     codeReview: flag("PHASE_CODE_REVIEW", true),
     docCoverage: flag("LOKI_GATE_DOC_COVERAGE", true),
     magicDebate: flag("LOKI_GATE_MAGIC_DEBATE", true),
+    // P1-5 (v7.57.0): DEFAULT-ON, ADVISORY ONLY (mirrors bash
+    // `${LOKI_GATE_LSP_DIAGNOSTICS:-true}`). The writer no-ops honestly when no
+    // language server is installed (artifact absent -> "gate did not run"), so
+    // default-on does not surprise users. LSP NEVER blocks on either route
+    // (no _BLOCK flag exists). Opt out with LOKI_GATE_LSP_DIAGNOSTICS=false.
+    lspDiagnostics: flag("LOKI_GATE_LSP_DIAGNOSTICS", true),
   };
 }
 
@@ -1474,9 +2342,14 @@ export async function runQualityGates(ctx: RunnerContext): Promise<GateOutcome> 
   const sequence: Array<{ name: GateName; enabled: boolean; run: () => Promise<GateResult> }> = [
     { name: "static_analysis", enabled: toggles.staticAnalysis, run: () => runStaticAnalysis(ctx) },
     { name: "test_coverage", enabled: toggles.testCoverage, run: () => runTestCoverage(ctx) },
+    { name: "mock_integrity", enabled: toggles.mockIntegrity, run: () => runMockIntegrity(ctx) },
+    { name: "mutation_integrity", enabled: toggles.mutationIntegrity, run: () => runMutationIntegrity(ctx) },
+    { name: "semantic_tests", enabled: toggles.semanticTests, run: () => runSemanticTests(ctx) },
+    { name: "invariants", enabled: toggles.invariants, run: () => runInvariants(ctx) },
     { name: "code_review", enabled: toggles.codeReview, run: () => runCodeReview(ctx) },
     { name: "doc_coverage", enabled: toggles.docCoverage, run: () => runDocQualityGate(ctx) },
     { name: "magic_debate", enabled: toggles.magicDebate, run: () => runMagicDebateGate(ctx) },
+    { name: "lsp_diagnostics", enabled: toggles.lspDiagnostics, run: () => runLSPDiagnostics(ctx) },
   ];
 
   for (const gate of sequence) {

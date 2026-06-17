@@ -20,7 +20,7 @@ GSD is the closest competitor -- a context engineering system that spawns fresh 
 | Adoption | 594 stars, 6K/wk npm | 11,903 stars, 21K/wk npm | GSD (20x) |
 | Simplicity | Complex (5.4K-line run.sh, 12 Python modules) | Simple (markdown agents + slash commands) | GSD |
 | Full autonomy | Walk away, come back to deployed product | Human checkpoints at discuss/verify/milestone | Loki |
-| Quality gates | 9-gate + Completion Council + anti-sycophancy | User verification only | Loki |
+| Quality gates | 8-gate + Completion Council + anti-sycophancy | User verification only | Loki |
 | Memory system | Episodic/semantic/procedural + vector search | None | Loki |
 | Context management | Standard | Fresh subagent contexts per task (core innovation) | GSD |
 | Time to value | Learn architecture, understand CLI flags | `npx get-shit-done-cc` and go | GSD |
@@ -45,7 +45,7 @@ GSD is the closest competitor -- a context engineering system that spawns fresh 
 | **Enterprise Security** | `--dangerously-skip-permissions` | MCP sandboxed | Sandboxed | Audit logs, RBAC | Staged autonomy | Sandboxed |
 | **Cross-Project Learning** | No | AgentDB | No | No | No | Limited |
 | **Observability** | Dashboard + STATUS.txt | Real-time tracing | Logs | Full tracing | Built-in | Full |
-| **Pricing** | Free (OSS) | Free (OSS) | Free (OSS) | $25+/mo | $20-400/mo | $20-500/mo |
+| **Pricing** | Free (source-available) | Free (OSS) | Free (OSS) | $25+/mo | $20-400/mo | $20-500/mo |
 | **Production Ready** | Experimental | Production | Production | Production | Production | Production |
 | **Resource Monitoring** | Yes (v2.18.5) | Unknown | No | No | No | No |
 | **State Recovery** | Yes (checkpoints) | Yes (AgentDB) | Limited | Yes | Git worktrees | Yes |

@@ -1569,6 +1569,19 @@ council_evidence_gate() {
     local test_fails="false"
     local test_runner="none"
     local test_pass="true"
+    # P1-1 (evidence-gate loophole): track WHY the test signal is not conclusive
+    # positive evidence, mirroring diff_inconclusive. A project that ran NO test
+    # suite (runner=="none") must NOT count as affirmative "tests are green"
+    # evidence -- absence of tests is not proof of correctness. We classify it as
+    # INCONCLUSIVE (not FAIL: a no-tests project is still allowed to complete, it
+    # just may not lean on tests as positive proof), so the no-tests "done" routes
+    # to the completion council's affirmative vote instead of silently passing on
+    # diff-alone. test_inconclusive is pass-through by construction: it never sets
+    # test_fails and never writes evidence-block.json, exactly like
+    # diff_inconclusive. Opt-out (LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1) reverts to
+    # the historical behavior where runner=="none" was an affirmative PASS.
+    local test_inconclusive="false"
+    local test_inconclusive_reason=""
     if [ -f "$tr_file" ]; then
         local test_status
         test_status=$(_TR_FILE="$tr_file" python3 -c "
@@ -1597,9 +1610,25 @@ else:
             test_fails="true"
         fi
         # INCONCLUSIVE => test_fails stays "false" => pass-through.
+        # No test suite ran: a present results file that records runner=="none"
+        # is not affirmative evidence. Route to council (inconclusive), not a
+        # silent diff-alone pass. Default-on; LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1
+        # restores the old affirmative-PASS behavior.
+        if [ "$test_runner" = "none" ] && [ "${LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE:-0}" != "1" ]; then
+            test_inconclusive="true"
+            test_inconclusive_reason="no_test_runner"
+        fi
+    else
+        # Missing test-results.json: no suite was recorded at all. Like the
+        # runner=="none" case this is not affirmative evidence, so classify it
+        # inconclusive (still pass-through: test_fails stays "false"). Preserves
+        # the historical "no file = no gate" non-blocking behavior while making
+        # the absence auditable instead of silently affirmative.
+        if [ "${LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE:-0}" != "1" ]; then
+            test_inconclusive="true"
+            test_inconclusive_reason="no_test_results"
+        fi
     fi
-    # Missing test-results.json (the else of the -f check) likewise leaves
-    # test_fails="false" => inconclusive => pass-through (no file = no gate).
 
     # --- v7.28.0: inconclusive-baseline lifecycle -------------------------------
     # When the gate cannot establish a diff baseline (no git repo, or no run-start
@@ -1635,12 +1664,63 @@ INCONCLUSIVE_EOF
         fi
     fi
 
+    # --- P1-1: durable, auditable evidence-gate details -------------------------
+    # Persist the full evidence picture on EVERY gate run (pass and block) so any
+    # completion claim is auditable after the fact: diff status, test runner +
+    # status, both inconclusive reasons, and the final verdict. Atomic temp+mv,
+    # under .loki/council/ (already excluded from the diff union by the gate's own
+    # ^\.loki/ filter, so it never makes the gate toothless). Best-effort: a write
+    # failure never changes the gate's decision. _write_evidence_details <verdict>
+    # where verdict is one of pass|block (the caller passes the decided verdict).
+    _write_evidence_details() {
+        local _verdict="$1"
+        mkdir -p "$COUNCIL_STATE_DIR" 2>/dev/null || true
+        local _det_file="$COUNCIL_STATE_DIR/evidence-gate-details.json"
+        local _det_tmp="${_det_file}.tmp"
+        local _det_ts
+        _det_ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        local _diff_ok _tests_ok
+        if [ "$diff_fails" = "true" ]; then _diff_ok="false"; else _diff_ok="true"; fi
+        if [ "$test_fails" = "true" ]; then _tests_ok="false"; else _tests_ok="true"; fi
+        cat > "$_det_tmp" << DETAILS_EOF
+{
+    "recorded_at": "$_det_ts",
+    "iteration": ${ITERATION_COUNT:-0},
+    "verdict": "$_verdict",
+    "diff": {
+        "ok": $_diff_ok,
+        "base_sha": "${base_sha:-}",
+        "files_changed": $diff_files,
+        "inconclusive": $diff_inconclusive,
+        "inconclusive_reason": "$diff_inconclusive_reason"
+    },
+    "tests": {
+        "ok": $_tests_ok,
+        "runner": "$test_runner",
+        "pass": $test_pass,
+        "inconclusive": $test_inconclusive,
+        "inconclusive_reason": "$test_inconclusive_reason"
+    }
+}
+DETAILS_EOF
+        mv "$_det_tmp" "$_det_file" 2>/dev/null || rm -f "$_det_tmp" 2>/dev/null || true
+    }
+
     # --- Block decision: block iff DIFF FAILS or TEST FAILS ---
     if [ "$diff_fails" != "true" ] && [ "$test_fails" != "true" ]; then
         # Gate passes: remove any stale block report.
         if [ -f "$COUNCIL_STATE_DIR/evidence-block.json" ]; then
             rm -f "$COUNCIL_STATE_DIR/evidence-block.json"
         fi
+        # P1-1: when the gate passes ONLY because no test suite ran, say so out
+        # loud. The pass is pass-through (no-tests must not deadlock), but a
+        # completion that is not backed by any test evidence should never slip by
+        # silently. The durable detail is in evidence-gate-details.json; this is
+        # the human-visible honesty at the pass site.
+        if [ "$test_inconclusive" = "true" ]; then
+            log_warn "[Council] Evidence gate: completion not backed by test evidence (${test_inconclusive_reason}). Pass-through; set LOKI_EVIDENCE_NO_TESTS_AFFIRMATIVE=1 to treat no-tests as affirmative."
+        fi
+        _write_evidence_details "pass"
         return 0
     fi
 
@@ -1715,6 +1795,114 @@ EVIDENCE_EOF
             "reason=$reason" \
             "diff_ok=$diff_ok" \
             "tests_ok=$tests_ok" \
+            >/dev/null 2>&1 || true
+    fi
+
+    # P1-1: durable audit record for the block path too (see _write_evidence_details).
+    _write_evidence_details "block"
+
+    return 1
+}
+
+#===============================================================================
+# P2-2 Assumption ledger gate (spec-robustness).
+#
+# Blocks completion while any high-severity assumption is unresolved, where
+# unresolved means: severity=high AND confirmed=false AND acknowledged=false.
+# This is the completion-side teeth for the spec-interrogation feature: when the
+# spec was ambiguous and Loki had to assume something high-impact, "done" cannot
+# be declared until that assumption has at least been acknowledged (auto-ack
+# lifecycle in run.sh, default-on) or human-confirmed
+# (LOKI_ASSUMPTIONS_REQUIRE_CONFIRM=1).
+#
+# By-design timing: in DEFAULT autonomous mode run.sh auto-acknowledges entries
+# every iteration right after injecting them into the build prompt, so by the
+# time the council reaches this gate (>= COUNCIL_MIN_ITERATIONS) they are already
+# acknowledged and the gate passes. That is intentional: a permanent block on
+# "unconfirmed" in a non-TTY run would just die at max-iterations and never reach
+# the proof-of-done. The PERSISTENT block lives in the
+# LOKI_ASSUMPTIONS_REQUIRE_CONFIRM=1 path (auto-ack disabled, only human
+# confirmed=true clears it). In BOTH modes the assumptions are unconditionally
+# SURFACED in proof-of-done (build_completion_summary reads counts ignoring
+# ack/confirm state), so "done" always means "done, plus here is what I assumed."
+#
+# The block COUNT comes from spec_ledger_high_unresolved_count() in
+# autonomy/spec-interrogation.sh. The gate sources that module if it is not
+# already loaded, so it works both inside run.sh (already sourced) and in
+# standalone tests (sources it here). When the module / ledger is absent the
+# count is 0 and the gate passes -- a project with no recorded assumptions is
+# never blocked (no spurious block on clean specs).
+#
+# Mirrors council_evidence_gate: opt-out knob first, defensive COUNCIL_STATE_DIR
+# default, writes .loki/council/assumption-block.json on block (removed on pass).
+#
+# Returns 0 (pass / OK to complete) or 1 (block / CONTINUE).
+#===============================================================================
+council_assumption_ledger_gate() {
+    # Knob first: opt-out is exact-as-today, before any file read or write.
+    [ "${LOKI_ASSUMPTION_GATE:-1}" = "0" ] && return 0
+
+    if [ -z "${COUNCIL_STATE_DIR:-}" ]; then
+        COUNCIL_STATE_DIR="${TARGET_DIR:-.}/.loki/council"
+    fi
+
+    # Source the spec-interrogation module if its counter is not already defined
+    # (standalone tests / completion-promise route). Best-effort.
+    if ! type spec_ledger_high_unresolved_count >/dev/null 2>&1; then
+        local _si_helper
+        _si_helper="$(dirname "${BASH_SOURCE[0]}")/spec-interrogation.sh"
+        if [ -f "$_si_helper" ]; then
+            # shellcheck disable=SC1090
+            . "$_si_helper" 2>/dev/null || true
+        fi
+    fi
+
+    # No module => no ledger => nothing to block on (pass-through).
+    if ! type spec_ledger_high_unresolved_count >/dev/null 2>&1; then
+        if [ -f "$COUNCIL_STATE_DIR/assumption-block.json" ]; then
+            rm -f "$COUNCIL_STATE_DIR/assumption-block.json"
+        fi
+        return 0
+    fi
+
+    local unresolved
+    unresolved="$(spec_ledger_high_unresolved_count 2>/dev/null || echo 0)"
+    # Defensive: coerce to an integer.
+    case "$unresolved" in
+        ''|*[!0-9]*) unresolved=0 ;;
+    esac
+
+    if [ "$unresolved" -eq 0 ]; then
+        # Gate passes: remove any stale block report.
+        if [ -f "$COUNCIL_STATE_DIR/assumption-block.json" ]; then
+            rm -f "$COUNCIL_STATE_DIR/assumption-block.json"
+        fi
+        return 0
+    fi
+
+    log_warn "[Council] Assumption ledger gate BLOCKED: ${unresolved} high-severity spec assumption(s) unresolved (the spec was ambiguous in ${unresolved} high-impact place(s))."
+    log_warn "[Council] Resolve by confirming them in .loki/assumptions/ (set confirmed=true), or opt out with LOKI_ASSUMPTION_GATE=0."
+
+    mkdir -p "$COUNCIL_STATE_DIR" 2>/dev/null || true
+    local ab_file="$COUNCIL_STATE_DIR/assumption-block.json"
+    local ab_tmp="${ab_file}.tmp"
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat > "$ab_tmp" << ASSUMPTION_EOF
+{
+    "status": "blocked",
+    "blocked": true,
+    "blocked_at": "$timestamp",
+    "iteration": ${ITERATION_COUNT:-0},
+    "reason": "high_severity_assumptions_unresolved",
+    "high_unresolved": $unresolved
+}
+ASSUMPTION_EOF
+    mv "$ab_tmp" "$ab_file" 2>/dev/null || rm -f "$ab_tmp" 2>/dev/null || true
+
+    if type record_trust_event_bash &>/dev/null; then
+        record_trust_event_bash "assumption_block" \
+            "high_unresolved=$unresolved" \
             >/dev/null 2>&1 || true
     fi
 
@@ -1850,7 +2038,7 @@ ISSUES: CRITICAL:description (optional, one per line per issue)"
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                verdict=$(codex exec --full-auto "$prompt" 2>/dev/null)
+                verdict=$(codex exec --sandbox workspace-write "$prompt" 2>/dev/null)
             fi
             ;;
         gemini)
@@ -1951,7 +2139,7 @@ REASON: your reasoning"
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                verdict=$(codex exec --full-auto "$prompt" 2>/dev/null)
+                verdict=$(codex exec --sandbox workspace-write "$prompt" 2>/dev/null)
             fi
             ;;
         gemini)
@@ -2510,6 +2698,14 @@ council_evaluate() {
     if ! council_evidence_gate; then
         log_info "[Council] Completion blocked by evidence hard gate"
         return 1  # CONTINUE - cannot complete without real evidence
+    fi
+
+    # P2-2: assumption ledger gate - block completion while high-severity spec
+    # assumptions are unresolved (the spec was ambiguous in a high-impact place
+    # and Loki had to assume something that has not been acknowledged/confirmed).
+    if ! council_assumption_ledger_gate; then
+        log_info "[Council] Completion blocked by assumption ledger gate"
+        return 1  # CONTINUE - cannot complete with unresolved high-sev assumptions
     fi
 
     # Compute threshold using the same ceiling(2/3) formula as council_vote and council_aggregate_votes

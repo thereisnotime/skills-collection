@@ -1,6 +1,13 @@
 """Anonymous usage telemetry for Loki Mode dashboard.
 
-Opt-out: LOKI_TELEMETRY_DISABLED=true or DO_NOT_TRACK=1
+Collection is OPT-IN and OFF by default. Nothing is sent unless the user
+explicitly opts in, so a default install (including air-gapped, GDPR, and
+FedRAMP deployments) never phones home.
+
+Opt-in (one required): LOKI_TELEMETRY=on  OR  ~/.loki/config: TELEMETRY_ENABLED=true
+Opt-out (always wins): LOKI_TELEMETRY=off / LOKI_TELEMETRY_DISABLED=true /
+                       DO_NOT_TRACK=1 / ~/.loki/config: TELEMETRY_DISABLED=true
+
 All calls are fire-and-forget, silent on failure, non-blocking.
 """
 
@@ -19,10 +26,20 @@ _POSTHOG_KEY = "phc_ya0vGBru41AJWtGNfZZ8H9W4yjoZy4KON0nnayS7s87"
 
 
 def _is_enabled():
-    # Unified opt-out: these checks must mirror loki_collection_enabled in
-    # autonomy/crash.sh so one switch gates BOTH PostHog usage telemetry and
-    # crash reporting.
-    if os.environ.get("LOKI_TELEMETRY", "").lower() == "off":
+    # Unified OPT-IN gate. Collection is OFF by default; enabled ONLY when the
+    # user has opted in AND has not also opted out. This precedence MUST mirror
+    # loki_collection_enabled in autonomy/crash.sh and _loki_telemetry_enabled
+    # in autonomy/telemetry.sh so one model gates BOTH PostHog usage telemetry
+    # and crash reporting.
+    #
+    # Precedence:
+    #   1. Any opt-out flag present  -> False (hard kill, always wins)
+    #   2. Else any opt-in flag present -> True
+    #   3. Else (default)            -> False (no egress)
+    telem = os.environ.get("LOKI_TELEMETRY", "").lower()
+
+    # --- 1. Opt-out always wins ---
+    if telem == "off":
         return False
     if os.environ.get("LOKI_TELEMETRY_DISABLED") == "true":
         return False
@@ -30,15 +47,26 @@ def _is_enabled():
         return False
     # Persistent opt-out in ~/.loki/config (matches the bash grep prefix
     # semantics: any line beginning with TELEMETRY_DISABLED=true).
+    config_enabled = False
     try:
         config_path = Path.home() / ".loki" / "config"
         if config_path.is_file():
             for line in config_path.read_text().splitlines():
                 if line.startswith("TELEMETRY_DISABLED=true"):
                     return False
+                if line.startswith("TELEMETRY_ENABLED=true"):
+                    config_enabled = True
     except Exception:
         pass
-    return True
+
+    # --- 2. Opt-in required to enable ---
+    if telem == "on":
+        return True
+    if config_enabled:
+        return True
+
+    # --- 3. Default: OFF ---
+    return False
 
 
 def _get_distinct_id():

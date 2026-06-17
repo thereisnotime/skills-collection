@@ -1,27 +1,47 @@
 #!/usr/bin/env bash
 # Anonymous usage telemetry for Loki Mode
-# Opt-out: LOKI_TELEMETRY_DISABLED=true or DO_NOT_TRACK=1
+# Collection is OPT-IN and OFF by default. Nothing is sent unless the user opts
+# in, so a default install never phones home (air-gapped / GDPR / FedRAMP safe).
+# Opt-in:  LOKI_TELEMETRY=on  OR  ~/.loki/config: TELEMETRY_ENABLED=true
+# Opt-out (always wins): LOKI_TELEMETRY=off / LOKI_TELEMETRY_DISABLED=true /
+#                        DO_NOT_TRACK=1 / ~/.loki/config: TELEMETRY_DISABLED=true
 # All calls are fire-and-forget, silent on failure, non-blocking
 
 LOKI_POSTHOG_HOST="${LOKI_TELEMETRY_ENDPOINT:-https://us.i.posthog.com}"
 LOKI_POSTHOG_KEY="phc_ya0vGBru41AJWtGNfZZ8H9W4yjoZy4KON0nnayS7s87"
 
 _loki_telemetry_enabled() {
-    # Unified opt-out: these checks must mirror loki_collection_enabled in
-    # autonomy/crash.sh so one switch gates BOTH PostHog usage telemetry and
-    # crash reporting.
-    # LOKI_TELEMETRY=off (case-insensitive)
+    # Unified OPT-IN gate. Returns 0 (enabled) ONLY when the user opted in AND
+    # did not also opt out. Opt-out always wins; default is OFF. This precedence
+    # MUST mirror loki_collection_enabled in autonomy/crash.sh and _is_enabled in
+    # dashboard/telemetry.py so one model gates BOTH usage telemetry and crash
+    # reporting.
+    #   1. Any opt-out flag present  -> 1 (hard kill, always wins)
+    #   2. Else any opt-in flag present -> 0
+    #   3. Else (default)            -> 1 (no egress)
     local _telem_lower
     _telem_lower="$(printf '%s' "${LOKI_TELEMETRY:-}" | tr '[:upper:]' '[:lower:]')"
+
+    # --- 1. Opt-out always wins ---
     [ "$_telem_lower" = "off" ] && return 1
     [ "${LOKI_TELEMETRY_DISABLED:-}" = "true" ] && return 1
     [ "${DO_NOT_TRACK:-}" = "1" ] && return 1
-    # Persistent opt-out in ~/.loki/config
     if [ -f "${HOME}/.loki/config" ] && grep -q "^TELEMETRY_DISABLED=true" "${HOME}/.loki/config" 2>/dev/null; then
         return 1
     fi
-    command -v curl >/dev/null 2>&1 || return 1
-    return 0
+
+    # --- 2. Opt-in required to enable ---
+    if [ "$_telem_lower" = "on" ]; then
+        command -v curl >/dev/null 2>&1 || return 1
+        return 0
+    fi
+    if [ -f "${HOME}/.loki/config" ] && grep -q "^TELEMETRY_ENABLED=true" "${HOME}/.loki/config" 2>/dev/null; then
+        command -v curl >/dev/null 2>&1 || return 1
+        return 0
+    fi
+
+    # --- 3. Default: OFF ---
+    return 1
 }
 
 _loki_telemetry_id() {

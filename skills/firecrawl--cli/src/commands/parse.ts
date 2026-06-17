@@ -11,7 +11,7 @@ import * as path from 'path';
 import type { FormatOption } from 'firecrawl';
 import type { ParseOptions, ParseResult } from '../types/parse';
 import type { ScrapeFormat } from '../types/scrape';
-import { getClient } from '../utils/client';
+import { getClient, isKeylessMode } from '../utils/client';
 import { getConfig, validateConfig } from '../utils/config';
 import { handleScrapeOutput } from '../utils/output';
 
@@ -157,7 +157,10 @@ export async function executeParse(
 
   const config = getConfig();
   const apiKey = options.apiKey || config.apiKey;
-  validateConfig(apiKey);
+  const keyless = isKeylessMode(options.apiKey, options.apiUrl);
+  if (!keyless) {
+    validateConfig(apiKey);
+  }
 
   const apiUrl = (options.apiUrl || config.apiUrl || DEFAULT_API_URL).replace(
     /\/$/,
@@ -181,7 +184,8 @@ export async function executeParse(
   try {
     const response = await fetch(`${apiUrl}/v2/parse`, {
       method: 'POST',
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      headers:
+        !keyless && apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
       body: form,
     });
 

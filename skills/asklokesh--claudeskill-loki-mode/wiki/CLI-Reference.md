@@ -227,7 +227,7 @@ Example MCP client config entry that authorizes the bootstrap:
 Run a task as a native Claude Code Dynamic Workflow (a background multi-agent
 fan-out) from inside Loki. This is a PASSTHROUGH: Loki prepends the `ultracode`
 keyword and lets Claude Code orchestrate the workflow; Loki adds no orchestration
-of its own and does not touch the council, the 11 quality gates, the evidence
+of its own and does not touch the council, the 8 quality gates, the evidence
 gate, or the RARV loop.
 
 Claude-provider-only and opt-in. Requires the claude CLI >= 2.1.154 with
@@ -1915,3 +1915,25 @@ loki start ./prd.md --provider cline
 | `LOKI_WEBHOOK_URL` | (none) | Custom webhook URL |
 | `LOKI_COMPLETION_PROMISE` | (none) | Explicit stop condition text |
 | `LOKI_MAX_WS_CONNECTIONS` | 100 | Max WebSocket connections |
+| `LOKI_TELEMETRY` | (unset = off) | Anonymous diagnostics. `on` opts in; `off` opts out (opt-out wins). OFF by default. |
+| `LOKI_TELEMETRY_DISABLED` | (unset) | Set to `true` to hard-disable all anonymous diagnostics (always wins). |
+| `DO_NOT_TRACK` | (unset) | Community convention: set to `1` to hard-disable all anonymous diagnostics. |
+| `LOKI_TELEMETRY_ENDPOINT` | https://us.i.posthog.com | Override the analytics endpoint (only used after opt-in). |
+| `LOKI_OTEL_ENDPOINT` | (none) | Self-hosted OpenTelemetry trace endpoint (no default; never egresses to us). |
+
+### Telemetry and privacy
+
+Anonymous diagnostics are OPT-IN and OFF by default. A default install (npm,
+CLI, dashboard, welcome form, and local crash capture) sends and writes nothing,
+so air-gapped, GDPR, and FedRAMP deployments are safe out of the box.
+
+```bash
+loki telemetry status   # show current collection state (off by default)
+loki telemetry on       # opt in (writes TELEMETRY_ENABLED=true to ~/.loki/config)
+loki telemetry off      # opt out (always wins; writes TELEMETRY_DISABLED=true)
+```
+
+Precedence: any opt-out flag wins; else any opt-in flag enables; else OFF. See
+[PRIVACY.md](https://github.com/asklokesh/loki-mode/blob/main/docs/PRIVACY.md)
+for the exact data sent (os, arch, version, channel, anonymous distinct id; no
+code, prompts, paths, keys, repo names, emails, or IPs).

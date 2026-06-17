@@ -21,8 +21,11 @@ import {
   getGateFailureCount,
   runCodeReview,
   runDocQualityGate,
+  runLSPDiagnostics,
   runMagicDebateGate,
+  runInvariants,
   runQualityGates,
+  runSemanticTests,
   runStaticAnalysis,
   runTestCoverage,
   selectReviewers,
@@ -44,11 +47,24 @@ const ENV_KEYS = [
   "PHASE_CODE_REVIEW",
   "LOKI_GATE_DOC_COVERAGE",
   "LOKI_GATE_MAGIC_DEBATE",
+  "LOKI_GATE_MOCK",
+  "LOKI_GATE_MUTATION",
   "LOKI_STUB_GATE_STATIC_ANALYSIS",
   "LOKI_STUB_GATE_TEST_COVERAGE",
   "LOKI_STUB_GATE_CODE_REVIEW",
   "LOKI_STUB_GATE_DOC_COVERAGE",
   "LOKI_STUB_GATE_MAGIC_DEBATE",
+  "LOKI_GATE_LSP_DIAGNOSTICS",
+  "LOKI_STUB_GATE_LSP_DIAGNOSTICS",
+  "LOKI_GATE_LSP_WRITER",
+  "LOKI_GATE_SEMANTIC_TESTS",
+  "LOKI_GATE_SEMANTIC_TESTS_BLOCK",
+  "LOKI_STUB_GATE_SEMANTIC_TESTS",
+  "LOKI_SEMANTIC_DETECTOR",
+  "LOKI_GATE_INVARIANTS",
+  "LOKI_GATE_INVARIANTS_BLOCK",
+  "LOKI_STUB_GATE_INVARIANTS",
+  "LOKI_INVARIANT_DETECTOR",
 ];
 
 beforeEach(() => {
@@ -177,6 +193,16 @@ describe("escalation ladder boundaries", () => {
     process.env["PHASE_CODE_REVIEW"] = "false";
     process.env["LOKI_GATE_DOC_COVERAGE"] = "false";
     process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
+    process.env["LOKI_GATE_MOCK"] = "false";
+    process.env["LOKI_GATE_MUTATION"] = "false";
+    // v7.57.0: semantic/invariant/lsp are now default-ON. They are advisory
+    // (passed:true) so they would not change pass/fail aggregation, but they
+    // would appear in passed[] and break the single-gate ladder assertions
+    // (which expect passed[]==[]). Disable them here so this block isolates
+    // the static_analysis ladder.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
   });
 
   it("counts failures normally below CLEAR_LIMIT (count 1, 2)", async () => {
@@ -253,14 +279,26 @@ describe("runQualityGates orchestration", () => {
   });
 
   it("returns all gates in passed[] when stubs default to pass", async () => {
+    // v7.57.0: semantic/invariant/lsp are now default-ON but advisory. They
+    // SPAWN real detectors / the LSP writer against ctx.cwd, which is slow and
+    // machine-dependent here; their pass/surfacing behavior is covered by their
+    // own dedicated blocks. Disable them so this orchestration test isolates the
+    // always-on always-pass gate aggregation.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
     const r = await runQualityGates(makeCtx());
     expect(r.failed).toEqual([]);
     expect(r.blocked).toBe(false);
     expect(r.escalated).toBe(false);
-    // All five gates enabled by default.
+    // All seven gates enabled by default (mock_integrity and
+    // mutation_integrity were added default-on; with no findings artifact
+    // they pass honestly with a "gate did not run" detail).
     expect(r.passed).toEqual([
       "static_analysis",
       "test_coverage",
+      "mock_integrity",
+      "mutation_integrity",
       "code_review",
       "doc_coverage",
       "magic_debate",
@@ -290,8 +328,16 @@ describe("runQualityGates orchestration", () => {
     process.env["PHASE_UNIT_TESTS"] = "false";
     process.env["LOKI_GATE_DOC_COVERAGE"] = "false";
     process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
+    // v7.57.0: semantic/invariant/lsp are default-ON; disable them here so the
+    // assertion isolates the toggle behavior (their own blocks cover them).
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    // mock_integrity and mutation_integrity are left default-on; with no
+    // findings artifact they run and pass, so they appear in passed[]
+    // ahead of code_review (sequence order).
     const r = await runQualityGates(makeCtx());
-    expect(r.passed).toEqual(["code_review"]);
+    expect(r.passed).toEqual(["mock_integrity", "mutation_integrity", "code_review"]);
   });
 
   it("soft-gate path (LOKI_HARD_GATES=false) only runs code_review and never blocks", async () => {
@@ -742,6 +788,455 @@ describe("runMagicDebateGate (real Phase 5 implementation)", () => {
   });
 });
 
+// --- runSemanticTests (P1-3 Bun mirror -- spawns the detector script) -----
+//
+// The semantic gate SPAWNS tests/detect-semantic-test-problems.sh with
+// --block-high and maps the detector's exit code: rc 2 -> BLOCK, everything
+// else (0/124/absent/spawn-error/any-other) -> PASS. To keep the test
+// deterministic and hermetic we point LOKI_SEMANTIC_DETECTOR at a tiny fixture
+// detector under `scratch` that simply exits with a chosen code, instead of
+// scanning the real loki-mode tree (whose evolving test files would make the
+// verdict non-deterministic). This exercises the EXACT exit-code mapping the
+// gate implements without coupling to the detector's heuristics.
+describe("runSemanticTests (P1-3 spawn-based gate)", () => {
+  // Write a fake detector script that exits with `code`, mark it executable,
+  // and return its absolute path. Mirrors how the bash gate invokes the real
+  // detector (bash <detector> --block-high) -- the gate calls `bash <path>`,
+  // so the script does not even need a +x bit, but we set it anyway.
+  function fakeDetector(code: number): string {
+    const p = join(scratch, `fake-detector-${code}.sh`);
+    writeFileSync(p, `#!/usr/bin/env bash\nexit ${code}\n`, { mode: 0o755 });
+    return p;
+  }
+
+  it("does NOT run when surfacing is opted OUT (LOKI_GATE_SEMANTIC_TESTS=false)", async () => {
+    // v7.57.0: default is ON (surfacing). To prove the gate can still be turned
+    // off entirely, opt out of BOTH the surfacing flag and the block flag. Even
+    // with a detector that would block (rc 2), the orchestrator must not invoke it.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(2);
+    // Silence the other gates so the orchestration outcome is clean and we are
+    // asserting purely on semantic_tests being absent.
+    process.env["PHASE_STATIC_ANALYSIS"] = "false";
+    process.env["PHASE_UNIT_TESTS"] = "false";
+    process.env["LOKI_GATE_MOCK"] = "false";
+    process.env["LOKI_GATE_MUTATION"] = "false";
+    process.env["PHASE_CODE_REVIEW"] = "false";
+    process.env["LOKI_GATE_DOC_COVERAGE"] = "false";
+    process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+
+    const outcome = await runQualityGates(makeCtx());
+    expect(outcome.passed).not.toContain("semantic_tests");
+    expect(outcome.failed).not.toContain("semantic_tests");
+    expect(outcome.blocked).toBe(false);
+  });
+
+  it("runs by DEFAULT (advisory/surfacing) and does NOT block on HIGH (exit 2)", async () => {
+    // v7.57.0 default-on surfacing: the surfacing flag is the default, so a HIGH
+    // (rc 2) is recorded but the gate returns passed:true (no block) unless the
+    // opt-in _BLOCK flag is set.
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(2);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("advisory");
+    expect(r.detail ?? "").toContain("CRITICAL/HIGH");
+  });
+
+  it("BLOCKS on HIGH (exit 2) only when LOKI_GATE_SEMANTIC_TESTS_BLOCK is set", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS_BLOCK"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(2);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("CRITICAL/HIGH");
+    expect(r.detail ?? "").toContain("BLOCK");
+  });
+
+  it("BLOCKS even when surfacing is OFF but _BLOCK is ON (bash-faithful independence)", async () => {
+    // Mirror the bash blocking elif (run.sh:15644) which fires independently of
+    // the advisory arm: with surfacing disabled but the block flag on, a HIGH
+    // (rc 2) must still flip the orchestrator outcome to blocked. The
+    // runQualityGates enablement uses (surfacing || _BLOCK) so the gate still runs.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_SEMANTIC_TESTS_BLOCK"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(2);
+    process.env["PHASE_STATIC_ANALYSIS"] = "false";
+    process.env["PHASE_UNIT_TESTS"] = "false";
+    process.env["LOKI_GATE_MOCK"] = "false";
+    process.env["LOKI_GATE_MUTATION"] = "false";
+    process.env["PHASE_CODE_REVIEW"] = "false";
+    process.env["LOKI_GATE_DOC_COVERAGE"] = "false";
+    process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+
+    const outcome = await runQualityGates(makeCtx());
+    expect(outcome.failed).toContain("semantic_tests");
+    expect(outcome.blocked).toBe(true);
+  });
+
+  it("passes when on and the detector is clean (exit 0)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(0);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("no blocking findings");
+  });
+
+  it("passes (deny-filter) when on and the detector times out (exit 124)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(124);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("timed out");
+  });
+
+  it("passes (deny-filter) when on and the detector exits with any other code", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(1);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("rc 1");
+  });
+
+  it("passes when the detector script is absent (never fabricates a verdict)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = join(scratch, "does-not-exist.sh");
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("detector not found");
+  });
+
+  it("BLOCKS through runQualityGates when _BLOCK on + HIGH (registered in sequence)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS_BLOCK"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(2);
+    // Quiet the other gates so the only failure is semantic_tests.
+    process.env["PHASE_STATIC_ANALYSIS"] = "false";
+    process.env["PHASE_UNIT_TESTS"] = "false";
+    process.env["LOKI_GATE_MOCK"] = "false";
+    process.env["LOKI_GATE_MUTATION"] = "false";
+    process.env["PHASE_CODE_REVIEW"] = "false";
+    process.env["LOKI_GATE_DOC_COVERAGE"] = "false";
+    process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+
+    const outcome = await runQualityGates(makeCtx());
+    expect(outcome.failed).toContain("semantic_tests");
+    expect(outcome.blocked).toBe(true);
+  });
+
+  it("runs the REAL detector against ctx.cwd and BLOCKS on a HIGH fixture (locks LOKI_SCAN_DIR wiring)", async () => {
+    // Integration-flavored: no LOKI_SEMANTIC_DETECTOR override, so the gate
+    // spawns the real tests/detect-semantic-test-problems.sh. This proves the
+    // load-bearing LOKI_SCAN_DIR=ctx.cwd wiring -- if the gate scanned its own
+    // SCRIPT_DIR/.. (loki's tree) instead of ctx.cwd, this hermetic fixture
+    // would be invisible and the gate would not block. The fixture is the
+    // detector's documented HIGH pattern: a var bound to a literal, asserted to
+    // equal the SAME literal, with NO call in between (literal-via-variable echo).
+    // _BLOCK on so the HIGH finding flips to passed:false (surfacing default
+    // would only record it).
+    process.env["LOKI_GATE_SEMANTIC_TESTS_BLOCK"] = "true";
+    const testFile = join(scratch, "fake.test.ts");
+    writeFileSync(
+      testFile,
+      [
+        "describe('fake', () => {",
+        "  it('verifies nothing', () => {",
+        '    const x = "hello";',
+        '    expect(x).toBe("hello");',
+        "  });",
+        "});",
+        "",
+      ].join("\n"),
+    );
+    // ctx.cwd === scratch (makeCtx default), which the gate passes as
+    // LOKI_SCAN_DIR so the real detector scans this temp dir only.
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("CRITICAL/HIGH");
+  });
+
+  it("honors the LOKI_STUB_GATE_SEMANTIC_TESTS escape hatch", async () => {
+    process.env["LOKI_STUB_GATE_SEMANTIC_TESTS"] = "fail";
+    // Stub wins even with a clean detector.
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(0);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("stub forced fail");
+  });
+
+  // --- findings persistence parity (run.sh:8362-8383) --------------------
+  //
+  // The bash route captures the detector's 2>&1 output and writes the matching
+  // severity lines to <lokiDir>/quality/semantic-findings.txt (blocking header
+  // on rc 2, advisory header on rc 0 + MED/LOW), and removes the file otherwise
+  // (deny-filter). These tests lock the Bun mirror to that byte-shape.
+
+  // Fake detector that echoes the given severity lines then exits `code`.
+  // Mirrors how the real detector prints "[HIGH] ..." lines before exiting.
+  function fakeDetectorWithOutput(code: number, lines: string[]): string {
+    const p = join(scratch, `fake-detector-out-${code}.sh`);
+    const echoes = lines.map((l) => `echo ${JSON.stringify(l)}`).join("\n");
+    writeFileSync(p, `#!/usr/bin/env bash\n${echoes}\nexit ${code}\n`, { mode: 0o755 });
+    return p;
+  }
+
+  const findingsFile = () => join(scratch, "quality", "semantic-findings.txt");
+
+  it("persists CRITICAL/HIGH findings with the blocking header on rc 2 (surfacing, advisory)", async () => {
+    // v7.57.0: even in default surfacing mode (passed:true, no block) the
+    // findings file is written every iteration so build_prompt can surface the
+    // near-miss feedback. Persistence is independent of the _BLOCK flag.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetectorWithOutput(2, [
+      "[HIGH] fake.test.ts:4 literal-via-variable echo verifies nothing",
+      "[MEDIUM] fake.test.ts:9 mock-return echoed back",
+    ]);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(existsSync(findingsFile())).toBe(true);
+    const body = readFileSync(findingsFile(), "utf-8");
+    expect(body).toContain("# Semantic test-authenticity findings (CRITICAL/HIGH block this completion)");
+    expect(body).toContain("[HIGH] fake.test.ts:4 literal-via-variable echo verifies nothing");
+    // All severities captured on a block (matches the bash grep on rc 2).
+    expect(body).toContain("[MEDIUM] fake.test.ts:9 mock-return echoed back");
+  });
+
+  it("persists MED/LOW advisory findings with the advisory header on a clean pass (rc 0)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetectorWithOutput(0, [
+      "[MEDIUM] fake.test.ts:9 mock-return echoed back",
+      "[LOW] fake.test.ts:12 deleted assertion",
+    ]);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(existsSync(findingsFile())).toBe(true);
+    const body = readFileSync(findingsFile(), "utf-8");
+    expect(body).toContain("# Semantic test advisory findings (MED/LOW, non-blocking)");
+    expect(body).toContain("[MEDIUM] fake.test.ts:9 mock-return echoed back");
+    expect(body).toContain("[LOW] fake.test.ts:12 deleted assertion");
+  });
+
+  it("does NOT write the findings file on a clean run with no severity lines (rc 0)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetectorWithOutput(0, [
+      "Semantic test gate: PASS",
+    ]);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(existsSync(findingsFile())).toBe(false);
+  });
+
+  it("clears a stale findings file on a clean run (deny-filter)", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    // Seed a stale findings file from a prior block.
+    mkdirSync(join(scratch, "quality"), { recursive: true });
+    writeFileSync(findingsFile(), "# stale\n[HIGH] old finding\n");
+    expect(existsSync(findingsFile())).toBe(true);
+    process.env["LOKI_SEMANTIC_DETECTOR"] = fakeDetector(0);
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(existsSync(findingsFile())).toBe(false);
+  });
+
+  it("does NOT write the findings file when the detector is absent", async () => {
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "true";
+    process.env["LOKI_SEMANTIC_DETECTOR"] = join(scratch, "does-not-exist.sh");
+    const r = await runSemanticTests(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(existsSync(findingsFile())).toBe(false);
+  });
+});
+
+// --- runInvariants (P1-4 Bun mirror -- spawns the detector script) --------
+//
+// The invariant gate SPAWNS tests/detect-invariant-violations.sh with --strict
+// and maps the detector's exit code: rc 1 -> BLOCK, everything else
+// (0/124/absent/spawn-error/any-other) -> PASS. NOTE the exit-code contract
+// DIFFERS from runSemanticTests (which blocks on rc 2 under --block-high): the
+// invariant detector's --strict mode exits 1 on CRITICAL/HIGH and 0 otherwise
+// (tests/detect-invariant-violations.sh:347-353). To keep the unit tests
+// deterministic and hermetic we point LOKI_INVARIANT_DETECTOR at a tiny fixture
+// detector under `scratch` that exits with a chosen code, exercising the EXACT
+// exit-code mapping without coupling to the detector's heuristics. One
+// integration-flavored test runs the REAL detector against a planted secret to
+// prove the real script + the mapping fire together (non-vacuity).
+describe("runInvariants (P1-4 spawn-based gate)", () => {
+  function fakeDetector(code: number): string {
+    const p = join(scratch, `fake-invariant-detector-${code}.sh`);
+    writeFileSync(p, `#!/usr/bin/env bash\nexit ${code}\n`, { mode: 0o755 });
+    return p;
+  }
+
+  // Silence every other gate so the orchestration outcome isolates invariants.
+  function quietOtherGates(): void {
+    process.env["PHASE_STATIC_ANALYSIS"] = "false";
+    process.env["PHASE_UNIT_TESTS"] = "false";
+    process.env["LOKI_GATE_MOCK"] = "false";
+    process.env["LOKI_GATE_MUTATION"] = "false";
+    process.env["PHASE_CODE_REVIEW"] = "false";
+    process.env["LOKI_GATE_DOC_COVERAGE"] = "false";
+    process.env["LOKI_GATE_MAGIC_DEBATE"] = "false";
+    // v7.57.0: semantic + lsp are now default-ON; disable so this block
+    // isolates the invariants gate.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+  }
+
+  it("does NOT run when surfacing is opted OUT (LOKI_GATE_INVARIANTS=false)", async () => {
+    // v7.57.0: default is ON (surfacing). Opt out entirely to prove the gate can
+    // be turned off. Even with a detector that would block (rc 1), the
+    // orchestrator must not invoke it.
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(1);
+    quietOtherGates();
+
+    const outcome = await runQualityGates(makeCtx());
+    expect(outcome.passed).not.toContain("invariants");
+    expect(outcome.failed).not.toContain("invariants");
+    expect(outcome.blocked).toBe(false);
+  });
+
+  it("runs by DEFAULT (advisory/surfacing) and does NOT block on CRITICAL/HIGH (exit 1)", async () => {
+    // v7.57.0 default-on surfacing: rc 1 is recorded but the gate returns
+    // passed:true (no block) unless the opt-in _BLOCK flag is set.
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(1);
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("advisory");
+    expect(r.detail ?? "").toContain("CRITICAL/HIGH");
+  });
+
+  it("BLOCKS on CRITICAL/HIGH (exit 1) only when LOKI_GATE_INVARIANTS_BLOCK is set", async () => {
+    process.env["LOKI_GATE_INVARIANTS_BLOCK"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(1);
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("CRITICAL/HIGH");
+    expect(r.detail ?? "").toContain("BLOCK");
+  });
+
+  it("BLOCKS even when surfacing is OFF but _BLOCK is ON (bash-faithful independence)", async () => {
+    // Mirror the bash blocking elif (run.sh:15661): surfacing off + block on
+    // must still block. Enablement is (surfacing || _BLOCK) so the gate runs.
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    process.env["LOKI_GATE_INVARIANTS_BLOCK"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(1);
+    quietOtherGates();
+
+    const outcome = await runQualityGates(makeCtx());
+    expect(outcome.failed).toContain("invariants");
+    expect(outcome.blocked).toBe(true);
+  });
+
+  it("passes when on and the detector is clean (exit 0)", async () => {
+    process.env["LOKI_GATE_INVARIANTS"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(0);
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("no blocking violations");
+  });
+
+  it("passes (deny-filter) when on and the detector times out (exit 124)", async () => {
+    process.env["LOKI_GATE_INVARIANTS"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(124);
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("timed out");
+  });
+
+  it("passes (deny-filter) when on and the detector exits with any other code", async () => {
+    // rc 2 is NOT the invariant block code (it is the semantic gate's). Under
+    // the invariant --strict contract only rc 1 blocks; rc 2 deny-filters.
+    process.env["LOKI_GATE_INVARIANTS"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(2);
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("rc 2");
+  });
+
+  it("passes when the detector script is absent (never fabricates a verdict)", async () => {
+    process.env["LOKI_GATE_INVARIANTS"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = join(scratch, "does-not-exist.sh");
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("detector not found");
+  });
+
+  it("BLOCKS through runQualityGates when _BLOCK on + violation (registered in sequence)", async () => {
+    process.env["LOKI_GATE_INVARIANTS_BLOCK"] = "true";
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(1);
+    quietOtherGates();
+
+    const outcome = await runQualityGates(makeCtx());
+    expect(outcome.failed).toContain("invariants");
+    expect(outcome.blocked).toBe(true);
+  });
+
+  it("runs the REAL detector against ctx.cwd and BLOCKS on a planted secret (locks LOKI_SCAN_DIR + non-vacuity)", async () => {
+    // Integration-flavored: no LOKI_INVARIANT_DETECTOR override, so the gate
+    // spawns the real tests/detect-invariant-violations.sh. This proves BOTH
+    // the load-bearing LOKI_SCAN_DIR=ctx.cwd wiring (if the gate scanned its own
+    // SCRIPT_DIR/.. instead of ctx.cwd this fixture would be invisible) AND that
+    // the real script + the exit-code mapping fire together (non-vacuity). The
+    // fixture is a realistic AWS access key that deliberately dodges the
+    // detector's placeholder allowlist (NOT the AKIAIOSFODNN7EXAMPLE key).
+    // _BLOCK on so the rc-1 finding flips to passed:false (surfacing default
+    // would only record it).
+    process.env["LOKI_GATE_INVARIANTS_BLOCK"] = "true";
+    const srcFile = join(scratch, "config.js");
+    writeFileSync(
+      srcFile,
+      [
+        "const aws = {",
+        '  region: "us-east-1",',
+        '  accessKeyId: "AKIA2J4K7LMNPQ6RSTUV",',
+        "};",
+        "module.exports = aws;",
+        "",
+      ].join("\n"),
+    );
+    // ctx.cwd === scratch (makeCtx default), passed as LOKI_SCAN_DIR so the real
+    // detector scans this temp dir only.
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("CRITICAL/HIGH");
+  });
+
+  it("runs the REAL detector against a clean ctx.cwd and PASSES (no false fire)", async () => {
+    // Non-false-fire proof: the real detector against a clean source tree must
+    // NOT block. Mirrors the planted-secret test but with secret-free source.
+    process.env["LOKI_GATE_INVARIANTS"] = "true";
+    const srcFile = join(scratch, "app.js");
+    writeFileSync(
+      srcFile,
+      [
+        "function add(a, b) {",
+        "  return a + b;",
+        "}",
+        "const apiKey = process.env.API_KEY;",
+        '  console.log("service started on port", 3000);',
+        "module.exports = { add };",
+        "",
+      ].join("\n"),
+    );
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("no blocking violations");
+  });
+
+  it("honors the LOKI_STUB_GATE_INVARIANTS escape hatch", async () => {
+    process.env["LOKI_STUB_GATE_INVARIANTS"] = "fail";
+    // Stub wins even with a clean detector.
+    process.env["LOKI_INVARIANT_DETECTOR"] = fakeDetector(0);
+    const r = await runInvariants(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("stub forced fail");
+  });
+});
+
 // --- runCodeReview (real Phase 5 selection + dispatch + aggregation) ------
 //
 // The reviewer dispatch itself remains stubbed (real provider wiring lands
@@ -900,6 +1395,19 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     expect(existsSync(join(dir, "anti-sycophancy.txt"))).toBe(true);
   });
 
+  it("blocks on a unanimous pass when the Devil's-Advocate raises blocking severity", async () => {
+    const daBlockReviewer: ReviewerFn = async ({ reviewer }) =>
+      reviewer.name === "devils-advocate"
+        ? "VERDICT: FAIL\nFINDINGS:\n- [Critical] hidden untested error path the council missed"
+        : "VERDICT: PASS\nFINDINGS:\n- None";
+    const r = await runCodeReview(makeCtx(), {
+      diffOverride: { diff: "+ const x = 1;\n", files: "src/x.ts\n" },
+      reviewer: daBlockReviewer,
+    });
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("devil's advocate raised blocking severity");
+  });
+
   it("blocks the gate when any reviewer reports [Critical] or [High]", async () => {
     let call = 0;
     const mixedReviewer: ReviewerFn = async () => {
@@ -964,4 +1472,177 @@ describe("runCodeReview (Phase 5 selection + dispatch + aggregation)", () => {
     expect(txt).toContain("[Critical]");
     expect(txt).toContain("provider down");
   });
+});
+
+// --- LSP diagnostics gate (P1-5) ------------------------------------------
+//
+// Artifact-reading gate, opt-in (default OFF). Writer PENDING (TODO(writer)
+// in quality_gates.ts). These tests pin the runner's pass-through-on-absence
+// honesty, the error/warning block policy, and the default-off sequence
+// behavior so the gate never surprises a user without a language server.
+
+describe("runLSPDiagnostics (P1-5 artifact-reading gate)", () => {
+  beforeEach(() => {
+    // These tests exercise the READER against pre-staged artifacts. Disable
+    // the writer so its (correct) stale-artifact removal does not delete the
+    // fixtures, and so a machine WITH a language server does not enumerate
+    // loki's own diff into the scratch dir.
+    process.env["LOKI_GATE_LSP_WRITER"] = "0";
+  });
+
+  function writeArtifact(obj: unknown) {
+    mkdirSync(join(scratch, "quality"), { recursive: true });
+    writeFileSync(join(scratch, "quality", "lsp-diagnostics.json"), JSON.stringify(obj));
+  }
+
+  it("passes with honest 'gate did not run' detail when the artifact is absent", async () => {
+    // No writer ran / LSP not available. Must NOT block and must NOT phrase
+    // absence as "clean".
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("lsp not available");
+    expect(r.detail ?? "").toContain("gate did not run");
+    expect(r.detail ?? "").not.toContain("clean");
+  });
+
+  it("surfaces errors as an advisory (passed:true) -- LSP never blocks (count_errors > 0)", async () => {
+    // v7.57.0: LSP has NO blocking arm on either route (run.sh:15214). Errors
+    // are surfaced via the artifact + an advisory detail but never make
+    // passed:false.
+    writeArtifact({ count_errors: 2, count_warnings: 1, diagnostics: [] });
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("2 error(s)");
+    expect(r.detail ?? "").toContain("advisory");
+  });
+
+  it("counts severity-1 diagnostics as errors when count_errors is absent (advisory, passed:true)", async () => {
+    writeArtifact({
+      diagnostics: [
+        { severity: 1, message: "Cannot find name 'foo'" },
+        { severity: 2, message: "unused var" },
+      ],
+    });
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("1 error(s)");
+    expect(r.detail ?? "").toContain("advisory");
+  });
+
+  it("passes with an advisory detail when only warnings are present", async () => {
+    writeArtifact({ count_errors: 0, count_warnings: 3, diagnostics: [] });
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("3 warning(s)");
+    expect(r.detail ?? "").toContain("advisory");
+  });
+
+  it("passes cleanly when there are zero errors and zero warnings", async () => {
+    writeArtifact({ count_errors: 0, count_warnings: 0, diagnostics: [] });
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("0 errors, 0 warnings");
+  });
+
+  it("honors the LOKI_STUB_GATE_LSP_DIAGNOSTICS escape hatch", async () => {
+    process.env["LOKI_STUB_GATE_LSP_DIAGNOSTICS"] = "fail";
+    // Even with a clean artifact present the stub override must win.
+    writeArtifact({ count_errors: 0, count_warnings: 0, diagnostics: [] });
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(false);
+    expect(r.detail ?? "").toContain("stub forced fail");
+  });
+});
+
+describe("runQualityGates LSP-diagnostics toggle (default ON, advisory)", () => {
+  beforeEach(() => {
+    // Keep the other real gates in stub mode so this block focuses on the
+    // lsp_diagnostics sequence membership, not unrelated gate state.
+    process.env["LOKI_STUB_GATE_STATIC_ANALYSIS"] = "pass";
+    process.env["LOKI_STUB_GATE_TEST_COVERAGE"] = "pass";
+    process.env["LOKI_STUB_GATE_CODE_REVIEW"] = "pass";
+    process.env["LOKI_STUB_GATE_DOC_COVERAGE"] = "pass";
+    process.env["LOKI_STUB_GATE_MAGIC_DEBATE"] = "pass";
+    // v7.57.0: semantic + invariant are also default-ON; keep this block
+    // focused on lsp_diagnostics by disabling them.
+    process.env["LOKI_GATE_SEMANTIC_TESTS"] = "false";
+    process.env["LOKI_GATE_INVARIANTS"] = "false";
+    // Reader-only fixtures: disable the writer (see the artifact-reading
+    // describe block above for the rationale).
+    process.env["LOKI_GATE_LSP_WRITER"] = "0";
+  });
+
+  it("RUNS lsp_diagnostics by default (present in passed[], advisory pass-through with no artifact)", async () => {
+    // v7.57.0: default-ON. With no artifact the gate passes honestly and lands
+    // in passed[]. It never blocks.
+    const r = await runQualityGates(makeCtx());
+    expect(r.passed).toContain("lsp_diagnostics");
+    expect(r.failed).not.toContain("lsp_diagnostics");
+    expect(r.blocked).toBe(false);
+  });
+
+  it("does NOT run lsp_diagnostics when opted out (LOKI_GATE_LSP_DIAGNOSTICS=false)", async () => {
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "false";
+    const r = await runQualityGates(makeCtx());
+    expect(r.passed).not.toContain("lsp_diagnostics");
+    expect(r.failed).not.toContain("lsp_diagnostics");
+  });
+
+  it("never blocks via lsp_diagnostics even when the artifact reports errors (advisory only)", async () => {
+    process.env["LOKI_GATE_LSP_DIAGNOSTICS"] = "true";
+    mkdirSync(join(scratch, "quality"), { recursive: true });
+    writeFileSync(
+      join(scratch, "quality", "lsp-diagnostics.json"),
+      JSON.stringify({ count_errors: 1, count_warnings: 0, diagnostics: [] }),
+    );
+    const r = await runQualityGates(makeCtx());
+    // LSP is advisory-only: errors are surfaced (passed[]) but never block.
+    expect(r.passed).toContain("lsp_diagnostics");
+    expect(r.failed).not.toContain("lsp_diagnostics");
+    expect(r.blocked).toBe(false);
+  });
+});
+
+// --- LSP diagnostics WRITER invocation (P1-5 closing the loop) -------------
+//
+// The gate now INVOKES the Python writer (mcp/lsp_proxy.py
+// --write-diagnostics) before reading the artifact, so the gate is no longer
+// inert. This block exercises the real writer subprocess end-to-end (NOT a
+// stub): it must (a) not crash the gate, (b) write NOTHING when no changed
+// file maps to a detected language server, and (c) leave the gate on its
+// honest "did not run" absence path -- never a fabricated clean verdict. This
+// is the hermetic, deny-filter half of the proof: it runs identically on any
+// machine regardless of which (if any) language servers are installed, because
+// the scratch dir has no source files the writer would query. The non-vacuity
+// half (real severity-1 error -> blocking artifact) is proven against the
+// writer's aggregation layer in mcp/tests/test_lsp_proxy.py
+// (DiagnosticsWriterTests.test_real_error_recorded_and_blocks).
+describe("runLSPDiagnostics writer invocation (no-false-fire)", () => {
+  it("invokes the writer, writes no artifact for an empty scratch repo, and passes on the honest absence path", async () => {
+    // Writer ENABLED (default). The scratch lokiDir has no source files that
+    // map to any language server, so the writer must produce no artifact.
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("gate did not run");
+    expect(r.detail ?? "").not.toContain("clean");
+    // The writer must NOT have manufactured an artifact from a no-op run.
+    expect(existsSync(join(scratch, "quality", "lsp-diagnostics.json"))).toBe(false);
+  }, 130_000);
+
+  it("removes a stale artifact when a later run measures nothing (no permanent block)", async () => {
+    // Pre-stage a stale 'errors present' artifact, then run the gate with the
+    // writer enabled. Because the scratch repo has nothing the writer can
+    // measure, the writer must delete the stale artifact, so the gate falls
+    // back to the honest absence path instead of blocking forever on last
+    // iteration's errors.
+    mkdirSync(join(scratch, "quality"), { recursive: true });
+    writeFileSync(
+      join(scratch, "quality", "lsp-diagnostics.json"),
+      JSON.stringify({ count_errors: 9, count_warnings: 0, diagnostics: [] }),
+    );
+    const r = await runLSPDiagnostics(makeCtx());
+    expect(r.passed).toBe(true);
+    expect(r.detail ?? "").toContain("gate did not run");
+    expect(existsSync(join(scratch, "quality", "lsp-diagnostics.json"))).toBe(false);
+  }, 130_000);
 });

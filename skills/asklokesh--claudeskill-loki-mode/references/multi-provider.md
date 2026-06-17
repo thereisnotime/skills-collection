@@ -286,7 +286,7 @@ All CLI flags have been verified against actual CLI help output:
 | Provider | Flag | Verified Version | Notes |
 |----------|------|------------------|-------|
 | Claude | `--dangerously-skip-permissions` | v2.1.34 | Autonomous mode |
-| Codex | `--full-auto` | v0.98.0 | Recommended; legacy: `exec --dangerously-bypass-approvals-and-sandbox` |
+| Codex | `--sandbox workspace-write` | v0.132.0 | Recommended (--full-auto deprecated 0.125+); legacy: `exec --dangerously-bypass-approvals-and-sandbox` |
 | Cline | `--auto-approve` | latest | Autonomous mode |
 | Aider | `--yes-always` | latest | Autonomous mode |
 

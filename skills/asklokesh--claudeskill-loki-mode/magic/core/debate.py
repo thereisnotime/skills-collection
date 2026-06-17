@@ -482,8 +482,10 @@ class DebateRunner:
         if provider == "claude":
             return ["claude", "--dangerously-skip-permissions", "-p", prompt]
         if provider == "codex":
-            # Codex uses `exec --full-auto` with the prompt as positional.
-            return ["codex", "exec", "--full-auto", prompt]
+            # Codex uses `exec --sandbox workspace-write` with the prompt as
+            # positional (codex 0.132.0 deprecated --full-auto; workspace-write
+            # is the documented replacement, exec is non-interactive by default).
+            return ["codex", "exec", "--sandbox", "workspace-write", prompt]
         if provider == "gemini":
             return ["gemini", "--approval-mode=yolo", prompt]
         if provider == "cline":

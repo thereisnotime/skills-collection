@@ -26,39 +26,43 @@ import { run as shellRun } from "../util/shell.ts";
 const CAPTURE_TIMEOUT_MS = 3000;
 
 // collectionEnabled: synchronous mirror of autonomy/crash.sh loki_collection_enabled.
-// PRIVACY.md and the first-run copy promise the opt-out disables crash reporting,
-// so capture must skip the local write when any switch is set. Sync because the
-// exception-handler path is sync. Returns false (disabled) on any of:
-//   - env LOKI_TELEMETRY=off (case-insensitive)
-//   - env LOKI_TELEMETRY_DISABLED=true
-//   - env DO_NOT_TRACK=1
-//   - ${HOME}/.loki/config contains a line matching ^TELEMETRY_DISABLED=true
+// Crash capture (and telemetry) is OPT-IN: as of v7.48.0 nothing is collected
+// unless the user explicitly opts in, and an opt-out always wins. Precedence MUST
+// match crash.sh / dashboard/telemetry.py / autonomy/telemetry.sh:
+//   1. Any opt-out present -> false (hard kill, always wins):
+//        env LOKI_TELEMETRY=off | LOKI_TELEMETRY_DISABLED=true | DO_NOT_TRACK=1,
+//        or ${HOME}/.loki/config line TELEMETRY_DISABLED=true
+//   2. Else any opt-in present -> true:
+//        env LOKI_TELEMETRY=on, or config line TELEMETRY_ENABLED=true
+//   3. Else default -> false (no collection)
+// Sync because the exception-handler path is sync.
 function collectionEnabled(): boolean {
-  if ((process.env["LOKI_TELEMETRY"] ?? "").toLowerCase() === "off") {
-    return false;
-  }
-  if (process.env["LOKI_TELEMETRY_DISABLED"] === "true") {
-    return false;
-  }
-  if (process.env["DO_NOT_TRACK"] === "1") {
-    return false;
-  }
+  const env = (process.env["LOKI_TELEMETRY"] ?? "").toLowerCase();
+  // 1. Opt-out always wins.
+  if (env === "off") return false;
+  if (process.env["LOKI_TELEMETRY_DISABLED"] === "true") return false;
+  if (process.env["DO_NOT_TRACK"] === "1") return false;
+  let configOptOut = false;
+  let configOptIn = false;
   try {
     const cfg = join(homedir(), ".loki", "config");
     if (existsSync(cfg)) {
       const text = readFileSync(cfg, "utf8");
-      for (const line of text.split("\n")) {
-        if (line.replace(/\r$/, "") === "TELEMETRY_DISABLED=true") {
-          return false;
-        }
+      for (const raw of text.split("\n")) {
+        const line = raw.replace(/\r$/, "");
+        if (line === "TELEMETRY_DISABLED=true") configOptOut = true;
+        if (line === "TELEMETRY_ENABLED=true") configOptIn = true;
       }
     }
   } catch {
-    // A config read error must not enable capture by surprise, but it also must
-    // not crash the crash path. Treat an unreadable config as "no opt-out line"
-    // (matches the bash grep, which returns non-zero/false on read failure).
+    // An unreadable config must not enable capture by surprise (default stays
+    // off) and must not crash the crash path.
   }
-  return true;
+  if (configOptOut) return false;
+  // 2. Opt-in required.
+  if (env === "on" || configOptIn) return true;
+  // 3. Default: no collection.
+  return false;
 }
 
 // Guard so the same fatal error is never captured twice (uncaughtException then

@@ -1,19 +1,27 @@
 #!/usr/bin/env bash
 # Loki Mode crash-reporting bash helpers (Phase 0: local-only, zero egress).
 #
-# This module is the single source of truth for the unified opt-out that gates
-# BOTH PostHog usage telemetry and local crash capture. It is sourceable for
-# helpers only; it executes nothing on source.
+# This module is the single source of truth for the unified OPT-IN gate that
+# controls BOTH PostHog usage telemetry and local crash capture. It is
+# sourceable for helpers only; it executes nothing on source.
 #
-# Opt-out (any one disables collection):
+# Collection is OPT-IN and OFF by default. Nothing is collected, written, or
+# sent unless the user explicitly opts in. A default install cannot phone home,
+# which makes air-gapped, GDPR, and FedRAMP deployments safe out of the box.
+#
+# Opt-in (collection is enabled ONLY when one of these is present):
+#   - LOKI_TELEMETRY=on             (case-insensitive, exact word "on")
+#   - ~/.loki/config line: TELEMETRY_ENABLED=true   (written by: loki telemetry on)
+#
+# Opt-out always wins over opt-in (belt and suspenders for users who set both):
 #   - LOKI_TELEMETRY=off            (case-insensitive)
 #   - LOKI_TELEMETRY_DISABLED=true
 #   - DO_NOT_TRACK=1
 #   - ~/.loki/config line: TELEMETRY_DISABLED=true
 #
 # All capture is best-effort: it never blocks the parent and always returns 0.
-# Phase 0 has zero network egress, so local capture is always safe and useful
-# for the user to self-inspect what WOULD be sent.
+# Phase 0 has zero network egress; local capture is also gated by opt-in so a
+# default install writes nothing at all.
 
 # Double-source guard.
 if [ -n "${_LOKI_CRASH_SH_SOURCED:-}" ]; then
@@ -25,26 +33,42 @@ _LOKI_CRASH_SH_SOURCED=1
 _LOKI_CRASH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _LOKI_CRASH_CAPTURE_PY="${_LOKI_CRASH_DIR}/lib/crash_capture.py"
 
-# loki_collection_enabled: returns 0 (enabled) unless disabled by any switch.
-# This is the SINGLE source of truth for telemetry + crash collection state.
+# loki_collection_enabled: returns 0 (enabled) ONLY when the user has opted in
+# and has not also opted out. Opt-out always wins. Default is OFF (return 1).
+# This is the SINGLE source of truth for telemetry + crash collection state, and
+# its precedence MUST be mirrored by _is_enabled in dashboard/telemetry.py and
+# _loki_telemetry_enabled in autonomy/telemetry.sh.
+#
+# Precedence:
+#   1. Any opt-out flag present  -> OFF (hard kill, always wins)
+#   2. Else any opt-in flag present -> ON
+#   3. Else (default)            -> OFF (no egress, no local capture)
 loki_collection_enabled() {
-    # Env: LOKI_TELEMETRY=off (case-insensitive)
     local telem_lower
     telem_lower="$(printf '%s' "${LOKI_TELEMETRY:-}" | tr '[:upper:]' '[:lower:]')"
-    [ "$telem_lower" = "off" ] && return 1
 
+    # --- 1. Opt-out always wins ---
+    # Env: LOKI_TELEMETRY=off (case-insensitive)
+    [ "$telem_lower" = "off" ] && return 1
     # Env: LOKI_TELEMETRY_DISABLED=true
     [ "${LOKI_TELEMETRY_DISABLED:-}" = "true" ] && return 1
-
     # Env: DO_NOT_TRACK=1 (community standard)
     [ "${DO_NOT_TRACK:-}" = "1" ] && return 1
-
-    # Persistent opt-out in ~/.loki/config (matches autonomy/run.sh:643 format).
+    # Persistent opt-out in ~/.loki/config.
     if [ -f "${HOME}/.loki/config" ] && grep -q "^TELEMETRY_DISABLED=true" "${HOME}/.loki/config" 2>/dev/null; then
         return 1
     fi
 
-    return 0
+    # --- 2. Opt-in required to enable ---
+    # Env: LOKI_TELEMETRY=on (case-insensitive, exact word "on").
+    [ "$telem_lower" = "on" ] && return 0
+    # Persistent opt-in in ~/.loki/config (written by: loki telemetry on).
+    if [ -f "${HOME}/.loki/config" ] && grep -q "^TELEMETRY_ENABLED=true" "${HOME}/.loki/config" 2>/dev/null; then
+        return 0
+    fi
+
+    # --- 3. Default: OFF ---
+    return 1
 }
 
 # _loki_crash_python: resolve a python3 interpreter, or return 1 if absent.
@@ -144,15 +168,17 @@ loki_show_disclosure_once() {
         return 0
     fi
 
-    # Disclosure copy (plan section 6a, verbatim; no emojis, no em dashes).
+    # Disclosure copy (opt-in framing; no emojis, no em dashes).
     {
         echo ""
-        echo "Loki Mode auto-creates the issues you hit at github.com/asklokesh/loki-mode"
-        echo "and tries to auto-resolve them. If it cannot, we encourage you to open an"
-        echo "issue for anything causing hesitation."
-        echo "We send anonymous diagnostics only (os, arch, version, error type, sanitized"
-        echo "stack signatures). Never your code, prompts, paths, keys, or repo names."
-        echo "See docs/PRIVACY.md. Turn this off anytime with: loki telemetry off"
+        echo "Loki Mode anonymous diagnostics are OFF by default. Nothing is collected"
+        echo "or sent unless you opt in, so a default install sends us no telemetry"
+        echo "or diagnostics. Air-gapped and enterprise deployments are safe out of"
+        echo "the box."
+        echo "If you opt in, we send anonymous diagnostics only (os, arch, version,"
+        echo "error type, sanitized stack signatures). Never your code, prompts, paths,"
+        echo "keys, or repo names."
+        echo "See docs/PRIVACY.md. Opt in anytime with: loki telemetry on"
         echo ""
     } >&2
 

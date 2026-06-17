@@ -43,20 +43,37 @@ _collection_enabled() {
         bash -c ". '$REPO_ROOT/autonomy/crash.sh'; loki_collection_enabled"
 }
 
-# Default: enabled (no switches, no config file).
+# OPT-IN MODEL (P3-2): collection is OFF by default. A default install (no
+# switches, no config) must NOT collect or egress -- this is the air-gapped /
+# GDPR / FedRAMP safety guarantee.
 rm -f "$FAKE_HOME/.loki/config" 2>/dev/null || true
-if _collection_enabled; then ok "collection enabled by default"; else bad "default should be enabled"; fi
+if _collection_enabled; then bad "default should be OFF (opt-in model)"; else ok "collection OFF by default (opt-in)"; fi
 
-# Each documented opt-out disables collection.
-if _collection_enabled LOKI_TELEMETRY=off; then bad "LOKI_TELEMETRY=off should disable"; else ok "LOKI_TELEMETRY=off disables"; fi
-if _collection_enabled LOKI_TELEMETRY=OFF; then bad "LOKI_TELEMETRY=OFF should disable"; else ok "LOKI_TELEMETRY=OFF disables (case-insensitive)"; fi
-if _collection_enabled DO_NOT_TRACK=1; then bad "DO_NOT_TRACK=1 should disable"; else ok "DO_NOT_TRACK=1 disables"; fi
-if _collection_enabled LOKI_TELEMETRY_DISABLED=true; then bad "LOKI_TELEMETRY_DISABLED=true should disable"; else ok "LOKI_TELEMETRY_DISABLED=true disables"; fi
+# Opt-in via env enables collection.
+if _collection_enabled LOKI_TELEMETRY=on; then ok "LOKI_TELEMETRY=on enables"; else bad "LOKI_TELEMETRY=on should enable"; fi
+if _collection_enabled LOKI_TELEMETRY=ON; then ok "LOKI_TELEMETRY=ON enables (case-insensitive)"; else bad "LOKI_TELEMETRY=ON should enable"; fi
+# A non-opt-in truthy-looking value is NOT consent (precise: only "on" counts).
+if _collection_enabled LOKI_TELEMETRY=1; then bad "LOKI_TELEMETRY=1 should NOT count as opt-in"; else ok "LOKI_TELEMETRY=1 is not opt-in (only 'on')"; fi
+if _collection_enabled LOKI_TELEMETRY=true; then bad "LOKI_TELEMETRY=true should NOT count as opt-in"; else ok "LOKI_TELEMETRY=true is not opt-in (only 'on')"; fi
 
-# Config-file opt-out.
+# Opt-in via config enables collection.
 mkdir -p "$FAKE_HOME/.loki"
-printf 'TELEMETRY_DISABLED=true\n' > "$FAKE_HOME/.loki/config"
-if _collection_enabled; then bad "config TELEMETRY_DISABLED=true should disable"; else ok "config file TELEMETRY_DISABLED=true disables"; fi
+printf 'TELEMETRY_ENABLED=true\n' > "$FAKE_HOME/.loki/config"
+if _collection_enabled; then ok "config TELEMETRY_ENABLED=true enables"; else bad "config TELEMETRY_ENABLED=true should enable"; fi
+rm -f "$FAKE_HOME/.loki/config"
+
+# Opt-out always wins over opt-in (belt and suspenders), even when opted in.
+if _collection_enabled LOKI_TELEMETRY=on LOKI_TELEMETRY_DISABLED=true; then bad "opt-out must override opt-in env"; else ok "LOKI_TELEMETRY_DISABLED=true overrides LOKI_TELEMETRY=on"; fi
+if _collection_enabled LOKI_TELEMETRY=on DO_NOT_TRACK=1; then bad "DO_NOT_TRACK must override opt-in env"; else ok "DO_NOT_TRACK=1 overrides LOKI_TELEMETRY=on"; fi
+# Each documented opt-out disables collection (even with config opt-in present).
+mkdir -p "$FAKE_HOME/.loki"
+printf 'TELEMETRY_ENABLED=true\n' > "$FAKE_HOME/.loki/config"
+if _collection_enabled LOKI_TELEMETRY=off; then bad "LOKI_TELEMETRY=off should disable"; else ok "LOKI_TELEMETRY=off disables (over config opt-in)"; fi
+if _collection_enabled DO_NOT_TRACK=1; then bad "DO_NOT_TRACK=1 should disable"; else ok "DO_NOT_TRACK=1 disables (over config opt-in)"; fi
+rm -f "$FAKE_HOME/.loki/config"
+# Config-file opt-out wins even when config also has the opt-in line.
+printf 'TELEMETRY_ENABLED=true\nTELEMETRY_DISABLED=true\n' > "$FAKE_HOME/.loki/config"
+if _collection_enabled; then bad "config TELEMETRY_DISABLED=true must win over ENABLED"; else ok "config TELEMETRY_DISABLED=true wins over ENABLED"; fi
 rm -f "$FAKE_HOME/.loki/config"
 
 # ---------------------------------------------------------------------------
@@ -70,13 +87,13 @@ _show_disclosure() {
 
 rm -rf "$FAKE_HOME/.loki" 2>/dev/null || true
 out1="$(_show_disclosure)"
-# Stable phrase from the section-6a disclosure copy.
-printf '%s' "$out1" | grep -q "We send anonymous diagnostics only" \
-    && ok "disclosure prints the section-6a copy (first call)" \
-    || bad "disclosure missing on first call"
-printf '%s' "$out1" | grep -q "loki telemetry off" \
-    && ok "disclosure mentions the opt-out command" \
-    || bad "disclosure missing opt-out command"
+# Stable phrase from the opt-in disclosure copy.
+printf '%s' "$out1" | grep -q "OFF by default" \
+    && ok "disclosure states analytics are OFF by default (first call)" \
+    || bad "disclosure missing opt-in framing on first call"
+printf '%s' "$out1" | grep -q "loki telemetry on" \
+    && ok "disclosure mentions the opt-in command" \
+    || bad "disclosure missing opt-in command"
 
 # Sentinel persisted.
 if grep -q "^DISCLOSURE_SHOWN=true" "$FAKE_HOME/.loki/config" 2>/dev/null; then
@@ -182,27 +199,38 @@ out="$(_loki_bash crash show zzz-no-such-id 2>&1)"; rc=$?
 rm -rf "$EMPTY_DIR/.loki"
 
 # ---------------------------------------------------------------------------
-# telemetry off/on idempotency: after two 'off' calls there must be EXACTLY ONE
-# TELEMETRY_DISABLED line. 'on' removes it.
+# telemetry off/on idempotency under the opt-in model:
+#   off -> exactly one TELEMETRY_DISABLED line, no TELEMETRY_ENABLED line.
+#   on  -> exactly one TELEMETRY_ENABLED line, no TELEMETRY_DISABLED line.
+# The two markers must never coexist.
 # ---------------------------------------------------------------------------
+_count_line() { # $1 prefix
+    local n
+    n="$(grep -c "$1" "$FAKE_HOME/.loki/config" 2>/dev/null; true)"
+    printf '%s' "$n" | head -1
+}
+
 rm -rf "$FAKE_HOME/.loki" 2>/dev/null || true
 _loki_bash telemetry off >/dev/null 2>&1
 _loki_bash telemetry off >/dev/null 2>&1
-# grep -c prints 0 AND exits nonzero on no-match, so a `|| echo 0` would emit
-# a second 0. Count with a pipeline that always prints exactly one number.
-count="$(grep -c "^TELEMETRY_DISABLED=" "$FAKE_HOME/.loki/config" 2>/dev/null; true)"
-count="$(printf '%s' "$count" | head -1)"
-[ "$count" = "1" ] && ok "telemetry off is idempotent (exactly 1 line after two offs)" \
-    || bad "telemetry off not idempotent: $count TELEMETRY_DISABLED lines"
+[ "$(_count_line '^TELEMETRY_DISABLED=')" = "1" ] && ok "telemetry off idempotent (1 DISABLED line after two offs)" \
+    || bad "telemetry off not idempotent: $(_count_line '^TELEMETRY_DISABLED=') DISABLED lines"
+[ "$(_count_line '^TELEMETRY_ENABLED=')" = "0" ] && ok "telemetry off leaves no ENABLED line" \
+    || bad "telemetry off left $(_count_line '^TELEMETRY_ENABLED=') ENABLED lines"
 
 # Confirm collection now reports disabled via the config probe.
 if _collection_enabled; then bad "after 'off' collection should be disabled"; else ok "after 'off' collection_enabled reports disabled"; fi
 
+# 'on' writes the positive consent marker and removes any opt-out.
 _loki_bash telemetry on >/dev/null 2>&1
-count="$(grep -c "^TELEMETRY_DISABLED=" "$FAKE_HOME/.loki/config" 2>/dev/null; true)"
-count="$(printf '%s' "$count" | head -1)"
-[ "$count" = "0" ] && ok "telemetry on removes the opt-out line" \
-    || bad "telemetry on left $count TELEMETRY_DISABLED lines"
+_loki_bash telemetry on >/dev/null 2>&1
+[ "$(_count_line '^TELEMETRY_DISABLED=')" = "0" ] && ok "telemetry on removes the opt-out line" \
+    || bad "telemetry on left $(_count_line '^TELEMETRY_DISABLED=') DISABLED lines"
+[ "$(_count_line '^TELEMETRY_ENABLED=')" = "1" ] && ok "telemetry on idempotent (1 ENABLED line after two ons)" \
+    || bad "telemetry on not idempotent: $(_count_line '^TELEMETRY_ENABLED=') ENABLED lines"
+
+# After explicit opt-in, collection reports enabled.
+if _collection_enabled; then ok "after 'on' collection_enabled reports enabled"; else bad "after 'on' collection should be enabled"; fi
 rm -rf "$FAKE_HOME/.loki" 2>/dev/null || true
 
 # ===========================================================================
@@ -213,13 +241,15 @@ rm -rf "$FAKE_HOME/.loki" 2>/dev/null || true
 # multi-frame stack and assert a NON-EMPTY signature with the expected symbols.
 # Helper reads TARGET_DIR from the environment (not an argument).
 # ===========================================================================
-# Run the real helper in a clean subshell with isolated HOME (so the opt-out
-# probe never reads the real ~/.loki/config) and opt-out env explicitly cleared.
+# Run the real helper in a clean subshell with isolated HOME (so the config
+# probe never reads the real ~/.loki/config). Under the opt-in model the helper
+# is gated OFF by default, so we set LOKI_TELEMETRY=on to exercise the capture
+# path (this test is about stack/fingerprint parity, not the gate).
 _run_real_helper() {
     # $1 target dir, $2 home dir, $3 multi-line stack. The stack is passed as a
     # real env var (LOKI_TEST_STACK) via env, NOT as a positional after
     # `bash -c`, which would land in $0 and be lost.
-    env -i PATH="$PATH" HOME="$2" TARGET_DIR="$1" LOKI_TEST_STACK="$3" \
+    env -i PATH="$PATH" HOME="$2" TARGET_DIR="$1" LOKI_TEST_STACK="$3" LOKI_TELEMETRY=on \
         bash -c '
             . "'"$REPO_ROOT"'/autonomy/crash.sh"
             loki_crash_capture "TypeError" "boom message" "$LOKI_TEST_STACK" "act" "1"
@@ -314,13 +344,13 @@ out="$(_loki_trav crash show legit-fp-1 2>&1)"; rc=$?
     || bad "crash show <filename-id>: legit lookup broke [rc=$rc]"
 
 # ===========================================================================
-# DEFECT 3: opt-out gates LOCAL capture. With DO_NOT_TRACK=1 (and separately
-# LOKI_TELEMETRY=off) the real loki_crash_capture must write NO file. With the
-# opt-out unset it MUST write one (positive control proves the no-op is the
-# opt-out, not a broken probe).
+# DEFECT 3 (opt-in model): the unified gate also controls LOCAL capture.
+#   - default (no switch): NO file (opt-in model -- off by default).
+#   - explicit opt-in (LOKI_TELEMETRY=on): a file IS written (positive control).
+#   - opt-out (DO_NOT_TRACK=1 / LOKI_TELEMETRY=off): NO file even if opted in.
 # ===========================================================================
 _capture_with_env() {
-    # $1 target dir, $2 home dir, then KEY=VALUE opt-out env assignments.
+    # $1 target dir, $2 home dir, then KEY=VALUE env assignments.
     local target="$1" home="$2"; shift 2
     env -i PATH="$PATH" HOME="$home" TARGET_DIR="$target" "$@" \
         bash -c '
@@ -332,18 +362,27 @@ _crash_file_count() {
     find "$1/.loki/crash" -maxdepth 1 -name '*.json' -type f 2>/dev/null | wc -l | tr -d ' '
 }
 
-# Positive control: opt-out unset -> a file IS written.
-D3_ON="$TMP_ROOT/d3on"; D3_HOME="$TMP_ROOT/d3home"; mkdir -p "$D3_ON" "$D3_HOME"
-_capture_with_env "$D3_ON" "$D3_HOME"
-[ "$(_crash_file_count "$D3_ON")" -ge 1 ] \
-    && ok "opt-out unset: loki_crash_capture writes a file (control)" \
-    || bad "opt-out unset: no file written (probe broken or defect)"
+D3_HOME="$TMP_ROOT/d3home"; mkdir -p "$D3_HOME"
 
-# DO_NOT_TRACK=1 -> NO file.
+# Default (no switch) -> NO file (opt-in model: off by default).
+D3_DEF="$TMP_ROOT/d3def"; mkdir -p "$D3_DEF"
+_capture_with_env "$D3_DEF" "$D3_HOME"
+[ "$(_crash_file_count "$D3_DEF")" -eq 0 ] \
+    && ok "default (no opt-in): loki_crash_capture writes NO file" \
+    || bad "default: a crash file was written (opt-in model violated)"
+
+# Positive control: explicit opt-in -> a file IS written.
+D3_ON="$TMP_ROOT/d3on"; mkdir -p "$D3_ON"
+_capture_with_env "$D3_ON" "$D3_HOME" LOKI_TELEMETRY=on
+[ "$(_crash_file_count "$D3_ON")" -ge 1 ] \
+    && ok "LOKI_TELEMETRY=on: loki_crash_capture writes a file (control)" \
+    || bad "LOKI_TELEMETRY=on: no file written (probe broken or defect)"
+
+# Opt-out wins over opt-in: DO_NOT_TRACK=1 -> NO file even with opt-in env.
 D3_DNT="$TMP_ROOT/d3dnt"; mkdir -p "$D3_DNT"
-_capture_with_env "$D3_DNT" "$D3_HOME" DO_NOT_TRACK=1
+_capture_with_env "$D3_DNT" "$D3_HOME" LOKI_TELEMETRY=on DO_NOT_TRACK=1
 [ "$(_crash_file_count "$D3_DNT")" -eq 0 ] \
-    && ok "DO_NOT_TRACK=1: loki_crash_capture writes NO file" \
+    && ok "DO_NOT_TRACK=1 over opt-in: loki_crash_capture writes NO file" \
     || bad "DO_NOT_TRACK=1: a crash file was written (opt-out not honored)"
 
 # LOKI_TELEMETRY=off -> NO file.
@@ -352,6 +391,80 @@ _capture_with_env "$D3_OFF" "$D3_HOME" LOKI_TELEMETRY=off
 [ "$(_crash_file_count "$D3_OFF")" -eq 0 ] \
     && ok "LOKI_TELEMETRY=off: loki_crash_capture writes NO file" \
     || bad "LOKI_TELEMETRY=off: a crash file was written (opt-out not honored)"
+
+# ===========================================================================
+# P3-2: dashboard/telemetry.py send_telemetry must NOT egress by default and
+# MUST egress only after explicit opt-in. We mock the network honestly by
+# replacing urllib.request.urlopen with a recorder (it asserts urlopen is NOT
+# invoked with a clean env, and IS invoked only after opt-in). The gating logic
+# is NOT faked -- the real _is_enabled runs. send_telemetry spawns a daemon
+# thread, so we join briefly before asserting.
+# ===========================================================================
+_py_egress_probe() {
+    # args become KEY=VALUE env assignments for the python process.
+    env -i PATH="$PATH" HOME="$FAKE_HOME" LOKI_TELEMETRY_PKG="$REPO_ROOT/dashboard" "$@" \
+        python3 - <<'PYEOF'
+import os, sys, importlib.util, types, time
+
+pkg_dir = os.environ["LOKI_TELEMETRY_PKG"]
+# Load dashboard/telemetry.py as a standalone module (no package import side effects).
+spec = importlib.util.spec_from_file_location("loki_telemetry_under_test", os.path.join(pkg_dir, "telemetry.py"))
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+calls = []
+def fake_urlopen(req, *a, **k):
+    # Record the call; honest mock -- we never let a real request leave.
+    try:
+        calls.append(getattr(req, "full_url", str(req)))
+    except Exception:
+        calls.append("call")
+    class _R:
+        def read(self): return b""
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    return _R()
+
+# Replace the symbol the module actually calls (it imported urlopen by name).
+mod.urlopen = fake_urlopen
+
+mod.send_telemetry("test_event", {"k": "v"})
+# send runs in a daemon thread; give it a moment to either fire or be gated out.
+time.sleep(0.5)
+print("CALLS=%d" % len(calls))
+PYEOF
+}
+
+# Clean env, no config -> default OFF -> urlopen NOT called.
+rm -rf "$FAKE_HOME/.loki" 2>/dev/null || true
+out="$(_py_egress_probe)"
+printf '%s' "$out" | grep -q "CALLS=0" \
+    && ok "telemetry.py default: NO network egress (urlopen not called)" \
+    || bad "telemetry.py default egressed: [$out]"
+
+# Explicit opt-in via env -> urlopen IS called exactly once.
+out="$(_py_egress_probe LOKI_TELEMETRY=on)"
+printf '%s' "$out" | grep -q "CALLS=1" \
+    && ok "telemetry.py LOKI_TELEMETRY=on: egresses exactly once" \
+    || bad "telemetry.py opt-in did not egress once: [$out]"
+
+# Opt-in via config -> urlopen IS called.
+mkdir -p "$FAKE_HOME/.loki"; printf 'TELEMETRY_ENABLED=true\n' > "$FAKE_HOME/.loki/config"
+out="$(_py_egress_probe)"
+printf '%s' "$out" | grep -q "CALLS=1" \
+    && ok "telemetry.py config TELEMETRY_ENABLED=true: egresses once" \
+    || bad "telemetry.py config opt-in did not egress: [$out]"
+
+# Kill switch fully disables egress even with config opt-in present.
+out="$(_py_egress_probe DO_NOT_TRACK=1)"
+printf '%s' "$out" | grep -q "CALLS=0" \
+    && ok "telemetry.py DO_NOT_TRACK=1 kill switch: NO egress (over config opt-in)" \
+    || bad "telemetry.py kill switch failed: [$out]"
+out="$(_py_egress_probe LOKI_TELEMETRY=off)"
+printf '%s' "$out" | grep -q "CALLS=0" \
+    && ok "telemetry.py LOKI_TELEMETRY=off kill switch: NO egress" \
+    || bad "telemetry.py LOKI_TELEMETRY=off failed: [$out]"
+rm -rf "$FAKE_HOME/.loki" 2>/dev/null || true
 
 echo
 echo "Total: $((PASS + FAIL))  Passed: $PASS  Failed: $FAIL"

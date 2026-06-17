@@ -57,7 +57,7 @@ def invoke_llm(prompt, timeout=120):
 
     cmds = {
         "claude": ["claude", "-p", prompt],
-        "codex": ["codex", "exec", "--full-auto", prompt],
+        "codex": ["codex", "exec", "--sandbox", "workspace-write", prompt],
         "cline": ["cline", "-y", prompt],
         "aider": ["aider", "--message", prompt, "--yes-always", "--no-auto-commits"],
     }

@@ -41,7 +41,7 @@ skills/                     # On-demand skill modules (v3.0 architecture)
   00-index.md               # Module selection rules and routing
   model-selection.md        # Task tool, parallelization, thinking modes
   providers.md              # Multi-provider documentation
-  quality-gates.md          # 11-gate system, velocity-quality balance
+  quality-gates.md          # 8-gate system, velocity-quality balance
   healing.md                # Legacy system healing (Amazon AGI Lab patterns)
   testing.md                # Playwright, E2E, property-based testing
   production.md             # HN patterns, CI/CD, context management
@@ -101,7 +101,6 @@ Every iteration follows: **R**eason -> **A**ct -> **R**eflect -> **V**erify
 - **OpenAI Codex CLI** (Tier 3): Degraded mode (sequential only, no Task tool)
 - **Aider** (Tier 3): Degraded mode
 - **Google Gemini CLI**: DEPRECATED starting v7.5.18 (upstream deprecated; runtime removed). `LOKI_PROVIDER=gemini` exits with a migration message.
-- **Anthropic Antigravity CLI**: Coming soon.
 
 ```bash
 # Provider selection
@@ -110,13 +109,17 @@ loki start --provider cline ./prd.md
 LOKI_PROVIDER=codex loki start ./prd.md
 ```
 
-### Quality Gates
+### Quality Gates (8 gates; see `skills/quality-gates.md` for the canonical table)
 1. Static analysis (CodeQL, ESLint)
-2. 3-reviewer parallel system (blind review)
-3. Anti-sycophancy checks (devil's advocate on unanimous approval)
-4. Severity-based blocking (Critical/High/Medium = BLOCK)
-5. Test coverage gates (>80% unit, 100% pass)
-6. Backward compatibility gate (healing mode - behavioral preservation, v6.67.0)
+2. Test suite pass/fail (red blocks; coverage % not measured in this release)
+3. Blind 3-reviewer code review with severity blocking (Critical/High = BLOCK; Medium/Low advisory)
+4. Anti-sycophancy / Devil's Advocate (on unanimous PASS)
+5. Mock-integrity detector (HIGH blocks)
+6. Test-mutation detector (HIGH blocks)
+7. Documentation coverage
+8. Magic Modules debate (BLOCK severity)
+
+Conditional auditor (not numbered): Backward-compatibility / legacy-healing-auditor (healing mode only - behavioral preservation, v6.67.0).
 
 ### Legacy System Healing (introduced v6.67.0)
 - **Current in v7.18.0**: Still active, no breaking changes since v6.67.0. Note: in v7.4.20 the `legacy-healing-auditor` reviewer was gated on healing-mode signals to avoid firing on non-healing changes.
@@ -125,7 +128,7 @@ LOKI_PROVIDER=codex loki start ./prd.md
 - **Principles**: Friction-as-semantics, failure-first learning, universal adapters, incremental healing, institutional knowledge preservation
 - **Artifacts**: `.loki/healing/` (friction-map.json, failure-modes.json, institutional-knowledge.md)
 - **Review**: `legacy-healing-auditor` specialist added to code review pool (gated)
-- **Gate**: Gate 10 backward compatibility check (blocks removal of unclassified friction)
+- **Gate**: backward-compatibility / legacy-healing auditor (healing mode; not one of the 8 numbered gates) blocks removal of unclassified friction
 - **Hooks**: `hook_pre_healing_modify()` (`autonomy/hooks/migration-hooks.sh:283`), `hook_post_healing_modify()` (`:328`), `hook_healing_phase_gate()` (`:386`)
 - **Memory**: `FrictionPoint` and `FailureMode` schemas for healing-specific memory entries
 - **Skill**: `skills/healing.md` | **Reference**: `references/legacy-healing-patterns.md`
@@ -203,7 +206,7 @@ Verified against v7.5.13 source on 2026-04-29. Line numbers drift; re-verify wit
 
 ### Critical Data Flow
 
-A PRD enters via `loki start` (`autonomy/loki:622`), which execs `run.sh`. The `run_autonomous()` loop (`autonomy/run.sh:10253`) builds prompts via `build_prompt()` (`autonomy/run.sh:8987`) injecting RARV instructions, SDLC phases, memory context, queue tasks, and checklist status. The provider is invoked (Claude via `-p` flag, Codex via `exec --full-auto` with `CODEX_MODEL_REASONING_EFFORT` env var, Cline/Aider sequentially). Post-iteration, the system runs checklist verification, app runner management, playwright smoke tests, and code review. Completion is determined by a council vote (`council_should_stop` at `autonomy/completion-council.sh:1605`), completion promise text, or max iterations. All components communicate through `.loki/` filesystem state files.
+A PRD enters via `loki start` (`autonomy/loki:622`), which execs `run.sh`. The `run_autonomous()` loop (`autonomy/run.sh:10253`) builds prompts via `build_prompt()` (`autonomy/run.sh:8987`) injecting RARV instructions, SDLC phases, memory context, queue tasks, and checklist status. The provider is invoked (Claude via `-p` flag, Codex via `exec --sandbox workspace-write` with `CODEX_MODEL_REASONING_EFFORT` env var, Cline/Aider sequentially). Post-iteration, the system runs checklist verification, app runner management, playwright smoke tests, and code review. Completion is determined by a council vote (`council_should_stop` at `autonomy/completion-council.sh:1605`), completion promise text, or max iterations. All components communicate through `.loki/` filesystem state files.
 
 **Deprecated entrypoints:**
 - `loki run <issue-ref>` is a deprecated alias for `loki start <issue-ref>` since v6.84.0. Emits a `cli_command_deprecated` telemetry event. See `autonomy/loki:4436-4456`. Prefer `loki start`.
@@ -300,7 +303,7 @@ Prompt: "Review the following claims for factual accuracy.
 
 ### Version Numbering
 Follows semantic versioning: MAJOR.MINOR.PATCH
-- Current: v7.45.1 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
+- Current: v7.57.0 (see [CHANGELOG.md](./CHANGELOG.md) for release history)
 - MAJOR bump for architecture changes (v6.0.0 = dual-mode architecture, loki run)
 - MINOR bump for new features (v5.23.0 = Dashboard File-Based API)
 - PATCH bump for fixes (v5.22.1 = session.json phantom state)

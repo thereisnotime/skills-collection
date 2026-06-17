@@ -161,26 +161,29 @@ describe("codexProvider invocation", () => {
     delete process.env["LOKI_CODEX_CLI"];
   });
 
-  it("argv shape: [exec, --full-auto, <prompt>] (codex.sh:188)", async () => {
+  it("argv shape: [exec, --sandbox, workspace-write, --skip-git-repo-check, <prompt>] (providers.ts:400-405)", async () => {
     writeCodexStub({ stdout: "ok" });
     const p = codexProvider();
     const r = await p.invoke(makeCall({ provider: "codex", prompt: "build x" }));
     expect(r.exitCode).toBe(0);
     const argv = readFileSync(codexArgvLog, "utf8").split("\n").filter(Boolean);
-    // v7.4.18: switched argv shape from --full-auto preset to the
-    // explicit flags it expands to in codex CLI v0.125.0.
+    // codex 0.132.0: switched argv shape from the deprecated --full-auto preset
+    // (and the v7.4.18 --ask-for-approval never / --sandbox danger-full-access
+    // expansion) to the documented --sandbox workspace-write replacement. exec
+    // is non-interactive (approval "never") so no --ask-for-approval is emitted.
     // Stub records positional args only ("$@" excludes argv[0] cli path).
     expect(argv[0]).toBe("exec");
-    expect(argv[1]).toBe("--ask-for-approval");
-    expect(argv[2]).toBe("never");
-    expect(argv[3]).toBe("--sandbox");
-    expect(argv[4]).toBe("danger-full-access");
-    // --output-last-message <path> is on by default; the prompt is the
-    // last positional. Verify the prompt is present somewhere after the
-    // approval/sandbox flags rather than asserting an exact index.
-    expect(argv).toContain("build x");
-    // --output-last-message defaults ON. Verify it is emitted.
+    expect(argv[1]).toBe("--sandbox");
+    expect(argv[2]).toBe("workspace-write");
+    expect(argv[3]).toBe("--skip-git-repo-check");
+    // The deprecated flags must no longer appear.
+    expect(argv).not.toContain("--full-auto");
+    expect(argv).not.toContain("--ask-for-approval");
+    expect(argv).not.toContain("danger-full-access");
+    // --output-last-message <path> is on by default and precedes the prompt;
+    // the prompt is the last positional.
     expect(argv).toContain("--output-last-message");
+    expect(argv[argv.length - 1]).toBe("build x");
   });
 
   it("LOKI_CODEX_OUTPUT_LAST=false disables --output-last-message (v7.4.18)", async () => {

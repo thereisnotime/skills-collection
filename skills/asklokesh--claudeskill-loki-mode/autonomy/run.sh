@@ -585,7 +585,7 @@ BACKGROUND_MODE=${LOKI_BACKGROUND:-false}                # Run in background
 STAGED_AUTONOMY=${LOKI_STAGED_AUTONOMY:-false}           # Require plan approval
 AUDIT_LOG_ENABLED=${LOKI_AUDIT_LOG:-true}                # Enable audit logging (on by default)
 MAX_PARALLEL_AGENTS=${LOKI_MAX_PARALLEL_AGENTS:-10}      # Limit concurrent agents
-SANDBOX_MODE=${LOKI_SANDBOX_MODE:-false}                 # Docker sandbox mode
+SANDBOX_MODE=${LOKI_SANDBOX_MODE:-false}                 # Docker sandbox mode (informational; the real dispatch reads LOKI_SANDBOX_MODE at autonomy/loki:1965 and execs sandbox.sh -- this var is not consumed in run.sh)
 ALLOWED_PATHS=${LOKI_ALLOWED_PATHS:-""}                  # Empty = all paths allowed
 BLOCKED_COMMANDS=${LOKI_BLOCKED_COMMANDS:-"rm -rf /,dd if=,mkfs,:(){ :|:& };:"}
 
@@ -1454,7 +1454,13 @@ stop_enterprise_services() {
 # Exit 0 = ALLOW, Exit 1 = DENY, Exit 2 = REQUIRE_APPROVAL (logged but allowed for now)
 check_policy() {
     local enforcement_point="$1"
-    local context_json="${2:-{}}"
+    # Default to a valid empty-object JSON. Do NOT inline `${2:-{}}`: the
+    # closing brace of the parameter expansion eats the first `}` of the
+    # `{}` default, so a non-empty $2 like {"a":1} would pass through as
+    # {"a":1}} (invalid JSON -> check.js JSON.parse fails -> exit 1 DENY
+    # every iteration). Split the default assignment to avoid the footgun.
+    local context_json="${2:-}"
+    [ -z "$context_json" ] && context_json='{}'
 
     # Only check if policy files exist
     if [ ! -f ".loki/policies.json" ] && [ ! -f ".loki/policies.yaml" ]; then
@@ -1480,7 +1486,40 @@ check_policy() {
     elif [ $exit_code -eq 2 ]; then
         log_warn "Policy requires APPROVAL: $result"
         audit_agent_action "policy_approval_required" "Policy requires approval" "enforcement=$enforcement_point"
-        # Log but proceed (full approval flow is P1-3 scope)
+        # P3-3 (v7.51.0): honor the approval requirement when the operator has
+        # opted into enforcement. This is OPT-IN and changes NOTHING for existing
+        # users: the wait fires only when staged autonomy is on
+        # (LOKI_STAGED_AUTONOMY=true) or the explicit
+        # LOKI_POLICY_APPROVAL_ENFORCE=1 knob is set. Otherwise it stays advisory
+        # (log + proceed), preserving the historical default behavior. The wait
+        # reuses the same .loki/signals/ file-signal mechanism as staged-autonomy
+        # plan approval (check_staged_autonomy), extended with a reject arm so an
+        # operator can deny (deny == policy DENIED == return 1).
+        if [ "$STAGED_AUTONOMY" = "true" ] || [ "${LOKI_POLICY_APPROVAL_ENFORCE:-0}" = "1" ]; then
+            local _approve_sig=".loki/signals/POLICY_APPROVED"
+            local _reject_sig=".loki/signals/POLICY_REJECTED"
+            log_warn "Policy enforcement: waiting for approval at enforcement point '$enforcement_point'."
+            log_warn "  Approve: create $_approve_sig  |  Reject: create $_reject_sig"
+            audit_agent_action "policy_approval_wait" "Waiting for policy approval signal" "enforcement=$enforcement_point"
+            while [ ! -f "$_approve_sig" ] && [ ! -f "$_reject_sig" ]; do
+                sleep 5
+            done
+            if [ -f "$_reject_sig" ]; then
+                rm -f "$_reject_sig" "$_approve_sig" 2>/dev/null || true
+                log_error "Policy REJECTED by operator at enforcement point '$enforcement_point'"
+                audit_agent_action "policy_approval_rejected" "Operator rejected policy approval" "enforcement=$enforcement_point"
+                emit_event_json "policy_denied" \
+                    "enforcement=$enforcement_point" \
+                    "result=operator_rejected"
+                return 1
+            fi
+            rm -f "$_approve_sig" 2>/dev/null || true
+            log_info "Policy approved by operator at enforcement point '$enforcement_point'; continuing."
+            audit_agent_action "policy_approval_granted" "Operator approved policy" "enforcement=$enforcement_point"
+            return 0
+        fi
+        # Default (no staged autonomy, no enforce knob): advisory only -- log and
+        # proceed. This preserves the historical behavior for existing users.
         return 0
     fi
     return 0
@@ -2634,6 +2673,27 @@ except Exception:
         fi
     fi
 
+    # P2-2: assumption-ledger summary for proof-of-done. "done" means "done, plus
+    # here are the N places your spec was ambiguous and what Loki assumed."
+    # spec_ledger_counts echoes "<total> <high>"; defined when spec-interrogation.sh
+    # is sourced (run.sh sources it in DISCOVERY). Guarded for safety.
+    local assumptions_total=0 assumptions_high=0 assumption_lines=""
+    if type spec_ledger_counts &>/dev/null; then
+        local _ac
+        _ac="$(spec_ledger_counts 2>/dev/null || echo '0 0')"
+        assumptions_total="${_ac%% *}"
+        assumptions_high="${_ac##* }"
+        case "$assumptions_total" in ''|*[!0-9]*) assumptions_total=0 ;; esac
+        case "$assumptions_high"  in ''|*[!0-9]*) assumptions_high=0 ;; esac
+        if [ "$assumptions_total" != "0" ]; then
+            local _ledger_md="$loki_dir/assumptions/ledger.md"
+            if [ -f "$_ledger_md" ]; then
+                # Pull just the "## <id> ..." headings as a terse one-per-line list.
+                assumption_lines="$(grep '^## ' "$_ledger_md" 2>/dev/null | sed 's/^## /  - /' || true)"
+            fi
+        fi
+    fi
+
     # ---- Durable human-readable file: .loki/COMPLETION.txt --------------------
     {
         echo "Loki Mode run summary"
@@ -2668,6 +2728,14 @@ except Exception:
             echo "$evidence_inconclusive_line"
             echo ""
         fi
+        if [ "$assumptions_total" != "0" ]; then
+            echo "Spec assumptions recorded: $assumptions_total ($assumptions_high high-severity)"
+            echo "  These are places your spec was ambiguous and what Loki assumed. See .loki/assumptions/ledger.md"
+            if [ -n "$assumption_lines" ]; then
+                echo "$assumption_lines"
+            fi
+            echo ""
+        fi
         echo "Review the work:"
         echo "  $review_cmd"
         echo ""
@@ -2691,6 +2759,8 @@ except Exception:
     _LOKI_CS_DELEGATE_BRANCH="$delegate_branch" \
     _LOKI_CS_PR_URL="$pr_url" \
     _LOKI_CS_TS="$ts" \
+    _LOKI_CS_ASSUMPTIONS_TOTAL="$assumptions_total" \
+    _LOKI_CS_ASSUMPTIONS_HIGH="$assumptions_high" \
     _LOKI_CS_OUT_FILE="$loki_dir/state/completion.json" \
     python3 -c "
 import json, os, tempfile
@@ -2710,6 +2780,8 @@ rec = {
     'delegate_branch': os.environ.get('_LOKI_CS_DELEGATE_BRANCH', ''),
     'pr_url': os.environ.get('_LOKI_CS_PR_URL', ''),
     'timestamp': os.environ.get('_LOKI_CS_TS', ''),
+    'assumptions_total': i(os.environ.get('_LOKI_CS_ASSUMPTIONS_TOTAL')),
+    'assumptions_high': i(os.environ.get('_LOKI_CS_ASSUMPTIONS_HIGH')),
 }
 d = os.path.dirname(out)
 fd, tmp = tempfile.mkstemp(dir=d, suffix='.json')
@@ -2717,6 +2789,113 @@ with os.fdopen(fd, 'w') as f:
     json.dump(rec, f, indent=2)
 os.replace(tmp, out)
 " 2>/dev/null || true
+
+    # ---- P3-5: run manifest / bill-of-materials: .loki/loki-run.json ----------
+    # Best-effort, auditable + reproducible record of this run. Emitted from
+    # build_completion_summary because that fires on EVERY terminal path
+    # (complete / max_iterations / stopped / intervention / failed), including the
+    # intervention/stopped calls that bypass emit_completion_summary. The whole
+    # block is wrapped so a failure can NEVER abort the run.
+    {
+        # Portable sha256 (macOS shasum, Linux sha256sum). Echoes empty on miss.
+        _loki_sha256() {
+            local _f="$1"
+            [ -f "$_f" ] || { printf ''; return 0; }
+            if command -v shasum >/dev/null 2>&1; then
+                shasum -a 256 "$_f" 2>/dev/null | awk '{print $1}'
+            elif command -v sha256sum >/dev/null 2>&1; then
+                sha256sum "$_f" 2>/dev/null | awk '{print $1}'
+            else
+                printf ''
+            fi
+        }
+
+        local _loki_ver
+        _loki_ver="$(cat "$PROJECT_DIR/VERSION" 2>/dev/null || echo "unknown")"
+        local _spec_path="${PRD_PATH:-}"
+        [ -z "$_spec_path" ] && _spec_path="none"
+        local _spec_hash=""
+        [ "$_spec_path" != "none" ] && _spec_hash="$(_loki_sha256 "$_spec_path")"
+
+        # Evidence files we reference + hash (existing artifacts, not new ones).
+        local _ev_tests="$loki_dir/quality/test-results.json"
+        local _ev_cov="$loki_dir/quality/coverage.json"
+        local _ev_completion="$loki_dir/state/completion.json"
+
+        _LOKI_RM_OUT="$loki_dir/loki-run.json" \
+        _LOKI_RM_VERSION="$_loki_ver" \
+        _LOKI_RM_SPEC_PATH="$_spec_path" \
+        _LOKI_RM_SPEC_HASH="$_spec_hash" \
+        _LOKI_RM_PROVIDER="${PROVIDER_NAME:-${LOKI_PROVIDER:-claude}}" \
+        _LOKI_RM_TIER="${CURRENT_TIER:-unknown}" \
+        _LOKI_RM_OUTCOME="$outcome" \
+        _LOKI_RM_BRANCH="$branch" \
+        _LOKI_RM_START_SHA="$start_sha" \
+        _LOKI_RM_HEAD_SHA="$head_sha" \
+        _LOKI_RM_ITERS="${ITERATION_COUNT:-0}" \
+        _LOKI_RM_TS="$ts" \
+        _LOKI_RM_EV_TESTS="$_ev_tests" \
+        _LOKI_RM_EV_TESTS_HASH="$(_loki_sha256 "$_ev_tests")" \
+        _LOKI_RM_EV_COV="$_ev_cov" \
+        _LOKI_RM_EV_COV_HASH="$(_loki_sha256 "$_ev_cov")" \
+        _LOKI_RM_EV_COMPLETION="$_ev_completion" \
+        _LOKI_RM_NODE="$(node --version 2>/dev/null || echo '')" \
+        _LOKI_RM_PYTHON="$(python3 --version 2>&1 | awk '{print $2}' || echo '')" \
+        _LOKI_RM_GIT="$(git --version 2>/dev/null | awk '{print $3}' || echo '')" \
+        _LOKI_RM_BUN="$(bun --version 2>/dev/null || echo '')" \
+        python3 -c "
+import json, os, tempfile
+out=os.environ['_LOKI_RM_OUT']
+def s(k): return os.environ.get(k,'')
+def i(k):
+    try: return int(os.environ.get(k,'0'))
+    except (TypeError, ValueError): return 0
+def ev(path_k, hash_k=None):
+    p=s(path_k)
+    rec={'path': p, 'exists': bool(p) and os.path.isfile(p)}
+    if hash_k:
+        h=s(hash_k)
+        if h: rec['sha256']=h
+    return rec
+manifest={
+    'schema': 'loki-run-manifest/v1',
+    'loki_version': s('_LOKI_RM_VERSION'),
+    'timestamp': s('_LOKI_RM_TS'),
+    'outcome': s('_LOKI_RM_OUTCOME'),
+    'iterations': i('_LOKI_RM_ITERS'),
+    'provider': s('_LOKI_RM_PROVIDER'),
+    # Tier cycles per RARV iteration (R/A/R/V); this is the LAST tier set, not
+    # the only tier used. Recorded honestly as last_tier, not a single 'model'.
+    'last_tier': s('_LOKI_RM_TIER'),
+    'spec': {
+        'path': s('_LOKI_RM_SPEC_PATH'),
+        'sha256': s('_LOKI_RM_SPEC_HASH') or None,
+    },
+    'git': {
+        'branch': s('_LOKI_RM_BRANCH'),
+        'start_sha': s('_LOKI_RM_START_SHA') or None,
+        'head_sha': s('_LOKI_RM_HEAD_SHA') or None,
+    },
+    'tool_versions': {
+        'node': s('_LOKI_RM_NODE') or None,
+        'python': s('_LOKI_RM_PYTHON') or None,
+        'git': s('_LOKI_RM_GIT') or None,
+        'bun': s('_LOKI_RM_BUN') or None,
+    },
+    'evidence': {
+        'test_results': ev('_LOKI_RM_EV_TESTS','_LOKI_RM_EV_TESTS_HASH'),
+        'coverage': ev('_LOKI_RM_EV_COV','_LOKI_RM_EV_COV_HASH'),
+        'completion': ev('_LOKI_RM_EV_COMPLETION'),
+    },
+}
+d=os.path.dirname(out)
+fd, tmp=tempfile.mkstemp(dir=d, suffix='.json')
+with os.fdopen(fd,'w') as f:
+    json.dump(manifest, f, indent=2)
+os.replace(tmp, out)
+" 2>/dev/null || true
+        unset -f _loki_sha256 2>/dev/null || true
+    } || true
 
     # ---- Short strings for the desktop notification --------------------------
     # Desktop body stays terse; full detail lives in COMPLETION.txt.
@@ -3091,7 +3270,7 @@ spawn_worktree_session() {
                 fi
                 ;;
             codex)
-                codex exec --full-auto --skip-git-repo-check \
+                codex exec --sandbox workspace-write --skip-git-repo-check \
                     "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                     >> "$log_file" 2>&1 || _wt_exit=$?
                 ;;
@@ -3307,7 +3486,7 @@ Output ONLY the resolved file content with no conflict markers. No explanations.
                 resolution=$(CAVEMAN_DEFAULT_MODE=off claude "${_cr_argv[@]}" -p "$conflict_prompt" --output-format text 2>/dev/null)
                 ;;
             codex)
-                resolution=$(codex exec --full-auto --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
+                resolution=$(codex exec --sandbox workspace-write --skip-git-repo-check "$conflict_prompt" 2>/dev/null)
                 ;;
             cline)
                 resolution=$(invoke_cline_capture "$conflict_prompt" 2>/dev/null)
@@ -6026,7 +6205,7 @@ check_command_allowed() {
     # run.sh does not directly execute arbitrary shell commands from user or agent
     # input. Command execution is handled by the AI CLI's own permission model:
     #   - Claude Code: --dangerously-skip-permissions (with its own allowlist)
-    #   - Codex CLI: --full-auto or exec --dangerously-bypass-approvals-and-sandbox
+    #   - Codex CLI: exec --sandbox workspace-write or exec --dangerously-bypass-approvals-and-sandbox
     #
     # HUMAN_INPUT.md content is injected as a text prompt to the AI agent (not
     # executed as a shell command), and is already guarded by:
@@ -6898,6 +7077,130 @@ enforce_static_analysis() {
         }
     fi
 
+    # C / C++ (P1-6: cppcheck is a standalone static analyzer that needs no
+    # build system, headers, or compile flags, so it does not false-block on
+    # missing includes the way a per-file `clang` compile would. The exit gate
+    # fires only on `error` severity; style/warning/portability findings on WIP
+    # code do not block. When cppcheck is absent we pass through honestly
+    # (log, no block) rather than silently skipping.)
+    local cfiles
+    cfiles=$(echo "$changed_files" | grep -E '\.(c|cc|cpp|cxx|h|hpp|hxx)$' || true)
+    if [ -n "$cfiles" ]; then
+        local cabs=""
+        for f in $cfiles; do
+            [ -f "${TARGET_DIR:-.}/$f" ] && cabs="$cabs ${TARGET_DIR:-.}/$f"
+        done
+        if [ -n "$cabs" ]; then
+            if command -v cppcheck &>/dev/null; then
+                total_checked=$((total_checked + $(echo "$cabs" | wc -w)))
+                # Default cppcheck reports ONLY error severity, so with
+                # --error-exitcode=2 the gate returns 2 exclusively on an
+                # error-severity finding. We deliberately do NOT pass
+                # --enable=warning: that would make warning/style/portability
+                # findings on incomplete WIP code block the iteration (verified:
+                # a deref-then-null-check warning returns 2 under --enable=warning
+                # but 0 under the default ruleset). Error severity only = honest
+                # parity with the TS/shell `-S error` gates above.
+                local cpp_out cpp_rc=0
+                # shellcheck disable=SC2086
+                cpp_out=$(cppcheck --quiet --error-exitcode=2 $cabs 2>&1) || cpp_rc=$?
+                if [ "$cpp_rc" -eq 2 ]; then
+                    findings=$((findings + 1))
+                    details="${details}cppcheck (error severity): $(echo "$cpp_out" | tail -3 | tr '\n' ' '). "
+                fi
+            else
+                log_info "Static analysis: cppcheck not on PATH, skipping C/C++ check (pass-through)"
+            fi
+        fi
+    fi
+
+    # Kotlin (P1-6: ktlint and detekt are standalone, build-system-free linters.
+    # Prefer ktlint; fall back to detekt. Absent -> honest pass-through.)
+    #
+    # ADVISORY ONLY (not blocking): unlike cppcheck/checkstyle which expose an
+    # error-vs-style severity distinction, ktlint is a pure formatter -- every
+    # finding it reports is a style/formatting issue and it exits nonzero on ANY
+    # violation, with no CLI mode to fail only on error severity. detekt's failure
+    # threshold is config-driven (maxIssues) and its findings are code smells, not
+    # compiler errors; there is no stable CLI flag to fail only on error severity.
+    # Per the gate principle (a new-language arm must NOT block on style/formatting,
+    # consistent with cppcheck's error-exitcode-only and the JS/TS/Py `-S error`
+    # gates), we run these linters as ADVISORY: report findings via log_warn and
+    # the details string, but do NOT increment `findings` (no BLOCK). This avoids
+    # false-blocking a WIP build on formatting. Absent -> honest pass-through.
+    local kt_files
+    kt_files=$(echo "$changed_files" | grep -E '\.(kt|kts)$' || true)
+    if [ -n "$kt_files" ]; then
+        local kt_abs=""
+        for f in $kt_files; do
+            [ -f "${TARGET_DIR:-.}/$f" ] && kt_abs="$kt_abs ${TARGET_DIR:-.}/$f"
+        done
+        if [ -n "$kt_abs" ]; then
+            if command -v ktlint &>/dev/null; then
+                total_checked=$((total_checked + $(echo "$kt_abs" | wc -w)))
+                local kt_out
+                # shellcheck disable=SC2086
+                kt_out=$(cd "${TARGET_DIR:-.}" && ktlint $kt_files 2>&1) || {
+                    # Advisory: ktlint reports only style/formatting; warn, do not block.
+                    details="${details}ktlint advisory (style, non-blocking): $(echo "$kt_out" | tail -3 | tr '\n' ' '). "
+                    log_warn "Static analysis: ktlint reported style findings (advisory, non-blocking)"
+                }
+            elif command -v detekt &>/dev/null; then
+                total_checked=$((total_checked + $(echo "$kt_abs" | wc -w)))
+                local dt_out dt_input
+                dt_input=$(echo "$kt_files" | tr ' \n' ',,' | sed 's/,*$//;s/^,*//')
+                dt_out=$(cd "${TARGET_DIR:-.}" && detekt --input "$dt_input" 2>&1) || {
+                    # Advisory: detekt threshold is config-driven, findings are code
+                    # smells (no error-severity-only CLI mode); warn, do not block.
+                    details="${details}detekt advisory (code smell, non-blocking): $(echo "$dt_out" | tail -3 | tr '\n' ' '). "
+                    log_warn "Static analysis: detekt reported findings (advisory, non-blocking)"
+                }
+            else
+                log_info "Static analysis: ktlint/detekt not on PATH, skipping Kotlin check (pass-through)"
+            fi
+        fi
+    fi
+
+    # Java (P1-6: checkstyle is a pure static linter that needs no compile or
+    # classpath, but it REQUIRES a config file. A per-file `javac` would
+    # false-block on unresolved imports/classpath the way per-file tsc did, so
+    # Java is gated on checkstyle-with-config only. Without a config we pass
+    # through honestly. C# is deferred: roslyn analyzers and `dotnet build` need
+    # a full project + restore, which cannot be auto-detected cleanly per-file.)
+    local java_files
+    java_files=$(echo "$changed_files" | grep -E '\.java$' || true)
+    if [ -n "$java_files" ]; then
+        local java_abs=""
+        for f in $java_files; do
+            [ -f "${TARGET_DIR:-.}/$f" ] && java_abs="$java_abs ${TARGET_DIR:-.}/$f"
+        done
+        if [ -n "$java_abs" ]; then
+            local _cs_config=""
+            for cfg in checkstyle.xml .checkstyle.xml config/checkstyle/checkstyle.xml google_checks.xml sun_checks.xml; do
+                if [ -f "${TARGET_DIR:-.}/$cfg" ]; then _cs_config="${TARGET_DIR:-.}/$cfg"; break; fi
+            done
+            if command -v checkstyle &>/dev/null && [ -n "$_cs_config" ]; then
+                total_checked=$((total_checked + $(echo "$java_abs" | wc -w)))
+                local cs_out
+                # checkstyle's exit code equals the count of audit events at
+                # severity=error; warning/info violations are printed but do NOT
+                # bump the exit code (verified against checkstyle CLI behavior).
+                # So a nonzero exit means error-severity findings only -- this is
+                # already error-gated like cppcheck (--error-exitcode) and the
+                # JS/TS/Py `-S error` gates, and does NOT block on style/warning.
+                # Whether a given rule is error vs warning is the user's explicit
+                # choice in their checkstyle config, which we respect.
+                # shellcheck disable=SC2086
+                cs_out=$(cd "${TARGET_DIR:-.}" && checkstyle -c "$_cs_config" $java_files 2>&1) || {
+                    findings=$((findings + 1))
+                    details="${details}checkstyle (error severity): $(echo "$cs_out" | tail -3 | tr '\n' ' '). "
+                }
+            else
+                log_info "Static analysis: checkstyle+config not available, skipping Java check (pass-through)"
+            fi
+        fi
+    fi
+
     # Write results
     cat > "$quality_dir/static-analysis.json" << SAFEOF
 {"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","files_checked":$total_checked,"findings":$findings,"summary":"$details","pass":$([ $findings -eq 0 ] && echo "true" || echo "false")}
@@ -7028,6 +7331,150 @@ _loki_run_pytest_with_timeout() {
     (cd "$target_dir" && "${_to_cmd[@]}" pytest "$@" 2>&1)
 }
 
+# ============================================================================
+# P0-1 Fix A: real test-coverage MEASUREMENT (v7.47.0)
+#
+# enforce_test_coverage() runs the project's suite for PASS/FAIL only -- it must
+# NOT add --coverage to that run, because a missing coverage provider
+# (@vitest/coverage-v8, the `coverage` pkg, pytest-cov, cargo-llvm-cov) makes the
+# instrumented command exit nonzero for a TOOLING reason, which would flip
+# test_passed=false and BLOCK a project whose tests actually pass. That would
+# destroy the honest pass/fail pass-through. So measurement is a SEPARATE,
+# best-effort second pass that can NEVER change test_passed.
+#
+# Contract:
+#   - Sets COVERAGE_MEASURED (true|false), COVERAGE_PCT (number or empty),
+#     COVERAGE_TOOL (string), COVERAGE_REASON (why not measured).
+#   - Tool absent / unsupported language -> measured=false, no number, NEVER block.
+#   - Tests run a SECOND time here when instrumented; LOKI_COVERAGE_GATE=0 skips
+#     this whole measurement pass (saves the double-run).
+#
+# Usage: measure_test_coverage <target_dir> <test_runner>
+# ============================================================================
+measure_test_coverage() {
+    local target_dir="$1"
+    local runner="$2"
+    COVERAGE_MEASURED=false
+    COVERAGE_PCT=""
+    COVERAGE_TOOL="none"
+    COVERAGE_REASON=""
+
+    local gate_timeout="${LOKI_GATE_TIMEOUT:-300}"
+    local cov_dir="$target_dir/.loki/quality"
+    mkdir -p "$cov_dir" 2>/dev/null || true
+    # Native tool reports land on a tool-specific path so they never collide
+    # with our normalized coverage.json.
+    local pyc_json="$cov_dir/coverage-pytest.json"
+
+    case "$runner" in
+        vitest|monorepo-vitest)
+            COVERAGE_TOOL="vitest"
+            (cd "$target_dir" && timeout "$gate_timeout" npx vitest run --coverage \
+                  --coverage.reporter=json-summary \
+                  --coverage.reportsDirectory=.loki/quality/vitest-cov >/dev/null 2>&1) || true
+            local f="$target_dir/.loki/quality/vitest-cov/coverage-summary.json"
+            if [ -f "$f" ]; then
+                COVERAGE_PCT=$(_LOKI_COV_F="$f" python3 -c "
+import json, os, sys
+try:
+    d=json.load(open(os.environ['_LOKI_COV_F']))
+    print(d['total']['lines']['pct'])
+except Exception:
+    sys.exit(1)
+" 2>/dev/null) && COVERAGE_MEASURED=true || COVERAGE_REASON="vitest coverage-summary.json unparsable"
+            else
+                COVERAGE_REASON="vitest coverage provider absent (install @vitest/coverage-v8)"
+            fi
+            ;;
+        jest)
+            COVERAGE_TOOL="jest"
+            (cd "$target_dir" && timeout "$gate_timeout" npx jest --coverage \
+                  --coverageReporters=json-summary \
+                  --coverageDirectory=.loki/quality/jest-cov --passWithNoTests >/dev/null 2>&1) || true
+            local f="$target_dir/.loki/quality/jest-cov/coverage-summary.json"
+            if [ -f "$f" ]; then
+                COVERAGE_PCT=$(_LOKI_COV_F="$f" python3 -c "
+import json, os, sys
+try:
+    d=json.load(open(os.environ['_LOKI_COV_F']))
+    print(d['total']['lines']['pct'])
+except Exception:
+    sys.exit(1)
+" 2>/dev/null) && COVERAGE_MEASURED=true || COVERAGE_REASON="jest coverage-summary.json unparsable"
+            else
+                COVERAGE_REASON="jest coverage report absent"
+            fi
+            ;;
+        pytest)
+            COVERAGE_TOOL="pytest-cov"
+            # pytest-cov is optional; only measure when the plugin is importable.
+            if python3 -c "import pytest_cov" >/dev/null 2>&1; then
+                rm -f "$pyc_json" 2>/dev/null || true
+                _loki_run_pytest_with_timeout "$target_dir" \
+                    --cov --cov-report="json:$pyc_json" -q >/dev/null 2>&1 || true
+                if [ -f "$pyc_json" ]; then
+                    COVERAGE_PCT=$(_LOKI_COV_F="$pyc_json" python3 -c "
+import json, os, sys
+try:
+    d=json.load(open(os.environ['_LOKI_COV_F']))
+    print(d['totals']['percent_covered'])
+except Exception:
+    sys.exit(1)
+" 2>/dev/null) && COVERAGE_MEASURED=true || COVERAGE_REASON="pytest coverage.json unparsable"
+                else
+                    COVERAGE_REASON="pytest produced no coverage.json"
+                fi
+            else
+                COVERAGE_REASON="pytest-cov not installed"
+            fi
+            ;;
+        go-test)
+            COVERAGE_TOOL="go-cover"
+            local prof="$cov_dir/go-coverage.out"
+            rm -f "$prof" 2>/dev/null || true
+            (cd "$target_dir" && timeout "$gate_timeout" go test -coverprofile="$prof" ./... >/dev/null 2>&1) || true
+            if [ -f "$prof" ]; then
+                local total_line
+                total_line=$(cd "$target_dir" && go tool cover -func="$prof" 2>/dev/null | tail -1)
+                # "total:    (statements)    87.5%"
+                COVERAGE_PCT=$(printf '%s\n' "$total_line" | grep -oE '[0-9]+(\.[0-9]+)?%' | tail -1 | tr -d '%')
+                if [ -n "$COVERAGE_PCT" ]; then
+                    COVERAGE_MEASURED=true
+                else
+                    COVERAGE_REASON="go tool cover produced no total"
+                fi
+            else
+                COVERAGE_REASON="go test produced no coverage profile"
+            fi
+            ;;
+        cargo-test)
+            COVERAGE_TOOL="cargo-llvm-cov"
+            if cargo llvm-cov --version >/dev/null 2>&1; then
+                local out
+                out=$(cd "$target_dir" && timeout "$gate_timeout" cargo llvm-cov --json 2>/dev/null) || true
+                if [ -n "$out" ]; then
+                    COVERAGE_PCT=$(_LOKI_COV_JSON="$out" python3 -c "
+import json, os, sys
+try:
+    d=json.loads(os.environ['_LOKI_COV_JSON'])
+    print(d['data'][0]['totals']['lines']['percent'])
+except Exception:
+    sys.exit(1)
+" 2>/dev/null) && COVERAGE_MEASURED=true || COVERAGE_REASON="cargo llvm-cov json unparsable"
+                else
+                    COVERAGE_REASON="cargo llvm-cov produced no output"
+                fi
+            else
+                COVERAGE_REASON="cargo-llvm-cov not installed"
+            fi
+            ;;
+        *)
+            COVERAGE_REASON="coverage not supported for runner '$runner'"
+            ;;
+    esac
+    return 0
+}
+
 enforce_test_coverage() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local quality_dir="$loki_dir/quality"
@@ -7035,7 +7482,6 @@ enforce_test_coverage() {
 
     local min_coverage="${LOKI_MIN_COVERAGE:-80}"
     local test_passed=true
-    local coverage_pct=0
     local test_runner="none"
     local details=""
 
@@ -7259,15 +7705,163 @@ TREOF
     # Finding #598: stamp the per-iteration freshness marker (see above).
     printf '%s\n' "${ITERATION_COUNT:-0}" > "$quality_dir/.test-results.iter" 2>/dev/null || true
 
+    # ---- P0-1 Fix A: best-effort coverage MEASUREMENT (v7.47.0) --------------
+    # Runs AFTER test_passed is decided. NEVER mutates test_passed (a coverage
+    # tooling failure must not flip a green suite to red). Writes a normalized
+    # .loki/quality/coverage.json with honest measured/pct/reason. Blocks the
+    # gate (coverage_block=true) ONLY when measurable AND below threshold AND
+    # LOKI_ENFORCE_COVERAGE=1. A coverage block is distinct from a tests-red
+    # block: it does NOT set TESTS_FAILED and does NOT remove unit-tests.pass.
+    #
+    # Knob semantics (measurement is OPT-IN: it re-runs the suite instrumented,
+    # so for an autonomous loop iterating many times it is off unless requested):
+    #   default (unset)        -> skip measurement entirely (no double-run).
+    #   LOKI_COVERAGE_GATE=1    -> measure + record + warn, never block.
+    #   LOKI_ENFORCE_COVERAGE=1 -> implies measurement; measurable + below
+    #                              LOKI_MIN_COVERAGE -> BLOCK.
+    #   tool absent / unsupported -> record measured:false, never block.
+    local coverage_block=false
+    if [ "${LOKI_COVERAGE_GATE:-0}" != "0" ] || [ "${LOKI_ENFORCE_COVERAGE:-0}" = "1" ]; then
+        COVERAGE_MEASURED=false; COVERAGE_PCT=""; COVERAGE_TOOL="none"; COVERAGE_REASON=""
+        measure_test_coverage "${TARGET_DIR:-.}" "$test_runner" || true
+
+        local cov_enforced="${LOKI_ENFORCE_COVERAGE:-0}"
+        local cov_below=false
+        if [ "$COVERAGE_MEASURED" = "true" ] && [ -n "$COVERAGE_PCT" ]; then
+            # Float-safe compare via python3 (pct may be e.g. 87.5).
+            if _LOKI_COV_PCT="$COVERAGE_PCT" _LOKI_COV_MIN="$min_coverage" python3 -c "
+import os, sys
+try:
+    pct=float(os.environ['_LOKI_COV_PCT']); mn=float(os.environ['_LOKI_COV_MIN'])
+except Exception:
+    sys.exit(2)
+sys.exit(0 if pct < mn else 1)
+" 2>/dev/null; then
+                cov_below=true
+            fi
+        fi
+        if [ "$COVERAGE_MEASURED" = "true" ] && [ "$cov_below" = "true" ] && [ "$cov_enforced" = "1" ]; then
+            coverage_block=true
+        fi
+
+        # Normalized coverage.json (single source of truth for coverage facts).
+        _LOKI_COV_MEASURED="$COVERAGE_MEASURED" \
+        _LOKI_COV_PCT="$COVERAGE_PCT" \
+        _LOKI_COV_TOOL="$COVERAGE_TOOL" \
+        _LOKI_COV_REASON="$COVERAGE_REASON" \
+        _LOKI_COV_MIN="$min_coverage" \
+        _LOKI_COV_ENFORCED="$cov_enforced" \
+        _LOKI_COV_BLOCKED="$coverage_block" \
+        _LOKI_COV_RUNNER="$test_runner" \
+        _LOKI_COV_OUT="$quality_dir/coverage.json" \
+        python3 -c "
+import json, os, tempfile
+out=os.environ['_LOKI_COV_OUT']
+measured = os.environ.get('_LOKI_COV_MEASURED','false') == 'true'
+pct_raw = os.environ.get('_LOKI_COV_PCT','')
+try:
+    pct = float(pct_raw) if (measured and pct_raw != '') else None
+except ValueError:
+    pct = None
+def b(v): return os.environ.get(v,'false') == 'true'
+def i(v):
+    try: return int(float(os.environ.get(v,'0')))
+    except (TypeError, ValueError): return 0
+rec = {
+    'measured': measured,
+    'pct': pct,
+    'tool': os.environ.get('_LOKI_COV_TOOL','none'),
+    'runner': os.environ.get('_LOKI_COV_RUNNER','none'),
+    'threshold': i('_LOKI_COV_MIN'),
+    'enforced': os.environ.get('_LOKI_COV_ENFORCED','0') == '1',
+    'blocked': b('_LOKI_COV_BLOCKED'),
+    'reason': os.environ.get('_LOKI_COV_REASON','') if not measured else '',
+    'timestamp': __import__('datetime').datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+}
+d=os.path.dirname(out)
+fd, tmp=tempfile.mkstemp(dir=d, suffix='.json')
+with os.fdopen(fd,'w') as f:
+    json.dump(rec, f, indent=2)
+os.replace(tmp, out)
+" 2>/dev/null || true
+
+        if [ "$COVERAGE_MEASURED" = "true" ]; then
+            if [ "$coverage_block" = "true" ]; then
+                log_warn "Coverage gate: ${COVERAGE_TOOL} measured ${COVERAGE_PCT}% < ${min_coverage}% (LOKI_ENFORCE_COVERAGE=1) -- BLOCK"
+            elif [ "$cov_below" = "true" ]; then
+                log_warn "Coverage: ${COVERAGE_TOOL} measured ${COVERAGE_PCT}% < ${min_coverage}% (warn only; set LOKI_ENFORCE_COVERAGE=1 to block)"
+            else
+                log_info "Coverage: ${COVERAGE_TOOL} measured ${COVERAGE_PCT}% (threshold ${min_coverage}%)"
+            fi
+        else
+            log_info "Coverage: not measured (${COVERAGE_REASON:-unknown}); pass-through, not blocking"
+        fi
+    else
+        # P3-5/coverage-honesty (v7.51.0): measurement is OPT-IN (it re-runs the
+        # suite instrumented, which would double every test run -- a UX
+        # regression for an autonomous loop). At default-off we deliberately do
+        # NOT measure, but we STILL write a coverage fact so the run manifest /
+        # reproducibility record always has one honest coverage shape. This is
+        # the "missing-artifact" fix, not a hollow gate: measured=false, pct=null,
+        # blocked=false, with an explicit reason. ZERO runtime (no instrumented
+        # re-run). Reuses the EXACT python3 writer + schema used at default-on so
+        # consumers see a single shape. Single-pass, never blocks.
+        _LOKI_COV_MEASURED="false" \
+        _LOKI_COV_PCT="" \
+        _LOKI_COV_TOOL="none" \
+        _LOKI_COV_REASON="not requested (set LOKI_COVERAGE_GATE=1 to measure)" \
+        _LOKI_COV_MIN="$min_coverage" \
+        _LOKI_COV_ENFORCED="0" \
+        _LOKI_COV_BLOCKED="false" \
+        _LOKI_COV_RUNNER="$test_runner" \
+        _LOKI_COV_OUT="$quality_dir/coverage.json" \
+        python3 -c "
+import json, os, tempfile
+out=os.environ['_LOKI_COV_OUT']
+measured = os.environ.get('_LOKI_COV_MEASURED','false') == 'true'
+pct_raw = os.environ.get('_LOKI_COV_PCT','')
+try:
+    pct = float(pct_raw) if (measured and pct_raw != '') else None
+except ValueError:
+    pct = None
+def b(v): return os.environ.get(v,'false') == 'true'
+def i(v):
+    try: return int(float(os.environ.get(v,'0')))
+    except (TypeError, ValueError): return 0
+rec = {
+    'measured': measured,
+    'pct': pct,
+    'tool': os.environ.get('_LOKI_COV_TOOL','none'),
+    'runner': os.environ.get('_LOKI_COV_RUNNER','none'),
+    'threshold': i('_LOKI_COV_MIN'),
+    'enforced': os.environ.get('_LOKI_COV_ENFORCED','0') == '1',
+    'blocked': b('_LOKI_COV_BLOCKED'),
+    'reason': os.environ.get('_LOKI_COV_REASON','') if not measured else '',
+    'timestamp': __import__('datetime').datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+}
+d=os.path.dirname(out)
+fd, tmp=tempfile.mkstemp(dir=d, suffix='.json')
+with os.fdopen(fd,'w') as f:
+    json.dump(rec, f, indent=2)
+os.replace(tmp, out)
+" 2>/dev/null || true
+    fi
+
     if [ "$test_passed" = "true" ]; then
         touch "$quality_dir/unit-tests.pass"
         rm -f "$loki_dir/signals/TESTS_FAILED" 2>/dev/null || true
-        log_info "Test coverage gate: $test_runner passed"
+        log_info "Test suite gate: $test_runner passed"
+        # Coverage block is distinct from tests-red: tests passed, but enforced
+        # coverage is below threshold. Return nonzero to gate WITHOUT writing the
+        # TESTS_FAILED signal or removing unit-tests.pass.
+        if [ "$coverage_block" = "true" ]; then
+            return 1
+        fi
         return 0
     else
         rm -f "$quality_dir/unit-tests.pass"
         echo "tests_failed" > "$loki_dir/signals/TESTS_FAILED" 2>/dev/null || true
-        log_warn "Test coverage gate: $test_runner FAILED"
+        log_warn "Test suite gate: $test_runner FAILED"
         return 1
     fi
 }
@@ -7348,6 +7942,65 @@ ensure_completion_test_evidence() {
     return 0
 }
 
+# P1-1 (v7.51.0): ADVISORY consumer for the evidence-gate detail record that
+# completion-council.sh:_write_evidence_details writes on EVERY evidence-gate run
+# (pass and block) to .loki/council/evidence-gate-details.json. Until now run.sh
+# had ZERO consumers of that file -- the audit record was durable but invisible
+# to the operator and to the next-iteration prompt. This surfaces a one-line
+# advisory summary (verdict + diff axis + tests axis). It NEVER blocks and NEVER
+# introduces a new gate (the evidence gate itself already blocks; this is purely
+# visibility). Absent or malformed file -> degrade silently (no error, no block).
+surface_evidence_gate_details() {
+    local _det_file="${TARGET_DIR:-.}/.loki/council/evidence-gate-details.json"
+    [ -f "$_det_file" ] || return 0
+    local _summary
+    _summary=$(_LOKI_EGD_FILE="$_det_file" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_LOKI_EGD_FILE']) as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+if not isinstance(d, dict):
+    sys.exit(0)
+verdict = d.get('verdict', 'unknown')
+diff = d.get('diff', {}) if isinstance(d.get('diff'), dict) else {}
+tests = d.get('tests', {}) if isinstance(d.get('tests'), dict) else {}
+diff_ok = diff.get('ok')
+tests_ok = tests.get('ok')
+runner = tests.get('runner', 'none')
+parts = ['verdict=%s' % verdict]
+parts.append('diff_ok=%s' % diff_ok)
+parts.append('tests_ok=%s (runner=%s)' % (tests_ok, runner))
+if diff.get('inconclusive'):
+    parts.append('diff_inconclusive=%s' % (diff.get('inconclusive_reason') or 'yes'))
+if tests.get('inconclusive'):
+    parts.append('tests_inconclusive=%s' % (tests.get('inconclusive_reason') or 'yes'))
+print(' '.join(str(p) for p in parts))
+" 2>/dev/null) || return 0
+    [ -n "$_summary" ] || return 0
+    if printf '%s' "$_summary" | grep -q "verdict=block"; then
+        log_warn "[Council] Evidence-gate details: $_summary"
+    else
+        log_info "[Council] Evidence-gate details: $_summary"
+    fi
+    return 0
+}
+
+# P1-1 (v7.51.0): wrapper that runs the evidence gate, then surfaces its detail
+# record on BOTH the pass and block paths, and returns the gate's exact rc. This
+# preserves the elif chain's `! council_evidence_gate` semantics byte-for-byte
+# (fall-through on pass so the held-out and assumption gates downstream still
+# evaluate; block on a 1). The surface call is advisory-only and never affects
+# the returned rc. The detail file is fresh here -- _write_evidence_details ran
+# inside council_evidence_gate just above on this same iteration.
+_evidence_gate_and_surface() {
+    local _rc=0
+    council_evidence_gate || _rc=$?
+    surface_evidence_gate_details || true
+    return $_rc
+}
+
 # ============================================================================
 # Documentation Staleness Check (v6.75.0)
 # Checks if generated documentation is stale relative to HEAD
@@ -7380,7 +8033,7 @@ run_doc_staleness_check() {
 }
 
 # ============================================================================
-# Documentation Quality Gate - Gate 11 (v6.75.0)
+# Documentation Quality Gate - Gate 7 (Documentation Coverage)
 # Checks README, documentation freshness, and package API docs
 # ============================================================================
 
@@ -7531,6 +8184,321 @@ run_magic_debate_gate() {
 
     log_info "Magic Modules Gate 12: PASS"
     return 0
+}
+
+# ============================================================================
+# Mock Integrity Gate (P0-3): wire tests/detect-mock-problems.sh as a blocking
+# gate. The detector scans test files for mock patterns that mask real failures
+# (tautological assertions, inline-mock-only tests, conditional/empty bodies,
+# high internal-mock ratios). Invoked with --strict so it exits 1 iff CRITICAL
+# or HIGH findings exist; MED/LOW never block (they are routed to a findings
+# file for next-iteration injection). Opt out with LOKI_GATE_MOCK=false.
+#
+# Scan-target note: the wrapper exports LOKI_SCAN_DIR=TARGET_DIR at the detector
+# invocation, and the detector honors it (tests/detect-mock-problems.sh:23), so
+# the gate scans the target project, not the loki-mode tree. When LOKI_SCAN_DIR
+# is unset the detector falls back to its own repo (the default for loki-mode's
+# own test run); the wrapper always sets it, so the target is what gets scanned.
+# ============================================================================
+enforce_mock_integrity() {
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local quality_dir="$loki_dir/quality"
+    mkdir -p "$quality_dir"
+    local findings_file="$quality_dir/mock-findings.txt"
+    local detector="$SCRIPT_DIR/../tests/detect-mock-problems.sh"
+    local gate_timeout="${LOKI_GATE_TIMEOUT:-300}"
+
+    if [ ! -f "$detector" ]; then
+        log_info "Mock integrity gate: detector not found, skipping (inconclusive)"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    local output rc
+    output=$(cd "${TARGET_DIR:-.}" && LOKI_SCAN_DIR="${TARGET_DIR:-.}" \
+        timeout "$gate_timeout" bash "$detector" --strict 2>&1)
+    rc=$?
+
+    # timeout exit 124 -- treat as inconclusive (do not block on a hang)
+    if [ "$rc" -eq 124 ]; then
+        log_warn "Mock integrity gate: detector timed out after ${gate_timeout}s -- inconclusive"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    if [ "$rc" -ne 0 ]; then
+        # --strict exits 1 iff CRITICAL or HIGH found. Persist per-finding text.
+        {
+            echo "# Mock integrity findings (CRITICAL/HIGH block this iteration)"
+            echo "$output" | grep -E '\[(CRITICAL|HIGH|MEDIUM|LOW)\]' || true
+        } > "$findings_file"
+        log_warn "Mock integrity gate: CRITICAL/HIGH mock problems detected -- BLOCK"
+        return 1
+    fi
+
+    # Pass: record any MED/LOW findings for injection, then clear the block file.
+    local med_low
+    med_low=$(echo "$output" | grep -E '\[(MEDIUM|LOW)\]' || true)
+    if [ -n "$med_low" ]; then
+        {
+            echo "# Mock integrity advisory findings (MED/LOW, non-blocking)"
+            echo "$med_low"
+        } > "$findings_file"
+    else
+        rm -f "$findings_file" 2>/dev/null || true
+    fi
+    log_info "Mock integrity gate: PASS"
+    return 0
+}
+
+# ============================================================================
+# Test Mutation Integrity Gate (P0-3): wire tests/detect-test-mutations.sh as a
+# blocking gate. The detector flags assertion-value mutations that look like
+# test-fitting (tests changed to match buggy output). We do NOT pass --strict:
+# --strict blocks on ANY finding (over-blocks on MED/LOW). Instead we parse
+# stdout and block only when a [HIGH] line is present; MED/LOW are routed to a
+# findings file for next-iteration injection. Opt out with LOKI_GATE_MUTATION=false.
+#
+# Scan-target note: same as the mock gate -- the wrapper exports
+# LOKI_SCAN_DIR=TARGET_DIR and the detector honors it
+# (tests/detect-test-mutations.sh:33), so the gate scans the target project, not
+# the loki-mode tree. The Check-5 git history is also read from that directory.
+# ============================================================================
+enforce_mutation_integrity() {
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local quality_dir="$loki_dir/quality"
+    mkdir -p "$quality_dir"
+    local findings_file="$quality_dir/mutation-findings.txt"
+    local detector="$SCRIPT_DIR/../tests/detect-test-mutations.sh"
+    local gate_timeout="${LOKI_GATE_TIMEOUT:-300}"
+
+    if [ ! -f "$detector" ]; then
+        log_info "Mutation integrity gate: detector not found, skipping (inconclusive)"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    local output rc
+    # No --strict: it over-blocks on MED/LOW. Decide on [HIGH] lines instead.
+    output=$(cd "${TARGET_DIR:-.}" && LOKI_SCAN_DIR="${TARGET_DIR:-.}" \
+        timeout "$gate_timeout" bash "$detector" 2>&1)
+    rc=$?
+
+    if [ "$rc" -eq 124 ]; then
+        log_warn "Mutation integrity gate: detector timed out after ${gate_timeout}s -- inconclusive"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    local high_count
+    high_count=$(echo "$output" | grep -c '\[HIGH\]' || true)
+    # grep -c returns 0 with no matches but may print empty under set -e edge; normalize.
+    [ -z "$high_count" ] && high_count=0
+
+    if [ "$high_count" -gt 0 ]; then
+        {
+            echo "# Test mutation findings (HIGH blocks this iteration)"
+            echo "$output" | grep -E '\[(HIGH|MEDIUM|MED|LOW)\]' || true
+        } > "$findings_file"
+        log_warn "Mutation integrity gate: $high_count HIGH test-fitting finding(s) -- BLOCK"
+        return 1
+    fi
+
+    # Pass: route any MED/LOW findings to injection file, else clear it.
+    local med_low
+    med_low=$(echo "$output" | grep -E '\[(MEDIUM|MED|LOW)\]' || true)
+    if [ -n "$med_low" ]; then
+        {
+            echo "# Test mutation advisory findings (MED/LOW, non-blocking)"
+            echo "$med_low"
+        } > "$findings_file"
+    else
+        rm -f "$findings_file" 2>/dev/null || true
+    fi
+    log_info "Mutation integrity gate: PASS"
+    return 0
+}
+
+# ============================================================================
+# Semantic Test-Authenticity Gate (P1-3): wire tests/detect-semantic-test-problems.sh.
+# The detector catches the harder class of fake tests that the regex detectors
+# (gates 5+6) miss: assertions that look real but verify nothing because the
+# asserted value never flows through code under test (literal-via-variable echo
+# HIGH, mock-return echo MED, deleted assertions MED).
+#
+# POSTURE (v7.57.0): this enforce_* helper is the shared core for TWO callers:
+#   1) the DEFAULT-ON mid-iteration ADVISORY arm (gated on LOKI_GATE_SEMANTIC_TESTS,
+#      default true) -- runs every iteration, writes findings, and on a CRIT/HIGH
+#      result the arm only calls track_gate_failure (surfaces to the next prompt),
+#      NEVER PAUSEs / NEVER rejects completion (clone of the mock arm).
+#   2) the OPT-IN completion-BLOCKING elif (gated on LOKI_GATE_SEMANTIC_TESTS_BLOCK,
+#      default false) -- when set, rejects the completion claim on a CRIT/HIGH.
+# The default-on flip applies ONLY to surfacing; blocking stays opt-in via the
+# separate _BLOCK flag, so surfacing-default-on does NOT make blocking default-on.
+#
+# NO-DEADLOCK CONTRACT: it runs the detector with --block-high (clean exit-code
+# contract: rc 2 iff a CRITICAL/HIGH finding exists). It surfaces ALL severities
+# to a findings file (advisory) and returns nonzero ONLY on rc 2. Every other
+# exit -- rc 0 (clean), rc 124 (timeout), detector absent, no test files,
+# malformed output -- returns 0 (pass/fall-through), so the autonomous loop can
+# NEVER deadlock on a clean run (default-on surfacing is therefore deadlock-safe,
+# exactly as the mock/mutation gates prove in production). Mirrors
+# enforce_mock_integrity's invocation (cd TARGET_DIR + LOKI_SCAN_DIR=TARGET_DIR +
+# timeout), swapping --strict for --block-high and deciding on the rc-2 contract.
+# ============================================================================
+enforce_semantic_integrity() {
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local quality_dir="$loki_dir/quality"
+    mkdir -p "$quality_dir"
+    local findings_file="$quality_dir/semantic-findings.txt"
+    local detector="$SCRIPT_DIR/../tests/detect-semantic-test-problems.sh"
+    local gate_timeout="${LOKI_GATE_TIMEOUT:-300}"
+
+    if [ ! -f "$detector" ]; then
+        log_info "Semantic test gate: detector not found, skipping (inconclusive)"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    local output rc
+    # --block-high exits 2 iff CRITICAL/HIGH present; 0 otherwise (clean wrapper).
+    output=$(cd "${TARGET_DIR:-.}" && LOKI_SCAN_DIR="${TARGET_DIR:-.}" \
+        timeout "$gate_timeout" bash "$detector" --block-high 2>&1)
+    rc=$?
+
+    # timeout exit 124 -- inconclusive, never block on a hang (deny-filter)
+    if [ "$rc" -eq 124 ]; then
+        log_warn "Semantic test gate: detector timed out after ${gate_timeout}s -- inconclusive"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    if [ "$rc" -eq 2 ]; then
+        # rc 2 == one or more CRITICAL/HIGH findings. Persist per-finding text.
+        {
+            echo "# Semantic test-authenticity findings (CRITICAL/HIGH block this completion)"
+            echo "$output" | grep -E '\[(CRITICAL|HIGH|MEDIUM|LOW)\]' || true
+        } > "$findings_file"
+        log_warn "Semantic test gate: CRITICAL/HIGH fake-test problems detected -- BLOCK"
+        return 1
+    fi
+
+    # rc 0 (and any other non-2, non-124 code, e.g. a malformed run) -> PASS.
+    # Route any MED/LOW advisory findings to the injection file, else clear it.
+    local med_low
+    med_low=$(echo "$output" | grep -E '\[(MEDIUM|LOW)\]' || true)
+    if [ -n "$med_low" ]; then
+        {
+            echo "# Semantic test advisory findings (MED/LOW, non-blocking)"
+            echo "$med_low"
+        } > "$findings_file"
+    else
+        rm -f "$findings_file" 2>/dev/null || true
+    fi
+    log_info "Semantic test gate: PASS"
+    return 0
+}
+
+# P1-3 wrapper that runs the semantic gate and returns its exact rc, mirroring
+# _evidence_gate_and_surface so the completion-promise elif arm reads cleanly
+# (`! _semantic_gate_and_surface`). Returns nonzero ONLY when enforce_semantic_integrity
+# saw an rc-2 (CRITICAL/HIGH) result; all deny-filter cases already collapse to 0
+# inside enforce_semantic_integrity, so this never blocks a clean run.
+_semantic_gate_and_surface() {
+    local _rc=0
+    enforce_semantic_integrity || _rc=$?
+    return "$_rc"
+}
+
+# P1-4 invariant/property gate (bash-route parity, v7.51.0). The Bun route
+# ships an invariant toggle (loki-ts/src/runner/quality_gates.ts:2057,
+# `invariants: flag("LOKI_GATE_INVARIANTS", false)`) running
+# tests/detect-invariant-violations.sh --strict; the bash route had NO
+# counterpart, so the bash/Bun parity test reported "Only in bun:
+# LOKI_GATE_INVARIANTS". This wires the bash side, mirroring
+# enforce_semantic_integrity's structure byte-for-byte:
+#   - detector --strict exit-code contract (tests/detect-invariant-violations.sh
+#     :347-353): rc 1 iff CRITICAL/HIGH present, rc 0 otherwise.
+#   - detector honors LOKI_SCAN_DIR (tests/detect-invariant-violations.sh:123),
+#     so the wrapper exports it to the TARGET project (cwd alone does NOT
+#     redirect the scan).
+# The PLURAL token LOKI_GATE_INVARIANTS is used deliberately to match the Bun
+# readToggles flag name; the detector's own reference comment suggests a
+# singular variant (no trailing S), which is NOT used here (parity needs the
+# plural).
+#
+# POSTURE (v7.57.0): this enforce_* helper is the shared core for TWO callers,
+# mirroring enforce_semantic_integrity:
+#   1) the DEFAULT-ON mid-iteration ADVISORY arm (gated on LOKI_GATE_INVARIANTS,
+#      default true) -- runs every iteration, writes invariant-findings.txt, and
+#      on a CRIT/HIGH result the arm only calls track_gate_failure (surfaces to
+#      the next prompt via the invariant injector in build_prompt), NEVER PAUSEs /
+#      NEVER rejects completion.
+#   2) the OPT-IN completion-BLOCKING elif (gated on LOKI_GATE_INVARIANTS_BLOCK,
+#      default false) -- when set, rejects the completion claim on a CRIT/HIGH.
+# Surfacing-default-on does NOT make blocking default-on (separate _BLOCK flag).
+enforce_invariant_integrity() {
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    local quality_dir="$loki_dir/quality"
+    mkdir -p "$quality_dir"
+    local findings_file="$quality_dir/invariant-findings.txt"
+    local detector="$SCRIPT_DIR/../tests/detect-invariant-violations.sh"
+    local gate_timeout="${LOKI_GATE_TIMEOUT:-300}"
+
+    if [ ! -f "$detector" ]; then
+        log_info "Invariant gate: detector not found, skipping (inconclusive)"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    local output rc
+    # --strict exits 1 iff CRITICAL/HIGH present; 0 otherwise (clean wrapper).
+    output=$(cd "${TARGET_DIR:-.}" && LOKI_SCAN_DIR="${TARGET_DIR:-.}" \
+        timeout "$gate_timeout" bash "$detector" --strict 2>&1)
+    rc=$?
+
+    # timeout exit 124 -- inconclusive, never block on a hang (deny-filter)
+    if [ "$rc" -eq 124 ]; then
+        log_warn "Invariant gate: detector timed out after ${gate_timeout}s -- inconclusive"
+        rm -f "$findings_file" 2>/dev/null || true
+        return 0
+    fi
+
+    if [ "$rc" -eq 1 ]; then
+        # rc 1 == one or more CRITICAL/HIGH findings. Persist per-finding text.
+        {
+            echo "# Invariant findings (CRITICAL/HIGH block this completion)"
+            echo "$output" | grep -E '\[(CRITICAL|HIGH|MEDIUM|LOW)\]' || true
+        } > "$findings_file"
+        log_warn "Invariant gate: CRITICAL/HIGH invariant violations detected -- BLOCK"
+        return 1
+    fi
+
+    # rc 0 (and any other non-1, non-124 code, e.g. a malformed run) -> PASS.
+    # Route any MED/LOW advisory findings to the injection file, else clear it.
+    local med_low
+    med_low=$(echo "$output" | grep -E '\[(MEDIUM|LOW)\]' || true)
+    if [ -n "$med_low" ]; then
+        {
+            echo "# Invariant advisory findings (MED/LOW, non-blocking)"
+            echo "$med_low"
+        } > "$findings_file"
+    else
+        rm -f "$findings_file" 2>/dev/null || true
+    fi
+    log_info "Invariant gate: PASS"
+    return 0
+}
+
+# Thin wrapper mirroring _semantic_gate_and_surface so the completion-promise
+# elif arm reads cleanly (`! _invariant_gate_and_surface`). Returns nonzero
+# ONLY when enforce_invariant_integrity saw an rc-1 (CRITICAL/HIGH) result; all
+# deny-filter cases already collapse to 0 inside enforce_invariant_integrity,
+# so this never blocks a clean run.
+_invariant_gate_and_surface() {
+    local _rc=0
+    enforce_invariant_integrity || _rc=$?
+    return "$_rc"
 }
 
 # ============================================================================
@@ -7785,6 +8753,97 @@ MANAGED_REVIEW
     return 0
 }
 
+# _dispatch_reviewer: single-reviewer provider invocation, factored out of
+# run_code_review so the blind-council loop AND the Devil's-Advocate re-review
+# (P0-4) share ONE dispatch path. This preserves the load-bearing claude trust
+# guards (no --model/Fable routing, --bare, --disallowedTools, caveman OFF) for
+# both callers; a hand-written parallel dispatcher would drift from them.
+# Args: $1 = prompt text, $2 = output file path. Writes the model reply to $2.
+_dispatch_reviewer() {
+    local prompt_text="$1"
+    local review_output="$2"
+    case "${PROVIDER_NAME:-claude}" in
+        claude)
+            # SECURITY-REVIEW MODEL GUARD (evidence-based routing, item 4b):
+            # Reviewers deliberately do NOT pass --model, so they run on
+            # the account default model and are NEVER routed to Fable by a
+            # mid-flight model override or LOKI_FABLE_ARCHITECT (those only
+            # rewrite the iteration's tier_param, not this dispatch). This
+            # must stay true. The official model-config docs CONTRADICT
+            # routing security review to Fable: Fable's safety classifiers
+            # refuse cybersecurity content, and in non-interactive (-p)
+            # mode a flagged request ends the turn with stop_reason
+            # "refusal" instead of a transparent Opus re-run. A refused
+            # security reviewer would return no VERDICT and break the
+            # unanimous-council gate. Defensive-cyber capability lives in
+            # Mythos 5 (Project Glasswing), not Fable. If a future change
+            # adds --model here, the security-sentinel reviewer must be
+            # pinned to opus, never fable.
+            # EMBED 2 + 3 (v7.33.0). This is a trust-gate council subcall.
+            # $prompt_text is fully self-contained (the diff, changed files,
+            # checks, and strict VERDICT/FINDINGS output format), output is
+            # captured to $review_output, and it deliberately does NOT pass
+            # --model or go through buildAutoFlags. So:
+            #   EMBED 2 (--bare): the prompt needs no hooks/LSP/CLAUDE.md/
+            #     MCP discovery, so --bare is safe and cheaper. Opt out
+            #     LOKI_BARE_SUBCALLS=0.
+            #   EMBED 3 (--disallowedTools): raise the cost of a reviewer
+            #     casually mutating the tree (a parallel agent once ran
+            #     `git reset --hard` and wiped uncommitted work). Deny
+            #     Edit/Write/NotebookEdit + git mutation forms (incl. the
+            #     git -C / --git-dir evasions); read-only git stays allowed.
+            #     Guardrail, not a sandbox -- echo>/sed -i/etc. remain; the
+            #     real net is commit-before-agent-wave. Opt out
+            #     LOKI_REVIEW_TOOL_GUARD=0. See loki_review_guard_denylist.
+            local _rv_argv=("--dangerously-skip-permissions")
+            if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
+                _rv_argv+=("--bare")
+            fi
+            if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
+                _rv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
+            fi
+            #   EMBED 3b (--allowedTools, #167): positive least-privilege
+            #     allowlist. DEFAULT OFF (opt-in LOKI_REVIEW_ALLOWLIST=1).
+            #     Emitted ALONGSIDE the denylist: verified live (claude
+            #     2.1.177) that deny precedence holds even under
+            #     --dangerously-skip-permissions, so the denylist still
+            #     hard-blocks mutations while this narrows the surface to
+            #     read/inspect tools. See loki_review_allowlist.
+            if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
+                _rv_argv+=("--allowedTools" "$(loki_review_allowlist)")
+            fi
+            # caveman HARD-SUPPRESS (parsed output): this is a trust-gate
+            # subcall whose output is parsed for "^VERDICT:" + findings. A
+            # globally-active caveman would compress/reword that line and
+            # silently flip the verdict, so we UNCONDITIONALLY disable
+            # caveman here with CAVEMAN_DEFAULT_MODE=off (the activate hook
+            # then deletes its flag and emits nothing). Set inline, not via
+            # the helper, so the carve-out holds even when the helper is
+            # out of scope. No-op when caveman is absent.
+            CAVEMAN_DEFAULT_MODE=off \
+            claude "${_rv_argv[@]}" -p "$prompt_text" \
+                --output-format text > "$review_output" 2>/dev/null
+            ;;
+        codex)
+            codex exec --sandbox workspace-write --skip-git-repo-check "$prompt_text" \
+                > "$review_output" 2>/dev/null
+            ;;
+        cline)
+            invoke_cline_capture "$prompt_text" \
+                > "$review_output" 2>/dev/null
+            ;;
+        aider)
+            invoke_aider_capture "$prompt_text" \
+                > "$review_output" 2>/dev/null
+            ;;
+        *)
+            echo "VERDICT: PASS" > "$review_output"
+            echo "FINDINGS:" >> "$review_output"
+            echo "- [Low] Unknown provider, review skipped" >> "$review_output"
+            ;;
+    esac
+}
+
 run_code_review() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local review_dir="$loki_dir/quality/reviews"
@@ -7873,7 +8932,7 @@ MANAGED_SELECTION
     # Select specialists via keyword scoring (python3 reads files, not env vars)
     # Loads from agents/types.json when available, falls back to hardcoded pool (v6.7.0)
     # v7.4.20: gate legacy-healing-auditor on healing-mode signals to match
-    # the documented contract in skills/quality-gates.md (Gate 10).
+    # the documented contract in skills/quality-gates.md (conditional backward-compat auditor, not one of the 8 numbered gates).
     local healing_active="false"
     if [ "${LOKI_HEAL_MODE:-}" = "true" ] || [ "${LOKI_HEAL_MODE:-}" = "1" ]; then
         healing_active="true"
@@ -7969,7 +9028,7 @@ if files_path and os.path.exists(files_path):
 search_text = diff_text + " " + files_text
 
 # v7.4.20: gate legacy-healing-auditor on healing-mode signals to match
-# skills/quality-gates.md (Gate 10) which documents it as conditional. The
+# skills/quality-gates.md (conditional backward-compat auditor, not one of the 8 numbered gates) which documents it as conditional. The
 # auditor BLOCKs on missing characterization tests / missing adapters, which
 # is a contract a greenfield project never agreed to maintain. agentbudget
 # regression: the auditor pinned 9 of 10 iterations to forced PAUSE because
@@ -8097,91 +9156,11 @@ BUILD_PROMPT
 
         log_step "Dispatching reviewer: $reviewer_name"
 
-        # Launch blind review in background (provider-specific)
+        # Launch blind review in background (shared dispatch helper).
         (
             local prompt_text
             prompt_text=$(cat "$review_prompt_file")
-            case "${PROVIDER_NAME:-claude}" in
-                claude)
-                    # SECURITY-REVIEW MODEL GUARD (evidence-based routing, item 4b):
-                    # Reviewers deliberately do NOT pass --model, so they run on
-                    # the account default model and are NEVER routed to Fable by a
-                    # mid-flight model override or LOKI_FABLE_ARCHITECT (those only
-                    # rewrite the iteration's tier_param, not this dispatch). This
-                    # must stay true. The official model-config docs CONTRADICT
-                    # routing security review to Fable: Fable's safety classifiers
-                    # refuse cybersecurity content, and in non-interactive (-p)
-                    # mode a flagged request ends the turn with stop_reason
-                    # "refusal" instead of a transparent Opus re-run. A refused
-                    # security reviewer would return no VERDICT and break the
-                    # unanimous-council gate. Defensive-cyber capability lives in
-                    # Mythos 5 (Project Glasswing), not Fable. If a future change
-                    # adds --model here, the security-sentinel reviewer must be
-                    # pinned to opus, never fable.
-                    # EMBED 2 + 3 (v7.33.0). This is a 3-reviewer council
-                    # subcall. $prompt_text is fully self-contained (built above
-                    # into $review_prompt_file with the diff, changed files,
-                    # checks, and strict VERDICT/FINDINGS output format), output
-                    # is captured to $review_output, and it deliberately does NOT
-                    # pass --model or go through buildAutoFlags. So:
-                    #   EMBED 2 (--bare): the prompt needs no hooks/LSP/CLAUDE.md/
-                    #     MCP discovery, so --bare is safe and cheaper. Opt out
-                    #     LOKI_BARE_SUBCALLS=0.
-                    #   EMBED 3 (--disallowedTools): raise the cost of a reviewer
-                    #     casually mutating the tree (a parallel agent once ran
-                    #     `git reset --hard` and wiped uncommitted work). Deny
-                    #     Edit/Write/NotebookEdit + git mutation forms (incl. the
-                    #     git -C / --git-dir evasions); read-only git stays allowed.
-                    #     Guardrail, not a sandbox -- echo>/sed -i/etc. remain; the
-                    #     real net is commit-before-agent-wave. Opt out
-                    #     LOKI_REVIEW_TOOL_GUARD=0. See loki_review_guard_denylist.
-                    local _rv_argv=("--dangerously-skip-permissions")
-                    if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
-                        _rv_argv+=("--bare")
-                    fi
-                    if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
-                        _rv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
-                    fi
-                    #   EMBED 3b (--allowedTools, #167): positive least-privilege
-                    #     allowlist. DEFAULT OFF (opt-in LOKI_REVIEW_ALLOWLIST=1).
-                    #     Emitted ALONGSIDE the denylist: verified live (claude
-                    #     2.1.177) that deny precedence holds even under
-                    #     --dangerously-skip-permissions, so the denylist still
-                    #     hard-blocks mutations while this narrows the surface to
-                    #     read/inspect tools. See loki_review_allowlist.
-                    if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
-                        _rv_argv+=("--allowedTools" "$(loki_review_allowlist)")
-                    fi
-                    # caveman HARD-SUPPRESS (parsed output): this is a trust-gate
-                    # subcall whose output is parsed for "^VERDICT:" + findings. A
-                    # globally-active caveman would compress/reword that line and
-                    # silently flip the verdict, so we UNCONDITIONALLY disable
-                    # caveman here with CAVEMAN_DEFAULT_MODE=off (the activate hook
-                    # then deletes its flag and emits nothing). Set inline, not via
-                    # the helper, so the carve-out holds even when the helper is
-                    # out of scope. No-op when caveman is absent.
-                    CAVEMAN_DEFAULT_MODE=off \
-                    claude "${_rv_argv[@]}" -p "$prompt_text" \
-                        --output-format text > "$review_output" 2>/dev/null
-                    ;;
-                codex)
-                    codex exec --full-auto --skip-git-repo-check "$prompt_text" \
-                        > "$review_output" 2>/dev/null
-                    ;;
-                cline)
-                    invoke_cline_capture "$prompt_text" \
-                        > "$review_output" 2>/dev/null
-                    ;;
-                aider)
-                    invoke_aider_capture "$prompt_text" \
-                        > "$review_output" 2>/dev/null
-                    ;;
-                *)
-                    echo "VERDICT: PASS" > "$review_output"
-                    echo "FINDINGS:" >> "$review_output"
-                    echo "- [Low] Unknown provider, review skipped" >> "$review_output"
-                    ;;
-            esac
+            _dispatch_reviewer "$prompt_text" "$review_output"
         ) &
         pids+=($!)
         register_pid "$!" "code-reviewer" "name=$reviewer_name"
@@ -8314,12 +9293,108 @@ AGG_SCRIPT
         "iteration=$ITERATION_COUNT"
 
     # Anti-sycophancy check: unanimous PASS is suspicious
-    if [ "$pass_count" -eq "$reviewer_count" ] && [ "$fail_count" -eq 0 ]; then
+    if [ "$pass_count" -eq "$reviewer_count" ] && [ "$fail_count" -eq 0 ] && [ "$reviewer_count" -gt 0 ]; then
         log_warn "ANTI-SYCOPHANCY: All $reviewer_count reviewers passed unanimously"
         log_warn "Devil's advocate note: Unanimous approval may indicate insufficient scrutiny"
         log_warn "Consider manual review of $review_dir/$review_id/"
         echo "UNANIMOUS_PASS: All reviewers approved - potential sycophancy risk" \
             >> "$review_dir/$review_id/anti-sycophancy.txt"
+
+        # P0-4: Devil's-Advocate re-review. The bare warning above was INERT --
+        # it never changed the verdict. Now, on unanimous PASS, dispatch ONE
+        # additional adversarial reviewer (reusing _dispatch_reviewer so the
+        # same trust guards + provider routing apply) whose sole job is to find
+        # a Critical/High issue the unanimous council missed. If it does, we set
+        # has_blocking=true so the EXISTING blocking decision below fires and the
+        # gate returns 1. Runs in the FOREGROUND (no &) so has_blocking mutates
+        # this (parent) shell, not a subshell. Opt out LOKI_GATE_DEVILS_ADVOCATE=false.
+        if [ "${LOKI_GATE_DEVILS_ADVOCATE:-true}" = "true" ]; then
+            log_info "Devil's Advocate: re-reviewing unanimous PASS for missed Critical/High issues..."
+            local da_output="$review_dir/$review_id/devils-advocate.txt"
+            local da_prompt_file="$review_dir/$review_id/devils-advocate-prompt.txt"
+            export LOKI_DA_PROMPT_DIFF_FILE="$diff_file"
+            export LOKI_DA_PROMPT_FILES_FILE="$files_file"
+            export LOKI_DA_PROMPT_OUT="$da_prompt_file"
+            python3 << 'BUILD_DA_PROMPT'
+import os
+
+with open(os.environ["LOKI_DA_PROMPT_FILES_FILE"], "r") as f:
+    files = f.read().strip()
+with open(os.environ["LOKI_DA_PROMPT_DIFF_FILE"], "r") as f:
+    diff = f.read().strip()
+
+prompt = f"""You are a Devil's Advocate reviewer. Three independent reviewers ALL approved this change. Unanimous approval is a red flag for insufficient scrutiny. Your SOLE job is to find a Critical or High severity issue they missed.
+
+Be adversarial and concrete. Hunt for: security holes, data loss, race conditions, broken error handling, silent failures, off-by-one and boundary bugs, resource leaks, injection, and logic that does not match intent. Do NOT rubber-stamp. If after genuine effort you find no Critical/High issue, say so honestly -- do not invent one.
+
+Files changed:
+{files}
+
+Diff:
+{diff}
+
+Output format (STRICT - follow exactly):
+VERDICT: PASS or FAIL
+FINDINGS:
+- [severity] description (file:line)
+Severity levels: Critical, High, Medium, Low
+
+Output VERDICT: FAIL only if you found a real Critical or High issue. Otherwise output VERDICT: PASS."""
+
+with open(os.environ["LOKI_DA_PROMPT_OUT"], "w") as f:
+    f.write(prompt)
+BUILD_DA_PROMPT
+            unset LOKI_DA_PROMPT_DIFF_FILE LOKI_DA_PROMPT_FILES_FILE LOKI_DA_PROMPT_OUT
+
+            local da_prompt_text
+            da_prompt_text=$(cat "$da_prompt_file")
+            # Foreground (no &) so a Critical/High finding can set has_blocking
+            # in THIS shell. || true so a non-zero CLI exit under set -e does not
+            # abort the gate; a missing/empty reply is treated as no finding.
+            _dispatch_reviewer "$da_prompt_text" "$da_output" || true
+
+            if [ -f "$da_output" ] && [ -s "$da_output" ]; then
+                local da_verdict
+                da_verdict=$(grep -i "^VERDICT:" "$da_output" | head -1 | sed 's/^VERDICT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+                if [ "$da_verdict" = "FAIL" ] && grep -qiE "\[(Critical|High)\]" "$da_output"; then
+                    has_blocking=true
+                    # Audit accuracy: aggregate.json was written above (line ~8429)
+                    # with has_blocking=false (entering this block requires a
+                    # unanimous PASS, so the field was necessarily false). The DA
+                    # only ever raises it false->true, so patch the persisted
+                    # record to reflect the final outcome. Targeted field update
+                    # (not a re-move of the write) keeps every other reader of
+                    # aggregate.json undisturbed.
+                    export LOKI_DA_AGG_FILE="$review_dir/$review_id/aggregate.json"
+                    python3 << 'DA_AGG_PATCH' || true
+import json, os
+agg_file = os.environ["LOKI_DA_AGG_FILE"]
+try:
+    with open(agg_file) as f:
+        data = json.load(f)
+    data["has_blocking"] = True
+    with open(agg_file, "w") as f:
+        json.dump(data, f, indent=2)
+except (OSError, ValueError):
+    pass
+DA_AGG_PATCH
+                    unset LOKI_DA_AGG_FILE
+                    log_error "DEVIL'S ADVOCATE: found Critical/High issue the unanimous council missed -- BLOCK"
+                    {
+                        echo "DEVILS_ADVOCATE_BLOCK: Critical/High found after unanimous PASS"
+                        grep -iE "\[(Critical|High)\]" "$da_output" || true
+                    } >> "$review_dir/$review_id/anti-sycophancy.txt"
+                else
+                    log_info "Devil's Advocate: no additional Critical/High issues found"
+                    echo "DEVILS_ADVOCATE_PASS: no Critical/High beyond unanimous council" \
+                        >> "$review_dir/$review_id/anti-sycophancy.txt"
+                fi
+            else
+                log_warn "Devil's Advocate: no usable output (treating as no finding)"
+                echo "DEVILS_ADVOCATE_NO_OUTPUT: reviewer produced no usable reply" \
+                    >> "$review_dir/$review_id/anti-sycophancy.txt"
+            fi
+        fi
     fi
 
     # Blocking decision
@@ -8474,7 +9549,7 @@ ADVERSARIAL_EOF
             ;;
         codex)
             if command -v codex &>/dev/null; then
-                codex exec --full-auto --skip-git-repo-check "$adversarial_prompt" \
+                codex exec --sandbox workspace-write --skip-git-repo-check "$adversarial_prompt" \
                     > "$result_file" 2>/dev/null || true
             fi
             ;;
@@ -11339,7 +12414,69 @@ build_prompt() {
             test_summary=$(python3 -c "import json; d=json.load(open('${TARGET_DIR:-.}/.loki/quality/test-results.json')); print(d.get('summary',''))" 2>/dev/null || echo "")
             [ -n "$test_summary" ] && gate_failure_context="${gate_failure_context}Tests: ${test_summary}. "
         fi
+        # P0-1 Fix A: when a coverage block fired (LOKI_ENFORCE_COVERAGE=1 +
+        # measurable + below threshold), give the agent the ACCURATE reason. The
+        # generic test_coverage token plus a passing test summary would otherwise
+        # read as a contradictory "fix the tests" when the tests actually passed
+        # and it is coverage that is low. Surface coverage.json so the next
+        # iteration writes MORE TESTS rather than chasing a phantom red suite.
+        if [ -f "${TARGET_DIR:-.}/.loki/quality/coverage.json" ]; then
+            local cov_summary
+            cov_summary=$(_LOKI_GFC="${TARGET_DIR:-.}/.loki/quality/coverage.json" python3 -c "
+import json, os
+try:
+    d=json.load(open(os.environ['_LOKI_GFC']))
+except Exception:
+    raise SystemExit
+if d.get('blocked'):
+    print('Coverage %s%% is below the %s%% threshold (tests PASS; add tests to raise line coverage, do not change passing assertions).' % (d.get('pct'), d.get('threshold')))
+" 2>/dev/null || echo "")
+            [ -n "$cov_summary" ] && gate_failure_context="${gate_failure_context}${cov_summary} "
+        fi
         gate_failure_context="${gate_failure_context}FIX THESE ISSUES BEFORE PROCEEDING WITH NEW WORK."
+    fi
+
+    # P1-3: surface specific semantic test-authenticity findings (which fake test,
+    # which line) when the opt-in gate (LOKI_GATE_SEMANTIC_TESTS) wrote them, so a
+    # block converges: the agent gets the exact files/lines to fix rather than a
+    # bare gate name. The file exists only when the gate ran AND found something
+    # (cleared on clean), so this is zero-cost on the default path and when off.
+    # Mirrors the static-analysis/test-results detail-surfacing above. Surfaced
+    # whether the run blocked (CRIT/HIGH) or only advised (MED/LOW): both inform
+    # the next iteration. Independent of gate-failures.txt presence (the
+    # completion-promise arm does not append a gate token).
+    if [ -f "${TARGET_DIR:-.}/.loki/quality/semantic-findings.txt" ]; then
+        local sem_findings
+        sem_findings=$(grep -E '\[(CRITICAL|HIGH|MEDIUM|LOW)\]' "${TARGET_DIR:-.}/.loki/quality/semantic-findings.txt" 2>/dev/null | head -20 || true)
+        if [ -n "$sem_findings" ]; then
+            gate_failure_context="${gate_failure_context} SEMANTIC TEST-AUTHENTICITY FINDINGS (fix the fake tests; an assertion must verify a value that flows through the code under test, not echo a literal back): ${sem_findings}"
+        fi
+    fi
+
+    # P1-4 / v7.57.0: surface specific invariant/property findings (which file,
+    # which violated invariant) when the default-on advisory gate (or the opt-in
+    # LOKI_GATE_INVARIANTS_BLOCK gate) wrote them, so a block converges and an
+    # advisory run still informs the next iteration. The file exists only when
+    # the gate ran AND found something (cleared on clean), so this is zero-cost on
+    # a clean run and when the surfacing gate is opted out. Mirrors the semantic
+    # injector above and is independent of gate-failures.txt presence.
+    if [ -f "${TARGET_DIR:-.}/.loki/quality/invariant-findings.txt" ]; then
+        local inv_findings
+        inv_findings=$(grep -E '\[(CRITICAL|HIGH|MEDIUM|LOW)\]' "${TARGET_DIR:-.}/.loki/quality/invariant-findings.txt" 2>/dev/null | head -20 || true)
+        if [ -n "$inv_findings" ]; then
+            gate_failure_context="${gate_failure_context} INVARIANT/PROPERTY FINDINGS (fix the violated invariants; the code must preserve the stated property/metamorphic relation, not just pass example-based tests): ${inv_findings}"
+        fi
+    fi
+
+    # P2-2: high-severity spec-assumption context. When DISCOVERY recorded any
+    # high-severity assumption (the spec was ambiguous in a high-impact place),
+    # surface it to the build agent so it implements with the gap in view (or
+    # fixes the spec) instead of obliviously coding past it. spec_ledger_prompt_block
+    # is defined when spec-interrogation.sh is sourced (run.sh sources it in
+    # DISCOVERY); guarded so build_prompt is safe when the module is absent.
+    local assumption_context=""
+    if type spec_ledger_prompt_block &>/dev/null; then
+        assumption_context="$(spec_ledger_prompt_block 2>/dev/null || true)"
     fi
 
     # Human directive injection (from HUMAN_INPUT.md)
@@ -11594,15 +12731,15 @@ except Exception:
         else
             if [ $retry -eq 0 ]; then
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode with PRD at $prd. $update_instruction $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode with PRD at $prd. $update_instruction $human_directive $gate_failure_context $assumption_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode. $human_directive $gate_failure_context $assumption_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $analysis_instruction $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             else
                 if [ -n "$prd" ]; then
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). PRD: $prd. $human_directive $gate_failure_context $assumption_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 else
-                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
+                    echo "Loki Mode - Resume iteration #$iteration (retry #$retry). $human_directive $gate_failure_context $assumption_context $queue_tasks $bmad_context $openspec_context $mirofish_context $magic_context $checklist_status $app_runner_info $playwright_info $memory_context_section Use .loki/generated-prd.md if exists. $rarv_instruction $memory_instruction $usage_doc_instruction $compose_instruction $lsp_grounding_instruction $agents_md_instruction $completion_instruction $sdlc_instruction $autonomous_suffix"
                 fi
             fi
         fi
@@ -11707,6 +12844,7 @@ except Exception:
     fi
     [ -n "$human_directive" ] && printf '%s\n' "$human_directive"
     [ -n "$gate_failure_context" ] && printf '%s\n' "$gate_failure_context"
+    [ -n "$assumption_context" ] && printf '%s\n' "$assumption_context"
     [ -n "$queue_tasks" ] && printf '%s\n' "$queue_tasks"
     [ -n "$bmad_context" ] && printf '%s\n' "$bmad_context"
     [ -n "$openspec_context" ] && printf '%s\n' "$openspec_context"
@@ -12356,9 +13494,12 @@ if not features:
             continue
         clean_name = strip_numbering(section_name)
         if len(section_content) > 20 and len(clean_name) > 5:
+            # BUG-A fix: store the REAL section/heading key (not a hardcoded
+            # "Requirements") so sections.get(feat["section"]) later resolves
+            # to this section's body and the description is not just the title.
             features.append({
                 "title": clean_name,
-                "section": "Requirements",
+                "section": section_name,
             })
 
 if not features:
@@ -12494,6 +13635,20 @@ PRD_PARSE_EOF
     if [[ $? -ne 0 ]]; then
         log_warn "Failed to parse PRD into tasks"
         return 0
+    fi
+
+    # LLM enrichment post-pass (v7.52.0). The python heredoc above has no model
+    # access, so stub tasks (description == title, or the templated user_story)
+    # are enriched here via one batched provider call. Best-effort: on any
+    # failure (non-claude provider, degraded mode, no binary, timeout, parse
+    # error) the deterministic output is left intact. Never blocks the queue.
+    local _prd_enrich_lib="$SCRIPT_DIR/lib/prd-enrich.sh"
+    if [ -f "$_prd_enrich_lib" ]; then
+        # shellcheck source=lib/prd-enrich.sh
+        source "$_prd_enrich_lib" 2>/dev/null || true
+        if declare -f loki_prd_enrich >/dev/null 2>&1; then
+            loki_prd_enrich ".loki/queue/pending.json" "$effective_prd" || true
+        fi
     fi
 
     touch ".loki/queue/.prd-populated"
@@ -12827,6 +13982,22 @@ except Exception:
         fi
     fi
 
+    # P2-1: Spec interrogation (DISCOVERY phase, BEFORE iteration 1 begins
+    # coding). Auto-detects spec ambiguities/contradictions/underspecification
+    # via the Devil's-Advocate grill + prd-analyzer, classifies them with a
+    # deterministic severity, and records every gap as a first-class assumption
+    # under .loki/assumptions/. Default-on; LOKI_SPEC_GRILL=0 opts out.
+    # Provider-aware and degrades cleanly (no provider -> prd-analyzer
+    # assumptions only, no fabricated questions). Best-effort: never blocks the
+    # run. The completion-side teeth are council_assumption_ledger_gate.
+    if [ -f "${SCRIPT_DIR}/spec-interrogation.sh" ]; then
+        # shellcheck disable=SC1090
+        . "${SCRIPT_DIR}/spec-interrogation.sh" 2>/dev/null || true
+        if type spec_interrogation_run &>/dev/null; then
+            spec_interrogation_run "$prd_path" || true
+        fi
+    fi
+
     # Auto-derive completion promise from PRD (v6.10.0)
     # When PRD exists but no explicit promise, auto-derive one and switch to checkpoint mode
     if [ -n "$prd_path" ] && [ -f "$prd_path" ] && [ -z "$COMPLETION_PROMISE" ]; then
@@ -12987,6 +14158,18 @@ except Exception as exc:
 
         local prompt
         prompt=$(build_prompt "$retry" "$prd_path" "$ITERATION_COUNT")
+
+        # P2-2 auto-acknowledgment lifecycle: build_prompt just injected the
+        # high-severity spec assumptions into the prompt (assumption_context), so
+        # the agent has now SEEN them. Mark them acknowledged so the completion
+        # gate is not a permanent dead-end in autonomous (non-TTY) mode where no
+        # human can ever set confirmed=true. This is the opposite of silent
+        # autocorrect: the gap was recorded, prompt-injected, and is surfaced in
+        # proof-of-done. LOKI_ASSUMPTIONS_REQUIRE_CONFIRM=1 disables auto-ack so
+        # only a human confirmation clears the block (the helper checks the knob).
+        if type spec_ledger_acknowledge_all &>/dev/null; then
+            spec_ledger_acknowledge_all 2>/dev/null || true
+        fi
 
         # BUG #5 fix: Clear LOKI_HUMAN_INPUT in the parent shell after build_prompt
         # consumed it. build_prompt runs in a subshell (command substitution), so
@@ -13771,7 +14954,7 @@ if __name__ == "__main__":
                 # Uses dynamic tier from RARV phase (tier_param already set above)
                 { LOKI_CODEX_REASONING_EFFORT="$tier_param" \
                 CODEX_MODEL_REASONING_EFFORT="$tier_param" \
-                codex exec --full-auto --skip-git-repo-check \
+                codex exec --sandbox workspace-write --skip-git-repo-check \
                     "$prompt" 2>&1 | tee -a "$log_file" "$agent_log" "$iter_output"; \
                 } && exit_code=0 || exit_code=$?
                 ;;
@@ -13963,14 +15146,22 @@ if __name__ == "__main__":
             fi
             # Test coverage gate
             if [ "${PHASE_UNIT_TESTS:-true}" = "true" ]; then
-                log_info "Quality gate: test coverage..."
+                log_info "Quality gate: test suite (pass/fail)..."
                 if enforce_test_coverage; then
                     clear_gate_failure "test_coverage"
                 else
                     local tc_count
                     tc_count=$(track_gate_failure "test_coverage")
                     gate_failures="${gate_failures}test_coverage,"
-                    log_warn "Test coverage gate FAILED ($tc_count consecutive) - must pass next iteration"
+                    # P0-1 Fix A: distinguish a coverage-only block (tests passed,
+                    # enforced coverage below threshold) from a genuine tests-red
+                    # block in the log so the operator is not misled.
+                    if [ -f "${TARGET_DIR:-.}/.loki/quality/coverage.json" ] && \
+                       python3 -c "import json,sys; sys.exit(0 if json.load(open('${TARGET_DIR:-.}/.loki/quality/coverage.json')).get('blocked') else 1)" 2>/dev/null; then
+                        log_warn "Test coverage gate BLOCKED ($tc_count consecutive) - tests pass but coverage below threshold (LOKI_ENFORCE_COVERAGE=1)"
+                    else
+                        log_warn "Test suite gate FAILED ($tc_count consecutive) - must pass next iteration"
+                    fi
                 fi
             fi
             # BUG-ST-002: Check pause signal between quality gates (after test coverage)
@@ -13980,6 +15171,172 @@ if __name__ == "__main__":
                     echo "$gate_failures" > "${TARGET_DIR:-.}/.loki/quality/gate-failures.txt"
                 fi
                 continue
+            fi
+            # Mock integrity gate (P0-3): block on CRITICAL/HIGH mock problems.
+            if [ "${LOKI_GATE_MOCK:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
+                log_info "Quality gate: mock integrity..."
+                if enforce_mock_integrity; then
+                    clear_gate_failure "mock_integrity"
+                else
+                    local mk_count
+                    mk_count=$(track_gate_failure "mock_integrity")
+                    gate_failures="${gate_failures}mock_integrity,"
+                    log_warn "Mock integrity gate FAILED ($mk_count consecutive) - CRITICAL/HIGH mock problems"
+                fi
+            fi
+            # Test mutation integrity gate (P0-3): block on HIGH test-fitting.
+            if [ "${LOKI_GATE_MUTATION:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
+                log_info "Quality gate: test mutation integrity..."
+                if enforce_mutation_integrity; then
+                    clear_gate_failure "mutation_integrity"
+                else
+                    local mt_count
+                    mt_count=$(track_gate_failure "mutation_integrity")
+                    gate_failures="${gate_failures}mutation_integrity,"
+                    log_warn "Mutation integrity gate FAILED ($mt_count consecutive) - HIGH test-fitting detected"
+                fi
+            fi
+            # LSP diagnostics gate (P1-5 bash-route parity, v7.51.0; default-on
+            # advisory-surfacing as of v7.57.0). Closes the parity gap: the Bun
+            # route ships runLSPDiagnostics (loki-ts/src/runner/quality_gates.ts)
+            # with a route-neutral Python writer (mcp/lsp_proxy.py); the bash
+            # route had NO writer/reader.
+            #
+            # POSTURE (v7.57.0): DEFAULT-ON SURFACING (no blocking arm exists).
+            # This is the mid-iteration advisory arm -- it RUNS by default (like
+            # the mock/mutation gates), writes lsp-diagnostics.json, and surfaces
+            # errors to the NEXT iteration via track_gate_failure (the
+            # lsp_diagnostics token flows into gate-failures.txt -> build_prompt).
+            # It does NOT reject completion: the "block*" case below only calls
+            # track_gate_failure, never PAUSE / never the completion-promise arm,
+            # exactly like the mock gate. Default-on surfacing CANNOT deadlock
+            # (mock/mutation prove this in production); there is therefore NO
+            # separate blocking knob for LSP (none ever existed on the bash route).
+            #   - Toggle: LOKI_GATE_LSP_DIAGNOSTICS (default TRUE = surfacing on;
+            #     opt out with =false). Accepts "true" or "1". Single knob (no
+            #     blocking arm exists on the bash route, so there is no _BLOCK flag).
+            #   - count_errors > 0 -> surface (track_gate_failure), mirroring the
+            #     TS "errorCount > 0" finding at quality_gates.ts:1667 but WITHOUT
+            #     rejecting completion (advisory-first on the bash route).
+            #   - warnings only -> advisory PASS (quality_gates.ts:1673).
+            #   - artifact absent/malformed/timeout -> honest pass-through, NEVER
+            #     surface a block, NEVER deadlock (deny-filter; mirrors
+            #     quality_gates.ts:1646 returning passed:true on null artifact).
+            # The writer is OPT-OUT-able with LOKI_GATE_LSP_WRITER=0 (operator can
+            # supply a pre-built artifact), matching the TS escape hatch
+            # (quality_gates.ts:1630). cwd must be the install dir (PROJECT_DIR =
+            # $SCRIPT_DIR/.. ) so `-m mcp.lsp_proxy` imports, while --root points
+            # at the TARGET project the loop is building (mirrors
+            # runLSPDiagnosticsWriter: cwd=REPO_ROOT, --root=ctx.cwd).
+            if { [ "${LOKI_GATE_LSP_DIAGNOSTICS:-true}" = "true" ] || [ "${LOKI_GATE_LSP_DIAGNOSTICS:-true}" = "1" ]; } && [ "$ITERATION_COUNT" -gt 0 ]; then
+                log_info "Quality gate: LSP diagnostics..."
+                # WRITER: route-neutral Python, same program as the Bun route.
+                if [ "${LOKI_GATE_LSP_WRITER:-1}" != "0" ]; then
+                    ( cd "$PROJECT_DIR" && LOKI_DIR="${TARGET_DIR:-.}/.loki" python3 -m mcp.lsp_proxy --write-diagnostics --root "${TARGET_DIR:-.}" ) >/dev/null 2>&1 || true
+                fi
+                # READER: read counts, mirror TS block policy.
+                local _lsp_file="${TARGET_DIR:-.}/.loki/quality/lsp-diagnostics.json"
+                local _lsp_verdict="absent"
+                if [ -f "$_lsp_file" ]; then
+                    _lsp_verdict=$(_LOKI_LSP_FILE="$_lsp_file" python3 -c "
+import json, os, sys
+try:
+    with open(os.environ['_LOKI_LSP_FILE']) as f:
+        d = json.load(f)
+except Exception:
+    print('absent'); sys.exit(0)
+if not isinstance(d, dict):
+    print('absent'); sys.exit(0)
+diags = d.get('diagnostics') if isinstance(d.get('diagnostics'), list) else []
+ce = d.get('count_errors')
+cw = d.get('count_warnings')
+errors = ce if isinstance(ce, int) else sum(1 for x in diags if isinstance(x, dict) and x.get('severity') == 1)
+warns = cw if isinstance(cw, int) else sum(1 for x in diags if isinstance(x, dict) and x.get('severity') == 2)
+if errors > 0:
+    print('block %d %d' % (errors, warns))
+elif warns > 0:
+    print('warn %d %d' % (errors, warns))
+else:
+    print('clean 0 0')
+" 2>/dev/null) || _lsp_verdict="absent"
+                    [ -n "$_lsp_verdict" ] || _lsp_verdict="absent"
+                fi
+                case "$_lsp_verdict" in
+                    block*)
+                        local _lsp_e _lsp_w
+                        _lsp_e=$(printf '%s' "$_lsp_verdict" | awk '{print $2}')
+                        _lsp_w=$(printf '%s' "$_lsp_verdict" | awk '{print $3}')
+                        local lsp_count
+                        lsp_count=$(track_gate_failure "lsp_diagnostics")
+                        gate_failures="${gate_failures}lsp_diagnostics,"
+                        log_warn "LSP diagnostics gate FAILED ($lsp_count consecutive) - ${_lsp_e} error(s), ${_lsp_w} warning(s); LSP reports compiler/type errors"
+                        ;;
+                    warn*)
+                        local _lsp_w2
+                        _lsp_w2=$(printf '%s' "$_lsp_verdict" | awk '{print $3}')
+                        clear_gate_failure "lsp_diagnostics"
+                        log_info "LSP diagnostics: 0 errors, ${_lsp_w2} warning(s) (advisory)"
+                        ;;
+                    clean*)
+                        clear_gate_failure "lsp_diagnostics"
+                        log_info "LSP diagnostics: 0 errors, 0 warnings"
+                        ;;
+                    *)
+                        # Absent or malformed artifact: honest pass-through, never
+                        # block (mirrors quality_gates.ts:1646). Do not fabricate
+                        # a clean verdict from absence.
+                        clear_gate_failure "lsp_diagnostics"
+                        log_info "LSP diagnostics: no lsp-diagnostics.json artifact (lsp not available) -- gate did not run"
+                        ;;
+                esac
+            fi
+            # Semantic test-authenticity gate -- mid-iteration ADVISORY arm
+            # (v7.57.0 default-on surfacing). Clones the mock arm (~15126)
+            # byte-for-byte: runs enforce_semantic_integrity, which writes
+            # semantic-findings.txt and returns 1 ONLY on a CRITICAL/HIGH
+            # fake-test finding (clean / no-test-files / detector-absent / timeout
+            # / malformed all collapse to rc 0 inside the function -- deny-filter).
+            # On rc 1 we ONLY track_gate_failure (surface to the next prompt via
+            # the semantic-findings injector at build_prompt); we NEVER PAUSE and
+            # NEVER reject completion here. Default-on surfacing cannot deadlock
+            # (mock/mutation prove this in production). The opt-in completion-
+            # BLOCKING arm lives behind LOKI_GATE_SEMANTIC_TESTS_BLOCK at the
+            # completion-promise elif below; this surfacing arm is independent.
+            #   - Toggle: LOKI_GATE_SEMANTIC_TESTS (default TRUE = surfacing on;
+            #     opt out with =false). Accepts "true" or "1".
+            if { [ "${LOKI_GATE_SEMANTIC_TESTS:-true}" = "true" ] || [ "${LOKI_GATE_SEMANTIC_TESTS:-true}" = "1" ]; } && [ "$ITERATION_COUNT" -gt 0 ]; then
+                log_info "Quality gate: semantic test-authenticity (advisory)..."
+                if enforce_semantic_integrity; then
+                    clear_gate_failure "semantic_tests"
+                else
+                    local sem_count
+                    sem_count=$(track_gate_failure "semantic_tests")
+                    gate_failures="${gate_failures}semantic_tests,"
+                    log_warn "Semantic test-authenticity gate FAILED ($sem_count consecutive) - CRITICAL/HIGH fake-test problems (advisory; surfaced to next iteration)"
+                fi
+            fi
+            # Invariant/property gate -- mid-iteration ADVISORY arm (v7.57.0
+            # default-on surfacing). Mirrors the semantic arm above: runs
+            # enforce_invariant_integrity, which writes invariant-findings.txt and
+            # returns 1 ONLY on a CRITICAL/HIGH invariant violation (clean /
+            # detector-absent / timeout / malformed all collapse to rc 0 inside
+            # the function -- deny-filter). On rc 1 we ONLY track_gate_failure
+            # (surfaced to the next prompt via the invariant-findings injector in
+            # build_prompt); we NEVER PAUSE and NEVER reject completion here. The
+            # opt-in completion-BLOCKING arm lives behind LOKI_GATE_INVARIANTS_BLOCK
+            # at the completion-promise elif below.
+            #   - Toggle: LOKI_GATE_INVARIANTS (default TRUE = surfacing on; opt
+            #     out with =false). Accepts "true" or "1".
+            if { [ "${LOKI_GATE_INVARIANTS:-true}" = "true" ] || [ "${LOKI_GATE_INVARIANTS:-true}" = "1" ]; } && [ "$ITERATION_COUNT" -gt 0 ]; then
+                log_info "Quality gate: invariant/property (advisory)..."
+                if enforce_invariant_integrity; then
+                    clear_gate_failure "invariants"
+                else
+                    local inv_count
+                    inv_count=$(track_gate_failure "invariants")
+                    gate_failures="${gate_failures}invariants,"
+                    log_warn "Invariant gate FAILED ($inv_count consecutive) - CRITICAL/HIGH invariant/property violations (advisory; surfaced to next iteration)"
+                fi
             fi
             # Code review gate (upgraded from advisory, with escalation)
             if [ "$PHASE_CODE_REVIEW" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
@@ -14052,7 +15409,7 @@ if __name__ == "__main__":
             if [ "$ITERATION_COUNT" -gt 0 ]; then
                 run_doc_staleness_check
             fi
-            # Documentation quality gate - Gate 11 (v6.75.0)
+            # Documentation quality gate - Gate 7 (Documentation Coverage)
             if [ "${LOKI_GATE_DOC_COVERAGE:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: documentation coverage..."
                 if run_doc_quality_gate; then
@@ -14259,7 +15616,7 @@ if __name__ == "__main__":
             # LOKI_EVIDENCE_GATE=0 (council_evidence_gate returns 0 immediately
             # when disabled, so this branch never fires). Gate output (reason +
             # opt-out hint) is printed by council_evidence_gate itself.
-            elif [ "$_completion_claimed" = 1 ] && type council_evidence_gate &>/dev/null && ! council_evidence_gate; then
+            elif [ "$_completion_claimed" = 1 ] && type council_evidence_gate &>/dev/null && ! _evidence_gate_and_surface; then
                 log_warn "Completion claim rejected: evidence gate found no proof of completion (empty diff vs run-start SHA, or red tests)."
                 log_warn "  Details under .loki/council/evidence-block.json ; opt out with LOKI_EVIDENCE_GATE=0"
                 # Fall through; keep iterating until there is real evidence.
@@ -14276,6 +15633,52 @@ if __name__ == "__main__":
                 log_warn "Completion claim rejected: held-out spec-eval gate found failing held-out acceptance check(s)."
                 log_warn "  Details under .loki/council/heldout-block.json ; opt out with LOKI_HELDOUT_GATE=0"
                 # Fall through; keep iterating until the held-out checks pass.
+            # P2-2: the assumption ledger gate must also guard the DEFAULT
+            # completion-promise route, not only the interval-gated council path.
+            # Otherwise an agent can self-assert "done" while a high-severity spec
+            # assumption is still unresolved, bypassing the spec-robustness gate.
+            # Mirrors the evidence/held-out gate arms above. Opt-out: the gate's
+            # own LOKI_ASSUMPTION_GATE=0 (returns 0 immediately when disabled, so
+            # this branch never fires). Gate output is printed by the gate itself.
+            elif [ "$_completion_claimed" = 1 ] && type council_assumption_ledger_gate &>/dev/null && ! council_assumption_ledger_gate; then
+                log_warn "Completion claim rejected: assumption ledger gate found unresolved high-severity spec assumption(s)."
+                log_warn "  Details under .loki/council/assumption-block.json ; opt out with LOKI_ASSUMPTION_GATE=0"
+                # Fall through; keep iterating until high-sev assumptions resolve.
+            # P1-3: semantic test-authenticity completion-BLOCKING gate (OPT-IN,
+            # default OFF). Catches fake tests that look real but verify nothing
+            # (literal-via-variable echo etc.) that the regex gates 5+6 miss.
+            # v7.57.0: the SURFACING of these findings is now default-on (see the
+            # mid-iteration advisory arm above, gated on LOKI_GATE_SEMANTIC_TESTS,
+            # default true). This completion-BLOCKING arm is a SEPARATE opt-in,
+            # gated on LOKI_GATE_SEMANTIC_TESTS_BLOCK (default OFF; accepts "true"
+            # or "1"), so the surfacing-default-on flip does NOT make blocking
+            # default-on. When the BLOCK flag is set it runs the detector with --block-high and
+            # rejects completion ONLY on a CRITICAL/HIGH finding; clean /
+            # no-test-files / detector-absent / timeout / malformed all collapse
+            # to a pass inside _semantic_gate_and_surface, so the autonomous loop
+            # can never deadlock on a clean run. Mirrors the evidence / held-out /
+            # assumption arms above.
+            elif [ "$_completion_claimed" = 1 ] && { [ "${LOKI_GATE_SEMANTIC_TESTS_BLOCK:-false}" = "true" ] || [ "${LOKI_GATE_SEMANTIC_TESTS_BLOCK:-false}" = "1" ]; } && type _semantic_gate_and_surface &>/dev/null && ! _semantic_gate_and_surface; then
+                log_warn "Completion claim rejected: semantic test-authenticity gate found CRITICAL/HIGH fake-test problem(s)."
+                log_warn "  Details under .loki/quality/semantic-findings.txt ; opt-in blocking -- disable with LOKI_GATE_SEMANTIC_TESTS_BLOCK=false"
+                # Fall through; keep iterating until the fake tests are fixed.
+            # P1-4: invariant/property completion-BLOCKING gate (OPT-IN, default
+            # OFF). Mirrors the semantic arm above and the Bun route's invariants
+            # toggle (loki-ts/src/runner/quality_gates.ts:2057). v7.57.0: the
+            # SURFACING of these findings is now default-on (see the mid-iteration
+            # advisory arm above, gated on LOKI_GATE_INVARIANTS, default true).
+            # This completion-BLOCKING arm is a SEPARATE opt-in, gated on
+            # LOKI_GATE_INVARIANTS_BLOCK (default OFF), so the surfacing-default-on
+            # flip does NOT make blocking default-on. Accepts "true" or "1". When
+            # the BLOCK flag is set it runs detect-invariant-violations.sh --strict
+            # and rejects completion ONLY on a CRITICAL/HIGH (rc 1) finding;
+            # clean / detector-absent / timeout / malformed all collapse to a pass
+            # inside _invariant_gate_and_surface, so the autonomous loop can never
+            # deadlock on a clean run.
+            elif [ "$_completion_claimed" = 1 ] && { [ "${LOKI_GATE_INVARIANTS_BLOCK:-false}" = "true" ] || [ "${LOKI_GATE_INVARIANTS_BLOCK:-false}" = "1" ]; } && type _invariant_gate_and_surface &>/dev/null && ! _invariant_gate_and_surface; then
+                log_warn "Completion claim rejected: invariant gate found CRITICAL/HIGH invariant/property violation(s)."
+                log_warn "  Details under .loki/quality/invariant-findings.txt ; opt-in blocking -- disable with LOKI_GATE_INVARIANTS_BLOCK=false"
+                # Fall through; keep iterating until the invariant violations are fixed.
             elif [ "$_completion_claimed" = 1 ]; then
                 echo ""
                 if [ -n "$COMPLETION_PROMISE" ]; then
@@ -14747,10 +16150,12 @@ check_human_intervention() {
         fi
         if type council_checklist_gate &>/dev/null && ! council_checklist_gate; then
             log_info "Council force-review: blocked by checklist hard gate"
-        elif type council_evidence_gate &>/dev/null && ! council_evidence_gate; then
+        elif type council_evidence_gate &>/dev/null && ! _evidence_gate_and_surface; then
             log_info "Council force-review: blocked by evidence hard gate"
         elif type council_heldout_gate &>/dev/null && ! council_heldout_gate; then
             log_info "Council force-review: blocked by held-out spec-eval hard gate"
+        elif type council_assumption_ledger_gate &>/dev/null && ! council_assumption_ledger_gate; then
+            log_info "Council force-review: blocked by assumption ledger hard gate"
         elif type council_vote &>/dev/null && council_vote; then
             log_header "COMPLETION COUNCIL: FORCE REVIEW - PROJECT COMPLETE"
             # BUG #17 fix: Write COMPLETED marker, generate council report, and

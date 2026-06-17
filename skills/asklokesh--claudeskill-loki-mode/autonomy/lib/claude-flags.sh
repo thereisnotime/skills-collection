@@ -63,31 +63,35 @@ loki_remaining_budget() {
     local budget_file="${TARGET_DIR:-.}/.loki/metrics/budget.json"
     local spend="0"
     if [ -f "$budget_file" ]; then
-        spend=$(python3 -c "
-import json, sys
+        # Pass the path via env var (os.environ), NOT string interpolation, so a
+        # path containing a single quote (or other python/shell-breaking char)
+        # cannot break the parse. Single-quoted program -> bash interpolates nothing.
+        spend=$(_LOKI_BUDGET_FILE="$budget_file" python3 -c '
+import json, os, sys
 try:
-    with open('$budget_file') as f:
+    with open(os.environ["_LOKI_BUDGET_FILE"]) as f:
         d = json.load(f)
-    v = d.get('current_spend', 0)
+    v = d.get("current_spend", 0)
     print(float(v))
 except Exception:
     print(0)
-" 2>/dev/null)
+' 2>/dev/null)
     fi
     # Compute remaining via python3 (bash floats are unreliable across awk/bc variations).
-    python3 -c "
-import sys
+    # Pass limit/spend via env vars too (same hardening; single-quoted program).
+    _LOKI_BUDGET_LIMIT="$limit" _LOKI_BUDGET_SPEND="$spend" python3 -c '
+import os, sys
 try:
-    limit = float('$limit')
-    spend = float('$spend')
+    limit = float(os.environ["_LOKI_BUDGET_LIMIT"])
+    spend = float(os.environ["_LOKI_BUDGET_SPEND"])
     rem = limit - spend
     # Strictly positive; otherwise emit nothing (caller decides whether to bail or warn).
     if rem > 0:
         # Round to 2 decimal places for the CLI.
-        print(f'{rem:.2f}')
+        print(f"{rem:.2f}")
 except Exception:
     pass
-" 2>/dev/null
+' 2>/dev/null
 }
 
 # ---------- Fallback model ----------

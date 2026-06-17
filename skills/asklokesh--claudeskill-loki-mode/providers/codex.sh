@@ -29,10 +29,14 @@ PROVIDER_CLI="codex"
 
 # CLI Invocation
 # Note: codex uses positional prompt after "exec" subcommand
-# VERIFIED: exec --full-auto confirmed in codex exec --help (v0.98.0)
-# --full-auto: sets --ask-for-approval on-request + --sandbox workspace-write (v0.98.0)
+# VERIFIED: codex 0.132.0 deprecates --full-auto (prints a deprecation warning
+# and the flag is gone from `codex exec --help`). Use --sandbox workspace-write,
+# which is the documented replacement and the sandbox --full-auto expanded to.
+# `codex exec` is the non-interactive subcommand: it runs at approval "never"
+# with no --ask-for-approval flag, so --sandbox workspace-write alone keeps the
+# loop fully autonomous (verified against codex 0.132.0: no approval prompt).
 # Alternative: "exec --dangerously-bypass-approvals-and-sandbox" (legacy, no sandbox)
-PROVIDER_AUTONOMOUS_FLAG="exec --full-auto --skip-git-repo-check"
+PROVIDER_AUTONOMOUS_FLAG="exec --sandbox workspace-write --skip-git-repo-check"
 PROVIDER_PROMPT_FLAG=""
 PROVIDER_PROMPT_POSITIONAL=true
 
@@ -124,7 +128,7 @@ provider_version() {
 provider_invoke() {
     local prompt="$1"
     shift
-    codex exec --full-auto --skip-git-repo-check \
+    codex exec --sandbox workspace-write --skip-git-repo-check \
         --model "$PROVIDER_MODEL_DEVELOPMENT" \
         "$prompt" "$@"
 }
@@ -182,11 +186,13 @@ resolve_model_for_tier() {
 
 # Tier-aware invocation.
 #
-# v7.4.18: aligned with codex CLI v0.125.0 (latest as of 2026-04-26).
-# Replaced --full-auto preset with the explicit flags it expands to:
-#   --ask-for-approval never
-#   --sandbox danger-full-access
-# Forward-compatible if the preset is renamed; readable in process listings.
+# Aligned with codex CLI 0.132.0 (verified: --full-auto deprecated/removed
+# from `codex exec --help`). `codex exec` is the non-interactive subcommand and
+# runs at approval "never" with no --ask-for-approval flag, so --sandbox
+# workspace-write alone keeps the loop autonomous (verified: no approval prompt
+# on codex 0.132.0). workspace-write is the documented --full-auto replacement
+# and the safer default (scoped disk writes) over danger-full-access; readable
+# in process listings.
 #
 # Optional env knobs:
 #   LOKI_CODEX_WEB_SEARCH=true      enable codex --search (live web)
@@ -227,8 +233,7 @@ provider_invoke_with_tier() {
     LOKI_CODEX_REASONING_EFFORT="$effort" \
     CODEX_MODEL_REASONING_EFFORT="$effort" \
     codex exec \
-        --ask-for-approval never \
-        --sandbox danger-full-access \
+        --sandbox workspace-write \
         --skip-git-repo-check \
         --model "$model" \
         "${extra_flags[@]}" \

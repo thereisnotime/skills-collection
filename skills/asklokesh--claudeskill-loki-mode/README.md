@@ -19,14 +19,14 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 
 ---
 
-> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), assembles an agent team from 41 specialized agent roles across 8 domains - prompt-defined specifications the orchestrator adopts per phase, with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 11 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
+> **How it works:** Drop a spec -- a PRD, GitHub issue, OpenAPI/JSON/YAML, or one-line brief. Loki Mode classifies complexity (`run.sh:detect_complexity()`), assembles an agent team from 41 specialized agent roles across 8 domains - prompt-defined specifications the orchestrator adopts per phase, with parallel review (blind council) and optional worktree streams on Claude Code, sequential on other providers - and runs autonomous RARV cycles (Reason - Act - Reflect - Verify, see `run.sh:run_autonomous()`) with 8 quality gates (see `skills/quality-gates.md`). Code is not "done" until it passes automated verification. Output is a Git repo with source, tests, configs, and audit logs.
 
 ---
 
 ## Why Loki Mode?
 
 - **Spec-driven, autonomous, with a built-in trust layer** -- Hand Loki a spec, walk away, come back to working code with tests. The full RARV-C closure loop (Reason - Act - Reflect - Verify - Close) runs until the work is actually done, not just attempted. The verified-completion evidence gate (`skills/quality-gates.md`) refuses any "done" claim on an empty git diff against the run-start commit, and blocks completion when tests run red, so "complete" means proven, not promised.
-- **Production quality built in** -- 11 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks
+- **Production quality built in** -- 8 quality gates (`skills/quality-gates.md`), blind 3-reviewer code review (`run.sh:run_code_review()`), anti-sycophancy checks
 - **Standalone verification: `loki verify`** -- Run Loki's deterministic gates (build, tests, static analysis, secret scan, dependency audit) against any branch or PR diff, including code written by other agents or humans. CI-ready exit codes (0 VERIFIED, 1 CONCERNS, 2 BLOCKED), machine-readable evidence at `.loki/verify/evidence.json`. Inconclusive evidence is never reported as VERIFIED (v7.27.0).
 - **Living spec and pre-build interrogation** -- `loki spec` locks a spec and detects drift deterministically (`spec.lock`, `drift-report.json`, and a `SPEC_DRIFT` finding in `loki verify` with CI exit codes), so you can tell when the build diverges from what was agreed. `loki grill` runs a Devil's-Advocate interrogation of the spec before you build, surfacing gaps and contradictions early (v7.28.0).
 - **Mid-flight model switching** -- switch the model a live run uses from the dashboard (applies at the next iteration, current run only). A Fable tier lever exists in the CLI, dashboard, and override paths, but Claude Fable 5 is not yet available at the API, so selecting Fable currently collapses to Opus at every dispatch chokepoint and the `loki plan` quote reflects Opus accordingly. For every model lever (session pin, mid-flight override, architect pass) and every `LOKI_MAX_TIER` path, the `loki plan` quote, the dashboard's reported model, and the actual dispatched model agree, with the ceiling enforced (v7.31.0; Fable-to-Opus collapse v7.39.1).
@@ -40,8 +40,8 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 - **Legacy system healing** -- `loki modernize heal` archaeology/stabilize/isolate/modernize/validate phases (v6.67.0, see `skills/healing.md`)
 - **MCP server** -- 34 tools (including ChromaDB code search) plus 3 resources and 2 prompts (`mcp/server.py`, with magic tools registered from `mcp/magic_tools.py` and the managed-memory tool from `mcp/managed_tools.py`). Of the 34, 33 are always available; `loki_memory_redact` is registered but only succeeds when `LOKI_MANAGED_AGENTS=true` and `LOKI_MANAGED_MEMORY=true`. Launch with `loki mcp` (bootstraps the Python MCP SDK on first run).
 - **Full-stack output** -- Source code, tests, Docker Compose stacks (multi-service with healthchecks), CI/CD pipelines, audit logs
-- **Provider-agnostic** -- runs on Claude, Codex, Cline, or Aider with automatic failover (`loki-ts/src/runner/providers.ts`); no vendor lock-in. Gemini CLI deprecated v7.5.18; Antigravity CLI coming soon.
-- **Open source** -- Free for personal, internal, and academic use.
+- **Provider-agnostic** -- runs on Claude, Codex, Cline, or Aider with automatic failover (`loki-ts/src/runner/providers.ts`); no vendor lock-in. Gemini CLI deprecated v7.5.18.
+- **Source-available (BUSL-1.1)** -- Free for personal, internal, and academic use.
 
 ---
 
@@ -106,7 +106,7 @@ loki quick "build a landing page with a signup form"
 | **Bun (recommended)** | `bun install -g loki-mode` | Fastest startup for CLI commands. |
 | **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` | Auto-installs Bun as a dep |
 | **Docker (easiest)** | `loki docker start prd.md` | Host wrapper: runs loki in the published image with zero config. Bind-mounts the current folder so `.loki` state, resume, and continuity work exactly like local. Auto-detects auth (`ANTHROPIC_API_KEY`, else your host Claude Code login). Needs loki + Docker on the host. See DOCKER_README.md |
-| **Docker (raw)** | `docker pull asklokesh/loki-mode:7.45.0 && docker run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" asklokesh/loki-mode:7.45.0 start prd.md` | Bun + Claude CLI pre-installed; needs an API key, or use docker compose with a .env file, see DOCKER_README.md |
+| **Docker (raw)** | `docker pull asklokesh/loki-mode:7.50.0 && docker run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" asklokesh/loki-mode:7.50.0 start prd.md` | Bun + Claude CLI pre-installed; needs an API key, or use docker compose with a .env file, see DOCKER_README.md |
 | **npm (compat)** | `npm install -g loki-mode` | Works without Bun (bash fallback). Migrate any time with `loki self-update --to bun`. |
 
 **Upgrading:**
@@ -166,7 +166,7 @@ The next major release sunsets the Bash runtime entirely. There is no firm calen
 | Method | Command |
 |--------|---------|
 | **Homebrew** | `brew tap asklokesh/tap && brew install loki-mode` |
-| **Docker** | `docker pull asklokesh/loki-mode:7.45.0` |
+| **Docker** | `docker pull asklokesh/loki-mode:7.50.0` |
 | **Inside Claude Code** | `claude --dangerously-skip-permissions` then type "Loki Mode" |
 | **Git clone** | `git clone https://github.com/asklokesh/loki-mode.git` |
 
@@ -193,7 +193,7 @@ A "spec" is whatever you hand `loki start`. Loki auto-detects the format and nor
 | OpenSpec change directory | `loki start --openspec ./openspec/change-001` | Reads OpenSpec change manifest + delta files. |
 | Auto-detect (no input) | `loki start` | Picks up `./prd.md`, `./spec.{json,yaml,yml}`, or `./SPEC.md` from cwd. |
 
-All formats land in the same RARV pipeline and pass the same 11 quality gates (`skills/quality-gates.md`).
+All formats land in the same RARV pipeline and pass the same 8 quality gates (`skills/quality-gates.md`).
 
 </details>
 
@@ -252,8 +252,8 @@ Every iteration: **Reason** (read state) - **Act** (execute, commit) - **Reflect
 </td>
 <td width="33%" valign="top">
 
-### 11 Quality Gates
-Blind review, anti-sycophancy, severity blocking, mock/mutation detection, backward compatibility (gate 10, v6.67.0), documentation coverage (gate 11, v7.5.0). Code does not ship until all gates pass.
+### 8 Quality Gates
+Static analysis, test suite (pass/fail), blind 3-reviewer code review with severity blocking, anti-sycophancy Devil's Advocate, mock-integrity detection, test-mutation detection, documentation coverage, and Magic Modules debate. Backward-compatibility is a conditional healing-mode auditor (not one of the 8). Code does not ship until all gates pass.
 
 [Quality Gates](skills/quality-gates.md)
 
@@ -303,15 +303,15 @@ The historical feature set (platform pages, Monaco IDE workspace, AI chat panel)
 |---------|:---------:|:--------:|:------:|:-------:|
 | Self-hosted / your keys | Yes | No | No | No |
 | 5 AI provider failover | Yes | No | No | No |
-| 11 quality gates | Yes | No | No | No |
+| 8 quality gates | Yes | No | No | No |
 | Blind code review | Yes | No | No | No |
 | Enterprise auth (SSO/RBAC) | Yes | No | Yes | No |
 | Air-gapped deployment | Yes | No | No | No |
 | Docker + CI/CD generation | Yes | No | Yes | No |
-| Open source | Yes | No | No | No |
-| Free tier | Open source | Yes | Yes | Yes |
+| Source-available (BUSL-1.1) | Yes | No | No | No |
+| Free tier | Source-available | Yes | Yes | Yes |
 
-Loki Mode is the only platform that is fully self-hosted, open source, and includes automated quality verification. Your code, your keys, your infrastructure.
+Loki Mode is the only platform that is fully self-hosted, source-available (BUSL-1.1), and includes automated quality verification. Your code, your keys, your infrastructure.
 
 ---
 
@@ -322,11 +322,10 @@ Loki's autonomy and quality loop are the product; the underlying coding CLI is s
 | Provider | Status | Autonomous Flag | Parallel Agents | Install |
 |----------|--------|:-:|:-:|---------|
 | **Claude Code** | Active (Tier 1, E2E-verified) | `--dangerously-skip-permissions` | Yes (10+) | `npm i -g @anthropic-ai/claude-code` |
-| **Codex CLI** | Experimental (Tier 3) | `--full-auto --skip-git-repo-check` | Sequential | `npm i -g @openai/codex` |
+| **Codex CLI** | Experimental (Tier 3) | `--sandbox workspace-write --skip-git-repo-check` | Sequential | `npm i -g @openai/codex` |
 | **Cline CLI** | Experimental (Tier 2) | `-y` | Sequential | `npm i -g @anthropic-ai/cline` |
 | **Aider** | Experimental (Tier 3) | `--yes-always` | Sequential | `pip install aider-chat` |
 | **Google Gemini CLI** | DEPRECATED v7.5.18 | -- | -- | Upstream deprecated; runtime removed. `LOKI_PROVIDER=gemini` exits with migration message. |
-| **Anthropic Antigravity CLI** | Coming soon | -- | -- | Integration planned. |
 
 Status legend: "E2E-verified" means we run real spec-to-code builds on it ourselves. Claude Code is the primary, fully supported provider and the one Loki Mode is built for; it gets full features (subagents, parallelization, MCP, Task tool). "Experimental" means the wiring is in place but we have not produced an end-to-end verified build ourselves; treat as community-tested. Experimental providers run sequentially. Auto-failover switches providers when rate-limited. See [Provider Guide](skills/providers.md).
 
@@ -432,7 +431,7 @@ See [benchmarks/](benchmarks/) for methodology.
 
 ![Loki Mode Presentation](docs/loki-mode-presentation.gif)
 
-*11 slides: Problem, Solution, 41 Agents, RARV Cycle, 9 Quality Gates (HumanEval 98.78%), Multi-Provider, Enterprise Hardening (Live App Preview), Full Lifecycle*
+*11 slides: Problem, Solution, 41 Agents, RARV Cycle, 8 Quality Gates (HumanEval 98.78%), Multi-Provider, Enterprise Hardening (Live App Preview), Full Lifecycle*
 
 **[Download PPTX](docs/loki-mode-presentation.pptx)**
 
@@ -446,7 +445,7 @@ See [benchmarks/](benchmarks/) for methodology.
 |------|-----------|---------------------|
 | **Code Gen** | Full-stack apps from PRDs | Complex domain logic may need human review |
 | **Deploy** | Generates configs, Dockerfiles, CI/CD | Does not deploy -- human runs deploy commands |
-| **Testing** | 11 automated quality gates | Test quality depends on AI assertions |
+| **Testing** | 8 automated quality gates | Test quality depends on AI assertions |
 | **Providers** | 5 providers with auto-failover | Non-Claude providers lack parallel agents |
 | **Dashboard** | Real-time single-machine monitoring | No multi-node clustering |
 
@@ -499,3 +498,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 **[Autonomi](https://www.autonomi.dev/)** | **[Documentation](wiki/Home.md)** | **[Changelog](CHANGELOG.md)** | **[Comparisons](references/competitive-analysis.md)**
 
 </div>
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=asklokesh/loki-mode&type=timeline&legend=bottom-right)](https://www.star-history.com/?repos=asklokesh%2Floki-mode&type=timeline&legend=bottom-right)

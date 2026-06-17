@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import subprocess
+import threading
 import time
 from collections import defaultdict
 from dataclasses import asdict
@@ -55,6 +56,11 @@ from . import app_secrets as secrets_mod
 from . import telemetry as _telemetry
 from .control import atomic_write_json, find_skill_dir, is_process_running
 from .activity_logger import get_activity_logger
+from .api_v2 import (
+    TenantContext,
+    _enforce_project_tenant,
+    resolve_tenant_context,
+)
 
 try:
     from . import __version__ as _version
@@ -267,6 +273,7 @@ class ProjectResponse(BaseModel):
     description: Optional[str]
     prd_path: Optional[str]
     status: str
+    tenant_id: int
     created_at: datetime
     updated_at: datetime
     task_count: int = 0
@@ -885,7 +892,7 @@ async def agent_card() -> dict:
         "capabilities": {
             "agents": 41,
             "swarms": 8,
-            "quality_gates": 9,
+            "quality_gates": 8,
             "providers": ["claude", "codex", "cline", "aider"],
             "streaming": True,
             "pushNotifications": False,
@@ -1255,14 +1262,25 @@ async def list_projects(
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> list[ProjectResponse]:
-    """List projects with pagination. Does not eager-load tasks for efficiency."""
+    """List projects with pagination. Does not eager-load tasks for efficiency.
+
+    Tenant isolation (P3-7): a non-admin authenticated caller only sees
+    projects belonging to their declared tenant (X-Loki-Tenant-ID). A global
+    admin and single-user local mode (auth disabled) see all projects.
+    """
     try:
         from sqlalchemy import func as sa_func
 
         query = select(Project)
         if status:
             query = query.where(Project.status == status)
+        if not tenant_ctx.is_global_admin and tenant_ctx.auth_enabled:
+            # Pin to the caller's tenant. A None tenant_id yields no matches,
+            # which is the correct fail-closed behaviour for a scoped caller
+            # that did not declare a tenant.
+            query = query.where(Project.tenant_id == tenant_ctx.tenant_id)
         query = query.order_by(Project.created_at.desc()).offset(offset).limit(limit)
 
         result = await db.execute(query)
@@ -1295,6 +1313,7 @@ async def list_projects(
                     description=project.description,
                     prd_path=project.prd_path,
                     status=project.status,
+                    tenant_id=project.tenant_id,
                     created_at=project.created_at,
                     updated_at=project.updated_at,
                     task_count=total,
@@ -1311,8 +1330,14 @@ async def list_projects(
 async def create_project(
     project: ProjectCreate,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> ProjectResponse:
-    """Create a new project."""
+    """Create a new project.
+
+    Tenant isolation (P3-7): a non-admin caller may only create projects in
+    their own declared tenant; targeting another tenant returns 403.
+    """
+    tenant_ctx.enforce(project.tenant_id)
     # Validate tenant exists
     tenant_result = await db.execute(
         select(Tenant).where(Tenant.id == project.tenant_id)
@@ -1342,6 +1367,7 @@ async def create_project(
         description=db_project.description,
         prd_path=db_project.prd_path,
         status=db_project.status,
+        tenant_id=db_project.tenant_id,
         created_at=db_project.created_at,
         updated_at=db_project.updated_at,
         task_count=0,
@@ -1353,8 +1379,9 @@ async def create_project(
 async def get_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> ProjectResponse:
-    """Get a project by ID."""
+    """Get a project by ID, scoped to the caller's tenant boundary."""
     result = await db.execute(
         select(Project)
         .options(selectinload(Project.tasks))
@@ -1365,6 +1392,8 @@ async def get_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    tenant_ctx.enforce(project.tenant_id)
+
     task_count = len(project.tasks)
     completed_count = len([t for t in project.tasks if t.status == TaskStatus.DONE])
 
@@ -1374,6 +1403,7 @@ async def get_project(
         description=project.description,
         prd_path=project.prd_path,
         status=project.status,
+        tenant_id=project.tenant_id,
         created_at=project.created_at,
         updated_at=project.updated_at,
         task_count=task_count,
@@ -1386,8 +1416,9 @@ async def update_project(
     project_id: int,
     project_update: ProjectUpdate,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> ProjectResponse:
-    """Update a project."""
+    """Update a project, scoped to the caller's tenant boundary."""
     result = await db.execute(
         select(Project)
         .options(selectinload(Project.tasks))
@@ -1397,6 +1428,8 @@ async def update_project(
 
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    tenant_ctx.enforce(project.tenant_id)
 
     update_data = project_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -1420,6 +1453,7 @@ async def update_project(
         description=project.description,
         prd_path=project.prd_path,
         status=project.status,
+        tenant_id=project.tenant_id,
         created_at=project.created_at,
         updated_at=project.updated_at,
         task_count=task_count,
@@ -1432,8 +1466,9 @@ async def delete_project(
     project_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> None:
-    """Delete a project."""
+    """Delete a project, scoped to the caller's tenant boundary."""
     result = await db.execute(
         select(Project).where(Project.id == project_id)
     )
@@ -1441,6 +1476,8 @@ async def delete_project(
 
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    tenant_ctx.enforce(project.tenant_id)
 
     audit.log_event(
         action="delete",
@@ -1702,8 +1739,11 @@ async def list_tasks(
 async def create_task(
     task: TaskCreate,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> TaskResponse:
-    """Create a new task."""
+    """Create a new task, scoped to the caller's tenant boundary."""
+    # Enforce the tenant boundary on the target project (also 404s if missing).
+    await _enforce_project_tenant(db, tenant_ctx, task.project_id)
     # Verify project exists
     result = await db.execute(
         select(Project).where(Project.id == task.project_id)
@@ -1777,8 +1817,9 @@ async def create_task(
 async def get_task(
     task_id: int,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> TaskResponse:
-    """Get a task by ID."""
+    """Get a task by ID, scoped to the caller's tenant boundary."""
     result = await db.execute(
         select(Task).where(Task.id == task_id)
     )
@@ -1786,6 +1827,8 @@ async def get_task(
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    await _enforce_project_tenant(db, tenant_ctx, task.project_id)
 
     return _task_response_from_db(task)
 
@@ -1795,8 +1838,9 @@ async def update_task(
     task_id: int,
     task_update: TaskUpdate,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> TaskResponse:
-    """Update a task."""
+    """Update a task, scoped to the caller's tenant boundary."""
     result = await db.execute(
         select(Task).where(Task.id == task_id)
     )
@@ -1804,6 +1848,8 @@ async def update_task(
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    await _enforce_project_tenant(db, tenant_ctx, task.project_id)
 
     update_data = task_update.model_dump(exclude_unset=True)
 
@@ -1844,8 +1890,9 @@ async def delete_task(
     task_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> None:
-    """Delete a task."""
+    """Delete a task, scoped to the caller's tenant boundary."""
     result = await db.execute(
         select(Task).where(Task.id == task_id)
     )
@@ -1853,6 +1900,8 @@ async def delete_task(
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    await _enforce_project_tenant(db, tenant_ctx, task.project_id)
 
     project_id = task.project_id
 
@@ -1888,8 +1937,12 @@ async def move_task(
     task_id: int,
     move: TaskMove,
     db: AsyncSession = Depends(get_db),
+    tenant_ctx: TenantContext = Depends(resolve_tenant_context),
 ) -> TaskResponse:
-    """Move a task to a new status/position (for Kanban drag-and-drop)."""
+    """Move a task to a new status/position (for Kanban drag-and-drop).
+
+    Scoped to the caller's tenant boundary.
+    """
     result = await db.execute(
         select(Task).where(Task.id == task_id)
     )
@@ -1897,6 +1950,8 @@ async def move_task(
 
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    await _enforce_project_tenant(db, tenant_ctx, task.project_id)
 
     old_status = task.status
 
@@ -3192,6 +3247,121 @@ async def get_audit_summary(days: int = 7):
         )
 
     return audit.get_audit_summary(days=days)
+
+
+# Continuous compliance surface (P3-11).
+#
+# Exposes the agent audit chain's compliance posture as an always-available
+# live endpoint. There is NO background scheduler in this surface (that is
+# infra, out of scope): the report is regenerated from the CURRENT audit
+# state on every request, so the endpoint is "continuous" in the sense that
+# it always reflects live state -- never a stale cached snapshot.
+#
+# The report is produced by the authoritative Node compliance engine
+# (src/audit/index.js, the single source of truth for SOC2/ISO/GDPR control
+# mappings) via its `report` CLI shim, so the Python surface never
+# reimplements (and never drifts from) the mapping logic. The chain it reads
+# is the JS AGENT chain at <project>/.loki/audit/audit.jsonl -- a different
+# chain from the Python dashboard chain that /api/enterprise/audit serves
+# (the two are reconciled by the cross-link verifier, not merged), so this
+# endpoint deliberately does NOT gate on audit.is_audit_enabled() (that flag
+# governs the Python chain). When the agent chain has no entries the report
+# is returned honestly with totalAuditEntries == 0; no fabricated pass.
+_COMPLIANCE_TYPES = ("soc2", "iso27001", "gdpr")
+
+
+@app.get("/api/compliance", dependencies=[Depends(auth.require_scope("audit"))])
+def get_compliance_status(report_type: str = Query("soc2", alias="type")):
+    """Live compliance status for the active project's agent audit chain.
+
+    Auth/tenant scoping: requires the `audit` scope (same gate as the
+    /api/enterprise/audit family). The data is filesystem state scoped to
+    the active project via _get_loki_dir(), exactly like the other
+    .loki-backed read endpoints; there is no DB tenant_id on a JSONL file
+    to enforce against.
+
+    Query: ?type=soc2|iso27001|gdpr (default soc2).
+
+    Returns the compliance report JSON regenerated from CURRENT audit
+    state on every call. If no audit data has been recorded the report is
+    honestly empty (totalAuditEntries == 0), not a fabricated compliant
+    verdict. If the Node engine is unavailable, returns an honest
+    available:false payload (HTTP 200) rather than masquerading as "no
+    compliance".
+    """
+    if not _read_limiter.check("compliance"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    if report_type not in _COMPLIANCE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid type: {report_type}. Must be one of {list(_COMPLIANCE_TYPES)}",
+        )
+
+    import shutil
+
+    # The agent audit chain lives under <project>/.loki/audit; _get_loki_dir()
+    # returns the .loki dir, so the project root is its parent.
+    project_dir = str(_get_loki_dir().parent.resolve())
+    repo_root = _Path(__file__).resolve().parent.parent
+    index_js = repo_root / "src" / "audit" / "index.js"
+
+    node_bin = shutil.which("node")
+    if node_bin is None or not index_js.exists():
+        return {
+            "available": False,
+            "reason": (
+                "Node runtime not found"
+                if node_bin is None
+                else f"compliance engine not found at {index_js}"
+            ),
+            "reportType": report_type,
+            "projectDir": project_dir,
+            "report": None,
+        }
+
+    try:
+        proc = subprocess.run(
+            [node_bin, str(index_js), "report", report_type, project_dir],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "available": False,
+            "reason": f"compliance engine invocation failed: {exc}",
+            "reportType": report_type,
+            "projectDir": project_dir,
+            "report": None,
+        }
+
+    if proc.returncode != 0:
+        return {
+            "available": False,
+            "reason": (proc.stderr or "compliance engine returned non-zero").strip()[:500],
+            "reportType": report_type,
+            "projectDir": project_dir,
+            "report": None,
+        }
+
+    try:
+        report = json.loads(proc.stdout.strip())
+    except json.JSONDecodeError:
+        return {
+            "available": False,
+            "reason": "compliance engine produced non-JSON output",
+            "reportType": report_type,
+            "projectDir": project_dir,
+            "report": None,
+        }
+
+    return {
+        "available": True,
+        "reportType": report_type,
+        "projectDir": project_dir,
+        "report": report,
+    }
 
 
 # =============================================================================
@@ -7177,15 +7347,14 @@ async def remove_checklist_waiver(item_id: str):
 # =============================================================================
 
 _DEFAULT_QUALITY_GATES = [
-    {"name": "Static Analysis", "description": "CodeQL, ESLint, type checking", "status": "pending"},
-    {"name": "Parallel Code Review", "description": "3-reviewer blind review system", "status": "pending"},
-    {"name": "Anti-Sycophancy Check", "description": "Devil's advocate on unanimous approval", "status": "pending"},
-    {"name": "Severity Assessment", "description": "Critical/High/Medium = BLOCK", "status": "pending"},
-    {"name": "Unit Test Coverage", "description": "Target >80% coverage, 100% pass", "status": "pending"},
-    {"name": "Integration Tests", "description": "End-to-end verification", "status": "pending"},
-    {"name": "Security Scan", "description": "Dependency audit, OWASP checks", "status": "pending"},
-    {"name": "Build Verification", "description": "Clean build with no warnings", "status": "pending"},
-    {"name": "Council Vote", "description": "Completion council consensus", "status": "pending"},
+    {"name": "Static Analysis", "description": "CodeQL, ESLint/Pylint, type-checker findings on the diff", "status": "pending"},
+    {"name": "Test Suite", "description": "Project test runner pass/fail (red blocks)", "status": "pending"},
+    {"name": "Blind Code Review", "description": "3-reviewer blind review; Critical/High = BLOCK; Medium/Low advisory", "status": "pending"},
+    {"name": "Anti-Sycophancy", "description": "Devil's Advocate re-review on unanimous PASS", "status": "pending"},
+    {"name": "Mock Integrity", "description": "Tautological-assertion and mock-ratio detection", "status": "pending"},
+    {"name": "Test Mutation", "description": "Assertion-churn (test-fitting) detection", "status": "pending"},
+    {"name": "Documentation Coverage", "description": "README presence, docs freshness, API docs for exported symbols", "status": "pending"},
+    {"name": "Magic Modules Debate", "description": "Spec-vs-implementation debate on generated modules", "status": "pending"},
 ]
 
 
@@ -7431,18 +7600,397 @@ def _reconcile_app_runner_liveness(state):
     return state
 
 
+# =============================================================================
+# Docker-compose app-runner discovery
+#
+# When the autonomous agent brings up a docker-compose stack itself (rather than
+# via autonomy/app-runner.sh), no .loki/app-runner/state.json is written, so the
+# status endpoint reports "not_initialized" / "stopped" even though the app is
+# genuinely running. The discovery helper below inspects the live compose stack
+# for the project directory and synthesizes an equivalent status so the dashboard
+# App Runner panel surfaces the running app and its URL.
+#
+# Safety contract (all mandatory):
+#   - Every docker subprocess.run has an explicit timeout; total work is bounded.
+#   - On ANY error (TimeoutExpired/OSError/SubprocessError/parse failure) the
+#     helper returns None and the caller falls back to its prior behavior. The
+#     handler never raises and never blocks the event loop (it is offloaded via
+#     asyncio.to_thread / run_in_threadpool).
+#   - A short TTL cache prevents the 3s/5s dashboard pollers from spawning
+#     repeated docker invocations.
+#   - A URL is never fabricated for a non-running or non-published container.
+# =============================================================================
+
+# Common host ports a web service typically publishes, in precedence order.
+# Mirrors autonomy/app-runner.sh _identify_compose_web_service (COMMON list).
+_COMPOSE_COMMON_WEB_PORTS = ["3000", "8000", "8080", "5000", "4200", "5173", "80"]
+
+# Per-docker-call timeout (seconds). Several calls run in sequence; keep each
+# tight so total discovery stays bounded well under the poller interval.
+_COMPOSE_DISCOVERY_CMD_TIMEOUT = 3
+
+# TTL (seconds) for the discovery result cache, keyed by resolved project dir.
+# The dashboard polls every 3-5s; a 2.5s TTL collapses a burst of concurrent
+# pollers onto a single docker probe without making the status feel stale.
+_COMPOSE_DISCOVERY_TTL_SECONDS = 2.5
+
+# Cache: {project_dir_str: (expiry_epoch, result_or_None)}. Module-level so it
+# survives across requests. Guarded by a lock because to_thread runs the sync
+# helper on worker threads that can overlap.
+_compose_discovery_cache: dict[str, tuple[float, Optional[dict]]] = {}
+_compose_discovery_lock = threading.Lock()
+
+
+def _parse_docker_json(raw):
+    """Parse docker --format json output into a list of dicts, defensively.
+
+    Docker emits either a single JSON array or newline-delimited JSON (one
+    object per line), and the shape has varied across docker/compose versions.
+    Try a whole-blob parse first; if that fails or does not yield a list, fall
+    back to parsing each non-empty line individually. Returns a list of dicts
+    (possibly empty). Never raises.
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return [x for x in parsed if isinstance(x, dict)]
+        if isinstance(parsed, dict):
+            return [parsed]
+    except (ValueError, TypeError):
+        pass
+    items = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(obj, dict):
+            items.append(obj)
+    return items
+
+
+def _run_docker_json(args, cwd=None):
+    """Run a docker command and return parsed JSON rows, or None on any failure.
+
+    args is the argument list AFTER `docker` (e.g. ["compose", "ps", ...]). Uses
+    an explicit per-call timeout and a list argv (no shell). A non-zero exit,
+    timeout, missing docker binary, or unparseable output all yield None so the
+    caller fails open.
+    """
+    try:
+        proc = subprocess.run(
+            ["docker", *args],
+            capture_output=True,
+            text=True,
+            timeout=_COMPOSE_DISCOVERY_CMD_TIMEOUT,
+            cwd=str(cwd) if cwd else None,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return _parse_docker_json(proc.stdout)
+
+
+def _compose_published_ports(container):
+    """Host ports actually published by a running compose container (compose ps).
+
+    `docker compose ps --format json` exposes published ports under the
+    "Publishers" list, each like {"PublishedPort": 3000, "TargetPort": 3000,
+    "Protocol": "tcp", "URL": "0.0.0.0"}. A PublishedPort of 0 means the port is
+    exposed but not published to the host, so it is filtered out. Returns a list
+    of host port strings, preserving order. Never raises.
+    """
+    out = []
+    pubs = container.get("Publishers")
+    if not isinstance(pubs, list):
+        return out
+    for p in pubs:
+        if not isinstance(p, dict):
+            continue
+        port = p.get("PublishedPort")
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            continue
+        if port > 0:
+            out.append(str(port))
+    return out
+
+
+def _compose_service_labels(svc):
+    """Normalize a compose-config service's labels into a dict. Never raises."""
+    labels = svc.get("labels") or {}
+    if isinstance(labels, dict):
+        return labels
+    if isinstance(labels, list):
+        normalized = {}
+        for item in labels:
+            if isinstance(item, str) and "=" in item:
+                k, v = item.split("=", 1)
+                normalized[k] = v
+        return normalized
+    return {}
+
+
+def _identify_compose_web_service(config_services, running_by_service):
+    """Pick the primary web service and its published host port.
+
+    Mirrors the precedence in autonomy/app-runner.sh:431-481:
+      (1) service labelled loki.primary=true
+      (2) service named web/app
+      (3) service publishing a common web port (3000/8000/8080/5000/4200/5173/80)
+      (4) first service with any published port
+    Declared names/labels come from `docker compose config`; the actual runtime
+    published port comes from the matching RUNNING container (compose ps), since
+    only running, published containers can yield a real URL. Returns
+    (service_name, port_str) or (None, None). Never raises.
+
+    config_services: dict {service_name: service_config_dict} (may be empty).
+    running_by_service: dict {service_name: [published_port_str, ...]} for
+        currently-running containers with at least one published host port.
+    """
+    if not running_by_service:
+        return (None, None)
+
+    # (1) label loki.primary=true (declared in compose config)
+    for name, svc in (config_services or {}).items():
+        if not isinstance(svc, dict):
+            continue
+        labels = _compose_service_labels(svc)
+        if str(labels.get("loki.primary", "")).lower() == "true":
+            ports = running_by_service.get(name)
+            if ports:
+                return (name, ports[0])
+
+    # (2) service named web/app
+    for cand in ("web", "app"):
+        ports = running_by_service.get(cand)
+        if ports:
+            return (cand, ports[0])
+
+    # (3) service publishing a common web port
+    for cp in _COMPOSE_COMMON_WEB_PORTS:
+        for name, ports in running_by_service.items():
+            if cp in ports:
+                return (name, cp)
+
+    # (4) first running service with any published port. Sort for determinism.
+    for name in sorted(running_by_service.keys()):
+        ports = running_by_service[name]
+        if ports:
+            return (name, ports[0])
+
+    return (None, None)
+
+
+def _container_health_state(container):
+    """Classify a running compose container into 'running' | 'starting' | None.
+
+    Reads the container State + Health fields from `docker compose ps`:
+      - State exited/dead/paused/removing -> None (no live URL to surface)
+      - State running + Health healthy or empty (no healthcheck) -> 'running'
+      - State running + Health unhealthy/starting -> 'starting' (still surface
+        the URL: e.g. a Next.js app whose home renders but whose '/' healthcheck
+        fails is reachable and should show as starting, not hidden)
+      - State created/restarting -> 'starting'
+    Returns the status string or None. Never raises.
+    """
+    state = str(container.get("State", "")).lower()
+    health = str(container.get("Health", "")).lower()
+    if state in ("exited", "dead", "paused", "removing"):
+        return None
+    if state == "running":
+        if health in ("", "healthy"):
+            return "running"
+        # unhealthy or starting healthcheck: reachable, treat as starting.
+        return "starting"
+    if state in ("created", "restarting"):
+        return "starting"
+    # Unknown/other states: do not fabricate a running URL.
+    return None
+
+
+def _discover_compose_app_runner_state():
+    """Discover a running docker-compose stack for the active project, or None.
+
+    Returns a synthesized app-runner state dict (source=="discovered") when the
+    project directory hosts a compose file AND a primary web service is running
+    with a published host port. Returns None in every other case (no compose
+    file, docker absent, nothing running, no published web port, only
+    dead/exited containers, or any error). Synchronous and self-contained; the
+    caller offloads it onto a worker thread. Never raises.
+    """
+    try:
+        project_dir = _get_loki_dir().parent.resolve()
+    except Exception:
+        return None
+    cache_key = str(project_dir)
+
+    now = time.monotonic()
+    with _compose_discovery_lock:
+        cached = _compose_discovery_cache.get(cache_key)
+        if cached is not None and cached[0] > now:
+            return cached[1]
+
+    result = _discover_compose_app_runner_state_uncached(project_dir)
+
+    with _compose_discovery_lock:
+        _compose_discovery_cache[cache_key] = (
+            time.monotonic() + _COMPOSE_DISCOVERY_TTL_SECONDS,
+            result,
+        )
+    return result
+
+
+def _discover_compose_app_runner_state_uncached(project_dir):
+    """Uncached body of _discover_compose_app_runner_state. Never raises."""
+    try:
+        # Step A: a compose file must exist in the project dir, else this is a
+        # single-process app and discovery does not apply.
+        compose_names = (
+            "docker-compose.yml", "docker-compose.yaml",
+            "compose.yml", "compose.yaml",
+        )
+        if not any((project_dir / n).is_file() for n in compose_names):
+            return None
+
+        # Step C: running containers for THIS project's compose stack, with the
+        # runtime published ports. Run from the project dir so compose resolves
+        # the right project. (Step B project matching is implicitly handled by
+        # running compose from project_dir; we keep ls/ps from this dir.)
+        ps_rows = _run_docker_json(
+            ["compose", "ps", "--format", "json"], cwd=project_dir
+        )
+        if ps_rows is None:
+            # docker absent / timeout / error -> fail open.
+            return None
+        if not ps_rows:
+            # No containers for this compose project (not up). Nothing to show.
+            return None
+
+        # Map running, published services to their host ports. Track health and
+        # the raw container for the primary so we can classify it precisely.
+        running_by_service = {}
+        container_by_service = {}
+        for c in ps_rows:
+            service = c.get("Service") or c.get("Name")
+            if not service:
+                continue
+            ports = _compose_published_ports(c)
+            if ports:
+                running_by_service.setdefault(service, [])
+                for p in ports:
+                    if p not in running_by_service[service]:
+                        running_by_service[service].append(p)
+                container_by_service.setdefault(service, c)
+        if not running_by_service:
+            # Stack is up but nothing publishes a host port: no surfaceable URL.
+            return None
+
+        # Step D: declared service config (names/labels) for precedence. Best
+        # effort: if config is unavailable we still proceed with ps data alone.
+        config_rows = _run_docker_json(
+            ["compose", "config", "--format", "json"], cwd=project_dir
+        )
+        config_services = {}
+        if config_rows:
+            cfg = config_rows[0]
+            svcs = cfg.get("services")
+            if isinstance(svcs, dict):
+                config_services = svcs
+
+        primary_service, port = _identify_compose_web_service(
+            config_services, running_by_service
+        )
+        if not primary_service or not port:
+            return None
+
+        # Step E health classification, from the primary's running container.
+        primary_container = container_by_service.get(primary_service)
+        if not isinstance(primary_container, dict):
+            return None
+        health_status = _container_health_state(primary_container)
+        if health_status is None:
+            # exited/dead/paused/unknown -> do not fabricate a URL.
+            return None
+
+        # Step B (best effort): record the compose project name for the panel.
+        compose_project = (
+            primary_container.get("Project")
+            or "".join(ch for ch in project_dir.name.lower() if ch.isalnum())
+        )
+
+        health_text = str(primary_container.get("Health", "")).lower()
+        health_ok = health_text in ("", "healthy")
+
+        # Step F: synthesize the state dict using the SAME field names the UI and
+        # app-runner.sh state.json use (status/url/port/method/last_health), plus
+        # discovery-provenance fields the panel safely ignores.
+        return {
+            "status": health_status,
+            "url": "http://localhost:{}".format(port),
+            "port": int(port),
+            "method": "docker compose (detected)",
+            "primary_service": primary_service,
+            "compose_project": compose_project,
+            "source": "discovered",
+            "externally_managed": True,
+            "last_health": {"ok": health_ok},
+        }
+    except Exception:
+        # Fail open on anything unexpected; never break the status endpoint.
+        return None
+
+
 @app.get("/api/app-runner/status")
 async def get_app_runner_status():
-    """Get app runner current status (with dead-run liveness reconciliation)."""
+    """Get app runner current status (with dead-run liveness reconciliation).
+
+    Resolution order:
+      1. state.json present AND reconciles to running/starting -> return it (an
+         app-runner.sh-managed run is authoritative).
+      2. state.json missing OR reconciles to stopped/stale -> attempt
+         docker-compose discovery for stacks the autonomous agent launched
+         itself; if a running stack is found, return the synthesized state
+         (bypassing pid-based liveness reconciliation, which is meaningless for
+         externally-launched containers).
+      3. otherwise return the existing (possibly reconciled / not_initialized)
+         result.
+    Discovery runs on a worker thread so its bounded docker calls never block
+    the event loop.
+    """
     loki_dir = _get_loki_dir()
     state_file = loki_dir / "app-runner" / "state.json"
+
     if not state_file.exists():
+        discovered = await asyncio.to_thread(_discover_compose_app_runner_state)
+        if discovered is not None:
+            return discovered
         return {"status": "not_initialized"}
+
     try:
         state = json.loads(state_file.read_text())
     except (json.JSONDecodeError, OSError):
         return {"status": "error"}
-    return _reconcile_app_runner_liveness(state)
+
+    reconciled = _reconcile_app_runner_liveness(state)
+    if isinstance(reconciled, dict) and reconciled.get("status") in ("running", "starting"):
+        # An app-runner.sh-managed run that is still live is authoritative.
+        return reconciled
+
+    # State is missing-live (stopped/stale/other): the agent may have brought up
+    # a compose stack outside app-runner.sh. Prefer a live discovered stack.
+    discovered = await asyncio.to_thread(_discover_compose_app_runner_state)
+    if discovered is not None:
+        return discovered
+    return reconciled
 
 
 def _get_log_redactor():

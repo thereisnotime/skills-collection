@@ -48,6 +48,21 @@ export async function keylessRequest(
   return json;
 }
 
+export async function keylessGet(path: string): Promise<any> {
+  const apiUrl = (getConfig().apiUrl || DEFAULT_API_URL).replace(/\/$/, '');
+  const response = await fetch(`${apiUrl}${path}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const json: any = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(
+      json?.error || `Firecrawl request failed (HTTP ${response.status})`
+    );
+  }
+  return json;
+}
+
 /**
  * Get or create the Firecrawl client instance
  * Uses global configuration if available, otherwise creates with provided options

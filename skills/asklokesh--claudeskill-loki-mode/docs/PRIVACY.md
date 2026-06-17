@@ -6,14 +6,21 @@ match the code, the code is the bug; please open an issue.
 
 ## Summary
 
-- Loki Mode collects anonymous diagnostics to help find and fix bugs.
-- It NEVER collects your code, prompts, PRDs, file paths, environment values,
-  API keys, repository names, emails, or IP addresses.
-- In this version (crash reporting Phase 0), NOTHING is sent automatically.
-  Crash reports are written to a local directory only, so you can inspect
-  exactly what a future version would send.
-- You can opt out at any time with a single switch. The same switch also
-  disables the existing anonymous usage telemetry described below.
+- Anonymous diagnostics are OPT-IN and OFF by default. A default install sends
+  no telemetry or diagnostics of any kind. This covers a default `npm install`,
+  the CLI (session and command events), the dashboard, and the welcome page
+  form. Air-gapped, GDPR, and FedRAMP deployments are safe out of the box: an
+  untouched install sends us no telemetry or diagnostics. (This statement scopes
+  to telemetry and diagnostics; provider CLIs you configure, such as Claude or
+  Codex, make their own network calls under your own credentials and are
+  governed by their vendors.)
+- When you DO opt in, Loki Mode collects anonymous diagnostics to help find and
+  fix bugs. It NEVER collects your code, prompts, PRDs, file paths, environment
+  values, API keys, repository names, emails, or IP addresses.
+- Crash reporting (Phase 0) is local-only with zero network egress regardless,
+  and is also gated by opt-in, so a default install writes nothing at all.
+- You opt in with a single switch (`loki telemetry on` or `LOKI_TELEMETRY=on`)
+  and can opt back out at any time. Opt-out always wins over opt-in.
 
 ## Two collection paths exist
 
@@ -39,17 +46,35 @@ Phase 0 behavior:
     GitHub issue URL so you can submit it manually if you choose. Loki Mode does
     not submit anything for you in this version.
 
-### 2. Usage telemetry (existing, anonymous)
+### 2. Usage telemetry (anonymous, opt-in)
 
-Loki Mode already ships anonymous usage telemetry via PostHog. This predates the
-crash-reporting feature and is disclosed here for completeness.
+Loki Mode can send anonymous usage telemetry via PostHog, but ONLY after you opt
+in. By default it is OFF and nothing is sent.
 
-- Events: `session_start`, `session_end`, and an install-time event.
-- These are anonymous and gated by the same opt-out described below.
-- They never carry your code, prompts, paths, keys, or repository names.
+- Endpoint: `https://us.i.posthog.com/capture/` (override with
+  `LOKI_TELEMETRY_ENDPOINT`). The PostHog project key is a public ingest key.
+- Events: `install` (on `npm install`), `session_start`, `session_end`,
+  `cli_command`, and `dashboard_start`.
+- Exact payload (every event): `os` (uname system), `arch` (CPU arch),
+  `version` (Loki Mode version), `channel` (npm / docker / homebrew / skill /
+  source), and a random per-machine `distinct_id` (a uuid4 stored in
+  `~/.loki-telemetry-id`, never an email or name). The `install` event also adds
+  `node_version` and `providers_installed` (which provider CLIs were detected,
+  e.g. "claude,codex"). Some events add a small free-of-PII property such as the
+  command name. No code, prompts, paths, keys, repo names, emails, or IPs.
 
-This document and the first-run notice describe BOTH paths. The opt-out is
-unified: one switch disables crash reporting AND usage telemetry together.
+### 3. Welcome page form (anonymous, explicit submit, opt-in)
+
+The `loki welcome` page (`assets/welcome/welcome.html`) shows an optional form.
+It NEVER sends anything on page load and is rendered inert unless you have opted
+in. If you have opted in AND you choose to fill in and submit the form, it sends
+these additional self-reported fields to PostHog: your role, company size, and
+the tools you use, plus the same anonymous `distinct_id`. It still never sends
+your name, email, or IP. In headless / Docker / CI environments there is no
+browser, so this path never runs.
+
+This document and the first-run notice describe ALL paths. The model is unified:
+one opt-in enables them and one opt-out (which always wins) disables them.
 
 ## What is collected (the whitelist)
 
@@ -90,17 +115,46 @@ prompts, briefs, and diffs can never reach the payload even if a redaction rule
 were to miss something. Secrets are additionally scrubbed by the shared redactor
 before whitelisting.
 
-## How to opt out
+## How to opt in (and opt back out)
 
-Any one of the following disables BOTH crash reporting and usage telemetry:
+Collection is OFF by default. To turn it on, use ANY one of:
 
-- Set the environment variable `LOKI_TELEMETRY=off`
+- Run `loki telemetry on` (persists `TELEMETRY_ENABLED=true` to `~/.loki/config`)
+- Set the environment variable `LOKI_TELEMETRY=on` (exact word `on`,
+  case-insensitive; values like `1` or `true` do NOT count as consent)
+
+To opt back out at any time, use ANY one of the following. Opt-out always wins
+over opt-in, so setting one of these guarantees nothing is collected or sent:
+
 - Run `loki telemetry off`
+- Set `LOKI_TELEMETRY=off`
 - Set `DO_NOT_TRACK=1` (the cross-tool community convention)
 - Set `LOKI_TELEMETRY_DISABLED=true`
 
-To re-enable later, run `loki telemetry on` or unset the variables. Once you opt
-out, the first-run notice is never shown again.
+### Precedence (exact)
+
+1. If any opt-out flag is set, collection is OFF (hard kill, always wins).
+2. Else if any opt-in flag is set, collection is ON.
+3. Otherwise (the default), collection is OFF.
+
+### Air-gapped and enterprise deployments
+
+Because collection is opt-in, a default install in an air-gapped, GDPR, or
+FedRAMP environment sends us no telemetry or diagnostics: there is nothing to
+turn off because there is nothing on. To make opting in impossible by accident
+across a fleet, bake `LOKI_TELEMETRY_DISABLED=true` (or `DO_NOT_TRACK=1`) into
+your base image or CI environment; opt-out always wins regardless of any later
+opt-in.
+
+This same gate covers ALL paths: the `npm install` event, CLI session and
+command events, the dashboard event, the welcome form, and local crash capture.
+
+### OpenTelemetry (separate, self-hosted)
+
+`loki telemetry enable [endpoint]` and `LOKI_OTEL_ENDPOINT` configure optional
+OpenTelemetry tracing to an endpoint YOU run. There is no default endpoint, so
+this never egresses to us; it is opt-in by definition and points only where you
+tell it to.
 
 ## Where reports are stored locally
 
@@ -129,12 +183,16 @@ that choice plainly so you can decide whether to opt out.
 
 ## Compliance posture
 
+- Opt-in by default: nothing is collected or sent unless the user explicitly
+  opts in. A default install (including air-gapped) sends us no telemetry or
+  diagnostics.
 - Anonymous by design: no PII is in the whitelist; emails and IP addresses are
-  denied outright.
+  denied outright. The welcome form's role / company-size / tools fields are
+  self-reported and anonymous (no name, email, or IP).
 - Disclosed: this document plus a first-run notice describe collection before
   any egress occurs.
-- Opt-out is persistent and friction-free (see above) and applies to both
-  collection paths.
+- Opt-out is persistent, friction-free, and ALWAYS wins over opt-in. It applies
+  to every collection path.
 - The project id is non-reversible (one-way hash).
 - Deletion: you can delete local reports yourself by removing files under
   `.loki/crash/`.

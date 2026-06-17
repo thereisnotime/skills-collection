@@ -310,6 +310,9 @@ describe("crash: bash/TS fingerprint parity (defect 1)", () => {
     // TS side: drive the exported captureCrash, which uses buildCrashArgs and
     // the shared python scrubber. Stack passed as one argv string with
     // newlines (mirrors the uncaughtException err.stack shape).
+    // Crash capture is opt-in (v7.48.0). This test exercises the capture
+    // MECHANISM on both routes, so it must opt in on both sides.
+    process.env["LOKI_TELEMETRY"] = "on";
     const tsTarget = join(workDir, "ts");
     mkdirSync(tsTarget, { recursive: true });
     const tsStack =
@@ -338,6 +341,7 @@ describe("crash: bash/TS fingerprint parity (defect 1)", () => {
         HOME: join(workDir, "home"),
         TARGET_DIR: bashTarget,
         LOKI_TEST_STACK: bashStack,
+        LOKI_TELEMETRY: "on",
       },
       stdio: "ignore",
     });
@@ -386,10 +390,20 @@ describe("crash: opt-out gates captureCrashSync (defect 3)", () => {
     return probeDir;
   }
 
-  it("writes a crash file on uncaughtException when opt-out is unset (control)", () => {
-    const dir = runProbe({});
+  it("writes a crash file on uncaughtException when opted in (control)", () => {
+    // Crash capture is opt-in (v7.48.0); the positive control must opt in.
+    const dir = runProbe({ LOKI_TELEMETRY: "on" });
     try {
       expect(crashFileCount(dir)).toBeGreaterThanOrEqual(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes NO crash file by default (opt-in required, v7.48.0)", () => {
+    const dir = runProbe({});
+    try {
+      expect(crashFileCount(dir)).toBe(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

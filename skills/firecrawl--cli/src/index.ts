@@ -5,7 +5,7 @@
  * Entry point for the CLI application
  */
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { readFileSync } from 'fs';
 import {
   handleScrapeCommand,
@@ -20,6 +20,13 @@ import { handleMapCommand } from './commands/map';
 import { handleParseCommand } from './commands/parse';
 import { createMonitorCommand } from './commands/monitor';
 import { handleSearchCommand } from './commands/search';
+import {
+  handleInspectPaperCommand,
+  handleReadPaperCommand,
+  handleRelatedPapersCommand,
+  handleSearchGitHubCommand,
+  handleSearchPapersCommand,
+} from './commands/research';
 import {
   handleSearchFeedbackCommand,
   parseValuableSourcesArg,
@@ -61,6 +68,7 @@ import { ensureAuthenticated, printBanner } from './utils/auth';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
+import type { RelatedPapersOptions } from './types/research';
 import type { AgentWebhookConfig } from 'firecrawl';
 import { createCreateCommand } from './commands/create';
 
@@ -68,14 +76,14 @@ import { createCreateCommand } from './commands/create';
 initializeConfig();
 
 // Commands that require authentication.
-// NOTE: `scrape` and `search` are intentionally excluded — they fall back to
-// the keyless free tier (rate-limited per IP) when no API key is configured, so
-// they must not prompt for login. They still use a configured key when present.
+// NOTE: `scrape`, `search`, and `parse` are intentionally excluded — they fall
+// back to the keyless free tier (rate-limited per IP) when no API key is
+// configured, so they must not prompt for login. They still use a configured
+// key when present.
 const AUTH_REQUIRED_COMMANDS = [
   'download',
   'crawl',
   'map',
-  'parse',
   'feedback',
   'search-feedback',
   'agent',
@@ -197,6 +205,22 @@ function parseWebhookOption(
   }
 
   return trimmed;
+}
+
+function parseCommaList(raw: string | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  const values = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return values.length > 0 ? values : undefined;
+}
+
+function researchLimit(options: {
+  limit?: number;
+  k?: number;
+}): number | undefined {
+  return options.k ?? options.limit;
 }
 
 function parseAgentWebhookOption(
@@ -1013,6 +1037,240 @@ function createSearchCommand(): Command {
 }
 
 /**
+ * Create and configure the research command group
+ */
+function createResearchCommand(): Command {
+  const researchCmd = new Command('research')
+    .description('Research arXiv papers and GitHub history using Firecrawl')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ firecrawl research search-papers "diffusion image synthesis" --limit 20
+  $ firecrawl research inspect-paper arxiv:1706.03762
+  $ firecrawl research related-papers arxiv:1706.03762 --intent "efficient transformers"
+  $ firecrawl research read-paper arxiv:1706.03762 --question "What is the attention mechanism?"
+  $ firecrawl research search-github "foundationdb queue worker shutdown" --limit 10
+`
+    );
+
+  researchCmd
+    .command('search-papers')
+    .description(
+      'Primary entry point for finding arXiv papers by topic. Semantic (HyDE) search over arXiv abstracts; returns ranked papers with arXiv id, title, and abstract. The query should be a natural-language description of what you want. Run several distinct framings of the question rather than one query. Returns up to k results (default 40).'
+    )
+    .argument('<query>', 'Natural-language description of the papers to find')
+    .option(
+      '--limit <number>',
+      'Number of results to return (default: 40)',
+      parseInt
+    )
+    .addOption(new Option('--k <number>').argParser(parseInt).hideHelp())
+    .option(
+      '--authors <authors>',
+      'Comma-separated author substring filter(s); all must match case-insensitively'
+    )
+    .option(
+      '--categories <categories>',
+      'Comma-separated arXiv category filter(s), e.g. cs.LG,cs.IR; all must match'
+    )
+    .option(
+      '--from <date>',
+      'Inclusive lower bound on created/updated date (YYYY-MM-DD)'
+    )
+    .option(
+      '--to <date>',
+      'Inclusive upper bound on created/updated date (YYYY-MM-DD)'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .action(async (query, options) => {
+      await handleSearchPapersCommand({
+        query,
+        k: researchLimit(options),
+        authors: parseCommaList(options.authors),
+        categories: parseCommaList(options.categories),
+        from: options.from,
+        to: options.to,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  researchCmd
+    .command('inspect-paper')
+    .description(
+      'Fetch canonical metadata for one paper by primaryId or canonical paperId. Use this after search/related results when you need the full title, abstract, authors, categories, source ids, and dates rendered as markdown.'
+    )
+    .argument(
+      '<paperId>',
+      'Canonical paperId or primaryId such as arxiv:1706.03762, pmcid:PMC12530322, pmid:40953549, or doi:10.1016/j.neunet.2025.108095'
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .action(async (paperId, options) => {
+      await handleInspectPaperCommand({
+        paperId,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  researchCmd
+    .command('related-papers')
+    .description(
+      'Expand from anchor papers you have already found, via the citation graph, ranked and filtered to a natural-language intent. Pass arXiv ids of your strongest hits as seed ids. Modes: similar, citers, references. This reaches relevant papers that plain search misses. A similar call already runs a deep multi-round expansion internally.'
+    )
+    .argument(
+      '<seedIds...>',
+      'Seed paper ids, e.g. arxiv:1706.03762 2014215642691656232'
+    )
+    .requiredOption(
+      '--intent <text>',
+      'Natural-language ranking/filtering intent'
+    )
+    .option(
+      '--mode <mode>',
+      'Similarity mode: similar, citers, references (default: similar)'
+    )
+    .option(
+      '--limit <number>',
+      'Number of results to return (default: 40)',
+      parseInt
+    )
+    .addOption(new Option('--k <number>').argParser(parseInt).hideHelp())
+    .option(
+      '--rerank',
+      'Apply an additional rerank over the fused candidates',
+      false
+    )
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .action(async (seedIds: string[], options) => {
+      const mode = options.mode as RelatedPapersOptions['mode'] | undefined;
+      if (
+        mode !== undefined &&
+        !['similar', 'citers', 'references'].includes(mode)
+      ) {
+        console.error(
+          'Error: Invalid mode. Valid modes are: similar, citers, references'
+        );
+        process.exit(1);
+      }
+      await handleRelatedPapersCommand({
+        seedIds,
+        intent: options.intent,
+        mode,
+        k: researchLimit(options),
+        rerank: options.rerank,
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  researchCmd
+    .command('read-paper')
+    .description(
+      'Read the most relevant in-body full-text passages of one specific paper for a question. Use this to verify whether a candidate actually satisfies a constraint before you include or reject it. Returns the best-matching passages, or a notice if the paper full text is unavailable.'
+    )
+    .argument(
+      '<paperId>',
+      'Canonical paperId or primaryId such as arxiv:1706.03762, pmcid:PMC12530322, pmid:40953549, or doi:10.1016/j.neunet.2025.108095'
+    )
+    .requiredOption(
+      '--question <text>',
+      'Question to answer from the paper body'
+    )
+    .option(
+      '--limit <number>',
+      'Number of passages to return (default: 4)',
+      parseInt
+    )
+    .addOption(new Option('--k <number>').argParser(parseInt).hideHelp())
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .action(async (paperId, options) => {
+      await handleReadPaperCommand({
+        paperId,
+        question: options.question,
+        k: researchLimit(options),
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  researchCmd
+    .command('search-github')
+    .description(
+      'Search GitHub issue/PR history and repository readmes. Returns ranked matches with repo, url, a short snippet, and when available the full matched content in markdown.'
+    )
+    .argument('<query>', 'GitHub history/readme search query')
+    .option(
+      '--limit <number>',
+      'Number of results to return (max: 100)',
+      parseInt
+    )
+    .addOption(new Option('--k <number>').argParser(parseInt).hideHelp())
+    .option(
+      '-k, --api-key <key>',
+      'Firecrawl API key (overrides global --api-key)'
+    )
+    .option('--api-url <url>', 'API URL (overrides global --api-url)')
+    .option('-o, --output <path>', 'Output file path (default: stdout)')
+    .option('--json', 'Output as compact JSON', false)
+    .option('--pretty', 'Pretty print JSON output', false)
+    .action(async (query, options) => {
+      await handleSearchGitHubCommand({
+        query,
+        k: researchLimit(options),
+        apiKey: options.apiKey,
+        apiUrl: options.apiUrl,
+        output: options.output,
+        json: options.json,
+        pretty: options.pretty,
+      });
+    });
+
+  return researchCmd;
+}
+
+/**
  * Create the search-feedback command. Used by agents (CLI, MCP, skills) to
  * report search-result quality after a `firecrawl search` call. The first
  * feedback per search id refunds 1 credit (search costs 2). Re-submitting
@@ -1769,6 +2027,7 @@ program.addCommand(createMapCommand());
 program.addCommand(createParseCommand());
 program.addCommand(createMonitorCommand());
 program.addCommand(createSearchCommand());
+program.addCommand(createResearchCommand());
 program.addCommand(createFeedbackCommand());
 program.addCommand(createSearchFeedbackCommand());
 program.addCommand(createAgentCommand());

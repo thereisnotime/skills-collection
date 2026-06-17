@@ -231,13 +231,16 @@ Claude models support an `effort` parameter that controls reasoning depth withou
 
 **Note:** The effort parameter and thinking prefixes serve different purposes. Effort controls the model's internal reasoning budget; thinking prefixes guide the structure of the response.
 
-### Codex --full-auto Flag
+### Codex --sandbox workspace-write Flag
 
-Codex CLI v0.98.0 supports `--full-auto` as the recommended autonomous mode flag, replacing the verbose `exec --dangerously-bypass-approvals-and-sandbox` invocation:
+Codex CLI deprecated `--full-auto` in v0.125+ (removed from `codex exec --help`,
+emits a deprecation warning if used). The documented replacement is
+`--sandbox workspace-write`. The `exec` subcommand is non-interactive by default
+(approval: never), so the sandbox flag alone keeps the loop autonomous:
 
 ```bash
-# Recommended (v0.98.0+)
-codex --full-auto "$prompt"
+# Recommended (codex 0.125+)
+codex exec --sandbox workspace-write "$prompt"
 
 # Legacy (still supported)
 codex exec --dangerously-bypass-approvals-and-sandbox "$prompt"

@@ -726,8 +726,8 @@ show_help() {
     echo "  help             Show this help ('loki help aliases' for old names)"
     echo ""
     echo "More commands (grill, spec, cleanup, init, watch, demo, web, api,"
-    echo "logs, github, import, council, proof, audit, agent, template, magic,"
-    echo "docs, wiki, ci, test, bench, secrets, telemetry, crash, worktree,"
+    echo "logs, github, import, council, proof, audit, compliance, agent, template,"
+    echo "magic, docs, wiki, ci, test, bench, secrets, telemetry, crash, worktree,"
     echo "failover, monitor, remote, ...) are dispatchable and documented via"
     echo "'loki <command> --help'."
     echo ""
@@ -743,7 +743,7 @@ show_help() {
     echo "  --complex        Force complex complexity tier (8 phases)"
     echo "  --github         Enable GitHub issue import"
     echo "  --no-dashboard   Disable web dashboard"
-    echo "  --sandbox        Run in Docker sandbox for isolation"
+    echo "  --sandbox        Run in Docker sandbox for isolation (default: off; requires Docker)"
     echo "  --skip-memory    Skip loading memory context at startup"
     echo "  --fresh-prd      Regenerate the PRD from the codebase (no-PRD runs; ignores the reusable generated PRD)"
     echo "  --compliance PRESET  Enable compliance mode (default|healthcare|fintech|government)"
@@ -1063,7 +1063,7 @@ cmd_start() {
                 echo "  --github              Enable GitHub issue import"
                 echo "  --no-dashboard        Disable web dashboard"
                 echo "  --api                 Start dashboard API server alongside the build"
-                echo "  --sandbox             Run in Docker sandbox"
+                echo "  --sandbox             Run in Docker sandbox (default: off; requires Docker)"
                 echo "  --skip-memory         Skip loading memory context at startup"
                 echo "  --fresh-prd           Regenerate the PRD from the codebase on a no-PRD run"
                 echo "                        (ignores the reusable generated PRD; aliases: --regen-prd,"
@@ -3785,7 +3785,7 @@ cmd_provider_info() {
             echo "Name:        Codex CLI"
             echo "Vendor:      OpenAI"
             echo "CLI:         codex"
-            echo "Flag:        --full-auto"
+            echo "Flag:        --sandbox workspace-write"
             echo ""
             echo "Features:"
             echo "  - Autonomous mode"
@@ -4494,14 +4494,19 @@ cmd_dashboard_open() {
 
 # Welcome opener (the "magic opener"). Shows a branded welcome page in the
 # browser, or a terminal welcome when no browser is available (headless,
-# Docker, CI). Honors telemetry opt-out (LOKI_TELEMETRY_DISABLED / DO_NOT_TRACK):
-# when opted out, the page is loaded with ?telemetry=off so its form is
-# disabled and no analytics are ever sent.
+# Docker, CI). Analytics are OPT-IN and OFF by default: unless the user has
+# opted in via the unified gate (loki_collection_enabled), the page is loaded
+# with ?telemetry=off so its form is inert and no analytics are ever sent.
 WELCOME_MARKER="${HOME}/.loki/.welcomed"
 
-_loki_telemetry_off() {
-    [ "${LOKI_TELEMETRY_DISABLED:-}" = "true" ] && return 0
-    [ "${DO_NOT_TRACK:-}" = "1" ] && return 0
+# _loki_welcome_analytics_on: true only when the unified opt-in gate is on.
+# Falls back to "off" (no analytics) if the gate function is unavailable, which
+# keeps a default install from ever phoning home.
+_loki_welcome_analytics_on() {
+    if type loki_collection_enabled &>/dev/null; then
+        loki_collection_enabled && return 0
+        return 1
+    fi
     return 1
 }
 
@@ -4522,11 +4527,12 @@ cmd_welcome_terminal() {
     echo -e "  Quick start:  ${BOLD}loki start ./prd.md${NC}"
     echo -e "  Docs:         ${BOLD}https://www.autonomi.dev/docs${NC}"
     echo ""
-    if _loki_telemetry_off; then
-        echo -e "  ${DIM}Analytics are off for this session. Nothing is sent.${NC}"
+    if _loki_welcome_analytics_on; then
+        echo -e "  ${DIM}Anonymous usage analytics are ON (you opted in). We never collect${NC}"
+        echo -e "  ${DIM}prompts, PRDs, or code. Opt out: loki telemetry off${NC}"
     else
-        echo -e "  ${DIM}Anonymous usage analytics help us improve the product. We never${NC}"
-        echo -e "  ${DIM}collect prompts, PRDs, or code. Opt out: LOKI_TELEMETRY_DISABLED=true${NC}"
+        echo -e "  ${DIM}Anonymous analytics are off by default. Nothing is sent unless you${NC}"
+        echo -e "  ${DIM}opt in with: loki telemetry on${NC}"
     fi
     echo ""
 }
@@ -4537,14 +4543,16 @@ cmd_welcome() {
 
     local welcome_file="${SKILL_DIR}/assets/welcome/welcome.html"
 
-    # Build the file URL with params: version, opt-out, and the existing
+    # Build the file URL with params: version, opt-in state, and the existing
     # anonymous telemetry distinct-id (so browser + install share one id).
+    # Analytics are OFF by default: pass telemetry=off (inert form) UNLESS the
+    # user has opted in via the unified gate.
     local q="v=${ver}"
-    if _loki_telemetry_off; then
-        q="${q}&telemetry=off"
-    else
+    if _loki_welcome_analytics_on; then
         local idfile="${HOME}/.loki-telemetry-id"
         [ -f "$idfile" ] && q="${q}&did=$(cat "$idfile" 2>/dev/null | tr -d '[:space:]')"
+    else
+        q="${q}&telemetry=off"
     fi
 
     # Headless / Docker / CI / no-browser: print the terminal welcome only.
@@ -5672,7 +5680,7 @@ cmd_run() {
                 echo "  --simple           Force simple complexity tier"
                 echo "  --complex          Force complex complexity tier"
                 echo "  --no-dashboard     Disable web dashboard"
-                echo "  --sandbox          Run in Docker sandbox"
+                echo "  --sandbox          Run in Docker sandbox (default: off; requires Docker)"
                 echo "  --no-plan          Skip auto-shown PRD analysis at startup"
                 echo "  --budget USD       Set cost budget limit"
                 echo ""
@@ -11633,7 +11641,7 @@ except Exception: pass
                         done; } && phase_exit=0 || phase_exit=$?
                     ;;
                 codex)
-                    (cd "$codebase_path" && codex exec --full-auto "$phase_prompt" 2>&1) || phase_exit=$?
+                    (cd "$codebase_path" && codex exec --sandbox workspace-write "$phase_prompt" 2>&1) || phase_exit=$?
                     ;;
                 cline)
                     (cd "$codebase_path" && cline -y "$phase_prompt" 2>&1) || phase_exit=$?
@@ -11806,7 +11814,7 @@ except Exception: pass
                     done; } && doc_exit=0 || doc_exit=$?
                 ;;
             codex)
-                (cd "$codebase_path" && codex exec --full-auto "$doc_prompt" 2>&1) || doc_exit=$?
+                (cd "$codebase_path" && codex exec --sandbox workspace-write "$doc_prompt" 2>&1) || doc_exit=$?
                 ;;
             cline)
                 (cd "$codebase_path" && cline -y "$doc_prompt" 2>&1) || doc_exit=$?
@@ -12437,7 +12445,7 @@ except Exception: pass
                 done && heal_exit=0 || heal_exit=$?
             ;;
         codex)
-            (cd "$codebase_path" && codex exec --full-auto "$heal_prompt" 2>&1) || heal_exit=$?
+            (cd "$codebase_path" && codex exec --sandbox workspace-write "$heal_prompt" 2>&1) || heal_exit=$?
             ;;
         cline)
             (cd "$codebase_path" && cline -y "$heal_prompt" 2>&1) || heal_exit=$?
@@ -14522,6 +14530,9 @@ main() {
         audit)
             cmd_audit "$@"
             ;;
+        compliance)
+            cmd_compliance "$@"
+            ;;
         review)
             cmd_review "$@"
             ;;
@@ -15845,6 +15856,211 @@ STATE_QUERY_PY
 }
 
 # Agent action audit log and quality scanning
+# Resolve the repo root (where src/audit lives) from the loki script dir.
+# _LOKI_SCRIPT_DIR is autonomy/; the JS audit modules live at ../src/audit.
+_loki_audit_repo_root() {
+    ( cd "$_LOKI_SCRIPT_DIR/.." && pwd )
+}
+
+# Link the run manifest (.loki/loki-run.json) into the agent audit chain for
+# the TARGET project (not the loki repo). Honest no-op when the manifest is
+# absent. Exit 0 on link or honest no-op; exit 1 only on a real error.
+cmd_audit_link_manifest() {
+    local target_dir="${1:-$PWD}"
+    if ! command -v node &>/dev/null; then
+        echo -e "${RED}Error: node is required for 'loki audit link-manifest'${NC}"
+        echo "Install Node.js, then re-run."
+        return 1
+    fi
+    local repo_root
+    repo_root="$(_loki_audit_repo_root)"
+    local abs_target
+    abs_target="$( cd "$target_dir" 2>/dev/null && pwd )" || {
+        echo -e "${RED}Error: project dir not found: $target_dir${NC}"
+        return 1
+    }
+
+    echo -e "${BOLD}Linking run manifest into the audit chain...${NC}"
+    echo "  Project: $abs_target"
+
+    LOKI_AUDIT_MOD="$repo_root/src/audit" LOKI_AUDIT_TARGET="$abs_target" \
+        node -e '
+const audit = require(process.env.LOKI_AUDIT_MOD);
+const res = audit.linkManifest({ projectDir: process.env.LOKI_AUDIT_TARGET });
+if (res.linked) {
+  console.log("  linked: yes");
+  console.log("  manifest: " + res.manifestPath);
+  console.log("  sha256: " + res.manifestSha256);
+  if (res.manifestSchema) console.log("  schema: " + res.manifestSchema);
+  if (res.anchor && typeof res.anchor.seq !== "undefined") console.log("  anchor seq: " + res.anchor.seq);
+} else {
+  console.log("  linked: no (" + (res.reason || "no-op") + ")");
+  console.log("  manifest: " + res.manifestPath);
+}
+' || {
+        echo -e "${RED}Error: manifest link failed${NC}"
+        return 1
+    }
+    return 0
+}
+
+# Verify the run-manifest link for the TARGET project. Honest empty case
+# (no anchor recorded yet) exits 0; a real tamper/integrity failure exits 1.
+cmd_audit_verify_manifest() {
+    local target_dir="${1:-$PWD}"
+    if ! command -v node &>/dev/null; then
+        echo -e "${RED}Error: node is required for 'loki audit verify-manifest'${NC}"
+        echo "Install Node.js, then re-run."
+        return 1
+    fi
+    local repo_root
+    repo_root="$(_loki_audit_repo_root)"
+    local abs_target
+    abs_target="$( cd "$target_dir" 2>/dev/null && pwd )" || {
+        echo -e "${RED}Error: project dir not found: $target_dir${NC}"
+        return 1
+    }
+
+    echo -e "${BOLD}Verifying run-manifest link...${NC}"
+    echo "  Project: $abs_target"
+
+    LOKI_AUDIT_MOD="$repo_root/src/audit" LOKI_AUDIT_TARGET="$abs_target" \
+        node -e '
+const audit = require(process.env.LOKI_AUDIT_MOD);
+const res = audit.verifyManifestLink({ projectDir: process.env.LOKI_AUDIT_TARGET });
+const chainValid = res.chain && res.chain.valid;
+console.log("  chain integrity: " + (chainValid ? "valid" : "INVALID"));
+if (!res.present) {
+  console.log("  manifest link: none recorded yet (no-op)");
+  // Honest empty case: success only if the chain itself is valid.
+  process.exit(chainValid ? 0 : 1);
+}
+const m = res.manifest || {};
+console.log("  manifest: " + (m.manifestPath || "?"));
+console.log("  pinned sha256:  " + (m.pinnedSha256 || "?"));
+console.log("  current sha256: " + (m.currentSha256 || "(absent)"));
+if (res.valid) {
+  console.log("  verdict: VALID (manifest matches anchored hash)");
+  process.exit(0);
+} else {
+  console.log("  verdict: TAMPERED / INVALID");
+  if (m.error) console.log("  reason: " + m.error);
+  process.exit(1);
+}
+'
+    return $?
+}
+
+# loki compliance - periodic compliance snapshot (SOC2 / ISO27001 / GDPR).
+# The scheduler is default-disabled (LOKI_COMPLIANCE_SNAPSHOT_INTERVAL_HOURS
+# unset or 0). `loki compliance snapshot` runs the self-rate-limiting check;
+# `--force` generates a snapshot now regardless of interval/elapsed gate.
+cmd_compliance() {
+    local subcommand="${1:-help}"
+
+    case "$subcommand" in
+        snapshot)
+            shift
+            local force="" target_dir="$PWD"
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --force|-f) force="1"; shift ;;
+                    --help|-h)
+                        echo -e "${BOLD}loki compliance snapshot${NC} - Generate/check a compliance snapshot"
+                        echo ""
+                        echo "Usage: loki compliance snapshot [PROJECT_DIR] [--force]"
+                        echo ""
+                        echo "Without --force, respects the default-disabled interval"
+                        echo "(LOKI_COMPLIANCE_SNAPSHOT_INTERVAL_HOURS). Reports honestly:"
+                        echo "  disabled     interval unset/0 (default)"
+                        echo "  not-elapsed  interval not yet elapsed since last snapshot"
+                        echo "  generated    a new snapshot was written"
+                        echo ""
+                        echo "With --force, a snapshot is generated now regardless."
+                        echo "Snapshots are written to .loki/audit/compliance-snapshots/ in the project dir."
+                        return 0
+                        ;;
+                    -*) echo -e "${RED}Unknown option: $1${NC}"; return 1 ;;
+                    *) target_dir="$1"; shift ;;
+                esac
+            done
+
+            if ! command -v node &>/dev/null; then
+                echo -e "${RED}Error: node is required for 'loki compliance snapshot'${NC}"
+                echo "Install Node.js, then re-run."
+                return 1
+            fi
+            local repo_root
+            repo_root="$(_loki_audit_repo_root)"
+            local abs_target
+            abs_target="$( cd "$target_dir" 2>/dev/null && pwd )" || {
+                echo -e "${RED}Error: project dir not found: $target_dir${NC}"
+                return 1
+            }
+
+            echo -e "${BOLD}Compliance snapshot${NC}"
+            echo "  Project: $abs_target"
+
+            LOKI_SCHED_MOD="$repo_root/src/audit/compliance-scheduler.js" \
+            LOKI_SCHED_TARGET="$abs_target" LOKI_SCHED_FORCE="$force" \
+                node -e '
+const sched = require(process.env.LOKI_SCHED_MOD);
+const target = process.env.LOKI_SCHED_TARGET;
+const force = process.env.LOKI_SCHED_FORCE === "1";
+if (force) {
+  const now = Date.now();
+  const snapshot = sched.buildSnapshot({ projectDir: target, nowMs: now });
+  const file = sched.persistSnapshot({ projectDir: target, snapshot: snapshot, nowMs: now });
+  console.log("  result: generated (forced)");
+  console.log("  path: " + file);
+  console.log("  audit entries: " + snapshot.totalAuditEntries);
+  process.exit(0);
+}
+const res = sched.maybeGenerateSnapshot({ projectDir: target });
+if (res.generated) {
+  console.log("  result: generated");
+  console.log("  path: " + res.path);
+  console.log("  interval (hours): " + res.intervalHours);
+} else if (res.reason === "disabled") {
+  console.log("  result: disabled (scheduler off; default)");
+  console.log("  enable: set LOKI_COMPLIANCE_SNAPSHOT_INTERVAL_HOURS=<N>, or use --force to generate now");
+} else if (res.reason === "not-elapsed") {
+  console.log("  result: not-elapsed (interval not yet reached)");
+  console.log("  interval (hours): " + res.intervalHours);
+  if (res.nextEligibleAtMs) console.log("  next eligible: " + new Date(res.nextEligibleAtMs).toISOString());
+  console.log("  override: use --force to generate now");
+} else {
+  console.log("  result: " + (res.reason || "no-op"));
+}
+process.exit(0);
+' || {
+                echo -e "${RED}Error: compliance snapshot failed${NC}"
+                return 1
+            }
+            return 0
+            ;;
+        --help|-h|help)
+            echo -e "${BOLD}loki compliance${NC} - Periodic compliance snapshots"
+            echo ""
+            echo "Usage: loki compliance <subcommand> [options]"
+            echo ""
+            echo "Subcommands:"
+            echo "  snapshot [DIR] [--force]   Generate/check a compliance snapshot"
+            echo "  help                       Show this help"
+            echo ""
+            echo "The compliance scheduler is default-disabled. A snapshot bundles the"
+            echo "SOC2, ISO27001 and GDPR reports plus the audit chain-integrity verdict"
+            echo "into .loki/audit/compliance-snapshots/. Enable periodic generation by setting"
+            echo "LOKI_COMPLIANCE_SNAPSHOT_INTERVAL_HOURS, or run with --force on demand."
+            ;;
+        *)
+            echo -e "${RED}Unknown compliance subcommand: $subcommand${NC}"
+            echo "Run 'loki compliance help' for usage."
+            exit 1
+            ;;
+    esac
+}
+
 cmd_audit() {
     local subcommand="${1:-help}"
     local audit_file="$LOKI_DIR/logs/agent-audit.jsonl"
@@ -16135,27 +16351,55 @@ print()
                 echo -e "${RED}Test coverage gate FAILED${NC}"
                 return 1
             else
-                echo -e "${GREEN}Tests passed (min coverage: ${min_coverage}%)${NC}"
+                echo -e "${GREEN}Tests passed (min coverage TARGET, not measured: ${min_coverage}%)${NC}"
                 return 0
             fi
             ;;
 
+        link-manifest)
+            # Fold the run manifest (.loki/loki-run.json bill-of-materials) into
+            # the agent audit chain so it becomes tamper-evident and verifiable
+            # against the evidence chain. Explicit, on-demand command: cmd_start
+            # execs run.sh and replaces the loki process, so there is no
+            # post-completion return point in this CLI wrapper to auto-invoke
+            # from. Honest no-op (exit 0) when the manifest is absent.
+            shift
+            local target_dir="${1:-$PWD}"
+            cmd_audit_link_manifest "$target_dir"
+            ;;
+        verify-manifest)
+            # Verify the run-manifest link: agent chain integrity AND the on-disk
+            # manifest still matching the hash pinned by the most recent
+            # manifest-link anchor. Honest empty case (exit 0) when no anchor was
+            # recorded yet; nonzero only on a real tamper/integrity failure.
+            shift
+            local target_dir="${1:-$PWD}"
+            cmd_audit_verify_manifest "$target_dir"
+            ;;
         --help|-h|help)
             echo -e "${BOLD}loki audit${NC} - Agent audit log and quality scanning"
             echo ""
             echo "Usage: loki audit <subcommand> [options]"
             echo ""
             echo "Subcommands:"
-            echo "  log [N]     Show last N audit log entries (default: 50)"
-            echo "  count       Count actions by type"
-            echo "  scan        Run quality scan against dashboard API"
-            echo "  lint        Run static analysis on project files"
-            echo "  test        Run test coverage check"
-            echo "  help        Show this help"
+            echo "  log [N]            Show last N audit log entries (default: 50)"
+            echo "  count              Count actions by type"
+            echo "  scan               Run quality scan against dashboard API"
+            echo "  lint               Run static analysis on project files"
+            echo "  test               Run test coverage check"
+            echo "  link-manifest [P]  Link the run manifest into the audit chain (tamper-evidence)"
+            echo "  verify-manifest [P] Verify the run-manifest link against the evidence chain"
+            echo "  help               Show this help"
             echo ""
             echo "Quality Scan Options (loki audit scan):"
             echo "  --preset NAME   Compliance preset (default|healthcare|fintech|government)"
             echo "  --export        Save report to .loki/quality/report-{date}.json"
+            echo ""
+            echo "Manifest tamper-evidence (loki audit link-manifest / verify-manifest):"
+            echo "  Hashes .loki/loki-run.json (the build bill-of-materials) into the"
+            echo "  agent audit chain. link-manifest no-ops honestly if the manifest is"
+            echo "  absent; verify-manifest reports honestly if no anchor exists yet."
+            echo "  Optional [P] is the project dir (default: current directory)."
             echo ""
             echo "The agent audit log records actions taken during Loki sessions,"
             echo "including CLI invocations, git commits, and session lifecycle events."
@@ -19742,12 +19986,13 @@ try {
 
             # Unified collection state (PostHog usage telemetry + crash reporting).
             # loki_collection_enabled is the single source of truth (crash.sh).
+            # Collection is OPT-IN: OFF by default, enabled only after opt-in.
             echo ""
             if type loki_collection_enabled &>/dev/null; then
                 if loki_collection_enabled; then
-                    echo -e "  Collection: ${GREEN}enabled${NC} (anonymous diagnostics; turn off with: loki telemetry off)"
+                    echo -e "  Collection: ${GREEN}enabled${NC} (you opted in; anonymous diagnostics; opt out with: loki telemetry off)"
                 else
-                    echo -e "  Collection: ${YELLOW}disabled${NC} (re-enable with: loki telemetry on)"
+                    echo -e "  Collection: ${YELLOW}off by default${NC} (nothing sent; opt in with: loki telemetry on)"
                 fi
             fi
 
@@ -19828,13 +20073,17 @@ TELEM_DISABLE_PY
         stop|off)
             # Persistent opt-out across all sessions. This is the unified
             # opt-out: it gates BOTH PostHog usage telemetry AND crash reporting.
+            # Collection is opt-in (off by default), so this is mainly belt and
+            # suspenders for users who previously opted in: it removes the
+            # positive consent marker AND writes a hard opt-out that always wins.
             local global_config="${HOME}/.loki/config"
             mkdir -p "${HOME}/.loki"
 
-            # Remove existing TELEMETRY_DISABLED line if present, then add
-            # (idempotent).
+            # Remove existing TELEMETRY_ENABLED and TELEMETRY_DISABLED lines so we
+            # never end up with both, then add the opt-out (idempotent).
             if [ -f "$global_config" ]; then
-                grep -v "^TELEMETRY_DISABLED=" "$global_config" > "${global_config}.tmp" 2>/dev/null || true
+                grep -v "^TELEMETRY_ENABLED=" "$global_config" \
+                    | grep -v "^TELEMETRY_DISABLED=" > "${global_config}.tmp" 2>/dev/null || true
                 mv "${global_config}.tmp" "$global_config"
             fi
             echo "TELEMETRY_DISABLED=true" >> "$global_config"
@@ -19843,20 +20092,27 @@ TELEM_DISABLE_PY
             echo ""
             echo "  Opt-out saved to: $global_config"
             echo "  This persists across all sessions and new runs."
-            echo "  Run 'loki telemetry on' to re-enable."
+            echo "  Run 'loki telemetry on' to opt back in."
             ;;
 
         start|on)
-            # Remove persistent opt-out
+            # Persistent OPT-IN across all sessions. Collection is off by default;
+            # this records explicit consent that the unified gate reads. Remove any
+            # prior opt-out and the old marker, then write the positive consent.
             local global_config="${HOME}/.loki/config"
+            mkdir -p "${HOME}/.loki"
             if [ -f "$global_config" ]; then
-                grep -v "^TELEMETRY_DISABLED=" "$global_config" > "${global_config}.tmp" 2>/dev/null || true
+                grep -v "^TELEMETRY_ENABLED=" "$global_config" \
+                    | grep -v "^TELEMETRY_DISABLED=" > "${global_config}.tmp" 2>/dev/null || true
                 mv "${global_config}.tmp" "$global_config"
             fi
+            echo "TELEMETRY_ENABLED=true" >> "$global_config"
 
-            echo -e "${BOLD}Telemetry and crash reporting re-enabled${NC}"
+            echo -e "${BOLD}Telemetry and crash reporting enabled${NC}"
             echo ""
-            echo "  Anonymous diagnostics collection is on again."
+            echo "  Opt-in saved to: $global_config"
+            echo "  Anonymous diagnostics collection is now ON for this user."
+            echo "  Run 'loki telemetry off' to opt back out at any time."
             echo "  OTEL tracing can be configured with 'loki telemetry enable [endpoint]'."
             ;;
 
@@ -19869,10 +20125,13 @@ TELEM_DISABLE_PY
             echo "  status              Show OTEL config + collection state + pending crash reports"
             echo "  enable [endpoint]   Enable OTEL (default: http://localhost:4318)"
             echo "  disable             Disable OTEL for current project"
+            echo "  on                  Opt in to anonymous diagnostics (off by default)"
             echo "  off                 Opt out of all anonymous diagnostics (telemetry + crash)"
-            echo "  on                  Re-enable anonymous diagnostics"
-            echo "  stop                Alias for 'off' (permanent opt-out across all sessions)"
-            echo "  start               Alias for 'on' (remove persistent opt-out)"
+            echo "  start               Alias for 'on' (persistent opt-in across all sessions)"
+            echo "  stop                Alias for 'off' (persistent opt-out across all sessions)"
+            echo ""
+            echo "Anonymous diagnostics are OFF by default. Nothing is collected or"
+            echo "sent unless you opt in. See docs/PRIVACY.md for the full disclosure."
             echo ""
             ;;
         *)
@@ -22046,7 +22305,7 @@ USER TASK: ${prompt}"
                     claude -p "$full_prompt" 2>&1 || agent_exit=$?
                     ;;
                 codex)
-                    codex exec --full-auto "$full_prompt" 2>&1 || agent_exit=$?
+                    codex exec --sandbox workspace-write "$full_prompt" 2>&1 || agent_exit=$?
                     ;;
                 cline)
                     cline -y "$full_prompt" 2>&1 || agent_exit=$?
@@ -22177,7 +22436,7 @@ $diff"
 
             case "$provider" in
                 claude)  claude -p "$review_prompt" 2>&1 ;;
-                codex)   codex exec --full-auto "$review_prompt" 2>&1 ;;
+                codex)   codex exec --sandbox workspace-write "$review_prompt" 2>&1 ;;
                 cline)   cline -y "$review_prompt" 2>&1 ;;
                 *)       echo -e "${RED}Unknown provider: $provider${NC}"; return 1 ;;
             esac
@@ -23847,7 +24106,7 @@ _docs_invoke_provider() {
             result=$($t_prefix env CAVEMAN_DEFAULT_MODE=off claude -p "$prompt" 2>/dev/null) || exit_code=$?
             ;;
         codex)
-            result=$($t_prefix codex exec --full-auto "$prompt" 2>/dev/null) || exit_code=$?
+            result=$($t_prefix codex exec --sandbox workspace-write "$prompt" 2>/dev/null) || exit_code=$?
             ;;
         cline)
             result=$($t_prefix cline -y "$prompt" 2>/dev/null) || exit_code=$?
@@ -27527,7 +27786,7 @@ if test_results:
     test_lines.append(f"Passed: {test_results.get('pass', 'unknown')}")
     test_lines.append(f"Timestamp: {test_results.get('timestamp', 'unknown')}")
     if test_results.get("min_coverage"):
-        test_lines.append(f"Min coverage target: {test_results['min_coverage']}%")
+        test_lines.append(f"Min coverage TARGET (not measured): {test_results['min_coverage']}%")
 else:
     test_lines.append("No test result data recorded")
 sections.append(("Tests", test_lines))
