@@ -1,6 +1,9 @@
 {
   "kobiton:sessionName": "<%= sessionName %>",
   "kobiton:sessionDescription": "<%= sessionDescription %>",
+<% if (aiToolName) { %>
+  "kobiton:aiToolName": "<%= aiToolName %>",
+<% } %>
 <% if (orientation) { %>
   "kobiton:deviceOrientation": "<%= orientation %>",
 <% } %>
@@ -11,6 +14,12 @@
 <% } %>
 <% if (automationName) { %>
   "appium:automationName": "<%= automationName %>",
+<% } %>
+<% if (newCommandTimeout) { %>
+  "appium:newCommandTimeout": <%= newCommandTimeout %>,
+<% } %>
+<% if (scriptlessCapture) { %>
+  "kobiton:scriptlessCapture": true,
 <% } %>
 <% if (testingType === 'web') { %>
   "browserName": "<%= browser %>",

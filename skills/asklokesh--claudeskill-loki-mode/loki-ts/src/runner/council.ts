@@ -225,6 +225,15 @@ const heuristicVoter = (role: string): Voter => async (cec) => {
         }
       }
     } catch (err) {
+      // M4 (W4 bug-hunt): a CORRUPT failure ledger must fail toward the SAFE
+      // direction for a COMPLETION gate. Previously this catch logged and fell
+      // through to APPROVE ("no blocking signals"), which means "we cannot read
+      // the failure ledger" was treated as "there are no failures" -- the unsafe
+      // direction. We now return CANNOT_VALIDATE so the council cannot declare
+      // the work COMPLETE while a failure record exists but is unreadable.
+      // Note: the existsSync() guard above already distinguishes "file missing"
+      // (legit -> no failures -> APPROVE) from "file exists but unparseable"
+      // (-> unsafe -> CANNOT_VALIDATE here).
       const msg = `council heuristic voter: failed to parse ${failedFile}: ${(err as Error).message}`;
       const log = (cec.ctx as Partial<RunnerContext>).log;
       if (typeof log === "function") {
@@ -232,6 +241,12 @@ const heuristicVoter = (role: string): Voter => async (cec) => {
       } else {
         console.warn(msg);
       }
+      return {
+        role,
+        verdict: "CANNOT_VALIDATE",
+        reason: `heuristic: failure ledger present but unreadable (${failedFile}); cannot confirm completion`,
+        issues: [],
+      };
     }
   }
   if (issues.length > 0) {
@@ -365,7 +380,15 @@ export async function councilDevilsAdvocate(
         issues.push({ severity: "HIGH", description: `${failed.length} tasks in failed queue` });
       }
     } catch {
-      // ignore
+      // M4 (W4 bug-hunt): a corrupt failure ledger must NOT be swallowed here.
+      // The DA scan collects issues and returns REJECT when any are present, so
+      // pushing a HIGH issue when failed.json exists but is unparseable flips the
+      // unanimous COMPLETE to CONTINUE (the safe direction) instead of silently
+      // upholding it. existsSync() above already gates this to "file present".
+      issues.push({
+        severity: "HIGH",
+        description: "cannot read failure ledger (corrupt failed.json)",
+      });
     }
   }
 
@@ -511,7 +534,14 @@ export async function councilEvaluate(cec: CouncilEvaluateContext): Promise<Aggr
     // loop. On ANY dispatch failure (no provider, malformed reply, non-zero
     // exit) we degrade to the deterministic file-scan councilDevilsAdvocate so
     // anti-sycophancy is never silently dropped (a bare uphold would defeat the
-    // gate). We NEVER hang: dispatch throws -> caught -> scan path.
+    // gate). Liveness guarantee (H6, W4 bug-hunt): the dispatch is bounded by a
+    // hard timeout (LOKI_COUNCIL_TIMEOUT_MS, default 600000ms) applied at BOTH
+    // the dispatch race (voter_agents.dispatch*) AND inside defaultClaudeRunner
+    // (which kills the child). A hung child therefore rejects the dispatch
+    // promise -> caught here -> deterministic scan path. The previous comment
+    // ("we NEVER hang: dispatch throws") was FALSE before the timeout existed:
+    // a child that never exits made `await proc.exited` never resolve, so the
+    // try/catch (which only catches throws / non-zero exits) never fired.
     const shouldTryLlmDa =
       cec.voters === undefined &&
       (cec.claudeRunner !== undefined ||

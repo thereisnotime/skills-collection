@@ -8,11 +8,13 @@ incremental codebase migrations with checkpoint/rollback support.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import json
 import logging
 import os
 import re
+import secrets
 import subprocess
 import tempfile
 import threading
@@ -20,6 +22,13 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+try:
+    import fcntl  # POSIX only (macOS + Linux). Absent on Windows.
+    _HAS_FCNTL = True
+except ImportError:  # pragma: no cover - non-POSIX fallback
+    fcntl = None  # type: ignore[assignment]
+    _HAS_FCNTL = False
 
 logger = logging.getLogger("loki-migration")
 
@@ -172,6 +181,45 @@ def _timestamp_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+@contextlib.contextmanager
+def _manifest_file_lock(migration_dir: Path):
+    """Cross-process advisory lock around a migration's manifest read-modify-write.
+
+    Uses an OS file lock (fcntl.flock LOCK_EX) on a dedicated lockfile inside
+    the migration directory. A fresh file descriptor is opened on every
+    acquisition: flock keys on the open file description, so distinct fds let
+    the kernel serialize even threads in the same process (the FastAPI sync
+    threadpool deployment) AND separate processes (the server vs. the
+    `loki migrate` CLI), which a per-instance threading.Lock cannot do.
+
+    Only the OUTERMOST read-modify-write entry point should take this lock.
+    Nesting two flock-wrapped calls in the same thread would self-deadlock
+    (two fds, the second LOCK_EX blocks on the first), so locked writers must
+    call the _unlocked internals and never re-enter a flock-wrapped method.
+
+    On non-POSIX platforms (no fcntl) this degrades to a no-op: the caller's
+    in-process threading.Lock still serializes threads in the same process,
+    but cross-process exclusion is NOT available. This is an accepted residual
+    on Windows only.
+    """
+    migration_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = migration_dir / "manifest.json.lock"
+    if not _HAS_FCNTL:
+        # Graceful degrade: no OS lock available. In-process callers still rely
+        # on their threading.Lock; cross-process safety is unavailable here.
+        yield
+        return
+    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
 # ---------------------------------------------------------------------------
 # MigrationPipeline
 # ---------------------------------------------------------------------------
@@ -181,7 +229,17 @@ class MigrationPipeline:
     """Manages the lifecycle of a codebase migration.
 
     All state is persisted under ~/.loki/migrations/<migration_id>/.
-    Thread-safe for concurrent manifest reads and writes.
+
+    Concurrency: manifest read-modify-write operations (start_phase,
+    advance_phase, save_manifest, update_progress, create_checkpoint) are
+    serialized across BOTH threads and processes by an OS file lock
+    (see _manifest_file_lock) keyed on the migration directory. This holds
+    for the FastAPI sync-endpoint threadpool (each request builds a fresh
+    pipeline via load(), so per-instance threading.Lock alone would not
+    serialize them) and for the separate `loki migrate` CLI process running
+    concurrently with the server. Pure reads use the per-instance lock only.
+    On non-POSIX platforms (no fcntl) the file lock degrades to a no-op and
+    only in-process serialization remains (see _manifest_file_lock).
     """
 
     def __init__(
@@ -207,7 +265,18 @@ class MigrationPipeline:
         (self.migration_dir / "checkpoints").mkdir(exist_ok=True)
 
     def _generate_migration_id(self) -> str:
-        """Generate a unique migration ID like mig_20260223_143052_<dirname>."""
+        """Generate a unique migration ID like mig_20260223_143052_<dirname>-a1b2c3.
+
+        The trailing 6-hex-char random suffix prevents collisions when two
+        migrations of the same path-basename start in the same second (the
+        date_str/time_str are second-resolution). Without it, the two would
+        derive the same id and the second create_manifest would overwrite the
+        first (the server rate-limiter throttles same-second server starts, but
+        the CLI bypasses it). The suffix is appended WITHIN the trailing name
+        segment (hyphen-joined), so the load() validation regex
+        ^mig_\\d{8}_\\d{6}_[a-zA-Z0-9_-]+$ still matches without modification
+        (its trailing group already permits letters, digits, hyphens).
+        """
         dirname = os.path.basename(self.codebase_path)
         # Sanitize dirname to match validation regex
         safe_dirname = re.sub(r'[^a-zA-Z0-9_-]', '_', dirname)
@@ -216,7 +285,8 @@ class MigrationPipeline:
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y%m%d")
         time_str = now.strftime("%H%M%S")
-        return f"mig_{date_str}_{time_str}_{safe_dirname}"
+        suffix = secrets.token_hex(3)  # 6 hex chars, within [a-zA-Z0-9_-]+
+        return f"mig_{date_str}_{time_str}_{safe_dirname}-{suffix}"
 
     @classmethod
     def load(cls, migration_id: str) -> 'MigrationPipeline':
@@ -303,9 +373,15 @@ class MigrationPipeline:
             return self._load_manifest_unlocked()
 
     def save_manifest(self, manifest: MigrationManifest) -> None:
-        """Persist manifest to disk atomically."""
-        with self._lock:
-            self._save_manifest_unlocked(manifest)
+        """Persist manifest to disk atomically.
+
+        Outermost RMW writer: takes the cross-process file lock so a concurrent
+        save in another thread/process cannot interleave. (create_manifest calls
+        through here, so it is covered without taking the lock itself.)
+        """
+        with _manifest_file_lock(self.migration_dir):
+            with self._lock:
+                self._save_manifest_unlocked(manifest)
 
     # -- Phase gate logic ----------------------------------------------------
 
@@ -325,17 +401,21 @@ class MigrationPipeline:
         """
         if phase not in PHASE_ORDER:
             raise ValueError(f"Unknown phase: {phase}")
-        with self._lock:
-            manifest = self._load_manifest_unlocked()
-            if phase not in manifest.phases:
-                manifest.phases[phase] = {"status": "pending", "started_at": "", "completed_at": ""}
-            current_status = manifest.phases[phase].get("status", "pending")
-            if current_status == "in_progress":
-                return  # Already started, idempotent
-            manifest.phases[phase]["status"] = "in_progress"
-            manifest.phases[phase]["started_at"] = datetime.now(timezone.utc).isoformat()
-            manifest.phases[phase]["completed_at"] = ""
-            self._save_manifest_unlocked(manifest)
+        # Outermost RMW: file lock serializes across processes/threads; the
+        # inner threading.Lock guards instance-local state. Uses _unlocked
+        # internals only, so no flock-wrapped method is re-entered (no deadlock).
+        with _manifest_file_lock(self.migration_dir):
+            with self._lock:
+                manifest = self._load_manifest_unlocked()
+                if phase not in manifest.phases:
+                    manifest.phases[phase] = {"status": "pending", "started_at": "", "completed_at": ""}
+                current_status = manifest.phases[phase].get("status", "pending")
+                if current_status == "in_progress":
+                    return  # Already started, idempotent
+                manifest.phases[phase]["status"] = "in_progress"
+                manifest.phases[phase]["started_at"] = datetime.now(timezone.utc).isoformat()
+                manifest.phases[phase]["completed_at"] = ""
+                self._save_manifest_unlocked(manifest)
 
     def _check_phase_gate_unlocked(self, from_phase: str, to_phase: str) -> tuple[bool, str]:
         """Validate phase transition (caller must hold self._lock or ensure safety).
@@ -434,37 +514,42 @@ class MigrationPipeline:
         phase_idx = PHASE_ORDER.index(phase)
         next_phase = PHASE_ORDER[phase_idx + 1] if phase_idx + 1 < len(PHASE_ORDER) else None
 
-        with self._lock:
-            # Enforce phase gate if there is a next phase (inside lock for consistency)
-            if next_phase is not None:
-                allowed, reason = self._check_phase_gate_unlocked(phase, next_phase)
-                if not allowed:
-                    raise RuntimeError(f"Phase gate failed: {reason}")
+        # Outermost RMW: file lock makes the gate-check + status-check +
+        # write a single critical section across processes/threads, so two
+        # concurrent advances cannot both read in_progress and both write.
+        # Calls _unlocked internals only (no flock-wrapped re-entry).
+        with _manifest_file_lock(self.migration_dir):
+            with self._lock:
+                # Enforce phase gate if there is a next phase (inside lock for consistency)
+                if next_phase is not None:
+                    allowed, reason = self._check_phase_gate_unlocked(phase, next_phase)
+                    if not allowed:
+                        raise RuntimeError(f"Phase gate failed: {reason}")
 
-            manifest = self._load_manifest_unlocked()
-            now = _timestamp_iso()
+                manifest = self._load_manifest_unlocked()
+                now = _timestamp_iso()
 
-            # Verify current phase is in_progress before advancing
-            if phase in manifest.phases:
-                current_status = manifest.phases[phase].get("status", "pending")
-                if current_status != "in_progress":
-                    raise RuntimeError(
-                        f"Cannot advance phase '{phase}': status is '{current_status}', expected 'in_progress'"
-                    )
+                # Verify current phase is in_progress before advancing
+                if phase in manifest.phases:
+                    current_status = manifest.phases[phase].get("status", "pending")
+                    if current_status != "in_progress":
+                        raise RuntimeError(
+                            f"Cannot advance phase '{phase}': status is '{current_status}', expected 'in_progress'"
+                        )
 
-            # Mark current phase completed
-            if phase in manifest.phases:
-                manifest.phases[phase]["status"] = "completed"
-                manifest.phases[phase]["completed_at"] = now
+                # Mark current phase completed
+                if phase in manifest.phases:
+                    manifest.phases[phase]["status"] = "completed"
+                    manifest.phases[phase]["completed_at"] = now
 
-            # Start next phase if there is one
-            if next_phase is not None:
-                if next_phase not in manifest.phases:
-                    manifest.phases[next_phase] = {"status": "pending", "started_at": "", "completed_at": ""}
-                manifest.phases[next_phase]["status"] = "in_progress"
-                manifest.phases[next_phase]["started_at"] = now
+                # Start next phase if there is one
+                if next_phase is not None:
+                    if next_phase not in manifest.phases:
+                        manifest.phases[next_phase] = {"status": "pending", "started_at": "", "completed_at": ""}
+                    manifest.phases[next_phase]["status"] = "in_progress"
+                    manifest.phases[next_phase]["started_at"] = now
 
-            self._save_manifest_unlocked(manifest)
+                self._save_manifest_unlocked(manifest)
 
         result = PhaseResult(
             phase=phase,
@@ -598,12 +683,15 @@ class MigrationPipeline:
             logger.error("Failed to create checkpoint tag %s: %s", tag_name, exc.stderr)
             raise RuntimeError(f"Git tag creation failed: {exc.stderr}") from exc
 
-        # Record in manifest (hold lock for entire read-modify-write)
+        # Record in manifest (hold file lock + instance lock for the entire
+        # read-modify-write so a concurrent advance/start_phase/checkpoint in
+        # another process or thread cannot clobber the appended checkpoint).
         try:
-            with self._lock:
-                manifest = self._load_manifest_unlocked()
-                manifest.checkpoints.append(tag_name)
-                self._save_manifest_unlocked(manifest)
+            with _manifest_file_lock(self.migration_dir):
+                with self._lock:
+                    manifest = self._load_manifest_unlocked()
+                    manifest.checkpoints.append(tag_name)
+                    self._save_manifest_unlocked(manifest)
         except Exception:
             # Bug 9: rollback git tag if manifest save fails
             logger.error("Manifest save failed after git tag creation; deleting tag %s", tag_name)
@@ -855,47 +943,52 @@ class MigrationPipeline:
         Each entry records what happened so the next agent can orient quickly.
         """
         progress_path = Path(self.migration_dir) / "progress.md"
-        manifest = self.load_manifest()
+        # Outermost RMW on progress.md: serialize the read-append-write across
+        # processes/threads so concurrent agent sessions cannot lose each
+        # other's entries. load_manifest() inside takes only self._lock (a read,
+        # no file lock), so this does not re-enter the file lock (no deadlock).
+        with _manifest_file_lock(self.migration_dir):
+            manifest = self.load_manifest()
 
-        # Determine current phase
-        current_phase = "pending"
-        for phase in PHASE_ORDER:
-            status = manifest.phases.get(phase, {}).get("status", "pending")
-            if status == "in_progress":
-                current_phase = phase
-                break
-            elif status == "completed":
-                current_phase = phase
+            # Determine current phase
+            current_phase = "pending"
+            for phase in PHASE_ORDER:
+                status = manifest.phases.get(phase, {}).get("status", "pending")
+                if status == "in_progress":
+                    current_phase = phase
+                    break
+                elif status == "completed":
+                    current_phase = phase
 
-        entry = f"""
+            entry = f"""
 ## Session: {_timestamp_iso()}
 Agent: {agent_id}
 Phase: {current_phase}
 Summary: {summary}
 """
-        if details:
-            if details.get("steps_completed"):
-                entry += f"Steps completed: {details['steps_completed']}\n"
-            if details.get("tests_passing"):
-                entry += f"Tests: {details['tests_passing']}\n"
-            if details.get("notes"):
-                entry += f"Notes: {details['notes']}\n"
+            if details:
+                if details.get("steps_completed"):
+                    entry += f"Steps completed: {details['steps_completed']}\n"
+                if details.get("tests_passing"):
+                    entry += f"Tests: {details['tests_passing']}\n"
+                if details.get("notes"):
+                    entry += f"Notes: {details['notes']}\n"
 
-        if progress_path.exists():
-            existing = progress_path.read_text(encoding="utf-8")
-            # Keep last 50 entries max, compact older ones
-            entries = existing.split("\n## Session:")
-            if len(entries) > 50:
-                header = entries[0]
-                recent = entries[-50:]
-                content = header + "\n## Session:" + "\n## Session:".join(recent)
+            if progress_path.exists():
+                existing = progress_path.read_text(encoding="utf-8")
+                # Keep last 50 entries max, compact older ones
+                entries = existing.split("\n## Session:")
+                if len(entries) > 50:
+                    header = entries[0]
+                    recent = entries[-50:]
+                    content = header + "\n## Session:" + "\n## Session:".join(recent)
+                else:
+                    content = existing
+                content += entry
             else:
-                content = existing
-            content += entry
-        else:
-            content = f"# Migration Progress\n# Auto-updated after every agent session\n{entry}"
+                content = f"# Migration Progress\n# Auto-updated after every agent session\n{entry}"
 
-        _atomic_write(progress_path, content)
+            _atomic_write(progress_path, content)
         logger.info("Updated progress.md for agent %s", agent_id)
 
     # -- Plan summary --------------------------------------------------------

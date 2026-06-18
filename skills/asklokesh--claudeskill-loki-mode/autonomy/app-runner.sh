@@ -144,6 +144,76 @@ HEALTH_EOF
     mv "$tmp_file" "$_APP_RUNNER_DIR/health.json"
 }
 
+# L5 fix (PID-file reuse race): capture a disambiguating identity token for a
+# live PID, so a later liveness check can tell "our app is still running" apart
+# from "the OS reassigned the crashed app's PID to an unrelated process". A raw
+# `kill -0 $pid` cannot make that distinction: a reused PID reports a foreign
+# process as a healthy app.
+#
+# Token = the process start time (`lstart`) plus its command name (`comm`), one
+# line, read from `ps`. `lstart` is the strong disambiguator: it is constant for
+# a process lifetime and a reused PID is, by definition, a different (later)
+# process with a different start time. `comm` is a weaker secondary signal kept
+# for human readability. We compare the whole line by plain string equality.
+#
+# Portability: the `ps -o lstart=,comm=` field set works on both BSD (macOS) and
+# GNU/Linux. We never parse the format -- we only ever compare two reads taken on
+# the SAME host (capture at start vs read at check), so the BSD-vs-Linux format
+# difference is irrelevant: the two strings either match or they do not. Returns
+# empty on any `ps` miss (dead/foreign pid) so callers can fall back safely.
+_app_runner_pid_token() {
+    local pid="$1"
+    case "$pid" in
+        ''|0|1) return 0 ;;
+    esac
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 0
+    # Collapse internal whitespace runs to single spaces so a benign formatting
+    # quirk (e.g. extra padding) never causes a spurious mismatch.
+    ps -o lstart=,comm= -p "$pid" 2>/dev/null | tr -s ' ' ' ' | sed 's/^ *//; s/ *$//'
+}
+
+# Write the captured identity token for the current app PID. Best-effort: if the
+# token cannot be read (no ps output) we remove any stale token file rather than
+# leave a wrong one, which makes the later check fall back to trusting kill -0
+# (no false-DEAD regression).
+_write_app_token() {
+    local pid="$1"
+    local tok
+    tok=$(_app_runner_pid_token "$pid")
+    if [ -n "$tok" ]; then
+        local tmp_file="$_APP_RUNNER_DIR/app.token.tmp.$$"
+        printf '%s\n' "$tok" > "$tmp_file" 2>/dev/null && \
+            mv "$tmp_file" "$_APP_RUNNER_DIR/app.token" 2>/dev/null || \
+            rm -f "$tmp_file" 2>/dev/null
+    else
+        rm -f "$_APP_RUNNER_DIR/app.token" 2>/dev/null
+    fi
+}
+
+# Decide whether the live PID is still OUR app, using the captured token.
+# Returns 0 (yes, ours) when:
+#   - no token file exists (app launched by a pre-fix version, or ps was
+#     unavailable at start) -- fall back to trusting kill -0, OR
+#   - the live PID's token matches the stored token.
+# Returns 1 (NOT ours) ONLY when a token file exists AND the live token differs
+# (the strong "PID was reused by a foreign process" signal). This asymmetry is
+# deliberate: we never declare DEAD on a missing/unreadable token, so a
+# legitimate still-running app is never falsely killed (no false-DEAD
+# regression). The residual: if `ps` is entirely unavailable on the host, the
+# token file is never written and we always fall back to bare kill -0 -- i.e. no
+# worse than the pre-fix behavior, never worse.
+_app_runner_pid_is_ours() {
+    local pid="$1"
+    local token_file="$_APP_RUNNER_DIR/app.token"
+    [ -f "$token_file" ] || return 0
+    local stored live
+    stored=$(cat "$token_file" 2>/dev/null)
+    [ -n "$stored" ] || return 0
+    live=$(_app_runner_pid_token "$pid")
+    [ -n "$live" ] || return 0
+    [ "$live" = "$stored" ]
+}
+
 # Re-derive a detection.json field (type/command) so we can rewrite it after a
 # port reconcile without threading those values through globals. Echoes the raw
 # string value (empty on miss). Mirrors the grep-based read style used by
@@ -311,6 +381,26 @@ _app_runner_reconcile_port() {
         sleep 0.5
         iter=$(( iter + 1 ))
     done
+
+    # No serving keyword line in the log: the app may sit behind a reverse proxy
+    # or bind quietly on a port we did not choose. Probe app-scoped candidate
+    # ports for a real listener and surface only a port that ACTUALLY responds
+    # (never fabricate a URL for a dead port). Conservative: app-scoped candidates
+    # only, no blind well-known-port scan. See _probe_app_url.
+    if [ -z "$real_port" ]; then
+        local probed
+        probed=$(_probe_app_url "$_APP_RUNNER_PORT")
+        if [ -n "$probed" ]; then
+            local probed_port="${probed##*:}"
+            if [ "$probed_port" != "$_APP_RUNNER_PORT" ]; then
+                log_info "App Runner: surfaced live port $probed_port via probe (reverse-proxy/quiet-bind); recorded was $_APP_RUNNER_PORT"
+                _APP_RUNNER_PORT="$probed_port"
+                _APP_RUNNER_URL="$probed"
+                _rewrite_detection_port
+            fi
+        fi
+        return 0
+    fi
 
     [ -n "$real_port" ] || return 0
     if [ "$real_port" != "$_APP_RUNNER_PORT" ]; then
@@ -489,6 +579,64 @@ sys.exit(0)
 ' 2>/dev/null || return 0
 }
 
+# Detect a Next.js standalone build (next.config output: 'standalone'). A
+# standalone build emits a self-contained `.next/standalone/server.js` that is
+# launched with `node server.js` (NOT `next start`) and listens on PORT (default
+# 3000). The presence of `.next/standalone/server.js` is a specific, safe signal:
+# a normal `.next/` build does NOT create that path, so this never false-positives
+# on an ordinary Next.js project. Echoes the run method (relative to TARGET_DIR,
+# which the launcher cd's into) on success, nothing otherwise. The run method is
+# `node .next/standalone/server.js`; modern Next standalone resolves its asset
+# paths from the server.js __dirname, not cwd, so a TARGET_DIR-relative launch is
+# correct without an extra chdir. The `output: 'standalone'` next.config grep is
+# a weaker secondary signal (the build may not have run yet); the built artifact
+# path is authoritative, which is why we key on the file existing.
+_detect_nextjs_standalone() {
+    local dir="${1:-${TARGET_DIR:-.}}"
+    if [ -f "$dir/.next/standalone/server.js" ]; then
+        printf 'node .next/standalone/server.js\n'
+        return 0
+    fi
+    return 0
+}
+
+# Probe app-scoped candidate ports for a live HTTP listener and echo the first
+# port that actually responds, nothing if none do. This handles the case where
+# the app sits behind a reverse proxy or otherwise binds a port we did not
+# choose: rather than fabricate a URL for a port nothing is listening on, we
+# verify liveness with a real HTTP probe before surfacing anything.
+#
+# Conservatism, in order of importance:
+#   - Candidates are APP-SCOPED only (PORT env, the recorded port, and the
+#     framework default passed by the caller). We deliberately do NOT blind-scan
+#     well-known ports like 80/443/8080, because some unrelated local service
+#     answering there is its own form of fabrication.
+#   - Liveness uses the same contract as _app_runner_reconcile_port (curl -s
+#     -o /dev/null -m 2, no -f): any HTTP response (incl. 404/401/500) proves a
+#     server is bound; a connection error (dead/unbound port) is a non-zero exit.
+#   - curl-less hosts cannot verify, so we surface NOTHING (we never guess a URL
+#     we could not probe). This is the conservative direction for this helper:
+#     its whole job is "probe before surfacing", so no curl == no claim.
+# Args: $1 = framework default port (may be empty). Reads $LOKI_APP_PORT and
+# $_APP_RUNNER_PORT from the environment as additional candidates.
+_probe_app_url() {
+    local default_port="$1"
+    command -v curl >/dev/null 2>&1 || return 0
+    local cand seen=" "
+    for cand in "${LOKI_APP_PORT:-}" "${_APP_RUNNER_PORT:-}" "$default_port"; do
+        [ -n "$cand" ] || continue
+        [[ "$cand" =~ ^[0-9]+$ ]] || continue
+        [ "$cand" -ge 1 ] 2>/dev/null && [ "$cand" -le 65535 ] 2>/dev/null || continue
+        case "$seen" in *" $cand "*) continue ;; esac
+        seen="$seen$cand "
+        if curl -s -o /dev/null -m 2 "http://localhost:${cand}/" 2>/dev/null; then
+            printf 'http://localhost:%s\n' "$cand"
+            return 0
+        fi
+    done
+    return 0
+}
+
 # Detect port from project files
 _detect_port() {
     local method="$1"
@@ -630,7 +778,12 @@ app_runner_init() {
             local _project_hash
             _project_hash=$(echo "$dir" | (md5sum 2>/dev/null || md5 -r 2>/dev/null || echo "$$") | cut -c1-8)
             _APP_RUNNER_DOCKER_CONTAINER="loki-app-${_project_hash}"
-            _APP_RUNNER_METHOD="docker build -t loki-app . && docker run -d -p ${_APP_RUNNER_PORT}:${_APP_RUNNER_PORT} --name ${_APP_RUNNER_DOCKER_CONTAINER} loki-app"
+            # Hash the image tag the same way the container name is hashed so two
+            # Dockerfile-based projects do not clobber each other's image (an
+            # unhashed `loki-app` tag would be shared across every project). Build
+            # tag and run image arg MUST stay identical.
+            local _image_tag="loki-app-${_project_hash}"
+            _APP_RUNNER_METHOD="docker build -t ${_image_tag} . && docker run -d -p ${_APP_RUNNER_PORT}:${_APP_RUNNER_PORT} --name ${_APP_RUNNER_DOCKER_CONTAINER} ${_image_tag}"
             _APP_RUNNER_IS_DOCKER=true
             _write_detection "dockerfile" "$_APP_RUNNER_METHOD"
             log_info "App Runner: detected Dockerfile"
@@ -644,6 +797,20 @@ app_runner_init() {
     # 3-4. package.json (dev or start)
     if [ -f "$dir/package.json" ]; then
         _install_node_deps "$dir"
+        # 3a. Next.js standalone build (output: 'standalone'). The built artifact
+        #     `.next/standalone/server.js` is a stronger signal than the dev/start
+        #     scripts: when present, the app is launched with `node server.js`
+        #     (listens on PORT, default 3000) rather than `next dev`/`next start`.
+        local njs_method
+        njs_method=$(_detect_nextjs_standalone "$dir")
+        if [ -n "$njs_method" ]; then
+            _APP_RUNNER_METHOD="$njs_method"
+            _detect_port "npm"
+            _write_detection "nextjs-standalone" "$_APP_RUNNER_METHOD"
+            log_info "App Runner: detected Next.js standalone server"
+            _APP_RUNNER_URL="http://localhost:${_APP_RUNNER_PORT}"
+            return 0
+        fi
         if grep -q '"dev"' "$dir/package.json" 2>/dev/null; then
             _APP_RUNNER_METHOD="npm run dev"
             _detect_port "$_APP_RUNNER_METHOD"
@@ -850,6 +1017,59 @@ _app_runner_compose_running_count() {
     return 0
 }
 
+# Decide whether to prepend `exec` to the launched method. `exec` replaces the
+# bash wrapper with the command so the captured PID is the app itself (PID
+# identity for npm start / python app.py etc.). That is ONLY valid for a SINGLE
+# command. A compound method like `docker build ... && docker run ...` must NOT
+# be exec'd: `exec docker build` would replace the shell and the `&& docker run`
+# half would never run (the verified HIGH-1 bug -- image builds, no container).
+# Detection runs on the METHOD STRING ONLY, never the assembled launch line: the
+# assembled line always contains `;` (from the PORT env prefix and the pgid
+# `echo $$`), so testing it would mark every method compound and silently drop
+# the exec optimization for single commands.
+# Echoes "exec " for a single command, or "" (empty) for a compound command.
+_app_runner_exec_prefix() {
+    local method="$1"
+    case "$method" in
+        *"&&"*|*"||"*|*";"*)
+            # Compound: let bash run the full sequence as a child (no exec).
+            printf '%s' ""
+            ;;
+        *)
+            printf '%s' "exec "
+            ;;
+    esac
+}
+
+# Liveness predicate for the Dockerfile (single-image `docker run -d`) path,
+# which -- unlike compose -- has a project-hashed container name in
+# $_APP_RUNNER_DOCKER_CONTAINER. The method is a compound `docker build && docker
+# run -d` launched WITHOUT exec, so the captured PID is the short-lived bash
+# wrapper: it stays alive for the (possibly multi-minute) build, then exits right
+# after `docker run -d` detaches. Therefore liveness is:
+#   alive  = container running  OR  wrapper PID still alive (build in progress)
+#   dead   = wrapper PID dead   AND container not running
+# This tolerates a slow-but-succeeding build while a genuinely broken Dockerfile
+# still trips the watchdog breaker (wrapper dies, no container, 5x). Returns 0
+# when alive, 1 when dead. Never hard-fails (guarded for set -u / future set -e).
+_app_runner_dockerfile_container_running() {
+    local _name="${_APP_RUNNER_DOCKER_CONTAINER:-}"
+    [ -z "$_name" ] && return 1
+    if command -v docker >/dev/null 2>&1; then
+        local _state
+        _state=$(docker inspect -f '{{.State.Running}}' "$_name" 2>/dev/null || true)
+        if [ "$_state" = "true" ]; then
+            return 0
+        fi
+    fi
+    # Container not (yet) running: the build may still be in progress. The wrapper
+    # PID being alive is the build-in-progress signal.
+    if [ -n "${_APP_RUNNER_PID:-}" ] && kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
 # Read the RUNTIME published host port of the identified primary web service from
 # `docker compose ps` (the live mapping), as opposed to the config-declared port
 # from `docker compose config`. The config port is correct for fixed mappings
@@ -965,6 +1185,25 @@ app_runner_start() {
         _port_env_prefix="export PORT=$_APP_RUNNER_PORT HTTP_PORT=$_APP_RUNNER_PORT SERVER_PORT=$_APP_RUNNER_PORT APP_PORT=$_APP_RUNNER_PORT; "
     fi
 
+    # Conditional exec (HIGH-1 fix): only `exec` a SINGLE command. A compound
+    # method (`docker build ... && docker run ...`) must run as a child so BOTH
+    # halves execute -- `exec docker build` would replace the shell and never
+    # reach `&& docker run`. Computed on the method string ONLY (see
+    # _app_runner_exec_prefix), not the assembled launch line.
+    local _exec_prefix
+    _exec_prefix=$(_app_runner_exec_prefix "$_APP_RUNNER_METHOD")
+
+    # Dockerfile path: `docker run --name <hashed>` fails if a stale (exited)
+    # container with that name still exists. This happens on a watchdog restart
+    # (the prior run's container was stopped, not removed) and would make every
+    # auto-restart fail with "name already in use". Remove any stale container
+    # by name before launch. Idempotent and safe when none exists. Compose has no
+    # _APP_RUNNER_DOCKER_CONTAINER, so this is Dockerfile-path only.
+    if [ "$_APP_RUNNER_IS_DOCKER" = true ] && [ -n "${_APP_RUNNER_DOCKER_CONTAINER:-}" ] \
+       && command -v docker >/dev/null 2>&1; then
+        docker rm -f "$_APP_RUNNER_DOCKER_CONTAINER" >/dev/null 2>&1 || true
+    fi
+
     # Start the process in a new process group
     if command -v setsid >/dev/null 2>&1; then
         _APP_RUNNER_HAS_SETSID=true
@@ -974,7 +1213,7 @@ app_runner_start() {
         # Note: $_APP_RUNNER_METHOD has passed _validate_app_command (whitelist).
         # The `--` after `bash -lc` prevents flag injection if the assembled
         # script string ever begins with a `-`.
-        (cd "$dir" && setsid bash -lc -- "$_port_env_prefix"'echo $$ > "'"$_pgid_file"'"; exec '"$_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
+        (cd "$dir" && setsid bash -lc -- "$_port_env_prefix"'echo $$ > "'"$_pgid_file"'"; '"$_exec_prefix$_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
         local _subshell_pid=$!
         # Wait briefly for the pgid file to appear, then read the real PGID
         local _pgid_wait=0
@@ -992,7 +1231,7 @@ app_runner_start() {
         _APP_RUNNER_HAS_SETSID=false
         # Note: $_APP_RUNNER_METHOD has passed _validate_app_command (whitelist).
         # The `--` after `bash -lc` prevents flag injection.
-        (cd "$dir" && bash -lc -- "${_port_env_prefix}exec $_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
+        (cd "$dir" && bash -lc -- "${_port_env_prefix}${_exec_prefix}$_APP_RUNNER_METHOD" >> "$_APP_RUNNER_DIR/app.log" 2>&1) &
         _APP_RUNNER_PID=$!
     fi
     # Register with central PID registry if available
@@ -1050,12 +1289,34 @@ app_runner_start() {
             _write_app_state "failed"
             return 1
         fi
+    elif [ "$_APP_RUNNER_IS_DOCKER" = true ] && [ -n "${_APP_RUNNER_DOCKER_CONTAINER:-}" ]; then
+        # Dockerfile path (HIGH-1): `docker build && docker run -d` is compound, so
+        # it is launched WITHOUT exec and the captured PID is the short-lived bash
+        # wrapper that exits once the detached container is up. Liveness keys on the
+        # container (or the wrapper still building), NOT the wrapper PID -- the same
+        # reasoning as the compose branch above. Port mapping is the fixed
+        # `-p PORT:PORT` from detection and the URL is already set, so no port
+        # reconciliation or PID identity token is needed here.
+        if _app_runner_dockerfile_container_running; then
+            _write_app_state "running"
+            log_info "App Runner: Dockerfile container '$_APP_RUNNER_DOCKER_CONTAINER' starting/running on port $_APP_RUNNER_PORT"
+            return 0
+        else
+            log_error "App Runner: Dockerfile container failed to start (no running container, build wrapper exited)"
+            _APP_RUNNER_CRASH_COUNT=$(( _APP_RUNNER_CRASH_COUNT + 1 ))
+            _write_app_state "failed"
+            return 1
+        fi
     elif kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
         # Reconcile recorded port with the port the app actually bound (finding
         # #597), so state.json / detection.json / the preview URL point at the
         # live port even when the app ignored PORT. Mutates globals before the
         # state write below. Bounded; no-op when the app honored the chosen port.
         _app_runner_reconcile_port
+        # L5 fix: capture the identity token now that the child has exec'd into
+        # the real app process, so a later health-check/watchdog can detect a
+        # reused PID (foreign process) instead of trusting it blindly.
+        _write_app_token "$_APP_RUNNER_PID"
         _write_app_state "running"
         log_info "App Runner: application started (PID: $_APP_RUNNER_PID) on port $_APP_RUNNER_PORT"
         return 0
@@ -1179,6 +1440,7 @@ app_runner_stop() {
     fi
 
     rm -f "$_APP_RUNNER_DIR/app.pid"
+    rm -f "$_APP_RUNNER_DIR/app.token"
     _write_app_state "stopped"
     log_info "App Runner: application stopped"
     _APP_RUNNER_PID=""
@@ -1190,7 +1452,20 @@ app_runner_restart() {
     log_step "App Runner: restarting (restart #$_APP_RUNNER_RESTART_COUNT)..."
     app_runner_stop
     sleep 1
+    # L6 fix (non-atomic restart): the old code returned app_runner_start's status
+    # unhandled, so a failed start (e.g. the old port still in TIME_WAIT after the
+    # 1s wait, tripping the port-conflict guard) left the app stopped with only an
+    # internal log_warn -- silent to the caller, which saw the restart "succeed".
+    # Surface the failure loudly via log_error and return the failure status
+    # explicitly so the restart's failure is visible and actionable. The
+    # happy-path behavior (start succeeds -> return 0) is unchanged.
     app_runner_start
+    local _start_rc=$?
+    if [ "$_start_rc" -ne 0 ]; then
+        log_error "App Runner: restart failed -- app stopped but could not be started again (start exit $_start_rc). Check $_APP_RUNNER_DIR/app.log; the previous port may still be held (TIME_WAIT) or the start command may be failing."
+        return "$_start_rc"
+    fi
+    return 0
 }
 
 #===============================================================================
@@ -1276,26 +1551,94 @@ app_runner_health_check() {
         return 0
     fi
 
+    # Dockerfile path (HIGH-1): the detached `docker run -d` container's liveness
+    # is the container running (or the build wrapper still building), NOT the
+    # ephemeral bash wrapper PID. Without this branch the wrapper PID dies after
+    # the build detaches the container and the PID check below would report the
+    # live container as crashed -> watchdog tears it down and rebuilds forever.
+    if [ "$_APP_RUNNER_IS_DOCKER" = true ] && [ -n "${_APP_RUNNER_DOCKER_CONTAINER:-}" ]; then
+        if _app_runner_dockerfile_container_running; then
+            _write_health "true"
+            _write_app_state "running"
+            return 0
+        else
+            _write_health "false"
+            _write_app_state "crashed"
+            return 1
+        fi
+    fi
+
     # Check PID is alive (non-docker-compose methods)
     if ! kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
         _write_health "false"
         return 1
     fi
 
-    # For HTTP apps, try an HTTP health check
+    # L5 fix (PID-file reuse race): kill -0 only proves SOME process owns this
+    # PID, not that it is OUR app. The OS may have reassigned the crashed app's
+    # PID to an unrelated process. Verify the captured identity token; on a
+    # mismatch the live PID is a foreign process, so the app is DEAD. (When no
+    # token was captured we fall back to trusting kill -0 -- see
+    # _app_runner_pid_is_ours -- so a still-running legitimate app is never
+    # falsely marked dead.)
+    if ! _app_runner_pid_is_ours "$_APP_RUNNER_PID"; then
+        _write_health "false"
+        return 1
+    fi
+
+    # For HTTP apps, try an HTTP health check.
     if [ -n "$_APP_RUNNER_PORT" ] && [ "$_APP_RUNNER_PORT" -gt 0 ] 2>/dev/null; then
-        if curl -sf -o /dev/null -m 5 "http://localhost:${_APP_RUNNER_PORT}/" 2>/dev/null; then
+        # The health signal is "is the server answering HTTP at all", NOT "does /
+        # return 2xx". Loki generates plenty of apps that legitimately serve a
+        # non-2xx on the root path (an API-only FastAPI/Express backend 404s on
+        # `/`, anything behind auth 401s). Those are serving correctly, so a
+        # status-strict probe (curl -f, which fails on >=400) would mark a healthy
+        # backend unhealthy and trigger a needless restart -> a restart storm /
+        # false crash. What genuinely means "no longer serving" -- a hung event
+        # loop, a deadlock, a wedged dev server -- is a connection that times out
+        # or is refused, i.e. NO HTTP response at all. So we read the HTTP status
+        # code: any code returned (2xx/3xx/4xx/5xx) means the server answered and
+        # is alive; "000" is curl's sentinel for connect-failure/timeout/reset
+        # and is the only thing we treat as a crash.
+        # If curl is unavailable we cannot probe HTTP at all; fall back to the
+        # old, more tolerant signal (PID alive == healthy) rather than declaring
+        # every HTTP app wedged and triggering a restart storm. curl is the only
+        # HTTP client this function uses.
+        if ! command -v curl >/dev/null 2>&1; then
+            _write_health "true"
+            _write_app_state "running"
+            return 0
+        fi
+        # On connect-failure/timeout curl already prints "000" via %{http_code}
+        # and exits non-zero; do NOT append our own "000" (a `|| echo 000` would
+        # concatenate to "000000"). The trailing `|| true` swallows the non-zero
+        # exit (matching this file's guarded command-substitution convention, e.g.
+        # the _GIT_DIFF_HASH / port reads) so the watchdog never aborts under a
+        # future `set -e`; the empty fallback then maps to "000".
+        local _http_code
+        _http_code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' \
+            "http://localhost:${_APP_RUNNER_PORT}/" 2>/dev/null || true)
+        _http_code="${_http_code:-000}"
+        if [ "$_http_code" != "000" ]; then
             _write_health "true"
             _write_app_state "running"
             return 0
         else
-            # HTTP failed but process alive -- may be a non-HTTP app or still starting
-            _write_health "true"
-            return 0
+            # No HTTP response: the process is alive (kill -0 passed above) but is
+            # not serving on its declared port -- a wedged/hung/deadlocked server.
+            # Previously this branch wrote ok:true unconditionally, so the HTTP
+            # signal could never report a failure and a wedged server stayed
+            # "healthy" forever. Report the failure honestly so the watchdog can
+            # act on it. We deliberately do NOT flip state.json to "crashed" here
+            # (mirroring the dead-PID precedent above at the kill -0 check); the
+            # watchdog owns the crashed transition after its circuit breaker, so a
+            # single transient blip does not prematurely mark the app crashed.
+            _write_health "false"
+            return 1
         fi
     fi
 
-    # Non-HTTP: PID alive is sufficient
+    # Non-HTTP: PID alive is sufficient (no URL/port to probe)
     _write_health "true"
     return 0
 }
@@ -1349,7 +1692,16 @@ app_runner_watchdog() {
     # This is what makes the service-aware health logic actually fire in the
     # live monitoring loop (not just in isolation). On an unhealthy web service
     # it restarts the stack under the same crash-count circuit breaker.
-    if [ "$_APP_RUNNER_IS_DOCKER" = true ] && echo "$_APP_RUNNER_METHOD" | grep -q "docker compose"; then
+    # Detached-docker paths (compose stacks AND the Dockerfile `docker run -d`
+    # container) both exit their captured wrapper PID once the container is up, so
+    # `kill -0` is the wrong liveness signal. Delegate to app_runner_health_check,
+    # whose container-aware branches (compose web service / hashed Dockerfile
+    # container) own the real liveness check, under the same crash-count circuit
+    # breaker. Without including the Dockerfile container here, the wrapper PID
+    # would read as dead after the build detaches and the watchdog would tear the
+    # live container down and rebuild forever (the HIGH-1 symptom).
+    if [ "$_APP_RUNNER_IS_DOCKER" = true ] && \
+       { echo "$_APP_RUNNER_METHOD" | grep -q "docker compose" || [ -n "${_APP_RUNNER_DOCKER_CONTAINER:-}" ]; }; then
         if app_runner_health_check; then
             # BUG 3 fix: the breaker is meant to fire on 5 CONSECUTIVE failures.
             # A confirmed-healthy observation clears any accumulated count so a
@@ -1359,7 +1711,7 @@ app_runner_watchdog() {
             return 0
         fi
         _APP_RUNNER_CRASH_COUNT=$(( _APP_RUNNER_CRASH_COUNT + 1 ))
-        log_warn "App Runner: compose web service unhealthy (crash #$_APP_RUNNER_CRASH_COUNT)"
+        log_warn "App Runner: docker container unhealthy (crash #$_APP_RUNNER_CRASH_COUNT)"
         if [ "$_APP_RUNNER_CRASH_COUNT" -ge 5 ]; then
             log_error "App Runner: crash limit reached (5), marking as crashed"
             tail -20 "$_APP_RUNNER_DIR/app.log" 2>/dev/null | while IFS= read -r line; do
@@ -1370,9 +1722,9 @@ app_runner_watchdog() {
         fi
         local _c_backoff=$(( 1 << _APP_RUNNER_CRASH_COUNT ))
         [ "$_c_backoff" -gt 30 ] && _c_backoff=30
-        log_info "App Runner: restarting compose stack in ${_c_backoff}s..."
+        log_info "App Runner: restarting docker app in ${_c_backoff}s..."
         sleep "$_c_backoff"
-        app_runner_start || log_warn "App Runner: compose auto-restart failed"
+        app_runner_start || log_warn "App Runner: docker auto-restart failed"
         return 0
     fi
 
@@ -1385,17 +1737,43 @@ app_runner_watchdog() {
         return 0
     fi
 
-    # Process alive, nothing to do
-    if kill -0 "$_APP_RUNNER_PID" 2>/dev/null; then
-        # BUG 3 fix: a confirmed-alive observation clears the accumulated crash
-        # count so the breaker fires only on 5 CONSECUTIVE deaths, not on 5
-        # cumulative crashes that were each successfully recovered over a long
-        # session (which would trip the breaker on a HEALTHY app).
-        _APP_RUNNER_CRASH_COUNT=0
-        return 0
+    # Process alive: kill -0 only proves the PID exists, not that the app is
+    # actually serving. A hung event loop, a deadlock, or a wedged dev server
+    # all pass kill -0 forever while never answering a request, so the old
+    # "alive == healthy" shortcut let a wedged HTTP app run un-restarted and
+    # left health.json stale. Mirror the compose branch: defer to
+    # app_runner_health_check (HTTP-aware for apps that declared a port), and
+    # treat an unhealthy-but-alive process as a crash so the same circuit
+    # breaker + backoff + restart path handles it.
+    # L5 fix: gate on BOTH liveness AND identity. If kill -0 succeeds but the
+    # PID is a foreign process the OS reassigned our crashed app's PID to
+    # (_app_runner_pid_is_ours false), we must NOT enter this branch: the
+    # alive-but-unhealthy path below calls app_runner_stop, which would send
+    # TERM/KILL to an innocent stranger. Instead let a reused PID fall through to
+    # the dead path, which only increments the crash count and restarts -- it
+    # never signals the PID. (No token captured -> is_ours returns true ->
+    # behaves exactly as before, so no regression for legitimately-running apps.)
+    if kill -0 "$_APP_RUNNER_PID" 2>/dev/null && _app_runner_pid_is_ours "$_APP_RUNNER_PID"; then
+        if app_runner_health_check; then
+            # BUG 3 fix: a confirmed-healthy observation clears the accumulated
+            # crash count so the breaker fires only on 5 CONSECUTIVE failures,
+            # not on 5 cumulative crashes that were each successfully recovered
+            # over a long session (which would trip the breaker on a HEALTHY app).
+            _APP_RUNNER_CRASH_COUNT=0
+            return 0
+        fi
+        # Alive but not healthy (e.g. HTTP probe failed for an app that declared
+        # a port). Fall through to the crash path below, but first terminate the
+        # wedged process: it is still bound to the port, so app_runner_start's
+        # port-conflict guard would otherwise refuse to start and the breaker
+        # would trip while the orphan keeps serving hung responses (a restart
+        # storm). app_runner_stop performs a full process-tree teardown and
+        # clears _APP_RUNNER_PID / app.pid, leaving a clean slate for restart.
+        log_warn "App Runner: process alive but unhealthy (not serving) -- treating as crash"
+        app_runner_stop
     fi
 
-    # Process is dead
+    # Process is dead (or was just torn down because it was alive-but-wedged)
     _APP_RUNNER_CRASH_COUNT=$(( _APP_RUNNER_CRASH_COUNT + 1 ))
     log_warn "App Runner: process died (crash #$_APP_RUNNER_CRASH_COUNT)"
 
@@ -1408,6 +1786,7 @@ app_runner_watchdog() {
         done
         _write_app_state "crashed"
         rm -f "$_APP_RUNNER_DIR/app.pid"
+        rm -f "$_APP_RUNNER_DIR/app.token"
         _APP_RUNNER_PID=""
         return 1
     fi
@@ -1420,8 +1799,14 @@ app_runner_watchdog() {
     log_info "App Runner: auto-restarting in ${backoff}s..."
     sleep "$backoff"
 
-    # Clear PID and restart
+    # Clear PID and restart. Remove the identity token alongside app.pid (LOW-3):
+    # the token belongs to the now-dead process, and if the upcoming start fails
+    # (e.g. the old port is still held) no new token is written, so a leftover
+    # token would outlive its pid and could mislead a later _app_runner_pid_is_ours
+    # check. Every site that removes app.pid removes app.token (cf. stop:1443,
+    # watchdog crash-limit:1789).
     rm -f "$_APP_RUNNER_DIR/app.pid"
+    rm -f "$_APP_RUNNER_DIR/app.token"
     _APP_RUNNER_PID=""
     app_runner_start || log_warn "App Runner: auto-restart failed"
 }
@@ -1450,8 +1835,14 @@ app_runner_cleanup() {
         fi
     fi
 
-    # Remove PID file
+    # Remove PID file and its paired identity token (LOW-3). app_runner_stop
+    # above removes both when a pid is present, but it early-returns without
+    # touching either when called with no pid (the post-failed-restart leftover
+    # state: token present, app.pid already gone). Removing the token here too
+    # guarantees no stale token survives session end regardless of how cleanup
+    # was reached.
     rm -f "$_APP_RUNNER_DIR/app.pid"
+    rm -f "$_APP_RUNNER_DIR/app.token"
 
     # Update state
     _write_app_state "stopped"

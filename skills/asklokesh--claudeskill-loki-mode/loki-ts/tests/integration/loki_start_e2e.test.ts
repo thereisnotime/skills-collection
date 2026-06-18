@@ -280,6 +280,80 @@ describe("loki start <prd> e2e (runAutonomous + stub provider)", () => {
     ).toBe(true);
   });
 
+  it("parity split: state.prdPath records the ORIGINAL user path while the prompt/reuse path resolves to .loki/generated-prd.md", async () => {
+    // Regression lock for the bash/Bun PRD-reuse parity contract.
+    //
+    // Bash writes state.prdPath from the GLOBAL PRD_PATH (run.sh:12141), which
+    // the PRD-reuse persistence logic NEVER repoints; it repoints only a LOCAL
+    // prd_path (run.sh:13938) used for the prompt anchor + reuse decision.
+    // The Bun route must mirror that SPLIT:
+    //   1st-with-file: state.prdPath = original user file; ctx/prompt path =
+    //                  .loki/generated-prd.md (persisted from the user file).
+    //   2nd-no-file:   global PRD_PATH was "" so state.prdPath = ""; the prompt
+    //                  + reuse still resolve to .loki/generated-prd.md.
+    // A vacuous "state == ctx" coupling (the bug) would record the persisted
+    // path in state on run 1 and the generated path on run 2 -- this test fails
+    // in BOTH directions if that regresses.
+    process.env["LOKI_STUB_GATE_CODE_REVIEW"] = "pass";
+
+    const generatedPrd = resolve(lokiDir, "generated-prd.md");
+
+    // --- Run 1: explicit user file -----------------------------------------
+    logLines = [];
+    const code1 = await runAutonomous(
+      baseOpts({
+        providerOverride: new FakeProvider(),
+        council: new NeverStopCouncil(),
+        signals: new NeverInterveneSignals(),
+        prdPath,
+        maxIterations: 2,
+      }),
+    );
+    expect(code1).toBe(0);
+
+    const statePath = resolve(lokiDir, "autonomy-state.json");
+    const state1 = JSON.parse(readFileSync(statePath, "utf8")) as {
+      prdPath: string;
+    };
+    // STATE side of the split: the ORIGINAL user path, NOT the generated path.
+    expect(state1.prdPath).toBe(prdPath);
+    expect(state1.prdPath).not.toBe(generatedPrd);
+    // PROMPT/reuse side of the split: the user file was persisted to the
+    // canonical generated path (resolved path the prompt builder consumes).
+    expect(existsSync(generatedPrd)).toBe(true);
+    // The startup log announces ctx.prdPath = the resolved/persisted path.
+    expect(
+      logLines.some((l) => l.includes("generated-prd.md")),
+    ).toBe(true);
+
+    // --- Run 2: NO file arg -> reuse the persisted PRD ---------------------
+    logLines = [];
+    const code2 = await runAutonomous(
+      baseOpts({
+        providerOverride: new FakeProvider(),
+        council: new NeverStopCouncil(),
+        signals: new NeverInterveneSignals(),
+        prdPath: undefined,
+        maxIterations: 2,
+      }),
+    );
+    expect(code2).toBe(0);
+
+    const state2 = JSON.parse(readFileSync(statePath, "utf8")) as {
+      prdPath: string;
+    };
+    // STATE side: global PRD_PATH was "" -> state.prdPath = "" (exactly bash).
+    // It must NOT be the generated path (that would be the coupling bug).
+    expect(state2.prdPath).toBe("");
+    expect(state2.prdPath).not.toBe(generatedPrd);
+    // PROMPT/reuse side: the run still resolves to + reuses the generated PRD.
+    expect(
+      logLines.some(
+        (l) => l.includes("generated-prd.md") && l.includes("reusing"),
+      ),
+    ).toBe(true);
+  });
+
   it("scenario 3: state files are written to .loki/state/ as the loop progresses", async () => {
     process.env["LOKI_STUB_GATE_CODE_REVIEW"] = "pass";
 

@@ -567,13 +567,20 @@ function extractQueueTasks(path: string, prefix: string): string {
     const t = slice[i];
     if (t === null || typeof t !== "object") continue;
     const task = t as QueueTask;
-    const taskId = task.id ?? "unknown";
-    const source = task.source ?? "";
+    // WT4/H7 (FIX-W4-E): QueueTask fields are typed string?/etc but NOT enforced
+    // at runtime -- malformed JSON (e.g. {"id":123}) yields a number, and a bare
+    // `.startsWith`/`.replace` on it throws. An uncaught throw here propagates to
+    // autonomous.ts and discards the ENTIRE real prompt (RARV/SDLC/PRD/queue/gates)
+    // for that iteration, falling back to the stub. Coerce every string-field
+    // access defensively with String(... ?? default) so a malformed entry degrades
+    // (coerced/skipped), never throws away the whole prompt.
+    const taskId = String(task.id ?? "unknown");
+    const source = String(task.source ?? "");
 
     if (source === "prd" || taskId.startsWith("prd-")) {
-      const title = task.title ?? "Task";
+      const title = String(task.title ?? "Task");
       const lines: string[] = [`${prefix}[${i + 1}] ${taskId}: ${title}`];
-      const desc = task.description ?? "";
+      const desc = String(task.description ?? "");
       if (desc.length > 0 && desc !== title) {
         let descShort = desc.replace(/\n/g, " ").replace(/\r/g, "").slice(0, 300);
         if (desc.length > 300) descShort += "...";
@@ -584,11 +591,11 @@ function extractQueueTasks(path: string, prefix: string): string {
         const criteriaStr = criteria.slice(0, 5).map((c) => String(c)).join("; ");
         lines.push(`  Acceptance: ${criteriaStr}`);
       }
-      const story = task.user_story ?? "";
+      const story = String(task.user_story ?? "");
       if (story.length > 0) lines.push(`  User Story: ${story}`);
       results.push(lines.join("\n"));
     } else {
-      const taskType = task.type ?? "unknown";
+      const taskType = String(task.type ?? "unknown");
       let action = "";
       const payload = task.payload;
       if (payload !== null && payload !== undefined && typeof payload === "object") {
@@ -635,10 +642,18 @@ async function buildGateFailureContext(cwd: string): Promise<string> {
   // gate-failures.txt presence: when absent, this whole block is skipped and
   // ctx stays "" (byte-identical to the prior early-return behavior).
   const gfPath = resolve(cwd, ".loki/quality/gate-failures.txt");
-  const failuresRaw = readFileSafe(gfPath);
-  if (failuresRaw !== null) {
-    // bash `cat <file>` includes trailing newline; we strip it for printf '%s\n'.
-    const failures = failuresRaw.replace(/\n$/, "");
+  // WT4/L1 (FIX-W4-E): cap the read so a pathological multi-MB gate-failures.txt
+  // (e.g. a prior-iteration stack-trace dump) cannot balloon the context window.
+  // Every OTHER reader in this module caps (readBytesSafe 4000/8000/16000,
+  // readLinesSafe 80/100, slice 200/300/500); this one was uncapped. The bash
+  // route still does an uncapped `cat` (autonomy/run.sh:12412) -- this 8000-byte
+  // cap matches the most-capping siblings and never triggers on the parity
+  // fixtures (largest is fixture-36 at 2442 bytes), so the parity contract stays
+  // green while the pathological case is bounded. FOLLOW-UP: apply the same cap
+  // to the bash route at run.sh:12412 (cannot edit that file here).
+  const failures = readBytesSafe(gfPath, 8000);
+  if (failures !== null) {
+    // readBytesSafe already strips trailing newlines (parity with bash printf).
     ctx = `QUALITY GATE FAILURES FROM PREVIOUS ITERATION: [${failures}]. `;
 
     const saPath = resolve(cwd, ".loki/quality/static-analysis.json");
@@ -1493,20 +1508,19 @@ export const _internals = {
 import type { RunnerContext as LoopRunnerContext } from "./types.ts";
 
 export async function buildPromptForRunner(ctx: LoopRunnerContext): Promise<string> {
-  let prdContent: string | null = null;
-  if (ctx.prdPath) {
-    try {
-      if (existsSync(ctx.prdPath)) {
-        prdContent = readFileSync(ctx.prdPath, "utf8");
-      }
-    } catch {
-      prdContent = null;
-    }
-  }
+  // WT4/H8 (FIX-W4-E): buildPrompt treats `prd` as a PATH, not content. The full
+  // anchor emits `Loki Mode with PRD at ${prd}` (build_prompt.ts:1284) and the
+  // degraded path does resolve(ctx.cwd, prd) then reads the bytes itself
+  // (build_prompt.ts:1340). The parity test passes `prd: env.PRD` which is a PATH.
+  // The previous adapter read the PRD CONTENT and passed it as `prd`, which on the
+  // non-degraded route interpolated the entire PRD body into the one-line anchor,
+  // and on the degraded route resolve(content) -> nonexistent path -> PRD silently
+  // DROPPED. Honor the path contract: pass the PATH (or null in codebase-analysis
+  // mode). The file read happens inside buildPrompt's own path handling.
   return buildPrompt({
     retry: ctx.retryCount,
     iteration: ctx.iterationCount,
-    prd: prdContent,
+    prd: ctx.prdPath ?? null,
     ctx: {
       cwd: ctx.cwd,
       projectDir: ctx.cwd,

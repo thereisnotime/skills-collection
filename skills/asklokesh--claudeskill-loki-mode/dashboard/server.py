@@ -122,32 +122,43 @@ class _RateLimiter:
         self._window = window_seconds
         self._max_keys = max_keys
         self._calls: dict[str, list[float]] = defaultdict(list)
+        # Sync route handlers (plain `def`) run in Starlette's threadpool, so
+        # check() can be entered by several threads at once against this one
+        # shared instance. Without a guard, one thread iterating self._calls
+        # (the empty-key prune or the LRU-eviction sort) while another inserts
+        # or deletes a key raises "dictionary changed size during iteration",
+        # which surfaces to the caller as a 500 on a trivial rate-limit guard.
+        # The lock is held only around the in-memory bookkeeping (no I/O, no
+        # await), so contention is negligible and it cannot deadlock async
+        # callers that reach this via run_in_threadpool.
+        self._lock = threading.Lock()
 
     def check(self, key: str) -> bool:
         now = time.time()
-        # Prune old timestamps for this key
-        self._calls[key] = [t for t in self._calls[key] if now - t < self._window]
+        with self._lock:
+            # Prune old timestamps for this key
+            self._calls[key] = [t for t in self._calls[key] if now - t < self._window]
 
-        # Remove keys with empty timestamp lists
-        empty_keys = [k for k, v in self._calls.items() if not v]
-        for k in empty_keys:
-            del self._calls[k]
-
-        # Evict least-recently-accessed keys if max_keys exceeded
-        if len(self._calls) > self._max_keys:
-            # Sort by last-access time (most recent timestamp), evict least recent
-            sorted_keys = sorted(
-                self._calls.items(),
-                key=lambda x: max(x[1]) if x[1] else 0
-            )
-            keys_to_remove = len(self._calls) - self._max_keys
-            for k, _ in sorted_keys[:keys_to_remove]:
+            # Remove keys with empty timestamp lists
+            empty_keys = [k for k, v in self._calls.items() if not v]
+            for k in empty_keys:
                 del self._calls[k]
 
-        if len(self._calls[key]) >= self._max_calls:
-            return False
-        self._calls[key].append(now)
-        return True
+            # Evict least-recently-accessed keys if max_keys exceeded
+            if len(self._calls) > self._max_keys:
+                # Sort by last-access time (most recent timestamp), evict least recent
+                sorted_keys = sorted(
+                    self._calls.items(),
+                    key=lambda x: max(x[1]) if x[1] else 0
+                )
+                keys_to_remove = len(self._calls) - self._max_keys
+                for k, _ in sorted_keys[:keys_to_remove]:
+                    del self._calls[k]
+
+            if len(self._calls[key]) >= self._max_calls:
+                return False
+            self._calls[key].append(now)
+            return True
 
 
 _control_limiter = _RateLimiter(max_calls=10, window_seconds=60)
@@ -436,23 +447,51 @@ class ConnectionManager:
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
+    # Per-client send timeout (seconds). A client that does not stop reading
+    # fills its TCP send buffer; without a bound the await blocks indefinitely
+    # and one stalled client would freeze the whole fan-out (and the 2s
+    # _push_loki_state_loop) for every other client. Drop the slow client
+    # instead of blocking everyone.
+    SEND_TIMEOUT_SECONDS = 5.0
+
     async def broadcast(self, message: dict[str, Any]) -> None:
-        """Broadcast a message to all connected clients."""
-        disconnected = []
-        for connection in list(self.active_connections):
+        """Broadcast a message to all connected clients.
+
+        Sends run concurrently with a per-client timeout so a single stalled
+        or dead client is dropped rather than blocking the fan-out.
+        """
+        connections = list(self.active_connections)
+        if not connections:
+            return
+
+        async def _send(conn: WebSocket) -> bool:
             try:
-                await connection.send_json(message)
+                await asyncio.wait_for(
+                    conn.send_json(message), timeout=self.SEND_TIMEOUT_SECONDS
+                )
+                return True
+            except asyncio.TimeoutError:
+                logger.debug("WebSocket send timed out, dropping slow client")
+                return False
             except Exception as e:
                 logger.debug(f"WebSocket send failed, client disconnected: {e}")
-                disconnected.append(connection)
-        # Clean up disconnected clients
-        for conn in disconnected:
-            self.disconnect(conn)
+                return False
+
+        results = await asyncio.gather(*(_send(c) for c in connections))
+        # Clean up clients that timed out or errored.
+        for conn, ok in zip(connections, results):
+            if not ok:
+                self.disconnect(conn)
 
     async def send_personal(self, websocket: WebSocket, message: dict[str, Any]) -> None:
         """Send a message to a specific client."""
         try:
-            await websocket.send_json(message)
+            await asyncio.wait_for(
+                websocket.send_json(message), timeout=self.SEND_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            logger.debug("WebSocket personal send timed out, dropping slow client")
+            self.disconnect(websocket)
         except Exception as e:
             logger.debug(f"WebSocket personal send failed: {e}")
             self.disconnect(websocket)
@@ -3865,34 +3904,40 @@ async def get_memory_summary():
 @app.get("/api/memory/episodes")
 async def list_episodes(limit: int = Query(default=50, ge=1, le=1000)):
     """List episodic memory entries."""
-    # Try SQLite backend first
-    storage = _get_memory_storage()
-    if storage is not None:
-        try:
-            ids = storage.list_episodes(limit=limit)
-            episodes = []
-            for eid in ids:
-                ep = storage.load_episode(eid)
-                if ep:
-                    episodes.append(ep)
-            return episodes
-        except Exception:
-            pass
-
-    # Fallback to JSON files -- use heapq to avoid sorting all files
-    import heapq
-    ep_dir = _get_loki_dir() / "memory" / "episodic"
-    episodes = []
-    if ep_dir.exists():
-        all_files = ep_dir.glob("*.json")
-        # nlargest by filename (timestamps sort lexicographically) avoids full sort
-        files = heapq.nlargest(limit, all_files, key=lambda f: f.name)
-        for f in files:
+    # Both backends below are blocking (SQLite queries / a glob+read loop over
+    # many JSON files) and only build a local list, so offload the whole read
+    # off the event loop to keep status + WS heartbeat responsive.
+    def _load_episodes() -> list:
+        # Try SQLite backend first
+        storage = _get_memory_storage()
+        if storage is not None:
             try:
-                episodes.append(json.loads(f.read_text()))
+                ids = storage.list_episodes(limit=limit)
+                episodes = []
+                for eid in ids:
+                    ep = storage.load_episode(eid)
+                    if ep:
+                        episodes.append(ep)
+                return episodes
             except Exception:
                 pass
-    return episodes
+
+        # Fallback to JSON files -- use heapq to avoid sorting all files
+        import heapq
+        ep_dir = _get_loki_dir() / "memory" / "episodic"
+        episodes = []
+        if ep_dir.exists():
+            all_files = ep_dir.glob("*.json")
+            # nlargest by filename (timestamps sort lexicographically) avoids full sort
+            files = heapq.nlargest(limit, all_files, key=lambda f: f.name)
+            for f in files:
+                try:
+                    episodes.append(json.loads(f.read_text()))
+                except Exception:
+                    pass
+        return episodes
+
+    return await asyncio.to_thread(_load_episodes)
 
 
 @app.get("/api/memory/episodes/{episode_id}", dependencies=[Depends(auth.require_scope("read"))])
@@ -3969,30 +4014,35 @@ async def get_pattern(pattern_id: str):
 @app.get("/api/memory/skills")
 async def list_skills():
     """List procedural skills."""
-    # Try SQLite first
-    storage = _get_memory_storage()
-    if storage is not None:
-        try:
-            ids = storage.list_skills()
-            skills = []
-            for sid in ids:
-                s = storage.load_skill(sid)
-                if s:
-                    skills.append(s)
-            return skills
-        except Exception:
-            pass
-
-    # Fallback to JSON
-    skills_dir = _get_loki_dir() / "memory" / "skills"
-    skills = []
-    if skills_dir.exists():
-        for f in sorted(skills_dir.glob("*.json")):
+    # Blocking SQLite query / glob+read loop; offload the whole read so the
+    # event loop (status + WS heartbeat) stays responsive.
+    def _load_skills() -> list:
+        # Try SQLite first
+        storage = _get_memory_storage()
+        if storage is not None:
             try:
-                skills.append(json.loads(f.read_text()))
+                ids = storage.list_skills()
+                skills = []
+                for sid in ids:
+                    s = storage.load_skill(sid)
+                    if s:
+                        skills.append(s)
+                return skills
             except Exception:
                 pass
-    return skills
+
+        # Fallback to JSON
+        skills_dir = _get_loki_dir() / "memory" / "skills"
+        skills = []
+        if skills_dir.exists():
+            for f in sorted(skills_dir.glob("*.json")):
+                try:
+                    skills.append(json.loads(f.read_text()))
+                except Exception:
+                    pass
+        return skills
+
+    return await asyncio.to_thread(_load_skills)
 
 
 @app.get("/api/memory/skills/{skill_id}", dependencies=[Depends(auth.require_scope("read"))])
@@ -4347,15 +4397,16 @@ async def get_memory_file(
         st = target.stat()
     except Exception:
         raise HTTPException(status_code=500, detail="stat failed")
-    truncated = False
+    truncated = st.st_size > _MEMORY_FILE_MAX_BYTES
+
+    def _read_memory_blob() -> bytes:
+        # Up to a 2 MiB blocking read; offloaded so the single-worker event
+        # loop (and /api/status + WS heartbeat) stays responsive.
+        with open(target, "rb") as fh:
+            return fh.read(_MEMORY_FILE_MAX_BYTES) if truncated else fh.read()
+
     try:
-        if st.st_size > _MEMORY_FILE_MAX_BYTES:
-            with open(target, "rb") as fh:
-                raw = fh.read(_MEMORY_FILE_MAX_BYTES)
-            truncated = True
-        else:
-            with open(target, "rb") as fh:
-                raw = fh.read()
+        raw = await asyncio.to_thread(_read_memory_blob)
         # Decode as UTF-8 with replacement so we never 500 on a stray byte.
         content = raw.decode("utf-8", errors="replace")
     except HTTPException:
@@ -4433,44 +4484,49 @@ async def search_memory(
 @app.get("/api/memory/stats")
 async def get_memory_stats():
     """Get memory system statistics (counts, size, backend info)."""
-    storage = _get_memory_storage()
-    if storage is not None:
-        try:
-            return storage.get_stats()
-        except Exception:
-            pass
+    # SQLite stats query or a directory-walk over many JSON files; both block,
+    # so offload off the event loop.
+    def _compute_stats() -> dict:
+        storage = _get_memory_storage()
+        if storage is not None:
+            try:
+                return storage.get_stats()
+            except Exception:
+                pass
 
-    # Fallback: compute stats from JSON files
-    memory_dir = _get_loki_dir() / "memory"
-    ep_count = 0
-    ep_dir = memory_dir / "episodic"
-    if ep_dir.exists():
-        for d in ep_dir.iterdir():
-            if d.is_dir():
-                ep_count += len(list(d.glob("*.json")))
-            elif d.suffix == ".json":
-                ep_count += 1
+        # Fallback: compute stats from JSON files
+        memory_dir = _get_loki_dir() / "memory"
+        ep_count = 0
+        ep_dir = memory_dir / "episodic"
+        if ep_dir.exists():
+            for d in ep_dir.iterdir():
+                if d.is_dir():
+                    ep_count += len(list(d.glob("*.json")))
+                elif d.suffix == ".json":
+                    ep_count += 1
 
-    pat_count = 0
-    patterns_file = memory_dir / "semantic" / "patterns.json"
-    if patterns_file.exists():
-        try:
-            data = json.loads(patterns_file.read_text())
-            pat_count = len(data) if isinstance(data, list) else len(data.get("patterns", []))
-        except Exception:
-            pass
+        pat_count = 0
+        patterns_file = memory_dir / "semantic" / "patterns.json"
+        if patterns_file.exists():
+            try:
+                data = json.loads(patterns_file.read_text())
+                pat_count = len(data) if isinstance(data, list) else len(data.get("patterns", []))
+            except Exception:
+                pass
 
-    skill_count = 0
-    skills_dir = memory_dir / "skills"
-    if skills_dir.exists():
-        skill_count = len(list(skills_dir.glob("*.json")))
+        skill_count = 0
+        skills_dir = memory_dir / "skills"
+        if skills_dir.exists():
+            skill_count = len(list(skills_dir.glob("*.json")))
 
-    return {
-        "backend": "json",
-        "episode_count": ep_count,
-        "pattern_count": pat_count,
-        "skill_count": skill_count,
-    }
+        return {
+            "backend": "json",
+            "episode_count": ep_count,
+            "pattern_count": pat_count,
+            "skill_count": skill_count,
+        }
+
+    return await asyncio.to_thread(_compute_stats)
 
 
 # Learning/metrics endpoints
@@ -4516,10 +4572,10 @@ async def get_learning_metrics(
     source: Optional[str] = None,
 ):
     """Get learning metrics from events, metrics files, and learning signals."""
-    events = _read_events(timeRange)
+    events = await asyncio.to_thread(_read_events, timeRange)
 
     # Also read from learning signals directory
-    all_signals = _read_learning_signals(limit=10000)
+    all_signals = await asyncio.to_thread(_read_learning_signals, limit=10000)
 
     # Filter by type and source
     if signalType:
@@ -4596,7 +4652,7 @@ async def get_learning_trends(
     source: Optional[str] = None,
 ):
     """Get learning trend data."""
-    events = _read_events(timeRange)
+    events = await asyncio.to_thread(_read_events, timeRange)
     # Group by hour for trend data
     by_hour: dict = {}
     for e in events:
@@ -4618,14 +4674,14 @@ async def get_learning_signals(
     offset: int = Query(default=0, ge=0),
 ):
     """Get raw learning signals from both events.jsonl and learning signals directory."""
-    events = _read_events(timeRange)
+    events = await asyncio.to_thread(_read_events, timeRange)
     if signalType:
         events = [e for e in events if e.get("type") == signalType]
     if source:
         events = [e for e in events if e.get("data", {}).get("source") == source]
 
     # Also read from learning signals directory
-    file_signals = _read_learning_signals(signal_type=signalType, limit=10000)
+    file_signals = await asyncio.to_thread(_read_learning_signals, signal_type=signalType, limit=10000)
     if source:
         file_signals = [s for s in file_signals if s.get("source") == source]
 
@@ -4649,10 +4705,10 @@ async def get_learning_aggregation():
             pass
 
     # Supplement with live data from learning signals directory
-    success_signals = _read_learning_signals(signal_type="success_pattern", limit=500)
-    tool_signals = _read_learning_signals(signal_type="tool_efficiency", limit=500)
-    error_signals = _read_learning_signals(signal_type="error_pattern", limit=500)
-    pref_signals = _read_learning_signals(signal_type="user_preference", limit=500)
+    success_signals = await asyncio.to_thread(_read_learning_signals, signal_type="success_pattern", limit=500)
+    tool_signals = await asyncio.to_thread(_read_learning_signals, signal_type="tool_efficiency", limit=500)
+    error_signals = await asyncio.to_thread(_read_learning_signals, signal_type="error_pattern", limit=500)
+    pref_signals = await asyncio.to_thread(_read_learning_signals, signal_type="user_preference", limit=500)
 
     # Merge success patterns from signals if aggregation file had none
     if not result.get("success_patterns") and success_signals:
@@ -4726,6 +4782,14 @@ async def trigger_aggregation():
     if not _read_limiter.check("learning_aggregate"):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
+    # Reads up to 10 MB of events.jsonl, parses every line, then writes the
+    # aggregation.json metrics file. All blocking, all on local state +
+    # filesystem (no shared in-memory state), so offload the whole computation
+    # to a thread to keep the event loop (status + WS heartbeat) responsive.
+    return await asyncio.to_thread(_compute_learning_aggregation)
+
+
+def _compute_learning_aggregation() -> dict:
     events_file = _get_loki_dir() / "events.jsonl"
     preferences: dict = {}
     error_patterns: dict = {}
@@ -4821,10 +4885,10 @@ async def trigger_aggregation():
 @app.get("/api/learning/preferences", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_preferences(limit: int = Query(default=50, ge=1, le=1000)):
     """Get aggregated user preferences from events and learning signals directory."""
-    events = _read_events("30d")
+    events = await asyncio.to_thread(_read_events, "30d")
     prefs = [e for e in events if e.get("type") == "user_preference"]
     # Also read from learning signals directory
-    file_prefs = _read_learning_signals(signal_type="user_preference", limit=limit)
+    file_prefs = await asyncio.to_thread(_read_learning_signals, signal_type="user_preference", limit=limit)
     combined = prefs + file_prefs
     combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
     return combined[:limit]
@@ -4833,10 +4897,10 @@ async def get_learning_preferences(limit: int = Query(default=50, ge=1, le=1000)
 @app.get("/api/learning/errors", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_errors(limit: int = Query(default=50, ge=1, le=1000)):
     """Get aggregated error patterns from events and learning signals directory."""
-    events = _read_events("30d")
+    events = await asyncio.to_thread(_read_events, "30d")
     errors = [e for e in events if e.get("type") == "error_pattern"]
     # Also read from learning signals directory
-    file_errors = _read_learning_signals(signal_type="error_pattern", limit=limit)
+    file_errors = await asyncio.to_thread(_read_learning_signals, signal_type="error_pattern", limit=limit)
     combined = errors + file_errors
     combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
     return combined[:limit]
@@ -4845,10 +4909,10 @@ async def get_learning_errors(limit: int = Query(default=50, ge=1, le=1000)):
 @app.get("/api/learning/success", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learning_success(limit: int = Query(default=50, ge=1, le=1000)):
     """Get aggregated success patterns from events and learning signals directory."""
-    events = _read_events("30d")
+    events = await asyncio.to_thread(_read_events, "30d")
     successes = [e for e in events if e.get("type") == "success_pattern"]
     # Also read from learning signals directory
-    file_successes = _read_learning_signals(signal_type="success_pattern", limit=limit)
+    file_successes = await asyncio.to_thread(_read_learning_signals, signal_type="success_pattern", limit=limit)
     combined = successes + file_successes
     combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
     return combined[:limit]
@@ -4857,10 +4921,10 @@ async def get_learning_success(limit: int = Query(default=50, ge=1, le=1000)):
 @app.get("/api/learning/tools", dependencies=[Depends(auth.require_scope("read"))])
 async def get_tool_efficiency(limit: int = Query(default=50, ge=1, le=1000)):
     """Get tool efficiency rankings from events and learning signals directory."""
-    events = _read_events("30d")
+    events = await asyncio.to_thread(_read_events, "30d")
     tools = [e for e in events if e.get("type") == "tool_efficiency"]
     # Also read from learning signals directory
-    file_tools = _read_learning_signals(signal_type="tool_efficiency", limit=limit)
+    file_tools = await asyncio.to_thread(_read_learning_signals, signal_type="tool_efficiency", limit=limit)
     combined = tools + file_tools
     combined.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
     return combined[:limit]
@@ -5204,7 +5268,16 @@ def _calculate_model_cost(model: str, input_tokens: int, output_tokens: int) -> 
 
 @app.get("/api/cost")
 async def get_cost():
-    """Get cost visibility data from .loki/metrics/efficiency/ and budget.json."""
+    """Get cost visibility data from .loki/metrics/efficiency/ and budget.json.
+
+    The computation globs + reads every per-iteration efficiency JSON file
+    (a blocking multi-file read loop building only local aggregates), so it is
+    offloaded to a thread to keep the event loop responsive.
+    """
+    return await asyncio.to_thread(_compute_cost_snapshot)
+
+
+def _compute_cost_snapshot() -> dict:
     loki_dir = _get_loki_dir()
     efficiency_dir = loki_dir / "metrics" / "efficiency"
     budget_file = loki_dir / "metrics" / "budget.json"
@@ -5223,6 +5296,11 @@ async def get_cost():
         for eff_file in sorted(efficiency_dir.glob("*.json")):
             try:
                 data = json.loads(eff_file.read_text())
+                # A corrupt/truncated efficiency file can parse to a non-object
+                # (list / null / scalar); data.get(...) would then raise
+                # AttributeError. Skip such files rather than 500 the endpoint.
+                if not isinstance(data, dict):
+                    continue
 
                 inp = data.get("input_tokens", 0)
                 out = data.get("output_tokens", 0)
@@ -5250,7 +5328,7 @@ async def get_cost():
                 by_model[model]["input_tokens"] += inp
                 by_model[model]["output_tokens"] += out
                 by_model[model]["cost_usd"] += cost
-            except (json.JSONDecodeError, KeyError, TypeError):
+            except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                 pass
 
     # Fallback: read from context tracking if efficiency files have no token data
@@ -5259,7 +5337,13 @@ async def get_cost():
         if ctx_file.exists():
             try:
                 ctx = json.loads(ctx_file.read_text())
+                # A corrupt/truncated tracking.json can parse to a non-object;
+                # ctx.get(...) would then raise AttributeError. Skip it.
+                if not isinstance(ctx, dict):
+                    ctx = {}
                 totals = ctx.get("totals", {})
+                if not isinstance(totals, dict):
+                    totals = {}
                 total_input = totals.get("total_input", 0)
                 total_output = totals.get("total_output", 0)
                 if total_input > 0 or total_output > 0:
@@ -5275,7 +5359,7 @@ async def get_cost():
                         by_model[model]["input_tokens"] += inp
                         by_model[model]["output_tokens"] += out
                         by_model[model]["cost_usd"] += cost
-            except (json.JSONDecodeError, KeyError):
+            except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                 pass
 
     # Read budget configuration
@@ -5352,13 +5436,26 @@ async def get_budget():
             except (json.JSONDecodeError, KeyError):
                 pass
 
+    # Coerce defensively: a budget.json with a non-numeric budget_used/limit
+    # (e.g. "n/a", null, a list) parses as valid JSON but would crash float()
+    # with ValueError/TypeError. Treat non-numeric values as 0.0 / None so the
+    # endpoint returns a clean payload instead of a 500.
+    def _to_float(value, default=0.0):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    budget_limit_f = _to_float(budget_limit, None) if budget_limit is not None else None
+    budget_used_f = _to_float(budget_used, 0.0)
+
     remaining = None
-    if budget_limit is not None:
-        remaining = max(0.0, float(budget_limit) - float(budget_used))
+    if budget_limit_f is not None:
+        remaining = max(0.0, budget_limit_f - budget_used_f)
 
     return {
-        "budget_limit": float(budget_limit) if budget_limit is not None else None,
-        "current_cost": round(float(budget_used), 4),
+        "budget_limit": budget_limit_f,
+        "current_cost": round(budget_used_f, 4),
         "exceeded": exceeded,
         "exceeded_at": exceeded_at,
         "remaining": round(remaining, 4) if remaining is not None else None,
@@ -5471,7 +5568,15 @@ async def get_cost_timeline():
     classifies into ok/warn/exceeded so the UI can warn at 80% before the cap.
     Cost is never fabricated: when nothing was recorded, cost_recorded is False
     and totals are honestly null rather than a misleading $0.00.
+
+    Globs + reads every efficiency iteration file and every proof.json (a
+    blocking multi-file read loop building only local state), so it is offloaded
+    to a thread to keep the event loop responsive.
     """
+    return await asyncio.to_thread(_compute_cost_timeline)
+
+
+def _compute_cost_timeline() -> dict:
     loki_dir = _get_loki_dir()
     efficiency_dir = loki_dir / "metrics" / "efficiency"
 
@@ -5730,51 +5835,59 @@ async def get_council_state():
 
 @app.get("/api/council/verdicts")
 async def get_council_verdicts(limit: int = Query(default=20, ge=1, le=1000)):
-    """Get council vote history (decision log)."""
-    state_file = _get_loki_dir() / "council" / "state.json"
-    verdicts = []
-    if state_file.exists():
-        try:
-            state = json.loads(state_file.read_text())
-            verdicts = state.get("verdicts", [])
-        except Exception:
-            pass
+    """Get council vote history (decision log).
 
-    # Also read individual vote files for detail
-    votes_dir = _get_loki_dir() / "council" / "votes"
-    detailed_verdicts = []
-    if votes_dir.exists():
-        for vote_dir in sorted(votes_dir.iterdir(), reverse=True):
-            if vote_dir.is_dir():
-                verdict_detail = {"iteration": vote_dir.name}
-                # Read evidence
-                evidence_file = vote_dir / "evidence.md"
-                if evidence_file.exists():
-                    try:
-                        verdict_detail["evidence_preview"] = evidence_file.read_text()[:500]
-                    except Exception:
-                        verdict_detail["evidence_preview"] = ""
-                # Read member votes
-                members = []
-                for member_file in sorted(vote_dir.glob("member-*.txt")):
-                    try:
-                        content = member_file.read_text().strip()
-                        members.append({
-                            "member": member_file.stem,
-                            "content": content
-                        })
-                    except Exception:
-                        pass
-                verdict_detail["members"] = members
-                # Read contrarian
-                contrarian_file = vote_dir / "contrarian.txt"
-                if contrarian_file.exists():
-                    verdict_detail["contrarian"] = contrarian_file.read_text().strip()
-                detailed_verdicts.append(verdict_detail)
-                if len(detailed_verdicts) >= limit:
-                    break
+    Walks every vote directory and reads its evidence/member/contrarian files
+    (a blocking multi-file read loop building only local state), so it is
+    offloaded to a thread to keep the event loop responsive.
+    """
+    def _collect_verdicts() -> dict:
+        state_file = _get_loki_dir() / "council" / "state.json"
+        verdicts = []
+        if state_file.exists():
+            try:
+                state = json.loads(state_file.read_text())
+                verdicts = state.get("verdicts", [])
+            except Exception:
+                pass
 
-    return {"verdicts": verdicts, "details": detailed_verdicts}
+        # Also read individual vote files for detail
+        votes_dir = _get_loki_dir() / "council" / "votes"
+        detailed_verdicts = []
+        if votes_dir.exists():
+            for vote_dir in sorted(votes_dir.iterdir(), reverse=True):
+                if vote_dir.is_dir():
+                    verdict_detail = {"iteration": vote_dir.name}
+                    # Read evidence
+                    evidence_file = vote_dir / "evidence.md"
+                    if evidence_file.exists():
+                        try:
+                            verdict_detail["evidence_preview"] = evidence_file.read_text()[:500]
+                        except Exception:
+                            verdict_detail["evidence_preview"] = ""
+                    # Read member votes
+                    members = []
+                    for member_file in sorted(vote_dir.glob("member-*.txt")):
+                        try:
+                            content = member_file.read_text().strip()
+                            members.append({
+                                "member": member_file.stem,
+                                "content": content
+                            })
+                        except Exception:
+                            pass
+                    verdict_detail["members"] = members
+                    # Read contrarian
+                    contrarian_file = vote_dir / "contrarian.txt"
+                    if contrarian_file.exists():
+                        verdict_detail["contrarian"] = contrarian_file.read_text().strip()
+                    detailed_verdicts.append(verdict_detail)
+                    if len(detailed_verdicts) >= limit:
+                        break
+
+        return {"verdicts": verdicts, "details": detailed_verdicts}
+
+    return await asyncio.to_thread(_collect_verdicts)
 
 
 @app.get("/api/council/convergence")
@@ -5849,35 +5962,41 @@ async def get_council_transcripts(
     if not transcripts_dir.exists():
         response: dict = {"transcripts": [], "total": 0, "latest_id": None}
         if type_prefix:
-            response["hook_events"] = _read_events(type_prefix=type_prefix)
+            response["hook_events"] = await asyncio.to_thread(_read_events, type_prefix=type_prefix)
         return response
 
-    records = []
-    for f in sorted(transcripts_dir.glob("iter-*.json"), reverse=True):
-        try:
-            rec = json.loads(f.read_text())
-        except Exception:
-            logger.warning("Skipping corrupt council transcript file: %s", f.name)
-            continue
-        if not isinstance(rec, dict):
-            logger.warning("Skipping non-object council transcript file: %s", f.name)
-            continue
-        if not isinstance(rec.get("iteration_id"), str):
-            logger.warning("Skipping transcript missing iteration_id field: %s", f.name)
-            continue
-        if since_dt is not None:
-            ts_str = rec.get("timestamp", "")
+    def _collect_transcript_records() -> list:
+        # Globs + reads up to `limit` (<=200) JSON transcript files; a blocking
+        # multi-file read loop offloaded so the event loop stays responsive.
+        out: list = []
+        for f in sorted(transcripts_dir.glob("iter-*.json"), reverse=True):
             try:
-                ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
+                rec = json.loads(f.read_text())
+            except Exception:
+                logger.warning("Skipping corrupt council transcript file: %s", f.name)
                 continue
-            if ts <= since_dt:
+            if not isinstance(rec, dict):
+                logger.warning("Skipping non-object council transcript file: %s", f.name)
                 continue
-        if iter_min is not None and rec.get("iteration", 0) < iter_min:
-            continue
-        records.append(rec)
-        if len(records) >= limit:
-            break
+            if not isinstance(rec.get("iteration_id"), str):
+                logger.warning("Skipping transcript missing iteration_id field: %s", f.name)
+                continue
+            if since_dt is not None:
+                ts_str = rec.get("timestamp", "")
+                try:
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    continue
+                if ts <= since_dt:
+                    continue
+            if iter_min is not None and rec.get("iteration", 0) < iter_min:
+                continue
+            out.append(rec)
+            if len(out) >= limit:
+                break
+        return out
+
+    records = await asyncio.to_thread(_collect_transcript_records)
 
     response = {
         "transcripts": records,
@@ -5886,7 +6005,7 @@ async def get_council_transcripts(
     }
     # v7.5.22 Phase D: opt-in hook-event passthrough via _read_events filter.
     if type_prefix:
-        response["hook_events"] = _read_events(type_prefix=type_prefix)
+        response["hook_events"] = await asyncio.to_thread(_read_events, type_prefix=type_prefix)
     return response
 
 
@@ -6107,7 +6226,16 @@ def _sanitize_checkpoint_id(checkpoint_id: str) -> str:
 
 @app.get("/api/checkpoints")
 async def list_checkpoints(limit: int = Query(default=20, ge=1, le=200)):
-    """List recent checkpoints from index.jsonl, enriched with metadata when available."""
+    """List recent checkpoints from index.jsonl, enriched with metadata when available.
+
+    Reads index.jsonl plus a metadata.json and a recursive rglob() file count
+    per checkpoint (a blocking multi-file walk building only local state), so
+    it is offloaded to a thread to keep the event loop responsive.
+    """
+    return await asyncio.to_thread(_collect_checkpoints, limit)
+
+
+def _collect_checkpoints(limit: int) -> list:
     loki_dir = _get_loki_dir()
     index_file = loki_dir / "state" / "checkpoints" / "index.jsonl"
     checkpoints_dir = loki_dir / "state" / "checkpoints"
@@ -6524,10 +6652,17 @@ async def resume_agent(agent_id: str):
 
 
 @app.get("/api/logs")
-async def get_logs(lines: int = 100, token: Optional[dict] = Depends(auth.get_current_token)):
-    """Get recent log entries from session log files."""
+async def get_logs(lines: int = Query(default=100, ge=1, le=10000), token: Optional[dict] = Depends(auth.get_current_token)):
+    """Get recent log entries from session log files (redacted)."""
     log_dir = _get_loki_dir() / "logs"
     entries = []
+
+    # Session logs (.loki/logs/*.log) are written raw by run.sh and can contain
+    # secrets an agent/tool echoed to stdout (sk-ant-, ghp_, Bearer, AWS keys).
+    # Redact every returned message exactly like the /api/app-runner/logs and
+    # /errors endpoints do. The response shape is unchanged; only the message
+    # content passes through the redactor.
+    _redact = _get_log_redactor()
 
     # Regex for full timestamp: [2026-02-07T01:32:00] [INFO] msg  or  2026-02-07 01:32:00 INFO msg
     _LOG_TS_FULL = re.compile(
@@ -6558,17 +6693,18 @@ async def get_logs(lines: int = 100, token: Optional[dict] = Depends(auth.get_cu
                 file_mtime = datetime.fromtimestamp(log_file.stat().st_mtime, tz=timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%S"
                 )
-                # Read only the tail to avoid loading huge files into memory
-                tail_lines = []
-                try:
-                    with open(log_file, "rb") as lf:
-                        # Seek from end to find enough lines
+                # Read only the tail to avoid loading huge files into memory.
+                # The up-to-1MB blocking read is offloaded to a thread so the
+                # single-worker event loop (status + WS heartbeat) stays free.
+                def _read_log_tail(lf_path=log_file, n=lines) -> list[str]:
+                    with open(lf_path, "rb") as lf:
                         lf.seek(0, 2)
                         file_size = lf.tell()
-                        # Read at most 1MB from the end (plenty for any reasonable lines count)
                         read_size = min(file_size, 1024 * 1024)
                         lf.seek(max(0, file_size - read_size))
-                        tail_lines = lf.read().decode("utf-8", errors="replace").strip().split("\n")[-lines:]
+                        return lf.read().decode("utf-8", errors="replace").strip().split("\n")[-n:]
+                try:
+                    tail_lines = await asyncio.to_thread(_read_log_tail)
                 except (OSError, UnicodeDecodeError):
                     tail_lines = []
                 for raw_line in tail_lines:
@@ -6595,7 +6731,7 @@ async def get_logs(lines: int = 100, token: Optional[dict] = Depends(auth.get_cu
                         timestamp = file_mtime
 
                     entries.append({
-                        "message": message,
+                        "message": _redact(message),
                         "level": level,
                         "timestamp": timestamp,
                     })
@@ -6801,6 +6937,23 @@ def _resolve_process_state(pid: Optional[int], last_status: str = "",
                 started_dt = started_dt.replace(tzinfo=timezone.utc)
         except (ValueError, AttributeError):
             pass
+
+    # PID-reuse guard. os.kill(pid, 0) only proves *some* process owns this
+    # numeric pid -- not that it is OUR process. After our process exits the OS
+    # can recycle its pid for an unrelated program, and a bare existence probe
+    # would then report that stranger as our live run forever. Cross-check the
+    # live pid's real OS start time against the recorded `started` reference: a
+    # genuine process was launched at or before we recorded it, so a live pid
+    # whose start time is comfortably AFTER the reference must be a recycled pid
+    # belonging to someone else. Only downgrade on positive evidence (start time
+    # readable AND reference parseable); if either is missing we keep the prior
+    # best-effort behavior rather than guess, biasing against false downgrades.
+    if pid_alive and started_dt is not None:
+        pid_start = _pid_start_time(pid)
+        if pid_start is not None:
+            reference_epoch = started_dt.timestamp()
+            if pid_start > reference_epoch + _APP_RUNNER_PID_RECYCLE_MARGIN_SECONDS:
+                pid_alive = False
     if heartbeat:
         try:
             heartbeat_dt = datetime.fromisoformat(heartbeat.replace("Z", "+00:00"))
@@ -7088,6 +7241,10 @@ def _build_metrics_text() -> str:
             for eff_file in efficiency_dir.glob("*.json"):
                 try:
                     data = json.loads(eff_file.read_text())
+                    # Skip non-object (corrupt/truncated) efficiency files so a
+                    # bad file does not 500 the Prometheus scrape.
+                    if not isinstance(data, dict):
+                        continue
                     cost = data.get("cost_usd")
                     if cost is not None:
                         estimated_cost += float(cost)
@@ -7097,7 +7254,7 @@ def _build_metrics_text() -> str:
                         estimated_cost += _calculate_model_cost(
                             data.get("model", "sonnet").lower(), inp, out
                         )
-                except (json.JSONDecodeError, KeyError, TypeError):
+                except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
                     pass
         except OSError:
             pass
@@ -7739,6 +7896,30 @@ def _compose_service_labels(svc):
     return {}
 
 
+def _pick_web_port(ports):
+    """From a service's published host ports, pick the one most likely to be HTTP.
+
+    A single service can publish several host ports (e.g. a Spring Boot app that
+    exposes 8080 for HTTP and 8081 for the actuator/management endpoint, or a
+    stack that maps both a debug and a web port). Blindly taking ports[0] is
+    order-dependent and can surface the management/debug port instead of the
+    reachable web URL. Prefer the first port that appears in
+    _COMPOSE_COMMON_WEB_PORTS precedence order (so 8080 wins over a non-common
+    8081), and only fall back to ports[0] when none is a recognized web port.
+
+    This is why Spring Boot's 8080-over-8081 case resolves correctly without
+    parsing application.properties / server.port: the runtime published host
+    port (from compose ps Publishers) is matched against the known web-port
+    family. Returns a port string, or None if ports is empty. Never raises.
+    """
+    if not ports:
+        return None
+    for cp in _COMPOSE_COMMON_WEB_PORTS:
+        if cp in ports:
+            return cp
+    return ports[0]
+
+
 def _identify_compose_web_service(config_services, running_by_service):
     """Pick the primary web service and its published host port.
 
@@ -7751,6 +7932,12 @@ def _identify_compose_web_service(config_services, running_by_service):
     published port comes from the matching RUNNING container (compose ps), since
     only running, published containers can yield a real URL. Returns
     (service_name, port_str) or (None, None). Never raises.
+
+    When a chosen service publishes MULTIPLE host ports, _pick_web_port selects
+    the HTTP one (common web port over a management/debug port) rather than the
+    arbitrary first-listed port -- so a Spring Boot service exposing 8080+8081
+    surfaces 8080, and a stack whose web service is not first in the compose file
+    is still resolved by name (rule 2) or by common-port match (rule 3).
 
     config_services: dict {service_name: service_config_dict} (may be empty).
     running_by_service: dict {service_name: [published_port_str, ...]} for
@@ -7766,26 +7953,30 @@ def _identify_compose_web_service(config_services, running_by_service):
         labels = _compose_service_labels(svc)
         if str(labels.get("loki.primary", "")).lower() == "true":
             ports = running_by_service.get(name)
-            if ports:
-                return (name, ports[0])
+            picked = _pick_web_port(ports)
+            if picked:
+                return (name, picked)
 
     # (2) service named web/app
     for cand in ("web", "app"):
         ports = running_by_service.get(cand)
-        if ports:
-            return (cand, ports[0])
+        picked = _pick_web_port(ports)
+        if picked:
+            return (cand, picked)
 
-    # (3) service publishing a common web port
+    # (3) service publishing a common web port. Iterate services in sorted order
+    # so selection is deterministic when more than one service is a candidate.
     for cp in _COMPOSE_COMMON_WEB_PORTS:
-        for name, ports in running_by_service.items():
-            if cp in ports:
+        for name in sorted(running_by_service.keys()):
+            if cp in running_by_service[name]:
                 return (name, cp)
 
-    # (4) first running service with any published port. Sort for determinism.
+    # (4) first running service with any published port. Sort for determinism;
+    # pick that service's HTTP-most port (not necessarily its first-listed one).
     for name in sorted(running_by_service.keys()):
-        ports = running_by_service[name]
-        if ports:
-            return (name, ports[0])
+        picked = _pick_web_port(running_by_service[name])
+        if picked:
+            return (name, picked)
 
     return (None, None)
 
@@ -8035,8 +8226,12 @@ async def get_app_runner_logs(lines: int = Query(default=100, ge=1, le=1000)):
         return {"lines": []}
     try:
         redact = _get_log_redactor()
-        all_lines = _safe_read_text(log_file).splitlines()
-        return {"lines": [redact(ln) for ln in all_lines[-lines:]], "redacted": True}
+        # Reading + redacting the app log is blocking (the log can be large);
+        # offload so the event loop (status + WS heartbeat) is not stalled.
+        def _read_redacted(p=log_file, n=lines):
+            return [redact(ln) for ln in _safe_read_text(p).splitlines()[-n:]]
+        out_lines = await asyncio.to_thread(_read_redacted)
+        return {"lines": out_lines, "redacted": True}
     except OSError:
         return {"lines": []}
 
@@ -8071,8 +8266,10 @@ async def get_app_runner_errors(lines: int = Query(default=50, ge=1, le=500)):
     if log_file.exists():
         try:
             redact = _get_log_redactor()
-            all_lines = _safe_read_text(log_file).splitlines()
-            out_lines = [redact(ln) for ln in all_lines[-lines:]]
+            # Offload the blocking log read + redaction off the event loop.
+            def _read_redacted(p=log_file, n=lines):
+                return [redact(ln) for ln in _safe_read_text(p).splitlines()[-n:]]
+            out_lines = await asyncio.to_thread(_read_redacted)
         except OSError:
             out_lines = []
 
@@ -8489,6 +8686,17 @@ def _get_migration_imports():
     return _migration_imports
 
 
+def _get_migration_terminal_phase():
+    """Return the last phase in the migration PHASE_ORDER (the terminal phase),
+    or None if the migration engine is unavailable. Used to let the terminal
+    phase be advanced/completed without a successor to_phase (WAVE9 F1)."""
+    try:
+        from dashboard.migration_engine import PHASE_ORDER
+        return PHASE_ORDER[-1] if PHASE_ORDER else None
+    except (ImportError, IndexError):
+        return None
+
+
 @app.get("/api/migration/list", dependencies=[Depends(auth.require_scope("read"))])
 def list_migrations_endpoint():
     """List all migrations."""
@@ -8639,7 +8847,16 @@ def advance_migration(migration_id: str, request_body: dict):
     MigrationPipeline, list_migrations = imports
     from_phase = request_body.get("from_phase")
     to_phase = request_body.get("to_phase")
-    if not from_phase or not to_phase:
+    # The terminal phase (the last in PHASE_ORDER, e.g. "verify") has no
+    # successor, so check_phase_gate can never pass for it and to_phase is
+    # meaningless. Without this carve-out the terminal phase could never be
+    # completed via the API, so overall_status could never reach "completed"
+    # (WAVE9 migration-F1). For the terminal phase we require only from_phase
+    # and skip the gate; advance_phase still validates the phase and the
+    # (ValueError, RuntimeError) -> 409 handler below preserves idempotency.
+    terminal_phase = _get_migration_terminal_phase()
+    is_terminal = terminal_phase is not None and from_phase == terminal_phase
+    if not from_phase or (not to_phase and not is_terminal):
         raise HTTPException(status_code=400, detail="from_phase and to_phase are required")
     # Load pipeline and check phase gate before the try/except to let
     # HTTPException and FileNotFoundError propagate naturally.
@@ -8647,12 +8864,19 @@ def advance_migration(migration_id: str, request_body: dict):
         pipeline = MigrationPipeline.load(migration_id)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Migration not found: {migration_id}")
-    passed, reason = pipeline.check_phase_gate(from_phase, to_phase)
-    if not passed:
-        raise HTTPException(status_code=409, detail=reason)
+    if not is_terminal:
+        passed, reason = pipeline.check_phase_gate(from_phase, to_phase)
+        if not passed:
+            raise HTTPException(status_code=409, detail=reason)
     try:
         result = pipeline.advance_phase(from_phase)
         return asdict(result) if hasattr(result, '__dataclass_fields__') else result
+    except (ValueError, RuntimeError) as exc:
+        # advance_phase raises RuntimeError on a failed phase gate or when the
+        # phase is not in_progress (e.g. already advanced). These are client
+        # contract errors, not server faults: map to 409 like the sibling
+        # start_migration_phase endpoint does.
+        raise HTTPException(status_code=409, detail=str(exc))
     except Exception as exc:
         logger.error("Migration advance error: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to advance migration")
@@ -8790,7 +9014,11 @@ async def get_managed_events(
     """
     try:
         path = _managed_events_path()
-        records = _tail_ndjson(path, limit=limit, since_iso=since, event_type=type)
+        # Tails an ndjson file (rotated at 10MB) via a blocking readlines();
+        # offload so the event loop stays responsive.
+        records = await asyncio.to_thread(
+            _tail_ndjson, path, limit, since, type
+        )
         return {
             "events": records,
             "count": len(records),
@@ -8813,11 +9041,13 @@ async def get_managed_status():
     snapshot = _managed_flags_snapshot()
     # last_fallback_ts is best-effort from the local events file.
     try:
-        events = _tail_ndjson(
+        # Blocking ndjson tail read; offload off the event loop.
+        events = await asyncio.to_thread(
+            _tail_ndjson,
             _managed_events_path(),
-            limit=500,
-            since_iso=None,
-            event_type="managed_agents_fallback",
+            500,
+            None,
+            "managed_agents_fallback",
         )
         snapshot["last_fallback_ts"] = _last_fallback_ts(events)
     except Exception:

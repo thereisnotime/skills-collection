@@ -1,6 +1,6 @@
 ---
 name: ce-proof
-description: Run human-in-the-loop review loops over markdown via Proof (proofeditor.ai) — share, view, comment on, edit, and sync collaborative docs. Use when the user says "view this in proof", "share to proof", "HITL this doc", or wants a shared markdown review surface for a spec, plan, or draft, including handoffs from ce-brainstorm, ce-ideate, or ce-plan. Do not trigger on "proof" meaning evidence, math proofs, proof-of-concept, or "proofread this".
+description: Publish, view, comment on, and edit markdown via Proof (proofeditor.ai) — create a shareable doc, read a shared doc, and make comment/suggestion/block edits over its API. Use when the user says "view this in proof", "share to proof", "publish to proof", or wants a shareable markdown surface for a spec, plan, or draft, including publish handoffs from ce-brainstorm, ce-ideate, or ce-plan. Do not trigger on "proof" meaning evidence, math proofs, proof-of-concept, or "proofread this".
 allowed-tools:
   - Bash
   - Read
@@ -22,14 +22,14 @@ Every write to a Proof doc must be attributed. Two fields carry the agent's iden
 - **Machine ID (`by` on every op, `X-Agent-Id` header):** `ai:compound-engineering` — stable, lowercase-hyphenated, machine-parseable. Appears in marks, events, and the API response.
 - **Display name (`name` on `POST /presence`):** `Compound Engineering` — human-readable, shown in Proof's presence chips and comment-author badges.
 
-Set the display name once per doc session by posting to presence with the `X-Agent-Id` header; Proof binds the name to that agent ID for the session. These values are the defaults for any caller of this skill; callers running HITL review (`references/hitl-review.md`) may pass a different `identity` pair if a distinct sub-agent should own the doc. Do not use `ai:compound` or other ad-hoc variants — identity stays uniform unless a caller explicitly overrides it.
+Set the display name once per doc session by posting to presence with the `X-Agent-Id` header; Proof binds the name to that agent ID for the session. These values are the defaults for any caller of this skill; a caller may pass a different `identity` pair if a distinct sub-agent should own the doc. Do not use `ai:compound` or other ad-hoc variants — identity stays uniform unless a caller explicitly overrides it.
 
-## Human-in-the-Loop Review Mode
+## Publish Mode
 
-Human-in-the-loop iteration over an existing local markdown file: upload to Proof, let the user annotate in Proof's web UI, ingest feedback as in-thread replies and agreed edits, and sync the final doc back to disk. Two entry points, identical mechanics — load `references/hitl-review.md` for the full loop spec (invocation contract, mark classification, idempotent ingest passes, exception-based terminal reporting, end-sync atomic write) in either case:
+The primary use is one-way publishing: take an existing local markdown file (a brainstorm, a plan, a learning, a draft), read its full contents and post them as the new doc's body (see "Workflow: Create and Share a New Document" for the source-file recipe — never publish placeholder content), and hand the user a shareable URL. The local file stays canonical — publishing does not sync anything back to disk. The user can open the link to read, comment, and share with others; the agent can also participate via the edit APIs below when given the URL. Two entry points, identical mechanics (see "Workflow: Create and Share a New Document"):
 
-- **Direct user request** — a bare user phrase naming a local markdown file and asking to iterate collaboratively via Proof: "share this to proof so we can iterate", "iterate with proof on this doc", "HITL this file with me", "let's get feedback on this in proof", "open this in proof editor so I can review". The file is whichever markdown the user just created, edited, or referenced; if ambiguous, ask which file. This is a first-class entry point — do not require an upstream caller.
-- **Upstream skill handoff** — `ce-brainstorm`, `ce-ideate`, or `ce-plan` finishes a draft and hands it off for human review before the next phase, passing the file path and title explicitly.
+- **Direct user request** — a bare user phrase naming a local markdown file and asking to share it via Proof: "share this to proof", "publish this to proof", "open this in proof editor so I can review", "get me a proof link for this doc". The file is whichever markdown the user just created, edited, or referenced; if ambiguous, ask which file. This is a first-class entry point — do not require an upstream caller.
+- **Upstream skill handoff** — `ce-brainstorm`, `ce-ideate`, or `ce-plan` finishes a draft and hands it off to publish for human review, passing the file path and title explicitly.
 
 ## Web API (Primary for Sharing)
 
@@ -97,7 +97,7 @@ Comment, suggestion, and rewrite operations go to `POST https://www.proofeditor.
 
 **Wire-format reminder.** `/api/agent/{slug}/ops` uses a top-level `type` field; `/api/agent/{slug}/edit/v2` uses an `operations` array where each entry has `op`. Do not mix — sending `op` to `/ops` returns 422.
 
-**Every mutation requires a `baseToken`.** Reuse the `mutationBase.token` from the most recent `/state` or `/snapshot` read, then update it from successful mutation responses (`.mutationBase.token`). On `BASE_TOKEN_REQUIRED` or `STALE_BASE`, re-read and retry once. Only do a pre-mutation read if no prior read has happened in this session or you need fresh document/comment/snapshot content. See the baseToken recipe in `references/hitl-review.md`.
+**Every mutation requires a `baseToken`.** Reuse the `mutationBase.token` from the most recent `/state` or `/snapshot` read, then update it from successful mutation responses (`.mutationBase.token`). On `BASE_TOKEN_REQUIRED` or `STALE_BASE`, re-read and retry once. Only do a pre-mutation read if no prior read has happened in this session or you need fresh document/comment/snapshot content.
 
 `/edit/v2` block refs are a separate concern: they can drift across revisions, so re-fetch `/snapshot` for fresh refs before a block edit if any writes have landed since your last snapshot.
 
@@ -147,7 +147,7 @@ Duplicate-mark incidents usually come from retrying a `comment.add` or `suggesti
 ]}
 ```
 
-Batch `/ops` supports `comment.reply`, `comment.resolve`, and `comment.unresolve` for existing threads. Use it for HITL ingest passes instead of issuing separate reply and resolve requests per thread.
+Batch `/ops` supports `comment.reply`, `comment.resolve`, and `comment.unresolve` for existing threads. Use it to reply to and resolve multiple threads in one call instead of issuing separate reply and resolve requests per thread.
 
 **Resolve / unresolve a comment:**
 ```json
@@ -211,7 +211,7 @@ Per-op body shape (singular `block` vs plural `blocks` is load-bearing — sendi
 | `find_replace_in_block` | `ref`, `find`, `replace`, `occurrence: "first" \| "all"` |
 | `find_replace_in_doc` | `find`, `replace`, `occurrence: "first" \| "all"`, optional `fromRef`, `toRef`, `block_filter` |
 
-Read `/snapshot` to get block `ref` IDs and `mutationBase.token`. `ref` values are opaque request tokens tied to the snapshot/baseToken; re-read `/snapshot` before follow-up block edits if writes have landed. `operations` commits atomically — either every op lands or none do — so one `/edit/v2` call can batch dozens of block edits safely and efficiently (see the bulk-sweep guidance in `references/hitl-review.md` Phase 2.4). Successful full responses include the next `mutationBase.token` and fresh `snapshot.blocks[].ref` values for chaining.
+Read `/snapshot` to get block `ref` IDs and `mutationBase.token`. `ref` values are opaque request tokens tied to the snapshot/baseToken; re-read `/snapshot` before follow-up block edits if writes have landed. `operations` commits atomically — either every op lands or none do — so one `/edit/v2` call can batch dozens of block edits safely and efficiently. Successful full responses include the next `mutationBase.token` and fresh `snapshot.blocks[].ref` values for chaining.
 
 For literal doc-wide sweeps, prefer `find_replace_in_doc` over many block replacements or a whole-doc rewrite. Validate large batches with `?dryRun=1` or `?validate=1`; use `?return=minimal` when you only need `ok`, `revision`, `appliedCount`, and the next `mutationBase`.
 
@@ -320,11 +320,18 @@ curl -X POST "https://www.proofeditor.ai/api/agent/abc123/edit/v2?return=minimal
 
 ## Workflow: Create and Share a New Document
 
+**Publishing a local file (the primary case):** read the file and JSON-encode its full contents into the `markdown` field with `jq --rawfile` so newlines, quotes, and backticks are escaped correctly. Never hand-write the body or leave the inline placeholder — that publishes a placeholder doc instead of the source artifact (the plan, requirements, or ideation file the caller passed).
+
 ```bash
-# 1. Create
-RESPONSE=$(curl -s -X POST https://www.proofeditor.ai/share/markdown \
-  -H "Content-Type: application/json" \
-  -d '{"title":"My Doc","markdown":"# Title\n\nContent here."}')
+SRC="docs/plans/2026-05-04-001-feat-foo-plan.md"   # source file from the caller
+TITLE="Plan: Foo"                                   # caller-provided title
+
+# 1. Create — from a local source file:
+RESPONSE=$(jq -n --arg title "$TITLE" --rawfile md "$SRC" '{title:$title, markdown:$md}' \
+  | curl -s -X POST https://www.proofeditor.ai/share/markdown \
+    -H "Content-Type: application/json" -d @-)
+# (Ad-hoc inline content instead of a file:
+#  -d '{"title":"My Doc","markdown":"# Title\n\nContent here."}')
 
 # 2. Extract URL and token
 URL=$(echo "$RESPONSE" | jq -r '.tokenUrl')
@@ -367,10 +374,10 @@ curl -X POST "https://www.proofeditor.ai/api/agent/$SLUG/edit/v2?return=minimal"
 
 ## Workflow: Pull a Proof Doc to Local
 
-Sync the current Proof doc state to a local markdown file. Used by:
+Sync the current Proof doc state to a local markdown file. Used for:
 
-- HITL review end-sync (`references/hitl-review.md` Phase 5) when the doc originated from a local file
 - Ad-hoc snapshots of a Proof doc to disk (before closing the tab, archiving, handing off)
+- Pulling a shared Proof doc that the user (or others) edited back down to a local working copy
 - Refreshing a local working copy against the live Proof version
 
 ```bash
@@ -392,7 +399,7 @@ rm "$STATE_TMP"
 
 `jq -jr` (`-j` no trailing newline, `-r` raw string) streams the markdown bytes straight to the temp file without going through a shell variable, so trailing newlines survive intact. `mv` within the same filesystem is atomic — a crashed write leaves the original untouched rather than a half-written file.
 
-**Confirm before writing when the pull isn't directly asked for.** If a workflow ends up pulling as a side-effect of a different action (e.g., HITL review completion), surface the impending write with a short confirm like "Sync reviewed doc to `<localPath>`?" A silent overwrite is surprising — the user may have forgotten the local file exists in that session, or expected Proof to stay canonical until they explicitly asked to pull.
+**Confirm before writing when the pull isn't directly asked for.** If a workflow ends up pulling as a side-effect of a different action, surface the impending write with a short confirm like "Sync Proof doc to `<localPath>`?" A silent overwrite is surprising — the user may have forgotten the local file exists in that session, or expected Proof to stay canonical until they explicitly asked to pull.
 
 ## Safety
 

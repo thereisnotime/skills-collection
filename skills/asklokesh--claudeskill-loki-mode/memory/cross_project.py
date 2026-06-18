@@ -45,7 +45,7 @@ class CrossProjectIndex:
                         'path': str(child),
                         'name': child.name,
                         'memory_dir': str(memory_dir),
-                        'discovered_at': datetime.now(timezone.utc).isoformat() + 'Z',
+                        'discovered_at': datetime.now(timezone.utc).isoformat(),
                     })
         return projects
 
@@ -58,7 +58,7 @@ class CrossProjectIndex:
         projects = self.discover_projects()
         index = {
             'projects': [],
-            'built_at': datetime.now(timezone.utc).isoformat() + 'Z',
+            'built_at': datetime.now(timezone.utc).isoformat(),
             'total_episodes': 0,
             'total_patterns': 0,
             'total_skills': 0,

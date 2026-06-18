@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runInternalPhase1Hooks } from "../../src/commands/internal_phase1.ts";
+import { __testAppendHook, runInternalPhase1Hooks } from "../../src/commands/internal_phase1.ts";
 
 let scratch = "";
 let originalLokiDir: string | undefined;
@@ -64,6 +64,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Reset the test-only append seam (the H2 tests install a throwing stub).
+  // This is a plain module-local property, not Bun's global mock.module
+  // registry, so it restores deterministically here regardless of whether a
+  // test threw -- closing the cross-file leak that mock.module produced.
+  __testAppendHook.fn = null;
   if (originalLokiDir === undefined) delete process.env["LOKI_DIR"];
   else process.env["LOKI_DIR"] = originalLokiDir;
   if (originalRealJudge === undefined) delete process.env["LOKI_OVERRIDE_REAL_JUDGE"];
@@ -157,6 +162,66 @@ describe("v7.5.3 loki internal phase1-hooks", () => {
     // Find the file under .loki/escalations/
     const escDir = join(scratch, "escalations");
     expect(existsSync(escDir)).toBe(true);
+  });
+
+  it("H2: one throwing appendFromGateFailure does not drop the other findings", async () => {
+    // Bug-hunt H2 (batch-abort). Pre-fix, runReflect looped
+    // `await appendFromGateFailure(...)` inside the single outer try, so the
+    // first throw aborted the loop: earlier appends persisted but every
+    // remaining finding was silently dropped AND the command exited 1.
+    //
+    // We seed 3 blocking findings and mock the learnings_writer so the SECOND
+    // append throws. Post-fix: the 1st and 3rd still persist, the command
+    // surfaces the failure count, and exit code stays 0 (not all failed).
+    seedReview(20, [
+      "[Critical] bug one at src/a.ts:1",
+      "[High] bug two at src/b.ts:2",
+      "[Critical] bug three at src/c.ts:3",
+    ]);
+
+    // Drive appendFromGateFailure into a throw on the 2nd finding (src/b.ts)
+    // via the module-local test seam, and delegate to the REAL writer for the
+    // others so we can assert they actually persisted. The seam is a plain
+    // property (reset in afterEach), so it never leaks across files the way
+    // Bun's global mock.module did.
+    const realWriter = await import("../../src/runner/learnings_writer.ts");
+    const persisted: string[] = [];
+    __testAppendHook.fn = async (base, iter, finding, opts) => {
+      if (finding.file === "src/b.ts") {
+        throw new Error("synthetic append failure for b.ts");
+      }
+      persisted.push(finding.file ?? "");
+      return realWriter.appendFromGateFailure(base, iter, finding, opts);
+    };
+
+    const stop = capture();
+    const code = await runInternalPhase1Hooks(["reflect", "20"]);
+    const out = stop();
+    // The one throwing finding must NOT abort the loop or fail the command.
+    expect(code).toBe(0);
+    // The two good findings still persisted (the bug dropped #3).
+    expect(persisted).toContain("src/a.ts");
+    expect(persisted).toContain("src/c.ts");
+    expect(persisted.length).toBe(2);
+    // Failure is surfaced honestly, not swallowed silently.
+    expect(out.stderr).toContain("learning append failed");
+    expect(out.stdout).toContain("(1 failed)");
+    // findings-20.json was still written for all 3 findings.
+    expect(existsSync(join(scratch, "state", "findings-20.json"))).toBe(true);
+  });
+
+  it("H2: command exits 1 only when EVERY append fails", async () => {
+    seedReview(21, ["[Critical] only bug at src/only.ts:1"]);
+    __testAppendHook.fn = async () => {
+      throw new Error("synthetic total failure");
+    };
+    const stop = capture();
+    const code = await runInternalPhase1Hooks(["reflect", "21"]);
+    const out = stop();
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("all 1 learning appends failed");
+    // findings file still persisted before the learnings step.
+    expect(existsSync(join(scratch, "state", "findings-21.json"))).toBe(true);
   });
 
   it("unknown subcommand exits 2", async () => {

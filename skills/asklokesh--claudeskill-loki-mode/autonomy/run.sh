@@ -1725,12 +1725,25 @@ detect_complexity() {
             # Markdown PRD: count headers and checkboxes
             feature_count=$(grep -c "^##\|^- \[" "$prd_path" 2>/dev/null || echo "0")
         fi
+        # WAVE8 FIX run.sh-provider-F1 (HIGH): grep -c prints "0" AND exits 1 on
+        # zero matches; with the '|| echo "0"' fallback that yields "0\n0", which
+        # crashes the integer tests below ([: 0\n0: integer expression expected)
+        # and silently drops complexity from simple->standard. Strip to digits
+        # after every assignment path (jq, both greps), mirroring file_count:1688.
+        # "0\n0" -> "00" -> arithmetically 0.
+        feature_count="${feature_count:-0}"
+        feature_count="${feature_count//[^0-9]/}"
+        feature_count="${feature_count:-0}"
 
         # Count distinct sections (h2/h3 headers) for structural complexity (#74)
         local section_count=0
         if [[ "$prd_path" != *.json ]]; then
             section_count=$(grep -c "^##\|^###" "$prd_path" 2>/dev/null || echo "0")
         fi
+        # WAVE8 FIX run.sh-provider-F1: same grep -c double-output guard.
+        section_count="${section_count:-0}"
+        section_count="${section_count//[^0-9]/}"
+        section_count="${section_count:-0}"
 
         # PRD complexity uses content length, feature count, AND structural depth (#74)
         # A PRD with multiple sections or substantial content is not "simple" even with few project files
@@ -1919,60 +1932,31 @@ get_provider_tier_param() {
 }
 
 #===============================================================================
-# Provider Spawn Timeout (v6.0.0)
-# Wraps provider invocation with timeout + retries.
-# Default: 120s timeout, 2 retries.
+# Provider Spawn Timeout (removed WAVE9 / provider-F2)
+#
+# A former invoke_with_timeout() helper (v6.0.0) wrapped a command in
+# `timeout <s> "$@"` with a retry loop. It was never wired to the main
+# provider invocation and is intentionally not revived, for two reasons:
+#
+#   1. No safe generous default. The main provider call is a long-running
+#      autonomous coding agent. Any fixed timeout short enough to catch a
+#      hang would also kill legitimate multi-minute iterations, and there is
+#      no "generous enough" value that is both safe and useful by default.
+#   2. Wrong retry semantics. The helper re-ran the same command on timeout.
+#      Re-running a coding agent mid-work (it may have already edited files)
+#      is actively harmful, not protective.
+#
+# The main invocation is also a pipeline (`claude | tee | python3`), which a
+# positional-arg `timeout "$@"` wrapper cannot wrap at all. Interrupting a
+# hung provider is handled by the SIGINT trap (kill_provider_child) instead.
+#
+# The `loki config spawn_timeout` / `spawn_retries` knobs (autonomy/loki) and
+# the config->env mapping in this file (`'spawn_timeout':'LOKI_SPAWN_TIMEOUT'`
+# in the config loader) still export LOKI_SPAWN_TIMEOUT / LOKI_SPAWN_RETRIES,
+# but nothing consumes them now. The mapping line is intentionally left in place
+# (a config-schema test may enumerate it); the full inert-knob removal spans
+# autonomy/loki too and is a separate cross-file follow-up.
 #===============================================================================
-
-PROVIDER_SPAWN_TIMEOUT=${LOKI_SPAWN_TIMEOUT:-120}
-PROVIDER_SPAWN_RETRIES=${LOKI_SPAWN_RETRIES:-2}
-
-# Invoke a command with timeout and retry logic
-# Usage: invoke_with_timeout <timeout_seconds> <retries> <command...>
-invoke_with_timeout() {
-    local timeout="$1"
-    local max_retries="$2"
-    shift 2
-
-    local attempt=0
-    while [ $attempt -le $max_retries ]; do
-        if [ $attempt -gt 0 ]; then
-            log_warn "Provider spawn retry $attempt/$max_retries..."
-        fi
-
-        local exit_code=0
-        # Use timeout command if available (GNU coreutils or macOS)
-        if command -v timeout &>/dev/null; then
-            timeout "$timeout" "$@"
-            exit_code=$?
-        elif command -v gtimeout &>/dev/null; then
-            gtimeout "$timeout" "$@"
-            exit_code=$?
-        else
-            # Fallback: no timeout wrapper, run directly
-            log_warn "timeout/gtimeout not available - running without timeout enforcement"
-            "$@"
-            exit_code=$?
-        fi
-
-        # Exit code 124 = timeout
-        if [ $exit_code -eq 124 ]; then
-            log_warn "Provider spawn timed out after ${timeout}s (attempt $((attempt+1))/$((max_retries+1)))"
-            ((attempt++))
-            continue
-        fi
-
-        return $exit_code
-    done
-
-    log_error "Provider spawn failed after $((max_retries+1)) attempts (timeout=${timeout}s)"
-    # Crash friction (retry_loop): provider spawn exhausted all retries -- a
-    # clear threshold (not a single retry). Best-effort, never blocks.
-    if type loki_crash_friction &>/dev/null; then
-        loki_crash_friction "retry_loop" "provider spawn failed after $((max_retries+1)) attempts" >/dev/null 2>&1 || true
-    fi
-    return 124
-}
 
 #===============================================================================
 # GitHub Integration Functions (v4.1.0)
@@ -4901,6 +4885,24 @@ decide_generated_prd_action() {
     if [ ! -f "$sig_file" ]; then
         echo "update"; return 0
     fi
+    # source:"user" short-circuit (LOCK 2): an explicit user-provided PRD was
+    # persisted into the canonical slot. Always use it as-is, never enter the
+    # signature-diff update path -- even if the file hash drifted (hand-edit) or
+    # the codebase changed since. --fresh-prd/LOKI_PRD_REGEN (checked above)
+    # still wins and forces a regenerate. A missing/empty source falls through
+    # to the generated-PRD logic below (defensive: correctness never depends on
+    # a backfilled field).
+    local prd_source
+    prd_source=$(LOKI_SIG_FILE="$sig_file" python3 -c "
+import json, os
+try:
+    print(json.load(open(os.environ['LOKI_SIG_FILE'])).get('source',''))
+except Exception:
+    print('')
+" 2>/dev/null)
+    if [ "$prd_source" = "user" ]; then
+        echo "user_owned"; return 0
+    fi
     local stored stored_prd_sha current cur_prd_sha
     stored=$(LOKI_SIG_FILE="$sig_file" python3 -c "
 import json, os
@@ -5050,9 +5052,74 @@ rec = {
   'prd_sha': os.environ.get('LOKI_PRD_SHA',''),
   'mode': os.environ['LOKI_SIG_MODE'],
   'loki_version': os.environ['LOKI_SIG_VER'],
+  'source': 'generated',
   }
 print(json.dumps(rec))
 " > "$tmp" 2>/dev/null && mv -f "$tmp" "$loki_dir/state/prd-signature.json" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+}
+
+# Persist an explicit user-provided PRD into the canonical generated-PRD slot so
+# later no-file runs continue from it (brownfield reuse), and stamp source:"user"
+# so it is always treated as user-owned (reuse/use-as-is), never incrementally
+# updated. Echoes the canonical relative path (".loki/generated-prd.md") on a
+# successful persist so the caller can repoint prd_path; echoes nothing (empty)
+# and changes no state on any failure (the caller then keeps the original path).
+#
+# $1 = the original user PRD file path (the arg passed to run_autonomous).
+# Reads/writes under "${TARGET_DIR:-.}/.loki" to stay aligned with
+# decide_generated_prd_action and _loki_prd_file_hash (which anchor there too).
+persist_user_prd() {
+    local src="$1"
+    [ -n "$src" ] || { echo ""; return 0; }
+    [ -f "$src" ] || { echo ""; return 0; }
+    # Skip when the source already IS the canonical generated PRD (a no-op copy,
+    # and the no-file reuse path owns that case). Mirrors the persist guard.
+    case "$src" in
+        *.loki/generated-prd.md|*.loki/generated-prd.json) echo ""; return 0 ;;
+    esac
+
+    local loki_dir="${TARGET_DIR:-.}/.loki"
+    mkdir -p "$loki_dir" "$loki_dir/state" 2>/dev/null || { echo ""; return 0; }
+
+    # Atomic copy: write to a temp file in the destination dir, then mv into
+    # place so a concurrent reader never sees a half-written PRD.
+    local dest="$loki_dir/generated-prd.md"
+    local tmp_prd="$loki_dir/.generated-prd.md.tmp.$$"
+    cp -f "$src" "$tmp_prd" 2>/dev/null || { rm -f "$tmp_prd" 2>/dev/null; echo ""; return 0; }
+    mv -f "$tmp_prd" "$dest" 2>/dev/null || { rm -f "$tmp_prd" 2>/dev/null; echo ""; return 0; }
+
+    # Content hash of the PRD we just wrote (over the copied file) + the current
+    # codebase signature, recorded directly (NOT via persist_prd_signature_if_present,
+    # whose guards skip non-canonical/user paths and whose user_owned early-return
+    # would skip it anyway). source:"user" makes decide_generated_prd_action short
+    # circuit to user_owned on every later no-file run (LOCK 2).
+    local prd_sha sig mode
+    prd_sha=$(_loki_prd_file_hash "${TARGET_DIR:-.}")
+    sig=$(compute_codebase_signature "${TARGET_DIR:-.}")
+    mode="files"; case "$sig" in git:*) mode="git" ;; esac
+
+    local sig_tmp="$loki_dir/state/.prd-signature.json.tmp.$$"
+    LOKI_SIG="$sig" LOKI_SIG_MODE="$mode" \
+    LOKI_SIG_VER="$(get_version 2>/dev/null || echo unknown)" \
+    LOKI_PRD_SHA="$prd_sha" LOKI_ORIGIN_PATH="$src" \
+    python3 -c "
+import json, os, datetime
+rec = {
+  'signature': os.environ.get('LOKI_SIG',''),
+  'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
+  'prd_path': '.loki/generated-prd.md',
+  'prd_sha': os.environ.get('LOKI_PRD_SHA',''),
+  'mode': os.environ.get('LOKI_SIG_MODE','files'),
+  'loki_version': os.environ.get('LOKI_SIG_VER','unknown'),
+  'source': 'user',
+  'origin_path': os.environ.get('LOKI_ORIGIN_PATH',''),
+  }
+print(json.dumps(rec))
+" > "$sig_tmp" 2>/dev/null \
+        && mv -f "$sig_tmp" "$loki_dir/state/prd-signature.json" 2>/dev/null \
+        || rm -f "$sig_tmp" 2>/dev/null
+
+    echo ".loki/generated-prd.md"
 }
 
 # generate_proof_of_run: thin fire-and-forget wrapper around the standalone
@@ -8844,6 +8911,63 @@ _dispatch_reviewer() {
     esac
 }
 
+# WAVE8 FIX run.sh-F1/F3 (CRITICAL/HIGH): SAFE-DEFAULT verdict classification.
+# Given a reviewer file, extract the VERDICT: line (tolerant of leading
+# markdown like '**VERDICT:**' or '# VERDICT:' so fewer reviewers fall to
+# NO_VERDICT) and classify it as one of: FAIL, PASS, AMBIGUOUS, NONE.
+#   FAIL   -> verdict text contains FAIL/REJECT/BLOCK (verbose suffixes like
+#             "FAIL - [Critical] SQLi", "FAIL.", "FAIL (3 criticals)" all match)
+#   PASS   -> verdict text contains PASS/APPROVE (and NOT a fail token); this
+#             preserves the deliberate "PASS with concerns" = pass semantics.
+#   AMBIGUOUS -> a VERDICT: line exists but matches neither (unparseable token).
+#                Callers MUST treat this as non-passing (safe direction), never pass.
+#   NONE   -> no parseable VERDICT: line at all (empty / missing).
+# FAIL-first ordering means a verdict naming both (rare) blocks -- the safe way.
+# Mirrors the council's _council_parse_vote: parse-miss defaults to the safe
+# (blocking) direction, never to pass.
+_classify_verdict() {
+    local file="$1"
+    [ -f "$file" ] && [ -s "$file" ] || { echo "NONE"; return 0; }
+    local verdict
+    # Tolerant anchor: optional leading whitespace, then optional markdown
+    # markers (* # >), then optional whitespace, then VERDICT:. This rescues
+    # '**VERDICT:** FAIL', '# VERDICT: PASS', '> VERDICT: FAIL' that the strict
+    # '^VERDICT:' anchor missed (those previously became NO_VERDICT and dropped
+    # the reviewer's dissent).
+    verdict=$(grep -iE "^[[:space:]]*[*#>]*[[:space:]]*VERDICT:" "$file" \
+        | head -1 \
+        | sed -E 's/^[[:space:]]*[*#>]*[[:space:]]*[Vv][Ee][Rr][Dd][Ii][Cc][Tt]:[*[:space:]]*//' \
+        | tr '[:lower:]' '[:upper:]')
+    # Classify on the FIRST verdict TOKEN only, not a substring scan of the whole
+    # despaced line. A whole-line scan is asymmetric and wrong: "PASS, no failures
+    # found" or "PASS - no blocking issues" contain FAIL/BLOCK as substrings and
+    # would misclassify a valid PASS as FAIL (a false-block, and worse, it breaks
+    # the unanimous-PASS Devil's-Advocate trigger -> indirect false-PASS). Take
+    # the leading alphabetic run as the verdict word: "FAIL - [Critical] x" ->
+    # FAIL, "PASS, no failures" -> PASS. Strip leading markdown emphasis first.
+    verdict=$(printf '%s' "$verdict" | sed -E 's/^[*_`[:space:]]+//')
+    local _vtok
+    _vtok=$(printf '%s' "$verdict" | sed -E 's/[^A-Z].*$//')
+    if [ -z "$_vtok" ]; then echo "NONE"; return 0; fi
+    case "$_vtok" in
+        FAIL|FAILED|FAILURE|REJECT|REJECTED|BLOCK|BLOCKED) echo "FAIL" ;;
+        PASS|PASSED|APPROVE|APPROVED|OK)                   echo "PASS" ;;
+        *)                                                  echo "AMBIGUOUS" ;;
+    esac
+}
+
+# WAVE8 FIX run.sh-F2 (HIGH): SAFE-DEFAULT severity detection. Returns 0
+# (blocking) if the reviewer file names a Critical or High severity finding in
+# any realistic emitted form: bracketed '[Critical]', bold '**Critical**',
+# 'Severity: High', or a bullet line '- Critical' / '* High'. The strict
+# bracket-only match previously missed unbracketed forms, so a FAIL naming an
+# unbracketed Critical was treated as non-blocking. BSD/GNU portable (no \b).
+_severity_is_blocking() {
+    local file="$1"
+    [ -f "$file" ] || return 1
+    grep -qiE '(\[(critical|high)\])|(\*\*[[:space:]]*(critical|high)[[:space:]]*\*\*)|(severity:?[[:space:]]*(critical|high))|(^[[:space:]]*[-*][[:space:]]+(critical|high)([[:space:]:.,*]|$))' "$file"
+}
+
 run_code_review() {
     local loki_dir="${TARGET_DIR:-.}/.loki"
     local review_dir="$loki_dir/quality/reviews"
@@ -9201,21 +9325,27 @@ BUILD_PROMPT
             continue
         fi
 
-        # Extract verdict
+        # Extract + classify verdict (WAVE8 FIX run.sh-F1/F3). _classify_verdict
+        # uses a markdown-tolerant anchor (rescues '**VERDICT:** FAIL') and a
+        # SAFE-DEFAULT contract: FAIL=any FAIL/REJECT/BLOCK token (so verbose
+        # "FAIL - [Critical] SQLi" / "FAIL." / "FAIL (3 criticals)" all count as
+        # FAIL, previously mis-counted as PASS); PASS=PASS/APPROVE; AMBIGUOUS=a
+        # verdict line that parses to neither; NONE=no parseable verdict line.
         local verdict
-        verdict=$(grep -i "^VERDICT:" "$review_output" | head -1 | sed 's/^VERDICT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
+        verdict=$(_classify_verdict "$review_output")
 
-        # FIX A2: a "real verdict" is the PRESENCE of a non-empty VERDICT: line,
-        # not a specific token. A non-empty file with NO VERDICT line (garbage or
-        # a truncated reply) previously counted as PASS and could approve the gate
-        # on a meaningless file; now it is a non-verdict (not real, not a pass).
-        # We deliberately keep the original non-FAIL=pass semantics for any file
-        # that DOES carry a verdict line (PASS, APPROVE, "PASS with concerns",
-        # etc. all count as pass) so verbose-but-real verdicts are never
-        # false-blocked. The only added block relative to shipped behavior is the
-        # zero-real-verdicts (all-empty) case.
-        if [ -z "$verdict" ]; then
-            log_warn "Reviewer $reviewer_name produced no VERDICT line (empty or unparseable reply)"
+        # FIX A2 + WAVE8 FIX run.sh-F1/F3: a "real verdict" is a parseable
+        # VERDICT line that classifies cleanly to PASS or FAIL. NONE (no usable
+        # verdict line) AND AMBIGUOUS (a verdict line whose token is neither PASS
+        # nor FAIL, e.g. "VERDICT: UNCLEAR") are BOTH routed to the NO_VERDICT
+        # path. This is the SAFE-DEFAULT contract: an unparseable token must NOT
+        # silently pass. It cannot count toward pass_count, and merely bumping
+        # fail_count would be inert (only has_blocking / review_inconclusive gate
+        # the return). So we treat it as a non-real verdict; the
+        # real_verdict_count < reviewer_count check below then makes the review
+        # inconclusive -> bounded retry -> block (FIX 3 machinery).
+        if [ "$verdict" = "NONE" ] || [ "$verdict" = "AMBIGUOUS" ]; then
+            log_warn "Reviewer $reviewer_name returned no usable verdict (empty, unparseable, or ambiguous token)"
             verdicts_summary="${verdicts_summary}${reviewer_name}:NO_VERDICT "
             ((no_output_count++))
             continue
@@ -9223,8 +9353,9 @@ BUILD_PROMPT
         ((real_verdict_count++))
         if [ "$verdict" = "FAIL" ]; then
             ((fail_count++))
-            # Check for Critical/High severity findings
-            if grep -qiE "\[(Critical|High)\]" "$review_output"; then
+            # Check for Critical/High severity findings (bracketed OR unbracketed
+            # OR bold OR 'Severity:' OR bullet form -- WAVE8 FIX run.sh-F2).
+            if _severity_is_blocking "$review_output"; then
                 has_blocking=true
                 log_error "BLOCKING: $reviewer_name found Critical/High severity issues"
             else
@@ -9237,16 +9368,25 @@ BUILD_PROMPT
         verdicts_summary="${verdicts_summary}${reviewer_name}:${verdict:-UNKNOWN} "
     done
 
-    # Finding #596 FIX A2: zero real verdicts when reviewers were expected =>
-    # INCONCLUSIVE => blocking. Optional bounded retry first (LOKI_REVIEW_RETRY=1,
-    # default on) so a transient empty-output blip does not hard-block; the retry
-    # re-runs the whole review with the (now .loki-excluded) diff. Opt out of the
-    # block entirely with LOKI_REVIEW_INCONCLUSIVE_BLOCK=0 (records, never blocks).
+    # Finding #596 FIX A2 + WAVE8 FIX run.sh-F3: a review is INCONCLUSIVE (=>
+    # blocking) whenever FEWER reviewers returned a usable verdict than were
+    # dispatched. The original gate only fired on real_verdict_count==0 (ALL
+    # reviewers empty); a MIXED review (e.g. 1 of 3 NO_VERDICT, 2 PASS) silently
+    # passed on the surviving majority and dropped the malformed reviewer's
+    # potential dissent (Devil's Advocate never fired). Now ANY NO_VERDICT
+    # reviewer makes the review inconclusive: a dropped reviewer is a dropped
+    # vote, and the safe direction is to refuse to pass on a partial council.
+    # The markdown-tolerant anchor in _classify_verdict already rescues most
+    # real-but-wrapped verdicts, so this fires only on genuinely unusable output.
+    # Optional bounded retry first (LOKI_REVIEW_RETRY=1, default on) so a
+    # transient empty-output blip does not hard-block; the retry re-runs the
+    # whole review with the (now .loki-excluded) diff. Opt out of the block
+    # entirely with LOKI_REVIEW_INCONCLUSIVE_BLOCK=0 (records, never blocks).
     local review_inconclusive=false
-    if [ "$reviewer_count" -gt 0 ] && [ "$real_verdict_count" -eq 0 ]; then
+    if [ "$reviewer_count" -gt 0 ] && [ "$real_verdict_count" -lt "$reviewer_count" ]; then
         review_inconclusive=true
-        log_error "CODE REVIEW INCONCLUSIVE: 0 of $reviewer_count reviewers returned a usable verdict (no_output=$no_output_count)"
-        log_error "  An all-empty review proves nothing; refusing to pass the gate on zero real verdicts."
+        log_error "CODE REVIEW INCONCLUSIVE: only $real_verdict_count of $reviewer_count reviewers returned a usable verdict (no_output=$no_output_count)"
+        log_error "  A partial review drops dissent; refusing to pass the gate without every reviewer's verdict."
         if [ "${LOKI_REVIEW_RETRY:-1}" = "1" ] && [ "${_LOKI_REVIEW_RETRYING:-0}" != "1" ]; then
             log_warn "  Retrying code review once (LOKI_REVIEW_RETRY=1)..."
             _LOKI_REVIEW_RETRYING=1 run_code_review
@@ -9354,9 +9494,12 @@ BUILD_DA_PROMPT
             _dispatch_reviewer "$da_prompt_text" "$da_output" || true
 
             if [ -f "$da_output" ] && [ -s "$da_output" ]; then
+                # WAVE8 FIX run.sh-F1/F2: classify with the shared SAFE-DEFAULT
+                # helpers so a verbose DA "VERDICT: FAIL - [Critical] ..." (and
+                # AMBIGUOUS tokens) and an unbracketed Critical/High both block.
                 local da_verdict
-                da_verdict=$(grep -i "^VERDICT:" "$da_output" | head -1 | sed 's/^VERDICT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]')
-                if [ "$da_verdict" = "FAIL" ] && grep -qiE "\[(Critical|High)\]" "$da_output"; then
+                da_verdict=$(_classify_verdict "$da_output")
+                if { [ "$da_verdict" = "FAIL" ] || [ "$da_verdict" = "AMBIGUOUS" ]; } && _severity_is_blocking "$da_output"; then
                     has_blocking=true
                     # Audit accuracy: aggregate.json was written above (line ~8429)
                     # with has_blocking=false (entering this block requires a
@@ -9382,7 +9525,7 @@ DA_AGG_PATCH
                     log_error "DEVIL'S ADVOCATE: found Critical/High issue the unanimous council missed -- BLOCK"
                     {
                         echo "DEVILS_ADVOCATE_BLOCK: Critical/High found after unanimous PASS"
-                        grep -iE "\[(Critical|High)\]" "$da_output" || true
+                        grep -iE '(\[(critical|high)\])|(\*\*[[:space:]]*(critical|high)[[:space:]]*\*\*)|(severity:?[[:space:]]*(critical|high))|(^[[:space:]]*[-*][[:space:]]+(critical|high)([[:space:]:.,*]|$))' "$da_output" || true
                     } >> "$review_dir/$review_id/anti-sycophancy.txt"
                 else
                     log_info "Devil's Advocate: no additional Critical/High issues found"
@@ -9404,16 +9547,16 @@ DA_AGG_PATCH
         return 1
     fi
 
-    # Finding #596 FIX A2: an inconclusive review (zero real verdicts, retry
-    # already exhausted or disabled) blocks unless explicitly opted out. This is
-    # the 'verified before done' promise: a review that produced no usable verdict
-    # cannot stand in for a real review.
+    # Finding #596 FIX A2 + WAVE8 FIX run.sh-F3: an inconclusive review (fewer
+    # usable verdicts than reviewers, retry already exhausted or disabled) blocks
+    # unless explicitly opted out. This is the 'verified before done' promise: a
+    # review missing any reviewer's verdict cannot stand in for a full review.
     if [ "$review_inconclusive" = "true" ]; then
         if [ "${LOKI_REVIEW_INCONCLUSIVE_BLOCK:-1}" = "0" ]; then
-            log_warn "Code review inconclusive (0/$reviewer_count real verdicts) but LOKI_REVIEW_INCONCLUSIVE_BLOCK=0 - not blocking"
+            log_warn "Code review inconclusive ($real_verdict_count/$reviewer_count real verdicts) but LOKI_REVIEW_INCONCLUSIVE_BLOCK=0 - not blocking"
             return 0
         fi
-        log_error "CODE REVIEW BLOCKED: inconclusive (0/$reviewer_count reviewers returned a usable verdict)"
+        log_error "CODE REVIEW BLOCKED: inconclusive ($real_verdict_count/$reviewer_count reviewers returned a usable verdict)"
         log_error "  Review details: $review_dir/$review_id/ ; opt out with LOKI_REVIEW_INCONCLUSIVE_BLOCK=0"
         return 1
     fi
@@ -9806,12 +9949,29 @@ CPEOF
         find "$checkpoint_dir" -maxdepth 1 -type d -name "cp-*" 2>/dev/null \
             | while read -r p; do basename "$p"; done | sort -t'-' -k3 -n \
             | head -n "$to_remove" | while read -r old_cp; do
+            # WAVE9 (checkpoint leak): also delete the anchored worktree-snapshot
+            # ref so its stash commit becomes eligible for `git gc`. Without this,
+            # refs/loki/cp/<id> (and its commit) leaked forever even after the
+            # checkpoint directory was pruned. Targeted deletion of exactly the
+            # ids being pruned ONLY -- never a blanket refs/loki/cp/* sweep, since
+            # git refs are shared across worktrees of one repo while checkpoint
+            # dirs are per-TARGET_DIR; a parallel worktree may still need a ref we
+            # are not pruning here. `|| true` because not every checkpoint has a
+            # ref (only those where `git stash create` returned a non-empty sha).
+            git update-ref -d "refs/loki/cp/${old_cp}" 2>/dev/null || true
             old_cp="${checkpoint_dir}/${old_cp}"
             rm -rf "$old_cp" 2>/dev/null || true
         done
-        # Rebuild index atomically from remaining checkpoints (sorted by epoch)
+        # Rebuild index atomically from remaining checkpoints (sorted by epoch).
+        # BUG-ST-012: sort on the checkpoint dir BASENAME, not the full path.
+        # Checkpoint ids are cp-<iter>-<epoch> so basename field 3 is the epoch,
+        # but a full path like .../loki-mode/.loki/.../cp-N-EPOCH/metadata.json has
+        # extra hyphens (e.g. the loki-mode cwd) that shift the epoch out of field 3.
+        # Prefix each path with a basename-derived key, sort on it, then strip it.
         local tmp_index="${index_file}.tmp.$$"
-        for remaining in $(find "$checkpoint_dir" -maxdepth 2 -name "metadata.json" -path "*/cp-*/*" 2>/dev/null | sort -t'-' -k3 -n); do
+        for remaining in $(find "$checkpoint_dir" -maxdepth 2 -name "metadata.json" -path "*/cp-*/*" 2>/dev/null \
+            | while read -r mp; do printf '%s\t%s\n' "$(basename "$(dirname "$mp")")" "$mp"; done \
+            | sort -t'-' -k3 -n | cut -f2-); do
             [ -f "$remaining" ] || continue
             _CP_META="$remaining" python3 -c "
 import json,os
@@ -11313,7 +11473,11 @@ try:
     storage = MemoryStorage(f'{target_dir}/.loki/memory')
     retriever = MemoryRetrieval(storage)
     context = {'goal': goal, 'phase': phase}
-    results = retriever.retrieve_task_aware(context, top_k=3)
+    # The autonomous RARV loop opts into persist_boost so retrieved memories are
+    # reinforced on disk ("use it or lose it"). Manual surfaces (loki memory CLI,
+    # dashboard, MCP) keep the default persist_boost=False so a human browsing
+    # memories does not silently inflate their importance.
+    results = retriever.retrieve_task_aware(context, top_k=3, persist_boost=True)
     if results:
         print('RELEVANT MEMORIES:')
         for r in results[:3]:
@@ -12402,7 +12566,10 @@ build_prompt() {
     local gate_failure_context=""
     if [ -f "${TARGET_DIR:-.}/.loki/quality/gate-failures.txt" ]; then
         local failures
-        failures=$(cat "${TARGET_DIR:-.}/.loki/quality/gate-failures.txt")
+        # Cap at the FIRST 8000 bytes to bound prompt context growth from a large
+        # prior-iteration gate-failures dump. Parity with the Bun route's
+        # readBytesSafe(gfPath, 8000), which does buf.subarray(0, 8000) (head, not tail).
+        failures=$(head -c 8000 "${TARGET_DIR:-.}/.loki/quality/gate-failures.txt")
         gate_failure_context="QUALITY GATE FAILURES FROM PREVIOUS ITERATION: [$failures]. "
         if [ -f "${TARGET_DIR:-.}/.loki/quality/static-analysis.json" ]; then
             local sa_summary
@@ -13718,6 +13885,100 @@ _loki_sentrux_iteration_end() {
     return 0
 }
 
+# show_run_start_estimate <prd_path>
+#
+# C4 (v7.x): before any real spend, the user must SEE (a) the budget-guard
+# state and (b) a cost/time estimate -- honestly, with no fabricated dollar
+# figures. This is the run.sh-side complement to the loki CLI's auto-plan:
+#
+#   - Budget guard: the hard cap is enforced by check_budget_limit (which
+#     touches .loki/PAUSE at the cap). This helper only DISPLAYS the state;
+#     it never sets a default BUDGET_LIMIT (doing so would change pause
+#     behavior for every user). If BUDGET_LIMIT is set we show the cap and
+#     the pause-at-cap promise; if not, we state plainly that no cap is set
+#     and how to set one. Always shown -- the guard disclosure is universal.
+#
+#   - Estimate: `loki start` on a TTY already prints the estimate via
+#     maybe_show_auto_plan -> show_prd_plan. The genuine gap is the non-TTY
+#     route (Docker, dashboard, piped invocation): there the CLI skips the
+#     plan, so we fill it here. We gate on stdout NOT being a TTY because
+#     run.sh has no signal that `loki start` already showed the plan (no env
+#     marker exists and `loki` is out of scope to edit), and the non-TTY test
+#     is the only one that is both reliable and free of duplication.
+#     KNOWN LIMITATION: a direct `./autonomy/run.sh <prd>` run in a terminal
+#     (TTY, not launched via `loki start`) skips the estimate here AND was
+#     never shown one by the CLI. The budget-guard disclosure above is still
+#     always shown; only the cost/time estimate is missing on that one
+#     power-user path. Closing it cleanly needs a "plan already shown" marker
+#     set in the loki CLI, which is owned elsewhere.
+#     The estimate is best-effort: it shells out to the loki binary with a
+#     hard timeout, parses only real numbers, and prints an honest
+#     "estimate unavailable" line on any failure. It NEVER fails the run and
+#     NEVER fabricates a figure.
+show_run_start_estimate() {
+    local prd_path="$1"
+
+    # --- Budget-guard disclosure (always) ---
+    if [ -n "$BUDGET_LIMIT" ]; then
+        log_info "Budget guard: hard cap \$$BUDGET_LIMIT (run pauses via .loki/PAUSE at the cap; warning at 80%)."
+    else
+        log_info "Budget guard: no cap set (no automatic spend stop). Set LOKI_BUDGET_LIMIT=<usd> to pause at a cap."
+    fi
+
+    # --- Estimate (non-TTY gap only; the loki CLI shows it on a TTY) ---
+    if [ -t 1 ]; then
+        return 0
+    fi
+    # No PRD on disk (codebase-analysis mode) -> nothing to estimate from.
+    [ -n "$prd_path" ] && [ -f "$prd_path" ] || return 0
+
+    local loki_bin="${SCRIPT_DIR}/loki"
+    [ -x "$loki_bin" ] || { command -v loki >/dev/null 2>&1 && loki_bin="loki" || return 0; }
+
+    local plan_json=""
+    plan_json=$(timeout 30 "$loki_bin" plan "$prd_path" --json 2>/dev/null) || plan_json=""
+    [ -n "$plan_json" ] || { log_info "Estimate: unavailable (estimator did not return a result); the run continues."; return 0; }
+
+    # Parse REAL numbers only. argv keeps the JSON out of the script body so
+    # there is no $<digit> heredoc footgun, and a missing field prints nothing.
+    local parsed
+    parsed=$(printf '%s' "$plan_json" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+cost = d.get("cost", {}).get("total_usd")
+time_est = d.get("time", {}).get("estimated")
+iters = d.get("iterations", {}).get("estimated")
+tier = d.get("complexity", {}).get("tier", "")
+if cost is None or time_est is None or iters is None:
+    sys.exit(1)
+print("{:.2f}".format(float(cost)))
+print(time_est)
+print(iters)
+print(tier)
+' 2>/dev/null) || parsed=""
+
+    if [ -z "$parsed" ]; then
+        log_info "Estimate: unavailable (estimator did not return a result); the run continues."
+        return 0
+    fi
+
+    local est_cost est_time est_iters est_tier
+    est_cost=$(printf '%s' "$parsed" | sed -n '1p')
+    est_time=$(printf '%s' "$parsed" | sed -n '2p')
+    est_iters=$(printf '%s' "$parsed" | sed -n '3p')
+    est_tier=$(printf '%s' "$parsed" | sed -n '4p')
+
+    if [ -n "$est_tier" ]; then
+        log_info "Estimate (${est_tier} tier): ~\$${est_cost}, ~${est_time}, ~${est_iters} iterations. Actual usage varies with complexity, review cycles, and test failures."
+    else
+        log_info "Estimate: ~\$${est_cost}, ~${est_time}, ~${est_iters} iterations. Actual usage varies with complexity, review cycles, and test failures."
+    fi
+    return 0
+}
+
 run_autonomous() {
     local prd_path="$1"
 
@@ -13730,6 +13991,31 @@ run_autonomous() {
     if [ "${LOKI_SENTRUX_GATE:-0}" = "1" ]; then
         # shellcheck disable=SC1090,SC1091
         source "${SCRIPT_DIR}/lib/sentrux-gate.sh" 2>/dev/null || true
+    fi
+
+    # Explicit user PRD persistence (brownfield reuse, LOCK 1/LOCK 2): when the
+    # user passed a real file that is NOT already the canonical generated PRD,
+    # copy its content into .loki/generated-prd.md and stamp source:"user" so a
+    # later no-file run continues from it without re-running codebase analysis,
+    # and never rewrites it. Runs BEFORE the auto-detect block below (which only
+    # handles the empty prd_path case). On any failure persist_user_prd echoes
+    # "" and changes no state, so the original prd_path is preserved.
+    if [ -n "$prd_path" ]; then
+        case "$prd_path" in
+            *.loki/generated-prd.md|*.loki/generated-prd.json) ;;
+            *)
+                if [ -f "$prd_path" ]; then
+                    local _persisted_prd
+                    _persisted_prd=$(persist_user_prd "$prd_path")
+                    if [ -n "$_persisted_prd" ]; then
+                        log_info "Persisted your PRD ($prd_path) to $_persisted_prd; later runs without a file will reuse it as-is"
+                        prd_path="$_persisted_prd"
+                        GENERATED_PRD_ACTION="user_owned"
+                        export GENERATED_PRD_ACTION
+                    fi
+                fi
+                ;;
+        esac
     fi
 
     # Auto-detect PRD if not provided
@@ -13819,9 +14105,10 @@ except Exception:
     log_info "Base wait: ${BASE_WAIT}s"
     log_info "Max wait: ${MAX_WAIT}s"
     log_info "Autonomy mode: $AUTONOMY_MODE"
-    if [ -n "$BUDGET_LIMIT" ]; then
-        log_info "Budget limit: \$$BUDGET_LIMIT"
-    fi
+    # C4: always surface the budget-guard state (and, on the non-TTY route, a
+    # cost/time estimate) BEFORE any real spend. This subsumes the old bare
+    # "Budget limit" line so there is exactly one honest disclosure.
+    show_run_start_estimate "$prd_path"
     # Only show Claude-specific features for Claude provider
     if [ "${PROVIDER_NAME:-claude}" = "claude" ]; then
         log_info "Prompt repetition (Haiku): $PROMPT_REPETITION"
@@ -15515,6 +15802,23 @@ else:
                 ensure_completion_test_evidence || true
             fi
             if type council_should_stop &>/dev/null && council_should_stop; then
+                # bash-F1: council_should_stop returns 0 from a genuine approval
+                # AND from two force-stop safety valves (stagnation flood /
+                # repeated done-signals). A force-stop is NOT a verified-complete
+                # product, so it must not claim "PROJECT COMPLETE" or open a PR.
+                # The sentinel set inside council_should_stop disambiguates.
+                if [ "${COUNCIL_FORCE_STOPPED:-0}" = "1" ]; then
+                    echo ""
+                    log_header "COMPLETION COUNCIL: STOPPED WITHOUT APPROVAL"
+                    log_warn "Council force-stopped (stagnation or repeated done-signals); work is NOT verified-complete"
+                    log_info "Running memory consolidation..."
+                    run_memory_consolidation
+                    # No on_run_complete: a force-stop must never open a "done" PR.
+                    emit_completion_summary force_stopped
+                    save_state $retry "force_stopped" 0
+                    rm -f "$iter_output" 2>/dev/null
+                    return 0
+                fi
                 echo ""
                 log_header "COMPLETION COUNCIL: PROJECT COMPLETE"
                 log_info "Council voted to stop (convergence detected + requirements verified)"

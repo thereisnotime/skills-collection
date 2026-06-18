@@ -96,7 +96,7 @@ You invoke `ce-ideate "DX improvements"` from inside a code repo. The agent anno
 
 Grounding agents return in parallel — a codebase summary, relevant past learnings, external prior art on developer-experience patterns. The orchestrator decomposes the topic into 4-5 axes derived from that grounding (e.g., for "DX improvements" — feedback loops, environment friction, tooling ergonomics, knowledge accessibility, automation surface), then cheap evidence scouts gather a quote-and-pointer dossier per axis. Five ideation sub-agents covering six frames generate candidates from that evidence, each idea tagged with the axis it targets and verified against the actual files before submission. The orchestrator merges 40+ candidates into one list, synthesizes cross-cutting combinations, runs an axis-coverage check (any empty axis triggers one bounded recovery dispatch), and runs the two-layer critique pass — a fresh-context verifier tries to refute each candidate, then the orchestrator makes the final cut. About 13 ideas are cut for being too vague, unjustified, refuted, or duplicative.
 
-The full deliverable — all seven cards with basis, rationale, downsides, confidence, complexity, plus the rejection summary — is written automatically to a self-contained HTML file and opened in your browser; the session itself shows just a concise ranked summary and the path, so you read the rich version, not a wall of terminal text. Then a four-option next-steps menu: open it in the browser, brainstorm one idea with `ce-brainstorm`, iterate on one idea (adjust or ask, staying here), or done. (Markdown runs swap "open in browser" for "open and iterate in Proof".)
+The full deliverable — all seven cards with basis, rationale, downsides, confidence, complexity, plus the rejection summary — is written automatically to a self-contained HTML file and opened in your browser; the session itself shows just a concise ranked summary and the path, so you read the rich version, not a wall of terminal text. Then a four-option next-steps menu: open it in the browser, brainstorm one idea with `ce-brainstorm`, iterate on one idea (adjust or ask, staying here), or done. (Markdown runs swap "open in browser" for "publish to Proof".)
 
 ---
 
@@ -208,4 +208,4 @@ A subject-identification gate asks one scope question when the prompt refers onl
 - [`ce-plan`](./ce-plan.md) — once requirements are clear, plan the implementation
 - [`ce-strategy`](./ce-strategy.md) — anchor ideation to a documented product strategy
 - [`ce-doc-review`](./ce-doc-review.md) — review the saved ideation artifact for clarity and completeness (markdown output only — run with `output:md` first)
-- [`ce-proof`](./ce-proof.md) — open the artifact in Proof for collaborative iteration (markdown output only — Proof can't ingest HTML)
+- [`ce-proof`](./ce-proof.md) — publish the artifact to Proof for a shareable link (markdown output only — Proof can't ingest HTML)

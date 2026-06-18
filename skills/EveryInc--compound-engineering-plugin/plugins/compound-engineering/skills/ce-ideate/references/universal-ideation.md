@@ -99,7 +99,7 @@ Wrap up with the same flow as `references/post-ideation-workflow.md` Phases 4–
 
 Then offer the Phase 5 next-steps menu via the platform's blocking question tool (`AskUserQuestion` in Claude Code — call `ToolSearch` with `select:AskUserQuestion` first if its schema isn't loaded; `request_user_input` in Codex; `ask_user` in Gemini / Pi). Fall back to a numbered list only when no blocking tool exists or the call errors. Never silently skip. Four options, option 1 format-keyed:
 
-1. **Open in browser** *(html)* / **Open and iterate in Proof** *(md)* — open the deliverable (per §5.1). On Proof failure the auto-written local file stays intact.
+1. **Open in browser** *(html)* / **Publish to Proof** *(md)* — open the HTML deliverable, or publish the markdown to Proof for a shareable link (per §5.1). On Proof failure the auto-written local file stays intact.
 2. **Brainstorm one idea with `ce-brainstorm`** — go deeper on one chosen idea (asks which). In universal mode this is **not** the first step of an implementation chain — there is no `ce-plan` → `ce-work` after; `ce-brainstorm` develops the idea further (a name into a brand brief, a plot into an outline, a decision into a weighed framework) and ends there. Seed it with the idea's substance + a provenance pointer (per §5.2) — not the whole file.
 3. **Iterate on one idea (adjust / ask, stay here)** — sharpen or interrogate a chosen idea before committing; adjustments rewrite the file, Q&A does not (per §5.3).
 4. **Done — keep the file and stop.**

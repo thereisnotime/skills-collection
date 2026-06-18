@@ -140,33 +140,42 @@ class ProgressiveLoader:
             self._metrics.calculate_savings(index.get("total_tokens_available", 0))
             return memories, self._metrics
 
-        # Layer 2: Load timeline for relevant topics
+        # Layer 2: Load timeline for relevant topics.
+        # Affordability gate: the timeline must fit the remaining budget. If the
+        # full timeline costs more than we can afford, loading and appending all
+        # of it would drive remaining_tokens negative and violate max_tokens
+        # (Layer 3 already has this guard; Layer 2 did not). When it does not
+        # fit, skip the timeline-as-sufficient-context shortcut and fall through
+        # to the budget-aware Layer 3 path instead of overspending.
         timeline = self.timeline_layer.load()
         layer2_tokens = self.timeline_layer.get_token_count()
-        self._metrics.layer2_tokens = layer2_tokens
-        remaining_tokens -= layer2_tokens
+        timeline_affordable = layer2_tokens <= remaining_tokens
 
-        # Collect timeline context for each relevant topic
-        topic_ids = {t.id for t in relevant_topics}
-        timeline_context: Dict[str, List[Dict[str, Any]]] = {}
+        if timeline_affordable:
+            self._metrics.layer2_tokens = layer2_tokens
+            remaining_tokens -= layer2_tokens
 
-        for topic in relevant_topics:
-            topic_entries = self.timeline_layer.get_recent_for_topic(topic.id)
-            if topic_entries:
-                timeline_context[topic.id] = topic_entries
+            # Collect timeline context for each relevant topic
+            topic_ids = {t.id for t in relevant_topics}
+            timeline_context: Dict[str, List[Dict[str, Any]]] = {}
 
-        # Check if timeline provides sufficient context
-        if self.sufficient_context(timeline_context, query):
-            # Add timeline entries as context
-            for topic_id, entries in timeline_context.items():
-                for entry in entries:
-                    memories.append({
-                        "id": topic_id,
-                        "type": "timeline",
-                        "content": entry,
-                    })
-            self._metrics.calculate_savings(index.get("total_tokens_available", 0))
-            return memories, self._metrics
+            for topic in relevant_topics:
+                topic_entries = self.timeline_layer.get_recent_for_topic(topic.id)
+                if topic_entries:
+                    timeline_context[topic.id] = topic_entries
+
+            # Check if timeline provides sufficient context
+            if self.sufficient_context(timeline_context, query):
+                # Add timeline entries as context
+                for topic_id, entries in timeline_context.items():
+                    for entry in entries:
+                        memories.append({
+                            "id": topic_id,
+                            "type": "timeline",
+                            "content": entry,
+                        })
+                self._metrics.calculate_savings(index.get("total_tokens_available", 0))
+                return memories, self._metrics
 
         # Layer 3: Load full memories for high-relevance topics
         if remaining_tokens > 0:

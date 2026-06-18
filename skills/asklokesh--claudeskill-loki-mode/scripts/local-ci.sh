@@ -317,6 +317,7 @@ run_check_bg "workflow YAML parse" 'for f in .github/workflows/*.yml; do python3
 # ---------------------------------------------------------------------------
 run_check_bg "no emojis in modified files" '! git diff HEAD --name-only | xargs -I{} grep -lP "[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]" {} 2>/dev/null | grep -v "^$"'
 run_check_bg "no git add -A in workflows" '! grep -rn "git add -A" .github/workflows/ 2>/dev/null | grep -v "^.*#"'
+run_check_bg 'no unescaped $<digit> in python3 -c bodies (v7.41 heredoc footgun)' 'bash tests/check-heredoc-dollar-digit.sh'
 
 # ---------------------------------------------------------------------------
 # Harvest the read-only parallel pool BEFORE the serial-sensitive spine. The
@@ -336,6 +337,27 @@ harvest_lanes
 if command -v bun >/dev/null 2>&1; then
   run_check "bun run typecheck" "(cd loki-ts && bun run typecheck) 2>&1 | tail -5"
   run_check "bun test" "(cd loki-ts && bun test) 2>&1 | tail -5"
+  # dist freshness: the committed loki-ts/dist/loki.js is the artifact npm/Docker
+  # ship from and the bin/loki shim runs when newer than src. A stale or mangled
+  # dist passes every other gate (bun tests import from src), so a forgotten
+  # rebuild silently ships old behavior (bit v7.68.0; nearly v7.69.0). Rebuild
+  # and assert the committed bundle matches a fresh build, ignoring only the
+  # per-build debugId line which legitimately varies.
+  run_check "dist/loki.js is a fresh build of src" '
+    cd loki-ts
+    cp dist/loki.js /tmp/loki-ci-dist-committed.js
+    bun run build >/dev/null 2>&1
+    if diff <(grep -v "debugId" /tmp/loki-ci-dist-committed.js) <(grep -v "debugId" dist/loki.js) >/dev/null; then
+      cp /tmp/loki-ci-dist-committed.js dist/loki.js
+      rm -f /tmp/loki-ci-dist-committed.js
+      echo "dist matches fresh build (committed bundle is not stale)"
+    else
+      cp /tmp/loki-ci-dist-committed.js dist/loki.js
+      rm -f /tmp/loki-ci-dist-committed.js
+      echo "DIST STALE: committed loki-ts/dist/loki.js differs from a fresh build of src. Run: cd loki-ts \&\& bun run build, then git add -f loki-ts/dist/loki.js"
+      exit 1
+    fi
+  '
 else
   skip_check "bun typecheck/test" "bun not installed"
 fi

@@ -2044,7 +2044,7 @@ cmd_start() {
         case "$effective_provider" in
             claude) echo "  npm install -g @anthropic-ai/claude-code" ;;
             codex)  echo "  npm install -g @openai/codex" ;;
-            cline)  echo "  npm install -g @anthropic-ai/cline" ;;
+            cline)  echo "  npm install -g cline" ;;
             aider)  echo "  pip install aider-chat" ;;
             *)      echo "  Check the provider documentation for installation." ;;
         esac
@@ -2204,6 +2204,72 @@ _kill_pid() {
     fi
 }
 
+# v7.7.34 group-kill, factored (loki-stop-F1). Reaps the orchestrator's whole
+# process group via the recorded pgid so the autonomous agent (claude/codex/
+# aider), which shares the orchestrator group and would otherwise reparent to
+# init and keep editing files, is killed atomically. This is the SAME logic the
+# no-arg `loki stop` path used inline; it is now shared so the by-id path
+# (`loki stop <session-id>`) gets identical reaping instead of skipping it.
+#
+# Args: one or more pgid-file paths. Each is read, validated (numeric, > 1, NOT
+# this shell's own group), and group-killed; the file is removed after. A
+# protected-pid conflict (dashboard / app-runner / registered pids that happen
+# to share the group) downgrades the kill to a per-pid kill that excludes the
+# protected pids, so a group-kill never tears down the dashboard. Every kill is
+# `|| true` guarded -- safe under set -e (killing an already-dead member, or an
+# empty group, returns non-zero legitimately).
+_stop_group_by_pgid_files() {
+    local _stop_pgid_file
+    for _stop_pgid_file in "$@"; do
+        [ -f "$_stop_pgid_file" ] || continue
+        local _spgid
+        _spgid=$(cat "$_stop_pgid_file" 2>/dev/null | tr -d ' ')
+        case "$_spgid" in ''|*[!0-9]*) continue ;; esac
+        [ "$_spgid" -gt 1 ] 2>/dev/null || continue
+        local _my_pgid
+        _my_pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
+        [ "$_spgid" = "$_my_pgid" ] && continue   # never kill our own group
+        # Collect protected pids (dashboard, app-runner, registered pids) so
+        # a group-kill never takes down the dashboard if it happens to share
+        # the orchestrator group. Mirrors the dashboard Python route.
+        local _protected=" "
+        local _pf
+        if [ -d "$LOKI_DIR/pids" ]; then
+            for _pf in "$LOKI_DIR/pids"/*.json; do
+                [ -f "$_pf" ] || continue
+                _protected="${_protected}$(basename "$_pf" .json) "
+            done
+        fi
+        for _pf in "$LOKI_DIR/dashboard/dashboard.pid" "${HOME}/.loki/dashboard/dashboard.pid"; do
+            [ -f "$_pf" ] && _protected="${_protected}$(cat "$_pf" 2>/dev/null | tr -d ' ') "
+        done
+        # Does any protected pid share this group?
+        local _conflict=0 _gp
+        for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_spgid" '$2==g{print $1}'); do
+            case "$_protected" in *" $_gp "*) _conflict=1; break ;; esac
+        done
+        if [ "$_conflict" = "1" ]; then
+            # Per-pid kill of group members EXCLUDING protected pids.
+            for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_spgid" '$2==g{print $1}'); do
+                case "$_protected" in *" $_gp "*) continue ;; esac
+                [ "$_gp" = "$$" ] && continue
+                kill -TERM "$_gp" 2>/dev/null || true
+            done
+            sleep 1
+            for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_spgid" '$2==g{print $1}'); do
+                case "$_protected" in *" $_gp "*) continue ;; esac
+                [ "$_gp" = "$$" ] && continue
+                kill -KILL "$_gp" 2>/dev/null || true
+            done
+        else
+            kill -TERM -- -"$_spgid" 2>/dev/null || true
+            sleep 1
+            kill -KILL -- -"$_spgid" 2>/dev/null || true
+        fi
+        rm -f "$_stop_pgid_file" 2>/dev/null || true
+    done
+}
+
 # Stop a specific session by its session ID
 _stop_session_by_id() {
     local sid="$1"
@@ -2296,12 +2362,77 @@ cmd_stop() {
     # Stop a specific session by ID
     if [ -n "$target_session" ]; then
         if is_session_running "$target_session"; then
+            # loki-stop-F1: group-kill FIRST (v7.7.34 discipline), scoped to THIS
+            # session's recorded pgid. Without this the by-id path reaped only the
+            # orchestrator pid (via _stop_session_by_id -> _kill_pid), leaving the
+            # autonomous agent (claude/codex/aider) -- which shares the
+            # orchestrator's process group -- to reparent to init and keep editing
+            # files. That is exactly the v7.7.34 orphaned-agent bug, reopened on
+            # the by-id path. The pgid is session-scoped: run.sh writes it next to
+            # the session pid as ${pid_file%.pid}.pgid, so we only ever touch THIS
+            # session's group (modern sessions/<id>/loki.pgid + legacy
+            # run-<id>.pgid), never a sibling session or another folder.
+            #
+            # Deliberately NOT mirrored from the no-arg path: the docker reap,
+            # session.json->stopped, and dashboard registry mark are folder/global
+            # side effects (the docker container is named by workspace sha with no
+            # per-session container; registry.mark_project_stopped marks the whole
+            # project; session.json is the folder-level skill session). Firing them
+            # on a by-id stop would mismark the project / kill a docker run while a
+            # sibling session in the same folder is still building. The group-kill
+            # alone closes the stated orphaned-agent hole; folder-global teardown
+            # stays on the no-arg / --all paths.
+            _stop_group_by_pgid_files \
+                "$LOKI_DIR/sessions/$target_session/loki.pgid" \
+                "$LOKI_DIR/run-${target_session}.pgid"
             _stop_session_by_id "$target_session"
             echo "Stopped session: $target_session"
         else
             echo "No active session found"
         fi
         return 0
+    fi
+
+    # FIX-DOCKER-STOP (reap side): a `loki docker start` in this folder runs the
+    # build inside a container named loki-<sha12 of workspace>; the host .loki has
+    # no live pid for it, so the legacy "No active session" path would fire while
+    # the container is Up. Reconcile + reap it here, before the session check.
+    # Folder-scoped: the container name derives from THIS folder's run.json (or a
+    # recompute over $(pwd)), so a run in another folder is never touched (AC18).
+    local _docker_reaped=0
+    if command -v docker >/dev/null 2>&1; then
+        local _docker_runstate="$LOKI_DIR/docker/run.json"
+        local _docker_container=""
+        if [ -f "$_docker_runstate" ] && command -v python3 >/dev/null 2>&1; then
+            _docker_container=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('container',''))" "$_docker_runstate" 2>/dev/null || true)
+        fi
+        # Fallback: recompute the deterministic name via Agent B's helper. cmd_stop
+        # does NOT source docker-run.sh itself (only cmd_docker does), so source it
+        # here, gated on the module existing, to make the helper available.
+        if [ -z "$_docker_container" ]; then
+            local _docker_mod="$_LOKI_SCRIPT_DIR/docker-run.sh"
+            if [ -f "$_docker_mod" ]; then
+                # shellcheck source=/dev/null
+                source "$_docker_mod" 2>/dev/null || true
+                if declare -F loki_docker_container_name >/dev/null 2>&1; then
+                    _docker_container="$(loki_docker_container_name 2>/dev/null || true)"
+                fi
+            fi
+        fi
+        if [ -n "$_docker_container" ]; then
+            # Only reap if a container with exactly this name is actually running.
+            local _running_id
+            _running_id=$(docker ps -q -f "name=^${_docker_container}$" 2>/dev/null || true)
+            if [ -n "$_running_id" ]; then
+                docker stop "$_docker_container" >/dev/null 2>&1 || true
+                # --rm may auto-remove on stop; rm is best-effort (already-gone is fine).
+                docker rm "$_docker_container" >/dev/null 2>&1 || true
+                _docker_reaped=1
+                echo -e "${RED}Stopped docker run: ${_docker_container}${NC}"
+            fi
+        fi
+        # Clear our run-state record regardless (the container is gone or absent).
+        rm -f "$_docker_runstate" 2>/dev/null || true
     fi
 
     # No session ID given -- stop all running sessions
@@ -2339,56 +2470,9 @@ cmd_stop() {
         # session leader), so signaling the whole group reaps the orchestrator
         # AND the agent child atomically. Killing only the orchestrator pid lets
         # the agent reparent to init and keep editing files -- the reported bug.
-        # Guards: only a numeric pgid > 1 that is NOT this shell's own group.
-        local _stop_pgid_file
-        for _stop_pgid_file in "$LOKI_DIR/loki.pgid" "$LOKI_DIR/run.pgid"; do
-            [ -f "$_stop_pgid_file" ] || continue
-            local _spgid
-            _spgid=$(cat "$_stop_pgid_file" 2>/dev/null | tr -d ' ')
-            case "$_spgid" in ''|*[!0-9]*) continue ;; esac
-            [ "$_spgid" -gt 1 ] 2>/dev/null || continue
-            local _my_pgid
-            _my_pgid=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')
-            [ "$_spgid" = "$_my_pgid" ] && continue   # never kill our own group
-            # Collect protected pids (dashboard, app-runner, registered pids) so
-            # a group-kill never takes down the dashboard if it happens to share
-            # the orchestrator group. Mirrors the dashboard Python route.
-            local _protected=" "
-            local _pf
-            if [ -d "$LOKI_DIR/pids" ]; then
-                for _pf in "$LOKI_DIR/pids"/*.json; do
-                    [ -f "$_pf" ] || continue
-                    _protected="${_protected}$(basename "$_pf" .json) "
-                done
-            fi
-            for _pf in "$LOKI_DIR/dashboard/dashboard.pid" "${HOME}/.loki/dashboard/dashboard.pid"; do
-                [ -f "$_pf" ] && _protected="${_protected}$(cat "$_pf" 2>/dev/null | tr -d ' ') "
-            done
-            # Does any protected pid share this group?
-            local _conflict=0 _gp
-            for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_spgid" '$2==g{print $1}'); do
-                case "$_protected" in *" $_gp "*) _conflict=1; break ;; esac
-            done
-            if [ "$_conflict" = "1" ]; then
-                # Per-pid kill of group members EXCLUDING protected pids.
-                for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_spgid" '$2==g{print $1}'); do
-                    case "$_protected" in *" $_gp "*) continue ;; esac
-                    [ "$_gp" = "$$" ] && continue
-                    kill -TERM "$_gp" 2>/dev/null || true
-                done
-                sleep 1
-                for _gp in $(ps -axo pid=,pgid= 2>/dev/null | awk -v g="$_spgid" '$2==g{print $1}'); do
-                    case "$_protected" in *" $_gp "*) continue ;; esac
-                    [ "$_gp" = "$$" ] && continue
-                    kill -KILL "$_gp" 2>/dev/null || true
-                done
-            else
-                kill -TERM -- -"$_spgid" 2>/dev/null || true
-                sleep 1
-                kill -KILL -- -"$_spgid" 2>/dev/null || true
-            fi
-            rm -f "$_stop_pgid_file" 2>/dev/null || true
-        done
+        # Factored into _stop_group_by_pgid_files (loki-stop-F1) so the by-id stop
+        # path performs identical reaping. Here we pass the GLOBAL pgid files.
+        _stop_group_by_pgid_files "$LOKI_DIR/loki.pgid" "$LOKI_DIR/run.pgid"
 
         local killed_pid=""
         for pid_file in "$LOKI_DIR/loki.pid" "$LOKI_DIR/run.pid"; do
@@ -2535,7 +2619,7 @@ PYDASH
         else
             echo -e "${RED}STOP signal sent. Execution will halt immediately.${NC}"
         fi
-    else
+    elif [ "$_docker_reaped" != "1" ]; then
         echo -e "${YELLOW}No active session running.${NC}"
         if [ -f "$LOKI_DIR/STOP" ]; then
             echo "STOP signal already present."
@@ -2560,6 +2644,20 @@ PYDASH
         sleep 0.5
         pkill -9 -f "$_stop_all_pat" 2>/dev/null || true
         echo -e "${RED}--all: signalled all loki-run-* processes on this machine.${NC}"
+
+        # FIX-DOCKER-STOP --all: also reap EVERY loki-mode container on this
+        # machine (parity with the machine-wide PID kill above). Best-effort.
+        if command -v docker >/dev/null 2>&1; then
+            local _all_ids
+            _all_ids=$(docker ps -q --filter ancestor=asklokesh/loki-mode 2>/dev/null || true)
+            if [ -n "$_all_ids" ]; then
+                # shellcheck disable=SC2086
+                docker stop $_all_ids >/dev/null 2>&1 || true
+                # shellcheck disable=SC2086
+                docker rm $_all_ids >/dev/null 2>&1 || true
+                echo -e "${RED}--all: stopped all loki-mode docker containers on this machine.${NC}"
+            fi
+        fi
     fi
 }
 
@@ -2889,12 +2987,26 @@ cmd_status() {
     # Check orchestrator state
     if [ -f "$LOKI_DIR/state/orchestrator.json" ]; then
         echo -e "${CYAN}Orchestrator State:${NC}"
-        jq -r '.currentPhase // "unknown"' "$LOKI_DIR/state/orchestrator.json" 2>/dev/null || echo "unknown"
+        local orch_phase
+        # An empty orchestrator.json makes jq exit 0 with no output, so the
+        # `|| echo unknown` fallback never fires and the phase line is blank.
+        # Capture and normalize an empty result to "unknown".
+        orch_phase=$(jq -r '.currentPhase // "unknown"' "$LOKI_DIR/state/orchestrator.json" 2>/dev/null || echo "unknown")
+        [ -n "$orch_phase" ] || orch_phase="unknown"
+        echo "$orch_phase"
     fi
 
     # Check pending tasks
     if [ -f "$LOKI_DIR/queue/pending.json" ]; then
-        local task_count=$(jq 'if type == "array" then length elif .tasks then .tasks | length else 0 end' "$LOKI_DIR/queue/pending.json" 2>/dev/null || echo "0")
+        local task_count
+        task_count=$(jq 'if type == "array" then length elif .tasks then .tasks | length else 0 end' "$LOKI_DIR/queue/pending.json" 2>/dev/null || echo "0")
+        # An empty or whitespace-only pending.json makes jq exit 0 while
+        # printing nothing, so the `|| echo 0` fallback never fires and the
+        # status line renders a blank count. Normalize any non-numeric result
+        # (empty string, null, parse noise) back to 0.
+        case "$task_count" in
+            ''|*[!0-9]*) task_count=0 ;;
+        esac
         echo -e "${CYAN}Pending Tasks:${NC} $task_count"
     fi
 
@@ -2959,7 +3071,7 @@ cmd_status_json() {
     local dashboard_port="${LOKI_DASHBOARD_PORT:-57374}"
     local env_provider="${LOKI_PROVIDER:-claude}"
 
-    python3 -c "
+    if ! python3 -c "
 import json, os, sys, time
 
 skill_dir = sys.argv[1]
@@ -3247,9 +3359,14 @@ if os.path.isfile(gate_count_file):
 result['phase1'] = phase1
 
 print(json.dumps(result, indent=2))
-" "$skill_dir" "$loki_dir" "$dashboard_port" "$env_provider"
-
-    if [ $? -ne 0 ]; then
+" "$skill_dir" "$loki_dir" "$dashboard_port" "$env_provider"; then
+        # WAVE8 loki-F2: under `set -euo pipefail` a bare python3 call aborts
+        # the whole function on non-zero exit, so the old post-call
+        # `if [ $? -ne 0 ]` fallback was DEAD code -- a missing/broken python3
+        # crashed `loki status --json` instead of degrading. Guarding the call
+        # with `if ! ...; then` catches the non-zero exit and emits the honest
+        # error object. (Most malformed state files already degrade internally
+        # via per-file try/except; this covers the interpreter-failure case.)
         echo '{"error": "Failed to generate JSON status. Ensure python3 is available."}' >&2
         return 1
     fi
@@ -7241,8 +7358,8 @@ cmd_config() {
             echo "  issue.provider       Default issue provider: github, gitlab, jira, azure_devops"
             echo "  blind_validation     Blind validation mode: true, false (default: true)"
             echo "  adversarial_testing  Adversarial testing: true, false (default: true)"
-            echo "  spawn_timeout        Provider spawn timeout in seconds (default: 120)"
-            echo "  spawn_retries        Provider spawn retry count (default: 2)"
+            echo "  spawn_timeout        [DEPRECATED] No effect since WAVE9 (no consumer); accepted for back-compat"
+            echo "  spawn_retries        [DEPRECATED] No effect since WAVE9 (no consumer); accepted for back-compat"
             echo "  notify.slack         Slack webhook URL"
             echo "  notify.discord       Discord webhook URL"
             echo "  budget               Cost budget limit in USD"
@@ -7320,6 +7437,7 @@ cmd_config_set() {
             if ! echo "$value" | grep -qE '^[0-9]+$'; then
                 echo -e "${RED}Invalid $key: $value (expected: integer)${NC}"; return 1
             fi
+            echo -e "${YELLOW}Note: '$key' is deprecated and has no effect since WAVE9 (no consumer in the runtime). Accepted for back-compat only.${NC}" >&2
             ;;
         budget)
             if ! echo "$value" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
@@ -7401,8 +7519,8 @@ SET_CONFIG
         provider)         export LOKI_PROVIDER="$value" ;;
         blind_validation) export LOKI_BLIND_VALIDATION="$value" ;;
         adversarial_testing) export LOKI_ADVERSARIAL_TESTING="$value" ;;
-        spawn_timeout)    export LOKI_SPAWN_TIMEOUT="$value" ;;
-        spawn_retries)    export LOKI_SPAWN_RETRIES="$value" ;;
+        # spawn_timeout / spawn_retries: deprecated, no runtime consumer (WAVE9);
+        # intentionally not exported.
         budget)           export LOKI_BUDGET_LIMIT="$value" ;;
     esac
 }
@@ -7509,8 +7627,8 @@ cmd_config_show() {
     echo "  maxTier:              ${LOKI_MAX_TIER:-(unlimited)}"
     echo "  blind_validation:     ${LOKI_BLIND_VALIDATION:-true}"
     echo "  adversarial_testing:  ${LOKI_ADVERSARIAL_TESTING:-true}"
-    echo "  spawn_timeout:        ${LOKI_SPAWN_TIMEOUT:-120}s"
-    echo "  spawn_retries:        ${LOKI_SPAWN_RETRIES:-2}"
+    echo "  spawn_timeout:        (deprecated, no effect)"
+    echo "  spawn_retries:        (deprecated, no effect)"
     echo "  issue_provider:       ${LOKI_ISSUE_PROVIDER:-(auto-detect)}"
     echo "  budget:               ${LOKI_BUDGET_LIMIT:-(no limit)}"
     echo ""
@@ -8049,10 +8167,39 @@ cmd_doctor() {
     echo ""
 
     echo -e "${CYAN}AI Providers:${NC}"
-    doctor_check "Claude CLI"          claude   optional || true
-    doctor_check "Codex CLI"           codex    optional || true
-    doctor_check "Cline CLI"           cline    optional || true
-    doctor_check "Aider CLI"           aider    optional || true
+    # C1 (doctor UX): when an individual provider CLI is missing, print the
+    # EXACT install command right under the WARN line so the user never has to
+    # look it up. doctor_check returns 1 when the CLI is absent; we capture that
+    # and emit the canonical install command for that provider. Honest: this
+    # only PRINTS the command -- the offer-to-run path lives below, gated on a
+    # TTY, and only when NO provider at all is installed.
+    doctor_provider_install_cmd() {
+        case "$1" in
+            claude) echo "npm install -g @anthropic-ai/claude-code" ;;
+            codex)  echo "npm install -g @openai/codex" ;;
+            cline)  echo "npm install -g cline" ;;
+            aider)  echo "pip install aider-chat" ;;
+            *)      echo "" ;;
+        esac
+    }
+    doctor_check_provider() {
+        local _label="$1" _cmd="$2"
+        if ! doctor_check "$_label" "$_cmd" optional; then
+            local _install
+            _install=$(doctor_provider_install_cmd "$_cmd")
+            # Route the per-provider install hint to STDERR (fd 2), mirroring the
+            # doctor_probe_note stderr-only pattern above. The Bun route emits the
+            # same hint on STDOUT immediately after the provider WARN line; under
+            # the parity harness's 2>&1 capture both land adjacent to the WARN, so
+            # the two routes stay byte-identical when an optional provider is absent
+            # (v7.63.0: closed the cline-absent parity gap by adding the Bun hint).
+            [ -n "$_install" ] && echo -e "         ${YELLOW}Install: ${_install}${NC}" >&2
+        fi
+    }
+    doctor_check_provider "Claude CLI"  claude || true
+    doctor_check_provider "Codex CLI"   codex  || true
+    doctor_check_provider "Cline CLI"   cline  || true
+    doctor_check_provider "Aider CLI"   aider  || true
 
     # Check if at least one provider is installed (detect_any_provider is the
     # shared helper from provider-offer.sh, extracted from this exact loop).
@@ -8161,11 +8308,36 @@ cmd_doctor() {
         echo -e "  ${YELLOW}WARN${NC}  sentence-transformers - not installed (loki memory vectors setup)"
         warn_count=$((warn_count + 1))
     fi
-    # ChromaDB check
-    if curl -sf http://localhost:8100/api/v2/heartbeat >/dev/null 2>&1; then
+    # C3 (doctor UX): the next checks are bounded network probes, not instant
+    # local lookups. They are the slowest part of doctor (a stale/unreachable
+    # host could otherwise hang on curl's default ~2min connect timeout). We
+    # (a) bound every probe with --connect-timeout/--max-time so a dead host
+    # fails fast, and (b) print a transient progress note to stderr on a TTY so
+    # the user knows doctor is doing network work, not stuck. The note goes to
+    # stderr only -- the parity-captured stdout stays byte-identical across the
+    # bash and Bun routes.
+    doctor_probe_note() {
+        # return 0 is mandatory: [ -t 2 ] returns 1 off a TTY, and under
+        # set -euo pipefail a bare call here aborts the whole doctor run on
+        # CI/headless (the v7.58.1 Bun-Parity crash).
+        [ -t 2 ] && printf '  %s...\r' "$1" >&2
+        return 0
+    }
+    doctor_probe_clear() {
+        # Erase the transient progress line so it does not linger above the
+        # PASS/WARN result. Only on a TTY (where the note was printed).
+        # return 0: same set -e safety as doctor_probe_note.
+        [ -t 2 ] && printf '\r\033[K' >&2
+        return 0
+    }
+    # ChromaDB check (bounded network probe)
+    doctor_probe_note "Probing ChromaDB (port 8100)"
+    if curl -sf --connect-timeout 2 --max-time 5 http://localhost:8100/api/v2/heartbeat >/dev/null 2>&1; then
+        doctor_probe_clear
         echo -e "  ${GREEN}PASS${NC}  ChromaDB server (port 8100)"
         pass_count=$((pass_count + 1))
     else
+        doctor_probe_clear
         echo -e "  ${YELLOW}WARN${NC}  ChromaDB - not running (docker start loki-chroma)"
         warn_count=$((warn_count + 1))
     fi
@@ -8189,10 +8361,13 @@ cmd_doctor() {
     # MiroFish check (optional service)
     local _mf_url="${LOKI_MIROFISH_URL:-http://localhost:5001}"
     if docker inspect loki-mirofish &>/dev/null 2>&1 || [[ -n "${LOKI_MIROFISH_URL:-}" ]]; then
-        if curl -sf "$_mf_url/health" >/dev/null 2>&1; then
+        doctor_probe_note "Probing MiroFish ($_mf_url)"
+        if curl -sf --connect-timeout 2 --max-time 5 "$_mf_url/health" >/dev/null 2>&1; then
+            doctor_probe_clear
             echo -e "  ${GREEN}PASS${NC}  MiroFish server ($_mf_url)"
             pass_count=$((pass_count + 1))
         else
+            doctor_probe_clear
             echo -e "  ${YELLOW}WARN${NC}  MiroFish - not running (loki start --mirofish-docker <image>)"
             warn_count=$((warn_count + 1))
         fi
@@ -9939,7 +10114,7 @@ QPRDEOF
         case "$_quick_provider" in
             claude) echo "  npm install -g @anthropic-ai/claude-code" ;;
             codex)  echo "  npm install -g @openai/codex" ;;
-            cline)  echo "  npm install -g @anthropic-ai/cline" ;;
+            cline)  echo "  npm install -g cline" ;;
             aider)  echo "  pip install aider-chat" ;;
             *)      echo "  Check the provider documentation for installation." ;;
         esac
@@ -12316,18 +12491,27 @@ for f in data.get('frictions', []):
 
     # Initialize or update healing progress
     if [[ ! -f "$heal_dir/healing-progress.json" ]] || [ "$do_resume" != "true" ]; then
+        # WAVE8 loki-est: pass codebase/phase/strict/out-path via env instead of
+        # interpolating raw bash into the python source. A codebase path or phase
+        # containing an apostrophe made this a SyntaxError; under `|| true` the
+        # progress file was then silently never written (and the later
+        # prev_phase read would fail), breaking healing resume.
+        LOKI_HEAL_CODEBASE="$codebase_path" \
+        LOKI_HEAL_PHASE_VAL="$phase" \
+        LOKI_HEAL_STRICT_VAL="$strict" \
+        LOKI_HEAL_OUT="$heal_dir/healing-progress.json" \
         python3 -c "
-import json
+import json, os
 from datetime import datetime
 progress = {
-    'codebase': '$codebase_path',
+    'codebase': os.environ.get('LOKI_HEAL_CODEBASE', ''),
     'started': datetime.now().isoformat(),
-    'current_phase': '$phase',
-    'strict_mode': $( [ "$strict" = "true" ] && echo "True" || echo "False" ),
+    'current_phase': os.environ.get('LOKI_HEAL_PHASE_VAL', ''),
+    'strict_mode': os.environ.get('LOKI_HEAL_STRICT_VAL', '') == 'true',
     'components': [],
     'overall_health': 0.0
 }
-with open('$heal_dir/healing-progress.json', 'w') as f:
+with open(os.environ['LOKI_HEAL_OUT'], 'w') as f:
     json.dump(progress, f, indent=2)
 " || true
     fi
@@ -12335,7 +12519,7 @@ with open('$heal_dir/healing-progress.json', 'w') as f:
     # BUG-HEAL-004: Validate phase gate when resuming from a previous phase
     if [ "$do_resume" = "true" ] && [[ -f "$heal_dir/healing-progress.json" ]] && type hook_healing_phase_gate &>/dev/null; then
         local prev_phase
-        prev_phase=$(python3 -c "import json; print(json.load(open('$heal_dir/healing-progress.json')).get('current_phase', 'archaeology'))" 2>/dev/null || echo "archaeology")
+        prev_phase=$(LOKI_HEAL_PROG="$heal_dir/healing-progress.json" python3 -c "import json, os; print(json.load(open(os.environ['LOKI_HEAL_PROG'])).get('current_phase', 'archaeology'))" 2>/dev/null || echo "archaeology")
         if [[ "$prev_phase" != "$phase" ]]; then
             local gate_result
             if ! gate_result=$(hook_healing_phase_gate "$prev_phase" "$phase" 2>&1); then
@@ -12829,47 +13013,60 @@ else:
                 return 1
             fi
 
-            # Fire lifecycle hooks and record state
-            PYTHONPATH="${SKILL_DIR:-.}" python3 -c "
-import json, sys
-sys.path.insert(0, '${SKILL_DIR:-.}')
+            # Fire lifecycle hooks and record state.
+            # WAVE10: pass cluster_id / template_name / template_file / SKILL_DIR
+            # via os.environ instead of interpolating into the python source.
+            # A --cluster-id containing a single quote (e.g. "o'brien") made the
+            # heredoc body a SyntaxError, skipping all state recording while the
+            # green "Cluster: ..." line still printed (silent false success).
+            _LOKI_SKILL_DIR="${SKILL_DIR:-.}" \
+            _LOKI_TEMPLATE_FILE="${template_file}" \
+            _LOKI_CLUSTER_ID="${cluster_id}" \
+            _LOKI_TEMPLATE_NAME="${template_name}" \
+            _LOKI_DO_RESUME="${do_resume}" \
+            PYTHONPATH="${SKILL_DIR:-.}" python3 -c '
+import json, sys, os
+skill_dir = os.environ["_LOKI_SKILL_DIR"]
+sys.path.insert(0, skill_dir)
 from swarm.patterns import ClusterLifecycleHooks
 from state.sqlite_backend import SqliteStateBackend
 
 # Load template hooks config
-with open('${template_file}') as f:
+with open(os.environ["_LOKI_TEMPLATE_FILE"]) as f:
     tpl = json.load(f)
 
-hooks = ClusterLifecycleHooks(tpl.get('hooks', {}))
+hooks = ClusterLifecycleHooks(tpl.get("hooks", {}))
 db = SqliteStateBackend()
 
-cluster_id = '${cluster_id}'
-resume = '${do_resume}' == 'true'
+cluster_id = os.environ["_LOKI_CLUSTER_ID"]
+template_name = os.environ["_LOKI_TEMPLATE_NAME"]
+resume = os.environ["_LOKI_DO_RESUME"] == "true"
 
 if resume:
-    events = db.query_events(event_type='cluster_state', migration_id=cluster_id, limit=1)
+    events = db.query_events(event_type="cluster_state", migration_id=cluster_id, limit=1)
     if events:
-        print(f'Resuming cluster {cluster_id} from last checkpoint')
+        print(f"Resuming cluster {cluster_id} from last checkpoint")
     else:
-        print(f'No previous state found for {cluster_id}. Starting fresh.')
+        print(f"No previous state found for {cluster_id}. Starting fresh.")
 
 # Fire pre_run hooks
-results = hooks.fire('pre_run', {'cluster_id': cluster_id, 'template': '${template_name}'})
+results = hooks.fire("pre_run", {"cluster_id": cluster_id, "template": template_name})
 for r in results:
-    if not r['success']:
-        print(f'Pre-run hook failed: {r[\"output\"]}')
+    if not r["success"]:
+        print("Pre-run hook failed: " + str(r.get("output", "")))
 
 # Record cluster start
-db.record_event('cluster_start', {
-    'cluster_id': cluster_id,
-    'template': '${template_name}',
-    'agents': len(tpl.get('agents', [])),
-    'resume': resume,
+db.record_event("cluster_start", {
+    "cluster_id": cluster_id,
+    "template": template_name,
+    "agents": len(tpl.get("agents", [])),
+    "resume": resume,
 }, migration_id=cluster_id)
 
-print(f'Cluster {cluster_id} initialized with {len(tpl.get(\"agents\", []))} agents')
-print('Template validated. Lifecycle hooks active.')
-" 2>&1
+_n_agents = len(tpl.get("agents", []))
+print(f"Cluster {cluster_id} initialized with {_n_agents} agents")
+print("Template validated. Lifecycle hooks active.")
+' 2>&1
 
             echo -e "${GREEN}Cluster: $cluster_id${NC}"
             echo -e "Template: $template_name"
@@ -16447,6 +16644,9 @@ with open(p, 'w') as f:
             if [ -f "$LOKI_DIR/queue/failed.json" ]; then
                 local count
                 count=$(jq 'length' "$LOKI_DIR/queue/failed.json" 2>/dev/null || echo "?")
+                # An empty failed.json makes jq exit 0 with no output, so the
+                # `|| echo "?"` fallback never fires; normalize the blank result.
+                [ -n "$count" ] || count="?"
                 rm -f "$LOKI_DIR/queue/failed.json"
                 echo "[]" > "$LOKI_DIR/queue/failed.json"
                 echo -e "${GREEN}Cleared $count failed tasks${NC}"
@@ -16804,7 +17004,11 @@ PYEOF
         export)
             local output="${2:-learnings-export.json}"
 
-            LOKI_LEARNINGS_DIR="$learnings_dir" python3 -c "
+            # BUG-PU-010: pass the output filename via an environment variable
+            # rather than interpolating $output into the python -c source, so a
+            # filename containing quotes/backslashes/newlines cannot break out of
+            # the string literal or inject python.
+            LOKI_LEARNINGS_DIR="$learnings_dir" LOKI_LEARNINGS_OUT="$output" python3 -c "
 import json
 import os
 
@@ -16822,9 +17026,10 @@ for category in ['patterns', 'mistakes', 'successes']:
                         result[category].append(e)
                 except: pass
 
-with open('$output', 'w') as f:
+_out = os.environ['LOKI_LEARNINGS_OUT']
+with open(_out, 'w') as f:
     json.dump(result, f, indent=2)
-print(f'Exported to $output')
+print(f'Exported to {_out}')
 " 2>/dev/null
             ;;
 
@@ -22657,35 +22862,39 @@ cmd_onboard() {
         fi
         # Extract metadata from package.json
         if command -v python3 &>/dev/null; then
+            # WAVE8 loki-est (same class as cmd_explain): pass the repo path via
+            # env (os.environ) instead of interpolating into the python source.
+            # A path with an apostrophe made each heredoc a SyntaxError, silently
+            # dropping the package.json name/version/description under `|| true`.
             local pkg_name
-            pkg_name=$(python3 -c "
-import json, sys
+            pkg_name=$(LOKI_ONB_PKG="$target_path/package.json" python3 -c "
+import json, os
 try:
-    d = json.load(open('$target_path/package.json'))
+    d = json.load(open(os.environ['LOKI_ONB_PKG']))
     print(d.get('name', ''))
 except: pass
 " 2>/dev/null || true)
             if [ -n "$pkg_name" ]; then
                 project_name="$pkg_name"
             fi
-            project_description=$(python3 -c "
-import json, sys
+            project_description=$(LOKI_ONB_PKG="$target_path/package.json" python3 -c "
+import json, os
 try:
-    d = json.load(open('$target_path/package.json'))
+    d = json.load(open(os.environ['LOKI_ONB_PKG']))
     print(d.get('description', ''))
 except: pass
 " 2>/dev/null || true)
-            project_version=$(python3 -c "
-import json, sys
+            project_version=$(LOKI_ONB_PKG="$target_path/package.json" python3 -c "
+import json, os
 try:
-    d = json.load(open('$target_path/package.json'))
+    d = json.load(open(os.environ['LOKI_ONB_PKG']))
     print(d.get('version', ''))
 except: pass
 " 2>/dev/null || true)
-            entry_points=$(python3 -c "
-import json, sys
+            entry_points=$(LOKI_ONB_PKG="$target_path/package.json" python3 -c "
+import json, os
 try:
-    d = json.load(open('$target_path/package.json'))
+    d = json.load(open(os.environ['LOKI_ONB_PKG']))
     main = d.get('main', '')
     if main: print(main)
     scripts = d.get('scripts', {})
@@ -23065,10 +23274,11 @@ $imports"
     if [ -f "$target_path/package.json" ]; then
         if command -v python3 &>/dev/null; then
             local scripts_json
-            scripts_json=$(python3 -c "
-import json
+            # WAVE8 loki-est: env-passed path (see cmd_onboard metadata block).
+            scripts_json=$(LOKI_ONB_PKG="$target_path/package.json" python3 -c "
+import json, os
 try:
-    d = json.load(open('$target_path/package.json'))
+    d = json.load(open(os.environ['LOKI_ONB_PKG']))
     s = d.get('scripts', {})
     for k in ['build', 'dev', 'start', 'test', 'lint', 'format', 'check', 'typecheck']:
         if k in s:
@@ -23129,10 +23339,10 @@ except: pass
         output=$(cat <<ENDJSON
 {
   "project": {
-    "name": "$project_name",
+    "name": $(_VAL="$project_name" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$project_name\""),
     "description": $(_DESC="$project_description" python3 -c "import json, os; print(json.dumps(os.environ.get('_DESC','')))" 2>/dev/null || echo "\"$project_description\""),
-    "version": "$project_version",
-    "path": "$target_path"
+    "version": $(_VAL="$project_version" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$project_version\""),
+    "path": $(_VAL="$target_path" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$target_path\"")
   },
   "languages": "$(echo $languages | sed 's/  */ /g')",
   "frameworks": "$(echo $frameworks | sed 's/  */ /g')",
@@ -23146,9 +23356,9 @@ except: pass
     "docs": $doc_count
   },
   "commands": {
-    "build": "$build_cmd",
-    "run": "$run_cmd",
-    "test": "$test_cmd"
+    "build": $(_VAL="$build_cmd" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$build_cmd\""),
+    "run": $(_VAL="$run_cmd" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$run_cmd\""),
+    "test": $(_VAL="$test_cmd" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$test_cmd\"")
   },
   "depth": $depth
 }
@@ -23158,10 +23368,10 @@ ENDJSON
         # YAML output
         output=$(cat <<ENDYAML
 project:
-  name: $project_name
-  description: "$project_description"
-  version: "$project_version"
-  path: $target_path
+  name: $(_VAL="$project_name" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$project_name\"")
+  description: $(_VAL="$project_description" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$project_description\"")
+  version: $(_VAL="$project_version" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$project_version\"")
+  path: $(_VAL="$target_path" python3 -c "import json, os; print(json.dumps(os.environ.get('_VAL','')))" 2>/dev/null || echo "\"$target_path\"")
 languages: $languages
 frameworks: $frameworks
 build_system: $build_system
@@ -23460,10 +23670,14 @@ cmd_explain() {
 
         if command -v python3 &>/dev/null; then
             local pkg_meta
-            pkg_meta=$(python3 -c "
-import json
+            # WAVE8 loki-est: pass the path via env (os.environ) instead of
+            # interpolating into the python source -- a repo path containing an
+            # apostrophe broke the string literal and dropped all package.json
+            # metadata.
+            pkg_meta=$(LOKI_EXP_PKG="$target_path/package.json" python3 -c "
+import json, os
 try:
-    d = json.load(open('$target_path/package.json'))
+    d = json.load(open(os.environ['LOKI_EXP_PKG']))
     print(d.get('name', ''))
     print(d.get('description', ''))
     print(d.get('version', ''))
@@ -23692,17 +23906,67 @@ $devdeps_list"
 
     # --- JSON output ---
     if [ "$output_json" = true ]; then
+        # WAVE8 loki-est: pass every value via the environment and read it with
+        # os.environ instead of interpolating raw bash into the python source.
+        # Interpolation broke on any apostrophe/quote/newline in a project name,
+        # version, description, or path (e.g. a dir named `my'app`), silently
+        # degrading real analysis to `{"error": "JSON generation failed"}`.
+        # env-passing is injection-proof and keeps the same output shape.
+        LOKI_EXP_NAME="$project_name" \
+        LOKI_EXP_DESC="$project_description" \
+        LOKI_EXP_VERSION="$project_version" \
+        LOKI_EXP_PATH="$target_path" \
+        LOKI_EXP_LANGUAGES="$languages" \
+        LOKI_EXP_FRAMEWORKS="$frameworks" \
+        LOKI_EXP_BUILD="$build_system" \
+        LOKI_EXP_PKGMGR="$package_manager" \
+        LOKI_EXP_TESTFW="$test_framework" \
+        LOKI_EXP_CI="$ci_system" \
+        LOKI_EXP_PATTERNS="$detected_patterns" \
+        LOKI_EXP_TOTAL="$total_files" \
+        LOKI_EXP_SRC="$src_count" \
+        LOKI_EXP_TEST="$test_count" \
+        LOKI_EXP_DOC="$doc_count" \
+        LOKI_EXP_CONFIG="$config_count" \
+        LOKI_EXP_BUILDCMD="$build_cmd" \
+        LOKI_EXP_RUNCMD="$run_cmd" \
+        LOKI_EXP_TESTCMD="$test_cmd" \
+        LOKI_EXP_LINTCMD="$lint_cmd" \
+        LOKI_EXP_ENTRY="$major_files" \
+        LOKI_EXP_MONOREPO="$is_monorepo" \
+        LOKI_EXP_DOCKER="$has_docker" \
         python3 -c "
-import json
+import json, os
+
+def _s(name):
+    return os.environ.get(name, '')
+
+def _list(name):
+    v = _s(name).strip()
+    return v.split() if v else []
+
+def _opt(name):
+    v = _s(name).strip()
+    return v or None
+
+def _int(name):
+    try:
+        return int(_s(name).strip())
+    except (ValueError, TypeError):
+        return 0
+
+def _bool(name):
+    return _s(name).strip() == 'true'
+
 data = {
-    'project': {'name': '$project_name', 'description': '''$(echo "$project_description" | sed "s/'/\\\\'/g")''', 'version': '$project_version', 'path': '$target_path'},
-    'stack': {'languages': '${languages}'.split() if '${languages}'.strip() else [], 'frameworks': '${frameworks}'.split() if '${frameworks}'.strip() else [], 'build_system': '$build_system' or None, 'package_manager': '$package_manager' or None, 'test_framework': '${test_framework}'.split() if '${test_framework}'.strip() else [], 'ci': '${ci_system}'.strip() or None},
-    'patterns': '${detected_patterns}'.split() if '${detected_patterns}'.strip() else [],
-    'files': {'total': $total_files, 'source': $src_count, 'test': $test_count, 'docs': $doc_count, 'config': $config_count},
-    'commands': {'build': '${build_cmd}' or None, 'run': '${run_cmd}' or None, 'test': '${test_cmd}' or None, 'lint': '${lint_cmd}' or None},
-    'entry_points': '${major_files}'.split() if '${major_files}'.strip() else [],
-    'monorepo': $( [ "$is_monorepo" = true ] && echo "True" || echo "False" ),
-    'has_docker': $( [ "$has_docker" = true ] && echo "True" || echo "False" )
+    'project': {'name': _s('LOKI_EXP_NAME'), 'description': _s('LOKI_EXP_DESC'), 'version': _s('LOKI_EXP_VERSION'), 'path': _s('LOKI_EXP_PATH')},
+    'stack': {'languages': _list('LOKI_EXP_LANGUAGES'), 'frameworks': _list('LOKI_EXP_FRAMEWORKS'), 'build_system': _opt('LOKI_EXP_BUILD'), 'package_manager': _opt('LOKI_EXP_PKGMGR'), 'test_framework': _list('LOKI_EXP_TESTFW'), 'ci': _opt('LOKI_EXP_CI')},
+    'patterns': _list('LOKI_EXP_PATTERNS'),
+    'files': {'total': _int('LOKI_EXP_TOTAL'), 'source': _int('LOKI_EXP_SRC'), 'test': _int('LOKI_EXP_TEST'), 'docs': _int('LOKI_EXP_DOC'), 'config': _int('LOKI_EXP_CONFIG')},
+    'commands': {'build': _opt('LOKI_EXP_BUILDCMD'), 'run': _opt('LOKI_EXP_RUNCMD'), 'test': _opt('LOKI_EXP_TESTCMD'), 'lint': _opt('LOKI_EXP_LINTCMD')},
+    'entry_points': _list('LOKI_EXP_ENTRY'),
+    'monorepo': _bool('LOKI_EXP_MONOREPO'),
+    'has_docker': _bool('LOKI_EXP_DOCKER')
 }
 print(json.dumps(data, indent=2))
 " 2>/dev/null || echo '{"error": "JSON generation failed"}'
@@ -25172,8 +25436,14 @@ generate_component(
 
     # 4. Register in registry
     log_info "Registering component"
+    # BUG-PU-010: pass free-text description/tags via environment variables and
+    # read them with os.environ in the python body, instead of interpolating raw
+    # user input into the python -c source (a value containing triple-quotes,
+    # backslashes, newlines, or $(...) would crash the script or inject code).
+    # Mirrors the LOKI_MEM_QUERY pattern in the memory-search path.
+    LOKI_MAGIC_DESC="$description" LOKI_MAGIC_TAGS="$tags" \
     PYTHONPATH="$(_magic_pypath)" "$py" -c "
-import sys
+import os, sys
 try:
     from magic.core.registry import register_component
 except Exception as exc:
@@ -25187,8 +25457,8 @@ register_component(
     react_path='.loki/magic/generated/react/${name}.tsx' if '$target' in ('react','both') else '',
     webcomponent_path='.loki/magic/generated/webcomponent/${name}.js' if '$target' in ('webcomponent','both') else '',
     test_path='.loki/magic/generated/tests/${name}.test.tsx',
-    description='''$description'''.strip(),
-    tags=[t.strip() for t in '''$tags'''.split(',') if t.strip()],
+    description=os.environ.get('LOKI_MAGIC_DESC', '').strip(),
+    tags=[t.strip() for t in os.environ.get('LOKI_MAGIC_TAGS', '').split(',') if t.strip()],
     placement='${placement}' or None,
 )
 " || {
@@ -25233,13 +25503,22 @@ _magic_update() {
         esac
     done
 
+    # BUG-PU-010: validate --name (defense in depth, mirroring _magic_generate)
+    # so a malicious value cannot reach the python body, AND pass it via an
+    # environment variable instead of interpolating it into the python -c source.
+    if [ -n "$name" ] && ! _magic_valid_name "$name"; then
+        log_error "Invalid component name: '$name' (must start with a letter, contain only letters, digits, _ or -)"
+        return 1
+    fi
+
     _magic_ensure_dirs
     local py
     py=$(_magic_python)
 
     log_info "Updating components from specs (name=${name:-<all>}, force=$force)"
+    LOKI_MAGIC_NAME="$name" \
     PYTHONPATH="$(_magic_pypath)" "$py" -c "
-import sys
+import os, sys
 try:
     from magic.core.generator import update_components
 except Exception as exc:
@@ -25247,7 +25526,7 @@ except Exception as exc:
     sys.exit(2)
 update_components(
     registry_path='.loki/magic/registry.json',
-    name='${name}' or None,
+    name=os.environ.get('LOKI_MAGIC_NAME', '') or None,
     force=$([ "$force" = "true" ] && echo True || echo False),
 )
 " || {
@@ -28765,6 +29044,68 @@ cmd_docker() {
         return 0
     fi
 
+    # Detect the forwarded loki subcommand (first non-dash token in fwd). This
+    # handles `--api start ...` where the wrapper-kept --api precedes `start`.
+    local _fwd_sub=""
+    local _ft
+    for _ft in "${fwd[@]}"; do
+        case "$_ft" in
+            -*) continue ;;
+            *) _fwd_sub="$_ft"; break ;;
+        esac
+    done
+
+    # Is this docker run launched in background mode? Mirrors the loki `start`
+    # background flags (--bg/--background/--detach/-d) that get forwarded into
+    # the container. Used to gate dashboard auto-open exactly like run.sh:~10088.
+    local _docker_bg=0
+    for _ft in "${fwd[@]}"; do
+        case "$_ft" in
+            --bg|--background|--detach|-d) _docker_bg=1; break ;;
+        esac
+    done
+
+    # FEAT-DOCKER-DASH / FEAT-DOCKER-PRUNE / FIX-DOCKER-STOP (start path only):
+    # the container itself stays dashboard-OFF (no published container port).
+    # Instead we drive the HOST dashboard (which already aggregates local +
+    # docker runs) so `loki docker start` feels exactly like local `loki start`.
+    if [ "$_fwd_sub" = "start" ]; then
+        # F3 FEAT-DOCKER-PRUNE: pull latest + prune old loki-mode images before
+        # the run. Gated by LOKI_DOCKER_PRUNE (default 1); =0 opts out (and the
+        # helper also skips the explicit pull). Best-effort, never blocks a run.
+        if [ "${LOKI_DOCKER_PRUNE:-1}" != "0" ] && declare -F loki_docker_pull_and_prune >/dev/null 2>&1; then
+            loki_docker_pull_and_prune || true
+        fi
+
+        # F2 FEAT-DOCKER-DASH: start/reuse the host dashboard (idempotent: an
+        # already-running dashboard short-circuits in cmd_dashboard_start before
+        # the port-in-use check, so the picked port is ignored on reuse). Run in
+        # a subshell so its internal `exit` paths (already-running -> exit 0,
+        # errors -> exit 1) never abort the blocking docker run.
+        local _dash_port="57374"
+        if declare -F loki_docker_pick_host_port >/dev/null 2>&1; then
+            _dash_port="$(loki_docker_pick_host_port 2>/dev/null || echo 57374)"
+        fi
+        ( cmd_dashboard_start --port "$_dash_port" ) || true
+
+        # Auto-open the dashboard in the browser, gated EXACTLY like
+        # run.sh:~10088: a TTY on stdout, not background, and not opted out via
+        # LOKI_NO_AUTO_OPEN=1. cmd_dashboard_open reads the persisted port file,
+        # so the URL is correct even when an existing dashboard was reused.
+        if [ -t 1 ] && [ "$_docker_bg" != "1" ] && [ "${LOKI_NO_AUTO_OPEN:-0}" != "1" ]; then
+            ( cmd_dashboard_open ) || true
+        fi
+
+        # F4 FIX-DOCKER-STOP (write side): record this run's container/state so
+        # `loki stop` in this folder can reap the container. Cleared after the
+        # blocking run returns (mirrors the register_host running/stopped bracket).
+        # The helper requires the container name + image; compute the deterministic
+        # name once (byte-identical to the build-time --name) and pass the resolved image.
+        if declare -F loki_docker_write_runstate >/dev/null 2>&1 && declare -F loki_docker_container_name >/dev/null 2>&1; then
+            loki_docker_write_runstate "$(loki_docker_container_name)" "${LOKI_DOCKER_IMAGE:-asklokesh/loki-mode:latest}" || true
+        fi
+    fi
+
     # Multi-repo unified dashboard (Option B): register THIS project on the host
     # with the real cwd and NO pid, so the existing host dashboard
     # (`loki dashboard`) lists it alongside host `loki start` projects and reads
@@ -28774,6 +29115,11 @@ cmd_docker() {
     "${docker_argv[@]}"
     local rc=$?
     _loki_docker_register_host stopped
+    # F4 FIX-DOCKER-STOP (clear side): runs unconditionally after the blocking
+    # call (not gated on rc), same as register_host stopped.
+    if [ "$_fwd_sub" = "start" ]; then
+        declare -F loki_docker_clear_runstate >/dev/null 2>&1 && loki_docker_clear_runstate || true
+    fi
     [ "$cleanup_creds" = "1" ] && rm -f "$creds" 2>/dev/null || true
     return $rc
 }

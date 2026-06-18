@@ -27,6 +27,20 @@ import { join, resolve } from "node:path";
 
 import { lokiDir } from "../util/paths.ts";
 import { atomicWriteJson } from "../util/atomic.ts";
+import type { appendFromGateFailure as AppendFromGateFailure } from "../runner/learnings_writer.ts";
+
+// Test-only seam (NOT for production use). The H2 bug-hunt tests must drive
+// appendFromGateFailure into a failure mid-loop to prove a single throw does
+// not abort the batch. They previously used Bun's `mock.module`, but that
+// registry is GLOBAL and has no reliable per-test revert (mock.restore() does
+// not touch it), so the throwing stub leaked into the learnings_writer suite
+// under cross-file discovery ordering and produced a nondeterministic CI red.
+// A plain mutable property is restored deterministically in afterEach and
+// never escapes this module. When null (always, in production) the real
+// learnings_writer.appendFromGateFailure is used.
+export const __testAppendHook: { fn: typeof AppendFromGateFailure | null } = {
+  fn: null,
+};
 
 const HELP = `loki internal phase1-hooks <subcommand>
 
@@ -85,16 +99,45 @@ async function runReflect(argv: readonly string[]): Promise<number> {
 
     const learn = await import("../runner/learnings_writer.ts");
     let learningsAppended = 0;
+    let learningsFailed = 0;
     if (process.env["LOKI_AUTO_LEARNINGS"] !== "0") {
-      for (const f of result.findings) {
-        if (f.severity === "Critical" || f.severity === "High") {
-          await learn.appendFromGateFailure(base, iter, f, { episodeBridge: null });
+      // v7.x bug-hunt H2 (batch-abort fix): pre-fix this loop lived inside the
+      // one outer try, so if the Nth appendFromGateFailure threw (e.g. file
+      // lock timeout, ENOSPC during atomicWriteJson), earlier appends had
+      // already persisted but every remaining finding was silently dropped AND
+      // the command exited 1 -- partial state with no signal of which findings
+      // were lost. Isolate each append: a single bad finding no longer drops
+      // the rest. We still surface the failures (count below) and only treat
+      // the step as failed if EVERY attempted append threw.
+      const blocking = result.findings.filter(
+        (f) => f.severity === "Critical" || f.severity === "High",
+      );
+      const append = __testAppendHook.fn ?? learn.appendFromGateFailure;
+      for (const f of blocking) {
+        try {
+          await append(base, iter, f, { episodeBridge: null });
           learningsAppended += 1;
+        } catch (err) {
+          learningsFailed += 1;
+          process.stderr.write(
+            `reflect: learning append failed for finding ${f.reviewer}/${f.severity}: ${(err as Error).message}\n`,
+          );
         }
       }
+      if (learningsFailed > 0 && learningsAppended === 0) {
+        // Every attempted append failed -- the findings file was still
+        // persisted above, but the learnings step produced nothing. Surface
+        // this as a non-zero exit so the runner does not treat the iteration
+        // as fully reflected.
+        process.stderr.write(
+          `reflect: all ${learningsFailed} learning appends failed (iter ${iter})\n`,
+        );
+        return 1;
+      }
     }
+    const failNote = learningsFailed > 0 ? ` (${learningsFailed} failed)` : "";
     process.stdout.write(
-      `reflect: persisted ${result.findings.length} findings + ${learningsAppended} learnings (iter ${iter})\n`,
+      `reflect: persisted ${result.findings.length} findings + ${learningsAppended} learnings${failNote} (iter ${iter})\n`,
     );
     return 0;
   } catch (err) {

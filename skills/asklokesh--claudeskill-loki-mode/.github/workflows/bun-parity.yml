@@ -162,16 +162,23 @@ jobs:
               #   - strip the "Runtime route:" block (route-dependent;
               #     reports "Bash" on the bash route and "Bun" on Bun)
               #   - strip the "Phase 1 artifacts:" block (#204)
-              #   - normalize "Summary: N passed/N failed/N warnings"
-              #     counts which shift slightly between routes
               # Without these, doctor parity failed every release since
               # v7.5.1 -- the local-only normalization masked it on
               # developer Macs while CI was red.
+              #
+              # The summary "N passed/N failed/N warnings" COUNTS are
+              # intentionally KEPT (not blanked), matching parity-drift.yml.
+              # A real divergence that shifts a doctor check between
+              # pass/fail/warn between routes MUST surface as a parity
+              # failure here -- this is the exact class of bug that broke
+              # v7.58.0 (doctor crash off-TTY). The Runtime-route block drop
+              # already removes the one benign count-shifter (the
+              # LOKI_LEGACY_BASH-only WARN line), so counts match for
+              # genuinely-equivalent runs.
               for src in "$bash_out" "$bun_out"; do
                 sed -E 's/Disk space: [0-9]+GB/Disk space: NGB/g' "$src" \
                   | sed -E '/Runtime route:/,/^$/d' \
                   | sed -E '/Phase 1 artifacts:/,/^$/d' \
-                  | sed -E 's/[0-9]+ passed/N passed/g; s/[0-9]+ failed/N failed/g; s/[0-9]+ warnings/N warnings/g' \
                   > "${src}.norm"
               done
               if diff -u "${bash_out}.norm" "${bun_out}.norm" >"$diff_out"; then

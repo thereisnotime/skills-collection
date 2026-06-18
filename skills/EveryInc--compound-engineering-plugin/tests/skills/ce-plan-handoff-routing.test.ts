@@ -20,8 +20,8 @@ const HANDOFF_BODY = readFileSync(HANDOFF_PATH, "utf8")
 // content caches at session start while reference files load on demand, the
 // per-option routing (what action fires when the user picks an option) MUST
 // live in SKILL.md itself — not solely in references/plan-handoff.md. The
-// reference may still hold elaborate sub-flows (HITL state machine, Issue
-// Creation tracker detection); only the bare per-option action must be inline.
+// reference may still hold elaborate sub-flows (Issue Creation tracker
+// detection); only the bare per-option action must be inline.
 //
 // Symptom when this regresses: the agent renders the menu, the user picks
 // "Start `/ce-work` (Recommended)", and the agent stops in prose without
@@ -45,14 +45,13 @@ describe("ce-plan post-generation menu routing", () => {
     //   - the line starts with `- **` (a bullet, not the numbered menu list)
     //   - the bold span contains a fragment unique to the option label
     //   - the bold span is followed by a separator and at least one action verb
-    // Testing for a label fragment (not the full label) tolerates the long
-    // "Open in Proof (web app) — review and comment to iterate with the agent"
-    // label without the assertion becoming brittle.
+    // Testing for a label fragment (not the full label) tolerates label
+    // phrasing tweaks without the assertion becoming brittle.
     const optionFragments: { name: string; fragment: string }[] = [
       { name: "Start /ce-work", fragment: "Start `/ce-work`" },
       { name: "Create Issue", fragment: "Create Issue" },
-      { name: "Open in Proof", fragment: "Open in Proof" },
-      // "Open in browser" is the HTML-mode replacement for Open in Proof.
+      { name: "Publish to Proof", fragment: "Publish to Proof" },
+      // "Open in browser" is the HTML-mode replacement for Publish to Proof.
       // Both routings must be present inline: the menu shows one or the other
       // depending on OUTPUT_FORMAT, so the agent needs both bullets to route
       // correctly without loading the reference.

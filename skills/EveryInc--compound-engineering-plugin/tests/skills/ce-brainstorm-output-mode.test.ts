@@ -128,8 +128,8 @@ describe("ce-brainstorm output:html mode", () => {
       "handoff.md must include 'Open in browser' for HTML mode.",
     ).toBe(true)
     expect(
-      /Open in Proof/.test(HANDOFF_BODY),
-      "handoff.md must include 'Open in Proof' for markdown mode.",
+      /Publish to Proof/.test(HANDOFF_BODY),
+      "handoff.md must include 'Publish to Proof' for markdown mode.",
     ).toBe(true)
     expect(
       /OUTPUT_FORMAT=md|OUTPUT_FORMAT=html|format-keyed|exclusive output/i.test(HANDOFF_BODY),

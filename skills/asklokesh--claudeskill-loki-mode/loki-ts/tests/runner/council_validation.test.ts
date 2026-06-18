@@ -116,7 +116,12 @@ describe("heuristic voter -- failed.json validation (v7.5.7 fix A)", () => {
     expect(verdict.issues[0]?.description).toBe("1 tasks in failed queue");
   });
 
-  it("logs a warning via ctx.log on malformed JSON and does not crash", async () => {
+  // M4 (W4 bug-hunt): a corrupt failure ledger must fail toward the SAFE
+  // direction for a COMPLETION gate. The prior assertion (APPROVE on malformed
+  // JSON) encoded the bug -- "cannot read the failure ledger" was treated as "no
+  // failures." It is corrected here to CANNOT_VALIDATE. The warning log behavior
+  // is unchanged.
+  it("returns CANNOT_VALIDATE (not APPROVE) and logs a warning on malformed JSON, does not crash", async () => {
     const queueDir = join(tmpBase, "queue");
     mkdirSync(queueDir, { recursive: true });
     writeFileSync(join(queueDir, "failed.json"), "{not valid json");
@@ -126,7 +131,7 @@ describe("heuristic voter -- failed.json validation (v7.5.7 fix A)", () => {
     const voter = DEFAULT_VOTERS[0];
     if (!voter) throw new Error("default voter missing");
     const verdict = await voter(makeCec(ctx));
-    expect(verdict.verdict).toBe("APPROVE");
+    expect(verdict.verdict).toBe("CANNOT_VALIDATE");
     expect(sink.some((l) => l.includes("failed to parse"))).toBe(true);
   });
 

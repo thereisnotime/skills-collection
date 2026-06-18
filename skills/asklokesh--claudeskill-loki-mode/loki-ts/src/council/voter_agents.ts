@@ -63,6 +63,46 @@ export const VOTER_SLUGS = {
 // Injectable Claude runner -- production code uses Bun.spawn; tests inject.
 export type ClaudeRunner = (argv: string[]) => Promise<{ stdout: string; exitCode: number }>;
 
+// H6 (W4 bug-hunt): hard timeout on every reviewer subcall so a hung `claude`
+// (network stall, stdin wait, deadlock) can NEVER wedge councilEvaluate -- the
+// old code awaited `proc.exited` with no bound, so a child that never exits made
+// the completion loop hang forever and falsified the "we NEVER hang" invariant.
+//
+// Read at call time (NOT module load) so a test override of the env var takes
+// effect, and so operators can tune it per-run. Default is generous (10min) so
+// it only fires on a true hang, never on a legitimately long review.
+const DEFAULT_COUNCIL_TIMEOUT_MS = 600_000;
+export function councilTimeoutMs(): number {
+  const raw = process.env["LOKI_COUNCIL_TIMEOUT_MS"];
+  if (raw === undefined || raw === "") return DEFAULT_COUNCIL_TIMEOUT_MS;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_COUNCIL_TIMEOUT_MS;
+  return n;
+}
+
+// Bound a runner call so an injected stub (test) OR the real child cannot wedge
+// the council. On timeout we reject with a clear error; the caller treats any
+// dispatch rejection as a dispatch failure and falls through to the heuristic /
+// deterministic-scan path. The timer is always cleared (finally) so it never
+// leaks and the loser-promise never raises an unhandled rejection.
+async function withCouncilTimeout<T>(work: Promise<T>, label: string): Promise<T> {
+  const ms = councilTimeoutMs();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // Swallow the loser's rejection so it cannot surface as an unhandled rejection
+  // once the race has already settled.
+  work.catch(() => {});
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms (LOKI_COUNCIL_TIMEOUT_MS)`));
+    }, ms);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 // Best-effort PRD snippet for prompt grounding. Reads up to first 200 chars,
 // strips leading/trailing whitespace. Returns "" when not available.
 function readPrdHint(prdPath: string | undefined): string {
@@ -199,9 +239,22 @@ export function buildDevilsAdvocateAgent(cec: CouncilEvaluateContext): AgentSpec
 // CAVEMAN_DEFAULT_MODE=off (mirrors the bash council subcalls in
 // completion-council.sh). No-op when caveman is absent.
 async function defaultClaudeRunner(argv: string[]): Promise<{ stdout: string; exitCode: number }> {
+  // H6 (W4 bug-hunt): bound the REAL child with an AbortSignal so a hung claude
+  // is killed instead of leaving `await proc.exited` pending forever. Bun.spawn
+  // honors `signal`: on timeout it sends SIGTERM, the child exits non-zero (143),
+  // proc.exited resolves, and the existing `exitCode !== 0` check throws so the
+  // caller falls through to the heuristic. AbortSignal.timeout self-cleans (no
+  // manual timer to leak). The dispatch-level withCouncilTimeout() race is a
+  // second, runner-agnostic guard (it also bounds an injected hanging stub, which
+  // has no child handle to kill); the two layers are intentionally distinct.
+  //
+  // stderr is set to "ignore" (it was "pipe" but never read): an unread "pipe"
+  // can deadlock a chatty child once the OS pipe buffer fills. stdout is the only
+  // stream consumed.
   const proc = Bun.spawn(argv, {
     stdout: "pipe",
-    stderr: "pipe",
+    stderr: "ignore",
+    signal: AbortSignal.timeout(councilTimeoutMs()),
     env: { ...process.env, CAVEMAN_DEFAULT_MODE: cavemanSuppressEnv() },
   });
   const stdout = await new Response(proc.stdout).text();
@@ -302,7 +355,8 @@ export async function dispatchClaudeAgents(
   argv.push(...reviewAllowlistArgv());
   argv.push("-p", topPrompt);
 
-  const result = await runner(argv);
+  // H6: bound the subcall. A hung runner rejects here -> caller falls through.
+  const result = await withCouncilTimeout(runner(argv), "council voter dispatch");
   if (result.exitCode !== 0) {
     throw new Error(`claude exited with code ${result.exitCode}`);
   }
@@ -390,7 +444,9 @@ export async function dispatchDevilsAdvocate(
   argv.push(...reviewAllowlistArgv());
   argv.push("-p", topPrompt);
 
-  const result = await runner(argv);
+  // H6: bound the subcall. A hung runner rejects here -> caller falls through
+  // to the deterministic file-scan councilDevilsAdvocate (never a silent uphold).
+  const result = await withCouncilTimeout(runner(argv), "council devil's-advocate dispatch");
   if (result.exitCode !== 0) {
     throw new Error(`claude exited with code ${result.exitCode}`);
   }

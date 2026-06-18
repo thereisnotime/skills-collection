@@ -294,12 +294,24 @@ export async function saveStateForRunner(
   status: string,
   exitCode: number,
 ): Promise<void> {
+  // PARITY (state vs prompt split): bash writes state.prdPath from the GLOBAL
+  // PRD_PATH (run.sh:12141), never repointed by PRD-reuse persistence; only the
+  // LOCAL prd_path (run.sh:13938) is repointed for the prompt + reuse decision.
+  // autonomous.ts threads the ORIGINAL user path onto ctx as `statePrdPath`
+  // (set unconditionally to a string, possibly ""), while ctx.prdPath carries
+  // the resolved/persisted path for the prompt builder. Record statePrdPath so
+  // the persisted .loki/generated-prd.md never overwrites what state records.
+  // The `?? ctx.prdPath` branch only guards hypothetical non-loop callers that
+  // never set the field; the loop always sets it, so it is always used.
+  const orig = (ctx as LoopRunnerContext & { statePrdPath?: string })
+    .statePrdPath;
+  const prdForState = orig !== undefined ? orig : ctx.prdPath;
   saveState({
     retryCount: ctx.retryCount,
     iterationCount: ctx.iterationCount,
     status,
     exitCode,
-    prdPath: ctx.prdPath,
+    prdPath: prdForState,
     pid: process.pid,
     maxRetries: ctx.maxRetries,
     baseWait: ctx.baseWaitSeconds,

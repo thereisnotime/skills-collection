@@ -559,7 +559,7 @@ cleanup_worktrees() {
     while IFS= read -r line; do
         if [[ "$line" == *"$WORKTREE_PREFIX"* ]]; then
             log_info "  Found: $line"
-            ((found++))
+            found=$((found+1))
         fi
     done < <(git worktree list 2>/dev/null)
 
@@ -651,8 +651,18 @@ _desktop_build_env_args() {
         printf -v _escaped '%s' "$GH_TOKEN"
         DESKTOP_ENV_ARGS+=("-e" "GH_TOKEN=$_escaped")
     fi
-    # Forward all LOKI_* env vars via --env-file to avoid shell expansion issues
-    local _env_file="${TMPDIR:-/tmp}/loki-sandbox-env-$$"
+    # Forward all LOKI_* env vars via --env-file to avoid shell expansion issues.
+    # Security: LOKI_* values may include secrets, so the env-file is created with
+    # mktemp (unpredictable name, no symlink race) and restricted to mode 600 before
+    # anything is written into it. The desktop path consumes this file via a
+    # foreground/blocking "docker sandbox exec" (see start_docker_desktop_sandbox),
+    # so the file is no longer needed once the script exits -- an EXIT trap is the
+    # correct cleanup point here. The trap value is baked in (double quotes) so the
+    # local path is captured now rather than re-evaluated at exit when it is out of
+    # scope. We append our removal so we do not clobber any existing INT/TERM trap.
+    local _env_file
+    _env_file="$(mktemp "${TMPDIR:-/tmp}/loki-sandbox-env.XXXXXX")"
+    chmod 600 "$_env_file"
     local _has_loki_vars=false
     local var
     while IFS= read -r var; do
@@ -663,6 +673,11 @@ _desktop_build_env_args() {
     done < <(compgen -v LOKI_ 2>/dev/null || true)
     if [[ "$_has_loki_vars" == "true" ]] && [[ -f "$_env_file" ]]; then
         DESKTOP_ENV_ARGS+=("--env-file" "$_env_file")
+        # shellcheck disable=SC2064
+        trap "rm -f -- '$_env_file'" EXIT
+    else
+        # No LOKI_ vars were forwarded; the file is unused, remove it immediately.
+        rm -f -- "$_env_file"
     fi
 }
 
@@ -1063,13 +1078,23 @@ start_sandbox() {
     if [[ "$SANDBOX_READONLY" == "true" ]]; then
         docker_args+=("--volume" "$PROJECT_DIR:/workspace:ro")
         # Need a writable .loki directory - copy existing state to a temp dir so we
-        # do not start with an empty volume (which would lose config/state)
-        local _loki_state_tmp="${TMPDIR:-/tmp}/loki-sandbox-state-$$"
-        mkdir -p "$_loki_state_tmp"
+        # do not start with an empty volume (which would lose config/state).
+        # Security: created with mktemp -d (unpredictable name, no symlink/predictable
+        # race) and restricted to mode 700 since it holds a copy of the project's .loki
+        # state. Lifecycle: this directory is bind-mounted into a DETACHED container
+        # (see "--detach" in docker_args) that outlives this function, so an EXIT trap
+        # would delete it out from under the running container. Instead, its path is
+        # recorded on the container via a docker label and removed by stop_sandbox()
+        # right before the container is removed. The label survives across separate
+        # script invocations, which a $$-derived name would not.
+        local _loki_state_tmp
+        _loki_state_tmp="$(mktemp -d "${TMPDIR:-/tmp}/loki-sandbox-state.XXXXXX")"
+        chmod 700 "$_loki_state_tmp"
         if [[ -d "$PROJECT_DIR/.loki" ]]; then
             cp -a "$PROJECT_DIR/.loki/." "$_loki_state_tmp/" 2>/dev/null || true
         fi
         docker_args+=("--volume" "$_loki_state_tmp:/workspace/.loki:rw")
+        docker_args+=("--label" "loki.state_dir=$_loki_state_tmp")
     else
         docker_args+=("--volume" "$PROJECT_DIR:/workspace:rw")
     fi
@@ -1237,6 +1262,11 @@ stop_sandbox() {
     if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         log_info "Stopping sandbox: $CONTAINER_NAME"
 
+        # Read the read-only-mode temp state dir path recorded as a container label
+        # (see start_sandbox H5 handling). It is removed once the container is gone.
+        local _state_dir=""
+        _state_dir=$(docker inspect --format '{{ index .Config.Labels "loki.state_dir" }}' "$CONTAINER_NAME" 2>/dev/null || true)
+
         # Try graceful stop first (touch STOP file)
         docker exec "$CONTAINER_NAME" touch /workspace/.loki/STOP 2>/dev/null || true
 
@@ -1245,16 +1275,25 @@ stop_sandbox() {
         while [ $waited -lt 10 ]; do
             if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
                 log_success "Sandbox stopped gracefully"
+                # Remove the temp state dir now that the container has stopped.
+                if [[ -n "$_state_dir" ]] && [[ -d "$_state_dir" ]]; then
+                    rm -rf -- "$_state_dir" 2>/dev/null || true
+                fi
                 return 0
             fi
             sleep 1
-            ((waited++))
+            waited=$((waited+1))
         done
 
         # Force stop if still running
         log_info "Force stopping container..."
         docker stop --time 5 "$CONTAINER_NAME" 2>/dev/null || true
         docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
+        # Remove the temp state dir now that the container is gone.
+        if [[ -n "$_state_dir" ]] && [[ -d "$_state_dir" ]]; then
+            rm -rf -- "$_state_dir" 2>/dev/null || true
+        fi
 
         log_success "Sandbox stopped"
     else

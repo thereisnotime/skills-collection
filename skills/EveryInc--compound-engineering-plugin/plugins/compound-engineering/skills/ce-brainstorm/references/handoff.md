@@ -47,8 +47,8 @@ Present only the options that apply. Renumber so visible options stay contiguous
 
 1. **Plan implementation with `ce-plan` (Recommended)** - Move to `ce-plan` for structured implementation planning. Shown only when `Resolve Before Planning` is empty.
 2. **Agent review of requirements doc with `ce-doc-review`** - Dispatch reviewer agents to check the doc for coherence, feasibility, scope, and other persona-specific issues; auto-apply safe fixes; route remaining findings interactively. Shown only when a requirements document exists **and `OUTPUT_FORMAT=md`** — ce-doc-review's walkthrough applies markdown-only mutations (`##`/`###` heading inserts, single-file markdown edits via apply-set) and would corrupt an HTML artifact, so HTML brainstorms skip this option until ce-doc-review gains HTML-aware mutation support. Under HTML mode, surface a one-line note above the menu: `Agent review unavailable in output:html mode — ce-doc-review is markdown-only today. Switch to output:md if you want a review pass.`
-3. **Open in Proof — review and comment to iterate with the agent** - Open the doc in Every's Proof editor, iterate with the agent via comments, or copy a link to share with others. Shown only when a requirements document exists. **Render only when `OUTPUT_FORMAT=md`** (Proof operates on markdown and cannot ingest HTML).
-3. **Open in browser** — open the HTML requirements file locally for review and sharing. Shown only when a requirements document exists. **Render only when `OUTPUT_FORMAT=html`.** Replaces "Open in Proof" at the same slot under exclusive output mode — the doc is either markdown OR HTML, never both, so exactly one of the two labels applies per run.
+3. **Publish to Proof — shareable link** - Publish the requirements doc to Every's Proof editor and get a shareable link to read, comment on, or share with others. One-way: the local doc stays canonical. Shown only when a requirements document exists. **Render only when `OUTPUT_FORMAT=md`** (Proof operates on markdown and cannot ingest HTML).
+3. **Open in browser** — open the HTML requirements file locally for review and sharing. Shown only when a requirements document exists. **Render only when `OUTPUT_FORMAT=html`.** Replaces "Publish to Proof" at the same slot under exclusive output mode — the doc is either markdown OR HTML, never both, so exactly one of the two labels applies per run.
 4. **Build it now with `ce-work` (skip planning)** - Skip planning and move to `ce-work`; suited to lightweight, well-defined changes. Shown only when `Resolve Before Planning` is empty **and** scope is lightweight, success criteria are clear, scope boundaries are clear, and no meaningful technical or research questions remain (the "direct-to-work gate").
 5. **More clarifying questions to sharpen the doc** - Keep refining scope, edge cases, constraints, and preferences through further dialogue. Always shown.
 6. **Done for now** - Pause; the requirements doc is saved and can be resumed later. Always shown.
@@ -73,25 +73,17 @@ Immediately load the `ce-work` skill in the current session using the finalized 
 
 **If user selects "More clarifying questions to sharpen the doc":** Return to Phase 1.3 (Collaborative Dialogue) and continue asking the user clarifying questions one at a time to further refine scope, edge cases, constraints, and preferences. Continue until the user is satisfied, then return to Phase 4. Do not show the closing summary yet.
 
-**If user selects "Open in Proof — review and comment to iterate with the agent":**
+**If user selects "Publish to Proof — shareable link":**
 
-Load the `ce-proof` skill in HITL-review mode with:
+Load the `ce-proof` skill to publish the requirements doc. Pass:
 
 - **source file:** `docs/brainstorms/YYYY-MM-DD-<topic>-requirements.md`
 - **doc title:** `Requirements: <topic title>`
 - **identity:** `ai:compound-engineering` / `Compound Engineering`
-- **recommended next step:** `ce-plan` (shown in the ce-proof skill's final terminal output)
 
-Follow the HITL-review workflow in the ce-proof skill (the ce-proof skill loads its own hitl-review reference). It uploads the doc, prompts the user for review in Proof's web UI, ingests filtered comment threads, applies agreed edits through the current Proof edit APIs, replies/resolves in-thread, and syncs the final markdown back to the source file atomically on proceed.
+ce-proof creates a shared Proof doc from the requirements file (Create and Share workflow), binds the display name, and returns the share URL. Surface the URL to the user — they can open it to read, comment, or share with others — then return to the Phase 4 options and re-render the menu. This is a one-way publish: the local doc stays canonical and nothing syncs back, so option eligibility is unchanged (no need to re-evaluate `Resolve Before Planning`, the direct-to-work gate, or residual findings on account of Proof).
 
-When the ce-proof skill returns control:
-
-- `status: proceeded` with `localSynced: true` → the requirements doc on disk now reflects the review. Return to the Phase 4 options and re-render the menu (the doc may have changed substantially during review, so option eligibility can shift — re-evaluate `Resolve Before Planning`, direct-to-work gate, and residual ce-doc-review findings against the updated doc).
-- `status: proceeded` with `localSynced: false` → the reviewed version lives in Proof at `docUrl` but the local copy is stale. Offer to pull the Proof doc to `localPath` using the ce-proof skill's Pull workflow. Re-render the Phase 4 menu after the pull completes (or is declined). If the pull was declined, include a one-line note above the menu that `<localPath>` is stale vs. Proof — otherwise `Plan implementation` / `Build it now` / `Agent review of requirements doc` will silently read the pre-review copy.
-- `status: done_for_now` → the doc on disk may be stale if the user edited in Proof before leaving. Offer to pull the Proof doc to `localPath` so the local requirements file stays in sync, then return to the Phase 4 options. If the pull was declined, include the stale-local note above the menu. `done_for_now` means the user stopped the HITL loop without syncing — it does not mean they ended the whole brainstorm.
-- `status: aborted` → fall back to the Phase 4 options without changes.
-
-If the initial upload fails (network error, Proof API down), retry once after a short wait. If it still fails, tell the user the upload didn't succeed and briefly explain why, then return to the Phase 4 options — don't leave them wondering why the option did nothing.
+If the upload fails (network error, Proof API down), retry once after a short wait. If it still fails, tell the user the upload didn't succeed and briefly explain why, then return to the Phase 4 options — don't leave them wondering why the option did nothing.
 
 **If user selects "Open in browser":** Display the absolute path to the `.html` requirements file so the user can open it locally. Where the platform exposes a browser-opening primitive (e.g., `open` on macOS, `xdg-open` on Linux, `start` on Windows), the agent may invoke it directly; otherwise print the absolute path and let the user open it. After the path is displayed (or the browser is opened), return to the Phase 4 options so the user can pick a follow-up action.
 

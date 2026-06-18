@@ -183,7 +183,7 @@ describe("ce-ideate output mode (html default)", () => {
       "post-ideation-workflow.md must offer 'Open in browser' for html mode.",
     ).toBe(true)
     expect(
-      /Open and iterate in Proof|Open in Proof/i.test(POST_IDEATION_BODY),
+      /Publish to Proof/i.test(POST_IDEATION_BODY),
       "post-ideation-workflow.md must offer the Proof path for markdown mode.",
     ).toBe(true)
     expect(

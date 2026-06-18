@@ -153,6 +153,7 @@ def optimize_context(
     importance_weight: float = 0.4,
     recency_weight: float = 0.3,
     relevance_weight: float = 0.3,
+    slack_ratio: float = 0.0,
 ) -> list:
     """
     Optimize memory selection to fit within token budget.
@@ -166,6 +167,19 @@ def optimize_context(
     first, expanding to layer 2 (summary) and layer 3 (full) only if
     budget allows.
 
+    Budget adherence is strict by default: the returned memories never
+    exceed `budget` total tokens. This matters because callers chain the
+    result (for example, layered retrieval subtracts each layer's tokens
+    from a running budget), so any overshoot here leaks into the overall
+    context budget and can blow the model's context window.
+
+    A caller that deliberately wants a greedy fill (admit one more small
+    item that nearly fits) can opt in via `slack_ratio`. The effective
+    cap is then `int(budget * (1.0 + slack_ratio))`, and only an item
+    whose own size is under 10% of `budget` is eligible for the slack so
+    a single large item can never consume the slack. With the default
+    `slack_ratio=0.0` the cap equals `budget` exactly (no overage).
+
     Args:
         memories: List of memory dictionaries with optional fields:
             - _score: relevance score from retrieval
@@ -178,10 +192,14 @@ def optimize_context(
         importance_weight: Weight for importance scoring (default 0.4)
         recency_weight: Weight for recency scoring (default 0.3)
         relevance_weight: Weight for relevance scoring (default 0.3)
+        slack_ratio: Optional fractional overage allowed above `budget`
+            for small items only (default 0.0 = strict, never exceed
+            `budget`). Negative values are clamped to 0.0.
 
     Returns:
-        List of memories that fit within the token budget, sorted by
-        combined score.
+        List of memories that fit within the (slack-adjusted) token
+        budget, sorted by combined score. With the default
+        slack_ratio=0.0 the total never exceeds `budget`.
     """
     from datetime import datetime, timezone
 
@@ -195,9 +213,14 @@ def optimize_context(
     now = datetime.now(timezone.utc)
 
     for memory in memories:
-        # Calculate importance score (0-1)
-        confidence = memory.get("confidence", 0.5)
-        usage_count = memory.get("usage_count", 0)
+        # Calculate importance score (0-1). Guard against explicit null fields
+        # (corrupt/hand-edited record): .get(key, default) returns None when the
+        # key is present but null, which would crash the arithmetic below. Use an
+        # is-None check for confidence (not `or`) so a legitimate stored 0.0 is
+        # preserved; usage_count of None and 0 are equivalent so `or 0` is fine.
+        confidence = memory.get("confidence")
+        confidence = 0.5 if confidence is None else confidence
+        usage_count = memory.get("usage_count") or 0
         # Normalize usage count with diminishing returns
         usage_score = min(1.0, usage_count / 10.0) if usage_count > 0 else 0.0
         importance = (confidence + usage_score) / 2.0
@@ -223,8 +246,25 @@ def optimize_context(
             except (ValueError, TypeError):
                 pass
 
-        # Get relevance score (already computed by retrieval)
-        relevance = memory.get("_score", 0.5)
+        # Get relevance score (already computed by retrieval).
+        # Prefer the task-aware _weighted_score (task-strategy weight x
+        # importance x confidence x recency) when retrieval has computed it,
+        # so that token-budget trimming preserves the task-aware ranking
+        # instead of re-ranking from scratch on the raw _score. Fall back to
+        # _score only when _weighted_score is absent.
+        if "_weighted_score" in memory:
+            relevance = memory.get("_weighted_score", 0.5)
+        else:
+            relevance = memory.get("_score", 0.5)
+        # Guard against an explicit null score in a corrupt/hand-edited
+        # record: .get(key, default) returns None when the key is present
+        # but null, and the `relevance > 1.0` comparison below would then
+        # raise "'>' not supported between instances of 'NoneType' and
+        # 'float'". Use an is-None check (not `or`) so a legitimate stored
+        # 0.0 relevance is preserved, mirroring the confidence guard above
+        # and retrieval.py's own base_score guard.
+        if relevance is None:
+            relevance = 0.5
         if relevance > 1.0:
             # Normalize high scores
             relevance = min(1.0, relevance / 10.0)
@@ -253,7 +293,13 @@ def optimize_context(
     # Sort by score (highest first)
     scored_memories.sort(key=lambda x: x["score"], reverse=True)
 
-    # Select memories that fit within budget
+    # Select memories that fit within budget.
+    # Strict by default (slack_ratio=0.0 -> hard_cap == budget): the total
+    # never exceeds `budget`. A positive slack_ratio opts into a bounded
+    # greedy fill for small items only.
+    slack = max(0.0, slack_ratio)
+    hard_cap = int(budget * (1.0 + slack))
+
     selected = []
     total_tokens = 0
 
@@ -261,9 +307,9 @@ def optimize_context(
         if total_tokens + item["tokens"] <= budget:
             selected.append(item["memory"])
             total_tokens += item["tokens"]
-        elif item["tokens"] < budget * 0.1:
-            # Allow small memories even if slightly over budget
-            if total_tokens + item["tokens"] <= budget * 1.1:
+        elif slack > 0.0 and item["tokens"] < budget * 0.1:
+            # Allow small memories into the explicit, bounded slack region.
+            if total_tokens + item["tokens"] <= hard_cap:
                 selected.append(item["memory"])
                 total_tokens += item["tokens"]
 

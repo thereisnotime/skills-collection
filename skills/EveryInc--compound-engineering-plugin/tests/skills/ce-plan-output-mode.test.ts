@@ -175,8 +175,8 @@ describe("ce-plan output:html mode", () => {
       "SKILL.md Phase 5.4 menu must include 'Open in browser' option for HTML mode.",
     ).toBe(true)
     expect(
-      /Open in Proof/.test(phaseRegion),
-      "SKILL.md Phase 5.4 menu must include 'Open in Proof' option for markdown mode.",
+      /Publish to Proof/.test(phaseRegion),
+      "SKILL.md Phase 5.4 menu must include 'Publish to Proof' option for markdown mode.",
     ).toBe(true)
     expect(
       /OUTPUT_FORMAT=md|OUTPUT_FORMAT=html|format-keyed/i.test(phaseRegion),
@@ -206,7 +206,7 @@ describe("ce-plan output:html mode", () => {
     // says "Per-skill frontmatter fields are defined in each skill's section
     // contract" — so plan-sections.md MUST actually list them or downstream
     // tooling that keys on these field names (deepening's
-    // `deepened: YYYY-MM-DD`, HITL Proof's `origin:` traceback) breaks
+    // `deepened: YYYY-MM-DD`, the `origin:` brainstorm traceback) breaks
     // silently when agents compose plans from the new refs.
     const body = readFileSync(PLAN_SECTIONS_PATH, "utf8")
 

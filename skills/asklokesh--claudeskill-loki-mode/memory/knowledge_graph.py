@@ -46,7 +46,7 @@ class OrganizationKnowledgeGraph:
                     with open(pattern_file) as f:
                         pattern = json.load(f)
                     pattern['_source_project'] = str(project_dir)
-                    pattern['_extracted_at'] = datetime.now(timezone.utc).isoformat() + 'Z'
+                    pattern['_extracted_at'] = datetime.now(timezone.utc).isoformat()
                     all_patterns.append(pattern)
                 except (json.JSONDecodeError, IOError):
                     continue
@@ -112,7 +112,7 @@ class OrganizationKnowledgeGraph:
         graph = {
             'nodes': [],
             'edges': [],
-            'built_at': datetime.now(timezone.utc).isoformat() + 'Z',
+            'built_at': datetime.now(timezone.utc).isoformat(),
         }
 
         for project_dir in project_dirs:

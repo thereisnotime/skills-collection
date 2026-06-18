@@ -15,6 +15,7 @@ Usage:
     python -m mcp.server --transport http   # HTTP mode
 """
 
+import asyncio
 import sys
 import os
 import json
@@ -811,7 +812,10 @@ async def loki_task_queue_add(
             "created_at": datetime.now(timezone.utc).isoformat()
         }
 
-        queue["tasks"].append(task)
+        # Use setdefault so an existing-but-malformed queue dict that lacks a
+        # "tasks" key does not raise KeyError, consistent with the safe
+        # queue.get("tasks", ...) read above.
+        queue.setdefault("tasks", []).append(task)
 
         # Save using StateManager if available
         if manager and STATE_MANAGER_AVAILABLE:
@@ -1354,14 +1358,17 @@ async def loki_start_project(prd_content: str = "", prd_path: str = "") -> str:
             try:
                 resolved = validate_path(prd_path, allowed_dirs=['.'])
             except PathTraversalError as e:
+                _emit_tool_event_async('loki_start_project', 'complete', result_status='error', error=str(e))
                 return json.dumps({"error": str(e)})
             if os.path.exists(resolved) and os.path.isfile(resolved):
                 with open(resolved, 'r', encoding='utf-8') as f:
                     content = f.read()
             else:
+                _emit_tool_event_async('loki_start_project', 'complete', result_status='error', error='PRD file not found')
                 return json.dumps({"error": f"PRD file not found: {prd_path}"})
 
         if not content:
+            _emit_tool_event_async('loki_start_project', 'complete', result_status='error', error='No PRD content or path provided')
             return json.dumps({"error": "No PRD content or path provided"})
 
         # Initialize project state using safe path operations
@@ -1386,6 +1393,7 @@ async def loki_start_project(prd_content: str = "", prd_path: str = "") -> str:
         _emit_tool_event_async('loki_start_project', 'complete', result_status='success')
         return json.dumps({"success": True, **project})
     except PathTraversalError as e:
+        _emit_tool_event_async('loki_start_project', 'complete', result_status='error', error='Access denied')
         return json.dumps({"error": f"Access denied: {e}"})
     except Exception as e:
         logger.error(f"Start project failed: {e}")
@@ -1436,6 +1444,7 @@ async def loki_project_status() -> str:
         _emit_tool_event_async('loki_project_status', 'complete', result_status='success')
         return json.dumps(status, default=str)
     except PathTraversalError:
+        _emit_tool_event_async('loki_project_status', 'complete', result_status='error', error='Access denied')
         return json.dumps({"error": "Access denied"})
     except Exception as e:
         logger.error(f"Project status failed: {e}")
@@ -1474,6 +1483,7 @@ async def loki_agent_metrics() -> str:
         _emit_tool_event_async('loki_agent_metrics', 'complete', result_status='success')
         return json.dumps(metrics, default=str)
     except PathTraversalError:
+        _emit_tool_event_async('loki_agent_metrics', 'complete', result_status='error', error='Access denied')
         return json.dumps({"error": "Access denied"})
     except Exception as e:
         logger.error(f"Agent metrics failed: {e}")
@@ -1496,6 +1506,7 @@ async def loki_checkpoint_restore(checkpoint_id: str = "") -> str:
     try:
         cp_dir = safe_path_join('.loki', 'state', 'checkpoints')
         if not os.path.isdir(cp_dir):
+            _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='success')
             return json.dumps({"checkpoints": [], "message": "No checkpoints directory"})
 
         checkpoints = []
@@ -1514,6 +1525,7 @@ async def loki_checkpoint_restore(checkpoint_id: str = "") -> str:
         # Find and restore specific checkpoint
         target = next((c for c in checkpoints if c["id"] == checkpoint_id), None)
         if not target:
+            _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='error', error='Checkpoint not found')
             return json.dumps({"error": f"Checkpoint not found: {checkpoint_id}"})
 
         # Write checkpoint state as current state, stripping the injected "id" field
@@ -1525,6 +1537,7 @@ async def loki_checkpoint_restore(checkpoint_id: str = "") -> str:
         _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='success')
         return json.dumps({"restored": True, "checkpoint_id": checkpoint_id})
     except PathTraversalError:
+        _emit_tool_event_async('loki_checkpoint_restore', 'complete', result_status='error', error='Access denied')
         return json.dumps({"error": "Access denied"})
     except Exception as e:
         logger.error(f"Checkpoint restore failed: {e}")
@@ -1565,6 +1578,7 @@ async def loki_quality_report() -> str:
         _emit_tool_event_async('loki_quality_report', 'complete', result_status='success')
         return json.dumps(report, default=str)
     except PathTraversalError:
+        _emit_tool_event_async('loki_quality_report', 'complete', result_status='error', error='Access denied')
         return json.dumps({"error": "Access denied"})
     except Exception as e:
         logger.error(f"Quality report failed: {e}")
@@ -1710,11 +1724,21 @@ async def loki_code_search(
                                        'type_filter': type_filter})
 
     # Warn-if-stale (default) or opt-in auto-reindex before querying.
-    _maybe_autoreindex_code()
+    # _maybe_autoreindex_code runs a synchronous subprocess (timeout up to
+    # 300s) when LOKI_CODE_INDEX_AUTOREINDEX=1; offload it so it cannot
+    # freeze the MCP event loop while the indexer runs.
+    await asyncio.to_thread(_maybe_autoreindex_code)
     _staleness = _code_index_staleness()
 
     collection = _get_chroma_collection()
     if collection is None:
+        # Emit 'complete' to balance the 'start' above. Without this the
+        # per-tool start-time stack in _tool_call_start_times leaks one entry
+        # per call (and ChromaDB-unavailable is the common default path), and
+        # a later successful call would pop a stale start time, producing a
+        # wildly wrong execution_time_ms learning signal.
+        _emit_tool_event_async('loki_code_search', 'complete',
+                               result_status='error', error='ChromaDB not available')
         return json.dumps({
             "error": "ChromaDB not available. Start it with: docker start loki-chroma",
             "hint": "Re-index with: python3.12 tools/index-codebase.py --reset"
@@ -1736,7 +1760,10 @@ async def loki_code_search(
         where = {"$and": where_clauses}
 
     try:
-        results = collection.query(
+        # collection.query is a blocking HTTP call to ChromaDB; offload it so
+        # the MCP event loop is not frozen for the duration of the request.
+        results = await asyncio.to_thread(
+            collection.query,
             query_texts=[query],
             n_results=n_results,
             where=where,
@@ -2040,6 +2067,7 @@ async def mem_get(
 
         id_list = [i.strip() for i in ids.split(",") if i.strip()]
         if not id_list:
+            _emit_tool_event_async('mem_get', 'complete', result_status='error', error='No IDs provided')
             return json.dumps({"entries": {}, "error": "No IDs provided"})
 
         # Cap at 20 to prevent abuse
@@ -2188,12 +2216,34 @@ async def loki_get_co_changes(
         with safe_open(co_changes_path, 'r') as f:
             pairs = json.load(f)
 
-        # Filter pairs involving the requested file
+        # Filter pairs involving the requested file. The co-changes.json
+        # producer lives outside this repo, so treat its shape as an external
+        # contract: skip malformed entries (not a 2-element pair) instead of
+        # letting one bad row raise and abort the whole tool, and skip
+        # self-pairs (a file is not its own co-change partner) which would
+        # otherwise report file_path against itself.
         results = []
-        for pair_files, count in pairs:
-            if file_path in pair_files:
-                partner = pair_files[0] if pair_files[1] == file_path else pair_files[1]
-                results.append({"partner": partner, "co_changes": count})
+        for entry in pairs:
+            try:
+                pair_files, count = entry
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(pair_files, (list, tuple)) or len(pair_files) != 2:
+                continue
+            # Coerce the count to int so a mixed-type producer (one row's
+            # count a string, another's an int) does not raise TypeError when
+            # results are sorted below. Skip rows whose count is not numeric.
+            try:
+                count = int(count)
+            except (ValueError, TypeError):
+                continue
+            a, b = pair_files[0], pair_files[1]
+            if a == b:
+                continue
+            if a == file_path:
+                results.append({"partner": b, "co_changes": count})
+            elif b == file_path:
+                results.append({"partner": a, "co_changes": count})
 
         # Sort by co-change count descending
         results.sort(key=lambda x: x["co_changes"], reverse=True)
@@ -2301,6 +2351,7 @@ async def loki_findings(iteration: int = -1) -> str:
                 return json.dumps(data)
         reviews_dir = safe_path_join('.loki', 'quality', 'reviews')
         if not os.path.exists(reviews_dir):
+            _emit_tool_event_async('loki_findings', 'complete', result_status='success')
             return json.dumps({"iteration": iteration, "review_id": None, "findings": []})
         candidates = sorted([d for d in os.listdir(reviews_dir)
                              if d.startswith('review-')
@@ -2308,6 +2359,7 @@ async def loki_findings(iteration: int = -1) -> str:
         if iteration >= 0:
             candidates = [c for c in candidates if c.endswith(f'-{iteration}')]
         if not candidates:
+            _emit_tool_event_async('loki_findings', 'complete', result_status='success')
             return json.dumps({"iteration": iteration, "review_id": None, "findings": []})
         latest = candidates[-1]
         review_path = safe_path_join('.loki', 'quality', 'reviews', latest)
@@ -2360,6 +2412,7 @@ async def loki_learnings(limit: int = 50) -> str:
     try:
         path = safe_path_join('.loki', 'state', 'relevant-learnings.json')
         if not os.path.exists(path):
+            _emit_tool_event_async('loki_learnings', 'complete', result_status='success')
             return json.dumps({"version": 1, "learnings": [], "total": 0})
         try:
             with safe_open(path, 'r') as f:
@@ -2403,9 +2456,14 @@ async def loki_counter_evidence_template(iteration: int) -> str:
     try:
         findings_data = json.loads(await loki_findings(iteration=iteration))
         if 'error' in findings_data:
+            _emit_tool_event_async('loki_counter_evidence_template', 'complete',
+                                   result_status='error',
+                                   error=findings_data.get('error'))
             return json.dumps(findings_data)
         findings = findings_data.get('findings', [])
         if not findings:
+            _emit_tool_event_async('loki_counter_evidence_template', 'complete',
+                                   result_status='success')
             return json.dumps({"iteration": iteration, "template": None,
                                "message": f"No findings for iteration {iteration}."})
         evidence = []

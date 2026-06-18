@@ -249,6 +249,61 @@ except Exception:
 }
 
 # ---------------------------------------------------------------------------
+# M5: is a (lowercased, trimmed) finding line an honest NEGATIVE / clean-bill
+# report that must NOT be persisted as a finding? Returns 0 (skip) / 1 (keep).
+#
+# Disambiguation (proximity, not co-occurrence): we skip "no/none/nothing/not"
+# closely followed by a PROBLEM-WORD, or a short clean-bill phrase. We KEEP
+# "no <feature>" findings (missing-feature descriptions) and lines where the
+# problem-word is far from the negation (a real finding that mentions an issue).
+# Err toward KEEP when ambiguous.
+# ---------------------------------------------------------------------------
+_spec_line_is_negative() {
+    _SPEC_LINE="$1" python3 -c '
+import os, re
+line = os.environ.get("_SPEC_LINE", "").strip().lower()
+if not line:
+    raise SystemExit(1)  # empty -> handled elsewhere; not our negative
+
+problem = (r"concerns?|issues?|gaps?|conflicts?|contradictions?|"
+           r"ambiguit(?:y|ies)|blind\s*spots?|risks?|problems?|"
+           r"inconsistenc(?:y|ies)|defects?|bugs?|flaws?|weaknesses?")
+
+# Clean-bill phrasings: "looks good/complete/clear/fine", "nothing stands out".
+clean_bill = [
+    r"^(this\s+)?(section|spec|prd|requirement|design)?\s*looks\s+(good|complete|clear|fine|solid|ok|okay)\b",
+    r"^looks\s+(good|complete|clear|fine|solid|ok|okay)\b",
+    r"^(this\s+)?(section|spec|prd)?\s*(is|seems|appears)\s+(complete|clear|fine|well\s*-?\s*defined|unambiguous)\b",
+    r"^nothing\s+(stands?\s+out|notable|of\s+(concern|note)|to\s+(add|flag|report))\b",
+    r"^all\s+(clear|good)\b",
+]
+for pat in clean_bill:
+    if re.search(pat, line):
+        raise SystemExit(0)  # skip
+
+# Proximity negation: a negation word, then within a few words a problem-word.
+# Allow up to ~3 intervening words (handles "no major concerns", "no obvious
+# security issues here" stays KEEP because "issues" is >3 words out? -- no:
+# "security issues" is 1 word out from "obvious"; but the negation must be the
+# CLAUSE START to be a clean negative). We anchor the negation near line start
+# so a mid-sentence "...which is a security issue" (real finding) is NOT matched.
+neg_start = r"^(no|none|nothing|not|n/?a)\b"
+if re.search(neg_start, line):
+    # Within the leading clause (before the first comma / "but" / "however"),
+    # is the negation closely followed by a problem-word?
+    head = re.split(r",|\bbut\b|\bhowever\b|\bexcept\b|\bwhich\b|;", line, 1)[0]
+    # negation word, then 0-3 filler words, then a problem-word.
+    prox = r"\b(no|none|nothing|not)\b(?:\s+\w+){0,3}\s+(?:" + problem + r")\b"
+    if re.search(prox, head):
+        raise SystemExit(0)  # skip: "no major concerns", "nothing stands out"
+    # "no <problem-word>" can also be possessive/standalone: "no concerns."
+    if re.search(r"\b(no)\s+(?:" + problem + r")\b", head):
+        raise SystemExit(0)
+raise SystemExit(1)  # keep
+' 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
 # Classify a grill report.md into ledger entries.
 # Usage: spec_interrogation_classify_report <report.md path>
 # Pure: reads the markdown, writes ledger entries. No provider call. This is the
@@ -260,7 +315,8 @@ spec_interrogation_classify_report() {
     [ -f "$report" ] || return 1
 
     local section=""
-    local line stripped q
+    local line stripped q marker_line
+    local unparsed_count=0
     while IFS= read -r line || [ -n "$line" ]; do
         # Track the current "### Section" heading.
         case "$line" in
@@ -277,13 +333,44 @@ spec_interrogation_classify_report() {
 
         [ -z "$section" ] && continue
 
-        # Finding lines look like "1. <question>" or "- <question>".
-        case "$line" in
+        # M6: strip LEADING whitespace into a separate var BEFORE the marker
+        # match so indented list items ("  - x", "  * x", "    1. x") parse. We
+        # keep the original $line untouched so the existing "### "/"## " heading
+        # matches above were unaffected.
+        marker_line="${line#"${line%%[![:space:]]*}"}"
+        # Blank / whitespace-only lines are not findings and are not "unparsed".
+        [ -z "$marker_line" ] && continue
+
+        # M6: finding lines historically looked like "1. <q>" or "- <q>". Broaden
+        # to also tolerate "N)" / "N:" numbered forms and the "* " / "+ " markdown
+        # bullet markers, and any of these after leading whitespace (handled
+        # above). The original "N. " and "- " behavior is preserved byte-
+        # identically (first two cases). Exotic Unicode bullet glyphs are NOT
+        # matched (multibyte glob matching is unreliable on bash 3.2). Lines that
+        # match NO marker under an active section are counted (unparsed_count) so
+        # silent finding-loss becomes visible -- the old code dropped "N)", "*",
+        # etc. with a bare "continue".
+        case "$marker_line" in
             [0-9]*". "*)
-                q="${line#*. }" ;;
+                q="${marker_line#*. }" ;;
             "- "*)
-                q="${line#- }" ;;
+                q="${marker_line#- }" ;;
+            [0-9]*") "*)
+                q="${marker_line#*) }" ;;
+            [0-9]*": "*)
+                q="${marker_line#*: }" ;;
+            "* "*)
+                q="${marker_line#"* "}" ;;
+            "+ "*)
+                # "+ " is a valid markdown unordered-list marker too.
+                q="${marker_line#+ }" ;;
             *)
+                # Non-empty section line with no recognized ASCII list marker
+                # (this includes exotic Unicode bullet glyphs, which we do NOT
+                # try to match: multibyte bracket/glob matching is unreliable on
+                # bash 3.2). Count it so the loss is no longer silent (M6), then
+                # skip. The unparsed_count warn after the loop surfaces these.
+                unparsed_count=$((unparsed_count + 1))
                 continue ;;
         esac
 
@@ -294,16 +381,39 @@ spec_interrogation_classify_report() {
         # reports "nothing found" never becomes a persisted finding (and, under
         # "### Contradictions", never deadlocks a clean spec to max-iterations).
         # Match a lowercased copy (bash 3.2 has no ${var,,}); write the original.
-        # Patterns are START-anchored to whole-line negative phrasings so a real
-        # finding that merely contains "no" (e.g. "no input validation on the
-        # login endpoint") is NOT skipped.
+        #
+        # M5 DISAMBIGUATION RULE: skip a line ONLY when it is an honest NEGATIVE
+        # about a PROBLEM-WORD, not when it reports a missing FEATURE.
+        #   skip  "no/none/nothing/not <problem-word>"  where the problem-word
+        #         (concern|issue|gap|problem|conflict|contradiction|ambiguity|
+        #          blind spot|risk|...) appears CLOSE AFTER the negation (within a
+        #          few words -- proximity, NOT co-occurrence anywhere), so
+        #          "No major concerns here" / "Nothing stands out" are skipped but
+        #          "No input validation, which is a security issue" is KEPT (the
+        #          problem-word "issue" is far from the negation, the line is a
+        #          real finding about a missing feature);
+        #   skip  short clean-bill phrases: "looks (good|complete|clear|fine)",
+        #          "nothing (stands out|notable|of concern)", bare "none"/"n/a";
+        #   KEEP  "no <feature>" (e.g. "No rate limiting on the login endpoint")
+        #          -- that DESCRIBES a missing thing and is a real finding.
+        # Err toward KEEPING when ambiguous: a false finding is acked/medium, a
+        # dropped real one is worse.
+        # Known limitation: a finding whose missing-FEATURE name happens to BE a
+        # problem-word (e.g. "No issue tracking is specified") can be mis-skipped
+        # by the "no <problem-word>" rule. This is rare phrasing; we accept it
+        # rather than loosen the rule and let real negatives through.
         local stripped_lc
         stripped_lc="$(printf '%s' "$stripped" | tr '[:upper:]' '[:lower:]')"
+        # Fast path: exact whole-line clean-bill phrasings.
         case "$stripped_lc" in
-            "none"|"none."*|"none found"*|"none identified"*|\
+            "none"|"none."|"none found"*|"none identified"*|\
             "no contradiction"*|"no issues"*|"no conflicts"*|"no problems"*|\
             "no concerns"*|"no gaps"*|"not applicable"*|"n/a"*) continue ;;
         esac
+        # Proximity-based negative detector for reworded honest negatives.
+        if _spec_line_is_negative "$stripped_lc"; then
+            continue
+        fi
 
         local sev class affects assumption
         sev="$(spec_interrogation_severity_for "$section" "$stripped")"
@@ -335,6 +445,14 @@ spec_interrogation_classify_report() {
             "$affects" \
             "grill"
     done < "$report"
+
+    # M6: make any silently-unparsed finding lines visible. The old parser sent
+    # "N)", "N:", "*", bullet glyphs etc. straight to a bare continue, losing
+    # real findings without a trace. We now count them and warn so a malformed
+    # grill report (or a new list style) is diagnosable instead of invisible.
+    if [ "${unparsed_count:-0}" -gt 0 ]; then
+        log_warn "Spec interrogation: ${unparsed_count} non-empty section line(s) under a finding heading did not match a known list marker and were skipped (report=${report})."
+    fi
     return 0
 }
 
@@ -394,23 +512,138 @@ spec_interrogation_external_check() {
     # No declared dependencies => no concrete repo signal => nothing to conflict.
     [ -n "$manifests" ] || return 0
 
-    # Lowercase the spec body and the manifest text once.
-    local spec_lc deps_lc
+    # Lowercase the spec body once.
+    local spec_lc
     spec_lc="$(tr '[:upper:]' '[:lower:]' < "$spec_path" 2>/dev/null)"
-    # shellcheck disable=SC2086  # word-split of the manifest path list is intended
-    deps_lc="$(cat $manifests 2>/dev/null | tr '[:upper:]' '[:lower:]')"
-    [ -n "$spec_lc" ] && [ -n "$deps_lc" ] || return 0
+    [ -n "$spec_lc" ] || return 0
 
-    # Engine -> concrete driver-dependency token (a dependency name, not prose).
+    # H4 fix: collect declared DEPENDENCY NAMES, one per line, lowercased -- NOT
+    # the entire manifest text. The old code grepped driver tokens (e.g. the
+    # 2-char "pg") as UNANCHORED substrings of the whole manifest blob, so "pg"
+    # matched the word "upgrade" in package.json scripts, any URL containing
+    # "pg", etc. That wrote a high/contradictory ledger entry on a CLEAN spec
+    # (contradictions are never auto-acked, so the completion gate never cleared
+    # and the run ground to max-iterations) -- a direct violation of this
+    # function's positive-conflict-only contract.
+    #
+    # For package.json we parse JSON and emit ONLY the keys under
+    # dependencies / devDependencies / peerDependencies / optionalDependencies,
+    # which structurally excludes scripts.upgrade (the worst offender). For the
+    # line-oriented manifests (requirements.txt, pyproject.toml, go.mod, Gemfile)
+    # we emit each non-comment line's leading token / quoted module path, which is
+    # the dependency name. Tokens are later matched as a NAME PREFIX (see
+    # _spec_repo_declares_engine), so "psycopg" still matches "psycopg2-binary"
+    # and "mysql" still matches "mysql2" -- no false negatives from anchoring.
+    local dep_names
+    # shellcheck disable=SC2086  # word-split of the manifest path list is intended
+    dep_names="$(_SPEC_MANIFESTS="$manifests" python3 -c '
+import json, os, re, sys
+names = set()
+for m in os.environ.get("_SPEC_MANIFESTS", "").split():
+    if not m or not os.path.isfile(m):
+        continue
+    base = os.path.basename(m).lower()
+    try:
+        text = open(m, "r", encoding="utf-8", errors="replace").read()
+    except Exception:
+        continue
+    if base == "package.json":
+        try:
+            data = json.loads(text)
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            for key in ("dependencies", "devDependencies",
+                        "peerDependencies", "optionalDependencies"):
+                section = data.get(key)
+                if isinstance(section, dict):
+                    for dep in section.keys():
+                        names.add(str(dep).lower())
+        continue
+    # Line-oriented manifests: take the leading dependency token of each line.
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        # Quoted module/gem path (go.mod require, Gemfile gem "name", pyproject).
+        q = re.findall(r"[\x22\x27]([^\x22\x27]+)[\x22\x27]", line)
+        if q:
+            for tok in q:
+                tok = tok.strip().lower()
+                if tok:
+                    names.add(tok)
+            # go.mod / Gemfile also carry a bare leading token sometimes; fall
+            # through to grab it too.
+        # Bare leading token (requirements.txt "psycopg2-binary==2.9",
+        # go.mod "gorm.io/driver/postgres v1.5.0").
+        tok = re.split(r"[\s=<>!~;\[\]()]", line, 1)[0].strip().lower()
+        # Strip a leading directive word (go.mod "require", Gemfile "gem").
+        if tok in ("require", "gem", "module", "go", "toolchain", "exclude",
+                   "replace", "retract"):
+            rest = line.split(None, 1)
+            if len(rest) > 1:
+                tok = re.split(r"[\s=<>!~;\[\]()]", rest[1].strip(), 1)[0].strip().lower()
+                tok = tok.strip("\x22\x27")
+        if tok:
+            names.add(tok)
+for n in sorted(names):
+    print(n)
+' 2>/dev/null)"
+    # No parsed dependency names => no concrete repo signal => nothing to conflict.
+    [ -n "$dep_names" ] || return 0
+
+    # Engine -> concrete driver-dependency tokens (dependency NAMES, not prose).
     # Keys are the engine names we look for in the SPEC; values are the package
-    # tokens that prove the repo is wired to that engine.
+    # name tokens (space-separated) that prove the repo is wired to that engine.
+    # H4: these are matched against extracted dependency NAMES as a name-prefix
+    # (see _spec_repo_declares_engine), never as substrings of the whole manifest.
     _spec_db_driver_token() {
         case "$1" in
-            postgres) printf '%s' 'pg|psycopg|postgresql|asyncpg|node-postgres|sequelize-postgres|gorm.io/driver/postgres' ;;
-            mongodb)  printf '%s' 'mongoose|pymongo|mongodb|motor|go.mongodb.org/mongo-driver' ;;
-            mysql)    printf '%s' 'mysql|mysql2|pymysql|mysqlclient|gorm.io/driver/mysql' ;;
+            postgres) printf '%s' 'pg psycopg postgresql asyncpg node-postgres sequelize-postgres gorm.io/driver/postgres' ;;
+            mongodb)  printf '%s' 'mongoose pymongo mongodb motor go.mongodb.org/mongo-driver' ;;
+            mysql)    printf '%s' 'mysql mysql2 pymysql mysqlclient gorm.io/driver/mysql' ;;
             *)        printf '' ;;
         esac
+    }
+    # H4: does the repo's declared dependency NAMES include a driver for engine $1?
+    # Matches each driver token against the extracted dependency names (in
+    # $dep_names, one per line) using EXACT-name OR NAME-PREFIX semantics:
+    #   - exact: name == token                 ("pg" matches a "pg" dep)
+    #   - prefix: name == token + suffix       ("psycopg" matches "psycopg2-binary",
+    #             where suffix begins with a NON-alphanumeric boundary char OR a
+    #             digit, so "mysql" matches "mysql2" but "pg" does NOT match "pgx"
+    #             of an unrelated package -- wait, see below)
+    # We anchor on a delimiter/digit boundary so the 2-char "pg" cannot match an
+    # unrelated longer alpha name, while real versioned variants (mysql2,
+    # psycopg2-binary) still match. Returns 0 if a driver is declared, else 1.
+    _spec_repo_declares_engine() {
+        local engine="$1" tokens
+        tokens="$(_spec_db_driver_token "$engine")"
+        [ -n "$tokens" ] || return 1
+        _SPEC_DEP_NAMES="$dep_names" _SPEC_TOKENS="$tokens" python3 -c '
+import os
+names = set(n.strip().lower() for n in os.environ.get("_SPEC_DEP_NAMES", "").splitlines() if n.strip())
+tokens = [t.strip().lower() for t in os.environ.get("_SPEC_TOKENS", "").split() if t.strip()]
+def matches(name, tok):
+    if name == tok:
+        return True
+    # Path-style tokens (go module paths) match a name that IS that path.
+    if "/" in tok:
+        return name == tok
+    if name.startswith(tok):
+        nxt = name[len(tok):len(tok)+1]
+        # A real driver variant continues with a digit (mysql2) or a delimiter
+        # (psycopg2-binary -> after "psycopg" comes "2"; node-postgres handled
+        # by exact). An unrelated longer alpha name (e.g. "pglite", "pgbouncer")
+        # must NOT match the 2-char "pg" token, so we reject an alpha suffix.
+        return nxt.isdigit() or nxt in ("-", "_", ".")
+    return False
+for name in names:
+    for tok in tokens:
+        if matches(name, tok):
+            raise SystemExit(0)
+raise SystemExit(1)
+' 2>/dev/null
     }
     # Does the spec name engine $1? Match unambiguous engine names only.
     _spec_names_engine() {
@@ -432,11 +665,14 @@ spec_interrogation_external_check() {
 
         # Spec names this engine. Is the repo wired to a DIFFERENT one, with no
         # driver for the spec's engine?
-        local spec_engine_token
-        spec_engine_token="$(_spec_db_driver_token "$spec_engine")"
+        # H4: match driver tokens against the extracted dependency NAMES (exact /
+        # name-prefix), NOT as substrings of the whole manifest. The old blob
+        # grep here could substring-match unrelated text and SUPPRESS a real
+        # conflict (false negative), so this site is fixed too, not just the
+        # firing site below.
         # If the repo DOES declare a driver for the spec's engine, there is no
         # conflict (they agree) -- skip.
-        if printf '%s' "$deps_lc" | grep -E -q -- "$spec_engine_token"; then
+        if _spec_repo_declares_engine "$spec_engine"; then
             continue
         fi
 
@@ -451,10 +687,11 @@ spec_interrogation_external_check() {
             if [ -n "$other_spec_pat" ] && printf '%s' "$spec_lc" | grep -q -e "$other_spec_pat"; then
                 continue
             fi
-            local other_token
-            other_token="$(_spec_db_driver_token "$other_engine")"
-            [ -n "$other_token" ] || continue
-            if printf '%s' "$deps_lc" | grep -E -q -- "$other_token"; then
+            # H4: same name-based match for the firing site -- the repo must
+            # declare a concrete driver NAME for the other engine. This is the
+            # site that wrote the bogus high/contradictory entry on a clean spec
+            # when "pg" substring-matched "upgrade" in package.json scripts.
+            if _spec_repo_declares_engine "$other_engine"; then
                 # UNAMBIGUOUS: spec names X, repo declares a Y driver, repo has
                 # no X driver. Record one high/contradictory external finding.
                 local gap assumption

@@ -9,6 +9,705 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.69.0] - 2026-06-18
+
+### Deep bug-hunt sweep (wave-10): 9 fixes across council, app-runner, MCP, dashboard, memory, Bun runner, CLI
+
+A 12-agent file-sharded verify-then-fix hunt over previously deep-un-hunted
+surfaces. Every finding was reproduced before fixing; STALE findings were
+refuted with evidence. Reviewed by a 3-reviewer council (2 Opus + 1 Sonnet) to
+unanimous approve. local-ci 84/84; bun 1087, python 1336.
+
+Trust surfaces (the headline fixes):
+- Completion council (bash): a provider TIMEOUT on the force-review path yielded
+  EMPTY output that fell through to the heuristic reviewer, which defaults to
+  APPROVE on benign evidence -- so a full provider timeout could produce a 2/3
+  or 3/3 APPROVE and mark the project COMPLETE. A timeout (rc 124/137/143) now
+  forces VOTE:REJECT before the heuristic fallback. The legitimate no-provider
+  degraded mode (rc 0, CLI absent) is untouched.
+- Override council (Bun): two distinct blocking findings from the same reviewer
+  whose raw text differed only after char 80 collapsed to one canonicalFindingId,
+  so a finding with no counter-evidence of its own could be lifted on a sibling's
+  evidence. Any findingId shared by more than one finding is now force-rejected
+  (the BLOCK stays) without calling judges. The id formula (a dev-agent emit
+  contract) is unchanged.
+
+Memory subsystem:
+- engine.py: cleanup_old and rebuild_index no longer crash on a record with an
+  explicit-null source_episodes/timestamp (one bad record aborted the whole
+  pass); get_stats total_memories no longer undercounts (the incremental updater
+  disagreed with rebuild_index, now counts every episode).
+- token_economics.py: optimize_context no longer crashes on a record with an
+  explicit-null score (null-on-.get class, matching the existing confidence guard).
+- vector_index.py: a missing numpy now raises a clear ImportError at construction
+  instead of an opaque AttributeError deep inside save/add (the NUMPY_AVAILABLE
+  flag was dead).
+
+Server surfaces:
+- MCP server: the per-tool timing stack leaked on early-return paths (file
+  not found, empty input, path-traversal handlers) across 7 tools -- an unbounded
+  slow memory leak in the long-running stdio server and a source of wrong timing
+  signals under concurrency. Every orphan return now emits its completion event.
+- Dashboard: the shared rate-limiter mutated its dict without a lock, so
+  concurrent requests (sync handlers run in Starlette's threadpool) could raise
+  "dictionary changed size during iteration" and 500 a trivial rate-limit guard.
+  Now guarded by a per-instance lock.
+
+App runner + CLI:
+- app-runner.sh: two restart/cleanup paths removed app.pid without the paired
+  app.token, leaving stale identity state; both now remove the token.
+- loki: loki onboard --format json|yaml and loki cluster run no longer produce
+  malformed output / silently skip work when a value (project name, cluster id)
+  contains a quote or apostrophe (heredoc-interpolation injection class; values
+  now passed via the environment). The inert spawn_timeout/spawn_retries config
+  knobs (no consumer since the run.sh timeout-helper removal) are now marked
+  deprecated and no longer export dead env vars.
+
+Refuted (verified STALE, no change): app-runner BSD grep \\s portability and the
+image-tag edge case, the completion-council no-provider heuristic-APPROVE mode
+(supported degraded mode), and several memory/Bun candidates. Deferred as
+separate scoped follow-ups (cross-file): codex LOKI_MAX_TIER case-normalization
+parity, the quality_gates.ts stub-judge artifact check, and read-scope on GET
+dashboard routes in enterprise mode.
+
+## [7.68.0] - 2026-06-18
+
+### Queued bug-hunt tail (wave-9) + CI test-isolation repair
+
+A file-sharded verify-then-fix fleet cleared the WAVE8 queued MED/LOW findings.
+Each finding was reproduced before fixing; STALE findings were refuted with
+evidence rather than "fixed". Reviewed by a 3-reviewer council (2 Opus + 1
+Sonnet) to unanimous approve. local-ci 84/84 on a quiet box.
+
+CI / test-isolation:
+- The two `loki internal phase1-hooks` H2 batch-abort tests stubbed
+  learnings_writer via Bun's `mock.module`, a GLOBAL registry with no reliable
+  per-test revert (`mock.restore()` does not touch it). Under cross-file test
+  discovery ordering on Linux the throwing stub leaked into the learnings_writer
+  suite, producing a nondeterministic CI red on the Tests and Coverage workflows
+  (green on macOS where readdir order differs). Replaced with a module-local
+  test seam reset deterministically in afterEach. Production behavior unchanged.
+
+Memory subsystem:
+- Consolidation no longer inflates pattern confidence on idempotent re-runs: the
+  +0.05 merge boost is now gated on genuinely new source_episodes, so
+  re-running consolidate() over an unchanged episode set is a no-op for
+  confidence (was ratcheting +0.05 per run).
+- Retrieval-time importance boost is now persisted to disk via a lock-spanning
+  read-mutate-write keyed by id+source (mirrors the decay path), closing the
+  "use it or lose it" asymmetry where decay persisted but the boost never did.
+  Persistence is opt-in (persist_boost): only the autonomous RARV loop reinforces
+  importance; manual surfaces (loki memory CLI, dashboard, MCP) do not silently
+  inflate it. A failed boost-write never breaks retrieval.
+
+Dashboard / migration:
+- The terminal migration phase (verify) can now be advanced and completed via
+  POST /api/migration/{id}/advance with only from_phase (it has no successor, so
+  to_phase and the phase gate are meaningless for it). Previously the endpoint
+  required to_phase and ran the gate for every phase, so verify could never be
+  completed via the API and overall_status could never reach "completed". The
+  409/idempotency semantics for already-advanced phases are preserved.
+
+CLI / runtime (bash):
+- `loki status --json` no longer crashes on a malformed status file: the
+  JSON-error fallback was dead under `set -e` (a bare python3 call aborted the
+  function before the fallback ran); it is now guarded so a parse error degrades
+  to an honest error object.
+- `loki explain --json`, `loki heal`, and `loki onboard` pass values to their
+  python helpers via the environment instead of interpolating raw bash values
+  into `python3 -c` heredocs, fixing a quote/apostrophe-injection class that
+  silently degraded output (e.g. a project path containing an apostrophe).
+- Removed the dead `invoke_with_timeout` helper and its unused spawn-config vars
+  from run.sh (never wired to the provider invocation; kept route parity with
+  the Bun side, which has no such wrapper).
+- Checkpoint pruning now deletes the matching `refs/loki/cp/<id>` git refs (and
+  their anchored stash commits) for pruned checkpoints, which previously leaked
+  unbounded.
+
+Refuted (verified STALE, no change): a PERPETUAL_MODE gate in run.sh (compounding
+it would disable the completion council on every default run) and the crash.ts
+global unhandledRejection handler (intentional, documented fail-fast).
+
+## [7.67.0] - 2026-06-17
+
+### Trust-surface + data-integrity hardening (wave-8 bug-hunt)
+
+A 12-agent read-only hunt across previously un-hunted surfaces, then a fix fleet.
+The headline is a CRITICAL false-pass in the LIVE bash code-review gate. Reviewed
+by a 3-reviewer council (2 Opus + 1 Sonnet) to unanimous approve (a council
+CONCERN caught a regression in the first fix and was resolved before ship). Full
+Python suite: 1261 passed, 7 skipped; bun: 1080 passed.
+
+Code-review gate (live bash route, the CRITICAL fix):
+- A code-review verdict of `VERDICT: FAIL` with ANY suffix ("FAIL - [Critical]
+  SQLi", "FAIL.", "FAIL (3 criticals)") was exact-matched against the literal
+  string "FAIL" and, failing that, counted as PASS. A real Critical/High review
+  was silently waved through and completion proceeded. The verdict is now
+  classified on its leading token with a safe default: any FAIL/REJECT/BLOCK
+  token blocks, and any unparseable/ambiguous verdict is treated as non-passing
+  (never silently passed), mirroring the completion council's parse-miss-to-REJECT
+  contract. The token classifier also avoids the inverse error (a valid
+  "PASS, no failures found" is no longer misread as FAIL).
+- Severity detection no longer requires literal `[Critical]`/`[High]` brackets;
+  it now also matches `**Critical**`, `Severity: High`, and `- Critical:` forms
+  (without over-matching prose like "highly readable"), at both the council and
+  Devil's-Advocate sites.
+- A single reviewer whose verdict line is unparseable no longer has their dissent
+  silently dropped while the gate passes on the surviving majority: any dropped
+  reviewer now makes the review inconclusive (retry, then block).
+- detect_complexity no longer misclassifies a simple PRD as standard: the
+  `grep -c ... || echo 0` idiom emitted a two-line "0\n0" that broke the integer
+  comparison; feature_count and section_count are now digit-sanitized.
+
+App runner (live):
+- The Dockerfile path built the image but never started the container: the method
+  was launched as `bash -lc "exec docker build ... && docker run ..."`, and `exec`
+  replaced the shell with `docker build` so `&& docker run` never executed (image
+  rebuilt forever, dead preview URL). The `exec` optimization is now applied only
+  to single commands; compound methods run in full. The Dockerfile image tag is
+  now project-hashed (was a shared `loki-app` that clobbered across projects), and
+  the verify/health/watchdog paths gained a Dockerfile-container branch.
+
+CLI:
+- `loki stop <session-id>` now performs the same process-group kill as the no-arg
+  `loki stop`, scoped to that session's process group. Previously the by-id path
+  returned early and left the autonomous agent (which shares the orchestrator's
+  group and reparents to init) running and still editing files (the v7.7.34
+  orphaned-agent bug, which had survived on the by-id route).
+
+Memory data-integrity:
+- storage.py delete_episode no longer unconditionally unlinks every lock file in
+  the date directory (the flock+unlink inode-replacement race fixed in v7.66.1 for
+  _file_lock); it now probes each lock and skips any held by a live writer.
+- consolidation.py no longer crashes the whole run on an episode with an explicit
+  null goal/tool (null-guard sweep of the remaining v7.61.0-class sites), and the
+  cluster-merge now re-reads each target pattern fresh before merging so a
+  concurrent usage-count bump is not clobbered from a stale snapshot.
+- The Bun-route learnings writer (live via `loki internal phase1-hooks`) now holds
+  a cross-process file lock across the full read-modify-write of
+  relevant-learnings.json (was an in-process mutex only, dropping entries under
+  concurrent phase1-hook processes); the reflect loop isolates per-finding
+  failures so one bad finding no longer drops the rest; and the learning dedup key
+  now includes the file so distinct same-worded findings in different files are
+  not collapsed.
+
+## [7.66.1] - 2026-06-17
+
+### Memory file-lock concurrency fix + CI test deflake
+
+Hotfix for two CI failures surfaced by the v7.66.0 test matrix (the shipped
+v7.66.0 runtime is unaffected; both issues are in the memory locking primitive
+and a test harness, not in v7.66.0's completion-council changes).
+
+- memory/storage.py `_file_lock`: removed the `os.remove(lock_path)` on lock
+  release. Unlinking the lock file on every release is a flock+unlink
+  inode-replacement race: with 3+ contenders, a holder can unlink the inode a
+  waiter just acquired, after which a third contender opens the path, finds it
+  gone, creates a NEW inode, and flocks that -- entering the critical section
+  while the waiter is still inside. This dropped index.json topics under
+  concurrent store_pattern / store_episode. Reproduced deterministically on
+  Linux CPython 3.13 (16 threads: 3/25 runs dropped a topic pre-fix; 25/25 pass
+  after). Persistent lock files are the standard flock pattern; stale ones are
+  GC'd by `_cleanup_stale_locks`, which is itself flock-safe (probe-before-unlink,
+  v7.65.0). This completes the v7.65.0 lost-update hardening (the lock body was
+  correct; the release path was not).
+- loki-ts/tests/gate-failures-cap-parity.test.ts: removed the `execFileSync("head")`
+  subprocess spawns. They were non-hermetic (returned 0 bytes on some CI runners,
+  e.g. macos-latest + bun 1.3.13) and unnecessary -- the head-vs-tail semantics
+  the test pins are fully captured by comparing Bun's cap against the
+  deterministic expected slice. No loss of coverage.
+
+## [7.66.0] - 2026-06-17
+
+### Completion-council trust-surface hardening (wave-7 bug-hunt)
+
+Hardening pass on the completion-detection trust surface (autonomy/completion-council.sh,
+autonomy/run.sh) plus forward-looking fixes on the dormant Bun-route quality gates
+(loki-ts/src/runner/quality_gates.ts). Reviewed by a 3-reviewer council (2 Opus + 1
+Sonnet) to unanimous approve, with a non-vacuous behavioral test (before/after proof).
+
+Live trust fix (the real HIGH):
+- An unverified force-stopped run was reported as a verified-complete product. The
+  completion council's `council_should_stop` returns 0 both from a genuine approval
+  AND from two safety valves (stagnation flood, repeated done-signals), and the
+  runner treated all three identically as "PROJECT COMPLETE" / council_approved,
+  even opening a "done" PR (when LOKI_DELEGATE_PR=1). A force-stop is not a verified
+  completion. A sentinel (`COUNCIL_FORCE_STOPPED`, reset at function entry, set only
+  at the two valves) now disambiguates: the runner reports `force_stopped` (honest
+  "stopped without approval" summary, no PR) for a force-stop and keeps the genuine
+  council-approval path byte-for-byte unchanged. The run still stops in both cases.
+  This upholds the core "does not call work done until verified" contract.
+
+Reliability fixes (live bash route):
+- All 10 council reviewer / devil's-advocate provider subcalls are now wrapped in
+  `timeout` (LOKI_COUNCIL_REVIEW_TIMEOUT, default 600s), so a hung provider CLI can
+  no longer stall the whole council. A timed-out call yields an empty verdict that
+  flows to the existing conservative fallback (member to heuristic, devil's-advocate
+  to REJECT). Mirrors the Bun route's reviewer timeout.
+- The heuristic-fallback aggregate-vote path could never report COMPLETE because
+  log lines on stdout polluted the captured verdict (exact-match never succeeded),
+  causing a false-BLOCK on the degraded path. The caller now reads the verdict
+  token via `tail -n1`, neutralizing all current and future log-line pollution.
+
+Forward-looking fixes (Bun route, currently dormant / tree-shaken until `loki start`
+routes through runAutonomous):
+- The Bun code-review aggregation was fail-OPEN when every reviewer returned
+  non-empty but unparseable output (zero parseable verdicts passed the gate with
+  zero approvals). It now blocks by default (fail-closed) in that inconclusive case,
+  matching the bash route's behavior (LOKI_REVIEW_INCONCLUSIVE_BLOCK, default block).
+- The Bun verdict parser now tolerates leading whitespace/markdown on the VERDICT
+  line (`/^\s*VERDICT:/i`), matching the override-judge parser and the bash route,
+  shrinking the unparseable surface that fed the fail-open path.
+- Corrected a stale code comment that claimed a cross-process lock coordination with
+  the bash phase1-hooks writer that does not exist.
+
+## [7.65.0] - 2026-06-17
+
+### Memory subsystem hardening (wave-6 bug-hunt)
+
+A dedicated hardening pass on the memory subsystem (storage.py, engine.py,
+retrieval.py, consolidation.py, token_economics.py). The headline is a real
+data-integrity fix; the rest is defensive robustness against corrupt or
+hand-edited records. Reviewed by a 3-reviewer council (2 Opus + 1 Sonnet) to
+unanimous approve. Full Python test suite: 1248 passed, 11 skipped.
+
+Data-integrity (the real HIGH):
+- Lost-update under concurrent writes: `storage._decay_semantic` /
+  `_decay_episodic` / `_decay_skills` and `engine._update_index_with_episode` /
+  `_update_index_with_pattern` previously read a JSON state file under one lock
+  scope, mutated in memory, then wrote under a separate lock scope. A concurrent
+  `save_pattern` / `store_episode` landing between the read and the write was
+  silently clobbered (dropped patterns, under-counted index totals). All sites
+  now hold ONE exclusive file lock across the full read-modify-write, mirroring
+  the already-correct `save_pattern` template. This completes the v7.58.0
+  lost-update fix, which had been applied unevenly. Cross-process safe (fcntl
+  flock on the sidecar lock file).
+
+Defensive robustness (corrupt / hand-edited records; no live writer emits these
+values, schema validation enforces ranges):
+- Null-field guards across every score/keyword path that does arithmetic or
+  `.lower()` on a raw record field: `boost_on_retrieval`, `apply_decay`,
+  `calculate_importance` (importance, phase, category), `_score_result`,
+  `_keyword_search_semantic` / `_anti_patterns` / `_skills` / `_episodic`,
+  `optimize_context` (confidence, usage_count), and the engine search /
+  update-pattern confidence + usage_count paths. An explicit `null` field no
+  longer crashes a query with TypeError / AttributeError. The guard preserves a
+  legitimate stored `0.0` (is-None check, not truthiness) where 0.0 is
+  meaningful (importance, confidence).
+- Path-traversal hardening: `engine.store_skill` and `storage.save_episode`
+  now sanitize the filename / validate the date component before building the
+  on-disk path, matching `save_skill`. A poisoned skill name or episode
+  timestamp (`../../../tmp/evil`) can no longer escape the memory root.
+- `_cleanup_stale_locks` now probes a stale lock with a non-blocking flock
+  before unlinking, so a long-running (>5min) live writer's lock is not removed
+  out from under it.
+
+Correctness:
+- consolidation: cluster-merge dedup now appends the saved pattern to the
+  in-memory set so two similar clusters in one run dedup correctly (no more
+  near-duplicate patterns); zettelkasten link-count is incremented only for
+  links that actually persisted.
+- retrieval Layer-2 progressive budget now trims topic summaries to the
+  remaining budget (mirroring Layer 3) instead of all-or-nothing admission.
+- retrieval topic-relevance ranking now reads the keys the writer actually
+  emits (`id` / `summary`), so the previously-inert layer-1 ranking works.
+- token_economics `optimize_context` is now strict-by-default (never exceeds
+  the stated budget); a previously-hardcoded 10% overage is now an explicit,
+  documented, opt-in `slack_ratio` parameter (default 0.0).
+
+Test infrastructure:
+- pytest.ini now collects hyphen-named Python test files
+  (`python_files = test_*.py test-*.py`). The repo had long carried hyphen-named
+  tests (e.g. test-memory-retrieval-bugs.py, test-memory-consolidation-merge.py)
+  that the default `test_*.py`-only pattern silently skipped, so their
+  regression guards never ran under `pytest tests/`. They now do.
+
+## [7.64.0] - 2026-06-17
+
+### Wave-5 bug-hunt fixes (server.py, mcp, app-runner) + coverage gate repair
+
+Eleven bugs found by a read-only adversarial sweep of previously un-hunted live
+surfaces, each re-verified against source and fixed with a non-vacuous regression
+test (proven to fail pre-fix). Plus the every-release Coverage check, red since it
+gained a threshold, root-caused and fixed.
+
+- **Coverage CI gate repaired** (.github/workflows/coverage.yml): the job ran
+  `bun test --coverage --coverage-reporter=lcov`, which writes lcov.info but pipes
+  NO text summary, so the `^All files` line-% parse found nothing and the gate
+  failed every run ("could not parse line coverage"). Now emits BOTH `text` (for
+  the parse) and `lcov` (for the artifact), and strips ANSI before parsing.
+- **/api/logs secret redaction** (dashboard/server.py): the endpoint returned raw
+  session-log lines while its sibling /api/app-runner/logs redacted; now both run
+  through the same redactor (sk-ant-/ghp_/Bearer/AWS secrets no longer leak).
+- **WebSocket broadcast backpressure** (dashboard/server.py): one stalled client
+  could freeze the broadcast + the 2s state pusher for all clients; sends now run
+  concurrently with a per-client timeout and a dead client is dropped.
+- **Cost/metrics/budget endpoints hardened** (dashboard/server.py): a corrupt
+  efficiency or budget file (non-object JSON, non-numeric value) returned 500;
+  now guarded (isinstance + AttributeError) and degrades cleanly.
+- **MCP telemetry start/complete balance** (mcp/server.py): loki_findings and
+  loki_counter_evidence_template emitted 'start' but skipped 'complete' on
+  early-return paths, leaking start-times and corrupting execution-time signals;
+  now balanced on every path.
+- **MCP async loop no longer blocked** (mcp/server.py): loki_code_search ran a
+  synchronous reindex subprocess (up to 300s) and a blocking ChromaDB query
+  directly on the event loop; both offloaded via asyncio.to_thread.
+- **MCP robustness** (mcp/server.py): loki_get_co_changes coerces mixed-type
+  counts before sorting (was a TypeError crash); loki_task_queue_add uses
+  setdefault (was a KeyError on a malformed queue).
+- **app-runner PID-reuse + restart** (autonomy/app-runner.sh): health-check and
+  watchdog now verify a process-identity token (ps lstart+comm) before trusting a
+  reused PID (a foreign process is no longer reported healthy, and the watchdog no
+  longer signals an innocent stranger); a failed restart now logs an error and
+  returns non-zero instead of silently leaving the app stopped.
+
+Gate green: pytest 1196 passed, bun typecheck clean, bun --coverage 1067 pass/0 fail.
+
+## [7.63.1] - 2026-06-17
+
+### Hotfix: doctor install-hint bash/Bun parity (GH Bun Parity went red on v7.63.0)
+
+v7.63.0 added the per-provider doctor install hint on the Bun route's STDOUT to
+match bash. That matched the local-ci parity harness (which captures 2>&1) but
+broke the canonical GH bun-parity gate, which captures STDOUT only
+(`>out 2>/dev/null`): the bash route emits the hint to STDERR, so on a runner
+with all providers absent the Bun route showed four extra stdout lines and the
+gate went red. Fix: emit the hint on STDERR (matching bash run.sh `>&2`), so it
+is invisible to the stdout-only gate and aligned under 2>&1. Added a regression
+test that captures stdout only (mirroring the gate) and asserts the Bun route
+emits no per-provider Install line on stdout. Verified parity under BOTH capture
+modes (stdout-only and 2>&1).
+
+## [7.63.0] - 2026-06-17
+
+### PRD-reuse on rerun + Docker UX (features) plus wave-4 crash/data fixes
+
+Two coherent batches, each developed in parallel with non-vacuous regression tests
+and each cleared by an independent 3-of-3 reviewer council. Full local gate green:
+pytest 1181 passed, bun typecheck clean, bun 1064 pass (1 known non-hermetic flake
+that passes in isolation), all bash syntax OK.
+
+#### Features
+
+- **PRD-reuse: `loki start` continues from the last PRD on rerun.** First run with a
+  PRD/spec file persists it to `.loki/generated-prd.md` (source=user); first run with no
+  file generates one from codebase analysis (source=generated, unchanged). A later run
+  with NO file continues from the persisted PRD instead of re-analyzing. A later run WITH
+  a file makes that the new PRD (brownfield: the app exists, a new spec applies). This is
+  an intelligent default auto-decided from the file argument plus persisted state, not a
+  new flag. Identical semantics on both the bash route (`autonomy/run.sh`) and the Bun
+  route (`loki-ts/src/runner/prd_reuse.ts`). A user-provided PRD is always reused as-is
+  and never triggers the generated-PRD update path; `--fresh-prd` / `LOKI_PRD_REGEN`
+  re-runs analysis.
+- **`loki docker start` opens the dashboard on a host port.** It now starts (or reuses)
+  the host dashboard and auto-opens the browser, gated like local `loki start`
+  (TTY, not background, `LOKI_NO_AUTO_OPEN` honored). The dashboard shows both local and
+  docker runs (the host dashboard already aggregates both; the container stays
+  dashboard-off to avoid a port collision).
+- **`loki docker start` prunes old images after pulling latest.** After pulling
+  `asklokesh/loki-mode:latest`, it removes only dangling/old `asklokesh/loki-mode` images
+  that are not in use by a running container (never the just-pulled latest, never an
+  in-use image, never a non-loki-mode image, never a blanket `docker image prune -a`).
+  Default-on; opt out with `LOKI_DOCKER_PRUNE=0`. Honest output of what was reclaimed.
+- **`loki stop` reaps the docker container.** Fixes the case where `loki docker start`
+  ran a container but `loki stop` reported "No active session running" while the
+  container kept running. The docker run is tracked in `.loki/docker/run.json`;
+  `loki stop` (folder-scoped) stops and removes this project's loki-mode container,
+  with a deterministic-name fallback if the state file is missing. `loki stop --all`
+  reaps every loki-mode container on the machine.
+
+#### Wave-4 crash and data-integrity fixes (read-only hunt on previously un-hunted live surfaces)
+
+- **sandbox.sh:** two `((x++))` post-increments aborted `loki sandbox stop` and
+  `loki sandbox cleanup` under `set -e` on the first iteration (leaving containers and
+  worktrees behind); replaced with `x=$((x+1))`. The desktop env-file and readonly state
+  copy that wrote secrets/state to predictable, never-deleted temp paths now use
+  `mktemp` + restricted perms + lifecycle cleanup.
+- **spec-interrogation.sh:** the unanchored `pg` driver token substring-matched words like
+  "upgrade" in package.json, falsely blocking a clean spec until max iterations; driver
+  detection now matches dependency names with boundaries. Reworded "no issues" negatives
+  are skipped and non-`N.`/`- ` finding formats are parsed (with an unparsed-line count).
+- **prd-checklist.sh:** a non-numeric or empty `LOKI_CHECKLIST_INTERVAL` crashed the
+  sourced RARV loop (`set -u` unbound-variable in arithmetic); the guard now normalizes
+  any invalid value to the default.
+- **Bun council (`council.ts` / `voter_agents.ts`):** the reviewer subcall had no timeout,
+  so a hung reviewer wedged the loop forever despite a "we never hang" comment; added a
+  killable timeout (`LOKI_COUNCIL_TIMEOUT_MS`, default 10 min) with documented
+  fall-through, and stderr is no longer left undrained. A corrupt `failed.json` is now
+  treated as CANNOT_VALIDATE, not APPROVE.
+- **Bun prompt builder (`build_prompt.ts`):** a non-string queue task id threw and
+  discarded the entire prompt for an iteration (now coerced); the runner adapter passed
+  PRD content where a path was contracted (now passes the path); the gate-failures read
+  is capped at the first 8000 bytes on both routes (parity with bash `head -c 8000`).
+- **migration_engine.py:** per-instance locks gave no cross-request safety (lost manifest
+  updates under concurrent advance/start-phase); now an `fcntl` file lock per migration
+  serializes the read-modify-write. Advancing an already-advanced phase returns 409 not
+  500. Migration ids get a random suffix to avoid same-second collisions.
+
+## [7.62.0] - 2026-06-17
+
+### Parallel-worktree cleanup batch (9 isolated fixes, file-disjoint)
+
+Nine fixes developed in parallel isolated git worktrees, each with a non-vacuous
+regression test, merged conflict-free (zero file overlap). Full pytest gate: 1176
+passed; all 6 standalone tests pass.
+
+CI hardening:
+- **Release gate now runs bun typecheck + test** (release.yml): publish-npm and
+  publish-docker ship the loki-ts Bun dist, but the gate was python-only. A broken
+  TS build or failing bun test can no longer reach npm/Docker.
+- **bun-parity stops blanking doctor pass/fail/warning counts** (bun-parity.yml):
+  the blocking gate normalized away the exact count-shift class that broke v7.58.0
+  (doctor crash off-TTY). It now keeps the counts, matching the nightly parity-drift.
+
+Reliability:
+- **App Runner non-compose watchdog runs a health check** (app-runner.sh): a
+  hung-but-alive HTTP app (passes kill -0, no longer serving) is now detected and
+  restarted; the HTTP-fail path writes ok:false instead of a misleading ok:true.
+- **Benchmark harness: atomic results write + resume + dead-flag removal**
+  (run-benchmarks.sh): intermediate results now write via temp+os.replace (a crash
+  mid-write no longer corrupts the file), a new --resume <dir> skips already-solved
+  instances (no redundant paid calls), and the misleading unused --parallel flag is
+  removed.
+- **Checkpoint prune sorts by basename** (run.sh): the index rebuild sorted full
+  metadata paths with -t- -k3, so a hyphen in the cwd path (the repo is literally
+  loki-mode) shifted the epoch field and corrupted rollback ordering. Now sorts on
+  the checkpoint dir basename.
+
+Memory:
+- **Valid ISO timestamps + Layer-2 budget gating** (cross_project.py,
+  knowledge_graph.py, layers/loader.py): dropped the double-Z suffix that produced
+  invalid +00:00Z timestamps (broke fromisoformat), and gated Layer-2 timeline
+  loading on the remaining token budget so an oversized timeline no longer overspends
+  max_tokens.
+- **Index/timeline layer dead cache removed + non-mutating relevance boost**
+  (layers/index_layer.py, timeline_layer.py): removed a _cache field that was written
+  but never read (3 disk reads per query; a real cache would serve stale data across
+  the separate writer/reader processes), and the keyword match boost now lives on a
+  transient match_score so a topic's returned relevance_score reflects its stored
+  value.
+
+Audit + docs:
+- **verifyManifestLink detects trailing-truncation** (src/audit/crosslink.js): a
+  truncated audit chain (dropping the manifest-link anchor) re-linked cleanly and read
+  as valid; it now cross-checks the witness file's agentEntries high-water mark and
+  flags truncation.
+- **Template complexity buckets + stack row corrected** (templates/README.md): the
+  simple-todo-app stack was wrong (listed React/Express/SQLite; it is vanilla
+  JS/localStorage), and the Simple/Standard/Complex gallery now matches how
+  detect_complexity actually classifies each template by section count.
+
+## [7.61.0] - 2026-06-17
+
+### Verification-gate honesty + correctness (6 MEDIUM findings)
+
+Lead theme: gates that silently pass when they should fail (the on-brand-critical class).
+- **Coverage gate fails loudly on parse drift** (.github/workflows/coverage.yml):
+  an unparseable coverage line printed a warning and exit 0, silently disabling
+  the 70% threshold. Now exit 1 (::error::).
+- **License audit checks the PINNED version, not @latest** (scripts/license-audit.sh):
+  the audit queried the bare (latest) package license and used the pinned range
+  only as a fallback, so it could pass a non-permissive version that actually
+  ships. The pinned/resolved range is now queried first.
+- **Benchmark patch-validation is no longer a no-op** (benchmarks/run-benchmarks.sh):
+  `has_changes = "+" in patch or "-" in patch` was always true (every diff has
+  +++/--- headers), so the empty-patch QA gate could never fire. Now counts real
+  change lines only.
+- **Memory retrieval correctness** (memory/retrieval.py, token_economics.py):
+  detect_task_type crashed on a present-but-None goal/action/phase; skills step
+  joins crashed on null/non-str steps; and a token budget threw away task-aware
+  ranking (optimize_context re-ranked on raw score, ignoring the computed
+  weighted score). All fixed; weighted-score order now preserved under budget.
+- **emit.sh now writes events.jsonl** (events/emit.sh): events emitted via the
+  shell helper landed only in the pending dir and were invisible to the
+  dashboard (which reads .loki/events.jsonl). Now appends the flat-schema record
+  the dashboard consumes.
+- **get_logs lines param bounded** (dashboard/server.py): a negative/zero lines
+  value inverted the tail contract; now Query(ge=1, le=10000) -> clean 422.
+
+Each fix ships with a non-vacuous regression test. Full pytest gate: 1176 passed.
+
+## [7.60.0] - 2026-06-17
+
+### Security hardening: 5 HIGH findings from the adversarial sweep
+
+- **Policy enforcement now fails CLOSED on a malformed policy file**
+  (src/policies/check.js, engine.js): a corrupt .loki/policies.json previously
+  caused check.js to return ALLOW with a misleading "No policies configured"
+  reason, silently disabling all policy enforcement. A present-but-unparseable
+  policy file now denies (exit 1). A genuinely absent policy file still allows.
+- **Tenant lifecycle ops are global-admin-only** (dashboard/api_v2.py):
+  create_tenant required only the control scope and skipped tenant enforcement,
+  so a tenant-scoped (non-admin) token could create arbitrary tenants outside
+  any isolation boundary. create/update/delete tenant now require global admin.
+- **Authorization/Cookie headers are now redacted** (autonomy/lib/proof_redact.py):
+  a negative lookahead + Bearer-only rule meant `Authorization: Basic ...`,
+  lowercase auth headers, and `Cookie:`/`Set-Cookie:` leaked their credentials
+  in proofs and crash reports. A header-line rule now redacts the value (scheme
+  word preserved) without over-redacting normal lines.
+- **Dockerfile.sandbox dead-image fixed** (Dockerfile.sandbox): the runtime
+  stage never put the claude binary on PATH (loki start died "No AI provider CLI
+  found"), the claude install was unvalidated, and loki-ts/data/ was missing
+  (stale fallback pricing). All three fixed and verified with a real build +
+  `claude --version` in-container.
+- **cmd_magic python-literal injection closed** (autonomy/loki): magic
+  generate/update interpolated raw --description/--tags/--name into a python -c
+  body; now passed via environment variables (the established LOKI_MEM_QUERY
+  pattern) plus --name validation. cmd_memory export filename hardened too.
+
+Each fix ships with a non-vacuous regression test. Full pytest gate: 1172 passed.
+
+## [7.59.2] - 2026-06-17
+
+### Fix: release gate broken by test-isolation pollution (v7.59.0/.1 stranded)
+
+- tests/dashboard/test_control_app_auth.py (added in v7.59.0) called
+  importlib.reload(dashboard.auth), which rebinds auth.get_current_token to a
+  new function object. FastAPI dependency_overrides are keyed by callable
+  identity, so after the reload all 20 tenant-isolation tests overrode a stale
+  callable and hit real auth (401) instead of the tenant check (403), failing
+  the full-suite Release gate (v7.59.0 and v7.59.1 tags stranded; npm stuck at
+  7.58.1). Fixed by running the enterprise-auth assertions in subprocesses so
+  the parent interpreter never reloads dashboard modules. Full pytest tree now
+  1167 passed, 0 failed (verified locally, the exact release-gate command).
+
+## [7.59.1] - 2026-06-17
+
+### Fix: v7.59.0 release gate broke on numpy-less CI env
+
+- tests/test_embeddings_edge_cases.py hard-imported numpy, which the Release
+  gate's Python env does not install, so pytest collection errored and failed
+  the whole release (v7.59.0 published to npm at 7.58.1, the Release workflow
+  went red). Guarded the import with a clean pytest skip when numpy is absent,
+  matching the optional-dep treatment of the embeddings module itself.
+
+## [7.59.0] - 2026-06-17
+
+### Reliability hardening wave (20-agent fleet: bug-hunt + fixes across all subsystems)
+
+Real bugs found and fixed, each with a non-vacuous regression test:
+- Bun code-review reviewer dispatch defaulted to an always-PASS stub (verification
+  theater); now dispatches the real reviewer with honest unavailable handling
+  (loki-ts/src/runner/quality_gates.ts).
+- Completion-council devil's-advocate veto was a silent no-op for councils of size
+  3+ (the decrement never dropped below the 2/3 threshold); now forces CONTINUE
+  on a non-confirming DA (autonomy/completion-council.sh).
+- Memory engine crashed on partial disk state (KeyError on missing index
+  'topics', ValueError on a non-ISO episode timestamp); both hardened (memory/engine.py).
+- MCP server telemetry stack leak + IndexError on malformed co-changes data fixed
+  (mcp/server.py).
+- Event-bus import dropped run.sh event payloads via a schema mismatch (events/bus.py).
+- Provider invoke crashed under set -u on stock macOS bash 3.2 when an optional
+  flag array was empty (providers/claude.sh, cline.sh, codex.sh).
+- Dashboard UI: keydown-listener leak on re-render + spec textarea lost focus/caret
+  every 3s poll (broke multi-line browser PRD input) (dashboard-ui/components).
+- loki status rendered blank counts on an empty-but-valid state file (autonomy/loki).
+- Migration hook block_and_rollback used a blanket git checkout that could nuke
+  unrelated uncommitted edits; now snapshot-scoped (autonomy/hooks/migration-hooks.sh).
+- Standalone dashboard control app exposed unauthenticated state-mutating endpoints;
+  now require_scope-gated (dashboard/control.py).
+- Memory embeddings crashed on a 1-D corpus vector; hardened (memory/embeddings.py).
+
+New features: App Runner now detects Next.js standalone + reverse-proxy URLs and
+Spring Boot multi-port stacks (autonomy/app-runner.sh, dashboard/server.py); PID
+liveness uses process start-time identity to avoid PID-reuse false positives
+(dashboard/server.py); run-start cost estimate + budget-cap disclosure on the
+non-TTY path (autonomy/run.sh). Docs accuracy + license-honesty corrections.
+
+## [7.58.1] - 2026-06-17
+
+### Fix: doctor bash-route crash off a TTY (Bun Parity green)
+
+- The v7.58.0 doctor progress helpers (doctor_probe_note / doctor_probe_clear)
+  ended in `[ -t 2 ]`, which returns 1 when stderr is not a TTY. Under
+  `set -euo pipefail` that non-zero return aborted the entire bash `loki doctor`
+  before the Summary line, on CI / headless / non-TTY runs only (it was masked
+  on an interactive Mac TTY). The GitHub Bun Parity workflow caught it. Fixed by
+  returning 0 from both helpers. TTY progress feedback is unchanged.
+
+## [7.58.0] - 2026-06-17
+
+### Reliability + data-durability + repo hygiene wave (12 fixes)
+
+This release is a quality/reliability pass: dashboard concurrency hardening,
+memory data-integrity fixes, durable SWE-bench instance persistence, doctor UX,
+healing-hook safety, and test-suite hygiene (no more leaked branches/temp dirs).
+No user-facing behavior changes; everything is additive or a bug fix.
+
+#### Memory data integrity
+- **Consolidation merge no longer drops entries** (`memory/consolidation.py`):
+  when two newly-generated patterns merged into the same existing pattern in one
+  consolidation run, the second merge read a stale in-memory copy and the full
+  overwrite silently dropped the first merge's conditions, source episodes, and
+  confidence bump. The in-memory list is now refreshed after each merge, so no
+  entry is lost. Regression-tested (proven non-vacuous: the test fails against
+  the old code with the exact data-loss symptom).
+- **Memory store hardened against malformed input** (`memory/storage.py`,
+  `memory/retrieval.py`): non-dict entries in a pattern list are now skipped
+  instead of raising `AttributeError`; a store missing the `patterns` key
+  degrades to empty instead of `KeyError`; re-saving a pattern stays idempotent
+  (no index double-count). Each failure mode has a regression fixture.
+
+#### SWE-bench instance durability
+- **Completed SWE-bench instances now persist durably and resume** 
+  (`benchmarks/swebench-pro-pilot/run_batch.py`): the pilot harness wrote
+  per-instance results only under `/tmp` and rewrote a single monolithic ledger
+  every iteration, so a reboot or a crash mid-write could lose every completed
+  instance. Results now write incrementally, one atomic file per instance
+  (temp + fsync + rename), to a durable repo-relative ledger under
+  `benchmarks/results/swebench-pro-pilot/` (git-ignored data, tracked
+  `.gitignore`, so it survives reboots but stays internal). Re-runs skip
+  already-completed instances; `--force`/`--rerun` re-runs from scratch. Infra
+  failures and budget placeholders are not frozen as "done", so they stay
+  re-runnable. Cleanup globs (`/tmp`, test-branch pruning) structurally cannot
+  reach the durable results.
+
+### Dashboard concurrency hardening + heredoc CI guard (reliability)
+
+- **Dashboard no longer stalls under concurrent requests** (`dashboard/server.py`):
+  several FastAPI endpoints did blocking filesystem work (event-log reads,
+  learning-signal scans, memory blobs, cost/timeline aggregation, council
+  transcripts, checkpoint listing, log tails) directly on the asyncio event
+  loop. A single slow read could freeze every other in-flight request, so the
+  status poller and live panels could hang while one endpoint did heavy I/O.
+  Those blocking call sites now run via `asyncio.to_thread`, keeping the event
+  loop responsive. Verified: `/api/status` stayed sub-millisecond while a
+  deliberately slow endpoint blocked for seconds; all endpoints still return
+  200. The shared compose-discovery TTL cache reachable from the new concurrent
+  path is `threading.Lock`-guarded (read-modify-write bracketed); the wrapped
+  helpers are pure reads, and no shared-state writer was newly threaded.
+- **CI guard against the v7.41 heredoc `$<digit>` footgun**
+  (`tests/check-heredoc-dollar-digit.sh`, wired into `scripts/local-ci.sh`):
+  scans `autonomy/loki` and `autonomy/run.sh` for unescaped `$1`..`$9` inside
+  `python3 -c "..."` bodies, which `set -u` bash silently expands as positional
+  params (the class of bug that once crashed `loki plan --json` for every user).
+  Non-vacuity proven (the check fires on a planted violation). Runs on every
+  `local-ci` pre-push.
+
+#### Doctor UX
+- **`loki doctor` now prints the exact install command for a missing provider**
+  (`autonomy/loki`): a missing optional provider CLI (claude/codex/cline/aider)
+  previously printed only "not found" with no remedy; it now prints the precise
+  install command under the warning. Bounded network probes (ChromaDB, MiroFish)
+  gained `--connect-timeout`/`--max-time` so a doctor run can no longer hang on a
+  dead endpoint, with transient stderr-only progress feedback (stdout stays
+  byte-identical for bash/Bun parity).
+
+#### Healing-hook safety + test hygiene
+- **Healing hooks regression test for live-tree safety**
+  (`tests/test-healing-hooks-safety.sh`): locks in that a healing revert
+  preserves unrelated uncommitted edits (snapshot-scoped restore, no blanket
+  `git checkout`) and that friction path matching is exact (no substring false
+  hits). The source already had these guards; this test prevents regression and
+  proves non-vacuity against the old destructive behavior.
+- **Test suite no longer leaks git branches or temp dirs**
+  (`tests/test-e2e-features.sh`, `tests/test-stop-process-group.sh`): added
+  unconditional `trap ... EXIT INT TERM` cleanup so an interrupted test can no
+  longer leave a `loki-test-wt-*` worktree/branch in the real repo or a
+  `loki-pgtest-*` temp dir behind. New `scripts/clean-test-branches.sh` safely
+  prunes only test-artifact branches from a sandbox repo (refuses the real repo,
+  protected branches, or while a live run is active).
+
 ## [7.57.0] - 2026-06-17
 
 ### App Runner shows running apps + URLs, intelligent tasks, default-on advisory gates

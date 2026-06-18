@@ -28,6 +28,7 @@ import {
 import { run as shellRun } from "../util/shell.ts";
 import { maybeGenerateProof } from "./proof.ts";
 import { cavemanCaptureUserMode } from "../providers/claude_flags.ts";
+import { resolvePrdForRun } from "./prd_reuse.ts";
 
 // ---------------------------------------------------------------------------
 // Graceful dynamic imports.
@@ -228,9 +229,50 @@ const fileSignals: SignalSource = {
 // ---------------------------------------------------------------------------
 
 export async function runAutonomous(opts: RunnerOpts): Promise<number> {
+  // FEAT-PRD-REUSE: resolve the PRD path BEFORE building the context, so the
+  // persisted PRD path (or codebase-analysis mode) propagates into ctx.prdPath
+  // (makeContext below reads opts.prdPath) and from there into the prompt
+  // builder (build_prompt.ts buildPromptForRunner consumes ctx.prdPath).
+  //   - explicit user file  -> copied to .loki/generated-prd.md (source=user),
+  //                            opts.prdPath repointed at the generated path.
+  //   - no file + persisted -> reuse/update/user_owned -> generated path;
+  //                            generate -> undefined (re-enter analysis mode).
+  //   - no file + none      -> undefined (codebase-analysis, existing behavior).
+  // Never throws (resolvePrdForRun falls back to the input on any error).
+  //
+  // PARITY (state vs prompt split): bash records state.prdPath from the GLOBAL
+  // PRD_PATH (run.sh:12141), which the PRD-reuse persistence logic NEVER
+  // repoints; it repoints only a LOCAL prd_path (run.sh:13938) used for the
+  // prompt anchor + reuse decision. So bash splits: original user path -> state,
+  // resolved/persisted path -> prompt + reuse. Capture the ORIGINAL here before
+  // resolvePrdForRun overwrites opts.prdPath, and thread it into ctx so the
+  // state writer (state.ts saveStateForRunner) records the original while
+  // ctx.prdPath continues to carry the resolved path for the prompt builder.
+  // 1st-with-file: state = original file, prompt = .loki/generated-prd.md.
+  // 2nd-no-file:   original was undefined -> state = "" (exactly bash).
+  const originalPrdPath = opts.prdPath;
+  const resolved = resolvePrdForRun({
+    prdPath: opts.prdPath,
+    cwd: opts.cwd,
+    log: opts.loggerStream
+      ? (line: string) => opts.loggerStream!.write(line + "\n")
+      : (line: string) => {
+          // eslint-disable-next-line no-console
+          console.log(line);
+        },
+  });
+  opts.prdPath = resolved.prdPath;
+
   // Build the context once so both the core loop and the post-completion
   // proof-of-run hook see the same iteration count / lokiDir / provider.
   const ctx = makeContext(opts);
+  // Stamp the ORIGINAL user-supplied PRD path onto ctx for the state writer.
+  // Set unconditionally (string, possibly "") so every persistState call site
+  // records bash's global-PRD_PATH value rather than the resolved/persisted
+  // path now held in ctx.prdPath. RunnerContext is a type alias (no declaration
+  // merging), so attach via an intersection cast rather than editing types.ts.
+  (ctx as RunnerContext & { statePrdPath?: string }).statePrdPath =
+    originalPrdPath ?? "";
   try {
     return await runAutonomousCore(opts, ctx);
   } finally {

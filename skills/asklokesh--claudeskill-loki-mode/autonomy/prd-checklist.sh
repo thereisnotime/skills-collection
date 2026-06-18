@@ -33,13 +33,33 @@
 # Configuration
 CHECKLIST_ENABLED=${LOKI_CHECKLIST_ENABLED:-true}
 CHECKLIST_INTERVAL=${LOKI_CHECKLIST_INTERVAL:-5}
-# Guard against zero/negative interval (division by zero in modulo)
-if [ "$CHECKLIST_INTERVAL" -le 0 ] 2>/dev/null; then
+# Normalize the interval. This is sourced into run.sh which runs under
+# `set -uo pipefail`, and CHECKLIST_INTERVAL flows into a modulo at
+# checklist_should_verify (current_iteration % CHECKLIST_INTERVAL).
+# A non-numeric value (e.g. "abc") would be treated as an unbound variable
+# name by arithmetic expansion and abort the host loop; an empty value would
+# cause a divide-by-zero. The old `[ ... -le 0 ] 2>/dev/null` guard only
+# caught numeric <=0 (the `[` error on non-numeric was swallowed and the bad
+# value retained). The case below rejects empty and any non-digit input first
+# (pure string match, never errors), then the arithmetic test is safe.
+case "$CHECKLIST_INTERVAL" in
+    ''|*[!0-9]*) CHECKLIST_INTERVAL=5 ;;   # empty or non-digit -> default
+esac
+# Guard against zero interval (division by zero in modulo); value is all-digits.
+if [ "$CHECKLIST_INTERVAL" -le 0 ]; then
     CHECKLIST_INTERVAL=5
 fi
 CHECKLIST_TIMEOUT=${LOKI_CHECKLIST_TIMEOUT:-30}
-# Guard against zero/negative timeout
-if [ "$CHECKLIST_TIMEOUT" -le 0 ] 2>/dev/null; then
+# Normalize the timeout. It does not flow into arithmetic (only passed as a
+# --timeout CLI arg to checklist-verify.py at line ~650), so it cannot crash
+# the loop, but the same flawed `[ ... -le 0 ] 2>/dev/null` guard would retain
+# a non-numeric value and hand garbage to the downstream tool. Normalize it the
+# same way for robustness.
+case "$CHECKLIST_TIMEOUT" in
+    ''|*[!0-9]*) CHECKLIST_TIMEOUT=30 ;;   # empty or non-digit -> default
+esac
+# Guard against zero timeout; value is all-digits.
+if [ "$CHECKLIST_TIMEOUT" -le 0 ]; then
     CHECKLIST_TIMEOUT=30
 fi
 
@@ -393,6 +413,15 @@ checklist_should_verify() {
 
     # Check iteration interval
     local current_iteration="${ITERATION_COUNT:-0}"
+    # Defensive numeric guard: current_iteration feeds the modulo below, the
+    # single choke point for both operands under `set -uo pipefail`. A
+    # non-numeric value would be treated as an unbound variable name by
+    # arithmetic expansion and abort the sourced host loop. ITERATION_COUNT is
+    # loki-internal (lower risk than the env-driven interval), but normalize
+    # here so the modulo can never crash. Pure string match, never errors.
+    case "$current_iteration" in
+        ''|*[!0-9]*) current_iteration=0 ;;   # empty or non-digit -> treat as 0
+    esac
     if [ "$current_iteration" -eq 0 ]; then
         return 1
     fi

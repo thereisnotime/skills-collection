@@ -244,7 +244,11 @@ class MemoryEngine:
         for pattern in patterns_data.get("patterns", []):
             if not isinstance(pattern, dict):
                 continue
-            referenced_ids.update(pattern.get("source_episodes", []))
+            # `or []` guards an explicit null source_episodes (corrupt or
+            # hand-edited record): .get(..., []) returns None on a stored
+            # null, and set.update(None) raises TypeError, crashing the whole
+            # cleanup pass. A null and an empty list are equivalent here.
+            referenced_ids.update(pattern.get("source_episodes") or [])
 
         # Scan episodic directories
         episodic_path = Path(self.base_path) / "episodic"
@@ -332,60 +336,86 @@ class MemoryEngine:
         real topics immediately after a session ends.
         """
         try:
-            index = self.storage.read_json("index.json") or {
-                "version": "1.1.0",
-                "topics": [],
-                "total_memories": 0,
-            }
-            context = episode.get("context", {}) if isinstance(episode.get("context"), dict) else {}
-            phase = (context.get("phase") or episode.get("phase") or "general").lower()
-            goal = (context.get("goal") or episode.get("goal") or "")[:200]
-            # Topic id = phase. Multiple episodes in the same phase share a topic.
-            topic_id = phase or "general"
-            now = datetime.now(timezone.utc).isoformat()
-            episode_id = episode.get("id")
-            cost = float(episode.get("cost_usd", 0) or 0)
-            tokens = int(episode.get("tokens_used", 0) or 0)
-            files = list(episode.get("files_modified", []) or [])
+            # H4 lost-update fix (wave-6): hold ONE exclusive lock spanning the
+            # full read-modify-write of index.json. _file_lock is reentrant per
+            # thread (storage._held_locks is threading.local) and cross-process
+            # safe (fcntl.flock), so the inner read_json/write_json calls -- which
+            # re-enter _file_lock on the SAME resolved path -- are no-ops and do
+            # not deadlock. The lock target is derived from storage._resolve_path
+            # so its string key is byte-identical to the one read_json/write_json
+            # compute internally (mismatched keys would self-deadlock).
+            index_lock = Path(self.storage._resolve_path("index.json"))
+            with self.storage._file_lock(index_lock, exclusive=True):
+                index = self.storage.read_json("index.json") or {
+                    "version": "1.1.0",
+                    "topics": [],
+                    "total_memories": 0,
+                }
+                context = episode.get("context", {}) if isinstance(episode.get("context"), dict) else {}
+                phase = (context.get("phase") or episode.get("phase") or "general").lower()
+                goal = (context.get("goal") or episode.get("goal") or "")[:200]
+                # Topic id = phase. Multiple episodes in the same phase share a topic.
+                topic_id = phase or "general"
+                now = datetime.now(timezone.utc).isoformat()
+                episode_id = episode.get("id")
+                cost = float(episode.get("cost_usd", 0) or 0)
+                tokens = int(episode.get("tokens_used", 0) or 0)
+                files = list(episode.get("files_modified", []) or [])
 
-            found = None
-            for topic in index.get("topics", []):
-                if topic.get("id") == topic_id:
-                    found = topic
-                    break
-            if found is None:
-                index.setdefault("topics", []).append({
-                    "id": topic_id,
-                    "summary": goal or f"Activity in phase {topic_id}",
-                    "episode_ids": [episode_id] if episode_id else [],
-                    "episode_count": 1,
-                    "total_cost_usd": cost,
-                    "total_tokens": tokens,
-                    "files_touched": files[:20],
-                    "first_seen": now,
-                    "last_accessed": now,
-                    "relevance_score": 0.5,
-                })
-                index["total_memories"] = index.get("total_memories", 0) + 1
-            else:
-                # Only count a given episode once. On resume/checkpoint the same
-                # trace id can be re-saved; without this guard episode_count,
-                # total_cost_usd, and total_tokens would inflate on every re-save
-                # even though episode_ids is already de-duplicated.
-                if episode_id and episode_id not in found.get("episode_ids", []):
-                    found.setdefault("episode_ids", []).append(episode_id)
-                    found["episode_count"] = found.get("episode_count", 0) + 1
-                    found["total_cost_usd"] = float(found.get("total_cost_usd", 0) or 0) + cost
-                    found["total_tokens"] = int(found.get("total_tokens", 0) or 0) + tokens
-                merged = set(found.get("files_touched", []) or []) | set(files[:20])
-                found["files_touched"] = sorted(merged)[:50]
-                found["last_accessed"] = now
+                found = None
+                for topic in index.get("topics", []):
+                    if topic.get("id") == topic_id:
+                        found = topic
+                        break
+                if found is None:
+                    index.setdefault("topics", []).append({
+                        "id": topic_id,
+                        "summary": goal or f"Activity in phase {topic_id}",
+                        "episode_ids": [episode_id] if episode_id else [],
+                        "episode_count": 1,
+                        "total_cost_usd": cost,
+                        "total_tokens": tokens,
+                        "files_touched": files[:20],
+                        "first_seen": now,
+                        "last_accessed": now,
+                        "relevance_score": 0.5,
+                    })
+                    # total_memories counts memories (episodes), not topics, to
+                    # match the canonical rebuild_index semantics
+                    # (total_memories += 1 per episode at line ~860). Previously
+                    # this only incremented when a NEW topic was created, so N
+                    # episodes sharing one phase reported total_memories=1 until
+                    # the user ran rebuild_index, which then jumped it to N
+                    # (two functions in this file disagreeing on the same field,
+                    # surfaced by get_stats). Increment per distinct episode.
+                    if episode_id:
+                        index["total_memories"] = index.get("total_memories", 0) + 1
+                else:
+                    # Only count a given episode once. On resume/checkpoint the same
+                    # trace id can be re-saved; without this guard episode_count,
+                    # total_cost_usd, total_tokens, and total_memories would inflate
+                    # on every re-save even though episode_ids is already
+                    # de-duplicated.
+                    if episode_id and episode_id not in found.get("episode_ids", []):
+                        found.setdefault("episode_ids", []).append(episode_id)
+                        found["episode_count"] = found.get("episode_count", 0) + 1
+                        found["total_cost_usd"] = float(found.get("total_cost_usd", 0) or 0) + cost
+                        found["total_tokens"] = int(found.get("total_tokens", 0) or 0) + tokens
+                        index["total_memories"] = index.get("total_memories", 0) + 1
+                    merged = set(found.get("files_touched", []) or []) | set(files[:20])
+                    found["files_touched"] = sorted(merged)[:50]
+                    found["last_accessed"] = now
 
-            index["last_updated"] = now
-            self.storage.write_json("index.json", index)
+                index["last_updated"] = now
+                self.storage.write_json("index.json", index)
         except Exception:  # noqa: BLE001
-            # Never let index update break episode storage.
-            pass
+            # Never let index update break episode storage, but make the
+            # failure observable instead of swallowing it silently (L2).
+            logger.warning(
+                "Failed to update index.json with episode %s",
+                episode.get("id"),
+                exc_info=True,
+            )
 
     def get_episode(self, episode_id: str) -> Optional[EpisodeTrace]:
         """
@@ -522,8 +552,13 @@ class MemoryEngine:
         for pattern in patterns_data.get("patterns", []):
             if not isinstance(pattern, dict):
                 continue
-            # Filter by confidence
-            if pattern.get("confidence", 0) < min_confidence:
+            # Filter by confidence. Guard against an explicit null confidence
+            # (corrupt/hand-edited record): None < float raises TypeError in
+            # Python 3, so treat a null as 0 (filtered out unless threshold 0).
+            pattern_confidence = pattern.get("confidence")
+            if pattern_confidence is None:
+                pattern_confidence = 0
+            if pattern_confidence < min_confidence:
                 continue
 
             # Filter by category if specified
@@ -550,8 +585,10 @@ class MemoryEngine:
         if pattern_data is None:
             return
 
-        # Update fields
-        pattern_data["usage_count"] = pattern_data.get("usage_count", 0) + 1
+        # Update fields. `or 0` guards against an explicit null usage_count
+        # (corrupt/hand-edited record) crashing the increment with a TypeError;
+        # a null and 0 are equivalent here so `or` is safe.
+        pattern_data["usage_count"] = (pattern_data.get("usage_count") or 0) + 1
         pattern_data["last_used"] = datetime.now(timezone.utc).isoformat()
 
         # Write back via save_pattern which holds an exclusive lock during
@@ -577,9 +614,24 @@ class MemoryEngine:
         skill_id = skill_dict.get("id", f"skill-{self._generate_id()}")
         skill_dict["id"] = skill_id
 
-        # Generate filename from skill name or ID
-        skill_name = skill_dict.get("name", skill_id)
-        filename = skill_name.lower().replace(" ", "-").replace("_", "-")
+        # Generate filename from skill name or ID.
+        # H3 path-traversal fix (wave-6): the previous filename derivation only
+        # replaced spaces and underscores, so a skill name like
+        # "../../../tmp/pwned" kept its "/" and ".." and escaped the memory root
+        # via the raw open(skill_path, "w") below (which bypasses _resolve_path).
+        # Sanitize to safe chars only, matching storage.save_skill's house style,
+        # and fall back to the skill id when sanitization collapses to empty.
+        skill_name = skill_dict.get("name") or skill_id
+        normalized = skill_name.lower().replace(" ", "-").replace("_", "-")
+        filename = "".join(
+            c if (c.isalnum() or c == "-") else "-"
+            for c in normalized
+        ).strip("-")
+        if not filename:
+            filename = "".join(
+                c if (c.isalnum() or c == "-") else "-"
+                for c in skill_id.lower()
+            ).strip("-") or "skill"
 
         # Store as markdown
         content = self._skill_to_markdown(skill_dict)
@@ -841,7 +893,12 @@ class MemoryEngine:
                             }
 
                         topics[phase]["token_count"] += tokens
-                        if data.get("timestamp", "") > topics[phase].get("last_accessed", ""):
+                        # `or ""` on BOTH sides: an episode with a missing or
+                        # explicit-null timestamp leaves last_accessed=None (set
+                        # from data.get("timestamp") above), and `str > None`
+                        # raises TypeError, crashing rebuild_index. A single
+                        # such episode is enough to break the whole rebuild.
+                        if (data.get("timestamp") or "") > (topics[phase].get("last_accessed") or ""):
                             topics[phase]["last_accessed"] = data.get("timestamp")
 
         # Index semantic patterns
@@ -899,50 +956,65 @@ class MemoryEngine:
         context = episode.get("context", {})
         action_entry = {
             "timestamp": episode.get("timestamp", datetime.now(timezone.utc).isoformat()),
-            "action": context.get("goal", "Task completed")[:100],
+            "action": (context.get("goal") or "Task completed")[:100],
             "outcome": episode.get("outcome", "unknown"),
-            "topic_id": context.get("phase", "general"),
+            "topic_id": context.get("phase") or "general",
         }
 
         self.storage.update_timeline(action_entry)
 
     def _update_index_with_pattern(self, pattern: Dict[str, Any]) -> None:
         """Update index with pattern topic."""
-        index = self.storage.read_json("index.json") or {
-            "version": "1.0",
-            "topics": [],
-            "total_memories": 0,
-            "total_tokens_available": 0,
-        }
+        # H4 lost-update fix (wave-6): hold ONE exclusive lock spanning the full
+        # read-modify-write of index.json so concurrent store_pattern (and
+        # store_episode) calls cannot clobber each other. See the matching note
+        # in _update_index_with_episode for why the lock target is derived from
+        # storage._resolve_path and why the inner read_json/write_json calls do
+        # not deadlock (reentrant per-thread, cross-process safe via flock).
+        index_lock = Path(self.storage._resolve_path("index.json"))
+        with self.storage._file_lock(index_lock, exclusive=True):
+            index = self.storage.read_json("index.json") or {
+                "version": "1.0",
+                "topics": [],
+                "total_memories": 0,
+                "total_tokens_available": 0,
+            }
 
-        category = pattern.get("category", "general")
+            category = pattern.get("category", "general")
 
-        # Find or create topic
-        topic_found = False
-        for topic in index["topics"]:
-            if topic.get("id") == category:
-                topic["last_accessed"] = datetime.now(timezone.utc).isoformat()
-                topic["relevance_score"] = max(
-                    topic.get("relevance_score", 0.5),
-                    pattern.get("confidence", 0.5),
-                )
-                topic_found = True
-                break
+            # An index.json that is valid JSON but missing the "topics" key (e.g.
+            # written by an older/partial writer, or hand-edited) would crash here
+            # on index["topics"] because the `or {...}` default only fires when the
+            # whole file is falsy. setdefault matches the defensive pattern used in
+            # the sibling _update_index_with_episode.
+            topics = index.setdefault("topics", [])
 
-        if not topic_found:
-            index["topics"].append({
-                "id": category,
-                "summary": f"Patterns for {category}",
-                "relevance_score": pattern.get("confidence", 0.5),
-                "last_accessed": datetime.now(timezone.utc).isoformat(),
-                "token_count": len(json.dumps(pattern)) // 4,
-            })
+            # Find or create topic
+            topic_found = False
+            for topic in topics:
+                if topic.get("id") == category:
+                    topic["last_accessed"] = datetime.now(timezone.utc).isoformat()
+                    topic["relevance_score"] = max(
+                        topic.get("relevance_score", 0.5),
+                        pattern.get("confidence", 0.5),
+                    )
+                    topic_found = True
+                    break
 
-        index["last_updated"] = datetime.now(timezone.utc).isoformat()
-        if not topic_found:
-            index["total_memories"] = index.get("total_memories", 0) + 1
+            if not topic_found:
+                topics.append({
+                    "id": category,
+                    "summary": f"Patterns for {category}",
+                    "relevance_score": pattern.get("confidence", 0.5),
+                    "last_accessed": datetime.now(timezone.utc).isoformat(),
+                    "token_count": len(json.dumps(pattern)) // 4,
+                })
 
-        self.storage.write_json("index.json", index)
+            index["last_updated"] = datetime.now(timezone.utc).isoformat()
+            if not topic_found:
+                index["total_memories"] = index.get("total_memories", 0) + 1
+
+            self.storage.write_json("index.json", index)
 
     def _search_episode(self, episode_id: str) -> Optional[EpisodeTrace]:
         """Search for episode across all date directories."""
@@ -970,7 +1042,17 @@ class MemoryEngine:
             # Handle ISO format with Z suffix
             if timestamp_str.endswith("Z"):
                 timestamp_str = timestamp_str[:-1]
-            timestamp = datetime.fromisoformat(timestamp_str)
+            # A single corrupt/non-ISO timestamp on one episode file must not
+            # crash the whole scan (get_recent_episodes -> retrieve_relevant is
+            # on the RARV hot path). Fall back to now() for the unparseable one.
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str)
+            except ValueError:
+                logger.warning(
+                    "Episode %s has unparseable timestamp %r; using current time",
+                    data.get("id", "<unknown>"), timestamp_str,
+                )
+                timestamp = datetime.now(timezone.utc)
             if timestamp.tzinfo is None:
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
         elif isinstance(timestamp_str, datetime):
@@ -1173,9 +1255,13 @@ class MemoryEngine:
         Detect task type from context.
         Uses keyword matching based on goal, action, and phase.
         """
-        goal = context.get("goal", "").lower()
-        action = context.get("action_type", "").lower()
-        phase = context.get("phase", "").lower()
+        # M3 None-guard (wave-6): an explicit null value (e.g. {"goal": None})
+        # makes context.get("goal", "") return None, so None.lower() crashed.
+        # The retrieval.py copy was fixed in v7.61.0; this engine.py copy was
+        # the missed sibling. Coalesce to "" before calling string methods.
+        goal = (context.get("goal") or "").lower()
+        action = (context.get("action_type") or "").lower()
+        phase = (context.get("phase") or "").lower()
 
         signals = {
             "exploration": {
@@ -1260,7 +1346,8 @@ class MemoryEngine:
             episodes = self.get_recent_episodes(limit=50)
             for ep in episodes:
                 ep_dict = ep.to_dict() if hasattr(ep, "to_dict") else ep.__dict__.copy()
-                goal = ep_dict.get("context", {}).get("goal", "").lower()
+                ep_context = ep_dict.get("context") or {}
+                goal = (ep_context.get("goal") or "").lower()
                 score = sum(1 for kw in keywords if kw in goal)
                 if score > 0:
                     ep_dict["_score"] = score
@@ -1271,7 +1358,7 @@ class MemoryEngine:
             patterns = self.find_patterns(min_confidence=0.3)
             for pattern in patterns:
                 p_dict = pattern.to_dict() if hasattr(pattern, "to_dict") else pattern.__dict__.copy()
-                pattern_text = p_dict.get("pattern", "").lower()
+                pattern_text = (p_dict.get("pattern") or "").lower()
                 score = sum(1 for kw in keywords if kw in pattern_text)
                 if score > 0:
                     p_dict["_score"] = score
@@ -1282,8 +1369,8 @@ class MemoryEngine:
             skills = self.list_skills()
             for skill in skills:
                 s_dict = skill.to_dict() if hasattr(skill, "to_dict") else skill.__dict__.copy()
-                name = s_dict.get("name", "").lower()
-                desc = s_dict.get("description", "").lower()
+                name = (s_dict.get("name") or "").lower()
+                desc = (s_dict.get("description") or "").lower()
                 score = sum(1 for kw in keywords if kw in name or kw in desc)
                 if score > 0:
                     s_dict["_score"] = score
