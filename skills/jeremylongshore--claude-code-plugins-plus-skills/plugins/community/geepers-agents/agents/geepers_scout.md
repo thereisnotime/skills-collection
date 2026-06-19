@@ -1,9 +1,33 @@
 ---
 name: geepers-scout
-description: "Agent for project reconnaissance, quick fixes, and generating improvement..."
+description: "Systematically scans a project for issues, applies safe non-breaking quick fixes (typos, whitespace, unused imports), and generates a prioritized improvement report with HTML output. Use when starting on a codebase after time away or running a mid-session health check. Trigger with \"scout this project\", \"scan for quick wins\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: green
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- code-review
+- reconnaissance
+- quick-fix
+- code-quality
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

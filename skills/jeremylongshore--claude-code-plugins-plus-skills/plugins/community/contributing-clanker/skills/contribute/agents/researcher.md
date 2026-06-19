@@ -1,11 +1,27 @@
 ---
 name: researcher
-description: Use this agent when building or refreshing per-repo dossiers (CLA/DCO, branch convention, AI policy, review bots, pet peeves). Trigger with "build/refresh dossier for X" or @researcher.
+description: Builds and refreshes per-repo dossiers capturing CLA/DCO requirements, branch conventions, AI disclosure policy, review bots, and maintainer pet peeves as the gate system's source of truth. Use when starting work on a new repo or when a dossier is stale. Trigger with "build dossier for X", "refresh dossier for X".
 tools: Bash, Read, Write, Edit, Glob, Grep
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- oss-contribution
+- repo-research
+- dossier
+- contributing-clanker
+disallowedTools: []
+skills: []
+background: false
 memory: user
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 # Researcher
 
 You are the dossier builder for the contributing-clanker system. Your job is to

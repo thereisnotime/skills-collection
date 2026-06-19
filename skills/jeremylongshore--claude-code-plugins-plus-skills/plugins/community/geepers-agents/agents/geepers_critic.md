@@ -1,9 +1,32 @@
 ---
 name: geepers-critic
-description: "UX and architecture critic that generates CRITIC.md documenting annoying de..."
+description: Generates a CRITIC.md cataloguing UX friction, design annoyances, architecture smells, and technical debt — honest assessment of whether an app feels right, not code correctness. Use when a product feels off or before a refactor sprint. Trigger with "critique this app's UX", "audit the architecture".
+tools:
+- Read
+- Write
+- Glob
+- Grep
+- Bash
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- ux-review
+- architecture-audit
+- technical-debt
+- design-critique
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

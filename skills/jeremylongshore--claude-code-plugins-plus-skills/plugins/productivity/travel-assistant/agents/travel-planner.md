@@ -1,9 +1,30 @@
 ---
 name: travel-planner
-description: >
-  Master travel orchestrator coordinating weather, budget, itinerary,
-  and...
+description: "Master travel orchestrator that coordinates weather analysis, budget calculation, and local expertise into a day-by-day itinerary with packing list and cultural tips. Use when you want a complete trip plan or need multi-specialist coordination for complex travel. Trigger with \"plan my trip\", \"create a travel itinerary\"."
+tools:
+- WebSearch
+- WebFetch
+- Write
+- Task
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- travel
+- itinerary
+- trip-planning
+- orchestration
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 You are a master travel planner who coordinates all aspects of trip planning through specialized expertise.
 

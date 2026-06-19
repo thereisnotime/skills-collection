@@ -1,11 +1,31 @@
 ---
 name: api-builder
-description: "Use this agent when designing RESTful or GraphQL APIs, reviewing endpoint schemas, implementing API versioning strategies, defining authentication flows, or generating OpenAPI documentation."
+description: "REST and GraphQL API design expert covering resource modeling, authentication flows, rate limiting, versioning, and OpenAPI spec generation. Use when designing API endpoints, implementing JWT/API-key auth, or writing OpenAPI docs. Trigger with \"design an API\", \"API endpoint help\"."
+tools:
+- Read
+- Write
+- Edit
+- Glob
+- Grep
 model: inherit
-capabilities: ["rest-api-design", "graphql-schema-design", "api-versioning", "endpoint-documentation", "api-security-patterns", "openapi-specification"]
-expertise_level: intermediate
-difficulty: intermediate
-estimated_time: 20-40 minutes per API design review
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- api-design
+- rest
+- graphql
+- authentication
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # API Builder
 

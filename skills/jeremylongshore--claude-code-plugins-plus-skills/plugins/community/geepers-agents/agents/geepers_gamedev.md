@@ -1,9 +1,31 @@
 ---
 name: geepers-gamedev
-description: "Agent for video game development expertise - gameplay mechanics, level de..."
+description: "Video game design expert covering core loops, difficulty curves, player psychology, genre-specific patterns (platformers, roguelikes, strategy), and game feel. Use when designing a new game or improving player retention. Trigger with \"design the game loop\", \"my game feels bad\"."
+tools:
+- Read
+- Write
+- Glob
+- Grep
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- game-development
+- game-design
+- player-experience
+- interactive-entertainment
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

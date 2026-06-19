@@ -1,6 +1,29 @@
 ---
 name: performance-agent
-description: Analyze and optimize query performance
+description: "Interpret EXPLAIN plans and query execution metrics to identify bottlenecks — sequential scans, missing indexes, inefficient joins, N+1 patterns — and deliver specific index and rewrite recommendations with expected impact. Use when investigating slow queries or tuning a database under load. Trigger with \"analyze query performance\", \"review EXPLAIN plan\"."
+tools:
+- Read
+- Write
+- Bash
+model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- query-optimization
+- database-performance
+- explain-plan
+- indexing
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Query Performance Analyzer Agent
 

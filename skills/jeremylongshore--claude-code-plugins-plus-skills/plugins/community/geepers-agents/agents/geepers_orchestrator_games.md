@@ -1,9 +1,34 @@
 ---
 name: geepers-orchestrator-games
-description: "Games orchestrator that coordinates game development agents - gamedev, game..."
+description: "Coordinates game development agents (design, gamification, React/web or Godot implementation) to build or enhance interactive games and gamification features. Use when creating a new game or adding achievement systems to an app. Trigger with \"build a game\", \"add gamification to this app\"."
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+- Task
+- TodoWrite
 model: sonnet
+color: green
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- orchestration
+- game-development
+- gamification
+- interactive-design
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

@@ -1,10 +1,30 @@
 ---
 name: verification-agent
-description: "Adversarial quality checker that catches hallucinated insights, sampling bias, unsupported claims, and logical errors in specialist agent outputs before delivery."
+description: "Adversarially verifies specialist analytics agent outputs — checks every number against raw data, flags hallucinated insights, logical contradictions, and sampling bias before the report reaches the user. Use when quality-gating an analytics pipeline before final delivery. Trigger with \"verify analytics outputs\", \"quality check the report\"."
+tools:
+- Read
+- Glob
+- Grep
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- quality-assurance
+- hallucination-detection
+- adversarial-review
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 8
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Verification Agent

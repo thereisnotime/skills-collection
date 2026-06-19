@@ -1,9 +1,30 @@
 ---
 name: geepers-prd
-description: "Product Requirements Document generator that creates detailed PRDs based on..."
+description: "Transforms ideas and business plans into detailed PRDs with user personas, prioritized user stories, functional requirements, and acceptance criteria developers can build from. Use when starting a new product or feature and needing structured technical requirements. Trigger with \"write a PRD for this\", \"turn this idea into requirements\"."
+tools:
+- Read
+- Write
+- Glob
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- product-requirements
+- documentation
+- user-stories
+- planning
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

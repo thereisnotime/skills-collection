@@ -1,9 +1,31 @@
 ---
 name: geepers-business-plan
-description: "Business plan generator that creates comprehensive business models, market ..."
+description: Transforms a product idea into a full business plan covering market analysis, competitive landscape, business model, GTM strategy, and financial projections. Use when validating a new idea or preparing investor documentation. Trigger with "create a business plan", "analyze market opportunity".
+tools:
+- Read
+- Write
+- WebSearch
+- WebFetch
 model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- business-plan
+- market-analysis
+- go-to-market
+- product-strategy
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

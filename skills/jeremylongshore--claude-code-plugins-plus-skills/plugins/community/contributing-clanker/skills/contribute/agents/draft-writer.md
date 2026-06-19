@@ -1,11 +1,26 @@
 ---
 name: draft-writer
-description: Use this agent to draft a Design Issue body (preferred) or PR description from a working branch's diff. Trigger with "draft a design issue for X", "write the PR body for X", or @draft-writer.
+description: Drafts Design Issue bodies or PR descriptions from a working branch diff, writes them to the candidate file, and pre-fills required gate sections. Use when preparing an OSS contribution for submission. Trigger with "draft a design issue for X", "write the PR body for X".
 tools: Bash, Read
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- oss-contribution
+- pr-drafting
+- contributing-clanker
+disallowedTools: []
+skills: []
+background: false
 memory: user
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 # Draft Writer Agent
 
 **Purpose**: Draft a Design Issue body (preferred) or PR description for an OSS contribution. Outputs markdown ready for `gh issue create` / `gh pr create --body-file`.

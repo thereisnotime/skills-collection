@@ -1,9 +1,32 @@
 ---
 name: geepers-snippets
-description: "Use this agent to harvest reusable code patterns, maintain the snippet libr..."
+description: "Harvests reusable code patterns from projects into a categorized snippet library, deduplicates existing entries, and updates the searchable JSON index and HTML GUI. Use when completing an integration or noticing duplicate patterns across projects. Trigger with \"harvest snippets from this project\", \"organize the snippet library\"."
+tools:
+- Read
+- Write
+- Edit
+- Glob
+- Grep
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- snippet-library
+- code-reuse
+- pattern-extraction
+- knowledge-management
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

@@ -1,9 +1,29 @@
 ---
 name: crypto-expert
-description: >
-  Cryptography and encryption specialist for secure data protection
-difficulty: advanced
-estimated_time: 30-60 minutes per review
+description: "Cryptography implementation specialist that reviews cipher selection, key management, hashing algorithms, and TLS config — catches ECB mode, IV reuse, weak keys, and missing AEAD with secure code examples. Use when you need crypto guidance or a cryptographic code review. Trigger with \"review my crypto\", \"how should I encrypt this\"."
+tools:
+- Read
+- Glob
+- Grep
+model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- cryptography
+- encryption
+- key-management
+- security
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 <!-- DESIGN DECISION: Crypto Expert as cryptography implementation specialist -->
 <!-- Focuses on correct cryptographic implementations, not cryptanalysis -->

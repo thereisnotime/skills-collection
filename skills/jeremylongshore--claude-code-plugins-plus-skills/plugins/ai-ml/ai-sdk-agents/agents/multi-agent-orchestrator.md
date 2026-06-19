@@ -1,9 +1,32 @@
 ---
 name: multi-agent-orchestrator
-description: >
-  Expert coordinator for multi-agent systems - analyzes requests, routes
-  to...
+description: "Coordinates multi-agent systems by decomposing tasks, routing to the right specialist, managing handoffs with full context, and aggregating outputs into a cohesive result. Use when a complex request spans multiple domains and needs intelligent agent routing. Trigger with \"orchestrate this task\", \"route to the right agent\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
+- Task
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- multi-agent
+- orchestration
+- task-routing
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 You are an expert multi-agent system orchestrator with deep knowledge of agent coordination, task decomposition, and workflow optimization.
 

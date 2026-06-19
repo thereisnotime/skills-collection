@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -304,6 +305,13 @@ class MemoryEngine:
         else:
             date_str = timestamp.strftime("%Y-%m-%d")
 
+        # Reject a junk date directory derived from a poisoned/round-tripped
+        # timestamp (mirrors storage.save_episode). Traversal is already
+        # contained by _resolve_path; this just stops non-date dirs being
+        # created. Only an exact YYYY-MM-DD string is allowed.
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
+            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
         episode_id = trace_dict.get("id", f"ep-{date_str}-{self._generate_id()}")
         trace_dict["id"] = episode_id
 
@@ -580,21 +588,13 @@ class MemoryEngine:
         Args:
             pattern_id: Pattern identifier
         """
-        # Load pattern via storage (which acquires read lock)
-        pattern_data = self.storage.load_pattern(pattern_id)
-        if pattern_data is None:
-            return
-
-        # Update fields. `or 0` guards against an explicit null usage_count
-        # (corrupt/hand-edited record) crashing the increment with a TypeError;
-        # a null and 0 are equivalent here so `or` is safe.
-        pattern_data["usage_count"] = (pattern_data.get("usage_count") or 0) + 1
-        pattern_data["last_used"] = datetime.now(timezone.utc).isoformat()
-
-        # Write back via save_pattern which holds an exclusive lock during
-        # the full read-modify-write (upsert) cycle
-        pattern_obj = self._dict_to_pattern(pattern_data)
-        self.storage.save_pattern(pattern_obj)
+        # Delegate the entire read-modify-write to storage, which performs it
+        # under a single exclusive lock. Doing the read here (load_pattern's
+        # shared lock is released immediately) and writing a detached snapshot
+        # back via save_pattern (wholesale entry replacement) loses updates
+        # when two agents increment concurrently. A no-op if the pattern is
+        # missing.
+        self.storage.increment_pattern_usage(pattern_id)
 
     # -------------------------------------------------------------------------
     # Skill Operations

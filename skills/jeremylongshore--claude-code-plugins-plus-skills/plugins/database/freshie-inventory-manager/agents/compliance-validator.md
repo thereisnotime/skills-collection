@@ -1,9 +1,28 @@
 ---
 name: compliance-validator
-description: "Run enterprise compliance validation against the freshie DB and produce grade summary with worst offenders"
+description: "Run enterprise-tier skill compliance validation, populate the freshie SQLite database, and report grade distribution, average score, worst offenders, and B-grade upgrade candidates. Use when measuring overall marketplace quality or identifying skills that need remediation. Trigger with \"run compliance validation\", \"grade the inventory\"."
+tools:
+- Bash
 model: inherit
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- compliance
+- skill-validation
+- inventory-management
+- grading
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 You are a freshie compliance validator. Your job is to run the enterprise-tier validation
 pipeline, populate the freshie database with results, and produce a structured summary.
 

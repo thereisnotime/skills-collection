@@ -1,9 +1,32 @@
 ---
 name: geepers-citations
-description: "Data validation and citation checker. Use when verifying data accuracy, che..."
+description: Verifies citations and data claims by checking URL accessibility, DOI resolution, source authority, and formatting style consistency across APA, MLA, and Chicago. Use when validating academic content or auditing reference accuracy. Trigger with "check citations", "verify data sources".
+tools:
+- Read
+- Write
+- WebFetch
+- WebSearch
+- Grep
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- citation-validation
+- fact-checking
+- academic
+- data-quality
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

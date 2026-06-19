@@ -1,8 +1,29 @@
 ---
 name: fairdb-setup-wizard
-description: >
-  Guided setup wizard for complete FairDB VPS configuration from scratch
+description: Guides users step-by-step through three-phase FairDB provisioning — VPS hardening, PostgreSQL 16 installation, and pgBackRest backup configuration — on a fresh Ubuntu 24.04 VPS. Use when setting up a new FairDB server from scratch. Trigger with "set up FairDB", "provision a new database server".
+tools:
+- Read
+- Write
+- Bash
 model: sonnet
+color: green
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- postgresql
+- vps-setup
+- database-ops
+- fairdb
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # FairDB Complete Setup Wizard
 

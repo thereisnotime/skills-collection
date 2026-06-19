@@ -1,6 +1,28 @@
 ---
 name: security-reviewer
-description: Security code review specialist
+description: Scans code for security vulnerabilities (OWASP Top 10, injection, auth flaws, insecure dependencies) and delivers severity-ranked findings with remediation guidance. Use when reviewing authentication logic, APIs, or any security-sensitive code. Trigger with "security review", "audit this code".
+tools:
+- Read
+- Glob
+- Grep
+model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- security
+- code-review
+- vulnerability-detection
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Security Reviewer Agent
 

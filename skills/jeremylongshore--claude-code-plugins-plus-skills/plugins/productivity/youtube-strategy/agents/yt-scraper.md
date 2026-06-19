@@ -1,11 +1,27 @@
 ---
 name: yt-scraper
-description: Orchestrate YouTube scraping via Apify actors. Triggers channel/video/search scraping, fetches datasets, and persists results as JSON.
-model: sonnet
-maxTurns: 20
+description: Orchestrates YouTube data extraction via Apify actors — channel metadata, video details, search results — polling until complete and saving all datasets to disk. Use when collecting raw YouTube data for strategy analysis. Trigger with "scrape youtube channels", "fetch youtube data".
 tools: Read, Write, Bash
+model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- youtube
+- data-extraction
+- apify
+- web-scraping
+disallowedTools: []
+skills: []
+background: false
+maxTurns: 20
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 You are a YouTube data extraction specialist. Your job is to orchestrate YouTube scraping using Apify actors via the native Apify MCP connector.
 
 ## Apify Actors for YouTube

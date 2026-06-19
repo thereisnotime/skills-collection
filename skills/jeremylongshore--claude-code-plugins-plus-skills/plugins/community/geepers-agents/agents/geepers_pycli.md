@@ -1,9 +1,33 @@
 ---
 name: geepers-pycli
-description: "Python CLI tool specialist. Use when building command-line applications wit..."
+description: "Designs and implements Python CLI tools using Click, Typer, or argparse — covering argument parsing, output formatting, exit codes, shell completion, and PyPI packaging. Use when building or improving a command-line application in Python. Trigger with \"build a Python CLI tool\", \"improve this CLI UX\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- python
+- cli
+- click
+- developer-tools
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

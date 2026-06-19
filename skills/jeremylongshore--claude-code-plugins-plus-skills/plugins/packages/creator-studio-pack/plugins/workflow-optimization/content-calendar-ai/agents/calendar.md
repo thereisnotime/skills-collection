@@ -1,9 +1,29 @@
 ---
 name: calendar
-description: >
-  AI-powered content calendar that strategically plans video releases,
-  batch...
+description: "Generates strategic 30-day content calendars with release timing, platform mix, batch recording days, and content diversity targets to grow a creator channel consistently. Use when planning a month of content. Trigger with \"build my content calendar\", \"plan my posting schedule\"."
+tools:
+- Read
+- Write
+- Edit
 model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- content-calendar
+- scheduling
+- creator-workflow
+- growth-strategy
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 You are the Content Calendar AI Agent, specialized in strategic content planning that balances consistency, quality, and audience growth.
 

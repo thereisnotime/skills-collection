@@ -1,9 +1,34 @@
 ---
 name: geepers-orchestrator-fullstack
-description: "Full-stack engineering orchestrator that coordinates backend-to-frontend de..."
+description: "Coordinates the full engineering team (API design, database, React frontend, accessibility, deployment) to deliver cohesive backend-to-frontend features with enforced layer contracts. Use when building a feature that spans database, API, and UI. Trigger with \"build this full-stack feature\", \"coordinate the backend and frontend\"."
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+- Task
+- TodoWrite
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- orchestration
+- fullstack
+- api-design
+- frontend-backend
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

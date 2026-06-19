@@ -10,6 +10,11 @@ const BODY = readFileSync(
   "utf8",
 )
 
+const DOC_BODY = readFileSync(
+  path.join(process.cwd(), "docs/skills/ce-brainstorm.md"),
+  "utf8",
+)
+
 // The 2026-05-13 cloakbrowser brainstorm dogfood put Key Decisions late in
 // the artifact, where it got lost in the details. The decisions in that doc
 // were framing choices that constrained Requirements / Flows / Scope — they
@@ -89,5 +94,15 @@ describe("ce-brainstorm metadata field contract", () => {
       /no `?status`? field|no.*active.*completed/i.test(BODY),
       "brainstorm-sections.md must explicitly state that brainstorms carry no `status` field / `active → completed` lifecycle.",
     ).toBe(true)
+  })
+})
+
+describe("ce-brainstorm user doc section numbering", () => {
+  test("numbered ### sections are sequential", () => {
+    const numbers = [...DOC_BODY.matchAll(/^### (\d+)\./gm)].map((match) => Number(match[1]))
+    expect(numbers.length).toBeGreaterThan(0)
+    numbers.forEach((number, index) => {
+      expect(number).toBe(index + 1)
+    })
   })
 })

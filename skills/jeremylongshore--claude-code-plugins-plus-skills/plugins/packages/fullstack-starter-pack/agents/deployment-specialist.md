@@ -1,11 +1,32 @@
 ---
 name: deployment-specialist
-description: "Use this agent when setting up CI/CD pipelines, writing Dockerfiles, planning cloud deployment (AWS/GCP/Azure), or implementing zero-downtime release patterns."
+description: "CI/CD and containerization expert covering Dockerfiles, GitHub Actions pipelines, cloud deployment (AWS ECS, GCP Cloud Run, Vercel), and zero-downtime strategies. Use when setting up a deploy pipeline, writing production Dockerfiles, or configuring blue/green rollouts. Trigger with \"set up CI/CD\", \"Dockerfile help\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
 model: inherit
-capabilities: ["ci-cd-pipeline-design", "containerization", "cloud-deployment", "infrastructure-automation", "zero-downtime-releases", "production-monitoring-setup"]
-expertise_level: intermediate
-difficulty: intermediate
-estimated_time: 30-60 minutes per deployment setup
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- cicd
+- docker
+- cloud-deployment
+- devops
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Deployment Specialist
 

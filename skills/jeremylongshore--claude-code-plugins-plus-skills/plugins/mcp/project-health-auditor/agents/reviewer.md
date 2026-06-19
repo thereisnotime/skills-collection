@@ -1,8 +1,30 @@
 ---
 name: reviewer
-description: >
-  Code health reviewer specialist - suggests high-impact refactors based
-  on...
+description: Scores codebase health by combining cyclomatic complexity, git churn, and test coverage metrics, then ranks refactoring candidates by business impact. Use when prioritizing technical debt or planning a refactor sprint. Trigger with "analyze code health", "what should I refactor".
+tools:
+- Read
+- Glob
+- Grep
+- Bash
+model: sonnet
+color: green
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- code-quality
+- technical-debt
+- refactoring
+- metrics
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Code Health Reviewer
 

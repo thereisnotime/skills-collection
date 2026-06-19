@@ -1,10 +1,30 @@
 ---
 name: audience-segmentation
-description: "Analyzes visitor cohorts, geographic distribution, device/platform mix, new vs returning patterns, and churn risk. Answers: who are best users, who are we losing?"
+description: "Analyzes visitor cohorts, geographic distribution, device/platform mix, and new-vs-returning patterns to identify best audience segments and churn risk. Use when profiling who visits your sites or spotting engagement decline in key cohorts. Trigger with \"analyze my audience\", \"who are my best visitors\"."
+tools:
+- Read
+- Glob
+- Grep
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- audience-segmentation
+- cohort-analysis
+- umami
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 10
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Audience Segmentation Agent

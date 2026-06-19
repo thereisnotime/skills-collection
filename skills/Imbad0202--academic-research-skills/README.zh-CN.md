@@ -1,6 +1,6 @@
 # Academic Research Skills for Claude Code
 
-[![Version](https://img.shields.io/badge/version-v3.12.1-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.12.1)
+[![Version](https://img.shields.io/badge/version-v3.13.0-blue)](https://github.com/Imbad0202/academic-research-skills/releases/tag/v3.13.0)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20696614.svg)](https://doi.org/10.5281/zenodo.20696614)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-lightgrey)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Sponsor](https://img.shields.io/badge/sponsor-Buy%20Me%20a%20Coffee-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/crucify020v)
@@ -230,7 +230,7 @@ ARS Stage 2 写作      →  用验证过的实验结果撰写论文
 
 各 agent 的职责与各阶段产出物现已移至 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)。版本号保留在此以维持 release metadata 集中管理。
 
-### Deep Research (v2.10.0)
+### Deep Research (v2.11.0)
 
 13 个 Agent 的研究团队。模式：full、quick、review、lit-review、three-way-scan、fact-check、socratic、systematic-review。完整 agent 名单与产出物：见 ARCHITECTURE.md §3。
 
@@ -242,7 +242,7 @@ ARS Stage 2 写作      →  用验证过的实验结果撰写论文
 
 7 个 Agent 的多视角审查，搭配 **0-100 质量量表**。模式：full、re-review、quick、methodology-focus、guided、calibration。**决策对照：** ≥80 接受、65-79 小修、50-64 大修、<50 退稿。第一轮审查团队 vs. 精简再审团队的分界：见 ARCHITECTURE.md §3 Stage 3 / Stage 3'。
 
-### Academic Pipeline (v3.12.1)
+### Academic Pipeline (v3.13.0)
 
 10 阶段调度器，含学术诚信验证、两阶段审查、苏格拉底指导、协作质量评估。Pipeline 保证：每个阶段都需用户确认 checkpoint；学术诚信验证（Stage 2.5 + 4.5）不可跳过；R&R 追溯矩阵（Schema 11）独立验证作者修订主张。v3.4 添加 Compliance Agent（PRISMA-trAIce + RAISE）于 Stage 2.5 / 4.5。v3.5 添加 **协作深度观察员**（`collaboration_depth_agent`，仅咨询性质、永不阻挡流程）于每一次 FULL/SLIM checkpoint 与 pipeline 完成时。MANDATORY 学术诚信闸门（2.5 / 4.5）明确跳过观察员，避免稀释合规检查。理论基础：Wang & Zhang (2026), IJETHE 23:11。逐阶段矩阵（agent、产出物、闸门）：见 ARCHITECTURE.md §3。
 
@@ -305,6 +305,10 @@ https://github.com/Imbad0202/academic-research-skills
 ---
 
 ## 更新纪录
+
+### v3.13.0（2026-06-18）— Hook 可移植性、provider-agnostic 验证、guard 正确性
+
+> 一个 minor release，强化安装／执行面并扩展跨模型范围。**修正：** 写入范围 guard 在 git-clone + symlink 安装布局下不再误挡使用者自己的 `CLAUDE.md`（#459，收掉 #448/#449 的残余一半——`CLAUDE.md` 是文档而非承载 enforcement 的档案，故移出 infra 保护清单，所有承载档案仍受保护）；Windows Python hook 可移植性 + 无 Python 时优雅降级，改由跨平台 `hooks/run_guard.sh` launcher 启动，会拒绝 0-byte 的 Microsoft Store `python3` stub 且不再洗 hook log（#454）；`draft_writer` dual-phase static union 文档化 + Windows POSIX-safe 路径匹配（#451）。**新增：** provider-agnostic 跨模型验证，接受 OpenAI 相容端点（MiMo、DeepSeek、自架）与 grounded first-party OpenAI 并存，且后者绝不被静默降级（#455）；opt-in 的 Socratic 邻近 framing probe（借自 STORM 的视角扩展，`ARS_SOCRATIC_ADJACENT_PROBE=1`，预设 OFF，纯 prose-layer——`deep-research` 2.10.0 → 2.11.0）（#461）。`academic-pipeline` 随 suite 至 v3.13.0；`academic-paper` 与 `academic-paper-reviewer` 不变。逐 issue 细节见 `CHANGELOG.md`。
 
 ### v3.12.1（2026-06-15）— 审稿回复分流模式（PR #433 整合）
 

@@ -1,6 +1,32 @@
 ---
 name: terraform-architect
-description: Terraform infrastructure as code expert
+description: "Terraform IaC expert covering modules, multi-cloud resources, remote state backends, and workspace management. Use when building or refactoring .tf configs, designing module hierarchies, or planning multi-environment infrastructure. Trigger with \"terraform help\", \"IaC setup\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
+model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- terraform
+- infrastructure-as-code
+- multi-cloud
+- devops
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 <!-- DESIGN DECISION: Why this agent exists -->
 <!-- Terraform is the standard for Infrastructure as Code but has complex patterns

@@ -20,8 +20,10 @@
 // intentionally NOT touched -- they remain on the legacy bare-PAUSE path
 // under LOKI_LEGACY_BASH=1. That is a Phase 6-of-Part-A concern.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { durableWriteThenRename } from "../util/atomic.ts";
 
 import type { Finding } from "./findings_injector.ts";
 import { loadPreviousFindings } from "./findings_injector.ts";
@@ -91,12 +93,13 @@ export function renderHandoff(
 
   lines.push("## What the human must decide");
   lines.push("");
-  lines.push("- Approve override? Write `.loki/state/counter-evidence-<iter>.json` with one entry per finding to dispute, then `rm .loki/PAUSE` to resume.");
+  lines.push("- Fix the finding? Address it in the code, then `rm .loki/PAUSE` to resume. A code_review BLOCK is NOT lifted by self-supplied counter-evidence -- the gated agent authors that file, so it cannot self-certify a trust-gate finding away.");
+  lines.push("- Override after your own review? You (the operator) are the escape path: review the finding and, if you accept it, `rm .loki/PAUSE` to resume. To direct the agent on resume, `echo \"instructions\" > .loki/HUMAN_INPUT.md` first.");
   lines.push("- Disable a gate? Set `LOKI_GATE_<NAME>=false` in env (see skills/quality-gates.md).");
   lines.push("- Tweak escalation? Set `LOKI_GATE_PAUSE_LIMIT` or `LOKI_GATE_ESCALATE_LIMIT`.");
   lines.push("- Roll back? Switch to `LOKI_LEGACY_BASH=1` and re-run; the bash route does not consult this handoff doc.");
   lines.push("");
-  lines.push("To resume: address the findings (or supply counter-evidence) and `rm .loki/PAUSE`.");
+  lines.push("To resume: fix the findings (or, after your own review, accept them), then `rm .loki/PAUSE`.");
 
   return lines.join("\n");
 }
@@ -115,12 +118,15 @@ export type WriteHandoffOpts = {
 // crash mid-write left a truncated handoff -- the operator's only post-
 // mortem artifact. Now: keep millisecond resolution + per-process counter
 // in the filename, and write via tmp+rename (atomic POSIX semantics).
+//
+// v7.77.0 (W77-D MED): delegate to durableWriteThenRename so the handoff doc is
+// fsync'd before the rename and the directory entry is fsync'd after -- the
+// operator's only post-mortem artifact must survive a crash, not just an
+// orderly exit. The per-process counter in the target filename already makes
+// each handoff path unique, so the shared helper's own tmp suffix is enough.
 let _handoffCounter = 0;
 function _atomicWrite(target: string, body: string): void {
-  mkdirSync(dirname(target), { recursive: true });
-  const tmp = `${target}.tmp.${process.pid}.${++_handoffCounter}`;
-  writeFileSync(tmp, body);
-  renameSync(tmp, target);
+  durableWriteThenRename(target, body);
 }
 
 // Produce + write the handoff doc. Returns the path so callers can log it.

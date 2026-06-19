@@ -39,7 +39,7 @@ JA_README_TEMPLATE = """\
 
 #### Academic Pipeline（オーケストレーター）
 
-### Deep Research（v2.10.0）
+### Deep Research（v2.11.0）
 ### Academic Paper（v3.2.0）
 ### Academic Paper Reviewer（v1.10.0）
 ### Academic Pipeline（v{ver}）
@@ -109,7 +109,7 @@ ZH_CN_README_TEMPLATE = """\
 
 #### Academic Pipeline（全流程调度器）
 
-### Deep Research (v2.10.0)
+### Deep Research (v2.11.0)
 ### Academic Paper (v3.2.0)
 ### Academic Paper Reviewer (v1.10.0)
 ### Academic Pipeline (v{ver})
@@ -176,7 +176,7 @@ ZH_TW_README_TEMPLATE = """\
 
 #### Academic Pipeline（全流程調度器）
 
-### Deep Research (v2.10.0)
+### Deep Research (v2.11.0)
 ### Academic Paper (v3.2.0)
 ### Academic Paper Reviewer (v1.10.0)
 ### Academic Pipeline (v{ver})
@@ -240,7 +240,7 @@ class TestReadmeJaSections(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             csc.ROOT = root
-            _write_ja_readme(root, version="3.12.1")
+            _write_ja_readme(root, version="3.13.0")
 
             csc.check_readme_ja_sections()
 
@@ -260,17 +260,17 @@ class TestReadmeJaSections(unittest.TestCase):
             # Write the "current" v3.9.4.2 release block but downgrade only
             # the badge and tag link to v3.9.4.0. This is the realistic shape
             # of drift when one place gets forgotten during a release.
-            stale = JA_README_TEMPLATE.format(ver="3.12.1").replace(
-                "version-v3.12.1-blue", "version-v3.9.4.0-blue"
+            stale = JA_README_TEMPLATE.format(ver="3.13.0").replace(
+                "version-v3.13.0-blue", "version-v3.9.4.0-blue"
             ).replace(
-                "releases/tag/v3.12.1", "releases/tag/v3.9.4.0"
+                "releases/tag/v3.13.0", "releases/tag/v3.9.4.0"
             )
             (root / "README.ja-JP.md").write_text(stale, encoding="utf-8")
 
             csc.check_readme_ja_sections()
 
             self.assertTrue(
-                any("README.ja-JP.md" in e and "v3.12.1" in e for e in csc.ERRORS),
+                any("README.ja-JP.md" in e and "v3.13.0" in e for e in csc.ERRORS),
                 msg=f"expected ja-JP drift error in: {csc.ERRORS!r}",
             )
 
@@ -296,8 +296,8 @@ class TestReadmeZhSections(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             csc.ROOT = root
-            _write_zh_tw_readme(root, version="3.12.1")
-            _write_zh_cn_readme(root, version="3.12.1")
+            _write_zh_tw_readme(root, version="3.13.0")
+            _write_zh_cn_readme(root, version="3.13.0")
 
             csc.check_readme_zh_sections()
 
@@ -313,18 +313,18 @@ class TestReadmeZhSections(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             csc.ROOT = root
-            _write_zh_tw_readme(root, version="3.12.1")
-            stale = ZH_CN_README_TEMPLATE.format(ver="3.12.1").replace(
-                "version-v3.12.1-blue", "version-v3.9.4.0-blue"
+            _write_zh_tw_readme(root, version="3.13.0")
+            stale = ZH_CN_README_TEMPLATE.format(ver="3.13.0").replace(
+                "version-v3.13.0-blue", "version-v3.9.4.0-blue"
             ).replace(
-                "releases/tag/v3.12.1", "releases/tag/v3.9.4.0"
+                "releases/tag/v3.13.0", "releases/tag/v3.9.4.0"
             )
             (root / "README.zh-CN.md").write_text(stale, encoding="utf-8")
 
             csc.check_readme_zh_sections()
 
             self.assertTrue(
-                any("README.zh-CN.md" in e and "v3.12.1" in e for e in csc.ERRORS),
+                any("README.zh-CN.md" in e and "v3.13.0" in e for e in csc.ERRORS),
                 msg=f"expected zh-CN drift error in: {csc.ERRORS!r}",
             )
 

@@ -1,9 +1,32 @@
 ---
 name: geepers-swarm-research
-description: "Multi-tier research agent that scales from quick queries to comprehensive m..."
+description: "Scales research depth from Quick (3-5 sources) to Swarm (10-20 multi-domain) to Hive (25+ via 5 decomposed sub-investigations), saving APA-cited reports. Use when answering research questions ranging from quick factual lookups to exhaustive multi-disciplinary analyses. Trigger with \"research this topic\", \"do a deep dive on this\"."
+tools:
+- Read
+- Write
+- WebFetch
+- WebSearch
+- Task
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- research
+- web-search
+- multi-agent
+- knowledge-synthesis
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

@@ -1,9 +1,32 @@
 ---
 name: geepers-validator
-description: "Agent for comprehensive project validation - checking configurations, pat..."
+description: Validates all aspects of a project before deployment — config files, paths, permissions, ports, service status, and cross-service integration — then produces a categorized report with actionable fixes. Use when preparing to deploy or debugging mysterious failures. Trigger with "validate project", "pre-deploy check".
+tools:
+- Read
+- Bash
+- Glob
+- Grep
+- Write
 model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- project-validation
+- pre-deploy
+- config-audit
+- devops
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

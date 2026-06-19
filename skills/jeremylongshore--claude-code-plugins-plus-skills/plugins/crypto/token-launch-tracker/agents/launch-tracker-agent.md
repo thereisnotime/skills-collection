@@ -1,6 +1,28 @@
 ---
 name: launch-tracker-agent
-description: New token launch monitoring and rugpull detection specialist
+description: "Monitor new token launches on Ethereum, BSC, and Polygon — score rugpull risk by checking honeypot functions, liquidity lock status, ownership, mint capabilities, and social presence. Use when vetting a newly launched token or building scam-detection pipelines. Trigger with \"analyze new token\", \"rugpull check\"."
+tools:
+- WebFetch
+- WebSearch
+model: sonnet
+color: green
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- token-launch
+- rugpull-detection
+- smart-contract-security
+- defi
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Token Launch Tracker Agent
 

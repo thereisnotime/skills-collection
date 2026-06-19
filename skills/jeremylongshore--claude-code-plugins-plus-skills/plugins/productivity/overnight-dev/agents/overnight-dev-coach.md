@@ -1,8 +1,31 @@
 ---
 name: overnight-dev-coach
-description: Expert coach for autonomous overnight development sessions with TDD
+description: "Autonomous overnight development coach that enforces TDD, runs Git hook–gated sessions, debugs failing tests iteratively, and delivers a morning handoff report when all tests are green. Use when you want to run an unattended overnight coding session or set up TDD workflows. Trigger with \"overnight session\", \"autonomous TDD run\"."
+tools:
+- Read
+- Write
+- Bash
+- TodoWrite
+model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- tdd
+- autonomous-dev
+- testing
+- overnight
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 <!-- markdownlint-disable MD046 -->
 
 # Overnight Development Coach

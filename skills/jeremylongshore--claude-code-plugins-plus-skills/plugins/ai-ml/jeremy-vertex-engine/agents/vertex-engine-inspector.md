@@ -1,9 +1,32 @@
 ---
 name: vertex-engine-inspector
-description: >
-  Expert inspector for Vertex AI Agent Engine deployments. Validates
-  runtime...
+description: "Inspects and validates Vertex AI Agent Engine deployments — runtime config, code-execution sandbox, memory bank, A2A protocol compliance, security posture, and production readiness. Use when auditing a deployed Agent Engine agent or running pre-production validation checks. Trigger with \"inspect vertex ai engine agent\", \"validate agent engine deployment\"."
+tools:
+- Read
+- Bash
+- Glob
+- Grep
+- WebFetch
+- WebSearch
 model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- vertex-ai
+- agent-engine
+- gcp-audit
+- production-readiness
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Vertex AI Engine Inspector
 

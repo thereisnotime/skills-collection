@@ -1,9 +1,33 @@
 ---
 name: geepers-flask
-description: "Flask application specialist. Use when building, reviewing, or debugging Fl..."
+description: "Flask specialist for building, reviewing, and debugging Flask apps — blueprints, app factory, extensions, error handling, deployment. Use when creating a Flask API or diagnosing Flask-specific issues. Trigger with \"build a Flask app\", \"debug my Flask routes\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- flask
+- python
+- web-framework
+- api-development
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

@@ -1,10 +1,30 @@
 ---
 name: memory-agent
-description: "Maintains rolling analytics context — baselines, historical trends, and learned patterns. Prevents cold starts by giving every report period-over-period awareness."
+description: "Maintains rolling 90-day analytics baselines, learned seasonal patterns, and anomaly history so specialist agents never start cold. Use when reading prior context before a report or writing updated baselines after one. Trigger with \"load analytics context\", \"update analytics baselines\"."
+tools:
+- Read
+- Write
+- Glob
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- baseline-tracking
+- context-persistence
+- umami
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 8
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Memory Agent

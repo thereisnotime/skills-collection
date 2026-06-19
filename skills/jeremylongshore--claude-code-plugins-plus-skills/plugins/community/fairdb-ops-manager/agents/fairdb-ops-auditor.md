@@ -1,9 +1,29 @@
 ---
 name: fairdb-ops-auditor
-description: >
-  Operations compliance auditor - verify FairDB server meets all SOP
-  requirements
+description: Audits FairDB VPS instances at three depth levels against SOP-001 (security), SOP-002 (PostgreSQL config), and SOP-003 (backup integrity), producing a scored compliance report with remediation steps. Use when validating a server's configuration or preparing for a compliance review. Trigger with "audit this FairDB server", "run a compliance check".
+tools:
+- Read
+- Write
+- Bash
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- postgresql
+- compliance-audit
+- database-ops
+- fairdb
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # FairDB Operations Compliance Auditor
 

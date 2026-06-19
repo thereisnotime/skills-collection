@@ -9,6 +9,347 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.78.0] - 2026-06-19
+
+### Dead-code removal + ALLOWED_PATHS honesty
+
+Cleanup release. No behavior change for any live path.
+
+- Removed 18 orphan bash functions from autonomy/run.sh (~946 lines), each proven
+  to have zero callers across the whole repo including dynamic dispatch
+  (eval / `type fn && fn` from autonomy/loki / traps / export -f / hook patterns)
+  and the bash<->Bun parity mirrors. Removed: the unused notify_task_* /
+  notify_phase_complete / notify_all_complete wrappers (the live helpers are
+  notify_intervention_needed / notify_rate_limit), spawn_feature_stream,
+  load_learnings_context, set_phase, save_learning, get_gate_failure_count,
+  generate_dashboard (the largest dead block, ~431 lines; the CLI uses
+  cmd_dashboard / server.py), list_checkpoints + rollback_to_checkpoint (the live
+  path is the cmd_rollback CLI), get_phase_names, get_complexity_phases,
+  enrich_from_knowledge_graph, store_to_knowledge_graph, and run_adversarial_testing.
+  Functions that LOOK orphan but are reachable (export_tasks_to_github via the
+  loki dispatch, check_command_allowed for external sandbox/hook callers) were
+  kept.
+- ALLOWED_PATHS honesty: LOKI_ALLOWED_PATHS was documented as a path-restriction
+  security control but the value was read from config and never enforced by any
+  runtime check. The docs/comments now state plainly that it is reserved and NOT
+  enforced (agent writes are constrained by the OS user + container sandbox, not
+  by this var), so no one relies on a control that does not exist. Wiring real
+  enforcement is deferred to a dedicated, tested feature. (The sibling
+  check_command_allowed / BLOCKED_COMMANDS helper is defined but, like
+  ALLOWED_PATHS, is not invoked by the live run.sh loop today; it is retained for
+  external callers such as sandbox.sh / hooks. Both are unchanged here.)
+- Reconciled stale references to the removed functions in loki-ts comments
+  (quality_gates.ts, checkpoint.ts), two bash tests, and NOTIFY_INTEGRATION.md.
+
+local-ci 85/0. Full bash + memory + dashboard + loki-ts test sweep green.
+
+## [7.77.0] - 2026-06-19
+
+### WAVE13-TAIL hardening: council timeout, /lab auth, memory + durability
+
+Final wave-13 bug-fix batch. Council 3/3.
+
+- Council dispatch timeout (HIGH regression): the Phase C completion-council
+  dispatch (autonomy/lib/voter-agents.sh) invoked `claude --agents` with no
+  timeout, so a hung dispatch stalled the entire run indefinitely. It is now
+  wrapped in `timeout ${LOKI_COUNCIL_REVIEW_TIMEOUT:-600}` (parity with the
+  heuristic path); a timeout (exit 124) or any non-zero exit falls back to the
+  heuristic council and can never become a false COMPLETE.
+- Dashboard /lab auth (HIGH, enterprise-auth mode): the Purple Lab sub-app
+  mounted at /lab bypassed the dashboard's auth because Starlette does not
+  propagate a parent app's auth to a mounted sub-app, leaving file write/delete
+  and process-spawn routes reachable unauthenticated when LOKI_ENTERPRISE_AUTH
+  was on. A mount-boundary ASGI guard now enforces the same scoped token as the
+  dashboard for all /lab/* requests; with auth off it is a pass-through (local
+  dashboards unchanged). Read endpoints that were missing require_scope("read")
+  (and /api/logs) are now consistent with their gated siblings.
+- Memory: bounded the keyword-search episodic scan (was unbounded); removed the
+  consolidation lock-file unlink that reintroduced a flock+unlink inode race
+  (two consolidations could run concurrently); load_episode now sanitizes the
+  episode id symmetrically with save_episode; store_episode validates the date
+  string.
+- Bun runtime durability: atomic writers now fsync the temp file before rename
+  and fsync the parent directory after, so tmp+rename gives durability not just
+  ordering. Subprocess stdout reads are capped at 16 MB.
+
+local-ci 85/0. Memory 28 + 9 tests, loki-ts 1098 tests, council quorum 7/7 all
+green; dashboard auth behavior verified (off = pass-through, on = 401/403/200).
+
+## [7.76.0] - 2026-06-19
+
+### Memory data-integrity fixes + dashboard UX
+
+Two HIGH memory data-integrity fixes and three dashboard usability improvements.
+Council 3/3. Memory: 28 + 9 existing tests pass plus adversarial concurrency
+probes (200-800 threads, zero lost updates).
+
+Memory:
+- Lost-update fix in pattern usage counting: increment_pattern_usage now performs
+  the entire read-mutate-write inside one exclusive file lock (new
+  storage.increment_pattern_usage, mirroring the boost path). The old path read
+  under a shared lock released immediately, mutated a detached object, then wrote
+  it back wholesale, dropping concurrent increments. The lock is reentrant, so the
+  inner atomic write does not deadlock.
+- Ingest idempotency: episode ids are now derived deterministically from the stable
+  session/task key (ep-<sha1[:12]>) with an existence check, so re-ingesting the
+  same session no longer double-counts episodes / cost / tokens. Keyless ingests
+  keep a random id (no false aliasing).
+- Cross-project pattern JSONL append is now done under an exclusive flock with
+  flush + fsync (buffer-all-rows-first), so concurrent writers cannot interleave or
+  tear lines; the reader logs dropped corrupt lines instead of silently skipping.
+
+Dashboard:
+- Overview tasks list: pagination + compact-by-default cards + status/priority
+  filtering, replacing the unbounded infinite scroll.
+- App Runner: the embedded app preview uses the full available width, and when the
+  running app exposes more than one service (UI plus API) the preview shows
+  per-service tabs. The tab bar is latent for single-service apps. The iframe src
+  is restricted to http/https and all labels/URLs are escaped.
+- Sidebar: running apps are surfaced in a dedicated, emphasized group (dropdown +
+  live count + tidy stop list), visually separated from inactive/known projects,
+  replacing the clumsy flat pill stack. Focus/stop/poll behavior is unchanged.
+
+## [7.75.0] - 2026-06-19
+
+### Enterprise container deployment: pod-loss-safe run-to-completion
+
+Loki Mode now deploys as a pod-loss-safe run-to-completion build in Kubernetes
+(and the same model maps to ECS run-task and docker-run + systemd). A single build
+is a k8s Job, not a long-lived Deployment, leaning on the platform's native
+restart primitives instead of a custom retry loop. The architecture was decided by
+a 3-reviewer council against the real code after the first proposal was rejected for
+overclaiming resilience the code did not have. All new runtime behavior is OPT-IN
+via `LOKI_DURABLE_STATE=1` (set automatically by the Helm chart). Local and CI runs
+are byte-for-byte unaffected (verified by the council and the test suite).
+
+- Durable-state substrate: all per-build state (`.loki/` checkpoints, state, queue,
+  signals, logs, the agent feature branch, and the `refs/loki/cp/*` checkpoint refs
+  in the checkout's `.git`) lives under the working directory, so mounting ONE
+  durable volume at the container workdir makes a build survive pod loss with no
+  path refactor. A startup assertion (`LOKI_DURABLE_STATE=1` only) fails fast with
+  exit 20 if the mount is missing or read-only, instead of silently losing state on
+  the first crash. The machine-global registry stays off the volume; `/tmp` scratch
+  stays ephemeral.
+- Crash-resume: in durable mode, a build whose pod was killed mid-run (status
+  `running`) with a valid run-start-SHA baseline on the volume RESUMES from its last
+  iteration on Job restart, instead of restarting from scratch. The agent branch,
+  checkpoint refs, queue, and checklist all survive on the volume and the next
+  iteration continues from them. Resume re-enters the RARV verification loop: a crash
+  never inherits a gate PASS, and a completed-then-rerun is still a new run. Outside
+  durable mode, the original safe reset behavior is unchanged.
+- Platform exit-code contract: in durable mode the process exit code is `0` for a
+  completed / human-stopped run, `20` for a deterministic terminal failure (failed
+  gate, max iterations) so the Job's podFailurePolicy fails it immediately without
+  burning retries, and a retryable nonzero for a crash so the Job retries and
+  resumes. (Local/CI exit codes are unchanged.)
+- Idempotent PR: the auto-PR and delegate-PR paths now check for an existing open PR
+  for the head branch before creating one, so a platform retry never opens a
+  duplicate PR. (Applies to the opt-in `LOKI_AUTO_PR=1` / `LOKI_DELEGATE_PR=1`
+  paths; the default advisory-only path is unchanged.)
+- Helm chart (`deploy/helm/autonomi`): the RARV worker is now a `batch/v1` Job
+  (restartPolicy Never + backoffLimit + activeDeadlineSeconds + podFailurePolicy:
+  exit 20 -> FailJob, pod eviction -> Ignore) with one durable volume at the
+  workdir and `LOKI_DURABLE_STATE=1` set. The broken liveness probe (`pgrep -f loki`
+  matched a hung process) and the phantom readiness probe (a file nothing created)
+  are removed. Decorative, never-read `LOKI_CHECKPOINT_DIR` / `LOKI_AUDIT_LOG_PATH`
+  env are removed. `worker.spec` selects what the Job builds (repo at the mounted
+  workdir, a PRD path, or a GitHub issue ref). The control plane stays a Deployment;
+  its audit mount now points at the path `dashboard/audit.py` actually writes. HPA /
+  worker Service / worker PDB render only under an opt-in `worker.mode: deployment`
+  (a reserved queue-consumer stub, off by default). Chart appVersion and image tag
+  bumped to current. Requires Kubernetes 1.31+ for the podFailurePolicy exit-code
+  contract.
+
+Honest scope (NOT claimed): the worker audit is plain JSONL on the durable volume
+(survives pod loss); it is not tamper-evident and not shipped to a SIEM (the
+hash-chained audit is the control-plane chain; full SIEM ingestion is roadmap). The
+`/workspace` volume is empty on a fresh install (the chart does not clone the repo
+or place the PRD; the operator pre-seeds it or passes an issue ref). A Job's
+template is immutable, so changing image/spec/resources means a new release, not an
+in-place upgrade. One build per release (one Job + one RWO volume); concurrent
+builds need separate releases. SSO/SAML, SCIM, app-level RBAC, and SOC2 remain
+roadmap, not present. The object-store checkpoint sync, the queue-consumer and
+serverless fleet modes, and the unified `--config` file loader are deferred to
+later releases.
+
+## [7.74.0] - 2026-06-18
+
+### Trust-gate hardening (completion + override + registry)
+
+A deep-hunt wave found and fixed trust-surface defects on the live `loki start` path.
+
+- Override council fail-closed: the agent-authored counter-evidence override (the
+  stub route reached by `loki start`) previously lifted a real Critical/High
+  code_review BLOCK when the gated agent supplied a trusted proofType plus any
+  artifact string. Because the gated agent authors the counter-evidence file
+  itself, this was self-certification: a trust gate the gated party can bypass is
+  not a gate. The stub route now lifts NOTHING. A code_review BLOCK is cleared only
+  by the operator (review and fix, or the human-escape path), or by the real
+  multi-judge override council (an adjudicator the agent does not control), which
+  is unchanged. Escalation and docs re-framed to stop promising that self-supplied
+  counter-evidence lifts a block.
+- Completion-council quorum fix: the live multi-agent vote computed its quorum
+  denominator from the number of findings the model returned, not the expected
+  council size, so a degraded response with a single APPROVE could declare a run
+  COMPLETE and silently skip the anti-sycophancy devil's-advocate. The quorum is
+  now computed against the expected council size with an exact-quorum assertion;
+  a partial or malformed response fails closed (never COMPLETE).
+- Project registry corruption fix: `loki projects add|remove|sync` now go through
+  the locked, atomic registry API (matching the v7.45.1 hardening) instead of an
+  unlocked truncating write that could lose updates or expose a partial file to a
+  concurrent reader.
+- Smaller fixes in the CLI: honest errors instead of silent set -e aborts when a
+  value flag is the last argument (`loki docker --image`, `loki watch --interval`
+  / `--debounce`), and `loki context add` no longer crashes on filenames with an
+  apostrophe.
+
+## [7.73.0] - 2026-06-18
+
+### Feature-branch by default + advisory PR (enterprise-ready git flow)
+
+`loki start` now works out of a feature branch by default. It branches off the
+branch you ran it from (no longer hardcoded to main), commits the work at session
+end, and PRINTS the exact `git push` + `gh pr create` commands for YOU to open the
+pull request. This is the enterprise path: for teams whose existing CI/CD pipeline
+deploys on push/merge, "git commit + open a PR" IS the deploy, and Loki now leaves
+you on a committed branch ready to PR.
+
+- Branch is created off the run-from branch and persisted as the PR base (fixes the
+  prior hardcoded `main`). Detached HEAD and non-git directories no-op honestly.
+- Session-end commit is gated to Loki-minted `loki/session-*` branches only; a
+  branch you named yourself is never auto-committed.
+- Resume reuses the existing agent branch instead of minting a new one.
+- Secret-safe staging: `.loki/` runtime state is self-ignored, and every staged
+  file is scanned (filename heuristic + content patterns, including URI-embedded
+  credentials like `postgres://user:pass@host` and `redis://:pass@host`). If a
+  possible secret is detected the commit ABORTS, leaving your work uncommitted with
+  an honest message naming the file -- it never commits a possible secret.
+- PR is advisory by default (Loki prints, you run it). `LOKI_AUTO_PR=1` restores
+  auto-push + auto-PR for anyone who wants it (now with the correct `--base`).
+- `LOKI_BRANCH_PROTECTION=false` remains a full opt-out (prior behavior preserved).
+
+### `loki deploy`: advisory, print-only deploy guidance (CI/CD-aware)
+
+New `loki deploy` detects your project type and your installed cloud CLI, and
+PRINTS the exact deploy command for you to run. It NEVER deploys, NEVER runs a
+cloud CLI (not even `--version`), and NEVER runs `git push` -- Loki does not access
+your cloud account. When a CI/CD pipeline config is detected (GitHub Actions,
+GitLab CI, Jenkins, CircleCI, Azure Pipelines, Bitbucket), the primary advice is
+the git push + pull-request path, because your pipeline deploys on merge; cloud-CLI
+options (vercel/netlify/fly/wrangler) are shown as secondary. Best-effort clipboard
+copy of the idiomatic command.
+
+## [7.72.0] - 2026-06-18
+
+### Public preview link: share the app Loki built
+
+`loki preview --public` creates a PUBLIC URL for the app Loki built and is
+running locally, by wrapping YOUR OWN tunnel client (cloudflared or ngrok), so
+you can send a teammate or client a link to the live build. Loki never proxies
+the traffic and never bundles or downloads a tunnel binary -- your tunnel
+account is what egresses, by your explicit choice, preserving the
+"your keys, nothing leaves your network" model.
+
+```
+loki preview --public                 # auto-detect cloudflared, then ngrok
+loki preview --public --provider ngrok
+loki preview --public --yes           # skip the consent prompt (warning still shown)
+```
+
+- Consent-gated, default-OFF: it always prints a clear warning (the app may have
+  no auth; anyone with the URL can reach it; it stays up until you stop it), and
+  on an interactive terminal asks `[y/N]` (default no). Non-interactive use
+  requires `--yes`; without it on a non-TTY, it refuses rather than silently
+  exposing anything.
+- Preconditions: the app must be running (state.json present, status running) and
+  its local port must actually respond -- a dead port is never tunneled.
+- Provider allowlist (cloudflared|ngrok only), honest install hint when neither
+  is present (never a fake success), and a foreground lifecycle with Ctrl+C +
+  trap teardown so a failed or finished attempt never leaves an orphaned public
+  tunnel. Host-header rewrite is on by default (fixes the common dev-server
+  "Invalid Host header"); disable with --no-host-rewrite.
+- Architect-planned (docs/PREVIEW-LINK-PLAN.md), reviewed by a 3-reviewer council
+  to unanimous approve (consent-unbypassable, no-orphan-tunnel, and no-injection
+  all independently verified). bash-only; no dist behavior change.
+
+## [7.71.0] - 2026-06-18
+
+### Live in-terminal build HUD
+
+`loki start ./prd.md` now shows a live per-iteration status line in an interactive
+terminal, so the build is no longer silent between the start banner and the end
+summary. Each iteration prints one clean line:
+
+```
+[HUD] REASON | iter 3/1000 | $0.42 | +180/-24 (4 files) | took 37s | elapsed 2m11s
+```
+
+- Fields: RARV phase, iteration N/max, cumulative cost (the same total the
+  dashboard shows), files changed (+/-) since the run started, this iteration's
+  duration, and total elapsed. ETA is shown only when an explicit small
+  LOKI_MAX_ITERATIONS is set. Any field whose data is unavailable (non-Claude
+  provider with no cost, non-git dir) is omitted rather than faked.
+- TTY-gated and opt-out: the HUD renders only on an interactive foreground TTY
+  and never in CI, pipes, or `--bg`. Off-TTY output is byte-identical to before
+  (verified). Set LOKI_HUD=0 to disable.
+- It is an append-only line at each iteration boundary (not a repainting status
+  bar), so it does not fight the agent's streamed output, and it is never written
+  to the logs or dashboard. Reviewed by a 3-reviewer council to unanimous approve.
+
+## [7.70.0] - 2026-06-18
+
+### Deep bug-hunt sweep (wave-11): cross-route trust guards + fail-closed healing gate + 6 more
+
+A 12-agent file-sharded verify-then-fix hunt covering the deferred cross-file
+follow-ups from wave-10 plus fresh surfaces. Every finding reproduced before
+fixing; STALE findings refuted with evidence (the rarv/autonomous/state Bun
+runner was hunted and found parity-correct, no changes). Council 3/3; local-ci
+84/84 (now including a dist-freshness gate); bun 1093, python 1337.
+
+Trust surfaces:
+- Override stub-judge artifact check (BOTH routes): the deterministic override
+  judge (used when the LLM judge panel is unavailable) approved an override
+  purely on a trusted proofType, never checking evidence.artifacts. So
+  counter-evidence with a trusted proofType but empty/whitespace-only/forged
+  artifacts lifted a BLOCK with zero real verification. Both the Bun
+  quality_gates.ts path and the live `loki internal phase1-hooks override` path
+  (internal_phase1.ts) now require at least one non-empty artifact before a
+  trusted proofType yields APPROVE_OVERRIDE; empty -> the BLOCK stays.
+- Healing friction gate (bash): hook_pre_healing_modify, whose job is to BLOCK
+  removal of unclassified business-rule friction, failed OPEN on a corrupt or
+  empty friction-map.json (the python check ended with `|| echo "OK"`). It now
+  fails closed (BLOCK) on a parse error, matching every sibling gate in the file.
+
+Provider cost ceiling:
+- LOKI_MAX_TIER is now honored case-insensitively for the Codex provider on both
+  routes (providers/codex.sh resolve_model_for_tier and providers.ts
+  applyCodexMaxTier). Previously a mixed-case or whitespace value ("Haiku",
+  " haiku ") capped Claude but fell through to the default on Codex, silently
+  bypassing the cost ceiling. Normalization mirrors the Claude precedent exactly.
+
+PRD reuse:
+- Persisting a user PRD that contains non-ASCII characters (smart quotes,
+  accents, CJK, emoji) no longer corrupts it: the persist did a lossy latin1
+  round-trip (`toString("binary")` then utf8 write), which also made the next
+  same-spec run misclassify the PRD as hand-edited. Now a byte-exact rename.
+
+Memory:
+- Progressive-disclosure Layer-3 gate now uses the keyword-boosted effective
+  score (not the un-boosted stored relevance), so the topics most relevant to
+  the query are actually loaded into full detail (sibling of the WT9 fix); plus
+  a dead local removed.
+
+Honesty:
+- The Aider provider now discloses its no-parallel limitation in its degraded
+  reasons; a misleading Claude max-tier comment was corrected (behavior
+  unchanged, parity-locked).
+
+### CI
+- local-ci now gates dist freshness: it rebuilds loki-ts/dist/loki.js and
+  asserts the committed bundle matches a fresh build (ignoring the per-build
+  debugId line), so a forgotten rebuild can no longer ship stale runtime
+  behavior (the class that affected v7.68.0 and was caught in v7.69.0 review).
+
 ## [7.69.0] - 2026-06-18
 
 ### Deep bug-hunt sweep (wave-10): 9 fixes across council, app-runner, MCP, dashboard, memory, Bun runner, CLI

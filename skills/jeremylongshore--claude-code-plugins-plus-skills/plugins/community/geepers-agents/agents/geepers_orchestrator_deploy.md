@@ -1,9 +1,34 @@
 ---
 name: geepers-orchestrator-deploy
-description: "Deployment orchestrator that coordinates infrastructure agents - validator,..."
+description: "Orchestrates safe service deployments by sequencing pre-validation, Caddy route configuration, service lifecycle management, and post-deploy health checks with rollback on failure. Use when deploying a new service or changing infrastructure routing. Trigger with \"deploy this service\", \"add a Caddy route\"."
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+- Task
+- TodoWrite
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- orchestration
+- deployment
+- infrastructure
+- caddy
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

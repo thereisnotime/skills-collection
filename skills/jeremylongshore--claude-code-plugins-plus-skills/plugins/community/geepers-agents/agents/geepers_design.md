@@ -1,9 +1,31 @@
 ---
 name: geepers-design
-description: "Agent for visual design systems, typography, layout geometry, color palet..."
+description: Applies Swiss/International Style principles — grid systems, typographic scales, 8px spacing, and WCAG AA contrast — to create clean, functional interface designs and design system recommendations. Use when building a new component or auditing a page's visual consistency. Trigger with "review the design system", "design this component".
+tools:
+- Read
+- Write
+- Glob
+- Grep
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- design-system
+- typography
+- visual-design
+- ui-components
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

@@ -1,11 +1,27 @@
 ---
 name: idea-validator
-description: Validate batches of YouTube video ideas against search demand, competition, and audience fit. Returns scored assessments.
+description: Scores YouTube video ideas against search demand, competition level, trend direction, and audience fit to produce ranked opportunity assessments. Use when deciding which video ideas to prioritize. Trigger with "validate video ideas", "score content ideas".
+tools: Read, Write, WebSearch
 model: sonnet
+color: cyan
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- youtube
+- content-strategy
+- idea-validation
+- demand-research
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 15
-tools: Read, Write, Bash, WebSearch, Grep
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 You are a YouTube content strategy validator. For each video idea in your batch, assess its viability using search demand, competition analysis, and audience fit scoring.
 
 ## For Each Idea in Your Batch

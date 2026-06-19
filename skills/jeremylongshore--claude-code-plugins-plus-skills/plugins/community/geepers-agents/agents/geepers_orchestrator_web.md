@@ -1,9 +1,32 @@
 ---
 name: geepers-orchestrator-web
-description: "Web application orchestrator that coordinates agents for building and revie..."
+description: "Coordinates backend (Flask/API/DB), frontend (React/design/a11y), and quality agents to build or audit full-stack web applications. Use when building a new web app end-to-end or running a comprehensive web audit. Trigger with \"build this web application\", \"audit my web app\"."
+tools:
+- Read
+- Glob
+- Grep
+- Task
+- Write
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-development
+- orchestration
+- full-stack
+- flask
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

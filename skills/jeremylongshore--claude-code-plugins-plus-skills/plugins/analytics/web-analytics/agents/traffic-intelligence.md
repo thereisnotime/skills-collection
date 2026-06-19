@@ -1,10 +1,30 @@
 ---
 name: traffic-intelligence
-description: "Analyzes traffic patterns, source attribution, channel performance, and AI referral trends. Answers: where is traffic from, why did it change?"
+description: "Analyzes web traffic source attribution, channel performance, AI referral trends, and redirect domain tracking to explain where visitors come from and why traffic changed. Use when diagnosing channel shifts or measuring AI-referral growth. Trigger with \"analyze traffic sources\", \"why did traffic change\"."
+tools:
+- Read
+- Glob
+- Grep
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- traffic-attribution
+- channel-analysis
+- ai-referrals
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 10
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Traffic Intelligence Agent

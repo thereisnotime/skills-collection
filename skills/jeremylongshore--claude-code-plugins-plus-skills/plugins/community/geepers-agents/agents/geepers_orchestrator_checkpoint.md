@@ -1,9 +1,34 @@
 ---
 name: geepers-orchestrator-checkpoint
-description: "Checkpoint orchestrator that coordinates session maintenance agents - scout..."
+description: "Coordinates the session-end hygiene suite — scout, repo cleanup, status logging, and snippet harvesting — to leave a codebase clean and documented between sessions. Use when wrapping up a session or reaching a milestone. Trigger with \"checkpoint\", \"I'm done for today\"."
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+- Task
+- TodoWrite
 model: sonnet
+color: green
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- orchestration
+- session-management
+- project-hygiene
+- maintenance
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

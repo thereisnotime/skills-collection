@@ -1,9 +1,33 @@
 ---
 name: geepers-caddy
-description: "Agent for ALL Caddy configuration changes, port allocation, and routing setup"
+description: Sole authority for Caddy configuration changes — adds routes, manages port allocation, validates before reload, and creates backups. Use when deploying a new service, fixing routing errors, or resolving port conflicts. Trigger with "add a Caddy route", "fix 502 on this path".
+tools:
+- Read
+- Edit
+- Write
+- Bash
+- Glob
+- Grep
 model: opus
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- caddy
+- reverse-proxy
+- port-management
+- infrastructure
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

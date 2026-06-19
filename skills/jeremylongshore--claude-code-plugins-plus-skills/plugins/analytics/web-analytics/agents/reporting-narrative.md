@@ -1,10 +1,31 @@
 ---
 name: reporting-narrative
-description: "Compiles specialist agent outputs into cohesive, business-grade analytics narratives. Never analyzes raw data — only synthesizes and formats."
+description: "Compiles specialist agent outputs into tiered analytics narratives (mini pulse, daily brief, full deep-dive) in an advisory business voice — never touches raw data. Use when generating a polished analytics report for console, email, or Slack. Trigger with \"generate analytics report\", \"compile analytics brief\"."
+tools:
+- Read
+- Write
+- Glob
+- Grep
 model: sonnet
+color: cyan
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- reporting
+- narrative-synthesis
+- multi-site
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 8
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Reporting Narrative Agent

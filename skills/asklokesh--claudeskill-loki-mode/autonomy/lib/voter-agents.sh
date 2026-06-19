@@ -256,7 +256,22 @@ loki_council_dispatch_agents() {
     # default-off export in claude-flags.sh (sourced above) already covers this;
     # the inline prefix is belt-and-suspenders, self-documenting, and a no-op when
     # caveman is absent.
-    response=$(CAVEMAN_DEFAULT_MODE=off claude --dangerously-skip-permissions \
+    #
+    # timeout-guard the dispatch (parity with the heuristic council path in
+    # completion-council.sh:2074 and :2200, same LOKI_COUNCIL_REVIEW_TIMEOUT:-600
+    # knob). The heuristic loop this dispatch replaced wrapped every claude
+    # subcall in `timeout`; this helper did not, so a hung `claude --agents`
+    # would stall the entire run indefinitely. `timeout` precedes the env-var
+    # assignment, so `env` is used to set CAVEMAN_DEFAULT_MODE for the child.
+    # On timeout, `timeout` exits 124; that exit is the command-substitution exit
+    # (no pipe here), captured into rc via `|| rc=$?`. The existing rc check below
+    # then routes any non-zero exit (timeout 124 or any other claude failure) to
+    # `return 1` -- the heuristic fallback the caller falls through to
+    # (completion-council.sh:2792). Fail-closed: a hung or timed-out council can
+    # never become a false COMPLETE; it always degrades to the heuristic path
+    # (which has its own timeout + conservative defaults).
+    response=$(timeout "${LOKI_COUNCIL_REVIEW_TIMEOUT:-600}" \
+                      env CAVEMAN_DEFAULT_MODE=off claude --dangerously-skip-permissions \
                       -p "$prompt" \
                       --agents "$agents_json" \
                       --json-schema "$schema_path" 2>"$stderr_log") || rc=$?
@@ -273,6 +288,7 @@ loki_council_dispatch_agents() {
     _VA_ITER="$iteration" \
     _VA_VDIR="$verdicts_dir" \
     _VA_RFILE="$votes_dir/round-${iteration}.json" \
+    _VA_EXPECTED="${COUNCIL_SIZE:-3}" \
     python3 -c '
 import json, os, sys
 from datetime import datetime, timezone
@@ -289,6 +305,26 @@ if not isinstance(findings, list) or not findings:
 it = int(os.environ.get("_VA_ITER", "0") or 0)
 vdir = os.environ["_VA_VDIR"]
 rfile = os.environ["_VA_RFILE"]
+
+# WAVE13 CRITICAL quorum fix: the quorum denominator MUST be the EXPECTED
+# council size (COUNCIL_SIZE), never the number of findings the model happened
+# to return. Pre-fix this parser computed threshold = (returned*2+2)//3, so a
+# degraded response with a single APPROVE finding (returned=1) yielded
+# threshold=1 and a COMPLETE verdict from a SINGLE voter, with the missing
+# voters silently dropped. That fails OPEN on the completion-detection trust
+# core. We now fail CLOSED: any undercount (returned < expected) forces a
+# CONTINUE verdict so a partial/degraded model response can never reach
+# COMPLETE on the returned subset. Design choice (Option 2): compute the
+# verdict in-path (rather than sys.exit -> heuristic fallback) so the round
+# file always records the actual returned count in total_members, making the
+# downstream quorum assertion in completion-council.sh meaningful and locally
+# testable without depending on the heuristic-path disk-state behavior.
+try:
+    expected_count = int(os.environ.get("_VA_EXPECTED", "3") or 3)
+except (TypeError, ValueError):
+    expected_count = 3
+if expected_count < 1:
+    expected_count = 1
 
 def to_legacy(vote: str) -> str:
     v = (vote or "").upper()
@@ -338,14 +374,34 @@ for idx, f in enumerate(findings, start=1):
 if total == 0:
     sys.exit(5)
 
-threshold = (total * 2 + 2) // 3
-verdict = "COMPLETE" if complete >= threshold else "CONTINUE"
+# Quorum-aware threshold (WAVE13). threshold is computed against the EXPECTED
+# council size so it can never shrink to 1 on a degraded response. Absent
+# voters (total < expected) are treated as non-approval: the round is forced
+# to CONTINUE and can never reach COMPLETE on the returned subset. With
+# expected=3, threshold = ceil(2/3 * 3) = 2, so 1-of-3 (or any single voter)
+# is structurally incapable of producing COMPLETE.
+threshold = (expected_count * 2 + 2) // 3
+if total != expected_count:
+    # Fail closed on ANY quorum mismatch:
+    #   - undercount (total < expected): missing voters count as non-approval.
+    #   - overcount  (total > expected): extra/unprompted findings (e.g. a model
+    #     adding a 4th finding) would otherwise let a low-approval-ratio response
+    #     clear the fixed threshold. A degraded response in either direction must
+    #     never reach COMPLETE on the returned subset.
+    verdict = "CONTINUE"
+else:
+    verdict = "COMPLETE" if complete >= threshold else "CONTINUE"
 round_data = {
     "round": it,
     "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "complete_votes": complete,
     "continue_votes": total - complete,
+    # total_members records the ACTUAL number of voters that responded (not the
+    # expected size) so the completion-council quorum assertion can detect an
+    # undercount. expected_members records the size the verdict was judged
+    # against.
     "total_members": total,
+    "expected_members": expected_count,
     "threshold": threshold,
     "verdict": verdict,
     "votes": votes,

@@ -1,9 +1,32 @@
 ---
 name: geepers-system-onboard
-description: "Project understanding agent for getting up to speed on unfamiliar codebases..."
+description: Reads an unfamiliar codebase and produces a structured ONBOARD.md covering purpose, stack, architecture, data flow, and key files. Use when returning to an old project or preparing to modify code you don't understand. Trigger with "onboard me to this project", "explain this codebase".
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- codebase-understanding
+- developer-onboarding
+- documentation
+- architecture
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

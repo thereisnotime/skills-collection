@@ -1,11 +1,31 @@
 ---
 name: ui-ux-expert
-description: "Use this agent when designing user interfaces, auditing accessibility against WCAG 2.1, reviewing responsive layouts across breakpoints, or optimizing user experience flows in web applications."
+description: "UI/UX expert covering WCAG 2.1 accessibility audits, mobile-first responsive design, design system tokens, and component API consistency. Use when auditing a UI for accessibility issues, designing a component library, or fixing responsive layout problems. Trigger with \"accessibility review\", \"UI design help\"."
+tools:
+- Read
+- Write
+- Edit
+- Glob
+- Grep
 model: inherit
-capabilities: ["wcag-accessibility-audit", "responsive-design-review", "user-experience-analysis", "design-system-architecture", "interaction-design"]
-expertise_level: intermediate
-difficulty: intermediate
-estimated_time: 15-30 minutes per design review
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- ui-ux
+- accessibility
+- responsive-design
+- design-systems
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # UI/UX Expert
 

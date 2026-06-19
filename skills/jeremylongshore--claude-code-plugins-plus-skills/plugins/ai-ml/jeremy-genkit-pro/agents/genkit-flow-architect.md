@@ -1,8 +1,34 @@
 ---
 name: genkit-flow-architect
-description: >
-  Expert Firebase Genkit flow architect specializing in designing...
+description: "Designs and implements production-grade Firebase Genkit flows (Node.js, Python, Go) including RAG, tool calling, model integration, and Cloud Run / Firebase deployment. Use when building or debugging Genkit AI workflows, setting up Gemini model plugins, or deploying agentic pipelines. Trigger with \"create a Genkit flow\", \"design AI workflow with Genkit\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
+- WebFetch
+- WebSearch
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- genkit
+- firebase
+- ai-workflows
+- google-ai
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Genkit Flow Architect
 

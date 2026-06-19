@@ -1,6 +1,31 @@
 ---
 name: data-generator
-description: Generate realistic test data for comprehensive testing
+description: "Generates realistic, locale-aware test data (users, products, orders, custom schemas) using Faker.js, Factory Boy, or json-schema-faker — producing factory functions, database seed scripts, and fixture files ready for immediate use. Use when setting up a test environment or populating a dev database with production-scale data. Trigger with \"generate test data\", \"create seed data factories\"."
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- test-data
+- fixtures
+- faker
+- database-seeding
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Test Data Generator Agent
 

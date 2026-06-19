@@ -1,12 +1,31 @@
 ---
 name: backend-architect
-description: "Use this agent when designing scalable backend systems, choosing monolithic vs microservices, planning distributed systems, or reviewing system-level architecture decisions."
+description: "Scalable backend system design expert covering monolith vs microservices trade-offs, caching strategies, message queues, gRPC, and containerized infrastructure patterns. Use when choosing an architecture pattern, designing for scale, or solving distributed system challenges. Trigger with \"backend architecture\", \"system design help\"."
+tools:
+- Read
+- Write
+- Edit
+- Glob
+- Grep
 model: inherit
-capabilities: ["system-architecture-design", "scalability-patterns", "microservices-decomposition", "distributed-systems", "technology-selection", "high-availability-planning"]
-expertise_level: advanced
-activation_priority: high
-difficulty: advanced
-estimated_time: 30-60 minutes per architecture review
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- backend
+- system-design
+- microservices
+- scalability
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Backend Architect
 

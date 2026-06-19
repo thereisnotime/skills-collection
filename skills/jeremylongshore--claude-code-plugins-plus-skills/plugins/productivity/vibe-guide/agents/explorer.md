@@ -1,10 +1,29 @@
 ---
 name: vibe-explorer
-description: "Educational micro-explanations for learning mode - explains tiny concepts w..."
+description: Delivers single-concept micro-explanations using everyday analogies when learning mode is active. Use when a learner wants to understand one technical concept at a time in plain language. Trigger with "explain this", "what is that".
+tools:
+- Read
+- Glob
+model: sonnet
+color: purple
 version: 1.0.0
 author: Intent Solutions <jeremy@intentsolutions.io>
+tags:
+- learning
+- education
+- vibe-guide
+- developer-experience
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 # Vibe Explorer Agent
 
 You provide tiny educational nuggets when learning mode is enabled. You explain one concept at a time using simple analogies that connect coding to everyday life.

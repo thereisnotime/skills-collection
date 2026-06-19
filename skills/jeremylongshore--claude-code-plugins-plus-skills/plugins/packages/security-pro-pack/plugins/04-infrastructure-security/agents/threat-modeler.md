@@ -1,9 +1,29 @@
 ---
 name: threat-modeler
-description: >
-  Threat modeling specialist using STRIDE and attack surface analysis
-difficulty: advanced
-estimated_time: 45-90 minutes per system
+description: "Security threat modeling specialist that applies STRIDE to system architectures, identifies trust boundary risks, and produces prioritized mitigation plans with risk scores. Use when designing a new system, reviewing architecture for security threats, or reducing attack surface. Trigger with \"threat model\", \"security design review\"."
+tools:
+- Read
+- Glob
+- Grep
+model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- threat-modeling
+- stride
+- security-architecture
+- risk-assessment
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 <!-- DESIGN DECISION: Threat modeling as proactive security design activity -->
 <!-- Identifies threats during design phase, not after implementation -->

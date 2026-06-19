@@ -1,9 +1,32 @@
 ---
 name: geepers-orchestrator-research
-description: "Research orchestrator that coordinates data gathering agents in swarm-style..."
+description: "Coordinates swarm-style parallel data gathering across APIs, websites, and system sources, then aggregates findings into a structured research report. Use when pulling data from multiple sources or validating link collections. Trigger with \"gather data from these APIs\", \"research and synthesize this topic\"."
+tools:
+- Read
+- Write
+- WebFetch
+- WebSearch
+- Task
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- research
+- orchestration
+- data-gathering
+- web-search
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

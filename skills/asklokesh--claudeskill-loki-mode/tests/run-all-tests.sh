@@ -128,6 +128,13 @@ run_test "Completion-route Evidence Gate (default path)" "$SCRIPT_DIR/test-compl
 # legacy grep matching is OFF by default and fixed-string (grep -F) when on.
 run_test "Completion-promise Gating (signal vs legacy grep)" "$SCRIPT_DIR/test-completion-promise-gating.sh"
 
+# WAVE13 CRITICAL: completion-council live-vote quorum. The voter-agents.sh
+# dispatch parser must judge COMPLETE/CONTINUE against the EXPECTED council
+# size (COUNCIL_SIZE), never the number of findings the model returned, so a
+# degraded/partial response can never reach COMPLETE on a returned subset (fail
+# closed). Includes a mutation guard proving non-vacuity.
+run_test "Council Live-Vote Quorum (WAVE13 fail-closed)" "$SCRIPT_DIR/test-council-quorum-wave13.sh"
+
 # check_human_intervention signal dispatch + security: STOP -> rc 2; HUMAN_INPUT
 # symlink rejected; prompt injection disabled-by-default quarantines input.
 run_test "Human Intervention Signals (STOP/HUMAN_INPUT security)" "$SCRIPT_DIR/test-human-intervention-signals.sh"
@@ -187,6 +194,35 @@ run_test "Delegate Notify (all terminal states)" "$SCRIPT_DIR/test-delegate-noti
 # file:line + budget-never-exceeded + grep-only fallback (slice 2). Pure-logic
 # tests run without a live ChromaDB; live-index parts skip cleanly when absent.
 run_test "Hybrid Codebase Search (manifest + RRF + budget + fallback)" "$SCRIPT_DIR/test-hybrid-search.sh"
+
+# Live Build HUD (FEAT-HUD): render_build_hud() emits a single per-iteration
+# status line ONLY on an interactive TTY (foreground, not --bg, LOKI_HUD != 0);
+# off-TTY/CI output is byte-identical (zero added bytes). Drives the helper under
+# a pseudo-tty to prove the gate both fires (emits [HUD]) and suppresses, plus
+# cost-degrade, set -u safety, _hud_fmt_secs formatting, and ETA gating.
+run_test "Live Build HUD (TTY gate + degrade + parity)" "$SCRIPT_DIR/test-build-hud.sh"
+
+# Public Preview Tunnel (FEAT-PREVIEW-LINK): `loki preview --public` wraps the
+# user's OWN cloudflared/ngrok CLI behind a consent-gated, default-OFF flow.
+# Covers the pure URL extractors, preconditions (no app / not-running / dead
+# port), consent (interactive decline + non-TTY refuse), provider allowlist,
+# the honest CLI-absent install hint, FAKE-binary URL capture + SIGTERM
+# teardown (no real tunnel ever opened), and the plain-preview regression.
+run_test "Public Preview Tunnel (--public consent + tunnel wrap)" "$SCRIPT_DIR/test-preview-public.sh"
+
+# Branch Lifecycle (FEAT-BRANCH-DEFAULT): loki start works out of a feature
+# branch by default (base != main), squashes one honest session-end commit, and
+# ADVISES the PR (print-only, no push) unless LOKI_AUTO_PR=1. Extracts the three
+# branch functions from run.sh + the shared advisory lib; headline test proves
+# the advisory prints push+PR commands and does NOT push (real bare remote, zero
+# refs after), with a mutation check proving that assertion is non-vacuous.
+run_test "Branch Lifecycle (default-on, base!=main, commit, advisory no-push)" "$SCRIPT_DIR/test-branch-lifecycle.sh"
+
+# Deploy Advisory (FEAT-DEPLOY): `loki deploy` detects project type + CI/CD
+# pipeline and PRINTS the deploy command(s); print-only (NEVER runs a cloud CLI,
+# NEVER git push). Drives the real binary with fake cloud-CLI stubs; headline
+# proves non-execution + CI/CD git-advice precedence over cloud options.
+run_test "Deploy advisory (print-only, CI/CD precedence)" "$SCRIPT_DIR/test-deploy.sh"
 
 # Linting
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"

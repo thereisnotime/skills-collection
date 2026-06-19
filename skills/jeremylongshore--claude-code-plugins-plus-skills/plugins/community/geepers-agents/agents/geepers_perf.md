@@ -1,9 +1,32 @@
 ---
 name: geepers-perf
-description: "Agent for performance profiling, bottleneck identification, resource anal..."
+description: "Profiles applications, identifies bottlenecks (DB, I/O, memory, CPU), and produces optimization recommendations with benchmarked metrics. Use when an app is slow, traffic is scaling, or you need a pre-release performance baseline. Trigger with \"profile this service\", \"find performance bottlenecks\"."
+tools:
+- Read
+- Bash
+- Glob
+- Grep
+- Write
 model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- performance
+- profiling
+- bottleneck-analysis
+- optimization
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

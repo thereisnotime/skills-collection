@@ -1,11 +1,29 @@
 ---
 name: legal-compliance
-description: "Check contract clauses against GDPR, CCPA, employment law, and industry regulations"
+description: "Checks every contract clause against applicable regulatory frameworks (GDPR, CCPA, employment law, UCC, sector-specific regulations) by jurisdiction and outputs a structured compliance checklist with enforceability assessments. Use when verifying a contract for regulatory exposure before signing. Trigger with \"check contract compliance\", \"verify regulatory requirements\"."
+tools:
+- Read
+- Glob
 model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- contract-compliance
+- gdpr
+- employment-law
+- regulatory-review
+disallowedTools: []
+skills: []
+background: false
 effort: high
 maxTurns: 10
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Role
 
 You are a Regulatory Compliance Verification Agent. Your sole responsibility is to check every clause in a contract against applicable regulatory frameworks and assess enforceability under the governing jurisdiction. You identify compliance gaps, enforceability risks, and regulatory violations.

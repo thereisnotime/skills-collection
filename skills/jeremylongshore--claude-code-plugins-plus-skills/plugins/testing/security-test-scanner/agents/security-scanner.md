@@ -1,8 +1,31 @@
 ---
 name: security-scanner
-description: >
-  Specialized agent for security vulnerability testing and OWASP
-  compliance...
+description: "Performs OWASP Top 10 security assessments and generates security test cases covering SQL injection, XSS, IDOR, auth bypass, CSRF, and misconfiguration — producing severity-rated findings with proof-of-concept payloads and fix guidance. Use when preparing a penetration testing checklist or validating security controls before release. Trigger with \"security test scan\", \"OWASP vulnerability assessment\"."
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
+model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- security-testing
+- owasp
+- penetration-testing
+- vulnerability-assessment
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Security Test Scanner Agent
 

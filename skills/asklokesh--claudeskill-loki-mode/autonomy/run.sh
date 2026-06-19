@@ -40,7 +40,12 @@
 #   LOKI_AUDIT_DISABLED     - Disable audit logging (default: false)
 #   LOKI_MAX_PARALLEL_AGENTS - Limit concurrent agent spawning (default: 10)
 #   LOKI_SANDBOX_MODE       - Run in sandboxed container (default: false, requires Docker)
-#   LOKI_ALLOWED_PATHS      - Comma-separated paths agents can modify (default: all)
+#   LOKI_ALLOWED_PATHS      - Reserved: comma-separated path allowlist. NOT YET
+#                             ENFORCED by the runtime (the value is read from
+#                             config but no path-restriction check consumes it).
+#                             Do not rely on it as a security control. Agent file
+#                             writes are constrained by the OS user + container
+#                             sandbox (LOKI_SANDBOX_MODE), not by this var.
 #   LOKI_BLOCKED_COMMANDS   - Comma-separated blocked shell commands (default: rm -rf /)
 #
 # OIDC / SSO Authentication (optional, works alongside token auth):
@@ -156,9 +161,11 @@
 #                           Set to "true" only in trusted environments
 #
 # Branch Protection (agent isolation):
-#   LOKI_BRANCH_PROTECTION     - Create feature branch for agent changes (default: false)
+#   LOKI_BRANCH_PROTECTION     - Create feature branch for agent changes (default: true)
 #                                Agent works on loki/session-<timestamp>-<pid> branch
-#                                Creates PR on session end if gh CLI is available
+#                                Set to "false" to opt out and work on the current branch
+#   LOKI_AUTO_PR               - Auto push + open a PR on session end (default: off)
+#                                Default behavior PRINTS the PR command (advisory, no push)
 #
 # Process Supervision (opt-in):
 #   LOKI_WATCHDOG              - Enable process health monitoring (default: false)
@@ -586,7 +593,7 @@ STAGED_AUTONOMY=${LOKI_STAGED_AUTONOMY:-false}           # Require plan approval
 AUDIT_LOG_ENABLED=${LOKI_AUDIT_LOG:-true}                # Enable audit logging (on by default)
 MAX_PARALLEL_AGENTS=${LOKI_MAX_PARALLEL_AGENTS:-10}      # Limit concurrent agents
 SANDBOX_MODE=${LOKI_SANDBOX_MODE:-false}                 # Docker sandbox mode (informational; the real dispatch reads LOKI_SANDBOX_MODE at autonomy/loki:1965 and execs sandbox.sh -- this var is not consumed in run.sh)
-ALLOWED_PATHS=${LOKI_ALLOWED_PATHS:-""}                  # Empty = all paths allowed
+ALLOWED_PATHS=${LOKI_ALLOWED_PATHS:-""}                  # Reserved, NOT enforced (see header note). No runtime path check reads this; kept only so config plumbing + a future enforcement wiring have a single var to bind. Not a security control today.
 BLOCKED_COMMANDS=${LOKI_BLOCKED_COMMANDS:-"rm -rf /,dd if=,mkfs,:(){ :|:& };:"}
 
 # Process Supervision (opt-in)
@@ -638,6 +645,13 @@ LOCK_LIB="$SCRIPT_DIR/lib/lock.sh"
 if [ -f "$LOCK_LIB" ]; then
     # shellcheck source=lib/lock.sh
     source "$LOCK_LIB"
+fi
+
+# Git PR advisory (shared print-only helper for create_session_pr and loki deploy)
+GIT_PR_ADVISORY_LIB="$SCRIPT_DIR/lib/git-pr-advisory.sh"
+if [ -f "$GIT_PR_ADVISORY_LIB" ]; then
+    # shellcheck source=lib/git-pr-advisory.sh
+    source "$GIT_PR_ADVISORY_LIB"
 fi
 
 # Completion Council (v5.25.0) - Multi-agent completion verification
@@ -1004,6 +1018,129 @@ log_warning() { log_warn "$@"; }  # Alias for backwards compatibility
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 log_step() { echo -e "${CYAN}[STEP]${NC} $*"; }
 log_debug() { [[ "${LOKI_DEBUG:-}" == "true" ]] && echo -e "${CYAN}[DEBUG]${NC} $*" >&2 || true; }
+
+# Live Build HUD (v7.71.0): a single append-only per-iteration status line on the
+# interactive TTY path. Pure additive stdout decoration -- never piped into any
+# tee, so the dashboard agent.log and the stream-json parser are untouched. The
+# whole function is structured so any internal failure still returns 0; it can
+# never abort the iteration loop. Gated: TTY + not background + LOKI_HUD != 0.
+# Usage: render_build_hud <iter> <phase> <duration_secs>
+render_build_hud() {
+    # Gate first: emit nothing unless interactive TTY, not --bg, and not opted out.
+    # Inverted into an early return so the off-TTY path is byte-identical (no output).
+    if ! { [ -t 1 ] && [ "${BACKGROUND_MODE:-false}" != "true" ] && [ "${LOKI_HUD:-1}" != "0" ]; }; then
+        return 0
+    fi
+
+    local _iter="${1:-0}" _phase="${2:-?}" _dur="${3:-0}"
+    [ -z "$_phase" ] && _phase="?"
+    # Sanitize numerics so set -u arithmetic/format below can never error out.
+    case "$_dur" in (*[!0-9]*|'') _dur=0 ;; esac
+    local _max="${MAX_ITERATIONS:-0}"
+    case "$_max" in (*[!0-9]*|'') _max=0 ;; esac
+
+    # Field list: each field is appended only when its data is present. Missing
+    # data => the field is omitted entirely (never a fabricated value).
+    local _fields="$_phase"
+    _fields="${_fields} | iter ${_iter}/${_max}"
+
+    # Cost from the context tracker totals (the same field the dashboard shows).
+    # NOTE: tracking.json totals accumulate across runs in the same dir (not reset
+    # on a fresh `loki start`), so this is cumulative cost for the project dir, not
+    # strictly this single run. Labeled plainly "$" / "cost" to avoid overclaiming.
+    # OMIT entirely when empty/missing/non-Claude.
+    local _cost=""
+    if command -v python3 >/dev/null 2>&1; then
+        _cost="$(python3 -c "
+import json
+try:
+    t = json.load(open('.loki/context/tracking.json'))
+    c = t.get('totals', {}).get('total_cost_usd', 0)
+    c = float(c)
+    if c > 0:
+        print('%.2f' % c)
+except Exception:
+    pass
+" 2>/dev/null || true)"
+    fi
+    [ -n "$_cost" ] && _fields="${_fields} | \$${_cost}"
+
+    # Files changed (+ins/-del and file count) vs the run start SHA. Reuse the
+    # build_completion_summary diff approach incl. the .loki/.git exclude pathspec.
+    # OMIT when no start sha, not a git repo, or no diff data.
+    local _start_sha="${_LOKI_RUN_START_SHA:-}"
+    if [ -n "$_start_sha" ]; then
+        local _shortstat _ins _del _files
+        _shortstat="$( (cd "${TARGET_DIR:-.}" && git diff --shortstat "${_start_sha}..HEAD" -- . ':(exclude).loki/' ':(exclude).git/' ':(exclude)**/.loki/**') 2>/dev/null || true )"
+        if [ -n "$_shortstat" ]; then
+            _files="$(printf '%s\n' "$_shortstat" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+' | head -1 2>/dev/null || true)"
+            _ins="$(printf '%s\n' "$_shortstat" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' | head -1 2>/dev/null || true)"
+            _del="$(printf '%s\n' "$_shortstat" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' | head -1 2>/dev/null || true)"
+            [ -z "$_files" ] && _files=0
+            [ -z "$_ins" ] && _ins=0
+            [ -z "$_del" ] && _del=0
+            _fields="${_fields} | +${_ins}/-${_del} (${_files} files)"
+        fi
+    fi
+
+    # Per-iteration time (the duration arg). Labeled "took" (not "iter") so it
+    # does not collide with the "iter N/max" iteration-count field above.
+    _fields="${_fields} | took $(_hud_fmt_secs "$_dur")"
+
+    # Elapsed time for the whole run, from the once-captured run-start epoch.
+    local _start_epoch="${_LOKI_RUN_START_EPOCH:-}"
+    case "$_start_epoch" in (*[!0-9]*|'') _start_epoch="" ;; esac
+    if [ -n "$_start_epoch" ]; then
+        local _now _elapsed
+        _now="$(date +%s 2>/dev/null || true)"
+        case "$_now" in (*[!0-9]*|'') _now="" ;; esac
+        if [ -n "$_now" ] && [ "$_now" -ge "$_start_epoch" ] 2>/dev/null; then
+            _elapsed=$(( _now - _start_epoch ))
+            _fields="${_fields} | elapsed $(_hud_fmt_secs "$_elapsed")"
+        fi
+    fi
+
+    # ETA (PO lock #1): omit by default. Only a SMALL user-set LOKI_MAX_ITERATIONS
+    # (not the 1000 default) yields a meaningful target, so that is the single ETA
+    # trigger here. A LOKI_BUDGET_LIMIT cap is also an allowed trigger per the
+    # plan, but a budget-derived ETA needs cost-rate math that is easy to get
+    # wrong; per "keep it simple and safe, when unsure omit", budget ETA is left
+    # out rather than rendered approximately.
+    local _lmi="${LOKI_MAX_ITERATIONS:-}"
+    case "$_lmi" in (*[!0-9]*|'') _lmi="" ;; esac
+    if [ -n "$_lmi" ] && [ "$_lmi" -gt 0 ] 2>/dev/null && [ "$_lmi" -lt 1000 ] 2>/dev/null \
+       && [ "$_iter" -gt 0 ] 2>/dev/null && [ "$_iter" -lt "$_lmi" ] 2>/dev/null \
+       && [ -n "$_start_epoch" ]; then
+        local _now2 _el2 _per _remain_iters _eta
+        _now2="$(date +%s 2>/dev/null || true)"
+        case "$_now2" in (*[!0-9]*|'') _now2="" ;; esac
+        if [ -n "$_now2" ] && [ "$_now2" -ge "$_start_epoch" ] 2>/dev/null; then
+            _el2=$(( _now2 - _start_epoch ))
+            _per=$(( _el2 / _iter ))
+            _remain_iters=$(( _lmi - _iter ))
+            _eta=$(( _per * _remain_iters ))
+            [ "$_eta" -gt 0 ] 2>/dev/null && _fields="${_fields} | eta ~$(_hud_fmt_secs "$_eta")"
+        fi
+    fi
+
+    echo -e "${CYAN}[HUD]${NC} ${_fields}"
+    return 0
+}
+
+# Format a whole-seconds integer as a compact duration: 37s, 2m11s, 1h03m.
+# Best-effort and set -u safe; any odd input degrades to "0s".
+_hud_fmt_secs() {
+    local _s="${1:-0}"
+    case "$_s" in (*[!0-9]*|'') _s=0 ;; esac
+    if [ "$_s" -lt 60 ] 2>/dev/null; then
+        printf '%ds' "$_s"
+    elif [ "$_s" -lt 3600 ] 2>/dev/null; then
+        printf '%dm%02ds' "$(( _s / 60 ))" "$(( _s % 60 ))"
+    else
+        printf '%dh%02dm' "$(( _s / 3600 ))" "$(( (_s % 3600) / 60 ))"
+    fi
+    return 0
+}
 
 #===============================================================================
 # Process Registry (PID Supervisor)
@@ -1770,41 +1907,7 @@ detect_complexity() {
 }
 
 # Get phases based on complexity tier
-get_complexity_phases() {
-    case "$DETECTED_COMPLEXITY" in
-        simple)
-            echo "3"
-            ;;
-        standard)
-            echo "6"
-            ;;
-        complex)
-            echo "8"
-            ;;
-        *)
-            echo "6"  # Default to standard
-            ;;
-    esac
-}
-
 # Get phase names based on complexity tier
-get_phase_names() {
-    case "$DETECTED_COMPLEXITY" in
-        simple)
-            echo "IMPLEMENT TEST DEPLOY"
-            ;;
-        standard)
-            echo "RESEARCH DESIGN IMPLEMENT TEST REVIEW DEPLOY"
-            ;;
-        complex)
-            echo "RESEARCH ARCHITECTURE DESIGN IMPLEMENT TEST REVIEW SECURITY DEPLOY"
-            ;;
-        *)
-            echo "RESEARCH DESIGN IMPLEMENT TEST REVIEW DEPLOY"
-            ;;
-    esac
-}
-
 #===============================================================================
 # Dynamic Tier Selection (RARV-aware model routing)
 #===============================================================================
@@ -2497,32 +2600,6 @@ send_notification() {
     return 0
 }
 
-# Convenience notification functions
-notify_task_started() {
-    local task_name="$1"
-    send_notification "Task Started" "$task_name" "low"
-}
-
-notify_task_completed() {
-    local task_name="$1"
-    send_notification "Task Completed" "$task_name" "normal"
-}
-
-notify_task_failed() {
-    local task_name="$1"
-    local error="${2:-Unknown error}"
-    send_notification "Task Failed" "$task_name: $error" "critical"
-}
-
-notify_phase_complete() {
-    local phase_name="$1"
-    send_notification "Phase Complete" "$phase_name" "normal"
-}
-
-notify_all_complete() {
-    send_notification "All Tasks Complete" "Loki Mode has finished all tasks" "normal"
-}
-
 notify_intervention_needed() {
     local reason="$1"
     # Delegate-then-notify: this helper ONLY fires the (gated) desktop ping. It
@@ -2980,6 +3057,16 @@ on_run_complete() {
     local pr_title
     pr_title="Loki Mode: ${branch}"
     local pr_url=""
+    # ENT-4 (idempotent PR): reuse an existing OPEN PR for this head instead of
+    # attempting a second create on a platform retry / resume.
+    local existing_pr
+    existing_pr="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr list --head "$branch" --state open --json url --jq '.[0].url') 2>/dev/null || true )"
+    if [ -n "$existing_pr" ]; then
+        _LOKI_DELEGATE_PR_URL="$existing_pr"
+        export _LOKI_DELEGATE_PR_URL
+        log_info "LOKI_DELEGATE_PR=1: PR already exists for branch '$branch': $existing_pr (skipping create)."
+        return 0
+    fi
     pr_url="$( (cd "${TARGET_DIR:-.}" && _loki_net gh pr create --title "$pr_title" --body "Opened by Loki Mode (delegate mode). Review locally before merge." --head "$branch") 2>/dev/null || true )"
     if [ -n "$pr_url" ]; then
         # Export so build_completion_summary folds the url into the summary.
@@ -3580,23 +3667,6 @@ init_parallel_streams() {
 }
 
 # Spawn feature worktree from task
-spawn_feature_stream() {
-    local feature_name="$1"
-    local task_description="$2"
-
-    # Check worktree limit
-    # BUG-PAR-012: Worktree count subtracts 1 for main (git worktree list includes main)
-    local worktree_count_raw=$(git -C "$TARGET_DIR" worktree list 2>/dev/null | wc -l)
-    local worktree_count=$((worktree_count_raw > 0 ? worktree_count_raw - 1 : 0))
-    if [ "$worktree_count" -ge "$MAX_WORKTREES" ]; then
-        log_warn "Max worktrees reached ($MAX_WORKTREES). Queuing feature: $feature_name"
-        return 1
-    fi
-
-    create_worktree "feature-$feature_name" "feature/$feature_name"
-    spawn_worktree_session "feature-$feature_name" "$task_description"
-}
-
 # Cleanup all worktrees on exit
 cleanup_parallel_streams() {
     log_header "Cleaning Up Parallel Streams"
@@ -4210,55 +4280,6 @@ EOF
 LAST_KNOWN_PHASE=""
 
 # Set the current phase and emit event if changed
-set_phase() {
-    local new_phase="$1"
-    local orch_file=".loki/state/orchestrator.json"
-
-    mkdir -p .loki/state
-
-    # Get current phase
-    local current_phase=""
-    if [ -f "$orch_file" ]; then
-        current_phase=$(python3 -c "import json; print(json.load(open('$orch_file')).get('currentPhase', ''))" 2>/dev/null || echo "")
-    fi
-
-    # Only emit event if phase changed
-    if [ "$new_phase" != "$current_phase" ]; then
-        emit_event_json "phase_change" \
-            "from=$current_phase" \
-            "to=$new_phase" \
-            "iteration=$ITERATION_COUNT"
-
-        log_info "Phase changed: $current_phase -> $new_phase"
-
-        # Update orchestrator state (atomic via temp file + mv)
-        # BUG ARCH-001 fix: prevent state corruption if process is killed mid-write
-        if [ -f "$orch_file" ]; then
-            python3 -c "
-import json, sys, os, tempfile
-orch_file = sys.argv[1]
-new_phase = sys.argv[2]
-with open(orch_file, 'r') as f:
-    data = json.load(f)
-data['currentPhase'] = new_phase
-orch_dir = os.path.dirname(orch_file)
-fd, tmp = tempfile.mkstemp(dir=orch_dir, suffix='.json')
-with os.fdopen(fd, 'w') as f:
-    json.dump(data, f, indent=2)
-os.replace(tmp, orch_file)
-" "$orch_file" "$new_phase" 2>/dev/null || true
-        fi
-    fi
-
-    LAST_KNOWN_PHASE="$new_phase"
-
-    # v7.5.12: Append a structured log entry to the active iteration task so
-    # the dashboard shows per-phase progress (REASON / ACT / REFLECT / VERIFY).
-    # No-op if no iteration is active or queue file is missing/corrupt.
-    append_iteration_task_log "${ITERATION_COUNT:-0}" "$new_phase" "info" \
-        "Phase entered: $new_phase" 2>/dev/null || true
-}
-
 # v7.5.12: append a log entry to the iteration-N task in in-progress.json.
 # Args: iteration, phase, level, message. All silent on failure -- this
 # must NEVER kill the run.
@@ -4785,15 +4806,40 @@ compute_codebase_signature() {
     local dir="${1:-.}"
     ( cd "$dir" 2>/dev/null || exit 0
       if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-          local head dirty porcelain
-          head=$(git rev-parse HEAD 2>/dev/null || echo "nohead")
-          porcelain=$(git status --porcelain 2>/dev/null | grep -vE '(^...?\.loki/|/\.loki/| \.loki/|\.git/)' || true)
-          if [ -z "$porcelain" ]; then
-              dirty="clean"
-          else
-              dirty=$(printf '%s' "$porcelain" | _loki_hash_stdin)
+          # Content-identity signature (gitc:): the hash is over the WORKING-TREE
+          # CONTENT of every tracked + untracked-not-ignored file, independent of
+          # the commit boundary. Whether a file is committed or sitting dirty in
+          # the worktree yields the SAME value. This is what makes reuse robust to
+          # Loki's OWN session commit (commit_session_changes, default-on as of
+          # v7.73.0): a rerun whose only "change" is that the prior run committed
+          # work it had already analyzed still classifies as reuse, not a spurious
+          # "codebase changed -> update". A genuine source edit (committed OR
+          # uncommitted) changes a blob hash and is still detected, and a new
+          # untracked file is detected too. .loki/ is excluded (runtime state).
+          # Paths are enumerated NUL-safe, .loki dropped, sorted, then hashed in
+          # ONE batched `git hash-object --stdin-paths` pass (order-preserving),
+          # so cost is one git process regardless of file count.
+          local gitc gitc_paths gitc_deleted
+          # Tracked files removed from the worktree (but not staged): they have no
+          # content to hash and would make the batched hash-object abort mid-list,
+          # truncating the output and misaligning the path<->hash pairing. Drop
+          # them; their removal from the list is itself the detected change.
+          gitc_deleted=$(git ls-files --deleted -z 2>/dev/null | tr '\0' '\n')
+          gitc_paths=$( { git ls-files -z 2>/dev/null; git ls-files --others --exclude-standard -z 2>/dev/null; } \
+              | tr '\0' '\n' | grep -vE '(^|/)\.loki(/|$)' | LC_ALL=C sort -u )
+          if [ -n "$gitc_deleted" ]; then
+              gitc_paths=$(printf '%s\n' "$gitc_paths" | grep -vxF -f <(printf '%s\n' "$gitc_deleted") || true)
           fi
-          echo "git:${head}:${dirty}"
+          if [ -z "$gitc_paths" ]; then
+              # No tracked or untracked content (empty/fresh repo): a stable
+              # constant so two empty-tree runs still compare equal (reuse).
+              gitc=$(printf '' | _loki_hash_stdin)
+          else
+              gitc=$(printf '%s\n' "$gitc_paths" | git hash-object --stdin-paths 2>/dev/null \
+                  | paste -d'\t' - <(printf '%s\n' "$gitc_paths") \
+                  | LC_ALL=C sort | _loki_hash_stdin)
+          fi
+          echo "gitc:${gitc}"
       else
           local listing count total_sz budget maxfiles
           listing=$(find . \
@@ -4842,6 +4888,27 @@ compute_codebase_signature() {
               echo "files-sampled:$(printf '%s' "$listing" | _loki_hash_stdin):${count}:${sample_hash}"
           fi
       fi
+    )
+}
+
+# Recompute the PRE-content-hash git-mode signature ("git:<HEAD>:<dirty>") for a
+# one-time format transition: a signature recorded by an older Loki (HEAD +
+# porcelain) must still be comparable on the first run after the upgrade to the
+# new content-identity "gitc:" format, or decide would falsely flip to "update".
+# Echoes the legacy-format value, or "" when not inside a git work tree.
+_loki_compute_legacy_git_signature() {
+    local dir="${1:-.}"
+    ( cd "$dir" 2>/dev/null || exit 0
+      git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+      local head dirty porcelain
+      head=$(git rev-parse HEAD 2>/dev/null || echo "nohead")
+      porcelain=$(git status --porcelain 2>/dev/null | grep -vE '(^...?\.loki/|/\.loki/| \.loki/|\.git/)' || true)
+      if [ -z "$porcelain" ]; then
+          dirty="clean"
+      else
+          dirty=$(printf '%s' "$porcelain" | _loki_hash_stdin)
+      fi
+      echo "git:${head}:${dirty}"
     )
 }
 
@@ -4974,6 +5041,27 @@ except Exception:
                     esac
                 fi
                 ;;
+            git:*)
+                # git-mode format transition: a stored pre-content-hash signature
+                # ("git:<HEAD>:<dirty>") cannot be compared directly against the
+                # new content-identity "gitc:" format, so the first run after the
+                # upgrade would falsely claim "codebase changed". Recompute the
+                # OLD-format signature and compare against the stored value: if it
+                # matches, the tree is unchanged at the old format's trust level
+                # (HEAD + dirty porcelain) -> reuse, honestly. The next persist
+                # upgrades the stored format to "gitc:". Only honor this when the
+                # current signature is the new git format (a real format change),
+                # never when both are old git: (that path already matched above).
+                case "$current" in
+                    gitc:*)
+                        local legacy
+                        legacy=$(_loki_compute_legacy_git_signature "${TARGET_DIR:-.}")
+                        if [ -n "$legacy" ] && [ "$legacy" = "$stored" ]; then
+                            echo "reuse"; return 0
+                        fi
+                        ;;
+                esac
+                ;;
         esac
         echo "update"
     fi
@@ -5002,18 +5090,45 @@ persist_prd_signature_if_present() {
     sig=$(compute_codebase_signature "${TARGET_DIR:-.}")
     [ -n "$sig" ] || return 0
     mkdir -p "$loki_dir/state" 2>/dev/null || return 0
-    local mode="files"; case "$sig" in git:*) mode="git" ;; esac
+    local mode="files"; case "$sig" in git:*|gitc:*) mode="git" ;; esac
     # Record the content hash of the PRD file Loki just wrote so a later
     # hand-edit by the user is detectable (decide_generated_prd_action). This
     # runs AFTER the agent's own PRD writes, so Loki's updates are not mistaken
     # for user edits.
     local prd_sha; prd_sha=$(_loki_prd_file_hash "${TARGET_DIR:-.}")
     local tmp="$loki_dir/state/.prd-signature.json.tmp.$$"
+    # git-mode format upgrade (old "git:<HEAD>:<dirty>" -> new content-identity
+    # "gitc:..."): when this run is a reuse honored via the decide transition
+    # (the recomputed legacy signature still matches the stored one), the PRD
+    # content did not change, so the generated_at date must be preserved across
+    # the upgrade, exactly like the files: -> files-sampled: upgrade clauses.
+    # Recompute the legacy value once and pass a match flag to the persist below.
+    local git_upgrade_match=""
+    case "$sig" in
+        gitc:*)
+            local _stored_sig
+            _stored_sig=$(LOKI_SIG_FILE="$loki_dir/state/prd-signature.json" python3 -c "
+import json, os
+try:
+    print(json.load(open(os.environ['LOKI_SIG_FILE'])).get('signature',''))
+except Exception:
+    print('')
+" 2>/dev/null)
+            case "$_stored_sig" in
+                git:*)
+                    local _legacy
+                    _legacy=$(_loki_compute_legacy_git_signature "${TARGET_DIR:-.}")
+                    [ -n "$_legacy" ] && [ "$_legacy" = "$_stored_sig" ] && git_upgrade_match=1
+                    ;;
+            esac
+            ;;
+    esac
     # Preserve generated_at when the codebase signature is unchanged so the
     # reuse disclosure ("generated on <date>") stays honest across reuse runs;
     # only stamp a new date when the PRD content actually changed (sig differs).
     LOKI_SIG="$sig" LOKI_SIG_MODE="$mode" LOKI_SIG_VER="$(get_version 2>/dev/null || echo unknown)" \
     LOKI_PRD_SHA="$prd_sha" LOKI_SIG_FILE="$loki_dir/state/prd-signature.json" \
+    LOKI_GIT_UPGRADE_MATCH="$git_upgrade_match" \
     python3 -c "
 import json, os, datetime
 sig = os.environ['LOKI_SIG']
@@ -5041,7 +5156,16 @@ _sampled_upgrade = (
     and prev_sig.count(':') == 2
     and sig.startswith('files-sampled:' + prev_sig[len('files-shallow:'):] + ':')
 )
-if prev_at and (prev_sig == sig or _legacy_upgrade or _sampled_upgrade):
+# git-mode format upgrade (old 'git:<HEAD>:<dirty>' -> new content-identity
+# 'gitc:...'): the caller recomputed the legacy signature and confirmed it still
+# matches the stored one (decide returned reuse), so the PRD content did not
+# change: preserve the date across the one-time upgrade.
+_git_upgrade = (
+    bool(os.environ.get('LOKI_GIT_UPGRADE_MATCH'))
+    and isinstance(prev_sig, str) and prev_sig.startswith('git:')
+    and sig.startswith('gitc:')
+)
+if prev_at and (prev_sig == sig or _legacy_upgrade or _sampled_upgrade or _git_upgrade):
     generated_at = prev_at
 else:
     generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
@@ -5096,7 +5220,7 @@ persist_user_prd() {
     local prd_sha sig mode
     prd_sha=$(_loki_prd_file_hash "${TARGET_DIR:-.}")
     sig=$(compute_codebase_signature "${TARGET_DIR:-.}")
-    mode="files"; case "$sig" in git:*) mode="git" ;; esac
+    mode="files"; case "$sig" in git:*|gitc:*) mode="git" ;; esac
 
     local sig_tmp="$loki_dir/state/.prd-signature.json.tmp.$$"
     LOKI_SIG="$sig" LOKI_SIG_MODE="$mode" \
@@ -5484,438 +5608,6 @@ stop_status_monitor() {
 # Web Dashboard
 #===============================================================================
 
-generate_dashboard() {
-    # Copy dashboard from skill installation (v4.0.0 with Anthropic design language)
-    local skill_dashboard="$SCRIPT_DIR/.loki/dashboard/index.html"
-    local project_name=$(basename "$(pwd)")
-    local project_path=$(pwd)
-
-    if [ -f "$skill_dashboard" ]; then
-        # v7.5.8: Escape sed-special chars in project_name/project_path before
-        # interpolating into the substitution RHS. Without this, a project
-        # whose path contains '|' (the chosen sed delimiter), '&' (RHS
-        # backref), '\' or '/' would either break the substitution or allow
-        # attacker-controlled text to be smuggled into the served HTML.
-        local project_name_sed project_path_sed
-        project_name_sed=$(printf '%s' "$project_name" | sed -e 's/[\\&|/]/\\&/g')
-        project_path_sed=$(printf '%s' "$project_path" | sed -e 's/[\\&|/]/\\&/g')
-
-        # Copy and inject project info
-        sed -e "s|Loki Mode</title>|Loki Mode - ${project_name_sed}</title>|g" \
-            -e "s|<div class=\"project-name\" id=\"project-name\">--|<div class=\"project-name\" id=\"project-name\">${project_name_sed}|g" \
-            -e "s|<div class=\"project-path\" id=\"project-path\" title=\"\">--|<div class=\"project-path\" id=\"project-path\" title=\"${project_path_sed}\">${project_path_sed}|g" \
-            "$skill_dashboard" > .loki/dashboard/index.html
-        log_info "Dashboard copied from skill installation"
-        log_info "Project: $project_name ($project_path)"
-        return
-    fi
-
-    # Fallback: Generate basic dashboard if external file not found
-    cat > .loki/dashboard/index.html << 'DASHBOARD_HTML'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loki Mode Dashboard</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Söhne', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #FAF9F6;
-            color: #1A1A1A;
-            padding: 24px;
-            min-height: 100vh;
-        }
-        .header {
-            text-align: center;
-            padding: 32px 20px;
-            margin-bottom: 32px;
-        }
-        .header h1 {
-            color: #D97757;
-            font-size: 28px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
-        .header .subtitle {
-            color: #666;
-            font-size: 14px;
-            font-weight: 400;
-        }
-        .header .phase {
-            display: inline-block;
-            margin-top: 16px;
-            padding: 8px 16px;
-            background: #FFF;
-            border: 1px solid #E5E3DE;
-            border-radius: 20px;
-            font-size: 13px;
-            color: #1A1A1A;
-            font-weight: 500;
-        }
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 16px;
-            margin-bottom: 40px;
-            flex-wrap: wrap;
-        }
-        .stat {
-            background: #FFF;
-            border: 1px solid #E5E3DE;
-            border-radius: 12px;
-            padding: 20px 32px;
-            text-align: center;
-            min-width: 140px;
-            transition: box-shadow 0.2s ease;
-        }
-        .stat:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-        .stat .number { font-size: 36px; font-weight: 600; margin-bottom: 4px; }
-        .stat .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat.pending .number { color: #D97757; }
-        .stat.progress .number { color: #5B8DEF; }
-        .stat.completed .number { color: #2E9E6E; }
-        .stat.failed .number { color: #D44F4F; }
-        .stat.agents .number { color: #9B6DD6; }
-        .section-header {
-            text-align: center;
-            font-size: 16px;
-            font-weight: 600;
-            color: #666;
-            margin: 40px 0 20px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .agents-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
-            max-width: 1400px;
-            margin: 0 auto 40px auto;
-        }
-        .agent-card {
-            background: #FFF;
-            border: 1px solid #E5E3DE;
-            border-radius: 12px;
-            padding: 16px;
-            transition: box-shadow 0.2s ease, border-color 0.2s ease;
-        }
-        .agent-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            border-color: #9B6DD6;
-        }
-        .agent-card .agent-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
-        .agent-card .agent-id {
-            font-size: 11px;
-            color: #999;
-            font-family: monospace;
-        }
-        .agent-card .model-badge {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .agent-card .model-badge.sonnet {
-            background: #E8F0FD;
-            color: #5B8DEF;
-        }
-        .agent-card .model-badge.haiku {
-            background: #FFF4E6;
-            color: #F59E0B;
-        }
-        .agent-card .model-badge.opus {
-            background: #F3E8FF;
-            color: #9B6DD6;
-        }
-        .agent-card .agent-type {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1A1A1A;
-            margin-bottom: 8px;
-        }
-        .agent-card .agent-status {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 500;
-            margin-bottom: 12px;
-        }
-        .agent-card .agent-status.active {
-            background: #E6F5EE;
-            color: #2E9E6E;
-        }
-        .agent-card .agent-status.completed {
-            background: #F0EFEA;
-            color: #666;
-        }
-        .agent-card .agent-work {
-            font-size: 12px;
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 8px;
-        }
-        .agent-card .agent-meta {
-            display: flex;
-            gap: 12px;
-            font-size: 11px;
-            color: #999;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #F0EFEA;
-        }
-        .agent-card .agent-meta span {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .columns {
-            display: flex;
-            gap: 20px;
-            overflow-x: auto;
-            padding-bottom: 24px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        .column {
-            flex: 1;
-            min-width: 300px;
-            max-width: 350px;
-            background: #FFF;
-            border: 1px solid #E5E3DE;
-            border-radius: 12px;
-            padding: 20px;
-        }
-        .column h2 {
-            font-size: 13px;
-            font-weight: 600;
-            color: #666;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .column h2 .count {
-            background: #F0EFEA;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            color: #1A1A1A;
-        }
-        .column.pending h2 .count { background: #FCEEE8; color: #D97757; }
-        .column.progress h2 .count { background: #E8F0FD; color: #5B8DEF; }
-        .column.completed h2 .count { background: #E6F5EE; color: #2E9E6E; }
-        .column.failed h2 .count { background: #FCE8E8; color: #D44F4F; }
-        .task {
-            background: #FAF9F6;
-            border: 1px solid #E5E3DE;
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 12px;
-            transition: border-color 0.2s ease;
-        }
-        .task:hover { border-color: #D97757; }
-        .task .id { font-size: 10px; color: #999; margin-bottom: 6px; font-family: monospace; }
-        .task .type {
-            display: inline-block;
-            background: #FCEEE8;
-            color: #D97757;
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-        .task .title { font-size: 13px; color: #1A1A1A; line-height: 1.5; }
-        .task .error {
-            font-size: 11px;
-            color: #D44F4F;
-            margin-top: 10px;
-            padding: 10px;
-            background: #FCE8E8;
-            border-radius: 6px;
-            font-family: monospace;
-        }
-        .refresh {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: #D97757;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: background 0.2s ease;
-            box-shadow: 0 4px 12px rgba(217, 119, 87, 0.3);
-        }
-        .refresh:hover { background: #C56747; }
-        .updated {
-            text-align: center;
-            color: #999;
-            font-size: 12px;
-            margin-top: 24px;
-        }
-        .empty {
-            color: #999;
-            font-size: 13px;
-            text-align: center;
-            padding: 24px;
-            font-style: italic;
-        }
-        .powered-by {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 24px;
-            border-top: 1px solid #E5E3DE;
-            color: #999;
-            font-size: 12px;
-        }
-        .powered-by span { color: #D97757; font-weight: 500; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>LOKI MODE</h1>
-        <div class="subtitle">Autonomous Spec-to-Product System</div>
-        <div class="phase" id="phase">Loading...</div>
-    </div>
-    <div class="stats">
-        <div class="stat agents"><div class="number" id="agents-count">-</div><div class="label">Active Agents</div></div>
-        <div class="stat pending"><div class="number" id="pending-count">-</div><div class="label">Pending</div></div>
-        <div class="stat progress"><div class="number" id="progress-count">-</div><div class="label">In Progress</div></div>
-        <div class="stat completed"><div class="number" id="completed-count">-</div><div class="label">Completed</div></div>
-        <div class="stat failed"><div class="number" id="failed-count">-</div><div class="label">Failed</div></div>
-    </div>
-    <div class="section-header">Active Agents</div>
-    <div class="agents-grid" id="agents-grid"></div>
-    <div class="section-header">Task Queue</div>
-    <div class="columns">
-        <div class="column pending"><h2>Pending <span class="count" id="pending-badge">0</span></h2><div id="pending-tasks"></div></div>
-        <div class="column progress"><h2>In Progress <span class="count" id="progress-badge">0</span></h2><div id="progress-tasks"></div></div>
-        <div class="column completed"><h2>Completed <span class="count" id="completed-badge">0</span></h2><div id="completed-tasks"></div></div>
-        <div class="column failed"><h2>Failed <span class="count" id="failed-badge">0</span></h2><div id="failed-tasks"></div></div>
-    </div>
-    <div class="updated" id="updated">Last updated: -</div>
-    <div class="powered-by">Powered by <span>${PROVIDER_DISPLAY_NAME:-Claude}</span></div>
-    <button class="refresh" onclick="loadData()">Refresh</button>
-    <script>
-        async function loadJSON(path) {
-            try {
-                const res = await fetch(path + '?t=' + Date.now());
-                if (!res.ok) return [];
-                const text = await res.text();
-                if (!text.trim()) return [];
-                const data = JSON.parse(text);
-                return Array.isArray(data) ? data : (data.tasks || data.agents || []);
-            } catch { return []; }
-        }
-        function getModelClass(model) {
-            if (!model) return 'sonnet';
-            const m = model.toLowerCase();
-            if (m.includes('haiku')) return 'haiku';
-            if (m.includes('opus')) return 'opus';
-            return 'sonnet';
-        }
-        function formatDuration(isoDate) {
-            if (!isoDate) return 'Unknown';
-            const start = new Date(isoDate);
-            const now = new Date();
-            const seconds = Math.floor((now - start) / 1000);
-            if (seconds < 60) return seconds + 's';
-            if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
-            return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
-        }
-        function renderAgent(agent) {
-            const modelClass = getModelClass(agent.model);
-            const modelName = agent.model || 'Sonnet 4.5';
-            const agentType = agent.agent_type || 'general-purpose';
-            const status = agent.status === 'completed' ? 'completed' : 'active';
-            const currentTask = agent.current_task || (agent.tasks_completed && agent.tasks_completed.length > 0
-                ? 'Completed: ' + agent.tasks_completed.join(', ')
-                : 'Initializing...');
-            const duration = formatDuration(agent.spawned_at);
-            const tasksCount = agent.tasks_completed ? agent.tasks_completed.length : 0;
-
-            return `
-                <div class="agent-card">
-                    <div class="agent-header">
-                        <div class="agent-id">${agent.agent_id || 'Unknown'}</div>
-                        <div class="model-badge ${modelClass}">${modelName}</div>
-                    </div>
-                    <div class="agent-type">${agentType}</div>
-                    <div class="agent-status ${status}">${status}</div>
-                    <div class="agent-work">${currentTask}</div>
-                    <div class="agent-meta">
-                        <span>${duration}</span>
-                        <span>${tasksCount} tasks</span>
-                    </div>
-                </div>
-            `;
-        }
-        function renderTask(task) {
-            const payload = task.payload || {};
-            const title = payload.description || payload.action || task.type || 'Task';
-            const error = task.lastError ? `<div class="error">${task.lastError}</div>` : '';
-            return `<div class="task"><div class="id">${task.id}</div><span class="type">${task.type || 'general'}</span><div class="title">${title}</div>${error}</div>`;
-        }
-        async function loadData() {
-            const [pending, progress, completed, failed, agents] = await Promise.all([
-                loadJSON('../queue/pending.json'),
-                loadJSON('../queue/in-progress.json'),
-                loadJSON('../queue/completed.json'),
-                loadJSON('../queue/failed.json'),
-                loadJSON('../state/agents.json')
-            ]);
-
-            // Agent stats
-            document.getElementById('agents-count').textContent = agents.length;
-            document.getElementById('agents-grid').innerHTML = agents.length
-                ? agents.map(renderAgent).join('')
-                : '<div class="empty">No active agents</div>';
-
-            // Task stats
-            document.getElementById('pending-count').textContent = pending.length;
-            document.getElementById('progress-count').textContent = progress.length;
-            document.getElementById('completed-count').textContent = completed.length;
-            document.getElementById('failed-count').textContent = failed.length;
-            document.getElementById('pending-badge').textContent = pending.length;
-            document.getElementById('progress-badge').textContent = progress.length;
-            document.getElementById('completed-badge').textContent = completed.length;
-            document.getElementById('failed-badge').textContent = failed.length;
-            document.getElementById('pending-tasks').innerHTML = pending.length ? pending.map(renderTask).join('') : '<div class="empty">No pending tasks</div>';
-            document.getElementById('progress-tasks').innerHTML = progress.length ? progress.map(renderTask).join('') : '<div class="empty">No tasks in progress</div>';
-            document.getElementById('completed-tasks').innerHTML = completed.length ? completed.slice(-10).reverse().map(renderTask).join('') : '<div class="empty">No completed tasks</div>';
-            document.getElementById('failed-tasks').innerHTML = failed.length ? failed.map(renderTask).join('') : '<div class="empty">No failed tasks</div>';
-
-            try {
-                const state = await fetch('../state/orchestrator.json?t=' + Date.now()).then(r => r.json());
-                document.getElementById('phase').textContent = 'Phase: ' + (state.currentPhase || 'UNKNOWN');
-            } catch { document.getElementById('phase').textContent = 'Phase: UNKNOWN'; }
-            document.getElementById('updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
-        }
-        loadData();
-        setInterval(loadData, 3000);
-    </script>
-</body>
-</html>
-DASHBOARD_HTML
-}
-
 update_agents_state() {
     # Aggregate agent information from .agent/sub-agents/*.json into .loki/state/agents.json
     local agents_dir=".agent/sub-agents"
@@ -6107,27 +5799,80 @@ audit_log() {
 #===============================================================================
 
 setup_agent_branch() {
-    # Create an isolated feature branch for agent changes.
-    # This prevents agents from committing directly to the main branch.
-    # Controlled by LOKI_BRANCH_PROTECTION env var (default: false).
-    local branch_protection="${LOKI_BRANCH_PROTECTION:-false}"
+    # Create an isolated feature branch for agent changes off the branch Loki
+    # was run from. This keeps the user's working branch clean and leaves work
+    # on a feature branch ready to PR.
+    # Controlled by LOKI_BRANCH_PROTECTION env var (default: true). Set it to
+    # "false" to opt out fully and work on the current branch (back-compat).
+    local branch_protection="${LOKI_BRANCH_PROTECTION:-true}"
 
     if [ "$branch_protection" != "true" ]; then
         log_info "Branch protection disabled (LOKI_BRANCH_PROTECTION=${branch_protection})"
         return 0
     fi
 
+    # Need git to do anything here.
+    command -v git >/dev/null 2>&1 || { log_warn "git not available - skipping branch protection"; return 0; }
+
     # Ensure we are inside a git repository
-    if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         log_warn "Not a git repository - skipping branch protection"
         return 0
     fi
 
+    # Self-ignore .loki/ so NO git add (ours or the user's own `git add -A`)
+    # can ever stage runtime state (checkpoints, semantic memory, etc.). This is
+    # robust regardless of the repo's own .gitignore and applies brownfield and
+    # greenfield. Idempotent: write only when missing. Never fatal.
+    mkdir -p .loki 2>/dev/null || true
+    [ -f .loki/.gitignore ] || printf '*\n' > .loki/.gitignore 2>/dev/null || true
+
+    # Capture the ref Loki was run from. Detached HEAD yields the literal "HEAD".
+    local cur=""
+    cur="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+
+    # Detached HEAD: do NOT branch, do NOT fabricate a base (LOCK A2/A6).
+    if [ "$cur" = "HEAD" ]; then
+        log_info "Detached HEAD; staying on current commit, no feature branch created"
+        return 0
+    fi
+
+    # Already on a loki branch (session-* or delegate-*): idempotent reuse, do
+    # not nest a branch off a loki branch (LOCK A5/A7).
+    case "$cur" in
+        loki/*)
+            log_info "Already on loki branch ${cur}"
+            mkdir -p .loki/state 2>/dev/null || true
+            printf '%s\n' "$cur" > .loki/state/agent-branch.txt 2>/dev/null || true
+            return 0
+            ;;
+    esac
+
+    # Resume reuse: if a prior session recorded a checkout-able branch, reuse it
+    # instead of minting a new one (LOCK A5).
+    local recorded=""
+    if [ -s .loki/state/agent-branch.txt ]; then
+        recorded="$(cat .loki/state/agent-branch.txt 2>/dev/null || true)"
+        if [ -n "$recorded" ] && git rev-parse --verify "$recorded" >/dev/null 2>&1; then
+            if git checkout "$recorded" >/dev/null 2>&1; then
+                log_info "Resuming on recorded agent branch: ${recorded}"
+                return 0
+            fi
+            log_warn "Recorded agent branch ${recorded} could not be checked out - creating a new one"
+        fi
+    fi
+
+    # Fresh run: persist the base branch (fresh-run-only) BEFORE branching, then
+    # mint and check out the feature branch (LOCK A2).
     local timestamp
     timestamp=$(date +%s)
     local branch_name="loki/session-${timestamp}-$$"
 
-    log_info "Branch protection enabled - creating agent branch: $branch_name"
+    mkdir -p .loki/state 2>/dev/null || true
+    # Persist the base only once per run tree; never overwrite an existing base.
+    [ ! -s .loki/state/base-branch.txt ] && printf '%s\n' "$cur" > .loki/state/base-branch.txt 2>/dev/null
+
+    log_info "Branch protection enabled - creating agent branch: $branch_name (base: $cur)"
 
     # Create and checkout the feature branch
     if ! git checkout -b "$branch_name" 2>/dev/null; then
@@ -6136,17 +5881,217 @@ setup_agent_branch() {
     fi
 
     # Store the branch name for later use (PR creation, cleanup)
-    mkdir -p .loki/state
-    echo "$branch_name" > .loki/state/agent-branch.txt
+    printf '%s\n' "$branch_name" > .loki/state/agent-branch.txt 2>/dev/null
 
     log_info "Agent branch created: $branch_name"
     audit_log "BRANCH_PROTECTION" "branch=$branch_name"
     echo "$branch_name"
 }
 
+_commit_scan_secret_file() {
+    # Two-tier secret matcher. Returns 0 if a high-confidence secret is found in
+    # the file, 1 otherwise. Patterns copied verbatim from the shipped scanner
+    # (autonomy/verify.sh verify_secret_scan_file) so the commit-time gate matches
+    # the verification gate's behavior. Top-level (not nested) so tests can
+    # override it for the mutation/non-vacuity proof.
+    local file="${1:-}"
+    [ -n "$file" ] && [ -f "$file" ] || return 1
+
+    # TIER 1: specific formats. No deny filter -- a format match is a finding.
+    local tier1=(
+        'AKIA[0-9A-Z]{16}'                          # AWS access key id
+        'ASIA[0-9A-Z]{16}'                          # AWS temporary (STS) key id
+        '-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----'     # PEM private key block
+        'gh[pousr]_[A-Za-z0-9]{36,}'                # GitHub token (ghp_/gho_/...)
+        'github_pat_[A-Za-z0-9_]{60,}'              # GitHub fine-grained PAT
+        'xox[baprs]-[A-Za-z0-9-]{10,}'              # Slack token (xoxb-/xoxp-/...)
+        'sk-[A-Za-z0-9]{20,}'                       # OpenAI-style secret key
+        'AIza[0-9A-Za-z_-]{35}'                     # Google API key
+        'glpat-[A-Za-z0-9_-]{20,}'                  # GitLab personal access token
+    )
+    local p
+    for p in "${tier1[@]}"; do
+        # -e terminates option parsing so a pattern beginning with '-' (the PEM
+        # block) is not mistaken for a flag.
+        if LC_ALL=C grep -Eq -e "$p" "$file" 2>/dev/null; then
+            return 0
+        fi
+    done
+
+    # Deny filter for TIER 2: a matched line is IGNORED if it is plainly a
+    # placeholder or an environment-variable reference rather than a literal.
+    local deny='(\$\{|\$[A-Za-z_]|process\.env|os\.(environ|getenv)|%[A-Za-z_]+%|your[-_]|redacted|changeme|change[-_]me|placeholder|example|dummy|sample|fake|<[^>]*>|x{4,}|\*{4,})'
+
+    # TIER 2: generic assignments + bearer tokens + connection-string creds.
+    local tier2='(api[_-]?key|secret|token|password|passwd|access[_-]?key|client[_-]?secret|auth)[A-Za-z0-9_]*[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9_/+.=-]{16,}'
+    local bearer='[Bb]earer[[:space:]]+[A-Za-z0-9_.\-]{20,}'
+    # URI-embedded credentials: scheme://user:password@host. The #1 leak vector
+    # in 12-factor apps (DATABASE_URL=postgres://u:pass@h, mongodb+srv://, redis://).
+    # Runs through the deny filter below, so ${VAR}-ref URIs are correctly ignored.
+    # Username segment is optional (*) so the password-only form redis://:pass@host
+    # (Redis < 6 / Heroku Redis / Redis Cloud emit exactly this) is caught too.
+    local uricred='[a-z][a-z0-9+.\-]*://[^/[:space:]:@]*:[^/[:space:]:@]+@'
+
+    local surviving
+    surviving="$(LC_ALL=C grep -EiI "$tier2|$bearer|$uricred" "$file" 2>/dev/null \
+        | LC_ALL=C grep -Eiv "$deny" 2>/dev/null)"
+    if [ -n "$surviving" ]; then
+        return 0
+    fi
+    return 1
+}
+
+_commit_path_looks_secret() {
+    # Filename/path heuristic. Returns 0 if the path looks like a credential or
+    # secret file ANYWHERE in the tree (basename OR any directory component),
+    # 1 otherwise. This is the PRIMARY commit-time guard: it catches likely-secret
+    # files regardless of where they sit and regardless of how weak the value
+    # inside looks, closing the nested-path gap that a top-level glob (':!credentials*')
+    # and a content-pattern scan both miss (e.g. secrets/credentials.json holding
+    # {"key":"sk-secret"}). The content scan (_commit_scan_secret_file) remains the
+    # complementary layer 2 for strong secrets hiding in non-obvious filenames.
+    #
+    # Safe-default bias: this runs only for the session-end AUTO-commit. A false
+    # positive merely leaves the file uncommitted for the user to commit by hand,
+    # which is acceptable and honest. So we err toward caution.
+    #
+    # Top-level (not nested) so tests can override it for the non-vacuity proof.
+    local p="${1:-}"
+    [ -n "$p" ] || return 1
+    # Case-insensitive match: lower the full path AND the basename, test both.
+    local lower base
+    lower="$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')"
+    base="${lower##*/}"
+    local cand
+    for cand in "$lower" "$base"; do
+        case "$cand" in
+            # dotenv files (basename or any path component ending in them)
+            .env|.env.*|*/.env|*/.env.*|*.env) return 0 ;;
+            # credential(s) anywhere (basename or any segment): secrets/credentials.json,
+            # aws-credentials, my-credential.txt, .git-credentials
+            *credential*) return 0 ;;
+            # a "secret"/"secrets" segment anywhere: secrets/anything, config/secret.json
+            *secret*) return 0 ;;
+            # private-key / keystore / cert material (extension-anchored so we do
+            # NOT match innocuous names like config.js or monkey.js)
+            *.pem|*.key|*.p12|*.keystore|*.pfx|*.jks|*.ppk) return 0 ;;
+            id_rsa|id_rsa.*|*/id_rsa|*/id_rsa.*) return 0 ;;
+            id_ed25519*|*/id_ed25519*) return 0 ;;
+            # token files: extension (*.token) OR "token" as a whole word/segment
+            # (delimited by /, -, _, or .). Deliberately NOT a bare *token*: that
+            # would flag ubiquitous innocuous frontend/parser names (tokenizer.js,
+            # tokens.css, design-tokens.json), and since the scan aborts the WHOLE
+            # session auto-commit on any single offender, one such file would block
+            # committing all of the user's work. Segment-style still catches real
+            # token files: api.token, auth_token, id-token, github.token, oauth-token.json.
+            *.token) return 0 ;;
+            token|token.*|token-*|token_*) return 0 ;;
+            *-token|*_token|*.token.*) return 0 ;;
+            *-token.*|*_token.*|*/token|*/token.*) return 0 ;;
+            *-token-*|*_token_*|*-token_*|*_token-*) return 0 ;;
+            # package/registry/cloud credential configs
+            .npmrc|*/.npmrc|.pypirc|*/.pypirc|.netrc|*/.netrc) return 0 ;;
+            *.kubeconfig|kubeconfig|*/kubeconfig) return 0 ;;
+            .dockercfg|*/.dockercfg|.docker/config.json|*/.docker/config.json) return 0 ;;
+            # service-account / gcp key json
+            service-account*.json|*/service-account*.json|*serviceaccount*) return 0 ;;
+            gcp-key*.json|*/gcp-key*.json) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+commit_session_changes() {
+    # Squash the session's work into one honest session-end commit on the agent
+    # branch (LOCK A3/A4/A8). Commit-always (incl. failed runs) so the user is
+    # left with committed work to inspect/PR. Clean no-op when nothing changed.
+    command -v git >/dev/null 2>&1 || return 0
+    git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+
+    # Only act when a session feature branch was set up. This preserves the
+    # LOCK A1 opt-out contract (LOKI_BRANCH_PROTECTION=false -> no agent-branch.txt
+    # -> we never commit on the user's own branch), and also no-ops the detached
+    # -HEAD case (setup writes no agent-branch.txt there).
+    [ -s .loki/state/agent-branch.txt ] || return 0
+
+    # The worktree/parallel path already commits and merges back (run.sh:3403);
+    # skip the squash commit there to avoid a redundant commit on the merge.
+    [ "${PARALLEL_MODE:-false}" = "true" ] && return 0
+
+    # Only auto-commit on a branch Loki itself MINTED (loki/session-<ts>-<pid>).
+    # If the user manually checked out a self-named loki/* branch (e.g.
+    # loki/experiment), recorded it via the idempotent-reuse path, do NOT
+    # auto-commit on their behalf. Honest skip.
+    # symbolic-ref resolves the branch name even on an UNBORN branch (fresh
+    # greenfield `git init` with zero commits, where rev-parse HEAD fails);
+    # fall back to rev-parse for older edge cases. Detached HEAD yields nothing.
+    local cur=""
+    cur="$(git symbolic-ref --short -q HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+    case "$cur" in
+        loki/session-*) : ;;  # Loki-minted: proceed.
+        *)
+            log_info "Not on a Loki-minted session branch (${cur}); skipping auto-commit"
+            return 0
+            ;;
+    esac
+
+    # Stage everything except .loki/ runtime state and a secret-path denylist.
+    # These excludes are defense-in-depth ONLY for the top-level cases git
+    # pathspec handles cleanly. We deliberately do NOT add nested globs like
+    # ':!secrets/**' or ':!**/credentials*' here: in this `git add -A` context a
+    # leading ':!**/' / ':!secrets/**' exclude WOULD drop the nested file before
+    # it is ever staged, which would mask the file from the scan loop below and
+    # make the scan-loop's nested-secret guarantee untestable (the file must be
+    # STAGED so the loop can prove it catches it). The scan-and-abort loop below
+    # (_commit_path_looks_secret + _commit_scan_secret_file over EVERY staged
+    # file) is the actual guarantee for nested/weak secrets; these excludes are a
+    # cheap first cut for the obvious top-level files only.
+    git add -A \
+        ':!.loki' ':!.loki/' \
+        ':!.env' ':!.env.*' ':!*.env' \
+        ':!*.key' ':!*.pem' ':!*.p12' ':!*.keystore' \
+        ':!id_rsa*' ':!*.token' ':!credentials*' 2>/dev/null || true
+
+    # Nothing staged = clean no-op, never an error.
+    if git diff --cached --quiet 2>/dev/null; then
+        return 0
+    fi
+
+    # Secret scan the STAGED files. If ANY staged file matches a secret pattern,
+    # ABORT: unstage (git reset -- keeps the working tree changes), print an
+    # honest message naming the offending file(s), and return 0 so the run
+    # continues with the work PRESERVED uncommitted (safe default: never commit
+    # a possible secret). -z handles paths with spaces/newlines.
+    # Two complementary layers, OR-ed per staged file:
+    #   layer 1 (path heuristic, cheaper, runs first): catches likely-secret
+    #           files anywhere in the tree regardless of value strength
+    #           (e.g. secrets/credentials.json with {"key":"sk-secret"}).
+    #   layer 2 (content scan): catches strong secrets in non-obvious filenames.
+    local offenders=""
+    local f
+    while IFS= read -r -d '' f; do
+        [ -f "$f" ] || continue
+        if _commit_path_looks_secret "$f" || _commit_scan_secret_file "$f"; then
+            offenders="${offenders}${offenders:+, }${f}"
+        fi
+    done < <(git diff --cached --name-only -z 2>/dev/null)
+
+    if [ -n "$offenders" ]; then
+        git reset >/dev/null 2>&1 || true
+        log_warn "Left uncommitted: possible secret detected in ${offenders}. Review and commit manually."
+        audit_agent_action "git_commit_aborted" "Aborted session commit; possible secret" "files=${offenders}" || true
+        return 0
+    fi
+
+    git commit -m "Loki Mode session changes (${ITERATION_COUNT:-0} iterations, result=${result:-0})" 2>/dev/null || true
+    audit_agent_action "git_commit" "Committed session changes" "iterations=${ITERATION_COUNT:-0},result=${result:-0}" || true
+    return 0
+}
+
 create_session_pr() {
-    # Push the agent branch and create a PR if gh CLI is available.
-    # Called during session cleanup to submit agent changes for review.
+    # Advise the user how to open a PR for the agent branch. PRINT-ONLY by
+    # default (no push, no PR). LOKI_AUTO_PR=1 restores the legacy auto behavior.
+    # Called during session cleanup, after commit_session_changes.
     local branch_file=".loki/state/agent-branch.txt"
 
     if [ ! -f "$branch_file" ]; then
@@ -6161,18 +6106,37 @@ create_session_pr() {
         return 0
     fi
 
-    log_info "Pushing agent branch: $branch_name"
-
-    # Check if there are any commits on this branch beyond the base
-    local commit_count
-    commit_count=$(git rev-list --count HEAD ^"$(git merge-base HEAD main 2>/dev/null || echo HEAD)" 2>/dev/null || echo "0")
-
-    if [ "$commit_count" = "0" ]; then
-        log_info "No commits on agent branch - skipping PR creation"
+    # Read the base branch captured at session start. Do NOT fabricate one.
+    local base=""
+    if [ -s .loki/state/base-branch.txt ]; then
+        base="$(cat .loki/state/base-branch.txt 2>/dev/null || true)"
+    fi
+    if [ -z "$base" ]; then
+        log_info "No recorded base branch; skipping PR advice"
         return 0
     fi
 
-    # Push the branch
+    # Count commits relative to the CAPTURED base (not a hardcoded main).
+    local commit_count
+    commit_count=$(git rev-list --count HEAD ^"$(git merge-base HEAD "$base" 2>/dev/null || echo HEAD)" 2>/dev/null || echo "0")
+
+    if [ "$commit_count" = "0" ]; then
+        log_info "No commits to PR on agent branch ${branch_name}"
+        return 0
+    fi
+
+    # DEFAULT: advisory only. Print the exact commands; never push, never PR.
+    if [ "${LOKI_AUTO_PR:-0}" != "1" ]; then
+        if declare -f print_pr_advice >/dev/null 2>&1; then
+            print_pr_advice "$base" "$branch_name"
+        else
+            log_info "To open a pull request: git push -u origin ${branch_name}, then open a PR (base: ${base})"
+        fi
+        return 0
+    fi
+
+    # OPT-IN (LOKI_AUTO_PR=1): legacy auto push + PR, now with the correct base.
+    log_info "Pushing agent branch: $branch_name"
     if ! git push -u origin "$branch_name" 2>/dev/null; then
         log_warn "Failed to push agent branch: $branch_name"
         return 1
@@ -6181,6 +6145,19 @@ create_session_pr() {
     # Create PR if gh CLI is available
     if command -v gh &>/dev/null; then
         local pr_url
+        # ENT-4 (idempotent PR): check-before-create. On a platform retry (k8s Job
+        # backoffLimit / ECS / pod-loss resume) the run can reach this completion
+        # path more than once for the SAME head branch. `gh pr create` dedupes by
+        # head only because the branch name is stable, but we make the no-duplicate
+        # guarantee explicit and the log honest: if an OPEN PR already exists for
+        # this head, reuse its URL instead of attempting a second create.
+        local existing_pr
+        existing_pr=$(gh pr list --head "$branch_name" --state open --json url --jq '.[0].url' 2>/dev/null || true)
+        if [ -n "$existing_pr" ]; then
+            log_info "PR already exists for branch $branch_name: $existing_pr (skipping create)"
+            audit_log "PR_EXISTS" "branch=$branch_name,url=$existing_pr"
+            return 0
+        fi
         pr_url=$(gh pr create \
             --title "Loki Mode: Agent session changes ($branch_name)" \
             --body "Automated changes from Loki Mode agent session.
@@ -6188,6 +6165,7 @@ create_session_pr() {
 Branch: \`$branch_name\`
 Session PID: $$
 Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --base "$base" \
             --head "$branch_name" 2>/dev/null) || true
 
         if [ -n "$pr_url" ]; then
@@ -6320,34 +6298,6 @@ init_learnings_db() {
     fi
 
     log_info "Learnings database initialized at: $learnings_dir"
-}
-
-save_learning() {
-    # Save a learning to the cross-project database
-    local learning_type="$1"  # pattern, mistake, success
-    local category="$2"
-    local description="$3"
-    local project="${4:-$(basename "$(pwd)")}"
-
-    local learnings_dir="${HOME}/.loki/learnings"
-    local target_file="$learnings_dir/${learning_type}s.jsonl"
-
-    if [ ! -d "$learnings_dir" ]; then
-        init_learnings_db
-    fi
-
-    local learning_entry
-    if command -v jq >/dev/null 2>&1; then
-        learning_entry=$(jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg proj "$project" --arg cat "$category" --arg desc "$description" '{timestamp:$ts,project:$proj,category:$cat,description:$desc}')
-    else
-        local safe_proj safe_cat safe_desc
-        safe_proj=$(printf '%s' "$project" | sed 's/["\\]/\\&/g; s/\n/\\n/g')
-        safe_cat=$(printf '%s' "$category" | sed 's/["\\]/\\&/g; s/\n/\\n/g')
-        safe_desc=$(printf '%s' "$description" | sed 's/["\\]/\\&/g; s/\n/\\n/g')
-        learning_entry="{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"project\":\"$safe_proj\",\"category\":\"$safe_cat\",\"description\":\"$safe_desc\"}"
-    fi
-    echo "$learning_entry" >> "$target_file"
-    log_info "Saved $learning_type: $category"
 }
 
 get_relevant_learnings() {
@@ -7349,24 +7299,6 @@ counts[gate_name] = 0
 with open(gate_file, 'w') as f:
     json.dump(counts, f, indent=2)
 " 2>/dev/null || true
-}
-
-get_gate_failure_count() {
-    local gate_name="$1"
-    local gate_file="${TARGET_DIR:-.}/.loki/quality/gate-failure-count.json"
-    [ -f "$gate_file" ] || { echo "0"; return; }
-
-    _GATE_FILE="$gate_file" _GATE_NAME="$gate_name" python3 -c "
-import json, os
-gate_file = os.environ['_GATE_FILE']
-gate_name = os.environ['_GATE_NAME']
-try:
-    with open(gate_file) as f:
-        counts = json.load(f)
-    print(counts.get(gate_name, 0))
-except (json.JSONDecodeError, FileNotFoundError, OSError):
-    print(0)
-" 2>/dev/null || echo "0"
 }
 
 # ============================================================================
@@ -9571,182 +9503,6 @@ DA_AGG_PATCH
 # Only runs when complexity >= standard (6+ agents).
 #===============================================================================
 
-run_adversarial_testing() {
-    local loki_dir="${TARGET_DIR:-.}/.loki"
-    local adversarial_dir="$loki_dir/quality/adversarial"
-    local test_id
-    test_id="adversarial-$(date -u +%Y%m%dT%H%M%SZ)-${ITERATION_COUNT:-0}"
-    mkdir -p "$adversarial_dir/$test_id"
-
-    # Only run for Standard+ complexity
-    local complexity="${LOKI_COMPLEXITY:-auto}"
-    if [ "$complexity" = "simple" ]; then
-        log_debug "Adversarial testing skipped: simple complexity tier"
-        return 0
-    fi
-
-    # Check if adversarial testing is disabled
-    if [ "${LOKI_ADVERSARIAL_TESTING:-true}" = "false" ]; then
-        log_debug "Adversarial testing disabled via LOKI_ADVERSARIAL_TESTING=false"
-        return 0
-    fi
-
-    log_header "ADVERSARIAL TESTING: $test_id"
-
-    # Get diff for adversarial analysis
-    local diff_content
-    diff_content=$(git -C "${TARGET_DIR:-.}" diff HEAD~1 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --cached 2>/dev/null || echo "")
-    if [ -z "$diff_content" ]; then
-        log_info "Adversarial testing: No diff to test, skipping"
-        return 0
-    fi
-
-    local changed_files
-    changed_files=$(git -C "${TARGET_DIR:-.}" diff --name-only HEAD~1 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --name-only --cached 2>/dev/null || echo "")
-
-    # Write analysis files -- use printf to prevent shell variable expansion (#78)
-    local diff_file="$adversarial_dir/$test_id/diff.txt"
-    local files_file="$adversarial_dir/$test_id/files.txt"
-    printf '%s\n' "$diff_content" > "$diff_file"
-    printf '%s\n' "$changed_files" > "$files_file"
-
-    # Build adversarial prompt -- use heredoc with quoted delimiter to prevent
-    # shell variable expansion in diff content (fixes #78)
-    local files_content changed_content
-    files_content=$(cat "$files_file")
-    changed_content=$(head -500 "$diff_file")
-    local adversarial_prompt
-    read -r -d '' adversarial_prompt <<'ADVERSARIAL_EOF' || true
-You are an ADVERSARIAL TESTER. Your goal is to BREAK the implementation.
-
-CHANGED FILES:
-__FILES_PLACEHOLDER__
-
-DIFF:
-__DIFF_PLACEHOLDER__
-
-YOUR MISSION:
-1. Find edge cases that will cause crashes or incorrect behavior
-2. Identify inputs that bypass validation
-3. Find race conditions or concurrency issues
-4. Discover security vulnerabilities (injection, auth bypass, SSRF)
-5. Find resource exhaustion vectors (unbounded loops, memory leaks)
-6. Identify error handling gaps (missing try/catch, unchecked returns)
-
-OUTPUT FORMAT (STRICT):
-ATTACK_VECTORS:
-- [severity] [category] description | reproduction steps
-  Severity: Critical, High, Medium, Low
-  Category: crash, security, correctness, performance, resource
-
-SUGGESTED_TESTS:
-- Test description that would catch this issue
-
-OVERALL_RISK: HIGH or MEDIUM or LOW
-ADVERSARIAL_EOF
-    # Substitute placeholders with actual content (safe from shell expansion)
-    adversarial_prompt="${adversarial_prompt/__FILES_PLACEHOLDER__/$files_content}"
-    adversarial_prompt="${adversarial_prompt/__DIFF_PLACEHOLDER__/$changed_content}"
-
-    local result_file="$adversarial_dir/$test_id/result.txt"
-
-    # Run adversarial agent
-    log_info "Spawning adversarial agent..."
-    case "${PROVIDER_NAME:-claude}" in
-        claude)
-            if command -v claude &>/dev/null; then
-                # EMBED 2 + 3 (v7.33.0). Adversarial probe subcall.
-                # $adversarial_prompt is fully self-contained (instructions +
-                # changed files + diff inlined via the heredoc above) and output
-                # is captured to $result_file. So:
-                #   EMBED 2 (--bare): no hooks/LSP/CLAUDE.md/MCP needed; cheaper.
-                #     Opt out LOKI_BARE_SUBCALLS=0.
-                #   EMBED 3 (--disallowedTools): keep an adversarial agent from
-                #     casually mutating the tree. Deny Edit/Write/NotebookEdit +
-                #     git mutation forms (incl. git -C / --git-dir evasions);
-                #     read-only git stays allowed. Guardrail, not a sandbox.
-                #     Opt out LOKI_REVIEW_TOOL_GUARD=0.
-                local _adv_argv=("--dangerously-skip-permissions")
-                if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
-                    _adv_argv+=("--bare")
-                fi
-                if type loki_review_guard_enabled >/dev/null 2>&1 && loki_review_guard_enabled; then
-                    _adv_argv+=("--disallowedTools" "$(loki_review_guard_denylist)")
-                fi
-                #   EMBED 3b (--allowedTools, #167): positive least-privilege
-                #     allowlist. DEFAULT OFF (opt-in LOKI_REVIEW_ALLOWLIST=1).
-                #     Emitted ALONGSIDE the denylist (deny precedence verified
-                #     live, holds under --dangerously-skip-permissions). See
-                #     loki_review_allowlist.
-                if type loki_review_allowlist_enabled >/dev/null 2>&1 && loki_review_allowlist_enabled; then
-                    _adv_argv+=("--allowedTools" "$(loki_review_allowlist)")
-                fi
-                # caveman HARD-SUPPRESS (parsed output): the adversarial probe's
-                # output is parsed for findings/severity. Disable caveman
-                # unconditionally (CAVEMAN_DEFAULT_MODE=off) so compression cannot
-                # drop or reword a finding. No-op when caveman is absent.
-                CAVEMAN_DEFAULT_MODE=off \
-                claude "${_adv_argv[@]}" -p "$adversarial_prompt" \
-                    --output-format text > "$result_file" 2>/dev/null || true
-            fi
-            ;;
-        codex)
-            if command -v codex &>/dev/null; then
-                codex exec --sandbox workspace-write --skip-git-repo-check "$adversarial_prompt" \
-                    > "$result_file" 2>/dev/null || true
-            fi
-            ;;
-        cline)
-            if command -v cline &>/dev/null; then
-                invoke_cline_capture "$adversarial_prompt" \
-                    > "$result_file" 2>/dev/null || true
-            fi
-            ;;
-        aider)
-            if command -v aider &>/dev/null; then
-                invoke_aider_capture "$adversarial_prompt" \
-                    > "$result_file" 2>/dev/null || true
-            fi
-            ;;
-        *)
-            echo "ATTACK_VECTORS: None (unknown provider)" > "$result_file"
-            echo "OVERALL_RISK: LOW" >> "$result_file"
-            ;;
-    esac
-
-    if [ ! -s "$result_file" ]; then
-        log_warn "Adversarial agent produced no output"
-        return 0
-    fi
-
-    # Parse risk level
-    local risk_level
-    risk_level=$(grep -i "OVERALL_RISK:" "$result_file" | head -1 | sed 's/.*OVERALL_RISK:[[:space:]]*//' | awk '{print toupper($1)}')
-
-    # Count critical/high attack vectors
-    local critical_count high_count
-    critical_count=$(grep -ci "\[critical\]" "$result_file" 2>/dev/null || echo "0")
-    high_count=$(grep -ci "\[high\]" "$result_file" 2>/dev/null || echo "0")
-
-    log_info "Adversarial testing complete: risk=$risk_level, critical=$critical_count, high=$high_count"
-
-    emit_event_json "adversarial_test_complete" \
-        "test_id=$test_id" \
-        "risk_level=${risk_level:-UNKNOWN}" \
-        "critical_count=$critical_count" \
-        "high_count=$high_count" \
-        "iteration=$ITERATION_COUNT"
-
-    # Block on critical findings
-    if [ "$critical_count" -gt 0 ]; then
-        log_error "ADVERSARIAL TEST BLOCKED: $critical_count critical attack vectors found"
-        log_error "Details: $adversarial_dir/$test_id/result.txt"
-        return 1
-    fi
-
-    return 0
-}
-
 load_solutions_context() {
     # Load relevant structured solutions for the current task context
     local context="$1"
@@ -9833,6 +9589,53 @@ with open(".loki/state/relevant-solutions.json", 'w') as f:
 if top:
     print(f"Loaded {len(top)} relevant solutions from cross-project knowledge base")
 SOLUTIONS_SCRIPT
+}
+
+# ============================================================================
+# Durable-state assertion (enterprise container deployment)
+# ============================================================================
+# In a containerized deployment (k8s Job / ECS task / docker-run), all per-build
+# state -- .loki/state/checkpoints, .loki/ state, .loki/queue, .loki/signals,
+# .loki/logs, the agent feature branch, and the refs/loki/cp/* checkpoint refs
+# in the checkout's .git -- lives UNDER the working directory (TARGET_DIR), since
+# run_autonomous() runs with cwd == TARGET_DIR and every state path is relative
+# (or ${TARGET_DIR}/.loki). Mounting ONE durable volume at the working checkout
+# therefore makes the whole per-build state survive pod loss with no code change.
+# The machine-global registry (~/.loki/dashboard/projects.json) is intentionally
+# NOT per-build and stays off the volume; /tmp scratch (the staged run script,
+# mktemp temp files) is intentionally ephemeral and re-created on restart.
+#
+# This assertion is OPT-IN via LOKI_DURABLE_STATE=1 (set by the container
+# ENTRYPOINT / Helm chart). Local runs are unaffected. When enabled it fails
+# loudly BEFORE any work if TARGET_DIR is not a writable directory, so a
+# misconfigured mount (wrong mountPath, read-only volume, missing PVC) surfaces
+# as an immediate honest error instead of silent state loss on the first crash.
+assert_durable_state_mount() {
+    [ "${LOKI_DURABLE_STATE:-0}" = "1" ] || return 0
+    local dir="${TARGET_DIR:-.}"
+    # A misconfigured mount is a DETERMINISTIC config error: re-running on the same
+    # broken mount fails identically. Exit 20 (the terminal-failure contract code)
+    # so the Job's podFailurePolicy fails it immediately instead of burning the
+    # whole backoffLimit retrying a config error that cannot self-heal.
+    if [ ! -d "$dir" ]; then
+        log_error "LOKI_DURABLE_STATE=1 but working directory does not exist: $dir"
+        log_error "Mount a durable volume (PVC / EFS / bind mount) at the working checkout."
+        exit 20
+    fi
+    # Probe writability with an actual write+remove (a read-only mount passes -w
+    # on some filesystems but rejects the write). This proves the mount is
+    # WRITABLE; durability (survival across pod loss) is a property of the volume
+    # the operator mounts here (a PVC / EFS / bind mount), which a write probe
+    # cannot detect -- so the success message claims only writability.
+    local probe="${dir}/.loki-durable-probe.$$"
+    if ! ( mkdir -p "${dir}/.loki" 2>/dev/null && : > "$probe" ) 2>/dev/null; then
+        log_error "LOKI_DURABLE_STATE=1 but the working directory is not writable: $dir"
+        log_error "Pod-loss resume requires a writable durable volume mounted here."
+        rm -f "$probe" 2>/dev/null || true
+        exit 20
+    fi
+    rm -f "$probe" 2>/dev/null || true
+    log_info "Durable state: writable mount verified at $dir (per-build state persists here; mount a durable volume for pod-loss survival)"
 }
 
 # ============================================================================
@@ -9987,118 +9790,6 @@ print(json.dumps({'id':m['id'],'ts':m['timestamp'],'iter':m['iteration'],'task':
     # it without parsing stdout (log_info writes to stdout, so command-substitution
     # capture would include log lines).
     _LAST_CHECKPOINT_ID="$checkpoint_id"
-}
-
-rollback_to_checkpoint() {
-    # Rollback state files to a specific checkpoint
-    # Args: $1 = checkpoint_id
-    local checkpoint_id="$1"
-    local checkpoint_dir=".loki/state/checkpoints"
-
-    # Validate checkpoint ID (prevent path traversal)
-    if [[ ! "$checkpoint_id" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        log_error "Invalid checkpoint ID: must be alphanumeric, hyphens, underscores only"
-        return 1
-    fi
-
-    local cp_dir="${checkpoint_dir}/${checkpoint_id}"
-
-    if [ ! -d "$cp_dir" ]; then
-        log_error "Checkpoint not found: ${checkpoint_id}"
-        return 1
-    fi
-
-    # Read checkpoint metadata
-    local git_sha
-    git_sha=$(_CP_META="${cp_dir}/metadata.json" python3 -c "import json, os; print(json.load(open(os.environ['_CP_META']))['git_sha'])" 2>/dev/null || echo "")
-
-    log_warn "Rolling back to checkpoint: ${checkpoint_id}"
-
-    # R6 re-undoability invariant: force a pre-rollback snapshot of CURRENT state
-    # before overwriting, even if the git tree is clean (the .loki/ state we are
-    # about to clobber is not git-tracked). _LOKI_CP_FORCE bypasses the clean-tree
-    # guard. Capture the snapshot id so we can tell the user how to undo the undo.
-    _LOKI_CP_FORCE=1 create_checkpoint "pre-rollback snapshot (before restoring ${checkpoint_id})" "rollback"
-    local pre_rollback_id="${_LAST_CHECKPOINT_ID:-}"
-    if [ -n "$pre_rollback_id" ]; then
-        log_info "Saved prior state as ${pre_rollback_id} (undo this rollback with: loki rollback to ${pre_rollback_id})"
-    fi
-
-    # Restore state files (R6: CONTINUITY.md restores iteration/conversation context)
-    for f in state/orchestrator.json queue/pending.json queue/completed.json queue/in-progress.json queue/current-task.json CONTINUITY.md; do
-        if [ -f "${cp_dir}/${f}" ]; then
-            local target_dir=".loki/$(dirname "$f")"
-            mkdir -p "$target_dir"
-            cp "${cp_dir}/${f}" ".loki/${f}" 2>/dev/null || true
-        fi
-    done
-
-    # Log the rollback (use python3 for safe JSON serialization)
-    # v7.5.10: route through safe_append_event_jsonl() so parallel-worktree
-    # rollbacks cannot interleave partial JSONL lines (POSIX append is
-    # only atomic for <PIPE_BUF and not all platforms honor it).
-    local timestamp rb_event
-    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    rb_event=$(_RB_CPID="$checkpoint_id" _RB_SHA="$git_sha" _RB_TS="$timestamp" \
-    python3 -c "
-import json,os
-print(json.dumps({'event':'rollback','checkpoint':os.environ['_RB_CPID'],'git_sha':os.environ['_RB_SHA'],'timestamp':os.environ['_RB_TS']}))
-" 2>/dev/null) || rb_event=""
-    if [ -n "$rb_event" ]; then
-        # Source the emit lib once per call to get safe_append_event_jsonl.
-        # Lib-only mode skips the emit script's normal CLI execution.
-        # shellcheck disable=SC1091
-        if [ -z "${_LOKI_EMIT_LIB_LOADED:-}" ]; then
-            LOKI_EMIT_LIB_ONLY=1 . "$(dirname "${BASH_SOURCE[0]}")/../events/emit.sh" 2>/dev/null \
-                && _LOKI_EMIT_LIB_LOADED=1
-        fi
-        if declare -f safe_append_event_jsonl >/dev/null 2>&1; then
-            safe_append_event_jsonl ".loki/events.jsonl" "$rb_event" 2>/dev/null || true
-        else
-            # Last-resort fallback: bare append (preserves prior behavior).
-            printf '%s\n' "$rb_event" >> ".loki/events.jsonl" 2>/dev/null || true
-        fi
-    fi
-
-    log_info "State files restored from checkpoint: ${checkpoint_id}"
-
-    # R6: the prior hint `git reset --hard ${git_sha}` was MISLEADING. git_sha is
-    # HEAD (the last commit), and Loki does not commit per iteration, so a hard
-    # reset would discard the iteration's work rather than reconstruct it. The
-    # correct, durable recovery is the anchored working-tree snapshot, if present.
-    if [ -f "${cp_dir}/worktree-snapshot.txt" ]; then
-        log_info "To also restore the working tree to this checkpoint:"
-        log_info "  git stash apply refs/loki/cp/${checkpoint_id}"
-    elif [ -n "$git_sha" ] && [ "$git_sha" != "no-git" ]; then
-        log_info "Git SHA at checkpoint (last commit): ${git_sha}"
-        log_info "Note: no working-tree snapshot was captured for this checkpoint;"
-        log_info "code changes since the last commit are not restorable from here."
-    fi
-}
-
-list_checkpoints() {
-    # List recent checkpoints
-    local checkpoint_dir=".loki/state/checkpoints"
-    local index_file="${checkpoint_dir}/index.jsonl"
-    local limit="${1:-10}"
-
-    if [ ! -f "$index_file" ]; then
-        echo "No checkpoints found."
-        return
-    fi
-
-    tail -n "$limit" "$index_file" | python3 -c "
-import sys, json
-lines = sys.stdin.readlines()
-for line in reversed(lines):
-    try:
-        cp = json.loads(line)
-        sha = cp.get('sha','')[:8]
-        task = cp.get('task','')[:60]
-        print(f\"  {cp['id']}  {cp['ts']}  [{sha}]  {task}\")
-    except:
-        continue
-"
 }
 
 start_dashboard() {
@@ -11350,17 +11041,6 @@ except Exception as e:
 }
 
 # Load relevant learnings
-load_learnings_context() {
-    local learnings=""
-
-    # Get recent learnings (last 7 days)
-    for learning in $(find .loki/memory/learnings -name "*.md" -mtime -7 2>/dev/null | head -5); do
-        learnings+="$(head -30 "$learning")\n---\n"
-    done
-
-    echo -e "$learnings"
-}
-
 # Load pre-computed relevant learnings from CLI startup (SYN-008)
 # Reads .loki/state/memory-context.json written by load_memory_context() in CLI
 # Note: Different from get_relevant_learnings() which writes to relevant-learnings.json
@@ -12122,75 +11802,7 @@ PYEOF
 #===============================================================================
 
 # Enrich prompt context with relevant cross-project patterns
-enrich_from_knowledge_graph() {
-    local context="$1"
-    local max_patterns="${2:-5}"
-
-    _LOKI_KG_CONTEXT="$context" _LOKI_KG_MAX="$max_patterns" \
-    _LOKI_PROJECT_DIR="$PROJECT_DIR" \
-    python3 << 'PYEOF' 2>/dev/null || echo ""
-import sys
-import os
-import json
-
-project_dir = os.environ.get('_LOKI_PROJECT_DIR', '')
-context = os.environ.get('_LOKI_KG_CONTEXT', '')
-max_results = int(os.environ.get('_LOKI_KG_MAX', '5'))
-
-if not project_dir:
-    sys.exit(0)
-sys.path.insert(0, project_dir)
-try:
-    from memory.knowledge_graph import OrganizationKnowledgeGraph
-    kg = OrganizationKnowledgeGraph()
-    patterns = kg.query_patterns(context, max_results=max_results)
-    if patterns:
-        output = "\n## Cross-Project Knowledge (from knowledge graph)\n"
-        for p in patterns:
-            name = p.get('name', p.get('pattern', 'unnamed'))
-            category = p.get('category', '')
-            desc = p.get('description', '')
-            output += f"- **{name}** ({category}): {desc}\n"
-        print(output)
-except Exception:
-    pass
-PYEOF
-}
-
 # Store new patterns to the knowledge graph after successful iterations
-store_to_knowledge_graph() {
-    local target_dir="${TARGET_DIR:-.}"
-
-    _LOKI_PROJECT_DIR="$PROJECT_DIR" _LOKI_TARGET_DIR="$target_dir" \
-    python3 << 'PYEOF' 2>/dev/null || true
-import sys
-import os
-
-project_dir = os.environ.get('_LOKI_PROJECT_DIR', '')
-target_dir = os.environ.get('_LOKI_TARGET_DIR', '.')
-
-sys.path.insert(0, project_dir)
-try:
-    from memory.knowledge_graph import OrganizationKnowledgeGraph
-    from pathlib import Path
-
-    kg = OrganizationKnowledgeGraph()
-    project_dirs = [Path(target_dir)]
-
-    # Extract and store patterns
-    patterns = kg.extract_patterns(project_dirs)
-    if patterns:
-        patterns = kg.deduplicate_patterns(patterns)
-        kg.save_patterns(patterns)
-
-    # Rebuild graph
-    kg.build_graph(project_dirs)
-    kg.save_graph()
-except Exception:
-    pass
-PYEOF
-}
-
 #===============================================================================
 # Save/Load Wrapper State
 #===============================================================================
@@ -12283,8 +11895,38 @@ except (json.JSONDecodeError, KeyError, TypeError, OSError):
             #     signals), so this closes the crash-rerun toothless-gate path.
             # Deliberately NOT reset (genuine resume / user re-run expecting to
             # continue): paused, interrupted, budget_exceeded, stopped.
+            #
+            # ENT-2 (enterprise pod-loss resume): a crashed "running" run is
+            # normally reset (a fresh `loki start` on a dev box after a crash is a
+            # new run, and resetting closes the toothless-gate path). BUT in a
+            # containerized deployment (LOKI_DURABLE_STATE=1) the platform RESTARTS
+            # the SAME build on the SAME durable volume after a pod loss, and the
+            # operator's intent is RESUME, not restart-from-scratch. In that mode
+            # only, a "running" status with a still-valid run-start-SHA baseline on
+            # the durable volume RESUMES (ITERATION_COUNT preserved). The gate stays
+            # sharp because $_start_sha_file survived on the volume, so the run-start
+            # SHA recapture (run_autonomous) keys on THIS run's real start SHA, not
+            # the prior run's -- and resume re-enters the normal RARV iteration,
+            # which re-runs verification; a crash never inherits a gate PASS (the
+            # success terminals council_approved/.../completion_promise_fulfilled
+            # are still reset, so a completed-then-rerun is a NEW run as before).
+            local _resume_crashed_running=0
+            if [ "$prev_status" = "running" ] \
+               && [ "${LOKI_DURABLE_STATE:-0}" = "1" ] \
+               && [ -s ".loki/state/start-sha" ]; then
+                _resume_crashed_running=1
+            fi
             case "$prev_status" in
-                failed|max_iterations_reached|max_retries_exceeded|exited|council_approved|council_force_approved|completion_promise_fulfilled|running)
+                running)
+                    if [ "$_resume_crashed_running" = "1" ]; then
+                        log_info "Durable resume: previous build crashed mid-run (status: running). Resuming from iteration ${ITERATION_COUNT} on the durable volume; verification re-runs (a crash never inherits a gate PASS)."
+                    else
+                        log_info "Previous session ended with status: $prev_status. Resetting for new session."
+                        RETRY_COUNT=0
+                        ITERATION_COUNT=0
+                    fi
+                    ;;
+                failed|max_iterations_reached|max_retries_exceeded|exited|council_approved|council_force_approved|completion_promise_fulfilled)
                     log_info "Previous session ended with status: $prev_status. Resetting for new session."
                     RETRY_COUNT=0
                     ITERATION_COUNT=0
@@ -14156,6 +13798,13 @@ except Exception:
     _LOKI_RUN_START_SHA="$(cat "$_start_sha_file" 2>/dev/null || echo "")"
     export _LOKI_RUN_START_SHA
 
+    # Live Build HUD (v7.71.0): capture the run-start epoch ONCE for the elapsed
+    # field. Pure assignment (`:` builtin), emits no output, so the non-TTY/CI/Bun
+    # parity surface is byte-identical. := preserves a value across a resume only
+    # within the same process; a fresh run stamps now.
+    : "${_LOKI_RUN_START_EPOCH:=$(date +%s)}"
+    export _LOKI_RUN_START_EPOCH
+
     # Session-scope the mid-flight model override (model-honesty fix). The
     # override file (.loki/state/model-override) is a LIVE-RUN control: the
     # dashboard UI and docs state it "applies to the current run". A leftover
@@ -15779,6 +15428,13 @@ else:
         if [ $exit_code -eq 0 ]; then
             # Episode trace already captured by auto_capture_episode above (v6.15.0)
 
+            # Live Build HUD (v7.71.0): one append-only status line per successful
+            # iteration. At the top of the success branch so it fires for ALL
+            # success sub-paths (incl. perpetual mode / completion). TTY-gated and
+            # `|| true` so it can never abort the loop. Never tee'd -> dashboard
+            # agent.log + stream parser untouched.
+            render_build_hud "${ITERATION_COUNT:-0}" "${rarv_phase:-?}" "${duration:-0}" || true
+
             # Perpetual mode: NEVER stop, always continue
             if [ "$PERPETUAL_MODE" = "true" ]; then
                 log_info "Perpetual mode: Ignoring exit, continuing immediately..."
@@ -16033,6 +15689,12 @@ else:
 
         # Only apply retry logic for ERRORS (non-zero exit code)
         # Episode trace already captured by auto_capture_episode above (v6.15.0)
+
+        # Live Build HUD (v7.71.0): a failing iteration still shows motion (lock
+        # #3). At the top of the failure fall-through so it fires for ALL failure
+        # sub-paths, incl. the rate-limit/failover branch that `continue`s before
+        # the "Will retry" log_warn below. TTY-gated, `|| true`, never tee'd.
+        render_build_hud "${ITERATION_COUNT:-0}" "${rarv_phase:-?}" "${duration:-0}" || true
 
         # Checkpoint failed iteration state (v5.57.0)
         create_checkpoint "iteration-${ITERATION_COUNT} failed (exit=$exit_code)" "iteration-${ITERATION_COUNT}-fail"
@@ -17151,6 +16813,11 @@ main() {
         load_solutions_context "general development"
     fi
 
+    # Durable-state mount check (enterprise containers): fail loudly before any
+    # work if LOKI_DURABLE_STATE=1 and the working checkout is not a writable
+    # durable mount, so a misconfigured volume never silently loses build state.
+    assert_durable_state_mount
+
     # Setup agent branch protection (isolates agent changes to a feature branch)
     setup_agent_branch
 
@@ -17317,7 +16984,10 @@ main() {
         print_ttfv_next_steps "${LOKI_TTFV}" "$result" || true
     fi
 
-    # Create PR from agent branch if branch protection was enabled
+    # Commit the session's work to the agent branch (squashed, honest message),
+    # then advise the user how to open a PR. Both are no-ops when no agent branch
+    # was set up (LOKI_BRANCH_PROTECTION=false) or nothing changed.
+    commit_session_changes
     create_session_pr
     audit_agent_action "session_stop" "Session ended" "result=$result,iterations=$ITERATION_COUNT"
 
@@ -17343,6 +17013,47 @@ main() {
         rm -f "$loki_dir/sessions/${LOKI_SESSION_ID}/loki.pid" \
               "$loki_dir/sessions/${LOKI_SESSION_ID}/loki.pgid" 2>/dev/null
     fi
+    # ENT-3 (enterprise pod-loss / platform-retry contract): translate the
+    # terminal RUN STATE into a stable PROCESS exit code so a k8s Job's
+    # backoffLimit (or ECS/systemd retry) can distinguish "completed but failed
+    # the gate -> do NOT retry" from "crashed -> retry and resume". Without this
+    # both look like a generic exit 1 and the platform either loops a
+    # deterministically-failing build forever or gives up on a recoverable crash.
+    #
+    # Contract (LOKI_DURABLE_STATE=1 only; local/CI exit codes are unchanged):
+    #   0  = success / human-controlled clean stop (council approved, completion
+    #        promise, force-stop, or paused/interrupted/budget/stopped where a
+    #        human will resume). Job -> Complete, no retry.
+    #   20 = deterministic terminal failure (failed, max_iterations_reached,
+    #        max_retries_exceeded, exited, policy_blocked). Re-running on the same
+    #        inputs fails the same way -> Job must NOT retry. The Helm Job pairs
+    #        this with restartPolicy: Never + a podFailurePolicy rule that maps
+    #        exit 20 to FailJob (no retry), so a deterministic failure does not
+    #        burn the backoffLimit (the Job records the failure; an operator
+    #        changes the spec/budget and re-submits a NEW Job). K8s 1.31+.
+    #   anything else nonzero = crash/unexpected (e.g. status still "running"
+    #        because the process was SIGKILLed before reaching here). Retryable;
+    #        the restarted Job resumes via the ENT-2 durable-resume path.
+    if [ "${LOKI_DURABLE_STATE:-0}" = "1" ]; then
+        local _final_status
+        _final_status=$(python3 -c "import json; print(json.load(open('.loki/autonomy-state.json')).get('status','unknown'))" 2>/dev/null || echo "unknown")
+        case "$_final_status" in
+            council_approved|council_force_approved|completion_promise_fulfilled|force_stopped|paused|interrupted|budget_exceeded|stopped)
+                result=0 ;;
+            failed|max_iterations_reached|max_retries_exceeded|policy_blocked)
+                result=20 ;;
+            *)
+                # Unknown/running/exited terminal: leave $result as-is (nonzero on a
+                # real failure path) so the platform treats it as a retryable crash.
+                # "exited" is a TRANSIENT per-iteration status (save_state at the end
+                # of each iteration), never a legitimate deterministic terminal, so
+                # it must NOT map to no-retry: a SIGKILL while "exited" is persisted
+                # is a recoverable crash that should resume, not a FailJob.
+                [ "$result" = "0" ] && result=1 ;;
+        esac
+        log_info "Durable-state exit contract: final status '$_final_status' -> exit ${result} ($([ "$result" = "0" ] && echo "complete, no retry" || { [ "$result" = "20" ] && echo "terminal failure, no retry" || echo "crash, retryable"; }))"
+    fi
+
     # Mark session.json as stopped
     if [ -f "$loki_dir/session.json" ]; then
         # BUG-ST-008: Atomic session.json update via temp file + mv

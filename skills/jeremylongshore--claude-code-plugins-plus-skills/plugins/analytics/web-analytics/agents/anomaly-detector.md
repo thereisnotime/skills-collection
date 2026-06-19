@@ -1,10 +1,30 @@
 ---
 name: anomaly-detector
-description: "Detects traffic spikes, drops, bot activity, and tracking gaps. Distinguishes real problems from data artifacts. Answers: is this a real problem or a data problem?"
+description: "Detects traffic spikes, drops, bot activity, and tracking gaps in Umami analytics data, then classifies each anomaly by severity and root-cause hypothesis. Use when investigating unexpected traffic changes or data quality issues. Trigger with \"check for anomalies\", \"why did traffic drop\"."
+tools:
+- Read
+- Glob
+- Grep
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- anomaly-detection
+- data-quality
+- umami
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 10
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Anomaly Detector Agent

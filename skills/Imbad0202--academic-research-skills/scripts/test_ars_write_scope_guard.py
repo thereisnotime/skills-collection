@@ -609,13 +609,21 @@ class PluginRootInfraScopeTest(unittest.TestCase):
 
     # --- self-protection PRESERVED: the plugin's OWN files stay denied ---
 
-    def test_plugin_own_claude_md_denied(self):
-        # A write whose target resolves INSIDE the plugin root is still infra-protected.
+    def test_plugin_own_claude_md_allowed(self):
+        # #459: CLAUDE.md is no longer infra-protected, even the plugin's OWN copy. It is a
+        # doc, not a load-bearing enforcement file — editing it cannot fail the guard open,
+        # so it must NOT be denied. (The load-bearing files below stay protected; see
+        # test_plugin_own_guard_script_denied / _hooks_json_denied / _shared_agents_md_denied.)
         p = payload("Write", {"file_path": os.path.join(self.plugin, "CLAUDE.md"), "content": "x"},
                     cwd=self.ws)
-        d = self.decide_in_project(p)
-        self.assertEqual(d["decision"], "deny")
-        self.assertIn("infrastructure", d["reason"])
+        self.assertEqual(self.decide_in_project(p)["decision"], "allow")
+
+    def test_plugin_own_dotclaude_claude_md_allowed(self):
+        # Same for .claude/CLAUDE.md inside the plugin root (#459).
+        os.makedirs(os.path.join(self.plugin, ".claude"), exist_ok=True)
+        p = payload("Write", {"file_path": os.path.join(self.plugin, ".claude/CLAUDE.md"), "content": "x"},
+                    cwd=self.ws)
+        self.assertEqual(self.decide_in_project(p)["decision"], "allow")
 
     def test_plugin_own_guard_script_denied(self):
         p = payload("Write",
@@ -650,15 +658,32 @@ class PluginRootInfraScopeTest(unittest.TestCase):
                               "content": "x"}, cwd=self.ws)
         self.assertEqual(self.decide_in_project(p)["decision"], "allow")
 
-    # --- fallback: plugin_root=None -> conservative pre-fix behavior (workspace-anchored) ---
+    # --- fallback: plugin_root=None -> conservative pre-fix behavior (workspace-anchored).
+    #     This is the clone+symlink layout / ARS-on-ARS home turf, where plugin_root
+    #     collapses onto workspace_root — the #459 crux: the SAME runtime condition is both
+    #     "protect ARS infra" and "don't false-deny the user's CLAUDE.md". The #459 fix makes
+    #     that condition decidable WITHOUT distinguishing the layouts: CLAUDE.md left the infra
+    #     list (so it's allowed everywhere), while the load-bearing files stay protected. ---
 
-    def test_fallback_none_plugin_root_protects_workspace_infra(self):
-        # When the caller passes no plugin_root, infra protection falls back to the
-        # workspace root (== pre-#448 behavior, the ARS-on-ARS home-turf case).
+    def test_fallback_none_plugin_root_claude_md_allowed(self):
+        # #459: even under the collapsed fallback, the user's own CLAUDE.md is writable —
+        # because CLAUDE.md is no longer infra, not because we detected the layout.
         p = payload("Write", {"file_path": os.path.join(self.ws, "CLAUDE.md"), "content": "x"},
                     cwd=self.ws)
         d = guard.evaluate_decision(p, TEST_MANIFEST, self.ws)  # 3-arg: plugin_root defaults None
+        self.assertEqual(d["decision"], "allow")
+
+    def test_fallback_none_plugin_root_still_protects_load_bearing_infra(self):
+        # The protection that MUST survive #459: under the collapsed fallback, the load-bearing
+        # enforcement files (here the guard script) are still denied. Dropping CLAUDE.md did not
+        # weaken self-protection of the files that can actually fail the guard open.
+        os.makedirs(os.path.join(self.ws, "scripts"), exist_ok=True)
+        p = payload("Write",
+                    {"file_path": os.path.join(self.ws, "scripts/ars_write_scope_guard.py"), "content": "x"},
+                    cwd=self.ws)
+        d = guard.evaluate_decision(p, TEST_MANIFEST, self.ws)  # 3-arg: plugin_root defaults None
         self.assertEqual(d["decision"], "deny")
+        self.assertIn("infrastructure", d["reason"])
 
     # --- Bucket A phase-scope is UNCHANGED by the dual-root split ---
 

@@ -1,9 +1,31 @@
 ---
 name: geepers-corpus-ux
-description: "Agent for corpus linguistics UI/UX design - KWIC displays, concordance vi..."
+description: Designs linguistically-informed interfaces for corpus research tools — KWIC displays, concordance viewers, frequency charts, and genre filters following Swiss Design principles. Use when building or improving a UI for a corpus or NLP tool. Trigger with "design the concordance viewer", "improve the KWIC display".
+tools:
+- Read
+- Write
+- Edit
+- Glob
 model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- corpus-linguistics
+- ux-design
+- data-visualization
+- academic-tools
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

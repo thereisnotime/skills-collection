@@ -1,8 +1,32 @@
 ---
 name: gh-actions-gcp-expert
-description: >
-  Expert in GitHub Actions with Google Cloud deployments using Workload...
+description: "Author and validate GitHub Actions CI/CD pipelines for Google Cloud — covering Workload Identity Federation (keyless auth), Vertex AI Agent Engine deployment, Cloud Run, post-deployment validation scripts, and security best practices. Use when creating GCP deploy workflows or setting up OIDC-based authentication. Trigger with \"create GCP workflow\", \"set up Workload Identity Federation\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- WebFetch
+- WebSearch
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- github-actions
+- gcp
+- workload-identity-federation
+- ci-cd
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # GitHub Actions GCP Expert
 

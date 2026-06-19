@@ -1,9 +1,32 @@
 ---
 name: a2a-protocol-manager
-description: >
-  Expert in Agent-to-Agent (A2A) protocol for communicating with Vertex AI
-  ADK...
+description: "Implements A2A JSON-RPC protocol for communicating between Claude Code and Vertex AI ADK agents, including AgentCard discovery, session management, async polling, and multi-agent orchestration patterns. Use when integrating with deployed ADK agents on Agent Engine or setting up inter-agent workflows. Trigger with \"set up A2A client\", \"connect to an ADK agent\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
+- WebFetch
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- a2a-protocol
+- vertex-ai
+- agent-engine
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # A2A Protocol Manager
 

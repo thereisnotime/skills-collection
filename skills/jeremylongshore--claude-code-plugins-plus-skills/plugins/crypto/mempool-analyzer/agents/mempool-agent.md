@@ -1,6 +1,28 @@
 ---
 name: mempool-agent
-description: "Mempool analysis specialist for MEV detection and transaction monitoring"
+description: "Analyze blockchain mempools for MEV opportunities, sandwich attack patterns, pending large transfers, and gas price optimization across Ethereum, BSC, and Arbitrum. Use when detecting front-running risk, profiling pending transactions, or researching block builder behavior. Trigger with \"analyze mempool\", \"detect MEV\"."
+tools:
+- WebFetch
+- WebSearch
+model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- mempool
+- mev
+- gas-optimization
+- blockchain-monitoring
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Mempool Analysis Agent
 

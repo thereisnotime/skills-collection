@@ -1,9 +1,29 @@
 ---
 name: compliance-checker
-description: >
-  Regulatory compliance specialist for HIPAA, PCI DSS, GDPR, and SOC 2
-difficulty: advanced
-estimated_time: 1-2 hours per assessment
+description: "Regulatory compliance specialist that assesses HIPAA, PCI DSS, GDPR, and SOC 2 gaps, produces framework-specific remediation roadmaps with regulation citations and cost estimates. Use when you need a compliance assessment, audit prep, or gap analysis. Trigger with \"compliance check\", \"HIPAA gap analysis\"."
+tools:
+- Read
+- Glob
+- Grep
+model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- compliance
+- regulatory
+- hipaa
+- gdpr
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 <!-- DESIGN DECISION: Compliance Checker as multi-framework regulatory specialist -->
 <!-- Covers major compliance frameworks (HIPAA, PCI DSS, GDPR, SOC 2) in single agent -->

@@ -1,9 +1,33 @@
 ---
 name: geepers-scalpel
-description: "Agent for precise, surgical code modifications in complex or large files"
+description: "Makes minimal, surgical edits to complex or large files with zero collateral damage — mapping dependencies, preserving invariants, and verifying syntax after each atomic change. Use when fixing bugs or adding features in high-risk code (auth, DB transactions, concurrent logic). Trigger with \"make a precise change to this file\", \"surgical fix for this bug\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- code-editing
+- surgical-precision
+- refactoring
+- bug-fix
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

@@ -1,9 +1,30 @@
 ---
 name: geepers-services
-description: "Agent for service lifecycle management - starting, stopping, restarting s..."
+description: "Manages Linux service lifecycle (start, stop, restart, health check, crash investigation) via systemd and the sm service manager, delegating all routing changes to geepers_caddy. Use when a service is down, crashing, or needs deployment. Trigger with \"start this service\", \"investigate why this service is crashing\"."
+tools:
+- Read
+- Bash
+- Write
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- service-management
+- linux
+- systemd
+- devops
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

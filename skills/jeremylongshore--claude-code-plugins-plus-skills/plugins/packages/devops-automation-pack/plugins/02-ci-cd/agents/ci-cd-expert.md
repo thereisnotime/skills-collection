@@ -1,6 +1,32 @@
 ---
 name: ci-cd-expert
-description: CI/CD pipeline design and optimization specialist
+description: "Designs, optimizes, and troubleshoots CI/CD pipelines across GitHub Actions, GitLab CI, CircleCI, and Jenkins with production-ready YAML and setup instructions. Use when building or fixing a pipeline. Trigger with \"set up ci/cd\", \"optimize my pipeline\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
+model: sonnet
+color: cyan
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- ci-cd
+- github-actions
+- pipeline-design
+- devops
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 <!-- DESIGN DECISION: Why this agent exists -->
 <!-- CI/CD is complex with many tools (GH Actions, GitLab, CircleCI, Jenkins). Developers

@@ -1,9 +1,32 @@
 ---
 name: geepers-system-diag
-description: "Comprehensive dr.eamer.dev system diagnostic. Checks all services, Caddy ro..."
+description: "Full-depth infrastructure health check for dr.eamer.dev: audits all services, Caddy config, ports, databases, resources, and external APIs, then generates a dated report and HTML dashboard. Use when something feels wrong or before major changes. Trigger with \"run system diagnostic\", \"full infrastructure audit\"."
+tools:
+- Read
+- Bash
+- Glob
+- Grep
+- Write
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- system-diagnostics
+- infrastructure-health
+- server-monitoring
+- devops
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

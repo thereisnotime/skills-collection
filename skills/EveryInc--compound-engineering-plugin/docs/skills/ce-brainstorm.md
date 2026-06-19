@@ -50,6 +50,7 @@ A typical "let's brainstorm" with an AI also has shape problems: it asks five qu
 - **Named gap lenses** force rigor on premises before generating approaches
 - **A background grounding scout** gathers verbatim repo evidence on a cheap model while you answer the opening questions
 - **2-3 concrete approaches** with tradeoffs, then a stated recommendation
+- **Opt-in visual probes** for decisions that are faster to judge as rough sketches than prose
 - **Synthesis Summary** as the last opportunity to correct scope before the doc lands
 - **Fresh-context claim verification** checks the doc's repo claims before it lands
 - **Right-sized requirements document** with stable identifiers (R/A/F/AE) that flow into planning
@@ -82,23 +83,27 @@ These probes fire as **prose, not menus** — a 4-option menu signals which kind
 
 Phase 2 surfaces 2-3 concrete approaches with at least one **non-obvious angle** — inversion, constraint removal, or cross-domain analogy. Approaches are presented at mechanism / product-shape granularity, not architecture. (Architecture decisions made on intentionally-shallow research tend to pre-commit you to bad choices; those belong in `ce-plan`.) Approaches are shown before the recommendation so the user sees alternatives without being anchored.
 
-### 5. Synthesis Summary — the last cheap moment to correct
+### 5. Display-only visual probes when seeing beats reading
+
+When a decision is spatial, behavioral, or visual, `ce-brainstorm` can offer a choice: keep exploring in text, or create a rough local visual probe. Visual probes are disposable sketches for product feedback, not polished UI, implementation prototypes, or final specs. The artifact is display-only; the user responds in chat.
+
+### 6. Synthesis Summary — the last cheap moment to correct
 
 Before writing the doc, `ce-brainstorm` emits a **scoping synthesis** shaped like what two product collaborators would confirm before writing a PRD. It surfaces what's being built, the key trade-offs the dialogue produced, what's been deferred, and any genuine forks the user should weigh in on. Each section renders only when it has something to say — no empty buckets padded for ceremony. When the upstream conversation short-circuited (Phase 0.2 fast path, requirements already clear, no questions asked), the scoping synthesis compresses to a single forward-looking sentence with an end-of-turn interrupt window.
 
-### 6. Stable identifiers that flow downstream
+### 7. Stable identifiers that flow downstream
 
 The requirements doc carries plan-feeding identifiers — R-IDs (Requirements), A-IDs (Actors), F-IDs (Key Flows), AE-IDs (Acceptance Examples). `ce-plan` consumes these and traces every implementation unit and test scenario back to them. Origin scope boundaries (especially "Outside this product's identity") flow through unchanged.
 
-### 7. Universal brainstorming for non-software
+### 8. Universal brainstorming for non-software
 
 Building a software feature? Standard flow. Naming a product? Choosing a vacation? Deciding a career move? `ce-brainstorm` routes to a domain-agnostic facilitator that preserves the one-question-at-a-time discipline and right-sized output.
 
-### 8. Implementation kept out of the requirements doc by default
+### 9. Implementation kept out of the requirements doc by default
 
 Requirements describe **what** behavior is expected from the user's perspective. They do not describe libraries, schemas, endpoints, file layouts, or code structure — unless the brainstorm is itself about a technical or architectural decision. This keeps planning's job clean: invent the **how**, not the **what**.
 
-### 9. Grounding and verification ride inside your think-time
+### 10. Grounding and verification ride inside your think-time
 
 On Standard and Deep brainstorms, a cheap extraction-tier scout is dispatched in the background while you answer the first question. It writes a grounding dossier — verbatim quotes with `file:line` pointers — to scratch storage and hands back a short gist, so the dialogue stays lean while the evidence stays available on demand. Before the requirements doc is written, a fresh-context verifier (a mid-tier model that never saw the dialogue) checks the doc's repo claims — absence claims, file references — against the codebase, running while you review the synthesis confirmation. Refuted claims are corrected before the doc lands; unverifiable ones become explicit assumptions. The dossier path is handed to `ce-plan` so planning starts from verified quotes instead of re-scanning. On platforms without per-agent model selection, both run on the inherited model with the same read budgets; with no subagent support at all, the skill falls back to inline scanning and verification.
 

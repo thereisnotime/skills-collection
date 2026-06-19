@@ -1,6 +1,30 @@
 ---
 name: orm-agent
-description: Generate ORM models and schemas
+description: "Generate ORM entity classes, migration files, and relationship definitions for TypeORM, Prisma, SQLAlchemy, Django ORM, Hibernate, and more from database schemas or requirements. Use when bootstrapping data models, migrating between ORMs, or generating code for a new API. Trigger with \"generate ORM models\", \"create entity classes\"."
+tools:
+- Read
+- Write
+- Edit
+- Grep
+model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- orm
+- code-generation
+- database
+- schema-migration
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # ORM Code Generator Agent
 

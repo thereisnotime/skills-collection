@@ -1,9 +1,32 @@
 ---
 name: geepers-corpus
-description: "Agent for corpus linguistics projects, language dataset management, compu..."
+description: Manages corpus linguistics datasets — acquisition, annotation, data-structure validation, and UTF-8 encoding hygiene across reference, historical, and web corpora. Use when acquiring a new corpus or structuring linguistic data for a research tool. Trigger with "set up the corpus", "validate this linguistic dataset".
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: red
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- corpus-linguistics
+- nlp
+- dataset-management
+- language-data
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

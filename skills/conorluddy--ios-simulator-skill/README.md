@@ -4,6 +4,8 @@
 
 Production-ready skill for building, testing, and automating iOS apps. 27 scripts optimized for both human developers and AI agents.
 
+(If you'd prefer an MCP, [XC-MCP](https://github.com/conorluddy/xc-mcp))
+
 ## Xcode Build + Simulator Automation
 
 This skill covers both sides of iOS development:

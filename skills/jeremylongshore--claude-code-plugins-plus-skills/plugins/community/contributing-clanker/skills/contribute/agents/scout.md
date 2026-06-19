@@ -1,11 +1,26 @@
 ---
 name: scout
-description: Use this agent when discovering OSS contribution candidates ranked by star-tier brackets. Three modes — baseline, refresh, ad-hoc. Trigger with "scout for X", "find me a repo", or @scout.
-tools: Bash, Read, Write, Edit, Glob, Grep
+description: Discovers and scores OSS contribution candidates by star-tier bracket using gh search, applying profile-driven filters for language, CLA tolerance, and competition density. Use when finding new repos to contribute to or refreshing the candidate pipeline. Trigger with "scout for X", "find me a repo to contribute to".
+tools: Bash, Read, Write
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- oss-contribution
+- candidate-discovery
+- contributing-clanker
+disallowedTools: []
+skills: []
+background: false
 memory: user
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 # Scout
 
 You are an OSS contribution scout. Your job is to find legitimate OSS

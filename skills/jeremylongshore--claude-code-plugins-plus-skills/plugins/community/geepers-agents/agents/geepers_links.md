@@ -1,9 +1,34 @@
 ---
 name: geepers-links
-description: "Agent for link validation, broken link detection, URL enrichment, and res..."
+description: "Validates URLs, detects broken links, updates redirects to final destinations, and enriches resource collections with accurate descriptions. Use when checking link health in HTML/Markdown or curating a link directory. Trigger with \"check the links\", \"fix broken URLs\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
+- WebFetch
 model: sonnet
+color: cyan
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- link-validation
+- url-hygiene
+- content-quality
+- broken-links
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

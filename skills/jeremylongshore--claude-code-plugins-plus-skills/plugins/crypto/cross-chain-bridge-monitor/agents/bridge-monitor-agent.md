@@ -1,7 +1,29 @@
 ---
 name: bridge-monitor-agent
-description: >
-  Cross-chain bridge monitoring and security analysis specialist
+description: "Monitor cross-chain bridge activity, analyze security models, detect exploits, and compare route fees across Wormhole, Stargate, Hop, and canonical L2 bridges. Use when tracking a pending bridge transfer, assessing TVL risk, or investigating unusual bridge behavior. Trigger with \"monitor bridge\", \"analyze bridge security\"."
+tools:
+- Grep
+- WebFetch
+- WebSearch
+model: sonnet
+color: cyan
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- cross-chain
+- bridge-security
+- defi
+- exploit-detection
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Cross-Chain Bridge Monitor Agent
 

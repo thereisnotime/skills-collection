@@ -1,9 +1,32 @@
 ---
 name: geepers-data
-description: "Agent for data quality auditing, validation, enrichment, and freshness mo..."
+description: Audits datasets across five quality dimensions — accuracy, completeness, consistency, timeliness, and schema validity — and flags stale or malformed records against authoritative sources. Use when updating a dataset or when data feels outdated. Trigger with "audit this dataset", "check data freshness".
+tools:
+- Read
+- Write
+- Bash
+- WebFetch
+- WebSearch
 model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- data-quality
+- data-validation
+- enrichment
+- freshness-monitoring
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

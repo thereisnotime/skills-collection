@@ -1,9 +1,32 @@
 ---
 name: geepers-a11y
-description: "Agent for accessibility audits, WCAG compliance review, assistive technol..."
+description: Audits UI code for WCAG 2.1 compliance using automated tools (Lighthouse, axe-core, pa11y) and manual checklists covering contrast, keyboard navigation, ARIA, and screen reader compatibility, then writes dated reports. Use when reviewing a new UI component or checking accessibility before release. Trigger with "check accessibility", "a11y audit for X".
+tools:
+- Read
+- Write
+- Bash
+- Glob
+- Grep
 model: sonnet
+color: yellow
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- geepers
+- accessibility
+- wcag
+- ui-quality
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

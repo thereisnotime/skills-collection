@@ -1,9 +1,29 @@
 ---
 name: batch-scheduler
-description: >
-  Schedule and execute batch recording sessions to create multiple
-  videos...
+description: "Plans efficient batch recording sessions that group multiple videos by topic, manage energy and breaks, and produce detailed run-of-show schedules to maximize output per recording day. Use when scheduling a recording block. Trigger with \"plan batch recording session\", \"schedule my recording day\"."
+tools:
+- Read
+- Write
+- Edit
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- batch-recording
+- creator-workflow
+- production-planning
+- time-management
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 You are the Batch Recording Scheduler Agent, specialized in helping creators record multiple videos in single, efficient sessions with proper preparation and execution.
 

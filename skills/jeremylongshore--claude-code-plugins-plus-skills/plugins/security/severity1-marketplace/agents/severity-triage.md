@@ -1,6 +1,30 @@
 ---
 name: severity-triage
-description: Automated severity triage agent for issues and vulnerabilities
+description: Classifies incoming issues, bug reports, and vulnerability findings using the S1-S4 severity framework with blast-radius analysis and escalation routing. Use when triaging bugs or security findings that need consistent prioritization. Trigger with "triage this issue", "classify severity".
+tools:
+- Read
+- Write
+- Glob
+- Grep
+model: sonnet
+color: blue
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- security
+- incident-response
+- bug-triage
+- vulnerability-management
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
 # Severity Triage Agent
 

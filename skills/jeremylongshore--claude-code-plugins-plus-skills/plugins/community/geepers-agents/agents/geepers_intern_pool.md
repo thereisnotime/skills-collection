@@ -1,9 +1,33 @@
 ---
 name: geepers-intern-pool
-description: "Cost-effective multi-model code generation agent. Uses a pool of smaller/ch..."
+description: "Cost-optimized code generator using tiered model routing — cheap models for boilerplate, mid-tier for logic, high-tier only for security-critical paths. Use when generating bulk code on a budget. Trigger with \"generate code cheaply\", \"draft the implementation\"."
+tools:
+- Read
+- Write
+- Edit
+- Bash
+- Glob
+- Grep
 model: haiku
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- code-generation
+- cost-optimization
+- multi-model
+- scaffolding
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

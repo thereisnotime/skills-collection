@@ -1,9 +1,31 @@
 ---
 name: geepers-api
-description: "Agent for API design review, REST compliance auditing, endpoint documenta..."
+description: "Reviews APIs for REST compliance, naming consistency, OpenAPI coverage, and security posture. Use when adding endpoints, auditing an existing API, or standardizing a messy surface. Trigger with \"audit the API\", \"review endpoint design\"."
+tools:
+- Read
+- Glob
+- Grep
+- Write
 model: sonnet
+color: pink
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- api-design
+- rest-compliance
+- openapi
+- security-review
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 ## Examples
 
 ### Example 1

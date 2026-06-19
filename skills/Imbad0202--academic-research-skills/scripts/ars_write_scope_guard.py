@@ -92,8 +92,19 @@ INFRA_PROTECTED_GLOBS = [
     "academic-pipeline/agents/*.md",
     "shared/agents/*.md",
     "agents/*.md",
-    ".claude/CLAUDE.md",
-    "CLAUDE.md",
+    # CLAUDE.md / .claude/CLAUDE.md are DELIBERATELY NOT protected (#459). They were
+    # added to guard ARS's own repo CLAUDE.md, but two generic doc filenames collide
+    # with the user's own project under the clone+symlink install layout: there
+    # CLAUDE_PLUGIN_ROOT is unset, the plugin_root fallback resolves to the cloned repo
+    # root, and a user working IN that repo has plugin_root == workspace_root — so their
+    # own CLAUDE.md sits at plugin_root and the infra glob re-denied it (the #448 bug
+    # resurfacing on a layout the #449 plugin-root anchoring can't distinguish, because
+    # home-turf and clone-as-user are the SAME runtime condition). Unlike every entry
+    # above, CLAUDE.md is NOT load-bearing: it documents the guard binding, it is not the
+    # binding — editing it cannot fail the guard open. So protecting it bought soft-policy
+    # comfort at the cost of a hard false-deny for real users. The right home for "don't let
+    # an agent rewrite ARS's own instruction doc" is review / CI, not the write-scope guard,
+    # which must protect ENFORCEMENT files only. See #459 (and #448/#449 for the history).
 ]
 
 

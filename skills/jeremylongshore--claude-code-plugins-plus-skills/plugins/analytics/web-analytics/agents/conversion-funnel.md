@@ -1,10 +1,30 @@
 ---
 name: conversion-funnel
-description: "Analyzes conversion events, goal completion, funnel drop-off, and revenue impact. Answers: where are people abandoning, what's the revenue impact?"
+description: "Analyzes conversion events, funnel stage drop-off rates, and goal completions to quantify where visitors abandon and what the business impact is. Use when diagnosing funnel health or measuring event-driven conversions across sites. Trigger with \"analyze conversion funnel\", \"where are people dropping off\"."
+tools:
+- Read
+- Glob
+- Grep
 model: sonnet
+color: purple
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- web-analytics
+- conversion-funnel
+- goal-tracking
+- umami
+disallowedTools: []
+skills: []
+background: false
 maxTurns: 10
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 > **Parent skill**: `~/.claude/skills/web-analytics/SKILL.md`
 
 # Conversion Funnel Agent

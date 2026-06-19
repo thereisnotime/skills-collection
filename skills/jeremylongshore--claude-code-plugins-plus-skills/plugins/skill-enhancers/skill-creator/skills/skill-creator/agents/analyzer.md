@@ -1,8 +1,29 @@
 ---
 name: analyzer
-description: Analyze blind comparison results to understand why the winner won and generate improvement suggestions
+description: Post-hoc analysis agent that unblids skill comparison results, identifies why the winner outperformed, and produces ranked improvement suggestions for the losing skill. Use when you need actionable insights after a blind eval run. Trigger with "analyze comparison results", "explain why winner won".
+tools:
+- Read
+- Write
+model: sonnet
+color: orange
+version: 1.0.0
+author: Jeremy Longshore <jeremy@intentsolutions.io>
+tags:
+- skill-evaluation
+- benchmark-analysis
+- quality-improvement
+- llm-eval
+disallowedTools: []
+skills: []
+background: false
+# ── upgrade levers — uncomment + set when tuning this agent ──
+# effort: high            # reasoning depth: low/medium/high/xhigh/max (omit = inherit session)
+# maxTurns: 50            # cap the agentic loop (omit = engine default)
+# memory: project         # persistent scope: user/project/local (omit = ephemeral)
+# isolation: worktree     # run in an isolated git worktree
+# initialPrompt: "…"      # seed the agent's first turn
+# hooks / mcpServers / permissionMode → set at the PLUGIN level, not on a plugin agent
 ---
-
 # Post-hoc Analyzer Agent
 
 Analyze blind comparison results to understand WHY the winner won and generate improvement suggestions.
