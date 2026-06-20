@@ -24,6 +24,18 @@ interface AgentConfig {
   detectDir: string;
 }
 
+export interface NativeSkillsInstallOptions {
+  /** Link skills only into this agent's global skills directory. */
+  agent?: string;
+  /** Suppress per-repo status lines; caller will render its own summary. */
+  quiet?: boolean;
+}
+
+export interface NativeSkillsInstallResult {
+  skillCount: number;
+  linkedAgents: string[];
+}
+
 const AGENTS: AgentConfig[] = [
   {
     name: 'claude-code',
@@ -141,6 +153,11 @@ function parseFrontmatter(content: string): {
   }
 
   return { name: result.name, description: result.description };
+}
+
+function resolveAgentConfig(agent: string): AgentConfig | undefined {
+  const normalized = agent.trim().toLowerCase();
+  return AGENTS.find((candidate) => candidate.name === normalized);
 }
 
 /**
@@ -328,8 +345,9 @@ function cloneRepo(tmpDir: string, repo: string): void {
  * Replicates: npx skills add <repo> --full-depth --global --all
  */
 export async function installSkillsNative(
-  repo: string = DEFAULT_REPO
-): Promise<void> {
+  repo: string = DEFAULT_REPO,
+  options: NativeSkillsInstallOptions = {}
+): Promise<NativeSkillsInstallResult> {
   const home = os.homedir();
   const canonicalBase = path.join(home, CANONICAL_DIR);
   const lockFilePath = path.join(home, LOCK_FILE);
@@ -339,9 +357,11 @@ export async function installSkillsNative(
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'firecrawl-skills-'));
 
   try {
-    console.log(
-      `  ${dim}Downloading skills from github.com/${repo}...${reset}`
-    );
+    if (!options.quiet) {
+      console.log(
+        `  ${dim}Downloading skills from github.com/${repo}...${reset}`
+      );
+    }
     cloneRepo(tmpDir, repo);
 
     // Discover skills
@@ -355,7 +375,9 @@ export async function installSkillsNative(
       throw new Error('No skills found in repository');
     }
 
-    console.log(`  ${dim}Found ${skills.length} skills${reset}`);
+    if (!options.quiet) {
+      console.log(`  ${dim}Found ${skills.length} skills${reset}`);
+    }
 
     // Copy skills to canonical directory
     fs.mkdirSync(canonicalBase, { recursive: true });
@@ -371,7 +393,15 @@ export async function installSkillsNative(
     }
 
     // Detect installed agents and create symlinks
-    const agents = detectInstalledAgents();
+    const agents = options.agent
+      ? [
+          resolveAgentConfig(options.agent) ?? {
+            name: options.agent,
+            globalSkillsDir: path.join(`.${options.agent}`, 'skills'),
+            detectDir: `.${options.agent}`,
+          },
+        ]
+      : detectInstalledAgents();
     const linkedAgents: string[] = [];
 
     for (const agent of agents) {
@@ -448,12 +478,18 @@ export async function installSkillsNative(
     fs.writeFileSync(lockFilePath, JSON.stringify(lock, null, 2) + '\n');
 
     // Summary
-    console.log(
-      `  ${green}✓${reset} ${skills.length} skills installed to ${dim}~/${CANONICAL_DIR}/${reset}`
-    );
-    if (linkedAgents.length > 0) {
-      console.log(`  ${green}✓${reset} Linked to: ${linkedAgents.join(', ')}`);
+    if (!options.quiet) {
+      console.log(
+        `  ${green}✓${reset} ${skills.length} skills installed to ${dim}~/${CANONICAL_DIR}/${reset}`
+      );
+      if (linkedAgents.length > 0) {
+        console.log(
+          `  ${green}✓${reset} Linked to: ${linkedAgents.join(', ')}`
+        );
+      }
     }
+
+    return { skillCount: skills.length, linkedAgents };
   } finally {
     // Clean up temp directory
     try {

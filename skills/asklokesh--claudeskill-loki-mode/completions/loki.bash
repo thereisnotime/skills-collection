@@ -5,7 +5,7 @@ _loki_completion() {
     _init_completion || return
 
     # Main subcommands (must match autonomy/loki main case statement)
-    local main_commands="start quick monitor demo init stop pause resume status dashboard logs serve api sandbox notify import github issue config provider reset memory compound checkpoint council dogfood projects enterprise secrets doctor watchdog audit metrics syslog onboard share proof explain plan report test ci watch telemetry agent context code run export review optimize heal migrate cluster worktree trigger failover remote version completions help"
+    local main_commands="start quick monitor demo init stop pause resume status next ship dashboard web serve api sandbox notify import github issue config provider reset memory compound checkpoint council dogfood projects enterprise secrets doctor watchdog audit metrics syslog onboard share proof explain plan report cost kpis stats test ci watch telemetry agent context ctx code run export review optimize heal modernize migrate cluster worktree wt trigger failover remote deploy docker mcp magic assets analyze compliance crash open otel preview quickstart rc rollback self-update sentrux setup-skill spec state template trust trust-metrics ultracode update verify voice why wiki bench cleanup logs grill docs cp version completions help"
 
     # 1. If we are on the first argument (subcommand)
     if [[ $cword -eq 1 ]]; then
@@ -15,10 +15,13 @@ _loki_completion() {
 
     # 2. Handle subcommands and their specific flags/args
     case "${words[1]}" in
-        start)
+        start|quick)
             # If the previous word was --provider, show provider names
             if [[ "$prev" == "--provider" ]]; then
-                COMPREPLY=( $(compgen -W "claude codex gemini" -- "$cur") )
+                # Active providers (loki rejects gemini since v7.5.18; cline/aider
+                # are supported). Keep in sync with providers/loader.sh
+                # SUPPORTED_PROVIDERS.
+                COMPREPLY=( $(compgen -W "claude codex cline aider" -- "$cur") )
                 return 0
             fi
 
@@ -29,8 +32,23 @@ _loki_completion() {
                 return 0
             fi
 
-            # Otherwise, default to file completion (for PRD files)
-            COMPREPLY=( $(compgen -f -- "$cur") )
+            # Bias toward the spec-shaped files Loki actually accepts
+            # (.md/.json/.txt/.yaml/.yml), plus directories so the user can still
+            # navigate into a subfolder. This makes the most-common command
+            # tab-driven and typo-proof, cutting "PRD file not found" mistakes.
+            # If the spec-filtered set is empty (no specs here), fall back to
+            # generic file completion so nothing the user could type is lost.
+            local _specs _dirs _eg_was_set=0
+            shopt -q extglob && _eg_was_set=1
+            shopt -s extglob
+            _specs=$(compgen -f -X '!*.@(md|json|txt|yaml|yml)' -- "$cur")
+            [[ "$_eg_was_set" -eq 0 ]] && shopt -u extglob
+            _dirs=$(compgen -d -- "$cur")
+            if [[ -n "$_specs" || -n "$_dirs" ]]; then
+                COMPREPLY=( $_specs $_dirs )
+            else
+                COMPREPLY=( $(compgen -f -- "$cur") )
+            fi
             ;;
 
         council)
@@ -119,7 +137,7 @@ _loki_completion() {
 
         logs)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--follow -f --lines -n --help" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--tail -n --all -a --follow -f --help -h" -- "$cur") )
                 return 0
             fi
             ;;
@@ -195,7 +213,7 @@ _loki_completion() {
             ;;
 
         completions)
-            COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") )
+            COMPREPLY=( $(compgen -W "bash zsh install" -- "$cur") )
             ;;
 
         context|ctx)

@@ -220,7 +220,15 @@ function generateStandaloneHTML(bundleCode) {
       display: grid;
       grid-template-columns: 240px 1fr;
       grid-template-rows: 1fr;
-      min-height: 100vh;
+      /* Pin to the viewport (not min-height) so the grid row can never grow
+         taller than the screen. With min-height the 1fr row stretched to the
+         tallest grid item, making the BODY itself 100vh+ tall and scrollable.
+         A native scroll-on-focus (e.g. focusing the clicked nav button) then
+         scrolled the WINDOW instead of #main-content, pushing the active
+         section page above the fold (the wiki view rendered off-screen).
+         Pinning height + overflow:hidden keeps #main-content the only scroller. */
+      height: 100vh;
+      overflow: hidden;
     }
 
     @media (max-width: 768px) {
@@ -237,7 +245,10 @@ function generateStandaloneHTML(bundleCode) {
       }
     }
 
-    /* Sidebar - glass effect */
+    /* Sidebar - glass effect. v7.84 enterprise IA: a three-region flex column
+       (anchored brand+switcher header, independently scrolling grouped nav,
+       anchored footer). min-height:0 on the column lets the nav region own the
+       scroll so the sidebar never "ends awkwardly" mid-list. */
     .sidebar {
       display: flex;
       flex-direction: column;
@@ -245,14 +256,18 @@ function generateStandaloneHTML(bundleCode) {
       backdrop-filter: blur(16px) saturate(1.4);
       -webkit-backdrop-filter: blur(16px) saturate(1.4);
       border-right: 1px solid var(--loki-glass-border);
-      overflow-y: auto;
+      overflow: hidden;
+      min-height: 0;
     }
 
+    /* Anchored header: brand + single project switcher. Does not scroll. */
     .sidebar-logo {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      padding: 20px 16px 16px;
+      padding: 18px 14px 14px;
+      flex: 0 0 auto;
+      border-bottom: 1px solid var(--loki-border-light);
     }
 
     .logo-brand {
@@ -273,20 +288,46 @@ function generateStandaloneHTML(bundleCode) {
       font-weight: 500;
     }
 
-    /* Navigation */
+    /* Navigation: the only scrolling region. min-height:0 + overflow-y:auto so
+       a long grouped nav scrolls within the sidebar while the header + footer
+       stay pinned. */
     .nav-links {
       display: flex;
       flex-direction: column;
-      padding: 8px;
+      padding: 10px 8px 12px;
       gap: 2px;
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* Grouped nav: small muted uppercase group headers separate the five
+       functional areas (Build / Quality & Trust / Insights / Ops / Wiki). */
+    .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .nav-group + .nav-group {
+      margin-top: 14px;
+    }
+    .nav-group-head {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--loki-text-muted);
+      padding: 4px 12px 5px;
+      user-select: none;
     }
 
     .nav-link {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 9px 12px;
+      padding: 8px 12px;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
@@ -298,6 +339,7 @@ function generateStandaloneHTML(bundleCode) {
       text-align: left;
       width: 100%;
       font-family: inherit;
+      position: relative;
     }
 
     .nav-link:hover {
@@ -312,6 +354,25 @@ function generateStandaloneHTML(bundleCode) {
       box-shadow: 0 0 0 1px var(--loki-accent-glow);
     }
 
+    /* Active rail: a small accent bar on the left edge makes the current page
+       unmistakable at a glance (Linear/Grafana convention). */
+    .nav-link.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 16px;
+      border-radius: 0 3px 3px 0;
+      background: var(--loki-accent);
+    }
+
+    .nav-link:focus-visible {
+      outline: 2px solid var(--loki-accent);
+      outline-offset: -1px;
+    }
+
     .nav-link svg {
       width: 16px;
       height: 16px;
@@ -321,24 +382,33 @@ function generateStandaloneHTML(bundleCode) {
       flex-shrink: 0;
     }
 
-    /* Sidebar footer */
+    /* Sidebar footer: anchored bottom region. v7.84 enterprise pass -- the dev
+       "API URL + Go" control is no longer always-visible clutter; it now lives
+       behind a small Settings (gear) popover. The footer shows only the
+       intentional controls: session control, Settings, and the theme toggle. */
     .sidebar-footer {
-      padding: 12px;
+      padding: 10px 12px 12px;
       border-top: 1px solid var(--loki-border);
+      flex: 0 0 auto;
     }
 
     .sidebar-controls {
       display: flex;
       gap: 6px;
       align-items: center;
-      padding: 8px 4px 0;
+      padding: 8px 0 0;
     }
 
-    .theme-toggle, .api-btn {
-      padding: 5px 10px;
+    /* Icon-style footer buttons (settings gear + theme). The theme toggle keeps
+       its text label; both share the muted-chip resting style. */
+    .footer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
       background: var(--loki-bg-tertiary);
       border: 1px solid var(--loki-border);
-      border-radius: 6px;
+      border-radius: 7px;
       font-size: 11px;
       color: var(--loki-text-secondary);
       cursor: pointer;
@@ -346,20 +416,91 @@ function generateStandaloneHTML(bundleCode) {
       font-family: inherit;
     }
 
-    .theme-toggle:hover, .api-btn:hover {
+    .footer-btn:hover {
       background: var(--loki-bg-hover);
       color: var(--loki-text-primary);
     }
 
+    .footer-btn:focus-visible {
+      outline: 2px solid var(--loki-accent);
+      outline-offset: 1px;
+    }
+
+    .footer-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      flex-shrink: 0;
+    }
+
+    .theme-toggle {
+      margin-left: auto;
+    }
+
+    .footer-settings {
+      position: relative;
+    }
+
+    /* Settings popover: opens above the gear; holds the (rarely used) API URL
+       override so it is reachable but never crowds the product chrome. */
+    .settings-popover {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      width: 232px;
+      padding: 12px;
+      background: var(--loki-bg-card);
+      border: 1px solid var(--loki-border);
+      border-radius: 10px;
+      box-shadow: var(--loki-glass-shadow);
+      z-index: 50;
+    }
+    .settings-popover.open {
+      display: block;
+    }
+    .settings-popover-label {
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--loki-text-muted);
+      margin-bottom: 6px;
+    }
+    .settings-popover-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .api-btn {
+      padding: 6px 12px;
+      background: var(--loki-accent);
+      border: 1px solid var(--loki-accent);
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #fff;
+      cursor: pointer;
+      transition: all var(--loki-transition);
+      font-family: inherit;
+      flex: 0 0 auto;
+    }
+    .api-btn:hover {
+      background: var(--loki-accent-hover);
+      border-color: var(--loki-accent-hover);
+    }
+
     .api-url-input {
-      padding: 5px 8px;
+      padding: 6px 8px;
       background: var(--loki-bg-primary);
       border: 1px solid var(--loki-border);
-      border-radius: 6px;
+      border-radius: 7px;
       font-size: 11px;
       font-family: 'JetBrains Mono', monospace;
       color: var(--loki-text-primary);
-      flex: 1;
+      flex: 1 1 auto;
       min-width: 0;
     }
 
@@ -369,62 +510,29 @@ function generateStandaloneHTML(bundleCode) {
       box-shadow: 0 0 0 3px var(--loki-accent-glow);
     }
 
-    /* v7.7.29 multi-project switcher; redesigned v7.75: running apps are the
-       primary, scannable surface (a "Running" group with a count + dropdown +
-       compact Stop affordance); inactive/known projects live in a muted
-       secondary "Switch project" group so they never crowd the running list. */
+    /* Project switcher. v7.84 enterprise IA: the two redundant dropdowns
+       (running + all-projects) are collapsed into ONE searchable switcher --
+       a single <select> with two <optgroup>s ("Running" and "All projects").
+       A running-app count badge sits beside it, and a compact Stop control for
+       the focused running app appears only when an app is running, so the
+       per-app Stop affordance stays reachable without a second full dropdown. */
     .project-nav {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 7px;
       margin-top: 14px;
     }
-    .project-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    /* hidden until it has content (no empty "Running" header when nothing runs) */
-    .project-group[hidden] { display: none; }
-    .project-group-head {
+    .project-switch-row {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 9px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--loki-text-muted);
     }
-    .project-group-head .group-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--loki-success, #1AAF95);
-      flex: 0 0 auto;
-      box-shadow: 0 0 0 3px var(--loki-success-glow, rgba(26, 175, 149, 0.18));
-    }
-    .project-group-head .group-count {
-      margin-left: auto;
-      min-width: 16px;
-      padding: 0 5px;
-      height: 15px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      background: var(--loki-bg-hover);
-      color: var(--loki-text-secondary);
-      font-size: 9px;
-      letter-spacing: 0;
-    }
-    /* Shared select styling for both the running + inactive switchers. */
     .project-switcher {
-      width: 100%;
+      flex: 1 1 auto;
+      min-width: 0;
       max-width: 100%;
       box-sizing: border-box;
-      padding: 6px 10px;
+      padding: 7px 10px;
       background: var(--loki-bg-primary);
       border: 1px solid var(--loki-border);
       border-radius: 7px;
@@ -439,17 +547,34 @@ function generateStandaloneHTML(bundleCode) {
       border-color: var(--loki-accent);
       box-shadow: 0 0 0 3px var(--loki-accent-glow);
     }
-    /* Running select is emphasized (accent border); inactive select is muted. */
-    #running-switcher {
-      border-color: var(--loki-accent);
-      font-weight: 500;
+    /* Running-app count badge. Hidden (via [hidden]) when nothing is running. */
+    .running-pill {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 8px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--loki-success-muted, rgba(26, 175, 149, 0.14));
+      color: var(--loki-success, #1AAF95);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
     }
-    #project-switcher {
-      color: var(--loki-text-secondary);
+    .running-pill[hidden] { display: none; }
+    .running-pill .group-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex: 0 0 auto;
     }
-    /* v7.7.30 per-project stop list -- now a tidy vertical column of running
+    /* v7.7.30 per-project stop list -- a tidy vertical column of running
        apps, each a row with a truncating name (clickable to focus) + a small,
-       unobtrusive Stop button. Only running apps ever appear here. */
+       unobtrusive Stop button. Only running apps ever appear here. Hidden when
+       nothing runs, so the inactive state is just the single switcher. */
     .project-stop-list {
       display: flex;
       flex-direction: column;
@@ -810,111 +935,135 @@ function generateStandaloneHTML(bundleCode) {
         </button>
         <span class="logo-brand">Loki Mode</span>
         <span class="logo-subtitle">powered by Autonomi</span>
-        <!-- v7.7.29 multi-project switcher, redesigned v7.75: running apps are
-             the primary control (a "Running" group: count + dropdown to focus +
-             a compact per-app Stop list); inactive/known projects live in a
-             muted secondary "Switch project" group so they never crowd the
-             running list. Both groups are built/toggled at runtime from
-             /api/running-projects. -->
+        <!-- v7.84 single project switcher: ONE searchable <select> with two
+             <optgroup>s ("Running" and "All projects"), built at runtime from
+             /api/running-projects. A running-app count pill sits beside it; the
+             per-app Stop list below appears only while apps are running, so the
+             Stop affordance stays reachable without a second dropdown. -->
         <div class="project-nav">
-          <!-- Running group: hidden until at least one app is running. -->
-          <div class="project-group" id="running-group" hidden>
-            <div class="project-group-head">
-              <span class="group-dot" aria-hidden="true"></span>
-              <span>Running</span>
-              <span class="group-count" id="running-count" aria-hidden="true">0</span>
-            </div>
-            <!-- Dropdown of running apps; selecting one focuses it (same
-                 /api/focus + reload path as the inactive switcher). The
-                 focused running app is pre-selected. -->
-            <select class="project-switcher" id="running-switcher" title="Focus a running app" aria-label="Focus a running app"></select>
-            <!-- v7.7.30 per-project stop: a tidy list of running apps, each with
-                 a Stop button that gracefully halts that app's runner without
-                 affecting any other folder. Built at runtime. -->
-            <div class="project-stop-list" id="project-stop-list" aria-label="Running apps"></div>
-          </div>
-          <!-- Inactive/all projects: the muted secondary switcher. Lists every
-               known project (running marked) so the user can switch to an
-               inactive folder; defaults to "All projects (current dir)". -->
-          <div class="project-group" id="all-projects-group">
-            <div class="project-group-head"><span>Switch project</span></div>
-            <select class="project-switcher" id="project-switcher" title="Switch project" aria-label="Switch project">
+          <div class="project-switch-row">
+            <select class="project-switcher" id="project-switcher" title="Switch or focus a project" aria-label="Switch or focus a project">
               <option value="">All projects (current dir)</option>
             </select>
+            <span class="running-pill" id="running-pill" title="Running apps" hidden>
+              <span class="group-dot" aria-hidden="true"></span>
+              <span id="running-count">0</span>
+            </span>
           </div>
+          <!-- v7.7.30 per-project stop: a tidy list of running apps, each with
+               a Stop button that gracefully halts that app's runner without
+               affecting any other folder. Built at runtime; empty -> hidden. -->
+          <div class="project-stop-list" id="project-stop-list" aria-label="Running apps"></div>
         </div>
       </div>
 
+      <!-- v7.84 enterprise IA: the 16 flat nav items are regrouped under five
+           muted group headers (Build / Quality & Trust / Insights / Ops /
+           Wiki). Every data-section id is unchanged -- only the visual grouping
+           and order changed, so the section-switch JS, URL-hash restore, and
+           keyboard shortcuts continue to key on the same ids. -->
       <nav class="nav-links">
-        <button class="nav-link active" data-section="overview" id="nav-overview">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Overview
-        </button>
-        <button class="nav-link" data-section="insights" id="nav-insights">
-          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Insights
-        </button>
-        <button class="nav-link" data-section="prd-checklist" id="nav-prd-checklist">
-          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-          Spec Checklist
-        </button>
-        <button class="nav-link" data-section="app-runner" id="nav-app-runner">
-          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          App Runner
-        </button>
-        <button class="nav-link" data-section="council" id="nav-council">
-          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          Council
-        </button>
-        <button class="nav-link" data-section="quality" id="nav-quality">
-          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          Quality
-        </button>
-        <button class="nav-link" data-section="cost" id="nav-cost">
-          <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-          Cost
-        </button>
-        <button class="nav-link" data-section="trust" id="nav-trust">
-          <svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="15 7 21 7 21 13" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          Trust
-        </button>
-        <button class="nav-link" data-section="checkpoint" id="nav-checkpoint">
-          <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          Checkpoints
-        </button>
-        <button class="nav-link" data-section="context" id="nav-context">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          Context
-        </button>
-        <button class="nav-link" data-section="notifications" id="nav-notifications">
-          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-          Notifications
-          <span class="notification-badge" id="notif-badge" style="display:none;background:var(--loki-red);color:#fff;font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;">0</span>
-        </button>
-        <button class="nav-link" data-section="migration" id="nav-migration">
-          <svg viewBox="0 0 24 24"><path d="M4 14h6v6H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 4h6v6h-6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 10v4h-4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 14v-4h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          Migration
-        </button>
-        <button class="nav-link" data-section="analytics" id="nav-analytics">
-          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Analytics
-        </button>
-        <button class="nav-link" data-section="escalations" id="nav-escalations">
-          <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Escalations
-        </button>
-        <button class="nav-link" data-section="wiki" id="nav-wiki">
-          <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-          Wiki
-        </button>
+        <div class="nav-group">
+          <div class="nav-group-head">Build</div>
+          <button class="nav-link active" data-section="overview" id="nav-overview">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Overview
+          </button>
+          <button class="nav-link" data-section="app-runner" id="nav-app-runner">
+            <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            App Runner
+          </button>
+          <button class="nav-link" data-section="checkpoint" id="nav-checkpoint">
+            <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Checkpoints
+          </button>
+          <button class="nav-link" data-section="context" id="nav-context">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Context
+          </button>
+          <button class="nav-link" data-section="fleet" id="nav-fleet">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Fleet
+          </button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-head">Quality &amp; Trust</div>
+          <button class="nav-link" data-section="quality" id="nav-quality">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            Quality
+          </button>
+          <button class="nav-link" data-section="trust" id="nav-trust">
+            <svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="15 7 21 7 21 13" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            Trust
+          </button>
+          <button class="nav-link" data-section="council" id="nav-council">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            Council
+          </button>
+          <button class="nav-link" data-section="prd-checklist" id="nav-prd-checklist">
+            <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            Spec Checklist
+          </button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-head">Insights</div>
+          <button class="nav-link" data-section="insights" id="nav-insights">
+            <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Insights
+          </button>
+          <button class="nav-link" data-section="analytics" id="nav-analytics">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Analytics
+          </button>
+          <button class="nav-link" data-section="cost" id="nav-cost">
+            <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            Cost
+          </button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-head">Ops</div>
+          <button class="nav-link" data-section="notifications" id="nav-notifications">
+            <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            Notifications
+            <span class="notification-badge" id="notif-badge" style="display:none;background:var(--loki-red);color:#fff;font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;">0</span>
+          </button>
+          <button class="nav-link" data-section="escalations" id="nav-escalations">
+            <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Escalations
+          </button>
+          <button class="nav-link" data-section="migration" id="nav-migration">
+            <svg viewBox="0 0 24 24"><path d="M4 14h6v6H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 4h6v6h-6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 10v4h-4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 14v-4h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            Migration
+          </button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-head">Wiki</div>
+          <button class="nav-link" data-section="wiki" id="nav-wiki">
+            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            Wiki
+          </button>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
         <loki-session-control id="session-control"></loki-session-control>
         <div class="sidebar-controls">
-          <input type="text" class="api-url-input" id="api-url" placeholder="API URL">
-          <button class="api-btn" id="connect-btn">Go</button>
-          <button class="theme-toggle" id="theme-toggle" title="Toggle theme (T)">
+          <!-- Settings (gear) holds the rarely-used API URL override behind a
+               popover so it no longer clutters the always-visible footer. -->
+          <div class="footer-settings">
+            <button class="footer-btn" id="settings-btn" type="button" title="Settings" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              <span>Settings</span>
+            </button>
+            <div class="settings-popover" id="settings-popover" role="dialog" aria-label="Settings">
+              <div class="settings-popover-label">API URL</div>
+              <div class="settings-popover-row">
+                <input type="text" class="api-url-input" id="api-url" placeholder="API URL">
+                <button class="api-btn" id="connect-btn" type="button">Go</button>
+              </div>
+            </div>
+          </div>
+          <button class="footer-btn theme-toggle" id="theme-toggle" title="Toggle theme (T)">
             <svg id="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             <svg id="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" style="display:none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
             <span id="theme-label">Dark</span>
@@ -936,6 +1085,15 @@ function generateStandaloneHTML(bundleCode) {
           </div>
           <loki-task-board id="task-board"></loki-task-board>
         </div>
+      </div>
+
+      <!-- Fleet: cross-project build observability (v1 polls the shared
+           metadata store; not a controller). -->
+      <div class="section-page" id="page-fleet">
+        <div class="section-page-header">
+          <h2 class="section-page-title">Fleet</h2>
+        </div>
+        <loki-fleet id="fleet-panel"></loki-fleet>
       </div>
 
       <!-- Insights: Logs + Memory + Learning (combined) -->
@@ -1421,17 +1579,18 @@ document.addEventListener('DOMContentLoaded', function() {
   var initResult = LokiDashboard.init({ autoDetectContext: true });
   console.log('Loki Dashboard initialized:', initResult);
 
-  // v7.7.29 multi-project switcher: populate from /api/running-projects and
-  // switch the focused project via /api/focus. Fully best-effort; if the
-  // endpoint is unavailable the dropdown simply stays at "All projects".
+  // v7.84 single project switcher: populate ONE <select> (two <optgroup>s:
+  // "Running" + "All projects") from /api/running-projects and switch/focus the
+  // project via /api/focus. A running-app count pill + per-app Stop list sit
+  // beside/below it. Fully best-effort; if the endpoint is unavailable the
+  // select simply stays at "All projects".
   (function initProjectSwitcher() {
     var sel = document.getElementById('project-switcher');
     if (!sel) return;
     var stopList = document.getElementById('project-stop-list');
-    // v7.75: the running group (header + count + dropdown + stop list) is the
-    // primary surface; it is hidden whenever nothing is running.
-    var runningGroup = document.getElementById('running-group');
-    var runningSel = document.getElementById('running-switcher');
+    // v7.84: a small count pill (instead of a second dropdown) signals how many
+    // apps are running; hidden whenever nothing is running.
+    var runningPill = document.getElementById('running-pill');
     var runningCount = document.getElementById('running-count');
     // v7.35: focus a project by its working dir, then reload so every panel
     // re-fetches against it. The active section lives in the URL hash now, so
@@ -1499,21 +1658,35 @@ document.addEventListener('DOMContentLoaded', function() {
         stopList.appendChild(row);
       });
     }
-    // v7.75: build the primary "Running" dropdown from running apps only. The
-    // focused running app is pre-selected; selecting another focuses it (same
-    // /api/focus + reload path). Returns the running app count so the caller
-    // can toggle the group + count badge.
-    function buildRunningSwitcher(projects) {
-      if (!runningSel) return 0;
+    // v7.84: build the single switcher as ONE <select> with two <optgroup>s.
+    // "Running" lists running apps first (so the most relevant projects are at
+    // the top, pre-selected if active); "All projects" lists every known
+    // project. Selecting any option focuses it (same /api/focus + reload path).
+    // Returns the running-app count so the caller can toggle the count pill.
+    function buildSwitcher(projects) {
       var running = projects.filter(function(p){ return p.running === true && p.path; });
-      while (runningSel.firstChild) runningSel.removeChild(runningSel.firstChild);
-      running.forEach(function(p){
-        var o = document.createElement('option');
-        o.value = p.path || '';
-        o.textContent = p.name || p.path || 'app';
-        if (p.is_active) o.selected = true;
-        runningSel.appendChild(o);
-      });
+      var active = projects.filter(function(p){ return !(p.running === true && p.path); });
+      sel.innerHTML = '';
+      // Default: clears focus to "all projects in the current dir".
+      var optAll = document.createElement('option');
+      optAll.value = ''; optAll.textContent = 'All projects (current dir)';
+      sel.appendChild(optAll);
+      function addGroup(label, list, markRunning) {
+        if (!list.length) return;
+        var og = document.createElement('optgroup');
+        og.label = label;
+        list.forEach(function(p){
+          var o = document.createElement('option');
+          o.value = p.path || '';
+          var dot = markRunning ? '* ' : '';  // running marker (ASCII)
+          o.textContent = dot + (p.name || p.path || 'project');
+          if (p.is_active) o.selected = true;
+          og.appendChild(o);
+        });
+        sel.appendChild(og);
+      }
+      addGroup('Running', running, true);
+      addGroup('All projects', active, false);
       return running.length;
     }
     function refresh() {
@@ -1522,25 +1695,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(function(data){
           if (!data || !Array.isArray(data.projects)) return;
           var current = sel.value;
-          // Rebuild the inactive/all switcher: keep "All projects" default
-          // first, then every known project (running apps marked with *).
-          sel.innerHTML = '';
-          var optAll = document.createElement('option');
-          optAll.value = ''; optAll.textContent = 'All projects (current dir)';
-          sel.appendChild(optAll);
-          data.projects.forEach(function(p){
-            var o = document.createElement('option');
-            o.value = p.path || '';
-            var dot = p.running ? '* ' : '';   // running marker (ASCII)
-            o.textContent = dot + (p.name || p.path || 'project');
-            if (p.is_active) o.selected = true;
-            sel.appendChild(o);
-          });
+          var n = buildSwitcher(data.projects);
           if (!data.active_project_dir && current === '') sel.value = '';
-          // Primary running surface: dropdown + count + visibility toggle.
-          var n = buildRunningSwitcher(data.projects);
+          // Running-app count pill: shown only when something is running.
           if (runningCount) runningCount.textContent = String(n);
-          if (runningGroup) runningGroup.hidden = (n === 0);
+          if (runningPill) runningPill.hidden = (n === 0);
           buildStopList(data.projects);
         })
         .catch(function(){ /* offline / no endpoint: leave as-is */ });
@@ -1548,11 +1707,6 @@ document.addEventListener('DOMContentLoaded', function() {
     sel.addEventListener('change', function(){
       focusProject(sel.value);
     });
-    if (runningSel) {
-      runningSel.addEventListener('change', function(){
-        focusProject(runningSel.value);
-      });
-    }
     refresh();
     setInterval(refresh, 15000);
   })();
@@ -1664,6 +1818,36 @@ document.addEventListener('DOMContentLoaded', function() {
   connectBtn.addEventListener('click', function() {
     updateComponentsApiUrl(apiUrlInput.value);
   });
+
+  // v7.84 Settings popover: holds the API URL override. Toggled by the gear,
+  // closed on outside click or Escape. Best-effort -- if the elements are not
+  // present (older build) this block simply no-ops.
+  (function initSettingsPopover() {
+    var settingsBtn = document.getElementById('settings-btn');
+    var popover = document.getElementById('settings-popover');
+    if (!settingsBtn || !popover) return;
+    function open() {
+      popover.classList.add('open');
+      settingsBtn.setAttribute('aria-expanded', 'true');
+    }
+    function close() {
+      popover.classList.remove('open');
+      settingsBtn.setAttribute('aria-expanded', 'false');
+    }
+    settingsBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (popover.classList.contains('open')) { close(); }
+      else { open(); }
+    });
+    // Clicks inside the popover should not close it.
+    popover.addEventListener('click', function(e) { e.stopPropagation(); });
+    document.addEventListener('click', function() {
+      if (popover.classList.contains('open')) close();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && popover.classList.contains('open')) close();
+    });
+  })();
 
   // Offline detection
   window.addEventListener('online', function() {
@@ -1834,7 +2018,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('keydown', function(e) {
     if ((e.metaKey || e.ctrlKey) && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
       e.preventDefault();
-      var sections = ['overview', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'trust', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
+      var sections = ['overview', 'fleet', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'trust', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
       var idx = e.key === '0' ? 9 : parseInt(e.key) - 1;
       if (idx < sections.length) switchSection(sections[idx]);
     }
@@ -1875,7 +2059,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Skip if modifier keys are held (let browser defaults work)
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-    var sections = ['overview', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'trust', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
+    var sections = ['overview', 'fleet', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'trust', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
 
     switch (e.key) {
       // Section navigation: 1-9, 0

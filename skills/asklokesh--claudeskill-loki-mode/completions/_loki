@@ -11,7 +11,7 @@ function _loki {
     case $state in
         (args)
             case $line[1] in
-                start)
+                start|quick)
                     _loki_start
                     ;;
                 council)
@@ -67,8 +67,12 @@ function _loki {
                     _arguments \
                         '--follow[Follow logs in real-time]' \
                         '-f[Follow logs in real-time]' \
-                        '--lines[Number of lines]:number:' \
-                        '-n[Number of lines]:number:'
+                        '--tail[Number of lines to show]:number:' \
+                        '-n[Number of lines to show]:number:' \
+                        '--all[Show all lines]' \
+                        '-a[Show all lines]' \
+                        '--help[Show help]' \
+                        '-h[Show help]'
                     ;;
                 issue)
                     _loki_issue
@@ -97,7 +101,7 @@ function _loki {
                         '1:subcommand:(list show open share)'
                     ;;
                 completions)
-                    _arguments '1:shell:(bash zsh)'
+                    _arguments '1:shell:(bash zsh install)'
                     ;;
                 monitor)
                     _directories
@@ -118,6 +122,7 @@ function _loki_commands {
     commands=(
         'start:Start Loki Mode'
         'quick:Quick single-task mode'
+        'quickstart:Guided first build from your idea'
         'monitor:Monitor Docker Compose services with auto-fix'
         'demo:Interactive 60-second demo'
         'init:Interactive PRD builder'
@@ -125,11 +130,16 @@ function _loki_commands {
         'pause:Pause execution'
         'resume:Resume execution'
         'status:Show status'
+        'next:Run the right next step for the current build'
+        'ship:Finish the build (gates + PR advice) in one command'
+        'why:Explain why the last run did what it did'
         'dashboard:Dashboard commands'
+        'web:Start the web app surface'
         'logs:View session logs'
         'serve:Start API server'
         'api:API server commands'
         'sandbox:Docker sandbox commands'
+        'docker:Run Loki in a Docker container'
         'notify:Notification commands'
         'import:Import GitHub issues'
         'issue:GitHub issue commands'
@@ -149,8 +159,66 @@ function _loki_commands {
         'metrics:Session productivity report'
         'share:Share session report as GitHub Gist'
         'proof:Inspect/share proof-of-run artifacts'
+        'preview:Preview the locally-running app'
+        'deploy:Deploy the built product (CI/CD-aware)'
         'context:Context window management'
+        'ctx:Context window management (alias)'
         'code:Codebase intelligence'
+        'web:Start the web dashboard'
+        'plan:Preview the build plan for a spec'
+        'report:Reporting commands (cost, kpis, share)'
+        'cost:Show cost of recent runs'
+        'kpis:Key performance indicators'
+        'stats:Session statistics'
+        'preview:Open the running app preview'
+        'deploy:Advisory deploy command (print-only)'
+        'docker:Run Loki in a Docker container'
+        'mcp:MCP server commands'
+        'magic:Spec-driven component generation'
+        'assets:Export/import shareable team assets'
+        'spec:Living spec drift detection'
+        'verify:Deterministic PR verification'
+        'grill:Interrogate a spec before building'
+        'trust:Visible trust trajectory'
+        'trust-metrics:Trust metrics report'
+        'why:Explain the last build outcome'
+        'heal:Legacy system healing'
+        'modernize:Modernize a legacy system'
+        'migrate:Migration commands'
+        'analyze:Analyze a codebase'
+        'compliance:Compliance reporting'
+        'crash:Crash report management'
+        'otel:OpenTelemetry management'
+        'wiki:Wiki commands'
+        'explain:Explain Loki concepts'
+        'optimize:Optimization commands'
+        'review:Code review commands'
+        'export:Export session data'
+        'test:Run tests'
+        'ci:CI helpers'
+        'watch:Watch mode'
+        'audit:Audit commands'
+        'syslog:System log commands'
+        'cluster:Cluster commands'
+        'failover:Failover commands'
+        'remote:Remote execution commands'
+        'worktree:Git worktree commands'
+        'wt:Git worktree commands (alias)'
+        'trigger:Trigger commands'
+        'cleanup:Clean up Loki state'
+        'rollback:Roll back a change'
+        'update:Update Loki Mode'
+        'self-update:Update Loki Mode'
+        'setup-skill:Set up the Claude Code skill'
+        'quickstart:Quickstart guide'
+        'sentrux:Sentrux integration'
+        'state:Inspect run state'
+        'template:PRD template commands'
+        'ultracode:Ultra code review'
+        'voice:Voice commands'
+        'bench:Run benchmarks'
+        'open:Open a project resource'
+        'rc:Release candidate commands'
         'version:Show version'
         'completions:Output shell completions'
         'help:Show help'
@@ -160,7 +228,7 @@ function _loki_commands {
 
 function _loki_start {
     _arguments \
-        '--provider[AI provider]:provider name:(claude codex gemini)' \
+        '--provider[AI provider]:provider name:(claude codex cline aider)' \
         '--parallel[Parallel mode]' \
         '--background[Background mode]' \
         '--bg[Background mode]' \
@@ -174,7 +242,17 @@ function _loki_start {
         '-y[Skip confirmation prompts]' \
         '--budget[Cost budget limit in USD]:amount:' \
         '--max-iterations[Max iterations]:number:' \
-        '*:PRD File:_files'
+        '*:spec file:_loki_spec_files'
+}
+
+# Bias spec completion toward the file shapes Loki accepts (.md/.json/.txt/
+# .yaml/.yml), while still offering directories so the user can navigate into a
+# subfolder. Mirrors the bash completion. Makes the most-common command
+# tab-driven and typo-proof, cutting "PRD file not found" mistakes.
+function _loki_spec_files {
+    _alternative \
+        'specs:spec file:_files -g "*.(md|json|txt|yaml|yml)"' \
+        'dirs:directory:_files -/'
 }
 
 function _loki_council {

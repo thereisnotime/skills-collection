@@ -643,6 +643,9 @@ export class LokiTaskBoard extends LokiElement {
           grid-template-columns: repeat(4, 1fr);
           gap: 12px;
           min-height: 350px;
+          /* Bound the board to the viewport so columns scroll internally
+             instead of pushing the page; leaves room for the page chrome. */
+          max-height: calc(100vh - 220px);
         }
 
         @media (max-width: 1200px) {
@@ -650,7 +653,11 @@ export class LokiTaskBoard extends LokiElement {
         }
 
         @media (max-width: 768px) {
-          .kanban-board { grid-template-columns: 1fr; }
+          .kanban-board {
+            grid-template-columns: 1fr;
+            /* Single-column stacks naturally; let the page scroll instead. */
+            max-height: none;
+          }
         }
 
         .kanban-column {
@@ -659,6 +666,10 @@ export class LokiTaskBoard extends LokiElement {
           padding: 12px;
           display: flex;
           flex-direction: column;
+          /* Allow the column to shrink within the grid track so its inner
+             task list (not the whole column) owns the overflow. */
+          min-height: 0;
+          overflow: hidden;
           transition: background var(--loki-transition);
         }
 
@@ -669,6 +680,13 @@ export class LokiTaskBoard extends LokiElement {
           margin-bottom: 12px;
           padding-bottom: 10px;
           border-bottom: 2px solid var(--loki-border);
+          /* Keep the column header visible while its tasks scroll. The
+             secondary background makes it opaque over scrolling cards in
+             both light and dark themes. */
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          background: var(--loki-bg-secondary);
         }
 
         .kanban-column[data-status="pending"] .kanban-column-header { border-color: var(--loki-text-muted); }
@@ -700,7 +718,12 @@ export class LokiTaskBoard extends LokiElement {
           display: flex;
           flex-direction: column;
           gap: 8px;
+          /* flex:1 caps this list at the bounded column height so overflow-y
+             scrolls the cards inside the column (the sticky header above stays
+             put) instead of the whole column growing and pushing the page. The
+             80px floor keeps a near-empty column from collapsing. */
           min-height: 80px;
+          overflow-y: auto;
           transition: background var(--loki-transition);
           border-radius: 4px;
           padding: 4px;
@@ -854,10 +877,16 @@ export class LokiTaskBoard extends LokiElement {
         }
 
         .empty-column {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex: 1;
+          min-height: 60px;
           text-align: center;
           padding: 20px;
           color: var(--loki-text-muted);
           font-size: 12px;
+          opacity: 0.7;
         }
 
         /* Column icons */

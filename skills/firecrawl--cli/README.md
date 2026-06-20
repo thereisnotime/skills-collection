@@ -53,7 +53,7 @@ firecrawl setup mcp
 To make Firecrawl the default web provider for supported AI agents:
 
 ```bash
-firecrawl setup defaults
+firecrawl setup defaults    # or: firecrawl make default
 ```
 
 This disables native web fetch/search where supported so agents route web work

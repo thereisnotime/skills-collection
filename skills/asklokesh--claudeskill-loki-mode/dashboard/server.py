@@ -164,6 +164,21 @@ class _RateLimiter:
 _control_limiter = _RateLimiter(max_calls=10, window_seconds=60)
 _read_limiter = _RateLimiter(max_calls=60, window_seconds=60)
 
+
+def _rate_key(base: str, request: Optional[Request]) -> str:
+    """Build a per-client rate-limit key.
+
+    Static literal keys make the read limiter a single global cap: one client
+    can exhaust the window for everyone else. Mirror the /ws path, which keys
+    by client.host, so the cap is enforced per client. Falls back to the bare
+    base key when the client address is unavailable (preserving prior
+    behaviour rather than failing open).
+    """
+    host = None
+    if request is not None and request.client is not None:
+        host = request.client.host
+    return f"{base}_{host}" if host else base
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -1402,7 +1417,7 @@ async def get_status() -> StatusResponse:
 
 
 # Project endpoints
-@app.get("/api/projects", response_model=list[ProjectResponse])
+@app.get("/api/projects", response_model=list[ProjectResponse], dependencies=[Depends(auth.require_scope("read"))])
 async def list_projects(
     status: Optional[str] = Query(None),
     limit: int = Query(default=50, ge=1, le=500),
@@ -1521,7 +1536,7 @@ async def create_project(
     )
 
 
-@app.get("/api/projects/{project_id}", response_model=ProjectResponse)
+@app.get("/api/projects/{project_id}", response_model=ProjectResponse, dependencies=[Depends(auth.require_scope("read"))])
 async def get_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
@@ -1736,7 +1751,7 @@ def _apply_task_section(task: dict, section: str, lines: list):
 
 
 # Task endpoints - reads from .loki/dashboard-state.json
-@app.get("/api/tasks")
+@app.get("/api/tasks", dependencies=[Depends(auth.require_scope("read"))])
 async def list_tasks(
     project_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
@@ -1959,7 +1974,7 @@ async def create_task(
     return _task_response_from_db(db_task)
 
 
-@app.get("/api/tasks/{task_id}", response_model=TaskResponse)
+@app.get("/api/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(auth.require_scope("read"))])
 async def get_task(
     task_id: int,
     db: AsyncSession = Depends(get_db),
@@ -2282,7 +2297,7 @@ class HealthResponse(BaseModel):
     checks: dict
 
 
-@app.get("/api/registry/projects", response_model=list[RegisteredProjectResponse])
+@app.get("/api/registry/projects", response_model=list[RegisteredProjectResponse], dependencies=[Depends(auth.require_scope("read"))])
 async def list_registered_projects(include_inactive: bool = False):
     """List all registered projects."""
     projects = registry.list_projects(include_inactive=include_inactive)
@@ -2303,7 +2318,7 @@ async def register_project(request: RegisterProjectRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.get("/api/registry/projects/{identifier}", response_model=RegisteredProjectResponse)
+@app.get("/api/registry/projects/{identifier}", response_model=RegisteredProjectResponse, dependencies=[Depends(auth.require_scope("read"))])
 async def get_registered_project(identifier: str):
     """Get a registered project by ID, path, or alias."""
     project = registry.get_project(identifier)
@@ -2326,7 +2341,7 @@ async def unregister_project(identifier: str, request: Request):
     )
 
 
-@app.get("/api/registry/projects/{identifier}/health", response_model=HealthResponse)
+@app.get("/api/registry/projects/{identifier}/health", response_model=HealthResponse, dependencies=[Depends(auth.require_scope("read"))])
 async def get_project_health(identifier: str):
     """Check the health of a registered project."""
     health = registry.check_project_health(identifier)
@@ -2344,7 +2359,7 @@ async def update_project_access(identifier: str):
     return project
 
 
-@app.get("/api/registry/discover", response_model=list[DiscoverResponse])
+@app.get("/api/registry/discover", response_model=list[DiscoverResponse], dependencies=[Depends(auth.require_scope("read"))])
 async def discover_projects(max_depth: int = Query(default=3, ge=1, le=10)):
     """Discover projects with .loki directories."""
     max_depth = min(max_depth, 10)
@@ -2374,7 +2389,7 @@ async def sync_registry():
     }
 
 
-@app.get("/api/registry/tasks")
+@app.get("/api/registry/tasks", dependencies=[Depends(auth.require_scope("read"))])
 async def get_cross_project_tasks(project_ids: Optional[str] = None):
     """Get tasks from multiple projects for unified view."""
     ids = project_ids.split(",") if project_ids else None
@@ -2382,11 +2397,123 @@ async def get_cross_project_tasks(project_ids: Optional[str] = None):
     return tasks
 
 
-@app.get("/api/registry/learnings")
+@app.get("/api/registry/learnings", dependencies=[Depends(auth.require_scope("read"))])
 async def get_cross_project_learnings():
     """Get learnings from the global learnings database."""
     learnings = registry.get_cross_project_learnings()
     return learnings
+
+
+# =============================================================================
+# Fleet Observability (v1: poll the shared metadata store)
+# =============================================================================
+#
+# HONEST SCOPE: these endpoints aggregate the data `loki start` already writes
+# -- the machine-global registry (~/.loki/dashboard/projects.json) plus each
+# project's own .loki/ state files. There is NO controller, CRD, or Kubernetes
+# Job-watcher; a real operator watching Jobs is future work. One registered
+# project maps to one fleet "run" (its current / most-recent build), which is
+# the granularity the registry tracks. Cancel reuses the same STOP-file + pid
+# teardown as the per-project switcher Stop. Retry is intentionally NOT exposed
+# here: there is no clean cross-project re-launch primitive in the registry
+# path (the original spec source lives only in each project's CWD), so retry is
+# a follow-up.
+
+
+class FleetRunResponse(BaseModel):
+    """One fleet run = one registered project's current/most-recent build."""
+    id: Optional[str] = None
+    name: str
+    path: str
+    status: str
+    running: bool
+    phase: str = ""
+    iteration: int = 0
+    cost_usd: float = 0.0
+    started_at: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    port: Optional[int] = None
+
+
+class FleetSummaryResponse(BaseModel):
+    """Fleet-wide totals across all registered projects."""
+    total_runs: int
+    running_runs: int
+    stopped_runs: int
+    total_cost_usd: float
+
+
+@app.get(
+    "/api/fleet/runs",
+    response_model=list[FleetRunResponse],
+    dependencies=[Depends(auth.require_scope("read"))],
+)
+async def list_fleet_runs(include_inactive: bool = True):
+    """List all builds across every registered project (fleet view).
+
+    v1 polls the shared metadata store (registry + per-project .loki/ state);
+    it is not a controller. Never raises: registry problems degrade to [].
+    """
+    if not _read_limiter.check("fleet_runs"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    return await asyncio.to_thread(registry.get_fleet_runs, include_inactive)
+
+
+@app.get(
+    "/api/fleet/summary",
+    response_model=FleetSummaryResponse,
+    dependencies=[Depends(auth.require_scope("read"))],
+)
+async def get_fleet_summary(include_inactive: bool = True):
+    """Fleet-wide totals (counts + summed cost) across registered projects."""
+    if not _read_limiter.check("fleet_summary"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    return await asyncio.to_thread(registry.get_fleet_summary, include_inactive)
+
+
+@app.get(
+    "/api/fleet/runs/{identifier}",
+    response_model=FleetRunResponse,
+    dependencies=[Depends(auth.require_scope("read"))],
+)
+async def get_fleet_run(identifier: str):
+    """Get a single fleet run by registry id / path / alias.
+
+    Resolves the identifier through the registry (never a caller-supplied
+    arbitrary path), then returns that project's current build snapshot.
+    """
+    project = await asyncio.to_thread(registry.get_project, identifier)
+    if not project:
+        raise HTTPException(status_code=404, detail="Run not found in fleet")
+    pid = project.get("pid")
+    running = registry._pid_alive(pid)
+    snap = registry._read_project_run_snapshot(project.get("path", ""))
+    duration_seconds = None
+    started_at = snap.get("started_at")
+    if started_at:
+        try:
+            st = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+            if st.tzinfo is None:
+                st = st.replace(tzinfo=timezone.utc)
+            duration_seconds = max(
+                0, int((datetime.now(timezone.utc) - st).total_seconds())
+            )
+        except (ValueError, TypeError):
+            duration_seconds = None
+    path = project.get("path", "")
+    return FleetRunResponse(
+        id=project.get("id"),
+        name=project.get("name") or (os.path.basename(path) if path else "project"),
+        path=path,
+        status="running" if running else (project.get("status") or "unknown"),
+        running=running,
+        phase=snap.get("phase", ""),
+        iteration=snap.get("iteration", 0),
+        cost_usd=snap.get("cost_usd", 0.0),
+        started_at=started_at,
+        duration_seconds=duration_seconds,
+        port=project.get("port"),
+    )
 
 
 # =============================================================================
@@ -2439,7 +2566,7 @@ async def set_focus(request: FocusRequest):
     return {"project_dir": _active_project_dir, "loki_dir": str(_get_loki_dir())}
 
 
-@app.get("/api/focus")
+@app.get("/api/focus", dependencies=[Depends(auth.require_scope("read"))])
 async def get_focus():
     """Get the currently focused project directory."""
     return {
@@ -2758,7 +2885,7 @@ async def set_session_model(request: SessionModelRequest):
     return {"model": model, "effective": effective, "clamped": clamped}
 
 
-@app.get("/api/running-projects")
+@app.get("/api/running-projects", dependencies=[Depends(auth.require_scope("read"))])
 async def list_running_projects():
     """List registered projects enriched with live status for the dashboard
     project switcher (v7.7.29 multi-project support).
@@ -2773,6 +2900,17 @@ async def list_running_projects():
     Live-vs-stale is derived from pid liveness, which is robust even when a
     session is hard-killed (no exit hook fires). Never raises: registry
     problems degrade to an empty list.
+
+    Registry hygiene (project switcher): the registry records every cwd ever
+    seen by `loki start` and never garbage-collects, so the switcher list grows
+    without bound and shows paths that no longer exist on disk. This endpoint:
+      - opportunistically prunes registry entries whose path is gone AND which
+        are not running (registry.prune_missing_projects), keeping the on-disk
+        store small. Running projects are never pruned.
+      - returns a CLEAN list: a project is included only if its path still
+        exists on disk OR it is currently running (or is the active project).
+      - sorts by last_accessed desc (most relevant first) and caps the list
+        defensively, but never drops a running or the active project.
     """
     out = []
     try:
@@ -2780,6 +2918,19 @@ async def list_running_projects():
     except Exception:
         projects = []
     active = _active_project_dir
+
+    def _is_active(path: str) -> bool:
+        # Compare via realpath: /api/focus resolves symlinks (e.g. macOS
+        # /tmp -> /private/tmp) while the registry stores abspath, so a plain
+        # abspath compare would never match a focused symlinked project.
+        if not (active and path):
+            return False
+        try:
+            return os.path.realpath(active) == os.path.realpath(path)
+        except OSError:
+            return os.path.abspath(active) == os.path.abspath(path)
+
+    running_ids = set()
     for p in projects:
         path = p.get("path", "")
         pid = p.get("pid")
@@ -2809,15 +2960,15 @@ async def list_running_projects():
                     running = s.get("status") == "running"
             except Exception:
                 pass
-        # Compare via realpath: /api/focus resolves symlinks (e.g. macOS
-        # /tmp -> /private/tmp) while the registry stores abspath, so a plain
-        # abspath compare would never match a focused symlinked project.
-        is_active = False
-        if active and path:
-            try:
-                is_active = os.path.realpath(active) == os.path.realpath(path)
-            except OSError:
-                is_active = os.path.abspath(active) == os.path.abspath(path)
+        path_exists = bool(path) and os.path.isdir(path)
+        is_active = _is_active(path)
+        if running:
+            running_ids.add(p.get("id"))
+        # CLEAN list: include only projects whose path still exists, or which
+        # are running, or which are the active project. A dead path that is not
+        # running is excluded (and pruned from the store below).
+        if not (path_exists or running or is_active):
+            continue
         out.append({
             "id": p.get("id"),
             "name": p.get("name") or (os.path.basename(path) if path else "project"),
@@ -2826,7 +2977,29 @@ async def list_running_projects():
             "status": p.get("status"),
             "running": running,
             "is_active": is_active,
+            "_last_accessed": p.get("last_accessed") or p.get("registered_at") or "",
         })
+
+    # Opportunistically garbage-collect dead entries from the on-disk registry
+    # so it never grows without bound. Running projects (by id, plus any with a
+    # live recorded pid inside the helper) are retained even if the disk check
+    # is racy. Best-effort: a prune failure must not break the listing.
+    try:
+        registry.prune_missing_projects(running_ids=running_ids)
+    except Exception:
+        pass
+
+    # Most relevant first: last_accessed desc. Cap defensively, but never hide a
+    # running or active project (partition them out before the cap).
+    _SWITCHER_CAP = 50
+    out.sort(key=lambda r: r.get("_last_accessed", ""), reverse=True)
+    if len(out) > _SWITCHER_CAP:
+        pinned = [r for r in out if r["running"] or r["is_active"]]
+        rest = [r for r in out if not (r["running"] or r["is_active"])]
+        out = pinned + rest[: max(0, _SWITCHER_CAP - len(pinned))]
+    # Drop the internal sort key from the response shape.
+    for r in out:
+        r.pop("_last_accessed", None)
     return {"projects": out, "active_project_dir": active}
 
 
@@ -2849,10 +3022,13 @@ class StartBuildRequest(BaseModel):
     def validate_provider(self) -> None:
         """Validate provider is from the supported list.
 
-        Mirrors dashboard/control.py StartRequest.validate_provider so the
-        dashboard and the standalone control app accept the same set.
+        Mirrors providers/loader.sh SUPPORTED_PROVIDERS so the dashboard
+        rejects providers the runtime rejects. gemini was deprecated in
+        v7.5.18 (runtime removed); accepting it here let the dashboard
+        report a false "Build started" while run.sh killed the child on the
+        deprecation guard.
         """
-        allowed = ["claude", "codex", "gemini", "cline", "aider"]
+        allowed = ["claude", "codex", "cline", "aider"]
         if self.provider not in allowed:
             raise ValueError(
                 f"Invalid provider: {self.provider}. "
@@ -3025,6 +3201,26 @@ async def start_build(request: Request, body: StartBuildRequest):
         )
     except (OSError, subprocess.SubprocessError) as e:
         raise HTTPException(status_code=500, detail=f"Failed to start build: {e}")
+
+    # Liveness check: a provider that dies on a startup guard (e.g. an
+    # unsupported provider, a missing CLI, or a preflight failure in run.sh)
+    # would otherwise let us report a false "Build started". Poll briefly and
+    # surface an honest error if the child exits immediately.
+    early_exit = None
+    for _ in range(3):
+        await asyncio.sleep(0.1)
+        early_exit = process.poll()
+        if early_exit is not None:
+            break
+    if early_exit is not None and early_exit != 0:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Build process exited immediately (code {early_exit}). "
+                f"The '{body.provider}' provider or run.sh preflight may have "
+                f"rejected the request."
+            ),
+        )
 
     # Persist provider for status tracking (same as control.py).
     try:
@@ -3201,6 +3397,349 @@ async def stop_running_project(request: Request, body: RunningProjectStopRequest
         "project_id": project_id,
         "stopped": stopped,
         "already_stopped": False,
+    }
+
+
+def _recover_spec_source(path: str) -> Optional[_Path]:
+    """Find a re-launchable spec source inside a registry-stored project path.
+
+    Retry re-runs `loki start` from a project's own working directory, so the
+    spec must already live there. This never accepts a caller-supplied path: the
+    project path comes from the registry and only well-known in-tree locations
+    are probed. Returns the first existing spec as an absolute Path, or None when
+    nothing re-launchable is found (the caller then refuses honestly rather than
+    spawning a run that would no-op).
+
+    Probe order (highest fidelity first):
+      1. A hand-authored PRD in the project root or docs/ (PRD.md, prd.md,
+         docs/PRD.md, docs/prd.md) -- the same set check_project_health uses.
+      2. A previously generated PRD (.loki/generated-prd.md / .json) written by
+         a prior no-PRD codebase-analysis run.
+      3. The most recent dashboard inline spec (.loki/specs/*.md) written by the
+         browser PRD-input flow.
+    """
+    if not path:
+        return None
+    try:
+        base = _Path(path)
+    except (TypeError, ValueError):
+        return None
+    if not base.is_dir():
+        return None
+
+    # 1. Hand-authored PRD.
+    for rel in ("PRD.md", "prd.md", "docs/PRD.md", "docs/prd.md"):
+        candidate = base / rel
+        if candidate.is_file():
+            return candidate.resolve()
+
+    loki_dir = base / ".loki"
+
+    # 2. Previously generated PRD.
+    for rel in ("generated-prd.md", "generated-prd.json"):
+        candidate = loki_dir / rel
+        if candidate.is_file():
+            return candidate.resolve()
+
+    # 3. Most recent dashboard inline spec.
+    specs_dir = loki_dir / "specs"
+    if specs_dir.is_dir():
+        try:
+            specs = sorted(
+                (s for s in specs_dir.glob("*.md") if s.is_file()),
+                key=lambda s: s.stat().st_mtime,
+                reverse=True,
+            )
+        except OSError:
+            specs = []
+        if specs:
+            return specs[0].resolve()
+
+    return None
+
+
+@app.post(
+    "/api/fleet/runs/{identifier}/retry",
+    dependencies=[Depends(auth.require_scope("control"))],
+)
+async def retry_fleet_run(request: Request, identifier: str):
+    """Re-launch ONE finished/failed build in the fleet view.
+
+    Resolves the run via the registry (by id / path / alias), exactly like
+    cancel_fleet_run, so the caller identifier is NEVER treated as a filesystem
+    path. Retry re-runs `loki start` (via run.sh) from the project's own stored
+    working directory against a spec source recovered from that directory.
+
+    Guards:
+      - Refuses with 409 if the project is currently running (live pid probe or a
+        fresh session.json), so a retry never double-launches an active build.
+      - Refuses with 409 if no re-launchable spec source exists in the project
+        directory (an honest refusal: retry needs the original spec or working
+        dir; we do not fabricate a launch that would no-op).
+
+    On success the runner re-registers the project as running with its own pid
+    (loki_register_running_project in run.sh); we also flip the registry status
+    to running immediately so the fleet view reflects the relaunch without
+    waiting for the runner's first registry write.
+    """
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    project = registry.get_project(identifier)
+    if not project:
+        raise HTTPException(status_code=404, detail="Run not found in fleet")
+
+    project_id = project.get("id")
+    audit.log_event(
+        action="retry",
+        resource_type="fleet_run",
+        details={"source": "api", "project_id": project_id},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    # Only ever operate on the registry-stored path (never the identifier).
+    path = project.get("path", "")
+    if not path:
+        raise HTTPException(
+            status_code=409,
+            detail="Project has no recorded working directory; retry needs the original working dir",
+        )
+    proj_dir = _Path(path)
+    if not proj_dir.is_dir():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Project directory no longer exists: {path}",
+        )
+    proj_dir = proj_dir.resolve()
+    loki_dir = proj_dir / ".loki"
+
+    # Recover a re-launchable spec from the project's own directory FIRST (before
+    # the claim, so we can refuse honestly without holding the lock). Honest
+    # refusal when nothing usable is present (no fabricated no-op launch).
+    spec_file = await asyncio.to_thread(_recover_spec_source, str(proj_dir))
+    if spec_file is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No re-launchable spec found in the project directory. Retry "
+                "needs the original spec (PRD.md, .loki/generated-prd.md, or a "
+                "prior dashboard spec) or the original working dir."
+            ),
+        )
+
+    # Locate run.sh (same resolver start_build uses).
+    skill_dir = find_skill_dir()
+    run_sh = skill_dir / "autonomy" / "run.sh"
+    if not run_sh.exists():
+        raise HTTPException(status_code=500, detail=f"run.sh not found at {run_sh}")
+
+    # Atomic check-and-CLAIM (closes the double-launch TOCTOU). Two concurrent
+    # retry calls on the same stopped project must not both spawn. Under the
+    # registry lock we re-read the live entry, refuse if it is running (pid alive,
+    # the project's own session staleness window, or already "launching" -- a
+    # sibling that just claimed it), else stamp status="launching" + save. The
+    # lock + persisted "launching" marker make the window indivisible: the second
+    # caller sees "launching" and is refused before it can spawn.
+    _live_pid = project.get("pid")
+    if registry._pid_alive(_live_pid):
+        raise HTTPException(
+            status_code=409,
+            detail="Project is currently running; cancel it before retrying",
+        )
+    if loki_dir.is_dir() and _project_run_active(loki_dir) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="A build is already running in this project",
+        )
+    with registry._registry_lock():
+        reg = registry._load_registry()
+        entry = reg.get("projects", {}).get(project_id)
+        if entry is not None:
+            cur_status = entry.get("status")
+            cur_pid = entry.get("pid")
+            if cur_status == "launching" or registry._pid_alive(cur_pid):
+                raise HTTPException(
+                    status_code=409,
+                    detail="A retry for this project is already in progress",
+                )
+            entry["status"] = "launching"
+            entry["updated_at"] = datetime.now(timezone.utc).isoformat()
+            registry._save_registry(reg)
+
+    # Re-launch from the project's own CWD, mirroring start_build's spawn.
+    args = [str(run_sh), "--bg", str(spec_file)]
+    try:
+        process = subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            cwd=str(proj_dir),
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        # Release the "launching" claim so a failed spawn does not wedge the
+        # project (else every future retry would be refused as in-progress).
+        try:
+            with registry._registry_lock():
+                reg = registry._load_registry()
+                entry = reg.get("projects", {}).get(project_id)
+                if entry is not None and entry.get("status") == "launching":
+                    entry["status"] = "stopped"
+                    entry["updated_at"] = datetime.now(timezone.utc).isoformat()
+                    registry._save_registry(reg)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to retry build: {e}")
+
+    # Flip the registry status to running immediately. The runner also
+    # re-registers with its own pid on startup, but updating here gives the
+    # fleet view an instant, accurate reflection of the relaunch. The
+    # load->mutate->save runs under the registry lock so it does not lost-update
+    # against the runner's concurrent re-registration.
+    try:
+        with registry._registry_lock():
+            reg = registry._load_registry()
+            if project_id in reg.get("projects", {}):
+                reg["projects"][project_id]["status"] = "running"
+                reg["projects"][project_id]["pid"] = process.pid
+                reg["projects"][project_id]["updated_at"] = datetime.now(
+                    timezone.utc
+                ).isoformat()
+                registry._save_registry(reg)
+    except Exception:
+        pass
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "retried": True,
+        "pid": process.pid,
+        "spec": str(spec_file),
+    }
+
+
+@app.post(
+    "/api/fleet/runs/{identifier}/cancel",
+    dependencies=[Depends(auth.require_scope("control"))],
+)
+async def cancel_fleet_run(request: Request, identifier: str):
+    """Cancel ONE build in the fleet view.
+
+    Resolves the run via the registry (by id / path / alias), then runs the
+    same teardown the per-project switcher Stop uses: write a STOP file into the
+    registry-resolved .loki dir (the only path ever written -- never a
+    caller-supplied one) for a clean runner exit, SIGTERM->poll->SIGKILL the
+    recorded orchestrator pid, group-kill + cwd-scoped reap as backstop, then
+    mark the registry/session stopped.
+
+    Retry (re-launch) is exposed separately at
+    POST /api/fleet/runs/{identifier}/retry, which re-runs `loki start` from
+    the registry-stored project directory against a spec recovered from that
+    directory (refuses honestly when none exists).
+    """
+    if not _control_limiter.check("control"):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    project = registry.get_project(identifier)
+    if not project:
+        raise HTTPException(status_code=404, detail="Run not found in fleet")
+
+    project_id = project.get("id")
+    audit.log_event(
+        action="cancel",
+        resource_type="fleet_run",
+        details={"source": "api", "project_id": project_id},
+        ip_address=request.client.host if request.client else None,
+    )
+
+    # Only ever operate on the registry-stored path.
+    path = project.get("path", "")
+    loki_dir = None
+    if path:
+        p = _Path(path)
+        if p.is_dir() and (p / ".loki").is_dir():
+            loki_dir = p / ".loki"
+
+    # STOP file: clean runner teardown (also stops a containerized `loki docker`
+    # build polling the bind-mounted .loki/STOP).
+    stop_signaled = False
+    if loki_dir is not None:
+        try:
+            (loki_dir / "STOP").write_text(datetime.now(timezone.utc).isoformat())
+            stop_signaled = True
+        except OSError:
+            pass
+
+    pid = project.get("pid")
+    stopped = False
+    # Ownership guard (hardening): only direct-kill the registry pid if it is STILL
+    # a process whose cwd is this project's path. A stale pid reused by an unrelated
+    # host process after a crash must NOT be SIGKILLed. If ownership cannot be
+    # confirmed, skip the direct kill and let the cwd-scoped reaper below handle it.
+    if isinstance(pid, int) and pid > 0:
+        _owned = True
+        try:
+            _cwd = _pid_cwd(pid)
+            if _cwd is not None and path:
+                _owned = os.path.realpath(_cwd) == os.path.realpath(path)
+        except Exception:
+            _owned = True  # best-effort: if we cannot tell, preserve prior behavior
+        if not _owned:
+            pid = None  # do not direct-kill a pid that is not this project's
+    if isinstance(pid, int) and pid > 0:
+        try:
+            os.kill(pid, 15)  # SIGTERM
+            for _ in range(10):
+                await asyncio.sleep(0.5)
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    stopped = True
+                    break
+            if not stopped:
+                try:
+                    os.kill(pid, 9)  # SIGKILL
+                    stopped = True
+                except (OSError, ProcessLookupError):
+                    stopped = True
+        except (ValueError, OSError, ProcessLookupError):
+            stopped = True
+    else:
+        # No host pid (genuinely stopped, or a docker build): the STOP write is
+        # the cancel signal. Treat a successful STOP write as cancelled.
+        stopped = stop_signaled
+
+    # Group-kill + cwd-scoped reaper backstop against a stale pid.
+    if loki_dir is not None:
+        proj_dir = loki_dir.parent
+        _pgid = _read_pgid(loki_dir)
+        if _pgid is not None:
+            await asyncio.to_thread(
+                _killpg_project, _pgid, _collect_protected_pids(loki_dir)
+            )
+        found_any, all_gone = await asyncio.to_thread(
+            _reap_orchestrators_until_clear, proj_dir, str(proj_dir)
+        )
+        if found_any:
+            stopped = all_gone
+
+        # Mark session.json stopped.
+        session_file = loki_dir / "session.json"
+        if session_file.exists():
+            try:
+                sd = json.loads(session_file.read_text())
+                sd["status"] = "stopped"
+                atomic_write_json(session_file, sd, use_lock=True)
+            except Exception:
+                pass
+
+    registry.mark_project_stopped(project_id)
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "cancelled": stopped,
+        "stop_signaled": stop_signaled,
     }
 
 
@@ -3417,7 +3956,7 @@ _COMPLIANCE_TYPES = ("soc2", "iso27001", "gdpr")
 
 
 @app.get("/api/compliance", dependencies=[Depends(auth.require_scope("audit"))])
-def get_compliance_status(report_type: str = Query("soc2", alias="type")):
+def get_compliance_status(request: Request, report_type: str = Query("soc2", alias="type")):
     """Live compliance status for the active project's agent audit chain.
 
     Auth/tenant scoping: requires the `audit` scope (same gate as the
@@ -3435,7 +3974,7 @@ def get_compliance_status(report_type: str = Query("soc2", alias="type")):
     available:false payload (HTTP 200) rather than masquerading as "no
     compliance".
     """
-    if not _read_limiter.check("compliance"):
+    if not _read_limiter.check(_rate_key("compliance", request)):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     if report_type not in _COMPLIANCE_TYPES:
         raise HTTPException(
@@ -4008,7 +4547,7 @@ async def get_memory_summary():
     return summary
 
 
-@app.get("/api/memory/episodes")
+@app.get("/api/memory/episodes", dependencies=[Depends(auth.require_scope("read"))])
 async def list_episodes(limit: int = Query(default=50, ge=1, le=1000)):
     """List episodic memory entries."""
     # Both backends below are blocking (SQLite queries / a glob+read loop over
@@ -4079,7 +4618,7 @@ async def get_episode(episode_id: str):
     raise HTTPException(status_code=404, detail="Episode not found")
 
 
-@app.get("/api/memory/patterns")
+@app.get("/api/memory/patterns", dependencies=[Depends(auth.require_scope("read"))])
 async def list_patterns():
     """List semantic patterns."""
     # Try SQLite first
@@ -4118,7 +4657,7 @@ async def get_pattern(pattern_id: str):
     raise HTTPException(status_code=404, detail="Pattern not found")
 
 
-@app.get("/api/memory/skills")
+@app.get("/api/memory/skills", dependencies=[Depends(auth.require_scope("read"))])
 async def list_skills():
     """List procedural skills."""
     # Blocking SQLite query / glob+read loop; offload the whole read so the
@@ -4343,7 +4882,7 @@ async def retrieve_memory(query: dict = None):
         raise HTTPException(status_code=503, detail=f"Retrieval unavailable: {e}")
 
 
-@app.get("/api/memory/index")
+@app.get("/api/memory/index", dependencies=[Depends(auth.require_scope("read"))])
 async def get_memory_index():
     """Get memory index (Layer 1 - lightweight discovery)."""
     index_file = _get_loki_dir() / "memory" / "index.json"
@@ -4355,7 +4894,7 @@ async def get_memory_index():
     return {"topics": [], "lastUpdated": None}
 
 
-@app.get("/api/memory/timeline")
+@app.get("/api/memory/timeline", dependencies=[Depends(auth.require_scope("read"))])
 async def get_memory_timeline():
     """Get memory timeline (Layer 2 - progressive disclosure)."""
     timeline_file = _get_loki_dir() / "memory" / "timeline.json"
@@ -4550,7 +5089,7 @@ def _get_memory_storage():
         return None
 
 
-@app.get("/api/memory/search")
+@app.get("/api/memory/search", dependencies=[Depends(auth.require_scope("read"))])
 async def search_memory(
     q: str = Query(..., min_length=1, max_length=500, description="Search query"),
     collection: str = Query(default="all", pattern="^(episodes|patterns|skills|all)$"),
@@ -4588,7 +5127,7 @@ async def search_memory(
         raise HTTPException(status_code=500, detail=f"Search failed: {e}")
 
 
-@app.get("/api/memory/stats")
+@app.get("/api/memory/stats", dependencies=[Depends(auth.require_scope("read"))])
 async def get_memory_stats():
     """Get memory system statistics (counts, size, backend info)."""
     # SQLite stats query or a directory-walk over many JSON files; both block,
@@ -4884,9 +5423,9 @@ async def get_learning_aggregation():
 
 
 @app.post("/api/learning/aggregate", dependencies=[Depends(auth.require_scope("control"))])
-async def trigger_aggregation():
+async def trigger_aggregation(request: Request):
     """Aggregate learning signals from events.jsonl into structured metrics."""
-    if not _read_limiter.check("learning_aggregate"):
+    if not _read_limiter.check(_rate_key("learning_aggregate", request)):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     # Reads up to 10 MB of events.jsonl, parses every line, then writes the
@@ -5373,7 +5912,7 @@ def _calculate_model_cost(model: str, input_tokens: int, output_tokens: int) -> 
     return round(input_cost + output_cost, 6)
 
 
-@app.get("/api/cost")
+@app.get("/api/cost", dependencies=[Depends(auth.require_scope("read"))])
 async def get_cost():
     """Get cost visibility data from .loki/metrics/efficiency/ and budget.json.
 
@@ -5500,7 +6039,7 @@ def _compute_cost_snapshot() -> dict:
     }
 
 
-@app.get("/api/budget")
+@app.get("/api/budget", dependencies=[Depends(auth.require_scope("read"))])
 async def get_budget():
     """Get current budget status from .loki/metrics/budget.json and cost data."""
     loki_dir = _get_loki_dir()
@@ -5555,6 +6094,25 @@ async def get_budget():
 
     budget_limit_f = _to_float(budget_limit, None) if budget_limit is not None else None
     budget_used_f = _to_float(budget_used, 0.0)
+
+    # current_cost must reflect real live spend, not the static budget.json
+    # field which only updates when run.sh persists it. The same divergence
+    # made the widget show $0 mid-run while /api/cost summed real spend.
+    # Derive from _compute_budget_snapshot (sums live efficiency records,
+    # the single source of truth shared with /api/cost/timeline and the WS
+    # push); keep budget.json's value only as a fallback when no live spend
+    # has been recorded yet.
+    try:
+        snapshot = _compute_budget_snapshot(loki_dir)
+        live_used = snapshot.get("used")
+        if isinstance(live_used, (int, float)) and live_used > 0:
+            budget_used_f = float(live_used)
+        if budget_limit_f is None and snapshot.get("limit") is not None:
+            budget_limit_f = _to_float(snapshot.get("limit"), None)
+    except Exception:
+        # Never let the live computation break the endpoint; fall back to the
+        # static budget.json value already loaded above.
+        pass
 
     remaining = None
     if budget_limit_f is not None:
@@ -5660,7 +6218,7 @@ def _compute_budget_snapshot(loki_dir: _Path) -> dict:
     }
 
 
-@app.get("/api/cost/timeline")
+@app.get("/api/cost/timeline", dependencies=[Depends(auth.require_scope("read"))])
 async def get_cost_timeline():
     """Cost over time: intra-run per-iteration series + per-run history.
 
@@ -5820,7 +6378,7 @@ def _load_trust_module():
         return None
 
 
-@app.get("/api/trust/trajectory")
+@app.get("/api/trust/trajectory", dependencies=[Depends(auth.require_scope("read"))])
 async def get_trust_trajectory():
     """Per-project trust trajectory derived from proof-of-run history.
 
@@ -5881,7 +6439,7 @@ _MODEL_PROVIDERS = {
 }
 
 
-@app.get("/api/pricing")
+@app.get("/api/pricing", dependencies=[Depends(auth.require_scope("read"))])
 async def get_pricing():
     """Get current model pricing. Reads from .loki/pricing.json if available, falls back to static defaults."""
     loki_dir = _get_loki_dir()
@@ -5928,7 +6486,7 @@ async def get_pricing():
 # Completion Council API (v5.25.0)
 # =============================================================================
 
-@app.get("/api/council/state")
+@app.get("/api/council/state", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_state():
     """Get current Completion Council state."""
     state_file = _get_loki_dir() / "council" / "state.json"
@@ -5940,7 +6498,7 @@ async def get_council_state():
     return {"enabled": False, "total_votes": 0, "verdicts": []}
 
 
-@app.get("/api/council/verdicts")
+@app.get("/api/council/verdicts", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_verdicts(limit: int = Query(default=20, ge=1, le=1000)):
     """Get council vote history (decision log).
 
@@ -5997,7 +6555,7 @@ async def get_council_verdicts(limit: int = Query(default=20, ge=1, le=1000)):
     return await asyncio.to_thread(_collect_verdicts)
 
 
-@app.get("/api/council/convergence")
+@app.get("/api/council/convergence", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_convergence():
     """Get convergence tracking data for visualization."""
     convergence_file = _get_loki_dir() / "council" / "convergence.log"
@@ -6019,7 +6577,7 @@ async def get_council_convergence():
     return {"dataPoints": data_points}
 
 
-@app.get("/api/council/report")
+@app.get("/api/council/report", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_report():
     """Get the final council completion report."""
     report_file = _get_loki_dir() / "council" / "report.md"
@@ -6039,7 +6597,7 @@ async def force_council_review():
     return {"success": True, "message": "Council review requested"}
 
 
-@app.get("/api/council/transcripts")
+@app.get("/api/council/transcripts", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_transcripts(
     limit: int = Query(default=20, ge=1, le=200),
     since: Optional[str] = Query(default=None),
@@ -6116,7 +6674,7 @@ async def get_council_transcripts(
     return response
 
 
-@app.get("/api/council/transcripts/{iteration_id}")
+@app.get("/api/council/transcripts/{iteration_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_transcript(iteration_id: str):
     """Fetch a single council transcript by iteration_id.
 
@@ -6148,7 +6706,7 @@ async def get_council_transcript(iteration_id: str):
 # Context Window Tracking API (v5.40.0)
 # =============================================================================
 
-@app.get("/api/context")
+@app.get("/api/context", dependencies=[Depends(auth.require_scope("read"))])
 async def get_context():
     """Get context window tracking data from .loki/context/tracking.json."""
     loki_dir = _get_loki_dir()
@@ -6184,7 +6742,7 @@ async def get_context():
 # Notification Trigger API (v5.40.0)
 # =============================================================================
 
-@app.get("/api/notifications")
+@app.get("/api/notifications", dependencies=[Depends(auth.require_scope("read"))])
 async def get_notifications(
     severity: Optional[str] = Query(None, pattern="^(critical|warning|info)$"),
     unread_only: bool = Query(False),
@@ -6221,7 +6779,7 @@ async def get_notifications(
     }
 
 
-@app.get("/api/notifications/triggers")
+@app.get("/api/notifications/triggers", dependencies=[Depends(auth.require_scope("read"))])
 async def get_notification_triggers():
     """Get notification trigger configuration from .loki/notifications/triggers.json."""
     loki_dir = _get_loki_dir()
@@ -6331,7 +6889,7 @@ def _sanitize_checkpoint_id(checkpoint_id: str) -> str:
     return checkpoint_id
 
 
-@app.get("/api/checkpoints")
+@app.get("/api/checkpoints", dependencies=[Depends(auth.require_scope("read"))])
 async def list_checkpoints(limit: int = Query(default=20, ge=1, le=200)):
     """List recent checkpoints from index.jsonl, enriched with metadata when available.
 
@@ -6398,7 +6956,7 @@ def _collect_checkpoints(limit: int) -> list:
     return checkpoints[:limit]
 
 
-@app.get("/api/checkpoints/{checkpoint_id}")
+@app.get("/api/checkpoints/{checkpoint_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_checkpoint(checkpoint_id: str):
     """Get checkpoint details by ID."""
     checkpoint_id = _sanitize_checkpoint_id(checkpoint_id)
@@ -6858,6 +7416,62 @@ try:
     logger.info("Collaboration API routes enabled")
 except ImportError as e:
     logger.debug(f"Collaboration module not available: {e}")
+
+
+class _CollabWsAuthMiddleware:
+    """ASGI middleware that auth-gates the native /ws/collab WebSocket.
+
+    The collaboration module registers @app.websocket("/ws/collab") inside
+    create_collab_routes() and performs NO token validation: it accepts any
+    connection and trusts a client-supplied ?user_id=. With enterprise auth or
+    OIDC enabled this native WS is therefore reachable UNAUTHENTICATED, exposing
+    user presence, shared state, and operation sync to any client. The dashboard
+    cannot rely on route dependencies for WebSockets (FastAPI Depends() is not
+    supported on @app.websocket routes), so this middleware validates the token
+    on the /ws/collab handshake before the route runs, mirroring the native /ws
+    gate and the _MountAuthGuard WS logic.
+
+    Scope: the collab WS handle_message path applies state operations (writes)
+    via ws_manager.handle_message -> sync.apply_operation, so a valid but
+    read-only token must not be admitted. This requires the "control" scope to
+    match the _MountAuthGuard WS scope-check pattern (a valid token alone is not
+    enough), so a read-only token is closed 1008 even though it authenticates.
+
+    When enterprise auth and OIDC are both OFF this is a pass-through, so local
+    default-mode behavior is unchanged. Non-websocket scopes and other websocket
+    paths (the native /ws self-guards in-route) are passed through untouched.
+    Added via app.add_middleware(), so app stays a FastAPI instance and all
+    later route registrations are unaffected.
+    """
+
+    def __init__(self, app) -> None:
+        self._app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope.get("type") != "websocket" or scope.get("path") != "/ws/collab":
+            await self._app(scope, receive, send)
+            return
+        if not auth.is_enterprise_mode() and not auth.is_oidc_mode():
+            await self._app(scope, receive, send)
+            return
+        token_str = _MountAuthGuard._ws_token_from_scope(scope)
+        token_info = _MountAuthGuard._validate_ws_token(token_str)
+        if token_info is None or not auth.has_scope(token_info, "control"):
+            # Accept-then-close is the portable ASGI way to surface a policy
+            # violation to the client before any route code runs. 1008 = policy
+            # violation, matching the native /ws and _MountAuthGuard behavior.
+            # "control" (not just a valid token) is required because the collab
+            # WS path performs state writes; a read-only token is rejected here.
+            await send({"type": "websocket.accept"})
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        await self._app(scope, receive, send)
+
+
+# Gate the /ws/collab handshake before the unauthenticated collab route runs.
+# Registered as middleware so app remains a FastAPI instance (route decorators
+# below keep working).
+app.add_middleware(_CollabWsAuthMiddleware)
 
 
 # =============================================================================
@@ -7415,7 +8029,7 @@ async def prometheus_metrics():
 # PRD Checklist Endpoints (v5.44.0)
 # =============================================================================
 
-@app.get("/api/checklist")
+@app.get("/api/checklist", dependencies=[Depends(auth.require_scope("read"))])
 async def get_checklist():
     """Get full PRD checklist with verification status."""
     loki_dir = _get_loki_dir()
@@ -7428,7 +8042,7 @@ async def get_checklist():
         return {"status": "error", "categories": [], "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
 
 
-@app.get("/api/usage")
+@app.get("/api/usage", dependencies=[Depends(auth.require_scope("read"))])
 async def get_usage_doc():
     """v7.7.1 F-1 follow-up: return the auto-generated USAGE.md from the
     project root so Dashboard + Lab can surface "how to run / test the app".
@@ -7468,7 +8082,7 @@ async def get_usage_doc():
     return out
 
 
-@app.get("/api/checklist/summary")
+@app.get("/api/checklist/summary", dependencies=[Depends(auth.require_scope("read"))])
 async def get_checklist_summary():
     """Get checklist verification summary."""
     loki_dir = _get_loki_dir()
@@ -7481,7 +8095,7 @@ async def get_checklist_summary():
         return {"status": "error", "summary": {"total": 0, "verified": 0, "failing": 0, "pending": 0}}
 
 
-@app.get("/api/prd-observations")
+@app.get("/api/prd-observations", dependencies=[Depends(auth.require_scope("read"))])
 async def get_prd_observations():
     """Get PRD quality analysis observations."""
     loki_dir = _get_loki_dir()
@@ -7499,7 +8113,7 @@ async def get_prd_observations():
 # Checklist Waiver Management Endpoints (Phase 4)
 # =============================================================================
 
-@app.get("/api/checklist/waivers")
+@app.get("/api/checklist/waivers", dependencies=[Depends(auth.require_scope("read"))])
 async def get_checklist_waivers():
     """Get all checklist waivers."""
     waivers_file = _get_loki_dir() / "checklist" / "waivers.json"
@@ -7621,7 +8235,7 @@ _DEFAULT_QUALITY_GATES = [
 ]
 
 
-@app.get("/api/council/gate")
+@app.get("/api/council/gate", dependencies=[Depends(auth.require_scope("read"))])
 async def get_council_gate():
     """Get council hard gate status.
 
@@ -8246,7 +8860,7 @@ def _discover_compose_app_runner_state_uncached(project_dir):
         return None
 
 
-@app.get("/api/app-runner/status")
+@app.get("/api/app-runner/status", dependencies=[Depends(auth.require_scope("read"))])
 async def get_app_runner_status():
     """Get app runner current status (with dead-run liveness reconciliation).
 
@@ -8323,7 +8937,7 @@ def _get_log_redactor():
     return redactor
 
 
-@app.get("/api/app-runner/logs")
+@app.get("/api/app-runner/logs", dependencies=[Depends(auth.require_scope("read"))])
 async def get_app_runner_logs(lines: int = Query(default=100, ge=1, le=1000)):
     """Get last N lines of app runner logs (redacted)."""
     loki_dir = _get_loki_dir()
@@ -8342,7 +8956,7 @@ async def get_app_runner_logs(lines: int = Query(default=100, ge=1, le=1000)):
         return {"lines": []}
 
 
-@app.get("/api/app-runner/errors")
+@app.get("/api/app-runner/errors", dependencies=[Depends(auth.require_scope("read"))])
 async def get_app_runner_errors(lines: int = Query(default=50, ge=1, le=500)):
     """Get the last N lines of app runner output, redacted, plus crash state.
 
@@ -8417,7 +9031,7 @@ async def control_app_stop(request: Request):
 # Playwright Verification Endpoints (v5.46.0)
 # =============================================================================
 
-@app.get("/api/playwright/results")
+@app.get("/api/playwright/results", dependencies=[Depends(auth.require_scope("read"))])
 async def get_playwright_results():
     """Get latest Playwright smoke test results."""
     loki_dir = _get_loki_dir()
@@ -8430,7 +9044,7 @@ async def get_playwright_results():
         return {"status": "error"}
 
 
-@app.get("/api/playwright/screenshot")
+@app.get("/api/playwright/screenshot", dependencies=[Depends(auth.require_scope("read"))])
 async def get_playwright_screenshot():
     """Get path to latest Playwright screenshot."""
     loki_dir = _get_loki_dir()
@@ -8470,12 +9084,12 @@ def _get_prompt_optimizer():
     return _prompt_optimizer
 
 
-@app.get("/api/failures")
-def get_failures(sessions: int = 10):
+@app.get("/api/failures", dependencies=[Depends(auth.require_scope("read"))])
+def get_failures(request: Request, sessions: int = 10):
     """Get failure patterns from recent sessions."""
     if sessions < 1 or sessions > 1000:
         raise HTTPException(status_code=400, detail="sessions must be between 1 and 1000")
-    if not _read_limiter.check("failures"):
+    if not _read_limiter.check(_rate_key("failures", request)):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     try:
         return _get_failure_extractor().extract(sessions=sessions)
@@ -8484,7 +9098,7 @@ def get_failures(sessions: int = 10):
         raise HTTPException(status_code=500, detail="Failed to extract failure patterns")
 
 
-@app.get("/api/prompt-versions")
+@app.get("/api/prompt-versions", dependencies=[Depends(auth.require_scope("read"))])
 def get_prompt_versions():
     """Get current prompt optimization status."""
     if not _read_limiter.check("prompt_versions"):
@@ -8559,10 +9173,10 @@ if STATIC_DIR:
 # Activity Logger & Session Diff
 # ---------------------------------------------------------------------------
 
-@app.get("/api/activity")
-def get_activity(since: Optional[str] = None, limit: int = Query(default=100, ge=1, le=1000)):
+@app.get("/api/activity", dependencies=[Depends(auth.require_scope("read"))])
+def get_activity(request: Request, since: Optional[str] = None, limit: int = Query(default=100, ge=1, le=1000)):
     """Get activity log entries, optionally filtered by timestamp."""
-    if not _read_limiter.check("activity"):
+    if not _read_limiter.check(_rate_key("activity", request)):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     try:
         activity_logger = get_activity_logger()
@@ -8577,7 +9191,7 @@ def get_activity(since: Optional[str] = None, limit: int = Query(default=100, ge
         raise HTTPException(status_code=500, detail="Failed to read activity log")
 
 
-@app.get("/api/session-diff")
+@app.get("/api/session-diff", dependencies=[Depends(auth.require_scope("read"))])
 def get_session_diff(since: Optional[str] = None):
     """Get structured session diff since timestamp. Defaults to last 24h."""
     if not _read_limiter.check("session-diff"):
@@ -8628,7 +9242,7 @@ async def serve_favicon():
 # Serve the self-contained cost + observability panel (R3). Zero-build
 # standalone page that fetches /api/cost/timeline. Mirrors the proofs.html
 # pattern: works without the SPA build.
-@app.get("/cost", include_in_schema=False)
+@app.get("/cost", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
 async def serve_cost_panel():
     """Serve the standalone cost + observability HTML panel."""
     if STATIC_DIR:
@@ -8640,7 +9254,7 @@ async def serve_cost_panel():
 
 # R4: standalone trust-trajectory page that fetches /api/trust/trajectory.
 # Mirrors the cost.html / /cost pattern: works without the SPA build.
-@app.get("/trust", include_in_schema=False)
+@app.get("/trust", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
 async def serve_trust_panel():
     """Serve the standalone trust-trajectory HTML panel."""
     if STATIC_DIR:
@@ -8651,7 +9265,7 @@ async def serve_trust_panel():
 
 
 # Serve index.html or standalone HTML for root
-@app.get("/", include_in_schema=False)
+@app.get("/", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
 async def serve_index():
     """Serve the frontend SPA or standalone HTML."""
     # Try multiple index file locations
@@ -8700,10 +9314,10 @@ def _get_rigour() -> "RigourIntegration":
     return _rigour
 
 
-@app.get("/api/quality-score")
-def get_quality_score():
+@app.get("/api/quality-score", dependencies=[Depends(auth.require_scope("read"))])
+def get_quality_score(request: Request):
     """Get current quality score from the most recent Rigour scan."""
-    if not _read_limiter.check("quality-score"):
+    if not _read_limiter.check(_rate_key("quality-score", request)):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
     try:
         rigour = _get_rigour()
@@ -8713,7 +9327,7 @@ def get_quality_score():
         raise HTTPException(status_code=500, detail="Failed to read quality score")
 
 
-@app.get("/api/quality-score/history")
+@app.get("/api/quality-score/history", dependencies=[Depends(auth.require_scope("read"))])
 def get_quality_score_history(limit: int = Query(50, ge=1, le=500)):
     """Get quality score trend over time."""
     if not _read_limiter.check("quality-history"):
@@ -8746,7 +9360,7 @@ async def run_quality_scan(preset: str = Query("default")):
     return result
 
 
-@app.get("/api/quality-report")
+@app.get("/api/quality-report", dependencies=[Depends(auth.require_scope("read"))])
 def get_quality_report(fmt: str = Query("json", alias="format", pattern="^(json|markdown|html)$")):
     """Get an exportable quality audit report."""
     if not _read_limiter.check("quality-report"):
@@ -9106,7 +9720,7 @@ def _last_fallback_ts(events: list[dict[str, Any]]) -> Optional[str]:
     return None
 
 
-@app.get("/api/managed/events")
+@app.get("/api/managed/events", dependencies=[Depends(auth.require_scope("read"))])
 async def get_managed_events(
     limit: int = Query(default=100, ge=1, le=_MANAGED_EVENTS_TAIL_MAX),
     since: Optional[str] = Query(default=None),
@@ -9135,7 +9749,7 @@ async def get_managed_events(
         return {"events": [], "count": 0, "error": str(exc)}
 
 
-@app.get("/api/managed/status")
+@app.get("/api/managed/status", dependencies=[Depends(auth.require_scope("read"))])
 async def get_managed_status():
     """
     Return the managed-agents flag snapshot plus last_fallback_ts.
@@ -9161,7 +9775,7 @@ async def get_managed_status():
     return snapshot
 
 
-@app.get("/api/managed/memory_versions/{memory_id}")
+@app.get("/api/managed/memory_versions/{memory_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def list_managed_memory_versions(memory_id: str):
     """
     Proxy to beta.memory_stores.memory_versions.list(memory_id=...).
@@ -9260,7 +9874,7 @@ async def list_managed_memory_versions(memory_id: str):
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/findings/{iteration}")
+@app.get("/api/findings/{iteration}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_findings(iteration: int):
     """Read structured code-review findings for a given iteration."""
     base = _get_loki_dir()
@@ -9289,7 +9903,7 @@ async def get_findings(iteration: int):
                         detail=f"No findings for iteration {iteration}")
 
 
-@app.get("/api/quality/architecture")
+@app.get("/api/quality/architecture", dependencies=[Depends(auth.require_scope("read"))])
 async def get_quality_architecture():
     """Return the sentrux architectural-drift series.
 
@@ -9351,7 +9965,7 @@ async def get_quality_architecture():
     return {"series": series, "current": current, "samples": len(series)}
 
 
-@app.get("/api/learnings")
+@app.get("/api/learnings", dependencies=[Depends(auth.require_scope("read"))])
 async def get_learnings(limit: int = 50):
     """Read recent learnings (newest first)."""
     base = _get_loki_dir()
@@ -9370,7 +9984,7 @@ async def get_learnings(limit: int = 50):
             "learnings": sliced}
 
 
-@app.get("/api/escalations")
+@app.get("/api/escalations", dependencies=[Depends(auth.require_scope("read"))])
 async def list_escalations():
     """List handoff documents under .loki/escalations/."""
     base = _get_loki_dir()
@@ -9402,7 +10016,7 @@ async def list_escalations():
     return {"escalations": items}
 
 
-@app.get("/api/escalations/{filename}")
+@app.get("/api/escalations/{filename}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_escalation(filename: str):
     """Read one handoff document. Path-traversal-safe."""
     if "\\" in filename or filename.startswith("."):
@@ -9464,7 +10078,7 @@ def _safe_proof_run_dir(run_id: str) -> _Path:
     return _Path(target)
 
 
-@app.get("/api/proofs")
+@app.get("/api/proofs", dependencies=[Depends(auth.require_scope("read"))])
 async def list_proofs():
     """List proof-of-run artifacts for the active project's .loki/proofs/."""
     proofs_dir = _proofs_dir()
@@ -9496,7 +10110,7 @@ async def list_proofs():
     return {"proofs": items}
 
 
-@app.get("/api/proofs/{run_id}")
+@app.get("/api/proofs/{run_id}", dependencies=[Depends(auth.require_scope("read"))])
 async def get_proof(run_id: str):
     """Return the redacted proof.json for one run."""
     run_dir = _safe_proof_run_dir(run_id)
@@ -9509,7 +10123,7 @@ async def get_proof(run_id: str):
     return JSONResponse(content=data)
 
 
-@app.get("/api/proofs/{run_id}/html")
+@app.get("/api/proofs/{run_id}/html", dependencies=[Depends(auth.require_scope("read"))])
 async def get_proof_html(run_id: str):
     """Serve the self-contained shareable proof page for one run."""
     run_dir = _safe_proof_run_dir(run_id)
@@ -9648,7 +10262,7 @@ async def post_wiki_ask(req: WikiAskRequest):
 # or static asset mounts.  This lets the dashboard UI handle client-side routing.
 # Must be registered LAST so it never shadows an API endpoint.
 # ---------------------------------------------------------------------------
-@app.get("/{full_path:path}", include_in_schema=False)
+@app.get("/{full_path:path}", include_in_schema=False, dependencies=[Depends(auth.require_scope("read"))])
 async def serve_spa_catchall(full_path: str):
     """Serve static files or fall back to index.html for SPA routing.
 

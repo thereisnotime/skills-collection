@@ -50,13 +50,14 @@ import { handleInteractExecute, handleInteractStop } from './commands/interact';
 import { handleVersionCommand } from './commands/version';
 import { handleLoginCommand } from './commands/login';
 import { handleLogoutCommand } from './commands/logout';
+import { handleLaunchCommand } from './commands/launch';
 import {
   handleInitCommand,
   scaffoldTemplate,
   findTemplate,
   stepAuth,
 } from './commands/init';
-import { handleSetupCommand } from './commands/setup';
+import { handleMakeDefaultCommand, handleSetupCommand } from './commands/setup';
 import type { SetupSubcommand } from './commands/setup';
 import { handleEnvPullCommand } from './commands/env';
 import { handleStatusCommand } from './commands/status';
@@ -65,6 +66,7 @@ import { isUrl, normalizeUrl } from './utils/url';
 import { parseScrapeOptions } from './utils/options';
 import { isJobId } from './utils/job';
 import { ensureAuthenticated, printBanner } from './utils/auth';
+import { maybeShowUpdateNotice } from './utils/update-notice';
 import packageJson from '../package.json';
 import type { SearchSource, SearchCategory } from './types/search';
 import type { ScrapeFormat } from './types/scrape';
@@ -2173,17 +2175,17 @@ program
     'Set up individual firecrawl integrations (skills, workflows, mcp, defaults)'
   )
   .argument(
-    '<subcommand>',
-    'What to set up: "skills", "workflows", "mcp", or "defaults"'
+    '[subcommand]',
+    'What to set up: "skills", "workflows", "mcp", or "defaults"; omit for an interactive installer'
   )
   .option('-g, --global', 'Install globally (user-level)')
   .option(
     '-a, --agent <agent>',
-    'Limit to a specific agent (for "defaults": "claude" or "codex")'
+    'Limit to a specific agent; for "mcp", use "all" to update every launch integration'
   )
   .option(
     '-y, --yes',
-    'For "defaults": skip the interactive harness picker and apply to all'
+    'Skip prompts; for bare setup, install the default skills + MCP bundle'
   )
   .option(
     '--undo',
@@ -2191,6 +2193,52 @@ program
   )
   .action(async (subcommand: SetupSubcommand, options) => {
     await handleSetupCommand(subcommand, options);
+  });
+
+program
+  .command('make')
+  .description('Make Firecrawl the default provider for supported workflows')
+  .argument('<target>', 'What to make default: "default"')
+  .option(
+    '--undo',
+    'Undo default provider config by re-enabling native web tools where supported'
+  )
+  .action(async (target, options) => {
+    if (target !== 'default') {
+      console.error(`Unknown make target: ${target}`);
+      console.log('\nAvailable targets:');
+      console.log(
+        '  default    Make Firecrawl the default web provider for supported AI agents'
+      );
+      process.exit(1);
+    }
+
+    await handleMakeDefaultCommand(options);
+  });
+
+program
+  .command('launch')
+  .alias('launcher')
+  .description('Configure Firecrawl MCP for an AI agent, then launch it')
+  .argument(
+    '[agent]',
+    'Agent to launch: claude, code/vscode, codex, codex-app, hermes, openclaw, or opencode; omit for an interactive picker'
+  )
+  .argument('[args...]', 'Extra arguments passed to the launched agent')
+  .option('--install', 'Install Firecrawl MCP without launching')
+  .option('--setup', 'Alias for --install')
+  .option('--config', 'Alias for --install')
+  .option('--skip-mcp', 'Launch without installing or updating Firecrawl MCP')
+  .option('--skip-skills', 'Launch without installing Firecrawl skills')
+  .option(
+    '-g, --global',
+    'Install Firecrawl MCP globally for the selected agent',
+    true
+  )
+  .option('-y, --yes', 'Skip setup picker and installer confirmation prompts')
+  .allowUnknownOption()
+  .action(async (agent: string, args: string[], options) => {
+    await handleLaunchCommand(agent, options, args);
   });
 
 program
@@ -2305,6 +2353,8 @@ async function main() {
     await handleStatusCommand();
     return;
   }
+
+  await maybeShowUpdateNotice();
 
   // If no arguments or just help flags, check auth and show appropriate message
   if (args.length === 0) {

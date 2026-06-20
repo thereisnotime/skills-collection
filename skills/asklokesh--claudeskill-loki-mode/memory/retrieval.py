@@ -829,6 +829,32 @@ class MemoryRetrieval:
 
         return items
 
+    @staticmethod
+    def _parse_episode_timestamp(value: Any) -> Optional[datetime]:
+        """Parse an episode timestamp to a tz-aware datetime, or None.
+
+        Accepts ISO-8601 strings (with or without a trailing Z) and existing
+        datetime objects. Returns None when the value is missing or cannot be
+        parsed, so callers can fall back to coarser filtering instead of
+        crashing on a corrupt record. Naive results are assumed UTC so they
+        compare correctly against tz-aware bounds.
+        """
+        if not value:
+            return None
+        try:
+            if isinstance(value, datetime):
+                dt = value
+            elif isinstance(value, str):
+                s = value[:-1] + "+00:00" if value.endswith("Z") else value
+                dt = datetime.fromisoformat(s)
+            else:
+                return None
+        except (ValueError, TypeError):
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+
     def retrieve_by_temporal(
         self,
         since: datetime,
@@ -848,6 +874,12 @@ class MemoryRetrieval:
             List of memories within the time range
         """
         until = until or datetime.now(timezone.utc)
+        # Normalize bounds to tz-aware UTC so comparisons against tz-aware
+        # episode/pattern timestamps below never raise on a naive bound.
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=timezone.utc)
+        if until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
         results: List[Dict[str, Any]] = []
 
         # Search episodic memories by date directory (via storage layer)
@@ -873,6 +905,17 @@ class MemoryRetrieval:
                         f"episodic/{date_dir.name}/{episode_file.name}"
                     )
                     if data:
+                        # The date-dir match above is a coarse, day-granularity
+                        # prefilter. Without this per-episode timestamp check, an
+                        # episode at 08:00 on the `since` day was returned even
+                        # when `since` was 14:00 that same day (and likewise at
+                        # the `until` boundary). Filter each episode by its own
+                        # timestamp when one is present and parseable; episodes
+                        # with a missing/unparseable timestamp keep the previous
+                        # day-level behavior rather than being silently dropped.
+                        ep_ts = self._parse_episode_timestamp(data.get("timestamp"))
+                        if ep_ts is not None and not (since <= ep_ts <= until):
+                            continue
                         data["_source"] = "episodic"
                         if self._belongs_to_namespace(data):
                             results.append(data)
@@ -1038,7 +1081,23 @@ class MemoryRetrieval:
         # Sort by weighted score
         all_results.sort(key=lambda x: x.get("_weighted_score", 0), reverse=True)
 
-        return all_results[:top_k]
+        # Defense-in-depth dedup by id. The same record can legitimately reach
+        # more than one collection bucket (e.g. an anti-pattern bridged into the
+        # anti_patterns source while a category filter is also expected upstream).
+        # Keep the highest-scoring copy: results are already sorted descending, so
+        # the first occurrence of an id is the best one. Records without an id are
+        # never collapsed together (each keeps its own slot).
+        deduped: List[Dict[str, Any]] = []
+        seen_ids: set = set()
+        for item in all_results:
+            item_id = item.get("id")
+            if item_id is not None:
+                if item_id in seen_ids:
+                    continue
+                seen_ids.add(item_id)
+            deduped.append(item)
+
+        return deduped[:top_k]
 
     def _apply_recency_boost(
         self,
@@ -1076,11 +1135,19 @@ class MemoryRetrieval:
                 if item_time.tzinfo is None:
                     item_time = item_time.replace(tzinfo=timezone.utc)
 
-                # Calculate age in days
-                age_days = (now - item_time).days
+                # Calculate age in days. Use total_seconds()/86400 for a
+                # continuous value (the .days attribute truncates to whole days,
+                # losing sub-day resolution, e.g. an 18-hour-old record reads as
+                # age 0 instead of 0.75).
+                age_days = (now - item_time).total_seconds() / 86400.0
 
-                # Boost decays linearly over 30 days
-                if age_days < 30:
+                # Boost decays linearly over 30 days. Gate on [0, 30): a
+                # future-dated record (clock skew or a forward-stamped entry)
+                # has a negative age and must NOT be treated as the freshest
+                # record. The old code (age_days < 30) let a negative age through
+                # and produced boost = boost_factor * (1 - negative/30) > the
+                # intended cap, inflating future records above all real ones.
+                if 0 <= age_days < 30:
                     boost = boost_factor * (1 - age_days / 30)
                     current_score = result.get("_weighted_score", result.get("_score", 0.5))
                     result["_weighted_score"] = current_score * (1 + boost)
@@ -1575,6 +1642,14 @@ class MemoryRetrieval:
 
         for pattern in patterns_data.get("patterns", []):
             if not isinstance(pattern, dict):
+                continue
+            # Anti-patterns live in this same patterns.json (consolidation
+            # writes them as SemanticPattern records with category="anti-pattern").
+            # They are surfaced separately by _keyword_search_anti_patterns, which
+            # bridges those records into the anti_patterns source. Including them
+            # here too returns the same record twice (once as semantic, once as
+            # anti_patterns), double-counting and wasting token budget. Skip them.
+            if (pattern.get("category") or "").lower() == "anti-pattern":
                 continue
             # Defensive: corrupt or hand-edited records may carry null
             # string fields; (x or "") avoids AttributeError on None.

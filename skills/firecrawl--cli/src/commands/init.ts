@@ -233,6 +233,9 @@ function printNextSteps(
     );
   }
   console.log(
+    `  ${arrow} ${dim}Make default:${reset} ${bold}firecrawl make default${reset}`
+  );
+  console.log(
     `  ${arrow} ${dim}All commands:${reset} ${bold}firecrawl --help${reset}`
   );
   console.log('');
@@ -241,6 +244,86 @@ function printNextSteps(
   );
   console.log(
     `  ${dim}Example:${reset} ${bold}"I want to use firecrawl to build an onboarding flow for my insurance company"${reset}`
+  );
+  console.log('');
+}
+
+/** True if the `firecrawl` command is resolvable on the current PATH. */
+function cliIsOnPath(): boolean {
+  try {
+    const cmd =
+      process.platform === 'win32' ? 'where firecrawl' : 'command -v firecrawl';
+    execSync(cmd, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The directory npm drops global bins into, or null if it can't be resolved. */
+function globalBinDir(): string | null {
+  try {
+    const prefix = execSync('npm prefix -g', {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: cleanNpmEnv(),
+    })
+      .toString()
+      .trim();
+    if (!prefix) return null;
+    // On Windows global bins live in the prefix root; elsewhere in <prefix>/bin.
+    return process.platform === 'win32' ? prefix : `${prefix}/bin`;
+  } catch {
+    return null;
+  }
+}
+
+/** Best-guess rc file to append a PATH export to, based on the user's shell. */
+function rcFileForShell(): string {
+  const shell = process.env.SHELL ?? '';
+  if (shell.includes('zsh')) return '~/.zshrc';
+  if (shell.includes('fish')) return '~/.config/fish/config.fish';
+  if (shell.includes('bash'))
+    return process.platform === 'darwin' ? '~/.bash_profile' : '~/.bashrc';
+  return '~/.profile';
+}
+
+/**
+ * After a global install, confirm `firecrawl` is actually reachable.
+ *
+ * On many machines the binary installs fine but its bin dir isn't on PATH —
+ * a custom npm prefix (`npm config set prefix ~/.npm-global`), nvm/volta, or a
+ * fresh Windows shell. The install reports success, yet the command silently
+ * doesn't exist in any new terminal. Detect that and print the exact fix.
+ */
+function warnIfCliNotOnPath(): void {
+  if (cliIsOnPath()) return;
+
+  const bin = globalBinDir();
+  console.log('');
+  console.log(
+    `  ${bold}⚠ "firecrawl" was installed but isn't on your PATH yet.${reset}`
+  );
+  if (bin && process.platform === 'win32') {
+    console.log(
+      `  ${dim}Add this directory to your PATH, then open a new terminal:${reset}`
+    );
+    console.log(`    ${bold}${bin}${reset}`);
+  } else if (bin) {
+    const rc = rcFileForShell();
+    const line = rc.includes('fish')
+      ? `fish_add_path ${bin}`
+      : `export PATH="${bin}:$PATH"`;
+    console.log(
+      `  ${dim}Add it to your shell, then restart your terminal:${reset}`
+    );
+    console.log(`    ${bold}echo '${line}' >> ${rc}${reset}`);
+  } else {
+    console.log(
+      `  ${dim}Add your npm global bin directory (see "npm prefix -g") to PATH.${reset}`
+    );
+  }
+  console.log(
+    `  ${dim}Until then you can still run:${reset} ${bold}npx firecrawl-cli <command>${reset}`
   );
   console.log('');
 }
@@ -258,6 +341,7 @@ async function stepInstall(): Promise<boolean> {
   try {
     execSync('npm install -g firecrawl-cli', { stdio: 'inherit' });
     console.log(`  ${green}✓${reset} CLI installed globally\n`);
+    warnIfCliNotOnPath();
     return true;
   } catch {
     console.error(
@@ -827,6 +911,7 @@ async function runNonInteractive(options: InitOptions): Promise<void> {
     try {
       execSync('npm install -g firecrawl-cli', { stdio: 'inherit' });
       console.log(`${green}✓${reset} CLI installed globally\n`);
+      warnIfCliNotOnPath();
     } catch {
       console.error(
         `\n${dim}Failed to install firecrawl-cli globally. You may need sudo or fix npm permissions.${reset}`

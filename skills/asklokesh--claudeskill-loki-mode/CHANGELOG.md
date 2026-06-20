@@ -9,6 +9,389 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.85.0] - 2026-06-20
+
+### Evidence Receipt: verify it yourself, Loki never lies about done
+
+Loki already generated a proof-of-run at the end of every build. This release
+hardens it into a non-forgeable Evidence Receipt: the deterministic facts are
+separated from AI judgments, gaps are surfaced honestly, and you can re-verify
+the receipt against your repo yourself.
+
+- Facts vs assessments: the receipt now splits deterministic, re-derivable FACTS
+  (git diff + sha, the build command and its exit code, the test command, exit
+  code, and pass/fail counts, per-gate status) from AI ASSESSMENTS (council
+  verdict, completion claim), which are clearly labeled as judgment, not proof.
+- Honest headline: a receipt reads VERIFIED only when tests actually ran and
+  passed, the build succeeded, and there is a real diff with no gaps. If tests
+  did not run or a gate was skipped, it reads VERIFIED WITH GAPS or NOT VERIFIED
+  and lists every gap with a reason. A "tests not run" state can never render as
+  green.
+- Verify it yourself: `loki proof verify <id>` re-hashes the receipt (tamper
+  check) and re-derives the diff from the recorded base commit against the
+  current branch (drift check); exit 0 means clean, exit 1 means tampered or
+  drifted. The shareable receipt page prints the exact command and the base
+  commit so a skeptic can re-run it. `loki receipt` is a friendly alias.
+- Real test provenance: the test runner now records the command it ran, its exit
+  code, and pass/fail counts (unknown is recorded as unknown, never as zero), so
+  the receipt rests on real execution rather than a self-reported flag.
+
+Both routes share one generator (no drift). About 24 new tests lock the honesty
+guarantees, including that an untampered receipt verifies clean and a post-build
+commit is detected as drift.
+
+## [7.84.0] - 2026-06-20
+
+### Enterprise-grade dashboard overhaul
+
+A ground-up restructure + polish of the dashboard so it looks and feels like a
+tool teams already trust. The previous layout had two redundant project dropdowns,
+several blank views (Quality, Analytics, Trust, Wiki), an over-long unpruned
+project list, a leftover developer API-URL control, and a task board that lost its
+column headers on scroll. All fixed, plus a full information-architecture pass.
+
+- Navigation restructured: the 16 flat items are grouped into clear sections
+  (Build, Quality & Trust, Insights, Ops, Wiki) with a redesigned top bar. Every
+  deep link / section id is preserved.
+- One project switcher: the two stacked dropdowns are collapsed into a single
+  switcher; the project list is now pruned (dead paths removed) so it stays short
+  and relevant instead of accumulating every directory ever opened.
+- No more blank views: Quality, Analytics, Trust, and Wiki now render polished,
+  branded empty states with a clear next action (Run quality scan, Start a build,
+  generate the wiki) instead of an empty panel. Quality shows all eight gates.
+- Task board keeps its column headers pinned while cards scroll, and the sidebar
+  scrolls cleanly without cutting off.
+- The leftover developer API-URL input is no longer in the always-visible footer
+  (moved behind a settings affordance); theme + settings live in a tidy footer.
+- Consistent enterprise design pass (spacing, density, cards, light + dark) using
+  the shared design tokens.
+
+Verified with a Playwright screenshot pass across every view in light and dark.
+A standalone, offline-browseable build ships in artifacts/dashboard-preview/.
+
+## [7.83.1] - 2026-06-20
+
+### Fix: loki ship now reviews the work being shipped
+
+A post-release adversarial hunt found that `loki ship` (new in v7.83.0) ran its
+quality gate on the uncommitted diff, but a Loki build auto-commits the session's
+work to the loki/session-* branch -- so by ship time the working tree is clean,
+the review saw an empty diff, and ship reported "clean" and advised a PR without
+gating the actual branch work. ship was always print-only (it never pushed), so
+nothing unsafe shipped, but the gate it advertises was a no-op exactly when it
+mattered. Fix: on a clean loki/* branch with no explicit scope, ship now reviews
+the branch-vs-base range (resolved from base-branch.txt), so the shippable work
+is gated. Explicit scope flags are still respected; ship stays print-only.
+
+## [7.83.0] - 2026-06-20
+
+### UX: less friction, more wow
+
+Six experience improvements that cut the number of commands and flags you need to
+learn, make output worth screenshotting, and tell you the next step everywhere.
+All additive and opt-out; default behavior is unchanged.
+
+- One-command forward motion: `loki next` reads the build's own state and runs the
+  right next step (resume / ship / why), confirm-then-run on a TTY, print-only
+  with --dry-run or off a TTY. `loki ship` finishes a build in one command:
+  optional preview, the same diff quality gates as review, and the exact
+  branch-aware PR command on a clean result (print-only; never pushes).
+- Zero-config `loki start`: when run with no spec it auto-discovers an on-disk
+  spec (prd.md, a single top-level *.md/*.yaml), shows a resume hint if a previous
+  build here was interrupted (naming the last checkpoint), and prints a one-line
+  pre-flight summary. All opt-out; nothing changes when a spec is given or none
+  is found.
+- Visible delight: an inline completion card after a build, a "Building:" headline
+  on start, app-live / last-run lines in status, and a polished COMPLETION.txt
+  receipt. Display-only and TTY-gated (byte-identical off-TTY and under --json).
+- Actionable guidance: the PRD-not-found messages are now unified and tell you
+  exactly what to do; the instance-running path explains recovery; tab completion
+  is spec-aware.
+- Discoverability + first-run wow: `loki doctor` ends with a copy-paste next step,
+  a one-command completions install, quickstart surfaced on the landing/welcome
+  screen, and a drift-proof completion-coverage check so the command list cannot
+  silently fall out of sync again.
+
+Full suite green (1422 pytest + bun + shell suites); completion-coverage drift
+check passing.
+
+## [7.82.0] - 2026-06-20
+
+### Hardening sweep: 36 verified bug fixes, real-cluster-proven deployment, UX polish
+
+A large correctness + trust release. Every bug below was found by an adversarial
+hunt and independently confirmed by a second reviewer before any fix (about half
+the raw findings were refuted and dropped, so what shipped is real). Two of the
+deployment fixes were caught only by running the published image on a real
+Kubernetes cluster. Council 3/3 after a round that caught (and this release
+corrects) an auth-hardening over-reach.
+
+Trust and security
+- Override council (Bun route): the stub judge now fails CLOSED. Self-authored
+  counter-evidence can no longer lift a Critical/High code-review BLOCK; only a
+  real adjudicator the agent does not control may. This matches the bash route
+  and closes a cross-route trust inconsistency.
+- Completion council: the devil's-advocate check no longer always vetoes a
+  unanimous COMPLETE (it read test logs from a path nothing writes). It now reads
+  the structured test-results record; a real failing build is still vetoed.
+- Dashboard auth: data-bearing GET endpoints (cost, council transcripts,
+  escalations, app-runner logs, findings, learnings, ...) now require the read
+  scope under enterprise auth, closing an unauthenticated-read bypass. Probes,
+  A2A discovery, the auth-bootstrap endpoint, and /metrics stay public (so k8s
+  health checks and Prometheus scraping keep working).
+- Audit log: the tamper-evident hash chain is now lock-protected against
+  concurrent writes (it silently corrupted under concurrency before).
+
+Deployment (found by running the real image on Kubernetes)
+- The Docker image was missing redis-cli, boto3, and the lokistore package, so
+  the reference queue-consumer's redis backend and the S3 object-store sync both
+  failed at runtime despite the features being shipped. All three are now in the
+  image (proven end-to-end against a real Redis and a real MinIO bucket).
+- S3 object-store backend gained custom-endpoint support (LOKI_STORAGE_ENDPOINT /
+  storage.endpoint), so MinIO/Ceph/R2 and other S3-compatible stores work, not
+  just AWS.
+- Helm HA: the chart no longer renders a multi-replica control plane onto one
+  ReadWriteOnce audit volume (which hung pods with Multi-Attach and corrupted the
+  single-writer audit chain). A render-time preflight fails loudly with guidance;
+  values-ha/production default to a single audit writer. A ServiceMonitor
+  template now actually ships for the documented observability.serviceMonitor knob.
+
+Correctness (selected from the 36)
+- loki why: added the missing "exited" status, aligned the completion-record
+  vocabulary, and stopped surfacing a previous run's branch/PR as the current
+  crashed run's.
+- loki plan --json emits clean JSON (not ANSI) on error paths; --budget 0 is
+  rejected (it used to pause before any work while status said "no limit");
+  loki memory retrieve shows real source/score; preview/docker/deploy flag
+  parsing no longer swallows the next flag as a value.
+- The auto-resume wrapper no longer aborts on the first rate-limit retry; rate
+  limit detection no longer false-positives on the agent's own generated output;
+  config-file YAML fallback no longer collides same-named keys; event JSON
+  escapes control characters; MCP mem_search collection filter returns results;
+  memory retrieval no longer double-returns anti-patterns.
+
+Experience
+- Zero-config loki start: auto-discovers an on-disk spec, shows an interrupted-
+  build resume hint, and prints a one-line pre-flight summary (all additive,
+  opt-out, default behavior unchanged).
+- Dashboard first-run launchpad and a shareable build summary.
+
+Removed
+- The experimental hierarchical (PageIndex-pattern) tree retrieval. A real-LLM
+  benchmark measured it no better than keyword on the current corpus, so it is
+  removed rather than shipped as dead weight. Default retrieval is unchanged.
+
+About 14 new regression tests cover the above; full suite green (1422 pytest +
+67 shell suites), helm lint clean across all worker modes.
+
+## [7.81.1] - 2026-06-19
+
+### Fix: CI Shell-tests green (V2 python test runner-contract)
+
+- The v7.81.0 worktree-bundle python test was registered in tests/run-all-tests.sh
+  as `run_test "..." "python3 <file>"`, but that runner invokes the entry via
+  `bash "$file"` (it expects a single bash-executable file, not a command string),
+  so it ran `bash "python3 <file>"` -> "No such file or directory" and the CI
+  "Shell tests" job failed. local-ci passed because its run_check runs the entry
+  as a shell command string (different contract), masking the bug.
+- Fixed with a bash wrapper (tests/run-checkpoint-worktree-bundle-tests.sh) that
+  exec's the python test, registered uniformly in both gates -- matching the
+  existing python-test wrapper pattern. No product code changed; the test itself
+  always passed (10/10). Full run-all-tests.sh now green (61 suites).
+
+## [7.81.0] - 2026-06-19
+
+### Gap-closure: honest-gaps and known issues from the two-release arc, closed
+
+Every item is opt-in; local-first and default behavior are unchanged. Council 3/3
+after an adversarial bug-hunt that found (and this release fixes) a queue-item flag
+injection and a retry double-launch race.
+
+- Object-store checkpoint sync now also syncs the git refs/loki/cp/* worktree
+  snapshots (opt-in, storage.backend != local). Previously only the .loki
+  checkpoint metadata transferred, so a fresh-node resume could not restore the
+  working tree. Each snapshot is exported as a git bundle and re-fetched + the ref
+  re-created on hydrate. Best-effort; gated on git; snapshots capture tracked
+  changes only (same limit as the local checkpoint).
+- ALLOWED_PATHS is now genuinely enforced for the sandboxed write path: with
+  LOKI_ALLOWED_PATHS set and sandbox mode on, the worker refuses (fail-closed) to
+  mount the workspace writable if it is outside the allowlist, instead of always
+  mounting it. The non-sandbox host path remains unmediated and is documented as
+  such (no overclaim).
+- Fleet view gains retry: POST /api/fleet/runs/{id}/retry re-launches a finished
+  build from its own project directory against a recovered in-tree spec (control
+  scope; honest 409 when no spec is recoverable or a build is already running). A
+  check-and-claim under the registry lock prevents two concurrent retries from
+  double-launching.
+- Helm deployment and serverless modes are now usable, not just documented: the
+  image ships a reference redis/file queue-consumer (autonomy/queue-consumer.sh),
+  wired as the default queue.command, in loop mode for the Deployment and one-shot
+  mode for the serverless ScaledJob. Other queue backends remain bring-your-own.
+- loki bench degrades honestly on a packaged install (carried from 7.80.1).
+
+Security and hardening (from the bug-hunt)
+- Queue-item flag injection closed: a work item that is a single loki flag (e.g.
+  "--ship") was parsed by `loki start` as a flag and could change build mode. The
+  consumer now rejects a leading-dash spec as malformed, and `loki start` gained a
+  `--` end-of-options handler so an untrusted spec can never be read as a flag.
+- Retry double-launch race (TOCTOU) closed via the lock-held check-and-claim above.
+- Checkpoint-bundle ref-injection guard (_safe_cp_id) rejects git-special ref
+  forms from a crafted object-store key, applied symmetrically on sync and hydrate.
+
+Honesty
+- The hierarchical (PageIndex-pattern) tree retrieval was benchmarked against a
+  real LLM: guided descent measured WORSE than plain keyword on the current tree
+  shape (recall 2/6 vs 6/6) at higher cost. No improvement is claimed; the mode
+  stays opt-in and experimental. The benchmark records the result and the root
+  cause (intermediate tree nodes do not advertise descendant symbol names).
+- README enterprise-auth wording corrected from "OIDC/SSO" to "OIDC bearer-token
+  validation (the foundation for SSO; browser SAML login is roadmap)", matching
+  docs/ENTERPRISE-IDENTITY-ROADMAP.md. SSO/SAML/SCIM/SOC2 remain roadmap.
+
+local-ci green; full test suite (1408 pytest + bash suites) green; helm lint clean
+across all worker modes.
+
+## [7.80.1] - 2026-06-19
+
+### Post-release hardening (UX + test integrity)
+
+- loki bench now degrades honestly on a packaged install. The benchmark harness
+  (~8MB, mostly historical result dumps) is intentionally not shipped in the npm
+  package; cmd_bench previously emitted a bare "harness not found" that read like
+  a broken install. It now explains it is a development/research feature and
+  points to running it from a source checkout (rc 0, not a failure).
+- Test integrity: the state-baseline-lifecycle test harness extracted load_state
+  but not its _loki_state_file dependency (added with the v7.79.0 multi-build
+  state isolation), so the harness silently skipped the load/reset block and went
+  red in CI while the runtime was correct. The harness now extracts both
+  functions. No runtime behavior change (verified: load_state resets
+  ITERATION_COUNT to 0 on a terminal status exactly as before).
+- CI parity: local-ci cherry-picked individual shell suites instead of mirroring
+  the CI "Shell tests" job (tests/run-all-tests.sh), so the harness break above
+  passed the local gate and only failed post-push. local-ci now mirrors the
+  state-baseline, loki-why, and bench suites so this class is caught pre-push.
+
+## [7.80.0] - 2026-06-19
+
+### Fleet + retrieval + scale: the second enterprise foundation release
+
+Builds on v7.79.0. Everything new is opt-in; local-first and default behavior are
+unchanged. Council 3/3 after an adversarial bug-hunt that caught and closed real
+defects (a Helm autoscaler collision and a latent recursion DoS) before ship.
+
+Features
+- Fleet observability: a cross-project view of every run (status, cost,
+  iteration, duration) at GET /api/fleet/runs + /summary + /runs/{id}, with a
+  control-scoped cancel and a new dashboard "Fleet" panel. Built by REUSING the
+  existing project registry and per-project .loki state (no new database, no k8s
+  operator). Honest scope: v1 polls the shared metadata store; a Job-watching
+  controller/CRD and cross-project retry are future work (cancel only today).
+- Hierarchical, structure-aware retrieval (the PageIndex pattern, native and
+  optional): a table-of-contents tree over the code index and large specs plus an
+  LLM-reasoning tree search, as an opt-in retrieval mode (LOKI_RETRIEVAL_MODE=tree)
+  alongside the existing keyword and vector paths. OFF by default (default
+  retrieval is byte-unchanged and the tree modules are not even imported on the
+  default path), no new heavy dependencies, no external service, tree cache via
+  the local store. Honest benchmark: on a no-LLM micro-benchmark recall is
+  COMPARABLE to keyword (no improvement claimed); the structure-aware value is
+  LLM-guided descent on large trees.
+- Helm scale modes (opt-in): a long-running queue-consumer Deployment with an
+  optional KEDA ScaledObject (worker.mode=deployment), and a scale-to-zero,
+  event-driven KEDA ScaledJob (worker.mode=serverless), alongside the default
+  run-to-completion Job. Each mode's tradeoffs are documented honestly (the scale
+  modes need a queue + KEDA installed + a consumer command; they are not turnkey).
+  A render-time guard fails loudly on an unknown worker.mode or on enabling both
+  a plain HPA and KEDA (which would thrash replicas).
+- Helm init-container repo clone (opt-in, workspace.initClone.enabled): seeds the
+  /workspace volume with a repo checkout and spec before the worker runs, closing
+  the empty-volume gap on a fresh install. The token is read from a Secret at
+  runtime, never inlined into the manifest.
+- loki why: an actionable failure/outcome diagnosis that reads the already-captured
+  run state, completion record, and handoff to explain what happened and what to
+  do next (--json for the raw record). Read-only; never fabricates.
+- Enterprise identity roadmap (docs/ENTERPRISE-IDENTITY-ROADMAP.md): an honest
+  current-vs-roadmap scoping of SSO/SAML, SCIM, tenant RBAC, and SOC2, with every
+  shipped claim cited to a real auth function. These remain roadmap, not shipped.
+
+Fixes
+- Packaging: the lokistore/ package (a runtime dependency of the opt-in
+  object-store sync) is now included in the npm files list (it was omitted in
+  v7.79.0, so enabling a cloud backend on an npm install would have failed to
+  import).
+- Helm: the worker image tag now follows Chart.appVersion (single source of
+  truth) instead of a literal that had drifted to a stale version.
+- Hardening from the bug-hunt: tree builders cap nesting depth and the tree-cache
+  deserializer rejects a pathologically deep forged cache (no recursion DoS); the
+  manifest fingerprint uses a collision-free encoding; the fleet cancel verifies a
+  pid still belongs to the project before signaling it (never kills a stale-reused
+  pid) and the Cancel button confirms first.
+
+## [7.79.0] - 2026-06-19
+
+### Enterprise + local foundation: one config knob, pluggable storage, hardened webhooks, real auth gating
+
+The first of two enterprise-hardening releases. Everything here is local-first by
+default (zero new dependencies, behavior byte-identical when you set nothing);
+enterprise backends and controls are strictly opt-in. Council 3/3 after a
+two-round adversarial review that caught and closed real defects before ship.
+
+Features
+- Unified config file (#691): `loki start --config <file>` (aliases `--vars`,
+  `--env-file`) loads one `.env` / YAML / JSON file, so Docker / compose / k8s /
+  Vault operators inject a single mounted file instead of a wall of `LOKI_*` env
+  vars. Locked precedence: CLI flags > `--config` > ambient env > auto
+  `.loki/config.yaml` > settings.json > defaults. Secrets are referenced via
+  `${VAR}` (resolved by bash indirect expansion, never eval), never inlined; a
+  literal secret value warns on load and fails `loki config validate`. New
+  `loki config example|schema|validate`, all generated from one canonical key map
+  (the three config-mapping tables that used to drift are now one).
+- Pluggable storage adapter (`lokistore/`): one local-first interface every
+  durability feature binds to. Default is the same `.loki/` files you already
+  use (zero new deps; importing it loads no cloud SDK). Opt in to `s3` / `gcs` /
+  `azure-blob` (lazy-imported only when selected) via `storage.backend`.
+- Object-store checkpoint sync (opt-in): with a non-local `storage.backend`, a
+  build's checkpoints sync off-cluster and a pod rescheduled onto a fresh node
+  hydrates and resumes. The Helm worker sets a stable `LOKI_RUN_ID` so keys match
+  across pod restarts.
+- Multi-build state isolation: per-build state is namespaced by `LOKI_SESSION_ID`,
+  so two builds in one pod no longer clobber each other (legacy single-build path
+  unchanged when unset).
+- Post-release smoke CI: a new workflow installs and runs the PUBLISHED npm /
+  Docker / Homebrew / SDK artifacts after each release and fails loud, replacing
+  the previous manual post-release check.
+
+Security and hardening
+- Webhook trigger server rewrite: refuses to run (or accepts) any webhook when no
+  HMAC secret is configured (was accept-all), constant-time signature compare,
+  threaded with a bounded worker queue (no listener blocking, load-shed on
+  storm), dispatches `loki start` (not the deprecated `loki run`), reaps children
+  (no zombies), dedups redelivered webhooks, and rejects a malformed
+  `owner/repo` so a webhook payload can never inject a CLI flag into the build.
+- Two unauthenticated WebSocket paths closed: the `/lab` sub-app and the native
+  `/ws/collab` endpoint were reachable without auth when enterprise auth was on
+  (the collab path could mutate shared state); both now require a valid scoped
+  token (close 1008 otherwise) and are pass-through when auth is off.
+- Config-value validator fixed: `validate_yaml_value` used a regex bracket class
+  that matched nothing and silently accepted shell metacharacters; it now
+  rejects `$(...)`, backticks, pipes, etc.
+- LokiStore path-traversal read closed: a leaf symlink inside the store base that
+  pointed outside it was followed on read; reads now realpath-check the full
+  target.
+- Dashboard RBAC consistency: seven `/api/memory/*` reads and the `/api/collab/*`
+  routes that were missing scope checks now match their gated siblings.
+
+Honest scope (NOT overclaimed)
+- `LOKI_ALLOWED_PATHS` is PARTIAL enforcement: it restricts the sandbox custom
+  `--mount` host path and an operator-supplied sandbox command. It does NOT
+  restrict provider-driven agent file writes (those go through the provider CLI,
+  not run.sh; the container is their containment). Docs say exactly this.
+- Object-store sync covers the `.loki` checkpoint state; the git `refs/loki/cp/*`
+  worktree snapshots are not synced. SSO/SAML, SCIM, app-level/tenant RBAC, and
+  SOC2 remain roadmap, not shipped.
+
+Every claim above maps to enforced, tested behavior: full local test suite green
+(1376 pytest + the new bash suites), local-ci 85/0, bash/Bun parity intact.
+
 ## [7.78.0] - 2026-06-19
 
 ### Dead-code removal + ALLOWED_PATHS honesty

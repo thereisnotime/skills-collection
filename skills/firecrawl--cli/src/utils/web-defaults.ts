@@ -78,12 +78,12 @@ async function configureClaudeDefaults(
       (tool) => typeof tool !== 'string' || !denyTools.has(tool)
     );
   } else {
-    const existing = new Set(
+    const existingDeny = new Set(
       deny.filter((tool): tool is string => typeof tool === 'string')
     );
     nextDeny = [...deny];
     for (const tool of CLAUDE_DENY_TOOLS) {
-      if (!existing.has(tool)) nextDeny.push(tool);
+      if (!existingDeny.has(tool)) nextDeny.push(tool);
     }
   }
 

@@ -1,6 +1,6 @@
 # Skills Index
 
-A comprehensive index of all **10,589** named skills across **100** repositories.
+A comprehensive index of all **10,588** named skills across **100** repositories.
 
 [Back to README](README.md)
 
@@ -1092,7 +1092,7 @@ A comprehensive index of all **10,589** named skills across **100** repositories
 | [ce-debug](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-debug/SKILL.md) | 'Systematically find root causes and fix bugs. Use when debugging errors, investigating test failure... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 253 |  |
 | [ce-dogfood-beta](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-dogfood-beta/SKILL.md) | "[BETA] Dogfood the active branch end-to-end as a QA engineer. Diffs the branch against main, builds... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 188 | bash, mermaid |
 | [ce-commit](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-commit/SKILL.md) | Create a git commit with a clear, value-communicating message. Use when the user says "commit", "com... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 106 | bash |
-| [ce-brainstorm](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-brainstorm/SKILL.md) | 'Explore requirements and approaches through collaborative dialogue, then write a right-sized requir... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 312 |  |
+| [ce-brainstorm](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-brainstorm/SKILL.md) | 'Explore requirements and approaches through collaborative dialogue, then write a right-sized requir... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 316 |  |
 | [ce-gemini-imagegen](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-gemini-imagegen/SKILL.md) | This skill should be used when generating and editing images using the Gemini API (Nano Banana Pro).... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 238 | bash, python |
 | [lfg](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/lfg/SKILL.md) | Run the full autonomous engineering pipeline end-to-end (plan, work, code review, test, commit, push... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 121 | bash |
 | [ce-demo-reel](https://github.com/EveryInc/compound-engineering-plugin/blob/main/plugins/compound-engineering/skills/ce-demo-reel/SKILL.md) | "Capture a visual demo reel (GIF, terminal recording, screenshots) for PR descriptions. Use when shi... | [compound-engineering-plugin](https://github.com/EveryInc/compound-engineering-plugin) | EveryInc |  |  | 185 | bash |
@@ -10460,7 +10460,6 @@ A comprehensive index of all **10,589** named skills across **100** repositories
 | [sorted](https://github.com/glebis/claude-skills/blob/main/sorted/SKILL.md) | Automate getSorted.de (Sorted) for freelancer invoicing, expense tracking, and German tax submission... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 207 | bash, python |
 | [gmail](https://github.com/glebis/claude-skills/blob/main/gmail/SKILL.md) | This skill should be used when searching, fetching, or downloading emails from Gmail. Use for querie... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 301 | bash, json, markdown |
 | [telegram-telethon](https://github.com/glebis/claude-skills/blob/main/telegram-telethon/SKILL.md) | This skill should be used for comprehensive Telegram automation via Telethon API. Use for sending/re... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 519 | bash, yaml |
-| [cognitive-toolkit](https://github.com/glebis/claude-skills/blob/main/cognitive-toolkit/skill.md) | Evidence-based CBT and DBT intervention skills — guided thought records, opposite action, DEAR MAN r... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 98 |  |
 | [meeting-prep](https://github.com/glebis/claude-skills/blob/main/meeting-prep/SKILL.md) | Prepare for upcoming meetings — pulls Cal.com bookings, researches participants, audits previous ses... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 473 | bash, dataview, markdown |
 | [granola](https://github.com/glebis/claude-skills/blob/main/granola/SKILL.md) | This skill should be used when importing, listing, or exporting Granola meeting recordings and trans... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 104 | bash, markdown |
 | [tdd](https://github.com/glebis/claude-skills/blob/main/tdd/SKILL.md) | This skill should be used when the user wants to implement features or fix bugs using test-driven de... | [claude-skills](https://github.com/glebis/claude-skills) | glebis |  |  | 745 | bash, json |
@@ -10598,4 +10597,4 @@ A comprehensive index of all **10,589** named skills across **100** repositories
 
 ---
 
-*Auto-generated — 10,589 skills indexed*
+*Auto-generated — 10,588 skills indexed*

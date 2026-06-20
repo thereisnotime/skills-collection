@@ -74,6 +74,7 @@ export class LokiQualityGates extends LokiElement {
     this._evidence = { blocked: false };
     this._pollInterval = null;
     this._lastDataHash = null;
+    this._scanning = false;
   }
 
   connectedCallback() {
@@ -157,6 +158,25 @@ export class LokiQualityGates extends LokiElement {
     }
 
     this.render();
+  }
+
+  async _triggerScan() {
+    if (this._scanning) return;
+    this._scanning = true;
+    this.render();
+    try {
+      // A quality scan is the one-click action that produces gate results from
+      // the dashboard. Full-codebase audit can exceed the default client
+      // timeout, so allow a generous 300s budget.
+      await this._api._post('/api/quality-scan', {}, { timeout: 300000 });
+      this._lastDataHash = null; // force re-render with fresh data
+      await this._loadData();
+    } catch (err) {
+      this._error = `Quality scan failed: ${err.message}`;
+    } finally {
+      this._scanning = false;
+      this.render();
+    }
   }
 
   _escapeHtml(str) {
@@ -323,6 +343,97 @@ export class LokiQualityGates extends LokiElement {
         font-size: 13px;
       }
 
+      /* Branded empty / error states */
+      .es {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 48px 24px;
+        gap: 4px;
+      }
+
+      .es-icon {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--loki-radius-full, 9999px);
+        background: var(--loki-accent-muted, rgba(85, 61, 233, 0.10));
+        color: var(--loki-accent, #553DE9);
+        margin-bottom: 14px;
+      }
+
+      .es-icon svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .es-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--loki-text-primary, #201515);
+      }
+
+      .es-desc {
+        font-size: 13px;
+        color: var(--loki-text-muted, #939084);
+        line-height: 1.55;
+        max-width: 380px;
+      }
+
+      .es-desc code {
+        font-family: var(--loki-font-mono, monospace);
+        font-size: 12px;
+        background: var(--loki-bg-tertiary, #ECEAE3);
+        color: var(--loki-text-secondary, #36342E);
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+
+      .es-cta {
+        margin-top: 16px;
+        padding: 9px 18px;
+        background: var(--loki-accent, #553DE9);
+        color: var(--loki-text-inverse, #fff);
+        border: none;
+        border-radius: var(--loki-radius-md, 4px);
+        font-size: 13px;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.15s ease;
+      }
+
+      .es-cta:hover:not(:disabled) {
+        background: var(--loki-accent-hover, #4432c4);
+      }
+
+      .es-cta:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .es-spinner {
+        width: 13px;
+        height: 13px;
+        border: 2px solid rgba(255,255,255,0.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: es-spin 0.8s linear infinite;
+      }
+
+      @keyframes es-spin { to { transform: rotate(360deg); } }
+
       .error-banner {
         margin-top: 12px;
         padding: 8px 12px;
@@ -348,11 +459,21 @@ export class LokiQualityGates extends LokiElement {
     const gates = this._gates;
     const summary = summarizeGates(gates);
 
+    const gateIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+
     let content;
     if (this._loading && gates.length === 0) {
       content = '<div class="loading">Loading quality gates...</div>';
     } else if (gates.length === 0) {
-      content = '<div class="empty-state"><strong>No gate results yet.</strong> Quality gates run automatically between RARV iterations during an active session. Start a session with <code>loki start ./prd.md</code> to see results here. You can also run gates manually with <code>loki review</code>.</div>';
+      content = `
+        <div class="es">
+          <div class="es-icon">${gateIcon}</div>
+          <div class="es-title">No gate results yet</div>
+          <div class="es-desc">Quality gates run automatically between RARV iterations during a session. Run a scan now, or start a session with <code>loki start ./prd.md</code>.</div>
+          <button class="es-cta" id="gates-scan-btn" ${this._scanning ? 'disabled' : ''}>
+            ${this._scanning ? '<span class="es-spinner"></span> Scanning...' : 'Run quality scan'}
+          </button>
+        </div>`;
     } else {
       const cards = gates.map(gate => {
         const status = (gate.status || 'pending').toLowerCase();
@@ -429,6 +550,11 @@ export class LokiQualityGates extends LokiElement {
         ${this._error ? `<div class="error-banner">${this._escapeHtml(this._error)}</div>` : ''}
       </div>
     `;
+
+    const scanBtn = s.getElementById('gates-scan-btn');
+    if (scanBtn) {
+      scanBtn.addEventListener('click', () => this._triggerScan());
+    }
   }
 }
 

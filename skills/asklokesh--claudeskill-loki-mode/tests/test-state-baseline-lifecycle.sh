@@ -39,11 +39,20 @@ trap 'rm -f "$HARNESS"' EXIT
   echo 'log_warn() { :; }'
   echo 'log_warning() { :; }'
   echo 'log_error() { :; }'
+  # _loki_state_file() resolves the (optionally session-namespaced) state-file
+  # path; load_state() calls it (added with multi-build state isolation, A6), so
+  # it MUST be extracted too or load_state's "$(_loki_state_file)" expands empty
+  # and the whole load/reset block is silently skipped.
+  sed -n '/^_loki_state_file() {/,/^}/p' "$RUN_SCRIPT"
   # Real load_state(), verbatim from run.sh.
   sed -n '/^load_state() {/,/^}/p' "$RUN_SCRIPT"
 } > "$HARNESS"
 
-# Sanity: did we actually capture the function?
+# Sanity: did we actually capture BOTH functions?
+if ! grep -q '_loki_state_file() {' "$HARNESS"; then
+  echo "FATAL: failed to extract _loki_state_file() from $RUN_SCRIPT (line drift?)"
+  exit 2
+fi
 if ! grep -q 'prev_status' "$HARNESS"; then
   echo "FATAL: failed to extract load_state() from $RUN_SCRIPT (line drift?)"
   exit 2

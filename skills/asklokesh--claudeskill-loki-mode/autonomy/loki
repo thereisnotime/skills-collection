@@ -125,6 +125,16 @@ if [ -f "$_LOKI_SCRIPT_DIR/lib/git-pr-advisory.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/lib/git-pr-advisory.sh"
 fi
 
+# Unified config-file support (#691). Canonical LOKI_CONFIG_MAP + the config-file
+# loader (loki_maybe_apply_config_file / loki_apply_config_file) and the
+# example/schema/validate generators. Side-effect-free on source: defines the
+# array + functions, exports nothing. The main() pre-pass and run.sh's YAML
+# parsers both call into this single lib so the mapping cannot drift.
+if [ -f "$_LOKI_SCRIPT_DIR/lib/config-map.sh" ]; then
+    # shellcheck source=autonomy/lib/config-map.sh
+    source "$_LOKI_SCRIPT_DIR/lib/config-map.sh"
+fi
+
 # Resolve the script's real path (handles symlinks)
 resolve_script_path() {
     local script="$1"
@@ -253,6 +263,30 @@ _loki_new_session_exec() {
     else
         exec "$@"
     fi
+}
+
+# Actionable PRD-not-found exit. Both PRD-path existence guards in cmd_start route
+# through here so they cannot drift: the user always learns the two recoveries
+# (fix the path, or drop the arg to auto-generate from the codebase). If a sibling
+# .md file looks like a near-miss of the bad path, surface it honestly as a hint.
+# Prints to stderr and exits 1. Honest: only suggests a "did you mean" when a real
+# .md sibling exists; never fabricates a path.
+_prd_not_found_die() {
+    local bad_path="$1"
+    echo -e "${RED}Error: PRD file not found: $bad_path${NC}" >&2
+    echo -e "${YELLOW}Hint: provide a path to an existing .md/.json/.txt/.yaml/.yml file, or run 'loki start' with no args to analyze the current directory.${NC}" >&2
+    # Best-effort near-miss suggestion: if a .md file sits in the same directory
+    # as the bad path, point at it. Read-only; silent when nothing matches.
+    local dir base suggestion
+    dir="$(dirname "$bad_path" 2>/dev/null)" || dir="."
+    base="$(basename "$bad_path" 2>/dev/null)"
+    if [ -d "$dir" ] && [ -n "$base" ]; then
+        suggestion="$(ls -1 "$dir"/*.md 2>/dev/null | head -1)"
+        if [ -n "$suggestion" ]; then
+            echo -e "${YELLOW}Did you mean: $suggestion ?${NC}" >&2
+        fi
+    fi
+    exit 1
 }
 
 # Anonymous usage telemetry
@@ -704,6 +738,7 @@ show_help() {
     echo ""
     echo "Session:"
     echo "  status [--json]  Show current status (--json for machine-readable)"
+    echo "  next             Run the right next step for you (resume / ship / why)"
     echo "  stop             Stop execution immediately"
     echo "  pause            Pause after current session"
     echo "  resume           Resume paused execution"
@@ -735,7 +770,7 @@ show_help() {
     echo "  version          Show version"
     echo "  help             Show this help ('loki help aliases' for old names)"
     echo ""
-    echo "More commands (grill, spec, deploy, cleanup, init, watch, demo, web, api,"
+    echo "More commands (ship, grill, spec, deploy, cleanup, init, watch, demo, web, api,"
     echo "logs, github, import, council, proof, audit, compliance, agent, template,"
     echo "magic, docs, wiki, ci, test, bench, secrets, telemetry, crash, worktree,"
     echo "failover, monitor, remote, ...) are dispatchable and documented via"
@@ -899,6 +934,7 @@ show_landing() {
     echo -e "First time here? ${CYAN}loki doctor${NC} checks your setup (an AI provider CLI is required)."
     echo ""
     echo "Get started:"
+    echo -e "  ${CYAN}loki quickstart${NC}       Guided first build from your idea (no PRD needed)"
     echo -e "  ${CYAN}loki start ./prd.md${NC}   Build from a spec (PRD file, GitHub issue, or no arg)"
     echo -e "  ${CYAN}loki demo${NC}             Build a sample todo app end to end (real run)"
     echo -e "  ${CYAN}loki dashboard start${NC}  Start the live run monitor (then: loki dashboard open)"
@@ -1376,6 +1412,13 @@ cmd_start() {
                         echo -e "${RED}--budget requires a numeric USD amount (e.g., --budget 5.00)${NC}"
                         exit 1
                     fi
+                    # Reject a non-positive budget: a 0 (or 0.00) cap makes
+                    # check_budget_limit pause before any work runs (cost >= 0 is
+                    # always true), which looks like a silent hang. Require > 0.
+                    if ! awk -v b="$2" 'BEGIN{exit !(b+0 > 0)}'; then
+                        echo -e "${RED}--budget must be greater than 0 (a 0 budget pauses before any work)${NC}" >&2
+                        exit 1
+                    fi
                     export LOKI_BUDGET_LIMIT="$2"
                     shift 2
                 else
@@ -1387,6 +1430,11 @@ cmd_start() {
                 local budget_val="${1#*=}"
                 if ! echo "$budget_val" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
                     echo -e "${RED}--budget requires a numeric USD amount (e.g., --budget=5.00)${NC}"
+                    exit 1
+                fi
+                # Reject a non-positive budget (see --budget arm above).
+                if ! awk -v b="$budget_val" 'BEGIN{exit !(b+0 > 0)}'; then
+                    echo -e "${RED}--budget must be greater than 0 (a 0 budget pauses before any work)${NC}" >&2
                     exit 1
                 fi
                 export LOKI_BUDGET_LIMIT="$budget_val"
@@ -1472,6 +1520,35 @@ cmd_start() {
                 issue_run_detached=true
                 issue_mode_args+=("--detach")
                 shift
+                ;;
+            # #691: unified config-file aliases. Already applied by the main()
+            # pre-pass (loki_maybe_apply_config_file); these arms only consume
+            # the flag+path so the loop does not misread the path as the PRD
+            # positional, and do NOT forward it to the run.sh exec target.
+            --config|--vars|--env-file)
+                # Guard the shift 2: a dangling flag (path omitted, flag is the
+                # last arg) would underflow shift 2 and, under set -euo pipefail,
+                # abort the command SILENTLY. Give an honest actionable error.
+                if [ "$#" -ge 2 ]; then
+                    shift 2
+                else
+                    echo "loki: $1 requires a file path (e.g. --config .loki/config.yaml)" >&2
+                    exit 1
+                fi
+                ;;
+            --config=*|--vars=*|--env-file=*)
+                shift
+                ;;
+            --)
+                # End-of-options: everything after is positional. Lets a caller
+                # pass an untrusted spec that might start with '-' safely, e.g.
+                # `loki start -- "$spec"` from the queue consumer, so a crafted
+                # work item can never be parsed as a flag.
+                shift
+                if [ -z "$positional_arg" ] && [ "$#" -ge 1 ]; then
+                    positional_arg="$1"
+                fi
+                break
                 ;;
             -*)
                 echo -e "${RED}Unknown option: $1${NC}"
@@ -1574,6 +1651,10 @@ cmd_start() {
         version=$(get_version)
         local _ttfv_max_iter="${LOKI_MAX_ITERATIONS:-3}"
         mkdir -p "$LOKI_DIR" 2>/dev/null || true
+        # Reap stale per-PID temp PRDs from prior runs (the process exec-replaces
+        # into run.sh, so these are never cleaned on exit and accumulate).
+        find "$LOKI_DIR" -maxdepth 1 -name 'brief-prd-*.md' -mtime +1 -delete 2>/dev/null || true
+        find "$LOKI_DIR" -maxdepth 1 -name 'quick-prd-*.md' -mtime +1 -delete 2>/dev/null || true
         local brief_prd="$LOKI_DIR/brief-prd-$$.md"
         synthesize_brief_prd "$brief_prd" "$brief_text"
         prd_file="$brief_prd"
@@ -1631,9 +1712,7 @@ cmd_start() {
         case "$prd_file" in
             *.md|*.json|*.txt|*.yaml|*.yml)
                 if [ ! -f "$prd_file" ]; then
-                    echo "Error: PRD file not found: $prd_file" >&2
-                    echo "Hint: provide a path to an existing .md/.json/.txt/.yaml/.yml file, or run 'loki start' with no args to analyze the current directory." >&2
-                    exit 1
+                    _prd_not_found_die "$prd_file"
                 fi
                 ;;
         esac
@@ -1656,8 +1735,7 @@ cmd_start() {
         case "$prd_file" in
             *.md|*.json|*.txt|*.yaml|*.yml)
                 if [ ! -f "$prd_file" ]; then
-                    echo -e "${RED}Error: PRD file not found: $prd_file${NC}" >&2
-                    exit 1
+                    _prd_not_found_die "$prd_file"
                 fi
                 ;;
         esac
@@ -1958,7 +2036,13 @@ cmd_start() {
         fi
         if [ -n "$_existing_pid" ] && kill -0 "$_existing_pid" 2>/dev/null; then
             echo -e "${RED}Error: another loki instance is running (pid $_existing_pid).${NC}" >&2
-            echo -e "${YELLOW}Run 'loki stop' first, then retry 'loki start'.${NC}" >&2
+            # 'loki stop' is folder-scoped by default (v7.7.30), so it only stops a
+            # run in THIS directory. If the live instance is in another project,
+            # 'loki stop' here reports "No active session" and the user is stuck in
+            # a start-says-running / stop-says-clean loop. Point at the global stop
+            # and at 'loki status' to find the live run.
+            echo -e "${YELLOW}Run 'loki stop' here, or 'loki stop --all' if it is running in another project.${NC}" >&2
+            echo -e "${YELLOW}See 'loki status' for the live run, then retry 'loki start'.${NC}" >&2
             exit 1
         fi
         # PID is stale (file present but process gone). Log + remove + continue.
@@ -2899,6 +2983,546 @@ cmd_resume() {
     fi
 }
 
+# Resolve the terminal-run status from the same already-captured artifacts that
+# cmd_why reads (no new state, no spend). Echoes a single token: the resolved
+# status string (e.g. council_approved, paused, max_iterations_reached), or the
+# literal "none" when no run exists here yet. Used by cmd_next so its status->
+# action mapping reads exactly the same state cmd_why does (no drift).
+# Read-only; never fabricates.
+_loki_resolve_run_status() {
+    local loki_dir="${LOKI_DIR:-.loki}"
+    local state_file="$loki_dir/autonomy-state.json"
+    if [ -n "${LOKI_SESSION_ID:-}" ] && [ -f "$loki_dir/sessions/${LOKI_SESSION_ID}/autonomy-state.json" ]; then
+        state_file="$loki_dir/sessions/${LOKI_SESSION_ID}/autonomy-state.json"
+    fi
+    local completion_file="$loki_dir/state/completion.json"
+
+    if [ ! -f "$state_file" ] && [ ! -f "$completion_file" ]; then
+        printf '%s\n' "none"
+        return 0
+    fi
+
+    _LOKI_NA_STATE="$state_file" _LOKI_NA_COMPLETION="$completion_file" python3 - <<'NASTATUS'
+import json, os
+def load(p):
+    try:
+        with open(p) as f: return json.load(f)
+    except Exception: return {}
+state = load(os.environ.get("_LOKI_NA_STATE", ""))
+comp = load(os.environ.get("_LOKI_NA_COMPLETION", ""))
+# Mirror cmd_why's COMP_OUTCOME_ALIASES so a completion-only state (a rotated or
+# crashed run with no live status, only completion.json's outcome) resolves to
+# the canonical status loki next's action map keys on. Without this, an outcome
+# of "complete"/"max_iterations" drifted to the default "loki status" instead of
+# "loki ship"/"loki resume".
+COMP_OUTCOME_ALIASES = {
+    "complete": "council_approved",
+    "max_iterations": "max_iterations_reached",
+    "intervention": "paused",
+}
+status = state.get("status")
+if not status:
+    raw_outcome = comp.get("outcome") or ""
+    status = COMP_OUTCOME_ALIASES.get(raw_outcome, raw_outcome) or "unknown"
+print(status)
+NASTATUS
+}
+
+# Map a resolved status to the single concrete next-action SENTENCE (the same
+# wording cmd_why prints under "What to do"). Echoes the action string. Kept in
+# lockstep with cmd_why's GUIDE map so why and next agree.
+_loki_next_action() {
+    local status="${1:-unknown}"
+    case "$status" in
+        council_approved)
+            echo "Review the diff and open a PR (loki ship, or git push + gh pr create)." ;;
+        council_force_approved)
+            echo "Review the diff carefully before merging -- convergence was not unanimous." ;;
+        completion_promise_fulfilled)
+            echo "Verify the promised outcome, then review and PR (loki ship)." ;;
+        max_iterations_reached)
+            echo "Raise LOKI_MAX_ITERATIONS (or narrow the spec), then resume (loki resume)." ;;
+        max_retries_exceeded)
+            echo "Read .loki/logs for the recurring error, fix the root cause, then re-run (loki why)." ;;
+        failed)
+            echo "Read the failure (loki why), fix it, then re-run." ;;
+        policy_blocked)
+            echo "Review the blocking finding (loki why); address it or use the documented override." ;;
+        budget_exceeded)
+            echo "Raise LOKI_BUDGET_LIMIT or accept the partial result, then resume (loki resume)." ;;
+        paused)
+            echo "Resume with: loki resume." ;;
+        interrupted)
+            echo "Resume with: loki resume." ;;
+        stopped)
+            echo "Start a new build (loki start), or resume if you meant to continue." ;;
+        force_stopped)
+            echo "Start a new build, or investigate why a force-stop was needed (loki why)." ;;
+        running)
+            echo "A build looks active (or crashed mid-run); check loki status." ;;
+        none)
+            echo "Run a build first: loki start <spec>." ;;
+        *)
+            echo "Check loki status and loki why for detail." ;;
+    esac
+}
+
+# loki next -- one command that runs the right next step for you.
+# Reads the SAME already-captured state as cmd_why (no new state, no spend),
+# resolves the terminal status, and proposes the single mapped next step, then
+# runs it on confirmation. Default on a TTY is confirm-then-run; --yes runs it
+# without asking; --dry-run and any non-TTY context only PRINT (honest: never
+# auto-acts in CI / when piped). Strictly additive: reuses cmd_resume, cmd_ship,
+# cmd_why, and cmd_status; never touches the build path.
+cmd_next() {
+    local assume_yes=false
+    local dry_run=false
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}Loki Mode -- run the right next step for you${NC}"
+            echo ""
+            echo "Usage: loki next [--yes] [--dry-run]"
+            echo ""
+            echo "Reads the last build's recorded outcome (the same state 'loki why'"
+            echo "reads -- no new run, no cost) and carries you forward by running the"
+            echo "single mapped next step: resume a paused/interrupted run, finish a"
+            echo "council-approved build (loki ship), or route a failure to 'loki why'."
+            echo ""
+            echo "Default on a terminal: it shows the proposed step and asks before"
+            echo "running it. Non-interactive (piped/CI) it only prints the step;"
+            echo "it never acts on its own there."
+            echo ""
+            echo "Options:"
+            echo "  --yes        Run the proposed step without asking"
+            echo "  --dry-run    Print the proposed step only; do not run it"
+            echo "  --help, -h   Show this help and exit"
+            return 0
+            ;;
+        --yes|-y) assume_yes=true ;;
+        --dry-run) dry_run=true ;;
+        "") : ;;
+        *) echo -e "${RED}Unknown flag: $1${NC}" >&2; echo "Usage: loki next [--yes] [--dry-run]" >&2; return 1 ;;
+    esac
+    # Allow a second flag (e.g. --dry-run --yes order-agnostic).
+    case "${2:-}" in
+        --yes|-y) assume_yes=true ;;
+        --dry-run) dry_run=true ;;
+    esac
+
+    local status
+    status="$(_loki_resolve_run_status)"
+    if [ "$status" = "none" ]; then
+        echo "loki next: no run found here yet." >&2
+        echo "Run a build first: loki start <spec>" >&2
+        return 1
+    fi
+
+    local action_text
+    action_text="$(_loki_next_action "$status")"
+
+    # Map the status to the concrete callable that carries the user forward.
+    # action_cmd is a human label; the case below dispatches to the real function.
+    local action_cmd=""
+    case "$status" in
+        paused|interrupted)                              action_cmd="loki resume" ;;
+        council_approved|council_force_approved|completion_promise_fulfilled)
+                                                         action_cmd="loki ship" ;;
+        max_iterations_reached|budget_exceeded)          action_cmd="loki resume" ;;
+        failed|max_retries_exceeded|policy_blocked|force_stopped)
+                                                         action_cmd="loki why" ;;
+        *)                                               action_cmd="loki status" ;;
+    esac
+
+    echo -e "${BOLD}Loki: next${NC}"
+    echo "  Last outcome : $status"
+    echo "  Next step    : $action_text"
+    echo "  Will run     : $action_cmd"
+    echo ""
+
+    # Honesty gate: only ACT on an interactive terminal with consent, or with
+    # --yes. --dry-run and non-TTY always print-only.
+    if [ "$dry_run" = true ]; then
+        echo "(dry-run: not running. Run '$action_cmd' yourself, or 'loki next --yes'.)"
+        return 0
+    fi
+    if [ "$assume_yes" != true ]; then
+        if [ ! -t 0 ] || [ ! -t 1 ]; then
+            echo "(non-interactive: not running. Run '$action_cmd', or 'loki next --yes'.)"
+            return 0
+        fi
+        local reply=""
+        printf "Run '%s' now? [y/N] " "$action_cmd"
+        read -r reply || reply=""
+        case "$reply" in
+            y|Y|yes|YES) : ;;
+            *) echo "Skipped. Run '$action_cmd' when ready."; return 0 ;;
+        esac
+    fi
+
+    # Dispatch to the real command. For budget/iteration caps, print the env-var
+    # guidance first (the resume alone will not lift the cap), then resume.
+    case "$status" in
+        max_iterations_reached)
+            echo "Note: raise the cap first if you want more iterations, e.g.:"
+            echo "  LOKI_MAX_ITERATIONS=<n> loki resume"
+            echo ""
+            ;;
+        budget_exceeded)
+            echo "Note: raise the budget first if you want to continue, e.g.:"
+            echo "  LOKI_BUDGET_LIMIT=<usd> loki resume"
+            echo ""
+            ;;
+    esac
+    case "$action_cmd" in
+        "loki resume")  cmd_resume ;;
+        "loki ship")    cmd_ship ;;
+        "loki why")     cmd_why ;;
+        *)              cmd_status ;;
+    esac
+    return $?
+}
+
+# loki ship -- the build is done, now get it out (review + PR advice in one flow).
+# Composes existing surfaces only: optionally opens the running app (--preview),
+# runs the SAME diff quality gates as cmd_review, and on a clean-enough result
+# prints the exact branch-aware PR command via the shared print_pr_advice (the
+# same advisory cmd_deploy uses). PRINT-ONLY for shipping: it NEVER pushes and
+# NEVER deploys; it prints (and clipboards, as the advisory already does) the
+# git push + PR command for YOU to run. If review finds HIGH/CRITICAL it stops
+# and points at the findings instead of advising a PR.
+cmd_ship() {
+    local do_preview=false
+    local review_args=()
+    # Tracks whether the caller passed an explicit scope flag (--staged, --since,
+    # ...). Passthrough flags like --yes/--severity do NOT set this, so they do
+    # not suppress the clean-loki-branch auto-scoping below.
+    local ship_explicit_scope=false
+    while [ $# -gt 0 ]; do
+        case "${1:-}" in
+            --help|-h|help)
+                echo -e "${BOLD}Loki Mode -- finish the build: review, then PR advice (print-only)${NC}"
+                echo ""
+                echo "Usage: loki ship [--preview] [--yes] [review options]"
+                echo ""
+                echo "Runs the natural finish line in one command:"
+                echo "  1. (with --preview) opens the app Loki built and started locally"
+                echo "  2. runs 'loki review' on your uncommitted/branch diff (the same"
+                echo "     quality gates)"
+                echo "  3. on a clean-enough result, PRINTS the exact branch-aware"
+                echo "     git push + pull-request command for YOU to run"
+                echo ""
+                echo "It is advisory only for shipping: it NEVER runs 'git push', NEVER"
+                echo "creates a PR, and NEVER deploys. You run the printed command."
+                echo "If review finds HIGH or CRITICAL findings it stops and points you"
+                echo "at the findings instead of advising a PR (exit code 1)."
+                echo ""
+                echo "Options:"
+                echo "  --preview    Open the running local app first (loki preview)"
+                echo "  --yes, -y    Pass through to review (skip its confirmation prompt)"
+                echo "  --help, -h   Show this help and exit"
+                echo ""
+                echo "Any other options are passed through to 'loki review'"
+                echo "(e.g. --staged, --since <commit>, --severity high)."
+                return 0
+                ;;
+            --preview) do_preview=true ;;
+            # Only a known set of NON-scope passthrough flags are exempt from
+            # "explicit scope". Everything else the caller passes -- an explicit
+            # scope flag (--staged/--since/...), a positional <file-or-dir>, or any
+            # other review flag that narrows WHAT is reviewed -- counts as explicit
+            # scope, so we do NOT override it with the clean-branch auto-scoping
+            # below. This is the safe default: passthrough-that-changes-scope must
+            # win over our auto-scope. The exempt list is only flags that never
+            # change scope: --yes/-y (skip prompt), --severity (threshold).
+            # (Without this, `loki ship somefile.py` on a clean loki branch would
+            # get --since base injected and review the whole range, not the file.)
+            --yes|-y|--severity=*)
+                review_args+=("$1") ;;
+            # --severity in its DOCUMENTED two-token form (`--severity high`) takes
+            # a VALUE in the next arg. Consume both here so the value does not fall
+            # to the catch-all and wrongly mark explicit scope (which would skip the
+            # clean-branch auto-scoping and re-introduce the empty-diff false-clean
+            # bug). --severity sets a threshold, not a scope, so neither token is
+            # explicit scope.
+            --severity)
+                review_args+=("$1")
+                if [ "$#" -ge 2 ] && [ "${2#-}" = "$2" ]; then
+                    review_args+=("$2"); shift
+                fi
+                ;;
+            *) review_args+=("$1"); ship_explicit_scope=true ;;
+        esac
+        shift
+    done
+
+    # 1. Optional preview of the running local app. Only when an app-runner state
+    #    file exists, so we never imply an app is running when it is not.
+    if [ "$do_preview" = true ]; then
+        local loki_dir="${LOKI_DIR:-.loki}"
+        if [ -f "$loki_dir/state/app-runner.json" ] || [ -f "$loki_dir/app-runner.json" ]; then
+            echo -e "${BOLD}Opening the running app...${NC}"
+            cmd_preview || true
+            echo ""
+        else
+            echo "(no running app detected; skipping preview. Start one with loki start.)"
+            echo ""
+        fi
+    fi
+
+    # 2. Run the SAME diff quality gates as cmd_review. Capture its documented
+    #    exit code (0 clean, 1 HIGH, 2 CRITICAL). set -e safe: capture via || rc=$?.
+    #
+    #    Scope correction: cmd_review defaults to the UNCOMMITTED diff, but run.sh
+    #    auto-commits the session's work to the loki/session-* branch, so by the
+    #    time `loki ship` runs the tree is usually CLEAN -- which would make review
+    #    see an empty diff and falsely report "clean" before advising a PR (the
+    #    safety gate would be a no-op exactly when it matters). When the caller
+    #    gave no explicit scope AND we are on a loki/* branch with a clean tree,
+    #    default the scope to the branch-vs-base RANGE (the work being shipped),
+    #    resolved the same way the PR advice below resolves it.
+    local _ship_dir="."
+    if [ "$ship_explicit_scope" = false ]; then
+        local _ship_head="" _ship_base="" _ship_dirty=""
+        _ship_head="$(git -C "$_ship_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+        # Untracked files (e.g. a gitignored .loki/) do not count as "dirty" --
+        # what matters is whether the shippable TRACKED work is already committed.
+        _ship_dirty="$(git -C "$_ship_dir" status --porcelain --untracked-files=no 2>/dev/null)"
+        case "$_ship_head" in
+            loki/*)
+                if [ -z "$_ship_dirty" ]; then
+                    if [ -s "$_ship_dir/.loki/state/base-branch.txt" ]; then
+                        _ship_base="$(head -n1 "$_ship_dir/.loki/state/base-branch.txt" 2>/dev/null || echo "")"
+                    fi
+                    if [ -z "$_ship_base" ]; then
+                        local _ship_oh=""
+                        _ship_oh="$(git -C "$_ship_dir" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || echo "")"
+                        [ -n "$_ship_oh" ] && _ship_base="${_ship_oh##*/}"
+                    fi
+                    if [ -n "$_ship_base" ] && git -C "$_ship_dir" rev-parse --verify --quiet "$_ship_base" >/dev/null 2>&1; then
+                        review_args+=("--since" "$_ship_base")
+                        echo -e "${DIM}Clean working tree on $_ship_head; reviewing the branch range vs $_ship_base.${NC}"
+                    fi
+                fi
+                ;;
+        esac
+    fi
+    echo -e "${BOLD}Running quality gates on the diff (loki review)...${NC}"
+    echo ""
+    local rc=0
+    cmd_review "${review_args[@]}" || rc=$?
+
+    if [ "$rc" -ge 1 ]; then
+        echo ""
+        if [ "$rc" -ge 2 ]; then
+            echo -e "${RED}Review found CRITICAL findings. Not advising a PR yet.${NC}" >&2
+        else
+            echo -e "${YELLOW}Review found HIGH findings. Not advising a PR yet.${NC}" >&2
+        fi
+        echo "Fix the findings above (or run 'loki review' for the full report), then 'loki ship' again." >&2
+        return 1
+    fi
+
+    # 3. Clean enough: print the branch-aware PR command (the SAME advisory
+    #    cmd_deploy uses). Derive base/head exactly as cmd_deploy does.
+    echo ""
+    echo -e "${GREEN}Review is clean (no HIGH or CRITICAL findings).${NC}"
+    echo ""
+    local dir="."
+    local head="" base=""
+    head="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+    [ -n "$head" ] || head="HEAD"
+    case "$head" in
+        loki/*)
+            if [ -s "$dir/.loki/state/base-branch.txt" ]; then
+                base="$(head -n1 "$dir/.loki/state/base-branch.txt" 2>/dev/null || echo "")"
+            fi
+            ;;
+    esac
+    if [ -z "$base" ]; then
+        local origin_head=""
+        origin_head="$(git -C "$dir" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || echo "")"
+        if [ -n "$origin_head" ]; then
+            base="${origin_head##*/}"
+        fi
+    fi
+
+    if declare -F print_pr_advice >/dev/null 2>&1; then
+        if [ -n "$base" ]; then
+            print_pr_advice "$base" "$head" "$dir"
+        else
+            echo "Could not determine the PR base branch automatically; set it manually:"
+            print_pr_advice "manually-set-base" "$head" "$dir"
+        fi
+    else
+        echo "To open a pull request:"
+        echo "  git push -u origin ${head}"
+        echo "  Open a pull request for ${head} (set the base branch manually)."
+    fi
+    echo ""
+    echo -e "${DIM}Loki does not push or deploy for you; run the command above when ready.${NC}"
+    return 0
+}
+
+# loki why -- actionable failure/outcome diagnosis (B5).
+# Reads the already-captured run artifacts (no new state): the terminal run state
+# (.loki/<autonomy-state>.json: status, lastExitCode, iterationCount), the durable
+# completion record (.loki/state/completion.json: outcome, branch, files, pr_url),
+# and the latest structured handoff (.loki/memory/handoffs/*.md). Produces an
+# honest "what happened + what to do" report. Read-only; never fabricates -- if a
+# field was not captured it says so. --json emits the machine-readable record.
+cmd_why() {
+    local as_json=0
+    case "${1:-}" in
+        --json) as_json=1 ;;
+        --help|-h) echo "Usage: loki why [--json]  -- explain the last build's outcome and what to do next"; return 0 ;;
+        "" ) : ;;
+        *) echo -e "${RED}Unknown flag: $1${NC}" >&2; echo "Usage: loki why [--json]" >&2; return 1 ;;
+    esac
+
+    local loki_dir="${LOKI_DIR:-.loki}"
+    # Session-namespaced state when LOKI_SESSION_ID is set (mirrors run.sh A6).
+    local state_file="$loki_dir/autonomy-state.json"
+    if [ -n "${LOKI_SESSION_ID:-}" ] && [ -f "$loki_dir/sessions/${LOKI_SESSION_ID}/autonomy-state.json" ]; then
+        state_file="$loki_dir/sessions/${LOKI_SESSION_ID}/autonomy-state.json"
+    fi
+    local completion_file="$loki_dir/state/completion.json"
+
+    if [ ! -f "$state_file" ] && [ ! -f "$completion_file" ]; then
+        echo "loki why: no run found here yet (no $state_file or $completion_file)." >&2
+        echo "Run a build first: loki start <spec>" >&2
+        return 1
+    fi
+
+    if [ "$as_json" = "1" ]; then
+        _LOKI_WHY_STATE="$state_file" _LOKI_WHY_COMPLETION="$completion_file" python3 - <<'WHYJSON'
+import json, os
+def load(p):
+    try:
+        with open(p) as f: return json.load(f)
+    except Exception: return {}
+state = load(os.environ.get("_LOKI_WHY_STATE", ""))
+comp = load(os.environ.get("_LOKI_WHY_COMPLETION", ""))
+print(json.dumps({"state": state, "completion": comp}, indent=2))
+WHYJSON
+        return 0
+    fi
+
+    # Human-readable report. The diagnosis maps the terminal status to a plain
+    # explanation + a concrete next action; everything is sourced from the files,
+    # nothing is invented.
+    local _why_head_sha
+    _why_head_sha="$(git rev-parse HEAD 2>/dev/null || echo "")"
+    _LOKI_WHY_STATE="$state_file" _LOKI_WHY_COMPLETION="$completion_file" \
+    _LOKI_WHY_HEAD_SHA="$_why_head_sha" \
+    _LOKI_WHY_HANDOFFS="$loki_dir/memory/handoffs" python3 - <<'WHYTXT'
+import json, os, glob
+def load(p):
+    try:
+        with open(p) as f: return json.load(f)
+    except Exception: return {}
+state = load(os.environ.get("_LOKI_WHY_STATE", ""))
+comp = load(os.environ.get("_LOKI_WHY_COMPLETION", ""))
+
+# completion.json uses a terminal-outcome vocabulary (complete / max_iterations /
+# failed / stopped / force_stopped / intervention) that differs from the GUIDE
+# keys below. Map it onto the GUIDE keys so the diagnosis is never "no mapping".
+# The live state-file status (running / exited / paused / ...) is preferred when
+# present; we only fall back to the (normalized) completion outcome.
+COMP_OUTCOME_ALIASES = {
+    "complete": "council_approved",
+    "max_iterations": "max_iterations_reached",
+    "intervention": "paused",
+    # failed / stopped / force_stopped already match GUIDE keys verbatim.
+}
+status = state.get("status")
+if not status:
+    raw_outcome = comp.get("outcome") or ""
+    status = COMP_OUTCOME_ALIASES.get(raw_outcome, raw_outcome) or "unknown"
+exit_code = state.get("lastExitCode")
+iters = state.get("iterationCount")
+
+# status -> (one-line meaning, suggested next action). Honest + specific.
+GUIDE = {
+    "council_approved": ("The completion council agreed the work is done and verified.",
+                         "Review the diff and open a PR (git push + gh pr create, or LOKI_AUTO_PR=1)."),
+    "council_force_approved": ("Completion was force-approved (council could not fully converge).",
+                               "Review the diff carefully before merging -- convergence was not unanimous."),
+    "completion_promise_fulfilled": ("The agent declared its explicit completion promise fulfilled.",
+                                     "Verify the promised outcome, then review and PR."),
+    "max_iterations_reached": ("The build hit the iteration cap before the council approved it.",
+                               "Inspect what is left (loki status), raise LOKI_MAX_ITERATIONS or narrow the spec, and resume."),
+    "max_retries_exceeded": ("The build exhausted its retry budget on a repeating failure.",
+                             "Read .loki/logs for the recurring error (rate limit? failing test?), fix the root cause, then re-run."),
+    "failed": ("The build ended in a failure state.",
+               "Read .loki/logs/ + the handoff below for the failure, fix it, then re-run."),
+    "policy_blocked": ("A policy/trust gate blocked completion.",
+                       "Review the blocking finding; address it or use the documented override path."),
+    "budget_exceeded": ("The cost budget breaker paused the build.",
+                        "Raise LOKI_BUDGET_LIMIT or accept the partial result, then resume."),
+    "paused": ("The build is paused (human-intervention signal).",
+               "Resume with: loki resume."),
+    "interrupted": ("The build was interrupted before a terminal state.",
+                    "Resume with: loki resume."),
+    "stopped": ("The build was stopped by the operator.",
+                "Start a new build with loki start, or resume if you meant to continue."),
+    "force_stopped": ("The build was force-stopped.",
+                      "Start a new build, or investigate why a force-stop was needed."),
+    "running": ("The recorded state says a build is still running (or crashed mid-run).",
+                "If no build is active it likely crashed; in durable mode (LOKI_DURABLE_STATE=1) a restart resumes, else loki start re-runs."),
+    "exited": ("The build process exited mid-iteration (likely a crash, kill, or empty provider output).",
+               "Read .loki/logs/ for the last error; if nothing is running it crashed -- re-run with loki start, or loki resume in durable mode."),
+}
+meaning, action = GUIDE.get(status, ("No diagnosis mapping for this status; see the raw fields below.",
+                                     "Check loki status and .loki/logs/ for detail."))
+
+# The completion.json branch/changes/PR belong to the LAST COMPLETED run. When
+# the live state shows a build that is still running or crashed mid-iteration
+# (running/exited), or when the completion record's head_sha no longer matches
+# the current git HEAD, those fields describe a PREVIOUS run -- not this one.
+# Label them honestly so a crashed run is never reported with a stale PR/branch.
+live_statuses = {"running", "exited"}
+head_sha = os.environ.get("_LOKI_WHY_HEAD_SHA", "")
+comp_head = comp.get("head_sha", "")
+comp_is_stale = bool(state.get("status") in live_statuses) or bool(
+    head_sha and comp_head and comp_head != head_sha
+)
+comp_label = "  (from previous completed run)" if comp_is_stale else ""
+
+print("Loki: why")
+print("=" * 60)
+print(f"  Outcome     : {status}")
+if exit_code is not None:
+    print(f"  Exit code   : {exit_code}")
+if iters is not None:
+    print(f"  Iterations  : {iters}")
+if comp.get("branch"):
+    print(f"  Branch      : {comp['branch']}{comp_label}")
+if comp.get("files_changed") is not None:
+    print(f"  Changes     : {comp.get('files_changed',0)} files (+{comp.get('insertions',0)}/-{comp.get('deletions',0)}){comp_label}")
+if comp.get("pr_url"):
+    print(f"  PR          : {comp['pr_url']}{comp_label}")
+print()
+print(f"  What happened: {meaning}")
+print(f"  What to do   : {action}")
+
+# Surface the latest structured handoff (already-captured context), honestly.
+hd = sorted(glob.glob(os.path.join(os.environ.get("_LOKI_WHY_HANDOFFS",""), "*.md")))
+if hd:
+    print()
+    print(f"  Latest handoff: {hd[-1]}")
+    try:
+        with open(hd[-1]) as f:
+            head = "".join(f.readlines()[:8]).rstrip()
+        for line in head.splitlines():
+            print(f"    {line}")
+    except Exception:
+        pass
+print()
+print("  (loki why --json for the raw record; loki status for live state.)")
+WHYTXT
+    return 0
+}
+
 # Show current status
 cmd_status() {
     # Check for flags
@@ -3066,6 +3690,43 @@ cmd_status() {
         if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
             local port=${LOKI_DASHBOARD_PORT:-57374}
             echo -e "${CYAN}Dashboard:${NC} http://127.0.0.1:$port/"
+        fi
+    fi
+
+    # v7.82: surface the single most valuable, most shareable fact -- where the
+    # built app is running -- when the app runner reports a live app. Display-only
+    # read of .loki/app-runner/state.json (same shape build_completion_summary
+    # reads); silent when no app is running. The --json path (cmd_status_json) is
+    # untouched, so machine output stays byte-identical.
+    if [ -f "$LOKI_DIR/app-runner/state.json" ]; then
+        local app_url
+        app_url=$(_LOKI_APP_STATE="$LOKI_DIR/app-runner/state.json" python3 -c "
+import json, os
+try:
+    d = json.load(open(os.environ['_LOKI_APP_STATE']))
+    print(d.get('url', '') if d.get('status') == 'running' else '')
+except Exception:
+    print('')" 2>/dev/null)
+        if [ -n "$app_url" ]; then
+            echo ""
+            echo -e "${GREEN}App running:${NC} ${BOLD}${app_url}${NC}  ${DIM}- open it to try it${NC}"
+        fi
+    fi
+
+    # v7.82: completion-aware one-liner. When a finished run left a completion
+    # record, show its outcome and point at \`loki why\` for the full story. Reads
+    # the persisted completion.json (no recompute); silent when absent.
+    if [ -f "$LOKI_DIR/state/completion.json" ]; then
+        local last_outcome
+        last_outcome=$(_LOKI_CJ="$LOKI_DIR/state/completion.json" python3 -c "
+import json, os
+try:
+    d = json.load(open(os.environ['_LOKI_CJ']))
+    print(d.get('outcome', '') or '')
+except Exception:
+    print('')" 2>/dev/null)
+        if [ -n "$last_outcome" ]; then
+            echo -e "${DIM}Last run: ${last_outcome} - run 'loki why' for details${NC}"
         fi
     fi
 
@@ -4651,7 +5312,7 @@ cmd_welcome_terminal() {
     echo -e "  ${CYAN}Cross-project memory${NC}     Lessons compound, so agents stop repeating mistakes."
     echo -e "  ${CYAN}Provider-agnostic${NC}        Claude, Codex, Cline, or Aider. Your keys, your infra."
     echo ""
-    echo -e "  Quick start:  ${BOLD}loki start ./prd.md${NC}"
+    echo -e "  Quick start:  ${BOLD}loki quickstart${NC} (from your idea) or ${BOLD}loki start ./prd.md${NC} (from a spec)"
     echo -e "  Docs:         ${BOLD}https://www.autonomi.dev/docs${NC}"
     echo ""
     if _loki_welcome_analytics_on; then
@@ -5601,12 +6262,20 @@ cmd_preview() {
                 public=true
                 ;;
             --provider)
-                provider="${2:-}"
-                # Guard the value-consuming shift: if --provider is the LAST arg
-                # (no value), an unguarded shift here plus the loop's trailing
-                # shift would underflow and abort under set -e. Only consume a
-                # value when one is actually present.
-                [ $# -ge 2 ] && shift
+                # Guard against a missing OR flag-shaped value: an unguarded
+                # shift when --provider is the last arg underflows under set -e,
+                # and a bare "--provider --public" would otherwise swallow the
+                # next flag as the provider name.
+                case "${2:-}" in
+                    -*|"")
+                        echo "loki preview --provider requires a value (cloudflared|ngrok)" >&2
+                        return 1
+                        ;;
+                    *)
+                        provider="$2"
+                        shift
+                        ;;
+                esac
                 ;;
             --yes)
                 assume_yes=true
@@ -5956,11 +6625,14 @@ cmd_deploy() {
                 return 0
                 ;;
             --dir)
-                dir="${2:-.}"
-                # Guard the value-consuming shift: if --dir is the LAST arg (no
-                # value), an unguarded shift plus the loop's trailing shift would
-                # underflow and abort under set -e. Consume a value only if present.
-                [ $# -ge 2 ] && shift
+                # Guard against a missing OR flag-shaped value: an unguarded
+                # shift when --dir is the last arg underflows under set -e, and a
+                # bare "--dir --no-clip" would otherwise treat the next flag as
+                # the scan directory.
+                case "${2:-}" in
+                    -*|"") echo "loki deploy --dir requires a directory path" >&2; return 1 ;;
+                    *) dir="$2"; shift ;;
+                esac
                 ;;
             --no-clip)
                 do_clip=false
@@ -6699,6 +7371,21 @@ cmd_run() {
             --detach|-d)
                 use_worktree=true
                 run_detached=true
+                shift
+                ;;
+            # #691: unified config-file aliases. Applied by the main() pre-pass;
+            # consume here so the path is not misread as the issue-ref positional
+            # and is not forwarded to cmd_start.
+            --config|--vars|--env-file)
+                # Guard shift 2 against a dangling flag (silent set -e abort).
+                if [ "$#" -ge 2 ]; then
+                    shift 2
+                else
+                    echo "loki: $1 requires a file path (e.g. --config .loki/config.yaml)" >&2
+                    exit 1
+                fi
+                ;;
+            --config=*|--vars=*|--env-file=*)
                 shift
                 ;;
             -*)
@@ -7832,7 +8519,7 @@ cmd_assets() {
             ;;
         *)
             echo -e "${RED}Unknown subcommand: $subcommand${NC}" >&2
-            echo "Run 'loki assets --help' for usage."
+            echo "Run 'loki assets --help' for usage." >&2
             return 1
             ;;
     esac
@@ -8109,15 +8796,27 @@ cmd_config() {
         get)
             cmd_config_get "$@"
             ;;
+        example)
+            cmd_config_example "$@"
+            ;;
+        schema)
+            cmd_config_schema "$@"
+            ;;
+        validate)
+            cmd_config_validate "$@"
+            ;;
         *)
-            echo -e "${YELLOW}Usage: loki config [show|init|edit|path|set|get]${NC}"
+            echo -e "${YELLOW}Usage: loki config [show|init|edit|path|set|get|example|schema|validate]${NC}"
             echo ""
-            echo "  show           Show current configuration (default)"
-            echo "  init           Create a config file from template"
-            echo "  edit           Open config file in editor"
-            echo "  path           Show config file paths"
-            echo "  set KEY VALUE  Set a configuration value"
-            echo "  get KEY        Get a configuration value"
+            echo "  show            Show current configuration (default)"
+            echo "  init            Create a config file from template"
+            echo "  edit            Open config file in editor"
+            echo "  path            Show config file paths"
+            echo "  set KEY VALUE   Set a configuration value"
+            echo "  get KEY         Get a configuration value"
+            echo "  example         Print an annotated config template (for --config)"
+            echo "  schema          Print the key -> env-var mapping table"
+            echo "  validate FILE   Validate a config file (--config) without applying it"
             echo ""
             echo "Settable keys (v6.0.0):"
             echo "  maxTier              Cost ceiling: opus, sonnet, haiku (default: opus)"
@@ -8293,6 +8992,41 @@ SET_CONFIG
         # intentionally not exported.
         budget)           export LOKI_BUDGET_LIMIT="$value" ;;
     esac
+}
+
+# #691: print an annotated config template generated from LOKI_CONFIG_MAP, so it
+# can never drift from the parsers. Suitable for `loki start --config <path>`.
+cmd_config_example() {
+    if ! declare -f loki_config_generate_example >/dev/null 2>&1; then
+        echo -e "${RED}config example: config-map.sh helper not loaded${NC}" >&2
+        return 1
+    fi
+    loki_config_generate_example
+}
+
+# #691: print the machine-readable key -> LOKI_ENV_VAR mapping table.
+cmd_config_schema() {
+    if ! declare -f loki_config_generate_schema >/dev/null 2>&1; then
+        echo -e "${RED}config schema: config-map.sh helper not loaded${NC}" >&2
+        return 1
+    fi
+    loki_config_generate_schema
+}
+
+# #691: validate a config file (--config) WITHOUT applying it. Reports
+# unresolved ${VAR} refs, raw-secret literals (error), and per-value validation
+# failures. Non-zero exit on any failure.
+cmd_config_validate() {
+    local file="${1:-}"
+    if [ -z "$file" ]; then
+        echo -e "${RED}Usage: loki config validate <file>${NC}" >&2
+        return 2
+    fi
+    if ! declare -f loki_config_validate_file >/dev/null 2>&1; then
+        echo -e "${RED}config validate: config-map.sh helper not loaded${NC}" >&2
+        return 1
+    fi
+    loki_config_validate_file "$file"
 }
 
 # v6.0.0: Get a configuration value
@@ -9236,11 +9970,17 @@ cmd_doctor() {
         return 1
     elif [ "$warn_count" -gt 0 ]; then
         echo -e "${YELLOW}All required checks passed with some warnings.${NC}"
-        return 0
     else
         echo -e "${GREEN}All checks passed. System is ready for Loki Mode.${NC}"
-        return 0
     fi
+    # Setup verified (no required check failed): hand the user straight to a
+    # first build with a copy-paste command, so they never dead-end here. Gated
+    # on fail_count==0 above, so a failing setup is never told to build. The
+    # --json path returns long before this code, so machine output is untouched.
+    echo ""
+    echo "Next: loki quickstart (guided first build from your idea, no PRD needed)"
+    echo "      or loki demo (builds a sample todo app end to end) or loki start ./prd.md"
+    return 0
 }
 
 # JSON output for loki doctor --json
@@ -10820,6 +11560,25 @@ cmd_quick() {
         fi
     fi
 
+    # #691: drop the unified config-file aliases from the task description. The
+    # main() pre-pass already applied the file; without this, a trailing
+    # `--config f.env` would be swept into task_desc (cmd_quick has no arg loop).
+    local _quick_args=()
+    local _skip_next=false
+    local _qa
+    for _qa in "$@"; do
+        if [ "$_skip_next" = "true" ]; then
+            _skip_next=false
+            continue
+        fi
+        case "$_qa" in
+            --config|--vars|--env-file)        _skip_next=true; continue ;;
+            --config=*|--vars=*|--env-file=*)   continue ;;
+        esac
+        _quick_args+=("$_qa")
+    done
+    set -- "${_quick_args[@]+"${_quick_args[@]}"}"
+
     local task_desc="$*"
     local version=$(get_version)
     local max_iter="${LOKI_MAX_ITERATIONS:-3}"
@@ -10834,6 +11593,10 @@ cmd_quick() {
     # BUG-PU-005: Use unique filename to prevent race conditions when
     # multiple simultaneous `loki quick` commands run in the same project
     mkdir -p "$LOKI_DIR"
+    # Reap stale per-PID temp PRDs from prior runs (the process exec-replaces
+    # into run.sh, so these are never cleaned on exit and accumulate).
+    find "$LOKI_DIR" -maxdepth 1 -name 'quick-prd-*.md' -mtime +1 -delete 2>/dev/null || true
+    find "$LOKI_DIR" -maxdepth 1 -name 'brief-prd-*.md' -mtime +1 -delete 2>/dev/null || true
     local quick_prd="$LOKI_DIR/quick-prd-$$.md"
     cat > "$quick_prd" << QPRDEOF
 # Quick Task
@@ -15235,12 +15998,22 @@ cmd_plan() {
     done
 
     if [ -z "$prd_file" ]; then
+        # Under --json, a machine consumer expects JSON on every path, including
+        # errors -- never ANSI-colored prose. Emit a structured error to stdout.
+        if [ "$show_json" = true ]; then
+            printf '{"error":"missing PRD file argument"}\n'
+            return 2
+        fi
         echo -e "${RED}Usage: loki plan <PRD file>${NC}"
         echo "Run 'loki plan --help' for usage."
         return 2
     fi
 
     if [ ! -f "$prd_file" ]; then
+        if [ "$show_json" = true ]; then
+            printf '{"error":"PRD file not found","prd_file":"%s"}\n' "$prd_file"
+            return 1
+        fi
         echo -e "${RED}PRD file not found: $prd_file${NC}"
         return 1
     fi
@@ -15281,6 +16054,60 @@ maybe_show_auto_plan() {
     show_prd_plan "$abs_prd" "false" "false"
 }
 
+# Suggest the closest known command for a typo (the did-you-mean hint).
+# Prints "Did you mean 'X'?" to stderr when an unknown command is within a
+# small Levenshtein distance of a real command. Silent (returns 1) when
+# nothing is close enough, so a genuinely-unknown command is not given a
+# misleading suggestion. Pure bash + awk (no extra deps); the candidate list
+# is the canonical set of top-level commands accepted by the dispatcher.
+_suggest_command() {
+    local typo="$1"
+    [ -n "$typo" ] || return 1
+    # Canonical top-level command names (keep in sync with the dispatch case
+    # below). Deprecated aliases are intentionally included so a typo of an
+    # alias still resolves to a helpful pointer.
+    local known="start run quick plan grill spec verify proof trust review \
+ultracode council demo dogfood heal modernize import issue github init template \
+status stop pause resume monitor watch watchdog dashboard web open preview share \
+memory context ctx checkpoint state report kpis cost metrics stats logs otel \
+syslog telemetry crash config provider doctor setup-skill onboard quickstart \
+welcome update self-update rollback failover cluster enterprise remote deploy docker \
+sandbox api mcp magic compound assets export wiki docs explain why audit compliance \
+secrets analyze optimize bench ci reset cleanup notify trigger voice sentrux \
+worktree wt projects cp rc trust-metrics serve agent code self_update test help version"
+    local best
+    best=$(printf '%s\n' $known | awk -v t="$typo" '
+        function min3(a, b, c) { if (a < b) { if (a < c) return a; return c } if (b < c) return b; return c }
+        function lev(s1, s2,   n, m, i, j, prev, cur, cost, tmp) {
+            n = length(s1); m = length(s2)
+            if (n == 0) return m
+            if (m == 0) return n
+            for (j = 0; j <= m; j++) prev[j] = j
+            for (i = 1; i <= n; i++) {
+                cur[0] = i
+                for (j = 1; j <= m; j++) {
+                    cost = (substr(s1, i, 1) == substr(s2, j, 1)) ? 0 : 1
+                    cur[j] = min3(prev[j] + 1, cur[j-1] + 1, prev[j-1] + cost)
+                }
+                for (j = 0; j <= m; j++) prev[j] = cur[j]
+            }
+            return prev[m]
+        }
+        { d = lev(t, $1); if (d < bestd || NR == 1) { bestd = d; bestc = $1 } }
+        END {
+            # Only suggest when the edit distance is small relative to the typo
+            # length: <=2 for short commands, <=3 for longer ones. This avoids
+            # absurd suggestions (e.g. "xyz" -> "web").
+            thr = (length(t) <= 4) ? 2 : 3
+            if (bestd <= thr) print bestc
+        }')
+    if [ -n "$best" ]; then
+        printf '%s\n' "$best"
+        return 0
+    fi
+    return 1
+}
+
 # Main command dispatcher
 main() {
     # v7.5.18: early guard -- LOKI_PROVIDER=gemini is no longer supported.
@@ -15305,6 +16132,32 @@ main() {
     # both Bun-routed and bash-routed commands (autonomy/loki main() never
     # runs for the 8 ported commands). Marker file: ~/.loki-first-run.
     loki_telemetry "cli_command" "command=$command" 2>/dev/null || true
+
+    # Unified config-file pre-pass (#691). For session commands ONLY, honor
+    # LOKI_CONFIG_FILE / --config|--vars|--env-file and load the file BEFORE the
+    # per-command arg loop runs. Running here means: config exports survive the
+    # exec into run.sh, and the subsequent CLI arg loop still overrides them
+    # (CLI > config). The pre-pass SCANS without consuming; the per-command
+    # loops carry consume-and-ignore arms for the three aliases. Gated to
+    # start/run/quick so status/config/stop never trigger a config load.
+    case "$command" in
+        start|run|quick)
+            if declare -f loki_maybe_apply_config_file >/dev/null 2>&1; then
+                loki_maybe_apply_config_file "$@"
+            fi
+            # #691: documented observation hook. When LOKI_CONFIG_DUMP=1, print
+            # the resolved LOKI_* environment (after the config pre-pass AND any
+            # ambient env) and exit 0 WITHOUT running a build. Lets operators and
+            # tests verify exactly which values a --config file resolves to,
+            # without spend. The per-command CLI arg loops do not run on this
+            # path, so CLI-flag overrides are NOT reflected by the dump; it shows
+            # the config+env resolution only.
+            if [ "${LOKI_CONFIG_DUMP:-}" = "1" ]; then
+                env | grep -E '^LOKI_' | LC_ALL=C sort
+                exit 0
+            fi
+            ;;
+    esac
 
     case "$command" in
         run)
@@ -15346,6 +16199,12 @@ main() {
         status)
             cmd_status "$@"
             ;;
+        why)
+            cmd_why "$@"
+            ;;
+        next)
+            cmd_next "$@"
+            ;;
         stats)
             # CLI consolidation (Phase A): 'stats' is a deprecated alias of
             # 'report session'. On the Bun route this arm is never reached
@@ -15368,6 +16227,9 @@ main() {
             ;;
         deploy)
             cmd_deploy "$@"
+            ;;
+        ship)
+            cmd_ship "$@"
             ;;
         open)
             # CLI consolidation (Phase A): 'open' is a deprecated alias of 'preview'.
@@ -15633,7 +16495,9 @@ main() {
             _deprecated_alias share "report share" "$@"
             cmd_report share "$@"
             ;;
-        proof)
+        proof|receipt)
+            # `loki receipt` is a friendly alias for `loki proof` (the Evidence
+            # Receipt surface): same subcommands (list/show/verify/open/share).
             cmd_proof "$@"
             ;;
         bench)
@@ -15676,8 +16540,12 @@ main() {
             fi
             ;;
         *)
-            echo -e "${RED}Unknown command: $command${NC}"
-            echo "Run 'loki help' for usage."
+            echo -e "${RED}Unknown command: $command${NC}" >&2
+            local _suggestion
+            if _suggestion=$(_suggest_command "$command"); then
+                echo "Did you mean 'loki ${_suggestion}'?" >&2
+            fi
+            echo "Run 'loki help' for usage." >&2
             exit 1
             ;;
     esac
@@ -18053,9 +18921,15 @@ try:
         print('No relevant memories found')
     else:
         for i, r in enumerate(results, 1):
-            source = r.get('source', 'unknown')
-            summary = r.get('summary', r.get('pattern', 'No summary'))[:80]
-            score = r.get('score', 0)
+            # Retrieval results expose _source/_score/_weighted_score and the
+            # raw stored fields (pattern/description/goal/name), not
+            # source/summary/score. Read the fields that actually exist so the
+            # output is not a uniform [unknown] ... (score 0.00).
+            source = r.get('_source', 'unknown')
+            score = r.get('_score', r.get('_weighted_score', 0))
+            summary = (r.get('pattern') or r.get('description') or r.get('goal')
+                       or (r.get('context') or {}).get('goal') or r.get('name')
+                       or 'No summary')[:80]
             print(f'{i}. [{source}] {summary}... (score: {score:.2f})')
 except ImportError as e:
     print(f'Error: Required module not found - {e}')
@@ -21616,7 +22490,7 @@ cmd_trust_metrics() {
                 echo "Run 'loki trust-metrics' inside each project directory."
                 exit 2
                 ;;
-            *) echo -e "${RED}Unknown option: $1${NC}"; echo "Run 'loki trust-metrics --help' for usage."; exit 1 ;;
+            *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki trust-metrics --help' for usage." >&2; exit 1 ;;
         esac
     done
 
@@ -21671,7 +22545,7 @@ cmd_cost() {
             --json) show_json=true; shift ;;
             --last) last_n="${2:-0}"; shift 2 ;;
             --last=*) last_n="${1#*=}"; shift ;;
-            *) echo -e "${RED}Unknown option: $1${NC}"; echo "Run 'loki cost --help' for usage."; exit 1 ;;
+            *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki cost --help' for usage." >&2; exit 1 ;;
         esac
     done
 
@@ -21986,7 +22860,7 @@ cmd_metrics() {
                 echo "$response"
                 exit 0
                 ;;
-            *) echo -e "${RED}Unknown option: $1${NC}"; echo "Run 'loki metrics --help' for usage."; exit 1 ;;
+            *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki metrics --help' for usage." >&2; exit 1 ;;
         esac
     done
 
@@ -23060,12 +23934,15 @@ _code_diff() {
 # Output shell completion scripts
 cmd_completions() {
     local shell="${1:-bash}"
+    # Consume the subcommand so the install arm can read an optional shell
+    # override as its own positional ($1). bash/zsh raw-output arms ignore $@.
+    shift 2>/dev/null || true
     local skill_dir
-    
+
     # Find the skill directory (where autonomy/loki is located)
     skill_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     local completions_dir="$skill_dir/completions"
-    
+
     case "$shell" in
         bash)
             if [ -f "$completions_dir/loki.bash" ]; then
@@ -23083,24 +23960,77 @@ cmd_completions() {
                 exit 1
             fi
             ;;
+        install)
+            # One-command install: detect the current shell, append a single
+            # guarded line to the right rc file exactly once (idempotent via a
+            # sentinel comment), then tell the user how to activate it. This
+            # replaces the error-prone manual recipe with something that just
+            # works after one command.
+            local detected target_shell rc_file
+            detected="$(basename "${SHELL:-}" 2>/dev/null)"
+            # Allow an explicit override: loki completions install bash|zsh
+            target_shell="${1:-$detected}"
+            case "$target_shell" in
+                bash)
+                    rc_file="${HOME}/.bashrc"
+                    ;;
+                zsh)
+                    rc_file="${HOME}/.zshrc"
+                    ;;
+                *)
+                    echo -e "${RED}Could not detect a supported shell (got: ${target_shell:-unknown}).${NC}" >&2
+                    echo "Specify one explicitly: loki completions install bash | loki completions install zsh" >&2
+                    exit 1
+                    ;;
+            esac
+            local sentinel="# loki-mode completions"
+            if [ -f "$rc_file" ] && grep -qF "$sentinel" "$rc_file" 2>/dev/null; then
+                echo "Loki completions already installed in ${rc_file} (no change)."
+                echo "Activate now with: source ${rc_file}"
+                return 0
+            fi
+            # Append the sentinel plus a single eval line that re-loads the
+            # completion script at shell start. eval (not redirect) is the
+            # correct persistent form: it sources the script into the
+            # interactive shell each time the rc file runs.
+            {
+                printf '\n%s\n' "$sentinel"
+                printf '%s\n' "eval \"\$(loki completions ${target_shell})\""
+            } >> "$rc_file" || {
+                echo -e "${RED}Failed to write to ${rc_file}.${NC}" >&2
+                exit 1
+            }
+            echo "Installed Loki ${target_shell} completions into ${rc_file}."
+            echo "Activate now with: source ${rc_file}  (or restart your shell)"
+            return 0
+            ;;
         *)
             echo -e "${BOLD}Loki Shell Completions${NC}"
             echo ""
             echo "Output shell completion scripts for bash or zsh."
             echo ""
             echo "Usage: loki completions <shell>"
+            echo "       loki completions install [bash|zsh]"
             echo ""
             echo "Shells:"
-            echo "  bash    Bash completion script"
-            echo "  zsh     Zsh completion script"
+            echo "  bash       Bash completion script"
+            echo "  zsh        Zsh completion script"
+            echo "  install    Auto-install completions into your shell rc file"
             echo ""
             echo "Installation:"
             echo ""
-            echo "Bash:"
-            echo "  eval \"\$(loki completions bash)\" >> ~/.bashrc"
+            echo "  One command (recommended):"
+            echo "    loki completions install"
             echo ""
-            echo "Zsh:"
-            echo "  eval \"\$(loki completions zsh)\" >> ~/.zshrc"
+            echo "  Manual (persistent), Bash:"
+            echo "    echo 'eval \"\$(loki completions bash)\"' >> ~/.bashrc"
+            echo "  Manual (persistent), Zsh:"
+            echo "    echo 'eval \"\$(loki completions zsh)\"' >> ~/.zshrc"
+            echo ""
+            echo "  Session only (current shell), Bash:"
+            echo "    eval \"\$(loki completions bash)\""
+            echo "  Session only (current shell), Zsh:"
+            echo "    eval \"\$(loki completions zsh)\""
             echo ""
             exit 1
             ;;
@@ -29168,7 +30098,7 @@ cmd_share() {
             --private) visibility=""; shift ;;
             --format) format="${2:-markdown}"; shift 2 ;;
             --format=*) format="${1#*=}"; shift ;;
-            *) echo -e "${RED}Unknown option: $1${NC}"; echo "Run 'loki share --help' for usage."; exit 1 ;;
+            *) echo -e "${RED}Unknown option: $1${NC}" >&2; echo "Run 'loki share --help' for usage." >&2; exit 1 ;;
         esac
     done
 
@@ -29464,8 +30394,16 @@ PYEOF
 cmd_bench() {
     local bench_sh="$SKILL_DIR/benchmarks/bench/run.sh"
     if [ ! -f "$bench_sh" ]; then
-        log_error "benchmark harness not found: $bench_sh"
-        return 1
+        # The benchmarks/ harness (~8MB, mostly historical result dumps) is a
+        # dev/research feature deliberately omitted from the published package
+        # (.npmignore excludes benchmarks/). On a packaged install it is absent,
+        # so degrade honestly instead of a bare "not found" that reads like a
+        # broken install. Run it from a loki-mode source checkout.
+        echo "loki bench: the benchmark harness is not available in this install." >&2
+        echo "It is a development/research feature shipped only in the loki-mode source" >&2
+        echo "repository, not the published package. Clone the repo and run:" >&2
+        echo "  ./benchmarks/run-benchmarks.sh humaneval --execute --loki" >&2
+        return 0
     fi
     local sub="${1:-}"
     case "$sub" in
@@ -29515,6 +30453,8 @@ cmd_proof() {
             echo "Subcommands:"
             echo "  list                 List proof-of-run artifacts in .loki/proofs/"
             echo "  show <id>            Pretty-print .loki/proofs/<id>/proof.json"
+            echo "  verify <id>          Re-check a receipt against the repo (tamper + drift);"
+            echo "                       exit 0 clean, 1 tamper/drift. Verify it yourself."
             echo "  open <id>            Open .loki/proofs/<id>/index.html in a browser"
             echo "  share <id>           Publish the proof page as a GitHub Gist (opt-in)"
             echo ""
@@ -29589,6 +30529,33 @@ PYEOF
                 LOKI_PROOF_JSON="$pj" python3 -c "import json,os; print(json.dumps(json.load(open(os.environ['LOKI_PROOF_JSON'])), indent=2))"
             fi
             exit 0
+            ;;
+        verify)
+            # Deterministic re-check of a receipt against the repo: re-hashes the
+            # canonical proof (tamper check) and re-derives the diff from the
+            # recorded base_sha vs live HEAD (drift check). Exit 0 = clean, 1 =
+            # tamper/drift, 2 = unusable input. This is the "verify it yourself"
+            # path that makes the Evidence Receipt non-forgeable.
+            local id="${1:-}"
+            if [ -z "$id" ]; then
+                echo -e "${RED}Missing proof id.${NC} Use 'loki proof list'."
+                exit 2
+            fi
+            local pj="${proofs_dir}/${id}/proof.json"
+            if [ ! -f "$pj" ]; then
+                echo -e "${RED}Proof not found: ${id}${NC}"
+                echo "Use 'loki proof list' to see available proofs."
+                exit 1
+            fi
+            # The verifier ships beside the generator under autonomy/lib/ (same
+            # dir resolution run.sh uses for proof-generator.py).
+            local verifier="${_LOKI_SCRIPT_DIR}/lib/proof-verify.py"
+            if [ ! -f "$verifier" ]; then
+                echo -e "${RED}Verifier not found (autonomy/lib/proof-verify.py).${NC}"
+                exit 2
+            fi
+            python3 "$verifier" "$pj" "${TARGET_DIR:-.}"
+            exit $?
             ;;
         open)
             local id="${1:-}"
@@ -29859,7 +30826,14 @@ cmd_docker() {
     local -a fwd=()
     while [ $# -gt 0 ]; do
         case "$1" in
-            --image) [ $# -ge 2 ] && { shift; export LOKI_DOCKER_IMAGE="$1"; } || { echo "loki docker --image requires a value" >&2; return 1; }; shift ;;
+            --image)
+                # Guard against a missing OR flag-shaped value so "--image
+                # --dry-run" cannot swallow the next flag as the image ref.
+                case "${2:-}" in
+                    -*|"") echo "loki docker --image requires a value (e.g., --image asklokesh/loki-mode:latest)" >&2; return 1 ;;
+                    *) shift; export LOKI_DOCKER_IMAGE="$1"; shift ;;
+                esac
+                ;;
             --dry-run) dry_run=1; shift ;;
             --api) with_api=1; fwd+=("$1"); shift ;;
             *) fwd+=("$1"); shift ;;

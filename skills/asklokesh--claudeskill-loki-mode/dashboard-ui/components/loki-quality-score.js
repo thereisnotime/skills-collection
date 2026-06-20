@@ -73,6 +73,16 @@ export class LokiQualityScore extends LokiElement {
         if (data && data.error && data.error.includes('not installed')) {
           this._rigourAvailable = false;
           this._data = null;
+        } else if (data && data.available === false) {
+          // Rigour engine not reachable (e.g. npx unavailable). Honest empty.
+          this._rigourAvailable = false;
+          this._data = null;
+        } else if (data && data.score == null) {
+          // Engine is available but no scan has run yet. Keep _data null so the
+          // render path shows the branded "Run a scan" empty state rather than a
+          // fabricated 0 / grade F. Distinct from the not-installed state.
+          this._rigourAvailable = true;
+          this._data = null;
         } else {
           this._rigourAvailable = true;
           this._data = data;
@@ -402,6 +412,77 @@ export class LokiQualityScore extends LokiElement {
         font-size: 12px;
       }
 
+      /* Branded empty / not-installed states */
+      .es {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 40px 24px;
+        gap: 4px;
+      }
+
+      .es-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--loki-radius-full);
+        background: var(--loki-accent-muted);
+        color: var(--loki-accent);
+        margin-bottom: 12px;
+      }
+
+      .es-icon svg {
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .es-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--loki-text-primary);
+      }
+
+      .es-desc {
+        font-size: 12px;
+        color: var(--loki-text-muted);
+        line-height: 1.5;
+        max-width: 320px;
+      }
+
+      .es-cta {
+        margin-top: 14px;
+        padding: 8px 16px;
+        background: var(--loki-accent);
+        color: var(--loki-text-inverse);
+        border: none;
+        border-radius: var(--loki-radius-md);
+        font-size: 12px;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background var(--loki-transition);
+      }
+
+      .es-cta:hover:not(:disabled) {
+        background: var(--loki-accent-hover);
+      }
+
+      .es-cta:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
       .loading-state {
         display: flex;
         align-items: center;
@@ -445,36 +526,72 @@ export class LokiQualityScore extends LokiElement {
       return;
     }
 
-    // Rigour not installed state
+    const shieldIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+
+    // Rigour not installed / engine unavailable state
     if (!this._rigourAvailable) {
       this.shadowRoot.innerHTML = `
         <style>${styles}</style>
         <div class="quality-container">
           <div class="quality-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            ${shieldIcon}
             <span class="quality-title">Quality Score</span>
           </div>
-          <div class="not-installed">
-            <div class="not-installed-title">Rigour not installed</div>
-            <div>Quality scoring requires the Rigour analysis engine.</div>
-            <div class="install-cmd">pip install rigour</div>
+          <div class="es">
+            <div class="es-icon">${shieldIcon}</div>
+            <div class="es-title">Quality engine not available</div>
+            <div class="es-desc">Quality scoring runs the Rigour analysis engine via npx, which needs Node.js on PATH. Install Node.js, then reload to run a scan.</div>
+            <div class="install-cmd">npx @rigour-labs/cli --version</div>
           </div>
         </div>
       `;
       return;
     }
 
+    // Error loading
     if (this._error && !this._data) {
       this.shadowRoot.innerHTML = `
         <style>${styles}</style>
         <div class="quality-container">
           <div class="quality-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            ${shieldIcon}
             <span class="quality-title">Quality Score</span>
           </div>
-          <div class="empty-state">No quality data available</div>
+          <div class="es">
+            <div class="es-icon">${shieldIcon}</div>
+            <div class="es-title">Couldn't load quality score</div>
+            <div class="es-desc">${this._escapeHtml(this._error)}</div>
+            <button class="es-cta" id="retry-btn">Retry</button>
+          </div>
         </div>
       `;
+      const retryBtn = this.shadowRoot.getElementById('retry-btn');
+      if (retryBtn) retryBtn.addEventListener('click', () => { this._loading = true; this.render(); this._loadData(); });
+      return;
+    }
+
+    // Engine available but no scan has run yet -- branded "run a scan" CTA
+    // instead of a fabricated 0 / grade F.
+    if (!this._data) {
+      this.shadowRoot.innerHTML = `
+        <style>${styles}</style>
+        <div class="quality-container">
+          <div class="quality-header">
+            ${shieldIcon}
+            <span class="quality-title">Quality Score</span>
+          </div>
+          <div class="es">
+            <div class="es-icon">${shieldIcon}</div>
+            <div class="es-title">No quality scan yet</div>
+            <div class="es-desc">Run a scan to see your code-quality score and the 8 gates.</div>
+            <button class="es-cta" id="scan-btn" ${this._scanning ? 'disabled' : ''}>
+              ${this._scanning ? '<div class="spinner-sm"></div> Scanning...' : 'Run quality scan'}
+            </button>
+          </div>
+        </div>
+      `;
+      const scanBtn = this.shadowRoot.getElementById('scan-btn');
+      if (scanBtn) scanBtn.addEventListener('click', () => this._triggerScan());
       return;
     }
 

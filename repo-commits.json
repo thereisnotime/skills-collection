@@ -691,6 +691,12 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "c759a26",
+      "message": "fix(ce-brainstorm): make visual-probe gate fire reliably before first shape decision (#964)",
+      "date": "2026-06-19",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "9be868d",
       "message": "feat(ce-brainstorm): add visual feedback to brainstorming process (#962)",
       "date": "2026-06-19",
@@ -741,12 +747,6 @@
     {
       "sha": "0757e85",
       "message": "fix(config-read): read config via native tool, not $() pre-resolution (#942)",
-      "date": "2026-06-14",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "32a5834",
-      "message": "docs(skill-authoring): correct relative-path resolution guidance for bundled scripts (#938)",
       "date": "2026-06-14",
       "author": "Trevin Chow"
     }
@@ -877,6 +877,18 @@
   ],
   "Imbad0202--academic-research-skills": [
     {
+      "sha": "c22c17e",
+      "message": "docs: add GitHub Copilot repository instructions (#465)",
+      "date": "2026-06-20",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
+      "sha": "b08edff",
+      "message": "docs: recommend auto permission mode over Skip Permissions (#464)",
+      "date": "2026-06-19",
+      "author": "Edward Cheng-I Wu"
+    },
+    {
       "sha": "b446752",
       "message": "release: v3.13.0 \u2014 hook portability, provider-agnostic verification, guard correctness (#463)",
       "date": "2026-06-18",
@@ -921,18 +933,6 @@
     {
       "sha": "23087e2",
       "message": "docs: align version references to v3.12.1 (#442)",
-      "date": "2026-06-15",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "1360b72",
-      "message": "Add CITATION.cff for \"Cite this repository\" support (#440)",
-      "date": "2026-06-15",
-      "author": "Edward Cheng-I Wu"
-    },
-    {
-      "sha": "502e0e2",
-      "message": "#439: user-declared format_profile (schema + intake + formatter) (#441)",
       "date": "2026-06-15",
       "author": "Edward Cheng-I Wu"
     }
@@ -2315,64 +2315,64 @@
   ],
   "firecrawl--cli": [
     {
-      "sha": "ac63035",
-      "message": "Merge pull request #136 from firecrawl/codex/research-cli",
-      "date": "2026-06-16",
-      "author": "Gerg\u0151 M\u00f3ricz"
+      "sha": "1f8bb63",
+      "message": "Merge pull request #140 from firecrawl/launch-commands",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "36cd66c",
-      "message": "bump ver",
-      "date": "2026-06-16",
-      "author": "mogery"
+      "sha": "c984ea5",
+      "message": "Merge remote-tracking branch 'origin/main' into launch-commands",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "928fbbf",
-      "message": "feat: add research CLI commands",
-      "date": "2026-06-16",
-      "author": "mogery"
+      "sha": "b8f15ff",
+      "message": "Update package.json",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "d276001",
-      "message": "Support keyless parse",
-      "date": "2026-06-16",
-      "author": "mogery"
+      "sha": "14cac37",
+      "message": "Support native skills install and setup mode",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "2fdc873",
-      "message": "chore: updates",
-      "date": "2026-06-15",
-      "author": "mogery"
+      "sha": "cc57f35",
+      "message": "Merge pull request #139 from firecrawl/install-update",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "cb00942",
-      "message": "feat(cli): add generic feedback command (#135)",
-      "date": "2026-06-15",
-      "author": "Abimael Martell"
+      "sha": "7d39907",
+      "message": "Update package.json",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "dbac542",
-      "message": "chore: updates",
-      "date": "2026-06-15",
-      "author": "mogery"
+      "sha": "dd3c9a5",
+      "message": "Update init.ts",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "fb478ad",
-      "message": "fix: allow interact without an API key",
-      "date": "2026-06-15",
-      "author": "mogery"
+      "sha": "df26cd0",
+      "message": "Merge pull request #138 from firecrawl/check-for-updates",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "46fe87f",
-      "message": "bump",
-      "date": "2026-06-15",
-      "author": "mogery"
+      "sha": "aa7c6d0",
+      "message": "bump version to 1.19.16",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     },
     {
-      "sha": "5c8a54e",
-      "message": "Merge pull request #134 from firecrawl/mog/updates",
-      "date": "2026-06-15",
-      "author": "Gerg\u0151 M\u00f3ricz"
+      "sha": "d239d22",
+      "message": "fix update-notice test for colorized output",
+      "date": "2026-06-19",
+      "author": "Developers Digest"
     }
   ],
   "hashicorp--agent-skills": [
@@ -4527,63 +4527,63 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "be0bdce",
-      "message": "release: v7.78.0 - dead-code removal + ALLOWED_PATHS honesty",
-      "date": "2026-06-19",
+      "sha": "af5ffde",
+      "message": "release: v7.85.0 - Evidence Receipt (verify it yourself, Loki never lies about done)",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "304f0a7",
-      "message": "release: v7.77.0 - WAVE13-TAIL hardening (council timeout, /lab WS auth, memory, durability)",
-      "date": "2026-06-19",
+      "sha": "c95efb7",
+      "message": "release: v7.84.0 - enterprise-grade dashboard overhaul",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "cf3c68a",
-      "message": "release: v7.76.0 - memory data-integrity fixes + dashboard UX",
-      "date": "2026-06-19",
+      "sha": "5ae27df",
+      "message": "release: v7.83.1 - fix loki ship review scope (gate the branch work, not an empty diff)",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "1b22f86",
-      "message": "release: v7.75.0 - enterprise pod-loss-safe container deployment (k8s Job)",
-      "date": "2026-06-19",
+      "sha": "b4679f6",
+      "message": "release: v7.83.0 - UX (loki next/ship, zero-config start, delight, guidance, discoverability)",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "05e9c80",
-      "message": "release: v7.74.0 - trust-gate hardening (override fail-closed + council quorum + registry atomic)",
-      "date": "2026-06-19",
+      "sha": "ca1d247",
+      "message": "merge: discoverability + first-run wow UX (v7.83.0)",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "7aef191",
-      "message": "release: v7.73.0 - feature-branch by default + advisory PR + loki deploy (CI/CD-aware, print-only)",
-      "date": "2026-06-18",
+      "sha": "24df46a",
+      "message": "ux: discoverability - doctor handoff CTA + completions install + quickstart + drift-proof coverage",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "6894134",
-      "message": "merge: public preview link (loki preview --public) -> v7.72.0",
-      "date": "2026-06-18",
+      "sha": "29e9b0b",
+      "message": "merge: actionable guidance UX (v7.83.0)",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "8caa202",
-      "message": "release: v7.72.0 - public preview link (loki preview --public)",
-      "date": "2026-06-18",
+      "sha": "de3f5cb",
+      "message": "ux: actionable PRD-not-found guidance + spec-aware completion",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "86c11e7",
-      "message": "merge: live in-terminal build HUD -> v7.71.0",
-      "date": "2026-06-18",
+      "sha": "f634ef4",
+      "message": "merge: visible-delight terminal output UX (v7.83.0)",
+      "date": "2026-06-20",
       "author": "asklokesh"
     },
     {
-      "sha": "5aa3943",
-      "message": "release: v7.71.0 - live in-terminal build HUD (visible UX feature)",
-      "date": "2026-06-18",
+      "sha": "8c88bee",
+      "message": "ux: visible-delight completion card + start headline + COMPLETION.txt receipt",
+      "date": "2026-06-20",
       "author": "asklokesh"
     }
   ],
@@ -5203,6 +5203,18 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "09a4458",
+      "message": "docs(CLAUDE.md): refresh to schema 3.11.0 + kernel-strict agent gate (#887)",
+      "date": "2026-06-20",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "22da6b4",
+      "message": "chore: purge \"CCP\" acronym -> CCPI across live surfaces (#885)",
+      "date": "2026-06-20",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "fc8550b",
       "message": "fix(claude-never-forgets): quote plugin paths to handle spaces on Windows (#880)",
       "date": "2026-06-19",
@@ -5247,18 +5259,6 @@
     {
       "sha": "d3bf1f9",
       "message": "chore(ci): CI/CD cleanup \u2014 silence PR noise + prune dead workflows (#869)",
-      "date": "2026-06-18",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "eb45d2f",
-      "message": "fix: green main \u2014 regenerate README TOC + fix gov-second-brain link (#879)",
-      "date": "2026-06-18",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "54db42c",
-      "message": "fix: restore main after the #875 external sync (3 surgical fixes) (#877)",
       "date": "2026-06-18",
       "author": "intentsolutions.io"
     }
@@ -5575,63 +5575,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "bdfedde",
-      "message": "chore(badge): update Last Updated badge to Jun 19, 2026 v2.1.183",
-      "date": "2026-06-19",
+      "sha": "c30184f",
+      "message": "chore(subagents-badge): update Last Updated badge to Jun 20, 2026 11:34 AM PKT",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "786b673",
-      "message": "chore(changelog): append subagents drift entry for 2026-06-19 v2.1.183",
-      "date": "2026-06-19",
+      "sha": "5e18b91",
+      "message": "chore(subagents-changelog): add 2026-06-20 no-drift entry for v2.1.183",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "0d1c572",
-      "message": "append v2.1.183 drift run to commands changelog",
-      "date": "2026-06-19",
+      "sha": "9fbe7d5",
+      "message": "chore(changelog): append 2026-06-20 no-drift run entry for commands report",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "13d3d7a",
-      "message": "sync commands report to Claude Code v2.1.183",
-      "date": "2026-06-19",
+      "sha": "3c54126",
+      "message": "chore(commands): bump Last Updated badge to Jun 20, 2026 11:05 AM PKT",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "68066bf",
-      "message": "docs(claude-skills): update Last Updated badge to Jun 19 2026 and version to v2.1.183",
-      "date": "2026-06-19",
+      "sha": "091d34c",
+      "message": "docs(claude-skills): update Last Updated badge to Jun 20, 2026 10:06 AM PKT",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "f14620f",
-      "message": "changelog(claude-skills): add 2026-06-19 no-drift entry for v2.1.183",
-      "date": "2026-06-19",
+      "sha": "59a6baf",
+      "message": "changelog(claude-skills): add 2026-06-20 no-drift entry for v2.1.183",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "3b039e5",
-      "message": "Bump badge to v2.1.183 and remove Dynamic Workflows beta badge",
-      "date": "2026-06-19",
+      "sha": "e2abc3b",
+      "message": "chore(badge): bump Last Updated badge to Jun 20, 2026 9:37 AM PKT",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "c3938b7",
-      "message": "Append v2.1.183 drift-check changelog entry (2026-06-19 09:37 AM PKT)",
-      "date": "2026-06-19",
+      "sha": "3e02640",
+      "message": "chore(changelog): append concepts drift entry for 2026-06-20 v2.1.183",
+      "date": "2026-06-20",
       "author": "Claude"
     },
     {
-      "sha": "866d414",
-      "message": "chore: append 2026-06-19 09:13 AM PKT development workflows changelog entry",
-      "date": "2026-06-19",
+      "sha": "9c6eb05",
+      "message": "Append changelog entry \u2014 Jun 20 2026 development workflows update",
+      "date": "2026-06-20",
       "author": "Claude Routine"
     },
     {
-      "sha": "6bd74b5",
-      "message": "chore: refresh development workflows table (2026-06-19 09:13 AM PKT)",
-      "date": "2026-06-19",
+      "sha": "8460f2d",
+      "message": "Update development workflows table \u2014 Jun 20 2026 9:15 AM PKT",
+      "date": "2026-06-20",
       "author": "Claude Routine"
     }
   ],

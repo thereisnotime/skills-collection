@@ -71,6 +71,7 @@ export class LokiAnalytics extends LokiElement {
     this._toolTimeRange = '7d';
     this._connected = false;
     this._loading = false;
+    this._loadedOnce = false;
   }
 
   connectedCallback() {
@@ -136,10 +137,26 @@ export class LokiAnalytics extends LokiElement {
       }
 
       this._connected = results.some(r => r.status === 'fulfilled');
+      this._loadedOnce = true;
       this.render();
     } finally {
       this._loading = false;
     }
+  }
+
+  /**
+   * True when at least one analytics source has real data. Used to decide
+   * between the branded empty state and the data views. Honest: never shows
+   * fabricated charts for a fresh repo.
+   */
+  _hasAnyData() {
+    const activity = Array.isArray(this._activity) ? this._activity.length : 0;
+    const tools = Array.isArray(this._tools) ? this._tools.length : 0;
+    const byModel = (this._cost && this._cost.by_model) ? Object.keys(this._cost.by_model).length : 0;
+    const ctx = this._context || {};
+    const totals = ctx.totals || {};
+    const iter = totals.iterations_tracked || ctx.total_iterations || ctx.iteration || 0;
+    return activity > 0 || tools > 0 || byModel > 0 || iter > 0;
   }
 
   _startPolling() {
@@ -506,12 +523,38 @@ export class LokiAnalytics extends LokiElement {
       { id: 'providers', label: 'Providers', icon: '<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' },
     ];
 
+    const chartIcon = '<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
+
+    // First load before any response: subtle skeleton, not a flash of blank.
+    const showSkeleton = !this._loadedOnce;
+    // Loaded and connected but the project has no activity yet: branded empty
+    // state with an honest CTA. Never fabricate charts for a fresh repo.
+    const showEmpty = this._loadedOnce && this._connected && !this._hasAnyData();
+
     let content = '';
-    switch (this._activeTab) {
-      case 'heatmap': content = this._renderHeatmap(); break;
-      case 'tools': content = this._renderToolUsage(); break;
-      case 'velocity': content = this._renderVelocity(); break;
-      case 'providers': content = this._renderProviders(); break;
+    if (showSkeleton) {
+      content = `
+        <div class="es-skeleton">
+          <div class="es-skel-row" style="width: 40%"></div>
+          <div class="es-skel-row" style="width: 90%"></div>
+          <div class="es-skel-row" style="width: 75%"></div>
+          <div class="es-skel-row" style="width: 85%"></div>
+        </div>`;
+    } else if (showEmpty) {
+      content = `
+        <div class="es">
+          <div class="es-icon">${chartIcon}</div>
+          <div class="es-title">No analytics yet</div>
+          <div class="es-desc">Analytics appear once a build runs. Start a build to see activity, tool usage, velocity, and cross-provider cost.</div>
+          <button class="es-cta" id="analytics-overview-btn">Start a build</button>
+        </div>`;
+    } else {
+      switch (this._activeTab) {
+        case 'heatmap': content = this._renderHeatmap(); break;
+        case 'tools': content = this._renderToolUsage(); break;
+        case 'velocity': content = this._renderVelocity(); break;
+        case 'providers': content = this._renderProviders(); break;
+      }
     }
 
     this.shadowRoot.innerHTML = `
@@ -591,6 +634,88 @@ export class LokiAnalytics extends LokiElement {
           padding: 20px;
           color: var(--loki-text-muted);
           font-size: 12px;
+        }
+
+        /* Branded empty / loading / error states */
+        .es {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 56px 24px;
+          gap: 4px;
+        }
+
+        .es-icon {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--loki-radius-full, 9999px);
+          background: var(--loki-accent-muted);
+          color: var(--loki-accent);
+          margin-bottom: 14px;
+        }
+
+        .es-icon svg {
+          width: 22px;
+          height: 22px;
+          stroke: currentColor;
+          stroke-width: 2;
+          fill: none;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        .es-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--loki-text-primary);
+        }
+
+        .es-desc {
+          font-size: 13px;
+          color: var(--loki-text-muted);
+          line-height: 1.55;
+          max-width: 360px;
+        }
+
+        .es-cta {
+          margin-top: 16px;
+          padding: 9px 18px;
+          background: var(--loki-accent);
+          color: var(--loki-text-inverse);
+          border: none;
+          border-radius: var(--loki-radius-md, 4px);
+          font-size: 13px;
+          font-weight: 500;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .es-cta:hover {
+          background: var(--loki-accent-hover);
+        }
+
+        .es-skeleton {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 8px;
+        }
+
+        .es-skel-row {
+          height: 14px;
+          border-radius: var(--loki-radius-sm, 2px);
+          background: linear-gradient(90deg, var(--loki-bg-tertiary) 25%, var(--loki-bg-hover) 50%, var(--loki-bg-tertiary) 75%);
+          background-size: 200% 100%;
+          animation: es-shimmer 1.4s ease infinite;
+        }
+
+        @keyframes es-shimmer {
+          to { background-position: -200% 0; }
         }
 
         /* ---------- Heatmap ---------- */
@@ -870,19 +995,30 @@ export class LokiAnalytics extends LokiElement {
       </style>
 
       <div class="analytics-container">
-        ${!this._connected ? '<div class="offline-notice">Connecting to analytics API...</div>' : ''}
+        ${(this._loadedOnce && !this._connected) ? `
+          <div class="tab-content">
+            <div class="es">
+              <div class="es-icon">${chartIcon}</div>
+              <div class="es-title">Couldn't load analytics</div>
+              <div class="es-desc">The analytics API is not reachable right now. Check that the dashboard server is running, then retry.</div>
+              <button class="es-cta" id="analytics-retry-btn">Retry</button>
+            </div>
+          </div>
+        ` : `
+          ${(showSkeleton || showEmpty) ? '' : `
+            <div class="tab-bar">
+              ${tabs.map(t => `
+                <button class="tab-btn ${this._activeTab === t.id ? 'active' : ''}" data-tab="${t.id}" aria-label="${t.label}">
+                  ${t.icon}<span>${t.label}</span>
+                </button>
+              `).join('')}
+            </div>
+          `}
 
-        <div class="tab-bar">
-          ${tabs.map(t => `
-            <button class="tab-btn ${this._activeTab === t.id ? 'active' : ''}" data-tab="${t.id}" aria-label="${t.label}">
-              ${t.icon}<span>${t.label}</span>
-            </button>
-          `).join('')}
-        </div>
-
-        <div class="tab-content">
-          ${content}
-        </div>
+          <div class="tab-content">
+            ${content}
+          </div>
+        `}
       </div>
     `;
 
@@ -895,6 +1031,29 @@ export class LokiAnalytics extends LokiElement {
     if (timeSelect) {
       timeSelect.addEventListener('change', (e) => this._handleTimeRangeChange(e));
     }
+
+    const retryBtn = this.shadowRoot.getElementById('analytics-retry-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => this._loadData());
+    }
+
+    const overviewBtn = this.shadowRoot.getElementById('analytics-overview-btn');
+    if (overviewBtn) {
+      overviewBtn.addEventListener('click', () => this._navigateToOverview());
+    }
+  }
+
+  /**
+   * Ask the shell to switch to the overview view so the user can start a build.
+   * Dispatches a bubbling, composed event the shell can listen for. No-op-safe
+   * if nothing listens (the button remains a clear affordance, never errors).
+   */
+  _navigateToOverview() {
+    this.dispatchEvent(new CustomEvent('loki-navigate', {
+      detail: { view: 'overview' },
+      bubbles: true,
+      composed: true,
+    }));
   }
 }
 

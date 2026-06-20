@@ -1,7 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execSync } from 'child_process';
-import { handleSetupCommand } from '../../commands/setup';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
+import os from 'os';
+import path from 'path';
+import {
+  handleMakeDefaultCommand,
+  handleSetupCommand,
+  installHermesMcp,
+  installOpenClawMcp,
+  installSkillsForAgent,
+} from '../../commands/setup';
+import { ALL_SKILL_REPOS } from '../../commands/skills-install';
 import { configureWebDefaults } from '../../utils/web-defaults';
+import { getApiKey } from '../../utils/config';
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(),
@@ -11,12 +22,22 @@ vi.mock('../../utils/web-defaults', () => ({
   configureWebDefaults: vi.fn(async () => []),
 }));
 
+vi.mock('../../utils/config', () => ({
+  getApiKey: vi.fn(() => 'fc-test-key'),
+}));
+
 describe('handleSetupCommand', () => {
+  let originalHome: string | undefined;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getApiKey).mockReturnValue('fc-test-key');
+    originalHome = process.env.HOME;
   });
 
   afterEach(() => {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
     vi.restoreAllMocks();
   });
 
@@ -55,6 +76,74 @@ describe('handleSetupCommand', () => {
     );
   });
 
+  it('installs all skill repos for Codex non-interactively', async () => {
+    await installSkillsForAgent(
+      'codex',
+      { global: true, yes: true },
+      ALL_SKILL_REPOS
+    );
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/cli --full-depth --global --yes --agent codex',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --yes --agent codex',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/firecrawl-workflows --full-depth --global --yes --agent codex',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('configures Firecrawl as the default web provider via make default', async () => {
+    await handleMakeDefaultCommand({ yes: true });
+
+    expect(configureWebDefaults).toHaveBeenCalledWith({
+      undo: false,
+      agents: undefined,
+    });
+  });
+
+  it('installs the default setup bundle with --yes', async () => {
+    await handleSetupCommand(undefined, { yes: true });
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/cli --full-depth --global --all --yes',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y skills add firecrawl/skills --full-depth --global --all --yes',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y add-mcp "https://mcp.firecrawl.dev/fc-test-key/v2/mcp" --name firecrawl --transport http --global --yes',
+      expect.objectContaining({
+        stdio: 'inherit',
+      })
+    );
+  });
+
+  it('requires a subcommand for bare setup in non-interactive mode', async () => {
+    const originalIsTty = process.stdin.isTTY;
+    Object.defineProperty(process.stdin, 'isTTY', {
+      configurable: true,
+      value: false,
+    });
+
+    try {
+      await expect(handleSetupCommand()).rejects.toThrow(
+        'Setup subcommand is required in non-interactive mode'
+      );
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', {
+        configurable: true,
+        value: originalIsTty,
+      });
+    }
+  });
+
   it('configures Firecrawl as the default web provider', async () => {
     await handleSetupCommand('defaults', { yes: true });
 
@@ -80,6 +169,108 @@ describe('handleSetupCommand', () => {
       undo: true,
       agents: ['Codex'],
     });
+  });
+
+  it('installs MCP with the hosted Firecrawl URL when credentials exist', async () => {
+    await handleSetupCommand('mcp', {
+      agent: 'claude-code',
+      global: true,
+      yes: true,
+    });
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y add-mcp "https://mcp.firecrawl.dev/fc-test-key/v2/mcp" --name firecrawl --transport http --global --agent claude-code --yes',
+      expect.objectContaining({
+        stdio: 'inherit',
+      })
+    );
+  });
+
+  it('normalizes launch aliases when reinstalling MCP after auth changes', async () => {
+    await handleSetupCommand('mcp', {
+      agent: 'codex-app',
+      global: true,
+      yes: true,
+    });
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y add-mcp "https://mcp.firecrawl.dev/fc-test-key/v2/mcp" --name firecrawl --transport http --global --agent codex --yes',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('installs MCP with the keyless hosted Firecrawl URL without credentials', async () => {
+    vi.mocked(getApiKey).mockReturnValue(undefined);
+
+    await handleSetupCommand('mcp', {
+      agent: 'claude-code',
+      global: true,
+      yes: true,
+    });
+
+    expect(execSync).toHaveBeenCalledWith(
+      'npx -y add-mcp "https://mcp.firecrawl.dev/v2/mcp" --name firecrawl --transport http --global --agent claude-code --yes',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
+  it('writes Hermes MCP config with Firecrawl credentials', async () => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'firecrawl-hermes-test-'));
+    process.env.HOME = home;
+
+    try {
+      await installHermesMcp();
+
+      const config = readFileSync(
+        path.join(home, '.hermes', 'config.yaml'),
+        'utf-8'
+      );
+      expect(config).toContain('mcp_servers:');
+      expect(config).toContain('firecrawl:');
+      expect(config).toContain(
+        'url: https://mcp.firecrawl.dev/fc-test-key/v2/mcp'
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('configures OpenClaw MCP with its native CLI command', async () => {
+    await installOpenClawMcp();
+
+    expect(execSync).toHaveBeenCalledWith(
+      'openclaw mcp set firecrawl "{\\"url\\":\\"https://mcp.firecrawl.dev/fc-test-key/v2/mcp\\",\\"transport\\":\\"streamable-http\\"}"',
+      expect.objectContaining({
+        stdio: 'inherit',
+      })
+    );
+  });
+
+  it('reinstalls MCP for all launch integrations with --agent all', async () => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'firecrawl-all-mcp-test-'));
+    process.env.HOME = home;
+
+    try {
+      await handleSetupCommand('mcp', {
+        agent: 'all',
+        global: true,
+        yes: true,
+      });
+
+      expect(execSync).toHaveBeenCalledWith(
+        'npx -y add-mcp "https://mcp.firecrawl.dev/fc-test-key/v2/mcp" --name firecrawl --transport http --global --all --yes',
+        expect.objectContaining({ stdio: 'inherit' })
+      );
+      expect(
+        readFileSync(path.join(home, '.hermes', 'config.yaml'), 'utf-8')
+      ).toContain('url: https://mcp.firecrawl.dev/fc-test-key/v2/mcp');
+      expect(execSync).toHaveBeenCalledWith(
+        'openclaw mcp set firecrawl "{\\"url\\":\\"https://mcp.firecrawl.dev/fc-test-key/v2/mcp\\",\\"transport\\":\\"streamable-http\\"}"',
+        expect.objectContaining({ stdio: 'inherit' })
+      );
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it('strips inherited npm_* env vars before nested npx calls', async () => {

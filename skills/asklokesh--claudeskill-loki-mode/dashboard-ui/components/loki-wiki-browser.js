@@ -163,13 +163,26 @@ export class LokiWikiBrowser extends LokiElement {
     return `<div class="cites"><strong>Sources:</strong><ul>${items}</ul></div>`;
   }
 
+  /** Branded "no wiki yet" empty state with a copyable generate command. */
+  _renderNotGenerated() {
+    const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
+    return `<div class="es">
+      <div class="es-icon">${bookIcon}</div>
+      <div class="es-title">No wiki generated yet</div>
+      <div class="es-desc">Generate a cited codebase wiki to browse architecture, modules, and data flow. Every section links to real file:line locations.</div>
+      <div class="es-cmd-row">
+        <code class="es-cmd" id="wiki-gen-cmd">loki wiki generate</code>
+        <button class="es-copy" id="wiki-gen-copy" title="Copy command" aria-label="Copy command">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }
+
   _renderOverview() {
     const m = this._meta;
     if (!m || !m.generated) {
-      return `<div class="empty">
-        <p>No wiki has been generated for this project yet.</p>
-        <p>Run <code>loki wiki generate</code> to build a cited codebase wiki.</p>
-      </div>`;
+      return this._renderNotGenerated();
     }
     const secs = (m.sections || []).map((s) =>
       `<li>${this._esc(s.title)} <span class="dim">(${this._esc(s.citation_count)} citations)</span></li>`
@@ -186,14 +199,11 @@ export class LokiWikiBrowser extends LokiElement {
     // Live check: if no wiki is generated, show the not-generated message
     // (never cached, so it self-corrects once a wiki exists / _meta resolves).
     if (!this._meta || !this._meta.generated) {
-      return `<div class="empty">
-        <p>No wiki generated yet.</p>
-        <p>Run <code>loki wiki generate</code> to build a cited codebase wiki.</p>
-      </div>`;
+      return this._renderNotGenerated();
     }
     const data = this._sectionCache[id];
-    if (!data) return `<div class="empty">Loading...</div>`;
-    if (data.error) return `<div class="error">${this._esc(data.error)}</div>`;
+    if (!data) return `<div class="es-loading"><span class="es-spinner"></span> Loading section...</div>`;
+    if (data.error) return this._renderError(data.error);
     return `<div class="section">
       <h3>${this._esc(data.title)}</h3>
       <pre class="body">${this._esc(data.body)}</pre>
@@ -204,9 +214,9 @@ export class LokiWikiBrowser extends LokiElement {
   _renderAsk() {
     let result = '';
     if (this._asking) {
-      result = `<div class="empty">Searching the codebase...</div>`;
+      result = `<div class="es-loading"><span class="es-spinner"></span> Searching the codebase...</div>`;
     } else if (this._askError) {
-      result = `<div class="error">${this._esc(this._askError)}</div>`;
+      result = `<div class="es-inline-error">${this._esc(this._askError)}</div>`;
     } else if (this._answer) {
       const note = this._answer.note
         ? `<p class="dim">${this._esc(this._answer.note)}</p>` : '';
@@ -227,9 +237,20 @@ export class LokiWikiBrowser extends LokiElement {
     </div>`;
   }
 
+  /** Branded error state with a retry button. */
+  _renderError(message) {
+    const alertIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    return `<div class="es">
+      <div class="es-icon es-icon-error">${alertIcon}</div>
+      <div class="es-title">Couldn't load wiki</div>
+      <div class="es-desc">${this._esc(message)}</div>
+      <button class="es-cta" id="wiki-retry-btn">Retry</button>
+    </div>`;
+  }
+
   _renderBody() {
-    if (this._loading) return `<div class="empty">Loading wiki...</div>`;
-    if (this._error) return `<div class="error">${this._esc(this._error)}</div>`;
+    if (this._loading) return `<div class="es-loading"><span class="es-spinner"></span> Loading wiki...</div>`;
+    if (this._error) return this._renderError(this._error);
     switch (this._activeTab) {
       case 'overview': return this._renderOverview();
       case 'architecture': return this._renderSection('architecture');
@@ -249,28 +270,99 @@ export class LokiWikiBrowser extends LokiElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; font-family: var(--loki-font, system-ui, sans-serif);
-          color: var(--loki-fg, #1a1a1a); }
-        .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--loki-border, #ddd);
+        ${this.getBaseStyles()}
+        :host { display: block; }
+        .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--loki-border);
           margin-bottom: 12px; flex-wrap: wrap; }
         .tab { background: none; border: none; padding: 8px 14px; cursor: pointer;
-          font-size: 0.9rem; color: var(--loki-fg-dim, #666); border-bottom: 2px solid transparent; }
-        .tab.active { color: var(--loki-accent, #2563eb); border-bottom-color: var(--loki-accent, #2563eb); }
-        .body { white-space: pre-wrap; word-break: break-word; font-family: inherit;
-          background: var(--loki-bg-alt, #f6f8fa); padding: 12px; border-radius: 6px; }
-        .cites { margin-top: 10px; font-size: 0.85rem; }
+          font-size: 13px; font-family: inherit; color: var(--loki-text-muted);
+          border-bottom: 2px solid transparent; transition: color 0.15s ease; }
+        .tab:hover { color: var(--loki-text-primary); }
+        .tab.active { color: var(--loki-accent); border-bottom-color: var(--loki-accent); }
+        .body { white-space: pre-wrap; word-break: break-word;
+          font-family: var(--loki-font-mono, monospace); font-size: 12px; line-height: 1.6;
+          background: var(--loki-bg-secondary); color: var(--loki-text-primary);
+          padding: 14px; border-radius: var(--loki-radius-lg, 5px);
+          border: 1px solid var(--loki-border); }
+        .cites { margin-top: 10px; font-size: 12px; color: var(--loki-text-secondary); }
         .cites ul { margin: 4px 0 0; padding-left: 18px; }
-        code { font-family: ui-monospace, monospace; font-size: 0.85em;
-          background: var(--loki-bg-alt, #eef); padding: 1px 4px; border-radius: 3px; }
-        .dim { color: var(--loki-fg-dim, #888); }
-        .empty, .error { padding: 16px; }
-        .error { color: var(--loki-danger, #c00); }
+        code { font-family: var(--loki-font-mono, monospace); font-size: 0.85em;
+          background: var(--loki-bg-tertiary); color: var(--loki-text-secondary);
+          padding: 1px 5px; border-radius: 3px; }
+        .dim { color: var(--loki-text-muted); }
+        .overview p, .section p { color: var(--loki-text-secondary); font-size: 13px; }
+        h3 { margin-top: 0; color: var(--loki-text-primary); font-size: 15px; }
+
+        /* Branded empty / loading / error states */
+        .es {
+          display: flex; flex-direction: column; align-items: center;
+          text-align: center; padding: 48px 24px; gap: 4px;
+        }
+        .es-icon {
+          width: 44px; height: 44px; display: flex; align-items: center;
+          justify-content: center; border-radius: var(--loki-radius-full, 9999px);
+          background: var(--loki-accent-muted); color: var(--loki-accent);
+          margin-bottom: 14px;
+        }
+        .es-icon-error { background: var(--loki-error-muted); color: var(--loki-error); }
+        .es-icon svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 2;
+          fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .es-title { font-size: 15px; font-weight: 600; color: var(--loki-text-primary); }
+        .es-desc { font-size: 13px; color: var(--loki-text-muted); line-height: 1.55;
+          max-width: 380px; }
+        .es-cmd-row {
+          margin-top: 16px; display: inline-flex; align-items: stretch;
+          border: 1px solid var(--loki-border); border-radius: var(--loki-radius-md, 4px);
+          overflow: hidden; background: var(--loki-bg-secondary);
+        }
+        .es-cmd {
+          font-family: var(--loki-font-mono, monospace); font-size: 13px;
+          color: var(--loki-text-primary); background: transparent;
+          padding: 9px 14px; border-radius: 0;
+        }
+        .es-copy {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 38px; border: none; border-left: 1px solid var(--loki-border);
+          background: var(--loki-bg-tertiary); color: var(--loki-text-secondary);
+          cursor: pointer; transition: all 0.15s ease;
+        }
+        .es-copy:hover { background: var(--loki-bg-hover); color: var(--loki-accent); }
+        .es-copy svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2;
+          fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .es-cta {
+          margin-top: 16px; padding: 9px 18px; background: var(--loki-accent);
+          color: var(--loki-text-inverse); border: none;
+          border-radius: var(--loki-radius-md, 4px); font-size: 13px; font-weight: 500;
+          font-family: inherit; cursor: pointer; transition: background 0.15s ease;
+        }
+        .es-cta:hover { background: var(--loki-accent-hover); }
+        .es-loading {
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          padding: 40px 16px; color: var(--loki-text-muted); font-size: 13px;
+        }
+        .es-spinner {
+          width: 14px; height: 14px; border: 2px solid var(--loki-border);
+          border-top-color: var(--loki-accent); border-radius: 50%;
+          animation: es-spin 0.8s linear infinite;
+        }
+        .es-inline-error {
+          margin-top: 10px; padding: 10px 12px; font-size: 12px;
+          color: var(--loki-error); background: var(--loki-error-muted);
+          border-radius: var(--loki-radius-md, 4px);
+        }
+        @keyframes es-spin { to { transform: rotate(360deg); } }
+
         .ask-row { display: flex; gap: 8px; margin-bottom: 8px; }
-        #wiki-q { flex: 1; padding: 8px; border: 1px solid var(--loki-border, #ccc);
-          border-radius: 6px; font-size: 0.9rem; }
-        #wiki-ask-btn { padding: 8px 16px; border: none; border-radius: 6px;
-          background: var(--loki-accent, #2563eb); color: #fff; cursor: pointer; }
-        h3 { margin-top: 0; }
+        #wiki-q { flex: 1; padding: 9px 12px; border: 1px solid var(--loki-border);
+          border-radius: var(--loki-radius-md, 4px); font-size: 13px; font-family: inherit;
+          background: var(--loki-bg-tertiary); color: var(--loki-text-primary); }
+        #wiki-q:focus { outline: none; border-color: var(--loki-border-focus);
+          box-shadow: var(--loki-shadow-focus); }
+        #wiki-q::placeholder { color: var(--loki-text-muted); }
+        #wiki-ask-btn { padding: 9px 18px; border: none; border-radius: var(--loki-radius-md, 4px);
+          background: var(--loki-accent); color: var(--loki-text-inverse); cursor: pointer;
+          font-size: 13px; font-weight: 500; font-family: inherit; transition: background 0.15s ease; }
+        #wiki-ask-btn:hover { background: var(--loki-accent-hover); }
       </style>
       <div class="tabs">${tabs}</div>
       <div class="content">${this._renderBody()}</div>
@@ -287,6 +379,30 @@ export class LokiWikiBrowser extends LokiElement {
     const askBtn = this.shadowRoot.getElementById('wiki-ask-btn');
     if (askBtn) {
       askBtn.addEventListener('click', () => this._ask());
+    }
+    const copyBtn = this.shadowRoot.getElementById('wiki-gen-copy');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => this._copyGenerateCmd(copyBtn));
+    }
+    const retryBtn = this.shadowRoot.getElementById('wiki-retry-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        this._sectionCache = {};
+        this._loadMeta();
+      });
+    }
+  }
+
+  /** Copy the generate command to the clipboard with a brief confirmation. */
+  _copyGenerateCmd(btn) {
+    const cmd = 'loki wiki generate';
+    const done = () => {
+      const original = btn.innerHTML;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => { btn.innerHTML = original; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmd).then(done).catch(() => {});
     }
   }
 }
