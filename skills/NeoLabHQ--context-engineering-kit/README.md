@@ -312,11 +312,13 @@ Commands and skills for streamlined Git operations including commits, pull reque
 - [/create-pr](https://neolab.gitbook.io/cek/plugins/git/create-pr) - Create pull requests using GitHub CLI with proper templates and formatting
 - [/analyze-issue](https://neolab.gitbook.io/cek/plugins/git/analyze-issue) - Analyze a GitHub issue and create a detailed technical specification
 - [/load-issues](https://neolab.gitbook.io/cek/plugins/git/load-issues) - Load all open issues from GitHub and save them as markdown files
+- [/load-pr-comments](https://neolab.gitbook.io/cek/plugins/git/load-pr-comments) - Load open/unresolved PR review comments and group them as tasks for parallel agents to fix.
 - [/worktree](https://neolab.gitbook.io/cek/plugins/git/git-worktrees) - Create, compare, and merge git worktrees for parallel development with automatic dependency installation
 
 **Skills**
 
 - [git-notes](https://neolab.gitbook.io/cek/plugins/git/git-notes) - Skill for using git notes to add metadata to commits without changing history.
+- [resolve-fixed-pr-comments](https://neolab.gitbook.io/cek/plugins/git/resolve-fixed-pr-comments) - Verify what PR review comments have been addressed and resolve that are genuinely fixed or no longer relevant.
 
 ### [Test-Driven Development](https://neolab.gitbook.io/cek/plugins/tdd)
 

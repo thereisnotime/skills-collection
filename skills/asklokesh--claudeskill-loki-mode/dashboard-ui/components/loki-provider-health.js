@@ -9,6 +9,7 @@
 
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
+import { registerPoll } from '../core/loki-poll-registry.js';
 
 /** @type {Object<string, {initial: string, color: string, bgColor: string}>} */
 const PROVIDER_ICONS = {
@@ -73,13 +74,22 @@ export class LokiProviderHealth extends LokiElement {
   }
 
   _startPolling() {
-    this._pollInterval = setInterval(() => this._loadData(), 10000);
+    // Central registry (core/loki-poll-registry.js) gates this poll to the
+    // active + visible section in ONE place, so a hidden tab or background
+    // section does not fetch. connectedCallback already did the first load,
+    // so immediate is disabled to avoid a duplicate fetch.
+    this._poll = registerPoll({
+      loadFn: () => this._loadData(),
+      intervalMs: 10000,
+      element: this,
+      immediate: false,
+    });
   }
 
   _stopPolling() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-      this._pollInterval = null;
+    if (this._poll) {
+      this._poll.stop();
+      this._poll = null;
     }
   }
 
@@ -349,7 +359,7 @@ export class LokiProviderHealth extends LokiElement {
 
     let content;
     if (this._providers.length === 0) {
-      content = '<div class="empty-state">No provider data available</div>';
+      content = '<div class="empty-state">Provider status will appear once a build starts.</div>';
     } else {
       content = `<div class="provider-grid">${this._providers.map(p => {
         const icon = PROVIDER_ICONS[p.name] || { initial: (p.name ?? '?').charAt(0).toUpperCase(), color: '#939084', bgColor: 'rgba(147, 144, 132, 0.12)' };

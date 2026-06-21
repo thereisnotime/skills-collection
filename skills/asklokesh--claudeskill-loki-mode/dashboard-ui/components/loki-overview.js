@@ -12,6 +12,7 @@
 
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient, ApiEvents } from '../core/loki-api-client.js';
+import { registerPoll } from '../core/loki-poll-registry.js';
 
 /**
  * @class LokiOverview
@@ -161,21 +162,31 @@ export class LokiOverview extends LokiElement {
   }
 
   _startPolling() {
-    this._pollInterval = setInterval(async () => {
-      try {
-        await this._loadStatus();
-      } catch (error) {
-        this._data.connected = false;
-        this._data.status = 'offline';
-        this.render();
-      }
-    }, 5000);
+    // Central registry (core/loki-poll-registry.js) gates this poll to the
+    // active + visible section in ONE place, so a hidden tab or background
+    // section does not fetch. The inline body preserves the original
+    // connected/offline error handling. connectedCallback already did the
+    // first load, so immediate is disabled to avoid a duplicate fetch.
+    this._poll = registerPoll({
+      loadFn: async () => {
+        try {
+          await this._loadStatus();
+        } catch (error) {
+          this._data.connected = false;
+          this._data.status = 'offline';
+          this.render();
+        }
+      },
+      intervalMs: 5000,
+      element: this,
+      immediate: false,
+    });
   }
 
   _stopPolling() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-      this._pollInterval = null;
+    if (this._poll) {
+      this._poll.stop();
+      this._poll = null;
     }
   }
 
@@ -219,10 +230,10 @@ export class LokiOverview extends LokiElement {
     const s = this._appRunnerStatus;
     if (!s || s.status === 'not_initialized') {
       const isRunning = this._data.status === 'running' || this._data.status === 'autonomous';
-      const label = isRunning ? 'Waiting...' : 'Not started';
+      const label = isRunning ? 'Starting...' : 'Not started';
       return `
         <div class="overview-card">
-          <div class="card-label">App Runner</div>
+          <div class="card-label">App Status</div>
           <div class="card-value small-text">${label}</div>
         </div>
       `;
@@ -246,7 +257,7 @@ export class LokiOverview extends LokiElement {
       appUrl = `http://localhost:${s.port}`;
     }
     const inner = `
-      <div class="card-label">App Runner${appUrl ? ' <span style="font-size:10px;color:var(--loki-text-muted);">(click to open)</span>' : ''}</div>
+      <div class="card-label">App Status${appUrl ? ' <span style="font-size:10px;color:var(--loki-text-muted);">(click to open)</span>' : ''}</div>
       <div class="card-value small-text">
         <span class="status-dot ${dotClass}"></span>
         ${label}${port}

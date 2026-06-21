@@ -10,6 +10,7 @@
 
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
+import { registerPoll } from '../core/loki-poll-registry.js';
 
 /**
  * @class LokiSessionDiff
@@ -72,13 +73,22 @@ export class LokiSessionDiff extends LokiElement {
   }
 
   _startPolling() {
-    this._pollInterval = setInterval(() => this._loadData(), 30000);
+    // Central registry (core/loki-poll-registry.js) gates this poll to the
+    // active + visible section in ONE place, so a hidden tab or background
+    // section does not fetch. connectedCallback already did the first load,
+    // so immediate is disabled to avoid a duplicate fetch.
+    this._poll = registerPoll({
+      loadFn: () => this._loadData(),
+      intervalMs: 30000,
+      element: this,
+      immediate: false,
+    });
   }
 
   _stopPolling() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-      this._pollInterval = null;
+    if (this._poll) {
+      this._poll.stop();
+      this._poll = null;
     }
   }
 
@@ -314,7 +324,7 @@ export class LokiSessionDiff extends LokiElement {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             <span class="diff-title">Session Resume</span>
           </div>
-          <div class="empty-state">No session diff available</div>
+          <div class="empty-state">Nothing to compare yet. Changes will show here after your first build.</div>
         </div>
       `;
       return;
@@ -394,7 +404,7 @@ export class LokiSessionDiff extends LokiElement {
           </div>
         </div>` : `
         <div style="text-align: center; padding: 14px 8px; font-size: 12px; color: var(--loki-text-muted, #939084);">
-          Populates after the first build iteration
+          Fills in after the first build step
         </div>`}
 
         ${highlightsHtml}

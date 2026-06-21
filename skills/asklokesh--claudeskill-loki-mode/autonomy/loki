@@ -125,6 +125,14 @@ if [ -f "$_LOKI_SCRIPT_DIR/lib/git-pr-advisory.sh" ]; then
     source "$_LOKI_SCRIPT_DIR/lib/git-pr-advisory.sh"
 fi
 
+# Proven PR (Loop 6): shared print-only Evidence Receipt renderer for PR bodies
+# (render_evidence_receipt_md). Sourced so cmd_github can append the receipt to
+# the PR body. Self-guarded against double-source; existence-guarded.
+if [ -f "$_LOKI_SCRIPT_DIR/lib/proof-pr.sh" ]; then
+    # shellcheck source=autonomy/lib/proof-pr.sh
+    source "$_LOKI_SCRIPT_DIR/lib/proof-pr.sh"
+fi
+
 # Unified config-file support (#691). Canonical LOKI_CONFIG_MAP + the config-file
 # loader (loki_maybe_apply_config_file / loki_apply_config_file) and the
 # example/schema/validate generators. Side-effect-free on source: defines the
@@ -1017,26 +1025,32 @@ detect_arg_type() {
         return 0
     fi
 
-    # Path-like (contains / or starts with . or /) -> treat as PRD
-    if [[ "$arg" == */* ]] || [[ "$arg" == .* ]] || [[ "$arg" == /* ]]; then
-        echo "prd"
-        return 0
-    fi
-
-    # Existing file on disk -> PRD
+    # An existing file on disk is unambiguously a PRD, even if its name has
+    # spaces -- a real path the user pointed at wins over the brief heuristic.
     if [ -e "$arg" ]; then
         echo "prd"
         return 0
     fi
 
     # R7 (zero-config first run): a one-line brief. An arg that contains
-    # whitespace and matched none of the file/issue/path patterns above is a
-    # natural-language brief (e.g. "build a todo app"), NOT a PRD path. This is
-    # additive: a single-token arg with no whitespace still falls through to
-    # "unknown" (PRD-path back-compat) below. The `--brief` flag is the
-    # deterministic escape hatch for the rare single-word brief.
+    # WHITESPACE and is not an existing file is a natural-language brief, NOT a
+    # path -- a real PRD path argument essentially never contains spaces, whereas
+    # a brief routinely contains slashes/punctuation ("add/list/done", "CI/CD",
+    # "input/output"). This MUST come before the path-like (contains "/")
+    # heuristic below, else a brief like "a todo app with add/list/done" is
+    # misrouted to PRD mode and dies with "PRD file not found" (W1 E2E bug,
+    # v7.89.1). The `--brief` flag remains the escape hatch for a single-word
+    # brief with no whitespace.
     if [[ "$arg" == *[[:space:]]* ]]; then
         echo "brief"
+        return 0
+    fi
+
+    # Path-like (contains / or starts with . or /) -> treat as PRD. Reached only
+    # for a NO-WHITESPACE arg (a brief with spaces was already handled above), so
+    # this is a genuine file path like ./prd.md or docs/spec.md.
+    if [[ "$arg" == */* ]] || [[ "$arg" == .* ]] || [[ "$arg" == /* ]]; then
+        echo "prd"
         return 0
     fi
 
@@ -5315,14 +5329,17 @@ cmd_welcome_terminal() {
     echo -e "  Quick start:  ${BOLD}loki quickstart${NC} (from your idea) or ${BOLD}loki start ./prd.md${NC} (from a spec)"
     echo -e "  Docs:         ${BOLD}https://www.autonomi.dev/docs${NC}"
     echo ""
+    # One-time honest disclosure (this welcome screen shows once, via the
+    # WELCOME_MARKER). On-by-default anonymous diagnostics must be disclosed
+    # somewhere so collection is never covert; this single line is that
+    # disclosure. It is NOT repeated on later runs. Enterprise/CI/air-gapped
+    # installs auto-disable collection, so the line only appears when it is
+    # actually on. Opt out anytime: loki telemetry off.
     if _loki_welcome_analytics_on; then
-        echo -e "  ${DIM}Anonymous usage analytics are ON (you opted in). We never collect${NC}"
-        echo -e "  ${DIM}prompts, PRDs, or code. Opt out: loki telemetry off${NC}"
-    else
-        echo -e "  ${DIM}Anonymous analytics are off by default. Nothing is sent unless you${NC}"
-        echo -e "  ${DIM}opt in with: loki telemetry on${NC}"
+        echo -e "  ${DIM}Anonymous diagnostics on (os/arch/version/error type only -- never${NC}"
+        echo -e "  ${DIM}code, prompts, or paths). Off: loki telemetry off  -  docs/PRIVACY.md${NC}"
+        echo ""
     fi
-    echo ""
 }
 
 cmd_welcome() {
@@ -5419,7 +5436,7 @@ cmd_web() {
     case "$subcommand" in
         start)
             shift || true
-            cmd_web_start "$@"
+            cmd_web_redirect_to_dashboard "$@"
             ;;
         stop)
             cmd_web_stop
@@ -5449,9 +5466,51 @@ cmd_web() {
         *)
             # Treat unknown args as options to start (e.g., loki web --no-open)
             shift
-            cmd_web_start "$subcommand" "$@"
+            cmd_web_redirect_to_dashboard "$subcommand" "$@"
             ;;
     esac
+}
+
+# v7.x (F55): `loki web` (the command a user intuitively types) used to launch
+# the deprecated Purple Lab, whose '/' redirects to '/lab/' and whose port has
+# none of the real dashboard APIs (/api/status, /trust, etc. all 404). A user
+# typing the obvious command landed on the wrong, broken-looking surface. The
+# value-preserving fix: the START path now launches the real dashboard instead.
+# 'loki web stop|status|logs' still operate on Purple Lab so anyone who started
+# it the old way (or via scripts) is never stranded. The deprecation banner has
+# already printed in cmd_web() before we get here.
+cmd_web_redirect_to_dashboard() {
+    # The dashboard start path does not accept Purple-Lab-only flags
+    # (--no-open, --prd). Filter them so `loki web --no-open` (used in CI) and
+    # `loki web --prd X` keep working instead of erroring on an unknown option.
+    # --port is shared and passes straight through.
+    local orig_args=("$@")
+    local dash_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --no-open)
+                # Dashboard has no browser-open behavior to suppress; drop it.
+                shift
+                ;;
+            --prd)
+                # Purple-Lab-only prefill; not supported by the dashboard.
+                shift 2 2>/dev/null || shift
+                ;;
+            --prd=*)
+                shift
+                ;;
+            *)
+                dash_args+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    # Safe empty-array expansion (bash 3.2 + set -u): ${arr[@]+"${arr[@]}"}
+    if ! _deprecated_alias_should_suppress ${orig_args[@]+"${orig_args[@]}"}; then
+        echo "Launching the dashboard (http://localhost:${DASHBOARD_DEFAULT_PORT}) instead of the deprecated Purple Lab." >&2
+    fi
+    cmd_dashboard_start ${dash_args[@]+"${dash_args[@]}"}
 }
 
 cmd_web_help() {
@@ -5460,40 +5519,34 @@ cmd_web_help() {
     echo "Usage: loki web [command] [options]"
     echo ""
     echo "DEPRECATED as of v7.44.0: Purple Lab is consolidated into the dashboard."
-    echo "  For local build + monitoring, use the dashboard (auto-launches at"
-    echo "  'loki start', http://localhost:${DASHBOARD_DEFAULT_PORT}; or 'loki dashboard')."
-    echo "  For the hosted platform, see Autonomi Cloud."
-    echo "  'loki web' still works for now (it launches after a deprecation notice),"
-    echo "  but it will be removed in a future release. Migrate to the dashboard."
+    echo "  'loki web' (no subcommand) now LAUNCHES THE DASHBOARD"
+    echo "  (http://localhost:${DASHBOARD_DEFAULT_PORT}) instead of the deprecated Purple"
+    echo "  Lab, so the obvious command lands you on the working UI. Use the embedded"
+    echo "  'Lab' tab there to submit a PRD. For the hosted platform, see Autonomi Cloud."
     echo ""
-    echo "Note: 'loki web' is Purple Lab (the PRD-input/build-watch UI, port ${PURPLE_LAB_DEFAULT_PORT})."
-    echo "      It is NOT the same as 'loki dashboard' (operations UI, port ${DASHBOARD_DEFAULT_PORT})."
-    echo "      Use 'loki dashboard' to monitor running agents, tasks, costs, council, escalations."
+    echo "Note: the canonical command is 'loki dashboard' (operations UI, port ${DASHBOARD_DEFAULT_PORT})."
+    echo "      Use it to monitor running agents, tasks, costs, council, escalations."
     echo ""
     echo "Commands:"
-    echo "  start    Start Purple Lab (default)"
-    echo "  stop     Stop Purple Lab server"
+    echo "  start    Launch the dashboard (default; Purple Lab is deprecated)"
+    echo "  stop     Stop the Purple Lab server (if one was started the old way)"
     echo "  status   Show Purple Lab server status"
     echo "  logs     Show Purple Lab server logs"
     echo "  help     Show this help"
     echo ""
     echo "Options (for start):"
-    echo "  --no-open      Don't open browser automatically"
-    echo "  --port PORT    Use custom port (default: ${PURPLE_LAB_DEFAULT_PORT})"
-    echo ""
-    echo "Purple Lab is the product UI where you input PRDs and watch agents build."
-    echo "It runs its own backend (web-app/server.py) on port ${PURPLE_LAB_DEFAULT_PORT}."
+    echo "  --port PORT    Use custom port (default: ${DASHBOARD_DEFAULT_PORT})"
+    echo "  --no-open      Accepted for back-compat; ignored (no-op on the dashboard)"
     echo ""
     echo "Examples:"
-    echo "  loki web                  Start Purple Lab and open in browser"
-    echo "  loki web --no-open        Start without opening browser"
-    echo "  loki web stop             Stop the Purple Lab server"
+    echo "  loki web                  Launch the dashboard"
+    echo "  loki web --no-open        Launch the dashboard (--no-open is a no-op)"
+    echo "  loki web stop             Stop a Purple Lab server started the old way"
     echo ""
     echo "Note (since v7.5.30):"
-    echo "  Purple Lab is also embedded in the Dashboard as a Lab sidebar entry."
-    echo "  Run 'loki dashboard start' and click 'Lab' to use the same UI"
-    echo "  without spawning a second port. 'loki web' standalone remains"
-    echo "  supported (Rule 0); both modes serve the same React bundle."
+    echo "  The same PRD-input UI is embedded in the dashboard as a 'Lab' sidebar entry."
+    echo "  'loki web stop|status|logs' still operate on a standalone Purple Lab"
+    echo "  process so anyone who started one the old way is never stranded."
 }
 
 cmd_web_start() {
@@ -7529,7 +7582,37 @@ if [[ "$LOKI_CREATE_PR" == "true" ]]; then
     branch_current=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
     if [[ -n "$branch_current" && "$branch_current" != "main" && "$branch_current" != "master" ]]; then
         git push origin "$branch_current" 2>/dev/null || true
-        gh pr create --title "$LOKI_PR_TITLE" --body "Implemented by Loki Mode" --head "$branch_current" 2>/dev/null || true
+        # Proven PR (v7.90.0): render this run's Evidence Receipt into the PR body
+        # so even the detached --pr/--ship path proves itself. The proof + the
+        # run-id pointer (.loki/state/last-proof-id.txt) exist by now (the
+        # `loki start` above generated them). On by default (LOKI_PROVEN_PR=0
+        # opts out); degrades safely to the plain body if anything is missing.
+        # The renderer is print-only + honesty-gated (green only when the proof
+        # headline is VERIFIED); it can never make a receipt-less PR look proven.
+        _pr_body="Implemented by Loki Mode"
+        if [[ "${LOKI_PROVEN_PR:-1}" != "0" ]]; then
+            # Resolve the renderer from the ALREADY-RESOLVED autonomy dir passed
+            # in by the parent (LOKI_SCRIPT_DIR_RESOLVED = _LOKI_SCRIPT_DIR, which
+            # is symlink-safe). Do NOT recompute from `command -v loki` -- on
+            # npm/bun/brew global installs that is an UNRESOLVED bin symlink, so
+            # dirname-based guessing misses the lib and the receipt silently no-ops
+            # on the dominant install channels (council cIb_r2). Fall back to the
+            # old dirname guesses only if the resolved dir was not passed.
+            _pp_lib="${LOKI_SCRIPT_DIR_RESOLVED:-}/lib/proof-pr.sh"
+            [[ -f "$_pp_lib" ]] || _pp_lib="$(dirname "$LOKI_CMD")/../autonomy/lib/proof-pr.sh"
+            [[ -f "$_pp_lib" ]] || _pp_lib="$(dirname "$LOKI_CMD")/autonomy/lib/proof-pr.sh"
+            _pp_id=""
+            [[ -f .loki/state/last-proof-id.txt ]] && _pp_id="$(cat .loki/state/last-proof-id.txt 2>/dev/null)"
+            _pp_proof=".loki/proofs/${_pp_id}/proof.json"
+            if [[ -n "$_pp_id" && -f "$_pp_proof" && -f "$_pp_lib" ]]; then
+                # shellcheck source=/dev/null
+                if source "$_pp_lib" 2>/dev/null && declare -f render_evidence_receipt_md >/dev/null 2>&1; then
+                    _pp_block="$(render_evidence_receipt_md "$_pp_proof" "" "" 2>/dev/null || true)"
+                    [[ -n "$_pp_block" ]] && _pr_body="Implemented by Loki Mode"$'\n\n'"$_pp_block"
+                fi
+            fi
+        fi
+        gh pr create --title "$LOKI_PR_TITLE" --body "$_pr_body" --head "$branch_current" 2>/dev/null || true
     fi
 fi
 # Post-completion: auto-merge if requested
@@ -7547,6 +7630,7 @@ INNER_SCRIPT_EOF
         # Pass all variables safely via environment
         LOKI_RUN_DIR="$(pwd)" \
         LOKI_CMD="$loki_cmd" \
+        LOKI_SCRIPT_DIR_RESOLVED="$_LOKI_SCRIPT_DIR" \
         LOKI_SESSION_ID="$session_id" \
         LOKI_WORKTREE_BRANCH="$branch_name" \
         LOKI_PRD_PATH="$detach_prd" \
@@ -7636,6 +7720,28 @@ Provider: ${issue_provider}
 
 ## Changes
 $(git log --oneline "main..HEAD" 2>/dev/null || echo "See diff")"
+
+            # Proven PR (Loop 6): append the Evidence Receipt to the body. One
+            # append covers BOTH the gh and glab branches below. Default-on;
+            # LOKI_PROVEN_PR=0 -> body byte-identical to before. The proof lives
+            # under the project .loki resolved from the run_id pointer; empty
+            # expected_head_sha by design (R-DET-1 run_id pointer is the guard).
+            if [ "${LOKI_PROVEN_PR:-1}" != "0" ] && declare -f render_evidence_receipt_md >/dev/null 2>&1; then
+                local _gh_idfile=".loki/state/last-proof-id.txt"
+                if [ -s "$_gh_idfile" ]; then
+                    local _gh_rid=""
+                    _gh_rid="$(cat "$_gh_idfile" 2>/dev/null || true)"
+                    if [ -n "$_gh_rid" ] && [ -f ".loki/proofs/$_gh_rid/proof.json" ]; then
+                        local _gh_receipt=""
+                        _gh_receipt="$(render_evidence_receipt_md ".loki/proofs/$_gh_rid/proof.json" "" "" 2>/dev/null || true)"
+                        if [ -n "$_gh_receipt" ]; then
+                            pr_body="${pr_body}
+
+${_gh_receipt}"
+                        fi
+                    fi
+                fi
+            fi
 
             case "${issue_provider:-github}" in
                 github)
@@ -16110,6 +16216,18 @@ worktree wt projects cp rc trust-metrics serve agent code self_update test help 
 
 # Main command dispatcher
 main() {
+    # v7.89.0 telemetry TTY fix (council cH_r1 AC1): resolve interactivity EXACTLY
+    # ONCE here, while autonomy/loki main still owns the user's real TTY, and
+    # export the explicit signal that the telemetry/crash gates trust instead of a
+    # late `-t` re-probe. When invoked via the bin/loki shim the var is already
+    # exported (and re-exporting the same value is a no-op); this covers the path
+    # where autonomy/loki is invoked directly (LOKI_LEGACY_BASH, no-Bun, or a
+    # direct call). Only set when a terminal is actually present; leave UNSET
+    # otherwise so isolated gate unit tests fall back to their own `-t` probe.
+    if [ -z "${LOKI_TTY_INTERACTIVE:-}" ] && { [ -t 1 ] || [ -t 0 ]; }; then
+        export LOKI_TTY_INTERACTIVE=1
+    fi
+
     # v7.5.18: early guard -- LOKI_PROVIDER=gemini is no longer supported.
     if [ "${LOKI_PROVIDER:-}" = "gemini" ]; then
         echo -e "${RED}Error: Provider 'gemini' is deprecated as of v7.5.18 and has been removed.${NC}" >&2
@@ -16131,6 +16249,19 @@ main() {
     # v7.4.13: first-run telemetry moved to bin/loki shim so it fires for
     # both Bun-routed and bash-routed commands (autonomy/loki main() never
     # runs for the 8 ported commands). Marker file: ~/.loki-first-run.
+    #
+    # v7.89.0 (council cH_r1 AC4): this is a FOREGROUND egress on the bash route.
+    # Before it can phone home, the user must have seen the disclosure once -- a
+    # bash-routed first command must never be covert. Evaluate the SAME gate the
+    # egress uses, and if collection is genuinely enabled, disclose once (shared
+    # impl from telemetry.sh, keyed on its own marker, so it never double-prints
+    # with the Bun route or repeats). loki_telemetry itself re-checks the gate, so
+    # this only adds the disclosure; it never changes whether we send.
+    if declare -f _loki_telemetry_enabled >/dev/null 2>&1 \
+       && declare -f _loki_disclose_telemetry_once >/dev/null 2>&1 \
+       && _loki_telemetry_enabled; then
+        _loki_disclose_telemetry_once
+    fi
     loki_telemetry "cli_command" "command=$command" 2>/dev/null || true
 
     # Unified config-file pre-pass (#691). For session commands ONLY, honor
@@ -16499,6 +16630,16 @@ main() {
             # `loki receipt` is a friendly alias for `loki proof` (the Evidence
             # Receipt surface): same subcommands (list/show/verify/open/share).
             cmd_proof "$@"
+            ;;
+        secure)
+            # Secure-by-default gate surface: inspect findings + manage waivers.
+            cmd_secure "$@"
+            ;;
+        own|handoff)
+            # Finish-and-own: a plain-English ownership handoff for a non-technical
+            # owner (what was built, is it working, how to run/deploy, what is left).
+            # `loki handoff` is an alias for `loki own`.
+            cmd_own "$@"
             ;;
         bench)
             cmd_bench "$@"
@@ -21937,13 +22078,32 @@ try {
 
             # Unified collection state (PostHog usage telemetry + crash reporting).
             # loki_collection_enabled is the single source of truth (crash.sh).
-            # Collection is OPT-IN: OFF by default, enabled only after opt-in.
+            # Collection is ON BY DEFAULT for individual interactive installs and
+            # auto-off in enterprise/CI/air-gapped/non-interactive contexts; an
+            # explicit opt-out always wins. AC8 (council cH_r1): the status copy
+            # must distinguish "on by default" from an explicit "you opted in".
             echo ""
             if type loki_collection_enabled &>/dev/null; then
                 if loki_collection_enabled; then
-                    echo -e "  Collection: ${GREEN}enabled${NC} (you opted in; anonymous diagnostics; opt out with: loki telemetry off)"
+                    # Detect an EXPLICIT opt-in (env LOKI_TELEMETRY=on, or the
+                    # persistent ~/.loki/config TELEMETRY_ENABLED=true written by
+                    # `loki telemetry on`). Anything else that is enabled is the
+                    # individual on-by-default path.
+                    local _telem_lower_status
+                    _telem_lower_status="$(printf '%s' "${LOKI_TELEMETRY:-}" | tr '[:upper:]' '[:lower:]')"
+                    local _explicit_optin=false
+                    if [ "$_telem_lower_status" = "on" ]; then
+                        _explicit_optin=true
+                    elif [ -f "$global_config" ] && grep -q "^TELEMETRY_ENABLED=true" "$global_config" 2>/dev/null; then
+                        _explicit_optin=true
+                    fi
+                    if [ "$_explicit_optin" = true ]; then
+                        echo -e "  Collection: ${GREEN}enabled${NC} (you opted in; anonymous diagnostics; opt out with: loki telemetry off)"
+                    else
+                        echo -e "  Collection: ${GREEN}on by default${NC} (anonymous diagnostics; opt out with: loki telemetry off)"
+                    fi
                 else
-                    echo -e "  Collection: ${YELLOW}off by default${NC} (nothing sent; opt in with: loki telemetry on)"
+                    echo -e "  Collection: ${YELLOW}off${NC} (nothing sent; enterprise/CI/air-gapped or opted out; opt in with: loki telemetry on)"
                 fi
             fi
 
@@ -30434,6 +30594,164 @@ cmd_bench() {
     bash "$bench_sh" "$@"
 }
 
+# loki own - finish-and-own (v7.88.0): a plain-English ownership handoff for a
+# NON-technical owner. A pure render (autonomy/lib/own-render.py) over the data
+# Loki already captured -- the Evidence Receipt, the completion summary, and
+# USAGE.md -- so it cannot fabricate: the "is it working?" verdict comes verbatim
+# from the receipt's honest headline and is never green unless the receipt is
+# VERIFIED. Default prints the doc; --md writes HANDOFF.md; --json for tooling.
+# `loki handoff` is an alias.
+cmd_own() {
+    local renderer="${_LOKI_SCRIPT_DIR}/lib/own-render.py"
+    if [ ! -f "$renderer" ]; then
+        echo -e "${RED}Finish-and-own renderer not found (autonomy/lib/own-render.py).${NC}" >&2
+        exit 2
+    fi
+    case "${1:-}" in
+        --help|-h|help)
+            echo -e "${BOLD}loki own${NC} - a plain-English ownership handoff (alias: loki handoff)"
+            echo ""
+            echo "Usage: loki own [--md | --json]"
+            echo ""
+            echo "Explains, in plain language for a non-technical owner: what was"
+            echo "built, whether Loki verified it works, how to run it, how to put"
+            echo "it online, what a developer needs to know, and what is left to do."
+            echo "It reads the last build's Evidence Receipt + completion summary;"
+            echo "the 'is it working' verdict is the receipt's honest headline (never"
+            echo "green unless the build is VERIFIED)."
+            echo ""
+            echo "Options:"
+            echo "  --md     Write HANDOFF.md to the project root"
+            echo "  --json   Emit the structured handoff as JSON"
+            exit 0
+            ;;
+    esac
+    # --md writes HANDOFF.md at the project root (matches the help). The renderer
+    # prints markdown on stdout; the CLI places it as a file, atomically (temp+mv)
+    # so a partial write never leaves a truncated HANDOFF.md. Any other args
+    # (--json, default) pass through and print.
+    if [ "${1:-}" = "--md" ]; then
+        local _handoff="${TARGET_DIR:-.}/HANDOFF.md"
+        local _handoff_tmp="${TARGET_DIR:-.}/.HANDOFF.md.tmp"
+        if python3 "$renderer" --loki-dir "${LOKI_DIR:-.loki}" --md > "$_handoff_tmp" 2>/dev/null; then
+            mv -f "$_handoff_tmp" "$_handoff" && \
+                echo -e "${GREEN}Wrote ${_handoff}${NC} - open it or hand it to whoever owns this build." || \
+                { rm -f "$_handoff_tmp" 2>/dev/null; echo -e "${RED}Could not write HANDOFF.md${NC}" >&2; exit 1; }
+        else
+            rm -f "$_handoff_tmp" 2>/dev/null
+            echo -e "${RED}Could not render the ownership handoff${NC}" >&2
+            exit 1
+        fi
+        exit 0
+    fi
+    python3 "$renderer" --loki-dir "${LOKI_DIR:-.loki}" "$@"
+    exit $?
+}
+
+# loki secure - the secure-by-default gate surface (v7.87.0).
+# Subcommands: list (show findings) | waive <rule> <file> [reason] | unwaive.
+# Waivers are written to .loki/quality/security-waivers.json, which the gate
+# (run.sh run_secure_scan) and the Evidence Receipt both READ + honor. The gate
+# is advisory by default; LOKI_SECURE_GATE=block makes un-waived HIGH findings
+# block. Honest: a waiver is RECORDED in the receipt (accepted with intent), never
+# silently hides a finding.
+cmd_secure() {
+    local loki_dir="${LOKI_DIR:-.loki}"
+    local quality_dir="${loki_dir}/quality"
+    local findings_file="${quality_dir}/security-findings.json"
+    local waivers_file="${quality_dir}/security-waivers.json"
+    local sub="${1:-}"
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+        ""|--help|-h|help)
+            echo -e "${BOLD}loki secure${NC} - secure-by-default gate: findings + waivers"
+            echo ""
+            echo "Usage: loki secure <subcommand> [args]"
+            echo ""
+            echo "Subcommands:"
+            echo "  list                 Show security findings from the last scan"
+            echo "  waive <rule> <file> [reason]   Waive a finding (accepted with intent)"
+            echo "  unwaive <rule> <file>          Remove a waiver"
+            echo ""
+            echo "The gate is advisory by default; set LOKI_SECURE_GATE=block to make"
+            echo "un-waived HIGH findings block completion. Waivers are recorded in the"
+            echo "Evidence Receipt (loki proof show) -- they are never hidden."
+            [ "$sub" = "" ] && exit 1
+            exit 0
+            ;;
+        list)
+            if [ ! -f "$findings_file" ]; then
+                echo -e "${YELLOW}No security scan results yet.${NC} Run 'loki start' (the gate runs in the review phase)."
+                exit 0
+            fi
+            if command -v jq &>/dev/null; then
+                jq '.findings' "$findings_file" 2>/dev/null || cat "$findings_file"
+            else
+                LOKI_SEC_F="$findings_file" python3 -c "import json,os; d=json.load(open(os.environ['LOKI_SEC_F'])); [print('%s [%s] %s%s -- %s' % (f.get('severity','?'), f.get('rule','?'), f.get('file','?'), (':'+str(f['line'])) if f.get('line') else '', f.get('fix',''))) for f in d.get('findings',[])] or print('No findings.')"
+            fi
+            exit 0
+            ;;
+        waive)
+            local rule="${1:-}" file="${2:-}" reason="${3:-waived via loki secure}"
+            if [ -z "$rule" ] || [ -z "$file" ]; then
+                echo -e "${RED}Usage: loki secure waive <rule> <file> [reason]${NC}" >&2
+                exit 2
+            fi
+            mkdir -p "$quality_dir"
+            LOKI_SEC_W="$waivers_file" LOKI_SEC_RULE="$rule" LOKI_SEC_FILE="$file" LOKI_SEC_REASON="$reason" python3 - <<'PYW'
+import json, os
+p = os.environ["LOKI_SEC_W"]
+try:
+    with open(p) as f: data = json.load(f)
+    if not isinstance(data, dict): data = {}
+except Exception:
+    data = {}
+waivers = data.get("waivers")
+if not isinstance(waivers, list): waivers = []
+rule, fl, reason = os.environ["LOKI_SEC_RULE"], os.environ["LOKI_SEC_FILE"], os.environ["LOKI_SEC_REASON"]
+if not any(w.get("rule") == rule and w.get("file") == fl for w in waivers if isinstance(w, dict)):
+    waivers.append({"rule": rule, "file": fl, "reason": reason})
+data["waivers"] = waivers
+tmp = p + ".tmp"
+with open(tmp, "w") as f: json.dump(data, f, indent=2)
+os.replace(tmp, p)
+print("Waived %s on %s (recorded in the Evidence Receipt)." % (rule, fl))
+PYW
+            exit $?
+            ;;
+        unwaive)
+            local rule="${1:-}" file="${2:-}"
+            if [ -z "$rule" ] || [ -z "$file" ]; then
+                echo -e "${RED}Usage: loki secure unwaive <rule> <file>${NC}" >&2
+                exit 2
+            fi
+            [ -f "$waivers_file" ] || { echo "No waivers to remove."; exit 0; }
+            LOKI_SEC_W="$waivers_file" LOKI_SEC_RULE="$rule" LOKI_SEC_FILE="$file" python3 - <<'PYU'
+import json, os
+p = os.environ["LOKI_SEC_W"]
+try:
+    with open(p) as f: data = json.load(f)
+except Exception:
+    data = {}
+waivers = [w for w in (data.get("waivers") or [])
+           if not (isinstance(w, dict) and w.get("rule") == os.environ["LOKI_SEC_RULE"]
+                   and w.get("file") == os.environ["LOKI_SEC_FILE"])]
+data["waivers"] = waivers
+tmp = p + ".tmp"
+with open(tmp, "w") as f: json.dump(data, f, indent=2)
+os.replace(tmp, p)
+print("Removed waiver for %s on %s." % (os.environ["LOKI_SEC_RULE"], os.environ["LOKI_SEC_FILE"]))
+PYU
+            exit $?
+            ;;
+        *)
+            echo -e "${RED}Unknown subcommand: secure $sub${NC}" >&2
+            echo "Try: loki secure --help"
+            exit 2
+            ;;
+    esac
+}
+
 # loki proof - inspect and share proof-of-run artifacts (.loki/proofs/<id>/).
 # Subcommands: list | show <id> | open <id> | share <id>.
 # The proof.json schema is frozen (R1 spec). Reads are tolerant of missing
@@ -30481,7 +30799,7 @@ cmd_proof() {
                 # "No proofs found" line -- matching the Bun route (proof.ts
                 # listProofs, which returns before the header when rows is empty).
                 if [ "$found" -eq 0 ]; then
-                    printf "%-26s  %-20s  %-10s  %-9s  %s\n" "RUN_ID" "GENERATED_AT" "VERDICT" "COST_USD" "FILES"
+                    printf "%-26s  %-20s  %-18s  %-9s  %s\n" "RUN_ID" "GENERATED_AT" "VERDICT" "COST_USD" "FILES"
                 fi
                 found=1
                 LOKI_PROOF_JSON="$pj" python3 - <<'PYEOF'
@@ -30499,10 +30817,14 @@ def s(v):
     return "-" if v is None else str(v)
 run_id = d.get("run_id")
 gen = d.get("generated_at")
-verdict = (d.get("council") or {}).get("final_verdict")
+# The honest verdict lives in honesty.headline (VERIFIED / VERIFIED WITH GAPS /
+# NOT VERIFIED); fall back to legacy council.final_verdict for older proofs.
+verdict = (d.get("honesty") or {}).get("headline")
+if verdict is None:
+    verdict = (d.get("council") or {}).get("final_verdict")
 cost = (d.get("cost") or {}).get("usd")
 files = (d.get("files_changed") or {}).get("count")
-print("{:<26}  {:<20}  {:<10}  {:<9}  {}".format(
+print("{:<26}  {:<20}  {:<18}  {:<9}  {}".format(
     s(run_id), s(gen), s(verdict), s(cost), s(files)))
 PYEOF
             done

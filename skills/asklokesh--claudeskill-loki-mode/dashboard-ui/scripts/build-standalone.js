@@ -14,7 +14,7 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, copyFileSync } from 'fs';
 import esbuild from 'esbuild';
 
 // Get script directory for ES modules
@@ -32,13 +32,28 @@ const watchMode = args.includes('--watch');
 async function buildStandalone() {
   const distDir = join(__dirname, '..', 'dist');
   const serverStaticDir = join(__dirname, '..', '..', 'dashboard', 'static');
+  const serverAssetsDir = join(serverStaticDir, 'assets');
+  const distAssetsDir = join(distDir, 'assets');
   const entryPoint = join(__dirname, '..', 'index.js');
 
   // Ensure output directories exist
-  for (const dir of [distDir, serverStaticDir]) {
+  for (const dir of [distDir, serverStaticDir, serverAssetsDir, distAssetsDir]) {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
+  }
+
+  // Copy vendored, MIT-licensed mermaid into the asset dirs so the dashboard can
+  // lazy-load it same-origin (no external CDN -> offline / air-gapped safe). The
+  // wiki browser fetches /assets/mermaid.min.js only when an Architecture or
+  // Data Flow tab is opened; it is not inlined into the 720KB single-file HTML.
+  const mermaidSrc = join(__dirname, '..', 'assets', 'mermaid.min.js');
+  if (existsSync(mermaidSrc)) {
+    copyFileSync(mermaidSrc, join(serverAssetsDir, 'mermaid.min.js'));
+    copyFileSync(mermaidSrc, join(distAssetsDir, 'mermaid.min.js'));
+    console.log('Copied: assets/mermaid.min.js (vendored, offline-safe)');
+  } else {
+    console.warn('WARN: assets/mermaid.min.js missing -- wiki diagrams will fall back to source.');
   }
 
   console.log('Building standalone dashboard...');
@@ -121,7 +136,10 @@ function generateStandaloneHTML(bundleCode) {
       --loki-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    @media (prefers-color-scheme: dark) {
+    /* v7.90.1: dark mode removed (light-only). Disabled via an always-false media
+       query so an OS dark preference no longer flips the dashboard to the dark
+       palette the founder found worse. Kept (not deleted) to minimize churn. */
+    @media (prefers-color-scheme: dark) and (max-width: 0px) {
       :root {
         --loki-bg-primary: #0F0B1A;
         --loki-bg-secondary: #150F24;
@@ -288,6 +306,41 @@ function generateStandaloneHTML(bundleCode) {
       font-weight: 500;
     }
 
+    /* Verified-receipts badge: an honest trust signal next to the brand.
+       Counts are pulled live from /api/proofs/summary and reflect only real,
+       deterministic Evidence Receipts. Hidden until we have data; shows a muted
+       "No receipts yet" at zero; never a fabricated number. */
+    .receipts-badge {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      padding: 3px 8px;
+      width: fit-content;
+      max-width: 100%;
+      border: 1px solid var(--loki-border);
+      border-radius: 999px;
+      background: var(--loki-bg-card);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      line-height: 1.2;
+      color: var(--loki-text-secondary);
+      cursor: default;
+    }
+    .receipts-badge.show { display: inline-flex; }
+    .receipts-badge.empty { color: var(--loki-text-muted); }
+    .receipts-badge .receipts-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--loki-success);
+      flex: 0 0 auto;
+    }
+    .receipts-badge.empty .receipts-dot { background: var(--loki-text-muted); }
+    .receipts-badge .receipts-verified { color: var(--loki-success); font-weight: 600; }
+    .receipts-badge.empty .receipts-verified { color: var(--loki-text-muted); font-weight: 500; }
+
     /* Navigation: the only scrolling region. min-height:0 + overflow-y:auto so
        a long grouped nav scrolls within the sidebar while the header + footer
        stay pinned. */
@@ -435,9 +488,6 @@ function generateStandaloneHTML(bundleCode) {
       flex-shrink: 0;
     }
 
-    .theme-toggle {
-      margin-left: auto;
-    }
 
     .footer-settings {
       position: relative;
@@ -787,105 +837,6 @@ function generateStandaloneHTML(bundleCode) {
     ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
 
     /* Keyboard Shortcuts Help Overlay */
-    .shortcuts-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .shortcuts-overlay.visible {
-      display: flex;
-    }
-
-    .shortcuts-dialog {
-      background: var(--loki-glass-bg);
-      backdrop-filter: blur(20px) saturate(1.4);
-      -webkit-backdrop-filter: blur(20px) saturate(1.4);
-      border: 1px solid var(--loki-glass-border);
-      border-radius: 12px;
-      padding: 24px;
-      max-width: 480px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-      box-shadow: var(--loki-glass-shadow);
-    }
-
-    .shortcuts-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--loki-border);
-    }
-
-    .shortcuts-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--loki-text-primary);
-    }
-
-    .shortcuts-close {
-      background: none;
-      border: none;
-      color: var(--loki-text-muted);
-      cursor: pointer;
-      padding: 4px;
-      font-size: 18px;
-      line-height: 1;
-    }
-
-    .shortcuts-close:hover {
-      color: var(--loki-text-primary);
-    }
-
-    .shortcuts-group {
-      margin-bottom: 16px;
-    }
-
-    .shortcuts-group-title {
-      font-size: 11px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--loki-text-muted);
-      margin-bottom: 8px;
-    }
-
-    .shortcut-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 0;
-    }
-
-    .shortcut-keys {
-      display: flex;
-      gap: 4px;
-    }
-
-    .shortcut-key {
-      display: inline-block;
-      padding: 2px 8px;
-      background: var(--loki-bg-tertiary);
-      border: 1px solid var(--loki-border);
-      border-radius: 6px;
-      font-size: 12px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--loki-text-primary);
-      min-width: 24px;
-      text-align: center;
-    }
-
-    .shortcut-desc {
-      font-size: 13px;
-      color: var(--loki-text-secondary);
-    }
 
     /* USAGE.md markdown render styles */
     .usage-md { max-height: 480px; overflow: auto; padding: 12px; background: var(--loki-bg-secondary, #F2F0EB); border-radius: 4px; color: var(--loki-text-primary, #1A1614); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.6; }
@@ -935,6 +886,15 @@ function generateStandaloneHTML(bundleCode) {
         </button>
         <span class="logo-brand">Loki Mode</span>
         <span class="logo-subtitle">powered by Autonomi</span>
+        <!-- Verified-receipts badge: honest trust signal. Populated at runtime
+             from /api/proofs/summary; hidden until data arrives, shows a muted
+             empty state at zero, and degrades silently if the endpoint is
+             unavailable. Every receipt is a deterministic, re-verifiable
+             Evidence Receipt (loki proof verify). -->
+        <span class="receipts-badge" id="receipts-badge" role="status">
+          <span class="receipts-dot" aria-hidden="true"></span>
+          <span id="receipts-badge-text"></span>
+        </span>
         <!-- v7.84 single project switcher: ONE searchable <select> with two
              <optgroup>s ("Running" and "All projects"), built at runtime from
              /api/running-projects. A running-app count pill sits beside it; the
@@ -1063,11 +1023,8 @@ function generateStandaloneHTML(bundleCode) {
               </div>
             </div>
           </div>
-          <button class="footer-btn theme-toggle" id="theme-toggle" title="Toggle theme (T)">
-            <svg id="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            <svg id="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" style="display:none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-            <span id="theme-label">Dark</span>
-          </button>
+          <!-- v7.90.1: dark mode removed (light-only). The theme toggle and its
+               handler are gone; the dashboard ships a single light theme. -->
         </div>
       </div>
     </aside>
@@ -1076,6 +1033,13 @@ function generateStandaloneHTML(bundleCode) {
     <main class="main-content" id="main-content">
       <!-- Overview + Tasks (combined) -->
       <div class="section-page active" id="page-overview">
+        <!-- Active spec: what Loki is building from + history of past specs -->
+        <div style="margin-bottom: 28px;">
+          <div class="section-page-header">
+            <h2 class="section-page-title">Spec</h2>
+          </div>
+          <loki-spec-panel id="spec-panel"></loki-spec-panel>
+        </div>
         <loki-overview id="overview"></loki-overview>
         <loki-rarv-timeline id="rarv-timeline"></loki-rarv-timeline>
         <loki-session-diff id="session-diff"></loki-session-diff>
@@ -1531,43 +1495,6 @@ function generateStandaloneHTML(bundleCode) {
   </div>
 
   <!-- Keyboard Shortcuts Help Overlay -->
-  <div class="shortcuts-overlay" id="shortcuts-overlay">
-    <div class="shortcuts-dialog">
-      <div class="shortcuts-header">
-        <span class="shortcuts-title">Keyboard Shortcuts</span>
-        <button class="shortcuts-close" id="shortcuts-close" aria-label="Close">&times;</button>
-      </div>
-      <div class="shortcuts-group">
-        <div class="shortcuts-group-title">Navigation</div>
-        <div class="shortcut-row"><span class="shortcut-desc">Overview</span><span class="shortcut-keys"><kbd class="shortcut-key">1</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Insights</span><span class="shortcut-keys"><kbd class="shortcut-key">2</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Spec Checklist</span><span class="shortcut-keys"><kbd class="shortcut-key">3</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">App Runner</span><span class="shortcut-keys"><kbd class="shortcut-key">4</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Council</span><span class="shortcut-keys"><kbd class="shortcut-key">5</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Quality</span><span class="shortcut-keys"><kbd class="shortcut-key">6</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Cost</span><span class="shortcut-keys"><kbd class="shortcut-key">7</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Checkpoints</span><span class="shortcut-keys"><kbd class="shortcut-key">8</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Context</span><span class="shortcut-keys"><kbd class="shortcut-key">9</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Notifications</span><span class="shortcut-keys"><kbd class="shortcut-key">0</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Migration</span><span class="shortcut-keys"><kbd class="shortcut-key">m</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Analytics</span><span class="shortcut-keys"><kbd class="shortcut-key">a</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Escalations</span><span class="shortcut-keys"><kbd class="shortcut-key">e</kbd></span></div>
-      </div>
-      <div class="shortcuts-group">
-        <div class="shortcuts-group-title">Session</div>
-        <div class="shortcut-row"><span class="shortcut-desc">Pause session</span><span class="shortcut-keys"><kbd class="shortcut-key">p</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Resume session</span><span class="shortcut-keys"><kbd class="shortcut-key">r</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Stop session</span><span class="shortcut-keys"><kbd class="shortcut-key">s</kbd></span></div>
-      </div>
-      <div class="shortcuts-group">
-        <div class="shortcuts-group-title">General</div>
-        <div class="shortcut-row"><span class="shortcut-desc">Toggle theme</span><span class="shortcut-keys"><kbd class="shortcut-key">t</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Focus API URL</span><span class="shortcut-keys"><kbd class="shortcut-key">/</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Show shortcuts</span><span class="shortcut-keys"><kbd class="shortcut-key">?</kbd></span></div>
-        <div class="shortcut-row"><span class="shortcut-desc">Close overlay</span><span class="shortcut-keys"><kbd class="shortcut-key">Esc</kbd></span></div>
-      </div>
-    </div>
-  </div>
 
   <!-- Inlined JavaScript Bundle -->
   <script>
@@ -1711,60 +1638,19 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(refresh, 15000);
   })();
 
-  // Theme toggle functionality
-  var themeToggle = document.getElementById('theme-toggle');
-  var themeLabel = document.getElementById('theme-label');
+  // v7.90.1: dark mode removed -- the dashboard is light-only. The theme toggle
+  // button + handler are gone; everything renders in the single light theme.
+  // Force light on the SPA and pin the iframe/standalone pages (trust/cost/
+  // proofs) to ?theme=light so they match.
+  try {
+    if (LokiDashboard && LokiDashboard.UnifiedThemeManager &&
+        typeof LokiDashboard.UnifiedThemeManager.setTheme === 'function') {
+      LokiDashboard.UnifiedThemeManager.setTheme('light');
+    }
+  } catch (_e) { /* theme manager optional; light is the CSS default anyway */ }
 
-  var sunIcon = document.getElementById('theme-icon-sun');
-  var moonIcon = document.getElementById('theme-icon-moon');
-
-  // Resolve the active theme to a plain 'dark'|'light' for the iframe pages
-  // (trust/cost/proofs), which live in separate documents and cannot read the
-  // SPA's data-loki-theme attribute. v7.18.0.
-  function lokiResolvedTheme() {
-    var theme = LokiDashboard.UnifiedThemeManager.getTheme();
-    return (theme.includes('dark') || theme === 'high-contrast') ? 'dark' : 'light';
-  }
-
-  // Keep the trust iframe's theme in sync with the SPA toggle. If the frame is
-  // already loaded, re-point its src with the new ?theme= so its palette flips
-  // with the SPA instead of clashing.
-  function syncTrustFrameTheme() {
-    var tframe = document.getElementById('trust-frame');
-    if (!tframe) return;
-    var cur = tframe.getAttribute('src') || '';
-    if (!cur || cur === 'about:blank') return; // not opened yet; opens with theme
-    tframe.src = '/trust?theme=' + lokiResolvedTheme();
-  }
-
-  function updateThemeUI() {
-    var theme = LokiDashboard.UnifiedThemeManager.getTheme();
-    var isDark = theme.includes('dark') || theme === 'high-contrast';
-    themeLabel.textContent = isDark ? 'Light' : 'Dark';
-    if (sunIcon) sunIcon.style.display = isDark ? 'inline' : 'none';
-    if (moonIcon) moonIcon.style.display = isDark ? 'none' : 'inline';
-  }
-
-  themeToggle.addEventListener('click', function() {
-    LokiDashboard.UnifiedThemeManager.toggle();
-    // updateThemeUI + syncTrustFrameTheme run via the loki-theme-change
-    // listener below (toggle() dispatches it), so we do NOT call them here too
-    // -- a direct call would re-point the trust iframe src twice per toggle.
-  });
-
-  window.addEventListener('loki-theme-change', function() {
-    updateThemeUI();
-    syncTrustFrameTheme();
-  });
-
-  updateThemeUI();
-
-  // Carry the SPA theme to the full-page standalone views (cost/proofs) opened
-  // via direct links, so a user who toggled Dark gets a matching page instead
-  // of an OS-default one. Updated on click so it always reflects the current
-  // toggle state. v7.18.0.
   function lokiThemeHref(base) {
-    return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'theme=' + lokiResolvedTheme();
+    return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'theme=light';
   }
   var costLink = document.getElementById('budget-banner-link');
   if (costLink) {
@@ -1913,6 +1799,55 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (err) { /* polling fallback still covers it */ }
   })();
 
+  // Verified-receipts badge: honest trust signal beside the brand. Fetches the
+  // real aggregate from /api/proofs/summary and shows "N receipts - M
+  // verified". At zero it shows a muted "No receipts yet"; if the endpoint is
+  // unavailable it stays hidden (no error spew). We never display a number the
+  // data does not support: "verified" here is the deterministic
+  // honesty.headline == VERIFIED count, re-verifiable via loki proof verify.
+  (function initReceiptsBadge() {
+    var badge = document.getElementById('receipts-badge');
+    var textEl = document.getElementById('receipts-badge-text');
+    if (!badge || !textEl) return;
+
+    function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+    function render(s) {
+      var total = (s && typeof s.total_receipts === 'number') ? s.total_receipts : 0;
+      var verified = (s && typeof s.verified === 'number') ? s.verified : 0;
+      if (total <= 0) {
+        // Honest empty state: no fabricated number.
+        badge.classList.add('empty');
+        textEl.textContent = 'No receipts yet';
+        badge.title = 'Evidence Receipts appear here once Loki completes a '
+          + 'verified run. Each is deterministic and re-verifiable with '
+          + '"loki proof verify".';
+        badge.classList.add('show');
+        return;
+      }
+      badge.classList.remove('empty');
+      // "N receipts - M verified" with the verified count emphasized.
+      textEl.innerHTML = plural(total, 'receipt') + ' - '
+        + '<span class="receipts-verified"></span> verified';
+      var vEl = textEl.querySelector('.receipts-verified');
+      if (vEl) vEl.textContent = String(verified);
+      badge.title = plural(verified, 'receipt') + ' of ' + total
+        + ' verified by a deterministic Evidence Receipt (re-verifiable with '
+        + '"loki proof verify"). "Verified" means tests passed with real '
+        + 'exit-code evidence, not an LLM opinion.';
+      badge.classList.add('show');
+    }
+
+    function poll() {
+      fetch('/api/proofs/summary', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d) render(d); })
+        .catch(function () { /* endpoint unavailable: leave badge hidden */ });
+    }
+    poll();
+    setInterval(poll, 30000);
+  })();
+
   // Mobile menu toggle
   var mobileMenuBtn = document.getElementById('mobile-menu-btn');
   var sidebar = document.getElementById('sidebar');
@@ -1951,7 +1886,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var tframe = document.getElementById('trust-frame');
       if (tframe && (!tframe.src || tframe.src === 'about:blank' ||
           tframe.getAttribute('src') === 'about:blank')) {
-        tframe.src = '/trust?theme=' + lokiResolvedTheme();
+        tframe.src = '/trust?theme=light';
       }
     }
     // Update nav active state
@@ -1972,6 +1907,15 @@ document.addEventListener('DOMContentLoaded', function() {
         history.replaceState(null, '', window.location.pathname + window.location.search + nh);
       }
     } catch (e) { /* file:// or sandboxed: hash routing best-effort */ }
+    // v7.88.2: notify the central poll registry (core/loki-poll-registry.js)
+    // so only the active section's components poll. The registry also reads the
+    // DOM/localStorage defensively, but this event is the primary signal and
+    // makes view-switch gating immediate.
+    try {
+      document.dispatchEvent(new CustomEvent('loki:section-change', {
+        detail: { section: sectionId },
+      }));
+    } catch (e) { /* CustomEvent unsupported: registry falls back to DOM read */ }
   }
 
   navLinks.forEach(function(link) {
@@ -2014,148 +1958,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Keyboard shortcuts: Cmd/Ctrl + 1-7
-  document.addEventListener('keydown', function(e) {
-    if ((e.metaKey || e.ctrlKey) && ((e.key >= '1' && e.key <= '9') || e.key === '0')) {
-      e.preventDefault();
-      var sections = ['overview', 'fleet', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'trust', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
-      var idx = e.key === '0' ? 9 : parseInt(e.key) - 1;
-      if (idx < sections.length) switchSection(sections[idx]);
-    }
-  });
-
-  // --- Keyboard Shortcuts (Issue #18) ---
-  var shortcutsOverlay = document.getElementById('shortcuts-overlay');
-  var shortcutsClose = document.getElementById('shortcuts-close');
-
-  function toggleShortcutsOverlay() {
-    shortcutsOverlay.classList.toggle('visible');
-  }
-
-  function closeShortcutsOverlay() {
-    shortcutsOverlay.classList.remove('visible');
-  }
-
-  shortcutsClose.addEventListener('click', closeShortcutsOverlay);
-
-  // Close overlay when clicking outside the dialog
-  shortcutsOverlay.addEventListener('click', function(e) {
-    if (e.target === shortcutsOverlay) {
-      closeShortcutsOverlay();
-    }
-  });
-
-  document.addEventListener('keydown', function(e) {
-    // Skip shortcuts when typing in input, textarea, or select elements
-    var tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
-      // Allow Escape to blur input fields
-      if (e.key === 'Escape') {
-        e.target.blur();
-      }
-      return;
-    }
-
-    // Skip if modifier keys are held (let browser defaults work)
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-    var sections = ['overview', 'fleet', 'insights', 'prd-checklist', 'app-runner', 'council', 'quality', 'cost', 'trust', 'checkpoint', 'context', 'notifications', 'migration', 'analytics', 'escalations'];
-
-    switch (e.key) {
-      // Section navigation: 1-9, 0
-      case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
-        e.preventDefault();
-        switchSection(sections[parseInt(e.key) - 1]);
-        break;
-      case '0':
-        e.preventDefault();
-        switchSection(sections[9]);
-        break;
-
-      // Migration page
-      case 'm':
-        e.preventDefault();
-        switchSection('migration');
-        break;
-
-      // Analytics page
-      case 'a':
-        e.preventDefault();
-        switchSection('analytics');
-        break;
-
-      // Escalations page
-      case 'e':
-        e.preventDefault();
-        switchSection('escalations');
-        break;
-
-      // Help overlay
-      case '?':
-        e.preventDefault();
-        toggleShortcutsOverlay();
-        break;
-
-      // Close overlays
-      case 'Escape':
-        if (shortcutsOverlay.classList.contains('visible')) {
-          e.preventDefault();
-          closeShortcutsOverlay();
-        }
-        break;
-
-      // Focus API URL input
-      case '/':
-        e.preventDefault();
-        apiUrlInput.focus();
-        apiUrlInput.select();
-        break;
-
-      // Theme toggle. updateThemeUI + syncTrustFrameTheme run via the
-      // loki-theme-change listener (toggle() dispatches it); do not call them
-      // here too, or the trust iframe re-points twice per toggle.
-      case 't':
-        e.preventDefault();
-        LokiDashboard.UnifiedThemeManager.toggle();
-        break;
-
-      // Session controls
-      case 'p':
-        e.preventDefault();
-        var sessionCtrl = document.getElementById('session-control');
-        if (sessionCtrl) {
-          var pauseBtn = sessionCtrl.shadowRoot && sessionCtrl.shadowRoot.getElementById('pause-btn');
-          if (pauseBtn && !pauseBtn.disabled) {
-            pauseBtn.click();
-          }
-        }
-        break;
-
-      case 'r':
-        e.preventDefault();
-        var sessionCtrl2 = document.getElementById('session-control');
-        if (sessionCtrl2) {
-          var resumeBtn = sessionCtrl2.shadowRoot && sessionCtrl2.shadowRoot.getElementById('resume-btn');
-          if (resumeBtn) {
-            resumeBtn.click();
-          }
-        }
-        break;
-
-      case 's':
-        e.preventDefault();
-        var sessionCtrl3 = document.getElementById('session-control');
-        if (sessionCtrl3) {
-          var stopBtn = sessionCtrl3.shadowRoot && sessionCtrl3.shadowRoot.getElementById('stop-btn');
-          if (stopBtn && !stopBtn.disabled) {
-            if (window.confirm('Are you sure you want to stop the session?')) {
-              stopBtn.click();
-            }
-          }
-        }
-        break;
-    }
-  });
+  // Keyboard shortcuts removed (v7.90.1): app-level hotkeys fired while
+  // typing in inputs (switching tabs / toggling theme), so they are gone
+  // entirely. Native browser behavior + per-modal Escape handling remain.
 
   // Restore last section from localStorage (overrides default overview)
   var savedSection = localStorage.getItem('loki-active-section');

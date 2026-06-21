@@ -9,6 +9,229 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.90.2] - 2026-06-20
+
+### Cleanup: remove dead keyboard-shortcut and theme-toggle markup
+
+Follow-up to v7.90.1. The keyboard-shortcut help overlay markup + CSS and the
+theme-toggle CSS rule were left behind when those features were removed; they were
+never shown and never referenced. Deleted them so the dashboard carries no dead
+shortcut/theme code. No user-visible change.
+
+## [7.90.1] - 2026-06-20
+
+### Dashboard polish: a calmer, more readable live view
+
+Fixes from watching the live dashboard during a real build, all aimed at a
+cleaner experience for whoever is watching:
+
+- Markdown is now rendered as a formatted preview, not raw text. The Spec panel
+  (your generated spec), the wiki sections, the How-to-Run / USAGE view, task
+  descriptions, and handoff/escalation notes now show headings, lists, bold, and
+  code blocks instead of literal #, **, and ``` markers. The renderer escapes its
+  input first, so a spec or wiki body can never inject script.
+- The model picker no longer slams shut. A background refresh used to re-render
+  the dropdown out from under you mid-selection; it now stays open while you
+  choose.
+- Keyboard shortcuts are removed. Typing in any text box used to trigger
+  app actions (switching tabs, toggling the theme); the dashboard no longer binds
+  app-level hotkeys, so typing only types.
+- Dark mode is removed; the dashboard is light-only. The previous dark palette
+  looked worse and an OS dark preference no longer flips it.
+- The dashboard no longer lingers after you stop your last run. When you press
+  Stop and no other run is active, a dashboard that was auto-started with a run
+  shuts itself down; a dashboard you started yourself with `loki dashboard` stays
+  up and shows a clear "no active runs" note. It never tears down a dashboard that
+  other running projects still need.
+
+## [7.90.0] - 2026-06-20
+
+### Proven PR: every PR Loki opens carries its own re-verifiable proof
+
+When Loki opens a pull request, the PR body now includes an Evidence Receipt
+summary so a reviewer does not have to take the agent on faith. The block shows
+the honest verdict (VERIFIED / VERIFIED WITH GAPS / NOT VERIFIED), the key facts
+(diff hash, tests, secure-gate result, cost), and a "verify this yourself" line:
+`loki proof verify <id>` against the recorded base SHA. The receipt is rendered
+by a single shared helper so every PR path Loki uses carries it consistently.
+
+- Honest by construction: a green/VERIFIED claim appears only when the receipt's
+  own headline is VERIFIED. The renderer never recomputes a verdict and never
+  puts raw local state into a public PR body (it reads the redacted receipt).
+- On by default when Loki opens or advises a PR; opt out with LOKI_PROVEN_PR=0.
+  If a PR is already open, Loki leaves its body untouched and just logs a hint.
+- Optional advisory status check (`loki: verified-completion`) maps the headline
+  to a check-run conclusion. It is OPT-IN (LOKI_PROVEN_PR_CHECK) and can never
+  block a merge -- only the repo owner can require it as a branch-protection
+  check. To make verified-completion blocking, add it as a required status check
+  on your repo.
+- The "verify yourself" command works on the default route, not just the legacy
+  bash route (parity-tested), and resolves correctly in the installed package
+  layout.
+
+The dashboard proofs panel now links each proof to its PR and headline.
+
+## [7.89.1] - 2026-06-20
+
+### Plainer language in the live dashboard
+
+A copy pass so a non-technical user watching a build sees plain language instead
+of internal jargon. Empty and loading states across the activity, cost, memory,
+provider-health, quality-gates, timeline, and escalations panels now describe what
+is happening in product terms (e.g. "Each step fills in as your build progresses"
+instead of "RARV phases will populate"). No behavior change.
+
+## [7.89.0] - 2026-06-20
+
+### Live dashboard + wiki: a polished experience while you watch a build
+
+A pass over what a user actually sees while Loki works, found by watching real
+builds:
+
+- The dashboard no longer floods the network tab. Polling is now visibility- and
+  active-view-aware: a hidden tab and background views stop polling, and the heavy
+  logs endpoint only refetches when it changed, cutting steady-state requests
+  dramatically.
+- The Architecture and Data Flow wiki tabs now render a real Mermaid diagram (a
+  visual, not just prose), generated from the codebase and themed to match the
+  dashboard. Mermaid is vendored locally (offline / air-gapped safe), sandboxed
+  against injection, and degrades gracefully to the diagram source if rendering
+  fails.
+- The wiki regenerates automatically after each build iteration (no manual
+  `loki wiki generate`), so the overview / architecture / modules / data-flow and
+  the diagram stay current. It is incremental (only when the codebase changed),
+  default-on, opt out with LOKI_WIKI_AUTO=0.
+- Wiki tabs no longer hang on "Loading section..." on first click (a first-load
+  race); they now resolve to content, an honest empty state, or a real error.
+- The per-iteration task card describes the real work in plain language (e.g.
+  "Analyzing the codebase and generating a spec") instead of the generic
+  "Iteration 1 / RARV iteration" placeholder with phase-name boilerplate.
+- A new spec panel shows what Loki is building from (PRD / GitHub issue /
+  one-line brief / codebase analysis), plus a history of past specs for the repo.
+
+### Telemetry: on by default for individuals, off for enterprise/CI/air-gapped
+
+Anonymous diagnostics now default ON for an ordinary individual install (to find
+and fix bugs), and AUTO-OFF in enterprise, CI, air-gapped, and non-interactive
+contexts, so those deployments stay silent out of the box with no action required.
+Only anonymous diagnostics are ever sent (os, arch, version, error type, sanitized
+stack signatures) -- never code, prompts, paths, keys, or repo names. Disclosure is
+shown once (welcome screen + a one-line notice before the first send) and
+documented in docs/PRIVACY.md, so it is never covert. Opt out anytime with
+`loki telemetry off` / `DO_NOT_TRACK=1` (always wins); force on with
+`loki telemetry on`. The verbose per-run disclosure block was removed.
+
+### Fixes found by a real end-to-end run
+
+A real `loki start` build (haiku, not fixtures) surfaced a batch of issues across
+the trust + first-run surfaces. All are fixed here:
+
+- `loki proof verify <id>` now works on the default route. The finish-and-own
+  handoff (`loki own`) tells you to run exactly this command to re-check that a
+  receipt still matches your code, but on the default (Bun) route it returned
+  "Unknown subcommand" -- only the legacy bash route had it. It now shells to the
+  same verifier on both routes, byte-for-byte identical (clean = exit 0,
+  tamper/drift = 1). `loki receipt` is a working alias for `loki proof`.
+- `loki own` and the generated HANDOFF.md no longer render broken nested code
+  fences. The run/verify commands quoted from USAGE.md are wrapped exactly once.
+- `loki proof list` shows the honest verdict (VERIFIED / VERIFIED WITH GAPS /
+  NOT VERIFIED) in the VERDICT column instead of a blank, and proof.json records
+  the real Loki version instead of "unknown".
+- In-build app testing now runs with an isolated HOME/XDG/TMPDIR, so a generated
+  app can no longer write into your real home directory during the build.
+- Zero-config / one-line-brief runs can now complete cleanly: the assumption
+  ledger gate is advisory in brief mode (assumptions are still recorded and
+  surfaced in the receipt + `loki own`, never silently dropped).
+- Generated documentation scales to project size: a simple build gets a minimal
+  doc set instead of a full nine-file architecture suite.
+- The quality gate no longer passes a build as "tested" when no tests actually
+  ran; simple projects get real test execution or an honestly recorded gap.
+- `loki web` (deprecated) now launches the real dashboard instead of the old
+  Purple Lab dead end. `loki version` shows a one-line hint when a newer release
+  is available (cached, opt-out, silent in CI).
+
+### Telemetry: on by default for individuals, off for enterprise/CI/air-gapped
+
+Anonymous diagnostics now default ON for an ordinary individual install (to
+actually find and fix bugs), and AUTO-OFF in enterprise, CI, and air-gapped or
+non-interactive contexts, so those deployments stay silent out of the box with no
+action required. Only anonymous diagnostics are ever sent (os, arch, version,
+error type, sanitized stack signatures) -- never code, prompts, paths, keys, or
+repo names. Disclosure is shown once on the welcome screen (never covert) and
+documented in docs/PRIVACY.md. Opt out anytime with `loki telemetry off` /
+`DO_NOT_TRACK=1` (always wins); force on with `loki telemetry on`. The verbose
+per-run disclosure block was removed to keep logs clean.
+
+## [7.88.0] - 2026-06-20
+
+### Finish and own: a plain-English handoff for whoever owns the result
+
+Loki has always produced a developer-oriented handoff. This adds a plain-English
+ownership handoff for a non-technical owner -- a founder or PM who needs to
+understand what was built and how to run it without reading the code.
+
+- loki own (alias: loki handoff) prints, in plain language: what you have now
+  (restated from your brief), whether Loki verified it works, how to run it on
+  your computer, how to put it online, what a developer needs to know, and what
+  is left to do or decide. loki own --md writes HANDOFF.md to the project root;
+  --json emits the structured form.
+- A build also writes HANDOFF.md at the end (default-on, opt out with
+  LOKI_HANDOFF=0), so the ownership doc is there without running a command.
+- It is a pure render over data Loki already captured -- the Evidence Receipt,
+  the completion summary, and USAGE.md -- so it cannot fabricate. The "is it
+  working?" verdict is the receipt's honest headline verbatim: it never says the
+  work is ready unless the receipt is VERIFIED, and it lists what was not
+  verified, what was not deployed, and what you still need to decide.
+
+About 13 tests lock the honesty guarantees (a not-verified build can never render
+a green "it works" claim; the doc introduces no feature beyond your brief).
+
+## [7.87.0] - 2026-06-20
+
+### Secure-by-default gate (advisory by default)
+
+A new gate scans the built code for a small set of high-precision, high-severity
+security mistakes -- the ones that sink AI-built apps -- and records the result in
+the Evidence Receipt. It is advisory by default (it never blocks an existing
+build); set LOKI_SECURE_GATE=block to make un-waived HIGH findings stop completion.
+
+- Five rules, chosen for near-zero false positives (each one fires on the real
+  bad pattern but not the safe equivalent): a committed private key, a real secret
+  in a browser-shipped file, a literally world-open datastore rule, debug mode
+  left on in a production config, and an any-origin CORS policy combined with
+  credentials. Each finding names the file and how to fix it.
+- In the Evidence Receipt: the scan is a deterministic FACT. An un-waived HIGH
+  finding makes the receipt read NOT VERIFIED -- a build that ships a known-bad
+  pattern can never read green. Waived findings are recorded (accepted with
+  intent), never hidden.
+- Waivers: loki secure list | waive <rule> <file> [reason] | unwaive. A waiver is
+  honored by the gate and shown in the receipt.
+
+Honest scope: the gate proves specific known-bad patterns are ABSENT; it does not
+claim the app is "secure". Deeper checks (auth/route analysis) are roadmap. About
+24 new tests lock the bad/safe precision matrix and the receipt behavior.
+
+## [7.86.0] - 2026-06-20
+
+### The trust story, made visible (honestly)
+
+The Evidence Receipt shipped in v7.85.0; this release surfaces it so a reader can
+see the trust differentiator without digging, and re-verify any of it themselves.
+
+- Honest verified-counter: a new GET /api/proofs/summary aggregates the project's
+  Evidence Receipts into {total, verified, with_gaps, not_verified, unknown},
+  computed ONLY from the deterministic honesty headline. A v1.0 receipt with no
+  headline is counted as unknown, never as verified. Empty means zero, shown
+  honestly. The dashboard shows a small header badge from this (and nothing when
+  there are no receipts) -- it reflects real receipts, never an invented number.
+- Positioning: README and SKILL now describe the trust layer plainly -- Loki does
+  not call work done until it is verified, and every build produces an Evidence
+  Receipt you can re-check with loki proof verify. The claim is specific and
+  true (honesty-of-done, independently re-verifiable); it does not claim the
+  generated code is bug-free.
+
+No new product capability beyond v7.85.0 -- this makes the existing one legible.
+
 ## [7.85.0] - 2026-06-20
 
 ### Evidence Receipt: verify it yourself, Loki never lies about done

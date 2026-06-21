@@ -10,6 +10,7 @@
 
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
+import { registerPoll } from '../core/loki-poll-registry.js';
 
 const STATUS_CONFIG = {
   not_initialized: { color: 'var(--loki-text-muted, #71717a)', label: 'Not Started', pulse: false },
@@ -75,31 +76,22 @@ export class LokiAppStatus extends LokiElement {
   }
 
   _startPolling() {
-    this._pollInterval = setInterval(() => this._loadData(), 3000);
-    this._visibilityHandler = () => {
-      if (document.hidden) {
-        if (this._pollInterval) {
-          clearInterval(this._pollInterval);
-          this._pollInterval = null;
-        }
-      } else {
-        if (!this._pollInterval) {
-          this._loadData();
-          this._pollInterval = setInterval(() => this._loadData(), 3000);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', this._visibilityHandler);
+    // Central registry (core/loki-poll-registry.js) gates this poll to the
+    // active + visible section in ONE place, replacing the per-component
+    // visibilitychange handler. connectedCallback already did the first load,
+    // so immediate is disabled to avoid a duplicate fetch.
+    this._poll = registerPoll({
+      loadFn: () => this._loadData(),
+      intervalMs: 3000,
+      element: this,
+      immediate: false,
+    });
   }
 
   _stopPolling() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-      this._pollInterval = null;
-    }
-    if (this._visibilityHandler) {
-      document.removeEventListener('visibilitychange', this._visibilityHandler);
-      this._visibilityHandler = null;
+    if (this._poll) {
+      this._poll.stop();
+      this._poll = null;
     }
   }
 
@@ -393,7 +385,7 @@ export class LokiAppStatus extends LokiElement {
       <div class="app-status">
         <div class="header">
           <div class="header-left">
-            <h2 class="title">App Runner</h2>
+            <h2 class="title">App Status</h2>
             ${this._renderStatusBadge(st)}
           </div>
           ${isActive ? this._renderActions(st) : ''}
@@ -499,8 +491,8 @@ export class LokiAppStatus extends LokiElement {
   _renderEmpty() {
     return `
       <div class="empty-state">
-        <p>App runner not started</p>
-        <p class="hint">App runner will start after the first successful build iteration.</p>
+        <p>App not running yet</p>
+        <p class="hint">Your app will start automatically after the first successful build step.</p>
       </div>
     `;
   }

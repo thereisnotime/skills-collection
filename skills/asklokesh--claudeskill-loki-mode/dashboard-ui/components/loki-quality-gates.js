@@ -9,6 +9,7 @@
 
 import { LokiElement } from '../core/loki-theme.js';
 import { getApiClient } from '../core/loki-api-client.js';
+import { registerPoll } from '../core/loki-poll-registry.js';
 
 /** @type {Object<string, {color: string, bg: string, label: string}>} */
 const GATE_STATUS_CONFIG = {
@@ -106,31 +107,22 @@ export class LokiQualityGates extends LokiElement {
   }
 
   _startPolling() {
-    this._pollInterval = setInterval(() => this._loadData(), 30000);
-    this._visibilityHandler = () => {
-      if (document.hidden) {
-        if (this._pollInterval) {
-          clearInterval(this._pollInterval);
-          this._pollInterval = null;
-        }
-      } else {
-        if (!this._pollInterval) {
-          this._loadData();
-          this._pollInterval = setInterval(() => this._loadData(), 30000);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', this._visibilityHandler);
+    // Central registry (core/loki-poll-registry.js) gates this poll to the
+    // active + visible section in ONE place, replacing the per-component
+    // visibilitychange handler. connectedCallback already did the first load,
+    // so immediate is disabled to avoid a duplicate fetch.
+    this._poll = registerPoll({
+      loadFn: () => this._loadData(),
+      intervalMs: 30000,
+      element: this,
+      immediate: false,
+    });
   }
 
   _stopPolling() {
-    if (this._pollInterval) {
-      clearInterval(this._pollInterval);
-      this._pollInterval = null;
-    }
-    if (this._visibilityHandler) {
-      document.removeEventListener('visibilitychange', this._visibilityHandler);
-      this._visibilityHandler = null;
+    if (this._poll) {
+      this._poll.stop();
+      this._poll = null;
     }
   }
 
@@ -469,7 +461,7 @@ export class LokiQualityGates extends LokiElement {
         <div class="es">
           <div class="es-icon">${gateIcon}</div>
           <div class="es-title">No gate results yet</div>
-          <div class="es-desc">Quality gates run automatically between RARV iterations during a session. Run a scan now, or start a session with <code>loki start ./prd.md</code>.</div>
+          <div class="es-desc">Quality gates run automatically during each build step. Run a scan now, or start a session with <code>loki start ./prd.md</code>.</div>
           <button class="es-cta" id="gates-scan-btn" ${this._scanning ? 'disabled' : ''}>
             ${this._scanning ? '<span class="es-spinner"></span> Scanning...' : 'Run quality scan'}
           </button>

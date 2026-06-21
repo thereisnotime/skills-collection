@@ -169,5 +169,94 @@ class ProofsRoutesTests(unittest.TestCase):
         self.assertNotIn("root:", resp.text)
 
 
+class ProofsSummaryTests(unittest.TestCase):
+    """GET /api/proofs/summary -- honest aggregate over real receipts only."""
+
+    def _client(self):
+        from dashboard.server import app
+        from fastapi.testclient import TestClient
+        return TestClient(app, raise_server_exceptions=False)
+
+    def _write_proof(self, base: Path, run_id: str, headline):
+        """Write a proof.json under base/proofs/<run_id>/.
+
+        headline=None writes a schema v1.0 proof with NO honesty block (the
+        "unknown" bucket). Otherwise writes a v1.1 proof with the given
+        deterministic honesty.headline.
+        """
+        run_dir = base / "proofs" / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        if headline is None:
+            proof = {"schema_version": "1.0", "run_id": run_id}
+        else:
+            proof = {
+                "schema_version": "1.1",
+                "run_id": run_id,
+                "honesty": {"headline": headline, "degraded": []},
+            }
+        with open(run_dir / "proof.json", "w", encoding="utf-8") as f:
+            json.dump(proof, f)
+
+    def test_summary_all_zeros_when_no_proofs(self):
+        empty = tempfile.mkdtemp(prefix="loki-proofs-sum-empty-")
+        try:
+            with _ForceLokiDir(empty):
+                resp = self._client().get("/api/proofs/summary")
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.json(), {
+                "total_receipts": 0, "verified": 0, "with_gaps": 0,
+                "not_verified": 0, "unknown": 0,
+            })
+        finally:
+            shutil.rmtree(empty, ignore_errors=True)
+
+    def test_summary_counts_each_bucket_honestly(self):
+        tmp = tempfile.mkdtemp(prefix="loki-proofs-sum-")
+        try:
+            base = Path(tmp)
+            self._write_proof(base, "20260601T000000Z-aaa", "VERIFIED")
+            self._write_proof(base, "20260601T000001Z-bbb", "NOT VERIFIED")
+            self._write_proof(base, "20260601T000002Z-ccc", None)  # v1.0
+            with _ForceLokiDir(tmp):
+                resp = self._client().get("/api/proofs/summary")
+            self.assertEqual(resp.status_code, 200)
+            body = resp.json()
+            # HONEST: a v1.0 proof is NOT counted as verified -- it is unknown.
+            self.assertEqual(body, {
+                "total_receipts": 3, "verified": 1, "with_gaps": 0,
+                "not_verified": 1, "unknown": 1,
+            })
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_summary_counts_with_gaps_bucket(self):
+        tmp = tempfile.mkdtemp(prefix="loki-proofs-sum-gaps-")
+        try:
+            base = Path(tmp)
+            self._write_proof(base, "20260601T000000Z-aaa", "VERIFIED WITH GAPS")
+            with _ForceLokiDir(tmp):
+                resp = self._client().get("/api/proofs/summary")
+            self.assertEqual(resp.status_code, 200)
+            body = resp.json()
+            self.assertEqual(body["with_gaps"], 1)
+            self.assertEqual(body["verified"], 0)
+            self.assertEqual(body["total_receipts"], 1)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_summary_does_not_collide_with_run_id_route(self):
+        # /api/proofs/summary must resolve to the aggregate, never be captured
+        # as a run_id by GET /api/proofs/{run_id} (route ordering guard).
+        tmp = tempfile.mkdtemp(prefix="loki-proofs-sum-order-")
+        try:
+            self._write_proof(Path(tmp), "20260601T000000Z-aaa", "VERIFIED")
+            with _ForceLokiDir(tmp):
+                resp = self._client().get("/api/proofs/summary")
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("total_receipts", resp.json())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     unittest.main()

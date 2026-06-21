@@ -45,6 +45,97 @@ _The free, source-available autonomous coding agent by [Autonomi](https://www.au
 
 ---
 
+## Loki does not lie about "done"
+
+Most coding agents declare a task done by telling you so in a transcript. The
+transcript is the agent's own narration; there is nothing to check. Loki Mode
+takes a different stance: it does not call work done until the work is verified,
+and every build produces an **Evidence Receipt** you can re-verify yourself.
+
+The receipt separates two things most tools blur together:
+
+- **Facts** -- deterministic, non-LLM, and re-derivable by anyone: the git diff
+  (base/head SHAs, file/insertion/deletion counts, a `diff_sha256`), the test
+  command that ran with its exit code, the build command with its exit code, and
+  each quality-gate verdict. A skeptic can recompute every one of these from the
+  same repo state.
+- **Assessments** -- AI judgments such as the review council's verdict. These are
+  labeled explicitly as judgment, not proof, and never make the headline green on
+  their own.
+
+The receipt's headline is computed only from the facts:
+
+- **VERIFIED** -- tests recorded a real command, ran, and exited 0; the diff is
+  non-empty; nothing was skipped.
+- **VERIFIED WITH GAPS** -- some facts checked out, but something was not run or
+  was inconclusive. Every gap is listed by name, so silence never reads as a pass.
+- **NOT VERIFIED** -- a test, build, or gate ran and failed (or there was nothing
+  to verify).
+
+This is honesty-of-done, not a claim of perfection. The receipt proves the
+completion claim is backed by deterministic evidence and is independently
+re-checkable; it does not claim the generated code is bug-free.
+
+### Verify it yourself
+
+Receipts are written to `.loki/proofs/<run_id>/` automatically at run completion
+(opt out with `LOKI_PROOF=0`). Inspect and re-check them with `loki proof`
+(aliased as `loki receipt`):
+
+```bash
+loki proof list              # every receipt: run id, time, council verdict, cost, files
+loki proof show <id>         # the full proof.json (facts, assessments, honesty)
+loki proof verify <id>       # re-check the receipt against the repo (exit 0 clean, 1 tamper/drift)
+```
+
+`loki proof verify` does two independent checks and prints the result as JSON:
+
+- **Tamper check** -- recomputes the receipt's integrity hash and compares it to
+  the recorded one. If anyone edited the receipt after it was written, `hash_ok`
+  is `false`.
+- **Drift check** -- re-runs the diff from the recorded base SHA against the
+  current repo and compares the file/insertion/deletion counts and `diff_sha256`
+  to what the receipt recorded. If the repo no longer matches, `diff_drift` is
+  `true`.
+
+A clean receipt prints `"ok": true` and exits 0. A tampered or drifted receipt
+exits 1. When a check cannot run (for example a receipt with no recorded base
+SHA), the verifier reports it as unverifiable rather than passing it silently.
+
+```json
+{
+  "hash_ok": true,
+  "diff_drift": false,
+  "gpg_ok": "n/a",
+  "degraded": [],
+  "reason": "",
+  "ok": true
+}
+```
+
+You can share a receipt as a self-contained HTML page (`loki proof open <id>`),
+or publish it as a GitHub Gist with `loki proof share <id>` (opt-in; the page is
+redacted before it leaves your machine). An optional, off-by-default GPG detached
+signature (`LOKI_PROOF_GPG_KEY`) lets a third party confirm the receipt came from
+you.
+
+### Proven PR
+
+When Loki opens a pull request, the PR body includes the Evidence Receipt
+summary, so a reviewer does not have to take the agent on faith. It shows the
+honest verdict (VERIFIED / VERIFIED WITH GAPS / NOT VERIFIED), the key facts
+(diff hash, tests, secure-gate, cost), and a "verify this yourself" line:
+`loki proof verify <id>` against the recorded base SHA. A green claim appears
+only when the receipt's own headline is VERIFIED. This is on by default whenever
+Loki opens or advises a PR; opt out with `LOKI_PROVEN_PR=0`.
+
+An optional advisory status check (`loki: verified-completion`) maps the verdict
+to a GitHub check-run. It is opt-in (`LOKI_PROVEN_PR_CHECK=1`) and can never block
+a merge on its own. To make verified-completion blocking, add it as a required
+status check in your repository's branch-protection settings.
+
+---
+
 ## Get Started in 30 Seconds
 
 ```bash

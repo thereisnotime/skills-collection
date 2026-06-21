@@ -3325,12 +3325,14 @@ async def stop_running_project(request: Request, body: RunningProjectStopRequest
             except OSError:
                 pass
         registry.mark_project_stopped(project_id)
-        return {
+        _resp = {
             "success": True,
             "project_id": project_id,
             "stopped": stop_signaled,
             "already_stopped": not stop_signaled,
         }
+        _resp.update(_dashboard_teardown_after_project_stop(path))
+        return _resp
 
     # Write the STOP file so the runner's own cleanup STOP-branch fires for a
     # clean teardown. Only into the registry-resolved .loki dir.
@@ -3392,12 +3394,14 @@ async def stop_running_project(request: Request, body: RunningProjectStopRequest
 
     registry.mark_project_stopped(project_id)
 
-    return {
+    _resp = {
         "success": True,
         "project_id": project_id,
         "stopped": stopped,
         "already_stopped": False,
     }
+    _resp.update(_dashboard_teardown_after_project_stop(path))
+    return _resp
 
 
 def _recover_spec_source(path: str) -> Optional[_Path]:
@@ -4057,6 +4061,17 @@ def get_compliance_status(request: Request, report_type: str = Query("soc2", ali
 # When set, _get_loki_dir() resolves .loki/ relative to this path instead of CWD.
 _active_project_dir: Optional[str] = None
 
+# M4 (v7.90.1): was this dashboard auto-started by a run (`loki start` ->
+# run.sh start_dashboard), or started deliberately by the user
+# (`loki dashboard start`)? Captured ONCE at import from the environment marker
+# that ONLY the auto-start path sets. Used to decide whether the dashboard may
+# shut ITSELF down after its Stop button stops the last active run: an
+# auto-started dashboard self-exits (it came up with the run, so it should go
+# down with the last run), while a user-started dashboard is left up and only
+# surfaces a non-destructive notice. Frozen at startup so a later child process
+# inheriting/clearing the var cannot flip the decision.
+_DASHBOARD_AUTOSTARTED: bool = os.environ.get("LOKI_DASHBOARD_AUTOSTARTED") == "1"
+
 
 def _get_loki_dir() -> _Path:
     """Get LOKI_DIR, refreshing from env on each call for consistency.
@@ -4362,6 +4377,126 @@ def _reap_orchestrators_until_clear(project_dir: _Path, expected_cwd: str,
             _time.sleep(0.2)  # brief pause before the confirming re-scan
     # Exhausted rounds: report gone only if the final scan is empty.
     return (found_any, not _find_orchestrator_pids_for_dir(project_dir))
+
+
+def _other_runs_alive(exclude_path: Optional[str] = None) -> bool:
+    """True if ANY registered project OTHER than exclude_path still has a live
+    orchestrator pid. Mirrors run.sh's CLEAR/KEEP check (and cmd_stop's): a
+    project counts as alive only when its recorded pid is still running. The
+    just-stopped project must already be marked stopped in the registry (its pid
+    set to None by mark_project_stopped) before this is called, so it is not
+    self-counted; exclude_path is an extra belt-and-suspenders guard by realpath.
+    Best-effort: any registry/probe error degrades to True (KEEP) so we NEVER
+    tear the dashboard down on uncertain information.
+    """
+    try:
+        exclude_real = None
+        if exclude_path:
+            try:
+                exclude_real = os.path.realpath(exclude_path)
+            except OSError:
+                exclude_real = os.path.abspath(exclude_path)
+        for p in registry.list_projects(include_inactive=True):
+            path = p.get("path", "")
+            if exclude_real and path:
+                try:
+                    if os.path.realpath(path) == exclude_real:
+                        continue
+                except OSError:
+                    if os.path.abspath(path) == exclude_real:
+                        continue
+            pid = p.get("pid")
+            if isinstance(pid, int) and pid > 0 and not _pid_is_gone(pid):
+                return True
+        return False
+    except Exception:
+        # Unknown -> assume something is still running so we never wrongly kill
+        # the dashboard.
+        return True
+
+
+def _self_shutdown_after_response(delay_s: float = 1.0) -> None:
+    """Gracefully shut THIS dashboard server down shortly after the current HTTP
+    response has been sent. Used only after the dashboard's own Stop button stops
+    the LAST active run and only when this dashboard was auto-started (M4).
+
+    Why a delayed background thread (not an inline exit): the Stop request is
+    still in flight when this is decided. We must let FastAPI/uvicorn finish
+    writing the response (so the UI gets its JSON) before the process goes away.
+    A short-delay daemon thread sends SIGTERM to our OWN pid, which uvicorn
+    handles as a graceful shutdown (runs the lifespan teardown). This sidesteps
+    the fragile path where the dashboard relied on the orchestrator's cleanup
+    trap to kill it -- a path that a SIGKILL of the orchestrator (after the 5s
+    window) or a uvicorn graceful-shutdown deadlock could bypass, leaving the
+    dashboard lingering (the reported M4 bug). Best-effort; never raises into
+    the request.
+    """
+    import signal as _signal
+
+    def _kill_self() -> None:
+        try:
+            time.sleep(max(0.0, delay_s))
+        except Exception:
+            pass
+        try:
+            logger.info(
+                "Auto-started dashboard: last active run stopped and no other "
+                "run is alive; shutting self down (pid=%s).", os.getpid())
+        except Exception:
+            pass
+        try:
+            os.kill(os.getpid(), _signal.SIGTERM)
+        except OSError:
+            # Last resort: hard-exit this process only (never touches others).
+            os._exit(0)
+
+    try:
+        threading.Thread(target=_kill_self, name="loki-dash-selfstop",
+                         daemon=True).start()
+    except Exception:
+        # If we cannot even spawn the thread, do nothing: a lingering dashboard
+        # is strictly safer than any broader action.
+        pass
+
+
+def _dashboard_teardown_after_project_stop(stopped_path: Optional[str]) -> dict:
+    """Decide what happens to THIS dashboard after a per-project Stop, and return
+    fields to merge into the Stop response (M4).
+
+    Rules (conservative; never touches any process but this server's own):
+      - If another registered run is still alive -> KEEP: do nothing, the
+        dashboard stays up because other projects still need it.
+      - If no other run is alive (CLEAR) and this dashboard was AUTO-STARTED by a
+        run -> schedule a graceful self-shutdown after the response is sent. It
+        came up with a run, so it goes down with the last run.
+      - If CLEAR but the dashboard was started DELIBERATELY by the user
+        (`loki dashboard start`) -> do NOT self-kill; return a non-destructive
+        notice so the UI can tell the user how to stop it (loki dashboard stop).
+
+    Returns one of:
+      {"dashboard": "kept"}                              # other runs alive
+      {"dashboard": "stopping", ...}                     # auto-started + CLEAR
+      {"dashboard": "idle", "notice": "...", ...}        # user-started + CLEAR
+    """
+    try:
+        if _other_runs_alive(exclude_path=stopped_path):
+            return {"dashboard": "kept"}
+        if _DASHBOARD_AUTOSTARTED:
+            _self_shutdown_after_response()
+            return {
+                "dashboard": "stopping",
+                "dashboard_autostarted": True,
+            }
+        return {
+            "dashboard": "idle",
+            "dashboard_autostarted": False,
+            "notice": ("No active runs. This dashboard was started manually; "
+                       "stop it with: loki dashboard stop"),
+        }
+    except Exception:
+        # Any failure in the decision must never break the Stop response, and
+        # must never kill the dashboard on uncertain info.
+        return {"dashboard": "kept"}
 
 
 def _pid_is_gone(pid: int) -> bool:
@@ -10078,6 +10213,25 @@ def _safe_proof_run_dir(run_id: str) -> _Path:
     return _Path(target)
 
 
+def _proof_pr_url(run_dir: _Path) -> Optional[str]:
+    """Return the PR URL linked to this run, or None.
+
+    Reads the optional <run_dir>/pr.json that the run.sh auto-PR path writes at
+    PR-creation time ({"run_id": "...", "pr_url": "..."}). The file is read only
+    inside the already-validated run dir (the caller passes either an iterdir()
+    entry or a _safe_proof_run_dir result -- never a raw run_id), so there is no
+    additional traversal surface. Missing/unreadable/non-dict pr.json or an
+    empty/non-string pr_url -> None, never an error. Most proofs have no PR.
+    """
+    pr_data = _safe_json_read(run_dir / "pr.json", default=None)
+    if not isinstance(pr_data, dict):
+        return None
+    url = pr_data.get("pr_url")
+    if isinstance(url, str) and url:
+        return url
+    return None
+
+
 @app.get("/api/proofs", dependencies=[Depends(auth.require_scope("read"))])
 async def list_proofs():
     """List proof-of-run artifacts for the active project's .loki/proofs/."""
@@ -10096,6 +10250,11 @@ async def list_proofs():
         data = _safe_json_read(proof_json, default=None)
         if not isinstance(data, dict):
             continue
+        # Deterministic honesty headline (single source of truth, same access as
+        # proofs_summary's bucketing). Read, never recomputed. The list endpoint
+        # surfaces it so the panel can show the verdict without a second fetch.
+        honesty = data.get("honesty")
+        headline = honesty.get("headline") if isinstance(honesty, dict) else None
         items.append({
             "run_id": data.get("run_id", entry.name),
             "generated_at": data.get("generated_at"),
@@ -10103,11 +10262,69 @@ async def list_proofs():
             "cost_usd": (data.get("cost") or {}).get("usd"),
             "files_changed": (data.get("files_changed") or {}).get("count"),
             "final_verdict": (data.get("council") or {}).get("final_verdict"),
+            "headline": headline,
+            "pr_url": _proof_pr_url(entry),
             "has_html": (entry / "index.html").is_file(),
         })
     # Newest first when generated_at is present.
     items.sort(key=lambda x: (x.get("generated_at") or ""), reverse=True)
     return {"proofs": items}
+
+
+@app.get("/api/proofs/summary",
+         dependencies=[Depends(auth.require_scope("read"))])
+async def proofs_summary():
+    """Honest aggregate over the active project's Evidence Receipts.
+
+    Counts are computed ONLY from real proof.json files; nothing is invented.
+    The single source of truth for "verified" is the v1.1 deterministic
+    honesty.headline (proof-generator.py::_compute_headline), which a forger
+    cannot turn green without real exit_code:0 evidence. Buckets:
+
+      verified      -> honesty.headline == "VERIFIED"
+      with_gaps     -> honesty.headline == "VERIFIED WITH GAPS"
+      not_verified  -> honesty.headline == "NOT VERIFIED"
+      unknown       -> no honesty block (schema v1.0 proofs) or any other/
+                       missing headline. We refuse to count these as verified
+                       because we cannot prove they were.
+
+    Empty or missing proofs dir -> all zeros (200), an honest empty state.
+    Mirrors list_proofs' iteration + _safe_json_read so the counts can never
+    drift from what the list endpoint shows.
+    """
+    proofs_dir = _proofs_dir()
+    total = verified = with_gaps = not_verified = unknown = 0
+    try:
+        entries = sorted(proofs_dir.iterdir())
+    except (OSError, FileNotFoundError):
+        entries = []
+    for entry in entries:
+        if not entry.is_dir():
+            continue
+        proof_json = entry / "proof.json"
+        if not proof_json.is_file():
+            continue
+        data = _safe_json_read(proof_json, default=None)
+        if not isinstance(data, dict):
+            continue
+        total += 1
+        honesty = data.get("honesty")
+        headline = honesty.get("headline") if isinstance(honesty, dict) else None
+        if headline == "VERIFIED":
+            verified += 1
+        elif headline == "VERIFIED WITH GAPS":
+            with_gaps += 1
+        elif headline == "NOT VERIFIED":
+            not_verified += 1
+        else:
+            unknown += 1
+    return {
+        "total_receipts": total,
+        "verified": verified,
+        "with_gaps": with_gaps,
+        "not_verified": not_verified,
+        "unknown": unknown,
+    }
 
 
 @app.get("/api/proofs/{run_id}", dependencies=[Depends(auth.require_scope("read"))])
@@ -10120,6 +10337,10 @@ async def get_proof(run_id: str):
     data = _safe_json_read(proof_json, default=None)
     if not isinstance(data, dict):
         raise HTTPException(status_code=500, detail="proof.json unreadable")
+    # Surface the optional PR linkage alongside the proof. The proof.json itself
+    # already carries honesty.headline; we only add pr_url so the panel can show
+    # "PR #N -> <headline>". Absent pr.json -> pr_url null, never an error.
+    data["pr_url"] = _proof_pr_url(run_dir)
     return JSONResponse(content=data)
 
 
@@ -10132,6 +10353,219 @@ async def get_proof_html(run_id: str):
         raise HTTPException(status_code=404,
                             detail=f"proof page not found: {run_id}")
     return FileResponse(str(index_html), media_type="text/html")
+
+
+# ---------------------------------------------------------------------------
+# Active spec + spec history.
+#
+# Gives the dashboard honest visibility into WHAT Loki is building from. The
+# resolution order mirrors proof-generator.py::_collect_spec so the panel and
+# the Evidence Receipt can never disagree about the spec source:
+#   1. PRD file  -> session.json prdPath (only when the file still exists)
+#   2. one-line brief -> .loki/state/brief.txt
+#   3. generated PRD  -> .loki/generated-prd.md
+#   4. no spec        -> codebase-analysis
+# Issue mode is detected from the latest proof.json's spec.source (a GitHub
+# issue URL): issue runs re-dispatch through cmd_run, which synthesizes a PRD,
+# so at runtime they look like a generated-prd; the proof carries the real
+# issue ref. We never fabricate a type -- when nothing is resolvable we say so.
+#
+# History is derived from the proofs the Evidence Receipt already writes
+# (.loki/proofs/<run_id>/proof.json), newest-first. No new store is invented.
+# ---------------------------------------------------------------------------
+# Cap on the spec body returned to the dashboard so a huge PRD cannot bloat the
+# payload. The panel shows a preview; the full file lives on disk.
+_SPEC_CONTENT_CAP = 20000
+# Issue URLs (mirrors autonomy/loki's issue-mode detection regex). Matches a
+# tracker host followed somewhere by an /issue(s)/ path or a Jira /browse/ key.
+_ISSUE_URL_RE = re.compile(
+    r"(github\.com|gitlab\.com|atlassian\.net|dev\.azure\.com|"
+    r"visualstudio\.com)/.*\b(issues?|browse)/", re.IGNORECASE)
+
+
+def _spec_source_is_issue(source: str) -> bool:
+    """True when a proof spec.source string is a tracker issue reference."""
+    if not source:
+        return False
+    return bool(_ISSUE_URL_RE.search(source))
+
+
+def _latest_proof(proofs_dir: _Path) -> Optional[dict]:
+    """Return the newest proof.json dict for the active project, or None."""
+    try:
+        entries = sorted(proofs_dir.iterdir())
+    except (OSError, FileNotFoundError):
+        return None
+    newest = None
+    newest_key = ""
+    for entry in entries:
+        if not entry.is_dir():
+            continue
+        proof_json = entry / "proof.json"
+        if not proof_json.is_file():
+            continue
+        data = _safe_json_read(proof_json, default=None)
+        if not isinstance(data, dict):
+            continue
+        key = data.get("generated_at") or entry.name
+        if newest is None or key >= newest_key:
+            newest = data
+            newest_key = key
+    return newest
+
+
+def _spec_summary(source: str, brief: str) -> str:
+    """One-line summary for a history row, derived honestly from the spec.
+
+    Prefers the first non-empty line of the brief; falls back to the source
+    basename. Never fabricates -- returns an honest label when nothing exists.
+    """
+    if brief:
+        for line in brief.splitlines():
+            line = line.strip().lstrip("#").strip()
+            if line:
+                return line[:160]
+    if source in ("brief", "codebase-analysis", "", None):
+        return {"brief": "one-line brief",
+                "codebase-analysis": "Codebase analysis (no spec)"}.get(
+                    source, "Unknown spec")
+    if _spec_source_is_issue(source):
+        return source
+    return os.path.basename(source) or source
+
+
+def _classify_proof_spec(spec: dict) -> str:
+    """Map a proof.json spec dict to a dashboard spec type, honestly."""
+    if not isinstance(spec, dict):
+        return "unknown"
+    source = (spec.get("source") or "").strip()
+    if _spec_source_is_issue(source):
+        return "issue"
+    if source == "brief":
+        return "brief"
+    if source == "codebase-analysis":
+        return "codebase-analysis"
+    if not source:
+        return "unknown"
+    # A real filesystem path (PRD or generated PRD). A synthesized PRD lives at
+    # .loki/generated-prd.md or .loki/brief-prd-*.md; anything else is a user
+    # PRD. We report the broad "spec" type and the path so the UI can show it.
+    return "spec"
+
+
+@app.get("/api/spec", dependencies=[Depends(auth.require_scope("read"))])
+async def get_active_spec():
+    """Return the current run's spec source + content, honestly typed.
+
+    Types: prd | brief | spec | issue | codebase-analysis | none. The `none`
+    state is the honest empty state when no run has produced a spec yet. We
+    never invent a spec: each branch reads a real file or says it cannot.
+    """
+    loki_dir = _get_loki_dir()
+
+    # 1. PRD file recorded by the running orchestrator (session.json prdPath).
+    #    Only trust it when the file still exists on disk.
+    session = _safe_json_read(loki_dir / "session.json", default=None)
+    prd_path = ""
+    if isinstance(session, dict):
+        prd_path = (session.get("prdPath") or "").strip()
+    if prd_path:
+        p = _Path(prd_path)
+        if p.is_file():
+            content = _safe_read_text(p)
+            return {
+                "type": "prd",
+                "path": str(p),
+                "content": content[:_SPEC_CONTENT_CAP],
+                "truncated": len(content) > _SPEC_CONTENT_CAP,
+            }
+
+    # 2. one-line brief (zero-config first run). The raw brief is the strongest
+    #    honest artifact -- show it verbatim.
+    brief_file = loki_dir / "state" / "brief.txt"
+    if brief_file.is_file():
+        text = _safe_read_text(brief_file).strip()
+        if text:
+            return {"type": "brief", "text": text[:_SPEC_CONTENT_CAP],
+                    "truncated": len(text) > _SPEC_CONTENT_CAP}
+
+    # 3. Issue mode: a brief/PRD run that originated from a tracker issue. The
+    #    runtime has only the synthesized PRD, but the latest proof.json carries
+    #    the real issue ref + brief. Surface it as an issue when we can prove it.
+    latest = _latest_proof(loki_dir / "proofs")
+    if isinstance(latest, dict):
+        pspec = latest.get("spec")
+        if isinstance(pspec, dict):
+            src = (pspec.get("source") or "").strip()
+            if _spec_source_is_issue(src):
+                pbrief = (pspec.get("brief") or "").strip()
+                return {
+                    "type": "issue",
+                    "ref": src,
+                    "title": _spec_summary(src, pbrief),
+                    "body": pbrief[:_SPEC_CONTENT_CAP],
+                    "truncated": len(pbrief) > _SPEC_CONTENT_CAP,
+                }
+
+    # 4. Generated PRD (synthesized from a brief, or from codebase analysis).
+    for name in ("generated-prd.md",):
+        gen = loki_dir / name
+        if gen.is_file():
+            content = _safe_read_text(gen)
+            if content.strip():
+                return {
+                    "type": "spec",
+                    "path": str(gen),
+                    "content": content[:_SPEC_CONTENT_CAP],
+                    "truncated": len(content) > _SPEC_CONTENT_CAP,
+                    "generated": True,
+                }
+
+    # 5. Codebase analysis (no explicit spec) -- only claim this when a run has
+    #    actually happened (a session or a proof exists). Otherwise honest none.
+    has_session = isinstance(session, dict) and bool(session)
+    if has_session or latest is not None:
+        return {"type": "codebase-analysis"}
+
+    # 6. Nothing yet -- honest empty state, not a fabricated spec.
+    return {"type": "none"}
+
+
+@app.get("/api/spec/history", dependencies=[Depends(auth.require_scope("read"))])
+async def get_spec_history():
+    """Return past specs/issues/briefs for this codebase, newest-first.
+
+    Derived from the Evidence Receipts (.loki/proofs/<run_id>/proof.json) that
+    every run already writes; no separate spec store is invented. Each row:
+    {when, type, summary, run_id}. Missing/corrupt proofs are skipped, never
+    faked. Empty -> {"history": []} (honest empty state).
+    """
+    proofs_dir = _get_loki_dir() / "proofs"
+    rows: list[dict] = []
+    try:
+        entries = sorted(proofs_dir.iterdir())
+    except (OSError, FileNotFoundError):
+        return {"history": []}
+    for entry in entries:
+        if not entry.is_dir():
+            continue
+        proof_json = entry / "proof.json"
+        if not proof_json.is_file():
+            continue
+        data = _safe_json_read(proof_json, default=None)
+        if not isinstance(data, dict):
+            continue
+        spec = data.get("spec")
+        spec = spec if isinstance(spec, dict) else {}
+        source = (spec.get("source") or "").strip()
+        rows.append({
+            "run_id": data.get("run_id", entry.name),
+            "when": data.get("generated_at"),
+            "type": _classify_proof_spec(spec),
+            "summary": _spec_summary(source, (spec.get("brief") or "").strip()),
+        })
+    rows.sort(key=lambda x: (x.get("when") or ""), reverse=True)
+    return {"history": rows}
 
 
 # ---------------------------------------------------------------------------
