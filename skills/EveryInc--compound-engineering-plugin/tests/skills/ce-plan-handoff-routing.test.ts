@@ -4,13 +4,13 @@ import { describe, expect, test } from "bun:test"
 
 const SKILL_PATH = path.join(
   process.cwd(),
-  "plugins/compound-engineering/skills/ce-plan/SKILL.md",
+  "skills/ce-plan/SKILL.md",
 )
 const SKILL_BODY = readFileSync(SKILL_PATH, "utf8")
 
 const HANDOFF_PATH = path.join(
   process.cwd(),
-  "plugins/compound-engineering/skills/ce-plan/references/plan-handoff.md",
+  "skills/ce-plan/references/plan-handoff.md",
 )
 const HANDOFF_BODY = readFileSync(HANDOFF_PATH, "utf8")
 

@@ -11,25 +11,24 @@ import {
 describe("release component detection", () => {
   test("maps plugin-only changes to the matching plugin component", () => {
     const components = detectComponentsFromFiles([
-      "plugins/compound-engineering/skills/ce-plan/SKILL.md",
+      "skills/ce-plan/SKILL.md",
     ])
 
     expect(components.get("compound-engineering")).toEqual([
-      "plugins/compound-engineering/skills/ce-plan/SKILL.md",
+      "skills/ce-plan/SKILL.md",
     ])
-    expect(components.get("cli")).toEqual([])
     expect(components.get("marketplace")).toEqual([])
   })
 
-  test("maps cli and plugin changes independently", () => {
+  test("maps code and plugin manifest changes to the root plugin component", () => {
     const components = detectComponentsFromFiles([
       "src/commands/install.ts",
-      "plugins/compound-engineering/.claude-plugin/plugin.json",
+      ".claude-plugin/plugin.json",
     ])
 
-    expect(components.get("cli")).toEqual(["src/commands/install.ts"])
     expect(components.get("compound-engineering")).toEqual([
-      "plugins/compound-engineering/.claude-plugin/plugin.json",
+      "src/commands/install.ts",
+      ".claude-plugin/plugin.json",
     ])
   })
 
@@ -100,9 +99,9 @@ describe("scope mismatch warnings", () => {
 
   test("warns when explicit scope contradicts detected files", () => {
     const warnings = resolveComponentWarnings(
-      parseReleaseIntent("fix(cli): update compound-engineering text"),
+      parseReleaseIntent("fix(marketplace): update compound-engineering text"),
       ["compound-engineering"],
     )
-    expect(warnings[0]).toContain('Optional scope "cli" does not match')
+    expect(warnings[0]).toContain('Optional scope "marketplace" does not match')
   })
 })

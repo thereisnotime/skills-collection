@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "02b72bc",
+      "message": "refactor(plugin): make plugin skills-only and root-native (#967)",
+      "date": "2026-06-22",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "06e2eb0",
+      "message": "fix: harden simplification safety and add review deletion signal (#969)",
+      "date": "2026-06-21",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "c759a26",
       "message": "fix(ce-brainstorm): make visual-probe gate fire reliably before first shape decision (#964)",
       "date": "2026-06-19",
@@ -736,18 +748,6 @@
       "sha": "3437de3",
       "message": "fix(ce-worktree): replace bundled-script creator with a portable isolation guardrail (#948)",
       "date": "2026-06-15",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "5e6ecca",
-      "message": "fix(ce-compound): guard validate-frontmatter.py on non-Claude platforms (#947)",
-      "date": "2026-06-15",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "0757e85",
-      "message": "fix(config-read): read config via native tool, not $() pre-resolution (#942)",
-      "date": "2026-06-14",
       "author": "Trevin Chow"
     }
   ],
@@ -1555,6 +1555,12 @@
   ],
   "avifenesh--agentsys": [
     {
+      "sha": "936c7b7",
+      "message": "feat(marketplace): add orientation plugin (#376)",
+      "date": "2026-06-21",
+      "author": "Avi Fenesh"
+    },
+    {
       "sha": "542eb81",
       "message": "chore: sync core lib and CLAUDE.md from agent-core (#375)",
       "date": "2026-05-30",
@@ -1605,12 +1611,6 @@
     {
       "sha": "63725a3",
       "message": "Register mojo plugin in marketplace (#358)",
-      "date": "2026-05-21",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "ad1a44b",
-      "message": "Fix package-lock version drift (5.13.4 -> 5.13.5) (#359)",
       "date": "2026-05-21",
       "author": "Avi Fenesh"
     }
@@ -3893,6 +3893,12 @@
   ],
   "trailofbits--skills": [
     {
+      "sha": "ff4162d",
+      "message": "Update fp-check with links and best practices update (#189)",
+      "date": "2026-06-22",
+      "author": "Jay Little"
+    },
+    {
       "sha": "c070b9b",
       "message": "fix(fp-check): use correct JSON response format in stop hooks (#129)",
       "date": "2026-06-10",
@@ -3945,12 +3951,6 @@
       "message": "fix: correct duplicate section numbering in solana-vulnerability-scanner (#160)",
       "date": "2026-05-05",
       "author": "Leon.C"
-    },
-    {
-      "sha": "870955f",
-      "message": "C review (#156)",
-      "date": "2026-05-03",
-      "author": "Pawe\u0142 P\u0142atek"
     }
   ],
   "typefully--agent-skills": [
@@ -5575,63 +5575,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "9eac2d2",
-      "message": "chore(badge): update subagents report Last Updated to Jun 21, 2026 and version to v2.1.185",
-      "date": "2026-06-21",
+      "sha": "b6fab11",
+      "message": "chore(badge): update claude-subagents Last Updated badge to Jun 22, 2026 11:34 AM PKT",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "3fb103f",
-      "message": "chore(changelog): add 2026-06-21 subagents drift check \u2014 no drift, v2.1.185",
-      "date": "2026-06-21",
+      "sha": "e700dad",
+      "message": "chore(changelog): add 2026-06-22 subagents drift run \u2014 no drift v2.1.185",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "c67b141",
-      "message": "docs(commands): bump Last Updated badge to Jun 21, 2026 and version to v2.1.185",
-      "date": "2026-06-21",
+      "sha": "e006980",
+      "message": "chore(commands-changelog): append no-drift entry for 2026-06-22 run at v2.1.185",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "b87f8bb",
-      "message": "changelog(commands): append 2026-06-21 no-drift entry for v2.1.185",
-      "date": "2026-06-21",
+      "sha": "06989ce",
+      "message": "chore(commands-badge): update Last Updated badge to Jun 22, 2026 11:07 AM PKT",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "0bd3311",
-      "message": "docs(claude-skills): bump Last Updated badge to Jun 21, 2026 and version to v2.1.185",
-      "date": "2026-06-21",
+      "sha": "c386945",
+      "message": "chore(skills-badge): update Last Updated badge to Jun 22, 2026 10:06 AM PKT",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "dba09f8",
-      "message": "changelog(claude-skills): no drift detected at v2.1.185 (2026-06-21)",
-      "date": "2026-06-21",
+      "sha": "9d95d58",
+      "message": "chore(skills-changelog): append 2026-06-22 no-drift entry for v2.1.185",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "506469f",
-      "message": "Bump Last Updated badge to v2.1.185 (Jun 21, 2026 9:36 AM PKT)",
-      "date": "2026-06-21",
+      "sha": "814650a",
+      "message": "chore(readme): bump Last Updated badge to Jun 22, 2026 9:37 AM PKT",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "392f09c",
-      "message": "Append concepts drift-check entry for Jun 21 2026 (v2.1.185)",
-      "date": "2026-06-21",
+      "sha": "77e8453",
+      "message": "chore(changelog): append 2026-06-22 CONCEPTS drift-check entry (v2.1.185)",
+      "date": "2026-06-22",
       "author": "Claude"
     },
     {
-      "sha": "725457f",
-      "message": "Append Jun 21 2026 development workflows changelog entry",
-      "date": "2026-06-21",
+      "sha": "75bfbef",
+      "message": "Append Jun 22 2026 development workflows changelog entry",
+      "date": "2026-06-22",
       "author": "Claude Routine"
     },
     {
-      "sha": "cc7908e",
-      "message": "Update development workflows table: Superpowers 233k\u2192234k, ECC 218k\u2192219k, Matt Pocock 137k\u2192138k; badge Jun 21",
-      "date": "2026-06-21",
+      "sha": "64f0a8b",
+      "message": "Update development workflows table: stars + Superpowers workflow v6.0.0",
+      "date": "2026-06-22",
       "author": "Claude Routine"
     }
   ],

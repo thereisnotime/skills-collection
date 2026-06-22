@@ -8,7 +8,7 @@
       "name": "compound-engineering",
       "source": {
         "source": "local",
-        "path": "./plugins/compound-engineering"
+        "path": "./"
       },
       "policy": {
         "installation": "AVAILABLE",
