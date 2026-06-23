@@ -66,6 +66,7 @@ describe("release intent parsing", () => {
   test("infers bump levels from parsed intent", () => {
     expect(inferBumpFromIntent(parseReleaseIntent("feat: add release preview"))).toBe("minor")
     expect(inferBumpFromIntent(parseReleaseIntent("fix: correct preview output"))).toBe("patch")
+    expect(inferBumpFromIntent(parseReleaseIntent("refactor: reshape plugin layout"))).toBeNull()
     expect(inferBumpFromIntent(parseReleaseIntent("docs: update requirements"))).toBeNull()
     expect(inferBumpFromIntent(parseReleaseIntent("refactor!: break compatibility"))).toBe("major")
   })

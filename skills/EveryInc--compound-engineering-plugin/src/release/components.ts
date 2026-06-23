@@ -52,7 +52,7 @@ const SCOPES_TO_COMPONENTS: Record<string, ReleaseComponent> = {
 }
 
 const NON_RELEASABLE_TYPES = new Set(["docs", "chore", "test", "ci", "build", "style"])
-const PATCH_TYPES = new Set(["fix", "perf", "refactor", "revert"])
+const PATCH_TYPES = new Set(["fix", "perf", "revert"])
 
 type VersionSources = Record<ReleaseComponent, string>
 

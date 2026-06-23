@@ -352,6 +352,39 @@ describe("release metadata", () => {
     ).toBe(true)
   })
 
+  test("reports Codex marketplace root-local plugin source as structural error", async () => {
+    const root = await makeFixtureRoot()
+    await writeFile(
+      path.join(root, ".agents", "plugins", "marketplace.json"),
+      JSON.stringify(
+        {
+          name: "compound-engineering-plugin",
+          plugins: [
+            {
+              name: "compound-engineering",
+              source: {
+                source: "local",
+                path: "./",
+              },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    )
+    const result = await syncReleaseMetadata({ root, write: false })
+
+    expect(
+      result.errors.some(
+        (err) =>
+          err.includes(".agents/plugins/marketplace.json") &&
+          err.includes("compound-engineering") &&
+          err.includes('source.path "./"'),
+      ),
+    ).toBe(true)
+  })
+
   test("happy path: fixture with matching Codex manifests produces no Codex errors", async () => {
     const root = await makeFixtureRoot()
     // Align Claude <-> Codex versions and descriptions so there's no drift.

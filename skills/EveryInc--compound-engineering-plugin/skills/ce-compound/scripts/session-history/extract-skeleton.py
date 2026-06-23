@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Extract the conversation skeleton from a Claude Code, Codex, or Cursor JSONL session file.
+"""Extract the conversation skeleton from a Claude Code, Codex, Cursor, or Pi JSONL session file.
 
 Usage:
   cat <session.jsonl> | python3 extract-skeleton.py
   cat <session.jsonl> | python3 extract-skeleton.py --output PATH
 
-Auto-detects platform (Claude Code, Codex, or Cursor) from the JSONL structure.
+Auto-detects platform (Claude Code, Codex, Cursor, or Pi) from the JSONL structure.
 Extracts:
   - User messages (text only, no tool results)
   - Assistant text (no thinking/reasoning blocks)
@@ -44,7 +44,7 @@ _original_stdout = sys.stdout
 if args.output:
     sys.stdout = io.StringIO()
 
-stats = {"lines": 0, "parse_errors": 0, "user": 0, "assistant": 0, "tool": 0}
+stats = {"lines": 0, "parse_errors": 0, "user": 0, "assistant": 0, "tool": 0, "summary": 0}
 
 # Claude Code wrapper tags to strip from user message content.
 # Strip entirely (tag + content): framework noise and raw command output.
@@ -268,6 +268,199 @@ def handle_codex(obj):
         # Skip function_call — exec_command_end is the deduplicated version with status
 
 
+def _pi_text_content(content):
+    if isinstance(content, str):
+        return [content]
+    if not isinstance(content, list):
+        return []
+    return [
+        block.get("text", "")
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
+    ]
+
+
+def _pi_active_path_objects(objects):
+    """Return only entries on Pi's active leaf-to-root path."""
+    by_id = {
+        obj.get("id"): obj
+        for obj in objects
+        if isinstance(obj.get("id"), str) and obj.get("type") != "session"
+    }
+    leaf_id = None
+    for obj in objects:
+        if obj.get("type") != "session" and isinstance(obj.get("id"), str):
+            leaf_id = obj["id"]
+    if not leaf_id:
+        return objects
+
+    active_ids = set()
+    current = leaf_id
+    while isinstance(current, str) and current and current not in active_ids:
+        active_ids.add(current)
+        parent = by_id.get(current, {}).get("parentId")
+        current = parent if isinstance(parent, str) else None
+    return [
+        obj
+        for obj in objects
+        if obj.get("type") == "session" or obj.get("id") in active_ids
+    ]
+
+
+def _pi_context_objects(objects):
+    """Return Pi entries that participate in active LLM context."""
+    active = _pi_active_path_objects(objects)
+    compactions = [obj for obj in active if obj.get("type") == "compaction"]
+    if not compactions:
+        return active
+
+    first_kept = compactions[-1].get("firstKeptEntryId")
+    if not isinstance(first_kept, str):
+        return active
+
+    latest_compaction_id = compactions[-1].get("id")
+    started = False
+    found_first_kept = False
+    context = [obj for obj in active if obj.get("type") == "session"]
+    context.append(compactions[-1])
+    for obj in active:
+        if obj.get("type") == "session":
+            continue
+        if obj.get("id") == first_kept:
+            started = True
+            found_first_kept = True
+        if obj.get("id") == latest_compaction_id:
+            continue
+        if started:
+            context.append(obj)
+    return context if found_first_kept and len(context) > 1 else active
+
+
+def handle_pi(obj):
+    """Pi sessions: type='message' with message.role and content blocks."""
+    entry_type = obj.get("type")
+    ts = obj.get("timestamp", "")[:19]
+
+    if entry_type in ("compaction", "branch_summary"):
+        text = clean_text(obj.get("summary", ""))
+        if len(text) > 15:
+            flush_tools()
+            print(f"[{ts}] [summary] {text[:800]}")
+            print("---")
+            stats["summary"] += 1
+        return
+
+    if entry_type == "custom_message":
+        text = clean_text(" ".join(_pi_text_content(obj.get("content", []))))
+        if len(text) > 15:
+            flush_tools()
+            print(f"[{ts}] [summary] {text[:800]}")
+            print("---")
+            stats["summary"] += 1
+        return
+
+    if entry_type != "message":
+        return
+
+    msg = obj.get("message", {})
+    role = msg.get("role", "")
+    content = msg.get("content", [])
+
+    if role == "bashExecution":
+        exit_code = msg.get("exitCode")
+        if msg.get("cancelled"):
+            status = "cancelled"
+        elif exit_code in (None, 0):
+            status = "ok"
+        else:
+            status = f"error(exit {exit_code})"
+        command = _safe_slice(msg.get("command"), 120)
+        pending_tools.append({"ts": ts, "name": "bash", "target": command, "status": status})
+        return
+
+    if role == "custom":
+        text = clean_text(" ".join(_pi_text_content(content)))
+        if len(text) > 15:
+            flush_tools()
+            print(f"[{ts}] [summary] {text[:800]}")
+            print("---")
+            stats["summary"] += 1
+        return
+
+    if role == "user":
+        text = clean_text(" ".join(_pi_text_content(content)))
+        if len(text) > 15:
+            flush_tools()
+            print(f"[{ts}] [user] {text[:800]}")
+            print("---")
+            stats["user"] += 1
+
+    elif role == "assistant":
+        if isinstance(content, str):
+            text = clean_text(content)
+            if len(text) > 20:
+                flush_tools()
+                print(f"[{ts}] [assistant] {text[:800]}")
+                print("---")
+                stats["assistant"] += 1
+            return
+
+        has_text = False
+        for block in (content if isinstance(content, list) else []):
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "text":
+                text = clean_text(block.get("text", ""))
+                if len(text) > 20:
+                    if not has_text:
+                        flush_tools()
+                        has_text = True
+                    print(f"[{ts}] [assistant] {text[:800]}")
+                    print("---")
+                    stats["assistant"] += 1
+            elif block.get("type") == "toolCall":
+                name = block.get("name", "unknown")
+                args = block.get("arguments", {})
+                if not isinstance(args, dict):
+                    args = {}
+                target = (
+                    _safe_slice(args.get("path"), 200)
+                    or _safe_slice(args.get("file_path"), 200)
+                    or _safe_slice(args.get("command"), 120)
+                    or _safe_slice(args.get("pattern"), 200)
+                    or _safe_slice(args.get("query"), 80)
+                    or _safe_slice(args.get("prompt"), 80)
+                    or ""
+                )
+                if isinstance(target, str) and len(target) > 120:
+                    target = target[:120]
+                entry = {"ts": ts, "name": name, "target": target}
+                tool_id = block.get("id")
+                if tool_id:
+                    entry["id"] = tool_id
+                pending_tools.append(entry)
+
+    elif role == "toolResult":
+        tool_call_id = msg.get("toolCallId")
+        is_error = bool(msg.get("isError"))
+        if isinstance(content, list):
+            is_error = is_error or any(
+                isinstance(block, dict) and block.get("type") == "toolError"
+                for block in content
+            )
+        status = "error" if is_error else "ok"
+        if tool_call_id:
+            for entry in pending_tools:
+                if entry.get("id") == tool_call_id:
+                    entry["status"] = status
+                    break
+        else:
+            for entry in pending_tools:
+                if not entry.get("status"):
+                    entry["status"] = status
+                    break
+
+
 def handle_cursor(obj):
     """Cursor agent transcripts: role-based, no timestamps, same content structure as Claude."""
     role = obj.get("role")
@@ -333,7 +526,9 @@ for line in sys.stdin:
     if not detected and len(buffer) <= 10:
         try:
             obj = json.loads(line)
-            if obj.get("type") in ("user", "assistant"):
+            if obj.get("type") == "session" and "cwd" in obj:
+                detected = "pi"
+            elif obj.get("type") in ("user", "assistant"):
                 detected = "claude"
             elif obj.get("type") in ("session_meta", "turn_context", "response_item", "event_msg"):
                 detected = "codex"
@@ -342,13 +537,23 @@ for line in sys.stdin:
         except (json.JSONDecodeError, KeyError):
             pass
 
-handlers = {"claude": handle_claude, "codex": handle_codex, "cursor": handle_cursor}
+handlers = {"claude": handle_claude, "codex": handle_codex, "cursor": handle_cursor, "pi": handle_pi}
 handler = handlers.get(detected, handle_codex)
 
+objects = []
 for line in buffer:
     try:
-        handler(json.loads(line))
+        objects.append(json.loads(line))
     except (json.JSONDecodeError, KeyError):
+        stats["parse_errors"] += 1
+
+if detected == "pi":
+    objects = _pi_context_objects(objects)
+
+for obj in objects:
+    try:
+        handler(obj)
+    except KeyError:
         stats["parse_errors"] += 1
 
 # Flush any remaining buffered tools

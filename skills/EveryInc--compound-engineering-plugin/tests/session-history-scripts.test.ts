@@ -26,12 +26,235 @@ async function runScript(
   return { stdout, stderr, exitCode }
 }
 
+async function writeFixture(targetPath: string, fixtureName: string): Promise<void> {
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true })
+  const fixture = await Bun.file(path.join(FIXTURES_DIR, fixtureName)).text()
+  await fs.promises.writeFile(targetPath, fixture)
+}
+
 function parseJsonLines(output: string): any[] {
   return output
     .trim()
     .split("\n")
     .filter((l) => l.trim())
     .map((l) => JSON.parse(l))
+}
+
+function createBranchedPiSession(): string {
+  const lines = [
+    {
+      type: "session",
+      version: 3,
+      id: "test-pi-branched-session",
+      timestamp: "2026-04-07T09:00:00.000Z",
+      cwd: "/Users/test/Code/my-repo",
+    },
+    {
+      type: "message",
+      id: "root-user",
+      parentId: null,
+      timestamp: "2026-04-07T09:01:00.000Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "fix the shared auth flow" }],
+        timestamp: 1775542860000,
+      },
+    },
+    {
+      type: "message",
+      id: "abandoned-user",
+      parentId: "root-user",
+      timestamp: "2026-04-07T09:02:00.000Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "abandoned_branch_keyword only" }],
+        timestamp: 1775542920000,
+      },
+    },
+    {
+      type: "message",
+      id: "abandoned-bash",
+      parentId: "abandoned-user",
+      timestamp: "2026-04-07T09:02:10.000Z",
+      message: {
+        role: "bashExecution",
+        command: "bun test abandoned-branch.test.ts",
+        output: "abandoned branch failed",
+        exitCode: 1,
+        cancelled: false,
+        timestamp: 1775542930000,
+      },
+    },
+    {
+      type: "message",
+      id: "active-user",
+      parentId: "root-user",
+      timestamp: "2026-04-07T09:03:00.000Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "active_branch_keyword only" }],
+        timestamp: 1775542980000,
+      },
+    },
+    {
+      type: "message",
+      id: "active-bash",
+      parentId: "active-user",
+      timestamp: "2026-04-07T09:03:10.000Z",
+      message: {
+        role: "bashExecution",
+        command: "bun test active-branch.test.ts",
+        output: "active branch failed",
+        exitCode: 1,
+        cancelled: false,
+        timestamp: 1775542990000,
+      },
+    },
+  ]
+  return `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`
+}
+
+function createPiSummaryContextSession(): string {
+  const lines = [
+    {
+      type: "session",
+      version: 3,
+      id: "test-pi-summary-session",
+      timestamp: "2026-04-07T09:00:00.000Z",
+      cwd: "/Users/test/Code/my-repo",
+    },
+    {
+      type: "message",
+      id: "old-user",
+      parentId: null,
+      timestamp: "2026-04-07T09:01:00.000Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "old_compacted_keyword only" }],
+        timestamp: 1775542860000,
+      },
+    },
+    {
+      type: "message",
+      id: "old-bash",
+      parentId: "old-user",
+      timestamp: "2026-04-07T09:02:30.000Z",
+      message: {
+        role: "bashExecution",
+        command: "bun test old-compacted.test.ts",
+        output: "old compacted failure",
+        exitCode: 1,
+        cancelled: false,
+        timestamp: 1775542950000,
+      },
+    },
+    {
+      type: "message",
+      id: "kept-user",
+      parentId: "old-bash",
+      timestamp: "2026-04-07T09:02:40.000Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "kept_after_compaction_keyword only" }],
+        timestamp: 1775542960000,
+      },
+    },
+    {
+      type: "compaction",
+      id: "compact1",
+      parentId: "kept-user",
+      timestamp: "2026-04-07T09:03:00.000Z",
+      summary: "compaction_summary_keyword survived in summary",
+      firstKeptEntryId: "kept-user",
+      tokensBefore: 50000,
+    },
+    {
+      type: "branch_summary",
+      id: "branch-summary1",
+      parentId: "compact1",
+      timestamp: "2026-04-07T09:04:00.000Z",
+      fromId: "abandoned-user",
+      summary: "branch_summary_keyword from the abandoned path",
+    },
+    {
+      type: "custom_message",
+      id: "custom-message1",
+      parentId: "branch-summary1",
+      timestamp: "2026-04-07T09:05:00.000Z",
+      customType: "test-extension",
+      content: [{ type: "text", text: "custom_message_keyword injected context" }],
+      display: true,
+    },
+  ]
+  return `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`
+}
+
+function createPiToolCallAndCustomSession(): string {
+  const lines = [
+    {
+      type: "session",
+      version: 3,
+      id: "test-pi-toolcall-custom-session",
+      timestamp: "2026-04-07T09:00:00.000Z",
+      cwd: "/Users/test/Code/my-repo",
+    },
+    {
+      type: "message",
+      id: "user1",
+      parentId: null,
+      timestamp: "2026-04-07T09:01:00.000Z",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "please check the failing auth flow" }],
+        timestamp: 1775542860000,
+      },
+    },
+    {
+      type: "message",
+      id: "assistant-tool",
+      parentId: "user1",
+      timestamp: "2026-04-07T09:02:00.000Z",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: "toolu_pi_1",
+            name: "bash",
+            arguments: {
+              command: "bun test tests/auth-expiry.test.ts",
+            },
+          },
+          {
+            type: "toolCall",
+            id: "toolu_pi_2",
+            name: "readFile",
+            arguments: {
+              path: "src/auth/session-expiry.ts",
+            },
+          },
+        ],
+        timestamp: 1775542920000,
+      },
+    },
+    {
+      type: "message",
+      id: "custom1",
+      parentId: "assistant-tool",
+      timestamp: "2026-04-07T09:03:00.000Z",
+      message: {
+        role: "custom",
+        content: [
+          {
+            type: "text",
+            text: "custom_role_keyword extension-injected context",
+          },
+        ],
+        timestamp: 1775542980000,
+      },
+    },
+  ]
+  return `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`
 }
 
 // ---------------------------------------------------------------------------
@@ -74,21 +297,37 @@ describe("extract-metadata", () => {
     expect(session.platform).toBe("cursor")
   })
 
+  test("detects Pi platform and extracts CWD", async () => {
+    const { stdout, exitCode } = await runScript("extract-metadata.py", [
+      path.join(FIXTURES_DIR, "pi-session.jsonl"),
+    ])
+    expect(exitCode).toBe(0)
+    const lines = parseJsonLines(stdout)
+    const session = lines.find((l) => !l._meta)
+    expect(session.platform).toBe("pi")
+    expect(session.cwd).toBe("/Users/test/Code/my-repo")
+    expect(session.session).toBe("test-pi-session-1")
+    expect(session.ts).toContain("2026-04-07")
+    expect(session.last_ts).toContain("2026-04-07T09:01:20")
+  })
+
   test("batch mode processes multiple files", async () => {
     const { stdout, exitCode } = await runScript("extract-metadata.py", [
       path.join(FIXTURES_DIR, "claude-session.jsonl"),
       path.join(FIXTURES_DIR, "codex-session.jsonl"),
       path.join(FIXTURES_DIR, "cursor-session.jsonl"),
+      path.join(FIXTURES_DIR, "pi-session.jsonl"),
     ])
     expect(exitCode).toBe(0)
     const lines = parseJsonLines(stdout)
     const meta = lines.find((l) => l._meta)
-    expect(meta.files_processed).toBe(3)
+    expect(meta.files_processed).toBe(4)
     expect(meta.parse_errors).toBe(0)
     const platforms = lines.filter((l) => !l._meta).map((l) => l.platform)
     expect(platforms).toContain("claude")
     expect(platforms).toContain("codex")
     expect(platforms).toContain("cursor")
+    expect(platforms).toContain("pi")
   })
 
   test("--cwd-filter excludes non-matching Codex sessions", async () => {
@@ -118,6 +357,47 @@ describe("extract-metadata", () => {
     expect(sessions[0].cwd).toContain("my-repo")
   })
 
+  test("--cwd-filter keeps matching Pi sessions", async () => {
+    const { stdout, exitCode } = await runScript("extract-metadata.py", [
+      "--cwd-filter",
+      "my-repo",
+      path.join(FIXTURES_DIR, "pi-session.jsonl"),
+    ])
+    expect(exitCode).toBe(0)
+    const lines = parseJsonLines(stdout)
+    const sessions = lines.filter((l) => !l._meta)
+    expect(sessions.length).toBe(1)
+    expect(sessions[0].cwd).toContain("my-repo")
+  })
+
+  test("--cwd-filter excludes sibling Pi repos when given an absolute repo root", async () => {
+    const tempDir = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), "pi-cwd-filter-")
+    )
+    const sessionPath = path.join(tempDir, "pi-sibling-session.jsonl")
+    const sibling = (await Bun.file(
+      path.join(FIXTURES_DIR, "pi-session.jsonl")
+    ).text()).replace(
+      '"cwd":"/Users/test/Code/my-repo"',
+      '"cwd":"/Users/test/Code/my-repo-old"'
+    )
+
+    try {
+      await fs.promises.writeFile(sessionPath, sibling)
+      const { stdout, exitCode } = await runScript("extract-metadata.py", [
+        "--cwd-filter",
+        "/Users/test/Code/my-repo",
+        sessionPath,
+      ])
+      expect(exitCode).toBe(0)
+      const lines = parseJsonLines(stdout)
+      expect(lines.filter((l) => !l._meta).length).toBe(0)
+      expect(lines.find((l) => l._meta).filtered_by_cwd).toBe(1)
+    } finally {
+      await fs.promises.rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
   test("reports clean zero-file result for empty stdin", async () => {
     const { stdout, exitCode } = await runScript(
       "extract-metadata.py",
@@ -142,12 +422,13 @@ describe("extract-metadata", () => {
         path.join(FIXTURES_DIR, "claude-session.jsonl"),
         path.join(FIXTURES_DIR, "codex-session.jsonl"),
         path.join(FIXTURES_DIR, "cursor-session.jsonl"),
+        path.join(FIXTURES_DIR, "pi-session.jsonl"),
       ])
       expect(exitCode).toBe(0)
       const lines = parseJsonLines(stdout)
       const sessions = lines.filter((l) => !l._meta)
-      // All three fixtures mention middleware.
-      expect(sessions.length).toBe(3)
+      // All four fixtures mention middleware.
+      expect(sessions.length).toBe(4)
       for (const session of sessions) {
         expect(session.match_count).toBeGreaterThan(0)
         expect(session.keyword_matches.middleware).toBeGreaterThan(0)
@@ -195,6 +476,193 @@ describe("extract-metadata", () => {
       const sessions = lines.filter((l) => !l._meta)
       expect(sessions.length).toBe(1)
       expect(sessions[0].keyword_matches.AUTH).toBeGreaterThan(0)
+    })
+
+    test("Pi bashExecution commands are searchable but output is not", async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "pi-bash-keyword-")
+      )
+      const sessionPath = path.join(tempDir, "pi-bash-session.jsonl")
+      const lines = [
+        {
+          type: "session",
+          version: 3,
+          id: "test-pi-bash-session",
+          timestamp: "2026-04-07T09:00:00.000Z",
+          cwd: "/Users/test/Code/my-repo",
+        },
+        {
+          type: "message",
+          id: "msg1",
+          parentId: null,
+          timestamp: "2026-04-07T09:01:00.000Z",
+          message: {
+            role: "bashExecution",
+            command: "bun test tests/auth.test.ts",
+            output: "do_not_index_tool_output_token",
+            exitCode: 0,
+            cancelled: false,
+            timestamp: 1775542860000,
+          },
+        },
+      ]
+
+      try {
+        await fs.promises.writeFile(
+          sessionPath,
+          `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`
+        )
+
+        const commandResult = await runScript("extract-metadata.py", [
+          "--keyword",
+          "auth.test.ts",
+          sessionPath,
+        ])
+        expect(commandResult.exitCode).toBe(0)
+        const commandLines = parseJsonLines(commandResult.stdout)
+        const commandSessions = commandLines.filter((l) => !l._meta)
+        expect(commandSessions.length).toBe(1)
+        expect(commandSessions[0].keyword_matches["auth.test.ts"]).toBe(1)
+
+        const outputResult = await runScript("extract-metadata.py", [
+          "--keyword",
+          "do_not_index_tool_output_token",
+          sessionPath,
+        ])
+        expect(outputResult.exitCode).toBe(0)
+        const outputLines = parseJsonLines(outputResult.stdout)
+        expect(outputLines.filter((l) => !l._meta).length).toBe(0)
+        expect(outputLines.find((l) => l._meta).files_matched).toBe(0)
+      } finally {
+        await fs.promises.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    test("Pi assistant toolCall targets are searchable", async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "pi-toolcall-keyword-")
+      )
+      const sessionPath = path.join(tempDir, "pi-toolcall-session.jsonl")
+
+      try {
+        await fs.promises.writeFile(
+          sessionPath,
+          createPiToolCallAndCustomSession()
+        )
+
+        for (const keyword of ["auth-expiry.test.ts", "session-expiry.ts"]) {
+          const { stdout, exitCode } = await runScript("extract-metadata.py", [
+            "--keyword",
+            keyword,
+            sessionPath,
+          ])
+          expect(exitCode).toBe(0)
+          const lines = parseJsonLines(stdout)
+          expect(lines.filter((l) => !l._meta).length).toBe(1)
+          expect(lines.find((l) => l._meta).files_matched).toBe(1)
+        }
+      } finally {
+        await fs.promises.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    test("Pi custom-role message content is searchable", async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "pi-custom-keyword-")
+      )
+      const sessionPath = path.join(tempDir, "pi-custom-session.jsonl")
+
+      try {
+        await fs.promises.writeFile(
+          sessionPath,
+          createPiToolCallAndCustomSession()
+        )
+
+        const { stdout, exitCode } = await runScript("extract-metadata.py", [
+          "--keyword",
+          "custom_role_keyword",
+          sessionPath,
+        ])
+        expect(exitCode).toBe(0)
+        const lines = parseJsonLines(stdout)
+        expect(lines.filter((l) => !l._meta).length).toBe(1)
+        expect(lines.find((l) => l._meta).files_matched).toBe(1)
+      } finally {
+        await fs.promises.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    test("Pi keyword matching only scans the active branch", async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "pi-branch-keyword-")
+      )
+      const sessionPath = path.join(tempDir, "pi-branched-session.jsonl")
+
+      try {
+        await fs.promises.writeFile(sessionPath, createBranchedPiSession())
+
+        const activeResult = await runScript("extract-metadata.py", [
+          "--keyword",
+          "active_branch_keyword",
+          sessionPath,
+        ])
+        expect(activeResult.exitCode).toBe(0)
+        const activeLines = parseJsonLines(activeResult.stdout)
+        expect(activeLines.filter((l) => !l._meta).length).toBe(1)
+        expect(activeLines.find((l) => l._meta).files_matched).toBe(1)
+
+        const abandonedResult = await runScript("extract-metadata.py", [
+          "--keyword",
+          "abandoned_branch_keyword",
+          sessionPath,
+        ])
+        expect(abandonedResult.exitCode).toBe(0)
+        const abandonedLines = parseJsonLines(abandonedResult.stdout)
+        expect(abandonedLines.filter((l) => !l._meta).length).toBe(0)
+        expect(abandonedLines.find((l) => l._meta).files_matched).toBe(0)
+      } finally {
+        await fs.promises.rm(tempDir, { recursive: true, force: true })
+      }
+    })
+
+    test("Pi keyword matching scans context summaries and honors compaction firstKeptEntryId", async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "pi-summary-keyword-")
+      )
+      const sessionPath = path.join(tempDir, "pi-summary-session.jsonl")
+
+      try {
+        await fs.promises.writeFile(sessionPath, createPiSummaryContextSession())
+
+        for (const keyword of [
+          "compaction_summary_keyword",
+          "branch_summary_keyword",
+          "custom_message_keyword",
+          "kept_after_compaction_keyword",
+        ]) {
+          const { stdout, exitCode } = await runScript("extract-metadata.py", [
+            "--keyword",
+            keyword,
+            sessionPath,
+          ])
+          expect(exitCode).toBe(0)
+          const lines = parseJsonLines(stdout)
+          expect(lines.filter((l) => !l._meta).length).toBe(1)
+          expect(lines.find((l) => l._meta).files_matched).toBe(1)
+        }
+
+        const compactedResult = await runScript("extract-metadata.py", [
+          "--keyword",
+          "old_compacted_keyword",
+          sessionPath,
+        ])
+        expect(compactedResult.exitCode).toBe(0)
+        const compactedLines = parseJsonLines(compactedResult.stdout)
+        expect(compactedLines.filter((l) => !l._meta).length).toBe(0)
+        expect(compactedLines.find((l) => l._meta).files_matched).toBe(0)
+      } finally {
+        await fs.promises.rm(tempDir, { recursive: true, force: true })
+      }
     })
 
     test("emits files_matched in _meta and preserves files_processed", async () => {
@@ -337,6 +805,19 @@ describe("extract-metadata", () => {
       expect(sessions.length).toBe(1)
       expect(sessions[0].keyword_matches.auth).toBeGreaterThan(0)
     })
+
+    test("matches Pi string-form user content", async () => {
+      const { stdout, exitCode } = await runScript("extract-metadata.py", [
+        "--keyword",
+        "expiry",
+        path.join(FIXTURES_DIR, "pi-session.jsonl"),
+      ])
+      expect(exitCode).toBe(0)
+      const lines = parseJsonLines(stdout)
+      const sessions = lines.filter((l) => !l._meta)
+      expect(sessions.length).toBe(1)
+      expect(sessions[0].keyword_matches.expiry).toBeGreaterThan(0)
+    })
   })
 })
 
@@ -446,6 +927,121 @@ describe("extract-skeleton", () => {
     for (const line of assistantLines) {
       expect(line).not.toMatch(/\[assistant\]\s*\[REDACTED\]$/)
     }
+  })
+
+  test("extracts Pi user, assistant, and tool messages", async () => {
+    const fixture = await Bun.file(
+      path.join(FIXTURES_DIR, "pi-session.jsonl")
+    ).text()
+    const { stdout, exitCode } = await runScript(
+      "extract-skeleton.py",
+      [],
+      fixture
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("[user] fix the auth bug in middleware")
+    expect(stdout).toContain("[assistant] Let me look at the auth middleware.")
+    expect(stdout).toContain("[assistant] Found the issue.")
+    expect(stdout).toContain("[user] also add a regression test for the expiry check")
+    expect(stdout).toContain("[tool] read /Users/test/Code/my-repo/src/auth.ts -> ok")
+    expect(stdout).toContain("[tool] edit /Users/test/Code/my-repo/src/auth.ts -> error")
+    expect(stdout).not.toContain("internal reasoning should not be extracted")
+    expect(stdout).not.toContain("file contents here")
+  })
+
+  test("extracts Pi bashExecution commands", async () => {
+    const lines = [
+      JSON.stringify({
+        type: "session",
+        version: 3,
+        id: "test-pi-bash-session",
+        timestamp: "2026-04-07T09:00:00.000Z",
+        cwd: "/Users/test/Code/my-repo",
+      }),
+      JSON.stringify({
+        type: "message",
+        id: "bash1",
+        parentId: null,
+        timestamp: "2026-04-07T09:02:00.000Z",
+        message: {
+          role: "bashExecution",
+          command: "bun test tests/session-history-scripts.test.ts",
+          output: "56 pass\n0 fail",
+          exitCode: 0,
+          cancelled: false,
+          truncated: false,
+          timestamp: 1775542920000,
+        },
+      }),
+      JSON.stringify({
+        type: "message",
+        id: "bash2",
+        parentId: "bash1",
+        timestamp: "2026-04-07T09:03:00.000Z",
+        message: {
+          role: "bashExecution",
+          command: "bun test tests/missing.test.ts",
+          output: "1 test failed",
+          exitCode: 1,
+          cancelled: false,
+          truncated: false,
+          timestamp: 1775542980000,
+        },
+      }),
+    ]
+    const { stdout, exitCode } = await runScript(
+      "extract-skeleton.py",
+      [],
+      lines.join("\n")
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("[tool] bash bun test tests/session-history-scripts.test.ts -> ok")
+    expect(stdout).toContain("[tool] bash bun test tests/missing.test.ts -> error(exit 1)")
+    const meta = JSON.parse(stdout.trim().split("\n").at(-1)!)
+    expect(meta.tool).toBe(2)
+    expect(meta.parse_errors).toBe(0)
+  })
+
+  test("filters Pi skeleton extraction to the active branch", async () => {
+    const { stdout, exitCode } = await runScript(
+      "extract-skeleton.py",
+      [],
+      createBranchedPiSession()
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("fix the shared auth flow")
+    expect(stdout).toContain("active_branch_keyword")
+    expect(stdout).toContain("active-branch.test.ts")
+    expect(stdout).not.toContain("abandoned_branch_keyword")
+    expect(stdout).not.toContain("abandoned-branch.test.ts")
+  })
+
+  test("mirrors Pi compaction context in skeleton extraction", async () => {
+    const { stdout, exitCode } = await runScript(
+      "extract-skeleton.py",
+      [],
+      createPiSummaryContextSession()
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("compaction_summary_keyword")
+    expect(stdout).toContain("branch_summary_keyword")
+    expect(stdout).toContain("custom_message_keyword")
+    expect(stdout).toContain("kept_after_compaction_keyword")
+    expect(stdout).not.toContain("old_compacted_keyword")
+    expect(stdout).not.toContain("old-compacted.test.ts")
+    expect(stdout.indexOf("compaction_summary_keyword")).toBeLessThan(
+      stdout.indexOf("kept_after_compaction_keyword")
+    )
+  })
+
+  test("extracts Pi custom-role messages in skeleton output", async () => {
+    const { stdout, exitCode } = await runScript(
+      "extract-skeleton.py",
+      [],
+      createPiToolCallAndCustomSession()
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("custom_role_keyword")
   })
 
   test("outputs _meta with stats", async () => {
@@ -713,6 +1309,87 @@ describe("extract-errors", () => {
     expect(meta.errors_found).toBe(0)
   })
 
+  test("extracts Pi tool result errors", async () => {
+    const fixture = await Bun.file(
+      path.join(FIXTURES_DIR, "pi-session.jsonl")
+    ).text()
+    const { stdout, exitCode } = await runScript(
+      "extract-errors.py",
+      [],
+      fixture
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("[error] tool=edit: String to replace not found")
+    const lines = stdout.trim().split("\n")
+    const meta = JSON.parse(lines[lines.length - 1])
+    expect(meta.errors_found).toBe(1)
+    expect(meta.parse_errors).toBe(0)
+  })
+
+  test("extracts Pi bashExecution errors", async () => {
+    const lines = [
+      JSON.stringify({
+        type: "session",
+        version: 3,
+        id: "test-pi-bash-session",
+        timestamp: "2026-04-07T09:00:00.000Z",
+        cwd: "/Users/test/Code/my-repo",
+      }),
+      JSON.stringify({
+        type: "message",
+        id: "bash1",
+        parentId: null,
+        timestamp: "2026-04-07T09:02:00.000Z",
+        message: {
+          role: "bashExecution",
+          command: "bun test tests/session-history-scripts.test.ts",
+          output: "1 test failed\nerror: expected 0 failures",
+          exitCode: 1,
+          cancelled: false,
+          truncated: false,
+          timestamp: 1775542920000,
+        },
+      }),
+    ]
+    const { stdout, exitCode } = await runScript(
+      "extract-errors.py",
+      [],
+      lines.join("\n")
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain(
+      "[error] exit=1 cmd=bun test tests/session-history-scripts.test.ts: 1 test failed"
+    )
+    const meta = JSON.parse(stdout.trim().split("\n").at(-1)!)
+    expect(meta.errors_found).toBe(1)
+    expect(meta.parse_errors).toBe(0)
+  })
+
+  test("filters Pi error extraction to the active branch", async () => {
+    const { stdout, exitCode } = await runScript(
+      "extract-errors.py",
+      [],
+      createBranchedPiSession()
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).toContain("active-branch.test.ts")
+    expect(stdout).not.toContain("abandoned-branch.test.ts")
+    const meta = JSON.parse(stdout.trim().split("\n").at(-1)!)
+    expect(meta.errors_found).toBe(1)
+  })
+
+  test("filters Pi error extraction to post-compaction context", async () => {
+    const { stdout, exitCode } = await runScript(
+      "extract-errors.py",
+      [],
+      createPiSummaryContextSession()
+    )
+    expect(exitCode).toBe(0)
+    expect(stdout).not.toContain("old-compacted.test.ts")
+    const meta = JSON.parse(stdout.trim().split("\n").at(-1)!)
+    expect(meta.errors_found).toBe(0)
+  })
+
   test("outputs _meta with error count", async () => {
     const fixture = await Bun.file(
       path.join(FIXTURES_DIR, "claude-session.jsonl")
@@ -821,9 +1498,9 @@ describe("--output PATH mode", () => {
 // Cross-platform auto-detection
 // ---------------------------------------------------------------------------
 describe("auto-detection", () => {
-  test("all three scripts detect the correct platform", async () => {
-    const fixtures = ["claude-session", "codex-session", "cursor-session"]
-    const expected = ["claude", "codex", "cursor"]
+  test("all supported platforms are auto-detected", async () => {
+    const fixtures = ["claude-session", "codex-session", "cursor-session", "pi-session"]
+    const expected = ["claude", "codex", "cursor", "pi"]
 
     for (let i = 0; i < fixtures.length; i++) {
       const fixturePath = path.join(FIXTURES_DIR, `${fixtures[i]}.jsonl`)
@@ -852,10 +1529,12 @@ describe("auto-detection", () => {
 // ---------------------------------------------------------------------------
 describe("discover-sessions", () => {
   async function runDiscover(
-    ...args: string[]
+    args: string[],
+    env: Record<string, string> = {}
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const scriptPath = path.join(SCRIPTS_DIR, "discover-sessions.sh")
     const proc = Bun.spawn(["bash", scriptPath, ...args], {
+      env: { ...process.env, ...env },
       stdout: "pipe",
       stderr: "pipe",
     })
@@ -867,10 +1546,7 @@ describe("discover-sessions", () => {
 
   test("returns zero files for nonexistent repo without error", async () => {
     const { stdout, stderr, exitCode } = await runDiscover(
-      "nonexistent-repo-xyz",
-      "7",
-      "--platform",
-      "claude"
+      ["nonexistent-repo-xyz", "7", "--platform", "claude"]
     )
     expect(exitCode).toBe(0)
     expect(stderr).toBe("")
@@ -880,10 +1556,7 @@ describe("discover-sessions", () => {
 
   test("returns zero files for nonexistent repo on cursor", async () => {
     const { stdout, stderr, exitCode } = await runDiscover(
-      "nonexistent-repo-xyz",
-      "7",
-      "--platform",
-      "cursor"
+      ["nonexistent-repo-xyz", "7", "--platform", "cursor"]
     )
     expect(exitCode).toBe(0)
     expect(stderr).toBe("")
@@ -893,8 +1566,7 @@ describe("discover-sessions", () => {
 
   test("all output lines are .jsonl files", async () => {
     const { stdout, exitCode } = await runDiscover(
-      "compound-engineering-plugin",
-      "7"
+      ["compound-engineering-plugin", "7"]
     )
     expect(exitCode).toBe(0)
     const files = stdout.trim().split("\n").filter((l) => l.trim())
@@ -907,10 +1579,7 @@ describe("discover-sessions", () => {
 
   test("--platform claude restricts to claude dirs only", async () => {
     const { stdout } = await runDiscover(
-      "compound-engineering-plugin",
-      "7",
-      "--platform",
-      "claude"
+      ["compound-engineering-plugin", "7", "--platform", "claude"]
     )
     const files = stdout.trim().split("\n").filter((l) => l.trim())
     for (const file of files) {
@@ -920,10 +1589,7 @@ describe("discover-sessions", () => {
 
   test("--platform codex restricts to codex dirs only", async () => {
     const { stdout } = await runDiscover(
-      "compound-engineering-plugin",
-      "7",
-      "--platform",
-      "codex"
+      ["compound-engineering-plugin", "7", "--platform", "codex"]
     )
     const files = stdout.trim().split("\n").filter((l) => l.trim())
     for (const file of files) {
@@ -933,12 +1599,148 @@ describe("discover-sessions", () => {
 
   test("fails on unknown platform", async () => {
     const { exitCode, stderr } = await runDiscover(
-      "compound-engineering-plugin",
-      "7",
-      "--platform",
-      "windsurf"
+      ["compound-engineering-plugin", "7", "--platform", "windsurf"]
     )
     expect(exitCode).toBe(1)
     expect(stderr).toContain("Unknown platform")
+  })
+
+  test("--platform pi discovers sessions under encoded CWD directories", async () => {
+    const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-"))
+    const sessionPath = path.join(
+      tempHome,
+      ".pi/agent/sessions/--Users-test-Code-my-repo--/2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    await writeFixture(sessionPath, "pi-session.jsonl")
+
+    const { stdout, stderr, exitCode } = await runDiscover(
+      ["my-repo", "7", "--platform", "pi"],
+      { HOME: tempHome }
+    )
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    const files = stdout.trim().split("\n").filter((l) => l.trim())
+    expect(files).toEqual([sessionPath])
+  })
+
+  test("--platform pi with --cwd discovers only the exact encoded CWD directory", async () => {
+    const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-"))
+    const sessionPath = path.join(
+      tempHome,
+      ".pi/agent/sessions/--Users-test-Code-my-repo--/2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    const siblingPath = path.join(
+      tempHome,
+      ".pi/agent/sessions/--Users-test-Code-my-repo-old--/2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    await writeFixture(sessionPath, "pi-session.jsonl")
+    await writeFixture(siblingPath, "pi-session.jsonl")
+
+    const { stdout, stderr, exitCode } = await runDiscover(
+      [
+        "my-repo",
+        "7",
+        "--cwd",
+        "/Users/test/Code/my-repo",
+        "--platform",
+        "pi",
+      ],
+      { HOME: tempHome }
+    )
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    const files = stdout.trim().split("\n").filter((l) => l.trim())
+    expect(files).toEqual([sessionPath])
+  })
+
+  test("--cwd works without an explicit --platform flag", async () => {
+    const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-"))
+    const sessionPath = path.join(
+      tempHome,
+      ".pi/agent/sessions/--Users-test-Code-my-repo--/2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    await writeFixture(sessionPath, "pi-session.jsonl")
+
+    const { stdout, stderr, exitCode } = await runDiscover(
+      ["my-repo", "7", "--cwd", "/Users/test/Code/my-repo"],
+      { HOME: tempHome }
+    )
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    const files = stdout.trim().split("\n").filter((l) => l.trim())
+    expect(files).toEqual([sessionPath])
+  })
+
+  test("--platform pi with PI_CODING_AGENT_SESSION_DIR searches that directory directly", async () => {
+    const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-"))
+    const sessionBase = fs.mkdtempSync(path.join(os.tmpdir(), "pi-sessions-"))
+    const sessionPath = path.join(
+      sessionBase,
+      "2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    await writeFixture(sessionPath, "pi-session.jsonl")
+
+    const { stdout, stderr, exitCode } = await runDiscover(
+      [
+        "my-repo",
+        "7",
+        "--cwd",
+        "/Users/test/Code/my-repo",
+        "--platform",
+        "pi",
+      ],
+      {
+        HOME: tempHome,
+        PI_CODING_AGENT_SESSION_DIR: sessionBase,
+      }
+    )
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    const files = stdout.trim().split("\n").filter((l) => l.trim())
+    expect(files).toEqual([sessionPath])
+  })
+
+  test("--platform pi honors PI_CODING_AGENT_SESSION_DIR", async () => {
+    const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-"))
+    const sessionBase = fs.mkdtempSync(path.join(os.tmpdir(), "pi-sessions-"))
+    const sessionPath = path.join(
+      sessionBase,
+      "--Users-test-Code-my-repo--/2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    await writeFixture(sessionPath, "pi-session.jsonl")
+
+    const { stdout, stderr, exitCode } = await runDiscover(
+      ["my-repo", "7", "--platform", "pi"],
+      { HOME: tempHome, PI_CODING_AGENT_SESSION_DIR: sessionBase }
+    )
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    const files = stdout.trim().split("\n").filter((l) => l.trim())
+    expect(files).toEqual([sessionPath])
+  })
+
+  test("--platform pi honors PI_CODING_AGENT_DIR sessions subdirectory", async () => {
+    const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-"))
+    const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-agent-"))
+    const sessionPath = path.join(
+      agentDir,
+      "sessions/--Users-test-Code-my-repo--/2026-04-07T09-00-00-000Z_test.jsonl"
+    )
+    await writeFixture(sessionPath, "pi-session.jsonl")
+
+    const { stdout, stderr, exitCode } = await runDiscover(
+      ["my-repo", "7", "--platform", "pi"],
+      { HOME: tempHome, PI_CODING_AGENT_DIR: agentDir }
+    )
+
+    expect(exitCode).toBe(0)
+    expect(stderr).toBe("")
+    const files = stdout.trim().split("\n").filter((l) => l.trim())
+    expect(files).toEqual([sessionPath])
   })
 })

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract error signals from a Claude Code, Codex, or Cursor JSONL session file.
+"""Extract error signals from a Claude Code, Codex, Cursor, or Pi JSONL session file.
 
 Usage:
   cat <session.jsonl> | python3 extract-errors.py
@@ -88,6 +88,113 @@ def handle_codex(obj):
                 stats["errors_found"] += 1
 
 
+def _pi_content_summary(content):
+    if isinstance(content, str):
+        return summarize_error(content)
+    if isinstance(content, list):
+        text = "\n".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict) and block.get("type") in ("text", "toolError")
+        )
+        return summarize_error(text)
+    return summarize_error(content)
+
+
+def _pi_active_path_objects(objects):
+    """Return only entries on Pi's active leaf-to-root path."""
+    by_id = {
+        obj.get("id"): obj
+        for obj in objects
+        if isinstance(obj.get("id"), str) and obj.get("type") != "session"
+    }
+    leaf_id = None
+    for obj in objects:
+        if obj.get("type") != "session" and isinstance(obj.get("id"), str):
+            leaf_id = obj["id"]
+    if not leaf_id:
+        return objects
+
+    active_ids = set()
+    current = leaf_id
+    while isinstance(current, str) and current and current not in active_ids:
+        active_ids.add(current)
+        parent = by_id.get(current, {}).get("parentId")
+        current = parent if isinstance(parent, str) else None
+    return [
+        obj
+        for obj in objects
+        if obj.get("type") == "session" or obj.get("id") in active_ids
+    ]
+
+
+def _pi_context_objects(objects):
+    """Return Pi entries that participate in active LLM context."""
+    active = _pi_active_path_objects(objects)
+    compactions = [obj for obj in active if obj.get("type") == "compaction"]
+    if not compactions:
+        return active
+
+    first_kept = compactions[-1].get("firstKeptEntryId")
+    if not isinstance(first_kept, str):
+        return active
+
+    latest_compaction_id = compactions[-1].get("id")
+    started = False
+    found_first_kept = False
+    context = [obj for obj in active if obj.get("type") == "session"]
+    context.append(compactions[-1])
+    for obj in active:
+        if obj.get("type") == "session":
+            continue
+        if obj.get("id") == first_kept:
+            started = True
+            found_first_kept = True
+        if obj.get("id") == latest_compaction_id:
+            continue
+        if started:
+            context.append(obj)
+    return context if found_first_kept and len(context) > 1 else active
+
+
+def handle_pi(obj):
+    if obj.get("type") != "message":
+        return
+    msg = obj.get("message", {})
+    if msg.get("role") == "bashExecution":
+        exit_code = msg.get("exitCode")
+        if exit_code in (None, 0) and not msg.get("cancelled"):
+            return
+        ts = obj.get("timestamp", "")[:19]
+        command = msg.get("command", "")
+        output = msg.get("output", "")
+        summary = summarize_error(output)
+        status = "cancelled" if msg.get("cancelled") else f"exit={exit_code}"
+        print(f"[{ts}] [error] {status} cmd={command[:120]}: {summary}")
+        print("---")
+        stats["errors_found"] += 1
+        return
+
+    if msg.get("role") != "toolResult":
+        return
+    content = msg.get("content", [])
+    is_error = bool(msg.get("isError"))
+    if isinstance(content, list):
+        is_error = is_error or any(
+            isinstance(block, dict) and block.get("type") == "toolError"
+            for block in content
+        )
+    if not is_error:
+        return
+
+    ts = obj.get("timestamp", "")[:19]
+    tool = msg.get("toolName", "unknown")
+    summary = _pi_content_summary(content)
+    print(f"[{ts}] [error] tool={tool}: {summary}")
+    print("---")
+    stats["errors_found"] += 1
+
+
 # Auto-detect platform from first few lines, then process all
 detected = None
 buffer = []
@@ -102,7 +209,9 @@ for line in sys.stdin:
     if not detected and len(buffer) <= 10:
         try:
             obj = json.loads(line)
-            if obj.get("type") in ("user", "assistant"):
+            if obj.get("type") == "session" and "cwd" in obj:
+                detected = "pi"
+            elif obj.get("type") in ("user", "assistant"):
                 detected = "claude"
             elif obj.get("type") in ("session_meta", "turn_context", "response_item", "event_msg"):
                 detected = "codex"
@@ -115,13 +224,23 @@ for line in sys.stdin:
 def handle_noop(obj):
     pass
 
-handlers = {"claude": handle_claude, "codex": handle_codex, "cursor": handle_noop}
+handlers = {"claude": handle_claude, "codex": handle_codex, "cursor": handle_noop, "pi": handle_pi}
 handler = handlers.get(detected, handle_noop)
 
+objects = []
 for line in buffer:
     try:
-        handler(json.loads(line))
+        objects.append(json.loads(line))
     except (json.JSONDecodeError, KeyError):
+        stats["parse_errors"] += 1
+
+if detected == "pi":
+    objects = _pi_context_objects(objects)
+
+for obj in objects:
+    try:
+        handler(obj)
+    except KeyError:
         stats["parse_errors"] += 1
 
 print(json.dumps({"_meta": True, **stats}))

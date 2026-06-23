@@ -66,7 +66,8 @@ The practical fix:
 PR title determines release intent:
 
 - `feat` -> minor
-- `fix`, `perf`, `refactor`, `revert` -> patch
+- `fix`, `perf`, `revert` -> patch
+- `refactor` -> visible in release notes under `Refactoring`, but not release-driving unless breaking or explicitly overridden
 - `!` -> major; do not use without explicit maintainer confirmation
 
 File paths determine component ownership:

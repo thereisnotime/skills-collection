@@ -507,7 +507,7 @@ function isPathInside(candidatePath: string, rootPath: string): boolean {
 async function moveLegacyArtifactToBackup(
   codexRoot: string,
   pluginName: string,
-  kind: "skills" | "prompts",
+  kind: "skills" | "prompts" | "agents",
   artifactPath: string,
 ): Promise<void> {
   if (!(await pathExists(artifactPath))) return

@@ -148,7 +148,7 @@ The Codex app install is self-contained for Compound Engineering. Specialist rev
 
 ### Codex CLI
 
-Register the marketplace, then install the plugin through Codex's TUI.
+Register the marketplace, then install the plugin.
 
 1. **Register the marketplace with Codex:**
 
@@ -156,7 +156,13 @@ Register the marketplace, then install the plugin through Codex's TUI.
    codex plugin marketplace add EveryInc/compound-engineering-plugin
    ```
 
-2. **Install the plugin through Codex's TUI:** launch `codex`, run `/plugins`, find the **Compound Engineering** marketplace, select the **compound-engineering** plugin, and choose **Install**. Restart Codex after install completes. Codex CLI can register marketplaces, but it does not currently expose a plugin-install subcommand for plugins from an added marketplace -- the `/plugins` TUI install is required for CE skills.
+2. **Install the plugin:**
+
+   ```bash
+   codex plugin add compound-engineering@compound-engineering-plugin
+   ```
+
+   You can also launch `codex`, run `/plugins`, find the **Compound Engineering** marketplace, select the **compound-engineering** plugin, and choose **Install**. Restart Codex after install completes.
 
 The native Codex plugin install is self-contained for Compound Engineering. Specialist reviewer and research behavior lives inside the skills as local prompt assets; no separate custom-agent install step is required.
 
@@ -164,10 +170,10 @@ For a non-default Codex profile, run every Codex-related step against the same `
 
 ```bash
 CODEX_HOME="$HOME/.codex/profiles/work" codex plugin marketplace add EveryInc/compound-engineering-plugin
-CODEX_HOME="$HOME/.codex/profiles/work" codex
+CODEX_HOME="$HOME/.codex/profiles/work" codex plugin add compound-engineering@compound-engineering-plugin
 ```
 
-Inside Codex, run `/plugins`, select **Compound Engineering**, then install **compound-engineering**. The marketplace step only makes the plugin available; the TUI install is what activates the native CE skills for that profile.
+The marketplace step only makes the plugin available; the plugin install is what activates the native CE skills for that profile.
 
 ### GitHub Copilot
 
@@ -314,10 +320,10 @@ In the app's **Add plugin marketplace** form, use this checkout as the source:
 
 ```bash
 codex plugin marketplace add "$PWD"
-codex
+codex plugin add compound-engineering@compound-engineering-plugin
 ```
 
-Then run `/plugins`, select **Compound Engineering**, and install **compound-engineering**. Use a separate `CODEX_HOME` when you want to keep local testing isolated from your normal Codex profile.
+Use a separate `CODEX_HOME` when you want to keep local testing isolated from your normal Codex profile. The Codex marketplace entry points at the public Git plugin source so root-shaped plugin repos install correctly; use a temporary marketplace catalog with a `source.url` plus `ref` when testing unpublished plugin-content changes end to end.
 
 **OpenCode**
 

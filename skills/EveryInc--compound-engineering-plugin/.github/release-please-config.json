@@ -8,6 +8,28 @@
     ".": {
       "release-type": "simple",
       "package-name": "compound-engineering",
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features",
+          "hidden": false
+        },
+        {
+          "type": "fix",
+          "section": "Bug Fixes",
+          "hidden": false
+        },
+        {
+          "type": "deps",
+          "section": "Dependencies",
+          "hidden": false
+        },
+        {
+          "type": "refactor",
+          "section": "Refactoring",
+          "hidden": false
+        }
+      ],
       "skip-changelog": true,
       "exclude-paths": [
         "SECURITY.md",

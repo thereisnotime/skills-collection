@@ -123,6 +123,18 @@ export function isSafeManagedPath(rootDir: string, candidate: unknown): candidat
 }
 
 /**
+ * Normalizes a command name to the relative path key used by the OpenCode writer,
+ * without touching the filesystem, by applying the colon-to-slash convention.
+ * See also `resolveCommandPath`, which applies the same split but resolves to an
+ * absolute path and creates intermediate directories on disk.
+ *
+ * Example: `"foo:bar"` -> `"foo/bar"`
+ */
+export function commandNameToRelativePath(name: string): string {
+  return name.split(":").join("/")
+}
+
+/**
  * Resolve a colon-separated command name into a filesystem path.
  * e.g. resolveCommandPath("/commands", "ce:plan", ".md") -> "/commands/ce/plan.md"
  * Creates intermediate directories as needed.

@@ -46,6 +46,11 @@ type CodexMarketplaceManifest = {
   name: string
   plugins: Array<{
     name: string
+    source?: {
+      source?: string
+      path?: string
+      url?: string
+    }
   }>
 }
 
@@ -359,6 +364,13 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
       errors.push(
         `${marketplaceCodexPath}: plugin list [${codexNames.join(", ")}] does not match ${marketplaceClaudePath} [${claudeNames.join(", ")}]`,
       )
+    }
+    for (const plugin of marketplaceCodex.plugins) {
+      if (plugin.source?.source === "local" && plugin.source.path === "./") {
+        errors.push(
+          `${marketplaceCodexPath}: plugin "${plugin.name}" uses source.path "./"; Codex does not enumerate marketplace entries that point back at the marketplace root. Use a plugin subdirectory path or a Git URL source.`,
+        )
+      }
     }
     updates.push({ path: marketplaceCodexPath, changed: false })
   } catch (err: unknown) {

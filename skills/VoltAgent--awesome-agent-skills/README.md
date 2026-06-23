@@ -44,13 +44,18 @@ Compatible with Claude Code, Codex, Antigravity, Gemini CLI, Cursor, GitHub Copi
 
 The most contributed Agent Skills repository, built and maintained together with the community.
 
-<br/>
 
-<a href="https://launchkit.getdesign.md/">
-<img src="https://cdn.voltagent.dev/awesome-repo/launchkit-banner-3.png" alt="launchkit"  /><br/>
-</a>
+## 💛 Sponsors
 
-<br/>
+|  |  |
+| :-: | :-- |
+| <a href="https://www.testmuai.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cdn.voltagent.dev/awesome-repo/testmui/testmuai-white.png"><img alt="TestMu AI" src="https://cdn.voltagent.dev/awesome-repo/testmui/testmuai-black.png" width="425"></picture></a> | [TestMu AI (formerly LambdaTest)](https://www.testmuai.com) is an AI-native testing cloud platform built for modern engineering teams. Covering everything from autonomous test creation and fast execution to testing AI agents, chatbots and voice assistants. |
+
+<br />
+
+<a href="https://sponsors.voltagent.dev/#awesome-agent-skills"><img src="https://img.shields.io/badge/📩_Become_a_Sponsor-Contact_Us-blue?style=for-the-badge&logoColor=white" alt="Become a Sponsor" /></a>
+
+
 
 ## Table of Contents
 
@@ -71,36 +76,13 @@ The most contributed Agent Skills repository, built and maintained together with
 | [Notion](#skills-by-notion) | [Resend](#skills-by-resend) | [Addy Osmani (Web Quality)](#skills-by-addy-osmani-web-quality) | [MongoDB](#skills-by-mongodb) |
 | [Kim Barrett (Advertising)](#advertising-skills-by-kim-barrett) | [Apollo GraphQL](#skills-by-apollo-graphql) | [Auth0](#skills-by-auth0) | [Brave](#skills-by-brave) |
 | [Browserbase](#skills-by-browserbase) | [CodeRabbit](#skills-by-coderabbit) | [Coinbase](#skills-by-coinbase) | [Datadog Labs](#skills-by-datadog-labs) |
+| [TestMu AI](#skills-by-testmu-ai) | | | |
 | [Firebase](#skills-by-firebase) | [Flutter](#skills-by-flutter) | [Venice.ai](#skills-by-veniceai) | [Red Hat](#skills-by-redhat) | [Community](#community-skills) |  | [Redis](#skills-by-redis) | [NVIDIA](#skills-by-nvidia) | [Google Cloud](#skills-by-google-cloud) | [Quality Standards](#skill-quality-standards) |
 
 
-## Ecosystem Tools
 
-Tools, platforms, and services for building 
 
- - If you're building AI agents in TypeScript, VoltAgent gives you tool use, memory, and multi-agent coordination out of the box.
 
-    <a href="https://github.com/VoltAgent/voltagent">
-    <img height="80" alt="voltagent-banner" src="https://github.com/user-attachments/assets/7196f50b-ca98-494c-8aa0-11e111c49f96" />
-    </a>
-<br/>
-
-<div align="center">
-
-<table>
-<tr>
-<td align="center" width="100%">
-<h4>👉 You can feature your product here and reach the agentic developer ecosystem.</h4>
-     
-<sub>Your product can also appear across the <a href="https://officialskills.sh">officialskills.sh</a> platform</sub>
-     
-<a href="https://sponsors.voltagent.dev/#awesome-agent-skills"><img src="https://img.shields.io/badge/📩_Become_a_Sponsor-Contact_Us-blue?style=for-the-badge&logoColor=white" alt="Become a Sponsor" /></a>
-
-</td>
-</tr>
-</table>
-
-</div>
 
 
 
@@ -1521,6 +1503,62 @@ Official skills published by Cypress to help create, maintain, understand, and f
 
 </details>
 
+<details>
+<summary><h3 style="display:inline">Skills by TestMu AI</h3></summary>
+
+Production-grade Agent Skills for every major test automation framework, maintained by the TestMu AI (formerly LambdaTest) team. They help AI coding assistants generate expert-level test automation code across web, mobile, API, BDD, and unit testing stacks.
+
+- **[testmu-ai/api-skill](https://github.com/LambdaTest/agent-skills/tree/main/api-skill)** - Suite of API skills for designing, mocking, documenting, securing, and generating tests for REST/GraphQL/gRPC APIs
+- **[testmu-ai/appium-skill](https://github.com/LambdaTest/agent-skills/tree/main/appium-skill)** - Generate Appium mobile automation for Android and iOS in Java, Python, or JS
+- **[testmu-ai/behat-skill](https://github.com/LambdaTest/agent-skills/tree/main/behat-skill)** - Generate Behat BDD tests for PHP with Gherkin and Mink
+- **[testmu-ai/behave-skill](https://github.com/LambdaTest/agent-skills/tree/main/behave-skill)** - Generate Behave BDD tests for Python with Gherkin and step implementations
+- **[testmu-ai/capybara-skill](https://github.com/LambdaTest/agent-skills/tree/main/capybara-skill)** - Generate Capybara E2E tests in Ruby with RSpec integration
+- **[testmu-ai/cicd-pipeline-skill](https://github.com/LambdaTest/agent-skills/tree/main/cicd-pipeline-skill)** - Generate CI/CD pipelines for tests on GitHub Actions, Jenkins, GitLab CI, and Azure DevOps
+- **[testmu-ai/codeception-skill](https://github.com/LambdaTest/agent-skills/tree/main/codeception-skill)** - Generate Codeception acceptance, functional, and unit tests in PHP
+- **[testmu-ai/cucumber-skill](https://github.com/LambdaTest/agent-skills/tree/main/cucumber-skill)** - Generate Cucumber BDD tests with Gherkin and step definitions in Java, JS, or Ruby
+- **[testmu-ai/cypress-skill](https://github.com/LambdaTest/agent-skills/tree/main/cypress-skill)** - Generate Cypress E2E and component tests in JavaScript or TypeScript
+- **[testmu-ai/detox-skill](https://github.com/LambdaTest/agent-skills/tree/main/detox-skill)** - Generate Detox gray-box E2E tests for React Native apps in JavaScript
+- **[testmu-ai/espresso-skill](https://github.com/LambdaTest/agent-skills/tree/main/espresso-skill)** - Generate Espresso UI tests for Android apps in Kotlin or Java
+- **[testmu-ai/flutter-testing-skill](https://github.com/LambdaTest/agent-skills/tree/main/flutter-testing-skill)** - Generate Flutter widget, integration, and golden tests in Dart
+- **[testmu-ai/gauge-skill](https://github.com/LambdaTest/agent-skills/tree/main/gauge-skill)** - Generate Gauge specs in Markdown with steps in Java, Python, JS, or Ruby
+- **[testmu-ai/geb-skill](https://github.com/LambdaTest/agent-skills/tree/main/geb-skill)** - Generate Geb browser automation in Groovy with Spock and page objects
+- **[testmu-ai/hyperexecute-skill](https://github.com/LambdaTest/agent-skills/tree/main/hyperexecute-skill)** - Operate TestMu AI HyperExecute end-to-end: YAML, CLI runs, debugging, and CI wiring
+- **[testmu-ai/jasmine-skill](https://github.com/LambdaTest/agent-skills/tree/main/jasmine-skill)** - Generate Jasmine BDD tests in JavaScript with spies and async support
+- **[testmu-ai/jest-skill](https://github.com/LambdaTest/agent-skills/tree/main/jest-skill)** - Generate Jest unit and integration tests in JS/TS with mocking and snapshots
+- **[testmu-ai/junit-5-skill](https://github.com/LambdaTest/agent-skills/tree/main/junit-5-skill)** - Generate JUnit 5 unit and integration tests in Java with Mockito
+- **[testmu-ai/karma-skill](https://github.com/LambdaTest/agent-skills/tree/main/karma-skill)** - Generate Karma test-runner configs for browser-based JS testing
+- **[testmu-ai/laravel-dusk-skill](https://github.com/LambdaTest/agent-skills/tree/main/laravel-dusk-skill)** - Generate Laravel Dusk Chrome-based browser tests in PHP
+- **[testmu-ai/lettuce-skill](https://github.com/LambdaTest/agent-skills/tree/main/lettuce-skill)** - Generate Lettuce BDD tests for Python (legacy; prefer Behave)
+- **[testmu-ai/mocha-skill](https://github.com/LambdaTest/agent-skills/tree/main/mocha-skill)** - Generate Mocha tests in JavaScript with Chai and Sinon
+- **[testmu-ai/mstest-skill](https://github.com/LambdaTest/agent-skills/tree/main/mstest-skill)** - Generate MSTest tests in C# for .NET
+- **[testmu-ai/nemojs-skill](https://github.com/LambdaTest/agent-skills/tree/main/nemojs-skill)** - Generate Nemo.js Selenium-based tests for Node.js
+- **[testmu-ai/nightwatchjs-skill](https://github.com/LambdaTest/agent-skills/tree/main/nightwatchjs-skill)** - Generate NightwatchJS E2E tests in JavaScript with Selenium WebDriver
+- **[testmu-ai/nunit-skill](https://github.com/LambdaTest/agent-skills/tree/main/nunit-skill)** - Generate NUnit 3 tests in C# with the constraint model and Moq
+- **[testmu-ai/phpunit-skill](https://github.com/LambdaTest/agent-skills/tree/main/phpunit-skill)** - Generate PHPUnit tests in PHP with data providers and mocking
+- **[testmu-ai/playwright-skill](https://github.com/LambdaTest/agent-skills/tree/main/playwright-skill)** - Generate Playwright E2E tests in TS, JS, Python, Java, or C#
+- **[testmu-ai/protractor-skill](https://github.com/LambdaTest/agent-skills/tree/main/protractor-skill)** - Generate Protractor E2E tests for Angular in JS/TS (deprecated; prefer Playwright/Cypress)
+- **[testmu-ai/puppeteer-skill](https://github.com/LambdaTest/agent-skills/tree/main/puppeteer-skill)** - Generate Puppeteer scripts for browser automation, scraping, and PDF generation
+- **[testmu-ai/pytest-skill](https://github.com/LambdaTest/agent-skills/tree/main/pytest-skill)** - Generate pytest tests in Python with fixtures, parametrize, and mocking
+- **[testmu-ai/reqnroll-skill](https://github.com/LambdaTest/agent-skills/tree/main/reqnroll-skill)** - Generate Reqnroll BDD tests for web and mobile in C#
+- **[testmu-ai/robot-framework-skill](https://github.com/LambdaTest/agent-skills/tree/main/robot-framework-skill)** - Generate Robot Framework keyword-driven tests in Python
+- **[testmu-ai/rspec-skill](https://github.com/LambdaTest/agent-skills/tree/main/rspec-skill)** - Generate RSpec tests in Ruby with matchers, hooks, and mocking
+- **[testmu-ai/selenide-skill](https://github.com/LambdaTest/agent-skills/tree/main/selenide-skill)** - Generate Selenide UI tests in Java with auto-waits and a fluent API
+- **[testmu-ai/selenium-skill](https://github.com/LambdaTest/agent-skills/tree/main/selenium-skill)** - Generate Selenium WebDriver tests in Java, Python, JS, C#, Ruby, or PHP
+- **[testmu-ai/serenity-bdd-skill](https://github.com/LambdaTest/agent-skills/tree/main/serenity-bdd-skill)** - Generate Serenity BDD tests in Java with the Screenplay pattern and reporting
+- **[testmu-ai/smartui-skill](https://github.com/LambdaTest/agent-skills/tree/main/smartui-skill)** - Generate SmartUI visual regression configs for screenshot comparison
+- **[testmu-ai/specflow-skill](https://github.com/LambdaTest/agent-skills/tree/main/specflow-skill)** - Generate SpecFlow BDD tests for C#/.NET with Gherkin and step bindings
+- **[testmu-ai/test-framework-migration-skill](https://github.com/LambdaTest/agent-skills/tree/main/test-framework-migration-skill)** - Migrate tests between Selenium, Playwright, Puppeteer, and Cypress
+- **[testmu-ai/testcafe-skill](https://github.com/LambdaTest/agent-skills/tree/main/testcafe-skill)** - Generate TestCafe automation tests in JavaScript or TypeScript
+- **[testmu-ai/testng-skill](https://github.com/LambdaTest/agent-skills/tree/main/testng-skill)** - Generate TestNG tests in Java with data providers and parallel execution
+- **[testmu-ai/testunit-skill](https://github.com/LambdaTest/agent-skills/tree/main/testunit-skill)** - Generate Test::Unit xUnit-style tests in Ruby
+- **[testmu-ai/unittest-skill](https://github.com/LambdaTest/agent-skills/tree/main/unittest-skill)** - Generate Python unittest tests with TestCase and setUp/tearDown
+- **[testmu-ai/vitest-skill](https://github.com/LambdaTest/agent-skills/tree/main/vitest-skill)** - Generate Vitest tests in JS/TS with a Jest-compatible API and ESM
+- **[testmu-ai/webdriverio-skill](https://github.com/LambdaTest/agent-skills/tree/main/webdriverio-skill)** - Generate WebdriverIO (WDIO) automation tests in JavaScript or TypeScript
+- **[testmu-ai/xcuitest-skill](https://github.com/LambdaTest/agent-skills/tree/main/xcuitest-skill)** - Generate XCUITest UI tests for iOS/iPadOS apps in Swift
+- **[testmu-ai/xunit-skill](https://github.com/LambdaTest/agent-skills/tree/main/xunit-skill)** - Generate xUnit.net tests in C# with Fact/Theory and FluentAssertions
+
+</details>
+
 ### Community Skills
 
 <details>
@@ -1742,9 +1780,14 @@ Official skills published by Cypress to help create, maintain, understand, and f
 
 <br/>
 
-<a href="https://github.com/VoltAgent/voltagent">
-<img width="1390" height="296" alt="social" src="https://github.com/user-attachments/assets/5d8822c0-e97b-4183-a71e-a922ab88e1a0" />
+<br/>
+
+<a href="https://launchkit.getdesign.md/">
+<img src="https://cdn.voltagent.dev/awesome-repo/launchkit-banner-3.png" alt="launchkit"  /><br/>
 </a>
+
+<br/>
+
 
 <br/>
 

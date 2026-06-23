@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract session metadata from Claude Code, Codex, and Cursor JSONL files.
+"""Extract session metadata from Claude Code, Codex, Cursor, and Pi JSONL files.
 
 Batch mode (preferred — one invocation for all files):
   python3 extract-metadata.py /path/to/dir/*.jsonl
@@ -57,6 +57,23 @@ def try_codex(lines):
     return meta if meta else None
 
 
+def try_pi(lines):
+    """Pi sessions: type='session' header with cwd, followed by message entries."""
+    for line in lines:
+        try:
+            obj = json.loads(line.strip())
+            if obj.get("type") == "session" and "cwd" in obj:
+                return {
+                    "platform": "pi",
+                    "cwd": obj.get("cwd", ""),
+                    "session": obj.get("id", ""),
+                    "ts": obj.get("timestamp", ""),
+                }
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return None
+
+
 def try_cursor(lines):
     """Cursor agent transcripts: role-based entries, no timestamps or metadata fields."""
     for line in lines:
@@ -71,7 +88,7 @@ def try_cursor(lines):
 
 
 def extract_from_lines(lines):
-    return try_claude(lines) or try_codex(lines) or try_cursor(lines)
+    return try_claude(lines) or try_codex(lines) or try_pi(lines) or try_cursor(lines)
 
 
 TAIL_BYTES = 16384  # Read last 16KB to find final timestamp past trailing metadata
@@ -96,6 +113,93 @@ def get_last_timestamp(filepath, size):
     return None
 
 
+def _pi_active_path_objects(objects):
+    """Return only entries on Pi's active leaf-to-root path.
+
+    Pi session files are append-only trees. The final non-session entry is the
+    active leaf; abandoned branches remain in the file but are not in context.
+    """
+    by_id = {
+        obj.get("id"): obj
+        for obj in objects
+        if isinstance(obj.get("id"), str) and obj.get("type") != "session"
+    }
+    leaf_id = None
+    for obj in objects:
+        if obj.get("type") != "session" and isinstance(obj.get("id"), str):
+            leaf_id = obj["id"]
+    if not leaf_id:
+        return objects
+
+    active_ids = set()
+    current = leaf_id
+    while isinstance(current, str) and current and current not in active_ids:
+        active_ids.add(current)
+        parent = by_id.get(current, {}).get("parentId")
+        current = parent if isinstance(parent, str) else None
+    return [
+        obj
+        for obj in objects
+        if obj.get("type") == "session" or obj.get("id") in active_ids
+    ]
+
+
+def _pi_context_objects(objects):
+    """Return Pi entries that participate in active LLM context."""
+    active = _pi_active_path_objects(objects)
+    compactions = [obj for obj in active if obj.get("type") == "compaction"]
+    if not compactions:
+        return active
+
+    # Pi emits compaction summary first, then entries from firstKeptEntryId
+    # onward. Exclude older ancestors so keyword search mirrors context.
+    first_kept = compactions[-1].get("firstKeptEntryId")
+    if not isinstance(first_kept, str):
+        return active
+
+    latest_compaction_id = compactions[-1].get("id")
+    started = False
+    found_first_kept = False
+    context = [obj for obj in active if obj.get("type") == "session"]
+    context.append(compactions[-1])
+    for obj in active:
+        if obj.get("type") == "session":
+            continue
+        if obj.get("id") == first_kept:
+            started = True
+            found_first_kept = True
+        if obj.get("id") == latest_compaction_id:
+            continue
+        if started:
+            context.append(obj)
+    return context if found_first_kept and len(context) > 1 else active
+
+
+def _append_pi_content_text(chunks, content):
+    if isinstance(content, str):
+        chunks.append(content)
+    elif isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                chunks.append(block.get("text", ""))
+
+
+def _append_pi_tool_call_targets(chunks, content):
+    """Append searchable Pi toolCall targets without indexing tool output."""
+    if not isinstance(content, list):
+        return
+    for block in content:
+        if not isinstance(block, dict) or block.get("type") != "toolCall":
+            continue
+        args = block.get("arguments", {})
+        if not isinstance(args, dict):
+            continue
+        for key in ("path", "file_path", "command", "pattern", "query", "prompt"):
+            value = args.get(key)
+            if isinstance(value, str):
+                chunks.append(value)
+
+
 def _extract_user_assistant_text(filepath):
     """Return concatenated user + assistant text content from a session JSONL.
 
@@ -109,65 +213,105 @@ def _extract_user_assistant_text(filepath):
     """
     chunks = []
     try:
+        objects = []
         with open(filepath, "r", errors="replace") as f:
             for line in f:
                 try:
-                    obj = json.loads(line.strip())
+                    objects.append(json.loads(line.strip()))
                 except (json.JSONDecodeError, ValueError):
                     continue
 
-                # Claude Code: type-tagged top-level
-                t = obj.get("type")
-                if t == "user":
-                    msg = obj.get("message", {})
-                    content = msg.get("content")
-                    if isinstance(content, str):
-                        chunks.append(content)
-                    elif isinstance(content, list):
-                        for block in content:
-                            if isinstance(block, dict) and block.get("type") == "text":
-                                chunks.append(block.get("text", ""))
-                            # Skip tool_result blocks — tool outputs are not user content.
-                    continue
-                if t == "assistant":
-                    msg = obj.get("message", {})
-                    content = msg.get("content", [])
-                    if isinstance(content, list):
-                        for block in content:
-                            if isinstance(block, dict) and block.get("type") == "text":
-                                chunks.append(block.get("text", ""))
-                            # Skip tool_use and thinking blocks.
-                    continue
+        is_pi = any(
+            obj.get("type") == "session" and "cwd" in obj for obj in objects
+        )
+        if is_pi:
+            objects = _pi_context_objects(objects)
 
-                # Codex: payload-typed events
-                if t == "event_msg":
-                    p = obj.get("payload", {})
-                    if p.get("type") == "user_message":
-                        # Strip Codex/Conductor `<system_instruction>...</system_instruction>`
-                        # wrapper before counting. Without this, generic wrapper terms
-                        # (e.g., "Conductor", environment labels) false-match against
-                        # boilerplate the user did not author. Mirrors the same split
-                        # used in ce-session-extract/scripts/extract-skeleton.py.
-                        msg = p.get("message", "")
-                        if isinstance(msg, str):
-                            parts = msg.split("</system_instruction>")
-                            chunks.append(parts[-1] if parts else msg)
-                    continue
-                if t == "response_item":
-                    p = obj.get("payload", {})
-                    if p.get("type") == "message" and p.get("role") == "assistant":
-                        for block in p.get("content", []):
-                            if isinstance(block, dict) and block.get("type") == "output_text":
-                                chunks.append(block.get("text", ""))
-                    continue
-
-                # Cursor: role-tagged with no top-level type
-                if obj.get("role") in ("user", "assistant") and "type" not in obj:
-                    msg = obj.get("message", {})
-                    for block in msg.get("content", []) if isinstance(msg.get("content"), list) else []:
+        for obj in objects:
+            # Claude Code: type-tagged top-level
+            t = obj.get("type")
+            if t == "user":
+                msg = obj.get("message", {})
+                content = msg.get("content")
+                if isinstance(content, str):
+                    chunks.append(content)
+                elif isinstance(content, list):
+                    for block in content:
                         if isinstance(block, dict) and block.get("type") == "text":
                             chunks.append(block.get("text", ""))
+                        # Skip tool_result blocks — tool outputs are not user content.
+                continue
+            if t == "assistant":
+                msg = obj.get("message", {})
+                content = msg.get("content", [])
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            chunks.append(block.get("text", ""))
+                        # Skip tool_use and thinking blocks.
+                continue
+
+            # Codex: payload-typed events
+            if t == "event_msg":
+                p = obj.get("payload", {})
+                if p.get("type") == "user_message":
+                    # Strip Codex/Conductor `<system_instruction>...</system_instruction>`
+                    # wrapper before counting. Without this, generic wrapper terms
+                    # (e.g., "Conductor", environment labels) false-match against
+                    # boilerplate the user did not author. Mirrors the same split
+                    # used in ce-session-extract/scripts/extract-skeleton.py.
+                    msg = p.get("message", "")
+                    if isinstance(msg, str):
+                        parts = msg.split("</system_instruction>")
+                        chunks.append(parts[-1] if parts else msg)
+                continue
+            if t == "response_item":
+                p = obj.get("payload", {})
+                if p.get("type") == "message" and p.get("role") == "assistant":
+                    for block in p.get("content", []):
+                        if isinstance(block, dict) and block.get("type") == "output_text":
+                            chunks.append(block.get("text", ""))
+                continue
+
+            # Pi: type='message' envelope with AgentMessage under message.
+            if t == "message" and "message" in obj:
+                msg = obj.get("message", {})
+                role = msg.get("role", "")
+                if role == "bashExecution":
+                    command = msg.get("command", "")
+                    if isinstance(command, str):
+                        chunks.append(command)
+                    # Search command text only. Output is tool output and can
+                    # be large/noisy in the same way as toolResult content.
                     continue
+                content = msg.get("content", [])
+                if role == "custom":
+                    _append_pi_content_text(chunks, content)
+                    continue
+                if role not in ("user", "assistant"):
+                    continue
+                _append_pi_content_text(chunks, content)
+                if role == "assistant":
+                    _append_pi_tool_call_targets(chunks, content)
+                continue
+
+            if t in ("compaction", "branch_summary"):
+                summary = obj.get("summary", "")
+                if isinstance(summary, str):
+                    chunks.append(summary)
+                continue
+
+            if t == "custom_message":
+                _append_pi_content_text(chunks, obj.get("content", []))
+                continue
+
+            # Cursor: role-tagged with no top-level type
+            if obj.get("role") in ("user", "assistant") and "type" not in obj:
+                msg = obj.get("message", {})
+                for block in msg.get("content", []) if isinstance(msg.get("content"), list) else []:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        chunks.append(block.get("text", ""))
+                continue
     except (OSError, IOError):
         pass
     return "\n".join(chunks)
@@ -221,6 +365,14 @@ def process_file(filepath):
         return None, filepath
 
 
+def cwd_matches_filter(session_cwd, cwd_filter):
+    if not session_cwd or not cwd_filter:
+        return True
+    if os.path.isabs(cwd_filter):
+        return os.path.normpath(session_cwd) == os.path.normpath(cwd_filter)
+    return cwd_filter in session_cwd
+
+
 # Parse arguments: files and optional --cwd-filter / --keyword
 files = []
 cwd_filter = None
@@ -257,7 +409,7 @@ if files:
             # scan cost — Codex discovery returns sessions across all repos,
             # so without this ordering --keyword would scan files that are
             # immediately discarded.
-            if cwd_filter and result.get("cwd") and cwd_filter not in result["cwd"]:
+            if cwd_filter and result.get("cwd") and not cwd_matches_filter(result["cwd"], cwd_filter):
                 filtered += 1
                 continue
             # Apply keyword scan only after cheap filters pass.

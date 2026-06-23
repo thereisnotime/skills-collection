@@ -14,6 +14,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          fetch-depth: 0
 
       - name: Extract version from tag
         id: version
@@ -22,18 +24,20 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
 
-      - name: Update marketplace.json version
+      - name: Update marketplace.json and plugin.json version
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           jq --arg v "$VERSION" '.metadata.version = $v | .plugins[].version = $v' .claude-plugin/marketplace.json > tmp.json
           mv tmp.json .claude-plugin/marketplace.json
-          echo "Updated marketplace.json to version $VERSION"
+          jq --arg v "$VERSION" '.version = $v' .claude-plugin/plugin.json > tmp.json
+          mv tmp.json .claude-plugin/plugin.json
+          echo "Updated marketplace.json and plugin.json to version $VERSION"
 
       - name: Commit and push
         run: |
           git config user.name "mukul975"
           git config user.email "mukuljangra5@gmail.com"
-          git add .claude-plugin/marketplace.json
-          git diff --staged --quiet || git commit -m "chore: bump marketplace version to ${{ steps.version.outputs.tag }}"
-          git push
+          git add .claude-plugin/marketplace.json .claude-plugin/plugin.json
+          git diff --staged --quiet || git commit -m "chore: bump plugin version to ${{ steps.version.outputs.tag }}"
+          git push origin HEAD:main

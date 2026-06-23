@@ -120,7 +120,7 @@ Map changed files to concrete routes (views -> their pages, components -> pages 
 
 ### Phase 3: Detect Port and Start the Dev Server
 
-Determine the port (priority: explicit `--port` > `AGENTS.md`/`CLAUDE.md` > `package.json` dev script > `.env*` `PORT=` > default `3000`). If a server is already listening, reuse it; otherwise start the project's dev command in the background and wait for the port to come up. This is the same mechanism `ce-test-browser` uses — follow its Phase 5–6 logic.
+Determine the port (priority: explicit `--port` > a port explicitly stated in your in-context project instructions > `package.json` dev script > `.env*` `PORT=` > default `3000`). If a server is already listening, reuse it; otherwise start the project's dev command in the background and wait for the port to come up. This is the same mechanism `ce-test-browser` uses — follow its Phase 5–6 logic.
 
 ```bash
 agent-browser open "http://localhost:${PORT}"

@@ -267,7 +267,7 @@ Run grounding agents in parallel in the **foreground** (do not background — re
 
 1. **Quick context scan** — dispatch a general-purpose subagent using the platform's cheapest capable model when the harness exposes a known override; otherwise inherit. Before dispatching, apply the routing test from "User-Supplied Research Artifacts" below to any root-level `*.md` file the focus hint names: research artifacts (evidence) take that subsection's distillation path, so list them on the prompt's research-artifacts line to keep the scan from duplicating them into `User-named references`. Dispatch with this prompt:
 
-   > Read the project's AGENTS.md (or CLAUDE.md only as compatibility fallback, then README.md if neither exists), then discover the top-level directory layout using the native file-search/glob tool (e.g., `Glob` with pattern `*` or `*/*` in Claude Code). Also read `STRATEGY.md` if it exists — it captures the product's target problem, approach, persona, metrics, and tracks.
+   > Read the project's root agent-instruction file for this harness (e.g., `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, or `.cursor/rules`) and `README.md` when present, then discover the top-level directory layout using the native file-search/glob tool (e.g., `Glob` with pattern `*` or `*/*` in Claude Code). Also read `STRATEGY.md` if it exists — it captures the product's target problem, approach, persona, metrics, and tracks.
    >
    > **Two paths for other root-level `*.md` files**, depending on whether the focus hint names them:
    >

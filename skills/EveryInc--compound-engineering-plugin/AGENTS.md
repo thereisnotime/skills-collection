@@ -89,6 +89,23 @@ cat .claude-plugin/plugin.json | jq .
 
 `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are authoring context for this source repository. Skills are installed into end-user environments, where they run against the user's local instruction files, not this repo's. Behavioral rules that must affect a skill at runtime belong in that skill's `SKILL.md` or files under its own `references/` directory.
 
+## Referencing Project Conventions in Skills
+
+When a skill needs to discover a project convention at runtime — the issue tracker, coding standards, commit format, lint command, scope constraints, etc. — describe **what to look for in the agent's existing context**, not **which file to open**.
+
+**On the read path, do not name instruction files (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md` / `.cursor/rules`).** Phrase it as "the project's active instructions and conventions already in your context." Three reasons:
+
+- **Redundant.** Every major harness auto-injects the project's root instruction file into context at session start (Claude Code loads `CLAUDE.md`, Codex `AGENTS.md`, Gemini `GEMINI.md`). Telling the agent to "read `AGENTS.md`" asks it to re-open content it already has.
+- **Brittle / not portable.** The filename differs per harness, and this plugin is authored once and converted to all of them. A hardcoded "read `AGENTS.md` (or `CLAUDE.md`)" silently finds nothing on a harness that uses a different name.
+- **Security smell.** Instructing an agent to go *read named instruction dotfiles* is the exact shape that prompt-injection defenses in some agent frameworks (e.g., Hermes) flag. Referencing context rather than filenames avoids tripping those guards.
+
+**Name a concrete file only where the skill must do something a context reference can't express:**
+
+- **Writing a convention back** (e.g., persisting `project_tracker: linear`) needs a target — name it minimally and as an example ("the project's root agent-instructions file, e.g., `AGENTS.md`; if it `@`-includes another, write to the substantive one").
+- **Reading content that is genuinely not auto-loaded** — a subdirectory-scoped instruction file governing the area being changed, an optional project doc like `STRATEGY.md` / `CONCEPTS.md` / `README.md`, or any file a *fresh subagent* (which does not inherit the parent's loaded instructions) must open to do its job. Auditing tools that must enumerate every standards file (e.g., `ce-code-review`'s project-standards reviewer globbing all `CLAUDE.md`/`AGENTS.md`) are a legitimate exception — they review the files, they don't re-read them for context.
+
+**Describe the capability, not the tool.** Pair this with naming the *category* of thing rather than a closed set: "the project's issue tracker (e.g., GitHub Issues, Linear, Jira)" and "whatever interface that tracker exposes (connector/MCP, documented API, or a documented CLI)" — never assume a specific CLI exists, and never treat a missing binary / env var / MCP server as proof the capability is unavailable.
+
 ## Validating Agent and Skill Changes
 
 Behavioral changes to a plugin skill or skill-local persona (anything under `skills/`) need a different validation path than mechanical code changes, because of how Claude Code loads plugins.

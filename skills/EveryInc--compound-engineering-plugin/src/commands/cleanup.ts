@@ -25,7 +25,7 @@ import {
 import { moveLegacyArtifactToBackup } from "../targets/managed-artifacts"
 import { isManagedCodexAgentsSymlink, readCodexInstallManifest, resolveCodexManagedRoots } from "../targets/codex"
 import { classifyCodexLegacyPromptOwnership, isLegacyAgentArtifactOwned, isLegacySkillArtifactOwned } from "../utils/legacy-cleanup"
-import { isSafeManagedPath, pathExists, readJson, sanitizePathName } from "../utils/files"
+import { commandNameToRelativePath, isSafeManagedPath, pathExists, readJson, sanitizePathName } from "../utils/files"
 import { resolveOpenCodeGlobalRoot } from "../utils/opencode-config"
 import { expandHome, resolveCodexHome, resolveTargetHome } from "../utils/resolve-home"
 
@@ -579,7 +579,7 @@ async function cleanupQwen(plugin: Awaited<ReturnType<typeof loadClaudePlugin>>,
   for (const name of extras.commands ?? []) {
     commandPaths.add(`${sanitizePathName(name)}.md`)
     if (name.includes(":")) {
-      commandPaths.add(`${name.split(":").join("/")}.md`)
+      commandPaths.add(`${commandNameToRelativePath(name)}.md`)
     }
   }
 

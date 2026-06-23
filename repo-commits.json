@@ -691,6 +691,42 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "46352ac",
+      "message": "fix(opencode): generate slash-command stubs for each skill (#977)",
+      "date": "2026-06-23",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "6d5cb5c",
+      "message": "fix(ce-work-beta): thread Execution note into Codex delegation prompt (#976)",
+      "date": "2026-06-22",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "ea389f9",
+      "message": "fix(ce-compound): add Pi session history support (#974)",
+      "date": "2026-06-22",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "4ebd867",
+      "message": "fix(ce-plan): capability-based tracker access + reference conventions from context (#971)",
+      "date": "2026-06-22",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "8581289",
+      "message": "fix: Codex marketplace install (#973)",
+      "date": "2026-06-22",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "ded28b0",
+      "message": "fix(release): include refactors in release notes (#970)",
+      "date": "2026-06-22",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "02b72bc",
       "message": "refactor(plugin): make plugin skills-only and root-native (#967)",
       "date": "2026-06-22",
@@ -712,42 +748,6 @@
       "sha": "9be868d",
       "message": "feat(ce-brainstorm): add visual feedback to brainstorming process (#962)",
       "date": "2026-06-19",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "20f1ab6",
-      "message": "chore: release main (#953)",
-      "date": "2026-06-17",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "68dd787",
-      "message": "fix(proof): replace HITL review loop with one-way publish (#957)",
-      "date": "2026-06-17",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "d8d688b",
-      "message": "fix(lfg): run ce-simplify-code before review; clarify report-only contract (#952)",
-      "date": "2026-06-16",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "2648200",
-      "message": "chore: release main (#928)",
-      "date": "2026-06-15",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "d4cb8ee",
-      "message": "fix(release): bump marketplace catalogs for coding-tutor removal (#951)",
-      "date": "2026-06-15",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "3437de3",
-      "message": "fix(ce-worktree): replace bundled-script creator with a portable isolation guardrail (#948)",
-      "date": "2026-06-15",
       "author": "Trevin Chow"
     }
   ],
@@ -939,6 +939,12 @@
   ],
   "K-Dense-AI--claude-scientific-skills": [
     {
+      "sha": "ddd2f7f",
+      "message": "chore: update security scan report [skip ci]",
+      "date": "2026-06-22",
+      "author": "github-actions[bot]"
+    },
+    {
       "sha": "2093901",
       "message": "Enhance database lookup skill with deterministic querying and provenance features. Updated documentation to reflect impr",
       "date": "2026-06-15",
@@ -989,12 +995,6 @@
     {
       "sha": "fdf52ef",
       "message": "Update version to 2.50.0 and increment skill count to 146",
-      "date": "2026-06-11",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "614067a",
-      "message": "Update documentation to include NVIDIA NemoClaw and Pi in Agent Skills installation instructions",
       "date": "2026-06-11",
       "author": "Timothy Kassis"
     }
@@ -1873,6 +1873,30 @@
   ],
   "cloudflare--skills": [
     {
+      "sha": "27ce0c0",
+      "message": "Merge pull request #69 from Marcinthecloud/docs/data-platform-refresh",
+      "date": "2026-06-22",
+      "author": "Brendan Irvine-Broque"
+    },
+    {
+      "sha": "0554300",
+      "message": "docs: defer supported/unsupported feature lists to the docs",
+      "date": "2026-06-21",
+      "author": "Marc Selwan"
+    },
+    {
+      "sha": "86a3b4b",
+      "message": "docs: trim data-platform references, point to live docs",
+      "date": "2026-06-21",
+      "author": "Marc Selwan"
+    },
+    {
+      "sha": "9c8c21b",
+      "message": "docs: refresh Pipelines, R2 Data Catalog, and R2 SQL references",
+      "date": "2026-06-20",
+      "author": "Marc Selwan"
+    },
+    {
       "sha": "ffcc622",
       "message": "turnstile-spin: acknowledge v2 (dashboard 'Set up with Spin') marker (#68)",
       "date": "2026-06-17",
@@ -1907,30 +1931,6 @@
       "message": "fix: remove app-scoped token reference",
       "date": "2026-06-11",
       "author": "Akshit Sinha"
-    },
-    {
-      "sha": "cd5fc33",
-      "message": "docs(flagship): address review follow-ups",
-      "date": "2026-06-11",
-      "author": "Rohan Mukherjee"
-    },
-    {
-      "sha": "0064cc9",
-      "message": "docs(flagship): address rollout review feedback",
-      "date": "2026-06-10",
-      "author": "Rohan Mukherjee"
-    },
-    {
-      "sha": "faad285",
-      "message": "feat: migrate to new CF style API envelope",
-      "date": "2026-06-09",
-      "author": "Akshit Sinha"
-    },
-    {
-      "sha": "c5b7b06",
-      "message": "Merge pull request #60 from MohamedH1998/fix/remove-colon-from-frontmatter",
-      "date": "2026-06-05",
-      "author": "Sunil Pai"
     }
   ],
   "coffeefuelbump--csv-data-summarizer-claude-skill": [
@@ -2253,6 +2253,12 @@
   ],
   "expo--skills": [
     {
+      "sha": "81ee654",
+      "message": "Dedupe EAS Workflow syntax out of the expo-deployment skill (#81)",
+      "date": "2026-06-22",
+      "author": "Kudo Chien"
+    },
+    {
       "sha": "b553ae4",
       "message": "Add expo-examples skill (#84)",
       "date": "2026-06-18",
@@ -2305,12 +2311,6 @@
       "message": "feat: Expo Observe skills (#64)",
       "date": "2026-05-28",
       "author": "Douglas Lowder"
-    },
-    {
-      "sha": "510373b",
-      "message": "fine tune wordings (#69)",
-      "date": "2026-05-27",
-      "author": "Kudo Chien"
     }
   ],
   "firecrawl--cli": [
@@ -2839,6 +2839,42 @@
   ],
   "neondatabase--agent-skills": [
     {
+      "sha": "dba1dbd",
+      "message": "skills: remove neondatabase/examples references so skills are self-contained",
+      "date": "2026-06-23",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "287ecd9",
+      "message": "neon-object-storage: drop stale storage env vars; require forcePathStyle on the S3 client",
+      "date": "2026-06-23",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "21a341f",
+      "message": "neon-ai-gateway + neon-functions: recommend the AI SDK and Mastra for agents",
+      "date": "2026-06-23",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "d8eaabd",
+      "message": "neon-object-storage: recommend the Files SDK; keep raw S3 client as an alternative",
+      "date": "2026-06-23",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "56e609b",
+      "message": "Merge pull request #39 from neondatabase/chore/drop-v1-import-paths",
+      "date": "2026-06-22",
+      "author": "Andre Landgraf"
+    },
+    {
+      "sha": "8aa5ca3",
+      "message": "docs: import @neondatabase packages from root (drop /v1)",
+      "date": "2026-06-22",
+      "author": "Andre Landgraf"
+    },
+    {
       "sha": "a67ffaf",
       "message": "Merge pull request #38 from neondatabase/docs/neon-functions-mcp-reference",
       "date": "2026-06-21",
@@ -2859,42 +2895,6 @@
     {
       "sha": "63025ac",
       "message": "neon-functions: add SSE reference, document heartbeats, rename integrations \u2192 sentry",
-      "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "7e47248",
-      "message": "Merge pull request #35 from neondatabase/docs/parseenv-key-filter",
-      "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "6d454c6",
-      "message": "neon-functions: vendor a Hono WebSocket adapter (no deprecated @hono/node-ws)",
-      "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "c2945a9",
-      "message": "skills: add neon.ts infrastructure-as-code sections",
-      "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "4a1afef",
-      "message": "neon-functions: add WebSocket servers section (fetch + upgrade, fan-out, reconnect)",
-      "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "c7d8c71",
-      "message": "neon: document parseEnv key filter for requiring a subset of env vars",
-      "date": "2026-06-14",
-      "author": "Andre Landgraf"
-    },
-    {
-      "sha": "413da62",
-      "message": "neon-postgres: use drizzle({ client, schema }) object form in connection snippets",
       "date": "2026-06-14",
       "author": "Andre Landgraf"
     }
@@ -3211,6 +3211,12 @@
   ],
   "remotion-dev--skills": [
     {
+      "sha": "8dad6ec",
+      "message": "Update template",
+      "date": "2026-06-22",
+      "author": "Jonny Burger"
+    },
+    {
       "sha": "277510e",
       "message": "Update template",
       "date": "2026-05-07",
@@ -3260,12 +3266,6 @@
     },
     {
       "sha": "e9d8ecd",
-      "message": "Update template",
-      "date": "2026-02-20",
-      "author": "Jonny Burger"
-    },
-    {
-      "sha": "e7c4180",
       "message": "Update template",
       "date": "2026-02-20",
       "author": "Jonny Burger"
@@ -3707,6 +3707,12 @@
   ],
   "stripe--ai": [
     {
+      "sha": "2cf8986",
+      "message": "Bump plugin versions automatically during skill sync (#452)",
+      "date": "2026-06-22",
+      "author": "anthonydresser-stripe"
+    },
+    {
       "sha": "d9527bf",
       "message": "Replace .local marker mechanism with hardcoded exemptions for local skills (#449)",
       "date": "2026-06-17",
@@ -3758,12 +3764,6 @@
       "sha": "e27ee00",
       "message": "sync skills",
       "date": "2026-06-04",
-      "author": "stripe-ai-sync[bot]"
-    },
-    {
-      "sha": "38cc559",
-      "message": "sync skills",
-      "date": "2026-06-02",
       "author": "stripe-ai-sync[bot]"
     }
   ],
@@ -4141,6 +4141,42 @@
   ],
   "vercel-labs--next-skills": [
     {
+      "sha": "b76d687",
+      "message": "Merge pull request #23 from vercel-labs/chore/older-version-agents-md-pointer",
+      "date": "2026-06-23",
+      "author": "Jude Gao"
+    },
+    {
+      "sha": "40bc043",
+      "message": "docs: add manual agents-md path for Next.js 16.1 and earlier",
+      "date": "2026-06-23",
+      "author": "Jude Gao"
+    },
+    {
+      "sha": "1bc0f07",
+      "message": "Merge pull request #21 from vercel-labs/chore/move-skills-to-nextjs-repo",
+      "date": "2026-06-23",
+      "author": "Jude Gao"
+    },
+    {
+      "sha": "2db4b7b",
+      "message": "Merge pull request #22 from vercel-labs/chore/next-skills-moved-pointer",
+      "date": "2026-06-22",
+      "author": "Jude Gao"
+    },
+    {
+      "sha": "4bc3e7a",
+      "message": "docs: leave a 'skills moved' pointer instead of an empty repo",
+      "date": "2026-06-22",
+      "author": "Jude Gao"
+    },
+    {
+      "sha": "ae552b1",
+      "message": "Remove Next.js skills (moved to vercel/next.js)",
+      "date": "2026-06-17",
+      "author": "Jude Gao"
+    },
+    {
       "sha": "dc1de9c",
       "message": "docs: add skill badge",
       "date": "2026-05-07",
@@ -4162,42 +4198,6 @@
       "sha": "038954e",
       "message": "mirgate unstable_cache to cc api (#5)",
       "date": "2026-02-16",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "d428df5",
-      "message": "fix: upgrade skill references redirected link (#3)",
-      "date": "2026-02-05",
-      "author": "Joseph"
-    },
-    {
-      "sha": "31e6ebd",
-      "message": "apply rules based on lint",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "8e459e5",
-      "message": "mention client bailout requires suspense boundary",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "1343aa2",
-      "message": "plural",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "3f79228",
-      "message": "renamed to best practice",
-      "date": "2026-01-26",
-      "author": "Jiachi Liu"
-    },
-    {
-      "sha": "40c552b",
-      "message": "merge skills",
-      "date": "2026-01-26",
       "author": "Jiachi Liu"
     }
   ],
@@ -4651,6 +4651,36 @@
   ],
   "mukul975--Anthropic-Cybersecurity-Skills": [
     {
+      "sha": "768ca51",
+      "message": "chore: bump plugin version to v1.3.0",
+      "date": "2026-06-22",
+      "author": "mukul975"
+    },
+    {
+      "sha": "101ca0b",
+      "message": "chore: auto-update index.json and skill count",
+      "date": "2026-06-22",
+      "author": "mukul975"
+    },
+    {
+      "sha": "8cae064",
+      "message": "Add 55 new skills across 3 new domains + 6 undercovered areas (762 -> 817)",
+      "date": "2026-06-22",
+      "author": "mukul975"
+    },
+    {
+      "sha": "13a1c4a",
+      "message": "chore: auto-update index.json and skill count",
+      "date": "2026-06-22",
+      "author": "mukul975"
+    },
+    {
+      "sha": "5114017",
+      "message": "Fix plugin version (1.0.0->1.2.0), sync skill count to 762, automate both",
+      "date": "2026-06-22",
+      "author": "mukul975"
+    },
+    {
       "sha": "7eebca8",
       "message": "chore: auto-update index.json",
       "date": "2026-06-20",
@@ -4676,36 +4706,6 @@
     },
     {
       "sha": "3f82a6f",
-      "message": "chore: auto-update index.json",
-      "date": "2026-06-20",
-      "author": "mukul975"
-    },
-    {
-      "sha": "70b3d74",
-      "message": "Merge pull request #70 from andrewibrah/add-deception-skills",
-      "date": "2026-06-20",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "da758bf",
-      "message": "chore: auto-update index.json",
-      "date": "2026-06-20",
-      "author": "mukul975"
-    },
-    {
-      "sha": "2ad9e67",
-      "message": "Merge pull request #84 from shanujans/main",
-      "date": "2026-06-20",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "7d7c634",
-      "message": "Add MITRE F3 badge to README badge cluster and bump frameworks count to 6",
-      "date": "2026-06-20",
-      "author": "mukul975"
-    },
-    {
-      "sha": "9f92178",
       "message": "chore: auto-update index.json",
       "date": "2026-06-20",
       "author": "mukul975"
@@ -5017,6 +5017,18 @@
   ],
   "VoltAgent--awesome-agent-skills": [
     {
+      "sha": "7367d2b",
+      "message": "update README",
+      "date": "2026-06-22",
+      "author": "necatiozmen"
+    },
+    {
+      "sha": "0d9cbbc",
+      "message": "update README",
+      "date": "2026-06-22",
+      "author": "necatiozmen"
+    },
+    {
       "sha": "ca28e57",
       "message": "Merge pull request #626 from sametbrr/add-llm-wiki-manager-prompt-architect",
       "date": "2026-06-20",
@@ -5061,18 +5073,6 @@
     {
       "sha": "0e6e589",
       "message": "Merge pull request #621 from vittoroliveira-dev/patch-1",
-      "date": "2026-06-05",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "9b0b431",
-      "message": "Merge pull request #637 from noelo/main",
-      "date": "2026-06-05",
-      "author": "Necati \u00d6zmen"
-    },
-    {
-      "sha": "faf0535",
-      "message": "Merge branch 'main' into main",
       "date": "2026-06-05",
       "author": "Necati \u00d6zmen"
     }
@@ -5575,64 +5575,64 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "b6fab11",
-      "message": "chore(badge): update claude-subagents Last Updated badge to Jun 22, 2026 11:34 AM PKT",
-      "date": "2026-06-22",
+      "sha": "2781e24",
+      "message": "docs(readme): add UTM to ClaudeKit sponsor link, match partner card heights, refresh timestamp",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "8017b73",
+      "message": "refactor(assets): redesign Disrupt.com partner pill into two-line card with tilted-square logo + 'Ventures Reimagined' t",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "23c57e3",
+      "message": "refactor(assets): redesign ClaudeKit partner pill into two-line card with 'Production-ready skills and workflows' taglin",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "cfb899a",
+      "message": "feat(assets): add ClaudeKit partner pill SVG (CK monogram + name, links to claudekit.cc)",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "c9d2b2e",
+      "message": "feat(assets): add Disrupt.com partner pill SVG (original navbar wordmark, links to disrupt.com)",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "39f4654",
+      "message": "feat(assets): add 'Supported by:' label SVG (transparent, unlinked) for partner section",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "c5c77a0",
+      "message": "docs(readme): add 'Supported by' partner section (Disrupt.com, ClaudeKit) and refresh updated-with-Claude-Code timestamp",
+      "date": "2026-06-23",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "4f1dc4e",
+      "message": "chore(badge): update claude-subagents Last Updated badge to Jun 23 2026, v2.1.186",
+      "date": "2026-06-23",
       "author": "Claude"
     },
     {
-      "sha": "e700dad",
-      "message": "chore(changelog): add 2026-06-22 subagents drift run \u2014 no drift v2.1.185",
-      "date": "2026-06-22",
+      "sha": "12218b7",
+      "message": "chore(changelog): add 2026-06-23 subagents drift check entry (v2.1.186, no drift)",
+      "date": "2026-06-23",
       "author": "Claude"
     },
     {
-      "sha": "e006980",
-      "message": "chore(commands-changelog): append no-drift entry for 2026-06-22 run at v2.1.185",
-      "date": "2026-06-22",
+      "sha": "5e890ce",
+      "message": "chore(commands-changelog): no-drift entry for v2.1.186 [2026-06-23]",
+      "date": "2026-06-23",
       "author": "Claude"
-    },
-    {
-      "sha": "06989ce",
-      "message": "chore(commands-badge): update Last Updated badge to Jun 22, 2026 11:07 AM PKT",
-      "date": "2026-06-22",
-      "author": "Claude"
-    },
-    {
-      "sha": "c386945",
-      "message": "chore(skills-badge): update Last Updated badge to Jun 22, 2026 10:06 AM PKT",
-      "date": "2026-06-22",
-      "author": "Claude"
-    },
-    {
-      "sha": "9d95d58",
-      "message": "chore(skills-changelog): append 2026-06-22 no-drift entry for v2.1.185",
-      "date": "2026-06-22",
-      "author": "Claude"
-    },
-    {
-      "sha": "814650a",
-      "message": "chore(readme): bump Last Updated badge to Jun 22, 2026 9:37 AM PKT",
-      "date": "2026-06-22",
-      "author": "Claude"
-    },
-    {
-      "sha": "77e8453",
-      "message": "chore(changelog): append 2026-06-22 CONCEPTS drift-check entry (v2.1.185)",
-      "date": "2026-06-22",
-      "author": "Claude"
-    },
-    {
-      "sha": "75bfbef",
-      "message": "Append Jun 22 2026 development workflows changelog entry",
-      "date": "2026-06-22",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "64f0a8b",
-      "message": "Update development workflows table: stars + Superpowers workflow v6.0.0",
-      "date": "2026-06-22",
-      "author": "Claude Routine"
     }
   ],
   "mrgoonie--claudekit-skills": [
@@ -5761,6 +5761,12 @@
   ],
   "jqueryscript--awesome-claude-code": [
     {
+      "sha": "c91f3fe",
+      "message": "Update README.md",
+      "date": "2026-06-22",
+      "author": "jQueryScript"
+    },
+    {
       "sha": "90480bb",
       "message": "Update README.md",
       "date": "2026-06-20",
@@ -5812,12 +5818,6 @@
       "sha": "deac48d",
       "message": "Update README.md",
       "date": "2026-05-19",
-      "author": "jQueryScript"
-    },
-    {
-      "sha": "ac1564c",
-      "message": "Update README.md",
-      "date": "2026-05-10",
       "author": "jQueryScript"
     }
   ]

@@ -106,4 +106,17 @@ describe("release-please config validation", () => {
 
     expect(config.packages["."]?.["skip-changelog"]).toBe(true)
   })
+
+  test("current root package includes refactors in generated release notes", () => {
+    const configPath = path.join(import.meta.dir, "..", ".github", "release-please-config.json")
+    const config = JSON.parse(readFileSync(configPath, "utf8")) as {
+      packages: Record<string, { "changelog-sections"?: Array<{ type: string; section: string; hidden?: boolean }> }>
+    }
+
+    expect(config.packages["."]?.["changelog-sections"]).toContainEqual({
+      type: "refactor",
+      section: "Refactoring",
+      hidden: false,
+    })
+  })
 })
