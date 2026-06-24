@@ -4,20 +4,20 @@ description: >
   Diagnose HPC runtime and scheduler problems for materials simulations,
   including MPI/OpenMP/GPU layout, modules, CUDA/Kokkos hints, scratch paths,
   walltime, job arrays, restart strategy, scheduler portability, and resource
-  mismatch. Use when jobs fail, run slowly, get killed, or behave differently
-  on a cluster than on a workstation.
+  mismatch. Use when an ALREADY-SUBMITTED job failed, ran slowly, got killed, or
+  behaved differently on a cluster than on a workstation. To author or vet a NEW
+  submission script before running, use slurm-job-script-generator instead.
 allowed-tools: Read, Bash, Write, Grep, Glob
 metadata:
   author: HeshamFS
-  version: "1.0.0"
+  version: "1.1.2"
   security_tier: high
   security_reviewed: true
   tested_with:
     - claude-code
-    - gemini-cli
-    - vs-code-copilot
+  last_evaluated: "2026-06-23"
   eval_cases: 3
-  last_reviewed: "2026-05-18"
+  last_reviewed: "2026-06-24"
 ---
 
 # HPC Runtime Doctor
@@ -38,7 +38,7 @@ Turn cluster symptoms into a resource-layout diagnosis, environment checklist, a
 |-------|-------------|---------|
 | Scheduler | SLURM, PBS, LSF, local | `slurm` |
 | Nodes/tasks/threads | Runtime layout | `2 nodes, 128 tasks, 2 threads` |
-| GPUs | GPUs requested | `4` |
+| GPUs | Total (whole-job) GPUs via `--gpus`, or per node via `--gpus-per-node` | `--gpus 4` or `--gpus-per-node 1` |
 | Symptoms | Observed failure | `oom,killed,slow-gpu` |
 | MPI/OpenMP/GPU use | Parallel modes | `mpi+openmp+gpu` |
 | Walltime | Requested time | `12:00:00` |
@@ -55,13 +55,21 @@ Turn cluster symptoms into a resource-layout diagnosis, environment checklist, a
 
 `scripts/hpc_runtime_doctor.py` emits:
 
-- `resource_layout`
+- `resource_layout` (includes `tasks_per_node`, `total_cpus`, total `gpus`, and `gpus_per_node`)
 - `diagnoses`
 - `environment_checks`
 - `retry_plan`
 - `scheduler_notes`
+- `warnings` (layout flags such as ranks-per-GPU oversubscription, OpenMP/thread mismatch, and uneven task placement)
+
+In default (non-JSON) mode the script also prints the resource-layout summary, any
+`warnings`, environment checks, and retry plan, so the most actionable items are never hidden.
 
 ## Workflow
+
+`--gpus` is the **total** (whole-job) GPU count. Use `--gpus-per-node` (SLURM
+`--gres=gpu:N` semantics) when you know the per-node allocation; total GPUs are then
+`gpus_per_node * nodes` and it overrides `--gpus`.
 
 ```bash
 python3 skills/hpc-deployment/hpc-runtime-doctor/scripts/hpc_runtime_doctor.py \
@@ -77,6 +85,11 @@ python3 skills/hpc-deployment/hpc-runtime-doctor/scripts/hpc_runtime_doctor.py \
   --json
 ```
 
+The example above shares 128 ranks across 4 GPUs (32 ranks/GPU), so the
+`warnings` list surfaces `Many MPI ranks per GPU (32.0 ranks/GPU) may reduce GPU
+efficiency.` The ranks-per-GPU check uses total ranks over total GPUs, so it fires
+correctly on multi-node jobs (the threshold is 16 ranks/GPU).
+
 ## Error Handling
 
 Invalid resource counts stop with exit code 2. Unknown symptoms are preserved as custom items for human review.
@@ -87,9 +100,42 @@ This skill does not query a live scheduler. It diagnoses from the submitted layo
 
 ## Security
 
-- Inputs are scalar CLI values and booleans only.
-- The script does not execute scheduler commands or inspect environment variables.
-- The skill uses `Bash` only to run its bundled script.
+### Input Validation
+
+- Inputs are scalar CLI values and booleans only; there is no free-form code path.
+- Resource counts (`--nodes`, `--tasks`, `--cpus-per-task`, `--gpus`, `--gpus-per-node`)
+  are validated as integers (booleans rejected), required to be non-negative and finite,
+  and capped at 1,000,000. `--nodes`, `--tasks`, and `--cpus-per-task` must additionally
+  be at least 1. Out-of-range, non-integer, or zero values exit with code 2.
+- The `--symptoms` string is capped at 64 comma-separated entries of at most 64 characters
+  each; `--walltime` is capped at 32 characters. Oversized input exits with code 2.
+- Symptoms are split, trimmed, and lower-cased. Unknown symptoms are not rejected: they are
+  preserved as `custom` diagnoses for human review.
+- `--scheduler` is accepted as a free-form string and is not checked against an allowlist;
+  it is only echoed back in the resource layout.
+
+### File Access
+
+- The script reads and writes no files. All I/O is CLI args in and stdout out
+  (indented JSON with `--json`, otherwise a human-readable summary); errors go to stderr.
+- Because no paths are accepted or opened, there is no filesystem traversal surface and no
+  path-sandboxing concern.
+
+### Tool Restrictions
+
+- `allowed-tools` is `Read, Bash, Write, Grep, Glob`.
+- `Bash` is used only to run the bundled `scripts/hpc_runtime_doctor.py`.
+- `Read`, `Grep`, and `Glob` are used to inspect the skill's own files and any logs or
+  submission scripts the user points at; `Write` is used to record diagnosis notes or a
+  retry plan when asked.
+
+### Safety Measures
+
+- No `eval`, `exec`, `os.system`, or `subprocess`; the script does not launch a scheduler
+  or any external process and does not inspect environment variables.
+- Argument parsing is handled by `argparse`, and machine-readable output is emitted as JSON.
+- DoS exposure is bounded by the resource-count cap (1,000,000), the symptom caps
+  (64 entries x 64 characters), and the walltime cap (32 characters).
 
 ## References
 
@@ -97,4 +143,11 @@ This skill does not query a live scheduler. It diagnoses from the submitted layo
 
 ## Version History
 
+- 1.1.1: Discriminating evals -- each case now pins the script's specific output
+  (exact ranks-per-GPU warning, diagnosis categories, resource-layout fields) via
+  deterministic `script_checks`.
+- 1.1.0: Unit-consistent ranks-per-GPU warning (total ranks / total GPUs), new
+  `--gpus-per-node` argument, integer `tasks_per_node` with an uneven-placement warning,
+  full human-readable (non-JSON) output, and input caps for resource counts, symptoms,
+  and walltime.
 - 1.0.0: Initial HPC runtime diagnosis skill.

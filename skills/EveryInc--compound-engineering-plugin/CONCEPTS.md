@@ -19,7 +19,7 @@ An internal prompt file owned by one Skill that defines a specialist persona or 
 ## Conversion
 
 ### Target
-A destination coding-agent platform other than Claude Code (OpenCode, Codex, Gemini, and others) that a Plugin is converted into and installed onto, each with its own file layout and capability mapping. Also called a target provider.
+A destination coding-agent platform other than Claude Code (OpenCode, Codex, Pi, Antigravity, and others) that a Plugin is converted into and installed onto, each with its own file layout and capability mapping. Also called a target provider.
 
 A Plugin is installed to a Target at one of two scopes: global (user-wide) or per-workspace.
 

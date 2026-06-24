@@ -4,6 +4,7 @@ category: workflow
 tags: [versioning, changelog, readme, plugin, documentation]
 created: 2025-11-24
 date: 2026-03-17
+last_updated: 2026-06-23
 severity: process
 component: plugin-development
 ---
@@ -31,7 +32,7 @@ Embedded plugin versions are release-owned metadata. Release automation prepares
 Contributors should:
 
 1. **Avoid release bookkeeping in normal PRs**
-   - Do not manually bump `package.json`, `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`, or `gemini-extension.json`
+   - Do not manually bump `package.json`, `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`, or `.agy/plugin.json`
    - Do not manually bump the `compound-engineering` entry in `.claude-plugin/marketplace.json`
    - Do not cut release sections in the root `CHANGELOG.md`
 
@@ -57,7 +58,7 @@ Before committing changes to compound-engineering plugin:
 
 ## File Locations
 
-- Plugin version is release-owned: `package.json`, `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `gemini-extension.json`
+- Plugin version is release-owned: `package.json`, `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agy/plugin.json`
 - Marketplace entry is release-owned: `.claude-plugin/marketplace.json`
 - Release notes are release-owned: GitHub release PRs and GitHub Releases
 - Readme: `README.md`
@@ -85,7 +86,7 @@ This documentation serves as a reminder. When maintainers or agents work on this
 - `.claude-plugin/plugin.json`
 - `.cursor-plugin/plugin.json`
 - `.codex-plugin/plugin.json`
-- `gemini-extension.json`
+- `.agy/plugin.json`
 - `README.md`
 - `package.json`
 - `CHANGELOG.md`

@@ -1,6 +1,7 @@
 ---
 title: "Native plugin install strategy for supported harnesses"
 date: 2026-06-19
+last_updated: 2026-06-23
 category: integrations
 module: installer
 problem_type: integration_decision
@@ -20,7 +21,7 @@ tags:
   - copilot
   - droid
   - qwen
-  - gemini
+  - antigravity
   - opencode
   - pi
 ---
@@ -45,7 +46,7 @@ The install strategy follows from that: prefer each harness's native plugin/pack
 | Qwen Code | Native extension install from the CE GitHub repository and existing Claude plugin metadata | No | Qwen translates Claude Code extensions automatically. |
 | OpenCode | Git-backed OpenCode plugin entry in `opencode.json` | No | `.opencode/plugins/compound-engineering.js` registers the CE skills directory directly. |
 | Pi | Git-backed Pi package install from this repository | No | Root `package.json` exposes `.pi/extensions/compound-engineering.ts` and the CE skills directory. `pi-ask-user` is a recommended companion for richer prompts. |
-| Gemini CLI | Native Gemini extension from this repository root | No | Root `gemini-extension.json` lets Gemini install the repository as a single extension. |
+| Antigravity CLI | Native Antigravity plugin from the committed `.agy/` bundle | No | Clone the repo, then `agy plugin install ./compound-engineering-plugin/.agy`. The `.agy/` bundle holds `plugin.json` plus a `skills -> ../skills` symlink. `agy` still reads `GEMINI.md` as workspace context. |
 
 Kiro is no longer a documented CE install target. Historical converter and cleanup code may remain for regression coverage or old artifact handling, but user-facing install docs should not advertise Kiro.
 
@@ -105,15 +106,16 @@ For local development:
 pi -e /path/to/compound-engineering-plugin
 ```
 
-## Gemini CLI
+## Antigravity CLI
 
-Gemini can install the root extension directly because `gemini-extension.json` now lives at the repository root:
+Antigravity installs plugins from a **local directory** — there is no install-from-URL. The committed `.agy/` bundle holds `plugin.json` plus a `skills -> ../skills` symlink, letting `agy` resolve all skills through the symlink without duplicating them:
 
 ```bash
-gemini extensions install https://github.com/EveryInc/compound-engineering-plugin
+git clone https://github.com/EveryInc/compound-engineering-plugin
+agy plugin install ./compound-engineering-plugin/.agy
 ```
 
-For local development, point Gemini at the checkout root so the extension sees `gemini-extension.json`, `GEMINI.md`, and `skills/` together.
+`agy` still reads `GEMINI.md` as workspace context (retained despite the Gemini CLI converter target being removed). For local development, point `agy` at the `.agy/` subdirectory of the checkout so it finds `plugin.json`, the `skills` symlink, and `GEMINI.md` together.
 
 ## Bun Package Posture
 

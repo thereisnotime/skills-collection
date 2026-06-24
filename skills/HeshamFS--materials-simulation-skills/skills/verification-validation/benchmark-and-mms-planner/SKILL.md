@@ -9,15 +9,14 @@ description: >
 allowed-tools: Read, Bash, Write, Grep, Glob
 metadata:
   author: HeshamFS
-  version: "1.0.0"
+  version: "1.1.2"
   security_tier: high
   security_reviewed: true
   tested_with:
     - claude-code
-    - gemini-cli
-    - vs-code-copilot
+  last_evaluated: "2026-06-23"
   eval_cases: 3
-  last_reviewed: "2026-05-18"
+  last_reviewed: "2026-06-24"
 ---
 
 # Benchmark And MMS Planner
@@ -55,11 +54,15 @@ Design a verification and validation plan before trusting simulation results. Th
 `scripts/benchmark_mms_planner.py` emits `inputs` and `results` with:
 
 - `verification_strategy`
+- `effective_model` — the resolved model family actually used; unknown families fall back to `general`.
 - `mms_plan`
 - `benchmark_cases`
-- `refinement_protocol`
+- `refinement_protocol` (`dimension`, `levels`, `spacing_ratio`, `expected_order`, `accept_observed_order_min`, `include_time_refinement`)
+- `uncertainty_plan` (`propagate_inputs`, `report_error_bars`, `separate_discretization_and_model_error`) — propagation/error-bar guidance driven by risk level and reference type.
 - `acceptance_criteria`
 - `warnings`
+
+The `accept_observed_order_min` is an **engineering screening heuristic**, not a certified bound: it is the formal `expected_order` reduced by a fractional tolerance (10% for high risk, 20% otherwise) and floored at first-order convergence (`1.0`). The relative band keeps strictness consistent across formal orders. See `references/vv_patterns.md`.
 
 ## Workflow
 
@@ -90,10 +93,37 @@ This skill plans verification work; it does not run the solver or prove that a p
 
 ## Security
 
-- Inputs are scalar strings and finite numeric values only.
-- The script does not execute external solvers.
-- File writes are not performed.
-- The skill uses `Bash` only to run its bundled script.
+### Input Validation
+
+All inputs are command-line arguments parsed by `argparse`; validation happens in `plan_vv` (and partly in the parser). Any rejected input causes the script to print the error to stderr and exit with code `2`.
+
+- `dimension` must be exactly `1`, `2`, or `3`; any other integer is rejected.
+- `expected_order` must be a positive, finite number (NaN, infinity, zero, and negatives are rejected).
+- `risk` must be one of the allowlist `low`, `medium`, `high` (enforced both as an `argparse` choice and re-checked in `plan_vv`).
+- `reference` must be one of the allowlist `analytic`, `benchmark`, `experimental`, `none` (enforced both as an `argparse` choice and re-checked in `plan_vv`).
+- `model` and `quantity` are capped at 256 characters (`MAX_FIELD_LEN`); longer strings are rejected.
+- The string content of `model` and `quantity` is otherwise not allowlisted or sanitized: `quantity` is echoed verbatim into the output, and an unrecognized `model` family is silently resolved to `general` rather than rejected.
+
+### File Access
+
+- The script reads and writes no files; all I/O is command-line args -> stdout JSON (or a short plain-text summary), with errors on stderr.
+- Because no filesystem paths are accepted or constructed, there is no path-traversal surface and no path-sandboxing logic is needed.
+- The only DoS-relevant size limit is the 256-character cap on `model` and `quantity`; numeric outputs are bounded by the validated inputs.
+
+### Tool Restrictions
+
+The frontmatter declares `allowed-tools: Read, Bash, Write, Grep, Glob`.
+
+- `Bash` is used solely to run the bundled `scripts/benchmark_mms_planner.py` (e.g. the `python3 ... --json` invocation in the Workflow).
+- `Read`, `Grep`, and `Glob` are for inspecting the skill's own files and references (e.g. `references/vv_patterns.md`) when planning.
+- `Write` supports turning the returned protocol into test stubs or checklist files; the planner script itself never writes.
+
+### Safety Measures
+
+- No `eval`, `exec`, or dynamic code execution; the planner is pure Python computing a dictionary.
+- The script spawns no subprocesses and invokes no external solvers, so there are no subprocess argument lists to escape.
+- No `pickle` or other deserialization of untrusted data is performed; output is serialized with `json.dumps`.
+- The 256-character field cap is the explicit DoS guard against pathological input strings.
 
 ## References
 
@@ -101,4 +131,14 @@ This skill plans verification work; it does not run the solver or prove that a p
 
 ## Version History
 
+- 1.1.1: Make the eval suite discriminating by adding deterministic `script_checks`
+  that pin the planner's specific output (resolved `verification_strategy`, the
+  relative `accept_observed_order_min` band, refinement `levels`,
+  `include_time_refinement`, `uncertainty_plan` flags, model-specific benchmark
+  cases, and the exact warning strings) for each of the three cases.
+- 1.1.0: Resolve unknown model families to `general` once so benchmark selection and the
+  time-refinement decision agree (transient unlisted PDEs no longer skip time refinement);
+  echo the resolved family as `effective_model`. Replace the fixed absolute observed-order
+  offset with a relative tolerance floored at first order. Document `uncertainty_plan`,
+  `effective_model`, and the acceptance heuristic. Add 256-character caps on string inputs.
 - 1.0.0: Initial benchmark and MMS planning skill.

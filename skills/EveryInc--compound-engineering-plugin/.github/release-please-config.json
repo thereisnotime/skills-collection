@@ -70,7 +70,7 @@
         },
         {
           "type": "json",
-          "path": "gemini-extension.json",
+          "path": ".agy/plugin.json",
           "jsonpath": "$.version"
         }
       ]

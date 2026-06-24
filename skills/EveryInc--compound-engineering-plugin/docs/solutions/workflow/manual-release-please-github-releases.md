@@ -2,7 +2,7 @@
 title: "Manual release-please with GitHub Releases for plugin and marketplace releases"
 category: workflow
 date: 2026-03-17
-last_refreshed: 2026-06-20
+last_refreshed: 2026-06-23
 created: 2026-03-17
 severity: process
 component: release-automation
@@ -74,7 +74,7 @@ File paths determine component ownership:
 
 | Component | Paths |
 |---|---|
-| `compound-engineering` | `skills/`, `src/`, `tests/`, `package.json`, root plugin manifests, `.opencode/`, `.pi/`, `gemini-extension.json`, `README.md`, instruction shims |
+| `compound-engineering` | `skills/`, `src/`, `tests/`, `package.json`, root plugin manifests, `.opencode/`, `.pi/`, `.agy/plugin.json`, `README.md`, instruction shims |
 | `marketplace` | `.claude-plugin/marketplace.json` |
 | `cursor-marketplace` | `.cursor-plugin/marketplace.json` |
 
@@ -90,7 +90,7 @@ Docs-only, CI-only, and build-only changes are non-releasable unless their conve
 
 ### Root packaging release
 
-- A `fix:` PR changes `.codex-plugin/plugin.json` or `gemini-extension.json`
+- A `fix:` PR changes `.codex-plugin/plugin.json` or `.agy/plugin.json`
 - `compound-engineering` bumps because those files are root package/plugin extra-files
 - `bun run release:validate` must pass so all root package/plugin versions remain aligned
 

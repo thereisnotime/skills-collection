@@ -26,7 +26,7 @@ type CodexPluginManifest = {
   skills?: string
 }
 
-type GeminiExtensionManifest = {
+type AntigravityManifest = {
   version: string
 }
 
@@ -77,10 +77,10 @@ export type CompoundEngineeringCounts = {
 }
 
 const COMPOUND_ENGINEERING_DESCRIPTION =
-  "AI-powered development tools for code review, research, design, and workflow automation."
+  "Brainstorm, plan, debug, review, and compound learnings with AI agents"
 
 const COMPOUND_ENGINEERING_MARKETPLACE_DESCRIPTION =
-  "AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last."
+  "Brainstorm, plan, debug, review, and compound learnings with AI agents"
 
 function resolveExpectedVersion(
   explicitVersion: string | undefined,
@@ -174,7 +174,7 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
   const compoundPackagePath = path.join(root, "package.json")
   const compoundClaudePath = path.join(root, ".claude-plugin", "plugin.json")
   const compoundCursorPath = path.join(root, ".cursor-plugin", "plugin.json")
-  const compoundGeminiPath = path.join(root, "gemini-extension.json")
+  const compoundAntigravityPath = path.join(root, ".agy", "plugin.json")
   const marketplaceClaudePath = path.join(root, ".claude-plugin", "marketplace.json")
   const marketplaceCursorPath = path.join(root, ".cursor-plugin", "marketplace.json")
 
@@ -217,18 +217,18 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
   updates.push({ path: compoundCursorPath, changed })
   if (write && changed) await writeJson(compoundCursorPath, compoundCursor)
 
-  // Gemini extension version sync is detect-only. release-please owns the
+  // Antigravity bundle version sync is detect-only. release-please owns the
   // write via extra-files, same as the Codex native plugin manifest.
   try {
-    const compoundGemini = await readJson<GeminiExtensionManifest>(compoundGeminiPath)
+    const compoundAntigravity = await readJson<AntigravityManifest>(compoundAntigravityPath)
     updates.push({
-      path: compoundGeminiPath,
-      changed: compoundGemini.version !== expectedCompoundVersion,
+      path: compoundAntigravityPath,
+      changed: compoundAntigravity.version !== expectedCompoundVersion,
     })
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      errors.push(`${compoundGeminiPath} is missing but ${compoundClaudePath} exists. Gemini extension parity required.`)
-      updates.push({ path: compoundGeminiPath, changed: false })
+      errors.push(`${compoundAntigravityPath} is missing but ${compoundClaudePath} exists. Antigravity bundle parity required.`)
+      updates.push({ path: compoundAntigravityPath, changed: false })
     } else {
       throw err
     }

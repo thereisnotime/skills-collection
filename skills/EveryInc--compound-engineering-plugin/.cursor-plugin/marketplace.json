@@ -7,13 +7,13 @@
   },
   "metadata": {
     "description": "Cursor plugin marketplace for Every Inc plugins",
-    "version": "1.0.1"
+    "version": "1.0.2"
   },
   "plugins": [
     {
       "name": "compound-engineering",
       "source": ".",
-      "description": "AI-powered development tools that get smarter with every use. Make each unit of engineering work easier than the last."
+      "description": "Brainstorm, plan, debug, review, and compound learnings with AI agents"
     }
   ]
 }

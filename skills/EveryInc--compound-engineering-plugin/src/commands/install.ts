@@ -28,7 +28,7 @@ export default defineCommand({
     to: {
       type: "string",
       default: "opencode",
-      description: "Target format (opencode | codex | pi | gemini | all)",
+      description: "Target format (opencode | codex | pi | antigravity | all)",
     },
     output: {
       type: "string",
@@ -268,7 +268,7 @@ function resolveOutputRoot(value: unknown): string {
   // Per-target defaults are applied in `resolveTargetOutputRoot` -- e.g.,
   // OpenCode falls back to `OPENCODE_CONFIG_DIR` / `~/.config/opencode`,
   // Codex falls back to `~/.codex`. Falling through to `process.cwd()` keeps
-  // workspace-rooted targets (gemini) using the user's project root
+  // workspace-rooted targets (antigravity) using the user's project root
   // when neither `--output` nor a target-specific home flag was supplied.
   return process.cwd()
 }

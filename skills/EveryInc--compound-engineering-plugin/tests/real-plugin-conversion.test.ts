@@ -23,7 +23,7 @@ import { parseFrontmatter } from "../src/utils/frontmatter"
 const repoRoot = path.join(import.meta.dir, "..")
 const cliEntry = path.join(repoRoot, "src", "index.ts")
 
-const IMPLEMENTED_TARGETS = ["opencode", "codex", "pi", "gemini"] as const
+const IMPLEMENTED_TARGETS = ["opencode", "codex", "pi", "antigravity"] as const
 type Target = (typeof IMPLEMENTED_TARGETS)[number]
 
 const PLUGIN_NAMES = ["compound-engineering"] as const
@@ -183,10 +183,10 @@ function targetInvocation(target: Target, tempRoot: string): { args: string[]; r
       const out = path.join(tempRoot, "pi-home", ".pi")
       return { args: ["--pi-home", out], root: out }
     }
-    case "gemini": {
-      // Without --output gemini defaults to <cwd>/.gemini.
-      const out = path.join(tempRoot, "gemini-out")
-      return { args: ["--output", out], root: path.join(out, ".gemini") }
+    case "antigravity": {
+      // Without --output antigravity defaults to <cwd>/.agy.
+      const out = path.join(tempRoot, "antigravity-out")
+      return { args: ["--output", out], root: path.join(out, ".agy") }
     }
   }
 }
@@ -273,7 +273,7 @@ for (const pluginName of PLUGIN_NAMES) {
 
       // Sandbox safety: with explicit output flags, no target may fall back to
       // a home-relative default (the redirected HOME would catch it).
-      for (const leaked of [".codex", ".pi", ".gemini", ".agents", path.join(".config", "opencode")]) {
+      for (const leaked of [".codex", ".pi", ".agy", ".agents", path.join(".config", "opencode")]) {
         expect(
           await exists(path.join(fakeHome, leaked)),
           `convert leaked ${leaked} into HOME despite explicit output flags`,
@@ -359,22 +359,20 @@ for (const pluginName of PLUGIN_NAMES) {
       expect((manifest.prompts as string[]).length).toBe(inventory.commands.length)
     })
 
-    test("gemini output matches the source inventory", () => {
-      const { root } = getConversion(pluginName, "gemini")
-      const expectedSkills = skillsForPlatform(inventory, "gemini")
+    test("antigravity output matches the source inventory", () => {
+      const { root } = getConversion(pluginName, "antigravity")
+      const expectedSkills = skillsForPlatform(inventory, "antigravity")
 
       expect(listFileBasenames(path.join(root, "agents"), ".md")).toEqual(inventory.agents)
       expect(listDirNames(path.join(root, "skills"))).toEqual(expectedSkills)
       expectSkillDirsHaveSkillMd(path.join(root, "skills"), expectedSkills)
       expect(listFileBasenames(path.join(root, "commands"), ".toml")).toEqual(inventory.commands)
 
-      const manifest = readJson(path.join(root, pluginName, "install-manifest.json"))
-      expect(manifest.version).toBe(1)
-      expect(manifest.pluginName).toBe(pluginName)
-      const groups = manifest.groups as Record<string, string[]>
-      expect(groups.agents.length).toBe(inventory.agents.length)
-      expect(groups.skills.length).toBe(expectedSkills.length)
-      expect(groups.commands.length).toBe(inventory.commands.length)
+      // agy ingests a plugin bundle with a root plugin.json {name, version};
+      // it does not use the gemini install-manifest.
+      const manifest = readJson(path.join(root, "plugin.json"))
+      expect(manifest.name).toBe(pluginName)
+      expect(typeof manifest.version).toBe("string")
     })
 
     test("every emitted .json parses and every emitted .md has parseable frontmatter", () => {

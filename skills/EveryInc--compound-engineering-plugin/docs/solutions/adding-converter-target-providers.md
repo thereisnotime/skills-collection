@@ -3,7 +3,7 @@ title: Adding New Converter Target Providers
 category: architecture
 tags: [converter, target-provider, plugin-conversion, multi-platform, pattern]
 created: 2026-02-23
-last_refreshed: 2026-06-20
+last_refreshed: 2026-06-23
 severity: medium
 component: converter-cli
 problem_type: architecture_pattern
@@ -23,9 +23,9 @@ The compound-engineering-plugin uses a proven **6-phase target provider pattern*
 1. **OpenCode** (primary target, reference implementation)
 2. **Codex** (second target, established pattern)
 3. **Pi** (MCPorter ecosystem)
-4. **Gemini CLI** (content transformation patterns)
+4. **Antigravity CLI** (content transformation patterns)
 5. **Compatibility converter modules** such as Copilot, Droid, and Kiro (kept where regression coverage or cleanup support still matters)
-6. **Historical removed targets** such as Windsurf, OpenClaw, and Qwen (use as archived lessons only)
+6. **Historical removed targets** such as Windsurf, OpenClaw, Qwen, and Gemini CLI (use as archived lessons only)
 
 Each implementation follows this architecture precisely, ensuring consistency and maintainability.
 
@@ -69,7 +69,7 @@ export type {TargetName}Agent = {
 - OpenCode: `src/types/opencode.ts` (command + agent split)
 - Codex: `src/types/codex.ts` (agents plus optional copied skills)
 - Pi: `src/types/pi.ts` (plugin/extension output)
-- Gemini: `src/types/gemini.ts` (extension-style output)
+- Antigravity: `src/types/antigravity.ts` (extension-style output)
 
 ---
 
@@ -207,7 +207,7 @@ function flattenCommandName(name: string): string {
 5. **MCP servers need target-specific handling:**
    - **OpenCode:** Merge into `opencode.json` (preserve user keys)
    - **Pi:** Emit extension/package metadata without requiring CE-owned subagent extensions
-   - **Gemini:** Prefer native extension manifests and skip unsupported Claude-only surfaces
+   - **Antigravity:** Use `serverUrl` (not `url`) for remote MCP servers; emit `mcp_config.json` at plugin root
 
 6. **Warn on unsupported features** — Hooks and target-incompatible MCP types should emit to stderr and continue conversion.
 
@@ -215,7 +215,7 @@ function flattenCommandName(name: string): string {
 - OpenCode: `src/converters/claude-to-opencode.ts` (most comprehensive)
 - Codex: `src/converters/claude-to-codex.ts` (native-plugin-compatible default with legacy include-skills path)
 - Pi: `src/converters/claude-to-pi.ts` (Pi plugin metadata)
-- Gemini: `src/converters/claude-to-gemini.ts` (Gemini extension output)
+- Antigravity: `src/converters/claude-to-antigravity.ts` (Antigravity plugin output)
 
 ---
 
@@ -327,7 +327,7 @@ export async function backupFile(filePath: string): Promise<string | null> {
 
 5. **File extensions matter** — Match target conventions exactly:
    - OpenCode: `.md` for commands
-   - Codex/Gemini/Pi: preserve the target's native skill or extension filenames exactly
+   - Codex/Antigravity/Pi: preserve the target's native skill or extension filenames exactly
 
 6. **Permissions for sensitive files** — MCP config with API keys should use `0o600`:
    ```typescript
@@ -338,7 +338,7 @@ export async function backupFile(filePath: string): Promise<string | null> {
 - OpenCode: `src/targets/opencode.ts` (merge-preserving workspace/global writer)
 - Codex: `src/targets/codex.ts` (Codex home writer with optional legacy skill output)
 - Pi: `src/targets/pi.ts` (Pi plugin output)
-- Gemini: `src/targets/gemini.ts` (Gemini extension output)
+- Antigravity: `src/targets/antigravity.ts` (Antigravity plugin output)
 
 ---
 
@@ -375,7 +375,7 @@ if (targetName === "{target}") {
 }
 
 // Update --to flag description
-const toDescription = "Target format (opencode | codex | pi | gemini | all)"
+const toDescription = "Target format (opencode | codex | pi | antigravity | all)"
 ```
 
 ---
@@ -425,7 +425,7 @@ Then wire the optional command path in the same explicit-target style as `src/co
 
 ```typescript
 // Add to validTargets array
-const validTargets = ["opencode", "codex", "pi", "gemini", "{target}"] as const
+const validTargets = ["opencode", "codex", "pi", "antigravity", "{target}"] as const
 
 // In resolveOutputRoot()
 case "{target}":
@@ -666,7 +666,7 @@ Use this checklist when adding a new target provider:
 1. **OpenCode** (`src/targets/opencode.ts`, `src/converters/claude-to-opencode.ts`) — Most comprehensive, handles command structure and config merging
 2. **Codex** (`src/targets/codex.ts`, `src/converters/claude-to-codex.ts`) — Native-plugin-compatible default plus legacy include-skills path
 3. **Pi** (`src/targets/pi.ts`, `src/converters/claude-to-pi.ts`) — Plugin metadata and Pi extension output
-4. **Gemini** (`src/targets/gemini.ts`, `src/converters/claude-to-gemini.ts`) — Gemini extension output
+4. **Antigravity** (`src/targets/antigravity.ts`, `src/converters/claude-to-antigravity.ts`) — Antigravity plugin output
 
 ### Key Utilities
 
@@ -678,7 +678,8 @@ Use this checklist when adding a new target provider:
 
 - `tests/opencode-writer.test.ts` — Writer tests with temp directories and merge behavior
 - `tests/codex-writer.test.ts` — Codex writer layout and cleanup behavior
-- `tests/gemini-writer.test.ts` — Gemini writer output
+- `tests/antigravity-writer.test.ts` — Antigravity writer output
+- `tests/antigravity-converter.test.ts` — Antigravity converter tests
 - `tests/kiro-writer.test.ts` — Compatibility writer coverage for a historical target
 
 ---

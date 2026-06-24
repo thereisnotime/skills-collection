@@ -108,7 +108,7 @@ The opening goes under `## Summary` if the body uses any `##` headings; bare par
 |---|---|---|
 | Claude Code | `claude` | `D97757` |
 | Codex | (omit `?logo=` param) | `000000` |
-| Gemini CLI | `googlegemini` | `4285F4` |
+| Antigravity CLI (`agy`) | `googlegemini` | `4285F4` |
 
 **Model slug:** spaces become underscores; append context window and thinking level in parens if known. **URL-encode literal parens as `%28` / `%29`** — unencoded parens inside markdown image URLs break release-please's commit parser, which silently drops the commit from the changelog. Examples: `Opus_4.6_%281M,_Extended_Thinking%29`, `Sonnet_4.6_%28200K%29`, `Gemini_3.1_Pro`.
 

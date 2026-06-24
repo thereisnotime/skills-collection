@@ -7,7 +7,6 @@ import { loadClaudePlugin } from "../parsers/claude"
 import { convertClaudeToCodex } from "../converters/claude-to-codex"
 import { convertClaudeToCopilot } from "../converters/claude-to-copilot"
 import { convertClaudeToDroid } from "../converters/claude-to-droid"
-import { convertClaudeToGemini } from "../converters/claude-to-gemini"
 import { convertClaudeToKiro } from "../converters/claude-to-kiro"
 import { convertClaudeToOpenCode } from "../converters/claude-to-opencode"
 import { convertClaudeToPi } from "../converters/claude-to-pi"
@@ -15,7 +14,6 @@ import {
   getLegacyCodexArtifacts,
   getLegacyCopilotArtifacts,
   getLegacyDroidArtifacts,
-  getLegacyGeminiArtifacts,
   getLegacyKiroArtifacts,
   getLegacyOpenCodeArtifacts,
   getLegacyPiArtifacts,
@@ -29,7 +27,7 @@ import { commandNameToRelativePath, isSafeManagedPath, pathExists, readJson, san
 import { resolveOpenCodeGlobalRoot } from "../utils/opencode-config"
 import { expandHome, resolveCodexHome, resolveTargetHome } from "../utils/resolve-home"
 
-const cleanupTargets = ["codex", "opencode", "pi", "gemini", "kiro", "copilot", "droid", "qwen", "windsurf"] as const
+const cleanupTargets = ["codex", "opencode", "pi", "kiro", "copilot", "droid", "qwen", "windsurf"] as const
 type CleanupTarget = typeof cleanupTargets[number]
 
 type CleanupResult = {
@@ -52,7 +50,7 @@ export default defineCommand({
     target: {
       type: "string",
       default: "all",
-      description: "Target to clean: codex | opencode | pi | gemini | kiro | copilot | droid | qwen | windsurf | all",
+      description: "Target to clean: codex | opencode | pi | kiro | copilot | droid | qwen | windsurf | all",
     },
     output: {
       type: "string",
@@ -73,11 +71,6 @@ export default defineCommand({
       type: "string",
       alias: "opencode-home",
       description: "OpenCode root to clean (default: $OPENCODE_CONFIG_DIR or ~/.config/opencode)",
-    },
-    geminiHome: {
-      type: "string",
-      alias: "gemini-home",
-      description: "Gemini root to clean (default: ~/.gemini)",
     },
     kiroHome: {
       type: "string",
@@ -118,7 +111,6 @@ export default defineCommand({
     }
     const targetNames = resolveCleanupTargets(String(args.target))
     const outputRoot = resolveWorkspaceRoot(args.output)
-    const hasExplicitGeminiHome = hasExplicitValue(args.geminiHome)
     const hasExplicitOpenCodeHome = hasExplicitValue(args.opencodeHome)
     const roots = {
       codexHome: resolveCodexHome(args.codexHome),
@@ -126,7 +118,6 @@ export default defineCommand({
       // Mirror install: respect OPENCODE_CONFIG_DIR before falling back to the
       // XDG default so cleanup scans the same directory install wrote to.
       opencodeHome: resolveTargetHome(args.opencodeHome, resolveOpenCodeGlobalRoot()),
-      geminiHome: resolveTargetHome(args.geminiHome, path.join(os.homedir(), ".gemini")),
       kiroHome: resolveTargetHome(args.kiroHome, path.join(outputRoot, ".kiro")),
       copilotHome: resolveTargetHome(args.copilotHome, path.join(os.homedir(), ".copilot")),
       droidHome: resolveTargetHome(args.droidHome, path.join(os.homedir(), ".factory")),
@@ -135,7 +126,6 @@ export default defineCommand({
       agentsHome: resolveTargetHome(args.agentsHome, path.join(os.homedir(), ".agents")),
       workspaceRoot: outputRoot,
       hasExplicitOutput: hasExplicitValue(args.output),
-      hasExplicitGeminiHome,
       hasExplicitOpenCodeHome,
     }
 
@@ -159,7 +149,6 @@ async function cleanupTarget(
     codexHome: string
     piHome: string
     opencodeHome: string
-    geminiHome: string
     kiroHome: string
     copilotHome: string
     droidHome: string
@@ -168,7 +157,6 @@ async function cleanupTarget(
     agentsHome: string
     workspaceRoot: string
     hasExplicitOutput: boolean
-    hasExplicitGeminiHome: boolean
     hasExplicitOpenCodeHome: boolean
   },
 ): Promise<CleanupResult[]> {
@@ -196,33 +184,10 @@ async function cleanupTarget(
     }
     case "pi":
       return [await cleanupPi(plugin, roots.piHome)]
-    case "gemini": {
-      // `install`/`convert` write Gemini output to `<cwd>/.gemini` by default
-      // (see `resolveTargetOutputRoot`), so cleanup must scan the workspace
-      // root in the same default flow. When neither `--gemini-home` nor
-      // `--output` is set, also scan `~/.gemini` as a safety net for users
-      // who installed to the home-scoped location with an older CLI.
-      if (roots.hasExplicitGeminiHome) {
-        return [await cleanupGemini(plugin, roots.geminiHome)]
-      }
-      const workspaceGemini = resolveGeminiWorkspaceRoot(roots.workspaceRoot)
-      if (roots.hasExplicitOutput) {
-        return [await cleanupGemini(plugin, workspaceGemini)]
-      }
-      // Deduplicate before launching parallel cleanups: when cwd === $HOME,
-      // `<cwd>/.gemini` and `~/.gemini` resolve to the same directory and two
-      // concurrent passes would race on renames into legacy-backup, producing
-      // intermittent ENOENT failures. `process.cwd()` and `os.homedir()` are
-      // already absolute, and `path.join` (inside `resolveGeminiWorkspaceRoot`
-      // and `resolveTargetHome`) normalizes the result, so string equality on
-      // the post-resolve paths is sufficient.
-      const rootsToClean = await dedupeRoots([workspaceGemini, roots.geminiHome])
-      return await Promise.all(rootsToClean.map((root) => cleanupGemini(plugin, root)))
-    }
     case "kiro":
       return [await cleanupKiro(plugin, roots.kiroHome)]
     case "copilot": {
-      // Same race-prevention as Gemini: if a user points `--copilot-home`,
+      // Same race-prevention as Copilot below: if a user points `--copilot-home`,
       // `--output`, or `--agents-home` at the same directory these parallel
       // passes collide on renames. Default values are distinct so the dedup
       // is mostly defensive, but keep the shape consistent across targets
@@ -237,7 +202,7 @@ async function cleanupTarget(
     case "qwen":
       return [await cleanupQwen(plugin, roots.qwenHome)]
     case "windsurf": {
-      // Same race-prevention as Gemini/Copilot: dedup after path resolution
+      // Same race-prevention as Copilot: dedup after path resolution
       // so overlapping overrides can't produce concurrent renames on the
       // same directory.
       const rootsToClean = roots.hasExplicitOutput
@@ -445,27 +410,6 @@ async function cleanupPi(plugin: Awaited<ReturnType<typeof loadClaudePlugin>>, p
     moved += await moveLegacyAgentIfOwned(managedDir, "agents", path.join(piRoot, "agents"), agentPath, "Pi", ".md")
   }
   return { target: "pi", root: piRoot, moved }
-}
-
-async function cleanupGemini(plugin: Awaited<ReturnType<typeof loadClaudePlugin>>, geminiRoot: string): Promise<CleanupResult> {
-  const bundle = convertClaudeToGemini(plugin, {
-    agentMode: "subagent",
-    inferTemperature: true,
-    permissions: "none",
-  })
-  const artifacts = getLegacyGeminiArtifacts(bundle)
-  const managedDir = path.join(geminiRoot, "compound-engineering")
-  let moved = 0
-  for (const skillName of artifacts.skills) {
-    moved += await moveLegacySkillIfOwned(managedDir, "skills", path.join(geminiRoot, "skills"), skillName, "Gemini")
-  }
-  for (const agentPath of artifacts.agents) {
-    moved += await moveLegacyAgentIfOwned(managedDir, "agents", path.join(geminiRoot, "agents"), agentPath, "Gemini", ".md")
-  }
-  for (const commandPath of artifacts.commands) {
-    moved += await moveIfExists(managedDir, "commands", path.join(geminiRoot, "commands"), commandPath, "Gemini")
-  }
-  return { target: "gemini", root: geminiRoot, moved }
 }
 
 async function cleanupKiro(plugin: Awaited<ReturnType<typeof loadClaudePlugin>>, kiroRoot: string): Promise<CleanupResult> {
@@ -740,10 +684,6 @@ function resolveWorkspaceRoot(value: unknown): string {
 
 function resolveCopilotWorkspaceRoot(outputRoot: string): string {
   return path.basename(outputRoot) === ".github" ? outputRoot : path.join(outputRoot, ".github")
-}
-
-function resolveGeminiWorkspaceRoot(outputRoot: string): string {
-  return path.basename(outputRoot) === ".gemini" ? outputRoot : path.join(outputRoot, ".gemini")
 }
 
 function resolveOpenCodeWorkspaceRoot(outputRoot: string): string {

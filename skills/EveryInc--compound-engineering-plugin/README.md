@@ -117,6 +117,8 @@ The `compound-engineering` plugin currently ships 27 skills and 0 standalone age
 /plugin install compound-engineering
 ```
 
+> **Already have Compound Engineering installed?** Compound Engineering moved to a root-native layout. You must refresh the marketplace *before* updating — see [Existing Installs](#existing-installs). Running `/plugin update` alone keeps you on the old version.
+
 ### Cursor
 
 In Cursor Agent chat, install from the plugin marketplace:
@@ -252,30 +254,42 @@ Recommended companion for richer blocking questions:
 pi install npm:pi-ask-user
 ```
 
-### Gemini CLI
+### Antigravity CLI (`agy`)
 
-Install the native Gemini extension from this repository:
-
-```bash
-gemini extensions install https://github.com/EveryInc/compound-engineering-plugin
-```
-
-Update it later with:
+Google has replaced the consumer Gemini CLI with [Antigravity CLI](https://antigravity.google) (`agy`), which still runs on Gemini models. Unlike Gemini CLI, `agy` installs plugins from a **local checkout** (not a repository URL), so clone this repository and install the bundled `.agy` plugin directory:
 
 ```bash
-gemini extensions update compound-engineering
+git clone https://github.com/EveryInc/compound-engineering-plugin
+agy plugin install ./compound-engineering-plugin/.agy
 ```
+
+`agy` also loads `GEMINI.md` workspace context from the checkout.
 
 ### Existing Installs
 
-Marketplace-managed installs should move to the root plugin layout when the marketplace/plugin version updates. On Claude Code, refresh the cached marketplace definition before updating the plugin:
+Compound Engineering moved to a root-native, skills-only layout. An existing marketplace install keeps a **cached** marketplace snapshot that still points at the old `plugins/compound-engineering` path, so updating the plugin on its own reads that stale snapshot and leaves you on the previous version. Refresh the cached marketplace **first**, then update the plugin — order matters.
+
+**Claude Code**
 
 ```text
 /plugin marketplace update compound-engineering-plugin
 /plugin update compound-engineering
 ```
 
-A plugin update by itself can still read the stale cached marketplace entry that points at the old `plugins/compound-engineering` path. If you configured a host with a direct path or sparse path under `plugins/compound-engineering`, edit or reinstall that source so it points at the repository root with no sparse path.
+**Codex CLI**
+
+```bash
+codex plugin marketplace upgrade compound-engineering-plugin
+codex plugin add compound-engineering@compound-engineering-plugin
+```
+
+There is no `codex plugin update`; re-running `add` reinstalls from the refreshed snapshot. For a non-default profile, run both commands against the same `CODEX_HOME`.
+
+**Codex App**
+
+Refresh the marketplace from the **Plugins** panel (remove and re-add the `EveryInc/compound-engineering-plugin` marketplace if there is no refresh control), then reinstall **compound-engineering** and restart Codex.
+
+If you configured a host with a direct path or sparse path under `plugins/compound-engineering`, edit or reinstall that source so it points at the repository root with no sparse path.
 
 If a previous Bun-installed copy is still shadowing native plugin skills, run the current cleanup command from a checkout of this repository:
 
@@ -341,15 +355,17 @@ Restart OpenCode after changing `opencode.json`.
 pi -e "$PWD"
 ```
 
-**Gemini CLI**
+**Antigravity CLI (`agy`)**
 
 ```bash
-gemini extensions install "$PWD"
+agy plugin install "$PWD/.agy"
 ```
+
+`agy` installs the bundled `.agy` plugin directory from your checkout and loads `GEMINI.md` workspace context.
 
 ## Limitations
 
-OpenCode, Pi, and Gemini use native package/plugin loading from this repository. The Bun CLI remains for repository development and converter maintenance, not normal installation.
+OpenCode and Pi use native package/plugin loading from this repository. The Bun CLI remains for repository development and converter maintenance, not normal installation.
 
 Release versions are owned by release automation. Routine feature PRs should not hand-bump plugin or marketplace manifest versions.
 

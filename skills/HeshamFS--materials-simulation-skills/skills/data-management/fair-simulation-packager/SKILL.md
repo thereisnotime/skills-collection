@@ -9,15 +9,14 @@ description: >
 allowed-tools: Read, Bash, Write, Grep, Glob
 metadata:
   author: HeshamFS
-  version: "1.0.0"
+  version: "1.2.1"
   security_tier: high
   security_reviewed: true
   tested_with:
     - claude-code
-    - gemini-cli
-    - vs-code-copilot
+  last_evaluated: "2026-06-23"
   eval_cases: 3
-  last_reviewed: "2026-05-18"
+  last_reviewed: "2026-06-24"
 ---
 
 # FAIR Simulation Packager
@@ -52,13 +51,26 @@ Build a minimal reproducibility manifest for materials simulation results so ano
 
 ## Script Outputs
 
-`scripts/fair_packager.py` emits:
+`scripts/fair_packager.py --json` prints an envelope with two top-level keys:
 
-- `manifest`
-- `file_inventory`
-- `missing_files`
-- `fair_checks`
+- `inputs`: the parsed CLI arguments echoed back (note: `inputs.inputs` is the raw
+  comma-separated string passed via `--inputs`, not the per-file records).
+- `results`: contains a single key `manifest`.
+
+`results.manifest` contains these fields:
+
+- `project_name`, `engine`, `engine_version`, `structure_id`, `units`
+- `file_inventory` with `inputs` and `outputs`, each a list of per-file records
+  (`path`, `exists`, and when the file exists, `size_bytes` and `sha256`)
+- `missing_files`: paths that do not exist on disk
+- `provenance` (`working_directory`, `manifest_schema`)
+- `fair_checks`: `has_inputs`, `has_outputs`, `has_units`, `has_engine_version`, and
+  `has_hashes_for_existing_files` (`true`/`false`, or `null` when no files exist so the
+  check is not applicable)
 - `recommended_next_steps`
+
+Parse fields at `results.manifest.<field>`. When `--out PATH` is given, only the bare
+`manifest` object (not the `inputs`/`results` envelope) is written to `PATH`.
 
 ## Workflow
 
@@ -77,7 +89,12 @@ Use `--out manifest.json` only when the user wants a manifest file written.
 
 ## Error Handling
 
-Missing files are reported in `missing_files`; invalid unit fields or unsafe paths stop with exit code 2.
+Missing files are reported in `missing_files` (exit code 0). Invalid input stops with
+exit code 2: malformed unit entries, fields containing control characters, fields longer
+than 4096 characters, more than 1000 input or output entries, or a file larger than
+500 MB. Note that ordinary file paths — including absolute paths and paths containing
+`..` — are accepted and inventoried; the tool reads file contents only to compute
+metadata and SHA-256 hashes.
 
 ## Limitations
 
@@ -85,10 +102,46 @@ This skill creates a metadata manifest. It does not upload to NOMAD, Materials P
 
 ## Security
 
-- File paths are read only for metadata and SHA-256 hashing.
-- The script rejects control characters and oversized files above 500 MB.
-- Optional manifest writing is restricted to the requested output path.
-- The skill uses `Bash` only to run the bundled script.
+### Input Validation
+
+- `--project-name` and `--engine` are required and must be non-empty after stripping
+  whitespace; an empty value stops with exit code 2.
+- `--project-name`, `--engine`, `--structure-id` (when given), and every file path are
+  checked for control characters (`ord < 32`) and a 4096-character maximum length; either
+  condition stops with exit code 2.
+- `--inputs` and `--outputs` are split on commas and capped at 1000 entries each; more
+  entries stop with exit code 2.
+- `--units` entries must be `key=value`; both the key and the value must match the
+  allowlist `^[A-Za-z0-9_.:/@+-]+$`. A missing `=` or a non-matching key/value stops with
+  exit code 2.
+- There are no numeric inputs, so no finite/positive numeric checks are performed.
+
+### File Access
+
+- The script reads each existing input/output file in 1 MB chunks to compute its
+  `size_bytes` and SHA-256 hash; files that do not exist are recorded but not read.
+- A file larger than 500 MB stops with exit code 2 before it is hashed.
+- The script writes no files unless `--out PATH` is given, in which case it writes exactly
+  one file (the bare manifest JSON) to that path; otherwise all output goes to stdout.
+- Paths are not sandboxed: absolute paths and paths containing `..` are accepted for both
+  the inventoried files and `--out`. If `--out` points outside the working directory, the
+  file is written there as requested.
+
+### Tool Restrictions
+
+- `Bash` is used to run the bundled `scripts/fair_packager.py`.
+- `Read`, `Write`, `Grep`, and `Glob` are declared so the skill can inspect the working
+  directory and read or write manifest/metadata files when guiding the user; they are not
+  invoked by the script itself, which performs all of its own file I/O directly.
+
+### Safety Measures
+
+- No `eval`, `exec`, `os.system`, or `subprocess` calls; the script does not shell out and
+  parses arguments with `argparse`.
+- Output is emitted as JSON via `json.dumps` (or a short plain-text summary without
+  `--json`).
+- DoS caps bound resource use: 500 MB per file, 1000 entries per input/output list, and
+  4096 characters per field.
 
 ## References
 
@@ -96,4 +149,12 @@ This skill creates a metadata manifest. It does not upload to NOMAD, Materials P
 
 ## Version History
 
+- 1.2.0: Made eval cases discriminating by pinning the script's exact `--json`
+  output (per-file `sha256`/`size_bytes`, `units`, `structure_id`, `engine_version`,
+  `missing_files`, and the tri-state `has_hashes_for_existing_files`) against
+  committed `evals/files/` fixtures.
+- 1.1.0: Documented the real `--json` envelope shape; made
+  `has_hashes_for_existing_files` tri-state (`null` when no files exist); added entry-count
+  (1000) and field-length (4096) caps; corrected the Error Handling and Security wording
+  to describe actual path behavior.
 - 1.0.0: Initial FAIR simulation packaging skill.

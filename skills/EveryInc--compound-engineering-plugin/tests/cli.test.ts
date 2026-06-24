@@ -625,103 +625,6 @@ describe("CLI", () => {
     expect(await exists(path.join(piRoot, "compound-engineering", "legacy-backup"))).toBe(true)
   })
 
-  test("cleanup backs up legacy Gemini artifacts on demand", async () => {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cli-cleanup-gemini-"))
-    const geminiRoot = path.join(tempRoot, ".gemini")
-    const repoRoot = path.join(import.meta.dir, "..")
-
-    await fs.mkdir(path.join(geminiRoot, "skills", "reproduce-bug"), { recursive: true })
-    await fs.writeFile(path.join(geminiRoot, "skills", "reproduce-bug", "SKILL.md"), skillContent("reproduce-bug", historicalSkillDescription("reproduce-bug")))
-    await fs.mkdir(path.join(geminiRoot, "agents"), { recursive: true })
-    await fs.writeFile(
-      path.join(geminiRoot, "agents", "bug-reproduction-validator.md"),
-      agentContent("bug-reproduction-validator", historicalAgentDescription("bug-reproduction-validator")),
-    )
-    await fs.mkdir(path.join(geminiRoot, "commands", "compound"), { recursive: true })
-    await fs.writeFile(path.join(geminiRoot, "commands", "compound", "plan.toml"), "legacy command")
-
-    const proc = Bun.spawn([
-      "bun",
-      "run",
-      path.join(repoRoot, "src", "index.ts"),
-      "cleanup",
-      "--target",
-      "gemini",
-      "--gemini-home",
-      geminiRoot,
-    ], {
-      cwd: repoRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: {
-        ...process.env,
-        HOME: tempRoot,
-      },
-    })
-
-    const exitCode = await proc.exited
-    const stdout = await new Response(proc.stdout).text()
-    const stderr = await new Response(proc.stderr).text()
-
-    if (exitCode !== 0) {
-      throw new Error(`CLI failed (exit ${exitCode}).\nstdout: ${stdout}\nstderr: ${stderr}`)
-    }
-
-    expect(stdout).toContain("Cleaned gemini")
-    expect(await exists(path.join(geminiRoot, "skills", "reproduce-bug"))).toBe(false)
-    expect(await exists(path.join(geminiRoot, "agents", "bug-reproduction-validator.md"))).toBe(false)
-    expect(await exists(path.join(geminiRoot, "commands", "compound", "plan.toml"))).toBe(false)
-    expect(await exists(path.join(geminiRoot, "compound-engineering", "legacy-backup"))).toBe(true)
-  })
-
-  test("cleanup defaults Gemini root to workspace ./.gemini when --gemini-home is not set", async () => {
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cli-cleanup-gemini-default-"))
-    const workspaceRoot = path.join(tempRoot, "workspace")
-    const workspaceGemini = path.join(workspaceRoot, ".gemini")
-    const repoRoot = path.join(import.meta.dir, "..")
-
-    // Seed a legacy artifact in the WORKSPACE-scoped Gemini root (`<cwd>/.gemini`),
-    // which is where `install`/`convert` writes Gemini output by default.
-    // Cleanup must find this without `--gemini-home`, mirroring the install
-    // default.
-    await fs.mkdir(path.join(workspaceGemini, "skills", "reproduce-bug"), { recursive: true })
-    await fs.writeFile(
-      path.join(workspaceGemini, "skills", "reproduce-bug", "SKILL.md"),
-      skillContent("reproduce-bug", historicalSkillDescription("reproduce-bug")),
-    )
-
-    const proc = Bun.spawn([
-      "bun",
-      "run",
-      path.join(repoRoot, "src", "index.ts"),
-      "cleanup",
-      "--target",
-      "gemini",
-      "--output",
-      workspaceRoot,
-    ], {
-      cwd: repoRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: {
-        ...process.env,
-        HOME: tempRoot,
-      },
-    })
-
-    const exitCode = await proc.exited
-    const stdout = await new Response(proc.stdout).text()
-    const stderr = await new Response(proc.stderr).text()
-
-    if (exitCode !== 0) {
-      throw new Error(`CLI failed (exit ${exitCode}).\nstdout: ${stdout}\nstderr: ${stderr}`)
-    }
-
-    expect(stdout).toContain("Cleaned gemini")
-    expect(await exists(path.join(workspaceGemini, "skills", "reproduce-bug"))).toBe(false)
-    expect(await exists(path.join(workspaceGemini, "compound-engineering", "legacy-backup"))).toBe(true)
-  })
-
   test("cleanup backs up legacy Copilot workspace artifacts for native migration", async () => {
     const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cli-cleanup-copilot-"))
     const repoRoot = path.join(import.meta.dir, "..")
@@ -1044,62 +947,6 @@ describe("CLI", () => {
     expect(await exists(path.join(qwenRoot, "skills", "my-user-skill"))).toBe(true)
     expect(await exists(path.join(qwenRoot, "agents", "ce-correctness-reviewer.md"))).toBe(true)
     expect(await exists(path.join(qwenRoot, "commands", "my-user-command.md"))).toBe(true)
-  })
-
-  test("cleanup deduplicates Gemini roots when cwd === $HOME to avoid rename races", async () => {
-    // Reproduces the concurrent-rename race: when `cwd` equals `$HOME` (or any
-    // path whose `.gemini` child collides with `--gemini-home`), the two
-    // default cleanup roots resolve to the same directory. Before the dedup
-    // fix, `Promise.all` launched two cleanups against the same directory and
-    // the loser of the rename race raised ENOENT, aborting cleanup
-    // intermittently. The fix deduplicates on absolute path before fanning
-    // out, so a single pass runs and the artifact is moved exactly once.
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cli-cleanup-gemini-dedup-"))
-    const repoRoot = path.join(import.meta.dir, "..")
-    // Make `cwd` and `$HOME` the same directory so `<cwd>/.gemini` ==
-    // `$HOME/.gemini`, which is the collision the reviewer flagged.
-    const sharedRoot = tempRoot
-    const sharedGemini = path.join(sharedRoot, ".gemini")
-
-    await fs.mkdir(path.join(sharedGemini, "skills", "reproduce-bug"), { recursive: true })
-    await fs.writeFile(
-      path.join(sharedGemini, "skills", "reproduce-bug", "SKILL.md"),
-      skillContent("reproduce-bug", historicalSkillDescription("reproduce-bug")),
-    )
-
-    const proc = Bun.spawn([
-      "bun",
-      "run",
-      path.join(repoRoot, "src", "index.ts"),
-      "cleanup",
-      "--target",
-      "gemini",
-    ], {
-      // cwd === HOME triggers the workspaceGemini === roots.geminiHome case.
-      cwd: sharedRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-      env: {
-        ...process.env,
-        HOME: sharedRoot,
-      },
-    })
-
-    const exitCode = await proc.exited
-    const stdout = await new Response(proc.stdout).text()
-    const stderr = await new Response(proc.stderr).text()
-
-    if (exitCode !== 0) {
-      throw new Error(`CLI failed (exit ${exitCode}).\nstdout: ${stdout}\nstderr: ${stderr}`)
-    }
-
-    // Cleanup runs exactly once (only one "Cleaned gemini" line) and the
-    // legacy artifact is moved without an ENOENT race.
-    const geminiLines = stdout.split("\n").filter((line) => line.startsWith("Cleaned gemini"))
-    expect(geminiLines.length).toBe(1)
-    expect(geminiLines[0]).toContain("backed up 1 artifact")
-    expect(await exists(path.join(sharedGemini, "skills", "reproduce-bug"))).toBe(false)
-    expect(await exists(path.join(sharedGemini, "compound-engineering", "legacy-backup"))).toBe(true)
   })
 
   test("cleanup backs up Kiro artifacts on demand", async () => {
@@ -2081,7 +1928,7 @@ describe("CLI", () => {
     await fs.mkdir(path.join(tempHome, ".pi"), { recursive: true })
     await fs.mkdir(path.join(tempHome, ".factory"), { recursive: true })
     await fs.mkdir(path.join(tempHome, ".copilot"), { recursive: true })
-    await fs.mkdir(path.join(tempHome, ".gemini"), { recursive: true })
+    await fs.mkdir(path.join(tempHome, ".gemini", "antigravity-cli"), { recursive: true })
     await fs.mkdir(path.join(tempHome, ".qwen"), { recursive: true })
     await fs.mkdir(path.join(tempCwd, ".cursor"), { recursive: true })
 
@@ -2114,7 +1961,7 @@ describe("CLI", () => {
     expect(stdout).toContain("Installed compound-engineering to codex")
     expect(stdout).toContain("Installed compound-engineering to opencode")
     expect(stdout).toContain("Installed compound-engineering to pi")
-    expect(stdout).toContain("Installed compound-engineering to gemini")
+    expect(stdout).toContain("Installed compound-engineering to antigravity")
     expect(stdout).toContain("droid — native plugin install; skipped")
     expect(stdout).toContain("copilot — native plugin install; skipped")
     expect(stdout).toContain("qwen — native plugin install; skipped")
@@ -2126,7 +1973,7 @@ describe("CLI", () => {
     expect(await exists(path.join(tempHome, ".codex", "agents", "compound-engineering", "security-sentinel.toml"))).toBe(true)
     expect(await exists(path.join(tempHome, ".codex", "skills", "compound-engineering", "skill-one", "SKILL.md"))).toBe(false)
     expect(await exists(path.join(tempHome, ".pi", "agent", "skills", "skill-one", "SKILL.md"))).toBe(true)
-    expect(await exists(path.join(tempCwd, ".gemini", "skills", "skill-one", "SKILL.md"))).toBe(true)
+    expect(await exists(path.join(tempCwd, ".agy", "skills", "skill-one", "SKILL.md"))).toBe(true)
     expect(await exists(path.join(tempCwd, ".kiro", "skills", "skill-one", "SKILL.md"))).toBe(false)
     expect(await exists(path.join(tempHome, ".qwen", "extensions", "compound-engineering", "qwen-extension.json"))).toBe(false)
   })

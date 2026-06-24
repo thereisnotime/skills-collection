@@ -688,6 +688,68 @@ describe("ce-compound frontmatter schema expansion contract", () => {
   })
 })
 
+describe("ce-compound Phase 1 artifact contract", () => {
+  // Regression guard for issue #956: Phase 1 subagents that returned long-form
+  // prose only as their inline Agent response failed silently when the harness
+  // collapsed the return to an executive summary. The fix mirrors ce-code-review's
+  // proven /tmp run-artifact pattern: subagents write full output to disk and the
+  // orchestrator Reads it back with the inline return as a fallback.
+  test("generates a run id and run dir before dispatching Phase 1 subagents", async () => {
+    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+
+    // A run identifier scopes the per-subagent artifact files
+    expect(content).toContain("RUN_ID")
+    // Run dir under the shared cross-invocation scratch namespace
+    expect(content).toContain("/tmp/compound-engineering/ce-compound/")
+    expect(content).toContain('mkdir -p "/tmp/compound-engineering/ce-compound/')
+  })
+
+  test("Phase 1 subagents write full output to the run-artifact path", async () => {
+    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+
+    const phase1 = content.slice(
+      content.indexOf("### Phase 1: Research"),
+      content.indexOf("### Phase 2: Assembly & Write"),
+    )
+
+    // Subagents are instructed to write their full structured output to the run dir
+    expect(phase1).toContain("/tmp/compound-engineering/ce-compound/")
+    // ...and return a compact confirmation containing the artifact path
+    expect(phase1.toLowerCase()).toContain("artifact path")
+    // Inline return is required whenever the write did not succeed (not only when
+    // {run_id} is missing) so Phase 2's fallback always has content to read.
+    expect(phase1.toLowerCase()).toContain("write did not succeed")
+    expect(phase1.toLowerCase()).toContain("the write itself failed")
+  })
+
+  test("Phase 2 assembly reads artifacts with inline-return fallback", async () => {
+    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+
+    const phase2 = content.slice(
+      content.indexOf("### Phase 2: Assembly & Write"),
+      content.indexOf("### Phase 2.4: Vocabulary Capture"),
+    )
+
+    // Orchestrator reads the per-subagent artifact files
+    expect(phase2).toContain("/tmp/compound-engineering/ce-compound/")
+    // Inline return is the documented fallback when the artifact is absent
+    expect(phase2.toLowerCase()).toContain("fall back")
+  })
+
+  test("no longer imposes an absolute no-write rule on Phase 1 subagents", async () => {
+    const content = await readRepoFile("skills/ce-compound/SKILL.md")
+
+    // The brittle absolute prohibition is gone — only product-file writes are reserved
+    // to the orchestrator; scratch artifacts under /tmp are now expected.
+    expect(content).not.toContain(
+      "They must NOT use Write, Edit, or create any files.",
+    )
+    expect(content).not.toContain(
+      "Subagents return text data; orchestrator writes one final file",
+    )
+  })
+})
+
 describe("learnings-researcher local prompt domain-agnostic contract", () => {
   test("local prompt frames as domain-agnostic not bug-focused", async () => {
     const agent = await readRepoFile(

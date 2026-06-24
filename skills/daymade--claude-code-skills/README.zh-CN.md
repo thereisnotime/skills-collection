@@ -6,15 +6,15 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Skills](https://img.shields.io/badge/skills-64-blue.svg)](https://github.com/daymade/claude-code-skills)
-[![Version](https://img.shields.io/badge/version-1.65.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Skills](https://img.shields.io/badge/skills-65-blue.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-1.66.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
 
 </div>
 
-专业的 Claude Code 技能市场，提供 64 个生产就绪的技能，用于增强开发工作流。
+专业的 Claude Code 技能市场，提供 65 个生产就绪的技能，用于增强开发工作流。
 
 ## 📑 目录
 
@@ -185,7 +185,7 @@ claude plugin install daymade-docs@daymade-skills
 claude plugin install daymade-claude-code@daymade-skills
 ```
 
-一次安装即可获得扩展 Claude Code 本体的全部 power-user 技能——会话恢复、CLAUDE.md 调优、故障诊断、statusline 配置、导出修复与 marketplace 开发：
+一次安装即可获得扩展 Claude Code 本体的全部 power-user 技能——会话恢复、CLAUDE.md 调优、故障诊断、statusline 配置、导出修复、marketplace 开发、终端截图渲染、用量分析以及多 Provider 模型切换：
 
 ```text
 /daymade-claude-code:claude-code-history-files-finder
@@ -195,9 +195,12 @@ claude plugin install daymade-claude-code@daymade-skills
 /daymade-claude-code:statusline-generator
 /daymade-claude-code:claude-export-txt-better
 /daymade-claude-code:marketplace-dev
+/daymade-claude-code:terminal-screenshot
+/daymade-claude-code:claude-usage-analyst
+/daymade-claude-code:claude-switch-models-setup
 ```
 
-安装后调用统一显示为 `daymade-claude-code:<skill>`，共享同一命名空间。这些技能仅作为套件发布——安装套件即可获得全部 7 个技能。
+安装后调用统一显示为 `daymade-claude-code:<skill>`，共享同一命名空间。这些技能仅作为套件发布——安装套件即可获得全部技能。
 
 **安装其他技能：**
 ```bash
@@ -2118,6 +2121,7 @@ uv run douban-skill/scripts/douban-rss-sync.py <douban-user-id>
 - 连接重置（`ECONNRESET`、HTTP/2 `RST_STREAM`、`INTERNAL_ERROR`）
 - SSE / 长轮询挂起或定时断开（60s、100s、130s）
 - CDN / 代理 / CGNAT 空闲超时事件
+- 客户端代理 / VPN / TUN 错路由（如 `ERR_CONNECTION_CLOSED`、`SSL_ERROR_SYSCALL`、假 TUN DNS IP、CNAME 规则覆盖）
 - "时灵时不灵 / N 秒后必断"模式
 - 多跳系统（client → CDN → LB → reverse proxy → app → upstream）症状可能来自多层
 
@@ -2126,7 +2130,7 @@ uv run douban-skill/scripts/douban-rss-sync.py <douban-user-id>
 - 环境变量门控的运行时埋点（不污染生产代码）
 - 反审查四问过滤器，挑战单因果假设
 - 内置探针脚本（`layered-isolation-probe.sh`、`mock-idle-upstream.py`）
-- 真实案例：CGNAT 130s 空闲超时导致的 SSE RST_STREAM
+- 真实案例：CGNAT 130s 空闲超时导致的 SSE RST_STREAM；代理/TUN CNAME 规则覆盖导致的 `ERR_CONNECTION_CLOSED`
 
 **要求**：无（方法论 + 可移植的 shell/Python 探针）。
 
@@ -2642,6 +2646,41 @@ claude plugin install marketplace-health-check@daymade-skills
 
 ---
 
+### 67. **claude-switch-models-setup** - 多 Provider Claude Code 配置
+
+```bash
+claude plugin install daymade-claude-code@daymade-skills
+```
+
+设置多个互相隔离的 Claude Code CLI profile，让你可以在不同终端窗口同时运行不同的 LLM provider（Kimi、GLM、DeepSeek、StepFun、Anthropic）——每个 profile 拥有独立的 `claude.json` 状态，同时共享 skills、projects、hooks 和 agents。
+
+**使用场景：**
+- 想在一个终端跑 Kimi、另一个终端跑 DeepSeek
+- 需要在 Anthropic 和第三方模型之间切换，且不希望配置互相污染
+- 为学员配置课后环境，复现同样的多 provider 工作流
+
+**主要功能：**
+- 一键安装器将 profile 管理器复制到 `~/.config/claude-switch-models-setup/`
+- 生成 provider 专用的 `~/.claude/settings/<provider>.json` 模板，并带上必要的隔离标志
+- `claude-profiles-init` 创建隔离目录 `~/.claude-profiles/<provider>/`，其余资源通过 symlink 共享
+- 每次启动 profile 时自动修复 marketplace 路径污染
+- 内置学生安装指南和故障排查参考
+
+**示例用法：**
+```bash
+# 安装套件
+claude plugin install daymade-claude-code@daymade-skills
+
+# 然后自然地让 Claude 做
+"帮我配置 Kimi 和 DeepSeek 的 Claude Code profile"
+"我想在两个独立终端分别跑 Kimi 和 Anthropic"
+"安装 workshop 上的多 provider 配置"
+```
+
+**要求**：`claude` CLI、`zsh` 或 `bash`、`python3`，以及你想使用的 provider 的 API key。
+
+---
+
 ## 🎬 交互式演示画廊
 
 想要在一个地方查看所有演示并具有点击放大功能？访问我们的[交互式演示画廊](./demos/index.html)或浏览[演示目录](./demos/)。
@@ -2763,7 +2802,7 @@ claude plugin install marketplace-health-check@daymade-skills
 使用 **terraform-skill** 当 `terraform apply` 在 provisioner 步骤失败、新实例遇到 "docker: not found"、或多环境 setup 意外共享快照时。Skill 里每一条都是*确切报错 → 根本原因 → 复制粘贴修复*三元组，来自真实事故。特别适合曾经被 cloud-init 的时序竞争、local-exec 里 rsync 连接断开、或者 Caddyfile 里硬编码域名搞掉一个周末的人。
 
 ### 网络、流式与协议层调试
-使用 **debugging-network-issues** 应对症状和"显然原因"对不上的场景：HTTP/2 `RST_STREAM`、SSE 在 60s/100s/130s 整点卡死、"时灵时不灵"故障、或 CDN / 代理 / CGNAT 链路上的空闲超时事件。Skill 用**分层隔离实验**（同一逻辑请求走三条以上、每条仅差一跳的路径）替代假设堆叠，再加一套反审查模式——只在假设被**证伪**而不是单纯被"证实"之后才上 fix。认知陷阱清单含反向路径/方向不对称——从错误的一端（或只从一端）测量会系统性漏掉方向性故障。
+使用 **debugging-network-issues** 应对症状和"显然原因"对不上的场景：HTTP/2 `RST_STREAM`、SSE 在 60s/100s/130s 整点卡死、"时灵时不灵"故障、客户端代理/VPN/TUN 错路由导致的 `ERR_CONNECTION_CLOSED` 或 `SSL_ERROR_SYSCALL`、或 CDN / 代理 / CGNAT / TUN 链路上的空闲超时/规则覆盖事件。Skill 用**分层隔离实验**（同一逻辑请求走三条以上、每条仅差一跳的路径）替代假设堆叠，再加一套反审查模式——只在假设被**证伪**而不是单纯被"证实"之后才上 fix。认知陷阱清单含反向路径/方向不对称，以及代理节点 DNS ≠ 客户端 DNS。
 
 ### 中文 TTS（StepFun 阶跃 StepAudio 2.5）
 使用 **stepfun-tts** 进行中 / 日语语音合成（通过 `instruction` + 行内 `()` 控制情绪与韵律）。封装了让 StepAudio 2.5 新用户必踩的两个 TTS 破坏性变更：`voice_label` 移除和 2.5 时代更严的审查规则。可把 `step-tts-2` 作为单条审查兜底来组合使用。
@@ -2826,7 +2865,7 @@ claude plugin install marketplace-health-check@daymade-skills
 - **douban-skill**：参见 `douban-skill/SKILL.md` 了解导出工作流，参见 `douban-skill/references/troubleshooting.md` 查看 7 种被测抓取方案及失败原因的完整日志
 - **terraform-skill**：参见 `terraform-skill/SKILL.md` 查看按确切报错 → 根本原因 → 复制粘贴修复组织的实操陷阱完整目录
 - **slides-creator**：参见 `slides-creator/SKILL.md` 了解叙事优先工作流，参见 `slides-creator/references/narrative-design-guide.md` 了解 ABCDEFG 模型，参见 `slides-creator/references/content-creation-first-law.md` 了解通用内容创作原则
-- **debugging-network-issues**：参见 `debugging-network-issues/SKILL.md` 了解证伪优先工作流，参见 `debugging-network-issues/references/layered-isolation-experiment.md` 了解多跳隔离模式，参见 `debugging-network-issues/references/case-sse-rst-130s.md` 查看真实生产案例
+- **debugging-network-issues**：参见 `debugging-network-issues/SKILL.md` 了解证伪优先工作流，参见 `debugging-network-issues/references/layered-isolation-experiment.md` 了解多跳隔离模式，参见 `debugging-network-issues/references/case-sse-rst-130s.md` 查看 SSE 生产案例，参见 `debugging-network-issues/references/case-proxy-tun-cname-override.md` 查看客户端代理/TUN CNAME 规则覆盖案例
 - **stepfun-tts**：参见 `stepfun-tts/SKILL.md` 了解 Contextual TTS 决策树，参见 `stepfun-tts/references/migration_from_v2.md` 查看 `voice_label` → `instruction` 迁移手册和审查改写清单
 - **stepfun-asr**：参见 `stepfun-asr/SKILL.md` 了解 SSE 端点工作流和 ASR 侧四个坑（错端点、Plan vs Normal key、重复幻觉、SSE `error` 事件）。`stepfun-asr/references/api_reference.md` 给出原始 HTTP 集成所需的 JSON 请求体和 SSE 事件契约
 

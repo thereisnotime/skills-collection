@@ -2,7 +2,6 @@ import type { CodexBundle } from "../types/codex"
 import type { CopilotBundle } from "../types/copilot"
 import type { DroidBundle } from "../types/droid"
 import type { ClaudePlugin } from "../types/claude"
-import type { GeminiBundle } from "../types/gemini"
 import type { KiroBundle } from "../types/kiro"
 import type { OpenCodeBundle } from "../types/opencode"
 import type { PiBundle } from "../types/pi"
@@ -439,45 +438,6 @@ export function getLegacyPiArtifacts(bundle: PiBundle): LegacyTargetArtifacts {
     skills: [...skills].sort(),
     prompts: [...prompts].sort(),
     agents: [...agents].sort(),
-  }
-}
-
-export function getLegacyGeminiArtifacts(bundle: GeminiBundle): LegacyTargetFileArtifacts {
-  const skills = new Set<string>()
-  const agents = new Set<string>()
-  const commands = new Set<string>()
-  const currentSkills = new Set<string>([
-    ...bundle.generatedSkills.map((skill) => sanitizePathName(skill.name)),
-    ...bundle.skillDirs.map((skill) => sanitizePathName(skill.name)),
-  ])
-  const currentAgents = new Set<string>((bundle.agents ?? []).map((agent) => `${sanitizePathName(agent.name)}.md`))
-  const currentCommands = new Set<string>(bundle.commands.map((command) => `${command.name}.toml`))
-  const extras = getLegacyPluginArtifacts(bundle.pluginName)
-
-  for (const name of extras.skills ?? []) {
-    addLegacySkillVariants(skills, name, { currentSkills })
-  }
-  for (const name of extras.agents ?? []) {
-    const skillName = normalizeLegacyName(name)
-    if (!currentSkills.has(skillName)) {
-      skills.add(skillName)
-    }
-    const agentPath = `${skillName}.md`
-    if (!currentAgents.has(agentPath)) {
-      agents.add(agentPath)
-    }
-  }
-  for (const name of extras.commands ?? []) {
-    const commandPath = toNestedCommandRelativePath(name, ".toml")
-    if (!currentCommands.has(commandPath)) {
-      commands.add(commandPath)
-    }
-  }
-
-  return {
-    skills: [...skills].sort(),
-    agents: [...agents].sort(),
-    commands: [...commands].sort(),
   }
 }
 

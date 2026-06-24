@@ -8,15 +8,14 @@ description: >
 allowed-tools: Read, Bash, Write, Grep, Glob
 metadata:
   author: HeshamFS
-  version: "1.0.0"
+  version: "1.2.1"
   security_tier: high
   security_reviewed: true
   tested_with:
     - claude-code
-    - gemini-cli
-    - vs-code-copilot
+  last_evaluated: "2026-06-23"
   eval_cases: 3
-  last_reviewed: "2026-05-18"
+  last_reviewed: "2026-06-24"
 ---
 
 # Workflow Engine Mapper
@@ -44,10 +43,12 @@ Choose the smallest workflow structure that preserves reproducibility, restartab
 
 ## Decision Guidance
 
-- Use **one-off scripts** for fewer than 5 local exploratory runs.
+- Use **one-off scripts** for fewer than 5 local exploratory runs (no provenance, no HPC).
 - Use **jobflow/atomate2** when the workflow is Python-native and Materials Project style input sets are useful.
-- Use **AiiDA** when provenance, database-backed records, and remote execution are central.
-- Use **pyiron** when interactive atomistic workflows, notebooks, and job management are the primary user surface.
+- Use **AiiDA** when provenance-critical work is also remote (HPC) or large (>= 50 runs) — i.e. long-lived, database-backed campaigns. For smaller local provenance needs, atomate2 (Materials Project codes, >= 10 runs) or jobflow stores already capture inputs, outputs, code version, and environment, so the mapper recommends those instead of the heavier AiiDA stack.
+- Use **pyiron** when interactive atomistic workflows, notebooks, and job management are the primary user surface (ASE/LAMMPS without strict provenance).
+
+The recommendations are emitted in a fixed precedence so the prose and the implemented thresholds agree: an explicit `--preferred` engine overrides everything; otherwise one-off (small local, no provenance/HPC) -> AiiDA (provenance AND remote/large) -> atomate2 (VASP/QE/CP2K/force-field, >= 10 runs) -> pyiron (ASE/LAMMPS, no provenance) -> jobflow (fallback).
 
 ## Script Outputs
 
@@ -59,6 +60,7 @@ Choose the smallest workflow structure that preserves reproducibility, restartab
 - `restart_strategy`
 - `storage_layout`
 - `migration_triggers`
+- `notes`
 
 ## Workflow
 
@@ -85,9 +87,32 @@ The skill does not replace the official APIs of atomate2, jobflow, AiiDA, or pyi
 
 ## Security
 
-- The script accepts only scalar CLI inputs and booleans.
-- It does not connect to remote services or submit jobs.
-- The skill uses `Bash` only to run the bundled script.
+### Input Validation
+
+- The script accepts only scalar CLI inputs and boolean flags (`--needs-provenance`, `--needs-restart`, `--hpc`, `--json` via `store_true`).
+- `runs` must be a positive integer (rejects booleans, non-integers, and values `<= 0`) and is capped at `MAX_RUNS = 1,000,000`; `main()` also rejects non-finite values via `math.isfinite`.
+- Free-text fields are length-bounded: `task` <= 2000 characters (`MAX_TASK_LEN`) and must be non-empty after stripping; `code` and `preferred` <= 100 characters each (`MAX_FIELD_LEN`).
+- `preferred` must be one of the allowed engine names: `auto`, `one-off`, `jobflow`, `atomate2`, `aiida`, `pyiron`.
+- The `task` and `code` strings are not otherwise restricted by an allowlist; only their length and (for `task`) emptiness are validated.
+- All invalid input raises `ValueError`, which is printed to stderr and exits with code 2 before any recommendation is computed.
+
+### File Access
+
+- The script reads and writes no files; all I/O is CLI args in -> stdout (JSON or two summary lines) out.
+- It accepts no path arguments, so there is no path-sandboxing concern; there are no on-disk size limits because nothing is read from disk.
+
+### Tool Restrictions
+
+- The frontmatter declares `allowed-tools: Read, Bash, Write, Grep, Glob`.
+- `Bash` is used only to run the bundled `scripts/workflow_engine_mapper.py`.
+- `Read`/`Grep`/`Glob` are used to inspect the skill's own files and references (e.g. `references/workflow_engines.md`) and the user's task context; `Write` is available to scaffold workflow files from the recommended structure.
+
+### Safety Measures
+
+- No `eval`/`exec`, no `subprocess`, and no shell invocation inside the script.
+- No network access: it does not connect to remote services, submit jobs, or deserialize untrusted data.
+- Output is emitted as structured JSON via `json.dumps` (with `--json`) or plain text summary lines.
+- DoS caps bound resource use: the `runs` ceiling (1,000,000) and the `task`/`code`/`preferred` length caps prevent unbounded input.
 
 ## References
 
@@ -95,4 +120,6 @@ The skill does not replace the official APIs of atomate2, jobflow, AiiDA, or pyi
 
 ## Version History
 
+- 1.2.0: Strengthen evals with deterministic `script_checks` that pin the mapper's exact output (recommended_engine, dag_pattern, provenance_requirements, restart_strategy, migration_triggers) so each case discriminates the skill from a from-memory baseline.
+- 1.1.0: Compose branch+sweep DAG patterns instead of overwriting; emit a forward-looking migration trigger for one-off runs; document AiiDA gating/precedence; add input-validation safeguards (bounds, length caps) matching the Security section.
 - 1.0.0: Initial workflow engine mapping skill.

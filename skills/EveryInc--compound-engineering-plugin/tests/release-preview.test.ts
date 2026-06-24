@@ -51,7 +51,8 @@ describe("release preview", () => {
 
     await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "3.13.1" }))
     await writeFile(path.join(root, ".claude-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
-    await writeFile(path.join(root, "gemini-extension.json"), JSON.stringify({ version: "3.13.0" }))
+    await mkdir(path.join(root, ".agy"), { recursive: true })
+    await writeFile(path.join(root, ".agy", "plugin.json"), JSON.stringify({ version: "3.13.0" }))
     await writeFile(
       path.join(root, ".claude-plugin", "marketplace.json"),
       JSON.stringify({ metadata: { version: "3.13.1" } }),
@@ -61,7 +62,7 @@ describe("release preview", () => {
       JSON.stringify({ metadata: { version: "3.13.1" } }),
     )
 
-    await expect(loadCurrentVersions(root)).rejects.toThrow("gemini-extension.json version 3.13.0")
+    await expect(loadCurrentVersions(root)).rejects.toThrow(".agy/plugin.json version 3.13.0")
     await Bun.$`rm -rf ${root}`.quiet()
   })
 })
