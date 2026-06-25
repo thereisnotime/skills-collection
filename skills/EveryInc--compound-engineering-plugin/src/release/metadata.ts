@@ -26,6 +26,13 @@ type CodexPluginManifest = {
   skills?: string
 }
 
+type KimiPluginManifest = {
+  name: string
+  version: string
+  description?: string
+  skills?: string
+}
+
 type AntigravityManifest = {
   version: string
 }
@@ -51,6 +58,15 @@ type CodexMarketplaceManifest = {
       path?: string
       url?: string
     }
+  }>
+}
+
+type KimiMarketplaceManifest = {
+  version: string
+  plugins: Array<{
+    id: string
+    displayName?: string
+    source?: string
   }>
 }
 
@@ -161,6 +177,34 @@ export async function buildCompoundEngineeringMarketplaceDescription(_root: stri
   return COMPOUND_ENGINEERING_MARKETPLACE_DESCRIPTION
 }
 
+async function validateDeclaredSkillsPath(
+  manifestPath: string,
+  pluginName: string,
+  platformName: string,
+  skills: string | undefined,
+  errors: string[],
+): Promise<void> {
+  if (skills === undefined) {
+    errors.push(`${manifestPath} (${pluginName}): missing required field "skills". ${platformName} plugins must declare a skills path (e.g., "./skills/").`)
+    return
+  }
+
+  const pluginDir = path.dirname(path.dirname(manifestPath))
+  const skillsDir = path.resolve(pluginDir, skills)
+  try {
+    const stat = await fs.stat(skillsDir)
+    if (!stat.isDirectory()) {
+      errors.push(`${manifestPath} declares skills: "${skills}" but ${skillsDir} is not a directory`)
+    }
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      errors.push(`${manifestPath} declares skills: "${skills}" but ${skillsDir} does not exist`)
+    } else {
+      throw err
+    }
+  }
+}
+
 export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<MetadataSyncResult> {
   const root = options.root ?? process.cwd()
   const write = options.write ?? false
@@ -175,6 +219,7 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
   const compoundClaudePath = path.join(root, ".claude-plugin", "plugin.json")
   const compoundCursorPath = path.join(root, ".cursor-plugin", "plugin.json")
   const compoundAntigravityPath = path.join(root, ".agy", "plugin.json")
+  const compoundKimiPath = path.join(root, ".kimi-plugin", "plugin.json")
   const marketplaceClaudePath = path.join(root, ".claude-plugin", "marketplace.json")
   const marketplaceCursorPath = path.join(root, ".cursor-plugin", "marketplace.json")
 
@@ -281,6 +326,7 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
   // write would create a second authority for the same field.
   const compoundCodexPath = path.join(root, ".codex-plugin", "plugin.json")
   const marketplaceCodexPath = path.join(root, ".agents", "plugins", "marketplace.json")
+  const marketplaceKimiPath = path.join(root, ".kimi-plugin", "marketplace.json")
 
   const codexPluginTargets: Array<{
     claudePath: string
@@ -330,24 +376,7 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
     // skills for each plugin (and `--to codex` defaults to agents-only), so a
     // missing `skills` field silently produces a broken install with no skills
     // registered. Enforce presence, then verify the directory exists.
-    if (codex.skills === undefined) {
-      errors.push(`${codexPath} (${expectedName}): missing required field "skills". Codex plugins must declare a skills path (e.g., "./skills/").`)
-    } else {
-      const pluginDir = path.dirname(path.dirname(codexPath))
-      const skillsDir = path.resolve(pluginDir, codex.skills)
-      try {
-        const stat = await fs.stat(skillsDir)
-        if (!stat.isDirectory()) {
-          errors.push(`${codexPath} declares skills: "${codex.skills}" but ${skillsDir} is not a directory`)
-        }
-      } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-          errors.push(`${codexPath} declares skills: "${codex.skills}" but ${skillsDir} does not exist`)
-        } else {
-          throw err
-        }
-      }
-    }
+    await validateDeclaredSkillsPath(codexPath, expectedName, "Codex", codex.skills, errors)
 
     updates.push({ path: codexPath, changed: codexChanged })
     if (write && codexChanged) await writeJson(codexPath, codex)
@@ -377,6 +406,74 @@ export async function syncReleaseMetadata(options: SyncOptions = {}): Promise<Me
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
       errors.push(`${marketplaceCodexPath} is missing but ${marketplaceClaudePath} exists. Codex marketplace parity required.`)
       updates.push({ path: marketplaceCodexPath, changed: false })
+    } else {
+      throw err
+    }
+  }
+
+  // Kimi manifests. Kimi Code CLI supports root-native plugin manifests at
+  // `.kimi-plugin/plugin.json`; like Codex, its marketplace catalog has no
+  // release-owned metadata version, so the plugin version is detect-only here
+  // and release-please owns the write via the root component's extra-files.
+  let kimi: KimiPluginManifest
+  let kimiManifestMissing = false
+  try {
+    kimi = await readJson<KimiPluginManifest>(compoundKimiPath)
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      kimiManifestMissing = true
+      errors.push(`${compoundKimiPath} is missing but ${compoundClaudePath} exists. Kimi manifest parity required.`)
+      updates.push({ path: compoundKimiPath, changed: false })
+      kimi = { name: "compound-engineering", version: compoundClaude.version }
+    } else {
+      throw err
+    }
+  }
+
+  if (kimi.name !== "compound-engineering") {
+    errors.push(`${compoundKimiPath}: name "${kimi.name}" does not match expected "compound-engineering"`)
+  }
+
+  let kimiChanged = false
+  if (kimi.version !== compoundClaude.version) {
+    kimiChanged = true
+  }
+  if (compoundClaude.description !== undefined && kimi.description !== compoundClaude.description) {
+    kimi.description = compoundClaude.description
+    kimiChanged = true
+  }
+  await validateDeclaredSkillsPath(compoundKimiPath, "compound-engineering", "Kimi", kimi.skills, errors)
+  updates.push({ path: compoundKimiPath, changed: kimiChanged })
+  if (write && kimiChanged && !kimiManifestMissing) await writeJson(compoundKimiPath, kimi)
+
+  try {
+    const marketplaceKimi = await readJson<KimiMarketplaceManifest>(marketplaceKimiPath)
+    if (marketplaceKimi.version !== "2") {
+      errors.push(`${marketplaceKimiPath}: version "${marketplaceKimi.version}" does not match expected Kimi marketplace schema version "2"`)
+    }
+    const claudeNames = [...marketplaceClaude.plugins.map((p) => p.name)].sort()
+    const kimiIds = [...marketplaceKimi.plugins.map((p) => p.id)].sort()
+    if (claudeNames.join("|") !== kimiIds.join("|")) {
+      errors.push(
+        `${marketplaceKimiPath}: plugin list [${kimiIds.join(", ")}] does not match ${marketplaceClaudePath} [${claudeNames.join(", ")}]`,
+      )
+    }
+    for (const plugin of marketplaceKimi.plugins) {
+      if (typeof plugin.source !== "string" || plugin.source.trim() === "") {
+        errors.push(
+          `${marketplaceKimiPath}: plugin "${plugin.id}" is missing required field "source". Kimi marketplace entries must point to a local path, zip URL, or GitHub URL.`,
+        )
+      } else if (plugin.source === "./" || plugin.source === ".") {
+        errors.push(
+          `${marketplaceKimiPath}: plugin "${plugin.id}" uses source "${plugin.source}". Use a GitHub URL so Kimi can install the root-native plugin from a published marketplace catalog.`,
+        )
+      }
+    }
+    updates.push({ path: marketplaceKimiPath, changed: false })
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      errors.push(`${marketplaceKimiPath} is missing but ${marketplaceClaudePath} exists. Kimi marketplace parity required.`)
+      updates.push({ path: marketplaceKimiPath, changed: false })
     } else {
       throw err
     }

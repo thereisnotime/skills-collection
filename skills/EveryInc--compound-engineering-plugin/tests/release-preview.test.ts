@@ -51,6 +51,8 @@ describe("release preview", () => {
 
     await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "3.13.1" }))
     await writeFile(path.join(root, ".claude-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await mkdir(path.join(root, ".kimi-plugin"), { recursive: true })
+    await writeFile(path.join(root, ".kimi-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
     await mkdir(path.join(root, ".agy"), { recursive: true })
     await writeFile(path.join(root, ".agy", "plugin.json"), JSON.stringify({ version: "3.13.0" }))
     await writeFile(
@@ -63,6 +65,30 @@ describe("release preview", () => {
     )
 
     await expect(loadCurrentVersions(root)).rejects.toThrow(".agy/plugin.json version 3.13.0")
+    await Bun.$`rm -rf ${root}`.quiet()
+  })
+
+  test("rejects Kimi plugin version drift from the root plugin version", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "release-preview-"))
+    await mkdir(path.join(root, ".claude-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".cursor-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".kimi-plugin"), { recursive: true })
+    await mkdir(path.join(root, ".agy"), { recursive: true })
+
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(path.join(root, ".claude-plugin", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(path.join(root, ".kimi-plugin", "plugin.json"), JSON.stringify({ version: "3.13.0" }))
+    await writeFile(path.join(root, ".agy", "plugin.json"), JSON.stringify({ version: "3.13.1" }))
+    await writeFile(
+      path.join(root, ".claude-plugin", "marketplace.json"),
+      JSON.stringify({ metadata: { version: "3.13.1" } }),
+    )
+    await writeFile(
+      path.join(root, ".cursor-plugin", "marketplace.json"),
+      JSON.stringify({ metadata: { version: "3.13.1" } }),
+    )
+
+    await expect(loadCurrentVersions(root)).rejects.toThrow(".kimi-plugin/plugin.json version 3.13.0")
     await Bun.$`rm -rf ${root}`.quiet()
   })
 })

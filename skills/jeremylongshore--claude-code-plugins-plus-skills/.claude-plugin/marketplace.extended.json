@@ -6584,8 +6584,8 @@
     {
       "name": "databricks-pack",
       "source": "./plugins/saas-packs/databricks-pack",
-      "description": "Complete Databricks integration skill pack with 24 skills covering Delta Lake, MLflow, notebooks, clusters, and data engineering workflows. Flagship tier vendor pack.",
-      "version": "1.0.0",
+      "description": "DEPRECATED (v1) — these 24 documentation skills are removed in v2.0.0, which rebuilds the pack as 5 live-detection skills + a shared databricks-workspace-mcp server. See the README migration map before upgrading.",
+      "version": "1.1.0",
       "category": "saas-packs",
       "keywords": [
         "databricks",
@@ -10335,6 +10335,53 @@
       "repository": "https://github.com/jeremylongshore/claude-code-plugins",
       "license": "MIT",
       "mcpTools": 8
+    },
+    {
+      "name": "beads-dolt",
+      "source": "./plugins/mcp/beads-dolt",
+      "description": "Dolt/DoltHub-aware upgrade to the beads (bd) task tracker — a skill that surfaces visibility/no-remote root causes and the remote-add + push fix, five expert agents grounded in bd+Dolt internals, and a wired dolt-mcp server for SQL access to the bead graph.",
+      "version": "0.1.0",
+      "category": "mcp",
+      "keywords": [
+        "beads",
+        "bd",
+        "dolt",
+        "dolthub",
+        "task-tracking",
+        "mcp",
+        "version-control",
+        "sql"
+      ],
+      "author": {
+        "name": "Jeremy Longshore",
+        "email": "jeremy@intentsolutions.io"
+      },
+      "homepage": "https://github.com/jeremylongshore/beads-dolt",
+      "repository": "https://github.com/jeremylongshore/beads-dolt",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "publishing-skills",
+      "source": "./plugins/productivity/publishing-skills",
+      "description": "Four composable skills that turn an AI agent into a platform-agnostic long-tail SEO publishing pipeline — topic research, drafting, SVG figures, and an editorial calendar. Ships Ghost, WordPress, and static-site adapters.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "keywords": [
+        "ghost",
+        "blogging",
+        "seo",
+        "content-creation",
+        "publishing",
+        "claude-code",
+        "ai-writing"
+      ],
+      "author": {
+        "name": "AutomateLab",
+        "url": "https://github.com/AutomateLab-tech",
+        "email": "hello@automatelab.tech"
+      },
+      "repository": "https://github.com/AutomateLab-tech/publishing-skills",
+      "license": "MIT-0"
     }
   ]
 }

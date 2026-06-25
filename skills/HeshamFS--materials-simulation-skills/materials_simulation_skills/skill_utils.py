@@ -85,6 +85,36 @@ def _parse_frontmatter(path: Path) -> dict[str, Any]:
     return parsed
 
 
+def frontmatter_standards(skill_dir: Path) -> list[str]:
+    """Extract the ``metadata.standards`` list from a SKILL.md (no YAML dependency).
+
+    Supports block style (``standards:`` then ``- item`` lines) and inline flow
+    style (``standards: ["a", "b"]``). Returns [] if absent.
+    """
+    text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    fm = text.split("\n---\n", 1)[0]
+    out: list[str] = []
+    in_block = False
+    for line in fm.splitlines():
+        flow = re.match(r"^\s*standards:\s*\[(.+)\]\s*$", line)
+        if flow:
+            for item in flow.group(1).split(","):
+                item = item.strip().strip('"').strip("'")
+                if item:
+                    out.append(item)
+            return out
+        if re.match(r"^\s*standards:\s*$", line):
+            in_block = True
+            continue
+        if in_block:
+            item = re.match(r"^\s*-\s*(.+?)\s*$", line)
+            if item:
+                out.append(item.group(1).strip().strip('"').strip("'"))
+            elif line.strip():
+                break
+    return out
+
+
 def load_skill_records(root: Path | None = None) -> list[SkillRecord]:
     root = find_repo_root(root)
     records: list[SkillRecord] = []
@@ -189,6 +219,11 @@ def validate_skills(root: Path | None = None, skill_name: str | None = None) -> 
             errors.append(f"{rel}/SKILL.md: description too long ({len(description)} > 1024)")
         if not frontmatter.get("metadata"):
             errors.append(f"{rel}/SKILL.md: missing metadata block")
+        if not frontmatter_standards(skill_dir):
+            errors.append(
+                f"{rel}/SKILL.md: missing metadata.standards "
+                f"(cite the authoritative standard(s)/reference(s) the skill is grounded in)"
+            )
 
         content = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
         if "## Security" not in content:
@@ -197,6 +232,10 @@ def validate_skills(root: Path | None = None, skill_name: str | None = None) -> 
             for sub in SECURITY_SUBSECTIONS:
                 if not re.search(rf"^#{{2,4}}\s+{re.escape(sub)}\b", content, re.M):
                     errors.append(f"{rel}/SKILL.md: Security section missing '### {sub}' subsection")
+        if not re.search(r"^## Verification checklist", content, re.M):
+            errors.append(f"{rel}/SKILL.md: missing '## Verification checklist' section")
+        if not re.search(r"^## Common pitfalls", content, re.M):
+            errors.append(f"{rel}/SKILL.md: missing '## Common pitfalls' section")
         if not (skill_dir / "CHANGELOG.md").exists():
             errors.append(f"{rel}: missing CHANGELOG.md")
 
@@ -254,6 +293,9 @@ def default_install_dir(agent: str, scope: str, root: Path) -> Path:
             "gemini": home / ".agents" / "skills",
             "copilot": home / ".copilot" / "skills",
             "cursor": home / ".cursor" / "skills",
+            "amp": home / ".config" / "agents" / "skills",
+            "opencode": home / ".config" / "opencode" / "skills",
+            "grok": home / ".grok" / "skills",
         }
     else:
         mapping = {
@@ -263,8 +305,20 @@ def default_install_dir(agent: str, scope: str, root: Path) -> Path:
             "gemini": root / ".agents" / "skills",
             "copilot": root / ".github" / "skills",
             "cursor": root / ".cursor" / "skills",
+            "amp": root / ".agents" / "skills",
+            "opencode": root / ".opencode" / "skills",
+            "grok": root / ".grok" / "skills",
         }
     return mapping[agent]
+
+
+def resolve_bundle(root: Path, bundle: str) -> list[str]:
+    """Return the skill names in a bundle (from the generated index)."""
+    from .skill_index import build_index
+    for b in build_index(root)["bundles"]:
+        if b["name"] == bundle:
+            return list(b["skills"])
+    raise KeyError(f"Unknown bundle: {bundle}")
 
 
 def install_skills(
@@ -275,11 +329,17 @@ def install_skills(
     install_all: bool,
     dest: Path | None,
     force: bool,
+    bundle: str | None = None,
 ) -> list[Path]:
-    if not install_all and not skill_name:
-        raise ValueError("Pass --skill NAME or --all")
+    if not install_all and not skill_name and not bundle:
+        raise ValueError("Pass --skill NAME, --bundle NAME, or --all")
     target_root = (dest or default_install_dir(agent, scope, root)).expanduser().resolve()
-    records = load_skill_records(root) if install_all else [find_skill(root, skill_name or "")]
+    if install_all:
+        records = load_skill_records(root)
+    elif bundle:
+        records = [find_skill(root, n) for n in resolve_bundle(root, bundle)]
+    else:
+        records = [find_skill(root, skill_name or "")]
     installed: list[Path] = []
     target_root.mkdir(parents=True, exist_ok=True)
     for record in records:

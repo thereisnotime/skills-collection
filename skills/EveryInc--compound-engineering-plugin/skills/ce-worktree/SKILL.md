@@ -1,6 +1,6 @@
 ---
 name: ce-worktree
-description: Ensure work happens in an isolated git worktree without disturbing the current checkout. Use when starting work that should stay isolated, or when `ce-work` or `ce-code-review` offers a worktree option. Detects existing isolation first, prefers the harness's native worktree tool, and falls back to plain git.
+description: Set up isolated git worktrees. Use when starting isolated work, or when ce-work/ce-code-review offers a worktree option; detect existing isolation first.
 ---
 
 # Worktree Isolation

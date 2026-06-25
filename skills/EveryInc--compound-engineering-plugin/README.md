@@ -26,47 +26,80 @@ The point is not ceremony. The point is leverage. A good brainstorm makes the pl
 
 ## Workflow
 
-`/ce-strategy` is upstream of the loop -- it captures the product's target problem, approach, persona, metrics, and tracks as a short durable anchor at `STRATEGY.md`. Ideate, brainstorm, and plan read it as grounding when present, so strategy choices flow into feature conception, prioritization, and spec.
-
-The core loop is: brainstorm the requirements, plan the implementation, work through the plan, review the result, compound the learning, then repeat with better context.
-
-Use `/ce-ideate` before the loop when you want the agent to generate and critique bigger ideas before choosing one to brainstorm. It produces a ranked ideation artifact, not requirements, plans, or code.
+The core loop is six steps: **brainstorm** the requirements, **plan** the implementation, **work** through the plan, **simplify** what you wrote, **review** the result, then **compound** the learning -- and repeat with better context.
 
 | Skill | Purpose |
 |-------|---------|
-| `/ce-strategy` | Create or maintain `STRATEGY.md` -- the product's target problem, approach, persona, key metrics, and tracks. Read as grounding by ideate, brainstorm, and plan |
-| `/ce-ideate` | Optional big-picture ideation: generate and critically evaluate grounded ideas, then route the strongest one into brainstorming |
-| `/ce-brainstorm` | Interactive Q&A to think through a feature or problem and write a right-sized requirements doc before planning |
-| `/ce-plan` | Turn feature ideas into detailed implementation plans |
-| `/ce-work` | Execute plans with worktrees and task tracking |
-| `/ce-debug` | Systematically reproduce failures, trace root cause, and implement fixes |
-| `/ce-code-review` | Multi-agent code review before merging |
-| `/ce-compound` | Document learnings to make future work easier |
-| `/ce-product-pulse` | Generate a single-page, time-windowed pulse report on usage, performance, errors, and followups. Saves to `docs/pulse-reports/` |
+| `/ce-brainstorm` | Interactive Q&A to think through a feature or problem and write a right-sized requirements doc |
+| `/ce-plan` | Turn the requirements into a detailed implementation plan with guardrails |
+| `/ce-work` | Execute the plan with worktrees and task tracking |
+| `/ce-simplify-code` | Refine the freshly written code for clarity and reuse before review |
+| `/ce-code-review` | Multi-agent review against the plan before merging |
+| `/ce-compound` | Capture the learning into `docs/solutions/` so the next loop starts smarter |
 
-`/ce-product-pulse` is the read-side companion -- a time-windowed report on what users actually experienced and how the product performed over a given window (24h, 7d, etc.), saved to `docs/pulse-reports/` so past pulses form a browseable timeline of user outcomes. The next strategy update and the next brainstorm get real signal to anchor to.
+Each cycle compounds: `/ce-compound` writes learnings that the next `/ce-brainstorm` and `/ce-plan` read as grounding -- brainstorms sharpen plans, plans inform future plans, reviews catch more issues, patterns get documented. That return arrow is the whole point.
 
-Each cycle compounds: brainstorms sharpen plans, plans inform future plans, reviews catch more issues, patterns get documented.
+### Additional skills
+
+These sit around the loop or get reached for on demand -- not every cycle needs them.
+
+| Skill | When to reach for it |
+|-------|---------|
+| `/ce-ideate` | *Before the loop*, when you don't yet know what to build -- generates and critically ranks grounded ideas, then routes the strongest one into `/ce-brainstorm` |
+| `/ce-strategy` | *Upstream anchor* -- creates and maintains `STRATEGY.md`, read as grounding by ideate, brainstorm, and plan so strategy choices flow into every feature |
+| `/ce-product-pulse` | *Outer loop* -- a time-windowed report on what users actually experienced (usage, performance, errors), saved to `docs/pulse-reports/`; its follow-ups feed back into ideation and brainstorming |
+| `/ce-debug` | *Instead of brainstorm -> plan -> work* when the input is a bug rather than a feature -- reproduce, trace the causal chain to root cause, then fix |
+
+For the full catalog and how each skill chains together, see [docs/skills](docs/skills/README.md). The complete inventory is [below](#full-skill-inventory).
 
 ## Quick Example
 
-A typical cycle starts by turning a rough idea into a requirements doc, then planning from that doc before handing execution to `/ce-work`:
+**Finding a direction** -- when you don't have a specific idea yet, ideate first, then carry the strongest survivor into the loop:
 
 ```text
-/ce-brainstorm "make background job retries safer"
-/ce-plan docs/brainstorms/background-job-retry-safety-requirements.md
+/ce-ideate new drawing tools
+/ce-ideate surprise me
+/ce-ideate github issues   # ground ideas in your open issues instead of a prompt
+```
+
+`/ce-ideate` does the homework first (codebase, past learnings, prior art on the web, optionally your issue tracker), then hands you a ranked set of grounded candidates to take into `/ce-brainstorm`.
+
+**Standard feature loop** -- turn a rough idea into shipped, reviewed code:
+
+```text
+/ce-brainstorm make background job retries safer
+/ce-plan
 /ce-work
+/ce-simplify-code
 /ce-code-review
 /ce-compound
 ```
 
-For a focused bug investigation:
+**Simplifying code** -- use it after fresh implementation work, or point it at code that keeps slowing changes down:
 
 ```text
-/ce-debug "the checkout webhook sometimes creates duplicate invoices"
+/ce-simplify-code
+/ce-simplify-code simplify the code in my most-churned file
+```
+
+The first pass tightens recent branch changes before review. The targeted pass is useful when one file keeps absorbing unrelated fixes, follow-ups, or merge conflicts.
+
+**Debugging a bug** -- when you start from broken behavior instead of a feature:
+
+```text
+/ce-debug the checkout webhook sometimes creates duplicate invoices
 /ce-code-review
 /ce-compound
 ```
+
+**Autonomous** -- hand off a feature and let the agent run the whole pipeline:
+
+```text
+/ce-brainstorm describe the feature
+/lfg
+```
+
+`/lfg` runs the loop hands-off: it plans, works through the plan, simplifies, runs code review and applies the fixes, runs browser tests, commits, pushes, opens a PR, then watches CI and repairs failures until it's green. Start it after `/ce-brainstorm` so it plans against real requirements rather than a one-line prompt. It's the autopilot version of the standard loop -- neat when you want to step away and come back to an open, green PR.
 
 ## Getting Started
 
@@ -176,6 +209,22 @@ CODEX_HOME="$HOME/.codex/profiles/work" codex plugin add compound-engineering@co
 ```
 
 The marketplace step only makes the plugin available; the plugin install is what activates the native CE skills for that profile.
+
+### Kimi Code CLI
+
+Kimi Code CLI can install Compound Engineering directly from this repository because the repo ships a native `.kimi-plugin/plugin.json` manifest:
+
+```text
+/plugins install https://github.com/EveryInc/compound-engineering-plugin
+```
+
+You can also browse it through Kimi's custom marketplace flow:
+
+```text
+/plugins marketplace https://raw.githubusercontent.com/EveryInc/compound-engineering-plugin/main/.kimi-plugin/marketplace.json
+```
+
+After installing or updating, run `/reload` or start a new Kimi session so the plugin skills are loaded.
 
 ### GitHub Copilot
 
@@ -338,6 +387,20 @@ codex plugin add compound-engineering@compound-engineering-plugin
 ```
 
 Use a separate `CODEX_HOME` when you want to keep local testing isolated from your normal Codex profile. The Codex marketplace entry points at the public Git plugin source so root-shaped plugin repos install correctly; use a temporary marketplace catalog with a `source.url` plus `ref` when testing unpublished plugin-content changes end to end.
+
+**Kimi Code CLI**
+
+Inside Kimi Code CLI:
+
+```text
+/plugins install /path/to/compound-engineering-plugin
+```
+
+To test the local marketplace catalog instead, pass the catalog path:
+
+```text
+/plugins marketplace /path/to/compound-engineering-plugin/.kimi-plugin/marketplace.json
+```
 
 **OpenCode**
 

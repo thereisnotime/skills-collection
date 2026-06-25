@@ -1,6 +1,6 @@
 ---
 name: ce-doc-review
-description: Review requirements or plan documents using parallel persona agents that surface role-specific issues. Use when a requirements document or plan document exists and the user wants to improve it.
+description: Review requirements, plans, or specs with role-specific lenses. Use when the user wants to improve an existing planning document.
 argument-hint: "[mode:headless] [path/to/document.md]"
 ---
 

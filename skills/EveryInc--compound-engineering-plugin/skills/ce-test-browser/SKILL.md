@@ -1,6 +1,6 @@
 ---
 name: ce-test-browser
-description: Run browser tests on pages affected by current PR or branch
+description: Run browser tests for pages affected by the current branch or PR.
 argument-hint: "[PR number, branch name, 'current', or --port PORT]"
 ---
 

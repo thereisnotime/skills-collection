@@ -1,6 +1,6 @@
 ---
 name: ce-setup
-description: "Check Compound Engineering health and repo-local config. Reports optional tool capabilities, removes obsolete local config, refreshes the config example, and helps safely gitignore machine-local settings. Use when verifying setup, troubleshooting missing optional tools, or onboarding a repo."
+description: "Check Compound Engineering health and repo-local config."
 disable-model-invocation: true
 ---
 

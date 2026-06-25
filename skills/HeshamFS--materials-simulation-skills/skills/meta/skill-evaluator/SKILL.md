@@ -18,10 +18,16 @@ compatibility: >
   authenticated (claude, codex, agy, cursor-agent, copilot, amp, opencode, grok).
 metadata:
   author: HeshamFS
-  version: "1.0.0"
+  version: "1.0.2"
   security_tier: high
   last_reviewed: "2026-06-23"
   eval_cases: 4
+  standards:
+    - "Agent Skills standard / evaluation spec (agentskills.io)"
+    - "Anthropic open-source skill-creator reference (evaluation methodology and grader rubric)"
+    - "von Neumann stability analysis (FTCS Fourier-number example used in the grading rubric)"
+    - "Held-out / with-vs-without baseline (A/B delta) evaluation methodology"
+    - "Per-CLI vendor headless specifications (claude -p, codex exec, cursor-agent, copilot, amp, opencode, grok)"
 allowed-tools: Read, Bash, Write, Grep, Glob
 ---
 
@@ -123,8 +129,17 @@ python scripts/aggregate_benchmark.py <skill>-workspace/iteration-1 \
 
 `run_summary.delta.pass_rate` is the value of the skill. Surface patterns the
 averages hide (`references/methodology.md`): non-discriminating assertions,
-high-variance evals, time/token tradeoffs. **Put outputs in front of the user
-before concluding.**
+high-variance evals, time/token tradeoffs.
+
+**Then generate the review and put it in front of the user *before* you self-grade**
+(a standalone HTML page — no server needed):
+
+```bash
+python eval-viewer/generate_review.py <skill>-workspace/iteration-1/benchmark.json -o review.html
+```
+
+It renders the with/without delta, per-configuration stats, and an expandable
+per-eval breakdown of each graded assertion (text, pass/fail, evidence).
 
 ## Step 4 — iterate
 
@@ -147,6 +162,30 @@ comparison described in `references/methodology.md`.
 - `references/methodology.md` — the rigorous practices (read for non-trivial evals).
 - `references/grader.md` — how to grade a run into `grading.json`.
 - `references/schemas.md` — exact JSON shapes for every file.
+- `eval-viewer/generate_review.py` — render a benchmark into a standalone HTML review.
+
+## Verification checklist
+
+Do not report a verdict until each item that applies to the layers you ran is satisfied:
+
+- [ ] Layer 1: ran `run_script_checks.py --json`, recorded the `summary` line (`checks_passed/checks`, `assertions_passed/assertions`), and confirmed `ok: true` (process exit 0) — a non-zero exit means doc↔code drift, not a passing skill.
+- [ ] Layer 1: for at least one numeric assertion, re-derived the expected value by hand and confirmed the script's emitted value matches it (e.g. `approx` within the stated `rel_tol`/`abs_tol`) — not merely that the assertion's `passed` flag is true.
+- [ ] Layer 1: recorded `cases_without_checks`; if any computable eval lacks a `script_check`, noted it as a coverage gap rather than treating the run as fully verified.
+- [ ] Layer 2: ran `run_trigger_eval.py` with a labelled set containing both positives AND tricky negatives, and recorded the per-class pass counts (positives that fired at rate ≥ threshold, negatives that stayed below) — a positives-only run measures recall, not discrimination.
+- [ ] Layer 2: used `--runs-per-query` ≥ 3 and recorded each query's `trigger_rate`; flagged any query whose rate sits near the `--threshold` as unstable rather than counting it as a clean pass/fail.
+- [ ] Layer 3: ran BOTH `with_skill` and a `without_skill` baseline, then reported `run_summary.delta.pass_rate` (the headline value) with mean ± stddev — never an absolute with-skill pass rate alone.
+- [ ] Layer 3: graded each run from the actual files in its `outputs/` (re-deriving numbers / opening artifacts per `references/grader.md`), recorded concrete `evidence` per expectation, and put the outputs or `benchmark.md` in front of the user before concluding.
+
+## Common pitfalls & rationalizations
+
+| Tempting shortcut | Why it's wrong / what to do |
+|---|---|
+| "The script ran and exited 0, so the skill is correct." | Exit 0 only means the process did not crash; `run_script_checks.py` returns non-zero only when an assertion or `expect_exit` fails. Read the `assertions_passed/assertions` count and re-derive at least one number — a script can run fine and still emit the wrong value. |
+| "The assertion passed, so the number is right." | A weak assertion (e.g. "mentions cfl_checker.py", or `exists`/`truthy` on a field) passes even for a wrong run. Use value+conclusion assertions (`approx`/`eq` with a re-derived expected), and act on the grader's `eval_feedback` that flags trivially-satisfiable assertions. |
+| "All my trigger queries fired, so discovery works." | A positives-only set measures recall, not precision; an over-eager description that triggers on everything also passes. You need tricky near-miss negatives that stay below `--threshold` — without them the discrimination test is meaningless. |
+| "One run per query is enough to read the trigger rate." | Detection is a heuristic over the transcript and triggering is stochastic; a single run gives a 0/1 rate. Use `--runs-per-query` ≥ 3 and treat rates hovering at the threshold as unstable, not decisive. |
+| "With-skill pass rate is high, so the skill is valuable." | Value is the with/without **delta**, not the absolute rate. If the agent already aces the task without the skill, the delta is ~0 and the skill may only add latency/tokens. Always run the `without_skill` baseline and report `delta.pass_rate`. |
+| "Assertions passed, no need to open the output files." | Automated grading only checks what you thought to assert, and a transcript can claim work it did not do. Open the files in `outputs/`, re-derive the numbers, read `user_notes.md`, and review `benchmark.md` (or have the user review it) before declaring the skill good. |
 
 ## Security
 

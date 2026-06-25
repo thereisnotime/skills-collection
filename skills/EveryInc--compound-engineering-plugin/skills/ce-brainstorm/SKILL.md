@@ -1,6 +1,6 @@
 ---
 name: ce-brainstorm
-description: 'Explore requirements and approaches through collaborative dialogue, then write a right-sized requirements document. Use when the user says "let''s brainstorm", "what should we build", or "help me think through X", presents a vague or ambitious feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm.'
+description: 'Explore vague or ambitious ideas into right-sized requirements. Use when the user wants to brainstorm, think through scope, decide what to build, or needs collaborative product framing before planning.'
 argument-hint: "[feature idea or problem to explore] [output:html]"
 ---
 

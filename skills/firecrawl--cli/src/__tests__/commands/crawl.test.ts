@@ -343,7 +343,7 @@ describe('executeCrawl', () => {
       expect(mockClient.crawl).toHaveBeenCalledWith(
         'https://example.com',
         expect.objectContaining({
-          pollInterval: 5000, // Default poll interval
+          pollInterval: 5, // SDK waiter expects seconds
         })
       );
       expect(result).toEqual({
@@ -371,7 +371,7 @@ describe('executeCrawl', () => {
       expect(mockClient.crawl).toHaveBeenCalledWith(
         'https://example.com',
         expect.objectContaining({
-          pollInterval: 10000, // Converted to milliseconds
+          pollInterval: 10,
         })
       );
     });
@@ -395,7 +395,7 @@ describe('executeCrawl', () => {
       expect(mockClient.crawl).toHaveBeenCalledWith(
         'https://example.com',
         expect.objectContaining({
-          timeout: 300000, // Converted to milliseconds
+          timeout: 300,
         })
       );
     });
@@ -422,8 +422,8 @@ describe('executeCrawl', () => {
       expect(mockClient.crawl).toHaveBeenCalledWith(
         'https://example.com',
         expect.objectContaining({
-          pollInterval: 5000,
-          timeout: 600000,
+          pollInterval: 5,
+          timeout: 600,
           limit: 50,
           maxDiscoveryDepth: 2,
         })
@@ -488,6 +488,9 @@ describe('executeCrawl', () => {
       const result = await crawlPromise;
 
       expect(mockClient.startCrawl).toHaveBeenCalledTimes(1);
+      const [, startOptions] = mockClient.startCrawl.mock.calls[0];
+      expect(startOptions).not.toHaveProperty('pollInterval');
+      expect(startOptions).not.toHaveProperty('timeout');
       expect(mockClient.getCrawlStatus).toHaveBeenCalledTimes(2);
       expect(result.success).toBe(true);
       if (result.success && 'data' in result) {

@@ -142,6 +142,39 @@ const INSTALLED_PLUGIN_PATH_EXEMPTIONS = new Map<string, string>([])
 const DESCRIPTION_CHAR_BUDGET = 1024
 const NAME_CHAR_BUDGET = 64
 
+const EXPECTED_USER_INVOKED_SKILLS = new Set([
+  "ce-dogfood-beta",
+  "ce-polish",
+  "ce-product-pulse",
+  "ce-promote",
+  "ce-setup",
+  "ce-test-xcode",
+  "ce-work-beta",
+  "lfg",
+])
+
+const REQUIRED_MODEL_INVOKED_CALLEES = new Set([
+  "ce-brainstorm",
+  "ce-code-review",
+  "ce-commit",
+  "ce-commit-push-pr",
+  "ce-compound",
+  "ce-compound-refresh",
+  "ce-debug",
+  "ce-doc-review",
+  "ce-ideate",
+  "ce-optimize",
+  "ce-plan",
+  "ce-proof",
+  "ce-resolve-pr-feedback",
+  "ce-riffrec-feedback-analysis",
+  "ce-simplify-code",
+  "ce-strategy",
+  "ce-test-browser",
+  "ce-work",
+  "ce-worktree",
+])
+
 // ---------------------------------------------------------------------------
 // Skill enumeration
 // ---------------------------------------------------------------------------
@@ -636,6 +669,39 @@ describe("skill reference integrity (AGENTS.md 'File References in Skills')", ()
 })
 
 describe("skill frontmatter limits (Anthropic skill spec)", () => {
+  test("skill invocation classification matches the intended model/user split", () => {
+    const actualUserInvoked = new Set<string>()
+    const actualModelInvoked = new Set<string>()
+    for (const skill of skillDirs) {
+      const skillMdPath = path.join(skill.absPath, "SKILL.md")
+      const raw = readFileSync(skillMdPath, "utf8")
+      const { data } = parseFrontmatter(raw, skillMdPath)
+      const name = typeof data.name === "string" ? data.name : path.basename(skill.absPath)
+      if (data["disable-model-invocation"] === true) {
+        actualUserInvoked.add(name)
+      } else {
+        actualModelInvoked.add(name)
+      }
+    }
+
+    const missingUserInvoked = [...EXPECTED_USER_INVOKED_SKILLS].filter((name) => !actualUserInvoked.has(name))
+    const unexpectedUserInvoked = [...actualUserInvoked].filter((name) => !EXPECTED_USER_INVOKED_SKILLS.has(name))
+    const disabledRequiredCallees = [...REQUIRED_MODEL_INVOKED_CALLEES].filter((name) => !actualModelInvoked.has(name))
+
+    expect(
+      missingUserInvoked,
+      `These skills should be user-invoked only via disable-model-invocation: true:\n${missingUserInvoked.join("\n")}`,
+    ).toEqual([])
+    expect(
+      unexpectedUserInvoked,
+      `Unexpected user-invoked skills. If intentional, update EXPECTED_USER_INVOKED_SKILLS and verify no model-routed caller depends on them:\n${unexpectedUserInvoked.join("\n")}`,
+    ).toEqual([])
+    expect(
+      disabledRequiredCallees,
+      `These skills must remain model-invoked because pipelines or sibling skills call them:\n${disabledRequiredCallees.join("\n")}`,
+    ).toEqual([])
+  })
+
   for (const skill of skillDirs) {
     const skillMdPath = path.join(skill.absPath, "SKILL.md")
     const raw = readFileSync(skillMdPath, "utf8")

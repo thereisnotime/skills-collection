@@ -1,6 +1,6 @@
 ---
 name: ce-work
-description: Execute work efficiently while maintaining quality and finishing features
+description: Execute a plan or concrete work prompt end-to-end. Use when implementing from docs/plans, a spec path, or a clear build request; use ce-debug for open-ended bugs.
 argument-hint: "[Plan doc path or description of work. Blank to auto use latest plan doc]"
 ---
 
@@ -367,9 +367,6 @@ Tier 1 harness-native review may still fix inline; Tier 2 always separates revie
 
 ### Quality is Built In
 
-- Follow existing patterns
-- Write tests for new code
-- Run linting before pushing
 - Review when Tier 1 is available or Tier 2 criteria match (see `shipping-workflow.md`)
 
 ### Ship Complete Features

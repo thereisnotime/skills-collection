@@ -118,6 +118,18 @@ Behavioral changes to a plugin skill or skill-local persona (anything under `ski
 
 - **Mechanical changes do not have this restriction.** Skill scripts (e.g., `extract-metadata.py`), parser logic, conversion code, and anything `bun test` exercises always run the current source. The caching issue only affects LLM-driven skill prose behavior dispatched through the plugin loader.
 
+## Writing Skill Instructions
+
+Every line of skill prose must change agent behavior. Before keeping a line, apply the deletion test: if removing it would not change the output, it is a no-op — delete it. Agents already write detailed commit messages, try to be thorough, and aim for readable code by default, so generic exhortations to do those things ("be thorough", "be comprehensive", "write clean/readable code", "think carefully", "world-class", "high quality") are no-ops that only add tokens and noise.
+
+A line earns its place when it does one of these:
+
+- States a falsifiable constraint: a threshold, format, path, schema, or ordering.
+- Counters a known default tendency: a negative constraint ("do NOT add comments", "never push to main", "stop after X") or a guard against a shortcut the model would otherwise take.
+- Supplies domain knowledge the agent would not otherwise have.
+
+An adjective is fine **only** when immediately operationalized by a concrete rule (e.g., "keep outputs concise — only enough detail to support the next decision"). The adjective alone is framing; the operationalization is the instruction. Do not append motivational rationale ("the quality of everything depends on this") to a directive that already stands on its own, and do not restate an instruction the same file already gives unless it is deliberate spaced repetition placed where drift occurs.
+
 ## Coding Conventions
 
 - Prefer explicit mappings over implicit magic when converting between platforms.

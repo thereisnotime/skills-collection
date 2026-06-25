@@ -22,6 +22,7 @@ const FILE_COMPONENT_MAP: Array<{ component: ReleaseComponent; prefixes: string[
       ".claude-plugin/plugin.json",
       ".cursor-plugin/plugin.json",
       ".codex-plugin/",
+      ".kimi-plugin/plugin.json",
       ".opencode/",
       ".pi/",
       "AGENTS.md",
@@ -182,6 +183,7 @@ export async function loadCurrentVersions(cwd = process.cwd()): Promise<VersionS
   const root = await readJson<RootPackageJson>(`${cwd}/package.json`)
   const ce = await readJson<PluginManifest>(`${cwd}/.claude-plugin/plugin.json`)
   const antigravity = await readJson<PluginManifest>(`${cwd}/.agy/plugin.json`)
+  const kimi = await readJson<PluginManifest>(`${cwd}/.kimi-plugin/plugin.json`)
   const marketplace = await readJson<MarketplaceManifest>(`${cwd}/.claude-plugin/marketplace.json`)
   const cursorMarketplace = await readJson<MarketplaceManifest>(`${cwd}/.cursor-plugin/marketplace.json`)
 
@@ -191,6 +193,10 @@ export async function loadCurrentVersions(cwd = process.cwd()): Promise<VersionS
 
   if (root.version !== antigravity.version) {
     throw new Error(`package.json version ${root.version} does not match .agy/plugin.json version ${antigravity.version}`)
+  }
+
+  if (root.version !== kimi.version) {
+    throw new Error(`package.json version ${root.version} does not match .kimi-plugin/plugin.json version ${kimi.version}`)
   }
 
   return {

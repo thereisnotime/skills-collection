@@ -1,6 +1,6 @@
 ---
 name: ce-dogfood-beta
-description: "[BETA] Dogfood the active branch end-to-end as a QA engineer. Diffs the branch against main, builds an exhaustive browser test matrix of every change (full user journeys, not just features), drives the app with agent-browser, then auto-fixes issues, adds regression tests, and commits each fix until the matrix is green. Use when you want a hands-off 'test everything we just built and make it actually work' pass before shipping."
+description: "[BETA] Hands-off end-to-end branch dogfood pass with browser testing, auto-fixes, regression tests, and fix commits."
 disable-model-invocation: true
 argument-hint: "[PR number, branch name, or blank for current branch] [--port PORT]"
 ---
@@ -75,7 +75,7 @@ Because tasks are session-scoped but the report doc is on disk, the report is th
 
 ### Phase 1: Analyze Changes
 
-Pull the full diff against `main` and read it carefully — you cannot test what you don't understand.
+Pull the full diff against `main` and read it.
 
 ```bash
 git diff --name-only main...HEAD     # what changed
@@ -88,7 +88,7 @@ Build a mental model of every change: new features, modified behavior, new route
 
 ### Phase 2: Map the Flows, Then Build the Matrix
 
-The quality of the whole dogfood depends on this phase. Do not jump straight to a flat list of pages. First **understand the user flows the diff touches**, then derive the matrix from them. A matrix built without a flow model tests pages in isolation and misses the journey — the email that "sends" but lands in the wrong thread.
+Do not jump straight to a flat list of pages. First **understand the user flows the diff touches**, then derive the matrix from them. A matrix built without a flow model tests pages in isolation and misses the journey — the email that "sends" but lands in the wrong thread.
 
 #### 2a. Map the user flows (required)
 

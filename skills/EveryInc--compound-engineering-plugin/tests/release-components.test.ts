@@ -45,6 +45,17 @@ describe("release component detection", () => {
     expect(components.get("marketplace")).toEqual([])
     expect(components.get("compound-engineering")).toEqual([])
   })
+
+  test("maps Kimi plugin manifest to root plugin component but leaves marketplace static", () => {
+    const components = detectComponentsFromFiles([
+      ".kimi-plugin/plugin.json",
+      ".kimi-plugin/marketplace.json",
+    ])
+
+    expect(components.get("compound-engineering")).toEqual([".kimi-plugin/plugin.json"])
+    expect(components.get("marketplace")).toEqual([])
+    expect(components.get("cursor-marketplace")).toEqual([])
+  })
 })
 
 describe("release intent parsing", () => {

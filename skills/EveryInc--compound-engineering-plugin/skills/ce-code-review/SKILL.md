@@ -1,6 +1,6 @@
 ---
 name: ce-code-review
-description: "Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. In interactive mode it applies safe, verified fixes and commits them when the working tree is clean (it never pushes); in mode:agent it reports only and the caller applies. Use when reviewing code changes before creating a PR."
+description: "Structured code review for bugs, regressions, tests, and standards. Use before PRs or when asked for review; interactive mode can fix locally, while mode:agent reports only for pipeline callers."
 argument-hint: "[mode:agent] [blank to review current branch, or provide PR link]"
 ---
 

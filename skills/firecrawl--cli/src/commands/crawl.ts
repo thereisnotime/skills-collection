@@ -132,16 +132,10 @@ export async function executeCrawl(
 
     // If wait mode, use the convenience crawl method with polling
     if (wait) {
-      // Set polling options
-      if (pollInterval !== undefined) {
-        crawlOptions.pollInterval = pollInterval * 1000; // Convert to milliseconds
-      } else {
-        // Default poll interval: 5 seconds
-        crawlOptions.pollInterval = 5000;
-      }
-      if (timeout !== undefined) {
-        crawlOptions.timeout = timeout * 1000; // Convert to milliseconds
-      }
+      const waiterOptions = {
+        pollInterval: pollInterval ?? 5,
+        ...(timeout !== undefined ? { timeout } : {}),
+      };
 
       // Show progress if requested - use custom polling for better UX
       if (options.progress) {
@@ -153,9 +147,9 @@ export async function executeCrawl(
         process.stderr.write(`Job ID: ${jobId}\n`);
 
         // Poll for status with progress updates
-        const pollMs = crawlOptions.pollInterval || 5000;
+        const pollMs = waiterOptions.pollInterval * 1000;
         const startTime = Date.now();
-        const timeoutMs = timeout ? timeout * 1000 : undefined;
+        const timeoutMs = timeout !== undefined ? timeout * 1000 : undefined;
 
         while (true) {
           await new Promise((resolve) => setTimeout(resolve, pollMs));
@@ -190,7 +184,10 @@ export async function executeCrawl(
         }
       } else {
         // Use SDK's built-in polling (no progress display)
-        const crawlJob = await app.crawl(urlOrJobId, crawlOptions);
+        const crawlJob = await app.crawl(urlOrJobId, {
+          ...crawlOptions,
+          ...waiterOptions,
+        });
         return {
           success: true,
           data: crawlJob,

@@ -1,6 +1,6 @@
 ---
 name: ce-polish
-description: "Start the dev server, open the feature in a browser, and iterate on improvements together. Manual invocation only — type /ce-polish to run it."
+description: "Start the dev server, inspect the feature in browser, and iterate on polish."
 disable-model-invocation: true
 argument-hint: "[PR number, branch name, or blank for current branch]"
 ---

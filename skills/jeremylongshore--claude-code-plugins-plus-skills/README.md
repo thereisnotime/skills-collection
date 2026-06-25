@@ -130,10 +130,10 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | 🎨  | [Design](#design)                                  |       7 |
 | 🔧  | [DevOps & Infrastructure](#devops--infrastructure) |      36 |
 | 📚  | [Examples & Templates](#examples--templates)       |       5 |
-| 🧩  | [MCP Servers](#mcp-servers)                        |      13 |
+| 🧩  | [MCP Servers](#mcp-servers)                        |      14 |
 | 📦  | [Packages](#packages)                              |       5 |
 | ⚡  | [Performance](#performance)                        |      25 |
-| ✅  | [Productivity](#productivity)                      |      27 |
+| ✅  | [Productivity](#productivity)                      |      28 |
 | 🎁  | [SaaS Skill Packs](#saas-skill-packs)              |     106 |
 | 🔐  | [Security](#security)                              |      26 |
 | ✨  | [Skill Enhancers](#skill-enhancers)                |       9 |
@@ -443,11 +443,12 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 
 ### MCP Servers
 
-🧩 **13 plugins** · category slug: `mcp`
+🧩 **14 plugins** · category slug: `mcp`
 
 | Plugin                        | Description                                                                                                                                |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ai-experiment-logger`        | Track and analyze AI experiments with a web dashboard and MCP tools                                                                        |
+| `beads-dolt`                  | Dolt/DoltHub-aware upgrade to the beads (bd) task tracker — a skill that surfaces visibility/no-remote root causes and the remote-add +…   |
 | `conversational-api-debugger` | Debug REST API failures using OpenAPI specs and HTTP logs (HAR) - root cause analysis with cURL generation                                 |
 | `databricks-workspace-mcp`    | MCP server for the Databricks control plane — 8 read-only tools for cluster forensics, instance pools, DLT pipeline event logs, and Unity… |
 | `design-to-code`              | Convert Figma designs and screenshots to React/Svelte/Vue components with built-in accessibility                                           |
@@ -513,7 +514,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 
 ### Productivity
 
-✅ **27 plugins** · category slug: `productivity`
+✅ **28 plugins** · category slug: `productivity`
 
 | Plugin                                     | Description                                                                                                                                 |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -538,6 +539,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `plane`                                    | Plane is a team behavior observatory — synthesizes Plane API data into observations about how teams actually behave under pressure (cycle…  |
 | `pm-ai-partner`                            | 12 PM-specific agent skills, 6 workflow commands, 3 automation hooks for Product Managers                                                   |
 | `prettier-markdown-hook`                   | Automatically format markdown files with prettier when Claude stops responding, with configurable organization and path exclusions          |
+| `publishing-skills`                        | Four composable skills that turn an AI agent into a platform-agnostic long-tail SEO publishing pipeline — topic research, drafting, SVG…    |
 | `skyvern`                                  | AI browser automation via CLI — navigate sites, fill forms, extract data, handle logins                                                     |
 | `travel-assistant`                         | Intelligent travel assistant with real-time weather, currency conversion, timezone info, and AI-powered itinerary planning. Your complete…  |
 | `vibe-guide`                               | Non-technical progress summaries for Claude Code work (hides diffs/log noise).                                                              |
@@ -579,7 +581,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | `coreweave-pack`    | Claude Code skill pack for CoreWeave (24 skills)                                                                                            |
 | `cursor-pack`       | Complete Cursor integration skill pack with 30 skills covering AI code editing, composer workflows, codebase indexing, and productivity…    |
 | `customerio-pack`   | Complete Customer.io integration skill pack with 24 skills covering marketing automation, email campaigns, SMS, push notifications, and…    |
-| `databricks-pack`   | Complete Databricks integration skill pack with 24 skills covering Delta Lake, MLflow, notebooks, clusters, and data engineering…           |
+| `databricks-pack`   | DEPRECATED (v1) — these 24 documentation skills are removed in v2.0.0, which rebuilds the pack as 5 live-detection skills + a shared…       |
 | `deepgram-pack`     | Complete Deepgram integration skill pack with 24 skills covering speech-to-text, real-time transcription, voice intelligence, and audio…    |
 | `documenso-pack`    | Complete Documenso integration skill pack with 24 skills covering document signing, templates, workflows, and e-signature automation.…      |
 | `elevenlabs-pack`   | Claude Code skill pack for ElevenLabs (18 skills)                                                                                           |

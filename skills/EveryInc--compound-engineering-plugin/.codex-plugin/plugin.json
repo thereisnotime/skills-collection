@@ -1,6 +1,6 @@
 {
   "name": "compound-engineering",
-  "version": "3.14.1",
+  "version": "3.14.3",
   "description": "Brainstorm, plan, debug, review, and compound learnings with AI agents",
   "author": {
     "name": "Kieran Klaassen and Trevin Chow"
@@ -33,12 +33,12 @@
     "privacyPolicyURL": "https://every.to/legal",
     "termsOfServiceURL": "https://every.to/legal",
     "defaultPrompt": [
-      "/ce-brainstorm a new feature",
-      "/ce-plan the implementation",
-      "/ce-code-review my changes"
+      "Brainstorm a new feature with me",
+      "Ideate and surprise me!",
+      "Simplify the code in my most-churned file"
     ],
     "brandColor": "#C9EFFA",
-    "composerIcon": "./assets/logo.png",
+    "composerIcon": "./assets/icon.svg",
     "logo": "./assets/logo.png",
     "screenshots": []
   }

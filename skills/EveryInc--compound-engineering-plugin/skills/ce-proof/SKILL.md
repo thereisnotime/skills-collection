@@ -1,6 +1,6 @@
 ---
 name: ce-proof
-description: Publish, view, comment on, and edit markdown via Proof (proofeditor.ai) — create a shareable doc, read a shared doc, and make comment/suggestion/block edits over its API. Use when the user says "view this in proof", "share to proof", "publish to proof", or wants a shareable markdown surface for a spec, plan, or draft, including publish handoffs from ce-brainstorm, ce-ideate, or ce-plan. Do not trigger on "proof" meaning evidence, math proofs, proof-of-concept, or "proofread this".
+description: Publish, read, comment on, or edit markdown in Proof. Use for Proof links, sharing specs/plans/drafts, or publish handoffs from planning workflows; avoid proofread, math, evidence, or proof-of-concept meanings.
 allowed-tools:
   - Bash
   - Read

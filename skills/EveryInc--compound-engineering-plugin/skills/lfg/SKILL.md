@@ -1,6 +1,7 @@
 ---
 name: lfg
-description: Run the full autonomous engineering pipeline end-to-end (plan, work, code review, test, commit, push, open PR, watch CI, fix CI failures until green). Use only when the user explicitly requests hands-off execution of a software task and provides a feature description; do not auto-route casual conversation here.
+description: Run the full hands-off engineering pipeline from planning through a green PR.
+disable-model-invocation: true
 argument-hint: "[feature description]"
 ---
 

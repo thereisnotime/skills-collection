@@ -1,6 +1,6 @@
 ---
 name: ce-strategy
-description: "Create or maintain STRATEGY.md - the product's target problem, approach, users, key metrics, and tracks of work. Use when starting a new product, updating direction, or when prompts like 'write our strategy', 'update the roadmap', 'what are we working on', or 'set up the strategy doc' come up. Also triggers when ce-ideate, ce-brainstorm, or ce-plan need upstream grounding and no strategy doc exists yet."
+description: "Create or update STRATEGY.md. Use when starting a product, changing direction or roadmap, or when ce-ideate, ce-brainstorm, or ce-plan need upstream product grounding."
 argument-hint: "[optional: section to revisit, e.g. 'metrics' or 'approach']"
 ---
 

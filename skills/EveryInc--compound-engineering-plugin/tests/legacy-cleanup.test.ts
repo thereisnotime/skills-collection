@@ -192,6 +192,39 @@ describe("cleanupStaleSkillDirs", () => {
     expect(await exists(path.join(root, "ce:plan-beta"))).toBe(false)
   })
 
+  test("removes workflow skill dirs whose shipped descriptions drifted", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "cleanup-workflow-drifted-desc-"))
+    const oldBrainstormDescription =
+      "Explore requirements and approaches through collaborative dialogue, then write a right-sized requirements document. Use when the user says \"let's brainstorm\", \"what should we build\", or \"help me think through X\", presents a vague or ambitious feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm."
+    const oldPlanDescription =
+      "Create structured plans for multi-step tasks -- software features, research workflows, events, study plans, or any goal that benefits from breakdown. Also deepens existing plans with interactive sub-agent review. Use when the user says 'plan this', 'create a plan', 'how should we build', 'break this down', or when a brainstorm doc is ready for planning. Use 'deepen the plan' or 'deepening pass' for the deepening flow. For exploratory requests, prefer ce-brainstorm first."
+
+    await createDir(
+      path.join(root, "ce:brainstorm"),
+      skillContent("ce:brainstorm", oldBrainstormDescription),
+    )
+    await createDir(
+      path.join(root, "workflows-brainstorm"),
+      skillContent("workflows-brainstorm", oldBrainstormDescription),
+    )
+    await createDir(
+      path.join(root, "workflows-plan"),
+      skillContent("workflows-plan", oldPlanDescription),
+    )
+    await createDir(
+      path.join(root, "workflows:plan"),
+      skillContent("workflows:plan", oldPlanDescription),
+    )
+
+    const removed = await cleanupStaleSkillDirs(root)
+
+    expect(removed).toBe(4)
+    expect(await exists(path.join(root, "ce:brainstorm"))).toBe(false)
+    expect(await exists(path.join(root, "workflows-brainstorm"))).toBe(false)
+    expect(await exists(path.join(root, "workflows-plan"))).toBe(false)
+    expect(await exists(path.join(root, "workflows:plan"))).toBe(false)
+  })
+
   test("returns 0 when directory does not exist", async () => {
     const removed = await cleanupStaleSkillDirs("/tmp/nonexistent-cleanup-dir-12345")
     expect(removed).toBe(0)
@@ -642,13 +675,24 @@ describe("cleanupStalePrompts", () => {
         "[BETA] Execute work with external delegate support. Same as ce:work but includes experimental Codex delegation mode for token-conserving code implementation.",
       ),
     )
+    // Previous ce-brainstorm description as parsed from YAML frontmatter. The
+    // source used a single-quoted YAML scalar, but parseFrontmatter returns the
+    // apostrophe as `let's`; cleanup fingerprints must match the parsed value.
+    await createFile(
+      path.join(root, "ce-brainstorm.md"),
+      promptWrapperContent(
+        "ce-brainstorm",
+        "Explore requirements and approaches through collaborative dialogue, then write a right-sized requirements document. Use when the user says \"let's brainstorm\", \"what should we build\", or \"help me think through X\", presents a vague or ambitious feature request, or seems unsure about scope or direction -- even without explicitly asking to brainstorm.",
+      ),
+    )
 
     const removed = await cleanupStalePrompts(root)
 
-    expect(removed).toBe(3)
+    expect(removed).toBe(4)
     expect(await exists(path.join(root, "ce-plan.md"))).toBe(false)
     expect(await exists(path.join(root, "ce-work.md"))).toBe(false)
     expect(await exists(path.join(root, "ce-work-beta.md"))).toBe(false)
+    expect(await exists(path.join(root, "ce-brainstorm.md"))).toBe(false)
   })
 
   test("preserves wrappers whose description was never shipped by compound-engineering", async () => {

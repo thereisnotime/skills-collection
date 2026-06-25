@@ -19,9 +19,12 @@ An internal prompt file owned by one Skill that defines a specialist persona or 
 ## Conversion
 
 ### Target
-A destination coding-agent platform other than Claude Code (OpenCode, Codex, Pi, Antigravity, and others) that a Plugin is converted into and installed onto, each with its own file layout and capability mapping. Also called a target provider.
+A destination coding-agent platform other than Claude Code (OpenCode, Codex, Pi, Antigravity, Kimi Code, and others) that the repo supports through native plugin metadata or a Converter/Writer pair. Also called a target provider when it uses the conversion path.
 
 A Plugin is installed to a Target at one of two scopes: global (user-wide) or per-workspace.
+
+### Native plugin surface
+A platform-provided install contract that can consume this repo's committed plugin manifest or marketplace metadata directly, without generating a converted Bundle. When a Target has a native plugin surface, user-facing support usually belongs in platform metadata, release validation, and docs instead of a new Converter and Writer.
 
 ### Converter
 The step that transforms a parsed Plugin into one Target's in-memory form, mapping tools, permissions, hooks, and model names explicitly rather than by convention.

@@ -44,6 +44,7 @@
         ".cursor/",
         ".windsurf/",
         ".agents/plugins/marketplace.json",
+        ".kimi-plugin/marketplace.json",
         ".claude-plugin/marketplace.json",
         ".cursor-plugin/marketplace.json"
       ],
@@ -70,6 +71,11 @@
         },
         {
           "type": "json",
+          "path": ".kimi-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
           "path": ".agy/plugin.json",
           "jsonpath": "$.version"
         }
@@ -78,7 +84,6 @@
     ".claude-plugin": {
       "release-type": "simple",
       "package-name": "marketplace",
-      "release-as": "1.0.3",
       "extra-files": [
         {
           "type": "json",
@@ -90,7 +95,6 @@
     ".cursor-plugin": {
       "release-type": "simple",
       "package-name": "cursor-marketplace",
-      "release-as": "1.0.2",
       "extra-files": [
         {
           "type": "json",

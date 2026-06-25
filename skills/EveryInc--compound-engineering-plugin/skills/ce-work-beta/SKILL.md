@@ -1,6 +1,6 @@
 ---
 name: ce-work-beta
-description: "[BETA] Execute work with external delegate support. Same as ce-work but includes experimental Codex delegation mode for token-conserving code implementation."
+description: "[BETA] Execute ce-work with external delegate support."
 disable-model-invocation: true
 argument-hint: "[Plan doc path or description of work. Blank to auto use latest plan doc] [delegate:codex]"
 ---
@@ -418,9 +418,6 @@ When `delegation_active` is true after argument parsing, read `references/codex-
 
 ### Quality is Built In
 
-- Follow existing patterns
-- Write tests for new code
-- Run linting before pushing
 - Review when Tier 1 is available or Tier 2 criteria match (see `shipping-workflow.md`)
 
 ### Ship Complete Features

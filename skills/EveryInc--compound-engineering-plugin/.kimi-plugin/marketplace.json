@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "compound-engineering",
+      "displayName": "Compound Engineering",
+      "source": "https://github.com/EveryInc/compound-engineering-plugin"
+    }
+  ]
+}

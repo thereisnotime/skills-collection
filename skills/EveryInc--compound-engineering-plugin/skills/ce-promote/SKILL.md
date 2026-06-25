@@ -1,6 +1,7 @@
 ---
 name: ce-promote
-description: "Draft user-facing announcement and marketing copy for a feature that just shipped — an X post or thread, a changelog blurb, a LinkedIn post, an email, a blog intro, or a short demo script. Spiral-agnostic by default; voice-matched via the Spiral CLI when it is installed and authed. Use when the user says 'promote this', 'draft the announcement', 'write the launch copy', 'market this feature', 'announce this feature', 'write the release tweet', or 'ce-promote'."
+description: "Draft launch or promotion copy for a shipped feature."
+disable-model-invocation: true
 argument-hint: "[optional: what shipped and/or channels, e.g. 'a tweet thread and a LinkedIn post']"
 ---
 

@@ -21,6 +21,7 @@ tags:
   - copilot
   - droid
   - qwen
+  - kimi
   - antigravity
   - opencode
   - pi
@@ -44,6 +45,7 @@ The install strategy follows from that: prefer each harness's native plugin/pack
 | GitHub Copilot CLI | Native plugin marketplace using the existing Claude plugin metadata | No | Copilot translates the Claude plugin metadata itself. |
 | Factory Droid | Native plugin marketplace pointed at the CE GitHub repository | No | Droid translates Claude Code plugins automatically. |
 | Qwen Code | Native extension install from the CE GitHub repository and existing Claude plugin metadata | No | Qwen translates Claude Code extensions automatically. |
+| Kimi Code CLI | Native plugin install from this repository using `.kimi-plugin/plugin.json` | No | Kimi can install directly from the GitHub repo and can browse the committed `.kimi-plugin/marketplace.json` custom catalog. |
 | OpenCode | Git-backed OpenCode plugin entry in `opencode.json` | No | `.opencode/plugins/compound-engineering.js` registers the CE skills directory directly. |
 | Pi | Git-backed Pi package install from this repository | No | Root `package.json` exposes `.pi/extensions/compound-engineering.ts` and the CE skills directory. `pi-ask-user` is a recommended companion for richer prompts. |
 | Antigravity CLI | Native Antigravity plugin from the committed `.agy/` bundle | No | Clone the repo, then `agy plugin install ./compound-engineering-plugin/.agy`. The `.agy/` bundle holds `plugin.json` plus a `skills -> ../skills` symlink. `agy` still reads `GEMINI.md` as workspace context. |
@@ -116,6 +118,24 @@ agy plugin install ./compound-engineering-plugin/.agy
 ```
 
 `agy` still reads `GEMINI.md` as workspace context (retained despite the Gemini CLI converter target being removed). For local development, point `agy` at the `.agy/` subdirectory of the checkout so it finds `plugin.json`, the `skills` symlink, and `GEMINI.md` together.
+
+## Kimi Code CLI
+
+Kimi Code CLI has a native plugin surface, so CE should not maintain a Kimi converter target for normal installation. The root `.kimi-plugin/plugin.json` declares the CE skills directory with `skills: "./skills/"` and carries display metadata through Kimi's `interface` object.
+
+Direct install:
+
+```text
+/plugins install https://github.com/EveryInc/compound-engineering-plugin
+```
+
+Marketplace install:
+
+```text
+/plugins marketplace https://raw.githubusercontent.com/EveryInc/compound-engineering-plugin/main/.kimi-plugin/marketplace.json
+```
+
+The Kimi marketplace catalog uses schema version `"2"` and entries with `id` plus `source`. It has no release-owned marketplace version, so release automation bumps only `.kimi-plugin/plugin.json` through the root `compound-engineering` component. `bun run release:validate` enforces Kimi manifest and marketplace parity with the Claude source manifest/catalog.
 
 ## Bun Package Posture
 

@@ -1,6 +1,6 @@
 ---
 name: ce-test-xcode
-description: "Build and test iOS apps on simulator using XcodeBuildMCP. Use after making iOS code changes, before creating a PR, or when verifying app behavior and checking for crashes on simulator."
+description: "Build and test iOS apps on simulator with XcodeBuildMCP."
 argument-hint: "[scheme name or 'current' to use default]"
 disable-model-invocation: true
 ---
