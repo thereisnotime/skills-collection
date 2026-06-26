@@ -1,3 +1,17 @@
+# [3.4.0](https://github.com/wrsmith108/linear-claude-skill/compare/v3.3.0...v3.4.0) (2026-06-25)
+
+
+### Features
+
+* add bulk-create script for importing multiple issues with media ([#18](https://github.com/wrsmith108/linear-claude-skill/issues/18)) ([eef2df0](https://github.com/wrsmith108/linear-claude-skill/commit/eef2df040c125f66a54e9356da4f0a35474ddeb2))
+
+# [3.3.0](https://github.com/wrsmith108/linear-claude-skill/compare/v3.2.0...v3.3.0) (2026-06-25)
+
+
+### Features
+
+* add update-issue command for editing title/description ([#19](https://github.com/wrsmith108/linear-claude-skill/issues/19)) ([1d90803](https://github.com/wrsmith108/linear-claude-skill/commit/1d90803d0738f4cc68bdbf22b2ada7b7d9cce149))
+
 # [3.2.0](https://github.com/wrsmith108/linear-claude-skill/compare/v3.1.0...v3.2.0) (2026-04-19)
 
 

@@ -37,7 +37,7 @@ Do not treat `autofix_class` as permission to auto-apply.
 1. Filter `actionable_findings` (or markdown Actionable Findings) with the bar above.
 2. Apply eligible fixes in the working tree in severity order (`#` stable from the review).
 3. Run targeted tests when `requires_verification: true` on any applied finding.
-4. If `git status --short` shows changes, stage only review-driven files, commit `fix(review): apply review findings`, and push before step 6. To push: if an upstream exists, run `git push`. If no upstream exists (common on a fresh feature branch, since step 8's `ce-commit-push-pr` has not run yet), resolve a writable remote dynamically: prefer `origin` when present, otherwise use `git remote` and choose the first configured remote. Then run `git push --set-upstream <remote> HEAD`. If no eligible fixes were applied, note explicitly and skip commit.
+4. If `git status --short` shows changes, stage only review-driven files, commit `fix(review): apply review findings`, and push before step 6 **when a remote is configured** (per LFG's shipping precondition). To push: if an upstream exists, run `git push`. If no upstream exists but a remote is configured (common on a fresh feature branch), resolve a writable remote dynamically: prefer `origin` when present, otherwise use `git remote` and choose the first configured remote. Then run `git push --set-upstream <remote> HEAD`. If there is no remote at all, do not push — the local commit suffices. If no eligible fixes were applied, note explicitly and skip commit.
 
 ## Step 6 — residual handoff
 

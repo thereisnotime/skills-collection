@@ -680,7 +680,12 @@ describe("ce-code-review contract", () => {
     expect(lfg).toContain("choose the first configured remote")
     expect(lfg).toContain("git push --set-upstream <remote> HEAD")
     expect(lfg).not.toContain("git push --set-upstream origin HEAD")
-    expect(lfg).toContain("Do not output DONE until either the existing PR body has been updated or this fallback file commit has been pushed.")
+    expect(lfg).toContain("Do not output DONE until the residual findings are durable")
+
+    // Shipping precondition: a remote-less repo (e.g. a sandbox/throwaway checkout)
+    // finishes locally instead of deadlocking on an impossible push.
+    expect(lfg).toContain("Shipping precondition")
+    expect(lfg).toContain("skip every push, PR create/edit, and CI-watch action")
 
     // Autopilot contract: never prompt, but require a durable sink before DONE.
     expect(lfg).toContain("Do not prompt the user")

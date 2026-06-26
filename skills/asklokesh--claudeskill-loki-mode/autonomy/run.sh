@@ -218,6 +218,11 @@ if [[ -z "${LOKI_RUNNING_FROM_TEMP:-}" ]] && [[ "${BASH_SOURCE[0]}" == "${0}" ]]
     # BUG-XC-011: Set trap BEFORE exec so the temp file gets cleaned up
     trap 'rm -f "$TEMP_SCRIPT"' EXIT
     export LOKI_RUNNING_FROM_TEMP=1
+    # Record the EXACT temp-copy path so the post-exec cleanup trap deletes THIS
+    # temp file and NEVER the canonical source (root cause of the recurring
+    # "run.sh self-deleted on build spawn" bug: an inherited LOKI_RUNNING_FROM_TEMP
+    # skips the self-copy block, leaving BASH_SOURCE[0]=the real run.sh).
+    export LOKI_TEMP_SCRIPT_PATH="$TEMP_SCRIPT"
     export LOKI_ORIGINAL_SCRIPT_DIR="$SCRIPT_DIR"
     export LOKI_ORIGINAL_PROJECT_DIR="$PROJECT_DIR"
     exec "$TEMP_SCRIPT" "$@"
@@ -227,9 +232,14 @@ fi
 SCRIPT_DIR="${LOKI_ORIGINAL_SCRIPT_DIR:-$SCRIPT_DIR}"
 PROJECT_DIR="${LOKI_ORIGINAL_PROJECT_DIR:-$PROJECT_DIR}"
 
-# Clean up temp script on exit (only when running from temp copy)
-if [[ "${LOKI_RUNNING_FROM_TEMP:-}" == "1" ]]; then
-    trap 'rm -f "${BASH_SOURCE[0]}" 2>/dev/null' EXIT
+# Clean up ONLY the recorded temp copy, and ONLY if it is a real temp file.
+# Deleting BASH_SOURCE[0] here was the bug: an inherited LOKI_RUNNING_FROM_TEMP
+# made BASH_SOURCE[0] the canonical source, so run.sh deleted itself on spawned
+# builds. Guard on the recorded path being a real /tmp/loki-run-* file.
+if [[ "${LOKI_RUNNING_FROM_TEMP:-}" == "1" ]] \
+   && [[ -n "${LOKI_TEMP_SCRIPT_PATH:-}" ]] \
+   && [[ "${LOKI_TEMP_SCRIPT_PATH}" == /tmp/loki-run-* || "${LOKI_TEMP_SCRIPT_PATH}" == "${TMPDIR:-/tmp}"loki-run-* ]]; then
+    trap 'rm -f "${LOKI_TEMP_SCRIPT_PATH}" 2>/dev/null' EXIT
 fi
 
 #===============================================================================
@@ -829,6 +839,12 @@ CONCURRENCY_CRITICAL_THRESHOLD=${LOKI_CONCURRENCY_CRITICAL_THRESHOLD:-95}
 GATE_CLEAR_LIMIT=${LOKI_GATE_CLEAR_LIMIT:-3}
 GATE_ESCALATE_LIMIT=${LOKI_GATE_ESCALATE_LIMIT:-5}
 GATE_PAUSE_LIMIT=${LOKI_GATE_PAUSE_LIMIT:-10}
+# Workspace resolution: the build runs against TARGET_DIR, defaulting to the
+# launch cwd. A caller can pin a per-build workspace by exporting
+# LOKI_TARGET_DIR (and the matching LOKI_DIR=<dir>/.loki); the dashboard
+# /api/control/start `workspace` param (Track-1 S1) does exactly this so a
+# hosted build runs in its own dir instead of the engine's repo. Every
+# $TARGET_DIR/.loki reference below then resolves under that workspace.
 TARGET_DIR="${LOKI_TARGET_DIR:-$(pwd)}"
 PARALLEL_BLOG=${LOKI_PARALLEL_BLOG:-false}
 AUTO_MERGE=${LOKI_AUTO_MERGE:-true}
@@ -1378,6 +1394,34 @@ emit_event_json() {
     log_debug "Event: $event_type - $json_data"
 }
 
+# Per-stage timeline event (v7.91.x). Emits one stage_complete record per
+# quality-gate / build stage so the SaaS timeline can show where build time
+# goes within an iteration (the provider call itself is already bracketed by
+# iteration_start/iteration_complete). This is purely ADDITIVE: it appends one
+# event line via emit_event_json and never changes a gate verdict, gate exit
+# code, or control flow. Duration is computed by the caller (whole-second
+# resolution, sufficient for multi-second gates) and carried on the event so
+# the SaaS does not have to infer it from coarse ISO timestamps.
+#   emit_stage_complete <stage_name> <status: pass|fail> <start_epoch_seconds>
+# Event shape:
+#   {type:"stage_complete", timestamp, data:{stage, status, duration_s, iteration}}
+# Best-effort: any failure is swallowed so it can never block the build.
+emit_stage_complete() {
+    local stage="$1"
+    local status="$2"
+    local t0="$3"
+    local now dur
+    now=$(date +%s 2>/dev/null) || return 0
+    [ -n "$t0" ] || return 0
+    dur=$(( now - t0 ))
+    [ "$dur" -ge 0 ] 2>/dev/null || dur=0
+    emit_event_json "stage_complete" \
+        "stage=$stage" \
+        "status=$status" \
+        "duration_s=$dur" \
+        "iteration=${ITERATION_COUNT:-0}" 2>/dev/null || true
+}
+
 # Trust-layer metrics event writer (benchmark program section 3). Appends one
 # durable record per trust event to .loki/metrics/trust-events.jsonl via the
 # Python writer (single source of truth for the JSONL schema). This is ADDITIVE
@@ -1426,6 +1470,30 @@ _loki_trust_run_id() {
     fi
     # No persisted id and no session id: empty -> writer records "unknown".
     printf '%s' ""
+}
+
+# _advance_current_phase: atomically advance currentPhase in orchestrator.json.
+# This is the single source of truth for the build dashboard and the BFF
+# reconciliation gate (isTerminalPhase). The engine initialises it to "BOOTSTRAP"
+# at session start; call this to advance through the SDLC lifecycle phases.
+# Args: $1 = the new phase value (REASONING, BUILDING, VERIFYING, COMPLETED, etc.)
+_advance_current_phase() {
+    local new_phase="${1:?phase required}"
+    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}}/.loki"
+    local orch="$loki_dir/state/orchestrator.json"
+    [ -f "$orch" ] || return 0
+    # Values are passed via argv (not interpolated into the source) so a phase or
+    # path containing quotes can never break or inject into the python.
+    python3 -c "
+import json, sys
+f, phase = sys.argv[1], sys.argv[2]
+try:
+    d = json.load(open(f))
+    d['currentPhase'] = phase
+    json.dump(d, open(f, 'w'))
+except (json.JSONDecodeError, OSError):
+    pass
+" "$orch" "$new_phase" 2>/dev/null || true
 }
 
 # Usage: record_trust_event_bash <event_type> [key=value ...]
@@ -1807,6 +1875,37 @@ validate_api_keys() {
     # Log masked key for debugging
     local masked="${key_value:0:8}...${key_value: -4}"
     log_info "API key $key_var: $masked (${#key_value} chars)"
+
+    # Fail-fast auth preflight (v7.91): for Claude OAuth logins, a present-but-
+    # EXPIRED token passes the presence check above but then 401s on the first
+    # provider call, leaving the build stalled at BOOTSTRAP with no clear cause.
+    # Catch that here with a zero-network, zero-token local expiry check so the
+    # user gets an instant, copy-pasteable fix instead of a silent stall.
+    # Opt out with LOKI_SKIP_AUTH_PREFLIGHT=1 (offline/odd setups).
+    if [[ "$provider" == "claude" && "${LOKI_SKIP_AUTH_PREFLIGHT:-}" != "1" && -z "${ANTHROPIC_API_KEY:-}" ]]; then
+        local _creds="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
+        if [[ -s "$_creds" ]]; then
+            local _expired
+            _expired=$(python3 -c "
+import json, sys, time
+try:
+    d = json.load(open(sys.argv[1]))
+    exp = d.get('claudeAiOauth', {}).get('expiresAt')
+    # expiresAt is epoch milliseconds; compare with a 60s safety margin.
+    if isinstance(exp, (int, float)) and exp > 0 and (exp / 1000.0) <= (time.time() + 60):
+        print('expired')
+except Exception:
+    pass  # unreadable/unknown schema -> do not block (fail open, let the call decide)
+" "$_creds" 2>/dev/null || true)
+            if [[ "$_expired" == "expired" ]]; then
+                log_error "Your Claude Code login has expired -- the build would stall instead of running."
+                log_error "Fix it in one step, then retry:"
+                log_error "    claude login"
+                log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
+                return 1
+            fi
+        fi
+    fi
 
     return 0
 }
@@ -6129,6 +6228,152 @@ audit_log() {
 }
 
 #===============================================================================
+# Engine-owned workspace git-init (Plan #16, Option A-1)
+#===============================================================================
+
+# Resolve a path to its physical absolute form (symlinks + .. collapsed) using
+# whatever is available; falls back to the input unchanged. Portable across the
+# BSD (macOS) and GNU userlands the engine runs on.
+_loki_resolve_path() {
+    local p="${1:-}"
+    [ -n "$p" ] || { printf '%s' ""; return 0; }
+    if command -v realpath >/dev/null 2>&1; then
+        realpath "$p" 2>/dev/null && return 0
+    fi
+    # python3 is a hard engine dependency; use it as the portable fallback.
+    python3 - "$p" <<'PYRESOLVE' 2>/dev/null && return 0
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PYRESOLVE
+    printf '%s' "$p"
+}
+
+# True (0) when TARGET_DIR is an engine-owned, freshly-minted build workspace
+# that Loki may auto-git-init without surprising a user. Two honest signals:
+#   1. LOKI_AUTO_GIT_INIT=1  -- explicit opt-in (non-SaaS automation).
+#   2. LOKI_TARGET_DIR is set AND realpath-contained under one of the
+#      colon-separated LOKI_WORKSPACE_ROOTS dirs (the v7.91.0 SaaS route: the
+#      BFF mints <root>/<buildId> and the server pins LOKI_TARGET_DIR to it).
+# A user's own folder (`loki start ./prd.md`, no workspace, roots unset) is
+# NEVER engine-owned -- it must not get a silent .git. Realpath containment (not
+# a prefix string match) so /root/build-other does not match /root/build.
+_loki_workspace_is_engine_owned() {
+    [ "${LOKI_AUTO_GIT_INIT:-0}" = "1" ] && return 0
+
+    local roots_raw="${LOKI_WORKSPACE_ROOTS:-}"
+    [ -n "${LOKI_TARGET_DIR:-}" ] || return 1
+    [ -n "$roots_raw" ] || return 1
+
+    local ws_real root_real
+    ws_real="$(_loki_resolve_path "${TARGET_DIR:-.}")"
+    [ -n "$ws_real" ] || return 1
+
+    local IFS=':'
+    local root
+    for root in $roots_raw; do
+        [ -n "$root" ] || continue
+        root_real="$(_loki_resolve_path "$root")"
+        [ -n "$root_real" ] || continue
+        # Exact match or contained: ws == root, or ws starts with root + "/".
+        if [ "$ws_real" = "$root_real" ] || case "$ws_real" in "$root_real"/*) true ;; *) false ;; esac; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Plan #16 Option A-1: establish git in an engine-owned build workspace so the
+# review/verify gate (run_code_review) and branch-isolation chain can actually
+# run. Without git history, run_code_review's diff resolves empty and the gate
+# SKIPS (silently reporting PASS) -- so a build that was never reviewed could
+# earn a VERIFIED receipt. This makes the gate RUN; it does NOT force a green
+# (a build whose review/tests fail still gets an honest verdict).
+#
+# Constraints honored:
+#   - Engine-owned workspaces ONLY (see _loki_workspace_is_engine_owned). A
+#     user's own folder is never silently git-init'd.
+#   - Already a git repo (user's repo OR the engine source tree) -> NO-OP. Only
+#     a non-git workspace is initialized.
+#   - One INITIAL commit (not a bare init): a zero-commit unborn HEAD breaks the
+#     start-SHA capture (git rev-parse HEAD) and re-trips the HEAD~1 skip. The
+#     commit uses --allow-empty because a greenfield workspace at build start
+#     holds only .loki/ (the spec lands in .loki/specs/), which .loki/.gitignore
+#     excludes -> nothing to stage -> a bare commit would fail and leave an
+#     unborn HEAD. --allow-empty guarantees a real HEAD either way.
+#   - Neutral repo-local identity (loki-build) so the initial commit AND the
+#     later commit_session_changes commit never inherit a developer's global git
+#     identity. Repo-local sticks on a freshly-init'd workspace (no revert hook).
+#   - Secrets never committed: brownfield files are staged through the same
+#     secret-scan guard (_commit_path_looks_secret / _commit_scan_secret_file)
+#     used by commit_session_changes; any offender unstages the whole set and
+#     the initial commit falls back to --allow-empty (HEAD still established).
+maybe_git_init_engine_workspace() {
+    command -v git >/dev/null 2>&1 || return 0
+    _loki_workspace_is_engine_owned || return 0
+
+    local ws="${TARGET_DIR:-.}"
+    [ -d "$ws" ] || return 0
+
+    # Already a git repo (user repo or engine source tree): do nothing.
+    if git -C "$ws" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        return 0
+    fi
+
+    log_info "Engine-owned workspace is not a git repo; initializing for review/verify gates"
+
+    if ! git -C "$ws" init -q >/dev/null 2>&1; then
+        log_warn "git init failed in engine workspace; review gate will skip (non-fatal)"
+        return 0
+    fi
+
+    # Neutral repo-local identity for the initial AND session-end commits.
+    git -C "$ws" config user.name "loki-build" >/dev/null 2>&1 || true
+    git -C "$ws" config user.email "loki-build@autonomi.dev" >/dev/null 2>&1 || true
+
+    # Self-ignore .loki/ runtime state so no commit ever stages it (mirrors
+    # setup_agent_branch). Idempotent.
+    mkdir -p "$ws/.loki" 2>/dev/null || true
+    [ -f "$ws/.loki/.gitignore" ] || printf '*\n' > "$ws/.loki/.gitignore" 2>/dev/null || true
+
+    # Stage everything except .loki/ and an obvious-secret-path denylist (same
+    # first-cut excludes commit_session_changes uses). The scan loop below is the
+    # real guarantee for nested/weak secrets.
+    git -C "$ws" add -A \
+        ':!.loki' ':!.loki/' \
+        ':!.env' ':!.env.*' ':!*.env' \
+        ':!*.key' ':!*.pem' ':!*.p12' ':!*.keystore' \
+        ':!id_rsa*' ':!*.token' ':!credentials*' >/dev/null 2>&1 || true
+
+    # Secret-scan staged files. ANY offender -> unstage all (safe default: never
+    # commit a possible secret). The --allow-empty commit below still runs so a
+    # real HEAD is established regardless.
+    local _offenders=""
+    local _f
+    while IFS= read -r -d '' _f; do
+        [ -f "$ws/$_f" ] || continue
+        if _commit_path_looks_secret "$ws/$_f" || _commit_scan_secret_file "$ws/$_f"; then
+            _offenders="${_offenders}${_offenders:+, }${_f}"
+        fi
+    done < <(git -C "$ws" diff --cached --name-only -z 2>/dev/null)
+
+    if [ -n "$_offenders" ]; then
+        git -C "$ws" reset >/dev/null 2>&1 || true
+        log_warn "Initial commit: possible secret in ${_offenders}; left unstaged (baseline commit will be empty)"
+    fi
+
+    # ONE initial commit. --allow-empty: a greenfield workspace stages nothing
+    # (only .loki/, which is ignored), so a bare commit would fail and leave an
+    # unborn HEAD -- the exact failure mode this whole block exists to avoid.
+    if git -C "$ws" commit --allow-empty -q -m "loki: initial build workspace baseline" >/dev/null 2>&1; then
+        log_info "Initialized git in engine workspace (initial baseline commit created)"
+        audit_log "WORKSPACE_GIT_INIT" "workspace=$ws"
+    else
+        log_warn "Initial baseline commit failed; review gate may skip (non-fatal)"
+    fi
+    return 0
+}
+
+#===============================================================================
 # Branch Protection for Agent Changes
 #===============================================================================
 
@@ -9612,16 +9857,88 @@ run_code_review() {
     # common case) because git ignores the exclude pathspec for paths it does not
     # track. ':(exclude).git/' is harmless (git never diffs .git/) and is kept
     # only for parity with the evidence-gate exclusion list.
-    local _review_pathspec=(-- . ':(exclude).loki/' ':(exclude).git/' ':(exclude)**/.loki/**')
-    local diff_content
-    diff_content=$(git -C "${TARGET_DIR:-.}" diff HEAD~1 "${_review_pathspec[@]}" 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --cached "${_review_pathspec[@]}" 2>/dev/null || echo "")
-    if [ -z "$diff_content" ]; then
-        log_info "Code review: No diff to review, skipping"
-        return 0
+    # Finding #596 + Plan #16: exclude .loki/, .git/, AND the standard dependency
+    # / build noise dirs. The A-2 temp-index `git add -A` below stages EVERY
+    # untracked file, and a fresh greenfield workspace has no root .gitignore yet
+    # (only .loki/.gitignore, scoped to .loki/). Without these excludes a build
+    # that ran `npm install` / `pip install` before writing a .gitignore would
+    # stage node_modules/ (or .venv/, dist/, build/) into the temp index, bloat
+    # the review diff to multi-MB, overflow the reviewer prompt, force NO_OUTPUT,
+    # and defeat the gate -- exactly the Finding #596 class. The diff pathspec
+    # filters the OUTPUT regardless of what the temp index staged, so this one
+    # list fixes both diff_content and changed_files. Mirrors the metrics-path
+    # noise set (run.sh:12592-12598) plus __pycache__ and vendor.
+    local _review_pathspec=(-- . \
+        ':(exclude).loki/' ':(exclude).git/' ':(exclude)**/.loki/**' \
+        ':(exclude)node_modules/' ':(exclude)**/node_modules/**' \
+        ':(exclude)venv/' ':(exclude).venv/' ':(exclude)**/venv/**' ':(exclude)**/.venv/**' \
+        ':(exclude)dist/' ':(exclude)build/' ':(exclude)**/dist/**' ':(exclude)**/build/**' \
+        ':(exclude)__pycache__/' ':(exclude)**/__pycache__/**' \
+        ':(exclude)vendor/' ':(exclude)**/vendor/**')
+
+    # Plan #16 (A-2): make the review diff base robust to shallow/fresh history,
+    # and surface NEW (untracked) files -- the whole greenfield build is new
+    # files, which `git diff <base>` (tracked-only) never shows.
+    #
+    # Base preference, mirroring the proven metrics-path fallback chain:
+    #   1. ${_LOKI_RUN_START_SHA} when it resolves to a commit -- the correct
+    #      per-run baseline (captured at run start; also what the summary/"Review
+    #      the work" command uses). After A-1, a fresh workspace has exactly one
+    #      commit at iteration 1, so HEAD~1 does NOT resolve -- the start-SHA is
+    #      what makes the gate run on iteration 1.
+    #   2. HEAD~1 when it resolves (the live engine-source case, deep history).
+    #   3. the git empty-tree object (computed, never a hardcoded SHA-1 constant,
+    #      so it survives a SHA-256 repo) so a single-commit repo still yields a
+    #      real diff against an empty baseline instead of an empty string.
+    local _review_base=""
+    if [ -n "${_LOKI_RUN_START_SHA:-}" ] && \
+       git -C "${TARGET_DIR:-.}" rev-parse --verify --quiet "${_LOKI_RUN_START_SHA}^{commit}" >/dev/null 2>&1; then
+        _review_base="${_LOKI_RUN_START_SHA}"
+    elif git -C "${TARGET_DIR:-.}" rev-parse --verify --quiet 'HEAD~1^{commit}' >/dev/null 2>&1; then
+        _review_base="HEAD~1"
+    else
+        _review_base="$(git -C "${TARGET_DIR:-.}" hash-object -t tree /dev/null 2>/dev/null || echo "")"
     fi
 
-    local changed_files
-    changed_files=$(git -C "${TARGET_DIR:-.}" diff --name-only HEAD~1 "${_review_pathspec[@]}" 2>/dev/null || git -C "${TARGET_DIR:-.}" diff --name-only --cached "${_review_pathspec[@]}" 2>/dev/null || echo "")
+    # Build the review diff against a THROWAWAY index (GIT_INDEX_FILE points at a
+    # fresh, nonexistent path) so a `git add -A` captures the full working tree --
+    # new + modified files alike -- WITHOUT touching the real index. This avoids
+    # disturbing any other porcelain consumer (the evidence hard gate's status
+    # read, create_checkpoint's `git stash create`, commit_session_changes). The
+    # `.loki/.gitignore` (`*`) keeps runtime state out; the pathspec is a belt-
+    # and-suspenders exclude. `diff --cached <base>` then compares that staged
+    # snapshot to the baseline -- a real unified diff the reviewer can read.
+    local diff_content=""
+    local changed_files=""
+    if [ -n "$_review_base" ]; then
+        local _rev_idx
+        _rev_idx="$(mktemp -u "${TMPDIR:-/tmp}/loki-revidx.XXXXXX")"
+        GIT_INDEX_FILE="$_rev_idx" git -C "${TARGET_DIR:-.}" add -A 2>/dev/null || true
+        diff_content=$(GIT_INDEX_FILE="$_rev_idx" git -C "${TARGET_DIR:-.}" diff --cached "$_review_base" "${_review_pathspec[@]}" 2>/dev/null || echo "")
+        changed_files=$(GIT_INDEX_FILE="$_rev_idx" git -C "${TARGET_DIR:-.}" diff --cached --name-only "$_review_base" "${_review_pathspec[@]}" 2>/dev/null || echo "")
+        rm -f "$_rev_idx" 2>/dev/null || true
+    fi
+
+    if [ -z "$diff_content" ]; then
+        # Honesty (Finding #596 class): a silent PASS on an empty diff is a trust
+        # gap ONLY when the run actually produced changes we failed to diff.
+        # Distinguish a genuine no-op iteration (nothing changed -> legitimate
+        # PASS) from "changes exist but we could not compute a diff" (must not
+        # pass silently). Use the same .loki/.git-excluding porcelain the
+        # evidence gate uses to detect real changes independent of the diff base.
+        local _dirty
+        _dirty=$(git -C "${TARGET_DIR:-.}" status --porcelain "${_review_pathspec[@]}" 2>/dev/null | head -1 || echo "")
+        if [ -n "$_dirty" ] || [ -n "$changed_files" ]; then
+            # Return non-zero so the gate dispatcher records a failure (it calls
+            # track_gate_failure on the else branch). Do NOT call track_gate_failure
+            # here: it echoes its count to stdout (callers capture it) and the
+            # dispatcher would double-count.
+            log_warn "Code review: workspace has changes but the review diff is empty (could not compute a diff base); NOT passing the gate silently"
+            return 1
+        fi
+        log_info "Code review: no changes this iteration, skipping (genuine no-op)"
+        return 0
+    fi
 
     log_header "CODE REVIEW: $review_id"
 
@@ -15968,27 +16285,33 @@ if __name__ == "__main__":
             # Static analysis gate
             if [ "${PHASE_STATIC_ANALYSIS:-true}" = "true" ]; then
                 log_info "Quality gate: static analysis..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if enforce_static_analysis; then
                     clear_gate_failure "static_analysis"
                 else
+                    _stg_ok=fail
                     local sa_count
                     sa_count=$(track_gate_failure "static_analysis")
                     gate_failures="${gate_failures}static_analysis,"
                     log_warn "Static analysis FAILED ($sa_count consecutive) - findings injected into next iteration"
                 fi
+                emit_stage_complete "static_analysis" "$_stg_ok" "$_stg_t0"
             fi
             # Secure-by-default scan (v7.87.0). Advisory by default (never
             # blocks); records .loki/quality/security-findings.json each
             # iteration. Blocks only on un-waived HIGH when LOKI_SECURE_GATE=block.
             log_info "Quality gate: security scan (advisory)..."
+            local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
             if run_secure_scan; then
                 clear_gate_failure "security_scan"
             else
+                _stg_ok=fail
                 local sec_count
                 sec_count=$(track_gate_failure "security_scan")
                 gate_failures="${gate_failures}security_scan,"
                 log_warn "Security gate BLOCKED ($sec_count consecutive) - un-waived HIGH findings (LOKI_SECURE_GATE=block)"
             fi
+            emit_stage_complete "security_scan" "$_stg_ok" "$_stg_t0"
             # BUG-ST-002: Check pause signal between quality gates
             if [ -f "${TARGET_DIR:-.}/.loki/PAUSE" ] || [ -f "${TARGET_DIR:-.}/.loki/STOP" ]; then
                 log_warn "Pause/stop signal detected between quality gates - deferring remaining gates"
@@ -16002,11 +16325,13 @@ if __name__ == "__main__":
             # Test coverage gate
             if [ "${PHASE_UNIT_TESTS:-true}" = "true" ]; then
                 log_info "Quality gate: test suite (pass/fail)..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 # F49: isolate HOME so the project's suite cannot pollute the
                 # user's real home when it execs the generated app.
                 if _loki_with_app_sandbox enforce_test_coverage; then
                     clear_gate_failure "test_coverage"
                 else
+                    _stg_ok=fail
                     local tc_count
                     tc_count=$(track_gate_failure "test_coverage")
                     gate_failures="${gate_failures}test_coverage,"
@@ -16020,6 +16345,7 @@ if __name__ == "__main__":
                         log_warn "Test suite gate FAILED ($tc_count consecutive) - must pass next iteration"
                     fi
                 fi
+                emit_stage_complete "test_suite" "$_stg_ok" "$_stg_t0"
             fi
             # BUG-ST-002: Check pause signal between quality gates (after test coverage)
             if [ -f "${TARGET_DIR:-.}/.loki/PAUSE" ] || [ -f "${TARGET_DIR:-.}/.loki/STOP" ]; then
@@ -16032,26 +16358,32 @@ if __name__ == "__main__":
             # Mock integrity gate (P0-3): block on CRITICAL/HIGH mock problems.
             if [ "${LOKI_GATE_MOCK:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: mock integrity..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if enforce_mock_integrity; then
                     clear_gate_failure "mock_integrity"
                 else
+                    _stg_ok=fail
                     local mk_count
                     mk_count=$(track_gate_failure "mock_integrity")
                     gate_failures="${gate_failures}mock_integrity,"
                     log_warn "Mock integrity gate FAILED ($mk_count consecutive) - CRITICAL/HIGH mock problems"
                 fi
+                emit_stage_complete "mock_integrity" "$_stg_ok" "$_stg_t0"
             fi
             # Test mutation integrity gate (P0-3): block on HIGH test-fitting.
             if [ "${LOKI_GATE_MUTATION:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: test mutation integrity..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if enforce_mutation_integrity; then
                     clear_gate_failure "mutation_integrity"
                 else
+                    _stg_ok=fail
                     local mt_count
                     mt_count=$(track_gate_failure "mutation_integrity")
                     gate_failures="${gate_failures}mutation_integrity,"
                     log_warn "Mutation integrity gate FAILED ($mt_count consecutive) - HIGH test-fitting detected"
                 fi
+                emit_stage_complete "mutation_integrity" "$_stg_ok" "$_stg_t0"
             fi
             # LSP diagnostics gate (P1-5 bash-route parity, v7.51.0; default-on
             # advisory-surfacing as of v7.57.0). Closes the parity gap: the Bun
@@ -16087,6 +16419,7 @@ if __name__ == "__main__":
             # runLSPDiagnosticsWriter: cwd=REPO_ROOT, --root=ctx.cwd).
             if { [ "${LOKI_GATE_LSP_DIAGNOSTICS:-true}" = "true" ] || [ "${LOKI_GATE_LSP_DIAGNOSTICS:-true}" = "1" ]; } && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: LSP diagnostics..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 # WRITER: route-neutral Python, same program as the Bun route.
                 if [ "${LOKI_GATE_LSP_WRITER:-1}" != "0" ]; then
                     ( cd "$PROJECT_DIR" && LOKI_DIR="${TARGET_DIR:-.}/.loki" python3 -m mcp.lsp_proxy --write-diagnostics --root "${TARGET_DIR:-.}" ) >/dev/null 2>&1 || true
@@ -16120,6 +16453,7 @@ else:
                 fi
                 case "$_lsp_verdict" in
                     block*)
+                        _stg_ok=fail
                         local _lsp_e _lsp_w
                         _lsp_e=$(printf '%s' "$_lsp_verdict" | awk '{print $2}')
                         _lsp_w=$(printf '%s' "$_lsp_verdict" | awk '{print $3}')
@@ -16146,6 +16480,7 @@ else:
                         log_info "LSP diagnostics: no lsp-diagnostics.json artifact (lsp not available) -- gate did not run"
                         ;;
                 esac
+                emit_stage_complete "lsp_diagnostics" "$_stg_ok" "$_stg_t0"
             fi
             # Semantic test-authenticity gate -- mid-iteration ADVISORY arm
             # (v7.57.0 default-on surfacing). Clones the mock arm (~15126)
@@ -16198,9 +16533,11 @@ else:
             # Code review gate (upgraded from advisory, with escalation)
             if [ "$PHASE_CODE_REVIEW" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: code review..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if run_code_review; then
                     clear_gate_failure "code_review"
                 else
+                    _stg_ok=fail
                     local cr_count
                     cr_count=$(track_gate_failure "code_review")
                     # BUG-QG-007: Always append to gate_failures regardless of escalation tier
@@ -16225,7 +16562,7 @@ else:
                         esac
                     fi
                     if [ "$_phase1_overrode" = "true" ]; then
-                        : # BLOCK lifted; continue without escalation
+                        _stg_ok=pass # BLOCK lifted; continue without escalation
                     elif [ "$cr_count" -ge "$GATE_PAUSE_LIMIT" ]; then
                         log_error "Gate escalation: code_review failed $cr_count times (>= $GATE_PAUSE_LIMIT) - forcing PAUSE for human intervention"
                         echo "PAUSE" > "${TARGET_DIR:-.}/.loki/signals/GATE_ESCALATION"
@@ -16255,6 +16592,7 @@ else:
                         bun "${SCRIPT_DIR}/../loki-ts/dist/loki.js" internal phase1-hooks reflect "$ITERATION_COUNT" 2>/dev/null || true
                     fi
                 fi
+                emit_stage_complete "code_review" "$_stg_ok" "$_stg_t0"
             fi
             # Auto-generate docs (default-on) BEFORE the staleness check and the
             # gate, so neither nags the user to run 'loki docs generate' by hand.
@@ -16269,26 +16607,32 @@ else:
             # Documentation quality gate - Gate 7 (Documentation Coverage)
             if [ "${LOKI_GATE_DOC_COVERAGE:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: documentation coverage..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if run_doc_quality_gate; then
                     clear_gate_failure "doc_coverage"
                 else
+                    _stg_ok=fail
                     local dc_count
                     dc_count=$(track_gate_failure "doc_coverage")
                     gate_failures="${gate_failures}doc_coverage,"
                     log_warn "Documentation coverage gate: Score below threshold ($dc_count consecutive)"
                 fi
+                emit_stage_complete "doc_coverage" "$_stg_ok" "$_stg_t0"
             fi
             # Magic Modules debate gate - Gate 12 (v6.77.0)
             if [ "${LOKI_GATE_MAGIC_DEBATE:-true}" = "true" ] && [ "$ITERATION_COUNT" -gt 0 ]; then
                 log_info "Quality gate: magic modules debate..."
+                local _stg_t0=$(date +%s 2>/dev/null); local _stg_ok=pass
                 if run_magic_debate_gate; then
                     clear_gate_failure "magic_debate"
                 else
+                    _stg_ok=fail
                     local md_count
                     md_count=$(track_gate_failure "magic_debate")
                     gate_failures="${gate_failures}magic_debate,"
                     log_warn "Magic Modules debate gate: BLOCK severity detected ($md_count consecutive)"
                 fi
+                emit_stage_complete "magic_debate" "$_stg_ok" "$_stg_t0"
             fi
             # Store gate failures for prompt injection
             if [ -n "$gate_failures" ]; then
@@ -17782,6 +18126,13 @@ main() {
     # resume/rollback sees the restored state. Zero behavior change for local.
     _loki_object_store_hydrate_checkpoints || true
 
+    # Plan #16 (A-1): establish git in an engine-owned, non-git build workspace
+    # BEFORE branch setup + start-SHA capture (both need a resolvable HEAD), so
+    # the per-iteration review/verify gate actually runs instead of skipping on
+    # an empty diff. No-op for the engine source tree, a user's own repo, or a
+    # non-engine-owned folder. See maybe_git_init_engine_workspace.
+    maybe_git_init_engine_workspace
+
     # Setup agent branch protection (isolates agent changes to a feature branch)
     setup_agent_branch
 
@@ -17852,7 +18203,10 @@ main() {
         # Cleanup parallel streams
         cleanup_parallel_streams
     else
-        # Standard mode: single session
+        # Standard mode: single session. Advance phase from BOOTSTRAP to BUILDING
+        # before the first iteration so the dashboard shows real progress, not
+        # a stuck "Planning" state.
+        _advance_current_phase "BUILDING"
         run_autonomous "$PRD_PATH" || result=$?
     fi
 
@@ -17938,6 +18292,13 @@ main() {
     if [ "${LOKI_PROOF:-1}" != "0" ]; then
         generate_proof_of_run "$result" || true
     fi
+
+    # Advance currentPhase to COMPLETED so the BFF reconciliation gate and the
+    # engine's own is_completed() recognise this session as terminal. Write the
+    # file-system COMPLETED marker (checked by is_completed() in the main loop).
+    _advance_current_phase "COMPLETED"
+    local loki_dir="${LOKI_DIR:-${TARGET_DIR:-.}}/.loki"
+    echo "Session completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$loki_dir/COMPLETED" 2>/dev/null || true
 
     # Finish-and-own (v7.88.0): write a plain-English ownership handoff
     # (HANDOFF.md) for a non-technical owner. Runs AFTER the proof so the
