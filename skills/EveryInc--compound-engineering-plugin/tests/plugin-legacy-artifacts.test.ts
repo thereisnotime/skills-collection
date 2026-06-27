@@ -50,6 +50,12 @@ describe("plugin legacy artifacts", () => {
     expect(artifacts.prompts).toContain("report-bug.md")
     expect(artifacts.prompts).toContain("workflows-review.md")
     expect(artifacts.prompts).toContain("technical_review.md")
+
+    // ce-work-beta is fully retired: both its skill dir and its Codex
+    // slash-prompt wrapper (~/.codex/prompts/ce-work-beta.md) must be
+    // enumerated so flat installs without a manifest still sweep them.
+    expect(artifacts.skills).toContain("ce-work-beta")
+    expect(artifacts.prompts).toContain("ce-work-beta.md")
   })
 
   test("Codex legacy detection ignores current bundle skills/agents not in the historical allow-list", () => {

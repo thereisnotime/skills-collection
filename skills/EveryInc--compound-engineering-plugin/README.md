@@ -12,7 +12,7 @@ Traditional development accumulates technical debt. Every feature adds complexit
 
 Compound engineering inverts this. 80% is in planning and review, 20% is in execution:
 
-- Plan thoroughly before writing code with `/ce-brainstorm` and `/ce-plan`
+- Plan thoroughly before writing code with `/ce-brainstorm` and `/ce-plan` using one readiness-based plan artifact
 - Review to catch issues and calibrate judgment with `/ce-code-review` and `/ce-doc-review`
 - Codify knowledge so it is reusable with `/ce-compound`
 - Keep quality high so future changes are easy
@@ -30,9 +30,9 @@ The core loop is six steps: **brainstorm** the requirements, **plan** the implem
 
 | Skill | Purpose |
 |-------|---------|
-| `/ce-brainstorm` | Interactive Q&A to think through a feature or problem and write a right-sized requirements doc |
-| `/ce-plan` | Turn the requirements into a detailed implementation plan with guardrails |
-| `/ce-work` | Execute the plan with worktrees and task tracking |
+| `/ce-brainstorm` | Interactive Q&A to think through a feature or problem and write a requirements-only unified plan before planning |
+| `/ce-plan` | Enrich feature ideas or requirements-only plans into implementation-ready plans |
+| `/ce-work` | Execute implementation-ready plans with worktrees and task tracking |
 | `/ce-simplify-code` | Refine the freshly written code for clarity and reuse before review |
 | `/ce-code-review` | Multi-agent review against the plan before merging |
 | `/ce-compound` | Capture the learning into `docs/solutions/` so the next loop starts smarter |
@@ -105,7 +105,7 @@ The first pass tightens recent branch changes before review. The targeted pass i
 
 After installing, run `/ce-setup` in any project. It checks repo-local config, reports optional tool capabilities, and helps keep machine-local CE settings safely gitignored.
 
-The `compound-engineering` plugin currently ships 27 skills and 0 standalone agents. Specialist review, research, and workflow behavior lives inside the owning skills as skill-local prompt assets.
+The `compound-engineering` plugin currently ships 26 skills and 0 standalone agents. Specialist review, research, and workflow behavior lives inside the owning skills as skill-local prompt assets.
 
 ### Full Skill Inventory
 
@@ -136,7 +136,6 @@ The `compound-engineering` plugin currently ships 27 skills and 0 standalone age
 | `/ce-polish` | Start a dev server and iterate on UX polish |
 | `/ce-proof` | Create, edit, and share Proof documents |
 | `/ce-dogfood-beta` | Diff-scoped browser QA of the active branch |
-| `/ce-work-beta` | Experimental execution workflow with Codex delegation mode |
 | `/lfg` | Full autonomous engineering workflow |
 
 ---

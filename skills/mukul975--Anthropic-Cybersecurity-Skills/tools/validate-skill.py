@@ -10,7 +10,10 @@ import re
 import sys
 import glob
 
-REQUIRED_FIELDS = ["name", "description", "domain", "subdomain", "tags"]
+# Kept in sync with the CI workflow (.github/workflows/validate-skills.yml),
+# which now delegates to this script so there is a single source of truth.
+REQUIRED_FIELDS = ["name", "description", "domain", "subdomain", "tags",
+                   "version", "author", "license"]
 
 # Canonical subdomain → set of accepted aliases (including canonical itself).
 # When a skill uses an alias, the validator accepts it but the canonical form
@@ -50,7 +53,7 @@ _SUBDOMAIN_ALIASES = {
     "blockchain-security": {"blockchain-security"},
     "data-protection": {"data-protection"},
     "deception-technology": {"deception-technology"},
-    "firmware-analysis": {"firmware-analysis", "firmware-security"},
+    "hardware-firmware-security": {"hardware-firmware-security", "firmware-analysis", "firmware-security"},
     "privacy-compliance": {"privacy-compliance"},
     "purple-team": {"purple-team"},
     "supply-chain-security": {"supply-chain-security"},
@@ -130,6 +133,14 @@ def parse_frontmatter(text):
         if stripped.startswith("- ") and current_key:
             list_values.append(stripped[2:].strip().strip('"').strip("'"))
             data[current_key] = list(list_values)  # copy so future mutations don't leak
+            continue
+
+        # Only TOP-LEVEL keys (column 0) define frontmatter fields. An indented
+        # ``key: value`` line belongs to a nested structure (e.g. a framework
+        # mapping object that has its own ``name:``/``id:``) and must NOT be
+        # treated as a top-level field — otherwise a nested ``name:`` clobbers
+        # the skill's real ``name``.
+        if line[:1].isspace():
             continue
 
         # Handle inline list: tags: [a, b, c]
@@ -252,7 +263,12 @@ def main():
         sys.exit(1)
 
     if sys.argv[1] == "--all":
-        skill_dirs = sorted(glob.glob("skills/*/"))
+        # Skip .bak backup directories — they are stale copies without a SKILL.md.
+        # glob may return OS-native separators, so normalize before checking.
+        skill_dirs = sorted(
+            d for d in glob.glob("skills/*/")
+            if not d.rstrip("/\\").endswith(".bak")
+        )
         if not skill_dirs:
             print("ERROR: No skill directories found. Run from the repository root.")
             sys.exit(1)

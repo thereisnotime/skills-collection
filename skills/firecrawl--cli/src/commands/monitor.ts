@@ -1,8 +1,8 @@
 /**
  * `firecrawl monitor` — manage Firecrawl monitors.
  *
- * Monitors run recurring scrapes/crawls and diff each result against the last
- * retained snapshot. See features/monitoring in the docs.
+ * Monitors run recurring scrapes/crawls/searches and diff each result against
+ * the last retained snapshot. See features/monitoring in the docs.
  *
  * firecrawl@4.22.2 exposes monitor methods (createMonitor,
  * listMonitors, getMonitor, updateMonitor, deleteMonitor, runMonitor,
@@ -127,6 +127,21 @@ function fail(error: unknown): never {
 }
 
 /**
+ * Firecrawl Cloud web dashboard URL for a monitor, used to point users at the
+ * place they can inspect checks and tweak config. Returns null for self-hosted
+ * APIs, which have no web dashboard.
+ */
+function monitorDashboardUrl(
+  id: string,
+  apiUrl: string | undefined
+): string | null {
+  const url = apiUrl || getConfig().apiUrl || DEFAULT_API_URL;
+  return /api\.firecrawl\.dev/i.test(url)
+    ? `https://www.firecrawl.dev/app/monitoring/${id}`
+    : null;
+}
+
+/**
  * Build the request body for `monitor create` from CLI flags.
  *
  * For full control, callers can pass a JSON file path positionally or pipe
@@ -141,6 +156,11 @@ export function buildCreateBody(opts: {
   page?: string;
   urls?: string[];
   crawlUrl?: string;
+  queries?: string[];
+  searchWindow?: string;
+  maxResults?: number;
+  includeDomains?: string[];
+  excludeDomains?: string[];
   webhookUrl?: string;
   webhookEvents?: string[];
   emailRecipients?: string[];
@@ -160,8 +180,14 @@ export function buildCreateBody(opts: {
         : undefined;
   const hasScrape = urls && urls.length > 0;
   const hasCrawl = !!opts.crawlUrl;
-  if (!hasScrape && !hasCrawl) {
-    throw new Error('Provide --scrape-urls or --crawl-url');
+  const hasSearch = !!(opts.queries && opts.queries.length > 0);
+  if (!hasScrape && !hasCrawl && !hasSearch) {
+    throw new Error('Provide --scrape-urls, --crawl-url, or --queries');
+  }
+  // The API requires a non-empty goal whenever a search target is present
+  // (it auto-enables the AI judge). Fail early with a clear message.
+  if (hasSearch && (!opts.goal || !opts.goal.trim())) {
+    throw new Error('--goal is required for web monitors (--queries)');
   }
 
   const schedule: Record<string, unknown> = {};
@@ -172,6 +198,20 @@ export function buildCreateBody(opts: {
   const targets: unknown[] = [];
   if (hasScrape) targets.push({ type: 'scrape', urls });
   if (hasCrawl) targets.push({ type: 'crawl', url: opts.crawlUrl });
+  if (hasSearch) {
+    const searchTarget: Record<string, unknown> = {
+      type: 'search',
+      queries: opts.queries,
+    };
+    if (opts.searchWindow) searchTarget.searchWindow = opts.searchWindow;
+    if (opts.maxResults !== undefined)
+      searchTarget.maxResults = opts.maxResults;
+    if (opts.includeDomains && opts.includeDomains.length > 0)
+      searchTarget.includeDomains = opts.includeDomains;
+    if (opts.excludeDomains && opts.excludeDomains.length > 0)
+      searchTarget.excludeDomains = opts.excludeDomains;
+    targets.push(searchTarget);
+  }
 
   const body: Record<string, unknown> = {
     name: opts.name,
@@ -219,7 +259,7 @@ function commonOptions(cmd: Command): Command {
  */
 export function createMonitorCommand(): Command {
   const monitor = new Command('monitor').description(
-    'Schedule recurring scrapes/crawls and track content changes'
+    'Schedule recurring scrapes/crawls/searches and track content changes'
   );
 
   // create
@@ -245,6 +285,30 @@ export function createMonitorCommand(): Command {
         parseCommaList
       )
       .option('--crawl-url <url>', 'Root URL for a crawl target')
+      .option(
+        '--queries <list>',
+        'Comma-separated search queries for a search target (requires --goal)',
+        parseCommaList
+      )
+      .option(
+        '--search-window <window>',
+        'Search recency window: 5m, 15m, 1h, 6h, 24h, 7d (default: 24h)'
+      )
+      .option(
+        '--max-results <n>',
+        'Max search results per query, 1-50 (default: 10)',
+        parseInt
+      )
+      .option(
+        '--include-domains <list>',
+        'Comma-separated domains to restrict search results to',
+        parseCommaList
+      )
+      .option(
+        '--exclude-domains <list>',
+        'Comma-separated domains to exclude from search results',
+        parseCommaList
+      )
       .option('--webhook-url <url>', 'Webhook destination')
       .option(
         '--webhook-events <list>',
@@ -261,6 +325,19 @@ export function createMonitorCommand(): Command {
         '--goal <text>',
         'Plain-language goal for the AI change judge (auto-enables the judge)'
       )
+      .addHelpText(
+        'after',
+        `
+Target modes (choose one per monitor):
+  --page <url>                    Watch a single page for changes
+  --scrape-urls <url,url,...>     Watch a batch of pages for changes
+  --crawl-url <root-url>          Watch a whole site — crawls and diffs every page each check
+  --queries <query,...> + --goal  Watch the web via search — alerts on NEW results matching --goal
+
+The first three watch URLs you give it for changes. --queries instead searches the
+whole web each check and alerts on new results matching your --goal (required with --queries).
+`
+      )
   ).action(async (file: string | undefined, options) => {
     try {
       const fromJson = await readJsonPayload(file);
@@ -275,6 +352,11 @@ export function createMonitorCommand(): Command {
           page: options.page,
           urls: options.scrapeUrls,
           crawlUrl: options.crawlUrl,
+          queries: options.queries,
+          searchWindow: options.searchWindow,
+          maxResults: options.maxResults,
+          includeDomains: options.includeDomains,
+          excludeDomains: options.excludeDomains,
           webhookUrl: options.webhookUrl,
           webhookEvents: options.webhookEvents,
           emailRecipients: options.email,
@@ -285,6 +367,16 @@ export function createMonitorCommand(): Command {
         body,
       });
       emit(payload, options);
+      // Point the user at the dashboard + a smoke-test. Only when interactive,
+      // so stdout pipes and `--output` files stay clean for scripting.
+      const createdId = (payload as { data?: { id?: string } })?.data?.id;
+      if (createdId && process.stdout.isTTY) {
+        const link = monitorDashboardUrl(createdId, options.apiUrl);
+        const hints = [`\n  Monitor created · ${createdId}`];
+        if (link) hints.push(`  Open in dashboard:  ${link}`);
+        hints.push(`  Trigger a check:    firecrawl monitor run ${createdId}`);
+        process.stderr.write(hints.join('\n') + '\n');
+      }
     } catch (err) {
       fail(err);
     }
@@ -480,6 +572,11 @@ Examples:
       --schedule "every 30 minutes" \\
       --page https://example.com/blog \\
       --email alerts@example.com
+  $ firecrawl monitor create --name "LLM releases" \\
+      --goal "Notify me about major new LLM model releases" \\
+      --schedule "every 2 hours" \\
+      --queries "new LLM release,frontier model launch" \\
+      --search-window 24h --max-results 10
   $ firecrawl monitor create monitor.json
   $ cat monitor.json | firecrawl monitor create
   $ firecrawl monitor list --limit 20

@@ -76,7 +76,7 @@
           },
           "evidence": {
             "type": "array",
-            "description": "Code-grounded evidence: snippets, line references, or pattern descriptions. At least 1 item.",
+            "description": "Code-grounded evidence: snippets, line references, or pattern descriptions. At least 1 item. For any finding at confidence anchor 75 or 100, the first item MUST be the verbatim motivating line(s) with file:line -- the exact code text that makes the finding true (the quote-the-line gate). A finding whose triggering line cannot be quoted must step down to anchor 50.",
             "items": { "type": "string" },
             "minItems": 1
           },
@@ -130,8 +130,8 @@
     },
     "return_tiers": {
       "description": "Finding fields are split into two tiers. The full schema (with all required fields) applies to the artifact file on disk. The compact return to the orchestrator omits detail-tier fields. Both are valid uses of this schema in different contexts.",
-      "merge_tier": "Returned to orchestrator: title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing, suggested_fix (optional). Plus top-level reviewer, residual_risks, testing_gaps.",
-      "detail_tier": "Required in artifact file, omitted from compact return: why_it_matters, evidence. The artifact file must pass full schema validation including all required fields. Headless output depends on why_it_matters and evidence being present in the artifact."
+      "merge_tier": "Returned to orchestrator: title, severity, file, line, confidence, autofix_class, owner, requires_verification, pre_existing, suggested_fix (optional), first_evidence (required for anchor 75/100; the verbatim first evidence line, used to enforce the quote-the-line gate in-band). Plus top-level reviewer, residual_risks, testing_gaps.",
+      "detail_tier": "Required in artifact file, omitted from compact return: why_it_matters, and the full evidence array (the compact return carries only first_evidence). The artifact file must pass full schema validation including all required fields. Headless output depends on why_it_matters and evidence being present in the artifact."
     }
   }
 }

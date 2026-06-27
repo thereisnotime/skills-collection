@@ -149,7 +149,6 @@ const EXPECTED_USER_INVOKED_SKILLS = new Set([
   "ce-promote",
   "ce-setup",
   "ce-test-xcode",
-  "ce-work-beta",
   "lfg",
 ])
 

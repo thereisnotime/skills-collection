@@ -28,6 +28,49 @@ describe('monitor command helpers', () => {
       });
     });
 
+    it('builds a search target from queries and search options', () => {
+      expect(
+        buildCreateBody({
+          name: 'LLM releases',
+          goal: 'Notify me about major new LLM model releases',
+          scheduleText: 'every 2 hours',
+          timezone: 'UTC',
+          queries: ['new LLM release', 'frontier model launch'],
+          searchWindow: '24h',
+          maxResults: 10,
+          includeDomains: ['openai.com'],
+          excludeDomains: ['reddit.com'],
+        })
+      ).toEqual({
+        name: 'LLM releases',
+        goal: 'Notify me about major new LLM model releases',
+        schedule: {
+          text: 'every 2 hours',
+          timezone: 'UTC',
+        },
+        targets: [
+          {
+            type: 'search',
+            queries: ['new LLM release', 'frontier model launch'],
+            searchWindow: '24h',
+            maxResults: 10,
+            includeDomains: ['openai.com'],
+            excludeDomains: ['reddit.com'],
+          },
+        ],
+      });
+    });
+
+    it('requires a goal for web monitors', () => {
+      expect(() =>
+        buildCreateBody({
+          name: 'No goal',
+          scheduleText: 'hourly',
+          queries: ['something'],
+        })
+      ).toThrow(/goal is required for web monitors/);
+    });
+
     it('supports the simple page plus goal path', () => {
       expect(
         buildCreateBody({

@@ -2,7 +2,7 @@
 
 > Evaluate, fix, and reply to PR review feedback in parallel. Fix what's real; don't churn on what isn't.
 
-`ce-resolve-pr-feedback` is the **incoming-feedback resolution** skill. After your PR gets review comments, this skill fetches all unresolved threads, classifies them as new vs already-handled, dispatches parallel agents to validate each finding and fix what's genuinely correct (or reply with reasoning), commits and pushes, then posts replies and resolves threads via GitHub's GraphQL API. It judges every item on its merits — regardless of source (human or bot) or form (inline thread, formal review body, or top-level comment) — and defaults to fixing, diverting only when reading the code trips a concrete signal (the finding's wrong, the fix would harm, it buys nothing, or the risk can't be bounded).
+`ce-resolve-pr-feedback` is the **incoming-feedback resolution** skill. After your PR gets review comments, this skill fetches all unresolved threads, classifies them as new vs already-handled, then judges every finding centrally — in the one context that holds all threads at once — and fans out parallel subagents only to *implement* the fixes it has approved. It commits and pushes, then posts replies and resolves threads via GitHub's GraphQL API. It judges every item on its merits — regardless of source (human or bot) or form (inline thread, formal review body, or top-level comment) — and defaults to fixing, diverting only when reading the code trips a concrete signal (the finding's wrong, the fix would harm, it buys nothing, or the risk can't be bounded). The central judgment is what catches a confidently-wrong code-review bot before it's blindly fixed.
 
 The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /ce-plan → /ce-work`. `ce-resolve-pr-feedback` is the **post-PR feedback loop** — invoked after reviewers leave comments, complementary to `/ce-code-review` (which reviews *before* the PR is open) and `/ce-debug` (which investigates broken behavior, not review feedback).
 
@@ -12,7 +12,7 @@ The compound-engineering ideation chain is `/ce-ideate → /ce-brainstorm → /c
 
 | Question | Answer |
 |----------|--------|
-| What does it do? | Fetches unresolved review threads + PR comments, dispatches parallel agents to validate each finding and fix what's genuinely correct, commits/pushes, replies and resolves threads |
+| What does it do? | Fetches unresolved review threads + PR comments, judges each finding centrally, fans out parallel subagents to fix the approved ones, commits/pushes, replies and resolves threads |
 | When to use it | After a PR receives review feedback you want to address |
 | What it produces | Commits with fixes, replies on each thread, resolved threads via GraphQL, summary of what was done per verdict |
 | Modes | Full (all unresolved threads), Targeted (single thread URL) |
@@ -29,7 +29,7 @@ Resolving PR feedback at scale fails in predictable ways:
 - **Bot wrapper noise** — review-bot boilerplate ("Here are some automated review suggestions...") inflates the work count
 - **Sequential fixes are slow** — addressing 12 threads one at a time is 12× the wall-clock time
 - **Parallel fixes collide** — two agents writing the same file silently lose one of the changes
-- **No combined validation** — each agent runs targeted tests on its own change; cross-agent regressions slip through
+- **No combined validation** — each fixer runs targeted tests on its own change; cross-agent regressions slip through
 - **Outdated comment line numbers** — feedback on lines that have since drifted is hard to relocate
 
 ## The Solution
@@ -39,9 +39,9 @@ Resolving PR feedback at scale fails in predictable ways:
 - **Fetch all unresolved feedback** (review threads + PR comments + review bodies) via GraphQL
 - **Triage new vs already-handled** — a substantive reply that defers action counts as handled; only new items are processed
 - **Drop bot wrapper noise silently** — non-actionable boilerplate is filtered, not announced
-- **Fix by default; validate as a tripwire** — each finding is judged on its merits regardless of source or form; the agent fixes unless reading the code trips a concrete signal (the finding's wrong, the fix would harm, it buys nothing, or the risk can't be bounded)
-- **Parallel agent dispatch with file-collision avoidance** — agents that touch overlapping files serialize automatically
-- **Combined validation** — one full validation run after all agents complete, catches cross-agent regressions
+- **Judge centrally — the legitimacy gate** — the orchestrator decides each finding's verdict in its own context, where it can dedup reads, cluster a systematically-wrong reviewer's findings across threads, and weigh the author's design intent; it fixes by default and diverts only on a concrete signal (the finding's wrong, the fix would harm, it buys nothing, or the risk can't be bounded)
+- **Fan out only the fixes** — subagents are dispatched solely to implement approved fixes (pure executors, no re-judging); fixers that touch overlapping files serialize automatically
+- **Combined validation** — one full validation run after all fixers complete, catches cross-agent regressions
 - **Reply with quoted context** — every reply quotes the relevant feedback for continuity, then states what was done
 - **Resolve via GraphQL** — review threads get resolved; PR comments and review bodies get a top-level reply (no resolve mechanism in the API)
 
@@ -89,21 +89,21 @@ For each piece of feedback, the skill classifies before processing:
 
 Bot wrappers from CodeRabbit, Codex, Gemini Code Assist, Copilot are dropped silently — recognized by boilerplate content, never announced or counted. This is a *content* check (is there anything actionable here?), not a source check, so it holds regardless of which bot's format changes.
 
-### 5. Parallel dispatch with file-collision avoidance
+### 5. Central judgment, then parallel fixes with file-collision avoidance
 
-For 1-4 items, all run in parallel. For 5+, batches of 4. **Before dispatching, the skill checks file overlaps across items** — overlapping items serialize so two agents never write the same file in parallel.
+The validity decision is made once, by the orchestrator, over the whole batch — not fanned out to a subagent per thread. Judging centrally is both cheaper (one fetch already holds every thread; reads dedup by file; no per-agent overhead paid on threads that turn out to be skips) and stronger (cross-thread clustering catches a systematically-wrong reviewer; the author's design intent is in view). Subagents are dispatched **only** for items already approved for a fix: for 1-4, all run in parallel; for 5+, batches of 4. **Before dispatching, the skill checks file overlaps** — overlapping fixers serialize so two never write the same file in parallel.
 
-Sequential fallback: platforms without parallel dispatch run agents sequentially.
+Sequential fallback: platforms without parallel dispatch run fixers sequentially.
 
-### 6. Combined validation after all agents complete
+### 6. Combined validation after all fixers complete
 
-Each resolver agent runs targeted tests on its own changes. After all agents return, the skill aggregates `files_changed` and runs the project's full validation **once** — catching cross-agent interactions targeted runs can't see.
+Each fixer runs targeted tests on its own changes. After all fixers return, the skill aggregates `files_changed` and runs the project's full validation **once** — catching cross-agent interactions targeted runs can't see.
 
 | Outcome | Action |
 |---------|--------|
 | Green | Proceed to commit |
-| Red, failures touch resolver-changed files | One inline diagnose-and-fix pass; if still red, escalate as `needs-human` and don't commit |
-| Red, failures touch only files no resolver changed | Treat as pre-existing; commit with a footer note |
+| Red, failures touch fixer-changed files | One inline diagnose-and-fix pass; if still red, escalate as `needs-human` and don't commit |
+| Red, failures touch only files no fixer changed | Treat as pre-existing; commit with a footer note |
 
 ### 7. Reply format with quoted context
 
@@ -117,7 +117,7 @@ This keeps reviewers oriented when they read the reply weeks later — they see 
 
 ### 8. Outdated comment relocation
 
-Threads on outdated lines often have `line: null` and require fallback to `originalLine`. The skill carries the `isOutdated` flag and all four location fields (`line`, `originalLine`, `startLine`, `originalStartLine`) into each agent's dispatch so the agent knows the reported line may have drifted and can relocate appropriately.
+Threads on outdated lines often have `line: null` and require fallback to `originalLine`. The orchestrator carries the `isOutdated` flag and all four location fields (`line`, `originalLine`, `startLine`, `originalStartLine`) into the gate, relocates the concern via the comment's anchor when the line has drifted, and passes the resolved location to the fixer so it edits the right place.
 
 ### 9. Two-pass loop with escalation
 
@@ -140,17 +140,17 @@ A reviewer (and a review bot) leave 8 comments on your PR. You invoke `/ce-resol
 
 The skill detects the PR from the current branch, fetches via GraphQL: 6 unresolved review threads, 2 review bodies (one is a CodeRabbit wrapper), 0 PR comments. Triage: the CodeRabbit wrapper is non-actionable boilerplate — dropped silently. One review thread has a substantive reply from yesterday deferring action — pending, skip. That leaves 5 review threads + 1 review body as **new**.
 
-Step 4 dispatches 6 generic resolver subagents seeded with the skill-local `pr-comment-resolver.md` prompt, in batches of 4. File-collision check: two threads touch `app/services/dispatcher.rb` → those two serialize; the rest run in parallel. Each resolver reads the actual code and judges its finding on the merits:
+Step 3 is the gate: the orchestrator judges all 6 new items in its own context, reading the code where a verdict turns on it (and reading `app/services/dispatcher.rb` once for the two threads that land on it):
 
 - 2 findings are clearly correct → `fixed`
 - 1 suggests an approach that works, but a cleaner one exists → `fixed-differently`
-- 1 is a bot finding flagging a "possible null deref" the type system already rules out → confirmed against the code, doesn't hold → `not-addressing` with evidence (no churn)
+- 1 is a bot finding flagging a "possible null deref" the type system already rules out → confirmed against the code, doesn't hold → `not-addressing` with evidence (no churn, and no subagent ever spun up for it)
 - 1 asks "is this intentional?" → answerable from the code → `replied`
 - the review body asks a design question → `replied`
 
-Combined validation runs once against the 3 changed files; tests pass. Commit + push.
+So only 3 items reach step 4, which dispatches 3 generic fixer subagents seeded with the skill-local `pr-comment-resolver.md` prompt. File-collision check: the two `dispatcher.rb` fixers serialize; the rest run in parallel. Each fixer implements its already-approved change and returns. Combined validation runs once against the 3 changed files; tests pass. Commit + push.
 
-Step 7 posts replies: each quotes the original feedback and states what was done. All 5 review threads resolve via GraphQL; the review body gets a top-level PR comment (no resolve mechanism in the API). Step 8 verify: fetched again — empty. Done. Summary surfaces.
+Step 7 posts replies: each quotes the original feedback and states what was done — fixers' replies for the 3 fixes, the orchestrator's composed replies for the `not-addressing`/`replied` items. All 5 review threads resolve via GraphQL; the review body gets a top-level PR comment (no resolve mechanism in the API). Step 8 verify: fetched again — empty. Done. Summary surfaces.
 
 ---
 

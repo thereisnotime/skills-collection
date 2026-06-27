@@ -356,6 +356,16 @@ describe("html-rendering.md reference content invariants", () => {
       /Mandatory directional caption|directional.*not the spec|Directional only/i.test(REFERENCE),
       "Wireframe affordance must require a directional caption.",
     ).toBe(true)
+    // Another-agent P2 (PR #972): brainstorm requirements output is now a
+    // requirements-only unified plan under docs/plans/, so "not plan artifacts"
+    // must mean implementation-ready plans (ce-plan output), NOT exclude the
+    // requirements-only unified plan that ce-brainstorm writes — otherwise HTML
+    // brainstorms for UI changes would suppress the intended wireframe.
+    expect(
+      /requirements-only unified plan/i.test(REFERENCE) &&
+        /not an implementation-ready\s+plan/i.test(REFERENCE),
+      "Wireframe scope must include the requirements-only unified plan and exclude only implementation-ready plans.",
+    ).toBe(true)
   })
 
   test("agent-consumability rules guarantee downstream agents can read HTML", () => {
@@ -373,6 +383,82 @@ describe("html-rendering.md reference content invariants", () => {
       /section heading vocabulary|section contract names|downstream agents grep/i.test(REFERENCE),
       "Reference must require HTML section headings match the section-contract names so downstream agents can find them.",
     ).toBe(true)
+  })
+
+  test("unified plan navigation region links the stable section anchors", () => {
+    // U5: long unified HTML artifacts need load-bearing navigation. The
+    // reference must require a visible nav region linking the stable section
+    // anchors so downstream agents and readers can route without a full read.
+    expect(
+      /Unified plan navigation/i.test(REFERENCE),
+      "Reference must require a visible navigation region for unified plan artifacts.",
+    ).toBe(true)
+    for (const anchor of [
+      "goal-capsule",
+      "product-contract",
+      "planning-contract",
+      "implementation-units",
+      "verification-contract",
+      "definition-of-done",
+    ]) {
+      expect(
+        REFERENCE.includes(anchor),
+        `Reference must name the stable section anchor "${anchor}" for unified-plan navigation.`,
+      ).toBe(true)
+    }
+    // The launch prompt is skill-emitted and there is no Reader Index — neither is a doc section/anchor.
+    expect(REFERENCE.includes("goal-launch-block")).toBe(false)
+    expect(REFERENCE.includes("reader-index")).toBe(false)
+  })
+
+  test("requirements-only artifacts omit links to absent implementation sections", () => {
+    // A requirements-only skeleton has no Planning Contract / Implementation
+    // Units / Verification / DoD. The nav must not point readers at sections
+    // that do not exist, which would make the skeleton look executable.
+    expect(
+      /Requirements-only artifacts omit links to absent|omit links to absent implementation sections/i.test(
+        REFERENCE,
+      ),
+      "Reference must require requirements-only nav to omit links to absent implementation sections.",
+    ).toBe(true)
+  })
+
+  test("visible readiness metadata rendered, no hidden duplicate copy", () => {
+    // U5: HTML must carry artifact_readiness (and the rest of the contract
+    // metadata) as VISIBLE header text, never as a hidden JSON/data-*/<meta>
+    // duplicate that drifts from the visible copy.
+    expect(
+      /Visible readiness metadata/i.test(REFERENCE),
+      "Reference must require visible readiness metadata in the HTML header.",
+    ).toBe(true)
+    for (const field of ["artifact_readiness", "artifact_contract", "product_contract_source"]) {
+      expect(
+        REFERENCE.includes(field),
+        `Reference must name the unified contract metadata field "${field}" to render visibly.`,
+      ).toBe(true)
+    }
+    expect(
+      /Do not hide a duplicate copy in[\s\S]{0,40}JSON|`data-\*`|`<meta>`/i.test(REFERENCE),
+      "Reference must forbid hiding a duplicate metadata copy in JSON, data-*, or <meta>.",
+    ).toBe(true)
+  })
+
+  test("stable section anchor table maps unified sections to HTML ids", () => {
+    expect(
+      /Stable section anchors for unified plans/i.test(REFERENCE),
+      "Reference must include the stable section anchor table for unified plans.",
+    ).toBe(true)
+    const tableStart = REFERENCE.indexOf("Stable section anchors for unified plans")
+    const tableRegion = REFERENCE.slice(tableStart, tableStart + 1200)
+    for (const anchor of [
+      "goal-capsule",
+      "product-contract",
+    ]) {
+      expect(
+        tableRegion.includes(anchor),
+        `Stable section anchor table must map "${anchor}".`,
+      ).toBe(true)
+    }
   })
 
   test("post-compose audit lists failure-mode checks", () => {

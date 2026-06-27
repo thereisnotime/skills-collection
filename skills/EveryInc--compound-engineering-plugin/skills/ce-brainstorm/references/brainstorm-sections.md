@@ -1,12 +1,14 @@
 # Brainstorm Sections
 
-This reference describes what makes a great brainstorm requirements document.
+This reference describes what makes a great requirements-only unified plan
+artifact produced by `ce-brainstorm`.
 It does NOT prescribe how the doc looks on the page — rendering is handled by
 the format-specific references (`markdown-rendering.md`, `html-rendering.md`).
 
 ## The outcome
 
-A great brainstorm produces a doc that enables three audiences to act:
+A great brainstorm produces the first version of the same plan artifact that
+`ce-plan` later enriches. It enables three audiences to act:
 
 - **The planning agent** (`ce-plan` or a human) produces an implementation
   plan without inventing user behavior, scope boundaries, or success
@@ -17,6 +19,38 @@ A great brainstorm produces a doc that enables three audiences to act:
   and what success looks like.
 
 Sections earn their place by serving one of these audiences. Omit padding.
+
+## Unified plan skeleton contract
+
+New `ce-brainstorm` outputs live under `docs/plans/` and use the unified plan
+artifact contract:
+
+- **Path:** `docs/plans/YYYY-MM-DD-NNN-<type>-<topic>-plan.<md|html>`.
+- **`artifact_contract: ce-unified-plan/v1`**.
+- **`artifact_readiness: requirements-only`**.
+- **`product_contract_source: ce-brainstorm`**.
+- **`execution`** only when the brainstorm has enough signal to classify the
+  eventual execution domain. For software features, use `execution: code`.
+  For non-code deliverables, follow the universal-brainstorming route instead
+  of pretending the artifact is executable code.
+
+A requirements-only unified plan is kept **light and standalone-readable**. It
+includes:
+
+- `## Goal Capsule` with objective, product authority, and open blockers.
+- `## Product Contract` containing the brainstorm sections below.
+
+Do **not** emit a `## Goal Launch Block` or `## Reader Index`: the launch prompt
+is skill-emitted at handoff, not a doc section, and the contract carries no
+Reader Index — consumers wayfind by scanning headings. It also omits empty
+`Planning Contract`, `Implementation Units`, `Verification Contract`, and
+`Definition of Done` sections — empty placeholders make requirements-only docs
+look executable and waste downstream tokens. `ce-plan` adds those sections when
+it enriches the same file in place. The next step (planning) is conveyed by the
+Phase 4 handoff menu, not by a section in the doc.
+
+Historical `docs/brainstorms/*-requirements.*` files remain valid legacy
+inputs. Do not migrate or rewrite them when creating new artifacts.
 
 ## Decide whether a doc is warranted at all
 
@@ -90,9 +124,10 @@ contradiction in each section in one pass? A sentence carrying more than one
 parenthetical, or a requirement specifying two outcomes, fails the test — split
 it or defer it.
 
-## Hard floor
+## Product Contract hard floor
 
-When a doc is warranted, these are present.
+When a requirements-only unified plan is warranted, these are present inside
+`## Product Contract`.
 
 - **Summary** — what is being proposed, in 1-3 lines. Forward-looking.
   Orients the reader before they invest in detail.
@@ -139,20 +174,28 @@ worse than omitting it.
   together prevent downstream invention of paths. When omitting from a
   behavioral brainstorm, note the reason in the doc.
 
-- **Visualizations** — include a diagram when the brainstorm contains a
-  diagram-shaped concept that a picture carries faster than prose. Common
-  shapes: a data-shape transformation (before/after schema or field
-  mapping), a source-of-truth fan-out (one authority feeding many derived
-  surfaces), state-or-lifecycle logic, a multi-step flow, or a quantitative
-  comparison. A diagram is cross-cutting, not a section of its own — it sits
-  next to the Key Decision, Requirements group, or Flow it illustrates. The
-  named test: *does the picture let a reader grasp the concept faster than
-  the paragraph alone?* If yes, add it; if the prose already conveys it at a
-  glance, skip it. One diagram per load-bearing concept — don't add visuals
-  for ceremony. This affordance is the conceptual-diagram path; it is
-  distinct from the wireframe affordance (a wireframe is for visual-product
-  UI and does not apply to non-visual systems like data models or agent
-  workflows, but a conceptual diagram does).
+- **Visualizations** — a brainstorm earns a visual when a concept has a
+  **structure worth showing**, and that decision turns on whether the
+  structure exists, *not* on whether your own prose reads clearly. Calling
+  your prose "clear enough" is the trap that quietly under-produces the
+  visuals a reader actually uses — decide on the shape, not the wording.
+  Shapes that warrant one: a data-shape transformation (before/after schema
+  or field mapping), a source-of-truth fan-out (one authority feeding many
+  derived surfaces), state-or-lifecycle logic, a multi-step flow, an
+  entity/relationship structure, a decision boundary, a quantitative
+  comparison — and, for any requirement that changes a UI, screen layout,
+  component placement, or screen flow, a **wireframe**. This applies to
+  backend and conceptual work, not only visual products: a data model, sync
+  protocol, or agent workflow earns a conceptual diagram exactly as a UI
+  requirement earns a wireframe. Match the visual to the shape — a UI/layout
+  shape takes a wireframe in HTML (a mermaid layout diagram or prose in
+  markdown; there is no inline-SVG wireframe in markdown), any other structure
+  takes a conceptual diagram. A visual is cross-cutting, not a section of its
+  own — it sits next to the Key Decision, Requirements group, or Flow it
+  illustrates. **A point with nothing structural to show gets no visual** — a
+  single-field add, a rename, or a one-line change has no structure, and a
+  before/after of one changed line is decoration. One visual per load-bearing
+  concept, never decoration or ceremony.
 
   **Diagrams complement prose; they never replace it.** A diagram is an
   on-ramp to the prose it illustrates, not a substitute. The IDed prose
@@ -216,30 +259,41 @@ about the same thing, with continuous R-IDs across groups.)
 
 ## Brainstorm metadata fields
 
-Every brainstorm carries a small set of stable metadata fields that
+Every requirements-only unified plan carries a small set of stable metadata fields that
 downstream tooling depends on. The contract is format-independent: in
 markdown these fields appear as YAML frontmatter at the top of the file; in
 HTML they appear as visible header text (typically a `<dl>` of `<dt>`/`<dd>`
 pairs or a stats strip). Field names and semantics are the same across both
-formats so consumers can locate them without knowing which format produced
-the brainstorm.
+formats so consumers can locate them without knowing which format produced the
+artifact.
 
 ### Required
 
+- **`title`** — the artifact's descriptive name with a ` - Plan` suffix
+  (e.g., `Highlighter Tool - Plan`), matching the H1 (markdown) or document
+  `<h1>` (HTML). It is a unified plan at every readiness state, so the title
+  stays stable when `ce-plan` enriches it. Do not put a conventional-commit
+  prefix (`feat:`/`fix:`) in the title — the `type` field carries that.
+- **`type`** — conventional-commit-prefix-aligned classification (`feat`,
+  `fix`, `refactor`, `docs`, etc.).
 - **`date`** — creation date in ISO 8601 (`YYYY-MM-DD`), ASCII digits only.
-  Used in the filename (`docs/brainstorms/YYYY-MM-DD-<topic>-requirements.<md|html>`).
+  Used in the filename (`docs/plans/YYYY-MM-DD-NNN-<type>-<topic>-plan.<md|html>`).
 - **`topic`** — kebab-case slug identifying the brainstorm subject (e.g.,
-  `surface-scope-earlier`, `demo-reel-local-save`). Used in the filename
-  alongside `date` and as the resume-detection key when `ce-brainstorm`'s
-  Phase 0.1 scans `docs/brainstorms/` for an existing artifact to continue.
+  `surface-scope-earlier`, `demo-reel-local-save`). Used in the filename and
+  as the resume-detection key when `ce-brainstorm` scans for an existing
+  artifact to continue.
+- **`artifact_contract`** — always `ce-unified-plan/v1` for new outputs.
+- **`artifact_readiness`** — always `requirements-only` for new
+  `ce-brainstorm` outputs. Do not use `active`, `in_progress`, `completed`,
+  or `done`.
+- **`product_contract_source`** — always `ce-brainstorm`.
 
 ### No status field
 
-Brainstorm artifacts have no `status` field and no `active → completed`
-lifecycle — a brainstorm is a one-time output that downstream consumers
-(`ce-plan`, `ce-doc-review`) reference via the plan's `origin:` field. No
-CE artifact carries a mutable status; whether work shipped is derived from
-git, not stored in the doc. Do not introduce one.
+Unified plan artifacts have no `status` field and no `active → completed`
+lifecycle. `artifact_readiness` is document completeness, not execution
+progress. No CE artifact carries mutable progress state; whether work shipped
+is derived from git, not stored in the doc. Do not introduce one.
 
 ### Field-name stability
 

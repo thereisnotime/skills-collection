@@ -55,6 +55,17 @@ These hold regardless of which skill produced the artifact.
   leaves readers unable to tell how stale the rendering is.
 - **ASCII identifiers.** Class names, element IDs, data attribute names
   are ASCII-only.
+- **Unified plan navigation.** Unified plan artifacts include a visible
+  navigation region near the top of the document. It links to stable section
+  anchors for `goal-capsule`,
+  `product-contract`, `planning-contract`, `implementation-units`,
+  `verification-contract`, `definition-of-done`, and `appendix` when those
+  sections exist. Requirements-only artifacts omit links to absent
+  implementation sections.
+- **Visible readiness metadata.** If the artifact has `artifact_contract`,
+  `artifact_readiness`, `product_contract_source`, or `execution`, render
+  those values in the visible header metadata. Do not hide a duplicate copy in
+  JSON, `data-*`, or `<meta>` tags.
 
 ## Precedence stack for style preferences
 
@@ -244,6 +255,26 @@ mentions of paths or PRs inside paragraph prose stay as code or text.
 Linking every mention would clutter; readers expect clickable jumps
 where the doc presents itself as a reference index.
 
+### Stable section anchors for unified plans
+
+When rendering a unified plan, every major logical section gets a stable
+anchor ID and visible heading text:
+
+| Logical section | Required id |
+|---|---|
+| Goal Capsule | `goal-capsule` |
+| Product Contract | `product-contract` |
+| Product Requirements | `product-requirements` |
+| Planning Contract | `planning-contract` |
+| Implementation Units | `implementation-units` |
+| Verification Contract | `verification-contract` |
+| Definition of Done | `definition-of-done` |
+| Appendix | `appendix` |
+
+Long HTML plans are agent-consumed as source text as often as they are read in
+a browser. Keep the heading text visible and adjacent to the `id`; do not rely
+on a nav link alone to carry the section name.
+
 ### Text contrast is local
 
 Every text-on-background pairing must hold up on its own. A color that
@@ -351,8 +382,8 @@ relationships, a topology diagram; if it's process flow across
 participants, a swim lane; etc.
 
 **Conceptual diagrams are not wireframes.** The wireframe affordance below
-is scoped to brainstorm requirements docs about *visual products* and is
-excluded for non-visual systems. That exclusion is about wireframes only —
+is scoped to *UI-shaped requirements* and is excluded for non-visual
+systems. That exclusion is about wireframes only —
 a brainstorm about a data model, schema, agent workflow, or migration is
 still free to use a conceptual diagram (a before/after field map, a
 source-of-truth fan-out, a state diagram). Don't let the wireframe
@@ -434,12 +465,19 @@ caption because the wireframe is explicitly NOT a spec.
 
 ## Wireframe mockups (requirements docs only)
 
-When a brainstorm requirements document describes a user-facing visual
-surface (UI feature, screen layout, screen flow, component placement),
-the HTML rendering may include a wireframe mockup. This affordance applies
-ONLY to brainstorm requirements docs that describe visual products — not
-to plan artifacts, and not to brainstorms about non-visual systems (API
-design, agent workflows, infrastructure).
+When a brainstorm requirement describes a user-facing visual surface (UI
+feature, screen layout, screen flow, component placement), the HTML
+rendering may include a wireframe mockup. The trigger is the
+**requirement**, not the document: any requirement (or requirements group)
+with a UI/layout shape can carry a wireframe, whether or not the brainstorm
+as a whole is "a visual product" — a backend-heavy brainstorm with one
+screen change still earns a wireframe for that requirement. It still applies
+to brainstorm **requirements** output — the requirements-only unified plan
+`ce-brainstorm` writes (now under `docs/plans/`), not an implementation-ready
+plan (`ce-plan`'s enriched output) — and only to UI-shaped requirements — a
+non-visual requirement (API design, data model, agent workflow,
+infrastructure) takes a conceptual diagram instead, not a
+wireframe.
 
 When a wireframe is included:
 

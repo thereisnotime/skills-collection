@@ -85,6 +85,21 @@ describe("ce-brainstorm metadata field contract", () => {
     }
   })
 
+  test("Visualizations are shape-gated (not prose-clarity-gated) and cover backend + UI", () => {
+    // The old trigger ("skip if the prose conveys it at a glance") is the
+    // clarity trap that under-produces visuals; the contract must instead gate
+    // on whether a structure worth showing exists, apply to backend/conceptual
+    // work (not only visual products), and offer a wireframe for UI-shaped
+    // requirements — while keeping the anti-decoration and complement guards.
+    expect(/structure worth showing/i.test(BODY)).toBe(true)
+    expect(/decide on the shape, not the wording/i.test(BODY)).toBe(true)
+    expect(/backend and conceptual work, not only visual products/i.test(BODY)).toBe(true)
+    expect(/shape takes a wireframe/i.test(BODY)).toBe(true)
+    expect(/\*\*wireframe\*\*/i.test(BODY)).toBe(true)
+    expect(/structural to show gets no visual/i.test(BODY)).toBe(true)
+    expect(/complement prose; they never replace it/i.test(BODY)).toBe(true)
+  })
+
   test("brainstorm-sections.md states brainstorms carry no status field", () => {
     // No CE artifact carries a mutable status field — the active → completed
     // lifecycle was removed (ce-work no longer mutates plans; completion is

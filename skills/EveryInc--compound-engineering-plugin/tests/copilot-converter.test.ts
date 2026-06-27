@@ -478,9 +478,9 @@ Task best-practices-researcher(topic)`
   })
 
   test("replaces multi-colon ce: references fully", () => {
-    const input = "run ce:work:beta and ce:review:deep"
+    const input = "run ce:foo:bar and ce:baz:qux"
     const result = transformContentForCopilot(input)
-    expect(result).toBe("run ce-work-beta and ce-review-deep")
+    expect(result).toBe("run ce-foo-bar and ce-baz-qux")
     expect(result).not.toContain(":")
   })
 

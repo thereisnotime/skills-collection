@@ -53,6 +53,7 @@ describe("ce-plan post-generation menu routing", () => {
     // phrasing tweaks without the assertion becoming brittle.
     const optionFragments: { name: string; fragment: string }[] = [
       { name: "Start /ce-work", fragment: "Start `/ce-work`" },
+      { name: "Run it as a /goal", fragment: "Run it as a `/goal`" },
       { name: "Create Issue", fragment: "Create Issue" },
       { name: "Publish to Proof", fragment: "Publish to Proof" },
       // "Open in browser" is the HTML-mode replacement for Publish to Proof.
@@ -60,7 +61,6 @@ describe("ce-plan post-generation menu routing", () => {
       // depending on OUTPUT_FORMAT, so the agent needs both bullets to route
       // correctly without loading the reference.
       { name: "Open in browser", fragment: "Open in browser" },
-      { name: "Done for now", fragment: "Done for now" },
     ]
 
     for (const { name, fragment } of optionFragments) {

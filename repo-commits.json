@@ -691,63 +691,63 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
-      "sha": "240b69e",
-      "message": "fix(ce-commit-push-pr): append PR body so zsh noclobber can't blank it (#1008)",
+      "sha": "b0d3928",
+      "message": "fix(ce-simplify-code): name the blocking question tool on the ask-for-scope path (#1002)",
+      "date": "2026-06-27",
+      "author": "PixelCove"
+    },
+    {
+      "sha": "2bbdbfb",
+      "message": "chore: release main (#999)",
+      "date": "2026-06-27",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "7ef752a",
+      "message": "feat(plan): unify brainstorm and plan into one readiness-staged, goal-ready artifact (#972)",
+      "date": "2026-06-27",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "8eb6431",
+      "message": "fix(ce-resolve-pr-feedback): judge findings centrally before dispatching fixers (#1015)",
+      "date": "2026-06-27",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "6e18b97",
+      "message": "fix(ce-code-review): right-size code review and route it through one portable path (#1014)",
       "date": "2026-06-26",
       "author": "Trevin Chow"
     },
     {
-      "sha": "f8a64b1",
-      "message": "fix(lfg): finish cleanly when the repo has no git remote (#1006)",
+      "sha": "ac66926",
+      "message": "chore(ce-work-beta): remove beta Codex-delegation skill (#1013)",
       "date": "2026-06-26",
       "author": "Trevin Chow"
     },
     {
-      "sha": "7c13588",
-      "message": "docs(ce-simplify-code): document /lfg invocation and utility-skill framing (#1001)",
-      "date": "2026-06-24",
+      "sha": "b5633aa",
+      "message": "fix(skills): migrate ${CLAUDE_SKILL_DIR} script guards to the portable SKILL_DIR anchor (#1010)",
+      "date": "2026-06-26",
       "author": "Trevin Chow"
     },
     {
-      "sha": "1958565",
-      "message": "fix: remove no-op prose and codify authoring rule (#1000)",
-      "date": "2026-06-24",
+      "sha": "b1d9344",
+      "message": "fix(skills): anchor bundled-script calls to the loaded skill dir (#1009)",
+      "date": "2026-06-26",
       "author": "Trevin Chow"
     },
     {
-      "sha": "65fed60",
-      "message": "fix(kimi): add native plugin support (#998)",
-      "date": "2026-06-24",
+      "sha": "5e7d413",
+      "message": "docs(skill-design): document bundled-script path resolution across harnesses (#1012)",
+      "date": "2026-06-26",
       "author": "Trevin Chow"
     },
     {
-      "sha": "e176a6d",
-      "message": "chore: release main (#996)",
-      "date": "2026-06-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "2c330ad",
-      "message": "fix(codex): expand plain-language starter prompts (#995)",
-      "date": "2026-06-24",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "fadeea9",
-      "message": "chore: release main (#993)",
-      "date": "2026-06-24",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "6954298",
-      "message": "fix: slim skill descriptions (#992)",
-      "date": "2026-06-24",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "fd96c50",
-      "message": "chore: use dedicated Codex composer icon (#991)",
-      "date": "2026-06-24",
+      "sha": "fdfad38",
+      "message": "feat(ce-code-review): add cross-model adversarial review pass (#1007)",
+      "date": "2026-06-26",
       "author": "Trevin Chow"
     }
   ],
@@ -2315,6 +2315,48 @@
   ],
   "firecrawl--cli": [
     {
+      "sha": "b529706",
+      "message": "Merge pull request #145 from firecrawl/jonathan/monitor-cli-ux",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "c34da18",
+      "message": "Clarify monitor target modes + link to dashboard on create",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "11e9d6e",
+      "message": "Merge pull request #142 from firecrawl/search-monitor",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "4438803",
+      "message": "Merge remote-tracking branch 'origin/main' into search-monitor",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "93b3403",
+      "message": "Update package.json",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "7603de5",
+      "message": "Update SKILL.md",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
+      "sha": "a350605",
+      "message": "Use 'web monitors' in error and test",
+      "date": "2026-06-26",
+      "author": "Developers Digest"
+    },
+    {
       "sha": "08777ea",
       "message": "Merge pull request #143 from firecrawl/mogery/fix-crawl-wait-poll-interval",
       "date": "2026-06-25",
@@ -2327,51 +2369,9 @@
       "author": "mogery"
     },
     {
-      "sha": "278556b",
-      "message": "Merge pull request #141 from firecrawl/docs/skill-keyless-fallback",
-      "date": "2026-06-23",
-      "author": "Eric Ciarla"
-    },
-    {
-      "sha": "04576c1",
-      "message": "docs(skill): note keyless free tier fallback in CLI skill",
-      "date": "2026-06-23",
-      "author": "Max Loffgren"
-    },
-    {
-      "sha": "1f8bb63",
-      "message": "Merge pull request #140 from firecrawl/launch-commands",
-      "date": "2026-06-19",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "c984ea5",
-      "message": "Merge remote-tracking branch 'origin/main' into launch-commands",
-      "date": "2026-06-19",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "b8f15ff",
-      "message": "Update package.json",
-      "date": "2026-06-19",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "14cac37",
-      "message": "Support native skills install and setup mode",
-      "date": "2026-06-19",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "cc57f35",
-      "message": "Merge pull request #139 from firecrawl/install-update",
-      "date": "2026-06-19",
-      "author": "Developers Digest"
-    },
-    {
-      "sha": "7d39907",
-      "message": "Update package.json",
-      "date": "2026-06-19",
+      "sha": "ea9d018",
+      "message": "feat(monitor): add search-target support to monitor create",
+      "date": "2026-06-24",
       "author": "Developers Digest"
     }
   ],
@@ -4651,6 +4651,30 @@
   ],
   "mukul975--Anthropic-Cybersecurity-Skills": [
     {
+      "sha": "673da1f",
+      "message": "Fix validator: register hardware-firmware-security subdomain, skip .bak dirs",
+      "date": "2026-06-26",
+      "author": "mukul975"
+    },
+    {
+      "sha": "1f5cb12",
+      "message": "chore: auto-update index.json and skill count",
+      "date": "2026-06-26",
+      "author": "mukul975"
+    },
+    {
+      "sha": "f3a472b",
+      "message": "Merge pull request #85 from nyxst4ck/nyxst4ck/auto-quote-pip-extras-20260621-091605",
+      "date": "2026-06-26",
+      "author": "Mahipal"
+    },
+    {
+      "sha": "4e165f9",
+      "message": "Merge pull request #87 from ioxoi/fix/validator-and-disclaimers",
+      "date": "2026-06-26",
+      "author": "Mahipal"
+    },
+    {
       "sha": "768ca51",
       "message": "chore: bump plugin version to v1.3.0",
       "date": "2026-06-22",
@@ -4669,6 +4693,12 @@
       "author": "mukul975"
     },
     {
+      "sha": "5f5edbb",
+      "message": "Fix validator nested-name misparse, unify with CI, add authorized-use banner",
+      "date": "2026-06-22",
+      "author": "Homan Ansari"
+    },
+    {
       "sha": "13a1c4a",
       "message": "chore: auto-update index.json and skill count",
       "date": "2026-06-22",
@@ -4678,36 +4708,6 @@
       "sha": "5114017",
       "message": "Fix plugin version (1.0.0->1.2.0), sync skill count to 762, automate both",
       "date": "2026-06-22",
-      "author": "mukul975"
-    },
-    {
-      "sha": "7eebca8",
-      "message": "chore: auto-update index.json",
-      "date": "2026-06-20",
-      "author": "mukul975"
-    },
-    {
-      "sha": "0a12335",
-      "message": "Merge pull request #81 from DevRedious/add-foundry-smart-contract-security-skill",
-      "date": "2026-06-20",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "8f0f3f2",
-      "message": "chore: auto-update index.json",
-      "date": "2026-06-20",
-      "author": "mukul975"
-    },
-    {
-      "sha": "1ea9444",
-      "message": "Merge pull request #71 from andrewibrah/add-grc-skills",
-      "date": "2026-06-20",
-      "author": "Mahipal"
-    },
-    {
-      "sha": "3f82a6f",
-      "message": "chore: auto-update index.json",
-      "date": "2026-06-20",
       "author": "mukul975"
     }
   ],
@@ -5203,6 +5203,12 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "8f3619c",
+      "message": "feat(databricks-pack): cost-leak-hunter \u2014 first v2 live-detection skill (#906)",
+      "date": "2026-06-27",
+      "author": "intentsolutions.io"
+    },
+    {
       "sha": "e3e0513",
       "message": "Land publishing-skills (AutomateLab) \u2014 re-land of #842 onto current main (#905)",
       "date": "2026-06-25",
@@ -5253,12 +5259,6 @@
     {
       "sha": "13b56dc",
       "message": "fix(sync-external): harden the external-plugin sync pipeline (#896)",
-      "date": "2026-06-25",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "c89430d",
-      "message": "feat(beads-dolt): vendor the Dolt/DoltHub-aware beads plugin into the catalog (#895)",
       "date": "2026-06-25",
       "author": "intentsolutions.io"
     }
@@ -5327,6 +5327,12 @@
   ],
   "daymade--claude-code-skills": [
     {
+      "sha": "9e4b0d6",
+      "message": "feat(daymade-claude-code): add read-claude-web-conversation skill (#103)",
+      "date": "2026-06-26",
+      "author": "daymade"
+    },
+    {
       "sha": "3894253",
       "message": "Merge pull request #102 from daymade/fix/cleanup-review",
       "date": "2026-06-25",
@@ -5377,12 +5383,6 @@
     {
       "sha": "5513a70",
       "message": "Merge pull request #96 from daymade/fix/wecom-pr95-nits",
-      "date": "2026-06-24",
-      "author": "daymade"
-    },
-    {
-      "sha": "a5624ab",
-      "message": "fix(wecom): address PR #95 review nits",
       "date": "2026-06-24",
       "author": "daymade"
     }
@@ -5575,63 +5575,63 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "97ba6fc",
-      "message": "chore(badge): update subagents report Last Updated badge to Jun 26 2026, v2.1.193",
-      "date": "2026-06-26",
+      "sha": "ee17322",
+      "message": "chore(badge): update claude-subagents Last Updated to Jun 27, 2026 and version to v2.1.195",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "e38f5bc",
-      "message": "chore(changelog): add 2026-06-26 subagents drift check entry (v2.1.193, no drift)",
-      "date": "2026-06-26",
+      "sha": "3c9d627",
+      "message": "chore(changelog): append 2026-06-27 subagents drift check \u2014 no drift, v2.1.195",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "23a9361",
-      "message": "chore(changelog): append 2026-06-26 no-drift entry for claude-commands",
-      "date": "2026-06-26",
+      "sha": "f492590",
+      "message": "changelog(commands): append 2026-06-27 v2.1.195 no-drift entry",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "1f919dd",
-      "message": "chore(badge): bump claude-commands Last Updated to Jun 26, 2026 and version to v2.1.193",
-      "date": "2026-06-26",
+      "sha": "56f1c74",
+      "message": "chore(commands): bump Last Updated badge to Jun 27 2026 and version to v2.1.195",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "897c292",
-      "message": "chore(badge): bump claude-skills Last Updated to Jun 26, 2026 and version to v2.1.193",
-      "date": "2026-06-26",
+      "sha": "2b4e285",
+      "message": "docs(claude-skills): update Last Updated badge to Jun 27, 2026 and v2.1.195",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "41c8312",
-      "message": "chore(changelog): append 2026-06-26 no-drift entry for claude-skills",
-      "date": "2026-06-26",
+      "sha": "293ec8c",
+      "message": "changelog(claude-skills): add 2026-06-27 no-drift entry for v2.1.195",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "722fd4f",
-      "message": "chore(badge): bump Last Updated to Jun 26, 2026 9:40 AM PKT",
-      "date": "2026-06-26",
+      "sha": "896960c",
+      "message": "chore(badge): bump Last Updated timestamp to Jun 27, 2026 9:38 AM PKT",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "c8654b4",
-      "message": "chore(changelog): append v2.1.193 concepts drift-check entry (Jun 26 2026)",
-      "date": "2026-06-26",
+      "sha": "d6cf2cd",
+      "message": "chore(changelog): append 2026-06-27 CONCEPTS drift entry (v2.1.195, no auto-apply changes)",
+      "date": "2026-06-27",
       "author": "Claude"
     },
     {
-      "sha": "15372e7",
-      "message": "chore(changelog): append Jun 26 2026 development workflows run",
-      "date": "2026-06-26",
+      "sha": "66d3f26",
+      "message": "append 2026-06-27 changelog entry for development workflows update",
+      "date": "2026-06-27",
       "author": "Claude Routine"
     },
     {
-      "sha": "f3c7740",
-      "message": "chore(dev-workflows): update stars, sort swap gstack\u2191/SpecKit\u2193 (Jun 26 2026)",
-      "date": "2026-06-26",
+      "sha": "c2d76e5",
+      "message": "update development workflows table: stars, 2 workflow pipelines, CE skills count",
+      "date": "2026-06-27",
       "author": "Claude Routine"
     }
   ],
@@ -5761,6 +5761,12 @@
   ],
   "jqueryscript--awesome-claude-code": [
     {
+      "sha": "49aa4ff",
+      "message": "Update README.md",
+      "date": "2026-06-26",
+      "author": "jQueryScript"
+    },
+    {
       "sha": "bd35a3f",
       "message": "Update README.md",
       "date": "2026-06-25",
@@ -5812,12 +5818,6 @@
       "sha": "3c8ee95",
       "message": "Update README.md",
       "date": "2026-06-15",
-      "author": "jQueryScript"
-    },
-    {
-      "sha": "b125ef8",
-      "message": "Update README.md",
-      "date": "2026-06-14",
       "author": "jQueryScript"
     }
   ]

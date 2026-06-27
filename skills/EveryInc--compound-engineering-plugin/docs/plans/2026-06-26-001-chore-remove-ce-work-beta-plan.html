@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remove ce-work-beta Skill - Plan</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --surface: #ffffff;
+    --ink: #1f2328;
+    --ink-soft: #57606a;
+    --line: #e3e0da;
+    --accent: #8a5a2b;
+    --accent-soft: #f4ece2;
+    --accent-text: #6b4419;
+    --warn-soft: #fbf3e6;
+    --warn-text: #8a5a00;
+    --info-soft: #eef2f6;
+    --info-text: #3a4a59;
+    --ok-soft: #e8f1e9;
+    --ok-text: #2f5d3a;
+    --radius: 8px;
+    --measure: 72ch;
+    --font-body: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c;
+      --surface: #1d2024;
+      --ink: #e6e3dd;
+      --ink-soft: #a4aab2;
+      --line: #2e3238;
+      --accent: #d6a878;
+      --accent-soft: #2a2017;
+      --accent-text: #e8c49a;
+      --warn-soft: #2a2212;
+      --warn-text: #e0bd72;
+      --info-soft: #1c232b;
+      --info-text: #aebfcf;
+      --ok-soft: #16241a;
+      --ok-text: #8fc99c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  .page { max-width: 900px; margin-inline: auto; padding: 3rem 1.5rem 4rem; }
+  p, li { max-width: var(--measure); }
+  h1, h2, h3, h4 { font-family: var(--font-ui); line-height: 1.25; }
+  h1 { font-size: 2rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.3rem; margin: 2.6rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 1.8rem 0 0.6rem; }
+  a { color: var(--accent-text); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  code { font-family: var(--font-mono); font-size: 0.86em; }
+  p code, li code, dd code, td code { background: var(--info-soft); color: var(--info-text); padding: 0.1em 0.35em; border-radius: 4px; }
+  .eyebrow { font-family: var(--font-ui); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-text); font-weight: 600; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1.2rem; margin: 1.5rem 0 0; font-family: var(--font-ui); font-size: 0.85rem; }
+  .meta dt { color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem; align-self: center; }
+  .meta dd { margin: 0; }
+  .chip { display: inline-block; font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; padding: 0.15em 0.6em; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); border: 1px solid var(--line); }
+  nav.toc { font-family: var(--font-ui); font-size: 0.85rem; margin: 2rem 0; padding: 0.9rem 1.1rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  nav.toc strong { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin-bottom: 0.4rem; }
+  nav.toc a { margin-right: 1.1rem; white-space: nowrap; display: inline-block; }
+  section { margin-top: 1rem; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 2.8rem 0 0; }
+  .capsule, .decision, .unit, .contract { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .capsule { padding: 1.2rem 1.4rem; }
+  .capsule dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.2rem; margin: 0; }
+  .capsule dt { font-family: var(--font-ui); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); align-self: start; padding-top: 0.15rem; }
+  .capsule dd { margin: 0; }
+  .decision { padding: 1rem 1.2rem; margin: 0.9rem 0; }
+  .decision .d-title { font-family: var(--font-ui); font-weight: 600; display: block; margin-bottom: 0.3rem; }
+  .decision .d-id { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; color: var(--accent-text); margin-right: 0.5rem; }
+  table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 0.4rem; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--font-ui); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+  td.id { white-space: nowrap; font-family: var(--font-ui); font-weight: 600; color: var(--accent-text); }
+  .rgroup { font-family: var(--font-ui); font-weight: 600; font-size: 0.95rem; margin: 1.6rem 0 0.2rem; }
+  .callout { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1.1rem; margin: 0.7rem 0; }
+  .callout .c-label { font-family: var(--font-ui); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; display: block; margin-bottom: 0.3rem; }
+  .callout.deferred { background: var(--info-soft); } .callout.deferred .c-label { color: var(--info-text); }
+  .callout.outside { background: var(--warn-soft); } .callout.outside .c-label { color: var(--warn-text); }
+  .callout.note { background: var(--accent-soft); } .callout.note .c-label { color: var(--accent-text); }
+  ul.tight { margin: 0.3rem 0; padding-left: 1.2rem; } ul.tight li { margin: 0.3rem 0; }
+  .subnav { font-family: var(--font-ui); font-size: 0.85rem; margin: 0.8rem 0 1.2rem; padding-left: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+  .subnav a { white-space: nowrap; }
+  .unit { padding: 1.1rem 1.3rem; margin: 1rem 0; }
+  .unit > h3 { margin-top: 0; }
+  .unit .u-id { font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; color: var(--accent-text); }
+  .unit dl.strip { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0.5rem 0 0.2rem; font-size: 0.92rem; }
+  .unit dl.strip dt { font-family: var(--font-ui); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); padding-top: 0.12rem; }
+  .unit dl.strip dd { margin: 0; }
+  details { margin: 0.6rem 0 0; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+  summary { font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600; cursor: pointer; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
+  details[open] summary { margin-bottom: 0.5rem; }
+  .contract { padding: 1.1rem 1.3rem; margin: 0.8rem 0; }
+  .exec-note { background: var(--warn-soft); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0 0; font-size: 0.9rem; }
+  .exec-note .c-label { font-family: var(--font-ui); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--warn-text); display: block; }
+  footer.composition-signal { margin-top: 3.5rem; padding-top: 1rem; border-top: 1px solid var(--line); font-family: var(--font-ui); font-size: 0.78rem; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <span class="eyebrow">Compound Engineering · Implementation Plan</span>
+  <h1>Remove ce-work-beta Skill - Plan</h1>
+  <p style="color:var(--ink-soft); max-width:var(--measure); margin-top:0.3rem;">
+    Retire the experimental Codex external-delegation skill and complete the repo's
+    required removal cleanup, keeping the reusable delegation learnings.
+  </p>
+
+  <dl class="meta">
+    <dt>Type</dt><dd><span class="chip">chore</span></dd>
+    <dt>Date</dt><dd><time datetime="2026-06-26">2026-06-26</time></dd>
+    <dt>Topic</dt><dd><code>remove-ce-work-beta</code></dd>
+    <dt>Artifact</dt><dd><code>ce-unified-plan/v1</code></dd>
+    <dt>Readiness</dt><dd><code>implementation-ready</code></dd>
+    <dt>Source</dt><dd><code>ce-brainstorm</code></dd>
+    <dt>Execution</dt><dd><code>code</code></dd>
+  </dl>
+
+  <nav class="toc">
+    <strong>On this page</strong>
+    <a href="#goal-capsule">Goal Capsule</a>
+    <a href="#product-contract">Product Contract</a>
+    <a href="#planning-contract">Planning Contract</a>
+    <a href="#implementation-units">Implementation Units</a>
+    <a href="#verification-contract">Verification Contract</a>
+    <a href="#definition-of-done">Definition of Done</a>
+  </nav>
+
+  <section id="goal-capsule">
+    <h2>Goal Capsule</h2>
+    <div class="capsule">
+      <dl>
+        <dt>Objective</dt>
+        <dd>Remove the unmaintained <code>ce-work-beta</code> skill (the Codex shell-out delegation experiment) and complete every cleanup the repo's conventions require, while preserving the reusable external-delegation learnings.</dd>
+        <dt>Authority</dt>
+        <dd>Trevin Chow (plugin maintainer). The Product Contract is the source of truth; planning corrections to it are noted below.</dd>
+        <dt>Execution profile</dt>
+        <dd>Single small PR off a feature branch. Mechanical removal plus one documentation edit; no architectural risk.</dd>
+        <dt>Stop conditions</dt>
+        <dd>Stop and surface if removing the skill breaks a test whose intent is to verify <em>live</em> delegation behavior in a way the plan didn't anticipate, or if <code>release:validate</code> fails for a reason other than the skill count. Do not expand scope into the historical plan docs or CHANGELOG.</dd>
+        <dt>Tail ownership</dt>
+        <dd>Implementer runs <code>bun test</code> and <code>bun run release:validate</code> to green, then opens a PR with a <code>chore(ce-work-beta):</code>-scoped title. All changes to <code>main</code> go through the PR; no direct push.</dd>
+        <dt>Open blockers</dt>
+        <dd>None.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="product-contract">
+    <h2>Product Contract</h2>
+
+    <div class="callout note">
+      <span class="c-label">Product Contract preservation</span>
+      Requirements unchanged in intent. <strong>R5 clarified</strong>: there is no skill count stored in a release manifest — the count lives in README prose (R4) and one test assertion (<code>tests/release-metadata.test.ts</code>), and <code>release:validate</code> auto-derives counts from disk. R5 is reframed from "sync the release manifest count" to "fix the README + test count and run <code>release:validate</code> to confirm sync." No product-scope change.
+    </div>
+
+    <h3>Summary</h3>
+    <p>
+      Delete the <code>ce-work-beta</code> skill from the plugin and perform the full set of
+      cleanups its removal triggers: stale-install registries, the README inventory and
+      skill count, the delegation-parity contract tests, and the release-metadata test
+      count. The skill is beta and <code>disable-model-invocation: true</code> with no
+      downstream handoffs, so removal is a hard delete rather than a deprecation. The Codex
+      token-economics learnings are kept as a standalone reference; the now-moot promotion
+      checklist is deleted.
+    </p>
+
+    <h3>Problem Frame</h3>
+    <p>
+      <code>ce-work-beta</code> was a beta surface for routing implementation work to the
+      Codex CLI via <code>codex exec</code>. The delegation machinery — config parsing,
+      per-batch effort selection, sandbox routing, and the ~23 KB delegation-workflow
+      reference — has ongoing carrying cost. Keeping the shell-out path correct as
+      <code>ce-work</code> evolves means maintaining a parallel orchestration surface that
+      stayed beta, manual-only, and isolated from planning/workflow handoffs by design. The
+      maintenance burden now outweighs the value the experiment returns, so the experiment
+      ends.
+    </p>
+
+    <h3 id="product-requirements">Requirements</h3>
+
+    <div class="rgroup">Skill removal</div>
+    <table>
+      <thead><tr><th>ID</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td class="id" id="r1">R1</td><td>Delete the entire <code>skills/ce-work-beta/</code> directory tree, including <code>SKILL.md</code> and all files under <code>references/</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="rgroup">Stale-install cleanup</div>
+    <table>
+      <thead><tr><th>ID</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td class="id" id="r2">R2</td><td>Add <code>ce-work-beta</code> (dash variant) to <code>STALE_SKILL_DIRS</code> in <code>src/utils/legacy-cleanup.ts</code> so upgrades sweep the flat-install skill directory. The colon variant <code>ce:work-beta</code> is already present and stays.</td></tr>
+        <tr><td class="id" id="r3">R3</td><td>Add <code>ce-work-beta</code> to <code>EXTRA_LEGACY_ARTIFACTS_BY_PLUGIN["compound-engineering"].skills</code> in <code>src/data/plugin-legacy-artifacts.ts</code> for the same reason.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="rgroup">Inventory and release sync</div>
+    <table>
+      <thead><tr><th>ID</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td class="id" id="r4">R4</td><td>Update <code>README.md</code>: remove the <code>/ce-work-beta</code> inventory row and change the stated skill count from 27 to 26.</td></tr>
+        <tr><td class="id" id="r5">R5</td><td>Fix the hardcoded skill-count assertion in <code>tests/release-metadata.test.ts</code> (27 to 26) and run <code>bun run release:validate</code> to confirm metadata is in sync. The count auto-derives from skill directories; do not hand-bump release-owned versions.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="rgroup">Knowledge preservation</div>
+    <table>
+      <thead><tr><th>ID</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td class="id" id="r6">R6</td><td>Edit <code>docs/solutions/best-practices/codex-delegation-best-practices.md</code> to read as a standalone external-delegation reference: keep the token-economics and batching learnings, remove the parts that depend on <code>ce-work-beta</code> existing as a live skill.</td></tr>
+        <tr><td class="id" id="r7">R7</td><td>Delete <code>docs/solutions/skill-design/ce-work-beta-promotion-checklist.md</code> — no longer applicable once the skill is removed rather than promoted.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="rgroup">Tests</div>
+    <table>
+      <thead><tr><th>ID</th><th>Requirement</th></tr></thead>
+      <tbody>
+        <tr><td class="id" id="r8">R8</td><td>Remove the <code>ce-work-beta</code> delegation-parity assertions in <code>tests/pipeline-review-contract.test.ts</code> (the tests that read the deleted skill to verify it mirrors <code>ce-work</code>).</td></tr>
+        <tr><td class="id" id="r9">R9</td><td>Repair the remaining test references so <code>bun test</code> passes: fix the stale-install cleanup tests to stop reading the deleted <code>SKILL.md</code> while keeping their sweep assertions, drop <code>ce-work-beta</code> from the user-invoked-skills set, and repoint the converter example off the dead name.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Scope Boundaries</h3>
+    <div class="callout deferred">
+      <span class="c-label">Not in scope</span>
+      <ul class="tight">
+        <li>The historical plan docs in <code>docs/plans/</code> that mention <code>ce-work-beta</code> as an active work surface stay untouched — they record past state, and version control holds history.</li>
+        <li>Existing <code>CHANGELOG.md</code> entries referencing <code>ce-work-beta</code> are left as-is — release-owned history, not hand-edited here.</li>
+      </ul>
+    </div>
+    <div class="callout outside">
+      <span class="c-label">Explicitly rejected</span>
+      Promoting Codex delegation into stable <code>ce-work</code>. The decision is to end the
+      experiment, not graduate it; the promotion path is being deleted, not taken.
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="planning-contract">
+    <h2>Planning Contract</h2>
+
+    <h3>Key Technical Decisions</h3>
+    <div class="decision">
+      <span class="d-title"><span class="d-id">KTD1</span>Hard delete, not a deprecation stub</span>
+      The skill is beta, <code>disable-model-invocation: true</code>, and no other skill (planning, brainstorm, lfg, compound) hands off to it, so there is no user path to soften. The directory is removed outright and the name is added to the cleanup registries so existing flat installs get swept on upgrade.
+    </div>
+    <div class="decision">
+      <span class="d-title"><span class="d-id">KTD2</span>Add the dash variant only to the two registries that lack it</span>
+      <code>legacy-cleanup.ts</code> already carries <code>ce-work-beta</code> in <code>STALE_PROMPT_FILES</code>, <code>LEGACY_SKILL_DESCRIPTION_ALIASES</code>, <code>LEGACY_PROMPT_CURRENT_SKILL_FOR_FILE</code>, and <code>LEGACY_PROMPT_DESCRIPTION_ALIASES</code> from the earlier <code>ce:</code>→<code>ce-</code> rename. Only <code>STALE_SKILL_DIRS</code> (R2) and the artifacts skills array (R3) are missing the dash variant. Add only those two; do not duplicate the existing entries.
+    </div>
+    <div class="decision">
+      <span class="d-title"><span class="d-id">KTD3</span>Keep the stale-install cleanup tests; delete only the delegation-parity tests</span>
+      The registries continue to target <code>ce-work-beta</code>, so "a leftover <code>ce-work-beta</code> install gets swept" stays a tested behavior. The legacy-cleanup tests keep that assertion but must stop reading the deleted <code>skills/ce-work-beta/SKILL.md</code> (replace the runtime <code>pluginDescription(...)</code> read with the literal historical description already encoded in <code>LEGACY_SKILL_DESCRIPTION_ALIASES</code>). The <code>pipeline-review-contract</code> tests verify a capability that no longer exists and are deleted whole.
+    </div>
+    <div class="decision">
+      <span class="d-title"><span class="d-id">KTD4</span>The skill count is README prose plus one test assertion, not a release manifest value</span>
+      <code>getCompoundEngineeringCounts</code> in <code>src/release/metadata.ts</code> derives the count from on-disk skill directories. <code>release:validate</code> reports it but does not fail on a README mismatch and does not write the count back. The only enforced copy is <code>tests/release-metadata.test.ts:150</code> (caught by <code>bun test</code>). So the count fix is two hand-edits (README prose + that assertion), not a manifest bump.
+    </div>
+
+    <h3>Assumptions</h3>
+    <ul class="tight">
+      <li>No test asserts README inventory contents or the prose skill count — verified: only <code>tests/release-metadata.test.ts:150</code> hardcodes <code>27</code>.</li>
+      <li>The kept best-practices doc has standalone value independent of the skill. If a closer read shows it is inseparable from <code>ce-work-beta</code>, fall back to deleting it (the brainstorm's "delete all" option) and note that in the PR.</li>
+    </ul>
+
+    <h3>Sources &amp; Research</h3>
+    <ul class="tight">
+      <li>Cleanup-registry convention: repo agent instructions require adding a removed skill to both <code>STALE_SKILL_DIRS</code>/<code>STALE_AGENT_NAMES</code>/<code>STALE_PROMPT_FILES</code> in <code>src/utils/legacy-cleanup.ts</code> and <code>EXTRA_LEGACY_ARTIFACTS_BY_PLUGIN["compound-engineering"]</code> in <code>src/data/plugin-legacy-artifacts.ts</code>.</li>
+      <li>Existing <code>ce-work-beta</code> references mapped across <code>src/utils/legacy-cleanup.ts</code>, <code>src/data/plugin-legacy-artifacts.ts</code>, <code>tests/legacy-cleanup.test.ts</code>, <code>tests/pipeline-review-contract.test.ts</code>, <code>tests/skill-conventions.test.ts</code>, <code>tests/copilot-converter.test.ts</code>, <code>tests/release-metadata.test.ts</code>, and <code>README.md</code>.</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <section id="implementation-units">
+    <h2>Implementation Units</h2>
+    <ul class="subnav">
+      <li><a href="#u1">U1. Delete the skill tree</a></li>
+      <li><a href="#u2">U2. Cleanup registries</a></li>
+      <li><a href="#u3">U3. Repair the test suite</a></li>
+      <li><a href="#u4">U4. README inventory + count</a></li>
+      <li><a href="#u5">U5. Decouple best-practices doc</a></li>
+      <li><a href="#u6">U6. Delete promotion checklist</a></li>
+    </ul>
+
+    <article class="unit" id="u1">
+      <h3><span class="u-id">U1.</span> Delete the ce-work-beta skill tree</h3>
+      <dl class="strip">
+        <dt>Goal</dt><dd>Remove the skill itself.</dd>
+        <dt>Requirements</dt><dd>R1</dd>
+        <dt>Dependencies</dt><dd>None</dd>
+        <dt>Files</dt><dd><code>skills/ce-work-beta/</code> (entire tree: <code>SKILL.md</code> + <code>references/</code>)</dd>
+      </dl>
+      <div class="exec-note"><span class="c-label">Execution note</span>Land U1 together with U3 in the same PR — deleting the tree red-lines the tests that read it until U3 lands. The PR tip must be green.</div>
+      <details><summary>Approach &amp; verification</summary>
+        <p>Pure deletion of the directory. After this, <code>countSkillDirectories</code> returns 26 automatically. No code references the skill at import time — all remaining references are string literals in tests and registries handled by other units.</p>
+        <p><strong>Test expectation: none</strong> — pure file deletion; the absence is proven by U3's suite repair and the Verification Contract grep.</p>
+        <p><strong>Verification:</strong> <code>skills/ce-work-beta/</code> no longer exists.</p>
+      </details>
+    </article>
+
+    <article class="unit" id="u2">
+      <h3><span class="u-id">U2.</span> Add dash variant to the two cleanup registries</h3>
+      <dl class="strip">
+        <dt>Goal</dt><dd>Ensure existing installs sweep the now-stale <code>ce-work-beta</code> skill directory on upgrade.</dd>
+        <dt>Requirements</dt><dd>R2, R3</dd>
+        <dt>Dependencies</dt><dd>None</dd>
+        <dt>Files</dt><dd><code>src/utils/legacy-cleanup.ts</code>, <code>src/data/plugin-legacy-artifacts.ts</code></dd>
+      </dl>
+      <details><summary>Approach, patterns &amp; test scenarios</summary>
+        <p><strong>Approach:</strong> Add the string <code>"ce-work-beta"</code> to <code>STALE_SKILL_DIRS</code> (next to the existing <code>"ce:work-beta"</code>) and to <code>EXTRA_LEGACY_ARTIFACTS_BY_PLUGIN["compound-engineering"].skills</code> (next to its <code>"ce:work-beta"</code>). Per KTD2, do not touch the prompt-file / description-alias registries — they already carry the dash variant.</p>
+        <p><strong>Patterns to follow:</strong> mirror the adjacent <code>ce:work-beta</code> entries; keep alphabetical/grouped ordering consistent with neighbors.</p>
+        <p><strong>Test scenarios:</strong></p>
+        <ul class="tight">
+          <li>Cleanup sweep: a fixture containing a stale <code>ce-work-beta</code> skill <em>directory</em> is removed by the cleanup routine (extends the existing prompt-file sweep coverage to the skill-dir registry entry).</li>
+          <li>Registry membership: <code>STALE_SKILL_DIRS</code> and the artifacts skills array each contain both <code>ce:work-beta</code> and <code>ce-work-beta</code>.</li>
+        </ul>
+        <p><strong>Verification:</strong> the cleanup tests in U3 pass with the new entries.</p>
+      </details>
+    </article>
+
+    <article class="unit" id="u3">
+      <h3><span class="u-id">U3.</span> Repair the test suite</h3>
+      <dl class="strip">
+        <dt>Goal</dt><dd>Make <code>bun test</code> green after the skill and its parity surface are gone.</dd>
+        <dt>Requirements</dt><dd>R5, R8, R9</dd>
+        <dt>Dependencies</dt><dd>U1, U2</dd>
+        <dt>Files</dt><dd><code>tests/pipeline-review-contract.test.ts</code>, <code>tests/legacy-cleanup.test.ts</code>, <code>tests/skill-conventions.test.ts</code>, <code>tests/copilot-converter.test.ts</code>, <code>tests/release-metadata.test.ts</code></dd>
+      </dl>
+      <details><summary>Approach &amp; test scenarios</summary>
+        <p><strong>Approach (per file):</strong></p>
+        <ul class="tight">
+          <li><code>pipeline-review-contract.test.ts</code> — delete the four named <code>ce-work-beta</code> tests and the <code>ce:work-beta codex delegation contract</code> describe block (all read the deleted skill to assert delegation parity). (R8)</li>
+          <li><code>legacy-cleanup.test.ts</code> — keep both tests that assert a stale <code>ce-work-beta.md</code> wrapper is removed, but replace the <code>pluginDescription("skills/ce-work-beta/SKILL.md")</code> runtime read with the literal historical description string (already encoded in <code>LEGACY_SKILL_DESCRIPTION_ALIASES</code>), so the test no longer depends on the deleted file. (R9, KTD3)</li>
+          <li><code>skill-conventions.test.ts</code> — remove <code>"ce-work-beta"</code> from <code>EXPECTED_USER_INVOKED_SKILLS</code>. (R9)</li>
+          <li><code>copilot-converter.test.ts</code> — repoint the multi-colon transform example off the dead skill name (use a live or neutral example) so no test references a removed skill. (R9)</li>
+          <li><code>release-metadata.test.ts</code> — change the <code>skills: 27</code> assertion to <code>26</code>. (R5)</li>
+        </ul>
+        <p><strong>Test scenarios:</strong></p>
+        <ul class="tight">
+          <li>Full suite green: <code>bun test</code> passes with no <code>ce-work-beta</code> SKILL.md reads.</li>
+          <li>Count assertion: <code>getCompoundEngineeringCounts</code> reports <code>skills: 26</code>.</li>
+          <li>Stale-install sweep still asserted: the <code>ce-work-beta.md</code> removal tests pass without touching the filesystem skill dir.</li>
+          <li>Converter transform still correct after the example swap (colon→dash output unchanged in behavior).</li>
+        </ul>
+        <p><strong>Verification:</strong> <code>bun test</code> green.</p>
+      </details>
+    </article>
+
+    <article class="unit" id="u4">
+      <h3><span class="u-id">U4.</span> Update README inventory and count</h3>
+      <dl class="strip">
+        <dt>Goal</dt><dd>Keep the public inventory accurate.</dd>
+        <dt>Requirements</dt><dd>R4</dd>
+        <dt>Dependencies</dt><dd>None</dd>
+        <dt>Files</dt><dd><code>README.md</code></dd>
+      </dl>
+      <details><summary>Approach &amp; verification</summary>
+        <p><strong>Approach:</strong> Remove the <code>| /ce-work-beta | ... |</code> inventory row and change "currently ships 27 skills" to "26 skills".</p>
+        <p><strong>Test expectation: none</strong> — documentation prose; no test asserts README contents (verified).</p>
+        <p><strong>Verification:</strong> no <code>ce-work-beta</code> row remains; count reads 26.</p>
+      </details>
+    </article>
+
+    <article class="unit" id="u5">
+      <h3><span class="u-id">U5.</span> Decouple the best-practices doc</h3>
+      <dl class="strip">
+        <dt>Goal</dt><dd>Preserve the delegation learnings as a standalone reference.</dd>
+        <dt>Requirements</dt><dd>R6</dd>
+        <dt>Dependencies</dt><dd>None</dd>
+        <dt>Files</dt><dd><code>docs/solutions/best-practices/codex-delegation-best-practices.md</code></dd>
+      </dl>
+      <details><summary>Approach &amp; verification</summary>
+        <p><strong>Approach:</strong> Keep the token-economics crossover (~5–7 unit threshold) and batching guidance. Remove or rewrite passages that frame the doc as <code>ce-work-beta</code> usage (references to the live skill, its config keys, the promotion path) so it reads as general external-delegation knowledge. Update frontmatter tags if they name the skill.</p>
+        <p><strong>Test expectation: none</strong> — documentation.</p>
+        <p><strong>Verification:</strong> the doc stands alone; no dangling references to <code>ce-work-beta</code> as a live skill.</p>
+      </details>
+    </article>
+
+    <article class="unit" id="u6">
+      <h3><span class="u-id">U6.</span> Delete the promotion checklist</h3>
+      <dl class="strip">
+        <dt>Goal</dt><dd>Remove the now-moot promotion doc.</dd>
+        <dt>Requirements</dt><dd>R7</dd>
+        <dt>Dependencies</dt><dd>None</dd>
+        <dt>Files</dt><dd><code>docs/solutions/skill-design/ce-work-beta-promotion-checklist.md</code></dd>
+      </dl>
+      <details><summary>Approach &amp; verification</summary>
+        <p><strong>Approach:</strong> Delete the file. Grep <code>docs/solutions/</code> for inbound links to it and fix any (likely none).</p>
+        <p><strong>Test expectation: none</strong> — documentation.</p>
+        <p><strong>Verification:</strong> file gone; no broken links to it.</p>
+      </details>
+    </article>
+  </section>
+
+  <hr>
+
+  <section id="verification-contract">
+    <h2>Verification Contract</h2>
+    <div class="contract">
+      <ul class="tight">
+        <li><code>bun test</code> — full suite green, including the repaired cleanup, conventions, converter, and release-metadata tests.</li>
+        <li><code>bun run release:validate</code> — reports <code>compound-engineering currently has 0 agents, 26 skills, ...</code> and exits in sync (no metadata errors).</li>
+        <li><code>rg -n "ce-work-beta" .</code> — the only surviving matches are historical files in <code>docs/plans/</code>, <code>CHANGELOG.md</code> history, and this plan document. No live skill, registry-absent reference, README row, or test reading the deleted SKILL.md remains.</li>
+      </ul>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="definition-of-done">
+    <h2>Definition of Done</h2>
+    <div class="contract">
+      <ul class="tight">
+        <li>R1–R9 satisfied.</li>
+        <li><code>bun test</code> and <code>bun run release:validate</code> both green; <code>release:validate</code> reports 26 skills.</li>
+        <li>No reference to <code>ce-work-beta</code> as a live skill anywhere except historical plan docs, CHANGELOG history, and this plan.</li>
+        <li>The best-practices doc reads standalone; the promotion checklist is deleted.</li>
+        <li>No abandoned or experimental code left in the diff; changes land in one PR with a <code>chore(ce-work-beta):</code> title via the standard PR flow (no direct push to <code>main</code>).</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="composition-signal">
+    Composed 2026-06-26T20:13Z by ce-brainstorm; enriched to implementation-ready 2026-06-26T20:27Z by ce-plan. Source: in-session request to remove the ce-work-beta skill.
+  </footer>
+
+</div>
+</body>
+</html>

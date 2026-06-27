@@ -18,16 +18,17 @@ tags:
   - batching
   - orchestration-cost
   - prompt-engineering
-  - ce-work-beta
 ---
 
 # Codex Delegation Best Practices
 
 ## Context
 
-Over six iterations of evaluation building Codex delegation into `ce-work-beta`, we collected quantitative data on the token economics of orchestrating work between Claude Code (the orchestrator) and Codex (the delegated executor). The core question: when does delegating plan units to Codex actually save Claude tokens, and what architectural patterns control the cost?
+> **Note:** This is a retrospective. The experimental delegation skill it studied (`ce-work-beta`) has since been removed from the plugin. The findings below are preserved as general guidance for designing external-model delegation in any orchestrator skill, not as documentation for a live feature.
 
-The delegation model: `ce-work-beta` receives a plan with N implementation units, then decides whether to execute them directly (standard mode) or delegate them to Codex via `codex exec`. Delegation has a fixed orchestration overhead per batch (prompt file write, codex exec invocation, result classification, commit) of approximately 4-5k Claude tokens. Each unit of code Claude does not write saves roughly 3-5k tokens. The crossover depends on how many units are batched per delegation call.
+Over six iterations of evaluation building Codex delegation into an experimental `ce-work` delegation mode, we collected quantitative data on the token economics of orchestrating work between Claude Code (the orchestrator) and Codex (the delegated executor). The core question: when does delegating plan units to Codex actually save Claude tokens, and what architectural patterns control the cost?
+
+The delegation model: the delegating skill receives a plan with N implementation units, then decides whether to execute them directly (standard mode) or delegate them to Codex via `codex exec`. Delegation has a fixed orchestration overhead per batch (prompt file write, codex exec invocation, result classification, commit) of approximately 4-5k Claude tokens. Each unit of code Claude does not write saves roughly 3-5k tokens. The crossover depends on how many units are batched per delegation call.
 
 The evaluation spanned iterations 1-6, testing small (1-2 units), medium (4 units), large (7 units), and extra-large (10 units) plans in both delegation and standard modes, with real code implementation and test verification in isolated worktrees.
 

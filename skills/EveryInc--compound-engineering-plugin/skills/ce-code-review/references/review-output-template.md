@@ -1,10 +1,10 @@
 # Code Review Output Template
 
-Use this **exact format** when presenting synthesized review findings — this example is the **canonical skeleton: copy its structure and fill it in**, do not re-derive a layout. Findings are grouped by severity, not by reviewer.
+This is the **canonical skeleton** for *which sections appear and in what order* — copy the section structure; the example below shows one good rendering, not the only permitted layout. Shape each finding for the reader's next action per *Presentation direction* in SKILL.md Stage 6 (what & where / why it matters / what response it needs / how sure; let the shape serve the finding type). Findings are grouped by severity, not by reviewer.
 
-**IMPORTANT:** Use pipe-delimited markdown tables (`| col | col |`). Do NOT use ASCII box-drawing characters.
+**Hard constraints (non-negotiable; the rest is judgment):** ASCII-safe only — no box-drawing or per-item horizontal-rule separators (`────`), no Unicode arrows or middot; use `->`. Don't paste file contents or re-print the diff — cite `file:line`. Stable `#` numbering, reused wherever a finding reappears. The Verdict and Actionable list are present, last, and self-sufficient.
 
-**IMPORTANT:** Escape literal pipe characters in table cells. Any `|` that appears inside a finding title, issue description, code snippet, regex pattern, or delimited-string example (e.g. cache key examples like `userName + "|" + groups`) must be written as `\|` so column boundaries are determined only by unescaped pipes. Unescaped pipes split the cell across columns and corrupt the row's `Reviewer` and `Confidence` values (and `Route` in the Actionable Findings table).
+**If you use a markdown table, escape literal pipe characters in cells.** Any `|` inside a finding title, issue description, code snippet, regex pattern, or delimited-string example (e.g. cache key examples like `userName + "\|" + groups`) must be written as `\|` so column boundaries are determined only by unescaped pipes. Unescaped pipes split the cell across columns and corrupt the row's `Reviewer` and `Confidence` values (and `Route` in the Actionable Findings table).
 
 ## Example
 
@@ -127,11 +127,11 @@ File: bar.go:99
 Issue: Another problem
 ```
 
-This fails because: no pipe-delimited tables, no severity-grouped `###` headers, uses box-drawing horizontal rules, no numbered findings, no `## Code Review Results` title, and the verdict is not in a blockquote. Always use the table format from the example above. When a finding needs more explanation than fits a terse `Issue` cell, put it in the keyed detail list under the table (`- **#N** — …`) — never expand it into `Field:`-prefixed blocks.
+This fails because of the **box-drawing `────` separators between items**, no stable finding numbers, no severity-grouped `###` headers, no `## Code Review Results` title, and a verdict not set apart. The `────` rules and missing structure are the problem — `Field:`-prefixed lines are not themselves banned, but here they carry no stable numbers and bury depth. Prefer a terse table or a keyed list; put depth in a per-finding detail line (`- **#N** — …`), not in box-drawn blocks.
 
 ## Formatting Rules
 
-- **Pipe-delimited markdown tables** for findings -- never ASCII box-drawing characters or per-finding horizontal-rule separators between entries (the report-level `---` before the verdict is still required)
+- **ASCII-safe only** -- never box-drawing characters or per-item horizontal-rule separators (`────`) between entries (the report-level `---` before the verdict is still required), no Unicode arrows or middot; use `->`. Tables are a good default but not mandatory -- let the shape serve the finding type (SKILL.md Stage 6); stay consistent within a section
 - **Escape literal `|` in table cells** -- any `|` inside a finding title, issue description, code snippet, regex pattern, or delimited-string example must be written as `\|`. Unescaped pipes are parsed as column separators and corrupt the row's `Reviewer` and `Confidence` columns (and `Route` in the Actionable Findings table). Applies especially to cache-key delimiter examples, regex alternations, and logical-OR operators quoted inside findings.
 - **Severity-grouped sections** -- `### P0 -- Critical`, `### P1 -- High`, `### P2 -- Moderate`, `### P3 -- Low`. Omit empty severity levels.
 - **Stable sequential finding numbers** -- assign finding numbers once after sorting, continue them across severity sections, and reuse those same numbers when findings are repeated in Actionable Findings. Do not restart at `1` for each severity or route bucket.
@@ -139,7 +139,7 @@ This fails because: no pipe-delimited tables, no severity-grouped `###` headers,
 - **Reviewer column** shows which persona(s) flagged the issue. Multiple reviewers = cross-reviewer agreement.
 - **Confidence column** shows the finding's anchor as an integer (`50`, `75`, or `100`). Never render as a float.
 - **No `Route` column in the per-severity tables** -- the synthesized route (``<autofix_class> -> <owner>``) appears only in the Actionable Findings table and the `mode:agent` JSON. The scannable severity tables are 5 columns: `# | File | Issue | Reviewer | Confidence`.
-- **Detail line (per finding, as needed)** -- keep the `Issue` cell to **one short clause** (roughly 12 words or fewer, no second sentence -- the scannable index, not the explanation); put the full explanation in a bullet list immediately under the severity table, keyed by stable `#`: `- **#N** — <why it matters + concrete fix direction>`. Add a detail line for findings whose one-liner is not self-sufficient -- usually P0/P1; P2/P3 are typically terse-only. This keyed list is the sanctioned home for depth -- never expand a finding into `Field:`-prefixed blocks.
+- **Detail line (per finding, as needed)** -- keep the scannable line short (the symptom + `file:line`, not the mechanism); put the why-it-matters + fix/options in a per-finding detail line keyed by stable `#`: `- **#N** — <why it matters + what response it needs>`. Add it whenever the one-liner isn't self-sufficient -- usually P0/P1; P2/P3 are often terse-only. This keyed detail is the home for depth -- don't paste code or restate the diff, and match weight to weight.
 - **Header includes** scope, intent, and reviewer team with per-conditional justifications
 - **Mode line** -- include `interactive` or `agent`
 - **Triage Groups section (when groups exist)** -- pipe table `| Group | Findings | Context | Preferred Resolution | Why |` rendered after Applied and before the severity tables. The `Findings` cell lists stable `#`s (e.g. `#2, #3`); every referenced `#` must appear in a severity table below. Groups are a triage lens over the findings -- they never replace the severity tables, merge findings, or renumber them. Omit when `grouping:off` is active or no groups survived Stage 5b/5c pruning.

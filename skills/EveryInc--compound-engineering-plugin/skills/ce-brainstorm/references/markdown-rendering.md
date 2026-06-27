@@ -23,6 +23,22 @@ These hold regardless of which skill produced the artifact.
 - **No HTML mixed in.** Keep the markdown pure. No `<div>`, no `<details>`,
   no inline `<style>`. If a layout idea only works as HTML, defer it to the
   HTML rendering. Markdown stays markdown.
+- **No fixed-width line wrapping.** Do not hard-wrap prose to a column (e.g.
+  80 chars). Write one sentence per line, or let each paragraph flow as a
+  single line. The artifact is read rendered and shared, where fixed wraps add
+  nothing and only produce noisy mid-sentence diffs; markdown joins soft line
+  breaks within a paragraph, so wrapping never changes the rendered output.
+- **Unified plan sections use stable headings.** For unified plan artifacts,
+  render the required sections with exact ASCII headings so agents can find
+  them by heading scan: `## Goal Capsule`, `## Product Contract`,
+  `## Planning Contract`, `## Implementation Units`, `## Verification Contract`,
+  `## Definition of Done`, and optional `## Appendix`. Requirements-only
+  artifacts omit the plan-only sections rather than emitting empty placeholders.
+  These stable headings are the wayfinding contract: consumers scan them
+  (markdown headings, or `<h1>`–`<h3>` / anchor ids in HTML) instead of reading
+  the whole document.
+- **Goal Capsule is top-loaded.** It appears before Product Contract and long
+  appendices for fast orientation — not a hidden machine copy.
 
 ## Format principles
 
@@ -96,6 +112,14 @@ are noisier in raw form and worse for diffs.
 How section types commonly render in markdown. These are patterns, not
 contracts — the agent picks the shape that fits the content.
 
+- **Goal Capsule** — bullets or a small table for objective, authority,
+  execution profile, stop conditions, and tail ownership.
+- **Product Contract** — H2 section containing Summary, Problem Frame,
+  Requirements, and product-scope subsections. Put Requirements under
+  `### Requirements` so review tools can distinguish Product Requirements
+  from implementation detail.
+- **Planning Contract** — H2 section for KTDs, high-level technical design,
+  assumptions, and sequencing.
 - **Summary / Problem Frame** — prose paragraphs.
 - **Requirements** — bullets with `R<N>.` prefix. When requirements span
   more than one concern, grouping under bold inline headers is the default
@@ -107,6 +131,10 @@ contracts — the agent picks the shape that fits the content.
   Fields (Goal, Files, Patterns, Test Scenarios, Verification) render as
   bullets with bold leader labels, or as sub-headings if the field has
   multi-paragraph content.
+- **Verification Contract / Definition of Done** — use tables when commands,
+  applicability, unit IDs, and done signals share a uniform shape. Name
+  concrete repo commands such as `bun test` rather than generic "run tests"
+  when the repo has known commands.
 - **Key Technical Decisions** — bullets with bold decision name + prose
   rationale, or numbered KTD-N pattern when traceability matters.
 - **Key Flows / Acceptance Examples** — bullets with bold leader labels
@@ -141,6 +169,12 @@ quantitative comparisons (bar charts, scatter plots) markdown has no
 native equivalent — use a table with the data and let prose or caption
 carry the interpretation. The richer visualization happens in the HTML
 rendering.
+
+For a **UI/layout shape** that would be a wireframe in HTML, markdown has
+no inline-SVG wireframe affordance. Render the region composition as a
+mermaid layout `flowchart` (or describe it in prose) — never hand-draw a
+box-drawing/ASCII wireframe; it violates the no-box-drawing-characters rule
+and reads poorly. The wireframe proper is an HTML-only affordance.
 
 ## Inline code and code blocks
 

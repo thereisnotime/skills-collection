@@ -4,13 +4,14 @@ Use this path when the input is a longer recording (over ~60 seconds), contains 
 
 ## Workflow
 
-1. Run the analyzer:
+1. Run the analyzer (`SKILL_DIR` is the directory containing the `ce-riffrec-feedback-analysis` SKILL.md; set it in the same command — shell state does not persist between Bash calls):
 
    ```bash
-   python scripts/analyze_riffrec_zip.py /path/to/input
+   SKILL_DIR="<absolute path of the directory containing the ce-riffrec-feedback-analysis SKILL.md>"
+   python "$SKILL_DIR/scripts/analyze_riffrec_zip.py" /path/to/input
    ```
 
-   Use `--output-dir <dir>` when the artifact should live somewhere specific. In a repo with `docs/brainstorms/`, the default output goes under `docs/brainstorms/riffrec-feedback/`.
+   Use `--output-dir <dir>` when the artifact should live somewhere specific. In a repo with `docs/brainstorms/`, the default output goes under `docs/brainstorms/riffrec-feedback/` as an evidence/kickoff-artifact exception, not as the durable brainstorm output convention.
 
 2. Read the generated `analysis.md`, `problem-analysis.md`, `review-prompt.md`, and `requirements-kickoff.md`.
 
@@ -50,7 +51,7 @@ Do not end the workflow after extraction in normal use. The intended sequence is
 3. Inspect or refine `problem-analysis.md` when the evidence needs human-visible interpretation.
 4. Load the `ce-brainstorm` skill with `requirements-kickoff.md`.
 5. Ask the user to confirm, correct, or regroup the captured requirements.
-6. Let `ce-brainstorm` produce the durable requirements doc under `docs/brainstorms/`.
+6. Let `ce-brainstorm` produce the durable requirements-only unified plan under `docs/plans/`.
 
 Only stop after step 1 or 2 when the user asks specifically for raw artifacts, transcript, screenshots, or analysis without brainstorming.
 

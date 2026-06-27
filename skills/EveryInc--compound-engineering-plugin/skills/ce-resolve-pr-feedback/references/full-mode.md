@@ -2,6 +2,8 @@
 
 Read this reference when Mode Detection (in SKILL.md) routes to **Full Mode** — no argument given, or a PR number was provided. Full mode processes all unresolved threads on the PR.
 
+The shape: **fetch once, judge centrally, fan out only the fixes.** The orchestrator (you) holds every thread from a single fetch, so the legitimacy judgment happens in your context — where you can dedup reads, spot a systematically-wrong reviewer across threads, and weigh the author's design intent. Subagents are dispatched only to *implement* fixes you've already approved. Do not fan out the judgment: spinning a subagent per thread to decide validity re-pays per-agent overhead, re-reads the same files, and throws away the cross-thread view — and you'd pay it even for threads that turn out to be skips.
+
 ## 1. Fetch Unresolved Threads
 
 If no PR number was provided, detect from the current branch:
@@ -12,10 +14,13 @@ gh pr view --json number -q .number
 Then fetch all feedback using the GraphQL script at [scripts/get-pr-comments](../scripts/get-pr-comments):
 
 ```bash
-if [ -n "${CLAUDE_SKILL_DIR}" ] && [ -f "${CLAUDE_SKILL_DIR}/scripts/get-pr-comments" ]; then
-  SCRIPT_DIR="${CLAUDE_SKILL_DIR}/scripts"
-else
-  echo "ce-resolve-pr-feedback bundled scripts are unavailable in this harness; use the fallback gh commands below." >&2
+# SKILL_DIR = the absolute directory you loaded the ce-resolve-pr-feedback SKILL.md from.
+# The Bash tool's CWD is the user's project, not the skill dir, and shell state does not
+# persist between Bash calls — set SKILL_DIR in each block below that runs a bundled script.
+SKILL_DIR="<absolute path of the directory containing the ce-resolve-pr-feedback SKILL.md>"
+SCRIPT_DIR="$SKILL_DIR/scripts"
+if [ ! -f "$SCRIPT_DIR/get-pr-comments" ]; then
+  echo "ce-resolve-pr-feedback bundled scripts not found under $SCRIPT_DIR; use the fallback gh commands below." >&2
   exit 1
 fi
 
@@ -26,7 +31,7 @@ Returns a JSON object with three keys:
 
 | Key | Contents | Has file/line? | Resolvable? |
 |-----|----------|---------------|-------------|
-| `review_threads` | Unresolved inline code review threads (includes outdated; each carries its `isOutdated` flag so the resolver can account for line drift) | Yes | Yes (GraphQL) |
+| `review_threads` | Unresolved inline code review threads (includes outdated; each carries its `isOutdated` flag so line drift can be accounted for) | Yes | Yes (GraphQL) |
 | `pr_comments` | Top-level PR conversation comments (excludes PR author) | No | No |
 | `review_bodies` | Review submission bodies with non-empty text (excludes PR author) | No | No |
 
@@ -53,81 +58,89 @@ The distinction is about content, not who posted what. A deferral from a teammat
 
 If there are no new items across all feedback types, skip steps 3-8 and go straight to step 9.
 
-## 3. Plan
+## 3. Consolidate & Decide (the legitimacy gate)
 
-Create a task list of all **new** unresolved items (e.g., `TaskCreate` in Claude Code, `update_plan` in Codex) -- one entry per thread or comment to resolve.
+This is the gate. Judge every **new** item here, in your own context, before any fix is dispatched. Apply the rubric in [references/evaluation-rubric.md](evaluation-rubric.md) (read it now) across the whole batch at once.
 
-## 4. Implement (PARALLEL)
+Working over the full set lets you do what a per-thread subagent can't:
+- **Dedup reads by file** — read a file once and judge all its threads together.
+- **Cross-item reasoning** — cluster findings by root assumption; a source (often a bot) that's wrong in one place is suspect across its siblings; converging requests from independent reviewers are a strong fix signal.
+- **Selective depth** — clear nits need only the comment plus the diff line; deep-read (callers, invariants, `git blame`/PR rationale for author intent) only where a finding is contestable or the code looks deliberate. That deep read on the contestable minority is what catches a confidently-wrong reviewer.
 
-Process all three feedback types. Review threads are the primary type; PR comments and review bodies are secondary but should not be ignored.
+Produce a verdict per item and sort into three lists:
+
+- **fix-list** — `fixed` / `fixed-differently`. These get dispatched to fixers in step 4. For each, note the file/location (and for outdated threads, the resolved location or anchor) and a one-line "what to change."
+- **reply-list** — `replied` / `not-addressing` / `declined`. No code change. Compose the reply text now per the rubric (you have the evidence) and carry it to step 7.
+- **human-list** — `needs-human`. Compose `decision_context` now; carry to steps 7 and 9.
+
+Create a task list of all new items (e.g., `TaskCreate` in Claude Code, `update_plan` in Codex) tagged with their verdict, so progress is visible.
+
+**At scale.** If the batch is large (many threads spanning many files) and judging them all inline would overflow your context, process the consolidation in groups (e.g., file-clustered groups of ~8-10 threads), emitting the three lists incrementally. Don't fan the judgment out to subagents to avoid this — batch it instead.
+
+If the fix-list is empty (all verdicts are reply/needs-human), skip steps 4-6 and go to step 7.
+
+## 4. Fix (PARALLEL — fix-list only)
+
+Dispatch fixers **only** for fix-list items. Reply-list and human-list items never reach a subagent.
 
 ### Dispatch
 
-**For review threads** (`review_threads`): Read `references/agents/pr-comment-resolver.md` and spawn a generic subagent seeded with that prompt for each new thread. Do not dispatch a standalone agent by type/name.
+Read [references/agents/pr-comment-resolver.md](agents/pr-comment-resolver.md) and spawn a generic subagent seeded with that fixer prompt for each fix-list item. Do not dispatch a standalone agent by type/name. The fixer is a pure executor: the validity judgment is already done, so it implements and returns — it does not re-judge worthwhileness.
 
-Each resolver subagent receives:
-- The thread ID
-- The file path and location fields: `line`, `originalLine`, `startLine`, `originalStartLine` (any can be null; outdated and file-level threads often have `line == null` and must fall back to `originalLine`)
-- The full comment text (all comments in the thread)
-- The PR number (for context)
-- The feedback type (`review_thread`)
-- The `isOutdated` flag from the thread node (tells the agent the reported line may have drifted)
+Each fixer receives:
+- The feedback_id (thread ID or comment ID) and feedback type.
+- The file path and location fields: `line`, `originalLine`, `startLine`, `originalStartLine` (for outdated threads, the resolved location/anchor from step 3).
+- The reviewer's comment text.
+- Your step-3 note: what to change and why it was judged valid.
+- The PR number.
 
-**For PR comments and review bodies** (`pr_comments`, `review_bodies`): These lack file/line context. Read `references/agents/pr-comment-resolver.md` and spawn a generic subagent seeded with that prompt for each actionable item. The resolver receives the comment ID, body text, PR number, and feedback type (`pr_comment` or `review_body`). The resolver must identify the relevant files from the comment text and the PR diff.
+For `pr_comment` / `review_body` fix-list items (no file/line), the fixer identifies the relevant files from the comment text and the PR diff.
 
-### Resolver return format
+### Fixer return format
 
-Each resolver returns a short summary:
-- **verdict**: `fixed`, `fixed-differently`, `replied`, `not-addressing`, `declined`, or `needs-human`
-- **feedback_id**: the thread ID or comment ID it handled
-- **feedback_type**: `review_thread`, `pr_comment`, or `review_body`
-- **reply_text**: the markdown reply to post (quoting the relevant part of the original feedback)
-- **files_changed**: list of files modified (empty if replied/not-addressing)
-- **reason**: brief explanation of what was done or why it was skipped
+- **verdict**: `fixed`, `fixed-differently`, or `blocked`
+- **feedback_id**, **feedback_type**
+- **reply_text**: markdown reply to post (quoting the relevant feedback) — omit for `blocked`
+- **files_changed**: list of files modified (empty for `blocked`)
+- **reason**: what was done, or the concrete contradiction for `blocked`
 
-Verdict meanings:
-- `fixed` -- code change made as requested
-- `fixed-differently` -- code change made, but with a better approach than suggested
-- `replied` -- no code change needed; answered a question, explained a design decision, or judged a correct point not worth a change
-- `not-addressing` -- feedback is factually wrong about the code; skip with evidence
-- `declined` -- observation may be valid, but implementing the suggested fix would actively make the code worse; reply cites the specific harm
-- `needs-human` -- cannot determine the right action; needs user decision
+**Handling `blocked`.** A fixer returns `blocked` only when implementing surfaced a concrete contradiction its narrower view exposed (the change breaks a caller/test it can see, or the code isn't what the finding described). Re-evaluate it yourself with that evidence: either re-dispatch with a corrected instruction, or move it to the reply-list (`not-addressing`/`declined`) or human-list. Don't silently drop it.
 
 ### Batching and conflict avoidance
 
-**Batching**: If there are 1-4 items total, dispatch all in parallel. For 5+ items, batch in groups of 4.
+**Batching**: If the fix-list has 1-4 items, dispatch all in parallel. For 5+, batch in groups of 4.
 
-**Conflict avoidance**: No two agents that touch the same file should run in parallel. Before dispatching, check for file overlaps across items. If two items reference the same file, serialize them -- dispatch one, wait for it to complete, then dispatch the next. Non-overlapping items run in parallel. When one agent handles multiple threads on the same file, it addresses them sequentially.
+**Conflict avoidance**: No two fixers that touch the same file run in parallel. You already know the target files from step 3 — serialize fixers that share a file (dispatch one, wait, then the next); non-overlapping items run in parallel. When one fixer handles multiple threads on the same file, it addresses them sequentially.
 
-**Sequential fallback**: Platforms that do not support parallel dispatch should run agents sequentially.
+**Sequential fallback**: Platforms that do not support parallel dispatch run fixers sequentially.
 
-Fixes can occasionally expand beyond their referenced file (e.g., renaming a method updates callers elsewhere). This is rare but can cause parallel resolvers to collide. Step 5 (combined validation) catches test breakage; step 8 (verify) catches unresolved threads. If either surfaces inconsistent changes from parallel fixes, re-run the affected resolvers sequentially.
+Fixes can occasionally expand beyond their referenced file (e.g., renaming a method updates callers elsewhere). This is rare but can cause parallel fixers to collide. Step 5 (combined validation) catches test breakage; step 8 (verify) catches unresolved threads. If either surfaces inconsistent changes, re-run the affected fixers sequentially.
 
 ## 5. Validate Combined State
 
-After all agents complete, aggregate `files_changed` across every returned summary. If it's empty -- all verdicts are `replied`, `not-addressing`, `declined`, or `needs-human` -- skip steps 5 and 6 entirely and proceed to step 7.
+Aggregate `files_changed` across every fixer summary. If it's empty, skip steps 5 and 6 and proceed to step 7.
 
-Resolvers run only targeted tests on their own changes. This step runs the project's full validation **once** against the combined diff to catch cross-agent interactions that targeted runs can't see.
+Fixers run only targeted tests on their own changes. This step runs the project's full validation **once** against the combined diff to catch cross-agent interactions that targeted runs can't see.
 
-1. **Run the project's validation command** (test suite, type check, or whatever the repo's AGENTS.md/CLAUDE.md specifies). Run once, not per-agent.
+1. **Run the project's validation command** (test suite, type check, or whatever the project's active conventions specify). Run once, not per-agent.
 
 2. **Green** -> proceed to step 6.
 
-3. **Red, failures touch files resolvers changed** -> one inline diagnose-and-fix pass. Re-run validation. If still red, escalate with a `needs-human` item containing the test output; do **not** commit.
+3. **Red, failures touch files fixers changed** -> one inline diagnose-and-fix pass. Re-run validation. If still red, escalate with a `needs-human` item containing the test output; do **not** commit.
 
-4. **Red, failures touch only files no resolver changed** -> treat as pre-existing. Proceed to step 6, but add a footer to the commit message: `Note: pre-existing failure in <test> not addressed by this PR.`
+4. **Red, failures touch only files no fixer changed** -> treat as pre-existing. Proceed to step 6, but add a footer to the commit message: `Note: pre-existing failure in <test> not addressed by this PR.`
 
 Record the validation outcome (command run, pass/fail counts, any pre-existing failures noted) for the step 9 summary.
 
 ## 6. Commit and Push
 
-1. Stage only files reported by sub-agents and commit with a message referencing the PR:
+1. Stage only files reported by fixers and commit with a message referencing the PR:
 
 ```bash
-git add [files from agent summaries]
+git add [files from fixer summaries]
 git commit -m "Address PR review feedback (#PR_NUMBER)
 
-- [list changes from agent summaries]"
+- [list changes from fixer summaries]"
 ```
 
 2. Push to remote:
@@ -137,43 +150,22 @@ git push
 
 ## 7. Reply and Resolve
 
-After the push succeeds, post replies and resolve where applicable. The mechanism depends on the feedback type.
+After the push succeeds, post replies and resolve where applicable. Post for every handled item: fix-list items use the fixer's `reply_text`; reply-list and human-list items use the reply text you composed in step 3. The mechanism depends on the feedback type.
 
 ### Reply format
 
-All replies should quote the relevant part of the original feedback for continuity. Quote the specific sentence or passage being addressed, not the entire comment if it's long.
+All replies quote the relevant part of the original feedback for continuity — the specific sentence or passage, not the entire comment if it's long. The per-verdict templates are in [references/evaluation-rubric.md](evaluation-rubric.md) (skip verdicts) and [references/agents/pr-comment-resolver.md](agents/pr-comment-resolver.md) (`fixed` / `fixed-differently`).
 
-For fixed items:
-```markdown
-> [quoted relevant part of original feedback]
-
-Addressed: [brief description of the fix]
-```
-
-For items not addressed:
-```markdown
-> [quoted relevant part of original feedback]
-
-Not addressing: [reason with evidence, e.g., "null check already exists at line 85"]
-```
-
-For declined items:
-```markdown
-> [quoted relevant part of original feedback]
-
-Declined: [specific harm cited, e.g., "this would add a defensive null check the type system already guarantees" or "violates the no-premature-abstraction guidance in CLAUDE.md"]
-```
-
-For `needs-human` verdicts, post the reply but do NOT resolve the thread. Leave it open for human input.
+For `needs-human` verdicts, post the natural-sounding reply but do NOT resolve the thread. Leave it open for human input.
 
 ### Review threads
 
 0. **Verify the thread ID** before replying. GitHub Enterprise can return inconsistent node IDs for the same thread depending on the query path. Always confirm the ID from `get-pr-comments` resolves to the correct thread using [scripts/get-thread-for-comment](../scripts/get-thread-for-comment) with the comment's numeric URL ID:
 ```bash
-if [ -n "${CLAUDE_SKILL_DIR}" ] && [ -f "${CLAUDE_SKILL_DIR}/scripts/get-thread-for-comment" ]; then
-  SCRIPT_DIR="${CLAUDE_SKILL_DIR}/scripts"
-else
-  echo "ce-resolve-pr-feedback bundled scripts are unavailable in this harness; use gh api to inspect the review thread." >&2
+SKILL_DIR="<absolute path of the directory containing the ce-resolve-pr-feedback SKILL.md>"
+SCRIPT_DIR="$SKILL_DIR/scripts"
+if [ ! -f "$SCRIPT_DIR/get-thread-for-comment" ]; then
+  echo "ce-resolve-pr-feedback bundled scripts not found under $SCRIPT_DIR; use gh api to inspect the review thread." >&2
   exit 1
 fi
 
@@ -185,10 +177,10 @@ The returned `id` is the authoritative thread ID to use for reply and resolve. I
 
 1. **Reply** using [scripts/reply-to-pr-thread](../scripts/reply-to-pr-thread):
 ```bash
-if [ -n "${CLAUDE_SKILL_DIR}" ] && [ -f "${CLAUDE_SKILL_DIR}/scripts/reply-to-pr-thread" ]; then
-  SCRIPT_DIR="${CLAUDE_SKILL_DIR}/scripts"
-else
-  echo "ce-resolve-pr-feedback bundled scripts are unavailable in this harness; post the reply with gh api or gh pr comment as appropriate." >&2
+SKILL_DIR="<absolute path of the directory containing the ce-resolve-pr-feedback SKILL.md>"
+SCRIPT_DIR="$SKILL_DIR/scripts"
+if [ ! -f "$SCRIPT_DIR/reply-to-pr-thread" ]; then
+  echo "ce-resolve-pr-feedback bundled scripts not found under $SCRIPT_DIR; post the reply with gh api or gh pr comment as appropriate." >&2
   exit 1
 fi
 
@@ -198,10 +190,10 @@ Check that the returned comment URL contains the correct `OWNER/REPO` and PR num
 
 2. **Resolve** using [scripts/resolve-pr-thread](../scripts/resolve-pr-thread):
 ```bash
-if [ -n "${CLAUDE_SKILL_DIR}" ] && [ -f "${CLAUDE_SKILL_DIR}/scripts/resolve-pr-thread" ]; then
-  SCRIPT_DIR="${CLAUDE_SKILL_DIR}/scripts"
-else
-  echo "ce-resolve-pr-feedback bundled scripts are unavailable in this harness; resolve the thread with gh api if supported." >&2
+SKILL_DIR="<absolute path of the directory containing the ce-resolve-pr-feedback SKILL.md>"
+SCRIPT_DIR="$SKILL_DIR/scripts"
+if [ ! -f "$SCRIPT_DIR/resolve-pr-thread" ]; then
+  echo "ce-resolve-pr-feedback bundled scripts not found under $SCRIPT_DIR; resolve the thread with gh api if supported." >&2
   exit 1
 fi
 
@@ -223,10 +215,10 @@ Include enough quoted context in the reply so the reader can follow which commen
 Re-fetch feedback to confirm resolution:
 
 ```bash
-if [ -n "${CLAUDE_SKILL_DIR}" ] && [ -f "${CLAUDE_SKILL_DIR}/scripts/get-pr-comments" ]; then
-  SCRIPT_DIR="${CLAUDE_SKILL_DIR}/scripts"
-else
-  echo "ce-resolve-pr-feedback bundled scripts are unavailable in this harness; use the fallback gh commands from Step 1." >&2
+SKILL_DIR="<absolute path of the directory containing the ce-resolve-pr-feedback SKILL.md>"
+SCRIPT_DIR="$SKILL_DIR/scripts"
+if [ ! -f "$SCRIPT_DIR/get-pr-comments" ]; then
+  echo "ce-resolve-pr-feedback bundled scripts not found under $SCRIPT_DIR; use the fallback gh commands from Step 1." >&2
   exit 1
 fi
 
@@ -245,7 +237,7 @@ PR comments and review bodies have no resolve mechanism, so they will still appe
 
 ## 9. Summary
 
-Present a concise summary of all work done. Group by verdict, one line per item describing *what was done* not just *where*. This is the primary output the user sees.
+Present a concise summary of all work done. Group by verdict, one line per item describing *what was done* not just *where*. This is the primary output the user sees — and the place where the gate's decisions become visible: the user can see exactly what was fixed, what was skipped, and why.
 
 Format:
 
@@ -255,22 +247,21 @@ Resolved N of M new items on PR #NUMBER:
 Fixed (count): [brief description of each fix]
 Fixed differently (count): [what was changed and why the approach differed]
 Replied (count): [what questions were answered]
-Not addressing (count): [what was skipped and why]
+Not addressing (count): [what was skipped and the evidence]
 Declined (count): [what was declined and the harm cited]
 
 Validation: [one line -- e.g., "bun test passed (893/893)" or "bun test passed with pre-existing failure in X noted"; omit when no code changes were committed]
 ```
 
-If any agent returned `needs-human`, append a decisions section. These are rare but high-signal. Each `needs-human` agent returns a `decision_context` field with a structured analysis: what the reviewer said, what the agent investigated, why it needs a decision, concrete options with tradeoffs, and the agent's lean if it has one.
+If any item is `needs-human`, append a decisions section. These are rare but high-signal. Each carries a `decision_context` (composed in step 3, or by a fixer's escalation): what the reviewer said, what was investigated, why it needs a decision, concrete options with tradeoffs, and a lean if any.
 
-Present the `decision_context` directly -- it's already structured for the user to read and decide quickly:
+Present the `decision_context` directly -- it's already structured for the user to decide quickly:
 
 ```
 Needs your input (count):
 
-1. [decision_context from the agent -- includes quoted feedback,
-   investigation findings, why it needs a decision, options with
-   tradeoffs, and the agent's recommendation if any]
+1. [decision_context -- quoted feedback, investigation findings, why it
+   needs a decision, options with tradeoffs, and the recommendation if any]
 ```
 
 The `needs-human` threads already have a natural-sounding acknowledgment reply posted and remain open on the PR.
@@ -282,8 +273,7 @@ Still pending from a previous run (count):
 
 1. [Thread path:line] -- [brief description of what's pending]
    Previous reply: [link to the existing reply]
-   [Re-present the decision options if the original context is available,
-   or summarize what was asked]
+   [Re-present the decision options if available, or summarize what was asked]
 ```
 
 If a blocking question tool is available, use it to ask about all pending decisions (both new `needs-human` and previous-run pending) together. If there are only pending decisions and no new work was done, the summary is just the pending items.

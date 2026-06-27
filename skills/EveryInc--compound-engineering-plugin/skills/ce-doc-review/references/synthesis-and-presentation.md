@@ -386,10 +386,12 @@ A. Proceed to <next stage>
 B. Exit without further action
 ```
 
-The `<next stage>` substitution uses the document type from Phase 1:
+The `<next stage>` substitution uses the document classification from Phase 1. Route by readiness, not file path — a requirements-only artifact's next stage is planning, an implementation-ready artifact's is execution:
 
-- Requirements document → `ce-plan`
-- Plan document → `ce-work`
+- `unified-requirements` (requirements-only unified plan) → `ce-plan` (enrich in place)
+- `requirements` (legacy standalone requirements doc) → `ce-plan`
+- `unified-plan` (implementation-ready unified plan) → `ce-work`
+- `plan` (legacy implementation plan) → `ce-work`
 
 **Label adaptation:** when no decisions are queued to apply, the primary option drops the `Apply decisions and` prefix — the label should match what the system is doing. `Apply decisions and proceed` when fixes are queued; `Proceed` when nothing is queued.
 

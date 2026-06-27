@@ -109,6 +109,7 @@ export const STALE_SKILL_DIRS = [
   "ce-sessions",
   "ce-slack-research",
   "ce-update",
+  "ce-work-beta",
 
   // ce-session-inventory and ce-session-extract were script-host skills called
   // only from ce-session-historian via the Skill tool. That dispatch path
@@ -401,6 +402,9 @@ const LEGACY_PROMPT_DESCRIPTION_ALIASES: Record<string, string[]> = {
     "Transform feature descriptions or requirements into implementation plans grounded in repo patterns and research.",
   ],
   "ce-work-beta.md": [
+    // Last shipped ce-work-beta description (the file was deleted, so this is
+    // the final live frontmatter description preserved for upgrade cleanup).
+    "[BETA] Execute ce-work with external delegate support.",
     "[BETA] Execute work with external delegate support. Same as ce-work but includes experimental Codex delegation mode for token-conserving code implementation.",
     "[BETA] Execute work with external delegate support. Same as ce:work but includes experimental Codex delegation mode for token-conserving code implementation.",
   ],
@@ -468,6 +472,10 @@ const LEGACY_ONLY_SKILL_DESCRIPTIONS: Record<string, string> = {
     "[BETA] Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR.",
   "ce-review-beta":
     "[BETA] Structured code review using tiered persona agents, confidence-gated findings, and a merge/dedup pipeline. Use when reviewing code changes before creating a PR.",
+  "ce:work-beta":
+    "[BETA] Execute ce-work with external delegate support.",
+  "ce-work-beta":
+    "[BETA] Execute ce-work with external delegate support.",
   "ce-onboarding":
     "Generate or regenerate ONBOARDING.md to help new contributors understand a codebase. Use when the user asks to 'create onboarding docs', 'generate ONBOARDING.md', 'document this project for new developers', 'write onboarding documentation', 'vonboard', 'vonboarding', 'prepare this repo for a new contributor', 'refresh the onboarding doc', or 'update ONBOARDING.md'. Also use when someone needs to onboard a new team member and wants a written artifact, or when a codebase lacks onboarding documentation and the user wants to generate one.",
   "ce-andrew-kane-gem-writer":
@@ -860,9 +868,22 @@ async function loadLegacyFingerprints(): Promise<LegacyFingerprints> {
 
       for (const [fileName, skillName] of Object.entries(LEGACY_PROMPT_CURRENT_SKILL_FOR_FILE)) {
         const currentPath = skillIndex.get(skillName)
-        if (!currentPath) continue
-        const description = await readDescription(currentPath)
-        if (description) prompts.set(fileName, description)
+        if (currentPath) {
+          const description = await readDescription(currentPath)
+          if (description) prompts.set(fileName, description)
+          continue
+        }
+        // The mapped skill no longer ships (fully retired, e.g. ce-work-beta).
+        // Seed the prompt fingerprint with any historical alias so cleanup can
+        // still match and sweep the orphaned wrapper on upgrade. The specific
+        // value is not significant — isLegacyPromptWrapper unions the full
+        // LEGACY_PROMPT_DESCRIPTION_ALIASES list when matching; this only has to
+        // be a non-empty description to clear descriptionsMatch's guard. Mirrors
+        // the LEGACY_ONLY_SKILL_DESCRIPTIONS / LEGACY_ONLY_AGENT_DESCRIPTIONS
+        // fallbacks above; the prompts dir is cross-plugin, so a description
+        // fingerprint (not a name-only match) is required to sweep safely.
+        const historicalFingerprint = LEGACY_PROMPT_DESCRIPTION_ALIASES[fileName]?.[0]
+        if (historicalFingerprint) prompts.set(fileName, historicalFingerprint)
       }
 
       return { skills, agents, prompts }
