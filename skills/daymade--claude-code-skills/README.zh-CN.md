@@ -6,15 +6,15 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Skills](https://img.shields.io/badge/skills-66-blue.svg)](https://github.com/daymade/claude-code-skills)
-[![Version](https://img.shields.io/badge/version-1.67.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Skills](https://img.shields.io/badge/skills-76-blue.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-1.74.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
 
 </div>
 
-专业的 Claude Code 技能市场，提供 66 个生产就绪的技能，用于增强开发工作流。
+专业的 Claude Code 技能市场，提供 76 个生产就绪的技能，用于增强开发工作流。
 
 ## 📑 目录
 
@@ -2727,6 +2727,188 @@ uv run --with aiohttp python scripts/concurrency_probe.py \
 📚 **文档**：参见 [llm-eval-harness/references/evaluation_disciplines.md](./llm-eval-harness/references/evaluation_disciplines.md) 了解每条纪律背后的推理，以及 [llm-eval-harness/references/quality_blind_judge.md](./llm-eval-harness/references/quality_blind_judge.md) 了解独立盲审质量方法。
 
 **要求**：Python 3.8+、`uv`；`openai` 和 `aiohttp`（通过 `uv run --with` 自动安装）；被测端点的 API key。可与 **promptfoo-evaluation** 组合，用于基于 rubric 的门控。
+
+---
+
+### 69. **read-claude-web-conversation** - 提取 Claude.ai 网页会话
+
+> **安装**：`claude plugin install daymade-claude-code@daymade-skills`（套件专用——通过 `daymade-claude-code:read-claude-web-conversation` 调用）
+
+通过 Claude Code operations 套件提取 Claude.ai 网页会话全文，用于恢复、审计、归档或迁移。
+
+**使用场景：**
+- 需要读取本地 Claude Code 日志里没有的 Claude.ai 网页会话
+- 为交接、审计或归档恢复完整网页线程
+- 对比浏览器可见内容、导出文件和本地 session artifact
+
+**要求**：已安装 `daymade-claude-code` 套件，并能访问相关浏览器/session 上下文。
+
+---
+
+### 70. **setup-notifications-via-wecom** - 可复用企微通知配置
+
+```bash
+claude plugin install setup-notifications-via-wecom@daymade-skills
+```
+
+配置可复用的企业微信/WeCom webhook 通知，用于技术状态报告、告警和任务完成消息。
+
+**使用场景：**
+- 配置可复用的企业微信 / WeCom 通知通道
+- 发送结构化状态通知、备份报告或告警
+- 把一次性 webhook 变成可复用通知流程
+
+**要求**：企业微信机器人 webhook URL 和 shell 环境。
+
+---
+
+### 71. **notify-wecom** - 发送一次性企微消息
+
+```bash
+claude plugin install notify-wecom@daymade-skills
+```
+
+发送单条企业微信群机器人消息，不建立可复用通知工作流。
+
+**使用场景：**
+- `/notify-wecom`
+- 临时发一条企业微信 / 企微通知一下
+- 不需要模板或持久配置的一次性提醒
+
+**要求**：企业微信机器人 webhook URL。
+
+---
+
+### 72. **github-sensitive-data-cleanup** - GitHub 敏感数据清理
+
+```bash
+claude plugin install github-sensitive-data-cleanup@daymade-skills
+```
+
+扫描并清理 GitHub 仓库历史里的敏感数据，带备份、可见性检查和 force-push 安全门。
+
+**使用场景：**
+- 仓库泄露了 secrets、私有域名/IP、API key 或 PII
+- 公开暴露前后需要清理 git 历史
+- 对公共仓库 force push 前做安全验证
+
+**要求**：`git`、GitHub 访问权限，以及目标仓库所需的扫描/历史重写工具。
+
+---
+
+### 73. **codex-image-gallery** - Codex 生成图片本地浏览器
+
+```bash
+claude plugin install codex-image-gallery@daymade-skills
+```
+
+启动一个自包含的本地网页 gallery 浏览 Codex 生成图片。Skill 自带 Node server 和 HTML UI，默认扫描 `~/.codex/generated_images`，也可用 `GALLERY_ROOT` 指向其他目录。
+
+**使用场景：**
+- 用本地 UI 浏览 Codex 生成图片
+- 查看 `~/.codex/generated_images`
+- 用搜索、批次分组和详情视图检查自定义图片输出目录
+
+**主要功能：**
+- 内置 `scripts/server.mjs` 和 `assets/index.html`
+- 动态 `/api/images` 扫描，不维护手写 manifest
+- `/images/<relative-path>` 图片路由带路径穿越保护
+- 支持可选 `GALLERY_ROOT`、`PORT`、`HOST`
+
+**要求**：Node.js 18+，并能访问目标图片目录。
+
+### 74. **frontend-visual-qa** - 渲染后前端视觉 QA 门禁
+
+```bash
+claude plugin install frontend-visual-qa@daymade-skills
+```
+
+捕捉普通 lint/build 检查发现不了的低级界面排版和视觉错误。
+
+**使用场景：**
+- 审核或交付前端、网站、dashboard、设计系统样张或 HTML 演示页
+- 用户指出不恰当换行、文字挤、双滚动条、重叠或 AI slop 审美
+- 用户指出产物类型错位，例如把设计系统做成假的工作台/业务界面
+- 需要在桌面和移动端用 Chrome/Playwright 留证
+- 需要补足 `ui-designer`、`frontend-design` 和 `qa-expert` 之间的空档
+
+**主要功能：**
+- 基于本地历史反馈沉淀的换行、溢出、排版错误清单
+- 优先用 Chrome DevTools 检查用户当前可见浏览器视口，包括残留移动端 emulation
+- Playwright-core 脚本覆盖宽桌面、常规桌面和移动端视口
+
+### 75. **openclaw** - OpenClaw (龙虾) 配置管理器
+
+```bash
+claude plugin install openclaw@daymade-skills
+```
+
+管理 OpenClaw (龙虾) 实例配置 —— 在 `openclaw.json` 文件间审计、对比、复制、加模型、列出和切换模型。
+
+**使用场景：**
+- 管理多个 OpenClaw / Claude Code wrapper 实例
+- 给实例打 DeepSeek 模型补丁
+- 在实例间审计、对比、复制 provider/模型配置
+- 管理默认模型和别名，或校验配置
+
+**主要功能：**
+- 统一 CLI：audit / diff / copy / add-model / list / switch
+- 变更命令自动审计，带 `--no-audit` 逃生口
+- 昵称注册表支持跨配置操作
+
+### 76. **download-gemini-images** - 从 Gemini 对话下载图片
+
+```bash
+claude plugin install download-gemini-images@daymade-skills
+```
+
+用你已登录的 Chrome session 从 Google Gemini 对话页下载图片（上传的或生成的预览），按顺序重命名后打包成 ZIP。
+
+**使用场景：**
+- 保存 Gemini 对话页里的图片（上传的或生成的预览）
+- 需要更大的 lightbox 大图，而非缩略图
+- 把下载的图片按顺序重命名并打包成 ZIP
+
+**主要功能：**
+- 通过 Chrome 插件优先下载 lightbox 大图（用你现有的 Google session）
+- lightbox 自动化失败时回退到 `pageAssets`
+- 有序 ZIP 打包 + 完整性校验
+
+### 77. **wps-doc-scraper** - 归档公开 WPS/KDocs 文档
+
+```bash
+claude plugin install wps-doc-scraper@daymade-skills
+```
+
+忠实归档公开的 WPS / KDocs / 金山文档链接 —— 尤其是内嵌的 ProcessOn 思维导图和画布 —— 保存为原始源数据、原版 SVG/PNG 和 Markdown，无需登录。
+
+**使用场景：**
+- 给一个 `kdocs.cn` 或 `wps.processon.com` 链接，要抓取、保存、下载或转 Markdown
+- 归档内嵌的 ProcessOn 思维导图或画布，保持源保真度
+- 需要原始 payload + 原版视觉产物，而不只是渲染后的文本
+
+**主要功能：**
+- 优先用免登录数据 API 提取（不登录、不存到账号）
+- 画布和思维导图的原版 SVG/PNG 捕获
+- Markdown 作为源的结构化表示
+
+### 78. **ashare-news-fetcher** - A 股消息面情报聚合
+
+```bash
+claude plugin install ashare-news-fetcher@daymade-skills
+```
+
+从公开来源聚合 A 股新闻、政策和市场情绪 —— 财联社、华尔街见闻、金十、新浪 7x24、东财快讯、证监会/央行/上交所政策公告、东方财富股吧 —— 输出结构化 JSON 或 Markdown。
+
+**使用场景：**
+- 需要某只 A 股个股或整个市场近期的新闻/政策/情绪
+- 一次性从多个中文财经源聚合消息面情报
+- 生成结构化 JSON 或 Markdown 新闻摘要
+
+**主要功能：**
+- 多源公开 feed 聚合（免登录）
+- 按个股或全市场过滤
+- 结构化 JSON / Markdown 输出
 
 ---
 

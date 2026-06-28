@@ -50,9 +50,22 @@ cd marketplace/ && npx playwright test
 # Single test
 cd packages/cli && pnpm test -- --grep "pattern"
 
-# JRig behavioral eval (opt-in, ~$2-5/skill)
-j-rig check <skill-dir>           # Tier 3A: deterministic (~seconds, free)
-j-rig eval <skill-dir> --models haiku,sonnet,opus --db freshie/inventory.sqlite
+# JRig behavioral eval — the published @intentsolutions/jrig-cli (bin `j-rig`),
+# pinned as a root devDep. Invoke via `pnpm exec j-rig` so it resolves the
+# repo's pinned version (node_modules/.bin/j-rig), NOT a global shim.
+pnpm exec j-rig --version         # → 0.1.0 (the real 7-layer CLI)
+pnpm exec j-rig check <skill-dir> # Tier 3A: deterministic (~seconds, free, no API key, no DB)
+
+# Real behavioral eval (opt-in, ~$2-5/skill) — needs a provider API key + the
+# native better-sqlite3 build (run `pnpm rebuild better-sqlite3` once; the build
+# script is not auto-run on install).
+DEEPSEEK_API_KEY=...  pnpm exec j-rig eval <skill-dir> \
+  --provider deepseek --models deepseek-v4-flash --db freshie/inventory.sqlite
+# DEEPSEEK_API_KEY is provisioned via SOPS (intent-eval-lab/.env.sops; see the
+# IEP umbrella CLAUDE.md credential table). `deepseek-v4-flash` is a real
+# behavioral provider — this is ground truth, replacing the prior dev/stub
+# resolution where the global `j-rig` symlink pointed at a local unbuilt CLI.
+# Other providers (haiku/sonnet/opus via Anthropic, etc.) remain available.
 ```
 
 ## Two Catalog System — Critical
@@ -139,20 +152,20 @@ Two things grade frontmatter in this repo today, and the relationship between th
 
 - **Prose-spec validator (authoritative):** `scripts/validate-skills-schema.py`. This is the canonical gate. It runs at standard and marketplace tiers, it grades both frontmatter AND markdown body sections, and at marketplace tier a missing required field is an **ERROR** (not a warning). It is the one in the branch-protection required-status set. `ALWAYS_REQUIRED` (the IS 8-field set) is hand-authored here and stays **AUTHORITATIVE** — read `000-docs/SCHEMA_CHANGELOG.md` § NON-NEGOTIABLES before touching it. The IS rubric sits on top of Anthropic's permissive spec; the marketplace tier is intentionally strict. Do not reduce the 8-field set, do not demote marketplace errors to warnings, and do not "realign" to Anthropic's floor — any change to required-fields / tier model / error-vs-warning semantics is approval-gated per that doc.
 
-- **Kernel machine-spec (the SSoT being migrated to):** `@intentsolutions/core` — its `schemas/authoring/v1` family (byte-frozen) plus the strict fork `authoring/v2` — is the single internal source of truth for "what is a valid agent-native artifact." The kernel's `skill-frontmatter` schema encodes the **same** IS 8-field required set as a pure `allOf` of upstream-base + universal folds + the IS overlay. The plan of record is for `validate-skills-schema.py` to **consume the kernel folds** instead of its hand-rolled rule sets. That migration is in progress; the kernel pin is **exactly `0.4.1`** in `package.json` (no `^`/`~`). Contract semantics for `authoring/v1` fields are canonical in the kernel's own changelog — cite it, do not duplicate it (see `000-docs/SCHEMA_CHANGELOG.md` § "Kernel changelog citation").
+- **Kernel machine-spec (the SSoT being migrated to):** `@intentsolutions/core` — its `schemas/authoring/v1` family (byte-frozen) plus the strict fork `authoring/v2` — is the single internal source of truth for "what is a valid agent-native artifact." The kernel's `skill-frontmatter` schema encodes the **same** IS 8-field required set as a pure `allOf` of upstream-base + universal folds + the IS overlay. The plan of record is for `validate-skills-schema.py` to **consume the kernel folds** instead of its hand-rolled rule sets. That migration is in progress; the kernel pin is **exactly `0.9.0`** in `package.json` (no `^`/`~`). The `authoring/v1` schema family is byte-frozen across kernel package versions, so this pin bump tracks the latest published kernel without changing the `authoring/v1` contract the shadow lane reads. Contract semantics for `authoring/v1` fields are canonical in the kernel's own changelog — cite it, do not duplicate it (see `000-docs/SCHEMA_CHANGELOG.md` § "Kernel changelog citation").
 
 ### Two advisory lanes (never block) running the soak
 
 Both are `continue-on-error: true`, neither is in the required-status set, and neither mutates anything:
 
-- **kernel-shadow soak** — `.github/workflows/kernel-shadow-validation.yml` + `scripts/kernel-shadow-validation.mjs`. Runs the kernel-pinned `skill-frontmatter` schema (from `@intentsolutions/core@0.4.1`) over the same SKILL.md corpus the prose-spec validator grades and logs per-file AGREE / DISAGREE deviation to `scripts/.kernel-shadow/report.json`. This is the DR-049 shadow soak (the "zero-on-corpus shadow signal"). The cutover-relevant number is the **frontmatter-scoped** deviation — a file that fails the prose-spec on missing `[body]` sections but has valid frontmatter is a scope difference, not a kernel gap, and is excluded.
-- **kernel-vendor-hash gate** — `.github/workflows/kernel-vendor-hash.yml` + `scripts/kernel-vendor-hash.mjs`. Enforces the version-coupling invariant **V ≤ C ≤ K** (vendored ≤ CCPI-declared ≤ kernel-latest) plus a ≤7-day staleness bound. Soak-aware: it reads the `0.4.1` pin, polices ordering/staleness only, and must never pressure a pin bump or change validator authority.
+- **kernel-shadow soak** — `.github/workflows/kernel-shadow-validation.yml` + `scripts/kernel-shadow-validation.mjs`. Runs the kernel-pinned `skill-frontmatter` schema (from `@intentsolutions/core@0.9.0`) over the same SKILL.md corpus the prose-spec validator grades and logs per-file AGREE / DISAGREE deviation to `scripts/.kernel-shadow/report.json`. This is the DR-049 shadow soak (the "zero-on-corpus shadow signal"). The cutover-relevant number is the **frontmatter-scoped** deviation — a file that fails the prose-spec on missing `[body]` sections but has valid frontmatter is a scope difference, not a kernel gap, and is excluded.
+- **kernel-vendor-hash gate** — `.github/workflows/kernel-vendor-hash.yml` + `scripts/kernel-vendor-hash.mjs`. Enforces the version-coupling invariant **V ≤ C ≤ K** (vendored ≤ CCPI-declared ≤ kernel-latest) plus a ≤7-day staleness bound. Soak-aware: it reads the `0.9.0` pin, polices ordering/staleness only, and must never pressure a pin bump or change validator authority.
 
 The validator itself does a kernel-loaded **shadow read** of `ALWAYS_REQUIRED` (`load_kernel_required()` / `--kernel-shadow`) — it compares the kernel's effective required set against the hand-authored one and reports drift. The hand-authored `ALWAYS_REQUIRED` stays authoritative; the shadow read is observational only.
 
 ### Do-not-flip soak discipline (do not lose this)
 
-**Keep the kernel pin at exactly `0.4.1` during the soak — do NOT bump it.** Do **NOT** flip the kernel-shadow lane from advisory to authoritative (blocking) until ALL of these hold:
+**The kernel pin and the authority flip are two SEPARATE axes — do not conflate them.** The pin tracks the latest published kernel (currently exactly `0.9.0`, no `^`/`~`); bumping it keeps the shadow lane reading a current, byte-frozen `authoring/v1` contract and is a routine governance/coupling update, not an authority change. What stays frozen is the **authority**: do **NOT** flip the kernel-shadow lane from advisory to authoritative (blocking) until ALL of these hold:
 
 1. ≥99.5% corpus agreement (deterministic folds must be 100%; the 0.5% band is reserved for non-deterministic surfaces only);
 2. ≥30 days of advisory soak;
@@ -162,6 +175,8 @@ The validator itself does a kernel-loaded **shadow read** of `ALWAYS_REQUIRED` (
 6. a ≥14-day public deprecation-window notice to affected skill authors.
 
 As of now the soak has **not** met the bar — agreement sits below 99.5%, and the open disagreements are real tool-safety / shell-substitution security cases that the prose-spec validator correctly blocks (so flipping early would weaken a real gate). Until every condition above is satisfied, validator authority stays with `validate-skills-schema.py` and both kernel lanes stay advisory. Promotion to blocking is a separate, later cutover step gated by these conditions — never a side effect of an unrelated PR.
+
+**Alignment note (`@intentsolutions/jrig-cli`).** The `j-rig` behavioral-eval CLI is a root devDep pinned to `@intentsolutions/jrig-cli@0.1.0`, which depends on `@intentsolutions/core@^0.8.0`. The **root** `@intentsolutions/core` pin is now **exactly `0.9.0`** — the same major/minor jrig-cli wants — so the previously-nested duplicate resolves to the shared root-hoisted copy and the kernel-shadow + kernel-vendor lanes read it directly. The pin bump is a coupling update only; the authority flip and the root-pin cutover to `authoring/v2` remain the separate, gated steps above.
 
 ### Validator consolidation (already landed)
 

@@ -6,15 +6,15 @@
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red)](./README.zh-CN.md)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Skills](https://img.shields.io/badge/skills-66-blue.svg)](https://github.com/daymade/claude-code-skills)
-[![Version](https://img.shields.io/badge/version-1.67.0-green.svg)](https://github.com/daymade/claude-code-skills)
+[![Skills](https://img.shields.io/badge/skills-76-blue.svg)](https://github.com/daymade/claude-code-skills)
+[![Version](https://img.shields.io/badge/version-1.74.0-green.svg)](https://github.com/daymade/claude-code-skills)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-2.0.13+-purple.svg)](https://claude.com/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/daymade/claude-code-skills/graphs/commit-activity)
 
 </div>
 
-Professional Claude Code skills marketplace featuring 66 production-ready skills for enhanced development workflows.
+Professional Claude Code skills marketplace featuring 76 production-ready skills for enhanced development workflows.
 
 ## 📑 Table of Contents
 
@@ -2685,6 +2685,188 @@ uv run --with aiohttp python scripts/concurrency_probe.py \
 📚 **Documentation**: See [llm-eval-harness/references/evaluation_disciplines.md](./llm-eval-harness/references/evaluation_disciplines.md) for the reasoning behind each discipline and [llm-eval-harness/references/quality_blind_judge.md](./llm-eval-harness/references/quality_blind_judge.md) for the blind-judge method.
 
 **Requirements**: Python 3.8+, `uv`; `openai` and `aiohttp` (auto-installed via `uv run --with`); an API key for the endpoint under test. Optionally composes with **promptfoo-evaluation** for rubric-based gating.
+
+---
+
+### 69. **read-claude-web-conversation** - Extract Claude.ai Web Conversations
+
+> **Install**: `claude plugin install daymade-claude-code@daymade-skills` (suite-only — invoked as `daymade-claude-code:read-claude-web-conversation`)
+
+Extract full Claude.ai web conversation content through the Claude Code operations suite when local browser/export paths are needed for recovery, auditing, or migration.
+
+**When to use:**
+- Reading a Claude.ai web conversation that is not available in local Claude Code logs
+- Recovering a full web thread for handoff, audit, or archival
+- Comparing browser-visible content with exported or local session artifacts
+
+**Requirements**: Installed `daymade-claude-code` suite and access to the relevant browser/session context.
+
+---
+
+### 70. **setup-notifications-via-wecom** - Reusable WeCom Notification Setup
+
+```bash
+claude plugin install setup-notifications-via-wecom@daymade-skills
+```
+
+Set up reusable WeCom (Enterprise WeChat) webhook notifications for technical status reports, alerts, and completion messages.
+
+**When to use:**
+- Configuring a reusable 企业微信 / WeCom notification channel
+- Sending structured status notifications, backup reports, or alerts
+- Turning a one-off webhook into a repeatable notification workflow
+
+**Requirements**: WeCom bot webhook URL and shell access.
+
+---
+
+### 71. **notify-wecom** - One-Off WeCom Message
+
+```bash
+claude plugin install notify-wecom@daymade-skills
+```
+
+Send a single WeCom group-bot message without setting up a reusable notification workflow.
+
+**When to use:**
+- `/notify-wecom`
+- 临时发一条企业微信 / 企微通知一下
+- One-shot alerts that do not need templates or persistent setup
+
+**Requirements**: WeCom bot webhook URL.
+
+---
+
+### 72. **github-sensitive-data-cleanup** - GitHub Sensitive Data Cleanup
+
+```bash
+claude plugin install github-sensitive-data-cleanup@daymade-skills
+```
+
+Scan and remove sensitive data from GitHub repository history, with backup, visibility checks, and force-push safety gates.
+
+**When to use:**
+- A repo leaked secrets, private domains/IPs, API keys, or PII
+- Cleaning git history before or after a public exposure
+- Verifying safety before any force push to a public repository
+
+**Requirements**: `git`, GitHub access, and the relevant scanning/history-rewrite tools for the target repository.
+
+---
+
+### 73. **codex-image-gallery** - Local Browser for Codex Generated Images
+
+```bash
+claude plugin install codex-image-gallery@daymade-skills
+```
+
+Start a self-contained local web gallery for Codex-generated image outputs. The skill bundles its Node server and HTML UI, scans `~/.codex/generated_images` by default, and can point at another folder with `GALLERY_ROOT`.
+
+**When to use:**
+- Browsing Codex generated images in a local UI
+- Inspecting `~/.codex/generated_images`
+- Reviewing a custom image output directory with search, batches, and image detail view
+
+**Key features:**
+- Bundled `scripts/server.mjs` and `assets/index.html`
+- Dynamic `/api/images` scan; no hardcoded manifest
+- `/images/<relative-path>` image route with path traversal protection
+- Optional `GALLERY_ROOT`, `PORT`, and `HOST`
+
+**Requirements**: Node.js 18+ and access to the image folder.
+
+### 74. **frontend-visual-qa** - Rendered Frontend Visual QA Gate
+
+```bash
+claude plugin install frontend-visual-qa@daymade-skills
+```
+
+Catch embarrassing rendered UI defects that normal lint/build checks miss.
+
+**When to use:**
+- Reviewing or shipping a frontend, website, dashboard, design-system specimen, or HTML slide page
+- User flags awkward line breaks, cramped text, double scrollbars, overlap, or generic AI slop aesthetics
+- User says the artifact has the wrong type, such as a design system turning into a fake app/workbench
+- Need Chrome/Playwright evidence across desktop and mobile viewports
+- Need to complement `ui-designer`, `frontend-design`, and `qa-expert`
+
+**Key features:**
+- History-derived checklist for recurring line-break, overflow, and typography failures
+- Chrome DevTools first-pass for the user-visible browser viewport, including stale mobile emulation checks
+- Playwright-core audit script for desktop-wide, desktop, and mobile viewports
+
+### 75. **openclaw** - OpenClaw (龙虾) Config Manager
+
+```bash
+claude plugin install openclaw@daymade-skills
+```
+
+Manage OpenClaw (龙虾/lobster) instance configurations — audit, diff, copy, add-model, list, and switch models across `openclaw.json` files.
+
+**When to use:**
+- Managing multiple OpenClaw / Claude Code wrapper instances
+- Applying DeepSeek model patches to an instance
+- Auditing, diffing, or copying provider/model config between instances
+- Managing default models and aliases, or validating config
+
+**Key features:**
+- Unified CLI: audit / diff / copy / add-model / list / switch
+- Auto-audit on mutating commands with a `--no-audit` escape hatch
+- Nickname registry for cross-config operations
+
+### 76. **download-gemini-images** - Download Images from Gemini Conversations
+
+```bash
+claude plugin install download-gemini-images@daymade-skills
+```
+
+Download images (uploaded files or generated previews) from a Google Gemini conversation page using your logged-in Chrome session, then package them into an ordered ZIP.
+
+**When to use:**
+- Saving images from a Gemini chat/app page (uploaded or generated previews)
+- Need the larger lightbox image, not the thumbnail
+- Renaming downloaded images in order and producing a ZIP archive
+
+**Key features:**
+- Lightbox-first download via the Chrome plugin (uses your existing Google session)
+- `pageAssets` fallback when lightbox automation fails
+- Ordered ZIP packaging with integrity verification
+
+### 77. **wps-doc-scraper** - Archive Public WPS/KDocs Documents
+
+```bash
+claude plugin install wps-doc-scraper@daymade-skills
+```
+
+Faithfully archive public WPS / KDocs / 金山文档 links — especially embedded ProcessOn mind maps and canvases — as raw source data, original SVG/PNG, and Markdown, without logging in.
+
+**When to use:**
+- Given a `kdocs.cn` or `wps.processon.com` link to scrape, save, download, or convert to Markdown
+- Archiving an embedded ProcessOn mind map or canvas with source fidelity
+- Need the raw payloads + original visual artifact, not just rendered text
+
+**Key features:**
+- Unauthenticated data-API-first extraction (no login, no account save)
+- Original SVG/PNG capture for canvases and mind maps
+- Markdown as a structured representation of the source
+
+### 78. **ashare-news-fetcher** - A-Share Market News & Sentiment Aggregator
+
+```bash
+claude plugin install ashare-news-fetcher@daymade-skills
+```
+
+Aggregate A-share (Chinese stock market) news, policy, and sentiment from public sources — 财联社, 华尔街见闻, 金十, 新浪 7x24, 东财快讯, regulator announcements (CSRC / PBoC / SSE), 东方财富股吧 — into structured JSON or Markdown.
+
+**When to use:**
+- Need recent news/policy/sentiment for a specific A-share stock or the whole market
+- Aggregating 消息面 intel from multiple Chinese financial sources at once
+- Producing a structured JSON or Markdown news digest
+
+**Key features:**
+- Multi-source public-feed aggregation (no login)
+- Per-stock or market-wide filtering
+- Structured JSON / Markdown output
 
 ---
 
