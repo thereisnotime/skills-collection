@@ -5,6 +5,91 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.78.0] - 2026-06-29
+
+### Added
+- **gemini-history-analyzer** v1.0.0: Analyze Google Takeout exports of Gemini conversation history — extract and categorize transcripts and attachments, context-verified domain keyword search (finance/legal/etc.), meeting-transcript vs prompt-response detection, Chinese/Unicode filename handling via `unar` (the macOS `unzip` corrupts them), PII flagging, and optional distillation into project memory or a personal knowledge base. Top-level plugin: `gemini-history-analyzer@daymade-skills`.
+
+### Changed
+- Marketplace version: 1.77.0→1.78.0; plugin entries 54→55.
+
+## [1.77.0] - 2026-06-29
+
+### Added
+- Four new skills landed: **claude-migrate-memory-to-doc** (migrate `.claude` memory into versioned, tool-agnostic docs), **design-style-picker** (batch-generate and compare visual design directions before committing), **local-codex** (delegate coding tasks to the local OpenAI Codex CLI via ChatGPT Pro OAuth), and **openclaw-model-switch** (switch an OpenClaw instance's default model with backup and validation).
+
+### Security
+- Removed hardcoded personal identifiers from the repo PII deny-list (`.gitleaks.toml`, `.githooks/pre-commit`) and ran a PII history-cleanup pass on the repository.
+
+### Changed
+- Marketplace version: 1.76.0→1.77.0.
+
+## [1.76.0] - 2026-06-28
+
+### Added
+- **daymade-financial** suite v1.0.0: Financial data and investment-research suite bundling 5 skills under a shared namespace — `bigdata-skill` (Bigdata.com/RavenPack SDK + REST), `financial-data-collector` (US equity fundamentals via yfinance), `gangtise-copilot` (Gangtise OpenAPI suite installer), `ashare-news-fetcher` (A-share news/policy aggregation), and `pharma-daily-report` (A-share pharma sector daily report). Install once via `daymade-financial@daymade-skills` and invoke as `daymade-financial:<skill>`.
+
+### Changed
+- **Suite-only migration**: the 5 financial skills are now suite-only. Removed 5 standalone plugin entries from `marketplace.json`; they are now reachable only via the `daymade-financial` suite.
+- Plugin entries: 56→52 (5 standalone removed, 1 suite added).
+- Marketplace version: 1.75.0→1.76.0.
+- README.md / README.zh-CN.md / CLAUDE.md: added suite install block, added suite-only markers to the 5 skill sections, removed standalone install commands, added Financial Data use case, updated documentation links.
+
+### Migration
+- Existing users of any of the 5 affected standalone plugins (`bigdata-skill@daymade-skills`, `financial-data-collector@daymade-skills`, `gangtise-copilot@daymade-skills`, `ashare-news-fetcher@daymade-skills`, `pharma-daily-report@daymade-skills`) should install the suite: `claude plugin install daymade-financial@daymade-skills`. Personal data and credentials are unaffected.
+
+## [1.75.0] - 2026-06-28
+
+### Added
+- **pharma-daily-report** v1.0.0: A-share pharmaceutical sector daily report — Sina Finance real-time quotes, 7 sub-sector ranking, gainers/losers, fund-flow estimate, optional Feishu rich-text push; default 20-stock watchlist, customizable.
+
+### Changed
+- skills 76→77, plugin entries 55→56, marketplace 1.74.0→1.75.0.
+
+## [1.74.0] - 2026-06-28
+
+### Added
+- **ashare-news-fetcher** v1.0.0: aggregate A-share news, policy, and sentiment from public Chinese sources (财联社/华尔街见闻/金十/新浪 7x24/东财快讯/regulators/东财股吧) into structured JSON or Markdown; per-stock or market-wide, no login.
+
+### Changed
+- skills 75→76, plugin entries 54→55, marketplace 1.73.0→1.74.0.
+
+## [1.73.0] - 2026-06-28
+
+### Added
+- **wps-doc-scraper** v1.0.0: faithfully archive public WPS/KDocs/金山文档 links (incl. embedded ProcessOn mind maps) as raw source, SVG/PNG, and Markdown without login; data-API-first with browser-DOM fallback.
+
+### Changed
+- skills 74→75, plugin entries 53→54, marketplace 1.72.0→1.73.0.
+
+## [1.72.0] - 2026-06-28
+
+### Added
+- **download-gemini-images** v1.0.0: download images from a Google Gemini conversation page via logged-in Chrome (lightbox-first, pageAssets fallback), rename in order, package into a verified ZIP.
+
+### Changed
+- skills 73→74, plugin entries 52→53, marketplace 1.71.0→1.72.0.
+
+## [1.71.0] - 2026-06-28
+
+### Added
+- **openclaw** v1.0.0: manage OpenClaw (龙虾/lobster) instance configs — audit/diff/copy/add-model/list/switch, DeepSeek patches, config validation. Real private instance nicknames were sanitized to placeholders (甲虾/乙虾) before publishing.
+
+### Changed
+- skills 72→73, plugin entries 51→52, marketplace 1.70.0→1.71.0.
+
+## [1.70.0] - 2026-06-28
+
+### Added
+- **frontend-visual-qa** v1.0.0: review rendered frontends/dashboards/HTML slides for visual defects lint/build miss (awkward line breaks, wrapped controls, overflow, double scrollbars, AI slop, Chrome DevTools viewport mistakes); history-derived checklist + Chrome-first pass + Playwright-core audit.
+
+### Changed
+- skills 71→72, plugin entries 50→51, marketplace 1.69.0→1.70.0.
+- **transcript-fixer** → daymade-audio 1.3.0: uncertain extraction, tech presets, common-words safety table + tests.
+- **feishu-doc-scraper** → 1.2.1: correct lark-cli 1.0.55 `cells-get` CSV behavior (returns JSON cell grid, not CSV) + pagination note.
+- **skill-creator** (`package_skill`) → daymade-skill 1.3.0: exclude `.pytest_cache`/`.venv`/`.security-scan-passed`/`dist`, default artifact output to `<skill>/dist/`, +16 tests.
+- **skill-creator** (PII SOP) → daymade-skill 1.4.0: `security_scan` "passed" now warns it is keyword-based only; `sanitization_checklist` adds the CJK project-nickname blind spot + an openclaw war-story; `new-skill-guide` makes the manual逐字 PII read-through a mandatory Step-1 gate and adds multi-agent concurrent-session diagnosis.
+
 ## [1.69.0] - 2026-06-27
 
 ### Added
@@ -40,6 +125,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **marketplace-health-check** v1.0.0: new skill — the 6-dimension repo health-check workflow distilled from a real audit session, fixed as a reusable skill. A parallel fan-out Dynamic Workflow runs six inspectors (code/script safety, documentation/SSOT consistency, security/PII, open-PR triage, open-issue triage, marketplace-manifest integrity); the skill then Counter-Reviews every high/critical finding (agent findings are hypotheses, verified before reporting) and reports by priority. Bundles the proven workflow script + a methodology reference (anti-target PII rule, working-copy-vs-history distinction, scan-marker necessary-not-sufficient, the broken-install-command bug class, promotion-decline default). Inline orchestrator — uses the Workflow tool, so it must not run forked.
+
+### Changed
+- **local-codex** extracted from `~/.kimi_openclaw/workspace/local-codex.skill` and promoted to a standalone top-level skill. Delegates coding tasks to the local OpenAI Codex CLI via ChatGPT Pro OAuth flat-rate subscription; example paths updated from `~/.agents/skills/local-codex/...` to repo-relative `scripts/codex_wrapper.py`.
+- **openclaw-model-switch** extracted from `~/.agents/skills/openclaw-model-switch.skill` and promoted to a standalone top-level skill. Switches the default OpenClaw model by safely editing `openclaw.json` with backup, model validation, and optional gateway restart; example paths updated from `~/.agents/skills/openclaw-model-switch/...` to repo-relative `scripts/switch-model.py`.
+- README.md, README.zh-CN.md, CLAUDE.md: added sections for `local-codex` (#78) and `openclaw-model-switch` (#79), renumbered subsequent skill sections, updated skill counts and descriptions.
+- Plugin entries: 52→54 (2 new standalone skills added).
+- Marketplace version: 1.76.0→1.77.0.
 
 ### Changed
 - **debugging-network-issues** v1.3.0: Add client-side proxy / VPN / TUN misrouting coverage. New reference `references/case-proxy-tun-cname-override.md` documents a CNAME-based rule override that caused `ERR_CONNECTION_CLOSED` even though explicit PROXY rules were at the top of the config, plus the decisive experiments (hostname-vs-IP through the proxy, TUN-vs-physical-interface reachability) and the fix pattern (`[Host]` mapping + `use-local-host-item-for-proxy`). Adds cognitive Trap 11 "Assuming a top-of-list proxy rule beats CNAME matching" and Trap 12 "Proxy-node DNS = client DNS"; adds a triage entry and a client-side proxy/TUN checklist to SKILL.md. Marketplace description and keywords synced; README / README.zh-CN skill sections and documentation pointers updated.

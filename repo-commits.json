@@ -691,6 +691,18 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
+      "sha": "f8e90d1",
+      "message": "fix(ce-ideate): open the post-ideation menu to cross-idea discussion (#1021)",
+      "date": "2026-06-29",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "afc5e01",
+      "message": "fix(ce-debug): investigate the tracker and PR history for prior work (#1018)",
+      "date": "2026-06-28",
+      "author": "Trevin Chow"
+    },
+    {
       "sha": "b0d3928",
       "message": "fix(ce-simplify-code): name the blocking question tool on the ask-for-scope path (#1002)",
       "date": "2026-06-27",
@@ -735,18 +747,6 @@
     {
       "sha": "b1d9344",
       "message": "fix(skills): anchor bundled-script calls to the loaded skill dir (#1009)",
-      "date": "2026-06-26",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "5e7d413",
-      "message": "docs(skill-design): document bundled-script path resolution across harnesses (#1012)",
-      "date": "2026-06-26",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "fdfad38",
-      "message": "feat(ce-code-review): add cross-model adversarial review pass (#1007)",
       "date": "2026-06-26",
       "author": "Trevin Chow"
     }
@@ -4527,6 +4527,12 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
+      "sha": "5861f34",
+      "message": "release: v7.92.0 - zero-friction adoption: fail-open preflight, honest failure diagnosis (loki why reads LAST_ERROR), CL",
+      "date": "2026-06-29",
+      "author": "asklokesh"
+    },
+    {
       "sha": "940c0ed",
       "message": "release: v7.91.1 - fix CI shell suite (whitelist 'claude login' instruction string in caveman moat-audit; v7.91.0 prefli",
       "date": "2026-06-27",
@@ -4577,12 +4583,6 @@
     {
       "sha": "aad9b0b",
       "message": "release: v7.91.0 - per-build workspace + scoped endpoints, fail-fast auth preflight, doctor expired-login warn, honest p",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "61aed32",
-      "message": "feat(doctor): warn on EXPIRED Claude login so users catch it before a build (zero-network probe, mirrors run.sh prefligh",
       "date": "2026-06-26",
       "author": "asklokesh"
     }
@@ -5203,6 +5203,42 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "607d11b",
+      "message": "feat(validator): drift-gate plugin.json fields against the kernel (3.14.0) (#915)",
+      "date": "2026-06-29",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "7e6b21f",
+      "message": "docs(692): spec-currency audit + root cause (drift-watch can't persist) + dead-constant fix (#913)",
+      "date": "2026-06-29",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "f2eb77e",
+      "message": "test(databricks-cost-leak-hunter): add j-rig eval-spec (#910)",
+      "date": "2026-06-29",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "70d146d",
+      "message": "fix(validator): accept current GA plugin.json manifest fields (schema 3.12.0) (#911)",
+      "date": "2026-06-29",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "7a28caa",
+      "message": "fix(blog): collapse trailing blank lines (MD012) \u2014 unblock markdownlint gate (#912)",
+      "date": "2026-06-29",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "e07e041",
+      "message": "feat(blog): add when-llm-output-lies-instead-of-crashing to tonsofskills.com/blog",
+      "date": "2026-06-28",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "72877b2",
       "message": "chore(kernel): bump declared kernel @intentsolutions/core 0.4.1->0.9.0 + re-vendor + re-pin (#909)",
       "date": "2026-06-28",
@@ -5224,42 +5260,6 @@
       "sha": "8f3619c",
       "message": "feat(databricks-pack): cost-leak-hunter \u2014 first v2 live-detection skill (#906)",
       "date": "2026-06-27",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "e3e0513",
-      "message": "Land publishing-skills (AutomateLab) \u2014 re-land of #842 onto current main (#905)",
-      "date": "2026-06-25",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "6c7a52a",
-      "message": "fix(ci): auto-bump skips fork PRs (they can't be bumped) (#903)",
-      "date": "2026-06-25",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "42ca5d9",
-      "message": "docs(changelog): populate [Unreleased] with the work since 4.33.0 (#901)",
-      "date": "2026-06-25",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "3629fca",
-      "message": "feat(databricks-pack): v1.1.0 deprecation release ahead of v2 rebuild [skip auto-bump] (#889)",
-      "date": "2026-06-25",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "d8efe06",
-      "message": "test(kernel-vendor-hash): formalize V<=C<=K ordering invariant test corpus (#888)",
-      "date": "2026-06-25",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "7f89073",
-      "message": "chore: revert AI PR review to Gemini (Greptile paused \u2014 quota) (#899)",
-      "date": "2026-06-25",
       "author": "intentsolutions.io"
     }
   ],
@@ -5327,62 +5327,62 @@
   ],
   "daymade--claude-code-skills": [
     {
-      "sha": "fe0bd06",
+      "sha": "9d512c1",
+      "message": "docs: sync add-skill workflow to reality \u2014 drop stale skill-count instructions",
+      "date": "2026-06-28",
+      "author": "daymade"
+    },
+    {
+      "sha": "55c98ff",
+      "message": "feat: gemini-history-analyzer skill + 2 skill-creator methodology cases (v1.78.0) (#117)",
+      "date": "2026-06-28",
+      "author": "daymade"
+    },
+    {
+      "sha": "94151b3",
+      "message": "chore: land restored working-tree work after PII history cleanup",
+      "date": "2026-06-28",
+      "author": "daymade"
+    },
+    {
+      "sha": "9c9615e",
+      "message": "chore(pii): drop hardcoded personal identifiers from repo PII deny-list",
+      "date": "2026-06-28",
+      "author": "daymade"
+    },
+    {
+      "sha": "11e5461",
+      "message": "docs(changelog): catch up CHANGELOG to v1.75.0 (was stuck at 1.69.0) (#116)",
+      "date": "2026-06-28",
+      "author": "daymade"
+    },
+    {
+      "sha": "7c35431",
+      "message": "feat(pharma-daily-report): add A-share pharma sector daily report (v1.75.0) (#115)",
+      "date": "2026-06-28",
+      "author": "daymade"
+    },
+    {
+      "sha": "c38d0ba",
       "message": "feat(ashare-news-fetcher): add A-share market news & sentiment aggregator (v1.74.0) (#114)",
       "date": "2026-06-28",
       "author": "daymade"
     },
     {
-      "sha": "9185d9f",
+      "sha": "85d582e",
       "message": "feat(wps-doc-scraper): add public WPS/KDocs/ProcessOn archiver (v1.73.0) (#113)",
       "date": "2026-06-28",
       "author": "daymade"
     },
     {
-      "sha": "eac5b7a",
+      "sha": "d2b7d9b",
       "message": "feat(download-gemini-images): add Gemini conversation image downloader (v1.72.0) (#112)",
       "date": "2026-06-28",
       "author": "daymade"
     },
     {
-      "sha": "fe9820a",
+      "sha": "91d36f4",
       "message": "docs(skill-creator): strengthen PII semantic-review SOP after openclaw near-miss (daymade-skill 1.4.0) (#111)",
-      "date": "2026-06-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "8f79f84",
-      "message": "feat(skill-creator): package_skill excludes more artifacts + defaults output to dist/ (daymade-skill 1.3.0) (#109)",
-      "date": "2026-06-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "41d9cd6",
-      "message": "feat(openclaw): add OpenClaw config manager skill (sanitized, v1.71.0) (#108)",
-      "date": "2026-06-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "514f0d8",
-      "message": "feat(frontend-visual-qa): add rendered-frontend visual QA skill (v1.70.0) (#107)",
-      "date": "2026-06-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "b7bfbda",
-      "message": "feat(codex-image-gallery): add skill + sync doc baseline to 71 skills (v1.69.0) (#106)",
-      "date": "2026-06-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "ade74a0",
-      "message": "feat(transcript-fixer): add uncertain extraction, tech presets, common-words safety (daymade-audio 1.3.0) (#105)",
-      "date": "2026-06-28",
-      "author": "daymade"
-    },
-    {
-      "sha": "d2caf32",
-      "message": "fix(feishu-doc-scraper): correct cells-get CSV behavior for lark-cli 1.0.55 (v1.2.1) (#104)",
       "date": "2026-06-28",
       "author": "daymade"
     }
@@ -5575,64 +5575,64 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "d3f88cd",
-      "message": "chore(badge): update Last Updated badge to Jun 28, 2026 11:35 AM PKT",
-      "date": "2026-06-28",
+      "sha": "c43ca09",
+      "message": "chore(badge): update Last Updated badge to Jun 29, 2026 \u2014 v2.1.195 unchanged",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "bb2fde2",
-      "message": "chore(changelog): append 2026-06-28 subagents drift check entry (v2.1.195, no drift)",
-      "date": "2026-06-28",
+      "sha": "0cdd299",
+      "message": "chore(changelog): append 2026-06-29 subagents drift entry \u2014 no drift, v2.1.195",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "f93dacd",
-      "message": "chore(badge): update Last Updated badge to Jun 28, 2026 11:06 AM PKT",
-      "date": "2026-06-28",
+      "sha": "4a8573f",
+      "message": "Merge pull request #132 from shanraisshan/settings-drift/2026-06-29",
+      "date": "2026-06-29",
+      "author": "Shayan Rais"
+    },
+    {
+      "sha": "d5596f8",
+      "message": "chore(badge): update Last Updated badge in claude-commands.md to Jun 29, 2026 11:07 AM PKT",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "375dcbf",
-      "message": "chore(changelog): append 2026-06-28 no-drift run entry for claude-commands",
-      "date": "2026-06-28",
+      "sha": "8524799",
+      "message": "chore(changelog): append 2026-06-29 no-drift run entry for claude-commands",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "614e403",
-      "message": "chore(skills-badge): update Last Updated badge to Jun 28, 2026",
-      "date": "2026-06-28",
+      "sha": "e193895",
+      "message": "docs(settings): bump to v2.1.195, add CLAUDE_CODE_DISABLE_MOUSE_CLICKS + OTEL_LOG_ASSISTANT_RESPONSES, annotate spinnerT",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "e488091",
-      "message": "chore(skills-changelog): append 2026-06-28 no-drift entry for v2.1.195",
-      "date": "2026-06-28",
+      "sha": "663a3fa",
+      "message": "chore(changelog): append v2.1.195 settings drift entry (2026-06-29)",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "ca76084",
-      "message": "chore(readme): bump Last Updated badge to Jun 28 9:37 AM PKT",
-      "date": "2026-06-28",
+      "sha": "735e3c3",
+      "message": "chore(badge): update Last Updated badge in claude-skills.md to Jun 29, 2026",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "b107859",
-      "message": "chore(changelog): append Jun 28 9:37 AM PKT concepts drift entry v2.1.195",
-      "date": "2026-06-28",
+      "sha": "d6d7cc4",
+      "message": "chore(changelog): append 2026-06-29 no-drift entry for claude-skills",
+      "date": "2026-06-29",
       "author": "Claude"
     },
     {
-      "sha": "790b289",
-      "message": "chore(changelog): add Jun 28 9:18 AM PKT development workflows entry",
-      "date": "2026-06-28",
-      "author": "Claude Routine"
-    },
-    {
-      "sha": "de7f93e",
-      "message": "chore(workflows): gstack skills 55\u219253; badge Jun 28 9:18 AM PKT",
-      "date": "2026-06-28",
-      "author": "Claude Routine"
+      "sha": "41e65ef",
+      "message": "chore(readme): bump Last Updated badge to Jun 29, 2026 9:39 AM PKT",
+      "date": "2026-06-29",
+      "author": "Claude"
     }
   ],
   "mrgoonie--claudekit-skills": [

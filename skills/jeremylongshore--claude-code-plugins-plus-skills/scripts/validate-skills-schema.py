@@ -125,8 +125,43 @@ except ImportError:
 #                       forced re-typing). description over-length warning realigned
 #                       200 → 1536 (kernel disclosureMarkers cap). No change to the
 #                       SKILL ALWAYS_REQUIRED set or skill tier semantics.
+# 3.12.0 (2026-06-28) — plugin.json manifest brought up to the current Anthropic
+#                       GA spec (code.claude.com/docs/en/plugins-reference). Added
+#                       7 GA fields + 1 experimental object to PLUGIN_JSON_FIELDS:
+#                       displayName, defaultEnabled (boolean), dependencies,
+#                       userConfig, channels, $schema, experimental. Without these
+#                       the validator hard-rejected valid current plugins as
+#                       "Unknown field … not in Anthropic spec." TYPE_MAP gained
+#                       `boolean` (for defaultEnabled). Spec-compliance fix
+#                       (NON-NEGOTIABLE #6: adding missing documented fields).
+#                       Unknown-field error-vs-warning semantics UNCHANGED in
+#                       3.12.0 — that flip is NON-NEGOTIABLE #7 (needs sign-off),
+#                       landed in 3.13.0. No change to any required-fields set/tier.
+# 3.13.0 (2026-06-28) — plugin.json UNRECOGNIZED fields: ERROR -> WARNING by
+#                       default; new --strict flag promotes them back to errors
+#                       (mirrors `claude plugin validate --strict`). Wrong-type
+#                       fields + missing required 'name' stay errors. Now
+#                       consistent with the SKILL.md + agent validators, which
+#                       already warn (never error) on unknown fields. Adds a
+#                       difflib "did you mean" near-miss hint. NON-NEGOTIABLE #7
+#                       error-vs-warning change — APPROVED by Jeremy Longshore
+#                       2026-06-28 (sign-off recorded in the PR thread). No change
+#                       to any required-fields set or tier semantics.
+# 3.14.0 (2026-06-28) — L2 consumer-cutover (692-AA-AACR § 0.5): PLUGIN_JSON_FIELDS
+#                       is now drift-gated against the kernel's CURRENT (authoring/v2)
+#                       plugin-manifest field surface via load_kernel_plugin_fields()
+#                       + a `plugin_manifest` block in kernel_shadow_report() — so the
+#                       next upstream plugin-manifest field the kernel captures is
+#                       CAUGHT in the kernel-shadow CI lane instead of needing a
+#                       hand-patch (the failure mode that produced 3.12.0). The shadow
+#                       immediately surfaced one drift — the kernel sanctions a
+#                       `metadata` plugin.json field (authoring/v2 is-overlay) CCPI
+#                       lacked — now adopted into PLUGIN_JSON_FIELDS (fields match).
+#                       Advisory (PLUGIN_JSON_FIELDS stays authoritative until the
+#                       DR-049 flip). Reads authoring/V2 (v1 plugin-manifest is stale);
+#                       needs @intentsolutions/core>=0.9.0.
 # See 000-docs/SCHEMA_CHANGELOG.md.
-SCHEMA_VERSION = "3.11.0"
+SCHEMA_VERSION = "3.14.0"
 
 # Validation tiers
 TIER_STANDARD = "standard"
@@ -482,8 +517,16 @@ DEPRECATED_AGENT_FIELDS = {}
 # our own pace via batch-remediate.py --migrate-compatible-with.
 INVALID_SKILL_FIELDS = {}
 
+# plugin.json (.claude-plugin/plugin.json) — the Anthropic plugin manifest.
+# Source of truth: https://code.claude.com/docs/en/plugins-reference
+#   § "Plugin manifest schema". `name` is the only required field; everything
+# else is optional. Kept in sync with upstream GA fields — see SCHEMA_CHANGELOG
+# 3.12.0 (the manifest gained displayName/defaultEnabled/dependencies/userConfig/
+# channels/$schema/experimental as GA; this allowlist had only the pre-GA 15).
 PLUGIN_JSON_FIELDS = {
+    # — Metadata —
     "name": {"type": "string", "required": True},
+    "displayName": {"type": "string"},  # GA (Claude Code v2.1.143+) — human-readable picker name
     "version": {"type": "string"},
     "description": {"type": "string"},
     "author": {"type": "object"},
@@ -491,6 +534,11 @@ PLUGIN_JSON_FIELDS = {
     "repository": {"type": "string"},
     "license": {"type": "string"},
     "keywords": {"type": "array"},
+    "$schema": {"type": "string"},  # GA — JSON Schema URL for editor autocomplete (ignored at load)
+    "metadata": {
+        "type": "object"
+    },  # IS-overlay extension (kernel authoring/v2 plugin-manifest is-overlay) — adopted via the L2 kernel shadow (692-AA-AACR)
+    # — Component paths —
     "commands": {"type": "string|array"},
     "agents": {"type": "string|array"},
     "skills": {"type": "string|array"},
@@ -498,6 +546,13 @@ PLUGIN_JSON_FIELDS = {
     "mcpServers": {"type": "string|array|object"},
     "outputStyles": {"type": "string|array"},
     "lspServers": {"type": "string|array|object"},
+    # — Behavior / config (GA) —
+    "defaultEnabled": {"type": "boolean"},  # GA (v2.1.154+) — enabled by default absent a user preference
+    "userConfig": {"type": "object"},  # GA — user-configurable values prompted at enable time
+    "channels": {"type": "array"},  # GA — message-channel declarations bound to MCP servers
+    "dependencies": {"type": "array"},  # GA — required plugins w/ optional semver constraints
+    # — Experimental (schema may change between releases): experimental.{themes,monitors} —
+    "experimental": {"type": "object"},
 }
 
 # Intent Solutions enterprise / marketplace standard: 8 required fields.
@@ -617,6 +672,50 @@ def load_kernel_agent_required() -> Optional[set]:
     return required or None
 
 
+# L2 consumer-cutover (692-AA-AACR § 0.5). The plugin-manifest contract is read
+# from authoring/V2, not v1: the v1 fold is an early minimal capture (~10 metadata
+# fields), while v2 is the current deep-capture carrying the full GA surface
+# (displayName/defaultEnabled/dependencies/userConfig/channels/$schema/experimental
+# + all component-path fields). Pinning the plugin shadow to v2 is the
+# "promote authoring/v2 canonical" path; needs @intentsolutions/core>=0.9.0.
+_KERNEL_SCHEMA_DIR_V2 = (
+    Path(__file__).resolve().parents[1] / "node_modules" / "@intentsolutions" / "core" / "schemas" / "authoring" / "v2"
+)
+
+
+def load_kernel_plugin_fields() -> Dict[str, Any]:
+    """Existence-guarded load of the kernel's CURRENT (v2) plugin-manifest field
+    surface — the upstream-base ∪ is-overlay property sets. Returns:
+      {"available": False, "reason": str}                       kernel/v2 absent
+      {"available": True, "properties": set, "required": set, "schema_dir": str}
+    Never raises — a missing/corrupt kernel degrades to available=False.
+    """
+    base = _KERNEL_SCHEMA_DIR_V2 / "upstream-base" / "plugin-manifest.v2.json"
+    overlay = _KERNEL_SCHEMA_DIR_V2 / "is-overlay" / "plugin-manifest.v2.json"
+    if not base.exists():
+        return {
+            "available": False,
+            "reason": (
+                "kernel plugin-manifest v2 schema not found under node_modules/"
+                "@intentsolutions/core/schemas/authoring/v2 — run pnpm install "
+                "(needs @intentsolutions/core>=0.9.0; the v1 plugin-manifest fold is stale)"
+            ),
+        }
+    try:
+        base_doc = json_module.loads(base.read_text(encoding="utf-8"))
+        overlay_doc = json_module.loads(overlay.read_text(encoding="utf-8")) if overlay.exists() else {}
+    except (OSError, ValueError) as e:
+        return {"available": False, "reason": f"kernel plugin-manifest schema load failed: {e}"}
+    properties = set(base_doc.get("properties", {}) or {}) | set(overlay_doc.get("properties", {}) or {})
+    required = set(base_doc.get("required", []) or []) | set(overlay_doc.get("required", []) or [])
+    return {
+        "available": True,
+        "properties": properties,
+        "required": required,
+        "schema_dir": "node_modules/@intentsolutions/core/schemas/authoring/v2",
+    }
+
+
 def kernel_shadow_report() -> Dict[str, Any]:
     """Build the kernel-shadow comparison block (machine-readable).
 
@@ -649,6 +748,29 @@ def kernel_shadow_report() -> Dict[str, Any]:
         "in_kernel_properties": "disallowed-tools" in kernel["properties"],
         "match": ("disallowed-tools" in SKILL_FIELDS) == ("disallowed-tools" in kernel["properties"]),
     }
+    # L2 consumer-cutover (692-AA-AACR § 0.5): shadow the hand-maintained
+    # PLUGIN_JSON_FIELDS against the kernel's CURRENT (v2) plugin-manifest field
+    # surface, so the next upstream plugin-manifest field the kernel captures is
+    # CAUGHT here instead of needing a hand-patch (the exact failure mode that
+    # produced schema 3.12.0). Advisory — PLUGIN_JSON_FIELDS stays authoritative
+    # until the DR-049 flip; this only surfaces drift. `stale_missing_from_hand_authored`
+    # is the load-bearing signal: a kernel field we lack means we've gone stale.
+    pj_kernel = load_kernel_plugin_fields()
+    plugin_block: Dict[str, Any] = {
+        "schema": "authoring/v2/plugin-manifest (upstream-base + is-overlay)",
+        "available": pj_kernel["available"],
+    }
+    if pj_kernel["available"]:
+        hand_pj = set(PLUGIN_JSON_FIELDS.keys())
+        kpj = pj_kernel["properties"]
+        plugin_block["hand_authored_fields"] = sorted(hand_pj)
+        plugin_block["kernel_fields"] = sorted(kpj)
+        plugin_block["fields_match"] = hand_pj == kpj
+        plugin_block["stale_missing_from_hand_authored"] = sorted(kpj - hand_pj)
+        plugin_block["only_in_hand_authored"] = sorted(hand_pj - kpj)
+    else:
+        plugin_block["note"] = pj_kernel["reason"]
+    report["plugin_manifest"] = plugin_block
     return report
 
 
@@ -686,6 +808,35 @@ def print_kernel_shadow(report: Dict[str, Any]) -> None:
             f"from the hand-authored registry — add it to SKILL_FIELDS",
             file=sys.stderr,
         )
+    # L2 plugin-manifest shadow (692-AA-AACR § 0.5).
+    pj = report.get("plugin_manifest", {})
+    if not pj.get("available"):
+        print(
+            f"{prefix} NOTE: plugin-manifest shadow skipped — {pj.get('note', 'kernel v2 unavailable')}",
+            file=sys.stderr,
+        )
+    elif pj.get("fields_match"):
+        print(
+            f"{prefix} NOTE: PLUGIN_JSON_FIELDS matches the kernel v2 plugin-manifest "
+            f"surface ({len(pj.get('kernel_fields', []))} fields) — plugin.json validator is current",
+            file=sys.stderr,
+        )
+    else:
+        stale = pj.get("stale_missing_from_hand_authored") or []
+        extra = pj.get("only_in_hand_authored") or []
+        if stale:
+            print(
+                f"{prefix} WARNING: PLUGIN_JSON_FIELDS is STALE vs the kernel v2 plugin-manifest "
+                f"surface — missing {stale}. The kernel captured these upstream fields; add them "
+                f"to PLUGIN_JSON_FIELDS (this is the drift that used to require a hand-patch).",
+                file=sys.stderr,
+            )
+        if extra:
+            print(
+                f"{prefix} INFO: PLUGIN_JSON_FIELDS carries fields not in the kernel v2 surface: "
+                f"{extra} (IS extensions or ahead-of-kernel — expected for e.g. 'metadata')",
+                file=sys.stderr,
+            )
 
 
 def detect_component(path: Path) -> tuple:
@@ -1546,7 +1697,9 @@ def validate_command(path: Path) -> Dict[str, Any]:
 
 # === AGENT VALIDATION ===
 
-VALID_EFFORT_LEVELS = ["low", "medium", "high", "max"]
+# Mirror of AGENT_FIELDS["effort"]["valid"] (the live check). Kept in sync with the
+# Anthropic effort enum — `xhigh` was added (code.claude.com/docs/en/sub-agents).
+VALID_EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"]
 
 
 def find_agent_files(root: Path) -> List[Path]:
@@ -1596,8 +1749,22 @@ def find_plugin_json_files(root: Path) -> List[Path]:
     return results
 
 
-def validate_plugin_json(path: Path) -> Dict[str, Any]:
-    """Validate a single plugin.json file (standalone, for batch mode)."""
+def validate_plugin_json(path: Path, strict: bool = False) -> Dict[str, Any]:
+    """Validate a single plugin.json file (standalone, for batch mode).
+
+    Unrecognized top-level fields are reported as WARNINGS by default and only
+    become errors under ``strict=True`` (the ``--strict`` flag). This mirrors
+    Anthropic's own ``claude plugin validate``, which "reports unrecognized
+    fields as warnings, not errors … a plugin with only unrecognized-field
+    warnings still passes validation and loads at runtime" (plugins-reference
+    § "Unrecognized fields"), and is consistent with how this validator already
+    treats unknown SKILL.md and agent fields (warn, never error). A wrong-TYPE
+    field and a missing required ``name`` stay hard errors at every level —
+    Anthropic fails those too.
+
+    NON-NEGOTIABLE #7 error-vs-warning change, approved by Jeremy Longshore
+    2026-06-28 (see SCHEMA_CHANGELOG 3.13.0 + the sign-off in the PR thread).
+    """
     errors: List[str] = []
     warnings: List[str] = []
 
@@ -1615,9 +1782,14 @@ def validate_plugin_json(path: Path) -> Dict[str, Any]:
     valid_fields = set(PLUGIN_JSON_FIELDS.keys())
     for key in pj:
         if key not in valid_fields:
-            errors.append(f"Unknown field: '{key}' — not in Anthropic spec")
+            # Anthropic suggests the likely intended name when a field is a
+            # near-miss of a recognized one; mirror that.
+            near = difflib.get_close_matches(key, valid_fields, n=1, cutoff=0.8)
+            hint = f" (did you mean '{near[0]}'?)" if near else ""
+            msg = f"Unrecognized field: '{key}' — not in the Anthropic plugin manifest spec; ignored at load{hint}"
+            (errors if strict else warnings).append(msg)
 
-    TYPE_MAP = {"string": str, "object": dict, "array": list}
+    TYPE_MAP = {"string": str, "object": dict, "array": list, "boolean": bool}
     for key, value in pj.items():
         if key in PLUGIN_JSON_FIELDS:
             expected = PLUGIN_JSON_FIELDS[key].get("type", "")
@@ -4109,9 +4281,12 @@ def validate_skill(path: Path, tier: str = TIER_STANDARD) -> Dict[str, Any]:
     }
 
 
-def validate_plugin(plugin_dir: Path, tier: str = TIER_STANDARD) -> Dict[str, Any]:
+def validate_plugin(plugin_dir: Path, tier: str = TIER_STANDARD, strict: bool = False) -> Dict[str, Any]:
     """Validate a plugin as a complete unit.
     Walks all components and rolls up scores.
+
+    `strict` promotes plugin.json unrecognized-field warnings to errors
+    (the `--strict` flag); see validate_plugin_json.
     """
     errors: List[str] = []
     warnings: List[str] = []
@@ -4121,7 +4296,7 @@ def validate_plugin(plugin_dir: Path, tier: str = TIER_STANDARD) -> Dict[str, An
 
     # 1. Validate plugin.json — delegate to validate_plugin_json to avoid duplicating logic
     if plugin_json_path.exists():
-        pj_result = validate_plugin_json(plugin_json_path)
+        pj_result = validate_plugin_json(plugin_json_path, strict=strict)
         for err in pj_result["errors"]:
             errors.append(f"[plugin.json] {err}")
         for warn in pj_result["warnings"]:
@@ -4922,6 +5097,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "Promote plugin.json unrecognized-field WARNINGS to errors "
+            "(mirrors `claude plugin validate --strict`). Wrong-type fields and "
+            "a missing required 'name' are errors regardless of this flag."
+        ),
+    )
+    parser.add_argument(
         "path",
         nargs="?",
         default=None,
@@ -4968,7 +5152,7 @@ def main() -> int:
             return 1
         if target.is_dir():
             # Plugin directory mode
-            result = validate_plugin(target, tier)
+            result = validate_plugin(target, tier, strict=args.strict)
             print(f"🔍 CLAUDE CODE PLUGIN VALIDATOR v7.0 / schema {SCHEMA_VERSION} ({tier} tier)")
             print(f"   Plugin mode: {target}")
             print(f"{'=' * 70}\n")
@@ -5355,7 +5539,7 @@ def main() -> int:
         print(f"\nFound {len(plugin_jsons)} plugin.json files")
     for pj_file in plugin_jsons:
         rel = pj_file.relative_to(repo_root)
-        result = validate_plugin_json(pj_file)
+        result = validate_plugin_json(pj_file, strict=args.strict)
 
         if result["errors"]:
             print(f"❌ {rel} (plugin.json):")
