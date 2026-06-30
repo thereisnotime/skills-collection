@@ -143,7 +143,7 @@ const DESCRIPTION_CHAR_BUDGET = 1024
 const NAME_CHAR_BUDGET = 64
 
 const EXPECTED_USER_INVOKED_SKILLS = new Set([
-  "ce-dogfood-beta",
+  "ce-dogfood",
   "ce-polish",
   "ce-product-pulse",
   "ce-promote",

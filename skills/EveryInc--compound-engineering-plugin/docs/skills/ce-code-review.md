@@ -37,6 +37,7 @@ Generalist code review prompts collapse in predictable ways:
 
 - **Diff-aware persona selection** — 4 always-on reviewers + 2 CE always-on agents, plus cross-cutting and stack-specific personas chosen for what the diff actually touches
 - **Parallel persona dispatch** — each reviewer focuses on its lens; results return in parallel
+- **Bounded dispatch with backpressure** — learns/respects the current harness's active-subagent limit, queues remaining reviewers, and treats capacity errors as retryable backpressure instead of failed review
 - **Confidence-gated synthesis** — findings merge, dedupe, promote on cross-persona agreement, and route by autofix class
 - **Severity scale (P0-P3) + autofix class** — separates urgency from action ownership
 - **Two modes** — Interactive (default; applies safe verified fixes itself) and `mode:agent` (JSON machine handoff; report-only, the caller applies)

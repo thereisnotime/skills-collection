@@ -9,6 +9,204 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.99.1] - 2026-06-30
+
+### Memory retrieval: dimension-mismatch degrades to keyword search
+
+- **Vector search no longer crashes on an embedding dimension change**
+  (`memory/retrieval.py`): when the embedding engine has fallen back to a
+  different model/dimension since a vector index was built, the query vector no
+  longer matches the index and `VectorSearchIndex.search` raises ValueError.
+  `retrieve_by_similarity` now catches that and degrades to keyword search (the
+  same honest fallback the staleness path uses) instead of crashing or returning
+  wrong-dimension neighbors. Regression test added. (Supersedes the reverted
+  embeddings-only signal from the wave-7 batch, which was inert.)
+
+
+## [7.99.0] - 2026-06-30
+
+### Memory integrity + checklist/cost trust fixes + dashboard reuse (wave-7 hunt)
+
+- **Anti-pattern memory** (`memory/retrieval.py`): anti-patterns were
+  double-counted when present in both patterns.json and the legacy
+  anti-patterns.json (now deduped); `search_all_namespaces` omitted the
+  `anti_patterns` collection entirely, so "do not repeat this mistake" memories
+  were silently missed in cross-namespace search (now included); vector-index
+  staleness was checked only for the `semantic` collection after consolidation
+  (now also the `anti_patterns` collection invalidates over its source files).
+- **Dashboard no longer killed when a build starts** (`autonomy/run.sh`): on
+  `loki start`, `start_dashboard` acquired the dashboard port by killing any
+  python/uvicorn process already listening there - which dropped a user's own
+  live dashboard mid-use (connection refused, websocket failure). It now probes
+  `/api/status` first and REUSES a healthy dashboard already serving on the port
+  (skips launching a second server) instead of killing it; only a non-serving
+  stuck dashboard is reclaimed (opt out: `LOKI_DASHBOARD_FORCE_RECLAIM=1`). The
+  shutdown/teardown port-reclaim path got the same probe-before-kill guard.
+- **Checklist no-fake-green** (`autonomy/checklist-verify.py`): the tests_pass
+  check ran with `--passWithNoTests`, so a zero-match test pattern reported
+  SUCCESS - a checklist item that REQUIRES test verification passing with no
+  tests run. It now requires at least one test to be discovered.
+- **Cost aggregation glob** (`dashboard/server.py`): cost totals globbed
+  `*.json` (including non-iteration files); now uses `iteration-*.json`,
+  consistent with the budget-snapshot and cost-timeline readers.
+
+  Found by the wave-7 adversarial hunt.
+
+## [7.98.0] - 2026-06-30
+
+### Council trust-config fixes + zero-friction adoption
+
+- **COUNCIL_THRESHOLD now honored (tighten-only, bash route)** (`autonomy/completion-council.sh`):
+  the operator's `LOKI_COUNCIL_THRESHOLD` was silently ignored by the vote (a
+  hardcoded 2/3 formula was used), so setting a stricter threshold was a no-op
+  while the logs claimed it was active. The effective threshold is now
+  max(2/3-majority floor, operator threshold), clamped to council size: an
+  operator can TIGHTEN the completion gate but never weaken it below the safety
+  floor. Shared `_council_effective_threshold` helper used at all three vote
+  sites (council_vote, council_aggregate_votes, council_evaluate). This covers
+  the live bash route; the dormant Bun runner council (not yet wired into the
+  completion-decision path) carries the same latent gap and is a tracked
+  follow-up.
+- **COUNCIL_SIZE guarded** (`autonomy/completion-council.sh`): a non-positive or
+  non-numeric `LOKI_COUNCIL_SIZE` made the 2/3 floor 0 and could let an empty
+  council "approve" by default; it now falls back to a sane size (3).
+- **Fallback completion signal always valid JSON** (`autonomy/run.sh`): the
+  COMPLETION_REQUESTED fallback synthesized its payload with a bare redirect that
+  truncated the file before python ran; a python crash mid-write could leave an
+  empty/partial file that downstream json.loads silently dropped. It now writes
+  to a temp file and atomically renames, with a hand-built valid-JSON fallback
+  when python is unavailable.
+- **Zero-friction: catch "Claude installed but not logged in" in preflight**
+  (`autonomy/run.sh`): when claude is the provider, no `ANTHROPIC_API_KEY`, and
+  no credentials file exists (never logged in), the build used to enter, make a
+  failing call, and 401 - forcing the user to run `loki why`. It now fails fast
+  with the same one-step `claude login` fix (opt out: `LOKI_SKIP_AUTH_PREFLIGHT=1`).
+- **Docs: floating Docker tag** (`README.md`): the raw-docker quickstart pinned a
+  stale `:7.58.1`; now uses `:latest` so the copy-paste pulls the current image.
+
+  Found by wave-6 adversarial hunt + a zero-friction adoption analysis.
+
+## [7.97.0] - 2026-06-29
+
+### Wave-5 hardening: memory, events, healing, provider parity + FIX A rework
+
+- **Memory** (`memory/storage.py`, `memory/engine.py`): importance calc clamps a
+  non-numeric/negative access_count (was a TypeError on stored strings); shared
+  namespace charset validation so __init__ and with_namespace cannot drift, and
+  with_namespace rejects empty/whitespace/non-string (was silently resolving to
+  root); a corrupt ISO timestamp on one record no longer crashes the whole
+  retrieval batch (tolerant parse keeps the record retrievable).
+- **Memory namespace + RAG** (`memory/retrieval.py`, `memory/rag_injector.py`):
+  unstamped legacy entries are EXCLUDED from a namespaced query by default
+  (closes a silent cross-namespace read leak; opt-in escape hatch retained);
+  memory fields are sanitized before entering the prompt (prompt-injection
+  hardening: control-char strip, newline collapse, markdown-header/code-fence
+  defang, length cap).
+- **Events** (`events/bus.py`, `events/emit.sh`): widened the deterministic
+  dedup id from 32-bit to 64-bit (collisions could silently drop distinct
+  events); event-file write is now temp-file + atomic rename (was non-atomic,
+  could expose truncated JSON to readers); removed dead/malformed sed escape
+  entries (the awk pass already emits valid JSON for control chars).
+- **Healing** (`autonomy/hooks/migration-hooks.sh`): snapshot pairing contract
+  enforced (a revert with no matching snapshot fails loudly instead of silently).
+- **Provider parity** (`autonomy/run.sh`): Claude parallel-worktree invocations
+  now apply the same auto-flags (effort, max-budget, fallback model, mcp-config)
+  as the main invocation.
+- **FIX A rework** (`loki-ts/src/runner/autonomous.ts`): the Bun runner honors
+  the quality-gate verdict with CORRECT bash parity - it refuses completion only
+  on a real code_review BLOCK (gated on hardGates), not on the broad
+  blocked||escalated that over-blocked clean runs in the reverted first attempt.
+  Clean runs still complete (autonomous.test.ts 17/17, not edited to pass).
+
+  The mcp code-index staleness finding was investigated and REFUTED (the path
+  already uses an atomic manifest rename); no change made.
+
+## [7.96.0] - 2026-06-29
+
+### Trust moat: council force-review path fails closed
+
+- **Council force-review path now fails CLOSED** (`autonomy/run.sh`): the
+  interval force-review gate chain had the same fail-open hole fixed on the
+  default route in v7.95.0 (a missing gate fn silently skipped), letting a
+  partial council-library load force-approve completion ungated. It now probes
+  the core gate functions first and refuses the force approval if any is missing.
+  Found by the wave-4 adversarial bug-hunt.
+## [7.95.0] - 2026-06-29
+
+### Trust moat: completion gates now fail CLOSED
+
+- **Fail-closed completion gates** (`autonomy/run.sh`): each completion gate was
+  armed as `type <gate_fn> && ! <gate_fn>`, so if the council library failed to
+  source, the `type` probe was false and the gate was silently skipped - a
+  completion claim could then reach the accept branch UNVERIFIED (a fake-green).
+  The gate chain now verifies the core gate functions are loadable before running;
+  if any is missing, the completion claim is refused and the loop keeps iterating
+  rather than passing ungated. Never fires in a healthy install (functions are
+  sourced); only triggers on a genuinely broken/partial load, exactly when
+  failing open is unsafe. Found by the cycle-3 adversarial bug-hunt.
+
+## [7.94.0] - 2026-06-29
+
+### Reuse done-recognition: a no-PRD reuse run no longer rebuilds finished work
+
+- **The bug**: a `loki start` with NO PRD over a project Loki already built and
+  completed reverse-engineered (reused) the prior generated PRD and then rebuilt
+  a full task queue and re-ran the RARV loop, re-doing finished work. The reuse
+  path never asked "is this reused PRD already satisfied by the current code?"
+  Observed live: a completed project (completion signal present, all tests green,
+  advisor said stop) still got an 11-task `prd-*` queue and fresh iterations.
+- **The fix**: a single localized gate (`reuse_done_recognition_gate`, in the new
+  `autonomy/lib/done-recognition.sh`) runs in `run_autonomous()` between
+  `load_state` and the queue/loop, only on a no-PRD reuse of an existing
+  generated PRD. It model-verifies whether the codebase already satisfies the
+  spec and routes to one of three outcomes:
+  - **done**: re-runs the tests now, re-checks each requirement, refreshes the
+    verified-completion record, finishes through the normal completion path, and
+    tells the user clearly ("This project already satisfies its spec ... To
+    rebuild from scratch run `loki start --fresh-prd`; to extend it, edit the
+    spec or pass a new/changed PRD."). No wasted iterations, no stray delegate
+    branch (the gate runs before the start-sha/delegate block).
+  - **incomplete**: writes a `prd_sha`-guarded satisfied-requirements manifest so
+    `populate_prd_queue` builds ONLY the unsatisfied requirements (no full
+    replan).
+  - **inconclusive**: falls through to the normal full build (safe default).
+- **Trust moat intact (no fake-green)**: the positive `done` verdict is always
+  the model's, grounded in re-run reality, never asserted from a stale artifact.
+  A model `done` is DOWNGRADED to build if the fresh `test-results.json` is red or
+  any requirement is unmet/uncertain. The `update` action (PRD stale by
+  definition) may never fast-stop as done; it only feeds the incremental queue.
+  The only deterministic shortcut is NEGATIVE (cheap signals that route to
+  BUILD, e.g. no completion footprint at all, or a provider that cannot verify).
+- **Rollout**: DEFAULT-ON. `LOKI_DONE_RECOGNITION=0` disables the gate (legacy
+  reuse-then-build behavior). Trust-safe because any uncertainty falls through to
+  build, so the worst case is today's behavior.
+- **Tests**: `tests/test-reuse-done-recognition.sh` (registered in
+  `tests/run-all-tests.sh` and `scripts/local-ci.sh`) exercises the gate with a
+  stubbed model seam across done+green, done+red-downgrade, inconclusive,
+  incremental-only-unsatisfied, opt-out, update-never-fast-stops, the negative
+  fast-paths, and a static no-emoji/no-em-dash scan.
+
+## [7.93.0] - 2026-06-29
+
+### Dashboard fixes: sidebar rebalance, honest App Runner status, stable version
+
+- **Sidebar rebalance**: the left sidebar is now clean navigation that breathes;
+  the System Status panel + session controls move into a new COLLAPSIBLE right
+  sidebar (remembered state; a 48px rail with a live connection dot when
+  collapsed; a11y + responsive). This also fixes a real reachability bug where
+  the tall status panel starved the left nav to ~88px, leaving only 2 of 16 tabs
+  clickable - all 16 are now reachable.
+- **App Runner honest status**: a skill/CLI-built app (no app-runner.json) was
+  always reported "stopped" even while serving. The dashboard now probes the
+  recorded port (real TCP connect, off the event loop) and reports running with
+  the real URL ONLY when it genuinely answers - never fabricated; excludes the
+  dashboard's own port and compose-owned detections; honest "stopped" when the
+  port is not serving.
+- **Stable version display**: the System Status version flipped between a stale
+  per-project value (baked into a project's state file by whatever engine last
+  built it) and the live version. All status paths now read the single live
+  engine version, so it no longer flips.
+
 ## [7.92.0] - 2026-06-27
 
 ### Zero-friction adoption: fail-open preflight, honest failure diagnosis, CLI polish

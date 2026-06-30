@@ -284,6 +284,12 @@ risks), never through wordiness around that coverage.
 
 Hold every kept section to these:
 
+- **Lead with the decision or outcome.** Put the conclusion first, then the
+  reason, then background; keep one claim plus its support per paragraph. Don't
+  bury a Key Technical Decision, the chosen scope, an open blocker, or a unit
+  goal beneath its rationale. This does not override section roles — Summary
+  stays proposal-only, Problem Frame stays motivation-only and never restates
+  the remedy.
 - **One idea per sentence.** A Summary is a handful of sentences, not one
   sentence with five semicolons and four parentheticals. A KTD's rationale is
   the load-bearing reason, not every reason.
@@ -296,9 +302,10 @@ Hold every kept section to these:
 - **Prefer the verb to the nominalization.** "Demote the grid", not "the
   demotion of the grid is the deliberate change in this plan".
 
-Precision is not padding: keep file paths, IDs, conditionals, and exact
-thresholds verbatim. Economy targets the connective tissue around them, never
-the precision itself.
+Precision is not padding: keep file paths, IDs, dates, domain terms,
+conditionals, and exact thresholds verbatim; when a concrete anchor is knowable
+from the work already done, use it instead of a vague abstraction. Economy
+targets the connective tissue around precision, never the precision itself.
 
 **Resolve in place; don't stratify.** When deepening, a doc-review pass, or a
 later decision supersedes earlier text, rewrite or remove the original — don't

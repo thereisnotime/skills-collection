@@ -691,63 +691,63 @@
   ],
   "EveryInc--compound-engineering-plugin": [
     {
-      "sha": "f8e90d1",
-      "message": "fix(ce-ideate): open the post-ideation menu to cross-idea discussion (#1021)",
+      "sha": "cc816ef",
+      "message": "fix(ce-code-review): handle bounded subagent dispatch (#1031)",
+      "date": "2026-06-30",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "d29c830",
+      "message": "docs(readme): link skill documentation (#1030)",
+      "date": "2026-06-30",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "8fd4679",
+      "message": "docs(readme): list ce-pov in the Additional skills section (#1029)",
+      "date": "2026-06-30",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "3157993",
+      "message": "chore: release main (#1016)",
+      "date": "2026-06-30",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "7b6b9b5",
+      "message": "docs: corrected OpenCode command grammar (#1017)",
+      "date": "2026-06-30",
+      "author": "Sean Gearin"
+    },
+    {
+      "sha": "c3397c6",
+      "message": "feat(ce-brainstorm): offer a ce-pov handoff for verdict-shaped questions (#1028)",
+      "date": "2026-06-30",
+      "author": "Trevin Chow"
+    },
+    {
+      "sha": "37d5a3c",
+      "message": "feat(ce-plan): opt-in flag to skip the scoping-confirmation gate (#1024)",
+      "date": "2026-06-30",
+      "author": "Matt Van Horn"
+    },
+    {
+      "sha": "7c77add",
+      "message": "feat(ce-dogfood): promote from beta to stable (#1022)",
       "date": "2026-06-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "afc5e01",
-      "message": "fix(ce-debug): investigate the tracker and PR history for prior work (#1018)",
-      "date": "2026-06-28",
+      "sha": "8443410",
+      "message": "feat(grounding-cache): shared project-profile cache across repo-grounding skills (#1027)",
+      "date": "2026-06-29",
       "author": "Trevin Chow"
     },
     {
-      "sha": "b0d3928",
-      "message": "fix(ce-simplify-code): name the blocking question tool on the ask-for-scope path (#1002)",
-      "date": "2026-06-27",
-      "author": "PixelCove"
-    },
-    {
-      "sha": "2bbdbfb",
-      "message": "chore: release main (#999)",
-      "date": "2026-06-27",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "7ef752a",
-      "message": "feat(plan): unify brainstorm and plan into one readiness-staged, goal-ready artifact (#972)",
-      "date": "2026-06-27",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "8eb6431",
-      "message": "fix(ce-resolve-pr-feedback): judge findings centrally before dispatching fixers (#1015)",
-      "date": "2026-06-27",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "6e18b97",
-      "message": "fix(ce-code-review): right-size code review and route it through one portable path (#1014)",
-      "date": "2026-06-26",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "ac66926",
-      "message": "chore(ce-work-beta): remove beta Codex-delegation skill (#1013)",
-      "date": "2026-06-26",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "b5633aa",
-      "message": "fix(skills): migrate ${CLAUDE_SKILL_DIR} script guards to the portable SKILL_DIR anchor (#1010)",
-      "date": "2026-06-26",
-      "author": "Trevin Chow"
-    },
-    {
-      "sha": "b1d9344",
-      "message": "fix(skills): anchor bundled-script calls to the loaded skill dir (#1009)",
-      "date": "2026-06-26",
+      "sha": "b4c4a23",
+      "message": "feat(ce-pov): add project-grounded verdict skill (#1020)",
+      "date": "2026-06-29",
       "author": "Trevin Chow"
     }
   ],
@@ -939,6 +939,42 @@
   ],
   "K-Dense-AI--claude-scientific-skills": [
     {
+      "sha": "0807ddb",
+      "message": "Merge pull request #203 from dnaerys/onekgpd",
+      "date": "2026-06-29",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "50a46b2",
+      "message": "Update README and documentation to reflect the addition of 2 new skills, increasing the total to 148. Updated version ba",
+      "date": "2026-06-29",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "26d7086",
+      "message": "feat(skills): onekgpd",
+      "date": "2026-06-29",
+      "author": "Dmitry Degrave"
+    },
+    {
+      "sha": "75b944c",
+      "message": "Merge pull request #199 from Tamarind-Bio/add-tamarind-skill",
+      "date": "2026-06-29",
+      "author": "Timothy Kassis"
+    },
+    {
+      "sha": "e083e63",
+      "message": "chore: update security scan report [skip ci]",
+      "date": "2026-06-29",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "1cb3b1a",
+      "message": "Add Tamarind Bio platform skill",
+      "date": "2026-06-24",
+      "author": "Sherry Liu"
+    },
+    {
       "sha": "9c9bd2e",
       "message": "Update Ginkgo Cloud Lab skill",
       "date": "2026-06-23",
@@ -961,42 +997,6 @@
       "message": "chore: update security scan report [skip ci]",
       "date": "2026-06-15",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "2b4cce7",
-      "message": "Update transformers skill metadata and dependencies; remove uv.lock file",
-      "date": "2026-06-13",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "9c12fcc",
-      "message": "Add arbor skill",
-      "date": "2026-06-12",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "7dae63e",
-      "message": "Update version to 2.51.0 in pyproject.toml",
-      "date": "2026-06-12",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "cb5a7c8",
-      "message": "Update Scanpy skill",
-      "date": "2026-06-12",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "b8fea8f",
-      "message": "Update PyOpenMS skill",
-      "date": "2026-06-12",
-      "author": "Timothy Kassis"
-    },
-    {
-      "sha": "dab7aa6",
-      "message": "Update examples",
-      "date": "2026-06-11",
-      "author": "Timothy Kassis"
     }
   ],
   "K-Dense-AI--claude-scientific-writer": [
@@ -1063,6 +1063,24 @@
   ],
   "NeoLabHQ--context-engineering-kit": [
     {
+      "sha": "f66e419",
+      "message": "Merge pull request #93 from kainulla/sharpen-colliding-skill-descriptions",
+      "date": "2026-06-29",
+      "author": "Vladislav Goncharov"
+    },
+    {
+      "sha": "6817230",
+      "message": "fix: correct description for write tests skill",
+      "date": "2026-06-29",
+      "author": "Vladislav Goncharov"
+    },
+    {
+      "sha": "cd889a3",
+      "message": "docs: sharpen descriptions for five skills that overlap on routing",
+      "date": "2026-06-22",
+      "author": "knull-a"
+    },
+    {
       "sha": "895cb52",
       "message": "Merge pull request #92 from NeoLabHQ/feature/vg/add-resolve-fixed-pr-comments-skill",
       "date": "2026-06-20",
@@ -1102,24 +1120,6 @@
       "sha": "31ea77c",
       "message": "Merge pull request #90 from NeoLabHQ/fix/vg/exclude-human-review-from-specification",
       "date": "2026-06-16",
-      "author": "Vladislav Goncharov"
-    },
-    {
-      "sha": "f85ba83",
-      "message": "bump: v3.1.2",
-      "date": "2026-06-16",
-      "author": "leovs09"
-    },
-    {
-      "sha": "5cbdb33",
-      "message": "fix(sdd): exclude human review from task specification",
-      "date": "2026-06-16",
-      "author": "leovs09"
-    },
-    {
-      "sha": "e455f9d",
-      "message": "Merge pull request #89 from NeoLabHQ/docs/update-docs-readme",
-      "date": "2026-06-14",
       "author": "Vladislav Goncharov"
     }
   ],
@@ -1555,6 +1555,12 @@
   ],
   "avifenesh--agentsys": [
     {
+      "sha": "0c3ce66",
+      "message": "chore(deps): bump js-yaml in the npm_and_yarn group across 1 directory (#377)",
+      "date": "2026-06-29",
+      "author": "dependabot[bot]"
+    },
+    {
       "sha": "936c7b7",
       "message": "feat(marketplace): add orientation plugin (#376)",
       "date": "2026-06-21",
@@ -1605,12 +1611,6 @@
     {
       "sha": "7fd4b3f",
       "message": "Bump mojo marketplace pin to v0.2.0 (#360)",
-      "date": "2026-05-21",
-      "author": "Avi Fenesh"
-    },
-    {
-      "sha": "63725a3",
-      "message": "Register mojo plugin in marketplace (#358)",
       "date": "2026-05-21",
       "author": "Avi Fenesh"
     }
@@ -2901,6 +2901,18 @@
   ],
   "netlify--context-and-tools": [
     {
+      "sha": "7fcceab",
+      "message": "chore(main): release 0.9.0 (#61)",
+      "date": "2026-06-29",
+      "author": "github-actions[bot]"
+    },
+    {
+      "sha": "054b260",
+      "message": "feat: add netlify-mcp-servers skill (#44)",
+      "date": "2026-06-29",
+      "author": "Sean C Davis"
+    },
+    {
       "sha": "a1d397b",
       "message": "chore(deps): update dependency @netlify/axis to ^1.17.0 (#57)",
       "date": "2026-06-24",
@@ -2945,18 +2957,6 @@
     {
       "sha": "79ee3e5",
       "message": "Merge remote-tracking branch 'origin/main' into agent-runner-skill",
-      "date": "2026-06-23",
-      "author": "Sean C Davis"
-    },
-    {
-      "sha": "1e8f876",
-      "message": "Merge pull request #31 from netlify/scd/one-shot-updates",
-      "date": "2026-06-23",
-      "author": "Sean C Davis"
-    },
-    {
-      "sha": "3dda5ba",
-      "message": "docs(skills): clarify agent handoffs",
       "date": "2026-06-23",
       "author": "Sean C Davis"
     }
@@ -4527,67 +4527,73 @@
   ],
   "asklokesh--claudeskill-loki-mode": [
     {
-      "sha": "5861f34",
-      "message": "release: v7.92.0 - zero-friction adoption: fail-open preflight, honest failure diagnosis (loki why reads LAST_ERROR), CL",
+      "sha": "f30216f",
+      "message": "release: v7.99.1 - memory vector search degrades to keyword on dimension mismatch",
+      "date": "2026-06-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "349ed5e",
+      "message": "fix(run.sh): dashboard reuse on the REAL build-start path (council HIGH)",
+      "date": "2026-06-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "78719fe",
+      "message": "release: v7.99.0 - dashboard reuse (no kill on build) + memory/checklist/cost trust fixes",
+      "date": "2026-06-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "5bc3f69",
+      "message": "release: v7.98.0 - council trust-config fixes + zero-friction adoption",
+      "date": "2026-06-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "16faba7",
+      "message": "release: v7.97.0 - wave-5 hardening (memory/events/healing/provider parity) + FIX A rework",
+      "date": "2026-06-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "50d42b0",
+      "message": "release: v7.96.0 - force-review fail-closed + wave-5 trust/security hardening",
+      "date": "2026-06-30",
+      "author": "asklokesh"
+    },
+    {
+      "sha": "c2f38ed",
+      "message": "release: v7.95.0 - fail-closed completion gates (trust moat: a broken council-lib load can no longer pass an unverified ",
       "date": "2026-06-29",
       "author": "asklokesh"
     },
     {
-      "sha": "940c0ed",
-      "message": "release: v7.91.1 - fix CI shell suite (whitelist 'claude login' instruction string in caveman moat-audit; v7.91.0 prefli",
-      "date": "2026-06-27",
+      "sha": "b2b721e",
+      "message": "fix(ci): shellcheck-clean the reuse test + refresh loki-ts dist (local-ci gate)",
+      "date": "2026-06-29",
       "author": "asklokesh"
     },
     {
-      "sha": "b7715f0",
-      "message": "feat(engine): emit per-stage timeline events (stage_complete) to events.jsonl",
-      "date": "2026-06-26",
+      "sha": "bdb8c52",
+      "message": "merge: PRD-reuse done-recognition gate (v7.94.0, council 3/3)",
+      "date": "2026-06-29",
       "author": "asklokesh"
     },
     {
-      "sha": "34b4297",
-      "message": "fix(engine): exclude dep/build noise from review diff (Plan #16 #596 guard)",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "d76b364",
-      "message": "fix(engine): review diff must surface new untracked files (Plan #16 A-2 fix)",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "f6e3019",
-      "message": "fix(engine): robust review diff base + honest empty-diff (Plan #16 A-2)",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "f387eae",
-      "message": "fix(engine): git-init engine-owned non-git build workspace (Plan #16 A-1)",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "af9766b",
-      "message": "fix(run.sh): cleanup trap deletes the recorded temp copy, not BASH_SOURCE - stop canonical run.sh self-delete on spawned",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "04e590a",
-      "message": "feat(dashboard): Loki mascot presence in the engine dashboard header",
-      "date": "2026-06-26",
-      "author": "asklokesh"
-    },
-    {
-      "sha": "aad9b0b",
-      "message": "release: v7.91.0 - per-build workspace + scoped endpoints, fail-fast auth preflight, doctor expired-login warn, honest p",
-      "date": "2026-06-26",
+      "sha": "1a742c4",
+      "message": "chore(done-recognition): root queue paths at $loki_dir (council LOW footgun)",
+      "date": "2026-06-29",
       "author": "asklokesh"
     }
   ],
   "yusufkaraaslan--Skill_Seekers": [
+    {
+      "sha": "225999f",
+      "message": "fix: make Kotlin analyzer string-aware (#418)",
+      "date": "2026-06-29",
+      "author": "Haoqian"
+    },
     {
       "sha": "3b60a3a",
       "message": "chore: open 3.9.0 development cycle (3.9.0.dev0)",
@@ -4639,12 +4645,6 @@
     {
       "sha": "8df427c",
       "message": "refactor(mcp): share TextContent fallback + CLI_DIR via tools/_common.py (#401)",
-      "date": "2026-06-07",
-      "author": "yusyus"
-    },
-    {
-      "sha": "4b07671",
-      "message": "feat: derive install/upload/package targets from the adaptor registry (#400)",
       "date": "2026-06-07",
       "author": "yusyus"
     }
@@ -5203,6 +5203,24 @@
   ],
   "jeremylongshore--claude-code-plugins-plus-skills": [
     {
+      "sha": "1628598",
+      "message": "feat(spotlight): databricks-pack \u2014 Killer Skill of the Week (W27) + add to Jeremy's Stash (#922)",
+      "date": "2026-06-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "50ab626",
+      "message": "Rename beads-dolt \u2192 dolt-mcp-vcs (non-breaking install-slug alias) (#921)",
+      "date": "2026-06-30",
+      "author": "intentsolutions.io"
+    },
+    {
+      "sha": "02d6341",
+      "message": "feat(blog): add coverage-vs-mutation-testing-rules-engine to tonsofskills.com/blog",
+      "date": "2026-06-29",
+      "author": "Jeremy Longshore"
+    },
+    {
       "sha": "607d11b",
       "message": "feat(validator): drift-gate plugin.json fields against the kernel (3.14.0) (#915)",
       "date": "2026-06-29",
@@ -5242,24 +5260,6 @@
       "sha": "72877b2",
       "message": "chore(kernel): bump declared kernel @intentsolutions/core 0.4.1->0.9.0 + re-vendor + re-pin (#909)",
       "date": "2026-06-28",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "76fe458",
-      "message": "fix(databricks-cost-leak-hunter): address 7 Gemini findings from #906 \u2014 SQL param-binding + parse/case/stdin hardening (",
-      "date": "2026-06-27",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "866389b",
-      "message": "chore(deps): adopt @intentsolutions/jrig-cli@0.1.0 (root @core stays 0.4.1) (#908)",
-      "date": "2026-06-27",
-      "author": "intentsolutions.io"
-    },
-    {
-      "sha": "8f3619c",
-      "message": "feat(databricks-pack): cost-leak-hunter \u2014 first v2 live-detection skill (#906)",
-      "date": "2026-06-27",
       "author": "intentsolutions.io"
     }
   ],
@@ -5451,64 +5451,64 @@
   ],
   "affaan-m--everything-claude-code": [
     {
-      "sha": "2bc924f",
-      "message": "fix(clv2): harden registry writes and project deletion (#2294, #2297) (#2323)",
-      "date": "2026-06-25",
+      "sha": "81af407",
+      "message": "chore(catalog): sync manifests + fix skill emoji (wave 2) (#2395)",
+      "date": "2026-06-30",
       "author": "Affaan Mustafa"
     },
     {
-      "sha": "e3f4679",
-      "message": "fix(clv2): escape $HOME before pgrep -f in migrate-homunculus.sh (#2339)",
-      "date": "2026-06-25",
+      "sha": "0bd2b2c",
+      "message": "feat: add loop-design-check skill (design + review goal-oriented agent loops) (#2381)",
+      "date": "2026-06-30",
+      "author": "Seekers2001"
+    },
+    {
+      "sha": "51bced9",
+      "message": "Stop hook: verify thinking quality at session end \u2014 task completeness, assumptions, stale logs, disk space (delivery-gat",
+      "date": "2026-06-30",
+      "author": "YuhaoLin2005"
+    },
+    {
+      "sha": "b5806b3",
+      "message": "Add growth-log skill: methodology for effective learning capture (#2377)",
+      "date": "2026-06-30",
+      "author": "YuhaoLin2005"
+    },
+    {
+      "sha": "a141db3",
+      "message": "feat(rules,skills): add React Native / Expo rules pack and react-native-patterns skill (#2275)",
+      "date": "2026-06-30",
+      "author": "Yeris Rifan"
+    },
+    {
+      "sha": "c2bcc4e",
+      "message": "feat(continuous-learning-v2): make observer model configurable via ECC_OBSERVER_MODEL (#2390)",
+      "date": "2026-06-30",
+      "author": "jack-finance-able"
+    },
+    {
+      "sha": "f720885",
+      "message": "fix(clv2): archive observations only after successful analysis in observer-loop (#2386)",
+      "date": "2026-06-30",
       "author": "Gaurav Dubey"
     },
     {
-      "sha": "e8244d9",
-      "message": "feat(control-pane): serve 3D agent-airspace viz + /api/proximity feed (#2320)",
-      "date": "2026-06-25",
-      "author": "Affaan Mustafa"
+      "sha": "a36148f",
+      "message": "test(clv2): add coverage for instinct-cli prune, projects ops, promote dry-run, normalize-url (#2374)",
+      "date": "2026-06-30",
+      "author": "Gaurav Dubey"
     },
     {
-      "sha": "71d22d0",
-      "message": "feat(layer4): live messages-table wiring for proximity triggers",
-      "date": "2026-06-21",
-      "author": "Affaan Mustafa"
+      "sha": "a6d12ec",
+      "message": "fix(clv2): surface SIGALRM timeout drops in observe.sh (#2373)",
+      "date": "2026-06-30",
+      "author": "Gaurav Dubey"
     },
     {
-      "sha": "bd1be0c",
-      "message": "feat(layer4): line-range channel + trigger firing",
-      "date": "2026-06-20",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "e2b8a51",
-      "message": "docs(readme): add official-channel icons (Discord/Website/App/Guides) up top",
-      "date": "2026-06-20",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "7df8039",
-      "message": "feat(control-pane): wire agent-proximity into the snapshot (opt-in, live)",
-      "date": "2026-06-20",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "726972d",
-      "message": "feat(layer4): agent-space distance metric + TCAS-style collision avoidance (v0)",
-      "date": "2026-06-20",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "34faa39",
-      "message": "docs(security): use the monitored affaan@ecc.tools contact in SECURITY.md",
-      "date": "2026-06-19",
-      "author": "Affaan Mustafa"
-    },
-    {
-      "sha": "e8e5793",
-      "message": "fix(ci+security): unblock coverage gate + fix dead security contact",
-      "date": "2026-06-19",
-      "author": "Affaan Mustafa"
+      "sha": "a89b32c",
+      "message": "fix(clv2): serialize observer signal-counter to stop dropped increments (#2372)",
+      "date": "2026-06-30",
+      "author": "Gaurav Dubey"
     }
   ],
   "glebis--claude-skills": [
@@ -5575,64 +5575,64 @@
   ],
   "shanraisshan--claude-code-best-practice": [
     {
-      "sha": "c43ca09",
-      "message": "chore(badge): update Last Updated badge to Jun 29, 2026 \u2014 v2.1.195 unchanged",
-      "date": "2026-06-29",
+      "sha": "9498473",
+      "message": "docs: update claude-subagents badge to Jun 30, 2026 / v2.1.196",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "0cdd299",
-      "message": "chore(changelog): append 2026-06-29 subagents drift entry \u2014 no drift, v2.1.195",
-      "date": "2026-06-29",
+      "sha": "8887e00",
+      "message": "changelog: add 2026-06-30 no-drift entry for claude-subagents (v2.1.196)",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "4a8573f",
-      "message": "Merge pull request #132 from shanraisshan/settings-drift/2026-06-29",
-      "date": "2026-06-29",
-      "author": "Shayan Rais"
-    },
-    {
-      "sha": "d5596f8",
-      "message": "chore(badge): update Last Updated badge in claude-commands.md to Jun 29, 2026 11:07 AM PKT",
-      "date": "2026-06-29",
+      "sha": "5833c30",
+      "message": "changelog: add 2026-06-30 commands drift entry \u2014 /design-login added (v2.1.196)",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "8524799",
-      "message": "chore(changelog): append 2026-06-29 no-drift run entry for claude-commands",
-      "date": "2026-06-29",
+      "sha": "ea1b168",
+      "message": "add /design-login to Auth tag, renumber rows 1-86, bump badge to v2.1.196",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "e193895",
-      "message": "docs(settings): bump to v2.1.195, add CLAUDE_CODE_DISABLE_MOUSE_CLICKS + OTEL_LOG_ASSISTANT_RESPONSES, annotate spinnerT",
-      "date": "2026-06-29",
+      "sha": "b75b23b",
+      "message": "best-practice/claude-skills: add design-sync bundled skill, update badge to v2.1.196",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "663a3fa",
-      "message": "chore(changelog): append v2.1.195 settings drift entry (2026-06-29)",
-      "date": "2026-06-29",
+      "sha": "81a6e66",
+      "message": "changelog: add 2026-06-30 skills drift entry \u2014 design-sync added (v2.1.196)",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "735e3c3",
-      "message": "chore(badge): update Last Updated badge in claude-skills.md to Jun 29, 2026",
-      "date": "2026-06-29",
+      "sha": "22b5f92",
+      "message": "chore(readme): bump Last Updated badge to Jun 30, 2026 9:39 AM PKT",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "d6d7cc4",
-      "message": "chore(changelog): append 2026-06-29 no-drift entry for claude-skills",
-      "date": "2026-06-29",
+      "sha": "bc2045d",
+      "message": "chore(changelog): append CONCEPTS drift-check entry \u2014 2026-06-30 09:39 AM PKT v2.1.196",
+      "date": "2026-06-30",
       "author": "Claude"
     },
     {
-      "sha": "41e65ef",
-      "message": "chore(readme): bump Last Updated badge to Jun 29, 2026 9:39 AM PKT",
-      "date": "2026-06-29",
-      "author": "Claude"
+      "sha": "666ab09",
+      "message": "chore(changelog): append Development Workflows entry \u2014 2026-06-30 09:15 AM PKT",
+      "date": "2026-06-30",
+      "author": "Claude Routine"
+    },
+    {
+      "sha": "3c127d6",
+      "message": "chore(workflows): refresh Development Workflows table \u2014 2026-06-30 09:15 AM PKT",
+      "date": "2026-06-30",
+      "author": "Claude Routine"
     }
   ],
   "mrgoonie--claudekit-skills": [
@@ -5699,6 +5699,24 @@
   ],
   "hesreallyhim--awesome-claude-code": [
     {
+      "sha": "2975510",
+      "message": "acc-trailer",
+      "date": "2026-06-29",
+      "author": "Really Him"
+    },
+    {
+      "sha": "2ca2f07",
+      "message": "fix",
+      "date": "2026-06-29",
+      "author": "Really Him"
+    },
+    {
+      "sha": "aee6175",
+      "message": "Add files via upload (#2146)",
+      "date": "2026-06-29",
+      "author": "Really Him"
+    },
+    {
       "sha": "614f102",
       "message": "feat: ToC (wip)",
       "date": "2026-04-27",
@@ -5739,27 +5757,15 @@
       "message": "chore: update repo ticker data and SVGs [skip ci]",
       "date": "2026-04-27",
       "author": "github-actions[bot]"
-    },
-    {
-      "sha": "48967dd",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-26",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "e2ab709",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-26",
-      "author": "github-actions[bot]"
-    },
-    {
-      "sha": "404ac98",
-      "message": "chore: update repo ticker data and SVGs [skip ci]",
-      "date": "2026-04-26",
-      "author": "github-actions[bot]"
     }
   ],
   "jqueryscript--awesome-claude-code": [
+    {
+      "sha": "2e457b2",
+      "message": "Update README.md",
+      "date": "2026-06-29",
+      "author": "jQueryScript"
+    },
     {
       "sha": "49aa4ff",
       "message": "Update README.md",
@@ -5812,12 +5818,6 @@
       "sha": "2dd063f",
       "message": "Update README.md",
       "date": "2026-06-17",
-      "author": "jQueryScript"
-    },
-    {
-      "sha": "3c8ee95",
-      "message": "Update README.md",
-      "date": "2026-06-15",
       "author": "jQueryScript"
     }
   ]

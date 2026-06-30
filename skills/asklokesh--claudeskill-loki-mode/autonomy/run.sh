@@ -947,8 +947,24 @@ PYCHECK
         fi
         # (d) Defense-in-depth: reclaim the dashboard port only in the CLEAR
         # case, so we never kill a shared dashboard another project owns.
+        # BUT never kill a HEALTHY dashboard already serving on the port: that is
+        # almost always the user's own live dashboard (open in their browser), and
+        # killing it mid-use drops their session (ERR_CONNECTION_REFUSED, WS fail).
+        # A healthy server is reusable by every project, so probe /api/status first
+        # and only reclaim the port when nothing is answering (a genuinely stale
+        # listener). Opt out of the probe with LOKI_DASHBOARD_FORCE_RECLAIM=1.
         if command -v lsof >/dev/null 2>&1; then
-            lsof -ti:"${DASHBOARD_PORT:-57374}" -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true
+            local _dash_port="${DASHBOARD_PORT:-57374}"
+            local _dash_alive=""
+            if [ "${LOKI_DASHBOARD_FORCE_RECLAIM:-}" != "1" ] && command -v curl >/dev/null 2>&1; then
+                _dash_alive=$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 \
+                    "http://127.0.0.1:${_dash_port}/api/status" 2>/dev/null || true)
+            fi
+            if [ "$_dash_alive" = "200" ]; then
+                log_info "Reusing the healthy dashboard already serving on port ${_dash_port} (not reclaiming)."
+            else
+                lsof -ti:"${_dash_port}" -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true
+            fi
         fi
     fi
 }
@@ -2058,6 +2074,25 @@ validate_api_keys() {
         return 1
     fi
 
+    # Zero-friction auth preflight for LOCAL runs (must run BEFORE the early
+    # return below, which exits for non-Docker/K8s envs). When claude is the
+    # provider, the claude CLI is on PATH, there is no ANTHROPIC_API_KEY, and no
+    # OAuth credentials file exists (the user installed claude but never ran
+    # `claude login`), the build would otherwise enter, make a failing call, and
+    # 401 -- the worst first impression -- forcing the user to run `loki why`.
+    # Fail fast with the one-step fix instead. Opt out with LOKI_SKIP_AUTH_PREFLIGHT=1.
+    if [[ "$provider" == "claude" && "${LOKI_SKIP_AUTH_PREFLIGHT:-}" != "1" && -z "${ANTHROPIC_API_KEY:-}" ]] \
+       && command -v claude >/dev/null 2>&1; then
+        local _local_creds="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
+        if [[ ! -s "$_local_creds" ]]; then
+            log_error "Claude Code is installed but not logged in -- the build would stall instead of running."
+            log_error "Log in once, then retry:"
+            log_error "    claude login"
+            log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
+            return 1
+        fi
+    fi
+
     # CLI tools (claude, codex, cline, aider) use their own login sessions.
     # Only require API keys inside Docker/K8s where CLI login isn't available.
     if [[ ! -f "/.dockerenv" ]] && [[ -z "${KUBERNETES_SERVICE_HOST:-}" ]]; then
@@ -2162,6 +2197,9 @@ except Exception:
                 return 1
             fi
         fi
+        # NOTE: the never-logged-in (no credentials file) case is handled earlier,
+        # BEFORE the local early-return, so it covers local runs too (this Docker/
+        # K8s-only block would otherwise be unreachable for that case).
     fi
 
     return 0
@@ -3801,6 +3839,82 @@ effective_session_cap() {
     return 0
 }
 
+# Auto-flag parity for parallel worktree Claude sessions (wave-5 fix).
+# The main RARV loop applies adaptive cost/resilience flags to its claude
+# invocation (run.sh:16007-16030 effort/max-budget/fallback) plus an MCP
+# bundle, but the parallel worktree spawn shipped a bare invocation that missed
+# them entirely. This populates the global _LOKI_WT_AUTO_FLAGS array with ONLY
+# the flags that are safe on the plain (non stream-json) worktree invocation:
+#   --effort           adaptive reasoning depth (dev tier)
+#   --max-budget-usd   per-call hard backstop
+#   --fallback-model   resilience to model overload/unavailability
+#   --mcp-config       (+ --strict-mcp-config) the same MCP bundle the Bun
+#                      route emits; a SUPERSET of the bash main loop, which does
+#                      NOT emit --mcp-config (see ledger run.sh:15990-15996).
+#                      Worktree dev streams benefit from the bundled MCP servers.
+# We deliberately do NOT replicate the stream-json-coupled flags
+# (--include-hook-events, --include-partial-messages) nor --output-format /
+# --session-id: this invocation logs free-form text, not parsed stream-json, so
+# those would be invalid or unwanted here. Each flag is gated on CLI support +
+# its opt-out env var, matching the main loop. Extracted from spawn_worktree_session
+# so it is unit-testable (tests/test-worktree-auto-flags.sh).
+_loki_build_worktree_claude_flags() {
+    _LOKI_WT_AUTO_FLAGS=()
+    # Non-claude providers never receive these flags.
+    if [ "${PROVIDER_NAME:-claude}" != "claude" ]; then
+        return 0
+    fi
+    # Dev-tier model param drives the fallback derivation (worktree streams are
+    # development work). Resolve via the provider helper when available.
+    local _loki_wt_primary=""
+    if type provider_get_tier_param >/dev/null 2>&1; then
+        _loki_wt_primary="$(provider_get_tier_param development 2>/dev/null || true)"
+    fi
+    if [ "${LOKI_AUTO_EFFORT:-on}" != "off" ] \
+       && type loki_effort_for_tier >/dev/null 2>&1 \
+       && type loki_claude_flag_supported >/dev/null 2>&1 \
+       && loki_claude_flag_supported "--effort"; then
+        local _loki_wt_effort
+        _loki_wt_effort="$(loki_effort_for_tier development "${DETECTED_COMPLEXITY:-${LOKI_COMPLEXITY:-standard}}")"
+        [ -n "$_loki_wt_effort" ] && _LOKI_WT_AUTO_FLAGS+=("--effort" "$_loki_wt_effort")
+    fi
+    if [ "${LOKI_AUTO_BUDGET:-on}" != "off" ] \
+       && type loki_remaining_budget >/dev/null 2>&1 \
+       && type loki_claude_flag_supported >/dev/null 2>&1 \
+       && loki_claude_flag_supported "--max-budget-usd"; then
+        local _loki_wt_rem
+        _loki_wt_rem="$(loki_remaining_budget)"
+        [ -n "$_loki_wt_rem" ] && _LOKI_WT_AUTO_FLAGS+=("--max-budget-usd" "$_loki_wt_rem")
+    fi
+    if [ "${LOKI_AUTO_FALLBACK:-on}" != "off" ] \
+       && [ -n "$_loki_wt_primary" ] \
+       && type loki_fallback_for_primary >/dev/null 2>&1 \
+       && type loki_claude_flag_supported >/dev/null 2>&1 \
+       && loki_claude_flag_supported "--fallback-model"; then
+        local _loki_wt_fb
+        _loki_wt_fb="$(loki_fallback_for_primary "$_loki_wt_primary")"
+        [ -n "$_loki_wt_fb" ] && _LOKI_WT_AUTO_FLAGS+=("--fallback-model" "$_loki_wt_fb")
+    fi
+    if type loki_mcp_config_argv >/dev/null 2>&1 \
+       && type loki_claude_flag_supported >/dev/null 2>&1 \
+       && loki_claude_flag_supported "--mcp-config"; then
+        local _loki_wt_mcp
+        if _loki_wt_mcp="$(loki_mcp_config_argv)" && [ -n "$_loki_wt_mcp" ]; then
+            _LOKI_WT_AUTO_FLAGS+=("--mcp-config")
+            local _loki_wt_mcp_path
+            for _loki_wt_mcp_path in $_loki_wt_mcp; do
+                _LOKI_WT_AUTO_FLAGS+=("$_loki_wt_mcp_path")
+            done
+            # --strict-mcp-config only alongside a real bundle, never bare.
+            if [ "${LOKI_STRICT_MCP:-1}" != "0" ] \
+               && loki_claude_flag_supported "--strict-mcp-config"; then
+                _LOKI_WT_AUTO_FLAGS+=("--strict-mcp-config")
+            fi
+        fi
+    fi
+    return 0
+}
+
 # Spawn a Claude session in a worktree
 spawn_worktree_session() {
     local stream_name="$1"
@@ -3843,6 +3957,11 @@ spawn_worktree_session() {
 
     log_step "Spawning ${PROVIDER_DISPLAY_NAME:-Claude} session: $stream_name"
 
+    # Build the worktree auto-flag set (effort/max-budget/fallback/mcp-config)
+    # BEFORE the ( subshell so it is inherited (a `bash -c` would not). Populates
+    # the global _LOKI_WT_AUTO_FLAGS array. See _loki_build_worktree_claude_flags.
+    _loki_build_worktree_claude_flags
+
     (
         cd "$worktree_path" || exit 1
         _wt_exit=0
@@ -3858,12 +3977,17 @@ spawn_worktree_session() {
                 if type loki_caveman_activate_env >/dev/null 2>&1; then
                     _loki_wt_cm="$(loki_caveman_activate_env)"
                 fi
+                # Expand the auto-flag array with the bash-3.2 empty-array guard
+                # (${arr[@]+...}) so a bare "${arr[@]}" under set -u does not
+                # abort with "unbound variable" when no flags were collected.
                 if [ -n "$_loki_wt_cm" ]; then
                     CAVEMAN_DEFAULT_MODE="$_loki_wt_cm" claude --dangerously-skip-permissions \
+                        "${_LOKI_WT_AUTO_FLAGS[@]+"${_LOKI_WT_AUTO_FLAGS[@]}"}" \
                         -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                         >> "$log_file" 2>&1 || _wt_exit=$?
                 else
                     claude --dangerously-skip-permissions \
+                        "${_LOKI_WT_AUTO_FLAGS[@]+"${_LOKI_WT_AUTO_FLAGS[@]}"}" \
                         -p "Loki Mode: $task_prompt. Read .loki/CONTINUITY.md for context." \
                         >> "$log_file" 2>&1 || _wt_exit=$?
                 fi
@@ -11122,6 +11246,7 @@ start_dashboard() {
     local original_port=$DASHBOARD_PORT
     local max_attempts=10
     local attempt=0
+    local DASHBOARD_REUSED=0
 
     while lsof -i :$DASHBOARD_PORT &>/dev/null && [ $attempt -lt $max_attempts ]; do
         # Check if it's our own dashboard
@@ -11130,7 +11255,24 @@ start_dashboard() {
             # Only kill if it's a Python/uvicorn dashboard process
             local proc_cmd=$(ps -p "$existing_pid" -o comm= 2>/dev/null || true)
             if [[ "$proc_cmd" == *python* ]] || [[ "$proc_cmd" == *uvicorn* ]]; then
-                log_step "Killing existing dashboard on port $DASHBOARD_PORT (PID: $existing_pid)..."
+                # Never kill a HEALTHY dashboard already serving here: it is almost
+                # always the user's own live dashboard (open in their browser), and
+                # killing it on `loki start` drops their session mid-use. A healthy
+                # server is reusable by this build too, so probe /api/status and, if
+                # it answers 200, REUSE it (skip starting our own). Only kill a
+                # dashboard process that is NOT serving (a genuinely stuck/dead one).
+                # Opt out with LOKI_DASHBOARD_FORCE_RECLAIM=1.
+                local _dash_alive=""
+                if [ "${LOKI_DASHBOARD_FORCE_RECLAIM:-}" != "1" ] && command -v curl >/dev/null 2>&1; then
+                    _dash_alive=$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 \
+                        "http://127.0.0.1:${DASHBOARD_PORT}/api/status" 2>/dev/null || true)
+                fi
+                if [ "$_dash_alive" = "200" ]; then
+                    log_info "Reusing the healthy dashboard already serving on port $DASHBOARD_PORT (not killing it)."
+                    DASHBOARD_REUSED=1
+                    break
+                fi
+                log_step "Killing stuck dashboard on port $DASHBOARD_PORT (PID: $existing_pid, not serving)..."
                 kill "$existing_pid" 2>/dev/null || true
                 sleep 1
                 break
@@ -11150,6 +11292,15 @@ start_dashboard() {
     if [ $attempt -ge $max_attempts ]; then
         log_error "Could not find available port after $max_attempts attempts"
         return 1
+    fi
+
+    # If we found a HEALTHY dashboard already serving on the port, reuse it: do
+    # NOT launch a second server (that would fight for the port / kill the user's
+    # live one). The existing server already serves this project's state.
+    if [ "${DASHBOARD_REUSED:-0}" = "1" ]; then
+        export LOKI_DASHBOARD_PORT="$DASHBOARD_PORT"
+        log_info "Dashboard already live on port $DASHBOARD_PORT; reusing it."
+        return 0
     fi
 
     # Start FastAPI dashboard server (unified UI + API)
@@ -12138,16 +12289,31 @@ check_task_completion_signal() {
         local fb_statement="${fb_content:-All PRD requirements implemented and tests passing}"
         # Build minimal JSON payload
         signal_file="$fallback_file"
-        # Write the synthesized payload back into the signal file so the
-        # rest of this function can read it uniformly.
-        python3 -c "
+        # Synthesize the payload into a TEMP file then atomically move it into
+        # place, so the signal file is never observed truncated/empty/malformed:
+        # a bare `python3 ... > "$fallback_file"` truncates the file BEFORE python
+        # runs, so a python crash (or missing interpreter) mid-write would leave
+        # an empty/partial file that downstream json.loads then silently drops.
+        local _fb_tmp="${fallback_file}.tmp.$$"
+        if python3 -c "
 import json, sys
-print(json.dumps({
+sys.stdout.write(json.dumps({
     'statement': sys.argv[1][:1000],
     'evidence': 'file-based completion via COMPLETION_REQUESTED fallback',
     'confidence': 'medium',
     'source': 'completion_requested_file_fallback'
-}))" "$fb_statement" > "$fallback_file" 2>/dev/null || echo '{}' > "$fallback_file"
+}))" "$fb_statement" > "$_fb_tmp" 2>/dev/null && [ -s "$_fb_tmp" ]; then
+            mv -f "$_fb_tmp" "$fallback_file" 2>/dev/null || rm -f "$_fb_tmp" 2>/dev/null
+        else
+            # python unavailable or produced nothing: write a hand-built minimal
+            # valid JSON (statement embedded with a conservative escape) atomically.
+            rm -f "$_fb_tmp" 2>/dev/null
+            local _fb_esc
+            _fb_esc=$(printf '%s' "$fb_statement" | tr -d '"\\\n\r' | cut -c1-1000)
+            printf '{"statement":"%s","evidence":"file-based completion via COMPLETION_REQUESTED fallback","confidence":"medium","source":"completion_requested_file_fallback"}' "$_fb_esc" > "${fallback_file}.tmp2.$$" 2>/dev/null \
+                && mv -f "${fallback_file}.tmp2.$$" "$fallback_file" 2>/dev/null \
+                || { rm -f "${fallback_file}.tmp2.$$" 2>/dev/null; printf '{"statement":"completion requested","evidence":"fallback","confidence":"low","source":"completion_requested_file_fallback"}' > "$fallback_file" 2>/dev/null; }
+        fi
     fi
 
     if [ ! -f "$signal_file" ]; then
@@ -13383,7 +13549,7 @@ except (json.JSONDecodeError, KeyError, TypeError, OSError):
                         ITERATION_COUNT=0
                     fi
                     ;;
-                failed|max_iterations_reached|max_retries_exceeded|exited|council_approved|council_force_approved|completion_promise_fulfilled)
+                failed|max_iterations_reached|max_retries_exceeded|exited|council_approved|council_force_approved|completion_promise_fulfilled|reuse_already_satisfied)
                     log_info "Previous session ended with status: $prev_status. Resetting for new session."
                     RETRY_COUNT=0
                     ITERATION_COUNT=0
@@ -14859,6 +15025,40 @@ if os.path.exists(pending_path):
 existing_ids = {t.get("id") for t in existing if isinstance(t, dict)}
 added = 0
 
+# Reuse done-recognition (v7.94.0): if a satisfied-requirements manifest exists
+# AND its prd_sha matches THIS PRD's hash, skip any feature whose title is
+# already satisfied, so an incremental reuse run rebuilds ONLY the gap. A stale
+# or absent manifest is ignored (full build -- the safe default). The sha is
+# computed over the SAME PRD file bytes the gate hashed (hashlib.sha256), so the
+# guard matches byte-for-byte. Title match is normalized (case-insensitive, with
+# a leading "feature:/requirement:/epic:/story:" heading prefix stripped) so a
+# model-returned title like "User login" matches the parser's heading title
+# "Feature: User login". bash 3.2 safe: all normalization happens in python.
+def _dr_norm_title(s):
+    s = (s or "").strip().lower()
+    for _pfx in ("feature:", "requirement:", "epic:", "story:", "user story:"):
+        if s.startswith(_pfx):
+            s = s[len(_pfx):].strip()
+            break
+    return s
+
+_dr_satisfied = set()
+try:
+    import hashlib
+    _dr_manifest = ".loki/state/satisfied-requirements.json"
+    if os.path.isfile(_dr_manifest):
+        with open(_dr_manifest, "r") as _mf:
+            _dr_data = json.load(_mf)
+        _dr_manifest_sha = (_dr_data.get("prd_sha") or "").strip()
+        with open(prd_path, "rb") as _pf:
+            _dr_cur_sha = hashlib.sha256(_pf.read()).hexdigest()
+        if _dr_manifest_sha and _dr_manifest_sha == _dr_cur_sha:
+            for _t in _dr_data.get("satisfied", []):
+                if isinstance(_t, str) and _t.strip():
+                    _dr_satisfied.add(_dr_norm_title(_t))
+except Exception:
+    _dr_satisfied = set()
+
 # BUG-V63-001 fix: extract audience once with flag to break both loops
 audience = "a user"
 audience_found = False
@@ -14876,6 +15076,12 @@ for key in ["target audience", "users", "user personas", "audience"]:
 for i, feat in enumerate(features):
     task_id = f"prd-{i+1:03d}"
     if task_id in existing_ids:
+        continue
+
+    # Skip features the done-recognition gate verified as already satisfied
+    # (manifest-driven, title-keyed, normalized match). Only unmet requirements
+    # become tasks, so the RARV loop works only the gap.
+    if _dr_satisfied and _dr_norm_title(feat.get("title")) in _dr_satisfied:
         continue
 
     criteria = extract_acceptance_criteria(feat["section"], sections)
@@ -15237,6 +15443,39 @@ except Exception:
 
     load_state
     local retry=$RETRY_COUNT
+
+    # Reuse done-recognition gate (v7.94.0). On a no-PRD run that is REUSING an
+    # already-generated PRD, model-verify whether the codebase already satisfies
+    # that spec BEFORE rebuilding a task queue and re-running the RARV loop.
+    # Routes to one of three outcomes (the verdict is the model's, grounded in
+    # re-run tests + code; the only deterministic shortcut is NEGATIVE -> build):
+    #   done        -> refresh the verified-completion record, finalize, return 0
+    #                  so the queue/loop is skipped and main()'s terminal block
+    #                  finishes the run (no wasted iterations, no stray delegate
+    #                  branch -- this runs BEFORE the start-sha/delegate block).
+    #   incomplete  -> write .loki/state/satisfied-requirements.json so
+    #                  populate_prd_queue builds ONLY the unsatisfied items, then
+    #                  fall through to the (now incremental) build.
+    #   inconclusive-> fall through to the normal full build (safe default).
+    # Default-on; LOKI_DONE_RECOGNITION=0 disables it. Armed only on a reuse of
+    # an existing generated PRD; `update` (stale PRD) may never fast-stop as done.
+    case "${GENERATED_PRD_ACTION:-}" in
+        reuse|user_owned|update)
+            local _done_recog_lib="$SCRIPT_DIR/lib/done-recognition.sh"
+            if [ -f "$_done_recog_lib" ]; then
+                # shellcheck source=lib/done-recognition.sh
+                source "$_done_recog_lib" 2>/dev/null || true
+                if declare -f reuse_done_recognition_gate >/dev/null 2>&1; then
+                    if reuse_done_recognition_gate "$prd_path"; then
+                        # done verdict: the gate finalized; main()'s terminal
+                        # block (run_autonomous's caller) runs the COMPLETED
+                        # marker, proof-of-run, and HANDOFF.md.
+                        return 0
+                    fi
+                fi
+            fi
+            ;;
+    esac
 
     # Capture run-start SHA for the evidence hard gate (v7.19.1).
     # Fresh-run-aware: recapture HEAD when ITERATION_COUNT==0 (fresh invocation,
@@ -17077,6 +17316,30 @@ else:
             if [ "$_completion_claimed" = 1 ] && type ensure_completion_test_evidence &>/dev/null; then
                 ensure_completion_test_evidence || true
             fi
+            # TRUST MOAT (fail-CLOSED): each completion gate below is armed only
+            # when its function is loadable (`type fn && ! fn`). If the council
+            # library failed to source, those `type` probes are FALSE, so every
+            # gate arm is silently skipped and a completion claim sails straight to
+            # the accept branch UNVERIFIED -- a fake-green. Before the gate chain,
+            # verify the core gate functions exist; if any is missing, the library
+            # is incomplete and we CANNOT verify completion, so we refuse the claim
+            # (force another iteration) rather than pass ungated. This never fires
+            # in a healthy install (functions are sourced) and only triggers on a
+            # genuinely broken/partial load -- exactly when failing open is unsafe.
+            if [ "$_completion_claimed" = 1 ]; then
+                _gates_loadable=1
+                for _gate_fn in council_checklist_gate council_evidence_gate council_heldout_gate council_assumption_ledger_gate; do
+                    if ! type "$_gate_fn" &>/dev/null; then
+                        log_error "Completion gate unavailable: ${_gate_fn} (council library incomplete or failed to load)."
+                        _gates_loadable=0
+                    fi
+                done
+                if [ "$_gates_loadable" -eq 0 ]; then
+                    log_error "Cannot verify completion: required council gates are missing. Refusing the completion claim (fail-closed) and continuing to iterate."
+                    _completion_claimed=0
+                fi
+                unset _gates_loadable _gate_fn
+            fi
             if [ -n "$_gate_block_for_completion" ] && [ "$_completion_claimed" = 1 ]; then
                 log_warn "Completion claim rejected: code review is BLOCKED for this iteration (Critical/High findings). Fix review issues before completion."
                 log_warn "  Review details under .loki/quality/reviews/ ; gate_failures=${gate_failures}"
@@ -17676,7 +17939,24 @@ check_human_intervention() {
         if type ensure_completion_test_evidence &>/dev/null; then
             ensure_completion_test_evidence || true
         fi
-        if type council_checklist_gate &>/dev/null && ! council_checklist_gate; then
+        # TRUST MOAT (fail-CLOSED, parity with the default route ~17153): each gate
+        # arm below is `type fn && ! fn`, so a missing gate fn (council library
+        # failed to source) silently skips that gate and the chain can reach
+        # council_vote and force-approve completion UNGATED -- a fake-green. Probe
+        # the core gate fns first; if any is missing, refuse the force-review
+        # approval and fall through to continue iterating. No-op on healthy loads.
+        _frgate_loadable=1
+        for _frgate_fn in council_checklist_gate council_evidence_gate council_heldout_gate council_assumption_ledger_gate; do
+            if ! type "$_frgate_fn" &>/dev/null; then
+                log_error "Council force-review: gate unavailable: ${_frgate_fn} (council library incomplete)."
+                _frgate_loadable=0
+            fi
+        done
+        if [ "$_frgate_loadable" -eq 0 ]; then
+            log_error "Council force-review: required gates missing; refusing force approval (fail-closed)."
+            unset _frgate_loadable _frgate_fn
+        elif type council_checklist_gate &>/dev/null && ! council_checklist_gate; then
+            unset _frgate_loadable _frgate_fn
             log_info "Council force-review: blocked by checklist hard gate"
         elif type council_evidence_gate &>/dev/null && ! _evidence_gate_and_surface; then
             log_info "Council force-review: blocked by evidence hard gate"

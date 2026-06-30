@@ -135,6 +135,35 @@ describe("ce-plan post-generation menu routing", () => {
     ).toBe(true)
   })
 
+  test("Codex goal handoff is capability-based and menu-cap aware", () => {
+    for (const [label, body] of [
+      ["SKILL.md", SKILL_BODY],
+      ["plan-handoff.md", HANDOFF_BODY],
+    ] as const) {
+      expect(
+        body.includes("top-level `/goal` command"),
+        `${label} must not gate Codex goal handoff on a literal top-level /goal command; Codex exposes goal mode through create_goal.`,
+      ).toBe(false)
+      expect(
+        body.includes("hosts with a `/goal` command"),
+        `${label} must not describe goal availability as slash-command-only; use goal capability and Codex create_goal instead.`,
+      ).toBe(false)
+      expect(
+        /(?:Codex [`"]?request_user_input[`"]?[\s\S]{0,120}no option cap|no option cap[\s\S]{0,120}Codex [`"]?request_user_input[`"]?)/i.test(body),
+        `${label} must not claim Codex request_user_input has no option cap; current Codex question tools only allow 2-3 explicit options.`,
+      ).toBe(false)
+
+      expect(
+        body.includes("create_goal") && /goal capability/i.test(body),
+        `${label} must explicitly treat Codex create_goal as goal capability so the /goal option renders in Codex app runs.`,
+      ).toBe(true)
+      expect(
+        /request_user_input[\s\S]{0,120}2-3 explicit options/i.test(body),
+        `${label} must document the Codex request_user_input 2-3 option cap so larger handoff menus use numbered chat instead of trimming choices.`,
+      ).toBe(true)
+    }
+  })
+
   test("inline-routing regex rejects empty-action bullets even when followed by another bullet", () => {
     // Regression guard for Codex P2 finding on PR #715: the previous
     // `\s*(?:...)\s*` shape allowed newline consumption, so a bullet with no

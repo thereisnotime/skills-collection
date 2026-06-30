@@ -35,17 +35,17 @@ Or use Claude's built-in command:
 
 <!-- KILLER-SKILL:START — do not edit; run `node scripts/render-spotlight.mjs` -->
 
-> **Killer Skill of the Week** — [kobiton-automate](https://tonsofskills.com/plugins/kobiton-automate) by [Kobiton Inc.](https://github.com/kobiton)
+> **Killer Skill of the Week** — [databricks-pack](https://tonsofskills.com/plugins/databricks-pack) by [Jeremy Longshore](https://github.com/jeremylongshore)
 >
-> **Real mobile devices on demand — no emulators, no flaky CI**
+> **Find the ~$27K/month leaking out of a $100K Databricks workspace — from the billing table, not a guess**
 >
-> Kobiton's automate plugin gives Claude Code, Cursor, Codex, and Gemini CLI direct access to the Kobiton real-device cloud via remote MCP. 12 tools across three surfaces — Devices (list / reserve / status / terminate), Sessions (list / get / artifacts / terminate), and Apps (upload / confirm / list / get) — plus 3 specialist agents for device picking, Appium capability reconciliation, and session triage. One install, real iOS + Android hardware, no emulator drift.
+> The databricks-cost-leak-hunter skill audits a workspace for real-dollar cost leaks and emits a CFO-grokkable, dollar-ranked FinOps report. Every confirmed figure is computed from the customer's own system.billing.usage joined to list_prices — never an estimate. Four named leaks — idle clusters that never auto-terminate, scheduled jobs on All-Purpose compute (2–3× overpay), overprovisioned clusters, and the Photon premium paid without the speedup — each tagged confirmed / estimated / at-risk so a CFO never confuses billed waste with modeled savings. A deterministic Python ranker does the arithmetic (the LLM never eyeballs a number), and the databricks-workspace-mcp control plane turns each leak into a single-config-change fix. One of 24 skills in the Databricks pack.
 >
-> _"Mobile testing that runs where the bugs actually live — on the device, not the simulator."_ — Kobiton Inc.
+> _"A $100K/month Databricks workspace is likely burning ~$27,000/month — and every line is one config change."_ — Jeremy Longshore
 >
-> Grade: A | Week of May 20, 2026 (W21) | [Browse on Marketplace](https://tonsofskills.com/plugins/kobiton-automate)
+> Grade: A | Week of June 30, 2026 (W27) | [Browse on Marketplace](https://tonsofskills.com/plugins/databricks-pack)
 >
-> Previous picks: [skyvern](https://github.com/Skyvern-AI/skyvern), [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
+> Previous picks: [kobiton-automate](https://tonsofskills.com/plugins/kobiton-automate), [skyvern](https://github.com/Skyvern-AI/skyvern), [code-cleanup](https://tonsofskills.com/plugins/code-cleanup), [web-analytics](https://tonsofskills.com/plugins/web-analytics), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [executive-assistant-skills](https://tonsofskills.com/plugins/executive-assistant-skills), [skill-creator](https://tonsofskills.com/plugins/skill-creator), [cursor-pack](https://tonsofskills.com/plugins/cursor-pack), [crypto-portfolio-tracker](https://tonsofskills.com/plugins/crypto-portfolio-tracker). See all at [tonsofskills.com](https://tonsofskills.com).
 
 <!-- KILLER-SKILL:END -->
 
@@ -130,7 +130,7 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 | 🎨  | [Design](#design)                                  |       7 |
 | 🔧  | [DevOps & Infrastructure](#devops--infrastructure) |      36 |
 | 📚  | [Examples & Templates](#examples--templates)       |       5 |
-| 🧩  | [MCP Servers](#mcp-servers)                        |      14 |
+| 🧩  | [MCP Servers](#mcp-servers)                        |      15 |
 | 📦  | [Packages](#packages)                              |       5 |
 | ⚡  | [Performance](#performance)                        |      25 |
 | ✅  | [Productivity](#productivity)                      |      28 |
@@ -443,24 +443,25 @@ Jump to any of the 19 categories below. Plugin counts are catalog totals — aut
 
 ### MCP Servers
 
-🧩 **14 plugins** · category slug: `mcp`
+🧩 **15 plugins** · category slug: `mcp`
 
-| Plugin                        | Description                                                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ai-experiment-logger`        | Track and analyze AI experiments with a web dashboard and MCP tools                                                                        |
-| `beads-dolt`                  | Dolt/DoltHub-aware upgrade to the beads (bd) task tracker — a skill that surfaces visibility/no-remote root causes and the remote-add +…   |
-| `conversational-api-debugger` | Debug REST API failures using OpenAPI specs and HTTP logs (HAR) - root cause analysis with cURL generation                                 |
-| `databricks-workspace-mcp`    | MCP server for the Databricks control plane — 8 read-only tools for cluster forensics, instance pools, DLT pipeline event logs, and Unity… |
-| `design-to-code`              | Convert Figma designs and screenshots to React/Svelte/Vue components with built-in accessibility                                           |
-| `domain-memory-agent`         | Knowledge base with TF-IDF semantic search and extractive summarization - no ML dependencies required                                      |
-| `governed-second-brain`       | Local-first governed second brain — turn your files into cited (qmd://) memory with deterministic governance and a tamper-evident,…        |
-| `lumera-agent-memory`         | Durable agent memory with Cascade object storage, client-side encryption, and local full-text search index. Persists agent context across… |
-| `pr-to-spec`                  | The flight envelope for agentic coding — convert PRs and local diffs into structured, agent-consumable specs with intent drift detection   |
-| `project-health-auditor`      | Multi-dimensional code health analysis with complexity, churn, and test coverage - identifies technical debt hot spots                     |
-| `slack-channel`               | Two-way Slack channel for Claude Code — chat from Slack DMs and channels via Socket Mode                                                   |
-| `workflow-orchestrator`       | DAG-based workflow automation with parallel task execution and dependency management                                                       |
-| `x-bug-triage`                | Closed-loop bug triage — X complaints → clusters → repo evidence → owner routing → Slack review → filed issues                             |
-| `x-bug-triage-plugin`         | Closed-loop bug triage: X complaints → clusters → repo evidence → owner routing → Slack review → filed issues                              |
+| Plugin                        | Description                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai-experiment-logger`        | Track and analyze AI experiments with a web dashboard and MCP tools                                                                         |
+| `beads-dolt`                  | ⚠️ Renamed to dolt-mcp-vcs. Deprecated alias — kept so existing `beads-dolt` installs keep resolving; please install dolt-mcp-vcs instead.… |
+| `conversational-api-debugger` | Debug REST API failures using OpenAPI specs and HTTP logs (HAR) - root cause analysis with cURL generation                                  |
+| `databricks-workspace-mcp`    | MCP server for the Databricks control plane — 8 read-only tools for cluster forensics, instance pools, DLT pipeline event logs, and Unity…  |
+| `design-to-code`              | Convert Figma designs and screenshots to React/Svelte/Vue components with built-in accessibility                                            |
+| `dolt-mcp-vcs`                | Dolt/DoltHub version-control toolkit for Claude Code, via the dolthub/dolt-mcp server — a VC-surface skill + expert agents over a Dolt…     |
+| `domain-memory-agent`         | Knowledge base with TF-IDF semantic search and extractive summarization - no ML dependencies required                                       |
+| `governed-second-brain`       | Local-first governed second brain — turn your files into cited (qmd://) memory with deterministic governance and a tamper-evident,…         |
+| `lumera-agent-memory`         | Durable agent memory with Cascade object storage, client-side encryption, and local full-text search index. Persists agent context across…  |
+| `pr-to-spec`                  | The flight envelope for agentic coding — convert PRs and local diffs into structured, agent-consumable specs with intent drift detection    |
+| `project-health-auditor`      | Multi-dimensional code health analysis with complexity, churn, and test coverage - identifies technical debt hot spots                      |
+| `slack-channel`               | Two-way Slack channel for Claude Code — chat from Slack DMs and channels via Socket Mode                                                    |
+| `workflow-orchestrator`       | DAG-based workflow automation with parallel task execution and dependency management                                                        |
+| `x-bug-triage`                | Closed-loop bug triage — X complaints → clusters → repo evidence → owner routing → Slack review → filed issues                              |
+| `x-bug-triage-plugin`         | Closed-loop bug triage: X complaints → clusters → repo evidence → owner routing → Slack review → filed issues                               |
 
 <sub>⬆ [Back to category index](#browse-plugins-by-category)</sub>
 

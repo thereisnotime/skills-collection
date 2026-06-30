@@ -88,6 +88,8 @@ export const STALE_SKILL_DIRS = [
   "ce-review-beta",
   // ce-polish-beta -> ce-polish (promoted to stable)
   "ce-polish-beta",
+  // ce-dogfood-beta -> ce-dogfood (promoted to stable)
+  "ce-dogfood-beta",
 
   // Removed skills (no replacement)
   "ce-andrew-kane-gem-writer",
@@ -324,6 +326,9 @@ const LEGACY_SKILL_DESCRIPTION_ALIASES: Record<string, string[]> = {
   ],
   "ce-polish-beta": [
     "Start the dev server, open the feature in a browser, and iterate on improvements together. Manual invocation only — type /ce-polish to run it.",
+  ],
+  "ce-dogfood-beta": [
+    "[BETA] Hands-off end-to-end branch dogfood pass with browser testing, auto-fixes, regression tests, and fix commits.",
   ],
   proof: [
     "Publish, view, comment on, and edit markdown via Proof (proofeditor.ai) — create a shareable doc, read a shared doc, and make comment/suggestion/block edits over its API. Use when the user says \"view this in proof\", \"share to proof\", \"publish to proof\", or wants a shareable markdown surface for a spec, plan, or draft, including publish handoffs from ce-brainstorm, ce-ideate, or ce-plan. Do not trigger on \"proof\" meaning evidence, math proofs, proof-of-concept, or \"proofread this\".",
@@ -697,6 +702,14 @@ function currentSkillNameForLegacy(legacyName: string): string {
       return "ce-doc-review"
     case "ce-review":
       return "ce-code-review"
+    // Promoted-from-beta renames: map to the shipping stable name so cleanup
+    // seeds a fingerprint. Without this, loadLegacyFingerprints leaves the
+    // description undefined and isLegacyPluginOwned bails, so the stale beta
+    // dir is never swept on upgrade.
+    case "ce-polish-beta":
+      return "ce-polish"
+    case "ce-dogfood-beta":
+      return "ce-dogfood"
     default:
       return legacyName.startsWith("ce-") ? legacyName : `ce-${legacyName}`
   }

@@ -4,7 +4,7 @@
 
 **Two-stage shape: internal draft, then chat-time synthesis.** The synthesis is composed in two stages. Stage 1 is an internal three-bucket draft (Stated / Inferred / Out of scope) the agent uses to think comprehensively about scope. Stage 2 is the compressed chat-time output: a tier-shaped summary plus "Call outs" (zero or more, capped by plan depth — see the cap table under "How many call-outs are right?") — the specific forks where the user might redirect. The user only sees stage 2. The internal draft still informs the plan body via the doc-shape routing below; it just doesn't reach the user verbatim. This split exists because the comprehensive audit shape produced too much detail for the user to weigh in on, even when the granularity rules were followed.
 
-**Three-bucket structure is the internal draft, not the user-facing artifact.** It does its scope-thinking job during stage 1 and dissolves when Phase 5.2 writes the plan: Stated content informs the Product Contract's Requirements, Inferred content informs Key Technical Decisions / Implementation Units (interactive mode) or the Planning Contract's `### Assumptions` (non-interactive mode), Out-of-scope content informs the Product Contract's Scope Boundaries. The plan has no parallel `## Synthesis` section — only the stage-2 summary embeds, under the Product Contract's `### Summary`. See "Doc shape after confirmation" below for the exact routing and section nesting.
+**Three-bucket structure is the internal draft, not the user-facing artifact.** It does its scope-thinking job during stage 1 and dissolves when Phase 5.2 writes the plan: Stated content informs the Product Contract's Requirements, Inferred content informs Key Technical Decisions / Implementation Units (normal interactive mode) or the Planning Contract's `### Assumptions` (non-interactive mode, or an interactive `SKIP_SCOPING_CONFIRM` skip run), Out-of-scope content informs the Product Contract's Scope Boundaries. The plan has no parallel `## Synthesis` section — only the stage-2 summary embeds, under the Product Contract's `### Summary`. See "Doc shape after confirmation" below for the exact routing and section nesting.
 
 This content is loaded when a synthesis-summary phase fires in ce-plan. There are two variants — they share structure but differ in timing and content focus:
 
@@ -137,6 +137,8 @@ No open decisions to weigh in on — proceeding to [research / plan-write]. Inte
 The announcement is mandatory when skipping — silent proceeding is not allowed. The "why" (no forks worth flagging) must be visible.
 
 For Standard/Deep with zero call-outs, the confirmation template still fires; the "Call outs:" header is simply omitted. The user gets the summary plus the explicit confirmation request.
+
+There is a third skip condition: the **opt-in `SKIP_SCOPING_CONFIRM` setting** (Phase 0.0 — `confirm:auto` token or the `plan_skip_scoping_confirm` config key). When it resolves to skip, the gate auto-proceeds for *any* tier or call-out count — the user has pre-authorized it. The announcement is still mandatory (it names that confirmation is off and that inferred scope landed in `## Assumptions`), and the skip is scoped to this confirmation only: genuine blocking questions and the Phase 5.4 menu still fire. This differs from headless mode only in that announcement — headless has no synchronous user to announce to.
 
 ---
 
@@ -352,7 +354,7 @@ When the skill is invoked from an automated workflow such as LFG or any `disable
   - **Out-of-scope** content → Product Contract `### Scope Boundaries`
   - **Inferred** content → Planning Contract `### Assumptions` — explicitly labeled as un-validated agent bets. Do NOT route Inferred items into Key Technical Decisions or Implementation Units; that would make un-validated bets indistinguishable from user-confirmed decisions.
 
-The `### Assumptions` section appears in non-interactive plans only. Interactive plans don't need it (Inferred bets either get user-corrected via call-outs and become Key Technical Decisions, are revised away, or were judged not-fork material by the keep test and dissolved into Implementation Units silently).
+The `### Assumptions` section appears in non-interactive plans and in interactive plans where the user opted into `SKIP_SCOPING_CONFIRM` — both cases proceed without confirming Inferred bets, so those bets must stay visibly labeled. A normal interactive plan doesn't need it (Inferred bets either get user-corrected via call-outs and become Key Technical Decisions, are revised away, or were judged not-fork material by the keep test and dissolved into Implementation Units silently).
 
 This restores the audit visibility the original design intended (un-validated bets must not propagate as authoritative content), but surfaces them under their own label rather than hiding them. Downstream review (ce-doc-review, ce-work, human PR review) can scrutinize Assumptions specifically.
 
@@ -377,7 +379,7 @@ After user confirmation (or after the soft-cut decision proceeds), Phase 5.2 wri
 |---|---|
 | Summary (stage 2) | Product Contract `### Summary` (1-3 lines prose, forward-looking) — rewrite to plan convention if the chat-time summary used bullets. Solo variant: scope being targeted. Brainstorm-sourced: implementation approach |
 | Stated bullets | Product Contract `### Requirements` (R-IDs) and where relevant `### Problem Frame` for narrative context |
-| Inferred bullets | Planning Contract `### Key Technical Decisions` (with rationale) and Implementation Units when the bet drives a structural choice. In non-interactive mode, route to Planning Contract `### Assumptions` instead — see Headless mode above. |
+| Inferred bullets | Planning Contract `### Key Technical Decisions` (with rationale) and Implementation Units when the bet drives a structural choice. In non-interactive mode **or an interactive `SKIP_SCOPING_CONFIRM` skip run**, route to Planning Contract `### Assumptions` instead — both proceed without confirming the bets, so they must stay labeled; see Headless mode above. |
 | Out-of-scope bullets | Product Contract `### Scope Boundaries` — including the `#### Deferred to Follow-Up Work` subsection when relevant |
 
 No italic capture-context note (e.g., "Captured at Phase 0.7..."). It would leak engineering process into an artifact whose readers do not need that signal.

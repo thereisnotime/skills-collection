@@ -61,9 +61,24 @@ run_test "Memory Retrieval Tests" "$SCRIPT_DIR/test-memory-retrieval.sh"
 run_test "Memory Layers Tests" "$SCRIPT_DIR/test-memory-layers.sh"
 run_test "Memory CLI Tests" "$SCRIPT_DIR/test-memory-cli.sh"
 
+# Event Bus Tests
+run_test "Event Bus Tests" "$SCRIPT_DIR/test-event-bus.sh"
+run_test "Event Bus Exact-Id Match (bus.ts)" "$SCRIPT_DIR/test-event-bus-exact-id.sh"
+
 # Hooks and MCP Tests
 run_test "Hooks System Tests" "$SCRIPT_DIR/test-hooks.sh"
 run_test "MCP Server Tests" "$SCRIPT_DIR/test-mcp-server.sh"
+
+# Healing Hooks (legacy-system healing safety gates)
+run_test "Healing Hooks Safety Tests" "$SCRIPT_DIR/test-healing-hooks-safety.sh"
+run_test "Healing Snapshot Revert Tests" "$SCRIPT_DIR/test-healing-snapshot-revert.sh"
+
+# Parallel worktree Claude auto-flags (effort/budget/fallback/mcp parity)
+run_test "Worktree Auto-Flags Tests" "$SCRIPT_DIR/test-worktree-auto-flags.sh"
+
+# Completion-council effective threshold (operator tighten-only floor + size guard)
+run_test "Council Threshold Tests" "$SCRIPT_DIR/test-council-threshold.sh"
+run_test "Healing Test Gate Tests" "$SCRIPT_DIR/test-healing-test-gate.sh"
 
 # Process Supervisor Tests
 run_test "Process Supervisor Tests" "$SCRIPT_DIR/test-process-supervisor.sh"
@@ -302,6 +317,11 @@ run_test "Proven PR Detached Path (cmd_run --pr/--ship -d carries receipt)" "$SC
 # Build-time HOME isolation (F49): Loki's in-build app executions must run with an
 # isolated HOME/XDG/TMPDIR so a generated app cannot litter the user's real home.
 run_test "Build-time HOME isolation (in-build app exec sandbox)" "$SCRIPT_DIR/test-build-home-isolation.sh"
+
+# Reuse done-recognition gate (v7.94.0): a no-PRD reuse run over an already-done
+# project must model-verify "already satisfied?" and fast-stop instead of
+# rebuilding finished work; never fake-green; build only the unsatisfied gap.
+run_test "Reuse done-recognition gate (no-PRD reuse: done/incomplete/inconclusive)" "$SCRIPT_DIR/test-reuse-done-recognition.sh"
 
 # Linting
 run_test "ShellCheck Linting" "$SCRIPT_DIR/run-shellcheck.sh"

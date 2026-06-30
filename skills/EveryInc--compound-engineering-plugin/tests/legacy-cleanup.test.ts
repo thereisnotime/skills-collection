@@ -160,6 +160,35 @@ describe("cleanupStaleSkillDirs", () => {
     expect(await exists(path.join(root, "ce-document-review"))).toBe(false)
   })
 
+  test("removes promoted-from-beta skill dirs via their last-shipped beta description (ce-dogfood-beta, ce-polish-beta)", async () => {
+    // Regression: a beta->stable rename only sweeps the stale flat-install dir if
+    // currentSkillNameForLegacy maps the beta name to the shipping stable skill.
+    // Without that mapping, loadLegacyFingerprints leaves the description undefined
+    // and isLegacyPluginOwned bails before consulting the alias. The on-disk dirs
+    // below still carry the OLD beta description, matched via LEGACY_SKILL_DESCRIPTION_ALIASES.
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "cleanup-beta-promoted-"))
+    await createDir(
+      path.join(root, "ce-dogfood-beta"),
+      skillContent(
+        "ce-dogfood-beta",
+        "[BETA] Hands-off end-to-end branch dogfood pass with browser testing, auto-fixes, regression tests, and fix commits.",
+      ),
+    )
+    await createDir(
+      path.join(root, "ce-polish-beta"),
+      skillContent(
+        "ce-polish-beta",
+        "Start the dev server, open the feature in a browser, and iterate on improvements together. Manual invocation only — type /ce-polish to run it.",
+      ),
+    )
+
+    const removed = await cleanupStaleSkillDirs(root)
+
+    expect(removed).toBe(2)
+    expect(await exists(path.join(root, "ce-dogfood-beta"))).toBe(false)
+    expect(await exists(path.join(root, "ce-polish-beta"))).toBe(false)
+  })
+
   test("removes raw colon workflow skill directories", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "cleanup-colon-workflows-"))
     await createDir(

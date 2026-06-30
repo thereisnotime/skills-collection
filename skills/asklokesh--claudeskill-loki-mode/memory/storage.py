@@ -33,6 +33,29 @@ except ImportError:
 # Default namespace constant
 DEFAULT_NAMESPACE = "default"
 
+# Allowed namespace characters. A namespace becomes a single path segment under
+# the memory root, so it must not contain separators, traversal, or whitespace.
+_NAMESPACE_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _validate_namespace_charset(namespace: str) -> None:
+    """Reject a namespace whose characters could escape its directory.
+
+    Charset-only check, shared by ``__init__`` and ``with_namespace`` so the two
+    validation sites cannot drift. Callers are responsible for deciding whether a
+    None/empty namespace is acceptable (it is in ``__init__`` for backward
+    compat; it is rejected in ``with_namespace``); this only runs once a concrete
+    non-default namespace string is present.
+
+    Raises:
+        ValueError: If the namespace contains anything outside [A-Za-z0-9_-].
+    """
+    if not _NAMESPACE_RE.match(namespace):
+        raise ValueError(
+            f"Invalid namespace '{namespace}': "
+            "only alphanumeric characters, hyphens, and underscores are allowed"
+        )
+
 
 class MemoryStorage:
     """
@@ -73,14 +96,11 @@ class MemoryStorage:
         self._root_path = Path(effective_base)
         self._namespace = namespace
 
-        # Validate namespace to prevent path traversal
+        # Validate namespace to prevent path traversal. None/empty is accepted
+        # here for backward compat (it selects the default, un-namespaced root);
+        # only a concrete non-default namespace is charset-checked.
         if namespace and namespace != DEFAULT_NAMESPACE:
-            import re
-            if not re.match(r'^[a-zA-Z0-9_-]+$', namespace):
-                raise ValueError(
-                    f"Invalid namespace '{namespace}': "
-                    "only alphanumeric characters, hyphens, and underscores are allowed"
-                )
+            _validate_namespace_charset(namespace)
 
         # Calculate effective base path (with namespace if specified)
         if namespace and namespace != DEFAULT_NAMESPACE:
@@ -119,15 +139,21 @@ class MemoryStorage:
             New MemoryStorage instance for the specified namespace
 
         Raises:
-            ValueError: If namespace contains path traversal characters
+            ValueError: If namespace is empty/None/non-string, or contains
+                characters outside [A-Za-z0-9_-] (path-traversal defense).
         """
-        import re
-        if namespace and namespace != DEFAULT_NAMESPACE:
-            if not re.match(r'^[a-zA-Z0-9_-]+$', namespace):
-                raise ValueError(
-                    f"Invalid namespace '{namespace}': "
-                    "only alphanumeric characters, hyphens, and underscores are allowed"
-                )
+        # with_namespace is an explicit "switch to this namespace" call, so an
+        # empty, None, whitespace-only, or non-string namespace is meaningless
+        # and must be rejected rather than silently resolving to the default
+        # root (which is what __init__ would do with a falsy namespace). Reject,
+        # do not normalize: normalization would mask a caller bug.
+        if not isinstance(namespace, str) or not namespace.strip():
+            raise ValueError(
+                f"Invalid namespace {namespace!r}: "
+                "must be a non-empty string"
+            )
+        if namespace != DEFAULT_NAMESPACE:
+            _validate_namespace_charset(namespace)
         return MemoryStorage(
             base_path=str(self._root_path),
             namespace=namespace,
@@ -857,6 +883,75 @@ class MemoryStorage:
 
         return True
 
+    def update_pattern_with_merge(self, pattern_id: str, merge_fn) -> bool:
+        """Atomically merge into an existing pattern under a single lock.
+
+        Closes the consolidation lost-update (BUG-MEM C1): the previous flow read
+        the pattern (load_pattern) and wrote the merged result (update_pattern) in
+        SEPARATE lock acquisitions, so a concurrent increment_pattern_usage() bump
+        landing between the read and the write was lost. Here the read of the
+        current on-disk record, the caller's merge, and the write all happen
+        inside ONE exclusive _file_lock on patterns.json -- the same path
+        increment_pattern_usage() and update_pattern() lock -- so they mutually
+        exclude and no bump is clobbered.
+
+        Args:
+            pattern_id: Id of the existing pattern to merge into.
+            merge_fn: Callable taking the current on-disk pattern dict and
+                returning the merged record (dict, or any object exposing
+                to_dict()/__dict__). It must preserve the id. The dict it
+                receives is a fresh read performed under the lock.
+
+        Returns:
+            True if the pattern was found and the merged record written, False if
+            the pattern id was not present (caller should fall back to a create).
+        """
+        if not pattern_id:
+            return False
+
+        patterns_path = self.base_path / "semantic" / "patterns.json"
+
+        with self._file_lock(patterns_path, exclusive=True):
+            if not patterns_path.exists():
+                return False
+
+            with open(patterns_path, "r", encoding="utf-8") as f:
+                try:
+                    patterns_file = json.load(f)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    return False
+
+            patterns = patterns_file.get("patterns", [])
+            target_idx = None
+            current = None
+            for i, p in enumerate(patterns):
+                if isinstance(p, dict) and p.get("id") == pattern_id:
+                    target_idx = i
+                    current = p
+                    break
+
+            if target_idx is None:
+                return False
+
+            # Caller merges against the fresh, lock-protected current record.
+            merged = merge_fn(current)
+            if hasattr(merged, "to_dict"):
+                merged_data = merged.to_dict()
+            elif hasattr(merged, "__dict__"):
+                merged_data = merged.__dict__.copy()
+            else:
+                merged_data = dict(merged)
+
+            # Never let a merge orphan the record by changing its id.
+            merged_data["id"] = pattern_id
+            merged_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            patterns_file["patterns"][target_idx] = merged_data
+            patterns_file["last_updated"] = datetime.now(timezone.utc).isoformat()
+
+            self._atomic_write(patterns_path, patterns_file)
+
+        return True
+
     # -------------------------------------------------------------------------
     # Skill Storage
     # -------------------------------------------------------------------------
@@ -1259,9 +1354,20 @@ class MemoryStorage:
                 base = min(1.0, base + 0.05 * min(len(errors), 3))
 
         # Access frequency boost (diminishing returns).
-        # `or 0` guards against an explicit null access_count crashing the
-        # comparison and log1p call below.
+        # `or 0` guards an explicit null access_count; the isinstance/`< 0`
+        # clamp additionally guards a non-numeric (e.g. a stored "5") or negative
+        # value (corrupt or hand-edited record) reaching the `> 0` comparison and
+        # log1p() below. A bare string raises TypeError on `"5" > 0`, and a
+        # negative <= -1 raises a math domain error in log1p; bool is excluded so
+        # a stray True is not treated as a count of 1. All coerce to 0 (no boost)
+        # so importance scoring never crashes the scan.
         access_count = memory.get("access_count") or 0
+        if (
+            not isinstance(access_count, (int, float))
+            or isinstance(access_count, bool)
+            or access_count < 0
+        ):
+            access_count = 0
         if access_count > 0:
             # Log scale boost, caps at about 0.15 for 100+ accesses
             access_boost = 0.05 * math.log1p(access_count)

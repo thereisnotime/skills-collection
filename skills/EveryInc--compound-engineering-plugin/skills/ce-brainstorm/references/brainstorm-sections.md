@@ -96,6 +96,11 @@ that earns its place is fine; wordiness around that length is not.
 
 Hold every kept section to these:
 
+- **Lead with the decision or outcome.** Put the conclusion first, then the
+  reason, then background; keep one claim plus its support per paragraph. Don't
+  bury the chosen scope, an open blocker, or a Key Decision beneath its
+  rationale. This does not override section roles — Summary stays proposal-only,
+  Problem Frame stays motivation-only and never restates the remedy.
 - **One idea per sentence.** A Summary is a handful of sentences, not one
   sentence with five semicolons and four parentheticals. If a sentence needs a
   second parenthetical to stay true, split it.
@@ -108,9 +113,10 @@ Hold every kept section to these:
 - **Prefer the verb to the nominalization.** "Demote the grid", not "the
   demotion of the grid is the deliberate change in this brief".
 
-Precision is not padding: keep domain terms, conditionals, and exact thresholds
-verbatim. Economy targets the connective tissue around them, never the precision
-itself.
+Precision is not padding: keep IDs, dates, actor names, domain terms,
+conditionals, and exact thresholds verbatim; when a concrete anchor is knowable
+from the work already done, use it instead of a vague abstraction. Economy
+targets the connective tissue around precision, never the precision itself.
 
 **Resolve in place; don't stratify.** When a later decision answers a parked
 question or supersedes earlier text, rewrite or remove the original entry —

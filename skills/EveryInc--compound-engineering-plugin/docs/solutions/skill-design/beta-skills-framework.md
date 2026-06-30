@@ -73,10 +73,11 @@ When the beta version is validated:
 3. Remove `disable-model-invocation: true` so the model can auto-trigger it
 4. Update all internal references back to stable names
 5. Restore stable plan file naming (remove `-beta` from the convention)
-6. Delete the beta skill directory
-7. Update README.md: remove from Beta Skills section, verify counts
-8. Verify `lfg` works with the promoted skill
-9. Verify `ce-work` consumes plans from the promoted skill
+6. Rename the beta skill directory to the stable name (`ce-X-beta` -> `ce-X`)
+7. Register the retired `ce-X-beta` name for legacy flat-install cleanup so upgrading users don't keep a stale duplicate dir. This is more than adding the name to `STALE_SKILL_DIRS` — the sweep silently no-ops without the `currentSkillNameForLegacy` case that maps the beta name to the stable one. See [beta-promotion-cleanup-registry-wiring.md](./beta-promotion-cleanup-registry-wiring.md) for the complete four-edit-plus-test wiring.
+8. Update README.md: remove from Beta Skills section, verify counts
+9. Verify `lfg` works with the promoted skill
+10. Verify `ce-work` consumes plans from the promoted skill
 
 If the beta skill changed its invocation contract, promotion must also update all orchestration callers in the same PR instead of relying on the stable default behavior. See [beta-promotion-orchestration-contract.md](./beta-promotion-orchestration-contract.md) for the concrete review-skill example.
 

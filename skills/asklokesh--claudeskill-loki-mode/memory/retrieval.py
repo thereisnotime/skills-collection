@@ -269,6 +269,7 @@ class MemoryRetrieval:
         vector_indices: Optional[Dict[str, VectorIndex]] = None,
         base_path: str = ".loki/memory",
         namespace: Optional[str] = None,
+        include_unstamped_legacy: bool = False,
     ):
         """
         Initialize the memory retrieval system.
@@ -279,12 +280,20 @@ class MemoryRetrieval:
             vector_indices: Optional dict of vector indices (episodic, semantic, skills)
             base_path: Base path for memory storage directory
             namespace: Optional namespace for scoped retrieval
+            include_unstamped_legacy: Opt-in escape hatch. When False (the
+                secure default), legacy entries that lack a "_namespace" stamp
+                are EXCLUDED from a namespaced query. This prevents a silent
+                cross-namespace leak where one project reads another project's
+                unstamped memory. Set True only when migrating a single-project
+                store whose entries predate namespace stamping and you have
+                verified every entry belongs to the active namespace.
         """
         self.storage = storage
         self.embedding_engine = embedding_engine
         self.vector_indices = vector_indices or {}
         self.base_path = Path(base_path)
         self._namespace = namespace
+        self._include_unstamped_legacy = include_unstamped_legacy
         # Track when indices were last built to detect staleness (BUG-MEM-002).
         # When consolidation modifies patterns, indices become stale and should
         # be rebuilt before the next similarity search.
@@ -318,25 +327,45 @@ class MemoryRetrieval:
         Behavior:
         - If self._namespace is None, accept all (backward compat for unscoped retrieval).
         - If result has "_namespace" matching, accept.
-        - If result lacks "_namespace" (legacy entry written before stamping),
-          log a deprecation warning (rate-limited) and ACCEPT for backward compat.
-        - Otherwise, reject.
+        - If result lacks "_namespace" (legacy entry written before stamping):
+          treat it conservatively. An unstamped entry has no provable origin,
+          so under a namespaced query it could belong to ANY namespace and
+          including it is a silent cross-namespace leak (one project reading
+          another's memory). By default (self._include_unstamped_legacy is
+          False) such entries are EXCLUDED, with a rate-limited warning telling
+          operators to re-save the entry to add a stamp. Operators who have
+          verified a single-project store predates stamping can opt back in via
+          include_unstamped_legacy=True.
+        - Otherwise (stamp present but does not match), reject.
         """
         if self._namespace is None:
             return True
         result_ns = result.get("_namespace")
         if result_ns is None:
-            # Legacy entry without namespace stamp; accept for backward compat
-            # but warn so operators can re-save to add stamps.
+            # Legacy entry without namespace stamp. No provable origin -> do not
+            # silently leak it across namespaces. Exclude by default; warn so
+            # operators can re-save to add a stamp (rate-limited to avoid spam).
             if MemoryRetrieval._legacy_warned_count < MemoryRetrieval._LEGACY_WARN_LIMIT:
-                logger.warning(
-                    "Memory entry id=%s lacks '_namespace' stamp (legacy "
-                    "entry). Including in results for backward compatibility. "
-                    "Re-save this entry to enable namespace isolation.",
-                    result.get("id", "<unknown>"),
-                )
+                if self._include_unstamped_legacy:
+                    logger.warning(
+                        "Memory entry id=%s lacks '_namespace' stamp (legacy "
+                        "entry). Including under namespace=%s because "
+                        "include_unstamped_legacy is set. Re-save this entry to "
+                        "stamp it and remove the opt-in.",
+                        result.get("id", "<unknown>"),
+                        self._namespace,
+                    )
+                else:
+                    logger.warning(
+                        "Memory entry id=%s lacks '_namespace' stamp (legacy "
+                        "entry). Excluding from namespace=%s query to prevent a "
+                        "cross-namespace leak. Re-save this entry to stamp it, "
+                        "or pass include_unstamped_legacy=True to opt in.",
+                        result.get("id", "<unknown>"),
+                        self._namespace,
+                    )
                 MemoryRetrieval._legacy_warned_count += 1
-            return True
+            return self._include_unstamped_legacy
         return result_ns == self._namespace
 
     def with_namespace(self, namespace: str) -> "MemoryRetrieval":
@@ -361,6 +390,7 @@ class MemoryRetrieval:
             vector_indices=self.vector_indices,
             base_path=str(self.base_path),
             namespace=namespace,
+            include_unstamped_legacy=self._include_unstamped_legacy,
         )
 
     # -------------------------------------------------------------------------
@@ -650,8 +680,10 @@ class MemoryRetrieval:
         for ns in namespaces:
             ns_retrieval = self.with_namespace(ns)
 
-            # Simple keyword search in this namespace
-            for collection in ["episodic", "semantic", "skills"]:
+            # Simple keyword search in this namespace.
+            # BUG-MEM-012: 'anti_patterns' was omitted, so anti-pattern
+            # memories were silently missed in cross-namespace search.
+            for collection in ["episodic", "semantic", "skills", "anti_patterns"]:
                 results = ns_retrieval.retrieve_by_keyword(
                     query.split(),
                     collection,
@@ -793,27 +825,55 @@ class MemoryRetrieval:
         if collection not in self.vector_indices:
             return self.retrieve_by_keyword(query.split(), collection)[:top_k]
 
-        # Check if indices need rebuilding after consolidation (BUG-MEM-002).
-        # If patterns.json was modified more recently than we last built
-        # indices, fall back to keyword search for accuracy.
-        if collection == "semantic" and self._indices_built_at is not None:
-            patterns_path = self.base_path / "semantic" / "patterns.json"
-            if patterns_path.exists():
+        # Check if indices need rebuilding after consolidation (BUG-MEM-002,
+        # BUG-MEM-007). Consolidation rewrites semantic/patterns.json (and may
+        # touch semantic/anti-patterns.json), so any index sourced from those
+        # files can go stale. The 'semantic' index reads patterns.json; the
+        # 'anti_patterns' index reads BOTH patterns.json and anti-patterns.json
+        # (consolidated anti-patterns are bridged from patterns.json). If a
+        # source file was modified more recently than we last built indices,
+        # fall back to keyword search for accuracy. (episodic/skills read their
+        # own per-record files and are not rewritten by consolidation, so they
+        # are not checked here.)
+        if self._indices_built_at is not None:
+            stale_sources: List[str] = []
+            if collection == "semantic":
+                stale_sources = ["semantic/patterns.json"]
+            elif collection == "anti_patterns":
+                stale_sources = ["semantic/patterns.json",
+                                 "semantic/anti-patterns.json"]
+            if stale_sources:
                 import os
-                patterns_mtime = os.path.getmtime(patterns_path)
-                if patterns_mtime > self._indices_built_at:
-                    logger.info(
-                        "Semantic index is stale (patterns modified after index build). "
-                        "Falling back to keyword search for accuracy."
-                    )
-                    return self.retrieve_by_keyword(query.split(), collection)[:top_k]
+                for rel in stale_sources:
+                    source_path = self.base_path / rel
+                    if source_path.exists() and \
+                            os.path.getmtime(source_path) > self._indices_built_at:
+                        logger.info(
+                            "%s index is stale (%s modified after index build). "
+                            "Falling back to keyword search for accuracy.",
+                            collection, rel,
+                        )
+                        return self.retrieve_by_keyword(
+                            query.split(), collection)[:top_k]
 
-        # Generate query embedding
-        query_embedding = self.embedding_engine.embed(query)
-
-        # Search vector index
+        # Generate query embedding and search the vector index. If the embedding
+        # engine has fallen back to a different model/dimension since the index
+        # was built, the query vector dimension will not match the stored index
+        # and VectorSearchIndex.search raises ValueError. That must NOT crash
+        # retrieval or return wrong-dimension neighbors -- degrade to keyword
+        # search (the honest, accurate fallback), same as the staleness path.
         index = self.vector_indices[collection]
-        results = index.search(query_embedding, top_k)
+        try:
+            query_embedding = self.embedding_engine.embed(query)
+            results = index.search(query_embedding, top_k)
+        except ValueError as exc:
+            logger.info(
+                "%s vector search failed (%s); likely an embedding "
+                "dimension change since index build. Falling back to keyword "
+                "search for accuracy.",
+                collection, exc,
+            )
+            return self.retrieve_by_keyword(query.split(), collection)[:top_k]
 
         # Convert to standard format
         items: List[Dict[str, Any]] = []
@@ -828,6 +888,34 @@ class MemoryRetrieval:
                 items.append(item)
 
         return items
+
+    @staticmethod
+    def _anti_pattern_content_key(record: Dict[str, Any]) -> tuple:
+        """Normalized content key for an anti-pattern across both schemas.
+
+        Consolidation writes anti-patterns into semantic/patterns.json as
+        SemanticPattern objects (fields incorrect_approach|pattern /
+        description / correct_approach), while the legacy
+        semantic/anti-patterns.json uses what_fails / why / prevention. The
+        same anti-pattern can therefore appear in both stores (no migration
+        copies one into the other), which would double-count it on read and in
+        the vector index (BUG-MEM-011). Map both schemas onto the same
+        lowercased/stripped (what_fails, why, prevention) tuple so the two
+        representations of one anti-pattern collide on a single key.
+        """
+        def _norm(*candidates: Any) -> str:
+            for c in candidates:
+                if c:
+                    return str(c).strip().lower()
+            return ""
+
+        what_fails = _norm(record.get("what_fails"),
+                           record.get("incorrect_approach"),
+                           record.get("pattern"))
+        why = _norm(record.get("why"), record.get("description"))
+        prevention = _norm(record.get("prevention"),
+                           record.get("correct_approach"))
+        return (what_fails, why, prevention)
 
     @staticmethod
     def _parse_episode_timestamp(value: Any) -> Optional[datetime]:
@@ -1716,12 +1804,36 @@ class MemoryRetrieval:
         """Keyword search in anti-patterns."""
         results: List[Dict[str, Any]] = []
         anti_data = self.storage.read_json("semantic/anti-patterns.json") or {}
+        patterns_data = self.storage.read_json("semantic/patterns.json") or {}
+
+        # BUG-MEM-011: an anti-pattern can live in BOTH the consolidated
+        # patterns.json (category="anti-pattern") and the legacy
+        # anti-patterns.json, with no migration copying one into the other.
+        # Reading both naively double-counts it. Pre-scan the consolidated
+        # store (which we keep) into a seen-set keyed by id AND normalized
+        # content, then skip any legacy record that collides with either.
+        seen_ids: set = set()
+        seen_content: set = set()
+        for pat in patterns_data.get("patterns", []):
+            if not isinstance(pat, dict):
+                continue
+            if pat.get("category") != "anti-pattern":
+                continue
+            pid = pat.get("id")
+            if pid:
+                seen_ids.add(pid)
+            seen_content.add(self._anti_pattern_content_key(pat))
 
         for anti in anti_data.get("anti_patterns", []):
             # Defensive: mirror the sibling loop below. A corrupt or
             # hand-edited record may be a non-dict or carry null fields;
             # the isinstance guard and (x or "") avoid AttributeError.
             if not isinstance(anti, dict):
+                continue
+            # Dedup: skip a legacy record already represented in patterns.json.
+            aid = anti.get("id")
+            if (aid and aid in seen_ids) or \
+                    self._anti_pattern_content_key(anti) in seen_content:
                 continue
             what_fails = (anti.get("what_fails") or "").lower()
             why = (anti.get("why") or "").lower()
@@ -1744,7 +1856,6 @@ class MemoryRetrieval:
         # description / correct_approach. Without this bridge, consolidated
         # anti-patterns were never retrievable. Map them onto the same
         # what_fails / why / prevention scoring shape.
-        patterns_data = self.storage.read_json("semantic/patterns.json") or {}
         for pat in patterns_data.get("patterns", []):
             if not isinstance(pat, dict):
                 continue
@@ -1858,8 +1969,33 @@ class MemoryRetrieval:
 
         index = self.vector_indices["anti_patterns"]
         anti_data = self.storage.read_json("semantic/anti-patterns.json") or {}
+        patterns_data = self.storage.read_json("semantic/patterns.json") or {}
+
+        # BUG-MEM-011: the same anti-pattern may live in BOTH the consolidated
+        # patterns.json and the legacy anti-patterns.json. Indexing both
+        # double-counts it in the vector index. Pre-scan the consolidated store
+        # (which we keep) into a seen-set keyed by id AND normalized content,
+        # then skip any legacy record that collides with either.
+        seen_ids: set = set()
+        seen_content: set = set()
+        for pat in patterns_data.get("patterns", []):
+            if not isinstance(pat, dict):
+                continue
+            if pat.get("category") != "anti-pattern":
+                continue
+            pid = pat.get("id")
+            if pid:
+                seen_ids.add(pid)
+            seen_content.add(self._anti_pattern_content_key(pat))
 
         for anti in anti_data.get("anti_patterns", []):
+            if not isinstance(anti, dict):
+                continue
+            # Dedup: skip a legacy record already represented in patterns.json.
+            aid = anti.get("id")
+            if (aid and aid in seen_ids) or \
+                    self._anti_pattern_content_key(anti) in seen_content:
+                continue
             # Create text for embedding
             text = f"{anti.get('what_fails', '')} {anti.get('why', '')} {anti.get('prevention', '')}"
 
@@ -1874,7 +2010,6 @@ class MemoryRetrieval:
         # category="anti-pattern" entries in semantic/patterns.json, not the
         # legacy anti-patterns.json above. Bridge those into the vector index
         # too so embedding-based retrieval sees consolidated anti-patterns.
-        patterns_data = self.storage.read_json("semantic/patterns.json") or {}
         for pat in patterns_data.get("patterns", []):
             if not isinstance(pat, dict):
                 continue

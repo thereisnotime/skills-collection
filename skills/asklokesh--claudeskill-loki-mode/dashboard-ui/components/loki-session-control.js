@@ -72,6 +72,10 @@ export class LokiSessionControl extends LokiElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._stopPolling();
+    this._teardownApiListeners();
+  }
+
+  _teardownApiListeners() {
     if (this._api) {
       if (this._statusUpdateHandler) this._api.removeEventListener(ApiEvents.STATUS_UPDATE, this._statusUpdateHandler);
       if (this._connectedHandler) this._api.removeEventListener(ApiEvents.CONNECTED, this._connectedHandler);
@@ -83,8 +87,12 @@ export class LokiSessionControl extends LokiElement {
     if (oldValue === newValue) return;
 
     if (name === 'api-url' && this._api) {
-      this._api.baseUrl = newValue;
+      // Adopt the correct per-URL client (no in-place baseUrl mutation, which
+      // leaks across projects). Detach from the old instance, swap, re-subscribe.
+      this._teardownApiListeners();
+      this._setupApi();
       this._loadStatus();
+      this._loadModel();
     }
     if (name === 'theme') {
       this._applyTheme();
@@ -108,10 +116,14 @@ export class LokiSessionControl extends LokiElement {
   }
 
   async _loadStatus() {
+    const api = this._api;
     try {
-      const status = await this._api.getStatus();
+      const status = await api.getStatus();
+      // Drop a stale response if the api-url switched mid-flight (instance swap).
+      if (api !== this._api) return;
       this._updateFromStatus(status);
     } catch (error) {
+      if (api !== this._api) return;
       this._status.connected = false;
       this._status.mode = 'offline';
       this.render();
@@ -144,8 +156,8 @@ export class LokiSessionControl extends LokiElement {
   }
 
   _startPolling() {
-    // The session control lives in the always-visible sidebar footer (not
-    // inside a .section-page), so it opts OUT of section gating (sectionId:
+    // The session control lives in the right status sidebar (not inside a
+    // .section-page), so it opts OUT of section gating (sectionId:
     // null) and is gated on tab visibility ONLY: a hidden tab does not poll,
     // but it stays fresh on every active section. connectedCallback already did
     // the first load, so immediate is disabled to avoid a duplicate fetch.
@@ -307,8 +319,11 @@ export class LokiSessionControl extends LokiElement {
 
   async _loadModel() {
     if (!this._api || typeof this._api.getSessionModel !== 'function') return;
+    const api = this._api;
     try {
-      const m = await this._api.getSessionModel();
+      const m = await api.getSessionModel();
+      // Drop a stale response if the api-url switched mid-flight (instance swap).
+      if (api !== this._api) return;
       if (m && !m.error) {
         this._model = {
           ...this._model,
@@ -622,6 +637,10 @@ export class LokiSessionControl extends LokiElement {
 
         .model-select {
           flex: 1;
+          /* Allow the select to shrink below its longest option's intrinsic
+             width (the flex min-content floor) so it never overflows a narrow
+             sidebar column; the native control ellipsizes the label. */
+          min-width: 0;
           padding: 5px 8px;
           border-radius: 4px;
           border: 1px solid var(--loki-border);

@@ -126,5 +126,5 @@ Yes. When the bundled health script is not directly runnable, the skill falls ba
 ## See Also
 
 - [`/ce-test-browser`](./ce-test-browser.md) — uses `agent-browser` for browser testing
-- [`/ce-dogfood-beta`](./ce-dogfood-beta.md) — uses `agent-browser` for diff-scoped QA
+- [`/ce-dogfood`](./ce-dogfood.md) — uses `agent-browser` for diff-scoped QA
 - [`/ce-product-pulse`](./ce-product-pulse.md) — uses `.compound-engineering/config.local.yaml` for pulse settings
