@@ -9,6 +9,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.104.1] - 2026-07-01
+
+### Bun doctor checks Claude login (bash/Bun parity)
+
+- **`loki doctor` (Bun route) now performs the Claude OAuth login check** that the
+  bash route already had. Previously the Bun `doctor` only checked `ANTHROPIC_API_KEY`
+  and never inspected the Claude login state, so on a machine with an expired Claude
+  access token the two routes diverged (bash warned "login EXPIRED", Bun said nothing).
+  The check is a zero-network read of `${CLAUDE_CONFIG_DIR:-~/.claude}/.credentials.json`
+  comparing `claudeAiOauth.expiresAt` against now; it is byte-faithful with the bash
+  output in every login state (expired -> WARN, absent/fresh -> the neutral line), so
+  the two routes agree. Conservative by design (no refresh attempt, which needs a
+  network call), matching run.sh's fail-fast build preflight. Proven parity across
+  expired / absent / fresh credential fixtures.
+
+## [7.104.0] - 2026-06-30
+
+### Default execution model is now Claude Sonnet 5
+
+- **Default execution model changed Opus -> Sonnet 5.** The planning and
+  development tiers now default to `sonnet` (`providers/claude.sh`), which the
+  Claude CLI resolves to the latest Sonnet (Claude Sonnet 5). Builds are cheaper
+  (~40% less per token than Opus) and faster, at near-frontier intelligence. This
+  affects every user's default `loki start`/`loki verify` run. Completion is still
+  council-verified. To restore Opus execution: set
+  `LOKI_CLAUDE_MODEL_DEVELOPMENT=opus` (and `_PLANNING=opus`), or pick Opus from
+  the dashboard. We do NOT claim identical accuracy (no controlled study); the
+  quality gates are unchanged, so if it passes it passes and if it does not Loki
+  tells you why.
+- **Opt-in strong advisor judge (`LOKI_ADVISOR_MODEL`).** The trust-gate code
+  reviewers still run on the account default by default (unchanged behavior). Set
+  `LOKI_ADVISOR_MODEL=opus` (or the dashboard "Advisor" toggle) to pin the
+  reviewers to a stronger, consistent Opus judge. `haiku|sonnet|opus` are honored;
+  `fable` is refused (its safety classifiers can end a review turn with a refusal
+  and break the council gate). Mirrored on both the bash and Bun routes.
+- **Dashboard model selection.** A start-time model selector (Haiku / Sonnet /
+  Opus, default Sonnet 5) and a mid-run switcher (applies at the next iteration)
+  are available in the dashboard. The mid-run hot-switch was already supported by
+  the engine (`.loki/state/model-override`, read each iteration); this exposes it
+  in the UI. An explicit Opus pick dispatches Opus on every iteration.
+- **opus session-pin fix.** With the Sonnet default, a `LOKI_SESSION_MODEL=opus`
+  pin previously routed through the (now-Sonnet) planning tier and silently
+  dispatched Sonnet. It now dispatches Opus on every iteration (still clamped by
+  `LOKI_MAX_TIER`, so an operator cost ceiling still binds). Fixed consistently in
+  the runner, the `loki plan` estimator, and the dashboard, and locked by the
+  session-pin parity matrix.
+- **Model catalog + pricing corrections.** `providers/model_catalog.json` refreshed
+  to current IDs (`claude-opus-4-8`, `claude-sonnet-5`). Corrected the
+  `gpt-5.3-codex` price to the real standard-tier $1.75/$14.00 per MTok (was
+  $1.50/$12.00) in the cost tables. Added a display-only note for the Sonnet 5
+  introductory price ($2/$10 per MTok through 2026-08-31); the estimator quotes the
+  standing $3/$15 list price (over-estimating the display is the safe direction).
+
+## [7.103.0] - 2026-06-30
+
+### Bun-runner gate parity + verify.sh hardening
+
+- **Bun runner honors all completion-blocking gates** (`loki-ts/src/runner/autonomous.ts`):
+  it already refused completion on a code_review BLOCK; it now also refuses on a
+  semantic_tests BLOCK and an invariants BLOCK, mirroring the live bash route
+  exactly (same `LOKI_GATE_SEMANTIC_TESTS_BLOCK` / `LOKI_GATE_INVARIANTS_BLOCK`
+  toggles, same conditions). This closes a trust-parity gap ahead of the runner
+  being wired on. It refuses ONLY when the gate genuinely blocked (the gate is in
+  the failed set and its toggle is on), so a clean run still completes - no new
+  user-visible knob, the existing toggles are reused.
+- **verify.sh defensive hardening** (`autonomy/verify.sh`): the base ref now
+  resolves an actually-existing ref (origin/main, then main) instead of
+  hardcoding it in both branches; VERIFY_VERDICT/VERIFY_EXIT are initialized
+  before the error path so an early error can never emit an empty or VERIFIED
+  verdict or exit 0 (fail-closed).
+
+
+## [7.102.0] - 2026-06-30
+
+### Trust: unknown quality-gate status can no longer read green
+
+- **Unrecognized gate status normalized to inconclusive** (`autonomy/lib/proof-generator.py`):
+  `_norm_gate_status` returned an unrecognized gate status verbatim (e.g. a gate
+  emitting "blocked" or a custom token). The Evidence Receipt headline only
+  checks gate status against "passed" and "failed", so such a value matched
+  neither and silently vanished - a gate that did not pass would not count
+  against a VERIFIED headline (a fake-green vector). An unrecognized status now
+  maps to "inconclusive", which lands the gate in honesty.degraded and forces an
+  honest non-green headline. Known statuses are unchanged. Regression test added.
+
+
+## [7.101.0] - 2026-06-30
+
+### CRITICAL trust fix + adoption empty-state + cleanup
+
+- **Evidence Receipt no longer reads green on a checks-free build**
+  (`autonomy/lib/proof-generator.py`): a build that produced a non-empty diff but
+  ran ZERO tests, ZERO build, and passed ZERO quality gates could emit a
+  "VERIFIED WITH GAPS" headline. A non-empty diff is a PREREQUISITE for VERIFIED,
+  not a positive fact of passage - code was written but nothing was shown to pass.
+  The diff is no longer counted as a verified fact; such a build is now honestly
+  NOT VERIFIED. A genuine pass is unchanged, and a verified-but-degraded build is
+  still VERIFIED WITH GAPS. One headline codepath, so this covers both the bash
+  and Bun routes. Regression test added.
+- **Dashboard first-run empty state** (`dashboard-ui`): a brand-new user with no
+  builds now sees a "Start your first build" hero (with `loki quickstart` and the
+  zero-key `loki tour`) instead of a blank, gated to a genuinely never-built
+  project and fail-safe hidden on any error (never falsely claims you have not
+  built).
+- **Actionable pre-build errors** (`autonomy/run.sh`): a non-writable workspace
+  (disk full / permissions / read-only) now fails fast with a copy-paste remedy;
+  a build that produced no file changes gets an honest next-step instead of a
+  silent no-op. `loki tour` added to help.
+- **Removed dead `bin/postinstall.js`** (no postinstall hook since v7.4.12).
+
+
+## [7.100.1] - 2026-06-30
+
+### Zero-friction: surface the no-key path at every first touch
+
+- **npx zero-install entry documented** (`README.md`): `npx loki-mode tour` works
+  today with no global install, no provider CLI, no API key, no spend - the
+  lowest-friction taste of the verified-completion receipt. It is now the leading
+  "Get Started" line (it was previously undocumented).
+- **CLI first-touch screens lead with `loki tour`** (`autonomy/loki`): the no-args
+  landing and the first-run welcome both previously gated all value behind a
+  provider CLI + API key (doctor/quickstart/start); they now offer `loki tour`
+  first - a real sample result with no key and no spend - so a brand-new user
+  sees value before any setup.
+
+
+## [7.100.0] - 2026-06-30
+
+### Zero-friction adoption: offline taste path + shareable receipt badge
+
+- **`loki demo --offline` (and `loki tour`)**: a zero-key, zero-spend, no-network
+  taste path. It replays a bundled real Evidence Receipt and prints its honest
+  headline + facts in under a second, so a newcomer can see what Loki produces
+  WITHOUT installing a provider CLI, logging in, or spending anything. It is
+  clearly framed as a SAMPLE/replay (never presented as a verdict on the user's
+  own code) and never renders a green/verified signal unless the bundled
+  receipt's real headline is VERIFIED (it is VERIFIED WITH GAPS, shown as such).
+- **`loki proof share` receipt badge**: after sharing, prints a copy-paste
+  "Verified by Loki" markdown badge for READMEs/PRs/posts. The badge color and
+  text derive ONLY from the receipt's honest headline: green only for VERIFIED,
+  a distinct badge for VERIFIED WITH GAPS, red for NOT VERIFIED, and no badge at
+  all when there is no verifiable headline (no fake-green, no new network egress).
+- **README leads with `loki quickstart`**: the guided one-command first build is
+  now the headline path; `loki init` + `loki start` remain as the explicit path.
+
+
 ## [7.99.1] - 2026-06-30
 
 ### Memory retrieval: dimension-mismatch degrades to keyword search

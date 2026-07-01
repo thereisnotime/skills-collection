@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildCreateBody } from '../../commands/monitor';
+import {
+  buildCreateBody,
+  hasCreateFlagPayload,
+  hasUpdateFlagPayload,
+} from '../../commands/monitor';
 
 describe('monitor command helpers', () => {
   describe('buildCreateBody', () => {
@@ -89,6 +93,31 @@ describe('monitor command helpers', () => {
           },
         ],
       });
+    });
+  });
+
+  describe('stdin payload policy', () => {
+    it('does not implicitly read stdin when create flags can build a payload', () => {
+      expect(
+        hasCreateFlagPayload({
+          name: 'LLM releases',
+          goal: 'Track new model launches',
+          schedule: 'hourly',
+          queries: ['OpenAI release'],
+        })
+      ).toBe(true);
+    });
+
+    it('still allows implicit stdin for create when no payload flags are present', () => {
+      expect(hasCreateFlagPayload({ timezone: 'UTC' })).toBe(false);
+    });
+
+    it('does not implicitly read stdin when update flags can build a payload', () => {
+      expect(hasUpdateFlagPayload({ state: 'paused' })).toBe(true);
+    });
+
+    it('still allows implicit stdin for update when no update flags are present', () => {
+      expect(hasUpdateFlagPayload({})).toBe(false);
     });
   });
 });

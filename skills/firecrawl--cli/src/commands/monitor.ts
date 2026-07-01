@@ -96,11 +96,18 @@ function emit(
  * Read a JSON payload from a positional arg or piped stdin.
  *
  * - `file` is a path to a .json file, or `-` to read stdin explicitly.
- * - If `file` is omitted and stdin is a pipe, stdin is used.
+ * - If `file` is omitted and stdin is a pipe, stdin is used only when the
+ *   caller did not provide enough flags to build a payload.
  * - Returns `undefined` when no source is provided — caller falls back to flags.
  */
-async function readJsonPayload(file?: string): Promise<unknown | undefined> {
-  if (file === '-' || (!file && !process.stdin.isTTY)) {
+async function readJsonPayload(
+  file?: string,
+  options: { allowImplicitStdin?: boolean } = {}
+): Promise<unknown | undefined> {
+  if (
+    file === '-' ||
+    (!file && options.allowImplicitStdin === true && !process.stdin.isTTY)
+  ) {
     const chunks: Buffer[] = [];
     for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
     const raw = Buffer.concat(chunks).toString('utf-8').trim();
@@ -112,6 +119,65 @@ async function readJsonPayload(file?: string): Promise<unknown | undefined> {
     return JSON.parse(raw);
   }
   return undefined;
+}
+
+export function hasCreateFlagPayload(opts: {
+  name?: string;
+  goal?: string;
+  cron?: string;
+  schedule?: string;
+  timezone?: string;
+  page?: string;
+  scrapeUrls?: string[];
+  crawlUrl?: string;
+  queries?: string[];
+  searchWindow?: string;
+  maxResults?: number;
+  includeDomains?: string[];
+  excludeDomains?: string[];
+  webhookUrl?: string;
+  webhookEvents?: string[];
+  email?: string[];
+  retentionDays?: number;
+}): boolean {
+  return Boolean(
+    opts.name ||
+    opts.goal ||
+    opts.cron ||
+    opts.schedule ||
+    opts.page ||
+    (opts.scrapeUrls && opts.scrapeUrls.length > 0) ||
+    opts.crawlUrl ||
+    (opts.queries && opts.queries.length > 0) ||
+    opts.searchWindow ||
+    opts.maxResults !== undefined ||
+    (opts.includeDomains && opts.includeDomains.length > 0) ||
+    (opts.excludeDomains && opts.excludeDomains.length > 0) ||
+    opts.webhookUrl ||
+    (opts.webhookEvents && opts.webhookEvents.length > 0) ||
+    (opts.email && opts.email.length > 0) ||
+    opts.retentionDays !== undefined
+  );
+}
+
+export function hasUpdateFlagPayload(opts: {
+  name?: string;
+  goal?: string;
+  cron?: string;
+  schedule?: string;
+  timezone?: string;
+  state?: string;
+  retentionDays?: number;
+}): boolean {
+  return Boolean(
+    opts.name ||
+    opts.goal ||
+    opts.cron ||
+    opts.schedule ||
+    opts.timezone ||
+    opts.state ||
+    opts.retentionDays !== undefined
+  );
 }
 
 function parseCommaList(value: string): string[] {
@@ -340,7 +406,9 @@ whole web each check and alerts on new results matching your --goal (required wi
       )
   ).action(async (file: string | undefined, options) => {
     try {
-      const fromJson = await readJsonPayload(file);
+      const fromJson = await readJsonPayload(file, {
+        allowImplicitStdin: !hasCreateFlagPayload(options),
+      });
       const body =
         fromJson ??
         buildCreateBody({
@@ -437,7 +505,9 @@ whole web each check and alerts on new results matching your --goal (required wi
       .option('--retention-days <n>', 'Snapshot retention window', parseInt)
   ).action(async (monitorId: string, file: string | undefined, options) => {
     try {
-      const fromJson = await readJsonPayload(file);
+      const fromJson = await readJsonPayload(file, {
+        allowImplicitStdin: !hasUpdateFlagPayload(options),
+      });
       let body: Record<string, unknown>;
       if (fromJson) {
         body = fromJson as Record<string, unknown>;

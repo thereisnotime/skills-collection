@@ -175,8 +175,13 @@ def _norm_gate_status(raw):
 
     A bare bool means the gate ran with a clear outcome. A string is normalized
     so e.g. "skip"/"skipped" -> not_run and "inconclusive" stays inconclusive.
-    Never conflate a missing/not-run gate with passed: an unrecognized truthy
-    string is reported verbatim (lowercased) rather than silently "passed".
+    Never conflate a missing/not-run gate with passed. An UNRECOGNIZED status
+    (e.g. a gate that emits "blocked"/"degraded"/some custom token) must NOT be
+    returned verbatim: such a value matches neither the "passed" nor the "failed"
+    checks in the headline computation, so it would be silently dropped -- a gate
+    that did not pass would not count against VERIFIED (a fake-green vector). Map
+    any unknown status to "inconclusive" so it lands in degraded[] and forces an
+    honest non-green headline rather than vanishing.
     """
     if isinstance(raw, bool):
         return "passed" if raw else "failed"
@@ -189,7 +194,9 @@ def _norm_gate_status(raw):
         return "inconclusive"
     if s in ("not_run", "notrun", "skip", "skipped", "n/a", "na", "", "none"):
         return "not_run"
-    return s
+    # Unrecognized status: cannot be trusted as a pass -> inconclusive, never
+    # returned verbatim (which would silently escape both pass and fail checks).
+    return "inconclusive"
 
 
 def _collect_quality_gates(loki_dir):
@@ -843,12 +850,17 @@ def _compute_headline(facts, degraded):
     if tests_verified and not degraded and diff_nonempty:
         return "VERIFIED"
     # Any fact verified at all (tests/build verified, or a passed gate)?
+    # A non-empty diff is a PREREQUISITE for VERIFIED (checked above), NOT a
+    # positive fact of passage: code was written, but nothing was shown to pass.
+    # Including diff_nonempty here let a build that ran ZERO tests/gates but
+    # produced code emit "VERIFIED WITH GAPS" - a fake-green at the receipt. Only
+    # a fact that actually ran and passed (tests/build verified, or a passed gate)
+    # may qualify; otherwise the honest headline is NOT VERIFIED.
     any_verified = (
         tests.get("status") == "verified"
         or build.get("status") == "verified"
         or any(g.get("status") == "passed"
                for g in (facts.get("quality_gates") or []))
-        or diff_nonempty
     )
     if any_verified and degraded:
         return "VERIFIED WITH GAPS"

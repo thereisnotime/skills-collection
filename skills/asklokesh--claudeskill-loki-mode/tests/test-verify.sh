@@ -303,6 +303,123 @@ else
     _no "help missing exit-code divergence note"
 fi
 
+# -------------------------------------------------------------------------
+# Scenario 7: no explicit base arg in a MASTER-only repo -> default-base
+# resolution path. This is the DISCRIMINATING test for the base_ref fix: the old
+# code hard-coded base_ref="main" in both branches, so in a repo whose only base
+# branch is "master" it could not resolve the base (-> inconclusive -> CONCERNS,
+# never VERIFIED). The new resolver probes main then master and finds master, so
+# the verdict is VERIFIED. A "main"-default repo would NOT discriminate (old and
+# new both resolve "main"); using master is what makes this test non-vacuous.
+# -------------------------------------------------------------------------
+S7="$TMP_ROOT/s7-masterbase"
+init_repo "$S7"
+( cd "$S7"
+  # Rename the default branch to master so "main" does not exist.
+  git branch -m master 2>/dev/null || git checkout -q -b master
+  git checkout -q -b feature
+  cat > util.js <<'EOF'
+function mul(a, b) { return a * b; }
+module.exports = { mul };
+EOF
+  git add util.js
+  git commit -qm "add util (master-only, no explicit base)" --no-gpg-sign --no-verify
+)
+run_verify "$S7"   # NOTE: no base arg -> default resolution must find master
+if [ "$RC" -eq 0 ] && [ "$VERDICT" = "VERIFIED" ]; then
+    _ok "no base arg in master-only repo -> resolver finds master -> VERIFIED (exit 0)"
+else
+    _no "no base arg (master-only) -> expected VERIFIED/0 via master resolution, got $VERDICT/$RC"
+fi
+
+# -------------------------------------------------------------------------
+# Scenario 8: error-path contract -- an unknown option must exit non-zero AND
+# must never emit a VERIFIED verdict. Locks the fail-closed initialization of
+# VERIFY_VERDICT/VERIFY_EXIT: an early error return can never surface a stale
+# or empty VERIFIED/0. (The error return happens before evidence.json is
+# written, so we assert on the exit code and stdout, not on an evidence file.)
+# -------------------------------------------------------------------------
+ERR_OUT="$( ( cd "$S1" && bash "$VERIFY_SH" --bogus-option ) 2>&1 )"
+ERR_RC=$?
+if [ "$ERR_RC" -ne 0 ] && ! printf '%s' "$ERR_OUT" | grep -q "VERDICT: VERIFIED"; then
+    _ok "unknown option -> non-zero exit, never VERIFIED (fail-closed)"
+else
+    _no "unknown option -> expected non-zero exit with no VERIFIED, got rc=$ERR_RC"
+fi
+
+# -------------------------------------------------------------------------
+# Scenario 9: --hosted CLI-invariance + additive fold + fail-open.
+#
+# The hard gate for the embedded Autonomi Verify engine (Stories 1.4/1.5):
+#   9a. DEFAULT path (no --hosted) writes NO "hosted" key -> byte-invariant.
+#   9b. --hosted, when the engine is usable, FOLDS a "hosted" key but leaves
+#       the deterministic verdict + exit code UNCHANGED (additive only).
+#   9c. --hosted fails OPEN: with the bundle absent, output is identical to the
+#       default path (no "hosted" key, same verdict, exit 0), never a crash and
+#       never a silent pass.
+# -------------------------------------------------------------------------
+VENDOR_BUNDLE="$SCRIPT_DIR/../vendor/autonomi-verify/embed.js"
+
+# 9a: default path emits no hosted key.
+run_verify "$S1" main
+DEF_RC=$RC; DEF_VERDICT=$VERDICT
+if [ -f "$S1/.loki/verify/evidence.json" ] \
+   && ! grep -q '"hosted"' "$S1/.loki/verify/evidence.json"; then
+    _ok "default verify (no --hosted) writes no hosted key (CLI-invariant)"
+else
+    _no "default verify unexpectedly contains a hosted key"
+fi
+
+# 9b: --hosted is additive (only when bun + bundle are present). When either is
+# absent this collapses to the fail-open assertion, which 9c covers; so only
+# assert the fold when the engine can actually run.
+if command -v bun >/dev/null 2>&1 && [ -f "$VENDOR_BUNDLE" ]; then
+    run_verify "$S1" main --hosted
+    if [ "$RC" -eq "$DEF_RC" ] && [ "$VERDICT" = "$DEF_VERDICT" ] \
+       && grep -q '"hosted"' "$S1/.loki/verify/evidence.json"; then
+        _ok "--hosted folds a hosted key; verdict+exit unchanged (additive only)"
+    else
+        _no "--hosted changed verdict/exit ($DEF_VERDICT/$DEF_RC -> $VERDICT/$RC) or did not fold"
+    fi
+    # The hosted engine is handed the resolved merge-base SHA, so for this clean
+    # VERIFIED case the hosted block must AGREE (verified=true, not inconclusive).
+    # This guards the remote-only-base divergence: a bare ref would have made the
+    # embed report inconclusive next to a VERIFIED deterministic verdict.
+    HOSTED_OK="$(python3 -c "import json; h=json.load(open('$S1/.loki/verify/evidence.json')).get('hosted',{}); print('yes' if h.get('verified') is True and h.get('inconclusive') is False else 'no')" 2>/dev/null || echo "err")"
+    if [ "$HOSTED_OK" = "yes" ]; then
+        _ok "--hosted block agrees with deterministic VERIFIED (merge-base passed, not bare ref)"
+    else
+        _no "--hosted block disagrees with deterministic verdict (got $HOSTED_OK)"
+    fi
+else
+    printf '  SKIP: --hosted additive fold (bun or bundle absent)\n'
+fi
+
+# 9c: --hosted fails open when the embedded engine is unusable. We must NOT
+# restrict PATH to /usr/bin:/bin (that also hides tools the DETERMINISTIC gate
+# needs -- git/python3/node live in /opt/homebrew or /usr/local -- so the default
+# path itself would block, and "2 == 2" would vacuously pass while hiding a real
+# --hosted exit bug). Instead keep the FULL PATH but shadow bun with a fake that
+# exits nonzero: `command -v bun` still finds it, verify_hosted_enrich runs it,
+# engine_rc != 0 triggers the fail-open path -- exactly the "engine unusable"
+# condition, with the deterministic gate fully functional (exit 0 on the clean
+# repo). Reset evidence.json first so the "no hosted key" check reflects THIS run
+# (9b, run earlier on $S1 with a working engine, folds a hosted key we must not
+# mistake for a 9c leak).
+FO_FAKEBIN="$(mktemp -d)"
+printf '#!/bin/sh\nexit 1\n' > "$FO_FAKEBIN/bun"
+chmod +x "$FO_FAKEBIN/bun"
+rm -f "$S1/.loki/verify/evidence.json"
+( cd "$S1" && PATH="$FO_FAKEBIN:$PATH" bash "$VERIFY_SH" main --hosted ) >/dev/null 2>&1
+FO_RC=$?
+if [ "$FO_RC" -eq "$DEF_RC" ] \
+   && ! grep -q '"hosted"' "$S1/.loki/verify/evidence.json"; then
+    _ok "--hosted fails open when engine unusable (no hosted key, exit unchanged)"
+else
+    _no "--hosted fail-open broken: rc=$FO_RC (want $DEF_RC) or hosted key present"
+fi
+rm -rf "$FO_FAKEBIN"
+
 echo ""
 echo "=== results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ]

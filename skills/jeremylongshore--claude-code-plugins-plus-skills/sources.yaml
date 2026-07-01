@@ -953,6 +953,41 @@ sources:
   # Add more external sources below
   # ============================================================
 
+  - name: hermes-tweet
+    description: Hermes Agent X/Twitter research, monitoring, drafts, exports, and approved actions
+    repo: Xquik-dev/hermes-tweet
+    branch: master
+    source_path: .
+    target_path: plugins/community/hermes-tweet
+    author:
+      name: Xquik
+      github: Xquik-dev
+    license: MIT
+    category: community
+    verified: true
+    include:
+      - '.claude-plugin/**'
+      - 'assets/**'
+      - 'docs/**'
+      - 'hermes_tweet/**'
+      - 'skills/**'
+      - 'README.md'
+      - 'LICENSE'
+      - 'plugin.yaml'
+      - 'pyproject.toml'
+      - 'skill.json'
+    exclude:
+      - '.git/**'
+      - '.pytest_cache/**'
+      - '.ruff_cache/**'
+      - '.tmp*/**'
+      - '.venv/**'
+      - '__pycache__/**'
+      - '*.egg-info/**'
+      - '*.log'
+      - 'dist/**'
+      - 'uv.lock'
+
   # Example: Sawyer Hood's dev-browser
   # - name: dev-browser
   #   description: Browser automation for Claude Code
@@ -1244,6 +1279,58 @@ sources:
       - '*.log'
       - 'scripts/**'
 
+  # ============================================================
+  # Xquik X/Twitter API Skill
+  # https://github.com/Xquik-dev/x-twitter-scraper
+  # ============================================================
+
+  - name: x-twitter-scraper
+    description: X/Twitter REST API and MCP skill for tweet search, profile data, follower exports, media downloads, monitoring, webhooks, and confirmation-gated actions.
+    repo: Xquik-dev/x-twitter-scraper
+    branch: master
+    source_path: skills/x-twitter-scraper
+    target_path: plugins/api-development/x-twitter-scraper
+    author:
+      name: Xquik
+      github: Xquik-dev
+    license: MIT
+    category: api-development
+    verified: true
+    include:
+      - 'SKILL.md'
+      - 'references/**'
+    exclude:
+      - 'node_modules/**'
+      - '.git/**'
+      - '*.log'
+
+  # ============================================================
+  # MyTradeLedger Skills (trpsbill)
+  # https://github.com/trpsbill/skills
+  # MyTradeLedger REST API skill — journaled crypto trades,
+  # account balances / realized P&L, CSV export, asset registry.
+  # ============================================================
+
+  - name: mytradeledger-skills
+    description: Access and manage MyTradeLedger journaled crypto trades via the REST API — ledger entries (CRUD + bulk-import + P&L recompute), account balances and realized P&L, CSV export, asset registry, entry metadata, and personal access token management.
+    repo: trpsbill/skills
+    source_path: .
+    target_path: plugins/community/mytradeledger-skills
+    author:
+      name: trpsbill
+      github: trpsbill
+      email: trpsbill@gmail.com
+    license: MIT
+    category: community
+    verified: false
+    include:
+      - '.claude-plugin/plugin.json'
+      - 'skills/**'
+      - 'LICENSE'
+    exclude:
+      - 'node_modules/**'
+      - '.git/**'
+      - '*.log'
 # Sync configuration
 config:
   # Branch to sync from (default: main)

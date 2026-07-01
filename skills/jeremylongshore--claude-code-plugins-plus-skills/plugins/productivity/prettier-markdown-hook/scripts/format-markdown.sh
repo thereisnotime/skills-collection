@@ -142,7 +142,9 @@ load_config() {
     fi
 
     # Combine default + custom exclusions (additive pattern)
-    ALL_EXCLUDES=("${DEFAULT_EXCLUDES[@]}" "${EXCLUDE_PATHS[@]}")
+    # Use conditional expansion to avoid unbound variable error on bash 3.2 (macOS default)
+    # when EXCLUDE_PATHS is empty and set -u is active.
+    ALL_EXCLUDES=("${DEFAULT_EXCLUDES[@]}" "${EXCLUDE_PATHS[@]+"${EXCLUDE_PATHS[@]}"}")
 }
 
 # ============================================================================
@@ -169,7 +171,7 @@ is_excluded_workspace() {
     fi
 
     # Check against configured organization exclusions
-    for org in "${EXCLUDE_ORGS[@]}"; do
+    for org in ${EXCLUDE_ORGS[@]+"${EXCLUDE_ORGS[@]}"}; do
         if [[ "$remote_url" =~ github\.com[:/]$org/ ]]; then
             log_info "Workspace excluded: $org matches $remote_url"
             return 0  # EXCLUDED
@@ -302,8 +304,10 @@ Standardized formatting for $changed_files file(s)."
 Automated formatting of $changed_files markdown file(s) by prettier hook."
     fi
 
-    # Step 5: Commit with AI-generated or generic message
-    git commit -m "$commit_message" 2>/dev/null || true
+    # Step 5: Commit only if AI commits explicitly enabled
+    if [[ "$ENABLE_AI_COMMITS" == "true" ]]; then
+        git commit -m "$commit_message" 2>/dev/null || true
+    fi
 
 } > /dev/null 2>&1 &
 

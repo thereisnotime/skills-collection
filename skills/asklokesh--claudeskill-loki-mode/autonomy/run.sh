@@ -2023,6 +2023,35 @@ _loki_check_git_present() {
     return 0
 }
 
+# _loki_check_workspace_writable: the build writes state, proofs, and source into
+# the working directory and its .loki/ subtree on every iteration. A read-only
+# volume, a permission-denied directory, or a full disk would otherwise fail
+# silently deep inside the loop (every state write swallows errors with
+# `2>/dev/null || true`), leaving the user with a confusing half-built run. Catch
+# it once, up front, with one actionable message instead. HARD requirement.
+_loki_check_workspace_writable() {
+    local dir="${TARGET_DIR:-$(pwd)}"
+    local probe="${dir}/.loki/.write-probe.$$"
+    # Ensure the .loki subtree can be created and written to.
+    if ! mkdir -p "${dir}/.loki" 2>/dev/null; then
+        if [ ! -w "$dir" ]; then
+            log_error "Cannot create ${dir}/.loki -- the working directory is not writable. Fix permissions (e.g. chmod u+w '${dir}') or run from a directory you own, then retry."
+        else
+            log_error "Cannot create ${dir}/.loki. If the disk is full, free space (df -h '${dir}'); if it is a read-only mount, run from a writable location, then retry."
+        fi
+        return 1
+    fi
+    # Confirm we can actually write a byte (catches full disk / read-only mount
+    # where the directory exists but writes fail).
+    if ! (: > "$probe") 2>/dev/null; then
+        rm -f "$probe" 2>/dev/null || true
+        log_error "Cannot write to ${dir}/.loki -- check free disk space (df -h '${dir}') and that the volume is not read-only, then retry."
+        return 1
+    fi
+    rm -f "$probe" 2>/dev/null || true
+    return 0
+}
+
 # _loki_check_network_reachable: ADVISORY only. A fast (3s) reachability probe to
 # the active provider endpoint that WARNS and continues if it cannot reach it -- a
 # curl failure does not prove the provider CLI cannot connect (3s timeout under
@@ -2068,6 +2097,9 @@ validate_api_keys() {
         return 1
     fi
     if ! _loki_check_git_present; then
+        return 1
+    fi
+    if ! _loki_check_workspace_writable; then
         return 1
     fi
     if ! _loki_check_network_reachable "$provider"; then
@@ -2409,10 +2441,13 @@ get_provider_tier_param() {
                         # resolve_model_for_tier and the estimator/dashboard.
                         echo "opus"
                     else
-                        echo "opus"
+                        # v7.104.0: default planning to sonnet (was opus) to match
+                        # the sourced claude.sh default. This bare fallback only
+                        # fires when claude.sh is unsourced.
+                        echo "sonnet"
                     fi
                     ;;
-                development) echo "${PROVIDER_MODEL_DEVELOPMENT:-opus}" ;;
+                development) echo "${PROVIDER_MODEL_DEVELOPMENT:-sonnet}" ;;
                 fast) echo "${PROVIDER_MODEL_FAST:-sonnet}" ;;
                 # fable unavailable, collapse to opus. Without this arm an
                 # unsourced-claude.sh environment (this static fallback) would
@@ -3229,6 +3264,22 @@ except Exception:
         else
             echo "Diff stat: (no changes detected vs run start, or git unavailable)"
         fi
+        # Empty-diff remedy (mirrors emit_completion_summary's on-screen line) so
+        # a --bg or dashboard user reading COMPLETION.txt gets the same honest,
+        # actionable guidance as a foreground user. Never implies success.
+        case "$files_changed" in
+            ''|0)
+                case "$outcome" in
+                    complete|max_iterations)
+                        echo ""
+                        echo "No file changes were produced this run. Likely the spec was too vague"
+                        echo "or already satisfied. Next: re-run with a more concrete spec, e.g."
+                        echo "  loki start \"<one concrete, testable change you want>\""
+                        echo "or inspect what happened: loki why"
+                        ;;
+                esac
+                ;;
+        esac
     } > "$loki_dir/COMPLETION.txt" 2>/dev/null || true
 
     # ---- Durable machine-readable file: .loki/state/completion.json -----------
@@ -3515,6 +3566,24 @@ except Exception:
     fi
     echo -e "${GREEN}|${NC} Branch: ${BOLD}${_branch}${NC}"
     echo -e "${GREEN}|${NC} Files:  ${BOLD}${_files}${NC} changed  ${GREEN}+${_ins}${NC} / ${RED}-${_del}${NC}"
+    # Empty-diff guard (honest, not fake-green): a run that ended without
+    # producing ANY file change is the classic confusing new-user outcome
+    # ("it said done, but nothing happened"). Never imply success on a 0-file
+    # run -- surface it plainly with one actionable next step. Only for the
+    # non-failure outcomes (a "failed"/"stopped" box already explains itself).
+    case "$_files" in
+        ''|0)
+            case "$_outcome" in
+                complete|max_iterations)
+                    echo -e "${GREEN}|${NC}"
+                    echo -e "${GREEN}|${NC} ${YELLOW}No file changes were produced this run.${NC} Likely the spec was too vague"
+                    echo -e "${GREEN}|${NC} or already satisfied. Next: re-run with a more concrete spec, e.g."
+                    echo -e "${GREEN}|${NC}   ${BOLD}loki start \"<one concrete, testable change you want>\"${NC}"
+                    echo -e "${GREEN}|${NC} or inspect what happened: ${BOLD}loki why${NC}"
+                    ;;
+            esac
+            ;;
+    esac
     case "$_atotal" in ''|0) : ;; *)
         echo -e "${GREEN}|${NC} Spec assumptions recorded: ${BOLD}${_atotal}${NC} (${_ahigh} high) ${DIM}see .loki/assumptions/ledger.md${NC}"
         ;;
@@ -4780,7 +4849,7 @@ _write_pricing_json() {
     "opus":            {"input": 5.00,  "output": 25.00, "label": "Opus (latest)",   "provider": "claude"},
     "sonnet":          {"input": 3.00,  "output": 15.00, "label": "Sonnet (latest)", "provider": "claude"},
     "haiku":           {"input": 1.00,  "output": 5.00,  "label": "Haiku (latest)",  "provider": "claude"},
-    "gpt-5.3-codex":   {"input": 1.50,  "output": 12.00, "label": "GPT-5.3 Codex", "provider": "codex"}
+    "gpt-5.3-codex":   {"input": 1.75,  "output": 14.00, "label": "GPT-5.3 Codex", "provider": "codex"}
   }
 }
 PRICING_EOF
@@ -10083,11 +10152,14 @@ _dispatch_reviewer() {
     case "${PROVIDER_NAME:-claude}" in
         claude)
             # SECURITY-REVIEW MODEL GUARD (evidence-based routing, item 4b):
-            # Reviewers deliberately do NOT pass --model, so they run on
-            # the account default model and are NEVER routed to Fable by a
-            # mid-flight model override or LOKI_FABLE_ARCHITECT (those only
-            # rewrite the iteration's tier_param, not this dispatch). This
-            # must stay true. The official model-config docs CONTRADICT
+            # By DEFAULT reviewers pass NO --model, so they run on the account
+            # default model and are NEVER routed to Fable by a mid-flight model
+            # override or LOKI_FABLE_ARCHITECT (those only rewrite the
+            # iteration's tier_param, not this dispatch). The ONLY way to pin the
+            # reviewer model is the explicit opt-in LOKI_ADVISOR_MODEL below,
+            # which honors haiku|sonnet|opus and REFUSES fable for the reason
+            # stated here. This must stay true. The official model-config docs
+            # CONTRADICT
             # routing security review to Fable: Fable's safety classifiers
             # refuse cybersecurity content, and in non-interactive (-p)
             # mode a flagged request ends the turn with stop_reason
@@ -10114,6 +10186,25 @@ _dispatch_reviewer() {
             #     real net is commit-before-agent-wave. Opt out
             #     LOKI_REVIEW_TOOL_GUARD=0. See loki_review_guard_denylist.
             local _rv_argv=("--dangerously-skip-permissions")
+            # OPT-IN advisor pin (v7.104.0, LOKI_ADVISOR_MODEL): reviewers still
+            # pass NO --model by default (unchanged behavior: they run on the
+            # account default). When the operator/user sets LOKI_ADVISOR_MODEL to
+            # an allowlisted alias, pin the trust-gate reviewer to it for a
+            # stronger/consistent judge - the founder's "advisor will be opus if
+            # needed or user opted". FABLE IS REFUSED here: the model-config docs
+            # say Fable's safety classifiers refuse cybersecurity content and end
+            # a -p turn with stop_reason "refusal", which would return no VERDICT
+            # and break the unanimous-council gate. So only haiku|sonnet|opus are
+            # honored; fable (or any other value) is ignored with no --model.
+            if [ -n "${LOKI_ADVISOR_MODEL:-}" ]; then
+                local _adv _adv_norm
+                _adv="${LOKI_ADVISOR_MODEL}"
+                _adv_norm="$(printf '%s' "$_adv" | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+                case "$_adv_norm" in
+                    haiku|sonnet|opus) _rv_argv+=("--model" "$_adv_norm") ;;
+                    *) : ;;  # fable and invalid values: no --model (account default)
+                esac
+            fi
             if type loki_subcall_bare_enabled >/dev/null 2>&1 && loki_subcall_bare_enabled; then
                 _rv_argv+=("--bare")
             fi
@@ -12086,7 +12177,7 @@ pricing = {
     'opus': {'input': 5.00, 'output': 25.00},
     'sonnet': {'input': 3.00, 'output': 15.00},
     'haiku': {'input': 1.00, 'output': 5.00},
-    'gpt-5.3-codex': {'input': 1.50, 'output': 12.00},
+    'gpt-5.3-codex': {'input': 1.75, 'output': 14.00},
 }
 for f in glob.glob('${efficiency_dir}/*.json'):
     try:
@@ -15885,6 +15976,9 @@ except Exception as exc:
         # Tier selection (S0.1):
         # Default: pin a single tier for the whole session via LOKI_SESSION_MODEL.
         # Legacy: LOKI_LEGACY_TIER_SWITCHING=true restores RARV-driven rotation.
+        # Reset the opus-pin flag every iteration BEFORE either branch so a value
+        # from a prior pass can never leak (the legacy branch never sets it).
+        local _loki_session_pin_opus=0
         if [ "${LOKI_LEGACY_TIER_SWITCHING:-false}" = "true" ]; then
             CURRENT_TIER=$(get_rarv_tier "$ITERATION_COUNT")
         else
@@ -15917,6 +16011,16 @@ except Exception as exc:
                 planning|development|fast) CURRENT_TIER="$_session_pin" ;;
                 *)      CURRENT_TIER="$_session_pin" ;;
             esac
+            # v7.104.0 opus-pin fix: post the Sonnet-5 default flip, NO tier
+            # resolves to opus (planning+development+fast all default to sonnet).
+            # So mapping an opus SESSION pin to the planning tier would silently
+            # dispatch SONNET - a model-honesty lie ("user picks opus, gets
+            # sonnet"). A concrete opus pin must dispatch opus. Record it so the
+            # tier_param resolution below sets the model directly to opus (still
+            # clamped by LOKI_MAX_TIER). sonnet/haiku pins stay on the tier route
+            # so the LOKI_ALLOW_HAIKU gate for haiku is preserved. Mirrored in the
+            # estimator (autonomy/loki) and dashboard (server.py) + parity test.
+            [ "$_session_pin" = "opus" ] && _loki_session_pin_opus=1
         fi
         # Architect opt-in (LOKI_FABLE_ARCHITECT=1): route ONLY the first
         # iteration (the architecture/REASON pass) to Fable, then fall back to
@@ -15953,6 +16057,24 @@ except Exception as exc:
         export LOKI_CURRENT_TIER
         local rarv_phase=$(get_rarv_phase_name "$ITERATION_COUNT")
         local tier_param=$(get_provider_tier_param "$CURRENT_TIER")
+        # v7.104.0 opus-pin fix (see the case block above): an opus SESSION pin
+        # must dispatch opus, not the sonnet-defaulted planning tier. Set the
+        # model directly, then apply the SAME LOKI_MAX_TIER clamp the resolver
+        # uses so the operator's cost ceiling still binds (e.g. LOKI_MAX_TIER=sonnet
+        # caps this back down). Only for the claude provider; other providers map
+        # tiers to their own model strings.
+        if [ "${PROVIDER_NAME:-claude}" = "claude" ] && [ "${_loki_session_pin_opus:-0}" = "1" ]; then
+            tier_param="opus"
+            if type loki_apply_max_tier_clamp >/dev/null 2>&1; then
+                # Clamp at the PLANNING level (opus conceptually sits at planning):
+                # loki_apply_max_tier_clamp(model, tier). Passing tier=opus would
+                # make the sonnet-cap arm a no-op (it only downgrades planning/fable),
+                # letting opus ESCAPE a LOKI_MAX_TIER=sonnet ceiling. tier=planning
+                # gives: no-cap->opus, haiku->fast, sonnet->development(sonnet),
+                # opus->opus. The ceiling wins over the pin, as everywhere else.
+                tier_param="$(loki_apply_max_tier_clamp "opus" "planning")"
+            fi
+        fi
         # Mid-flight model override: the dashboard (POST /api/session/model) or a
         # CLI user may rewrite .loki/state/model-override between iterations to
         # change the model a live run uses. Read it here, after tier_param is

@@ -922,6 +922,7 @@ show_help() {
     echo "  loki start --bg ./prd.md      # Start in background"
     echo "  loki start --parallel ./prd.md   # Parallel mode (git worktrees)"
     echo "  loki quick \"add dark mode\"  # Single-task mode (3 iters max)"
+    echo "  loki tour                     # See a real sample result (no provider, no key, no spend)"
     echo "  loki demo                     # Build a sample todo app end to end"
     echo "  loki init -t saas-starter     # Scaffold from template"
     echo "  loki template install <src>   # Install a community PRD template"
@@ -1037,6 +1038,7 @@ show_landing() {
     echo -e "First time here? ${CYAN}loki doctor${NC} checks your setup (an AI provider CLI is required)."
     echo ""
     echo "Get started (in order):"
+    echo -e "  ${CYAN}loki tour${NC}             See a real result now (no provider, no key, no spend)"
     echo -e "  ${CYAN}loki doctor${NC}           Check your setup is ready (a few seconds)"
     echo -e "  ${CYAN}loki quickstart${NC}       Guided first build from your idea (no PRD needed)"
     echo -e "  ${CYAN}loki start ./prd.md${NC}   Build from a spec (PRD file, GitHub issue, or no arg)"
@@ -5446,6 +5448,7 @@ cmd_welcome_terminal() {
     echo -e "  ${CYAN}Cross-project memory${NC}     Lessons compound, so agents stop repeating mistakes."
     echo -e "  ${CYAN}Provider-agnostic${NC}        Claude, Codex, Cline, or Aider. Your keys, your infra."
     echo ""
+    echo -e "  Try it now:   ${BOLD}loki tour${NC} (a real sample result, no provider, no key, no spend)"
     echo -e "  Quick start:  ${BOLD}loki quickstart${NC} (from your idea) or ${BOLD}loki start ./prd.md${NC} (from a spec)"
     echo -e "  Docs:         ${BOLD}https://www.autonomi.dev/docs${NC}"
     echo ""
@@ -11380,15 +11383,23 @@ cmd_demo() {
         echo "runs 'loki start' to build it end-to-end. Shows a summary when done"
         echo "and offers to open the result in a browser."
         echo ""
+        echo "With --offline, instead replays a bundled real Evidence Receipt so"
+        echo "you can see what Loki produces with no provider, no API key, no"
+        echo "spend, and no network. This is a sample (a replay of a past build),"
+        echo "not a verdict on your own code."
+        echo ""
         echo "Usage: loki demo [options]"
         echo ""
         echo "Options:"
+        echo "  --offline     Replay a bundled sample receipt (no key, no spend)"
         echo "  --dir PATH    Use a specific directory instead of a temp dir"
         echo "  --keep        Keep the temp directory on exit (default: kept)"
         echo "  --provider P  AI provider to use (default: claude)"
         echo "  --dry-run     Show what would happen without running"
         echo ""
         echo "Examples:"
+        echo "  loki demo --offline              # Replay a sample receipt (no spend)"
+        echo "  loki tour                        # Same as 'loki demo --offline'"
         echo "  loki demo                        # Build todo app in temp dir"
         echo "  loki demo --dir ~/demo-project   # Build in specific directory"
         echo "  loki demo --provider codex       # Use Codex instead of Claude"
@@ -11411,6 +11422,7 @@ cmd_demo() {
     local demo_dir=""
     local provider=""
     local dry_run=false
+    local offline=false
     local start_args=()
     # v7.29.0 (feature #4): demo now shows the FORCED-simple cost estimate
     # before spending and asks for confirmation. --yes / LOKI_ASSUME_YES skip
@@ -11459,6 +11471,10 @@ cmd_demo() {
                 dry_run=true
                 shift
                 ;;
+            --offline|--tour)
+                offline=true
+                shift
+                ;;
             *)
                 echo -e "${RED}Unknown option: $1${NC}"
                 echo "Run 'loki demo --help' for usage."
@@ -11466,6 +11482,60 @@ cmd_demo() {
                 ;;
         esac
     done
+
+    # Offline taste path (feature #2): replay a bundled REAL Evidence Receipt
+    # with NO provider, NO key, NO spend, NO network. This is the zero-friction
+    # path a newcomer can run before installing or authenticating anything, so
+    # it MUST run before (and bypass) the provider_offer_gate below. It never
+    # builds, never calls cmd_start, and returns in well under 10s.
+    #
+    # Fake-green guardrail: the headline shown is the bundled receipt's REAL
+    # honest headline (rendered by the same render_evidence_receipt_md the PR
+    # path uses, which is never green unless genuinely VERIFIED). It is framed
+    # as a SAMPLE/replay -- never presented as a verdict on the user's code.
+    if [ "$offline" = true ]; then
+        local sample_proof="$SKILL_DIR/skills/fixtures/demo-receipt/proof.json"
+        if [ ! -f "$sample_proof" ]; then
+            echo -e "${RED}Error: bundled sample receipt not found.${NC}" >&2
+            echo "Expected at: $sample_proof" >&2
+            return 1
+        fi
+        if ! declare -f render_evidence_receipt_md >/dev/null 2>&1; then
+            echo -e "${RED}Error: receipt renderer unavailable.${NC}" >&2
+            echo "Expected autonomy/lib/proof-pr.sh to be sourced." >&2
+            return 1
+        fi
+
+        echo -e "${BOLD}Loki Mode v$version - Sample Receipt (offline replay)${NC}"
+        echo ""
+        echo -e "${YELLOW}This is a SAMPLE: a replay of a real past build, not a"
+        echo -e "verdict on your code. No provider, no API key, no spend, no"
+        echo -e "network were used to show it.${NC}"
+        echo ""
+        echo -e "${DIM}It is what Loki produces after a build: an Evidence Receipt"
+        echo -e "with an honest headline you can recompute yourself.${NC}"
+        echo ""
+
+        # Print-only renderer; always returns 0. The headline label inside is
+        # the receipt's genuine honesty.headline.
+        render_evidence_receipt_md "$sample_proof" "" ""
+
+        # The receipt prints a "verify it yourself" command. For a real build
+        # that command works against .loki/proofs/. This bundled sample is for
+        # display only (no local proof store entry, hash neutralized), so make
+        # that explicit rather than let a newcomer run a command that fails.
+        echo ""
+        echo -e "${DIM}The 'verify it yourself' command above is what you run against the"
+        echo -e "real builds you create (their proofs live in .loki/proofs/). This"
+        echo -e "bundled sample is for display only.${NC}"
+
+        echo ""
+        echo -e "${DIM}---------------------------------------${NC}"
+        echo -e "${BOLD}That was a sample. Build your own:${NC}"
+        echo -e "  ${CYAN}loki quickstart${NC}                  # one guided command, your first real build"
+        echo -e "  ${CYAN}loki demo${NC}                        # build a bundled sample app for real"
+        return 0
+    fi
 
     # v7.29.0: provider pre-flight gate (skipped for --dry-run, which never
     # spends). On a TTY, offer to install; on non-TTY/CI, print honest manual
@@ -15485,24 +15555,26 @@ _fable_architect = (
 # cross-route tests in test-plan-command.sh. If you change resolution here, change
 # it in claude.sh AND dashboard/server.py, and re-run those tests. The 'or' chains
 # mirror bash ':-' empty-string-fallthrough; allow_haiku uses an exact 'true'
-# match to mirror bash [ \"\$x\" = \"true\" ]. PROVIDER_MODEL_DEVELOPMENT is opus
-# by default; PROVIDER_MODEL_FAST is sonnet by default (haiku when ALLOW_HAIKU).
+# match to mirror bash [ \"\$x\" = \"true\" ]. v7.104.0: PROVIDER_MODEL_DEVELOPMENT
+# and PROVIDER_MODEL_PLANNING default to SONNET (was opus); PROVIDER_MODEL_FAST is
+# sonnet by default (haiku when ALLOW_HAIKU).
 _allow_haiku = (os.environ.get('LOKI_ALLOW_HAIKU', 'false') or 'false') == 'true'
 def _provider_model_fast():
     return (os.environ.get('LOKI_CLAUDE_MODEL_FAST')
             or os.environ.get('LOKI_MODEL_FAST')
             or ('haiku' if _allow_haiku else 'sonnet'))
 def _provider_model_development():
+    # v7.104.0: CLAUDE_DEFAULT_DEVELOPMENT=sonnet (was opus). ALLOW_HAIKU no longer
+    # changes dev (already sonnet); it only lowers fast to haiku.
     return (os.environ.get('LOKI_CLAUDE_MODEL_DEVELOPMENT')
             or os.environ.get('LOKI_MODEL_DEVELOPMENT')
-            or ('sonnet' if _allow_haiku else 'opus'))
+            or 'sonnet')
 def _provider_model_planning():
-    # claude.sh:65 -> LOKI_CLAUDE_MODEL_PLANNING > LOKI_MODEL_PLANNING > opus.
-    # CLAUDE_DEFAULT_PLANNING is always opus (LOKI_ALLOW_HAIKU only lowers the
-    # development and fast defaults, not planning).
+    # claude.sh:55 -> LOKI_CLAUDE_MODEL_PLANNING > LOKI_MODEL_PLANNING > sonnet.
+    # v7.104.0: CLAUDE_DEFAULT_PLANNING=sonnet (was opus).
     return (os.environ.get('LOKI_CLAUDE_MODEL_PLANNING')
             or os.environ.get('LOKI_MODEL_PLANNING')
-            or 'opus')
+            or 'sonnet')
 _max_tier = (os.environ.get('LOKI_MAX_TIER', '') or '').strip().lower()
 def _loki_clamp_alias(alias):
     if not _max_tier:
@@ -15523,13 +15595,12 @@ def _loki_clamp_alias(alias):
 # planning, sonnet->development, haiku->fast, fable->fable) and resolves that
 # tier through resolve_model_for_tier (claude.sh:353), which reads
 # PROVIDER_MODEL_PLANNING/DEVELOPMENT/FAST and then applies
-# loki_apply_max_tier_clamp(model, REAL_tier). This DIFFERS from the override-
-# path clamp _loki_clamp_alias above: a 'sonnet' SESSION pin dispatches OPUS
-# (development tier -> PROVIDER_MODEL_DEVELOPMENT=opus on stock config), whereas
-# a 'sonnet' OVERRIDE file dispatches sonnet (alias fed straight to --model).
-# Quoting the alias name on the default session path was the task-568 gap (it
-# understated cost ~1.7x: Sonnet quote vs Opus dispatch). The estimator must
-# quote the model the runner actually dispatches.
+# loki_apply_max_tier_clamp(model, REAL_tier). v7.104.0: with the sonnet default,
+# a 'sonnet' SESSION pin now dispatches sonnet (development tier ->
+# PROVIDER_MODEL_DEVELOPMENT=sonnet), matching a 'sonnet' OVERRIDE file. The
+# estimator must quote the model the runner actually dispatches; on stock config
+# the session-pin path and override path now agree on sonnet for dev/planning
+# tiers (they diverge only when the tier defaults are overridden by env).
 #
 # SYNC: byte-faithful with run.sh's session-pin case + claude.sh
 # resolve_model_for_tier + loki_apply_max_tier_clamp. The same resolver lives in
@@ -15537,11 +15608,24 @@ def _loki_clamp_alias(alias):
 # session-pin parity matrix and the no-cap stock cross-route cases in
 # tests/test-model-override.sh.
 def _resolve_session_pin(alias):
+    # v7.104.0 opus-pin fix: mirror run.sh. Post the Sonnet-5 default flip, NO
+    # tier resolves to opus, so an opus SESSION pin must dispatch opus directly
+    # (not route through planning->sonnet). Clamped by LOKI_MAX_TIER so the
+    # ceiling still binds. sonnet/haiku pins stay on the tier route (preserving
+    # the ALLOW_HAIKU gate for haiku).
+    if alias == 'opus':
+        if not _max_tier:
+            return 'opus'
+        if _max_tier == 'haiku':
+            return _provider_model_fast()
+        # sonnet cap: clamp opus down to the development tier model (sonnet stock).
+        if _max_tier == 'sonnet':
+            return _provider_model_development()
+        return 'opus'  # opus cap (or any higher): opus stands.
     # alias -> abstract tier (run.sh:12331). Unknown -> development (the runner's
     # '*' arm passes CURRENT_TIER through to resolve_model_for_tier, whose '*'
     # default is PROVIDER_MODEL_DEVELOPMENT, i.e. the development tier).
     _pin_tier = {
-        'opus': 'planning',
         'sonnet': 'development',
         'haiku': 'fast',
         'fable': 'fable',
@@ -16449,6 +16533,17 @@ main() {
             ;;
         demo)
             cmd_demo "$@"
+            ;;
+        tour)
+            # Zero-key/zero-spend taste path: an alias for 'demo --offline' that
+            # replays a bundled real Evidence Receipt. --help routes straight to
+            # the demo help (which documents --offline / tour); otherwise inject
+            # --offline ahead of any user args.
+            if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+                cmd_demo --help
+            else
+                cmd_demo --offline "$@"
+            fi
             ;;
         quickstart)
             cmd_quickstart "$@"
@@ -31217,6 +31312,59 @@ PYEOF
                     echo ""
                     echo "Ready to post:"
                     echo "  ${hook}"
+                fi
+
+                # Copy-paste "Verified by Loki" markdown badge (word-of-mouth
+                # loop). The badge color + message derive ONLY from the receipt's
+                # honest headline (honesty.headline), which proof-generator
+                # computes deterministically from real facts and which is
+                # impossible to forge from an LLM opinion. We exact-match the
+                # three headline strings:
+                #   VERIFIED            -> brightgreen "verified"
+                #   VERIFIED WITH GAPS  -> orange "verified with gaps"
+                #   NOT VERIFIED        -> red "not verified"
+                # Anything else (missing/null/legacy proof) OMITS the badge: we
+                # never paint a non-VERIFIED receipt green, and we do not force a
+                # fine old-format proof red. We deliberately do NOT fall back to
+                # council.final_verdict here -- that is an LLM verdict and the
+                # exact fake-green path the headline exists to override.
+                # The badge links to the gist we just published (no new egress).
+                # shields.io static/v1 query endpoint avoids structural hyphens.
+                local badge
+                badge=$(LOKI_PROOF_JSON="$pj" LOKI_GIST_URL="$LOKI_LAST_GIST_URL" python3 - <<'PYEOF' 2>/dev/null || true
+import json, os
+from urllib.parse import quote
+try:
+    d = json.load(open(os.environ["LOKI_PROOF_JSON"]))
+except Exception:
+    d = {}
+headline = (d.get("honesty") or {}).get("headline")
+# Exact-match ONLY. council.final_verdict is intentionally NOT consulted: it is
+# an LLM opinion, the precise fake-green source the deterministic headline
+# overrides. Unmapped headline -> no entry -> badge omitted.
+mapping = {
+    "VERIFIED": ("verified", "brightgreen"),
+    "VERIFIED WITH GAPS": ("verified with gaps", "orange"),
+    "NOT VERIFIED": ("not verified", "red"),
+}
+entry = mapping.get(headline)
+url = os.environ.get("LOKI_GIST_URL", "").strip()
+# Omit the badge for any unmapped headline (never green, never forced red),
+# and when we have no link target to point at.
+if entry and url:
+    message, color = entry
+    badge_img = (
+        "https://img.shields.io/static/v1?label=Loki"
+        "&message=" + quote(message)
+        + "&color=" + color
+    )
+    print("[![Loki: {msg}]({img})]({url})".format(msg=message, img=badge_img, url=url))
+PYEOF
+)
+                if [ -n "$badge" ]; then
+                    echo ""
+                    echo "Markdown badge (paste into a README or PR):"
+                    echo "  ${badge}"
                 fi
             fi
             exit 0
