@@ -114,6 +114,7 @@
     // >>> BEGIN sync-lint-ignores (managed by scripts/sync-lint-ignores.mjs — run it; do not hand-edit) <<<
     "plugins/ai-agency/hyperflow/**",
     "plugins/ai-agency/tonone/**",
+    "plugins/api-development/x-twitter-scraper/**",
     "plugins/business-tools/wondelai-blue-ocean-strategy/**",
     "plugins/business-tools/wondelai-contagious/**",
     "plugins/business-tools/wondelai-cro-methodology/**",
@@ -135,6 +136,7 @@
     "plugins/community/ejentum-memory/**",
     "plugins/community/ejentum-reasoning/**",
     "plugins/community/gastown/**",
+    "plugins/community/hermes-tweet/**",
     "plugins/community/zai-cli/**",
     "plugins/crypto/aomi/**",
     "plugins/design/wondelai-design-everyday-things/**",

@@ -2023,6 +2023,118 @@ _loki_check_git_present() {
     return 0
 }
 
+# _loki_claude_login_state: report the Claude Code login state WITHOUT a network
+# call, printing exactly one of: loggedin | expired | loggedout | unknown.
+#
+# v7.104.2: the previous preflight assumed OAuth credentials always live in
+# ~/.claude/.credentials.json. That is false for the native install (Claude Code
+# 2.x on macOS), which stores the login in the macOS Keychain under the service
+# "Claude Code-credentials" and creates NO .credentials.json. A genuinely logged
+# in subscription user was therefore falsely told "installed but not logged in"
+# and blocked from every build -- the exact opposite of the zero-friction intent.
+#
+# Design: prefer the durable, CLI-owned signal (`claude auth status`, local +
+# fast + non-interactive, JSON with "loggedIn"), because the credential STORE
+# location has now moved twice (file -> keychain) and will move again. Fall back
+# to the file, then the keychain, for older CLIs that lack `auth status`. Crucial
+# rule (inconclusive-never-false-fails applied to auth): only ever return a hard
+# "loggedout" on POSITIVE evidence of no login; when we cannot tell, return
+# "unknown" and let the caller fail OPEN (warn, proceed, let the real call
+# decide) -- never hard-block a paying user on uncertainty.
+_loki_claude_login_state() {
+    # 1) Primary: the CLI's own local auth-status (zero-network, ~0.2s). Newer
+    #    claude CLIs print JSON with a boolean "loggedIn"; parse defensively.
+    if command -v claude >/dev/null 2>&1; then
+        local _status_json
+        _status_json="$(claude auth status 2>/dev/null)"
+        if [[ -n "$_status_json" ]]; then
+            local _parsed
+            _parsed="$(printf '%s' "$_status_json" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    v = d.get('loggedIn')
+    # ONLY the two explicit booleans are trusted. Anything else -- a missing
+    # field, a renamed schema, a JSON error object -- is inconclusive and MUST
+    # fall through to the file/keychain checks, never a hard 'loggedout' (that
+    # would block a genuinely logged-in user with a valid creds file, violating
+    # fail-open). Mirrors the bun doctor's === true / === false / else shape.
+    if v is True:
+        print('loggedin')
+    elif v is False:
+        print('loggedout')
+    # else: print nothing -> fall through
+except Exception:
+    pass  # not JSON (older CLI / different output) -> stay silent, fall through
+" 2>/dev/null)"
+            if [[ "$_parsed" == "loggedin" ]]; then
+                echo "loggedin"; return 0
+            elif [[ "$_parsed" == "loggedout" ]]; then
+                echo "loggedout"; return 0
+            fi
+            # auth status ran but was inconclusive (unparseable, or valid JSON
+            # without an explicit loggedIn boolean) -> do NOT trust it as a
+            # negative; fall through to the credential-store checks below.
+        fi
+    fi
+
+    # 2) Fallback: a VALID (non-expired) OAuth credentials file (older CLIs write
+    #    it here). Compute the expiry once; a valid file is a positive login.
+    #    IMPORTANT: we do NOT conclude "expired" here yet -- a stale expired file
+    #    can sit next to a live macOS-Keychain login (the native install writes
+    #    the file once, then rotates only the Keychain). Concluding "expired" off
+    #    the file before consulting the Keychain would wrongly block a genuinely
+    #    logged-in user -- the exact class of bug this whole change fixes. So the
+    #    Keychain (step 3, a POSITIVE signal) is checked BEFORE we ever return
+    #    "expired" (step 4). Unknown schema -> treat as valid (fail open).
+    local _creds="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
+    local _file_state=""   # ""=absent, "valid"=present+fresh, "expired"=present+stale
+    if [[ -s "$_creds" ]]; then
+        _file_state="$(python3 -c "
+import json, sys, time
+try:
+    d = json.load(open(sys.argv[1]))
+    exp = d.get('claudeAiOauth', {}).get('expiresAt')
+    if isinstance(exp, (int, float)) and exp > 0 and (exp / 1000.0) <= (time.time() + 60):
+        print('expired')
+    else:
+        print('valid')
+except Exception:
+    print('valid')  # unreadable/unknown -> fail open (treat as valid)
+" "$_creds" 2>/dev/null || echo valid)"
+    fi
+    if [[ "$_file_state" == "valid" ]]; then
+        echo "loggedin"; return 0
+    fi
+
+    # 3) macOS Keychain (native install stores the login here, often with NO file
+    #    at all, or alongside a now-stale file). A present Keychain entry is a
+    #    POSITIVE login signal and OVERRIDES an expired file. Existence check
+    #    ONLY -- never `-w` (reading the secret can pop a GUI keychain prompt that
+    #    would hang a headless/CI build). Guarded to Darwin.
+    if [[ "$(uname 2>/dev/null)" == "Darwin" ]] && command -v security >/dev/null 2>&1; then
+        if security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; then
+            echo "loggedin"; return 0
+        fi
+    fi
+
+    # 4) Only now, with no valid file and no Keychain login, is an expired file a
+    #    real "expired" state (genuine expiry that would 401 mid-build).
+    if [[ "$_file_state" == "expired" ]]; then
+        echo "expired"; return 0
+    fi
+
+    # 5) No positive login evidence at all. On macOS (where the file AND the
+    #    Keychain are the two real stores, both absent) with the CLI present, that
+    #    is confident "logged out". Anywhere else we cannot prove absence of a
+    #    login (no Keychain to consult), so stay "unknown" and let the caller fail
+    #    open.
+    if [[ "$(uname 2>/dev/null)" == "Darwin" ]] && command -v claude >/dev/null 2>&1; then
+        echo "loggedout"; return 0
+    fi
+    echo "unknown"; return 0
+}
+
 # _loki_check_workspace_writable: the build writes state, proofs, and source into
 # the working directory and its .loki/ subtree on every iteration. A read-only
 # volume, a permission-denied directory, or a full disk would otherwise fail
@@ -2108,21 +2220,33 @@ validate_api_keys() {
 
     # Zero-friction auth preflight for LOCAL runs (must run BEFORE the early
     # return below, which exits for non-Docker/K8s envs). When claude is the
-    # provider, the claude CLI is on PATH, there is no ANTHROPIC_API_KEY, and no
-    # OAuth credentials file exists (the user installed claude but never ran
-    # `claude login`), the build would otherwise enter, make a failing call, and
-    # 401 -- the worst first impression -- forcing the user to run `loki why`.
-    # Fail fast with the one-step fix instead. Opt out with LOKI_SKIP_AUTH_PREFLIGHT=1.
-    if [[ "$provider" == "claude" && "${LOKI_SKIP_AUTH_PREFLIGHT:-}" != "1" && -z "${ANTHROPIC_API_KEY:-}" ]] \
-       && command -v claude >/dev/null 2>&1; then
-        local _local_creds="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json"
-        if [[ ! -s "$_local_creds" ]]; then
+    # provider and there is no ANTHROPIC_API_KEY, ask the login-state helper
+    # (auth-status -> file -> keychain, all zero-network) whether the user is
+    # actually logged in. A never-logged-in user would otherwise enter the build,
+    # make a failing call, and 401 -- the worst first impression -- so we fail
+    # fast with the one-step fix. But we ONLY hard-block on a confident
+    # "loggedout"; an "expired" login gets its own message; "unknown" (we cannot
+    # prove the login state, e.g. an older CLI on a non-macOS box with no file)
+    # fails OPEN so a genuinely logged-in user is never blocked. This is the
+    # v7.104.2 fix for the native/Keychain login being misread as logged out.
+    # Opt out entirely with LOKI_SKIP_AUTH_PREFLIGHT=1.
+    if [[ "$provider" == "claude" && "${LOKI_SKIP_AUTH_PREFLIGHT:-}" != "1" && -z "${ANTHROPIC_API_KEY:-}" ]]; then
+        local _login_state
+        _login_state="$(_loki_claude_login_state)"
+        if [[ "$_login_state" == "loggedout" ]]; then
             log_error "Claude Code is installed but not logged in -- the build would stall instead of running."
             log_error "Log in once, then retry:"
             log_error "    claude login"
             log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
             return 1
+        elif [[ "$_login_state" == "expired" ]]; then
+            log_error "Your Claude Code login has expired -- the build would stall instead of running."
+            log_error "Fix it in one step, then retry:"
+            log_error "    claude login"
+            log_error "(or set ANTHROPIC_API_KEY, or LOKI_SKIP_AUTH_PREFLIGHT=1 to bypass this check)"
+            return 1
         fi
+        # "loggedin" or "unknown" -> proceed (fail open on uncertainty).
     fi
 
     # CLI tools (claude, codex, cline, aider) use their own login sessions.
@@ -6396,52 +6520,108 @@ EFF_EOF
     [ ! -f "$completed_file" ] && echo "[]" > "$completed_file"
     [ ! -f "$failed_file" ] && echo "[]" > "$failed_file"
 
-    # Create completed task entry
-    local task_json=$(cat <<EOF
-{
-  "id": "$task_id",
-  "type": "iteration",
-  "title": "Iteration $iteration",
-  "status": "$([ "$exit_code" = "0" ] && echo "completed" || echo "failed")",
-  "completedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "exitCode": $exit_code,
-  "provider": "${PROVIDER_NAME:-claude}"
-}
-EOF
-)
-
-    # Add to appropriate queue
+    # Build the completed iteration record + move it out of in-progress, ATOMICALLY.
+    # v7.104.3 task-list accuracy fix: the old writer emitted a THIN body
+    # {id,type,title:"Iteration N",status,exitCode,provider} with no description
+    # and no logs, and then DELETED the rich in-progress record -- so the done
+    # column showed empty cards. We now LIFT the honest per-iteration parts (logs,
+    # startedAt) from the in-progress record BEFORE removing it, and give the card
+    # an HONEST iteration-scoped title/description derived from values in scope
+    # ($phase/$exit_code/$duration_ms). We deliberately do NOT reuse the borrowed
+    # PRD-story title: because pending stories never leave the queue, the
+    # in-progress title is always pending[0] ("server.js..."), so carrying it onto
+    # N done cards would falsely imply that story was built N times (fake-green).
+    # We also upsert-by-id (no cross-sub-run "iteration-1 x5" accumulation) and
+    # keep completed/failed mutually exclusive per id.
     local target_file="$completed_file"
-    [ "$exit_code" != "0" ] && target_file="$failed_file"
-
+    local other_file="$failed_file"
+    [ "$exit_code" != "0" ] && { target_file="$failed_file"; other_file="$completed_file"; }
+    local _completed_ts; _completed_ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    _LOKI_TASK_ID="$task_id" \
+    _LOKI_ITER="$iteration" \
+    _LOKI_PHASE="$phase" \
+    _LOKI_EXIT="$exit_code" \
+    _LOKI_DUR="$duration_ms" \
+    _LOKI_PROVIDER="${PROVIDER_NAME:-claude}" \
+    _LOKI_COMPLETED_TS="$_completed_ts" \
+    _LOKI_TARGET="$target_file" \
+    _LOKI_OTHER="$other_file" \
+    _LOKI_INPROG="$in_progress_file" \
     python3 -c "
-import sys, json
-try:
-    with open('$target_file', 'r') as f:
-        data = json.load(f)
-except:
-    data = []
-data.append($task_json)
-# Keep only last 50 entries
-data = data[-50:]
-with open('$target_file', 'w') as f:
-    json.dump(data, f, indent=2)
-" 2>/dev/null || echo "[$task_json]" > "$target_file"
+import json, os
 
-    # Remove from in-progress
-    if [ -f "$in_progress_file" ]; then
-        python3 -c "
-import sys, json
+tid = os.environ['_LOKI_TASK_ID']
+it = os.environ['_LOKI_ITER']
+phase = os.environ.get('_LOKI_PHASE') or 'unknown'
+exit_code = os.environ.get('_LOKI_EXIT', '1')
+dur = os.environ.get('_LOKI_DUR', '')
+provider = os.environ.get('_LOKI_PROVIDER', 'claude')
+completed_ts = os.environ['_LOKI_COMPLETED_TS']
+target = os.environ['_LOKI_TARGET']
+other = os.environ['_LOKI_OTHER']
+inprog = os.environ['_LOKI_INPROG']
+ok = (exit_code == '0')
+
+def load(p):
+    try:
+        with open(p) as f:
+            d = json.load(f)
+        return d if isinstance(d, list) else (d.get('tasks', []) if isinstance(d, dict) else [])
+    except Exception:
+        return []
+
+# Lift the honest body from the in-progress record before removing it.
+prior = next((t for t in load(inprog) if isinstance(t, dict) and t.get('id') == tid), {})
+logs = prior.get('logs') if isinstance(prior.get('logs'), list) else []
+started = prior.get('startedAt')
+
+dur_s = ''
 try:
-    with open('$in_progress_file', 'r') as f:
-        data = json.load(f)
-    data = [t for t in data if t.get('id') != '$task_id']
-    with open('$in_progress_file', 'w') as f:
-        json.dump(data, f, indent=2)
-except:
-    pass
-" 2>/dev/null || true
-    fi
+    if dur not in ('', None):
+        _ms = int(float(dur))
+        dur_s = f\", {_ms}ms\" if _ms < 1000 else f\", {round(_ms/1000)}s\"
+except Exception:
+    dur_s = ''
+
+if ok:
+    title = f'Iteration {it} complete - {phase}'
+    desc = f'Iteration {it} finished cleanly in the {phase} phase (exit 0{dur_s}).'
+else:
+    title = f'Iteration {it} failed (exit {exit_code})'
+    desc = f'Iteration {it} ended in the {phase} phase with exit code {exit_code}{dur_s}.'
+
+entry = {
+    'id': tid,
+    'type': 'iteration',
+    'title': title,
+    'description': desc,
+    'status': 'completed' if ok else 'failed',
+    'phase': phase,
+    'completedAt': completed_ts,
+    'exitCode': int(exit_code) if str(exit_code).lstrip('-').isdigit() else exit_code,
+    'provider': provider,
+    'logs': logs,
+}
+if started:
+    entry['startedAt'] = started
+
+# Upsert-by-id into target (drop any stale same-id), cap at 50.
+data = [t for t in load(target) if not (isinstance(t, dict) and t.get('id') == tid)]
+data.append(entry)
+data = data[-50:]
+with open(target, 'w') as f:
+    json.dump(data, f, indent=2)
+
+# Mutual exclusion: remove this id from the OTHER terminal file.
+odata = [t for t in load(other) if not (isinstance(t, dict) and t.get('id') == tid)]
+with open(other, 'w') as f:
+    json.dump(odata, f, indent=2)
+
+# Remove from in-progress.
+idata = [t for t in load(inprog) if not (isinstance(t, dict) and t.get('id') == tid)]
+with open(inprog, 'w') as f:
+    json.dump(idata, f, indent=2)
+" 2>/dev/null || echo "[{\"id\":\"$task_id\",\"type\":\"iteration\",\"title\":\"Iteration $iteration\",\"status\":\"$([ "$exit_code" = "0" ] && echo completed || echo failed)\",\"completedAt\":\"$_completed_ts\",\"exitCode\":$exit_code,\"provider\":\"${PROVIDER_NAME:-claude}\"}]" > "$target_file"
 
     # BUG-ST-014: Atomic current-task.json clear via temp file + mv
     local ct_tmp=".loki/queue/current-task.json.tmp.$$"
@@ -12020,8 +12200,11 @@ parse_claude_reset_time() {
     local current_min=$(date +%M)
     local current_sec=$(date +%S)
 
-    # Calculate seconds until reset
-    local current_secs=$((current_hour * 3600 + current_min * 60 + current_sec))
+    # Calculate seconds until reset. Force base-10 (10#) on the zero-padded
+    # date values: 08/09 are invalid octal, so bare arithmetic aborts ("value
+    # too great for base") during those clock windows and silently discards the
+    # real rate-limit reset wait, falling back to a too-short generic backoff.
+    local current_secs=$((10#$current_hour * 3600 + 10#$current_min * 60 + 10#$current_sec))
     local reset_secs=$((hour * 3600))
 
     local wait_secs=$((reset_secs - current_secs))
@@ -12454,8 +12637,14 @@ except Exception:
     # Return the payload on stdout
     printf '%s\n' "$payload"
 
-    # Consume the signal (next iteration would otherwise re-trigger)
+    # Consume the signal (next iteration would otherwise re-trigger).
+    # Also remove the fallback if it coexists: TASK_COMPLETION_CLAIMED and
+    # COMPLETION_REQUESTED are both valid, non-exclusive completion mechanisms, so
+    # a belt-and-suspenders agent can leave both present. Removing only the active
+    # one orphans the other, which then reads as a phantom claim on a later
+    # iteration and forces every-iteration council evaluation. Consume both.
     rm -f "$signal_file" 2>/dev/null
+    rm -f "$fallback_file" 2>/dev/null
     return 0
 }
 
@@ -17350,7 +17539,30 @@ else:
             if type ensure_completion_test_evidence &>/dev/null; then
                 ensure_completion_test_evidence || true
             fi
-            if type council_should_stop &>/dev/null && council_should_stop; then
+            # v7.105.0 convergence: if the agent EXPLICITLY claimed completion this
+            # iteration (structured loki_complete_task / COMPLETION_REQUESTED
+            # signal), tell the council to evaluate NOW instead of deferring to the
+            # 5-iteration check interval. The council still must approve (MIN_
+            # ITERATIONS + hard checklist + evidence gate + vote + devil's advocate
+            # all unchanged); this only stops an already-verified build from
+            # grinding needless "next improvement" iterations. Scoped to this call.
+            #
+            # CRITICAL (council-review finding): we must PEEK at the claim signal
+            # NON-DESTRUCTIVELY. check_task_completion_signal() CONSUMES the signal
+            # (rm -f on read), and the DEFAULT completion-promise route below
+            # (v6.82.0, the live gate-based acceptance path) also consumes it -- so
+            # calling the consuming detector here would drop the claim before that
+            # route sees it, re-introducing the v7.28 "claim drop" bug. Instead we
+            # only test the signal FILES' existence (the same two paths
+            # check_task_completion_signal reads), leaving consumption to the
+            # existing single owner. The council side likewise peeks
+            # ($TARGET_DIR/.loki/signals/COMPLETION_REQUESTED) without consuming.
+            local _loki_completion_claimed=0
+            if [ -f "${TARGET_DIR:-.}/.loki/signals/TASK_COMPLETION_CLAIMED" ] \
+               || [ -f "${TARGET_DIR:-.}/.loki/signals/COMPLETION_REQUESTED" ]; then
+                _loki_completion_claimed=1
+            fi
+            if type council_should_stop &>/dev/null && LOKI_COMPLETION_CLAIMED="$_loki_completion_claimed" council_should_stop; then
                 # bash-F1: council_should_stop returns 0 from a genuine approval
                 # AND from two force-stop safety valves (stagnation flood /
                 # repeated done-signals). A force-stop is NOT a verified-complete
@@ -19023,7 +19235,7 @@ main() {
             _handoff_dir="${TARGET_DIR:-.}"
             _handoff_md="$_handoff_dir/HANDOFF.md"
             _handoff_tmp="$_handoff_dir/.HANDOFF.md.tmp"
-            if python3 "$_own_render" --loki-dir "$LOKI_DIR" --md > "$_handoff_tmp" 2>/dev/null; then
+            if python3 "$_own_render" --loki-dir "${LOKI_DIR:-${TARGET_DIR:-.}/.loki}" --md > "$_handoff_tmp" 2>/dev/null; then
                 mv -f "$_handoff_tmp" "$_handoff_md" 2>/dev/null || rm -f "$_handoff_tmp" 2>/dev/null || true
             else
                 rm -f "$_handoff_tmp" 2>/dev/null || true

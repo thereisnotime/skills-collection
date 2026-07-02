@@ -9,6 +9,402 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (none)
 
+## [7.111.0] - 2026-07-02
+
+### Trust-core fixes (bug-hunt wave 3) + honesty relabel of the proof non-forgeability claim
+
+Wave-3 adversarial bug-hunt found two HIGH trust-core bugs and a CRITICAL honesty defect.
+Each fix ships with a RED/GREEN regression test.
+
+- FIX (HIGH, anti-sycophancy backstop was a silent no-op): in completion-council.sh the
+  Devil's-Advocate veto on a unanimous COMPLETE was captured as multi-line stdout (log lines
+  are echoed to stdout), so the exact-string compare `[ "$da_result" = "OVERRIDE_CONTINUE" ]`
+  NEVER matched. A DA that found a real blocking issue was ignored and the council approved
+  anyway. Now compares the LAST line (tail -n1), so the veto forces CONTINUE. Proven: OLD
+  stops despite a real veto, NEW continues (tests/test-da-veto.sh 9/0).
+- FIX (HIGH, Bun-route completion parity): the Bun runner's checkCompletionPromise ignored
+  the .loki/signals/COMPLETION_REQUESTED fallback that the prompt tells the model to use. For
+  degraded providers (Codex/Aider) that lack the MCP completion tool, that fallback is the ONLY
+  completion signal, so completion-by-claim was fully broken on the Bun route for them; all
+  providers wasted iterations. Now honored + consumed (both signals), matching bash.
+- HONESTY (CRITICAL relabel, NOT a forgery fix): the proof rail claimed in shipped code that
+  a green Evidence Receipt is "impossible to forge" / "a forger cannot turn green" /
+  "non-forgeable". That is FALSE on the unsigned local path: a forger who rewrites the facts,
+  flips the headline, and recomputes the hash passes proof-verify.py. All such claims are
+  removed (dashboard/server.py, proof-verify.py, proof-generator.py, autonomy/loki, proof.ts,
+  proof-pr.sh) and replaced with an accurate statement: the integrity hash proves
+  bytes-unedited-since-hashing and the git diff is re-derived, but on the UNSIGNED path the
+  generator is trusted; neutral non-forgeability requires the signed record (founder-gated).
+  DEFENSE-IN-DEPTH added (honestly labeled): proof-verify.py now re-derives the headline from
+  the recorded facts and reports headline_consistent + generator_trusted; an INCONSISTENT
+  forgery (headline says VERIFIED but facts say not_run) is caught and ok=false. A CONSISTENT
+  forger is NOT blocked (documented; needs the signed record). tests/test-proof-forgery-defense.sh 7/0.
+- FIX (MED security): GitHub fine-grained PATs (github_pat_...) leaked into proof.json diffs;
+  the redactor now masks them (tests/test-proof-pat-redaction.py).
+- FIX (LOW): stale claude-opus-4-7 runtime fallbacks -> claude-opus-4-8 (providers/cline.sh,
+  aider.sh); app-runner compose port-range parse now returns the first (published) port, not
+  the last; docker-compose.yml healthcheck start-period -> start_period (was rejected by Compose).
+
+## [7.110.0] - 2026-07-01
+
+### Bug-hunt wave 2: dashboard 500-hardening, MCP lsp-proxy HTTP fix, provider flag fixes
+
+An adversarial bug-hunt across dashboard, MCP, memory, CLI, and providers found reproduced
+bugs; each fix ships with a regression test that fails on old code and passes on the fix.
+The memory subsystem was audited and found sound (no reproducible bug).
+
+- FIX (HIGH, dashboard resilience): GET /api/status, /api/tasks, and /api/budget returned
+  HTTP 500 (uncaught AttributeError) when their backing JSON files (.loki/dashboard-state.json,
+  .loki/metrics/budget.json) held a non-dict top level (a list/string/number from a partial or
+  external write). One malformed/partial write blanked the whole dashboard. The most-polled
+  endpoint (/api/status) crashed at a .get() on a non-dict. All affected readers now coerce a
+  non-dict/non-list to an empty shape and degrade to a valid 200 payload. NOTE: this completes
+  a class the v7.104.4 /api/tasks fix only partially closed (it guarded the "tasks" value but
+  not a non-dict top-level state); that earlier "never 500s" claim was only partially accurate.
+- FIX (MCP lsp-proxy HTTP transport crash): loki's lsp-proxy `--transport http` called
+  FastMCP.run(transport='http', port=...) which raises TypeError/ValueError (no port kwarg, no
+  'http' literal) - the same latent crash fixed for the main MCP server in v7.107.0, present in
+  the sibling file. Now runs via the supported streamable-http path bound to 127.0.0.1.
+- FIX (MED, provider web search): the codex `--search` flag was placed as an exec-subcommand
+  flag, but codex 0.141.0 exposes it as a top-level flag, so LOKI_CODEX_WEB_SEARCH did not
+  actually enable web search. Corrected the placement (verified against codex --help).
+- FIX (LOW, stale model id): removed a hardcoded `claude-opus-4-7` fallback that does not exist
+  in the model catalog; uses the current opus id.
+
+Tests: tests/test-dashboard-json-guards.sh, tests/test-lsp-proxy-http.sh, tests/test-provider-flags.sh
+(all new, RED/GREEN); existing test-verify (17) and test-provider-loader green.
+
+Deferred (honest): a hardening of the v7.109.0 runtime-gate boot-log port scrape was designed
+this cycle but a council review found the "probe-first" variant introduced a false-green on a
+contended default port (a foreign listener on the guessed port could green a broken app). That
+change was dropped rather than shipped; the v7.109.0 scrape-first behavior remains, and the
+correct scrape-with-strict-bind-anchor redesign is tracked as a follow-up.
+
+## [7.109.0] - 2026-07-01
+
+### Bug-hunt-and-fix wave 1: 5 reproduced bugs fixed (false-RED elimination + rate-limit correctness)
+
+An adversarial bug-hunt across the completion council, verify gates, and RARV loop found
+5 real, reproduced bugs. All were verified with a concrete repro before fixing, and each
+fix ships with a regression test. Measurable adoption/UX impact (these were friction, not
+safety holes - none was a false-VERIFIED / fake-green; the trust core was confirmed sound):
+
+- FIX (HIGH, runtime gate false-RED on CLIs/libraries): the runtime boot gate's HTTP-signal
+  source scan matched a `.listen(`/`createServer(` in a test/example/dist file, so a plain
+  CLI or library that ships a `start` script plus an integration test that spins an ephemeral
+  server was wrongly detected as a bootable HTTP app, booted, timed out, and got a false
+  boot-failure that dropped the verdict from VERIFIED. Now excludes test/tests/__tests__/
+  examples/dist/build/spec and requires a stronger signal. Impact: any project with an
+  integration test no longer false-blocks.
+- FIX (HIGH, runtime gate false-RED on Vite/SvelteKit): detection recognized vite/sveltekit/
+  nuxt but the port default-map sent the probe to 3000 while those dev servers bind 5173 and
+  ignore PORT, so the gate reported a boot failure while the server was actually up. Now the
+  gate scrapes the actually-bound URL/port from the boot log and probes that. Impact: modern
+  frontend projects on non-3000 ports no longer false-block.
+- FIX (MEDIUM, runtime gate port leak): teardown reclaimed only the detected port, so a
+  daemonized server that bound a different port left an orphan holding the port. Now kills the
+  process group and reclaims the actually-bound port. Impact: no leaked servers/ports.
+- FIX (MEDIUM, phantom completion claim): check_task_completion_signal consumed only the
+  active completion-signal file, orphaning the coexisting fallback (COMPLETION_REQUESTED),
+  which then read as a phantom claim on later iterations and forced a full completion-council
+  evaluation every iteration instead of at the interval. Now consumes both. Impact: no phantom
+  claims; council evaluation returns to the intended cadence (cost/time saving).
+- FIX (MEDIUM, rate-limit reset discarded): parse_claude_reset_time computed seconds with bare
+  arithmetic on zero-padded clock values, so 08/09 (invalid octal) crashed the calculation and
+  silently discarded the real Claude rate-limit reset wait during roughly 14% of clock windows,
+  falling back to a too-short generic backoff that retried against a still-limited API. Now
+  forces base-10. Impact: correct reset waits, fewer wasted rate-limited retries.
+
+## [7.108.0] - 2026-07-01
+
+### Accuracy: two additive verification gates (runtime boot smoke + annotate-before-act ledger)
+
+Two independent, fail-open additions to the verification layer. Both are strictly
+additive: on the common path (no app to boot, no expectation ledger present) verify
+output is byte-identical to before, so neither can regress an existing run.
+
+Runtime boot smoke gate (loki verify) -- "it actually runs":
+- A new runtime gate detects an app's start command, boots it bounded by a timeout,
+  probes a health/root path, records the HTTP status + a reproducible runtime.json
+  artifact (and a playwright screenshot when available), and tears the app down.
+- 5xx (server error) or no-answer for a detected app -> High finding -> NOT VERIFIED.
+  A detected app that cannot be booted safely (no timeout binary) -> inconclusive ->
+  CONCERNS (never an unbounded boot / hang; mirrors the v7.106.0 liveness discipline).
+- FALSE-POSITIVE GUARD: a project is only treated as a bootable HTTP app when there is
+  a POSITIVE HTTP signal -- a web-framework/server dependency, or a listen()/
+  createServer()/serve() call in source. A plain CLI or library that ships a
+  conventional "start"/"dev" script (e.g. "start":"node cli.js", "dev":"tsc --watch")
+  is NOT booted and emits no gate row, so it never gets a false-RED block.
+- Opt-out: LOKI_RUNTIME_GATE=0. Boot timeout / health path configurable
+  (LOKI_RUNTIME_BOOT_TIMEOUT, LOKI_RUNTIME_HEALTH_PATH).
+- KNOWN LIMITATION (honest): the probe trusts whatever answers on the resolved port,
+  so on a local machine with a pre-existing server on that port a failed boot could
+  read as green. Clean in CI; a follow-up will confirm the boot PID owns the listener.
+- Coverage: tests/test-runtime-gate.sh (14 cases): boot-pass, boot-fail->BLOCKED,
+  library byte-identity, default-port PORT-export, Node-CLI false-RED discriminator,
+  and real-server-still-detected.
+
+Annotate-before-act expectation ledger (loki verify):
+- A tamper-evident ledger of EXPECTED observable outcomes can be sealed before
+  verification (.loki/expectations/<iter>.json), canonicalized + sha256-hashed the
+  SAME way proof-generator.py hashes proof.json. At verify time each expectation is
+  compared to reality: a contradicted expectation -> High finding (BLOCKED); a
+  dropped/unexecuted one -> Medium finding (CONCERNS); an unevaluable one ->
+  inconclusive -> CONCERNS (never a false VERIFIED). The ledger hash is embedded in
+  evidence.json so an edited-after-the-fact expectation is detectable.
+- SCOPE (honest, PARTIAL): this ships the WRITE library/CLI + the verify-time
+  READ/COMPARE + tamper-hash embedding, with a full test suite. The run-loop wiring
+  that auto-writes predictions before each act, and deriving "observed" from real
+  execution (the strong reality-anchor that would make tamper-evidence adversary-proof
+  rather than casual-edit-proof), are tracked follow-ups. Opt-out:
+  LOKI_EXPECTATION_LEDGER=0. Absent ledger -> byte-identical to before.
+- Coverage: tests/test-expectation-ledger.sh (15 cases): met/contradicted/dropped/
+  unevaluable, tamper detection, canonical parity with proof-generator, absent-ledger
+  byte-identity, and opt-out.
+
+## [7.107.0] - 2026-07-01
+
+### Hardening + latent crash fix: loki mcp --transport http (loopback bind + optional bearer auth)
+
+The HTTP transport path for `loki mcp --transport http` was fixed and hardened.
+
+- FIX (latent crash): the previous `mcp.run(transport='http', port=...)` call could never
+  work: FastMCP's run() has no 'http' transport literal (only stdio/sse/streamable-http) and
+  takes no port keyword, so the http branch raised TypeError/ValueError. The command now runs
+  via a supported path (streamable_http_app served by uvicorn), so `loki mcp --transport http`
+  actually starts.
+- HARDENING (explicit loopback bind): the server binds 127.0.0.1 explicitly (never an implicit
+  default, never 0.0.0.0), so a future SDK default change cannot silently widen the bind.
+- HARDENING (optional bearer auth): when LOKI_MCP_AUTH_TOKEN is set, every HTTP request must
+  carry a matching `Authorization: Bearer <token>` or it is rejected 401 (constant-time compare
+  via hmac.compare_digest, with WWW-Authenticate: Bearer). When the env var is unset or empty,
+  NO auth middleware is installed, so the request path is the plain unauthenticated behavior.
+- The default stdio transport path is untouched.
+- Coverage: tests/mcp/test_http_auth.py (6 tests) + tests/test-mcp-http-auth.sh (boots a real
+  server, verifies the 127.0.0.1 bind via lsof and the full no-bearer/wrong-bearer/correct-bearer/
+  token-unset 401/200 matrix, including a real MCP initialize handshake that proves the middleware
+  does not break the Streamable-HTTP lifespan/session manager).
+
+## [7.106.0] - 2026-07-01
+
+### Accuracy: reverse-classical test provenance (a green test suite must actually prove the change)
+
+The strongest completion signal is "tests pass" -- but a test written to pass proves nothing.
+Adopting the FrontierCode insight (grade like a tech lead, not a CI): a NEW test only counts as
+affirmative evidence if it FAILS on the pre-change base and PASSES on HEAD. Tests that pass on
+both are tautological.
+
+- In council_evidence_gate, when a green test suite is an affirmative candidate (it ran and
+  passed) and the run has a resolvable base (_LOKI_RUN_START_SHA), loki now runs the run's
+  NEW/CHANGED test files against the base in an ISOLATED git worktree (never touching the live
+  tree). If the full suite passes on the OLD code too, the new tests added no failing signal =
+  tautological, and the test signal is DOWNGRADED from affirmative to inconclusive.
+- SAFETY (the invariant, verified end-to-end): this can only DOWNGRADE unearned affirmative to
+  inconclusive. It NEVER fabricates a "confirmed" (a base-suite failure is not attributed to the
+  new test -> treated as unknown/no-op, never a false-positive), and inconclusive is pass-through
+  so it NEVER blocks. A legitimate refactor whose regression test passes on base too, with a
+  non-empty diff, still completes (proven by driving the real gate). No-op on greenfield (no base
+  or no test files) and when LOKI_TEST_PROVENANCE=0.
+- LIVENESS: the base run is always bounded (timeout 300s). If no timeout binary is on PATH
+  (stock macOS without coreutils), the base suite is NOT run unbounded -- provenance skips and
+  returns unknown (a safe no-op), so a hanging base suite can never stall the completion-time
+  evidence gate. This can never cause false-green or false-block.
+- SCOPE (honest): the base worktree is a bare checkout with no dependency install, so in practice
+  the check fires for in-repo test runners (e.g. pytest against repo sources); ecosystems that
+  need an install step on base map to unknown -> safe no-op. Coverage grows as the base-materialize
+  step gains optional dep provisioning.
+- Records the provenance verdict to .loki/state/test-provenance.json + a trust event.
+- Adversarial regression coverage: tests/test-test-provenance-gate.sh covers a genuine fix
+  (fails-on-base), a tautological test (downgraded), a broken-import base failure (harmless
+  unknown, not a fabricated confirmed), a refactor that must still complete (real gate pass-
+  through), the no-timeout-binary liveness path (base run skipped), and the greenfield/opt-out
+  no-ops.
+
+## [7.105.0] - 2026-07-01
+
+### Faster convergence: the completion council evaluates the moment work is claimed done
+
+Measured from real build telemetry (docs/SPEED-DIAGNOSIS-2026-07-01.md): a build could be
+verifiably done at iteration 1 (code reviews non-blocking, tests green, checklist complete)
+yet keep running needless "next improvement" iterations, because the completion council was
+only allowed to evaluate every `COUNCIL_CHECK_INTERVAL` (default 5) iterations. One observed
+build ran 14 iterations for a job finished in ~1, growing from 19 to 26 tests it never needed.
+
+- **An explicit completion claim now triggers an immediate council evaluation** instead of
+  deferring to the 5-iteration interval. When the agent invokes `loki_complete_task` (or the
+  `COMPLETION_REQUESTED` fallback signal), `council_should_stop` evaluates on that iteration.
+  This is a SPEED win that INCREASES trust alignment: the loop stops as soon as work is
+  verified-done, rather than grinding past it.
+
+- **No verification was weakened.** The fix changes only WHEN the council evaluates, never
+  WHETHER it must approve. `COUNCIL_MIN_ITERATIONS` (a claim before the minimum still does not
+  stop), the hard checklist gate, the verified-completion evidence gate, the aggregate vote,
+  and the devil's-advocate re-review all run unchanged. A premature or unearned claim is still
+  rejected and the loop continues -- never a forced green. The normal N-iteration cadence is
+  unchanged when no claim is present.
+
+- The claim signal is the STRUCTURED one (`loki_complete_task` / `.loki/signals/
+  COMPLETION_REQUESTED`), not the fuzzy log-grep the circuit breaker uses, so it fires only on
+  a real, intentional completion claim.
+
+- Regression coverage: `tests/test-council-convergence-on-claim.sh` extracts the real
+  `council_should_stop` and drives the full truth table (claim off-interval evaluates now;
+  no-claim cadence preserved; claim before MIN_ITERATIONS does NOT stop; file-signalled claim
+  path). Proven RED on the pre-fix code, GREEN on the fix.
+
+Honest scope note: this fixes convergence CORRECTNESS (the loop stops at verified-done),
+proven by unit test. End-to-end wall-clock before/after on a fixed spec is tracked separately
+(benchmarks/speed-benchmark.sh) and depends on a surviving long-build run; the fat-iteration
+cost (a couple of disproportionately long iterations) is a distinct, still-open investigation.
+
+## [7.104.5] - 2026-07-01
+
+### Fix: memory panel is correct and self-consistent on JSON-backed projects
+
+Builds on the fix contributed in PR #178 by @iizotov (memory summary reporting 0
+on a JSON-backed project) and closes the two gaps its review surfaced, plus the
+same class of bug in the sibling endpoints.
+
+- **`/api/memory/summary` no longer reports 0 on a JSON-backed project.** The
+  SQLite fast path returned all-zero stats whenever the module imports even with
+  no `.db` file, short-circuiting the JSON fallback. It now only trusts SQLite
+  when it actually reports data, else falls through to the JSON counts (the core
+  PR #178 fix). Episodes and skills are counted by recursing the dated
+  subdirectories (`episodic/YYYY-MM-DD/*.json`, `skills/*/*.json`) instead of a
+  flat glob that found nothing.
+
+- **The summary count and the drill-in lists can no longer disagree.** PR #178
+  fixed only `/api/memory/summary`; `/api/memory/episodes`, `/api/memory/skills`,
+  the single-item lookups, and the JSON stats fallback still used a flat glob, so
+  the panel showed a count of N but the list returned 0. All of them now go
+  through two single-source-of-truth helpers, `_memory_episode_files()` and
+  `_memory_skill_files()`, so the count and the list are always computed the same
+  way. `.lock` files are ignored everywhere.
+
+- **`latestDate` is the newest episode by recorded timestamp, not by filename.**
+  The intra-day filename tiebreak is a hash, not a time, so a filename sort could
+  report the wrong episode (observed hours off). The summary and the episodes
+  list now select the newest by parsed `timestamp`, and an honest `null`/empty is
+  preferred over a confidently-wrong value when no timestamp is readable.
+
+- Verified against a real JSON-backed project (dated episodic subdirs, no `.db`):
+  the summary count equals the episodes-list length and the reported latestDate
+  matches the true maximum timestamp. Regression coverage:
+  `tests/dashboard/test_memory_json_parity.py` (summary/episodes parity,
+  summary/skills parity, timestamp-not-filename latestDate, `.lock` exclusion).
+
+## [7.104.4] - 2026-07-01
+
+### Fix: /api/tasks no longer 500s on a malformed dashboard-state.json
+
+- **The task board never blanks out on a bad state file.** `dashboard-state.json`
+  is user/agent-written and can be malformed or partially written. If its
+  `tasks` value was not a dict, or a task group was not a list, or a group item
+  was not a dict, `GET /api/tasks` raised an `AttributeError` (from
+  `task_groups.get` / `task.get`) that the surrounding `(JSONDecodeError,
+  KeyError)` handler did not catch, 500ing the request and blanking the whole
+  board. The state-group reader now coerces defensively: a non-dict `tasks` is
+  treated as empty, a non-list group is skipped, and a non-dict item is skipped,
+  so a bad shape degrades to "skip that part" instead of a crash. The valid
+  tasks still render. (The queue-file reader already had these guards; this
+  closes the one remaining gap, found during the v7.104.3 task-list review.)
+
+- Regression coverage: `tests/dashboard/test_tasks_malformed_state.py` (dict-not-
+  list group, non-dict `tasks`, non-dict item), each proven to 500 on the old
+  code and pass on the fix.
+
+## [7.104.3] - 2026-07-01
+
+### Task list accuracy: honest, stable done column (no empty cards, no duplicates)
+
+- **The dashboard "done" column now shows honest, populated iteration cards.**
+  Previously, when an iteration finished, `track_iteration_complete()` (autonomy/run.sh)
+  wrote a THIN completed marker (`{id, type, title: "Iteration N", status, exitCode,
+  provider}`) with no description and no logs, and then deleted the RICH in-progress
+  record - so completed iterations rendered as empty cards with only "Iteration N"
+  and nothing inside. The completer now LIFTS the honest body (logs, `startedAt`) from
+  the in-progress record before removing it, and writes an honest, iteration-scoped
+  title ("Iteration N complete - <phase>" / "Iteration N failed (exit <code>)") plus a
+  one-line description with the phase and duration. It deliberately does NOT reuse the
+  borrowed PRD-story title from the in-progress record (that title is always the first
+  pending story, so carrying it onto N done cards would have falsely implied that story
+  was built N times - a fake-green the trust model forbids).
+
+- **No more duplicate iteration cards.** The completer replaced a blind
+  `data.append(...)` (which accumulated the same id across sub-runs - real data showed
+  `iteration-1` five times) with an upsert-by-id, and now makes the completed/failed
+  terminal state mutually exclusive per id (an id is removed from the other terminal
+  file and from in-progress on completion).
+
+- **`GET /api/tasks` deduplicates by id with a terminal-wins rule** (dashboard/server.py).
+  The dashboard reads `dashboard-state.json` task groups first; against pre-fix or
+  partially-written state the same id could appear in more than one column (observed:
+  `iteration-13` in in-progress AND completed AND failed at once). The endpoint now
+  keeps exactly one entry per id, preferring the terminal (done) record so a completed
+  iteration no longer lingers in the in-progress/todo columns. Pending PRD-story ids and
+  iteration ids never collide, so no task that is legitimately pending is dropped.
+
+- Regression coverage: `tests/test-iteration-complete-accuracy.sh` (extracts and drives
+  the real run.sh completer block - honest title, lifted logs, upsert, mutual exclusion)
+  and `tests/dashboard/test_tasks_dedup.py` (terminal-wins dedup across columns).
+
+## [7.104.2] - 2026-07-01
+
+### Fix: native/Keychain Claude login no longer misread as "not logged in"
+
+- **`loki start` no longer falsely blocks a genuinely logged-in user.** The auth
+  preflight assumed the Claude Code OAuth login always lives in
+  `~/.claude/.credentials.json`. That is false for the native Claude Code install
+  (2.x on macOS), which stores the login in the macOS Keychain (service
+  "Claude Code-credentials") and writes NO `.credentials.json`. A subscription
+  user who was fully logged in was told "Claude Code is installed but not logged
+  in -- the build would stall" and blocked from every build: the exact opposite
+  of the zero-friction intent.
+
+- **The preflight now asks the CLI's own local auth-status first.** A new
+  `_loki_claude_login_state()` helper (autonomy/run.sh) prefers `claude auth
+  status` (zero-network, ~0.2s, JSON `"loggedIn"`), which is authoritative for
+  BOTH the file-based and the native/Keychain login, then falls back to the
+  credentials file, then to a macOS Keychain existence check (existence only,
+  never reading the secret, so it can never trigger a GUI keychain prompt that
+  would hang a headless build). Critically it applies "inconclusive never
+  false-fails" to auth: it hard-blocks ONLY on positive evidence of no login
+  ("loggedout") or an expired token ("expired"); when the state cannot be proven
+  ("unknown", e.g. an older CLI on a non-macOS box with no file) it fails OPEN
+  and proceeds, so a real login is never blocked on uncertainty. `claude login`
+  guidance and the `LOKI_SKIP_AUTH_PREFLIGHT=1` / `ANTHROPIC_API_KEY` opt-outs
+  are unchanged.
+
+- **A stale expired credentials file never overrides a live Keychain login.**
+  The native install can leave a now-expired `~/.claude/.credentials.json` next
+  to a valid Keychain login (it rotates the Keychain, not the file). The helper
+  therefore checks the Keychain (a positive signal) BEFORE concluding "expired"
+  from the file: a valid file -> logged in; else a Keychain entry -> logged in;
+  only with neither is an expired file treated as genuinely expired. Genuine
+  expiry (expired file, no Keychain) still returns "expired", so the 401-avoiding
+  fast-fail is preserved.
+
+- **`loki doctor` now affirmatively confirms the login, on BOTH the bash and Bun
+  routes.** Both read `claude auth status`, so each shows "Claude CLI is logged in
+  (subscription/OAuth login)" for a Keychain-backed login (previously the bash
+  route fell through to a neutral "ANTHROPIC_API_KEY not set" line and the Bun
+  route wrongly reported "login EXPIRED" for a Keychain login), warns on a genuine
+  logged-out or expired state, and keeps the file-based expiry fallback for older
+  CLIs. The bash<->Bun doctor output stays byte-identical (enforced by the
+  bun-parity matrix).
+
+- Regression coverage: `tests/test-claude-login-state.sh` extracts the real
+  `_loki_claude_login_state()` helper from run.sh and drives every login state
+  with fake `claude` AND `security` binaries on PATH (fully deterministic,
+  independent of the machine's real login). The cases: auth-status logged in
+  (no file); auth-status logged out; valid JSON with no explicit `loggedIn`
+  boolean plus a valid file (must fall through to logged in, never a false hard
+  block); valid file; expired file with no keychain (-> expired); expired file
+  WITH a live keychain (-> logged in: the regression guard that a stale file
+  never overrides a real Keychain login); keychain-only with no file; and the
+  confident-logout path. Proves the exact user-reported scenario (logged in, no
+  `.credentials.json`) no longer blocks.
+
 ## [7.104.1] - 2026-07-01
 
 ### Bun doctor checks Claude login (bash/Bun parity)

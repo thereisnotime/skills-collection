@@ -1180,6 +1180,16 @@ async def get_status() -> StatusResponse:
     if state_file.exists():
         try:
             state = _safe_json_read(state_file, {})
+            # dashboard-state.json is agent/user-written and, under atomic-write
+            # races or hand edits, its top level can be a list/string/number
+            # rather than an object. state.get(...) would then raise
+            # AttributeError, which the surrounding (JSONDecodeError, KeyError)
+            # handler does NOT catch -> /api/status 500s and blanks the board.
+            # Coerce to {} so a bad shape degrades to the idle payload. Placed
+            # BEFORE the _has_dashboard_state flag so a truthy non-dict (e.g.
+            # [1,2,3]) cannot flip it on with corrupt data.
+            if not isinstance(state, dict):
+                state = {}
             if state:
                 _has_dashboard_state = True
             phase = state.get("phase", "")
@@ -1188,8 +1198,15 @@ async def get_status() -> StatusResponse:
             mode = state.get("mode", "")
             # Count only agents with alive PIDs (not raw array length)
             agents_list = state.get("agents", [])
+            if not isinstance(agents_list, list):
+                agents_list = []
             running_agents = 0
             for agent in agents_list:
+                # agents entries can be bare strings/None in malformed state;
+                # agent.get(...) would raise AttributeError. Skip non-dicts.
+                if not isinstance(agent, dict):
+                    running_agents += 1  # legacy/opaque entry -> count as running
+                    continue
                 agent_pid = agent.get("pid")
                 if agent_pid:
                     try:
@@ -1202,10 +1219,17 @@ async def get_status() -> StatusResponse:
                     running_agents += 1
 
             tasks = state.get("tasks", {})
-            pending_tasks = len(tasks.get("pending", []))
+            if not isinstance(tasks, dict):
+                tasks = {}
+            _pending = tasks.get("pending", [])
+            pending_tasks = len(_pending) if isinstance(_pending, list) else 0
             in_progress = tasks.get("inProgress", [])
-            if in_progress:
-                current_task = in_progress[0].get("payload", {}).get("action", "")
+            if not isinstance(in_progress, list):
+                in_progress = []
+            if in_progress and isinstance(in_progress[0], dict):
+                _payload = in_progress[0].get("payload", {})
+                if isinstance(_payload, dict):
+                    current_task = _payload.get("action", "")
         except (json.JSONDecodeError, KeyError):
             pass
 
@@ -1783,7 +1807,23 @@ async def list_tasks(
     if state_file.exists():
         try:
             state = json.loads(state_file.read_text())
+            # dashboard-state.json top level can itself be a list/string/number
+            # (agent/user-written, atomic-write race). state.get(...) would then
+            # raise AttributeError BEFORE the task_groups guard below, and the
+            # surrounding (JSONDecodeError, KeyError) handler does not catch it
+            # -> /api/tasks 500s and blanks the board. Coerce state first.
+            if not isinstance(state, dict):
+                state = {}
             task_groups = state.get("tasks", {})
+            # v7.104.4: dashboard-state.json is user/agent-written and can be
+            # malformed or partially written. If "tasks" is not a dict, or a
+            # group is not a list, or an item is not a dict, the old code raised
+            # AttributeError (task_groups.get / task.get) which is NOT caught by
+            # the surrounding (JSONDecodeError, KeyError) handler -> the whole
+            # /api/tasks request 500s and the board goes blank. Coerce defensively
+            # so a bad shape degrades to "skip that part", never a crash.
+            if not isinstance(task_groups, dict):
+                task_groups = {}
 
             status_map = {
                 "pending": "pending",
@@ -1794,9 +1834,16 @@ async def list_tasks(
             }
 
             for group_key, mapped_status in status_map.items():
-                for i, task in enumerate(task_groups.get(group_key, [])):
+                _group = task_groups.get(group_key, [])
+                if not isinstance(_group, list):
+                    continue  # malformed group (e.g. a dict) -> skip, don't crash
+                for i, task in enumerate(_group):
+                    if not isinstance(task, dict):
+                        continue  # malformed entry (string/None) -> skip
                     task_id = task.get("id", f"{group_key}-{i}")
                     payload = task.get("payload", {})
+                    if not isinstance(payload, dict):
+                        payload = {}  # non-dict payload -> ignore, don't crash on payload.get
                     # v7.7.32: read enrichment fields from the TOP LEVEL of the
                     # task object (where run.sh writes them), falling back to
                     # payload only for legacy entries. Previously description was
@@ -1816,10 +1863,30 @@ async def list_tasks(
                     }
                     for _f in ("acceptance_criteria", "notes", "logs", "user_story",
                                "project", "source", "specification", "provider",
-                               "startedAt", "full_content"):
+                               "startedAt", "full_content",
+                               # v7.104.3: iteration terminal fields so the card
+                               # can show real outcome (and the read-time honest
+                               # description synthesis for legacy thin markers can
+                               # see exitCode). exitCode may be 0, which is falsy,
+                               # so it is guarded separately below.
+                               "completedAt", "phase", "exitCode"):
                         _v = task.get(_f)
                         if _v not in (None, "", [], {}):
                             task_entry[_f] = _v
+                    # exitCode == 0 is a real, meaningful value but falsy; the
+                    # loop above drops it via the "not in" filter, so carry it
+                    # explicitly when the source record has the key at all.
+                    if "exitCode" in task and task.get("exitCode") == 0:
+                        task_entry["exitCode"] = 0
+                    # v7.104.3: preserve the record's OWN terminal outcome. Both
+                    # the "completed" and "failed" groups map to the "done"
+                    # column, so `status` alone can no longer tell success from
+                    # failure. The honest-description synthesis and the dedup
+                    # tie-break both need to distinguish them, and NEVER call a
+                    # failed iteration "completed" (fake-green). Derived from the
+                    # source group key, which is authoritative.
+                    if group_key in ("completed", "failed"):
+                        task_entry["_terminal_outcome"] = group_key
                     all_tasks.append(task_entry)
         except (json.JSONDecodeError, KeyError):
             pass
@@ -1846,12 +1913,32 @@ async def list_tasks(
                         items = raw_items
                     else:
                         items = []
+                    # v7.104.3: which terminal outcome (if any) does THIS queue
+                    # file represent? completed.json -> completed; failed/dead-
+                    # letter -> failed. Non-terminal files (pending/in-progress)
+                    # have none.
+                    _qf_terminal = None
+                    if queue_file == "completed.json":
+                        _qf_terminal = "completed"
+                    elif queue_file in ("failed.json", "dead-letter.json"):
+                        _qf_terminal = "failed"
                     if isinstance(items, list):
                         for i, item in enumerate(items):
                             if isinstance(item, dict):
                                 tid = item.get("id", f"q-{q_status}-{i}")
-                                # Skip if already in all_tasks
-                                if any(t["id"] == tid for t in all_tasks):
+                                # Skip if already in all_tasks -- EXCEPT for
+                                # terminal (completed/failed) records. v7.104.3:
+                                # the old unconditional skip dropped a failed
+                                # sibling before it could be tagged with
+                                # _terminal_outcome, so the failed-outranks-
+                                # completed dedup below never saw it and a
+                                # completed card masked a real failure (a
+                                # fake-green from the queue source). Let terminal
+                                # records always enter, tagged; the global dedup
+                                # then resolves the collision honestly. Non-
+                                # terminal records keep the skip (they cannot
+                                # override an existing terminal entry anyway).
+                                if _qf_terminal is None and any(t["id"] == tid for t in all_tasks):
                                     continue
                                 task_entry = {
                                     "id": tid,
@@ -1876,6 +1963,20 @@ async def list_tasks(
                                     task_entry["notes"] = item["notes"]
                                 if isinstance(item.get("logs"), list):
                                     task_entry["logs"] = item["logs"]
+                                # v7.104.3: iteration terminal fields + the
+                                # source-file terminal outcome, so the honest
+                                # description synthesis can distinguish a clean
+                                # exit from a failure and never mislabels a
+                                # failed iteration "completed".
+                                for _qf in ("provider", "startedAt", "completedAt", "phase"):
+                                    if item.get(_qf) not in (None, "", [], {}):
+                                        task_entry[_qf] = item[_qf]
+                                if "exitCode" in item and isinstance(item.get("exitCode"), int):
+                                    task_entry["exitCode"] = item["exitCode"]
+                                if queue_file == "completed.json":
+                                    task_entry["_terminal_outcome"] = "completed"
+                                elif queue_file in ("failed.json", "dead-letter.json"):
+                                    task_entry["_terminal_outcome"] = "failed"
                                 all_tasks.append(task_entry)
                 except (json.JSONDecodeError, KeyError):
                     pass
@@ -1902,6 +2003,95 @@ async def list_tasks(
                     all_tasks.append(parsed)
                 except Exception:
                     pass
+
+    # v7.104.3 task-list accuracy: global dedup-by-id with a terminal-wins rule.
+    # The dashboard-state.json groups (read first, above) can carry the same id in
+    # more than one column when the underlying queue files hold stale entries -
+    # e.g. real anonima data showed iteration-13 in BOTH inProgress and completed,
+    # and completed listing iteration-1 five times (a pre-fix blind-append run).
+    # The run.sh write-side fix (upsert-by-id + terminal mutual-exclusion) stops
+    # NEW collisions, but the dashboard must render correctly against state that
+    # was written before the fix, or during a partial write. We keep, per id, the
+    # single most-authoritative entry.
+    #
+    # Priority is TERMINAL-WINS, deliberately NOT the naive
+    # in_progress > pending > done: the reported symptom is a completed iteration
+    # still showing in in-progress/todo, so letting in_progress outrank done would
+    # perpetuate exactly that bug. A record that reached a terminal state (has a
+    # completedAt, i.e. status == done) is the truth for that id; among non-terminal
+    # states we fall back to in_progress > review > pending. This is safe globally
+    # here because pending PRD-story ids (prd-NNN) and iteration ids (iteration-N)
+    # never share an id, so no task is legitimately both pending and done.
+    #
+    # Within the terminal (done) column, a same-id collision between a completed
+    # and a failed record must resolve to FAILED, never completed: masking a real
+    # failure behind a success is a fake-green the trust model forbids. So the
+    # authority key is a 2-tuple (column-rank, terminal-outcome-rank) where a
+    # failed terminal record outranks a completed one; non-terminal states carry a
+    # neutral 0 in the second slot.
+    _rank = {"done": 3, "in_progress": 2, "review": 1, "pending": 0}
+    _term = {"failed": 1, "completed": 0}
+
+    def _authority(_task):
+        return (_rank.get(_task.get("status"), -1),
+                _term.get(_task.get("_terminal_outcome"), 0))
+
+    _by_id: dict = {}
+    _order: list = []
+    for _t in all_tasks:
+        _id = _t.get("id")
+        if _id is None:
+            _order.append(_t)  # cannot dedup an id-less entry; keep as-is
+            continue
+        _prev = _by_id.get(_id)
+        if _prev is None:
+            _by_id[_id] = _t
+            _order.append(_id)
+        elif _authority(_t) > _authority(_prev):
+            _by_id[_id] = _t  # higher-authority state replaces in place (order kept)
+    all_tasks = [t if not isinstance(t, str) else _by_id[t] for t in _order]
+
+    # v7.104.3 task-list accuracy: HONEST render-time description for legacy
+    # iteration cards. Iterations completed BEFORE the run.sh write-side fix were
+    # persisted as thin markers - they carry real captured fields (status,
+    # exitCode, provider, completedAt) but no description or logs, so they render
+    # as empty "Iteration N" cards with nothing inside (the exact symptom the
+    # dashboard showed). These iterations will never re-run, so the write-side
+    # fix cannot backfill them. We synthesize a one-line description at READ time
+    # from the fields that ARE present - never mutating the stored state (no
+    # fabrication, fully reversible) and never inventing an outcome the record
+    # does not attest. New (post-fix) cards already carry a real description and
+    # are left untouched.
+    for _t in all_tasks:
+        if _t.get("type") == "iteration" and not _t.get("description"):
+            _ec = _t.get("exitCode")
+            _prov = _t.get("provider")
+            # The record's OWN terminal outcome (completed vs failed) is
+            # authoritative. Both map to the "done" column, so status alone can
+            # not tell them apart - a failed iteration must NEVER be described as
+            # "completed" (fake-green). Prefer the exit code when it is a real
+            # integer; otherwise fall back to the terminal outcome; and when even
+            # that is absent, use a neutral verb that asserts no success.
+            _failed = (_t.get("_terminal_outcome") == "failed")
+            _outcome = None
+            if isinstance(_ec, int) and _ec == 0 and not _failed:
+                _outcome = "completed cleanly (exit 0)"
+            elif isinstance(_ec, int) and _ec != 0:
+                _outcome = f"failed (exit {_ec})"
+            elif _failed:
+                # failed record without a usable exit code: honest, no exit claim
+                _outcome = "failed"
+            elif _t.get("_terminal_outcome") == "completed":
+                _outcome = "completed"
+            elif _t.get("status") == "done":
+                # terminal but neither outcome nor exit code is known: neutral
+                # verb that does not assert success or failure
+                _outcome = "finished"
+            if _outcome:
+                _desc = f"Iteration {_outcome}"
+                if _prov:
+                    _desc += f", built by {_prov}"
+                _t["description"] = _desc + "."
 
     # Apply project_id filter if provided
     if project_id is not None:
@@ -4848,41 +5038,79 @@ def _sanitize_agent_id(agent_id: str) -> str:
         )
     return agent_id
 
+
+# --- Memory file enumeration (single source of truth) ------------------------
+# v7.104.5 (PR #178 follow-up): the memory store writes episodes and skills into
+# DATED subdirectories (episodic/YYYY-MM-DD/*.json, skills/*/*.json), so a flat
+# .glob("*.json") finds nothing and every endpoint that used it under-reported.
+# PR #178 fixed only /api/memory/summary; the sibling /api/memory/episodes and
+# the skills listings still used a flat glob, so the count and the drill-in list
+# disagreed (summary said 28, the list returned 0) -- a trust-eroding
+# inconsistency. These two helpers are the ONE way to enumerate memory files, so
+# counts and lists can never diverge again. Both recurse and skip .lock files.
+def _memory_episode_files(ep_dir) -> list:
+    """All episode JSON files under episodic/ (recursing dated subdirs), sorted."""
+    try:
+        return sorted(p for p in ep_dir.rglob("*.json") if not p.name.endswith(".lock"))
+    except Exception:
+        return []
+
+
+def _memory_skill_files(skills_dir) -> list:
+    """All skill JSON files under skills/ (recursing subdirs), sorted."""
+    try:
+        return sorted(p for p in skills_dir.rglob("*.json") if not p.name.endswith(".lock"))
+    except Exception:
+        return []
+
+
 @app.get("/api/memory/summary", dependencies=[Depends(auth.require_scope("read"))])
 async def get_memory_summary():
     """Get memory system summary from .loki/memory/."""
-    # Try SQLite backend first for accurate counts
+    # Try SQLite backend first for accurate counts.
+    # NOTE (PR #178, @iizotov): _get_memory_storage() returns a SQLiteMemoryStorage
+    # object whenever the module imports, even if no .db file exists yet. On a
+    # JSON-backed project that yields all-zero stats, so we must NOT return here on
+    # empty counts -- otherwise the JSON file fallback below never runs and the
+    # dashboard shows 0 episodes/patterns/skills even though they exist on disk.
+    # Only trust SQLite when it actually reports data; else fall through to JSON.
     storage = _get_memory_storage()
     if storage is not None:
         try:
             stats = storage.get_stats()
-            summary = {
-                "episodic": {"count": stats.get("episode_count", 0), "latestDate": None},
-                "semantic": {"patterns": stats.get("pattern_count", 0), "antiPatterns": 0},
-                "procedural": {"skills": stats.get("skill_count", 0)},
-                "backend": "sqlite",
-            }
-            # Get latest episode date
-            episode_ids = storage.list_episodes(limit=1)
-            if episode_ids:
-                ep = storage.load_episode(episode_ids[0])
-                if ep:
-                    summary["episodic"]["latestDate"] = ep.get("timestamp", "")
-            # Token economics from JSON (not in SQLite)
-            econ_file = _get_loki_dir() / "memory" / "token_economics.json"
-            if econ_file.exists():
-                try:
-                    econ = json.loads(econ_file.read_text())
-                    summary["tokenEconomics"] = {
-                        "discoveryTokens": econ.get("discoveryTokens", 0),
-                        "readTokens": econ.get("readTokens", 0),
-                        "savingsPercent": econ.get("savingsPercent", 0),
-                    }
-                except Exception:
+            total = (
+                stats.get("episode_count", 0)
+                + stats.get("pattern_count", 0)
+                + stats.get("skill_count", 0)
+            )
+            if total > 0:
+                summary = {
+                    "episodic": {"count": stats.get("episode_count", 0), "latestDate": None},
+                    "semantic": {"patterns": stats.get("pattern_count", 0), "antiPatterns": 0},
+                    "procedural": {"skills": stats.get("skill_count", 0)},
+                    "backend": "sqlite",
+                }
+                # Get latest episode date
+                episode_ids = storage.list_episodes(limit=1)
+                if episode_ids:
+                    ep = storage.load_episode(episode_ids[0])
+                    if ep:
+                        summary["episodic"]["latestDate"] = ep.get("timestamp", "")
+                # Token economics from JSON (not in SQLite)
+                econ_file = _get_loki_dir() / "memory" / "token_economics.json"
+                if econ_file.exists():
+                    try:
+                        econ = json.loads(econ_file.read_text())
+                        summary["tokenEconomics"] = {
+                            "discoveryTokens": econ.get("discoveryTokens", 0),
+                            "readTokens": econ.get("readTokens", 0),
+                            "savingsPercent": econ.get("savingsPercent", 0),
+                        }
+                    except Exception:
+                        summary["tokenEconomics"] = {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0}
+                else:
                     summary["tokenEconomics"] = {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0}
-            else:
-                summary["tokenEconomics"] = {"discoveryTokens": 0, "readTokens": 0, "savingsPercent": 0}
-            return summary
+                return summary
         except Exception:
             pass
 
@@ -4898,14 +5126,28 @@ async def get_memory_summary():
 
     ep_dir = memory_dir / "episodic"
     if ep_dir.exists():
-        episodes = sorted(ep_dir.glob("*.json"))
+        # Episodes are stored under dated subdirectories (episodic/YYYY-MM-DD/*.json),
+        # so a flat glob("*.json") finds nothing (PR #178, @iizotov). Recurse and
+        # ignore .lock files. Shared with /api/memory/episodes via _memory_episode_
+        # files() so the summary count and the drill-in list can never disagree.
+        episodes = _memory_episode_files(ep_dir)
         summary["episodic"]["count"] = len(episodes)
         if episodes:
-            try:
-                latest = json.loads(episodes[-1].read_text())
-                summary["episodic"]["latestDate"] = latest.get("timestamp", "")
-            except Exception:
-                pass
+            # latestDate must be the newest by RECORDED TIMESTAMP, not by filename
+            # sort: intra-day filenames carry a hash tiebreak, not a time, so a
+            # filename sort can report the wrong episode (observed ~15h off). Pick
+            # the max parsed timestamp; fall back to the last file only if no
+            # timestamp is readable, so an honest value is preferred over a
+            # confidently-wrong one.
+            latest_ts = ""
+            for _epf in episodes:
+                try:
+                    _ts = json.loads(_epf.read_text()).get("timestamp", "")
+                    if isinstance(_ts, str) and _ts > latest_ts:
+                        latest_ts = _ts
+                except Exception:
+                    continue
+            summary["episodic"]["latestDate"] = latest_ts or None
 
     sem_dir = memory_dir / "semantic"
     patterns_file = sem_dir / "patterns.json"
@@ -4925,7 +5167,7 @@ async def get_memory_summary():
 
     skills_dir = memory_dir / "skills"
     if skills_dir.exists():
-        summary["procedural"]["skills"] = len(list(skills_dir.glob("*.json")))
+        summary["procedural"]["skills"] = len(_memory_skill_files(skills_dir))
 
     econ_file = memory_dir / "token_economics.json"
     if econ_file.exists():
@@ -4963,20 +5205,22 @@ async def list_episodes(limit: int = Query(default=50, ge=1, le=1000)):
             except Exception:
                 pass
 
-        # Fallback to JSON files -- use heapq to avoid sorting all files
-        import heapq
+        # Fallback to JSON files. Enumerate via the shared helper (recurses the
+        # dated subdirs) so this list agrees with /api/memory/summary's count --
+        # the flat glob here was the exact parity gap PR #178's review flagged
+        # (summary said 28, this returned 0). Read each file, then return the
+        # newest `limit` by RECORDED timestamp (not filename, whose intra-day
+        # tiebreak is a hash, not a time).
         ep_dir = _get_loki_dir() / "memory" / "episodic"
-        episodes = []
+        loaded = []
         if ep_dir.exists():
-            all_files = ep_dir.glob("*.json")
-            # nlargest by filename (timestamps sort lexicographically) avoids full sort
-            files = heapq.nlargest(limit, all_files, key=lambda f: f.name)
-            for f in files:
+            for f in _memory_episode_files(ep_dir):
                 try:
-                    episodes.append(json.loads(f.read_text()))
+                    loaded.append(json.loads(f.read_text()))
                 except Exception:
                     pass
-        return episodes
+        loaded.sort(key=lambda e: e.get("timestamp", "") if isinstance(e, dict) else "", reverse=True)
+        return loaded[:limit]
 
     return await asyncio.to_thread(_load_episodes)
 
@@ -5000,7 +5244,7 @@ async def get_episode(episode_id: str):
     if not ep_dir.exists():
         raise HTTPException(status_code=404, detail="Episode not found")
     real_loki = os.path.realpath(str(loki_dir))
-    for f in ep_dir.glob("*.json"):
+    for f in _memory_episode_files(ep_dir):
         resolved = os.path.realpath(f)
         if not resolved.startswith(real_loki + os.sep) and resolved != real_loki:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -5076,7 +5320,7 @@ async def list_skills():
         skills_dir = _get_loki_dir() / "memory" / "skills"
         skills = []
         if skills_dir.exists():
-            for f in sorted(skills_dir.glob("*.json")):
+            for f in _memory_skill_files(skills_dir):
                 try:
                     skills.append(json.loads(f.read_text()))
                 except Exception:
@@ -5094,7 +5338,7 @@ async def get_skill(skill_id: str):
     if not skills_dir.exists():
         raise HTTPException(status_code=404, detail="Skill not found")
     real_loki = os.path.realpath(str(loki_dir))
-    for f in skills_dir.glob("*.json"):
+    for f in _memory_skill_files(skills_dir):
         resolved = os.path.realpath(f)
         if not resolved.startswith(real_loki + os.sep) and resolved != real_loki:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -5540,11 +5784,7 @@ async def get_memory_stats():
         ep_count = 0
         ep_dir = memory_dir / "episodic"
         if ep_dir.exists():
-            for d in ep_dir.iterdir():
-                if d.is_dir():
-                    ep_count += len(list(d.glob("*.json")))
-                elif d.suffix == ".json":
-                    ep_count += 1
+            ep_count = len(_memory_episode_files(ep_dir))
 
         pat_count = 0
         patterns_file = memory_dir / "semantic" / "patterns.json"
@@ -5558,7 +5798,7 @@ async def get_memory_stats():
         skill_count = 0
         skills_dir = memory_dir / "skills"
         if skills_dir.exists():
-            skill_count = len(list(skills_dir.glob("*.json")))
+            skill_count = len(_memory_skill_files(skills_dir))
 
         return {
             "backend": "json",
@@ -6412,6 +6652,11 @@ def _compute_cost_snapshot() -> dict:
     if budget_file.exists():
         try:
             budget_data = json.loads(budget_file.read_text())
+            # budget.json can be a bare number/list/string; guard before .get()
+            # so the cost-summary endpoint degrades instead of raising an
+            # AttributeError uncaught by (JSONDecodeError, KeyError).
+            if not isinstance(budget_data, dict):
+                budget_data = {}
             budget_limit = budget_data.get("limit")
             if budget_limit is not None:
                 budget_used = estimated_cost
@@ -6455,6 +6700,12 @@ async def get_budget():
     if budget_file.exists():
         try:
             budget_data = json.loads(budget_file.read_text())
+            # budget.json can be a bare number/list/string (agent/user-written
+            # or atomic-write race), so budget_data.get(...) would raise
+            # AttributeError, uncaught by (JSONDecodeError, KeyError) -> 500.
+            # Coerce to {} so the endpoint degrades to no-limit defaults.
+            if not isinstance(budget_data, dict):
+                budget_data = {}
             budget_limit = budget_data.get("limit") or budget_data.get("budget_limit")
             budget_used = budget_data.get("budget_used", 0.0)
             exceeded = budget_data.get("exceeded", False)
@@ -6478,6 +6729,9 @@ async def get_budget():
         if exceeded_at is None:
             try:
                 sig_data = json.loads(signal_file.read_text())
+                # Signal file may parse to a non-dict; guard before .get().
+                if not isinstance(sig_data, dict):
+                    sig_data = {}
                 exceeded_at = sig_data.get("timestamp")
             except (json.JSONDecodeError, KeyError):
                 pass
@@ -10726,9 +10980,17 @@ async def proofs_summary():
     """Honest aggregate over the active project's Evidence Receipts.
 
     Counts are computed ONLY from real proof.json files; nothing is invented.
-    The single source of truth for "verified" is the v1.1 deterministic
-    honesty.headline (proof-generator.py::_compute_headline), which a forger
-    cannot turn green without real exit_code:0 evidence. Buckets:
+    Each proof is bucketed on its recorded honesty.headline, computed by the
+    deterministic proof-generator.py::_compute_headline (never an LLM opinion).
+    Honest scope of that guarantee: the integrity hash proves the JSON bytes
+    were not edited since they were hashed, and proof-verify.py re-derives the
+    git diff so a skeptic can confirm the recorded diff still matches the repo.
+    But on the UNSIGNED path the generator is TRUSTED -- a forger who rewrites
+    both the facts and the headline to a mutually consistent lie and recomputes
+    the hash still buckets as verified here. Neutral, adversarial non-forgeability
+    (the generator is not trusted) requires the SIGNED record (a gpg signature
+    proof-verify.py checks). This endpoint reports what the generator recorded;
+    it does not itself re-verify. Buckets:
 
       verified      -> honesty.headline == "VERIFIED"
       with_gaps     -> honesty.headline == "VERIFIED WITH GAPS"
